@@ -8,6 +8,7 @@ import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
@@ -196,7 +197,7 @@ export function renderizarReciboAsignacionConfirmada(recibo, contextoInforme, t,
     aria-live="polite" aria-atomic="true" tabindex="-1">
     <h3>${escaparHTML(t("asignacion_confirmada_titulo"))}</h3>
     <p>${escaparHTML(t("asignacion_confirmada_descripcion"))}</p>
-    <dl><div><dt>${escaparHTML(t("asignacion_confirmada_recibo"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
+    <dl><div><dt>${escaparHTML(t("asignacion_confirmada_recibo"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
     <div><dt>${escaparHTML(t("asignacion_confirmada_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
     <div><dt>${escaparHTML(t("asignacion_confirmada_fecha"))}</dt><dd><time datetime="${escaparHTML(recibo.confirmada_en)}">${escaparHTML(formateador.format(fecha))}</time></dd></div></dl>
   </section>`;
@@ -221,7 +222,7 @@ export function renderizarReciboFiscalizacionConfirmada(recibo, expediente, t, l
     <dl><div><dt>${escaparHTML(t("fiscalizacion_confirmada_resultado"))}</dt><dd>${escaparHTML(
       tFiscalizacion(`fiscalizacion_resultado_${recibo.resultado}`),
     )}</dd></div>
-    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_recibo"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
+    <div><dt>${escaparHTML(t("fiscalizacion_confirmada_recibo"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_confirmada_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_confirmada_fecha"))}</dt><dd><time datetime="${escaparHTML(recibo.registrada_en)}">${escaparHTML(formateador.format(fecha))}</time></dd></div></dl>
   </section>`;

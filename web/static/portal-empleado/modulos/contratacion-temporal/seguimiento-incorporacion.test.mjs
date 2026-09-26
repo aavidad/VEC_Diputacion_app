@@ -68,8 +68,9 @@ test("seguimiento: consulta y muestra solo el vínculo original del recibo confi
   assert.match(raiz.innerHTML, /Justificante/u);
   assert.match(raiz.innerHTML, /Pendiente → Incorporada/u);
   assert.match(raiz.innerHTML, /Confirmar incorporación/u);
-  assert.match(raiz.innerHTML, /Referencia técnica: <code>documento:ct:001<\/code>/u);
-  assert.match(raiz.innerHTML, /<small><code>pendiente → incorporada<\/code><\/small>/u);
+  // Las claves y referencias técnicas no se muestran; el documento se ofrece como justificante copiable.
+  assert.match(raiz.innerHTML, /data-copiar-justificante="documento:ct:001"/u);
+  assert.doesNotMatch(raiz.innerHTML, /Referencia técnica|<code>/u);
   assert.match(raiz.innerHTML, /<time datetime="2026-09-10T10:00:00Z">10 sept 2026, 12:00:00<\/time>/u);
   assert.doesNotMatch(raiz.innerHTML, /No se ha podido consultar el seguimiento original/u);
   destruir();

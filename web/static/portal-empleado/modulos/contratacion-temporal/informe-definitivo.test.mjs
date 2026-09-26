@@ -144,7 +144,7 @@ test("la pestaña documental agrupa los seis borradores y solo activa la consult
   for (const { accion } of perfiles) assert.match(html, new RegExp(`data-ct-exp-accion="${accion}"`, "u"));
   assert.match(html, /data-ct-exp-accion="descargar-docx-comunicacion-centro"/u);
   assert.match(html, /data-ct-exp-accion="descargar-docx-modificacion-nombramiento"/u);
-  assert.match(html, /Descargar contrato laboral · modelo de ejemplo/u);
+  assert.match(html, /Descargar contrato laboral/u);
   estado.documentos.version = 8;
   assert.equal(solicitudInformeDefinitivoDesdeEstado(estado), null);
   assert.doesNotMatch(renderizarModuloContratacionTemporal(estado), /cancelar-descarga/u);

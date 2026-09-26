@@ -5,6 +5,7 @@ import {
   validarSolicitudResultadoFiscalizacion,
 } from "./contrato-fiscalizacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -71,17 +72,12 @@ function etiquetaResultado(resultado, t) {
 
 function renderizarContexto(contexto, t) {
   if (contexto.fase_clave === "") return `<dl class="ct-resumen" data-ct-fiscalizacion-contexto>
-    <div><dt>${escaparHTML(t("fiscalizacion_contexto_expediente"))}</dt><dd><code>${escaparHTML(contexto.expediente_ref)}</code></dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_version_remitida"))}</dt><dd>${contexto.version_esperada}</dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_contexto_antecedentes"))}</dt><dd>${escaparHTML(t("fiscalizacion_antecedentes_no_consultados"))}</dd></div>
   </dl>`;
   const esNuevaFiscalizacion = contexto.fase_clave === "subsanacion_unidad";
-  const informe = contexto.informe_ref === ""
-    ? t("fiscalizacion_informe_registrado", { version: contexto.version_esperada })
-    : contexto.informe_ref;
+  const informe = t("fiscalizacion_informe_registrado", { version: contexto.version_esperada });
   return `<dl class="ct-resumen" data-ct-fiscalizacion-contexto>
-    <div><dt>${escaparHTML(t("fiscalizacion_contexto_expediente"))}</dt><dd><code>${
-  escaparHTML(contexto.expediente_ref)}</code></dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_contexto_version"))}</dt><dd>${
   contexto.version_esperada}</dd></div>
     <div><dt>${escaparHTML(t("fiscalizacion_contexto_fase"))}</dt><dd>${
@@ -135,11 +131,6 @@ function renderizarFormulario(estado, t) {
 }
 
 function renderizarRecibo(recibo, t, formateador) {
-  const retorno = Object.hasOwn(recibo, "unidad_retorno_ref")
-    ? `<div><dt>${escaparHTML(t("fiscalizacion_recibo_unidad_retorno"))}</dt><dd><code>${
-      escaparHTML(recibo.unidad_retorno_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("fiscalizacion_recibo_responsable_retorno"))}</dt><dd><code>${
-      escaparHTML(recibo.responsable_retorno_ref)}</code></dd></div>` : "";
   return `<section class="ct-recibo" data-ct-fiscalizacion-recibo role="status"
     aria-live="polite" aria-atomic="true" tabindex="-1"
     aria-labelledby="ct-fiscalizacion-recibo-titulo">
@@ -147,8 +138,6 @@ function renderizarRecibo(recibo, t, formateador) {
     <h3 id="ct-fiscalizacion-recibo-titulo">${escaparHTML(t("fiscalizacion_recibo_titulo"))}</h3>
     <p>${escaparHTML(t("fiscalizacion_recibo_descripcion"))}</p>
     <dl>
-      <div><dt>${escaparHTML(t("fiscalizacion_recibo_expediente"))}</dt><dd><code>${
-  escaparHTML(recibo.expediente_ref)}</code></dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_resultado"))}</dt><dd>${
   escaparHTML(etiquetaResultado(recibo.resultado, t))}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_fase"))}</dt><dd>${
@@ -157,15 +146,8 @@ function renderizarRecibo(recibo, t, formateador) {
   escaparHTML(recibo.estado_resultante.replaceAll("_", " "))}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_version"))}</dt><dd>${
   recibo.version_resultante}</dd></div>
-      <div><dt>${escaparHTML(t("fiscalizacion_recibo_referencia"))}</dt><dd><code>${
-  escaparHTML(recibo.recibo_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("fiscalizacion_recibo_auditoria"))}</dt><dd><code>${
-  escaparHTML(recibo.auditoria_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("fiscalizacion_recibo_evento"))}</dt><dd><code>${
-  escaparHTML(recibo.evento_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("fiscalizacion_recibo_actor"))}</dt><dd><code>${
-  escaparHTML(recibo.actor_ref)}</code></dd></div>
-      ${retorno}
+      <div><dt>${escaparHTML(t("fiscalizacion_recibo_referencia"))}</dt><dd>${
+  justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("fiscalizacion_recibo_fecha"))}</dt><dd>${
   escaparHTML(formateador.format(new Date(recibo.registrada_en)))}</dd></div>
     </dl>

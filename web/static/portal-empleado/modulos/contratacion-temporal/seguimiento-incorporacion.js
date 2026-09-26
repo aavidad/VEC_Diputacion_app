@@ -2,6 +2,7 @@ import { validarPreparacionIncorporacionEjercicio } from "./contrato-incorporaci
 import { validarConsultaSeguimientoIncorporacion, validarSeguimientoIncorporacion } from "./contrato-seguimiento-incorporacion.js";
 import { escaparHTML as escapar } from "./componentes-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 export const CLAVES_I18N_SEGUIMIENTO_INCORPORACION = Object.freeze([
   "seguimiento_incorporacion_titulo",
@@ -27,7 +28,7 @@ export const CLAVES_I18N_SEGUIMIENTO_INCORPORACION = Object.freeze([
 ]);
 
 function fila(etiqueta, valor) {
-  return `<div><dt>${escapar(etiqueta)}</dt><dd><code>${escapar(String(valor))}</code></dd></div>`;
+  return `<div><dt>${escapar(etiqueta)}</dt><dd>${escapar(String(valor))}</dd></div>`;
 }
 
 const CLAVES_ETIQUETADAS = Object.freeze({
@@ -46,7 +47,7 @@ function etiquetaClave(valor, categoria, t) {
 }
 
 function filaReferencia(etiqueta, valor, t) {
-  return `<div><dt>${escapar(etiqueta)}</dt><dd><small>${escapar(t("seguimiento_incorporacion_referencia_tecnica"))}: </small><code>${escapar(String(valor))}</code></dd></div>`;
+  return `<div><dt>${escapar(etiqueta)}</dt><dd>${justificanteTraducido(String(valor), escapar, t)}</dd></div>`;
 }
 
 function filaClave(etiqueta, valor, categoria, t, ocultarClaveConocida = false) {
@@ -81,14 +82,14 @@ function crearFormateadoresFechas(locale, zonaHoraria) {
   });
 }
 
-function renderizarSeguimiento(datos, t, fechas, ocultarClaveConocida = false) {
+function renderizarSeguimiento(datos, t, fechas, ocultarClaveConocida = true) {
   const hitos = datos.actuaciones.length === 0
     ? `<p>${escapar(t("seguimiento_incorporacion_sin_hitos"))}</p>`
     : `<ol>${datos.actuaciones.map((actuacion) => {
       const documentos = actuacion.documentos.length === 0
         ? escapar(t("seguimiento_incorporacion_sin_documentos"))
         : actuacion.documentos.map(({ tipo_clave: tipo, referencia }) =>
-          `<li>${escapar(etiquetaClave(tipo, "documento", t))} <small><code>${escapar(tipo)}</code> · ${escapar(t("seguimiento_incorporacion_referencia_tecnica"))}: <code>${escapar(referencia)}</code></small></li>`).join("");
+          `<li>${escapar(etiquetaClave(tipo, "documento", t))} · ${justificanteTraducido(referencia, escapar, t)}</li>`).join("");
       return `<li><dl>${filaClave(t("seguimiento_incorporacion_transicion"), actuacion.transicion_clave, "transicion", t, ocultarClaveConocida)}
         ${filaEstados(t("seguimiento_incorporacion_estado"), actuacion.estado_origen, actuacion.estado_destino, t, ocultarClaveConocida)}
         ${filaFecha(t("seguimiento_incorporacion_efectiva"), actuacion.efectivo_en, fechas.instante)}${filaFecha(t("seguimiento_incorporacion_registrado"), actuacion.registrada_en, fechas.instante)}
@@ -99,9 +100,7 @@ function renderizarSeguimiento(datos, t, fechas, ocultarClaveConocida = false) {
     ${filaPeriodo(t("seguimiento_incorporacion_periodo"), datos.periodo, fechas.fechaCivil)}
     ${filaFecha(t("seguimiento_incorporacion_registrado"), datos.registrado_en, fechas.instante)}</dl>
     <details class="ct-seguimiento-trazabilidad"><summary>${escapar(t("consulta_seguimiento_trazabilidad"))}</summary>
-      <dl class="ct-resumen">${filaReferencia(t("seguimiento_incorporacion_expediente"), datos.expediente_ref, t)}
-      ${fila(t("seguimiento_incorporacion_version_expediente"), datos.version_expediente)}
-      ${filaReferencia(t("seguimiento_incorporacion_seguimiento"), datos.seguimiento_ref, t)}
+      <dl class="ct-resumen">${fila(t("seguimiento_incorporacion_version_expediente"), datos.version_expediente)}
       ${fila(t("seguimiento_incorporacion_version_seguimiento"), datos.version_seguimiento)}</dl></details>
     <h4>${escapar(t("seguimiento_incorporacion_hitos"))}</h4>${hitos}`;
 }
@@ -153,7 +152,7 @@ export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes
       : estado === "error" ? `<p role="status">${escapar(t("seguimiento_incorporacion_error"))}</p>` : "";
     raiz.innerHTML = `<section data-ct-seguimiento-incorporacion>
       <h3>${escapar(t("seguimiento_incorporacion_titulo"))}</h3>
-      <p><strong>${escapar(t("seguimiento_incorporacion_recibo"))}:</strong> <code>${escapar(reciboConfirmado?.recibo_ref ?? "—")}</code></p>
+      <p><strong>${escapar(t("seguimiento_incorporacion_recibo"))}:</strong> ${justificanteTraducido(reciboConfirmado?.recibo_ref, escapar, t)}</p>
       <button type="button" class="boton-secundario" data-ct-seguimiento-consultar${cargando || !reciboConfirmado ? " disabled" : ""}>${escapar(t("seguimiento_incorporacion_consultar"))}</button>
       <p data-ct-seguimiento-estado-consulta role="status" aria-live="polite" tabindex="-1">${cargando ? escapar(t("seguimiento_incorporacion_cargando")) : ""}</p>
       ${!reciboConfirmado ? `<p role="status">${escapar(t("seguimiento_incorporacion_sin_recibo"))}</p>` : contenido}</section>`;

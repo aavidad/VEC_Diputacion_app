@@ -288,6 +288,7 @@ static/portal-empleado/portal-i18n-contratos.js
 static/portal-empleado/portal-i18n-intentos.js
 static/portal-empleado/portal-i18n-correo-llamamiento.js
 static/portal-empleado/portal-inicio.js
+static/portal-empleado/portal-justificante.js
 static/portal-empleado/portal-llamamientos-api.js
 static/portal-empleado/portal-llamamientos-contrato.js
 static/portal-empleado/portal-llamamientos-flujo.js

@@ -6,6 +6,7 @@ import {
 } from "./contrato-informe-juridico.js";
 import { presentarEtiquetasHitoRRHH } from "./adaptador-http-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -96,13 +97,8 @@ function renderizarRecibo(recibo, t, formateador) {
     <h3 id="ct-informe-recibo-titulo">${escaparHTML(t("informe_recibo_titulo"))}</h3>
     <p>${escaparHTML(t("informe_recibo_descripcion"))}</p>
     <dl>
-      <div><dt>${escaparHTML(t("informe_recibo_expediente"))}</dt><dd><code>${escaparHTML(recibo.expediente_ref)}</code></dd></div>
       <div><dt>${escaparHTML(t("informe_recibo_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
-      <div><dt>${escaparHTML(t("informe_recibo_informe"))}</dt><dd><code>${escaparHTML(recibo.informe_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("informe_recibo_documento"))}</dt><dd><code>${escaparHTML(recibo.documento_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("informe_recibo_referencia"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("informe_recibo_auditoria"))}</dt><dd><code>${escaparHTML(recibo.auditoria_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("informe_recibo_evento"))}</dt><dd><code>${escaparHTML(recibo.evento_ref)}</code></dd></div>
+      <div><dt>${escaparHTML(t("informe_recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("informe_recibo_fecha"))}</dt><dd>${escaparHTML(formateador.format(new Date(recibo.confirmada_en)))}</dd></div>
     </dl>
   </section>`;

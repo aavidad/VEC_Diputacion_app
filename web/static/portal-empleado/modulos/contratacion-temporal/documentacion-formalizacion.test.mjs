@@ -112,9 +112,9 @@ test("muestra documentos, plazo desde la aceptación, procedencia y ayuda solo t
   assert.doesNotMatch(fueraDeAyuda, /catálogo de reglas vigente/u);
   assert.match(html, /3 días hábiles · hasta el 30 de septiembre de 2026 \(incluido\)/u);
   assert.match(html, /Margen mínimo hasta la incorporación/u);
-  assert.match(html, /Regla de ejemplo/u);
-  assert.match(html, /vec\.bolsa\.reglas:1:b21\.plazo_documentacion/u);
-  assert.match(html, /<tr data-ct-formalizacion-documento="titulacion">[\s\S]*?Aportado[\s\S]*?VEC-2026-7 · SHA-256 bbbbbbbbbbbb/u);
+  // El origen de la regla y su referencia no se rotulan en la pantalla de trabajo.
+  assert.doesNotMatch(fueraDeAyuda, /Regla de ejemplo|vec\.bolsa\.reglas:1|SHA-256/u);
+  assert.match(html, /<tr data-ct-formalizacion-documento="titulacion">[\s\S]*?Aportado[\s\S]*?Anotado con el n\.º VEC-2026-7/u);
   assert.match(html, /<tr data-ct-formalizacion-documento="documento_identidad">[\s\S]*?Pendiente[\s\S]*?data-ct-formalizacion-anotar="documento_identidad"/u);
   assert.match(html, /<tr data-ct-formalizacion-documento="otro_documento"><th scope="row">Documento «otro_documento»<\/th>[\s\S]*?Sin política de conservación/u);
   assert.doesNotMatch(html, /data-ct-formalizacion-aviso/u);

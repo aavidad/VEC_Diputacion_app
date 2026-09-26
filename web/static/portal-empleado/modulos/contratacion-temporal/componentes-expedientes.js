@@ -6,6 +6,7 @@ import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } f
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -446,15 +447,6 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
       <h3>${numeroExpedienteHTML(expediente.numero_visible)}</h3>
-      <details class="ct-exp-detalle-tecnico">
-        <summary>${escaparHTML(t("metadatos_tecnicos"))}</summary>
-        <dl class="ct-exp-flujo">
-          <div><dt>${escaparHTML(t("referencia_interna"))}</dt><dd><code>${escaparHTML(expediente.expediente_ref)}</code></dd></div>
-          <div><dt>${escaparHTML(t("flujo_definicion"))}</dt><dd>${escaparHTML(expediente.flujo_ref)}</dd></div>
-          <div><dt>${escaparHTML(t("flujo_version"))}</dt><dd>${expediente.flujo_version}</dd></div>
-          <div><dt>${escaparHTML(t("flujo_huella"))}</dt><dd><code>${escaparHTML(expediente.flujo_huella)}</code></dd></div>
-        </dl>
-      </details>
     </div>
     <dl>${expediente.cabecera.map((campo) => `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
       <dt>${escaparHTML(campo.etiqueta)}</dt>
@@ -577,7 +569,7 @@ function renderizarRecibo(recibo, t, locale, zonaHoraria) {
     <h4>${escaparHTML(t("recibo_titulo"))}</h4>
     <p>${escaparHTML(t("recibo_descripcion"))}</p>
     <dl>
-      <div><dt>${escaparHTML(t("recibo_referencia"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
+      <div><dt>${escaparHTML(t("recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_expediente"))}</dt><dd>${escaparHTML(recibo.numero_visible)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_version"))}</dt><dd>${escaparHTML(recibo.version)}</dd></div>
       <div><dt>${escaparHTML(t("recibo_actuacion"))}</dt><dd>${escaparHTML(recibo.actuacion)}</dd></div>
@@ -645,8 +637,7 @@ function renderizarTarea(
       <div><dt>${escaparHTML(t("entrada"))}</dt><dd>${escaparHTML(tarea.entrada)}</dd></div>
       <div><dt>${escaparHTML(t("salida"))}</dt><dd>${escaparHTML(tarea.salida || "—")}</dd></div>
       <div><dt>${escaparHTML(t("tiempo"))}</dt><dd>${escaparHTML(tarea.tiempo)}</dd></div>
-      <div><dt>${escaparHTML(t("recibo"))}</dt><dd><code>${escaparHTML(tarea.recibo_ref || "—")}</code></dd></div>
-      <div><dt>${escaparHTML(t("decision"))}</dt><dd><code>${escaparHTML(tarea.decision_ref || "—")}</code></dd></div>
+      <div><dt>${escaparHTML(t("recibo"))}</dt><dd>${justificanteTraducido(tarea.recibo_ref, escaparHTML, t)}</dd></div>
     </dl>
     ${montarAnalisis ? '<div data-ct-exp-analisis></div>' : `<form data-ct-exp-tarea-form aria-label="${escaparHTML(t("formulario_tarea", { tarea: tarea.etiqueta }))}">
       ${editable ? "" : `<p class="ct-exp-solo-lectura">${escaparHTML(t("tarea_solo_lectura"))}</p>`}
@@ -765,7 +756,7 @@ export function renderizarDocumentos(estado, t) {
           <th scope="col">${escaparHTML(t("descarga"))}</th>
         </tr></thead>
         <tbody>${indice.documentos.map((documento) => `<tr>
-          <th scope="row">${escaparHTML(documento.titulo)}<small><code>${escaparHTML(documento.documento_ref)}</code></small></th>
+          <th scope="row">${escaparHTML(documento.titulo)}</th>
           <td>${escaparHTML(documento.tipo)}</td><td>${documento.version}</td>
           <td>${escaparHTML(documento.estado)}</td><td>${escaparHTML(documento.firma)}</td>
           <td>${escaparHTML(documento.fecha)}</td><td>${documento.descarga_disponible
@@ -797,7 +788,7 @@ export function renderizarAuditoria(estado, t) {
           <th scope="row">${escaparHTML(actuacion.fecha)}</th><td>${escaparHTML(actuacion.fase)}</td>
           <td>${escaparHTML(actuacion.accion)}</td><td>${escaparHTML(actuacion.actor)}</td>
           <td>${escaparHTML(actuacion.unidad)}</td><td>${escaparHTML(actuacion.estado)}</td>
-          <td>${escaparHTML(actuacion.observaciones)}</td><td><code>${escaparHTML(actuacion.documento_ref || "—")}</code></td>
+          <td>${escaparHTML(actuacion.observaciones)}</td><td>${justificanteTraducido(actuacion.documento_ref, escaparHTML, t)}</td>
         </tr>`).join("")}</tbody>
       </table>
     </div>`;

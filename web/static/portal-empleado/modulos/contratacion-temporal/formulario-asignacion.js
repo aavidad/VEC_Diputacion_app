@@ -5,6 +5,7 @@ import {
   validarSolicitudAsignacion,
 } from "./contrato-asignacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -71,9 +72,8 @@ function renderizarRecibo(recibo, t, formateador) {
     <h3 id="ct-asignacion-recibo-titulo">${escaparHTML(t("asignacion_recibo_titulo"))}</h3>
     <p>${escaparHTML(t("asignacion_recibo_descripcion"))}</p>
     <dl>
-      <div><dt>${escaparHTML(t("asignacion_recibo_expediente"))}</dt><dd><code>${escaparHTML(recibo.expediente_ref)}</code></dd></div>
       <div><dt>${escaparHTML(t("asignacion_recibo_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
-      <div><dt>${escaparHTML(t("asignacion_recibo_referencia"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
+      <div><dt>${escaparHTML(t("asignacion_recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("asignacion_recibo_fecha"))}</dt><dd>${escaparHTML(formateador.format(new Date(recibo.confirmada_en)))}</dd></div>
     </dl>
   </section>`;
@@ -102,10 +102,7 @@ function renderizarFormulario(estado, contexto, t) {
       <div class="ct-campo"><label><input name="confirmacion" type="checkbox" required>
         ${escaparHTML(t("asignacion_confirmacion"))}</label></div>
     </fieldset>
-    <p class="ct-alcance">${escaparHTML(t("asignacion_resumen", {
-      expediente: contexto.expediente_ref,
-      version: contexto.version_esperada,
-    }))}</p>
+    <p class="ct-alcance">${escaparHTML(t("asignacion_resumen", { version: contexto.version_esperada }))}</p>
     <div class="ct-acciones"><button class="boton-primario" type="submit"${
   estado.ocupado ? " disabled" : ""}>${escaparHTML(t("asignacion_confirmar"))}</button></div>
   </form>`;

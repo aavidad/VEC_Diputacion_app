@@ -75,7 +75,7 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), t);
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
-  assert.match(html, /Circuito de ejemplo/u);
+  assert.doesNotMatch(html, /Circuito de ejemplo/u);
   assert.match(html, /Pendiente de firma por Cargo &lt;1&gt;/u);
   assert.match(html, /En espera del paso anterior/u);
   assert.match(html, /Permite remitir a Intervención/u);

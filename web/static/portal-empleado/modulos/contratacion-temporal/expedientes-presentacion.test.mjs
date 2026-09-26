@@ -89,7 +89,9 @@ test("el índice documental conserva cada estado y escapa referencias en la tabl
     descarga_disponible: true,
   }] } }, t);
 
-  assert.match(html, /Ficha &lt;GINPIX&gt;<small><code>documento:&lt;interno&gt;<\/code><\/small>/u);
+  // El documento se nombra; su referencia interna no se muestra.
+  assert.match(html, /<th scope="row">Ficha &lt;GINPIX&gt;<\/th>/u);
+  assert.doesNotMatch(html, /documento:&lt;interno&gt;<\/code>/u);
   assert.match(html, /Preparado<\/td><td>Sin firma<\/td>/u);
   assert.match(html, /Descarga pendiente de conectar/u);
   assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar/u);
@@ -652,9 +654,9 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(html, /<select[^>]+disabled/);
   const htmlComponente = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
-  assert.match(htmlComponente, /<details class="ct-exp-detalle-tecnico">/);
-  assert.doesNotMatch(htmlComponente, /<details class="ct-exp-detalle-tecnico" open/);
-  assert.match(htmlComponente, /<summary>Referencias<\/summary>/);
+  // Sin desplegable de referencias internas en la cabecera.
+  assert.doesNotMatch(htmlComponente, /ct-exp-detalle-tecnico/);
+  assert.doesNotMatch(htmlComponente, /<summary>Referencias<\/summary>/);
   assert.doesNotMatch(htmlComponente, /Metadatos técnicos/);
 });
 

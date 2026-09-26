@@ -8,6 +8,7 @@ import {
 } from "./contrato-cobertura.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -66,10 +67,8 @@ function renderizarRecibo(recibo, contexto, t, formateador) {
     <h3 id="ct-cobertura-recibo-titulo">${escaparHTML(t("cobertura_recibo_titulo"))}</h3>
     <p>${escaparHTML(t("cobertura_recibo_descripcion"))}</p>
     <dl>
-      <div><dt>${escaparHTML(t("cobertura_recibo_expediente"))}</dt><dd><code>${escaparHTML(contexto.expediente_ref)}</code></dd></div>
       <div><dt>${escaparHTML(t("cobertura_recibo_version"))}</dt><dd>${recibo.version_resultante}</dd></div>
-      <div><dt>${escaparHTML(t("cobertura_recibo_referencia"))}</dt><dd><code>${escaparHTML(recibo.recibo_ref)}</code></dd></div>
-      <div><dt>${escaparHTML(t("cobertura_recibo_decision"))}</dt><dd><code>${escaparHTML(recibo.decision_cobertura_ref)}</code></dd></div>
+      <div><dt>${escaparHTML(t("cobertura_recibo_referencia"))}</dt><dd>${justificanteTraducido(recibo.recibo_ref, escaparHTML, t)}</dd></div>
       <div><dt>${escaparHTML(t("cobertura_recibo_fecha"))}</dt><dd>${escaparHTML(formateador.format(new Date(recibo.confirmada_en)))}</dd></div>
     </dl>
   </section>`;

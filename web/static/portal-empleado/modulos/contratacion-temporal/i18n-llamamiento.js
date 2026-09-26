@@ -176,7 +176,7 @@ export const MENSAJES_LLAMAMIENTO_ES = Object.freeze({
   llamamiento_propuesta_actualizacion_pendiente: "Recibo verificado. La actualización del expediente sigue pendiente; no repita la propuesta.",
   llamamiento_recibo_propuesta_ayuda: "Recibo local de propuesta, versión de expediente y fecha UTC. No acredita documento generado, firma, registro externo, descarga, nombramiento efectivo ni incorporación. Los recibos de aceptación se conservan.",
   llamamiento_resolucion_llamamiento_aceptada_ref: "Resolución de aceptación antecedente",
-  llamamiento_recibo_resolucion_aceptada_ref: "Recibo local de la aceptación",
+  llamamiento_recibo_resolucion_aceptada_ref: "Justificante de la aceptación",
   llamamiento_tipo_formalizacion: "Tipo de propuesta",
   llamamiento_plantilla: "Plantilla de borrador no firmado",
   llamamiento_politica_firma: "Política: sin firma en este corte, no exención legal",
