@@ -10,9 +10,10 @@ import (
 )
 
 // ServicioRecepcionNoIncorporaciones es el consumidor de las no
-// incorporaciones de Contratación temporal (CT124): valida el evento, le
-// añade la consecuencia que fija el catálogo de Bolsa y lo entrega a la
-// bandeja, que aplica la baja una sola vez y habilita el siguiente llamamiento.
+// incorporaciones de Contratación temporal (CT124): valida el evento, calcula
+// con el calendario del catálogo de Bolsa las fechas de su consecuencia y lo
+// entrega a la bandeja, que comprueba el origen con CT, resuelve la
+// consecuencia con la política publicada y la aplica una sola vez.
 type ServicioRecepcionNoIncorporaciones struct {
 	buzon    ports.BuzonNoIncorporaciones
 	catalogo ports.ResolvedorSancionNoIncorporacion
@@ -34,8 +35,8 @@ func (s *ServicioRecepcionNoIncorporaciones) Cursor(ctx context.Context) (ports.
 }
 
 // Recibir registra una sola vez el evento. Si el catálogo no reconoce la
-// consecuencia, el evento se conserva sin efecto; si el catálogo no está
-// disponible, no se registra nada y el relevo reintentará.
+// clave, el evento se entrega sin plazos y queda sin efecto; si el catálogo
+// no está disponible, no se entrega nada y el relevo reintentará.
 func (s *ServicioRecepcionNoIncorporaciones) Recibir(ctx context.Context, contenido []byte, huellaSHA256 string, origenCreadaEn time.Time, origenPosicion int64) (ports.ResultadoRegistroNoIncorporacion, error) {
 	if s == nil || ctx == nil || origenCreadaEn.IsZero() || origenPosicion < 0 {
 		return ports.ResultadoRegistroNoIncorporacion{}, ports.ErrContratosParticipacionNoDisponible
@@ -48,24 +49,62 @@ func (s *ServicioRecepcionNoIncorporaciones) Recibir(ctx context.Context, conten
 	if err != nil {
 		return ports.ResultadoRegistroNoIncorporacion{}, err
 	}
-	var consecuencia *ports.ConsecuenciaNoIncorporacion
-	r, err := s.catalogo.ResolverSancion(ctx, evento.ConsecuenciaClave, notificada)
-	switch {
-	case errors.Is(err, dominiobolsa.ErrSancionParticipacionInvalida):
-		// Clave desconocida: se conserva sin efecto para revisión.
-	case err != nil:
+	plazos, err := s.plazos(ctx, evento.ConsecuenciaClave, notificada)
+	if err != nil {
 		return ports.ResultadoRegistroNoIncorporacion{}, err
-	default:
-		c := r.Consecuencia
-		consecuencia = &ports.ConsecuenciaNoIncorporacion{Clave: c.Clave, Etiqueta: c.Etiqueta, Efecto: c.Efecto, ReglaRef: c.ReglaRef,
-			ReglaHuellaSHA256: c.Huella, RecursoVence: r.Recurso.UltimoDia, RecursoReglaRef: r.Recurso.ReglaRef,
-			RecursoReglaHuellaSHA256: r.Recurso.Huella, OrdenFinal: c.OrdenFinal, FinAutomatico: c.FinAutomatico}
-		if r.SuspensionHasta != "" {
-			hasta := r.SuspensionHasta
-			consecuencia.SuspensionHasta = &hasta
-		}
 	}
 	copia := append([]byte(nil), contenido...)
 	return s.buzon.RegistrarNoIncorporacion(ctx, ports.EventoNoIncorporacionRecibido{Evento: evento, Contenido: copia, HuellaSHA256: huellaSHA256,
-		OrigenCreadaEn: origenCreadaEn.UTC(), OrigenPosicion: origenPosicion, Consecuencia: consecuencia})
+		OrigenCreadaEn: origenCreadaEn.UTC(), OrigenPosicion: origenPosicion, Plazos: plazos})
+}
+
+// ReevaluarPendientes vuelve a evaluar lo que la bandeja aún no ha aplicado
+// (aceptación posterior, política nueva o situación corregida por RRHH).
+// Devuelve cuántos quedaron aplicados en esta pasada.
+func (s *ServicioRecepcionNoIncorporaciones) ReevaluarPendientes(ctx context.Context, limite int) (int, error) {
+	if s == nil || ctx == nil || limite < 1 || limite > ports.LimitePendientesNoIncorporacion {
+		return 0, ports.ErrContratosParticipacionNoDisponible
+	}
+	pendientes, err := s.buzon.PendientesNoIncorporacion(ctx, limite)
+	if err != nil {
+		return 0, err
+	}
+	aplicadas := 0
+	for _, p := range pendientes {
+		notificada, err := time.Parse(time.DateOnly, p.FechaNotificacion)
+		if err != nil || notificada.Format(time.DateOnly) != p.FechaNotificacion {
+			return aplicadas, ports.ErrContratosParticipacionNoDisponible
+		}
+		plazos, err := s.plazos(ctx, p.ConsecuenciaClave, notificada.UTC())
+		if err != nil {
+			return aplicadas, err
+		}
+		r, err := s.buzon.ReevaluarNoIncorporacion(ctx, p.EventoRef, plazos)
+		if err != nil {
+			return aplicadas, err
+		}
+		if r.Estado == ports.EstadoNoIncorporacionAplicada {
+			aplicadas++
+		}
+	}
+	return aplicadas, nil
+}
+
+// plazos calcula con el calendario del catálogo las fechas de la
+// consecuencia; nil si el catálogo no reconoce la clave.
+func (s *ServicioRecepcionNoIncorporaciones) plazos(ctx context.Context, clave string, notificada time.Time) (*ports.PlazosNoIncorporacion, error) {
+	r, err := s.catalogo.ResolverSancion(ctx, clave, notificada)
+	switch {
+	case errors.Is(err, dominiobolsa.ErrSancionParticipacionInvalida):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+	plazos := &ports.PlazosNoIncorporacion{RecursoVence: r.Recurso.UltimoDia, RecursoReglaRef: r.Recurso.ReglaRef,
+		RecursoReglaHuellaSHA256: r.Recurso.Huella}
+	if r.SuspensionHasta != "" {
+		hasta := r.SuspensionHasta
+		plazos.SuspensionHasta = &hasta
+	}
+	return plazos, nil
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -225,5 +226,25 @@ func TestEfectosMalFormadosNoSeInterpretan(t *testing.T) {
 	})
 	if _, err := malReversion.ReversionRecurso(t.Context()); !errors.Is(err, ports.ErrSancionesNoConfiguradas) {
 		t.Fatalf("estado mal formado: %v", err)
+	}
+}
+
+// La política de no incorporación (Bolsa 000042) recoge todas las
+// consecuencias b24 y la regla del recurso, con la referencia de una misma
+// versión del catálogo.
+func TestPoliticaNoIncorporacionDelPaqueteDeEjemplo(t *testing.T) {
+	catalogo := catalogoPrueba(t, nil)
+	politica, err := catalogo.PoliticaNoIncorporacion(t.Context())
+	if err != nil || len(politica.Consecuencias) != 6 || politica.RecursoReglaRef == "" || len(politica.RecursoReglaHuellaSHA256) != 64 ||
+		!strings.HasSuffix(politica.CatalogoRef, ":no_incorporacion") || politica.CatalogoSHA256 != politica.RecursoReglaHuellaSHA256 {
+		t.Fatalf("política=%+v err=%v", politica, err)
+	}
+	baja, ok := politica.Consecuencias["b24.sancion.baja_llamamiento_directo"]
+	if !ok || baja.Efecto != dominiobolsa.OperacionExcluir || baja.ConPlazo || baja.OrdenFinal || baja.FinAutomatico || len(baja.ReglaHuellaSHA256) != 64 {
+		t.Fatalf("baja=%+v", baja)
+	}
+	var nulo *CatalogoSanciones
+	if _, err := nulo.PoliticaNoIncorporacion(t.Context()); err == nil {
+		t.Fatal("sin catálogo no hay política")
 	}
 }

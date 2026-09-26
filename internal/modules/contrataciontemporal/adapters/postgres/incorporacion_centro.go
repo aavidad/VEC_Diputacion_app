@@ -2,11 +2,14 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -69,6 +72,34 @@ func (r *RepositorioIncorporacionCentroPostgreSQL) ListarIncorporacionesCentro(c
 		return nil, err
 	}
 	return salida.Expedientes, nil
+}
+
+// ExpedienteDelCentro dice si el expediente exacto procede de una petición
+// del centro del actor (CT124, expediente_del_centro_v1). No consume
+// autorización: la exige la operación que la usa. Sin paginar.
+func (r *RepositorioIncorporacionCentroPostgreSQL) ExpedienteDelCentro(ctx context.Context, organizacionRef string, actor domain.ActorPeticionCentro, expedienteRef string) (bool, error) {
+	if r == nil || r.pool == nil || ctx == nil || actor.Validar() != nil || !domain.ReferenciaOpacaValida(organizacionRef) ||
+		!domain.ReferenciaOpacaValida(expedienteRef) {
+		return false, ports.ErrIncorporacionCentroInvalida
+	}
+	contenido, err := json.Marshal(actor)
+	if err != nil {
+		return false, ports.ErrIncorporacionCentroInvalida
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return false, errorIncorporacionCentroSQL(ctx, err)
+	}
+	defer revertirTransaccion(tx)
+	var suyo bool
+	if err := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.expediente_del_centro_v1($1::text,$2::text,$3::text)",
+		string(contenido), organizacionRef, expedienteRef).Scan(&suyo); err != nil {
+		return false, errorIncorporacionCentroSQL(ctx, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, errorIncorporacionCentroSQL(ctx, err)
+	}
+	return suyo, nil
 }
 
 func (r *RepositorioIncorporacionCentroPostgreSQL) ConfirmarIncorporacionCentro(ctx context.Context, m ports.MaterialIncorporacionCentro) (ports.ReciboIncorporacionCentro, error) {

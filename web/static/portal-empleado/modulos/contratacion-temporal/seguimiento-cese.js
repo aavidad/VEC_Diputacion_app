@@ -1,8 +1,9 @@
 /** Panel de seguimiento del nombramiento: cese, cierre y modificación. */
 
-import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-huecos-rrhh-v1";
+import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-correcciones-b42-v1";
 import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=20260926-huecos-rrhh-v1";
-import { filasNoIncorporacion, formularioNoIncorporacion, ofrecerNoIncorporacion, solicitudNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-huecos-rrhh-v1";
+import { filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoIncorporacion, ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion,
+  solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-correcciones-b42-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -151,6 +152,9 @@ export function montarPanelSeguimientoCese({
     if (vigente && !estado.cese) formularios.push(formularioCese(opciones, estado), formularioModificacion(opciones));
     if (vigente && ofrecerConfirmacionGINPIX(estado, opciones)) formularios.push(formularioConfirmacionGINPIX({ t, escapar, deshabilitado: deshabilitado() }));
     if (vigente && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
+    if (vigente && ofrecerPropuestaNoIncorporacion(estado, opciones)) {
+      formularios.push(formularioPropuestaNoIncorporacion({ estado, opciones, t, escapar, deshabilitado: deshabilitado(), fecha: (valor) => fechaVisible(valor, locale) }));
+    }
     if (vigente && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
     contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese aria-labelledby="ct-seg-cese-titulo" ${ocupado ? 'aria-busy="true"' : ""}>
       ${cabecera(estado)}${resumen(estado, opciones)}
@@ -195,7 +199,10 @@ export function montarPanelSeguimientoCese({
       // Con la incorporación acreditada no se envía número: el servidor usa el confirmado.
       return ["cerrarExpediente", { ...base, ginpix_numero: campos.ginpix_numero ?? "", ginpix_confirmada_en: campos.ginpix_confirmada_en ?? "", observaciones: campos.observaciones ?? "" }];
     }
-    if (tipo === "no_incorporacion") return solicitudNoIncorporacion(base, campos);
+    if (tipo === "no_incorporacion") return solicitudNoIncorporacion(base, campos, datos?.opciones?.no_incorporacion);
+    if (tipo === "no_incorporacion_confirmar" || tipo === "no_incorporacion_rechazar") {
+      return solicitudResolucionPropuestaNoIncorporacion(base, datos?.estado?.no_incorporacion_propuesta, tipo.replace("no_incorporacion_", ""), campos);
+    }
     if (tipo === "ginpix") {
       return ["confirmarGINPIX", { ...base, ginpix_numero: campos.ginpix_numero ?? "", ginpix_confirmada_en: campos.ginpix_confirmada_en ?? "", observaciones: campos.observaciones ?? "" }];
     }
@@ -210,7 +217,8 @@ export function montarPanelSeguimientoCese({
     const [metodo, solicitud] = solicitudPara(tipo, leerFormulario(formulario));
     let confirmada = false;
     const titulos = { cese: "cese_titulo", cierre: "cierre_titulo", modificacion: "modificacion_titulo", ginpix: "ginpix_titulo",
-      no_incorporacion: "no_incorporacion_titulo" };
+      no_incorporacion: datos?.opciones?.no_incorporacion?.segunda_persona ? "no_incorporacion_titulo_proponer" : "no_incorporacion_titulo",
+      no_incorporacion_confirmar: "no_incorporacion_confirmar_titulo", no_incorporacion_rechazar: "no_incorporacion_rechazar_titulo" };
     try { confirmada = confirmarOperacion({ titulo: t(titulos[tipo]), advertencia: t("confirmar"), referencia: contexto.expediente_ref }) === true; } catch {}
     if (!confirmada) return;
     ocupado = true;

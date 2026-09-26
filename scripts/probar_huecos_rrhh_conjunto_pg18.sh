@@ -4,8 +4,8 @@
 # principal (volcado con datos sintéticos). Primero lleva el volcado al estado
 # de la principal (AD3-82…86, CT110…121 salvo CT117 y Bolsa 010, 019 y
 # 021…040, que el volcado no trae); después instala, en el orden de despliegue,
-# AD3-87, AD3-88, Bolsa 000041, Bolsa 000042, CT122, CT123, CT124, CT125 y
-# CT126: cada una con ROLLBACK sin rastro, UP, detección instalada y doble UP
+# AD3-87, AD3-88, Bolsa 000041, CT122, CT123, CT124, Bolsa 000042 (que usa la
+# comprobación de origen de CT124), CT125 y CT126: cada una con ROLLBACK sin rastro, UP, detección instalada y doble UP
 # rechazado. Con todas juntas ejecuta las pruebas SQL de cada una, reinicia
 # PostgreSQL, comprueba que siguen detectándose y que los DOWN con historia se
 # niegan. El expediente sintético A sirve a dos recorridos excluyentes de
@@ -98,7 +98,7 @@ declare -A detecta=(
   [ct_125]="SELECT to_regclass('vec_contratacion_temporal.urgencia_expediente_analisis') IS NOT NULL"
   [ct_126]="SELECT to_regclass('vec_contratacion_temporal.numeracion_parametros') IS NOT NULL"
 )
-orden=(ad3_87 ad3_88 bolsa_41 bolsa_42 ct_122 ct_123 ct_124 ct_125 ct_126)
+orden=(ad3_87 ad3_88 bolsa_41 ct_122 ct_123 ct_124 bolsa_42 ct_125 ct_126)
 declare -A fichero=(
   [ad3_87]="$ad3/000087_consumidor_cancelacion_expediente_ct"
   [ad3_88]="$ad3/000088_consumidor_incorporacion_acreditada_ct"
@@ -115,6 +115,28 @@ for m in "${orden[@]}"; do
 done
 ok 'ninguna migración nueva está presente al empezar'
 
+# DOWN de AD3-88 con historia del perfil del centro (comparte audiencia con
+# AD3-23): una decisión atestada sintética de ese perfil lo impide (se deshace).
+historia_perfil_centro_ad388() {
+  local salida
+  if salida=$({ echo 'BEGIN;'; echo 'SET LOCAL session_replication_role=replica;'
+    echo "INSERT INTO vec_autorizacion_atestada_v3.atestacion_decision_v3(decision_ref,huella_decision_sha256,decision_canonica,motivo_canonico,
+      contexto_actor_canonico,payload_vec_ad_3,sobre_cose_sign1,evidencia_verificacion,raiz_publica_spki,capacidad_canonica,huella_capacidad_sha256,
+      efecto_ref,huella_efecto_sha256,registrada_en) VALUES ('decision:prueba:ad388',repeat('a',64),convert_to(repeat('d',300),'UTF8'),
+      convert_to(repeat('m',40),'UTF8'),convert_to(repeat('c',80),'UTF8'),'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,
+      convert_to(jsonb_build_object('operacion','contratacion_temporal.incorporacion.consultar_centro',
+        'audiencia_consumo','vec_contratacion_temporal.confirmar_alta_atestada.v1','relleno',repeat('x',600))::text,'UTF8'),
+      repeat('b',64),'efecto:prueba:ad388',repeat('c',64),clock_timestamp());"
+    echo 'SET LOCAL session_replication_role=origin;'
+    grep -v '^BEGIN;$\|^COMMIT;$\|^\\set' "${fichero[ad3_88]}.down.sql"
+    echo 'ROLLBACK;'; } | run 2>&1); then
+    echo 'FALLO: DOWN AD3-88 aceptado con historia del perfil del centro' >&2; exit 1
+  fi
+  grep -q 'consumos de sus perfiles' <<<"$salida" || { echo "FALLO: rechazo inesperado del DOWN AD3-88: $salida" >&2; exit 1; }
+  [[ $(escalar "${detecta[ad3_88]}") == t ]] || { echo 'FALLO: el DOWN rechazado de AD3-88 dejó rastro' >&2; exit 1; }
+  ok 'DOWN AD3-88 rechazado con historia del perfil del centro'
+}
+
 echo '== Instalación en el orden de despliegue'
 for m in "${orden[@]}"; do
   f=${fichero[$m]}
@@ -124,6 +146,7 @@ for m in "${orden[@]}"; do
   [[ $(escalar "${detecta[$m]}") == t ]] || { echo "FALLO: $m no se detecta tras UP" >&2; exit 1; }
   if run <"$f.up.sql" >/dev/null 2>&1; then echo "FALLO: doble UP de $m aceptado" >&2; exit 1; fi
   ok "$m: ROLLBACK sin rastro, UP detectado y doble UP rechazado"
+  if [[ $m == ad3_88 ]]; then historia_perfil_centro_ad388; fi
 done
 
 echo '== Pruebas SQL de cada una con todas instaladas'

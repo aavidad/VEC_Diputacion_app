@@ -389,6 +389,9 @@ func estadoSeguimientoJSON(e ports.EstadoSeguimientoExpediente) map[string]any {
 		if n := a.NoIncorporacion; n != nil {
 			salida["no_incorporacion"] = estadoNoIncorporacionJSON(n)
 		}
+		if p := a.PropuestaNoIncorporacion; p != nil {
+			salida["no_incorporacion_propuesta"] = estadoPropuestaNoIncorporacionJSON(p)
+		}
 	}
 	return salida
 }

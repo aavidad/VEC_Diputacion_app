@@ -1,8 +1,10 @@
 \set ON_ERROR_STOP on
--- AD3-88 DOWN: solo sin historia. Exige que CT 000124 esté retirada y que no
--- exista ninguna clave de capacidad publicada para sus audiencias propias: sin
--- clave no pudo haber consumo. Con historia, la reversión es un procedimiento
--- supervisado que conserva decisiones, consumos y auditoría.
+-- AD3-88 DOWN: solo sin historia. Exige que CT 000124 esté retirada, que no
+-- exista ninguna clave de capacidad publicada para sus audiencias propias y
+-- que no haya decisiones atestadas de ninguno de sus perfiles (el del centro
+-- usa la audiencia de AD3-23, así que se reconoce por la operación). Con
+-- historia, la reversión es un procedimiento supervisado que conserva
+-- decisiones, consumos y auditoría.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -59,7 +61,15 @@ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version
                WHERE audiencia_consumo IN ('vec_contratacion_temporal.confirmacion_ginpix.v1','vec_contratacion_temporal.no_incorporacion.v1'))
- THEN RAISE EXCEPTION 'AD3-88: DOWN no admitido (CT 000124 instalada o historia de claves)' USING ERRCODE='55000'; END IF;
+    -- El perfil del centro comparte audiencia con AD3-23: su historia se
+    -- reconoce por la operación de la capacidad atestada (y consumida).
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3 a
+               WHERE convert_from(a.capacidad_canonica,'UTF8')::jsonb->>'operacion' IN ('contratacion_temporal.ginpix.confirmar',
+                 'contratacion_temporal.incorporacion.confirmar_centro','contratacion_temporal.incorporacion.consultar_centro',
+                 'contratacion_temporal.incorporacion.no_incorporacion')
+                  OR convert_from(a.capacidad_canonica,'UTF8')::jsonb->>'audiencia_consumo' IN ('vec_contratacion_temporal.confirmacion_ginpix.v1',
+                 'vec_contratacion_temporal.no_incorporacion.v1'))
+ THEN RAISE EXCEPTION 'AD3-88: DOWN no admitido (CT 000124 instalada o historia de claves o de consumos de sus perfiles)' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)

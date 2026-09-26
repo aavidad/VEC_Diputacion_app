@@ -122,6 +122,7 @@ func materialSeguimientoSQL(operacion string, material any) (map[string]any, str
 		}
 		d := m.Datos
 		r := base(m.OrganizacionRef, m.ExpedienteRef, m.ActorRef, m.PerfilRef, m.VersionEsperada)
+		r["paso"], r["propuesta_ref"] = d.Paso, d.PropuestaRef
 		r["motivo_clave"], r["consecuencia_clave"], r["resolucion_ref"] = d.MotivoClave, d.ConsecuenciaClave, d.ResolucionRef
 		r["resolucion_sha256"], r["resuelta_por"], r["segunda_persona"] = d.ResolucionSHA256, d.ResueltaPor, d.SegundaPersona
 		r["fecha_notificacion"], r["observaciones"] = d.FechaNotificacion.Format(time.DateOnly), d.Observaciones
@@ -219,6 +220,12 @@ func errorResultadoSeguimiento(resultado string) error {
 		return ports.ErrNoIncorporacionExistente
 	case "fecha_no_admitida":
 		return ports.ErrFechaNoIncorporacionNoAdmitida
+	case "propuesta_pendiente":
+		return ports.ErrPropuestaNoIncorporacionPendiente
+	case "propuesta_no_valida":
+		return ports.ErrPropuestaNoIncorporacionNoValida
+	case "misma_persona":
+		return ports.ErrMismaPersonaNoIncorporacion
 	}
 	return ports.ErrResultadoSeguimientoNoConfiable
 }
@@ -245,7 +252,8 @@ func normalizarErrorSeguimiento(ctx context.Context, err error) error {
 		ports.ErrModificacionSinCambios, ports.ErrModificacionCreditoInsuficiente, ports.ErrCancelacionNoAdmitida,
 		ports.ErrCancelacionTrasFiscalizacion, ports.ErrCancelacionYaRegistrada, ports.ErrGINPIXYaConfirmado,
 		ports.ErrGINPIXNoConfirmado, ports.ErrSinAceptacion, ports.ErrIncorporacionExistente, ports.ErrNoIncorporacionExistente,
-		ports.ErrFechaNoIncorporacionNoAdmitida, ports.ErrResultadoSeguimientoNoConfiable,
+		ports.ErrFechaNoIncorporacionNoAdmitida, ports.ErrPropuestaNoIncorporacionPendiente, ports.ErrPropuestaNoIncorporacionNoValida,
+		ports.ErrMismaPersonaNoIncorporacion, ports.ErrResultadoSeguimientoNoConfiable,
 		ports.ErrOperacionSeguimientoInvalida, ports.ErrAutorizacionDenegada} {
 		if errors.Is(err, propio) {
 			return propio

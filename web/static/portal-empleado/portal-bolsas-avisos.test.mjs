@@ -73,3 +73,21 @@ test("muestra el encadenamiento y el plazo de trabajo continuado del catálogo",
   assert.match(renderizarBloqueAvisos({ estado: "listo", datos }), /Alcanza tres años/);
   assert.throws(() => validarAvisosBolsa({ data: { ...conCatalogo, conteos: { ...conCatalogo.conteos, encadenamiento: -1 } } }), /no válido/);
 });
+
+test("muestra la no incorporación pendiente de revisión sin referencias internas", () => {
+  const revision = {
+    ...datos,
+    conteos: { salto_orden: 0, tres_anos: 0, no_incorporacion_revision: 1 },
+    items: [{ tipo: "no_incorporacion_revision", bolsa: "bolsa:opaca", referencia: "aviso:no-incorporacion:abc", fecha: "2026-09-26T09:00:00Z",
+      detalle: { estado: "consecuencia_no_admitida", llamamiento_ref: "llamamiento:opaco", participacion_ref: "participacion:uno", motivo_clave: "no_presentado", fecha_notificacion: "2026-09-20" } }],
+    paginacion: { ...datos.paginacion, hasta: 1, total: 1 },
+  };
+  assert.equal(validarAvisosBolsa({ data: revision }), revision);
+  const html = renderizarBloqueAvisos({ estado: "listo", datos: revision });
+  assert.match(html, /No incorporación pendiente de revisión/);
+  assert.match(html, /1 no incorporaciones por revisar/);
+  assert.match(html, /no está en las reglas vigentes de Bolsa/);
+  assert.match(html, /El siguiente llamamiento espera/);
+  assert.match(html, /data-accion="abrir-ficha-b5"/);
+  assert.doesNotMatch(html, /llamamiento:opaco|no_presentado|consecuencia_no_admitida/);
+});

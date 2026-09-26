@@ -24,10 +24,15 @@ BEGIN
     IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral
                 WHERE origen_version IN ('confirmacion_ginpix_ct124','no_incorporacion_ct124'))
        OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.outbox_expediente_integral
-                  WHERE tipo_evento IN ('ct.ginpix-confirmada.v1','ct.incorporacion-confirmada-centro.v1','ct.no-incorporacion.v1'))
+                  WHERE tipo_evento IN ('ct.ginpix-confirmada.v1','ct.incorporacion-confirmada-centro.v1','ct.no-incorporacion.v1',
+                    'ct.no-incorporacion-propuesta.v1','ct.no-incorporacion-rechazada.v1'))
        OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh
                   WHERE solicitud_json->>'Respuesta'='aceptacion' AND continuacion_clave IS NOT NULL) THEN
         RAISE EXCEPTION 'CT124 DOWN: no admitido con historia de confirmaciones' USING ERRCODE='55000';
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                WHERE n.nspname='vec_bolsa_llamamientos' AND c.relname='no_incorporacion_bolsa') THEN
+        RAISE EXCEPTION 'CT124 DOWN: Bolsa 000042 depende de su comprobación de origen; retírela antes' USING ERRCODE='55000';
     END IF;
     SELECT pg_get_constraintdef(oid) INTO STRICT v_origen FROM pg_constraint
      WHERE conrelid='vec_contratacion_temporal.expediente_version_integral'::regclass
@@ -157,17 +162,27 @@ END
 $restriccion$;
 
 DROP FUNCTION vec_contratacion_temporal.antecedente_no_incorporacion_ct124(text,text);
+DROP FUNCTION vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(text,text,bigint);
+REVOKE USAGE ON SCHEMA vec_contratacion_temporal FROM vec_bolsa_llamamientos_propietario;
 DROP FUNCTION vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(bigint,text,integer);
+DROP FUNCTION vec_contratacion_temporal.evento_no_incorporacion_bolsa_ct124(vec_contratacion_temporal.no_incorporacion_v1);
 DROP FUNCTION vec_contratacion_temporal.confirmar_no_incorporacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.preparar_no_incorporacion_v1(jsonb);
 DROP FUNCTION vec_contratacion_temporal.resultado_no_incorporacion_ct124(vec_contratacion_temporal.no_incorporacion_v1);
 DROP FUNCTION vec_contratacion_temporal.intencion_no_incorporacion_ct124(text,text,text,text,text,text);
 DROP FUNCTION vec_contratacion_temporal.aceptacion_vigente_ct124(text,text);
 DROP FUNCTION vec_contratacion_temporal.validar_material_no_incorporacion_ct124(jsonb);
+DROP FUNCTION vec_contratacion_temporal.repeticion_no_incorporacion_ct124(text,text,jsonb,date);
+DROP FUNCTION vec_contratacion_temporal.resultado_paso_no_incorporacion_ct124(jsonb,jsonb,text,text,text,text,text,text,jsonb);
+DROP FUNCTION vec_contratacion_temporal.comprobar_paso_no_incorporacion_ct124(jsonb,date,text);
+DROP FUNCTION vec_contratacion_temporal.propuesta_pendiente_ct124(text);
 DROP TABLE vec_contratacion_temporal.no_incorporacion_v1;
+DROP TABLE vec_contratacion_temporal.no_incorporacion_rechazo_v1;
+DROP TABLE vec_contratacion_temporal.no_incorporacion_propuesta_v1;
 DROP FUNCTION vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text);
 DROP FUNCTION vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
+DROP FUNCTION vec_contratacion_temporal.expediente_del_centro_v1(text,text,text);
 DROP FUNCTION vec_contratacion_temporal.consumir_incorporacion_centro_ct124(text,text,jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.expedientes_centro_ct124(jsonb,text);
 DROP FUNCTION vec_contratacion_temporal.actor_centro_valido_ct124(jsonb);

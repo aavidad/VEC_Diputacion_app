@@ -240,20 +240,18 @@ func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoAutorizacionAltaV
 	return id.soporte.contexto, nil
 }
 
-// pertenece lee la bandeja del centro (la misma de las incorporaciones) y
-// comprueba que el expediente procede de una de sus peticiones.
+// pertenece comprueba con la consulta dedicada de CT124 que el expediente
+// exacto procede de una petición del centro del actor: sin paginar y sin
+// consumir otra autorización que la de la propia cancelación.
 func (a *autoridadCancelacionCentroDesarrollo) pertenece(ctx context.Context, id *identidadPeticionCentroDesarrollo, expedienteRef string) error {
-	filas, err := a.bandeja.ListarIncorporacionesCentro(ctx, ports.ConsultaIncorporacionesCentro{Modo: "bandeja",
-		OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, Actor: id.actor})
-	if err != nil {
+	if a == nil || a.bandeja == nil || id == nil {
 		return ports.ErrAutorizacionDenegada
 	}
-	for _, f := range filas {
-		if f.ExpedienteRef == expedienteRef {
-			return nil
-		}
+	suyo, err := a.bandeja.ExpedienteDelCentro(ctx, organizacionAltaContratacionTemporalDesarrollo, id.actor, expedienteRef)
+	if err != nil || !suyo {
+		return ports.ErrAutorizacionDenegada
 	}
-	return ports.ErrAutorizacionDenegada
+	return nil
 }
 
 func (a *autoridadCancelacionCentroDesarrollo) exigir(ctx context.Context, id *identidadPeticionCentroDesarrollo, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {

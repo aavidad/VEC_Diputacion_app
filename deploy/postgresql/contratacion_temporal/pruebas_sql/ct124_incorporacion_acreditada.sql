@@ -135,6 +135,27 @@ SELECT pg_temp.exigir((:'bandeja'::jsonb)->>'esquema'='vec.contratacion-temporal
   AND jsonb_array_length((:'bandeja'::jsonb)->'expedientes')=1 AND (:'bandeja'::jsonb)#>>'{expedientes,0,expediente_ref}'=:'exp_b'
   AND (:'bandeja'::jsonb)#>>'{expedientes,0,fase}'='nombramiento' AND (:'bandeja'::jsonb)#>>'{expedientes,0,modalidad_clave}'='sustitucion'
   AND (:'bandeja'::jsonb)#>'{expedientes,0,confirmacion}'='null'::jsonb,'bandeja del centro '||:'bandeja');
+-- Pertenencia dedicada (cancelación desde el centro): el expediente exacto,
+-- sin paginar y sin consumir autorización ni dejar acceso.
+RESET SESSION AUTHORIZATION;
+SELECT count(*) AS accesos_antes FROM vec_contratacion_temporal.incorporacion_centro_acceso_v1 \gset
+CREATE FUNCTION pg_temp.pertenece(a text, o text, e text) RETURNS text LANGUAGE plpgsql AS $f$
+BEGIN RETURN vec_contratacion_temporal.expediente_del_centro_v1(a, o, e)::text;
+EXCEPTION WHEN OTHERS THEN RETURN SQLSTATE; END $f$;
+SET SESSION AUTHORIZATION vec_ct115_runtime;
+SELECT pg_temp.pertenece((:'actor_rat'::jsonb)::text,:'org',:'exp_b') AS pert_rat, pg_temp.pertenece((:'actor_sol'::jsonb)::text,:'org',:'exp_b') AS pert_sol,
+       pg_temp.pertenece((:'actor_rat'::jsonb)::text,:'org',:'exp_a') AS pert_ajeno,
+       pg_temp.pertenece(jsonb_set(:'actor_rat'::jsonb,'{centro_ref}','"centro-999"')::text,:'org',:'exp_b') AS pert_otro_centro,
+       pg_temp.pertenece(jsonb_set(:'actor_rat'::jsonb,'{actor_ref}','"per_otro"')::text,:'org',:'exp_b') AS pert_otro_actor,
+       pg_temp.pertenece((:'actor_rat'::jsonb)::text,'organizacion:otra:ct124',:'exp_b') AS pert_otra_org,
+       pg_temp.pertenece('{"actor_ref":"x"}',:'org',:'exp_b') AS pert_invalido \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.exigir(:'pert_rat'='true' AND :'pert_sol'='true' AND :'pert_ajeno'='false' AND :'pert_otro_centro'='false'
+  AND :'pert_otro_actor'='false' AND :'pert_otra_org'='false' AND :'pert_invalido'='22023'
+  AND (SELECT count(*) FROM vec_contratacion_temporal.incorporacion_centro_acceso_v1)=:'accesos_antes'::bigint
+  AND NOT has_function_privilege('public','vec_contratacion_temporal.expediente_del_centro_v1(text,text,text)','EXECUTE'),
+  'pertenencia del expediente exacto al centro, sin consumir autorización');
+SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN;
 SELECT pg_temp.exigir(pg_temp.centro('consultar_incorporaciones_centro_v1',:'consulta_c',pg_temp.decision_centro('contratacion_temporal.incorporacion.consultar_centro',
   'incorporaciones:centro:centro-999',:'actor_rat'::jsonb,:'org',:'consulta_c','b2'))->>'error'='42501','bandeja con otro recurso');

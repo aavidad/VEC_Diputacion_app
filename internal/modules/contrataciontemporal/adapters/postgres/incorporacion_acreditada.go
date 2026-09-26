@@ -50,6 +50,15 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcredi
 			FechaNotificacion string `json:"fecha_notificacion"`
 			Recibo            recibo `json:"recibo"`
 		} `json:"no_incorporacion"`
+		Propuesta *struct {
+			PropuestaRef      string    `json:"propuesta_ref"`
+			MotivoClave       string    `json:"motivo_clave"`
+			ConsecuenciaClave string    `json:"consecuencia_clave"`
+			ResolucionRef     string    `json:"resolucion_ref"`
+			ResolucionSHA256  string    `json:"resolucion_sha256"`
+			FechaNotificacion string    `json:"fecha_notificacion"`
+			RegistradaEn      time.Time `json:"registrada_en"`
+		} `json:"no_incorporacion_propuesta"`
 	}
 	err := r.ejecutar(ctx, true, func(tx pgx.Tx) error {
 		var contenido []byte
@@ -78,6 +87,11 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcredi
 		estado.NoIncorporacion = &ports.EstadoNoIncorporacion{MotivoClave: n.MotivoClave, ConsecuenciaClave: n.ConsecuenciaClave,
 			ResolucionRef: n.ResolucionRef, ResolucionSHA256: n.ResolucionSHA256, ResueltaPor: n.ResueltaPor,
 			FechaNotificacion: n.FechaNotificacion, ReciboRef: n.Recibo.ReciboRef, RegistradaEn: n.Recibo.RegistradaEn.UTC()}
+	}
+	if p := salida.Propuesta; p != nil {
+		estado.PropuestaNoIncorporacion = &ports.EstadoPropuestaNoIncorporacion{PropuestaRef: p.PropuestaRef, MotivoClave: p.MotivoClave,
+			ConsecuenciaClave: p.ConsecuenciaClave, ResolucionRef: p.ResolucionRef, ResolucionSHA256: p.ResolucionSHA256,
+			FechaNotificacion: p.FechaNotificacion, RegistradaEn: p.RegistradaEn.UTC()}
 	}
 	if !estado.Valido() {
 		return vacio, ports.ErrResultadoSeguimientoNoConfiable

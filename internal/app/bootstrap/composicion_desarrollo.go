@@ -277,6 +277,11 @@ func nuevoServidorDesarrollo(
 		cancelarBolsas()
 		return nil, nil, err
 	}
+	// Revisión de no incorporaciones en los mismos avisos (Bolsa 000042).
+	if err = componerAvisosNoIncorporacionBolsaDesarrollo(ctxBolsas, cfg, fuenteConstituida); err != nil {
+		cancelarBolsas()
+		return nil, nil, err
+	}
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)

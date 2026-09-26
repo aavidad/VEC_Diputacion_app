@@ -22,9 +22,21 @@ func (l *lectorNoIncorporacionesPrueba) LeerNoIncorporacionesBolsa(ctx context.C
 }
 
 type buzonNoIncorporacionesEntregaPrueba struct {
-	huellas      map[string]string
-	cursor       puertosbolsa.CursorContratosParticipacion
-	consecuencia []*puertosbolsa.ConsecuenciaNoIncorporacion
+	huellas     map[string]string
+	cursor      puertosbolsa.CursorContratosParticipacion
+	plazos      []*puertosbolsa.PlazosNoIncorporacion
+	pendientes  []puertosbolsa.PendienteNoIncorporacion
+	reevaluados int
+}
+
+func (b *buzonNoIncorporacionesEntregaPrueba) PendientesNoIncorporacion(context.Context, int) ([]puertosbolsa.PendienteNoIncorporacion, error) {
+	return b.pendientes, nil
+}
+
+func (b *buzonNoIncorporacionesEntregaPrueba) ReevaluarNoIncorporacion(context.Context, string, *puertosbolsa.PlazosNoIncorporacion) (puertosbolsa.ResultadoRegistroNoIncorporacion, error) {
+	b.reevaluados++
+	b.pendientes = nil
+	return puertosbolsa.ResultadoRegistroNoIncorporacion{Reutilizado: true, Estado: puertosbolsa.EstadoNoIncorporacionAplicada}, nil
 }
 
 func (b *buzonNoIncorporacionesEntregaPrueba) CursorNoIncorporaciones(context.Context) (puertosbolsa.CursorContratosParticipacion, bool, error) {
@@ -39,12 +51,16 @@ func (b *buzonNoIncorporacionesEntregaPrueba) RegistrarNoIncorporacion(_ context
 		return puertosbolsa.ResultadoRegistroNoIncorporacion{Reutilizado: true, Estado: "aplicada"}, nil
 	}
 	b.huellas[e.Evento.EventoRef] = e.HuellaSHA256
-	b.consecuencia = append(b.consecuencia, e.Consecuencia)
+	b.plazos = append(b.plazos, e.Plazos)
 	b.cursor = puertosbolsa.CursorContratosParticipacion{Posicion: e.OrigenPosicion, OrigenRef: e.Evento.OrigenRef}
 	return puertosbolsa.ResultadoRegistroNoIncorporacion{Estado: "aplicada", ParticipacionRef: "participacion:1"}, nil
 }
 
 type catalogoBajaPrueba struct{}
+
+func (catalogoBajaPrueba) PoliticaNoIncorporacion(context.Context) (puertosbolsa.PoliticaNoIncorporacion, error) {
+	return puertosbolsa.PoliticaNoIncorporacion{}, nil
+}
 
 func (catalogoBajaPrueba) ResolverSancion(_ context.Context, clave string, _ time.Time) (puertosbolsa.ResolucionCatalogoSancion, error) {
 	return puertosbolsa.ResolucionCatalogoSancion{Consecuencia: puertosbolsa.ConsecuenciaSancion{Clave: clave, Etiqueta: "Baja", Efecto: "excluir",
@@ -63,7 +79,7 @@ func noIncorporacionPublicadaPrueba(origen string, posicion int64) puertosct.Eve
 		OrigenPosicion: posicion, OrigenCreadaEn: time.Date(2026, 9, 21, 9, 0, 0, 0, time.UTC)}
 }
 
-func TestEntregaNoIncorporacionesCTBolsaIdempotenteYConLaConsecuenciaDelCatalogo(t *testing.T) {
+func TestEntregaNoIncorporacionesCTBolsaIdempotenteYConLosPlazosDelCatalogo(t *testing.T) {
 	lector := &lectorNoIncorporacionesPrueba{}
 	lector.eventos = []puertosct.EventoContratoBolsaPublicado{noIncorporacionPublicadaPrueba("evento:ct124:1", 10), noIncorporacionPublicadaPrueba("evento:ct124:2", 11)}
 	roto := noIncorporacionPublicadaPrueba("evento:ct124:3", 12)
@@ -76,9 +92,14 @@ func TestEntregaNoIncorporacionesCTBolsaIdempotenteYConLaConsecuenciaDelCatalogo
 	}
 	relevo := &entregaNoIncorporacionesCTBolsa{lector: lector, receptor: receptor, lote: 2}
 	r, err := relevo.entregar(context.Background())
-	if err != nil || r.nuevos != 2 || r.rechazados != 1 || len(buzon.consecuencia) != 2 || buzon.consecuencia[0] == nil ||
-		buzon.consecuencia[0].Efecto != "excluir" || buzon.consecuencia[0].Clave != "b24.sancion.baja_llamamiento_directo" {
+	if err != nil || r.nuevos != 2 || r.rechazados != 1 || len(buzon.plazos) != 2 || buzon.plazos[0] == nil ||
+		buzon.plazos[0].RecursoVence != "2026-10-20" || buzon.plazos[0].RecursoReglaRef != "vec.bolsa.reglas:3:b24.consecuencias" {
 		t.Fatalf("primera pasada: %+v %v", r, err)
+	}
+	// Cada pasada reevalúa lo que la bandeja aún no pudo aplicar.
+	buzon.pendientes = []puertosbolsa.PendienteNoIncorporacion{{EventoRef: "evento:1", ConsecuenciaClave: "b24.sancion.baja_llamamiento_directo", FechaNotificacion: "2026-09-20"}}
+	if _, err := relevo.entregar(context.Background()); err != nil || buzon.reevaluados != 1 {
+		t.Fatalf("reevaluación: %d %v", buzon.reevaluados, err)
 	}
 	// El cursor de la bandeja evita releer lo ya entregado.
 	buzon.cursor = puertosbolsa.CursorContratosParticipacion{}
@@ -86,10 +107,10 @@ func TestEntregaNoIncorporacionesCTBolsaIdempotenteYConLaConsecuenciaDelCatalogo
 	if err != nil || r.nuevos != 0 || r.reentregas != 2 {
 		t.Fatalf("reentrega: %+v %v", r, err)
 	}
-	if _, err := iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(context.Background(), config.NuevaConfiguracionEntregaContratosCTBolsa("", ""), nil, nil, nil); err == nil {
+	if _, err := iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(context.Background(), config.Config{}, nil, nil, nil); err == nil {
 		t.Fatal("sin catálogo de Bolsa el relevo arranca")
 	}
-	if _, err := iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(context.Background(), config.NuevaConfiguracionEntregaContratosCTBolsa("", ""), nil, nil, catalogoBajaPrueba{}); err == nil {
+	if _, err := iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(context.Background(), config.Config{}, nil, nil, catalogoBajaPrueba{}); err == nil {
 		t.Fatal("sin Bolsa 000042 el relevo arranca")
 	}
 }
