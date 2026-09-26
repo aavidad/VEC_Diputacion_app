@@ -167,6 +167,7 @@ function pasoRevision(t, estado) {
     <section aria-labelledby="rev-req"><h4 id="rev-req">${escapar(t("revision_requisitos"))}</h4><ul>${requisitos}</ul></section>
     <section aria-labelledby="rev-datos"><h4 id="rev-datos">${escapar(t("revision_datos"))}</h4><dl class="dato-lista">${datos}</dl></section>
     <section aria-labelledby="rev-mer"><h4 id="rev-mer">${escapar(t("revision_meritos"))}</h4>${meritos}${puntuacionServidor(t, estado)}</section>
+    ${estado.datosCompletos === false ? `<p class="nota aviso" role="status">${escapar(t("revision_datos_incompletos"))}</p>` : ""}
     <label class="opcion-check"><input type="checkbox" name="declaracion_responsable" value="true" required${estado.declaracion ? " checked" : ""}><span>${escapar(t("declaracion"))}</span></label>
     ${confirmacion}
     <section aria-labelledby="rev-tramites"><h4 id="rev-tramites">${escapar(t("acciones_no_disponibles"))}</h4><ul class="tramites-no-disponibles">${tramites}</ul></section>`;
@@ -267,7 +268,7 @@ export function montarSolicitudConvocatoria({ raiz, cliente, convocatoriaRef = "
     convocatoriaRef, fase: "cargando", error: "", errorDetalle: "", reglas: null, paso: 1, borrador: null,
     formulario: formularioVacio(), ocupado: false, avisoGuardado: false, confirmando: false, declaracion: false,
     justificante: null, huellaGuardada: "", intentoGuardado: null, intentoPresentacion: null,
-    puntuacionServidor: null, convocatorias: null,
+    puntuacionServidor: null, convocatorias: null, datosCompletos: null,
   };
   const pintar = (enfocar = "") => {
     if (!activo) return;
@@ -285,6 +286,7 @@ export function montarSolicitudConvocatoria({ raiz, cliente, convocatoriaRef = "
     estado.borrador = borrador ? { solicitud_ref: borrador.solicitud_ref, version: borrador.version } : null;
     estado.formulario = borrador ? formularioDesdeBorrador(borrador) : formularioVacio();
     estado.puntuacionServidor = typeof borrador?.puntuacion_autobaremo === "string" ? borrador.puntuacion_autobaremo : null;
+    estado.datosCompletos = typeof borrador?.datos_completos === "boolean" ? borrador.datos_completos : null;
     // Lo recién leído ya está guardado: no se vuelve a enviar si no cambia.
     estado.huellaGuardada = borrador && estado.reglas ? JSON.stringify(cuerpoBorrador({ convocatoriaRef, reglas: estado.reglas, formulario: estado.formulario, versionEsperada: borrador.version })) : "";
     estado.intentoGuardado = null; estado.intentoPresentacion = null;
@@ -336,6 +338,7 @@ export function montarSolicitudConvocatoria({ raiz, cliente, convocatoriaRef = "
     const resultado = await cliente.guardarBorrador(cuerpo, estado.intentoGuardado.clave);
     estado.borrador = { solicitud_ref: resultado.solicitud_ref, version: resultado.version };
     estado.puntuacionServidor = resultado.puntuacion_autobaremo;
+    estado.datosCompletos = resultado.datos_completos;
     estado.huellaGuardada = JSON.stringify({ ...cuerpo, version_esperada: resultado.version });
     estado.intentoGuardado = null;
     return true;

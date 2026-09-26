@@ -119,6 +119,8 @@ export const MENSAJES_SOLICITUD_ES = Object.freeze({
   error_ya_presentada: "Esta solicitud ya se presentó.",
   error_requisito_no_cumplido: "Ha declarado que no cumple un requisito que impide presentar la solicitud.",
   error_declaracion_requerida: "Marque la declaración responsable para presentar.",
+  error_datos_incompletos: "Faltan el turno o algún dato personal. Complételos y guarde el borrador antes de presentar.",
+  revision_datos_incompletos: "El borrador está guardado, pero faltan el turno o algún dato personal: no se puede presentar hasta completarlos.",
   error_conflicto: "La operación entra en conflicto con el estado actual de la solicitud. Recargue el borrador.",
   error_datos_no_validos: "Algún dato no supera las comprobaciones del servicio. Revise el formulario.",
   error_peticion_no_permitida: "El servicio no admite este envío. Recargue la página e inténtelo de nuevo.",

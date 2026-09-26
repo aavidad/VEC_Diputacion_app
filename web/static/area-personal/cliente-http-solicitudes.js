@@ -1,7 +1,7 @@
 /**
  * Adaptador HTTP de la solicitud de participación de la persona (Selección).
  *
- * Traduce el contrato «mis solicitudes» (revisión 2) a llamadas de mismo
+ * Traduce el contrato «mis solicitudes» (revisión 2.1) a llamadas de mismo
  * origen: el navegador presenta el certificado de la persona (mTLS) y el
  * servidor deriva de él la identidad; ningún cuerpo lleva identidad. No guarda
  * nada en el navegador: la clave de idempotencia vive en memoria mientras dura
@@ -26,7 +26,7 @@ const PATRON_DECIMAL = /^-?\d{1,9}(?:\.\d{1,6})?$/u;
 // como respuesta no admitida, sin mostrar texto del servidor.
 export const CODIGOS_ERROR_SOLICITUD = Object.freeze(new Set([
   "sin_borrador", "version_obsoleta", "clave_reutilizada", "fuera_de_plazo", "ya_presentada",
-  "convocatoria_no_disponible", "convocatoria_actualizada", "requisito_no_cumplido",
+  "convocatoria_no_disponible", "convocatoria_actualizada", "requisito_no_cumplido", "datos_incompletos",
   "declaracion_requerida", "datos_no_validos", "peticion_no_permitida", "recurso_no_encontrado",
   "metodo_no_permitido", "autenticacion_requerida", "acceso_denegado", "servicio_no_disponible",
 ]));
@@ -199,6 +199,8 @@ export function crearClienteSolicitudesPersona({ fetchImpl = globalThis.fetch } 
       return Object.freeze({
         solicitud_ref: dato.solicitud_ref, version: dato.version, estado: cadena(dato.estado, 60),
         puntuacion_autobaremo: decimal(dato.puntuacion_autobaremo), repetida: dato.repetida === true,
+        // Revisión 2.1: el borrador admite datos parciales; solo se presenta completo.
+        datos_completos: dato.datos_completos === true,
       });
     },
 

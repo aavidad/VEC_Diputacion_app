@@ -51,10 +51,16 @@ test("borrador: versión obsoleta, repetición idempotente y borrador recuperabl
   assert.deepEqual(formularioDesdeBorrador(leido).requisitos, { nacionalidad: "cumple" });
 });
 
+const DATOS_COMPLETOS = Object.freeze({
+  nombre: "Antonio", apellidos: "Reyes Álvarez", documento_identidad: "12345678Z", fecha_nacimiento: "1988-04-12",
+  nacionalidad: "española", correo: "antonio@example.org", telefono: "600000000",
+  direccion: { via: "C/ Real 1", codigo_postal: "18001", municipio: "Granada", provincia: "Granada" },
+});
+
 test("presentación: justificante interno, repetición con el mismo recibo y servicios no realizados", async () => {
   const servidor = crearServidorSimulado();
   const api = cliente(servidor);
-  const borrador = await api.guardarBorrador({ convocatoria_ref: REF, version_esperada: 0, turno: "libre", datos: { nombre: "Antonio", apellidos: "Reyes Álvarez" }, requisitos: [{ clave: "nacionalidad", estado: "cumple" }, { clave: "titulacion", estado: "pendiente" }], meritos: [{ clave_grupo: "experiencia", clave_merito: "meses_diputacion", descripcion: "", cantidad: "14" }] }, "clave-b1");
+  const borrador = await api.guardarBorrador({ convocatoria_ref: REF, version_esperada: 0, turno: "libre", datos: DATOS_COMPLETOS, requisitos: [{ clave: "nacionalidad", estado: "cumple" }, { clave: "titulacion", estado: "pendiente" }], meritos: [{ clave_grupo: "experiencia", clave_merito: "meses_diputacion", descripcion: "", cantidad: "14" }] }, "clave-b1");
   assert.equal(borrador.puntuacion_autobaremo, "1.4");
   const presentada = await api.presentar({ solicitudRef: borrador.solicitud_ref, versionEsperada: 1 }, "clave-p1");
   assert.match(presentada.numero_justificante, /^2026\/SOL-\d{6}$/u);
@@ -73,13 +79,17 @@ test("fuera de plazo, requisito que impide presentar y servicio no montado llega
   const servidor = crearServidorSimulado({ plazoAbierto: () => abierto });
   const api = cliente(servidor);
   const b = await api.guardarBorrador({ convocatoria_ref: REF, version_esperada: 0, datos: {}, requisitos: [{ clave: "nacionalidad", estado: "no_cumple" }], meritos: [] }, "clave-x1");
+  assert.equal(b.datos_completos, false, "revisión 2.1: el borrador parcial se guarda y lo declara");
   await rechazo(api.presentar({ solicitudRef: b.solicitud_ref, versionEsperada: 1 }, "clave-x2"), "requisito_no_cumplido");
+  const incompleto = await api.guardarBorrador({ convocatoria_ref: REF, version_esperada: 1, datos: { nombre: "Antonio" }, requisitos: [], meritos: [] }, "clave-x4");
+  assert.equal(incompleto.datos_completos, false);
+  await rechazo(api.presentar({ solicitudRef: b.solicitud_ref, versionEsperada: 2 }, "clave-x5"), "datos_incompletos");
   abierto = false;
-  await rechazo(api.presentar({ solicitudRef: b.solicitud_ref, versionEsperada: 1 }, "clave-x3"), "fuera_de_plazo");
+  await rechazo(api.presentar({ solicitudRef: b.solicitud_ref, versionEsperada: 2 }, "clave-x3"), "fuera_de_plazo");
   await rechazo(cliente(crearServidorSimulado({ montado: false })).listar(), "recurso_no_encontrado");
   const sinRuta = crearClienteSolicitudesPersona({ fetchImpl: async () => ({ status: 404, headers: { get: () => "text/plain" }, text: async () => "" }) });
   await rechazo(sinRuta.listar(), "no_disponible");
-  for (const codigo of ["fuera_de_plazo", "requisito_no_cumplido", "version_obsoleta", "no_disponible", "clave_reutilizada", "convocatoria_actualizada"]) {
+  for (const codigo of ["fuera_de_plazo", "requisito_no_cumplido", "version_obsoleta", "no_disponible", "clave_reutilizada", "convocatoria_actualizada", "datos_incompletos"]) {
     assert.equal(typeof MENSAJES_SOLICITUD_ES[`error_${codigo}`], "string", codigo);
   }
 });
@@ -115,6 +125,8 @@ test("la vista no muestra referencias internas ni texto de ayuda, y usa solo cla
     assert.doesNotMatch(html, new RegExp(MENSAJES_SOLICITUD_ES.ayuda_meritos.slice(0, 40), "u"));
   }
   const revision = renderizarSolicitudConvocatoria({ ...base, paso: 4 });
+  assert.doesNotMatch(revision, new RegExp(MENSAJES_SOLICITUD_ES.revision_datos_incompletos.slice(0, 30), "u"));
+  assert.match(renderizarSolicitudConvocatoria({ ...base, paso: 4, datosCompletos: false }), new RegExp(MENSAJES_SOLICITUD_ES.revision_datos_incompletos.slice(0, 30), "u"), "revisión 2.1: avisa de que faltan datos para presentar");
   for (const servicio of ["firma", "registro_sede", "tasas", "notificacion"]) assert.match(revision, new RegExp(`aria-describedby="solicitud-motivo-${servicio}"`, "u"));
   assert.match(renderizarSolicitudConvocatoria({ ...base, paso: 3 }), /Se aportarán más adelante/u);
   const justificante = renderizarSolicitudConvocatoria({ ...base, fase: "presentada", justificante: { numero_justificante: "2026/SOL-000031", presentada_en: "2026-09-26T10:15:00.000000Z", recibo_ref: "recibo:sol_000001", puntuacion_autobaremo: "1.4", servicios: { firma: "no_disponible" } } });

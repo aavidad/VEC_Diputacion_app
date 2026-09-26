@@ -88,6 +88,17 @@ export function crearServidorSimulado({ ahora = () => "2026-09-26T10:15:00.00000
   };
   const reglas = (ref) => ref === CONVOCATORIA.convocatoria_ref ? CONVOCATORIA : ref === CERRADA.convocatoria_ref ? CERRADA : null;
 
+  // Revisión 2.1: el borrador puede ir incompleto; solo se presenta con turno y
+  // todos los datos personales.
+  function datosCompletos(item, convocatoria) {
+    const datos = item.datos || {};
+    const direccion = datos.direccion || {};
+    const personales = ["nombre", "apellidos", "documento_identidad", "fecha_nacimiento", "nacionalidad", "correo", "telefono"];
+    return (!convocatoria.turnos?.length || Boolean(item.turno))
+      && personales.every((campo) => typeof datos[campo] === "string" && datos[campo] !== "")
+      && ["via", "codigo_postal", "municipio", "provincia"].every((campo) => typeof direccion[campo] === "string" && direccion[campo] !== "");
+  }
+
   function atender(metodo, rutaCompleta, cabeceras = {}, cuerpoTexto = "") {
     const url = new URL(rutaCompleta, "https://vec.invalid");
     const ruta = url.pathname;
@@ -130,8 +141,9 @@ export function crearServidorSimulado({ ahora = () => "2026-09-26T10:15:00.00000
           turno: cuerpo.turno ?? null, datos: cuerpo.datos ?? {}, requisitos: cuerpo.requisitos ?? [], meritos: cuerpo.meritos ?? [],
           puntuacion_autobaremo: puntuacion(cuerpo.meritos ?? []), actualizada_en: ahora(),
         };
+        guardada.datos_completos = datosCompletos(guardada, convocatoria);
         solicitudes.set(solicitudRef, guardada);
-        return respuesta(actual ? 201 : 201, { data: { solicitud_ref: solicitudRef, version: guardada.version, estado: "borrador", puntuacion_autobaremo: guardada.puntuacion_autobaremo, repetida: false } });
+        return respuesta(actual ? 201 : 201, { data: { solicitud_ref: solicitudRef, version: guardada.version, estado: "borrador", puntuacion_autobaremo: guardada.puntuacion_autobaremo, datos_completos: guardada.datos_completos, repetida: false } });
       });
     }
     if (metodo === "POST" && ruta === `${base}/presentacion`) {
@@ -146,6 +158,7 @@ export function crearServidorSimulado({ ahora = () => "2026-09-26T10:15:00.00000
         if (convocatoria.requisitos.some((requisito) => requisito.impide_presentar && item.requisitos.find((declarado) => declarado.clave === requisito.clave)?.estado === "no_cumple")) {
           return error(422, "requisito_no_cumplido");
         }
+        if (!item.datos_completos) return error(422, "datos_incompletos");
         numero += 1;
         Object.assign(item, { estado: "presentada", presentada_en: ahora(), numero_justificante: `2026/SOL-${String(numero).padStart(6, "0")}`, recibo_ref: `recibo:${item.solicitud_ref}` });
         presentadas.push({
