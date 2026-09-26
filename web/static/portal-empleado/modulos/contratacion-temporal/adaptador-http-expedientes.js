@@ -21,6 +21,8 @@ const ESTADOS_VISUAL_A_SERVIDOR = new Map(
 );
 const PATRON_INSTANTE_CIVIL = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/u;
 
+// Unidad a la que asigna el formulario de asignación (formulario-asignacion.js).
+const UNIDADES_CONOCIDAS = new Map([["unidad:desarrollo:rrhh", "unidad_recursos_humanos"]]);
 const CLAVES_ETIQUETAS_CONOCIDAS = new Map([
   ["pendiente", "fase_pendiente"],
   ["en_curso", "fase_en_curso"],
@@ -117,8 +119,23 @@ function etiquetasCatalogos(obtenerCatalogos) {
   }
 }
 
+// La organización nombra sus centros «centro-<código>» y el catálogo de alta
+// «centro:rpt:<CÓDIGO>»: una petición de centro llega con la primera forma.
+function equivalenteCatalogo(referencia) {
+  const centro = /^centro-([a-z0-9]{1,12})$/iu.exec(String(referencia ?? ""));
+  return centro ? `centro:rpt:${centro[1].toUpperCase()}` : undefined;
+}
+
 function referenciaVisible(catalogos, tipo, referencia) {
-  return catalogos?.[tipo].get(referencia) ?? referencia;
+  const mapa = catalogos?.[tipo];
+  return mapa?.get(referencia) ?? mapa?.get(equivalenteCatalogo(referencia)) ?? referencia;
+}
+
+/** Etiqueta de una opción de catálogo de alta; sin ella, la referencia tal cual. */
+export function etiquetaCatalogo(lista, referencia) {
+  const opciones = Array.isArray(lista) ? lista : [];
+  const buscar = (valor) => opciones.find((opcion) => opcion.referencia === valor)?.etiqueta;
+  return buscar(referencia) ?? buscar(equivalenteCatalogo(referencia)) ?? referencia;
 }
 
 // Sin plazo_fase (sin catálogo de reglas o fase sin plazo) la columna queda
@@ -305,7 +322,8 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
     }
   }
   if (detalle.asignacion) {
-    campos.push(campo("unidad", t("cabecera_unidad_asignada"), detalle.asignacion.unidad_ref));
+    const unidad = UNIDADES_CONOCIDAS.get(detalle.asignacion.unidad_ref);
+    campos.push(campo("unidad", t("cabecera_unidad_asignada"), unidad ? t(unidad) : detalle.asignacion.unidad_ref));
   }
   return campos;
 }

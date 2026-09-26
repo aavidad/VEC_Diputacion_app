@@ -317,7 +317,8 @@ test("muestra contexto, registra un resultado y publica el recibo auditable", as
   }, { confirmarOperacion(datos) { confirmaciones.push(datos); return true; } });
 
   assert.match(raiz.innerHTML, /data-ct-fiscalizacion-contexto/u);
-  assert.match(raiz.innerHTML, /informe:juridico:formulario:001/u);
+  assert.match(raiz.innerHTML, /Registrado en la versión/u);
+  assert.doesNotMatch(raiz.innerHTML, /informe:juridico:formulario:001|expediente:ct:/u);
   assert.match(raiz.innerHTML, /name="resultado" type="radio"/u);
   assert.match(raiz.innerHTML, /role="status"/u);
   await raiz.enviar("desfavorable", "Reparo sintético para la unidad.");
@@ -331,14 +332,15 @@ test("muestra contexto, registra un resultado y publica el recibo auditable", as
   }]);
   assert.match(confirmaciones[0].advertencia, /devolverá el expediente/u);
   assert.match(raiz.innerHTML, /data-ct-fiscalizacion-recibo/u);
+  // El recibo se ofrece como justificante copiable; ninguna referencia interna se muestra como texto.
+  assert.match(raiz.innerHTML, /data-copiar-justificante="recibo:fiscalizacion:formulario:001"[^>]*>Copiar referencia</u);
   for (const referencia of [
-    "recibo:fiscalizacion:formulario:001",
     "auditoria:fiscalizacion:formulario:001",
     "evento:fiscalizacion:formulario:001",
     "actor:intervencion:formulario:001",
     "unidad:retorno:formulario:001",
     "responsable:retorno:formulario:001",
-  ]) assert.match(raiz.innerHTML, new RegExp(referencia, "u"));
+  ]) assert.doesNotMatch(raiz.innerHTML, new RegExp(referencia, "u"));
 });
 
 test("muestra Nueva fiscalización tras subsanación con el contexto corregido", () => {

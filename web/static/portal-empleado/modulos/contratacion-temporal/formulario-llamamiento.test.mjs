@@ -96,9 +96,9 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
   assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /El vencimiento no se evalúa porque faltan inicio y política gobernados/u); assert.match(confirmaciones.at(-1).advertencia, /politica:ct:revision-manual-sintetica:20260906/u); assert.match(confirmaciones.at(-1).advertencia, /justificante:sintetico:001/u);
   assert.match(confirmaciones.at(-1).advertencia, new RegExp(`Resolución de ${opcion === "renuncia" ? "renuncia" : "aceptación"}`, "u")); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="resolucion"/u); assert.match(raiz.innerHTML, new RegExp(`${opcion === "renuncia" ? "Renuncia" : "Aceptación"} registrada`, "u"));
   if (opcion === "renuncia") {
-    assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u); assert.match(raiz.innerHTML, /intencion:siguiente:001/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u); assert.match(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u); assert.doesNotMatch(raiz.innerHTML, /Aceptación registrada/u);
+    assert.match(raiz.innerHTML, /Siguiente candidato pendiente/u); assert.match(raiz.innerHTML, /intencion:siguiente:001/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.12345Z/u); assert.doesNotMatch(raiz.innerHTML, /No se ha seleccionado ni avisado a otra persona/u); assert.doesNotMatch(raiz.innerHTML, /Aceptación registrada/u);
   } else assert.doesNotMatch(raiz.innerHTML, /Siguiente candidato pendiente|intencion:siguiente:001|Renuncia registrada|data-ct-llamamiento-form="siguiente"/u);
-  assert.match(raiz.innerHTML, /El servidor confirma el registro manual en Contratación temporal y Bolsa/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
+  assert.doesNotMatch(raiz.innerHTML, /El servidor confirma el registro manual en Contratación temporal y Bolsa/u); assert.match(raiz.innerHTML, /2026-09-05T09:05:00.123450Z/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="resolucion"]');
   await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION });
   assert.equal(solicitudes.length, 1);
   cerrar();
@@ -129,11 +129,11 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   }]);
   const confirmacion = confirmaciones.at(-1);
   assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u")); assert.match(confirmacion.advertencia, /no cambia la candidatura/iu); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
-  assert.match(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
+  assert.doesNotMatch(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
   assert.match(raiz.innerHTML, /Estado de la respuesta y del circuito/u);
   assert.match(raiz.innerHTML, /Aceptación declarada en el correo; recibo recuperable registrado/u);
   assert.match(raiz.innerHTML, /Pendiente de revisión y resolución expresa por RRHH/u);
-  assert.match(raiz.innerHTML, /La declaración no equivale a resolución/u);
+  assert.doesNotMatch(raiz.innerHTML, /La declaración no equivale a resolución/u);
   assert.match(raiz.innerHTML, /Vencimiento/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(solicitudes.length, 1);
@@ -308,7 +308,7 @@ test("doble envío no duplica operación y el recibo minimizado abre comunicaci�
   await primera;
   assert.match(raiz.innerHTML, /<details data-ct-llamamiento-datos-registrados="seleccion"><summary>Consultar datos de la operación registrada<\/summary>/u);
   assert.match(raiz.innerHTML, /<\/form>\s*<\/details>[\s\S]*?data-ct-llamamiento-recibo="seleccion"/u);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.match(raiz.innerHTML, /No expone identidad/u); assert.equal(solicitudes[0].version_esperada, 6);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="seleccion"/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-comunicacion open/u); assert.doesNotMatch(raiz.innerHTML, /No expone identidad/u); assert.equal(solicitudes[0].version_esperada, 6);
 });
 
 test("respuesta perdida: recuperación usa petición congelada aunque cambien controles", async () => {
@@ -364,7 +364,7 @@ test("comunicación exige sus referencias y muestra registro, no envío de corre
   } });
   await raiz.enviar("seleccion", seleccion());
   await raiz.enviar("comunicacion", { clave_idempotencia: CLAVE });
-  assert.equal(solicitud.version_esperada, 1); assert.match(raiz.innerHTML, /Comunicación registrada/u); assert.match(raiz.innerHTML, /no acredita envío de correo real/u);
+  assert.equal(solicitud.version_esperada, 1); assert.doesNotMatch(raiz.innerHTML, /Comunicación registrada/u); assert.doesNotMatch(raiz.innerHTML, /no acredita envío de correo real/u);
 });
 
 test("desmontar cancela la espera y una respuesta tardía no repinta", async () => {

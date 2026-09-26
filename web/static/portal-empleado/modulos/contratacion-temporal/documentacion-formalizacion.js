@@ -83,11 +83,10 @@ export function crearPanelDocumentacionFormalizacion({
     return `<span class="estado-chip ${clase}">${e(texto)}</span>`;
   }
 
-  function procedencia(regla) {
-    return `<p class="ct-ayuda" data-ct-formalizacion-procedencia="${e(regla.clave)}">
-      ${chip(regla.ejemplo ? "violeta" : "neutro", t(regla.ejemplo ? "ct_formalizacion_regla_ejemplo" : "ct_formalizacion_regla_reglamento"))}
-      ${e(t("ct_formalizacion_procedencia", { norma: regla.norma, articulo: regla.articulo ?? "", referencia: regla.referencia }))}
-      ${regla.ejemplo ? ` · ${e(t("ct_formalizacion_duda", { duda: regla.duda }))}` : ""}</p>`;
+  // El origen de cada regla (Reglamento o ejemplo) se consulta en «Reglas vigentes»,
+  // no en la pantalla de trabajo.
+  function procedencia() {
+    return "";
   }
 
   function plazos() {
@@ -125,7 +124,7 @@ export function crearPanelDocumentacionFormalizacion({
       : anotacion ? chip("exito", t("ct_formalizacion_aportado")) : chip("", t("ct_formalizacion_pendiente"));
     let accion = "";
     if (anotacion) {
-      accion = `<code>${e(t("ct_formalizacion_anotacion_valor", { numero: anotacion.numero_vec, huella: anotacion.huella.slice(0, 12) }))}</code>`;
+      accion = e(t("ct_formalizacion_anotacion_valor", { numero: anotacion.numero_vec }));
     } else if (!documento.registrable) {
       accion = `<span class="ct-ayuda">${e(t("ct_formalizacion_no_registrable"))}</span>`;
     } else if (estado.anotados !== null) {

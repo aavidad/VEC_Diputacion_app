@@ -401,14 +401,13 @@ export function crearCoordinadorModulosPortal({
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
         obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
-        // Los nombres de centro y categoría se resuelven al pedirlo, con los
-        // catálogos de alta que hayan llegado.
+        // Número, centro y categoría se presentan al pedirlo, con los catálogos de alta que hayan llegado.
         obtenerTramitesInicio: () => {
           if (!listadoCuadro) return null;
-          const etiqueta = (lista, referencia) => (Array.isArray(lista)
-            ? lista.find((opcion) => opcion.referencia === referencia)?.etiqueta : undefined) ?? referencia;
+          const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
           return tramitesParaInicio(listadoCuadro).map((e) => ({
             ...e,
+            numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
             centro: etiqueta(alta?.catalogos?.centros, e.centro),
             categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
           }));

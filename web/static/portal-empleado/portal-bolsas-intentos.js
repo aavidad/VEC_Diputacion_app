@@ -3,7 +3,8 @@
 // servidor con el catálogo; aquí solo se muestran y se registran intentos.
 // La baja se propone con la operación de exclusión existente (B8).
 import { traducirIntentos as t } from "./portal-i18n-intentos.js?v=20260926-integracion-bolsa-ct-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const RESULTADOS_INTENTO = Object.freeze(["contactado", "no_contesta", "numero_erroneo"]);
@@ -107,12 +108,13 @@ export function renderizarIntentosContacto({ candidato, estado = {}, escaparHTML
   if (actual === "cargando") return envolver("", `<p class="vacio-controlado" role="status" aria-busy="true">${t("cargando")}</p>`);
   if (actual === "error") return envolver("", `<p class="mensaje-error" role="alert">${e(estado.error || t("error_carga"))}</p><button type="button" class="boton-secundario" data-intentos-accion="reintentar">${t("reintentar")}</button>`);
   const i = estado.datos;
-  const mensajes = `${estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado", { recibo: estado.recibo }))}</p>` : ""}<p class="mensaje-error" role="alert">${e(estado.errorOperacion || "")}</p>`;
+  const mensajes = `${estado.recibo ? `<p class="mensaje-exito" role="status">${e(t("registrado"))} ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}</p>` : ""}<p class="mensaje-error" role="alert">${e(estado.errorOperacion || "")}</p>`;
   if (!i.configurado) return envolver("", `<p class="vacio-controlado" role="status">${t("sin_catalogo")}</p>${mensajes}${formularios(e, { baja_propuesta: false }, candidato, estado)}`);
   const avisos = i.avisos.filter((a) => AVISOS.includes(a)).map((a) => `<span class="estado-chip aviso">${t(`aviso_${a}`)}</span>`).join(" ");
   const franja = i.franja ? `<div class="fila-resumen"><dt>${t("dato_franja")}</dt><dd>${e(i.franja.solo_dias_habiles ? t("franja_habiles", { valor: i.franja.valor }) : i.franja.valor)}</dd></div>` : "";
   const siguiente = !i.contactado && !i.baja_propuesta ? `<div class="fila-resumen"><dt>${t("dato_siguiente")}</dt><dd>${e(i.siguiente_permitido_desde ? instante(i.siguiente_permitido_desde) : t("sin_valor"))}</dd></div>` : "";
-  const reglas = i.reglas.map((r) => `<li><span class="estado-chip ${r.ejemplo ? "aviso" : "neutro"}">${t(r.ejemplo ? "regla_ejemplo" : "regla_reglamento")}</span> ${e(r.etiqueta)} <small><code>${e(r.referencia)}</code></small></li>`).join("");
+  // El origen de cada regla (Reglamento o ejemplo) se consulta en «Reglas vigentes».
+  const reglas = i.reglas.map((r) => `<li>${e(r.etiqueta)}</li>`).join("");
   const cuerpo = `${avisos ? `<p>${avisos}</p>` : ""}${i.completo ? "" : `<p class="mensaje-error" role="alert">${t("historico_incompleto")}</p>`}
     <dl class="resumen-expediente">
       <div class="fila-resumen"><dt>${t("dato_sin_contacto")}</dt><dd>${e(t("dato_valor_sin_contacto", { sin: i.sin_contacto, maximo: i.maximo }))}</dd></div>

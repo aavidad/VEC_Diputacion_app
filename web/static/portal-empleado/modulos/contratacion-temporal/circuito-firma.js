@@ -153,7 +153,6 @@ export function renderizarCircuitoFirma(circuito, t) {
   return `<section class="ct-circuito-firma" aria-labelledby="ct-circuito-firma-titulo" data-ct-circuito-firma>
     <header class="ct-circuito-cabecera">
       <h3 id="ct-circuito-firma-titulo">${escaparHTML(t("circuito_firma_titulo"))}</h3>
-      ${circuito.ejemplo ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_ejemplo"))}</span>` : ""}
       ${circuito.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
     <p class="ct-circuito-aviso" role="status" aria-live="polite" data-ct-firma-aviso></p>

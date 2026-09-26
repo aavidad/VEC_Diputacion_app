@@ -280,7 +280,7 @@ function huellaCorta(sha, e) {
 function formularioSancion(estado, e) {
   const f = estado.formulario || {};
   const opciones = (estado.datos?.consecuencias || []).map((c) => {
-    const detalle = [c.articulo, c.ejemplo ? t("regla_ejemplo") : ""].filter(Boolean).join(" · ");
+    const detalle = c.articulo || "";
     return `<option value="${e(c.clave)}" ${f.consecuencia === c.clave ? "selected" : ""}>${e(c.etiqueta)}${detalle ? ` (${e(detalle)})` : ""}</option>`;
   }).join("");
   const elegida = (estado.datos?.consecuencias || []).find((c) => c.clave === f.consecuencia);

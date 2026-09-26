@@ -76,7 +76,7 @@ test("la expiración no lleva justificante y su recibo exige plazo expirado e in
   assert.throws(() => validarReciboResolucionLlamamiento(sinIntencion, s), TypeError);
 });
 
-test("contacto efectivo muestra vencimiento, estado y regla de ejemplo; sin texto de ayuda", async () => {
+test("contacto efectivo muestra vencimiento y estado sin rotular la regla; sin texto de ayuda", async () => {
   const raiz = raizPrueba(), enviadas = [];
   const cerrar = await abrirPlazo(raiz, { registrarEventoPlazoLlamamiento: async (s) => { enviadas.push(s); return reciboEvento(s); } });
   assert.match(raiz.innerHTML, /data-ct-llamamiento-form="contacto"/u);
@@ -91,7 +91,7 @@ test("contacto efectivo muestra vencimiento, estado y regla de ejemplo; sin text
   assert.match(plazo, /datetime="2026-09-06T22:00:00Z"/u);
   assert.match(plazo, /data-ct-llamamiento-plazo-situacion="en_plazo"/u);
   assert.match(plazo, /En plazo/u);
-  assert.match(plazo, /Regla de ejemplo/u);
+  assert.doesNotMatch(plazo, /Regla de ejemplo/u);
   assert.doesNotMatch(plazo, /data-ct-llamamiento-propuesta-expiracion/u);
   assert.doesNotMatch(plazo, /class="ct-ayuda"|id="ct-llamamiento-contacto-ayuda"/u);
   assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="contacto"]');

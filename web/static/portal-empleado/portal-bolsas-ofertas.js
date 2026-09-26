@@ -199,7 +199,6 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   function filaOferta(o) {
     const d = o.datos;
     const fechas = `${escapar(fechaDia(d.fecha_inicio))} – ${d.fecha_fin ? escapar(fechaDia(d.fecha_fin)) : escapar(traducir("sin_fin"))}`;
-    const ejemplo = o.plazo.ejemplo ? ` <span class="estado-chip advertencia">${escapar(traducir("regla_ejemplo"))}</span>` : "";
     let propuesta = `<span class="dato-secundario">${escapar(traducir("en_plazo"))}</span>`;
     if (o.resolucion) {
       propuesta = o.resolucion.tipo === "adjudicada" ? escapar(traducir("resuelta_adjudicada", { orden: o.resolucion.orden_vigente })) : escapar(traducir("resuelta_directo"));
@@ -214,7 +213,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     const disposiciones = o.disposiciones.length === 0 ? "" : `<div class="lista-chips">${o.disposiciones.map((x) =>
       `<span class="estado-chip${Number.isSafeInteger(x.orden_vigente) ? " info" : ""}">${escapar(Number.isSafeInteger(x.orden_vigente) ? traducir("orden", { orden: x.orden_vigente }) : traducir("sin_turno"))}</span>`).join("")}</div>`;
     return `<tr data-oferta-ref="${escapar(o.oferta_ref)}"><td><strong>${escapar(d.categoria)}</strong><br><span class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</span></td>` +
-      `<td>${fechas}</td><td>${escapar(fechaHora(o.vence_antes_de))}${ejemplo}</td>` +
+      `<td>${fechas}</td><td>${escapar(fechaHora(o.vence_antes_de))}</td>` +
       `<td class="numero">${escapar(o.disposiciones_total)}${disposiciones}</td>` +
       `<td><span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></td><td>${propuesta}</td></tr>`;
   }

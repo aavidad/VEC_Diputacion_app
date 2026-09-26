@@ -96,7 +96,6 @@ function textoArticulo(procedencia) {
 export function textoProcedenciaReposicion(propuesta, ahora = new Date()) {
   if (!propuesta) return "";
   const partes = [t("propuesta", { meses: propuesta.meses, procedencia: textoArticulo(propuesta.procedencia) })];
-  if (propuesta.procedencia.ejemplo) partes.push(t("regla_ejemplo"));
   if (Date.parse(propuesta.fecha_disponible) <= ahora.getTime()) partes.push(t("propuesta_pasada"));
   return partes.join(" ");
 }

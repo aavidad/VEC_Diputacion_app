@@ -27,13 +27,13 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
   assert.match(renderizar(), /1\. Seleccionar bolsa/);
   flujo.paso = 2;
   const seleccion = renderizar();
-  assert.match(seleccion, /<details><summary aria-label="Ayuda sobre el límite de selección">\?<\/summary>/);
-  assert.doesNotMatch(seleccion, /<details open/);
+  // El límite de selección se explica en la ayuda «?», no en la pantalla.
+  assert.doesNotMatch(seleccion, /<details|<summary/);
   flujo.paso = 3;
   const configuracion = renderizar();
   assert.match(configuracion, /name="plazo" required minlength="2" maxlength="160" value=""/);
-  assert.match(configuracion, /no presupone un plazo legal/);
-  assert.match(configuracion, /El registro del llamamiento y su recibo no acreditan entrega/);
+  assert.doesNotMatch(configuracion, /no presupone un plazo legal|no acreditan entrega/);
+  assert.match(traducirPortal("ayuda_b7_configurar_limite"), /no presupone un plazo legal.*no acreditan la entrega/);
   assert.doesNotMatch(configuracion, /48 horas|relay de desarrollo|Recorrido real B7/);
   flujo.configuracion = { plazo: "Pendiente de definición por RRHH" };
   assert.match(renderizar(), /name="plazo" required minlength="2" maxlength="160" value=""/);
@@ -44,7 +44,10 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
   flujo.llamamiento_ref = "llamamiento:123";
   const confirmacion = renderizar();
   assert.match(confirmacion, /Permiso denegado/);
-  assert.match(confirmacion, /recibo:123/);
+  // El justificante se ofrece para copiar; la referencia no se muestra como texto.
+  assert.match(confirmacion, /Justificante registrado<\/span> <button[^>]+data-copiar-justificante="recibo:123"/);
+  assert.match(confirmacion, /Llamamiento emitido/);
+  assert.doesNotMatch(confirmacion, />llamamiento:123|<code>/);
   assert.match(confirmacion, /la entrega del correo debe comprobarse/);
   assert.doesNotMatch(confirmacion, /relay|PostgreSQL|Recorrido real B7/);
 });

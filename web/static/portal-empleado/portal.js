@@ -15,6 +15,7 @@ import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-pe
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-integracion-bolsa-ct-v1";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-integracion-bolsa-ct-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-sanciones-efectos-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-integracion-bolsa-ct-v1";
@@ -884,6 +885,7 @@ async function inicializar() {
   controladorBolsas.instalar();
   instalarEventosAvisosBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));
+  instalarCopiaJustificantes(document);
   instalarEventosBorradores(); instalarPaginacionMarco();
   void actualizarSesionVisible();
   // cargarFuenteDatos pinta el resultado: Inicio conservando el foco y una

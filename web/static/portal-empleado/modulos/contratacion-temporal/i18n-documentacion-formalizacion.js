@@ -33,7 +33,7 @@ export const MENSAJES_DOCUMENTACION_FORMALIZACION_ES = Object.freeze({
   ct_formalizacion_pendiente: "Pendiente",
   ct_formalizacion_aportado: "Aportado",
   ct_formalizacion_estado_no_consultado: "Sin consultar",
-  ct_formalizacion_anotacion_valor: "{numero} · SHA-256 {huella}",
+  ct_formalizacion_anotacion_valor: "Anotado con el n.º {numero}",
   ct_formalizacion_no_registrable: "Sin política de conservación: no puede anotarse",
   ct_formalizacion_documentos_no_disponibles: "No se pudo consultar qué documentos constan anotados; el estado se muestra como «Sin consultar».",
   ct_formalizacion_anotar: "Anotar",

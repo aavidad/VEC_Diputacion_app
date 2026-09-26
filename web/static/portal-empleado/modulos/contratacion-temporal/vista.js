@@ -1,5 +1,6 @@
 import { LIMITES_ALTA_CONTRATACION } from "./contrato.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -310,7 +311,6 @@ function camposDocumentos(estado, t, deshabilitado) {
       + `${atributoMarcado(estado.borrador.documentos_adjuntos.includes(documento.referencia))}`
       + `${deshabilitado ? " disabled" : ""}>
         <span>${escaparHTML(documento.etiqueta)}</span>
-        <code>${escaparHTML(documento.referencia)}</code>
       </label>`).join("")}</div>`;
   return `<fieldset class="ct-bloque" id="ct-documentos_adjuntos" tabindex="-1"
     ${atributosAccesibles(estado, "documentos_adjuntos")}>
@@ -378,8 +378,7 @@ function revision(estado, t, locale) {
   const documentos = borrador.documentos_adjuntos.length === 0
     ? `<p>${escaparHTML(t("resumen_sin_documentos"))}</p>`
     : `<ul>${borrador.documentos_adjuntos.map((referencia) => `<li>`
-      + `${escaparHTML(etiquetaReferencia(estado.catalogos.documentos, referencia))} `
-      + `<code>${escaparHTML(referencia)}</code></li>`).join("")}</ul>`;
+      + `${escaparHTML(etiquetaReferencia(estado.catalogos.documentos, referencia))}</li>`).join("")}</ul>`;
   const ocupado = estado.ocupado;
   const pendiente = estado.fase === "pendiente";
   return `${resumenErrores(estado, t)}
@@ -439,10 +438,9 @@ function recibo(estado, t, locale, zonaHoraria) {
     <h3 id="ct-recibo-titulo">${escaparHTML(t("recibo_titulo"))}</h3>
     <p>${escaparHTML(t("recibo_descripcion"))}</p>
     <dl>
-      ${filaResumen(t("recibo_expediente_ref"), dato.expediente_ref)}
       ${filaResumen(t("recibo_numero_visible"), dato.numero_visible)}
       ${filaResumen(t("recibo_version"), dato.version)}
-      ${filaResumen(t("recibo_ref"), dato.recibo_ref)}
+      <div><dt>${escaparHTML(t("recibo_ref"))}</dt><dd>${justificanteTraducido(dato.recibo_ref, escaparHTML, t)}</dd></div>
       ${filaResumen(t("recibo_fecha"), fecha)}
     </dl>
   </section>`;

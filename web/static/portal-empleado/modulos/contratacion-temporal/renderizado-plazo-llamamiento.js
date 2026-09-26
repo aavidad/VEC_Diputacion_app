@@ -96,8 +96,7 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
     partes.push(`<dl class="ct-llamamiento-plazo-resumen" data-ct-llamamiento-plazo-situacion="${situacion}">
       <div><dt>${e(t("llamamiento_plazo_vence"))}</dt><dd>${tiempoVisible(plazo.respuesta_hasta) || e(plazo.respuesta_hasta)}</dd></div>
       <div><dt>${e(t("llamamiento_plazo_ultimo_dia"))}</dt><dd>${e(plazo.ultimo_dia)}</dd></div>
-      <div><dt>${e(t("llamamiento_plazo_situacion"))}</dt><dd><span class="ct-insignia ct-insignia-plazo-${situacion}">${e(t("llamamiento_plazo_" + situacion))}</span>
-        ${plazo.regla_ejemplo ? `<span class="ct-insignia ct-insignia-ejemplo">${e(t("llamamiento_plazo_regla_ejemplo"))}</span>` : ""}</dd></div>
+      <div><dt>${e(t("llamamiento_plazo_situacion"))}</dt><dd><span class="ct-insignia ct-insignia-plazo-${situacion}">${e(t("llamamiento_plazo_" + situacion))}</span></dd></div>
       <div><dt>${e(t("llamamiento_plazo_tratamiento"))}</dt><dd>${e(t("llamamiento_plazo_tratamiento_" + plazo.tratamiento_fuera_de_plazo))}</dd></div>
     </dl>`);
     partes.push(recibo("contacto", [

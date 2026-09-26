@@ -319,8 +319,10 @@ func TestCatalogosAltaDesarrolloConFicheroRPTPublica(t *testing.T) {
 	if err != nil {
 		t.Fatalf("catalogosAlta con RPT fallo: %v", err)
 	}
-	if len(catalogos.Centros) != 41 {
-		t.Fatalf("esperados 41 centros de la RPT, obtenidos %d", len(catalogos.Centros))
+	// Los 41 centros de la RPT y, al final, el sintético de los expedientes anteriores.
+	if len(catalogos.Centros) != 42 || catalogos.Centros[41].Referencia != centroAltaContratacionTemporalDesarrollo ||
+		catalogos.Centros[41].Etiqueta != `RESIDENCIA DE MAYORES "SIERRA NEVADA"` {
+		t.Fatalf("esperados 41 centros de la RPT más el sintético, obtenidos %d", len(catalogos.Centros))
 	}
 	if len(catalogos.Categorias) != 6 {
 		t.Fatalf("esperadas 6 categorias sinteticas, obtenidas %d", len(catalogos.Categorias))
@@ -360,8 +362,8 @@ func TestCatalogosAltaDesarrolloConFicheroRPTPublica(t *testing.T) {
 	if obtenido := etiquetar("categoria:desarrollo:a2"); obtenido != "Técnico/a medio/a" {
 		t.Fatalf("etiqueta categoria:desarrollo:a2 esperada 'Técnico/a medio/a', obtenida %q", obtenido)
 	}
-	if obtenido := etiquetar(centroAltaContratacionTemporalDesarrollo); obtenido != "Centro solicitante" {
-		t.Fatalf("etiqueta centro:desarrollo:001 esperada 'Centro solicitante', obtenida %q", obtenido)
+	if obtenido := etiquetar(centroAltaContratacionTemporalDesarrollo); obtenido != `RESIDENCIA DE MAYORES "SIERRA NEVADA"` {
+		t.Fatalf("etiqueta del centro sintético inesperada: %q", obtenido)
 	}
 }
 
@@ -573,7 +575,7 @@ func TestCatalogoDesarrolloConRPTPublicaCategoriasReales(t *testing.T) {
 	if err != nil {
 		t.Fatalf("catálogo con RPT: %v", err)
 	}
-	if len(catalogo.Centros) != 41 || len(catalogo.Categorias) < 100 {
+	if len(catalogo.Centros) != 42 || len(catalogo.Categorias) < 100 {
 		t.Fatalf("esperados 41 centros y más de cien categorías de la RPT: %d, %d", len(catalogo.Centros), len(catalogo.Categorias))
 	}
 	var administrativo *categoriaCatalogosAltaContratacionTemporalDesarrollo

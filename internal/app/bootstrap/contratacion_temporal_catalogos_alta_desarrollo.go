@@ -200,6 +200,14 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 			})
 		}
 	}
+	// Como las categorías sintéticas, los centros de expedientes anteriores van
+	// al final para que muestren su nombre en cuadro, detalle y documentos. El
+	// nombre procede del paquete de ejemplo retirable, no del código.
+	anteriores, err := cargarCentrosAnterioresCT()
+	if err != nil {
+		return nil, err
+	}
+	centros = append(centros, anteriores...)
 	categorias := make([]categoriaCatalogosAltaContratacionTemporalDesarrollo, len(categoriasSinteticasDesarrollo))
 	copy(categorias, categoriasSinteticasDesarrollo)
 	if strings.TrimSpace(rutaRPT) != "" {
@@ -501,14 +509,14 @@ func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCata
 		if o == nil {
 			return ""
 		}
-		if referencia == centroAltaContratacionTemporalDesarrollo {
-			return "Centro solicitante"
-		}
 		if referencia == contactoAltaContratacionTemporalDesarrollo {
 			return "Contacto del centro"
 		}
 		catalogos, err := o.catalogosAlta()
 		if err != nil {
+			if referencia == centroAltaContratacionTemporalDesarrollo {
+				return "Centro solicitante"
+			}
 			if referencia == categoriaAltaContratacionTemporalDesarrollo {
 				return "Categoría C2"
 			}

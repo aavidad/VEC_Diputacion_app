@@ -2,6 +2,8 @@ import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposi
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const TIPOS_JUSTIFICANTE = Object.freeze(["solicitud_candidato", "informe_medico", "resolucion", "correo", "acta_bolsa", "otro"]);
@@ -61,14 +63,14 @@ export async function consultarOperacionesSituacion(bolsa, participacion, { fetc
 function errorHttp(status, codigoServidor = "") {
   const errores = {
     400: ["solicitud_invalida", "La solicitud no es válida. Revise los campos del formulario."],
-    403: ["acceso_denegado", "La sesión no dispone de permiso para registrar operaciones B8."],
-    404: ["recurso_no_encontrado", "Operación no disponible todavía: la ruta B8 aún no está desplegada."],
+    403: ["acceso_denegado", "La sesión no dispone de permiso para registrar estas operaciones."],
+    404: ["recurso_no_encontrado", "Operación no disponible todavía."],
     409: codigoServidor === "clave_reutilizada"
       ? ["clave_reutilizada", "La clave de idempotencia ya se usó con otros datos. Revise el historial antes de iniciar un intento nuevo."]
       : ["transicion_no_valida", "La operación no puede aplicarse a la situación vigente. Actualice la ficha y revise el historial."],
-    503: ["servicio_no_disponible", "El servicio B8 no está disponible ahora. Puede reintentar esta misma operación."],
+    503: ["servicio_no_disponible", "El servicio no está disponible ahora. Puede reintentar esta misma operación."],
   };
-  const [codigo, mensaje] = errores[status] || ["error_servidor", `No se pudo completar la operación B8 (HTTP ${status}).`];
+  const [codigo, mensaje] = errores[status] || ["error_servidor", `No se pudo completar la operación (HTTP ${status}).`];
   return { ok: false, status, codigo, mensaje };
 }
 
@@ -100,7 +102,7 @@ export async function registrarOperacionSituacion(bolsa, participacion, comando,
     if (respuesta.ok) return respuestaInvalida("La respuesta de la operación no contiene un recibo válido.");
     return errorHttp(respuesta.status, cuerpo?.error?.codigo);
   } catch (error) {
-    return { ok: false, status: 0, codigo: "error_red", mensaje: "No se pudo comunicar con B8. Puede reintentar esta misma operación." };
+    return { ok: false, status: 0, codigo: "error_red", mensaje: "No se pudo comunicar con el servicio. Puede reintentar esta misma operación." };
   }
 }
 
@@ -139,7 +141,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
   let contenido = "";
   if (actual === "cargando") contenido = '<p class="vacio-controlado" role="status" aria-busy="true">Cargando historial de operaciones…</p>';
   else if (actual === "error") contenido = `<p class="mensaje-error" role="alert">${escaparHTML(estado.error || "No se pudo consultar el historial.")}</p><button type="button" class="boton-secundario" data-b8-accion="reintentar">Reintentar historial</button>`;
-  else if (!estado.items?.length) contenido = '<p class="vacio-controlado" role="status">No hay operaciones B8 registradas.</p>';
+  else if (!estado.items?.length) contenido = '<p class="vacio-controlado" role="status">No hay operaciones registradas.</p>';
   else {
     const total = estado.items.length;
     const paginas = Math.max(1, Math.ceil(total / 6));
@@ -148,13 +150,13 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
     contenido = `<div class="tabla-contenedor"><table class="tabla-datos"><caption>Historial de operaciones</caption><thead><tr><th>Desde</th><th>Operación</th><th>Situación</th><th>Motivo</th><th>Justificante</th><th>Actor / validador</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(item.desde)}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(item.situacion)}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}<br><code>${escaparHTML(item.justificante.sha256)}</code></td><td>${escaparHTML(item.actor)} / ${escaparHTML(item.validador)}<br>${escaparHTML(item.validada_en)}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="Paginación del historial de operaciones"><span>Mostrando ${pagina * 6 + 1} a ${Math.min((pagina + 1) * 6, total)} de ${total}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>Siguiente</button></nav>` : `<p>Mostrando 1 a ${total} de ${total}</p>`}`;
   }
   const flujo = estado.paso > 0 ? renderizarPaso(estado, escaparHTML) : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>Operaciones B8</h4><p>Registrar pausa, reactivación o exclusión con justificante y validación.</p></div></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">Operación registrada. Recibo <code>${escaparHTML(estado.recibo)}</code>${estado.reutilizada ? " (respuesta recuperada)" : ""}.</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>Historial de operaciones</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>Pausa, reactivación y exclusión</h4></div></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">Operación registrada. ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? " (respuesta recuperada)" : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>Historial de operaciones</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 function renderizarPaso(estado, escaparHTML) {
   const datos = estado.formulario || {};
   const operacion = estado.operacion;
-  const exclusiones = operacion === "excluir" ? `<p class="nota-seguridad" role="note"><strong>La exclusión requiere una persona validadora distinta de quien la registra.</strong> Regla provisional, duda 6; confirme esta separación antes de continuar.</p><label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> Confirmo que el validador es otra persona.</label>` : "";
+  const exclusiones = operacion === "excluir" ? `<label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> Confirmo que el validador es otra persona.</label>` : "";
   const etapa = estado.paso;
   const causas = operacion === "excluir" ? estado.causasBaja || [] : [];
   const campos = etapa === 1 && causas.length

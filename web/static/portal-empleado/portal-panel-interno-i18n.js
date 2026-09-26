@@ -1,5 +1,8 @@
 /** Textos del panel interno de Bolsa y del nuevo llamamiento para el catálogo común. */
 export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
+  panel_justificante_registrado: "Justificante registrado",
+  panel_justificante_copiar: "Copiar referencia",
+  panel_justificante_copiado: "Referencia copiada",
   panel_pendiente_rrhh: "Pendiente de RRHH",
   panel_fuente_no_configurada_titulo: "Consulta no configurada",
   panel_fuente_no_configurada: "No hay una fuente autorizada de candidaturas para esta vista.",
@@ -85,7 +88,7 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
   panel_b7_orden_preferencia: ", en orden de prelación",
   panel_b7_canal_detalle: "Correo electrónico; el contacto telefónico se registra por separado.",
   panel_b7_plazo: "Plazo",
-  panel_b7_confirmar: "Confirmo la emisión para exactamente {cantidad} candidatos. El recibo acredita el registro; la entrega del correo debe comprobarse.",
+  panel_b7_confirmar: "Confirmo la emisión para exactamente {cantidad} candidatos. El justificante acredita el registro; la entrega del correo debe comprobarse.",
   panel_b7_resultado_incierto: "El resultado del registro es incierto. Puede haberse confirmado; reintente para recuperar el mismo recibo sin crear otro llamamiento.",
   panel_b7_enviando: "Enviando…",
   panel_b7_emitido: "Emitido",
@@ -94,7 +97,7 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
   panel_b7_revision_requerida: "Revise la configuración o actualice la selección antes de emitir otro llamamiento.",
   panel_b7_revisar_configuracion: "Revisar configuración",
   panel_b7_actualizar_seleccion: "Actualizar selección",
-  panel_b7_llamamiento_ref: "Llamamiento {referencia}",
+  panel_b7_llamamiento_emitido: "Llamamiento emitido",
   panel_b7_estado_emitido: "Estado: emitido, pendiente de respuesta.",
   panel_b7_recibo: "Recibo",
   panel_b7_abrir_historico: "Abrir Histórico",

@@ -156,8 +156,8 @@ test("siguiente exige renuncia, clave propia y confirmación; no modifica recibo
   await raiz.enviar("siguiente", { ...solicitudSiguiente, organizacion_ref: "org:ajena", expediente_ref: "exp:ajeno",
     resolucion_ref: "resolucion:ajena", intencion_ref: "intencion:ajena", actor_ref: "actor:inventado" });
   assert.deepEqual(solicitudes, [solicitudSiguiente]); assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /abrirá un único nuevo llamamiento después de la renuncia/u); assert.equal(confirmaciones.at(-1).referencia, EXPEDIENTE); assert.match(raiz.innerHTML, /Siguiente llamamiento abierto/u);
-  assert.match(raiz.innerHTML, /Recibo histórico de renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:06:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML.match(/<form data-ct-llamamiento-form="siguiente"[\s\S]*?<\/form>/u)[0], /type="submit"/u); assert.equal(JSON.stringify(renuncia), original);
-  for (const campo of ["llamamiento_anterior_ref", "llamamiento_ref", "recibo_bolsa_ref", "auditoria_ref", "intencion_ref"])
+  assert.doesNotMatch(raiz.innerHTML, /Recibo histórico de renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:06:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML.match(/<form data-ct-llamamiento-form="siguiente"[\s\S]*?<\/form>/u)[0], /type="submit"/u); assert.equal(JSON.stringify(renuncia), original);
+  for (const campo of ["llamamiento_anterior_ref", "llamamiento_ref", "recibo_bolsa_ref", "intencion_ref"])
     assert.ok(raiz.innerHTML.includes(continuacionConfirmada[campo])); assert.match(raiz.innerHTML, /id="ct-llamamiento-comunicacion-llamamiento_ref"[^>]*value="llamamiento:sintetico:001"/u);
   await raiz.enviar("siguiente", solicitudSiguiente); pulsarClave();
   assert.equal(solicitudes.length, 1); assert.equal(claves, 1); cerrar();
@@ -297,7 +297,7 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor 
   const anteriores = previos(), ids = [...raiz.innerHTML.matchAll(/\bid="([^"]+)"/gu)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length);
   assert.match(formulario(), /id="ct-llamamiento-respuesta_siguiente-correo"/u);
-  assert.match(formulario(), /aria-describedby="ct-llamamiento-respuesta_siguiente-correo-ayuda"/u);
+  assert.doesNotMatch(formulario(), /aria-describedby="ct-llamamiento-respuesta_siguiente-correo-ayuda"/u);
   assert.match(formulario(), /Fecha de recepción[^<]*UTC/u);
   assert.doesNotMatch(formulario(), /name="(?:tipo_antecedente|actor_ref|politica_ref|revision_plazo_rrhh)"/u);
   await raiz.enviar("respuesta_siguiente", { ...valores, correo_sha256: HUELLA });
@@ -431,7 +431,7 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
   for (const nombre of Object.keys(revisionManual)) {
     const control = formulario().match(new RegExp(`<input[^>]*name="${nombre}"[^>]*>`, "u"))[0];
     assert.match(control, /type="checkbox"/u); assert.doesNotMatch(control, /\schecked|\sdisabled/u);
-    assert.match(control, /aria-describedby="ct-llamamiento-resolucion_siguiente-ayuda"/u);
+    assert.doesNotMatch(control, /aria-describedby="ct-llamamiento-resolucion_siguiente-ayuda"/u);
   }
   const ids = [...raiz.innerHTML.matchAll(/\bid="([^"]+)"/gu)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length);
@@ -466,9 +466,9 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
   assert.doesNotMatch(resumen, /Registrar el aviso local del sucesor/u);
   if (respuesta === "renuncia") assert.match(resumen, /todavía no hay otra apertura disponible/u);
   if (respuesta === "renuncia") {
-    assert.match(resultado, /intencion:sucesor:003/u); assert.match(resultado, /No se ha seleccionado ni avisado a otra persona/u);
+    assert.doesNotMatch(resultado.replace(/data-copiar-justificante="[^"]*"/gu, ""), /intencion:sucesor:003/u); assert.doesNotMatch(resultado, /No se ha seleccionado ni avisado a otra persona/u);
     assert.doesNotMatch(resultado, /Recibo histórico de renuncia/u);
-  } else assert.doesNotMatch(resultado, /intencion:sucesor:003/u);
+  } else assert.doesNotMatch(resultado.replace(/data-copiar-justificante="[^"]*"/gu, ""), /intencion:sucesor:003/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="(?:propuesta_siguiente|siguiente_siguiente)"/u);
   if (respuesta === "renuncia") assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
   else assert.match(raiz.innerHTML, /Publicaciones de formalización no disponibles/u);

@@ -75,7 +75,7 @@ export function renderizarMarcadoresCorreo(flujo) {
     const marcador = `{${clave}}`;
     return `<button type="button" class="boton-secundario" data-b7-correo="insertar" data-marcador="${escapar(clave)}" aria-label="${escapar(tc("marcador_insertar", { marcador }))}">${escapar(marcador)}</button>`;
   }).join(" ");
-  return `<div class="campo-ancho acciones-fila" role="group" aria-label="${escapar(tc("marcadores_grupo"))}">${botones}</div>`;
+  return `<div class="campo-ancho acciones-fila marcadores-correo" role="group" aria-label="${escapar(tc("marcadores_grupo"))}">${botones}</div>`;
 }
 
 function resultadoVistaPrevia(vista) {
@@ -94,8 +94,8 @@ export function renderizarVistaPreviaCorreo(flujo, candidatos = []) {
   const elegida = flujo.vistaPrevia?.participacion || flujo.participaciones[0];
   const opciones = flujo.participaciones.map((ref, i) => `<option value="${escapar(ref)}" ${ref === elegida ? "selected" : ""}>${escapar(nombres.get(ref) || tc("vista_previa_persona", { numero: i + 1 }))}</option>`).join("");
   return `<section class="panel" aria-labelledby="b7-vista-previa-titulo"><div class="cabecera-panel"><h4 id="b7-vista-previa-titulo">${escapar(tc("vista_previa_titulo"))}</h4></div>`
-    + `<div class="cuerpo-panel"><label>${escapar(tc("vista_previa_destinatario"))} <select data-b7-correo="destinatario">${opciones}</select></label> `
-    + `<button type="button" class="boton-secundario" data-b7-correo="vista-previa">${escapar(tc("vista_previa_ver"))}</button>`
+    + `<div class="cuerpo-panel"><div class="fila-vista-previa"><label class="campo"><span>${escapar(tc("vista_previa_destinatario"))}</span><select data-b7-correo="destinatario">${opciones}</select></label>`
+    + `<button type="button" class="boton-secundario" data-b7-correo="vista-previa">${escapar(tc("vista_previa_ver"))}</button></div>`
     + `<div data-b7-vista-previa-resultado aria-live="polite">${resultadoVistaPrevia(flujo.vistaPrevia)}</div></div></section>`;
 }
 
