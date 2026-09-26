@@ -120,6 +120,10 @@ const (
 	// una modalidad concreta; «roles_confirman» lista los perfiles del
 	// centro que la confirman (duda 11).
 	CTAcreditacionIncorporacion = "c21.acreditacion_incorporacion"
+	// CTNoIncorporacion lista los motivos de no incorporación; por cada motivo
+	// «etiqueta_<motivo>» y «consecuencia_<motivo>» (entrada b24.sancion.* de
+	// Bolsa); «segunda_persona»=«si» exige que resuelva otra persona.
+	CTNoIncorporacion = "c22.no_incorporacion"
 )
 
 // Opciones del análisis de Contratación temporal que se consultan por

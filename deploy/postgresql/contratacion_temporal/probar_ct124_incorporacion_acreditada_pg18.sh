@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Ensayo de AD3-88 y CT124 (incorporación acreditada) en PostgreSQL 18.4
 # desechable sobre la estructura real restaurada de la principal (volcado con
-# datos sintéticos). Instala la cadena previa (AD3-82/83, CT113/115/116) si el
+# datos sintéticos). Instala la cadena previa (AD3-82/83, CT110-CT121) si el
 # volcado no la trae; comprueba precondiciones, ROLLBACK, UP, doble UP, DOWN
 # exacto (núcleo AD3, audiencias, origen de versión y las dos funciones del
 # cierre de CT115) y UP otra vez; recorre con dobles explícitos de las fachadas
@@ -65,7 +65,7 @@ docker exec -i "$nombre" pg_restore -U postgres -d postgres <"$volcado" >/dev/nu
 ad3=$repo/deploy/postgresql/autorizacion_atestada_v3/migraciones
 ct=$repo/deploy/postgresql/contratacion_temporal/migraciones
 pruebas=$repo/deploy/postgresql/contratacion_temporal/pruebas_sql
-echo '== Cadena previa: AD3-82/83, CT113/115/116 (si faltan)'
+echo '== Cadena previa: AD3-82/83, CT110/111/113/115/116/119/121 (si faltan)'
 if [[ $(escalar "SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_cese_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]]; then
   run <"$ad3/000082_consumidor_cese_cierre_contratacion_temporal.up.sql"
   run <"$ad3/000083_consumidor_modificacion_tras_nombramiento_ct.up.sql"
@@ -74,6 +74,11 @@ if [[ $(escalar "SELECT to_regclass('vec_contratacion_temporal.cese_nombramiento
   run <"$ct/000113_publicacion_contratos_bolsa.up.sql"
   run <"$ct/000115_cese_y_cierre_expediente.up.sql"
   run <"$ct/000116_modificacion_tras_nombramiento.up.sql"
+fi
+if [[ $(escalar "SELECT to_regprocedure('vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]]; then
+  for m in 000110_fase_desde_cuadro_rrhh 000111_plazo_respuesta_llamamiento 000119_continuacion_tras_expiracion 000121_sucesor_tras_expiracion; do
+    run <"$ct/$m.up.sql"
+  done
 fi
 
 nucleo="SELECT md5(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))||md5(pg_get_constraintdef(c.oid)) FROM pg_constraint c WHERE c.conname='clave_capacidad_version_audiencia_consumo_check'"

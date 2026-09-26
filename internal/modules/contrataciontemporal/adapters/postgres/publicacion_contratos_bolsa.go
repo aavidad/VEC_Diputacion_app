@@ -12,7 +12,10 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-var _ ports.LectorPublicacionContratosBolsa = (*LectorPublicacionContratosBolsaPostgreSQL)(nil)
+var (
+	_ ports.LectorPublicacionContratosBolsa         = (*LectorPublicacionContratosBolsaPostgreSQL)(nil)
+	_ ports.LectorPublicacionNoIncorporacionesBolsa = (*LectorPublicacionContratosBolsaPostgreSQL)(nil)
+)
 
 // LectorPublicacionContratosBolsaPostgreSQL lee CT113 con el rol ejecutor de
 // CT. No escribe: la historia y el outbox ya los escribió CT75.
@@ -28,6 +31,16 @@ func NuevoLectorPublicacionContratosBolsaPostgreSQL(pool *pgxpool.Pool) (*Lector
 }
 
 func (l *LectorPublicacionContratosBolsaPostgreSQL) LeerContratosBolsa(ctx context.Context, desde ports.CursorPublicacionContratosBolsa, limite int) ([]ports.EventoContratoBolsaPublicado, error) {
+	return l.leer(ctx, `SELECT evento_ref, evento::text, huella_sha256, origen_ref, origen_posicion, origen_creada_en FROM vec_contratacion_temporal.leer_contratos_bolsa_v1($1,$2,$3)`, desde, limite)
+}
+
+// LeerNoIncorporacionesBolsa lee la publicación de no incorporaciones de
+// CT124 con la misma marca de agua, cursor y cotejo de huella.
+func (l *LectorPublicacionContratosBolsaPostgreSQL) LeerNoIncorporacionesBolsa(ctx context.Context, desde ports.CursorPublicacionContratosBolsa, limite int) ([]ports.EventoContratoBolsaPublicado, error) {
+	return l.leer(ctx, `SELECT evento_ref, evento::text, huella_sha256, origen_ref, origen_posicion, origen_creada_en FROM vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1($1,$2,$3)`, desde, limite)
+}
+
+func (l *LectorPublicacionContratosBolsaPostgreSQL) leer(ctx context.Context, consulta string, desde ports.CursorPublicacionContratosBolsa, limite int) ([]ports.EventoContratoBolsaPublicado, error) {
 	if l == nil || l.pool == nil || ctx == nil || limite < 1 || limite > ports.LimiteLecturaContratosBolsa ||
 		desde.Posicion < 0 || (desde.Vacio() && desde.Posicion != 0) || len(desde.OrigenRef) > 512 {
 		return nil, ports.ErrPublicacionContratosBolsaNoDisponible
@@ -43,7 +56,7 @@ func (l *LectorPublicacionContratosBolsaPostgreSQL) LeerContratosBolsa(ctx conte
 		return nil, fmt.Errorf("%w: %w", ports.ErrPublicacionContratosBolsaNoDisponible, err)
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT evento_ref, evento::text, huella_sha256, origen_ref, origen_posicion, origen_creada_en FROM vec_contratacion_temporal.leer_contratos_bolsa_v1($1,$2,$3)`, desdePosicion, desdeRef, limite)
+	filas, err := tx.Query(ctx, consulta, desdePosicion, desdeRef, limite)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ports.ErrPublicacionContratosBolsaNoDisponible, err)
 	}

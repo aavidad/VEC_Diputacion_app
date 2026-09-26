@@ -116,7 +116,7 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			CTPrefijoEntradaRC + "sintetica_001", CTUrgencia, CTNumeracion,
 			CTPrefijoViaCobertura + "bolsa_vigente", CTPrefijoViaCobertura + "oferta_sae",
 			CTPrefijoViaCobertura + "nueva_convocatoria_bolsa", CTFiscalizacionResultados,
-			CTCancelacionExpediente, CTAcreditacionIncorporacion,
+			CTCancelacionExpediente, CTAcreditacionIncorporacion, CTNoIncorporacion,
 		}},
 	}
 	for _, caso := range casos {

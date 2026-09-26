@@ -487,6 +487,27 @@
           "roles_confirman": "solicitante_centro,ratificador_centro"
         },
         "orden": 30
+      },
+      {
+        "clave": "c22.no_incorporacion",
+        "etiqueta": "No incorporación",
+        "descripcion": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Reglamento de bolsas de la Diputación de Granada, art. 11.1.a (no presentarse en el día y lugar indicados o no aportar la documentación).",
+          "duda": "Duda 12.",
+          "unidad": "lista",
+          "valor": "no_presentado,no_aporta_documentacion,renuncia_antes_incorporacion",
+          "etiqueta_no_presentado": "No se presenta el día y en el lugar indicados",
+          "etiqueta_no_aporta_documentacion": "No aporta la documentación exigida",
+          "etiqueta_renuncia_antes_incorporacion": "Renuncia antes de incorporarse",
+          "consecuencia_no_presentado": "b24.sancion.baja_llamamiento_directo",
+          "consecuencia_no_aporta_documentacion": "b24.sancion.baja_llamamiento_directo",
+          "consecuencia_renuncia_antes_incorporacion": "b24.sancion.baja_llamamiento_directo",
+          "segunda_persona": "si"
+        },
+        "orden": 31
       }
     ],
     "estado": "publicado",

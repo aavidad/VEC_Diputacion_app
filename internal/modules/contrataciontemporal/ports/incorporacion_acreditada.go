@@ -69,10 +69,12 @@ type EstadoConfirmacionCentro struct {
 	RegistradaEn       time.Time
 }
 
-// EstadoIncorporacionAcreditada reúne ambas confirmaciones, si constan.
+// EstadoIncorporacionAcreditada reúne ambas confirmaciones y la no
+// incorporación, si constan.
 type EstadoIncorporacionAcreditada struct {
-	GINPIX *EstadoGINPIXConfirmado
-	Centro *EstadoConfirmacionCentro
+	GINPIX          *EstadoGINPIXConfirmado
+	Centro          *EstadoConfirmacionCentro
+	NoIncorporacion *EstadoNoIncorporacion
 }
 
 // Valido acota formato y tamaño antes de publicar la lectura.
@@ -90,7 +92,7 @@ func (e EstadoIncorporacionAcreditada) Valido() bool {
 			return false
 		}
 	}
-	return true
+	return e.NoIncorporacion == nil || e.NoIncorporacion.Valido()
 }
 
 func fechaCivilTextoValida(valor string) bool {

@@ -32,7 +32,7 @@
 1164 deploy/postgresql/contratacion_temporal/migraciones/000115_cese_y_cierre_expediente.up.sql
 1126 deploy/postgresql/contratacion_temporal/migraciones/000120_fiscalizacion_tras_modificacion.up.sql
 1076 deploy/postgresql/contratacion_temporal/migraciones/000123_informe_nuevo_tras_subsanacion.up.sql
-860 deploy/postgresql/contratacion_temporal/migraciones/000124_incorporacion_acreditada.up.sql
+1478 deploy/postgresql/contratacion_temporal/migraciones/000124_incorporacion_acreditada.up.sql
 1525 deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.up.sql
 1059 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
@@ -43,7 +43,7 @@
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go
 849 internal/modules/bolsa/adapters/postgres/baremacion.go
 1525 internal/modules/bolsa/domain/baremacion.go
-1162 internal/modules/bolsa/domain/llamamientos.go
+1168 internal/modules/bolsa/domain/llamamientos.go
 959 internal/modules/bolsa/domain/llamamientos_test.go
 2055 internal/modules/bolsa/ports/baremacion.go
 2043 internal/modules/bolsa/ports/baremacion_test.go

@@ -48,6 +48,8 @@ func operacionesSeguimientoCeseDesarrollo() []operacionSeguimientoCeseDesarrollo
 		// Confirmación de GINPIX (CT124): solo se monta con la incorporación
 		// acreditada encendida; sin ella la ruta no existe.
 		{httpinterno.RutaConfirmacionesGINPIX, "ct-ginpix-confirmar", string(domain.AccionConfirmarGINPIX), ports.TipoRecursoConfirmacionGINPIX, ports.FinalidadConfirmarGINPIX, ports.AudienciaConsumoConfirmacionGINPIXV1, true},
+		// No incorporación (CT124): mismo selector que la anterior.
+		{httpinterno.RutaNoIncorporaciones, "ct-no-incorporacion-registrar", string(domain.AccionRegistrarNoIncorporacion), ports.TipoRecursoNoIncorporacion, ports.FinalidadRegistrarNoIncorporacion, ports.AudienciaConsumoNoIncorporacionV1, true},
 	}
 }
 
@@ -440,7 +442,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		if err := comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx, alta.postgresql.ejecucion); err != nil {
 			return fallar("migraciones_incorporacion_acreditada", err)
 		}
-		descriptores = append(descriptores, descriptorMaterialConfirmacionGINPIXDesarrollo())
+		descriptores = append(descriptores, descriptorMaterialConfirmacionGINPIXDesarrollo(), descriptorMaterialNoIncorporacionDesarrollo())
 	}
 	for _, d := range descriptores {
 		p, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, alta.postgresql.catalogoMaterial, d.Audiencia)
@@ -450,7 +452,8 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		autoridad.proveedores[d.Audiencia] = p
 	}
 	var llaveros []seguridadct.ConfiguracionLlaverosSeguimiento
-	for _, operacion := range []string{ports.OperacionRegistrarCese, ports.OperacionCerrarExpediente, ports.OperacionModificarTrasNombramiento, ports.OperacionConfirmarGINPIX} {
+	for _, operacion := range []string{ports.OperacionRegistrarCese, ports.OperacionCerrarExpediente, ports.OperacionModificarTrasNombramiento, ports.OperacionConfirmarGINPIX,
+		ports.OperacionRegistrarNoIncorporacion} {
 		dominioAmbito, dominioHuella, _ := ports.DominiosHMACOperacionSeguimiento(operacion)
 		aa, ra, err := configuracionesHMACAltaContratacionTemporalDesarrollo(derivador, dominioAmbito, true)
 		if err != nil {
@@ -476,7 +479,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		Autorizador: autoridad, Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(),
 		Coste: calculadorCosteModificacionDesarrollo{retribuciones: dependencias.retribucionesCT}, Lector: repositorio, Reloj: reloj}
 	if acreditada {
-		dependenciasServicio.GINPIX, dependenciasServicio.Acreditada = fuente, repositorio
+		dependenciasServicio.GINPIX, dependenciasServicio.Acreditada, dependenciasServicio.NoIncorporacion = fuente, repositorio, fuente
 	}
 	servicio, err := application.NuevoServicioOperacionesSeguimiento(dependenciasServicio)
 	if err != nil {
@@ -488,7 +491,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	}
 	rutas := make([]vechttp.RutaExacta, 0, len(manejadores))
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
-		if o.ruta == httpinterno.RutaConfirmacionesGINPIX && !acreditada {
+		if (o.ruta == httpinterno.RutaConfirmacionesGINPIX || o.ruta == httpinterno.RutaNoIncorporaciones) && !acreditada {
 			continue
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: o.ruta, Manejador: manejadores[o.ruta]})

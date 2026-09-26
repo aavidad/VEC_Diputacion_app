@@ -5,7 +5,9 @@
 --  * confirmación de GINPIX por RRHH: perfil y audiencia propios;
 --  * confirmación de la incorporación por el centro y su bandeja: perfil
 --    propio con la audiencia del material de las peticiones de centro (la
---    misma que usa AD3-23), sin audiencia nueva.
+--    misma que usa AD3-23), sin audiencia nueva;
+--  * no incorporación registrada por RRHH (duda 12): perfil y audiencia
+--    propios; la baja en Bolsa la aplica la bandeja de Bolsa (000042).
 -- Se instala en serie con cualquier otra reescritura del núcleo: toma el
 -- cerrojo común antes de leer su preimagen. Sin DOWN tras historia.
 BEGIN;
@@ -43,11 +45,23 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
+           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'no_incorporacion_ct'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_contratacion_temporal.no_incorporacion.v1'
+ AND c->>'operacion' IS NOT DISTINCT FROM 'contratacion_temporal.incorporacion.no_incorporacion'
+ AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'contratacion_temporal'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'no_incorporacion_contratacion_temporal'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'registrar_no_incorporacion_contratacion_temporal'
+ AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_incorporacion_centro_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_contratacion_temporal_propietario'
                    AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolbypassrls)
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_contratacion_temporal_ejecutor' AND NOT rolbypassrls)
@@ -67,6 +81,7 @@ BEGIN
     OR strpos(original,'vec_contratacion_temporal_ejecutor')=0
     OR strpos(original,'confirmacion_ginpix_ct')<>0
     OR strpos(original,'incorporacion_centro_ct')<>0
+    OR strpos(original,'no_incorporacion_ct')<>0
  THEN RAISE EXCEPTION 'AD3-88: núcleo incompatible' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,marca,extension||marca);
  EXECUTE nuevo;
@@ -85,7 +100,7 @@ END $nucleo$;
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 DO $audiencias$
 DECLARE d text; nueva text; audiencia text;
- lista text[]:=ARRAY['vec_contratacion_temporal.confirmacion_ginpix.v1'];
+ lista text[]:=ARRAY['vec_contratacion_temporal.confirmacion_ginpix.v1','vec_contratacion_temporal.no_incorporacion.v1'];
 BEGIN
  SELECT regexp_replace(pg_get_constraintdef(c.oid,true),'\s+',' ','g') INTO STRICT d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
@@ -155,12 +170,38 @@ BEGIN
  RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
 END $f$;
 
+-- No incorporación: el recurso es el expediente nombrado sin incorporación.
+CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE c jsonb; d jsonb; x record;
+BEGIN
+ BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-88: material de no incorporación inválido' USING ERRCODE='22023'; END;
+ IF c->>'operacion' IS DISTINCT FROM 'contratacion_temporal.incorporacion.no_incorporacion'
+    OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_contratacion_temporal.no_incorporacion.v1'
+    OR d->>'accion' IS DISTINCT FROM c->>'operacion'
+    OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'no_incorporacion_contratacion_temporal'
+    OR d->>'finalidad' IS DISTINCT FROM 'registrar_no_incorporacion_contratacion_temporal'
+    OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+ THEN RAISE EXCEPTION 'AD3-88: no incorporación denegada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
+  'no_incorporacion_ct',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF x.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'AD3-88: la no incorporación requiere consumo nuevo' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
+END $f$;
+
 DO $acl$
 DECLARE f regprocedure; x record; permitido oid:='vec_contratacion_temporal_propietario'::regrole::oid;
 BEGIN
  FOREACH f IN ARRAY ARRAY[
   'vec_autorizacion_atestada_v3.registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-  'vec_autorizacion_atestada_v3.registrar_y_consumir_incorporacion_centro_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
+  'vec_autorizacion_atestada_v3.registrar_y_consumir_incorporacion_centro_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+  'vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
   -- También las ACL por defecto: ningún rol conserva acceso por haber sido
   -- destinatario predeterminado del propietario.
   FOR x IN SELECT DISTINCT a.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a

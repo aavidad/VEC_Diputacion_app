@@ -86,7 +86,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 	if a.ValidarPara(s) != nil || !politicaAntecedenteContinuacionDesarrolloValida(a.Resolucion) {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
-	l := continuacionLigadaDesarrollo{solicitud: s, antecedente: a, soloRecuperacion: expediente.VersionActual > 6}
+	l := continuacionLigadaDesarrollo{solicitud: s, antecedente: a, soloRecuperacion: soloRecuperacionContinuacionDesarrollo(a, expediente.VersionActual)}
 	if a.EsExpiracion() {
 		// Sin respuesta no hay justificante: la selección original la devolvió
 		// CT119 tras consumir el permiso de continuación.
@@ -139,6 +139,17 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 	return r, nil
 }
 
+// soloRecuperacionContinuacionDesarrollo: tras una renuncia o una expiración
+// el expediente sigue fiscalizado en la versión 6 y la propuesta del sucesor
+// lo lleva a la 7; tras una no incorporación (CT124) sigue en la versión que
+// ésta dejó. Por encima solo se recupera una apertura existente.
+func soloRecuperacionContinuacionDesarrollo(a ports.AntecedenteContinuacionLlamamiento, versionActual uint64) bool {
+	if a.EsNoIncorporacion() {
+		return versionActual > a.NoIncorporacion.VersionResultante
+	}
+	return versionActual > 6
+}
+
 func operacionSiguienteDesarrollo(s ports.SolicitudContinuarLlamamiento) string {
 	return referenciaPuenteLlamamientoDesarrollo("operacion-siguiente-rrhh", s.OrganizacionRef, s.ExpedienteRef, s.IntencionRef)
 }
@@ -151,8 +162,9 @@ func intencionSiguienteBolsaDesarrollo(s ports.SolicitudContinuarLlamamiento) st
 	return referenciaPuenteLlamamientoDesarrollo("intencion-siguiente-bolsa", s.OrganizacionRef, s.ExpedienteRef, s.ResolucionRef, s.IntencionRef)
 }
 
-// El terminal Bolsa de la renuncia lo crea la resolución; el de la expiración
-// («sin respuesta») lo crea la propia continuación, con referencia propia.
+// El terminal Bolsa de la renuncia (o de la aceptación, tras una no
+// incorporación) lo crea la resolución; el de la expiración («sin
+// respuesta») lo crea la propia continuación, con referencia propia.
 func terminalContinuacionDesarrollo(l continuacionLigadaDesarrollo) string {
 	if l.antecedente.EsExpiracion() {
 		s := l.antecedente.Resolucion.Solicitud
@@ -205,6 +217,12 @@ func (p *puenteBolsaLlamamientoDesarrollo) AbrirSiguienteRRHH(ctx context.Contex
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
 	terminalRef, tipoTerminal := terminalContinuacionDesarrollo(l), "renuncia_rrhh"
+	if l.antecedente.EsNoIncorporacion() {
+		// Aceptación seguida de no incorporación: el terminal es la
+		// aceptación, que Bolsa admite como antecedente tras recibir la no
+		// incorporación en su bandeja (Bolsa 000042).
+		tipoTerminal = "aceptacion_rrhh"
+	}
 	esperado := puertosbolsa.ResolucionLlamamientoDesarrollo{AperturaOperacionRef: l.seleccion.OperacionRef,
 		JustificanteRef: a.Solicitud.PruebaRespuestaRef, EvaluacionPlazoRef: a.EvaluacionPlazoRef,
 		PoliticaRef: a.Politica.Referencia, PoliticaVersion: a.Politica.Version, PoliticaSHA256: a.Politica.HuellaSHA256, VersionEsperada: 1}

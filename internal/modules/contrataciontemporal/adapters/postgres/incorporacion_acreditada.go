@@ -15,7 +15,7 @@ const esquemaIncorporacionAcreditadaSQL = "vec.contratacion-temporal.incorporaci
 var _ ports.LectorIncorporacionAcreditada = (*RepositorioOperacionSeguimientoPostgreSQL)(nil)
 
 // ConsultarIncorporacionAcreditada lee las confirmaciones de GINPIX y del
-// centro (CT124). La composición solo la invoca tras acreditar la lectura del
+// centro y la no incorporación (CT124). La composición solo la invoca tras acreditar la lectura del
 // detalle del mismo expediente, o dentro del cierre ya autorizado.
 func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcreditada(ctx context.Context, org, exp string) (ports.EstadoIncorporacionAcreditada, error) {
 	var vacio ports.EstadoIncorporacionAcreditada
@@ -41,6 +41,15 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcredi
 			DocumentoSHA256    string `json:"documento_sha256"`
 			Recibo             recibo `json:"recibo"`
 		} `json:"centro"`
+		NoIncorporacion *struct {
+			MotivoClave       string `json:"motivo_clave"`
+			ConsecuenciaClave string `json:"consecuencia_clave"`
+			ResolucionRef     string `json:"resolucion_ref"`
+			ResolucionSHA256  string `json:"resolucion_sha256"`
+			ResueltaPor       string `json:"resuelta_por"`
+			FechaNotificacion string `json:"fecha_notificacion"`
+			Recibo            recibo `json:"recibo"`
+		} `json:"no_incorporacion"`
 	}
 	err := r.ejecutar(ctx, true, func(tx pgx.Tx) error {
 		var contenido []byte
@@ -64,6 +73,11 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ConsultarIncorporacionAcredi
 	if c := salida.Centro; c != nil {
 		estado.Centro = &ports.EstadoConfirmacionCentro{FechaIncorporacion: c.FechaIncorporacion, DocumentoTipo: c.DocumentoTipo,
 			DocumentoRef: c.DocumentoRef, DocumentoSHA256: c.DocumentoSHA256, ReciboRef: c.Recibo.ReciboRef, RegistradaEn: c.Recibo.RegistradaEn.UTC()}
+	}
+	if n := salida.NoIncorporacion; n != nil {
+		estado.NoIncorporacion = &ports.EstadoNoIncorporacion{MotivoClave: n.MotivoClave, ConsecuenciaClave: n.ConsecuenciaClave,
+			ResolucionRef: n.ResolucionRef, ResolucionSHA256: n.ResolucionSHA256, ResueltaPor: n.ResueltaPor,
+			FechaNotificacion: n.FechaNotificacion, ReciboRef: n.Recibo.ReciboRef, RegistradaEn: n.Recibo.RegistradaEn.UTC()}
 	}
 	if !estado.Valido() {
 		return vacio, ports.ErrResultadoSeguimientoNoConfiable

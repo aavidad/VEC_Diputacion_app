@@ -69,6 +69,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-nombramiento-modificar", string(ctdomain.AccionModificarTrasNombramiento), cthttp.RutaModificacionesNombramiento},
 		{"ct-seguimiento-cese-consultar", accionConsultarSeguimientoCeseDesarrollo, cthttp.RutaSeguimientoCese},
 		{"ct-ginpix-confirmar", string(ctdomain.AccionConfirmarGINPIX), cthttp.RutaConfirmacionesGINPIX},
+		{"ct-no-incorporacion-registrar", string(ctdomain.AccionRegistrarNoIncorporacion), cthttp.RutaNoIncorporaciones},
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
 	}
