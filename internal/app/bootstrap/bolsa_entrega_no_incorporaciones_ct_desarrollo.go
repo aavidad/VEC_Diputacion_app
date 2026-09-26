@@ -193,7 +193,7 @@ func abrirPoolRelevoNoIncorporacionesDesarrollo(ctx context.Context, dsn string)
 	configuracion, err := pgxpool.ParseConfig(dsn)
 	if err != nil || configuracion == nil || configuracion.ConnConfig == nil ||
 		validarTLSPostgreSQLBorradores(&configuracion.ConnConfig.Config, true) != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	configuracion.MaxConns, configuracion.MinConns = 2, 0
 	configuracion.ConnConfig.ConnectTimeout = 5 * time.Second
@@ -209,13 +209,13 @@ func abrirPoolRelevoNoIncorporacionesDesarrollo(ctx context.Context, dsn string)
 	parametros["idle_in_transaction_session_timeout"] = "20s"
 	configuracion.AfterConnect = func(ctx context.Context, conexion *pgx.Conn) error {
 		if conexion == nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
 		return comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx, conexion)
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	if err := comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx, pool); err != nil {
 		pool.Close()
@@ -228,7 +228,7 @@ func comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx context.Context, co
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) error {
 	if ctx == nil || consultador == nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	var valido bool
 	err := consultador.QueryRow(ctx, `
@@ -247,7 +247,7 @@ func comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx context.Context, co
 		 CROSS JOIN pg_catalog.pg_roles AS grupo
 		 WHERE identidad.rolname = session_user AND grupo.oid = $1::regrole`, rolRelevoNoIncorporacionBolsaDesarrollo).Scan(&valido)
 	if err != nil || !valido {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }

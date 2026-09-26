@@ -730,7 +730,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		firmaDocumento:                           firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
-		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
 		cerrarBorrador()

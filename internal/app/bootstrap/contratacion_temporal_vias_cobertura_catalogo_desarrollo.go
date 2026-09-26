@@ -199,7 +199,7 @@ func nuevoGobiernoCoberturaParaViasCT(
 	version uint64,
 ) (gobiernoCoberturaDeseadoCT, error) {
 	if soporte == nil || !viasCoberturaCoherentesCT(vias) {
-		return gobiernoCoberturaDeseadoCT{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return gobiernoCoberturaDeseadoCT{}, falloPostgreSQLCTDesarrollo(nil)
 	}
 	publicadaEn := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	vigencia := domain.VigenciaCatalogoCobertura{
@@ -234,7 +234,7 @@ func nuevoGobiernoCoberturaParaViasCT(
 		Vias:           definiciones,
 	})
 	if err != nil {
-		return gobiernoCoberturaDeseadoCT{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return gobiernoCoberturaDeseadoCT{}, falloPostgreSQLCTDesarrollo(err)
 	}
 	politica, err := domain.PublicarPoliticaDecisionCobertura(domain.BorradorPoliticaDecisionCobertura{
 		Referencia: "politica:ct:desarrollo:cobertura:" + sufijo, Version: version,
@@ -245,7 +245,7 @@ func nuevoGobiernoCoberturaParaViasCT(
 		Vias:           reglasVias,
 	}, catalogo)
 	if err != nil {
-		return gobiernoCoberturaDeseadoCT{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return gobiernoCoberturaDeseadoCT{}, falloPostgreSQLCTDesarrollo(err)
 	}
 	deseado := gobiernoCoberturaDeseadoCT{catalogo: catalogo.Publicacion(), politica: politica.Publicacion()}
 	for _, configuracion := range []struct {
@@ -268,7 +268,7 @@ func nuevoGobiernoCoberturaParaViasCT(
 		}
 		actuacion.HuellaSHA256, err = cobertura.CalcularHuellaSHA256PoliticaActuacionCobertura(actuacion)
 		if err != nil || actuacion.Validar() != nil {
-			return gobiernoCoberturaDeseadoCT{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return gobiernoCoberturaDeseadoCT{}, falloPostgreSQLCTDesarrollo(err)
 		}
 		deseado.actuaciones = append(deseado.actuaciones, actuacion)
 	}

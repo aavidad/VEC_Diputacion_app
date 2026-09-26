@@ -27,7 +27,7 @@ func nuevasPublicacionesGobiernoCoberturaDesarrollo(
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) ([]publicacionGobiernoCoberturaDesarrollo, error) {
 	if soporte == nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	publicadaEn := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	vigencia := domain.VigenciaCatalogoCobertura{
@@ -58,7 +58,7 @@ func nuevasPublicacionesGobiernoCoberturaDesarrollo(
 		},
 	)
 	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	politica, err := domain.PublicarPoliticaDecisionCobertura(
 		domain.BorradorPoliticaDecisionCobertura{
@@ -84,7 +84,7 @@ func nuevasPublicacionesGobiernoCoberturaDesarrollo(
 		catalogo,
 	)
 	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	acciones := []struct {
 		accion     domain.ClaveCatalogo
@@ -126,7 +126,7 @@ func nuevasPublicacionesGobiernoCoberturaDesarrollo(
 		actuacion.HuellaSHA256, err =
 			cobertura.CalcularHuellaSHA256PoliticaActuacionCobertura(actuacion)
 		if err != nil || actuacion.Validar() != nil {
-			return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return nil, falloPostgreSQLCTDesarrollo(err)
 		}
 		publicaciones = append(publicaciones, publicacionGobiernoCoberturaDesarrollo{
 			Esquema:   esquemaGobiernoCoberturaDesarrollo,
@@ -163,7 +163,7 @@ func publicarGobiernoCoberturaPostgreSQLContratacionTemporalDesarrollo(
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
 	if ctx == nil || pool == nil || soporte == nil || ctx.Err() != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	publicaciones, err := nuevasPublicacionesGobiernoCoberturaDesarrollo(soporte)
 	if err != nil {
@@ -172,7 +172,7 @@ func publicarGobiernoCoberturaPostgreSQLContratacionTemporalDesarrollo(
 	for _, publicacion := range publicaciones {
 		resultado, err := publicarUnaGobiernoCoberturaDesarrollo(ctx, pool, publicacion)
 		if err != nil || (resultado != "publicada" && resultado != "repetida") {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 	}
 	return nil
@@ -188,7 +188,7 @@ func publicarUnaGobiernoCoberturaDesarrollo(
 ) (string, error) {
 	carga, err := json.Marshal(publicacion)
 	if err != nil {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(err)
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel:   pgx.Serializable,
@@ -217,7 +217,7 @@ func publicarUnaGobiernoCoberturaDesarrollo(
 	}
 	if evento != publicacion.EventoRef || len(huella) != 64 ||
 		(resultado != "publicada" && resultado != "repetida") {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(nil)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return "", err

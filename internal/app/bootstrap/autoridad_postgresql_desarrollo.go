@@ -97,36 +97,36 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 	vacia := dominiovec.InstantaneaAutorizacion{}
 	if !a.validaConfiguracion() || ctx == nil ||
 		ctx.Err() != nil || solicitada.Validar() != nil || len(solicitada.Politicas) != 0 {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+
 		rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	perfilRef := solicitada.AsignacionPerfil.PerfilActivoRef
 	if _, err = tx.Exec(ctx, `
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		a.prefijoBloqueo+perfilRef,
 	); err != nil {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
 	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(
 		ctx, tx, perfilRef,
 	)
 	if err != nil || (!encontrada && !permitirInicial) {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	preparada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(solicitada)
 	if encontrada {
 		if actual.perfilRef != perfilRef ||
 			actual.principalID != solicitada.AsignacionPerfil.PrincipalID ||
 			actual.version <= 0 || actual.version == int64(1<<63-1) {
-			return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return vacia, falloPostgreSQLCTDesarrollo(nil)
 		}
 		preparada.AsignacionPerfil.AsignacionID = actual.identificador
 		preparada.AsignacionPerfil.Version = int(actual.version)
@@ -136,10 +136,10 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 			preparada.AsignacionPerfil.Version = int(actual.version + 1)
 		}
 	} else if preparada.AsignacionPerfil.Version != 1 {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
 	if preparada.Validar() != nil || tx.Commit(ctx) != nil {
-		return vacia, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
 	return preparada, nil
 }
@@ -183,13 +183,13 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 ) error {
 	if !a.validaConfiguracion() || ctx == nil ||
 		ctx.Err() != nil || instantanea.Validar() != nil || len(instantanea.Politicas) != 0 {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if preimagen != nil && (preimagen.Validar() != nil || len(preimagen.Politicas) != 0 ||
 		preimagen.AsignacionPerfil.PerfilActivoRef != instantanea.AsignacionPerfil.PerfilActivoRef ||
 		preimagen.AsignacionPerfil.PrincipalID != instantanea.AsignacionPerfil.PrincipalID ||
 		preimagen.AsignacionPerfil.AsignacionID != instantanea.AsignacionPerfil.AsignacionID) {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	var huellaRolPreimagen, huellaControlPreimagen string
 	var documentoRolPreimagen, documentoControlPreimagen []byte
@@ -197,77 +197,77 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	if preimagen != nil {
 		huellaRolPreimagen, err = preimagen.VersionRol.HuellaSHA256()
 		if err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 		huellaControlPreimagen, err = preimagen.ControlVigenciaVersionRol.HuellaSHA256()
 		if err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 		documentoRolPreimagen, err = json.Marshal(preimagen.VersionRol)
 		if err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 		documentoControlPreimagen, err = json.Marshal(preimagen.ControlVigenciaVersionRol)
 		if err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 	}
 	pool := a.pool
 	datosVinculo, err := a.vinculo.Datos()
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if instantanea.AsignacionPerfil.PerfilActivoRef != datosVinculo.PerfilActivoRef ||
 		instantanea.AsignacionPerfil.PrincipalID != datosVinculo.PrincipalID {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 
 	documentoRol, err := json.Marshal(instantanea.VersionRol)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	documentoControl, err := json.Marshal(instantanea.ControlVigenciaVersionRol)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	documentoAsignacion, err := json.Marshal(instantanea.AsignacionPerfil)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	huellaRol, err := instantanea.VersionRol.HuellaSHA256()
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	huellaControl, err := instantanea.ControlVigenciaVersionRol.HuellaSHA256()
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	huellaAsignacion, err := instantanea.AsignacionPerfil.HuellaSHA256()
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	rolRef := instantanea.VersionRol.Referencia()
 	asignacionRef := instantanea.AsignacionPerfil.Referencia()
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+
 		rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if _, err = tx.Exec(ctx, `
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		a.prefijoBloqueo+datosVinculo.PerfilActivoRef,
 	); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(
 		ctx, tx, datosVinculo.PerfilActivoRef,
 	)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if encontrada {
 		yaPublicada := actual.referencia == asignacionRef && actual.huella == huellaAsignacion
@@ -303,13 +303,13 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 				preimagen.ControlVigenciaVersionRol.ActualizadoPor, a.actoControlRol,
 			).Scan(&rolYControlPreimagenExactos)
 			if !preimagenExacta || !siguienteExacta || errPreimagen != nil || !rolYControlPreimagenExactos {
-				return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+				return falloPostgreSQLCTDesarrollo(nil)
 			}
 		} else if !yaPublicada && !siguienteExacta {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
 	} else if instantanea.AsignacionPerfil.Version != 1 {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	var revisionCatalogo uint64
 	var huellaCatalogo string
@@ -320,7 +320,7 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 		 FOR UPDATE`).Scan(&revisionCatalogo, &huellaCatalogo); err != nil ||
 		revisionCatalogo != instantanea.RevisionCatalogoPoliticas ||
 		huellaCatalogo != instantanea.CatalogoPoliticasHuellaSHA256 {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	consultas := []struct {
 		sql  string
@@ -405,7 +405,7 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	}
 	for _, consulta := range consultas {
 		if _, err = tx.Exec(ctx, consulta.sql, consulta.args...); err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 	}
 	var coincide bool
@@ -482,10 +482,10 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 		a.actoControlRol, a.actoAsignacion, a.actoSesion,
 	).Scan(&coincide)
 	if err != nil || !coincide {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if tx.Commit(ctx) != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	return nil
 }

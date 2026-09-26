@@ -126,12 +126,23 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
-) (dependenciasPostgreSQLContratacionTemporalDesarrollo, error) {
+) (_ dependenciasPostgreSQLContratacionTemporalDesarrollo, errFinal error) {
 	vacias := dependenciasPostgreSQLContratacionTemporalDesarrollo{}
+	// etapa nombra el último paso iniciado; si la composición se detiene, se
+	// registra junto con la clasificación de la causa (sin datos sensibles).
+	etapa := "requisitos"
+	defer func() {
+		if errFinal != nil {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+				"composicion:"+etapa, causaFalloPostgreSQLCTDesarrollo(errFinal),
+			)
+		}
+	}()
 	if !cfg.DevelopmentEnabledByDoubleKey() ||
 		derivador == nil || !derivador.valido() || soporte == nil {
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
+	etapa = "dsn"
 	configuracion := cfg.Normalize().ContratacionTemporalPostgreSQL
 	dsnEjecucion, dsnGobierno, err := configuracion.DSNSeparados()
 	if err != nil {
@@ -152,6 +163,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
+	etapa = "derivar_material_atestacion"
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 		derivador, reloj.Ahora(),
 	)
@@ -162,6 +174,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	defer material.borrarCopiasEfimeras()
+	etapa = "abrir_conexion_gobierno"
 	gobierno, usuarioGobierno, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 		ctx, dsnGobierno, "vec-ct-desarrollo-gobierno",
 		rolGobiernoPostgreSQLContratacionTemporalDesarrollo,
@@ -172,6 +185,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		)
 		return vacias, err
 	}
+	etapa = "publicar_gobierno_atestacion"
 	if err := publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		ctx, gobierno, &material,
 	); err != nil {
@@ -179,8 +193,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			"publicar_gobierno_atestacion", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
 		)
 		gobierno.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
+	etapa = "publicar_gobierno_cobertura"
 	if err := publicarGobiernoCoberturaPostgreSQLContratacionTemporalDesarrollo(
 		ctx, gobierno, soporte,
 	); err != nil {
@@ -188,8 +203,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			"publicar_gobierno_cobertura", "gobierno_cobertura_no_disponible",
 		)
 		gobierno.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
+	etapa = "publicar_autoridad_alta"
 	if err := publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 		ctx, gobierno, soporte,
 	); err != nil {
@@ -204,6 +220,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		pool: gobierno, soporte: soporte,
 	}
 	soporte.mu.Unlock()
+	etapa = "abrir_conexion_ejecucion"
 	ejecucion, usuarioEjecucion, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 		ctx, dsnEjecucion, "vec-ct-desarrollo-ejecucion",
 		rolEjecucionPostgreSQLContratacionTemporalDesarrollo,
@@ -213,10 +230,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			ejecucion.Close()
 		}
 		gobierno.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	// Vías de cobertura y numeración del catálogo de reglas: solo se publica
 	// una versión nueva si su contenido difiere del vigente.
+	etapa = "publicar_gobierno_cobertura_catalogo"
 	if err := sincronizarGobiernoCoberturaCatalogoPostgreSQLCT(
 		ctx, gobierno, ejecucion, soporte, reloj,
 	); err != nil {
@@ -225,8 +243,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		)
 		ejecucion.Close()
 		gobierno.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
+	etapa = "publicar_numeracion_expedientes"
 	if err := publicarNumeracionExpedientesCT(
 		ctx, gobierno, soporte.opcionesCatalogo.numeracionVigente(),
 	); err != nil {
@@ -279,6 +298,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			dependencias.cerrar()
 		}
 	}()
+	etapa = "abrir_conexion_registro_autorizacion"
 	registroAutorizacion, usuarioRegistroAutorizacion, err :=
 		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 			ctx,
@@ -291,14 +311,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if registroAutorizacion != nil {
 			registroAutorizacion.Close()
 		}
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	registroDecisiones, err := postgresvec.NuevoAlmacenAutorizacion(registroAutorizacion)
 	if err != nil {
 		registroAutorizacion.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	dependencias.registroAutorizacion = registroAutorizacion
+	etapa = "abrir_conexion_auditoria_frontera"
 	auditoriaFrontera, usuarioAuditoriaFrontera, err :=
 		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 			ctx,
@@ -312,30 +333,33 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if auditoriaFrontera != nil {
 			auditoriaFrontera.Close()
 		}
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	registradorAuditoriaFrontera, err := postgresvec.NuevoRegistradorAuditoriaFronteraRutaExactaPostgreSQL(auditoriaFrontera)
 	if err != nil {
 		auditoriaFrontera.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	if err := registradorAuditoriaFrontera.PreflightAuditoriaFronteraRutaExacta(ctx); err != nil {
 		auditoriaFrontera.Close()
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	dependencias.auditoriaFrontera = auditoriaFrontera
 	dependencias.registradorAuditoriaFrontera = registradorAuditoriaFrontera
 	soporte.mu.Lock()
 	soporte.registroDecisionesAnalisis = registroDecisiones
 	soporte.mu.Unlock()
+	etapa = "resolutor_candidaturas"
 	resolver, err := postgrescontratacion.NuevoResolutorCandidaturaAltaPostgreSQL(ejecucion)
 	if err != nil {
 		return vacias, err
 	}
+	etapa = "fuente_confianza_renovable"
 	material.fuenteConfianza, err = nuevaFuenteConfianzaRenovableCTDesarrollo(gobierno, material, reloj)
 	if err != nil {
 		return vacias, err
 	}
+	etapa = "seleccion_material"
 	seleccion, err := seleccionMaterialCTDesarrolloDesdeConfig(cfg)
 	if err != nil {
 		return vacias, err
@@ -347,6 +371,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	etapa = "material_dietas"
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
 		for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
@@ -362,6 +387,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			adicionales: proveedoresDietas,
 		}
 	}
+	etapa = "material_cronos"
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		var cronos [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
 		for i, audiencia := range audienciasCronosEmpleadoDesarrollo() {
@@ -392,24 +418,28 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
 		}
 	}
+	etapa = "material_documentos"
 	if documentosSolicitados(cfg.DocumentosEnabled) {
 		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
 		if err != nil {
 			return vacias, err
 		}
 	}
+	etapa = "material_personal_ficha_propia"
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
 		if err != nil {
 			return vacias, err
 		}
 	}
+	etapa = "material_firma_documento"
 	if firmaDocumento {
 		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
 		if err != nil {
 			return vacias, err
 		}
 	}
+	etapa = "publicar_gobierno_personal_b2"
 	if personalB2 {
 		// vec-server no consume B2: sólo publica sus claves para vec-interno.
 		dependencias.materialPersonalB2, err = publicarMaterialPersonalB2Desarrollo(ctx, gobierno, material, catalogoMaterial)
@@ -417,15 +447,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 				"publicar_gobierno_personal_b2", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
 			)
-			return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return vacias, falloPostgreSQLCTDesarrollo(err)
 		}
 	}
+	etapa = "proveedor_material_alta"
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
 	)
 	if err != nil {
 		return vacias, err
 	}
+	etapa = "material_bolsa"
 	if configuracion.BolsaLlamamientosConfigurada() {
 		bolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
 		if err != nil {
@@ -502,12 +534,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			dependencias.proveedorMaterialEmision = proveedorEmision
 		}
 	}
+	etapa = "transaccion_altas"
 	transaccion, err := postgrescontratacion.NuevaTransaccionAltasPostgreSQLCandidata(
 		ejecucion, proveedor,
 	)
 	if err != nil {
 		return vacias, err
 	}
+	etapa = "abrir_conexion_confirmador"
 	confirmador, usuarioConfirmador, err :=
 		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 			ctx,
@@ -521,9 +555,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		if confirmador != nil {
 			confirmador.Close()
 		}
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	dependencias.confirmador = confirmador
+	etapa = "abrir_conexion_lector_resultado"
 	inspectorLector, usuarioLector, err :=
 		abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 			ctx,
@@ -537,7 +572,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil || usuarioLector == usuarioEjecucion ||
 		usuarioLector == usuarioGobierno ||
 		usuarioLector == usuarioRegistroAutorizacion || usuarioLector == usuarioConfirmador {
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(err)
 	}
 	lectorResultado, err :=
 		postgrescontratacion.NuevoPoolRecuperacionCoberturaO405PostgreSQL(

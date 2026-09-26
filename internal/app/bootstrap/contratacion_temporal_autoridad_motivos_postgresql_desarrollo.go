@@ -41,7 +41,7 @@ func publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 	porCatalogo := make(map[string][]dominiovec.ReferenciaEntradaCatalogo)
 	for _, motivo := range motivos {
 		if !dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
 		clave := motivo.CatalogoID + "\x00" + motivo.CatalogoHuellaSHA256
 		porCatalogo[clave] = append(porCatalogo[clave], motivo)
@@ -55,7 +55,7 @@ func publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 		soporte.reloj.Ahora(),
 	)
 	if !vigente {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	for _, clave := range claves {
 		if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
@@ -77,7 +77,7 @@ type entradaMotivoCoberturaPostgreSQLDesarrollo struct {
 func publicarMotivoEleccionProcedimientoRRHHPostgreSQL(ctx context.Context, pool *pgxpool.Pool, ahora time.Time) error {
 	motivo := motivoEleccionProcedimientoRRHHDesarrollo()
 	if ctx == nil || pool == nil || motivo.Validar() != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	_ = ahora
 	publicadoEn := instantePublicacionMotivoEleccionProcedimientoRRHHDesarrollo()
@@ -86,35 +86,35 @@ func publicarMotivoEleccionProcedimientoRRHHPostgreSQL(ctx context.Context, pool
 		VigenteDesde: publicadoEn.Format("2006-01-02T15:04:05.000000Z"),
 	}})
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionContratacionTemporalDesarrollo); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	var secuencia int64
 	var huellaExistente string
 	err = tx.QueryRow(ctx, `SELECT secuencia_origen, catalogo_huella_publicada_sha256 FROM vec_autorizacion.motivo_cobertura_v1_catalogo_publicado WHERE catalogo_id=$1 AND catalogo_version=$2`, motivo.CatalogoID, motivo.CatalogoVersion).Scan(&secuencia, &huellaExistente)
 	if err == nil && huellaExistente != motivo.CatalogoHuellaSHA256 {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = tx.QueryRow(ctx, `SELECT ultima_secuencia+1 FROM vec_autorizacion.motivo_cobertura_v1_checkpoint_origen WHERE control_id FOR UPDATE`).Scan(&secuencia)
 	}
 	if err != nil || tx.Commit(ctx) != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	tx, err = pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolProyectorMotivosContratacionTemporalDesarrollo); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	var publicada bool
 	err = tx.QueryRow(ctx, `SELECT vec_autorizacion.publicar_motivos_cobertura_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
@@ -122,7 +122,7 @@ func publicarMotivoEleccionProcedimientoRRHHPostgreSQL(ctx context.Context, pool
 		huellaAltaContratacionTemporalDesarrollo("motivo-cobertura-eleccion-procedimiento-rrhh"), motivo.CatalogoID, motivo.CatalogoVersion,
 		motivo.CatalogoHuellaSHA256, moduloMotivosDecisionCoberturaDesarrollo, publicadoEn, contenido).Scan(&publicada)
 	if err != nil || !publicada || tx.Commit(ctx) != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }
@@ -164,7 +164,7 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 		log.Printf("contratacion temporal: motivo no disponible; etapa=%s sqlstate=%s", etapa, codigo)
 	}
 	if len(motivos) == 0 {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	sort.Slice(motivos, func(i, j int) bool {
 		return motivos[i].EntradaClave < motivos[j].EntradaClave
@@ -174,7 +174,7 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 		if motivo.CatalogoID != primero.CatalogoID ||
 			motivo.CatalogoVersion != primero.CatalogoVersion ||
 			motivo.CatalogoHuellaSHA256 != primero.CatalogoHuellaSHA256 {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
 	}
 	eventoRef := referenciaAltaContratacionTemporalDesarrollo(
@@ -187,13 +187,13 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 	txConsulta, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		diagnosticar("consulta_transaccion", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer txConsulta.Rollback(context.Background())
 	if _, err = txConsulta.Exec(ctx, `SET LOCAL ROLE `+
 		rolPropietarioAutorizacionContratacionTemporalDesarrollo); err != nil {
 		diagnosticar("consulta_rol", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	// Un arranque repetido reutiliza la publicación existente: con la misma
 	// huella de catálogo se repite con el publicado_en ya registrado, de modo
@@ -211,7 +211,7 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 	if err == nil {
 		if huellaExistente != primero.CatalogoHuellaSHA256 {
 			diagnosticar("consulta_huella", nil)
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
 		publicadoEn = publicadoExistente
 	}
@@ -223,26 +223,26 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if err != nil {
 		diagnosticar("consulta_secuencia", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if err = txConsulta.Commit(ctx); err != nil {
 		diagnosticar("consulta_commit", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	contenido, err := contenidoCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(motivos, publicadoEn)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		diagnosticar("publicacion_transaccion", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+
 		rolProyectorMotivosContratacionTemporalDesarrollo); err != nil {
 		diagnosticar("publicacion_rol", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	var publicada bool
 	err = tx.QueryRow(ctx, `
@@ -263,11 +263,11 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if err != nil {
 		diagnosticar("publicacion_ejecucion", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		diagnosticar("publicacion_commit", err)
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }

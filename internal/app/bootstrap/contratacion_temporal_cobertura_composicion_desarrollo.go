@@ -30,7 +30,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 ) (dependenciasCoberturaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasCoberturaContratacionTemporalDesarrollo{}
 	if dependenciasCT == nil {
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
 	derivador := dependenciasCT.derivador
 	reloj := dependenciasCT.reloj
@@ -39,7 +39,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		alta.postgresql.ejecucion == nil ||
 		alta.postgresql.confirmador == nil ||
 		alta.postgresql.lectorResultado == nil {
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
 
 	lectorAnalisis, err :=
