@@ -122,6 +122,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaSubsanacion             dominiovec.InstantaneaAutorizacion
 	instantaneaFirmaDocumento          dominiovec.InstantaneaAutorizacion
 	seguimientoCese                    *soporteSeguimientoCeseDesarrollo
+	cancelacion                        *soporteCancelacionCTDesarrollo
 	motivoCuadroRRHH                   dominiovec.ReferenciaEntradaCatalogo
 	motivoDetalleRRHH                  dominiovec.ReferenciaEntradaCatalogo
 	motivoLlamamiento                  dominiovec.ReferenciaEntradaCatalogo

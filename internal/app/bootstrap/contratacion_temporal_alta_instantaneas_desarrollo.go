@@ -21,7 +21,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
-	if ruta == httpinterno.RutaSubsanacionReparos || rutaSeguimientoCeseDesarrollo(ruta) {
+	if ruta == httpinterno.RutaSubsanacionReparos || rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) {
 		dinamica = true
 	}
 	if !valida || !dinamica {
@@ -106,6 +106,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 	} else if rutaSeguimientoCeseDesarrollo(ruta) {
 		ambitos, valida := s.ambitosSeguimientoCese(ruta, datos)
+		if !valida {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		instantanea.AsignacionPerfil.Ambitos = ambitos
+	} else if rutaCancelacionCTDesarrollo(ruta) {
+		ambitos, valida := s.ambitosCancelacionCT(ruta, datos)
 		if !valida {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}

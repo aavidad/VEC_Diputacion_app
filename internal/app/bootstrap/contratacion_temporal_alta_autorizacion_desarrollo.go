@@ -74,7 +74,7 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaSubsanacionReparos ||
 		rutaFirmaDocumentoCTDesarrollo(ruta) ||
-		rutaSeguimientoCeseDesarrollo(ruta) ||
+		rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta)
 
@@ -451,6 +451,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoFirmaDocumento, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoFirmaDocumento)
 	case httpinterno.RutaCesesNombramiento, httpinterno.RutaCierresExpediente, httpinterno.RutaModificacionesNombramiento, httpinterno.RutaSeguimientoCese:
 		return motivoSeguimientoCeseDesarrollo(ruta), s.seguimientoCese != nil
+	case httpinterno.RutaCancelacionesExpediente, httpinterno.RutaCancelacionExpediente:
+		return motivoCancelacionCTDesarrollo(ruta), s.cancelacion != nil
 	default:
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}
@@ -520,6 +522,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	if rutaSeguimientoCeseDesarrollo(ruta) {
 		return s.instantaneaSeguimientoCese()
+	}
+	if rutaCancelacionCTDesarrollo(ruta) {
+		return s.instantaneaCancelacionCT()
 	}
 	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaConsultaJustificante), s.instantaneaConsultaJustificante.Validar() == nil

@@ -112,6 +112,9 @@ const (
 	// admitidos; cada uno declara su efecto en el atributo «efecto_<resultado>»
 	// (duda 5 de RRHH).
 	CTFiscalizacionResultados = "c19.fiscalizacion_resultados"
+	// CTCancelacionExpediente fija las fases en que se puede cancelar el
+	// expediente y los motivos admitidos (duda 12).
+	CTCancelacionExpediente = "c20.cancelacion_expediente"
 )
 
 // Opciones del análisis de Contratación temporal que se consultan por

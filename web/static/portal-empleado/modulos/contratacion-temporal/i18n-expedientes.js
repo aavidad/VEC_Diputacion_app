@@ -181,6 +181,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   hito_cierre: "Cierre administrativo registrado",
   hito_cese: "Cese registrado",
   hito_cierre_expediente: "Expediente cerrado tras el cese",
+  hito_cancelacion_expediente: "Expediente cancelado",
   hito_modificacion_nombramiento: "Fechas o jornada modificadas tras el nombramiento",
   subsanacion_registrada_pendiente_fiscalizacion: "Subsanación registrada. Pendiente de nueva fiscalización; no es necesario volver a enviarla.",
   hito_subsanacion_reparo: "Subsanación del reparo registrada",
