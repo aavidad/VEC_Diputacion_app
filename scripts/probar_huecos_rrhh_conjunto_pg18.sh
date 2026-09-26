@@ -4,10 +4,14 @@
 # principal (volcado con datos sintéticos). Primero lleva el volcado al estado
 # de la principal (AD3-82…86, CT110…121 salvo CT117 y Bolsa 010, 019 y
 # 021…040, que el volcado no trae); después instala, en el orden de despliegue,
-# AD3-87, AD3-88, Bolsa 000041, CT122, CT123, CT124, CT125 y CT126: cada una
-# con ROLLBACK sin rastro, UP, detección instalada y doble UP rechazado.
-# Con todas juntas ejecuta las pruebas SQL de cada una, reinicia PostgreSQL,
-# comprueba que siguen detectándose y que los DOWN con historia se niegan.
+# AD3-87, AD3-88, Bolsa 000041, Bolsa 000042, CT122, CT123, CT124, CT125 y
+# CT126: cada una con ROLLBACK sin rastro, UP, detección instalada y doble UP
+# rechazado. Con todas juntas ejecuta las pruebas SQL de cada una, reinicia
+# PostgreSQL, comprueba que siguen detectándose y que los DOWN con historia se
+# niegan. El expediente sintético A sirve a dos recorridos excluyentes de
+# CT124: VEC_HUECOS_RECORRIDO=incorporacion (por defecto: incorporación
+# acreditada) o no_incorporacion (no incorporación, baja en Bolsa y siguiente
+# llamamiento); se ejecuta una vez con cada uno.
 # Uso: probar_huecos_rrhh_conjunto_pg18.sh GLOBALS_SQL VOLCADO_PG_DUMP
 # El contenedor usa --rm, sin red ni volúmenes anónimos; sus datos viven en
 # /dev/shm/vec-pg-huecos-<pid> y se borran al terminar.
@@ -16,6 +20,8 @@ set -Eeuo pipefail
 repo=$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
 globales=${1:?falta el volcado de roles (pg_dumpall --globals-only)}
 volcado=${2:?falta el volcado de la base (pg_dump -Fc)}
+recorrido=${VEC_HUECOS_RECORRIDO:-incorporacion}
+[[ $recorrido == incorporacion || $recorrido == no_incorporacion ]] || { echo 'VEC_HUECOS_RECORRIDO: incorporacion o no_incorporacion' >&2; exit 2; }
 [[ -s $globales && -s $volcado ]] || { echo 'Faltan los volcados' >&2; exit 2; }
 
 nombre="vec-pg-huecos-$$"
@@ -83,17 +89,19 @@ declare -A detecta=(
   [ad3_87]="SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_cancelacion_expediente_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL"
   [ad3_88]="SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL"
   [bolsa_41]="SELECT to_regclass('vec_bolsa_llamamientos.politica_avisos_bolsa') IS NOT NULL"
+  [bolsa_42]="SELECT to_regclass('vec_bolsa_llamamientos.no_incorporacion_bolsa') IS NOT NULL"
   [ct_122]="SELECT to_regclass('vec_contratacion_temporal.cancelacion_expediente_v1') IS NOT NULL"
   [ct_123]="SELECT to_regprocedure('vec_contratacion_temporal.preparar_informe_juridico_tras_subsanacion_v1(jsonb)') IS NOT NULL"
   [ct_124]="SELECT to_regclass('vec_contratacion_temporal.confirmacion_ginpix_v1') IS NOT NULL"
   [ct_125]="SELECT to_regclass('vec_contratacion_temporal.urgencia_expediente_analisis') IS NOT NULL"
   [ct_126]="SELECT to_regclass('vec_contratacion_temporal.numeracion_parametros') IS NOT NULL"
 )
-orden=(ad3_87 ad3_88 bolsa_41 ct_122 ct_123 ct_124 ct_125 ct_126)
+orden=(ad3_87 ad3_88 bolsa_41 bolsa_42 ct_122 ct_123 ct_124 ct_125 ct_126)
 declare -A fichero=(
   [ad3_87]="$ad3/000087_consumidor_cancelacion_expediente_ct"
   [ad3_88]="$ad3/000088_consumidor_incorporacion_acreditada_ct"
   [bolsa_41]="$bolsa/000041_parametros_avisos_y_marcas"
+  [bolsa_42]="$bolsa/000042_no_incorporacion_ct"
   [ct_122]="$ct/000122_cancelacion_expediente"
   [ct_123]="$ct/000123_informe_nuevo_tras_subsanacion"
   [ct_124]="$ct/000124_incorporacion_acreditada"
@@ -126,8 +134,15 @@ variables=(-v exp_asignacion="$exp_asignacion" -v exp_solicitud="$exp_solicitud"
 prueba 'CT122 OK' "$pruebas/ct122_cancelacion_expediente.sql"
 variables=()
 prueba 'CT123 OK' "$pruebas/ct123_informe_nuevo_tras_subsanacion.sql"
-prueba 'fixture CT124 OK' "$pruebas/ct115_ct116_fixture_pg18.sql" "$pruebas/ct124_fixture_pg18.sql"
-prueba 'CT124 OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_incorporacion_acreditada.sql"
+if [[ $recorrido == incorporacion ]]; then
+  prueba 'fixture CT124 OK' "$pruebas/ct115_ct116_fixture_pg18.sql" "$pruebas/ct124_fixture_pg18.sql"
+  prueba 'CT124 OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_incorporacion_acreditada.sql"
+else
+  b='expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7'
+  salida=$(docker exec -i "$nombre" psql -X -q -At -v ON_ERROR_STOP=1 -v exp_a="$b" -U postgres -d postgres <"$pruebas/ct115_ct116_fixture_pg18.sql" 2>&1) || { echo "$salida" >&2; exit 1; }
+  prueba 'fixture no incorporación OK' "$pruebas/ct124_no_incorporacion_fixture.sql"
+  prueba 'cadena no incorporación OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_no_incorporacion_cadena.sql"
+fi
 prueba 'CT125 OK' "$pruebas/ct125_urgencia_expediente_analisis.sql"
 prueba 'CT126 OK' "$pruebas/ct126_parametros_numeracion_expedientes.sql"
 [[ $(escalar "SELECT count(*) FROM vec_bolsa_llamamientos.politica_avisos_bolsa") == 1 ]] || { echo 'FALLO: Bolsa 041 sin su versión 1' >&2; exit 1; }
@@ -138,13 +153,17 @@ reiniciar
 for m in "${orden[@]}"; do
   [[ $(escalar "${detecta[$m]}") == t ]] || { echo "FALLO: $m no se detecta tras reiniciar" >&2; exit 1; }
 done
-ok 'las ocho siguen detectándose tras reiniciar'
-prueba 'CT124 reinicio OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_reinicio.sql"
+ok 'las nueve siguen detectándose tras reiniciar'
+if [[ $recorrido == incorporacion ]]; then
+  prueba 'CT124 reinicio OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_reinicio.sql"
+else
+  prueba 'reinicio no incorporación OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_no_incorporacion_reinicio.sql"
+fi
 
 echo '== DOWN con historia o con dependientes instalados se niega'
-for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88; do
+for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88 $([[ $recorrido == no_incorporacion ]] && echo bolsa_42); do
   if run <"${fichero[$m]}.down.sql" >/dev/null 2>&1; then echo "FALLO: DOWN de $m aceptado" >&2; exit 1; fi
   [[ $(escalar "${detecta[$m]}") == t ]] || { echo "FALLO: DOWN de $m dejó rastro" >&2; exit 1; }
 done
 ok 'DOWN rechazados sin tocar nada'
-echo 'ENSAYO CONJUNTO COMPLETO'
+echo "ENSAYO CONJUNTO COMPLETO ($recorrido)"

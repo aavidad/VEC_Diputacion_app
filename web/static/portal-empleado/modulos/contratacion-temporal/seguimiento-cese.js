@@ -1,8 +1,8 @@
 /** Panel de seguimiento del nombramiento: cese, cierre y modificación. */
 
-import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-no-incorporacion-v1";
-import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=20260926-incorporacion-acreditada-v1";
-import { filasNoIncorporacion, formularioNoIncorporacion, ofrecerNoIncorporacion, solicitudNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-no-incorporacion-v1";
+import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-huecos-rrhh-v1";
+import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=20260926-huecos-rrhh-v1";
+import { filasNoIncorporacion, formularioNoIncorporacion, ofrecerNoIncorporacion, solicitudNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-huecos-rrhh-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
