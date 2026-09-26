@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	constitucionconvoca "vec-diputacion-granada/internal/modules/bolsa/adapters/constitucionconvoca"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
@@ -79,11 +80,16 @@ func EjecutarConstitucionBolsa(ctx context.Context, cfg config.Config, s Solicit
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
-	servicio, err := constitucion.NuevoServicio(recuperador, repositorio, derivador, time.Now)
+	fuente, err := constitucionconvoca.NuevaFuente(recuperador, derivador)
+	if err != nil {
+		return ports.ReciboConstitucion{}, err
+	}
+	servicio, err := constitucion.NuevoServicio(fuente, repositorio, time.Now)
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
 	return servicio.Constituir(ctx, constitucion.Solicitud{
-		HuellaFicheroSHA256: huella, CategoriaRef: categoria, ActorRef: actorConstitucionBolsaDesarrollo,
+		Fuente: ports.FuenteImportacionConvoca, Referencia: huella,
+		CategoriaRef: categoria, ActorRef: actorConstitucionBolsaDesarrollo,
 	})
 }

@@ -32,13 +32,16 @@ type EntradaConstitucion struct {
 // Constitucion es lo que se persiste: bolsa e instantánea canónicas más el
 // vínculo con el acta y el actor de RRHH que la confirma.
 type Constitucion struct {
-	ActaRef      string
-	ActorRef     string
-	CategoriaRef string
-	Bolsa        dominio.BolsaConstituida
-	Instantanea  dominio.InstantaneaOrdenBolsa
-	Entradas     []EntradaConstitucion
-	ConfirmadaEn time.Time
+	Fuente                     FuenteListaDefinitiva
+	ActaRef                    string
+	ActorRef                   string
+	CategoriaRef               string
+	AutorizacionPublicacionRef string
+	HuellaAutorizacionSHA256   string
+	Bolsa                      dominio.BolsaConstituida
+	Instantanea                dominio.InstantaneaOrdenBolsa
+	Entradas                   []EntradaConstitucion
+	ConfirmadaEn               time.Time
 }
 
 // ReciboConstitucion identifica la constitución registrada (o la ya existente

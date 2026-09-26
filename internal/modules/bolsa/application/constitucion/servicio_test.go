@@ -1,15 +1,68 @@
-package constitucion
+package constitucion_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/adapters/constitucionconvoca"
+	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	importacionapp "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	importacion "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
+
+type fuenteNativaPrueba struct {
+	lista ports.ListaDefinitivaAutorizada
+}
+
+func (f fuenteNativaPrueba) RecuperarListaDefinitiva(_ context.Context, c ports.ConsultaListaDefinitiva) (ports.ListaDefinitivaAutorizada, bool, error) {
+	if c.Fuente != ports.FuenteSeleccionNativa || c.Referencia != f.lista.Referencia || c.CategoriaRef != f.lista.CategoriaRef {
+		return ports.ListaDefinitivaAutorizada{}, false, nil
+	}
+	return f.lista, true, nil
+}
+
+func TestConstituirListaNativaRespetaOrdenAprobado(t *testing.T) {
+	lista := ports.ListaDefinitivaAutorizada{
+		Fuente: ports.FuenteSeleccionNativa, Referencia: "lista:seleccion:prueba", Version: 3,
+		ConvocatoriaRef: "convocatoria:prueba", CategoriaRef: "categoria:rpt:prueba",
+		HuellaListadoSHA256:        strings.Repeat("ab", 32),
+		AutorizacionPublicacionRef: "recibo:publicacion:prueba", HuellaAutorizacionSHA256: strings.Repeat("cd", 32),
+		Posiciones: []ports.PosicionListaDefinitiva{
+			{Posicion: 1, PersonaRef: "persona:primera", Puntuacion: "10"},
+			{Posicion: 2, PersonaRef: "persona:segunda", Puntuacion: "99"},
+		},
+	}
+	repo := &repositorioPrueba{}
+	servicio, err := constitucion.NuevoServicio(fuenteNativaPrueba{lista}, repo, func() time.Time { return time.Date(2026, 9, 26, 11, 0, 0, 0, time.UTC) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo, err := servicio.Constituir(context.Background(), constitucion.Solicitud{
+		Fuente: ports.FuenteSeleccionNativa, Referencia: lista.Referencia, CategoriaRef: lista.CategoriaRef, ActorRef: "actor:rrhh:pruebas",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recibo.ActaRef != lista.Referencia || repo.guardada.Bolsa.ListadoDefinitivoRef != lista.Referencia ||
+		repo.guardada.Bolsa.VersionListado != 3 ||
+		repo.guardada.Instantanea.Entradas[0].Participacion.SujetoRef != "sujeto:seleccion:inficojhmgjnjijklnjmlpkjokmfplmj" ||
+		repo.guardada.Instantanea.Entradas[1].Participacion.SujetoRef != "sujeto:seleccion:ofiodljkkflahnjhdpngghngfdgkonnd" ||
+		repo.guardada.AutorizacionPublicacionRef != lista.AutorizacionPublicacionRef ||
+		repo.guardada.HuellaAutorizacionSHA256 != lista.HuellaAutorizacionSHA256 || len(repo.vinculos) != 0 {
+		t.Fatalf("orden, versión o vínculos nativos alterados: %+v %+v", repo.guardada, repo.vinculos)
+	}
+	lista.Posiciones[1].Posicion = 1
+	servicio, _ = constitucion.NuevoServicio(fuenteNativaPrueba{lista}, repo, time.Now)
+	if _, err := servicio.Constituir(context.Background(), constitucion.Solicitud{
+		Fuente: ports.FuenteSeleccionNativa, Referencia: lista.Referencia, CategoriaRef: lista.CategoriaRef, ActorRef: "actor:rrhh:pruebas",
+	}); !errors.Is(err, ports.ErrConstitucionBolsaInvalida) {
+		t.Fatalf("posición duplicada aceptada: %v", err)
+	}
+}
 
 type recuperadorPrueba struct{ lote importacion.LoteValidado }
 
@@ -41,11 +94,11 @@ func (r *repositorioPrueba) ParticipacionesCandidato(context.Context, string) ([
 	return nil, nil
 }
 
-func derivadorPrueba(t *testing.T) *DerivadorCandidatoHMAC {
+func derivadorPrueba(t *testing.T) *constitucion.DerivadorCandidatoHMAC {
 	t.Helper()
 	var clave [32]byte
 	copy(clave[:], "clave-de-pruebas-para-candidatos")
-	d, err := NuevoDerivadorCandidatoHMAC(clave)
+	d, err := constitucion.NuevoDerivadorCandidatoHMAC(clave)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,11 +129,15 @@ func TestConstituirOrdenaPorTotalYPersisteCanonicos(t *testing.T) {
 		},
 	}
 	repo := &repositorioPrueba{}
-	servicio, err := NuevoServicio(recuperadorPrueba{lote}, repo, derivadorPrueba(t), func() time.Time { return time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC) })
+	fuente, err := constitucionconvoca.NuevaFuente(recuperadorPrueba{lote}, derivadorPrueba(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	recibo, err := servicio.Constituir(context.Background(), Solicitud{HuellaFicheroSHA256: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "actor:rrhh:pruebas"})
+	servicio, err := constitucion.NuevoServicio(fuente, repo, func() time.Time { return time.Date(2026, 9, 18, 10, 0, 0, 0, time.UTC) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo, err := servicio.Constituir(context.Background(), constitucion.Solicitud{Fuente: ports.FuenteImportacionConvoca, Referencia: lote.Acta.HuellaFicheroSHA256, CategoriaRef: lote.Acta.CategoriaRef, ActorRef: "actor:rrhh:pruebas"})
 	if err != nil {
 		t.Fatalf("constituir: %v", err)
 	}
@@ -97,11 +154,28 @@ func TestConstituirOrdenaPorTotalYPersisteCanonicos(t *testing.T) {
 	if len(c.Entradas) != 3 || c.Entradas[0].FilaNumero != 3 || c.Entradas[1].FilaNumero != 2 || c.Entradas[2].FilaNumero != 1 {
 		t.Fatalf("orden inesperado (22.25 Alcalde, 22.25 Barranco, 10.5 Zamora): %+v", c.Entradas)
 	}
+	// Equivalencia con las referencias y la huella del recorrido anterior.
+	if c.Bolsa.ProcesoRef != "importacion:convoca:opcdiijbmfihiofaikicnaklplibhjfe" ||
+		c.Bolsa.ListadoDefinitivoRef != "acta:importacion-convoca:annhdodidbmihpakegpkhmbnbpanbjkm" ||
+		c.Bolsa.HuellaResolucionSHA256 != "462b6ab613bf598b0b3130726a09ff2aeb750eefde113a3fb8931cc3bb34e0ef" {
+		t.Fatalf("referencias o huella históricas alteradas: %+v", c.Bolsa)
+	}
+	esperadas := []struct{ participacion, sujeto string }{
+		{"participacion:fhnafafaheloofbkihomcehmdknifbdl", "sujeto:convoca:behnolbihgmofonppndldbfociihaakc"},
+		{"participacion:mpfapnjkaknaalmmihbcpjbegijceknn", "sujeto:convoca:depogjpbbednnjakljjihiimbbkelphg"},
+		{"participacion:jhdlciabeamojniljjlobbpkaghhekka", "sujeto:convoca:goaflkofnnhipanopjkingahhlojhjlh"},
+	}
+	for i, esperado := range esperadas {
+		p := c.Instantanea.Entradas[i].Participacion
+		if p.ParticipacionRef != esperado.participacion || p.SujetoRef != esperado.sujeto {
+			t.Fatalf("identidad opaca histórica alterada en posición %d: %+v", i+1, p)
+		}
+	}
 	for _, entrada := range c.Instantanea.Entradas {
 		if strings.ContainsAny(entrada.Participacion.ParticipacionRef, "0123456789") || strings.Contains(entrada.Participacion.SujetoRef, "*") {
 			t.Fatalf("referencia con dígitos o máscara: %+v", entrada.Participacion)
 		}
-		if entrada.Participacion.Situaciones[0].EstadoClave != EstadoInicial {
+		if entrada.Participacion.Situaciones[0].EstadoClave != constitucion.EstadoInicial {
 			t.Fatalf("situación inicial inesperada: %+v", entrada.Participacion.Situaciones[0])
 		}
 	}
@@ -109,7 +183,7 @@ func TestConstituirOrdenaPorTotalYPersisteCanonicos(t *testing.T) {
 		t.Fatalf("vínculos no registrados: acta=%s vinculos=%d recibo=%+v", repo.actaRef, len(repo.vinculos), recibo.Vinculos)
 	}
 	esperado, _ := derivadorPrueba(t).CandidatoRef(importacion.IdentidadEnmascarada{Documento: "***0003**", PrimerApellido: "Alcalde", SegundoApellido: "Sintético", Nombre: "Carla"})
-	if repo.vinculos[0].CandidatoRef != esperado || repo.vinculos[0].ParticipacionRef != c.Entradas[0].ParticipacionRef || !ReferenciaCandidatoValida(esperado) {
+	if repo.vinculos[0].CandidatoRef != esperado || repo.vinculos[0].ParticipacionRef != c.Entradas[0].ParticipacionRef || !constitucion.ReferenciaCandidatoValida(esperado) {
 		t.Fatalf("vínculo del primer puesto inesperado: %+v (esperado %s)", repo.vinculos[0], esperado)
 	}
 }
@@ -142,10 +216,10 @@ func TestDerivadorCandidatoNormalizaIdentidad(t *testing.T) {
 	if _, err := d.CandidatoRef(importacion.IdentidadEnmascarada{Documento: "***0071**", PrimerApellido: "", Nombre: "Y"}); err == nil {
 		t.Fatal("identidad sin primer apellido aceptada")
 	}
-	if enmascarado, err := EnmascararDocumento("X1234567L"); err != nil || enmascarado != "***4567**" {
+	if enmascarado, err := constitucion.EnmascararDocumento("X1234567L"); err != nil || enmascarado != "***4567**" {
 		t.Fatalf("NIE enmascarado: %s %v", enmascarado, err)
 	}
-	if _, err := NuevoDerivadorCandidatoHMAC([32]byte{}); err == nil {
+	if _, err := constitucion.NuevoDerivadorCandidatoHMAC([32]byte{}); err == nil {
 		t.Fatal("clave vacía aceptada")
 	}
 }

@@ -58,7 +58,7 @@ func (r *RepositorioConstitucionPostgreSQL) Constituir(ctx context.Context, c po
 		return ports.ReciboConstitucion{}, err
 	}
 	bolsa, err := c.Bolsa.ClonarCanonica()
-	if err != nil || c.Instantanea.Validar() != nil || len(c.Entradas) == 0 ||
+	if err != nil || c.Fuente != ports.FuenteImportacionConvoca || c.Instantanea.Validar() != nil || len(c.Entradas) == 0 ||
 		len(c.Entradas) != len(c.Instantanea.Entradas) || c.ActaRef == "" || c.ActorRef == "" || c.CategoriaRef == "" {
 		return ports.ReciboConstitucion{}, ports.ErrConstitucionBolsaInvalida
 	}
