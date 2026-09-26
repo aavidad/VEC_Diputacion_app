@@ -12,17 +12,17 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20260926-huecos-rrhh-v1";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260926-huecos-rrhh-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-recuadros-enlaces-v1";
-import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-huecos-rrhh-v2";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-recuadros-enlaces-v1";
+} from "./portal-bolsas-contrato.js?v=20260926-i18n-v1";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260926-i18n-v1";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-i18n-v1";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-i18n-v1";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-i18n-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-huecos-rrhh-v1";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-huecos-rrhh-v1";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-huecos-rrhh-v2";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-huecos-rrhh-v2";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-i18n-v1";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-i18n-v1";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-i18n-v1";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-i18n-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
@@ -69,24 +69,24 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
   let bolsaInicial = null;
   let totalBolsa = 0;
   for (;;) {
-    if (signal?.aborted) return { ok: false, status: 0, mensaje: "La consulta se ha cancelado." };
+    if (signal?.aborted) return { ok: false, status: 0, mensaje: traducirPortal("txt_la_consulta_se_ha_cancelado") };
     const respuesta = await consultar(bolsaRef, { cursor, limite: 100 }, { signal });
     if (!respuesta.ok) return respuesta;
-    if (signal?.aborted) return { ok: false, status: 0, mensaje: "La consulta se ha cancelado." };
+    if (signal?.aborted) return { ok: false, status: 0, mensaje: traducirPortal("txt_la_consulta_se_ha_cancelado") };
     const datos = respuesta.datos;
     const bolsa = datos?.bolsa;
     if (!bolsa || bolsa.bolsa_ref !== bolsaRef || !Array.isArray(datos.candidatos)) {
-      return { ok: false, status: 409, mensaje: "La consulta devolvió otra bolsa o una página incompleta. Vuelva a seleccionar." };
+      return { ok: false, status: 409, mensaje: traducirPortal("txt_la_consulta_devolvio_otra_bolsa_o_una_pagina_inc") };
     }
     const version = JSON.stringify([datos.generado_en, bolsa.total, bolsa.por_estado, bolsa.politica_orden?.politica_ref, bolsa.politica_orden?.version]);
     if (bolsaInicial !== null && version !== bolsaInicial) {
-      return { ok: false, status: 409, mensaje: "La bolsa o su orden cambiaron durante la consulta. Vuelva a seleccionar." };
+      return { ok: false, status: 409, mensaje: traducirPortal("txt_la_bolsa_o_su_orden_cambiaron_durante_la_consult") };
     }
     bolsaInicial = version;
     totalBolsa = bolsa.total;
     for (const candidata of datos.candidatos) {
       if (referencias.has(candidata.participacion_ref)) {
-        return { ok: false, status: 409, mensaje: "La lista cambió durante la consulta. Vuelva a seleccionar." };
+        return { ok: false, status: 409, mensaje: traducirPortal("txt_la_lista_cambio_durante_la_consulta_vuelva_a_sel") };
       }
       referencias.add(candidata.participacion_ref);
       // Quien ya presta servicios con el catálogo en «excluir» no es elegible.
@@ -99,13 +99,13 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
     }
     if (!datos.hay_mas) break;
     if (!datos.candidatos.length || !datos.cursor_siguiente || cursores.has(datos.cursor_siguiente)) {
-      return { ok: false, status: 409, mensaje: "No se pudo completar la paginación. Vuelva a seleccionar." };
+      return { ok: false, status: 409, mensaje: traducirPortal("txt_no_se_pudo_completar_la_paginacion_vuelva_a_sele") };
     }
     cursor = datos.cursor_siguiente;
     cursores.add(cursor);
   }
   if (referencias.size !== totalBolsa) {
-    return { ok: false, status: 409, mensaje: "La cantidad de candidatos cambió durante la consulta. Vuelva a seleccionar." };
+    return { ok: false, status: 409, mensaje: traducirPortal("txt_la_cantidad_de_candidatos_cambio_durante_la_cons") };
   }
   const participaciones = primeras.map((candidata) => candidata.participacion_ref);
   const orden = Object.fromEntries(primeras.map((candidata) => [candidata.participacion_ref, candidata.orden]));
@@ -124,19 +124,19 @@ export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
 
     if (!respuesta.ok) {
       if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
+        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: traducirPortal("txt_se_requiere_una_sesion_interna_autenticada") };
       }
       if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "La sesión no dispone de permisos para consultar bolsas." };
+        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: traducirPortal("txt_la_sesion_no_dispone_de_permisos_para_consultar_2") };
       }
       if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "El servicio de bolsas de trabajo no está disponible." };
+        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: traducirPortal("txt_el_servicio_de_bolsas_de_trabajo_no_esta_disponi") };
       }
       return {
         ok: false,
         status: respuesta.status,
         codigo: "error_servidor",
-        mensaje: `No se pudieron consultar las bolsas de trabajo (HTTP ${respuesta.status}).`,
+        mensaje: traducirPortal("txt_no_se_pudieron_consultar_las_bolsas_de_trabajo_http", { estado: respuesta.status }),
       };
     }
 
@@ -148,7 +148,7 @@ export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
       ok: false,
       status: 0,
       codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación con el servicio de bolsas.",
+      mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_el_servicio_de_bolsas"),
     };
   }
 }
@@ -157,18 +157,18 @@ export async function consultarEstadisticasBolsa({ fetchImpl = fetch, signal } =
   try {
     const respuesta = await fetchImpl(RUTA_ESTADISTICAS_BOLSA, { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" } });
     if (!respuesta.ok) {
-      const mensajes = { 401: "Se requiere una sesión interna autenticada.", 403: "La sesión no dispone de permisos para consultar estadísticas de Bolsa.", 404: "El servicio de estadísticas de Bolsa no está disponible." };
-      return { ok: false, status: respuesta.status, codigo: respuesta.status === 403 ? "acceso_denegado" : "error_servidor", mensaje: mensajes[respuesta.status] || `No se pudieron consultar las estadísticas de Bolsa (HTTP ${respuesta.status}).` };
+      const mensajes = { 401: traducirPortal("txt_se_requiere_una_sesion_interna_autenticada"), 403: traducirPortal("txt_la_sesion_no_dispone_de_permisos_para_consultar_3"), 404: traducirPortal("txt_el_servicio_de_estadisticas_de_bolsa_no_esta_dis") };
+      return { ok: false, status: respuesta.status, codigo: respuesta.status === 403 ? "acceso_denegado" : "error_servidor", mensaje: mensajes[respuesta.status] || traducirPortal("txt_no_se_pudieron_consultar_las_estadisticas_de_bol_http", { estado: respuesta.status }) };
     }
     return { ok: true, datos: validarRespuestaEstadisticas(await respuesta.json()) };
   } catch (error) {
-    return { ok: false, status: 0, codigo: "error_red_o_contrato", mensaje: error instanceof Error ? error.message : "Error de comunicación con el servicio de estadísticas de Bolsa." };
+    return { ok: false, status: 0, codigo: "error_red_o_contrato", mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_el_servicio_de_estadis") };
   }
 }
 
 export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchImpl = fetch, signal } = {}) {
   if (typeof bolsaRef !== "string" || bolsaRef.trim() === "") {
-    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de bolsa no válida." };
+    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: traducirPortal("txt_referencia_de_bolsa_no_valida") };
   }
 
   const url = rutaCandidatosBolsa(bolsaRef, opciones);
@@ -184,25 +184,25 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
 
     if (!respuesta.ok) {
       if (respuesta.status === 400) {
-        return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Parámetros de consulta no válidos." };
+        return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: traducirPortal("txt_parametros_de_consulta_no_validos") };
       }
       if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
+        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: traducirPortal("txt_se_requiere_una_sesion_interna_autenticada") };
       }
       if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "La sesión no dispone de permisos para consultar candidatos." };
+        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: traducirPortal("txt_la_sesion_no_dispone_de_permisos_para_consultar_4") };
       }
       if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Bolsa de trabajo no encontrada." };
+        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: traducirPortal("txt_bolsa_de_trabajo_no_encontrada") };
       }
       if (respuesta.status === 422) {
-        return { ok: false, status: 422, codigo: "no_procesable", mensaje: "Consulta de candidatos no procesable." };
+        return { ok: false, status: 422, codigo: "no_procesable", mensaje: traducirPortal("txt_consulta_de_candidatos_no_procesable") };
       }
       return {
         ok: false,
         status: respuesta.status,
         codigo: "error_servidor",
-        mensaje: `No se pudieron consultar los candidatos (HTTP ${respuesta.status}).`,
+        mensaje: traducirPortal("txt_no_se_pudieron_consultar_los_candidatos_http", { estado: respuesta.status }),
       };
     }
 
@@ -214,14 +214,14 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
       ok: false,
       status: 0,
       codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación con el servicio de candidatos.",
+      mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_el_servicio_de_candida"),
     };
   }
 }
 
 export async function cambiarSituacionCandidato(bolsaRef, participacionRef, payload, { fetchImpl = fetch } = {}) {
   if (!bolsaRef || !participacionRef || !payload?.situacion || !payload?.motivo || !payload?.clave_idempotencia) {
-    return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Faltan los datos obligatorios del cambio de situación." };
+    return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: traducirPortal("txt_faltan_los_datos_obligatorios_del_cambio_de_situ") };
   }
   try {
     const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/situacion`, {
@@ -232,19 +232,19 @@ export async function cambiarSituacionCandidato(bolsaRef, participacionRef, payl
     const cuerpo = await respuesta.json().catch(() => ({}));
     if (respuesta.ok && cuerpo?.data?.recibo_ref) return { ok: true, datos: cuerpo.data };
     const mensaje = respuesta.status === 403
-      ? "La sesión no dispone de permiso para cambiar esta situación."
+      ? traducirPortal("txt_la_sesion_no_dispone_de_permiso_para_cambiar_est")
       : respuesta.status === 409
-        ? "El cambio entra en conflicto con la situación vigente o con un reintento anterior."
-        : "No se pudo registrar el cambio de situación.";
+        ? traducirPortal("txt_el_cambio_entra_en_conflicto_con_la_situacion_vi")
+        : traducirPortal("txt_no_se_pudo_registrar_el_cambio_de_situacion");
     return { ok: false, status: respuesta.status, codigo: cuerpo?.error?.codigo || "error_servidor", mensaje };
   } catch (error) {
-    return { ok: false, status: 0, codigo: "error_red", mensaje: error instanceof Error ? error.message : "Error de comunicación." };
+    return { ok: false, status: 0, codigo: "error_red", mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion") };
   }
 }
 
 export async function consultarContactosCandidato(bolsaRef, participacionRef, { fetchImpl = fetch, signal } = {}) {
   if (typeof participacionRef !== "string" || participacionRef.trim() === "") {
-    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
+    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: traducirPortal("txt_referencia_de_candidato_no_valida") };
   }
 
   const url = `${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos?limite=20`;
@@ -260,19 +260,19 @@ export async function consultarContactosCandidato(bolsaRef, participacionRef, { 
 
     if (!respuesta.ok) {
       if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
+        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: traducirPortal("txt_se_requiere_una_sesion_interna_autenticada") };
       }
       if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "La sesión no dispone de permisos para consultar contactos." };
+        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: traducirPortal("txt_la_sesion_no_dispone_de_permisos_para_consultar_5") };
       }
       if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Candidato o contactos no encontrados." };
+        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: traducirPortal("txt_candidato_o_contactos_no_encontrados") };
       }
       return {
         ok: false,
         status: respuesta.status,
         codigo: "error_servidor",
-        mensaje: `No se pudieron consultar los contactos (HTTP ${respuesta.status}).`,
+        mensaje: traducirPortal("txt_no_se_pudieron_consultar_los_contactos_http", { estado: respuesta.status }),
       };
     }
 
@@ -284,7 +284,7 @@ export async function consultarContactosCandidato(bolsaRef, participacionRef, { 
       ok: false,
       status: 0,
       codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación al consultar contactos.",
+      mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_al_consultar_contactos"),
     };
   }
 }
@@ -404,7 +404,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         signal: controlador.signal,
       });
     } catch (error) {
-      resultado = { ok: false, status: 0, mensaje: error instanceof Error ? error.message : "Error de comunicación con Bolsa." };
+      resultado = { ok: false, status: 0, mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_bolsa") };
     }
     if (controlador.signal.aborted || revision !== revisionSeleccionMasiva || estado.filtrosBolsa?.nuevo_llamamiento !== flujo || estado.bolsaSeleccionada !== bolsaRef || estado.filtrosBolsa.estado !== filtros.estado || estado.filtrosBolsa.texto !== filtros.texto || flujo.estados.join("|") !== estados.join("|")) return;
     controladorSeleccionMasiva = null;
@@ -523,7 +523,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         ok: false,
         status: 0,
         codigo: "error_red_o_contrato",
-        mensaje: error instanceof Error ? error.message : "Error de comunicación con Bolsa.",
+        mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_bolsa"),
       };
     }
   }
@@ -731,11 +731,11 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         flujo.seleccion_total = false;
         flujo.totalElegibles = null;
         const estadoSeleccion = documento.querySelector("[data-b7-seleccion-status]");
-        if (estadoSeleccion) estadoSeleccion.textContent = `${flujo.participaciones.length} seleccionadas.`;
+        if (estadoSeleccion) estadoSeleccion.textContent = traducirPortal("txt_n_seleccionadas", { numero: flujo.participaciones.length });
       } else if (control.name === "participacion") {
         sincronizarPaginaB7(documento.querySelector('[data-bolsa-form="b7-paso2"]'));
         const estadoSeleccion = documento.querySelector("[data-b7-seleccion-status]");
-        if (estadoSeleccion) estadoSeleccion.textContent = `${flujo.participaciones.length} seleccionadas.`;
+        if (estadoSeleccion) estadoSeleccion.textContent = traducirPortal("txt_n_seleccionadas", { numero: flujo.participaciones.length });
       }
     });
     documento.addEventListener("click", (evento) => {
@@ -931,7 +931,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         }
         if (!flujo.seleccion_total) sincronizarPaginaB7(paso2);
         const seleccion = [...flujo.participaciones];
-        if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = "Seleccione al menos un candidato."; renderizar(); return; }
+        if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = traducirPortal("txt_seleccione_al_menos_un_candidato"); renderizar(); return; }
         if (seleccion.length > 100) { flujo.error = traducirBolsaInterna("b7_limite_envio"); renderizar(); return; }
         Object.assign(flujo, { paso: 3, estados, participaciones: seleccion, error: "", seleccion_total: false, revision_obligatoria: false }); renderizar(); return;
       }
@@ -1046,7 +1046,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const motivo = String(datos.get("motivo") || "").trim();
         const fecha = String(datos.get("fecha_disponible") || "");
         if (!situacion || !motivo || (situacion === "disponible_desde" && !fecha)) {
-          if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = "Indique destino, motivo y la fecha futura cuando corresponda."; renderizar(); }
+          if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = traducirPortal("txt_indique_destino_motivo_y_la_fecha_futura_cuando"); renderizar(); }
           return;
         }
         const fechaDisponible = fecha && situacion === "disponible_desde" ? new Date(fecha).toISOString() : null;
@@ -1090,7 +1090,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const ref = formResultado.dataset.llamamientoRef;
         if (!datos.get("confirmacion")) {
           if (estado.modalResultado) {
-            estado.modalResultado.error = "Debe confirmar explícitamente el registro de resultado.";
+            estado.modalResultado.error = traducirPortal("txt_debe_confirmar_explicitamente_el_registro_de_res");
             renderizar();
           }
           return;

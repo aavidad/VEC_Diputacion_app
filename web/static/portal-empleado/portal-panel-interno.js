@@ -7,18 +7,18 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-huecos-rrhh-v2";
-import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260926-huecos-rrhh-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-recuadros-enlaces-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-i18n-v1";
+import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260926-i18n-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-i18n-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-huecos-rrhh-v2";
-import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-recuadros-enlaces-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-recuadros-enlaces-v1";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-huecos-rrhh-v2";
-import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-huecos-rrhh-v2";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-i18n-v1";
+import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-i18n-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-i18n-v1";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-i18n-v1";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-i18n-v1";
+import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=X";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
-import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260926-recuadros-enlaces-v1";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
 import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js";
 
@@ -56,7 +56,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return datosPanel()?.esquema === ESQUEMA_PANEL_INTERNO;
   }
   function etiquetaFuente() {
-    return esActivo() ? "Panel interno agregado autorizado" : "";
+    return esActivo() ? traducirPortal("txt_panel_interno_agregado_autorizado") : "";
   }
   // Con «destino», el recuadro es un botón que abre la lista correspondiente.
   function tarjetaKPI(nombreIcono, valor, etiqueta, destino = null) {
@@ -81,7 +81,7 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
   function etiquetaClave(clave) {
     const texto = String(clave || "").replaceAll(/[._-]+/g, " ").trim();
-    return texto ? texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1) : "Sin clave";
+    return texto ? texto.charAt(0).toLocaleUpperCase(LOCALIZACION_PORTAL) + texto.slice(1) : traducirPortal("txt_sin_clave");
   }
   function etiquetaReposicion(clave) {
     return REPOSICIONES_CONOCIDAS.has(clave) ? traducirBolsaInterna(`bolsa_reposicion_${clave}`) : etiquetaClave(clave);
@@ -94,7 +94,7 @@ export function crearPresentadorPanelInterno(dependencias) {
   function controlEstadoBolsa(bolsa, estado, clase = "neutro") {
     const total = numero(bolsa.por_estado?.[estado]);
     const etiqueta = etiquetaEstadoBolsa(estado);
-    return `<button type="button" class="estado-chip ${escaparHTML(clase)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Ver ${escaparHTML(total)} candidatos ${escaparHTML(etiqueta.toLocaleLowerCase("es-ES"))} de ${escaparHTML(bolsa.categoria)}">${escaparHTML(total)}</button>`;
+    return `<button type="button" class="estado-chip ${escaparHTML(clase)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_ver_candidatos_estado", { total, estado: etiqueta.toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${escaparHTML(total)}</button>`;
   }
   function claseEstadoEstadistica(estado) {
     return ({ disponible: "exito", no_disponible: "peligro", excluido: "peligro", pendiente_incorporacion: "info", disponible_desde: "info" })[estado] || "neutro";
@@ -102,44 +102,44 @@ export function crearPresentadorPanelInterno(dependencias) {
   function etiquetaEstadoEstadistica(estado) { return etiquetaEstadoBolsa(estado); }
   function renderizarEstadisticasBolsa() {
     const estadoEstadisticas = typeof obtenerDatosEstadisticas === "function" ? obtenerDatosEstadisticas() : null;
-    const cabecera = encabezadoVista("", "Estadísticas", "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>');
-    if (!estadoEstadisticas || estadoEstadisticas.carga === "cargando") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true"><p><strong>Cargando estadísticas de Bolsa…</strong></p></div></section>`;
-    if (estadoEstadisticas.carga === "denegado" || estadoEstadisticas.carga === "error") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>${estadoEstadisticas.carga === "denegado" ? "Acceso denegado" : "No se pudieron cargar las estadísticas"}</strong></p><p>${escaparHTML(estadoEstadisticas.error || "La sesión no puede consultar esta información.")}</p>${estadoEstadisticas.carga === "error" ? '<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-estadisticas">Reintentar</button>' : ""}</div></section>`;
+    const cabecera = encabezadoVista("", traducirPortal("txt_estadisticas"), "", '<button type="button" class="boton-secundario" data-vista="resumen">' + textoPortal("txt_volver_al_cuadro") + '</button>');
+    if (!estadoEstadisticas || estadoEstadisticas.carga === "cargando") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true"><p><strong>${textoPortal("txt_cargando_estadisticas_de_bolsa")}</strong></p></div></section>`;
+    if (estadoEstadisticas.carga === "denegado" || estadoEstadisticas.carga === "error") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>${estadoEstadisticas.carga === "denegado" ? traducirPortal("txt_acceso_denegado") : traducirPortal("txt_no_se_pudieron_cargar_las_estadisticas")}</strong></p><p>${escaparHTML(estadoEstadisticas.error || traducirPortal("txt_la_sesion_no_puede_consultar_esta_informacion"))}</p>${estadoEstadisticas.carga === "error" ? '<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-estadisticas">' + textoPortal("txt_reintentar") + '</button>' : ""}</div></section>`;
     const datos = estadoEstadisticas.datos;
-    const tarjetas = [["bolsas", datos.bolsas.total, "Bolsas"], ["correcto", datos.bolsas.vigentes, "Vigentes"], ["en_curso", datos.bolsas.sustituidas, "Sustituidas"], ["personas", datos.personas.total, "Personas"], ["llamamiento", datos.llamamientos.total, "Llamamientos"]];
+    const tarjetas = [["bolsas", datos.bolsas.total, traducirPortal("txt_bolsas")], ["correcto", datos.bolsas.vigentes, traducirPortal("txt_vigentes")], ["en_curso", datos.bolsas.sustituidas, traducirPortal("txt_sustituidas")], ["personas", datos.personas.total, traducirPortal("txt_personas")], ["llamamiento", datos.llamamientos.total, traducirPortal("txt_llamamientos")]];
     const resumenEstados = Object.entries(datos.personas.por_estado).map(([estado, total]) => `<span class="estado-chip ${claseEstadoEstadistica(estado)}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</span>`).join("");
-    const resumenCanales = Object.entries(datos.llamamientos.por_canal).map(([canal, total]) => `<span class="estado-chip info"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(canal))}</span>`).join("") || '<span class="estado-chip neutro">Sin desglose por canal</span>';
-    const resumenResultados = Object.entries(datos.llamamientos.por_resultado).map(([resultado, total]) => `<span class="estado-chip neutro"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(resultado))}</span>`).join("") || '<span class="estado-chip neutro">Sin desglose por resultado</span>';
-    const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? "Vigente" : "Sustituida"}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="Abrir las ${numero(bolsa.total)} personas de ${escaparHTML(bolsa.categoria)} en la lista de candidatos">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Abrir ${numero(bolsa.por_estado[estado])} personas ${escaparHTML(etiquetaEstadoEstadistica(estado).toLocaleLowerCase("es-ES"))} de ${escaparHTML(bolsa.categoria)} en la lista de candidatos">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
-    return `${cabecera}<div class="rejilla-kpi" aria-label="Totales de Bolsa">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta, sigla === "bolsas" ? {
+    const resumenCanales = Object.entries(datos.llamamientos.por_canal).map(([canal, total]) => `<span class="estado-chip info"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(canal))}</span>`).join("") || '<span class="estado-chip neutro">' + textoPortal("txt_sin_desglose_por_canal") + '</span>';
+    const resumenResultados = Object.entries(datos.llamamientos.por_resultado).map(([resultado, total]) => `<span class="estado-chip neutro"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(resultado))}</span>`).join("") || '<span class="estado-chip neutro">' + textoPortal("txt_sin_desglose_por_resultado") + '</span>';
+    const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? traducirPortal("txt_vigente") : traducirPortal("txt_sustituida")}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_personas_bolsa", { total: numero(bolsa.total), categoria: bolsa.categoria })}">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_abrir_personas_estado", { total: numero(bolsa.por_estado[estado]), estado: etiquetaEstadoEstadistica(estado).toLocaleLowerCase(LOCALIZACION_PORTAL), categoria: bolsa.categoria })}">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
+    return `${cabecera}<div class="rejilla-kpi" aria-label="${textoPortal("txt_totales_de_bolsa")}">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta, sigla === "bolsas" ? {
       atributos: 'data-vista="resumen"',
       aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: numero(valor) }),
       enlace: traducirEnlacesBolsa("kpi_ver_cuadro"),
-    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>Personas y llamamientos</h3><time datetime="${escaparHTML(datos.generado_en)}">Actualizado ${escaparHTML(instanteVisible(datos.generado_en))}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>Situación de personas</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>Canal de llamamiento</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>Resultado de llamamiento</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>Desglose por bolsa</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Personas por bolsa y situación</caption><thead><tr><th scope="col">Bolsa</th><th scope="col">Vigencia</th><th scope="col">Total</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">La fuente no ha devuelto bolsas para este ámbito.</td></tr>'}</tbody></table></div></section>`;
+    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_personas_y_llamamientos")}</h3><time datetime="${escaparHTML(datos.generado_en)}">${textoPortal("txt_actualizado_en", { instante: instanteVisible(datos.generado_en) })}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>${textoPortal("txt_situacion_de_personas")}</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>${textoPortal("txt_canal_de_llamamiento")}</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>${textoPortal("txt_resultado_de_llamamiento")}</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>${textoPortal("txt_desglose_por_bolsa")}</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${textoPortal("txt_personas_por_bolsa_y_situacion")}</caption><thead><tr><th scope="col">${textoPortal("txt_bolsa")}</th><th scope="col">${textoPortal("txt_vigencia")}</th><th scope="col">${textoPortal("txt_total")}</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">' + textoPortal("txt_la_fuente_no_ha_devuelto_bolsas_para_este_ambito") + '</td></tr>'}</tbody></table></div></section>`;
   }
   function instanteVisible(instante) {
-    if (!instante || String(instante).startsWith("0001-01-01")) return "Sin fecha límite";
+    if (!instante || String(instante).startsWith("0001-01-01")) return traducirPortal("txt_sin_fecha_limite");
     const fecha = new Date(instante);
-    if (!Number.isFinite(fecha.getTime())) return "Fecha no disponible";
-    return new Intl.DateTimeFormat("es-ES", {
-      dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid",
+    if (!Number.isFinite(fecha.getTime())) return traducirPortal("txt_fecha_no_disponible");
+    return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, {
+      dateStyle: "short", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL,
     }).format(fecha);
   }
   function fechaCivilVisible(valor) {
     const partes = typeof valor === "string" && /^(\d{4})-(\d{2})-(\d{2})$/u.exec(valor);
-    if (!partes) return "Fecha no disponible";
+    if (!partes) return traducirPortal("txt_fecha_no_disponible");
     const [, anioTexto, mesTexto, diaTexto] = partes;
     const anio = Number(anioTexto);
     const mes = Number(mesTexto);
     const dia = Number(diaTexto);
-    if (anio < 1) return "Fecha no disponible";
+    if (anio < 1) return traducirPortal("txt_fecha_no_disponible");
     const fecha = new Date(0);
     fecha.setUTCFullYear(anio, mes - 1, dia);
     fecha.setUTCHours(0, 0, 0, 0);
     if (fecha.getUTCFullYear() !== anio || fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) {
-      return "Fecha no disponible";
+      return traducirPortal("txt_fecha_no_disponible");
     }
-    return new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeZone: "UTC" }).format(fecha);
+    return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "short", timeZone: "UTC" }).format(fecha);
   }
   function fechaVisible(valor) {
     return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(valor)
@@ -156,7 +156,7 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
   function fechaMarcada(valor) {
     const texto = fechaVisible(valor);
-    return texto === "Fecha no disponible"
+    return texto === traducirPortal("txt_fecha_no_disponible")
       ? escaparHTML(texto)
       : `<time datetime="${escaparHTML(valor)}">${escaparHTML(texto)}</time>`;
   }
@@ -228,11 +228,11 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
-            <span class="estado-chip neutro">Consultando…</span>
+            <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo")}</h3>
+            <span class="estado-chip neutro">${textoPortal("txt_consultando")}</span>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
-            <p><strong>Cargando bolsas de trabajo…</strong></p>
+            <p><strong>${textoPortal("txt_cargando_bolsas_de_trabajo")}</strong></p>
           </div>
         </section>`;
     }
@@ -240,14 +240,14 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
-            <span class="estado-chip peligro">Error de carga</span>
+            <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo")}</h3>
+            <span class="estado-chip peligro">${textoPortal("txt_error_de_carga")}</span>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="alert">
-            <p><strong>No se pudieron cargar las bolsas de trabajo</strong></p>
-            <p>${escaparHTML(estadoBolsas.error || "Se ha producido un error al consultar las bolsas.")}</p>
+            <p><strong>${textoPortal("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</strong></p>
+            <p>${escaparHTML(estadoBolsas.error || traducirPortal("txt_se_ha_producido_un_error_al_consultar_las_bolsas"))}</p>
             <div class="acciones-vista">
-              <button type="button" class="boton-secundario" data-bolsa-accion="reintentar-bolsas">Reintentar</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="reintentar-bolsas">${textoPortal("txt_reintentar")}</button>
             </div>
           </div>
         </section>`;
@@ -256,12 +256,12 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
-            <span class="estado-chip peligro">Acceso denegado</span>
+            <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo")}</h3>
+            <span class="estado-chip peligro">${textoPortal("txt_acceso_denegado")}</span>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="alert">
-            <p><strong>Acceso denegado a la consulta de bolsas</strong></p>
-            <p>La sesión actual no dispone de permisos suficientes para consultar el cuadro de bolsas de trabajo.</p>
+            <p><strong>${textoPortal("txt_acceso_denegado_a_la_consulta_de_bolsas")}</strong></p>
+            <p>${textoPortal("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>
           </div>
         </section>`;
     }
@@ -270,13 +270,13 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
+            <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo")}</h3>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="status">
-            <p><strong>No hay bolsas de trabajo activas</strong></p>
-            <p>El servicio no ha devuelto bolsas de trabajo registradas para este ámbito.</p>
+            <p><strong>${textoPortal("txt_no_hay_bolsas_de_trabajo_activas")}</strong></p>
+            <p>${textoPortal("txt_el_servicio_no_ha_devuelto_bolsas_de_trabajo_reg")}</p>
             <div class="acciones-vista">
-              <button type="button" class="boton-secundario" data-bolsa-accion="reintentar-bolsas">Reintentar</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="reintentar-bolsas">${textoPortal("txt_reintentar")}</button>
             </div>
           </div>
         </section>`;
@@ -286,10 +286,10 @@ export function crearPresentadorPanelInterno(dependencias) {
     const totalPersonasEnRenuncia = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia || 0), 0);
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button></td>
+        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_candidatos_bolsa", { categoria: b.categoria })}"><strong>${escaparHTML(b.categoria)}</strong></button></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
-        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Ver los ${numero(b.total)} candidatos de ${escaparHTML(b.categoria)}"><strong>${numero(b.total)}</strong></button></td>
+        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_ver_candidatos_bolsa", { total: numero(b.total), categoria: b.categoria })}"><strong>${numero(b.total)}</strong></button></td>
         <td><button type="button" class="estado-chip info" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-pestana="historico" aria-label="${escaparHTML(traducirEnlacesBolsa("llamamientos_curso_aria", { total: numero(b.llamamientos_en_curso), bolsa: b.categoria }))}">${numero(b.llamamientos_en_curso)}</button></td>
         <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
         <td>${controlEstadoBolsa(b, "trabajando")}</td>
@@ -302,30 +302,30 @@ export function crearPresentadorPanelInterno(dependencias) {
     return `
       <section class="panel" aria-labelledby="titulo-cuadro-b12">
         <div class="cabecera-panel">
-          <h3 id="titulo-cuadro-b12">Bolsas de trabajo activas</h3>
+          <h3 id="titulo-cuadro-b12">${textoPortal("txt_bolsas_de_trabajo_activas")}</h3>
         </div>
-        <div class="rejilla-kpi cuadro-b12-kpi" aria-label="Resumen de las bolsas de trabajo">
-          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">Bolsas visibles</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></article>
-          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("personas")}</span><div><span class="etiqueta-kpi">Aspirantes</span><strong class="valor-kpi">${numero(totalAspirantes)}</strong></div></article>
-          <article class="tarjeta-kpi kpi--exito"><span class="icono-kpi" aria-hidden="true">${icono("persona_ok")}</span><div><span class="etiqueta-kpi">Disponibles</span><strong class="valor-kpi">${numero(totalDisponibles)}</strong></div></article>
-          <article class="tarjeta-kpi kpi--advertencia"><span class="icono-kpi" aria-hidden="true">${icono("persona_baja")}</span><div><span class="etiqueta-kpi">Personas en renuncia</span><strong class="valor-kpi">${numero(totalPersonasEnRenuncia)}</strong></div></article>
+        <div class="rejilla-kpi cuadro-b12-kpi" aria-label="${textoPortal("txt_resumen_de_las_bolsas_de_trabajo")}">
+          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_bolsas_visibles")}</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></article>
+          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("personas")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_aspirantes")}</span><strong class="valor-kpi">${numero(totalAspirantes)}</strong></div></article>
+          <article class="tarjeta-kpi kpi--exito"><span class="icono-kpi" aria-hidden="true">${icono("persona_ok")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_disponibles")}</span><strong class="valor-kpi">${numero(totalDisponibles)}</strong></div></article>
+          <article class="tarjeta-kpi kpi--advertencia"><span class="icono-kpi" aria-hidden="true">${icono("persona_baja")}</span><div><span class="etiqueta-kpi">${textoPortal("txt_personas_en_renuncia")}</span><strong class="valor-kpi">${numero(totalPersonasEnRenuncia)}</strong></div></article>
         </div>
         <div class="tabla-contenedor">
           <table class="tabla-datos">
-            <caption>Bolsas de trabajo y distribución de aspirantes por situación</caption>
+            <caption>${textoPortal("txt_bolsas_de_trabajo_y_distribucion_de_aspirantes_p")}</caption>
             <thead>
               <tr>
-                <th scope="col">Bolsa / Categoría</th>
-                <th scope="col">Tipo de lista</th>
-                <th scope="col">Vigencia</th>
-                <th scope="col">Total</th>
-                <th scope="col">Llamamientos en curso</th>
-                <th scope="col">Disponibles</th>
-                <th scope="col">Ocupados / Trabajando</th>
-                <th scope="col">No disp.</th>
-                <th scope="col">Excluidos</th>
-                <th scope="col">Renuncia</th>
-                <th scope="col">Pend. incorporación</th>
+                <th scope="col">${textoPortal("txt_bolsa_categoria")}</th>
+                <th scope="col">${textoPortal("txt_tipo_de_lista")}</th>
+                <th scope="col">${textoPortal("txt_vigencia")}</th>
+                <th scope="col">${textoPortal("txt_total")}</th>
+                <th scope="col">${textoPortal("txt_llamamientos_en_curso")}</th>
+                <th scope="col">${textoPortal("txt_disponibles")}</th>
+                <th scope="col">${textoPortal("txt_ocupados_trabajando")}</th>
+                <th scope="col">${textoPortal("txt_no_disp")}</th>
+                <th scope="col">${textoPortal("txt_excluidos")}</th>
+                <th scope="col">${textoPortal("txt_renuncia")}</th>
+                <th scope="col">${textoPortal("txt_pend_incorporacion")}</th>
               </tr>
             </thead>
             <tbody>
@@ -338,33 +338,33 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarResumen(datos) {
     const i = datos.indicadores;
     const indicadoresConectados = [
-      ["bolsas", i.bolsas_activas, "Bolsas activas"],
-      ["llamamiento", i.llamamientos_pendientes, "Llamamientos pendientes"],
-      ["en_curso", i.llamamientos_en_curso, "Llamamientos en curso"],
-      ["documento", i.documentos_pendientes_firma, "Documentos pendientes de firma"],
-      ["alerta", i.incidencias_abiertas, "Incidencias abiertas"],
+      ["bolsas", i.bolsas_activas, traducirPortal("txt_bolsas_activas")],
+      ["llamamiento", i.llamamientos_pendientes, traducirPortal("txt_llamamientos_pendientes")],
+      ["en_curso", i.llamamientos_en_curso, traducirPortal("txt_llamamientos_en_curso")],
+      ["documento", i.documentos_pendientes_firma, traducirPortal("txt_documentos_pendientes_de_firma")],
+      ["alerta", i.incidencias_abiertas, traducirPortal("txt_incidencias_abiertas")],
     ];
     return `
-      ${encabezadoVista("", "Cuadro de mando", "", `${enlaceReglasVigentes()}<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>`)}
-      <div class="rejilla-kpi" aria-label="Indicadores operativos de Bolsa">
+      ${encabezadoVista("", traducirPortal("txt_cuadro_de_mando"), "", `${enlaceReglasVigentes()}<button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
+      <div class="rejilla-kpi" aria-label="${textoPortal("txt_indicadores_operativos_de_bolsa")}">
         ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>
-      <div class="rejilla-cuadro-mando" aria-label="Resumen operativo">
+      <div class="rejilla-cuadro-mando" aria-label="${textoPortal("txt_resumen_operativo")}">
         <div class="columna-cuadro">
           ${renderizarCuadroB12()}
           ${tablaConvocatorias(datos)}
         </div>
-        <aside class="columna-cuadro" aria-label="Actuaciones y prueba de lectura">
+        <aside class="columna-cuadro" aria-label="${textoPortal("txt_actuaciones_y_prueba_de_lectura")}">
           ${tablaActuaciones(datos)}
-          <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${referenciaCopiableTraducida(datos.origen.revision, escaparHTML, traducirReferencia, tp("revision_fuente_copiar_aria"))}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
+          <section class="panel"><div class="cabecera-panel"><h3>${textoPortal("txt_prueba_de_lectura")}</h3><span class="estado-chip exito">${textoPortal("txt_lectura_auditada")}</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>${textoPortal("txt_ambito")}</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>${textoPortal("txt_revision_de_fuente")}</dt><dd>${referenciaCopiableTraducida(datos.origen.revision, escaparHTML, traducirReferencia, tp("revision_fuente_copiar_aria"))}</dd></div><div class="fila-resumen"><dt>${textoPortal("txt_actualizada")}</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>${textoPortal("txt_confirmada")}</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
         </aside>
       </div>`;
   }
   function renderizarConvocatorias(datos) {
     const i = datos.indicadores;
     return `
-      ${encabezadoVista("", "Convocatorias", "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
-      <div class="rejilla-kpi">${tarjetaKPI("documento", numero(i.convocatorias_borrador), "Borrador")}${tarjetaKPI("en_curso", numero(i.convocatorias_revision), "En revisión")}${tarjetaKPI("contrato", numero(i.convocatorias_pendientes_firma), "Pendientes de firma")}${tarjetaKPI("correcto", numero(i.convocatorias_publicadas), "Publicadas")}</div>
+      ${encabezadoVista("", traducirPortal("txt_convocatorias"), "", '<button type="button" class="boton-secundario" data-vista="resumen">' + textoPortal("txt_volver_al_cuadro_de_mando") + '</button>')}
+      <div class="rejilla-kpi">${tarjetaKPI("documento", numero(i.convocatorias_borrador), traducirPortal("txt_borrador"))}${tarjetaKPI("en_curso", numero(i.convocatorias_revision), traducirPortal("txt_en_revision"))}${tarjetaKPI("contrato", numero(i.convocatorias_pendientes_firma), traducirPortal("txt_pendientes_de_firma"))}${tarjetaKPI("correcto", numero(i.convocatorias_publicadas), traducirPortal("txt_publicadas"))}</div>
       ${tablaConvocatorias(datos)}`;
   }
   function renderizarNuevoLlamamiento(bolsa, candidatos, flujo, fuente = {}) {
@@ -406,10 +406,10 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? obtenerEstadoCandidatos()
       : { estado: "", texto: "" };
     const pestana = filtrosActuales.pestana === "historico" ? "historico" : "candidatos";
-    const accionesEncabezado = '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>';
+    const accionesEncabezado = '<button type="button" class="boton-secundario" data-vista="resumen">' + textoPortal("txt_volver_al_cuadro") + '</button>';
     if (!estadoCandidatos) {
       return `
-        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
+        ${encabezadoVista("", traducirPortal("txt_candidatos_de_la_bolsa"), "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>${escaparHTML(traducirPortal("panel_fuente_no_configurada_titulo"))}</strong></p>
@@ -419,36 +419,36 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     if (estadoCandidatos.carga === "cargando") {
       return `
-        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
+        ${encabezadoVista("", traducirPortal("txt_candidatos_de_la_bolsa"), "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
-            <p><strong>Cargando lista de candidatos…</strong></p>
+            <p><strong>${textoPortal("txt_cargando_lista_de_candidatos")}</strong></p>
           </div>
         </section>`;
     }
     if (estadoCandidatos.carga === "error") {
       return `
-        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
+        ${encabezadoVista("", traducirPortal("txt_candidatos_de_la_bolsa"), "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
-            <p><strong>Error al consultar candidatos</strong></p>
-            <p>${escaparHTML(estadoCandidatos.error || "No se pudo cargar la relación de aspirantes.")}</p>
+            <p><strong>${textoPortal("txt_error_al_consultar_candidatos")}</strong></p>
+            <p>${escaparHTML(estadoCandidatos.error || traducirPortal("txt_no_se_pudo_cargar_la_relacion_de_aspirantes"))}</p>
             <div class="acciones-vista">
-              <button type="button" class="boton-secundario" data-bolsa-accion="reintentar-candidatos">Reintentar</button>
-              <button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="reintentar-candidatos">${textoPortal("txt_reintentar")}</button>
+              <button type="button" class="boton-secundario" data-vista="resumen">${textoPortal("txt_volver_al_cuadro")}</button>
             </div>
           </div>
         </section>`;
     }
     if (estadoCandidatos.carga === "denegado") {
       return `
-        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
+        ${encabezadoVista("", traducirPortal("txt_candidatos_de_la_bolsa"), "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
-            <p><strong>Acceso denegado</strong></p>
-            <p>La sesión no dispone de permisos para consultar los candidatos de esta bolsa.</p>
+            <p><strong>${textoPortal("txt_acceso_denegado")}</strong></p>
+            <p>${textoPortal("txt_la_sesion_no_dispone_de_permisos_para_consultar")}</p>
             <div class="acciones-vista">
-              <button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>
+              <button type="button" class="boton-secundario" data-vista="resumen">${textoPortal("txt_volver_al_cuadro")}</button>
             </div>
           </div>
         </section>`;
@@ -458,49 +458,49 @@ export function crearPresentadorPanelInterno(dependencias) {
     const contactos = estadoCandidatos.datos?.contactos || [];
     const modalFicha = typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null;
     const reciboFichaFuera = modalFicha?.operacionesB8?.recibo && !candidatos.some((item) => item.participacion_ref === modalFicha.candidato?.participacion_ref)
-      ? `<p class="mensaje-exito" role="status">Operación registrada. ${justificanteTraducido(modalFicha.operacionesB8.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}. La participación ya no coincide con el filtro o la página actual; consulte su nueva situación al quitar el filtro.</p>` : "";
+      ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(modalFicha.operacionesB8.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}. ${textoPortal("txt_participacion_fuera_de_filtro")}</p>` : "";
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
     if (filtrosActuales.nuevo_llamamiento) return renderizarNuevoLlamamiento(bolsa, candidatos, filtrosActuales.nuevo_llamamiento, estadoCandidatos.datos);
-    const tituloBolsa = bolsa ? `Candidatos: ${bolsa.categoria}` : "Candidatos de la bolsa";
+    const tituloBolsa = bolsa ? traducirPortal("txt_candidatos_de_categoria", { categoria: bolsa.categoria }) : traducirPortal("txt_candidatos_de_la_bolsa");
     const opcionesEstado = [
-      ["", "Todos los estados"],
-      ["disponible", "Disponible"],
-      ["no_disponible", "No disponible"],
-      ["trabajando", "Trabajando"],
-      ["pendiente_incorporacion", "Pendiente de incorporación"],
-      ["renuncia", "Renuncia"],
-      ["excluido", "Excluido"],
-      ["disponible_desde", "Disponible desde fecha"],
+      ["", traducirPortal("txt_todos_los_estados")],
+      ["disponible", traducirPortal("txt_disponible")],
+      ["no_disponible", traducirPortal("txt_no_disponible")],
+      ["trabajando", traducirPortal("txt_trabajando")],
+      ["pendiente_incorporacion", traducirPortal("txt_pendiente_de_incorporacion")],
+      ["renuncia", traducirPortal("txt_renuncia")],
+      ["excluido", traducirPortal("txt_excluido")],
+      ["disponible_desde", traducirPortal("txt_disponible_desde_fecha")],
     ].map(([valor, etiqueta]) => `
       <option value="${escaparHTML(valor)}"${valor === filtrosActuales.estado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>
     `).join("");
     const contadoresEstado = Object.entries(bolsa?.por_estado || {}).map(([estado, total]) => {
       const tono = estado === "disponible" ? "kpi--exito" : ["renuncia", "no_disponible"].includes(estado) ? "kpi--advertencia" : estado === "excluido" ? "kpi--peligro" : "";
-      const rotulo = ({ no_disponible: "No disp.", pendiente_incorporacion: "Pend. incorp.", disponible_desde: "Desde fecha" })[estado] || etiquetaClave(estado);
-      return `<button type="button" class="tarjeta-kpi kpi-filtro ${tono}" data-bolsa-accion="filtrar-estado" data-estado="${escaparHTML(estado)}" aria-label="Filtrar ${numero(total)} candidatos en situación ${escaparHTML(etiquetaEstadoBolsa(estado))}" aria-pressed="${filtrosActuales.estado === estado}"><span class="icono-kpi" aria-hidden="true">${estado === "disponible" ? "✓" : estado === "excluido" ? "×" : "•"}</span><span><span class="etiqueta-kpi">${escaparHTML(rotulo)}</span><strong class="valor-kpi">${numero(total)}</strong></span></button>`;
+      const rotulo = ({ no_disponible: traducirPortal("txt_no_disp"), pendiente_incorporacion: traducirPortal("txt_pend_incorp"), disponible_desde: traducirPortal("txt_desde_fecha") })[estado] || etiquetaClave(estado);
+      return `<button type="button" class="tarjeta-kpi kpi-filtro ${tono}" data-bolsa-accion="filtrar-estado" data-estado="${escaparHTML(estado)}" aria-label="${textoPortal("txt_aria_filtrar_situacion", { total: numero(total), situacion: etiquetaEstadoBolsa(estado) })}" aria-pressed="${filtrosActuales.estado === estado}"><span class="icono-kpi" aria-hidden="true">${estado === "disponible" ? "✓" : estado === "excluido" ? "×" : "•"}</span><span><span class="etiqueta-kpi">${escaparHTML(rotulo)}</span><strong class="valor-kpi">${numero(total)}</strong></span></button>`;
     }).join("");
     const formularioFiltros = `
-      <form class="barra-filtros-bolsa barra-filtros-estadisticas" data-bolsa-form="filtros" role="search" aria-label="Filtros de candidatos">
+      <form class="barra-filtros-bolsa barra-filtros-estadisticas" data-bolsa-form="filtros" role="search" aria-label="${textoPortal("txt_filtros_de_candidatos")}">
         <div class="campo-filtro">
-          <label for="filtro-bolsa-estado">Situación</label>
+          <label for="filtro-bolsa-estado">${textoPortal("txt_situacion")}</label>
           <select id="filtro-bolsa-estado" name="estado">${opcionesEstado}</select>
         </div>
         <div class="campo-filtro">
-          <label for="filtro-bolsa-texto">Buscar</label>
-          <input type="search" id="filtro-bolsa-texto" name="texto" value="${escaparHTML(filtrosActuales.texto || "")}" placeholder="Nombre o documento…">
+          <label for="filtro-bolsa-texto">${textoPortal("txt_buscar")}</label>
+          <input type="search" id="filtro-bolsa-texto" name="texto" value="${escaparHTML(filtrosActuales.texto || "")}" placeholder="${textoPortal("txt_nombre_o_documento")}">
         </div>
         <div class="acciones-filtro">
-          <button type="submit" class="boton-primario">Filtrar</button>
-          <button type="button" class="boton-secundario" data-bolsa-accion="limpiar-filtros">Limpiar</button>
+          <button type="submit" class="boton-primario">${textoPortal("txt_filtrar")}</button>
+          <button type="button" class="boton-secundario" data-bolsa-accion="limpiar-filtros">${textoPortal("txt_limpiar")}</button>
         </div>
       </form>`;
     let cuerpoTabla = "";
     if (candidatos.length === 0) {
-      cuerpoTabla = `<tr><td colspan="7" class="vacio-controlado">No se han encontrado aspirantes que coincidan con los criterios seleccionados.</td></tr>`;
+      cuerpoTabla = `<tr><td colspan="7" class="vacio-controlado">${textoPortal("txt_no_se_han_encontrado_aspirantes_que_coincidan_co")}</td></tr>`;
     } else {
       cuerpoTabla = candidatos.map((c) => {
-        let detalleLlamamiento = '<small class="texto-atenuado">Sin llamamientos</small>';
+        let detalleLlamamiento = '<small class="texto-atenuado">' + textoPortal("txt_sin_llamamientos") + '</small>';
         if (c.ultimo_llamamiento) {
           const l = c.ultimo_llamamiento;
           detalleLlamamiento = `<span>${escaparHTML(etiquetaClave(l.canal))} · ${escaparHTML(etiquetaClave(l.resultado))}<br><small><time datetime="${escaparHTML(l.comunicado_en)}">${escaparHTML(instanteVisible(l.comunicado_en))}</time></small></span>`;
@@ -510,8 +510,8 @@ export function crearPresentadorPanelInterno(dependencias) {
         const fichaId = `ficha-participacion-${c.participacion_ref}`;
         return `
           <tr class="fila-candidato" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-estado="${escaparHTML(c.estado_clave)}">
-            <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "reposicion_tras_contrato" ? "Reposición tras contrato" : c.razon_orden === "pausa" ? "Pausa" : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
-            <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="Abrir ficha de participación de ${escaparHTML(c.nombre_visible)}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
+            <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato") : c.razon_orden === "pausa" ? traducirPortal("txt_pausa") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
+            <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
             <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span>${renderizarChipsMarcas(c, escaparHTML)}</td>
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
@@ -523,18 +523,18 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     const paginacion = hayMas && cursorSiguiente
       ? `<div class="paginacion-bolsa">
-           <button type="button" class="boton-secundario" data-bolsa-accion="pagina-siguiente" data-cursor="${escaparHTML(cursorSiguiente)}">Cargar siguientes aspirantes</button>
+           <button type="button" class="boton-secundario" data-bolsa-accion="pagina-siguiente" data-cursor="${escaparHTML(cursorSiguiente)}">${textoPortal("txt_cargar_siguientes_aspirantes")}</button>
          </div>`
       : "";
     const vigenciaBolsa = bolsa
       ? (bolsa.vigente_hasta
         ? `${fechaVisible(bolsa.vigente_desde)} — ${fechaVisible(bolsa.vigente_hasta)}`
         : `${fechaVisible(bolsa.vigente_desde)} — vigente`)
-      : "No disponible";
+      : traducirPortal("txt_no_disponible");
     const accionesBolsa = `<div class="cuerpo-panel acciones-vista">
-            <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Consultar historial de contactos</button>
-            <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">Nuevo llamamiento</button>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Registrar resultado</button>
+            <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">${textoPortal("txt_consultar_historial_de_contactos")}</button>
+            <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">${textoPortal("txt_nuevo_llamamiento")}</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">${textoPortal("txt_registrar_resultado")}</button>
           </div>`;
     const bolsas = typeof obtenerDatosBolsas === "function"
       ? obtenerDatosBolsas()?.datos?.bolsas || []
@@ -549,30 +549,30 @@ export function crearPresentadorPanelInterno(dependencias) {
         <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaVigente.bolsa_ref)}">${escaparHTML(traducirBolsaInterna("bolsa_abrir_vigente"))}</button>
        </section>` : "";
     const resumenBolsa = bolsa ? `
-      <aside class="resumen-lateral" aria-label="Resumen de la bolsa seleccionada">
+      <aside class="resumen-lateral" aria-label="${textoPortal("txt_resumen_de_la_bolsa_seleccionada")}">
         <section class="panel">
-          <div class="cabecera-panel"><h3>Resumen de la bolsa</h3></div>
+          <div class="cabecera-panel"><h3>${textoPortal("txt_resumen_de_la_bolsa")}</h3></div>
           <div class="cuerpo-panel">
             <dl class="resumen-expediente">
-              <div class="fila-resumen"><dt>Categoría</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div>
-              <div class="fila-resumen"><dt>Tipo de lista</dt><dd>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</dd></div>
-              <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigenciaBolsa)}</dd></div>
-              <div class="fila-resumen"><dt>Personas en bolsa</dt><dd>${numero(bolsa.total)}</dd></div>
+              <div class="fila-resumen"><dt>${textoPortal("txt_categoria")}</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div>
+              <div class="fila-resumen"><dt>${textoPortal("txt_tipo_de_lista")}</dt><dd>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</dd></div>
+              <div class="fila-resumen"><dt>${textoPortal("txt_vigencia")}</dt><dd>${escaparHTML(vigenciaBolsa)}</dd></div>
+              <div class="fila-resumen"><dt>${textoPortal("txt_personas_en_bolsa")}</dt><dd>${numero(bolsa.total)}</dd></div>
             </dl>
           </div>
         </section>
         <section class="panel">
-          <div class="cabecera-panel"><h3>Criterios de orden</h3></div>
+          <div class="cabecera-panel"><h3>${textoPortal("txt_criterios_de_orden")}</h3></div>
           <div class="cuerpo-panel"><dl class="resumen-expediente">
-            <div class="fila-resumen"><dt>Criterio</dt><dd>Puntuación descendente; desempate estable por nº del acta</dd></div>
-            <div class="fila-resumen"><dt>Tipo</dt><dd>${escaparHTML(etiquetaClave(bolsa.politica_orden.tipo_lista))}</dd></div>
-            <div class="fila-resumen"><dt>Reposición</dt><dd>${escaparHTML(etiquetaReposicion(bolsa.politica_orden.reposicion))}</dd></div>
-            <div class="fila-resumen"><dt>Versión y vigencia</dt><dd>Versión ${numero(bolsa.politica_orden.version)} · ${escaparHTML(fechaVisible(bolsa.politica_orden.vigente_desde))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_criterio")}</dt><dd>${textoPortal("txt_puntuacion_descendente_desempate_estable_por_n_d")}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_tipo")}</dt><dd>${escaparHTML(etiquetaClave(bolsa.politica_orden.tipo_lista))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_reposicion")}</dt><dd>${escaparHTML(etiquetaReposicion(bolsa.politica_orden.reposicion))}</dd></div>
+            <div class="fila-resumen"><dt>${textoPortal("txt_version_y_vigencia")}</dt><dd>${textoPortal("txt_version_n", { version: numero(bolsa.politica_orden.version) })} · ${escaparHTML(fechaVisible(bolsa.politica_orden.vigente_desde))}</dd></div>
           </dl>${rotuloPoliticaOrden(bolsa.politica_orden.rotulo)}</div>
         </section>
         ${avisoSustitucion}
         <section class="panel">
-          <div class="cabecera-panel"><h3>Siguientes actuaciones</h3></div>
+          <div class="cabecera-panel"><h3>${textoPortal("txt_siguientes_actuaciones")}</h3></div>
           ${accionesBolsa}
         </section>
       </aside>` : "";
@@ -592,9 +592,9 @@ export function crearPresentadorPanelInterno(dependencias) {
           : escaparHTML(evento.contacto);
         return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${nombre}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${celdaActor(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
       }).join("");
-    const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
-    const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
-    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${traducirBolsaInterna("contacto_historico_descripcion")}"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
+    const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="${textoPortal("txt_paginacion_del_historico")}"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: numero(inicioHistorico + 1), hasta: numero(Math.min(inicioHistorico + 6, llamadas.length)), total: numero(llamadas.length) })}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>${textoPortal("txt_siguiente")}</button></div>` : "";
+    const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="${textoPortal("txt_vistas_de_la_bolsa")}"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">${textoPortal("txt_candidatos")}</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">${textoPortal("txt_historico_de_llamamientos")}</button></nav>`;
+    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${textoPortal("txt_n_registros", { numero: numero(llamadas.length) })}</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${traducirBolsaInterna("contacto_historico_descripcion")}"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">${textoPortal("txt_fecha")}</th><th scope="col">${textoPortal("txt_candidato")}</th><th scope="col">${textoPortal("txt_tipo")}</th><th scope="col">${textoPortal("txt_resultado")}</th><th scope="col">${textoPortal("txt_actor")}</th><th scope="col">${textoPortal("txt_contacto")}</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
     return `
       ${encabezadoVista("", tituloBolsa, "", accionesEncabezado)}
       ${reciboFichaFuera}
@@ -603,17 +603,17 @@ export function crearPresentadorPanelInterno(dependencias) {
           ${pestanas}
           ${pestana === "historico" ? contenidoHistorico : `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
             <div class="cabecera-panel">
-              <h3>Situación de los candidatos</h3>
+              <h3>${textoPortal("txt_situacion_de_los_candidatos")}</h3>
             </div>
-            <div class="cuerpo-panel"><div class="rejilla-kpi kpi-candidatos" aria-label="Contadores por situación">${contadoresEstado}</div></div>
+            <div class="cuerpo-panel"><div class="rejilla-kpi kpi-candidatos" aria-label="${textoPortal("txt_contadores_por_situacion")}">${contadoresEstado}</div></div>
             <div class="cuerpo-panel">${formularioFiltros}</div>
           </section>`}
           <section class="panel"${pestana === "historico" ? " hidden" : ""}>
-            <div class="cabecera-panel"><h3>Relación ordenada de candidatos</h3></div>
-            <div class="tabla-contenedor" tabindex="0" role="region" aria-label="Aspirantes ordenados por mérito y situación en bolsa">
+            <div class="cabecera-panel"><h3>${textoPortal("txt_relacion_ordenada_de_candidatos")}</h3></div>
+            <div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_aspirantes_ordenados_por_merito_y_situacion_en_b")}">
               <table class="tabla-datos tabla-datos--candidatos">
-                <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
-                <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">DNI</th><th scope="col">Situación</th><th scope="col">Fecha</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th></tr></thead>
+                <caption>${textoPortal("txt_aspirantes_ordenados_por_merito_y_situacion_en_b")}</caption>
+                <thead><tr><th scope="col">${textoPortal("txt_orden")}</th><th scope="col">${textoPortal("txt_aspirante")}</th><th scope="col">${textoPortal("txt_dni")}</th><th scope="col">${textoPortal("txt_situacion")}</th><th scope="col">${textoPortal("txt_fecha")}</th><th scope="col">${textoPortal("txt_disponible_desde")}</th><th scope="col">${textoPortal("txt_ultimo_llamamiento")}</th></tr></thead>
                 <tbody>${cuerpoTabla}</tbody>
               </table>
             </div>
@@ -632,23 +632,23 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? `${instanteVisible(bolsa.vigente_desde)} — ${instanteVisible(bolsa.vigente_hasta)}`
       : `${instanteVisible(bolsa.vigente_desde)} — vigente`;
     const disponibilidad = candidato.disponible_desde
-      ? `<div class="fila-resumen"><dt>Disponible desde</dt><dd>${escaparHTML(instanteVisible(candidato.disponible_desde))}</dd></div>`
+      ? `<div class="fila-resumen"><dt>${textoPortal("txt_disponible_desde")}</dt><dd>${escaparHTML(instanteVisible(candidato.disponible_desde))}</dd></div>`
       : "";
     const ultimoLlamamiento = candidato.ultimo_llamamiento
-      ? `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.canal))} · ${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.resultado))}<br><small><time datetime="${escaparHTML(candidato.ultimo_llamamiento.comunicado_en)}">${escaparHTML(instanteVisible(candidato.ultimo_llamamiento.comunicado_en))}</time></small></dd></div>`
-      : `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>Sin llamamientos registrados</dd></div>`;
+      ? `<div class="fila-resumen"><dt>${textoPortal("txt_ultimo_llamamiento")}</dt><dd>${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.canal))} · ${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.resultado))}<br><small><time datetime="${escaparHTML(candidato.ultimo_llamamiento.comunicado_en)}">${escaparHTML(instanteVisible(candidato.ultimo_llamamiento.comunicado_en))}</time></small></dd></div>`
+      : `<div class="fila-resumen"><dt>${textoPortal("txt_ultimo_llamamiento")}</dt><dd>${textoPortal("txt_sin_llamamientos_registrados")}</dd></div>`;
     const destinos = destinosSituacion(modal.reglasSituacion, candidato.estado_clave);
     const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
     const cambio = modal.cambioSituacion ? `
       <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
-        <label>Destino <select name="situacion" required><option value="">Seleccionar estado</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
+        <label>${textoPortal("txt_destino")} <select name="situacion" required><option value="">${textoPortal("txt_seleccionar_estado")}</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
         ${renderizarCamposReposicion({ reglas: modal.reglasSituacion, candidato, estadoReposicion: modal.reposicion, escaparHTML })}
-        <label data-bolsa-fecha-disponible>Fecha de disponibilidad <input type="datetime-local" name="fecha_disponible"${fechaPropuesta ? ` value="${escaparHTML(fechaPropuesta)}"` : ""}></label>
-        <label>Motivo <textarea name="motivo" required maxlength="1000"></textarea></label>
-        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>Guardar cambio</button>
+        <label data-bolsa-fecha-disponible>${textoPortal("txt_fecha_de_disponibilidad")} <input type="datetime-local" name="fecha_disponible"${fechaPropuesta ? ` value="${escaparHTML(fechaPropuesta)}"` : ""}></label>
+        <label>${textoPortal("txt_motivo")} <textarea name="motivo" required maxlength="1000"></textarea></label>
+        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>${textoPortal("txt_guardar_cambio")}</button>
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
       </form>` : "";
-    const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">Cambio registrado. ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
+    const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
     const reciboContacto = modal.reciboContacto ? `<p class="mensaje-exito" role="status">${escaparHTML(traducirBolsaInterna("contacto_registrado"))} ${justificanteTraducido(modal.reciboContacto, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
     const opcionLlamamiento = candidato.ultimo_llamamiento ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}">${escaparHTML(traducirBolsaInterna("contacto_ultimo_llamamiento"))}</option>` : "";
     const t = traducirBolsaInterna;
@@ -658,15 +658,15 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td colspan="7">
           <section id="${escaparHTML(fichaId)}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1" aria-labelledby="titulo-${escaparHTML(fichaId)}">
             <div class="cabecera-panel">
-              <h3 id="titulo-${escaparHTML(fichaId)}">Ficha de participación</h3>
-              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="Cerrar ficha de participación">×</button>
+              <h3 id="titulo-${escaparHTML(fichaId)}">${textoPortal("txt_ficha_de_participacion")}</h3>
+              <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-ficha" aria-label="${textoPortal("txt_cerrar_ficha_de_participacion")}">×</button>
             </div>
             <div class="cuerpo-panel">
               <dl class="resumen-expediente">
-                <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
-                <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
-                <div class="fila-resumen"><dt>Orden del acta</dt><dd>#${numero(candidato.orden_acta)}</dd></div>
-                <div class="fila-resumen"><dt>Último cambio de situación</dt><dd>${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
+                <div class="fila-resumen"><dt>${textoPortal("txt_bolsa")}</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
+                <div class="fila-resumen"><dt>${textoPortal("txt_vigencia")}</dt><dd>${escaparHTML(vigencia)}</dd></div>
+                <div class="fila-resumen"><dt>${textoPortal("txt_orden_del_acta")}</dt><dd>#${numero(candidato.orden_acta)}</dd></div>
+                <div class="fila-resumen"><dt>${textoPortal("txt_ultimo_cambio_de_situacion")}</dt><dd>${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
                 ${renderizarMarcasFicha(candidato, escaparHTML)}
                 ${disponibilidad}
                 ${ultimoLlamamiento}
@@ -682,8 +682,8 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">
-              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">Cambiar situación</button>
-              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">Cerrar</button>
+              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
+              <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">${textoPortal("txt_cerrar")}</button>
             </div>
           </section>
           ${cambio}
@@ -695,11 +695,11 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (!modal || !modal.abierto) return "";
     let contenido = "";
     if (modal.carga === "cargando") {
-      contenido = '<p class="vacio-controlado" role="status" aria-busy="true">Cargando historial de contactos…</p>';
+      contenido = '<p class="vacio-controlado" role="status" aria-busy="true">' + textoPortal("txt_cargando_historial_de_contactos") + '</p>';
     } else if (modal.carga === "error") {
-      contenido = `<p class="mensaje-error" role="alert">${escaparHTML(modal.error || "No se pudieron consultar los contactos.")}</p>`;
+      contenido = `<p class="mensaje-error" role="alert">${escaparHTML(modal.error || traducirPortal("txt_no_se_pudieron_consultar_los_contactos"))}</p>`;
     } else if (!modal.contactos || modal.contactos.length === 0) {
-      contenido = '<p class="vacio-controlado" role="status">No hay contactos previos registrados para este aspirante.</p>';
+      contenido = '<p class="vacio-controlado" role="status">' + textoPortal("txt_no_hay_contactos_previos_registrados_para_este_a") + '</p>';
     } else {
       const filas = modal.contactos.map((ct) => `
         <tr data-contacto-ref="${escaparHTML(ct.contacto_ref)}">
@@ -710,15 +710,15 @@ export function crearPresentadorPanelInterno(dependencias) {
         </tr>
       `).join("");
       contenido = `
-        <div class="tabla-contenedor" tabindex="0" role="region" aria-label="Historial de comunicaciones y respuestas del aspirante">
+        <div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_historial_de_comunicaciones_y_respuestas_del_asp")}">
           <table class="tabla-datos">
-            <caption>Historial de comunicaciones y respuestas del aspirante</caption>
+            <caption>${textoPortal("txt_historial_de_comunicaciones_y_respuestas_del_asp")}</caption>
             <thead>
               <tr>
-                <th scope="col">Canal</th>
-                <th scope="col">Fecha y hora</th>
-                <th scope="col">Resultado</th>
-                <th scope="col">Anotación</th>
+                <th scope="col">${textoPortal("txt_canal")}</th>
+                <th scope="col">${textoPortal("txt_fecha_y_hora")}</th>
+                <th scope="col">${textoPortal("txt_resultado")}</th>
+                <th scope="col">${textoPortal("txt_anotacion")}</th>
               </tr>
             </thead>
             <tbody>
@@ -731,14 +731,14 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-contactos">
         <div class="modal-contenido">
           <div class="cabecera-panel">
-            <h3 id="titulo-modal-contactos">Historial de contactos: ${escaparHTML(modal.nombreVisible || modal.participacionRef)}</h3>
-            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-contactos" aria-label="Cerrar">×</button>
+            <h3 id="titulo-modal-contactos">${textoPortal("txt_historial_de_contactos_de", { persona: modal.nombreVisible || modal.participacionRef })}</h3>
+            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-contactos" aria-label="${textoPortal("txt_cerrar")}">×</button>
           </div>
           <div class="cuerpo-panel">
             ${contenido}
           </div>
           <div class="acciones-vista">
-            <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-contactos">Cerrar</button>
+            <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-contactos">${textoPortal("txt_cerrar")}</button>
           </div>
         </div>
       </div>`;
@@ -746,42 +746,42 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarModalResultado(modal) {
     if (!modal || !modal.abierto) return "";
     const errorHtml = modal.error
-      ? `<div class="mensaje-error" role="alert"><p><strong>Error:</strong> ${escaparHTML(modal.error)}</p></div>`
+      ? `<div class="mensaje-error" role="alert"><p><strong>${textoPortal("txt_error")}</strong> ${escaparHTML(modal.error)}</p></div>`
       : "";
     const enviando = modal.carga === "enviando";
     return `
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-resultado">
         <div class="modal-contenido">
           <div class="cabecera-panel">
-            <h3 id="titulo-modal-resultado">Registrar resultado de llamamiento</h3>
-            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-resultado" aria-label="Cerrar">×</button>
+            <h3 id="titulo-modal-resultado">${textoPortal("txt_registrar_resultado_de_llamamiento")}</h3>
+            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-resultado" aria-label="${textoPortal("txt_cerrar")}">×</button>
           </div>
           <div class="cuerpo-panel">
             ${errorHtml}
-            <p>Aspirante: <strong>${escaparHTML(modal.nombreVisible || modal.participacionRef)}</strong></p>
+            <p>${textoPortal("txt_aspirante_2")} <strong>${escaparHTML(modal.nombreVisible || modal.participacionRef)}</strong></p>
             <form data-bolsa-form="resultado" data-llamamiento-ref="${escaparHTML(modal.llamamientoRef)}">
               <div class="campo-formulario">
-                <label for="resultado-clave">Resultado del llamamiento *</label>
+                <label for="resultado-clave">${textoPortal("txt_resultado_del_llamamiento")}</label>
                 <select id="resultado-clave" name="resultado_clave" required>
-                  <option value="">Seleccione un resultado…</option>
-                  <option value="aceptado">Aceptado (pasa a situación Ocupado)</option>
-                  <option value="renuncia">Renuncia (pasa a Renuncia pendiente)</option>
-                  <option value="sin_respuesta">Sin respuesta (continúa Disponible tras salto)</option>
+                  <option value="">${textoPortal("txt_seleccione_un_resultado")}</option>
+                  <option value="aceptado">${textoPortal("txt_aceptado_pasa_a_situacion_ocupado")}</option>
+                  <option value="renuncia">${textoPortal("txt_renuncia_pasa_a_renuncia_pendiente")}</option>
+                  <option value="sin_respuesta">${textoPortal("txt_sin_respuesta_continua_disponible_tras_salto")}</option>
                 </select>
               </div>
               <div class="campo-formulario">
-                <label for="resultado-anotacion">Anotación administrativa (opcional)</label>
-                <textarea id="resultado-anotacion" name="anotacion" rows="3" maxlength="1024" placeholder="Observaciones sobre la respuesta o justificante aportado…"></textarea>
+                <label for="resultado-anotacion">${textoPortal("txt_anotacion_administrativa_opcional")}</label>
+                <textarea id="resultado-anotacion" name="anotacion" rows="3" maxlength="1024" placeholder="${textoPortal("txt_observaciones_sobre_la_respuesta_o_justificante")}"></textarea>
               </div>
               <div class="campo-confirmacion">
                 <label for="resultado-confirmacion">
                   <input type="checkbox" id="resultado-confirmacion" name="confirmacion" value="true" required>
-                  Confirmo el resultado del llamamiento y los efectos sobre la posición en bolsa.
+                  ${textoPortal("txt_confirmo_el_resultado_del_llamamiento_y_los_efec")}
                 </label>
               </div>
               <div class="acciones-formulario">
-                <button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${enviando ? "Guardando…" : "Guardar resultado"}</button>
-                <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-resultado">Cancelar</button>
+                <button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${enviando ? traducirPortal("txt_guardando") : traducirPortal("txt_guardar_resultado")}</button>
+                <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-resultado">${textoPortal("txt_cancelar")}</button>
               </div>
             </form>
           </div>
@@ -790,8 +790,8 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
   function renderizarNoConectada(vista) {
     return `
-      ${encabezadoVista("", tituloVista(vista), "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
-      <section class="panel"><div class="cuerpo-panel vacio-controlado"><p><strong>Sección todavía no disponible</strong></p></div></section>`;
+      ${encabezadoVista("", tituloVista(vista), "", '<button type="button" class="boton-secundario" data-vista="resumen">' + textoPortal("txt_volver_al_cuadro_de_mando") + '</button>')}
+      <section class="panel"><div class="cuerpo-panel vacio-controlado"><p><strong>${textoPortal("txt_seccion_todavia_no_disponible")}</strong></p></div></section>`;
   }
   function renderizarVista(vista) {
     if (!esActivo()) throw new Error("el presentador requiere un panel interno válido");

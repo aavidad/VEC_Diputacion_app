@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260926-i18n-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -373,7 +373,7 @@ export function detectarContextoContratacionTemporal(doc = (typeof document !== 
     if (!fase) {
       const dts = doc.querySelectorAll?.(".ct-exp-cabecera-expediente dt") || [];
       for (const dt of dts) {
-        if (dt.textContent?.trim().toLowerCase().includes("fase actual")) {
+        if (dt.textContent?.trim().toLocaleLowerCase(LOCALIZACION_PORTAL).includes(traducirPortal("txt_fase_actual").toLocaleLowerCase(LOCALIZACION_PORTAL))) {
           fase = dt.nextElementSibling?.textContent?.trim() || null;
           break;
         }

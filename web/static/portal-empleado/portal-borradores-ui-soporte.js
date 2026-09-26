@@ -1,4 +1,5 @@
 import { ErrorAPIBorradores } from "./portal-borradores-api.js";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260926-i18n-v1";
 
 export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";
@@ -93,7 +94,7 @@ export function instalarDeeplinkAvisosBorradores({
       const dialogo = porId("dialogo-detalle");
       if (dialogo?.open && typeof dialogo.close === "function") dialogo.close();
       navegar("elaboracion", { referencia });
-      anunciar("Aviso: Borradores de convocatorias");
+      anunciar(traducirPortal("txt_aviso_borradores_de_convocatorias"));
       return;
     }
     const botonAvisos = evento.target?.closest?.('.boton-avisos[data-accion="avisos"]');
@@ -108,14 +109,14 @@ export function instalarDeeplinkAvisosBorradores({
     const titulo = porId("titulo-dialogo");
     const contenido = porId("contenido-dialogo");
     if (!dialogo || !titulo || !contenido) return;
-    titulo.textContent = "Avisos";
+    titulo.textContent = traducirPortal("txt_avisos");
     const permitido = disponible();
     const elementos = avisos.filter((item) => permitido || !item?.destino).map((item) => {
       const textoAviso = `<p>${escaparHTML(item.texto)}</p>`;
       if (item !== aviso) return `<li>${textoAviso}</li>`;
-      return `<li>${textoAviso}<button type="button" class="boton-secundario" data-aviso-borrador-ref="${escaparHTML(aviso.destino.referencia)}" aria-label="Ir a ${escaparHTML(aviso.destino.etiqueta)}">Ir a ${escaparHTML(aviso.destino.etiqueta)}</button></li>`;
+      return `<li>${textoAviso}<button type="button" class="boton-secundario" data-aviso-borrador-ref="${escaparHTML(aviso.destino.referencia)}" aria-label="${textoPortal("txt_ir_a", { destino: aviso.destino.etiqueta })}">${textoPortal("txt_ir_a", { destino: aviso.destino.etiqueta })}</button></li>`;
     }).join("");
-    contenido.innerHTML = `<ul class="lista-avisos-navegables">${elementos || "<li>No hay avisos accesibles.</li>"}</ul>`;
+    contenido.innerHTML = `<ul class="lista-avisos-navegables">${elementos || "<li>" + textoPortal("txt_no_hay_avisos_accesibles") + "</li>"}</ul>`;
     if (typeof dialogo.showModal === "function") dialogo.showModal();
     else dialogo.setAttribute("open", "");
     queueMicrotask(() => contenido.querySelector("[data-aviso-borrador-ref]")?.focus());

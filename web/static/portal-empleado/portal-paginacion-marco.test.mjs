@@ -38,7 +38,7 @@ test("la paginación larga conserva primera, vecinas, puntos y última sin dibuj
   const fin = javascript.indexOf("function pintarPaginacionMarco", inicio);
   assert.ok(inicio >= 0 && fin > inicio);
   const fuente = `${javascript.slice(inicio, fin)}\nbotonesPaginaMarco({ pagina: 12, paginas: 24 });`;
-  const html = runInNewContext(fuente, { Array });
+  const html = runInNewContext(fuente, { Array, textoPortal: (clave, datos) => `${clave}:${datos?.pagina ?? ""}` });
   assert.deepEqual([...html.matchAll(/data-paginacion-marco-pagina="(\d+)"/gu)].map((m) => Number(m[1])), [1, 11, 12, 13, 24]);
   assert.equal((html.match(/paginacion-marco__puntos/gu) || []).length, 2);
   assert.match(javascript, /data-paginacion-marco-accion="primera"/u);
@@ -63,7 +63,7 @@ function cargarPintado() {
   const fin = javascript.indexOf(" function prepararTablaPaginable", inicio);
   assert.ok(inicio >= 0 && fin > inicio);
   const tablasPaginadas = new Map();
-  const contexto = { Array, Math, Number, Object, tablasPaginadas, traducirPortal: (clave, datos) => `${clave}:${datos?.total ?? ""}` };
+  const contexto = { Array, Math, Number, Object, tablasPaginadas, traducirPortal: (clave, datos) => `${clave}:${datos?.total ?? ""}`, textoPortal: (clave, datos) => `${clave}:${datos?.pagina ?? ""}` };
   runInNewContext(`${javascript.slice(inicio, fin).replace("export function", "function")}
     this.pintarPaginacionMarco = pintarPaginacionMarco; this.filasPaginablesMarco = filasPaginablesMarco; this.paginaInicialMarco = paginaInicialMarco;`, contexto);
   return contexto;

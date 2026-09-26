@@ -9,6 +9,10 @@
  * - Totales agregados coherentes.
  */
 
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+
+const traducirCT = crearTraductorContratacionTemporal();
+
 export const ESQUEMA_ESTADISTICAS = "vec.ct.estadisticas.v1";
 
 export const PERIODOS_ESTADISTICAS = Object.freeze(["anual", "mensual", "semanal"]);
@@ -211,7 +215,7 @@ export function generarCSVEstadisticas(estadisticas) {
     throw new TypeError("estadísticas no válidas para generar CSV");
   }
 
-  const cabeceras = ["Periodo inicio", "Altas", "Llamamientos", "Formalizaciones", "Cierres", "Incidencias"];
+  const cabeceras = ["ct_txt_csv_periodo_inicio", "ct_txt_csv_altas", "ct_txt_csv_llamamientos", "ct_txt_csv_formalizaciones", "ct_txt_csv_cierres", "ct_txt_csv_incidencias"].map((clave) => traducirCT(clave));
   const filas = [cabeceras.join(";")];
 
   for (const s of estadisticas.series) {

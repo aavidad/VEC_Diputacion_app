@@ -1,25 +1,26 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260926-huecos-rrhh-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-recuadros-enlaces-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260926-i18n-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-i18n-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260926-integracion-bolsa-ct-v1";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-huecos-rrhh-v2";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-huecos-rrhh-v2";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-huecos-rrhh-v2";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-huecos-rrhh-v2";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260926-i18n-v1";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260926-i18n-v1";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-i18n-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-i18n-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-i18n-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-i18n-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-recuadros-enlaces-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-i18n-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-huecos-rrhh-v2";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-i18n-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-huecos-rrhh-v2";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-huecos-rrhh-v2";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-i18n-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-i18n-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260926-i18n-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-recuadros-enlaces-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260926-i18n-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-i18n-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-huecos-rrhh-v2";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260926-integracion-bolsa-ct-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-i18n-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260926-i18n-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -28,7 +29,7 @@ const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export fun
   return paginas.map((pagina, indice) => {
     const puntos = indice > 0 && pagina - paginas[indice - 1] > 1
       ? '<span class="paginacion-marco__puntos" aria-hidden="true">…</span>' : '';
-    return `${puntos}<button type="button" data-paginacion-marco-pagina="${pagina}" ${pagina === calculo.pagina ? 'aria-current="page"' : ''} aria-label="Página ${pagina}">${pagina}</button>`;
+    return `${puntos}<button type="button" data-paginacion-marco-pagina="${pagina}" ${pagina === calculo.pagina ? 'aria-current="page"' : ''} aria-label="${textoPortal("txt_pagina_n", { pagina })}">${pagina}</button>`;
   }).join('');
 }
 // Filas de detalle que acompañan a la fila anterior: no cuentan como registros
@@ -96,31 +97,31 @@ const DATOS_VACIOS = Object.freeze({
 const DATOS_PANEL = DATOS_VACIOS;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 const TITULOS = Object.freeze({
-  portal: ["Portal del Empleado", "Portal del Empleado"],
-  resumen: ["Portal del Empleado → Bolsas de trabajo", "Cuadro de mando"],
-  elaboracion: ["Portal del Empleado → Bolsas de trabajo", "Borradores de convocatorias"],
-  convocatorias: ["Portal del Empleado → Bolsas de trabajo", "Convocatorias, bases y calendario"],
-  solicitudes: ["Portal del Empleado → Bolsas de trabajo", "Solicitudes y admisión"],
-  meritos: ["Portal del Empleado → Bolsas de trabajo", "Revisión de méritos"],
-  baremacion: ["Portal del Empleado → Bolsas de trabajo", "Baremación y ranking"],
-  alegaciones: ["Portal del Empleado → Bolsas de trabajo", "Alegaciones"],
-  importacion: ["Portal del Empleado → Bolsas de trabajo", "Importación Convoca"],
-  llamamientos: ["Portal del Empleado → Bolsas de trabajo → Llamamientos", "Nuevo llamamiento"],
-  contratos: ["Portal del Empleado → Bolsas de trabajo", "Contratos, ceses y reincorporaciones"],
-  reglas: ["Portal del Empleado → Bolsas de trabajo", "Reglas y versiones"],
-  consulta: ["Portal del Empleado → Bolsas de trabajo", "Consulta segura para candidatos"],
-  estadisticas: ["Portal del Empleado → Bolsas de trabajo", "Estadísticas"],
-  documentos: ["Portal del Empleado → Bolsas de trabajo", "Documentos y firma"],
-  comunicaciones: ["Portal del Empleado → Bolsas de trabajo", "Correo y mensajería"],
-  auditoria: ["Portal del Empleado → Bolsas de trabajo", "Auditoría y trazabilidad"],
-  configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
+  portal: [traducirPortal("txt_portal_del_empleado"), traducirPortal("txt_portal_del_empleado")],
+  resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_cuadro_de_mando")],
+  elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
+  convocatorias: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_convocatorias_bases_y_calendario")],
+  solicitudes: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_solicitudes_y_admision")],
+  meritos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_revision_de_meritos")],
+  baremacion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_baremacion_y_ranking")],
+  alegaciones: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_alegaciones")],
+  importacion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_importacion_convoca")],
+  llamamientos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo_llamamient"), traducirPortal("txt_nuevo_llamamiento")],
+  contratos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_contratos_ceses_y_reincorporaciones")],
+  reglas: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_reglas_y_versiones")],
+  consulta: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_consulta_segura_para_candidatos")],
+  estadisticas: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_estadisticas")],
+  documentos: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_documentos_y_firma")],
+  comunicaciones: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_correo_y_mensajeria")],
+  auditoria: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_auditoria_y_trazabilidad")],
+  configuracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_configuracion_y_roles")],
   cronos: [traducirPortal("cronos_miga"), traducirPortal("cronos_jornada_titulo")],
   "cronos-permisos": [traducirPortal("cronos_permisos_miga"), traducirPortal("cronos_permisos_titulo")],
-  dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
-  personal: ["Portal del Empleado → Personal", "Personal · consulta informativa"],
+  dietas: [traducirPortal("txt_portal_del_empleado_dietas"), traducirPortal("txt_dietas_y_comisiones_de_servicio")],
+  personal: [traducirPortal("txt_portal_del_empleado_personal"), traducirPortal("txt_personal_consulta_informativa")],
   "personal-registro": [crearTraductorPersonal()("registro_b2_miga"), crearTraductorPersonal()("registro_b2_titulo")],
   [VISTA_DOCUMENTOS_EXPEDIENTE]: [crearTraductorDocumentos()("miga"), crearTraductorDocumentos()("titulo")],
-  "bolsa-candidatos": ["Portal del Empleado → Bolsas de trabajo", "Candidatos de la bolsa"],
+  "bolsa-candidatos": [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_candidatos_de_la_bolsa")],
   "contratacion-temporal": [
     traducirPortal("contratacion_temporal_miga"),
     traducirPortal("contratacion_temporal_titulo"),
@@ -177,7 +178,7 @@ function escaparHTML(valor) {
     .replaceAll("'", "&#039;");
 }
 function numero(valor, decimales = 0) {
-  return new Intl.NumberFormat("es-ES", {
+  return new Intl.NumberFormat(LOCALIZACION_PORTAL, {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   }).format(Number(valor || 0));
@@ -206,7 +207,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
         controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieBorradorLlamamiento.desmontar(); superficieOfertasBolsa.desmontar(); } } });
     },
   }),
-  confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
+  confirmarOperacion: (descriptor) => window.confirm(traducirPortal("txt_confirmar_operacion", { titulo: descriptor.titulo, advertencia: descriptor.advertencia, referencia: descriptor.referencia })) });
 const renderizarPortal = crearVistaInicioPortal({
   encabezadoVista,
   escaparHTML,
@@ -288,7 +289,7 @@ function vistaPermitida(vista) {
 }
 
 function etiquetaFuentePanel() {
-  return presentadorPanelInterno.etiquetaFuente() || "API interna autorizada";
+  return presentadorPanelInterno.etiquetaFuente() || traducirPortal("txt_api_interna_autorizada");
 }
 
 function notaOperacionNoCompuesta() {
@@ -417,8 +418,8 @@ function puedeSolicitarPropuesta() { return DATOS_PANEL.capacidades.solicitar_pr
 
 async function solicitarPropuestaLlamamiento() {
   const necesidad = necesidadLlamamientoSeleccionada();
-  if (!necesidad) return { ok: false, mensaje: "Seleccione una necesidad de cobertura." };
-  if (estado.solicitandoPropuesta) return { ok: false, mensaje: "La solicitud ya está en curso." };
+  if (!necesidad) return { ok: false, mensaje: traducirPortal("txt_seleccione_una_necesidad_de_cobertura") };
+  if (estado.solicitandoPropuesta) return { ok: false, mensaje: traducirPortal("txt_la_solicitud_ya_esta_en_curso") };
 
   estado.solicitandoPropuesta = true;
   estado.errorPropuesta = "";
@@ -432,7 +433,7 @@ async function solicitarPropuestaLlamamiento() {
     estado.confirmacionPropuestaLlamamiento = resultado.confirmacion;
     return resultado;
   } catch (error) {
-    estado.errorPropuesta = error instanceof Error ? error.message : "No se pudo obtener la propuesta.";
+    estado.errorPropuesta = error instanceof Error ? error.message : traducirPortal("txt_no_se_pudo_obtener_la_propuesta");
     return { ok: false, mensaje: estado.errorPropuesta };
   } finally {
     estado.solicitandoPropuesta = false;
@@ -488,7 +489,7 @@ function navegar(vista, opciones = {}) {
     renderizar();
     cerrarMenuMovil();
     if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
-    anunciar("La vista solicitada no está autorizada para el perfil activo");
+    anunciar(traducirPortal("txt_la_vista_solicitada_no_esta_autorizada_para_el_p"));
     return;
   }
   const hash = rutaDeVista(vista);
@@ -499,7 +500,7 @@ function navegar(vista, opciones = {}) {
   if (requiereLecturaBolsas(vista) && estado.datosBolsas === null) void controladorBolsas.cargarBolsas();
   cerrarMenuMovil();
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
-  anunciar(`Vista ${tituloDeVista(vista)[1]} abierta`);
+  anunciar(traducirPortal("txt_vista_abierta", { vista: tituloDeVista(vista)[1] }));
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
   if (vista === "contratos") {
@@ -549,10 +550,10 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
 }
 
 function renderizarLlamamientoSinBolsa() {
-  return `${encabezadoVista("", "Nuevo llamamiento", "")}
+  return `${encabezadoVista("", traducirPortal("txt_nuevo_llamamiento"), "")}
     <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
-      <p><strong>Elija una bolsa para iniciar un llamamiento.</strong></p>
-      <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">Ir al cuadro de bolsas</a></div>
+      <p><strong>${textoPortal("txt_elija_una_bolsa_para_iniciar_un_llamamiento")}</strong></p>
+      <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">${textoPortal("txt_ir_al_cuadro_de_bolsas")}</a></div>
     </div></section>`;
 }
 function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionModulos();
@@ -615,7 +616,7 @@ function renderizar() {
         traducirPortal("estado_modulo_no_disponible_titulo"),
         titulo,
         traducirPortal("descripcion_superficie_no_montada"),
-      )}<section class="panel"><div class="cuerpo-panel vacio-controlado"><p>${escaparHTML(error instanceof Error ? error.message : "Error de composición")}</p></div></section>`;
+      )}<section class="panel"><div class="cuerpo-panel vacio-controlado"><p>${escaparHTML(error instanceof Error ? error.message : traducirPortal("txt_error_de_composicion"))}</p></div></section>`;
     });
     return;
   }
@@ -645,17 +646,17 @@ function renderizarVistaComprobando(titulo) {
 function renderizarFuenteNoDisponible() {
   const cargando = estado.errorFuente === "";
   const detalle = cargando
-    ? "Se está comprobando la sesión y el ámbito de acceso con la API interna."
+    ? traducirPortal("txt_se_esta_comprobando_la_sesion_y_el_ambito_de_acc")
     : estado.errorFuente;
   return `
-    ${encabezadoVista("Acceso interno cerrado", "Gestión de Bolsas no disponible", detalle)}
+    ${encabezadoVista(traducirPortal("txt_acceso_interno_cerrado"), traducirPortal("txt_gestion_de_bolsas_no_disponible"), detalle)}
     <section class="panel">
       <div class="cuerpo-panel vacio-controlado">
-        <p><strong>${cargando ? "Comprobando acceso…" : "No se han cargado datos de Bolsa"}</strong></p>
+        <p><strong>${cargando ? traducirPortal("txt_comprobando_acceso") : traducirPortal("txt_no_se_han_cargado_datos_de_bolsa")}</strong></p>
         <p>${escaparHTML(detalle)}</p>
         <div class="acciones-vista">
           <button type="button" class="boton-secundario" data-vista="portal">${escaparHTML(traducirPortal("accion_volver_portal"))}</button>
-          ${cargando ? "" : '<button type="button" class="boton-primario" data-accion="recargar-fuente">Reintentar</button>'}
+          ${cargando ? "" : '<button type="button" class="boton-primario" data-accion="recargar-fuente">' + textoPortal("txt_reintentar") + '</button>'}
         </div>
       </div>
     </section>`;
@@ -765,7 +766,7 @@ function instalarEventosBorradores() {
     const formulario = control.closest('[data-borrador-form="editor"]');
     const indicador = formulario?.closest(".editor-borrador")?.querySelector("[data-estado-editor]");
     if (indicador) {
-      indicador.textContent = "Cambios locales sin guardar";
+      indicador.textContent = traducirPortal("txt_cambios_locales_sin_guardar");
       indicador.className = "estado-chip";
     }
     const guardar = formulario?.querySelector("[data-borrador-guardar]");
@@ -796,7 +797,7 @@ function instalarEventosBorradores() {
 const presentadorPanelInterno = crearPresentadorPanelInterno({
   claseEstado, encabezadoVista, escaparHTML, numero,
   obtenerDatosPanel: () => DATOS_PANEL,
-  tituloVista: (vista) => TITULOS[vista]?.[1] || "Sección de Bolsa",
+  tituloVista: (vista) => TITULOS[vista]?.[1] || traducirPortal("txt_seccion_de_bolsa"),
   obtenerDatosBolsas: () => estado.datosBolsas,
   obtenerDatosCandidatosBolsa: () => estado.datosCandidatos,
   obtenerDatosEstadisticas: () => estado.datosEstadisticas,
@@ -871,12 +872,9 @@ const controlador = crearControladorPortal({
 });
 
 async function inicializar() {
-  document.querySelectorAll("[data-i18n-portal]").forEach((elemento) => {
-    elemento.textContent = traducirPortal(elemento.dataset.i18nPortal);
-  });
-  document.querySelectorAll("[data-i18n-portal-aria-label]").forEach((elemento) => {
-    elemento.setAttribute("aria-label", traducirPortal(elemento.dataset.i18nPortalAriaLabel));
-  });
+  aplicarTextosPortal(document);
+  aplicarIdiomaDocumento(document);
+  instalarValidacionI18n(document);
   configurarInicioInstitucional();
   controlador.restaurarPreferencias();
   estado.vista = vistaDesdeHash();

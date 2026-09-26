@@ -38,9 +38,9 @@ export function montarFormularioResolucionFormalizacion({
   };
   const texto = (clave) => e(t("resolucion_formalizacion_" + clave));
   const fila = (clave, valor) => `<div><dt>${texto(clave)}</dt><dd>${e(String(valor))}</dd></div>`;
-  const siNo = (valor) => valor ? "Sí" : "No";
-  const estadoLegible = (estado) => estado === "registrada" ? "Registrada" : "Recibo recuperado";
-  const validacionLegible = () => "Validación manual";
+  const siNo = (valor) => t(valor ? "ct_txt_si" : "ct_txt_no");
+  const estadoLegible = (estado) => t(estado === "registrada" ? "ct_txt_registrada" : "ct_txt_recibo_recuperado");
+  const validacionLegible = () => t("ct_txt_validacion_manual");
 
   function pintar(mensaje = "", enfocarEstado = false) {
     if (!montado) return;

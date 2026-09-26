@@ -10,6 +10,7 @@ import {
   renderizarRevisionPeticionCentro,
 } from "../modulos/contratacion-temporal/vista.js";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260926-i18n-v1";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
@@ -105,6 +106,8 @@ const MENSAJES = Object.freeze({
   contacto_ref: "Contacto del centro",
 });
 
+const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
+
 function esc(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -192,7 +195,7 @@ function fecha(valor, hora = false) {
 }
 
 // Campos anchos: texto libre o valores compuestos que necesitan toda la fila.
-const CAMPOS_ANCHOS = new Set(["Detalle", "Observaciones", "Motivo de ratificación", "Retención de crédito", "Documentos aportados"]);
+const CAMPOS_ANCHOS = new Set([traducirCentro("ct_txt_detalle"), traducirCentro("ct_txt_observaciones"), traducirCentro("ct_txt_motivo_de_ratificacion"), traducirCentro("ct_txt_retencion_de_credito"), traducirCentro("ct_txt_documentos_aportados")]);
 // Referencias opacas y códigos: se muestran en monoespaciada y pueden partirse.
 const PATRON_REFERENCIA = /^[a-z_]+[:_][A-Za-z0-9:_./-]{12,}$/;
 
@@ -217,21 +220,21 @@ function detallePeticion(peticion, contexto) {
   const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
   const rc = s.rc?.existe
     ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
-    : "Sin retención de crédito aportada";
+    : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
   const filas = [[TEXTO.peticionRef, peticion.referencia], [TEXTO.estado, peticion.estado], [TEXTO.version, peticion.version],
-    ["Centro", centro?.etiqueta || s.centro_ref], ["Contacto", etiqueta(centro?.contactos, s.contacto_ref)],
-    ["Categoría", etiqueta(catalogos?.categorias, s.categoria_ref)], ["Grupo o subgrupo", s.grupo_subgrupo], ["Motivo", s.motivo_clave],
-    ["Detalle", s.detalle], ["Periodo", `${fecha(s.periodo?.inicio)} — ${fecha(s.periodo?.fin)}`], ["Observaciones", s.observaciones || "—"],
-    ["Retención de crédito", rc], ["Documentos aportados", (s.documentos_adjuntos || []).map((ref) => etiqueta(catalogos?.documentos, ref)).join(" · ") || "Ninguno"],
+    [traducirCentro("ct_txt_centro"), centro?.etiqueta || s.centro_ref], [traducirCentro("ct_txt_contacto"), etiqueta(centro?.contactos, s.contacto_ref)],
+    [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), s.motivo_clave],
+    [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), `${fecha(s.periodo?.inicio)} — ${fecha(s.periodo?.fin)}`], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
+    [traducirCentro("ct_txt_retencion_de_credito"), rc], [traducirCentro("ct_txt_documentos_aportados"), (s.documentos_adjuntos || []).map((ref) => etiqueta(catalogos?.documentos, ref)).join(" · ") || traducirCentro("ct_txt_ninguno")],
     [TEXTO.solicitanteDatos, solicitante?.puesto_ref === c?.puesto_ref
       ? `${solicitante.nombre} · ${solicitante.cargo}`
-      : `${c?.actor_ref || actor?.referencia || "—"} · ${c?.puesto_ref || "cargo resuelto por identidad"}`],
-    ["Creada en", fecha(peticion.creada_en, true)]];
+      : `${c?.actor_ref || actor?.referencia || "—"} · ${c?.puesto_ref || traducirCentro("ct_txt_cargo_resuelto_por_identidad")}`],
+    [traducirCentro("ct_txt_creada_en"), fecha(peticion.creada_en, true)]];
   if (peticion.estado === "ratificada") {
     const rat = peticion.configuracion?.ratificador;
     const etiquetaRat = contexto?.intervinientes?.[rat?.actor_ref];
-    filas.push(["Ratificador y cargo", etiquetaRat && rat && etiquetaRat.puesto_ref === rat.puesto_ref ? `${etiquetaRat.nombre} · ${etiquetaRat.cargo}` : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`],
-      ["Motivo de ratificación", peticion.motivo_ratificacion], ["Ratificada en", fecha(peticion.ratificada_en, true)]);
+    filas.push([traducirCentro("ct_txt_ratificador_y_cargo"), etiquetaRat && rat && etiquetaRat.puesto_ref === rat.puesto_ref ? `${etiquetaRat.nombre} · ${etiquetaRat.cargo}` : `${rat?.actor_ref || "—"} · ${rat?.puesto_ref || "—"}`],
+      [traducirCentro("ct_txt_motivo_de_ratificacion"), peticion.motivo_ratificacion], [traducirCentro("ct_txt_ratificada_en"), fecha(peticion.ratificada_en, true)]);
   }
   return camposDetalle(filas);
 }
@@ -258,15 +261,15 @@ function textoEstadoEntrega(estado) {
 
 function reciboAltaRRHHHTML(recibo) {
   if (!recibo) return "";
-  const filas = [[TEXTO.rrhhExpediente, recibo.expediente_ref], ["Número visible", recibo.numero_visible], [TEXTO.version, recibo.version],
-    [TEXTO.reciboRef, recibo.recibo_ref], ["Referencia de auditoría", recibo.auditoria_ref], ["Referencia de evento", recibo.evento_ref],
-    ["Confirmada en", fecha(recibo.confirmada_en, true)]];
+  const filas = [[TEXTO.rrhhExpediente, recibo.expediente_ref], [traducirCentro("ct_txt_numero_visible"), recibo.numero_visible], [TEXTO.version, recibo.version],
+    [TEXTO.reciboRef, recibo.recibo_ref], [traducirCentro("ct_txt_referencia_de_auditoria"), recibo.auditoria_ref], [traducirCentro("ct_txt_referencia_de_evento"), recibo.evento_ref],
+    [traducirCentro("ct_txt_confirmada_en"), fecha(recibo.confirmada_en, true)]];
   return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.rrhhRecibo)}</h2>${camposDetalle(filas.map(([k, v]) => [k, v || "—"]))}${recibo.expediente_ref ? `<p><a class="boton-primario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.rrhhBandeja)}</a></p>` : ""}</section>`;
 }
 
 function tablaRRHH(peticiones, seleccionada) {
   if (!peticiones.length) return `<p>${esc(TEXTO.rrhhSinPeticiones)}</p>`;
-  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>Referencia</th><th>Estado de entrega</th><th>Ratificación</th><th>Acción</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(peticion?.referencia)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span></td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.rrhhTitulo)}</caption><thead><tr><th>${textoCT("ct_txt_referencia")}</th><th>${textoCT("ct_txt_estado_de_entrega")}</th><th>${textoCT("ct_txt_ratificacion")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map(({ peticion, estado_entrega: estadoEntrega }) => `<tr${peticion?.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(peticion?.referencia)}</td><td><span class="pc-estado pc-estado-${esc(estadoEntrega)}">${esc(textoEstadoEntrega(estadoEntrega))}</span></td><td>${esc(peticion?.ratificada_en ? fecha(peticion.ratificada_en, true) : "—")}</td><td><button type="button" data-seleccionar-rrhh="${esc(peticion?.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 
 export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "" } = {}) {
@@ -275,9 +278,9 @@ export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
   if (["denegado", "sin_verificar", "resultado_incierto"].includes(modo)) return vistaSinDatos(cabecera, modo, mensaje, "recargar-rrhh");
   if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
-  if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc("Reintentar la misma operación")}</button></div></section>`;
+  if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
   const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button></div>` : ""}</aside>`;
-  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>Últimas 50 peticiones visibles para Recursos Humanos.</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
+  return `${cabecera}${error}${recibo ? reciboAltaRRHHHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(TEXTO.rrhhTitulo)}</h2>${tablaRRHH(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum")}</p><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="recargar-rrhh">${esc(TEXTO.recargar)}</button><a class="boton-secundario" href="/portal-empleado/#contratacion-temporal">${esc(TEXTO.volver)}</a></div></section>${detalle}</div>`;
 }
 
 export async function registrarAltaRRHH(cliente, comando) {
@@ -296,7 +299,7 @@ export async function registrarAltaRRHH(cliente, comando) {
 
 function tabla(peticiones, seleccionada) {
   if (!peticiones.length) return `<p>${esc(TEXTO.sinPeticiones)}</p>`;
-  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.peticiones)}</caption><thead><tr><th>Referencia</th><th>Centro</th><th>Estado</th><th>Creada</th><th>Acción</th></tr></thead><tbody>${peticiones.map((p) => `<tr${p.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(p.referencia)}</td><td>${esc(p.solicitud?.centro_ref)}</td><td><span class="pc-estado pc-estado-${esc(p.estado === "ratificada" ? "ratificada" : "pendiente")}">${esc(p.estado === "ratificada" ? TEXTO.ratificada : TEXTO.pendiente)}</span></td><td>${esc(fecha(p.creada_en))}</td><td><button type="button" data-seleccionar="${esc(p.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="pc-tabla-wrap"><table class="pc-tabla"><caption class="solo-lectura">${esc(TEXTO.peticiones)}</caption><thead><tr><th>${textoCT("ct_txt_referencia")}</th><th>${textoCT("ct_txt_centro")}</th><th>${textoCT("ct_txt_estado")}</th><th>${textoCT("ct_txt_creada")}</th><th>${textoCT("ct_txt_accion")}</th></tr></thead><tbody>${peticiones.map((p) => `<tr${p.referencia === seleccionada ? ' aria-selected="true"' : ""}><td>${esc(p.referencia)}</td><td>${esc(p.solicitud?.centro_ref)}</td><td><span class="pc-estado pc-estado-${esc(p.estado === "ratificada" ? "ratificada" : "pendiente")}">${esc(p.estado === "ratificada" ? TEXTO.ratificada : TEXTO.pendiente)}</span></td><td>${esc(fecha(p.creada_en))}</td><td><button type="button" data-seleccionar="${esc(p.referencia)}">${esc(TEXTO.seleccionar)}</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 
 function formularioHTML(contexto, estado, revision) {
@@ -316,9 +319,9 @@ export function renderizarPeticionCentro({ contexto, peticiones = [], peticion =
   if (modo === "formulario") return `${cabecera}${error}${formularioHTML(contexto, estado, false)}`;
   if (modo === "revision") return `${cabecera}${error}${formularioHTML(contexto, estado, true)}`;
   if (modo === "ratificacion") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.ratificador)}</h2>${detallePeticion(peticion, contexto)}<p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p><label for="motivo-ratificacion">${esc(TEXTO.motivo)}</label><input id="motivo-ratificacion" name="motivo_ratificacion" value="${esc(motivo)}" maxlength="1000" required aria-describedby="motivo-ratificacion-ayuda"><small id="motivo-ratificacion-ayuda">${esc(TEXTO.motivoAyuda)}</small><label class="pc-confirmacion"><input type="checkbox" name="confirmacion_ratificacion"${confirmado ? " checked" : ""}> ${esc(TEXTO.confirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-ratificar">${esc(TEXTO.confirmarRatificar)}</button></div></section>`;
-  if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.peticionNoEnviada)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar">${esc("Reintentar la misma operación")}</button></div></section>`;
+  if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.peticionNoEnviada)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar">${esc(traducirCentro("ct_txt_reintentar_la_misma_operacion"))}</button></div></section>`;
   const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, contexto)}${peticion?.estado === "pendiente_ratificacion" && peticion.version === 1 && actor?.puede_ratificar ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-ratificacion">${esc(TEXTO.ratificador)}</button></div>` : ""}</aside>`;
-  return `${cabecera}${error}${recibo ? reciboHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(esSolicitante ? TEXTO.peticiones : TEXTO.ratificador)}</h2>${tabla(peticiones, peticion?.referencia)}<p>Últimas 50 peticiones visibles para su identidad.</p><div class="pc-acciones">${esSolicitante ? `<button type="button" class="boton-primario" data-accion="nueva">${esc(TEXTO.solicitante)}</button>` : ""}<button type="button" class="boton-secundario" data-accion="recargar">${esc(TEXTO.recargar)}</button><button type="button" class="boton-secundario" data-accion="volver-contratacion">${esc(TEXTO.volver)}</button></div></section>${detalle}</div>`;
+  return `${cabecera}${error}${recibo ? reciboHTML(recibo) : ""}<div class="pc-layout"><section class="pc-panel"><h2>${esc(esSolicitante ? TEXTO.peticiones : TEXTO.ratificador)}</h2>${tabla(peticiones, peticion?.referencia)}<p>${textoCT("ct_txt_ultimas_50_peticiones_visibles_para_su_identidad")}</p><div class="pc-acciones">${esSolicitante ? `<button type="button" class="boton-primario" data-accion="nueva">${esc(TEXTO.solicitante)}</button>` : ""}<button type="button" class="boton-secundario" data-accion="recargar">${esc(TEXTO.recargar)}</button><button type="button" class="boton-secundario" data-accion="volver-contratacion">${esc(TEXTO.volver)}</button></div></section>${detalle}</div>`;
 }
 
 export async function registrarOperacionPeticionCentro(cliente, comando, actorRef) {
@@ -600,6 +603,9 @@ export function instalarAyudaPeticionCentro(doc) {
 }
 
 if (typeof document !== "undefined" && document.querySelector("#aplicacion")) {
+  aplicarTextosPortal(document);
+  aplicarIdiomaDocumento(document);
+  instalarValidacionI18n(document);
   instalarAyudaPeticionCentro(document);
   iniciarPeticionCentro();
 }

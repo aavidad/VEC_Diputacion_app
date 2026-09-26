@@ -101,7 +101,7 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
     "Consulta de candidatos", "Cuadro de mando",
     "Estadísticas", "Documentos y firma",
     "Correo y mensajería", "Auditoría y control",
-  ]) assert.match(html, new RegExp(`<span>${texto}</span>`));
+  ]) assert.match(html, new RegExp(`<span data-i18n-portal="txt_[a-z0-9_]+">${texto}</span>`));
   // Rótulos de negocio, sin referencias internas ni dudas pendientes en el menú.
   assert.doesNotMatch(html, /\bB(5|6|7|12)\b|dudas? 1\d|relay/u);
 });

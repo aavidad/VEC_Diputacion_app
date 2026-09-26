@@ -1,3 +1,4 @@
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento
@@ -110,7 +111,7 @@ export async function cargarContratosFicha(modalFicha, { estado, renderizar, con
   renderizar();
 }
 
-const FORMATO_FECHA = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric" });
+const FORMATO_FECHA = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, day: "2-digit", month: "2-digit", year: "numeric" });
 
 function fecha(valor) {
   return valor ? FORMATO_FECHA.format(new Date(valor)) : traducirContratos("sin_dato");

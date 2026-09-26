@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Petición del centro · Portal del Empleado</title>
+    <title data-i18n-portal="txt_peticion_del_centro_portal_del_empleado">Petición del centro · Portal del Empleado</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/portal-empleado/portal.css">
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css">
@@ -11,11 +11,11 @@
     <link rel="stylesheet" href="/portal-empleado/peticiones-centro/peticiones-centro.css">
   </head>
   <body class="portal-empleado-app peticiones-centro-app">
-    <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+    <a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal</a>
     <header class="pc-barra">
-      <a href="/portal-empleado/" class="pc-marca">Portal del Empleado</a>
-      <span>Gestión de Recursos Humanos</span>
-      <button type="button" class="pc-boton-ayuda" id="pc-ayuda-abrir" aria-haspopup="dialog" aria-controls="pc-ayuda" aria-label="Ayuda"><span aria-hidden="true">?</span></button>
+      <a href="/portal-empleado/" class="pc-marca" data-i18n-portal="txt_portal_del_empleado">Portal del Empleado</a>
+      <span data-i18n-portal="txt_gestion_de_recursos_humanos">Gestión de Recursos Humanos</span>
+      <button type="button" class="pc-boton-ayuda" id="pc-ayuda-abrir" aria-haspopup="dialog" aria-controls="pc-ayuda" aria-label="Ayuda" data-i18n-portal-aria-label="txt_ayuda"><span aria-hidden="true">?</span></button>
     </header>
     <dialog id="pc-ayuda" class="pc-ayuda" aria-labelledby="pc-ayuda-titulo" aria-describedby="pc-ayuda-contenido">
       <h2 id="pc-ayuda-titulo" data-i18n-ayuda="pc_ayuda_titulo"></h2>
@@ -38,7 +38,7 @@
       <div id="incorporaciones-centro" class="pc-incorporaciones" hidden></div>
       <div id="cancelaciones-centro" class="pc-incorporaciones" hidden></div>
     </main>
-    <footer class="pc-pie">Diputación de Granada</footer>
+    <footer class="pc-pie" data-i18n-portal="txt_diputacion_de_granada">Diputación de Granada</footer>
     <script type="module" src="./peticiones-centro.js"></script>
     <script type="module" src="./incorporaciones-centro.js?v=20260926-huecos-rrhh-v1"></script>
     <script type="module" src="./cancelaciones-centro.js?v=20260926-huecos-rrhh-v1"></script>

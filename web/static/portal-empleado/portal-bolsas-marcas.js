@@ -1,3 +1,4 @@
+import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
 /**
  * Marcas de una participación en el cuadro, la ficha y la selección de un
  * llamamiento (Bolsa 000041): ya presta servicios (b16), en revisión (duda 18)
@@ -24,7 +25,7 @@ export const MENSAJES_MARCAS_BOLSA_ES = Object.freeze({
 const CLAVES = Object.freeze(Object.keys(MENSAJES_MARCAS_BOLSA_ES));
 const MODOS = Object.freeze(["aviso", "excluir"]);
 const REVISIONES = Object.freeze(["renuncia_pendiente", "solicitud_pendiente", "baja_propuesta"]);
-const FORMATO_NUMERO = new Intl.NumberFormat("es-ES");
+const FORMATO_NUMERO = new Intl.NumberFormat(LOCALIZACION_PORTAL);
 
 export function traducirMarcasBolsa(clave, variables = {}) {
   if (!CLAVES.includes(clave)) throw new Error(`clave i18n de marcas de Bolsa desconocida: ${clave}`);
