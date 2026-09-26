@@ -3,7 +3,7 @@
 -- RRHH). El centro solicitante sobre su petición o RRHH sobre cualquier
 -- expediente de su ámbito lo dan por terminado con un motivo del catálogo
 -- gobernado y una observación opcional.
---  * Solo desde las fases que fija la regla c12 del catálogo (llegan en el
+--  * Solo desde las fases que fija la regla c20 del catálogo (llegan en el
 --    material y quedan ligadas a la decisión autorizada) y siempre antes de
 --    la fiscalización: un expediente con fiscalización en su historia no se
 --    cancela aquí, porque tras ella hay llamamientos y efectos en Bolsa que
@@ -660,5 +660,5 @@ BEGIN
 END
 $acl$;
 COMMENT ON TABLE vec_contratacion_temporal.cancelacion_expediente_v1 IS
-    'CT122: cancelación del expediente antes de la fiscalización; motivo del catálogo, canal (centro o RRHH), fases admitidas por la regla c12 y observación.';
+    'CT122: cancelación del expediente antes de la fiscalización; motivo del catálogo, canal (centro o RRHH), fases admitidas por la regla c20 y observación.';
 COMMIT;

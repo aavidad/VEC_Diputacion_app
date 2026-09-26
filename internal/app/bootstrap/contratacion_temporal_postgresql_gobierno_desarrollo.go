@@ -218,6 +218,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoModificacionNombramientoV1,
 		// Cancelación del expediente (AD3-87); solo con VEC_CT_CANCELACION_ENABLED.
 		ports.AudienciaConsumoCancelacionV1,
+		// Confirmación de GINPIX (AD3-88); solo se publica con
+		// VEC_CT_INCORPORACION_ACREDITADA_ENABLED.
+		ports.AudienciaConsumoConfirmacionGINPIXV1,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se

@@ -115,6 +115,11 @@ const (
 	// CTCancelacionExpediente fija las fases en que se puede cancelar el
 	// expediente y los motivos admitidos (duda 12).
 	CTCancelacionExpediente = "c20.cancelacion_expediente"
+	// CTAcreditacionIncorporacion fija el documento que acredita la
+	// incorporación: «valor» es el tipo general y «valor_<modalidad>» el de
+	// una modalidad concreta; «roles_confirman» lista los perfiles del
+	// centro que la confirman (duda 11).
+	CTAcreditacionIncorporacion = "c21.acreditacion_incorporacion"
 )
 
 // Opciones del análisis de Contratación temporal que se consultan por
@@ -135,4 +140,16 @@ const (
 	// CTPrefijoViaCobertura agrupa las vías de cobertura: cada entrada es una
 	// vía con sus comprobaciones (duda 7). Sin ninguna rigen las de siempre.
 	CTPrefijoViaCobertura = "c17.via_cobertura."
+)
+
+// Atributos de las reglas de Contratación temporal.
+const (
+	// AtributoCierreSinCese en c10: con el valor «admitido» se ofrece el
+	// cierre administrativo sin cese; con cualquier otro, no.
+	AtributoCierreSinCese = "cierre_sin_cese"
+	// AtributoRolesConfirmanIncorporacion en c21: perfiles del centro que
+	// confirman la incorporación, separados por comas.
+	AtributoRolesConfirmanIncorporacion = "roles_confirman"
+	// PrefijoValorModalidad en una regla de lista: «valor_<modalidad>».
+	PrefijoValorModalidad = "valor_"
 )

@@ -45,6 +45,9 @@ type continuidadNominalDesarrollo struct {
 	anotacion, cierre *autoridadContinuidadNominal
 	pool              *pgxpool.Pool
 	detalle           *appct.ServicioConsultaDetalleRRHH
+	// admisionSinCese decide con la regla c10 si se ofrece el cierre
+	// administrativo sin cese; nil conserva la conducta anterior.
+	admisionSinCese func(context.Context) (bool, error)
 }
 type claveRutaContinuidadNominal struct{}
 
@@ -484,6 +487,11 @@ func (c *continuidadNominalDesarrollo) rutas(derivador *derivadorIdentidadOperac
 		return nil, e
 	}
 	rutas = append(rutas, httpapi.RutaExacta{Ruta: httpct.RutaPreparacionCierreSinCese, Manejador: preparacion})
+	for n := range rutas {
+		if rutas[n].Ruta == httpct.RutaCerrarAdministrativamenteSinCese || rutas[n].Ruta == httpct.RutaPreparacionCierreSinCese {
+			rutas[n].Manejador = httpct.ExigirAdmisionCierreSinCese(rutas[n].Manejador, c.admisionSinCese)
+		}
+	}
 	for n := range rutas {
 		h := rutas[n].Manejador
 		ruta := rutas[n].Ruta

@@ -341,7 +341,12 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
   return clave === `${prefijo}${codigo}`;
 }
 
+// Rechazo del cierre sin cese cuando la regla de cierre (c10) no lo contempla.
+export const CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO = "cierre_sin_cese_no_contemplado";
+
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (estado === 409 && codigo === CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO
+    && [rutas.preparacionCierreSinCese, RUTA_CIERRE_ADMINISTRATIVO].includes(ruta.split("?")[0])) return true;
   if (RUTAS_SEGUIMIENTO_CESE.includes(ruta.split("?")[0]) && estado === 409) {
     return CONFLICTOS_SEGUIMIENTO_CESE.includes(codigo);
   }

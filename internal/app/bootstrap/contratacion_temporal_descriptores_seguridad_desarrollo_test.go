@@ -70,6 +70,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-seguimiento-cese-consultar", accionConsultarSeguimientoCeseDesarrollo, cthttp.RutaSeguimientoCese},
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
+		{"ct-ginpix-confirmar", string(ctdomain.AccionConfirmarGINPIX), cthttp.RutaConfirmacionesGINPIX},
 	}
 	lectores := []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo("prf_ct_prueba", lectores)

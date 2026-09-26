@@ -17,6 +17,7 @@ type seleccionMaterialCTDesarrollo struct {
 	dietas, cronos, documentos, cronosResolucion, cronosAvisos       bool
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
+	incorporacionAcreditada                                          bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -42,19 +43,20 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 			config.ErrConfiguracionBolsaPortalCandidatoActivacion)
 	}
 	s = seleccionMaterialCTDesarrollo{
-		borradoresBolsa:     cfg.BolsaBorradoresEnabled,
-		miBolsa:             debeComponerMiBolsaDesarrollo(cfg),
-		portalCandidato:     debeComponerPortalCandidatoDesarrollo(cfg),
-		dietas:              dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
-		cronos:              cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
-		documentos:          documentosSolicitados(cfg.DocumentosEnabled),
-		cronosResolucion:    cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled),
-		cronosAvisos:        cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled),
-		fichaPropiaPersonal: personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled),
-		firmaDocumento:      firma,
-		seguimientoCese:     seguimientoCeseSolicitado(cfg),
-		cancelacion:         cancelacionCTSolicitada(cfg),
-		personalB2:          personalB2,
+		borradoresBolsa:         cfg.BolsaBorradoresEnabled,
+		miBolsa:                 debeComponerMiBolsaDesarrollo(cfg),
+		portalCandidato:         debeComponerPortalCandidatoDesarrollo(cfg),
+		dietas:                  dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled),
+		cronos:                  cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled),
+		documentos:              documentosSolicitados(cfg.DocumentosEnabled),
+		cronosResolucion:        cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled),
+		cronosAvisos:            cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled),
+		fichaPropiaPersonal:     personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled),
+		firmaDocumento:          firma,
+		seguimientoCese:         seguimientoCeseSolicitado(cfg),
+		cancelacion:             cancelacionCTSolicitada(cfg),
+		personalB2:              personalB2,
+		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
 	}
 	return s, nil
 }
@@ -71,7 +73,10 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); err != nil {
 		return err
 	}
-	_, err := cfg.CTCancelacionDesarrolloActivo()
+	if _, err := cfg.CTCancelacionDesarrolloActivo(); err != nil {
+		return err
+	}
+	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
 	return err
 }
 
@@ -113,6 +118,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	if s.seguimientoCese {
 		d = append(d, descriptoresMaterialSeguimientoCeseDesarrollo()...)
 	}
+	if s.incorporacionAcreditada {
+		d = append(d, descriptorMaterialConfirmacionGINPIXDesarrollo())
+	}
 	if s.personalB2 {
 		d = append(d, descriptoresMaterialPersonalB2Desarrollo()...)
 	}
@@ -131,10 +139,12 @@ func validarValorSelectoresDespliegueBolsaCT(cfg config.Config) error {
 		func() error { _, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); return err }(),
 		func() error { _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); return err }(),
 		func() error { _, err := cfg.CTCancelacionDesarrolloActivo(); return err }(),
+		func() error { _, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo(); return err }(),
 	} {
 		if errors.Is(err, config.ErrConfiguracionBolsaPortalCandidatoSelector) ||
 			errors.Is(err, config.ErrConfiguracionCTSeguimientoCeseSelector) ||
-			errors.Is(err, config.ErrConfiguracionCTCancelacionSelector) {
+			errors.Is(err, config.ErrConfiguracionCTCancelacionSelector) ||
+			errors.Is(err, config.ErrConfiguracionCTIncorporacionAcreditadaSelector) {
 			return err
 		}
 	}

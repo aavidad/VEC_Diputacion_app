@@ -65,7 +65,7 @@ func (c Config) CTSeguimientoCeseDesarrolloActivo() (bool, error) {
 
 // CTCancelacionDesarrolloActivo valida el selector de la cancelación del
 // expediente sin abrir ficheros. Encendido exige el catálogo de reglas de CT
-// (regla c12: fases admitidas) y el de motivos de cancelación.
+// (regla c20: fases admitidas) y el de motivos de cancelación.
 func (c Config) CTCancelacionDesarrolloActivo() (bool, error) {
 	c = c.Normalize()
 	reglas := c.ReglasEjemplo.normalizar()

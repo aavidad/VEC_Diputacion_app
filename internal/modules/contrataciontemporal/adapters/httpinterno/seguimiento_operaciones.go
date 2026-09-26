@@ -21,7 +21,9 @@ const (
 	RutaCierresExpediente          = "/api/vec/contratacion-temporal/cierres-expediente"
 	RutaModificacionesNombramiento = "/api/vec/contratacion-temporal/modificaciones-nombramiento"
 	RutaSeguimientoCese            = "/api/vec/contratacion-temporal/seguimiento-cese"
-	maximoCuerpoSeguimiento        = 16 * 1024
+	// RutaConfirmacionesGINPIX registra el número de alta de GINPIX (CT124).
+	RutaConfirmacionesGINPIX = "/api/vec/contratacion-temporal/confirmaciones-ginpix"
+	maximoCuerpoSeguimiento  = 16 * 1024
 )
 
 // AutoridadCanalSeguimiento resuelve la identidad autenticada del canal; el
@@ -44,6 +46,12 @@ type EjecutorOperacionesSeguimiento interface {
 	Estado(context.Context, string, string) (ports.EstadoSeguimientoExpediente, error)
 }
 
+// EjecutorConfirmacionGINPIX es opcional: solo con la incorporación
+// acreditada compuesta existe la ruta de la confirmación de GINPIX.
+type EjecutorConfirmacionGINPIX interface {
+	ConfirmarGINPIX(context.Context, application.SolicitudConfirmarGINPIX) (ports.ReciboOperacionSeguimiento, error)
+}
+
 type manejadorSeguimiento struct {
 	ruta      string
 	autoridad AutoridadCanalSeguimiento
@@ -59,6 +67,9 @@ func NuevosManejadoresSeguimiento(a AutoridadCanalSeguimiento, l AutorizadorLect
 	m := map[string]http.Handler{}
 	for _, ruta := range []string{RutaCesesNombramiento, RutaCierresExpediente, RutaModificacionesNombramiento, RutaSeguimientoCese} {
 		m[ruta] = &manejadorSeguimiento{ruta: ruta, autoridad: a, lectura: l, ejecutor: e}
+	}
+	if _, ok := e.(EjecutorConfirmacionGINPIX); ok {
+		m[RutaConfirmacionesGINPIX] = &manejadorSeguimiento{ruta: RutaConfirmacionesGINPIX, autoridad: a, lectura: l, ejecutor: e}
 	}
 	return m, nil
 }
@@ -100,6 +111,8 @@ func (h *manejadorSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		recibo, err = h.cese(r.Context(), canal, contenido)
 	case RutaCierresExpediente:
 		recibo, err = h.cierre(r.Context(), canal, contenido)
+	case RutaConfirmacionesGINPIX:
+		recibo, err = h.ginpix(r.Context(), canal, contenido)
 	default:
 		recibo, err = h.modificacion(r.Context(), canal, contenido)
 	}
@@ -182,6 +195,31 @@ func (h *manejadorSeguimiento) cierre(ctx context.Context, canal application.Con
 		GINPIXConfirmadaEn: fecha, Observaciones: in.Observaciones})
 }
 
+func (h *manejadorSeguimiento) ginpix(ctx context.Context, canal application.ContextoCanalSeguimiento, contenido []byte) (ports.ReciboOperacionSeguimiento, error) {
+	ejecutor, ok := h.ejecutor.(EjecutorConfirmacionGINPIX)
+	if !ok {
+		return ports.ReciboOperacionSeguimiento{}, ports.ErrOperacionSeguimientoNoDisponible
+	}
+	var in struct {
+		ExpedienteRef      string `json:"expediente_ref"`
+		VersionEsperada    uint64 `json:"version_esperada"`
+		ClaveIdempotencia  string `json:"clave_idempotencia"`
+		GINPIXNumero       string `json:"ginpix_numero"`
+		GINPIXConfirmadaEn string `json:"ginpix_confirmada_en"`
+		Observaciones      string `json:"observaciones"`
+	}
+	if decodificarCuerpoSeguimiento(contenido, &in) != nil {
+		return ports.ReciboOperacionSeguimiento{}, errContenidoSeguimiento
+	}
+	fecha, err := fechaCivilSeguimiento(in.GINPIXConfirmadaEn)
+	if err != nil {
+		return ports.ReciboOperacionSeguimiento{}, err
+	}
+	return ejecutor.ConfirmarGINPIX(ctx, application.SolicitudConfirmarGINPIX{Canal: canal, ExpedienteRef: in.ExpedienteRef,
+		VersionEsperada: in.VersionEsperada, ClaveIdempotencia: in.ClaveIdempotencia, GINPIXNumero: in.GINPIXNumero,
+		GINPIXConfirmada: fecha, Observaciones: in.Observaciones})
+}
+
 func (h *manejadorSeguimiento) modificacion(ctx context.Context, canal application.ContextoCanalSeguimiento, contenido []byte) (ports.ReciboOperacionSeguimiento, error) {
 	var in struct {
 		ExpedienteRef     string `json:"expediente_ref"`
@@ -262,6 +300,12 @@ func estadoErrorSeguimiento(err error) (int, string) {
 		return http.StatusConflict, "sin_cambios"
 	case errors.Is(err, ports.ErrModificacionCreditoInsuficiente):
 		return http.StatusConflict, "credito_insuficiente"
+	case errors.Is(err, ports.ErrGINPIXYaConfirmado):
+		return http.StatusConflict, "ginpix_existente"
+	case errors.Is(err, ports.ErrGINPIXNoConfirmado):
+		return http.StatusConflict, "ginpix_no_confirmado"
+	case errors.Is(err, ports.ErrGINPIXDistinto):
+		return http.StatusConflict, "ginpix_distinto"
 	case errors.Is(err, ports.ErrResultadoSeguimientoNoConfiable):
 		return http.StatusBadGateway, "resultado_no_confiable"
 	}
@@ -282,6 +326,9 @@ func reciboSeguimientoJSON(r ports.ReciboOperacionSeguimiento) map[string]any {
 	if r.CosteCentimos != 0 {
 		salida["coste_centimos"] = r.CosteCentimos
 	}
+	if r.GINPIXNumero != "" {
+		salida["ginpix_numero"] = r.GINPIXNumero
+	}
 	return salida
 }
 
@@ -294,8 +341,12 @@ func opcionesSeguimientoJSON(o ports.OpcionesSeguimiento) map[string]any {
 	for _, m := range o.Motivos {
 		motivos = append(motivos, map[string]string{"clave": string(m.Clave), "etiqueta": m.Etiqueta, "clave_i18n": m.ClaveI18n})
 	}
-	return map[string]any{"causas_cese": causas, "condiciones_cierre": append([]string{}, o.Condiciones...),
+	salida := map[string]any{"causas_cese": causas, "condiciones_cierre": append([]string{}, o.Condiciones...),
 		"fase_retorno_modificacion": string(o.FaseRetorno), "motivos_modificacion": motivos}
+	if o.ConfirmacionGINPIX {
+		salida["confirmacion_ginpix"] = true
+	}
+	return salida
 }
 
 func estadoSeguimientoJSON(e ports.EstadoSeguimientoExpediente) map[string]any {
@@ -312,6 +363,18 @@ func estadoSeguimientoJSON(e ports.EstadoSeguimientoExpediente) map[string]any {
 		salida["cierre"] = map[string]any{"condiciones": append([]string{}, c.Condiciones...), "ginpix_numero": c.GINPIXNumero,
 			"ginpix_confirmada_en": c.GINPIXConfirmadaEn, "observaciones": c.Observaciones, "recibo_ref": c.ReciboRef,
 			"registrada_en": c.RegistradaEn.UTC().Format(time.RFC3339Nano)}
+	}
+	if a := e.Acreditada; a != nil {
+		salida["ginpix"], salida["confirmacion_centro"] = nil, nil
+		if g := a.GINPIX; g != nil {
+			salida["ginpix"] = map[string]string{"ginpix_numero": g.Numero, "ginpix_confirmada_en": g.ConfirmadaEn, "recibo_ref": g.ReciboRef,
+				"registrada_en": g.RegistradaEn.UTC().Format(time.RFC3339Nano)}
+		}
+		if c := a.Centro; c != nil {
+			salida["confirmacion_centro"] = map[string]string{"fecha_incorporacion": c.FechaIncorporacion, "documento_tipo": c.DocumentoTipo,
+				"documento_ref": c.DocumentoRef, "documento_sha256": c.DocumentoSHA256, "recibo_ref": c.ReciboRef,
+				"registrada_en": c.RegistradaEn.UTC().Format(time.RFC3339Nano)}
+		}
 	}
 	return salida
 }
