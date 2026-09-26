@@ -60,9 +60,9 @@ func PoliticaAvisos(ctx context.Context, resolutor *vecreglas.Resolutor) (puerto
 			default:
 				return vacia, false, errReglasAvisos
 			}
-			antelacion, ok := enteroAtributo(texto, 0)
-			if !ok {
-				return vacia, false, errReglasAvisos
+			antelacion, err := enteroAtributo(texto, 0)
+			if err != nil {
+				return vacia, false, err
 			}
 			politica.ContinuadoConfigurado, politica.ContinuadoMeses, politica.ContinuadoAntelacionDias = true, meses, antelacion
 			base = &regla
@@ -70,8 +70,11 @@ func PoliticaAvisos(ctx context.Context, resolutor *vecreglas.Resolutor) (puerto
 	}
 	if regla, ok := porClave[vecreglas.BolsaAvisoEncadenamiento]; ok {
 		if texto, configurada := regla.Atributos[atributoVentanaMeses]; configurada {
-			ventana, ok := enteroAtributo(texto, 1)
-			if !ok || regla.Unidad != vecreglas.UnidadMeses {
+			ventana, err := enteroAtributo(texto, 1)
+			if err != nil {
+				return vacia, false, err
+			}
+			if regla.Unidad != vecreglas.UnidadMeses {
 				return vacia, false, errReglasAvisos
 			}
 			politica.EncadenamientoUmbralMeses, politica.EncadenamientoVentanaMeses = regla.Cantidad, ventana
@@ -106,10 +109,13 @@ func PoliticaAvisos(ctx context.Context, resolutor *vecreglas.Resolutor) (puerto
 }
 
 // enteroAtributo admite un entero canónico no menor que minimo.
-func enteroAtributo(texto string, minimo int) (int, bool) {
+func enteroAtributo(texto string, minimo int) (int, error) {
 	valor, err := strconv.Atoi(texto)
-	if err != nil || valor < minimo || valor > 100_000 || strconv.Itoa(valor) != texto {
-		return 0, false
+	if err != nil {
+		return 0, errors.Join(errReglasAvisos, err)
 	}
-	return valor, true
+	if valor < minimo || valor > 100_000 || strconv.Itoa(valor) != texto {
+		return 0, errReglasAvisos
+	}
+	return valor, nil
 }

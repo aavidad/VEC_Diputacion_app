@@ -5,8 +5,9 @@ import { traducirReferencia } from "./portal-referencias-i18n.js";
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";
 
-const TIPOS = new Set(["salto_orden", "tres_anos", "solicitud_portal", "respuesta_portal"]);
-const TIPOS_PORTAL = ["solicitud_portal", "respuesta_portal"];
+const TIPOS = new Set(["salto_orden", "tres_anos", "solicitud_portal", "respuesta_portal", "encadenamiento"]);
+// Conteos opcionales: portal del candidato y encadenamiento (Bolsa 000041).
+const TIPOS_PORTAL = ["solicitud_portal", "respuesta_portal", "encadenamiento"];
 
 function texto(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -55,6 +56,8 @@ export async function consultarAvisosBolsa({ cursor = "", limite = 6, fetchImpl 
   }
 }
 
+const FORMATO_NUMERO = new Intl.NumberFormat("es-ES");
+
 function fechaVisible(valor) {
   const fecha = new Date(valor);
   return Number.isNaN(fecha.valueOf()) ? "Fecha no disponible" : new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(fecha);
@@ -81,11 +84,17 @@ function detalleAviso(aviso) {
   if (aviso.tipo === "salto_orden") {
     return `Orden ${texto(aviso.detalle.orden)}; primera persona llamada: ${texto(aviso.detalle.orden_primero_llamado)}.`;
   }
-  return `Alcanza tres años: ${texto(fechaVisible(aviso.detalle.alcanza_tres_anos_en))}.`;
+  if (aviso.tipo === "encadenamiento") {
+    const d = aviso.detalle;
+    return `${texto(FORMATO_NUMERO.format(Number(d.dias_acumulados) || 0))} días con contrato en los últimos ${texto(d.ventana_meses)} meses (umbral: ${texto(d.umbral_meses)} meses).`;
+  }
+  // Con Bolsa 000041 el plazo sale del catálogo; sin él, tres años.
+  const plazo = Number.isSafeInteger(aviso.detalle.plazo_meses) ? `${FORMATO_NUMERO.format(aviso.detalle.plazo_meses)} meses` : "tres años";
+  return `Alcanza ${texto(plazo)}: ${texto(fechaVisible(aviso.detalle.alcanza_tres_anos_en))}.`;
 }
 
 function filaAviso(aviso) {
-  const titulo = { salto_orden: "Posible salto de orden", tres_anos: "Tres años de trabajo continuado", solicitud_portal: "Solicitud desde «Mi bolsa»", respuesta_portal: "Respuesta desde «Mi bolsa»" }[aviso.tipo];
+  const titulo = { salto_orden: "Posible salto de orden", tres_anos: "Trabajo continuado", solicitud_portal: "Solicitud desde «Mi bolsa»", respuesta_portal: "Respuesta desde «Mi bolsa»", encadenamiento: "Encadenamiento de contratos" }[aviso.tipo];
   const participacion = aviso.detalle.participacion_ref;
   const enlace = referenciaOpaca(participacion)
     ? `<button type="button" class="boton-enlace" data-accion="abrir-ficha-b5" data-bolsa-ref="${texto(aviso.bolsa)}" data-participacion-ref="${texto(participacion)}">Abrir ficha</button>`
@@ -95,7 +104,7 @@ function filaAviso(aviso) {
 
 export function renderizarBloqueAvisos({ estado = "cargando", datos = null, error = "" } = {}) {
   const conteos = datos?.conteos && datos.items.length > 0
-    ? `<span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${datos.conteos.solicitud_portal} solicitudes del portal</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${datos.conteos.respuesta_portal} respuestas del portal</span>` : ""}`
+    ? `<span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${datos.conteos.solicitud_portal} solicitudes del portal</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${datos.conteos.respuesta_portal} respuestas del portal</span>` : ""}${numeroNatural(datos.conteos.encadenamiento) ? `<span class="estado-chip advertencia">${datos.conteos.encadenamiento} encadenamientos</span>` : ""}`
     : "";
   // El cómputo legal aún pendiente de RRHH no se rotula en la pantalla de trabajo:
   // la explicación vive en la ayuda («?») y el origen de la regla en «Reglas vigentes».
@@ -103,7 +112,7 @@ export function renderizarBloqueAvisos({ estado = "cargando", datos = null, erro
   const cabecera = `<div class="cabecera-panel"><h2>Avisos</h2>${conteos || pendiente ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo">${conteos}${pendiente}</div>` : ""}</div>`;
   if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">Cargando avisos…</div></section>`;
   if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || "No se pudieron cargar los avisos.")}</span><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;
-  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">${icono("correcto")}</span><span><strong>Sin avisos.</strong> No hay saltos de orden, periodos de tres años ni solicitudes o respuestas del portal.</span></div></section>`;
+  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">${icono("correcto")}</span><span><strong>Sin avisos.</strong> No hay saltos de orden, periodos de trabajo continuado, encadenamientos ni solicitudes o respuestas del portal.</span></div></section>`;
   const paginacion = `<footer class="paginacion"><span>Mostrando ${datos.paginacion.desde} a ${datos.paginacion.hasta} de ${datos.paginacion.total}</span><button type="button" data-accion="siguiente-avisos"${datos.paginacion.cursor_siguiente ? "" : " disabled"}>Siguiente</button></footer>`;
   return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="tabla-contenedor avisos-bolsa-lista" tabindex="0"><ul class="lista-actividad">${datos.items.map(filaAviso).join("")}</ul></div>${paginacion}</section>`;
 }

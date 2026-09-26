@@ -251,6 +251,7 @@ static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitaci
 static/portal-empleado/modulos/contratacion-temporal/vista.js
 static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-avisos.js
+static/portal-empleado/portal-bolsas-marcas.js
 static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
 static/portal-empleado/portal-bolsas-correo.js

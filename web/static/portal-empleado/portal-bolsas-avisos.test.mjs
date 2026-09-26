@@ -55,3 +55,21 @@ test("rechaza campos personales y tipos ajenos al contrato", () => {
   const html = renderizarBloqueAvisos({ estado: "listo", datos: { ...datos, provisionalidad: "<script>alert(1)</script>" } });
   assert.doesNotMatch(html, /<script>/);
 });
+
+test("muestra el encadenamiento y el plazo de trabajo continuado del catálogo", () => {
+  const conCatalogo = {
+    ...datos,
+    conteos: { salto_orden: 0, tres_anos: 1, encadenamiento: 1 },
+    items: [
+      { tipo: "encadenamiento", bolsa: "bolsa:opaca", referencia: "aviso:encadenamiento:opaco", fecha: "2026-01-10T00:00:00Z", detalle: { participacion_ref: "participacion:tres", dias_acumulados: 578, contratos: 2, umbral_meses: 18, ventana_meses: 24 } },
+      { ...datos.items[1], detalle: { ...datos.items[1].detalle, plazo_meses: 36, antelacion_dias: 30 } },
+    ],
+  };
+  assert.equal(validarAvisosBolsa({ data: conCatalogo }), conCatalogo);
+  const html = renderizarBloqueAvisos({ estado: "listo", datos: conCatalogo });
+  assert.match(html, /1 encadenamientos/);
+  assert.match(html, /Encadenamiento de contratos[\s\S]*578 días con contrato en los últimos 24 meses \(umbral: 18 meses\)/);
+  assert.match(html, /Trabajo continuado[\s\S]*Alcanza 36 meses/);
+  assert.match(renderizarBloqueAvisos({ estado: "listo", datos }), /Alcanza tres años/);
+  assert.throws(() => validarAvisosBolsa({ data: { ...conCatalogo, conteos: { ...conCatalogo.conteos, encadenamiento: -1 } } }), /no válido/);
+});

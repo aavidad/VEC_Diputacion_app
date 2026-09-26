@@ -136,6 +136,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	}
 	parametros, err := postgresbolsa.NuevoRepositorioPoliticaAvisosPostgreSQL(poolBolsa)
 	if err != nil {
+		log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=parametros_avisos: %v", err)
 		poolBolsa.Close()
 		poolImportacion.Close()
 		return nil
