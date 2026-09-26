@@ -24,7 +24,7 @@
     detalleEspera: porId("detalle-espera"), detalleCargando: porId("detalle-cargando"), detalleError: porId("detalle-error"),
     reintentarDetalle: porId("reintentar-detalle"),
     contenidoDetalle: porId("contenido-detalle"), detalleEtiquetas: porId("detalle-etiquetas"), detalleResumen: porId("detalle-resumen"),
-    detallePublicacion: porId("detalle-publicacion"),
+    detallePublicacion: porId("detalle-publicacion"), detalleInscripcion: porId("detalle-inscripcion"),
     detalleDescripcion: porId("detalle-descripcion"), detallePlazos: porId("detalle-plazos"), detalleRequisitos: porId("detalle-requisitos"),
     detalleDocumentos: porId("detalle-documentos"), detalleAyuda: porId("detalle-ayuda"), detalleIntegridad: porId("detalle-integridad"),
     directorio: porId("directorio-categorias"), buscarCategoria: porId("buscar-categoria"), areaCategoria: porId("filtrar-area-categoria"),
@@ -374,6 +374,17 @@
     });
   }
 
+  // «Inscribirme» solo aparece si el servidor declara abierto el plazo de inscripción.
+  function renderizarInscripcion(datos) {
+    const destino = globalThis.VECBolsaInscripcion?.enlace(datos) || "";
+    vaciar(elementos.detalleInscripcion);
+    elementos.detalleInscripcion.hidden = destino === "";
+    if (!destino) return;
+    const enlace = texto("a", t("inscribirme"), "boton-primario enlace-inscripcion");
+    enlace.href = destino;
+    elementos.detalleInscripcion.appendChild(enlace);
+  }
+
   function renderizarDetalle(datos) {
     const categoriasResueltas = contratoPublicoV1.validarDetalle(datos);
     const convocatoria = datos.convocatoria;
@@ -386,6 +397,7 @@
     publicacionTiempo.dateTime = convocatoria.publicada_en;
     publicacionTiempo.textContent = fechaPublicacion(convocatoria.publicada_en);
     elementos.detallePublicacion.replaceChildren(`${t("bases_publicadas_el")} `, publicacionTiempo);
+    renderizarInscripcion(datos);
     elementos.detalleDescripcion.textContent = datos.descripcion;
     renderizarPlazos(datos.plazos);
     renderizarRequisitos(datos.requisitos);

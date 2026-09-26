@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raizWeb = new URL("../../", import.meta.url);
-const versionI18n = "20260924-bolsa-i18n-v2";
-const versionI18nIndice = "20260924-rescate-bolsa-i18n-v3";
-const versionControlador = "20260924-rescate-bolsa-v3";
+const versionI18n = "20260926-convoca-f1-v1";
+const versionI18nIndice = "20260926-convoca-f1-v1";
+const versionControlador = "20260926-convoca-f1-v1";
 const versionLista = "20260924-b10-reintento-foco-v1";
 const versionAnterior = "20260924-bolsa-publica-final";
 const versionListaAnterior = "20260924-bolsa-ayuda-v3";

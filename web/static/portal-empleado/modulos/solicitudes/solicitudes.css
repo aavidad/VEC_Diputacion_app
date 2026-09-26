@@ -40,7 +40,7 @@
 .solicitudes-panel-cabecera h3, .solicitudes-panel-cabecera p { margin: 0; }
 .solicitudes-panel-cabecera h3 { font-size: 1.05rem; }
 .solicitudes-panel-cabecera p { color: var(--portal-muted); font-size: .82rem; }
-.solicitudes-panel-cuerpo { display: grid; gap: var(--portal-espacio-3); min-width: 0; }
+.solicitudes-panel-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--portal-espacio-3); min-width: 0; }
 .solicitudes-ayuda { position: relative; flex: 0 0 auto; }
 .solicitudes-ayuda summary { display: grid; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie); color: var(--portal-azul-700); cursor: pointer; font-weight: 800; list-style: none; }
 .solicitudes-ayuda summary::-webkit-details-marker { display: none; }
@@ -76,6 +76,7 @@
 .solicitudes-accion-pendiente button { padding: var(--portal-espacio-2) var(--portal-espacio-3); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-neutro-suave); color: var(--portal-muted); }
 .solicitudes-accion-pendiente small { color: var(--portal-muted); font-size: .76rem; }
 .solicitudes-volver { margin-bottom: var(--portal-espacio-4); padding: var(--portal-espacio-2) var(--portal-espacio-3); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-superficie); color: var(--portal-azul-700); cursor: pointer; font-weight: 700; }
+.solicitudes-panel-cuerpo > .solicitudes-volver { justify-self: start; }
 .solicitudes-volver::before { content: "←"; margin-right: var(--portal-espacio-2); }
 .solicitudes-ficha { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .7fr); gap: var(--portal-espacio-4); }
 .solicitudes-ficha dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--portal-espacio-3); margin: 0; }

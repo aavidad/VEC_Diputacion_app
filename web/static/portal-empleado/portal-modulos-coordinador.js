@@ -29,18 +29,22 @@ const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 const CLAVE_DOCUMENTOS = "documentos";
+// Selección (Convoca integrado): bandeja de solicitudes de participación. Solo
+// se ofrece si el servidor publica el módulo y su consulta responde.
+const CLAVE_SELECCION = "seleccion";
+export const VISTA_SELECCION = "seleccion";
 // «documentos» es también una sección de Bolsa; la vista del servicio común
 // de Documentos usa un nombre propio para no confundirse con ella.
 export const VISTA_DOCUMENTOS_EXPEDIENTE = "documentos-expediente";
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa",
-  CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
+  CLAVE_CONTRATACION_TEMPORAL, CLAVE_SELECCION, "administracion", "usuarios",
 ]);
 // Módulos del registro con pantalla en este portal. Administración y Usuarios
 // siguen publicados en `/api/vec/modules` para la carcasa general (que sí los
 // consume), pero aquí no tienen vista: no se ofrecen en menú ni en Inicio.
 export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
-  CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa", CLAVE_CONTRATACION_TEMPORAL,
+  CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa", CLAVE_CONTRATACION_TEMPORAL, CLAVE_SELECCION,
 ]);
 // Documentos sólo se carga cuando el servidor lo tiene montado, pero no tiene
 // entrada propia en menú ni en Inicio: su vista se abre únicamente desde un
@@ -49,7 +53,7 @@ export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
 // menú, en Inicio ni en el ayudante de trámites: el portal solo ofrece Bolsa
 // y la contratación temporal. Su URL directa sigue funcionando.
 export const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS, CLAVE_PERSONAL, "cronos", "dietas"]);
-const CLAVES_CARGA_PORTAL = Object.freeze([...CLAVES_CARGA_MODULAR, CLAVE_DOCUMENTOS]);
+const CLAVES_CARGA_PORTAL = Object.freeze([...CLAVES_CARGA_MODULAR, CLAVE_DOCUMENTOS, CLAVE_SELECCION]);
 // Módulos sin entrada que no se cargan al arrancar, sino al pedir una de sus
 // vistas. Documentos no se difiere: se abre desde el expediente y su carga no
 // hace consultas.
@@ -149,6 +153,13 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     ]);
     return Object.freeze({ vista, cliente });
   },
+  seleccion: async () => {
+    const [vista, cliente] = await Promise.all([
+      import("./modulos/seleccion/vista-solicitudes.js?v=20260926-convoca-f1-v1"),
+      import("./modulos/seleccion/cliente-http-solicitudes.js?v=20260926-convoca-f1-v1"),
+    ]);
+    return Object.freeze({ vista, cliente });
+  },
 });
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "cronos-avisos", "cronos-bandeja",
@@ -156,7 +167,7 @@ export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "crono
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
-  "contratacion-temporal", VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES,
+  "contratacion-temporal", VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_SELECCION, ...VISTAS_MODULOS_PERSONALES,
 ]));
 
 // Estado de un módulo autorizado sin entrada en el portal que aún no se ha
@@ -175,6 +186,7 @@ export function moduloDeVistaPortal(vista) {
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (SUBVISTAS_CRONOS.has(vista)) return "cronos";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return CLAVE_DOCUMENTOS;
+  if (vista === VISTA_SELECCION) return CLAVE_SELECCION;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
   return "";
@@ -189,6 +201,7 @@ export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return `#${VISTA_DOCUMENTOS_EXPEDIENTE}`;
+  if (vista === VISTA_SELECCION) return `#${VISTA_SELECCION}`;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
   if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
   return "#portal";
@@ -547,12 +560,36 @@ export function crearCoordinadorModulosPortal({
     };
   }
 
+  // La consulta de convocatorias confirma que la ruta está montada y autorizada
+  // antes de ofrecer la entrada; la vista vuelve a leerla al montarse.
+  async function cargarSeleccion({ consultar, exigirVigente }) {
+    const recursos = await cargarModuloConLimite(
+      cargadoresInternos.seleccion || CARGADORES_INTERNOS_PREDETERMINADOS.seleccion,
+      CLAVE_SELECCION, limiteCargaModularMs, temporizadores,
+    );
+    exigirVigente();
+    const fetchImpl = fetchDelEntorno();
+    if (typeof recursos?.vista?.montarVistaSolicitudesSeleccion !== "function"
+      || typeof recursos?.cliente?.crearClienteSolicitudesSeleccion !== "function" || !fetchImpl) {
+      throw new TypeError("vista de Selección no disponible");
+    }
+    const cliente = recursos.cliente.crearClienteSolicitudesSeleccion({ fetchImpl });
+    await consultar((opciones) => cliente.convocatorias(opciones), "consultar Selección");
+    exigirVigente();
+    return {
+      seleccion: Object.freeze({
+        montar: ({ raiz, anunciar: avisar }) => recursos.vista.montarVistaSolicitudesSeleccion({ raiz, cliente, anunciar: avisar }),
+      }),
+    };
+  }
+
   const CARGAS_MODULOS = Object.freeze({
     [CLAVE_CONTRATACION_TEMPORAL]: cargarContratacionTemporal,
     cronos: cargarCronos,
     [CLAVE_PERSONAL]: cargarPersonal,
     dietas: cargarDietas,
     [CLAVE_DOCUMENTOS]: cargarDocumentos,
+    [CLAVE_SELECCION]: cargarSeleccion,
   });
 
   /**
@@ -614,6 +651,7 @@ export function crearCoordinadorModulosPortal({
       cronos: undefined,
       dietas: undefined,
       documentos: undefined,
+      seleccion: undefined,
       personal: undefined,
       personalRegistro: undefined,
     };
@@ -722,6 +760,7 @@ export function crearCoordinadorModulosPortal({
     if (vista === "cronos-bandeja-notificaciones") return typeof composicion?.cronos?.montarBandejaNotificaciones === "function";
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return composicion?.documentos !== undefined;
+    if (vista === VISTA_SELECCION) return composicion?.seleccion !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
     // Oferta de interfaz para el perfil RRHH; cada lectura la autoriza V3.
     if (vista === "personal-registro") return composicion?.personal !== undefined
@@ -756,6 +795,9 @@ export function crearCoordinadorModulosPortal({
     }
     if (clave === "dietas" && vistaDisponible("dietas")) {
       return Object.freeze({ disponible: true, vista: "dietas" });
+    }
+    if (clave === CLAVE_SELECCION && vistaDisponible(VISTA_SELECCION)) {
+      return Object.freeze({ disponible: true, vista: VISTA_SELECCION });
     }
     if (clave === CLAVE_DOCUMENTOS && vistaDisponible(VISTA_DOCUMENTOS_EXPEDIENTE)) {
       return Object.freeze({ disponible: true, vista: VISTA_DOCUMENTOS_EXPEDIENTE });
@@ -965,6 +1007,14 @@ export function crearCoordinadorModulosPortal({
       });
       if (montaje !== secuenciaMontaje) { moduloDocumentos.desmontar(); return false; }
       desmontarVista = moduloDocumentos.desmontar;
+      return true;
+    }
+
+    if (vista === VISTA_SELECCION) {
+      raiz.replaceChildren();
+      const moduloSeleccion = composicion.seleccion.montar({ raiz, anunciar });
+      if (montaje !== secuenciaMontaje) { moduloSeleccion.desmontar(); return false; }
+      desmontarVista = moduloSeleccion.desmontar;
       return true;
     }
 

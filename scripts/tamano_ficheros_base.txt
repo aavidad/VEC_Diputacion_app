@@ -91,13 +91,13 @@
 877 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 1083 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
-848 web/static/bolsa/bolsa.css
+852 web/static/bolsa/bolsa.css
 834 web/static/bolsa/lista-bolsas.test.mjs
 1069 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 927 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1548 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1138 web/static/portal-empleado/portal-modulos-coordinador.js
+1188 web/static/portal-empleado/portal-modulos-coordinador.js
 1085 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 999 web/static/portal-empleado/portal-componentes.css
 950 web/static/portal-empleado/portal.js

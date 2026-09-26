@@ -103,9 +103,7 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
     const versionTema = pagina.match(/\/comun\/tema-vec\.css\?v=([\w.-]+)"/)?.[1];
     assert.ok(versionTema && versionTema !== "20260924-bolsa-publica-final", "tema-vec.css renueva su URL");
     assert.equal(versionTema, html.match(/\/comun\/tema-vec\.css\?v=([\w.-]+)"/)?.[1]);
-    assert.match(pagina, pagina === html
-      ? /i18n-publica\.js\?v=20260924-rescate-bolsa-i18n-v3/
-      : /i18n-publica\.js\?v=20260924-bolsa-i18n-v2/);
+    assert.match(pagina, /i18n-publica\.js\?v=20260926-convoca-f1-v1/);
     assert.doesNotMatch(pagina, /i18n-publica\.js\?v=20260924-bolsa-publica-final/);
     const versionBolsa = pagina.match(/\/bolsa\/bolsa\.css\?v=([\w.-]+)"/)?.[1];
     assert.ok(versionBolsa, "bolsa.css se carga versionada");
@@ -117,7 +115,7 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
   assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-sin-inline-v4/);
   assert.match(listas, /lista-bolsas\.js\?v=20260924-b10-reintento-foco-v1/);
   assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-ayuda-v3|lista-bolsas\.js\?v=20260924-(?:bolsa-ayuda-v3|bolsa-publica-final)/);
-  assert.match(html, /bolsa\.js\?v=20260924-rescate-bolsa-v3/);
+  assert.match(html, /bolsa\.js\?v=20260926-convoca-f1-v1/);
   assert.doesNotMatch(html, /bolsa\.js\?v=20260924-bolsa-i18n-v2/);
   assert.doesNotMatch(html, /bolsa\.js\?v=20260924-bolsa-publica-final/);
   assert.match(css, /--bolsa-bg:\s*var\(--portal-fondo, var\(--bg\)\)/);

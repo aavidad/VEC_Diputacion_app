@@ -587,6 +587,10 @@
   font-size: 1rem;
 }
 
+.acciones-inscripcion {
+  margin: 12px 0 16px;
+}
+
 .detalle-resumen {
   margin: 14px 0 8px;
   font-weight: 600;

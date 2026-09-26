@@ -1,0 +1,24 @@
+/* Solicitud de participación y «Mis solicitudes»: solo ajustes de disposición
+   sobre los componentes del área personal (pasos, paneles, campos y listas). */
+.pasos:has(> li:nth-child(4):last-child) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.boton-ayuda-solicitud { flex: none; font-weight: 700; }
+.panel > header:has(.boton-ayuda-solicitud) { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.grupo-requisitos, .grupo-meritos + .grupo-meritos, .requisito-solicitud + .requisito-solicitud { margin-top: 12px; }
+.requisito-solicitud p { margin: 0 0 6px; color: var(--ap-muted); font-size: .875rem; }
+.opciones-requisito { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.grupo-meritos .formulario-rejilla { margin-top: 4px; }
+.grupo-meritos output { font-variant-numeric: tabular-nums; }
+.puntuacion-total { margin: 14px 0; }
+.confirmacion-solicitud { margin: 12px 0; padding: 12px 14px; border: 1px solid var(--ap-azul-700); border-radius: var(--portal-radio); background: var(--ap-azul-100); }
+.confirmacion-solicitud p { margin: 0 0 8px; }
+.tramites-no-disponibles { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.tramites-no-disponibles small { color: var(--ap-muted); }
+.lista-plazos li:has(> span:first-child + a:last-child) { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.lista-plazos li > span small { display: block; color: var(--ap-muted); }
+.nota.error .boton-secundario { margin-top: 8px; }
+.tabla-administrativa td small { display: block; color: var(--ap-muted); }
+@media (max-width: 680px) {
+  .pasos:has(> li:nth-child(4):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .opciones-requisito { flex-direction: column; }
+  .lista-plazos li:has(> span:first-child + a:last-child) { grid-template-columns: 1fr; }
+}

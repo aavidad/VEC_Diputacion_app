@@ -15,6 +15,7 @@
     sin_documentos: "No hay documentos públicos asociados.",
     sin_ayuda: "No hay respuestas de ayuda asociadas.",
     consultar_ficha: "Consultar ficha pública",
+    inscribirme: "Inscribirme",
     error_bolsas: "Error al consultar bolsas",
     error_lista: "Error al consultar la lista",
     documento_formato: "El documento debe tener formato ***1234** (3 asteriscos, 4 dígitos y 2 asteriscos).",
