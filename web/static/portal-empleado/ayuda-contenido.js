@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-reparos-firma-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-reparos-informe-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

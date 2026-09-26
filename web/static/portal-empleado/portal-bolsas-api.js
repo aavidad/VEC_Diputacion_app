@@ -13,15 +13,15 @@ import {
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-reparos-firma-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-reparos-firma-v1";
-import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-reparos-firma-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-reparos-firma-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-reparos-informe-v1";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-reparos-informe-v1";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-reparos-informe-v1";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-reparos-informe-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-reparos-firma-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-reparos-firma-v1";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-reparos-informe-v1";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-reparos-informe-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";

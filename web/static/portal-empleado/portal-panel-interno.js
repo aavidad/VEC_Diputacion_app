@@ -7,15 +7,15 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-reparos-firma-v1";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-reparos-informe-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-referencias-legibles-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-reparos-firma-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-reparos-informe-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-reparos-firma-v1";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-reparos-informe-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-referencias-legibles-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-reparos-firma-v1";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-reparos-firma-v1";
-import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-reparos-firma-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-reparos-informe-v1";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-reparos-informe-v1";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-reparos-informe-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
 import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js";

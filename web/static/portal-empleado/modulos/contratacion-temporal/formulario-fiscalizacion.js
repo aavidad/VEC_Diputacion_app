@@ -6,6 +6,7 @@ import {
 } from "./contrato-fiscalizacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { MENSAJES_FIRMA_REMISION_ES } from "./i18n-firma-remision.js";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20260926-reparos-informe-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const CAMPOS_CONFIGURACION = new Set([
@@ -192,7 +193,9 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
   let confirmarActual = confirmarOperacion;
   let anunciarActual = anunciar;
   let alConfirmarActual = alConfirmar;
-  let t = crearTraductorContratacionTemporal({ ...MENSAJES_FIRMA_REMISION_ES, ...mensajes });
+  let t = crearTraductorContratacionTemporal({
+    ...MENSAJES_FIRMA_REMISION_ES, ...MENSAJES_INFORME_TRAS_SUBSANACION_ES, ...mensajes,
+  });
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
@@ -307,7 +310,9 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
           estado = {
             ...estado, ocupado: false, indeterminado: false,
             mensaje_clave: error?.codigo === "firma_remision_pendiente"
-              ? "fiscalizacion_estado_firma_pendiente" : "fiscalizacion_estado_rechazada",
+              ? "fiscalizacion_estado_firma_pendiente"
+              : error?.codigo === "informe_nuevo_pendiente"
+                ? "fiscalizacion_estado_informe_nuevo_pendiente" : "fiscalizacion_estado_rechazada",
             tipo_mensaje: "error",
           };
         }

@@ -352,7 +352,10 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
     return estado !== 409 && CODIGOS_POR_ESTADO.get(estado)?.has(codigo) === true;
   }
   if (ruta.split("?")[0] === RUTA_RESULTADOS_FISCALIZACION && estado === 409) {
-    return ["conflicto", "firma_remision_pendiente"].includes(codigo);
+    return ["conflicto", "firma_remision_pendiente", "informe_nuevo_pendiente"].includes(codigo);
+  }
+  if (ruta === RUTA_PREPARACION_INFORME_JURIDICO && estado === 409) {
+    return ["conflicto", "informe_nuevo_no_previsto"].includes(codigo);
   }
   if (ruta.split("?")[0] === RUTA_FICHA_GINPIX && estado === 409) {
     return codigo === "recibo_no_confirmado";
