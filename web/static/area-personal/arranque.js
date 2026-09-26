@@ -1,4 +1,4 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260926-convoca-f1-v1";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260926-convoca-f1-v2";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();
@@ -7,7 +7,7 @@ async function resolverCliente() {
   exigirParametrosConocidos(new URLSearchParams(window.location.search));
   const [{ crearClienteHTTPAreaPersonal }, { crearClienteSolicitudesPersona }] = await Promise.all([
     import("./cliente-http.js?v=20260925-sin-demo-v1"),
-    import("./cliente-http-solicitudes.js?v=20260926-convoca-f1-v1"),
+    import("./cliente-http-solicitudes.js?v=20260926-convoca-f1-v2"),
   ]);
   return { cliente: crearClienteHTTPAreaPersonal(), clienteSolicitudes: crearClienteSolicitudesPersona() };
 }

@@ -3,8 +3,8 @@
  * cada solicitud de la persona, con acceso a continuar un borrador. La
  * referencia de la solicitud no se muestra; se ofrece copiarla.
  */
-import { crearTraductorSolicitud, textoErrorSolicitud } from "./i18n-solicitud.js?v=20260926-convoca-f1-v1";
-import { botonCopiarReferencia } from "./justificante-copiable.js?v=20260926-convoca-f1-v1";
+import { crearTraductorSolicitud, textoErrorSolicitud } from "./i18n-solicitud.js?v=20260926-convoca-f1-v2";
+import { botonCopiarReferencia } from "./justificante-copiable.js?v=20260926-convoca-f1-v2";
 import { escaparHTML as escapar } from "./vistas/comunes.js";
 
 const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });

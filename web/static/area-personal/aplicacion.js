@@ -15,9 +15,9 @@ import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./v
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { declaracionFinalConfirmada, localizarSolicitudEdicion } from "./flujo-solicitud.js";
-import { montarSolicitudConvocatoria } from "./solicitud-convocatoria.js?v=20260926-convoca-f1-v1";
-import { montarMisSolicitudes } from "./mis-solicitudes.js?v=20260926-convoca-f1-v1";
-import { instalarCopiaReferencias } from "./justificante-copiable.js?v=20260926-convoca-f1-v1";
+import { montarSolicitudConvocatoria } from "./solicitud-convocatoria.js?v=20260926-convoca-f1-v2";
+import { montarMisSolicitudes } from "./mis-solicitudes.js?v=20260926-convoca-f1-v2";
+import { instalarCopiaReferencias } from "./justificante-copiable.js?v=20260926-convoca-f1-v2";
 
 const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 const VISTAS_SOLICITUD = new Set(["solicitud", "mis-solicitudes"]);

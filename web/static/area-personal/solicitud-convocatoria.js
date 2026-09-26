@@ -8,9 +8,9 @@
  * la persona declara y muestra un autobaremo orientativo con el baremo
  * publicado. Firma, registro en sede, tasas y notificación no se ofrecen.
  */
-import { crearTraductorSolicitud, textoErrorSolicitud } from "./i18n-solicitud.js?v=20260926-convoca-f1-v1";
-import { calcularAutobaremoOrientativo, leerReglasConvocatoria } from "./reglas-convocatoria.js?v=20260926-convoca-f1-v1";
-import { botonCopiarReferencia } from "./justificante-copiable.js?v=20260926-convoca-f1-v1";
+import { crearTraductorSolicitud, textoErrorSolicitud } from "./i18n-solicitud.js?v=20260926-convoca-f1-v2";
+import { calcularAutobaremoOrientativo, leerReglasConvocatoria } from "./reglas-convocatoria.js?v=20260926-convoca-f1-v2";
+import { botonCopiarReferencia } from "./justificante-copiable.js?v=20260926-convoca-f1-v2";
 import { escaparHTML as escapar } from "./vistas/comunes.js";
 
 const TOTAL_PASOS = 4;

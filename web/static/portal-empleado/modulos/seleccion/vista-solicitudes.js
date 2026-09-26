@@ -5,7 +5,7 @@
  * visuales de modulos/solicitudes (solicitudes.css). No decide nada: muestra
  * lo que devuelve el servidor.
  */
-import { crearTraductorSeleccion, textoErrorSeleccion } from "./i18n.js?v=20260926-convoca-f1-v1";
+import { crearTraductorSeleccion, textoErrorSeleccion } from "./i18n.js?v=20260926-convoca-f1-v2";
 import { referenciaCopiableTraducida } from "../../portal-justificante.js";
 
 const TAMANO_PAGINA = 25;
