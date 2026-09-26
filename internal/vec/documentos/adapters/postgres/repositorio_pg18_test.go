@@ -85,13 +85,20 @@ func politicaEnsayo(t *testing.T, expediente, tipo string) vecports.ResultadoPol
 
 func politicaEnsayoEstado(t *testing.T, expediente, tipo string, estado vecports.EstadoPoliticaConservacionDocumental) vecports.ResultadoPoliticaConservacionDocumental {
 	t.Helper()
+	return politicaEnsayoHasta(t, expediente, tipo, estado, time.Date(2035, 1, 1, 0, 0, 0, 0, time.UTC))
+}
+
+// politicaEnsayoHasta fija la fecha de conservación: el catálogo real la
+// calcula como «ahora + plazo», así que cambia en cada petición.
+func politicaEnsayoHasta(t *testing.T, expediente, tipo string, estado vecports.EstadoPoliticaConservacionDocumental, hasta time.Time) vecports.ResultadoPoliticaConservacionDocumental {
+	t.Helper()
 	ref := func(c string) string { return "ref:" + strings.Repeat(c, 64) }
 	s, err := vecports.NuevaSolicitudPoliticaConservacionDocumental(ref("1"), ref("2"), tipo, expediente, ref("5"), 1,
 		bytes.Repeat([]byte{0x6a}, 32), ref("6"), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := vecports.NuevaPoliticaConservacionDocumental(s, time.Date(2035, 1, 1, 0, 0, 0, 0, time.UTC),
+	p, err := vecports.NuevaPoliticaConservacionDocumental(s, hasta,
 		vecports.ProteccionPoliticaConservacionDocumentalOrdinaria, "", estado, time.Time{})
 	if err != nil {
 		t.Fatal(err)
@@ -209,5 +216,69 @@ func TestRepositorioPG18RegistraReferenciaExternaProvisional(t *testing.T) {
 	firmar(&aprobada, "decision:00000000-0000-4000-8000-0000000000b5")
 	if _, err := repo.ConfirmarReferenciaExterna(ctx, aprobada); !errors.Is(err, ports.ErrConflicto) {
 		t.Fatalf("replay con estado cambiado: %v", err)
+	}
+}
+
+// La misma petición HTTP repetida obtiene otra concesión V3 y la política
+// resuelve otra fecha de conservación (ahora + plazo): la preimagen cambia,
+// pero el registro es el mismo y debe devolverse el recibo original. El
+// material cambiado con la misma clave sigue siendo conflicto, y también una
+// fecha de conservación anterior a la registrada.
+func TestRepositorioPG18RegistroExternoRepetidoConAutorizacionNueva(t *testing.T) {
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	pool, err := pgxpool.New(ctx, dsnEnsayo(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	repo, err := NuevoRepositorio(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expediente := "ref:" + strings.Repeat("c2", 32)
+	tipo := "ref:" + strings.Repeat("c3", 32)
+	estado := vecports.EstadoPoliticaConservacionDocumentalProvisional
+	primera := time.Date(2036, 9, 26, 10, 0, 0, 123456000, time.UTC)
+	alta := ports.AltaExternaPersistente{
+		ID: "doc:00000000-0000-4000-8000-0000000000c4", ClaveIdempotencia: "idem:00000000-0000-4000-8000-0000000000c4",
+		ModuloID: "contratacion_temporal", ExpedienteRef: expediente, TipoRef: tipo, Version: 1,
+		Custodia: domain.ReferenciaCustodiaExterna{CustodioID: "registro_entrada", Referencia: "sonda-d6:repeticion", HuellaSHA256: strings.Repeat("e", 64)},
+		Politica: politicaEnsayoHasta(t, expediente, tipo, estado, primera),
+	}
+	firmar := func(a *ports.AltaExternaPersistente, decision string) {
+		t.Helper()
+		preimagen, err := a.PreimagenExterna()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.Autorizacion = autorizacion(materialSintetico(t, ports.AccionRegistrarExterno, a.ID, "registrar_documento_externo",
+			"documento_externo", []string{"documento", "recibo"}, preimagen, decision),
+			ports.AccionRegistrarExterno, "registrar_documento_externo", a.ID, expediente)
+	}
+	firmar(&alta, "decision:00000000-0000-4000-8000-0000000000c4")
+	d, err := repo.ConfirmarReferenciaExterna(ctx, alta)
+	if err != nil || !d.ConservacionHasta.Equal(primera) {
+		t.Fatalf("primer registro: %v %+v", err, d)
+	}
+	repetida := alta
+	repetida.Politica = politicaEnsayoHasta(t, expediente, tipo, estado, primera.Add(7*time.Second))
+	firmar(&repetida, "decision:00000000-0000-4000-8000-0000000000c5")
+	r, err := repo.ConfirmarReferenciaExterna(ctx, repetida)
+	if err != nil || r.ID != d.ID || r.NumeroVEC != d.NumeroVEC || !r.CreadoEn.Equal(d.CreadoEn) || !r.ConservacionHasta.Equal(primera) {
+		t.Fatalf("repetición idéntica con autorización nueva: %v %+v", err, r)
+	}
+	cambiada := alta
+	cambiada.Custodia.HuellaSHA256 = strings.Repeat("d", 64)
+	cambiada.Politica = politicaEnsayoHasta(t, expediente, tipo, estado, primera.Add(9*time.Second))
+	firmar(&cambiada, "decision:00000000-0000-4000-8000-0000000000c6")
+	if _, err := repo.ConfirmarReferenciaExterna(ctx, cambiada); !errors.Is(err, ports.ErrConflicto) {
+		t.Fatalf("material cambiado con la misma clave: %v", err)
+	}
+	anterior := alta
+	anterior.Politica = politicaEnsayoHasta(t, expediente, tipo, estado, primera.Add(-time.Second))
+	firmar(&anterior, "decision:00000000-0000-4000-8000-0000000000c7")
+	if _, err := repo.ConfirmarReferenciaExterna(ctx, anterior); !errors.Is(err, ports.ErrConflicto) {
+		t.Fatalf("conservación anterior a la registrada: %v", err)
 	}
 }

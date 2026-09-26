@@ -181,6 +181,30 @@ func TestRegistrarExternoRechazaConfirmacionDiscordante(t *testing.T) {
 	}
 }
 
+// Una repetición con concesión nueva recalcula la conservación (ahora +
+// plazo) y la fachada devuelve el recibo original, con la fecha anterior: se
+// acepta. Una fecha posterior a la resuelta no procede de esa política.
+func TestRegistrarExternoAceptaReciboOriginalConConservacionAnterior(t *testing.T) {
+	servicio, repo, in := escenarioExterna(t)
+	repo.respuesta = func(a ports.AltaExternaPersistente) domain.Documento {
+		d := documentoConfirmadoPrueba(a)
+		d.ConservacionHasta = d.ConservacionHasta.Add(-7 * time.Second)
+		return d
+	}
+	if _, err := servicio.RegistrarExterno(context.Background(), in); err != nil {
+		t.Fatalf("recibo original de una repetición rechazado: %v", err)
+	}
+	servicio, repo, in = escenarioExterna(t)
+	repo.respuesta = func(a ports.AltaExternaPersistente) domain.Documento {
+		d := documentoConfirmadoPrueba(a)
+		d.ConservacionHasta = d.ConservacionHasta.Add(time.Second)
+		return d
+	}
+	if _, err := servicio.RegistrarExterno(context.Background(), in); !errors.Is(err, ports.ErrCapacidadNoDisponible) {
+		t.Fatalf("conservación posterior a la resuelta aceptada: %v", err)
+	}
+}
+
 // almacenNoAlcanzable falla si la descarga llega a pedir bytes al almacen.
 type almacenNoAlcanzable struct{ vecports.AlmacenObjetos }
 

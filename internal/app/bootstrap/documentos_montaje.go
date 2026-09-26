@@ -432,8 +432,10 @@ func abrirPoolDocumentos(ctx context.Context, dsn, rol string) (*pgxpool.Pool, s
 }
 
 // preflightDocumentos comprueba con el LOGIN ejecutor que las fachadas de
-// Documentos 1–4 existen y le están concedidas, y que no alcanza el registro
-// de denegaciones. Una función ausente hace fallar la consulta.
+// Documentos 1–4 existen y le están concedidas, que está Documentos-6 (sin
+// ella la repetición de un registro externo responde conflicto) y que no
+// alcanza el registro de denegaciones. Una función ausente hace fallar la
+// consulta.
 func preflightDocumentos(ctx context.Context, ejecutor *pgxpool.Pool) error {
 	var ok bool
 	if ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
@@ -442,6 +444,7 @@ func preflightDocumentos(ctx context.Context, ejecutor *pgxpool.Pool) error {
   'vec_documentos.confirmar_alta_v2(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_documentos.registrar_referencia_externa_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f
  WHERE to_regprocedure('vec_documentos.huella_efecto_v1(bytea)') IS NOT NULL
+   AND to_regprocedure('vec_documentos.registro_externo_equivalente_v1(vec_documentos.referencia_externa,jsonb)') IS NOT NULL
    AND NOT has_function_privilege('vec_documentos.registrar_denegacion_frontera_v1(text,text,text,text,text)','EXECUTE')`).Scan(&ok) != nil || !ok {
 		return ErrComposicionDocumentosNoDisponible
 	}
