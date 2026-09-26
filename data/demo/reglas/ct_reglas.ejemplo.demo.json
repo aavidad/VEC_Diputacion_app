@@ -371,6 +371,69 @@
           "declara": "analisis_rrhh"
         },
         "orden": 23
+      },
+      {
+        "clave": "c16.numeracion",
+        "etiqueta": "Numeración de los expedientes",
+        "descripcion": "Cada expediente recibe al darse de alta el número «año/prefijo y número», con el número completado con ceros hasta los dígitos indicados (hoy 2026/CT-000001). Cambiarla solo afecta a los expedientes nuevos.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 15: formato del número de expediente, quién lo asigna y si procede del registro general.",
+          "unidad": "ninguna",
+          "prefijo": "CT-",
+          "digitos": "6"
+        },
+        "orden": 24
+      },
+      {
+        "clave": "c17.via_cobertura.bolsa_vigente",
+        "etiqueta": "Bolsa vigente",
+        "descripcion": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: vías de cobertura, sus comprobaciones y el criterio de bolsa agotada provisionalmente.",
+          "unidad": "lista",
+          "valor": "existe_bolsa_vigente,hay_candidaturas_disponibles",
+          "procedencia": "bolsa",
+          "prioridad": "1"
+        },
+        "orden": 25
+      },
+      {
+        "clave": "c17.via_cobertura.oferta_sae",
+        "etiqueta": "Oferta SAE",
+        "descripcion": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: cuándo procede la oferta al SAE.",
+          "unidad": "lista",
+          "valor": "oferta_sae_disponible",
+          "procedencia": "sae",
+          "prioridad": "2"
+        },
+        "orden": 26
+      },
+      {
+        "clave": "c17.via_cobertura.nueva_convocatoria_bolsa",
+        "etiqueta": "Nueva convocatoria de Bolsa",
+        "descripcion": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: cuándo procede una nueva convocatoria.",
+          "unidad": "lista",
+          "valor": "requiere_nueva_convocatoria",
+          "procedencia": "bolsa",
+          "prioridad": "3"
+        },
+        "orden": 27
       }
     ],
     "estado": "publicado",

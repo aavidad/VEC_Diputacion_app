@@ -264,6 +264,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
 	sello := dependencias.sello
 	reloj := dependencias.reloj
+	// Las reglas del análisis se resuelven antes del alta: al abrir
+	// PostgreSQL se publican sus vías de cobertura y su numeración.
+	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	dependencias.opcionesCatalogoCT = reglasAnalisis.opciones
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		dependencias, origen,
 	)
@@ -278,10 +285,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	fuenteMotivosRectificacion, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(cfg, reloj)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
 	if err != nil {
 		return nil, nil, nil, err
 	}

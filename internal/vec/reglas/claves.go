@@ -122,4 +122,10 @@ const (
 	// AtributoCantidadUrgente es la cantidad de un plazo cuando el
 	// expediente es urgente; sin él rige la cantidad ordinaria.
 	AtributoCantidadUrgente = "cantidad_urgente"
+	// CTNumeracion fija el prefijo y los dígitos del número visible de los
+	// expedientes (duda 15). Sin ella rige «AAAA/CT-NNNNNN».
+	CTNumeracion = "c16.numeracion"
+	// CTPrefijoViaCobertura agrupa las vías de cobertura: cada entrada es una
+	// vía con sus comprobaciones (duda 7). Sin ninguna rigen las de siempre.
+	CTPrefijoViaCobertura = "c17.via_cobertura."
 )

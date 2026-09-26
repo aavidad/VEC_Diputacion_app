@@ -71,6 +71,10 @@ type opcionesAnalisisCTDesarrollo struct {
 	causas             []opcionClaveCatalogosAltaContratacionTemporalDesarrollo
 	entradasRC         []entradaRCAnalisisCT
 	urgenciaDisponible bool
+	// viasCobertura (c17) y numeracion (c16) no son del formulario: se
+	// publican en PostgreSQL al arrancar. Nulos: los de siempre.
+	viasCobertura []viaCoberturaCT
+	numeracion    *numeracionExpedientesCT
 }
 
 // opcionesAnalisisPredeterminadas son los valores anteriores al catálogo:
@@ -152,6 +156,12 @@ func nuevasOpcionesAnalisisCT(ctx context.Context, resolutor *reglas.Resolutor) 
 	}
 	if !opciones.unicas() {
 		return nil, errOpcionesAnalisisNoValidas
+	}
+	if opciones.viasCobertura, err = viasCoberturaDesdeReglasCT(vigentes); err != nil {
+		return nil, err
+	}
+	if opciones.numeracion, err = numeracionDesdeReglasCT(porClave); err != nil {
+		return nil, err
 	}
 	return opciones, nil
 }

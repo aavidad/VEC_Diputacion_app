@@ -215,6 +215,28 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		gobierno.Close()
 		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	// Vías de cobertura y numeración del catálogo de reglas: solo se publica
+	// una versión nueva si su contenido difiere del vigente.
+	if err := sincronizarGobiernoCoberturaCatalogoPostgreSQLCT(
+		ctx, gobierno, ejecucion, soporte, reloj,
+	); err != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"publicar_gobierno_cobertura_catalogo", "gobierno_cobertura_no_disponible",
+		)
+		ejecucion.Close()
+		gobierno.Close()
+		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if err := publicarNumeracionExpedientesCT(
+		ctx, gobierno, soporte.opcionesCatalogo.numeracionVigente(),
+	); err != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"publicar_numeracion_expedientes", codigoFalloNumeracionExpedientesCT(err),
+		)
+		ejecucion.Close()
+		gobierno.Close()
+		return vacias, err
+	}
 	dependencias := dependenciasPostgreSQLContratacionTemporalDesarrollo{
 		ejecucion: ejecucion,
 		gobierno:  gobierno,

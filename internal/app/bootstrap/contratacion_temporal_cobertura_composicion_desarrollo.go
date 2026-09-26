@@ -7,7 +7,6 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 )
 
@@ -187,10 +186,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		reloj,
 		gobierno,
 		motivos,
-		[]application.MotivoAlternativaCobertura{
-			{ViaClave: "oferta_sae", Clave: domain.ClaveCatalogo(motivoEleccionProcedimientoRRHHDesarrollo().EntradaClave), EtiquetaI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh"},
-			{ViaClave: "nueva_convocatoria_bolsa", Clave: domain.ClaveCatalogo(motivoEleccionProcedimientoRRHHDesarrollo().EntradaClave), EtiquetaI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh"},
-		},
+		motivosAlternativaViasCoberturaCT(catalogoAnalisisOpcional(catalogos...).opcionesAnalisis().viasCoberturaVigentes()),
 		preparador,
 	)
 	if err != nil {
