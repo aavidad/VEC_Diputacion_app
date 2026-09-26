@@ -68,7 +68,7 @@ function centroVisible(centro) {
   const coincidencia = /^centro:([^:]+):(\d+)$/u.exec(referencia);
   if (!coincidencia) return { etiqueta: referencia, referencia: "" };
   const [, ambito, numero] = coincidencia;
-  return { etiqueta: `Centro ${ambito.replaceAll(/[-_]+/g, " ")} · ${numero}`, referencia };
+  return { etiqueta: traductorPorOmision("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
 }
 
 function esNumeroVisibleLegible(numero) {

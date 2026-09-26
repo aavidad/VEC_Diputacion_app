@@ -1,10 +1,12 @@
 import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260926-huecos-rrhh-v2";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260926-i18n-v1";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
   ...MENSAJES_AYUDA_PORTAL_ES,
   ...MENSAJES_PANEL_INTERNO_ES,
+  ...MENSAJES_TEXTOS_PORTAL_ES,
   acceso_borradores_disponible: "Borradores disponibles",
   acceso_borradores_denegado: "Sin permiso para gestionar borradores",
   acceso_borradores_error: "Servicio de borradores no disponible",
@@ -81,6 +83,12 @@ export function crearTraductorPortal(catalogo = MENSAJES_PORTAL_ES) {
 }
 
 export const traducirPortal = crearTraductorPortal();
+
+/** Texto del catálogo común ya escapado para insertarlo en una plantilla HTML. */
+export function textoPortal(clave, variables = {}) {
+  return traducirPortal(clave, variables).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+}
 
 /** Textos comunes de las vistas internas de Bolsa. */
 export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({

@@ -34,6 +34,9 @@ export function montarConsultaSeguimientoInterno({ documento, cliente, mensajes 
   for (const nodo of documento.querySelectorAll("[data-ct-copia]")) {
     nodo.textContent = t(nodo.getAttribute("data-ct-copia"));
   }
+  for (const nodo of documento.querySelectorAll("[data-ct-copia-alt]")) {
+    nodo.setAttribute("alt", t(nodo.getAttribute("data-ct-copia-alt")));
+  }
   documento.title = t("consulta_seguimiento_pagina_titulo");
   let controlador = null, secuencia = 0, montado = true;
   const limpiar = (clave) => {

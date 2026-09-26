@@ -11,6 +11,9 @@ import {
   PERIODOS_ESTADISTICAS,
   validarRespuestaEstadisticas,
 } from "./contrato-estadisticas.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+
+const traducirCT = crearTraductorContratacionTemporal();
 
 export const RUTA_ESTADISTICAS = "/api/vec/contratacion-temporal/estadisticas";
 
@@ -43,32 +46,32 @@ export async function consultarEstadisticas(filtros = {}, { fetchImpl = fetch, s
     });
   } catch (error) {
     if (signal?.aborted || error?.name === "AbortError") {
-      return { ok: false, status: 0, codigo: "consulta_cancelada", mensaje: "Consulta de estadísticas cancelada." };
+      return { ok: false, status: 0, codigo: "consulta_cancelada", mensaje: traducirCT("ct_txt_consulta_de_estadisticas_cancelada") };
     }
-    return { ok: false, status: 0, codigo: "error_red", mensaje: "No se pudo conectar con el servicio de estadísticas." };
+    return { ok: false, status: 0, codigo: "error_red", mensaje: traducirCT("ct_txt_no_se_pudo_conectar_con_el_servicio_de_estadisti") };
   }
 
   if (!respuesta.ok) {
     if (respuesta.status === 400) {
-      return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Parámetros de consulta de estadísticas no válidos." };
+      return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: traducirCT("ct_txt_parametros_de_consulta_de_estadisticas_no_valido") };
     }
     if (respuesta.status === 401) {
-      return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión autenticada para consultar estadísticas." };
+      return { ok: false, status: 401, codigo: "no_autenticado", mensaje: traducirCT("ct_txt_se_requiere_una_sesion_autenticada_para_consulta") };
     }
     if (respuesta.status === 403) {
-      return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "La sesión no dispone de permisos para consultar estadísticas." };
+      return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: traducirCT("ct_txt_la_sesion_no_dispone_de_permisos_para_consultar") };
     }
     if (respuesta.status === 404) {
-      return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "El servicio de estadísticas no está disponible." };
+      return { ok: false, status: 404, codigo: "no_encontrado", mensaje: traducirCT("ct_txt_el_servicio_de_estadisticas_no_esta_disponible") };
     }
     if (respuesta.status === 422) {
-      return { ok: false, status: 422, codigo: "no_procesable", mensaje: "Rango de fechas o periodo no procesable." };
+      return { ok: false, status: 422, codigo: "no_procesable", mensaje: traducirCT("ct_txt_rango_de_fechas_o_periodo_no_procesable") };
     }
     return {
       ok: false,
       status: respuesta.status,
       codigo: "error_servidor",
-      mensaje: "No se pudieron consultar las estadísticas. Inténtelo de nuevo.",
+      mensaje: traducirCT("ct_txt_no_se_pudieron_consultar_las_estadisticas_intent"),
     };
   }
 
@@ -78,13 +81,13 @@ export async function consultarEstadisticas(filtros = {}, { fetchImpl = fetch, s
     return { ok: true, datos };
   } catch (error) {
     if (signal?.aborted || error?.name === "AbortError") {
-      return { ok: false, status: 0, codigo: "consulta_cancelada", mensaje: "Consulta de estadísticas cancelada." };
+      return { ok: false, status: 0, codigo: "consulta_cancelada", mensaje: traducirCT("ct_txt_consulta_de_estadisticas_cancelada") };
     }
     return {
       ok: false,
       status: respuesta.status,
       codigo: "respuesta_invalida",
-      mensaje: "La respuesta del servicio de estadísticas no es válida.",
+      mensaje: traducirCT("ct_txt_la_respuesta_del_servicio_de_estadisticas_no_es"),
     };
   }
 }

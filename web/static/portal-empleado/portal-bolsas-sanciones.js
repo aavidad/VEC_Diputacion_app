@@ -2,9 +2,9 @@
 // duda 62). Bloque «Sanciones» de la ficha del candidato en la vista de RRHH.
 // Las consecuencias, su efecto, los plazos y los estados del recurso vienen del
 // catálogo que sirve la API: aquí no se fija ninguno.
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-huecos-rrhh-v2";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-i18n-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "./portal-huella-archivo.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
 import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
@@ -224,7 +224,7 @@ function html(valor) {
 function fechaVisible(valor) {
   if (!FECHA.test(valor || "")) return "";
   const [anio, mes, dia] = valor.split("-").map(Number);
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(anio, mes - 1, dia)));
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(anio, mes - 1, dia)));
 }
 
 const CLASE_EFECTO = Object.freeze({ excluir: "peligro", pausar: "advertencia", ninguna: "info" });
@@ -232,7 +232,7 @@ const CLASE_RECURSO = Object.freeze({ interpuesto: "info", estimado: "exito", de
 
 function fechaInstante(valor) {
   if (!INSTANTE.test(valor || "")) return "";
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeZone: ZONA_HORARIA_PORTAL }).format(new Date(valor));
 }
 
 // Lo que la sanción dejó hecho y, si se revocó, la readmisión.

@@ -415,7 +415,8 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(flujoLlamamientos, /cliente\.solicitar\(\{ necesidadId, capacidad \}\)/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
-  assert.match(flujoLlamamientos, /Detalle no disponible/);
+  assert.match(flujoLlamamientos, /traducirPortal\("txt_confirmacion_recibida_detalle_no_disponi[a-z_]*"\)/);
+  assert.match(Object.values(MENSAJES_PORTAL_ES).join("\n"), /Detalle no disponible/);
   assert.doesNotMatch(javascript, /portal-llamamientos-vista\.js/);
   assert.doesNotMatch(eventos, /ejecutarOperacionPresentacion/);
   // Ninguna clave de puntuación fabricada para candidatos; el nombre de la columna
@@ -488,7 +489,8 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
   assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/);
   assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/);
   assert.match(javascript, /function renderizarLlamamientoSinBolsa\(\)/u);
-  assert.match(javascript, /Elija una bolsa para iniciar un llamamiento\./u);
+  assert.match(javascript, /textoPortal\("txt_elija_una_bolsa_para_iniciar_un_llamamiento"\)/u);
+  assert.equal(traducirPortal("txt_elija_una_bolsa_para_iniciar_un_llamamiento"), "Elija una bolsa para iniciar un llamamiento.");
 });
 
 test("la interfaz es semántica, adaptable y no contiene CSS inline", () => {

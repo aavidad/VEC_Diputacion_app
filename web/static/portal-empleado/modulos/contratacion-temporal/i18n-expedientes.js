@@ -1,6 +1,7 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
+  centro_visible: "Centro {ambito} · {numero}",
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",

@@ -6,7 +6,7 @@
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260926-i18n-v1";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -58,11 +58,11 @@ export function tramitesParaInicio(cuadro, maximo = MAXIMO_TRAMITES_INICIO) {
 
 function renderizarTramitesInicio(tramites, escaparHTML) {
   if (!Array.isArray(tramites) || tramites.length === 0) {
-    return `<p class="portal-rrhh-resumen-vacio">No hay trámites que mostrar.</p>`;
+    return `<p class="portal-rrhh-resumen-vacio">${textoPortal("txt_no_hay_tramites_que_mostrar")}</p>`;
   }
-  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="Trámites recientes">
+  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${textoPortal("txt_tramites_recientes")}">
       <table class="tabla-datos portal-rrhh-tramites">
-        <thead><tr><th scope="col">Expediente</th><th scope="col">Centro</th><th scope="col">Categoría</th><th scope="col">Fase</th><th scope="col">Estado</th></tr></thead>
+        <thead><tr><th scope="col">${textoPortal("txt_expediente")}</th><th scope="col">${textoPortal("txt_centro")}</th><th scope="col">${textoPortal("txt_categoria")}</th><th scope="col">${textoPortal("txt_fase")}</th><th scope="col">${textoPortal("txt_estado")}</th></tr></thead>
         <tbody>${tramites.map((e) => `<tr>
           <th scope="row"><button type="button" class="boton-terciario portal-rrhh-abrir" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">${escaparHTML(e.numero_visible ?? "")}</button></th>
           <td>${escaparHTML(e.centro ?? "—")}</td>
@@ -137,50 +137,50 @@ export function crearVistaInicioPortal({
       const resumen = metricas
         ? `<div class="rejilla-metricas-rrhh">
               <button type="button" class="tarjeta-metrica-rrhh" data-metrica="en_tramitacion" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-estado="en_curso">
-                <span class="metrica-etiqueta">En tramitación</span>
+                <span class="metrica-etiqueta">${textoPortal("txt_en_tramitacion")}</span>
                 <strong class="metrica-valor">${escaparHTML(numero(metricas.en_tramitacion))}</strong>
-                <span class="metrica-enlace">Ver trámites</span>
+                <span class="metrica-enlace">${textoPortal("txt_ver_tramites")}</span>
               </button>
               <button type="button" class="tarjeta-metrica-rrhh" data-metrica="con_incidencia" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-estado="incidencia">
-                <span class="metrica-etiqueta">Con incidencia</span>
+                <span class="metrica-etiqueta">${textoPortal("txt_con_incidencia")}</span>
                 <strong class="metrica-valor">${escaparHTML(numero(metricas.con_incidencia))}</strong>
-                <span class="metrica-enlace">Ver trámites</span>
+                <span class="metrica-enlace">${textoPortal("txt_ver_tramites")}</span>
               </button>
               <button type="button" class="tarjeta-metrica-rrhh" data-metrica="en_llamamiento" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro" data-ct-exp-filtro-fase="llamamiento">
-                <span class="metrica-etiqueta">En llamamiento</span>
+                <span class="metrica-etiqueta">${textoPortal("txt_en_llamamiento")}</span>
                 <strong class="metrica-valor">${escaparHTML(numero(metricas.en_llamamiento))}</strong>
-                <span class="metrica-enlace">Ver trámites</span>
+                <span class="metrica-enlace">${textoPortal("txt_ver_tramites")}</span>
               </button>
             </div>`
-        : `<p class="portal-rrhh-resumen-vacio">Los totales se consultan en el cuadro de mando.</p>`;
+        : `<p class="portal-rrhh-resumen-vacio">${textoPortal("txt_los_totales_se_consultan_en_el_cuadro_de_mando")}</p>`;
       return `
-        ${encabezadoVista("", "Inicio del portal", "")}
+        ${encabezadoVista("", traducirPortal("txt_inicio_del_portal"), "")}
         ${avisoCatalogo}
-        <section class="portal-rrhh-inicio" aria-label="Inicio de Contratación Temporal">
-          <div class="portal-rrhh-accesos" aria-label="Accesos directos">
-            <button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Cuadro de mando</button>
-            <button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición</button>
-            <button type="button" class="boton-secundario" data-accion="ayuda">Ayuda</button>
+        <section class="portal-rrhh-inicio" aria-label="${textoPortal("txt_inicio_de_contratacion_temporal")}">
+          <div class="portal-rrhh-accesos" aria-label="${textoPortal("txt_accesos_directos")}">
+            <button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">${textoPortal("txt_cuadro_de_mando")}</button>
+            <button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${textoPortal("txt_nueva_peticion")}</button>
+            <button type="button" class="boton-secundario" data-accion="ayuda">${textoPortal("txt_ayuda")}</button>
           </div>
-          <section class="portal-rrhh-resumen" aria-label="Resumen de expedientes">
+          <section class="portal-rrhh-resumen" aria-label="${textoPortal("txt_resumen_de_expedientes")}">
             <div class="cabecera-panel">
-              <h3>Resumen del cuadro de mando</h3>
+              <h3>${textoPortal("txt_resumen_del_cuadro_de_mando")}</h3>
             </div>
             ${resumen}
           </section>
-          <section class="portal-rrhh-tramites-seccion" aria-label="Trámites recientes">
+          <section class="portal-rrhh-tramites-seccion" aria-label="${textoPortal("txt_tramites_recientes")}">
             <div class="cabecera-panel">
-              <h3>Trámites recientes</h3>
-              <button type="button" class="boton-terciario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Ver todos</button>
+              <h3>${textoPortal("txt_tramites_recientes")}</h3>
+              <button type="button" class="boton-terciario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">${textoPortal("txt_ver_todos")}</button>
             </div>
             ${renderizarTramitesInicio(obtenerTramitesInicio?.(), escaparHTML)}
           </section>
         </section>
         <section class="portal-rrhh-todos-modulos" aria-labelledby="portal-rrhh-todos-modulos-titulo">
           <div class="cabecera-panel">
-            <h3 id="portal-rrhh-todos-modulos-titulo">Todos los módulos de Recursos Humanos</h3>
+            <h3 id="portal-rrhh-todos-modulos-titulo">${textoPortal("txt_todos_los_modulos_de_recursos_humanos")}</h3>
           </div>
-          <div class="rejilla-modulos" aria-label="Todos los módulos de Recursos Humanos">
+          <div class="rejilla-modulos" aria-label="${textoPortal("txt_todos_los_modulos_de_recursos_humanos")}">
             ${renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir)}
           </div>
         </section>`;
@@ -195,11 +195,11 @@ export function crearVistaInicioPortal({
       ? `<section class="panel portal-inicio-empleado-vacio"><div class="cuerpo-panel vacio-controlado" role="status" data-inicio-sin-modulos>
           <p>${escaparHTML(traducir("inicio_empleado_sin_modulos"))}</p>
         </div></section>`
-      : `<div class="rejilla-modulos portal-inicio-empleado" aria-label="Módulos del Portal del Empleado">
+      : `<div class="rejilla-modulos portal-inicio-empleado" aria-label="${textoPortal("txt_modulos_del_portal_del_empleado")}">
         ${modulos}
       </div>`;
     return `
-      ${encabezadoVista("", "Portal del Empleado", "")}
+      ${encabezadoVista("", traducirPortal("txt_portal_del_empleado"), "")}
       ${avisoCatalogo}
       ${contenido}`;
   };

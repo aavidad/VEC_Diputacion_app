@@ -1,3 +1,4 @@
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
 // Ofertas publicadas de una bolsa (Petición RRHH p. 3; Reglamento de bolsas,
 // art. 8.1): RRHH publica la oferta, consulta quién manifestó disposición y,
 // al vencer el plazo de la regla del catálogo, confirma la propuesta de
@@ -133,12 +134,12 @@ export function mensajeError(traducir, resultado) {
 }
 
 function fechaHora(valor) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL }).format(new Date(valor));
 }
 
 function fechaDia(valor) {
   const [a, m, d] = valor.split("-").map(Number);
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, d)));
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(Date.UTC(a, m - 1, d)));
 }
 
 export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
