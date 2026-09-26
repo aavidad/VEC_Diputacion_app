@@ -330,6 +330,9 @@
           "duda": "Sin duda abierta.",
           "unidad": "ninguna",
           "articulo": "arts. 9.1 y 9.3",
+          "modo": "aviso",
+          "situaciones": "trabajando,pendiente_incorporacion",
+          "ejemplo_parcial": "Que VEC marque a quien ya trabaja o está pendiente de incorporarse por otra participación, de esta u otra bolsa, es un criterio de trabajo; con modo «excluir» no se le puede incluir en un llamamiento. Las excepciones del art. 9.3 las valora RRHH.",
           "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
         },
         "orden": 19
@@ -381,6 +384,8 @@
           "inicio": "nombramiento",
           "computo": "civil",
           "articulo": "art. 9.3",
+          "antelacion_dias": "30",
+          "ejemplo_parcial": "Avisar a RRHH treinta días antes de cumplir el plazo es un criterio de trabajo.",
           "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
         },
         "orden": 22

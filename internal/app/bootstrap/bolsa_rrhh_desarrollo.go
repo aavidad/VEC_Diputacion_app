@@ -60,6 +60,11 @@ type datasetBolsasRRHHDesarrollo struct {
 		Resultado   string `json:"resultado"`
 	} `json:"llamamientos"`
 	Contactos []dominiobolsa.ContactoParticipacion `json:"contactos"`
+	// Marcas (Bolsa 000041) por participación; nil si no están compuestas.
+	Marcas map[string]dominiobolsa.MarcasParticipacion `json:"-"`
+	// PoliticaIntentos, si el catálogo la tiene, permite rotular la baja
+	// propuesta por intentos agotados como «en revisión».
+	PoliticaIntentos *dominiobolsa.PoliticaIntentosTelefonicos `json:"-"`
 }
 
 type politicaOrdenRRHHDesarrollo struct {
@@ -518,7 +523,11 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 			contactos++
 		}
 	}
-	return map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
+	salida := map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
+	if h.datos.Marcas != nil {
+		salida["marcas"] = h.salidaMarcas(candidata.Referencia, candidata.Estado)
+	}
+	return salida
 }
 
 // respuestaEstadisticas agrega lo que el cuadro ya muestra: bolsas vigentes y

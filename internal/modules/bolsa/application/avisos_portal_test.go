@@ -33,3 +33,19 @@ func TestAvisosIncluyenElPortalDelCandidato(t *testing.T) {
 		t.Fatal("tipo de aviso desconocido admitido")
 	}
 }
+
+func TestAvisosIncluyenElEncadenamientoSoloSiLaConsultaLoTrae(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	s, _ := NuevoServicioAvisosRRHH(consultaAvisosPortalPrueba{conteos: map[string]int{"salto_orden": 0, "tres_anos": 1, "encadenamiento": 3}}, func() time.Time { return ahora })
+	pagina, err := s.Consultar(context.Background(), ConsultaAvisos{Limite: 5})
+	if err != nil || pagina.Total != 4 || pagina.Conteos[dominiobolsa.AvisoEncadenamiento] != 3 {
+		t.Fatalf("encadenamiento: %+v %v", pagina, err)
+	}
+	s, _ = NuevoServicioAvisosRRHH(consultaAvisosPortalPrueba{conteos: map[string]int{"salto_orden": 0, "tres_anos": 1}}, func() time.Time { return ahora })
+	if pagina, err = s.Consultar(context.Background(), ConsultaAvisos{Limite: 5}); err != nil {
+		t.Fatal(err)
+	}
+	if _, incluido := pagina.Conteos[dominiobolsa.AvisoEncadenamiento]; incluido {
+		t.Fatal("sin 000041 no se cuenta el encadenamiento")
+	}
+}
