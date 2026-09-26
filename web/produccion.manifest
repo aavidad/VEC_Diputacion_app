@@ -226,6 +226,7 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-seguimiento-ce
 static/portal-empleado/modulos/contratacion-temporal/i18n-seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-incorporacion-acreditada.js
+static/portal-empleado/modulos/contratacion-temporal/seguimiento-no-incorporacion.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.css
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js

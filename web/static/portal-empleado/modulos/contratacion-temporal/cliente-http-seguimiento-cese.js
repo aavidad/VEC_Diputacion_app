@@ -6,14 +6,18 @@ export const RUTA_MODIFICACIONES_NOMBRAMIENTO = "/api/vec/contratacion-temporal/
 export const RUTA_SEGUIMIENTO_CESE = "/api/vec/contratacion-temporal/seguimiento-cese";
 // Confirmación de GINPIX (incorporación acreditada): el cierre toma su número.
 export const RUTA_CONFIRMACIONES_GINPIX = "/api/vec/contratacion-temporal/confirmaciones-ginpix";
+// No incorporación de la persona aceptada: baja en la bolsa y siguiente.
+export const RUTA_NO_INCORPORACIONES = "/api/vec/contratacion-temporal/no-incorporaciones";
 export const RUTAS_SEGUIMIENTO_CESE = Object.freeze([
   RUTA_CESES_NOMBRAMIENTO, RUTA_CIERRES_EXPEDIENTE, RUTA_MODIFICACIONES_NOMBRAMIENTO, RUTA_SEGUIMIENTO_CESE, RUTA_CONFIRMACIONES_GINPIX,
+  RUTA_NO_INCORPORACIONES,
 ]);
 // Rechazos de negocio que devuelve el servidor con 409; ninguno escribe nada.
 export const CONFLICTOS_SEGUIMIENTO_CESE = Object.freeze([
   "version_en_conflicto", "clave_reutilizada", "sin_incorporacion", "fecha_anterior_incorporacion",
   "cese_existente", "sin_cese", "cierre_existente", "sin_cambios", "credito_insuficiente",
   "ginpix_existente", "ginpix_no_confirmado", "ginpix_distinto",
+  "sin_aceptacion", "incorporacion_existente", "no_incorporacion_existente", "fecha_no_admitida",
 ]);
 
 const MAXIMO = 16 * 1024;
@@ -24,6 +28,7 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
 const HUELLA = /^[0-9a-f]{64}$/u;
 const GINPIX = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/u;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
+const MOTIVO = /^[a-z][a-z0-9_]{1,63}$/u;
 
 function registro(valor, campos, opcionales = []) {
   if (!valor || typeof valor !== "object" || Array.isArray(valor) || Object.getPrototypeOf(valor) !== Object.prototype
@@ -78,6 +83,16 @@ export function validarSolicitudConfirmacionGINPIX(valor) {
   return Object.freeze(Object.fromEntries(campos.map((c) => [c, s[c]])));
 }
 
+export function validarSolicitudNoIncorporacion(valor) {
+  const campos = ["expediente_ref", "version_esperada", "clave_idempotencia", "motivo_clave", "resolucion_ref", "resolucion_sha256",
+    "resuelta_por", "fecha_notificacion", "observaciones"];
+  const s = registro(valor, campos);
+  comun(s);
+  if (!MOTIVO.test(s.motivo_clave) || !REF.test(s.resolucion_ref) || !HUELLA.test(s.resolucion_sha256) || !REF.test(s.resuelta_por)
+    || !fechaCivilValida(s.fecha_notificacion) || !textoValido(s.observaciones)) throw new TypeError("solicitud de no incorporación no válida");
+  return Object.freeze(Object.fromEntries(campos.map((c) => [c, s[c]])));
+}
+
 export function validarSolicitudModificacion(valor) {
   const campos = ["expediente_ref", "version_esperada", "clave_idempotencia", "motivo_clave", "periodo_inicio", "periodo_fin", "porcentaje_jornada", "observaciones"];
   const s = registro(valor, campos);
@@ -107,8 +122,20 @@ function opcionValida(o, campos) {
 
 export function validarConsultaSeguimientoCese(valor, expedienteRef) {
   const d = registro(valor, ["esquema", "opciones", "estado"]);
-  const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"], ["confirmacion_ginpix"]);
-  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro"]);
+  const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"], ["confirmacion_ginpix", "no_incorporacion"]);
+  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion"]);
+  if (o.no_incorporacion !== undefined) {
+    const r = registro(o.no_incorporacion, ["motivos", "segunda_persona"]);
+    if (typeof r.segunda_persona !== "boolean" || !Array.isArray(r.motivos) || r.motivos.length < 1 || r.motivos.length > 32
+      || !r.motivos.every((m) => registro(m, ["clave", "etiqueta"]) && MOTIVO.test(m.clave) && typeof m.etiqueta === "string" && m.etiqueta.length > 0)) {
+      throw new TypeError("opciones de no incorporación no válidas");
+    }
+  }
+  if (e.no_incorporacion !== undefined) {
+    const n = registro(e.no_incorporacion, ["motivo_clave", "resolucion_ref", "resolucion_sha256", "resuelta_por", "fecha_notificacion", "recibo_ref", "registrada_en"]);
+    if (!MOTIVO.test(n.motivo_clave) || !REF.test(n.resolucion_ref) || !HUELLA.test(n.resolucion_sha256) || !REF.test(n.resuelta_por)
+      || !fechaCivilValida(n.fecha_notificacion) || !REF.test(n.recibo_ref) || !INSTANTE.test(n.registrada_en)) throw new TypeError("no incorporación no válida");
+  }
   // Con la incorporación acreditada el estado trae siempre las dos confirmaciones.
   if ((o.confirmacion_ginpix !== undefined && o.confirmacion_ginpix !== true)
     || (o.confirmacion_ginpix === true) !== Object.hasOwn(e, "ginpix") || Object.hasOwn(e, "ginpix") !== Object.hasOwn(e, "confirmacion_centro")) {
@@ -169,5 +196,6 @@ export function crearClienteSeguimientoCeseHTTP({ ejecutar, validarOpciones, ser
     cerrarExpediente: efecto(RUTA_CIERRES_EXPEDIENTE, validarSolicitudCierre, "cerrar_expediente"),
     modificarTrasNombramiento: efecto(RUTA_MODIFICACIONES_NOMBRAMIENTO, validarSolicitudModificacion, "modificar_tras_nombramiento"),
     confirmarGINPIX: efecto(RUTA_CONFIRMACIONES_GINPIX, validarSolicitudConfirmacionGINPIX, "confirmar_ginpix"),
+    registrarNoIncorporacion: efecto(RUTA_NO_INCORPORACIONES, validarSolicitudNoIncorporacion, "registrar_no_incorporacion"),
   });
 }

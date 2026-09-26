@@ -4,7 +4,7 @@ export const MENSAJES_SEGUIMIENTO_CESE = Object.freeze({
   titulo: "Seguimiento del nombramiento",
   subtitulo: "Cese, cierre del expediente y cambios de fechas o jornada",
   ayuda_boton: "Ayuda sobre el seguimiento del nombramiento",
-  ayuda: "El cese se registra con una causa del catálogo, su fecha de efecto y el justificante (su referencia y el archivo, del que solo se registra su huella digital). Al registrarlo, Bolsa recibe el fin del contrato para reponer a la persona. El cierre exige el cese y, si el catálogo lo pide, la ficha de GINPIX confirmada con su número. Cuando GINPIX devuelve el número de alta de la ficha, se registra aquí una sola vez con «Confirmar la ficha de GINPIX»; el cierre toma ese número y no permite otro, y sin esa confirmación el cierre no se ofrece. La incorporación la confirma el centro desde sus peticiones, con la toma de posesión o el contrato firmado que fija el catálogo; aquí se ve su fecha y el tipo de documento. Un cambio de fechas o de jornada crea una versión nueva del análisis, recalcula el coste y devuelve el expediente a la fase que fija el catálogo.",
+  ayuda: "El cese se registra con una causa del catálogo, su fecha de efecto y el justificante (su referencia y el archivo, del que solo se registra su huella digital). Al registrarlo, Bolsa recibe el fin del contrato para reponer a la persona. El cierre exige el cese y, si el catálogo lo pide, la ficha de GINPIX confirmada con su número. Cuando GINPIX devuelve el número de alta de la ficha, se registra aquí una sola vez con «Confirmar la ficha de GINPIX»; el cierre toma ese número y no permite otro, y sin esa confirmación el cierre no se ofrece. La incorporación la confirma el centro desde sus peticiones, con la toma de posesión o el contrato firmado que fija el catálogo; aquí se ve su fecha y el tipo de documento. Si la persona aceptada no llega a incorporarse, «Registrar que no se incorpora» anota el motivo del catálogo, la resolución (su referencia y el archivo, del que solo se registra la huella) y quién la resolvió, que el catálogo puede exigir que sea otra persona; el expediente vuelve a la fiscalización, la bolsa aplica la baja que fija su catálogo y el llamamiento continúa con la siguiente persona desde el panel del llamamiento. Un cambio de fechas o de jornada crea una versión nueva del análisis, recalcula el coste y devuelve el expediente a la fase que fija el catálogo.",
   cargando: "Consultando el seguimiento del expediente.",
   no_disponible: "El seguimiento no está disponible para este expediente.",
   reintentar: "Reintentar",
@@ -78,6 +78,22 @@ export const MENSAJES_SEGUIMIENTO_CESE = Object.freeze({
   error_ginpix_existente: "La ficha de GINPIX de esta incorporación ya está confirmada.",
   error_ginpix_no_confirmado: "Falta la confirmación de la ficha de GINPIX: regístrela antes de cerrar.",
   error_ginpix_distinto: "El número de GINPIX no coincide con el confirmado.",
+  // No incorporación de la persona aceptada.
+  no_incorporacion: "No incorporación",
+  no_incorporacion_registrada: "No se incorpora: {motivo}. Resolución notificada el {fecha}.",
+  no_incorporacion_titulo: "Registrar que no se incorpora",
+  no_incorporacion_motivo: "Motivo",
+  no_incorporacion_fecha: "Fecha de notificación de la resolución",
+  no_incorporacion_resolucion: "Referencia de la resolución",
+  no_incorporacion_archivo: "Archivo de la resolución",
+  no_incorporacion_resuelta: "Resuelta por",
+  no_incorporacion_resuelta_segunda: "Resuelta por (otra persona)",
+  no_incorporacion_observaciones: "Observaciones",
+  no_incorporacion_enviar: "Registrar que no se incorpora",
+  error_sin_aceptacion: "El expediente no tiene una aceptación pendiente de incorporación.",
+  error_incorporacion_existente: "La incorporación ya consta: no se puede registrar que no se incorpora.",
+  error_no_incorporacion_existente: "La no incorporación ya está registrada.",
+  error_fecha_no_admitida: "La fecha de notificación no puede ser futura ni anterior a la aceptación.",
 });
 
 export function crearTraductorSeguimientoCese(mensajes = {}) {

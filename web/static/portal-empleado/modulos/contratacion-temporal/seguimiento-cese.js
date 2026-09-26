@@ -1,7 +1,8 @@
 /** Panel de seguimiento del nombramiento: cese, cierre y modificación. */
 
-import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-incorporacion-acreditada-v1";
+import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-no-incorporacion-v1";
 import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=20260926-incorporacion-acreditada-v1";
+import { filasNoIncorporacion, formularioNoIncorporacion, ofrecerNoIncorporacion, solicitudNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-no-incorporacion-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -68,6 +69,7 @@ export function montarPanelSeguimientoCese({
       [t("cese"), estado.cese ? t("cese_registrado", { causa: causa ? etiquetaOpcion(causa) : estado.cese.causa_clave, fecha: fechaVisible(estado.cese.fecha_efecto, locale) }) : t("pendiente")],
       [t("cierre"), estado.cierre ? t("cierre_registrado", { ginpix: estado.cierre.ginpix_numero || t("cierre_sin_ginpix") }) : t("pendiente")],
       ...filasIncorporacionAcreditada(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
+      ...filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
     ];
     return `<dl class="ct-exp-fase-datos">${filas.map(([a, b]) => `<div><dt>${escapar(a)}</dt><dd>${escapar(b)}</dd></div>`).join("")}</dl>`;
   }
@@ -148,6 +150,7 @@ export function montarPanelSeguimientoCese({
     const formularios = [];
     if (vigente && !estado.cese) formularios.push(formularioCese(opciones, estado), formularioModificacion(opciones));
     if (vigente && ofrecerConfirmacionGINPIX(estado, opciones)) formularios.push(formularioConfirmacionGINPIX({ t, escapar, deshabilitado: deshabilitado() }));
+    if (vigente && ofrecerNoIncorporacion(estado, opciones)) formularios.push(formularioNoIncorporacion({ opciones, t, escapar, deshabilitado: deshabilitado() }));
     if (vigente && estado.cese && !estado.cierre) formularios.push(formularioCierre(opciones, estado));
     contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" data-ct-seg-cese aria-labelledby="ct-seg-cese-titulo" ${ocupado ? 'aria-busy="true"' : ""}>
       ${cabecera(estado)}${resumen(estado, opciones)}
@@ -192,6 +195,7 @@ export function montarPanelSeguimientoCese({
       // Con la incorporación acreditada no se envía número: el servidor usa el confirmado.
       return ["cerrarExpediente", { ...base, ginpix_numero: campos.ginpix_numero ?? "", ginpix_confirmada_en: campos.ginpix_confirmada_en ?? "", observaciones: campos.observaciones ?? "" }];
     }
+    if (tipo === "no_incorporacion") return solicitudNoIncorporacion(base, campos);
     if (tipo === "ginpix") {
       return ["confirmarGINPIX", { ...base, ginpix_numero: campos.ginpix_numero ?? "", ginpix_confirmada_en: campos.ginpix_confirmada_en ?? "", observaciones: campos.observaciones ?? "" }];
     }
@@ -205,7 +209,8 @@ export function montarPanelSeguimientoCese({
     const tipo = formulario.dataset.ctSegForm;
     const [metodo, solicitud] = solicitudPara(tipo, leerFormulario(formulario));
     let confirmada = false;
-    const titulos = { cese: "cese_titulo", cierre: "cierre_titulo", modificacion: "modificacion_titulo", ginpix: "ginpix_titulo" };
+    const titulos = { cese: "cese_titulo", cierre: "cierre_titulo", modificacion: "modificacion_titulo", ginpix: "ginpix_titulo",
+      no_incorporacion: "no_incorporacion_titulo" };
     try { confirmada = confirmarOperacion({ titulo: t(titulos[tipo]), advertencia: t("confirmar"), referencia: contexto.expediente_ref }) === true; } catch {}
     if (!confirmada) return;
     ocupado = true;
