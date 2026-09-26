@@ -2,7 +2,8 @@
 // duda 62). Bloque «Sanciones» de la ficha del candidato en la vista de RRHH.
 // Las consecuencias, su efecto, los plazos y los estados del recurso vienen del
 // catálogo que sirve la API: aquí no se fija ninguno.
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-pulido-tecnico-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-huella-archivo-v1";
+import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "./portal-huella-archivo.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const ESQUEMA = "vec.bolsa.rrhh.sanciones.v1";
@@ -14,7 +15,7 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   titulo: "Sanciones",
   subtitulo: "Histórico de sanciones y recursos de reposición",
   ayuda_aria: "Ayuda sobre las sanciones",
-  ayuda: "Cada sanción aplica una consecuencia del catálogo de reglas, con el efecto que ese catálogo declara. La baja y la suspensión cambian la situación de la participación; la suspensión con fecha de fin termina sola ese día. Pasar al final no cambia la situación, pero coloca a la persona tras las no sancionadas de su bolsa. El recurso de reposición vence según el mismo catálogo; si se anota un estado que revoca la sanción (por ejemplo, estimado), otra persona lo resuelve y la participación vuelve a la situación anterior y a su puesto. La resolución permanece en su custodia: solo se anota su referencia y su huella.",
+  ayuda: "Cada sanción aplica una consecuencia del catálogo de reglas, con el efecto que ese catálogo declara. La baja y la suspensión cambian la situación de la participación; la suspensión con fecha de fin termina sola ese día. Pasar al final no cambia la situación, pero coloca a la persona tras las no sancionadas de su bolsa. El recurso de reposición vence según el mismo catálogo; si se anota un estado que revoca la sanción (por ejemplo, estimado), otra persona lo resuelve y la participación vuelve a la situación anterior y a su puesto. La resolución permanece en su custodia: solo se anota su referencia y su huella digital. {huella}",
   nueva: "Registrar sanción",
   cancelar: "Cancelar",
   cargando: "Cargando histórico de sanciones…",
@@ -52,19 +53,19 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   campo_fecha_notificacion: "Fecha de notificación de la resolución",
   campo_resuelta_por: "Persona que resuelve",
   campo_resolucion_ref: "Referencia de la resolución en su custodia",
-  campo_resolucion_sha: "SHA-256 de la resolución",
+  campo_resolucion_archivo: "Archivo de la resolución",
   confirmar_sancion: "Confirmar sanción",
   registrando: "Registrando…",
   aviso_baja: "La baja definitiva no se puede deshacer y requiere que la resuelva otra persona.",
   campo_estado: "Estado del recurso",
   campo_fecha: "Fecha",
   campo_documento_ref: "Referencia del escrito (opcional)",
-  campo_documento_sha: "SHA-256 del escrito (opcional)",
+  campo_documento_archivo: "Archivo del escrito (opcional)",
   campo_documento_ref_obligatorio: "Referencia de la resolución que lo estima",
-  campo_documento_sha_obligatorio: "SHA-256 de la resolución que lo estima",
+  campo_documento_archivo_obligatorio: "Archivo de la resolución que lo estima",
   campo_resuelta_por_recurso: "Persona que resuelve el recurso",
   aviso_revierte: "Este estado revoca la sanción: la participación vuelve a su situación anterior y a su puesto. Lo resuelve otra persona.",
-  error_revierte: "Para revocar la sanción indique quién resuelve y la referencia y huella de la resolución.",
+  error_revierte: "Para revocar la sanción indique quién resuelve, la referencia de la resolución y elija su archivo.",
   confirmar_recurso: "Anotar estado",
   exito_sancion: "Sanción registrada. Recibo {recibo}.",
   exito_recurso: "Estado del recurso anotado.",
@@ -74,8 +75,8 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   mostrando: "Mostrando {inicio} a {fin} de {total}",
   anterior: "Anterior",
   siguiente: "Siguiente",
-  error_formulario: "Revise los campos: todos son obligatorios y la huella debe tener 64 caracteres hexadecimales.",
-  error_documento: "Indique referencia y huella del escrito, o ninguna de las dos.",
+  error_formulario: "Revise los campos: todos son obligatorios, también el archivo de la resolución.",
+  error_documento: "Indique la referencia del escrito y elija su archivo, o deje ambos en blanco.",
   referencia_identidad: "La referencia no puede contener un DNI o NIE; use el número de registro o de expediente.",
   error_400: "La solicitud no es válida. Revise los campos del formulario.",
   error_403: "La sesión no dispone de permiso para gestionar sanciones.",
@@ -283,7 +284,7 @@ function formularioSancion(estado, e) {
   const aviso = elegida?.efecto === "excluir" ? `<p class="nota-seguridad" role="note">${e(t("aviso_baja"))}</p>` : "";
   const acciones = `<div class="acciones-formulario"><button type="button" class="boton-secundario" data-b24-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${e(t("cancelar"))}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${e(estado.enviando ? t("registrando") : t("confirmar_sancion"))}</button></div>`;
   const error = estado.errorFormulario ? `<p class="mensaje-error" role="alert">${e(estado.errorFormulario)}</p>` : "";
-  return `<form data-b24-form="sancion" class="formulario-gobernado"><fieldset><legend>${e(t("nueva"))}</legend><div class="rejilla-formulario">${campo(t("campo_consecuencia"), `<select name="consecuencia" required data-b24-campo="consecuencia"><option value="">${e(t("elegir"))}</option>${opciones}</select>`, e)}${campo(t("campo_fecha_notificacion"), `<input type="date" name="fecha_notificacion" required value="${e(f.fecha_notificacion || "")}">`, e)}${campo(t("campo_resuelta_por"), `<input name="resuelta_por" required maxlength="200" value="${e(f.resuelta_por || "")}">`, e)}${campo(t("campo_resolucion_ref"), `<input name="referencia" required maxlength="240" value="${e(f.referencia || "")}">`, e)}</div>${aviso}${campo(t("campo_causa"), `<textarea name="causa" required maxlength="1000">${e(f.causa || "")}</textarea>`, e)}${campo(t("campo_resolucion_sha"), `<input name="sha256" required pattern="[a-fA-F0-9]{64}" minlength="64" maxlength="64" autocomplete="off" value="${e(f.sha256 || "")}">`, e)}</fieldset>${error}${acciones}</form>`;
+  return `<form data-b24-form="sancion" class="formulario-gobernado"><fieldset><legend>${e(t("nueva"))}</legend><div class="rejilla-formulario">${campo(t("campo_consecuencia"), `<select name="consecuencia" required data-b24-campo="consecuencia"><option value="">${e(t("elegir"))}</option>${opciones}</select>`, e)}${campo(t("campo_fecha_notificacion"), `<input type="date" name="fecha_notificacion" required value="${e(f.fecha_notificacion || "")}">`, e)}${campo(t("campo_resuelta_por"), `<input name="resuelta_por" required maxlength="200" value="${e(f.resuelta_por || "")}">`, e)}${campo(t("campo_resolucion_ref"), `<input name="referencia" required maxlength="240" value="${e(f.referencia || "")}">`, e)}</div>${aviso}${campo(t("campo_causa"), `<textarea name="causa" required maxlength="1000">${e(f.causa || "")}</textarea>`, e)}${renderizarCampoHuellaArchivo({ id: "b24-resolucion-archivo", nombre: "sha256", huella: f.sha256, etiqueta: t("campo_resolucion_archivo"), escapar: e })}</fieldset>${error}${acciones}</form>`;
 }
 
 function formularioRecurso(estado, e) {
@@ -295,7 +296,7 @@ function formularioRecurso(estado, e) {
   const aviso = revierte ? `<p class="nota-seguridad" role="note">${e(t("aviso_revierte"))}</p>` : "";
   const acciones = `<div class="acciones-formulario"><button type="button" class="boton-secundario" data-b24-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${e(t("cancelar"))}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${e(estado.enviando ? t("registrando") : t("confirmar_recurso"))}</button></div>`;
   const error = estado.errorFormulario ? `<p class="mensaje-error" role="alert">${e(estado.errorFormulario)}</p>` : "";
-  return `<form data-b24-form="recurso" class="formulario-gobernado"><fieldset><legend>${e(t("anotar_recurso"))}</legend><div class="rejilla-formulario">${campo(t("campo_estado"), `<select name="estado" required data-b24-campo="estado"><option value="">${e(t("elegir"))}</option>${opciones}</select>`, e)}${campo(t("campo_fecha"), `<input type="date" name="fecha" required value="${e(f.fecha || "")}">`, e)}${resuelta}${campo(t(revierte ? "campo_documento_ref_obligatorio" : "campo_documento_ref"), `<input name="referencia" maxlength="240"${requerido} value="${e(f.referencia || "")}">`, e)}${campo(t(revierte ? "campo_documento_sha_obligatorio" : "campo_documento_sha"), `<input name="sha256" pattern="[a-fA-F0-9]{64}" maxlength="64" autocomplete="off"${requerido} value="${e(f.sha256 || "")}">`, e)}</div>${aviso}</fieldset>${error}${acciones}</form>`;
+  return `<form data-b24-form="recurso" class="formulario-gobernado"><fieldset><legend>${e(t("anotar_recurso"))}</legend><div class="rejilla-formulario">${campo(t("campo_estado"), `<select name="estado" required data-b24-campo="estado"><option value="">${e(t("elegir"))}</option>${opciones}</select>`, e)}${campo(t("campo_fecha"), `<input type="date" name="fecha" required value="${e(f.fecha || "")}">`, e)}${resuelta}${campo(t(revierte ? "campo_documento_ref_obligatorio" : "campo_documento_ref"), `<input name="referencia" maxlength="240"${requerido} value="${e(f.referencia || "")}">`, e)}${renderizarCampoHuellaArchivo({ id: "b24-recurso-archivo", nombre: "sha256", huella: f.sha256, obligatorio: revierte, etiqueta: t(revierte ? "campo_documento_archivo_obligatorio" : "campo_documento_archivo"), escapar: e })}</div>${aviso}</fieldset>${error}${acciones}</form>`;
 }
 
 export function renderizarSanciones({ estado = {}, escaparHTML = html }) {
@@ -321,7 +322,7 @@ export function renderizarSanciones({ estado = {}, escaparHTML = html }) {
   const formulario = estado.formularioAbierto ? formularioSancion(estado, e) : estado.recursoAbierto ? formularioRecurso(estado, e) : "";
   const exito = estado.exito ? `<p class="mensaje-exito" role="status">${e(estado.exito)}</p>` : "";
   const errorOperacion = estado.errorOperacion ? `<p class="mensaje-error" role="alert">${e(estado.errorOperacion)}</p>` : "";
-  return `<section class="panel panel-separado" data-b24-raiz="true" aria-labelledby="b24-titulo"><div class="cabecera-panel"><div><h4 id="b24-titulo">${e(t("titulo"))}</h4><p>${e(t("subtitulo"))}</p></div><details><summary aria-label="${e(t("ayuda_aria"))}">?</summary><p>${e(t("ayuda"))}</p></details></div><div class="cuerpo-panel">${sinCatalogo}<div class="acciones-vista">${boton}</div>${exito}${errorOperacion}${formulario}${contenido}</div></section>`;
+  return `<section class="panel panel-separado" data-b24-raiz="true" aria-labelledby="b24-titulo"><div class="cabecera-panel"><div><h4 id="b24-titulo">${e(t("titulo"))}</h4><p>${e(t("subtitulo"))}</p></div><details><summary aria-label="${e(t("ayuda_aria"))}">?</summary><p>${e(t("ayuda", { huella: ayudaHuellaArchivo() }))}</p></details></div><div class="cuerpo-panel">${sinCatalogo}<div class="acciones-vista">${boton}</div>${exito}${errorOperacion}${formulario}${contenido}</div></section>`;
 }
 
 function claveIdempotente(flujo, comando) {
@@ -442,6 +443,7 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
   }
 
   function instalar(documento = globalThis.document) {
+    instalarHuellaArchivo(documento);
     documento.addEventListener("click", (evento) => { manejarClick(evento); });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
     documento.addEventListener("change", (evento) => { manejarCambio(evento); });

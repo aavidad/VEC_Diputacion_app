@@ -71,6 +71,12 @@ test("B24 pinta histórico accesible y escapa el contenido", () => {
   const baja = renderizarSanciones({ estado: { carga: "listo", datos, formularioAbierto: true, formulario: { consecuencia: "b24.sancion.baja_sin_contacto" } } });
   assert.match(baja, /no se puede deshacer/);
   assert.match(baja, /Baja \(art\. 11\.1\.a\)/);
+  // La resolución se elige como archivo; su huella viaja oculta y conservada.
+  assert.match(baja, /<input id="b24-resolucion-archivo" type="file" data-huella-archivo aria-describedby="b24-resolucion-archivo-estado" aria-required="true"/);
+  const conHuella = renderizarSanciones({ estado: { carga: "listo", datos, formularioAbierto: true, formulario: { sha256: SHA } } });
+  assert.match(conHuella, new RegExp(`<input type="hidden" name="sha256" value="${SHA}" data-huella-valor>`));
+  assert.match(conHuella, /Documento comprobado en este equipo/);
+  assert.match(salida, /<summary aria-label="Ayuda sobre las sanciones">\?<\/summary><p>[^<]*no se envía ni se guarda en VEC/);
   assert.match(renderizarSanciones({ estado: { carga: "listo", datos: { ...datos, items: [] } } }), /No hay sanciones/);
 });
 
@@ -139,6 +145,9 @@ test("B37 el estado revocatorio pide quien resuelve y la resolución", async () 
   assert.match(formulario, /name="referencia" maxlength="240" required/);
   const normal = renderizarSanciones({ estado: { carga: "listo", datos: conEfectos, recursoAbierto: item.sancion_ref, formularioRecurso: { estado: "interpuesto" } } });
   assert.doesNotMatch(normal, /name="resuelta_por"/);
+  assert.match(formulario, /id="b24-recurso-archivo"[^>]*aria-required="true"/);
+  assert.match(normal, /<span>Archivo del escrito \(opcional\)<\/span>/);
+  assert.doesNotMatch(normal, /id="b24-recurso-archivo"[^>]*aria-required/);
   const fetchImpl = () => { throw new Error("No debe enviarse"); };
   const incompleto = await registrarRecursoSancion("b", "p", "s", { estado: "estimado", fecha: "2026-09-24" }, "k", { fetchImpl, revocatorios: ["estimado"] });
   assert.equal(incompleto.mensaje, MENSAJES_SANCIONES_ES.error_revierte);

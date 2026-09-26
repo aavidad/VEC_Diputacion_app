@@ -1,6 +1,7 @@
 /** Panel de seguimiento del nombramiento: cese, cierre y modificación. */
 
-import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js";
+import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=20260926-huella-archivo-v1";
+import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -19,12 +20,6 @@ export function contextoSeguimientoCeseDesdeEstado(estado) {
   if (!resumen || resumen.version !== estado.expediente.version || !["nombramiento"].includes(resumen.fase_clave)) return null;
   return Object.freeze({ expediente_ref: estado.expediente.expediente_ref, version: estado.expediente.version,
     fase_clave: resumen.fase_clave, estado_clave: resumen.estado_clave });
-}
-
-async function huellaSHA256(archivo) {
-  const contenido = await archivo.arrayBuffer();
-  const resumen = await globalThis.crypto.subtle.digest("SHA-256", contenido);
-  return [...new Uint8Array(resumen)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // Un 404 sin sobre de error del módulo («vec route not found») significa que
@@ -62,7 +57,7 @@ export function montarPanelSeguimientoCese({
     return `<header class="ct-exp-fase-panel-cabecera"><div><h3 id="ct-seg-cese-titulo">${escapar(t("titulo"))}</h3><p>${escapar(t("subtitulo"))}</p></div>
       <div class="ct-exp-fase-panel-acciones"><span class="ct-exp-chip ${chip[1]}">${escapar(t(chip[0]))}</span>
       <button type="button" class="boton-secundario ct-seg-cese-ayuda" data-ct-seg-ayuda aria-expanded="${ayudaAbierta}" aria-controls="ct-seg-cese-ayuda" aria-label="${escapar(t("ayuda_boton"))}">?</button></div></header>
-      <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("ayuda"))}</p>`;
+      <p id="ct-seg-cese-ayuda" class="ct-seg-cese-texto-ayuda" ${ayudaAbierta ? "" : "hidden"}>${escapar(t("ayuda"))} ${escapar(ayudaHuellaArchivo())}</p>`;
   }
 
   function resumen(estado, opciones) {
@@ -87,8 +82,8 @@ export function montarPanelSeguimientoCese({
       <label class="ct-campo"><span>${escapar(t("cese_causa"))}</span><select name="causa_clave" required ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}>${opcionesCausa}</select><small data-ct-seg-justificante-tipo></small></label>
       <label class="ct-campo"><span>${escapar(t("cese_fecha"))}</span><input type="date" name="fecha_efecto" required ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></label>
       <label class="ct-campo"><span>${escapar(t("cese_justificante_ref"))}</span><input type="text" name="justificante_ref" required maxlength="160" autocomplete="off" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></label>
-      <label class="ct-campo"><span>${escapar(t("cese_justificante_archivo"))}</span><input type="file" data-ct-seg-justificante ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></label>
-      <label class="ct-campo"><span>${escapar(t("cese_justificante_huella"))}</span><input type="text" name="justificante_sha256" required pattern="[0-9a-f]{64}" maxlength="64" spellcheck="false" autocomplete="off" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></label>
+      ${renderizarCampoHuellaArchivo({ id: "ct-seg-cese-justificante", nombre: "justificante_sha256", etiqueta: t("cese_justificante_archivo"),
+        clase: "ct-campo", deshabilitado: ocupado || sinIncorporacion, escapar })}
       <label class="ct-campo ct-seg-cese-ancho"><span>${escapar(t("cese_observaciones"))}</span><textarea name="observaciones" rows="2" maxlength="2000" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}></textarea></label>
       </div>
       <div class="ct-acciones"><button type="submit" class="boton-primario" ${deshabilitado()} ${sinIncorporacion ? "disabled" : ""}>${escapar(t("cese_enviar"))}</button></div></form>`;
@@ -228,13 +223,8 @@ export function montarPanelSeguimientoCese({
     }
   }
 
-  async function alCambiar(evento) {
-    const objetivo = evento.target;
-    if (objetivo?.matches?.('select[name="causa_clave"]')) actualizarJustificante();
-    if (objetivo?.matches?.("[data-ct-seg-justificante]") && objetivo.files?.[0]) {
-      const campo = contenedor.querySelector('input[name="justificante_sha256"]');
-      if (campo) campo.value = await huellaSHA256(objetivo.files[0]);
-    }
+  function alCambiar(evento) {
+    if (evento.target?.matches?.('select[name="causa_clave"]')) actualizarJustificante();
   }
 
   function alPulsar(evento) {
@@ -257,12 +247,15 @@ export function montarPanelSeguimientoCese({
     enviar(formulario);
   }
 
+  // Calcula la huella del justificante y bloquea el envío sin archivo.
+  const retirarHuella = instalarHuellaArchivo(contenedor);
   contenedor.addEventListener("click", alPulsar);
   contenedor.addEventListener("change", alCambiar);
   contenedor.addEventListener("submit", alEnviar);
   cargar();
   return () => {
     controlador.abort();
+    retirarHuella();
     contenedor.removeEventListener("click", alPulsar);
     contenedor.removeEventListener("change", alCambiar);
     contenedor.removeEventListener("submit", alEnviar);
