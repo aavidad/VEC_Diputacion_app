@@ -190,7 +190,7 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_contenido_188: "Entre en el cuadro B12 y compruebe las bolsas activas disponibles en su ámbito.",
   ayuda_contenido_189: "Localizar una bolsa antes de consultar sus candidaturas.",
   ayuda_contenido_190: "Disponer de acceso concedido a la consulta interna de Bolsa.",
-  ayuda_contenido_191: "El cuadro muestra las bolsas devueltas por la fuente autorizada. El bloque «Avisos» señala posibles saltos de orden, el trabajo continuado que alcanza o se acerca al plazo del catálogo de reglas (con la antelación que este fija), los encadenamientos de contratos y las solicitudes o respuestas del portal.",
+  ayuda_contenido_191: "El cuadro muestra las bolsas devueltas por la fuente autorizada. El bloque «Avisos» señala posibles saltos de orden, el trabajo continuado que alcanza o se acerca al plazo del catálogo de reglas (con la antelación que este fija), los encadenamientos de contratos, las solicitudes o respuestas del portal y las no incorporaciones que Bolsa no ha podido aplicar (por ejemplo, porque aún no tiene la aceptación o porque la consecuencia no está en sus reglas): mientras RRHH no las resuelva, el siguiente llamamiento de esa bolsa espera.",
   ayuda_contenido_192: "Personal de RRHH dentro de su ámbito.",
   ayuda_contenido_193: "La consulta no modifica la bolsa, sus candidaturas ni su orden.",
   ayuda_contenido_194: "Abrir candidatos de la bolsa",

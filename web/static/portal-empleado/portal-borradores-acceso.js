@@ -1,5 +1,5 @@
 import { ErrorAPIBorradores } from "./portal-borradores-api.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-correcciones-b42-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_COMPROBANDO = "comprobando";

@@ -5,9 +5,10 @@ import { traducirReferencia } from "./portal-referencias-i18n.js";
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";
 
-const TIPOS = new Set(["salto_orden", "tres_anos", "solicitud_portal", "respuesta_portal", "encadenamiento"]);
-// Conteos opcionales: portal del candidato y encadenamiento (Bolsa 000041).
-const TIPOS_PORTAL = ["solicitud_portal", "respuesta_portal", "encadenamiento"];
+const TIPOS = new Set(["salto_orden", "tres_anos", "solicitud_portal", "respuesta_portal", "encadenamiento", "no_incorporacion_revision"]);
+// Conteos opcionales: portal del candidato, encadenamiento (Bolsa 000041) y
+// no incorporaciones pendientes de revisión (Bolsa 000042).
+const TIPOS_PORTAL = ["solicitud_portal", "respuesta_portal", "encadenamiento", "no_incorporacion_revision"];
 
 function texto(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -63,6 +64,17 @@ function fechaVisible(valor) {
   return Number.isNaN(fecha.valueOf()) ? "Fecha no disponible" : new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(fecha);
 }
 
+// Por qué Bolsa no ha aplicado la no incorporación que publicó Contratación
+// temporal; hasta que RRHH lo resuelva no se abre el siguiente llamamiento.
+const REVISION_NO_INCORPORACION = Object.freeze({
+  sin_aceptacion: "Bolsa aún no tiene registrada la aceptación de este llamamiento.",
+  participacion_no_constituida: "La persona no figura en la bolsa constituida.",
+  incorporacion_registrada: "Bolsa ya tiene registrada la incorporación de este llamamiento.",
+  consecuencia_no_admitida: "La consecuencia indicada no está en las reglas vigentes de Bolsa.",
+  segunda_persona_ausente: "La resolución no consta de una segunda persona distinta de quien la registró.",
+  transicion_no_admitida: "La situación actual de la persona no admite ese cambio.",
+});
+
 const SOLICITUDES_PORTAL = Object.freeze({ pausa: "Pausa voluntaria", reactivacion: "Reactivación" });
 const RESPUESTAS_PORTAL = Object.freeze({ acepta: "Acepta", renuncia: "Renuncia", renuncia_justificada: "Renuncia justificada" });
 
@@ -84,6 +96,11 @@ function detalleAviso(aviso) {
   if (aviso.tipo === "salto_orden") {
     return `Orden ${texto(aviso.detalle.orden)}; primera persona llamada: ${texto(aviso.detalle.orden_primero_llamado)}.`;
   }
+  if (aviso.tipo === "no_incorporacion_revision") {
+    const causa = REVISION_NO_INCORPORACION[aviso.detalle.estado] || "Pendiente de revisión.";
+    const notificada = aviso.detalle.fecha_notificacion ? ` Notificada el ${texto(new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${aviso.detalle.fecha_notificacion}T00:00:00Z`)))}.` : "";
+    return `${texto(causa)}${notificada} El siguiente llamamiento espera.`;
+  }
   if (aviso.tipo === "encadenamiento") {
     const d = aviso.detalle;
     return `${texto(FORMATO_NUMERO.format(Number(d.dias_acumulados) || 0))} días con contrato en los últimos ${texto(d.ventana_meses)} meses (umbral: ${texto(d.umbral_meses)} meses).`;
@@ -94,7 +111,7 @@ function detalleAviso(aviso) {
 }
 
 function filaAviso(aviso) {
-  const titulo = { salto_orden: "Posible salto de orden", tres_anos: "Trabajo continuado", solicitud_portal: "Solicitud desde «Mi bolsa»", respuesta_portal: "Respuesta desde «Mi bolsa»", encadenamiento: "Encadenamiento de contratos" }[aviso.tipo];
+  const titulo = { salto_orden: "Posible salto de orden", tres_anos: "Trabajo continuado", solicitud_portal: "Solicitud desde «Mi bolsa»", respuesta_portal: "Respuesta desde «Mi bolsa»", encadenamiento: "Encadenamiento de contratos", no_incorporacion_revision: "No incorporación pendiente de revisión" }[aviso.tipo];
   const participacion = aviso.detalle.participacion_ref;
   const enlace = referenciaOpaca(participacion)
     ? `<button type="button" class="boton-enlace" data-accion="abrir-ficha-b5" data-bolsa-ref="${texto(aviso.bolsa)}" data-participacion-ref="${texto(participacion)}">Abrir ficha</button>`
@@ -104,7 +121,7 @@ function filaAviso(aviso) {
 
 export function renderizarBloqueAvisos({ estado = "cargando", datos = null, error = "" } = {}) {
   const conteos = datos?.conteos && datos.items.length > 0
-    ? `<span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${datos.conteos.solicitud_portal} solicitudes del portal</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${datos.conteos.respuesta_portal} respuestas del portal</span>` : ""}${numeroNatural(datos.conteos.encadenamiento) ? `<span class="estado-chip advertencia">${datos.conteos.encadenamiento} encadenamientos</span>` : ""}`
+    ? `<span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${datos.conteos.solicitud_portal} solicitudes del portal</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${datos.conteos.respuesta_portal} respuestas del portal</span>` : ""}${numeroNatural(datos.conteos.encadenamiento) ? `<span class="estado-chip advertencia">${datos.conteos.encadenamiento} encadenamientos</span>` : ""}${datos.conteos.no_incorporacion_revision > 0 ? `<span class="estado-chip advertencia">${datos.conteos.no_incorporacion_revision} no incorporaciones por revisar</span>` : ""}`
     : "";
   // El cómputo legal aún pendiente de RRHH no se rotula en la pantalla de trabajo:
   // la explicación vive en la ayuda («?») y el origen de la regla en «Reglas vigentes».
@@ -112,7 +129,7 @@ export function renderizarBloqueAvisos({ estado = "cargando", datos = null, erro
   const cabecera = `<div class="cabecera-panel"><h2>Avisos</h2>${conteos || pendiente ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo">${conteos}${pendiente}</div>` : ""}</div>`;
   if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">Cargando avisos…</div></section>`;
   if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || "No se pudieron cargar los avisos.")}</span><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;
-  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">${icono("correcto")}</span><span><strong>Sin avisos.</strong> No hay saltos de orden, periodos de trabajo continuado, encadenamientos ni solicitudes o respuestas del portal.</span></div></section>`;
+  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">${icono("correcto")}</span><span><strong>Sin avisos.</strong> No hay saltos de orden, periodos de trabajo continuado, encadenamientos, no incorporaciones por revisar ni solicitudes o respuestas del portal.</span></div></section>`;
   const paginacion = `<footer class="paginacion"><span>Mostrando ${datos.paginacion.desde} a ${datos.paginacion.hasta} de ${datos.paginacion.total}</span><button type="button" data-accion="siguiente-avisos"${datos.paginacion.cursor_siguiente ? "" : " disabled"}>Siguiente</button></footer>`;
   return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="tabla-contenedor avisos-bolsa-lista" tabindex="0"><ul class="lista-actividad">${datos.items.map(filaAviso).join("")}</ul></div>${paginacion}</section>`;
 }
