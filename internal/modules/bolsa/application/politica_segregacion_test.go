@@ -64,3 +64,37 @@ func TestOperacionB8FallaCerradaSiLaPoliticaNoSePuedeLeer(t *testing.T) {
 		t.Fatalf("una política ilegible no autoriza: %v escrituras=%d", err, repo.escrituras)
 	}
 }
+
+// La suspensión (efecto «pausar») aplica la misma política configurable que
+// B8: si el catálogo pide segunda persona para pausar, quien anota no puede
+// resolverla, y la base (000033) no llega a rechazarla con otro error.
+func TestSancionSuspensionAplicaLaPoliticaConfiguradaDeSegundaPersona(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	politica, err := domain.NuevaPoliticaSegregacion([]string{domain.OperacionPausar, domain.OperacionReactivar, domain.OperacionExcluir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoSituacion := &repositorioPoliticaPrueba{repositorioOperacionPrueba: &repositorioOperacionPrueba{repositorioSituacionPrueba: &repositorioSituacionPrueba{pertenece: true, vigente: ports.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: domain.SituacionDisponible, Desde: ahora.Add(-time.Hour)}}}, vigente: ports.PoliticaSegregacionVigente{Version: 2, Politica: politica}}
+	situacion, err := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repoSituacion, func() time.Time { return ahora })
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &repositorioSancionesPrueba{}
+	s, err := NuevoServicioSancionesParticipacion(situacion, &catalogoSancionesPrueba{}, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := solicitudSancionPrueba(t, ahora, "b24.sancion.suspension")
+	q.Datos.ResueltaPor = q.ResultadoContexto.Contexto.PersonaRef
+	if _, err := s.Registrar(context.Background(), q); !errors.Is(err, domain.ErrSancionParticipacionInvalida) || repo.escrituras != 0 {
+		t.Fatalf("suspensión autorresuelta con pausa en la política: %v escrituras=%d", err, repo.escrituras)
+	}
+	q.Datos.ResueltaPor = "persona:jefatura"
+	if _, err := s.Registrar(context.Background(), q); err != nil || repo.escrituras != 1 {
+		t.Fatalf("con segunda persona debe registrarse: %v escrituras=%d", err, repo.escrituras)
+	}
+	repoSituacion.err = errors.New("caida")
+	if _, err := s.Registrar(context.Background(), q); err == nil || repo.escrituras != 1 {
+		t.Fatalf("sin política legible no se registra: %v", err)
+	}
+}
