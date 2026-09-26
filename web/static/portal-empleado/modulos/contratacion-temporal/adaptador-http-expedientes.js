@@ -230,6 +230,7 @@ const MENSAJES_ACCIONES_HISTORIAL = new Map([
   ["contratacion_temporal.seguimiento.cerrar", "hito_cierre"],
   ["contratacion_temporal.seguimiento.cesar", "hito_cese"],
   ["contratacion_temporal.expediente.cerrar", "hito_cierre_expediente"],
+  ["contratacion_temporal.expediente.cancelar", "hito_cancelacion_expediente"],
   ["contratacion_temporal.expediente.modificar_tras_nombramiento", "hito_modificacion_nombramiento"],
   ["registrar_solicitud", "hito_solicitud"],
   ["registrar_analisis", "hito_analisis"],

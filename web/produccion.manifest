@@ -225,6 +225,10 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-seguimiento-ce
 static/portal-empleado/modulos/contratacion-temporal/i18n-seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.css
+static/portal-empleado/modulos/contratacion-temporal/cancelacion-expediente.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-cancelacion.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-cancelacion.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-cancelacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-plazo-llamamiento.js
