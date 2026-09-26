@@ -69,8 +69,57 @@ type PasoCircuitoFirma struct {
 	PerfilRef  string
 	Accion     string
 	Devolucion DevolucionPasoFirma
+	// Habilita es lo que permite la firma del paso según el catálogo; el
+	// dominio solo interpreta HabilitaRemisionIntervencion.
+	Habilita string
 	// Referencia es catalogo:version:entrada del paso.
 	Referencia string
+}
+
+// HabilitaRemisionIntervencion marca el paso cuya firma permite remitir el
+// expediente a Intervención (duda 4 de RRHH).
+const HabilitaRemisionIntervencion = "remision_intervencion"
+
+// PasoPendienteRemision describe un paso que habilita la remisión a
+// Intervención y todavía no está firmado.
+type PasoPendienteRemision struct {
+	Documento string
+	Etiqueta  string
+	Orden     int
+	Cargo     string
+}
+
+// PasosRemisionSinFirmar devuelve, en el orden del circuito, los pasos que
+// habilitan la remisión a Intervención y no constan firmados en el estado
+// calculado. Un documento sin estado calculado cuenta como sin firmar.
+func PasosRemisionSinFirmar(c CircuitoFirma, estados []EstadoCircuitoDocumento) []PasoPendienteRemision {
+	var pendientes []PasoPendienteRemision
+	for _, d := range c.Documentos {
+		var estado *EstadoCircuitoDocumento
+		for i := range estados {
+			if estados[i].Documento == d.Documento {
+				estado = &estados[i]
+				break
+			}
+		}
+		for _, p := range d.Pasos {
+			if p.Habilita != HabilitaRemisionIntervencion {
+				continue
+			}
+			firmado := false
+			if estado != nil {
+				for _, calc := range estado.Pasos {
+					if calc.Orden == p.Orden {
+						firmado = calc.Estado == EstadoPasoFirmado
+					}
+				}
+			}
+			if !firmado {
+				pendientes = append(pendientes, PasoPendienteRemision{Documento: d.Documento, Etiqueta: d.Etiqueta, Orden: p.Orden, Cargo: p.Cargo})
+			}
+		}
+	}
+	return pendientes
 }
 
 // CircuitoFirmaDocumento son los pasos ordenados de un documento.

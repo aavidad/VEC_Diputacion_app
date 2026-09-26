@@ -66,6 +66,20 @@ type ServicioFiscalizaciones struct {
 	autorizador   puertosvec.AutorizadorSolicitudLigadaV3
 	reloj         ports.Reloj
 	transaccion   ports.TransaccionFiscalizaciones
+	// firmaRemision es nil salvo con el registro de firmas compuesto: sin él
+	// la remisión no exige firma, como antes de la duda 4.
+	firmaRemision ports.ComprobadorFirmaRemisionFiscalizacion
+}
+
+// ExigirFirmaRemision hace que la fiscalización compruebe antes del efecto que
+// el paso de firma que habilita la remisión a Intervención está firmado. Se
+// fija una sola vez durante la composición, antes de publicar las rutas.
+func (s *ServicioFiscalizaciones) ExigirFirmaRemision(c ports.ComprobadorFirmaRemisionFiscalizacion) error {
+	if s == nil || dependenciaNula(c) || s.firmaRemision != nil {
+		return ErrServicioFiscalizacionesInvalido
+	}
+	s.firmaRemision = c
+	return nil
 }
 
 func NuevoServicioFiscalizaciones(
@@ -190,6 +204,16 @@ func (s *ServicioFiscalizaciones) Registrar(
 	}
 	if preparacion.Estado == ports.PreparacionFiscalizacionConfirmada {
 		return *preparacion.ReciboConfirmado, nil
+	}
+	if s.firmaRemision != nil {
+		if err := s.firmaRemision.ComprobarFirmaRemision(
+			ctxOperacion, solicitud.OrganizacionRef, solicitud.ExpedienteRef,
+		); err != nil {
+			if errors.Is(err, ports.ErrFirmaRemisionPendiente) && ctxOperacion.Err() == nil {
+				return ports.ReciboFiscalizacion{}, ports.ErrFirmaRemisionPendiente
+			}
+			return ports.ReciboFiscalizacion{}, clasificarFalloFiscalizacion(ctxOperacion, err)
+		}
 	}
 
 	faseDestino, estadoDestino := preparacion.Expediente.DestinoFiscalizacion(material.Resultado)

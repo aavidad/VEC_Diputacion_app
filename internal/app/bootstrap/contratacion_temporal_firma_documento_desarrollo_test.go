@@ -55,7 +55,7 @@ func TestPredicadoFirmaDocumentoLigadoAlMaterial(t *testing.T) {
 }
 
 func TestFirmaDocumentoCTApagadaNoCompone(t *testing.T) {
-	f, err := nuevaFirmaDocumentoCTDesarrollo(config.Config{}, nil, relojContratacionTemporalDesarrollo{})
+	f, err := nuevaFirmaDocumentoCTDesarrollo(config.Config{}, nil, relojContratacionTemporalDesarrollo{}, nil)
 	if f != nil || err != nil {
 		t.Fatalf("selector apagado: %v %v", f, err)
 	}
@@ -69,7 +69,7 @@ func TestFirmaDocumentoCTApagadaNoCompone(t *testing.T) {
 	if _, err := nula.AutorizarFirmaDocumento(context.Background(), materialFirmaDesarrolloPrueba()); err == nil {
 		t.Fatal("autorización sin composición")
 	}
-	if _, err := nuevaFirmaDocumentoCTDesarrollo(config.Config{CTFirmaRegistroEnabled: "si"}, nil, relojContratacionTemporalDesarrollo{}); err == nil {
+	if _, err := nuevaFirmaDocumentoCTDesarrollo(config.Config{CTFirmaRegistroEnabled: "si"}, nil, relojContratacionTemporalDesarrollo{}, nil); err == nil {
 		t.Fatal("selector inválido admitido")
 	}
 }

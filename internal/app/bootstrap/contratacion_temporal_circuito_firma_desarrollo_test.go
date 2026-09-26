@@ -91,3 +91,28 @@ func TestCircuitoFirmaInvalidoImpideArrancar(t *testing.T) {
 		}
 	}
 }
+
+// El circuito de ejemplo marca el paso 2 del informe definitivo como el que
+// habilita la remisión a Intervención; la fuente debe conservarlo para que
+// la fiscalización lo exija (duda 4).
+func TestCircuitoFirmaEjemploConservaHabilitacionRemision(t *testing.T) {
+	compuestas, err := nuevasReglasEjemploDesarrollo(configuracionCircuitoFirmaPrueba(rutaCircuitoFirmaCTEjemploPrueba), nil, relojPresentacionReglasEjemplo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	circuito, err := fuenteCircuitoFirmaReglasDesarrollo{resolutor: compuestas.circuitoFirmaCT}.CircuitoFirma(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var habilitan []string
+	for _, d := range circuito.Documentos {
+		for _, p := range d.Pasos {
+			if p.Habilita == "remision_intervencion" {
+				habilitan = append(habilitan, d.Documento+"."+string(rune('0'+p.Orden)))
+			}
+		}
+	}
+	if len(habilitan) != 1 || habilitan[0] != "informe_definitivo.2" {
+		t.Fatalf("pasos que habilitan la remisión: %v", habilitan)
+	}
+}
