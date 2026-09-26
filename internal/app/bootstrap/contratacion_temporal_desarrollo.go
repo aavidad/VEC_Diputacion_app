@@ -346,7 +346,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	fuenteInformeNuevo, err := gobernarInformeTrasSubsanacionDesarrollo(
-		reglasEjemplo.contratacionTemporal, alta.postgresql.ejecucion, fiscalizacionReal.servicio, informeJuridicoReal,
+		reglasEjemplo.contratacionTemporal, alta.postgresql.ejecucion, alta.postgresql.gobierno,
+		fiscalizacionReal.servicio, informeJuridicoReal,
 	)
 	if err != nil {
 		return nil, nil, nil, err

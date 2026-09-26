@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -19,7 +20,9 @@ import (
 // «documento_firma_informe_nuevo» (clave del circuito de firma) de la regla
 // c19.fiscalizacion_resultados. Sin catálogo, sin la regla o sin el atributo
 // rige la conducta de siempre: se fiscaliza de nuevo con el mismo informe.
-// Si la regla lo exige, CT123 debe estar instalada o no se arranca.
+// Si la regla lo exige, CT123 debe estar instalada o no se arranca. Con
+// CT123 instalada la política se publica también en la base, que la aplica
+// a la nueva fiscalización aunque la aplicación no lo comprobara.
 
 const (
 	atributoInformeNuevoTrasSubsanacion = "informe_nuevo_tras_subsanacion"
@@ -33,7 +36,19 @@ var (
 	errInformeTrasSubsanacionSinCT123 = errors.New(
 		"contratacion temporal: la regla c19 exige informe nuevo tras subsanar y falta la migracion CT123 (000123_informe_nuevo_tras_subsanacion)",
 	)
+	errInformeTrasSubsanacionNoPublicada = errors.New(
+		"contratacion temporal: politica de informe nuevo tras subsanar no publicada en PostgreSQL (CT123)",
+	)
 )
+
+// fuentePoliticaInformeNuevoPredeterminada identifica la conducta de siempre
+// (no exigir) cuando no hay catálogo o regla c19 que la fije.
+const fuentePoliticaInformeNuevoPredeterminada = "configuracion:ct:informe-tras-subsanacion:predeterminada"
+
+// consultaPublicacionPoliticaCT123Instalada detecta, con el rol de gobierno,
+// la función que publica la política.
+const consultaPublicacionPoliticaCT123Instalada = `SELECT pg_catalog.to_regprocedure(
+  'vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(boolean,text)') IS NOT NULL`
 
 // consultaCT123InstaladaDesarrollo detecta CT123 por sus funciones públicas y
 // el permiso del rol de ejecución.
@@ -78,47 +93,99 @@ func politicaInformeTrasSubsanacionDesdeRegla(regla reglas.Regla) (ctdomain.Poli
 	return p, nil
 }
 
-// gobernarInformeTrasSubsanacionDesarrollo valida la regla al arrancar y, si
-// exige informe nuevo, comprueba CT123 y entrega la fuente a la fiscalización
-// y al informe jurídico. Devuelve la fuente (nil si no se exige) para que el
-// registro de firmas abra la segunda ronda.
+// consultaPoliticaInformeNuevoCT publica la política con el pool de gobierno.
+type consultaPoliticaInformeNuevoCT interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+// publicarPoliticaInformeTrasSubsanacionCT publica en la base (CT123) la
+// política vigente para que la nueva fiscalización la compruebe también en
+// SQL. Sin CT123 no hay nada que publicar; la función SQL solo añade versión
+// si difiere de la vigente (o, sin ninguna, si exige): arrancar dos veces no
+// añade historia.
+func publicarPoliticaInformeTrasSubsanacionCT(
+	ctx context.Context, gobierno consultaPoliticaInformeNuevoCT, exige bool, fuenteRef string,
+) error {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(gobierno) {
+		if exige {
+			return errInformeTrasSubsanacionSinCT123
+		}
+		return nil
+	}
+	var instalada bool
+	if err := gobierno.QueryRow(ctx, consultaPublicacionPoliticaCT123Instalada).Scan(&instalada); err != nil {
+		return errors.Join(errInformeTrasSubsanacionNoPublicada, err)
+	}
+	if !instalada {
+		if exige {
+			return errInformeTrasSubsanacionSinCT123
+		}
+		return nil
+	}
+	var resultado string
+	var version int64
+	if err := gobierno.QueryRow(ctx, `
+		SELECT resultado, version
+		  FROM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1($1, $2)`,
+		exige, fuenteRef,
+	).Scan(&resultado, &version); err != nil {
+		return errors.Join(errInformeTrasSubsanacionNoPublicada, err)
+	}
+	if (resultado != "publicada" && resultado != "vigente") || version < 0 {
+		return errInformeTrasSubsanacionNoPublicada
+	}
+	return nil
+}
+
+// gobernarInformeTrasSubsanacionDesarrollo valida la regla al arrancar, la
+// publica en la base si CT123 está instalada y, si exige informe nuevo,
+// comprueba CT123 y entrega la fuente a la fiscalización y al informe
+// jurídico. Devuelve la fuente (nil si no se exige) para que el registro de
+// firmas abra la segunda ronda. Sin catálogo o sin la regla se publica «no
+// exigir», que solo escribe si antes se exigía.
 func gobernarInformeTrasSubsanacionDesarrollo(
-	resolutor *reglas.Resolutor, pool *pgxpool.Pool,
+	resolutor *reglas.Resolutor, pool *pgxpool.Pool, gobierno consultaPoliticaInformeNuevoCT,
 	fiscalizacion *ctapplication.ServicioFiscalizaciones,
 	informes *ctapplication.ServicioInformesJuridicos,
 ) (ports.FuenteInformeTrasSubsanacion, error) {
-	if resolutor == nil {
-		return nil, nil
-	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelar()
-	vigentes, err := resolutor.Reglas(ctx)
-	if err != nil {
-		return nil, errors.Join(errInformeTrasSubsanacionNoValido, err)
-	}
-	for _, regla := range vigentes {
-		if regla.Clave != reglas.CTFiscalizacionResultados {
-			continue
-		}
-		politica, err := politicaInformeTrasSubsanacionDesdeRegla(regla)
+	politica, fuenteRef := ctdomain.PoliticaInformeTrasSubsanacion{}, fuentePoliticaInformeNuevoPredeterminada
+	if resolutor != nil {
+		vigentes, err := resolutor.Reglas(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Join(errInformeTrasSubsanacionNoValido, err)
 		}
-		if !politica.ExigeInformeNuevo {
-			return nil, nil
+		for _, regla := range vigentes {
+			if regla.Clave != reglas.CTFiscalizacionResultados {
+				continue
+			}
+			if politica, err = politicaInformeTrasSubsanacionDesdeRegla(regla); err != nil {
+				return nil, err
+			}
+			fuenteRef = regla.Referencia
+			break
 		}
+	}
+	if politica.ExigeInformeNuevo {
 		instalada := false
 		if pool == nil || pool.QueryRow(ctx, consultaCT123InstaladaDesarrollo).Scan(&instalada) != nil || !instalada {
 			log.Print("contratacion temporal: informe nuevo tras subsanar exigido por el catalogo; falta CT123")
 			return nil, errInformeTrasSubsanacionSinCT123
 		}
-		fuente := fuenteInformeTrasSubsanacionReglas{resolutor: resolutor}
-		if fiscalizacion == nil || informes == nil ||
-			fiscalizacion.GobernarInformeTrasSubsanacion(fuente) != nil ||
-			informes.GobernarInformeTrasSubsanacion(fuente) != nil {
-			return nil, errInformeTrasSubsanacionNoValido
-		}
-		return fuente, nil
 	}
-	return nil, nil
+	if err := publicarPoliticaInformeTrasSubsanacionCT(ctx, gobierno, politica.ExigeInformeNuevo, fuenteRef); err != nil {
+		log.Print("contratacion temporal: politica de informe nuevo tras subsanar no publicada")
+		return nil, err
+	}
+	if !politica.ExigeInformeNuevo {
+		return nil, nil
+	}
+	fuente := fuenteInformeTrasSubsanacionReglas{resolutor: resolutor}
+	if fiscalizacion == nil || informes == nil ||
+		fiscalizacion.GobernarInformeTrasSubsanacion(fuente) != nil ||
+		informes.GobernarInformeTrasSubsanacion(fuente) != nil {
+		return nil, errInformeTrasSubsanacionNoValido
+	}
+	return fuente, nil
 }

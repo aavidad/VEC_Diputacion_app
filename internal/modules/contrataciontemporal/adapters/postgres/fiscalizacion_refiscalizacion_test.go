@@ -71,3 +71,22 @@ func TestConfirmacionFiscalizacionTerminalNoReintentaOtros40001(t *testing.T) {
 		}
 	}
 }
+
+// CT123: el rechazo de la base por falta de informe nuevo se reconoce solo
+// con su código y mensaje exactos.
+func TestConfirmacionFiscalizacionReconoceInformeNuevoPendiente(t *testing.T) {
+	if !confirmacionFiscalizacionEsperaInformeNuevo(&pgconn.PgError{
+		Code: "55000", Message: "informe jurídico nuevo tras subsanación pendiente",
+	}) {
+		t.Fatal("no reconoció el rechazo de CT123")
+	}
+	for _, causa := range []error{
+		&pgconn.PgError{Code: "55000", Message: "otra causa"},
+		&pgconn.PgError{Code: "42501", Message: "informe jurídico nuevo tras subsanación pendiente"},
+		errors.New("55000 informe jurídico nuevo tras subsanación pendiente"),
+	} {
+		if confirmacionFiscalizacionEsperaInformeNuevo(causa) {
+			t.Fatalf("rechazo ajeno tomado por CT123: %v", causa)
+		}
+	}
+}
