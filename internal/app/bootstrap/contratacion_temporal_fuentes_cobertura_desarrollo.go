@@ -102,6 +102,7 @@ func (f *fuenteComprobacionCoberturaDesarrollo) ConsultarCobertura(
 		solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!comprobacionFuenteCoberturaDesarrolloValida(
+			f.catalogo.opcionesAnalisis().viasCoberturaVigentes(),
 			solicitud.ViaClave, solicitud.Comprobacion, f.backendRef,
 		) {
 		return ports.ResultadoConsultaCobertura{},
@@ -201,7 +202,11 @@ func comprobacionFuenteCoberturaDesarrollo(
 	}
 }
 
+// comprobacionFuenteCoberturaDesarrolloValida admite solo las ternas
+// vía/comprobación/procedencia, en su orden, de las vías vigentes (las del
+// catálogo de reglas o las de siempre); un cruce no existe.
 func comprobacionFuenteCoberturaDesarrolloValida(
+	vias []viaCoberturaCT,
 	via domain.ClaveCatalogo,
 	comprobacion domain.ComprobacionExigibleCobertura,
 	backendRef string,
@@ -210,17 +215,12 @@ func comprobacionFuenteCoberturaDesarrolloValida(
 		comprobacion.Procedencia.DefinicionFuenteRef != backendRef {
 		return false
 	}
-	switch via {
-	case "bolsa_vigente":
-		return ((comprobacion.Clave == "existe_bolsa_vigente" && comprobacion.Orden == 1) ||
-			(comprobacion.Clave == "hay_candidaturas_disponibles" && comprobacion.Orden == 2)) &&
-			comprobacion.Procedencia.Clave == "bolsa"
-	case "oferta_sae":
-		return comprobacion.Clave == "oferta_sae_disponible" && comprobacion.Orden == 1 &&
-			comprobacion.Procedencia.Clave == "sae"
-	case "nueva_convocatoria_bolsa":
-		return comprobacion.Clave == "requiere_nueva_convocatoria" && comprobacion.Orden == 1 &&
-			comprobacion.Procedencia.Clave == "bolsa"
+	for _, plantilla := range plantillasViasCoberturaCT(vias) {
+		if plantilla.via == via && plantilla.comprobacion == comprobacion.Clave &&
+			plantilla.orden == comprobacion.Orden &&
+			plantilla.procedencia == comprobacion.Procedencia.Clave {
+			return true
+		}
 	}
 	return false
 }
@@ -249,8 +249,8 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 // catálogo de desarrollo y cualquier periodo cuando no hay registro explícito:
 // afirmativa, salvo la categoría sintética «sin cobertura», que es negativa; una
 // categoría fuera del catálogo no tiene respuesta. La
-// tupla vía/comprobación/procedencia sigue teniendo que ser una de las cuatro
-// plantillas; un cruce no existe. Es la fuente sintética de las demostraciones,
+// tupla vía/comprobación/procedencia sigue teniendo que ser una de las
+// plantillas de las vías vigentes; un cruce no existe. Es la fuente sintética de las demostraciones,
 // no la bolsa real.
 func resultadoGenericoCoberturaDesarrolloConCatalogo(
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
@@ -264,7 +264,7 @@ func resultadoGenericoCoberturaDesarrolloConCatalogo(
 		return "", false
 	}
 	valida := false
-	for _, plantilla := range plantillasCoberturaSinteticasDesarrollo() {
+	for _, plantilla := range plantillasViasCoberturaCT(catalogo.opcionesAnalisis().viasCoberturaVigentes()) {
 		if plantilla.via == viaClave && plantilla.comprobacion == comprobacion &&
 			plantilla.procedencia == procedencia {
 			valida = true
@@ -292,15 +292,6 @@ func grupoDeCategoriaCoberturaDesarrollo(catalogo *catalogosAltaContratacionTemp
 }
 
 const categoriaSinCoberturaDesarrollo = "categoria:desarrollo:sin-cobertura"
-
-func plantillasCoberturaSinteticasDesarrollo() []struct{ via, comprobacion, procedencia domain.ClaveCatalogo } {
-	return []struct{ via, comprobacion, procedencia domain.ClaveCatalogo }{
-		{"bolsa_vigente", "existe_bolsa_vigente", "bolsa"},
-		{"bolsa_vigente", "hay_candidaturas_disponibles", "bolsa"},
-		{"oferta_sae", "oferta_sae_disponible", "sae"},
-		{"nueva_convocatoria_bolsa", "requiere_nueva_convocatoria", "bolsa"},
-	}
-}
 
 type verificadorRespuestaCoberturaDesarrollo struct {
 	*presentadorAutoridadFuenteAnalisisDesarrollo
@@ -596,7 +587,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 			claveRespuesta: respuestaFuente,
 			claveRecibo:    material.recibo,
 			reloj:          reloj,
-			registros:      registrosCoberturaSinteticosDesarrollo(),
+			registros:      registrosCoberturaSinteticosDesarrollo(catalogo.opcionesAnalisis().viasCoberturaVigentes()),
 			catalogo:       catalogo,
 		},
 		verificador: &verificadorRespuestaCoberturaDesarrollo{
@@ -632,7 +623,7 @@ func nuevasDependenciasFuentesCoberturaDesarrollo(
 	return dependencias, nil
 }
 
-func registrosCoberturaSinteticosDesarrollo() []registroCoberturaSinteticaDesarrollo {
+func registrosCoberturaSinteticosDesarrollo(vias []viaCoberturaCT) []registroCoberturaSinteticaDesarrollo {
 	periodos := []struct {
 		categoria string
 		periodo   domain.PeriodoPrevisto
@@ -644,7 +635,7 @@ func registrosCoberturaSinteticosDesarrollo() []registroCoberturaSinteticaDesarr
 		{categoriaAltaContratacionTemporalDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 10, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionAfirmativa},
 		{categoriaSinCoberturaDesarrollo, domain.PeriodoPrevisto{Inicio: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Fin: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)}, domain.ComprobacionNegativa},
 	}
-	plantillas := plantillasCoberturaSinteticasDesarrollo()
+	plantillas := plantillasViasCoberturaCT(vias)
 	registros := make([]registroCoberturaSinteticaDesarrollo, 0, len(periodos)*len(plantillas))
 	for _, periodo := range periodos {
 		for _, plantilla := range plantillas {

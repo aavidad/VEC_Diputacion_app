@@ -68,6 +68,8 @@ static/portal-empleado/reglas/i18n.js
 static/portal-empleado/reglas/enlace.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
+static/portal-empleado/peticiones-centro/incorporaciones-centro.js
+static/portal-empleado/peticiones-centro/cancelaciones-centro.js
 static/portal-empleado/peticiones-centro/peticiones-centro.css
 static/portal-empleado/modulos/cronos/contrato.js
 static/portal-empleado/modulos/cronos/cronos.css
@@ -207,6 +209,7 @@ static/portal-empleado/modulos/contratacion-temporal/circuito-firma.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-cobertura.js
+static/portal-empleado/modulos/contratacion-temporal/etiquetas-vias-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-fiscalizacion.js
@@ -221,10 +224,18 @@ static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.js
+static/portal-empleado/modulos/contratacion-temporal/seguimiento-incorporacion-acreditada.js
+static/portal-empleado/modulos/contratacion-temporal/seguimiento-no-incorporacion.js
+static/portal-empleado/modulos/contratacion-temporal/seguimiento-propuestas.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.css
+static/portal-empleado/modulos/contratacion-temporal/cancelacion-expediente.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-cancelacion.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-cancelacion.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-cancelacion.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-plazo-llamamiento.js
@@ -241,6 +252,9 @@ static/portal-empleado/modulos/contratacion-temporal/circuito-firma-acciones.js
 static/portal-empleado/modulos/contratacion-temporal/firma-autofirma.js
 static/portal-empleado/modulos/contratacion-temporal/firma-documento-cliente.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-circuito-firma.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-firma-remision.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-informe-tras-subsanacion.js
+static/portal-empleado/modulos/contratacion-temporal/informe-tras-subsanacion.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-cambios.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-cambios-expediente.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-cambios-expediente.js
@@ -251,6 +265,7 @@ static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitaci
 static/portal-empleado/modulos/contratacion-temporal/vista.js
 static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-avisos.js
+static/portal-empleado/portal-bolsas-marcas.js
 static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
 static/portal-empleado/portal-bolsas-correo.js
@@ -327,3 +342,4 @@ static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.j
 static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/estadisticas.css
 static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css
+static/portal-empleado/modulos/contratacion-temporal/analisis-catalogo.css

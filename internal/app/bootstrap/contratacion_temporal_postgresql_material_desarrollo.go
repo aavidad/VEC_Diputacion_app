@@ -89,7 +89,7 @@ func nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 ) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
 	if soporte == nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	proveedor, err := nuevoProveedorMaterialAutorizacionBaseDesarrollo(material, reloj)
 	if err != nil {
@@ -122,19 +122,19 @@ func nuevoProveedorMaterialAutorizacionBaseDesarrollo(
 		firmante,
 	)
 	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	confianza, err := confianzaatestacion.NuevoServicioConfianzaAtestacionAutorizacionV3(
 		material.configuracion, reloj,
 	)
 	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	emisor, err := confianzaatestacion.NuevoEmisorCapacidadesAtestacionAutorizacionV3(
 		material.capacidad, reloj,
 	)
 	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	return &proveedorMaterialAltaContratacionTemporalDesarrollo{
 		atestador: atestador, confianza: confianza, emisor: emisor, fuenteConfianza: material.fuenteConfianza,

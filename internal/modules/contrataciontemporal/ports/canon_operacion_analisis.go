@@ -97,6 +97,7 @@ func NuevasPreimagenesConsultaOperacionAnalisis(
 	semantica.texto(string(datos.MotivoRectificacion))
 	escribirDatosFuncionalesCanonicos(semantica, datos.DatosFuncionales)
 	escribirObservacionesIdempotencia(semantica, datos.DatosFuncionales.Observaciones)
+	escribirUrgenciaIdempotencia(semantica, datos.DatosFuncionales.MotivoUrgencia)
 	bytesSemantica, err := semantica.resultado()
 	if err != nil {
 		return PreimagenesOperacionAnalisis{}, err
@@ -155,6 +156,7 @@ func NuevasPreimagenesOperacionAnalisis(
 	)
 	escribirArtefactoCanonico(semantica, artefacto)
 	escribirObservacionesIdempotencia(semantica, artefacto.DatosFuncionales.Observaciones)
+	escribirUrgenciaIdempotencia(semantica, artefacto.DatosFuncionales.MotivoUrgencia)
 	bytesSemantica, err := semantica.resultado()
 	if err != nil {
 		return PreimagenesOperacionAnalisis{}, err
@@ -298,6 +300,20 @@ func escribirObservacionesIdempotencia(
 ) {
 	if observaciones != "" {
 		canon.texto(observaciones)
+	}
+}
+
+// escribirUrgenciaIdempotencia liga la urgencia declarada, como las
+// observaciones, solo cuando existe y tras una marca propia: repetir la clave
+// con otra urgencia es otro material, y las huellas de las operaciones sin
+// urgencia ya confirmadas no cambian.
+func escribirUrgenciaIdempotencia(
+	canon *canonOperacionAnalisis,
+	motivo string,
+) {
+	if motivo != "" {
+		canon.texto(marcaUrgenciaIdempotencia)
+		canon.texto(motivo)
 	}
 }
 

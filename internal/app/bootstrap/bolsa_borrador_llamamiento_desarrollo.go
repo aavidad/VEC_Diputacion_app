@@ -650,8 +650,26 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			metodos.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+	// No incorporación (CT124/Bolsa 000042): con la incorporación acreditada
+	// encendida, el relevo lleva la baja a la bandeja de Bolsa.
+	cerrar := cerrarAuditoria
+	if incorporacionAcreditadaSolicitada(cfg) {
+		var catalogo catalogoNoIncorporacionBolsa
+		if c, ok := catalogoSanciones.(catalogoNoIncorporacionBolsa); ok && c != nil {
+			catalogo = c
+		}
+		detener, err := iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(ctx, cfg, alta.postgresql.ejecucion, alta.postgresql.bolsa, catalogo)
+		if err != nil {
+			slog.Error("entrega de no incorporaciones CT a Bolsa no iniciada", "causa", err)
+			return nil, nil, nil, vacio, nil, nil, err
+		}
+		cerrar = func() {
+			detener()
+			cerrarAuditoria()
+		}
+	}
 	completa = true
-	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrarAuditoria, nil
+	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrar, nil
 }
 
 type fuenteCorreoParticipacionB7 struct {

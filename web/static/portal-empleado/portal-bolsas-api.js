@@ -12,16 +12,17 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-referencias-legibles-v1";
-import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-referencias-legibles-v1";
+} from "./portal-bolsas-contrato.js?v=20260926-huecos-rrhh-v1";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260926-huecos-rrhh-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-huecos-rrhh-v2";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-referencias-legibles-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-referencias-legibles-v1";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-huecos-rrhh-v1";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-huecos-rrhh-v1";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-huecos-rrhh-v2";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
@@ -49,7 +50,7 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
 export function seleccionarParticipacionesPorEstado(candidatos, estados, limite = 100) {
   const estadosIncluidos = new Set(estados || []);
   return (candidatos || [])
-    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden))
+    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden) && seleccionableEnLlamamiento(candidato))
     .sort((izquierda, derecha) => izquierda.orden - derecha.orden
       || String(izquierda.participacion_ref).localeCompare(String(derecha.participacion_ref), "es"))
     .slice(0, limite)
@@ -88,7 +89,8 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
         return { ok: false, status: 409, mensaje: "La lista cambió durante la consulta. Vuelva a seleccionar." };
       }
       referencias.add(candidata.participacion_ref);
-      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden)) {
+      // Quien ya presta servicios con el catálogo en «excluir» no es elegible.
+      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden) && seleccionableEnLlamamiento(candidata)) {
         total += 1;
         primeras.push({ participacion_ref: candidata.participacion_ref, estado_clave: candidata.estado_clave, orden: candidata.orden });
         primeras.sort((a, b) => a.orden - b.orden || a.participacion_ref.localeCompare(b.participacion_ref, "es"));

@@ -15,6 +15,9 @@ import (
 const (
 	funcionConfirmarAnalisis        = "vec_contratacion_temporal.confirmar_operacion_analisis_v3"
 	maximoIntentosConfirmarAnalisis = 3
+	// funcionRegistrarUrgenciaAnalisis (CT-000125) guarda la urgencia
+	// declarada en la misma transacción que confirma el análisis.
+	funcionRegistrarUrgenciaAnalisis = "vec_contratacion_temporal.registrar_urgencia_analisis_v1"
 )
 
 var _ ports.TransaccionOperacionesAnalisis = (*TransaccionOperacionesAnalisisPostgreSQL)(nil)
@@ -51,8 +54,13 @@ func (t *TransaccionOperacionesAnalisisPostgreSQL) ConfirmarOperacionAnalisis(
 		return ports.ReciboOperacionAnalisis{}, err
 	}
 	defer borrarBytes(contenido)
+	evidencia, err := orden.Datos()
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{}, ports.ErrOrdenOperacionAnalisisInvalida
+	}
+	motivoUrgencia := evidencia.SolicitudArtefacto.DatosFuncionales.MotivoUrgencia
 	for intento := 1; intento <= maximoIntentosConfirmarAnalisis; intento++ {
-		recibo, err := t.confirmarEnTransaccion(ctx, orden, contenido)
+		recibo, err := t.confirmarEnTransaccion(ctx, orden, contenido, motivoUrgencia)
 		if err == nil {
 			return recibo, nil
 		}
@@ -73,6 +81,7 @@ func (t *TransaccionOperacionesAnalisisPostgreSQL) confirmarEnTransaccion(
 	ctx context.Context,
 	orden ports.OrdenConfirmarOperacionAnalisis,
 	contenido []byte,
+	motivoUrgencia string,
 ) (ports.ReciboOperacionAnalisis, error) {
 	tx, err := t.iniciar(ctx)
 	if err != nil {
@@ -108,6 +117,21 @@ func (t *TransaccionOperacionesAnalisisPostgreSQL) confirmarEnTransaccion(
 		recibo.ValidarParaOrdenDentroDeTransaccion(orden) != nil {
 		return ports.ReciboOperacionAnalisis{},
 			ports.ErrPersistenciaOperacionAnalisisNoDisponible
+	}
+	if motivoUrgencia != "" {
+		// Una repetición devuelve «repetida» con el mismo motivo; otro motivo
+		// para el mismo recibo lo rechaza la base de datos.
+		var resultado string
+		if err := tx.QueryRow(ctx, `
+			SELECT `+funcionRegistrarUrgenciaAnalisis+`($1::text, $2::text)`,
+			recibo.ReciboRef, motivoUrgencia,
+		).Scan(&resultado); err != nil {
+			return ports.ReciboOperacionAnalisis{}, err
+		}
+		if resultado != "registrada" && resultado != "repetida" {
+			return ports.ReciboOperacionAnalisis{},
+				ports.ErrPersistenciaOperacionAnalisisNoDisponible
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return ports.ReciboOperacionAnalisis{}, err

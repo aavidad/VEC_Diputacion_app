@@ -264,6 +264,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
 	sello := dependencias.sello
 	reloj := dependencias.reloj
+	// Las reglas del análisis se resuelven antes del alta: al abrir
+	// PostgreSQL se publican sus vías de cobertura y su numeración.
+	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	dependencias.opcionesCatalogoCT = reglasAnalisis.opciones
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		dependencias, origen,
 	)
@@ -281,11 +288,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	dependencias.retribucionesCT = reglasAnalisis.retribuciones
+	catalogoDesarrollo.componerOpcionesAnalisis(reglasAnalisis.opciones)
+	if alta.postgresql.ejecucion != nil {
+		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), 5*time.Second)
+		err = comprobarMigracionUrgenciaAnalisis(ctxMigracion, alta.postgresql.ejecucion)
+		cancelarMigracion()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		dependencias,
 		&alta,
@@ -330,6 +342,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if err := gobernarResultadosFiscalizacionDesarrollo(fiscalizacionReal.servicio, reglasEjemplo.contratacionTemporal); err != nil {
+		return nil, nil, nil, err
+	}
+	fuenteInformeNuevo, err := gobernarInformeTrasSubsanacionDesarrollo(
+		reglasEjemplo.contratacionTemporal, alta.postgresql.ejecucion, alta.postgresql.gobierno,
+		fiscalizacionReal.servicio, informeJuridicoReal,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	var subsanacionReal dependenciasSubsanacionReparosContratacionTemporalDesarrollo
 	if strings.TrimSpace(cfg.ContratacionTemporalSubsanacionPoliticaFile) != "" {
 		politica, causa := cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg)
@@ -348,9 +370,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
-	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj)
+	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj, fiscalizacionReal.servicio)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if firmaDocumento != nil {
+		firmaDocumento.informeTrasSubsanacion = fuenteInformeNuevo
 	}
 	cerrarCobertura := true
 	defer func() {
@@ -570,6 +595,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}
 	if len(incorporacion) == 1 && incorporacion[0].continuidad != nil {
+		incorporacion[0].continuidad.admisionSinCese = admisionCierreSinCeseDesarrollo(reglasEjemplo.contratacionTemporal)
 		continuidad, err := incorporacion[0].continuidad.rutas(derivador, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
@@ -593,6 +619,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutasSeguimientoCese...)
+	rutasCancelacion, err := nuevasRutasCancelacionCTDesarrollo(dependencias, &alta)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, rutasCancelacion...)
 	if consultasRRHH.estadisticas != nil {
 		h, err := httpinterno.NuevoManejadorEstadisticasRRHH(consultasRRHH.estadisticas,
 			&resolutorAlcanceEstadisticasRRHHDesarrollo{sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)
@@ -699,7 +730,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		firmaDocumento:                           firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
-		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
 		cerrarBorrador()

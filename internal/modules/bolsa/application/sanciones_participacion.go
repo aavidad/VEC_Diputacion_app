@@ -68,7 +68,13 @@ func (s *ServicioSancionesParticipacion) Registrar(ctx context.Context, q ports.
 		return ports.RegistroSancion{}, err
 	}
 	actor := q.ResultadoContexto.Contexto.PersonaRef
-	if dominiobolsa.ExigeValidadorDistinto(consecuencia.Efecto) && q.Datos.ResueltaPor == actor {
+	// La misma política configurable de segunda persona que B8 (duda 6):
+	// si pausar la exige, una suspensión también.
+	politica, err := s.situacion.politicaSegregacion(ctx)
+	if err != nil {
+		return ports.RegistroSancion{}, err
+	}
+	if politica.ExigeSegundaPersona(consecuencia.Efecto) && q.Datos.ResueltaPor == actor {
 		return ports.RegistroSancion{}, dominiobolsa.ErrSancionParticipacionInvalida
 	}
 	huella := huellaClaveSancion(q.ParticipacionRef, q.ClaveIdempotencia)

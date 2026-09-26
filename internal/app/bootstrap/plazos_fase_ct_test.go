@@ -120,3 +120,20 @@ func TestPlazoFaseCTSinCatalogoOAmbiguoNoSuponePlazo(t *testing.T) {
 		t.Fatalf("plazo hábil sin calendario: %v %v", aplicable, err)
 	}
 }
+
+// Un expediente urgente (CT-000125) cuenta la fiscalización con la cantidad
+// urgente de c03 (cinco días); las fases sin cantidad urgente, con la suya.
+func TestPlazoFaseCTUrgenteUsaLaCantidadUrgente(t *testing.T) {
+	calendarios := calendariosPlazoFasePrueba(t)
+	calculadora := calculadoraPlazoFaseCTPrueba(t, rutaReglasCTEjemploPrueba, calendarios)
+	desde := time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC)
+	ahora := time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)
+	for fase, cantidad := range map[domain.ClaveFase]int{"fiscalizacion": 5, "subsanacion_unidad": 10} {
+		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{
+			Fase: fase, Desde: desde, Ahora: ahora, Urgente: true,
+		})
+		if err != nil || !aplicable || !plazo.Valido() || calendarios.recibida.Cantidad != cantidad {
+			t.Fatalf("fase %s urgente: %+v %v %v, cantidad %d", fase, plazo, aplicable, err, calendarios.recibida.Cantidad)
+		}
+	}
+}

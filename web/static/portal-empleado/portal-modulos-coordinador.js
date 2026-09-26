@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260926-integracion-bolsa-ct-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-integracion-bolsa-ct-v1";
+} from "./portal-catalogo-modulos.js?v=20260926-huecos-rrhh-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-huecos-rrhh-v2";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-integracion-bolsa-ct-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-huecos-rrhh-v2";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260926-huella-archivo-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260926-huecos-rrhh-v2"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
@@ -131,11 +131,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260926-integracion-bolsa-ct-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260926-huecos-rrhh-v2"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260926-integracion-bolsa-ct-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260926-huecos-rrhh-v2"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20260925-d5d6-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
@@ -298,12 +298,16 @@ export function crearCoordinadorModulosPortal({
       HeadersImpl: entorno.Headers,
     });
     let alta = null;
-    // La jornada completa de referencia llega con la configuración del análisis.
+    // La jornada completa de referencia y las etiquetas de las modalidades
+    // llegan con la configuración del análisis.
     let jornadaCompleta = null;
+    let entregarModalidades = () => {};
+    const promesaModalidades = new Promise((resolver) => { entregarModalidades = resolver; });
     const fuente = recursos.adaptador
       .crearAdaptadorHTTPExpedientesContratacionTemporal({
         cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
         obtenerJornadaCompleta: () => jornadaCompleta,
+        obtenerModalidades: () => promesaModalidades,
       });
     // Los catálogos del alta (centros y categorías) no retrasan el cuadro:
     // Inicio se pinta con el cuadro y la configuración, y los nombres de centro
@@ -321,10 +325,10 @@ export function crearCoordinadorModulosPortal({
         alta = null;
       }
     }, () => { alta = null; });
-    const [cuadro, configuracion] = await Promise.allSettled([
-      consultar((opciones) => fuente.listar(opciones)),
-      consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones)),
-    ]);
+    const consultaCuadro = consultar((opciones) => fuente.listar(opciones));
+    const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
+    promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
+    const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
     const listadoCuadro = cuadroDisponible ? cuadro.value : null;
@@ -347,6 +351,10 @@ export function crearCoordinadorModulosPortal({
             entradas_rc: configuracionAnalisis.entradas_rc,
             motivos_rectificacion: configuracionAnalisis.motivos_rectificacion,
             jornada_completa_minutos_semanales: configuracionAnalisis.jornada_completa_minutos_semanales,
+            // Opcionales: solo existen si el catálogo de reglas las publica.
+            ...(configuracionAnalisis.duraciones_maximas
+              ? { duraciones_maximas: configuracionAnalisis.duraciones_maximas } : {}),
+            ...(configuracionAnalisis.urgencia_disponible === true ? { urgencia_disponible: true } : {}),
           }),
           contexto: Object.freeze({
             operacion: "registrar",

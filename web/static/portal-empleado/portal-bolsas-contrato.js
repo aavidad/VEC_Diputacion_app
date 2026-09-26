@@ -14,6 +14,8 @@
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
+import { validarMarcasCandidato } from "./portal-bolsas-marcas.js?v=20260926-huecos-rrhh-v1";
+
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
 export const ESQUEMA_CONTACTOS = "vec.bolsa.rrhh.contactos.v1";
@@ -250,7 +252,9 @@ export function validarRespuestaBolsas(envelope) {
 }
 
 export function validarCandidato(candidato) {
-  exigirCamposExactos(candidato, CAMPOS_CANDIDATO, "candidato");
+  // «marcas» solo viaja cuando Bolsa 000041 está compuesta; entonces es cerrado.
+  const conMarcas = esObjeto(candidato) && Object.hasOwn(candidato, "marcas");
+  exigirCamposExactos(candidato, conMarcas ? [...CAMPOS_CANDIDATO, "marcas"] : CAMPOS_CANDIDATO, "candidato");
 
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
   if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
@@ -291,6 +295,7 @@ export function validarCandidato(candidato) {
     disponible_desde: disponibleDesde,
     ultimo_llamamiento: ultimoLlamamiento,
     contactos_total: exigirEnteroNoNegativo(candidato.contactos_total, "contactos_total"),
+    ...(conMarcas ? { marcas: validarMarcasCandidato(candidato.marcas) } : {}),
   });
 }
 

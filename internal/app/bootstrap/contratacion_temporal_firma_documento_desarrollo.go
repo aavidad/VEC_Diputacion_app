@@ -79,6 +79,12 @@ type firmaDocumentoCTDesarrollo struct {
 	alta     *dependenciasAltaContratacionTemporalDesarrollo
 	registro *postgrescontratacion.RegistroFirmasDocumentoPostgreSQL
 	reloj    relojContratacionTemporalDesarrollo
+	// fiscalizacion recibe al componer las rutas la comprobación de la firma
+	// que habilita la remisión a Intervención (duda 4).
+	fiscalizacion *ctapplication.ServicioFiscalizaciones
+	// informeTrasSubsanacion es nil salvo que el catálogo exija informe
+	// nuevo tras subsanar: entonces su documento se firma en otra ronda.
+	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
 }
 
 var (
@@ -88,12 +94,12 @@ var (
 
 // nuevaFirmaDocumentoCTDesarrollo publica el catálogo de motivos y el rol
 // nominal de firma. Devuelve nil sin error cuando el selector está apagado.
-func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo) (*firmaDocumentoCTDesarrollo, error) {
+func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, fiscalizacion *ctapplication.ServicioFiscalizaciones) (*firmaDocumentoCTDesarrollo, error) {
 	activo, err := cfg.CTFirmaRegistroDesarrolloActivo()
 	if err != nil || !activo {
 		return nil, err
 	}
-	if alta == nil || alta.soporte == nil || alta.autorizador == nil || alta.postgresql.gobierno == nil ||
+	if alta == nil || alta.soporte == nil || alta.autorizador == nil || alta.postgresql.gobierno == nil || fiscalizacion == nil ||
 		alta.postgresql.ejecucion == nil || alta.postgresql.proveedorMaterialFirmaDocumento == nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
@@ -125,7 +131,7 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	alta.soporte.instantaneaFirmaDocumento = instantanea
 	alta.soporte.motivoFirmaDocumento = motivoFirmaDocumentoCTDesarrollo()
 	alta.soporte.mu.Unlock()
-	return &firmaDocumentoCTDesarrollo{alta: alta, registro: registro, reloj: reloj}, nil
+	return &firmaDocumentoCTDesarrollo{alta: alta, registro: registro, reloj: reloj, fiscalizacion: fiscalizacion}, nil
 }
 
 // ResolverOrganizacionFirmaDocumento solo responde dentro de la frontera mTLS
@@ -221,7 +227,7 @@ func (f fuenteCircuitoFirmaReglasDesarrollo) CircuitoFirma(ctx context.Context) 
 		doc := ctdomain.CircuitoFirmaDocumento{Documento: d.Documento, Etiqueta: d.Etiqueta}
 		for _, p := range d.Pasos {
 			doc.Pasos = append(doc.Pasos, ctdomain.PasoCircuitoFirma{Orden: p.Orden, Cargo: p.Cargo, PerfilRef: p.PerfilRef,
-				Accion: string(p.Accion), Devolucion: ctdomain.DevolucionPasoFirma(p.Devolucion), Referencia: p.Referencia})
+				Accion: string(p.Accion), Devolucion: ctdomain.DevolucionPasoFirma(p.Devolucion), Habilita: string(p.Habilita), Referencia: p.Referencia})
 		}
 		salida.Documentos = append(salida.Documentos, doc)
 	}
@@ -247,8 +253,16 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	if f.informeTrasSubsanacion != nil && servicio.AbrirRondaInformeNuevo(f.informeTrasSubsanacion, f.registro) != nil {
+		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
+		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	// Con el registro de firmas compuesto, la remisión a Intervención exige
+	// la firma del paso que la habilita según el circuito del catálogo.
+	if f.fiscalizacion.ExigirFirmaRemision(servicio) != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	return []vechttp.RutaExacta{

@@ -21,7 +21,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
-	if ruta == httpinterno.RutaSubsanacionReparos || rutaSeguimientoCeseDesarrollo(ruta) {
+	if ruta == httpinterno.RutaSubsanacionReparos || rutaSeguimientoCeseDesarrollo(ruta) || rutaCancelacionCTDesarrollo(ruta) {
 		dinamica = true
 	}
 	if !valida || !dinamica {
@@ -57,6 +57,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	} else if rutaPeticionCentroDesarrollo(ruta) {
 		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		// La cancelación por el centro liga el expediente exacto: los
+		// ámbitos son los del recurso, con el centro ya cotejado.
+		if m, ok := ctx.Value(claveMaterialPeticionCentroDesarrollo{}).(materialAutorizacionPeticionCentroDesarrollo); ok && m.cancelacion != nil {
+			instantanea.AsignacionPerfil.Ambitos = m.cancelacion.ambitos()
 		}
 	} else if ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
 		if !solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos) {
@@ -106,6 +111,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 	} else if rutaSeguimientoCeseDesarrollo(ruta) {
 		ambitos, valida := s.ambitosSeguimientoCese(ruta, datos)
+		if !valida {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		instantanea.AsignacionPerfil.Ambitos = ambitos
+	} else if rutaCancelacionCTDesarrollo(ruta) {
+		ambitos, valida := s.ambitosCancelacionCT(ruta, datos)
 		if !valida {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}

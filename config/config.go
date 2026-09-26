@@ -170,6 +170,8 @@ type Config struct {
 	CTFirmaRegistroEnabled                      string
 	BolsaPortalCandidatoEnabled                 string
 	CTSeguimientoCeseEnabled                    string
+	CTCancelacionEnabled                        string
+	CTIncorporacionAcreditadaEnabled            string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
 	FirmaVerificacionEnabled                    string
@@ -184,6 +186,7 @@ type Config struct {
 	PersonalB2GobiernoEnabled                   string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
+	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 	CalendariosPostgreSQL                       ConfiguracionCalendarios
@@ -261,6 +264,8 @@ func Load() Config {
 		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
 		BolsaPortalCandidatoEnabled:        envFirst(EnvBolsaPortalCandidatoEnabled),
 		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
+		CTCancelacionEnabled:               envFirst(EnvCTCancelacionEnabled),
+		CTIncorporacionAcreditadaEnabled:   envFirst(EnvCTIncorporacionAcreditadaEnabled),
 		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
@@ -283,6 +288,7 @@ func Load() Config {
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
 		},
+		BolsaRelevoNoIncorporacionPostgreSQL: NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
 			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
 			dsnGobierno:  envFirst(EnvContratacionTemporalGobiernoDatabaseURL),
@@ -396,6 +402,8 @@ func (c Config) Normalize() Config {
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)
 	c.CTSeguimientoCeseEnabled = strings.TrimSpace(c.CTSeguimientoCeseEnabled)
+	c.CTCancelacionEnabled = strings.TrimSpace(c.CTCancelacionEnabled)
+	c.CTIncorporacionAcreditadaEnabled = strings.TrimSpace(c.CTIncorporacionAcreditadaEnabled)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)
@@ -410,6 +418,7 @@ func (c Config) Normalize() Config {
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
+	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ContratacionTemporalPostgreSQL = c.ContratacionTemporalPostgreSQL.normalizar()
 	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)

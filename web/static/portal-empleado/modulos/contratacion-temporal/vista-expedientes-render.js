@@ -9,6 +9,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
@@ -122,10 +123,12 @@ export function contextoFiscalizacionDesdeEstado(estado) {
   if (resumen?.version !== estado.expediente.version) return null;
   const esInformeInicial = resumen.fase_clave === "informe_juridico";
   const ultimoHito = estado.expediente.historial?.at?.(-1);
+  // Tras subsanar, o tras el informe nuevo que el catálogo pide (duda 5).
   const esSubsanacionAutorizada = resumen.fase_clave === "subsanacion_unidad"
     && resumen.estado_clave === "incidencia"
-    && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
-    && ultimoHito.version_expediente === estado.expediente.version;
+    && ((ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
+      && ultimoHito.version_expediente === estado.expediente.version)
+      || informeNuevoEmitidoEnSubsanacion(estado));
   if (!esInformeInicial && !esSubsanacionAutorizada) return null;
   const informe = estado.expediente.cabecera?.find(
     ({ clave }) => clave === "informe_ref",
@@ -409,7 +412,8 @@ export function renderizarModuloContratacionTemporal(estado, {
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
       : ""}${subsanacionRegistrada
-      ? `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("subsanacion_registrada_pendiente_fiscalizacion"))}</p><div data-ct-exp-recuperar-archivo></div>`
+      ? `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("subsanacion_registrada_pendiente_fiscalizacion"))}</p>${informeJuridicoDisponible ? "<div data-ct-exp-informe-nuevo></div>" : ""}<div data-ct-exp-recuperar-archivo></div>`
+      : contextoSubsanacion && informeNuevoEmitidoEnSubsanacion(estado) ? renderizarAvisoInformeNuevoEmitido(mensajes)
       : contextoSubsanacion ? '<div data-ct-exp-subsanacion></div>' : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
       ${incorporacionEjercicioDisponible ? '<div data-ct-exp-incorporacion-ejercicio></div>' : ""}`;
   } else if (estado.vista === "documentos") {

@@ -23,7 +23,7 @@ func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	if ctx == nil || pool == nil || soporte == nil ||
 		soporte.contexto.Resultado.Validar() != nil ||
 		soporte.instantanea.Validar() != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if err := publicarContextoPostgreSQLContratacionTemporalDesarrollo(
 		ctx, pool, soporte,
@@ -33,15 +33,15 @@ func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 		ctx, pool, soporte,
 	); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if err := publicarMotivosPostgreSQLContratacionTemporalDesarrollo(
 		ctx, pool, soporte,
 	); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if err := publicarMotivoEleccionProcedimientoRRHHPostgreSQL(ctx, pool, soporte.reloj.Ahora()); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func publicarContextoPostgreSQLContratacionTemporalDesarrollo(
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
 	if soporte == nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	return publicarResultadoContextoPostgreSQLDesarrollo(
 		ctx, pool, soporte.contexto.Resultado,
@@ -79,7 +79,7 @@ func publicarResultadoContextoPostgreSQLDesarrollo(
 	operacionRef string,
 ) error {
 	if ctx == nil || pool == nil || operacionRef == "" || resultado.Validar() != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	actor := resultado.Contexto
 	instantanea := actor.Instantanea
@@ -88,28 +88,28 @@ func publicarResultadoContextoPostgreSQLDesarrollo(
 	)
 	if err != nil || manifiesto.ValidarParaContexto(actor) != nil ||
 		len(instantanea.Vinculos) != 0 || len(manifiesto.Vinculos) != 0 {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	procedencia := manifiesto.Cuenta.AcreditacionProcedenciaComponenteContextoActorV1
 	if manifiesto.Persona.AcreditacionProcedenciaComponenteContextoActorV1 != procedencia ||
 		manifiesto.Perfil.AcreditacionProcedenciaComponenteContextoActorV1 != procedencia ||
 		manifiesto.Contexto.AcreditacionProcedenciaComponenteContextoActorV1 != procedencia {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer tx.Rollback(context.Background())
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+
 		rolPropietarioContextoContratacionTemporalDesarrollo); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if _, err = tx.Exec(ctx, `
 		SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`,
 		"vec:ct:desarrollo:autoridad:"+procedencia.ProcedenciaRef,
 	); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	consultas := []struct {
 		sql  string
@@ -198,7 +198,7 @@ func publicarResultadoContextoPostgreSQLDesarrollo(
 	}
 	for _, consulta := range consultas {
 		if _, err = tx.Exec(ctx, consulta.sql, consulta.args...); err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 	}
 	var coincide bool
@@ -267,10 +267,10 @@ func publicarResultadoContextoPostgreSQLDesarrollo(
 		string(instantanea.Estado), instantanea.VigenteDesde, instantanea.VigenteHasta,
 	).Scan(&coincide)
 	if err != nil || !coincide {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }
@@ -287,10 +287,10 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 		ctx, soporte.instantanea, true,
 	)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if err := autoridad.publicarInstantanea(ctx, instantanea); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	soporte.mu.Lock()
 	soporte.instantanea = instantanea
@@ -338,7 +338,7 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) prepararInstantanea(
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	preparada, err := a.autoridadComun().prepararInstantanea(ctx, solicitada, permitirInicial)
 	if err != nil {
-		return dominiovec.InstantaneaAutorizacion{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return dominiovec.InstantaneaAutorizacion{}, falloPostgreSQLCTDesarrollo(err)
 	}
 	return preparada, nil
 }
@@ -348,7 +348,7 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) publicarInstantanea(
 	instantanea dominiovec.InstantaneaAutorizacion,
 ) error {
 	if err := a.autoridadComun().publicarInstantanea(ctx, instantanea); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }

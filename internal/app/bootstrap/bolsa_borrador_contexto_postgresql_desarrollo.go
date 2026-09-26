@@ -22,12 +22,12 @@ func publicarContextoPostgreSQLBorradorBolsaDesarrollo(
 	soporte *soporteSesionBorradorBolsaDesarrollo,
 ) error {
 	if soporte == nil || soporte.soporteCanal == nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	contexto := soporte.soporteCanal.contexto
 	if contexto.Resultado.Validar() != nil ||
 		contexto.Vinculo.ValidarPara(contexto.Resultado) != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	return publicarResultadoContextoPostgreSQLDesarrollo(
 		ctx, pool, contexto.Resultado, operacionContextoBorradorBolsaDesarrollo(),

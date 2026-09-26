@@ -41,7 +41,9 @@ func TestPoliticaSegregacionEjemploSePublicaDesdeElCatalogo(t *testing.T) {
 		t.Fatalf("publicaciones=%d", len(publicador.publicadas))
 	}
 	p := publicador.publicadas[0]
-	if !slices.Equal(p.Politica.Operaciones(), []string{dominiobolsa.OperacionExcluir}) ||
+	// El paquete de ejemplo pide segunda persona también en la pausa y la
+	// reactivación: la política existente lo aplica sin cambios de código.
+	if !slices.Equal(p.Politica.Operaciones(), []string{dominiobolsa.OperacionPausar, dominiobolsa.OperacionReactivar, dominiobolsa.OperacionExcluir}) ||
 		p.CatalogoRef != "vec.bolsa.roles_segregacion:1:s01.segunda_persona" || len(p.CatalogoSHA256) != 64 {
 		t.Fatalf("publicación inesperada: %+v %v", p, p.Politica.Operaciones())
 	}
@@ -60,7 +62,7 @@ func TestPoliticaSegregacionInvalidaOFallidaImpideArrancar(t *testing.T) {
 		t.Fatal(err)
 	}
 	sinExclusion := filepath.Join(t.TempDir(), "roles.demo.json")
-	if err := os.WriteFile(sinExclusion, []byte(strings.Replace(string(original), `"valor": "excluir"`, `"valor": "pausar"`, 1)), 0o600); err != nil {
+	if err := os.WriteFile(sinExclusion, []byte(strings.Replace(string(original), `"valor": "pausar,reactivar,excluir"`, `"valor": "pausar"`, 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	publicador := &publicadorPoliticaSegregacionPrueba{}

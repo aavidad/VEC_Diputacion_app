@@ -404,3 +404,34 @@ func comprobarRespuestaSeguraAnalisisRRHH(
 		t.Fatalf("cabeceras inseguras: %#v", respuesta.Header())
 	}
 }
+
+func TestManejadorAnalisisRRHHTrasladaLaUrgenciaDeclarada(t *testing.T) {
+	contexto := contextoCanalAnalisisRRHHPrueba()
+	for _, caso := range []struct {
+		nombre, campo string
+		estado        int
+		motivo        string
+	}{
+		{"con motivo", `"urgencia_motivo":"Cierre del centro de día",`, http.StatusCreated, "Cierre del centro de día"},
+		{"sin urgencia", ``, http.StatusCreated, ""},
+		{"motivo excesivo", `"urgencia_motivo":"` + strings.Repeat("x", 1001) + `",`, http.StatusUnprocessableEntity, ""},
+		{"motivo no textual", `"urgencia_motivo":true,`, http.StatusBadRequest, ""},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			ejecutor := &ejecutorAnalisisRRHHPrueba{recibo: reciboAnalisisRRHHPrueba(ports.OperacionRegistrarAnalisis, 1)}
+			manejador, err := NuevoManejadorAnalisisRRHH(&autoridadAnalisisRRHHPrueba{contexto: contexto}, ejecutor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cuerpo := strings.Replace(cuerpoRegistroAnalisisRRHHPrueba(), `"analisis":{`, `"analisis":{`+caso.campo, 1)
+			respuesta := httptest.NewRecorder()
+			manejador.ServeHTTP(respuesta, nuevaPeticionAnalisisRRHHPrueba(RutaRegistroAnalisisRRHH, cuerpo))
+			if respuesta.Code != caso.estado {
+				t.Fatalf("estado %d: %s", respuesta.Code, respuesta.Body.String())
+			}
+			if caso.estado == http.StatusCreated && ejecutor.solicitudRegistro.DatosFuncionales.MotivoUrgencia != caso.motivo {
+				t.Fatalf("motivo recibido %q", ejecutor.solicitudRegistro.DatosFuncionales.MotivoUrgencia)
+			}
+		})
+	}
+}

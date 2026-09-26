@@ -7,7 +7,6 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 )
 
@@ -31,7 +30,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 ) (dependenciasCoberturaContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasCoberturaContratacionTemporalDesarrollo{}
 	if dependenciasCT == nil {
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
 	derivador := dependenciasCT.derivador
 	reloj := dependenciasCT.reloj
@@ -40,7 +39,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		alta.postgresql.ejecucion == nil ||
 		alta.postgresql.confirmador == nil ||
 		alta.postgresql.lectorResultado == nil {
-		return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
 
 	lectorAnalisis, err :=
@@ -187,10 +186,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		reloj,
 		gobierno,
 		motivos,
-		[]application.MotivoAlternativaCobertura{
-			{ViaClave: "oferta_sae", Clave: domain.ClaveCatalogo(motivoEleccionProcedimientoRRHHDesarrollo().EntradaClave), EtiquetaI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh"},
-			{ViaClave: "nueva_convocatoria_bolsa", Clave: domain.ClaveCatalogo(motivoEleccionProcedimientoRRHHDesarrollo().EntradaClave), EtiquetaI18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh"},
-		},
+		motivosAlternativaViasCoberturaCT(catalogoAnalisisOpcional(catalogos...).opcionesAnalisis().viasCoberturaVigentes()),
 		preparador,
 	)
 	if err != nil {

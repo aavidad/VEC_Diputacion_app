@@ -53,6 +53,9 @@ type catalogosAltaContratacionTemporalDesarrollo struct {
 	Categorias []categoriaCatalogosAltaContratacionTemporalDesarrollo        `json:"categorias"`
 	Motivos    []opcionClaveCatalogosAltaContratacionTemporalDesarrollo      `json:"motivos"`
 	Documentos []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo `json:"documentos"`
+	// analisis son las opciones del análisis RRHH resueltas del catálogo de
+	// reglas; nulo significa las de siempre. No se publica con el alta.
+	analisis *opcionesAnalisisCTDesarrollo
 }
 
 type respuestaCatalogosAltaContratacionTemporalDesarrollo struct {

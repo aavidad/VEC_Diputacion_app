@@ -216,6 +216,13 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoCeseV1,
 		ports.AudienciaConsumoCierreExpedienteV1,
 		ports.AudienciaConsumoModificacionNombramientoV1,
+		// Cancelación del expediente (AD3-87); solo con VEC_CT_CANCELACION_ENABLED.
+		ports.AudienciaConsumoCancelacionV1,
+		// Confirmación de GINPIX (AD3-88); solo se publica con
+		// VEC_CT_INCORPORACION_ACREDITADA_ENABLED.
+		ports.AudienciaConsumoConfirmacionGINPIXV1,
+		// No incorporación (AD3-88), con el mismo selector.
+		ports.AudienciaConsumoNoIncorporacionV1,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se
@@ -430,7 +437,7 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		!audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 			material.audienciaConsumo,
 		) {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	return ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
 		return publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, material)
@@ -515,7 +522,7 @@ func publicarGobiernoAtestacionCTEnTxDesarrollo(ctx context.Context, tx pgx.Tx, 
 	}
 	for _, consulta := range consultas {
 		if _, err := tx.Exec(ctx, consulta.sql, consulta.args...); err != nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(err)
 		}
 	}
 	var coincide bool
@@ -556,7 +563,7 @@ func publicarGobiernoAtestacionCTEnTxDesarrollo(ctx context.Context, tx pgx.Tx, 
 		material.claveHMACOrden,
 	).Scan(&coincide)
 	if err != nil || !coincide {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }
@@ -565,13 +572,13 @@ func publicarGobiernoAtestacionCTEnTxDesarrollo(ctx context.Context, tx pgx.Tx, 
 func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, operar func(pgx.Tx) error) error {
 	conexion, err := pool.Acquire(ctx)
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if _, err = conexion.Exec(ctx, `
 		SELECT pg_catalog.pg_advisory_lock(
 		 pg_catalog.hashtextextended('vec:ct:desarrollo:gobierno-atestacion',0))`); err != nil {
 		conexion.Release()
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	defer func() {
 		ctxDesbloqueo, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
@@ -588,7 +595,7 @@ func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.
 	}()
 	tx, err := conexion.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	// Plazo propio también para ROLLBACK: se ejecuta con f.mu tomado por la
 	// renovación y no debe esperar indefinidamente a una red cortada.
@@ -598,13 +605,13 @@ func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.
 		_ = tx.Rollback(ctxRollback)
 	}()
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	if err := operar(tx); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }

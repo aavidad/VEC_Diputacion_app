@@ -108,7 +108,7 @@ func TestFuenteCoberturaDesarrolloDelimitaComprobacionesSinteticasV2(t *testing.
 				Clave: caso.procedencia, DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
 			},
 		}
-		if !comprobacionFuenteCoberturaDesarrolloValida(caso.via, comprobacion, fuente.backendRef) {
+		if !comprobacionFuenteCoberturaDesarrolloValida(viasCoberturaPredeterminadasCT(), caso.via, comprobacion, fuente.backendRef) {
 			t.Fatalf("tupla v2 rechazada: %#v", caso)
 		}
 		resultado, existe := fuente.resultadoPara(
@@ -125,7 +125,7 @@ func TestFuenteCoberturaDesarrolloDelimitaComprobacionesSinteticasV2(t *testing.
 			Clave: "bolsa", DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
 		},
 	}
-	if comprobacionFuenteCoberturaDesarrolloValida("oferta_sae", incorrecta, fuente.backendRef) {
+	if comprobacionFuenteCoberturaDesarrolloValida(viasCoberturaPredeterminadasCT(), "oferta_sae", incorrecta, fuente.backendRef) {
 		t.Fatal("se aceptó el cruce de procedencia SAE/Bolsa")
 	}
 	if _, existe := fuente.resultadoPara(
@@ -368,7 +368,7 @@ func assertSecretosFuentesCoberturaBorrados(
 
 func TestFuenteCoberturaDesarrolloRespondePorCualquierCategoriaDelCatalogo(t *testing.T) {
 	t.Parallel()
-	fuente := &fuenteComprobacionCoberturaDesarrollo{registros: registrosCoberturaSinteticosDesarrollo()}
+	fuente := &fuenteComprobacionCoberturaDesarrollo{registros: registrosCoberturaSinteticosDesarrollo(viasCoberturaPredeterminadasCT())}
 	periodo := domain.PeriodoPrevisto{
 		Inicio: time.Date(2027, 2, 4, 0, 0, 0, 0, time.UTC),
 		Fin:    time.Date(2027, 5, 5, 0, 0, 0, 0, time.UTC),

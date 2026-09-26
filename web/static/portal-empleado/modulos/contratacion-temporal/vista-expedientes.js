@@ -18,9 +18,11 @@ import {
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huella-archivo-v1";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
+import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -160,6 +162,7 @@ export async function montarModuloContratacionTemporal({
   function retirarSeguimientoCese() {
     desmontarSeguimientoCese?.();
     desmontarSeguimientoCese = null;
+    gestorCancelacion.retirar();
   }
 
   // Cese, cierre y modificación tras el nombramiento: panel propio que se
@@ -193,6 +196,17 @@ export async function montarModuloContratacionTemporal({
   }
 
   const esMontada = () => montada;
+
+  // Cancelación antes de la fiscalización: panel propio en fichero aparte.
+  const gestorCancelacion = montarCancelacionSiProcede({
+    raiz, cliente: clienteLlamamiento?.cancelacion, mensajes, locale, anunciar, confirmarOperacion,
+    recargar: async (expedienteRef) => {
+      await presentador.cargar();
+      if (!montada) return;
+      await presentador.seleccionarExpediente(expedienteRef, "expediente");
+      repintar("[data-ct-exp-cancelacion]");
+    },
+  });
 
   const gestorCircuitoFirma = crearGestorCircuitoFirma({
     raiz,
@@ -248,6 +262,20 @@ export async function montarModuloContratacionTemporal({
         version_esperada: recibo.version_resultante,
       });
     },
+    confirmarOperacion,
+    mensajes,
+    locale,
+    zonaHoraria,
+    anunciar,
+    repintar: (foco) => repintar(foco),
+    esMontada,
+  });
+
+  const gestorInformeTrasSubsanacion = crearGestorInformeTrasSubsanacion({
+    raiz,
+    presentador,
+    cliente: informeJuridicoDisponible ? composicionAnalisis.cliente : null,
+    disponible: informeJuridicoDisponible,
     confirmarOperacion,
     mensajes,
     locale,
@@ -339,6 +367,7 @@ export async function montarModuloContratacionTemporal({
     desmontarLlamamiento = null;
     gestorIncorporacion.retirar();
     gestorTramitacion.retirarComponentes();
+    gestorInformeTrasSubsanacion.retirar();
     retirarSeguimientoCese();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
@@ -387,7 +416,9 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.montarInformeDesdeExpedienteActual();
       gestorTramitacion.montarFiscalizacionDesdeExpedienteActual();
       gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
+      gestorInformeTrasSubsanacion.montarSiProcede();
       montarSeguimientoCeseSiProcede(estado);
+      gestorCancelacion.montar(estado);
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (estado.mensaje_clave) {
@@ -619,6 +650,7 @@ export async function montarModuloContratacionTemporal({
       desmontarLlamamiento = null;
       gestorIncorporacion.retirar();
       gestorTramitacion.retirarComponentes();
+      gestorInformeTrasSubsanacion.retirar();
       retirarSeguimientoCese();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);

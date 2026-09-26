@@ -20,8 +20,9 @@ func (s *ServicioConsultaCuadroRRHH) ConfigurarPlazosFase(
 }
 
 type clavePlazoFaseCuadro struct {
-	fase  domain.ClaveFase
-	desde time.Time
+	fase    domain.ClaveFase
+	desde   time.Time
+	urgente bool
 }
 
 // calcularPlazosFase devuelve el vencimiento de la fase actual de cada
@@ -46,7 +47,10 @@ func (s *ServicioConsultaCuadroRRHH) calcularPlazosFase(
 		if ctx.Err() != nil {
 			return nil
 		}
-		clave := clavePlazoFaseCuadro{fase: resumen.FaseClave, desde: pagina.FasesDesde[indice]}
+		clave := clavePlazoFaseCuadro{
+			fase: resumen.FaseClave, desde: pagina.FasesDesde[indice],
+			urgente: len(pagina.Urgentes) == len(pagina.Expedientes) && pagina.Urgentes[indice],
+		}
 		plazo, visto := calculados[clave]
 		if !visto {
 			plazo = s.calcularPlazoFase(ctx, clave, ahora)
@@ -70,7 +74,7 @@ func (s *ServicioConsultaCuadroRRHH) calcularPlazoFase(
 	ahora time.Time,
 ) *ports.PlazoFaseRRHH {
 	plazo, aplicable, err := s.plazos.CalcularPlazoFase(ctx, ports.SolicitudPlazoFaseRRHH{
-		Fase: clave.fase, Desde: clave.desde, Ahora: ahora,
+		Fase: clave.fase, Desde: clave.desde, Ahora: ahora, Urgente: clave.urgente,
 	})
 	switch {
 	case err != nil:

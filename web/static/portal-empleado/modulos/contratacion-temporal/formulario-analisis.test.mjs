@@ -174,15 +174,23 @@ test("la configuración y el contexto son cerrados y no aceptan autoridad del fo
     catalogos: crearCatalogos(),
     perfil: "rrhh",
   }), /configuración del formulario/u);
-  const catalogosIncompletos = crearCatalogos();
-  catalogosIncompletos.modalidades[4] = {
-    clave: "otra_modalidad", etiqueta: "Otra modalidad",
-  };
+  // Las modalidades las publica el catálogo: una modalidad nueva se admite,
+  // pero una repetida o con clave mal formada no.
+  const catalogosRepetidos = crearCatalogos();
+  catalogosRepetidos.modalidades[4] = { ...catalogosRepetidos.modalidades[0] };
   assert.throws(() => montarFormularioAnalisisRRHH({
     raiz: raiz.raiz,
     cliente,
     contexto: crearContexto(),
-    catalogos: catalogosIncompletos,
+    catalogos: catalogosRepetidos,
+  }), /modalidades/u);
+  const catalogosMalFormados = crearCatalogos();
+  catalogosMalFormados.modalidades[4] = { clave: "Otra Modalidad", etiqueta: "Otra" };
+  assert.throws(() => montarFormularioAnalisisRRHH({
+    raiz: raiz.raiz,
+    cliente,
+    contexto: crearContexto(),
+    catalogos: catalogosMalFormados,
   }), /modalidades/u);
 });
 

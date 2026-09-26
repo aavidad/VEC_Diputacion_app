@@ -28,7 +28,7 @@ func abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx context.Context, configuraci
 	 AND pg_catalog.pg_has_role(session_user,r.oid,'MEMBER'))`).Scan(&separada)
 	if err != nil || !separada {
 		pool.Close()
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
 	return pool, nil
 }

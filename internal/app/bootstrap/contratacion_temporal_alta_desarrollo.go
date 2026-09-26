@@ -72,7 +72,11 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
-	origen                            *origenConsultasContratacionTemporalDesarrollo
+	origen *origenConsultasContratacionTemporalDesarrollo
+	// opcionesCatalogo son las opciones del catálogo de reglas que se
+	// publican al abrir PostgreSQL (vías de cobertura y numeración); nulo
+	// significa las de siempre.
+	opcionesCatalogo                  *opcionesAnalisisCTDesarrollo
 	peticionesCentro                  bool
 	candidatoBolsa                    bool
 	mu                                sync.Mutex
@@ -118,6 +122,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaSubsanacion             dominiovec.InstantaneaAutorizacion
 	instantaneaFirmaDocumento          dominiovec.InstantaneaAutorizacion
 	seguimientoCese                    *soporteSeguimientoCeseDesarrollo
+	cancelacion                        *soporteCancelacionCTDesarrollo
 	motivoCuadroRRHH                   dominiovec.ReferenciaEntradaCatalogo
 	motivoDetalleRRHH                  dominiovec.ReferenciaEntradaCatalogo
 	motivoLlamamiento                  dominiovec.ReferenciaEntradaCatalogo
@@ -151,6 +156,9 @@ type dependenciasAltaContratacionTemporalDesarrollo struct {
 	servicio    *application.ServicioRegistroSolicitud
 	autorizador autorizadorLigadoContratacionTemporalDesarrollo
 	postgresql  dependenciasPostgreSQLContratacionTemporalDesarrollo
+	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
+	// el canal del centro; nula mientras la capacidad no esté compuesta.
+	cancelacion *piezasCancelacionCTDesarrollo
 }
 
 func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {
@@ -277,8 +285,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		}
 	}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
-		origen: origen,
-		sello:  sello, principalID: principal.ID,
+		origen: origen, opcionesCatalogo: dependenciasCT.opcionesCatalogoCT,
+		sello: sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
 		instantaneaAnalisis:          instantaneaAnalisis,

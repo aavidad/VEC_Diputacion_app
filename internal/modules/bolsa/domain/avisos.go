@@ -13,11 +13,19 @@ const (
 	// Portal del candidato: solicitudes pendientes de validar y respuestas.
 	AvisoSolicitudPortal = "solicitud_portal"
 	AvisoRespuestaPortal = "respuesta_portal"
+	// AvisoEncadenamiento: la persona supera el umbral de contratos en la
+	// ventana del catálogo (b17). Solo con Bolsa 000041.
+	AvisoEncadenamiento = "encadenamiento"
+	// AvisoNoIncorporacionRevision: una no incorporación publicada por
+	// Contratación temporal que Bolsa no ha podido aplicar (sin aceptación,
+	// consecuencia fuera de la política, transición no admitida...). Queda
+	// para RRHH y el siguiente llamamiento espera. Solo con Bolsa 000042.
+	AvisoNoIncorporacionRevision = "no_incorporacion_revision"
 )
 
 // TiposAvisoRRHH enumera los avisos que puede recibir la bandeja de RRHH.
 func TiposAvisoRRHH() []string {
-	return []string{AvisoSaltoOrden, AvisoTresAnos, AvisoSolicitudPortal, AvisoRespuestaPortal}
+	return []string{AvisoSaltoOrden, AvisoTresAnos, AvisoSolicitudPortal, AvisoRespuestaPortal, AvisoEncadenamiento, AvisoNoIncorporacionRevision}
 }
 
 func tipoAvisoRRHHValido(tipo string) bool {

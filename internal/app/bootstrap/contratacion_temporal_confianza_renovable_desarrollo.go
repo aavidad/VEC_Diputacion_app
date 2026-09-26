@@ -33,7 +33,7 @@ type fuenteConfianzaRenovableCTDesarrollo struct {
 
 func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAtestacionContratacionTemporalDesarrollo, reloj relojConfianzaCTDesarrollo) (*fuenteConfianzaRenovableCTDesarrollo, error) {
 	if pool == nil || reloj == nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	servicio, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(m.configuracion, reloj)
 	if err != nil {
@@ -76,7 +76,7 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) nuevoLector() (*gobiernov3lector.
 	return gobiernov3lector.Nuevo(publicacionConfianzaCT(f.material), f.material.raiz, f.reloj,
 		func(ctx context.Context, previa gobiernov3lector.Publicacion) (gobiernov3lector.Publicacion, error) {
 			if f.leer == nil {
-				return gobiernov3lector.Publicacion{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+				return gobiernov3lector.Publicacion{}, falloPostgreSQLCTDesarrollo(nil)
 			}
 			anterior := f.material
 			anterior.configuracionRef, anterior.configuracionOrden = previa.Revision, previa.Secuencia
@@ -287,15 +287,15 @@ func renovarConfiguracionConfianzaCTEnTxDesarrollo(ctx context.Context, tx pgx.T
 	if _, err := tx.Exec(ctx, `INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version
  (revision,secuencia,huella_configuracion_sha256,publicada_en,expira_en,acto_ref)
  VALUES ($1,$2,$3,$4,$5,$6)`, siguiente.configuracionRef, siguiente.configuracionOrden, siguiente.configuracionHuella, dia, siguiente.expiraEn, acto); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
  (configuracion_revision,raiz_clave_id,raiz_version) VALUES ($1,$2,$3)`, siguiente.configuracionRef, siguiente.claveID, siguiente.claveVersion); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
  (orden,configuracion_revision,establecida_en,acto_ref) VALUES ($1,$2,$3,$4)`, siguiente.configuracionOrden, siguiente.configuracionRef, dia, puntero); err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	comprobada, err := leerConfiguracionRenovableCTDesarrollo(ctx, tx, anterior, ahora)
 	if err != nil || comprobada.configuracionRef != siguiente.configuracionRef || comprobada.configuracionHuella != siguiente.configuracionHuella {
@@ -370,7 +370,7 @@ func leerConfiguracionRenovableCTDesarrollo(ctx context.Context, tx pgx.Tx, ante
 
 func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) instantaneaConfianza(ctx context.Context) (*confianza.ServicioConfianzaAtestacionAutorizacionV3, error) {
 	if p == nil || p.confianza == nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	if p.fuenteConfianza != nil {
 		return p.fuenteConfianza.instantanea(ctx)
@@ -396,7 +396,7 @@ type emisorMaterialRenovableCTDesarrollo struct {
 
 func nuevoEmisorMaterialRenovableCTDesarrollo(a vp.AutorizadorSolicitudLigadaV3, p *proveedorMaterialAltaContratacionTemporalDesarrollo) (*emisorMaterialRenovableCTDesarrollo, error) {
 	if p == nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	if _, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(a, p.atestador, p.confianza, p.emisor); err != nil {
 		return nil, err

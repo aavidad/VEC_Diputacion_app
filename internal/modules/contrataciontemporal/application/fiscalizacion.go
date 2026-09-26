@@ -66,6 +66,47 @@ type ServicioFiscalizaciones struct {
 	autorizador   puertosvec.AutorizadorSolicitudLigadaV3
 	reloj         ports.Reloj
 	transaccion   ports.TransaccionFiscalizaciones
+	// firmaRemision es nil salvo con el registro de firmas compuesto: sin él
+	// la remisión no exige firma, como antes de la duda 4.
+	firmaRemision ports.ComprobadorFirmaRemisionFiscalizacion
+	// resultados es nil sin catálogo de reglas: rigen los tres resultados
+	// con su efecto de siempre.
+	resultados ports.FuenteResultadosFiscalizacion
+	// informeTrasSubsanacion es nil sin catálogo: tras subsanar se fiscaliza
+	// de nuevo con el mismo informe, como siempre.
+	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
+}
+
+// GobernarInformeTrasSubsanacion hace que la nueva fiscalización tras subsanar
+// exija el informe jurídico nuevo cuando el catálogo lo pide (duda 5). Se fija
+// una sola vez al componer.
+func (s *ServicioFiscalizaciones) GobernarInformeTrasSubsanacion(f ports.FuenteInformeTrasSubsanacion) error {
+	if s == nil || dependenciaNula(f) || s.informeTrasSubsanacion != nil {
+		return ErrServicioFiscalizacionesInvalido
+	}
+	s.informeTrasSubsanacion = f
+	return nil
+}
+
+// GobernarResultados hace que la fiscalización solo admita los resultados que
+// el catálogo vigente declara (duda 5). Se fija una sola vez al componer.
+func (s *ServicioFiscalizaciones) GobernarResultados(f ports.FuenteResultadosFiscalizacion) error {
+	if s == nil || dependenciaNula(f) || s.resultados != nil {
+		return ErrServicioFiscalizacionesInvalido
+	}
+	s.resultados = f
+	return nil
+}
+
+// ExigirFirmaRemision hace que la fiscalización compruebe antes del efecto que
+// el paso de firma que habilita la remisión a Intervención está firmado. Se
+// fija una sola vez durante la composición, antes de publicar las rutas.
+func (s *ServicioFiscalizaciones) ExigirFirmaRemision(c ports.ComprobadorFirmaRemisionFiscalizacion) error {
+	if s == nil || dependenciaNula(c) || s.firmaRemision != nil {
+		return ErrServicioFiscalizacionesInvalido
+	}
+	s.firmaRemision = c
+	return nil
 }
 
 func NuevoServicioFiscalizaciones(
@@ -191,6 +232,11 @@ func (s *ServicioFiscalizaciones) Registrar(
 	if preparacion.Estado == ports.PreparacionFiscalizacionConfirmada {
 		return *preparacion.ReciboConfirmado, nil
 	}
+	if err := s.comprobarCatalogoYFirma(
+		ctxOperacion, preparacion.Expediente, material.Resultado,
+	); err != nil {
+		return ports.ReciboFiscalizacion{}, err
+	}
 
 	faseDestino, estadoDestino := preparacion.Expediente.DestinoFiscalizacion(material.Resultado)
 	retornoRef := ""
@@ -239,6 +285,43 @@ func (s *ServicioFiscalizaciones) Registrar(
 		return ports.ReciboFiscalizacion{}, ErrResultadoFiscalizacionNoConfiable
 	}
 	return recibo, nil
+}
+
+// comprobarCatalogoYFirma aplica, antes del efecto, el resultado admitido por
+// el catálogo (duda 5) y la firma que habilita la remisión (duda 4). Sin
+// catálogo ni registro de firmas no exige nada.
+func (s *ServicioFiscalizaciones) comprobarCatalogoYFirma(
+	ctx context.Context, expediente domain.Expediente,
+	resultado domain.ResultadoFiscalizacion,
+) error {
+	organizacionRef, expedienteRef := expediente.OrganizacionRef, expediente.Referencia
+	if s.informeTrasSubsanacion != nil && expediente.RefiscalizacionEsperaInformeNuevo() {
+		politica, err := s.informeTrasSubsanacion.InformeTrasSubsanacion(ctx)
+		if err != nil || politica.Validar() != nil {
+			return clasificarFalloFiscalizacion(ctx, ports.ErrPersistenciaFiscalizacionNoDisponible)
+		}
+		if politica.ExigeInformeNuevo {
+			return ports.ErrInformeNuevoPendiente
+		}
+	}
+	if s.resultados != nil {
+		politica, err := s.resultados.ResultadosFiscalizacion(ctx)
+		if err != nil {
+			return clasificarFalloFiscalizacion(ctx, err)
+		}
+		if !politica.Admite(resultado) {
+			return ports.ErrResultadoFiscalizacionNoAdmitido
+		}
+	}
+	if s.firmaRemision != nil {
+		if err := s.firmaRemision.ComprobarFirmaRemision(ctx, organizacionRef, expedienteRef); err != nil {
+			if errors.Is(err, ports.ErrFirmaRemisionPendiente) && ctx.Err() == nil {
+				return ports.ErrFirmaRemisionPendiente
+			}
+			return clasificarFalloFiscalizacion(ctx, err)
+		}
+	}
+	return nil
 }
 
 // RegistrarResultado conserva la frontera esperada por el adaptador HTTP;
@@ -359,6 +442,9 @@ func clasificarFalloFiscalizacion(ctx context.Context, causa error) error {
 	}
 	if errors.Is(causa, ports.ErrClaveIdempotenciaUsada) {
 		return ports.ErrClaveIdempotenciaUsada
+	}
+	if errors.Is(causa, ports.ErrInformeNuevoPendiente) {
+		return ports.ErrInformeNuevoPendiente
 	}
 	if errors.Is(causa, ErrFiscalizacionDenegada) {
 		return ErrFiscalizacionDenegada

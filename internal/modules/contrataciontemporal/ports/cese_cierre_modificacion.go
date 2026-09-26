@@ -145,6 +145,12 @@ func DominiosHMACOperacionSeguimiento(operacion string) (ambito, huella string, 
 		return DominioAmbitoIdempotenciaCierreExpediente, DominioHuellaPeticionCierreExpediente, true
 	case OperacionModificarTrasNombramiento:
 		return DominioAmbitoIdempotenciaModificacionNombrado, DominioHuellaPeticionModificacionNombrado, true
+	case OperacionCancelarExpediente:
+		return DominioAmbitoIdempotenciaCancelacion, DominioHuellaPeticionCancelacion, true
+	case OperacionConfirmarGINPIX:
+		return DominioAmbitoIdempotenciaConfirmacionGINPIX, DominioHuellaPeticionConfirmacionGINPIX, true
+	case OperacionRegistrarNoIncorporacion:
+		return DominioAmbitoIdempotenciaNoIncorporacion, DominioHuellaPeticionNoIncorporacion, true
 	}
 	return "", "", false
 }
@@ -220,8 +226,10 @@ type PreparacionOperacionSeguimiento struct {
 	InicioIncorporacion    time.Time
 	CeseReciboRef          string
 	FuenteCosteRef         string
-	Confirmada             bool
-	Recibo                 *ReciboOperacionSeguimiento
+	// AceptacionRef es la resolución de aceptación de una no incorporación.
+	AceptacionRef string
+	Confirmada    bool
+	Recibo        *ReciboOperacionSeguimiento
 }
 
 // ContextoAutorizadoSeguimiento son los ámbitos y atributos exactos del
@@ -265,6 +273,8 @@ type ReciboOperacionSeguimiento struct {
 	FechaEfecto       string
 	CeseReciboRef     string
 	CosteCentimos     int64
+	MotivoClave       domain.ClaveCatalogo
+	GINPIXNumero      string
 }
 
 func (r ReciboOperacionSeguimiento) ValidoPara(operacion, org, exp string, versionAnterior uint64) bool {
@@ -289,6 +299,9 @@ type EstadoSeguimientoExpediente struct {
 	InicioIncorporacion string
 	Cese                *EstadoCeseExpediente
 	Cierre              *EstadoCierreExpediente
+	// Acreditada solo existe con la incorporación acreditada compuesta
+	// (CT124): confirmaciones de GINPIX y del centro.
+	Acreditada *EstadoIncorporacionAcreditada
 }
 
 type EstadoCeseExpediente struct {
@@ -322,6 +335,12 @@ type OpcionesSeguimiento struct {
 	Condiciones []string
 	FaseRetorno domain.ClaveFase
 	Motivos     []OpcionMotivoSeguimiento
+	// ConfirmacionGINPIX indica que la confirmación de GINPIX está compuesta:
+	// se registra aparte y el cierre toma de ella su número.
+	ConfirmacionGINPIX bool
+	// NoIncorporacion son los motivos de c22 y si exige segunda persona,
+	// solo con la no incorporación compuesta.
+	NoIncorporacion *ReglaNoIncorporacion
 }
 
 func (o OpcionesSeguimiento) Validas() bool {
@@ -334,6 +353,9 @@ func (o OpcionesSeguimiento) Validas() bool {
 		if !c.Clave.Valida() || !c.JustificanteTipo.Valida() || c.Etiqueta == "" {
 			return false
 		}
+	}
+	if o.NoIncorporacion != nil && !o.NoIncorporacion.Valida() {
+		return false
 	}
 	return !slices.ContainsFunc(o.Motivos, func(m OpcionMotivoSeguimiento) bool { return !m.Clave.Valida() || m.Etiqueta == "" })
 }

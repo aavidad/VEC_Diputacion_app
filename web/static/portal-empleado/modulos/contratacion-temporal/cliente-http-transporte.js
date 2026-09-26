@@ -10,7 +10,9 @@ import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incor
 import { RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
+import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
+import { CONFLICTOS_CANCELACION_EXPEDIENTE, RUTAS_CANCELACION_EXPEDIENTE } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;
@@ -311,8 +313,12 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
     ? "api.contratacion_temporal.cierre_administrativo.error."
     : rutaBase === RUTA_SUBSANACION_REPAROS
     ? "api.contratacion_temporal.subsanacion_reparos.error."
+    : rutaBase === RUTA_RESULTADOS_FISCALIZACION
+    ? "api.contratacion_temporal.fiscalizacion.error."
     : RUTAS_SEGUIMIENTO_CESE.includes(rutaBase)
     ? "api.contratacion_temporal.seguimiento.error."
+    : RUTAS_CANCELACION_EXPEDIENTE.includes(rutaBase)
+    ? "api.contratacion_temporal.cancelacion.error."
     : rutaBase === RUTA_ANOTACION_ADMINISTRATIVA
     || rutaBase === RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA
     ? "api.contratacion_temporal.anotacion_administrativa.error."
@@ -335,9 +341,17 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
   return clave === `${prefijo}${codigo}`;
 }
 
+// Rechazo del cierre sin cese cuando la regla de cierre (c10) no lo contempla.
+export const CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO = "cierre_sin_cese_no_contemplado";
+
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (estado === 409 && codigo === CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO
+    && [rutas.preparacionCierreSinCese, RUTA_CIERRE_ADMINISTRATIVO].includes(ruta.split("?")[0])) return true;
   if (RUTAS_SEGUIMIENTO_CESE.includes(ruta.split("?")[0]) && estado === 409) {
     return CONFLICTOS_SEGUIMIENTO_CESE.includes(codigo);
+  }
+  if (RUTAS_CANCELACION_EXPEDIENTE.includes(ruta.split("?")[0]) && estado === 409) {
+    return CONFLICTOS_CANCELACION_EXPEDIENTE.includes(codigo);
   }
   if (ruta.split("?")[0] === RUTA_CIERRE_ADMINISTRATIVO) {
     if ((estado === 401 && codigo === "autenticacion_requerida")
@@ -347,6 +361,12 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
         "clave_idempotencia_reutilizada",
       ].includes(codigo))) return true;
     return estado !== 409 && CODIGOS_POR_ESTADO.get(estado)?.has(codigo) === true;
+  }
+  if (ruta.split("?")[0] === RUTA_RESULTADOS_FISCALIZACION && estado === 409) {
+    return ["conflicto", "firma_remision_pendiente", "informe_nuevo_pendiente"].includes(codigo);
+  }
+  if (ruta === RUTA_PREPARACION_INFORME_JURIDICO && estado === 409) {
+    return ["conflicto", "informe_nuevo_no_previsto"].includes(codigo);
   }
   if (ruta.split("?")[0] === RUTA_FICHA_GINPIX && estado === 409) {
     return codigo === "recibo_no_confirmado";

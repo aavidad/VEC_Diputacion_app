@@ -13,6 +13,7 @@ const RECHAZOS_ANTERIORES_AL_EFECTO = new Set([
   "401:autenticacion_requerida", "403:acceso_denegado",
   "404:recurso_no_encontrado", "405:metodo_no_permitido",
   "406:representacion_no_aceptable", "409:conflicto",
+  "409:firma_remision_pendiente", "409:informe_nuevo_pendiente",
   "413:peticion_demasiado_grande", "415:tipo_contenido_no_admitido",
   "422:contenido_no_valido",
 ]);

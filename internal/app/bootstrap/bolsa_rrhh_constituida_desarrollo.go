@@ -24,11 +24,17 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	situaciones ports.RepositorioSituacionParticipacion
 	orden       *bolsaapplication.ServicioOrdenVigente
 	avisos      *bolsaapplication.ServicioAvisosRRHH
-	emisiones   *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
-	recuperador constitucion.Recuperador
-	categorias  map[string]string
-	grupos      map[string][]string
-	ahora       func() time.Time
+	// Bolsa 000041: bandeja con parámetros del catálogo, publicación de la
+	// política y marcas por participación (bolsa_parametros_avisos_desarrollo.go).
+	consultaAvisos *postgresbolsa.ConsultaAvisosRRHHPostgreSQL
+	parametros     *postgresbolsa.RepositorioPoliticaAvisosPostgreSQL
+	marcas         ports.ConsultaMarcasParticipaciones
+	intentos       ports.PoliticaIntentosContacto
+	emisiones      *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
+	recuperador    constitucion.Recuperador
+	categorias     map[string]string
+	grupos         map[string][]string
+	ahora          func() time.Time
 
 	mu       sync.Mutex
 	cache    datasetBolsasRRHHDesarrollo
@@ -128,7 +134,14 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, avisos: avisos, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	parametros, err := postgresbolsa.NuevoRepositorioPoliticaAvisosPostgreSQL(poolBolsa)
+	if err != nil {
+		log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=parametros_avisos: %v", err)
+		poolBolsa.Close()
+		poolImportacion.Close()
+		return nil
+	}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -159,6 +172,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: f.ahora().UTC().Format(time.RFC3339)}
+	if err := f.cargarMarcasBase(ctx, &datos); err != nil {
+		return datasetBolsasRRHHDesarrollo{}, err
+	}
 	for _, vigente := range vigentes {
 		ordenVigente, err := f.orden.Consultar(ctx, vigente.Bolsa.BolsaRef)
 		if err != nil {
@@ -201,6 +217,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
 		datos.Bolsas[len(datos.Bolsas)-1].LlamamientosEnCurso = totalCurso
+		if err := f.cargarMarcas(ctx, &datos, vigente.Bolsa.BolsaRef); err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
 		entradas, err := f.repositorio.Entradas(ctx, vigente.Instantanea.InstantaneaRef, vigente.Instantanea.Version)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err

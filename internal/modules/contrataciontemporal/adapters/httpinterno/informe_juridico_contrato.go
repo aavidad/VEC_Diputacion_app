@@ -324,6 +324,11 @@ var (
 	errorConflictoInformeJuridico = nuevoErrorInformeJuridico(
 		http.StatusConflict, "conflicto",
 	)
+	// errorInformeNuevoNoPrevisto: el catálogo no prevé informe nuevo tras
+	// subsanar o el expediente no está en ese punto (duda 5).
+	errorInformeNuevoNoPrevisto = nuevoErrorInformeJuridico(
+		http.StatusConflict, "informe_nuevo_no_previsto",
+	)
 	errorResultadoInformeJuridicoNoConfiable = nuevoErrorInformeJuridico(
 		http.StatusBadGateway, "resultado_no_confiable",
 	)
@@ -369,6 +374,8 @@ func clasificarErrorInformeJuridicoHTTP(err error) errorPublicoCobertura {
 		errors.Is(err, application.ErrInformeJuridicoDenegado),
 		errors.Is(err, ports.ErrAutorizacionDenegada):
 		return errorAccesoInformeJuridicoDenegado
+	case errors.Is(err, ports.ErrInformeNuevoNoPrevisto):
+		return errorInformeNuevoNoPrevisto
 	case errors.Is(err, ports.ErrClaveIdempotenciaUsada),
 		errors.Is(err, domain.ErrVersionEnConflicto):
 		return errorConflictoInformeJuridico

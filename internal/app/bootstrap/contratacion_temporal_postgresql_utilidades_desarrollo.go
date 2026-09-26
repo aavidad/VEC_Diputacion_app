@@ -45,7 +45,7 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	configuracion, err := pgxpool.ParseConfig(dsn)
 	if err != nil || configuracion == nil || configuracion.ConnConfig == nil ||
 		validarTLSPostgreSQLBorradores(&configuracion.ConnConfig.Config, true) != nil {
-		return nil, "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, "", falloPostgreSQLCTDesarrollo(err)
 	}
 	configuracion.MaxConns = 4
 	if rolPoolIncorporacionV2(rolEsperado) {
@@ -72,7 +72,7 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	configurarVerificacionPorConexionAuditoriaFronteraBolsaDesarrollo(configuracion, rolEsperado)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
-		return nil, "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return nil, "", falloPostgreSQLCTDesarrollo(err)
 	}
 	usuario, err := comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 		ctx, pool, rolEsperado,
@@ -104,7 +104,7 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 			rolEsperado != rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolAuditoriaFronteraPostgreSQLBolsaDesarrollo &&
 			!rolPoolIncorporacionV2(rolEsperado)) {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(nil)
 	}
 	if rolEsperado == rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo {
 		return comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo(ctx, consultador)
@@ -128,7 +128,7 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 		  FROM pg_catalog.pg_roles AS identidad
 		 WHERE identidad.rolname = session_user`, rolEsperado).Scan(&usuario, &valido)
 	if err != nil || !valido || usuario == "" {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(err)
 	}
 	return usuario, nil
 }
@@ -144,7 +144,7 @@ func comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo
 	},
 ) (string, error) {
 	if ctx == nil || consultador == nil {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(nil)
 	}
 	var usuario string
 	var valido bool
@@ -182,7 +182,7 @@ func comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo
 		rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo,
 	).Scan(&usuario, &valido)
 	if err != nil || !valido || usuario == "" {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(err)
 	}
 	return usuario, nil
 }
@@ -192,14 +192,14 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 ) (materialAtestacionContratacionTemporalDesarrollo, error) {
 	vacio := materialAtestacionContratacionTemporalDesarrollo{}
 	if derivador == nil || !derivador.valido() {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(nil)
 	}
 	resultados, err := derivador.calcularHMAC(
 		[]byte("vec.ct.desarrollo.atestacion-v3.ed25519.v1"),
 		[]byte("vec.ct.desarrollo.atestacion-v3.capacidad-hmac.v1"),
 	)
 	if err != nil || len(resultados) == 0 {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(err)
 	}
 	defer borrarResultadosHMACIdempotenciaDesarrollo(resultados)
 	activo := resultados[0]
@@ -213,7 +213,7 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 	validaHasta := time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC)
 	ahora = ahora.UTC().Truncate(time.Microsecond)
 	if ahora.Before(validaDesde) || !ahora.Before(validaHasta) {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(nil)
 	}
 	publicadaEn := time.Date(ahora.Year(), ahora.Month(), ahora.Day(), 0, 0, 0, 0, time.UTC)
 	expiraEn := publicadaEn.Add(24 * time.Hour)
@@ -225,21 +225,21 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 		validaDesde, validaHasta, time.Time{},
 	)
 	if err != nil {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(err)
 	}
 	configuracion, err := confianzaatestacion.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(
 		configuracionRef, secuencia, publicadaEn, expiraEn, raiz,
 	)
 	if err != nil {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(err)
 	}
 	huellaConfiguracion, err := configuracion.HuellaSHA256ParaGobierno()
 	if err != nil {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(err)
 	}
 	spki, err := x509.MarshalPKIXPublicKey(publica)
 	if err != nil {
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(err)
 	}
 	huellaSPKI := sha256.Sum256(spki)
 	claveHMAC := append([]byte(nil), activo.huellaSolicitud[:]...)
@@ -257,7 +257,7 @@ func nuevoMaterialAtestacionContratacionTemporalDesarrollo(
 	)
 	if err != nil {
 		borrarBytes(claveHMAC)
-		return vacio, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return vacio, falloPostgreSQLCTDesarrollo(err)
 	}
 	return materialAtestacionContratacionTemporalDesarrollo{
 		claveID: claveID, claveVersion: 1, privada: privada,

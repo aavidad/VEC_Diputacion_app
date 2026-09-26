@@ -272,6 +272,16 @@ func nuevoServidorDesarrollo(
 	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
+	// Avisos y marcas de Bolsa con los parámetros del catálogo (000041).
+	if err = componerParametrosAvisosBolsaDesarrollo(ctxBolsas, reglasEjemplo.bolsa, fuenteConstituida); err != nil {
+		cancelarBolsas()
+		return nil, nil, err
+	}
+	// Revisión de no incorporaciones en los mismos avisos (Bolsa 000042).
+	if err = componerAvisosNoIncorporacionBolsaDesarrollo(ctxBolsas, cfg, fuenteConstituida); err != nil {
+		cancelarBolsas()
+		return nil, nil, err
+	}
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
 	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)

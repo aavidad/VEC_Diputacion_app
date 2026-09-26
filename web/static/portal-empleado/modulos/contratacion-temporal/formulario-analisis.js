@@ -1,5 +1,8 @@
 import {
   minutosJornadaCompletaValidos,
+  motivoUrgenciaValido,
+  normalizarDuracionesMaximas,
+  periodoSuperaDuracionMaxima,
   validarDatosPreviosAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
@@ -65,9 +68,6 @@ function variablesJornadaCompleta(minutosCompleta) {
 const MAXIMO_OPCIONES = 100;
 const MAXIMO_CATEGORIAS = 1000;
 const UUID_PRUEBA = "00000000-0000-4000-8000-000000000001";
-const CLAVES_MODALIDADES_RRHH = new Set([
-  "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
-]);
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "catalogos", "analisisInicial", "datosPrevios",
   "generarClaveIdempotencia", "mensajes", "locale", "zonaHoraria", "anunciar",
@@ -83,6 +83,7 @@ const CLAVES_ETIQUETA = Object.freeze({
   entrada_rc_referencia: "analisis_entrada_rc",
   motivo_rectificacion_clave: "analisis_motivo_rectificacion",
   observaciones: "analisis_observaciones",
+  urgencia_motivo: "analisis_urgencia_motivo",
   general: "analisis_errores_titulo",
 });
 
@@ -143,17 +144,25 @@ function normalizarOpciones(lista, { nombre, campo, patron, permitirVacia = fals
 }
 
 function normalizarCatalogos(entrada, rectificacion) {
+  const opcional = (campo) => entrada !== null && typeof entrada === "object" && Object.hasOwn(entrada, campo);
+  const tieneDuraciones = opcional("duraciones_maximas");
+  const tieneUrgencia = opcional("urgencia_disponible");
   exigirRegistroExacto(entrada, [
     "modalidades", "categorias", "causas", "entradas_rc", "motivos_rectificacion",
     "jornada_completa_minutos_semanales",
+    ...(tieneDuraciones ? ["duraciones_maximas"] : []),
+    ...(tieneUrgencia ? ["urgencia_disponible"] : []),
   ], "catálogos del análisis");
   const minutosJornadaCompleta = exigirMinutosJornadaCompleta(entrada.jornada_completa_minutos_semanales);
+  // Las modalidades las publica el catálogo del servidor: aquí solo se exige
+  // su forma, nunca una lista fija.
   const modalidades = normalizarOpciones(entrada.modalidades, {
     nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
   });
-  if (modalidades.length !== CLAVES_MODALIDADES_RRHH.size
-    || modalidades.some(({ clave }) => !CLAVES_MODALIDADES_RRHH.has(clave))) {
-    throw new TypeError("modalidades no válida");
+  const duraciones = tieneDuraciones
+    ? normalizarDuracionesMaximas(entrada.duraciones_maximas, modalidades) : Object.freeze([]);
+  if (tieneUrgencia && typeof entrada.urgencia_disponible !== "boolean") {
+    throw new TypeError("urgencia no válida");
   }
   const causas = normalizarOpciones(entrada.causas, {
     nombre: "causas", campo: "clave", patron: PATRON_CLAVE,
@@ -210,7 +219,29 @@ function normalizarCatalogos(entrada, rectificacion) {
   return Object.freeze({
     modalidades, categorias, causas, entradas_rc: entradasRC, motivos_rectificacion: motivos,
     jornada_completa_minutos_semanales: minutosJornadaCompleta,
+    duraciones_maximas: duraciones,
+    urgencia_disponible: tieneUrgencia && entrada.urgencia_disponible,
   });
+}
+
+// Duración máxima publicada para la modalidad del borrador, si la hay.
+function duracionDeModalidad(catalogos, modalidad) {
+  return catalogos.duraciones_maximas.find(({ modalidad_clave: clave }) => clave === modalidad) ?? null;
+}
+
+// Texto legible de la duración máxima («9 meses», «3 años»).
+function textoDuracion(duracion, t) {
+  const numero = duracion.cantidad === 1 ? "uno" : "otros";
+  return t(`analisis_duracion_${duracion.unidad}_${numero}`, { cantidad: String(duracion.cantidad) });
+}
+
+// Aviso (no error) cuando el periodo supera el máximo de su modalidad y el
+// catálogo no pide impedir el registro; vacío en cualquier otro caso.
+function textoAvisoDuracion(borrador, catalogos, t) {
+  const duracion = duracionDeModalidad(catalogos, borrador.modalidad_clave);
+  if (!duracion || duracion.bloquear
+    || !periodoSuperaDuracionMaxima(duracion, borrador.inicio, borrador.fin)) return "";
+  return t("analisis_aviso_duracion_maxima", { duracion: textoDuracion(duracion, t) });
 }
 
 function normalizarContexto(contexto) {
@@ -233,7 +264,7 @@ function crearBorrador(analisis = null) {
   return analisis === null ? {
     modalidad_clave: "", categoria_ref: "", grupo_subgrupo: "", causa_clave: "",
     inicio: "", fin: "", porcentaje_jornada: "", entrada_rc_referencia: "",
-    motivo_rectificacion_clave: "", observaciones: "",
+    motivo_rectificacion_clave: "", observaciones: "", urgente: false, urgencia_motivo: "",
   } : {
     modalidad_clave: analisis.modalidad_clave,
     categoria_ref: analisis.categoria_ref,
@@ -245,6 +276,8 @@ function crearBorrador(analisis = null) {
     entrada_rc_referencia: analisis.entrada_rc.referencia,
     motivo_rectificacion_clave: "",
     observaciones: analisis.observaciones ?? "",
+    urgente: false,
+    urgencia_motivo: "",
   };
 }
 
@@ -301,6 +334,11 @@ function validarBorrador(borrador, catalogos, rectificacion) {
   if (!fechaCivilValida(borrador.fin)) errores.fin = "fecha";
   if (!errores.inicio && !errores.fin
     && !periodoDentroDelMaximo(borrador.inicio, borrador.fin)) errores.fin = "periodo";
+  const duracion = duracionDeModalidad(catalogos, borrador.modalidad_clave);
+  if (!errores.inicio && !errores.fin && duracion?.bloquear
+    && periodoSuperaDuracionMaxima(duracion, borrador.inicio, borrador.fin)) {
+    errores.fin = "duracion_maxima";
+  }
   if (!PATRON_JORNADA.test(borrador.porcentaje_jornada)) {
     errores.porcentaje_jornada = "jornada";
   }
@@ -315,7 +353,26 @@ function validarBorrador(borrador, catalogos, rectificacion) {
       errores.observaciones = "observaciones";
     }
   }
+  if (catalogos.urgencia_disponible && borrador.urgente
+    && !motivoUrgenciaValido(borrador.urgencia_motivo)) {
+    errores.urgencia_motivo = "urgencia_motivo";
+  }
   return errores;
+}
+
+// Declaración de urgencia (regla c15): solo existe si el catálogo la publica.
+function campoUrgencia(estado, t) {
+  const marcada = estado.borrador.urgente === true;
+  const error = estado.errores.urgencia_motivo;
+  return `<fieldset class="ct-campo ct-campo-urgencia">
+    <legend>${escaparHTML(t("analisis_urgencia_leyenda"))}</legend>
+    <label class="ct-casilla" for="ct-analisis-urgente">
+      <input id="ct-analisis-urgente" name="urgente" type="checkbox" value="si"${marcada ? " checked" : ""}>
+      ${escaparHTML(t("analisis_urgencia_marcar"))}</label>
+    <label for="ct-analisis-urgencia_motivo">${escaparHTML(t("analisis_urgencia_motivo"))}</label>
+    <textarea id="ct-analisis-urgencia_motivo" name="urgencia_motivo" maxlength="1000" ${atributosCampo(estado, "urgencia_motivo")}>${escaparHTML(estado.borrador.urgencia_motivo ?? "")}</textarea>
+    ${error ? `<span class="ct-error-campo" id="ct-analisis-urgencia_motivo-error">${escaparHTML(mensajeCampo(t, error))}</span>` : ""}
+  </fieldset>`;
 }
 
 function escaparHTML(valor) {
@@ -456,10 +513,13 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
         ${campoSeleccion(estado, t, "causa_clave", "analisis_causa", catalogos.causas, "clave")}
         ${campoEntrada(estado, t, "inicio", "date", "analisis_inicio")}
         ${campoEntrada(estado, t, "fin", "date", "analisis_fin")}
+        <p class="ct-aviso-campo" id="ct-analisis-aviso-duracion" data-ct-analisis-aviso-duracion
+          role="status" aria-live="polite" aria-atomic="true">${escaparHTML(textoAvisoDuracion(estado.borrador, catalogos, t))}</p>
         ${campoJornada(estado, t, formateadorJornada, catalogos.jornada_completa_minutos_semanales)}
         ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", catalogos.entradas_rc, "referencia")}
         ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", catalogos.motivos_rectificacion, "clave") : ""}
         ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", 4000)}
+        ${catalogos.urgencia_disponible ? campoUrgencia(estado, t) : ""}
       </div>
     </fieldset>
     <div class="ct-acciones">${estado.ocupado
@@ -482,6 +542,8 @@ function extraerBorrador(formulario, minutosCompleta) {
     entrada_rc_referencia: String(datos.get("entrada_rc_referencia") ?? ""),
     motivo_rectificacion_clave: String(datos.get("motivo_rectificacion_clave") ?? ""),
     observaciones: String(datos.get("observaciones") ?? "").trim(),
+    urgente: datos.get("urgente") === "si",
+    urgencia_motivo: String(datos.get("urgencia_motivo") ?? "").trim(),
   };
 }
 
@@ -653,6 +715,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     if (typeof entrada.observaciones === "string" && entrada.observaciones.trim() !== "") {
       analisis.observaciones = entrada.observaciones.trim();
     }
+    if (catalogos.urgencia_disponible && entrada.urgente) {
+      analisis.urgencia_motivo = entrada.urgencia_motivo;
+    }
     const semantica = JSON.stringify([contexto, analisis,
       rectificacion ? entrada.motivo_rectificacion_clave : null]);
     const clave = intento?.semantica === semantica
@@ -763,7 +828,20 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     return enviar(extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales));
   }
 
+  function actualizarAvisoDuracion(formulario) {
+    const aviso = raizActual.querySelector("[data-ct-analisis-aviso-duracion]");
+    if (!aviso) return;
+    const actual = extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales);
+    const texto = textoAvisoDuracion(actual, catalogos, t);
+    if (aviso.textContent !== texto) aviso.textContent = texto;
+  }
+
   function alCambiar(evento) {
+    if (["modalidad_clave", "inicio", "fin"].includes(evento.target?.name) && !estado.ocupado) {
+      const formulario = evento.target.closest?.("[data-ct-analisis-form]");
+      if (formulario && raizActual.contains(formulario)) actualizarAvisoDuracion(formulario);
+      return;
+    }
     if (evento.target?.name !== "categoria_ref" || estado.ocupado) return;
     const formulario = evento.target.closest?.("[data-ct-analisis-form]");
     if (!formulario || !raizActual.contains(formulario)) return;

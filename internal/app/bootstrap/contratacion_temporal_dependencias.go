@@ -30,8 +30,12 @@ type DependenciasCT struct {
 	// reglasEjemplo solo existe en desarrollo con paquete de ejemplo
 	// declarado; vacío significa «sin catálogo».
 	reglasEjemplo reglasEjemploDesarrollo
-	cerrar        func()
-	unaVez        sync.Once
+	// opcionesCatalogoCT son las opciones del catálogo de reglas de CT que
+	// se publican en PostgreSQL al arrancar (vías de cobertura c17 y
+	// numeración c16). Nulo: las de siempre.
+	opcionesCatalogoCT *opcionesAnalisisCTDesarrollo
+	cerrar             func()
+	unaVez             sync.Once
 }
 
 func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer) (*DependenciasCT, error) {

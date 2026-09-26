@@ -65,7 +65,7 @@ func configurarVerificacionPorConexionAuditoriaFronteraBolsaDesarrollo(configura
 	}
 	validar := func(ctx context.Context, conexion *pgx.Conn) error {
 		if conexion == nil {
-			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
 		if _, err := comprobarIdentidadAuditoriaFronteraPostgreSQLBolsaDesarrollo(ctx, conexion); err != nil {
 			return err
@@ -85,7 +85,7 @@ func comprobarIdentidadAuditoriaFronteraPostgreSQLBolsaDesarrollo(ctx context.Co
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) (string, error) {
 	if ctx == nil || consultador == nil {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(nil)
 	}
 	var usuario string
 	var valido bool
@@ -109,7 +109,7 @@ func comprobarIdentidadAuditoriaFronteraPostgreSQLBolsaDesarrollo(ctx context.Co
 		 CROSS JOIN pg_catalog.pg_roles AS grupo
 		 WHERE identidad.rolname = session_user AND grupo.oid = $1::regrole`, rolAuditoriaFronteraPostgreSQLBolsaDesarrollo).Scan(&usuario, &valido)
 	if err != nil || !valido || usuario == "" {
-		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		return "", falloPostgreSQLCTDesarrollo(err)
 	}
 	return usuario, nil
 }

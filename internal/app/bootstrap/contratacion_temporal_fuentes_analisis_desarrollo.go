@@ -137,6 +137,7 @@ func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuen
 			err,
 		)
 	}
+	entradaRC, _ := p.catalogo.opcionesAnalisis().entradaRC(solicitud.DatosFuncionales.EntradaRC)
 	solicitudRC, err := application.NuevaSolicitudValidarRC(
 		ctx,
 		p.generador,
@@ -147,7 +148,7 @@ func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuen
 			ExpedienteRef:     solicitud.ExpedienteRef,
 			VersionExpediente: solicitud.VersionExpediente,
 			Entrada:           solicitud.DatosFuncionales.EntradaRC,
-			Declaracion:       declaracionRCAnalisisContratacionTemporalDesarrollo(),
+			Declaracion:       entradaRC.Declaracion,
 		},
 	)
 	if err != nil {
@@ -248,6 +249,7 @@ func (p *presentadorAutoridadAnalisisDesarrollo) PresentarAutoridadFuenteAnalisi
 
 type fuenteRCAnalisisDesarrollo struct {
 	*presentadorAutoridadAnalisisDesarrollo
+	catalogo     *catalogosAltaContratacionTemporalDesarrollo
 	derivador    *derivadorIdentidadOperacionDesarrollo
 	autoridadRef string
 	generacion   uint32
@@ -264,14 +266,12 @@ func (f *fuenteRCAnalisisDesarrollo) ValidarRC(
 			ports.ErrFuentePresupuestariaNoDisponible
 	}
 	datos, err := solicitud.Datos()
-	declaracion := declaracionRCAnalisisContratacionTemporalDesarrollo()
+	// La fuente sintética solo responde por las entradas publicadas en el
+	// catálogo (o la de siempre) y con su declaración exacta.
+	entrada, conEntrada := f.catalogo.opcionesAnalisis().entradaRC(datos.Entrada)
+	declaracion := entrada.Declaracion
 	if err != nil || datos.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		datos.Entrada.Referencia != entradaRCAnalisisContratacionTemporalDesarrollo ||
-		!hmac.Equal(
-			[]byte(datos.Entrada.HuellaSHA256),
-			[]byte(huellaEntradaRCAnalisisContratacionTemporalDesarrollo),
-		) ||
-		datos.Declaracion != declaracion {
+		!conEntrada || datos.Declaracion != declaracion {
 		return ports.ResultadoValidacionRC{},
 			ports.ErrPeticionFuenteAnalisisInvalida
 	}
@@ -562,7 +562,7 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 			&fuenteRCAnalisisDesarrollo{
 				presentadorAutoridadAnalisisDesarrollo: presentadorRC,
 				derivador:                              derivador, autoridadRef: autoridadFuenteRCAnalisisDesarrollo,
-				generacion: generacion, reloj: reloj,
+				generacion: generacion, reloj: reloj, catalogo: catalogo,
 			},
 			&calculadorCosteAnalisisDesarrollo{
 				presentadorAutoridadAnalisisDesarrollo: presentadorCoste,

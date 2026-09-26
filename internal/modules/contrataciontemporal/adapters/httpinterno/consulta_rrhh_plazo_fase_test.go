@@ -55,3 +55,22 @@ func TestProyeccionCuadroRRHHPlazoFaseEsOpcional(t *testing.T) {
 		t.Fatalf("plazo no válido publicado: %s %v", invalido, err)
 	}
 }
+
+func TestProyeccionCuadroRRHHUrgenciaSoloSiSeDeclaro(t *testing.T) {
+	pagina := paginaRRHHPrueba()
+	sin, err := json.Marshal(proyectarPaginaCuadroRRHH(pagina))
+	if err != nil || strings.Contains(string(sin), "urgente") {
+		t.Fatalf("sin urgencias no aparece el campo: %s %v", sin, err)
+	}
+	pagina.Urgentes = make([]bool, len(pagina.Expedientes))
+	pagina.Urgentes[0] = true
+	con, err := json.Marshal(proyectarPaginaCuadroRRHH(pagina))
+	if err != nil || strings.Count(string(con), `"urgente":true`) != 1 {
+		t.Fatalf("la urgencia declarada debe viajar una vez: %s %v", con, err)
+	}
+	pagina.Urgentes = []bool{true, true, true, true, true, true, true, true, true}[:len(pagina.Expedientes)+1]
+	desalineada, err := json.Marshal(proyectarPaginaCuadroRRHH(pagina))
+	if err != nil || strings.Contains(string(desalineada), "urgente") {
+		t.Fatalf("una urgencia desalineada no se publica: %s %v", desalineada, err)
+	}
+}

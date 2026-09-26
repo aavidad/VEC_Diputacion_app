@@ -108,4 +108,52 @@ const (
 	CTModificacionFaseRetorno     = "c09.modificacion_fase_retorno"
 	CTCierreExpediente            = "c10.cierre_expediente"
 	CTCausasCese                  = "c11.causas_cese"
+	// CTFiscalizacionResultados lista los resultados de fiscalización
+	// admitidos; cada uno declara su efecto en el atributo «efecto_<resultado>»
+	// (duda 5 de RRHH).
+	CTFiscalizacionResultados = "c19.fiscalizacion_resultados"
+	// CTCancelacionExpediente fija las fases en que se puede cancelar el
+	// expediente y los motivos admitidos (duda 12).
+	CTCancelacionExpediente = "c20.cancelacion_expediente"
+	// CTAcreditacionIncorporacion fija el documento que acredita la
+	// incorporación: «valor» es el tipo general y «valor_<modalidad>» el de
+	// una modalidad concreta; «roles_confirman» lista los perfiles del
+	// centro que la confirman (duda 11).
+	CTAcreditacionIncorporacion = "c21.acreditacion_incorporacion"
+	// CTNoIncorporacion lista los motivos de no incorporación; por cada motivo
+	// «etiqueta_<motivo>» y «consecuencia_<motivo>» (entrada b24.sancion.* de
+	// Bolsa); «segunda_persona»=«si» exige que resuelva otra persona.
+	CTNoIncorporacion = "c22.no_incorporacion"
+)
+
+// Opciones del análisis de Contratación temporal que se consultan por
+// prefijo: cada entrada es una opción (su clave es lo que sigue al prefijo) y
+// añadir otra no exige cambiar código. Sin ninguna, rigen las de siempre.
+const (
+	CTPrefijoModalidad = "c12.modalidad."
+	CTPrefijoCausa     = "c13.causa."
+	CTPrefijoEntradaRC = "c14.entrada_rc."
+	// CTUrgencia habilita declarar urgente un expediente al analizarlo.
+	CTUrgencia = "c15.urgencia"
+	// AtributoCantidadUrgente es la cantidad de un plazo cuando el
+	// expediente es urgente; sin él rige la cantidad ordinaria.
+	AtributoCantidadUrgente = "cantidad_urgente"
+	// CTNumeracion fija el prefijo y los dígitos del número visible de los
+	// expedientes (duda 15). Sin ella rige «AAAA/CT-NNNNNN».
+	CTNumeracion = "c16.numeracion"
+	// CTPrefijoViaCobertura agrupa las vías de cobertura: cada entrada es una
+	// vía con sus comprobaciones (duda 7). Sin ninguna rigen las de siempre.
+	CTPrefijoViaCobertura = "c17.via_cobertura."
+)
+
+// Atributos de las reglas de Contratación temporal.
+const (
+	// AtributoCierreSinCese en c10: con el valor «admitido» se ofrece el
+	// cierre administrativo sin cese; con cualquier otro, no.
+	AtributoCierreSinCese = "cierre_sin_cese"
+	// AtributoRolesConfirmanIncorporacion en c21: perfiles del centro que
+	// confirman la incorporación, separados por comas.
+	AtributoRolesConfirmanIncorporacion = "roles_confirman"
+	// PrefijoValorModalidad en una regla de lista: «valor_<modalidad>».
+	PrefijoValorModalidad = "valor_"
 )

@@ -23,6 +23,12 @@ func TestSelectoresPortalCandidatoYSeguimientoCese(t *testing.T) {
 				func(c *Config) { c.ReglasEjemplo.CausasCeseSourcePath = " causas.json " },
 				func(c *Config) { c.CTAnalisisMotivosSourcePath = "motivos.json" },
 			}},
+		{"cancelacion", func(c *Config, v string) { c.CTCancelacionEnabled = v }, Config.CTCancelacionDesarrolloActivo,
+			ErrConfiguracionCTCancelacionSelector, ErrConfiguracionCTCancelacionActivacion,
+			[]func(*Config){
+				func(c *Config) { c.ReglasEjemplo.CTSourcePath = "ct.json" },
+				func(c *Config) { c.ReglasEjemplo.MotivosCancelacionSourcePath = " motivos_cancelacion.json " },
+			}},
 	}
 	for _, caso := range casos {
 		for _, valor := range []string{"", "false", " false "} {

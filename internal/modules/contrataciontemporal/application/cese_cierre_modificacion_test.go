@@ -87,7 +87,8 @@ func (r *repositorioSeguimientoDoble) PrepararOperacionSeguimiento(_ context.Con
 	a, _ := s.Ambitos.Datos()
 	h, _ := s.Huellas.Datos()
 	return ports.PreparacionOperacionSeguimiento{Expediente: r.expediente.Clonar(), Referencias: refs, AmbitoIdempotenciaHMAC: a.Activo.Valor,
-		HuellaPeticionHMAC: h.Activo.Valor, IncorporacionRef: "ref:incorporacion:prueba", CeseReciboRef: "recibo:cese:prueba"}, nil
+		HuellaPeticionHMAC: h.Activo.Valor, IncorporacionRef: "ref:incorporacion:prueba", CeseReciboRef: "recibo:cese:prueba",
+		AceptacionRef: "resolucion:aceptacion:prueba"}, nil
 }
 func (r *repositorioSeguimientoDoble) ConfirmarOperacionSeguimiento(_ context.Context, o ports.OrdenConfirmarOperacionSeguimiento) (ports.ReciboOperacionSeguimiento, error) {
 	r.ordenes = append(r.ordenes, o)

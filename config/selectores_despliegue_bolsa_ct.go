@@ -23,6 +23,9 @@ const (
 	// el nombramiento de Contratación temporal; requiere AD3-82, AD3-83,
 	// CT115 y CT116 instaladas.
 	EnvCTSeguimientoCeseEnabled = "VEC_CT_SEGUIMIENTO_CESE_ENABLED"
+	// EnvCTCancelacionEnabled compone la cancelación del expediente antes de
+	// la fiscalización (RRHH); requiere AD3-87 y CT122 instaladas.
+	EnvCTCancelacionEnabled = "VEC_CT_CANCELACION_ENABLED"
 )
 
 var (
@@ -30,6 +33,8 @@ var (
 	ErrConfiguracionBolsaPortalCandidatoActivacion = errors.New("config: portal del candidato de Bolsa fuera del perfil de desarrollo o sin sus catalogos")
 	ErrConfiguracionCTSeguimientoCeseSelector      = errors.New("config: selector del seguimiento de cese de CT invalido")
 	ErrConfiguracionCTSeguimientoCeseActivacion    = errors.New("config: seguimiento de cese de CT fuera del perfil de desarrollo o sin sus catalogos")
+	ErrConfiguracionCTCancelacionSelector          = errors.New("config: selector de la cancelacion de expedientes de CT invalido")
+	ErrConfiguracionCTCancelacionActivacion        = errors.New("config: cancelacion de expedientes de CT fuera del perfil de desarrollo o sin sus catalogos")
 )
 
 // BolsaPortalCandidatoDesarrolloActivo valida el selector del portal del
@@ -56,6 +61,18 @@ func (c Config) CTSeguimientoCeseDesarrolloActivo() (bool, error) {
 		catalogoRequerido{EnvCTReglasSourcePath, reglas.CTSourcePath},
 		catalogoRequerido{EnvCTCausasCeseSourcePath, reglas.CausasCeseSourcePath},
 		catalogoRequerido{EnvCTAnalisisMotivosSourcePath, c.CTAnalisisMotivosSourcePath})
+}
+
+// CTCancelacionDesarrolloActivo valida el selector de la cancelación del
+// expediente sin abrir ficheros. Encendido exige el catálogo de reglas de CT
+// (regla c20: fases admitidas) y el de motivos de cancelación.
+func (c Config) CTCancelacionDesarrolloActivo() (bool, error) {
+	c = c.Normalize()
+	reglas := c.ReglasEjemplo.normalizar()
+	return selectorDesarrolloActivo(c, c.CTCancelacionEnabled,
+		ErrConfiguracionCTCancelacionSelector, ErrConfiguracionCTCancelacionActivacion,
+		catalogoRequerido{EnvCTReglasSourcePath, reglas.CTSourcePath},
+		catalogoRequerido{EnvCTMotivosCancelacionSourcePath, reglas.MotivosCancelacionSourcePath})
 }
 
 // catalogoRequerido nombra la variable de entorno de un catálogo que una

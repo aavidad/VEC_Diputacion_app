@@ -135,12 +135,13 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "TREBEP, art. 10.1.d.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "meses",
           "cantidad": "9",
           "inicio": "nombramiento",
           "computo": "civil",
-          "ventana_meses": "18"
+          "ventana_meses": "18",
+          "al_superar": "avisar"
         },
         "orden": 8
       },
@@ -152,12 +153,13 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "TREBEP, art. 10.1.c.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "anios",
           "cantidad": "3",
           "inicio": "nombramiento",
           "computo": "civil",
-          "ampliacion_meses": "12"
+          "ampliacion_meses": "12",
+          "al_superar": "avisar"
         },
         "orden": 9
       },
@@ -169,11 +171,12 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "TREBEP, art. 10.4.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "anios",
           "cantidad": "3",
           "inicio": "nombramiento",
-          "computo": "civil"
+          "computo": "civil",
+          "al_superar": "avisar"
         },
         "orden": 10
       },
@@ -198,12 +201,13 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "Estatuto de los Trabajadores, art. 15.2.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "meses",
           "cantidad": "6",
           "inicio": "contrato",
           "computo": "civil",
-          "ampliable_meses": "12"
+          "ampliable_meses": "12",
+          "al_superar": "avisar"
         },
         "orden": 12
       },
@@ -227,14 +231,15 @@
       {
         "clave": "c10.cierre_expediente",
         "etiqueta": "Condiciones del cierre del expediente",
-        "descripcion": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número.",
+        "descripcion": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número de alta. El número del cierre es el de la confirmación de GINPIX registrada; no se teclea en el cierre. El cierre administrativo sin cese solo se ofrece si cierre_sin_cese vale «admitido».",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 11.",
+          "duda": "Dudas 11 y 12.",
           "unidad": "lista",
-          "valor": "cese_registrado,ginpix_confirmado"
+          "valor": "cese_registrado,ginpix_confirmado",
+          "cierre_sin_cese": "no_admitido"
         },
         "orden": 14
       },
@@ -252,6 +257,257 @@
           "catalogo": "causas_cese_contratacion_temporal"
         },
         "orden": 15
+      },
+      {
+        "clave": "c12.modalidad.sustitucion",
+        "etiqueta": "Sustitución",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.sustitucion.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.b.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.sustitucion"
+        },
+        "orden": 16
+      },
+      {
+        "clave": "c12.modalidad.vacante",
+        "etiqueta": "Vacante",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.a y 10.4.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.vacante"
+        },
+        "orden": 17
+      },
+      {
+        "clave": "c12.modalidad.acumulacion_tareas",
+        "etiqueta": "Acumulación de tareas",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.acumulacion_tareas.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.d.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.acumulacion_tareas"
+        },
+        "orden": 18
+      },
+      {
+        "clave": "c12.modalidad.programa",
+        "etiqueta": "Programa",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.programas_temporales.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.c.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.programas_temporales"
+        },
+        "orden": 19
+      },
+      {
+        "clave": "c12.modalidad.relevo",
+        "etiqueta": "Relevo",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Sin duración máxima en las reglas de ejemplo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Estatuto de los Trabajadores, art. 12.7.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna"
+        },
+        "orden": 20
+      },
+      {
+        "clave": "c13.causa.necesidad_temporal",
+        "etiqueta": "Necesidad temporal",
+        "descripcion": "Causa que RRHH puede elegir al analizar la solicitud.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: catálogo vigente de causas.",
+          "unidad": "ninguna"
+        },
+        "orden": 21
+      },
+      {
+        "clave": "c14.entrada_rc.sintetica_001",
+        "etiqueta": "Retención de crédito sintética 001",
+        "descripcion": "Retención de crédito de ejemplo con la que se ensaya el análisis; la real la da el sistema de Intervención.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 8: quién valida la retención de crédito y de qué sistema sale.",
+          "unidad": "ninguna",
+          "referencia": "rc:desarrollo:001",
+          "huella_sha256": "3259ad24878afcc3e4cf6ad860377c7d84f6b2b5152dc61146686a8e69ee895b",
+          "numero": "rc:desarrollo:numero:001",
+          "fecha": "2026-01-02",
+          "importe_centimos": "5000000",
+          "documento_ref": "documento:rc:desarrollo:001"
+        },
+        "orden": 22
+      },
+      {
+        "clave": "c15.urgencia",
+        "etiqueta": "Tramitación urgente",
+        "descripcion": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 63: quién declara la urgencia, con qué motivo y si puede retirarse.",
+          "unidad": "ninguna",
+          "declara": "analisis_rrhh"
+        },
+        "orden": 23
+      },
+      {
+        "clave": "c16.numeracion",
+        "etiqueta": "Numeración de los expedientes",
+        "descripcion": "Cada expediente recibe al darse de alta el número «año/prefijo y número», con el número completado con ceros hasta los dígitos indicados (hoy 2026/CT-000001). Cambiarla solo afecta a los expedientes nuevos.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 15: formato del número de expediente, quién lo asigna y si procede del registro general.",
+          "unidad": "ninguna",
+          "prefijo": "CT-",
+          "digitos": "6"
+        },
+        "orden": 24
+      },
+      {
+        "clave": "c17.via_cobertura.bolsa_vigente",
+        "etiqueta": "Bolsa vigente",
+        "descripcion": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: vías de cobertura, sus comprobaciones y el criterio de bolsa agotada provisionalmente.",
+          "unidad": "lista",
+          "valor": "existe_bolsa_vigente,hay_candidaturas_disponibles",
+          "procedencia": "bolsa",
+          "prioridad": "1"
+        },
+        "orden": 25
+      },
+      {
+        "clave": "c17.via_cobertura.oferta_sae",
+        "etiqueta": "Oferta SAE",
+        "descripcion": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: cuándo procede la oferta al SAE.",
+          "unidad": "lista",
+          "valor": "oferta_sae_disponible",
+          "procedencia": "sae",
+          "prioridad": "2"
+        },
+        "orden": 26
+      },
+      {
+        "clave": "c17.via_cobertura.nueva_convocatoria_bolsa",
+        "etiqueta": "Nueva convocatoria de Bolsa",
+        "descripcion": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: cuándo procede una nueva convocatoria.",
+          "unidad": "lista",
+          "valor": "requiere_nueva_convocatoria",
+          "procedencia": "bolsa",
+          "prioridad": "3"
+        },
+        "orden": 27
+      },
+      {
+        "clave": "c19.fiscalizacion_resultados",
+        "etiqueta": "Efecto de cada resultado de fiscalización",
+        "descripcion": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Respuesta de RRHH a la duda 5 (reparos de Intervención).",
+          "duda": "Duda 5: favorable y favorable con observaciones continúan; desfavorable vuelve a la unidad gestora; tras subsanar, informe nuevo y nueva firma.",
+          "unidad": "lista",
+          "valor": "favorable,favorable_con_observaciones,desfavorable",
+          "efecto_favorable": "continua",
+          "efecto_favorable_con_observaciones": "continua",
+          "efecto_desfavorable": "vuelve_unidad_gestora",
+          "informe_nuevo_tras_subsanacion": "si",
+          "documento_firma_informe_nuevo": "informe_definitivo"
+        },
+        "orden": 28
+      },
+      {
+        "clave": "c20.cancelacion_expediente",
+        "etiqueta": "Cancelación del expediente",
+        "descripcion": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela. «roles_centro» fija qué perfiles del centro cancelan (sin él, el centro no cancela).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "unidad": "lista",
+          "valor": "solicitud,asignacion_unidad,informe_juridico",
+          "motivos": "necesidad_desaparecida,desistimiento_centro,cobertura_otra_via,error_solicitud,solicitud_duplicada,falta_credito",
+          "catalogo": "motivos_cancelacion_contratacion_temporal",
+          "roles_centro": "solicitante_centro,ratificador_centro"
+        },
+        "orden": 29
+      },
+      {
+        "clave": "c21.acreditacion_incorporacion",
+        "etiqueta": "Acreditación de la incorporación",
+        "descripcion": "La incorporación la confirma el centro con el documento que la acredita: la toma de posesión en los nombramientos y el contrato firmado en los contratos laborales. El documento se registra en Documentos o se aporta su referencia con la huella del archivo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 62.1.c (toma de posesión); Estatuto de los Trabajadores, art. 8 (forma del contrato).",
+          "duda": "Duda 11.",
+          "unidad": "lista",
+          "valor": "toma_posesion",
+          "valor_relevo": "contrato_firmado",
+          "roles_confirman": "solicitante_centro,ratificador_centro"
+        },
+        "orden": 30
+      },
+      {
+        "clave": "c22.no_incorporacion",
+        "etiqueta": "No incorporación",
+        "descripcion": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Reglamento de bolsas de la Diputación de Granada, art. 11.1.a (no presentarse en el día y lugar indicados o no aportar la documentación).",
+          "duda": "Duda 12.",
+          "unidad": "lista",
+          "valor": "no_presentado,no_aporta_documentacion,renuncia_antes_incorporacion",
+          "etiqueta_no_presentado": "No se presenta el día y en el lugar indicados",
+          "etiqueta_no_aporta_documentacion": "No aporta la documentación exigida",
+          "etiqueta_renuncia_antes_incorporacion": "Renuncia antes de incorporarse",
+          "consecuencia_no_presentado": "b24.sancion.baja_llamamiento_directo",
+          "consecuencia_no_aporta_documentacion": "b24.sancion.baja_llamamiento_directo",
+          "consecuencia_renuncia_antes_incorporacion": "b24.sancion.baja_llamamiento_directo",
+          "segunda_persona": "si"
+        },
+        "orden": 31
       }
     ],
     "estado": "publicado",

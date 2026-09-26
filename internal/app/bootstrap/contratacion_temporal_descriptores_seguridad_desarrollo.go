@@ -62,7 +62,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		// que la decisión: sin su frontera, el PDP común las deniega (403).
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
-	}, descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT)...)
+	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
 }
 
 func fronteraContratacionTemporalDesarrollo(

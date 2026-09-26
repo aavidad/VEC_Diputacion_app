@@ -15,6 +15,35 @@ type ConsultaAvisosRRHHPostgreSQL struct {
 	// portal añade las solicitudes y respuestas del portal del candidato
 	// (Bolsa 000030); solo se activa si esa migración está compuesta.
 	portal bool
+	// parametros usa la bandeja v2 (Bolsa 000041): plazos del catálogo y
+	// aviso de encadenamiento. Se activa en la composición, antes de servir.
+	parametros bool
+	// noIncorporaciones usa la bandeja v3 (Bolsa 000042): la v2 más las no
+	// incorporaciones que esperan revisión de RRHH.
+	noIncorporaciones bool
+}
+
+// ActivarNoIncorporaciones cambia a la bandeja v3 (Bolsa 000042) si la base
+// la ofrece a esta cuenta. Solo durante la composición.
+func (c *ConsultaAvisosRRHHPostgreSQL) ActivarNoIncorporaciones(ctx context.Context) error {
+	if c == nil || c.pool == nil || ctx == nil {
+		return puertosbolsa.ErrConsultaAvisosNoDisponible
+	}
+	var disponible bool
+	if err := c.pool.QueryRow(ctx, `SELECT coalesce(pg_catalog.has_function_privilege(pg_catalog.to_regprocedure(
+  'vec_bolsa_llamamientos.consultar_avisos_rrhh_v3(timestamptz)'),'EXECUTE'),false)`).Scan(&disponible); err != nil || !disponible {
+		return puertosbolsa.ErrConsultaAvisosNoDisponible
+	}
+	c.noIncorporaciones = true
+	return nil
+}
+
+// ActivarParametros cambia a la bandeja v2 (Bolsa 000041). Solo debe
+// llamarse durante la composición, después de publicar la política.
+func (c *ConsultaAvisosRRHHPostgreSQL) ActivarParametros() {
+	if c != nil {
+		c.parametros = true
+	}
 }
 
 // NuevaConsultaAvisosRRHHConPortalPostgreSQL incluye en la bandeja las
@@ -29,10 +58,17 @@ func NuevaConsultaAvisosRRHHConPortalPostgreSQL(pool *pgxpool.Pool) (*ConsultaAv
 }
 
 func (c *ConsultaAvisosRRHHPostgreSQL) origen() string {
-	if c.portal {
-		return `(SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) UNION ALL SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1($1)) a`
+	bandeja := `vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1)`
+	if c.parametros {
+		bandeja = `vec_bolsa_llamamientos.consultar_avisos_rrhh_v2($1)`
 	}
-	return `vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) a`
+	if c.noIncorporaciones {
+		bandeja = `vec_bolsa_llamamientos.consultar_avisos_rrhh_v3($1)`
+	}
+	if c.portal {
+		return `(SELECT * FROM ` + bandeja + ` UNION ALL SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1($1)) a`
+	}
+	return bandeja + ` a`
 }
 
 var _ puertosbolsa.ConsultaAvisosRRHH = (*ConsultaAvisosRRHHPostgreSQL)(nil)
@@ -80,6 +116,12 @@ func (c *ConsultaAvisosRRHHPostgreSQL) ContarAvisosRRHH(ctx context.Context, cor
 	conteos := map[string]int{dominiobolsa.AvisoSaltoOrden: 0, dominiobolsa.AvisoTresAnos: 0}
 	if c.portal {
 		conteos[dominiobolsa.AvisoSolicitudPortal], conteos[dominiobolsa.AvisoRespuestaPortal] = 0, 0
+	}
+	if c.parametros || c.noIncorporaciones {
+		conteos[dominiobolsa.AvisoEncadenamiento] = 0
+	}
+	if c.noIncorporaciones {
+		conteos[dominiobolsa.AvisoNoIncorporacionRevision] = 0
 	}
 	for filas.Next() {
 		var tipo string

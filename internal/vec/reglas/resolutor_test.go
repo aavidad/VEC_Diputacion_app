@@ -110,6 +110,13 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			CTAltaSeguridadSocial, CTJornadaCompleta, CTDuracionAcumulacionTareas, CTDuracionProgramasTemporales,
 			CTDuracionVacante, CTDuracionSustitucion, CTDuracionCircunstancias,
 			CTModificacionFaseRetorno, CTCierreExpediente, CTCausasCese,
+			CTPrefijoModalidad + "sustitucion", CTPrefijoModalidad + "vacante",
+			CTPrefijoModalidad + "acumulacion_tareas", CTPrefijoModalidad + "programa",
+			CTPrefijoModalidad + "relevo", CTPrefijoCausa + "necesidad_temporal",
+			CTPrefijoEntradaRC + "sintetica_001", CTUrgencia, CTNumeracion,
+			CTPrefijoViaCobertura + "bolsa_vigente", CTPrefijoViaCobertura + "oferta_sae",
+			CTPrefijoViaCobertura + "nueva_convocatoria_bolsa", CTFiscalizacionResultados,
+			CTCancelacionExpediente, CTAcreditacionIncorporacion, CTNoIncorporacion,
 		}},
 	}
 	for _, caso := range casos {

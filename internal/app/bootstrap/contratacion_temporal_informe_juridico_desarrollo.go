@@ -35,9 +35,7 @@ func (resolutorConfiguracionInformeJuridicoContratacionTemporalDesarrollo) Resol
 ) (ports.ConfiguracionInformeJuridico, error) {
 	if contextoInterfazNulo(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		solicitud.VersionExpediente != 4 ||
-		solicitud.FaseActual != domain.ClaveFase("asignacion_unidad") ||
-		solicitud.EstadoActual != domain.EstadoEnCurso ||
+		!puntoEmisionInformeJuridicoDesarrollo(solicitud.VersionExpediente, string(solicitud.FaseActual), string(solicitud.EstadoActual)) ||
 		solicitud.UnidadAsignadaRef != unidadCoberturaContratacionTemporalDesarrollo {
 		return ports.ConfiguracionInformeJuridico{},
 			errInformeJuridicoContratacionTemporalDesarrolloNoDisponible
@@ -202,9 +200,7 @@ func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
 		datos.Finalidad == finalidadInformeJuridicoContratacionTemporalDesarrollo &&
 		len(ambitos) == 4 && len(atributos) == 10 &&
 		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		ambitos["fase_previa"] == "asignacion_unidad" &&
-		ambitos["estado_previo"] == string(domain.EstadoEnCurso) &&
-		atributos["version_expediente"] == strconv.FormatUint(4, 10) &&
+		versionInformeJuridicoDesarrolloValida(atributos["version_expediente"], ambitos["fase_previa"], ambitos["estado_previo"]) &&
 		atributos["configuracion_ref"] == definicionInformeJuridicoDesarrollo &&
 		atributos["configuracion_version"] == strconv.FormatUint(1, 10) &&
 		hmac.Equal(
@@ -226,4 +222,19 @@ func solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
 			ports.DominioHuellaPeticionInformeJuridico,
 		) &&
 		len(atributos["borrador_huella_sha256"]) == 64
+}
+
+// puntoEmisionInformeJuridicoDesarrollo admite el informe inicial (v4, tras
+// la asignación) y el informe nuevo tras subsanar un reparo (desde v7, en la
+// subsanación). Que el informe nuevo proceda lo decide el catálogo en la
+// aplicación; aquí solo se acota la forma del expediente.
+func puntoEmisionInformeJuridicoDesarrollo(version uint64, fase, estado string) bool {
+	return (version == 4 && fase == "asignacion_unidad" && estado == string(domain.EstadoEnCurso)) ||
+		(version >= 7 && fase == string(domain.FaseSubsanacionUnidad) && estado == string(domain.EstadoIncidencia))
+}
+
+func versionInformeJuridicoDesarrolloValida(texto, fase, estado string) bool {
+	version, err := strconv.ParseUint(texto, 10, 64)
+	return err == nil && strconv.FormatUint(version, 10) == texto &&
+		puntoEmisionInformeJuridicoDesarrollo(version, fase, estado)
 }

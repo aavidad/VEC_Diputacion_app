@@ -85,7 +85,10 @@ func (s *ServicioAvisosRRHH) Consultar(ctx context.Context, peticion ConsultaAvi
 	}
 	pagina := PaginaAvisos{GeneradaEn: cursor.Corte, Provisionalidad: RotuloComputoTresAnosPendiente, Conteos: map[string]int{dominiobolsa.AvisoSaltoOrden: conteos[dominiobolsa.AvisoSaltoOrden], dominiobolsa.AvisoTresAnos: conteos[dominiobolsa.AvisoTresAnos]}}
 	// Los avisos del portal solo cuentan si la consulta los incluye.
-	for _, tipo := range []string{dominiobolsa.AvisoSolicitudPortal, dominiobolsa.AvisoRespuestaPortal} {
+	// El encadenamiento (Bolsa 000041) y la revisión de no incorporaciones
+	// (Bolsa 000042), cuando la consulta los incluye.
+	for _, tipo := range []string{dominiobolsa.AvisoSolicitudPortal, dominiobolsa.AvisoRespuestaPortal, dominiobolsa.AvisoEncadenamiento,
+		dominiobolsa.AvisoNoIncorporacionRevision} {
 		if total, incluido := conteos[tipo]; incluido {
 			pagina.Conteos[tipo] = total
 		}

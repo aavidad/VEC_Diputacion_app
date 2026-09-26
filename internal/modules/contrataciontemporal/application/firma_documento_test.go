@@ -40,7 +40,8 @@ func (r *registroFirmaPrueba) RegistrarFirma(_ context.Context, m ports.Material
 	h, _ := m.HuellaSHA256()
 	r.registrado = append(r.registrado, m)
 	r.firmas = append(r.firmas, ports.FirmaRegistrada{Documento: m.Documento, Secuencia: m.Secuencia, CatalogoHuella: m.CatalogoHuella,
-		PasoOrden: m.PasoOrden, Resultado: m.Resultado, ConMotivoDevolucion: m.MotivoDevolucion != "", OriginalHuella: m.OriginalHuella, FirmadoHuella: m.FirmadoHuella})
+		PasoOrden: m.PasoOrden, Resultado: m.Resultado, ConMotivoDevolucion: m.MotivoDevolucion != "", OriginalHuella: m.OriginalHuella, FirmadoHuella: m.FirmadoHuella,
+		ExpedienteVersion: m.VersionExpediente})
 	return ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:x", ReciboRef: "recibo-firma-ct:x", Secuencia: m.Secuencia, Resultado: m.Resultado,
 		ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba}, nil
 }

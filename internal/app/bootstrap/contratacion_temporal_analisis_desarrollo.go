@@ -35,40 +35,29 @@ var errAnalisisContratacionTemporalDesarrolloNoDisponible = errors.New(
 	"contratacion temporal: analisis de desarrollo no disponible",
 )
 
-var modalidadesAnalisisContratacionTemporalDesarrollo = [...]domain.ClaveCatalogo{
-	"sustitucion",
-	"vacante",
-	"acumulacion_tareas",
-	"programa",
-	"relevo",
-}
-
 // Toda validación de la solicitud de análisis recibe el catálogo de alta
 // configurado; con catálogo nulo solo valen las categorías sintéticas, y
 // validar sin él una solicitud que el preparador admitió con la RPT la
-// rechazaría a mitad del análisis.
+// rechazaría a mitad del análisis. Modalidad, causa y entrada de retención de
+// crédito se comprueban con las opciones del catálogo de reglas (o las de
+// siempre); un periodo que supera el máximo de su modalidad solo se rechaza si
+// la regla de duración lo pide («al_superar»: «bloquear»). La urgencia solo se
+// admite si el catálogo publica su regla (c15).
 func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
 ) bool {
 	datos := solicitud.DatosFuncionales
-	if solicitud.ArtefactoRef != artefactoAnalisisContratacionTemporalDesarrollo ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		!categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, datos.CategoriaRef, datos.GrupoSubgrupo) ||
-		datos.CausaClave != causaAnalisisContratacionTemporalDesarrollo ||
-		datos.EntradaRC.Referencia != entradaRCAnalisisContratacionTemporalDesarrollo ||
-		!hmac.Equal(
-			[]byte(datos.EntradaRC.HuellaSHA256),
-			[]byte(huellaEntradaRCAnalisisContratacionTemporalDesarrollo),
-		) {
-		return false
-	}
-	for _, modalidad := range modalidadesAnalisisContratacionTemporalDesarrollo {
-		if datos.ModalidadClave == modalidad {
-			return true
-		}
-	}
-	return false
+	opciones := catalogo.opcionesAnalisis()
+	modalidad, conModalidad := opciones.modalidad(datos.ModalidadClave)
+	_, conEntradaRC := opciones.entradaRC(datos.EntradaRC)
+	return solicitud.ArtefactoRef == artefactoAnalisisContratacionTemporalDesarrollo &&
+		solicitud.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+		categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, datos.CategoriaRef, datos.GrupoSubgrupo) &&
+		conModalidad && opciones.causaValida(datos.CausaClave) && conEntradaRC &&
+		(datos.MotivoUrgencia == "" || opciones.urgenciaDisponible) &&
+		!(modalidad.Duracion != nil && modalidad.Duracion.Bloquear &&
+			modalidad.Duracion.superaDuracion(datos.Periodo))
 }
 
 type entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo struct {
@@ -89,6 +78,19 @@ type configuracionAnalisisContratacionTemporalDesarrollo struct {
 	// JornadaCompletaMinutosSemanales procede de la regla c07 del catálogo; la
 	// web convierte con ella horas y minutos en fracción de jornada.
 	JornadaCompletaMinutosSemanales int `json:"jornada_completa_minutos_semanales"`
+	// DuracionesMaximas (reglas c08 citadas por cada modalidad) solo se
+	// publica con catálogo: la web avisa si el periodo las supera.
+	DuracionesMaximas []duracionMaximaConfiguracionAnalisisCT `json:"duraciones_maximas,omitempty"`
+	// UrgenciaDisponible (regla c15) permite declarar urgente el expediente
+	// al analizarlo, con su motivo.
+	UrgenciaDisponible bool `json:"urgencia_disponible,omitempty"`
+}
+
+type duracionMaximaConfiguracionAnalisisCT struct {
+	ModalidadClave string `json:"modalidad_clave"`
+	Unidad         string `json:"unidad"`
+	Cantidad       int    `json:"cantidad"`
+	Bloquear       bool   `json:"bloquear"`
 }
 
 type respuestaConfiguracionAnalisisContratacionTemporalDesarrollo struct {
@@ -233,40 +235,35 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 	if err != nil {
 		return configuracionAnalisisContratacionTemporalDesarrollo{}
 	}
-	modalidades := make(
-		[]opcionClaveCatalogosAltaContratacionTemporalDesarrollo,
-		0,
-		len(modalidadesAnalisisContratacionTemporalDesarrollo),
-	)
-	etiquetas := [...]string{
-		"Sustitución",
-		"Vacante",
-		"Acumulación de tareas",
-		"Programa",
-		"Relevo",
+	opciones := catalogo.opcionesAnalisis()
+	modalidades := make([]opcionClaveCatalogosAltaContratacionTemporalDesarrollo, 0, len(opciones.modalidades))
+	var duraciones []duracionMaximaConfiguracionAnalisisCT
+	for _, modalidad := range opciones.modalidades {
+		modalidades = append(modalidades, opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
+			Clave: string(modalidad.Clave), Etiqueta: modalidad.Etiqueta,
+		})
+		if modalidad.Duracion != nil {
+			duraciones = append(duraciones, duracionMaximaConfiguracionAnalisisCT{
+				ModalidadClave: string(modalidad.Clave), Unidad: string(modalidad.Duracion.Unidad),
+				Cantidad: modalidad.Duracion.Cantidad, Bloquear: modalidad.Duracion.Bloquear,
+			})
+		}
 	}
-	for indice, modalidad := range modalidadesAnalisisContratacionTemporalDesarrollo {
-		modalidades = append(
-			modalidades,
-			opcionClaveCatalogosAltaContratacionTemporalDesarrollo{
-				Clave: string(modalidad), Etiqueta: etiquetas[indice],
-			},
-		)
+	entradasRC := make([]entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo, 0, len(opciones.entradasRC))
+	for _, entrada := range opciones.entradasRC {
+		entradasRC = append(entradasRC, entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo{
+			Referencia: entrada.Referencia, HuellaSHA256: entrada.Huella, Etiqueta: entrada.Etiqueta,
+		})
 	}
 	return configuracionAnalisisContratacionTemporalDesarrollo{
-		Esquema:      esquemaConfiguracionAnalisisContratacionTemporal,
-		ArtefactoRef: artefactoAnalisisContratacionTemporalDesarrollo,
-		Modalidades:  modalidades,
-		Categorias:   catalogo.Categorias,
-		Causas: []opcionClaveCatalogosAltaContratacionTemporalDesarrollo{{
-			Clave:    string(causaAnalisisContratacionTemporalDesarrollo),
-			Etiqueta: "Necesidad temporal",
-		}},
-		EntradasRC: []entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo{{
-			Referencia:   entradaRCAnalisisContratacionTemporalDesarrollo,
-			HuellaSHA256: huellaEntradaRCAnalisisContratacionTemporalDesarrollo,
-			Etiqueta:     "Retención de crédito sintética 001",
-		}},
+		Esquema:                         esquemaConfiguracionAnalisisContratacionTemporal,
+		ArtefactoRef:                    artefactoAnalisisContratacionTemporalDesarrollo,
+		Modalidades:                     modalidades,
+		Categorias:                      catalogo.Categorias,
+		Causas:                          append([]opcionClaveCatalogosAltaContratacionTemporalDesarrollo(nil), opciones.causas...),
+		EntradasRC:                      entradasRC,
+		DuracionesMaximas:               duraciones,
+		UrgenciaDisponible:              opciones.urgenciaDisponible,
 		MotivosRectificacion:            motivos,
 		JornadaCompletaMinutosSemanales: minutosJornadaCompletaPredeterminadaDesarrollo,
 	}
