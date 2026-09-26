@@ -2,8 +2,10 @@
 // duda 62). Bloque «Sanciones» de la ficha del candidato en la vista de RRHH.
 // Las consecuencias, su efecto, los plazos y los estados del recurso vienen del
 // catálogo que sirve la API: aquí no se fija ninguno.
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-huella-archivo-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-referencias-legibles-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "./portal-huella-archivo.js";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const ESQUEMA = "vec.bolsa.rrhh.sanciones.v1";
@@ -67,9 +69,9 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   aviso_revierte: "Este estado revoca la sanción: la participación vuelve a su situación anterior y a su puesto. Lo resuelve otra persona.",
   error_revierte: "Para revocar la sanción indique quién resuelve, la referencia de la resolución y elija su archivo.",
   confirmar_recurso: "Anotar estado",
-  exito_sancion: "Sanción registrada. Recibo {recibo}.",
+  exito_sancion: "Sanción registrada.",
   exito_recurso: "Estado del recurso anotado.",
-  exito_readmision: "Recurso anotado y sanción revocada. Recibo {recibo}.",
+  exito_readmision: "Recurso anotado y sanción revocada.",
   recuperada: " (respuesta recuperada)",
   paginacion: "Paginación del histórico de sanciones",
   mostrando: "Mostrando {inicio} a {fin} de {total}",
@@ -320,7 +322,8 @@ export function renderizarSanciones({ estado = {}, escaparHTML = html }) {
   const boton = catalogo && !estado.formularioAbierto && !estado.recursoAbierto
     ? `<button type="button" class="boton-primario" data-b24-accion="nueva">${e(t("nueva"))}</button>` : "";
   const formulario = estado.formularioAbierto ? formularioSancion(estado, e) : estado.recursoAbierto ? formularioRecurso(estado, e) : "";
-  const exito = estado.exito ? `<p class="mensaje-exito" role="status">${e(estado.exito)}</p>` : "";
+  const recibo = estado.exito && estado.recibo ? ` ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}` : "";
+  const exito = estado.exito ? `<p class="mensaje-exito" role="status">${e(estado.exito)}${recibo}</p>` : "";
   const errorOperacion = estado.errorOperacion ? `<p class="mensaje-error" role="alert">${e(estado.errorOperacion)}</p>` : "";
   return `<section class="panel panel-separado" data-b24-raiz="true" aria-labelledby="b24-titulo"><div class="cabecera-panel"><div><h4 id="b24-titulo">${e(t("titulo"))}</h4><p>${e(t("subtitulo"))}</p></div><details><summary aria-label="${e(t("ayuda_aria"))}">?</summary><p>${e(t("ayuda", { huella: ayudaHuellaArchivo() }))}</p></details></div><div class="cuerpo-panel">${sinCatalogo}<div class="acciones-vista">${boton}</div>${exito}${errorOperacion}${formulario}${contenido}</div></section>`;
 }
@@ -401,6 +404,7 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
     cerrarFormularios(flujo);
     flujo.errorOperacion = "";
     flujo.exito = mensajeExito + (respuesta.datos.reutilizada ? t("recuperada") : "");
+    flujo.recibo = typeof respuesta.datos.recibo_ref === "string" ? respuesta.datos.recibo_ref : "";
     if (respuesta.datos.situacion) modal.candidato = { ...modal.candidato, estado_clave: respuesta.datos.situacion, estado_desde: respuesta.datos.desde };
     await recargar(modal.candidato.participacion_ref);
     if (estado.modalFicha === modal) await cargar(modal);
@@ -423,7 +427,7 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
       const clave = claveIdempotente(flujo, comando);
       flujo.enviando = true; renderizar();
       void registrarSancion(estado.bolsaSeleccionada, modal.candidato.participacion_ref, comando, clave, opciones)
-        .then((r) => finalizar(modal, flujo, r, r.ok ? t("exito_sancion", { recibo: r.datos.recibo_ref }) : ""));
+        .then((r) => finalizar(modal, flujo, r, r.ok ? t("exito_sancion") : ""));
       return true;
     }
     const f = leerFormularioRecurso(datos);
@@ -438,7 +442,7 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
     const clave = claveIdempotente(flujo, { sancion, ...comando });
     flujo.enviando = true; renderizar();
     void registrarRecursoSancion(estado.bolsaSeleccionada, modal.candidato.participacion_ref, sancion, comando, clave, { ...opciones, revocatorios })
-      .then((r) => finalizar(modal, flujo, r, r.ok && r.datos.revertida ? t("exito_readmision", { recibo: r.datos.recibo_ref }) : t("exito_recurso")));
+      .then((r) => finalizar(modal, flujo, r, r.ok && r.datos.revertida ? t("exito_readmision") : t("exito_recurso")));
     return true;
   }
 

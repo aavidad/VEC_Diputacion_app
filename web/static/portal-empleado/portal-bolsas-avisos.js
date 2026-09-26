@@ -1,4 +1,6 @@
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { referenciaCopiableTraducida } from "./portal-justificante.js";
+import { traducirReferencia } from "./portal-referencias-i18n.js";
 
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";
@@ -61,13 +63,18 @@ function fechaVisible(valor) {
 const SOLICITUDES_PORTAL = Object.freeze({ pausa: "Pausa voluntaria", reactivacion: "Reactivación" });
 const RESPUESTAS_PORTAL = Object.freeze({ acepta: "Acepta", renuncia: "Renuncia", renuncia_justificada: "Renuncia justificada" });
 
+// Las referencias de solicitud y justificante son opacas: se copian, no se leen.
+function copiable(referencia, claveAria) {
+  return referenciaCopiableTraducida(referencia, texto, traducirReferencia, traducirReferencia(claveAria));
+}
+
 function detalleAviso(aviso) {
   if (aviso.tipo === "solicitud_portal") {
     const hasta = aviso.detalle.pausa_hasta ? ` hasta ${texto(fechaVisible(aviso.detalle.pausa_hasta))}` : "";
-    return `${texto(SOLICITUDES_PORTAL[aviso.detalle.solicitud] || "Solicitud")}${hasta}. Se valida con la operación de pausa o reactivación citando la referencia ${texto(aviso.referencia)}.`;
+    return `${texto(SOLICITUDES_PORTAL[aviso.detalle.solicitud] || "Solicitud")}${hasta}. ${texto(traducirReferencia("aviso_solicitud_valida"))} ${copiable(aviso.referencia, "aviso_solicitud_copiar_aria")}`;
   }
   if (aviso.tipo === "respuesta_portal") {
-    const causa = aviso.detalle.causa ? ` Causa: ${texto(aviso.detalle.causa)}; justificante ${texto(aviso.detalle.justificante_ref)}.` : "";
+    const causa = aviso.detalle.causa ? ` ${texto(traducirReferencia("aviso_causa", { causa: aviso.detalle.causa }))} ${copiable(aviso.detalle.justificante_ref, "aviso_justificante_copiar_aria")}` : "";
     const modo = aviso.detalle.modo === "propuesta_rrhh" ? "Pendiente de confirmar por RRHH." : "Respuesta firme.";
     return `${texto(RESPUESTAS_PORTAL[aviso.detalle.respuesta] || "Respuesta")}. ${modo}${causa}`;
   }

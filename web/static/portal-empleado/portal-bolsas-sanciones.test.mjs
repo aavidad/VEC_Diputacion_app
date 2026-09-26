@@ -110,7 +110,9 @@ test("B24 controlador registra, conserva la clave en el reintento y recarga", as
     assert.equal(claves[0], claves[1]);
     assert.equal(recargas, 1);
     assert.equal(modal.candidato.estado_clave, "no_disponible");
-    assert.match(modal.sancionesB24.exito, /recibo:1/);
+    assert.match(modal.sancionesB24.exito, /Sanción registrada/);
+    assert.doesNotMatch(modal.sancionesB24.exito, /recibo:1/);
+    assert.equal(modal.sancionesB24.recibo, "recibo:1");
   } finally {
     globalThis.FormData = anterior;
   }

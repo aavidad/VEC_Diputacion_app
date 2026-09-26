@@ -5,6 +5,7 @@
  * confirmar. Solo se lee la forma enmascarada: el claro nunca se pide aquí.
  */
 import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js";
 import { MENSAJES_CONTACTO_ORIGEN_ES } from "./portal-i18n-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
 
 const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
@@ -79,7 +80,7 @@ export function renderizarAvisosContactoEmision({ avisos = [], candidatos = [], 
   const nombres = new Map(candidatos.map((c) => [c.participacion_ref, c.nombre_visible]));
   const t = traducirContactoOrigen;
   const elementos = avisos.map((a) => {
-    const nombre = nombres.get(a.participacion_ref) || a.participacion_ref;
+    const nombre = nombres.get(a.participacion_ref) || traducirReferencia("persona_fuera_de_pagina");
     const texto = a.aviso === "contacto_origen_convoca_no_confirmado"
       ? t("aviso_no_confirmado", { nombre, fecha: fechaCivilVisible(a.ultimo_dia) })
       : t("aviso_no_disponible", { nombre });

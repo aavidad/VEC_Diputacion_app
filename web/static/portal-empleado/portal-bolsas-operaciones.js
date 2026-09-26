@@ -1,9 +1,10 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260926-integracion-bolsa-ct-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { justificanteTraducido } from "./portal-justificante.js";
+import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260926-referencias-legibles-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260926-referencias-legibles-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
+import { traducirReferencia } from "./portal-referencias-i18n.js";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo, traducirHuellaArchivo } from "./portal-huella-archivo.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
@@ -148,10 +149,27 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
     const paginas = Math.max(1, Math.ceil(total / 6));
     const pagina = Math.min(Math.max(0, Number(estado.paginaHistorial) || 0), paginas - 1);
     const visibles = estado.items.slice(pagina * 6, (pagina + 1) * 6);
-    contenido = `<div class="tabla-contenedor"><table class="tabla-datos"><caption>Historial de operaciones</caption><thead><tr><th>Desde</th><th>Operación</th><th>Situación</th><th>Motivo</th><th>Justificante</th><th>Actor / validador</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(item.desde)}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(item.situacion)}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}</td><td>${escaparHTML(item.actor)} / ${escaparHTML(item.validador)}<br>${escaparHTML(item.validada_en)}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="Paginación del historial de operaciones"><span>Mostrando ${pagina * 6 + 1} a ${Math.min((pagina + 1) * 6, total)} de ${total}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>Siguiente</button></nav>` : `<p>Mostrando 1 a ${total} de ${total}</p>`}`;
+    contenido = `<div class="tabla-contenedor"><table class="tabla-datos"><caption>Historial de operaciones</caption><thead><tr><th>Desde</th><th>Operación</th><th>Situación</th><th>Motivo</th><th>Justificante</th><th>Actor / validador</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(instanteLegible(item.desde))}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(situacionLegible(item.situacion))}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}</td><td>${personaLegible(item.actor, escaparHTML)} / ${personaLegible(item.validador, escaparHTML)}<br>${escaparHTML(instanteLegible(item.validada_en))}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="Paginación del historial de operaciones"><span>Mostrando ${pagina * 6 + 1} a ${Math.min((pagina + 1) * 6, total)} de ${total}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>Siguiente</button></nav>` : `<p>Mostrando 1 a ${total} de ${total}</p>`}`;
   }
   const flujo = estado.paso > 0 ? renderizarPaso(estado, escaparHTML) : "";
   return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>Pausa, reactivación y exclusión</h4></div><details><summary aria-label="${escaparHTML(traducirHuellaArchivo("ayuda_aria"))}">?</summary><p>${escaparHTML(ayudaHuellaArchivo())}</p></details></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">Operación registrada. ${justificanteTraducido(estado.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}${estado.reutilizada ? " (respuesta recuperada)" : ""}</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>Historial de operaciones</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
+}
+
+// El historial llega con instantes ISO, claves de situación y referencias de
+// identidad: se presentan como fecha local, situación traducida y papel.
+function instanteLegible(valor) {
+  const fecha = new Date(valor);
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T/u.test(valor) || !Number.isFinite(fecha.getTime())) return String(valor ?? "");
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "short", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL }).format(fecha);
+}
+
+function situacionLegible(clave) {
+  const texto = String(clave ?? "").replaceAll("_", " ").trim();
+  return texto ? texto.charAt(0).toLocaleUpperCase(LOCALIZACION_PORTAL) + texto.slice(1) : "—";
+}
+
+function personaLegible(valor, escaparHTML) {
+  return actorTraducido(valor, escaparHTML, traducirReferencia);
 }
 
 function renderizarPaso(estado, escaparHTML) {

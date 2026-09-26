@@ -5,6 +5,9 @@
  * CONVOCA la fija el servidor con la regla del catálogo; aquí no se calcula.
  * El formulario nunca se rellena con el contacto vigente: el claro no se pide.
  */
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { justificanteTraducido } from "./portal-justificante.js";
+
 const BASE = "/api/vec/bolsa/bolsas";
 const ORIGENES = Object.freeze(["", "convoca"]);
 const CORREO = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/u;
@@ -23,7 +26,7 @@ export const MENSAJES_REGISTRO_CONTACTO_ES = Object.freeze({
   cancelar: "Cancelar",
   registrar: "Registrar contacto",
   registrando: "Registrando…",
-  exito: "Contacto registrado (versión {version}). Recibo {recibo}.",
+  exito: "Contacto registrado (versión {version}).",
   recuperada: " (respuesta recuperada)",
   error_datos: "Indique un correo o un teléfono válidos y el motivo.",
   error_400: "La petición no es válida.",
@@ -94,7 +97,8 @@ function campo(etiqueta, control, e) {
 /** Botón y formulario del bloque, bajo los datos de la ficha. */
 export function renderizarRegistroContacto({ estado = {}, escaparHTML = html } = {}) {
   const e = escaparHTML;
-  const exito = estado.exito ? `<p class="mensaje-exito" role="status">${e(estado.exito)}</p>` : "";
+  const recibo = estado.recibo ? ` ${justificanteTraducido(estado.recibo, e, (clave) => traducirPortal(`panel_${clave}`))}` : "";
+  const exito = estado.exito ? `<p class="mensaje-exito" role="status">${e(estado.exito)}${recibo}</p>` : "";
   if (!estado.abierto) {
     return `<div class="acciones-vista" data-contacto-rrhh="true">${exito}<button type="button" class="boton-secundario" data-contacto-rrhh-accion="abrir">${e(t("abrir"))}</button></div>`;
   }
@@ -121,7 +125,7 @@ export function crearControladorRegistroContacto({ estado, renderizar, alRegistr
     const modal = estado.modalFicha;
     const flujo = modal.registroContacto || (modal.registroContacto = {});
     if (flujo.enviando) return true;
-    if (control.dataset.contactoRrhhAccion === "abrir") Object.assign(flujo, { abierto: true, formulario: {}, error: "", exito: "", clave: "" });
+    if (control.dataset.contactoRrhhAccion === "abrir") Object.assign(flujo, { abierto: true, formulario: {}, error: "", exito: "", recibo: "", clave: "" });
     else flujo.abierto = false;
     renderizar();
     return true;
@@ -149,7 +153,7 @@ export function crearControladorRegistroContacto({ estado, renderizar, alRegistr
       flujo.enviando = false;
       if (!r.ok) { flujo.error = r.mensaje; renderizar(); return; }
       Object.assign(flujo, { abierto: false, formulario: {}, error: "", clave: "", huella: "",
-        exito: t("exito", { version: r.datos.version, recibo: r.datos.recibo_ref }) + (r.datos.reutilizada ? t("recuperada") : "") });
+        exito: t("exito", { version: r.datos.version }) + (r.datos.reutilizada ? t("recuperada") : ""), recibo: r.datos.recibo_ref });
       renderizar();
       await alRegistrar(modal);
     });

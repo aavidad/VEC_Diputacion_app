@@ -84,14 +84,15 @@ test("B13 renderiza estados, tabla accesible, fechas locales y escapa datos", ()
   assert.match(error, /role="alert"/);
   assert.match(error, /&lt;b&gt;x&lt;\/b&gt;/);
   assert.match(error, /data-b13-accion="reintentar"/);
-  const html = renderizarContratosParticipacion({ estado: { carga: "listo", items: [{ ...item, categoria_ref: "cat:<x>" }] }, escaparHTML });
+  const html = renderizarContratosParticipacion({ estado: { carga: "listo", items: [{ ...item, categoria_ref: "cat:<x>" }] }, escaparHTML, categoria: "Auxiliar <A>" });
   assert.match(html, /<caption>Contratos de la participación<\/caption>/);
   assert.match(html, /<th scope="col">Periodo<\/th>/);
   assert.match(html, /Incorporación/);
   assert.match(html, /04\/01\/2027 – 31\/03\/2027 \(prevista\)/);
   assert.match(html, /Sustitucion/);
   assert.match(html, /Necesidad temporal/);
-  assert.match(html, /cat:&lt;x&gt;/);
+  assert.match(html, /<td>Auxiliar &lt;A&gt;<\/td>/);
+  assert.doesNotMatch(html, /cat:/);
   assert.doesNotMatch(html, /expediente:ct:1/);
   const sinFin = renderizarContratosParticipacion({ estado: { carga: "listo", items: [{ ...item, fin_previsto: null, modalidad_clave: "" }] }, escaparHTML });
   assert.match(sinFin, /sin fecha de fin/);

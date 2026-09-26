@@ -1,3 +1,6 @@
+import { referenciaCopiableTraducida } from "./portal-justificante.js";
+import { traducirReferencia } from "./portal-referencias-i18n.js";
+
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
 const FASE_ERROR = "error";
@@ -23,6 +26,15 @@ export function crearRenderizadorBorradores({
     || typeof motivoSeleccionado !== "function"
     || typeof plantillaSeleccionada !== "function") {
     throw new TypeError("dependencias de presentación de borradores no válidas");
+  }
+
+  // Referencias, huellas y etiquetas de concurrencia son internas: no se
+  // muestran; la referencia que sirve para el seguimiento se ofrece para copiar.
+  function copiable(referencia, claveAria, variables) {
+    return referenciaCopiableTraducida(referencia, escaparHTML, traducirReferencia, traducirReferencia(claveAria, variables));
+  }
+  function configuracion(nombre, valor) {
+    return `<div class="fila-resumen"><dt>${escaparHTML(nombre)}</dt><dd>${escaparHTML(traducirReferencia("borrador_version", { version: valor.version }))} ${copiable(valor.referencia, "borrador_configuracion_copiar_aria", { nombre: nombre.toLocaleLowerCase("es-ES") })}</dd></div>`;
   }
 
   function renderError(error, contexto) {
@@ -128,7 +140,7 @@ export function crearRenderizadorBorradores({
             <div class="fila-resumen"><dt>Código público</dt><dd>${escaparHTML(detalle.identificador_publico)}</dd></div>
             <div class="fila-resumen"><dt>Versión pública</dt><dd>${escaparHTML(detalle.codigo_version_publica)}</dd></div>
             <div class="fila-resumen"><dt>Expediente</dt><dd>${escaparHTML(detalle.expediente_ref)}</dd></div>
-            <div class="fila-resumen"><dt>Referencia</dt><dd><code>${escaparHTML(detalle.referencia_estado.referencia)}</code></dd></div>
+            <div class="fila-resumen"><dt>Referencia</dt><dd>${copiable(detalle.referencia_estado.referencia, "borrador_referencia_copiar_aria")}</dd></div>
           </dl>
         </fieldset>`;
     }
@@ -243,10 +255,8 @@ export function crearRenderizadorBorradores({
       <section class="recibo-borrador" role="status" aria-labelledby="titulo-recibo-borrador">
         <div><p class="sobrelinea">Guardado confirmado</p><h3 id="titulo-recibo-borrador">Recibo administrativo del borrador</h3></div>
         <dl>
-          <div><dt>Transacción</dt><dd><code>${escaparHTML(recibo.transaccion_ref)}</code></dd></div>
+          <div><dt>${escaparHTML(traducirReferencia("borrador_justificante"))}</dt><dd>${copiable(recibo.transaccion_ref, "borrador_justificante_copiar_aria")}</dd></div>
           <div><dt>Revisión</dt><dd>${escaparHTML(recibo.referencia_estado.revision)}</dd></div>
-          <div><dt>Auditoría</dt><dd><code>${escaparHTML(recibo.auditoria_ref)}</code></dd></div>
-          <div><dt>Evento</dt><dd><code>${escaparHTML(recibo.evento_outbox_ref)}</code></dd></div>
           <div><dt>Confirmado</dt><dd><time datetime="${escaparHTML(recibo.confirmada_en)}">${escaparHTML(instanteVisible(recibo.confirmada_en))}</time></dd></div>
         </dl>
       </section>`;
@@ -302,7 +312,6 @@ export function crearRenderizadorBorradores({
           <dl class="resumen-expediente">
             <div class="fila-resumen"><dt>Plantilla</dt><dd>${escaparHTML(plantilla?.nombre || "Sin seleccionar")}</dd></div>
             <div class="fila-resumen"><dt>Versión</dt><dd>${escaparHTML(plantilla?.version || "—")}</dd></div>
-            <div class="fila-resumen"><dt>Huella</dt><dd><code>${escaparHTML(plantilla?.huella_sha256 || "—")}</code></dd></div>
           </dl>
         </div></section>`;
     }
@@ -310,16 +319,14 @@ export function crearRenderizadorBorradores({
     return `
       <section class="panel"><div class="cabecera-panel"><h3>Control de concurrencia</h3><span class="estado-chip info">Revisión ${escaparHTML(detalle.referencia_estado.revision)}</span></div><div class="cuerpo-panel">
         <dl class="resumen-expediente">
-          <div class="fila-resumen"><dt>ETag fuerte</dt><dd><code>${escaparHTML(detalle.etag)}</code></dd></div>
-          <div class="fila-resumen"><dt>Huella de estado</dt><dd><code>${escaparHTML(detalle.referencia_estado.huella_estado_sha256)}</code></dd></div>
           <div class="fila-resumen"><dt>Actualizar</dt><dd>${detalle.capacidades.actualizar ? "Capacidad concedida" : "Sin capacidad"}</dd></div>
         </dl>
       </div></section>
       <section class="panel"><div class="cabecera-panel"><h3>Configuración acreditada</h3><span class="estado-chip neutro">Solo lectura</span></div><div class="cuerpo-panel">
         <dl class="resumen-expediente">
-          <div class="fila-resumen"><dt>Catálogos</dt><dd>${escaparHTML(detalle.configuracion_lectura.catalogos.referencia)} · v${escaparHTML(detalle.configuracion_lectura.catalogos.version)}</dd></div>
-          <div class="fila-resumen"><dt>Calendario</dt><dd>${escaparHTML(detalle.configuracion_lectura.calendario.referencia)} · v${escaparHTML(detalle.configuracion_lectura.calendario.version)}</dd></div>
-          <div class="fila-resumen"><dt>Baremación</dt><dd>${escaparHTML(detalle.configuracion_lectura.reglas_baremacion.referencia)} · v${escaparHTML(detalle.configuracion_lectura.reglas_baremacion.version)}</dd></div>
+          ${configuracion("Catálogos", detalle.configuracion_lectura.catalogos)}
+          ${configuracion("Calendario", detalle.configuracion_lectura.calendario)}
+          ${configuracion("Baremación", detalle.configuracion_lectura.reglas_baremacion)}
           <div class="fila-resumen"><dt>Documentos</dt><dd>${documentos.length} gobernados</dd></div>
         </dl>
       </div></section>`;
@@ -338,7 +345,6 @@ export function crearRenderizadorBorradores({
           <p>El contenido solo se mantiene en memoria durante esta sesión de página.</p>
         </div></section>`;
     }
-    const motivo = motivoSeleccionado();
     const capacidadGuardar = estado.modoEditor === "crear"
       ? estado.opciones.capacidades.crear
       : estado.detalle?.capacidades?.actualizar;
@@ -368,7 +374,6 @@ export function crearRenderizadorBorradores({
             <fieldset class="grupo-editor">
               <legend>6. Motivo y guardado</legend>
               <label class="campo"><span>Motivo gobernado</span><select required data-borrador-ruta="motivo_indice">${opcionesIndice(estado.opciones.motivos, "etiqueta", estado.editor.motivo_indice)}</select></label>
-              <p class="ayuda-campo">Referencia: <code>${escaparHTML(motivo?.motivo_ref || "—")}</code> · huella <code>${escaparHTML(motivo?.huella_sha256 || "—")}</code></p>
               <div class="barra-guardado-borrador">
                 <span>${soloLectura ? "La sesión puede consultar este borrador, pero no modificarlo." : (estado.sucio ? "La copia local se conservará ante cualquier conflicto." : "Edite algún campo para preparar un guardado.")}</span>
                 <div>
