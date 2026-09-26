@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -251,7 +252,16 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 		primero.CatalogoVersion, primero.CatalogoHuellaSHA256,
 		publicadoEn, contenido,
 	).Scan(&publicada)
-	if err != nil || !publicada {
+	if err == nil && !publicada {
+		// La función SQL rechaza sin error un replay cuyo contenido no es el
+		// ya publicado (p. ej., entradas añadidas a una versión existente).
+		// Se nombra el catálogo en el error de arranque; no es dato sensible.
+		diagnosticar("publicacion_rechazada", nil)
+		return errors.Join(errPostgreSQLContratacionTemporalDesarrolloNoDisponible,
+			fmt.Errorf("catalogo de motivos %s v%d rechazado: su contenido difiere del ya publicado en esa version",
+				primero.CatalogoID, primero.CatalogoVersion))
+	}
+	if err != nil {
 		diagnosticar("publicacion_ejecucion", err)
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}

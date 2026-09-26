@@ -100,10 +100,49 @@ func seguimientoCeseSolicitado(cfg config.Config) bool {
 	return activo
 }
 
+// operacionIncorporacionAcreditadaDesarrollo distingue las dos rutas de CT124
+// (confirmación de GINPIX y no incorporación), que solo existen con la
+// incorporación acreditada encendida.
+func operacionIncorporacionAcreditadaDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaConfirmacionesGINPIX || ruta == httpinterno.RutaNoIncorporaciones
+}
+
+// motivoSeguimientoCeseDesarrollo devuelve el motivo de cada ruta. Las cuatro
+// rutas originales siguen en «motivos_seguimiento_cese_ct» v1, tal como ya
+// está publicado en las bases existentes: una versión publicada es inmutable y
+// añadirle entradas hace que su replay idempotente se rechace al arrancar. Las
+// rutas de CT124 van en su propio catálogo.
 func motivoSeguimientoCeseDesarrollo(ruta string) vecdomain.ReferenciaEntradaCatalogo {
+	if operacionIncorporacionAcreditadaDesarrollo(ruta) {
+		return vecdomain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_incorporacion_acreditada_ct", CatalogoVersion: 1,
+			CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("incorporacion-acreditada-ct-desarrollo-v1"),
+			EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "seguimiento-cese-ct:"+ruta)}
+	}
 	return vecdomain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_seguimiento_cese_ct", CatalogoVersion: 1,
 		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("seguimiento-cese-ct-desarrollo-v1"),
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "seguimiento-cese-ct:"+ruta)}
+}
+
+// motivosSeguimientoCesePorCatalogo agrupa los motivos de las operaciones
+// compuestas por catálogo, en orden estable, para publicar cada uno aparte.
+func motivosSeguimientoCesePorCatalogo(acreditada bool) [][]vecdomain.ReferenciaEntradaCatalogo {
+	var orden []string
+	grupos := map[string][]vecdomain.ReferenciaEntradaCatalogo{}
+	for _, o := range operacionesSeguimientoCeseDesarrollo() {
+		if operacionIncorporacionAcreditadaDesarrollo(o.ruta) && !acreditada {
+			continue
+		}
+		m := motivoSeguimientoCeseDesarrollo(o.ruta)
+		if _, ok := grupos[m.CatalogoID]; !ok {
+			orden = append(orden, m.CatalogoID)
+		}
+		grupos[m.CatalogoID] = append(grupos[m.CatalogoID], m)
+	}
+	resultado := make([][]vecdomain.ReferenciaEntradaCatalogo, 0, len(orden))
+	for _, id := range orden {
+		resultado = append(resultado, grupos[id])
+	}
+	return resultado
 }
 
 // soporteSeguimientoCeseDesarrollo es la instantánea de desarrollo, no
@@ -146,17 +185,18 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ambitosSeguimientoCese(ruta 
 	return ambitos, true
 }
 
-func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo) error {
+func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, acreditada bool) error {
 	v, err := alta.soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return err
 	}
 	var concesiones []vecdomain.ConcesionRol
-	motivos := make([]vecdomain.ReferenciaEntradaCatalogo, 0, 4)
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
+		if operacionIncorporacionAcreditadaDesarrollo(o.ruta) && !acreditada {
+			continue
+		}
 		concesiones = append(concesiones, vecdomain.ConcesionRol{Accion: o.accion, ModuloID: ports.ModuloContratacion, TipoRecurso: o.tipo,
 			Finalidades: []string{o.finalidad}, GarantiaMinima: vecdomain.AuthAssuranceHigh})
-		motivos = append(motivos, motivoSeguimientoCeseDesarrollo(o.ruta))
 	}
 	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
 		"seguimiento_cese_ct_desarrollo", "Cese, cierre y modificación de desarrollo", "seguimiento-cese-ct-desarrollo", concesiones,
@@ -168,8 +208,10 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 	if !vigente {
 		return errSeguimientoCeseDesarrolloNoDisponible
 	}
-	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, motivos, desde); err != nil {
-		return err
+	for _, motivos := range motivosSeguimientoCesePorCatalogo(acreditada) {
+		if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, motivos, desde); err != nil {
+			return err
+		}
 	}
 	alta.soporte.mu.Lock()
 	alta.soporte.seguimientoCese = &soporteSeguimientoCeseDesarrollo{instantanea: instantanea}
@@ -426,7 +468,8 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()
-	if err := configurarSoporteSeguimientoCeseDesarrollo(ctx, alta, reloj); err != nil {
+	acreditada := incorporacionAcreditadaSolicitada(cfg)
+	if err := configurarSoporteSeguimientoCeseDesarrollo(ctx, alta, reloj, acreditada); err != nil {
 		return fallar("instantanea", err)
 	}
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())
@@ -437,7 +480,6 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 	autoridad := &autoridadSeguimientoCeseDesarrollo{alta: alta, proveedores: map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{}}
 	descriptores := descriptoresMaterialSeguimientoCeseDesarrollo()
-	acreditada := incorporacionAcreditadaSolicitada(cfg)
 	if acreditada {
 		if err := comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx, alta.postgresql.ejecucion); err != nil {
 			return fallar("migraciones_incorporacion_acreditada", err)
@@ -491,7 +533,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	}
 	rutas := make([]vechttp.RutaExacta, 0, len(manejadores))
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
-		if (o.ruta == httpinterno.RutaConfirmacionesGINPIX || o.ruta == httpinterno.RutaNoIncorporaciones) && !acreditada {
+		if operacionIncorporacionAcreditadaDesarrollo(o.ruta) && !acreditada {
 			continue
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: o.ruta, Manejador: manejadores[o.ruta]})
