@@ -68,6 +68,8 @@ func TestNumeracionRechazaCatalogoRoto(t *testing.T) {
 	for _, caso := range [][2]string{
 		{"CT/", "6"}, {"CT-", "0"}, {"CT-", "10"}, {"CT-", "06"}, {"CT-", "seis"},
 		{strings.Repeat("A", 21), "6"}, {"C T", "6"},
+		// Terminado en cifra: «CT-1»+«5» repetiría «CT-»+«15».
+		{"CT-1", "1"}, {"9", "6"}, {"CTEMP2026", "4"},
 	} {
 		if _, err := numeracionDesdeReglasCT(reglaNumeracionPrueba(caso[0], caso[1])); !errors.Is(err, errNumeracionNoValida) {
 			t.Fatalf("se aceptó la numeración %q/%q", caso[0], caso[1])

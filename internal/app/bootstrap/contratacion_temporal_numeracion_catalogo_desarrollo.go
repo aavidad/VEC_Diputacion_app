@@ -28,7 +28,9 @@ const (
 )
 
 var (
-	patronPrefijoNumeracionCT = regexp.MustCompile(`^[A-Za-z0-9._-]{0,20}$`)
+	// El prefijo no termina en cifra: «CT-1» con «5» y «CT-» con «15» darían
+	// el mismo número visible. La tabla de CT-000126 exige lo mismo.
+	patronPrefijoNumeracionCT = regexp.MustCompile(`^([A-Za-z0-9._-]{0,19}[A-Za-z._-])?$`)
 
 	errNumeracionNoValida = errors.New(
 		"bootstrap: numeración de expedientes del catálogo de reglas no válida",
