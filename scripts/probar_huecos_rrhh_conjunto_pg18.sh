@@ -26,14 +26,16 @@ recorrido=${VEC_HUECOS_RECORRIDO:-incorporacion}
 
 nombre="vec-pg-huecos-$$"
 datos="/dev/shm/$nombre"
+socket="/dev/shm/$nombre-socket"
 limpiar() {
   docker rm -f "$nombre" >/dev/null 2>&1 || true
-  docker run --rm -v "/dev/shm:/limpiar" postgres:18.4 rm -rf "/limpiar/$nombre" >/dev/null 2>&1 || rm -rf "$datos" 2>/dev/null || true
+  docker run --rm -v "/dev/shm:/limpiar" postgres:18.4 rm -rf "/limpiar/$nombre" "/limpiar/$nombre-socket" >/dev/null 2>&1 || rm -rf "$datos" "$socket" 2>/dev/null || true
 }
 trap limpiar EXIT
-mkdir -p "$datos"
+mkdir -p "$datos" "$socket"
+chmod 1777 "$socket"
 docker run -d --rm --network none --name "$nombre" -e POSTGRES_HOST_AUTH_METHOD=trust \
-  -v "$datos:/var/lib/postgresql" postgres:18.4 >/dev/null
+  -v "$datos:/var/lib/postgresql" -v "$socket:/var/run/postgresql" postgres:18.4 >/dev/null
 esperar() {
   for _ in $(seq 1 240); do
     if docker logs "$nombre" 2>&1 | grep -q 'PostgreSQL init process complete' && docker exec "$nombre" pg_isready -q -U postgres; then return 0; fi
@@ -159,6 +161,19 @@ if [[ $recorrido == incorporacion ]]; then
 else
   prueba 'reinicio no incorporación OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_no_incorporacion_reinicio.sql"
 fi
+
+echo '== Arranque del seguimiento de cese con la incorporación acreditada (prueba Go)'
+# Reproduce el fallo del clon del 26/09: con el catálogo de motivos del
+# seguimiento ya publicado, encender la incorporación acreditada detenía el
+# arranque. Publica como el gobernador real y comprueba como el ejecutor real.
+salida=$(cd "$repo" && VEC_ARRANQUE_T2_PG_DESECHABLE=1 \
+  VEC_ARRANQUE_T2_PG_DSN_GOBIERNO="host=$socket user=vec_ad3_o207_gobierno dbname=postgres sslmode=disable" \
+  VEC_ARRANQUE_T2_PG_DSN_EJECUCION="host=$socket user=vec_ct_o207_runtime dbname=postgres sslmode=disable" \
+  VEC_ARRANQUE_T2_PG_DSN_ADMIN="host=$socket user=postgres dbname=postgres sslmode=disable" \
+  go test -count=1 -run '^TestArranqueSeguimientoCeseIncorporacionAcreditadaPostgreSQL$' -v ./internal/app/bootstrap/ 2>&1) || true
+grep -q '^--- PASS: TestArranqueSeguimientoCeseIncorporacionAcreditadaPostgreSQL' <<<"$salida" \
+  || { printf '%s\n' "$salida" | tail -20 >&2; echo 'FALLO: arranque del seguimiento con incorporación acreditada' >&2; exit 1; }
+ok 'seguimiento de cese e incorporación acreditada arrancan sobre el catálogo ya publicado'
 
 echo '== DOWN con historia o con dependientes instalados se niega'
 for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88 $([[ $recorrido == no_incorporacion ]] && echo bolsa_42); do
