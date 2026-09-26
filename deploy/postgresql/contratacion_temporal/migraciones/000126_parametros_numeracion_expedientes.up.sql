@@ -53,7 +53,9 @@ CREATE TABLE vec_contratacion_temporal.numeracion_parametros (
     publicado_por text NOT NULL,
     publicado_en timestamptz(6) NOT NULL,
     CHECK (version BETWEEN 1 AND 9007199254740991),
-    CHECK (prefijo ~ '^[A-Za-z0-9._-]{0,20}$'),
+    -- El prefijo no termina en cifra: si terminara, «CT-1» + «5» y «CT-» +
+    -- «15» darían el mismo número visible.
+    CHECK (prefijo ~ '^([A-Za-z0-9._-]{0,19}[A-Za-z._-])?$'),
     CHECK (digitos BETWEEN 1 AND 9),
     CHECK (huella_sha256 = pg_catalog.encode(pg_catalog.sha256(
         pg_catalog.convert_to(prefijo || '|' || digitos::text, 'UTF8')
@@ -127,7 +129,7 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'publicación de numeración no autorizada';
     END IF;
-    IF p_prefijo IS NULL OR p_prefijo !~ '^[A-Za-z0-9._-]{0,20}$'
+    IF p_prefijo IS NULL OR p_prefijo !~ '^([A-Za-z0-9._-]{0,19}[A-Za-z._-])?$'
        OR p_digitos IS NULL OR p_digitos NOT BETWEEN 1 AND 9
        OR p_fuente_ref IS NULL
        OR p_fuente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN

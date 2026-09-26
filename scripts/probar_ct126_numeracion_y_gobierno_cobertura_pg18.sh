@@ -104,6 +104,18 @@ ok 'ACL con roles reales'
 
 echo '== Numeración: publicación, formato, negativos e historia'
 prueba 'CT126 OK' "$pruebas/ct126_parametros_numeracion_expedientes.sql"
+for prefijo in 'CT-1' '9' 'CTEMP2026'; do
+  if salida=$(como vec_ad3_o207_gobierno "SELECT resultado FROM vec_contratacion_temporal.publicar_numeracion_parametros_v1('$prefijo', 1, 'configuracion:ct:numeracion:prueba')" 2>&1); then
+    echo "FALLO: se publicó el prefijo terminado en cifra $prefijo" >&2; exit 1
+  fi
+  grep -q 'parámetros de numeración no válidos' <<<"$salida" || { echo "FALLO: rechazo inesperado de $prefijo: $salida" >&2; exit 1; }
+  if salida=$(escalar "BEGIN; INSERT INTO vec_contratacion_temporal.numeracion_parametros(version,prefijo,digitos,huella_sha256,fuente_ref,publicado_por,publicado_en)
+      VALUES (99,'$prefijo',1,encode(sha256(convert_to('$prefijo|1','UTF8')),'hex'),'configuracion:ct:numeracion:prueba','postgres',date_trunc('microseconds',clock_timestamp())); ROLLBACK;" 2>&1); then
+    echo "FALLO: la tabla admitió el prefijo $prefijo" >&2; exit 1
+  fi
+  grep -q 'numeracion_parametros_prefijo_check' <<<"$salida" || { echo "FALLO: rechazo inesperado en la tabla de $prefijo: $salida" >&2; exit 1; }
+done
+ok 'prefijo terminado en cifra rechazado al publicar y en la tabla (evita números visibles repetidos)'
 
 echo '== Reinicio de PostgreSQL'
 reiniciar

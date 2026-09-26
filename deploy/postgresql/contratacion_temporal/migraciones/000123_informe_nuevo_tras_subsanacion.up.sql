@@ -12,8 +12,14 @@
 --     informe nuevo identifica en «sustituye» el informe que se fiscalizó;
 --   * la nueva fiscalización de CT93 toma el informe vigente del expediente,
 --     así que queda ligada al informe nuevo y lo aporta a su autorización.
--- Exigir o no el informe nuevo lo decide el catálogo en la aplicación; sin
--- esa regla nadie llama a estas funciones y rige la conducta de siempre.
+-- Exigir o no el informe nuevo lo decide el catálogo (regla c19). La
+-- aplicación lo publica al arrancar en politica_informe_tras_subsanacion
+-- (solo adición; publicar lo mismo no añade historia) y la nueva
+-- fiscalización de CT93 lo comprueba también en la base: con la política
+-- vigente «exige», rechaza fiscalizar de nuevo mientras el informe nuevo de
+-- ese retorno no se haya emitido. CT93 no se edita: su confirmación recibe
+-- esa comprobación desde aquí, con la preimagen exacta verificada. Sin
+-- ninguna política publicada rige la conducta de siempre.
 -- Añade inicio_ronda_informe_nuevo_v1: la versión desde la que se vuelve a
 -- firmar el informe (segunda ronda del circuito de firma).
 BEGIN;
@@ -30,8 +36,14 @@ DECLARE v_def text; f regprocedure;
 BEGIN
     IF pg_catalog.to_regprocedure('vec_contratacion_temporal.preparar_informe_juridico_tras_subsanacion_v1(jsonb)') IS NOT NULL
        OR pg_catalog.to_regprocedure('vec_contratacion_temporal.informe_nuevo_admisible_ct123(jsonb)') IS NOT NULL
-       OR pg_catalog.to_regprocedure('vec_contratacion_temporal.inicio_ronda_informe_nuevo_v1(text,text)') IS NOT NULL THEN
+       OR pg_catalog.to_regprocedure('vec_contratacion_temporal.inicio_ronda_informe_nuevo_v1(text,text)') IS NOT NULL
+       OR pg_catalog.to_regprocedure('vec_contratacion_temporal.informe_nuevo_exigido_ct123()') IS NOT NULL
+       OR pg_catalog.to_regprocedure('vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(boolean,text)') IS NOT NULL
+       OR pg_catalog.to_regclass('vec_contratacion_temporal.politica_informe_tras_subsanacion') IS NOT NULL THEN
         RAISE EXCEPTION 'CT123 ya instalada' USING ERRCODE = '55000';
+    END IF;
+    IF pg_catalog.to_regprocedure('vec_contratacion_temporal.rechazar_mutacion_historia_v1()') IS NULL THEN
+        RAISE EXCEPTION 'CT123: falta CT103' USING ERRCODE = '55000';
     END IF;
     IF pg_catalog.to_regclass('vec_contratacion_temporal.reserva_informe_juridico') IS NULL
        OR pg_catalog.to_regclass('vec_contratacion_temporal.documento_informe_juridico_desarrollo') IS NULL
@@ -1059,6 +1071,165 @@ BEGIN
     RETURN (v_agregado #>> '{informe_juridico,actuacion_registro,version_expediente}')::numeric;
 END
 $funcion$;
+
+-- ============================================================ POLÍTICA
+-- Política de informe nuevo tras subsanar publicada por la aplicación al
+-- arrancar desde el catálogo. Solo adición: cada versión es inmutable y la
+-- vigente es la de mayor número. Nadie más que el propietario la lee.
+CREATE TABLE vec_contratacion_temporal.politica_informe_tras_subsanacion (
+    version bigint PRIMARY KEY,
+    exige_informe_nuevo boolean NOT NULL,
+    fuente_ref text NOT NULL,
+    publicado_por text NOT NULL,
+    publicado_en timestamptz(6) NOT NULL,
+    CHECK (version BETWEEN 1 AND 9007199254740991),
+    CHECK (fuente_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+    CHECK (pg_catalog.length(publicado_por) BETWEEN 1 AND 63),
+    CHECK (publicado_en = pg_catalog.date_trunc('microseconds', publicado_en))
+);
+CREATE TRIGGER politica_informe_tras_subsanacion_inmutable
+BEFORE UPDATE OR DELETE
+ON vec_contratacion_temporal.politica_informe_tras_subsanacion
+FOR EACH ROW
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER politica_informe_tras_subsanacion_no_truncar
+BEFORE TRUNCATE
+ON vec_contratacion_temporal.politica_informe_tras_subsanacion
+FOR EACH STATEMENT
+EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+ALTER TABLE vec_contratacion_temporal.politica_informe_tras_subsanacion
+    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.politica_informe_tras_subsanacion
+    FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_total
+    ON vec_contratacion_temporal.politica_informe_tras_subsanacion
+    TO vec_contratacion_temporal_propietario
+    USING (true) WITH CHECK (true);
+REVOKE ALL ON TABLE vec_contratacion_temporal.politica_informe_tras_subsanacion
+FROM PUBLIC,
+    vec_contratacion_temporal_migrador,
+    vec_contratacion_temporal_ejecutor,
+    vec_contratacion_temporal_gobernador;
+
+-- La llama el gobernador al arrancar. Si coincide con la vigente (o, sin
+-- ninguna, pide la conducta de siempre: no exigir) devuelve «vigente» sin
+-- escribir; si difiere, añade la versión siguiente y devuelve «publicada».
+CREATE FUNCTION vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(
+    p_exige_informe_nuevo boolean,
+    p_fuente_ref text
+)
+RETURNS TABLE (resultado text, version bigint)
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+SET row_security = 'on'
+SET timezone = 'UTC'
+SET lock_timeout = '2s'
+AS $funcion$
+DECLARE
+    v_actual record;
+    v_hay boolean;
+BEGIN
+    IF session_user = current_user
+       OR NOT pg_catalog.pg_has_role(
+           session_user, 'vec_contratacion_temporal_gobernador', 'MEMBER')
+       OR pg_catalog.pg_has_role(
+           session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER')
+       OR pg_catalog.pg_has_role(
+           session_user, 'vec_contratacion_temporal_migrador', 'MEMBER') THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'publicación de política de informe nuevo no autorizada';
+    END IF;
+    IF p_exige_informe_nuevo IS NULL OR p_fuente_ref IS NULL
+       OR p_fuente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'política de informe nuevo no válida';
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+        'vec_contratacion_temporal:politica_informe_tras_subsanacion', 0));
+    SELECT p.version, p.exige_informe_nuevo INTO v_actual
+      FROM vec_contratacion_temporal.politica_informe_tras_subsanacion p
+     ORDER BY p.version DESC
+     LIMIT 1;
+    v_hay := FOUND;
+    IF (v_hay AND v_actual.exige_informe_nuevo = p_exige_informe_nuevo)
+       OR (NOT v_hay AND NOT p_exige_informe_nuevo) THEN
+        RETURN QUERY SELECT 'vigente'::text,
+            CASE WHEN v_hay THEN v_actual.version ELSE 0::bigint END;
+        RETURN;
+    END IF;
+    RETURN QUERY
+    INSERT INTO vec_contratacion_temporal.politica_informe_tras_subsanacion AS p (
+        version, exige_informe_nuevo, fuente_ref, publicado_por, publicado_en
+    ) VALUES (
+        CASE WHEN v_hay THEN v_actual.version + 1 ELSE 1 END,
+        p_exige_informe_nuevo, p_fuente_ref, session_user::text,
+        pg_catalog.date_trunc('microseconds', pg_catalog.clock_timestamp())
+    )
+    RETURNING 'publicada'::text, p.version;
+END
+$funcion$;
+
+-- Política vigente: sin ninguna publicada, no se exige (conducta de siempre).
+-- Solo la usa la confirmación de CT93, que se ejecuta como propietario.
+CREATE FUNCTION vec_contratacion_temporal.informe_nuevo_exigido_ct123()
+RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog
+AS $funcion$
+    SELECT coalesce((
+        SELECT p.exige_informe_nuevo
+          FROM vec_contratacion_temporal.politica_informe_tras_subsanacion p
+         ORDER BY p.version DESC
+         LIMIT 1), false)
+$funcion$;
+
+-- La confirmación de la nueva fiscalización (CT93, también vía la fachada
+-- v2 de CT120) recibe la comprobación justo después de leer el antecedente.
+-- Se exige la preimagen exacta con un único punto de inserción; el cuerpo
+-- resultante, los permisos, el propietario y la configuración se verifican.
+DO $refiscalizacion$
+DECLARE
+    v_ancla text := E'    v_antecedente := vec_contratacion_temporal.antecedente_refiscalizacion_v1(v_actual.agregado_json);\n';
+    v_insercion text := E'    -- CT123: con la política publicada que exige informe nuevo tras\n    -- subsanar, no se fiscaliza de nuevo hasta emitirlo para este retorno.\n    IF vec_contratacion_temporal.informe_nuevo_exigido_ct123()\n       AND vec_contratacion_temporal.informe_nuevo_admisible_ct123(v_actual.agregado_json) THEN\n        RAISE EXCEPTION USING ERRCODE = ''55000'',\n            MESSAGE = ''informe jurídico nuevo tras subsanación pendiente'';\n    END IF;\n';
+    v_antes record; v_despues record; v_definicion text;
+BEGIN
+    SELECT p.oid, pg_catalog.pg_get_functiondef(p.oid) AS definicion, p.proacl AS acl,
+           p.proowner AS propietario, p.proconfig AS configuracion, p.prosecdef AS definidor
+      INTO v_antes FROM pg_catalog.pg_proc p
+     WHERE p.oid = pg_catalog.to_regprocedure('vec_contratacion_temporal.confirmar_fiscalizacion_tras_subsanacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+       AND p.proowner = 'vec_contratacion_temporal_propietario'::regrole AND p.prosecdef;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'CT123: falta la confirmación de CT93' USING ERRCODE = '55000';
+    END IF;
+    IF pg_catalog.strpos(v_antes.definicion, 'ct123') <> 0
+       OR pg_catalog.length(v_antes.definicion)
+          - pg_catalog.length(pg_catalog.replace(v_antes.definicion, v_ancla, ''))
+          <> pg_catalog.length(v_ancla) THEN
+        RAISE EXCEPTION 'CT123: preimagen de la confirmación de CT93 incompatible' USING ERRCODE = '55000';
+    END IF;
+    v_definicion := pg_catalog.replace(v_antes.definicion, v_ancla, v_ancla || v_insercion);
+    EXECUTE v_definicion;
+    SELECT pg_catalog.pg_get_functiondef(p.oid) AS definicion, p.proacl AS acl,
+           p.proowner AS propietario, p.proconfig AS configuracion, p.prosecdef AS definidor
+      INTO STRICT v_despues FROM pg_catalog.pg_proc p WHERE p.oid = v_antes.oid;
+    IF v_despues.definicion IS DISTINCT FROM v_definicion
+       OR pg_catalog.replace(v_despues.definicion, v_ancla || v_insercion, v_ancla) IS DISTINCT FROM v_antes.definicion
+       OR v_despues.acl IS DISTINCT FROM v_antes.acl
+       OR v_despues.propietario IS DISTINCT FROM v_antes.propietario
+       OR v_despues.configuracion IS DISTINCT FROM v_antes.configuracion
+       OR v_despues.definidor IS NOT TRUE THEN
+        RAISE EXCEPTION 'CT123: confirmación de CT93 alterada' USING ERRCODE = '55000';
+    END IF;
+END
+$refiscalizacion$;
+
+REVOKE ALL ON FUNCTION
+    vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(boolean,text),
+    vec_contratacion_temporal.informe_nuevo_exigido_ct123()
+FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION
+    vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(boolean,text)
+TO vec_contratacion_temporal_gobernador;
 
 REVOKE ALL ON FUNCTION
     vec_contratacion_temporal.informe_nuevo_admisible_ct123(jsonb),

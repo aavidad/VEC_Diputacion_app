@@ -94,7 +94,9 @@ DECLARE v_caso text[];
 BEGIN
     FOREACH v_caso SLICE 1 IN ARRAY ARRAY[
         ARRAY['CT/', '6'], ARRAY['CT-', '0'], ARRAY['CT-', '10'],
-        ARRAY['C T', '6'], ARRAY[repeat('A', 21), '6']
+        ARRAY['C T', '6'], ARRAY[repeat('A', 21), '6'],
+        -- Prefijo terminado en cifra: «CT-1» + «5» repetiría «CT-» + «15».
+        ARRAY['CT-1', '1'], ARRAY['9', '6'], ARRAY['CTEMP2026', '4']
     ] LOOP
         BEGIN
             PERFORM vec_contratacion_temporal.publicar_numeracion_parametros_v1(

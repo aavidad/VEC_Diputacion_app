@@ -9,6 +9,8 @@
 
 CREATE ROLE vec_ct123_runtime LOGIN INHERIT IN ROLE vec_contratacion_temporal_ejecutor;
 GRANT CONNECT ON DATABASE postgres TO vec_ct123_runtime;
+-- Inicio de sesión de gobierno: publica la política al arrancar.
+CREATE ROLE vec_ct123_gobierno LOGIN INHERIT IN ROLE vec_contratacion_temporal_gobernador;
 DO $dobles$
 DECLARE f text; accion text; o oid;
 BEGIN
@@ -207,7 +209,7 @@ END $$;
 CREATE FUNCTION pg_temp.ronda(p_org text, p_exp text) RETURNS jsonb LANGUAGE plpgsql AS $$
 BEGIN RETURN to_jsonb(vec_contratacion_temporal.inicio_ronda_informe_nuevo_v1(p_org,p_exp));
 EXCEPTION WHEN others THEN RETURN jsonb_build_object('error',SQLSTATE); END $$;
-DO $$ BEGIN EXECUTE format('GRANT USAGE ON SCHEMA %I TO vec_ct123_runtime',pg_my_temp_schema()::regnamespace); END $$;
+DO $$ BEGIN EXECUTE format('GRANT USAGE ON SCHEMA %I TO vec_ct123_runtime, vec_ct123_gobierno',pg_my_temp_schema()::regnamespace); END $$;
 
 SELECT pg_temp.actual(:'exp_c')->>'organizacion_ref' AS org \gset
 SELECT pg_temp.exigir((pg_temp.actual(:'exp_c')->>'version')='6' AND pg_temp.actual(:'exp_c')->>'fase_actual'='subsanacion_unidad','antecedente: reparo desfavorable en v6');
@@ -236,6 +238,55 @@ BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT pg_temp.llamar('confirmar_fiscalizacion_tras_subsanacion_v1',:'mismo'::jsonb)::text AS conf_mismo \gset
 SELECT pg_temp.exigir((:'conf_mismo'::jsonb) ? 'recibo_ref','nueva fiscalización con el mismo informe (sin catálogo) '||:'conf_mismo');
 ROLLBACK;
+
+-- Política publicada por el gobierno al arrancar (desde la regla c19): no
+-- exigir sin historia no escribe; exigir publica la versión 1 y repetirla no
+-- añade otra. Nadie más la publica ni la lee.
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_ct123_gobierno;
+SELECT pg_temp.exigir(r.resultado='vigente' AND r.version=0,'no exigir sin historia no escribe')
+  FROM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(false,'vec.contratacion_temporal.reglas:1:c19.fiscalizacion_resultados') r;
+SELECT pg_temp.exigir(r.resultado='publicada' AND r.version=1,'política que exige informe nuevo publicada')
+  FROM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(true,'vec.contratacion_temporal.reglas:1:c19.fiscalizacion_resultados') r;
+SELECT pg_temp.exigir(r.resultado='vigente' AND r.version=1,'segundo arranque no republica')
+  FROM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(true,'vec.contratacion_temporal.reglas:2:c19.fiscalizacion_resultados') r;
+DO $$ BEGIN
+ BEGIN PERFORM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(true,'x');
+  RAISE EXCEPTION 'FALLO fuente no válida aceptada'; EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ BEGIN PERFORM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(NULL,'configuracion:ct:prueba');
+  RAISE EXCEPTION 'FALLO política nula aceptada'; EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ BEGIN PERFORM 1 FROM vec_contratacion_temporal.politica_informe_tras_subsanacion;
+  RAISE EXCEPTION 'FALLO el gobernador lee la política'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM vec_contratacion_temporal.informe_nuevo_exigido_ct123();
+  RAISE EXCEPTION 'FALLO el gobernador consulta la exigencia'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+RESET SESSION AUTHORIZATION;
+DO $$ BEGIN
+ BEGIN UPDATE vec_contratacion_temporal.politica_informe_tras_subsanacion SET exige_informe_nuevo=false;
+  RAISE EXCEPTION 'FALLO' USING ERRCODE='P0099'; EXCEPTION WHEN SQLSTATE 'P0099' THEN RAISE EXCEPTION 'FALLO política modificable'; WHEN others THEN NULL; END;
+ BEGIN DELETE FROM vec_contratacion_temporal.politica_informe_tras_subsanacion;
+  RAISE EXCEPTION 'FALLO' USING ERRCODE='P0099'; EXCEPTION WHEN SQLSTATE 'P0099' THEN RAISE EXCEPTION 'FALLO política borrable'; WHEN others THEN NULL; END;
+END $$;
+SET SESSION AUTHORIZATION vec_ct123_runtime;
+DO $$ BEGIN
+ BEGIN PERFORM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(false,'configuracion:ct:prueba');
+  RAISE EXCEPTION 'FALLO el ejecutor publica'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+-- Con esa política, la base rechaza fiscalizar de nuevo con el mismo informe
+-- (directo y por la fachada v2 de CT120), sin efecto alguno.
+SELECT pg_temp.entrada_fiscalizacion(:'exp_c','favorable','','exigida')::text AS exigida \gset
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT pg_temp.llamar('confirmar_fiscalizacion_tras_subsanacion_v1',:'exigida'::jsonb)::text AS conf_exigida \gset
+SELECT pg_temp.exigir((:'conf_exigida'::jsonb)->>'error'='55000'
+   AND (:'conf_exigida'::jsonb)->>'mensaje'='informe jurídico nuevo tras subsanación pendiente','sin informe nuevo la base no fiscaliza '||:'conf_exigida');
+SELECT pg_temp.llamar('confirmar_fiscalizacion_v2',:'exigida'::jsonb)::text AS conf_exigida_v2 \gset
+SELECT pg_temp.exigir(to_regprocedure('vec_contratacion_temporal.confirmar_fiscalizacion_v2(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+   OR (:'conf_exigida_v2'::jsonb)->>'error'='55000','tampoco por la fachada v2 (si CT120 está) '||:'conf_exigida_v2');
+COMMIT;
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.exigir(pg_temp.actual(:'exp_c')->>'version'='7'
+   AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.reserva_fiscalizacion WHERE reserva_ref='reserva:ct123:exigida'),'rechazo sin efectos');
+SET SESSION AUTHORIZATION vec_ct123_runtime;
 
 -- Informe nuevo (CT123): preparación de lectura, negativos y confirmación → v8.
 SELECT pg_temp.entrada_informe(:'exp_c','nuevo')::text AS inf \gset
@@ -301,4 +352,12 @@ SELECT pg_temp.exigir(pg_temp.actual(:'exp_c')->>'version'='9' AND pg_temp.actua
    AND pg_temp.actual(:'exp_c')#>>'{fiscalizacion,resultado}'='favorable'
    AND pg_temp.actual(:'exp_c')#>>'{fiscalizacion,informe_juridico_ref}'='informe:ct123:nuevo'
    AND pg_temp.actual(:'exp_c')#>>'{fiscalizacion,documento_informe_ref}'='documento:ct123:nuevo','favorable ligada al informe nuevo');
+-- Volver a no exigir añade la versión 2 (la historia se conserva) y deja la
+-- conducta de siempre para las pruebas que siguen en la misma base.
+SET SESSION AUTHORIZATION vec_ct123_gobierno;
+SELECT pg_temp.exigir(r.resultado='publicada' AND r.version=2,'vuelta a no exigir publicada')
+  FROM vec_contratacion_temporal.publicar_politica_informe_tras_subsanacion_v1(false,'configuracion:ct:informe-tras-subsanacion:predeterminada') r;
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.exigir((SELECT count(*) FROM vec_contratacion_temporal.politica_informe_tras_subsanacion)=2
+   AND NOT vec_contratacion_temporal.informe_nuevo_exigido_ct123(),'historia de la política');
 SELECT 'CT123 OK' AS resultado;

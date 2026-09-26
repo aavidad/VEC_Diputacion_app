@@ -174,6 +174,9 @@ func (t *TransaccionFiscalizacionesPostgreSQL) ConfirmarFiscalizacion(
 		if confirmacionFiscalizacionYaRecuperable(causa) {
 			return ports.ReciboFiscalizacion{}, ports.ErrClaveIdempotenciaUsada
 		}
+		if confirmacionFiscalizacionEsperaInformeNuevo(causa) {
+			return ports.ReciboFiscalizacion{}, ports.ErrInformeNuevoPendiente
+		}
 		if !errorPostgreSQLReintentable(causa) ||
 			intento == maximoIntentosConfirmarFiscalizacion {
 			return ports.ReciboFiscalizacion{},
@@ -551,4 +554,13 @@ func confirmacionFiscalizacionYaRecuperable(causa error) bool {
 	var postgres *pgconn.PgError
 	return errors.As(causa, &postgres) && postgres.Code == "40001" &&
 		postgres.Message == "recuperar preparación de fiscalización confirmada"
+}
+
+// confirmacionFiscalizacionEsperaInformeNuevo identifica el rechazo de CT123:
+// la política publicada exige un informe jurídico nuevo tras subsanar y aún
+// no se ha emitido para este retorno.
+func confirmacionFiscalizacionEsperaInformeNuevo(causa error) bool {
+	var postgres *pgconn.PgError
+	return errors.As(causa, &postgres) && postgres.Code == "55000" &&
+		postgres.Message == "informe jurídico nuevo tras subsanación pendiente"
 }

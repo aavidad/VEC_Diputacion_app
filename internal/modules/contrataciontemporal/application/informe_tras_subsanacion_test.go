@@ -148,3 +148,11 @@ func TestInformeNuevoTrasSubsanacionSegunCatalogo(t *testing.T) {
 		t.Fatal("un documento de firma sin exigir informe nuevo es incoherente")
 	}
 }
+
+// Si la base rechaza la nueva fiscalización por falta de informe nuevo
+// (política publicada en CT123), el error llega con su causa, no como caída.
+func TestClasificarFalloFiscalizacionConservaInformeNuevoPendiente(t *testing.T) {
+	if err := clasificarFalloFiscalizacion(context.Background(), ports.ErrInformeNuevoPendiente); !errors.Is(err, ports.ErrInformeNuevoPendiente) {
+		t.Fatalf("causa perdida: %v", err)
+	}
+}

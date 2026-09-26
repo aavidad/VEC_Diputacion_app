@@ -443,6 +443,9 @@ func clasificarFalloFiscalizacion(ctx context.Context, causa error) error {
 	if errors.Is(causa, ports.ErrClaveIdempotenciaUsada) {
 		return ports.ErrClaveIdempotenciaUsada
 	}
+	if errors.Is(causa, ports.ErrInformeNuevoPendiente) {
+		return ports.ErrInformeNuevoPendiente
+	}
 	if errors.Is(causa, ErrFiscalizacionDenegada) {
 		return ErrFiscalizacionDenegada
 	}
