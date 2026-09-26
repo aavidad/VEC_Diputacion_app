@@ -177,6 +177,9 @@ type EventoFirmaDocumento struct {
 	FirmadoHuella       string
 	ReciboRef           string
 	RegistradaEn        time.Time
+	// ExpedienteVersion es la versión del expediente al registrar el evento;
+	// solo la usa una ronda de firma que empieza en una versión posterior.
+	ExpedienteVersion uint64
 }
 
 // EstadoPasoCalculado es el estado de un paso derivado de la historia.
@@ -200,6 +203,9 @@ type EstadoCircuitoDocumento struct {
 	OriginalEsperadoHuella  string
 	Completo                bool
 	EventosCatalogoAnterior int
+	// EventosRondaAnterior cuenta los eventos de una ronda ya cerrada: el
+	// documento cambió (informe nuevo tras subsanar) y se firma de nuevo.
+	EventosRondaAnterior int
 }
 
 type marcaPaso struct {
@@ -213,6 +219,14 @@ type marcaPaso struct {
 // catálogo vigente debe afectar al paso pendiente en ese momento; si no, la
 // historia es incoherente y no se presenta ningún estado.
 func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string, eventos []EventoFirmaDocumento) (EstadoCircuitoDocumento, error) {
+	return CalcularEstadoCircuitoFirmaEnRonda(c, huellaCatalogo, eventos, 0)
+}
+
+// CalcularEstadoCircuitoFirmaEnRonda calcula el estado de la ronda que empieza
+// en la versión inicioRonda del expediente: los eventos anteriores son de una
+// ronda cerrada y no cuentan, como los de otro catálogo. Con 0 hay una sola
+// ronda (la conducta de siempre).
+func CalcularEstadoCircuitoFirmaEnRonda(c CircuitoFirmaDocumento, huellaCatalogo string, eventos []EventoFirmaDocumento, inicioRonda uint64) (EstadoCircuitoDocumento, error) {
 	if c.Validar() != nil || !HuellaSHA256FirmaValida(huellaCatalogo) {
 		return EstadoCircuitoDocumento{}, ErrCircuitoFirmaIncoherente
 	}
@@ -227,10 +241,15 @@ func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string
 		}
 		return 0
 	}
-	anteriores := 0
+	anteriores, rondaAnterior := 0, 0
 	for i, e := range eventos {
 		if e.Secuencia != i+1 {
 			return EstadoCircuitoDocumento{}, ErrHistoriaFirmaIncoherente
+		}
+		if e.ExpedienteVersion < inicioRonda {
+			firmados, devueltos = map[int]marcaPaso{}, map[int]marcaPaso{}
+			rondaAnterior++
+			continue
 		}
 		if e.CatalogoHuella != huellaCatalogo {
 			firmados, devueltos = map[int]marcaPaso{}, map[int]marcaPaso{}
@@ -267,7 +286,7 @@ func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string
 			return EstadoCircuitoDocumento{}, ErrHistoriaFirmaIncoherente
 		}
 	}
-	estado := EstadoCircuitoDocumento{Documento: c.Documento, PasoPendiente: pendiente(), UltimaSecuencia: len(eventos), EventosCatalogoAnterior: anteriores}
+	estado := EstadoCircuitoDocumento{Documento: c.Documento, PasoPendiente: pendiente(), UltimaSecuencia: len(eventos), EventosCatalogoAnterior: anteriores, EventosRondaAnterior: rondaAnterior}
 	estado.Completo = estado.PasoPendiente == 0
 	if estado.PasoPendiente > 1 {
 		estado.OriginalEsperadoHuella = firmados[estado.PasoPendiente-1].huella

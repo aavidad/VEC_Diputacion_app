@@ -110,8 +110,8 @@ func (c *comprobadorFirmaPrueba) ComprobarFirmaRemision(context.Context, string,
 // circuito de firma si se puede remitir; sin ninguno de los dos, nada cambia.
 func TestComprobarCatalogoYFirmaAntesDelEfecto(t *testing.T) {
 	ctx := context.Background()
-	const org, exp = "organizacion:desarrollo:dipgra", "expediente:ct:001"
-	if err := (&ServicioFiscalizaciones{}).comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err != nil {
+	expedientePrueba := domain.Expediente{OrganizacionRef: "organizacion:desarrollo:dipgra", Referencia: "expediente:ct:001"}
+	if err := (&ServicioFiscalizaciones{}).comprobarCatalogoYFirma(ctx, expedientePrueba, domain.FiscalizacionFavorable); err != nil {
 		t.Fatalf("sin catálogo ni firmas rige la conducta de siempre: %v", err)
 	}
 	sinObservaciones, err := domain.NuevaPoliticaResultadosFiscalizacion(
@@ -128,24 +128,24 @@ func TestComprobarCatalogoYFirmaAntesDelEfecto(t *testing.T) {
 	if s.GobernarResultados(fuenteResultadosPrueba{politica: sinObservaciones}) != nil || s.ExigirFirmaRemision(firma) != nil {
 		t.Fatal("composición")
 	}
-	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorableConObservaciones); !errors.Is(err, ports.ErrResultadoFiscalizacionNoAdmitido) ||
+	if err := s.comprobarCatalogoYFirma(ctx, expedientePrueba, domain.FiscalizacionFavorableConObservaciones); !errors.Is(err, ports.ErrResultadoFiscalizacionNoAdmitido) ||
 		!errors.Is(err, domain.ErrDatoInvalido) || firma.llamadas != 0 {
 		t.Fatalf("resultado retirado del catálogo admitido: %v", err)
 	}
-	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err != nil || firma.llamadas != 1 {
+	if err := s.comprobarCatalogoYFirma(ctx, expedientePrueba, domain.FiscalizacionFavorable); err != nil || firma.llamadas != 1 {
 		t.Fatalf("resultado admitido y firmado: %v", err)
 	}
 	firma.err = ports.ErrFirmaRemisionPendiente
-	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionDesfavorable); !errors.Is(err, ports.ErrFirmaRemisionPendiente) {
+	if err := s.comprobarCatalogoYFirma(ctx, expedientePrueba, domain.FiscalizacionDesfavorable); !errors.Is(err, ports.ErrFirmaRemisionPendiente) {
 		t.Fatalf("sin firma no se remite: %v", err)
 	}
 	firma.err = ports.ErrRegistroFirmaDocumentoNoDisponible
-	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err == nil || errors.Is(err, ports.ErrFirmaRemisionPendiente) {
+	if err := s.comprobarCatalogoYFirma(ctx, expedientePrueba, domain.FiscalizacionFavorable); err == nil || errors.Is(err, ports.ErrFirmaRemisionPendiente) {
 		t.Fatalf("registro caído: %v", err)
 	}
 	caido := &ServicioFiscalizaciones{}
 	_ = caido.GobernarResultados(fuenteResultadosPrueba{err: errors.New("catálogo ilegible")})
-	if err := caido.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err == nil {
+	if err := caido.comprobarCatalogoYFirma(ctx, expedientePrueba, domain.FiscalizacionFavorable); err == nil {
 		t.Fatal("un catálogo ilegible no admite nada")
 	}
 	if caido.GobernarResultados(fuenteResultadosPrueba{}) == nil {

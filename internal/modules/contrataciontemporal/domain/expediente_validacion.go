@@ -31,8 +31,7 @@ func (e Expediente) Validar() error {
 	if e.Fiscalizacion != nil &&
 		(e.Asignacion == nil || e.InformeJuridico == nil ||
 			e.Fiscalizacion.Validar() != nil ||
-			e.Fiscalizacion.InformeJuridicoRef != e.InformeJuridico.InformeRef ||
-			e.Fiscalizacion.DocumentoInformeRef != e.InformeJuridico.DocumentoRef ||
+			!fiscalizacionApuntaAInformeValido(e.Fiscalizacion, e.InformeJuridico) ||
 			(e.Fiscalizacion.Retorno != nil &&
 				(e.Fiscalizacion.Retorno.UnidadRef != e.Asignacion.UnidadRef ||
 					e.Fiscalizacion.Retorno.ResponsableRef != e.Asignacion.ResponsableRef))) {

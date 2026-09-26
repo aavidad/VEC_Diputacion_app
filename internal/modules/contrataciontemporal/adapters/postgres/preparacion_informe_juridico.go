@@ -16,7 +16,19 @@ const (
 	funcionPrepararInformeJuridico        = "vec_contratacion_temporal.preparar_informe_juridico_v1"
 	esquemaPrepararInformeJuridico        = "vec.contratacion-temporal.preparar-informe-juridico.v1"
 	maximoIntentosPrepararInformeJuridico = 3
+	// funcionPrepararInformeJuridicoTrasSubsanacion (CT123) prepara el informe
+	// nuevo tras subsanar un reparo, desde la versión 7.
+	funcionPrepararInformeJuridicoTrasSubsanacion = "vec_contratacion_temporal.preparar_informe_juridico_tras_subsanacion_v1"
 )
+
+// funcionPrepararInformeJuridicoParaVersion conserva CT51 para el informe
+// inicial (versión 4) y usa CT123 para el informe nuevo tras subsanar.
+func funcionPrepararInformeJuridicoParaVersion(version uint64) string {
+	if version == 4 {
+		return funcionPrepararInformeJuridico
+	}
+	return funcionPrepararInformeJuridicoTrasSubsanacion
+}
 
 var _ ports.PreparadorInformeJuridicoIdempotente = (*PreparadorInformeJuridicoPostgreSQL)(nil)
 
@@ -120,7 +132,7 @@ func (p *PreparadorInformeJuridicoPostgreSQL) prepararInformeJuridicoEnTransacci
 		       ambito_hmac, huella_peticion_hmac, organizacion_ref,
 		       expediente_ref, version_expediente, actor_ref, perfil_ref,
 		       estado, recibo_json::text
-		  FROM `+funcionPrepararInformeJuridico+`($1::jsonb)`,
+		  FROM `+funcionPrepararInformeJuridicoParaVersion(solicitud.Material.VersionExpediente)+`($1::jsonb)`,
 		contenido,
 	).Scan(
 		&fila.resultado, &fila.expedienteJSON, &fila.reservaRef,

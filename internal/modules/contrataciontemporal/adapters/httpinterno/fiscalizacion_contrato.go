@@ -358,6 +358,11 @@ var (
 	errorFirmaRemisionPendiente = nuevoErrorFiscalizacion(
 		http.StatusConflict, "firma_remision_pendiente",
 	)
+	// errorInformeNuevoPendiente: el catálogo exige un informe jurídico
+	// nuevo tras subsanar y aún no se ha emitido (duda 5).
+	errorInformeNuevoPendiente = nuevoErrorFiscalizacion(
+		http.StatusConflict, "informe_nuevo_pendiente",
+	)
 	errorResultadoFiscalizacionNoConfiable = nuevoErrorFiscalizacion(
 		http.StatusBadGateway, "resultado_no_confiable",
 	)
@@ -404,6 +409,8 @@ func clasificarErrorFiscalizacionHTTP(err error) errorPublicoCobertura {
 		return errorAccesoFiscalizacionDenegado
 	case errors.Is(err, ports.ErrFirmaRemisionPendiente):
 		return errorFirmaRemisionPendiente
+	case errors.Is(err, ports.ErrInformeNuevoPendiente):
+		return errorInformeNuevoPendiente
 	case errors.Is(err, ports.ErrClaveIdempotenciaUsada),
 		errors.Is(err, domain.ErrVersionEnConflicto),
 		errors.Is(err, domain.ErrTransicionInvalida):

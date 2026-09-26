@@ -79,6 +79,41 @@ type ServicioFirmaDocumento struct {
 	registro    ports.RegistroFirmasDocumento
 	autorizador ports.AutorizadorFirmaDocumento
 	verificador docports.VerificadorFirmaMotivado
+	// rondaPolitica y rondaFuente son nil salvo con catálogo que exige
+	// informe nuevo tras subsanar: entonces el documento que declara vuelve a
+	// firmarse desde el paso 1 con el informe nuevo.
+	rondaPolitica ports.FuenteInformeTrasSubsanacion
+	rondaFuente   ports.FuenteRondaFirmaInforme
+}
+
+// AbrirRondaInformeNuevo compone la segunda ronda de firma del documento que
+// el catálogo liga al informe nuevo tras subsanar. Se fija una sola vez.
+func (s *ServicioFirmaDocumento) AbrirRondaInformeNuevo(p ports.FuenteInformeTrasSubsanacion, f ports.FuenteRondaFirmaInforme) error {
+	if s == nil || nula(p) || nula(f) || s.rondaPolitica != nil {
+		return ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	s.rondaPolitica, s.rondaFuente = p, f
+	return nil
+}
+
+// inicioRonda devuelve, para cada documento, la versión del expediente en la
+// que empieza su ronda vigente (sin entrada: ronda única).
+func (s *ServicioFirmaDocumento) inicioRonda(ctx context.Context, organizacionRef, expedienteRef string) (map[string]uint64, error) {
+	if s.rondaPolitica == nil {
+		return nil, nil
+	}
+	politica, err := s.rondaPolitica.InformeTrasSubsanacion(ctx)
+	if err != nil || politica.Validar() != nil {
+		return nil, ErrCircuitoFirmaNoDisponible
+	}
+	if !politica.ExigeInformeNuevo || politica.DocumentoFirma == "" {
+		return nil, nil
+	}
+	inicio, err := s.rondaFuente.InicioRondaInformeNuevo(ctx, organizacionRef, expedienteRef)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]uint64{politica.DocumentoFirma: inicio}, nil
 }
 
 func nula(v any) bool {
@@ -130,9 +165,13 @@ func (s *ServicioFirmaDocumento) Consultar(ctx context.Context, organizacionRef,
 	if err != nil {
 		return EstadoFirmasExpediente{}, err
 	}
+	rondas, err := s.inicioRonda(ctx, organizacionRef, expedienteRef)
+	if err != nil {
+		return EstadoFirmasExpediente{}, err
+	}
 	estado := EstadoFirmasExpediente{Circuito: circuito, Firmas: firmas}
 	for _, d := range circuito.Documentos {
-		calculado, err := domain.CalcularEstadoCircuitoFirma(d, circuito.HuellaCatalogo, eventosDocumento(firmas, d.Documento))
+		calculado, err := domain.CalcularEstadoCircuitoFirmaEnRonda(d, circuito.HuellaCatalogo, eventosDocumento(firmas, d.Documento), rondas[d.Documento])
 		if err != nil {
 			return EstadoFirmasExpediente{}, err
 		}
@@ -163,7 +202,7 @@ func eventosDocumento(firmas []ports.FirmaRegistrada, documento string) []domain
 		eventos = append(eventos, domain.EventoFirmaDocumento{
 			Secuencia: f.Secuencia, CatalogoHuella: f.CatalogoHuella, PasoOrden: f.PasoOrden, Resultado: f.Resultado,
 			ConMotivoDevolucion: f.ConMotivoDevolucion, OriginalHuella: f.OriginalHuella, FirmadoHuella: f.FirmadoHuella,
-			ReciboRef: f.ReciboRef, RegistradaEn: f.RegistradaEn,
+			ReciboRef: f.ReciboRef, RegistradaEn: f.RegistradaEn, ExpedienteVersion: f.ExpedienteVersion,
 		})
 	}
 	return eventos

@@ -72,6 +72,20 @@ type ServicioFiscalizaciones struct {
 	// resultados es nil sin catálogo de reglas: rigen los tres resultados
 	// con su efecto de siempre.
 	resultados ports.FuenteResultadosFiscalizacion
+	// informeTrasSubsanacion es nil sin catálogo: tras subsanar se fiscaliza
+	// de nuevo con el mismo informe, como siempre.
+	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
+}
+
+// GobernarInformeTrasSubsanacion hace que la nueva fiscalización tras subsanar
+// exija el informe jurídico nuevo cuando el catálogo lo pide (duda 5). Se fija
+// una sola vez al componer.
+func (s *ServicioFiscalizaciones) GobernarInformeTrasSubsanacion(f ports.FuenteInformeTrasSubsanacion) error {
+	if s == nil || dependenciaNula(f) || s.informeTrasSubsanacion != nil {
+		return ErrServicioFiscalizacionesInvalido
+	}
+	s.informeTrasSubsanacion = f
+	return nil
 }
 
 // GobernarResultados hace que la fiscalización solo admita los resultados que
@@ -219,7 +233,7 @@ func (s *ServicioFiscalizaciones) Registrar(
 		return *preparacion.ReciboConfirmado, nil
 	}
 	if err := s.comprobarCatalogoYFirma(
-		ctxOperacion, solicitud.OrganizacionRef, solicitud.ExpedienteRef, material.Resultado,
+		ctxOperacion, preparacion.Expediente, material.Resultado,
 	); err != nil {
 		return ports.ReciboFiscalizacion{}, err
 	}
@@ -277,9 +291,19 @@ func (s *ServicioFiscalizaciones) Registrar(
 // el catálogo (duda 5) y la firma que habilita la remisión (duda 4). Sin
 // catálogo ni registro de firmas no exige nada.
 func (s *ServicioFiscalizaciones) comprobarCatalogoYFirma(
-	ctx context.Context, organizacionRef, expedienteRef string,
+	ctx context.Context, expediente domain.Expediente,
 	resultado domain.ResultadoFiscalizacion,
 ) error {
+	organizacionRef, expedienteRef := expediente.OrganizacionRef, expediente.Referencia
+	if s.informeTrasSubsanacion != nil && expediente.RefiscalizacionEsperaInformeNuevo() {
+		politica, err := s.informeTrasSubsanacion.InformeTrasSubsanacion(ctx)
+		if err != nil || politica.Validar() != nil {
+			return clasificarFalloFiscalizacion(ctx, ports.ErrPersistenciaFiscalizacionNoDisponible)
+		}
+		if politica.ExigeInformeNuevo {
+			return ports.ErrInformeNuevoPendiente
+		}
+	}
 	if s.resultados != nil {
 		politica, err := s.resultados.ResultadosFiscalizacion(ctx)
 		if err != nil {
