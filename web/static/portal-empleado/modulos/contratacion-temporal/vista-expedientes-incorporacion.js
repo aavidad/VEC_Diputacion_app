@@ -1,5 +1,6 @@
 /** Montaje y refresco de resolución de formalización e incorporación al ejercicio. */
 
+import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js";
 import { escaparHTML } from "./componentes-expedientes.js";
 import { montarFichaGINPIX } from "./ficha-ginpix.js";
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
@@ -273,7 +274,14 @@ export function crearGestorIncorporacion({
               t: tCT,
             });
             return true;
-          } catch {
+          } catch (error) {
+            // La regla de cierre (c10) no contempla el cierre sin cese: no se ofrece.
+            if (error?.codigo === CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO && error?.envelopeValido === true) {
+              desmontarCierre?.();
+              desmontarCierre = null;
+              bloqueCierre.replaceChildren();
+              return false;
+            }
             if (vigenteMontaje() && !trasConfirmacion) {
               mostrarCierreNoDisponible(
                 tCT("cierre_lectura_error"),

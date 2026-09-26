@@ -182,6 +182,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/personal/cliente-http-rpt-publica.js
 	static/portal-empleado/modulos/personal/cliente-http-estructura-organizativa-publica.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
+	# Confirmación de la incorporación por el centro (26/09): GET/POST a rutas
+	# internas fijas, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/peticiones-centro/incorporaciones-centro.js
 	static/portal-empleado/organizacion/organizacion.js
 	# Dietas (25/09): asignación D7, rectificación y circuito; mismo origen, no-store,
 	# redirect error y no-referrer, como cliente-borradores-http.js.

@@ -4,13 +4,16 @@ export const RUTA_CESES_NOMBRAMIENTO = "/api/vec/contratacion-temporal/ceses";
 export const RUTA_CIERRES_EXPEDIENTE = "/api/vec/contratacion-temporal/cierres-expediente";
 export const RUTA_MODIFICACIONES_NOMBRAMIENTO = "/api/vec/contratacion-temporal/modificaciones-nombramiento";
 export const RUTA_SEGUIMIENTO_CESE = "/api/vec/contratacion-temporal/seguimiento-cese";
+// Confirmación de GINPIX (incorporación acreditada): el cierre toma su número.
+export const RUTA_CONFIRMACIONES_GINPIX = "/api/vec/contratacion-temporal/confirmaciones-ginpix";
 export const RUTAS_SEGUIMIENTO_CESE = Object.freeze([
-  RUTA_CESES_NOMBRAMIENTO, RUTA_CIERRES_EXPEDIENTE, RUTA_MODIFICACIONES_NOMBRAMIENTO, RUTA_SEGUIMIENTO_CESE,
+  RUTA_CESES_NOMBRAMIENTO, RUTA_CIERRES_EXPEDIENTE, RUTA_MODIFICACIONES_NOMBRAMIENTO, RUTA_SEGUIMIENTO_CESE, RUTA_CONFIRMACIONES_GINPIX,
 ]);
 // Rechazos de negocio que devuelve el servidor con 409; ninguno escribe nada.
 export const CONFLICTOS_SEGUIMIENTO_CESE = Object.freeze([
   "version_en_conflicto", "clave_reutilizada", "sin_incorporacion", "fecha_anterior_incorporacion",
   "cese_existente", "sin_cese", "cierre_existente", "sin_cambios", "credito_insuficiente",
+  "ginpix_existente", "ginpix_no_confirmado", "ginpix_distinto",
 ]);
 
 const MAXIMO = 16 * 1024;
@@ -65,6 +68,16 @@ export function validarSolicitudCierre(valor) {
   return Object.freeze(Object.fromEntries(campos.map((c) => [c, s[c]])));
 }
 
+export function validarSolicitudConfirmacionGINPIX(valor) {
+  const campos = ["expediente_ref", "version_esperada", "clave_idempotencia", "ginpix_numero", "ginpix_confirmada_en", "observaciones"];
+  const s = registro(valor, campos);
+  comun(s);
+  if (!GINPIX.test(s.ginpix_numero) || !fechaCivilValida(s.ginpix_confirmada_en) || !textoValido(s.observaciones)) {
+    throw new TypeError("solicitud de confirmación de GINPIX no válida");
+  }
+  return Object.freeze(Object.fromEntries(campos.map((c) => [c, s[c]])));
+}
+
 export function validarSolicitudModificacion(valor) {
   const campos = ["expediente_ref", "version_esperada", "clave_idempotencia", "motivo_clave", "periodo_inicio", "periodo_fin", "porcentaje_jornada", "observaciones"];
   const s = registro(valor, campos);
@@ -77,13 +90,14 @@ export function validarSolicitudModificacion(valor) {
 
 export function validarReciboSeguimiento(valor, solicitud, operacion) {
   const r = registro(valor, ["esquema", "operacion", "expediente_ref", "version_anterior", "version_resultante", "fase_resultante",
-    "estado_resultante", "recibo_ref", "auditoria_ref", "evento_ref", "registrada_en"], ["causa_clave", "fecha_efecto", "cese_recibo_ref", "coste_centimos"]);
+    "estado_resultante", "recibo_ref", "auditoria_ref", "evento_ref", "registrada_en"], ["causa_clave", "fecha_efecto", "cese_recibo_ref", "coste_centimos", "ginpix_numero"]);
   if (r.esquema !== "vec.contratacion-temporal.recibo-seguimiento.v1" || r.operacion !== operacion
     || r.expediente_ref !== solicitud.expediente_ref || r.version_anterior !== solicitud.version_esperada
     || r.version_resultante !== solicitud.version_esperada + 1 || !CLAVE.test(r.fase_resultante) || !CLAVE.test(r.estado_resultante)
     || ![r.recibo_ref, r.auditoria_ref, r.evento_ref].every((ref) => typeof ref === "string" && REF.test(ref))
     || typeof r.registrada_en !== "string" || !INSTANTE.test(r.registrada_en) || !Number.isFinite(Date.parse(r.registrada_en))
-    || (r.coste_centimos !== undefined && (!Number.isSafeInteger(r.coste_centimos) || r.coste_centimos < 1))) throw new TypeError("recibo de seguimiento no válido");
+    || (r.coste_centimos !== undefined && (!Number.isSafeInteger(r.coste_centimos) || r.coste_centimos < 1))
+    || (r.ginpix_numero !== undefined && (typeof r.ginpix_numero !== "string" || !GINPIX.test(r.ginpix_numero)))) throw new TypeError("recibo de seguimiento no válido");
   return Object.freeze({ ...r });
 }
 
@@ -93,8 +107,22 @@ function opcionValida(o, campos) {
 
 export function validarConsultaSeguimientoCese(valor, expedienteRef) {
   const d = registro(valor, ["esquema", "opciones", "estado"]);
-  const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"]);
-  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"]);
+  const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"], ["confirmacion_ginpix"]);
+  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro"]);
+  // Con la incorporación acreditada el estado trae siempre las dos confirmaciones.
+  if ((o.confirmacion_ginpix !== undefined && o.confirmacion_ginpix !== true)
+    || (o.confirmacion_ginpix === true) !== Object.hasOwn(e, "ginpix") || Object.hasOwn(e, "ginpix") !== Object.hasOwn(e, "confirmacion_centro")) {
+    throw new TypeError("consulta de seguimiento no válida");
+  }
+  if (e.ginpix !== undefined && e.ginpix !== null) {
+    const g = registro(e.ginpix, ["ginpix_numero", "ginpix_confirmada_en", "recibo_ref", "registrada_en"]);
+    if (!GINPIX.test(g.ginpix_numero) || !fechaCivilValida(g.ginpix_confirmada_en) || !REF.test(g.recibo_ref) || !INSTANTE.test(g.registrada_en)) throw new TypeError("GINPIX no válido");
+  }
+  if (e.confirmacion_centro !== undefined && e.confirmacion_centro !== null) {
+    const c = registro(e.confirmacion_centro, ["fecha_incorporacion", "documento_tipo", "documento_ref", "documento_sha256", "recibo_ref", "registrada_en"]);
+    if (!fechaCivilValida(c.fecha_incorporacion) || !CLAVE.test(c.documento_tipo) || !REF.test(c.documento_ref) || !HUELLA.test(c.documento_sha256)
+      || !REF.test(c.recibo_ref) || !INSTANTE.test(c.registrada_en)) throw new TypeError("confirmación del centro no válida");
+  }
   if (d.esquema !== "vec.contratacion-temporal.seguimiento-cese.v1" || e.expediente_ref !== expedienteRef
     || !Array.isArray(o.causas_cese) || o.causas_cese.length > 64
     || !o.causas_cese.every((c) => opcionValida(c, ["clave", "etiqueta", "clave_i18n", "justificante_tipo"]) && CLAVE.test(c.justificante_tipo))
@@ -140,5 +168,6 @@ export function crearClienteSeguimientoCeseHTTP({ ejecutar, validarOpciones, ser
     registrarCese: efecto(RUTA_CESES_NOMBRAMIENTO, validarSolicitudCese, "registrar_cese"),
     cerrarExpediente: efecto(RUTA_CIERRES_EXPEDIENTE, validarSolicitudCierre, "cerrar_expediente"),
     modificarTrasNombramiento: efecto(RUTA_MODIFICACIONES_NOMBRAMIENTO, validarSolicitudModificacion, "modificar_tras_nombramiento"),
+    confirmarGINPIX: efecto(RUTA_CONFIRMACIONES_GINPIX, validarSolicitudConfirmacionGINPIX, "confirmar_ginpix"),
   });
 }

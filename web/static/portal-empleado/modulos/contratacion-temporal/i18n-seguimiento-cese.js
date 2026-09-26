@@ -4,7 +4,7 @@ export const MENSAJES_SEGUIMIENTO_CESE = Object.freeze({
   titulo: "Seguimiento del nombramiento",
   subtitulo: "Cese, cierre del expediente y cambios de fechas o jornada",
   ayuda_boton: "Ayuda sobre el seguimiento del nombramiento",
-  ayuda: "El cese se registra con una causa del catálogo, su fecha de efecto y el justificante (su referencia y el archivo, del que solo se registra su huella digital). Al registrarlo, Bolsa recibe el fin del contrato para reponer a la persona. El cierre exige el cese y, si el catálogo lo pide, la ficha de GINPIX confirmada con su número. Un cambio de fechas o de jornada crea una versión nueva del análisis, recalcula el coste y devuelve el expediente a la fase que fija el catálogo.",
+  ayuda: "El cese se registra con una causa del catálogo, su fecha de efecto y el justificante (su referencia y el archivo, del que solo se registra su huella digital). Al registrarlo, Bolsa recibe el fin del contrato para reponer a la persona. El cierre exige el cese y, si el catálogo lo pide, la ficha de GINPIX confirmada con su número. Cuando GINPIX devuelve el número de alta de la ficha, se registra aquí una sola vez con «Confirmar la ficha de GINPIX»; el cierre toma ese número y no permite otro, y sin esa confirmación el cierre no se ofrece. La incorporación la confirma el centro desde sus peticiones, con la toma de posesión o el contrato firmado que fija el catálogo; aquí se ve su fecha y el tipo de documento. Un cambio de fechas o de jornada crea una versión nueva del análisis, recalcula el coste y devuelve el expediente a la fase que fija el catálogo.",
   cargando: "Consultando el seguimiento del expediente.",
   no_disponible: "El seguimiento no está disponible para este expediente.",
   reintentar: "Reintentar",
@@ -64,6 +64,20 @@ export const MENSAJES_SEGUIMIENTO_CESE = Object.freeze({
   error_credito_insuficiente: "El coste nuevo supera la retención de crédito: hace falta otra retención.",
   error_indeterminado: "No se ha podido confirmar el resultado. Reintente: se usará la misma operación y no se duplicará.",
   error_general: "No se ha podido completar la operación. Inténtelo de nuevo más tarde.",
+  // Incorporación acreditada: confirmación de GINPIX y del centro.
+  ginpix: "Ficha de GINPIX",
+  ginpix_titulo: "Confirmar la ficha de GINPIX",
+  ginpix_observaciones: "Observaciones",
+  ginpix_enviar: "Registrar la confirmación de GINPIX",
+  ginpix_confirmado: "Confirmada con el número {numero} el {fecha}.",
+  centro_confirmacion: "Confirmación del centro",
+  centro_confirmada: "El centro confirma la incorporación el {fecha} con {documento}.",
+  documento_toma_posesion: "la toma de posesión",
+  documento_contrato_firmado: "el contrato firmado",
+  cierre_requiere_ginpix: "Para cerrar el expediente, registre antes la confirmación de la ficha de GINPIX con su número de alta.",
+  error_ginpix_existente: "La ficha de GINPIX de esta incorporación ya está confirmada.",
+  error_ginpix_no_confirmado: "Falta la confirmación de la ficha de GINPIX: regístrela antes de cerrar.",
+  error_ginpix_distinto: "El número de GINPIX no coincide con el confirmado.",
 });
 
 export function crearTraductorSeguimientoCese(mensajes = {}) {
