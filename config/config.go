@@ -170,6 +170,7 @@ type Config struct {
 	CTFirmaRegistroEnabled                      string
 	BolsaPortalCandidatoEnabled                 string
 	CTSeguimientoCeseEnabled                    string
+	CTCancelacionEnabled                        string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
 	FirmaVerificacionEnabled                    string
@@ -261,6 +262,7 @@ func Load() Config {
 		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
 		BolsaPortalCandidatoEnabled:        envFirst(EnvBolsaPortalCandidatoEnabled),
 		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
+		CTCancelacionEnabled:               envFirst(EnvCTCancelacionEnabled),
 		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
@@ -396,6 +398,7 @@ func (c Config) Normalize() Config {
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)
 	c.CTSeguimientoCeseEnabled = strings.TrimSpace(c.CTSeguimientoCeseEnabled)
+	c.CTCancelacionEnabled = strings.TrimSpace(c.CTCancelacionEnabled)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)

@@ -108,4 +108,5 @@ const (
 	CTModificacionFaseRetorno     = "c09.modificacion_fase_retorno"
 	CTCierreExpediente            = "c10.cierre_expediente"
 	CTCausasCese                  = "c11.causas_cese"
+	CTCancelacionExpediente       = "c12.cancelacion_expediente"
 )

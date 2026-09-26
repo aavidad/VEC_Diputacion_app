@@ -593,6 +593,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	rutas = append(rutas, rutasSeguimientoCese...)
+	rutasCancelacion, err := nuevasRutasCancelacionCTDesarrollo(dependencias, &alta)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, rutasCancelacion...)
 	if consultasRRHH.estadisticas != nil {
 		h, err := httpinterno.NuevoManejadorEstadisticasRRHH(consultasRRHH.estadisticas,
 			&resolutorAlcanceEstadisticasRRHHDesarrollo{sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)

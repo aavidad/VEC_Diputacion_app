@@ -1,0 +1,113 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "motivos-cancelacion-ejemplo-v1",
+    "actualizada_en": "2026-09-26T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: reglas de ejemplo para desarrollo y presentación a RRHH. Se borran al pasar a producción, como los datos de ejemplo. Las marcadas «ejemplo» son supuestos de trabajo sin aprobación de RRHH ni validez administrativa.",
+    "origen_sha256": "7155cbb790ffea9a8e28391c134e1b1b7f6b47cbbe5840ef964a5de3ecec6e8a"
+  },
+  "catalogo": {
+    "id": "motivos_cancelacion_contratacion_temporal",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "contratacion_temporal",
+    "nombre": "Motivos de cancelación del expediente — ejemplo",
+    "descripcion": "Motivos de ejemplo para cancelar un expediente de contratación temporal antes de la fiscalización, con quién puede usar cada uno (centro solicitante, RRHH o ambos). No son motivos aprobados por RRHH.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
+    "entradas": [
+      {
+        "clave": "necesidad_desaparecida",
+        "etiqueta": "Ha desaparecido la necesidad",
+        "descripcion": "El puesto ya no necesita cubrirse: se reincorpora la persona titular antes de lo previsto o termina la carga de trabajo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.cancelacion.motivo.necesidad_desaparecida",
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "canales": "centro,rrhh"
+        },
+        "orden": 1
+      },
+      {
+        "clave": "desistimiento_centro",
+        "etiqueta": "El centro retira su petición",
+        "descripcion": "El centro solicitante desiste de la petición por decisión propia.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.cancelacion.motivo.desistimiento_centro",
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, art. 94 (aplicación pendiente de RRHH).",
+          "duda": "Duda 12.",
+          "canales": "centro"
+        },
+        "orden": 2
+      },
+      {
+        "clave": "cobertura_otra_via",
+        "etiqueta": "Se cubre por otra vía",
+        "descripcion": "La necesidad se atiende con otro procedimiento: reasignación de efectivos, comisión de servicios u otro expediente.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.cancelacion.motivo.cobertura_otra_via",
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "canales": "rrhh"
+        },
+        "orden": 3
+      },
+      {
+        "clave": "error_solicitud",
+        "etiqueta": "Error en la solicitud",
+        "descripcion": "La solicitud contiene un error que no se puede subsanar y debe presentarse de nuevo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.cancelacion.motivo.error_solicitud",
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "canales": "centro,rrhh"
+        },
+        "orden": 4
+      },
+      {
+        "clave": "solicitud_duplicada",
+        "etiqueta": "Solicitud duplicada",
+        "descripcion": "Ya existe otro expediente para la misma necesidad.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.cancelacion.motivo.solicitud_duplicada",
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "canales": "centro,rrhh"
+        },
+        "orden": 5
+      },
+      {
+        "clave": "falta_credito",
+        "etiqueta": "Sin crédito disponible",
+        "descripcion": "No hay crédito presupuestario para el nombramiento o contrato.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.cancelacion.motivo.falta_credito",
+          "origen": "ejemplo",
+          "norma": "Ley 47/2003, art. 46 (aplicación pendiente de RRHH).",
+          "duda": "Duda 12.",
+          "canales": "rrhh"
+        },
+        "orden": 6
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-26T00:00:00Z",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-26T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}

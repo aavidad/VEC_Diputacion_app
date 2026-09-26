@@ -252,6 +252,22 @@
           "catalogo": "causas_cese_contratacion_temporal"
         },
         "orden": 15
+      },
+      {
+        "clave": "c12.cancelacion_expediente",
+        "etiqueta": "Cancelación del expediente",
+        "descripcion": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "unidad": "lista",
+          "valor": "solicitud,asignacion_unidad,informe_juridico",
+          "motivos": "necesidad_desaparecida,desistimiento_centro,cobertura_otra_via,error_solicitud,solicitud_duplicada,falta_credito",
+          "catalogo": "motivos_cancelacion_contratacion_temporal"
+        },
+        "orden": 16
       }
     ],
     "estado": "publicado",
