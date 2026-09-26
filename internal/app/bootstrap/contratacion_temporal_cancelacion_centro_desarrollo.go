@@ -74,6 +74,7 @@ func nuevaCancelacionCentroDesarrollo(cfg config.Config, alta *dependenciasAltaC
 	defer cancelar()
 	regla, err := alta.cancelacion.fuente.reglas.Regla(ctx, reglas.CTCancelacionExpediente)
 	if err != nil {
+		slog.Error("cancelación por el centro no compuesta: regla c20 no disponible", "causa", err)
 		return &cancelacionCentroDesarrollo{}
 	}
 	var roles []string
