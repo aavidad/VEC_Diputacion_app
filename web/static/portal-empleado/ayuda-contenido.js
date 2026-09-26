@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-correcciones-b42-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

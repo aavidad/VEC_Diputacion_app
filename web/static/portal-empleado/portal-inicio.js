@@ -6,7 +6,7 @@
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260926-correcciones-b42-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;

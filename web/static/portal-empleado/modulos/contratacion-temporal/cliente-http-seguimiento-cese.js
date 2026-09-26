@@ -1,6 +1,6 @@
 /** Cliente HTTP del cese, el cierre y la modificación tras el nombramiento. */
 
-import { validarPropuestasSeguimiento } from "./seguimiento-propuestas.js?v=20260926-propuesta-sucesor-v1";
+import { validarPropuestasSeguimiento } from "./seguimiento-propuestas.js?v=20260926-huecos-rrhh-v2";
 
 export const RUTA_CESES_NOMBRAMIENTO = "/api/vec/contratacion-temporal/ceses";
 export const RUTA_CIERRES_EXPEDIENTE = "/api/vec/contratacion-temporal/cierres-expediente";

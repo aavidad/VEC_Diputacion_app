@@ -8,7 +8,7 @@
  */
 
 import { renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
-import { noIncorporacionVigente } from "./seguimiento-propuestas.js?v=20260926-propuesta-sucesor-v1";
+import { noIncorporacionVigente } from "./seguimiento-propuestas.js?v=20260926-huecos-rrhh-v2";
 
 /**
  * Se ofrece sin incorporación, sin cese, sin no incorporación de la persona

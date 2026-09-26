@@ -1,24 +1,24 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260926-correcciones-b42-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-correcciones-b42-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260926-huecos-rrhh-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-huecos-rrhh-v2";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260926-integracion-bolsa-ct-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-correcciones-b42-v1";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-correcciones-b42-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-correcciones-b42-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-correcciones-b42-v1";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-huecos-rrhh-v2";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-huecos-rrhh-v2";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-huecos-rrhh-v2";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-huecos-rrhh-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-correcciones-b42-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-huecos-rrhh-v2";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-correcciones-b42-v1";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-huecos-rrhh-v2";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-correcciones-b42-v1";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-correcciones-b42-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-correcciones-b42-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-huecos-rrhh-v2";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-huecos-rrhh-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-correcciones-b42-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-huecos-rrhh-v2";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-correcciones-b42-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-huecos-rrhh-v2";
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260926-integracion-bolsa-ct-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]

@@ -21,7 +21,7 @@ import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260926-integra
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-correcciones-b42-v1";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
