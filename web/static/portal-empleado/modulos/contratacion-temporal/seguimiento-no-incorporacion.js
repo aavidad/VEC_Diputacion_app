@@ -8,15 +8,19 @@
  */
 
 import { renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
+import { noIncorporacionVigente } from "./seguimiento-propuestas.js?v=20260926-propuesta-sucesor-v1";
 
-/** Se ofrece sin incorporación, sin cese y sin no incorporación registrada. */
+/**
+ * Se ofrece sin incorporación, sin cese y sin no incorporación de la persona
+ * de la propuesta vigente (la de una propuesta ya sustituida es historia).
+ */
 export function ofrecerNoIncorporacion(estado, opciones) {
-  return Boolean(opciones?.no_incorporacion) && !estado.incorporacion && !estado.cese && !estado.no_incorporacion;
+  return Boolean(opciones?.no_incorporacion) && !estado.incorporacion && !estado.cese && !noIncorporacionVigente(estado);
 }
 
 /** Fila del resumen cuando consta la no incorporación. */
 export function filasNoIncorporacion(estado, opciones, t, fecha) {
-  const n = estado.no_incorporacion;
+  const n = noIncorporacionVigente(estado);
   if (!n) return [];
   const motivo = opciones?.no_incorporacion?.motivos?.find((m) => m.clave === n.motivo_clave);
   return [[t("no_incorporacion"), t("no_incorporacion_registrada", { motivo: motivo ? motivo.etiqueta : n.motivo_clave, fecha: fecha(n.fecha_notificacion) })]];
