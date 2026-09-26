@@ -449,7 +449,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return s.motivoSubsanacion, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoSubsanacion)
 	case httpinterno.RutaFirmaDocumento:
 		return s.motivoFirmaDocumento, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoFirmaDocumento)
-	case httpinterno.RutaCesesNombramiento, httpinterno.RutaCierresExpediente, httpinterno.RutaModificacionesNombramiento, httpinterno.RutaSeguimientoCese:
+	case httpinterno.RutaCesesNombramiento, httpinterno.RutaCierresExpediente, httpinterno.RutaModificacionesNombramiento, httpinterno.RutaSeguimientoCese,
+		httpinterno.RutaConfirmacionesGINPIX:
 		return motivoSeguimientoCeseDesarrollo(ruta), s.seguimientoCese != nil
 	default:
 		return dominiovec.ReferenciaEntradaCatalogo{}, false

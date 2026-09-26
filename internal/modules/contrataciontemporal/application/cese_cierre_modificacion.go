@@ -88,6 +88,10 @@ type ServicioOperacionesSeguimiento struct {
 	coste       CalculadorCosteModificacion
 	lector      ports.LectorEstadoSeguimiento
 	reloj       ports.Reloj
+	// Incorporación acreditada (CT124), opcional: sin ella la confirmación
+	// de GINPIX no está disponible y el cierre conserva su conducta previa.
+	ginpix     ports.FuenteReglaConfirmacionGINPIX
+	acreditada ports.LectorIncorporacionAcreditada
 }
 
 type DependenciasOperacionesSeguimiento struct {
@@ -100,16 +104,23 @@ type DependenciasOperacionesSeguimiento struct {
 	Coste       CalculadorCosteModificacion
 	Lector      ports.LectorEstadoSeguimiento
 	Reloj       ports.Reloj
+	// GINPIX y Acreditada van juntas: o las dos o ninguna.
+	GINPIX     ports.FuenteReglaConfirmacionGINPIX
+	Acreditada ports.LectorIncorporacionAcreditada
 }
 
 func NuevoServicioOperacionesSeguimiento(d DependenciasOperacionesSeguimiento) (*ServicioOperacionesSeguimiento, error) {
 	if dependenciaNula(d.Contextos) || dependenciaNula(d.Sellos) || dependenciaNula(d.Repositorio) || dependenciaNula(d.Reglas) ||
 		dependenciaNula(d.Autorizador) || dependenciaNula(d.Referencias) || dependenciaNula(d.Coste) || dependenciaNula(d.Lector) ||
-		dependenciaNula(d.Reloj) {
+		dependenciaNula(d.Reloj) || dependenciaNula(d.GINPIX) != dependenciaNula(d.Acreditada) {
 		return nil, ErrServicioSeguimientoInvalido
 	}
-	return &ServicioOperacionesSeguimiento{contextos: d.Contextos, sellos: d.Sellos, repositorio: d.Repositorio, reglas: d.Reglas,
-		autorizador: d.Autorizador, referencias: d.Referencias, coste: d.Coste, lector: d.Lector, reloj: d.Reloj}, nil
+	s := &ServicioOperacionesSeguimiento{contextos: d.Contextos, sellos: d.Sellos, repositorio: d.Repositorio, reglas: d.Reglas,
+		autorizador: d.Autorizador, referencias: d.Referencias, coste: d.Coste, lector: d.Lector, reloj: d.Reloj}
+	if !dependenciaNula(d.GINPIX) {
+		s.ginpix, s.acreditada = d.GINPIX, d.Acreditada
+	}
+	return s, nil
 }
 
 // identidad resuelve actor y perfil del vínculo autenticado.
@@ -189,6 +200,8 @@ func tipoRecursoSeguimiento(operacion string) string {
 		return ports.TipoRecursoCese
 	case ports.OperacionCerrarExpediente:
 		return ports.TipoRecursoCierreExpediente
+	case ports.OperacionConfirmarGINPIX:
+		return ports.TipoRecursoConfirmacionGINPIX
 	default:
 		return ports.TipoRecursoModificacionNombramiento
 	}
@@ -313,8 +326,12 @@ func (s *ServicioOperacionesSeguimiento) CerrarExpediente(ctx context.Context, s
 	if err != nil || !politica.ValidaEn(ahora) || !domain.CondicionesCierreValidas(regla.Condiciones) {
 		return ports.ReciboOperacionSeguimiento{}, ports.ErrOperacionSeguimientoNoDisponible
 	}
-	datos := domain.DatosCierreExpediente{Condiciones: append([]string(nil), regla.Condiciones...), GINPIXNumero: sol.GINPIXNumero,
-		GINPIXConfirmadaEn: sol.GINPIXConfirmadaEn, Observaciones: sol.Observaciones}
+	numero, confirmadaEn, err := s.ginpixDelCierre(ctx, sol, regla)
+	if err != nil {
+		return ports.ReciboOperacionSeguimiento{}, err
+	}
+	datos := domain.DatosCierreExpediente{Condiciones: append([]string(nil), regla.Condiciones...), GINPIXNumero: numero,
+		GINPIXConfirmadaEn: confirmadaEn, Observaciones: sol.Observaciones}
 	material := ports.MaterialCierreExpediente{OrganizacionRef: sol.Canal.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef, ActorRef: actor, PerfilRef: perfil,
 		VersionEsperada: sol.VersionEsperada, ClaveIdempotencia: sol.ClaveIdempotencia, Datos: datos}
 	if !material.Valido() {
@@ -477,7 +494,8 @@ func (s *ServicioOperacionesSeguimiento) Opciones(ctx context.Context) (ports.Op
 	if err != nil {
 		return ports.OpcionesSeguimiento{}, ports.ErrOperacionSeguimientoNoDisponible
 	}
-	o := ports.OpcionesSeguimiento{Causas: causas, Condiciones: cierre.Condiciones, FaseRetorno: modificacion.FaseRetorno, Motivos: modificacion.Motivos}
+	o := ports.OpcionesSeguimiento{Causas: causas, Condiciones: cierre.Condiciones, FaseRetorno: modificacion.FaseRetorno, Motivos: modificacion.Motivos,
+		ConfirmacionGINPIX: s.ginpix != nil}
 	if !o.Validas() {
 		return ports.OpcionesSeguimiento{}, ports.ErrOperacionSeguimientoNoDisponible
 	}
@@ -490,5 +508,17 @@ func (s *ServicioOperacionesSeguimiento) Estado(ctx context.Context, organizacio
 	if s == nil || ctx == nil || !domain.ReferenciaOpacaValida(organizacionRef) || !domain.ReferenciaOpacaValida(expedienteRef) {
 		return ports.EstadoSeguimientoExpediente{}, ErrSolicitudSeguimientoInvalida
 	}
-	return s.lector.ConsultarEstadoSeguimiento(ctx, organizacionRef, expedienteRef)
+	estado, err := s.lector.ConsultarEstadoSeguimiento(ctx, organizacionRef, expedienteRef)
+	if err != nil || s.acreditada == nil {
+		return estado, err
+	}
+	acreditada, err := s.acreditada.ConsultarIncorporacionAcreditada(ctx, organizacionRef, expedienteRef)
+	if err != nil {
+		return ports.EstadoSeguimientoExpediente{}, err
+	}
+	if !acreditada.Valido() {
+		return ports.EstadoSeguimientoExpediente{}, ports.ErrResultadoSeguimientoNoConfiable
+	}
+	estado.Acreditada = &acreditada
+	return estado, nil
 }

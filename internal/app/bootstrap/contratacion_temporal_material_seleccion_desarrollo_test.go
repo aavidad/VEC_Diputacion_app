@@ -15,6 +15,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
 		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true,
+		incorporacionAcreditada: true,
 	}
 }
 
@@ -58,7 +59,8 @@ func TestAudienciasPortalCandidatoPublicablesPorElGobiernoCT(t *testing.T) {
 }
 
 func TestAudienciasSeguimientoCeseYFirmaPublicablesPorElGobiernoCT(t *testing.T) {
-	for _, d := range append(descriptoresMaterialSeguimientoCeseDesarrollo(), descriptorMaterialFirmaDocumentoCTDesarrollo()) {
+	for _, d := range append(descriptoresMaterialSeguimientoCeseDesarrollo(), descriptorMaterialFirmaDocumentoCTDesarrollo(),
+		descriptorMaterialConfirmacionGINPIXDesarrollo()) {
 		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
 			t.Errorf("audiencia de cese o firma no publicable por CT: %s", d.Audiencia)
 		}

@@ -227,14 +227,15 @@
       {
         "clave": "c10.cierre_expediente",
         "etiqueta": "Condiciones del cierre del expediente",
-        "descripcion": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número.",
+        "descripcion": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número de alta. El número del cierre es el de la confirmación de GINPIX registrada; no se teclea en el cierre. El cierre administrativo sin cese solo se ofrece si cierre_sin_cese vale «admitido».",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 11.",
+          "duda": "Dudas 11 y 12.",
           "unidad": "lista",
-          "valor": "cese_registrado,ginpix_confirmado"
+          "valor": "cese_registrado,ginpix_confirmado",
+          "cierre_sin_cese": "no_admitido"
         },
         "orden": 14
       },
@@ -252,6 +253,22 @@
           "catalogo": "causas_cese_contratacion_temporal"
         },
         "orden": 15
+      },
+      {
+        "clave": "c12.acreditacion_incorporacion",
+        "etiqueta": "Acreditación de la incorporación",
+        "descripcion": "La incorporación la confirma el centro con el documento que la acredita: la toma de posesión en los nombramientos y el contrato firmado en los contratos laborales. El documento se registra en Documentos o se aporta su referencia con la huella del archivo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 62.1.c (toma de posesión); Estatuto de los Trabajadores, art. 8 (forma del contrato).",
+          "duda": "Duda 11.",
+          "unidad": "lista",
+          "valor": "toma_posesion",
+          "valor_relevo": "contrato_firmado",
+          "roles_confirman": "solicitante_centro,ratificador_centro"
+        },
+        "orden": 16
       }
     ],
     "estado": "publicado",

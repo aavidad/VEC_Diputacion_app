@@ -27,7 +27,8 @@ const (
 )
 
 func rutaPeticionCentroDesarrollo(ruta string) bool {
-	return ruta == rutaOperacionesPeticionCentro || ruta == rutaBandejaPeticionCentro || ruta == rutaContextoPeticionCentro
+	return ruta == rutaOperacionesPeticionCentro || ruta == rutaBandejaPeticionCentro || ruta == rutaContextoPeticionCentro ||
+		rutaIncorporacionCentroDesarrollo(ruta)
 }
 
 func principalPeticionCentroDesarrolloValido(p vecdomain.Principal) bool {
@@ -55,6 +56,9 @@ type claveMaterialPeticionCentroDesarrollo struct{}
 type materialAutorizacionPeticionCentroDesarrollo struct {
 	consulta  *ports.ConsultaPeticionCentro
 	escritura *ports.MaterialPeticionCentro
+	// incorporacion es el recurso exacto de la bandeja o la confirmación
+	// de la incorporación por el centro (CT124).
+	incorporacion *recursoIncorporacionCentroDesarrollo
 }
 
 func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolvedorIdentidadDesarrollo, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, catalogosAlta ...*catalogosAltaContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
@@ -71,6 +75,10 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 	}
 	if !cfg.DevelopmentEnabledByDoubleKey() || alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil {
 		return nil, ports.ErrPeticionCentroNoDisponible
+	}
+	incorporacion, err := nuevaIncorporacionCentroDesarrollo(cfg, reloj)
+	if err != nil {
+		return nil, err
 	}
 	catalogos, err := personalpg.NuevoRepositorioOrganizacionPostgreSQL(alta.postgresql.ejecucion, &proveedorOrganizacionDesarrollo{alta: alta, reloj: reloj}, reloj)
 	if err != nil {
@@ -111,6 +119,7 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		for _, accion := range acciones {
 			concesiones = append(concesiones, vecdomain.ConcesionRol{Accion: accion, ModuloID: "contratacion_temporal", TipoRecurso: ports.TipoRecursoPeticionCentro, Finalidades: []string{finalidadPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh})
 		}
+		concesiones = append(concesiones, incorporacion.concesiones(principal.Roles[0])...)
 		s.instantanea, err = nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(actor.ActorRef, actor.PerfilRef, reloj.Ahora(), principal.Roles[0], "Petición de centro de desarrollo", "peticion-centro-desarrollo-"+principal.ID, concesiones,
 			[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}, {Clave: "centro_ref", Valores: []string{actor.CentroRef}}})
 		if err != nil {
@@ -147,7 +156,15 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 	if err != nil {
 		return nil, err
 	}
-	return rutasHTTPPeticionCentroDesarrollo(p, repo, catalogosAlta...)
+	rutas, err := rutasHTTPPeticionCentroDesarrollo(p, repo, catalogosAlta...)
+	if err != nil {
+		return nil, err
+	}
+	rutasIncorporacion, err := incorporacion.rutas(p)
+	if err != nil {
+		return nil, err
+	}
+	return append(rutas, rutasIncorporacion...), nil
 }
 
 func (p *proveedorPeticionCentroDesarrollo) identidad(ctx context.Context) (*identidadPeticionCentroDesarrollo, error) {
@@ -299,6 +316,9 @@ func solicitudAutorizacionPeticionCentroDesarrolloValida(ctx context.Context, d 
 	}
 	var r vecdomain.RecursoAutorizable
 	var actor domain.ActorPeticionCentro
+	if m.incorporacion != nil {
+		return m.consulta == nil && m.escritura == nil && m.incorporacion.validaPara(v.PrincipalID, v.PerfilActivoRef, d)
+	}
 	if m.consulta != nil && m.escritura == nil && d.Accion == ports.AccionConsultarPeticionCentro {
 		actor = m.consulta.Actor
 		r, err = postgresct.RecursoConsultaPeticionCentro(*m.consulta)

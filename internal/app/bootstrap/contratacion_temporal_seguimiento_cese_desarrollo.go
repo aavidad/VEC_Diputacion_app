@@ -45,6 +45,9 @@ func operacionesSeguimientoCeseDesarrollo() []operacionSeguimientoCeseDesarrollo
 		{httpinterno.RutaCierresExpediente, "ct-expediente-cerrar", string(domain.AccionCerrarExpediente), ports.TipoRecursoCierreExpediente, ports.FinalidadCerrarExpediente, ports.AudienciaConsumoCierreExpedienteV1, true},
 		{httpinterno.RutaModificacionesNombramiento, "ct-nombramiento-modificar", string(domain.AccionModificarTrasNombramiento), ports.TipoRecursoModificacionNombramiento, ports.FinalidadModificarTrasNombramiento, ports.AudienciaConsumoModificacionNombramientoV1, true},
 		{httpinterno.RutaSeguimientoCese, "ct-seguimiento-cese-consultar", accionConsultarSeguimientoCeseDesarrollo, "seguimiento_contratacion_temporal", "gestionar_contratacion_temporal", "", false},
+		// Confirmación de GINPIX (CT124): solo se monta con la incorporación
+		// acreditada encendida; sin ella la ruta no existe.
+		{httpinterno.RutaConfirmacionesGINPIX, "ct-ginpix-confirmar", string(domain.AccionConfirmarGINPIX), ports.TipoRecursoConfirmacionGINPIX, ports.FinalidadConfirmarGINPIX, ports.AudienciaConsumoConfirmacionGINPIXV1, true},
 	}
 }
 
@@ -62,7 +65,7 @@ func rutaSeguimientoCeseDesarrollo(ruta string) bool {
 	return ok
 }
 
-// descriptoresFronterasSeguimientoCeseDesarrollo declara las cuatro rutas
+// descriptoresFronterasSeguimientoCeseDesarrollo declara las rutas
 // con el perfil CT base y su acción nominal como capacidad.
 func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string) []descriptorFronteraComunDesarrollo {
 	var d []descriptorFronteraComunDesarrollo
@@ -386,7 +389,8 @@ func (c calculadorCosteModificacionDesarrollo) CalcularCosteModificacion(ctx con
 }
 
 // nuevasRutasSeguimientoCeseDesarrollo compone las cuatro rutas cuando se han
-// declarado los catálogos. Sin ellos, no hay rutas: la conducta es la de hoy.
+// declarado los catálogos, y la confirmación de GINPIX si la incorporación
+// acreditada está encendida. Sin ellos, no hay rutas: la conducta es la de hoy.
 func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *dependenciasAltaContratacionTemporalDesarrollo) ([]vechttp.RutaExacta, error) {
 	if dependencias == nil || !seguimientoCeseSolicitado(dependencias.cfg) {
 		return nil, nil
@@ -430,7 +434,15 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	defer material.borrarCopiasEfimeras()
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 	autoridad := &autoridadSeguimientoCeseDesarrollo{alta: alta, proveedores: map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{}}
-	for _, d := range descriptoresMaterialSeguimientoCeseDesarrollo() {
+	descriptores := descriptoresMaterialSeguimientoCeseDesarrollo()
+	acreditada := incorporacionAcreditadaSolicitada(cfg)
+	if acreditada {
+		if err := comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx, alta.postgresql.ejecucion); err != nil {
+			return fallar("migraciones_incorporacion_acreditada", err)
+		}
+		descriptores = append(descriptores, descriptorMaterialConfirmacionGINPIXDesarrollo())
+	}
+	for _, d := range descriptores {
 		p, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, alta.postgresql.catalogoMaterial, d.Audiencia)
 		if err != nil {
 			return fallar("proveedor_material", err)
@@ -438,7 +450,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		autoridad.proveedores[d.Audiencia] = p
 	}
 	var llaveros []seguridadct.ConfiguracionLlaverosSeguimiento
-	for _, operacion := range []string{ports.OperacionRegistrarCese, ports.OperacionCerrarExpediente, ports.OperacionModificarTrasNombramiento} {
+	for _, operacion := range []string{ports.OperacionRegistrarCese, ports.OperacionCerrarExpediente, ports.OperacionModificarTrasNombramiento, ports.OperacionConfirmarGINPIX} {
 		dominioAmbito, dominioHuella, _ := ports.DominiosHMACOperacionSeguimiento(operacion)
 		aa, ra, err := configuracionesHMACAltaContratacionTemporalDesarrollo(derivador, dominioAmbito, true)
 		if err != nil {
@@ -458,11 +470,15 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	if err != nil {
 		return fallar("repositorio", err)
 	}
-	servicio, err := application.NuevoServicioOperacionesSeguimiento(application.DependenciasOperacionesSeguimiento{
-		Contextos: alta.soporte, Sellos: sellos, Repositorio: repositorio,
-		Reglas:      fuenteReglasSeguimientoDesarrollo{reglas: resolutor, causas: causas, motivos: motivos},
+	fuente := fuenteReglasSeguimientoDesarrollo{reglas: resolutor, causas: causas, motivos: motivos}
+	dependenciasServicio := application.DependenciasOperacionesSeguimiento{
+		Contextos: alta.soporte, Sellos: sellos, Repositorio: repositorio, Reglas: fuente,
 		Autorizador: autoridad, Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(),
-		Coste: calculadorCosteModificacionDesarrollo{retribuciones: dependencias.retribucionesCT}, Lector: repositorio, Reloj: reloj})
+		Coste: calculadorCosteModificacionDesarrollo{retribuciones: dependencias.retribucionesCT}, Lector: repositorio, Reloj: reloj}
+	if acreditada {
+		dependenciasServicio.GINPIX, dependenciasServicio.Acreditada = fuente, repositorio
+	}
+	servicio, err := application.NuevoServicioOperacionesSeguimiento(dependenciasServicio)
 	if err != nil {
 		return fallar("servicio", err)
 	}
@@ -472,6 +488,9 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	}
 	rutas := make([]vechttp.RutaExacta, 0, len(manejadores))
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
+		if o.ruta == httpinterno.RutaConfirmacionesGINPIX && !acreditada {
+			continue
+		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: o.ruta, Manejador: manejadores[o.ruta]})
 	}
 	return rutas, nil

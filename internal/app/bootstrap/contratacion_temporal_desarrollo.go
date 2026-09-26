@@ -570,6 +570,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}
 	if len(incorporacion) == 1 && incorporacion[0].continuidad != nil {
+		incorporacion[0].continuidad.admisionSinCese = admisionCierreSinCeseDesarrollo(reglasEjemplo.contratacionTemporal)
 		continuidad, err := incorporacion[0].continuidad.rutas(derivador, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err

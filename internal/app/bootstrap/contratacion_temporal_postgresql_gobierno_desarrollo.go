@@ -216,6 +216,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoCeseV1,
 		ports.AudienciaConsumoCierreExpedienteV1,
 		ports.AudienciaConsumoModificacionNombramientoV1,
+		// Confirmación de GINPIX (AD3-88); solo se publica con
+		// VEC_CT_INCORPORACION_ACREDITADA_ENABLED.
+		ports.AudienciaConsumoConfirmacionGINPIXV1,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se

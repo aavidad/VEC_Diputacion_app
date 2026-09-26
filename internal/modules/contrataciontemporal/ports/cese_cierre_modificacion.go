@@ -145,6 +145,8 @@ func DominiosHMACOperacionSeguimiento(operacion string) (ambito, huella string, 
 		return DominioAmbitoIdempotenciaCierreExpediente, DominioHuellaPeticionCierreExpediente, true
 	case OperacionModificarTrasNombramiento:
 		return DominioAmbitoIdempotenciaModificacionNombrado, DominioHuellaPeticionModificacionNombrado, true
+	case OperacionConfirmarGINPIX:
+		return DominioAmbitoIdempotenciaConfirmacionGINPIX, DominioHuellaPeticionConfirmacionGINPIX, true
 	}
 	return "", "", false
 }
@@ -265,6 +267,7 @@ type ReciboOperacionSeguimiento struct {
 	FechaEfecto       string
 	CeseReciboRef     string
 	CosteCentimos     int64
+	GINPIXNumero      string
 }
 
 func (r ReciboOperacionSeguimiento) ValidoPara(operacion, org, exp string, versionAnterior uint64) bool {
@@ -289,6 +292,9 @@ type EstadoSeguimientoExpediente struct {
 	InicioIncorporacion string
 	Cese                *EstadoCeseExpediente
 	Cierre              *EstadoCierreExpediente
+	// Acreditada solo existe con la incorporación acreditada compuesta
+	// (CT124): confirmaciones de GINPIX y del centro.
+	Acreditada *EstadoIncorporacionAcreditada
 }
 
 type EstadoCeseExpediente struct {
@@ -322,6 +328,9 @@ type OpcionesSeguimiento struct {
 	Condiciones []string
 	FaseRetorno domain.ClaveFase
 	Motivos     []OpcionMotivoSeguimiento
+	// ConfirmacionGINPIX indica que la confirmación de GINPIX está compuesta:
+	// se registra aparte y el cierre toma de ella su número.
+	ConfirmacionGINPIX bool
 }
 
 func (o OpcionesSeguimiento) Validas() bool {
