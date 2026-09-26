@@ -82,6 +82,27 @@ function etiqueta(clave, t, alternativa = t("etiqueta_no_consta")) {
   return texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1);
 }
 
+// Una modalidad publicada por el catálogo de reglas se pinta con su etiqueta;
+// sin ella, con la traducción conocida o, en último término, con la clave.
+function etiquetaModalidad(clave, catalogos, t, alternativa) {
+  const delCatalogo = typeof clave === "string" ? catalogos?.modalidades?.get(clave) : undefined;
+  return delCatalogo ?? etiqueta(clave, t, alternativa);
+}
+
+// Las modalidades llegan con la configuración del análisis: lista de
+// {clave, etiqueta}. Lo que no tenga esa forma se ignora.
+function mapaModalidades(lista) {
+  if (!Array.isArray(lista)) return null;
+  const mapa = new Map();
+  for (const opcion of lista) {
+    if (typeof opcion?.clave === "string" && opcion.clave !== ""
+      && typeof opcion?.etiqueta === "string" && opcion.etiqueta.trim() !== "") {
+      mapa.set(opcion.clave, opcion.etiqueta);
+    }
+  }
+  return mapa.size > 0 ? mapa : null;
+}
+
 function estadoVisual(clave) {
   const visual = ESTADOS_SERVIDOR_A_VISUAL.get(clave);
   if (visual === undefined) throw new TypeError("estado operativo del servidor no válido");
@@ -154,7 +175,7 @@ function resumenVisual(entrada, catalogos, t, locale) {
     numero_visible: entrada.numero_visible,
     centro: referenciaVisible(catalogos, "centros", entrada.centro_ref),
     categoria: referenciaVisible(catalogos, "categorias", entrada.categoria_ref),
-    modalidad: etiqueta(entrada.modalidad_clave, t, "—"),
+    modalidad: etiquetaModalidad(entrada.modalidad_clave, catalogos, t, "—"),
     estado_clave: estadoClave,
     estado: etiqueta(entrada.estado_clave, t),
     fase_clave: entrada.fase_clave,
@@ -291,7 +312,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
   const campos = [
     campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
     campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
-    campo("modalidad", t("cabecera_modalidad"), etiqueta(resumen.modalidad_clave, t)),
+    campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
     campo("fase", t("cabecera_fase_actual"), etiqueta(resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
@@ -471,7 +492,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCom
 
 export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   cliente, locale = "es-ES", obtenerCatalogos = () => null, mensajes = {},
-  obtenerJornadaCompleta = () => null,
+  obtenerJornadaCompleta = () => null, obtenerModalidades = () => null,
 } = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
@@ -485,6 +506,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   }
   if (typeof obtenerJornadaCompleta !== "function") {
     throw new TypeError("obtener jornada completa de expedientes no válido");
+  }
+  if (typeof obtenerModalidades !== "function") {
+    throw new TypeError("obtener modalidades de expedientes no válido");
   }
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
@@ -518,6 +542,21 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
     return promesaCatalogos;
   }
 
+  // Las etiquetas de modalidad (lista o promesa de lista) no bloquean la
+  // bandeja: si no llegan, se pinta como hasta ahora.
+  async function resolverModalidades() {
+    try {
+      return mapaModalidades(await obtenerModalidades());
+    } catch {
+      return null;
+    }
+  }
+
+  async function resolverEtiquetas() {
+    const [catalogos, modalidades] = await Promise.all([resolverCatalogos(), resolverModalidades()]);
+    return modalidades === null ? catalogos : { ...(catalogos ?? {}), modalidades };
+  }
+
   const adaptador = {
     get capacidades() {
       return Object.freeze([...capacidadesConsultadas]);
@@ -536,7 +575,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
           },
           paginacion: { limite: 100, cursor },
         }, { signal }),
-        resolverCatalogos(),
+        resolverEtiquetas(),
       ]);
       const cuadro = proyectarCuadro(pagina, {
         cursor, numeroPagina, catalogos, t, locale,
@@ -558,7 +597,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
           expediente_ref: expedienteRef,
           version_observada: version,
         }, { signal }),
-        resolverCatalogos(),
+        resolverEtiquetas(),
       ]);
       const expediente = proyectarExpediente(
         detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),

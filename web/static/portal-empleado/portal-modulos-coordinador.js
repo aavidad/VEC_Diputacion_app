@@ -298,12 +298,16 @@ export function crearCoordinadorModulosPortal({
       HeadersImpl: entorno.Headers,
     });
     let alta = null;
-    // La jornada completa de referencia llega con la configuración del análisis.
+    // La jornada completa de referencia y las etiquetas de las modalidades
+    // llegan con la configuración del análisis.
     let jornadaCompleta = null;
+    let entregarModalidades = () => {};
+    const promesaModalidades = new Promise((resolver) => { entregarModalidades = resolver; });
     const fuente = recursos.adaptador
       .crearAdaptadorHTTPExpedientesContratacionTemporal({
         cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
         obtenerJornadaCompleta: () => jornadaCompleta,
+        obtenerModalidades: () => promesaModalidades,
       });
     // Los catálogos del alta (centros y categorías) no retrasan el cuadro:
     // Inicio se pinta con el cuadro y la configuración, y los nombres de centro
@@ -321,10 +325,10 @@ export function crearCoordinadorModulosPortal({
         alta = null;
       }
     }, () => { alta = null; });
-    const [cuadro, configuracion] = await Promise.allSettled([
-      consultar((opciones) => fuente.listar(opciones)),
-      consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones)),
-    ]);
+    const consultaCuadro = consultar((opciones) => fuente.listar(opciones));
+    const promesaConfiguracion = consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones));
+    promesaConfiguracion.then((valor) => entregarModalidades(valor?.modalidades ?? null), () => entregarModalidades(null));
+    const [cuadro, configuracion] = await Promise.allSettled([consultaCuadro, promesaConfiguracion]);
     exigirVigente();
     const cuadroDisponible = cuadro.status === "fulfilled";
     const listadoCuadro = cuadroDisponible ? cuadro.value : null;
