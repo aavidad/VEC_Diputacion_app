@@ -44,6 +44,7 @@ docker cp "$base_dir/migraciones/000002_replay_autorizado.up.sql" "$container:/t
 docker cp "$base_dir/migraciones/000003_custodia_externa.up.sql" "$container:/tmp/documentos3.sql"
 docker cp "$base_dir/roles_000004_up.sql" "$container:/tmp/roles4.sql"
 docker cp "$base_dir/migraciones/000004_efecto_contexto_y_frontera.up.sql" "$container:/tmp/documentos4.sql"
+docker cp "$base_dir/migraciones/000005_principal_vinculo_actor.up.sql" "$container:/tmp/documentos5.sql"
 docker cp "$base_dir/pruebas_sql/frontera_000004.sql" "$container:/tmp/frontera4.sql"
 docker cp "$base_dir/pruebas_sql/custodia_externa_sintetica.sql" "$container:/tmp/externa.sql"
 docker cp "$base_dir/pruebas_sql/replay_ad3_62_sintetico.sql" "$container:/tmp/replay_ad3_62.sql"
@@ -90,6 +91,14 @@ psql_pg /tmp/documentos4.rollback.sql
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.denegacion_frontera') IS NULL AND to_regprocedure('vec_documentos.huella_efecto_v1(bytea)') IS NULL")" = t
 psql_pg /tmp/documentos4.sql
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos4.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000004 aceptada' >&2; exit 1; fi
+docker exec "$container" sh -c "sed '\$s/^COMMIT;/ROLLBACK;/' /tmp/documentos5.sql >/tmp/documentos5.rollback.sql"
+psql_pg /tmp/documentos5.rollback.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regprocedure('vec_documentos.principal_ref_v1(text)') IS NULL")" = t
+psql_pg /tmp/documentos5.sql
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos5.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000005 aceptada' >&2; exit 1; fi
+# El principal del vínculo V2 real (per_ y token) se admite; lo que no es ni
+# eso ni una referencia opaca, no.
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT vec_documentos.principal_ref_v1('per_0123456789abcdefghijkl') AND vec_documentos.principal_ref_v1('per:00000000-0000-4000-8000-000000000001') AND NOT vec_documentos.principal_ref_v1('per_corto') AND NOT vec_documentos.principal_ref_v1('per_0123456789abcdefghij:kl') AND NOT coalesce(vec_documentos.principal_ref_v1(NULL),false)")" = t
 
 docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
 CREATE ROLE vec_documentos_ensayo LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
