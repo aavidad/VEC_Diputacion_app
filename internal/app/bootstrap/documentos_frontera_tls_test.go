@@ -80,9 +80,11 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 		publicadas: map[string]bool{docpg.RutaFronteraConsulta: true}}
 	servidos := 0
 	var capturado context.Context
+	var cuerpoRecibido []byte
 	servidor := httptest.NewUnstartedServer(a.proteger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		servidos++
 		capturado = context.WithoutCancel(r.Context())
+		cuerpoRecibido, _ = io.ReadAll(r.Body)
 		w.WriteHeader(http.StatusNoContent)
 	})))
 	servidor.TLS = composicion.tls.Clone()
@@ -130,7 +132,10 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	conCadena.Certificate = append([][]byte{clienteCert.Certificate[0]}, bloqueCA.Bytes)
 	transporteCadena := &http.Transport{TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{conCadena}, RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}}
 	t.Cleanup(transporteCadena.CloseIdleConnections)
-	solicitudCadena, err := http.NewRequest(http.MethodPost, servidor.URL+docpg.RutaFronteraConsulta, strings.NewReader(`{}`))
+	// El cuerpo del registro externo llega intacto: reducir la cadena no
+	// consume ni sustituye la petición.
+	const cuerpoRegistro = `{"clave_idempotencia":"ref:f6233f3f8d3a3e3bdf90955d648253fe7b75fdd62f3474b32ab7c32523327d81","expediente_ref":"ref:247a453e4b51893dabc2bcb650936dd96697de575e632da37bf3bd1e07fc0d47","tipo":"contratacion_temporal.formalizacion.documento_identidad.v1","referencia":"sonda-d6:6f418b6b0634","huella_sha256":"8faa8ca4e6c27e4190d36f9a9b34a291e8c5b7238b5610b7665334b50014bc60"}`
+	solicitudCadena, err := http.NewRequest(http.MethodPost, servidor.URL+docpg.RutaFronteraConsulta, strings.NewReader(cuerpoRegistro))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +144,7 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 		t.Fatal(err)
 	}
 	respuestaCadena.Body.Close()
-	if respuestaCadena.StatusCode != http.StatusNoContent || servidos != 2 || len(registrador.ordenes) != 0 {
+	if respuestaCadena.StatusCode != http.StatusNoContent || servidos != 2 || len(registrador.ordenes) != 0 || string(cuerpoRecibido) != cuerpoRegistro {
 		t.Fatalf("cliente con cadena completa: estado=%d servidos=%d auditadas=%d", respuestaCadena.StatusCode, servidos, len(registrador.ordenes))
 	}
 	for _, cabecera := range []string{"Cookie", "Authorization"} {

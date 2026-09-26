@@ -21,7 +21,12 @@ instaladas antes y después de ellas sobre el núcleo AD3 real.
    haya usado, porque el registro de identificadores parte vacío.
 7. `roles_000004_up.sql` como DBA, una sola vez (rol `vec_documentos_auditor`).
 8. `migraciones/000004_efecto_contexto_y_frontera.up.sql`.
-9. Crear fuera del repositorio dos LOGIN de aplicación: uno con **solo** la
+9. `migraciones/000005_principal_vinculo_actor.up.sql`: admite como
+   `principal_ref` el principal del vínculo V2 real (`per_` y un token). Sin
+   ella el alta y el registro externo de la composición real fallan con
+   23514 y la API responde 422 `contenido_no_valido`; la consulta no se ve
+   afectada. No cambia funciones ni filas: sustituye dos `CHECK`.
+10. Crear fuera del repositorio dos LOGIN de aplicación: uno con **solo** la
    membresía `vec_documentos_ejecutor` y otro con **solo**
    `vec_documentos_auditor`; no conceder propiedad, migración ni acceso a tablas.
 

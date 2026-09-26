@@ -32,6 +32,12 @@ func dsnEnsayo(t *testing.T) string {
 	return dsn
 }
 
+// principalEnsayo tiene la forma que da el vínculo de autenticación V2 real
+// (per_ y un token), no la de una referencia opaca: con ella el registro
+// externo de la composición real fallaba en PostgreSQL con 23514 y la API
+// respondía 422 contenido_no_valido.
+const principalEnsayo = "per_0123456789abcdefghijkl"
+
 // materialSintetico lleva en la capacidad y la decisión los campos que cotejan
 // las fachadas documentales; la estructura V3 solo es de forma.
 func materialSintetico(t *testing.T, accion, recurso, finalidad, tipo string, campos []string, preimagen []byte, decisionRef string) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
@@ -45,7 +51,7 @@ func materialSintetico(t *testing.T, accion, recurso, finalidad, tipo string, ca
 	decision, _ := json.Marshal(map[string]any{
 		"accion": accion, "modulo_id": "documentos", "tipo_recurso": tipo, "finalidad": finalidad,
 		"campos_permitidos": campos, "obligaciones": []string{}, "recurso_ref": recurso,
-		"contexto_recurso_huella_sha256": h, "principal_id": "per:00000000-0000-4000-8000-0000000000a1",
+		"contexto_recurso_huella_sha256": h, "principal_id": principalEnsayo,
 		"perfil_activo_ref": "perfil:00000000-0000-4000-8000-0000000000a1",
 		"correlacion_ref":   "corr:00000000-0000-4000-8000-0000000000a1", "decision_ref": decisionRef,
 	})
@@ -67,7 +73,7 @@ func materialSintetico(t *testing.T, accion, recurso, finalidad, tipo string, ca
 
 func autorizacion(m vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, accion, finalidad, recurso, ambito string) ports.AutorizacionV3 {
 	return ports.AutorizacionV3{Material: m, Accion: accion, Finalidad: finalidad, RecursoRef: recurso, AmbitoRef: ambito,
-		PrincipalID:     "per:00000000-0000-4000-8000-0000000000a1",
+		PrincipalID:     principalEnsayo,
 		PerfilActivoRef: "perfil:00000000-0000-4000-8000-0000000000a1",
 		CorrelacionRef:  "corr:00000000-0000-4000-8000-0000000000a1"}
 }
