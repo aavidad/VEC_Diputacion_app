@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
 import { traducirPortal } from "./portal-i18n.js";
 import { crearVistaInicioPortal } from "./portal-inicio.js";
+import { etiquetaCatalogo } from "./modulos/contratacion-temporal/adaptador-http-expedientes.js";
+import { numeroExpedienteVisible } from "./modulos/contratacion-temporal/componentes-expedientes.js";
 
 test("la tarjeta de un módulo que aún carga dice «Comprobando» y queda ocupada", () => {
   const renderizar = crearVistaInicioPortal({
@@ -341,10 +343,10 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
           obtenerCatalogosAlta: consulta("alta"), obtenerConfiguracionAnalisis: consulta("analisis"),
           registrarSolicitud: async () => ({}), registrarAnalisis: async () => ({}),
         }) },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
+        adaptador: { etiquetaCatalogo, crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
         contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
         presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
-        vista: { montarModuloContratacionTemporal: async ({ alta }) => { altaMontada = alta; return { desmontar() {} }; } },
+        vista: { numeroExpedienteVisible, montarModuloContratacionTemporal: async ({ alta }) => { altaMontada = alta; return { desmontar() {} }; } },
       }),
     },
   });
@@ -352,6 +354,8 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
   const carga = coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(clave) });
   await esperarTurnos();
   pendientes.cuadro.resolver({ expedientes: [{ expediente_ref: "e:1", numero_visible: "2026/CT-1", centro: "centro:1",
+    categoria: "categoria:1", fase_clave: "solicitud", estado_clave: "en_curso", version: 1 },
+  { expediente_ref: "e:2", numero_visible: "2026/CT-8c17ba0b2be0fa7d84131e1dc93db150", centro: "centro-520",
     categoria: "categoria:1", fase_clave: "solicitud", estado_clave: "en_curso", version: 1 }] });
   pendientes.analisis.resolver({ subsanacion_disponible: false, modalidades: [], categorias: [], causas: [],
     entradas_rc: [], motivos_rectificacion: [], artefacto_ref: "artefacto:1" });
@@ -364,13 +368,17 @@ test("los catálogos del alta no retrasan Inicio y abrir Contratación los esper
   const montaje = coordinador.montarVista("contratacion-temporal", raiz);
   await esperarTurnos();
   assert.equal(altaMontada, "sin montar", "abrir Contratación espera a los catálogos del alta");
-  pendientes.alta.resolver({ centros: [{ referencia: "centro:1", etiqueta: "DEPORTES" }],
+  pendientes.alta.resolver({ centros: [{ referencia: "centro:1", etiqueta: "DEPORTES" },
+    { referencia: "centro:rpt:520", etiqueta: "TRANSFORMACIÓN DIGITAL" }],
     categorias: [{ referencia: "categoria:1", etiqueta: "Auxiliar" }] });
   assert.equal(await montaje, true);
   assert.equal(altaMontada.catalogos.centros[0].etiqueta, "DEPORTES");
   // Al llegar se avisa para repintar Inicio con los nombres.
   assert.deepEqual(avisos, ["catalogo", "contratacion_temporal", "contratacion_temporal"]);
   assert.equal(coordinador.obtenerTramitesInicio()[0].centro, "DEPORTES");
+  // La petición de centro usa la clave de la organización; el anterior a la numeración, sin número.
+  assert.deepEqual([coordinador.obtenerTramitesInicio()[1].centro, coordinador.obtenerTramitesInicio()[1].numero_visible],
+    ["TRANSFORMACIÓN DIGITAL", "Sin numerar"]);
 });
 
 test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async () => {

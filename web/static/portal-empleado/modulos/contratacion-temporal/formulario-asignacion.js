@@ -94,10 +94,10 @@ function renderizarFormulario(estado, contexto, t) {
   return `<form data-ct-asignacion-form>
     <fieldset><legend>${escaparHTML(t("asignacion_destino_leyenda"))}</legend>
       <div class="ct-campo"><span>${escaparHTML(t("asignacion_unidad"))}</span>
-        <output><code>${escaparHTML(UNIDAD_REF)}</code></output></div>
+        <output>${escaparHTML(t("asignacion_unidad_nombre"))}</output></div>
       <div class="ct-campo"><label for="ct-asignacion-responsable">${escaparHTML(t("asignacion_responsable"))}</label>
         <select id="ct-asignacion-responsable" name="responsable_ref" required>
-          <option value="${escaparHTML(RESPONSABLE_REF)}">${escaparHTML(RESPONSABLE_REF)}</option>
+          <option value="${escaparHTML(RESPONSABLE_REF)}">${escaparHTML(t("asignacion_responsable_nombre"))}</option>
         </select></div>
       <div class="ct-campo"><label><input name="confirmacion" type="checkbox" required>
         ${escaparHTML(t("asignacion_confirmacion"))}</label></div>

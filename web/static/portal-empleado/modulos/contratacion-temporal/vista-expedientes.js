@@ -24,6 +24,7 @@ import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
+export { numeroExpedienteVisible } from "./componentes-expedientes.js";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
 export {

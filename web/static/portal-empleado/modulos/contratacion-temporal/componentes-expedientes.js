@@ -5,6 +5,9 @@ import "./fases-expediente.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
+import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+
+const traductorPorOmision = crearTraductorExpedientesContratacion();
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -71,18 +74,15 @@ function esNumeroVisibleLegible(numero) {
   return /^\d{4}\/CT-\d+$/u.test(String(numero ?? ""));
 }
 
-// Algunos expedientes aún se numeran con el identificador técnico completo
-// («2026/CT-8c17ba0b…»); en pantalla se abrevia a prefijo y seis caracteres.
-export function numeroExpedienteVisible(numero) {
+// Los expedientes dados de alta antes de la numeración anual conservan en su
+// historia el identificador técnico («2026/CT-8c17ba0b…»): figuran sin numerar.
+export function numeroExpedienteVisible(numero, t = traductorPorOmision) {
   const texto = String(numero ?? "");
-  const tecnico = /^(\d{4}\/CT-)([0-9a-f]{12,})$/iu.exec(texto);
-  return tecnico ? `${tecnico[1]}${tecnico[2].slice(0, 6)}…` : texto;
+  return /^\d{4}\/CT-[0-9a-f]{12,}$/iu.test(texto) ? t("numero_expediente_sin_asignar") : texto;
 }
 
 function numeroExpedienteHTML(numero) {
-  const visible = numeroExpedienteVisible(numero);
-  return visible === String(numero ?? "") ? escaparHTML(visible)
-    : `<span title="${escaparHTML(numero)}">${escaparHTML(visible)}</span>`;
+  return escaparHTML(numeroExpedienteVisible(numero));
 }
 
 // Icono de cada indicador por su clave; si llega otra, se deduce del tono.

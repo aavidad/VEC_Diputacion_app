@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
+import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
@@ -697,4 +697,14 @@ test("adaptador ante error de cliente.catalogosAlta muestra referencias crudas",
   const cuadro = await adaptador.listar();
   assert.equal(cuadro.expedientes[0].centro, "centro:001");
   assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
+});
+
+test("el centro con la clave de la organización se nombra con su entrada del catálogo de alta", () => {
+  const centros = [{ referencia: "centro:rpt:520", etiqueta: "TRANSFORMACIÓN DIGITAL" },
+    { referencia: "centro:rpt:810A", etiqueta: "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA" }];
+  assert.equal(etiquetaCatalogo(centros, "centro:rpt:520"), "TRANSFORMACIÓN DIGITAL");
+  assert.equal(etiquetaCatalogo(centros, "centro-520"), "TRANSFORMACIÓN DIGITAL");
+  assert.equal(etiquetaCatalogo(centros, "centro-810a"), "GESTIÓN Y ADMINISTRACIÓN DE OBRAS PÚBLICAS Y VIVIENDA");
+  assert.equal(etiquetaCatalogo(centros, "centro-999"), "centro-999");
+  assert.equal(etiquetaCatalogo(null, "centro-520"), "centro-520");
 });

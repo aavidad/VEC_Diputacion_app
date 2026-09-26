@@ -669,8 +669,9 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   });
   const estado = estadoVista(expediente, "");
   const html = renderizarModuloContratacionTemporal(estado);
-  // El identificador técnico se abrevia a prefijo y seis caracteres; el completo queda en el título.
-  assert.ok(html.includes(`<h3><span title="${expediente.numero_visible}">2026/CT-bbbbbb…</span></h3>`));
+  // El identificador técnico anterior a la numeración no se muestra: figura sin numerar.
+  assert.ok(html.includes("<h3>Sin numerar</h3>"));
+  assert.ok(!html.includes(expediente.numero_visible));
   assert.match(html, /ct-exp-cabecera-expediente/u);
   assert.doesNotMatch(html, /class="ct-exp-(?:progreso|tareas|tramitacion)"/u);
   const auditoria = validarAuditoriaContratacionTemporal(

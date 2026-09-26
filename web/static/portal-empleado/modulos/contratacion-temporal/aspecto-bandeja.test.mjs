@@ -53,8 +53,8 @@ test("la cabecera no lleva sobrelínea, descripción ni aviso de presentación y
   assert.doesNotMatch(detalle, /ct-exp-acciones-cabecera/u);
 });
 
-test("el número técnico se abrevia a prefijo y seis caracteres; el legible no cambia", () => {
-  assert.equal(numeroExpedienteVisible("2026/CT-8c17ba0b2be0fa7d84131e1dc93db150"), "2026/CT-8c17ba…");
+test("el número técnico anterior a la numeración figura sin numerar; el legible no cambia", () => {
+  assert.equal(numeroExpedienteVisible("2026/CT-8c17ba0b2be0fa7d84131e1dc93db150"), "Sin numerar");
   assert.equal(numeroExpedienteVisible("2026/CT-000013"), "2026/CT-000013");
   assert.equal(numeroExpedienteVisible(null), "");
 });

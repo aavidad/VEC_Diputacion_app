@@ -258,7 +258,9 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_estado_error: "No se pudo preparar una solicitud de asignación válida.",
   asignacion_destino_leyenda: "Destino de la asignación",
   asignacion_unidad: "Unidad responsable",
-  asignacion_responsable: "Responsable referenciado",
+  asignacion_responsable: "Responsable",
+  asignacion_unidad_nombre: "Recursos Humanos",
+  asignacion_responsable_nombre: "Responsable de contratación temporal",
   asignacion_confirmacion:
     "He comprobado el expediente, la unidad y la referencia responsable.",
   asignacion_resumen: "Expediente {expediente}, versión actual {version}.",
