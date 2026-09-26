@@ -337,6 +337,11 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
       campo("via_cobertura", t("cabecera_via_cobertura"), etiqueta(detalle.cobertura.via_clave, t)),
       campo("decision_gobernada", t("cabecera_decision_gobernada"), detalle.cobertura.decision_gobernada ? t("respuesta_si") : t("respuesta_no")),
     );
+    // La referencia de la bolsa es opaca: la vista la muestra solo como enlace
+    // a su histórico cuando el perfil ve esa bolsa en Bolsa; si no, la omite.
+    if (detalle.cobertura.bolsa_ref) {
+      campos.push(campo("bolsa_cobertura", t("cabecera_bolsa_cobertura"), detalle.cobertura.bolsa_ref));
+    }
     for (const comprobacion of detalle.cobertura.comprobaciones || []) {
       campos.push(campo(
         `comprobacion_${comprobacion.clave}`,

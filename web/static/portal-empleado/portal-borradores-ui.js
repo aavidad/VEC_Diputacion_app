@@ -2,7 +2,7 @@ import {
   crearClienteBorradores,
   generarClaveIdempotencia,
 } from "./portal-borradores-api.js";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260926-huecos-rrhh-v2";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260926-pulido-portal-v1";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   crearEstadoBorradores,
@@ -10,7 +10,7 @@ import {
 } from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
 import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
 import { crearRenderizadorBorradores } from "./portal-borradores-vista.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 import {
   FASE_CARGANDO,
   FASE_ERROR,
@@ -115,7 +115,7 @@ export function crearSuperficieBorradoresPortal({
   async function cargarDetalle(referencia, { descartarSucio = false } = {}) {
     if (!estado.opciones || !referencia) return false;
     if (estado.sucio && !descartarSucio
-      && !confirmar("Hay cambios locales sin guardar. ¿Desea descartarlos y abrir otro borrador?")) {
+      && !confirmar(traducirPortal("txt_hay_cambios_locales_sin_guardar_desea_descartarl"))) {
       return false;
     }
     const operacion = operaciones.iniciar("detalle");
@@ -140,15 +140,15 @@ export function crearSuperficieBorradoresPortal({
       estado.conflictoRemoto = null;
       estado.confirmarReaplicacion = false;
       notificar();
-      avisar("Borrador abierto para edición");
+      avisar(traducirPortal("txt_borrador_abierto_para_edicion"));
       return true;
     } catch (error) {
       if (!operacion.vigente()) return false;
       if (invalidarAccesoSiDenegado(error)) return false;
       estado.faseEditor = "error";
-      estado.errorEditor = errorSeguro(error, "No se pudo cargar el borrador seleccionado.");
+      estado.errorEditor = errorSeguro(error, traducirPortal("txt_no_se_pudo_cargar_el_borrador_seleccionado"));
       notificar();
-      avisar("No se pudo cargar el borrador seleccionado");
+      avisar(traducirPortal("txt_no_se_pudo_cargar_el_borrador_seleccionado_2"));
       return false;
     } finally {
       operacion.finalizar();
@@ -175,7 +175,7 @@ export function crearSuperficieBorradoresPortal({
     } catch (error) {
       if (!operacion.vigente()) return false;
       if (invalidarAccesoSiDenegado(error)) return false;
-      estado.errorLista = errorSeguro(error, "El servicio de borradores no está disponible.");
+      estado.errorLista = errorSeguro(error, traducirPortal("txt_el_servicio_de_borradores_no_esta_disponible"));
       estado.faseLista = mantenerVisible && estado.lista ? FASE_LISTA : FASE_ERROR;
       notificar();
       return false;
@@ -197,7 +197,7 @@ export function crearSuperficieBorradoresPortal({
     estado.editor = null;
     estado.sucio = false;
     estado.errorEditor = {
-      mensaje: "El borrador solicitado no está disponible en la bandeja autorizada.",
+      mensaje: traducirPortal("txt_el_borrador_solicitado_no_esta_disponible_en_la"),
       codigo: "referencia_borrador_no_disponible",
       correlacion: null,
       estadoHTTP: 404,
@@ -205,7 +205,7 @@ export function crearSuperficieBorradoresPortal({
       conservarCambiosLocales: false,
     };
     notificar();
-    avisar("El borrador solicitado no está disponible");
+    avisar(traducirPortal("txt_el_borrador_solicitado_no_esta_disponible"));
   }
 
   async function cargarSuperficie({ forzarAcceso = false, referencia = "" } = {}) {
@@ -255,7 +255,7 @@ export function crearSuperficieBorradoresPortal({
       if (!operacion.vigente()) return false;
       if (invalidarAccesoSiDenegado(error)) return false;
       estado.faseLista = FASE_ERROR;
-      estado.errorLista = errorSeguro(error, "El servicio de borradores no está disponible.");
+      estado.errorLista = errorSeguro(error, traducirPortal("txt_el_servicio_de_borradores_no_esta_disponible"));
       notificar();
       avisar(traducir("anuncio_servicio_borradores_error"));
       return false;
@@ -294,12 +294,12 @@ export function crearSuperficieBorradoresPortal({
   function iniciarNuevo() {
     if (!estado.opciones) return false;
     if (estado.sucio
-      && !confirmar("Hay cambios locales sin guardar. ¿Desea descartarlos y crear otro borrador?")) {
+      && !confirmar(traducirPortal("txt_hay_cambios_locales_sin_guardar_desea_descartarl_2"))) {
       return false;
     }
     if (estado.opciones.capacidades.crear !== true) {
       estado.errorEditor = {
-        mensaje: "La sesión no dispone de capacidad para crear borradores.",
+        mensaje: traducirPortal("txt_la_sesion_no_dispone_de_capacidad_para_crear_bor"),
         codigo: "capacidad_crear_no_concedida",
         correlacion: null,
         estadoHTTP: 403,
@@ -322,7 +322,7 @@ export function crearSuperficieBorradoresPortal({
     estado.conflictoRemoto = null;
     estado.confirmarReaplicacion = false;
     notificar();
-    avisar("Editor de nuevo borrador preparado");
+    avisar(traducirPortal("txt_editor_de_nuevo_borrador_preparado"));
     return true;
   }
 
@@ -350,7 +350,7 @@ export function crearSuperficieBorradoresPortal({
 
   function construirSolicitud() {
     const motivo = motivoSeleccionado();
-    if (!motivo) throw new ErrorAPIBorradores("Seleccione un motivo gobernado para guardar.");
+    if (!motivo) throw new ErrorAPIBorradores(traducirPortal("txt_seleccione_un_motivo_gobernado_para_guardar"));
     const base = {
       contenido_editable: contenidoParaSolicitud(),
       motivo_ref: motivo.motivo_ref,
@@ -361,7 +361,7 @@ export function crearSuperficieBorradoresPortal({
       return { esquema: ESQUEMAS_BORRADORES.actualizar, ...base };
     }
     const plantilla = plantillaSeleccionada();
-    if (!plantilla) throw new ErrorAPIBorradores("Seleccione una plantilla gobernada para crear.");
+    if (!plantilla) throw new ErrorAPIBorradores(traducirPortal("txt_seleccione_una_plantilla_gobernada_para_crear"));
     return {
       esquema: ESQUEMAS_BORRADORES.crear,
       plantilla_ref: plantilla.plantilla_ref,
@@ -413,7 +413,7 @@ export function crearSuperficieBorradoresPortal({
         if (!operacion.vigente()) return false;
         if (invalidarAccesoSiDenegado(error)) return false;
         estado.errorEditor = {
-          mensaje: "El guardado está confirmado, pero el detalle actualizado no se pudo recargar.",
+          mensaje: traducirPortal("txt_el_guardado_esta_confirmado_pero_el_detalle_actu"),
           codigo: "detalle_posterior_no_disponible", correlacion: null, estadoHTTP: 0,
           tipoConflicto: null, conservarCambiosLocales: false,
         };
@@ -463,20 +463,20 @@ export function crearSuperficieBorradoresPortal({
       estado.claveIdempotencia = "";
       estado.conflictoRemoto = null;
       estado.confirmarReaplicacion = false;
-      avisar(recibo.accion === "crear" ? "Borrador creado y acreditado" : "Borrador actualizado y acreditado");
+      avisar(recibo.accion === "crear" ? traducirPortal("txt_borrador_creado_y_acreditado") : traducirPortal("txt_borrador_actualizado_y_acreditado"));
       return await refrescarTrasGuardado(recibo) && operacion.vigente();
     } catch (error) {
       if (!operacion.vigente()) return false;
       if (invalidarAccesoSiDenegado(error)) return false;
       estado.errorEditor = {
-        ...errorSeguro(error, "No se pudo guardar el borrador."),
+        ...errorSeguro(error, traducirPortal("txt_no_se_pudo_guardar_el_borrador_2")),
         conservarCambiosLocales: true,
       };
       estado.sucio = true;
       if (estado.errorEditor.tipoConflicto === "idempotencia") estado.claveIdempotencia = "";
       avisar(estado.errorEditor.tipoConflicto
-        ? "Conflicto detectado; se conservan los cambios locales"
-        : "No se pudo guardar; se conservan los cambios locales");
+        ? traducirPortal("txt_conflicto_detectado_se_conservan_los_cambios_loc")
+        : traducirPortal("txt_no_se_pudo_guardar_se_conservan_los_cambios_loca"));
       return false;
     } finally {
       const vigente = operacion.vigente();
@@ -505,13 +505,13 @@ export function crearSuperficieBorradoresPortal({
       estado.faseEditor = "listo";
       estado.confirmarReaplicacion = false;
       notificar();
-      avisar("Estado vigente cargado sin sustituir los cambios locales");
+      avisar(traducirPortal("txt_estado_vigente_cargado_sin_sustituir_los_cambios"));
       return true;
     } catch (error) {
       if (!operacion.vigente()) return false;
       if (invalidarAccesoSiDenegado(error)) return false;
       estado.faseEditor = "listo";
-      const fallo = errorSeguro(error, "No se pudo cargar el estado vigente para comparar.");
+      const fallo = errorSeguro(error, traducirPortal("txt_no_se_pudo_cargar_el_estado_vigente_para_compara"));
       estado.errorEditor = {
         ...fallo,
         correlacion: fallo.correlacion || conflictoAnterior?.correlacion || null,
@@ -529,7 +529,7 @@ export function crearSuperficieBorradoresPortal({
     if (!estado.conflictoRemoto || !estado.confirmarReaplicacion) return false;
     if (estado.conflictoRemoto.capacidades.actualizar !== true) {
       estado.errorEditor = {
-        mensaje: "La revisión vigente ya no concede capacidad para actualizar este borrador.",
+        mensaje: traducirPortal("txt_la_revision_vigente_ya_no_concede_capacidad_para"),
         codigo: "capacidad_actualizar_no_concedida",
         correlacion: null,
         estadoHTTP: 403,
@@ -550,7 +550,7 @@ export function crearSuperficieBorradoresPortal({
 
   function descartarLocalesPorVigente() {
     if (!estado.conflictoRemoto) return false;
-    if (!confirmar("Se descartarán definitivamente los cambios locales. ¿Desea continuar?")) return false;
+    if (!confirmar(traducirPortal("txt_se_descartaran_definitivamente_los_cambios_local"))) return false;
     estado.detalle = estado.conflictoRemoto;
     estado.editor = editorDesdeDetalle(estado.conflictoRemoto);
     estado.conflictoRemoto = null;
@@ -559,12 +559,12 @@ export function crearSuperficieBorradoresPortal({
     estado.claveIdempotencia = "";
     estado.sucio = false;
     notificar();
-    avisar("Se ha cargado la versión vigente del servidor");
+    avisar(traducirPortal("txt_se_ha_cargado_la_version_vigente_del_servidor"));
     return true;
   }
 
   function cancelarEdicion() {
-    if (estado.sucio && !confirmar("¿Desea descartar los cambios locales sin guardar?")) return false;
+    if (estado.sucio && !confirmar(traducirPortal("txt_desea_descartar_los_cambios_locales_sin_guardar"))) return false;
     if (estado.modoEditor === "actualizar" && estado.detalle) {
       estado.editor = editorDesdeDetalle(estado.detalle);
       estado.sucio = false;
@@ -648,7 +648,7 @@ export function crearSuperficieBorradoresPortal({
     }
     if (coleccion === "plazos" && lista.length === 1) {
       estado.errorEditor = {
-        mensaje: "El borrador debe conservar al menos un plazo.",
+        mensaje: traducirPortal("txt_el_borrador_debe_conservar_al_menos_un_plazo"),
         codigo: "plazo_obligatorio",
         correlacion: null,
         estadoHTTP: 0,

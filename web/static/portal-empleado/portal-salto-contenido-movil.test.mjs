@@ -10,7 +10,7 @@ test("el enlace de salto enfocado libera el botón de menú solo en móvil peque
     readFile(new URL("portal.css", raiz), "utf8"),
   ]);
 
-  assert.match(html, /<a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal<\/a>/u);
+  assert.match(html, /<a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal<\/a>/u);
   assert.match(html, /<main id="contenido-principal"[^>]*tabindex="-1"/u);
   assert.match(html, /<button[^>]*id="boton-menu"[^>]*aria-expanded="false"/u);
 

@@ -6,7 +6,7 @@ import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20260923-pweb17-v1";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20260926-pulido-portal-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { cerrarFase, mostrarFase } from "./fases-expediente.js";
@@ -99,6 +99,8 @@ export async function montarModuloContratacionTemporal({
   confirmarOperacion = () => false,
   locale = "es-ES",
   zonaHoraria = "Europe/Madrid",
+  // Datos de Bolsa que el perfil puede ver (bolsa_ref → { categoria } o null).
+  resolverBolsa = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
@@ -389,6 +391,7 @@ export async function montarModuloContratacionTemporal({
       llamamientoDisponible,
       resolucionFormalizacionDisponible,
       incorporacionEjercicioDisponible,
+      resolverBolsa: typeof resolverBolsa === "function" ? resolverBolsa : null,
     });
     gestorTramitacion.montarAltaSiProcede();
     montarEstadisticasSiProcede();
@@ -470,6 +473,24 @@ export async function montarModuloContratacionTemporal({
     if (cerrarFaseControl && raiz.contains(cerrarFaseControl)) {
       evento.preventDefault();
       cerrarFase(cerrarFaseControl);
+      return;
+    }
+    // Recuadros de resumen y reparto por fase: aplican su filtro a la bandeja
+    // y llevan a la lista, con el mismo contrato que los recuadros de Inicio.
+    const recuadroFiltro = evento.target?.closest?.("[data-ct-exp-filtro-estado], [data-ct-exp-filtro-fase]");
+    if (recuadroFiltro && raiz.contains(recuadroFiltro) && !recuadroFiltro.closest?.("[data-vista]")) {
+      evento.preventDefault();
+      if (gestorTramitacion.impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
+      const promesa = presentador.cargar({
+        texto: "",
+        estado: recuadroFiltro.dataset.ctExpFiltroEstado ?? "",
+        fase: recuadroFiltro.dataset.ctExpFiltroFase ?? "",
+      });
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar();
+      enfocar(raiz, raiz.querySelector(".ct-exp-listado .tabla-contenedor")
+        ? ".ct-exp-listado .tabla-contenedor" : "[data-ct-exp-filtros]");
       return;
     }
     const controlVista = evento.target?.closest?.("[data-ct-exp-vista]");

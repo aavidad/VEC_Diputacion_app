@@ -4,7 +4,7 @@
  * Las categorías solo ordenan enlaces del router existente. No deciden
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
@@ -53,7 +53,7 @@ export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
   if (accesoBorradores && accesoBorradores.disponible === true) return accesoBorradores;
   const bolsas = datosBolsas?.carga === "listo" ? datosBolsas.datos?.bolsas : null;
   if (!Array.isArray(bolsas)) return accesoBorradores;
-  return Object.freeze({ disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
+  return Object.freeze({ disponible: true, vista: "resumen", estado: "disponible", etiqueta: traducirPortal("txt_cuadro_de_bolsas") });
 }
 
 export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = traducirPortal) {
@@ -62,8 +62,8 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
   }
   const disponibles = accesos.filter((acceso) => acceso.disponible === true).length;
   if (disponibles === 0) return traducir("resumen_modulos_ninguno");
-  const cantidad = new Intl.NumberFormat("es-ES").format(disponibles);
-  return traducir(new Intl.PluralRules("es-ES").select(disponibles) === "one"
+  const cantidad = new Intl.NumberFormat(LOCALIZACION_PORTAL).format(disponibles);
+  return traducir(new Intl.PluralRules(LOCALIZACION_PORTAL).select(disponibles) === "one"
     ? "resumen_modulos_uno" : "resumen_modulos_varios", { cantidad });
 }
 

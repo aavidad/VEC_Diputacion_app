@@ -7,7 +7,7 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20260926-huecos-rrhh-v1";
+import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20260926-pulido-portal-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
 

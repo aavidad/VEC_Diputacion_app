@@ -171,6 +171,39 @@
   font-size: 0.86rem;
 }
 
+/* Recuadro pulsable: lleva a la lista con su filtro ya puesto, como en Inicio. */
+button.tarjeta-kpi {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, transform 120ms ease, border-color 120ms ease;
+}
+
+button.tarjeta-kpi:hover {
+  border-color: var(--portal-azul-700);
+  box-shadow: var(--portal-sombra);
+  transform: translateY(-1px);
+}
+
+button.tarjeta-kpi:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+button.tarjeta-kpi[aria-pressed="true"] {
+  border-color: var(--portal-azul-700);
+  box-shadow: inset 0 0 0 1px var(--portal-azul-700);
+}
+
+button.tarjeta-kpi .metrica-enlace { margin-top: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  button.tarjeta-kpi { transition: none; }
+  button.tarjeta-kpi:hover { transform: none; }
+}
+
 .tarjeta-kpi.kpi--exito .icono-kpi { background: var(--portal-exito-suave); color: var(--portal-exito); }
 .tarjeta-kpi.kpi--exito .valor-kpi { color: var(--portal-exito); }
 .tarjeta-kpi.kpi--advertencia .icono-kpi { background: var(--portal-aviso-suave); color: var(--portal-aviso); }
@@ -247,6 +280,27 @@
 .fila-candidato[data-estado="no_disponible"] > td:first-child { border-left-color: var(--portal-aviso); }
 .fila-candidato[data-estado="excluido"] > td:first-child { border-left-color: var(--portal-peligro); }
 .fila-ficha-participacion > td { padding: 0 0 12px; background: var(--portal-superficie-alterna); }
+/* La ficha va dentro de la tabla de candidatos, que ya se desplaza en horizontal.
+   Sin límite, sus tablas anchas ensanchan toda la relación y quedan cortadas a la
+   derecha, con la barra de desplazamiento al pie de la lista. La ficha ocupa el
+   ancho visible del contenedor y se queda fija al desplazarlo; cada tabla de la
+   ficha se desplaza dentro de su propio contenedor. */
+.tabla-contenedor:has(> .tabla-datos--candidatos) { container-type: inline-size; }
+.fila-ficha-participacion > td > * {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqi;
+  max-width: 100cqi;
+}
+.fila-ficha-participacion .tabla-contenedor { max-width: 100%; }
+/* Motivos, justificantes y actores son textos largos: dentro de la ficha se
+   parten en varias líneas para que quepan más columnas a la vista. */
+.fila-ficha-participacion .tabla-datos td {
+  min-width: 9rem;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
 .fila-ficha-participacion .panel { border-left: 4px solid var(--portal-azul-700); border-radius: 0 0 var(--portal-radio-lg) var(--portal-radio-lg); }
 .fila-candidato[data-estado="disponible"] + .fila-ficha-participacion .panel { border-left-color: var(--portal-exito); }
 .fila-candidato[data-estado="renuncia"] + .fila-ficha-participacion .panel,

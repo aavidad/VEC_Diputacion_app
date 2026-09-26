@@ -168,6 +168,11 @@ function hoyMadrid(ahora = new Date()) {
 }
 
 /** Monta la sección en `contenedor`. Si el servidor no la compone, no se muestra. */
+// La lista de peticiones del centro (peticiones-centro.js) enlaza cada petición
+// entregada con la fila de su expediente: se le publican con este evento.
+export const EVENTO_EXPEDIENTES_CENTRO = "vec:expedientes-centro";
+export const idFilaExpediente = (e) => `ic-exp-${String(e.expediente_ref).replace(/[^A-Za-z0-9_-]/gu, "-")}`;
+
 export function montarIncorporacionesCentro({ contenedor, cliente = crearClienteIncorporacionesCentro(), mensajes, generarClave = () => globalThis.crypto?.randomUUID?.(), ahora = () => new Date() } = {}) {
   if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor no válido");
   const t = crearTraductorIncorporacionesCentro(mensajes);
@@ -205,7 +210,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
           : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
         : `<span class="pc-estado">${escapar(t("no_procede"))}</span>`;
     const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
-    return `<tr><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
+    return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
 
   function pintar() {
@@ -227,10 +232,18 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
     contenedor.innerHTML = `<section class="pc-panel" aria-labelledby="ic-titulo" ${ocupado ? 'aria-busy="true"' : ""}>${cabecera}${avisoHTML}${lista}${seleccionado ? formulario(seleccionado) : ""}</section>`;
   }
 
+  function publicarExpedientes() {
+    if (typeof contenedor.dispatchEvent !== "function" || typeof globalThis.CustomEvent !== "function") return;
+    const lista = Array.isArray(datos?.expedientes) ? datos.expedientes.map((e) => Object.freeze({
+      peticion_ref: e.peticion_ref, numero_visible: e.numero_visible, destino: idFilaExpediente(e) })) : [];
+    contenedor.dispatchEvent(new CustomEvent(EVENTO_EXPEDIENTES_CENTRO, { bubbles: true, detail: Object.freeze(lista) }));
+  }
+
   async function cargar() {
     datos = null; pintar();
     try { datos = await cliente.bandeja(); } catch (error) { datos = error?.estado === 404 ? { ausente: true } : { error: true }; }
     pintar();
+    publicarExpedientes();
   }
 
   async function enviar(form) {

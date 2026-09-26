@@ -1,6 +1,7 @@
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";
@@ -48,35 +49,35 @@ export async function consultarAvisosBolsa({ cursor = "", limite = 6, fetchImpl 
   try {
     const respuesta = await fetchImpl(`${RUTA_AVISOS_BOLSA}?${parametros}`, { method: "GET", credentials: "same-origin", signal, headers: { Accept: "application/json" } });
     if (!respuesta.ok) {
-      const mensajes = { 401: "Se requiere una sesión interna autenticada.", 403: "La sesión no dispone de ámbito para consultar avisos.", 404: "El servicio de avisos no está disponible." };
-      return { ok: false, status: respuesta.status, mensaje: mensajes[respuesta.status] || `No se pudieron consultar los avisos (HTTP ${respuesta.status}).` };
+      const mensajes = { 401: traducirPortal("txt_se_requiere_una_sesion_interna_autenticada"), 403: traducirPortal("txt_la_sesion_no_dispone_de_ambito_para_consultar_av"), 404: traducirPortal("txt_el_servicio_de_avisos_no_esta_disponible") };
+      return { ok: false, status: respuesta.status, mensaje: mensajes[respuesta.status] || traducirPortal("txt_no_se_pudieron_consultar_los_avisos_http", { estado: respuesta.status }) };
     }
     return { ok: true, datos: validarAvisosBolsa(await respuesta.json()) };
   } catch (error) {
-    return { ok: false, status: 0, mensaje: error instanceof Error ? error.message : "Error de comunicación con los avisos." };
+    return { ok: false, status: 0, mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_los_avisos") };
   }
 }
 
-const FORMATO_NUMERO = new Intl.NumberFormat("es-ES");
+const FORMATO_NUMERO = new Intl.NumberFormat(LOCALIZACION_PORTAL);
 
 function fechaVisible(valor) {
   const fecha = new Date(valor);
-  return Number.isNaN(fecha.valueOf()) ? "Fecha no disponible" : new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(fecha);
+  return Number.isNaN(fecha.valueOf()) ? traducirPortal("txt_fecha_no_disponible") : new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeStyle: "short" }).format(fecha);
 }
 
 // Por qué Bolsa no ha aplicado la no incorporación que publicó Contratación
 // temporal; hasta que RRHH lo resuelva no se abre el siguiente llamamiento.
 const REVISION_NO_INCORPORACION = Object.freeze({
-  sin_aceptacion: "Bolsa aún no tiene registrada la aceptación de este llamamiento.",
-  participacion_no_constituida: "La persona no figura en la bolsa constituida.",
-  incorporacion_registrada: "Bolsa ya tiene registrada la incorporación de este llamamiento.",
-  consecuencia_no_admitida: "La consecuencia indicada no está en las reglas vigentes de Bolsa.",
-  segunda_persona_ausente: "La resolución no consta de una segunda persona distinta de quien la registró.",
-  transicion_no_admitida: "La situación actual de la persona no admite ese cambio.",
+  sin_aceptacion: traducirPortal("txt_bolsa_aun_no_tiene_registrada_la_aceptacion_de_e"),
+  participacion_no_constituida: traducirPortal("txt_la_persona_no_figura_en_la_bolsa_constituida"),
+  incorporacion_registrada: traducirPortal("txt_bolsa_ya_tiene_registrada_la_incorporacion_de_es"),
+  consecuencia_no_admitida: traducirPortal("txt_la_consecuencia_indicada_no_esta_en_las_reglas_v"),
+  segunda_persona_ausente: traducirPortal("txt_la_resolucion_no_consta_de_una_segunda_persona_d"),
+  transicion_no_admitida: traducirPortal("txt_la_situacion_actual_de_la_persona_no_admite_ese"),
 });
 
-const SOLICITUDES_PORTAL = Object.freeze({ pausa: "Pausa voluntaria", reactivacion: "Reactivación" });
-const RESPUESTAS_PORTAL = Object.freeze({ acepta: "Acepta", renuncia: "Renuncia", renuncia_justificada: "Renuncia justificada" });
+const SOLICITUDES_PORTAL = Object.freeze({ pausa: traducirPortal("txt_pausa_voluntaria"), reactivacion: traducirPortal("txt_reactivacion") });
+const RESPUESTAS_PORTAL = Object.freeze({ acepta: traducirPortal("txt_acepta"), renuncia: traducirPortal("txt_renuncia"), renuncia_justificada: traducirPortal("txt_renuncia_justificada") });
 
 // Las referencias de solicitud y justificante son opacas: se copian, no se leen.
 function copiable(referencia, claveAria) {
@@ -86,51 +87,51 @@ function copiable(referencia, claveAria) {
 function detalleAviso(aviso) {
   if (aviso.tipo === "solicitud_portal") {
     const hasta = aviso.detalle.pausa_hasta ? ` hasta ${texto(fechaVisible(aviso.detalle.pausa_hasta))}` : "";
-    return `${texto(SOLICITUDES_PORTAL[aviso.detalle.solicitud] || "Solicitud")}${hasta}. ${texto(traducirReferencia("aviso_solicitud_valida"))} ${copiable(aviso.referencia, "aviso_solicitud_copiar_aria")}`;
+    return `${texto(SOLICITUDES_PORTAL[aviso.detalle.solicitud] || traducirPortal("txt_solicitud"))}${hasta}. ${texto(traducirReferencia("aviso_solicitud_valida"))} ${copiable(aviso.referencia, "aviso_solicitud_copiar_aria")}`;
   }
   if (aviso.tipo === "respuesta_portal") {
     const causa = aviso.detalle.causa ? ` ${texto(traducirReferencia("aviso_causa", { causa: aviso.detalle.causa }))} ${copiable(aviso.detalle.justificante_ref, "aviso_justificante_copiar_aria")}` : "";
-    const modo = aviso.detalle.modo === "propuesta_rrhh" ? "Pendiente de confirmar por RRHH." : "Respuesta firme.";
-    return `${texto(RESPUESTAS_PORTAL[aviso.detalle.respuesta] || "Respuesta")}. ${modo}${causa}`;
+    const modo = aviso.detalle.modo === "propuesta_rrhh" ? traducirPortal("txt_pendiente_de_confirmar_por_rrhh") : traducirPortal("txt_respuesta_firme");
+    return `${texto(RESPUESTAS_PORTAL[aviso.detalle.respuesta] || traducirPortal("txt_respuesta"))}. ${modo}${causa}`;
   }
   if (aviso.tipo === "salto_orden") {
-    return `Orden ${texto(aviso.detalle.orden)}; primera persona llamada: ${texto(aviso.detalle.orden_primero_llamado)}.`;
+    return textoPortal("txt_aviso_salto_orden", { orden: aviso.detalle.orden, primero: aviso.detalle.orden_primero_llamado });
   }
   if (aviso.tipo === "no_incorporacion_revision") {
-    const causa = REVISION_NO_INCORPORACION[aviso.detalle.estado] || "Pendiente de revisión.";
-    const notificada = aviso.detalle.fecha_notificacion ? ` Notificada el ${texto(new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${aviso.detalle.fecha_notificacion}T00:00:00Z`)))}.` : "";
-    return `${texto(causa)}${notificada} El siguiente llamamiento espera.`;
+    const causa = REVISION_NO_INCORPORACION[aviso.detalle.estado] || traducirPortal("txt_pendiente_de_revision");
+    const notificada = aviso.detalle.fecha_notificacion ? ` ${textoPortal("txt_aviso_notificada_el", { fecha: new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${aviso.detalle.fecha_notificacion}T00:00:00Z`)) })}` : "";
+    return `${texto(causa)}${notificada} ${textoPortal("txt_aviso_siguiente_espera")}`;
   }
   if (aviso.tipo === "encadenamiento") {
     const d = aviso.detalle;
-    return `${texto(FORMATO_NUMERO.format(Number(d.dias_acumulados) || 0))} días con contrato en los últimos ${texto(d.ventana_meses)} meses (umbral: ${texto(d.umbral_meses)} meses).`;
+    return textoPortal("txt_aviso_encadenamiento", { dias: FORMATO_NUMERO.format(Number(d.dias_acumulados) || 0), ventana: d.ventana_meses, umbral: d.umbral_meses });
   }
   // Con Bolsa 000041 el plazo sale del catálogo; sin él, tres años.
-  const plazo = Number.isSafeInteger(aviso.detalle.plazo_meses) ? `${FORMATO_NUMERO.format(aviso.detalle.plazo_meses)} meses` : "tres años";
-  return `Alcanza ${texto(plazo)}: ${texto(fechaVisible(aviso.detalle.alcanza_tres_anos_en))}.`;
+  const plazo = Number.isSafeInteger(aviso.detalle.plazo_meses) ? traducirPortal("txt_n_meses", { numero: FORMATO_NUMERO.format(aviso.detalle.plazo_meses) }) : traducirPortal("txt_tres_anos");
+  return textoPortal("txt_aviso_alcanza", { plazo, fecha: fechaVisible(aviso.detalle.alcanza_tres_anos_en) });
 }
 
 function filaAviso(aviso) {
-  const titulo = { salto_orden: "Posible salto de orden", tres_anos: "Trabajo continuado", solicitud_portal: "Solicitud desde «Mi bolsa»", respuesta_portal: "Respuesta desde «Mi bolsa»", encadenamiento: "Encadenamiento de contratos", no_incorporacion_revision: "No incorporación pendiente de revisión" }[aviso.tipo];
+  const titulo = { salto_orden: traducirPortal("txt_posible_salto_de_orden"), tres_anos: traducirPortal("txt_trabajo_continuado"), solicitud_portal: traducirPortal("txt_solicitud_desde_mi_bolsa"), respuesta_portal: traducirPortal("txt_respuesta_desde_mi_bolsa"), encadenamiento: traducirPortal("txt_encadenamiento_de_contratos"), no_incorporacion_revision: traducirPortal("txt_no_incorporacion_pendiente_de_revision") }[aviso.tipo];
   const participacion = aviso.detalle.participacion_ref;
   const enlace = referenciaOpaca(participacion)
-    ? `<button type="button" class="boton-enlace" data-accion="abrir-ficha-b5" data-bolsa-ref="${texto(aviso.bolsa)}" data-participacion-ref="${texto(participacion)}">Abrir ficha</button>`
+    ? `<button type="button" class="boton-enlace" data-accion="abrir-ficha-b5" data-bolsa-ref="${texto(aviso.bolsa)}" data-participacion-ref="${texto(participacion)}">${textoPortal("txt_abrir_ficha")}</button>`
     : "";
   return `<li class="lista-actividad__item" data-tipo-aviso="${texto(aviso.tipo)}"><div><strong>${titulo}</strong><p>${detalleAviso(aviso)}</p><small>${texto(fechaVisible(aviso.fecha))}</small></div>${enlace}</li>`;
 }
 
 export function renderizarBloqueAvisos({ estado = "cargando", datos = null, error = "" } = {}) {
   const conteos = datos?.conteos && datos.items.length > 0
-    ? `<span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${datos.conteos.solicitud_portal} solicitudes del portal</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${datos.conteos.respuesta_portal} respuestas del portal</span>` : ""}${numeroNatural(datos.conteos.encadenamiento) ? `<span class="estado-chip advertencia">${datos.conteos.encadenamiento} encadenamientos</span>` : ""}${datos.conteos.no_incorporacion_revision > 0 ? `<span class="estado-chip advertencia">${datos.conteos.no_incorporacion_revision} no incorporaciones por revisar</span>` : ""}`
+    ? `<span class="estado-chip advertencia">${textoPortal("txt_n_saltos_de_orden", { numero: datos.conteos.salto_orden })}</span><span class="estado-chip info">${textoPortal("txt_n_tres_anos", { numero: datos.conteos.tres_anos })}</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${textoPortal("txt_n_solicitudes_del_portal", { numero: datos.conteos.solicitud_portal })}</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${textoPortal("txt_n_respuestas_del_portal", { numero: datos.conteos.respuesta_portal })}</span>` : ""}${numeroNatural(datos.conteos.encadenamiento) ? `<span class="estado-chip advertencia">${textoPortal("txt_n_encadenamientos", { numero: datos.conteos.encadenamiento })}</span>` : ""}${datos.conteos.no_incorporacion_revision > 0 ? `<span class="estado-chip advertencia">${textoPortal("txt_n_no_incorporaciones_por_revisar", { numero: datos.conteos.no_incorporacion_revision })}</span>` : ""}`
     : "";
   // El cómputo legal aún pendiente de RRHH no se rotula en la pantalla de trabajo:
   // la explicación vive en la ayuda («?») y el origen de la regla en «Reglas vigentes».
   const pendiente = "";
-  const cabecera = `<div class="cabecera-panel"><h2>Avisos</h2>${conteos || pendiente ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo">${conteos}${pendiente}</div>` : ""}</div>`;
-  if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">Cargando avisos…</div></section>`;
-  if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || "No se pudieron cargar los avisos.")}</span><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;
-  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">${icono("correcto")}</span><span><strong>Sin avisos.</strong> No hay saltos de orden, periodos de trabajo continuado, encadenamientos, no incorporaciones por revisar ni solicitudes o respuestas del portal.</span></div></section>`;
-  const paginacion = `<footer class="paginacion"><span>Mostrando ${datos.paginacion.desde} a ${datos.paginacion.hasta} de ${datos.paginacion.total}</span><button type="button" data-accion="siguiente-avisos"${datos.paginacion.cursor_siguiente ? "" : " disabled"}>Siguiente</button></footer>`;
+  const cabecera = `<div class="cabecera-panel"><h2>${textoPortal("txt_avisos")}</h2>${conteos || pendiente ? `<div class="avisos-bolsa-conteos" aria-label="${textoPortal("txt_avisos_por_tipo")}">${conteos}${pendiente}</div>` : ""}</div>`;
+  if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">${textoPortal("txt_cargando_avisos")}</div></section>`;
+  if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || traducirPortal("txt_no_se_pudieron_cargar_los_avisos"))}</span><button type="button" data-accion="reintentar-avisos">${textoPortal("txt_reintentar")}</button></div></section>`;
+  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">${icono("correcto")}</span><span><strong>${textoPortal("txt_sin_avisos")}</strong> ${textoPortal("txt_no_hay_saltos_de_orden_periodos_de_trabajo_conti")}</span></div></section>`;
+  const paginacion = `<footer class="paginacion"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: datos.paginacion.desde, hasta: datos.paginacion.hasta, total: datos.paginacion.total })}</span><button type="button" data-accion="siguiente-avisos"${datos.paginacion.cursor_siguiente ? "" : " disabled"}>${textoPortal("txt_siguiente")}</button></footer>`;
   return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="tabla-contenedor avisos-bolsa-lista" tabindex="0"><ul class="lista-actividad">${datos.items.map(filaAviso).join("")}</ul></div>${paginacion}</section>`;
 }
 

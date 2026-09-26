@@ -11,6 +11,7 @@ import {
   validarSolicitudActualizarBorrador,
   validarSolicitudCrearBorrador,
 } from "./portal-borradores-contrato.js";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 export const RUTAS_API_BORRADORES = Object.freeze({
   opciones: "/api/vec/bolsa/convocatorias/borradores/opciones",
@@ -101,13 +102,13 @@ function decodificarBase64URLEstricto(valor) {
 
 export function generarClaveIdempotencia(criptografia = globalThis.crypto) {
   if (!criptografia || typeof criptografia.getRandomValues !== "function") {
-    throw new ErrorAPIBorradores("No está disponible un generador criptográfico seguro.");
+    throw new ErrorAPIBorradores(traducirPortal("txt_no_esta_disponible_un_generador_criptografico_se"));
   }
   const bytes = new Uint8Array(32);
   criptografia.getRandomValues(bytes);
   const clave = codificarBase64URL(bytes);
   if (decodificarBase64URLEstricto(clave) === null) {
-    throw new ErrorAPIBorradores("No se pudo generar una clave de idempotencia canónica.");
+    throw new ErrorAPIBorradores(traducirPortal("txt_no_se_pudo_generar_una_clave_de_idempotencia_can"));
   }
   return clave;
 }
@@ -115,7 +116,7 @@ export function generarClaveIdempotencia(criptografia = globalThis.crypto) {
 export function validarClaveIdempotencia(clave) {
   const bytes = decodificarBase64URLEstricto(clave);
   if (bytes === null || bytes.byteLength !== 32 || codificarBase64URL(bytes) !== clave) {
-    throw new ErrorAPIBorradores("Clave de idempotencia no válida.");
+    throw new ErrorAPIBorradores(traducirPortal("txt_clave_de_idempotencia_no_valida"));
   }
   return clave;
 }
@@ -125,32 +126,32 @@ function rutaVersionBorrador(referencia) {
   try {
     partes = descomponerReferenciaEstadoBorrador(referencia);
   } catch (error) {
-    throw new ErrorAPIBorradores("Referencia de borrador no válida.", 0, error);
+    throw new ErrorAPIBorradores(traducirPortal("txt_referencia_de_borrador_no_valida"), 0, error);
   }
   return `${RUTAS_API_BORRADORES.detalle}/${encodeURIComponent(partes.id)}/versiones/${partes.secuencia}`;
 }
 
 function mensajeEstado(estado) {
-  if (estado === 401) return "Se requiere autenticación interna.";
-  if (estado === 403) return "La sesión no dispone de autorización para esta operación.";
-  if (estado === 404) return "El borrador solicitado no existe o no es visible en este ámbito.";
-  if (estado === 409) return "La clave de idempotencia ya se utilizó para otra operación; se han conservado los cambios locales.";
-  if (estado === 412) return "El borrador cambió en el servidor; se han conservado los cambios locales.";
-  if (estado === 413) return "La solicitud o la respuesta supera el límite admitido.";
-  if (estado === 422) return "El servidor rechazó el contenido del borrador.";
-  if (estado >= 500) return "El servicio de borradores no está disponible temporalmente.";
-  return `La API de borradores rechazó la operación (HTTP ${estado}).`;
+  if (estado === 401) return traducirPortal("txt_se_requiere_autenticacion_interna");
+  if (estado === 403) return traducirPortal("txt_la_sesion_no_dispone_de_autorizacion_para_esta_o");
+  if (estado === 404) return traducirPortal("txt_el_borrador_solicitado_no_existe_o_no_es_visible");
+  if (estado === 409) return traducirPortal("txt_la_clave_de_idempotencia_ya_se_utilizo_para_otra");
+  if (estado === 412) return traducirPortal("txt_el_borrador_cambio_en_el_servidor_se_han_conserv");
+  if (estado === 413) return traducirPortal("txt_la_solicitud_o_la_respuesta_supera_el_limite_adm");
+  if (estado === 422) return traducirPortal("txt_el_servidor_rechazo_el_contenido_del_borrador");
+  if (estado >= 500) return traducirPortal("txt_el_servicio_de_borradores_no_esta_disponible_tem");
+  return traducirPortal("txt_la_api_de_borradores_rechazo_la_operacion_http", { estado: estado });
 }
 
 function longitudDeclarada(respuesta) {
   const valor = respuesta.headers?.get?.("content-length");
   if (valor === null || valor === undefined || valor === "") return null;
   if (!/^(?:0|[1-9][0-9]*)$/.test(valor)) {
-    throw new ErrorAPIBorradores("Content-Length no canónico.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_content_length_no_canonico"), respuesta.status);
   }
   const longitud = Number(valor);
   if (!Number.isSafeInteger(longitud) || longitud > MAXIMO_RESPUESTA_BYTES) {
-    throw new ErrorAPIBorradores("La respuesta de la API supera el límite admitido.", 413);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_respuesta_de_la_api_supera_el_limite_admitido"), 413);
   }
   return longitud;
 }
@@ -160,7 +161,7 @@ function validarSignal(signal) {
   if (typeof signal !== "object" || typeof signal.aborted !== "boolean"
     || typeof signal.addEventListener !== "function"
     || typeof signal.removeEventListener !== "function") {
-    throw new ErrorAPIBorradores("AbortSignal no válido.");
+    throw new ErrorAPIBorradores(traducirPortal("txt_abortsignal_no_valido"));
   }
   return signal;
 }
@@ -174,11 +175,11 @@ function errorAborto(signal) {
   }
   if (!(causa instanceof Error)) {
     causa = typeof DOMException === "function"
-      ? new DOMException("La operación fue cancelada.", "AbortError")
+      ? new DOMException(traducirPortal("txt_la_operacion_fue_cancelada"), "AbortError")
       : new Error("La operación fue cancelada.");
   }
   return new ErrorAPIBorradores(
-    "La operación de borradores fue cancelada.", 0, causa, { codigo: "operacion_abortada" },
+    traducirPortal("txt_la_operacion_de_borradores_fue_cancelada"), 0, causa, { codigo: "operacion_abortada" },
   );
 }
 
@@ -234,7 +235,7 @@ async function ejecutarAbortable(
   });
 }
 
-async function cancelarRespuesta(respuesta, lector = null, motivo = "respuesta rechazada") {
+async function cancelarRespuesta(respuesta, lector = null, motivo = traducirPortal("txt_respuesta_rechazada")) {
   const cancelar = lector !== null && typeof lector.cancel === "function"
     ? () => lector.cancel(motivo)
     : (respuesta?.body && typeof respuesta.body.cancel === "function"
@@ -252,16 +253,16 @@ async function leerTextoAcotado(
 ) {
   const declarada = longitudDeclarada(respuesta);
   if (declarada !== null && declarada > maximoBytes) {
-    throw new ErrorAPIBorradores("La respuesta de la API supera el límite admitido.", 413);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_respuesta_de_la_api_supera_el_limite_admitido"), 413);
   }
   if (!respuesta.body || typeof respuesta.body.getReader !== "function") {
     // Fail-closed: la matriz soportada exige streaming; no se materializa el cuerpo.
-    throw new ErrorAPIBorradores("La respuesta no permite una lectura incremental acotada.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_respuesta_no_permite_una_lectura_incremental"), respuesta.status);
   }
   const lector = respuesta.body.getReader();
   if (!lector || typeof lector.read !== "function" || typeof lector.cancel !== "function"
     || typeof lector.releaseLock !== "function") {
-    throw new ErrorAPIBorradores("El lector de respuesta no respeta la matriz Fetch.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_el_lector_de_respuesta_no_respeta_la_matriz_fetc"), respuesta.status);
   }
 
   const fragmentos = [];
@@ -270,26 +271,26 @@ async function leerTextoAcotado(
   try {
     while (true) {
       const lectura = await ejecutarAbortable(
-        () => lector.read(), signal, () => lector.cancel("operación cancelada"),
+        () => lector.read(), signal, () => lector.cancel(traducirPortal("txt_operacion_cancelada")),
       );
       if (!lectura || typeof lectura.done !== "boolean") {
-        throw new ErrorAPIBorradores("El lector devolvió un estado no válido.", respuesta.status);
+        throw new ErrorAPIBorradores(traducirPortal("txt_el_lector_devolvio_un_estado_no_valido"), respuesta.status);
       }
       if (lectura.done) break;
       numeroFragmentos += 1;
       if (numeroFragmentos > maximoFragmentos) {
-        throw new ErrorAPIBorradores("El flujo de respuesta contiene demasiados fragmentos.", 413);
+        throw new ErrorAPIBorradores(traducirPortal("txt_el_flujo_de_respuesta_contiene_demasiados_fragme"), 413);
       }
       if (!(lectura.value instanceof Uint8Array)) {
-        throw new ErrorAPIBorradores("El flujo de respuesta no contiene bytes válidos.", respuesta.status);
+        throw new ErrorAPIBorradores(traducirPortal("txt_el_flujo_de_respuesta_no_contiene_bytes_validos"), respuesta.status);
       }
       if (total + lectura.value.byteLength > maximoBytes) {
-        throw new ErrorAPIBorradores("La respuesta de la API supera el límite admitido.", 413);
+        throw new ErrorAPIBorradores(traducirPortal("txt_la_respuesta_de_la_api_supera_el_limite_admitido"), 413);
       }
       total += lectura.value.byteLength;
       fragmentos.push(lectura.value);
     }
-    if (total === 0) throw new ErrorAPIBorradores("La respuesta JSON está vacía.", respuesta.status);
+    if (total === 0) throw new ErrorAPIBorradores(traducirPortal("txt_la_respuesta_json_esta_vacia"), respuesta.status);
     const bytes = new Uint8Array(total);
     let desplazamiento = 0;
     for (const fragmento of fragmentos) {
@@ -298,11 +299,11 @@ async function leerTextoAcotado(
     }
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch (error) {
-    await cancelarRespuesta(respuesta, lector, "lectura rechazada");
+    await cancelarRespuesta(respuesta, lector, traducirPortal("txt_lectura_rechazada"));
     if (error instanceof ErrorAPIBorradores) throw error;
     const mensaje = error instanceof TypeError && total > 0
-      ? "La respuesta no contiene UTF-8 válido."
-      : "No se pudo leer el flujo de respuesta.";
+      ? traducirPortal("txt_la_respuesta_no_contiene_utf_8_valido")
+      : traducirPortal("txt_no_se_pudo_leer_el_flujo_de_respuesta");
     throw new ErrorAPIBorradores(mensaje, respuesta.status, error);
   } finally {
     try { lector.releaseLock(); } catch { /* cancelado o lectura aún liquidándose */ }
@@ -315,13 +316,13 @@ async function leerJSONCerrado(
 ) {
   const tipo = respuesta.headers?.get?.("content-type") || "";
   if (!/^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/i.test(tipo)) {
-    throw new ErrorAPIBorradores("La API no respondió con JSON.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_api_no_respondio_con_json"), respuesta.status);
   }
   const texto = await leerTextoAcotado(respuesta, signal, maximoBytes, maximoFragmentos);
   try {
     return JSON.parse(texto);
   } catch (error) {
-    throw new ErrorAPIBorradores("La API devolvió un JSON no válido.", respuesta.status, error);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_api_devolvio_un_json_no_valido"), respuesta.status, error);
   }
 }
 
@@ -330,19 +331,19 @@ function comprobarETagRespuesta(respuesta, resultado) {
   try {
     etagCabecera = respuesta.headers?.get?.("etag");
   } catch (error) {
-    throw new ErrorAPIBorradores("No se pudo leer la cabecera ETag.", respuesta.status, error);
+    throw new ErrorAPIBorradores(traducirPortal("txt_no_se_pudo_leer_la_cabecera_etag"), respuesta.status, error);
   }
   if (etagCabecera === null || etagCabecera === undefined || etagCabecera === "") {
-    throw new ErrorAPIBorradores("La respuesta no incluye el ETag obligatorio.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_respuesta_no_incluye_el_etag_obligatorio"), respuesta.status);
   }
   let validado;
   try {
     validado = validarETagBorrador(etagCabecera, resultado.referencia_estado);
   } catch (error) {
-    throw new ErrorAPIBorradores("La cabecera ETag no es canónica.", respuesta.status, error);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_cabecera_etag_no_es_canonica"), respuesta.status, error);
   }
   if (validado !== resultado.etag) {
-    throw new ErrorAPIBorradores("El ETag de cabecera no coincide con el contrato.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_el_etag_de_cabecera_no_coincide_con_el_contrato"), respuesta.status);
   }
 }
 
@@ -355,7 +356,7 @@ async function construirErrorRespuesta(respuesta, signal) {
   } catch (error) {
     if (error instanceof ErrorAPIBorradores && error.codigo === "operacion_abortada") throw error;
     throw new ErrorAPIBorradores(
-      "La respuesta de error no respeta el contrato cerrado.",
+      traducirPortal("txt_la_respuesta_de_error_no_respeta_el_contrato_cer"),
       respuesta.status,
       error,
       { codigo: "respuesta_error_no_valida" },
@@ -395,11 +396,11 @@ function comprobarLocationCreacion(respuesta, resultado) {
   try {
     location = respuesta.headers?.get?.("location");
   } catch (error) {
-    throw new ErrorAPIBorradores("No se pudo leer la cabecera Location.", respuesta.status, error);
+    throw new ErrorAPIBorradores(traducirPortal("txt_no_se_pudo_leer_la_cabecera_location"), respuesta.status, error);
   }
   const esperada = rutaVersionBorrador(resultado.referencia_estado.referencia);
   if (location !== esperada) {
-    throw new ErrorAPIBorradores("La cabecera Location no corresponde al borrador creado.", respuesta.status);
+    throw new ErrorAPIBorradores(traducirPortal("txt_la_cabecera_location_no_corresponde_al_borrador"), respuesta.status);
   }
 }
 
@@ -433,7 +434,7 @@ export function crearClienteBorradores(configuracion = {}) {
     } catch (error) {
       if (error instanceof ErrorAPIBorradores) throw error;
       if (signal?.aborted) throw errorAborto(signal);
-      throw new ErrorAPIBorradores("No se pudieron construir las cabeceras seguras.", 0, error);
+      throw new ErrorAPIBorradores(traducirPortal("txt_no_se_pudieron_construir_las_cabeceras_seguras"), 0, error);
     }
     let respuesta;
     try {
@@ -450,17 +451,17 @@ export function crearClienteBorradores(configuracion = {}) {
         }),
         signal,
         null,
-        (respuestaTardia) => cancelarRespuesta(respuestaTardia, null, "fetch cancelado"),
+        (respuestaTardia) => cancelarRespuesta(respuestaTardia, null, traducirPortal("txt_fetch_cancelado")),
       );
     } catch (error) {
       if (error instanceof ErrorAPIBorradores) throw error;
       if (signal?.aborted) throw errorAborto(signal);
-      throw new ErrorAPIBorradores("No se pudo contactar con la API de borradores.", 0, error);
+      throw new ErrorAPIBorradores(traducirPortal("txt_no_se_pudo_contactar_con_la_api_de_borradores"), 0, error);
     }
     try {
       if (!respuesta || !Number.isInteger(respuesta.status)
         || respuesta.status < 200 || respuesta.status > 599) {
-        throw new ErrorAPIBorradores("Fetch devolvió una respuesta no válida.");
+        throw new ErrorAPIBorradores(traducirPortal("txt_fetch_devolvio_una_respuesta_no_valida"));
       }
       if (!estadosEsperados.includes(respuesta.status)) {
         if (respuesta.status >= 400) throw await construirErrorRespuesta(respuesta, signal);
@@ -473,17 +474,17 @@ export function crearClienteBorradores(configuracion = {}) {
       } catch (error) {
         if (error instanceof ErrorAPIBorradores) throw error;
         throw new ErrorAPIBorradores(
-          "La respuesta no respeta el contrato de borradores.", respuesta.status, error,
+          traducirPortal("txt_la_respuesta_no_respeta_el_contrato_de_borradore"), respuesta.status, error,
         );
       }
       if (exigeETag) comprobarETagRespuesta(respuesta, validado);
       if (exigeLocationCreacion) comprobarLocationCreacion(respuesta, validado);
       return validado;
     } catch (error) {
-      await cancelarRespuesta(respuesta, null, "salida rechazada");
+      await cancelarRespuesta(respuesta, null, traducirPortal("txt_salida_rechazada"));
       if (error instanceof ErrorAPIBorradores) throw error;
       throw new ErrorAPIBorradores(
-        "La respuesta no respeta el contrato de borradores.", respuesta?.status || 0, error,
+        traducirPortal("txt_la_respuesta_no_respeta_el_contrato_de_borradore"), respuesta?.status || 0, error,
       );
     }
   }

@@ -61,3 +61,7 @@
 @media (forced-colors:active) { .pc-boton-ayuda { border:1px solid ButtonText; } }
 .pc-incorporaciones { margin-top:16px; }
 .pc-incorporaciones .pc-detalle { margin-top:16px; padding-top:12px; border-top:1px solid var(--portal-borde); }
+/* Petición entregada → su expediente (RRHH) o la fila de su expediente en la
+   bandeja de incorporaciones (centro). */
+.pc-enlace-expediente { display:inline-block; margin-inline-start:8px; font-weight:650; }
+.pc-tabla tr[tabindex="-1"]:focus { outline:3px solid var(--portal-foco); outline-offset:-3px; }

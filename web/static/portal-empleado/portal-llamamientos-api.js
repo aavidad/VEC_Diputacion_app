@@ -3,6 +3,7 @@ import {
   validarConfirmacionPropuestaLlamamiento,
   validarReferenciaOpacaLlamamiento,
 } from "./portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 const RUTA_PROPUESTAS_LLAMAMIENTO = "/api/vec/bolsa/propuestas-llamamiento";
 const MAXIMO_RESPUESTA_BYTES = 8 * 1024;
@@ -21,7 +22,7 @@ function longitudDeclarada(respuesta) {
   return longitud;
 }
 
-async function cancelarRespuesta(respuesta, lector = null, motivo = "respuesta rechazada") {
+async function cancelarRespuesta(respuesta, lector = null, motivo = traducirPortal("txt_respuesta_rechazada")) {
   const cancelar = lector !== null && typeof lector.cancel === "function"
     ? () => lector.cancel(motivo)
     : (respuesta?.body && typeof respuesta.body.cancel === "function"
@@ -75,7 +76,7 @@ async function leerTextoExactoAcotado(respuesta) {
       throw new Error("La respuesta no contiene UTF-8 válido.", { cause: error });
     }
   } catch (error) {
-    await cancelarRespuesta(respuesta, lector, "lectura rechazada");
+    await cancelarRespuesta(respuesta, lector, traducirPortal("txt_lectura_rechazada"));
     throw error;
   } finally {
     try { lector.releaseLock(); } catch { /* lector cancelado o no liberable */ }
@@ -107,18 +108,18 @@ export function crearClientePropuestasLlamamiento({ fetchImpl = globalThis.fetch
       return {
         ok: false,
         bloqueada: true,
-        mensaje: "El servidor no ha concedido la capacidad para solicitar propuestas.",
+        mensaje: traducirPortal("txt_el_servidor_no_ha_concedido_la_capacidad_para_so"),
       };
     }
     if (typeof fetchImpl !== "function") {
-      return { ok: false, bloqueada: true, mensaje: "El servicio de propuestas no está disponible." };
+      return { ok: false, bloqueada: true, mensaje: traducirPortal("txt_el_servicio_de_propuestas_no_esta_disponible") };
     }
 
     let necesidad;
     try {
       necesidad = validarReferenciaOpacaLlamamiento(necesidadId, "referencia de necesidad");
     } catch (error) {
-      return { ok: false, bloqueada: true, mensaje: error instanceof Error ? error.message : "Necesidad no válida." };
+      return { ok: false, bloqueada: true, mensaje: error instanceof Error ? error.message : traducirPortal("txt_necesidad_no_valida") };
     }
 
     let respuesta;
@@ -162,7 +163,7 @@ export function crearClientePropuestasLlamamiento({ fetchImpl = globalThis.fetch
       return {
         ok: false,
         bloqueada: true,
-        mensaje: error instanceof Error ? error.message : "No se pudo obtener la confirmación de propuesta.",
+        mensaje: error instanceof Error ? error.message : traducirPortal("txt_no_se_pudo_obtener_la_confirmacion_de_propuesta"),
       };
     }
   }

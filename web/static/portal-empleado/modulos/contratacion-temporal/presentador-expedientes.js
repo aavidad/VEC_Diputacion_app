@@ -9,6 +9,9 @@ import {
   validarExpedienteContratacionTemporal,
   validarReciboActuacion,
 } from "./contrato-expedientes.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+
+const traducirCT = crearTraductorContratacionTemporal();
 
 const VISTAS = new Set(["cuadro", "alta", "expediente", "documentos", "auditoria", "estadisticas"]);
 const ESTADOS_CARGA = new Set([
@@ -52,7 +55,7 @@ function proyectarAutorizacionVisual(expediente, concesiones) {
       return {
         ...accion,
         disponible: false,
-        motivo_no_disponible: "El perfil activo no tiene concedida esta actuación.",
+        motivo_no_disponible: traducirCT("ct_txt_el_perfil_activo_no_tiene_concedida_esta_actuaci"),
       };
     }),
   }));

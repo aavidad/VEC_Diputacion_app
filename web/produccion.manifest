@@ -225,6 +225,7 @@ static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-textos-vistas.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-seguimiento-cese.js
 static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.js
@@ -296,8 +297,11 @@ static/portal-empleado/portal-contrato.js
 static/portal-empleado/portal-eventos.js
 static/portal-empleado/portal-flujos.css
 static/portal-empleado/portal-i18n.js
+static/portal-empleado/portal-i18n-textos.js
+static/portal-empleado/portal-idioma.js
 static/portal-empleado/portal-i18n-ayuda.js
 static/portal-empleado/portal-i18n-contacto-origen.js
+static/portal-empleado/portal-enlaces-i18n.js
 static/portal-empleado/portal-panel-interno-i18n.js
 static/portal-empleado/portal-i18n-contratos.js
 static/portal-empleado/portal-i18n-intentos.js

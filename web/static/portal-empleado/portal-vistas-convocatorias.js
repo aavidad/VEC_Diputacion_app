@@ -1,4 +1,5 @@
 import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260924-f2-web2";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 /**
  * Consulta S1 de solo lectura. El montaje aporta funciones autorizadas; esta
@@ -31,9 +32,9 @@ export function crearSuperficieConvocatoriasS1({
     if (!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(String(valor))) return t("sin_fecha");
     const instante = new Date(valor);
     if (Number.isNaN(instante.getTime())) return t("sin_fecha");
-    return new Intl.DateTimeFormat("es-ES", {
+    return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, {
       dateStyle: "medium", ...(String(valor).includes("T") ? { timeStyle: "short" } : {}),
-      timeZone: "Europe/Madrid",
+      timeZone: ZONA_HORARIA_PORTAL,
     }).format(instante);
   }
 
@@ -102,7 +103,7 @@ export function crearSuperficieConvocatoriasS1({
     const cabecera = `<header class="s1-cabecera"><div><p class="sobrelinea">${e(t("sobrelinea"))}</p><h2>${e(t("titulo"))}</h2><p>${e(t("descripcion"))}</p></div><details class="s1-ayuda"><summary aria-label="${e(t("ayuda_aria"))}">?</summary><p>${e(t("ayuda_detalle"))}</p></details></header>`;
     if (estado.carga !== "disponible") return `<div class="consulta-convocatorias-s1">${cabecera}${aviso(estado.carga)}</div>`;
     if (estado.convocatorias.length === 0) return `<div class="consulta-convocatorias-s1">${cabecera}${aviso("vacio")}</div>`;
-    return `<div class="consulta-convocatorias-s1">${cabecera}<div class="s1-rejilla"><section class="panel s1-listado"><div class="cabecera-panel"><div><h3>${e(t("listado"))}</h3><p>${e(t("cantidad", { numero: new Intl.NumberFormat("es-ES").format(estado.convocatorias.length) }))}</p></div><span class="estado-chip info">${e(t("solo_lectura"))}</span></div><ul class="s1-lista">${estado.convocatorias.map(ficha).join("")}</ul></section>${estado.cargaDetalle === "cargando" ? aviso("cargando_detalle") : estado.cargaDetalle === "no_configurado" ? aviso("no_configurado") : estado.cargaDetalle === "denegado" ? aviso("denegado") : estado.cargaDetalle === "error" ? aviso("error_detalle") : detalleHTML(estado.detalle)}</div></div>`;
+    return `<div class="consulta-convocatorias-s1">${cabecera}<div class="s1-rejilla"><section class="panel s1-listado"><div class="cabecera-panel"><div><h3>${e(t("listado"))}</h3><p>${e(t("cantidad", { numero: new Intl.NumberFormat(LOCALIZACION_PORTAL).format(estado.convocatorias.length) }))}</p></div><span class="estado-chip info">${e(t("solo_lectura"))}</span></div><ul class="s1-lista">${estado.convocatorias.map(ficha).join("")}</ul></section>${estado.cargaDetalle === "cargando" ? aviso("cargando_detalle") : estado.cargaDetalle === "no_configurado" ? aviso("no_configurado") : estado.cargaDetalle === "denegado" ? aviso("denegado") : estado.cargaDetalle === "error" ? aviso("error_detalle") : detalleHTML(estado.detalle)}</div></div>`;
   }
   function pintar() { if (activo && contenedor) contenedor.innerHTML = renderizar(); }
   async function cargarDetalle(referencia, { enfocarDetalle = false } = {}) {

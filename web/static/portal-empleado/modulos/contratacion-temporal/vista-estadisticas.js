@@ -11,6 +11,9 @@
 
 import { generarCSVEstadisticas } from "./contrato-estadisticas.js";
 import { consultarEstadisticas } from "./cliente-http-estadisticas.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+
+const traducirCT = crearTraductorContratacionTemporal();
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -21,13 +24,15 @@ function escaparHTML(valor) {
     .replaceAll("'", "&#039;");
 }
 
+const textoCT = (clave, variables) => escaparHTML(traducirCT(clave, variables));
+
 function formatearNumero(valor) {
   return new Intl.NumberFormat("es-ES").format(Number(valor || 0));
 }
 
 export function renderizarGraficoSVG(series) {
   if (!Array.isArray(series) || series.length === 0) {
-    return `<div class="vacio-controlado"><p>No hay datos suficientes para generar el gráfico temporal.</p></div>`;
+    return `<div class="vacio-controlado"><p>${textoCT("ct_txt_no_hay_datos_suficientes_para_generar_el_grafico")}</p></div>`;
   }
 
   const anchoTotal = 760;
@@ -101,23 +106,23 @@ export function renderizarGraficoSVG(series) {
   const leyenda = `
     <g class="leyenda" transform="translate(${margenIzq}, 12)">
       <rect x="0" y="0" width="12" height="12" fill="${colores.altas}" rx="2" />
-      <text x="16" y="10" font-size="11" fill="#0b0c0c">Altas</text>
+      <text x="16" y="10" font-size="11" fill="#0b0c0c">${textoCT("ct_txt_altas")}</text>
       <rect x="75" y="0" width="12" height="12" fill="${colores.llamamientos}" rx="2" />
-      <text x="91" y="10" font-size="11" fill="#0b0c0c">Llamamientos</text>
+      <text x="91" y="10" font-size="11" fill="#0b0c0c">${textoCT("ct_txt_llamamientos")}</text>
       <rect x="200" y="0" width="12" height="12" fill="${colores.formalizaciones}" rx="2" />
-      <text x="216" y="10" font-size="11" fill="#0b0c0c">Formalizaciones</text>
+      <text x="216" y="10" font-size="11" fill="#0b0c0c">${textoCT("ct_txt_formalizaciones")}</text>
       <rect x="330" y="0" width="12" height="12" fill="${colores.cierres}" rx="2" />
-      <text x="346" y="10" font-size="11" fill="#0b0c0c">Cierres</text>
+      <text x="346" y="10" font-size="11" fill="#0b0c0c">${textoCT("ct_txt_cierres")}</text>
       <rect x="420" y="0" width="12" height="12" fill="${colores.incidencias}" rx="2" />
-      <text x="436" y="10" font-size="11" fill="#0b0c0c">Incidencias</text>
+      <text x="436" y="10" font-size="11" fill="#0b0c0c">${textoCT("ct_txt_incidencias")}</text>
     </g>
   `;
 
   return `
     <div class="grafico-svg-contenedor" style="overflow-x: auto; max-width: 100%;">
       <svg role="img" aria-labelledby="titulo-grafico-ct desc-grafico-ct" viewBox="0 0 ${anchoTotal} ${altoTotal}" style="width: 100%; min-width: 500px; height: auto; font-family: sans-serif;">
-        <title id="titulo-grafico-ct">Gráfico de evolución temporal de contratación</title>
-        <desc id="desc-grafico-ct">Distribución de altas, llamamientos, formalizaciones, cierres e incidencias por periodo.</desc>
+        <title id="titulo-grafico-ct">${textoCT("ct_txt_grafico_de_evolucion_temporal_de_contratacion")}</title>
+        <desc id="desc-grafico-ct">${textoCT("ct_txt_distribucion_de_altas_llamamientos_formalizacion")}</desc>
         ${leyenda}
         ${lineasGuia.join("")}
         ${barrasSVG.join("")}
@@ -128,7 +133,7 @@ export function renderizarGraficoSVG(series) {
 
 export function renderizarTablaEstadisticas(estadisticas) {
   if (!estadisticas || !Array.isArray(estadisticas.series) || estadisticas.series.length === 0) {
-    return `<div class="vacio-controlado" role="status"><p>No hay datos estadísticos para el periodo y rango seleccionados.</p></div>`;
+    return `<div class="vacio-controlado" role="status"><p>${textoCT("ct_txt_no_hay_datos_estadisticos_para_el_periodo_y_rang")}</p></div>`;
   }
 
   const filas = estadisticas.series.map((s) => `
@@ -146,7 +151,7 @@ export function renderizarTablaEstadisticas(estadisticas) {
   const pieTotales = `
     <tfoot>
       <tr>
-        <th scope="row">TOTALES</th>
+        <th scope="row">${textoCT("ct_txt_totales")}</th>
         <th class="numero">${formatearNumero(t.altas)}</th>
         <th class="numero">${formatearNumero(t.llamamientos)}</th>
         <th class="numero">${formatearNumero(t.formalizaciones)}</th>
@@ -159,15 +164,15 @@ export function renderizarTablaEstadisticas(estadisticas) {
   return `
     <div class="tabla-contenedor tabla-contenedor--estadisticas">
       <table class="tabla-datos tabla-datos--estadisticas">
-        <caption>Estadísticas agregadas de contratación temporal por periodo (${escaparHTML(estadisticas.periodo)})</caption>
+        <caption>${textoCT("ct_txt_estadisticas_por_periodo", { periodo: estadisticas.periodo })}</caption>
         <thead>
           <tr>
-            <th scope="col">Periodo</th>
-            <th scope="col" class="numero">Altas</th>
-            <th scope="col" class="numero">Llamamientos</th>
-            <th scope="col" class="numero">Formalizaciones</th>
-            <th scope="col" class="numero">Cierres</th>
-            <th scope="col" class="numero">Incidencias</th>
+            <th scope="col">${textoCT("ct_txt_periodo")}</th>
+            <th scope="col" class="numero">${textoCT("ct_txt_altas")}</th>
+            <th scope="col" class="numero">${textoCT("ct_txt_llamamientos")}</th>
+            <th scope="col" class="numero">${textoCT("ct_txt_formalizaciones")}</th>
+            <th scope="col" class="numero">${textoCT("ct_txt_cierres")}</th>
+            <th scope="col" class="numero">${textoCT("ct_txt_incidencias")}</th>
           </tr>
         </thead>
         <tbody>
@@ -181,30 +186,30 @@ export function renderizarTablaEstadisticas(estadisticas) {
 
 export function renderizarFormularioFiltros({ periodo = "mensual", desde = "", hasta = "" } = {}) {
   const opcionesPeriodo = [
-    ["anual", "Anual"],
-    ["mensual", "Mensual"],
-    ["semanal", "Semanal"],
+    ["anual", traducirCT("ct_txt_anual")],
+    ["mensual", traducirCT("ct_txt_mensual")],
+    ["semanal", traducirCT("ct_txt_semanal")],
   ].map(([val, etiqueta]) => `
     <option value="${escaparHTML(val)}"${val === periodo ? " selected" : ""}>${escaparHTML(etiqueta)}</option>
   `).join("");
 
   return `
-    <form class="barra-filtros-estadisticas" data-ct-form="filtros-estadisticas" role="search" aria-label="Filtros de estadísticas de contratación">
+    <form class="barra-filtros-estadisticas" data-ct-form="filtros-estadisticas" role="search" aria-label="${textoCT("ct_txt_filtros_de_estadisticas_de_contratacion")}">
       <div class="campo-filtro">
-        <label for="filtro-est-periodo">Periodo:</label>
+        <label for="filtro-est-periodo">${textoCT("ct_txt_periodo_2")}</label>
         <select id="filtro-est-periodo" name="periodo">${opcionesPeriodo}</select>
       </div>
       <div class="campo-filtro">
-        <label for="filtro-est-desde">Desde:</label>
+        <label for="filtro-est-desde">${textoCT("ct_txt_desde")}</label>
         <input type="date" id="filtro-est-desde" name="desde" value="${escaparHTML(desde)}">
       </div>
       <div class="campo-filtro">
-        <label for="filtro-est-hasta">Hasta:</label>
+        <label for="filtro-est-hasta">${textoCT("ct_txt_hasta")}</label>
         <input type="date" id="filtro-est-hasta" name="hasta" value="${escaparHTML(hasta)}">
       </div>
       <div class="acciones-filtro">
-        <button type="submit" class="boton-primario">Consultar</button>
-        <button type="button" class="boton-secundario" data-ct-accion="exportar-csv">Exportar CSV</button>
+        <button type="submit" class="boton-primario">${textoCT("ct_txt_consultar")}</button>
+        <button type="button" class="boton-secundario" data-ct-accion="exportar-csv">${textoCT("ct_txt_exportar_csv")}</button>
       </div>
     </form>
   `;
@@ -213,8 +218,8 @@ export function renderizarFormularioFiltros({ periodo = "mensual", desde = "", h
 export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
   const encabezado = `
     <header class="cabecera-vista">
-      <h2>Estadísticas de contratación temporal</h2>
-      <p>Cuadro de evolución temporal: altas, llamamientos, formalizaciones, cierres e incidencias.</p>
+      <h2>${textoCT("ct_txt_estadisticas_de_contratacion_temporal")}</h2>
+      <p>${textoCT("ct_txt_cuadro_de_evolucion_temporal_altas_llamamientos")}</p>
     </header>
   `;
 
@@ -222,10 +227,10 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     return `
       ${encabezado}
       <section class="panel">
-        <div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip info">Consultando</span></div>
+        <div class="cabecera-panel"><h3>${textoCT("ct_txt_series_estadisticas")}</h3><span class="estado-chip info">${textoCT("ct_txt_consultando")}</span></div>
         <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
-          <p><strong>Cargando estadísticas…</strong></p>
-          <p>Obteniendo series temporales agregadas del servidor.</p>
+          <p><strong>${textoCT("ct_txt_cargando_estadisticas")}</strong></p>
+          <p>${textoCT("ct_txt_obteniendo_series_temporales_agregadas_del_servi")}</p>
         </div>
       </section>
     `;
@@ -235,12 +240,12 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     return `
       ${encabezado}
       <section class="panel">
-        <div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip peligro">Consulta fallida</span></div>
+        <div class="cabecera-panel"><h3>${textoCT("ct_txt_series_estadisticas")}</h3><span class="estado-chip peligro">${textoCT("ct_txt_consulta_fallida")}</span></div>
         <div class="cuerpo-panel vacio-controlado" role="alert">
-          <p><strong>Error al consultar estadísticas</strong></p>
-          <p>${escaparHTML(estadoEstadisticas.error || "No se pudieron obtener las series estadísticas.")}</p>
+          <p><strong>${textoCT("ct_txt_error_al_consultar_estadisticas")}</strong></p>
+          <p>${escaparHTML(estadoEstadisticas.error || traducirCT("ct_txt_no_se_pudieron_obtener_las_series_estadisticas"))}</p>
           <div class="acciones-vista">
-            <button type="button" class="boton-secundario" data-ct-accion="reintentar-estadisticas">Reintentar</button>
+            <button type="button" class="boton-secundario" data-ct-accion="reintentar-estadisticas">${textoCT("ct_txt_reintentar")}</button>
           </div>
         </div>
       </section>
@@ -251,10 +256,10 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     return `
       ${encabezado}
       <section class="panel">
-        <div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip peligro">Acceso denegado</span></div>
+        <div class="cabecera-panel"><h3>${textoCT("ct_txt_series_estadisticas")}</h3><span class="estado-chip peligro">${textoCT("ct_txt_acceso_denegado")}</span></div>
         <div class="cuerpo-panel vacio-controlado" role="alert">
-          <p><strong>Acceso denegado</strong></p>
-          <p>La sesión no dispone de permisos suficientes para consultar las estadísticas de contratación temporal.</p>
+          <p><strong>${textoCT("ct_txt_acceso_denegado")}</strong></p>
+          <p>${textoCT("ct_txt_la_sesion_no_dispone_de_permisos_suficientes_par")}</p>
         </div>
       </section>
     `;
@@ -269,7 +274,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     ${encabezado}
     <section class="panel">
       <div class="cabecera-panel">
-        <h3>Filtros de periodo y rango temporal</h3>
+        <h3>${textoCT("ct_txt_filtros_de_periodo_y_rango_temporal")}</h3>
       </div>
       <div class="cuerpo-panel">
         ${formularioHtml}
@@ -277,7 +282,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     </section>
     <section class="panel">
       <div class="cabecera-panel">
-        <h3>Evolución gráfica por periodo</h3>
+        <h3>${textoCT("ct_txt_evolucion_grafica_por_periodo")}</h3>
       </div>
       <div class="cuerpo-panel">
         ${graficoHtml}
@@ -285,7 +290,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     </section>
     <section class="panel">
       <div class="cabecera-panel">
-        <h3>Series detalladas y totales acumulados</h3>
+        <h3>${textoCT("ct_txt_series_detalladas_y_totales_acumulados")}</h3>
       </div>
       <div class="cuerpo-panel">
         ${tablaHtml}
@@ -324,7 +329,7 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
     try {
       res = await ejecutarConsulta({ ...filtros });
     } catch {
-      res = { ok: false, mensaje: "No se pudieron obtener las series estadísticas." };
+      res = { ok: false, mensaje: traducirCT("ct_txt_no_se_pudieron_obtener_las_series_estadisticas") };
     }
     if (!montada || generacionActual !== generacionConsulta) return;
     if (res?.ok) {
@@ -336,7 +341,7 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
     }
     renderizar();
     if (res?.ok && montada && generacionActual === generacionConsulta && typeof anunciar === "function") {
-      anunciar("Estadísticas actualizadas");
+      anunciar(traducirCT("ct_txt_estadisticas_actualizadas"));
     }
   }
 
@@ -356,7 +361,7 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
     enlace.click();
     document.body.removeChild(enlace);
     URL.revokeObjectURL(url);
-    if (typeof anunciar === "function") anunciar("Archivo CSV generado correctamente");
+    if (typeof anunciar === "function") anunciar(traducirCT("ct_txt_archivo_csv_generado_correctamente"));
   }
 
   function manejarClick(evento) {

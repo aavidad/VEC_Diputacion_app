@@ -1,6 +1,7 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
+  centro_visible: "Centro {ambito} · {numero}",
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",
@@ -21,6 +22,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   cabecera_resultado_rc: "Resultado RC",
   cabecera_coste_estimado: "Coste estimado",
   cabecera_via_cobertura: "Vía de cobertura",
+  cabecera_bolsa_cobertura: "Bolsa",
+  enlace_bolsa_historico_aria: "Bolsa {bolsa}. Abrir su histórico de llamamientos",
   cabecera_decision_gobernada: "Decisión gobernada",
   cabecera_comprobacion_bolsa: "Comprobación de bolsa",
   cabecera_unidad_asignada: "Unidad asignada",
@@ -34,6 +37,12 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   indicador_pendientes: "Pendientes",
   indicador_en_curso: "En curso",
   indicador_incidencias: "Incidencias",
+  indicador_ver_lista: "Ver en la lista",
+  indicador_filtrar_aria: "{etiqueta}: {total}. Mostrar en la lista solo estos expedientes",
+  indicador_todos_aria: "{etiqueta}: {total}. Mostrar la lista sin filtros",
+  distribucion_filtrar_aria: "{fase}: {total}. Mostrar en la lista los expedientes de esta fase",
+  columna_estado_filtrar_aria: "{estado}. Mostrar en la lista los expedientes con este estado",
+  columna_fase_filtrar_aria: "{fase}. Mostrar en la lista los expedientes de esta fase",
   incorporacion_consulta_bajo_demanda: "La incorporación al ejercicio se consulta al pedirla. Consultarla no registra ninguna incorporación.",
   incorporacion_consultar: "Consultar la incorporación al ejercicio",
   incorporacion_preparacion_cargando: "Consultando la preparación de incorporación guardada en el servidor.",

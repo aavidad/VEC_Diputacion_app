@@ -1,5 +1,5 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-huecos-rrhh-v2";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-pulido-portal-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 const TEXTO = Object.freeze({
   titulo: traducirPortal("ayuda_contenido_302"),
@@ -156,7 +156,7 @@ export function crearAyudanteTramites({ escapar = escaparHTML, tramites = TRAMIT
           cerrar();
           navegar(pasoActual.vista, { enfocar: false });
           globalThis.setTimeout?.(() => enfocarDestino(documento, pasoActual.selector, pasoActual.activar), 0);
-          anunciar(`Guía abierta: ${pasoActual.titulo}. ${pasoActual.limite}`);
+          anunciar(traducirPortal("txt_guia_abierta", { titulo: pasoActual.titulo, limite: pasoActual.limite }));
         }
       };
       contenedor.addEventListener("click", alPulsar);

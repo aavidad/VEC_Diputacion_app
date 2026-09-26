@@ -5,6 +5,7 @@
 
 import { actorTraducido } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 const CAMPOS = Object.freeze({
   situacion: "campo_situacion",
@@ -74,7 +75,7 @@ export function validarCambiosTraza(cambios) {
   return valido ? cambios : null;
 }
 
-const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" });
+const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "short", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL });
 
 function fecha(valor) {
   const instante = new Date(valor);
@@ -103,5 +104,5 @@ export function renderizarTrazaValores({ cambios = [], pagina = 0, escaparHTML, 
   const navegacion = paginas > 1
     ? `<nav class="paginacion-bolsa" aria-label="${escaparHTML(textoTraza("paginacion"))}"><span>${resumen}</span><button type="button" class="boton-secundario" data-b8-accion="pagina-traza" data-pagina="${actual - 1}" ${actual === 0 ? "disabled" : ""}>${escaparHTML(textoTraza("anterior"))}</button><button type="button" class="boton-secundario" data-b8-accion="pagina-traza" data-pagina="${actual + 1}" ${actual + 1 >= paginas ? "disabled" : ""}>${escaparHTML(textoTraza("siguiente"))}</button></nav>`
     : `<p>${resumen}</p>`;
-  return `${titulo}<div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(textoTraza("leyenda"))}</caption><thead><tr>${cabecera}</tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
+  return `${titulo}<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparHTML(textoTraza("leyenda"))}"><table class="tabla-datos"><caption>${escaparHTML(textoTraza("leyenda"))}</caption><thead><tr>${cabecera}</tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
 }

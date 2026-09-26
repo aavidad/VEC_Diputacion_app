@@ -68,7 +68,7 @@ function centroVisible(centro) {
   const coincidencia = /^centro:([^:]+):(\d+)$/u.exec(referencia);
   if (!coincidencia) return { etiqueta: referencia, referencia: "" };
   const [, ambito, numero] = coincidencia;
-  return { etiqueta: `Centro ${ambito.replaceAll(/[-_]+/g, " ")} · ${numero}`, referencia };
+  return { etiqueta: traductorPorOmision("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
 }
 
 function esNumeroVisibleLegible(numero) {
@@ -96,13 +96,33 @@ const CLASES_TONO_KPI = Object.freeze({
   exito: " kpi--exito", aviso: " kpi--advertencia", peligro: " kpi--peligro",
 });
 
-function renderizarIndicador(indicador) {
+// Recuadros que equivalen a un estado del filtro de la bandeja: al pulsarlos se
+// aplica ese filtro, como hacen los de Inicio. «Expedientes» quita los filtros.
+const FILTRO_INDICADOR = Object.freeze({
+  total: "", pendientes: "pendiente", en_curso: "en_curso", incidencias: "incidencia",
+});
+
+function renderizarIndicador(indicador, filtros, t) {
   const nombre = ICONOS_INDICADOR[indicador.clave] ?? ICONOS_TONO[indicador.tono] ?? "expediente";
-  return `<article class="tarjeta-kpi${CLASES_TONO_KPI[indicador.tono] ?? ""}" data-ct-exp-indicador="${escaparHTML(indicador.clave ?? "")}">
-      <span class="icono-kpi">${icono(nombre)}</span>
+  const clase = `tarjeta-kpi${CLASES_TONO_KPI[indicador.tono] ?? ""}`;
+  const contenido = `<span class="icono-kpi">${icono(nombre)}</span>
       <div><strong class="valor-kpi">${escaparHTML(indicador.valor)}</strong>
-      <span class="etiqueta-kpi">${escaparHTML(indicador.etiqueta)}</span></div>
+      <span class="etiqueta-kpi">${escaparHTML(indicador.etiqueta)}</span>`;
+  const filtro = Object.hasOwn(FILTRO_INDICADOR, indicador.clave) ? FILTRO_INDICADOR[indicador.clave] : null;
+  if (filtro === null || !t) {
+    return `<article class="${clase}" data-ct-exp-indicador="${escaparHTML(indicador.clave ?? "")}">
+      ${contenido}</div>
     </article>`;
+  }
+  const activo = (filtros?.estado ?? "") === filtro && !filtros?.fase && !filtros?.texto;
+  const aria = t(filtro ? "indicador_filtrar_aria" : "indicador_todos_aria", {
+    total: indicador.valor, etiqueta: indicador.etiqueta,
+  });
+  return `<button type="button" class="${clase}" data-ct-exp-indicador="${escaparHTML(indicador.clave)}"
+      data-ct-exp-filtro-estado="${escaparHTML(filtro)}" aria-pressed="${activo}" aria-label="${escaparHTML(aria)}">
+      ${contenido}
+      <span class="metrica-enlace" aria-hidden="true">${escaparHTML(t("indicador_ver_lista"))}</span></div>
+    </button>`;
 }
 
 const FASES_BANDEJA = [
@@ -142,11 +162,16 @@ function renderizarTrabajoOperativo(cuadro, t) {
   const expedientesNoCompletados = cuadro.expedientes
     .filter(({ estado_clave: estado }) => estado !== "completado")
     .slice(0, 3);
+  // La clave de fase es la misma que ofrece el desplegable «Fase actual».
   const distribucion = [...new Set(cuadro.expedientes.map(({ fase_actual: fase }) => fase))]
-    .map((fase) => ({
-      fase,
-      total: cuadro.expedientes.filter(({ fase_actual: actual }) => actual === fase).length,
-    }));
+    .map((fase) => {
+      const ejemplo = cuadro.expedientes.find(({ fase_actual: actual }) => actual === fase);
+      return {
+        fase,
+        clave: ejemplo.fase_clave ?? String(fase).toLocaleLowerCase("es-ES"),
+        total: cuadro.expedientes.filter(({ fase_actual: actual }) => actual === fase).length,
+      };
+    });
   const primero = expedientesNoCompletados[0]
     ?? (esDemostracion ? cuadro.expedientes[0] : undefined);
   const titulo = esDemostracion ? t("trabajo_titulo") : t("bandeja_titulo");
@@ -169,8 +194,10 @@ function renderizarTrabajoOperativo(cuadro, t) {
     </article>
     <article class="ct-exp-distribucion">
       <h4>${escaparHTML(tituloDistribucion)}</h4>
-      <dl>${distribucion.map(({ fase, total }) => `<div>
-        <dt>${escaparHTML(fase)}</dt><dd>${total}</dd>
+      <dl>${distribucion.map(({ fase, clave, total }) => `<div>
+        <dt><button type="button" class="enlace-tabla ct-exp-distribucion-enlace"
+          data-ct-exp-filtro-fase="${escaparHTML(clave)}"
+          aria-label="${escaparHTML(t("distribucion_filtrar_aria", { total, fase }))}">${escaparHTML(fase)}</button></dt><dd>${total}</dd>
       </div>`).join("")}</dl>
     </article>
     <aside class="ct-exp-accesos">
@@ -182,6 +209,10 @@ function renderizarTrabajoOperativo(cuadro, t) {
     </aside>
   </section>`;
 }
+
+// Estados que ofrece el filtro de la bandeja; la pastilla de estado de cada fila
+// solo filtra si su estado es uno de ellos.
+const ESTADOS_FILTRO = new Set(["pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado"]);
 
 export function renderizarCuadro(estado, t) {
   const cuadro = estado.cuadro;
@@ -201,7 +232,7 @@ export function renderizarCuadro(estado, t) {
   ])).entries()].map(([clave, etiqueta]) => ({ clave, etiqueta }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
   const indicadores = `<section class="ct-exp-indicadores" aria-label="${escaparHTML(t(cuadro.paginacion ? "indicadores_pagina" : "indicadores"))}">
-    ${cuadro.indicadores.map(renderizarIndicador).join("")}
+    ${cuadro.indicadores.map((indicador) => renderizarIndicador(indicador, estado.filtros, t)).join("")}
   </section>`;
   const filtros = `<form class="ct-exp-filtros" data-ct-exp-filtros aria-label="${escaparHTML(t("filtros"))}">
     <label>
@@ -247,8 +278,13 @@ export function renderizarCuadro(estado, t) {
     <td${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</td>
     <td>${escaparHTML(expediente.categoria)}</td>
     <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
-    <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
-    <td>${escaparHTML(expediente.fase_actual)}</td>
+    <td>${ESTADOS_FILTRO.has(expediente.estado_clave) ? `<button type="button" class="ct-exp-chip ${estadoClave(expediente.estado_clave)}"
+      data-ct-exp-filtro-estado="${escaparHTML(expediente.estado_clave)}"
+      aria-label="${escaparHTML(t("columna_estado_filtrar_aria", { estado: expediente.estado }))}">${escaparHTML(expediente.estado)}</button>`
+    : `<span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span>`}</td>
+    <td><button type="button" class="enlace-tabla ct-exp-enlace-fase"
+      data-ct-exp-filtro-fase="${escaparHTML(expediente.fase_clave ?? expediente.fase_actual.toLocaleLowerCase("es-ES"))}"
+      aria-label="${escaparHTML(t("columna_fase_filtrar_aria", { fase: expediente.fase_actual }))}">${escaparHTML(expediente.fase_actual)}</button></td>
     <td>${plazoBandeja(expediente, t)}${expediente.urgente ? ` <span class="ct-marca-urgente">${escaparHTML(t("marca_urgente"))}</span>` : ""}</td>
     <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
   </tr>
@@ -431,6 +467,7 @@ const FASE_DE_CAMPO = Object.freeze({
   periodo_analizado: "analisis_rrhh", causa: "analisis_rrhh", jornada: "analisis_rrhh",
   resultado_rc: "analisis_rrhh", coste_estimado: "analisis_rrhh", observaciones: "analisis_rrhh",
   via_cobertura: "gestion_bolsa", decision_gobernada: "gestion_bolsa", unidad: "gestion_bolsa",
+  bolsa_cobertura: "gestion_bolsa",
 });
 
 function faseDeCampo(clave) {
@@ -442,16 +479,29 @@ function claveDeFase(fase) {
   return String(fase.fase_ref ?? "").split(":").at(-1) ?? "";
 }
 
-function renderizarCabecera(expediente, t, informeDisponible = false) {
+// La bolsa de la cobertura enlaza con su histórico de llamamientos en Bolsa
+// (el enlace lo atiende el controlador de Bolsa del portal) solo si el perfil
+// ve esa bolsa; su referencia opaca no se muestra nunca como texto.
+function valorCampoCabecera(campo, t, resolverBolsa) {
+  if (campo.clave !== "bolsa_cobertura") return escaparHTML(campo.valor);
+  const bolsa = typeof resolverBolsa === "function" ? resolverBolsa(campo.valor) : null;
+  if (!bolsa?.categoria) return null;
+  return `<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(campo.valor)}" data-pestana="historico" aria-label="${escaparHTML(t("enlace_bolsa_historico_aria", { bolsa: bolsa.categoria }))}">${escaparHTML(bolsa.categoria)}</button>`;
+}
+
+function renderizarCabecera(expediente, t, informeDisponible = false, resolverBolsa = null) {
   return `<section class="ct-exp-cabecera-expediente">
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
       <h3>${numeroExpedienteHTML(expediente.numero_visible)}</h3>
     </div>
-    <dl>${expediente.cabecera.map((campo) => `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
+    <dl>${expediente.cabecera.map((campo) => {
+    const valor = valorCampoCabecera(campo, t, resolverBolsa);
+    return valor === null ? "" : `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
       <dt>${escaparHTML(campo.etiqueta)}</dt>
-      <dd class="ct-tono-${escaparHTML(campo.tono)}">${escaparHTML(campo.valor)}</dd>
-    </div>`).join("")}</dl>
+      <dd class="ct-tono-${escaparHTML(campo.tono)}">${valor}</dd>
+    </div>`;
+  }).join("")}</dl>
     ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
   </section>`;
 }
@@ -665,7 +715,7 @@ function renderizarTarea(
   </article>`;
 }
 
-export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false) {
+export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null) {
   const expediente = estado.expediente;
   if (!expediente) {
     const esError = estado.carga === "error";
@@ -694,7 +744,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   )}
     </div>`;
   return `${renderizarIncidencia(expediente, t, estado.navegacion)}
-    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
+    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null, resolverBolsa)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}

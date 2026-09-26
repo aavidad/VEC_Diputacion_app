@@ -1,3 +1,4 @@
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento
@@ -110,7 +111,7 @@ export async function cargarContratosFicha(modalFicha, { estado, renderizar, con
   renderizar();
 }
 
-const FORMATO_FECHA = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric" });
+const FORMATO_FECHA = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, day: "2-digit", month: "2-digit", year: "numeric" });
 
 function fecha(valor) {
   return valor ? FORMATO_FECHA.format(new Date(valor)) : traducirContratos("sin_dato");
@@ -153,7 +154,7 @@ export function renderizarContratosParticipacion({ estado = {}, escaparHTML, cat
     const navegacion = paginas > 1
       ? `<nav class="paginacion-bolsa" aria-label="${t("paginacion")}"><span>${resumen}</span><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("anterior")}</button><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${t("siguiente")}</button></nav>`
       : `<p>${resumen}</p>`;
-    contenido = `<div class="tabla-contenedor"><table class="tabla-datos"><caption>${t("tabla")}</caption><thead><tr><th scope="col">${t("col_tipo")}</th><th scope="col">${t("col_periodo")}</th><th scope="col">${t("col_modalidad")}</th><th scope="col">${t("col_categoria")}</th><th scope="col">${t("col_causa")}</th><th scope="col">${t("col_registrado")}</th></tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
+    contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("tabla")}"><table class="tabla-datos"><caption>${t("tabla")}</caption><thead><tr><th scope="col">${t("col_tipo")}</th><th scope="col">${t("col_periodo")}</th><th scope="col">${t("col_modalidad")}</th><th scope="col">${t("col_categoria")}</th><th scope="col">${t("col_causa")}</th><th scope="col">${t("col_registrado")}</th></tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
   }
   return `<section class="panel panel-separado" data-b13-raiz="true" aria-labelledby="b13-titulo"><div class="cabecera-panel"><div><h4 id="b13-titulo">${t("titulo")}</h4><p>${t("descripcion")}</p></div></div><div class="cuerpo-panel">${contenido}</div></section>`;
 }
