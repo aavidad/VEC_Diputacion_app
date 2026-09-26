@@ -82,6 +82,9 @@ type firmaDocumentoCTDesarrollo struct {
 	// fiscalizacion recibe al componer las rutas la comprobación de la firma
 	// que habilita la remisión a Intervención (duda 4).
 	fiscalizacion *ctapplication.ServicioFiscalizaciones
+	// informeTrasSubsanacion es nil salvo que el catálogo exija informe
+	// nuevo tras subsanar: entonces su documento se firma en otra ronda.
+	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
 }
 
 var (
@@ -248,6 +251,9 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	}
 	servicio, err := ctapplication.NuevoServicioFirmaDocumento(fuenteCircuitoFirmaReglasDesarrollo{resolutor: circuito}, f.registro, f, verificador)
 	if err != nil {
+		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	if f.informeTrasSubsanacion != nil && servicio.AbrirRondaInformeNuevo(f.informeTrasSubsanacion, f.registro) != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)

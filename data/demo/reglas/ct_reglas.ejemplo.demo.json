@@ -256,17 +256,19 @@
       {
         "clave": "c12.fiscalizacion_resultados",
         "etiqueta": "Efecto de cada resultado de fiscalización",
-        "descripcion": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo.",
+        "descripcion": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Respuesta de RRHH a la duda 5 (reparos de Intervención).",
-          "duda": "Duda 5: favorable y favorable con observaciones continúan; desfavorable vuelve a la unidad gestora.",
+          "duda": "Duda 5: favorable y favorable con observaciones continúan; desfavorable vuelve a la unidad gestora; tras subsanar, informe nuevo y nueva firma.",
           "unidad": "lista",
           "valor": "favorable,favorable_con_observaciones,desfavorable",
           "efecto_favorable": "continua",
           "efecto_favorable_con_observaciones": "continua",
-          "efecto_desfavorable": "vuelve_unidad_gestora"
+          "efecto_desfavorable": "vuelve_unidad_gestora",
+          "informe_nuevo_tras_subsanacion": "si",
+          "documento_firma_informe_nuevo": "informe_definitivo"
         },
         "orden": 16
       }
