@@ -142,6 +142,11 @@ func (a *autoridadDocumentosDesarrollo) proteger(siguiente http.Handler) http.Ha
 			responderDenegacionDocumentos(w, http.StatusUnauthorized, "autenticacion_requerida")
 			return
 		}
+		// curl/OpenSSL completa la cadena del cliente y envía también la CA; el
+		// resolvedor exige un único certificado. Se reduce a la hoja sólo si
+		// cada certificado enviado coincide con la cadena verificada, como en
+		// Cronos, Personal, Dietas y CT.
+		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 		// Hasta que el vínculo V2 quede verificado ninguna denegación lleva
 		// actor: ni la petición ni un principal aún no revalidado son fuente.
 		if a == nil || a.base == nil || cabeceraLibreComisionesDietas(r.Header) {
