@@ -27,6 +27,7 @@ static/portal-empleado/reglas/enlace.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
 static/portal-empleado/peticiones-centro/incorporaciones-centro.js
+static/portal-empleado/peticiones-centro/cancelaciones-centro.js
 static/portal-empleado/peticiones-centro/peticiones-centro.css
 static/portal-empleado/modulos/cronos/contrato.js
 static/portal-empleado/modulos/cronos/cronos.css

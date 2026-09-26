@@ -156,6 +156,9 @@ type dependenciasAltaContratacionTemporalDesarrollo struct {
 	servicio    *application.ServicioRegistroSolicitud
 	autorizador autorizadorLigadoContratacionTemporalDesarrollo
 	postgresql  dependenciasPostgreSQLContratacionTemporalDesarrollo
+	// cancelacion guarda las piezas de la cancelación de RRHH que reutiliza
+	// el canal del centro; nula mientras la capacidad no esté compuesta.
+	cancelacion *piezasCancelacionCTDesarrollo
 }
 
 func (d *dependenciasAltaContratacionTemporalDesarrollo) cerrar() {

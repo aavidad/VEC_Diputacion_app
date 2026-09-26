@@ -33,6 +33,7 @@ type EjecutorCancelacionExpediente interface {
 
 type manejadorCancelacion struct {
 	ruta      string
+	consulta  bool
 	autoridad AutoridadCanalSeguimiento
 	lectura   AutorizadorLecturaSeguimiento
 	ejecutor  EjecutorCancelacionExpediente
@@ -42,12 +43,19 @@ type manejadorCancelacion struct {
 // identidad, la organización y el canal proceden de la autoridad compuesta,
 // nunca del cuerpo.
 func NuevosManejadoresCancelacion(a AutoridadCanalSeguimiento, l AutorizadorLecturaSeguimiento, e EjecutorCancelacionExpediente) (map[string]http.Handler, error) {
-	if dependenciaNula(a) || dependenciaNula(l) || dependenciaNula(e) {
+	return NuevosManejadoresCancelacionEnRutas(RutaCancelacionesExpediente, RutaCancelacionExpediente, a, l, e)
+}
+
+// NuevosManejadoresCancelacionEnRutas monta el mismo contrato en las rutas de
+// otro canal (el del centro, dentro de sus peticiones): la ruta del efecto y
+// la de la consulta de opciones y de la cancelación registrada.
+func NuevosManejadoresCancelacionEnRutas(rutaEfecto, rutaConsulta string, a AutoridadCanalSeguimiento, l AutorizadorLecturaSeguimiento, e EjecutorCancelacionExpediente) (map[string]http.Handler, error) {
+	if dependenciaNula(a) || dependenciaNula(l) || dependenciaNula(e) || rutaEfecto == "" || rutaConsulta == "" || rutaEfecto == rutaConsulta {
 		return nil, errors.New("contratacion temporal http: cancelacion no disponible")
 	}
 	return map[string]http.Handler{
-		RutaCancelacionesExpediente: &manejadorCancelacion{ruta: RutaCancelacionesExpediente, autoridad: a, lectura: l, ejecutor: e},
-		RutaCancelacionExpediente:   &manejadorCancelacion{ruta: RutaCancelacionExpediente, autoridad: a, lectura: l, ejecutor: e},
+		rutaEfecto:   &manejadorCancelacion{ruta: rutaEfecto, autoridad: a, lectura: l, ejecutor: e},
+		rutaConsulta: &manejadorCancelacion{ruta: rutaConsulta, consulta: true, autoridad: a, lectura: l, ejecutor: e},
 	}, nil
 }
 
@@ -74,7 +82,7 @@ func (h *manejadorCancelacion) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderErrorCancelacion(w, r, http.StatusForbidden, "acceso_denegado")
 		return
 	}
-	if h.ruta == RutaCancelacionExpediente {
+	if h.consulta {
 		h.consultar(w, r, canal, contenido)
 		return
 	}

@@ -68,9 +68,9 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-expediente-cerrar", string(ctdomain.AccionCerrarExpediente), cthttp.RutaCierresExpediente},
 		{"ct-nombramiento-modificar", string(ctdomain.AccionModificarTrasNombramiento), cthttp.RutaModificacionesNombramiento},
 		{"ct-seguimiento-cese-consultar", accionConsultarSeguimientoCeseDesarrollo, cthttp.RutaSeguimientoCese},
+		{"ct-ginpix-confirmar", string(ctdomain.AccionConfirmarGINPIX), cthttp.RutaConfirmacionesGINPIX},
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
-		{"ct-ginpix-confirmar", string(ctdomain.AccionConfirmarGINPIX), cthttp.RutaConfirmacionesGINPIX},
 	}
 	lectores := []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo("prf_ct_prueba", lectores)

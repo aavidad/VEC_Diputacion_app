@@ -58,6 +58,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
+		// La cancelación por el centro liga el expediente exacto: los
+		// ámbitos son los del recurso, con el centro ya cotejado.
+		if m, ok := ctx.Value(claveMaterialPeticionCentroDesarrollo{}).(materialAutorizacionPeticionCentroDesarrollo); ok && m.cancelacion != nil {
+			instantanea.AsignacionPerfil.Ambitos = m.cancelacion.ambitos()
+		}
 	} else if ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo {
 		if !solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false

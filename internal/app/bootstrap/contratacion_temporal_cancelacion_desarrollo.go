@@ -437,6 +437,7 @@ func nuevasRutasCancelacionCTDesarrollo(dependencias *DependenciasCT, alta *depe
 	if err != nil {
 		return fallar("servicio", err)
 	}
+	alta.cancelacion = &piezasCancelacionCTDesarrollo{proveedor: proveedor, fuente: fuente, sellos: sellos, repositorio: repositorio, reloj: reloj}
 	manejadores, err := httpinterno.NuevosManejadoresCancelacion(autoridad, autoridad, servicio)
 	if err != nil {
 		return fallar("http", err)
