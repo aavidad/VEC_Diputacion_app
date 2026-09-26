@@ -28,12 +28,14 @@ var ErrIncorporacionAcreditadaMigracionesNoDisponibles = errors.New("bootstrap: 
 var (
 	ErrIncorporacionAcreditadaFaltaAD388   = fmt.Errorf("%w: falta AD3-88 (consumidores de GINPIX, del centro y de la no incorporación)", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
 	ErrIncorporacionAcreditadaFaltaCT124   = fmt.Errorf("%w: falta CT 000124 (incorporación acreditada)", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
+	ErrIncorporacionAcreditadaFaltaCT128   = fmt.Errorf("%w: falta CT 000128 (propuesta del sucesor tras una no incorporación)", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
 	errIncorporacionAcreditadaComprobacion = fmt.Errorf("%w: no se pudo comprobar el catálogo", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
 )
 
 // consultaMigracionesIncorporacionAcreditada se ejecuta con el LOGIN ejecutor
-// de CT: exige que las fachadas de CT 000124 existan y pueda ejecutarlas; de
-// AD3-88 comprueba en el catálogo sus fachadas, que ese LOGIN no ejecuta.
+// de CT: exige que las fachadas de CT 000124 y la consulta de propuestas de
+// CT 000128 existan y pueda ejecutarlas; de AD3-88 comprueba en el catálogo
+// sus fachadas, que ese LOGIN no ejecuta.
 const consultaMigracionesIncorporacionAcreditada = `SELECT
  (SELECT count(*)=3 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname IN ('registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada',
@@ -46,7 +48,9 @@ const consultaMigracionesIncorporacionAcreditada = `SELECT
   'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)',
   'vec_contratacion_temporal.preparar_no_incorporacion_v1(jsonb)',
   'vec_contratacion_temporal.confirmar_no_incorporacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(bigint,text,integer)']) f)`
+  'vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(bigint,text,integer)']) f),
+ (SELECT pg_catalog.to_regclass('vec_contratacion_temporal.propuesta_sustitucion_v1') IS NOT NULL
+   AND coalesce(pg_catalog.has_function_privilege(pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_propuestas_expediente_v1(text,text)'),'EXECUTE'),false))`
 
 // comprobarMigracionesIncorporacionAcreditadaDesarrollo se llama al arrancar,
 // solo con el selector encendido, antes de publicar sus claves.
@@ -54,8 +58,8 @@ func comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx context.Context, 
 	if ct == nil {
 		return errIncorporacionAcreditadaComprobacion
 	}
-	var ad388, ct124 bool
-	if err := ct.QueryRow(ctx, consultaMigracionesIncorporacionAcreditada).Scan(&ad388, &ct124); err != nil {
+	var ad388, ct124, ct128 bool
+	if err := ct.QueryRow(ctx, consultaMigracionesIncorporacionAcreditada).Scan(&ad388, &ct124, &ct128); err != nil {
 		return errIncorporacionAcreditadaComprobacion
 	}
 	switch {
@@ -63,6 +67,8 @@ func comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx context.Context, 
 		return ErrIncorporacionAcreditadaFaltaAD388
 	case !ct124:
 		return ErrIncorporacionAcreditadaFaltaCT124
+	case !ct128:
+		return ErrIncorporacionAcreditadaFaltaCT128
 	}
 	return nil
 }

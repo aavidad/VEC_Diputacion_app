@@ -151,6 +151,8 @@ salida=$(docker exec -i "$nombre" psql -X -q -At -v ON_ERROR_STOP=1 -v exp_a="$b
 prueba 'fixture no incorporación OK' "$pruebas/ct124_no_incorporacion_fixture.sql"
 if [[ ${VEC_CT124_GO:-} == 1 ]]; then
   echo '== Contrato Go↔SQL de CT y de Bolsa (dobles explícitos de las fachadas AD3)'
+  # La consulta del seguimiento lee también las propuestas (CT128).
+  run <"$ct/000128_propuesta_sucesor_no_incorporacion.up.sql"
   puerto=$(docker port "$nombre" 5432/tcp | head -1 | sed 's/.*://')
   a='expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001'
   org=$(escalar "SELECT agregado_json->>'organizacion_ref' FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref='$a' AND version=7")

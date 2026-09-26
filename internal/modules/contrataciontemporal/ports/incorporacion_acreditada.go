@@ -75,6 +75,8 @@ type EstadoIncorporacionAcreditada struct {
 	GINPIX          *EstadoGINPIXConfirmado
 	Centro          *EstadoConfirmacionCentro
 	NoIncorporacion *EstadoNoIncorporacion
+	// Propuestas: la vigente y las sustituidas por una no incorporación (CT128).
+	Propuestas []EstadoPropuestaExpediente
 }
 
 // Valido acota formato y tamaño antes de publicar la lectura.
@@ -92,7 +94,7 @@ func (e EstadoIncorporacionAcreditada) Valido() bool {
 			return false
 		}
 	}
-	return e.NoIncorporacion == nil || e.NoIncorporacion.Valido()
+	return (e.NoIncorporacion == nil || e.NoIncorporacion.Valido()) && PropuestasExpedienteValidas(e.Propuestas)
 }
 
 func fechaCivilTextoValida(valor string) bool {
