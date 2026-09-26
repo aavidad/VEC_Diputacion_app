@@ -472,6 +472,24 @@ export async function montarModuloContratacionTemporal({
       cerrarFase(cerrarFaseControl);
       return;
     }
+    // Recuadros de resumen y reparto por fase: aplican su filtro a la bandeja
+    // y llevan a la lista, con el mismo contrato que los recuadros de Inicio.
+    const recuadroFiltro = evento.target?.closest?.("[data-ct-exp-filtro-estado], [data-ct-exp-filtro-fase]");
+    if (recuadroFiltro && raiz.contains(recuadroFiltro) && !recuadroFiltro.closest?.("[data-vista]")) {
+      evento.preventDefault();
+      if (gestorTramitacion.impedirCambioPorAnalisis() || presentador.obtenerEstado().ocupado) return;
+      const promesa = presentador.cargar({
+        texto: "",
+        estado: recuadroFiltro.dataset.ctExpFiltroEstado ?? "",
+        fase: recuadroFiltro.dataset.ctExpFiltroFase ?? "",
+      });
+      repintar("[data-ct-exp-mensaje]");
+      await promesa;
+      repintar();
+      enfocar(raiz, raiz.querySelector(".ct-exp-listado .tabla-contenedor")
+        ? ".ct-exp-listado .tabla-contenedor" : "[data-ct-exp-filtros]");
+      return;
+    }
     const controlVista = evento.target?.closest?.("[data-ct-exp-vista]");
     if (controlVista && raiz.contains(controlVista)) {
       evento.preventDefault();

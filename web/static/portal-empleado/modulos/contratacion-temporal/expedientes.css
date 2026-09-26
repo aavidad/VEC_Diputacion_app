@@ -478,6 +478,22 @@
   white-space: nowrap;
 }
 
+/* Pastilla de estado que filtra la bandeja por ese estado. */
+button.ct-exp-chip {
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+button.ct-exp-chip:hover {
+  border-color: currentColor;
+}
+
+button.ct-exp-chip:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
 .ct-exp-chip::before {
   width: 6px;
   height: 6px;

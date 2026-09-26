@@ -25,7 +25,8 @@ const estadoCuadro = (paginacion, extra = {}) => ({
 
 test("los indicadores usan iconos comunes y rótulos cortos sin «en esta página»", () => {
   const html = renderizarCuadro(estadoCuadro({ pagina: 1, cursor_siguiente: "" }), t);
-  assert.equal((html.match(/<article class="tarjeta-kpi/gu) || []).length, 4);
+  // Los cuatro llevan a la lista con su filtro (recuadros pulsables, como en Inicio).
+  assert.equal((html.match(/<button type="button" class="tarjeta-kpi/gu) || []).length, 4);
   assert.equal((html.match(/<span class="icono-kpi"><svg aria-hidden="true"/gu) || []).length, 4);
   assert.match(html, /tarjeta-kpi kpi--peligro" data-ct-exp-indicador="incidencias"/u);
   assert.match(html, /<span class="etiqueta-kpi">Expedientes<\/span>/u);

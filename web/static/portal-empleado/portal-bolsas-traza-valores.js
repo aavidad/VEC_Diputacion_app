@@ -103,5 +103,5 @@ export function renderizarTrazaValores({ cambios = [], pagina = 0, escaparHTML, 
   const navegacion = paginas > 1
     ? `<nav class="paginacion-bolsa" aria-label="${escaparHTML(textoTraza("paginacion"))}"><span>${resumen}</span><button type="button" class="boton-secundario" data-b8-accion="pagina-traza" data-pagina="${actual - 1}" ${actual === 0 ? "disabled" : ""}>${escaparHTML(textoTraza("anterior"))}</button><button type="button" class="boton-secundario" data-b8-accion="pagina-traza" data-pagina="${actual + 1}" ${actual + 1 >= paginas ? "disabled" : ""}>${escaparHTML(textoTraza("siguiente"))}</button></nav>`
     : `<p>${resumen}</p>`;
-  return `${titulo}<div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(textoTraza("leyenda"))}</caption><thead><tr>${cabecera}</tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
+  return `${titulo}<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparHTML(textoTraza("leyenda"))}"><table class="tabla-datos"><caption>${escaparHTML(textoTraza("leyenda"))}</caption><thead><tr>${cabecera}</tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
 }

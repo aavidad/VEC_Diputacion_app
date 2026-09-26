@@ -153,7 +153,7 @@ export function renderizarContratosParticipacion({ estado = {}, escaparHTML, cat
     const navegacion = paginas > 1
       ? `<nav class="paginacion-bolsa" aria-label="${t("paginacion")}"><span>${resumen}</span><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("anterior")}</button><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${t("siguiente")}</button></nav>`
       : `<p>${resumen}</p>`;
-    contenido = `<div class="tabla-contenedor"><table class="tabla-datos"><caption>${t("tabla")}</caption><thead><tr><th scope="col">${t("col_tipo")}</th><th scope="col">${t("col_periodo")}</th><th scope="col">${t("col_modalidad")}</th><th scope="col">${t("col_categoria")}</th><th scope="col">${t("col_causa")}</th><th scope="col">${t("col_registrado")}</th></tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
+    contenido = `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("tabla")}"><table class="tabla-datos"><caption>${t("tabla")}</caption><thead><tr><th scope="col">${t("col_tipo")}</th><th scope="col">${t("col_periodo")}</th><th scope="col">${t("col_modalidad")}</th><th scope="col">${t("col_categoria")}</th><th scope="col">${t("col_causa")}</th><th scope="col">${t("col_registrado")}</th></tr></thead><tbody>${filas}</tbody></table></div>${navegacion}`;
   }
   return `<section class="panel panel-separado" data-b13-raiz="true" aria-labelledby="b13-titulo"><div class="cabecera-panel"><div><h4 id="b13-titulo">${t("titulo")}</h4><p>${t("descripcion")}</p></div></div><div class="cuerpo-panel">${contenido}</div></section>`;
 }

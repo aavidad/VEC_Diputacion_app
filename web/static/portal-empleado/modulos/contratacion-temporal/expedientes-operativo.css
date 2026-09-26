@@ -87,6 +87,7 @@
 }
 
 .ct-exp-distribucion dl div {
+  position: relative;
   display: flex;
   justify-content: space-between;
   gap: var(--portal-espacio-2);
@@ -302,4 +303,15 @@
 .ct-plazo-no_calculado {
   background: var(--portal-neutro-suave);
   color: var(--portal-muted);
+}
+
+/* El nombre de la fase filtra la lista; toda la fila responde al puntero. */
+.ct-exp-distribucion-enlace::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.ct-exp-distribucion dl div:hover {
+  background: var(--portal-azul-100);
 }

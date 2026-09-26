@@ -15,9 +15,9 @@ import {
 } from "./portal-bolsas-contrato.js?v=20260926-huecos-rrhh-v1";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260926-huecos-rrhh-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-recuadros-enlaces-v1";
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-huecos-rrhh-v2";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-recuadros-enlaces-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-huecos-rrhh-v1";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-huecos-rrhh-v1";
@@ -747,7 +747,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         if (ref) {
           invalidarSeleccionMasiva();
           estado.bolsaSeleccionada = ref;
-          estado.filtrosBolsa = { estado: botonVer.dataset.estado || "", texto: "" };
+          estado.filtrosBolsa = { estado: botonVer.dataset.estado || "", texto: "",
+            ...(botonVer.dataset.pestana === "historico" ? { pestana: "historico" } : {}) };
           navegar("bolsa-candidatos");
           void cargarCandidatosBolsa(ref, { enfocarDestino: true });
         }
@@ -800,6 +801,13 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "abrir-ficha") {
         evento.preventDefault();
         abrirFicha(botonAccion.dataset.participacionRef);
+      } else if (accion === "abrir-ficha-historico") {
+        // Desde el histórico: vuelve a la relación de candidatos con su ficha abierta.
+        evento.preventDefault();
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, pestana: "candidatos" };
+        abrirFicha(botonAccion.dataset.participacionRef);
+        renderizar();
+        documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
       } else if (accion === "abrir-cambio-situacion") {
         evento.preventDefault();
         abrirCambioSituacion();

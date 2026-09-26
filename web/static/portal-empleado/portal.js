@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260926-huecos-rrhh-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-huecos-rrhh-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-recuadros-enlaces-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260926-integracion-bolsa-ct-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-huecos-
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-huecos-rrhh-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-huecos-rrhh-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-huecos-rrhh-v2";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-recuadros-enlaces-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-huecos-rrhh-v2";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
@@ -16,7 +16,7 @@ import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-huecos-rrh
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-huecos-rrhh-v2";
 import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-huecos-rrhh-v2";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-recuadros-enlaces-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-huecos-rrhh-v2";
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260926-integracion-bolsa-ct-v1";
