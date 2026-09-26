@@ -21,7 +21,12 @@
 --    fija el catálogo para la modalidad del expediente; referencia y huella,
 --    nunca el contenido). No cambia la versión del expediente: añade su
 --    historia, consume AD3-88 y publica `ct.incorporacion-confirmada-centro.v1`.
--- Requiere CT115, CT68 y AD3-88. Historia de solo adición.
+--  * No incorporación (RRHH, duda 12): con la resolución y la segunda persona
+--    que pida el catálogo, el expediente nombrado sin incorporación vuelve a
+--    la fiscalización en curso, publica `ct.no-incorporacion.v1` (que Bolsa
+--    000042 recibe para aplicar la baja) y deja la intención de siguiente
+--    candidato, que la continuación de CT119 admite desde la aceptación.
+-- Requiere CT115, CT68, CT119/CT121 y AD3-88. Historia de solo adición.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path = pg_catalog;
@@ -37,7 +42,8 @@ BEGIN
         RAISE EXCEPTION 'CT124: rol de migración incompatible' USING ERRCODE='55000';
     END IF;
     IF to_regclass('vec_contratacion_temporal.confirmacion_ginpix_v1') IS NOT NULL
-       OR to_regclass('vec_contratacion_temporal.incorporacion_centro_v1') IS NOT NULL THEN
+       OR to_regclass('vec_contratacion_temporal.incorporacion_centro_v1') IS NOT NULL
+       OR to_regclass('vec_contratacion_temporal.no_incorporacion_v1') IS NOT NULL THEN
         RAISE EXCEPTION 'CT124 ya instalada: no se reaplica' USING ERRCODE='55000';
     END IF;
     IF to_regclass('vec_contratacion_temporal.cese_nombramiento_v1') IS NULL
@@ -46,11 +52,16 @@ BEGIN
        OR to_regprocedure('vec_contratacion_temporal.validar_preparacion_ct115(jsonb,text,text,text)') IS NULL
        OR to_regprocedure('vec_contratacion_temporal.incorporacion_expediente_ct115(text,text)') IS NULL
        OR to_regclass('vec_contratacion_temporal.entrega_peticion_centro_confirmacion') IS NULL
-       OR to_regclass('vec_contratacion_temporal.peticion_centro_revision') IS NULL THEN
-        RAISE EXCEPTION 'CT124: dependencias incompatibles (CT115 y CT68 requeridas)' USING ERRCODE='55000';
+       OR to_regclass('vec_contratacion_temporal.peticion_centro_revision') IS NULL
+       OR to_regprocedure('vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+       OR strpos(pg_get_functiondef('vec_contratacion_temporal.leer_expediente_aviso_confirmado_v1(text,text,text)'::regprocedure),
+                 $c$IN ('renuncia','expiracion_gobernada')$c$)=0 THEN
+        RAISE EXCEPTION 'CT124: dependencias incompatibles (CT115, CT68, CT119 y CT121 requeridas)' USING ERRCODE='55000';
     END IF;
     IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
        OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_incorporacion_centro_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+       OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+       OR NOT has_function_privilege(current_user,'vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
        OR NOT has_function_privilege(current_user,'vec_autorizacion_atestada_v3.registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
        OR NOT has_function_privilege(current_user,'vec_autorizacion_atestada_v3.registrar_y_consumir_incorporacion_centro_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') THEN
         RAISE EXCEPTION 'CT124: AD3-88 requerida' USING ERRCODE='55000';
@@ -59,7 +70,7 @@ BEGIN
      WHERE conrelid='vec_contratacion_temporal.expediente_version_integral'::regclass
        AND conname='expediente_version_integral_origen_version_check' AND contype='c' AND convalidated;
     IF strpos(v_origen,'''cierre_expediente_ct115''::text')=0 OR right(v_origen,4)<>'])))'
-       OR strpos(v_origen,'confirmacion_ginpix_ct124')<>0 THEN
+       OR strpos(v_origen,'confirmacion_ginpix_ct124')<>0 OR strpos(v_origen,'no_incorporacion_ct124')<>0 THEN
         RAISE EXCEPTION 'CT124: preimagen de origen de versión incompatible' USING ERRCODE='55000';
     END IF;
 END
@@ -74,7 +85,7 @@ BEGIN
     ALTER TABLE vec_contratacion_temporal.expediente_version_integral
         DROP CONSTRAINT expediente_version_integral_origen_version_check;
     EXECUTE 'ALTER TABLE vec_contratacion_temporal.expediente_version_integral ADD CONSTRAINT expediente_version_integral_origen_version_check '
-        ||left(v_origen,length(v_origen)-4)||', ''confirmacion_ginpix_ct124''::text])))';
+        ||left(v_origen,length(v_origen)-4)||', ''confirmacion_ginpix_ct124''::text, ''no_incorporacion_ct124''::text])))';
 END
 $origen$;
 
@@ -759,15 +770,606 @@ BEGIN
 END
 $funcion$;
 
+-- ============================================================ NO INCORPORACIÓN
+-- Duda 12 de RRHH (respuesta de ejemplo): «no incorporación = baja y
+-- siguiente». RRHH registra, con la resolución (referencia y huella) y la
+-- segunda persona que exija el catálogo (c13), que la persona aceptada no se
+-- incorpora. En una transacción: versión y actuación del expediente, que
+-- vuelve a la fiscalización en curso (la necesidad sigue fiscalizada y
+-- pendiente de cubrir), consumo de AD3-88, evento `ct.no-incorporacion.v1` en
+-- el outbox y la intención de siguiente candidato (mismo esquema que CT59),
+-- que continúa el llamamiento como tras una renuncia (CT119, ampliada abajo).
+-- La baja la aplica Bolsa al recibir el evento (Bolsa 000042).
+CREATE TABLE vec_contratacion_temporal.no_incorporacion_v1 (
+    ambito_hmac text PRIMARY KEY CHECK (ambito_hmac ~ '^hmac-sha256:vec[.]contratacion-temporal[.]no-incorporacion[.]ambito/v[1-9][0-9]{0,8}:[0-9a-f]{64}$'),
+    huella_peticion_hmac text NOT NULL CHECK (huella_peticion_hmac ~ '^hmac-sha256:vec[.]contratacion-temporal[.]no-incorporacion[.]peticion/v[1-9][0-9]{0,8}:[0-9a-f]{64}$'),
+    organizacion_ref text NOT NULL,
+    expediente_ref text NOT NULL,
+    version_esperada numeric(20,0) NOT NULL CHECK (version_esperada BETWEEN 1 AND 9007199254740990),
+    actor_ref text NOT NULL,
+    perfil_ref text NOT NULL,
+    motivo_clave text NOT NULL CHECK (motivo_clave ~ '^[a-z][a-z0-9_]{1,63}$'),
+    consecuencia_clave text NOT NULL CHECK (consecuencia_clave ~ '^[a-z0-9][a-z0-9._-]{0,127}$'),
+    resolucion_ref text NOT NULL CHECK (vec_contratacion_temporal.referencia_valida_ct115(resolucion_ref)),
+    resolucion_sha256 text NOT NULL CHECK (resolucion_sha256 ~ '^[0-9a-f]{64}$' AND resolucion_sha256<>repeat('0',64)),
+    resuelta_por text NOT NULL CHECK (vec_contratacion_temporal.referencia_valida_ct115(resuelta_por)),
+    segunda_persona boolean NOT NULL,
+    fecha_notificacion date NOT NULL CHECK (isfinite(fecha_notificacion)),
+    observaciones text NOT NULL CHECK (vec_contratacion_temporal.texto_valido_ct115(observaciones,2000,true)),
+    aceptacion_resolucion_ref text NOT NULL UNIQUE REFERENCES vec_contratacion_temporal.resolucion_manual_respuesta_rrhh(resolucion_ref),
+    propuesta_ref text NOT NULL UNIQUE REFERENCES vec_contratacion_temporal.propuesta_formalizacion(propuesta_ref),
+    llamamiento_ref text NOT NULL CHECK (vec_contratacion_temporal.referencia_valida_ct115(llamamiento_ref)),
+    intencion_ref text NOT NULL UNIQUE CHECK (vec_contratacion_temporal.referencia_valida_ct115(intencion_ref)),
+    comando_siguiente_ref text NOT NULL UNIQUE CHECK (vec_contratacion_temporal.referencia_valida_ct115(comando_siguiente_ref)),
+    comando_siguiente_json jsonb NOT NULL CHECK (
+        vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(comando_siguiente_json,ARRAY['esquema','comando_ref','intencion_ref',
+            'organizacion_ref','expediente_ref','llamamiento_ref','justificante_ref','seleccion_clave']) IS TRUE
+        AND comando_siguiente_json->>'esquema'='vec.contratacion-temporal.siguiente-candidato.intencion.v1'
+        AND comando_siguiente_json->>'comando_ref'=comando_siguiente_ref
+        AND comando_siguiente_json->>'intencion_ref'=intencion_ref
+        AND comando_siguiente_json->>'organizacion_ref'=organizacion_ref
+        AND comando_siguiente_json->>'expediente_ref'=expediente_ref
+        AND comando_siguiente_json->>'llamamiento_ref'=llamamiento_ref),
+    estado text NOT NULL CHECK (estado='registrada'),
+    reserva_ref text NOT NULL UNIQUE,
+    recibo_ref text NOT NULL UNIQUE,
+    evento_ref text NOT NULL UNIQUE,
+    expediente_anterior_json jsonb NOT NULL CHECK (jsonb_typeof(expediente_anterior_json)='object'),
+    expediente_siguiente_json jsonb NOT NULL CHECK (jsonb_typeof(expediente_siguiente_json)='object'),
+    recibo_json jsonb NOT NULL CHECK (jsonb_typeof(recibo_json)='object'),
+    decision_ref text NOT NULL UNIQUE,
+    decision_huella_sha256 text NOT NULL CHECK (decision_huella_sha256 ~ '^[0-9a-f]{64}$'),
+    consumo_huella_sha256 text NOT NULL UNIQUE CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
+    auditoria_ref text NOT NULL UNIQUE CHECK (auditoria_ref ~ '^aud_v3_[0-9a-f]{32}$'),
+    politica_ref text NOT NULL,
+    politica_version numeric(20,0) NOT NULL CHECK (politica_version BETWEEN 1 AND 9007199254740991),
+    politica_huella_sha256 text NOT NULL CHECK (politica_huella_sha256 ~ '^[0-9a-f]{64}$'),
+    registrada_en timestamptz(6) NOT NULL CHECK (isfinite(registrada_en)),
+    confirmada_en timestamptz(6) NOT NULL CHECK (confirmada_en>=registrada_en),
+    -- Posición de publicación a Bolsa (como CT113): la transacción que la
+    -- escribió; la lectura solo publica transacciones ya terminadas.
+    transaccion_publicacion xid8 NOT NULL DEFAULT pg_current_xact_id(),
+    CHECK (NOT segunda_persona OR resuelta_por<>actor_ref),
+    UNIQUE (expediente_ref,version_esperada),
+    FOREIGN KEY (expediente_ref,version_esperada) REFERENCES vec_contratacion_temporal.expediente_version_integral
+);
+CREATE INDEX no_incorporacion_v1_publicacion ON vec_contratacion_temporal.no_incorporacion_v1 (transaccion_publicacion, evento_ref);
+ALTER TABLE vec_contratacion_temporal.no_incorporacion_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.no_incorporacion_v1 FORCE ROW LEVEL SECURITY;
+-- Lectura: solo desde una sesión del ejecutor (fachadas definidoras de CT: la
+-- propia operación, la continuación de CT119, la publicación y la consulta).
+CREATE POLICY lectura_no_incorporacion_ct124 ON vec_contratacion_temporal.no_incorporacion_v1 FOR SELECT TO vec_contratacion_temporal_propietario USING (
+    pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+    AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+    AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER'));
+CREATE POLICY escritura_no_incorporacion_ct124 ON vec_contratacion_temporal.no_incorporacion_v1 FOR INSERT TO vec_contratacion_temporal_propietario WITH CHECK (
+    organizacion_ref=current_setting('vec.ct115.organizacion_ref',true)
+    AND expediente_ref=current_setting('vec.ct115.expediente_ref',true)
+    AND actor_ref=current_setting('vec.ct115.actor_ref',true)
+    AND perfil_ref=current_setting('vec.ct115.perfil_ref',true)
+    AND ambito_hmac=current_setting('vec.ct115.ambito_hmac',true)
+    AND pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+    AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+    AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER'));
+CREATE TRIGGER no_incorporacion_v1_inmutable BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.no_incorporacion_v1
+    FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+
+-- Material de la no incorporación: forma exacta y tipos. Devuelve la fecha
+-- de notificación de la resolución.
+CREATE FUNCTION vec_contratacion_temporal.validar_material_no_incorporacion_ct124(m jsonb)
+RETURNS date LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $$
+DECLARE k text; f date;
+BEGIN
+    IF m IS NULL OR vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(m,ARRAY['organizacion_ref','expediente_ref','version_esperada',
+        'actor_ref','perfil_ref','motivo_clave','consecuencia_clave','resolucion_ref','resolucion_sha256','resuelta_por','segunda_persona',
+        'fecha_notificacion','observaciones']) IS NOT TRUE
+       OR EXISTS (SELECT 1 FROM jsonb_each(m) c WHERE jsonb_typeof(c.value) IS DISTINCT FROM
+            CASE c.key WHEN 'version_esperada' THEN 'number' WHEN 'segunda_persona' THEN 'boolean' ELSE 'string' END)
+       OR m->>'version_esperada' !~ '^[1-9][0-9]{0,15}$' OR (m->>'version_esperada')::numeric>9007199254740990
+       OR m->>'motivo_clave' !~ '^[a-z][a-z0-9_]{1,63}$'
+       OR m->>'consecuencia_clave' !~ '^[a-z0-9][a-z0-9._-]{0,127}$'
+       OR m->>'resolucion_sha256' !~ '^[0-9a-f]{64}$' OR m->>'resolucion_sha256'=repeat('0',64)
+       OR m->>'fecha_notificacion' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+       OR NOT vec_contratacion_temporal.texto_valido_ct115(m->>'observaciones',2000,true)
+       OR ((m->'segunda_persona')::boolean AND m->>'resuelta_por'=m->>'actor_ref') THEN
+        RAISE EXCEPTION 'CT124: material de no incorporación inválido' USING ERRCODE='22023';
+    END IF;
+    FOREACH k IN ARRAY ARRAY['organizacion_ref','expediente_ref','actor_ref','perfil_ref','resolucion_ref','resuelta_por'] LOOP
+        IF NOT vec_contratacion_temporal.referencia_valida_ct115(m->>k) THEN
+            RAISE EXCEPTION 'CT124: referencia de no incorporación inválida' USING ERRCODE='22023';
+        END IF;
+    END LOOP;
+    f:=(m->>'fecha_notificacion')::date;
+    IF to_char(f,'YYYY-MM-DD')<>m->>'fecha_notificacion' THEN
+        RAISE EXCEPTION 'CT124: fecha de no incorporación inválida' USING ERRCODE='22023';
+    END IF;
+    RETURN f;
+EXCEPTION WHEN invalid_datetime_format OR datetime_field_overflow THEN
+    RAISE EXCEPTION 'CT124: fecha de no incorporación inválida' USING ERRCODE='22023';
+END
+$$;
+
+-- Aceptación vigente del expediente: la de la propuesta de nombramiento más
+-- reciente, confirmada por RRHH y todavía sin continuación.
+CREATE FUNCTION vec_contratacion_temporal.aceptacion_vigente_ct124(p_organizacion text, p_expediente text)
+RETURNS TABLE(propuesta_ref text, llamamiento_ref text, resolucion_ref text, justificante_ref text, seleccion_clave text, resuelta_en timestamptz)
+LANGUAGE sql STABLE SET search_path=pg_catalog AS $$
+    SELECT pf.propuesta_ref, pf.llamamiento_ref, r.resolucion_ref, r.justificante_ref, r.seleccion_clave::text, r.resuelta_en
+      FROM vec_contratacion_temporal.propuesta_formalizacion pf
+      JOIN vec_contratacion_temporal.resolucion_manual_respuesta_rrhh r ON r.resolucion_ref=pf.resolucion_ref
+     WHERE pf.organizacion_ref=p_organizacion AND pf.expediente_ref=p_expediente
+       AND r.organizacion_ref=p_organizacion AND r.expediente_ref=p_expediente AND r.llamamiento_ref=pf.llamamiento_ref
+       AND r.estado='confirmado' AND r.solicitud_json->>'Respuesta'='aceptacion'
+       AND r.justificante_ref IS NOT NULL AND r.continuacion_clave IS NULL
+     ORDER BY pf.confirmada_en DESC, pf.propuesta_ref COLLATE "C" DESC LIMIT 1
+$$;
+
+-- Intención de siguiente candidato derivada del ámbito de idempotencia: la
+-- misma petición produce siempre las mismas referencias.
+CREATE FUNCTION vec_contratacion_temporal.intencion_no_incorporacion_ct124(p_ambito text, p_organizacion text, p_expediente text,
+    p_llamamiento text, p_justificante text, p_seleccion text)
+RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $$
+    SELECT jsonb_build_object('esquema','vec.contratacion-temporal.siguiente-candidato.intencion.v1',
+        'comando_ref','comando:ct124:'||encode(sha256(convert_to('comando'||chr(31)||p_ambito,'UTF8')),'hex'),
+        'intencion_ref','intencion:ct124:'||encode(sha256(convert_to('intencion'||chr(31)||p_ambito,'UTF8')),'hex'),
+        'organizacion_ref',p_organizacion,'expediente_ref',p_expediente,'llamamiento_ref',p_llamamiento,
+        'justificante_ref',p_justificante,'seleccion_clave',p_seleccion)
+$$;
+
+CREATE FUNCTION vec_contratacion_temporal.resultado_no_incorporacion_ct124(r vec_contratacion_temporal.no_incorporacion_v1)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog AS $$
+    SELECT jsonb_build_object('esquema','vec.contratacion-temporal.resultado-no-incorporacion.v1','resultado','confirmada',
+        'material',jsonb_build_object('organizacion_ref',r.organizacion_ref,'expediente_ref',r.expediente_ref,
+            'version_esperada',r.version_esperada,'actor_ref',r.actor_ref,'perfil_ref',r.perfil_ref,'motivo_clave',r.motivo_clave,
+            'consecuencia_clave',r.consecuencia_clave,'resolucion_ref',r.resolucion_ref,'resolucion_sha256',r.resolucion_sha256,
+            'resuelta_por',r.resuelta_por,'segunda_persona',r.segunda_persona,
+            'fecha_notificacion',to_char(r.fecha_notificacion,'YYYY-MM-DD'),'observaciones',r.observaciones),
+        'expediente',r.expediente_siguiente_json,
+        'referencias',jsonb_build_object('reserva_ref',r.reserva_ref,'recibo_ref',r.recibo_ref,'evento_ref',r.evento_ref),
+        'aceptacion',jsonb_build_object('resolucion_ref',r.aceptacion_resolucion_ref),
+        'ambito_idempotencia_hmac',r.ambito_hmac,'huella_peticion_hmac',r.huella_peticion_hmac,'recibo',r.recibo_json)
+$$;
+
+CREATE FUNCTION vec_contratacion_temporal.preparar_no_incorporacion_v1(p_operacion jsonb)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s'
+AS $funcion$
+DECLARE
+    m jsonb:=p_operacion->'material'; v_pares jsonb; v_par jsonb; v_fecha date;
+    r vec_contratacion_temporal.no_incorporacion_v1%ROWTYPE; v_actual record; v_acept record;
+    e text:='vec.contratacion-temporal.resultado-no-incorporacion.v1';
+BEGIN
+    PERFORM vec_contratacion_temporal.exigir_sesion_ct115(true);
+    v_pares:=vec_contratacion_temporal.validar_preparacion_ct115(p_operacion,'vec.contratacion-temporal.preparar-no-incorporacion.v1','registrar_no_incorporacion','no-incorporacion');
+    v_fecha:=vec_contratacion_temporal.validar_material_no_incorporacion_ct124(m);
+    PERFORM set_config('vec.ct115.organizacion_ref',m->>'organizacion_ref',true);
+    PERFORM set_config('vec.ct115.expediente_ref',m->>'expediente_ref',true);
+    FOR v_par IN SELECT value FROM jsonb_array_elements(v_pares) LOOP
+        SELECT * INTO r FROM vec_contratacion_temporal.no_incorporacion_v1 WHERE ambito_hmac=v_par->>'ambito_hmac';
+        IF FOUND THEN
+            IF r.huella_peticion_hmac IS DISTINCT FROM v_par->>'huella_peticion_hmac' OR r.organizacion_ref<>m->>'organizacion_ref'
+               OR r.expediente_ref<>m->>'expediente_ref' OR r.version_esperada<>(m->>'version_esperada')::numeric
+               OR r.actor_ref<>m->>'actor_ref' OR r.perfil_ref<>m->>'perfil_ref' OR r.motivo_clave<>m->>'motivo_clave'
+               OR r.consecuencia_clave<>m->>'consecuencia_clave' OR r.resolucion_ref<>m->>'resolucion_ref'
+               OR r.resolucion_sha256<>m->>'resolucion_sha256' OR r.resuelta_por<>m->>'resuelta_por'
+               OR r.segunda_persona<>(m->'segunda_persona')::boolean OR r.fecha_notificacion<>v_fecha OR r.observaciones<>m->>'observaciones' THEN
+                RETURN jsonb_build_object('esquema',e,'resultado','idempotencia_reutilizada');
+            END IF;
+            RETURN vec_contratacion_temporal.resultado_no_incorporacion_ct124(r);
+        END IF;
+    END LOOP;
+    IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.no_incorporacion_v1 n
+                WHERE n.organizacion_ref=m->>'organizacion_ref' AND n.expediente_ref=m->>'expediente_ref'
+                  AND n.propuesta_ref=(SELECT a.propuesta_ref FROM vec_contratacion_temporal.propuesta_formalizacion a
+                                        WHERE a.organizacion_ref=m->>'organizacion_ref' AND a.expediente_ref=m->>'expediente_ref')) THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','no_incorporacion_existente');
+    END IF;
+    SELECT a.version, v.agregado_json INTO v_actual
+      FROM vec_contratacion_temporal.expediente_integral_actual a
+      JOIN vec_contratacion_temporal.expediente_version_integral v USING (expediente_ref,version)
+     WHERE a.expediente_ref=m->>'expediente_ref';
+    IF NOT FOUND OR v_actual.version<>(m->>'version_esperada')::numeric
+       OR v_actual.agregado_json->>'organizacion_ref' IS DISTINCT FROM m->>'organizacion_ref'
+       OR v_actual.agregado_json->>'fase_actual' IS DISTINCT FROM 'nombramiento'
+       OR v_actual.agregado_json->>'estado_actual' IS DISTINCT FROM 'en_curso'
+       OR NOT vec_contratacion_temporal.referencia_valida_ct115(v_actual.agregado_json#>>'{asignacion,unidad_ref}') THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','version_en_conflicto');
+    END IF;
+    IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.incorporacion_expediente_ct115(m->>'organizacion_ref',m->>'expediente_ref')) THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','incorporacion_existente');
+    END IF;
+    SELECT * INTO v_acept FROM vec_contratacion_temporal.aceptacion_vigente_ct124(m->>'organizacion_ref',m->>'expediente_ref');
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','sin_aceptacion');
+    END IF;
+    RETURN jsonb_build_object('esquema',e,'resultado','preparada','material',m,'expediente',v_actual.agregado_json,
+        'referencias',p_operacion->'referencias_candidatas',
+        'aceptacion',jsonb_build_object('resolucion_ref',v_acept.resolucion_ref),
+        'ambito_idempotencia_hmac',p_operacion#>>'{sellos_hmac,activo,ambito_hmac}',
+        'huella_peticion_hmac',p_operacion#>>'{sellos_hmac,activo,huella_peticion_hmac}');
+EXCEPTION WHEN invalid_text_representation OR datetime_field_overflow OR numeric_value_out_of_range OR character_not_in_repertoire THEN
+    RAISE EXCEPTION 'CT124: entrada de no incorporación inválida' USING ERRCODE='22023';
+END
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.confirmar_no_incorporacion_v1(
+    p_operacion jsonb,
+    p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+    p_persona_version numeric,p_perfil_version numeric,
+    p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s'
+AS $funcion$
+DECLARE
+    m jsonb:=p_operacion->'material'; refs jsonb:=p_operacion->'referencias'; pol jsonb:=p_operacion->'politica'; a jsonb:=p_operacion->'autorizacion';
+    e text:='vec.contratacion-temporal.resultado-no-incorporacion.v1';
+    r vec_contratacion_temporal.no_incorporacion_v1%ROWTYPE;
+    v_fecha date; v_version numeric; v_instante timestamptz; v_ahora timestamptz(6); v_actual record; v_acept record;
+    v_decision jsonb; v_consumo record; v_actuacion jsonb; v_siguiente jsonb; v_ambitos jsonb; v_atributos jsonb; v_contexto text;
+    v_secuencia_actuacion numeric; v_agregado_huella text; v_prueba bytea; v_payload bytea; v_anterior text; v_secuencia numeric;
+    v_recibo jsonb; v_comando jsonb; v_restriccion text; v_tabla text; v_esquema text;
+BEGIN
+    PERFORM vec_contratacion_temporal.exigir_sesion_ct115(false);
+    PERFORM vec_contratacion_temporal.validar_confirmacion_ct115(p_operacion,'vec.contratacion-temporal.confirmar-no-incorporacion.v1','registrar_no_incorporacion',
+        'no-incorporacion','contratacion_temporal.incorporacion.no_incorporacion','registrar_no_incorporacion_contratacion_temporal',p_decision,p_motivo,p_persona_version,p_perfil_version);
+    v_fecha:=vec_contratacion_temporal.validar_material_no_incorporacion_ct124(m);
+    IF p_capacidad IS NULL OR p_contexto IS NULL OR p_payload IS NULL OR p_sobre IS NULL OR p_evidencia IS NULL OR p_raiz IS NULL THEN
+        RAISE EXCEPTION 'CT124: autorización incompleta' USING ERRCODE='42501';
+    END IF;
+    v_version:=(m->>'version_esperada')::numeric;
+    v_instante:=(p_operacion->>'instante_efecto')::timestamptz;
+    v_decision:=convert_from(p_decision,'UTF8')::jsonb;
+    PERFORM set_config('vec.ct115.organizacion_ref',m->>'organizacion_ref',true);
+    PERFORM set_config('vec.ct115.expediente_ref',m->>'expediente_ref',true);
+    PERFORM set_config('vec.ct115.actor_ref',m->>'actor_ref',true);
+    PERFORM set_config('vec.ct115.perfil_ref',m->>'perfil_ref',true);
+    PERFORM set_config('vec.ct115.ambito_hmac',p_operacion->>'ambito_idempotencia_hmac',true);
+    SELECT * INTO r FROM vec_contratacion_temporal.no_incorporacion_v1 WHERE ambito_hmac=p_operacion->>'ambito_idempotencia_hmac';
+    IF FOUND THEN
+        IF r.huella_peticion_hmac IS DISTINCT FROM p_operacion->>'huella_peticion_hmac' OR r.version_esperada<>v_version
+           OR r.motivo_clave<>m->>'motivo_clave' OR r.consecuencia_clave<>m->>'consecuencia_clave' OR r.resolucion_ref<>m->>'resolucion_ref'
+           OR r.resolucion_sha256<>m->>'resolucion_sha256' OR r.resuelta_por<>m->>'resuelta_por' OR r.segunda_persona<>(m->'segunda_persona')::boolean
+           OR r.fecha_notificacion<>v_fecha OR r.observaciones<>m->>'observaciones' THEN
+            RETURN jsonb_build_object('esquema',e,'resultado','idempotencia_reutilizada');
+        END IF;
+        IF r.decision_ref IS DISTINCT FROM a->>'decision_ref' THEN
+            RAISE EXCEPTION 'CT124: evidencia de repetición divergente' USING ERRCODE='42501';
+        END IF;
+        RETURN jsonb_build_object('esquema',e,'resultado','confirmada','recibo',r.recibo_json);
+    END IF;
+    SELECT v.* INTO v_actual FROM vec_contratacion_temporal.expediente_integral_actual ac
+      JOIN vec_contratacion_temporal.expediente_version_integral v USING (expediente_ref,version)
+     WHERE ac.expediente_ref=m->>'expediente_ref' FOR UPDATE OF ac,v;
+    IF NOT FOUND OR v_actual.version<>v_version
+       OR v_actual.agregado_json IS DISTINCT FROM p_operacion->'expediente_anterior'
+       OR v_actual.agregado_json->>'organizacion_ref' IS DISTINCT FROM m->>'organizacion_ref'
+       OR v_actual.agregado_json->>'fase_actual' IS DISTINCT FROM 'nombramiento'
+       OR v_actual.agregado_json->>'estado_actual' IS DISTINCT FROM 'en_curso'
+       OR jsonb_typeof(v_actual.agregado_json->'actuaciones') IS DISTINCT FROM 'array'
+       OR NOT vec_contratacion_temporal.referencia_valida_ct115(v_actual.agregado_json#>>'{asignacion,unidad_ref}') THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','version_en_conflicto');
+    END IF;
+    IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.incorporacion_expediente_ct115(m->>'organizacion_ref',m->>'expediente_ref')) THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','incorporacion_existente');
+    END IF;
+    SELECT * INTO v_acept FROM vec_contratacion_temporal.aceptacion_vigente_ct124(m->>'organizacion_ref',m->>'expediente_ref');
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','sin_aceptacion');
+    END IF;
+    -- Bloquea la resolución de aceptación: su continuación la ocupa CT119.
+    PERFORM 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh WHERE resolucion_ref=v_acept.resolucion_ref FOR UPDATE;
+    IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.no_incorporacion_v1 WHERE aceptacion_resolucion_ref=v_acept.resolucion_ref) THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','no_incorporacion_existente');
+    END IF;
+    IF v_fecha>(v_instante AT TIME ZONE 'Europe/Madrid')::date OR v_instante<v_acept.resuelta_en THEN
+        RETURN jsonb_build_object('esquema',e,'resultado','fecha_no_admitida');
+    END IF;
+    v_secuencia_actuacion:=jsonb_array_length(v_actual.agregado_json->'actuaciones')+1;
+    v_actuacion:=jsonb_build_object('secuencia',v_secuencia_actuacion,'version_expediente',v_version+1,
+        'accion_clave','contratacion_temporal.incorporacion.no_incorporacion','actor_ref',m->>'actor_ref',
+        'unidad_ref',v_actual.agregado_json#>>'{asignacion,unidad_ref}','recibo_ref',refs->>'recibo_ref',
+        'realizada_en',p_operacion->'instante_efecto','fase_origen','nombramiento','fase_destino','fiscalizacion',
+        'estado_origen','en_curso','estado_destino','en_curso','documentos_ref',jsonb_build_array(m->>'resolucion_ref'));
+    IF m->>'observaciones'<>'' THEN
+        v_actuacion:=v_actuacion||jsonb_build_object('observaciones',m->>'observaciones');
+    END IF;
+    v_siguiente:=v_actual.agregado_json||jsonb_build_object('version',v_version+1,'actualizado_en',p_operacion->'instante_efecto',
+        'fase_actual','fiscalizacion','actuaciones',(v_actual.agregado_json->'actuaciones')||jsonb_build_array(v_actuacion));
+    IF v_instante<(v_actual.agregado_json->>'actualizado_en')::timestamptz
+       OR v_actuacion IS DISTINCT FROM p_operacion->'actuacion'
+       OR v_siguiente IS DISTINCT FROM p_operacion->'expediente_siguiente' THEN
+        RAISE EXCEPTION 'CT124: proyección de no incorporación divergente' USING ERRCODE='22023';
+    END IF;
+    v_ambitos:=jsonb_build_object('organizacion_ref',m->>'organizacion_ref','expediente_ref',m->>'expediente_ref',
+        'fase_previa','nombramiento','estado_previo','en_curso');
+    v_atributos:=jsonb_build_object('version_expediente',v_version::text,'motivo_clave',m->>'motivo_clave',
+        'consecuencia_clave',m->>'consecuencia_clave','resolucion_ref',m->>'resolucion_ref','resolucion_sha256',m->>'resolucion_sha256',
+        'resuelta_por',m->>'resuelta_por','segunda_persona',CASE WHEN (m->'segunda_persona')::boolean THEN 'si' ELSE 'no' END,
+        'fecha_notificacion',m->>'fecha_notificacion',
+        'observaciones_huella_sha256',encode(sha256(convert_to(m->>'observaciones','UTF8')),'hex'),
+        'aceptacion_ref',v_acept.resolucion_ref,'politica_ref',pol->>'definicion_ref','politica_version',pol->>'definicion_version',
+        'politica_huella_sha256',pol->>'definicion_huella_sha256','ambito_idempotencia_hmac',p_operacion->>'ambito_idempotencia_hmac',
+        'huella_peticion_hmac',p_operacion->>'huella_peticion_hmac');
+    IF p_operacion#>'{contexto,ambitos}' IS DISTINCT FROM v_ambitos OR p_operacion#>'{contexto,atributos}' IS DISTINCT FROM v_atributos THEN
+        RAISE EXCEPTION 'CT124: contexto de no incorporación divergente' USING ERRCODE='42501';
+    END IF;
+    v_contexto:=vec_contratacion_temporal.huella_contexto_go_ct115(v_ambitos,v_atributos);
+    IF a->>'contexto_recurso_huella_sha256' IS DISTINCT FROM v_contexto
+       OR v_decision->>'contexto_recurso_huella_sha256' IS DISTINCT FROM v_contexto
+       OR v_decision->>'principal_id' IS DISTINCT FROM m->>'actor_ref'
+       OR v_decision->>'perfil_activo_ref' IS DISTINCT FROM m->>'perfil_ref'
+       OR v_decision->>'recurso_ref' IS DISTINCT FROM m->>'expediente_ref'
+       OR v_decision->>'accion' IS DISTINCT FROM 'contratacion_temporal.incorporacion.no_incorporacion'
+       OR v_decision->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+       OR v_decision->>'tipo_recurso' IS DISTINCT FROM 'no_incorporacion_contratacion_temporal'
+       OR v_decision->>'finalidad' IS DISTINCT FROM 'registrar_no_incorporacion_contratacion_temporal'
+       OR v_decision->>'decision_ref' IS DISTINCT FROM a->>'decision_ref' THEN
+        RAISE EXCEPTION 'CT124: contexto autorizado de no incorporación divergente' USING ERRCODE='42501';
+    END IF;
+    v_ahora:=date_trunc('microseconds',clock_timestamp());
+    IF (pol->>'evaluada_en')::timestamptz>v_instante OR v_ahora<v_instante OR v_ahora>=(pol->>'valida_hasta')::timestamptz THEN
+        RAISE EXCEPTION 'CT124: vigencia de no incorporación agotada' USING ERRCODE='42501';
+    END IF;
+    SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(
+        p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+    IF v_consumo.decision_ref IS DISTINCT FROM a->>'decision_ref' OR v_consumo.efecto_ref IS DISTINCT FROM m->>'expediente_ref'
+       OR v_consumo.huella_efecto_sha256 IS DISTINCT FROM v_contexto OR coalesce(v_consumo.auditoria_ref,'') !~ '^aud_v3_[0-9a-f]{32}$'
+       OR v_consumo.consumo_nuevo IS NOT TRUE THEN
+        RAISE EXCEPTION 'CT124: consumo de no incorporación divergente' USING ERRCODE='42501';
+    END IF;
+    v_ahora:=date_trunc('microseconds',clock_timestamp());
+    IF v_ahora<v_instante OR v_ahora>=(pol->>'valida_hasta')::timestamptz THEN
+        RAISE EXCEPTION 'CT124: vigencia final de no incorporación agotada' USING ERRCODE='42501';
+    END IF;
+    v_comando:=vec_contratacion_temporal.intencion_no_incorporacion_ct124(p_operacion->>'ambito_idempotencia_hmac',m->>'organizacion_ref',
+        m->>'expediente_ref',v_acept.llamamiento_ref,v_acept.justificante_ref,v_acept.seleccion_clave);
+    v_agregado_huella:=encode(sha256(convert_to(v_siguiente::text,'UTF8')),'hex');
+    v_prueba:=convert_to('VEC-CT-EXPEDIENTE-NO-INCORPORACION-CT124'||chr(10)||(m->>'expediente_ref')||chr(10)||(v_version+1)::text||chr(10)
+        ||v_agregado_huella||chr(10)||(refs->>'reserva_ref')||chr(10)||(refs->>'recibo_ref')||chr(10)||v_consumo.decision_ref||chr(10)||v_ahora::text,'UTF8');
+    INSERT INTO vec_contratacion_temporal.expediente_version_integral(
+        expediente_ref,version,agregado_json,agregado_json_huella_sha256,prueba_canonica,prueba_huella_sha256,
+        flujo_ref,flujo_version,flujo_huella_sha256,fase_clave,estado,origen_version,operacion_ref,registrada_en)
+    VALUES(m->>'expediente_ref',v_version+1,v_siguiente,v_agregado_huella,v_prueba,encode(sha256(v_prueba),'hex'),
+        v_actual.flujo_ref,v_actual.flujo_version,v_actual.flujo_huella_sha256,'fiscalizacion','en_curso',
+        'no_incorporacion_ct124',refs->>'reserva_ref',v_ahora);
+    UPDATE vec_contratacion_temporal.expediente_integral_actual SET version=v_version+1,actualizada_en=v_ahora,operacion_ref=refs->>'reserva_ref'
+     WHERE expediente_ref=m->>'expediente_ref' AND version=v_version;
+    IF NOT FOUND THEN RAISE EXCEPTION 'CT124: CAS final de no incorporación perdido' USING ERRCODE='40001'; END IF;
+    v_prueba:=convert_to('VEC-CT-ACTUACION-NO-INCORPORACION-CT124'||chr(10)||encode(sha256(convert_to(v_actuacion::text,'UTF8')),'hex')||chr(10)
+        ||(refs->>'recibo_ref')||chr(10)||v_ahora::text,'UTF8');
+    INSERT INTO vec_contratacion_temporal.actuacion_expediente_integral(
+        expediente_ref,secuencia,version_expediente,operacion_ref,recibo_ref,actuacion_json,
+        actuacion_json_huella_sha256,prueba_canonica,prueba_huella_sha256,registrada_en)
+    VALUES(m->>'expediente_ref',v_secuencia_actuacion,v_version+1,refs->>'reserva_ref',refs->>'recibo_ref',v_actuacion,
+        encode(sha256(convert_to(v_actuacion::text,'UTF8')),'hex'),v_prueba,encode(sha256(v_prueba),'hex'),v_ahora);
+    SELECT secuencia_outbox,cabeza_outbox_sha256 INTO STRICT v_secuencia,v_anterior
+      FROM vec_contratacion_temporal.control_cadenas_expediente_integral WHERE control_id FOR UPDATE;
+    IF v_secuencia>=9007199254740991 THEN RAISE EXCEPTION 'CT124: límite de outbox alcanzado' USING ERRCODE='22003'; END IF;
+    v_secuencia:=v_secuencia+1;
+    -- Evento `ct.no-incorporacion.v1`: referencias opacas, claves del
+    -- catálogo, la resolución (referencia y huella) y quién la resolvió.
+    v_payload:=convert_to(jsonb_build_object('esquema','vec.contratacion-temporal.no-incorporacion.v1','organizacion_ref',m->>'organizacion_ref',
+        'expediente_ref',m->>'expediente_ref','version_resultante',v_version+1,'llamamiento_ref',v_acept.llamamiento_ref,
+        'motivo_clave',m->>'motivo_clave','consecuencia_clave',m->>'consecuencia_clave','resolucion_ref',m->>'resolucion_ref',
+        'resolucion_sha256',m->>'resolucion_sha256','resuelta_por',m->>'resuelta_por','fecha_notificacion',m->>'fecha_notificacion',
+        'intencion_ref',v_comando->>'intencion_ref','recibo_ref',refs->>'recibo_ref','registrada_en',p_operacion->'instante_efecto')::text,'UTF8');
+    INSERT INTO vec_contratacion_temporal.outbox_expediente_integral(
+        evento_ref,secuencia,operacion_ref,expediente_ref,version_expediente,tipo_evento,payload_canonico,
+        payload_huella_sha256,anterior_sha256,huella_sha256,registrada_en)
+    VALUES(refs->>'evento_ref',v_secuencia,refs->>'reserva_ref',m->>'expediente_ref',v_version+1,'ct.no-incorporacion.v1',v_payload,
+        encode(sha256(v_payload),'hex'),v_anterior,encode(sha256(v_anterior::bytea||v_payload),'hex'),v_ahora);
+    UPDATE vec_contratacion_temporal.control_cadenas_expediente_integral
+       SET secuencia_outbox=v_secuencia,cabeza_outbox_sha256=encode(sha256(v_anterior::bytea||v_payload),'hex'),actualizada_en=v_ahora
+     WHERE control_id;
+    v_recibo:=jsonb_build_object('operacion','registrar_no_incorporacion','organizacion_ref',m->>'organizacion_ref','expediente_ref',m->>'expediente_ref',
+        'version_anterior',v_version,'version_resultante',v_version+1,'fase_resultante','fiscalizacion','estado_resultante','en_curso',
+        'causa_clave',m->>'motivo_clave','recibo_ref',refs->>'recibo_ref',
+        'auditoria_ref',v_consumo.auditoria_ref,'evento_ref',refs->>'evento_ref','actor_ref',m->>'actor_ref',
+        'registrada_en',p_operacion->'instante_efecto');
+    INSERT INTO vec_contratacion_temporal.no_incorporacion_v1(
+        ambito_hmac,huella_peticion_hmac,organizacion_ref,expediente_ref,version_esperada,actor_ref,perfil_ref,motivo_clave,consecuencia_clave,
+        resolucion_ref,resolucion_sha256,resuelta_por,segunda_persona,fecha_notificacion,observaciones,aceptacion_resolucion_ref,propuesta_ref,
+        llamamiento_ref,intencion_ref,comando_siguiente_ref,comando_siguiente_json,estado,reserva_ref,recibo_ref,evento_ref,
+        expediente_anterior_json,expediente_siguiente_json,recibo_json,decision_ref,decision_huella_sha256,consumo_huella_sha256,auditoria_ref,
+        politica_ref,politica_version,politica_huella_sha256,registrada_en,confirmada_en)
+    VALUES(p_operacion->>'ambito_idempotencia_hmac',p_operacion->>'huella_peticion_hmac',m->>'organizacion_ref',m->>'expediente_ref',v_version,
+        m->>'actor_ref',m->>'perfil_ref',m->>'motivo_clave',m->>'consecuencia_clave',m->>'resolucion_ref',m->>'resolucion_sha256',
+        m->>'resuelta_por',(m->'segunda_persona')::boolean,v_fecha,m->>'observaciones',v_acept.resolucion_ref,v_acept.propuesta_ref,
+        v_acept.llamamiento_ref,v_comando->>'intencion_ref',v_comando->>'comando_ref',v_comando,'registrada',
+        refs->>'reserva_ref',refs->>'recibo_ref',refs->>'evento_ref',v_actual.agregado_json,v_siguiente,v_recibo,v_consumo.decision_ref,
+        a->>'decision_huella_sha256',v_consumo.consumo_huella_sha256,v_consumo.auditoria_ref,pol->>'definicion_ref',
+        (pol->>'definicion_version')::numeric,pol->>'definicion_huella_sha256',v_instante,v_ahora);
+    RETURN jsonb_build_object('esquema',e,'resultado','confirmada','recibo',v_recibo);
+EXCEPTION
+WHEN unique_violation THEN
+    GET STACKED DIAGNOSTICS v_restriccion=CONSTRAINT_NAME,v_tabla=TABLE_NAME,v_esquema=SCHEMA_NAME;
+    IF v_esquema='vec_contratacion_temporal' AND v_tabla='no_incorporacion_v1' THEN
+        RETURN jsonb_build_object('esquema',e,'resultado',CASE WHEN v_restriccion='no_incorporacion_v1_pkey' THEN 'idempotencia_reutilizada' ELSE 'no_incorporacion_existente' END);
+    END IF;
+    RAISE;
+WHEN invalid_text_representation OR datetime_field_overflow OR numeric_value_out_of_range OR character_not_in_repertoire THEN
+    RAISE EXCEPTION 'CT124: entrada de no incorporación inválida' USING ERRCODE='22023';
+END
+$funcion$;
+
+-- Publicación a Bolsa (bandeja de Bolsa 000042), como CT113: paginada por
+-- (posición, evento) y solo de transacciones ya terminadas. El evento lleva
+-- referencias opacas, las claves del catálogo y la resolución por referencia
+-- y huella; nunca datos de la persona.
+CREATE FUNCTION vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(p_desde_posicion bigint, p_desde_ref text, p_limite integer)
+RETURNS TABLE(evento_ref text, evento jsonb, huella_sha256 text, origen_ref text, origen_posicion bigint, origen_creada_en timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' AS $f$
+BEGIN
+    IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
+       OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER') THEN
+        RAISE EXCEPTION 'CT124: lectura no autorizada' USING ERRCODE='42501';
+    END IF;
+    IF p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100 OR (p_desde_posicion IS NULL)<>(p_desde_ref IS NULL)
+       OR p_desde_posicion<0 OR octet_length(p_desde_ref)>512 THEN
+        RAISE EXCEPTION 'CT124: lectura de no incorporaciones inválida' USING ERRCODE='22023';
+    END IF;
+    RETURN QUERY
+    WITH base AS (
+        SELECT n.evento_ref AS origen, n.confirmada_en, n.transaccion_publicacion::text::bigint AS posicion,
+               'evento:ct:no-incorporacion-bolsa:'||encode(sha256(convert_to('no_incorporacion'||chr(31)||n.evento_ref,'UTF8')),'hex') AS ref,
+               jsonb_build_object('esquema','vec.contratacion-temporal.no-incorporacion-bolsa.v1','tipo','no_incorporacion',
+                   'origen_ref',n.evento_ref,'organizacion_ref',n.organizacion_ref,'expediente_ref',n.expediente_ref,
+                   'llamamiento_ref',n.llamamiento_ref,'motivo_clave',n.motivo_clave,'consecuencia_clave',n.consecuencia_clave,
+                   'resolucion_ref',n.resolucion_ref,'resolucion_sha256',n.resolucion_sha256,'resuelta_por',n.resuelta_por,
+                   'actor_ref',n.actor_ref,'fecha_notificacion',to_char(n.fecha_notificacion,'YYYY-MM-DD'),
+                   'ocurrido_en',to_char(n.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')) AS cuerpo
+          FROM vec_contratacion_temporal.no_incorporacion_v1 n
+          JOIN vec_contratacion_temporal.outbox_expediente_integral o
+            ON o.evento_ref=n.evento_ref AND o.expediente_ref=n.expediente_ref AND o.tipo_evento='ct.no-incorporacion.v1'
+         WHERE (n.transaccion_publicacion<pg_snapshot_xmin(pg_current_snapshot())
+                OR n.transaccion_publicacion=pg_current_xact_id_if_assigned())
+           AND (p_desde_posicion IS NULL OR (n.transaccion_publicacion::text::bigint,n.evento_ref)>(p_desde_posicion,p_desde_ref))
+         ORDER BY 3, n.evento_ref
+         LIMIT p_limite)
+    SELECT b.ref, b.cuerpo||jsonb_build_object('evento_ref',b.ref),
+           encode(sha256(convert_to((b.cuerpo||jsonb_build_object('evento_ref',b.ref))::text,'UTF8')),'hex'),
+           b.origen, b.posicion, b.confirmada_en
+      FROM base b ORDER BY b.posicion, b.origen;
+END
+$f$;
+
+-- ============================================================ CONTINUACIÓN (CT119)
+-- La continuación de CT119 admite, además de la renuncia y la expiración,
+-- la aceptación seguida de una no incorporación registrada: el antecedente
+-- es la resolución de aceptación y la intención de siguiente candidato la de
+-- la no incorporación. CT119, CT121 y las funciones del sucesor no se editan:
+-- en cada función viva se sustituye un único fragmento exacto, conservando
+-- propietario, configuración y ACL. La propuesta del sucesor tras una no
+-- incorporación no se amplía: el expediente ya tiene su propuesta de
+-- nombramiento (única por expediente).
+CREATE FUNCTION vec_contratacion_temporal.antecedente_no_incorporacion_ct124(p_resolucion text, p_intencion text)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog AS $$
+    SELECT jsonb_build_object('ComandoSiguienteRef',n.comando_siguiente_ref,'ComandoSiguiente',n.comando_siguiente_json,
+        'NoIncorporacion',jsonb_build_object('ReciboRef',n.recibo_ref,'IntencionRef',n.intencion_ref,
+            'ComandoRef',n.comando_siguiente_ref,'VersionResultante',n.version_esperada+1,
+            'RegistradaEn',to_char(n.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')))
+      FROM vec_contratacion_temporal.no_incorporacion_v1 n
+     WHERE n.aceptacion_resolucion_ref=p_resolucion AND n.intencion_ref=p_intencion
+$$;
+
+DO $continuacion$
+DECLARE
+    v_antes record; v_despues record; v_definicion text; v_funcion text; v_anterior text; v_nuevo text; i integer;
+    v_firmas text[]; v_viejos text[]; v_nuevos text[];
+BEGIN
+    -- 1. CT119: antecedente y consulta.
+    v_firmas:=ARRAY['continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+                    'continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'];
+    v_viejos:=ARRAY[
+$v1$       AND ((solicitud_json->>'Respuesta'='renuncia' AND estado_plazo='vigente' AND justificante_ref IS NOT NULL)
+         OR (solicitud_json->>'Respuesta'='expiracion_gobernada' AND estado_plazo='expirado'
+             AND justificante_ref IS NULL AND contacto_ref IS NOT NULL))
+       AND revision_respuesta_rrhh AND revision_plazo_rrhh AND version_resultante=3
+       AND comando_siguiente_ref IS NOT NULL
+       AND comando_siguiente_json->>'intencion_ref'=s->>'IntencionRef'
+       AND recibo_json->>'Estado'='confirmado'
+       AND recibo_json->'IntencionSiguiente'->>'Estado'='pendiente'
+       AND recibo_json->'Solicitud'=solicitud_json$v1$,
+$v2$        v_resultado:=jsonb_build_object('Resolucion',v_fila.recibo_json,
+            'ComandoSiguienteRef',v_fila.comando_siguiente_ref,'ComandoSiguiente',v_fila.comando_siguiente_json);$v2$];
+    v_nuevos:=ARRAY[
+$n1$       AND (((solicitud_json->>'Respuesta'='renuncia' AND estado_plazo='vigente' AND justificante_ref IS NOT NULL)
+         OR (solicitud_json->>'Respuesta'='expiracion_gobernada' AND estado_plazo='expirado'
+             AND justificante_ref IS NULL AND contacto_ref IS NOT NULL))
+       AND revision_respuesta_rrhh AND revision_plazo_rrhh AND version_resultante=3
+       AND comando_siguiente_ref IS NOT NULL
+       AND comando_siguiente_json->>'intencion_ref'=s->>'IntencionRef'
+       AND recibo_json->>'Estado'='confirmado'
+       AND recibo_json->'IntencionSiguiente'->>'Estado'='pendiente'
+       -- CT124: aceptación seguida de una no incorporación registrada.
+       OR (solicitud_json->>'Respuesta'='aceptacion' AND estado_plazo='vigente' AND justificante_ref IS NOT NULL
+           AND revision_respuesta_rrhh AND revision_plazo_rrhh AND version_resultante=3
+           AND comando_siguiente_ref IS NULL AND recibo_json->>'Estado'='confirmado'
+           AND vec_contratacion_temporal.antecedente_no_incorporacion_ct124(resolucion_ref,s->>'IntencionRef') IS NOT NULL))
+       AND recibo_json->'Solicitud'=solicitud_json$n1$,
+$n2$        v_resultado:=jsonb_build_object('Resolucion',v_fila.recibo_json,
+            'ComandoSiguienteRef',v_fila.comando_siguiente_ref,'ComandoSiguiente',v_fila.comando_siguiente_json);
+        IF v_fila.solicitud_json->>'Respuesta'='aceptacion' THEN
+            v_resultado:=jsonb_build_object('Resolucion',v_fila.recibo_json)
+                ||vec_contratacion_temporal.antecedente_no_incorporacion_ct124(v_fila.resolucion_ref,s->>'IntencionRef');
+        END IF;$n2$];
+    -- 2. Circuito del sucesor (CT62-CT64 y la lectura del aviso, ya
+    -- ampliados por CT121): la aceptación seguida de no incorporación.
+    FOR v_funcion,v_anterior IN SELECT * FROM (VALUES
+        ('registrar_comunicacion_llamamiento_local_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','r'),
+        ('registrar_respuesta_recibida_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','r'),
+        ('consultar_justificante_respuesta_recibida_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','continuacion'),
+        ('registrar_resolucion_manual_respuesta_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','continuacion'),
+        ('leer_expediente_aviso_confirmado_v1(text,text,text)','r')) AS x(f,alias) LOOP
+        v_firmas:=v_firmas||v_funcion;
+        v_viejos:=v_viejos||(v_anterior||$a$.solicitud_json->>'Respuesta' IN ('renuncia','expiracion_gobernada')$a$);
+        v_nuevos:=v_nuevos||(v_anterior||$a$.solicitud_json->>'Respuesta' IN ('renuncia','expiracion_gobernada','aceptacion')$a$);
+    END LOOP;
+    FOR i IN 1..array_length(v_firmas,1) LOOP
+        SELECT p.oid,pg_get_functiondef(p.oid) AS definicion,p.proacl AS acl,p.proowner AS propietario,
+               p.proconfig AS configuracion,p.prosecdef AS definidor
+          INTO v_antes FROM pg_proc p
+         WHERE p.oid=to_regprocedure('vec_contratacion_temporal.'||v_firmas[i])
+           AND p.proowner='vec_contratacion_temporal_propietario'::regrole AND p.prosecdef;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'CT124: función ausente: %',v_firmas[i] USING ERRCODE='55000';
+        END IF;
+        v_definicion:=v_antes.definicion;
+        IF length(v_definicion)-length(replace(v_definicion,v_viejos[i],''))<>length(v_viejos[i])
+           OR strpos(v_definicion,'no_incorporacion')<>0 AND i>2 THEN
+            RAISE EXCEPTION 'CT124: preimagen incompatible: %',v_firmas[i] USING ERRCODE='55000';
+        END IF;
+        v_definicion:=replace(v_definicion,v_viejos[i],v_nuevos[i]);
+        EXECUTE v_definicion;
+        SELECT pg_get_functiondef(p.oid) AS definicion,p.proacl AS acl,p.proowner AS propietario,
+               p.proconfig AS configuracion,p.prosecdef AS definidor
+          INTO STRICT v_despues FROM pg_proc p WHERE p.oid=v_antes.oid;
+        IF v_despues.definicion IS DISTINCT FROM v_definicion
+           OR v_despues.acl IS DISTINCT FROM v_antes.acl
+           OR v_despues.propietario IS DISTINCT FROM v_antes.propietario
+           OR v_despues.configuracion IS DISTINCT FROM v_antes.configuracion
+           OR v_despues.definidor IS NOT TRUE THEN
+            RAISE EXCEPTION 'CT124: definición o permisos alterados: %',v_firmas[i] USING ERRCODE='55000';
+        END IF;
+    END LOOP;
+END
+$continuacion$;
+
+-- La confirmación de la continuación ocupa las columnas de continuación de la
+-- resolución de aceptación: la restricción admite la aceptación sin comando
+-- propio (la intención es la de su no incorporación, que CT119 comprueba).
+DO $restriccion$
+DECLARE v_def text; v_nueva text;
+    v_resp text:=$r$((solicitud_json ->> 'Respuesta'::text) = ANY (ARRAY['renuncia'::text, 'expiracion_gobernada'::text])) AND ((octet_length(continuacion_material)$r$;
+    v_resp_n text:=$r$((solicitud_json ->> 'Respuesta'::text) = ANY (ARRAY['renuncia'::text, 'expiracion_gobernada'::text, 'aceptacion'::text])) AND ((octet_length(continuacion_material)$r$;
+    v_int text:=$i$(((continuacion_recibo -> 'Solicitud'::text) ->> 'IntencionRef'::text) = (comando_siguiente_json ->> 'intencion_ref'::text))$i$;
+    v_int_n text:=$i$((((continuacion_recibo -> 'Solicitud'::text) ->> 'IntencionRef'::text) = (comando_siguiente_json ->> 'intencion_ref'::text)) OR (((solicitud_json ->> 'Respuesta'::text) = 'aceptacion'::text) AND (comando_siguiente_json IS NULL)))$i$;
+BEGIN
+    SELECT pg_get_constraintdef(oid) INTO STRICT v_def FROM pg_constraint
+     WHERE conrelid='vec_contratacion_temporal.resolucion_manual_respuesta_rrhh'::regclass
+       AND conname='continuacion_confirmacion_completa' AND contype='c' AND convalidated;
+    IF length(v_def)-length(replace(v_def,v_resp,''))<>length(v_resp)
+       OR length(v_def)-length(replace(v_def,v_int,''))<>length(v_int) THEN
+        RAISE EXCEPTION 'CT124: preimagen de la continuación incompatible' USING ERRCODE='55000';
+    END IF;
+    v_nueva:=replace(replace(v_def,v_resp,v_resp_n),v_int,v_int_n);
+    ALTER TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh DROP CONSTRAINT continuacion_confirmacion_completa;
+    EXECUTE 'ALTER TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh ADD CONSTRAINT continuacion_confirmacion_completa '||v_nueva;
+END
+$restriccion$;
+
 -- ============================================================ CONSULTA RRHH
--- Confirmación de GINPIX y confirmación del centro para el detalle. Como la
+-- Confirmación de GINPIX, confirmación del centro y no incorporación para el
+-- detalle. Como la
 -- consulta de CT115, solo tras acreditar la lectura V3 del mismo detalle; sin
 -- texto libre ni actor.
 CREATE FUNCTION vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(p_organizacion text, p_expediente text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security='on' SET timezone='UTC'
 AS $funcion$
-DECLARE g record; c record;
+DECLARE g record; c record; n record;
 BEGIN
     IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
        OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
@@ -789,13 +1391,19 @@ BEGIN
     PERFORM set_config('vec.ct115.expediente_ref',p_expediente,true);
     SELECT * INTO g FROM vec_contratacion_temporal.ginpix_confirmado_ct124(p_organizacion,p_expediente);
     SELECT * INTO c FROM vec_contratacion_temporal.incorporacion_centro_v1 WHERE organizacion_ref=p_organizacion AND expediente_ref=p_expediente;
+    SELECT * INTO n FROM vec_contratacion_temporal.no_incorporacion_v1 WHERE organizacion_ref=p_organizacion AND expediente_ref=p_expediente
+     ORDER BY registrada_en DESC, recibo_ref COLLATE "C" DESC LIMIT 1;
     RETURN jsonb_build_object('esquema','vec.contratacion-temporal.incorporacion-acreditada.v1','expediente_ref',p_expediente,
         'ginpix',CASE WHEN g.recibo_ref IS NULL THEN NULL ELSE jsonb_build_object('ginpix_numero',g.ginpix_numero,
             'ginpix_confirmada_en',to_char(g.ginpix_confirmada_en,'YYYY-MM-DD'),
             'recibo',jsonb_build_object('recibo_ref',g.recibo_ref,'registrada_en',to_char(g.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))) END,
         'centro',CASE WHEN c.recibo_ref IS NULL THEN NULL ELSE jsonb_build_object('fecha_incorporacion',to_char(c.fecha_incorporacion,'YYYY-MM-DD'),
             'documento_tipo',c.documento_tipo,'documento_ref',c.documento_ref,'documento_sha256',c.documento_sha256,
-            'recibo',jsonb_build_object('recibo_ref',c.recibo_ref,'registrada_en',to_char(c.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))) END);
+            'recibo',jsonb_build_object('recibo_ref',c.recibo_ref,'registrada_en',to_char(c.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))) END,
+        'no_incorporacion',CASE WHEN n.recibo_ref IS NULL THEN NULL ELSE jsonb_build_object('motivo_clave',n.motivo_clave,
+            'consecuencia_clave',n.consecuencia_clave,'resolucion_ref',n.resolucion_ref,'resolucion_sha256',n.resolucion_sha256,
+            'resuelta_por',n.resuelta_por,'fecha_notificacion',to_char(n.fecha_notificacion,'YYYY-MM-DD'),
+            'recibo',jsonb_build_object('recibo_ref',n.recibo_ref,'registrada_en',to_char(n.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))) END);
 END
 $funcion$;
 
@@ -803,20 +1411,28 @@ $funcion$;
 -- quedan cerrados, también frente a privilegios por defecto.
 DO $acl$
 DECLARE v record; f regprocedure; t text; destinatario text;
-    tablas text[]:=ARRAY['confirmacion_ginpix_v1','incorporacion_centro_v1','incorporacion_centro_acceso_v1'];
+    tablas text[]:=ARRAY['confirmacion_ginpix_v1','incorporacion_centro_v1','incorporacion_centro_acceso_v1','no_incorporacion_v1'];
     fachadas regprocedure[]:=ARRAY[
       'vec_contratacion_temporal.preparar_confirmacion_ginpix_v1(jsonb)'::regprocedure,
       'vec_contratacion_temporal.confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
       'vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
       'vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-      'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)'::regprocedure];
+      'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)'::regprocedure,
+      'vec_contratacion_temporal.preparar_no_incorporacion_v1(jsonb)'::regprocedure,
+      'vec_contratacion_temporal.confirmar_no_incorporacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+      'vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(bigint,text,integer)'::regprocedure];
     auxiliares regprocedure[]:=ARRAY[
       'vec_contratacion_temporal.validar_material_ginpix_ct124(jsonb)'::regprocedure,
       'vec_contratacion_temporal.resultado_ginpix_ct124(vec_contratacion_temporal.confirmacion_ginpix_v1)'::regprocedure,
       'vec_contratacion_temporal.ginpix_confirmado_ct124(text,text)'::regprocedure,
       'vec_contratacion_temporal.actor_centro_valido_ct124(jsonb)'::regprocedure,
       'vec_contratacion_temporal.expedientes_centro_ct124(jsonb,text)'::regprocedure,
-      'vec_contratacion_temporal.consumir_incorporacion_centro_ct124(text,text,jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure];
+      'vec_contratacion_temporal.consumir_incorporacion_centro_ct124(text,text,jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+      'vec_contratacion_temporal.validar_material_no_incorporacion_ct124(jsonb)'::regprocedure,
+      'vec_contratacion_temporal.aceptacion_vigente_ct124(text,text)'::regprocedure,
+      'vec_contratacion_temporal.intencion_no_incorporacion_ct124(text,text,text,text,text,text)'::regprocedure,
+      'vec_contratacion_temporal.resultado_no_incorporacion_ct124(vec_contratacion_temporal.no_incorporacion_v1)'::regprocedure,
+      'vec_contratacion_temporal.antecedente_no_incorporacion_ct124(text,text)'::regprocedure];
 BEGIN
     FOREACH t IN ARRAY tablas LOOP
         FOR v IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
@@ -857,4 +1473,6 @@ COMMENT ON TABLE vec_contratacion_temporal.confirmacion_ginpix_v1 IS
     'CT124: confirmación de GINPIX (número de alta y fecha) de la ficha de la incorporación acreditada; el cierre toma de aquí su número.';
 COMMENT ON TABLE vec_contratacion_temporal.incorporacion_centro_v1 IS
     'CT124: confirmación de la incorporación por el centro, con el documento acreditativo que fija el catálogo (referencia y huella).';
+COMMENT ON TABLE vec_contratacion_temporal.no_incorporacion_v1 IS
+    'CT124: no incorporación registrada por RRHH (resolución por referencia y huella); vuelve a fiscalización, publica la baja a Bolsa y la intención de siguiente candidato.';
 COMMIT;
