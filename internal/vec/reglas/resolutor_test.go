@@ -115,7 +115,7 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			CTPrefijoModalidad + "relevo", CTPrefijoCausa + "necesidad_temporal",
 			CTPrefijoEntradaRC + "sintetica_001", CTUrgencia, CTNumeracion,
 			CTPrefijoViaCobertura + "bolsa_vigente", CTPrefijoViaCobertura + "oferta_sae",
-			CTPrefijoViaCobertura + "nueva_convocatoria_bolsa",
+			CTPrefijoViaCobertura + "nueva_convocatoria_bolsa", CTFiscalizacionResultados,
 		}},
 	}
 	for _, caso := range casos {

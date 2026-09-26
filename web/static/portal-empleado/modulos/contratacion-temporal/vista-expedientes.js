@@ -19,7 +19,8 @@ import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedient
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20260926-huecos-analisis-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-reparos-informe-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huella-archivo-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
@@ -257,6 +258,20 @@ export async function montarModuloContratacionTemporal({
     esMontada,
   });
 
+  const gestorInformeTrasSubsanacion = crearGestorInformeTrasSubsanacion({
+    raiz,
+    presentador,
+    cliente: informeJuridicoDisponible ? composicionAnalisis.cliente : null,
+    disponible: informeJuridicoDisponible,
+    confirmarOperacion,
+    mensajes,
+    locale,
+    zonaHoraria,
+    anunciar,
+    repintar: (foco) => repintar(foco),
+    esMontada,
+  });
+
   async function refrescarDetalleTrasPropuesta(recibo, solicitud) {
     if (!montada || recibo?.propuesta_ref === undefined
       || reciboPropuestaConfirmado?.recibo !== recibo
@@ -339,6 +354,7 @@ export async function montarModuloContratacionTemporal({
     desmontarLlamamiento = null;
     gestorIncorporacion.retirar();
     gestorTramitacion.retirarComponentes();
+    gestorInformeTrasSubsanacion.retirar();
     retirarSeguimientoCese();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
@@ -387,6 +403,7 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.montarInformeDesdeExpedienteActual();
       gestorTramitacion.montarFiscalizacionDesdeExpedienteActual();
       gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
+      gestorInformeTrasSubsanacion.montarSiProcede();
       montarSeguimientoCeseSiProcede(estado);
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
@@ -619,6 +636,7 @@ export async function montarModuloContratacionTemporal({
       desmontarLlamamiento = null;
       gestorIncorporacion.retirar();
       gestorTramitacion.retirarComponentes();
+      gestorInformeTrasSubsanacion.retirar();
       retirarSeguimientoCese();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);

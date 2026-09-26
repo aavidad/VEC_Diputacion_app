@@ -108,6 +108,10 @@ const (
 	CTModificacionFaseRetorno     = "c09.modificacion_fase_retorno"
 	CTCierreExpediente            = "c10.cierre_expediente"
 	CTCausasCese                  = "c11.causas_cese"
+	// CTFiscalizacionResultados lista los resultados de fiscalización
+	// admitidos; cada uno declara su efecto en el atributo «efecto_<resultado>»
+	// (duda 5 de RRHH).
+	CTFiscalizacionResultados = "c19.fiscalizacion_resultados"
 )
 
 // Opciones del análisis de Contratación temporal que se consultan por

@@ -242,6 +242,9 @@ static/portal-empleado/modulos/contratacion-temporal/circuito-firma-acciones.js
 static/portal-empleado/modulos/contratacion-temporal/firma-autofirma.js
 static/portal-empleado/modulos/contratacion-temporal/firma-documento-cliente.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-circuito-firma.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-firma-remision.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-informe-tras-subsanacion.js
+static/portal-empleado/modulos/contratacion-temporal/informe-tras-subsanacion.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-cambios.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-cambios-expediente.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-cambios-expediente.js

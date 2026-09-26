@@ -56,6 +56,33 @@ func (s SolicitudEmitirInformeJuridico) validar() error {
 	return nil
 }
 
+// GobernarInformeTrasSubsanacion permite emitir el informe nuevo tras
+// subsanar un reparo cuando el catálogo lo exige (duda 5). Sin él, un
+// expediente con informe no admite otro, como siempre. Se fija una sola vez.
+func (s *ServicioInformesJuridicos) GobernarInformeTrasSubsanacion(f ports.FuenteInformeTrasSubsanacion) error {
+	if s == nil || dependenciaNula(f) || s.trasSubsanacion != nil {
+		return ErrServicioInformeJuridicoInvalido
+	}
+	s.trasSubsanacion = f
+	return nil
+}
+
+// comprobarInformeNuevoPrevisto: el informe nuevo solo cabe si el catálogo lo
+// exige y el reparo vigente ya está subsanado sin informe nuevo.
+func (s *ServicioInformesJuridicos) comprobarInformeNuevoPrevisto(ctx context.Context, e domain.Expediente) error {
+	if s.trasSubsanacion == nil || !e.PuedeReemitirInformeTrasSubsanacion() {
+		return ports.ErrInformeNuevoNoPrevisto
+	}
+	politica, err := s.trasSubsanacion.InformeTrasSubsanacion(ctx)
+	if err != nil || politica.Validar() != nil {
+		return clasificarFalloInformeJuridico(ctx, ports.ErrPersistenciaInformeJuridicoNoDisponible)
+	}
+	if !politica.ExigeInformeNuevo {
+		return ports.ErrInformeNuevoNoPrevisto
+	}
+	return nil
+}
+
 type ServicioInformesJuridicos struct {
 	contextos     ports.ResolutorContextoAutorizacionAltaV3
 	ambitos       ports.SelladorAmbitoInformeJuridico
@@ -67,6 +94,8 @@ type ServicioInformesJuridicos struct {
 	generador     ports.GeneradorDocumentoInformeJuridico
 	reloj         ports.Reloj
 	transaccion   ports.TransaccionInformesJuridicos
+	// trasSubsanacion es nil sin catálogo: no se admite informe nuevo.
+	trasSubsanacion ports.FuenteInformeTrasSubsanacion
 }
 
 func NuevoServicioInformesJuridicos(
@@ -169,6 +198,11 @@ func (s *ServicioInformesJuridicos) Emitir(
 	if preparacion.Estado == ports.PreparacionInformeJuridicoConfirmada {
 		return *preparacion.ReciboConfirmado, nil
 	}
+	if preparacion.Expediente.InformeJuridico != nil {
+		if err := s.comprobarInformeNuevoPrevisto(ctxOperacion, preparacion.Expediente); err != nil {
+			return ports.ReciboInformeJuridico{}, err
+		}
+	}
 
 	instanteConfiguracion := instanteCanonico(s.reloj.Ahora())
 	solicitudConfiguracion := ports.SolicitudResolverConfiguracionInformeJuridico{
@@ -251,7 +285,7 @@ func (s *ServicioInformesJuridicos) Emitir(
 		HuellaDocumentoSHA256: documento.HuellaDocumentoSHA256,
 		EmitidoEn:             instanteEfecto,
 	}
-	expedienteSiguiente, err := preparacion.Expediente.RegistrarInformeJuridico(
+	expedienteSiguiente, err := preparacion.Expediente.EmitirInformeJuridico(
 		material.VersionExpediente,
 		informe,
 		domain.DatosActuacion{
@@ -260,8 +294,6 @@ func (s *ServicioInformesJuridicos) Emitir(
 			UnidadRef:     configuracion.UnidadEjecutoraRef,
 			ReciboRef:     preparacion.Referencias.ReciboRef,
 			RealizadaEn:   instanteEfecto,
-			FaseDestino:   domain.FaseInformeJuridico,
-			EstadoDestino: domain.EstadoEnCurso,
 			DocumentosRef: []string{documento.DocumentoRef},
 		},
 	)
@@ -354,6 +386,9 @@ func clasificarFalloInformeJuridico(ctx context.Context, causa error) error {
 	}
 	if errors.Is(causa, ports.ErrClaveIdempotenciaUsada) {
 		return ports.ErrClaveIdempotenciaUsada
+	}
+	if errors.Is(causa, ports.ErrInformeNuevoNoPrevisto) {
+		return ports.ErrInformeNuevoNoPrevisto
 	}
 	if errors.Is(causa, ErrInformeJuridicoDenegado) {
 		return ErrInformeJuridicoDenegado

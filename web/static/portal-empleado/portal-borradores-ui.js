@@ -2,7 +2,7 @@ import {
   crearClienteBorradores,
   generarClaveIdempotencia,
 } from "./portal-borradores-api.js";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260926-reparos-informe-v1";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   crearEstadoBorradores,

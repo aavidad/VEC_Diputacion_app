@@ -10,6 +10,7 @@ import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incor
 import { RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
+import { RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
@@ -311,6 +312,8 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
     ? "api.contratacion_temporal.cierre_administrativo.error."
     : rutaBase === RUTA_SUBSANACION_REPAROS
     ? "api.contratacion_temporal.subsanacion_reparos.error."
+    : rutaBase === RUTA_RESULTADOS_FISCALIZACION
+    ? "api.contratacion_temporal.fiscalizacion.error."
     : RUTAS_SEGUIMIENTO_CESE.includes(rutaBase)
     ? "api.contratacion_temporal.seguimiento.error."
     : rutaBase === RUTA_ANOTACION_ADMINISTRATIVA
@@ -347,6 +350,12 @@ export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
         "clave_idempotencia_reutilizada",
       ].includes(codigo))) return true;
     return estado !== 409 && CODIGOS_POR_ESTADO.get(estado)?.has(codigo) === true;
+  }
+  if (ruta.split("?")[0] === RUTA_RESULTADOS_FISCALIZACION && estado === 409) {
+    return ["conflicto", "firma_remision_pendiente", "informe_nuevo_pendiente"].includes(codigo);
+  }
+  if (ruta === RUTA_PREPARACION_INFORME_JURIDICO && estado === 409) {
+    return ["conflicto", "informe_nuevo_no_previsto"].includes(codigo);
   }
   if (ruta.split("?")[0] === RUTA_FICHA_GINPIX && estado === 409) {
     return codigo === "recibo_no_confirmado";

@@ -24,6 +24,10 @@ type InformeJuridicoEmitido struct {
 	HuellaDocumentoSHA256 string                           `json:"huella_documento_sha256"`
 	EmitidoEn             time.Time                        `json:"emitido_en"`
 	ActuacionRegistro     *VinculoActuacionInformeJuridico `json:"actuacion_registro"`
+	// Sustituye solo consta en el informe emitido de nuevo tras subsanar un
+	// reparo: identifica el informe que fiscalizó Intervención y el retorno
+	// cuya subsanación motivó el informe nuevo.
+	Sustituye *SustitucionInformeJuridico `json:"sustituye,omitempty"`
 }
 
 type VinculoActuacionInformeJuridico struct {
@@ -50,6 +54,16 @@ func (i InformeJuridicoEmitido) Validar() error {
 		i.ActuacionRegistro.HuellaBorradorSHA256 != borrador.HuellaSHA256() {
 		return ErrInformeJuridicoEmitidoInvalido
 	}
+	if i.Sustituye == nil {
+		if i.ActuacionRegistro.FaseDestino != FaseInformeJuridico {
+			return ErrInformeJuridicoEmitidoInvalido
+		}
+		return nil
+	}
+	if i.Sustituye.validar() != nil || i.ActuacionRegistro.FaseDestino != FaseSubsanacionUnidad ||
+		i.Sustituye.InformeRef == i.InformeRef || i.Sustituye.DocumentoRef == i.DocumentoRef {
+		return ErrInformeJuridicoEmitidoInvalido
+	}
 	return nil
 }
 
@@ -69,7 +83,7 @@ func (v VinculoActuacionInformeJuridico) validar() error {
 	if v.Secuencia == 0 || v.VersionExpediente == 0 ||
 		v.Secuencia != v.VersionExpediente ||
 		v.AccionClave != AccionEmitirInformeJuridico ||
-		v.FaseDestino != FaseInformeJuridico ||
+		(v.FaseDestino != FaseInformeJuridico && v.FaseDestino != FaseSubsanacionUnidad) ||
 		!referenciaValida(v.ReciboRef) || !referenciaValida(v.InformeRef) ||
 		!referenciaValida(v.DocumentoRef) ||
 		!versionInformeJuridicoValida(v.VersionDocumento) ||
@@ -108,7 +122,8 @@ func (v VinculoActuacionInformeJuridico) correspondeA(
 		v.InformeRef == informe.InformeRef && v.DocumentoRef == informe.DocumentoRef &&
 		v.VersionDocumento == informe.VersionDocumento &&
 		v.HuellaDocumentoSHA256 == informe.HuellaDocumentoSHA256 &&
-		v.HuellaBorradorSHA256 == informe.Borrador.HuellaSHA256
+		v.HuellaBorradorSHA256 == informe.Borrador.HuellaSHA256 &&
+		actuacion.RetornoRef == informe.retornoSustituido()
 }
 
 func (i InformeJuridicoEmitido) clonar() InformeJuridicoEmitido {
@@ -121,6 +136,10 @@ func (i InformeJuridicoEmitido) clonar() InformeJuridicoEmitido {
 	if i.ActuacionRegistro != nil {
 		vinculo := *i.ActuacionRegistro
 		i.ActuacionRegistro = &vinculo
+	}
+	if i.Sustituye != nil {
+		sustitucion := *i.Sustituye
+		i.Sustituye = &sustitucion
 	}
 	return i
 }
@@ -142,6 +161,7 @@ func (e Expediente) RegistrarInformeJuridico(
 		actuacion.FaseDestino != FaseInformeJuridico ||
 		actuacion.EstadoDestino != EstadoEnCurso || len(actuacion.DocumentosRef) != 1 ||
 		actuacion.DocumentosRef[0] != informe.DocumentoRef ||
+		actuacion.RetornoRef != "" || informe.Sustituye != nil ||
 		informe.ActuacionRegistro != nil {
 		return Expediente{}, ErrTransicionInvalida
 	}

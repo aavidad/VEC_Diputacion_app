@@ -20,6 +20,9 @@ import (
 const (
 	funcionConfirmarInformeJuridico        = "vec_contratacion_temporal.confirmar_informe_juridico_v1"
 	maximoIntentosConfirmarInformeJuridico = 3
+	// funcionConfirmarInformeJuridicoTrasSubsanacion (CT123) confirma el
+	// informe nuevo tras subsanar: mismo material, mismo consumidor AD3-9.
+	funcionConfirmarInformeJuridicoTrasSubsanacion = "vec_contratacion_temporal.confirmar_informe_juridico_tras_subsanacion_v1"
 	// La clave publicada VEC-AD-3 pertenece al consumidor transaccional de CT.
 	audienciaConfirmarInformeJuridicoV1 = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
 )
@@ -202,9 +205,13 @@ func (t *TransaccionInformesJuridicosPostgreSQL) confirmarInformeJuridicoEnTrans
 				ports.ErrPreparacionInformeJuridicoInvalida)
 	}
 
+	funcion := funcionConfirmarInformeJuridico
+	if orden.Preparacion.Expediente.InformeJuridico != nil {
+		funcion = funcionConfirmarInformeJuridicoTrasSubsanacion
+	}
 	var reciboJSON string
 	err = tx.QueryRow(ctx, `SELECT recibo_json::text FROM `+
-		funcionConfirmarInformeJuridico+`($1::jsonb,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+		funcion+`($1::jsonb,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		entradas.contenido, entradas.capacidad, entradas.decision, entradas.motivo,
 		entradas.contextoActor, entradas.personaVersion, entradas.perfilVersion,
 		entradas.payloadVECAD3, entradas.sobreCOSESign1, entradas.evidencia,
@@ -259,7 +266,8 @@ func validarOrdenConfirmarInformeJuridico(
 		anterior.Referencia != material.ExpedienteRef ||
 		anterior.OrganizacionRef != material.OrganizacionRef ||
 		anterior.Version != material.VersionExpediente ||
-		anterior.Asignacion == nil || anterior.InformeJuridico != nil ||
+		anterior.Asignacion == nil ||
+		(anterior.InformeJuridico != nil && !anterior.PuedeReemitirInformeTrasSubsanacion()) ||
 		!ports.SelloHMACSHA256Valido(p.AmbitoIdempotenciaHMAC) ||
 		!ports.SelloHMACSHA256Valido(p.HuellaPeticionHMAC) ||
 		orden.Borrador.Validar() != nil ||
@@ -281,14 +289,13 @@ func validarOrdenConfirmarInformeJuridico(
 		HuellaDocumentoSHA256: orden.Documento.HuellaDocumentoSHA256,
 		EmitidoEn:             orden.InstanteEfecto,
 	}
-	esperado, err := anterior.RegistrarInformeJuridico(
+	esperado, err := anterior.EmitirInformeJuridico(
 		material.VersionExpediente,
 		informe,
 		domain.DatosActuacion{
 			AccionClave: domain.AccionEmitirInformeJuridico,
 			ActorRef:    material.ActorRef, UnidadRef: orden.Configuracion.UnidadEjecutoraRef,
 			ReciboRef: p.Referencias.ReciboRef, RealizadaEn: orden.InstanteEfecto,
-			FaseDestino: domain.FaseInformeJuridico, EstadoDestino: domain.EstadoEnCurso,
 			DocumentosRef: []string{orden.Documento.DocumentoRef},
 		},
 	)

@@ -342,6 +342,15 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if err := gobernarResultadosFiscalizacionDesarrollo(fiscalizacionReal.servicio, reglasEjemplo.contratacionTemporal); err != nil {
+		return nil, nil, nil, err
+	}
+	fuenteInformeNuevo, err := gobernarInformeTrasSubsanacionDesarrollo(
+		reglasEjemplo.contratacionTemporal, alta.postgresql.ejecucion, fiscalizacionReal.servicio, informeJuridicoReal,
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	var subsanacionReal dependenciasSubsanacionReparosContratacionTemporalDesarrollo
 	if strings.TrimSpace(cfg.ContratacionTemporalSubsanacionPoliticaFile) != "" {
 		politica, causa := cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg)
@@ -360,9 +369,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 		}
 	}
-	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj)
+	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj, fiscalizacionReal.servicio)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if firmaDocumento != nil {
+		firmaDocumento.informeTrasSubsanacion = fuenteInformeNuevo
 	}
 	cerrarCobertura := true
 	defer func() {
