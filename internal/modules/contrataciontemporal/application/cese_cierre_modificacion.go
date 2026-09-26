@@ -189,6 +189,8 @@ func tipoRecursoSeguimiento(operacion string) string {
 		return ports.TipoRecursoCese
 	case ports.OperacionCerrarExpediente:
 		return ports.TipoRecursoCierreExpediente
+	case ports.OperacionCancelarExpediente:
+		return ports.TipoRecursoCancelacion
 	default:
 		return ports.TipoRecursoModificacionNombramiento
 	}

@@ -145,6 +145,8 @@ func DominiosHMACOperacionSeguimiento(operacion string) (ambito, huella string, 
 		return DominioAmbitoIdempotenciaCierreExpediente, DominioHuellaPeticionCierreExpediente, true
 	case OperacionModificarTrasNombramiento:
 		return DominioAmbitoIdempotenciaModificacionNombrado, DominioHuellaPeticionModificacionNombrado, true
+	case OperacionCancelarExpediente:
+		return DominioAmbitoIdempotenciaCancelacion, DominioHuellaPeticionCancelacion, true
 	}
 	return "", "", false
 }
@@ -265,6 +267,7 @@ type ReciboOperacionSeguimiento struct {
 	FechaEfecto       string
 	CeseReciboRef     string
 	CosteCentimos     int64
+	MotivoClave       domain.ClaveCatalogo
 }
 
 func (r ReciboOperacionSeguimiento) ValidoPara(operacion, org, exp string, versionAnterior uint64) bool {

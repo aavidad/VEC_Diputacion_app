@@ -39,6 +39,9 @@ var operacionesSeguimientoSQL = map[string]descriptorOperacionSeguimiento{
 	ports.OperacionModificarTrasNombramiento: {"vec_contratacion_temporal.preparar_modificacion_nombramiento_v1",
 		"vec_contratacion_temporal.confirmar_modificacion_nombramiento_v1", "vec.contratacion-temporal.preparar-modificacion-nombramiento.v1",
 		"vec.contratacion-temporal.confirmar-modificacion-nombramiento.v1", "vec.contratacion-temporal.resultado-modificacion-nombramiento.v1"},
+	ports.OperacionCancelarExpediente: {"vec_contratacion_temporal.preparar_cancelacion_expediente_v1",
+		"vec_contratacion_temporal.confirmar_cancelacion_expediente_v1", "vec.contratacion-temporal.preparar-cancelacion.v1",
+		"vec.contratacion-temporal.confirmar-cancelacion.v1", "vec.contratacion-temporal.resultado-cancelacion.v1"},
 }
 
 type RepositorioOperacionSeguimientoPostgreSQL struct {
@@ -94,6 +97,11 @@ func materialSeguimientoSQL(operacion string, material any) (map[string]any, str
 		r["porcentaje_jornada"], r["coste_centimos"], r["fuente_coste_ref"] = uint16(d.Jornada), d.Coste.Centimos, d.FuenteCoste
 		r["fase_retorno"], r["estado_retorno"], r["observaciones"] = string(d.FaseRetorno), string(domain.EstadoEnCurso), d.Observaciones
 		return r, m.OrganizacionRef, m.ExpedienteRef, nil
+	case ports.MaterialCancelacion:
+		if operacion != ports.OperacionCancelarExpediente || !m.Valido() {
+			break
+		}
+		return materialCancelacionSQL(m), m.OrganizacionRef, m.ExpedienteRef, nil
 	}
 	return nil, "", "", ports.ErrOperacionSeguimientoInvalida
 }
@@ -115,6 +123,7 @@ type reciboSeguimientoSQL struct {
 	FechaEfecto       string                 `json:"fecha_efecto,omitempty"`
 	CeseReciboRef     string                 `json:"cese_recibo_ref,omitempty"`
 	CosteCentimos     int64                  `json:"coste_centimos,omitempty"`
+	MotivoClave       domain.ClaveCatalogo   `json:"motivo_clave,omitempty"`
 }
 
 func (r reciboSeguimientoSQL) puertos() ports.ReciboOperacionSeguimiento {
@@ -122,7 +131,7 @@ func (r reciboSeguimientoSQL) puertos() ports.ReciboOperacionSeguimiento {
 		VersionAnterior: r.VersionAnterior, VersionResultante: r.VersionResultante, FaseResultante: r.FaseResultante,
 		EstadoResultante: r.EstadoResultante, ReciboRef: r.ReciboRef, AuditoriaRef: r.AuditoriaRef, EventoRef: r.EventoRef,
 		ActorRef: r.ActorRef, RegistradaEn: r.RegistradaEn.UTC(), CausaClave: r.CausaClave, FechaEfecto: r.FechaEfecto,
-		CeseReciboRef: r.CeseReciboRef, CosteCentimos: r.CosteCentimos}
+		CeseReciboRef: r.CeseReciboRef, CosteCentimos: r.CosteCentimos, MotivoClave: r.MotivoClave}
 }
 
 type respuestaSeguimientoSQL struct {
@@ -163,6 +172,12 @@ func errorResultadoSeguimiento(resultado string) error {
 		return ports.ErrModificacionSinCambios
 	case "credito_insuficiente":
 		return ports.ErrModificacionCreditoInsuficiente
+	case "fase_no_admitida":
+		return ports.ErrCancelacionNoAdmitida
+	case "tras_fiscalizacion":
+		return ports.ErrCancelacionTrasFiscalizacion
+	case "cancelacion_existente":
+		return ports.ErrCancelacionYaRegistrada
 	}
 	return ports.ErrResultadoSeguimientoNoConfiable
 }
@@ -186,7 +201,8 @@ func normalizarErrorSeguimiento(ctx context.Context, err error) error {
 	}
 	for _, propio := range []error{domain.ErrVersionEnConflicto, ports.ErrClaveIdempotenciaUsada, ports.ErrCeseSinIncorporacion,
 		ports.ErrCeseFechaAnteriorIncorporacion, ports.ErrCeseYaRegistrado, ports.ErrCierreSinCese, ports.ErrCierreYaRegistrado,
-		ports.ErrModificacionSinCambios, ports.ErrModificacionCreditoInsuficiente, ports.ErrResultadoSeguimientoNoConfiable,
+		ports.ErrModificacionSinCambios, ports.ErrModificacionCreditoInsuficiente, ports.ErrCancelacionNoAdmitida,
+		ports.ErrCancelacionTrasFiscalizacion, ports.ErrCancelacionYaRegistrada, ports.ErrResultadoSeguimientoNoConfiable,
 		ports.ErrOperacionSeguimientoInvalida, ports.ErrAutorizacionDenegada} {
 		if errors.Is(err, propio) {
 			return propio
@@ -355,6 +371,8 @@ func tipoRecursoOperacionSeguimiento(operacion string) string {
 		return ports.TipoRecursoCierreExpediente
 	case ports.OperacionModificarTrasNombramiento:
 		return ports.TipoRecursoModificacionNombramiento
+	case ports.OperacionCancelarExpediente:
+		return ports.TipoRecursoCancelacion
 	}
 	return ""
 }
