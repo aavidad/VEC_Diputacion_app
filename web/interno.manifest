@@ -120,6 +120,10 @@ static/portal-empleado/modulos/documentos/cliente-http.js
 static/portal-empleado/modulos/documentos/documentos.css
 static/portal-empleado/modulos/documentos/i18n.js
 static/portal-empleado/modulos/documentos/vista.js
+static/portal-empleado/modulos/seleccion/cliente-http-solicitudes.js
+static/portal-empleado/modulos/seleccion/i18n.js
+static/portal-empleado/modulos/seleccion/vista-solicitudes.js
+static/portal-empleado/modulos/solicitudes/solicitudes.css
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html

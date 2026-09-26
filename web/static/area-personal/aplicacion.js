@@ -6,7 +6,7 @@ import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
 import {
-  renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud,
+  renderizarAutobaremacion, renderizarMeritos, renderizarPerfil,
 } from "./vistas/perfil-meritos-solicitud.js";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
@@ -14,12 +14,13 @@ import {
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
-import {
-  aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
-  declaracionFinalConfirmada, localizarSolicitudEdicion,
-} from "./flujo-solicitud.js";
+import { declaracionFinalConfirmada, localizarSolicitudEdicion } from "./flujo-solicitud.js";
+import { montarSolicitudConvocatoria } from "./solicitud-convocatoria.js?v=20260926-convoca-f1-v1";
+import { montarMisSolicitudes } from "./mis-solicitudes.js?v=20260926-convoca-f1-v1";
+import { instalarCopiaReferencias } from "./justificante-copiable.js?v=20260926-convoca-f1-v1";
 
 const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
+const VISTAS_SOLICITUD = new Set(["solicitud", "mis-solicitudes"]);
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
@@ -28,7 +29,8 @@ const RUTAS = Object.freeze({
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
-  solicitud: ["areaPersonal.rutas.solicitud", renderizarSolicitud],
+  solicitud: ["areaPersonal.rutas.solicitud", () => '<div id="solicitud-montaje"></div>'],
+  "mis-solicitudes": ["areaPersonal.rutas.misSolicitudes", () => '<div id="mis-solicitudes-montaje"></div>'],
   autobaremacion: ["areaPersonal.rutas.autobaremacion", renderizarAutobaremacion],
   seguimiento: ["areaPersonal.rutas.seguimiento", renderizarSeguimiento],
   llamamientos: ["areaPersonal.rutas.llamamientos", renderizarLlamamientos],
@@ -229,6 +231,8 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   if (!estado.datos) return;
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
+  estado.desmontarSolicitudes?.();
+  estado.desmontarSolicitudes = null;
   estado.destruirContactoPropio?.();
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
@@ -242,6 +246,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     const vista = montarVistaOportunidades({ raiz: porId("oportunidades-montaje"), anunciar });
     estado.desmontarOportunidades = vista.desmontar;
   }
+  montarVistaSolicitudes(estado);
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
   if (estado.vista === "perfil") {
@@ -276,9 +281,23 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
 }
 
+// Solicitud de participación y «Mis solicitudes» (Selección): vistas con su
+// propio adaptador, independientes de la consulta de Mi bolsa.
+function montarVistaSolicitudes(estado) {
+  const abrirAyuda = (titulo, texto) => mostrarDetalle(titulo, `<p>${escaparHTML(texto)}</p>`);
+  const cliente = estado.clienteSolicitudes;
+  if (estado.vista === "solicitud") {
+    estado.desmontarSolicitudes = montarSolicitudConvocatoria({ raiz: porId("solicitud-montaje"), cliente,
+      convocatoriaRef: estado.convocatoriaSolicitud, anunciar, abrirAyuda }).desmontar;
+  } else if (estado.vista === "mis-solicitudes") {
+    estado.desmontarSolicitudes = montarMisSolicitudes({ raiz: porId("mis-solicitudes-montaje"), cliente, abrirAyuda }).desmontar;
+  }
+}
+
 function navegar(estado, vista, opciones = {}) {
   if (!RUTAS[vista]) vista = "inicio";
   estado.vista = vista;
+  if (vista === "solicitud") estado.convocatoriaSolicitud = opciones.id || "";
   if (vista === "convocatoria") estado.convocatoriaSeleccionada = opciones.id || estado.convocatoriaSeleccionada;
   if (vista === "seguimiento" && opciones.id) estado.expedienteSeleccionado = opciones.id;
   window.history.pushState({ vista }, "", crearURL(estado, vista, opciones));
@@ -513,23 +532,7 @@ function atenderAccion(estado, boton) {
   }
   if (accion === "abrir-convocatoria") return navegar(estado, "convocatoria", { id: boton.dataset.id });
   if (accion === "volver-convocatorias") return navegar(estado, "convocatorias");
-  if (accion === "iniciar-solicitud") {
-    estado.convocatoriaSolicitud = boton.dataset.id;
-    estado.progresoSolicitud = crearProgresoSolicitud(boton.dataset.id);
-    estado.solicitudEdicionId = "";
-    estado.errorPasoSolicitud = "";
-    estado.pasoSolicitud = 1;
-    return navegar(estado, "solicitud");
-  }
-  if (accion === "paso-anterior") { estado.pasoSolicitud = Math.max(1, estado.pasoSolicitud - 1); return renderizar(estado); }
-  if (accion === "seleccionar-convocatoria") {
-    if (estado.convocatoriaSolicitud !== boton.value) {
-      estado.convocatoriaSolicitud = boton.value;
-      estado.progresoSolicitud = crearProgresoSolicitud(boton.value);
-      estado.solicitudEdicionId = "";
-    }
-    return;
-  }
+  if (accion === "iniciar-solicitud") return navegar(estado, "solicitud", { id: boton.dataset.id || "" });
   if (accion === "abrir-expediente") { estado.expedienteSeleccionado = boton.dataset.id; return navegar(estado, "seguimiento", { id: boton.dataset.id }); }
   if (accion === "abrir-documento") return verDocumento(estado, boton.dataset.id);
   if (accion === "enfocar-nuevo-merito") {
@@ -577,7 +580,7 @@ function conectarEventos(estado) {
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
       evento.preventDefault();
-      navegar(estado, enlace.dataset.ruta);
+      navegar(estado, enlace.dataset.ruta, { id: enlace.dataset.id || "" });
       return;
     }
     const boton = evento.target.closest("[data-accion]");
@@ -605,36 +608,6 @@ function conectarEventos(estado) {
     if (formulario.dataset.accion === "buscar-ayuda") {
       estado.consultaAyuda = formularioAObjeto(formulario).consulta || "";
       renderizar(estado);
-      return;
-    }
-    if (formulario.id === "formulario-solicitud-paso") {
-      try {
-        const paso = Number(formulario.dataset.paso);
-        const progreso = aplicarPasoSolicitud(estado.progresoSolicitud, paso, formularioAObjeto(formulario));
-        estado.progresoSolicitud = progreso;
-        estado.convocatoriaSolicitud = progreso.convocatoria_id;
-        estado.errorPasoSolicitud = "";
-        if (paso < 4) {
-          estado.pasoSolicitud = paso + 1;
-          renderizar(estado, { enfocar: true });
-          return;
-        }
-        const solicitud = localizarSolicitudEdicion(estado.datos, {
-          solicitudId: estado.solicitudEdicionId,
-          convocatoriaId: progreso.convocatoria_id,
-        });
-        const payload = crearPayloadBorrador(progreso, solicitud?.id || "");
-        prepararOperacion(estado, "guardar_borrador", {
-          id: solicitud?.id || "",
-          descripcion: "Guardar el borrador completo antes de pago, firma y registro",
-          payload,
-          alCompletar: { seleccionarBorrador: true, pasoSolicitud: 5 },
-        });
-      } catch (error) {
-        estado.errorPasoSolicitud = error instanceof Error ? error.message : "El paso no supera las validaciones.";
-        anunciar("No se puede continuar. Revise los campos indicados.");
-        renderizar(estado);
-      }
       return;
     }
     if (formulario.dataset.operacion) {
@@ -693,6 +666,7 @@ function conectarEventos(estado) {
     cerrarMenu();
     estado.vista = rutaDesdeURL();
     estado.convocatoriaSeleccionada = new URLSearchParams(window.location.search).get("id") || estado.convocatoriaSeleccionada;
+    if (estado.vista === "solicitud") estado.convocatoriaSolicitud = new URLSearchParams(window.location.search).get("id") || "";
     renderizar(estado, { enfocar: true });
   });
   window.addEventListener("keydown", (evento) => {
@@ -723,18 +697,22 @@ async function cargar(estado) {
     estado.contactosMiBolsa = respuesta?.consulta?.contactos || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
-    if (!estado.convocatoriaSolicitud) {
-      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto")?.id || "";
-      estado.progresoSolicitud = crearProgresoSolicitud(estado.convocatoriaSolicitud);
-    }
     estado.error = null;
     renderizar(estado);
   } catch (error) {
+    // Quien aún no está en ninguna bolsa puede solicitar: las vistas de
+    // solicitud no dependen de Mi bolsa y siguen disponibles sin sus datos.
+    if (VISTAS_SOLICITUD.has(estado.vista) && error?.codigo !== "autenticacion_requerida") {
+      estado.datos = datosMinimosMiBolsa({ consultada_en: "" });
+      estado.error = null;
+      renderizar(estado);
+      return;
+    }
     mostrarError(estado, error); if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, fetchImpl = globalThis.fetch } = {}) {
+export async function iniciarAreaPersonal({ cliente, clienteSolicitudes = null, descargarReciboPDF = null, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
@@ -749,9 +727,10 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     consultaAyuda: "",
     pasoSolicitud: 1,
     convocatoriaSeleccionada: parametros.get("id") || "",
-    convocatoriaSolicitud: "",
+    convocatoriaSolicitud: rutaDesdeURL() === "solicitud" ? parametros.get("id") || "" : "",
+    clienteSolicitudes,
+    desmontarSolicitudes: null,
     expedienteSeleccionado: parametros.get("id") || "",
-    progresoSolicitud: crearProgresoSolicitud(),
     solicitudEdicionId: "",
     errorPasoSolicitud: "",
     operacionPendiente: null,
@@ -768,6 +747,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     causaBolsa: "",
   };
   conectarEventos(estado);
+  instalarCopiaReferencias(document);
   await cargar(estado);
   return estado;
 }

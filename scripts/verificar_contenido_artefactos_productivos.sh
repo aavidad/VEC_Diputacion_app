@@ -128,8 +128,12 @@ if docker cp "${contenedor_por_superficie[publico]}:/app/locales/." \
 	fallar "publico: el artefacto incorpora traducciones de la superficie interna."
 fi
 
+# Única excepción revisada (26/09, Convoca integrado): el enlace «Inscribirme»
+# de la ficha pública lleva al área personal, donde la persona se identifica.
+# Es una navegación, no una llamada: la línea exacta de bolsa/inscripcion.js.
+enlace_inscripcion_revisado='^[^:]*/static/bolsa/inscripcion[.]js:[0-9]+:[[:space:]]*const DESTINO = "/area-personal/[?]vista=solicitud&id=";$'
 if grep -rnE '/api/vec|/portal-empleado|/area-personal|credentials[[:space:]]*:[[:space:]]*.include|document\.cookie|localStorage|sessionStorage' \
-	"${temporal}/publico/web" >/dev/null; then
+	"${temporal}/publico/web" | grep -vE "${enlace_inscripcion_revisado}" | grep -q .; then
 	fallar "publico: el cliente contiene una ruta interna o estado de sesion prohibido."
 fi
 
@@ -248,6 +252,13 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-bolsas-reglas-situacion.js
 	static/portal-empleado/portal-bolsas-sanciones.js
 	static/portal-empleado/reglas/reglas.js
+	# Selección (26/09, Convoca integrado): bandeja y ficha de solicitudes de
+	# RRHH; GET/POST a rutas internas fijas, same-origin, no-store, redirect
+	# error y no-referrer; actor y permisos los deriva el servidor del mTLS.
+	static/portal-empleado/modulos/seleccion/cliente-http-solicitudes.js
+	# Solicitud de la persona (área personal, paquete integrado): mismo patrón;
+	# la persona la deriva el servidor de su certificado.
+	static/area-personal/cliente-http-solicitudes.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
