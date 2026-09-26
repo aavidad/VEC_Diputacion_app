@@ -25,5 +25,4 @@ export const MENSAJES_AVISOS_VIA_COBERTURA_ES = Object.freeze({
   avisos_via_regla_reglamento: "Reglamento de bolsas, {articulo}",
   avisos_via_regla_ejemplo: "Regla de ejemplo, sin aprobación de RRHH",
   avisos_via_regla_parte_ejemplo: "Parte de ejemplo: {texto}",
-  avisos_via_regla_referencia: "Referencia del catálogo: {referencia}",
 });

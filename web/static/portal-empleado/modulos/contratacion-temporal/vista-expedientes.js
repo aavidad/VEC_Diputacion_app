@@ -20,7 +20,7 @@ import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
-import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huella-archivo-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";

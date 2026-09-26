@@ -78,7 +78,6 @@
 .ct-avisos-via-reglas dd { margin: 4px 0 0; }
 .ct-avisos-via-reglas dd p { margin: 0 0 4px; }
 .ct-avisos-via-origen { color: var(--portal-azul-700); font-weight: 600; }
-.ct-avisos-via-referencia { color: var(--portal-muted); overflow-wrap: anywhere; }
 
 .ct-avisos-via-cuerpo { padding: 12px 16px; }
 

@@ -96,6 +96,11 @@ test("el panel muestra cese y modificación antes del cese, y solo el cierre des
   assert.match(c.innerHTML, /El expediente volverá a: Fiscalización/u);
   assert.match(c.innerHTML, /aria-expanded="false"[^>]*>\?<\/button>/u, "la ayuda solo se abre con «?»");
   assert.match(c.innerHTML, /id="ct-seg-cese-ayuda"[^>]*hidden/u);
+  // El justificante se elige como archivo: la huella se calcula en el equipo y viaja oculta.
+  assert.match(c.innerHTML, /<input id="ct-seg-cese-justificante" type="file" data-huella-archivo aria-describedby="ct-seg-cese-justificante-estado" aria-required="true"/u);
+  assert.match(c.innerHTML, /<input type="hidden" name="justificante_sha256" value="" data-huella-valor>/u);
+  assert.doesNotMatch(c.innerHTML, /type="text" name="justificante_sha256"/u);
+  assert.match(c.innerHTML, /id="ct-seg-cese-ayuda"[^>]*>[^<]*no se envía ni se guarda en VEC/u);
   desmontar();
   assert.equal(c.eventos.size, 0);
 

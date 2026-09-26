@@ -152,7 +152,7 @@ test("anota un documento con referencia y huella calculada localmente, conservan
   await contenedor.emitir("change", { dataset: { ctFormalizacionArchivo: "" }, files: [new File([contenido], "dni.pdf")] });
   await esperar();
   const huella = createHash("sha256").update(contenido).digest("hex");
-  assert.match(contenedor.innerHTML, new RegExp(`Huella calculada: ${huella}`, "u"));
+  assert.match(contenedor.innerHTML, /Documento leído y comprobado en este equipo/u); assert.ok(!contenedor.innerHTML.includes(huella));
   assert.doesNotMatch(contenedor.innerHTML, /dni\.pdf/u);
 
   await contenedor.emitir("submit", formulario);

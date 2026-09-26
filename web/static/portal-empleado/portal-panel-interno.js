@@ -9,11 +9,11 @@
  */
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-huella-archivo-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-sanciones-efectos-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-huella-archivo-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-integracion-bolsa-ct-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
@@ -166,7 +166,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return datos.actuaciones_pendientes.map((item) => `
       <tr>
         <td><strong>${escaparHTML(item.actuacion_ref)}</strong></td><td>${escaparHTML(item.recurso_ref)}</td>
-        <td>${escaparHTML(etiquetaClave(item.tipo_clave))}<br><small>${escaparHTML(item.tipo_clave)}</small></td>
+        <td>${escaparHTML(etiquetaClave(item.tipo_clave))}</td>
         <td><span class="estado-chip ${claseEstado(item.estado_clave)}">${escaparHTML(etiquetaClave(item.estado_clave))}</span></td>
         <td><span class="estado-chip ${claseEstado(item.prioridad_clave)}">${escaparHTML(etiquetaClave(item.prioridad_clave))}</span></td>
         <td>${item.fecha_limite ? `<time datetime="${escaparHTML(item.fecha_limite)}">${escaparHTML(instanteVisible(item.fecha_limite))}</time>` : "Sin fecha límite"}</td>
@@ -308,7 +308,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
         <aside class="columna-cuadro" aria-label="Actuaciones y prueba de lectura">
           <section class="panel"><div class="cabecera-panel"><h3>Actuaciones pendientes</h3><span class="estado-chip info">${numero(datos.actuaciones_pendientes.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Trabajo administrativo pendiente sin identidad de personas interesadas</caption><thead><tr><th scope="col">Actuación</th><th scope="col">Recurso</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Prioridad</th><th scope="col">Fecha límite</th><th scope="col">Elementos</th></tr></thead><tbody>${filasActuaciones(datos)}</tbody></table></div></section>
-          <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${escaparHTML(datos.origen.revision)}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Lectura</dt><dd>${escaparHTML(datos.prueba_lectura.lectura_ref)}</dd></div><div class="fila-resumen"><dt>Auditoría</dt><dd>${escaparHTML(datos.prueba_lectura.auditoria_ref)} · secuencia ${numero(datos.prueba_lectura.auditoria_secuencia)}</dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
+          <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${escaparHTML(datos.origen.revision)}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
         </aside>
       </div>`;
   }
@@ -518,7 +518,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="fila-resumen"><dt>Criterio</dt><dd>Puntuación descendente; desempate estable por nº del acta</dd></div>
             <div class="fila-resumen"><dt>Tipo</dt><dd>${escaparHTML(etiquetaClave(bolsa.politica_orden.tipo_lista))}</dd></div>
             <div class="fila-resumen"><dt>Reposición</dt><dd>${escaparHTML(etiquetaReposicion(bolsa.politica_orden.reposicion))}</dd></div>
-            <div class="fila-resumen"><dt>Versión y vigencia</dt><dd>v${numero(bolsa.politica_orden.version)} · ${escaparHTML(fechaVisible(bolsa.politica_orden.vigente_desde))}</dd></div>
+            <div class="fila-resumen"><dt>Versión y vigencia</dt><dd>Versión ${numero(bolsa.politica_orden.version)} · ${escaparHTML(fechaVisible(bolsa.politica_orden.vigente_desde))}</dd></div>
           </dl>${rotuloPoliticaOrden(bolsa.politica_orden.rotulo)}</div>
         </section>
         ${avisoSustitucion}

@@ -2,6 +2,7 @@ import { validarSolicitudIncorporacionEjercicio, validarReciboIncorporacionEjerc
   validarPreparacionIncorporacionEjercicio } from "./contrato-incorporacion-ejercicio.js";
 import { escaparHTML as e } from "./componentes-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { justificanteTraducido } from "../../portal-justificante.js";
 
 // Catálogo local de esta pieza: admite las mismas sobrescrituras que el módulo.
 const textos = Object.freeze({
@@ -9,6 +10,9 @@ const textos = Object.freeze({
   limites: "La incorporación no acredita firma oficial ni eficacia administrativa.",
   expediente_ref: "Expediente", solicitud_personal_ref: "Solicitud de Personal",
   version_actual: "Versión actual del expediente", version_original: "Versión original del expediente",
+  version_valor: "Versión {version}", documentos_numero: "{numero} documento(s) indicado(s)",
+  motivo_ejercicio_incorporacion: "Incorporación efectiva",
+  motivo_cierre_administrativo_ejercicio: "Cierre administrativo",
   version_solicitud_personal: "Versión de la solicitud de Personal",
   version_seguimiento_esperada: "Versión esperada del seguimiento",
   desde: "Inicio del período", hasta: "Fin del período", documentos: "Documentos revisados",
@@ -52,6 +56,12 @@ export function montarFormularioIncorporacionEjercicio({
   const texto = (k) => e(t("incorporacion_ejercicio_" + k));
   const fila = (k, v) => `<div><dt>${texto(k)}</dt><dd>${e(String(v))}</dd></div>`;
   const siNo = (valor) => valor ? "Sí" : "No";
+  // Versión en palabras; las referencias y versiones técnicas viajan solo en el contrato.
+  const filaVersion = (k, v) => fila(k, t("incorporacion_ejercicio_version_valor", { version: v }));
+  // Motivo del catálogo por su nombre; una clave sin traducir se muestra sin guiones bajos.
+  const motivoLegible = (m) => {
+    try { return t(`incorporacion_ejercicio_motivo_${m}`); } catch { return m.replaceAll("_", " "); }
+  };
   // Los límites del período se presentan por su día civil UTC; el instante de
   // registro sí muestra la hora en la zona elegida por quien consulta el recibo.
   const fechaCivil = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" });
@@ -68,29 +78,25 @@ export function montarFormularioIncorporacionEjercicio({
     raiz.innerHTML = `<section class="ct-alta" data-ct-incorporacion-ejercicio>
       <h3>${texto("titulo")}</h3>
       <dl class="ct-resumen" aria-label="${texto("contexto")}">
-        ${fila("expediente_ref", contexto.expediente_ref)}${fila("version_actual", versionActual)}
+        ${filaVersion("version_actual", versionActual)}
       </dl>
       ${recibo ? `<section class="ct-recibo" role="status"><h4>${texto("recibo")}</h4><dl>
-        ${fila("recibo_ref", recibo.recibo_ref)}
-        ${fila("registrada_en", `${fechaRegistro.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
+        <div><dt>${texto("recibo_ref")}</dt><dd>${justificanteTraducido(recibo.recibo_ref, e, t)}</dd></div>
+        <div><dt>${texto("registrada_en")}</dt><dd><time datetime="${e(recibo.registrada_en)}">${e(fechaRegistro.format(new Date(recibo.registrada_en)))}</time></dd></div>
         ${fila("firma_oficial", siNo(recibo.firma_oficial))}
         ${fila("eficacia_administrativa", siNo(recibo.eficacia_administrativa))}
-        ${periodo(recibo.periodo_incorporacion)}</dl><details><summary>${texto("detalles_trazabilidad")}</summary><dl>
-        ${["esquema", "expediente_ref", "solicitud_personal_ref", "relacion_ref", "seguimiento_ref", "actuacion_ref",
-          "auditoria_ref", "outbox_ref", "version_solicitud_personal", "version_seguimiento_anterior",
-          "version_seguimiento_resultante"].map((k) => fila(k, recibo[k])).join("")}
-        ${fila("version_original", recibo.version_actual_expediente)}
-        </dl></details><button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver")}</button>
+        ${periodo(recibo.periodo_incorporacion)}
+        ${filaVersion("version_original", recibo.version_actual_expediente)}</dl>
+        <button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver")}</button>
       </section>` : `<dl class="ct-resumen">
-        ${fila("solicitud_personal_ref", p.solicitud_personal_ref)}${fila("version_solicitud_personal", p.version_solicitud_personal)}
-        ${fila("version_seguimiento_esperada", p.version_seguimiento_esperada)}${periodo(p.periodo_incorporacion)}
-        ${fila("documentos", p.documentos_refs.length ? p.documentos_refs.join(" · ") : t("incorporacion_ejercicio_sin_documentos"))}</dl>
+        ${periodo(p.periodo_incorporacion)}
+        ${fila("documentos", p.documentos_refs.length ? t("incorporacion_ejercicio_documentos_numero", { numero: p.documentos_refs.length }) : t("incorporacion_ejercicio_sin_documentos"))}</dl>
         ${p.disponible ? `<form data-ct-incorporacion-ejercicio-form aria-busy="${ocupado}">
           <fieldset${ocupado || inmutable ? " disabled" : ""}>
             <legend>${texto("contexto")}</legend>
             <div class="ct-campo"><label for="ct-ie-motivo">${texto("motivo")} *</label>
               <select id="ct-ie-motivo" name="motivo_clave" required><option value="">${texto("seleccionar")}</option>
-              ${p.motivos.map((m) => `<option value="${e(m)}"${valores.motivo_clave === m ? " selected" : ""}>${e(m)}</option>`).join("")}</select></div>
+              ${p.motivos.map((m) => `<option value="${e(m)}"${valores.motivo_clave === m ? " selected" : ""}>${e(motivoLegible(m))}</option>`).join("")}</select></div>
             <div class="ct-campo"><label><input type="checkbox" name="confirma_revision_personal" required${valores.confirma_revision_personal ? " checked" : ""}> ${texto("revision")}</label></div>
             <div class="ct-campo"><label><input type="checkbox" name="confirma_ejercicio_sintetico" required${valores.confirma_ejercicio_sintetico ? " checked" : ""}> ${texto("ejercicio")}</label></div>
           </fieldset><div class="ct-acciones"><button type="submit" class="boton-primario"${ocupado ? " disabled" : ""}>${texto(inmutable ? "reintentar" : "confirmar")}</button></div>

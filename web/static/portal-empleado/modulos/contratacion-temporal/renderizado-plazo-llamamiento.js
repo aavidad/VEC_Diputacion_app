@@ -5,6 +5,7 @@
  * «vencido» es solo lectura: el servidor decide con su propio reloj.
  */
 import { escaparHTML as e } from "./componentes-expedientes.js";
+import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 import { CAMPOS_REVISION_RESOLUCION, respuestaFueraDePlazo, situacionPlazoRespuesta } from "./contrato-llamamiento.js";
 
 /** Estado derivado del plazo, compartido por el formulario y la vista. */
@@ -36,6 +37,11 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
     const valor = estado[operacion].valores[nombre] ?? "";
     const visible = tipo === "datetime-local" ? String(valor).replace(/Z$/u, "") : valor;
+    if (nombre === "clave_idempotencia" && valor !== "") {
+      // La clave ya preparada viaja oculta; en pantalla solo se ofrece copiarla.
+      return `<div class="ct-campo"><input id="${id}" name="${nombre}" value="${e(valor)}"
+        type="hidden" readonly><p id="${id}-visible" tabindex="-1">${claveRecuperacionTraducida(valor, e, t)}</p></div>`;
+    }
     const atributos = tipo === "datetime-local" ? 'type="datetime-local" step="0.000001"' : 'type="text" maxlength="160"';
     return `<div class="ct-campo"><label for="${id}">${e(t(etiqueta))} *</label>
       <input id="${id}" name="${nombre}" ${atributos} value="${e(visible)}" required autocomplete="off"
@@ -123,7 +129,7 @@ export function renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora) {
         <p>${e(t("llamamiento_propuesta_expiracion"))}</p>
         ${estado.expiracion.recibo ? recibo("expiracion", [
           ["llamamiento_estado_plazo", e(t("llamamiento_plazo_" + estado.expiracion.recibo.estado_plazo))],
-          ["llamamiento_resolucion_ref", e(estado.expiracion.recibo.resolucion_ref)],
+          ["llamamiento_resolucion_ref", justificanteTraducido(estado.expiracion.recibo.resolucion_ref, e, t)],
           ["llamamiento_resuelta_en", tiempoVisible(estado.expiracion.recibo.resuelta_en) || e(estado.expiracion.recibo.resuelta_en)],
           ["llamamiento_intencion_siguiente_estado_local", e(t("llamamiento_intencion_siguiente_" + estado.expiracion.recibo.intencion_siguiente.estado_local))],
         ]) : formularioExpiracion()}

@@ -84,10 +84,10 @@ function renderizarContexto(contexto, t) {
   escaparHTML(t(esNuevaFiscalizacion
     ? "fiscalizacion_fase_subsanacion_unidad" : "fiscalizacion_fase_informe_juridico"))}</dd></div>
     <div><dt>${escaparHTML(t(esNuevaFiscalizacion
-      ? "fiscalizacion_contexto_subsanacion" : "fiscalizacion_contexto_informe"))}</dt><dd><code>${
+      ? "fiscalizacion_contexto_subsanacion" : "fiscalizacion_contexto_informe"))}</dt><dd>${
   escaparHTML(esNuevaFiscalizacion ? t("fiscalizacion_subsanacion_registrada", {
     version: contexto.version_esperada,
-  }) : informe)}</code></dd></div>
+  }) : informe)}</dd></div>
   </dl>`;
 }
 

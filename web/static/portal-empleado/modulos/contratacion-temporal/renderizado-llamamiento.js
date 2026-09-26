@@ -12,6 +12,8 @@ import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
  * expiración confirmada por RRHH (sin respuesta en plazo). */
 // Referencias sin valor para quien tramita: constan en la auditoría del servidor.
 const OCULTOS_RECIBO = new Set(["auditoria_ref", "organizacion_ref"]);
+// De las referencias de un recibo solo se ofrece copiar el justificante; el resto no aporta a quien tramita.
+const JUSTIFICANTES_RECIBO = new Set(["recibo_ref", "recibo_local_ref", "justificante_ref"]);
 
 export function reciboAntecedenteSiguiente(estado) {
   if (estado.resolucion?.recibo?.respuesta === "renuncia") return estado.resolucion.recibo;
@@ -79,10 +81,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
     if (operacion === "propuesta" && nombre === "anexos") return `<p class="ct-ayuda">${e(t("llamamiento_propuesta_sin_anexos"))}</p>`;
     if (operacion === "propuesta" && Object.hasOwn(PUBLICACIONES_FORMALIZACION, nombre)) {
-      return `<div class="ct-campo"><label for="${id}">${e(t("llamamiento_" + nombre))}</label>
-        <input id="${id}" type="text" readonly autocomplete="off" value="${e(valor?.referencia ? `${valor.referencia} · v${valor.version}` : t("llamamiento_propuesta_cargando"))}">
-        <label for="${id}-huella">${e(t("llamamiento_publicacion_huella"))}</label>
-        <input id="${id}-huella" type="text" readonly autocomplete="off" value="${e(valor?.huella_sha256 ?? "")}"></div>`;
+      // Referencia y huella viajan en el estado del formulario; en pantalla solo la versión publicada.
+      return `<div class="ct-campo"><span>${e(t("llamamiento_" + nombre))}</span><p id="${id}">${e(valor?.referencia
+        ? t("llamamiento_publicacion_version", { version: valor.version }) : t("llamamiento_propuesta_cargando"))}</p></div>`;
     }
     if (esResolucion(operacion) && CAMPOS_REVISION_RESOLUCION.includes(nombre)) {
       return `<div class="ct-campo"><label for="${id}"><input id="${id}" name="${nombre}"
@@ -98,12 +99,19 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           ${valor === opcion ? "selected" : ""}>${e(t(esResolucion(operacion)
             ? "llamamiento_resolucion_" + opcion : "llamamiento_respuesta_" + opcion))}</option>`).join("")}
       </select></div>`;
-    // Una referencia o clave ya fijada viaja oculta; en pantalla solo se ofrece copiarla.
-    if (bloqueado && valor !== "" && (/_ref$/u.test(nombre) || nombre === "clave_idempotencia")) {
-      const etiqueta = t(operacion === "comunicacion_siguiente" && nombre === "prueba_entrega_ref"
-        ? "llamamiento_prueba_continuacion_ref" : "llamamiento_" + nombre);
-      const visible = nombre === "clave_idempotencia" ? claveRecuperacionTraducida(valor, e, t) : justificanteTraducido(valor, e, t);
-      return `<div class="ct-campo"><span>${e(etiqueta)}</span><input id="${id}" name="${nombre}" value="${e(valor)}" type="hidden" readonly><p>${visible}</p></div>`;
+    // Referencias, claves, versiones y huellas ya fijadas viajan ocultas; en pantalla
+    // solo lo útil: copiar el justificante o la clave y la versión en palabras.
+    const clave = nombre === "clave_idempotencia";
+    const tecnico = /_ref$/u.test(nombre) || numero || ["correo_sha256", "tipo_antecedente"].includes(nombre);
+    if (valor !== "" && ((bloqueado && tecnico) || clave)) {
+      const oculto = `<input id="${id}" name="${nombre}" value="${e(valor)}" type="hidden" readonly>`;
+      // Los antecedentes (referencias, huella, tipo) ya constan en su recibo: solo viajan.
+      if (!clave && !numero) return oculto;
+      const visible = clave ? claveRecuperacionTraducida(valor, e, t)
+        : e(t(nombre === "version_comunicacion_esperada" ? "llamamiento_version_comunicacion_valor"
+          : "llamamiento_version_expediente_valor", { version: valor }));
+      // La clave ya se rotula a sí misma («Clave de recuperación preparada»).
+      return `<div class="ct-campo">${clave ? "" : `<span>${e(t("llamamiento_version_rotulo"))}</span>`}${oculto}<p id="${id}-visible" tabindex="-1">${visible}</p></div>`;
     }
     const recepcion = nombre === "recibida_en";
     const tipo = numero ? 'type="number" min="1" max="9007199254740990" step="1"'
@@ -130,7 +138,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? ["recibo_ref", "confirmada_en", "organizacion_ref", "llamamiento_ref", "version_llamamiento"]
       : ["comunicacion_ref", "recibo_ref", "auditoria_ref", "version_resultante", "estado_local",
         ...(Object.hasOwn(datos, "registrada_en") ? ["registrada_en", "intencion_envio_ref"] : [])];
-    const camposVisibles = campos.filter((campo) => !OCULTOS_RECIBO.has(campo));
+    const camposVisibles = campos.filter((campo) => !OCULTOS_RECIBO.has(campo)
+      && (!/_ref$|^intencion_siguiente_referencia$/u.test(campo) || JUSTIFICANTES_RECIBO.has(campo) || campo === "correo_ref"));
     return `<section class="ct-recibo" data-ct-llamamiento-recibo="${operacion}"
       aria-labelledby="ct-llamamiento-recibo-${operacion}" tabindex="-1">
       <h4 id="ct-llamamiento-recibo-${operacion}">${e(t(operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo" : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo" : esResolucion(operacion)
@@ -148,7 +157,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         else if (nombre === "estado_plazo") valor = e(t("llamamiento_plazo_" + valor));
         else if (nombre === "respuesta") valor = e(t(esResolucion(operacion)
           ? "llamamiento_resolucion_" + valor : "llamamiento_respuesta_" + valor));
-        else if (/_ref$|^intencion_siguiente_referencia$/u.test(nombre)) valor = justificanteTraducido(valor, e, t);
+        else if (JUSTIFICANTES_RECIBO.has(nombre)) valor = justificanteTraducido(valor, e, t);
+        else if (nombre === "version_resultante") valor = e(t("llamamiento_version_expediente_valor", { version: valor }));
+        else if (nombre === "version_llamamiento") valor = e(t("llamamiento_version_llamamiento_valor", { version: valor }));
         else valor = e(valor);
         return `<div><dt>${e(t(operacion === "siguiente" && nombre === "llamamiento_ref" ? "llamamiento_nuevo_ref"
           : operacion === "siguiente" && nombre === "confirmada_en" ? "llamamiento_continuacion_confirmada_en" : nombre === "respuesta"

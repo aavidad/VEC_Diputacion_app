@@ -111,9 +111,8 @@ function renderizarDocumento(recibo, t) {
     <h3 id="ct-informe-documento-titulo">${escaparHTML(recibo.nombre)}</h3>
     <p><strong>${escaparHTML(t("informe_documento_advertencia"))}</strong></p>
     <dl class="ct-resumen">
-      <div><dt>${escaparHTML(t("informe_documento_version"))}</dt><dd>${recibo.version_documento}</dd></div>
+      <div><dt>${escaparHTML(t("informe_documento_version"))}</dt><dd>${escaparHTML(t("informe_documento_version_valor", { version: recibo.version_documento }))}</dd></div>
       <div><dt>${escaparHTML(t("informe_documento_formato"))}</dt><dd>${escaparHTML(recibo.formato)}</dd></div>
-      <div><dt>${escaparHTML(t("informe_documento_huella"))}</dt><dd><code>${escaparHTML(recibo.huella_documento_sha256)}</code></dd></div>
     </dl>
     <h4>${escaparHTML(t("informe_documento_contenido"))}</h4>
     <pre tabindex="0" aria-label="${escaparHTML(t("informe_documento_contenido"))}">${

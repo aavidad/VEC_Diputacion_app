@@ -63,7 +63,7 @@ test("tras confirmar la expiración se abre el siguiente llamamiento como tras u
   assert.deepEqual(enviadas, [{ clave_idempotencia: CLAVE_SIGUIENTE, organizacion_ref: recibo.organizacion_ref,
     expediente_ref: EXPEDIENTE, resolucion_ref: reciboExpiracion.resolucion_ref,
     intencion_ref: reciboExpiracion.intencion_siguiente.referencia }]);
-  assert.match(raiz.innerHTML, /llamamiento:siguiente:021/u);
+  assert.match(raiz.innerHTML, /data-copiar-justificante="recibo:ct:021"/u);
   assert.match(raiz.innerHTML, new RegExp(MENSAJES_LLAMAMIENTO_ES.llamamiento_siguiente_recibo, "u"));
   // El aviso al sucesor tras una expiración queda fuera de este paso.
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="comunicacion_siguiente"/u);
@@ -74,6 +74,6 @@ test("un recibo de continuación de otro llamamiento anterior se rechaza", async
   const raiz = raizPrueba();
   const cerrar = await confirmarExpiracion(raiz, async (s) => ({ ...continuacion(s), llamamiento_anterior_ref: "llamamiento:ajeno" }));
   await raiz.enviar("siguiente", { clave_idempotencia: CLAVE_SIGUIENTE });
-  assert.doesNotMatch(raiz.innerHTML, /llamamiento:siguiente:021/u);
+  assert.doesNotMatch(raiz.innerHTML, /recibo:ct:021/u);
   cerrar();
 });

@@ -108,7 +108,11 @@ test("P-WEB-13 pinta solo operaciones admitidas y documenta custodia y validaci√
   assert.match(trabajando, /data-operacion="reactivar"/);
   assert.match(trabajando, /data-operacion="excluir"/);
   const excluir = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [], operacion: "excluir", paso: 2, formulario: { motivo: "Solicitud" } } });
-  assert.match(excluir, /El documento permanece en su custodia y no se sube a VEC/);
+  // La huella se calcula del archivo en el equipo: no se teclea ni se muestra.
+  assert.match(excluir, /<input id="b8-justificante-archivo" type="file" data-huella-archivo aria-describedby="b8-justificante-archivo-estado" aria-required="true"/);
+  assert.match(excluir, /<input type="hidden" name="sha256" value="" data-huella-valor>/);
+  assert.doesNotMatch(excluir, /pattern="\[a-fA-F0-9\]\{64\}"/);
+  assert.match(excluir, /<summary aria-label="Ayuda sobre el justificante">\?<\/summary><p>[^<]*no se env√≠a ni se guarda en VEC y sigue en su custodia/);
   const validarExclusion = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [], operacion: "excluir", paso: 3, formulario: { validador: "RRHH" } } });
   assert.match(validarExclusion, /Confirmo que el validador es otra persona/);
   assert.match(validarExclusion, /name="confirma_validador_distinto" required/);

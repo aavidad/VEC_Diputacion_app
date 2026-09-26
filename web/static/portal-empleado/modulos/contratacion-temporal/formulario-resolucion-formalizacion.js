@@ -2,14 +2,13 @@ import { validarSolicitudResolucionFormalizacion, validarReciboResolucionFormali
   validarPreparacionResolucionFormalizacion } from "./contrato-resolucion-formalizacion.js";
 import { escaparHTML as e } from "./componentes-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 
 const textosRecibo = Object.freeze({
   resolucion_formalizacion_estado: "Estado del registro",
   resolucion_formalizacion_tipo_validacion: "Naturaleza de la validación",
   resolucion_formalizacion_firma_oficial: "Firma oficial",
   resolucion_formalizacion_eficacia_administrativa: "Eficacia administrativa",
-  resolucion_formalizacion_esquema: "Esquema del recibo",
-  resolucion_formalizacion_detalles_trazabilidad: "Detalles de trazabilidad",
 });
 
 export function montarFormularioResolucionFormalizacion({
@@ -48,23 +47,19 @@ export function montarFormularioResolucionFormalizacion({
     const documento = raiz.ownerDocument ?? globalThis.document;
     const focoPropio = enfocarEstado && documento?.activeElement && raiz.contains?.(documento.activeElement);
     const v = valores;
-    const camposRecibo = ["esquema", "estado", "tipo_validacion", "expediente_ref", "propuesta_ref", "resolucion_formalizacion_ref", "documento_resolucion_ref",
-      "documento_resolucion_version", "documento_resolucion_sha256", "version_resultante",
-      "actuacion_ref", "auditoria_ref", "outbox_ref"];
-    raiz.innerHTML = `<section class="ct-alta" data-ct-resolucion-formalizacion>
+    // Referencias, huellas y versiones técnicas viajan en el contrato; en pantalla solo lo útil.
+    raiz.innerHTML = `<section class="ct-alta" data-ct-resolucion-formalizacion data-ct-rf-propuesta="${e(contexto.propuesta_ref)}">
       <h3>${texto("titulo")}</h3>
       <dl class="ct-resumen" aria-label="${texto("contexto")}">
-        ${fila("expediente_ref", contexto.expediente_ref)}
-        ${fila("propuesta_ref", contexto.propuesta_ref)}
-        ${fila("version_esperada", contexto.version_esperada)}
-        ${fila("version_actual", recibo?.version_resultante ?? contexto.version_actual)}
+        <div><dt>${texto("version_actual")}</dt><dd>${e(t("llamamiento_version_expediente_valor", {
+          version: recibo?.version_resultante ?? contexto.version_actual }))}</dd></div>
       </dl>
       ${recibo ? `<section class="ct-recibo" role="status">
         <h4>${texto("recibo_titulo")}</h4><p>${texto("limites")}</p>
-        <dl>${fila("recibo_ref", recibo.recibo_ref)}${fila("registrada_en", `${fecha.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
+        <dl><div><dt>${texto("recibo_ref")}</dt><dd>${justificanteTraducido(recibo.recibo_ref, e, t)}</dd></div>
+          <div><dt>${texto("registrada_en")}</dt><dd><time datetime="${e(recibo.registrada_en)}">${e(fecha.format(new Date(recibo.registrada_en)))}</time></dd></div>
           ${fila("estado", estadoLegible(recibo.estado))}${fila("tipo_validacion", validacionLegible())}
           ${fila("firma_oficial", siNo(recibo.firma_oficial))}${fila("eficacia_administrativa", siNo(recibo.eficacia_administrativa))}</dl>
-        <details><summary>${texto("detalles_trazabilidad")}</summary><dl>${camposRecibo.map((campo) => fila(campo, recibo[campo])).join("")}</dl></details>
         <button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver_cuadro")}</button>
       </section>` : `<form data-ct-resolucion-formalizacion-form aria-busy="${ocupado}">
         <fieldset${ocupado || reintentoInmutable ? " disabled" : ""}>
@@ -78,8 +73,8 @@ export function montarFormularioResolucionFormalizacion({
           <div class="ct-campo"><label><input type="checkbox" name="confirma_revision_propuesta"${v.confirma_revision_propuesta ? " checked" : ""}> ${texto("revision")}</label></div>
           <div class="ct-campo"><label><input type="checkbox" name="confirma_ejercicio_manual"${v.confirma_ejercicio_manual ? " checked" : ""}> ${texto("ejercicio")}</label></div>
         </fieldset>
-        <div class="ct-campo"><label for="ct-rf-clave">${texto("clave")}</label>
-          <input id="ct-rf-clave" name="clave_idempotencia" readonly value="${e(v.clave_idempotencia)}"></div>
+        <input id="ct-rf-clave" name="clave_idempotencia" type="hidden" readonly value="${e(v.clave_idempotencia)}">
+        ${v.clave_idempotencia ? `<div class="ct-campo"><span>${texto("clave")}</span><p>${claveRecuperacionTraducida(v.clave_idempotencia, e, t)}</p></div>` : ""}
         <div class="ct-acciones"><button class="boton-primario" type="submit"${ocupado ? " disabled" : ""}>
           ${texto(solicitudPendiente ? "reintentar" : "registrar")}</button></div>
       </form>`}
