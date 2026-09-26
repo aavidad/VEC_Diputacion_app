@@ -7,7 +7,7 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-analisis-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-referencias-legibles-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-referencias-legibles-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";

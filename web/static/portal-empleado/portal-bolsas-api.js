@@ -13,7 +13,7 @@ import {
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-analisis-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-referencias-legibles-v1";
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-referencias-legibles-v1";

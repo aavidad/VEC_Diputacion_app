@@ -113,6 +113,9 @@ func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
 	datos ports.DatosSolicitudCalcularCoste,
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
 ) bool {
+	// La solicitud de coste no lleva RC propia: su forma se comprueba con la
+	// primera entrada publicada.
+	entradaRC := catalogo.opcionesAnalisis().primeraEntradaRC()
 	solicitud := ports.SolicitudPrepararArtefactoAnalisis{
 		ArtefactoRef:      artefactoAnalisisContratacionTemporalDesarrollo,
 		OrganizacionRef:   datos.OrganizacionRef,
@@ -126,8 +129,8 @@ func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
 			Periodo:           datos.Periodo,
 			PorcentajeJornada: datos.Jornada,
 			EntradaRC: domain.VinculoEntradaRC{
-				Referencia:   entradaRCAnalisisContratacionTemporalDesarrollo,
-				HuellaSHA256: huellaEntradaRCAnalisisContratacionTemporalDesarrollo,
+				Referencia:   entradaRC.Referencia,
+				HuellaSHA256: entradaRC.Huella,
 			},
 		},
 		SolicitadaEn: datos.SolicitadaEn,

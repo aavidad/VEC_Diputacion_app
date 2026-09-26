@@ -9,7 +9,7 @@ import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260926-integracion-bolsa-ct-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-analisis-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-integracion-bolsa-ct-v1";
 import {
   componerCronosInterno,
@@ -96,7 +96,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260926-huella-archivo-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260926-huecos-analisis-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
@@ -347,6 +347,10 @@ export function crearCoordinadorModulosPortal({
             entradas_rc: configuracionAnalisis.entradas_rc,
             motivos_rectificacion: configuracionAnalisis.motivos_rectificacion,
             jornada_completa_minutos_semanales: configuracionAnalisis.jornada_completa_minutos_semanales,
+            // Opcionales: solo existen si el catálogo de reglas las publica.
+            ...(configuracionAnalisis.duraciones_maximas
+              ? { duraciones_maximas: configuracionAnalisis.duraciones_maximas } : {}),
+            ...(configuracionAnalisis.urgencia_disponible === true ? { urgencia_disponible: true } : {}),
           }),
           contexto: Object.freeze({
             operacion: "registrar",

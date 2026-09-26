@@ -3,6 +3,7 @@ import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
+import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-analisis-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   justificante_registrado: "Justificante registrado",
@@ -33,6 +34,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...MENSAJES_SUBSANACION_REPAROS_ES,
   ...MENSAJES_DOCUMENTACION_FORMALIZACION_ES,
   ...MENSAJES_AVISOS_VIA_COBERTURA_ES,
+  ...MENSAJES_ANALISIS_CATALOGO_ES,
   titulo: "Nueva solicitud de contratación temporal",
   progreso_etiqueta: "Progreso del alta",
   progreso_datos: "Datos",

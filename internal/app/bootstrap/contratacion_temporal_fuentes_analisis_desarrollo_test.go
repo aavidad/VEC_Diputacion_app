@@ -20,7 +20,8 @@ func TestFuentesAnalisisDesarrolloPreparanCincoModalidadesAtestadas(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	for indice, modalidad := range modalidadesAnalisisContratacionTemporalDesarrollo {
+	for indice, opcion := range opcionesAnalisisPredeterminadas().modalidades {
+		modalidad := opcion.Clave
 		t.Run(string(modalidad), func(t *testing.T) {
 			solicitud := solicitudPrepararArtefactoAnalisisDesarrolloPrueba(
 				modalidad,

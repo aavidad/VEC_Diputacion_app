@@ -18,9 +18,10 @@ const MAXIMO_OPCIONES_CONFIGURACION = 100;
 const MAXIMO_CATEGORIAS_CONFIGURACION = 1000;
 // Una jornada completa no puede superar los minutos de una semana.
 const MAXIMO_MINUTOS_JORNADA_COMPLETA = 7 * 24 * 60;
-const CLAVES_MODALIDADES_RRHH = new Set([
-  "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
-]);
+// Unidades de las duraciones máximas (reglas c08 del catálogo) que el
+// formulario sabe contar de fecha a fecha.
+const UNIDADES_DURACION = new Set(["meses", "anios", "dias_naturales"]);
+const MAXIMO_CANTIDAD_DURACION = 100_000;
 
 function esRegistro(valor) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
@@ -134,26 +135,89 @@ function versionConIncrementoValida(valor) {
     && valor < MAXIMO_ENTERO_SEGURO;
 }
 
+/**
+ * Duraciones máximas por modalidad que publica el catálogo. Se valida la forma,
+ * no el contenido: qué modalidades tienen máximo y cuánto lo decide el catálogo.
+ */
+export function normalizarDuracionesMaximas(lista, modalidades) {
+  const claves = new Set(modalidades.map(({ clave }) => clave));
+  const vistas = new Set();
+  return Object.freeze(valoresListaCerrada(lista, "duraciones máximas", 0).map((duracion) => {
+    exigirCamposExactos(
+      duracion,
+      ["modalidad_clave", "unidad", "cantidad", "bloquear"],
+      "duración máxima",
+    );
+    if (!claves.has(duracion.modalidad_clave) || vistas.has(duracion.modalidad_clave)
+      || !UNIDADES_DURACION.has(duracion.unidad)
+      || !Number.isSafeInteger(duracion.cantidad) || duracion.cantidad < 1
+      || duracion.cantidad > MAXIMO_CANTIDAD_DURACION
+      || typeof duracion.bloquear !== "boolean") {
+      throw new TypeError("duración máxima no válida");
+    }
+    vistas.add(duracion.modalidad_clave);
+    return Object.freeze({ ...duracion });
+  }));
+}
+
+function sumarMesesMismoDia({ anio, mes, dia }, meses) {
+  const total = anio * 12 + (mes - 1) + meses;
+  const anioFinal = Math.floor(total / 12);
+  const mesFinal = (total % 12) + 1;
+  return { anio: anioFinal, mes: mesFinal, dia: Math.min(dia, diasDelMes(anioFinal, mesFinal)) };
+}
+
+function sumarDias({ anio, mes, dia }, dias) {
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  fecha.setUTCDate(fecha.getUTCDate() + dias);
+  return { anio: fecha.getUTCFullYear(), mes: fecha.getUTCMonth() + 1, dia: fecha.getUTCDate() };
+}
+
+/**
+ * Indica si el periodo (fechas «AAAA-MM-DD») llega al vencimiento del máximo,
+ * contado de fecha a fecha como en el servidor: nueve meses desde el 1 de enero
+ * terminan como tarde el 30 de septiembre. Sin máximo o sin fechas, no supera.
+ */
+export function periodoSuperaDuracionMaxima(duracion, inicio, fin) {
+  if (!duracion) return false;
+  const desde = descomponerFechaCivil(`${inicio}T00:00:00Z`);
+  const hasta = descomponerFechaCivil(`${fin}T00:00:00Z`);
+  if (desde === null || hasta === null) return false;
+  let vencimiento;
+  if (duracion.unidad === "meses") vencimiento = sumarMesesMismoDia(desde, duracion.cantidad);
+  else if (duracion.unidad === "anios") vencimiento = sumarMesesMismoDia(desde, 12 * duracion.cantidad);
+  else if (duracion.unidad === "dias_naturales") vencimiento = sumarDias(desde, duracion.cantidad);
+  else return false;
+  return ordinalFecha(hasta) >= ordinalFecha(vencimiento);
+}
+
 export function validarConfiguracionAnalisis(configuracion) {
-  const tieneSubsanacion = esRegistro(configuracion) && Object.hasOwn(configuracion, "subsanacion_disponible");
+  const opcional = (campo) => esRegistro(configuracion) && Object.hasOwn(configuracion, campo);
+  const tieneSubsanacion = opcional("subsanacion_disponible");
+  const tieneDuraciones = opcional("duraciones_maximas");
+  const tieneUrgencia = opcional("urgencia_disponible");
   exigirCamposExactos(configuracion, [
     "esquema", "artefacto_ref", "modalidades", "categorias", "causas",
     "entradas_rc", "motivos_rectificacion", "jornada_completa_minutos_semanales",
     ...(tieneSubsanacion ? ["subsanacion_disponible"] : []),
+    ...(tieneDuraciones ? ["duraciones_maximas"] : []),
+    ...(tieneUrgencia ? ["urgencia_disponible"] : []),
   ], "configuración del análisis");
   if (configuracion.esquema !== ESQUEMA_CONFIGURACION
     || !referenciaValida(configuracion.artefacto_ref)
     || !minutosJornadaCompletaValidos(configuracion.jornada_completa_minutos_semanales)
-    || (tieneSubsanacion && typeof configuracion.subsanacion_disponible !== "boolean")) {
+    || (tieneSubsanacion && typeof configuracion.subsanacion_disponible !== "boolean")
+    || (tieneUrgencia && typeof configuracion.urgencia_disponible !== "boolean")) {
     throw new TypeError("configuración del análisis no válida");
   }
+  // Qué modalidades existen lo decide el catálogo del servidor; aquí solo se
+  // exige la forma de cada opción.
   const modalidades = normalizarOpciones(configuracion.modalidades, {
     nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
-    cantidadExacta: 5,
   });
-  if (modalidades.some(({ clave }) => !CLAVES_MODALIDADES_RRHH.has(clave))) {
-    throw new TypeError("modalidades no válida");
-  }
+  const duraciones = tieneDuraciones
+    ? normalizarDuracionesMaximas(configuracion.duraciones_maximas, modalidades)
+    : null;
   const causas = normalizarOpciones(configuracion.causas, {
     nombre: "causas", campo: "clave", patron: PATRON_CLAVE,
   });
@@ -218,6 +282,8 @@ export function validarConfiguracionAnalisis(configuracion) {
     motivos_rectificacion: motivos,
     jornada_completa_minutos_semanales: configuracion.jornada_completa_minutos_semanales,
     ...(tieneSubsanacion ? { subsanacion_disponible: configuracion.subsanacion_disponible } : {}),
+    ...(duraciones ? { duraciones_maximas: duraciones } : {}),
+    ...(tieneUrgencia ? { urgencia_disponible: configuracion.urgencia_disponible } : {}),
   });
 }
 

@@ -1,0 +1,36 @@
+/* Aviso de duración máxima y marca de urgencia del análisis (reglas c08 y c15). */
+.ct-aviso-campo {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--portal-aviso);
+}
+
+.ct-aviso-campo:not(:empty) {
+  padding: 8px 12px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-aviso-suave);
+}
+
+.ct-campo-urgencia {
+  grid-column: 1 / -1;
+}
+
+.ct-campo-urgencia .ct-casilla {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ct-marca-urgente {
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}

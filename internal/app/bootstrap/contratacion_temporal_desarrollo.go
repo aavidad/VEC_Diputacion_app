@@ -286,6 +286,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	dependencias.retribucionesCT = reglasAnalisis.retribuciones
+	catalogoDesarrollo.componerOpcionesAnalisis(reglasAnalisis.opciones)
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		dependencias,
 		&alta,

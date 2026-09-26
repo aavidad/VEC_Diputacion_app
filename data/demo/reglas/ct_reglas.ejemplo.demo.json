@@ -135,12 +135,13 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "TREBEP, art. 10.1.d.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "meses",
           "cantidad": "9",
           "inicio": "nombramiento",
           "computo": "civil",
-          "ventana_meses": "18"
+          "ventana_meses": "18",
+          "al_superar": "avisar"
         },
         "orden": 8
       },
@@ -152,12 +153,13 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "TREBEP, art. 10.1.c.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "anios",
           "cantidad": "3",
           "inicio": "nombramiento",
           "computo": "civil",
-          "ampliacion_meses": "12"
+          "ampliacion_meses": "12",
+          "al_superar": "avisar"
         },
         "orden": 9
       },
@@ -169,11 +171,12 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "TREBEP, art. 10.4.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "anios",
           "cantidad": "3",
           "inicio": "nombramiento",
-          "computo": "civil"
+          "computo": "civil",
+          "al_superar": "avisar"
         },
         "orden": 10
       },
@@ -198,12 +201,13 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "Estatuto de los Trabajadores, art. 15.2.",
-          "duda": "Pendiente de RRHH.",
+          "duda": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
           "unidad": "meses",
           "cantidad": "6",
           "inicio": "contrato",
           "computo": "civil",
-          "ampliable_meses": "12"
+          "ampliable_meses": "12",
+          "al_superar": "avisar"
         },
         "orden": 12
       },
@@ -252,6 +256,121 @@
           "catalogo": "causas_cese_contratacion_temporal"
         },
         "orden": 15
+      },
+      {
+        "clave": "c12.modalidad.sustitucion",
+        "etiqueta": "Sustitución",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.sustitucion.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.b.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.sustitucion"
+        },
+        "orden": 16
+      },
+      {
+        "clave": "c12.modalidad.vacante",
+        "etiqueta": "Vacante",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.a y 10.4.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.vacante"
+        },
+        "orden": 17
+      },
+      {
+        "clave": "c12.modalidad.acumulacion_tareas",
+        "etiqueta": "Acumulación de tareas",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.acumulacion_tareas.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.d.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.acumulacion_tareas"
+        },
+        "orden": 18
+      },
+      {
+        "clave": "c12.modalidad.programa",
+        "etiqueta": "Programa",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.programas_temporales.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.c.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna",
+          "duracion_regla": "c08.programas_temporales"
+        },
+        "orden": 19
+      },
+      {
+        "clave": "c12.modalidad.relevo",
+        "etiqueta": "Relevo",
+        "descripcion": "Modalidad que RRHH puede elegir al analizar la solicitud. Sin duración máxima en las reglas de ejemplo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Estatuto de los Trabajadores, art. 12.7.",
+          "duda": "Duda 7: catálogo vigente de modalidades.",
+          "unidad": "ninguna"
+        },
+        "orden": 20
+      },
+      {
+        "clave": "c13.causa.necesidad_temporal",
+        "etiqueta": "Necesidad temporal",
+        "descripcion": "Causa que RRHH puede elegir al analizar la solicitud.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7: catálogo vigente de causas.",
+          "unidad": "ninguna"
+        },
+        "orden": 21
+      },
+      {
+        "clave": "c14.entrada_rc.sintetica_001",
+        "etiqueta": "Retención de crédito sintética 001",
+        "descripcion": "Retención de crédito de ejemplo con la que se ensaya el análisis; la real la da el sistema de Intervención.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 8: quién valida la retención de crédito y de qué sistema sale.",
+          "unidad": "ninguna",
+          "referencia": "rc:desarrollo:001",
+          "huella_sha256": "3259ad24878afcc3e4cf6ad860377c7d84f6b2b5152dc61146686a8e69ee895b",
+          "numero": "rc:desarrollo:numero:001",
+          "fecha": "2026-01-02",
+          "importe_centimos": "5000000",
+          "documento_ref": "documento:rc:desarrollo:001"
+        },
+        "orden": 22
+      },
+      {
+        "clave": "c15.urgencia",
+        "etiqueta": "Tramitación urgente",
+        "descripcion": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 63: quién declara la urgencia, con qué motivo y si puede retirarse.",
+          "unidad": "ninguna",
+          "declara": "analisis_rrhh"
+        },
+        "orden": 23
       }
     ],
     "estado": "publicado",

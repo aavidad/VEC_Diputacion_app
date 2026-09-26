@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-analisis-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -197,6 +197,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_263"),
         traducirPortal("ayuda_contenido_264"),
         traducirPortal("ayuda_contenido_265"),
+        traducirPortal("ayuda_ct_cuadro_urgencia"),
       ]),
     }),
     alta: Object.freeze({
@@ -251,6 +252,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_281"),
         traducirPortal("ayuda_contenido_282"),
         traducirPortal("ayuda_contenido_283"),
+        traducirPortal("ayuda_ct_analisis_catalogo"),
       ]),
     }),
     gestion_bolsa: Object.freeze({

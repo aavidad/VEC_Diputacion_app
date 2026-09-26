@@ -92,10 +92,10 @@
 848 web/static/bolsa/bolsa.css
 834 web/static/bolsa/lista-bolsas.test.mjs
 1069 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
-849 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
+898 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1548 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1130 web/static/portal-empleado/portal-modulos-coordinador.js
+1133 web/static/portal-empleado/portal-modulos-coordinador.js
 1085 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 945 web/static/portal-empleado/portal-componentes.css
 950 web/static/portal-empleado/portal.js
