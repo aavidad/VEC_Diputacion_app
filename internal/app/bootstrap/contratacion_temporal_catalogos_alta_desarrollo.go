@@ -113,6 +113,18 @@ var categoriasSinteticasDesarrollo = []categoriaCatalogosAltaContratacionTempora
 	},
 }
 
+// centroSinteticoDesarrollo nombra, junto a los centros de la RPT, el centro de
+// los expedientes dados de alta antes de publicarlos; no es de la Diputación.
+func centroSinteticoDesarrollo() centroCatalogosAltaContratacionTemporalDesarrollo {
+	return centroCatalogosAltaContratacionTemporalDesarrollo{
+		Referencia: centroAltaContratacionTemporalDesarrollo,
+		Etiqueta:   `RESIDENCIA DE MAYORES "SIERRA NEVADA"`,
+		Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{
+			Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: "Contacto del centro",
+		}},
+	}
+}
+
 func categoriaDeCatalogoDesarrollo(ref string) bool {
 	_, ok := gruposPorCategoriaSinteticaDesarrollo[ref]
 	return ok
@@ -200,6 +212,9 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 			})
 		}
 	}
+	// Como las categorías sintéticas, el centro sintético va al final para que
+	// los expedientes que ya lo usan muestren su nombre en cuadro y detalle.
+	centros = append(centros, centroSinteticoDesarrollo())
 	categorias := make([]categoriaCatalogosAltaContratacionTemporalDesarrollo, len(categoriasSinteticasDesarrollo))
 	copy(categorias, categoriasSinteticasDesarrollo)
 	if strings.TrimSpace(rutaRPT) != "" {
@@ -501,14 +516,14 @@ func (o *origenConsultasContratacionTemporalDesarrollo) etiquetasReferenciasCata
 		if o == nil {
 			return ""
 		}
-		if referencia == centroAltaContratacionTemporalDesarrollo {
-			return "Centro solicitante"
-		}
 		if referencia == contactoAltaContratacionTemporalDesarrollo {
 			return "Contacto del centro"
 		}
 		catalogos, err := o.catalogosAlta()
 		if err != nil {
+			if referencia == centroAltaContratacionTemporalDesarrollo {
+				return "Centro solicitante"
+			}
 			if referencia == categoriaAltaContratacionTemporalDesarrollo {
 				return "Categoría C2"
 			}
