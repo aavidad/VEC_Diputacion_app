@@ -150,7 +150,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return datos.convocatorias.map((item) => `
       <tr>
         <td><strong>${escaparHTML(item.convocatoria_ref)}</strong></td>
-        <td>${escaparHTML(etiquetaClave(item.categoria_clave))}<br><small>${escaparHTML(item.categoria_clave)}</small></td>
+        <td>${escaparHTML(etiquetaClave(item.categoria_clave))}</td>
         <td><span class="estado-chip ${claseEstado(item.estado_clave)}">${escaparHTML(etiquetaClave(item.estado_clave))}</span></td>
         <td>${item.plazo_cierra_en ? `<time datetime="${escaparHTML(item.plazo_cierra_en)}">${escaparHTML(instanteVisible(item.plazo_cierra_en))}</time>` : "Sin fecha límite"}</td>
         <td>${numero(item.numero_solicitudes)}</td><td>${numero(item.numero_pendientes)}</td>
@@ -235,7 +235,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const totalPersonasEnRenuncia = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia || 0), 0);
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button><br><small>${escaparHTML(b.categoria_clave)}</small></td>
+        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Ver los ${numero(b.total)} candidatos de ${escaparHTML(b.categoria)}"><strong>${numero(b.total)}</strong></button></td>
@@ -604,12 +604,11 @@ export function crearPresentadorPanelInterno(dependencias) {
             </div>
             <div class="cuerpo-panel">
               <dl class="resumen-expediente">
-                <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(bolsa.categoria_clave)} · ${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
+                <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
                 <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
                 <div class="fila-resumen"><dt>Orden del acta</dt><dd>#${numero(candidato.orden_acta)}</dd></div>
                 <div class="fila-resumen"><dt>Último cambio de situación</dt><dd>${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
                 ${disponibilidad}
-                <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
                 ${ultimoLlamamiento}
                 <div class="fila-resumen"><dt>${traducirBolsaInterna("contacto_contador")}</dt><dd>${numero(candidato.contactos_total)}</dd></div>
                 ${renderizarOrigenContacto({ estado: modal.contactoOrigen || {}, escaparHTML })}

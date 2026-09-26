@@ -660,8 +660,8 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
   const htmlAbierto = presentador.renderizarVista("bolsa-candidatos");
   const fichaId = `ficha-participacion-${candidato.participacion_ref}`;
   assert.match(htmlAbierto, /Ficha de participación/);
-  assert.match(htmlAbierto, /Referencia de participación/);
-  assert.match(htmlAbierto, new RegExp(candidato.participacion_ref));
+  // La referencia interna solo enlaza la fila con su ficha; no se muestra como dato.
+  assert.doesNotMatch(htmlAbierto, /Referencia de participación|<code>participacion:/);
   assert.match(htmlAbierto, /data-bolsa-accion="cerrar-ficha"/);
   assert.match(htmlAbierto, new RegExp(`aria-expanded="true" aria-controls="${fichaId}"`));
   assert.match(htmlAbierto, new RegExp(`</tr>\\s*<tr class="fila-ficha-participacion" data-ficha-participacion-ref="${candidato.participacion_ref}"`));

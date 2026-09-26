@@ -420,7 +420,7 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_contenido_412: "Personal de RRHH con permiso para cambiar situaciones.",
   ayuda_contenido_413: "El Reglamento aplica este periodo a la persona en todas sus bolsas, pero VEC guarda la situación por participación: el cambio solo afecta a esta bolsa y las demás participaciones de la persona deben revisarse aparte. Sin catálogo de reglas la fecha se indica a mano.",
   ayuda_contenido_414: "Excluir con la causa del Reglamento",
-  ayuda_contenido_415: "En «Operaciones B8», pulse «Excluir» y elija la causa de baja del art. 11; use «Otro motivo» solo si no encaja ninguna.",
+  ayuda_contenido_415: "En «Pausa, reactivación y exclusión», pulse «Excluir» y elija la causa de baja del art. 11; use «Otro motivo» solo si no encaja ninguna.",
   ayuda_contenido_416: "Dejar constancia de la causa y de su artículo en el historial de operaciones.",
   ayuda_contenido_417: "Justificante en su custodia y una persona validadora distinta.",
   ayuda_contenido_418: "La exclusión queda registrada con la causa, el justificante y la validación.",
