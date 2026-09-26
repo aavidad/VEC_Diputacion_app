@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 /** Una confirmación HTTP no autoriza el paso siguiente sin un detalle real. */
 export async function resolverSolicitudPropuestaLlamamiento({
   necesidadId,

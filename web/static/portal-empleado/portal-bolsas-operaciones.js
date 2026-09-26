@@ -1,8 +1,8 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260926-i18n-v1";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260926-i18n-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
+import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260926-pulido-portal-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260926-pulido-portal-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo, traducirHuellaArchivo } from "./portal-huella-archivo.js";

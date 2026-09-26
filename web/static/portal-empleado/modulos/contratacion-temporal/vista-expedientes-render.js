@@ -328,6 +328,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   incorporacionEjercicioDisponible = false,
   reciboAsignacionConfirmado = null,
   catalogoDisponible = true,
+  resolverBolsa = null,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -355,6 +356,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       locale,
       zonaHoraria,
       analisisDisponible,
+      resolverBolsa,
     );
     const contextoInforme = informeJuridicoDisponible
       ? contextoInformeJuridicoDesdeEstado(estado)

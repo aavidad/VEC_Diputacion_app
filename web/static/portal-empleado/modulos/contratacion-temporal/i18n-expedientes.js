@@ -22,6 +22,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   cabecera_resultado_rc: "Resultado RC",
   cabecera_coste_estimado: "Coste estimado",
   cabecera_via_cobertura: "Vía de cobertura",
+  cabecera_bolsa_cobertura: "Bolsa",
+  enlace_bolsa_historico_aria: "Bolsa {bolsa}. Abrir su histórico de llamamientos",
   cabecera_decision_gobernada: "Decisión gobernada",
   cabecera_comprobacion_bolsa: "Comprobación de bolsa",
   cabecera_unidad_asignada: "Unidad asignada",

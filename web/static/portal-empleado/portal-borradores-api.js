@@ -11,7 +11,7 @@ import {
   validarSolicitudActualizarBorrador,
   validarSolicitudCrearBorrador,
 } from "./portal-borradores-contrato.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-i18n-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 
 export const RUTAS_API_BORRADORES = Object.freeze({
   opciones: "/api/vec/bolsa/convocatorias/borradores/opciones",

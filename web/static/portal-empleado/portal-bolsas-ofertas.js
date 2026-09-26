@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-i18n-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
 // Ofertas publicadas de una bolsa (Petición RRHH p. 3; Reglamento de bolsas,
 // art. 8.1): RRHH publica la oferta, consulta quién manifestó disposición y,
 // al vencer el plazo de la regla del catálogo, confirma la propuesta de

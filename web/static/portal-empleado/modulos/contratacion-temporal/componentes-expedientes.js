@@ -467,6 +467,7 @@ const FASE_DE_CAMPO = Object.freeze({
   periodo_analizado: "analisis_rrhh", causa: "analisis_rrhh", jornada: "analisis_rrhh",
   resultado_rc: "analisis_rrhh", coste_estimado: "analisis_rrhh", observaciones: "analisis_rrhh",
   via_cobertura: "gestion_bolsa", decision_gobernada: "gestion_bolsa", unidad: "gestion_bolsa",
+  bolsa_cobertura: "gestion_bolsa",
 });
 
 function faseDeCampo(clave) {
@@ -478,16 +479,29 @@ function claveDeFase(fase) {
   return String(fase.fase_ref ?? "").split(":").at(-1) ?? "";
 }
 
-function renderizarCabecera(expediente, t, informeDisponible = false) {
+// La bolsa de la cobertura enlaza con su histórico de llamamientos en Bolsa
+// (el enlace lo atiende el controlador de Bolsa del portal) solo si el perfil
+// ve esa bolsa; su referencia opaca no se muestra nunca como texto.
+function valorCampoCabecera(campo, t, resolverBolsa) {
+  if (campo.clave !== "bolsa_cobertura") return escaparHTML(campo.valor);
+  const bolsa = typeof resolverBolsa === "function" ? resolverBolsa(campo.valor) : null;
+  if (!bolsa?.categoria) return null;
+  return `<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(campo.valor)}" data-pestana="historico" aria-label="${escaparHTML(t("enlace_bolsa_historico_aria", { bolsa: bolsa.categoria }))}">${escaparHTML(bolsa.categoria)}</button>`;
+}
+
+function renderizarCabecera(expediente, t, informeDisponible = false, resolverBolsa = null) {
   return `<section class="ct-exp-cabecera-expediente">
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
       <h3>${numeroExpedienteHTML(expediente.numero_visible)}</h3>
     </div>
-    <dl>${expediente.cabecera.map((campo) => `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
+    <dl>${expediente.cabecera.map((campo) => {
+    const valor = valorCampoCabecera(campo, t, resolverBolsa);
+    return valor === null ? "" : `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
       <dt>${escaparHTML(campo.etiqueta)}</dt>
-      <dd class="ct-tono-${escaparHTML(campo.tono)}">${escaparHTML(campo.valor)}</dd>
-    </div>`).join("")}</dl>
+      <dd class="ct-tono-${escaparHTML(campo.tono)}">${valor}</dd>
+    </div>`;
+  }).join("")}</dl>
     ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
   </section>`;
 }
@@ -701,7 +715,7 @@ function renderizarTarea(
   </article>`;
 }
 
-export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false) {
+export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDisponible = false, resolverBolsa = null) {
   const expediente = estado.expediente;
   if (!expediente) {
     const esError = estado.carga === "error";
@@ -730,7 +744,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   )}
     </div>`;
   return `${renderizarIncidencia(expediente, t, estado.navegacion)}
-    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
+    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null, resolverBolsa)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}

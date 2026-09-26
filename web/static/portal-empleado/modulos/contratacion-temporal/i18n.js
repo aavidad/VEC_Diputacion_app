@@ -4,7 +4,7 @@ import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260926-i18n-v1";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260926-pulido-portal-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   justificante_registrado: "Justificante registrado",
@@ -13,6 +13,10 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   clave_recuperacion_preparada: "Clave de recuperación preparada",
   clave_recuperacion_copiar: "Copiar clave",
   clave_recuperacion_copiada: "Clave copiada",
+  pc_expediente_enlace: "Expediente {numero}",
+  pc_expediente_enlace_rrhh_aria: "Petición {peticion}: abrir su expediente {numero} en Contratación temporal",
+  pc_expediente_enlace_centro_aria: "Petición {peticion}: ver su expediente {numero} en las incorporaciones del centro",
+  pc_abrir_expediente: "Abrir el expediente",
   pc_acceso_denegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
   pc_lectura_fallida: "No se pudo verificar el acceso por un fallo temporal. Se han retirado los datos de esta vista. Reintente la consulta antes de continuar.",
   pc_operacion_confirmada_oculta: "La operación se registró, pero ahora no se puede consultar su recibo desde esta vista.",
