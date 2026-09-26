@@ -209,10 +209,9 @@ test("formulario: 201 muestra recibo válido y sus límites", async () => {
     confirmarOperacion: () => true, cliente: { registrarResolucionFormalizacion(x) { llamadas += 1; return Promise.resolve({ ...recibo, expediente_ref: x.expediente_ref, propuesta_ref: x.propuesta_ref }); } } });
   await raiz.enviar(valoresFormulario);
   assert.equal(llamadas, 1); assert.match(raiz.innerHTML, /recibo:ct:001/u); assert.match(raiz.innerHTML, /Firma oficial: no/u);
-  assert.match(raiz.innerHTML, /<summary>Detalles de trazabilidad<\/summary>/u);
-  assert.doesNotMatch(raiz.innerHTML, /<details open/u);
-  for (const valor of ["2026-09-06T12:00:00Z", "Registrada", "manual_de_ejercicio", "Firma oficial",
-    "Eficacia administrativa", "a".repeat(64), "auditoria:ct:001"]) {
+  // Solo lo útil a quien tramita: sin volcado técnico de referencias, huellas ni esquema.
+  assert.doesNotMatch(raiz.innerHTML, /<details|manual_de_ejercicio|auditoria:ct:001|a{64}/u);
+  for (const valor of ["datetime=\"2026-09-06T12:00:00Z\"", "Registrada", "Firma oficial", "Eficacia administrativa"]) {
     assert.match(raiz.innerHTML, new RegExp(valor, "u"));
   }
 });
@@ -245,8 +244,8 @@ test("formulario: i18n de estados y etiquetas, contexto visible y fecha localiza
     generarClaveIdempotencia: () => solicitud.clave_idempotencia, confirmarOperacion: () => true,
     mensajes, locale: "en-GB", zonaHoraria: "UTC",
     cliente: { registrarResolucionFormalizacion: async () => recibo } });
-  assert.match(raiz.innerHTML, /expediente:ct:001/u);
-  assert.match(raiz.innerHTML, /propuesta:ct:001/u);
+  assert.doesNotMatch(raiz.innerHTML, />[^<]*(?:expediente|propuesta):ct:001/u, "sin referencias opacas en el texto visible");
+  assert.match(raiz.innerHTML, /Versión \d+ del expediente/u);
   await raiz.enviar({ ...valoresFormulario, confirma_revision_propuesta: false });
   assert.match(raiz.innerHTML, /Revisión &lt;necesaria&gt;/u);
   await raiz.enviar(valoresFormulario);

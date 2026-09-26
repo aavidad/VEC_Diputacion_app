@@ -157,8 +157,9 @@ test("siguiente exige renuncia, clave propia y confirmación; no modifica recibo
     resolucion_ref: "resolucion:ajena", intencion_ref: "intencion:ajena", actor_ref: "actor:inventado" });
   assert.deepEqual(solicitudes, [solicitudSiguiente]); assert.ok(Object.isFrozen(solicitudes[0])); assert.match(confirmaciones.at(-1).advertencia, /abrirá un único nuevo llamamiento después de la renuncia/u); assert.equal(confirmaciones.at(-1).referencia, EXPEDIENTE); assert.match(raiz.innerHTML, /Siguiente llamamiento abierto/u);
   assert.doesNotMatch(raiz.innerHTML, /Recibo histórico de renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:06:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML.match(/<form data-ct-llamamiento-form="siguiente"[\s\S]*?<\/form>/u)[0], /type="submit"/u); assert.equal(JSON.stringify(renuncia), original);
-  for (const campo of ["llamamiento_anterior_ref", "llamamiento_ref", "recibo_bolsa_ref", "intencion_ref"])
-    assert.ok(raiz.innerHTML.includes(continuacionConfirmada[campo])); assert.match(raiz.innerHTML, /id="ct-llamamiento-comunicacion-llamamiento_ref"[^>]*value="llamamiento:sintetico:001"/u);
+  // El recibo solo ofrece copiar su justificante; las demás referencias opacas no se pintan.
+  assert.ok(raiz.innerHTML.includes(`data-copiar-justificante="${continuacionConfirmada.recibo_ref}"`));
+  assert.ok(!raiz.innerHTML.includes(continuacionConfirmada.recibo_bolsa_ref)); assert.match(raiz.innerHTML, /id="ct-llamamiento-comunicacion-llamamiento_ref"[^>]*value="llamamiento:sintetico:001"/u);
   await raiz.enviar("siguiente", solicitudSiguiente); pulsarClave();
   assert.equal(solicitudes.length, 1); assert.equal(claves, 1); cerrar();
 });
@@ -204,7 +205,7 @@ test("aviso local al sucesor exige continuación, clave propia y confirmación; 
   await raiz.enviar("siguiente", solicitudSiguiente);
   const formulario = () => raiz.innerHTML.match(/<form data-ct-llamamiento-form="comunicacion_siguiente"[\s\S]*?<\/form>/u)[0];
   assert.match(formulario(), /name="clave_idempotencia" value=""/u);
-  assert.match(formulario(), /Recibo de continuación antecedente/u);
+  assert.ok(formulario().includes(`name="prueba_entrega_ref" value="${continuacionConfirmada.recibo_ref}" type="hidden"`));
   assert.doesNotMatch(formulario(), /name="(?:tipo_antecedente|actor_ref|politica_ref)"|type="file"|type="checkbox"/u);
   for (const campo of Object.keys(solicitudAvisoSiguiente).slice(1, -1))
     assert.match(formulario(), new RegExp(`name="${campo}"[^>]*readonly`, "u"));
@@ -303,7 +304,7 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor 
   await raiz.enviar("respuesta_siguiente", { ...valores, correo_sha256: HUELLA });
   assert.equal(confirmaciones.length, 0); // No admite una huella escrita en el DOM.
   await raiz.archivo(archivoCorreo(respuesta), "respuesta_siguiente");
-  assert.match(formulario(), /Huella calculada/u);
+  assert.match(formulario(), /Correo comprobado en este equipo/u);
   assert.match(formulario(), /name="correo_sha256"[^>]*readonly/u);
   for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION,
     solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia])

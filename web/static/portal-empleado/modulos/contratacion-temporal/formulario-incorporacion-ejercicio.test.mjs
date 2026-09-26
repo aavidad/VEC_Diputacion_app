@@ -68,8 +68,8 @@ test("incertidumbre y conflicto: GET recupera historia original sin otro POST", 
     await x.raiz.enviar(); await x.raiz.enviar();
     assert.deepEqual(llamadas, ["POST", "GET"]);
     assert.match(x.raiz.innerHTML, /recibo:ct:original/u);
-    assert.match(x.raiz.innerHTML, /Versión actual del expediente<\/dt><dd>11/u);
-    assert.match(x.raiz.innerHTML, /Versión original del expediente<\/dt><dd>8/u);
+    assert.match(x.raiz.innerHTML, /Versión actual del expediente<\/dt><dd>Versión 11/u);
+    assert.match(x.raiz.innerHTML, /Versión original del expediente<\/dt><dd>Versión 8/u);
     assert.doesNotMatch(x.raiz.innerHTML, /detalle privado|data-ct-incorporacion-ejercicio-form/u);
     x.desmontar();
   }
@@ -87,13 +87,10 @@ test("historia inicial solo muestra recibo; sin efectos", async () => {
   const x = montar({ prepararIncorporacionEjercicio() { assert.fail(); },
     confirmarIncorporacionEjercicio() { assert.fail(); } }, historia());
   await x.raiz.enviar(); assert.match(x.raiz.innerHTML, /recibo:ct:original/u);
-  assert.match(x.raiz.innerHTML, /<summary>Detalles de trazabilidad<\/summary>/u);
-  assert.doesNotMatch(x.raiz.innerHTML, /<details open/u);
-  assert.ok(x.raiz.innerHTML.indexOf("Inicio del período") < x.raiz.innerHTML.indexOf("<details"));
-  assert.ok(x.raiz.innerHTML.indexOf("Fin del período") < x.raiz.innerHTML.indexOf("<details"));
+  // El recibo no vuelca referencias, esquema ni versiones técnicas.
+  assert.doesNotMatch(x.raiz.innerHTML, /<details|solicitud:personal:1|auditoria:ct:1|Versión resultante del seguimiento/u);
   assert.doesNotMatch(x.raiz.innerHTML, /sintétic|ct-ie-ayuda/u);
-  for (const valor of ["2026-09-09T01:00:00Z", "Firma oficial", "Eficacia administrativa",
-    "solicitud:personal:1", "auditoria:ct:1", "Versión resultante del seguimiento"]) {
+  for (const valor of ["datetime=\"2026-09-09T01:00:00Z\"", "Firma oficial", "Eficacia administrativa", "Inicio del período", "Fin del período"]) {
     assert.match(x.raiz.innerHTML, new RegExp(valor, "u"));
   }
   x.desmontar();

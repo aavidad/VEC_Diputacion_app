@@ -41,7 +41,7 @@ export const MENSAJES_DOCUMENTACION_FORMALIZACION_ES = Object.freeze({
   ct_formalizacion_referencia: "Referencia del original",
   ct_formalizacion_archivo: "Fichero aportado",
   ct_formalizacion_huella_calculando: "Calculando la huella del fichero en este equipo.",
-  ct_formalizacion_huella_calculada: "Huella calculada: {huella}",
+  ct_formalizacion_huella_calculada: "Documento leído y comprobado en este equipo.",
   ct_formalizacion_huella_error: "No se pudo calcular la huella del fichero seleccionado.",
   ct_formalizacion_confirmar: "Anotar como aportado",
   ct_formalizacion_cancelar: "Cancelar",

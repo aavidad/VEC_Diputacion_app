@@ -115,7 +115,7 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     assert.match(raiz.innerHTML, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
   }
   await raiz.archivo(archivoCorreo());
-  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Huella calculada: se conserva la huella mostrada/u); assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
+  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado en este equipo/u); assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
   await raiz.enviar("respuesta", { ...declaracion(), organizacion_ref: "org:inventada",
     expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
     comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",

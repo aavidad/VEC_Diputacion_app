@@ -74,7 +74,6 @@ function renderizarProcedencia(avisos, t) {
     if (regla.parte_ejemplo) {
       partes.push(`<p>${escaparHTML(t("avisos_via_regla_parte_ejemplo", { texto: regla.parte_ejemplo }))}</p>`);
     }
-    partes.push(`<p class="ct-avisos-via-referencia">${escaparHTML(t("avisos_via_regla_referencia", { referencia: regla.referencia }))}</p>`);
     return `<div data-ct-aviso-via-regla="${escaparHTML(regla.clave)}"><dt>${escaparHTML(regla.etiqueta)}</dt><dd>${partes.join("")}</dd></div>`;
   }).join("")}</dl>`;
 }

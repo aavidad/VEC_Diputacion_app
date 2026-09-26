@@ -2,7 +2,7 @@
 // duda 62). Bloque «Sanciones» de la ficha del candidato en la vista de RRHH.
 // Las consecuencias, su efecto, los plazos y los estados del recurso vienen del
 // catálogo que sirve la API: aquí no se fija ninguno.
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-integracion-bolsa-ct-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-pulido-tecnico-v1";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const ESQUEMA = "vec.bolsa.rrhh.sanciones.v1";
@@ -266,15 +266,11 @@ function filaSancion(item, e, recursoAbierto, catalogo) {
     : `<span class="estado-chip neutro">${e(t("recurso_sin_estado"))}</span>`;
   const accion = catalogo && recursoAbierto !== item.sancion_ref && !item.reversion
     ? `<button type="button" class="boton-secundario" data-b24-accion="abrir-recurso" data-sancion-ref="${e(item.sancion_ref)}">${e(t("anotar_recurso"))}</button>` : "";
-  return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small><br>${huellaCorta(item.resolucion.sha256, e)}</td><td>${celdaEfecto(item, e)}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small></td><td>${accion}</td></tr>`;
+  return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small></td><td>${celdaEfecto(item, e)}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small></td><td>${accion}</td></tr>`;
 }
 
 function campo(etiqueta, control, e) {
   return `<label class="campo"><span>${e(etiqueta)}</span>${control}</label>`;
-}
-
-function huellaCorta(sha, e) {
-  return `<code title="${e(sha)}" aria-label="SHA-256 ${e(sha)}">${e(sha.slice(0, 12))}…</code>`;
 }
 
 function formularioSancion(estado, e) {

@@ -182,7 +182,7 @@ test("resolución: detalle v7 superado por GET v8 muestra recibo histórico sin 
     await x.dom.click("abrir", A);
     x.pendientes[0].resolver(preparacion(A, 8)); await flush();
     assert.match(x.dom.actual().innerHTML, /recibo:ct:historico/u);
-    assert.match(x.dom.actual().innerHTML, /documento:ct:001/u);
+    assert.match(x.dom.actual().innerHTML, /Versión 8 del expediente/u);
     assert.doesNotMatch(x.dom.actual().innerHTML, /data-ct-resolucion-formalizacion-form/u);
     assert.deepEqual(x.posts, []);
   } finally { x.modulo.desmontar(); }

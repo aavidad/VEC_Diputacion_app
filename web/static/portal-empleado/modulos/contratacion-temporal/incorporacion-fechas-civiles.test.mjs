@@ -63,7 +63,7 @@ test("el período conserva su día civil en Madrid y Bogotá; el registro conser
       assert.doesNotMatch(html, /(?:Inicio|Fin) del período<\/dt><dd>[^<]*\d{1,2}:\d{2}/u);
       if (proyeccion.recibo) {
         assert.ok(html.includes(
-          `Fecha original de registro</dt><dd>${fechaRegistro} · ${recibo.registrada_en}</dd>`,
+          `Fecha original de registro</dt><dd><time datetime="${recibo.registrada_en}">${fechaRegistro}</time></dd>`,
         ), zonaHoraria);
       }
     }

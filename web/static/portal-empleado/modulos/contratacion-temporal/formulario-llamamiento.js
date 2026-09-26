@@ -570,7 +570,7 @@ export function montarFormularioLlamamiento({
       paso.tono = "error";
     }
     repintar();
-    raiz.querySelector(`#ct-llamamiento-${operacion}-clave_idempotencia`)?.focus?.();
+    raiz.querySelector(`#ct-llamamiento-${operacion}-clave_idempotencia-visible`)?.focus?.();
   }
 
   raiz.addEventListener("submit", alEnviar);

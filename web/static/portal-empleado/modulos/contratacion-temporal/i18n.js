@@ -1,7 +1,7 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
-import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
@@ -325,7 +325,6 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "Este contenido no está firmado ni tiene validez jurídica.",
   informe_documento_version: "Versión del documento",
   informe_documento_formato: "Formato",
-  informe_documento_huella: "Huella SHA-256",
   informe_documento_contenido: "Contenido del documento",
   informe_historial_titulo: "Historial real del expediente",
   informe_historial_descripcion:
@@ -366,6 +365,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   fiscalizacion_contexto_antecedentes: "Antecedentes del expediente",
   fiscalizacion_antecedentes_no_consultados: "No consultados en este acceso manual. El servidor comprobará el estado y los permisos antes de registrar el resultado.",
   fiscalizacion_contexto_expediente: "Referencia del expediente",
+  informe_documento_version_valor: "Versión {version}",
   fiscalizacion_contexto_version: "Versión actual",
   fiscalizacion_contexto_fase: "Fase actual",
   fiscalizacion_contexto_informe: "Informe jurídico",
