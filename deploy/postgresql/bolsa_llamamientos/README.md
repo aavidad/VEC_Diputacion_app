@@ -157,6 +157,12 @@ autorización tiene sus propias pruebas):
   (`preparar_respuesta_portal_v1`): una marca local de la transacción firmada
   con un secreto que solo lee el propietario. Listas y acciones usan la misma
   participación vigente por bolsa (la de confirmación más reciente).
+- `000041` (parámetros de avisos y marcas): `probar_parametros_avisos_pg18.sh`.
+  La aplicación publica al arrancar, desde el catálogo de reglas, el plazo y
+  la antelación del aviso de trabajo continuado (b19), el encadenamiento (b17)
+  y «ya presta servicios» (b16); la versión 1 reproduce `000020`, que queda
+  intacta. Con esas reglas en el catálogo, una base sin `000041` impide
+  arrancar. Instalada: `SELECT to_regclass('vec_bolsa_llamamientos.politica_avisos_bolsa') IS NOT NULL`.
 
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma
