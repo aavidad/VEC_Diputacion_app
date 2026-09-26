@@ -126,7 +126,9 @@ test("el resumen inicial escapa datos, marca la fase y omite las columnas de la 
 
   assert.match(html, /aria-label="Resumen del expediente CT-&lt;1&gt;"/u);
   assert.match(html, /Centro &lt;seguro&gt;/u);
-  assert.match(html, /class="ct-exp-chip ct-fase-en_curso">En curso &lt;seguro&gt;<\/span>/u);
+  // La pastilla de estado y la fase filtran la lista por su valor.
+  assert.match(html, /<button type="button" class="ct-exp-chip ct-fase-en_curso"\s+data-ct-exp-filtro-estado="en_curso"[^>]*>En curso &lt;seguro&gt;<\/button>/u);
+  assert.match(html, /data-ct-exp-filtro-fase="analisis_rrhh"[^>]*>Análisis &lt;seguro&gt;<\/button>/u);
   assert.match(html, /data-ct-exp-abrir="expediente:ct:resumen:&amp;lt;script&amp;gt;"/u);
   assert.match(html, /data-ct-fase="analisis_rrhh"/u);
   const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];

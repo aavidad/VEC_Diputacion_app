@@ -255,6 +255,7 @@ static/portal-empleado/portal-flujos.css
 static/portal-empleado/portal-i18n.js
 static/portal-empleado/portal-i18n-ayuda.js
 static/portal-empleado/portal-i18n-contacto-origen.js
+static/portal-empleado/portal-enlaces-i18n.js
 static/portal-empleado/portal-panel-interno-i18n.js
 static/portal-empleado/portal-i18n-contratos.js
 static/portal-empleado/portal-i18n-intentos.js

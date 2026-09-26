@@ -10,14 +10,15 @@
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v2";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-huecos-rrhh-v2";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260926-huecos-rrhh-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-huecos-rrhh-v2";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-recuadros-enlaces-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-huecos-rrhh-v2";
-import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-referencias-legibles-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-huecos-rrhh-v2";
+import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-recuadros-enlaces-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-recuadros-enlaces-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-huecos-rrhh-v2";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-huecos-rrhh-v2";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260926-recuadros-enlaces-v1";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
 import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js";
 
@@ -57,12 +58,18 @@ export function crearPresentadorPanelInterno(dependencias) {
   function etiquetaFuente() {
     return esActivo() ? "Panel interno agregado autorizado" : "";
   }
-  function tarjetaKPI(nombreIcono, valor, etiqueta) {
-    return `
-      <article class="tarjeta-kpi">
+  // Con «destino», el recuadro es un botón que abre la lista correspondiente.
+  function tarjetaKPI(nombreIcono, valor, etiqueta, destino = null) {
+    const contenido = `
         <span class="icono-kpi" aria-hidden="true">${icono(nombreIcono)}</span>
-        <div><strong class="valor-kpi">${escaparHTML(valor)}</strong><span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span></div>
+        <div><strong class="valor-kpi">${escaparHTML(valor)}</strong><span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span>`;
+    if (!destino) return `
+      <article class="tarjeta-kpi">${contenido}</div>
       </article>`;
+    return `
+      <button type="button" class="tarjeta-kpi" ${destino.atributos} aria-label="${escaparHTML(destino.aria)}">${contenido}
+        <span class="metrica-enlace" aria-hidden="true">${escaparHTML(destino.enlace)}</span></div>
+      </button>`;
   }
   // El rótulo de la política llega del servidor; si marca una regla aún provisional
   // no se muestra en la pantalla de trabajo: su origen consta en «Reglas vigentes».
@@ -104,7 +111,11 @@ export function crearPresentadorPanelInterno(dependencias) {
     const resumenCanales = Object.entries(datos.llamamientos.por_canal).map(([canal, total]) => `<span class="estado-chip info"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(canal))}</span>`).join("") || '<span class="estado-chip neutro">Sin desglose por canal</span>';
     const resumenResultados = Object.entries(datos.llamamientos.por_resultado).map(([resultado, total]) => `<span class="estado-chip neutro"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(resultado))}</span>`).join("") || '<span class="estado-chip neutro">Sin desglose por resultado</span>';
     const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? "Vigente" : "Sustituida"}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="Abrir las ${numero(bolsa.total)} personas de ${escaparHTML(bolsa.categoria)} en la lista de candidatos">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Abrir ${numero(bolsa.por_estado[estado])} personas ${escaparHTML(etiquetaEstadoEstadistica(estado).toLocaleLowerCase("es-ES"))} de ${escaparHTML(bolsa.categoria)} en la lista de candidatos">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
-    return `${cabecera}<div class="rejilla-kpi" aria-label="Totales de Bolsa">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>Personas y llamamientos</h3><time datetime="${escaparHTML(datos.generado_en)}">Actualizado ${escaparHTML(instanteVisible(datos.generado_en))}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>Situación de personas</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>Canal de llamamiento</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>Resultado de llamamiento</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>Desglose por bolsa</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Personas por bolsa y situación</caption><thead><tr><th scope="col">Bolsa</th><th scope="col">Vigencia</th><th scope="col">Total</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">La fuente no ha devuelto bolsas para este ámbito.</td></tr>'}</tbody></table></div></section>`;
+    return `${cabecera}<div class="rejilla-kpi" aria-label="Totales de Bolsa">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta, sigla === "bolsas" ? {
+      atributos: 'data-vista="resumen"',
+      aria: traducirEnlacesBolsa("kpi_bolsas_aria", { total: numero(valor) }),
+      enlace: traducirEnlacesBolsa("kpi_ver_cuadro"),
+    } : null)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>Personas y llamamientos</h3><time datetime="${escaparHTML(datos.generado_en)}">Actualizado ${escaparHTML(instanteVisible(datos.generado_en))}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>Situación de personas</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>Canal de llamamiento</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>Resultado de llamamiento</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>Desglose por bolsa</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Personas por bolsa y situación</caption><thead><tr><th scope="col">Bolsa</th><th scope="col">Vigencia</th><th scope="col">Total</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">La fuente no ha devuelto bolsas para este ámbito.</td></tr>'}</tbody></table></div></section>`;
   }
   function instanteVisible(instante) {
     if (!instante || String(instante).startsWith("0001-01-01")) return "Sin fecha límite";
@@ -279,7 +290,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Ver los ${numero(b.total)} candidatos de ${escaparHTML(b.categoria)}"><strong>${numero(b.total)}</strong></button></td>
-        <td><span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span></td>
+        <td><button type="button" class="estado-chip info" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-pestana="historico" aria-label="${escaparHTML(traducirEnlacesBolsa("llamamientos_curso_aria", { total: numero(b.llamamientos_en_curso), bolsa: b.categoria }))}">${numero(b.llamamientos_en_curso)}</button></td>
         <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
         <td>${controlEstadoBolsa(b, "trabajando")}</td>
         <td>${controlEstadoBolsa(b, "no_disponible", "peligro")}</td>
@@ -576,11 +587,14 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? `<tr><td colspan="6" class="vacio-controlado">${traducirBolsaInterna("contacto_historico_vacio")}</td></tr>`
       : paginaLlamadas.map((evento) => {
         const candidato=evento.candidato;
-        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${escaparHTML(candidato?.nombre_visible||evento.contacto)}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${celdaActor(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
+        const nombre = candidato
+          ? `<button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha-historico" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}" aria-label="${escaparHTML(traducirEnlacesBolsa("historico_abrir_ficha_aria", { nombre: candidato.nombre_visible }))}">${escaparHTML(candidato.nombre_visible)}</button>`
+          : escaparHTML(evento.contacto);
+        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${nombre}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${celdaActor(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
       }).join("");
     const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
-    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
+    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${traducirBolsaInterna("contacto_historico_descripcion")}"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
     return `
       ${encabezadoVista("", tituloBolsa, "", accionesEncabezado)}
       ${reciboFichaFuera}
@@ -596,7 +610,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           </section>`}
           <section class="panel"${pestana === "historico" ? " hidden" : ""}>
             <div class="cabecera-panel"><h3>Relación ordenada de candidatos</h3></div>
-            <div class="tabla-contenedor">
+            <div class="tabla-contenedor" tabindex="0" role="region" aria-label="Aspirantes ordenados por mérito y situación en bolsa">
               <table class="tabla-datos tabla-datos--candidatos">
                 <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
                 <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">DNI</th><th scope="col">Situación</th><th scope="col">Fecha</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th></tr></thead>
@@ -696,7 +710,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         </tr>
       `).join("");
       contenido = `
-        <div class="tabla-contenedor">
+        <div class="tabla-contenedor" tabindex="0" role="region" aria-label="Historial de comunicaciones y respuestas del aspirante">
           <table class="tabla-datos">
             <caption>Historial de comunicaciones y respuestas del aspirante</caption>
             <thead>
