@@ -7,9 +7,10 @@
 --   adición (plazo, turnos, requisitos estructurados, baremo y formato del
 --   justificante) que Selección publica al arrancar desde su catálogo. Una
 --   publicación con el mismo contenido reutiliza la versión vigente.
--- * Solicitud: borrador versionado con control optimista, datos personales
---   cifrados fuera de la base (sobre) y documento de identidad reducido a
---   huella con clave y parcial; presentación idempotente con justificante
+-- * Solicitud: borrador versionado con control optimista (puede estar
+--   incompleto: la aplicación marca si los datos están completos), datos
+--   personales cifrados fuera de la base (sobre) y documento de identidad
+--   reducido a huella con clave y parcial; presentación idempotente con justificante
 --   interno AAAA/SOL-NNNNNN (formato de la convocatoria), recibo, historia de
 --   solo adición y outbox. El justificante no es un asiento de registro
 --   administrativo ni una firma.
@@ -94,12 +95,13 @@ CREATE TABLE vec_seleccion.solicitud_version(
  convocatoria_ref text NOT NULL,
  version integer NOT NULL CHECK (version >= 1),
  convocatoria_version integer NOT NULL,
- turno text NOT NULL CHECK (turno ~ '^[a-z0-9_]{1,64}$'),
+ turno text CHECK (turno ~ '^[a-z0-9_]{1,64}$'),
  datos_clave_ref text NOT NULL CHECK (octet_length(datos_clave_ref) BETWEEN 1 AND 128 AND datos_clave_ref = btrim(datos_clave_ref)),
  datos_nonce bytea NOT NULL CHECK (octet_length(datos_nonce) BETWEEN 12 AND 32),
  datos_cifrado bytea NOT NULL CHECK (octet_length(datos_cifrado) BETWEEN 17 AND 16384),
- documento_huella text NOT NULL CHECK (documento_huella ~ '^[0-9a-f]{64}$'),
- documento_parcial text NOT NULL CHECK (documento_parcial ~ '^[*A-Z0-9]{4,24}$'),
+ documento_huella text CHECK (documento_huella ~ '^[0-9a-f]{64}$'),
+ documento_parcial text CHECK (documento_parcial ~ '^[*A-Z0-9]{4,24}$'),
+ datos_completos boolean NOT NULL,
  requisitos jsonb NOT NULL CHECK (jsonb_typeof(requisitos) = 'array' AND jsonb_array_length(requisitos) <= 64),
  meritos jsonb NOT NULL CHECK (jsonb_typeof(meritos) = 'array' AND jsonb_array_length(meritos) <= 200),
  puntuacion_micropuntos bigint NOT NULL CHECK (puntuacion_micropuntos BETWEEN 0 AND 1000000000000),
@@ -108,6 +110,8 @@ CREATE TABLE vec_seleccion.solicitud_version(
  decision_ref text NOT NULL UNIQUE CHECK (octet_length(decision_ref) BETWEEN 1 AND 256),
  registrada_en timestamptz(6) NOT NULL,
  PRIMARY KEY (solicitud_ref, version),
+ CHECK ((documento_huella IS NULL) = (documento_parcial IS NULL)),
+ CHECK (NOT datos_completos OR (turno IS NOT NULL AND documento_huella IS NOT NULL)),
  FOREIGN KEY (solicitud_ref, persona_ref, convocatoria_ref) REFERENCES vec_seleccion.solicitud(solicitud_ref, persona_ref, convocatoria_ref),
  FOREIGN KEY (convocatoria_ref, convocatoria_version) REFERENCES vec_seleccion.convocatoria_publicada(convocatoria_ref, version)
 );
@@ -230,6 +234,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog 
    'convocatoria_ref', c.convocatoria_ref, 'version', c.version, 'titulo', c.titulo,
    'abre_en', to_char(c.abre_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'), 'cierra_en', to_char(c.cierra_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
    'abierta', clock_timestamp() >= c.abre_en AND clock_timestamp() <= c.cierra_en,
+   'publicada_en', to_char(c.publicada_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
    'huella_sha256', c.huella_sha256, 'contenido', c.contenido) ORDER BY c.convocatoria_ref), '[]'::jsonb)
  FROM (SELECT DISTINCT ON (x.convocatoria_ref) x.* FROM vec_seleccion.convocatoria_publicada x ORDER BY x.convocatoria_ref, x.version DESC) c
 $f$;
@@ -291,10 +296,10 @@ CREATE FUNCTION vec_seleccion.guardar_borrador_propio_v1(
  p_persona_ref text, p_convocatoria_ref text, p_convocatoria_version integer, p_version_esperada integer,
  p_clave text, p_huella_material text, p_solicitud_ref_nueva text, p_turno text,
  p_datos_clave_ref text, p_datos_nonce bytea, p_datos_cifrado bytea, p_documento_huella text, p_documento_parcial text,
- p_requisitos jsonb, p_meritos jsonb, p_puntuacion_micropuntos bigint,
+ p_datos_completos boolean, p_requisitos jsonb, p_meritos jsonb, p_puntuacion_micropuntos bigint,
  p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric,
  p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS TABLE(reutilizada boolean, solicitud_ref text, version integer, puntuacion_micropuntos bigint)
+RETURNS TABLE(reutilizada boolean, solicitud_ref text, version integer, puntuacion_micropuntos bigint, datos_completos boolean)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET timezone = 'UTC' SET lock_timeout = '2s' AS $f$
 DECLARE v_decision text; v_previa vec_seleccion.operacion_borrador; v_conv vec_seleccion.convocatoria_publicada;
  v_solicitud vec_seleccion.solicitud; v_ultima integer; v_ahora timestamptz := clock_timestamp(); v_ref text; v_version integer; v_punt bigint;
@@ -303,7 +308,7 @@ BEGIN
     OR p_convocatoria_ref IS NULL OR p_convocatoria_version IS NULL OR p_version_esperada IS NULL OR p_version_esperada < 0
     OR p_clave IS NULL OR p_clave !~ '^[A-Za-z0-9._:-]{8,128}$' OR p_huella_material IS NULL OR p_huella_material !~ '^[0-9a-f]{64}$'
     OR p_solicitud_ref_nueva IS NULL OR p_solicitud_ref_nueva !~ '^sol_[A-Za-z0-9_-]{22,64}$'
-    OR p_puntuacion_micropuntos IS NULL OR p_puntuacion_micropuntos < 0 THEN
+    OR p_puntuacion_micropuntos IS NULL OR p_puntuacion_micropuntos < 0 OR p_datos_completos IS NULL THEN
   RAISE EXCEPTION 'borrador de solicitud inválido' USING ERRCODE = '22023';
  END IF;
  -- Como el resto de consumidores, la decisión viva se consume antes de
@@ -316,7 +321,7 @@ BEGIN
   IF v_previa.huella_material <> p_huella_material THEN
    RAISE EXCEPTION 'clave reutilizada con otro borrador' USING ERRCODE = 'VSL02';
   END IF;
-  RETURN QUERY SELECT true, v.solicitud_ref, v.version, v.puntuacion_micropuntos FROM vec_seleccion.solicitud_version v
+  RETURN QUERY SELECT true, v.solicitud_ref, v.version, v.puntuacion_micropuntos, v.datos_completos FROM vec_seleccion.solicitud_version v
    WHERE v.solicitud_ref = v_previa.solicitud_ref AND v.version = v_previa.version;
   RETURN;
  END IF;
@@ -339,15 +344,15 @@ BEGIN
  END IF;
  v_version := v_ultima + 1;
  INSERT INTO vec_seleccion.solicitud_version(solicitud_ref, persona_ref, convocatoria_ref, version, convocatoria_version, turno,
-   datos_clave_ref, datos_nonce, datos_cifrado, documento_huella, documento_parcial, requisitos, meritos, puntuacion_micropuntos,
+   datos_clave_ref, datos_nonce, datos_cifrado, documento_huella, documento_parcial, datos_completos, requisitos, meritos, puntuacion_micropuntos,
    clave_idempotencia, huella_material, decision_ref, registrada_en)
  VALUES (v_ref, p_persona_ref, p_convocatoria_ref, v_version, v_conv.version, p_turno,
-   p_datos_clave_ref, p_datos_nonce, p_datos_cifrado, p_documento_huella, p_documento_parcial, p_requisitos, p_meritos, p_puntuacion_micropuntos,
+   p_datos_clave_ref, p_datos_nonce, p_datos_cifrado, p_documento_huella, p_documento_parcial, p_datos_completos, p_requisitos, p_meritos, p_puntuacion_micropuntos,
    p_clave, p_huella_material, v_decision, v_ahora);
  INSERT INTO vec_seleccion.operacion_borrador(persona_ref, clave_idempotencia, huella_material, solicitud_ref, version)
  VALUES (p_persona_ref, p_clave, p_huella_material, v_ref, v_version);
  INSERT INTO vec_seleccion.historia_solicitud(solicitud_ref, tipo, version, decision_ref, en) VALUES (v_ref, 'borrador_guardado', v_version, v_decision, v_ahora);
- RETURN QUERY SELECT false, v_ref, v_version, p_puntuacion_micropuntos;
+ RETURN QUERY SELECT false, v_ref, v_version, p_puntuacion_micropuntos, p_datos_completos;
 END $f$;
 
 -- Presenta la versión que la persona vio. Devuelve el justificante interno.
@@ -389,6 +394,8 @@ BEGIN
  IF v_conv.convocatoria_ref IS NULL THEN RAISE EXCEPTION 'convocatoria no disponible' USING ERRCODE = 'VSL07'; END IF;
  IF v_ahora < v_conv.abre_en OR v_ahora > v_conv.cierra_en THEN RAISE EXCEPTION 'fuera de plazo' USING ERRCODE = 'VSL01'; END IF;
  IF v_conv.version <> v_version.convocatoria_version THEN RAISE EXCEPTION 'convocatoria actualizada' USING ERRCODE = 'VSL06'; END IF;
+ -- Los borradores pueden guardarse incompletos; solo se presenta uno completo.
+ IF NOT v_version.datos_completos THEN RAISE EXCEPTION 'solicitud incompleta' USING ERRCODE = 'VSL09'; END IF;
  -- Solo «no_cumple» en un requisito obligatorio que impide presentar
  -- detiene la presentación; «pendiente» no excluye.
  SELECT r->>'clave' INTO v_bloqueante FROM jsonb_array_elements(v_conv.contenido->'requisitos') r
@@ -447,7 +454,7 @@ BEGIN
   p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
  RETURN (SELECT jsonb_build_object(
    'solicitud_ref', v.solicitud_ref, 'persona_ref', v.persona_ref, 'convocatoria_ref', v.convocatoria_ref, 'convocatoria_version', v.convocatoria_version,
-   'version', v.version, 'estado', CASE WHEN p.solicitud_ref IS NULL THEN 'borrador' ELSE 'presentada' END, 'turno', v.turno,
+   'version', v.version, 'estado', CASE WHEN p.solicitud_ref IS NULL THEN 'borrador' ELSE 'presentada' END, 'turno', v.turno, 'datos_completos', v.datos_completos,
    'datos_clave_ref', v.datos_clave_ref, 'datos_nonce', encode(v.datos_nonce, 'base64'), 'datos_cifrado', encode(v.datos_cifrado, 'base64'),
    'requisitos', v.requisitos, 'meritos', v.meritos, 'puntuacion_micropuntos', v.puntuacion_micropuntos,
    'actualizada_en', to_char(v.registrada_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
@@ -509,6 +516,8 @@ BEGIN
  SELECT p.convocatoria_ref, jsonb_build_object(
    'solicitud_ref', p.solicitud_ref, 'persona_ref', v.persona_ref, 'convocatoria_ref', p.convocatoria_ref, 'convocatoria_titulo', c.titulo,
    'convocatoria_version', c.version, 'convocatoria_contenido', c.contenido,
+   'convocatoria_abre_en', to_char(c.abre_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'), 'convocatoria_cierra_en', to_char(c.cierra_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+   'convocatoria_publicada_en', to_char(c.publicada_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
    'version', v.version, 'numero_justificante', p.numero_justificante, 'estado', 'presentada',
    'presentada_en', to_char(p.presentada_en, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'), 'turno', v.turno,
    'datos_clave_ref', v.datos_clave_ref, 'datos_nonce', encode(v.datos_nonce, 'base64'), 'datos_cifrado', encode(v.datos_cifrado, 'base64'),
@@ -530,7 +539,7 @@ DO $acl$
 DECLARE f regprocedure; publicas regprocedure[] := ARRAY[
   'vec_seleccion.publicar_convocatoria_v1(text,text,timestamptz,timestamptz,jsonb,text,timestamptz)'::regprocedure,
   'vec_seleccion.convocatorias_publicadas_v1()'::regprocedure,
-  'vec_seleccion.guardar_borrador_propio_v1(text,text,integer,integer,text,text,text,text,text,bytea,bytea,text,text,jsonb,jsonb,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+  'vec_seleccion.guardar_borrador_propio_v1(text,text,integer,integer,text,text,text,text,text,bytea,bytea,text,text,boolean,jsonb,jsonb,bigint,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_seleccion.presentar_solicitud_propia_v1(text,text,integer,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_seleccion.listar_solicitudes_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_seleccion.leer_borrador_propio_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,

@@ -129,8 +129,8 @@ done
 if como vec_prueba_ajeno <<<'SELECT vec_seleccion.convocatorias_publicadas_v1()' >/dev/null 2>&1; then falla 'un LOGIN ajeno ejecuta Selección'; fi
 [[ $(como vec_prueba_seleccion <<<'SELECT vec_seleccion.convocatorias_publicadas_v1()') == '[]' ]] || falla 'el ejecutor no lee convocatorias'
 salida=$(como vec_prueba_seleccion <<<"SET default_transaction_isolation='serializable';
-SELECT * FROM vec_seleccion.publicar_convocatoria_v1('proceso:publico:ensayo-acl','Ensayo',now()-interval '1 day',now()+interval '1 day','{\"turnos\":[],\"requisitos\":[],\"baremo\":{},\"numeracion\":{\"patron\":\"{anio}/SOL-{numero}\",\"ancho\":6}}',repeat('e',64),'2026-09-01T00:00:00Z');
-SELECT * FROM vec_seleccion.guardar_borrador_propio_v1('per_AAAAAAAAAAAAAAAAAAAAAA','proceso:publico:ensayo-acl',1,0,'clave-acl-001',repeat('a',64),'sol_AAAAAAAAAAAAAAAAAAAAAAAAAA','libre','k','\\x000102030405060708090a0b','\\x00112233445566778899aabbccddeeff00',repeat('b',64),'***5678*','[]','[]',0,
+SELECT * FROM vec_seleccion.publicar_convocatoria_v1('proceso:publico:ensayo-acl','Ensayo',now()-interval '1 day',now()+interval '1 day','{\"turnos\":[{\"clave\":\"libre\",\"etiqueta\":\"Turno libre\"}],\"requisitos\":[],\"baremo\":{\"maximo\":\"10\",\"redondeo\":\"mitad_arriba\",\"grupos\":[]},\"numeracion\":{\"patron\":\"{anio}/SOL-{numero}\",\"ancho\":6},\"fecha_referencia\":\"2026-10-30\",\"marca_ejemplo\":true}',repeat('e',64),'2026-09-01T00:00:00Z');
+SELECT * FROM vec_seleccion.guardar_borrador_propio_v1('per_AAAAAAAAAAAAAAAAAAAAAA','proceso:publico:ensayo-acl',1,0,'clave-acl-001',repeat('a',64),'sol_AAAAAAAAAAAAAAAAAAAAAAAAAA','libre','k','\\x000102030405060708090a0b','\\x00112233445566778899aabbccddeeff00',repeat('b',64),'***5678*',true,'[]','[]',0,
  convert_to('{\"operacion\":\"seleccion.solicitudes_propias.guardar_borrador\",\"efecto_ref\":\"mis-solicitudes:per_AAAAAAAAAAAAAAAAAAAAAA\",\"audiencia_consumo\":\"vec_seleccion.solicitudes_propias.guardar_borrador.v1\"}','UTF8'),
  convert_to('{\"accion\":\"seleccion.solicitudes_propias.guardar_borrador\",\"recurso_ref\":\"mis-solicitudes:per_AAAAAAAAAAAAAAAAAAAAAA\",\"modulo_id\":\"seleccion\",\"finalidad\":\"gestion_solicitudes_propias\",\"tipo_recurso\":\"solicitudes_propias_seleccion\",\"campos_permitidos\":[],\"obligaciones\":[]}','UTF8'),
  '\\x00',convert_to('{\"persona_ref\":\"per_AAAAAAAAAAAAAAAAAAAAAA\"}','UTF8'),1,1,'\\x00','\\x00','\\x00','\\x00');" 2>&1 || true)
@@ -146,6 +146,13 @@ ok "$(grep -c '^ok$' <<<"$salida") comprobaciones del recorrido"
 [[ $(escalar "SELECT count(*) FILTER (WHERE tipo='listado')||'/'||count(*) FILTER (WHERE tipo='detalle') FROM vec_seleccion.acceso_rrhh") == 3/1 ]] || falla 'accesos RRHH no auditados'
 [[ $(escalar 'SELECT count(*) FROM vec_seleccion.outbox') == 2 ]] || falla 'outbox'
 ok 'accesos de RRHH auditados y dos eventos en la outbox'
+antes_go=$(escalar 'SELECT count(*) FROM vec_seleccion.presentacion')
+if command -v go >/dev/null 2>&1; then
+  ( cd "$repo" && VEC_SELECCION_PG_DSN="host=$socket user=vec_prueba_seleccion dbname=postgres" \
+      go test -count=1 -run TestRepositorioPostgreSQLRecorridoCompleto ./internal/modules/seleccion/adapters/postgres/ >/dev/shm/seleccion-go-$$.log 2>&1 || { tail -20 /dev/shm/seleccion-go-$$.log >&2; false; } ) \
+    || falla 'el adaptador Go no recorre la solicitud contra PostgreSQL'
+  ok 'adaptador PostgreSQL de Go: publicación doble, borrador parcial y completo, presentación, RRHH'
+fi
 if escalar "SET ROLE vec_seleccion_propietario; UPDATE vec_seleccion.solicitud SET creada_en=now()" >/dev/null 2>&1; then falla 'historia mutable'; fi
 if escalar "SET ROLE vec_seleccion_propietario; DELETE FROM vec_seleccion.presentacion" >/dev/null 2>&1; then falla 'presentación borrable'; fi
 ok 'historia de solo adición (UPDATE y DELETE rechazados)'
@@ -162,7 +169,7 @@ SELECT reutilizada||'|'||numero_justificante||'|'||recibo_ref||'|'||presentada_e
    convert_to('{"operacion":"seleccion.solicitudes_propias.consultar","efecto_ref":"mis-solicitudes:per_AAAAAAAAAAAAAAAAAAAAAA"}','UTF8'),
    convert_to('{"accion":"seleccion.solicitudes_propias.consultar","recurso_ref":"mis-solicitudes:per_AAAAAAAAAAAAAAAAAAAAAA"}','UTF8'),
    '\x00',convert_to('{"persona_ref":"per_AAAAAAAAAAAAAAAAAAAAAA"}','UTF8'),1,1,'\x00','\x00','\x00','\x00')) AS x(solicitud_ref text)),
- 4,'clave-pres-A4',encode(sha256(convert_to('p5','UTF8')),'hex'),'recibo:seleccion-presentacion:'||encode(sha256(convert_to((SELECT 'x') ,'UTF8')),'hex'),
+ 6,'clave-pres-A4',encode(sha256(convert_to('p5','UTF8')),'hex'),'recibo:seleccion-presentacion:'||encode(sha256(convert_to((SELECT 'x') ,'UTF8')),'hex'),
  convert_to('{"operacion":"seleccion.solicitudes_propias.presentar","efecto_ref":"mis-solicitudes:per_AAAAAAAAAAAAAAAAAAAAAA"}','UTF8'),
  convert_to('{"accion":"seleccion.solicitudes_propias.presentar","recurso_ref":"mis-solicitudes:per_AAAAAAAAAAAAAAAAAAAAAA"}','UTF8'),
  '\x00',convert_to('{"persona_ref":"per_AAAAAAAAAAAAAAAAAAAAAA"}','UTF8'),1,1,'\x00','\x00','\x00','\x00');
@@ -170,7 +177,8 @@ SQL
 )
 primera=$(escalar "SELECT 'true|'||numero_justificante||'|'||recibo_ref||'|'||presentada_en FROM vec_seleccion.presentacion ORDER BY presentacion_id LIMIT 1")
 [[ $(tail -1 <<<"$repetida") == "$primera" ]] || falla "la repetición tras reiniciar no devuelve el mismo recibo: $repetida / $primera"
-[[ $(escalar 'SELECT count(*) FROM vec_seleccion.presentacion') == 2 ]] || falla 'la repetición duplicó la presentación'
+[[ $(escalar 'SELECT count(*) FROM vec_seleccion.presentacion') == $(escalar "SELECT count(*) FROM vec_seleccion.presentacion WHERE presentada_en <= now()") ]] || falla 'presentaciones inconsistentes'
+[[ $(escalar 'SELECT count(*) FROM vec_seleccion.presentacion') -le $((antes_go + 1)) ]] || falla 'la repetición duplicó la presentación'
 ok 'tras reiniciar: mismas presentaciones y la repetición devuelve el mismo justificante y recibo'
 falla_con "${fichero[sel_1]}.down.sql" 'no admitido con solicitudes'
 ok 'DOWN de Selección 000001 rechazado con historia'
