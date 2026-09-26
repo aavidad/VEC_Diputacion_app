@@ -5,13 +5,14 @@
 # de la principal (AD3-82…86, CT110…121 salvo CT117 y Bolsa 010, 019 y
 # 021…040, que el volcado no trae); después instala, en el orden de despliegue,
 # AD3-87, AD3-88, Bolsa 000041, CT122, CT123, CT124, Bolsa 000042 (que usa la
-# comprobación de origen de CT124), CT125 y CT126: cada una con ROLLBACK sin rastro, UP, detección instalada y doble UP
-# rechazado. Con todas juntas ejecuta las pruebas SQL de cada una, reinicia
-# PostgreSQL, comprueba que siguen detectándose y que los DOWN con historia se
-# niegan. El expediente sintético A sirve a dos recorridos excluyentes de
-# CT124: VEC_HUECOS_RECORRIDO=incorporacion (por defecto: incorporación
-# acreditada) o no_incorporacion (no incorporación, baja en Bolsa y siguiente
-# llamamiento); se ejecuta una vez con cada uno.
+# comprobación de origen de CT124), CT125, CT126 y CT128: cada una con ROLLBACK
+# sin rastro, UP, detección instalada y doble UP rechazado. Con todas juntas
+# ejecuta las pruebas SQL de cada una, reinicia PostgreSQL, comprueba que
+# siguen detectándose y que los DOWN con historia se niegan. El expediente
+# sintético A sirve a tres recorridos excluyentes: VEC_HUECOS_RECORRIDO=
+# incorporacion (por defecto: incorporación acreditada), no_incorporacion (no
+# incorporación con cuatro ojos, baja en Bolsa y siguiente llamamiento) o
+# sucesor (lo anterior y la propuesta del sucesor, CT128, hasta el cierre).
 # Uso: probar_huecos_rrhh_conjunto_pg18.sh GLOBALS_SQL VOLCADO_PG_DUMP
 # El contenedor usa --rm, sin red ni volúmenes anónimos; sus datos viven en
 # /dev/shm/vec-pg-huecos-<pid> y se borran al terminar.
@@ -21,7 +22,7 @@ repo=$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
 globales=${1:?falta el volcado de roles (pg_dumpall --globals-only)}
 volcado=${2:?falta el volcado de la base (pg_dump -Fc)}
 recorrido=${VEC_HUECOS_RECORRIDO:-incorporacion}
-[[ $recorrido == incorporacion || $recorrido == no_incorporacion ]] || { echo 'VEC_HUECOS_RECORRIDO: incorporacion o no_incorporacion' >&2; exit 2; }
+[[ $recorrido == incorporacion || $recorrido == no_incorporacion || $recorrido == sucesor ]] || { echo 'VEC_HUECOS_RECORRIDO: incorporacion, no_incorporacion o sucesor' >&2; exit 2; }
 [[ -s $globales && -s $volcado ]] || { echo 'Faltan los volcados' >&2; exit 2; }
 
 nombre="vec-pg-huecos-$$"
@@ -97,8 +98,9 @@ declare -A detecta=(
   [ct_124]="SELECT to_regclass('vec_contratacion_temporal.confirmacion_ginpix_v1') IS NOT NULL"
   [ct_125]="SELECT to_regclass('vec_contratacion_temporal.urgencia_expediente_analisis') IS NOT NULL"
   [ct_126]="SELECT to_regclass('vec_contratacion_temporal.numeracion_parametros') IS NOT NULL"
+  [ct_128]="SELECT to_regclass('vec_contratacion_temporal.propuesta_sustitucion_v1') IS NOT NULL"
 )
-orden=(ad3_87 ad3_88 bolsa_41 ct_122 ct_123 ct_124 bolsa_42 ct_125 ct_126)
+orden=(ad3_87 ad3_88 bolsa_41 ct_122 ct_123 ct_124 bolsa_42 ct_125 ct_126 ct_128)
 declare -A fichero=(
   [ad3_87]="$ad3/000087_consumidor_cancelacion_expediente_ct"
   [ad3_88]="$ad3/000088_consumidor_incorporacion_acreditada_ct"
@@ -109,6 +111,7 @@ declare -A fichero=(
   [ct_124]="$ct/000124_incorporacion_acreditada"
   [ct_125]="$ct/000125_urgencia_expediente_analisis"
   [ct_126]="$ct/000126_parametros_numeracion_expedientes"
+  [ct_128]="$ct/000128_propuesta_sucesor_no_incorporacion"
 )
 for m in "${orden[@]}"; do
   [[ $(escalar "${detecta[$m]}") == f ]] || { echo "FALLO: $m ya detectada antes de instalar" >&2; exit 1; }
@@ -167,6 +170,10 @@ else
   salida=$(docker exec -i "$nombre" psql -X -q -At -v ON_ERROR_STOP=1 -v exp_a="$b" -U postgres -d postgres <"$pruebas/ct115_ct116_fixture_pg18.sql" 2>&1) || { echo "$salida" >&2; exit 1; }
   prueba 'fixture no incorporación OK' "$pruebas/ct124_no_incorporacion_fixture.sql"
   prueba 'cadena no incorporación OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_no_incorporacion_cadena.sql"
+  if [[ $recorrido == sucesor ]]; then
+    prueba 'fixture CT128 OK' "$pruebas/ct128_propuesta_sucesor_fixture.sql"
+    prueba 'cadena CT128 OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct128_propuesta_sucesor_cadena.sql"
+  fi
 fi
 prueba 'CT125 OK' "$pruebas/ct125_urgencia_expediente_analisis.sql"
 prueba 'CT126 OK' "$pruebas/ct126_parametros_numeracion_expedientes.sql"
@@ -178,11 +185,13 @@ reiniciar
 for m in "${orden[@]}"; do
   [[ $(escalar "${detecta[$m]}") == t ]] || { echo "FALLO: $m no se detecta tras reiniciar" >&2; exit 1; }
 done
-ok 'las nueve siguen detectándose tras reiniciar'
+ok 'las diez siguen detectándose tras reiniciar'
 if [[ $recorrido == incorporacion ]]; then
   prueba 'CT124 reinicio OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_reinicio.sql"
-else
+elif [[ $recorrido == no_incorporacion ]]; then
   prueba 'reinicio no incorporación OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct124_no_incorporacion_reinicio.sql"
+else
+  prueba 'reinicio CT128 OK' "$pruebas/ct124_utilidades.sql" "$pruebas/ct128_propuesta_sucesor_reinicio.sql"
 fi
 
 echo '== Arranque del seguimiento de cese con la incorporación acreditada (prueba Go)'
@@ -199,7 +208,7 @@ grep -q '^--- PASS: TestArranqueSeguimientoCeseIncorporacionAcreditadaPostgreSQL
 ok 'seguimiento de cese e incorporación acreditada arrancan sobre el catálogo ya publicado'
 
 echo '== DOWN con historia o con dependientes instalados se niega'
-for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88 $([[ $recorrido == no_incorporacion ]] && echo bolsa_42); do
+for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88 $([[ $recorrido != incorporacion ]] && echo bolsa_42) $([[ $recorrido == sucesor ]] && echo ct_128); do
   if run <"${fichero[$m]}.down.sql" >/dev/null 2>&1; then echo "FALLO: DOWN de $m aceptado" >&2; exit 1; fi
   [[ $(escalar "${detecta[$m]}") == t ]] || { echo "FALLO: DOWN de $m dejó rastro" >&2; exit 1; }
 done
