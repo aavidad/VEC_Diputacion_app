@@ -24,7 +24,8 @@ BEGIN
     IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral
                 WHERE origen_version IN ('confirmacion_ginpix_ct124','no_incorporacion_ct124'))
        OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.outbox_expediente_integral
-                  WHERE tipo_evento IN ('ct.ginpix-confirmada.v1','ct.incorporacion-confirmada-centro.v1','ct.no-incorporacion.v1'))
+                  WHERE tipo_evento IN ('ct.ginpix-confirmada.v1','ct.incorporacion-confirmada-centro.v1','ct.no-incorporacion.v1',
+                    'ct.no-incorporacion-propuesta.v1','ct.no-incorporacion-rechazada.v1'))
        OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh
                   WHERE solicitud_json->>'Respuesta'='aceptacion' AND continuacion_clave IS NOT NULL) THEN
         RAISE EXCEPTION 'CT124 DOWN: no admitido con historia de confirmaciones' USING ERRCODE='55000';
@@ -171,7 +172,13 @@ DROP FUNCTION vec_contratacion_temporal.resultado_no_incorporacion_ct124(vec_con
 DROP FUNCTION vec_contratacion_temporal.intencion_no_incorporacion_ct124(text,text,text,text,text,text);
 DROP FUNCTION vec_contratacion_temporal.aceptacion_vigente_ct124(text,text);
 DROP FUNCTION vec_contratacion_temporal.validar_material_no_incorporacion_ct124(jsonb);
+DROP FUNCTION vec_contratacion_temporal.repeticion_no_incorporacion_ct124(text,text,jsonb,date);
+DROP FUNCTION vec_contratacion_temporal.resultado_paso_no_incorporacion_ct124(jsonb,jsonb,text,text,text,text,text,text,jsonb);
+DROP FUNCTION vec_contratacion_temporal.comprobar_paso_no_incorporacion_ct124(jsonb,date,text);
+DROP FUNCTION vec_contratacion_temporal.propuesta_pendiente_ct124(text);
 DROP TABLE vec_contratacion_temporal.no_incorporacion_v1;
+DROP TABLE vec_contratacion_temporal.no_incorporacion_rechazo_v1;
+DROP TABLE vec_contratacion_temporal.no_incorporacion_propuesta_v1;
 DROP FUNCTION vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text);
 DROP FUNCTION vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);

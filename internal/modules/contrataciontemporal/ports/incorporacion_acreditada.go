@@ -75,6 +75,9 @@ type EstadoIncorporacionAcreditada struct {
 	GINPIX          *EstadoGINPIXConfirmado
 	Centro          *EstadoConfirmacionCentro
 	NoIncorporacion *EstadoNoIncorporacion
+	// PropuestaNoIncorporacion es la propuesta pendiente de la segunda
+	// persona (cuatro ojos), si la hay.
+	PropuestaNoIncorporacion *EstadoPropuestaNoIncorporacion
 }
 
 // Valido acota formato y tamaño antes de publicar la lectura.
@@ -92,7 +95,8 @@ func (e EstadoIncorporacionAcreditada) Valido() bool {
 			return false
 		}
 	}
-	return e.NoIncorporacion == nil || e.NoIncorporacion.Valido()
+	return (e.NoIncorporacion == nil || e.NoIncorporacion.Valido()) &&
+		(e.PropuestaNoIncorporacion == nil || e.PropuestaNoIncorporacion.Valido())
 }
 
 func fechaCivilTextoValida(valor string) bool {

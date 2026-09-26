@@ -9,14 +9,20 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-// SolicitudRegistrarNoIncorporacion es lo que RRHH envía: el motivo del
-// catálogo, la resolución (referencia y huella), quién la resolvió y cuándo
-// se notificó. La consecuencia y la segregación las fija el catálogo.
+// SolicitudRegistrarNoIncorporacion es lo que RRHH envía: el paso, el motivo
+// del catálogo, la resolución (referencia y huella) y cuándo se notificó. La
+// consecuencia y la segregación las fija el catálogo. ResueltaPor solo se
+// declara en el registro de un paso (sin segunda persona); con segunda
+// persona quien resuelve es siempre el actor autenticado que confirma o
+// rechaza, nunca un dato del cliente. Al confirmar o rechazar se envían los
+// datos de la propuesta pendiente (PropuestaRef), que SQL coteja.
 type SolicitudRegistrarNoIncorporacion struct {
 	Canal             ContextoCanalSeguimiento
 	ExpedienteRef     string
 	VersionEsperada   uint64
 	ClaveIdempotencia string
+	Paso              string
+	PropuestaRef      string
 	MotivoClave       string
 	ResolucionRef     string
 	ResolucionSHA256  string
@@ -53,9 +59,13 @@ func (s *ServicioOperacionesSeguimiento) RegistrarNoIncorporacion(ctx context.Co
 	if !admitido {
 		return ports.ReciboOperacionSeguimiento{}, ErrSolicitudSeguimientoInvalida
 	}
-	datos := domain.DatosNoIncorporacion{MotivoClave: motivo.Clave, ConsecuenciaClave: motivo.ConsecuenciaClave,
-		ResolucionRef: sol.ResolucionRef, ResolucionSHA256: sol.ResolucionSHA256, ResueltaPor: sol.ResueltaPor,
-		SegundaPersona: regla.SegundaPersona, FechaNotificacion: sol.FechaNotificacion, Observaciones: sol.Observaciones}
+	resueltaPor, ok := resueltaPorNoIncorporacion(regla.SegundaPersona, sol, actor)
+	if !ok {
+		return ports.ReciboOperacionSeguimiento{}, ErrSolicitudSeguimientoInvalida
+	}
+	datos := domain.DatosNoIncorporacion{Paso: sol.Paso, PropuestaRef: sol.PropuestaRef, MotivoClave: motivo.Clave,
+		ConsecuenciaClave: motivo.ConsecuenciaClave, ResolucionRef: sol.ResolucionRef, ResolucionSHA256: sol.ResolucionSHA256,
+		ResueltaPor: resueltaPor, SegundaPersona: regla.SegundaPersona, FechaNotificacion: sol.FechaNotificacion, Observaciones: sol.Observaciones}
 	material := ports.MaterialNoIncorporacion{OrganizacionRef: sol.Canal.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef, ActorRef: actor,
 		PerfilRef: perfil, VersionEsperada: sol.VersionEsperada, ClaveIdempotencia: sol.ClaveIdempotencia, Datos: datos}
 	if !material.Valido() {
@@ -67,10 +77,11 @@ func (s *ServicioOperacionesSeguimiento) RegistrarNoIncorporacion(ctx context.Co
 		segunda = "si"
 	}
 	huella, _ := json.Marshal(struct {
-		Operacion, Organizacion, Expediente, Actor, Perfil, Motivo, Consecuencia, Resolucion, ResolucionSHA256, ResueltaPor, Segunda, Fecha, Observaciones string
-		Version                                                                                                                                            uint64
-	}{ports.OperacionRegistrarNoIncorporacion, material.OrganizacionRef, material.ExpedienteRef, actor, perfil, datos.MotivoClave,
-		datos.ConsecuenciaClave, datos.ResolucionRef, datos.ResolucionSHA256, datos.ResueltaPor, segunda, fecha, datos.Observaciones, sol.VersionEsperada})
+		Operacion, Organizacion, Expediente, Actor, Perfil, Paso, Propuesta, Motivo, Consecuencia, Resolucion, ResolucionSHA256, ResueltaPor, Segunda, Fecha, Observaciones string
+		Version                                                                                                                                                             uint64
+	}{ports.OperacionRegistrarNoIncorporacion, material.OrganizacionRef, material.ExpedienteRef, actor, perfil, datos.Paso, datos.PropuestaRef,
+		datos.MotivoClave, datos.ConsecuenciaClave, datos.ResolucionRef, datos.ResolucionSHA256, datos.ResueltaPor, segunda, fecha,
+		datos.Observaciones, sol.VersionEsperada})
 	prep, err := s.preparar(ctx, ports.OperacionRegistrarNoIncorporacion, material.OrganizacionRef, actor, perfil, sol.ClaveIdempotencia, material, huella)
 	if err != nil {
 		return ports.ReciboOperacionSeguimiento{}, err
@@ -80,10 +91,18 @@ func (s *ServicioOperacionesSeguimiento) RegistrarNoIncorporacion(ctx context.Co
 		Politica: politica, InstanteEfecto: instante, Accion: domain.AccionRegistrarNoIncorporacion, Finalidad: ports.FinalidadRegistrarNoIncorporacion,
 		Audiencia: ports.AudienciaConsumoNoIncorporacionV1}
 	orden.Contexto = ports.ContextoAutorizadoSeguimiento{Ambitos: ambitosSeguimiento(material.OrganizacionRef, material.ExpedienteRef),
-		Atributos: atributosPoliticaSeguimiento(map[string]string{"motivo_clave": datos.MotivoClave, "consecuencia_clave": datos.ConsecuenciaClave,
+		Atributos: atributosPoliticaSeguimiento(map[string]string{"paso": datos.Paso, "propuesta_ref": datos.PropuestaRef,
+			"motivo_clave": datos.MotivoClave, "consecuencia_clave": datos.ConsecuenciaClave,
 			"resolucion_ref": datos.ResolucionRef, "resolucion_sha256": datos.ResolucionSHA256, "resuelta_por": datos.ResueltaPor,
 			"segunda_persona": segunda, "fecha_notificacion": fecha, "observaciones_huella_sha256": huellaTexto(datos.Observaciones),
 			"aceptacion_ref": prep.AceptacionRef}, politica, prep, sol.VersionEsperada)}
+	// El contexto autorizado solo admite valores: al proponer no hay
+	// propuesta previa ni quien resuelva.
+	for _, clave := range []string{"propuesta_ref", "resuelta_por"} {
+		if orden.Contexto.Atributos[clave] == "" {
+			delete(orden.Contexto.Atributos, clave)
+		}
+	}
 	if !prep.Confirmada {
 		if !domain.ReferenciaOpacaValida(prep.AceptacionRef) || prep.Expediente.Version != sol.VersionEsperada ||
 			prep.Expediente.Referencia != sol.ExpedienteRef || prep.Expediente.OrganizacionRef != material.OrganizacionRef ||
@@ -91,12 +110,29 @@ func (s *ServicioOperacionesSeguimiento) RegistrarNoIncorporacion(ctx context.Co
 			return ports.ReciboOperacionSeguimiento{}, ports.ErrResultadoSeguimientoNoConfiable
 		}
 		orden.Siguiente, err = prep.Expediente.RegistrarNoIncorporacion(sol.VersionEsperada, datos, domain.DatosActuacion{
-			AccionClave: domain.AccionRegistrarNoIncorporacion, ActorRef: actor, UnidadRef: prep.Expediente.Asignacion.UnidadRef,
-			ReciboRef: prep.Referencias.ReciboRef, RealizadaEn: instante, FaseDestino: domain.FaseFiscalizacion,
+			AccionClave: datos.AccionActuacion(), ActorRef: actor, UnidadRef: prep.Expediente.Asignacion.UnidadRef,
+			ReciboRef: prep.Referencias.ReciboRef, RealizadaEn: instante, FaseDestino: datos.FaseDestino(),
 			EstadoDestino: domain.EstadoEnCurso, Observaciones: datos.Observaciones, DocumentosRef: []string{datos.ResolucionRef}})
 		if err != nil {
 			return ports.ReciboOperacionSeguimiento{}, err
 		}
 	}
 	return s.confirmar(ctx, orden, material.OrganizacionRef, material.ExpedienteRef, sol.VersionEsperada)
+}
+
+// resueltaPorNoIncorporacion decide quién resuelve según la regla c22: sin
+// segunda persona, un solo paso con quien resolvió declarado; con ella,
+// proponer no lo declara y confirmar o rechazar lo resuelve el actor
+// autenticado. Cualquier otra combinación se rechaza.
+func resueltaPorNoIncorporacion(segundaPersona bool, sol SolicitudRegistrarNoIncorporacion, actor string) (string, bool) {
+	switch {
+	case !segundaPersona && sol.Paso == domain.PasoNoIncorporacionRegistrar && sol.PropuestaRef == "":
+		return sol.ResueltaPor, true
+	case segundaPersona && sol.Paso == domain.PasoNoIncorporacionProponer && sol.PropuestaRef == "" && sol.ResueltaPor == "":
+		return "", true
+	case segundaPersona && (sol.Paso == domain.PasoNoIncorporacionConfirmar || sol.Paso == domain.PasoNoIncorporacionRechazar) &&
+		sol.PropuestaRef != "" && sol.ResueltaPor == "":
+		return actor, true
+	}
+	return "", false
 }

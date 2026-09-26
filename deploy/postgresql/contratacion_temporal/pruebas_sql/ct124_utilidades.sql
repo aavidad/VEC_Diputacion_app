@@ -11,7 +11,8 @@ CREATE FUNCTION pg_temp.hasta() RETURNS text LANGUAGE sql AS $$
 
 -- Entrada común de una operación de seguimiento igual que el adaptador Go.
 CREATE FUNCTION pg_temp.entrada(p_op text, p_dominio text, p_accion text, p_tipo text, p_finalidad text, p_exp text, p_version numeric,
-  m_extra jsonb, atr_extra jsonb, act_extra jsonb, p_estado_destino text, p_sufijo text, p_accion_decision text DEFAULT NULL)
+  m_extra jsonb, atr_extra jsonb, act_extra jsonb, p_estado_destino text, p_sufijo text, p_accion_decision text DEFAULT NULL,
+  p_actor text DEFAULT 'per_ct124_actor')
 RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE ag jsonb; inst text:=pg_temp.instante(); m jsonb; act jsonb; amb jsonb; atr jsonb; h text; dec jsonb; amb_hmac text; hue_hmac text; org text;
 BEGIN
@@ -19,9 +20,9 @@ BEGIN
  org:=ag->>'organizacion_ref';
  amb_hmac:='hmac-sha256:vec.contratacion-temporal.'||p_dominio||'.ambito/v1:'||encode(sha256(convert_to('a'||p_sufijo,'UTF8')),'hex');
  hue_hmac:='hmac-sha256:vec.contratacion-temporal.'||p_dominio||'.peticion/v1:'||encode(sha256(convert_to('p'||p_sufijo||m_extra::text,'UTF8')),'hex');
- m:=jsonb_build_object('organizacion_ref',org,'expediente_ref',p_exp,'version_esperada',p_version,'actor_ref','per_ct124_actor','perfil_ref','prf_ct124')||m_extra;
+ m:=jsonb_build_object('organizacion_ref',org,'expediente_ref',p_exp,'version_esperada',p_version,'actor_ref',p_actor,'perfil_ref','prf_ct124')||m_extra;
  act:=jsonb_build_object('secuencia',jsonb_array_length(ag->'actuaciones')+1,'version_expediente',p_version+1,'accion_clave',p_accion,
-   'actor_ref','per_ct124_actor','unidad_ref',ag#>>'{asignacion,unidad_ref}','recibo_ref','recibo:ct124:'||p_sufijo,'realizada_en',inst,
+   'actor_ref',p_actor,'unidad_ref',ag#>>'{asignacion,unidad_ref}','recibo_ref','recibo:ct124:'||p_sufijo,'realizada_en',inst,
    'fase_origen','nombramiento','fase_destino','nombramiento','estado_origen','en_curso','estado_destino',p_estado_destino)||act_extra;
  amb:=jsonb_build_object('organizacion_ref',org,'expediente_ref',p_exp,'fase_previa','nombramiento','estado_previo','en_curso');
  atr:=jsonb_build_object('version_expediente',p_version::text)||atr_extra||jsonb_build_object(
@@ -29,7 +30,7 @@ BEGIN
    'ambito_idempotencia_hmac',amb_hmac,'huella_peticion_hmac',hue_hmac);
  h:=vec_contratacion_temporal.huella_contexto_go_ct115(amb,atr);
  dec:=jsonb_build_object('decision_ref','decision:ct124:'||p_sufijo,'accion',coalesce(p_accion_decision,p_accion),'modulo_id','contratacion_temporal',
-   'tipo_recurso',p_tipo,'finalidad',p_finalidad,'recurso_ref',p_exp,'principal_id','per_ct124_actor','perfil_activo_ref','prf_ct124','contexto_recurso_huella_sha256',h);
+   'tipo_recurso',p_tipo,'finalidad',p_finalidad,'recurso_ref',p_exp,'principal_id',p_actor,'perfil_activo_ref','prf_ct124','contexto_recurso_huella_sha256',h);
  RETURN jsonb_build_object('operacion',p_op,'material',m,
    'referencias',jsonb_build_object('reserva_ref','reserva:ct124:'||p_sufijo,'recibo_ref','recibo:ct124:'||p_sufijo,'evento_ref','evento:ct124:'||p_sufijo),
    'ambito_idempotencia_hmac',amb_hmac,'huella_peticion_hmac',hue_hmac,'expediente_anterior',ag,
@@ -37,7 +38,7 @@ BEGIN
      ||CASE WHEN p_estado_destino<>'en_curso' THEN jsonb_build_object('estado_actual',p_estado_destino) ELSE '{}'::jsonb END,
    'actuacion',act,'politica',jsonb_build_object('definicion_ref','vec.contratacion_temporal.reglas','definicion_version',1,'definicion_huella_sha256',repeat('d',64),
      'accion',p_accion,'finalidad',p_finalidad,'evaluada_en',inst,'valida_hasta',pg_temp.hasta()),
-   'autorizacion',jsonb_build_object('accion',p_accion,'finalidad',p_finalidad,'recurso_ref',p_exp,'principal_id','per_ct124_actor',
+   'autorizacion',jsonb_build_object('accion',p_accion,'finalidad',p_finalidad,'recurso_ref',p_exp,'principal_id',p_actor,
      'perfil_activo_ref','prf_ct124','decision_canonica_hex',encode(convert_to(dec::text,'UTF8'),'hex'),'motivo_canonico_hex',encode('\x6d6f7469766f'::bytea,'hex'),
      'persona_version',1,'perfil_version',1,'decision_huella_sha256',encode(sha256(convert_to(dec::text,'UTF8')),'hex'),'decision_ref','decision:ct124:'||p_sufijo,
      'contexto_recurso_huella_sha256',h),

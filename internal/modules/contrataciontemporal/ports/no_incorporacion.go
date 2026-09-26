@@ -32,6 +32,15 @@ var (
 	// ErrFechaNoIncorporacionNoAdmitida: notificación futura o anterior a la
 	// aceptación.
 	ErrFechaNoIncorporacionNoAdmitida = errors.New("contratacion temporal: fecha de no incorporacion no admitida")
+	// ErrPropuestaNoIncorporacionPendiente: ya hay una propuesta sin
+	// confirmar ni rechazar para esa aceptación.
+	ErrPropuestaNoIncorporacionPendiente = errors.New("contratacion temporal: propuesta de no incorporacion pendiente")
+	// ErrPropuestaNoIncorporacionNoValida: la propuesta nombrada no es la
+	// pendiente o sus datos no coinciden.
+	ErrPropuestaNoIncorporacionNoValida = errors.New("contratacion temporal: propuesta de no incorporacion no valida")
+	// ErrMismaPersonaNoIncorporacion: quien propuso no puede confirmar ni
+	// rechazar su propia propuesta.
+	ErrMismaPersonaNoIncorporacion = errors.New("contratacion temporal: la misma persona no puede resolver su propuesta")
 )
 
 // MaterialNoIncorporacion es la intención exacta que se sella y persiste.
@@ -42,6 +51,8 @@ type MaterialNoIncorporacion struct {
 	Datos                                               domain.DatosNoIncorporacion
 }
 
+// Valido exige la forma del paso y, al confirmar o rechazar, que resuelva el
+// actor autenticado del material.
 func (m MaterialNoIncorporacion) Valido() bool {
 	return identidadOperacionValida(m.OrganizacionRef, m.ExpedienteRef, m.ActorRef, m.PerfilRef, m.VersionEsperada, m.ClaveIdempotencia) &&
 		m.Datos.ValidarPara(m.ActorRef) == nil
@@ -110,6 +121,25 @@ func (e EstadoNoIncorporacion) Valido() bool {
 		domain.ReferenciaOpacaValida(e.ResolucionRef) && huellaSHA256OperacionAnalisisValida(e.ResolucionSHA256) &&
 		domain.ReferenciaOpacaValida(e.ResueltaPor) && fechaCivilTextoValida(e.FechaNotificacion) &&
 		domain.ReferenciaOpacaValida(e.ReciboRef) && domain.InstanteUTCCanonico(e.RegistradaEn)
+}
+
+// EstadoPropuestaNoIncorporacion es la propuesta pendiente de la segunda
+// persona, para el detalle: sus datos, sin quién la propuso.
+type EstadoPropuestaNoIncorporacion struct {
+	PropuestaRef      string
+	MotivoClave       string
+	ConsecuenciaClave string
+	ResolucionRef     string
+	ResolucionSHA256  string
+	FechaNotificacion string
+	RegistradaEn      time.Time
+}
+
+func (e EstadoPropuestaNoIncorporacion) Valido() bool {
+	return domain.ReferenciaOpacaValida(e.PropuestaRef) && domain.MotivoNoIncorporacionValido(e.MotivoClave) &&
+		domain.ConsecuenciaNoIncorporacionValida(e.ConsecuenciaClave) && domain.ReferenciaOpacaValida(e.ResolucionRef) &&
+		huellaSHA256OperacionAnalisisValida(e.ResolucionSHA256) && fechaCivilTextoValida(e.FechaNotificacion) &&
+		domain.InstanteUTCCanonico(e.RegistradaEn)
 }
 
 // AntecedenteNoIncorporacion acompaña a la continuación cuyo antecedente es

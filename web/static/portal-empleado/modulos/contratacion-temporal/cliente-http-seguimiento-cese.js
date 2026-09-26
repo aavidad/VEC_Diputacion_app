@@ -18,6 +18,7 @@ export const CONFLICTOS_SEGUIMIENTO_CESE = Object.freeze([
   "cese_existente", "sin_cese", "cierre_existente", "sin_cambios", "credito_insuficiente",
   "ginpix_existente", "ginpix_no_confirmado", "ginpix_distinto",
   "sin_aceptacion", "incorporacion_existente", "no_incorporacion_existente", "fecha_no_admitida",
+  "propuesta_pendiente", "propuesta_no_valida", "misma_persona",
 ]);
 
 const MAXIMO = 16 * 1024;
@@ -83,12 +84,20 @@ export function validarSolicitudConfirmacionGINPIX(valor) {
   return Object.freeze(Object.fromEntries(campos.map((c) => [c, s[c]])));
 }
 
+// Pasos de la no incorporación: registrar (sin segunda persona) declara quién
+// resolvió; proponer no lo declara; confirmar y rechazar nombran la
+// propuesta y tampoco lo declaran (resuelve la persona autenticada).
+const PASOS_NO_INCORPORACION = new Set(["registrar", "proponer", "confirmar", "rechazar"]);
+
 export function validarSolicitudNoIncorporacion(valor) {
-  const campos = ["expediente_ref", "version_esperada", "clave_idempotencia", "motivo_clave", "resolucion_ref", "resolucion_sha256",
-    "resuelta_por", "fecha_notificacion", "observaciones"];
+  const campos = ["expediente_ref", "version_esperada", "clave_idempotencia", "paso", "propuesta_ref", "motivo_clave", "resolucion_ref",
+    "resolucion_sha256", "resuelta_por", "fecha_notificacion", "observaciones"];
   const s = registro(valor, campos);
   comun(s);
-  if (!MOTIVO.test(s.motivo_clave) || !REF.test(s.resolucion_ref) || !HUELLA.test(s.resolucion_sha256) || !REF.test(s.resuelta_por)
+  const conPropuesta = s.paso === "confirmar" || s.paso === "rechazar";
+  if (!PASOS_NO_INCORPORACION.has(s.paso) || !MOTIVO.test(s.motivo_clave) || !REF.test(s.resolucion_ref) || !HUELLA.test(s.resolucion_sha256)
+    || (s.paso === "registrar" ? !REF.test(s.resuelta_por) : s.resuelta_por !== "")
+    || (conPropuesta ? !REF.test(s.propuesta_ref) : s.propuesta_ref !== "")
     || !fechaCivilValida(s.fecha_notificacion) || !textoValido(s.observaciones)) throw new TypeError("solicitud de no incorporación no válida");
   return Object.freeze(Object.fromEntries(campos.map((c) => [c, s[c]])));
 }
@@ -123,7 +132,7 @@ function opcionValida(o, campos) {
 export function validarConsultaSeguimientoCese(valor, expedienteRef) {
   const d = registro(valor, ["esquema", "opciones", "estado"]);
   const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"], ["confirmacion_ginpix", "no_incorporacion"]);
-  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion"]);
+  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion", "no_incorporacion_propuesta"]);
   if (o.no_incorporacion !== undefined) {
     const r = registro(o.no_incorporacion, ["motivos", "segunda_persona"]);
     if (typeof r.segunda_persona !== "boolean" || !Array.isArray(r.motivos) || r.motivos.length < 1 || r.motivos.length > 32
@@ -135,6 +144,11 @@ export function validarConsultaSeguimientoCese(valor, expedienteRef) {
     const n = registro(e.no_incorporacion, ["motivo_clave", "resolucion_ref", "resolucion_sha256", "resuelta_por", "fecha_notificacion", "recibo_ref", "registrada_en"]);
     if (!MOTIVO.test(n.motivo_clave) || !REF.test(n.resolucion_ref) || !HUELLA.test(n.resolucion_sha256) || !REF.test(n.resuelta_por)
       || !fechaCivilValida(n.fecha_notificacion) || !REF.test(n.recibo_ref) || !INSTANTE.test(n.registrada_en)) throw new TypeError("no incorporación no válida");
+  }
+  if (e.no_incorporacion_propuesta !== undefined) {
+    const p = registro(e.no_incorporacion_propuesta, ["propuesta_ref", "motivo_clave", "resolucion_ref", "resolucion_sha256", "fecha_notificacion", "registrada_en"]);
+    if (!REF.test(p.propuesta_ref) || !MOTIVO.test(p.motivo_clave) || !REF.test(p.resolucion_ref) || !HUELLA.test(p.resolucion_sha256)
+      || !fechaCivilValida(p.fecha_notificacion) || !INSTANTE.test(p.registrada_en)) throw new TypeError("propuesta de no incorporación no válida");
   }
   // Con la incorporación acreditada el estado trae siempre las dos confirmaciones.
   if ((o.confirmacion_ginpix !== undefined && o.confirmacion_ginpix !== true)
