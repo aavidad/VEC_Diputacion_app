@@ -214,10 +214,15 @@ type ejecutorSesionTCBOperacionDecisionPrueba struct {
 	continuarBloqueo       chan struct{}
 	ejecutorPorRetornar    chan struct{}
 	resultadoCallback      chan error
-	llamadas               atomic.Int32
-	sesiones               []*sesionTCBOperacionDecisionPrueba
-	callbackRetenido       func(cobertura.SesionTCBOperacionDecisionCobertura) error
-	sesionRetenida         cobertura.SesionTCBOperacionDecisionCobertura
+	// ctxSesion conserva el contexto recibido por el ejecutor asíncrono. El
+	// envoltorio lo cancela justo después de marcar el retorno del ejecutor,
+	// de modo que su Done sirve de barrera determinista para liberar un
+	// callback «tardío» solo cuando el retorno ya está registrado.
+	ctxSesion        context.Context
+	llamadas         atomic.Int32
+	sesiones         []*sesionTCBOperacionDecisionPrueba
+	callbackRetenido func(cobertura.SesionTCBOperacionDecisionCobertura) error
+	sesionRetenida   cobertura.SesionTCBOperacionDecisionCobertura
 }
 
 func (e *ejecutorSesionTCBOperacionDecisionPrueba) nuevaSesion() cobertura.SesionTCBOperacionDecisionCobertura {
@@ -239,7 +244,7 @@ func (e *ejecutorSesionTCBOperacionDecisionPrueba) nuevaSesion() cobertura.Sesio
 }
 
 func (e *ejecutorSesionTCBOperacionDecisionPrueba) EjecutarSesionTCB(
-	_ context.Context,
+	ctx context.Context,
 	callback func(cobertura.SesionTCBOperacionDecisionCobertura) error,
 ) error {
 	e.llamadas.Add(1)
@@ -257,6 +262,9 @@ func (e *ejecutorSesionTCBOperacionDecisionPrueba) EjecutarSesionTCB(
 	}
 	sesion := e.nuevaSesion()
 	if e.callbackAsincrono {
+		e.mu.Lock()
+		e.ctxSesion = ctx
+		e.mu.Unlock()
 		if e.retenerDespuesCallback {
 			e.mu.Lock()
 			e.callbackRetenido = callback
@@ -286,6 +294,14 @@ func (e *ejecutorSesionTCBOperacionDecisionPrueba) EjecutarSesionTCB(
 		e.despuesCallback()
 	}
 	return e.errorDespues
+}
+
+// retornoRegistrado se cierra cuando el envoltorio ya ha registrado el retorno
+// del ejecutor asíncrono: cancela el contexto de sesión después de marcarlo.
+func (e *ejecutorSesionTCBOperacionDecisionPrueba) retornoRegistrado() <-chan struct{} {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.ctxSesion.Done()
 }
 
 func (e *ejecutorSesionTCBOperacionDecisionPrueba) ultimaSesion() *sesionTCBOperacionDecisionPrueba {
