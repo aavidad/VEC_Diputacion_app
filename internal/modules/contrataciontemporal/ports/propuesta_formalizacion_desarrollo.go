@@ -63,11 +63,24 @@ func (a AntecedentePropuestaFormalizacion) ValidarPara(s SolicitudPropuestaForma
 		r.Solicitud.OrganizacionRef != s.OrganizacionRef || r.Solicitud.ExpedienteRef != s.ExpedienteRef ||
 		r.Solicitud.LlamamientoRef != s.LlamamientoRef || r.ResolucionRef != s.ResolucionLlamamientoAceptadaRef ||
 		r.ReciboLocalRef != s.ReciboResolucionAceptadaRef || a.Justificante.ValidarPara(r.Solicitud) != nil ||
-		a.Justificante.Seleccion.VersionExpediente != s.VersionEsperada ||
+		!versionSeleccionPropuestaValida(a.Justificante, s.VersionEsperada) ||
 		r.ResueltaEn.Before(a.Justificante.Respuesta.RegistradaEn) || !ClaveIdempotenciaValida(a.SeleccionClave) {
 		return ErrResultadoPropuestaFormalizacionNoConfiable
 	}
 	return nil
+}
+
+// versionSeleccionPropuestaValida: sin continuación la propuesta parte de la
+// versión fiscalizada en la que se seleccionó. Con continuación (renuncia,
+// expiración o no incorporación, CT128) la selección es la original y el
+// expediente puede haber avanzado después (tras una no incorporación vuelve
+// a la fiscalización en una versión posterior); PostgreSQL fija la versión
+// exacta que admite cada antecedente.
+func versionSeleccionPropuestaValida(j JustificanteRespuestaRecibida, esperada uint64) bool {
+	if j.Continuacion == nil {
+		return j.Seleccion.VersionExpediente == esperada
+	}
+	return j.Seleccion.VersionExpediente <= esperada
 }
 
 // EvidenciaAceptacionBolsaPropuesta es una proyección del terminal recuperado

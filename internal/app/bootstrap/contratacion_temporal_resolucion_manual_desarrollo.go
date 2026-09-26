@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/adapters/fuentesintetica"
-	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -250,7 +249,8 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx con
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	if err != nil || !existe || terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil ||
+	estadoTerminal, terminalAdmitido := estadoTerminalSucesorDesarrollo(terminal.Tipo)
+	if err != nil || !existe || !terminalAdmitido || terminal.Resolucion == nil ||
 		terminal.OperacionRef != b.TerminalOperacionRef || terminal.Resolucion.AperturaOperacionRef != raiz.OperacionRef ||
 		!politicaResolucionAdmitidaDesarrollo(terminal.Resolucion.PoliticaRef, terminal.Resolucion.PoliticaVersion, terminal.Resolucion.PoliticaSHA256) ||
 		terminal.Resolucion.ResueltaEn.Before(j.Seleccion.ConfirmadaEn) || terminal.Resolucion.ResueltaEn.After(apertura.Propuesta.GeneradaEn) {
@@ -277,7 +277,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx con
 	esperado := raiz
 	datos := *raiz.Llamamiento
 	datos.Version = 2
-	esperado.OperacionRef, esperado.Tipo, esperado.EstadoLlamamiento = b.TerminalOperacionRef, "renuncia_rrhh", dominiobolsa.EstadoLlamamientoRenunciado
+	esperado.OperacionRef, esperado.Tipo, esperado.EstadoLlamamiento = b.TerminalOperacionRef, terminal.Tipo, estadoTerminal
 	esperado.Llamamiento, esperado.Resolucion = &datos, terminal.Resolucion
 	esperadoCanon, err := esperado.Canonico()
 	if err != nil || !bytes.Equal(esperadoCanon, canonTerminal) {
