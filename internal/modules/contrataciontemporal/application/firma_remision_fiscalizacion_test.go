@@ -86,3 +86,69 @@ func TestExigirFirmaRemisionSeFijaUnaVez(t *testing.T) {
 		t.Fatal("el comprobador se fija una sola vez")
 	}
 }
+
+type fuenteResultadosPrueba struct {
+	politica domain.PoliticaResultadosFiscalizacion
+	err      error
+}
+
+func (f fuenteResultadosPrueba) ResultadosFiscalizacion(context.Context) (domain.PoliticaResultadosFiscalizacion, error) {
+	return f.politica, f.err
+}
+
+type comprobadorFirmaPrueba struct {
+	err      error
+	llamadas int
+}
+
+func (c *comprobadorFirmaPrueba) ComprobarFirmaRemision(context.Context, string, string) error {
+	c.llamadas++
+	return c.err
+}
+
+// Antes del efecto: el catálogo decide qué resultados se admiten y el
+// circuito de firma si se puede remitir; sin ninguno de los dos, nada cambia.
+func TestComprobarCatalogoYFirmaAntesDelEfecto(t *testing.T) {
+	ctx := context.Background()
+	const org, exp = "organizacion:desarrollo:dipgra", "expediente:ct:001"
+	if err := (&ServicioFiscalizaciones{}).comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err != nil {
+		t.Fatalf("sin catálogo ni firmas rige la conducta de siempre: %v", err)
+	}
+	sinObservaciones, err := domain.NuevaPoliticaResultadosFiscalizacion(
+		[]domain.ResultadoFiscalizacion{domain.FiscalizacionFavorable, domain.FiscalizacionDesfavorable},
+		map[domain.ResultadoFiscalizacion]domain.EfectoResultadoFiscalizacion{
+			domain.FiscalizacionFavorable:    domain.EfectoFiscalizacionContinua,
+			domain.FiscalizacionDesfavorable: domain.EfectoFiscalizacionVuelveUnidadGestora,
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firma := &comprobadorFirmaPrueba{}
+	s := &ServicioFiscalizaciones{}
+	if s.GobernarResultados(fuenteResultadosPrueba{politica: sinObservaciones}) != nil || s.ExigirFirmaRemision(firma) != nil {
+		t.Fatal("composición")
+	}
+	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorableConObservaciones); !errors.Is(err, ports.ErrResultadoFiscalizacionNoAdmitido) ||
+		!errors.Is(err, domain.ErrDatoInvalido) || firma.llamadas != 0 {
+		t.Fatalf("resultado retirado del catálogo admitido: %v", err)
+	}
+	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err != nil || firma.llamadas != 1 {
+		t.Fatalf("resultado admitido y firmado: %v", err)
+	}
+	firma.err = ports.ErrFirmaRemisionPendiente
+	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionDesfavorable); !errors.Is(err, ports.ErrFirmaRemisionPendiente) {
+		t.Fatalf("sin firma no se remite: %v", err)
+	}
+	firma.err = ports.ErrRegistroFirmaDocumentoNoDisponible
+	if err := s.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err == nil || errors.Is(err, ports.ErrFirmaRemisionPendiente) {
+		t.Fatalf("registro caído: %v", err)
+	}
+	caido := &ServicioFiscalizaciones{}
+	_ = caido.GobernarResultados(fuenteResultadosPrueba{err: errors.New("catálogo ilegible")})
+	if err := caido.comprobarCatalogoYFirma(ctx, org, exp, domain.FiscalizacionFavorable); err == nil {
+		t.Fatal("un catálogo ilegible no admite nada")
+	}
+	if caido.GobernarResultados(fuenteResultadosPrueba{}) == nil {
+		t.Fatal("la política se fija una sola vez")
+	}
+}

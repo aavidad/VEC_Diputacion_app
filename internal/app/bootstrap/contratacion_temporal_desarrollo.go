@@ -330,6 +330,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if err := gobernarResultadosFiscalizacionDesarrollo(fiscalizacionReal.servicio, reglasEjemplo.contratacionTemporal); err != nil {
+		return nil, nil, nil, err
+	}
 	var subsanacionReal dependenciasSubsanacionReparosContratacionTemporalDesarrollo
 	if strings.TrimSpace(cfg.ContratacionTemporalSubsanacionPoliticaFile) != "" {
 		politica, causa := cargarConfiguracionPoliticaSubsanacionReparosDesarrollo(cfg)

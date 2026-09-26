@@ -69,6 +69,19 @@ type ServicioFiscalizaciones struct {
 	// firmaRemision es nil salvo con el registro de firmas compuesto: sin él
 	// la remisión no exige firma, como antes de la duda 4.
 	firmaRemision ports.ComprobadorFirmaRemisionFiscalizacion
+	// resultados es nil sin catálogo de reglas: rigen los tres resultados
+	// con su efecto de siempre.
+	resultados ports.FuenteResultadosFiscalizacion
+}
+
+// GobernarResultados hace que la fiscalización solo admita los resultados que
+// el catálogo vigente declara (duda 5). Se fija una sola vez al componer.
+func (s *ServicioFiscalizaciones) GobernarResultados(f ports.FuenteResultadosFiscalizacion) error {
+	if s == nil || dependenciaNula(f) || s.resultados != nil {
+		return ErrServicioFiscalizacionesInvalido
+	}
+	s.resultados = f
+	return nil
 }
 
 // ExigirFirmaRemision hace que la fiscalización compruebe antes del efecto que
@@ -205,15 +218,10 @@ func (s *ServicioFiscalizaciones) Registrar(
 	if preparacion.Estado == ports.PreparacionFiscalizacionConfirmada {
 		return *preparacion.ReciboConfirmado, nil
 	}
-	if s.firmaRemision != nil {
-		if err := s.firmaRemision.ComprobarFirmaRemision(
-			ctxOperacion, solicitud.OrganizacionRef, solicitud.ExpedienteRef,
-		); err != nil {
-			if errors.Is(err, ports.ErrFirmaRemisionPendiente) && ctxOperacion.Err() == nil {
-				return ports.ReciboFiscalizacion{}, ports.ErrFirmaRemisionPendiente
-			}
-			return ports.ReciboFiscalizacion{}, clasificarFalloFiscalizacion(ctxOperacion, err)
-		}
+	if err := s.comprobarCatalogoYFirma(
+		ctxOperacion, solicitud.OrganizacionRef, solicitud.ExpedienteRef, material.Resultado,
+	); err != nil {
+		return ports.ReciboFiscalizacion{}, err
 	}
 
 	faseDestino, estadoDestino := preparacion.Expediente.DestinoFiscalizacion(material.Resultado)
@@ -263,6 +271,33 @@ func (s *ServicioFiscalizaciones) Registrar(
 		return ports.ReciboFiscalizacion{}, ErrResultadoFiscalizacionNoConfiable
 	}
 	return recibo, nil
+}
+
+// comprobarCatalogoYFirma aplica, antes del efecto, el resultado admitido por
+// el catálogo (duda 5) y la firma que habilita la remisión (duda 4). Sin
+// catálogo ni registro de firmas no exige nada.
+func (s *ServicioFiscalizaciones) comprobarCatalogoYFirma(
+	ctx context.Context, organizacionRef, expedienteRef string,
+	resultado domain.ResultadoFiscalizacion,
+) error {
+	if s.resultados != nil {
+		politica, err := s.resultados.ResultadosFiscalizacion(ctx)
+		if err != nil {
+			return clasificarFalloFiscalizacion(ctx, err)
+		}
+		if !politica.Admite(resultado) {
+			return ports.ErrResultadoFiscalizacionNoAdmitido
+		}
+	}
+	if s.firmaRemision != nil {
+		if err := s.firmaRemision.ComprobarFirmaRemision(ctx, organizacionRef, expedienteRef); err != nil {
+			if errors.Is(err, ports.ErrFirmaRemisionPendiente) && ctx.Err() == nil {
+				return ports.ErrFirmaRemisionPendiente
+			}
+			return clasificarFalloFiscalizacion(ctx, err)
+		}
+	}
+	return nil
 }
 
 // RegistrarResultado conserva la frontera esperada por el adaptador HTTP;

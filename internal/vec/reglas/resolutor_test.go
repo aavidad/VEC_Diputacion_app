@@ -109,7 +109,7 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			CTPlazoAnalisis, CTPlazoInformes, CTPlazoFiscalizacion, CTPlazoSubsanacion, CTMotivosRectificacion,
 			CTAltaSeguridadSocial, CTJornadaCompleta, CTDuracionAcumulacionTareas, CTDuracionProgramasTemporales,
 			CTDuracionVacante, CTDuracionSustitucion, CTDuracionCircunstancias,
-			CTModificacionFaseRetorno, CTCierreExpediente, CTCausasCese,
+			CTModificacionFaseRetorno, CTCierreExpediente, CTCausasCese, CTFiscalizacionResultados,
 		}},
 	}
 	for _, caso := range casos {
