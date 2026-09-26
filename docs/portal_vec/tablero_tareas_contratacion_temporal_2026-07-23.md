@@ -2,6 +2,15 @@
 
 Última actualización: 31 de agosto de 2026.
 
+## Nota de estado — 26 de septiembre de 2026
+
+Contratación temporal queda cerrada para la presentación a RRHH del 28/09/2026 e integrada
+en `main` (PR #66 a #72) y desplegada en la principal de cidonia. El detalle (migraciones,
+selectores, verificación de firma sin validez legal, evidencia y pendientes) está en
+`ESTADO_PROYECTO.md`, «Bolsa y Contratación temporal cerradas para la presentación — 26 de
+septiembre de 2026». Esta nota no reasigna tareas del tablero ni cambia sus cifras.
+Producción sigue en `NO-GO`.
+
 ## Checkpoint vivo O6 y cableado O2
 
 El producto publicado de referencia es

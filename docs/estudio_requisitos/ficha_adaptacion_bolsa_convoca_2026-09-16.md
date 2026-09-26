@@ -5,6 +5,17 @@ al menos para la carga inicial. Esta ficha traduce las fuentes disponibles en re
 numerados, dice qué hay en VEC para cada uno y qué cambio haría falta. No es una orden de
 trabajo: Bolsa está aparcada hasta cerrar el orden de correcciones de Contratación.
 
+## Estado al 26 de septiembre de 2026
+
+Bolsa queda cerrada para la presentación a RRHH del 28/09/2026: integrada en `main`
+(PR #66 a #72) y desplegada en la principal de cidonia, con «Mi bolsa» y el portal del
+candidato encendidos (`VEC_BOLSA_PORTAL_CANDIDATO_ENABLED`). La tabla de requisitos de abajo
+conserva su foto del 16/09; el detalle del cierre, la evidencia y los pendientes están en
+`ESTADO_PROYECTO.md`, «Bolsa y Contratación temporal cerradas para la presentación — 26 de
+septiembre de 2026». Las reglas que RRHH aún no ha decidido van en el paquete de ejemplo
+modificable `data/demo/reglas/*.demo.json` (marca `paquete:ejemplo:vec:v1`). Producción sigue
+en `NO-GO`.
+
 ## Fuentes
 
 - **P** — Pliego de Prescripciones Técnicas SE 15/2020, §1 a) y c), páginas 2–3

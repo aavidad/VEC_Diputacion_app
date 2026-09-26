@@ -4,6 +4,8 @@ Selección de `dudas.md` con solo las preguntas de Bolsas y de Contratación tem
 
 Mientras no respondáis, VEC usa en demostración reglas de ejemplo rotuladas como tales en administración, y aplica el Reglamento de bolsas vigente donde ya regula la cuestión. Esas reglas de ejemplo no son una política aprobada y se retirarán al pasar a producción.
 
+Cómo se aplican vuestras respuestas (26/09/2026): las reglas de ejemplo están en el paquete modificable `data/demo/reglas/*.demo.json` (marca `paquete:ejemplo:vec:v1`). Cada respuesta se incorpora cambiando ese catálogo, sin tocar el programa.
+
 Decisiones ya acordadas: se utilizará el portafirmas de Diputación; el correo saliente utilizará SMTP corporativo, configurable desde administración; el correo del candidato procederá del dato obligatorio de su alta en VEC; VEC sustituirá a CONVOCA en la gestión de bolsas y, más adelante, en los procesos selectivos, importando primero las bolsas existentes; el candidato se identificará con DNIe o certificado digital.
 
 ## Contratación temporal
