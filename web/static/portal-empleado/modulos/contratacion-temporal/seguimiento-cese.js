@@ -4,6 +4,7 @@ import { crearTraductorSeguimientoCese } from "./i18n-seguimiento-cese.js?v=2026
 import { cierreConGINPIXConfirmado, filasIncorporacionAcreditada, formularioConfirmacionGINPIX, ofrecerConfirmacionGINPIX } from "./seguimiento-incorporacion-acreditada.js?v=20260926-huecos-rrhh-v1";
 import { filasNoIncorporacion, formularioNoIncorporacion, formularioPropuestaNoIncorporacion, ofrecerNoIncorporacion, ofrecerPropuestaNoIncorporacion,
   solicitudNoIncorporacion, solicitudResolucionPropuestaNoIncorporacion } from "./seguimiento-no-incorporacion.js?v=20260926-correcciones-b42-v1";
+import { filasPropuestas } from "./seguimiento-propuestas.js?v=20260926-propuesta-sucesor-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
 
 const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -71,6 +72,7 @@ export function montarPanelSeguimientoCese({
       [t("cierre"), estado.cierre ? t("cierre_registrado", { ginpix: estado.cierre.ginpix_numero || t("cierre_sin_ginpix") }) : t("pendiente")],
       ...filasIncorporacionAcreditada(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
       ...filasNoIncorporacion(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
+      ...filasPropuestas(estado, opciones, t, (valor) => fechaVisible(valor, locale)),
     ];
     return `<dl class="ct-exp-fase-datos">${filas.map(([a, b]) => `<div><dt>${escapar(a)}</dt><dd>${escapar(b)}</dd></div>`).join("")}</dl>`;
   }

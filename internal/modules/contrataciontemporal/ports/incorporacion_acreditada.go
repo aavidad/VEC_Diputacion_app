@@ -78,6 +78,8 @@ type EstadoIncorporacionAcreditada struct {
 	// PropuestaNoIncorporacion es la propuesta pendiente de la segunda
 	// persona (cuatro ojos), si la hay.
 	PropuestaNoIncorporacion *EstadoPropuestaNoIncorporacion
+	// Propuestas: la vigente y las sustituidas por una no incorporación (CT128).
+	Propuestas []EstadoPropuestaExpediente
 }
 
 // Valido acota formato y tamaño antes de publicar la lectura.
@@ -96,7 +98,7 @@ func (e EstadoIncorporacionAcreditada) Valido() bool {
 		}
 	}
 	return (e.NoIncorporacion == nil || e.NoIncorporacion.Valido()) &&
-		(e.PropuestaNoIncorporacion == nil || e.PropuestaNoIncorporacion.Valido())
+		(e.PropuestaNoIncorporacion == nil || e.PropuestaNoIncorporacion.Valido()) && PropuestasExpedienteValidas(e.Propuestas)
 }
 
 func fechaCivilTextoValida(valor string) bool {

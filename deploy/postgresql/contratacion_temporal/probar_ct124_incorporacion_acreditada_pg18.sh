@@ -122,6 +122,8 @@ echo '== Transacciones (dobles explícitos de las fachadas AD3)'
 prueba 'fixture CT124 OK' "$pruebas/ct115_ct116_fixture_pg18.sql" "$pruebas/ct124_fixture_pg18.sql"
 if [[ ${VEC_CT124_GO:-} == 1 ]]; then
   echo '== Contrato Go↔SQL (dobles explícitos de las fachadas AD3)'
+  # La consulta del seguimiento lee también las propuestas (CT128).
+  run <"$ct/000128_propuesta_sucesor_no_incorporacion.up.sql"
   puerto=$(docker port "$nombre" 5432/tcp | head -1 | sed 's/.*://')
   a='expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001'
   b='expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7'

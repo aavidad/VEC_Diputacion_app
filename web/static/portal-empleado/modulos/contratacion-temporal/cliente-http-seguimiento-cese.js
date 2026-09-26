@@ -1,5 +1,7 @@
 /** Cliente HTTP del cese, el cierre y la modificación tras el nombramiento. */
 
+import { validarPropuestasSeguimiento } from "./seguimiento-propuestas.js?v=20260926-propuesta-sucesor-v1";
+
 export const RUTA_CESES_NOMBRAMIENTO = "/api/vec/contratacion-temporal/ceses";
 export const RUTA_CIERRES_EXPEDIENTE = "/api/vec/contratacion-temporal/cierres-expediente";
 export const RUTA_MODIFICACIONES_NOMBRAMIENTO = "/api/vec/contratacion-temporal/modificaciones-nombramiento";
@@ -132,7 +134,11 @@ function opcionValida(o, campos) {
 export function validarConsultaSeguimientoCese(valor, expedienteRef) {
   const d = registro(valor, ["esquema", "opciones", "estado"]);
   const o = registro(d.opciones, ["causas_cese", "condiciones_cierre", "fase_retorno_modificacion", "motivos_modificacion"], ["confirmacion_ginpix", "no_incorporacion"]);
-  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion", "no_incorporacion_propuesta"]);
+  const e = registro(d.estado, ["expediente_ref", "incorporacion", "cese", "cierre"], ["ginpix", "confirmacion_centro", "no_incorporacion", "no_incorporacion_propuesta", "propuestas"]);
+  // Propuestas de nombramiento (vigente e historia), solo con la incorporación acreditada.
+  if (e.propuestas !== undefined && (validarPropuestasSeguimiento(e.propuestas) === null || !Object.hasOwn(e, "ginpix"))) {
+    throw new TypeError("propuestas no válidas");
+  }
   if (o.no_incorporacion !== undefined) {
     const r = registro(o.no_incorporacion, ["motivos", "segunda_persona"]);
     if (typeof r.segunda_persona !== "boolean" || !Array.isArray(r.motivos) || r.motivos.length < 1 || r.motivos.length > 32

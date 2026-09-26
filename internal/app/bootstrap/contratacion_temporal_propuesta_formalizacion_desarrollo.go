@@ -245,7 +245,7 @@ func acreditarCadenaSucesoraPropuestaDesarrollo(ctx context.Context, repo puerto
 		return application.ErrResolucionFormalizacionNoAceptada
 	}
 	ante := apertura.Propuesta.Continuacion
-	if terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil || terminal.Llamamiento == nil ||
+	if _, admitido := estadoTerminalSucesorDesarrollo(terminal.Tipo); !admitido || terminal.Resolucion == nil || terminal.Llamamiento == nil ||
 		terminal.Resolucion.AperturaOperacionRef != raiz.OperacionRef || terminal.Llamamiento.LlamamientoRef != j.LlamamientoRef ||
 		ante.TerminalOperacionRef != terminal.OperacionRef || ante.TerminalSHA256 != huellaPuenteLlamamientoDesarrollo(canones[2]) ||
 		ante.PropuestaRef != raiz.Propuesta.PropuestaRef || ante.PropuestaSHA256 != raiz.Propuesta.HuellaContenidoSHA256 ||

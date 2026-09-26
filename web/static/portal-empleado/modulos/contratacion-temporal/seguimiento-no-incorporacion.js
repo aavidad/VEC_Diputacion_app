@@ -8,20 +8,23 @@
  */
 
 import { renderizarCampoHuellaArchivo } from "../../portal-huella-archivo.js";
+import { noIncorporacionVigente } from "./seguimiento-propuestas.js?v=20260926-propuesta-sucesor-v1";
 
 /**
- * Se ofrece sin incorporación, sin cese, sin no incorporación registrada y
+ * Se ofrece sin incorporación, sin cese, sin no incorporación de la persona
+ * de la propuesta vigente (la de una propuesta ya sustituida es historia) y
  * sin propuesta pendiente. Con segunda persona (c22) el formulario propone;
  * otra persona confirma o rechaza después.
  */
 export function ofrecerNoIncorporacion(estado, opciones) {
-  return Boolean(opciones?.no_incorporacion) && !estado.incorporacion && !estado.cese && !estado.no_incorporacion && !estado.no_incorporacion_propuesta;
+  return Boolean(opciones?.no_incorporacion) && !estado.incorporacion && !estado.cese && !noIncorporacionVigente(estado)
+    && !estado.no_incorporacion_propuesta;
 }
 
 /** La propuesta pendiente se ofrece para confirmar o rechazar. */
 export function ofrecerPropuestaNoIncorporacion(estado, opciones) {
   return Boolean(opciones?.no_incorporacion?.segunda_persona) && Boolean(estado.no_incorporacion_propuesta)
-    && !estado.incorporacion && !estado.cese && !estado.no_incorporacion;
+    && !estado.incorporacion && !estado.cese && !noIncorporacionVigente(estado);
 }
 
 function etiquetaMotivo(opciones, clave) {
@@ -31,7 +34,7 @@ function etiquetaMotivo(opciones, clave) {
 
 /** Fila del resumen cuando consta la no incorporación o su propuesta. */
 export function filasNoIncorporacion(estado, opciones, t, fecha) {
-  const n = estado.no_incorporacion;
+  const n = noIncorporacionVigente(estado);
   if (n) return [[t("no_incorporacion"), t("no_incorporacion_registrada", { motivo: etiquetaMotivo(opciones, n.motivo_clave), fecha: fecha(n.fecha_notificacion) })]];
   const p = estado.no_incorporacion_propuesta;
   if (p) return [[t("no_incorporacion"), t("no_incorporacion_propuesta_pendiente", { motivo: etiquetaMotivo(opciones, p.motivo_clave), fecha: fecha(p.fecha_notificacion) })]];
