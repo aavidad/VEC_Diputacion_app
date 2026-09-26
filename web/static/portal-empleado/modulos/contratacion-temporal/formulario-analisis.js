@@ -1,5 +1,6 @@
 import {
   minutosJornadaCompletaValidos,
+  motivoUrgenciaValido,
   normalizarDuracionesMaximas,
   periodoSuperaDuracionMaxima,
   validarDatosPreviosAnalisis,
@@ -82,6 +83,7 @@ const CLAVES_ETIQUETA = Object.freeze({
   entrada_rc_referencia: "analisis_entrada_rc",
   motivo_rectificacion_clave: "analisis_motivo_rectificacion",
   observaciones: "analisis_observaciones",
+  urgencia_motivo: "analisis_urgencia_motivo",
   general: "analisis_errores_titulo",
 });
 
@@ -262,7 +264,7 @@ function crearBorrador(analisis = null) {
   return analisis === null ? {
     modalidad_clave: "", categoria_ref: "", grupo_subgrupo: "", causa_clave: "",
     inicio: "", fin: "", porcentaje_jornada: "", entrada_rc_referencia: "",
-    motivo_rectificacion_clave: "", observaciones: "",
+    motivo_rectificacion_clave: "", observaciones: "", urgente: false, urgencia_motivo: "",
   } : {
     modalidad_clave: analisis.modalidad_clave,
     categoria_ref: analisis.categoria_ref,
@@ -274,6 +276,8 @@ function crearBorrador(analisis = null) {
     entrada_rc_referencia: analisis.entrada_rc.referencia,
     motivo_rectificacion_clave: "",
     observaciones: analisis.observaciones ?? "",
+    urgente: false,
+    urgencia_motivo: "",
   };
 }
 
@@ -349,7 +353,26 @@ function validarBorrador(borrador, catalogos, rectificacion) {
       errores.observaciones = "observaciones";
     }
   }
+  if (catalogos.urgencia_disponible && borrador.urgente
+    && !motivoUrgenciaValido(borrador.urgencia_motivo)) {
+    errores.urgencia_motivo = "urgencia_motivo";
+  }
   return errores;
+}
+
+// Declaración de urgencia (regla c15): solo existe si el catálogo la publica.
+function campoUrgencia(estado, t) {
+  const marcada = estado.borrador.urgente === true;
+  const error = estado.errores.urgencia_motivo;
+  return `<fieldset class="ct-campo ct-campo-urgencia">
+    <legend>${escaparHTML(t("analisis_urgencia_leyenda"))}</legend>
+    <label class="ct-casilla" for="ct-analisis-urgente">
+      <input id="ct-analisis-urgente" name="urgente" type="checkbox" value="si"${marcada ? " checked" : ""}>
+      ${escaparHTML(t("analisis_urgencia_marcar"))}</label>
+    <label for="ct-analisis-urgencia_motivo">${escaparHTML(t("analisis_urgencia_motivo"))}</label>
+    <textarea id="ct-analisis-urgencia_motivo" name="urgencia_motivo" maxlength="1000" ${atributosCampo(estado, "urgencia_motivo")}>${escaparHTML(estado.borrador.urgencia_motivo ?? "")}</textarea>
+    ${error ? `<span class="ct-error-campo" id="ct-analisis-urgencia_motivo-error">${escaparHTML(mensajeCampo(t, error))}</span>` : ""}
+  </fieldset>`;
 }
 
 function escaparHTML(valor) {
@@ -496,6 +519,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
         ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", catalogos.entradas_rc, "referencia")}
         ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", catalogos.motivos_rectificacion, "clave") : ""}
         ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", 4000)}
+        ${catalogos.urgencia_disponible ? campoUrgencia(estado, t) : ""}
       </div>
     </fieldset>
     <div class="ct-acciones">${estado.ocupado
@@ -518,6 +542,8 @@ function extraerBorrador(formulario, minutosCompleta) {
     entrada_rc_referencia: String(datos.get("entrada_rc_referencia") ?? ""),
     motivo_rectificacion_clave: String(datos.get("motivo_rectificacion_clave") ?? ""),
     observaciones: String(datos.get("observaciones") ?? "").trim(),
+    urgente: datos.get("urgente") === "si",
+    urgencia_motivo: String(datos.get("urgencia_motivo") ?? "").trim(),
   };
 }
 
@@ -688,6 +714,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     };
     if (typeof entrada.observaciones === "string" && entrada.observaciones.trim() !== "") {
       analisis.observaciones = entrada.observaciones.trim();
+    }
+    if (catalogos.urgencia_disponible && entrada.urgente) {
+      analisis.urgencia_motivo = entrada.urgencia_motivo;
     }
     const semantica = JSON.stringify([contexto, analisis,
       rectificacion ? entrada.motivo_rectificacion_clave : null]);

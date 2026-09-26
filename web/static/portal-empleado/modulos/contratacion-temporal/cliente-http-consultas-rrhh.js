@@ -113,7 +113,7 @@ function validarResumen(entrada) {
     "flujo_version", "flujo_huella_sha256", "fase_clave", "estado_clave",
     "centro_ref", "categoria_ref", "creado_en", "actualizado_en",
   ];
-  if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref", "plazo_fase"])
+  if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref", "plazo_fase", "urgente"])
     || !referencia(entrada.expediente_ref) || !referencia(entrada.flujo_ref)
     || !referencia(entrada.centro_ref) || !referencia(entrada.categoria_ref)
     || !cadena(entrada.numero_visible, { maximo: 45, patron: PATRON_NUMERO })
@@ -124,7 +124,9 @@ function validarResumen(entrada) {
     || !instante(entrada.creado_en) || !instante(entrada.actualizado_en)
     || (Object.hasOwn(entrada, "modalidad_clave") && !clave(entrada.modalidad_clave))
     || (Object.hasOwn(entrada, "unidad_ref") && !referencia(entrada.unidad_ref))
-    || (Object.hasOwn(entrada, "plazo_fase") && !plazoFaseValido(entrada.plazo_fase))) {
+    || (Object.hasOwn(entrada, "plazo_fase") && !plazoFaseValido(entrada.plazo_fase))
+    // La urgencia solo viaja cuando se declaró: nunca como «false».
+    || (Object.hasOwn(entrada, "urgente") && entrada.urgente !== true)) {
     throw new TypeError("resumen RRHH no válido");
   }
   return structuredClone(entrada);

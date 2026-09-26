@@ -173,6 +173,7 @@ func clonarPaginaCuadroRRHH(
 		pagina.Expedientes...,
 	)
 	pagina.FasesDesde = append([]time.Time(nil), pagina.FasesDesde...)
+	pagina.Urgentes = append([]bool(nil), pagina.Urgentes...)
 	pagina.Plazos = nil
 	return pagina
 }

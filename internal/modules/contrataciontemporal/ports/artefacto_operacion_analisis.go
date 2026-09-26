@@ -32,6 +32,11 @@ type DatosFuncionalesOperacionAnalisis struct {
 	PorcentajeJornada domain.JornadaDiezmilesimas
 	EntradaRC         domain.VinculoEntradaRC
 	Observaciones     string
+	// MotivoUrgencia declara urgente el expediente (vacío: no se declara).
+	// No forma parte del análisis publicado ni de la huella del artefacto:
+	// se registra aparte, en la misma transacción que confirma el análisis
+	// (CT-000125), y liga la identidad semántica de la clave de idempotencia.
+	MotivoUrgencia string
 }
 
 func (d DatosFuncionalesOperacionAnalisis) Validar() error {
@@ -41,7 +46,8 @@ func (d DatosFuncionalesOperacionAnalisis) Validar() error {
 		!d.CausaClave.Valida() || d.Periodo.Validar() != nil ||
 		d.PorcentajeJornada.Validar() != nil ||
 		d.EntradaRC.Validar() != nil ||
-		!domain.ObservacionesAnalisisValidas(d.Observaciones) {
+		!domain.ObservacionesAnalisisValidas(d.Observaciones) ||
+		!MotivoUrgenciaAnalisisValido(d.MotivoUrgencia) {
 		return ErrSolicitudArtefactoAnalisisInvalida
 	}
 	return nil
@@ -435,7 +441,8 @@ func datosFuncionalesOperacionAnalisisIguales(
 			[]byte(primero.EntradaRC.HuellaSHA256),
 			[]byte(segundo.EntradaRC.HuellaSHA256),
 		) == 1 &&
-		primero.Observaciones == segundo.Observaciones
+		primero.Observaciones == segundo.Observaciones &&
+		primero.MotivoUrgencia == segundo.MotivoUrgencia
 }
 
 func huellaSHA256OperacionAnalisisValida(valor string) bool {

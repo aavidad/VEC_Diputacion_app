@@ -308,6 +308,8 @@ type resumenRRHHJSON struct {
 	// catálogo de reglas da plazo a la fase actual. El cliente lo ignora si
 	// falta.
 	PlazoFase *plazoFaseRRHHJSON `json:"plazo_fase,omitempty"`
+	// Urgente (CT-000125) solo aparece si RRHH declaró urgente el expediente.
+	Urgente bool `json:"urgente,omitempty"`
 }
 
 // plazoFaseRRHHJSON: último día (fecha civil peninsular), primer instante ya
@@ -333,8 +335,10 @@ func proyectarPaginaCuadroRRHH(
 		Totales:         entrada.Totales,
 	}
 	conPlazos := len(entrada.Plazos) == len(entrada.Expedientes)
+	conUrgencia := len(entrada.Urgentes) == len(entrada.Expedientes)
 	for indice, resumen := range entrada.Expedientes {
 		salida.Expedientes[indice] = proyectarResumenRRHH(resumen)
+		salida.Expedientes[indice].Urgente = conUrgencia && entrada.Urgentes[indice]
 		if conPlazos && entrada.Plazos[indice] != nil && entrada.Plazos[indice].Valido() {
 			salida.Expedientes[indice].PlazoFase = proyectarPlazoFaseRRHH(*entrada.Plazos[indice])
 		}

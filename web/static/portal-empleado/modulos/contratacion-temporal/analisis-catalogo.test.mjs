@@ -191,3 +191,84 @@ test("superar un máximo que bloquea impide enviar y lo explica en el campo", as
   assert.notEqual(valido, null);
   entorno.desmontar();
 });
+
+test("sin la regla de urgencia el formulario no la ofrece", () => {
+  const entorno = crearEntorno(catalogosFormulario());
+  assert.doesNotMatch(entorno.raiz.innerHTML, /urgencia_motivo|Tramitación urgente/u);
+  entorno.desmontar();
+});
+
+test("con la regla de urgencia se declara con motivo obligatorio", async () => {
+  const entorno = crearEntorno(catalogosFormulario({ urgencia_disponible: true }));
+  assert.match(entorno.raiz.innerHTML, /Tramitación urgente/u);
+  assert.match(entorno.raiz.innerHTML, /<label for="ct-analisis-urgencia_motivo">Motivo de la urgencia<\/label>/u);
+  const sinMotivo = await entorno.enviar(valoresFormulario({ urgente: "si", urgencia_motivo: "  " }));
+  assert.equal(sinMotivo, null);
+  assert.equal(entorno.llamadas.length, 0);
+  assert.match(entorno.raiz.innerHTML, /Indique el motivo de la urgencia/u);
+  const recibo = await entorno.enviar(valoresFormulario({
+    urgente: "si", urgencia_motivo: "Cierre del servicio de ayuda a domicilio si no se cubre antes del lunes.",
+  }));
+  assert.notEqual(recibo, null);
+  assert.equal(entorno.llamadas[0].analisis.urgencia_motivo,
+    "Cierre del servicio de ayuda a domicilio si no se cubre antes del lunes.");
+  entorno.desmontar();
+});
+
+test("sin marcar la urgencia el motivo escrito no viaja", async () => {
+  const entorno = crearEntorno(catalogosFormulario({ urgencia_disponible: true }));
+  await entorno.enviar(valoresFormulario({ urgencia_motivo: "Texto sin marcar" }));
+  assert.equal(Object.hasOwn(entorno.llamadas[0].analisis, "urgencia_motivo"), false);
+  entorno.desmontar();
+});
+
+test("la bandeja marca los expedientes urgentes y rechaza una urgencia falsa", async () => {
+  const { crearAdaptadorHTTPExpedientesContratacionTemporal } = await import("./adaptador-http-expedientes.js");
+  const { crearClienteHTTPContratacionTemporal } = await import("./cliente-http.js");
+  const { renderizarCuadro } = await import("./componentes-expedientes.js");
+  const { crearTraductorExpedientesContratacion } = await import("./i18n-expedientes.js");
+  const resumen = {
+    expediente_ref: "expediente:ct:001", numero_visible: "2026/CT-0001", version: 3,
+    flujo_ref: "flujo:ct:general", flujo_version: 1, flujo_huella_sha256: "a".repeat(64),
+    fase_clave: "fiscalizacion", estado_clave: "en_curso", centro_ref: "centro:001",
+    categoria_ref: "categoria:auxiliar", creado_en: "2026-09-03T08:00:00Z",
+    actualizado_en: "2026-09-15T09:00:00Z",
+  };
+  const cliente = (expedientes) => crearClienteHTTPContratacionTemporal({
+    fetchImpl: async () => new Response(JSON.stringify({ data: {
+      esquema: "vec.contratacion-temporal.cuadro-rrhh.v1", generada_en: "2026-09-30T08:00:00Z",
+      expedientes, hay_mas: false,
+    } }), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } }),
+  });
+  const filtros = { filtros: { texto: "", estado: "", fase: "" } };
+  const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({
+    cliente: cliente([{ ...resumen, urgente: true }, { ...resumen, expediente_ref: "expediente:ct:002", numero_visible: "2026/CT-0002" }]),
+  });
+  const cuadro = await adaptador.listar(filtros);
+  assert.equal(cuadro.expedientes[0].urgente, true);
+  assert.equal(Object.hasOwn(cuadro.expedientes[1], "urgente"), false);
+  const html = renderizarCuadro({ vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro },
+    crearTraductorExpedientesContratacion());
+  assert.equal(html.match(/<span class="ct-marca-urgente">Urgente<\/span>/gu)?.length, 1);
+  await assert.rejects(cliente([{ ...resumen, urgente: false }]).consultarCuadroRRHH({
+    filtros: { texto: "", estado_clave: "", fase_clave: "" }, paginacion: { limite: 50, cursor: "" },
+  }), (error) => error?.codigo === "respuesta_incompatible");
+});
+
+test("el contrato admite el motivo de urgencia solo bien formado", async () => {
+  const { validarSolicitudRegistroAnalisis } = await import("./contrato-analisis.js");
+  const solicitud = (extra) => ({
+    expediente_ref: "expediente:opaco:001", version_esperada: 1,
+    clave_idempotencia: "123e4567-e89b-42d3-a456-426614174000", artefacto_ref: "artefacto:opaco:001",
+    analisis: {
+      modalidad_clave: "vacante", categoria_ref: "categoria:rrhh:001", grupo_subgrupo: "C2",
+      causa_clave: "necesidad_temporal", periodo: { inicio: "2026-01-01T00:00:00Z", fin: "2026-06-30T00:00:00Z" },
+      porcentaje_jornada: 10000, entrada_rc: { referencia: "rc:desarrollo:001", huella_sha256: HUELLA }, ...extra,
+    },
+  });
+  assert.equal(validarSolicitudRegistroAnalisis(solicitud({ urgencia_motivo: "Refuerzo por temporal de nieve" }))
+    .analisis.urgencia_motivo, "Refuerzo por temporal de nieve");
+  for (const malo of ["", " con espacios ", "x".repeat(1001), "control\u0007"]) {
+    assert.throws(() => validarSolicitudRegistroAnalisis(solicitud({ urgencia_motivo: malo })), TypeError);
+  }
+});

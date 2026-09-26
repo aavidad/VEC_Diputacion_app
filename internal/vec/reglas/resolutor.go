@@ -3,6 +3,7 @@ package reglas
 import (
 	"context"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -146,12 +147,27 @@ func (r *Resolutor) Reglas(ctx context.Context) ([]Regla, error) {
 // cómputo que declara. Devuelve la regla para que el consumidor conserve su
 // referencia y huella junto a la fecha.
 func (r *Resolutor) Vencimiento(ctx context.Context, clave string, inicio time.Time, municipioSede string) (Regla, Vencimiento, error) {
+	return r.vencimiento(ctx, clave, inicio, municipioSede, false)
+}
+
+// VencimientoUrgente calcula el vencimiento de un asunto urgente: usa el
+// atributo cantidad_urgente de la regla si lo tiene y, si no, su cantidad
+// ordinaria. Una cantidad urgente mal formada invalida la regla.
+func (r *Resolutor) VencimientoUrgente(ctx context.Context, clave string, inicio time.Time, municipioSede string) (Regla, Vencimiento, error) {
+	return r.vencimiento(ctx, clave, inicio, municipioSede, true)
+}
+
+func (r *Resolutor) vencimiento(ctx context.Context, clave string, inicio time.Time, municipioSede string, urgente bool) (Regla, Vencimiento, error) {
 	regla, err := r.Regla(ctx, clave)
 	if err != nil {
 		return Regla{}, Vencimiento{}, err
 	}
 	if !regla.Unidad.EsPlazo() || regla.Computo == "" || inicio.IsZero() {
 		return Regla{}, Vencimiento{}, ErrReglaSinPlazo
+	}
+	cantidad, err := cantidadPlazo(regla, urgente)
+	if err != nil {
+		return Regla{}, Vencimiento{}, err
 	}
 	if r.cfg.Calculadora == nil {
 		return Regla{}, Vencimiento{}, ErrCalculoNoDisponible
@@ -161,7 +177,7 @@ func (r *Resolutor) Vencimiento(ctx context.Context, clave string, inicio time.T
 		sede = r.cfg.MunicipioSede
 	}
 	vencimiento, err := r.cfg.Calculadora.CalcularVencimiento(ctx, SolicitudVencimiento{
-		Inicio: inicio, Unidad: regla.Unidad, Cantidad: regla.Cantidad,
+		Inicio: inicio, Unidad: regla.Unidad, Cantidad: cantidad,
 		Computo: regla.Computo, MunicipioSede: sede,
 	})
 	if err != nil {
@@ -175,6 +191,20 @@ func (r *Resolutor) Vencimiento(ctx context.Context, clave string, inicio time.T
 	}
 	vencimiento.Calendarios = append([]string(nil), vencimiento.Calendarios...)
 	return regla, vencimiento, nil
+}
+
+// cantidadPlazo es la cantidad ordinaria o, para un asunto urgente con el
+// atributo cantidad_urgente, esa cantidad canónica entre 1 y el máximo.
+func cantidadPlazo(regla Regla, urgente bool) (int, error) {
+	texto, conUrgente := regla.Atributos[AtributoCantidadUrgente]
+	if !urgente || !conUrgente {
+		return regla.Cantidad, nil
+	}
+	valor, err := strconv.Atoi(texto)
+	if err != nil || valor < 1 || valor > maximoCantidadRegla || strconv.Itoa(valor) != texto {
+		return 0, ErrReglaInvalida
+	}
+	return valor, nil
 }
 
 func limitesConsultaReglas() ports.LimitesConsultaCatalogosAcotada {

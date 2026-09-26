@@ -138,6 +138,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   plazo_fase_vence_hoy: "Vence hoy",
   plazo_fase_vencido: "Vencido",
   plazo_fase_sin_calcular: "Sin calcular",
+  marca_urgente: "Urgente",
   columna_acciones: "Acciones",
   abrir: "Abrir expediente",
   resumen_fila: "Resumen del expediente {expediente}",

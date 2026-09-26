@@ -287,6 +287,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	dependencias.retribucionesCT = reglasAnalisis.retribuciones
 	catalogoDesarrollo.componerOpcionesAnalisis(reglasAnalisis.opciones)
+	if alta.postgresql.ejecucion != nil {
+		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), 5*time.Second)
+		err = comprobarMigracionUrgenciaAnalisis(ctxMigracion, alta.postgresql.ejecucion)
+		cancelarMigracion()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		dependencias,
 		&alta,

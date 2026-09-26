@@ -51,6 +51,8 @@ type SolicitudPlazoFaseRRHH struct {
 	Fase  domain.ClaveFase
 	Desde time.Time
 	Ahora time.Time
+	// Urgente pide la cantidad urgente de la regla, si la tiene (CT-000125).
+	Urgente bool
 }
 
 // CalculadoraPlazoFaseRRHH resuelve el plazo de una fase con el catálogo de

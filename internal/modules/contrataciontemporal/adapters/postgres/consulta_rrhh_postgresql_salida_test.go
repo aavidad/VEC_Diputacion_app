@@ -177,7 +177,7 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 			append(destinosCierreEsperadosConsultaRRHH(&cuadro.cierre),
 				&cuadro.totalFiltrado, &cuadro.enTramitacion,
 				&cuadro.conIncidencia, &cuadro.enLlamamiento,
-				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes)...,
+				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes, &cuadro.urgentes)...,
 		),
 	)
 	comprobarIdentidadDestinosConsultaRRHH(
@@ -317,5 +317,23 @@ func TestSalidaCuadroConsultaRRHHAlineaFasesDesde(t *testing.T) {
 		if _, err := salida.fasesDesde(resumenes); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
 			t.Fatalf("desalineación aceptada: %#v, %v", salida, err)
 		}
+	}
+}
+
+func TestSalidaCuadroConsultaRRHHAlineaUrgencias(t *testing.T) {
+	t.Parallel()
+	resumenes := []ports.ResumenExpedienteRRHH{{ExpedienteRef: "expediente:ct:b"}, {ExpedienteRef: "expediente:ct:a"}}
+	urgentes, err := (salidaCuadroConsultaRRHH{urgentes: []bool{false, true}}).urgentesAlineados(resumenes)
+	if err != nil || len(urgentes) != 2 || urgentes[0] || !urgentes[1] {
+		t.Fatalf("urgencias alineadas = %v, %v", urgentes, err)
+	}
+	if urgentes, err := (salidaCuadroConsultaRRHH{urgentes: []bool{false, false}}).urgentesAlineados(resumenes); err != nil || urgentes != nil {
+		t.Fatalf("sin urgentes = %v, %v", urgentes, err)
+	}
+	if urgentes, err := (salidaCuadroConsultaRRHH{}).urgentesAlineados(nil); err != nil || urgentes != nil {
+		t.Fatalf("página vacía = %v, %v", urgentes, err)
+	}
+	if _, err := (salidaCuadroConsultaRRHH{urgentes: []bool{true}}).urgentesAlineados(resumenes); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+		t.Fatalf("cardinalidad distinta aceptada: %v", err)
 	}
 }

@@ -162,6 +162,8 @@ function resumenVisual(entrada, catalogos, t, locale) {
     fecha_solicitud: entrada.creado_en,
     responsable: "—",
     ...plazoVisual(entrada, locale, t),
+    // Urgencia declarada por RRHH al analizar (CT-000125).
+    ...(entrada.urgente === true ? { urgente: true } : {}),
     version: entrada.version,
   };
 }

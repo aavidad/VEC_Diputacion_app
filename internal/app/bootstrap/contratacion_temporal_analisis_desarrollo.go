@@ -41,7 +41,8 @@ var errAnalisisContratacionTemporalDesarrolloNoDisponible = errors.New(
 // rechazaría a mitad del análisis. Modalidad, causa y entrada de retención de
 // crédito se comprueban con las opciones del catálogo de reglas (o las de
 // siempre); un periodo que supera el máximo de su modalidad solo se rechaza si
-// la regla de duración lo pide («al_superar»: «bloquear»).
+// la regla de duración lo pide («al_superar»: «bloquear»). La urgencia solo se
+// admite si el catálogo publica su regla (c15).
 func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
@@ -54,6 +55,7 @@ func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
 		solicitud.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
 		categoriaYGrupoDeCatalogoDesarrolloValidos(catalogo, datos.CategoriaRef, datos.GrupoSubgrupo) &&
 		conModalidad && opciones.causaValida(datos.CausaClave) && conEntradaRC &&
+		(datos.MotivoUrgencia == "" || opciones.urgenciaDisponible) &&
 		!(modalidad.Duracion != nil && modalidad.Duracion.Bloquear &&
 			modalidad.Duracion.superaDuracion(datos.Periodo))
 }

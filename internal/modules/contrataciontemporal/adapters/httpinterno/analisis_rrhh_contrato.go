@@ -41,6 +41,8 @@ type datosAnalisisRRHHJSON struct {
 	PorcentajeJornada *uint16                `json:"porcentaje_jornada"`
 	EntradaRC         *entradaRCAnalisisJSON `json:"entrada_rc"`
 	Observaciones     string                 `json:"observaciones,omitempty"`
+	// UrgenciaMotivo declara urgente el expediente; vacío o ausente, no.
+	UrgenciaMotivo string `json:"urgencia_motivo,omitempty"`
 }
 
 type entradaRCAnalisisJSON struct {
@@ -178,7 +180,8 @@ func nuevaEntradaOperacionAnalisisRRHH(
 			Referencia:   analisis.EntradaRC.Referencia,
 			HuellaSHA256: analisis.EntradaRC.HuellaSHA256,
 		},
-		Observaciones: analisis.Observaciones,
+		Observaciones:  analisis.Observaciones,
+		MotivoUrgencia: analisis.UrgenciaMotivo,
 	}
 	if errInicio != nil || errFin != nil ||
 		!operacion.Valida() ||

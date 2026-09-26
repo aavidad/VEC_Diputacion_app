@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -331,4 +333,34 @@ func (c *catalogosAltaContratacionTemporalDesarrollo) componerOpcionesAnalisis(o
 	if c != nil && opciones != nil {
 		c.analisis = opciones
 	}
+}
+
+var errMigracionUrgenciaAnalisisNoInstalada = errors.New(
+	"bootstrap: falta la migración CT-000125 (urgencia del análisis y cuadro v4) en PostgreSQL de Contratación temporal",
+)
+
+// comprobarMigracionUrgenciaAnalisis se ejecuta al arrancar con PostgreSQL:
+// el registro de la urgencia y el cuadro v4 la necesitan, y sin ella la
+// aplicación no arranca en lugar de fallar en la primera consulta.
+func comprobarMigracionUrgenciaAnalisis(ctx context.Context, consulta interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}) error {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(consulta) {
+		return nil
+	}
+	var instalada bool
+	if err := consulta.QueryRow(ctx, `
+		SELECT pg_catalog.to_regprocedure(
+		           'vec_contratacion_temporal.registrar_urgencia_analisis_v1(text,text)'
+		       ) IS NOT NULL
+		   AND pg_catalog.to_regprocedure(
+		           'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v4(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
+		       ) IS NOT NULL`,
+	).Scan(&instalada); err != nil {
+		return errors.Join(errMigracionUrgenciaAnalisisNoInstalada, err)
+	}
+	if !instalada {
+		return errMigracionUrgenciaAnalisisNoInstalada
+	}
+	return nil
 }

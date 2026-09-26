@@ -22,6 +22,7 @@ const MAXIMO_MINUTOS_JORNADA_COMPLETA = 7 * 24 * 60;
 // formulario sabe contar de fecha a fecha.
 const UNIDADES_DURACION = new Set(["meses", "anios", "dias_naturales"]);
 const MAXIMO_CANTIDAD_DURACION = 100_000;
+const MAXIMO_MOTIVO_URGENCIA = 1000;
 
 function esRegistro(valor) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
@@ -381,6 +382,7 @@ export function validarDatosPreviosAnalisis(entrada) {
 
 function validarAnalisis(analisis) {
   const tieneObservaciones = esRegistro(analisis) && Object.hasOwn(analisis, "observaciones");
+  const tieneUrgencia = esRegistro(analisis) && Object.hasOwn(analisis, "urgencia_motivo");
   exigirCamposExactos(analisis, [
     "modalidad_clave",
     "categoria_ref",
@@ -390,7 +392,11 @@ function validarAnalisis(analisis) {
     "porcentaje_jornada",
     "entrada_rc",
     ...(tieneObservaciones ? ["observaciones"] : []),
+    ...(tieneUrgencia ? ["urgencia_motivo"] : []),
   ], "datos funcionales del análisis");
+  if (tieneUrgencia && !motivoUrgenciaValido(analisis.urgencia_motivo)) {
+    throw new TypeError("datos funcionales del análisis no válidos");
+  }
   exigirCamposExactos(
     analisis.entrada_rc,
     ["referencia", "huella_sha256"],
@@ -433,7 +439,13 @@ function validarAnalisis(analisis) {
   if (tieneObservaciones && analisis.observaciones !== "") {
     salida.observaciones = analisis.observaciones;
   }
+  if (tieneUrgencia) salida.urgencia_motivo = analisis.urgencia_motivo;
   return salida;
+}
+
+/** Motivo de la urgencia declarada: texto limpio de 1 a 1.000 caracteres. */
+export function motivoUrgenciaValido(valor) {
+  return typeof valor === "string" && valor !== "" && textoValido(valor, MAXIMO_MOTIVO_URGENCIA, false);
 }
 
 function validarSolicitud(solicitud, rectificacion) {

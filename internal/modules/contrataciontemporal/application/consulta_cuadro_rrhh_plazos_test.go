@@ -132,3 +132,27 @@ func TestConsultaCuadroRRHHRechazaFaseDesdeIncoherente(t *testing.T) {
 		}
 	}
 }
+
+func TestConsultaCuadroRRHHPideElPlazoUrgenteDeLosExpedientesUrgentes(t *testing.T) {
+	t.Parallel()
+	for _, urgentes := range [][]bool{nil, {false}, {true}} {
+		entorno := nuevoEntornoConsultaRRHH(t)
+		entorno.sesion.pagina.FasesDesde = []time.Time{entorno.sesion.pagina.Expedientes[0].CreadoEn}
+		entorno.sesion.pagina.Urgentes = urgentes
+		servicio, err := NuevoServicioConsultaCuadroRRHH(entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		calculadora := &calculadoraPlazoFasePrueba{plazo: plazoFaseValidoPrueba(), aplicable: true}
+		servicio.ConfigurarPlazosFase(calculadora)
+		pagina, err := servicio.Consultar(context.Background(), entorno.cuadro)
+		if err != nil {
+			t.Fatal(err)
+		}
+		urgente := len(urgentes) == 1 && urgentes[0]
+		if len(calculadora.solicitudes) != 1 || calculadora.solicitudes[0].Urgente != urgente ||
+			len(pagina.Urgentes) != len(urgentes) {
+			t.Fatalf("urgentes %v: solicitudes %+v, página %v", urgentes, calculadora.solicitudes, pagina.Urgentes)
+		}
+	}
+}

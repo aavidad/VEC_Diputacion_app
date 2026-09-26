@@ -1,11 +1,15 @@
 package bootstrap
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -254,4 +258,54 @@ func periodoAnalisisPrueba(t *testing.T, inicio, fin string) domain.PeriodoPrevi
 		t.Fatal("fecha de prueba no válida")
 	}
 	return domain.PeriodoPrevisto{Inicio: desde.UTC(), Fin: hasta.UTC()}
+}
+
+func TestUrgenciaAnalisisSoloConLaReglaDelCatalogo(t *testing.T) {
+	solicitud := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("vacante", "expediente:ct:desarrollo:urgencia")
+	solicitud.DatosFuncionales.MotivoUrgencia = "Cierre del centro de día si no se cubre la plaza antes del lunes."
+	if solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, nil) {
+		t.Fatal("sin la regla c15 no se admite declarar la urgencia")
+	}
+	opciones, err := nuevasOpcionesAnalisisCT(t.Context(), resolutorReglasCTPrueba(t, rutaReglasCTEjemploPrueba))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoDesarrollo("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo.componerOpcionesAnalisis(opciones)
+	if !solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, catalogo) {
+		t.Fatal("con la regla c15 la urgencia se admite")
+	}
+}
+
+type consultaMigracionPrueba struct {
+	instalada bool
+	err       error
+}
+
+func (c consultaMigracionPrueba) QueryRow(context.Context, string, ...any) pgx.Row {
+	return filaMigracionPrueba(c)
+}
+
+type filaMigracionPrueba consultaMigracionPrueba
+
+func (f filaMigracionPrueba) Scan(destinos ...any) error {
+	if f.err != nil {
+		return f.err
+	}
+	*(destinos[0].(*bool)) = f.instalada
+	return nil
+}
+
+func TestArranqueExigeLaMigracionDeUrgencia(t *testing.T) {
+	if err := comprobarMigracionUrgenciaAnalisis(t.Context(), consultaMigracionPrueba{instalada: true}); err != nil {
+		t.Fatal(err)
+	}
+	for _, consulta := range []consultaMigracionPrueba{{instalada: false}, {err: errors.New("sin conexión")}} {
+		if err := comprobarMigracionUrgenciaAnalisis(t.Context(), consulta); !errors.Is(err, errMigracionUrgenciaAnalisisNoInstalada) {
+			t.Fatalf("arrancaría sin CT-000125: %v", err)
+		}
+	}
 }
