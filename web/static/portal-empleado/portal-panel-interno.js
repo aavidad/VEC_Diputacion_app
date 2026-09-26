@@ -8,16 +8,18 @@
  * sin acceder al DOM global.
  */
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-huella-archivo-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260926-referencias-legibles-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-referencias-legibles-v1";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-huella-archivo-v1";
-import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-referencias-legibles-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-referencias-legibles-v1";
+import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-referencias-legibles-v1";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-referencias-legibles-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
-import { justificanteTraducido } from "./portal-justificante.js";
+import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
+import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i18n.js";
+
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
 import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
@@ -146,32 +148,66 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? escaparHTML(texto)
       : `<time datetime="${escaparHTML(valor)}">${escaparHTML(texto)}</time>`;
   }
+  const tp = traducirReferencia;
+  // Tipo de actuación por catálogo; una clave que el catálogo aún no nombra se
+  // presenta legible a partir de la propia clave, nunca como referencia.
+  function etiquetaTipoActuacion(clave) {
+    const entrada = `actuacion_tipo_${clave}`;
+    return tieneTextoReferencia(entrada) ? tp(entrada) : etiquetaClave(clave);
+  }
+  function celdaFechaLimite(valor) {
+    return valor ? `<time datetime="${escaparHTML(valor)}">${escaparHTML(instanteVisible(valor))}</time>` : escaparHTML(tp("sin_fecha_limite"));
+  }
+  // Las referencias de convocatoria, actuación y recurso son opacas: la fila
+  // se identifica por su número de orden y sus datos, y la referencia viaja en
+  // un atributo y en el botón «Copiar referencia» para el seguimiento.
   function filasConvocatorias(datos) {
     if (datos.convocatorias.length === 0) {
-      return '<tr><td colspan="6" class="vacio-controlado">La fuente autorizada no ha devuelto convocatorias para este ámbito.</td></tr>';
+      return `<tr><td colspan="7" class="vacio-controlado">${escaparHTML(tp("convocatorias_vacio"))}</td></tr>`;
     }
-    return datos.convocatorias.map((item) => `
-      <tr>
-        <td><strong>${escaparHTML(item.convocatoria_ref)}</strong></td>
-        <td>${escaparHTML(etiquetaClave(item.categoria_clave))}</td>
+    return datos.convocatorias.map((item, indice) => {
+      const categoria = etiquetaClave(item.categoria_clave);
+      return `
+      <tr data-convocatoria-ref="${escaparHTML(item.convocatoria_ref)}">
+        <th scope="row">${numero(indice + 1)}</th>
+        <td><strong>${escaparHTML(categoria)}</strong></td>
         <td><span class="estado-chip ${claseEstado(item.estado_clave)}">${escaparHTML(etiquetaClave(item.estado_clave))}</span></td>
-        <td>${item.plazo_cierra_en ? `<time datetime="${escaparHTML(item.plazo_cierra_en)}">${escaparHTML(instanteVisible(item.plazo_cierra_en))}</time>` : "Sin fecha límite"}</td>
+        <td>${celdaFechaLimite(item.plazo_cierra_en)}</td>
         <td>${numero(item.numero_solicitudes)}</td><td>${numero(item.numero_pendientes)}</td>
-      </tr>`).join("");
+        <td>${referenciaCopiableTraducida(item.convocatoria_ref, escaparHTML, traducirReferencia, tp("convocatoria_copiar_aria", { numero: numero(indice + 1), categoria }))}</td>
+      </tr>`;
+    }).join("");
   }
   function filasActuaciones(datos) {
     if (datos.actuaciones_pendientes.length === 0) {
-      return '<tr><td colspan="7" class="vacio-controlado">La fuente autorizada no ha devuelto actuaciones pendientes para este ámbito.</td></tr>';
+      return `<tr><td colspan="7" class="vacio-controlado">${escaparHTML(tp("actuaciones_vacio"))}</td></tr>`;
     }
-    return datos.actuaciones_pendientes.map((item) => `
-      <tr>
-        <td><strong>${escaparHTML(item.actuacion_ref)}</strong></td><td>${escaparHTML(item.recurso_ref)}</td>
-        <td>${escaparHTML(etiquetaClave(item.tipo_clave))}</td>
+    return datos.actuaciones_pendientes.map((item, indice) => {
+      const tipo = etiquetaTipoActuacion(item.tipo_clave);
+      return `
+      <tr data-actuacion-ref="${escaparHTML(item.actuacion_ref)}" data-recurso-ref="${escaparHTML(item.recurso_ref)}">
+        <th scope="row">${numero(indice + 1)}</th>
+        <td><strong>${escaparHTML(tipo)}</strong></td>
         <td><span class="estado-chip ${claseEstado(item.estado_clave)}">${escaparHTML(etiquetaClave(item.estado_clave))}</span></td>
         <td><span class="estado-chip ${claseEstado(item.prioridad_clave)}">${escaparHTML(etiquetaClave(item.prioridad_clave))}</span></td>
-        <td>${item.fecha_limite ? `<time datetime="${escaparHTML(item.fecha_limite)}">${escaparHTML(instanteVisible(item.fecha_limite))}</time>` : "Sin fecha límite"}</td>
+        <td>${celdaFechaLimite(item.fecha_limite)}</td>
         <td>${numero(item.numero_elementos)}</td>
-      </tr>`).join("");
+        <td>${referenciaCopiableTraducida(item.actuacion_ref, escaparHTML, traducirReferencia, tp("actuacion_copiar_aria", { numero: numero(indice + 1), tipo }))}</td>
+      </tr>`;
+    }).join("");
+  }
+  function celdaActor(valor) {
+    return actorTraducido(valor, escaparHTML, traducirReferencia);
+  }
+  function tablaConvocatorias(datos) {
+    const columnas = ["col_numero", "convocatoria_col_categoria", "convocatoria_col_estado", "convocatoria_col_cierre",
+      "convocatoria_col_solicitudes", "convocatoria_col_pendientes", "col_referencia"];
+    return `<section class="panel"><div class="cabecera-panel"><h3>${escaparHTML(tp("convocatorias_titulo"))}</h3><span class="estado-chip info">${escaparHTML(tp("registros", { cantidad: numero(datos.convocatorias.length) }))}</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(tp("convocatorias_caption"))}</caption><thead><tr>${columnas.map((clave) => `<th scope="col">${escaparHTML(tp(clave))}</th>`).join("")}</tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>`;
+  }
+  function tablaActuaciones(datos) {
+    const columnas = ["col_numero", "actuacion_col_tipo", "actuacion_col_estado", "actuacion_col_prioridad",
+      "actuacion_col_fecha_limite", "actuacion_col_elementos", "col_referencia"];
+    return `<section class="panel"><div class="cabecera-panel"><h3>${escaparHTML(tp("actuaciones_titulo"))}</h3><span class="estado-chip info">${escaparHTML(tp("registros", { cantidad: numero(datos.actuaciones_pendientes.length) }))}</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(tp("actuaciones_caption"))}</caption><thead><tr>${columnas.map((clave) => `<th scope="col">${escaparHTML(tp(clave))}</th>`).join("")}</tr></thead><tbody>${filasActuaciones(datos)}</tbody></table></div></section>`;
   }
   function renderizarCuadroB12() {
     const estadoBolsas = typeof obtenerDatosBolsas === "function" ? obtenerDatosBolsas() : null;
@@ -304,11 +340,11 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="rejilla-cuadro-mando" aria-label="Resumen operativo">
         <div class="columna-cuadro">
           ${renderizarCuadroB12()}
-          <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas devueltas por el panel interno</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>
+          ${tablaConvocatorias(datos)}
         </div>
         <aside class="columna-cuadro" aria-label="Actuaciones y prueba de lectura">
-          <section class="panel"><div class="cabecera-panel"><h3>Actuaciones pendientes</h3><span class="estado-chip info">${numero(datos.actuaciones_pendientes.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Trabajo administrativo pendiente sin identidad de personas interesadas</caption><thead><tr><th scope="col">Actuación</th><th scope="col">Recurso</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Prioridad</th><th scope="col">Fecha límite</th><th scope="col">Elementos</th></tr></thead><tbody>${filasActuaciones(datos)}</tbody></table></div></section>
-          <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${escaparHTML(datos.origen.revision)}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
+          ${tablaActuaciones(datos)}
+          <section class="panel"><div class="cabecera-panel"><h3>Prueba de lectura</h3><span class="estado-chip exito">Lectura auditada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Ámbito</dt><dd>${escaparHTML(etiquetaClave(datos.selector.clase))}</dd></div><div class="fila-resumen"><dt>Revisión de fuente</dt><dd>${referenciaCopiableTraducida(datos.origen.revision, escaparHTML, traducirReferencia, tp("revision_fuente_copiar_aria"))}</dd></div><div class="fila-resumen"><dt>Actualizada</dt><dd><time datetime="${escaparHTML(datos.origen.actualizada_en)}">${escaparHTML(instanteVisible(datos.origen.actualizada_en))}</time></dd></div><div class="fila-resumen"><dt>Confirmada</dt><dd><time datetime="${escaparHTML(datos.prueba_lectura.confirmada_en)}">${escaparHTML(instanteVisible(datos.prueba_lectura.confirmada_en))}</time></dd></div></dl></div></section>
         </aside>
       </div>`;
   }
@@ -317,7 +353,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return `
       ${encabezadoVista("", "Convocatorias", "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
       <div class="rejilla-kpi">${tarjetaKPI("documento", numero(i.convocatorias_borrador), "Borrador")}${tarjetaKPI("en_curso", numero(i.convocatorias_revision), "En revisión")}${tarjetaKPI("contrato", numero(i.convocatorias_pendientes_firma), "Pendientes de firma")}${tarjetaKPI("correcto", numero(i.convocatorias_publicadas), "Publicadas")}</div>
-      <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias del ámbito autorizado</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>`;
+      ${tablaConvocatorias(datos)}`;
   }
   function renderizarNuevoLlamamiento(bolsa, candidatos, flujo, fuente = {}) {
     const paso = Math.max(1, Math.min(4, Number(flujo.paso) || 1));
@@ -538,7 +574,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? `<tr><td colspan="6" class="vacio-controlado">${traducirBolsaInterna("contacto_historico_vacio")}</td></tr>`
       : paginaLlamadas.map((evento) => {
         const candidato=evento.candidato;
-        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${escaparHTML(candidato?.nombre_visible||evento.contacto)}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${escaparHTML(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
+        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${escaparHTML(candidato?.nombre_visible||evento.contacto)}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${celdaActor(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
       }).join("");
     const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
@@ -625,7 +661,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${reciboContacto}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
               ${renderizarIntentosContacto({ candidato, estado: modal.intentosContacto || {}, escaparHTML })}
-              ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML })}
+              ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML, categoria: bolsa.categoria })}
               ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">

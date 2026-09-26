@@ -275,9 +275,15 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   });
   assert.equal(presentador.esActivo(), true);
   const resumen = presentador.renderizarVista("resumen");
-  assert.match(resumen, /cnv_0123456789abcdef/);
+  // Las referencias opacas viajan en atributos y en «Copiar referencia», no como texto.
+  const visible = resumen.replace(/data-[a-z-]+="[^"]*"/gu, "");
+  assert.doesNotMatch(visible, /cnv_|act_|rev_/u);
+  assert.match(resumen, /data-convocatoria-ref="cnv_0123456789abcdef"/);
+  assert.match(resumen, /data-actuacion-ref="act_0123456789abcdef" data-recurso-ref="cnv_0123456789abcdef"/);
+  assert.match(resumen, /<strong>Auxiliar administrativo<\/strong>/);
+  assert.match(resumen, /<strong>Revisar bases<\/strong>/);
+  assert.match(resumen, /aria-label="Copiar la referencia de la convocatoria 1, Auxiliar administrativo"/);
   assert.match(resumen, /120/);
-  assert.match(resumen, /act_0123456789abcdef/);
   assert.match(resumen, /Prueba de lectura/);
   assert.doesNotMatch(resumen, /Datos conectados|Cuadro B12|>BOL<|>LLA</);
   assert.match(resumen, /class="rejilla-cuadro-mando"/);

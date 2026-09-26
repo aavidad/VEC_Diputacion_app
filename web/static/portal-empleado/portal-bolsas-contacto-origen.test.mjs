@@ -54,7 +54,8 @@ test("los avisos de la emisión nombran a la persona y escapan el texto", () => 
   });
   assert.match(html, /role="status"/);
   assert.match(html, /Ana &lt;b&gt;: contacto de origen CONVOCA sin confirmar desde el 28\/09\/2027/);
-  assert.match(html, /participacion:2: no se pudo comprobar/);
+  assert.match(html, /Persona seleccionada fuera de esta página: no se pudo comprobar/);
+  assert.doesNotMatch(html, /participacion:/);
 });
 
 test("el controlador descarta respuestas de una ficha ya cerrada", async () => {

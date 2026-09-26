@@ -179,3 +179,17 @@ test("una referencia con huella del sistema no se toma por un documento de ident
   assert.equal(referenciaContieneDocumentoIdentidad("justificante:12345678Z"), true);
   assert.equal(referenciaContieneDocumentoIdentidad("dni:" + "a".repeat(64)), true);
 });
+
+test("el historial de operaciones presenta fecha local, situación legible y papel en vez de referencias", () => {
+  const html = renderizarOperacionesSituacion({ candidato: { estado_clave: "no_disponible" }, estado: { carga: "listo", items: [{
+    desde: "2026-09-23T08:00:00.123456Z", operacion: "pausar", situacion: "no_disponible", motivo: "Solicitud",
+    justificante: { tipo: "correo", referencia: "REG-2026/15", sha256: "a".repeat(64) }, actor: "per_rrhh", validador: "Ana Ruiz", validada_en: "2026-09-23T09:30:00Z",
+  }] } });
+  const visible = html.replace(/data-[a-z-]+="[^"]*"/gu, "");
+  assert.doesNotMatch(visible, /per_rrhh|2026-09-23T|no_disponible|a{64}/u);
+  assert.match(html, /23\/9\/26, 10:00/u);
+  assert.match(html, /<td>No disponible<\/td>/u);
+  assert.match(html, /Personal de RRHH <button[^>]*data-copiar-justificante="per_rrhh"/u);
+  assert.match(html, /\/ Ana Ruiz<br>23\/9\/26, 11:30/u);
+  assert.match(html, /REG-2026\/15/u);
+});

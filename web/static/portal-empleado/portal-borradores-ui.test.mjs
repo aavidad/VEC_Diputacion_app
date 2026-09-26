@@ -81,7 +81,8 @@ test("la vista real carga bandeja, editor gobernado y evidencias desde el client
   assert.match(html, /data-borrador-form="editor"/);
   assert.match(html, /Identidad gobernada de solo lectura/);
   assert.match(html, /Control de concurrencia/);
-  assert.match(html, /ETag fuerte/);
+  // Etiquetas de concurrencia, huellas y referencias internas no se muestran.
+  assert.doesNotMatch(html, /ETag fuerte|Huella de estado|<dt>Huella<\/dt>|<code>[0-9a-f]{64}<\/code>/u);
   assert.match(html, /Configuración acreditada/);
   assert.match(html, /Guardar con CAS/);
   assert.match(html, /aria-label="Contexto y evidencias del borrador"/);

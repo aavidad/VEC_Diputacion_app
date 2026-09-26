@@ -3,6 +3,9 @@
 // llegan con su valor; los datos de contacto solo con la versión cifrada que
 // cambió (nunca el correo o el teléfono en claro).
 
+import { actorTraducido } from "./portal-justificante.js";
+import { traducirReferencia } from "./portal-referencias-i18n.js";
+
 const CAMPOS = Object.freeze({
   situacion: "campo_situacion",
   fecha_disponible: "campo_fecha_disponible",
@@ -92,7 +95,7 @@ export function renderizarTrazaValores({ cambios = [], pagina = 0, escaparHTML, 
   const paginas = Math.max(1, Math.ceil(total / porPagina));
   const actual = Math.min(Math.max(0, Number(pagina) || 0), paginas - 1);
   const visibles = cambios.slice(actual * porPagina, (actual + 1) * porPagina);
-  const filas = visibles.map((c) => `<tr><td><time datetime="${escaparHTML(c.instante)}">${escaparHTML(fecha(c.instante))}</time></td><th scope="row">${escaparHTML(textoTraza(CAMPOS[c.campo]))}</th><td>${escaparHTML(valorVisible(c.campo, c.valor_anterior))}</td><td>${escaparHTML(valorVisible(c.campo, c.valor_nuevo))}</td><td>${escaparHTML(c.actor)}</td></tr>`).join("");
+  const filas = visibles.map((c) => `<tr><td><time datetime="${escaparHTML(c.instante)}">${escaparHTML(fecha(c.instante))}</time></td><th scope="row">${escaparHTML(textoTraza(CAMPOS[c.campo]))}</th><td>${escaparHTML(valorVisible(c.campo, c.valor_anterior))}</td><td>${escaparHTML(valorVisible(c.campo, c.valor_nuevo))}</td><td>${actorTraducido(c.actor, escaparHTML, traducirReferencia)}</td></tr>`).join("");
   const cabecera = ["col_fecha", "col_campo", "col_anterior", "col_nuevo", "col_actor"].map((clave) => `<th scope="col">${escaparHTML(textoTraza(clave))}</th>`).join("");
   const desde = actual * porPagina + 1;
   const hasta = Math.min((actual + 1) * porPagina, total);

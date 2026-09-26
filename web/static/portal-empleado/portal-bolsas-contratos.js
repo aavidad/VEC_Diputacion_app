@@ -134,7 +134,9 @@ function periodo(item) {
     : traducirContratos("sin_fin", { inicio: fecha(item.inicio) });
 }
 
-export function renderizarContratosParticipacion({ estado = {}, escaparHTML }) {
+// La categoría del contrato llega como referencia opaca de Contratación: se
+// nombra con la categoría de la bolsa en la que se hizo el llamamiento.
+export function renderizarContratosParticipacion({ estado = {}, escaparHTML, categoria = "" }) {
   const t = (clave, variables) => escaparHTML(traducirContratos(clave, variables));
   const carga = estado.carga || "cargando";
   let contenido;
@@ -146,7 +148,7 @@ export function renderizarContratosParticipacion({ estado = {}, escaparHTML }) {
     const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
     const pagina = Math.min(Math.max(0, Number(estado.pagina) || 0), paginas - 1);
     const visibles = estado.items.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
-    const filas = visibles.map((item) => `<tr><td>${escaparHTML(rotuloTipo(item.tipo))}</td><td>${escaparHTML(periodo(item))}</td><td>${escaparHTML(rotuloClave(item.modalidad_clave))}</td><td>${item.categoria_ref ? `<code>${escaparHTML(item.categoria_ref)}</code>` : t("sin_dato")}</td><td>${escaparHTML(rotuloClave(item.causa_clave))}</td><td>${escaparHTML(fecha(item.ocurrido_en))}</td></tr>`).join("");
+    const filas = visibles.map((item) => `<tr><td>${escaparHTML(rotuloTipo(item.tipo))}</td><td>${escaparHTML(periodo(item))}</td><td>${escaparHTML(rotuloClave(item.modalidad_clave))}</td><td>${item.categoria_ref && categoria ? escaparHTML(categoria) : t("sin_dato")}</td><td>${escaparHTML(rotuloClave(item.causa_clave))}</td><td>${escaparHTML(fecha(item.ocurrido_en))}</td></tr>`).join("");
     const resumen = t("mostrando", { desde: pagina * POR_PAGINA + 1, hasta: Math.min((pagina + 1) * POR_PAGINA, total), total });
     const navegacion = paginas > 1
       ? `<nav class="paginacion-bolsa" aria-label="${t("paginacion")}"><span>${resumen}</span><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>${t("anterior")}</button><button type="button" class="boton-secundario" data-b13-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>${t("siguiente")}</button></nav>`

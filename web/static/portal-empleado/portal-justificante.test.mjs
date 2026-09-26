@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { claveRecuperacionTraducida, instalarCopiaJustificantes, justificanteTraducido, renderizarJustificante } from "./portal-justificante.js";
+import { actorTraducido, claveRecuperacionTraducida, esReferenciaInterna, instalarCopiaJustificantes, justificanteTraducido, referenciaCopiableTraducida, renderizarJustificante } from "./portal-justificante.js";
+import { traducirReferencia } from "./portal-referencias-i18n.js";
 
 const escapar = (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 
@@ -36,4 +37,24 @@ test("la clave de recuperación se ofrece para copiar sin mostrarla", () => {
   const html = claveRecuperacionTraducida("11111111-1111-4111-8111-111111111111", escapar, t);
   assert.match(html, /Clave de recuperación preparada<\/span> <button[^>]+data-copiar-justificante="11111111-1111-4111-8111-111111111111"[^>]*>Copiar clave<\/button>/u);
   assert.doesNotMatch(html.replace(/data-copiar-justificante="[^"]*"/u, ""), /11111111/u);
+});
+
+test("una referencia de fila se copia sin rótulo y con nombre accesible propio", () => {
+  const html = referenciaCopiableTraducida("cnv_0123456789abcdef", escapar, traducirReferencia, "Copiar la referencia de la convocatoria 1");
+  assert.match(html, /^<button type="button" class="boton-terciario boton-copiar-justificante" data-copiar-justificante="cnv_0123456789abcdef"/u);
+  assert.match(html, /aria-label="Copiar la referencia de la convocatoria 1">Copiar referencia<\/button>$/u);
+  assert.doesNotMatch(html, /justificante-registrado/u);
+});
+
+test("las referencias de identidad se nombran por su papel y los nombres escritos se respetan", () => {
+  for (const ref of ["per_rrhh", "recibo:1", "act_0123456789abcdef", "0f4b8f2e-8c1d-4f5e-9a3b-2c7d6e5f4a3b", "a".repeat(64)]) {
+    assert.equal(esReferenciaInterna(ref), true, ref);
+  }
+  for (const texto of ["Ana Ruiz", "RRHH", "Jefatura de servicio", "", null]) assert.equal(esReferenciaInterna(texto), false, String(texto));
+  const actor = actorTraducido("per_rrhh", escapar, traducirReferencia);
+  assert.match(actor, /^Personal de RRHH <button/u);
+  assert.match(actor, /data-copiar-justificante="per_rrhh"/u);
+  assert.equal(actorTraducido("Ana <Ruiz>", escapar, traducirReferencia), "Ana &lt;Ruiz>");
+  assert.equal(actorTraducido("", escapar, traducirReferencia), "—");
+  assert.throws(() => traducirReferencia("clave_inexistente"), /desconocida/u);
 });
