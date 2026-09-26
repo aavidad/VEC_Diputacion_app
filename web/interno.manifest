@@ -166,6 +166,7 @@ static/portal-empleado/modulos/contratacion-temporal/circuito-firma.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-cobertura.js
+static/portal-empleado/modulos/contratacion-temporal/etiquetas-vias-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-fiscalizacion.js

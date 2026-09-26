@@ -9,10 +9,11 @@ import {
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260926-huecos-rrhh-v1";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
-  "confirmarOperacion", "alConfirmar", "mensajes", "locale", "zonaHoraria", "anunciar",
+  "confirmarOperacion", "alConfirmar", "mensajes", "locale", "zonaHoraria", "anunciar", "etiquetasVias",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 
@@ -74,7 +75,11 @@ function renderizarRecibo(recibo, contexto, t, formateador) {
   </section>`;
 }
 
-function etiquetaVia(t, via) {
+// Una vía publicada por el catálogo de reglas se nombra con su etiqueta; sin
+// ella, con la traducción conocida o, en último término, con la clave.
+function etiquetaVia(t, via, catalogo) {
+  const delCatalogo = catalogo instanceof Map ? catalogo.get(via) : undefined;
+  if (typeof delCatalogo === "string" && delCatalogo !== "") return delCatalogo;
   const etiquetas = {
     bolsa_vigente: "cobertura_via_bolsa_vigente",
     oferta_sae: "cobertura_via_oferta_sae",
@@ -103,14 +108,14 @@ function renderizarPropuesta(propuesta, estado, t) {
       <input type="radio" name="via_elegida" value="${escaparHTML(evaluacion.via_clave)}"${
   viable && estado.via_elegida === evaluacion.via_clave ? " checked" : ""}${
   !viable || estado.ocupado ? " disabled" : ""}>
-      <span>${escaparHTML(etiquetaVia(t, evaluacion.via_clave))}</span>
+      <span>${escaparHTML(etiquetaVia(t, evaluacion.via_clave, estado.etiquetas_vias))}</span>
       <small>${escaparHTML(t(`cobertura_evaluacion_${evaluacion.estado}`))}</small>
     </label>`;
   }).join("");
   return `<section class="ct-bloque" data-ct-cobertura-propuesta
     aria-labelledby="ct-cobertura-propuesta-titulo">
     <h3 id="ct-cobertura-propuesta-titulo">${escaparHTML(t("cobertura_propuesta_titulo"))}</h3>
-    <p>${escaparHTML(t("cobertura_via_recomendada"))}: <strong>${escaparHTML(etiquetaVia(t, propuesta.via_recomendada))}</strong></p>
+    <p>${escaparHTML(t("cobertura_via_recomendada"))}: <strong>${escaparHTML(etiquetaVia(t, propuesta.via_recomendada, estado.etiquetas_vias))}</strong></p>
     <form data-ct-cobertura-form>
       <fieldset><legend>${escaparHTML(t("cobertura_via_elegida"))}</legend>
         ${evaluaciones}
@@ -184,6 +189,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     locale = "es-ES",
     zonaHoraria = "Europe/Madrid",
     anunciar = () => {},
+    etiquetasVias = cargarEtiquetasViasCobertura,
   } = configuracion;
   configuracion = null;
   if (!raiz || typeof raiz.addEventListener !== "function"
@@ -195,7 +201,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     || typeof cliente?.consultarResultadoCobertura !== "function"
     || typeof generarClaveIdempotencia !== "function"
     || typeof confirmarOperacion !== "function" || typeof alConfirmar !== "function"
-    || typeof anunciar !== "function"
+    || typeof anunciar !== "function" || typeof etiquetasVias !== "function"
     || typeof AbortController !== "function") {
     throw new TypeError("dependencias del formulario de cobertura no válidas");
   }
@@ -573,6 +579,13 @@ export function montarFormularioCobertura(configuracion = {}) {
   raizActual.addEventListener("keydown", alTeclear);
   repintar();
   void cargarPropuesta();
+  // Las etiquetas del catálogo no bloquean la propuesta: si llegan, se
+  // repinta sin mover el foco ni anunciar nada.
+  Promise.resolve().then(() => etiquetasVias()).then((mapa) => {
+    if (!montado || !(mapa instanceof Map) || mapa.size === 0) return;
+    estado = { ...estado, etiquetas_vias: mapa };
+    if (estado.propuesta) repintar("", false);
+  }).catch(() => {});
 
   return function desmontarFormularioCobertura() {
     if (!montado) return;
