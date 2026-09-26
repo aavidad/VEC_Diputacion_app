@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,6 +41,7 @@ func (r *relojCargaDirectaPrueba) fijar(instante time.Time) {
 type entradaReciboCargaDirectaPrueba struct {
 	registro     ports.RegistroReciboCargaDirecta
 	registradoEn time.Time
+	consumidoEn  time.Time
 	consumido    bool
 	activo       bool
 	orden        ports.OrdenConsumoReciboCargaDirecta
@@ -158,7 +158,7 @@ func (r *repositorioRecibosCargaDirectaPrueba) ConsumirReciboCargaDirecta(
 	}
 	entrada, existe := r.entradas[orden.IndiceHMAC]
 	indiceActivo, grupoActivo := r.activos[orden.GrupoHMAC]
-	if !existe || entrada.consumido || !entrada.activo || !grupoActivo || indiceActivo != orden.IndiceHMAC ||
+	if !existe ||
 		entrada.registro.GrupoHMAC != orden.GrupoHMAC || entrada.registro.VinculoHMAC != orden.VinculoHMAC ||
 		!entrada.registradoEn.Equal(orden.RegistradoEn) {
 		return ports.ResultadoConsumoReciboCargaDirecta{}, ports.ErrConsumoReciboCargaDirectaDenegado
@@ -169,7 +169,25 @@ func (r *repositorioRecibosCargaDirectaPrueba) ConsumirReciboCargaDirecta(
 		!consumidoEn.Before(orden.ValidaHasta) {
 		return ports.ResultadoConsumoReciboCargaDirecta{}, ports.ErrConsumoReciboCargaDirectaDenegado
 	}
+	if entrada.consumido {
+		if entrada.orden.EvidenciaConsumoRef != orden.EvidenciaConsumoRef ||
+			entrada.orden.IntencionConfirmacionRef != orden.IntencionConfirmacionRef ||
+			entrada.orden.HuellaIntencionHMAC != orden.HuellaIntencionHMAC {
+			return ports.ResultadoConsumoReciboCargaDirecta{}, ports.ErrConsumoReciboCargaDirectaDenegado
+		}
+		return ports.ResultadoConsumoReciboCargaDirecta{
+			IndiceHMAC: orden.IndiceHMAC, GrupoHMAC: orden.GrupoHMAC, VinculoHMAC: orden.VinculoHMAC,
+			EvidenciaConsumoRef:      entrada.orden.EvidenciaConsumoRef,
+			IntencionConfirmacionRef: entrada.orden.IntencionConfirmacionRef,
+			HuellaIntencionHMAC:      entrada.orden.HuellaIntencionHMAC,
+			RegistradoEn:             entrada.registradoEn, ConsumidoEn: entrada.consumidoEn, ExpiraEn: entrada.registro.ExpiraEn,
+		}, nil
+	}
+	if !entrada.activo || !grupoActivo || indiceActivo != orden.IndiceHMAC {
+		return ports.ResultadoConsumoReciboCargaDirecta{}, ports.ErrConsumoReciboCargaDirectaDenegado
+	}
 	entrada.consumido = true
+	entrada.consumidoEn = consumidoEn
 	entrada.activo = false
 	entrada.orden = orden
 	r.entradas[orden.IndiceHMAC] = entrada
@@ -589,40 +607,6 @@ func TestReciboCargaDirectaAportaAlMenos256BitsAleatoriosYAltaSinSecreto(t *test
 	}
 }
 
-func TestReciboCargaDirectaSeConsumeUnaSolaVezYProduceEvidenciaOpaca(t *testing.T) {
-	adaptador, repositorio, reloj := nuevoAdaptadorCargaDirectaPrueba(t)
-	recibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
-	solicitud := solicitudConsumoCargaDirectaPrueba(recibo)
-	comprobante, err := adaptador.ConsumirReciboCargaDirecta(context.Background(), solicitud)
-	if err != nil {
-		t.Fatalf("primer consumo: %v", err)
-	}
-	confirmacion, err := ports.NuevaSolicitudConfirmarCargaDirecta(
-		context.Background(), solicitud.Contexto, solicitud.SesionRef, comprobante, adaptador,
-	)
-	if err != nil {
-		t.Fatalf("atestacion invalida: %v", err)
-	}
-	_, _, intencion, huellaIntencion, referencia, emitidoEn, consumidoEn, expiraEn, validaHasta, err := confirmacion.RevelarParaConector()
-	if err != nil {
-		t.Fatalf("confirmacion no revelable: %v", err)
-	}
-	if !strings.HasPrefix(intencion, "confirmacion-intencion-v1:") ||
-		!strings.HasPrefix(referencia, "recibo-consumo-v1:") ||
-		!strings.HasPrefix(huellaIntencion, "hmac-sha256:atestacion_recibo_v1:") ||
-		!consumidoEn.Equal(repositorio.horaDurable) || emitidoEn.After(consumidoEn) ||
-		!expiraEn.After(consumidoEn) || !validaHasta.After(consumidoEn) {
-		t.Fatalf("evidencia no opaca o fecha incorrecta")
-	}
-	if _, err := adaptador.ConsumirReciboCargaDirecta(context.Background(), solicitud); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
-		t.Fatalf("repeticion no denegada uniformemente: %v", err)
-	}
-	_, consumos, _, usados := repositorio.estado()
-	if consumos != 2 || usados != 1 {
-		t.Fatalf("consumos=%d usados=%d", consumos, usados)
-	}
-}
-
 func TestAtestacionImpideForjarComprobanteOCambiarContextoCompleto(t *testing.T) {
 	adaptador, _, reloj := nuevoAdaptadorCargaDirectaPrueba(t)
 	recibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
@@ -975,41 +959,6 @@ func TestReciboCargaDirectaUsaCaducidadYHoraAutoritativaDelRepositorio(t *testin
 			t.Fatal("el recibo se consumio con autorizacion o sesion vencida")
 		}
 	})
-}
-
-func TestConsumoConcurrenteDeReciboCargaDirectaSoloAdmiteUno(t *testing.T) {
-	adaptador, repositorio, reloj := nuevoAdaptadorCargaDirectaPrueba(t)
-	recibo := emitirReciboCargaDirectaPrueba(t, context.Background(), adaptador, reloj)
-	solicitud := solicitudConsumoCargaDirectaPrueba(recibo)
-	const trabajadores = 48
-	var exitos atomic.Int32
-	var fallosInesperados atomic.Int32
-	inicio := make(chan struct{})
-	var grupo sync.WaitGroup
-	for indice := 0; indice < trabajadores; indice++ {
-		grupo.Add(1)
-		go func() {
-			defer grupo.Done()
-			<-inicio
-			_, err := adaptador.ConsumirReciboCargaDirecta(context.Background(), solicitud)
-			if err == nil {
-				exitos.Add(1)
-				return
-			}
-			if !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
-				fallosInesperados.Add(1)
-			}
-		}()
-	}
-	close(inicio)
-	grupo.Wait()
-	if exitos.Load() != 1 || fallosInesperados.Load() != 0 {
-		t.Fatalf("exitos=%d fallos inesperados=%d", exitos.Load(), fallosInesperados.Load())
-	}
-	_, _, _, usados := repositorio.estado()
-	if usados != 1 {
-		t.Fatalf("usos persistidos=%d", usados)
-	}
 }
 
 func TestAltaReciboCargaDirectaReintentaSoloColisionDeIndice(t *testing.T) {

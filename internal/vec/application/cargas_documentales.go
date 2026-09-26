@@ -559,6 +559,13 @@ func (s *ServicioCargaDocumental) Confirmar(
 	ctxPersistencia, cancelarPersistencia := contextoPersistenciaCarga(ctx)
 	defer cancelarPersistencia()
 	if err := s.repositorio.ConfirmarTransicion(ctxPersistencia, confirmacion); err != nil {
+		// La respuesta puede perderse despues del commit o competir con otra
+		// confirmacion de la misma intencion. Solo se recupera si el agregado
+		// durable apunta exactamente al objeto ya validado de esta carga.
+		if existente, errLectura := s.repositorio.Obtener(ctxPersistencia, carga.ID); errLectura == nil &&
+			mismaRecepcionCargaDocumental(existente, carga, contenido) {
+			return existente, nil
+		}
 		return domain.CargaDocumental{}, errorConfirmacionCargaDocumentalPendiente(err)
 	}
 	return recibida, nil
@@ -870,17 +877,6 @@ func (s *ServicioCargaDocumental) capacidadesAlmacenAnalisis(
 		return ports.CapacidadesAlmacenObjetos{}, ports.ErrCapacidadAlmacenNoDisponible
 	}
 	return capacidades, nil
-}
-
-func contextoPersistenciaCarga(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-}
-
-func errorConfirmacionCargaDocumentalPendiente(causa error) error {
-	if causa == nil {
-		causa = ports.ErrConfirmacionCargaDirectaNoDisponible
-	}
-	return errors.Join(ports.ErrConfirmacionCargaDocumentalPendiente, causa)
 }
 
 func camposDecisionPrepararCarga() []string {

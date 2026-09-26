@@ -297,18 +297,19 @@ func (a *AdaptadorCriptograficoCargaDirecta) ConsumirReciboCargaDirecta(
 	if !hmac.Equal(atestacionAlta, partes.atestacionAlta) {
 		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
 	}
-	evidenciaRef, err := nuevaReferenciaOpacaCargaDirecta("recibo-consumo-v1")
-	if err != nil {
-		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
-	}
-	intencionRef, err := nuevaReferenciaOpacaCargaDirecta("confirmacion-intencion-v1")
-	if err != nil {
-		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
-	}
+	// La intencion y su evidencia identifican la operacion, no el intento.
+	// Un nuevo PDP puede emitir otra DecisionRef tras una caida entre el
+	// consumo durable y S3; ambos intentos deben alcanzar el mismo objeto.
+	evidenciaRef := referenciaConsumoDeterministaCargaDirecta(
+		instantanea.claveAtestacion, "recibo-consumo-v1", indiceHMAC, grupoHMAC, vinculoHMAC,
+	)
+	intencionRef := referenciaConsumoDeterministaCargaDirecta(
+		instantanea.claveAtestacion, "confirmacion-intencion-v1", indiceHMAC, grupoHMAC, vinculoHMAC,
+	)
 	huellaIntencion := calcularHuellaIntencionCargaDirecta(
 		instantanea.claveAtestacion, solicitud.Contexto, solicitud.SesionRef,
 		vinculoHMAC, indiceHMAC, grupoHMAC,
-		intencionRef, evidenciaRef, partes.registradoEn, solicitud.ValidaHasta,
+		intencionRef, evidenciaRef, partes.registradoEn,
 	)
 	defer borrarBytesCargaDirecta(huellaIntencion)
 	orden := ports.OrdenConsumoReciboCargaDirecta{
@@ -735,7 +736,7 @@ func calcularHuellaIntencionCargaDirecta(
 	clave claveHMACCargaDirecta,
 	contexto ports.ContextoOperacionAlmacen,
 	sesionRef, vinculoHMAC, indiceHMAC, grupoHMAC, intencionRef, evidenciaConsumoRef string,
-	registradoEn, validaHasta time.Time,
+	registradoEn time.Time,
 ) []byte {
 	proyeccion, err := contexto.Proyeccion()
 	if err != nil {
@@ -743,11 +744,10 @@ func calcularHuellaIntencionCargaDirecta(
 	}
 	return calcularHMACCargaDirecta(
 		clave,
-		"huella-intencion-confirmacion-carga-directa-v1",
+		"huella-intencion-confirmacion-carga-directa-v2",
 		proyeccion.Esquema,
 		proyeccion.OperacionRef,
 		proyeccion.CorrelacionRef,
-		proyeccion.AutorizacionRef,
 		proyeccion.Finalidad,
 		proyeccion.Clasificacion,
 		proyeccion.AccionNegocio,
@@ -760,9 +760,7 @@ func calcularHuellaIntencionCargaDirecta(
 		proyeccion.HuellaRecursoSHA256,
 		proyeccion.HuellaSolicitudHMAC,
 		proyeccion.EfectoRef,
-		proyeccion.HuellaPlanEfectoSHA256,
 		string(proyeccion.PasoRef),
-		proyeccion.HuellaDecisionSHA256,
 		sesionRef,
 		vinculoHMAC,
 		indiceHMAC,
@@ -770,7 +768,6 @@ func calcularHuellaIntencionCargaDirecta(
 		intencionRef,
 		evidenciaConsumoRef,
 		registradoEn.Format(time.RFC3339Nano),
-		validaHasta.Format(time.RFC3339Nano),
 	)
 }
 

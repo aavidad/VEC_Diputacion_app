@@ -775,8 +775,8 @@ func NuevoReciboCargaDirecta(valor string) (ReciboCargaDirecta, error) {
 }
 
 // SolicitudConsumirReciboCargaDirecta se ejecuta antes de confirmar en el
-// almacen. El adaptador debe verificar la MAC, caducidad y consumo atomico de
-// un uso. Una consulta repetida siempre falla cerrada.
+// almacen. Verifica MAC y vigencia en cada intento; el replay exacto recupera
+// la misma evidencia y otra intencion, sesion o recibo falla cerrado.
 type SolicitudConsumirReciboCargaDirecta struct {
 	Contexto  ContextoOperacionAlmacen
 	SesionRef string
@@ -912,7 +912,8 @@ func (c ComprobanteConsumoReciboCargaDirecta) LogValue() slog.Value {
 }
 
 // ConsumidorReciboCargaDirecta verifica MAC/caducidad y marca el recibo como
-// usado en una unica operacion atomica duradera.
+// usado de forma atomica y duradera. Un replay autorizado devuelve la misma
+// escritura y nunca crea otro consumo.
 type ConsumidorReciboCargaDirecta interface {
 	ConsumirReciboCargaDirecta(
 		context.Context,
@@ -975,10 +976,9 @@ type ResultadoConsumoReciboCargaDirecta = almacencanonico.ResultadoConsumoRecibo
 // haya consumido y que la hora transaccional durable cumpla
 // RegistradoEn <= ahora < min(ExpiraEn, ValidaHasta). En esa misma escritura
 // desactiva el grupo, crea la intencion pendiente y persiste evidencia y fecha.
-// El resultado devuelve RegistradoEn y ExpiraEn del registro, nunca fechas
-// propuestas por el proceso.
-// El puerto no ofrece lectura, listado, reapertura ni borrado de consumos.
-//
+// El replay solo recupera evidencia y fecha originales si indice, grupo,
+// vinculo, intencion y huella coinciden y sigue vigente la nueva ValidaHasta.
+// El resultado usa fechas del registro, nunca propuestas por el proceso.
 // Una colision de alta devuelve ErrRegistroReciboCargaDirectaConflicto. Toda
 // denegacion de consumo usa ErrConsumoReciboCargaDirectaDenegado. Los demas
 // errores representan indisponibilidad y el adaptador falla cerrado.

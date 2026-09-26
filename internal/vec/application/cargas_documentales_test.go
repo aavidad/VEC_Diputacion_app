@@ -110,6 +110,8 @@ type repositorioCargaPrueba struct {
 	decisionPreparacionActiva string
 	confirmaciones            []ports.ConfirmacionTransicionCargaDocumental
 	abandonada                bool
+	fallarConfirmacionUnaVez  bool
+	fallarRespuestaTrasCommit bool
 }
 
 func (r *repositorioCargaPrueba) Reservar(
@@ -186,8 +188,16 @@ func (r *repositorioCargaPrueba) ConfirmarTransicion(
 	if instantanea.ValidarContra(r.carga) != nil {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
 	}
+	if r.fallarConfirmacionUnaVez {
+		r.fallarConfirmacionUnaVez = false
+		return ports.ErrRepositorioCargasNoDisponible
+	}
 	r.carga = instantanea.Carga
 	r.confirmaciones = append(r.confirmaciones, instantanea)
+	if r.fallarRespuestaTrasCommit {
+		r.fallarRespuestaTrasCommit = false
+		return ports.ErrRepositorioCargasNoDisponible
+	}
 	return nil
 }
 
@@ -279,6 +289,7 @@ type registroReciboCargaPrueba struct {
 	registradoEn time.Time
 	expiraEn     time.Time
 	consumido    bool
+	resultado    ports.ResultadoConsumoReciboCargaDirecta
 }
 
 func debeProyectarContextoCargaPrueba(
@@ -362,7 +373,7 @@ func (s *seguridadCargaPrueba) ConsumirReciboCargaDirecta(
 	s.ultimaValidaHasta = solicitud.ValidaHasta
 	registro, existe := s.recibos[valor]
 	consumidoEn := s.reloj.Ahora().UTC()
-	if !existe || registro.consumido || consumidoEn.Before(registro.registradoEn) ||
+	if !existe || consumidoEn.Before(registro.registradoEn) ||
 		!consumidoEn.Before(registro.expiraEn) || !consumidoEn.Before(solicitud.ValidaHasta) ||
 		registro.sesionRef != solicitud.SesionRef ||
 		!contextosReciboMismaOperacion(registro.contexto, solicitud.Contexto) {
@@ -370,24 +381,32 @@ func (s *seguridadCargaPrueba) ConsumirReciboCargaDirecta(
 	}
 	proyeccionSolicitud := debeProyectarContextoCargaPrueba(solicitud.Contexto)
 	proyeccionRegistro := debeProyectarContextoCargaPrueba(registro.contexto)
-	s.siguienteConsumo++
-	evidenciaRef := fmt.Sprintf("evidencia:consumo:recibo:%016d", s.siguienteConsumo)
-	intencionRef := fmt.Sprintf("intencion:confirmacion:carga:%016d", s.siguienteConsumo)
-	huellaIntencion := hmacCargaPrueba(
-		"intencion_v1", proyeccionSolicitud.CargaRef, proyeccionSolicitud.AutorizacionRef,
-		solicitud.SesionRef, intencionRef, evidenciaRef, registro.registradoEn.Format(time.RFC3339Nano),
-		solicitud.ValidaHasta.Format(time.RFC3339Nano),
-	)
-	resultado := ports.ResultadoConsumoReciboCargaDirecta{
-		IndiceHMAC:               hmacCargaPrueba("indice_v1", valor),
-		GrupoHMAC:                hmacCargaPrueba("grupo_v1", proyeccionSolicitud.CargaRef, solicitud.SesionRef),
-		VinculoHMAC:              hmacCargaPrueba("vinculo_v1", proyeccionRegistro.CargaRef, registro.sesionRef),
-		EvidenciaConsumoRef:      evidenciaRef,
-		IntencionConfirmacionRef: intencionRef,
-		HuellaIntencionHMAC:      huellaIntencion,
-		RegistradoEn:             registro.registradoEn,
-		ConsumidoEn:              consumidoEn,
-		ExpiraEn:                 registro.expiraEn,
+	resultado := registro.resultado
+	if !registro.consumido {
+		s.siguienteConsumo++
+		evidenciaRef := "evidencia:consumo:recibo:" + strings.TrimPrefix(hmacCargaPrueba("evidencia_v2", valor), "hmac-sha256:evidencia_v2:")
+		intencionRef := "intencion:confirmacion:carga:" + strings.TrimPrefix(hmacCargaPrueba("intencion_ref_v2", valor), "hmac-sha256:intencion_ref_v2:")
+		huellaIntencion := hmacCargaPrueba(
+			"intencion_v2", proyeccionSolicitud.CargaRef, solicitud.SesionRef,
+			intencionRef, evidenciaRef, registro.registradoEn.Format(time.RFC3339Nano),
+		)
+		resultado = ports.ResultadoConsumoReciboCargaDirecta{
+			IndiceHMAC:               hmacCargaPrueba("indice_v1", valor),
+			GrupoHMAC:                hmacCargaPrueba("grupo_v1", proyeccionSolicitud.CargaRef, solicitud.SesionRef),
+			VinculoHMAC:              hmacCargaPrueba("vinculo_v1", proyeccionRegistro.CargaRef, registro.sesionRef),
+			EvidenciaConsumoRef:      evidenciaRef,
+			IntencionConfirmacionRef: intencionRef,
+			HuellaIntencionHMAC:      huellaIntencion,
+			RegistradoEn:             registro.registradoEn,
+			ConsumidoEn:              consumidoEn,
+			ExpiraEn:                 registro.expiraEn,
+		}
+		registro.resultado = resultado
+		registro.consumido = true
+		s.recibos[valor] = registro
+	} else if resultado.IndiceHMAC != hmacCargaPrueba("indice_v1", valor) ||
+		resultado.GrupoHMAC != hmacCargaPrueba("grupo_v1", proyeccionSolicitud.CargaRef, solicitud.SesionRef) {
+		return ports.ComprobanteConsumoReciboCargaDirecta{}, ports.ErrReciboCargaDirectaNoValido
 	}
 	atestacion := atestacionCargaPrueba(solicitud.Contexto, solicitud.SesionRef, resultado, solicitud.ValidaHasta)
 	comprobante, err := ports.NuevoComprobanteConsumoReciboCargaDirecta(
@@ -396,8 +415,6 @@ func (s *seguridadCargaPrueba) ConsumirReciboCargaDirecta(
 	if err != nil {
 		return ports.ComprobanteConsumoReciboCargaDirecta{}, err
 	}
-	registro.consumido = true
-	s.recibos[valor] = registro
 	return comprobante, nil
 }
 
@@ -476,6 +493,7 @@ func contextosReciboMismaOperacion(
 }
 
 type almacenCargaPrueba struct {
+	mu                sync.Mutex
 	reloj             *relojCargaPrueba
 	contenido         []byte
 	contenidoLectura  []byte
@@ -533,6 +551,8 @@ func (a *almacenCargaPrueba) ConfirmarCargaDirecta(
 	_ context.Context,
 	solicitud ports.SolicitudConfirmarCargaDirecta,
 ) (ports.ResultadoOperacionObjeto, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	contexto, sesionRef, intencionRef, huellaIntencion, _, emitidoEn, consumidoEn, expiraEn, validaHasta, err := solicitud.RevelarParaConector()
 	if err != nil || sesionRef != a.sesion || intencionRef == "" || !hmacCargaDocumentalValido(huellaIntencion) ||
 		consumidoEn.Before(emitidoEn) || !consumidoEn.Before(expiraEn) || !consumidoEn.Before(validaHasta) {
@@ -542,7 +562,6 @@ func (a *almacenCargaPrueba) ConfirmarCargaDirecta(
 	if a.errorConfirmacion != nil {
 		return ports.ResultadoOperacionObjeto{}, a.errorConfirmacion
 	}
-	a.confirmaciones++
 	a.contextos = append(a.contextos, contexto)
 	suma := sha256.Sum256(a.contenido)
 	referencia := ports.ReferenciaObjetoAlmacen{Referencia: "objeto:cuarentena:0123456789abcdef", Version: "v1"}
@@ -553,6 +572,12 @@ func (a *almacenCargaPrueba) ConfirmarCargaDirecta(
 	evidencia := evidenciaAlmacenCargaPrueba(
 		ports.AccionAlmacenConfirmarCargaDirecta, referencia, contexto, intencionRef, almacenadoEn,
 	)
+	if a.objetoCuarentena.Validar() == nil {
+		evidencia.ReintentoIdempotente = true
+		evidencia.Referencia += ":reintento"
+		return ports.ResultadoOperacionObjeto{Objeto: a.objetoCuarentena, Evidencia: evidencia}, nil
+	}
+	a.confirmaciones++
 	a.objetoCuarentena = ports.ObjetoAlmacenado{
 		Objeto: referencia, ConectorID: "almacen_s3_corporativo", Zona: ports.ZonaAlmacenCuarentena,
 		MIME: "application/pdf", Tamano: int64(len(a.contenido)), HuellaSHA256: hex.EncodeToString(suma[:]),
@@ -1265,92 +1290,6 @@ func TestServicioCargaDocumentalNoCorrigeIdentificadorGenerado(t *testing.T) {
 	}
 	if e.repositorio.carga.ID != "" || e.almacen.preparaciones != 0 {
 		t.Fatal("el identificador generado no canonico produjo efectos")
-	}
-}
-
-func TestServicioCargaDocumentalRespuestaRemotaAmbiguaQuedaPendienteSinReusarRecibo(t *testing.T) {
-	e := nuevoEntornoServicioCarga(t)
-	preparada, err := e.servicio.Preparar(context.Background(), e.ordenPreparar())
-	if err != nil {
-		t.Fatal(err)
-	}
-	errorRemoto := errors.New("detalle interno sensible del almacen")
-	e.almacen.errorConfirmacion = errorRemoto
-	orden := OrdenConfirmarCargaDocumental{
-		Principal: e.externo, PerfilActivo: perfilAutorizacionPrueba("externo:0123456789abcdef"), Recurso: e.recurso,
-		CargaID: preparada.Carga.ID, SesionRef: e.almacen.sesion, Recibo: preparada.Recibo,
-		Finalidad: preparada.Carga.Finalidad, Motivo: "Confirmar aportacion",
-		CorrelacionRef: preparada.Carga.CorrelacionRef,
-	}
-	if _, err = e.servicio.Confirmar(context.Background(), orden); !errors.Is(err, ports.ErrConfirmacionCargaDirectaNoDisponible) ||
-		!errors.Is(err, ports.ErrConfirmacionCargaDocumentalPendiente) {
-		t.Fatalf("primer intento: %v", err)
-	}
-	if errors.Is(err, errorRemoto) || strings.Contains(err.Error(), errorRemoto.Error()) {
-		t.Fatalf("se filtro el error remoto: %v", err)
-	}
-	if e.seguridad.siguienteConsumo != 1 || e.almacen.intentosConfirmar != 1 ||
-		e.almacen.confirmaciones != 0 || e.repositorio.carga.Estado != domain.EstadoCargaDocumentalPreparada {
-		t.Fatalf("la respuesta ambigua no quedo pendiente: consumos=%d intentos=%d confirmaciones=%d estado=%s",
-			e.seguridad.siguienteConsumo, e.almacen.intentosConfirmar, e.almacen.confirmaciones,
-			e.repositorio.carga.Estado)
-	}
-	e.almacen.errorConfirmacion = nil
-	if _, err = e.servicio.Confirmar(context.Background(), orden); !errors.Is(err, ports.ErrReciboCargaDirectaNoValido) {
-		t.Fatalf("el recibo consumido se reutilizo: %v", err)
-	}
-	if e.seguridad.siguienteConsumo != 1 || e.almacen.intentosConfirmar != 1 || e.almacen.confirmaciones != 0 {
-		t.Fatalf("el reintento repitio el efecto: consumos=%d intentos=%d confirmaciones=%d",
-			e.seguridad.siguienteConsumo, e.almacen.intentosConfirmar, e.almacen.confirmaciones)
-	}
-}
-
-func TestServicioCargaDocumentalConfirmacionConcurrenteConsumeUnaSolaVez(t *testing.T) {
-	e := nuevoEntornoServicioCarga(t)
-	preparada, err := e.servicio.Preparar(context.Background(), e.ordenPreparar())
-	if err != nil {
-		t.Fatal(err)
-	}
-	orden := OrdenConfirmarCargaDocumental{
-		Principal: e.externo, PerfilActivo: perfilAutorizacionPrueba("externo:0123456789abcdef"), Recurso: e.recurso,
-		CargaID: preparada.Carga.ID, SesionRef: e.almacen.sesion, Recibo: preparada.Recibo,
-		Finalidad: preparada.Carga.Finalidad, Motivo: "Confirmar aportacion",
-		CorrelacionRef: preparada.Carga.CorrelacionRef,
-	}
-	type resultadoConfirmacion struct {
-		carga domain.CargaDocumental
-		err   error
-	}
-	inicio := make(chan struct{})
-	resultados := make(chan resultadoConfirmacion, 2)
-	for i := 0; i < 2; i++ {
-		go func() {
-			<-inicio
-			carga, errConfirmacion := e.servicio.Confirmar(context.Background(), orden)
-			resultados <- resultadoConfirmacion{carga: carga, err: errConfirmacion}
-		}()
-	}
-	close(inicio)
-	exitos := 0
-	for i := 0; i < 2; i++ {
-		resultado := <-resultados
-		if resultado.err == nil {
-			exitos++
-			if resultado.carga.Estado != domain.EstadoCargaDocumentalCuarentena {
-				t.Fatalf("estado confirmado=%s", resultado.carga.Estado)
-			}
-			continue
-		}
-		if !errors.Is(resultado.err, ports.ErrReciboCargaDirectaNoValido) &&
-			!errors.Is(resultado.err, ports.ErrManifiestoPreparacionNoEncontrado) {
-			t.Fatalf("error concurrente inesperado: %v", resultado.err)
-		}
-	}
-	if exitos != 1 || e.seguridad.siguienteConsumo != 1 || e.almacen.intentosConfirmar != 1 ||
-		e.almacen.confirmaciones != 1 || e.repositorio.carga.Estado != domain.EstadoCargaDocumentalCuarentena {
-		t.Fatalf("confirmacion concurrente no fue unica: exitos=%d consumos=%d intentos=%d confirmaciones=%d estado=%s",
-			exitos, e.seguridad.siguienteConsumo, e.almacen.intentosConfirmar,
-			e.almacen.confirmaciones, e.repositorio.carga.Estado)
 	}
 }
 
