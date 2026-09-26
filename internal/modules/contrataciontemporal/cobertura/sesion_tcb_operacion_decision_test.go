@@ -455,6 +455,9 @@ func TestSesionTCBEsperaCallbackCruzadoYBloqueaConfirmacionPosterior(
 
 	<-entrada
 	<-porRetornar
+	// porRetornar se cierra antes del return del ejecutor; solo la
+	// cancelación del contexto garantiza que el retorno ya está registrado.
+	<-ejecutor.retornoRegistrado()
 	select {
 	case resultado := <-salidaOperacion:
 		t.Fatalf(
@@ -536,6 +539,10 @@ func TestSesionTCBReciboTerminadoTrasRetornoEjecutorNuncaSePublica(
 
 	<-entrada
 	<-porRetornar
+	// porRetornar se cierra antes del return del ejecutor. Sin esperar a que
+	// el envoltorio registre el retorno, el callback podía terminar antes de
+	// él y la prueba no ejercitaba un callback tardío.
+	<-ejecutor.retornoRegistrado()
 	close(continuar)
 	if errCallback := <-resultadoCallback; !errors.Is(
 		errCallback,
