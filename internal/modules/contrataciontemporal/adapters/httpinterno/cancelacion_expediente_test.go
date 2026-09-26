@@ -29,7 +29,9 @@ func (e *ejecutorCancelacionPrueba) CancelarExpediente(_ context.Context, s appl
 }
 func (e *ejecutorCancelacionPrueba) Opciones(context.Context) (application.OpcionesCancelacion, error) {
 	return application.OpcionesCancelacion{Fases: []domain.ClaveFase{"solicitud", "asignacion_unidad"},
-		Motivos: []ports.MotivoCancelacion{{Clave: "necesidad_desaparecida", Etiqueta: "Ha desaparecido la necesidad", Canales: []domain.CanalCancelacion{"rrhh"}}}}, nil
+		Motivos: []ports.MotivoCancelacion{{Clave: "necesidad_desaparecida", Etiqueta: "Ha desaparecido la necesidad", Canales: []domain.CanalCancelacion{"rrhh"}}},
+		Todos: []ports.MotivoCancelacion{{Clave: "necesidad_desaparecida", Etiqueta: "Ha desaparecido la necesidad", Canales: []domain.CanalCancelacion{"rrhh"}},
+			{Clave: "desistimiento_centro", Etiqueta: "El centro retira su petición", Canales: []domain.CanalCancelacion{"centro"}}}}, nil
 }
 func (e *ejecutorCancelacionPrueba) Estado(_ context.Context, _, exp string) (ports.EstadoCancelacionExpediente, error) {
 	e.estado.ExpedienteRef = exp
@@ -80,7 +82,8 @@ func TestCancelacionHTTPConsultaOpcionesYEstado(t *testing.T) {
 	}
 	ejecutor.estado.Cancelacion = &ports.CancelacionRegistrada{Canal: "centro", MotivoClave: "desistimiento_centro", FasePrevia: "solicitud",
 		ReciboRef: "recibo:prueba", RegistradaEn: time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)}
-	if w := peticionSeguimiento(t, m, RutaCancelacionExpediente, `{"expediente_ref":"expediente:prueba"}`); !strings.Contains(w.Body.String(), `"motivo_clave":"desistimiento_centro"`) {
+	if w := peticionSeguimiento(t, m, RutaCancelacionExpediente, `{"expediente_ref":"expediente:prueba"}`); !strings.Contains(w.Body.String(), `"motivo_clave":"desistimiento_centro"`) ||
+		!strings.Contains(w.Body.String(), `"motivo_etiqueta":"El centro retira su petición"`) {
 		t.Fatalf("consulta con cancelación: %s", w.Body.String())
 	}
 	denegada, _ := NuevosManejadoresCancelacion(autoridadSeguimientoPrueba{}, autoridadSeguimientoPrueba{lecturaDenegada: true}, ejecutor)

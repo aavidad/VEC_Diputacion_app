@@ -144,8 +144,16 @@ func (h *manejadorCancelacion) consultar(w http.ResponseWriter, r *http.Request,
 	}
 	var cancelacion any
 	if c := estado.Cancelacion; c != nil {
-		cancelacion = map[string]string{"canal": string(c.Canal), "motivo_clave": c.MotivoClave, "fase_previa": c.FasePrevia,
-			"observaciones": c.Observaciones, "recibo_ref": c.ReciboRef, "registrada_en": c.RegistradaEn.UTC().Format(time.RFC3339Nano)}
+		// El motivo se nombra con el catálogo vigente, aunque lo usara otro canal.
+		etiqueta, claveI18n := c.MotivoClave, ""
+		for _, m := range opciones.Todos {
+			if string(m.Clave) == c.MotivoClave {
+				etiqueta, claveI18n = m.Etiqueta, m.ClaveI18n
+			}
+		}
+		cancelacion = map[string]string{"canal": string(c.Canal), "motivo_clave": c.MotivoClave, "motivo_etiqueta": etiqueta,
+			"motivo_clave_i18n": claveI18n, "fase_previa": c.FasePrevia, "observaciones": c.Observaciones, "recibo_ref": c.ReciboRef,
+			"registrada_en": c.RegistradaEn.UTC().Format(time.RFC3339Nano)}
 	}
 	responderJSONCobertura(w, r, http.StatusOK, map[string]any{"data": map[string]any{"esquema": esquemaConsultaCancelacionHTTP,
 		"expediente_ref": in.ExpedienteRef, "fases_admitidas": fases, "motivos": motivos, "cancelacion": cancelacion}})

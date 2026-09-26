@@ -24,9 +24,12 @@ type SolicitudCancelarExpediente struct {
 }
 
 // OpcionesCancelacion son las fases y los motivos vigentes para el canal.
+// Todos conserva los motivos de cualquier canal para nombrar una
+// cancelación ya registrada por otro.
 type OpcionesCancelacion struct {
 	Fases   []domain.ClaveFase
 	Motivos []ports.MotivoCancelacion
+	Todos   []ports.MotivoCancelacion
 }
 
 // ServicioCancelacionExpediente coordina la cancelación de un canal (RRHH o
@@ -170,7 +173,7 @@ func (s *ServicioCancelacionExpediente) Opciones(ctx context.Context) (OpcionesC
 	if err != nil {
 		return OpcionesCancelacion{}, err
 	}
-	o := OpcionesCancelacion{Fases: append([]domain.ClaveFase(nil), regla.Fases...)}
+	o := OpcionesCancelacion{Fases: append([]domain.ClaveFase(nil), regla.Fases...), Todos: append([]ports.MotivoCancelacion(nil), regla.Motivos...)}
 	for _, m := range regla.Motivos {
 		if m.AdmiteCanal(s.canal) {
 			o.Motivos = append(o.Motivos, m)
