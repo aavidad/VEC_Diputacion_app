@@ -444,7 +444,8 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   assert.match(html, /Nuevo llamamiento/);
   assert.match(html, /Registrar resultado/);
   assert.match(html, /data-bolsa-accion="iniciar-b7"/);
-  assert.match(html, /disabled aria-disabled="true" title="Pendiente de RRHH"/);
+  assert.match(html, /disabled aria-disabled="true">Registrar resultado/);
+  assert.doesNotMatch(html, /Pendiente de RRHH/);
   assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
 
   // Modal de contactos abierto con datos

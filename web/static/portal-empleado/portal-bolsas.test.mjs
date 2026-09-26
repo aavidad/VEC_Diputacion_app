@@ -568,10 +568,9 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Nuevo llamamiento/);
   assert.match(htmlB5, /Registrar resultado/);
   assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
-  assert.match(htmlB5, /title="Pendiente de RRHH"/);
   assert.match(htmlB5, /Criterios de orden/);
   assert.match(htmlB5, /Puntuación descendente; desempate estable por nº del acta/);
-  assert.match(htmlB5, /<span class="estado-chip advertencia">Pendiente de RRHH<\/span>/);
+  assert.doesNotMatch(htmlB5, /Pendiente de RRHH/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
@@ -702,7 +701,8 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /2\. Seleccionar candidatos/);
   assert.match(html, /Respetar orden de prelación \(obligatorio\)/);
-  assert.match(html, /no ocupan turno/);
+  // Las explicaciones del paso van en la ayuda «?», no en la pantalla.
+  assert.doesNotMatch(html, /no ocupan turno|<summary/);
   assert.doesNotMatch(html, new RegExp(pausado.nombre_visible));
   assert.match(html, /Mostrando 1 a 6 de/);
   assert.match(html, /data-bolsa-accion="b7-pagina"/);
@@ -711,13 +711,13 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   flujo.paso = 3;
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /3\. Configurar llamamiento/);
-  assert.match(html, /El asunto y el texto son comunes a todas las personas seleccionadas/);
-  assert.match(html, /No se ofrece personalización individual en este formulario/);
+  assert.doesNotMatch(html, /comunes a todas las personas|no presupone un plazo legal|no acreditan entrega/);
   assert.match(html, /name="plazo" required minlength="2" maxlength="160" value=""/);
-  assert.match(html, /Plazo de respuesta indicado por RRHH/);
-  assert.match(html, /no presupone un plazo legal/);
+  assert.match(html, /<label class="campo campo-ancho"><span>Plazo de respuesta indicado por RRHH<\/span><input name="plazo"/);
+  assert.match(html, /<label class="campo"><span>Modalidad<\/span><select name="modalidad"/);
   assert.doesNotMatch(html, /48 horas|relay de desarrollo|value="Pendiente de definición por RRHH"/);
-  assert.match(html, /bolsa-llamamiento-v1/);
+  assert.match(html, /<input type="hidden" name="plantilla_version" value="bolsa-llamamiento-v1">/);
+  assert.doesNotMatch(html, /<span>Plantilla<\/span>/);
   flujo.paso = 4;
   flujo.participaciones = [datos.candidatos.find((c) => c.estado_clave === "disponible").participacion_ref];
   flujo.configuracion = { referencia: "NEC-01", centro: "Centro", modalidad: "Sustitución", plazo: "Hasta el 30 de septiembre, 14:00" };

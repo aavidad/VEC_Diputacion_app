@@ -24,17 +24,18 @@ const respuesta = (status, cuerpo) => ({ ok: status >= 200 && status < 300, stat
 
 test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () => {
   const t = crearTraductorIntentos();
-  assert.equal(t("registrado", { recibo: "r:1" }), "Contacto registrado. Recibo r:1.");
+  assert.equal(t("registrado"), "Contacto registrado.");
   assert.throws(() => t("inexistente"));
   assert.throws(() => crearTraductorIntentos({ ...MENSAJES_INTENTOS_ES, titulo: "" }));
 });
 
-test("la ficha muestra proceso, avisos y reglas con su procedencia, escapando textos", () => {
+test("la ficha muestra proceso, avisos y reglas sin rotular su procedencia, escapando textos", () => {
   const salida = renderizarIntentosContacto({ candidato, estado: { carga: "listo", datos: intentos } });
   assert.match(salida, /Proceso 1 de 2 · intento 2 de 2/);
   assert.match(salida, /Antes de la separación mínima/);
   assert.match(salida, /1 de 4/);
-  assert.match(salida, /Regla de ejemplo<\/span> Franja &lt;b&gt;/);
+  assert.match(salida, /<li>Franja &lt;b&gt;/);
+  assert.doesNotMatch(salida, /Regla de ejemplo|<code>/);
   assert.match(salida, /data-intentos-form="intento"/);
   assert.match(salida, /data-intentos-form="rebote"/);
   assert.doesNotMatch(salida, /data-b8-accion/);

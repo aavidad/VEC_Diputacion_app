@@ -90,9 +90,9 @@ export function renderizarBloqueAvisos({ estado = "cargando", datos = null, erro
   const conteos = datos?.conteos && datos.items.length > 0
     ? `<span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span>${numeroNatural(datos.conteos.solicitud_portal) ? `<span class="estado-chip advertencia">${datos.conteos.solicitud_portal} solicitudes del portal</span>` : ""}${numeroNatural(datos.conteos.respuesta_portal) ? `<span class="estado-chip info">${datos.conteos.respuesta_portal} respuestas del portal</span>` : ""}`
     : "";
-  // El cómputo legal aún pendiente de RRHH se señala con una pastilla; la explicación
-  // completa vive en la ayuda («?»), no en la pantalla.
-  const pendiente = datos?.provisionalidad ? '<span class="estado-chip advertencia" data-avisos-provisional>Pendiente de RRHH</span>' : "";
+  // El cómputo legal aún pendiente de RRHH no se rotula en la pantalla de trabajo:
+  // la explicación vive en la ayuda («?») y el origen de la regla en «Reglas vigentes».
+  const pendiente = "";
   const cabecera = `<div class="cabecera-panel"><h2>Avisos</h2>${conteos || pendiente ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo">${conteos}${pendiente}</div>` : ""}</div>`;
   if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">Cargando avisos…</div></section>`;
   if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || "No se pudieron cargar los avisos.")}</span><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;

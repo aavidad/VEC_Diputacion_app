@@ -186,7 +186,7 @@ test("B7 muestra página local, consulta pendiente, límite y confirmación de c
   assert.match(html, /1 con turno/);
   assert.match(html, /aria-busy="true"/);
   assert.match(html, /Seleccionar todas las que cumplen el filtro<\/button>/);
-  assert.match(html, /aria-label="Ayuda sobre el límite de selección">\?<\/summary>/);
+  assert.doesNotMatch(html, /<summary/);
   assert.match(html, /Configurar llamamiento<\/button>/);
   assert.match(html, /Consultando todas las páginas/);
   assert.match(html, /data-bolsa-accion="b7-fuente-siguiente"/);

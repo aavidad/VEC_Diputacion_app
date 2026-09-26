@@ -24,7 +24,7 @@ test("renderiza carga, vacío, error y lista R10 con contadores y ficha B5", () 
   assert.match(html, /class="tabla-contenedor avisos-bolsa-lista" tabindex="0"/);
   assert.match(html, /Mostrando 1 a 2 de 2/);
   assert.match(html, /data-accion="abrir-ficha-b5"/);
-  assert.match(html, /data-avisos-provisional>Pendiente de RRHH</);
+  assert.doesNotMatch(html, /Pendiente de RRHH|data-avisos-provisional/);
   assert.doesNotMatch(html, /Control interno|Provisional:|B5|Referencias opacas|avisos-bolsa-nota/);
   assert.doesNotMatch(html, /nombre|DNI|correo|teléfono/i);
 });

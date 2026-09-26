@@ -441,3 +441,69 @@ nav.acciones-vista[role="tablist"] > [role="tab"][aria-selected="true"] {
 @media (max-width: 360px) {
   .rejilla-kpi.kpi-candidatos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Nuevo llamamiento (pasos 3 y 4): etiqueta sobre el control, sin solapes. */
+.rejilla-formulario.rejilla-llamamiento {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.rejilla-llamamiento .campo-ancho {
+  grid-column: 1 / -1;
+}
+
+.rejilla-llamamiento .campo select,
+.rejilla-llamamiento .campo input {
+  max-width: 100%;
+}
+
+.acciones-fila.marcadores-correo {
+  flex-direction: row;
+  align-items: center;
+}
+
+.acciones-fila.marcadores-correo button {
+  width: auto;
+}
+
+.confirmacion-llamamiento {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.casilla-confirmacion {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.casilla-confirmacion input {
+  flex: none;
+  margin-top: 3px;
+}
+
+.fila-vista-previa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.fila-vista-previa .campo {
+  flex: 1 1 220px;
+}
+
+.justificante-registrado {
+  font-weight: 600;
+}
+
+.boton-copiar-justificante {
+  margin-left: 6px;
+}
+
+@media (max-width: 640px) {
+  .rejilla-formulario.rejilla-llamamiento {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

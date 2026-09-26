@@ -170,6 +170,15 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
     ]),
   }),
   Object.freeze({
+    id: "bolsa-nuevo-llamamiento", titulo: traducirPortal("ayuda_b7_titulo"), modulo: traducirPortal("ayuda_b7_modulo"), vista: "bolsa-candidatos", selector: '[data-bolsa-form="b7-paso2"]',
+    resumen: traducirPortal("ayuda_b7_resumen"),
+    pasos: Object.freeze([
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="b7-paso2"]', bloqueado: false, titulo: traducirPortal("ayuda_b7_seleccion_titulo"), instruccion: traducirPortal("ayuda_b7_seleccion_instruccion"), objetivo: traducirPortal("ayuda_b7_seleccion_objetivo"), preparacion: traducirPortal("ayuda_b7_seleccion_preparacion"), resultado: traducirPortal("ayuda_b7_seleccion_resultado"), actor: traducirPortal("ayuda_b7_actor"), limite: traducirPortal("ayuda_b7_seleccion_limite") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="b7-paso3"]', bloqueado: false, titulo: traducirPortal("ayuda_b7_configurar_titulo"), instruccion: traducirPortal("ayuda_b7_configurar_instruccion"), objetivo: traducirPortal("ayuda_b7_configurar_objetivo"), preparacion: traducirPortal("ayuda_b7_configurar_preparacion"), resultado: traducirPortal("ayuda_b7_configurar_resultado"), actor: traducirPortal("ayuda_b7_actor"), limite: traducirPortal("ayuda_b7_configurar_limite") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="b7-paso4"]', bloqueado: false, titulo: traducirPortal("ayuda_b7_emitir_titulo"), instruccion: traducirPortal("ayuda_b7_emitir_instruccion"), objetivo: traducirPortal("ayuda_b7_emitir_objetivo"), preparacion: traducirPortal("ayuda_b7_emitir_preparacion"), resultado: traducirPortal("ayuda_b7_emitir_resultado"), actor: traducirPortal("ayuda_b7_actor"), limite: traducirPortal("ayuda_b7_configurar_limite") }),
+    ]),
+  }),
+  Object.freeze({
     id: "bolsa-cambiar-situacion", titulo: traducirPortal("ayuda_contenido_404"), modulo: traducirPortal("ayuda_contenido_405"), vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]',
     resumen: traducirPortal("ayuda_contenido_406"),
     pasos: Object.freeze([

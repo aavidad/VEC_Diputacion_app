@@ -35,7 +35,7 @@ export const MENSAJES_INTENTOS_ES = Object.freeze({
   boton_rebote: "Registrar rebote",
   boton_enviando: "Registrando…",
   boton_proponer_baja: "Proponer baja",
-  registrado: "Contacto registrado. Recibo {recibo}.",
+  registrado: "Contacto registrado.",
   baja_propuesta_texto: "Agotados los procesos sin contacto. La baja la confirma RRHH con la operación de exclusión.",
   error_intento_antes_de_separacion: "No ha pasado la separación mínima desde el último intento.",
   error_intento_fuera_de_franja: "El intento cae fuera de la franja de llamadas.",

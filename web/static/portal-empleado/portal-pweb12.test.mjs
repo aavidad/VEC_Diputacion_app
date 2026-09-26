@@ -32,7 +32,7 @@ test("P-WEB-12 monta Avisos inmediatamente después del cuadro B12 y declara el 
   assert.ok(html.indexOf('id="titulo-cuadro-b12"') >= 0);
   assert.ok(html.indexOf('id="titulo-cuadro-b12"') < html.indexOf("<h2>Avisos</h2>"));
   assert.match(html, /data-accion="abrir-ficha-b5"/);
-  assert.match(html, /data-avisos-provisional>Pendiente de RRHH</);
+  assert.doesNotMatch(html, /Pendiente de RRHH|data-avisos-provisional/);
   assert.doesNotMatch(html, /Cuadro B12|Control interno|Provisional:/);
 });
 

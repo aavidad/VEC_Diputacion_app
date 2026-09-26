@@ -84,10 +84,9 @@ test("B7 con regla rellena el plazo editable y rotula su procedencia", async () 
   assert.equal(flujo.reglaPlazo.procedencia, "Regla de ejemplo");
   flujo.paso = 3;
   const html = presentador(flujo).renderizarVista("bolsa-candidatos");
-  assert.match(html, /<input name="plazo" required minlength="2" maxlength="160" value="Hasta las 23:59:59 del martes, 29 de septiembre de 2026 \(hora peninsular\)" aria-describedby="b7-plazo-procedencia">/);
-  assert.match(html, /id="b7-plazo-procedencia" data-b7-plazo-procedencia>Regla de ejemplo<\/span>/);
-  assert.match(html, /<summary aria-label="Ayuda sobre el plazo propuesto">\?<\/summary><p>Un día hábil/);
-  assert.match(html, /Regla aplicada: vec\.bolsa\.reglas:1:b05\.plazo_respuesta/);
+  assert.match(html, /<input name="plazo" required minlength="2" maxlength="160" value="Hasta las 23:59:59 del martes, 29 de septiembre de 2026 \(hora peninsular\)">/);
+  // La procedencia de la regla no se rotula en la pantalla de trabajo: consta en la ayuda y en «Reglas vigentes».
+  assert.doesNotMatch(html, /Regla de ejemplo|data-b7-plazo-procedencia|<summary|vec\.bolsa\.reglas:1/);
   // Lo que RRHH escriba prevalece sobre la propuesta.
   flujo.configuracion = { plazo: "Hasta el viernes a las 14:00" };
   assert.match(presentador(flujo).renderizarVista("bolsa-candidatos"), /name="plazo"[^>]*value="Hasta el viernes a las 14:00"/);
