@@ -24,10 +24,10 @@
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
-          "norma": "Supuesto de trabajo: segunda persona obligatoria en la exclusión.",
+          "norma": "Supuesto de trabajo: segunda persona en la pausa, la reactivación y la exclusión.",
           "duda": "Duda 6 de RRHH: qué operaciones requieren una segunda persona y cómo se suplen las ausencias.",
           "unidad": "lista",
-          "valor": "excluir"
+          "valor": "pausar,reactivar,excluir"
         },
         "orden": 1
       }

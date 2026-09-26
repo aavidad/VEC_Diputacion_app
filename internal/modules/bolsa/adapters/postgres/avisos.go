@@ -15,6 +15,17 @@ type ConsultaAvisosRRHHPostgreSQL struct {
 	// portal añade las solicitudes y respuestas del portal del candidato
 	// (Bolsa 000030); solo se activa si esa migración está compuesta.
 	portal bool
+	// parametros usa la bandeja v2 (Bolsa 000041): plazos del catálogo y
+	// aviso de encadenamiento. Se activa en la composición, antes de servir.
+	parametros bool
+}
+
+// ActivarParametros cambia a la bandeja v2 (Bolsa 000041). Solo debe
+// llamarse durante la composición, después de publicar la política.
+func (c *ConsultaAvisosRRHHPostgreSQL) ActivarParametros() {
+	if c != nil {
+		c.parametros = true
+	}
 }
 
 // NuevaConsultaAvisosRRHHConPortalPostgreSQL incluye en la bandeja las
@@ -29,10 +40,14 @@ func NuevaConsultaAvisosRRHHConPortalPostgreSQL(pool *pgxpool.Pool) (*ConsultaAv
 }
 
 func (c *ConsultaAvisosRRHHPostgreSQL) origen() string {
-	if c.portal {
-		return `(SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) UNION ALL SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1($1)) a`
+	bandeja := `vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1)`
+	if c.parametros {
+		bandeja = `vec_bolsa_llamamientos.consultar_avisos_rrhh_v2($1)`
 	}
-	return `vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) a`
+	if c.portal {
+		return `(SELECT * FROM ` + bandeja + ` UNION ALL SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1($1)) a`
+	}
+	return bandeja + ` a`
 }
 
 var _ puertosbolsa.ConsultaAvisosRRHH = (*ConsultaAvisosRRHHPostgreSQL)(nil)
@@ -80,6 +95,9 @@ func (c *ConsultaAvisosRRHHPostgreSQL) ContarAvisosRRHH(ctx context.Context, cor
 	conteos := map[string]int{dominiobolsa.AvisoSaltoOrden: 0, dominiobolsa.AvisoTresAnos: 0}
 	if c.portal {
 		conteos[dominiobolsa.AvisoSolicitudPortal], conteos[dominiobolsa.AvisoRespuestaPortal] = 0, 0
+	}
+	if c.parametros {
+		conteos[dominiobolsa.AvisoEncadenamiento] = 0
 	}
 	for filas.Next() {
 		var tipo string
