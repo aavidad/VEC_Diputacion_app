@@ -92,6 +92,8 @@ type ServicioOperacionesSeguimiento struct {
 	// de GINPIX no está disponible y el cierre conserva su conducta previa.
 	ginpix     ports.FuenteReglaConfirmacionGINPIX
 	acreditada ports.LectorIncorporacionAcreditada
+	// No incorporación (CT124), opcional y solo con la anterior.
+	noIncorporacion ports.FuenteReglaNoIncorporacion
 }
 
 type DependenciasOperacionesSeguimiento struct {
@@ -107,18 +109,24 @@ type DependenciasOperacionesSeguimiento struct {
 	// GINPIX y Acreditada van juntas: o las dos o ninguna.
 	GINPIX     ports.FuenteReglaConfirmacionGINPIX
 	Acreditada ports.LectorIncorporacionAcreditada
+	// NoIncorporacion exige GINPIX y Acreditada.
+	NoIncorporacion ports.FuenteReglaNoIncorporacion
 }
 
 func NuevoServicioOperacionesSeguimiento(d DependenciasOperacionesSeguimiento) (*ServicioOperacionesSeguimiento, error) {
 	if dependenciaNula(d.Contextos) || dependenciaNula(d.Sellos) || dependenciaNula(d.Repositorio) || dependenciaNula(d.Reglas) ||
 		dependenciaNula(d.Autorizador) || dependenciaNula(d.Referencias) || dependenciaNula(d.Coste) || dependenciaNula(d.Lector) ||
-		dependenciaNula(d.Reloj) || dependenciaNula(d.GINPIX) != dependenciaNula(d.Acreditada) {
+		dependenciaNula(d.Reloj) || dependenciaNula(d.GINPIX) != dependenciaNula(d.Acreditada) ||
+		(!dependenciaNula(d.NoIncorporacion) && dependenciaNula(d.GINPIX)) {
 		return nil, ErrServicioSeguimientoInvalido
 	}
 	s := &ServicioOperacionesSeguimiento{contextos: d.Contextos, sellos: d.Sellos, repositorio: d.Repositorio, reglas: d.Reglas,
 		autorizador: d.Autorizador, referencias: d.Referencias, coste: d.Coste, lector: d.Lector, reloj: d.Reloj}
 	if !dependenciaNula(d.GINPIX) {
 		s.ginpix, s.acreditada = d.GINPIX, d.Acreditada
+	}
+	if !dependenciaNula(d.NoIncorporacion) {
+		s.noIncorporacion = d.NoIncorporacion
 	}
 	return s, nil
 }
@@ -202,6 +210,8 @@ func tipoRecursoSeguimiento(operacion string) string {
 		return ports.TipoRecursoCierreExpediente
 	case ports.OperacionConfirmarGINPIX:
 		return ports.TipoRecursoConfirmacionGINPIX
+	case ports.OperacionRegistrarNoIncorporacion:
+		return ports.TipoRecursoNoIncorporacion
 	default:
 		return ports.TipoRecursoModificacionNombramiento
 	}
@@ -496,6 +506,13 @@ func (s *ServicioOperacionesSeguimiento) Opciones(ctx context.Context) (ports.Op
 	}
 	o := ports.OpcionesSeguimiento{Causas: causas, Condiciones: cierre.Condiciones, FaseRetorno: modificacion.FaseRetorno, Motivos: modificacion.Motivos,
 		ConfirmacionGINPIX: s.ginpix != nil}
+	if s.noIncorporacion != nil {
+		regla, _, err := s.noIncorporacion.ReglaNoIncorporacion(ctx, ahora)
+		if err != nil {
+			return ports.OpcionesSeguimiento{}, ports.ErrOperacionSeguimientoNoDisponible
+		}
+		o.NoIncorporacion = &regla
+	}
 	if !o.Validas() {
 		return ports.OpcionesSeguimiento{}, ports.ErrOperacionSeguimientoNoDisponible
 	}

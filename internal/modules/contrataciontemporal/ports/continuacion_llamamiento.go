@@ -55,11 +55,14 @@ type ComandoSiguienteLlamamiento struct {
 // Seleccion solo acompaña a una expiración confirmada: sin justificante, CT119
 // devuelve el recibo de selección original de la misma comunicación. En una
 // renuncia se consulta con el justificante y aquí debe venir vacía.
+// NoIncorporacion solo acompaña a una aceptación seguida de no incorporación
+// (CT124): la intención y el comando son los de la no incorporación.
 type AntecedenteContinuacionLlamamiento struct {
 	Resolucion          ResultadoResolucionLlamamiento
 	ComandoSiguienteRef string
 	ComandoSiguiente    ComandoSiguienteLlamamiento
 	Seleccion           *ReciboSolicitudLlamamientoBolsa `json:",omitempty"`
+	NoIncorporacion     *AntecedenteNoIncorporacion      `json:",omitempty"`
 }
 
 // EsExpiracion indica que el antecedente es la expiración confirmada por RRHH.
@@ -67,10 +70,24 @@ func (a AntecedenteContinuacionLlamamiento) EsExpiracion() bool {
 	return a.Resolucion.Solicitud.Respuesta == RespuestaLlamamientoExpirada
 }
 
+// EsNoIncorporacion indica que el antecedente es una aceptación seguida de
+// una no incorporación registrada por RRHH.
+func (a AntecedenteContinuacionLlamamiento) EsNoIncorporacion() bool {
+	return a.Resolucion.Solicitud.Respuesta == RespuestaLlamamientoAceptada && a.NoIncorporacion != nil
+}
+
 func (a AntecedenteContinuacionLlamamiento) ValidarPara(s SolicitudContinuarLlamamiento) error {
 	r, c := a.Resolucion, a.ComandoSiguiente
+	intencion, comando := r.IntencionSiguiente.IntencionRef, r.IntencionSiguiente.ComandoOpacoRef
 	expiracion := a.EsExpiracion()
-	if expiracion {
+	if a.NoIncorporacion != nil {
+		n := a.NoIncorporacion
+		if !a.EsNoIncorporacion() || a.Seleccion != nil || !n.Valido() || r.EstadoPlazo != PlazoLlamamientoVigente ||
+			r.IntencionSiguiente != (IntencionOutboxSiguienteCandidato{}) || n.RegistradaEn.Before(r.ResueltaEn) {
+			return ErrOperacionContinuacionNoDisponible
+		}
+		intencion, comando = n.IntencionRef, n.ComandoRef
+	} else if expiracion {
 		if r.EstadoPlazo != PlazoLlamamientoExpirado || a.Seleccion == nil ||
 			SeleccionOriginalValidaPara(*a.Seleccion, r.Solicitud.OrganizacionRef, r.Solicitud.ExpedienteRef, r.Solicitud.LlamamientoRef) != nil {
 			return ErrOperacionContinuacionNoDisponible
@@ -81,9 +98,9 @@ func (a AntecedenteContinuacionLlamamiento) ValidarPara(s SolicitudContinuarLlam
 	if s.Validar() != nil || r.ValidarPara(r.Solicitud) != nil ||
 		r.Estado != ResultadoComunicacionLlamamientoConfirmado || !r.Solicitud.RevisionManualConfirmada() ||
 		r.Solicitud.OrganizacionRef != s.OrganizacionRef || r.Solicitud.ExpedienteRef != s.ExpedienteRef ||
-		r.ResolucionRef != s.ResolucionRef || r.IntencionSiguiente.IntencionRef != s.IntencionRef ||
+		r.ResolucionRef != s.ResolucionRef || intencion != s.IntencionRef ||
 		c.Esquema != "vec.contratacion-temporal.siguiente-candidato.intencion.v1" ||
-		c.ComandoRef != a.ComandoSiguienteRef || c.ComandoRef != r.IntencionSiguiente.ComandoOpacoRef ||
+		c.ComandoRef != a.ComandoSiguienteRef || c.ComandoRef != comando ||
 		c.IntencionRef != s.IntencionRef || c.OrganizacionRef != s.OrganizacionRef || c.ExpedienteRef != s.ExpedienteRef ||
 		c.LlamamientoRef != r.Solicitud.LlamamientoRef || c.JustificanteRef != r.Solicitud.PruebaRespuestaRef ||
 		!ClaveIdempotenciaValida(c.SeleccionClave) {

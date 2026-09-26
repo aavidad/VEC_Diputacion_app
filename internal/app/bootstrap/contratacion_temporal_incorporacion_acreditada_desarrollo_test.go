@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -122,7 +123,8 @@ func TestIncorporacionAcreditadaSelectorYMigraciones(t *testing.T) {
 	}
 	s := seleccionMaterialCTDesarrollo{incorporacionAcreditada: true}
 	d := descriptoresMaterialSeleccionadosCTDesarrollo(s)
-	if len(d) == 0 || d[len(d)-1].Audiencia != ports.AudienciaConsumoConfirmacionGINPIXV1 {
-		t.Fatalf("descriptor de GINPIX: %+v", d)
+	if len(d) < 2 || d[len(d)-2].Audiencia != ports.AudienciaConsumoConfirmacionGINPIXV1 || d[len(d)-1].Audiencia != ports.AudienciaConsumoNoIncorporacionV1 ||
+		!slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), ports.AudienciaConsumoNoIncorporacionV1) {
+		t.Fatalf("descriptores de GINPIX y de la no incorporación: %+v", d)
 	}
 }

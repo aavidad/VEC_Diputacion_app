@@ -71,6 +71,9 @@ func NuevosManejadoresSeguimiento(a AutoridadCanalSeguimiento, l AutorizadorLect
 	if _, ok := e.(EjecutorConfirmacionGINPIX); ok {
 		m[RutaConfirmacionesGINPIX] = &manejadorSeguimiento{ruta: RutaConfirmacionesGINPIX, autoridad: a, lectura: l, ejecutor: e}
 	}
+	if _, ok := e.(EjecutorNoIncorporacion); ok {
+		m[RutaNoIncorporaciones] = &manejadorSeguimiento{ruta: RutaNoIncorporaciones, autoridad: a, lectura: l, ejecutor: e}
+	}
 	return m, nil
 }
 
@@ -113,6 +116,8 @@ func (h *manejadorSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		recibo, err = h.cierre(r.Context(), canal, contenido)
 	case RutaConfirmacionesGINPIX:
 		recibo, err = h.ginpix(r.Context(), canal, contenido)
+	case RutaNoIncorporaciones:
+		recibo, err = h.noIncorporacion(r.Context(), canal, contenido)
 	default:
 		recibo, err = h.modificacion(r.Context(), canal, contenido)
 	}
@@ -277,6 +282,9 @@ func (h *manejadorSeguimiento) consultar(w http.ResponseWriter, r *http.Request,
 }
 
 func estadoErrorSeguimiento(err error) (int, string) {
+	if estado, codigo, propio := estadoErrorNoIncorporacion(err); propio {
+		return estado, codigo
+	}
 	switch {
 	case errors.Is(err, errContenidoSeguimiento), errors.Is(err, application.ErrSolicitudSeguimientoInvalida), errors.Is(err, ports.ErrOperacionSeguimientoInvalida):
 		return http.StatusUnprocessableEntity, "contenido_no_valido"
@@ -346,6 +354,9 @@ func opcionesSeguimientoJSON(o ports.OpcionesSeguimiento) map[string]any {
 	if o.ConfirmacionGINPIX {
 		salida["confirmacion_ginpix"] = true
 	}
+	if o.NoIncorporacion != nil {
+		salida["no_incorporacion"] = opcionesNoIncorporacionJSON(o.NoIncorporacion)
+	}
 	return salida
 }
 
@@ -374,6 +385,9 @@ func estadoSeguimientoJSON(e ports.EstadoSeguimientoExpediente) map[string]any {
 			salida["confirmacion_centro"] = map[string]string{"fecha_incorporacion": c.FechaIncorporacion, "documento_tipo": c.DocumentoTipo,
 				"documento_ref": c.DocumentoRef, "documento_sha256": c.DocumentoSHA256, "recibo_ref": c.ReciboRef,
 				"registrada_en": c.RegistradaEn.UTC().Format(time.RFC3339Nano)}
+		}
+		if n := a.NoIncorporacion; n != nil {
+			salida["no_incorporacion"] = estadoNoIncorporacionJSON(n)
 		}
 	}
 	return salida

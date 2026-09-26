@@ -26,7 +26,7 @@ import (
 var ErrIncorporacionAcreditadaMigracionesNoDisponibles = errors.New("bootstrap: incorporación acreditada de CT sin sus migraciones")
 
 var (
-	ErrIncorporacionAcreditadaFaltaAD388   = fmt.Errorf("%w: falta AD3-88 (consumidores de GINPIX y del centro)", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
+	ErrIncorporacionAcreditadaFaltaAD388   = fmt.Errorf("%w: falta AD3-88 (consumidores de GINPIX, del centro y de la no incorporación)", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
 	ErrIncorporacionAcreditadaFaltaCT124   = fmt.Errorf("%w: falta CT 000124 (incorporación acreditada)", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
 	errIncorporacionAcreditadaComprobacion = fmt.Errorf("%w: no se pudo comprobar el catálogo", ErrIncorporacionAcreditadaMigracionesNoDisponibles)
 )
@@ -35,15 +35,18 @@ var (
 // de CT: exige que las fachadas de CT 000124 existan y pueda ejecutarlas; de
 // AD3-88 comprueba en el catálogo sus fachadas, que ese LOGIN no ejecuta.
 const consultaMigracionesIncorporacionAcreditada = `SELECT
- (SELECT count(*)=2 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ (SELECT count(*)=3 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname IN ('registrar_y_consumir_confirmacion_ginpix_ct_v3_atestada',
-     'registrar_y_consumir_incorporacion_centro_v3_atestada')),
+     'registrar_y_consumir_incorporacion_centro_v3_atestada','registrar_y_consumir_no_incorporacion_ct_v3_atestada')),
  (SELECT coalesce(bool_and(pg_catalog.to_regprocedure(f) IS NOT NULL AND pg_catalog.has_function_privilege(pg_catalog.to_regprocedure(f),'EXECUTE')),false) FROM pg_catalog.unnest(ARRAY[
   'vec_contratacion_temporal.preparar_confirmacion_ginpix_v1(jsonb)',
   'vec_contratacion_temporal.confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)']) f)`
+  'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)',
+  'vec_contratacion_temporal.preparar_no_incorporacion_v1(jsonb)',
+  'vec_contratacion_temporal.confirmar_no_incorporacion_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(bigint,text,integer)']) f)`
 
 // comprobarMigracionesIncorporacionAcreditadaDesarrollo se llama al arrancar,
 // solo con el selector encendido, antes de publicar sus claves.
@@ -74,12 +77,48 @@ func incorporacionAcreditadaSolicitada(cfg config.Config) bool {
 	return activo
 }
 
-// descriptorMaterialConfirmacionGINPIXDesarrollo es la única audiencia nueva:
+// descriptorMaterialConfirmacionGINPIXDesarrollo es la audiencia de GINPIX;
 // la del centro reutiliza el material de las peticiones de centro.
 func descriptorMaterialConfirmacionGINPIXDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
 	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: ports.AudienciaConsumoConfirmacionGINPIXV1,
 		Dominio: "vec.ct.confirmacion-ginpix.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-confirmacion-ginpix:",
 		ProveedorNominal: proveedorMaterialContratacionTemporal}
+}
+
+// descriptorMaterialNoIncorporacionDesarrollo: audiencia propia de la no
+// incorporación (AD3-88).
+func descriptorMaterialNoIncorporacionDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: ports.AudienciaConsumoNoIncorporacionV1,
+		Dominio: "vec.ct.no-incorporacion.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-no-incorporacion:",
+		ProveedorNominal: proveedorMaterialContratacionTemporal}
+}
+
+// Atributos de c13: «etiqueta_<motivo>», «consecuencia_<motivo>» y
+// «segunda_persona» («si» exige que resuelva otra persona).
+const (
+	prefijoEtiquetaNoIncorporacion     = "etiqueta_"
+	prefijoConsecuenciaNoIncorporacion = "consecuencia_"
+	atributoSegundaPersona             = "segunda_persona"
+	valorSegundaPersonaExigida         = "si"
+)
+
+// ReglaNoIncorporacion lee la regla c13 vigente (motivos, consecuencia de
+// cada uno en Bolsa y segregación); la ampara esa misma regla con el motivo
+// de su ruta. Sin la regla, la operación no está disponible.
+func (f fuenteReglasSeguimientoDesarrollo) ReglaNoIncorporacion(ctx context.Context, instante time.Time) (ports.ReglaNoIncorporacion, ports.PoliticaOperacionSeguimiento, error) {
+	regla, err := f.reglas.Regla(ctx, reglas.CTNoIncorporacion)
+	if err != nil {
+		return ports.ReglaNoIncorporacion{}, ports.PoliticaOperacionSeguimiento{}, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	r := ports.ReglaNoIncorporacion{SegundaPersona: regla.Atributos[atributoSegundaPersona] == valorSegundaPersonaExigida}
+	for _, clave := range regla.Elementos() {
+		r.Motivos = append(r.Motivos, ports.MotivoNoIncorporacion{Clave: clave, Etiqueta: regla.Atributos[prefijoEtiquetaNoIncorporacion+clave],
+			ConsecuenciaClave: regla.Atributos[prefijoConsecuenciaNoIncorporacion+clave]})
+	}
+	if !r.Valida() {
+		return ports.ReglaNoIncorporacion{}, ports.PoliticaOperacionSeguimiento{}, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	return r, politicaSeguimientoDesarrollo(regla, httpinterno.RutaNoIncorporaciones, instante), nil
 }
 
 // PoliticaConfirmacionGINPIX: la confirmación la ampara la regla c10 (la que

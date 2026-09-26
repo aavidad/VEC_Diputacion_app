@@ -42,6 +42,9 @@ var operacionesSeguimientoSQL = map[string]descriptorOperacionSeguimiento{
 	ports.OperacionConfirmarGINPIX: {"vec_contratacion_temporal.preparar_confirmacion_ginpix_v1",
 		"vec_contratacion_temporal.confirmar_confirmacion_ginpix_v1", "vec.contratacion-temporal.preparar-confirmacion-ginpix.v1",
 		"vec.contratacion-temporal.confirmar-confirmacion-ginpix.v1", "vec.contratacion-temporal.resultado-confirmacion-ginpix.v1"},
+	ports.OperacionRegistrarNoIncorporacion: {"vec_contratacion_temporal.preparar_no_incorporacion_v1",
+		"vec_contratacion_temporal.confirmar_no_incorporacion_v1", "vec.contratacion-temporal.preparar-no-incorporacion.v1",
+		"vec.contratacion-temporal.confirmar-no-incorporacion.v1", "vec.contratacion-temporal.resultado-no-incorporacion.v1"},
 }
 
 type RepositorioOperacionSeguimientoPostgreSQL struct {
@@ -105,6 +108,16 @@ func materialSeguimientoSQL(operacion string, material any) (map[string]any, str
 		r["ginpix_numero"], r["ginpix_confirmada_en"] = m.Datos.Numero, m.Datos.ConfirmadaEn.Format(time.DateOnly)
 		r["observaciones"] = m.Datos.Observaciones
 		return r, m.OrganizacionRef, m.ExpedienteRef, nil
+	case ports.MaterialNoIncorporacion:
+		if operacion != ports.OperacionRegistrarNoIncorporacion || !m.Valido() {
+			break
+		}
+		d := m.Datos
+		r := base(m.OrganizacionRef, m.ExpedienteRef, m.ActorRef, m.PerfilRef, m.VersionEsperada)
+		r["motivo_clave"], r["consecuencia_clave"], r["resolucion_ref"] = d.MotivoClave, d.ConsecuenciaClave, d.ResolucionRef
+		r["resolucion_sha256"], r["resuelta_por"], r["segunda_persona"] = d.ResolucionSHA256, d.ResueltaPor, d.SegundaPersona
+		r["fecha_notificacion"], r["observaciones"] = d.FechaNotificacion.Format(time.DateOnly), d.Observaciones
+		return r, m.OrganizacionRef, m.ExpedienteRef, nil
 	}
 	return nil, "", "", ports.ErrOperacionSeguimientoInvalida
 }
@@ -147,10 +160,13 @@ type respuestaSeguimientoSQL struct {
 		ReciboRef string `json:"recibo_ref"`
 		Inicio    string `json:"inicio"`
 	} `json:"incorporacion,omitempty"`
-	CeseReciboRef string                `json:"cese_recibo_ref,omitempty"`
-	AmbitoHMAC    string                `json:"ambito_idempotencia_hmac,omitempty"`
-	HuellaHMAC    string                `json:"huella_peticion_hmac,omitempty"`
-	Recibo        *reciboSeguimientoSQL `json:"recibo,omitempty"`
+	CeseReciboRef string `json:"cese_recibo_ref,omitempty"`
+	Aceptacion    *struct {
+		ResolucionRef string `json:"resolucion_ref"`
+	} `json:"aceptacion,omitempty"`
+	AmbitoHMAC string                `json:"ambito_idempotencia_hmac,omitempty"`
+	HuellaHMAC string                `json:"huella_peticion_hmac,omitempty"`
+	Recibo     *reciboSeguimientoSQL `json:"recibo,omitempty"`
 }
 
 func errorResultadoSeguimiento(resultado string) error {
@@ -179,6 +195,14 @@ func errorResultadoSeguimiento(resultado string) error {
 		return ports.ErrGINPIXYaConfirmado
 	case "ginpix_no_confirmado":
 		return ports.ErrGINPIXNoConfirmado
+	case "sin_aceptacion":
+		return ports.ErrSinAceptacion
+	case "incorporacion_existente":
+		return ports.ErrIncorporacionExistente
+	case "no_incorporacion_existente":
+		return ports.ErrNoIncorporacionExistente
+	case "fecha_no_admitida":
+		return ports.ErrFechaNoIncorporacionNoAdmitida
 	}
 	return ports.ErrResultadoSeguimientoNoConfiable
 }
@@ -203,6 +227,7 @@ func normalizarErrorSeguimiento(ctx context.Context, err error) error {
 	for _, propio := range []error{domain.ErrVersionEnConflicto, ports.ErrClaveIdempotenciaUsada, ports.ErrCeseSinIncorporacion,
 		ports.ErrCeseFechaAnteriorIncorporacion, ports.ErrCeseYaRegistrado, ports.ErrCierreSinCese, ports.ErrCierreYaRegistrado,
 		ports.ErrModificacionSinCambios, ports.ErrModificacionCreditoInsuficiente, ports.ErrGINPIXYaConfirmado, ports.ErrGINPIXNoConfirmado,
+		ports.ErrSinAceptacion, ports.ErrIncorporacionExistente, ports.ErrNoIncorporacionExistente, ports.ErrFechaNoIncorporacionNoAdmitida,
 		ports.ErrResultadoSeguimientoNoConfiable,
 		ports.ErrOperacionSeguimientoInvalida, ports.ErrAutorizacionDenegada} {
 		if errors.Is(err, propio) {
@@ -302,6 +327,9 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) PrepararOperacionSeguimiento
 			}
 			p.IncorporacionRef, p.InicioIncorporacion = resp.Incorporacion.ReciboRef, inicio.UTC()
 		}
+		if resp.Aceptacion != nil {
+			p.AceptacionRef = resp.Aceptacion.ResolucionRef
+		}
 		if fuente, ok := resp.Material["fuente_coste_ref"].(string); ok {
 			p.FuenteCosteRef = fuente
 		}
@@ -374,6 +402,8 @@ func tipoRecursoOperacionSeguimiento(operacion string) string {
 		return ports.TipoRecursoModificacionNombramiento
 	case ports.OperacionConfirmarGINPIX:
 		return ports.TipoRecursoConfirmacionGINPIX
+	case ports.OperacionRegistrarNoIncorporacion:
+		return ports.TipoRecursoNoIncorporacion
 	}
 	return ""
 }

@@ -236,11 +236,15 @@ func registroPropuestaIntegracion(orden ports.RegistroLlamamientoDesarrollo, ope
 }
 
 // estadoTerminalContinuable devuelve el estado de un terminal que admite
-// siguiente llamamiento: renuncia o expiración confirmadas por RRHH.
+// siguiente llamamiento: renuncia o expiración confirmadas por RRHH, o la
+// aceptación de RRHH cuando la persona no se incorporó (el guardado exige la
+// no incorporación registrada en la bandeja de Bolsa 000042).
 func estadoTerminalContinuable(tipo string) (domain.EstadoLlamamiento, bool) {
 	switch tipo {
 	case "renuncia_rrhh":
 		return domain.EstadoLlamamientoRenunciado, true
+	case "aceptacion_rrhh":
+		return domain.EstadoLlamamientoAceptado, true
 	case ports.TipoExpiracionRRHHDesarrollo:
 		return domain.EstadoLlamamientoExpirado, true
 	}
@@ -347,6 +351,7 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarSiguienteLlamamient
 		Orden: domain.OrdenProponerPrimerLlamamiento{PropuestaRef: referenciaIntegracionDesarrollo("propuesta", p.OperacionRef),
 			Bolsa: d.Bolsa, Necesidad: d.Necesidad, Instantanea: orden.Instantanea, Politica: d.Politica, Evaluaciones: evaluaciones, GeneradaEn: ahora},
 		Anterior: *apertura.Propuesta, Terminal: cerrado, Continuacion: continuacion,
+		TrasNoIncorporacion: terminal.Tipo == "aceptacion_rrhh",
 	})
 	if err != nil {
 		return vacio, err

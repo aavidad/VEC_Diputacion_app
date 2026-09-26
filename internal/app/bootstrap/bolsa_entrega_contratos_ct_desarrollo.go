@@ -109,18 +109,25 @@ func iniciarEntregaContratosCTBolsaDesarrollo(cfg config.ConfiguracionEntregaCon
 }
 
 func mantenerEntregaContratosCTBolsa(relevo *entregaContratosCTBolsa, intervalo time.Duration, esperar esperaRenovacionCTDesarrollo) func() {
+	return mantenerEntregaCTBolsa("contratos", relevo.entregar, intervalo, esperar)
+}
+
+// mantenerEntregaCTBolsa repite una pasada del relevo cada intervalo hasta
+// que se detiene; lo comparten los relevos de contratos y de no
+// incorporaciones.
+func mantenerEntregaCTBolsa(nombre string, entregar func(context.Context) (resultadoEntregaContratosCT, error), intervalo time.Duration, esperar esperaRenovacionCTDesarrollo) func() {
 	ctx, cancelar := context.WithCancel(context.Background())
 	terminado := make(chan struct{})
 	go func() {
 		defer close(terminado)
 		for ctx.Err() == nil {
 			pasada, cancelarPasada := context.WithTimeout(ctx, max(intervalo, 30*time.Second))
-			r, err := relevo.entregar(pasada)
+			r, err := entregar(pasada)
 			cancelarPasada()
 			if err != nil && ctx.Err() == nil {
-				slog.Error("entrega de contratos CT a Bolsa no disponible; se reintentará", "causa", err)
+				slog.Error("entrega CT a Bolsa no disponible; se reintentará", "relevo", nombre, "causa", err)
 			} else if r.nuevos > 0 || r.rechazados > 0 {
-				slog.Info("entrega de contratos CT a Bolsa", "nuevos", r.nuevos, "reentregas", r.reentregas, "rechazados", r.rechazados)
+				slog.Info("entrega CT a Bolsa", "relevo", nombre, "nuevos", r.nuevos, "reentregas", r.reentregas, "rechazados", r.rechazados)
 			}
 			if esperar(ctx, intervalo) != nil {
 				return

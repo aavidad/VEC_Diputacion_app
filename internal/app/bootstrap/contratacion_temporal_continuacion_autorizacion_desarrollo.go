@@ -68,7 +68,7 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 		}
 		if m.Etapa == "confirmacion" {
 			l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
-			if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != (p.expediente.VersionActual > 6) ||
+			if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != soloRecuperacionContinuacionDesarrollo(l.antecedente, p.expediente.VersionActual) ||
 				!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) || !l.antecedenteLigado() ||
 				m.ReciboBolsa.OperacionRef != operacionSiguienteDesarrollo(m.Solicitud) ||
 				m.ReciboBolsa.TerminalOperacionRef != terminalContinuacionDesarrollo(l) ||
@@ -79,7 +79,7 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 		return igual(postgresct.RecursoContinuacionLlamamiento(m))
 	}
 	l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
-	if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != (p.expediente.VersionActual > 6) ||
+	if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != soloRecuperacionContinuacionDesarrollo(l.antecedente, p.expediente.VersionActual) ||
 		!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
 		!antecedenteLigadoAlExpedienteDesarrollo(p.expediente, l.antecedente.Resolucion.Solicitud) {
 		return false
