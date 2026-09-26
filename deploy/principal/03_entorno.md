@@ -334,3 +334,24 @@ bash deploy/principal/preparar_candidato_desarrollo.sh
 `preparar_candidato_desarrollo.sh` sigue siendo una operación posterior y
 separada. Instalar 000021 y rellenar los vínculos no enciende por sí mismo
 «Mi bolsa» ni declara una sesión de candidato probada.
+
+## Relevo de no incorporaciones (CT124 y Bolsa 000042)
+
+Con la incorporación acreditada encendida, la baja en Bolsa por no
+incorporación la entrega un relevo con **conexión propia**:
+
+- Orden de instalación: AD3-88, **CT124 antes que Bolsa 000042** (Bolsa usa la
+  comprobación de origen que concede CT124). Bolsa 000042 crea el grupo
+  `vec_bolsa_llamamientos_relevo_no_incorporacion` (sin LOGIN), así que se
+  instala con la sesión DBA, como Personal 000012. Detección:
+  `SELECT to_regclass('vec_bolsa_llamamientos.no_incorporacion_bolsa') IS NOT NULL`.
+- LOGIN nominal fuera de Git, miembro **solo** de ese grupo (INHERIT, sin
+  ADMIN), con su línea `hostssl`/`reject` en `pg_hba.conf` como las demás:
+  `GRANT vec_bolsa_llamamientos_relevo_no_incorporacion TO <login> WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;`
+- Entorno: `VEC_BOLSA_RELEVO_NO_INCORPORACION_DATABASE_URL` (mismo patrón TLS
+  que las demás; el arranque rechaza reutilizar otro LOGIN y comprueba en cada
+  conexión que no pertenece a ningún otro rol). Solo se exige si el relevo está
+  activo. Suma **una** al contador `vec_conexiones` de `arrancar_app.sh`.
+- Al arrancar, la aplicación publica con la cuenta de ejecución de Bolsa la
+  política de no incorporación desde el catálogo (b24); sin ella, las entregas
+  quedan pendientes de revisión en los avisos de Bolsa.
