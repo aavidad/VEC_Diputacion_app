@@ -76,7 +76,7 @@ func (c catalogoFronterasComunDesarrollo) mismaInstancia(otro catalogoFronterasC
 
 func (d descriptorFronteraComunDesarrollo) valida() bool {
 	if d.Clave == "" || (d.Superficie != superficieInternaSeguridadComunDesarrollo &&
-		!(d.Superficie == superficieExternaPersonalSeguridadComunDesarrollo && len(bolsapersonal.AccionPortalEn(d.Metodo, d.Ruta)) != 0)) ||
+		!(d.Superficie == superficieExternaPersonalSeguridadComunDesarrollo && (len(bolsapersonal.AccionPortalEn(d.Metodo, d.Ruta)) != 0 || operacionSeleccionPersonalDesarrollo(d.Metodo, d.Ruta)))) ||
 		d.Ruta == "" || d.ClavePolitica == "" || d.ClaveCapacidad == "" ||
 		!claveCatalogoComunValida(d.Clave) || !claveCatalogoComunValida(d.ClavePolitica) ||
 		!claveCatalogoComunValida(d.ClaveCapacidad) || !rutaCatalogoComunValida(d.Ruta) ||

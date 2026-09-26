@@ -18,6 +18,9 @@ type seleccionMaterialCTDesarrollo struct {
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
 	incorporacionAcreditada                                          bool
+	// seleccionSolicitudes compone la solicitud de participación de Selección
+	// (AD3-89 y AD3-90).
+	seleccionSolicitudes bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -42,6 +45,12 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		return s, fmt.Errorf("%w: falta Mi bolsa (PostgreSQL de llamamientos o identidad del candidato)",
 			config.ErrConfiguracionBolsaPortalCandidatoActivacion)
 	}
+	// La persona usa la identidad y la conexión de «Mi bolsa»: pedir las
+	// solicitudes de Selección sin ellas no se ignora.
+	if seleccionSolicitudesSolicitada(cfg) && !debeComponerMiBolsaDesarrollo(cfg) {
+		return s, fmt.Errorf("%w: falta Mi bolsa (PostgreSQL de llamamientos o identidad de la persona)",
+			config.ErrConfiguracionSeleccionSolicitudesActivacion)
+	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:         cfg.BolsaBorradoresEnabled,
 		miBolsa:                 debeComponerMiBolsaDesarrollo(cfg),
@@ -57,6 +66,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		cancelacion:             cancelacionCTSolicitada(cfg),
 		personalB2:              personalB2,
 		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
+		seleccionSolicitudes:    seleccionSolicitudesSolicitada(cfg),
 	}
 	return s, nil
 }
@@ -74,6 +84,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 		return err
 	}
 	if _, err := cfg.CTCancelacionDesarrolloActivo(); err != nil {
+		return err
+	}
+	if _, err := cfg.SeleccionSolicitudesDesarrolloActivo(); err != nil {
 		return err
 	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
@@ -127,6 +140,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	if s.cancelacion {
 		d = append(d, descriptoresMaterialCancelacionCTDesarrollo()...)
 	}
+	if s.seleccionSolicitudes {
+		d = append(d, descriptoresMaterialSeleccionDesarrollo()...)
+	}
 	return d
 }
 
@@ -140,11 +156,13 @@ func validarValorSelectoresDespliegueBolsaCT(cfg config.Config) error {
 		func() error { _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); return err }(),
 		func() error { _, err := cfg.CTCancelacionDesarrolloActivo(); return err }(),
 		func() error { _, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo(); return err }(),
+		func() error { _, err := cfg.SeleccionSolicitudesDesarrolloActivo(); return err }(),
 	} {
 		if errors.Is(err, config.ErrConfiguracionBolsaPortalCandidatoSelector) ||
 			errors.Is(err, config.ErrConfiguracionCTSeguimientoCeseSelector) ||
 			errors.Is(err, config.ErrConfiguracionCTCancelacionSelector) ||
-			errors.Is(err, config.ErrConfiguracionCTIncorporacionAcreditadaSelector) {
+			errors.Is(err, config.ErrConfiguracionCTIncorporacionAcreditadaSelector) ||
+			errors.Is(err, config.ErrConfiguracionSeleccionSolicitudesSelector) {
 			return err
 		}
 	}

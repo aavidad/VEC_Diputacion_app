@@ -16,6 +16,7 @@ import (
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	seleccionports "vec-diputacion-granada/internal/modules/seleccion/ports"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
@@ -290,6 +291,13 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaMiBolsa,
 		docports.AudienciaV3,
 		personal.AudienciaFichaPropia,
+		// Selección: solicitud propia (AD3-89) y consulta de RRHH (AD3-90);
+		// solo con VEC_SELECCION_SOLICITUDES_ENABLED.
+		seleccionports.AudienciaConsultarPropias,
+		seleccionports.AudienciaGuardarBorrador,
+		seleccionports.AudienciaPresentar,
+		seleccionports.AudienciaConsultarSolicitudes,
+		seleccionports.AudienciaConsultarDetalle,
 	}
 }
 

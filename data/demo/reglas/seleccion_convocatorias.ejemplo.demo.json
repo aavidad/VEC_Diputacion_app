@@ -1,0 +1,234 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "seleccion-convocatorias-ejemplo-v1",
+    "actualizada_en": "2026-09-26T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: plazos, requisitos estructurados, baremo de autobaremación y formato del justificante inventados para desarrollo y para la presentación a RRHH. No están aprobados por RRHH ni tienen validez administrativa; se retiran antes de producción. Los títulos proceden de convocatorias públicas de ejemplo."
+  },
+  "catalogo": {
+    "id": "vec.seleccion.convocatorias",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "seleccion",
+    "nombre": "Convocatorias con solicitud en VEC — ejemplo",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Ejemplo para la fase 1 de Convoca integrado; RRHH debe sustituirlo por las bases aprobadas."
+  },
+  "convocatorias": [
+    {
+      "convocatoria_ref": "bolsa-operario-diputacion-2026",
+      "titulo": "Bolsa de empleo de Operario de la Diputación de Granada",
+      "publicada_en": "2026-09-26T00:00:00Z",
+      "plazo": {
+        "abre_en": "2026-09-20T22:00:00Z",
+        "cierra_en": "2026-10-30T22:59:59Z"
+      },
+      "fecha_referencia": "2026-10-30",
+      "turnos": [
+        {
+          "clave": "libre",
+          "etiqueta": "Turno libre"
+        },
+        {
+          "clave": "discapacidad",
+          "etiqueta": "Reserva para personas con discapacidad"
+        }
+      ],
+      "requisitos": [
+        {
+          "clave": "nacionalidad",
+          "titulo": "Nacionalidad",
+          "descripcion": "Nacionalidad española o alguno de los supuestos de acceso al empleo público previstos en las bases para la ciudadanía de la Unión Europea y asimilados.",
+          "obligatorio": true,
+          "impide_presentar": true
+        },
+        {
+          "clave": "edad",
+          "titulo": "Edad",
+          "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa en la fecha de referencia.",
+          "obligatorio": true,
+          "impide_presentar": true
+        },
+        {
+          "clave": "capacidad",
+          "titulo": "Capacidad funcional",
+          "descripcion": "Poseer la capacidad funcional necesaria para desempeñar las tareas de la categoría.",
+          "obligatorio": true,
+          "impide_presentar": false
+        },
+        {
+          "clave": "habilitacion",
+          "titulo": "Habilitación",
+          "descripcion": "No haber sido separado mediante expediente disciplinario ni hallarse inhabilitado en los términos de las bases.",
+          "obligatorio": true,
+          "impide_presentar": true
+        },
+        {
+          "clave": "titulacion",
+          "titulo": "Titulación",
+          "descripcion": "La convocatoria no exige titulación académica específica para esta agrupación profesional.",
+          "obligatorio": true,
+          "impide_presentar": false
+        }
+      ],
+      "baremo": {
+        "maximo": "10",
+        "redondeo": "mitad_arriba",
+        "grupos": [
+          {
+            "clave": "experiencia",
+            "titulo": "Experiencia profesional",
+            "maximo": "6",
+            "meritos": [
+              {
+                "clave": "meses_administracion",
+                "titulo": "Meses trabajados en la misma categoría en una administración pública",
+                "unidad": "mes",
+                "puntos_por_unidad": "0.1",
+                "maximo": "6"
+              },
+              {
+                "clave": "meses_privado",
+                "titulo": "Meses trabajados en la misma categoría en el sector privado",
+                "unidad": "mes",
+                "puntos_por_unidad": "0.05",
+                "maximo": "3"
+              }
+            ]
+          },
+          {
+            "clave": "formacion",
+            "titulo": "Formación",
+            "maximo": "4",
+            "meritos": [
+              {
+                "clave": "horas_cursos",
+                "titulo": "Horas de cursos relacionados con la categoría",
+                "unidad": "hora",
+                "puntos_por_unidad": "0.01",
+                "maximo": "3"
+              },
+              {
+                "clave": "titulacion_superior",
+                "titulo": "Titulación superior a la exigida",
+                "unidad": "titulo",
+                "puntos_por_unidad": "1",
+                "maximo": "1"
+              }
+            ]
+          }
+        ]
+      },
+      "numeracion": {
+        "patron": "{anio}/SOL-{numero}",
+        "ancho": 6
+      }
+    },
+    {
+      "convocatoria_ref": "auxiliar-servicios-generales-2025",
+      "titulo": "Ingreso en la categoría de Auxiliar de Servicios Generales",
+      "publicada_en": "2026-09-26T00:00:00Z",
+      "plazo": {
+        "abre_en": "2026-09-20T22:00:00Z",
+        "cierra_en": "2026-10-15T21:59:59Z"
+      },
+      "fecha_referencia": "2026-10-15",
+      "turnos": [
+        {
+          "clave": "libre",
+          "etiqueta": "Turno libre"
+        }
+      ],
+      "requisitos": [
+        {
+          "clave": "nacionalidad",
+          "titulo": "Nacionalidad",
+          "descripcion": "Nacionalidad española o alguno de los supuestos de acceso al empleo público previstos en las bases para la ciudadanía de la Unión Europea y asimilados.",
+          "obligatorio": true,
+          "impide_presentar": true
+        },
+        {
+          "clave": "edad",
+          "titulo": "Edad",
+          "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa en la fecha de referencia.",
+          "obligatorio": true,
+          "impide_presentar": true
+        },
+        {
+          "clave": "capacidad",
+          "titulo": "Capacidad funcional",
+          "descripcion": "Poseer la capacidad funcional necesaria para desempeñar las tareas de la categoría.",
+          "obligatorio": true,
+          "impide_presentar": false
+        },
+        {
+          "clave": "habilitacion",
+          "titulo": "Habilitación",
+          "descripcion": "No haber sido separado mediante expediente disciplinario ni hallarse inhabilitado en los términos de las bases.",
+          "obligatorio": true,
+          "impide_presentar": true
+        },
+        {
+          "clave": "titulacion",
+          "titulo": "Titulación",
+          "descripcion": "Estar en posesión del título de Graduado en Educación Secundaria Obligatoria o equivalente.",
+          "obligatorio": true,
+          "impide_presentar": true
+        }
+      ],
+      "baremo": {
+        "maximo": "10",
+        "redondeo": "mitad_arriba",
+        "grupos": [
+          {
+            "clave": "experiencia",
+            "titulo": "Experiencia profesional",
+            "maximo": "6",
+            "meritos": [
+              {
+                "clave": "meses_administracion",
+                "titulo": "Meses trabajados en la misma categoría en una administración pública",
+                "unidad": "mes",
+                "puntos_por_unidad": "0.1",
+                "maximo": "6"
+              },
+              {
+                "clave": "meses_privado",
+                "titulo": "Meses trabajados en la misma categoría en el sector privado",
+                "unidad": "mes",
+                "puntos_por_unidad": "0.05",
+                "maximo": "3"
+              }
+            ]
+          },
+          {
+            "clave": "formacion",
+            "titulo": "Formación",
+            "maximo": "4",
+            "meritos": [
+              {
+                "clave": "horas_cursos",
+                "titulo": "Horas de cursos relacionados con la categoría",
+                "unidad": "hora",
+                "puntos_por_unidad": "0.01",
+                "maximo": "3"
+              },
+              {
+                "clave": "titulacion_superior",
+                "titulo": "Titulación superior a la exigida",
+                "unidad": "titulo",
+                "puntos_por_unidad": "1",
+                "maximo": "1"
+              }
+            ]
+          }
+        ]
+      },
+      "numeracion": {
+        "patron": "{anio}/SOL-{numero}",
+        "ancho": 6
+      }
+    }
+  ]
+}

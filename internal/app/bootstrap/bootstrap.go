@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	seleccionmodule "vec-diputacion-granada/internal/modules/seleccion"
 
 	"vec-diputacion-granada/config"
 	composicionpublica "vec-diputacion-granada/internal/app/composicion/publica"
@@ -340,6 +341,11 @@ func manifiestosShellVEC(cfg config.Config) []vecdomain.ModuleManifest {
 	}
 	if activo, err := cfg.DocumentosDesarrolloActivo(); err == nil && activo {
 		manifiestos = append(manifiestos, vecdocumentos.Manifest())
+	}
+	// Selección solo aparece con su selector encendido: el portal de RRHH
+	// muestra el módulo si el catálogo lo publica y su consulta responde.
+	if activo, err := cfg.SeleccionSolicitudesDesarrolloActivo(); err == nil && activo {
+		manifiestos = append(manifiestos, seleccionmodule.Manifest())
 	}
 	return append(manifiestos,
 		bolsamodule.Manifest(),

@@ -16,6 +16,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	seleccionpg "vec-diputacion-granada/internal/modules/seleccion/adapters/postgres"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 )
@@ -90,7 +91,11 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialMiBolsa     *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
-	proveedoresMaterialPortal         map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedoresMaterialPortal map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	// seleccion y sus proveedores (uno por acción de AD3-89 y AD3-90) solo
+	// existen con VEC_SELECCION_SOLICITUDES_ENABLED.
+	seleccion                         *seleccionpg.Repositorio
+	proveedoresMaterialSeleccion      map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -470,6 +475,25 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 		}
+		etapa = "seleccion_solicitudes"
+		if seleccion.seleccionSolicitudes {
+			// Selección usa el LOGIN de Bolsa (miembro de vec_seleccion_ejecutor):
+			// comprueba sus migraciones y publica las convocatorias del catálogo.
+			repositorio, err := prepararSeleccionDesarrollo(ctx, cfg, bolsa)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.seleccion = repositorio
+			dependencias.proveedoresMaterialSeleccion = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, 5)
+			for _, d := range descriptoresMaterialSeleccionDesarrollo() {
+				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, d.Audiencia)
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedoresMaterialSeleccion[d.Audiencia] = proveedor
+			}
+		}
+		etapa = "material_bolsa"
 		proveedorBolsa, err := nuevoProveedorMaterialBolsaDesarrollo(ctx, gobierno, material, soporte, reloj)
 		if err != nil {
 			return vacias, err

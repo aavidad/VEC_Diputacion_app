@@ -165,6 +165,8 @@ type politicaMiBolsaDesarrollo struct {
 	motivo      dominiovec.ReferenciaEntradaCatalogo
 	// motivoPortal solo existe si están compuestas las acciones propias.
 	motivoPortal *dominiovec.ReferenciaEntradaCatalogo
+	// motivoSeleccion solo existe con las solicitudes de Selección (AD3-89).
+	motivoSeleccion *dominiovec.ReferenciaEntradaCatalogo
 }
 
 // motivoDe devuelve el motivo que corresponde a la acción, o falso si la
@@ -172,6 +174,9 @@ type politicaMiBolsaDesarrollo struct {
 func (p *politicaMiBolsaDesarrollo) motivoDe(accion string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
 	if accion == puertosbolsa.AccionConsultarMiBolsa {
 		return p.motivo, true
+	}
+	if p.motivoSeleccion != nil && esAccionSeleccionPropia(accion) {
+		return *p.motivoSeleccion, true
 	}
 	if p.motivoPortal == nil {
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
@@ -192,7 +197,8 @@ func (p *politicaMiBolsaDesarrollo) ObtenerInstantaneaAutorizacion(ctx context.C
 	return clonarInstantaneaAutorizacionPostgreSQLDesarrollo(p.instantanea), nil
 }
 func (p *politicaMiBolsaDesarrollo) ValidarReferenciaMotivoAutorizacionV2(ctx context.Context, motivo dominiovec.ReferenciaEntradaCatalogo, ahora time.Time) error {
-	if p == nil || ctx == nil || ctx.Err() != nil || (p.motivo != motivo && (p.motivoPortal == nil || *p.motivoPortal != motivo)) || !p.instantanea.AsignacionPerfil.VigenteEn(ahora) {
+	if p == nil || ctx == nil || ctx.Err() != nil || (p.motivo != motivo && (p.motivoPortal == nil || *p.motivoPortal != motivo) &&
+		(p.motivoSeleccion == nil || *p.motivoSeleccion != motivo)) || !p.instantanea.AsignacionPerfil.VigenteEn(ahora) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	return nil
@@ -406,6 +412,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 	campos puertosbolsa.CamposPortalMiBolsa,
 	portal puertosbolsa.ReglasPortalCandidato,
+	seleccion *dependenciasSeleccionDesarrollo,
 ) ([]vechttp.RutaExacta, error) {
 	if ctx == nil || identidad == nil || sello == nil || alta == nil || alta.soporte == nil ||
 		alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil ||
@@ -466,6 +473,14 @@ func nuevaRutaMiBolsaDesarrollo(
 	if err != nil || !autoridad.validaConfiguracion() {
 		return nil, errMiBolsaNoDisponible
 	}
+	if seleccion != nil {
+		// Mismo perfil y misma asignación: el rol de la persona gana las
+		// acciones propias de Selección (AD3-89). Su versión se elige por
+		// contenido al preparar la instantánea.
+		if semilla, err = conConcesionesSeleccionPropiaDesarrollo(semilla); err != nil {
+			return nil, errMiBolsaNoDisponible
+		}
+	}
 	preparada, err := autoridad.prepararInstantanea(ctx, semilla, true)
 	if err != nil || preparada.Validar() != nil || autoridad.publicarInstantanea(ctx, preparada) != nil {
 		return nil, errMiBolsaNoDisponible
@@ -484,6 +499,13 @@ func nuevaRutaMiBolsaDesarrollo(
 			return nil, errMiBolsaNoDisponible
 		}
 		politica.motivoPortal = &motivoPortal
+	}
+	if seleccion != nil {
+		motivoSeleccion := motivoSeleccionPropiaDesarrollo()
+		if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{motivoSeleccion}, desdeMotivos) != nil {
+			return nil, errMiBolsaNoDisponible
+		}
+		politica.motivoSeleccion = &motivoSeleccion
 	}
 	autorizador, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
 		politica, politica, politica, politica, reloj,
@@ -524,6 +546,13 @@ func nuevaRutaMiBolsaDesarrollo(
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: bolsapersonal.RutaMiBolsa, Manejador: consultaHTTP}}
+	if seleccion != nil {
+		rutasSeleccion, err := rutasSeleccionPersonaDesarrollo(seleccion, autorizador, identidad, sello, sesion, reloj)
+		if err != nil {
+			return nil, err
+		}
+		rutas = append(rutas, rutasSeleccion...)
+	}
 	if portal == nil {
 		return rutas, nil
 	}
