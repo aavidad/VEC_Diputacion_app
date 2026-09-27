@@ -452,6 +452,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			PerfilesActivosRef: []string{candidato.perfilRef},
 			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
 		})
+		declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
+			Clave:      "bolsa-mi-bolsa-historial-consultar",
+			Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
+			Metodo:     http.MethodGet, Ruta: bolsapersonal.RutaMiBolsaHistorial,
+			PerfilesActivosRef: []string{candidato.perfilRef},
+			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-historial-consultar",
+		})
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
 			for clave, ruta := range map[string]string{
 				"bolsa-mi-bolsa-solicitar":   bolsapersonal.RutaMiBolsaSolicitudes,

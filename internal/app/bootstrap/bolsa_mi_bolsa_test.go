@@ -131,6 +131,10 @@ func TestMiBolsaFronteraSeparaCertificadosExternosEInternos(t *testing.T) {
 		Clave: "bolsa-mi-bolsa-consultar", Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
 		Metodo: http.MethodGet, Ruta: bolsapersonal.RutaMiBolsa,
 		PerfilesActivosRef: []string{identidad.perfilRef}, ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
+	}, {
+		Clave: "bolsa-mi-bolsa-historial-consultar", Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
+		Metodo: http.MethodGet, Ruta: bolsapersonal.RutaMiBolsaHistorial,
+		PerfilesActivosRef: []string{identidad.perfilRef}, ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-historial-consultar",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -162,8 +166,10 @@ func TestMiBolsaFronteraSeparaCertificadosExternosEInternos(t *testing.T) {
 		estado int
 	}{
 		{"candidato propia", certCandidato, bolsapersonal.RutaMiBolsa, http.StatusOK},
+		{"candidato historial propio", certCandidato, bolsapersonal.RutaMiBolsaHistorial, http.StatusOK},
 		{"candidato interna", certCandidato, cthttp.RutaEstadisticasRRHH, http.StatusUnauthorized},
 		{"rrhh personal", certRRHH, bolsapersonal.RutaMiBolsa, http.StatusUnauthorized},
+		{"rrhh historial personal", certRRHH, bolsapersonal.RutaMiBolsaHistorial, http.StatusUnauthorized},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			if !esRutaContratacionTemporalDesarrollo(peticion(caso.cert, caso.ruta)) {
