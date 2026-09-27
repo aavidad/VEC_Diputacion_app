@@ -22,20 +22,30 @@ SELECT c.evento_ref AS origen, c.justificante_tipo AS tipo, c.justificante_ref A
   FROM vec_contratacion_temporal.cese_nombramiento_v1 c
   JOIN vec_contratacion_temporal.incorporacion_registro_v2 i ON i.recibo_ref=c.incorporacion_ref
  WHERE c.llamamiento_ref IS NOT NULL
- ORDER BY c.confirmada_en DESC LIMIT 1 \gset
+ ORDER BY c.transaccion_publicacion,c.evento_ref LIMIT 1 \gset
 
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT huella_sha256 AS huella, origen_posicion AS posicion
-  FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL,NULL,100)
+  FROM vec_contratacion_temporal.leer_ceses_bolsa_v1(NULL,NULL,100)
  WHERE origen_ref=:'origen' AND evento->>'tipo'='cese' \gset
+SELECT pg_temp.exigir_ct129(
+    (SELECT bool_and(evento->>'tipo'='cese') FROM vec_contratacion_temporal.leer_ceses_bolsa_v1(NULL,NULL,100))
+    AND NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.leer_ceses_bolsa_v1(:'posicion'::bigint,:'origen',100)
+                    WHERE origen_ref=:'origen')
+    AND coalesce(current_setting('vec.ct115.publicacion_bolsa',true),'')='',
+    'feed solo de ceses, cursor exclusivo y marca RLS restaurada');
 COMMIT;
 RESET SESSION AUTHORIZATION;
 
 SELECT pg_temp.exigir_ct129(
     NOT has_table_privilege('vec_bolsa_llamamientos_propietario','vec_contratacion_temporal.cese_nombramiento_v1','SELECT')
-    AND NOT has_table_privilege('vec_bolsa_llamamientos_propietario','vec_contratacion_temporal.incorporacion_registro_v2','SELECT'),
-    'Bolsa no puede leer tablas CT');
+    AND NOT has_table_privilege('vec_bolsa_llamamientos_propietario','vec_contratacion_temporal.incorporacion_registro_v2','SELECT')
+    AND NOT has_table_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.cese_nombramiento_v1','SELECT')
+    AND has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)','EXECUTE')
+    AND NOT has_function_privilege('vec_bolsa_llamamientos_propietario','vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)','EXECUTE')
+    AND NOT has_function_privilege('public','vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)','EXECUTE'),
+    'Bolsa y ejecutor CT sin tablas; feed solo para ejecutor CT');
 SELECT pg_temp.exigir_ct129(to_regrole('vec_bolsa_llamamientos_relevo_cese') IS NOT NULL,
     'Bolsa 000045 requerida para el relevo nominal');
 CREATE ROLE vec_ct129_relevo_prueba LOGIN INHERIT;

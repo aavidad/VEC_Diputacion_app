@@ -9,7 +9,8 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:migraci
 DO $pre$
 BEGIN
     IF current_user<>'vec_contratacion_temporal_propietario'
-       OR to_regprocedure('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)') IS NULL THEN
+       OR to_regprocedure('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)') IS NULL
+       OR to_regprocedure('vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)') IS NULL THEN
         RAISE EXCEPTION 'CT129 DOWN: estado incompatible' USING ERRCODE='55000';
     END IF;
     IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.outbox_expediente_integral
@@ -18,6 +19,7 @@ BEGIN
     END IF;
 END
 $pre$;
+DROP FUNCTION vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer) RESTRICT;
 DROP FUNCTION vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint) RESTRICT;
 DROP POLICY verificacion_cese_bolsa_ct129 ON vec_contratacion_temporal.cese_nombramiento_v1;
 COMMIT;
