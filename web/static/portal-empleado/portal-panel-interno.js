@@ -14,7 +14,7 @@ import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-pulido-portal-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-pulido-portal-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-pulido-portal-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260927-rrhh-sanciones-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-pulido-portal-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-pulido-portal-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260926-pulido-portal-v1";
