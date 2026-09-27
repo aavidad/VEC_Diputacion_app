@@ -72,12 +72,18 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
 $f$;
 GRANT USAGE ON SCHEMA vec_contratacion_temporal TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_propietario;
+CREATE FUNCTION public.huella_cese_b45(p_origen_ref text) RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
+ SET search_path=pg_catalog AS $f$ SELECT c.huella FROM vec_contratacion_temporal.cese_prueba c
+ WHERE c.origen_ref=p_origen_ref $f$;
+REVOKE ALL ON FUNCTION public.huella_cese_b45(text) FROM PUBLIC;
 SQL
 psql_pg >/dev/null <<'SQL'
 CREATE ROLE vec_b45_relevo_test LOGIN INHERIT;
 CREATE ROLE vec_b45_ejecutor_test LOGIN INHERIT;
 GRANT vec_bolsa_llamamientos_relevo_cese TO vec_b45_relevo_test;
 GRANT vec_bolsa_llamamientos_ejecutor TO vec_b45_ejecutor_test;
+GRANT USAGE ON SCHEMA public TO vec_b45_relevo_test;
+GRANT EXECUTE ON FUNCTION public.huella_cese_b45(text) TO vec_b45_relevo_test;
 SQL
 fichero deploy/postgresql/bolsa_llamamientos/pruebas_sql/revision/datos.sql >/dev/null
 fichero deploy/postgresql/bolsa_llamamientos/pruebas_sql/b45_restriccion_global_cese.sql >/dev/null

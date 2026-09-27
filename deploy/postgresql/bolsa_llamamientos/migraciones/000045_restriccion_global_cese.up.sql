@@ -195,7 +195,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(
  p_origen_ref text,p_huella_sha256 text,p_posicion bigint)
 RETURNS TABLE(reutilizada boolean,recibo_ref text,candidato_ref text,disponible_desde date,politica_version bigint)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
-DECLARE v_ct record; v_vinculo record; v_previa vec_bolsa_llamamientos.restriccion_cese_bolsa;
+DECLARE v_ct record; v_vinculo record; v_b13 record; v_previa vec_bolsa_llamamientos.restriccion_cese_bolsa;
  v_politica vec_bolsa_llamamientos.politica_cese_bolsa; v_clase text; v_meses integer;
  v_evento_ref text; v_recibo_ref text; v_desde date; v_auditoria jsonb; v_ahora timestamptz;
 BEGIN
@@ -217,6 +217,13 @@ BEGIN
   RAISE EXCEPTION 'cese CT no acreditado' USING ERRCODE='42501';
  END IF;
  v_evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex');
+ SELECT c.participacion_ref,c.bolsa_ref INTO v_b13
+ FROM vec_bolsa_llamamientos.contrato_participacion c
+ WHERE c.evento_ref=v_evento_ref AND c.origen_ref=p_origen_ref
+   AND c.huella_sha256=p_huella_sha256 AND c.origen_posicion=p_posicion AND c.tipo='cese'
+   AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
+                    WHERE q.evento_ref=c.evento_ref);
+ IF NOT FOUND THEN RAISE EXCEPTION 'cese B13 pendiente o divergente' USING ERRCODE='23503'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:restriccion-cese:'||v_evento_ref,0));
  SELECT * INTO v_previa FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r WHERE r.evento_ref=v_evento_ref;
  IF FOUND THEN
@@ -226,13 +233,17 @@ BEGIN
   END IF;
   RETURN QUERY SELECT true,v_previa.recibo_ref,v_previa.candidato_ref,v_previa.disponible_desde,v_previa.politica_version; RETURN;
  END IF;
- SELECT vc.candidato_ref,l.bolsa_ref INTO v_vinculo
+ SELECT vc.candidato_ref,vc.participacion_ref,l.bolsa_ref INTO v_vinculo
  FROM vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l
  JOIN vec_bolsa_llamamientos.integracion_desarrollo i ON i.operacion_ref=l.operacion_ref
  JOIN vec_bolsa_llamamientos.vinculo_candidato vc
    ON vc.participacion_ref=convert_from(i.registro_canonico,'UTF8')::jsonb #>> '{propuesta,participacion_seleccionada_ref}'
  WHERE l.llamamiento_ref=v_ct.llamamiento_ref;
- IF NOT FOUND OR v_vinculo.candidato_ref IS NULL THEN RAISE EXCEPTION 'candidato de cese no resuelto' USING ERRCODE='23503'; END IF;
+ IF NOT FOUND OR v_vinculo.candidato_ref IS NULL
+    OR v_b13.participacion_ref IS DISTINCT FROM v_vinculo.participacion_ref
+    OR v_b13.bolsa_ref IS DISTINCT FROM v_vinculo.bolsa_ref THEN
+  RAISE EXCEPTION 'candidato de cese no resuelto en B13' USING ERRCODE='23503';
+ END IF;
  PERFORM pg_advisory_xact_lock_shared(hashtextextended('bolsa:politica-cese',0));
  SELECT * INTO v_politica FROM vec_bolsa_llamamientos.politica_cese_bolsa ORDER BY version DESC LIMIT 1;
  IF NOT FOUND OR (v_politica.estado='ejemplo_sintetico' AND v_ct.organizacion_ref !~ '^organizacion:desarrollo:') THEN
@@ -289,6 +300,15 @@ BEGIN
  SELECT * INTO v_ct FROM vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(p_origen_ref,p_huella_sha256,p_posicion);
  IF NOT FOUND OR v_ct.llamamiento_ref IS NULL THEN
   RAISE EXCEPTION 'cese CT no acreditado' USING ERRCODE='42501';
+ END IF;
+ IF NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion c
+     WHERE c.evento_ref='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex')
+       AND c.origen_ref=p_origen_ref AND c.huella_sha256=p_huella_sha256
+       AND c.origen_posicion=p_posicion AND c.tipo='cese'
+       AND c.participacion_ref IS NULL AND c.bolsa_ref IS NULL
+       AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena q
+                        WHERE q.evento_ref=c.evento_ref)) THEN
+  RAISE EXCEPTION 'cese ajeno B13 pendiente o divergente' USING ERRCODE='23503';
  END IF;
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l
              WHERE l.llamamiento_ref=v_ct.llamamiento_ref) THEN
