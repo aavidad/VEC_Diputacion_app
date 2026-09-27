@@ -68,7 +68,7 @@ func TestPlazoOfertaCongelaVersionYCalendario(t *testing.T) {
 	if err != nil || !final.Equal(vence) || plazo.PoliticaVersion != 2 || plazo.MunicipioSede != "18087" ||
 		plazo.HuellaCatalogo != strings.Repeat("a", 64) || plazo.UltimoDia != "2026-09-30" ||
 		len(plazo.Calendarios) != 1 || plazo.Calendarios[0] != "calendario:granada:2026:1" ||
-		cal.solicitud.MunicipioSede != "18087" || cal.solicitud.Cantidad != 2 || !cal.solicitud.NotificadoEn.Equal(publicada) {
+		cal.solicitud.MunicipioSede != "municipio:ine:18087" || cal.solicitud.Cantidad != 2 || !cal.solicitud.NotificadoEn.Equal(publicada) {
 		t.Fatalf("plazo=%+v final=%v solicitud=%+v err=%v", plazo, final, cal.solicitud, err)
 	}
 }

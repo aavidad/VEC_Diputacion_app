@@ -90,7 +90,7 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, publ
 	p := v.Politica.Plazo
 	resultado, err := s.calendarios.CalcularPlazo(ctx, calendariosports.SolicitudCalculoPlazo{
 		NotificadoEn: publicada.UTC(), Unidad: calendariosdomain.UnidadPlazo(p.Unidad),
-		Cantidad: p.Cantidad, MunicipioSede: p.MunicipioSede,
+		Cantidad: p.Cantidad, MunicipioSede: "municipio:ine:" + p.MunicipioSede,
 	})
 	if err != nil || !resultado.VenceAntesDe.After(publicada) {
 		return ports.PlazoOferta{}, time.Time{}, errors.Join(ports.ErrOfertaNoDisponible, err)
