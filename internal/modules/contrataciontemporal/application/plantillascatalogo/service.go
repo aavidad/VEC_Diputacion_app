@@ -35,11 +35,11 @@ type Repositorio interface {
 }
 
 type Lectura struct {
-	Borrador      *vecdomain.CatalogoConfigurable `json:"borrador"`
-	Publicado     *vecdomain.CatalogoConfigurable `json:"publicado"`
-	PuedeEditar   bool                            `json:"puede_editar"`
-	PuedePublicar bool                            `json:"puede_publicar"`
-	desdeInicial  bool
+	Borrador            *vecdomain.CatalogoConfigurable `json:"borrador"`
+	Publicado           *vecdomain.CatalogoConfigurable `json:"publicado"`
+	PuedeEditar         bool                            `json:"puede_editar"`
+	PuedePublicar       bool                            `json:"puede_publicar"`
+	EditorDeEstaVersion bool                            `json:"editor_de_esta_version"`
 }
 
 type Recibo struct {
@@ -82,7 +82,6 @@ type MaterialCambio struct {
 	Solicitud            json.RawMessage                 `json:"solicitud"`
 	Catalogo             *vecdomain.CatalogoConfigurable `json:"catalogo"`
 	CatalogoHuellaSHA256 string                          `json:"catalogo_huella_sha256,omitempty"`
-	CatalogoBase         *vecdomain.CatalogoConfigurable `json:"catalogo_base,omitempty"`
 	BaseHuellaSHA256     string                          `json:"catalogo_base_huella_sha256,omitempty"`
 }
 
@@ -94,18 +93,14 @@ type Servicio struct {
 }
 
 func NuevoServicio(repo Repositorio, reloj Reloj, validar Validador, inicial *vecdomain.CatalogoConfigurable) (*Servicio, error) {
-	if repo == nil || reloj == nil || validar == nil {
+	if repo == nil || reloj == nil || validar == nil || inicial == nil {
 		return nil, ErrNoDisponible
 	}
-	var base *vecdomain.CatalogoConfigurable
-	if inicial != nil {
-		c, err := inicial.ClonarCanonico()
-		if err != nil || c.ID != CatalogoID || c.ModuloID != ModuloID || c.Estado != vecdomain.EstadoCatalogoPublicado || validar(c) != nil {
-			return nil, ErrNoDisponible
-		}
-		base = &c
+	c, err := inicial.ClonarCanonico()
+	if err != nil || c.ID != CatalogoID || c.ModuloID != ModuloID || c.Estado != vecdomain.EstadoCatalogoPublicado || validar(c) != nil {
+		return nil, ErrNoDisponible
 	}
-	return &Servicio{repo: repo, reloj: reloj, validar: validar, inicial: base}, nil
+	return &Servicio{repo: repo, reloj: reloj, validar: validar, inicial: &c}, nil
 }
 
 func (s *Servicio) Consultar(ctx context.Context, actor vecdomain.ContextoActor) (Lectura, error) {
@@ -119,16 +114,21 @@ func (s *Servicio) Consultar(ctx context.Context, actor vecdomain.ContextoActor)
 	if err = validarLectura(lectura, s.validar); err != nil {
 		return Lectura{}, err
 	}
-	if lectura.Publicado == nil && lectura.Borrador == nil && s.inicial != nil {
-		c, _ := s.inicial.ClonarCanonico()
-		lectura.Publicado = &c
-		lectura.desdeInicial = true
+	if lectura.Publicado == nil {
+		return Lectura{}, ErrNoDisponible
+	}
+	if lectura.Publicado.Version == s.inicial.Version {
+		actual, _ := lectura.Publicado.HuellaSHA256()
+		esperada, _ := s.inicial.HuellaSHA256()
+		if actual != esperada {
+			return Lectura{}, ErrNoDisponible
+		}
 	}
 	// Estos indicadores son proyecciones positivas del PDP para la interfaz.
 	// La decisión de escritura se emite de nuevo para el material exacto y se
 	// consume dentro de PostgreSQL; la consulta no concede permiso por sí sola.
 	lectura.PuedeEditar, _ = s.repo.ComprobarAccion(ctx, actor, "editar", lectura)
-	if lectura.Borrador != nil && actor.Principal.ID != lectura.Borrador.CreadoPor &&
+	if lectura.Borrador != nil && !lectura.EditorDeEstaVersion && actor.Principal.ID != lectura.Borrador.CreadoPor &&
 		actor.Principal.ID != lectura.Borrador.UltimaModificacionPor {
 		lectura.PuedePublicar, _ = s.repo.ComprobarAccion(ctx, actor, "publicar", lectura)
 	}
@@ -182,6 +182,9 @@ func (s *Servicio) Editar(ctx context.Context, actor vecdomain.ContextoActor, so
 		siguiente, err = actual.ActualizarBorrador(actual.Revision, actor.Principal.ID, actual.Nombre, actual.Descripcion, solicitud.FuenteRef, solicitud.Motivo, entradas, ahora)
 	} else if lectura.Publicado != nil {
 		siguiente, err = lectura.Publicado.NuevaVersion(lectura.Publicado.Version+1, actor.Principal.ID, solicitud.FuenteRef, solicitud.Motivo, ahora)
+		if lectura.Publicado.Version == s.inicial.Version {
+			material.BaseHuellaSHA256, _ = lectura.Publicado.HuellaSHA256()
+		}
 		if err == nil {
 			encontrada := false
 			for i := range siguiente.Entradas {
@@ -195,13 +198,8 @@ func (s *Servicio) Editar(ctx context.Context, actor vecdomain.ContextoActor, so
 				siguiente.Entradas = append(siguiente.Entradas, solicitud.Entrada)
 			}
 		}
-		// Una base externa se importa sólo en la primera edición y en la misma transacción.
-		if lectura.desdeInicial {
-			material.CatalogoBase = s.inicial
-			material.BaseHuellaSHA256, _ = s.inicial.HuellaSHA256()
-		}
 	} else {
-		// Un catálogo sin base explícita no puede borrar las plantillas previas.
+		// El catálogo publicado se provisiona por el canal migrador antes de HTTP.
 		return ResultadoCambio{}, ErrNoDisponible
 	}
 	if err != nil {
@@ -230,6 +228,9 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 	}
 	if lectura.Borrador == nil || lectura.Borrador.Version != solicitud.VersionEsperada || lectura.Borrador.Revision != solicitud.RevisionEsperada {
 		return s.repo.Cambiar(ctx, actor, material)
+	}
+	if lectura.EditorDeEstaVersion {
+		return ResultadoCambio{}, ErrEntradaInvalida
 	}
 	publicado, err := lectura.Borrador.Publicar(actor.Principal.ID, solicitud.AprobacionRef, solicitud.Motivo, s.reloj.Ahora().UTC().Truncate(time.Microsecond))
 	if err != nil || s.validar(publicado) != nil {

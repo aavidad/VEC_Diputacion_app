@@ -61,6 +61,7 @@ func basePrueba(t *testing.T) vecdomain.CatalogoConfigurable {
 func servicioPrueba(t *testing.T, r *repoPrueba) (*Servicio, vecdomain.ContextoActor) {
 	t.Helper()
 	b := basePrueba(t)
+	r.lectura = Lectura{Publicado: &b}
 	s, err := NuevoServicio(r, relojPrueba{}, func(c vecdomain.CatalogoConfigurable) error { return c.Validar() }, &b)
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +72,7 @@ func solicitudPrueba() SolicitudEditar {
 	return SolicitudEditar{ClaveIdempotencia: "11111111-1111-4111-8111-111111111111", VersionEsperada: 1, RevisionEsperada: 0, Motivo: "Nueva plantilla acordada por RRHH", FuenteRef: "fuente:rrhh:v2", Entrada: vecdomain.EntradaCatalogoConfigurable{Clave: "documento_nuevo", Etiqueta: "Documento nuevo", Orden: 12, VigenteDesde: fechaPrueba.Add(-time.Hour), Atributos: map[string]string{"titulo": "Nuevo", "parrafo.01": "Contenido"}}}
 }
 
-func TestPrimeraEdicionPreservaBasePublicadaEnMaterialDurable(t *testing.T) {
+func TestPrimeraEdicionClonaBaseProvisionadaSinImportarlaDesdeHTTP(t *testing.T) {
 	r := &repoPrueba{}
 	s, a := servicioPrueba(t, r)
 	peticion := solicitudPrueba()
@@ -80,11 +81,11 @@ func TestPrimeraEdicionPreservaBasePublicadaEnMaterialDurable(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := r.material
-	if r.llamadas != 1 || m.CatalogoBase == nil || m.Catalogo == nil || m.Catalogo.Version != 2 || m.Catalogo.Revision != 1 || m.Catalogo.Estado != vecdomain.EstadoCatalogoBorrador || len(m.Catalogo.Entradas) != 2 || m.CatalogoBase.Estado != vecdomain.EstadoCatalogoPublicado {
+	if r.llamadas != 1 || m.Catalogo == nil || m.Catalogo.Version != 2 || m.Catalogo.Revision != 1 || m.Catalogo.Estado != vecdomain.EstadoCatalogoBorrador || len(m.Catalogo.Entradas) != 2 {
 		t.Fatalf("material incompleto: %+v", m)
 	}
-	if h, _ := m.CatalogoBase.HuellaSHA256(); h != m.BaseHuellaSHA256 {
-		t.Fatal("base no ligada a su huella")
+	if h, _ := r.lectura.Publicado.HuellaSHA256(); h != m.BaseHuellaSHA256 {
+		t.Fatal("edición no ligó la base ya provisionada")
 	}
 	if m.Catalogo.Entradas[0].Clave != "informe_definitivo" {
 		t.Fatal("se perdió la plantilla preexistente")
@@ -92,6 +93,18 @@ func TestPrimeraEdicionPreservaBasePublicadaEnMaterialDurable(t *testing.T) {
 	var canonica SolicitudEditar
 	if err := json.Unmarshal(m.Solicitud, &canonica); err != nil || !canonica.Entrada.VigenteDesde.Equal(peticion.Entrada.VigenteDesde) || canonica.Entrada.VigenteDesde.Location() != time.UTC {
 		t.Fatalf("fecha de solicitud no canónica: %+v, %v", canonica.Entrada.VigenteDesde, err)
+	}
+}
+
+func TestSinProvisionNoExponeFicheroComoPublicado(t *testing.T) {
+	r := &repoPrueba{}
+	s, a := servicioPrueba(t, r)
+	r.lectura = Lectura{}
+	if _, err := s.Consultar(context.Background(), a); !errors.Is(err, ErrNoDisponible) {
+		t.Fatalf("consulta sin provisión: %v", err)
+	}
+	if _, err := s.Editar(context.Background(), a, solicitudPrueba()); !errors.Is(err, ErrNoDisponible) || r.llamadas != 0 {
+		t.Fatalf("edición sin provisión: %v, efectos=%d", err, r.llamadas)
 	}
 }
 
@@ -111,6 +124,29 @@ func TestPublicarExigePersonaDistintaDeEditor(t *testing.T) {
 	_, err = s.Publicar(context.Background(), a, SolicitudPublicar{ClaveIdempotencia: "22222222-2222-4222-8222-222222222222", VersionEsperada: 2, RevisionEsperada: 1, Motivo: "Aprobación", AprobacionRef: "aprobacion:rrhh:v2"})
 	if !errors.Is(err, ErrEntradaInvalida) || r.llamadas != 0 {
 		t.Fatalf("publicación propia aceptada: %v", err)
+	}
+}
+
+func TestEditorIntermedioNoPuedePublicarAunqueNoSeaElUltimo(t *testing.T) {
+	r := &repoPrueba{}
+	s, editorIntermedio := servicioPrueba(t, r)
+	base := basePrueba(t)
+	borrador, err := base.NuevaVersion(2, referencia("per_", "creador-v2"), "fuente:rrhh:v2", "Primera revisión", fechaPrueba.Add(-2*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	borrador, err = borrador.ActualizarBorrador(1, referencia("per_", "ultimo-editor"), borrador.Nombre, borrador.Descripcion, borrador.FuenteRef, "Última revisión", borrador.Entradas, fechaPrueba.Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.lectura = Lectura{Borrador: &borrador, Publicado: &base, EditorDeEstaVersion: true}
+	l, err := s.Consultar(context.Background(), editorIntermedio)
+	if err != nil || l.PuedePublicar {
+		t.Fatalf("editor intermedio anunciado como publicador: %+v, %v", l, err)
+	}
+	_, err = s.Publicar(context.Background(), editorIntermedio, SolicitudPublicar{ClaveIdempotencia: "33333333-3333-4333-8333-333333333333", VersionEsperada: 2, RevisionEsperada: 2, Motivo: "Aprobación impropia", AprobacionRef: "aprobacion:rrhh:v2"})
+	if !errors.Is(err, ErrEntradaInvalida) || r.llamadas != 0 {
+		t.Fatalf("editor intermedio publicó: %v", err)
 	}
 }
 

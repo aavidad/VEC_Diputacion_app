@@ -190,9 +190,9 @@ type ResolverActor interface {
 	ResolverContextoActor(context.Context) (vecdomain.ContextoActor, error)
 }
 
-// ProveedorVivo selecciona la última versión publicada en cada petición. Al
-// no haber todavía catálogo PG, usa la base de bootstrap, ya validada; una vez
-// que hay historia PG ésta domina y nunca se retrocede al fichero.
+// ProveedorVivo selecciona la última versión publicada en PostgreSQL en cada
+// petición. El catálogo inicial debe haberse provisionado por el migrador;
+// una base vacía falla cerrada y nunca publica un fichero desde HTTP.
 type ProveedorVivo struct {
 	repo     *Repositorio
 	resolver ResolverActor
@@ -200,18 +200,14 @@ type ProveedorVivo struct {
 }
 
 func NuevoProveedorVivo(repo *Repositorio, resolver ResolverActor, inicial *vecdomain.CatalogoConfigurable) (*ProveedorVivo, error) {
-	if repo == nil || resolver == nil {
+	if repo == nil || resolver == nil || inicial == nil {
 		return nil, app.ErrNoDisponible
 	}
-	var base *vecdomain.CatalogoConfigurable
-	if inicial != nil {
-		c, err := inicial.ClonarCanonico()
-		if err != nil || c.ID != app.CatalogoID || c.Estado != vecdomain.EstadoCatalogoPublicado {
-			return nil, app.ErrNoDisponible
-		}
-		base = &c
+	c, err := inicial.ClonarCanonico()
+	if err != nil || c.ID != app.CatalogoID || c.Estado != vecdomain.EstadoCatalogoPublicado {
+		return nil, app.ErrNoDisponible
 	}
-	return &ProveedorVivo{repo: repo, resolver: resolver, inicial: base}, nil
+	return &ProveedorVivo{repo: repo, resolver: resolver, inicial: &c}, nil
 }
 
 func (p *ProveedorVivo) ObtenerPlantillas(ctx context.Context, instante time.Time) (*informejuridico.PlantillasBorrador, error) {
@@ -227,11 +223,15 @@ func (p *ProveedorVivo) ObtenerPlantillas(ctx context.Context, instante time.Tim
 		return nil, err
 	}
 	c := l.Publicado
-	if c == nil && l.Borrador == nil {
-		c = p.inicial
-	}
 	if c == nil {
 		return nil, app.ErrNoDisponible
+	}
+	if c.Version == p.inicial.Version {
+		actual, _ := c.HuellaSHA256()
+		esperada, _ := p.inicial.HuellaSHA256()
+		if actual != esperada {
+			return nil, app.ErrNoDisponible
+		}
 	}
 	return informejuridico.NuevasPlantillasBorrador(*c, instante)
 }
