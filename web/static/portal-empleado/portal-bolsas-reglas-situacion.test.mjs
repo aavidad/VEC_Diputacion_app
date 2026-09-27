@@ -94,6 +94,8 @@ test("un recálculo fallido retira la propuesta anterior antes de confirmar", as
     const pendiente = escuchar({ target: { name: "modalidad_relacion", closest: () => formulario } });
     assert.equal(fecha.value, "");
     assert.equal(origen.textContent, "");
+    assert.equal(fechaDisponiblePropuesta(REGLAS_CON_CATALOGO, modal.reposicion), "");
+    assert.doesNotMatch(renderizarCamposReposicion({ reglas: REGLAS_CON_CATALOGO, candidato: { estado_clave: "trabajando" }, estadoReposicion: modal.reposicion, escaparHTML: escapar }), /Fecha propuesta: 5 meses/);
     resolver({ ok: false, codigo: "no_disponible" });
     await pendiente;
     assert.equal(fecha.value, "");

@@ -158,7 +158,7 @@ export function instalarPropuestaReposicion(documento, obtenerModal, { consultar
     const modal = obtenerModal();
     if (!modal) return;
     const datos = new FormData(formulario);
-    const estadoReposicion = { finRelacion: String(datos.get("fin_relacion") || ""), modalidad: String(datos.get("modalidad_relacion") || "general") };
+    const estadoReposicion = { finRelacion: String(datos.get("fin_relacion") || ""), modalidad: String(datos.get("modalidad_relacion") || "general"), propuesta: null };
     modal.reposicion = estadoReposicion;
     const procedencia = formulario.querySelector("[data-bolsa-procedencia-reposicion]");
     const campo = formulario.querySelector('[name="fecha_disponible"]');
