@@ -15,6 +15,8 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_consulta_politica_ofertas_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_calculador_politica'
+                  AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolbypassrls)
  THEN RAISE EXCEPTION 'B51: preimagen incompatible (B47 y AD3-97 requeridas)' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -73,6 +75,13 @@ END $f$;
 
 REVOKE ALL ON TABLE vec_bolsa_llamamientos.politica_ofertas_lectura_v3 FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+-- Solo el pool calculador puede usar la lectura B47 sin material RRHH.
+-- El ejecutor de GET y publicación pierde ese atajo en el mismo corte.
+REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)
+ FROM vec_bolsa_llamamientos_ejecutor;
+GRANT USAGE ON SCHEMA vec_bolsa_llamamientos TO vec_bolsa_llamamientos_calculador_politica;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)
+ TO vec_bolsa_llamamientos_calculador_politica;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_bolsa_llamamientos_ejecutor;
 COMMIT;

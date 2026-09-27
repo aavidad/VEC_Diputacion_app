@@ -16,4 +16,9 @@ BEGIN
 END $pre$;
 DROP FUNCTION vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP TABLE vec_bolsa_llamamientos.politica_ofertas_lectura_v3;
+REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)
+ FROM vec_bolsa_llamamientos_calculador_politica;
+REVOKE USAGE ON SCHEMA vec_bolsa_llamamientos FROM vec_bolsa_llamamientos_calculador_politica;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)
+ TO vec_bolsa_llamamientos_ejecutor;
 COMMIT;
