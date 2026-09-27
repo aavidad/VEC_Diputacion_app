@@ -3,15 +3,15 @@
 ## Petición de cuatro fotografías de RRHH — 27 de septiembre de 2026 (rama candidata)
 
 `PIDEN_RRHH_CHECKLIST.md` contrasta 60 requisitos sobre `origin/main@7247682c`:
-14 HECHO, 43 PARCIAL y 3 FALTA, con ruta y prueba de código por fila.
-Se reconocen las capacidades ya integradas de sanciones, reposición calculada,
-correo personalizado, cese y diez tipos de borrador documental; ninguna cifra
-convierte ejemplos, firma de prueba o correo de desarrollo en acto oficial.
-El corte propio evita que el panel de avisos recorte filas en móvil y separa
-visualmente sus elementos; escritorio conserva scroll interno. Solo CSS/web.
-`scripts/verificar_calidad.sh` terminó verde con Go en `/dev/shm/go-build`.
-Capturas locales de componente sintético a 1440/390; no hay E2E nuevo,
-instalación, despliegue ni cambio en los contadores funcionales ratificados.
+44 HECHO (cubiertos con diseño VEC) y 16 BLOQUEADO con motivo; ningún PARCIAL/FALTA.
+Sanciones muestra historia de recursos con dos revisiones GO del código productor;
+Bolsa evita confirmar una propuesta de reposición obsoleta y renueva la caché.
+El cálculo +5/+9 existe, pero aplicarlo tras cese CT exige origen verificable y
+regla no provisional. Reincorporación del titular requiere acto de Personal.
+Histórico propio Mi Bolsa está preservado en `archivo/rrhh-historial-pendiente-pg-20260927`:
+AD3-90/Bolsa44 no se integran sin preimagen PostgreSQL 18 íntegra y prueba real.
+La puerta común debe repetirse tras estos cortes; no hay E2E, instalación ni
+despliegue nuevos. La cifra no cambia los contadores funcionales ratificados.
 
 ## Bolsa y Contratación temporal cerradas para la presentación — 26 de septiembre de 2026
 
