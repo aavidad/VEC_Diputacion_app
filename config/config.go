@@ -187,6 +187,7 @@ type Config struct {
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
+	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 	CalendariosPostgreSQL                       ConfiguracionCalendarios
@@ -289,6 +290,7 @@ func Load() Config {
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
 		},
 		BolsaRelevoNoIncorporacionPostgreSQL: NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
+		BolsaRelevoCesePostgreSQL:            NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
 			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
 			dsnGobierno:  envFirst(EnvContratacionTemporalGobiernoDatabaseURL),
@@ -419,6 +421,7 @@ func (c Config) Normalize() Config {
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
+	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ContratacionTemporalPostgreSQL = c.ContratacionTemporalPostgreSQL.normalizar()
 	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)

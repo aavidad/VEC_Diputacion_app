@@ -109,6 +109,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
 	detenerEntregaContratos           func()
+	detenerEntregaCeses               func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -269,6 +270,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 			if dependencias.detenerEntregaContratos != nil {
 				dependencias.detenerEntregaContratos()
+			}
+			if dependencias.detenerEntregaCeses != nil {
+				dependencias.detenerEntregaCeses()
 			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
@@ -597,6 +601,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		// B13: el relevo es opcional; si su configuración es inválida no arranca.
 		if dependencias.detenerEntregaContratos, err = iniciarEntregaContratosCTBolsaDesarrollo(cfg.BolsaContratosCT, ejecucion, dependencias.bolsa); err != nil {
 			slog.Error("entrega de contratos CT a Bolsa no iniciada", "causa", err)
+		}
+	}
+	ceseActivo, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled)
+	if err != nil {
+		return vacias, err
+	}
+	if ceseActivo {
+		if dependencias.detenerEntregaContratos == nil {
+			return vacias, puertosbolsa.ErrContratosParticipacionNoDisponible
+		}
+		dependencias.detenerEntregaCeses, err = iniciarEntregaCesesCTBolsaDesarrollo(ctx, cfg, ejecucion)
+		if err != nil {
+			return vacias, err
 		}
 	}
 	completa = true

@@ -22,6 +22,8 @@ import (
 type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	situaciones ports.RepositorioSituacionParticipacion
+	estadosCese ports.ConsultaEstadoCese
+	ceseActivo  bool
 	orden       *bolsaapplication.ServicioOrdenVigente
 	avisos      *bolsaapplication.ServicioAvisosRRHH
 	// Bolsa 000041: bandeja con parámetros del catálogo, publicación de la
@@ -43,6 +45,7 @@ type fuenteConstituidaRRHHDesarrollo struct {
 }
 
 const validezCacheBolsasConstituidas = 30 * time.Second
+const envBolsaCeseCTEnabled = "VEC_BOLSA_CESE_CT_ENABLED"
 
 func (f *fuenteConstituidaRRHHDesarrollo) invalidar() {
 	if f == nil {
@@ -55,6 +58,10 @@ func (f *fuenteConstituidaRRHHDesarrollo) invalidar() {
 
 func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config) *fuenteConstituidaRRHHDesarrollo {
 	if ctx == nil || !cfg.DevelopmentEnabledByDoubleKey() {
+		return nil
+	}
+	ceseActivo, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled)
+	if err != nil {
 		return nil
 	}
 	poolBolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL)
@@ -71,6 +78,19 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	if err != nil {
 		poolBolsa.Close()
 		return nil
+	}
+	var estadosCese ports.ConsultaEstadoCese
+	if ceseActivo {
+		var instalada bool
+		if err := poolBolsa.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v1(text,timestamptz)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+			poolBolsa.Close()
+			return nil
+		}
+		estadosCese, err = postgresbolsa.NuevaConsultaEstadoCesePostgreSQL(poolBolsa)
+		if err != nil {
+			poolBolsa.Close()
+			return nil
+		}
 	}
 	consultaOrden, err := postgresbolsa.NuevaConsultaOrdenVigentePostgreSQL(poolBolsa)
 	if err != nil {
@@ -141,20 +161,20 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolImportacion.Close()
 		return nil
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, estadosCese: estadosCese, ceseActivo: ceseActivo, orden: orden, avisos: avisos, consultaAvisos: consultaAvisos, parametros: parametros, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	ahora := f.ahora()
-	if f.cacheada && ahora.Before(f.hasta) {
+	if f.cacheada && !f.ceseActivo && ahora.Before(f.hasta) {
 		return f.cache, true
 	}
 	datos, err := f.cargar(ctx)
 	if err != nil {
 		log.Printf("bolsa rrhh: bolsas constituidas no legibles: %v", err)
-		if f.cacheada {
+		if f.cacheada && !f.ceseActivo {
 			return f.cache, true
 		}
 		return datasetBolsasRRHHDesarrollo{}, false
@@ -167,11 +187,15 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 	if f == nil || f.repositorio == nil || f.situaciones == nil || f.orden == nil || f.emisiones == nil || f.recuperador == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
+	if f.ceseActivo && f.estadosCese == nil {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
+	corte := f.ahora()
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
-	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: f.ahora().UTC().Format(time.RFC3339)}
+	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: corte.UTC().Format(time.RFC3339)}
 	if err := f.cargarMarcasBase(ctx, &datos); err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
 	}
@@ -248,6 +272,16 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			situacion, err := f.situaciones.SituacionVigente(ctx, entrada.ParticipacionRef)
 			if err != nil {
 				return datasetBolsasRRHHDesarrollo{}, err
+			}
+			if f.ceseActivo {
+				estadoCese, presente, err := f.estadosCese.ConsultarEstadoCese(ctx, entrada.ParticipacionRef, corte)
+				if err != nil {
+					return datasetBolsasRRHHDesarrollo{}, err
+				}
+				situacion, err = bolsaapplication.ProyectarSituacionConEstadoCese(situacion, estadoCese, presente, corte)
+				if err != nil {
+					return datasetBolsasRRHHDesarrollo{}, err
+				}
 			}
 			var disponible *string
 			if situacion.FechaDisponible != nil {

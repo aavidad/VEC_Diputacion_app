@@ -76,6 +76,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := cfg.CTCancelacionDesarrolloActivo(); err != nil {
 		return err
 	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled); err != nil {
+		return err
+	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
 	return err
 }
