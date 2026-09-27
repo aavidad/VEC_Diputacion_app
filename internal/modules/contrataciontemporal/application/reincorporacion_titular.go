@@ -24,14 +24,15 @@ type SolicitudRegistrarReincorporacionTitular struct {
 }
 
 type DependenciasReincorporacionTitular struct {
-	Contextos   ports.ResolutorContextoAutorizacionAltaV3
-	Lectura     ports.AutorizadorLecturaReincorporacionTitular
-	Sellos      ports.SelladorReincorporacionTitular
-	Repositorio ports.RepositorioReincorporacionTitular
-	Reglas      ports.FuenteReglasSeguimiento
-	Autorizador ports.AutorizadorOperacionSeguimiento
-	Referencias ports.GeneradorReferenciasSeguimiento
-	Reloj       ports.Reloj
+	Contextos       ports.ResolutorContextoAutorizacionAltaV3
+	Lector          ports.LectorAntecedenteReincorporacionTitular
+	PoliticaLectura ports.FuentePoliticaLecturaReincorporacionTitular
+	Sellos          ports.SelladorReincorporacionTitular
+	Repositorio     ports.RepositorioReincorporacionTitular
+	Reglas          ports.FuenteReglasSeguimiento
+	Autorizador     ports.AutorizadorOperacionSeguimiento
+	Referencias     ports.GeneradorReferenciasSeguimiento
+	Reloj           ports.Reloj
 }
 
 type ServicioReincorporacionTitular struct {
@@ -39,7 +40,7 @@ type ServicioReincorporacionTitular struct {
 }
 
 func NuevoServicioReincorporacionTitular(d DependenciasReincorporacionTitular) (*ServicioReincorporacionTitular, error) {
-	if dependenciaNula(d.Contextos) || dependenciaNula(d.Lectura) || dependenciaNula(d.Sellos) || dependenciaNula(d.Repositorio) ||
+	if dependenciaNula(d.Contextos) || dependenciaNula(d.Lector) || dependenciaNula(d.PoliticaLectura) || dependenciaNula(d.Sellos) || dependenciaNula(d.Repositorio) ||
 		dependenciaNula(d.Reglas) || dependenciaNula(d.Autorizador) || dependenciaNula(d.Referencias) || dependenciaNula(d.Reloj) {
 		return nil, ports.ErrOperacionSeguimientoNoDisponible
 	}
@@ -80,10 +81,36 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 		return vacio, ErrSolicitudReincorporacionTitularInvalida
 	}
 	// La preparación SQL distingue ausencia de cese, discrepancia documental,
-	// versión e idempotencia. Exigir antes la lectura V3 del expediente exacto
-	// impide que esos resultados se conviertan en un oráculo para otra unidad.
-	if err := s.d.Lectura.AutorizarLecturaSeguimiento(ctx, m.OrganizacionRef, m.ExpedienteRef); err != nil {
+	// versión e idempotencia. Una decisión en memoria no acredita una lectura:
+	// CT134 consume la autorización V3, registra auditoría y recibo durables y
+	// solo después lee el antecedente exacto en la misma transacción.
+	politicaLectura, err := s.d.PoliticaLectura.PoliticaLecturaReincorporacionTitular(ctx, ahora)
+	if err != nil || !politicaLectura.ValidaEn(ahora) {
 		return vacio, ports.ErrAutorizacionDenegada
+	}
+	recursoLectura := vd.RecursoAutorizable{Referencia: m.ExpedienteRef, ModuloID: ports.ModuloContratacion,
+		Tipo:    ports.TipoRecursoLecturaReincorporacionTitular,
+		Ambitos: map[string]string{"organizacion_ref": m.OrganizacionRef, "expediente_ref": m.ExpedienteRef},
+		Atributos: map[string]string{"version_expediente": strconv.FormatUint(m.VersionEsperada, 10),
+			"relacion_ref": m.RelacionRef, "fecha_efectiva": m.FechaEfectiva.Format(time.DateOnly),
+			"documento_ref": m.DocumentoRef, "documento_sha256": m.DocumentoSHA256}}
+	autorizacionLectura, err := s.d.Autorizador.AutorizarOperacionSeguimiento(ctx, ports.SolicitudAutorizarOperacionSeguimiento{
+		Accion:    ports.AccionConsultarAntecedenteReincorporacionTitular,
+		Finalidad: ports.FinalidadLecturaReincorporacionTitular,
+		Audiencia: ports.AudienciaLecturaReincorporacionTitularV1,
+		Motivo:    politicaLectura.MotivoAutorizacion, Recurso: recursoLectura})
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	antecedente, err := s.d.Lector.LeerAntecedenteReincorporacionTitular(ctx, m, autorizacionLectura)
+	if err != nil {
+		return vacio, err
+	}
+	if !antecedente.ValidoPara(m) {
+		return vacio, ports.ErrResultadoSeguimientoNoConfiable
+	}
+	if antecedente.Resultado != ports.ResultadoAntecedenteCoincide {
+		return vacio, ports.ErrReincorporacionCeseNoCoincide
 	}
 	causas, politica, err := s.d.Reglas.CausasCese(ctx, ahora)
 	if err != nil || !politica.ValidaEn(ahora) {
@@ -123,7 +150,8 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 	}
 	if !prep.Referencias.Validas() || !ports.ColeccionesHMACContienenPar(ambitos, ports.DominioAmbitoReincorporacionTitular,
 		huellas, ports.DominioHuellaReincorporacionTitular, prep.AmbitoIdempotenciaHMAC, prep.HuellaPeticionHMAC) ||
-		!domain.ReferenciaOpacaValida(prep.CeseEventoRef) || !domain.ReferenciaOpacaValida(prep.CeseReciboRef) {
+		!domain.ReferenciaOpacaValida(prep.CeseEventoRef) || !domain.ReferenciaOpacaValida(prep.CeseReciboRef) ||
+		prep.CeseEventoRef != antecedente.CeseEventoRef || prep.CeseReciboRef != antecedente.CeseReciboRef {
 		return vacio, ports.ErrResultadoSeguimientoNoConfiable
 	}
 	atributos := map[string]string{"version_expediente": strconv.FormatUint(m.VersionEsperada, 10), "relacion_ref": m.RelacionRef,

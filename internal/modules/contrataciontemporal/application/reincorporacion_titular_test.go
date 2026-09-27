@@ -9,6 +9,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vp "vec-diputacion-granada/internal/vec/ports"
 )
 
 type sellosReincorporacionPrueba struct{}
@@ -16,13 +17,32 @@ type sellosReincorporacionPrueba struct{}
 type lecturaReincorporacionPrueba struct {
 	consultas                int
 	organizacion, expediente string
+	resultado                string
 	err                      error
 }
 
-func (l *lecturaReincorporacionPrueba) AutorizarLecturaSeguimiento(_ context.Context, org, exp string) error {
+func (l *lecturaReincorporacionPrueba) LeerAntecedenteReincorporacionTitular(_ context.Context, m ports.MaterialReincorporacionTitular, _ vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.AntecedenteReincorporacionTitular, error) {
 	l.consultas++
-	l.organizacion, l.expediente = org, exp
-	return l.err
+	l.organizacion, l.expediente = m.OrganizacionRef, m.ExpedienteRef
+	resultado := l.resultado
+	if resultado == "" {
+		resultado = ports.ResultadoAntecedenteCoincide
+	}
+	antecedente := ports.AntecedenteReincorporacionTitular{Resultado: resultado,
+		ExpedienteRef: m.ExpedienteRef, CeseEventoRef: "evento:cese:prueba", CeseReciboRef: "recibo:cese:prueba",
+		LecturaRef: "lectura:" + strings.Repeat("c", 64), AuditoriaRef: "aud_v3_" + strings.Repeat("1", 32),
+		ConsumoHuellaSHA256: strings.Repeat("a", 64), RegistradaEn: time.Date(2027, 2, 15, 10, 0, 0, 0, time.UTC)}
+	if resultado == ports.ResultadoAntecedenteNoCoincide {
+		antecedente.CeseEventoRef, antecedente.CeseReciboRef = "", ""
+	}
+	return antecedente, l.err
+}
+
+type politicaLecturaReincorporacionPrueba struct{ reglas *reglasSeguimientoDoble }
+
+func (p politicaLecturaReincorporacionPrueba) PoliticaLecturaReincorporacionTitular(ctx context.Context, ahora time.Time) (ports.PoliticaOperacionSeguimiento, error) {
+	_, politica, err := p.reglas.CausasCese(ctx, ahora)
+	return politica, err
 }
 
 func (sellosReincorporacionPrueba) SellarAmbitoReincorporacionTitular(context.Context, ports.SolicitudSellarAmbitoIdempotencia) (ports.ColeccionSellosHMAC, error) {
@@ -81,7 +101,8 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 	repo := &repositorioReincorporacionPrueba{expediente: cesado}
 	lectura := &lecturaReincorporacionPrueba{}
 	s, err := NuevoServicioReincorporacionTitular(DependenciasReincorporacionTitular{Contextos: esc.servicio.contextos,
-		Lectura: lectura, Sellos: sellosReincorporacionPrueba{}, Repositorio: repo, Reglas: esc.reglas, Autorizador: esc.autorizador,
+		Lector: lectura, PoliticaLectura: politicaLecturaReincorporacionPrueba{esc.reglas},
+		Sellos: sellosReincorporacionPrueba{}, Repositorio: repo, Reglas: esc.reglas, Autorizador: esc.autorizador,
 		Referencias: referenciasSeguimientoDoble{}, Reloj: esc.servicio.reloj})
 	if err != nil {
 		t.Fatal(err)
@@ -92,20 +113,27 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); err != nil {
 		t.Fatal(err)
 	}
-	if repo.confirmaciones != 1 || lectura.consultas != 1 || lectura.organizacion != sol.Canal.OrganizacionRef || lectura.expediente != sol.ExpedienteRef || len(esc.autorizador.solicitudes) != 1 ||
-		esc.autorizador.solicitudes[0].Audiencia != ports.AudienciaConsumoReincorporacionTitularV1 ||
-		esc.autorizador.solicitudes[0].Accion != domain.AccionRegistrarReincorporacionTitular {
+	if repo.confirmaciones != 1 || lectura.consultas != 1 || lectura.organizacion != sol.Canal.OrganizacionRef || lectura.expediente != sol.ExpedienteRef || len(esc.autorizador.solicitudes) != 2 ||
+		esc.autorizador.solicitudes[0].Audiencia != ports.AudienciaLecturaReincorporacionTitularV1 ||
+		esc.autorizador.solicitudes[0].Accion != ports.AccionConsultarAntecedenteReincorporacionTitular ||
+		esc.autorizador.solicitudes[1].Audiencia != ports.AudienciaConsumoReincorporacionTitularV1 ||
+		esc.autorizador.solicitudes[1].Accion != domain.AccionRegistrarReincorporacionTitular {
 		t.Fatal("efecto o decisión V3 incorrectos")
 	}
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); err != nil {
 		t.Fatal(err)
 	}
-	if repo.confirmaciones != 1 || lectura.consultas != 2 || len(esc.autorizador.solicitudes) != 2 {
+	if repo.confirmaciones != 1 || lectura.consultas != 2 || len(esc.autorizador.solicitudes) != 4 {
 		t.Fatal("replay duplicó efecto o no reautorizó")
+	}
+	lectura.resultado = ports.ResultadoAntecedenteNoCoincide
+	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); !errors.Is(err, ports.ErrReincorporacionCeseNoCoincide) ||
+		repo.preparaciones != 2 || len(esc.autorizador.solicitudes) != 5 {
+		t.Fatal("lectura auditada sin coincidencia permitió preparar el expediente")
 	}
 	lectura.err = ports.ErrAutorizacionDenegada
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		repo.preparaciones != 2 || len(esc.autorizador.solicitudes) != 2 {
+		repo.preparaciones != 2 || len(esc.autorizador.solicitudes) != 6 {
 		t.Fatal("la lectura denegada permitió preparar o distinguir estado del expediente")
 	}
 	sol.Canal.AutenticacionRef = ""
