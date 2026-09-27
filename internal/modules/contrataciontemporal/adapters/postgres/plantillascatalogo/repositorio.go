@@ -19,9 +19,12 @@ import (
 )
 
 const (
-	funcion         = `SELECT vec_contratacion_temporal.operar_catalogo_plantillas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
-	audiencia       = "vec_contratacion_temporal.catalogo_plantillas.v1"
-	maximoRespuesta = 512 << 10
+	funcion   = `SELECT vec_contratacion_temporal.operar_catalogo_plantillas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	audiencia = "vec_contratacion_temporal.catalogo_plantillas.v1"
+	// CT131 admite hasta 16 MiB de catálogo y 17 MB de material JSONB.
+	// El límite de lectura cubre esa representación sin aceptar una respuesta
+	// mayor que la frontera SQL.
+	maximoRespuesta = 17_000_000
 )
 
 var ErrDenegado = errors.New("contratacion temporal: gobierno de plantillas denegado")
@@ -88,7 +91,7 @@ func (r *Repositorio) Cambiar(ctx context.Context, actor vecdomain.ContextoActor
 		return app.ResultadoCambio{}, app.ErrNoDisponible
 	}
 	b, err := json.Marshal(material)
-	if err != nil || len(b) > 256<<10 {
+	if err != nil || len(b) > 17_000_000 {
 		return app.ResultadoCambio{}, app.ErrEntradaInvalida
 	}
 	var z app.ResultadoCambio
@@ -166,6 +169,9 @@ func (r *Repositorio) operar(ctx context.Context, actor vecdomain.ContextoActor,
 func normalizar(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
+	}
+	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+		return ErrDenegado
 	}
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {

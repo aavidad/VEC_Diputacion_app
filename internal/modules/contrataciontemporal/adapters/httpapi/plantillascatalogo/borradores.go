@@ -15,7 +15,9 @@ import (
 	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	pgplantillas "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres/plantillascatalogo"
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
@@ -36,7 +38,7 @@ type ConsultorDetalle interface {
 	Consultar(context.Context, ports.SolicitudDetalleRRHH) (ports.DetalleExpedienteRRHH, error)
 }
 type ProveedorPlantillas interface {
-	ObtenerPlantillas(context.Context, time.Time) (*informejuridico.PlantillasBorrador, error)
+	ObtenerPlantillasDocumento(context.Context, plantillasapp.SolicitudDocumental, time.Time) (*informejuridico.PlantillasBorrador, error)
 }
 
 // PlantillasFijadas se usa únicamente en el generador de una petición cuyo
@@ -173,7 +175,16 @@ func (h *ManejadorBorradores) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		fallo(w, 503, "no_disponible")
 		return
 	}
-	instantanea, err := h.plantillas.ObtenerPlantillas(r.Context(), h.ahora().UTC())
+	operacion := "descargar"
+	if listar {
+		operacion = "listar"
+	}
+	material := plantillasapp.SolicitudDocumental{Operacion: operacion, ExpedienteRef: detalle.Resumen.ExpedienteRef, VersionObservada: detalle.Resumen.Version, ConsultaHuellaSHA256: detalle.Lectura.ConsultaHuellaSHA256()}
+	if !listar {
+		material.Tipo = pedido.Tipo
+		material.Formato = pedido.Formato
+	}
+	instantanea, err := h.plantillas.ObtenerPlantillasDocumento(r.Context(), material, h.ahora().UTC())
 	if err != nil || instantanea == nil {
 		fallo(w, 503, "no_disponible")
 		return
@@ -263,7 +274,7 @@ func falloConsultaBorrador(w http.ResponseWriter, err error) {
 		fallo(w, 404, "no_encontrado")
 		return
 	}
-	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) || errors.Is(err, ports.ErrAutorizacionDenegada) {
+	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) || errors.Is(err, ports.ErrAutorizacionDenegada) || errors.Is(err, pgplantillas.ErrDenegado) {
 		fallo(w, 403, "denegado")
 		return
 	}

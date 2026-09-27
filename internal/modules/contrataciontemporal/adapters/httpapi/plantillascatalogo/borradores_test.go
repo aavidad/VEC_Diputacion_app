@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
@@ -34,7 +35,7 @@ type proveedorBorradorPrueba struct {
 	llamadas   int
 }
 
-func (p *proveedorBorradorPrueba) ObtenerPlantillas(context.Context, time.Time) (*informejuridico.PlantillasBorrador, error) {
+func (p *proveedorBorradorPrueba) ObtenerPlantillasDocumento(_ context.Context, _ plantillasapp.SolicitudDocumental, _ time.Time) (*informejuridico.PlantillasBorrador, error) {
 	p.llamadas++
 	return p.plantillas, nil
 }

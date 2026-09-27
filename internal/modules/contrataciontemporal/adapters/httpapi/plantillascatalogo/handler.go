@@ -189,23 +189,7 @@ func responder(w http.ResponseWriter, codigo int, valor any) {
 	_ = json.NewEncoder(w).Encode(valor)
 }
 func fallo(w http.ResponseWriter, codigo int, clave string) {
-	responder(w, codigo, map[string]any{"error": map[string]string{"codigo": clave, "mensaje": mensaje(clave)}})
-}
-func mensaje(clave string) string {
-	switch clave {
-	case "entrada_invalida":
-		return "Revisa los datos de la plantilla."
-	case "conflicto":
-		return "La versión cambió. Actualiza el catálogo y vuelve a intentarlo."
-	case "denegado":
-		return "No tienes permiso para esta operación."
-	case "no_identificado":
-		return "Identifícate para continuar."
-	case "no_disponible":
-		return "El catálogo no está disponible ahora."
-	default:
-		return "Solicitud no disponible."
-	}
+	responder(w, codigo, map[string]any{"error": map[string]string{"codigo": clave, "clave_i18n": "api.contratacion_temporal.plantillas." + clave}})
 }
 func falloServicio(w http.ResponseWriter, err error) {
 	switch {
