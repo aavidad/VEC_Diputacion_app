@@ -67,7 +67,7 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusServiceUnavailable)
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.Fragment != "" || r.Header.Get("Cookie") != "" {
+	if r.URL.RawQuery != "" || r.URL.Fragment != "" || contieneCabeceraCookie(r.Header) {
 		responderError(w, http.StatusForbidden)
 		return
 	}
@@ -87,6 +87,15 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		responderError(w, http.StatusNotFound)
 	}
+}
+
+func contieneCabeceraCookie(cabeceras http.Header) bool {
+	for nombre := range cabeceras {
+		if strings.EqualFold(nombre, "Cookie") {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Manejador) resolverIdentidad(r *http.Request, fuente FuenteConsulta) (IdentidadResuelta, error) {
@@ -192,6 +201,9 @@ func decodificarCuerpoConsulta(w http.ResponseWriter, r *http.Request) (cuerpoCo
 		return c, ErrDenegada
 	}
 	r.Body = http.NoBody
+	r.GetBody = nil
+	r.ContentLength = 0
+	r.TransferEncoding = nil
 	return c, nil
 }
 

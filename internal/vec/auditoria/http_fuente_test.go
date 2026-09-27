@@ -2,6 +2,7 @@ package auditoria
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,7 +18,7 @@ type identidadFuenteAuditoriaHTTPPrueba struct {
 
 func (i *identidadFuenteAuditoriaHTTPPrueba) ResolverIdentidadConsulta(_ context.Context, r *http.Request, fuente FuenteConsulta) (IdentidadResuelta, error) {
 	i.fuentes = append(i.fuentes, fuente)
-	i.bodyVacio = r.Body == http.NoBody
+	i.bodyVacio = r.Body == http.NoBody && r.GetBody == nil
 	return i.identidad, nil
 }
 
@@ -50,10 +51,37 @@ func TestAuditoriaResuelveFuenteTipadaTrasDecodificarUnaVez(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(cuerpoConsultaFuentePrueba(caso.fuente, caso.expediente)))
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("X-Fuente", "personal")
+		r.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader("material que no debe releerse")), nil
+		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		if w.Code != http.StatusForbidden || identidad.fuentes[len(identidad.fuentes)-1] != caso.esperado || !identidad.bodyVacio {
 			t.Fatalf("POST fuente=%q status=%d fuentes=%v bodyVacio=%v", caso.fuente, w.Code, identidad.fuentes, identidad.bodyVacio)
+		}
+	}
+}
+
+func TestAuditoriaRechazaTodaCabeceraCookieAntesDeIdentidad(t *testing.T) {
+	identidad := &identidadFuenteAuditoriaHTTPPrueba{identidad: identidadVigenteAuditoriaHTTPPrueba(t, time.Now())}
+	h, err := NuevoManejador(&Servicio{}, &opcionesAuditoriaHTTPPrueba{}, identidad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct{ metodo, ruta, cuerpo string }{
+		{http.MethodGet, RutaOpciones, ""},
+		{http.MethodPost, RutaConsulta, cuerpoConsultaFuentePrueba("ct", "expediente:ct:uno")},
+	} {
+		r := httptest.NewRequest(caso.metodo, caso.ruta, strings.NewReader(caso.cuerpo))
+		if caso.metodo == http.MethodPost {
+			r.Header.Set("Content-Type", "application/json")
+		}
+		r.Header.Add("Cookie", "")
+		r.Header.Add("Cookie", "sesion=sintetica")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusForbidden || len(identidad.fuentes) != 0 {
+			t.Fatalf("%s aceptó cookie secundaria: status=%d fuentes=%v", caso.metodo, w.Code, identidad.fuentes)
 		}
 	}
 }
