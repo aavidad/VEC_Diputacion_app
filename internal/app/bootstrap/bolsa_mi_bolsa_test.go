@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -188,8 +189,10 @@ func TestMiBolsaPoliticaLimitaCampoYCandidato(t *testing.T) {
 		t.Fatalf("política candidata inválida: %v", err)
 	}
 	concesiones := instantanea.VersionRol.Concesiones
-	if len(concesiones) != 1 || len(concesiones[0].CamposPermitidos) != 1 ||
+	if len(concesiones) != 2 || len(concesiones[0].CamposPermitidos) != 1 ||
 		concesiones[0].CamposPermitidos[0] != puertosbolsa.CampoMiBolsa ||
+		concesiones[1].Accion != puertosbolsa.AccionConsultarHistorialPropio ||
+		!slices.Equal(concesiones[1].CamposPermitidos, puertosbolsa.CamposHistorialMiBolsa()) ||
 		len(instantanea.AsignacionPerfil.Ambitos) != 1 ||
 		instantanea.AsignacionPerfil.Ambitos[0].Clave != "candidato_ref" ||
 		len(instantanea.AsignacionPerfil.Ambitos[0].Valores) != 1 ||
