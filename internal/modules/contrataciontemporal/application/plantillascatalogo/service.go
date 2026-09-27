@@ -229,8 +229,8 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 	if lectura.Borrador == nil || lectura.Borrador.Version != solicitud.VersionEsperada || lectura.Borrador.Revision != solicitud.RevisionEsperada {
 		return s.repo.Cambiar(ctx, actor, material)
 	}
-	if lectura.EditorDeEstaVersion {
-		return ResultadoCambio{}, ErrEntradaInvalida
+	if lectura.EditorDeEstaVersion || actor.Principal.ID == lectura.Borrador.CreadoPor || actor.Principal.ID == lectura.Borrador.UltimaModificacionPor {
+		return ResultadoCambio{}, vecdomain.ErrAutorizacionDenegada
 	}
 	publicado, err := lectura.Borrador.Publicar(actor.Principal.ID, solicitud.AprobacionRef, solicitud.Motivo, s.reloj.Ahora().UTC().Truncate(time.Microsecond))
 	if err != nil || s.validar(publicado) != nil {

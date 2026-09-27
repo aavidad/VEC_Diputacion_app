@@ -122,7 +122,7 @@ func TestPublicarExigePersonaDistintaDeEditor(t *testing.T) {
 		t.Fatalf("proyección de separación de funciones: %+v, %v", proyeccion, err)
 	}
 	_, err = s.Publicar(context.Background(), a, SolicitudPublicar{ClaveIdempotencia: "22222222-2222-4222-8222-222222222222", VersionEsperada: 2, RevisionEsperada: 1, Motivo: "Aprobación", AprobacionRef: "aprobacion:rrhh:v2"})
-	if !errors.Is(err, ErrEntradaInvalida) || r.llamadas != 0 {
+	if !errors.Is(err, vecdomain.ErrAutorizacionDenegada) || r.llamadas != 0 {
 		t.Fatalf("publicación propia aceptada: %v", err)
 	}
 }
@@ -145,7 +145,7 @@ func TestEditorIntermedioNoPuedePublicarAunqueNoSeaElUltimo(t *testing.T) {
 		t.Fatalf("editor intermedio anunciado como publicador: %+v, %v", l, err)
 	}
 	_, err = s.Publicar(context.Background(), editorIntermedio, SolicitudPublicar{ClaveIdempotencia: "33333333-3333-4333-8333-333333333333", VersionEsperada: 2, RevisionEsperada: 2, Motivo: "Aprobación impropia", AprobacionRef: "aprobacion:rrhh:v2"})
-	if !errors.Is(err, ErrEntradaInvalida) || r.llamadas != 0 {
+	if !errors.Is(err, vecdomain.ErrAutorizacionDenegada) || r.llamadas != 0 {
 		t.Fatalf("editor intermedio publicó: %v", err)
 	}
 }

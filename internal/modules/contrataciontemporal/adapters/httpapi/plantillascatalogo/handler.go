@@ -22,7 +22,7 @@ const (
 	maxCuerpo    = 256 << 10
 )
 
-// La composición registra sólo estas rutas en la superficie ADMIN segregada.
+// La composición registra estas rutas en la superficie funcional interna RRHH.
 type ResolverActor interface {
 	ResolverContextoActor(context.Context) (vecdomain.ContextoActor, error)
 }
