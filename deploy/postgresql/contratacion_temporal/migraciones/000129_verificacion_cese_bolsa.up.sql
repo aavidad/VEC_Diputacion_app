@@ -3,6 +3,7 @@
 -- No crea un cese ni acredita por sí solo una baja en Personal. Devuelve el
 -- hecho mínimo de CT115 únicamente si coincide con el evento CT113 publicado,
 -- el outbox CT115 y la relación opaca confirmada por Personal en CT75.
+-- Orden de instalación: Bolsa 000045 (rol, bandeja y receptor) antes de CT129.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path = pg_catalog;
@@ -24,8 +25,16 @@ BEGIN
        OR to_regprocedure('vec_contratacion_temporal.instante_contrato_bolsa_v1(timestamptz)') IS NULL
        OR to_regprocedure('vec_contratacion_temporal.posicion_contrato_bolsa_v1(xid8)') IS NULL
        OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_propietario' AND NOT rolcanlogin)
-       OR NOT has_schema_privilege('vec_bolsa_llamamientos_propietario','vec_contratacion_temporal','USAGE') THEN
-        RAISE EXCEPTION 'CT129: CT75/CT113/CT115 y propietario de Bolsa requeridos' USING ERRCODE='55000';
+       OR NOT has_schema_privilege('vec_bolsa_llamamientos_propietario','vec_contratacion_temporal','USAGE')
+       OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_relevo_cese'
+                       AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
+       OR NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                       WHERE n.nspname='vec_bolsa_llamamientos' AND c.relname='restriccion_cese_bolsa' AND c.relkind='r')
+       OR NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                       WHERE n.nspname='vec_bolsa_llamamientos' AND p.proname='registrar_restriccion_cese_bolsa_v1'
+                         AND p.pronargs=3 AND p.proargtypes[0]='text'::regtype
+                         AND p.proargtypes[1]='text'::regtype AND p.proargtypes[2]='bigint'::regtype) THEN
+        RAISE EXCEPTION 'CT129: CT75/CT113/CT115 y Bolsa 000045 requeridos' USING ERRCODE='55000';
     END IF;
 END
 $pre$;
@@ -39,7 +48,7 @@ CREATE POLICY verificacion_cese_bolsa_ct129
     ON vec_contratacion_temporal.cese_nombramiento_v1 FOR SELECT
     TO vec_contratacion_temporal_propietario
     USING (evento_ref=current_setting('vec.ct129.origen_ref',true)
-        AND pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+        AND pg_has_role(session_user,to_regrole('vec_bolsa_llamamientos_relevo_cese'),'MEMBER')
         AND NOT pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
         AND NOT pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
         AND NOT pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
@@ -71,13 +80,13 @@ SET search_path=pg_catalog SET row_security='on' SET timezone='UTC'
 AS $funcion$
 DECLARE v_marca_previa text:=current_setting('vec.ct129.origen_ref',true);
 BEGIN
-    -- Bolsa 000045 crea el grupo de relevo. Hasta entonces la comprobación
-    -- falla cerrada sin hacer visible ninguna fila CT.
+    -- Si el grupo desaparece después de instalar, falla cerrado; la política
+    -- resuelve su OID con to_regrole para no romper otras lecturas CT115.
     IF to_regrole('vec_bolsa_llamamientos_relevo_cese') IS NULL THEN
         RETURN;
     END IF;
     IF current_user<>'vec_contratacion_temporal_propietario'
-       OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+       OR NOT pg_has_role(session_user,to_regrole('vec_bolsa_llamamientos_relevo_cese'),'MEMBER')
        OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
        OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
        OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
