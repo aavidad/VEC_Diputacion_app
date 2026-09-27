@@ -60,12 +60,12 @@ func politicaDescriptoresBolsaPrueba(t *testing.T) politicaAutorizacionSolicitud
 }
 
 func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback")
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 17 {
-		t.Fatalf("fronteras = %d, se esperan 17 (nueve B-BACK, tres de ofertas, una de contratos, dos de sanciones y dos del correo B7)", len(fronteras))
+	if len(fronteras) != 19 {
+		t.Fatalf("fronteras = %d, se esperan 19 (nueve B-BACK, tres de ofertas, una de contratos, dos de sanciones, dos del correo B7 y dos de B47)", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -132,6 +132,11 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaEmisionesLlamamiento); !ok {
 		t.Fatal("GET de recuperación B7 no quedó declarado")
 	}
+	for _, metodo := range []string{http.MethodGet, http.MethodPost} {
+		if _, ok := catalogo.resolver(metodo, bolsahttp.RutaPoliticaOfertas); !ok {
+			t.Fatalf("%s de B47 no quedó declarado", metodo)
+		}
+	}
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion"); ok {
 		t.Fatal("GET B3 abrió un subrecurso ajeno")
 	}
@@ -151,7 +156,7 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 
 func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	politica := politicaDescriptoresBolsaPrueba(t)
-	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback")
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +164,7 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	descriptores, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica)
+	descriptores, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,6 +180,11 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	}
 	if p, ok := catalogo.politicaPara(puertosbolsa.AccionCambiarSituacionParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
 		t.Fatal("cambio B2 no conservó la política Bolsa completa")
+	}
+	for _, frontera := range []string{claveFronteraConsultarPoliticaOfertasBolsa, claveFronteraPublicarPoliticaOfertasBolsa} {
+		if p, ok := catalogo.politicaPara(puertosbolsa.AccionPublicarPoliticaOfertas, frontera, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadPoliticaOfertasBolsa); !ok || !p.valida() {
+			t.Fatalf("B47 no conservó la política Bolsa en %s", frontera)
+		}
 	}
 	if p, ok := catalogo.politicaPara(puertosbolsa.AccionRegistrarContactoParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
 		t.Fatal("registro B3 no conservó la política Bolsa completa")
@@ -195,9 +205,9 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 }
 
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
-	descriptores := descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()
-	if len(descriptores) != 7 {
-		t.Fatalf("materiales = %d, se esperan 7", len(descriptores))
+	descriptores := append(descriptoresMaterialBorradorLlamamientoBolsaDesarrollo(), descriptorMaterialPoliticaOfertasBolsaDesarrollo())
+	if len(descriptores) != 8 {
+		t.Fatalf("materiales = %d, se esperan 8", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {
@@ -211,6 +221,7 @@ func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 		{Audiencia: puertosbolsa.AudienciaConsultarContactoParticipacion, Dominio: dominioMaterialConsultaContactoParticipacionBolsa, Prefijo: prefijoMaterialConsultaContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-consulta-contacto-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaRegistrarDatosContactoParticipacion, Dominio: dominioMaterialDatosContactoParticipacionBolsa, Prefijo: prefijoMaterialDatosContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-datos-contacto-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaEmitirLlamamiento, Dominio: dominioMaterialEmisionLlamamientoBolsa, Prefijo: prefijoMaterialEmisionLlamamientoBolsa, ProveedorNominal: "proveedor-material-emision-llamamiento-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaPublicarPoliticaOfertas, Dominio: dominioMaterialPoliticaOfertasBolsa, Prefijo: prefijoMaterialPoliticaOfertasBolsa, ProveedorNominal: "proveedor-material-politica-ofertas-bolsa"},
 	} {
 		actual, ok := catalogo.descriptorPara(esperado.Audiencia)
 		if !ok || actual != esperado {
@@ -222,5 +233,26 @@ func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	}
 	if _, ok := catalogo.descriptorPara("vec_contratacion_temporal.confirmar_alta_atestada.v1"); ok {
 		t.Fatal("el catálogo B-BACK declaró material CT")
+	}
+}
+
+func TestPoliticaOfertasNoSeDeclaraSinSelector(t *testing.T) {
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, metodo := range []string{http.MethodGet, http.MethodPost} {
+		if _, existe := catalogo.resolver(metodo, bolsahttp.RutaPoliticaOfertas); existe {
+			t.Fatalf("B47 declarada sin selector: %s", metodo)
+		}
+	}
+	for _, descriptor := range descriptoresMaterialBorradorLlamamientoBolsaDesarrollo() {
+		if descriptor.Audiencia == puertosbolsa.AudienciaPublicarPoliticaOfertas {
+			t.Fatal("material B47 publicado sin selector")
+		}
 	}
 }

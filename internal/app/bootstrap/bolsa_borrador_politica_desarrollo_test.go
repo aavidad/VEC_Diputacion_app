@@ -38,7 +38,9 @@ func (a *autoridadInicialBorradorBolsaPrueba) prepararInstantanea(
 func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
-	if preimagen.VersionRol.Version != 4 || len(preimagen.VersionRol.Concesiones) != 6 ||
+	preimagenValida := (preimagen.VersionRol.Version == 4 && len(preimagen.VersionRol.Concesiones) == 6) ||
+		(preimagen.VersionRol.Version == 5 && len(preimagen.VersionRol.Concesiones) == 7)
+	if !preimagenValida ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
 	}
@@ -222,6 +224,28 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB7Exacta(t *testing.T) {
 	}
 	if autoridad.publicada.VersionRol.Version != 5 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 7 {
 		t.Fatalf("sucesión B4 no exacta: %+v", autoridad.publicada)
+	}
+}
+
+func TestPoliticaBorradorBolsaAmpliaB5AConcesionB47Exacta(t *testing.T) {
+	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+	autoridad.permitirSucesion = true
+	if err := politica.PublicarInicialConPoliticaOfertas(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if autoridad.publicada.VersionRol.Version != 6 || len(autoridad.publicada.VersionRol.Concesiones) != 8 {
+		t.Fatalf("B47 no evolucionó conservadoramente B5: %+v", autoridad.publicada.VersionRol)
+	}
+	var encontrada *dominiovec.ConcesionRol
+	for i := range autoridad.publicada.VersionRol.Concesiones {
+		concesion := &autoridad.publicada.VersionRol.Concesiones[i]
+		if concesion.Accion == puertosbolsa.AccionPublicarPoliticaOfertas {
+			encontrada = concesion
+		}
+	}
+	if encontrada == nil || encontrada.ModuloID != "bolsa" || encontrada.TipoRecurso != "bolsa_constituida" ||
+		!reflect.DeepEqual(encontrada.Finalidades, []string{puertosbolsa.FinalidadPoliticaOfertas}) {
+		t.Fatalf("concesión B47 distinta: %+v", encontrada)
 	}
 }
 

@@ -440,7 +440,15 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
 	}
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
-	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta)
+	reincorporacionTitular, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
+	if err != nil || (reincorporacionTitular && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
+		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	}
+	politicaOfertasActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled)
+	if err != nil || (politicaOfertasActiva && !cfg.BolsaBorradoresEnabled) {
+		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	}
+	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta, reincorporacionTitular)
 	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil {
 		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
 			return nil, nil, nil, errMiBolsaNoDisponible
@@ -481,7 +489,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, fmt.Errorf("%w: %w", errBorradorNoDisponibleEn(), err)
 		}
 		perfilBolsa := soporteBolsaCatalogo.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
-		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa)
+		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva)
 		if e != nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}

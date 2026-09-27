@@ -216,6 +216,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoCeseV1,
 		ports.AudienciaConsumoCierreExpedienteV1,
 		ports.AudienciaConsumoModificacionNombramientoV1,
+		ports.AudienciaConsumoReincorporacionTitularV1,
 		// Cancelación del expediente (AD3-87); solo con VEC_CT_CANCELACION_ENABLED.
 		ports.AudienciaConsumoCancelacionV1,
 		// Confirmación de GINPIX (AD3-88); solo se publica con
@@ -235,6 +236,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
+		puertosbolsa.AudienciaPublicarPoliticaOfertas,
 		puertosbolsa.AudienciaSolicitarPausaPropia,
 		puertosbolsa.AudienciaSolicitarReactivacionPropia,
 		puertosbolsa.AudienciaResponderLlamamientoPropio,
