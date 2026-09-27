@@ -31,6 +31,33 @@ if psql_pg < "$m.down.sql" >/dev/null 2>&1; then echo 'doble DOWN aceptado'; exi
 psql_pg < "$m.up.sql" >/dev/null
 echo 'ROLLBACK, UP/DOWN/UP y doble aplicación: OK'
 
+# DOWN y recepción compiten con dos sesiones. DOWN debe esperar al INSERT
+# pendiente de commit y, tras él, rechazar la reversión por historia. El
+# TRUNCATE posterior pertenece solo a esta base efímera de ensayo.
+{
+  printf '%s\n' 'BEGIN;' 'SET ROLE vec_bolsa_llamamientos_ejecutor;'
+  printf '%s\n' "SELECT * FROM vec_bolsa_llamamientos.registrar_reincorporacion_titular_ct_v1('evento:ct:reincorporacion:uno',repeat('1',64),10);"
+  printf '%s\n' '\echo INSERCION_LISTA' 'SELECT pg_sleep(2);' 'COMMIT;'
+} | psql_pg >"$trabajo/carrera_insert.log" 2>"$trabajo/carrera_insert.err" &
+insercion=$!
+for _ in $(seq 1 40); do
+  grep -q INSERCION_LISTA "$trabajo/carrera_insert.log" && break
+  sleep 0.1
+done
+grep -q INSERCION_LISTA "$trabajo/carrera_insert.log" || { cat "$trabajo/carrera_insert.err" >&2; echo 'recepción no preparada'; exit 1; }
+if psql_pg < "$m.down.sql" >"$trabajo/carrera_down.log" 2>"$trabajo/carrera_down.err"; then
+  echo 'DOWN eliminó historia concurrente'; exit 1
+fi
+wait "$insercion" || { cat "$trabajo/carrera_insert.err" >&2; exit 1; }
+grep -q 'historia de reincorporaciones conservada' "$trabajo/carrera_down.err" || {
+  cat "$trabajo/carrera_down.err" >&2; echo 'DOWN no rechazó por historia'; exit 1;
+}
+[[ $(psql_pg -tAc 'SELECT count(*) FROM vec_bolsa_llamamientos.reincorporacion_titular_ct') == 1 ]] || {
+  echo 'recepción concurrente perdida'; exit 1;
+}
+psql_pg -c 'TRUNCATE vec_bolsa_llamamientos.reincorporacion_titular_ct' >/dev/null
+echo 'DOWN espera recepción concurrente y conserva historia: OK'
+
 psql_pg <<'SQL'
 DO $test$
 DECLARE f text;

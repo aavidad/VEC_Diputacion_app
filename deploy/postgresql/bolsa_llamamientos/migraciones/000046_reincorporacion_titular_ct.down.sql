@@ -8,6 +8,9 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000046', 0));
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+-- Bloquea inserciones hasta terminar la comprobación y el DROP; el cerrojo
+-- advisory de migración no lo toma la función de recepción.
+LOCK TABLE vec_bolsa_llamamientos.reincorporacion_titular_ct IN ACCESS EXCLUSIVE MODE;
 DO $guardia$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
