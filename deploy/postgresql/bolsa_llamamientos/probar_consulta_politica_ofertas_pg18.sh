@@ -6,17 +6,23 @@ repo=$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm}
 contenedor=vec-pg-b47-$$
 datos=/dev/shm/vec-pg-b47-$$
+sockets=/dev/shm/vec-pg-b51-socket-$$
 limpiar() {
   docker rm -f "$contenedor" >/dev/null 2>&1 || true
   if [[ -d $datos ]]; then
     docker run --rm --pull never -v "$datos:/d" --entrypoint /bin/sh "$imagen" -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true
     rmdir "$datos" 2>/dev/null || true
   fi
+  if [[ -d $sockets ]]; then
+    docker run --rm --pull never -v "$sockets:/d" --entrypoint /bin/sh "$imagen" -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true
+    rmdir "$sockets" 2>/dev/null || true
+  fi
 }
 trap limpiar EXIT
-mkdir -p "$datos"
+mkdir -p "$datos" "$sockets"
+chmod 0777 "$sockets"
 docker run -d --rm --pull never --network none --name "$contenedor" \
-  -v "$datos:/var/lib/postgresql" -v "$repo:/repo:ro" \
+  -v "$datos:/var/lib/postgresql" -v "$repo:/repo:ro" -v "$sockets:/var/run/postgresql" \
   -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
 for _ in $(seq 1 80); do
   docker exec "$contenedor" pg_isready -q -U postgres 2>/dev/null && break
@@ -205,6 +211,25 @@ fichero "$b51.down.sql" >/dev/null
 fichero deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_down.sql >/dev/null
 fichero deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_up.sql >/dev/null
 fichero "$b51.up.sql" >/dev/null
+psql_pg >/dev/null <<'SQL'
+CREATE ROLE vec_b51_ejecutor_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+CREATE ROLE vec_b51_calculador_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+GRANT vec_bolsa_llamamientos_ejecutor TO vec_b51_ejecutor_prueba WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_bolsa_llamamientos_calculador_politica TO vec_b51_calculador_prueba WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+SQL
+VEC_B51_TEST_FASE=exclusivo \
+VEC_B51_TEST_EJECUTOR_DSN="host=$sockets user=vec_b51_ejecutor_prueba dbname=postgres sslmode=disable" \
+VEC_B51_TEST_CALCULADOR_DSN="host=$sockets user=vec_b51_calculador_prueba dbname=postgres sslmode=disable" \
+GOCACHE=/dev/shm/go-build GOMAXPROCS=2 go test ./internal/modules/bolsa/adapters/postgres -run '^TestAcreditarPoolsPoliticaPG18$' -count=1
+psql_pg >/dev/null <<'SQL'
+CREATE ROLE vec_b51_dual_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+GRANT vec_bolsa_llamamientos_ejecutor TO vec_b51_dual_prueba WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_bolsa_llamamientos_calculador_politica TO vec_b51_dual_prueba WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+SQL
+VEC_B51_TEST_FASE=dual \
+VEC_B51_TEST_EJECUTOR_DSN="host=$sockets user=vec_b51_ejecutor_prueba dbname=postgres sslmode=disable" \
+VEC_B51_TEST_DUAL_DSN="host=$sockets user=vec_b51_dual_prueba dbname=postgres sslmode=disable" \
+GOCACHE=/dev/shm/go-build GOMAXPROCS=2 go test ./internal/modules/bolsa/adapters/postgres -run '^TestAcreditarPoolsPoliticaPG18$' -count=1
 psql_pg >/dev/null <<'SQL'
 DO $prueba$
 DECLARE cap bytea:=convert_to('{"efecto_ref":"bolsa:of:1"}','UTF8');
