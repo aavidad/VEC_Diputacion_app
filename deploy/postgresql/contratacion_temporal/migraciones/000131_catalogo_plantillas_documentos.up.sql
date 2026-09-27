@@ -18,6 +18,8 @@ BEGIN
     OR to_regprocedure('vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text)') IS NOT NULL
     OR to_regprocedure('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)') IS NOT NULL
     OR to_regprocedure('vec_contratacion_temporal.rechazar_mutacion_historia_v1()') IS NULL
+    OR has_schema_privilege('vec_contratacion_temporal_migrador'::regrole,
+          'vec_contratacion_temporal'::regnamespace,'USAGE')
  THEN RAISE EXCEPTION 'CT-131: preimagen incompatible' USING ERRCODE='55000'; END IF;
  f:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF f IS NULL OR NOT has_function_privilege(current_user,f,'EXECUTE')
@@ -188,6 +190,9 @@ BEGIN
  RETURN QUERY SELECT 'registrado'::text,recibo,v,r,p_huella_sha256,json_h,p_fuente_ref,ahora;
 END $provision$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text) FROM PUBLIC;
+-- El migrador no hereda USAGE del propietario (roles_up usa INHERIT FALSE).
+-- Esta concesión permite invocar solo la fachada; no concede tablas ni tipos.
+GRANT USAGE ON SCHEMA vec_contratacion_temporal TO vec_contratacion_temporal_migrador;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text) TO vec_contratacion_temporal_migrador;
 
 -- Sonda mínima del arranque. No devuelve el texto del catálogo y nunca escribe.

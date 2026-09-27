@@ -20,4 +20,27 @@ DROP FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(
 DROP TABLE vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1;
 DROP TABLE vec_contratacion_temporal.catalogo_plantillas_outbox_v1;
 DROP TABLE vec_contratacion_temporal.catalogo_plantillas_historia_v1;
+-- CT-131 partió de ausencia de USAGE para el migrador. Si otra migración
+-- añadió privilegios directos sobre objetos de este esquema, conservar USAGE.
+DO $acl$
+BEGIN
+ IF NOT EXISTS (
+  SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace,
+   LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE n.nspname='vec_contratacion_temporal'
+    AND a.grantee='vec_contratacion_temporal_migrador'::regrole
+ ) AND NOT EXISTS (
+  SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace,
+   LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
+  WHERE n.nspname='vec_contratacion_temporal'
+    AND a.grantee='vec_contratacion_temporal_migrador'::regrole
+ ) AND NOT EXISTS (
+  SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace,
+   LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+  WHERE n.nspname='vec_contratacion_temporal'
+    AND a.grantee='vec_contratacion_temporal_migrador'::regrole
+ ) THEN
+  REVOKE USAGE ON SCHEMA vec_contratacion_temporal FROM vec_contratacion_temporal_migrador;
+ END IF;
+END $acl$;
 COMMIT;
