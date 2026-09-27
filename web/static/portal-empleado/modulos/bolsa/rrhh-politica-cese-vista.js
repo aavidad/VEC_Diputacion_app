@@ -4,6 +4,7 @@ import { traducirPortal, LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const t = (clave, variables) => esc(traducirPortal(`politica_cese_${clave}`, variables));
+const plazoVisible = (meses) => meses === 0 ? t("inmediata") : t(meses === 1 ? "mes" : "meses", { meses });
 
 function modalidad(clave) {
   const simple = clave.split(".").at(-1).split("|")[0];
@@ -29,8 +30,8 @@ export function renderizarVistaPoliticaCeseRRHH({ politica, estado = "lista", ay
       <td>${t(clase === "acumulacion_tareas" ? "acumulacion" : "general")}</td></tr>`).join("");
   return `<section class="politica-cese-rrhh" data-politica-cese>${cabecera}
     <div class="politica-cese-resumen">
-      <article class="panel"><div class="cabecera-panel"><h3>${t("general")}</h3></div><div class="cuerpo-panel"><strong>${t("meses", { meses: politica.meses_general })}</strong></div></article>
-      <article class="panel"><div class="cabecera-panel"><h3>${t("acumulacion")}</h3></div><div class="cuerpo-panel"><strong>${t("meses", { meses: politica.meses_acumulacion })}</strong></div></article>
+      <article class="panel"><div class="cabecera-panel"><h3>${t("general")}</h3></div><div class="cuerpo-panel"><strong>${plazoVisible(politica.meses_general)}</strong></div></article>
+      <article class="panel"><div class="cabecera-panel"><h3>${t("acumulacion")}</h3></div><div class="cuerpo-panel"><strong>${plazoVisible(politica.meses_acumulacion)}</strong></div></article>
     </div>
     <section class="panel"><div class="cabecera-panel"><div><h3>${t("mapeo")}</h3><p>${t("version", { version: politica.version })}</p></div>
       <span class="estado-chip aviso">${t("ejemplo")}</span></div>

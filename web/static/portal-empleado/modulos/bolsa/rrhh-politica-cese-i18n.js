@@ -7,6 +7,8 @@ export const MENSAJES_POLITICA_CESE_ES = Object.freeze({
   politica_cese_general: "Régimen general",
   politica_cese_acumulacion: "Acumulación de tareas",
   politica_cese_meses: "{meses} meses naturales",
+  politica_cese_mes: "{meses} mes natural",
+  politica_cese_inmediata: "Disponibilidad inmediata",
   politica_cese_mapeo: "Modalidades y causas",
   politica_cese_modalidad: "Modalidad o causa",
   politica_cese_clase: "Regla aplicada",

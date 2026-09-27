@@ -23,6 +23,9 @@ test("consulta la política B45 por GET sin referencias ni autoridad en URL", as
   assert.equal(leida.meses_acumulacion, 9);
   assert.equal(llamadas[0][0], RUTA_POLITICA_CESE);
   assert.equal(llamadas[0][1].credentials, "same-origin");
+  assert.deepEqual(Object.keys(llamadas[0][1].headers), ["Accept"]);
+  assert.equal(llamadas[0][1].headers.Authorization, undefined);
+  assert.equal(llamadas[0][1].headers.Cookie, undefined);
   assert.equal(llamadas[0][1].cache, "no-store");
   assert.equal(llamadas[0][1].method, "GET");
   assert.equal(llamadas[0][1].body, undefined);
@@ -33,6 +36,28 @@ test("falla cerrado ante mapeo o régimen no reconocidos y denegación V3", asyn
   assert.throws(() => validarPoliticaCeseRRHH(sobre({ ...politica, estado: "aprobada" })));
   const cliente = crearClientePoliticaCeseRRHH({ fetchImpl: async () => new Response("", { status: 403 }) });
   await assert.rejects(cliente.consultar(), (error) => error.estado === 403);
+});
+
+test("respeta los límites B45 y representa cero meses como disponibilidad inmediata", () => {
+  const mapa100 = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`modalidad_${i}`, "general"]));
+  const amplia = { ...politica, catalogo_ref: "r".repeat(512), mapeo: mapa100,
+    meses_general: 0, meses_acumulacion: 120 };
+  const aceptada = validarPoliticaCeseRRHH(sobre(amplia));
+  assert.equal(aceptada.meses_general, 0);
+  assert.equal(Object.keys(aceptada.mapeo).length, 100);
+  assert.match(renderizarVistaPoliticaCeseRRHH({ politica: aceptada }), /Disponibilidad inmediata/u);
+  assert.match(renderizarVistaPoliticaCeseRRHH({ politica: aceptada }), /120 meses naturales/u);
+  assert.match(renderizarVistaPoliticaCeseRRHH({ politica: { ...aceptada, meses_acumulacion: 1 } }), /1 mes natural/u);
+  assert.throws(() => validarPoliticaCeseRRHH(sobre({ ...amplia, meses_general: 121 })));
+  assert.throws(() => validarPoliticaCeseRRHH(sobre({ ...amplia, meses_acumulacion: -1 })));
+  assert.throws(() => validarPoliticaCeseRRHH(sobre({ ...amplia, catalogo_ref: "r".repeat(513) })));
+  assert.throws(() => validarPoliticaCeseRRHH(sobre({ ...amplia,
+    mapeo: { ...mapa100, otra_modalidad: "general" } })));
+  assert.equal(validarPoliticaCeseRRHH(sobre({ ...politica,
+    catalogo_ref: "é".repeat(256), mapeo: { [`${"a".repeat(80)}|${"b".repeat(80)}`]: "general" } })).meses_general, 5);
+  const mapaGrande = Object.fromEntries(Array.from({ length: 100 }, (_, i) =>
+    [`m${String(i).padStart(3, "0")}${"a".repeat(76)}|${"b".repeat(80)}`, "acumulacion_tareas"]));
+  assert.throws(() => validarPoliticaCeseRRHH(sobre({ ...politica, mapeo: mapaGrande })));
 });
 
 test("la vista muestra versión, meses y mapeo del servidor; ayuda oculta tras ?", () => {
