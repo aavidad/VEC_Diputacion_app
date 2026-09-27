@@ -139,6 +139,27 @@ func TestPoliticaBorradorBolsaPublicaSieteConcesionesNominales(t *testing.T) {
 	}
 }
 
+func TestMotivoPoliticaOfertasSoloConVersionSeisActiva(t *testing.T) {
+	motivo := motivoPublicarPoliticaOfertasBolsaDesarrollo()
+	politicaCinco, _, _, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+	if err := politicaCinco.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivo, time.Now().UTC().Truncate(time.Microsecond)); !errors.Is(err, dominiovec.ErrSolicitudAutorizacionInvalida) {
+		t.Fatalf("motivo B47 admitido antes de publicar: %v", err)
+	}
+	if err := politicaCinco.PublicarInicial(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := politicaCinco.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivo, time.Now().UTC().Truncate(time.Microsecond)); !errors.Is(err, dominiovec.ErrSolicitudAutorizacionInvalida) {
+		t.Fatalf("rol v5 admitió B47: %v", err)
+	}
+	politicaSeis, _, _, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+	if err := politicaSeis.PublicarInicialConPoliticaOfertas(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := politicaSeis.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivo, time.Now().UTC().Truncate(time.Microsecond)); err != nil {
+		t.Fatalf("rol v6 denegó motivo B47 publicado: %v", err)
+	}
+}
+
 func TestPoliticaBorradorBolsaSoloInauguraSemillaExacta(t *testing.T) {
 	casos := []struct {
 		nombre   string
