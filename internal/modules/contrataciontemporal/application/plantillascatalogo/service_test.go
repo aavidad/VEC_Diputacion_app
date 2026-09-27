@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -73,7 +74,9 @@ func solicitudPrueba() SolicitudEditar {
 func TestPrimeraEdicionPreservaBasePublicadaEnMaterialDurable(t *testing.T) {
 	r := &repoPrueba{}
 	s, a := servicioPrueba(t, r)
-	if _, err := s.Editar(context.Background(), a, solicitudPrueba()); err != nil {
+	peticion := solicitudPrueba()
+	peticion.Entrada.VigenteDesde = peticion.Entrada.VigenteDesde.In(time.FixedZone("Madrid", 2*3600))
+	if _, err := s.Editar(context.Background(), a, peticion); err != nil {
 		t.Fatal(err)
 	}
 	m := r.material
@@ -85,6 +88,10 @@ func TestPrimeraEdicionPreservaBasePublicadaEnMaterialDurable(t *testing.T) {
 	}
 	if m.Catalogo.Entradas[0].Clave != "informe_definitivo" {
 		t.Fatal("se perdió la plantilla preexistente")
+	}
+	var canonica SolicitudEditar
+	if err := json.Unmarshal(m.Solicitud, &canonica); err != nil || !canonica.Entrada.VigenteDesde.Equal(peticion.Entrada.VigenteDesde) || canonica.Entrada.VigenteDesde.Location() != time.UTC {
+		t.Fatalf("fecha de solicitud no canónica: %+v, %v", canonica.Entrada.VigenteDesde, err)
 	}
 }
 

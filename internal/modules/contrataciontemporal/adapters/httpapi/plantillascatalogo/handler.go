@@ -66,7 +66,7 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fallo(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
-	if r.Header.Get("Origin") != "" && r.Header.Get("Origin") != "https://"+r.Host && r.Header.Get("Origin") != "http://"+r.Host {
+	if !origenPermitido(r) {
 		fallo(w, http.StatusForbidden, "denegado")
 		return
 	}
@@ -130,6 +130,16 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		codigo = http.StatusOK
 	}
 	responder(w, codigo, cambioDTO{Catalogo: convertirCatalogoDTO(resultado.Catalogo), Recibo: resultado.Recibo})
+}
+
+func origenPermitido(r *http.Request) bool {
+	origen := r.Header.Get("Origin")
+	if origen == "" || origen == "https://"+r.Host {
+		return true
+	}
+	// El canal HTTP se reserva para pruebas locales. Un host remoto con el
+	// mismo nombre pero esquema distinto no constituye el mismo origen.
+	return origen == "http://"+r.Host && (r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") || r.Host == "127.0.0.1" || strings.HasPrefix(r.Host, "127.0.0.1:"))
 }
 
 func rutaValida(r *http.Request) bool {

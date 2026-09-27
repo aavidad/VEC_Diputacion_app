@@ -140,6 +140,13 @@ func (s *Servicio) Editar(ctx context.Context, actor vecdomain.ContextoActor, so
 		!textoMotivo(solicitud.Motivo) || !textoFuente(solicitud.FuenteRef) || solicitud.Entrada.Validar() != nil || solicitud.Entrada.Clave == "etiquetas" {
 		return ResultadoCambio{}, ErrEntradaInvalida
 	}
+	// El dominio normaliza las fechas antes de persistir el catálogo. La
+	// solicitud idempotente usa la misma forma para que SQL compare exactamente
+	// la entrada autorizada y el replay conserve su huella.
+	solicitud.Entrada.VigenteDesde = solicitud.Entrada.VigenteDesde.UTC()
+	if !solicitud.Entrada.VigenteHasta.IsZero() {
+		solicitud.Entrada.VigenteHasta = solicitud.Entrada.VigenteHasta.UTC()
+	}
 	lectura, err := s.Consultar(ctx, actor)
 	if err != nil {
 		return ResultadoCambio{}, err
