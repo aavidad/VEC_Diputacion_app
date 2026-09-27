@@ -1,4 +1,4 @@
-import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260927-rrhh-reposicion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260927-rrhh-sanciones-i18n-v1";

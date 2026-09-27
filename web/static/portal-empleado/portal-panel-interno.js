@@ -10,11 +10,11 @@
 import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260927-rrhh-sanciones-i18n-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260927-rrhh-sanciones-i18n-v1";
-import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260927-rrhh-reposicion-v1";
+import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260927-rrhh-reposicion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260927-rrhh-sanciones-i18n-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260927-rrhh-sanciones-i18n-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260927-rrhh-reposicion-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260926-pulido-portal-v1";
