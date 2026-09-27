@@ -1,0 +1,46 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "auditoria-consulta-ejemplo-v1",
+    "actualizada_en": "2026-09-27T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: finalidad y motivo de ejemplo para consultar Auditoría en la presentación RRHH. Duda 67 pendiente de validación; no constituye política aprobada.",
+    "origen_sha256": "a6cec3b22809453f879342c6ea09fac18e563a3dce2c4982fef7f970b9347482"
+  },
+  "catalogo": {
+    "id": "motivos_autorizacion_auditoria",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "auditoria",
+    "nombre": "Consulta de Auditoría RRHH — ejemplo",
+    "descripcion": "Finalidad, motivo, permiso, ámbito y fuentes de ejemplo para la consulta administrativa exacta de Auditoría. Duda 67 pendiente de RRHH.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Parámetros de demostración modificables mediante una versión nueva del catálogo; no aprobados por RRHH.",
+    "entradas": [
+      {
+        "clave": "motivo_a36f10964f684ec2bea55091667db47a",
+        "etiqueta": "Consulta justificada de la trazabilidad de un expediente",
+        "descripcion": "Consultar la historia minimizada de un expediente exacto para revisión administrativa RRHH.",
+        "vigente_desde": "2026-09-27T00:00:00Z",
+        "atributos": {
+          "uso": "consulta_rrhh",
+          "finalidad_ref": "revision_administrativa_auditoria_rrhh",
+          "permiso": "vec.auditoria.consultar",
+          "tipo_recurso": "historial_auditoria",
+          "ambito": "expediente_exacto",
+          "fuentes": "ct,bolsa",
+          "origen": "ejemplo",
+          "duda": "Duda 67"
+        },
+        "orden": 1
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-27T00:00:00Z",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-27T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}
