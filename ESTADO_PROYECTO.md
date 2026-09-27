@@ -1,5 +1,18 @@
 # Estado y plan de ataque del proyecto
 
+## Petición de cuatro fotografías de RRHH — 27 de septiembre de 2026 (rama candidata)
+
+`PIDEN_RRHH_CHECKLIST.md` contrasta 60 requisitos sobre `origin/main@7247682c`:
+14 HECHO, 43 PARCIAL y 3 FALTA, con ruta y prueba de código por fila.
+Se reconocen las capacidades ya integradas de sanciones, reposición calculada,
+correo personalizado, cese y diez tipos de borrador documental; ninguna cifra
+convierte ejemplos, firma de prueba o correo de desarrollo en acto oficial.
+El corte propio evita que el panel de avisos recorte filas en móvil y separa
+visualmente sus elementos; escritorio conserva scroll interno. Solo CSS/web.
+`scripts/verificar_calidad.sh` terminó verde con Go en `/dev/shm/go-build`.
+Capturas locales de componente sintético a 1440/390; no hay E2E nuevo,
+instalación, despliegue ni cambio en los contadores funcionales ratificados.
+
 ## Bolsa y Contratación temporal cerradas para la presentación — 26 de septiembre de 2026
 
 Corte de cierre para la presentación a RRHH del lunes 28/09/2026. `main` = `c14172597`
