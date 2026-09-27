@@ -34,6 +34,14 @@ INSERT INTO vec_contratacion_temporal.cese_prueba(origen_ref,huella,posicion,mod
 VALUES ('origen:cese:b45:1',repeat('a',64),1,'interinidad',NULL,current_date-1,'llamamiento:b45:1','relacion:b45:1'),
        ('origen:cese:b45:2',repeat('b',64),2,'interinidad','acumulacion_tareas',current_date-1,'llamamiento:b45:2','relacion:b45:2'),
        ('origen:cese:b45:3',repeat('c',64),3,'interinidad',NULL,current_date-1,'llamamiento:b45:2','relacion:b45:2');
+INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref,situacion,desde,motivo,actor,
+ registrada_en,clave_idempotencia,recibo_ref)
+VALUES ('participacion:rev:1','trabajando',(current_date-2)::timestamp AT TIME ZONE 'Europe/Madrid',
+ 'Trabajo anterior al cese','sistema:prueba',(current_date-2)::timestamp AT TIME ZONE 'Europe/Madrid',
+ 'b45:trabajando:1','recibo:b45:trabajando:1'),
+ ('participacion:rev:2','no_disponible',now()+interval '2 days',
+ 'Pausa posterior al cese','sistema:prueba',now()+interval '2 days',
+ 'b45:pausa:2','recibo:b45:pausa:2');
 COMMIT;
 
 -- La ventana usa la fecha del cese; PostgreSQL ajusta el día final si el
@@ -65,6 +73,15 @@ BEGIN
 END $prueba$;
 RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION vec_b45_ejecutor_test;
+DO $sin_publicacion$
+BEGIN
+ BEGIN
+  PERFORM * FROM vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(
+   'catalogo:intruso','{"interinidad":"general"}'::jsonb,1,1,'vigente');
+  RAISE EXCEPTION 'B45: ejecutor publicó política sin V3';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $sin_publicacion$;
+RESET SESSION AUTHORIZATION;
 DO $politica$
 DECLARE v record;
 BEGIN
@@ -83,7 +100,6 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
 END $mapeo$;
 RESET SESSION AUTHORIZATION;
-SET SESSION AUTHORIZATION vec_b45_ejecutor_test;
 DO $politica$
 DECLARE v record;
 BEGIN
@@ -105,8 +121,13 @@ BEGIN
 END $historia$;
 RESET SESSION AUTHORIZATION;
 DO $orden$
-DECLARE p1 record; p2 record; n integer;
+DECLARE p1 record; p2 record; futuro1 record; futuro2 record; previo record; n integer;
 BEGIN
+ SELECT * INTO STRICT previo FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',
+  (current_date-3)::timestamp AT TIME ZONE 'Europe/Madrid') WHERE participacion_ref='participacion:rev:1';
+ IF previo.orden_vigente IS NULL OR previo.situacion<>'disponible' THEN
+  RAISE EXCEPTION 'B45: lectura antes del cese alterada';
+ END IF;
  SELECT * INTO STRICT p1 FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now())
   WHERE participacion_ref='participacion:rev:1';
  SELECT * INTO STRICT p2 FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now())
@@ -118,7 +139,16 @@ BEGIN
  IF p1.orden_vigente IS NOT NULL OR p2.orden_vigente IS NOT NULL
     OR p1.razon<>'restriccion_cese' OR p2.razon<>'restriccion_cese'
     OR p1.situacion<>'disponible_desde' OR p2.situacion<>'disponible_desde' THEN
-  RAISE EXCEPTION 'B45: la disponibilidad no cambió en el orden';
+  RAISE EXCEPTION 'B45: la disponibilidad no cambió en el orden (%/%/%, %/%/%)',
+   p1.orden_vigente,p1.razon,p1.situacion,p2.orden_vigente,p2.razon,p2.situacion;
+ END IF;
+ SELECT * INTO STRICT futuro1 FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now()+interval '1 year')
+  WHERE participacion_ref='participacion:rev:1';
+ SELECT * INTO STRICT futuro2 FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now()+interval '1 year')
+  WHERE participacion_ref='participacion:rev:2';
+ IF futuro1.situacion<>'disponible' OR futuro1.orden_vigente IS NULL OR futuro1.razon<>'retorno_tras_cese'
+    OR futuro2.situacion<>'no_disponible' OR futuro2.orden_vigente IS NOT NULL THEN
+  RAISE EXCEPTION 'B45: vencimiento no restaura trabajando anterior o pisa pausa posterior';
  END IF;
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1('participacion:rev:1',now()))<>1
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1('participacion:rev:segunda',now()))<>1
@@ -128,7 +158,7 @@ BEGIN
  SELECT count(*) INTO n FROM vec_bolsa_llamamientos.restriccion_cese_bolsa;
  IF n<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.auditoria_cese_bolsa)<>3
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref IN
-  ('participacion:rev:1','participacion:rev:2'))<>2 THEN
+  ('participacion:rev:1','participacion:rev:2'))<>4 THEN
   RAISE EXCEPTION 'B45: cese duplicado o situación por bolsa copiada';
  END IF;
 END $orden$;
@@ -155,6 +185,30 @@ BEGIN
   RAISE EXCEPTION 'B45: Mi Bolsa no recupera disponibilidad al vencer';
  END IF;
 END $mi_bolsa$;
+-- Una incorporación posterior del mismo candidato impide que el cese antiguo
+-- convierta el estado «trabajando» en disponible al vencer su restricción.
+WITH origen AS (
+ SELECT 'evento:ct:contrato-bolsa:'||repeat('d',64) AS evento_ref,
+   jsonb_build_object('evento_ref','evento:ct:contrato-bolsa:'||repeat('d',64),
+    'tipo','incorporacion','origen_ref','origen:incorporacion:b45:posterior',
+    'organizacion_ref','organizacion:desarrollo:dipgra','expediente_ref','expediente:ct:2',
+    'llamamiento_ref','llamamiento:b45:1') AS evento
+)
+INSERT INTO vec_bolsa_llamamientos.contrato_participacion(evento_ref,huella_sha256,evento,origen_ref,origen_creada_en,
+ origen_posicion,tipo,organizacion_ref,expediente_ref,llamamiento_ref,participacion_ref,bolsa_ref,inicio,ocurrido_en,recibido_en)
+SELECT evento_ref,encode(sha256(convert_to(evento::text,'UTF8')),'hex'),evento,'origen:incorporacion:b45:posterior',
+ now(),4,'incorporacion','organizacion:desarrollo:dipgra','expediente:ct:2','llamamiento:b45:1',
+ 'participacion:rev:1','bolsa:rev',now()+interval '30 days',now()+interval '30 days',now()
+FROM origen;
+DO $nuevo_contrato$
+DECLARE p record;
+BEGIN
+ SELECT * INTO STRICT p FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now()+interval '1 year')
+  WHERE participacion_ref='participacion:rev:1';
+ IF p.situacion<>'trabajando' OR p.orden_vigente IS NOT NULL THEN
+  RAISE EXCEPTION 'B45: nueva incorporación posterior ignorada';
+ END IF;
+END $nuevo_contrato$;
 DO $acl$
 BEGIN
  IF has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.restriccion_cese_bolsa','SELECT,INSERT,UPDATE,DELETE')

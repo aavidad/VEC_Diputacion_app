@@ -108,10 +108,11 @@ RETURNS TABLE(version bigint,reutilizada boolean,catalogo_sha256 text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='5s' AS $f$
 DECLARE v_sha text; v_actual vec_bolsa_llamamientos.politica_cese_bolsa;
 BEGIN
- IF current_user <> 'vec_bolsa_llamamientos_propietario' OR session_user=current_user
-    OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
-    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
-    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER') THEN
+ -- Publicación administrativa de catálogo externo revisado. No hay todavía
+ -- operación RRHH con decisión V3 propia: el ejecutor de negocio no publica.
+ -- El LOGIN DBA queda en publicada_por y la versión conserva el contenido.
+ IF current_user <> 'vec_bolsa_llamamientos_propietario'
+    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper) THEN
   RAISE EXCEPTION 'publicación denegada' USING ERRCODE='42501';
  END IF;
  IF p_catalogo_ref IS NULL OR octet_length(p_catalogo_ref) NOT BETWEEN 1 AND 512 OR p_catalogo_ref<>btrim(p_catalogo_ref)
@@ -231,6 +232,44 @@ BEGIN
  RETURN QUERY SELECT false,v_recibo_ref,v_vinculo.candidato_ref,v_desde,v_politica.version;
 END $f$;
 
+-- El estado B2 «trabajando» puede seguir como historia tras un cese CT.
+-- Solo se considera terminado si no hay una situación B2 posterior ni una
+-- incorporación CT posterior del mismo candidato; de lo contrario prevalece
+-- la nueva relación. Esta lectura no modifica ninguna participación.
+CREATE FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_v1(p_participacion_ref text,p_corte timestamptz)
+RETURNS TABLE(fecha_efecto date,disponible_desde date,en_restriccion boolean,trabajo_cesado boolean)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ WITH candidato AS (
+  SELECT vc.candidato_ref FROM vec_bolsa_llamamientos.vinculo_candidato vc
+   WHERE vc.participacion_ref=p_participacion_ref
+ ), ultimo AS (
+  SELECT r.fecha_efecto FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+   JOIN candidato c ON c.candidato_ref=r.candidato_ref
+  WHERE r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
+  ORDER BY r.fecha_efecto DESC,r.evento_ref DESC LIMIT 1
+ ), maximo AS (
+  SELECT max(r.disponible_desde) disponible_desde FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+   JOIN candidato c ON c.candidato_ref=r.candidato_ref
+  WHERE r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
+ ), situacion AS (
+  SELECT s.situacion,s.desde FROM vec_bolsa_llamamientos.situacion_participacion s
+  WHERE s.participacion_ref=p_participacion_ref AND s.desde<=p_corte
+  ORDER BY s.desde DESC LIMIT 1
+ )
+ SELECT u.fecha_efecto,m.disponible_desde,
+   coalesce(m.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date,false),
+   coalesce(s.situacion='trabajando'
+     AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid')
+     AND NOT EXISTS (
+       SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion cp
+       JOIN vec_bolsa_llamamientos.vinculo_candidato vc2 ON vc2.participacion_ref=cp.participacion_ref
+       JOIN candidato c ON c.candidato_ref=vc2.candidato_ref
+       WHERE cp.tipo='incorporacion'
+         AND coalesce(cp.inicio,cp.ocurrido_en)>=((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid')
+         AND coalesce(cp.inicio,cp.ocurrido_en)<=p_corte),false)
+ FROM ultimo u CROSS JOIN maximo m LEFT JOIN situacion s ON true
+$f$;
+
 -- Lectura mínima para las proyecciones autorizadas de RRHH, Mi Bolsa y
 -- publicación: ninguna participación adquiere una copia de la restricción.
 -- Sin fila significa que el cese no restringe en el corte solicitado.
@@ -259,24 +298,24 @@ BEGIN
  FOR v_cambio IN SELECT * FROM (VALUES
   ($a$SELECT e.participacion_ref,e.orden AS orden_acta,s.situacion,s.fecha_disponible,$a$,
    $b$SELECT e.participacion_ref,e.orden AS orden_acta,s.situacion,s.fecha_disponible,
-         coalesce(rc.disponible_desde>(p_en AT TIME ZONE 'Europe/Madrid')::date,false) AS cese_restringido,$b$),
+         coalesce(rc.en_restriccion,false) AS cese_restringido,
+         coalesce(rc.trabajo_cesado,false) AS trabajo_cesado,$b$),
   ($a$(s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)) AS ocupa_turno,$a$,
-   $b$((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en))
-           AND NOT coalesce(rc.disponible_desde>(p_en AT TIME ZONE 'Europe/Madrid')::date,false)) AS ocupa_turno,$b$),
+   $b$((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)
+           OR coalesce(rc.trabajo_cesado,false)) AND NOT coalesce(rc.en_restriccion,false)) AS ocupa_turno,$b$),
   ($a$s ON true
     LEFT JOIN LATERAL (SELECT ro.aplicada_en$a$,
    $b$s ON true
-    LEFT JOIN LATERAL (SELECT max(r.disponible_desde) AS disponible_desde
-      FROM vec_bolsa_llamamientos.vinculo_candidato vc
-      JOIN vec_bolsa_llamamientos.restriccion_cese_bolsa r ON r.candidato_ref=vc.candidato_ref
-     WHERE vc.participacion_ref=e.participacion_ref AND r.fecha_efecto<=(p_en AT TIME ZONE 'Europe/Madrid')::date) rc ON true
+    LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(e.participacion_ref,p_en) rc ON true
     LEFT JOIN LATERAL (SELECT ro.aplicada_en$b$),
   ($a$b.participacion_ref,b.orden_acta,e.orden_vigente,b.situacion,$a$,
    $b$b.participacion_ref,b.orden_acta,e.orden_vigente,
         CASE WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde')
-             THEN 'disponible_desde' ELSE b.situacion END AS situacion,$b$),
+             THEN 'disponible_desde' WHEN b.trabajo_cesado THEN 'disponible'
+             ELSE b.situacion END AS situacion,$b$),
   ($a$CASE WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'$a$,
    $b$CASE WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde') THEN 'restriccion_cese'
+             WHEN b.trabajo_cesado AND b.ocupa_turno THEN 'retorno_tras_cese'
              WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'$b$)
  ) AS x(antes,despues) LOOP
   IF length(v_def)-length(replace(v_def,v_cambio.antes,''))<>length(v_cambio.antes) THEN
@@ -302,16 +341,17 @@ BEGIN
   WHERE p.oid=v_oid AND p.proowner='vec_bolsa_llamamientos_propietario'::regrole AND p.prosecdef;
  FOR v_cambio IN SELECT * FROM (VALUES
   ($a$'estado',situacion.situacion,$a$,
-   $b$'estado',CASE WHEN cese.disponible_desde IS NOT NULL
+   $b$'estado',CASE WHEN cese.en_restriccion
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
-       THEN 'disponible_desde' ELSE situacion.situacion END,$b$),
+       THEN 'disponible_desde' WHEN cese.trabajo_cesado THEN 'disponible'
+       ELSE situacion.situacion END,$b$),
   ($a$'desde',to_char(situacion.desde AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),$a$,
-   $b$'desde',to_char((CASE WHEN cese.fecha_efecto IS NOT NULL
+   $b$'desde',to_char((CASE WHEN (cese.en_restriccion OR cese.trabajo_cesado)
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
        THEN cese.fecha_efecto::timestamp AT TIME ZONE 'Europe/Madrid' ELSE situacion.desde END)
        AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),$b$),
   ($a$'fecha_disponible',CASE WHEN situacion.fecha_disponible IS NULL THEN NULL ELSE to_char(situacion.fecha_disponible AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END$a$,
-   $b$'fecha_disponible',CASE WHEN cese.disponible_desde IS NOT NULL
+   $b$'fecha_disponible',CASE WHEN cese.en_restriccion
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
        THEN to_char((cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid')
          AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
@@ -320,7 +360,7 @@ BEGIN
   ($a$) situacion ON true
  LEFT JOIN LATERAL ($a$,
    $b$) situacion ON true
- LEFT JOIN LATERAL vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(
    participacion.participacion_ref,p_consultada_en) cese ON true
  LEFT JOIN LATERAL ($b$)
  ) AS x(antes,despues) LOOP
@@ -338,7 +378,7 @@ END $mi_bolsa$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(text,jsonb,integer,integer,text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(text,jsonb,integer,integer,text) TO vec_bolsa_llamamientos_ejecutor;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_v1(text,timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_relevo_cese;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz) TO vec_bolsa_llamamientos_ejecutor;
 COMMENT ON TABLE vec_bolsa_llamamientos.restriccion_cese_bolsa IS 'Restricción global por candidato derivada de cese CT verificado; el recibo, regla y origen son inmutables.';

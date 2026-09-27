@@ -31,16 +31,17 @@ BEGIN
  SELECT pg_get_functiondef(p.oid),p.proacl INTO STRICT v_def,v_acl FROM pg_proc p WHERE p.oid=v_oid;
  FOR v_cambio IN SELECT * FROM (VALUES
   ($a$'estado',situacion.situacion,$a$,
-   $b$'estado',CASE WHEN cese.disponible_desde IS NOT NULL
+   $b$'estado',CASE WHEN cese.en_restriccion
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
-       THEN 'disponible_desde' ELSE situacion.situacion END,$b$),
+       THEN 'disponible_desde' WHEN cese.trabajo_cesado THEN 'disponible'
+       ELSE situacion.situacion END,$b$),
   ($a$'desde',to_char(situacion.desde AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),$a$,
-   $b$'desde',to_char((CASE WHEN cese.fecha_efecto IS NOT NULL
+   $b$'desde',to_char((CASE WHEN (cese.en_restriccion OR cese.trabajo_cesado)
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
        THEN cese.fecha_efecto::timestamp AT TIME ZONE 'Europe/Madrid' ELSE situacion.desde END)
        AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),$b$),
   ($a$'fecha_disponible',CASE WHEN situacion.fecha_disponible IS NULL THEN NULL ELSE to_char(situacion.fecha_disponible AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END$a$,
-   $b$'fecha_disponible',CASE WHEN cese.disponible_desde IS NOT NULL
+   $b$'fecha_disponible',CASE WHEN cese.en_restriccion
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
        THEN to_char((cese.disponible_desde::timestamp AT TIME ZONE 'Europe/Madrid')
          AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
@@ -49,7 +50,7 @@ BEGIN
   ($a$) situacion ON true
  LEFT JOIN LATERAL ($a$,
    $b$) situacion ON true
- LEFT JOIN LATERAL vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(
    participacion.participacion_ref,p_consultada_en) cese ON true
  LEFT JOIN LATERAL ($b$)
  ) AS x(antes,despues) LOOP
@@ -71,24 +72,24 @@ BEGIN
  FOR v_cambio IN SELECT * FROM (VALUES
   ($a$SELECT e.participacion_ref,e.orden AS orden_acta,s.situacion,s.fecha_disponible,$a$,
    $b$SELECT e.participacion_ref,e.orden AS orden_acta,s.situacion,s.fecha_disponible,
-         coalesce(rc.disponible_desde>(p_en AT TIME ZONE 'Europe/Madrid')::date,false) AS cese_restringido,$b$),
+         coalesce(rc.en_restriccion,false) AS cese_restringido,
+         coalesce(rc.trabajo_cesado,false) AS trabajo_cesado,$b$),
   ($a$(s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)) AS ocupa_turno,$a$,
-   $b$((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en))
-           AND NOT coalesce(rc.disponible_desde>(p_en AT TIME ZONE 'Europe/Madrid')::date,false)) AS ocupa_turno,$b$),
+   $b$((s.situacion='disponible' OR (s.situacion='disponible_desde' AND s.fecha_disponible<=p_en)
+           OR coalesce(rc.trabajo_cesado,false)) AND NOT coalesce(rc.en_restriccion,false)) AS ocupa_turno,$b$),
   ($a$s ON true
     LEFT JOIN LATERAL (SELECT ro.aplicada_en$a$,
    $b$s ON true
-    LEFT JOIN LATERAL (SELECT max(r.disponible_desde) AS disponible_desde
-      FROM vec_bolsa_llamamientos.vinculo_candidato vc
-      JOIN vec_bolsa_llamamientos.restriccion_cese_bolsa r ON r.candidato_ref=vc.candidato_ref
-     WHERE vc.participacion_ref=e.participacion_ref AND r.fecha_efecto<=(p_en AT TIME ZONE 'Europe/Madrid')::date) rc ON true
+    LEFT JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(e.participacion_ref,p_en) rc ON true
     LEFT JOIN LATERAL (SELECT ro.aplicada_en$b$),
   ($a$b.participacion_ref,b.orden_acta,e.orden_vigente,b.situacion,$a$,
    $b$b.participacion_ref,b.orden_acta,e.orden_vigente,
         CASE WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde')
-             THEN 'disponible_desde' ELSE b.situacion END AS situacion,$b$),
+             THEN 'disponible_desde' WHEN b.trabajo_cesado THEN 'disponible'
+             ELSE b.situacion END AS situacion,$b$),
   ($a$CASE WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'$a$,
    $b$CASE WHEN b.cese_restringido AND b.situacion IN ('disponible','trabajando','disponible_desde') THEN 'restriccion_cese'
+             WHEN b.trabajo_cesado AND b.ocupa_turno THEN 'retorno_tras_cese'
              WHEN NOT b.ocupa_turno AND b.situacion IN ('no_disponible','disponible_desde') THEN 'pausa'$b$)
  ) AS x(antes,despues) LOOP
   IF length(v_def)-length(replace(v_def,v_cambio.despues,''))<>length(v_cambio.despues) THEN
@@ -104,6 +105,7 @@ END $orden$;
 DROP FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint);
 DROP FUNCTION vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(text,jsonb,integer,integer,text);
 DROP FUNCTION vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz);
+DROP FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_v1(text,timestamptz);
 DROP TABLE vec_bolsa_llamamientos.auditoria_cese_bolsa;
 DROP TABLE vec_bolsa_llamamientos.restriccion_cese_bolsa;
 DROP TABLE vec_bolsa_llamamientos.politica_cese_bolsa;
