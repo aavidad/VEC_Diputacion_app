@@ -83,3 +83,20 @@ func TestSinPoliticaNoPublicaOferta(t *testing.T) {
 		t.Fatalf("sin política: %v", err)
 	}
 }
+
+func TestCalendariosAusentePermiteConsultarPoliticaPeroNoPublicarOferta(t *testing.T) {
+	p := politicaPrueba()
+	s, err := NuevoServicio(repoPrueba{version: ports.VersionPoliticaOfertas{
+		BolsaRef: "bolsa:prueba", Version: 1, HuellaSHA256: strings.Repeat("a", 64),
+		Ejemplo: true, Configurada: true, Politica: &p,
+	}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, err := s.Vigente(t.Context(), "bolsa:prueba"); err != nil || v.Version != 1 {
+		t.Fatalf("consulta %v %+v", err, v)
+	}
+	if _, _, err := s.PlazoDisposicionBolsa(t.Context(), "bolsa:prueba", time.Now()); !errors.Is(err, ports.ErrOfertaNoDisponible) {
+		t.Fatalf("oferta sin calendario: %v", err)
+	}
+}

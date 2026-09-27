@@ -29,7 +29,7 @@ type Servicio struct {
 }
 
 func NuevoServicio(repo ports.RepositorioPoliticaOfertas, calendarios calendariosports.ConsultaCalendarios) (*Servicio, error) {
-	if repo == nil || calendarios == nil {
+	if repo == nil {
 		return nil, ports.ErrPoliticaOfertasNoDisponible
 	}
 	return &Servicio{repositorio: repo, calendarios: calendarios}, nil
@@ -86,6 +86,9 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, publ
 	}
 	if !v.Configurada || v.Politica == nil {
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrPlazoOfertaNoConfigurado
+	}
+	if s.calendarios == nil {
+		return ports.PlazoOferta{}, time.Time{}, ports.ErrOfertaNoDisponible
 	}
 	p := v.Politica.Plazo
 	resultado, err := s.calendarios.CalcularPlazo(ctx, calendariosports.SolicitudCalculoPlazo{
