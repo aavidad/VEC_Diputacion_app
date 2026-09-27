@@ -17,6 +17,8 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.reincorporacion_titular_ct') IS NOT NULL
     OR to_regclass('vec_bolsa_llamamientos.restriccion_cese_bolsa') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.llamamiento_integracion_desarrollo') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.integracion_desarrollo') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_situacion_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.verificar_reincorporacion_publicada_bolsa_v1(text,text,bigint)') IS NULL
@@ -121,9 +123,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
  ORDER BY r.origen_posicion DESC, r.evento_ref DESC LIMIT 1
 $f$;
 
--- Lectura de la ficha Bolsa: el candidato se resuelve por el vinculo propio
--- de la participacion y la restriccion global de 000045. El consumo V3 se
--- produce incluso en una recuperacion. Ningun dato de otra persona sale.
+-- Lectura de la ficha Bolsa: el cese se limita a la participacion seleccionada
+-- en SU llamamiento. La restriccion de 000045 afecta globalmente al candidato,
+-- pero no concede lectura transversal de expedientes CT de sus otras bolsas.
+-- El consumo V3 se produce incluso en una recuperacion.
 CREATE FUNCTION vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v1(
  p_participacion_ref text, p_actor text, p_capacidad bytea, p_decision bytea, p_motivo_autorizacion bytea,
  p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea,
@@ -156,12 +159,13 @@ BEGIN
  RETURN QUERY
  SELECT r.evento_ref, r.expediente_ref, r.relacion_ref, r.fecha_efectiva, r.recibo_ct_ref, r.cese_evento_ref,
   'cese_aplicado'::text, c.disponible_desde, c.politica_version, p.catalogo_sha256
- FROM vec_bolsa_llamamientos.vinculo_candidato v
- JOIN vec_bolsa_llamamientos.restriccion_cese_bolsa c ON c.candidato_ref = v.candidato_ref
+ FROM vec_bolsa_llamamientos.restriccion_cese_bolsa c
+ JOIN vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l ON l.llamamiento_ref = c.llamamiento_ref
+ JOIN vec_bolsa_llamamientos.integracion_desarrollo i ON i.operacion_ref = l.operacion_ref AND i.tipo = 'propuesta'
  JOIN vec_bolsa_llamamientos.reincorporacion_titular_ct r ON r.cese_evento_ref = c.origen_ref
   AND r.relacion_ref = c.relacion_ref AND r.cese_recibo_ref = c.recibo_ct_ref AND r.fecha_efectiva = c.fecha_efecto
  LEFT JOIN vec_bolsa_llamamientos.politica_cese_bolsa p ON p.version = c.politica_version
- WHERE v.participacion_ref = p_participacion_ref
+ WHERE convert_from(i.registro_canonico, 'UTF8')::jsonb #>> '{propuesta,participacion_seleccionada_ref}' = p_participacion_ref
  ORDER BY r.fecha_efectiva DESC, r.evento_ref DESC LIMIT 100;
 END $f$;
 

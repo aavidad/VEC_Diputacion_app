@@ -30,9 +30,11 @@ CREATE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion() RETURNS 
 BEGIN RAISE EXCEPTION 'historia inmutable' USING ERRCODE='55000'; END $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion() FROM PUBLIC;
 CREATE TABLE vec_bolsa_llamamientos.vinculo_candidato(participacion_ref text PRIMARY KEY,candidato_ref text NOT NULL);
+CREATE TABLE vec_bolsa_llamamientos.llamamiento_integracion_desarrollo(llamamiento_ref text PRIMARY KEY,operacion_ref text NOT NULL);
+CREATE TABLE vec_bolsa_llamamientos.integracion_desarrollo(operacion_ref text PRIMARY KEY,tipo text NOT NULL,registro_canonico bytea NOT NULL);
 CREATE TABLE vec_bolsa_llamamientos.politica_cese_bolsa(version bigint PRIMARY KEY,catalogo_sha256 text NOT NULL);
 CREATE TABLE vec_bolsa_llamamientos.restriccion_cese_bolsa(
- evento_ref text PRIMARY KEY,origen_ref text NOT NULL UNIQUE,candidato_ref text NOT NULL,relacion_ref text NOT NULL,
+ evento_ref text PRIMARY KEY,origen_ref text NOT NULL UNIQUE,candidato_ref text NOT NULL,llamamiento_ref text NOT NULL,relacion_ref text NOT NULL,
  recibo_ct_ref text NOT NULL,fecha_efecto date NOT NULL,disponible_desde date NOT NULL,
  politica_version bigint NOT NULL REFERENCES vec_bolsa_llamamientos.politica_cese_bolsa(version));
 RESET ROLE;
@@ -50,10 +52,16 @@ GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_situ
 
 SET ROLE vec_bolsa_llamamientos_propietario;
 INSERT INTO vec_bolsa_llamamientos.vinculo_candidato VALUES ('participacion:uno','can_1234567890123456789012');
+INSERT INTO vec_bolsa_llamamientos.vinculo_candidato VALUES ('participacion:dos','can_1234567890123456789012');
+INSERT INTO vec_bolsa_llamamientos.llamamiento_integracion_desarrollo VALUES
+ ('llamamiento:uno','operacion:uno'),('llamamiento:dos','operacion:dos');
+INSERT INTO vec_bolsa_llamamientos.integracion_desarrollo VALUES
+ ('operacion:uno','propuesta',convert_to('{"propuesta":{"participacion_seleccionada_ref":"participacion:uno"}}','UTF8')),
+ ('operacion:dos','propuesta',convert_to('{"propuesta":{"participacion_seleccionada_ref":"participacion:dos"}}','UTF8'));
 INSERT INTO vec_bolsa_llamamientos.politica_cese_bolsa VALUES (1,repeat('a',64));
 INSERT INTO vec_bolsa_llamamientos.restriccion_cese_bolsa VALUES
  ('evento:ct:contrato-bolsa:'||repeat('0',64),'evento:ct:cese:uno',
-  'can_1234567890123456789012','relacion:uno','recibo:ct:cese:uno',DATE '2026-09-01',DATE '2027-02-01',1);
+  'can_1234567890123456789012','llamamiento:uno','relacion:uno','recibo:ct:cese:uno',DATE '2026-09-01',DATE '2027-02-01',1);
 RESET ROLE;
 INSERT INTO prueba_reincorporacion.origen VALUES
  ('evento:ct:reincorporacion:uno',repeat('1',64),10,'expediente:uno','relacion:uno',DATE '2026-09-01',

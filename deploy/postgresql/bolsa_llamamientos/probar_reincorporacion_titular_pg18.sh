@@ -132,18 +132,26 @@ END $test$;
 RESET ROLE;
 SET ROLE vec_bolsa_llamamientos_propietario;
 INSERT INTO vec_bolsa_llamamientos.restriccion_cese_bolsa VALUES
- ('evento:ct:contrato-bolsa:'||repeat('2',64),'evento:ct:cese:dos','can_1234567890123456789012','relacion:dos',
+ ('evento:ct:contrato-bolsa:'||repeat('2',64),'evento:ct:cese:dos','can_1234567890123456789012','llamamiento:dos','relacion:dos',
   'recibo:ct:cese:dos',DATE '2026-09-02',DATE '2027-02-02',1);
 RESET ROLE;
 SET ROLE vec_bolsa_llamamientos_ejecutor;
 DO $test$
-DECLARE v record;
+DECLARE v record; d bytea; n integer;
 BEGIN
  SELECT * INTO v FROM vec_bolsa_llamamientos.registrar_reincorporacion_titular_ct_v1(
   'evento:ct:reincorporacion:dos',repeat('2',64),11);
  IF NOT v.reutilizada OR v.estado<>'cese_aplicado' OR v.disponible_desde<>DATE '2027-02-02' THEN
   RAISE EXCEPTION 'cese tardío no reconciliado';
  END IF;
+ d:=convert_to(jsonb_build_object('principal_id','actor:rrhh','accion','bolsa.situacion_participacion.cambiar',
+  'modulo_id','bolsa','tipo_recurso','participacion_bolsa','finalidad','gestion_situacion_participacion',
+  'recurso_ref','participacion:uno','campos_permitidos','[]'::jsonb,'obligaciones','[]'::jsonb,
+  'contexto_recurso_huella_sha256',repeat('a',64))::text,'UTF8');
+ SELECT count(*) INTO n FROM vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v1(
+  'participacion:uno','actor:rrhh','\x00'::bytea,d,'\x00'::bytea,'\x00'::bytea,1,1,
+  convert_to('participacion:uno','UTF8'),convert_to(repeat('a',64),'UTF8'),'\x00'::bytea,'\x00'::bytea) r;
+ IF n<>1 THEN RAISE EXCEPTION 'ficha de participación uno expuso retorno de participación dos'; END IF;
 END $test$;
 RESET ROLE;
 DO $test$
