@@ -33,7 +33,7 @@ BEGIN
   ($a$'estado',situacion.situacion,$a$,
    $b$'estado',CASE WHEN cese.disponible_desde IS NOT NULL
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')
-       THEN 'no_disponible' ELSE situacion.situacion END,$b$),
+       THEN 'disponible_desde' ELSE situacion.situacion END,$b$),
   ($a$'desde',to_char(situacion.desde AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),$a$,
    $b$'desde',to_char((CASE WHEN cese.fecha_efecto IS NOT NULL
        AND situacion.situacion IN ('disponible','trabajando','disponible_desde')

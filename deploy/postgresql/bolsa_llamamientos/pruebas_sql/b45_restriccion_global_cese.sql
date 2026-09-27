@@ -143,7 +143,7 @@ BEGIN
   1,1,'{}'::bytea,'{}'::bytea,'{}'::bytea,'{}'::bytea) INTO STRICT j;
  IF jsonb_array_length(j->'participaciones')<>2 OR EXISTS
    (SELECT 1 FROM jsonb_array_elements(j->'participaciones') p
-     WHERE p #>> '{situacion_actual,estado}'<>'no_disponible'
+     WHERE p #>> '{situacion_actual,estado}'<>'disponible_desde'
         OR p #>> '{situacion_actual,fecha_disponible}' IS NULL) THEN
   RAISE EXCEPTION 'B45: Mi Bolsa no proyecta las dos participaciones restringidas';
  END IF;
