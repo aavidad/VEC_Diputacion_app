@@ -303,6 +303,10 @@ static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js
 static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-estilos.css
 static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-i18n.js
 static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-vista.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js
+static/portal-empleado/modulos/contratacion-temporal/vista-borradores-publicados.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-borradores-publicados.js
+static/portal-empleado/modulos/contratacion-temporal/borradores-publicados.css
 static/portal-empleado/vendor/leaflet-1.9.4/LICENSE
 static/portal-empleado/vendor/leaflet-1.9.4/images/layers-2x.png
 static/portal-empleado/vendor/leaflet-1.9.4/images/layers.png

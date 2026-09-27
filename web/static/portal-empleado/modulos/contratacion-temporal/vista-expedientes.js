@@ -24,6 +24,8 @@ import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
+import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { traducirPortal } from "../../portal-i18n.js?v=20260928-rrhh-montaje-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
@@ -95,6 +97,7 @@ export async function montarModuloContratacionTemporal({
   auditoriaComun = null,
   llamamiento = null,
   clienteBorradorRRHH,
+  clienteBorradoresPublicados,
   clienteCircuitoFirma,
   entornoDescarga = globalThis,
   mensajes = {},
@@ -161,6 +164,7 @@ export async function montarModuloContratacionTemporal({
   let desmontarSeguimientoCese = null;
   let desmontarReincorporacion = null;
   let desmontarAuditoriaComun = null;
+  let desmontarBorradoresPublicados = null;
   let zonaAuditoriaComun = null;
   let controladorCapacidadReincorporacion = null;
   let avisoSeguimientoCese = null;
@@ -182,6 +186,23 @@ export async function montarModuloContratacionTemporal({
     desmontarAuditoriaComun?.();
     desmontarAuditoriaComun = null;
     zonaAuditoriaComun = null;
+  }
+
+  function retirarBorradoresPublicados() {
+    desmontarBorradoresPublicados?.();
+    desmontarBorradoresPublicados = null;
+  }
+
+  function montarBorradoresPublicadosSiProcede(estado) {
+    const contexto = solicitudInformeDefinitivoDesdeEstado(estado);
+    const zona = raiz.querySelector(".ct-exp-contenido");
+    if (!contexto || !zona) return;
+    const contenedor = raiz.ownerDocument.createElement("div");
+    contenedor.dataset.ctExpBorradoresPublicados = "";
+    zona.append(contenedor);
+    desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
+      contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
+      entornoDescarga, anunciar }).desmontar;
   }
 
   function montarAuditoriaComunSiProcede(estado) {
@@ -451,6 +472,7 @@ export async function montarModuloContratacionTemporal({
     retirarSeguimientoCese();
     retirarReincorporacion();
     retirarAuditoriaComun();
+    retirarBorradoresPublicados();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -505,6 +527,7 @@ export async function montarModuloContratacionTemporal({
       gestorCancelacion.montar(estado);
     }
     montarAuditoriaComunSiProcede(estado);
+    montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (estado.mensaje_clave) {
       anunciar(
@@ -776,6 +799,7 @@ export async function montarModuloContratacionTemporal({
       retirarSeguimientoCese();
       retirarReincorporacion();
       retirarAuditoriaComun();
+      retirarBorradoresPublicados();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
       presentador.desmontar?.();

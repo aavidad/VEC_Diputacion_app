@@ -1,0 +1,13 @@
+.ct-bp { min-width: 0; }
+.ct-bp .cabecera-panel { flex-wrap: wrap; }
+.ct-bp .cabecera-panel > div { flex: 1 1 15rem; }
+.ct-bp-ayuda-boton { width: 2rem; height: 2rem; border-radius: 50%; }
+.ct-bp-ayuda { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--portal-borde); color: var(--portal-muted); }
+.ct-bp-tabla { max-width: 100%; overflow-x: auto; }
+.ct-bp-tabla table { min-width: 520px; width: 100%; }
+.ct-bp-tabla td { display: flex; flex-wrap: wrap; gap: 8px; }
+.ct-bp-tabla small { display: block; color: var(--portal-muted); font-weight: 400; overflow-wrap: anywhere; }
+.ct-bp-catalogo { color: var(--portal-muted); font-size: .82rem; overflow-wrap: anywhere; }
+.ct-bp-catalogo code { font-size: inherit; }
+.ct-bp-mensaje { padding: 10px 12px; border-left: 4px solid var(--portal-exito); background: var(--portal-exito-suave); overflow-wrap: anywhere; }
+.ct-bp-mensaje--error { border-left-color: var(--portal-peligro); background: var(--portal-peligro-suave); }
