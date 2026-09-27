@@ -259,7 +259,7 @@ export function validarCandidato(candidato) {
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
   if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
   if (!Number.isSafeInteger(candidato.orden_acta) || candidato.orden_acta < 1) throw new Error("orden_acta debe ser entero positivo");
-  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
+  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion","restriccion_cese","retorno_tras_cese"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
   const nombreVisible = exigirCadenaSegura(candidato.nombre_visible, "nombre_visible");
   const documentoEnmascarado = validarDocumentoEnmascarado(candidato.documento_enmascarado);
 
@@ -271,6 +271,13 @@ export function validarCandidato(candidato) {
   const disponibleDesde = candidato.disponible_desde === null
     ? null
     : exigirFechaOInstante(candidato.disponible_desde, "disponible_desde");
+  if (candidato.razon_orden === "restriccion_cese"
+    && (candidato.orden !== null || estadoClave !== "disponible_desde" || disponibleDesde === null)) {
+    throw new Error("restricción de cese sin fecha o turno bloqueado");
+  }
+  if (candidato.razon_orden === "retorno_tras_cese" && (candidato.orden === null || estadoClave !== "disponible")) {
+    throw new Error("retorno tras cese sin turno disponible");
+  }
 
   let ultimoLlamamiento = null;
   if (candidato.ultimo_llamamiento !== null) {

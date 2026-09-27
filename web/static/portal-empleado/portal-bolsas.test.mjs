@@ -243,6 +243,30 @@ test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sint
     assert.ok(Number.isSafeInteger(c.orden) && c.orden >= 1);
   }
 });
+
+test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cruces", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const base = envelopeCandidatos.data.candidatos[0];
+  const restriccion = { ...base, razon_orden: "restriccion_cese", orden: null,
+    estado_clave: "disponible_desde", disponible_desde: "2027-02-28T23:00:00Z" };
+  const retorno = { ...base, razon_orden: "retorno_tras_cese", estado_clave: "disponible",
+    orden: 1, disponible_desde: null };
+  assert.equal(validarCandidato(restriccion).razon_orden, "restriccion_cese");
+  assert.equal(validarCandidato(retorno).razon_orden, "retorno_tras_cese");
+  assert.throws(() => validarCandidato({ ...restriccion, disponible_desde: null }));
+  assert.throws(() => validarCandidato({ ...retorno, orden: null }));
+  const datos = validarRespuestaCandidatosBolsa({ data: { ...envelopeCandidatos.data,
+    candidatos: [restriccion, retorno] } });
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: (clave) => clave, encabezadoVista: () => "", escaparHTML: (valor) => String(valor ?? ""),
+    numero: (valor) => String(valor ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (vista) => vista, obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
+  });
+  const html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /Fuera de turno por cese hasta/u);
+  assert.match(html, /Retorno al turno tras cese verificado/u);
+});
 test("validarRespuestaBolsas rechaza respuestas no canónicas o alteradas", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   // Sin data

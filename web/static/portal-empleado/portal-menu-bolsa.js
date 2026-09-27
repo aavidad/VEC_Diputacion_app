@@ -4,7 +4,7 @@
  * Las categorías solo ordenan enlaces del router existente. No deciden
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-montaje-v1";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-politica-cese-v1";
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
@@ -92,6 +92,8 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
       return capacidades?.contratacionTemporal === true;
     case "auditoria":
       return capacidades?.auditoriaReferencia === true;
+    case "reglas":
+      return capacidades?.politicaCese === true;
     default:
       return VISTAS_INTERNAS_BOLSA.includes(vista) && capacidades?.panelInterno === true;
   }

@@ -9,7 +9,7 @@ import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260927-rrhh-sanciones-i18n-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-montaje-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-politica-cese-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260927-rrhh-sanciones-i18n-v1";
 import {
   componerCronosInterno,
@@ -17,7 +17,7 @@ import {
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-rrhh-montaje-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-rrhh-politica-cese-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,

@@ -7,7 +7,7 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-montaje-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-politica-cese-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260927-rrhh-reposicion-v1";
@@ -510,7 +510,11 @@ export function crearPresentadorPanelInterno(dependencias) {
         const fichaId = `ficha-participacion-${c.participacion_ref}`;
         return `
           <tr class="fila-candidato" data-participacion-ref="${escaparHTML(c.participacion_ref)}" data-estado="${escaparHTML(c.estado_clave)}">
-            <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato") : c.razon_orden === "pausa" ? traducirPortal("txt_pausa") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
+            <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "restriccion_cese"
+              ? traducirPortal("bolsa_razon_restriccion_cese", { fecha: instanteVisible(c.disponible_desde) })
+              : c.razon_orden === "retorno_tras_cese" ? traducirPortal("bolsa_razon_retorno_tras_cese")
+                : c.razon_orden === "reposicion_tras_contrato" ? traducirPortal("txt_reposicion_tras_contrato")
+                  : c.razon_orden === "pausa" ? traducirPortal("txt_pausa") : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
             <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="${textoPortal("txt_aria_abrir_ficha_de", { persona: c.nombre_visible })}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
             <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span>${renderizarChipsMarcas(c, escaparHTML)}</td>
