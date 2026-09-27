@@ -124,6 +124,7 @@ type SolicitudResolverOferta struct {
 
 type ComandoPublicarOferta struct {
 	OfertaRef, ReciboRef, BolsaRef, ActorRef, ClaveIdempotencia string
+	UnidadRef, AmbitoRef                                        string
 	Datos                                                       dominiobolsa.DatosOferta
 	Plazo                                                       PlazoOferta
 	PublicadaEn, VenceAntesDe                                   time.Time

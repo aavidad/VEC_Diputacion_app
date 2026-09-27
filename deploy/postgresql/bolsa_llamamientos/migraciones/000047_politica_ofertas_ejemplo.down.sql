@@ -19,6 +19,9 @@ BEGIN
 END $pre$;
 DROP TRIGGER oferta_politica_b47 ON vec_bolsa_llamamientos.oferta_publicada;
 DROP FUNCTION vec_bolsa_llamamientos.verificar_politica_oferta_b47();
+DROP FUNCTION vec_bolsa_llamamientos.publicar_oferta_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text);
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ TO vec_bolsa_llamamientos_ejecutor;
 DROP FUNCTION vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text);
 DROP TABLE vec_bolsa_llamamientos.politica_ofertas_outbox;

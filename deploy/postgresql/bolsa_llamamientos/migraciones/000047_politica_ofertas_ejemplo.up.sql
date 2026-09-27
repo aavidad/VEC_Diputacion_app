@@ -165,12 +165,66 @@ END $f$;
 CREATE TRIGGER oferta_politica_b47 BEFORE INSERT ON vec_bolsa_llamamientos.oferta_publicada
  FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.verificar_politica_oferta_b47();
 
+-- La fachada B28 ya instalada conserva su definición e historia. B47 retira
+-- su EXECUTE técnico y expone V2: la decisión V3 emitida por la aplicación
+-- tras consultar Calendarios liga bolsa, fechas, política y calendarios
+-- utilizados. El material no puede cambiar entre autorización e INSERT.
+CREATE FUNCTION vec_bolsa_llamamientos.publicar_oferta_v2(
+ p_oferta text,p_recibo text,p_bolsa text,p_actor text,p_clave text,p_datos jsonb,p_plazo jsonb,
+ p_publicada timestamptz,p_vence timestamptz,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,
+ p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea,p_unidad text,p_ambito text)
+RETURNS TABLE(oferta jsonb,reutilizada boolean)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s' AS $f$
+DECLARE d jsonb; v_calendarios text; v_material text; v_contexto text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR p_publicada IS NULL OR p_vence IS NULL
+    OR p_bolsa IS NULL OR p_plazo IS NULL
+    OR p_unidad IS NULL OR p_unidad !~ '^[A-Za-z0-9:_-]+$' OR octet_length(p_unidad) NOT BETWEEN 1 AND 256
+    OR p_ambito IS NULL OR p_ambito !~ '^[A-Za-z0-9:_-]+$' OR octet_length(p_ambito) NOT BETWEEN 1 AND 256
+    OR jsonb_typeof(p_plazo->'calendarios') IS DISTINCT FROM 'array'
+    OR jsonb_array_length(p_plazo->'calendarios') NOT BETWEEN 1 AND 16
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_plazo->'calendarios') c
+              WHERE jsonb_typeof(c) IS DISTINCT FROM 'string' OR c#>>'{}' !~ '^[A-Za-z0-9:_-]+$')
+    OR p_plazo->>'regla_ref' IS NULL OR p_plazo->>'huella_catalogo' IS NULL
+    OR p_plazo->>'unidad' IS NULL OR p_plazo->>'cantidad' IS NULL
+    OR p_plazo->>'computo' IS NULL OR p_plazo->>'municipio_sede' IS NULL
+    OR p_plazo->>'ultimo_dia' IS NULL OR p_plazo->>'politica_version' IS NULL
+ THEN RAISE EXCEPTION 'B47: material de plazo incompleto' USING ERRCODE='22023'; END IF;
+ SELECT string_agg(c#>>'{}',chr(30) ORDER BY n) INTO v_calendarios
+ FROM jsonb_array_elements(p_plazo->'calendarios') WITH ORDINALITY a(c,n);
+ v_material:=encode(sha256(convert_to(array_to_string(ARRAY[
+  p_bolsa,
+  to_char(p_publicada AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  to_char(p_vence AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  p_plazo->>'regla_ref',p_plazo->>'huella_catalogo',p_plazo->>'unidad',
+  p_plazo->>'cantidad',p_plazo->>'computo',p_plazo->>'municipio_sede',
+  p_plazo->>'ultimo_dia',p_plazo->>'politica_version',v_calendarios
+ ],chr(31)),'UTF8')),'hex');
+ v_contexto:=encode(sha256(convert_to(
+  '{"ambitos":{"ambito_ref":"'||p_ambito||'","unidad_ref":"'||p_unidad||
+  '"},"atributos":{"material_sha256":"'||v_material||'"}}','UTF8')),'hex');
+ BEGIN d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'B47: decisión de oferta inválida' USING ERRCODE='42501'; END;
+ IF d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM v_contexto THEN
+  RAISE EXCEPTION 'B47: plazo distinto del autorizado' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT * FROM vec_bolsa_llamamientos.publicar_oferta_v1(
+  p_oferta,p_recibo,p_bolsa,p_actor,p_clave,p_datos,p_plazo,p_publicada,p_vence,
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz);
+END $f$;
+
 REVOKE ALL ON TABLE vec_bolsa_llamamientos.politica_ofertas_version,
  vec_bolsa_llamamientos.politica_ofertas_outbox FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text),
  vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
+ vec_bolsa_llamamientos.publicar_oferta_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text),
  vec_bolsa_llamamientos.verificar_politica_oferta_b47() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ FROM vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_politica_ofertas_v1(text),
- vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
+ vec_bolsa_llamamientos.publicar_oferta_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)
  TO vec_bolsa_llamamientos_ejecutor;
 COMMIT;

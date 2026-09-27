@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -42,13 +43,10 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 		q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
-	material, actor, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion)
-	if err != nil {
-		return puertosbolsa.OfertaPublicada{}, err
-	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
 	var plazo puertosbolsa.PlazoOferta
 	var vence time.Time
+	var err error
 	if porBolsa, ok := s.plazos.(puertosbolsa.CalculadoraPlazoOfertaPorBolsa); ok {
 		plazo, vence, err = porBolsa.PlazoDisposicionBolsa(ctx, q.BolsaRef, ahora)
 	} else {
@@ -63,11 +61,18 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 	if !vence.After(ahora) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
 	}
+	vence = vence.UTC().Truncate(time.Microsecond)
+	materialHash := huellaMaterialPlazoOferta(q.BolsaRef, ahora, vence, plazo)
+	emision, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion, materialHash)
+	if err != nil {
+		return puertosbolsa.OfertaPublicada{}, err
+	}
 	sufijo := huellaOferta(q.BolsaRef, q.ClaveIdempotencia)
 	oferta, err := s.repositorio.Publicar(ctx, puertosbolsa.ComandoPublicarOferta{
-		OfertaRef: "oferta:" + sufijo, ReciboRef: "recibo:oferta:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor,
+		OfertaRef: "oferta:" + sufijo, ReciboRef: "recibo:oferta:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: emision.ActorRef,
+		UnidadRef: emision.UnidadRef, AmbitoRef: emision.AmbitoRef,
 		ClaveIdempotencia: q.ClaveIdempotencia, Datos: q.Datos, Plazo: plazo, PublicadaEn: ahora,
-		VenceAntesDe: vence.UTC().Truncate(time.Microsecond), Material: material,
+		VenceAntesDe: vence, Material: emision.Material,
 	})
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err
@@ -87,14 +92,14 @@ func (s *ServicioOfertasPublicadas) ResolverOferta(ctx context.Context, q puerto
 		q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
-	material, actor, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion)
+	emision, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion, "")
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err
 	}
 	return s.repositorio.Resolver(ctx, puertosbolsa.ComandoResolverOferta{
 		OfertaRef: q.OfertaRef, ReciboRef: "recibo:resolucion-oferta:" + huellaOferta(q.OfertaRef, q.ClaveIdempotencia),
-		BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef, ActorRef: actor,
-		ClaveIdempotencia: q.ClaveIdempotencia, Material: material,
+		BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef, ActorRef: emision.ActorRef,
+		ClaveIdempotencia: q.ClaveIdempotencia, Material: emision.Material,
 	})
 }
 
@@ -111,26 +116,47 @@ func (s *ServicioOfertasPublicadas) ConsultarOfertas(ctx context.Context, q puer
 	return s.repositorio.Listar(ctx, q.BolsaRef, s.reloj().UTC().Truncate(time.Microsecond), q.Limite)
 }
 
-func (s *ServicioOfertasPublicadas) materialEmision(ctx context.Context, vinculo dominiovec.VinculoAutenticacionActorV2, resultado dominiovec.ResultadoContextoActorRegistradoV2, bolsa string, correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2, motivo dominiovec.ReferenciaEntradaCatalogo) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, string, error) {
+type emisionOfertaAtestada struct {
+	Material                       puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	ActorRef, UnidadRef, AmbitoRef string
+}
+
+func (s *ServicioOfertasPublicadas) materialEmision(ctx context.Context, vinculo dominiovec.VinculoAutenticacionActorV2, resultado dominiovec.ResultadoContextoActorRegistradoV2, bolsa string, correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2, motivo dominiovec.ReferenciaEntradaCatalogo, materialHash string) (emisionOfertaAtestada, error) {
 	actor := resultado.Contexto
 	resuelto, err := s.contextoBolsa.ResolverContextoContactosBolsa(ctx, actor, bolsa)
 	if err != nil || resuelto.Validar() != nil {
-		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, "", errorDependenciaOferta(err)
+		return emisionOfertaAtestada{}, errorDependenciaOferta(err)
 	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: bolsa, ModuloID: puertosbolsa.ModuloBorradorLlamamiento, Tipo: puertosbolsa.TipoRecursoEmision, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	if materialHash != "" {
+		recurso.Atributos = map[string]string{"material_sha256": materialHash}
+	}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: vinculo, ReferenciaMotivo: motivo, Accion: puertosbolsa.AccionEmitirLlamamiento, Recurso: recurso, Finalidad: puertosbolsa.FinalidadEmitirLlamamiento, Correlacion: correlacion})
 	if err != nil {
-		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, "", dominiovec.ErrAutorizacionDenegada
+		return emisionOfertaAtestada{}, dominiovec.ErrAutorizacionDenegada
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, resultado)
 	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
-		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, "", errorDependenciaOferta(err)
+		return emisionOfertaAtestada{}, errorDependenciaOferta(err)
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, resultado, motivo, material, puertosbolsa.AudienciaEmitirLlamamiento) {
-		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, "", puertosbolsa.ErrOfertaNoDisponible
+		return emisionOfertaAtestada{}, puertosbolsa.ErrOfertaNoDisponible
 	}
-	return material, actor.PersonaRef, nil
+	return emisionOfertaAtestada{Material: material, ActorRef: actor.PersonaRef, UnidadRef: resuelto.UnidadRef, AmbitoRef: resuelto.AmbitoRef}, nil
+}
+
+const formatoInstanteMaterialOferta = "2006-01-02T15:04:05.000000Z"
+
+// Esta preimagen no incluye textos personales y tiene los mismos campos y
+// separadores que publicar_oferta_v2 en Bolsa B47.
+func huellaMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta) string {
+	campos := []string{bolsa, publicada.UTC().Format(formatoInstanteMaterialOferta),
+		vence.UTC().Format(formatoInstanteMaterialOferta), p.ReglaRef, p.HuellaCatalogo,
+		p.Unidad, fmt.Sprint(p.Cantidad), p.Computo, p.MunicipioSede, p.UltimoDia,
+		fmt.Sprint(p.PoliticaVersion), strings.Join(p.Calendarios, "\x1e")}
+	h := sha256.Sum256([]byte(strings.Join(campos, "\x1f")))
+	return hex.EncodeToString(h[:])
 }
 
 func errorDependenciaOferta(err error) error {

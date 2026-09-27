@@ -12,8 +12,8 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-// RepositorioOfertasPublicadasPostgreSQL invoca las funciones de la migración
-// 000028. La autorización se consume dentro de la misma transacción que
+// RepositorioOfertasPublicadasPostgreSQL invoca B47 para publicar y B28 para
+// resolver/consultar. La autorización se consume dentro de la transacción que
 // escribe la oferta o su resolución.
 type RepositorioOfertasPublicadasPostgreSQL struct{ pool *pgxpool.Pool }
 
@@ -36,10 +36,10 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c
 	m := c.Material
 	var salida []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`,
+	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v2($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21)`,
 		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
-		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salida, &reutilizada)
+		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef).Scan(&salida, &reutilizada)
 	if err != nil {
 		return ports.OfertaPublicada{}, errorOferta(err)
 	}
