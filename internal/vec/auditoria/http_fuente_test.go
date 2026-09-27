@@ -1,0 +1,91 @@
+package auditoria
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+type identidadFuenteAuditoriaHTTPPrueba struct {
+	identidad IdentidadResuelta
+	fuentes   []FuenteConsulta
+	bodyVacio bool
+}
+
+func (i *identidadFuenteAuditoriaHTTPPrueba) ResolverIdentidadConsulta(_ context.Context, r *http.Request, fuente FuenteConsulta) (IdentidadResuelta, error) {
+	i.fuentes = append(i.fuentes, fuente)
+	i.bodyVacio = r.Body == http.NoBody
+	return i.identidad, nil
+}
+
+func cuerpoConsultaFuentePrueba(fuente, expediente string) string {
+	return `{"fuente":"` + fuente + `","expediente_ref":"` + expediente + `",` +
+		`"desde":"2026-09-27T00:00:00Z","hasta":"2026-09-28T00:00:00Z",` +
+		`"finalidad_ref":"auditoria_rrhh",` +
+		`"motivo_ref":"motivos:1:motivo_11111111111111111111111111111111","limite":10}`
+}
+
+func TestAuditoriaResuelveFuenteTipadaTrasDecodificarUnaVez(t *testing.T) {
+	identidad := &identidadFuenteAuditoriaHTTPPrueba{identidad: identidadVigenteAuditoriaHTTPPrueba(t, time.Now())}
+	opciones := &opcionesAuditoriaHTTPPrueba{}
+	h, err := NuevoManejador(&Servicio{}, opciones, identidad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	get := httptest.NewRecorder()
+	h.ServeHTTP(get, httptest.NewRequest(http.MethodGet, RutaOpciones, nil))
+	if get.Code != http.StatusOK || len(identidad.fuentes) != 1 || identidad.fuentes[0] != FuenteConsultaGeneral {
+		t.Fatalf("GET debe usar contexto general: status=%d fuentes=%v", get.Code, identidad.fuentes)
+	}
+	for _, caso := range []struct {
+		fuente, expediente string
+		esperado           FuenteConsulta
+	}{
+		{"ct", "participacion:referencia-opaca", FuenteConsultaCT},
+		{"bolsa", "expediente:ct:referencia-opaca", FuenteConsultaBolsa},
+	} {
+		r := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(cuerpoConsultaFuentePrueba(caso.fuente, caso.expediente)))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("X-Fuente", "personal")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusForbidden || identidad.fuentes[len(identidad.fuentes)-1] != caso.esperado || !identidad.bodyVacio {
+			t.Fatalf("POST fuente=%q status=%d fuentes=%v bodyVacio=%v", caso.fuente, w.Code, identidad.fuentes, identidad.bodyVacio)
+		}
+	}
+}
+
+func TestAuditoriaNoResuelveIdentidadConFuenteOCuerpoInvalido(t *testing.T) {
+	identidad := &identidadFuenteAuditoriaHTTPPrueba{identidad: identidadVigenteAuditoriaHTTPPrueba(t, time.Now())}
+	h, err := NuevoManejador(&Servicio{}, &opcionesAuditoriaHTTPPrueba{}, identidad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := cuerpoConsultaFuentePrueba("ct", "expediente:ct:uno")
+	cuerpoSinCierre := strings.TrimSuffix(base, "}")
+	casos := []string{
+		cuerpoConsultaFuentePrueba("personal", "expediente:ct:uno"),
+		strings.Replace(base, `"fuente":"ct"`, `"fuente":"ct","fuente":"bolsa"`, 1),
+		strings.Replace(base, `"fuente":"ct"`, `"fuente":null`, 1),
+		strings.Replace(base, `"fuente":"ct"`, `"fuente":"ct","actor_perfil":"admin"`, 1),
+		cuerpoSinCierre,
+		base + base,
+		base + strings.Repeat(" ", maximoCuerpoConsulta),
+	}
+	for indice, cuerpo := range casos {
+		r := httptest.NewRequest(http.MethodPost, RutaConsulta, strings.NewReader(cuerpo))
+		r.Header.Set("Content-Type", "application/json")
+		if indice == len(casos)-1 {
+			r.ContentLength = -1 // también limitar un cuerpo de tamaño no anunciado
+			r.TransferEncoding = []string{"chunked"}
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusBadRequest || len(identidad.fuentes) != 0 {
+			t.Fatalf("caso %d status=%d fuentes=%v", indice, w.Code, identidad.fuentes)
+		}
+	}
+}

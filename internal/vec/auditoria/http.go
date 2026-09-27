@@ -15,10 +15,29 @@ import (
 
 const maximoCuerpoConsulta = 8 * 1024
 
+// FuenteConsulta es la unica seleccion de fuente que cruza hacia la frontera
+// de identidad. El cliente aporta texto; el handler lo valida antes de usarlo.
+type FuenteConsulta string
+
+const (
+	FuenteConsultaGeneral FuenteConsulta = ""
+	FuenteConsultaCT      FuenteConsulta = "ct"
+	FuenteConsultaBolsa   FuenteConsulta = "bolsa"
+)
+
+func fuenteConsultaDesdeTexto(valor string) (FuenteConsulta, bool) {
+	switch FuenteConsulta(valor) {
+	case FuenteConsultaCT, FuenteConsultaBolsa:
+		return FuenteConsulta(valor), true
+	default:
+		return FuenteConsultaGeneral, false
+	}
+}
+
 // IdentidadConsulta resuelve únicamente desde la frontera de identidad del
 // servidor. El navegador nunca proporciona actor, vínculo, perfil o correlación.
 type IdentidadConsulta interface {
-	ResolverIdentidadConsulta(context.Context, *http.Request) (IdentidadResuelta, error)
+	ResolverIdentidadConsulta(context.Context, *http.Request, FuenteConsulta) (IdentidadResuelta, error)
 }
 
 type IdentidadResuelta struct {
@@ -70,8 +89,8 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Manejador) resolverIdentidad(r *http.Request) (IdentidadResuelta, error) {
-	identidad, err := h.identidad.ResolverIdentidadConsulta(r.Context(), r)
+func (h *Manejador) resolverIdentidad(r *http.Request, fuente FuenteConsulta) (IdentidadResuelta, error) {
+	identidad, err := h.identidad.ResolverIdentidadConsulta(r.Context(), r, fuente)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil ||
 		!identidad.Vinculo.VigenteEn(h.ahora().UTC().Truncate(time.Microsecond), identidad.Resultado) || identidad.Correlacion.Validar() != nil {
 		return IdentidadResuelta{}, ErrDenegada
@@ -80,7 +99,7 @@ func (h *Manejador) resolverIdentidad(r *http.Request) (IdentidadResuelta, error
 }
 
 func (h *Manejador) servirOpciones(w http.ResponseWriter, r *http.Request) {
-	if _, err := h.resolverIdentidad(r); err != nil {
+	if _, err := h.resolverIdentidad(r, FuenteConsultaGeneral); err != nil {
 		responderError(w, http.StatusForbidden)
 		return
 	}
@@ -104,25 +123,86 @@ type cuerpoConsulta struct {
 	MotivoRef     string `json:"motivo_ref"`
 }
 
+// decodificarCuerpoConsulta recorre una sola vez el JSON, rechaza claves
+// desconocidas o repetidas y nunca entrega el body al resolvedor de identidad.
+func decodificarCuerpoConsulta(w http.ResponseWriter, r *http.Request) (cuerpoConsulta, error) {
+	var c cuerpoConsulta
+	tipo := r.Header.Get("Content-Type")
+	if (tipo != "application/json" && tipo != "application/json; charset=utf-8") ||
+		r.ContentLength > maximoCuerpoConsulta {
+		return c, ErrDenegada
+	}
+	lector := http.MaxBytesReader(w, r.Body, maximoCuerpoConsulta)
+	defer lector.Close()
+	dec := json.NewDecoder(lector)
+	inicio, err := dec.Token()
+	if err != nil || inicio != json.Delim('{') {
+		return c, ErrDenegada
+	}
+	vistas := make(map[string]bool, 9)
+	for dec.More() {
+		claveToken, err := dec.Token()
+		clave, correcta := claveToken.(string)
+		if err != nil || !correcta || vistas[clave] {
+			return c, ErrDenegada
+		}
+		vistas[clave] = true
+		var destino *string
+		switch clave {
+		case "fuente":
+			destino = &c.Fuente
+		case "expediente_ref":
+			destino = &c.ExpedienteRef
+		case "actor_ref":
+			destino = &c.ActorRef
+		case "desde":
+			destino = &c.Desde
+		case "hasta":
+			destino = &c.Hasta
+		case "cursor":
+			destino = &c.Cursor
+		case "finalidad_ref":
+			destino = &c.FinalidadRef
+		case "motivo_ref":
+			destino = &c.MotivoRef
+		case "limite":
+			var limite *uint16
+			if dec.Decode(&limite) != nil || limite == nil {
+				return c, ErrDenegada
+			}
+			c.Limite = *limite
+			continue
+		default:
+			return c, ErrDenegada
+		}
+		var valor *string
+		if dec.Decode(&valor) != nil || valor == nil {
+			return c, ErrDenegada
+		}
+		*destino = *valor
+	}
+	fin, err := dec.Token()
+	if err != nil || fin != json.Delim('}') ||
+		!vistas["fuente"] || !vistas["expediente_ref"] || !vistas["desde"] ||
+		!vistas["hasta"] || !vistas["finalidad_ref"] || !vistas["motivo_ref"] {
+		return c, ErrDenegada
+	}
+	var extra any
+	if dec.Decode(&extra) != io.EOF {
+		return c, ErrDenegada
+	}
+	r.Body = http.NoBody
+	return c, nil
+}
+
 func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
-	identidad, err := h.resolverIdentidad(r)
+	cuerpo, err := decodificarCuerpoConsulta(w, r)
 	if err != nil {
-		responderError(w, http.StatusForbidden)
-		return
-	}
-	ct := r.Header.Get("Content-Type")
-	if ct != "application/json" && ct != "application/json; charset=utf-8" {
 		responderError(w, http.StatusBadRequest)
 		return
 	}
-	if r.ContentLength > maximoCuerpoConsulta {
-		responderError(w, http.StatusBadRequest)
-		return
-	}
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maximoCuerpoConsulta))
-	dec.DisallowUnknownFields()
-	var cuerpo cuerpoConsulta
-	if dec.Decode(&cuerpo) != nil || dec.Decode(new(any)) != io.EOF {
+	fuente, valida := fuenteConsultaDesdeTexto(cuerpo.Fuente)
+	if !valida {
 		responderError(w, http.StatusBadRequest)
 		return
 	}
@@ -135,19 +215,24 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest)
 		return
 	}
+	f := Filtro{Fuente: string(fuente), ExpedienteRef: cuerpo.ExpedienteRef, ActorRef: cuerpo.ActorRef,
+		Desde: desde, Hasta: hasta, Limite: cuerpo.Limite,
+		FinalidadRef: cuerpo.FinalidadRef, MotivoRef: cuerpo.MotivoRef}
+	if f.Validar() != nil {
+		responderError(w, http.StatusForbidden)
+		return
+	}
+	identidad, err := h.resolverIdentidad(r, fuente)
+	if err != nil {
+		responderError(w, http.StatusForbidden)
+		return
+	}
 	opciones, err := h.opciones.Actuales(r.Context())
 	if err != nil {
 		responderError(w, http.StatusServiceUnavailable)
 		return
 	}
 	if cuerpo.FinalidadRef != opciones.FinalidadRef || cuerpo.MotivoRef != opciones.MotivoRef {
-		responderError(w, http.StatusForbidden)
-		return
-	}
-	f := Filtro{Fuente: cuerpo.Fuente, ExpedienteRef: cuerpo.ExpedienteRef, ActorRef: cuerpo.ActorRef,
-		Desde: desde, Hasta: hasta, Limite: cuerpo.Limite,
-		FinalidadRef: cuerpo.FinalidadRef, MotivoRef: cuerpo.MotivoRef}
-	if f.Validar() != nil {
 		responderError(w, http.StatusForbidden)
 		return
 	}

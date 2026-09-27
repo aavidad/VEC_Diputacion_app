@@ -39,7 +39,7 @@ func (generadorCorrelacionAuditoriaHTTPPrueba) NuevaReferenciaCorrelacionAutoriz
 
 type identidadAuditoriaHTTPPrueba struct{ resultado IdentidadResuelta }
 
-func (i identidadAuditoriaHTTPPrueba) ResolverIdentidadConsulta(context.Context, *http.Request) (IdentidadResuelta, error) {
+func (i identidadAuditoriaHTTPPrueba) ResolverIdentidadConsulta(context.Context, *http.Request, FuenteConsulta) (IdentidadResuelta, error) {
 	return i.resultado, nil
 }
 
