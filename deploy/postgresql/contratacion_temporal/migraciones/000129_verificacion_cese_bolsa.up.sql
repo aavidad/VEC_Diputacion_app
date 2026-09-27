@@ -190,6 +190,9 @@ BEGIN
        OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
        OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
        OR pg_has_role(session_user,to_regrole('vec_bolsa_llamamientos_relevo_cese'),'MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
        OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper) THEN
         RAISE EXCEPTION 'CT129: lectura de ceses no autorizada' USING ERRCODE='42501';
     END IF;

@@ -9,6 +9,15 @@ BEGIN
     END IF;
 END
 $$;
+CREATE FUNCTION pg_temp.exigir_feed_denegado_ct129()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    PERFORM 1 FROM vec_contratacion_temporal.leer_ceses_bolsa_v1(NULL,NULL,10);
+    RAISE EXCEPTION 'CT129: feed accesible con roles CT/Bolsa combinados';
+EXCEPTION WHEN SQLSTATE '42501' THEN
+    RETURN;
+END
+$$;
 
 SELECT c.evento_ref AS origen, c.justificante_tipo AS tipo, c.justificante_ref AS fuente,
        c.justificante_sha256 AS fuente_sha, c.fecha_efecto::text AS fecha,
@@ -48,6 +57,29 @@ SELECT pg_temp.exigir_ct129(
     'Bolsa y ejecutor CT sin tablas; feed solo para ejecutor CT');
 SELECT pg_temp.exigir_ct129(to_regrole('vec_bolsa_llamamientos_relevo_cese') IS NOT NULL,
     'Bolsa 000045 requerida para el relevo nominal');
+-- Cada LOGIN conserva el EXECUTE de CT, pero combina un rol Bolsa incompatible.
+-- La denegación debe proceder de la guarda de la función, no de su ACL.
+CREATE ROLE vec_ct129_feed_prop_prueba LOGIN INHERIT;
+GRANT vec_contratacion_temporal_ejecutor,vec_bolsa_llamamientos_propietario TO vec_ct129_feed_prop_prueba;
+CREATE ROLE vec_ct129_feed_mig_prueba LOGIN INHERIT;
+GRANT vec_contratacion_temporal_ejecutor,vec_bolsa_llamamientos_migrador TO vec_ct129_feed_mig_prueba;
+CREATE ROLE vec_ct129_feed_eje_prueba LOGIN INHERIT;
+GRANT vec_contratacion_temporal_ejecutor,vec_bolsa_llamamientos_ejecutor TO vec_ct129_feed_eje_prueba;
+SET SESSION AUTHORIZATION vec_ct129_feed_prop_prueba;
+SELECT pg_temp.exigir_ct129(has_function_privilege(current_user,'vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)','EXECUTE'),
+    'LOGIN combinado propietario conserva EXECUTE CT');
+SELECT pg_temp.exigir_feed_denegado_ct129();
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_ct129_feed_mig_prueba;
+SELECT pg_temp.exigir_ct129(has_function_privilege(current_user,'vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)','EXECUTE'),
+    'LOGIN combinado migrador conserva EXECUTE CT');
+SELECT pg_temp.exigir_feed_denegado_ct129();
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_ct129_feed_eje_prueba;
+SELECT pg_temp.exigir_ct129(has_function_privilege(current_user,'vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)','EXECUTE'),
+    'LOGIN combinado ejecutor conserva EXECUTE CT');
+SELECT pg_temp.exigir_feed_denegado_ct129();
+RESET SESSION AUTHORIZATION;
 CREATE ROLE vec_ct129_relevo_prueba LOGIN INHERIT;
 GRANT vec_bolsa_llamamientos_relevo_cese TO vec_ct129_relevo_prueba;
 CREATE ROLE vec_ct129_bolsa_ajena_prueba LOGIN INHERIT;
@@ -125,4 +157,8 @@ REVOKE vec_bolsa_llamamientos_relevo_cese FROM vec_ct129_relevo_prueba,vec_ct129
 REVOKE vec_bolsa_llamamientos_ejecutor FROM vec_ct129_bolsa_ajena_prueba;
 REVOKE vec_contratacion_temporal_migrador FROM vec_ct129_migrador_prueba;
 DROP ROLE vec_ct129_relevo_prueba,vec_ct129_bolsa_ajena_prueba,vec_ct129_migrador_prueba;
+REVOKE vec_contratacion_temporal_ejecutor,vec_bolsa_llamamientos_propietario FROM vec_ct129_feed_prop_prueba;
+REVOKE vec_contratacion_temporal_ejecutor,vec_bolsa_llamamientos_migrador FROM vec_ct129_feed_mig_prueba;
+REVOKE vec_contratacion_temporal_ejecutor,vec_bolsa_llamamientos_ejecutor FROM vec_ct129_feed_eje_prueba;
+DROP ROLE vec_ct129_feed_prop_prueba,vec_ct129_feed_mig_prueba,vec_ct129_feed_eje_prueba;
 SELECT 'CT129 OK';
