@@ -153,6 +153,12 @@ BEGIN
     OR NEW.plazo->>'computo' IS DISTINCT FROM v.politica#>>'{plazo,computo}'
     OR NEW.plazo->>'municipio_sede' IS DISTINCT FROM v.politica#>>'{plazo,municipio_sede}'
     OR NEW.plazo->>'ejemplo' IS DISTINCT FROM 'true'
+    OR (NEW.vence_antes_de AT TIME ZONE 'Europe/Madrid') IS DISTINCT FROM
+       ((NEW.plazo->>'ultimo_dia')::date + 1)::timestamp
+    OR jsonb_typeof(NEW.plazo->'calendarios') IS DISTINCT FROM 'array'
+    OR jsonb_array_length(NEW.plazo->'calendarios') NOT BETWEEN 1 AND 16
+    OR EXISTS(SELECT 1 FROM jsonb_array_elements(NEW.plazo->'calendarios') c
+              WHERE jsonb_typeof(c) IS DISTINCT FROM 'string' OR octet_length(c#>>'{}') NOT BETWEEN 1 AND 256)
  THEN RAISE EXCEPTION 'B47: oferta sin política de ejemplo vigente' USING ERRCODE='VBP02'; END IF;
  RETURN NEW;
 END $f$;

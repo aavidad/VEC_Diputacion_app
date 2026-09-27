@@ -81,7 +81,10 @@ DECLARE
  dec bytea:=convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"bolsa.politica_ofertas.publicar","modulo_id":"bolsa","tipo_recurso":"bolsa_constituida","finalidad":"gobierno_politica_ofertas_bolsa","recurso_ref":"bolsa:of:1"}','UTF8');
  capof bytea:=convert_to('{"efecto_ref":"bolsa:of:1"}','UTF8');
  decof bytea:=convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","modulo_id":"bolsa","tipo_recurso":"bolsa_constituida","finalidad":"gestion_llamamientos_bolsa","recurso_ref":"bolsa:of:1"}','UTF8');
- r record; q record; v jsonb; plazo jsonb; datos jsonb:='{"categoria":"Auxiliar administrativo","centro":"Residencia Sierra","fecha_inicio":"2026-10-01","descripcion":"Sustitución por baja"}';
+ r record; q record; v jsonb; plazo jsonb;
+ ultimo text:=((clock_timestamp() AT TIME ZONE 'Europe/Madrid')::date+1)::text;
+ vence timestamptz:=(((clock_timestamp() AT TIME ZONE 'Europe/Madrid')::date+2)::timestamp AT TIME ZONE 'Europe/Madrid');
+ datos jsonb:='{"categoria":"Auxiliar administrativo","centro":"Residencia Sierra","fecha_inicio":"2026-10-01","descripcion":"Sustitución por baja"}';
 BEGIN
  IF (vec_bolsa_llamamientos.leer_politica_ofertas_v1('bolsa:of:1')->>'version')::int<>0 THEN RAISE EXCEPTION 'política ausente distinta de 0'; END IF;
  SELECT * INTO r FROM vec_bolsa_llamamientos.publicar_politica_ofertas_v1('bolsa:of:1',0,p,'per_actoractoractoractoractor','clave-0001','recibo:politica-ofertas:'||repeat('a',64),cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
@@ -95,16 +98,22 @@ BEGIN
  v:=r.politica;
  plazo:=jsonb_build_object('regla_ref','politica-ofertas:bolsa:of:1:1','huella_catalogo',v->>'huella_sha256',
   'unidad','dias_habiles','cantidad',2,'computo','administrativo','municipio_sede','18087',
-  'ultimo_dia','2026-09-29','ejemplo',true,'politica_version',1,'calendarios',jsonb_build_array('cal:1'));
+  'ultimo_dia',ultimo,'ejemplo',true,'politica_version',1,'calendarios',jsonb_build_array('cal:1'));
  SELECT * INTO q FROM vec_bolsa_llamamientos.publicar_oferta_v1('oferta:'||repeat('1',64),'recibo:oferta:'||repeat('1',64),
-  'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-0001',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',
+  'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-0001',datos,plazo,clock_timestamp(),vence,
   capof,decof,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  IF q.reutilizada OR q.oferta->'plazo'->>'politica_version'<>'1' THEN RAISE EXCEPTION 'oferta sin versión %',q.oferta; END IF;
  BEGIN
   PERFORM vec_bolsa_llamamientos.publicar_oferta_v1('oferta:'||repeat('2',64),'recibo:oferta:'||repeat('2',64),
-   'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-0002',datos,plazo||'{"politica_version":9}'::jsonb,clock_timestamp(),clock_timestamp()+interval '1 day',
+   'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-0002',datos,plazo||'{"politica_version":9}'::jsonb,clock_timestamp(),vence,
    capof,decof,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
   RAISE EXCEPTION 'oferta con versión falsa aceptada';
+ EXCEPTION WHEN SQLSTATE 'VBP02' THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.publicar_oferta_v1('oferta:'||repeat('3',64),'recibo:oferta:'||repeat('3',64),
+   'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-0003',datos,plazo,clock_timestamp(),vence+interval '1 hour',
+   capof,decof,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+  RAISE EXCEPTION 'vencimiento distinto del último día aceptado';
  EXCEPTION WHEN SQLSTATE 'VBP02' THEN NULL; END;
 END $prueba$;
 SQL
