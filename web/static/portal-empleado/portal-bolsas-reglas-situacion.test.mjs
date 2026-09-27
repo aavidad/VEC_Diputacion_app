@@ -5,6 +5,7 @@ import {
   consultarReglasSituacion,
   destinosSituacion,
   fechaDisponiblePropuesta,
+  instalarPropuestaReposicion,
   motivoConCausa,
   renderizarCamposReposicion,
   textoProcedenciaReposicion,
@@ -73,6 +74,33 @@ test("con catálogo la renuncia solo va a baja y se propone la fecha de reposici
   assert.match(fechaDisponiblePropuesta(REGLAS_CON_CATALOGO), /^2099-0[67]-\d{2}T\d{2}:\d{2}$/);
   const pasada = { ...REGLAS_CON_CATALOGO.reposicion.propuesta, fecha_disponible: "2020-01-01T00:00:00Z" };
   assert.match(textoProcedenciaReposicion(pasada), /La fecha ya ha pasado: elija «Disponible»\./);
+});
+
+test("un recálculo fallido retira la propuesta anterior antes de confirmar", async () => {
+  const anteriorFormData = globalThis.FormData;
+  globalThis.FormData = class { constructor(formulario) { this.valores = formulario.valores; } get(campo) { return this.valores[campo] ?? null; } };
+  try {
+    const fecha = { value: "2099-07-01T00:00" };
+    const origen = { textContent: "Fecha propuesta: 5 meses" };
+    const formulario = {
+      valores: { fin_relacion: "2026-07-31", modalidad_relacion: "acumulacion_tareas" },
+      querySelector(selector) { return selector === '[name="fecha_disponible"]' ? fecha : origen; },
+    };
+    let escuchar;
+    const documento = { addEventListener(tipo, receptor) { assert.equal(tipo, "change"); escuchar = receptor; } };
+    const modal = {};
+    let resolver;
+    instalarPropuestaReposicion(documento, () => modal, { consultar: () => new Promise((res) => { resolver = res; }) });
+    const pendiente = escuchar({ target: { name: "modalidad_relacion", closest: () => formulario } });
+    assert.equal(fecha.value, "");
+    assert.equal(origen.textContent, "");
+    resolver({ ok: false, codigo: "no_disponible" });
+    await pendiente;
+    assert.equal(fecha.value, "");
+    assert.equal(fechaDisponiblePropuesta(REGLAS_CON_CATALOGO, modal.reposicion), "");
+    assert.match(origen.textContent, /Sin propuesta/);
+    assert.doesNotMatch(renderizarCamposReposicion({ reglas: REGLAS_CON_CATALOGO, candidato: { estado_clave: "trabajando" }, estadoReposicion: modal.reposicion, escaparHTML: escapar }), /Fecha propuesta: 5 meses/);
+  } finally { globalThis.FormData = anteriorFormData; }
 });
 
 test("la causa de baja se registra con su referencia y «otro motivo» exige texto", () => {
