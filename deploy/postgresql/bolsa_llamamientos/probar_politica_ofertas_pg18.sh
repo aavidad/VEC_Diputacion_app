@@ -148,6 +148,12 @@ BEGIN
    capof,decof,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00','unidad:rrhh','ambito:bolsa');
   RAISE EXCEPTION 'vencimiento futuro coherente pero no autorizado aceptado';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.publicar_oferta_v2('oferta:'||repeat('5',64),'recibo:oferta:'||repeat('5',64),
+   'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-0005',datos,plazo||'{"nota":"dato arbitrario"}'::jsonb,
+   publicada,vence,capof,decof,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00','unidad:rrhh','ambito:bolsa');
+  RAISE EXCEPTION 'plazo con clave extra no firmada aceptado';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
 END $prueba$;
 SQL
 if fichero "$m/000047_politica_ofertas_ejemplo.down.sql" >/dev/null 2>&1; then echo 'B47 DOWN con historia aceptado' >&2; exit 1; fi

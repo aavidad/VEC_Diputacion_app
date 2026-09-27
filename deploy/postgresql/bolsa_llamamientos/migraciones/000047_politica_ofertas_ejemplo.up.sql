@@ -145,7 +145,11 @@ BEGIN
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:politica-ofertas:'||NEW.bolsa_ref,0));
  SELECT * INTO v FROM vec_bolsa_llamamientos.politica_ofertas_version
   WHERE bolsa_ref=NEW.bolsa_ref ORDER BY version DESC LIMIT 1;
- IF NOT FOUND OR NEW.plazo->>'politica_version' IS DISTINCT FROM v.version::text
+ IF NOT FOUND OR jsonb_typeof(NEW.plazo) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(NEW.plazo))<>10
+    OR NOT (NEW.plazo ?& ARRAY['regla_ref','huella_catalogo','unidad','cantidad','computo',
+                                'ultimo_dia','ejemplo','calendarios','politica_version','municipio_sede'])
+    OR NEW.plazo->>'politica_version' IS DISTINCT FROM v.version::text
     OR NEW.plazo->>'huella_catalogo' IS DISTINCT FROM v.huella_sha256
     OR NEW.plazo->>'regla_ref' IS DISTINCT FROM 'politica-ofertas:'||NEW.bolsa_ref||':'||v.version::text
     OR NEW.plazo->>'unidad' IS DISTINCT FROM v.politica#>>'{plazo,unidad}'
@@ -182,6 +186,10 @@ BEGIN
     OR p_bolsa IS NULL OR p_plazo IS NULL
     OR p_unidad IS NULL OR p_unidad !~ '^[A-Za-z0-9:_-]+$' OR octet_length(p_unidad) NOT BETWEEN 1 AND 256
     OR p_ambito IS NULL OR p_ambito !~ '^[A-Za-z0-9:_-]+$' OR octet_length(p_ambito) NOT BETWEEN 1 AND 256
+    OR jsonb_typeof(p_plazo) IS DISTINCT FROM 'object'
+    OR (SELECT count(*) FROM jsonb_object_keys(p_plazo))<>10
+    OR NOT (p_plazo ?& ARRAY['regla_ref','huella_catalogo','unidad','cantidad','computo',
+                              'ultimo_dia','ejemplo','calendarios','politica_version','municipio_sede'])
     OR jsonb_typeof(p_plazo->'calendarios') IS DISTINCT FROM 'array'
     OR jsonb_array_length(p_plazo->'calendarios') NOT BETWEEN 1 AND 16
     OR EXISTS(SELECT 1 FROM jsonb_array_elements(p_plazo->'calendarios') c
