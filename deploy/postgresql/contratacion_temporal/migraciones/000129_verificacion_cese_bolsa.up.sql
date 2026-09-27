@@ -30,13 +30,23 @@ BEGIN
 END
 $pre$;
 
--- La fila de CT115 solo es visible mientras se comprueba ese origen exacto.
--- La opción no concede SELECT directo al propietario de Bolsa: la tabla no
--- tiene ninguna ACL para él y la función vuelve a vaciarla antes de salir.
+-- La fila de CT115 solo es visible mientras la comprueba el LOGIN nominal del
+-- relevo de ceses. La opción es fijable por cualquier sesión: por ello la
+-- política exige la membresía operativa y excluye a ambos migradores y
+-- propietarios, incluso cuando el migrador CT asume SET ROLE propietario.
+-- Bolsa no obtiene SELECT directo: la función vacía la opción antes de salir.
 CREATE POLICY verificacion_cese_bolsa_ct129
     ON vec_contratacion_temporal.cese_nombramiento_v1 FOR SELECT
     TO vec_contratacion_temporal_propietario
-    USING (evento_ref=current_setting('vec.ct129.origen_ref',true));
+    USING (evento_ref=current_setting('vec.ct129.origen_ref',true)
+        AND pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+        AND NOT pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+        AND NOT pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+        AND NOT pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+        AND NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+        AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+        AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+        AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper));
 
 CREATE FUNCTION vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(
     p_origen_ref text, p_huella_sha256 text, p_posicion bigint
@@ -61,9 +71,20 @@ SET search_path=pg_catalog SET row_security='on' SET timezone='UTC'
 AS $funcion$
 DECLARE v_marca_previa text:=current_setting('vec.ct129.origen_ref',true);
 BEGIN
+    -- Bolsa 000045 crea el grupo de relevo. Hasta entonces la comprobación
+    -- falla cerrada sin hacer visible ninguna fila CT.
+    IF to_regrole('vec_bolsa_llamamientos_relevo_cese') IS NULL THEN
+        RETURN;
+    END IF;
     IF current_user<>'vec_contratacion_temporal_propietario'
-       OR session_user='vec_contratacion_temporal_propietario'
-       OR session_user='vec_contratacion_temporal_migrador'
+       OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+       OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+       OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
        OR p_origen_ref IS NULL OR octet_length(p_origen_ref) NOT BETWEEN 1 AND 512
        OR p_huella_sha256 IS NULL OR p_huella_sha256 !~ '^[0-9a-f]{64}$'
        OR p_posicion IS NULL OR p_posicion<0 THEN
