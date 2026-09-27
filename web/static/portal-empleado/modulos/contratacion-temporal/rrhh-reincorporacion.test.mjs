@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { crearClienteReincorporacionRRHHHTTP, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js";
+import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js";
 import { validarReciboReincorporacionRRHH, validarSolicitudReincorporacionRRHH } from "./rrhh-reincorporacion-contrato.js";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js";
 import { MENSAJES_REINCORPORACION_RRHH_ES, crearTraductorReincorporacionRRHH } from "./rrhh-reincorporacion-i18n.js";
@@ -9,7 +9,7 @@ const expediente = { expediente_ref: "expediente:reincorporacion:1", version_esp
 const clave = "11111111-1111-4111-8111-111111111111";
 const solicitud = {
   ...expediente,
-  relacion_ref: "relacion:titular:1",
+  relacion_ref: "relacion:sustituto:1",
   fecha_efectiva: "2026-09-28",
   documento_ref: "documento:reincorporacion:1",
   documento_sha256: "a".repeat(64),
@@ -70,6 +70,26 @@ test("cliente usa POST con versión e idempotencia y admite 201 o replay 200", a
   assert.deepEqual(llamadas[0].entrada, solicitud);
   assert.deepEqual(llamadas[0].estadoEsperado, [200, 201]);
   assert.equal(llamadas[0].efecto, true);
+});
+
+test("preflight sin efecto exige contexto exacto y solo habilita con decisión V3 positiva", async () => {
+  const llamadas = [];
+  const cliente = crearClienteReincorporacionRRHHHTTP({
+    ejecutar: async (configuracion) => {
+      llamadas.push(configuracion);
+      return configuracion.validarRespuesta({ esquema: "vec.contratacion-temporal.capacidad-reincorporacion-titular.v1",
+        puede_registrar_reincorporacion_titular: llamadas.length === 2 });
+    },
+    validarOpciones: (opciones = {}) => opciones,
+  });
+  assert.equal(await cliente.consultarCapacidadReincorporacion(expediente), false);
+  assert.equal(await cliente.consultarCapacidadReincorporacion(expediente), true);
+  assert.equal(llamadas[0].metodo, "POST");
+  assert.equal(llamadas[0].efecto, false);
+  assert.equal(llamadas[0].ruta, RUTA_CAPACIDAD_REINCORPORACION_RRHH);
+  assert.deepEqual(llamadas[0].entrada, expediente);
+  assert.throws(() => cliente.consultarCapacidadReincorporacion({ ...expediente, version_esperada: 0 }));
+  await assert.rejects(async () => cliente.consultarCapacidadReincorporacion({ ...expediente, expediente_ref: "ajena?x" }));
 });
 
 test("sin concesión positiva no aparece el formulario ni sale petición", () => {

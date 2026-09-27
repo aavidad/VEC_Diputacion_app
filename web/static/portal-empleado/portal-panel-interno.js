@@ -7,7 +7,7 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260927-rrhh-sanciones-i18n-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-montaje-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260927-rrhh-reposicion-v1";
@@ -632,7 +632,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? `${instanteVisible(bolsa.vigente_desde)} — ${instanteVisible(bolsa.vigente_hasta)}`
       : `${instanteVisible(bolsa.vigente_desde)} — vigente`;
     const disponibilidad = candidato.disponible_desde
-      ? `<div class="fila-resumen"><dt>${textoPortal("txt_disponible_desde")}</dt><dd>${escaparHTML(instanteVisible(candidato.disponible_desde))}</dd></div>`
+      ? `<div class="fila-resumen"><dt>${textoPortal(candidato.estado_clave === "disponible_desde" ? "rrhh_no_disponible_hasta" : "txt_disponible_desde")}</dt><dd>${escaparHTML(instanteVisible(candidato.disponible_desde))}</dd></div>`
       : "";
     const ultimoLlamamiento = candidato.ultimo_llamamiento
       ? `<div class="fila-resumen"><dt>${textoPortal("txt_ultimo_llamamiento")}</dt><dd>${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.canal))} · ${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.resultado))}<br><small><time datetime="${escaparHTML(candidato.ultimo_llamamiento.comunicado_en)}">${escaparHTML(instanteVisible(candidato.ultimo_llamamiento.comunicado_en))}</time></small></dd></div>`
@@ -683,6 +683,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             </div>
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">${textoPortal("txt_cambiar_situacion")}</button>
+              <button type="button" class="boton-secundario" data-bolsa-auditoria="${escaparHTML(candidato.participacion_ref)}">${textoPortal("auditoria_participacion_accion")}</button>
               <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">${textoPortal("txt_cerrar")}</button>
             </div>
           </section>

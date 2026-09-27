@@ -20,7 +20,7 @@ export function validarPoliticaEditable(politica) {
   return structuredClone(politica);
 }
 
-export function validarPoliticaRecibida(sobre) {
+export function validarPoliticaRecibida(sobre, { exigirPermiso = false } = {}) {
   const p = sobre?.data ?? sobre;
   if (!p || p.esquema !== ESQUEMA_POLITICA_OFERTAS
     || !REFERENCIA.test(p.bolsa_ref ?? "") || !Number.isSafeInteger(p.version)
@@ -29,10 +29,13 @@ export function validarPoliticaRecibida(sobre) {
     || p.ejemplo !== true || (p.recibo_ref !== undefined && !REFERENCIA.test(p.recibo_ref))
     || (p.publicada_en !== undefined && Number.isNaN(Date.parse(p.publicada_en)))
     || (p.configurada && (p.version < 1 || !p.huella_sha256 || !p.publicada_en))
-    || (!p.configurada && (p.version !== 0 || p.politica !== null))) {
+    || (!p.configurada && (p.version !== 0 || p.politica !== null))
+    || (exigirPermiso && typeof p.puede_publicar !== "boolean")
+    || (Object.hasOwn(p, "puede_publicar") && typeof p.puede_publicar !== "boolean")) {
     throw new TypeError("respuesta de política de ofertas no válida");
   }
-  return { ...p, politica: p.configurada ? validarPoliticaEditable(p.politica) : null };
+  return { ...p, politica: p.configurada ? validarPoliticaEditable(p.politica) : null,
+    puede_publicar: p.puede_publicar === true };
 }
 
 function validarBolsa(bolsaRef) {
@@ -49,10 +52,13 @@ export function crearClientePoliticaOfertas({ fetchImpl = fetch } = {}) {
     referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" } });
   return Object.freeze({
     async consultar(bolsaRef, { signal } = {}) {
-      const ruta = `${RUTA_POLITICA_OFERTAS}?${new URLSearchParams({ bolsa_ref: validarBolsa(bolsaRef) })}`;
+      const bolsa = validarBolsa(bolsaRef);
+      const ruta = `${RUTA_POLITICA_OFERTAS}?${new URLSearchParams({ bolsa_ref: bolsa })}`;
       const respuesta = await fetchImpl(ruta, { ...opciones(signal), method: "GET" });
       if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: await codigoError(respuesta) };
-      return { ok: true, politica: validarPoliticaRecibida(await respuesta.json()) };
+      const politica = validarPoliticaRecibida(await respuesta.json(), { exigirPermiso: true });
+      if (politica.bolsa_ref !== bolsa) throw new TypeError("política de otra bolsa");
+      return { ok: true, politica };
     },
     async publicar({ bolsa_ref, version_esperada, clave_idempotencia, politica }, { signal } = {}) {
       validarBolsa(bolsa_ref);

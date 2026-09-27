@@ -18,18 +18,19 @@ function claveNueva() {
   return globalThis.crypto?.randomUUID?.() ?? `politica-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-/** Superficie independiente: la composición RRHH decide dónde montarla y concede puedeEditar. */
+/** La consulta V3 proyecta si puede publicarse; el POST vuelve a autorizar. */
 export function crearSuperficieRRHHPlazos({
   cliente = crearClientePoliticaOfertas(), traducir = traducirPortal,
-  alCambiar = () => {}, anunciar = () => {}, abrirAyuda = () => {},
-  puedeEditar = false, generarClave = claveNueva,
+  alCambiar = () => {}, anunciar = () => {},
+  generarClave = claveNueva,
 } = {}) {
   const estado = { bolsaRef: "", carga: "inactiva", vigente: null, borrador: copia(EJEMPLO_VACIO),
-    error: "", mensaje: "", guardando: false, conflicto: false, clave: "", cargaId: 0 };
+    error: "", mensaje: "", guardando: false, conflicto: false, clave: "", cargaId: 0, ayudaAbierta: false };
   let lectura = null;
   let escritura = null;
   let documentoInstalado = null;
   const repintar = () => alCambiar();
+  const puedeEditar = () => estado.carga === "lista" && estado.vigente?.puede_publicar === true;
   const t = (clave, variables) => escapar(traducir(`rrhh_plazos_${clave}`, variables));
 
   async function cargar({ conservarBorrador = false } = {}) {
@@ -44,6 +45,7 @@ export function crearSuperficieRRHHPlazos({
       const resultado = await cliente.consultar(bolsa, { signal: controlador.signal });
       if (controlador.signal.aborted || id !== estado.cargaId || bolsa !== estado.bolsaRef) return;
       if (!resultado.ok) {
+        estado.vigente = null;
         estado.carga = resultado.status === 403 ? "denegado" : "error";
         estado.error = traducir(`rrhh_plazos_${resultado.status === 403 ? "denegado" : "error_carga"}`);
       } else {
@@ -62,7 +64,7 @@ export function crearSuperficieRRHHPlazos({
   }
 
   async function guardar() {
-    if (!puedeEditar || estado.guardando || estado.conflicto || estado.carga !== "lista") return;
+    if (!puedeEditar() || estado.guardando || estado.conflicto) return;
     let politica;
     try { politica = validarPoliticaEditable(estado.borrador); }
     catch { estado.error = traducir("rrhh_plazos_validacion"); repintar(); return; }
@@ -79,7 +81,7 @@ export function crearSuperficieRRHHPlazos({
         clave_idempotencia: clave, politica }, { signal: controlador.signal });
       if (controlador.signal.aborted || id !== estado.cargaId || bolsa !== estado.bolsaRef) return;
       if (resultado.ok) {
-        estado.vigente = resultado.politica;
+        estado.vigente = { ...resultado.politica, puede_publicar: false };
         estado.borrador = copia(resultado.politica.politica);
         estado.clave = "";
         estado.mensaje = traducir("rrhh_plazos_guardada", { version: resultado.politica.version,
@@ -90,6 +92,7 @@ export function crearSuperficieRRHHPlazos({
         estado.clave = "";
         estado.error = traducir("rrhh_plazos_conflicto");
       } else {
+        if (resultado.status === 403 && estado.vigente) estado.vigente = { ...estado.vigente, puede_publicar: false };
         estado.error = traducir(`rrhh_plazos_${resultado.status === 403 ? "sin_permiso" : resultado.status === 422 ? "validacion" : "error_guardado"}`);
       }
     } catch (error) {
@@ -107,9 +110,10 @@ export function crearSuperficieRRHHPlazos({
   function renderizar() {
     const configurada = estado.vigente?.configurada === true;
     const v = estado.borrador;
-    const deshabilitado = !puedeEditar || estado.guardando || estado.conflicto;
+    const deshabilitado = !puedeEditar() || estado.guardando || estado.conflicto;
     const disabled = deshabilitado ? " disabled" : "";
-    const cabecera = `<div class="cabecera-panel"><div><h3>${t("titulo")}</h3><p>${t("subtitulo")}</p></div><div class="rrhh-plazos__cabecera-estado"><span class="estado-chip advertencia">${t("ejemplo")}</span>${configurada ? `<span class="estado-chip info">${t("version", { version: estado.vigente.version })}</span>` : ""}<button type="button" class="rrhh-plazos__ayuda" data-rrhh-plazos-accion="ayuda" aria-label="${t("ayuda")}">?</button></div></div>`;
+    const cabecera = `<div class="cabecera-panel"><div><h3>${t("titulo")}</h3><p>${t("subtitulo")}</p></div><div class="rrhh-plazos__cabecera-estado"><span class="estado-chip advertencia">${t("ejemplo")}</span>${configurada ? `<span class="estado-chip info">${t("version", { version: estado.vigente.version })}</span>` : ""}<button type="button" class="rrhh-plazos__ayuda" data-rrhh-plazos-accion="ayuda" aria-label="${t("ayuda")}" aria-expanded="${estado.ayudaAbierta}" aria-controls="rrhh-plazos-ayuda">?</button></div></div>
+      <p id="rrhh-plazos-ayuda" class="rrhh-plazos__ayuda-texto" ${estado.ayudaAbierta ? "" : "hidden"}>${t("ayuda_contenido")}</p>`;
     if (estado.carga === "inactiva" || estado.carga === "cargando") {
       return `<section class="panel rrhh-plazos" aria-busy="true">${cabecera}<div class="cuerpo-panel" role="status">${t("cargando")}</div></section>`;
     }
@@ -122,13 +126,13 @@ export function crearSuperficieRRHHPlazos({
     const orden = `<section class="panel"><div class="cabecera-panel"><h3>${t("orden_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("criterio", t("orden_vigente"))}${dato("elegibilidad", t("disposicion_en_plazo"))}<p class="campo--ancho dato-secundario">${t("confirmacion")}</p></div></section>`;
     const noCubierta = `<section class="panel"><div class="cabecera-panel"><h3>${t("no_cubierta_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("condicion", t("sin_elegibles"))}${dato("accion", t("llamamiento_directo"))}</div></section>`;
     const aviso = `${!configurada ? `<p role="status">${t("vacio")}</p>` : ""}${estado.error ? `<p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>` : ""}${estado.mensaje ? `<p class="rrhh-plazos__resultado" role="status">${escapar(estado.mensaje)}</p>` : ""}`;
-    const boton = puedeEditar ? `<div class="rrhh-plazos__acciones">${estado.conflicto ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="revisar">${t("revisar")}</button>` : ""}<button type="submit" class="boton-primario"${disabled}>${t(estado.guardando ? "guardando" : estado.clave ? "reintentar_guardado" : "guardar")}</button></div>` : `<p class="dato-secundario">${t("sin_edicion")}</p>`;
+    const boton = puedeEditar() ? `<div class="rrhh-plazos__acciones">${estado.conflicto ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="revisar">${t("revisar")}</button>` : ""}<button type="submit" class="boton-primario"${disabled}>${t(estado.guardando ? "guardando" : estado.clave ? "reintentar_guardado" : "guardar")}</button></div>` : `<p class="dato-secundario">${t("sin_edicion")}</p>`;
     return `<section class="rrhh-plazos" aria-label="${t("titulo")}"><div class="panel">${cabecera}${aviso ? `<div class="cuerpo-panel">${aviso}</div>` : ""}</div><form data-rrhh-plazos-form="politica" novalidate><div class="rrhh-plazos__rejilla">${plazo}${orden}${noCubierta}</div>${boton}</form></section>`;
   }
 
   function manejarCambio(evento) {
     const control = evento.target;
-    if (!control?.closest?.('[data-rrhh-plazos-form="politica"]') || !puedeEditar) return false;
+    if (!control?.closest?.('[data-rrhh-plazos-form="politica"]') || !puedeEditar()) return false;
     const campo = { cantidad: "cantidad", unidad: "unidad", municipio_sede: "municipio_sede" }[control.name];
     if (!campo) return false;
     const valor = campo === "cantidad" ? Number(control.value) : campo === "municipio_sede" ? control.value.trim() : control.value;
@@ -149,7 +153,11 @@ export function crearSuperficieRRHHPlazos({
   function manejarClick(evento) {
     const boton = evento.target?.closest?.("[data-rrhh-plazos-accion]");
     if (!boton || boton.disabled) return false;
-    if (boton.dataset.rrhhPlazosAccion === "ayuda") abrirAyuda();
+    if (boton.dataset.rrhhPlazosAccion === "ayuda") {
+      estado.ayudaAbierta = !estado.ayudaAbierta;
+      repintar();
+      documentoInstalado?.querySelector?.('[data-rrhh-plazos-accion="ayuda"]')?.focus?.({ preventScroll: true });
+    }
     else if (boton.dataset.rrhhPlazosAccion === "recargar") void cargar();
     else if (boton.dataset.rrhhPlazosAccion === "revisar") void cargar({ conservarBorrador: true });
     else return false;
@@ -161,7 +169,7 @@ export function crearSuperficieRRHHPlazos({
       if (!bolsaRef || bolsaRef === estado.bolsaRef) return;
       lectura?.abort(); escritura?.abort(); estado.cargaId++;
       Object.assign(estado, { bolsaRef, carga: "inactiva", vigente: null, borrador: copia(EJEMPLO_VACIO),
-        error: "", mensaje: "", guardando: false, conflicto: false, clave: "" });
+        error: "", mensaje: "", guardando: false, conflicto: false, clave: "", ayudaAbierta: false });
       void cargar();
     },
     desmontar() {

@@ -11,11 +11,13 @@ const POLITICA = Object.freeze({
   no_cubierta: { accion: "llamamiento_directo", condicion: "sin_disposiciones_elegibles" },
 });
 const HUELLA = "a".repeat(64);
-const vacia = (bolsaRef = "bolsa:1") => ({ data: { esquema: ESQUEMA_POLITICA_OFERTAS,
-  bolsa_ref: bolsaRef, version: 0, configurada: false, ejemplo: true, politica: null } });
+const vacia = (bolsaRef = "bolsa:1", extra = {}) => ({ data: { esquema: ESQUEMA_POLITICA_OFERTAS,
+  bolsa_ref: bolsaRef, version: 0, configurada: false, ejemplo: true, politica: null,
+  puede_publicar: false, ...extra } });
 const vigente = (bolsaRef = "bolsa:1", extra = {}) => ({ data: { esquema: ESQUEMA_POLITICA_OFERTAS,
   bolsa_ref: bolsaRef, version: 1, configurada: true, ejemplo: true, huella_sha256: HUELLA,
-  publicada_en: "2026-09-28T10:00:00Z", politica: structuredClone(POLITICA), ...extra } });
+  publicada_en: "2026-09-28T10:00:00Z", politica: structuredClone(POLITICA),
+  puede_publicar: false, ...extra } });
 const respuesta = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 const turno = () => new Promise((resolver) => setTimeout(resolver, 0));
 
@@ -28,6 +30,7 @@ test("consulta la política por bolsa y publica una versión con recibo e idempo
   } });
   const consulta = await cliente.consultar("bolsa:1");
   assert.equal(consulta.politica.configurada, false);
+  assert.equal(consulta.politica.puede_publicar, false);
   const alta = await cliente.publicar({ bolsa_ref: "bolsa:1", version_esperada: 0,
     clave_idempotencia: "politica-1", politica: POLITICA });
   assert.equal(alta.politica.recibo_ref, "recibo:politica:1");
@@ -39,6 +42,11 @@ test("consulta la política por bolsa y publica una versión con recibo e idempo
 });
 
 test("rechaza respuestas que omiten recibo, falsean regla de ejemplo o cambian criterio", async () => {
+  const sinPermiso = vacia(); delete sinPermiso.data.puede_publicar;
+  const clienteSinPermiso = crearClientePoliticaOfertas({ fetchImpl: async () => respuesta(200, sinPermiso) });
+  await assert.rejects(clienteSinPermiso.consultar("bolsa:1"), /respuesta de política/u);
+  const clienteOtraBolsa = crearClientePoliticaOfertas({ fetchImpl: async () => respuesta(200, vacia("bolsa:otra")) });
+  await assert.rejects(clienteOtraBolsa.consultar("bolsa:1"), /otra bolsa/u);
   assert.throws(() => validarPoliticaRecibida(vigente("bolsa:1", { ejemplo: false })));
   const alterada = vigente();
   alterada.data.politica.adjudicacion.criterio = "otro";
@@ -51,17 +59,20 @@ test("rechaza respuestas que omiten recibo, falsean regla de ejemplo o cambian c
 test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST válido", async () => {
   let intentos = 0;
   const claves = [];
-  const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
+  const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1", { puede_publicar: true }).data }),
     publicar: async (comando) => {
       claves.push(comando.clave_idempotencia); intentos++;
       return intentos === 1 ? { ok: false, status: 503 } :
         { ok: true, politica: vigente("bolsa:1", { recibo_ref: "recibo:politica:1" }).data };
     } };
   const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
-    puedeEditar: true, generarClave: () => "misma-clave" });
+    generarClave: () => "misma-clave" });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /Regla de ejemplo/);
   assert.match(superficie.renderizar(), /Oferta no cubierta/);
+  assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
+  superficie.manejarClick({ target: { disabled: false, dataset: { rrhhPlazosAccion: "ayuda" }, closest: () => ({ disabled: false, dataset: { rrhhPlazosAccion: "ayuda" } }) } });
+  assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   assert.doesNotMatch(superficie.renderizar(), /recibo:politica:1/);
   const control = { name: "municipio_sede", value: "18087", closest: () => ({}) };
   superficie.manejarCambio({ target: control });
@@ -92,7 +103,8 @@ test("sin concesión de publicación la política es visible y el conflicto cons
   lectura.activar("bolsa:1"); await turno();
   assert.match(lectura.renderizar(), /Orden vigente de la bolsa/);
   assert.doesNotMatch(lectura.renderizar(), /type="submit"/);
-  const edicion = crearSuperficieRRHHPlazos({ cliente, traducir: traductor, puedeEditar: true,
+  const edicion = crearSuperficieRRHHPlazos({ cliente: { ...cliente,
+    consultar: async () => ({ ok: true, politica: vigente("bolsa:1", { puede_publicar: true }).data }) }, traducir: traductor,
     generarClave: () => "politica-clave-1" });
   edicion.activar("bolsa:1"); await turno();
   edicion.manejarCambio({ target: { name: "cantidad", value: "5", closest: () => ({}) } });

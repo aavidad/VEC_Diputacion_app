@@ -46,6 +46,7 @@ export const MENSAJES_RRHH_PLAZOS_ES = Object.freeze({
   rrhh_plazos_dias_habiles: "Días hábiles",
   rrhh_plazos_administrativo: "Cómputo administrativo",
   rrhh_plazos_ayuda: "Ayuda sobre la política de ofertas",
+  rrhh_plazos_ayuda_contenido: "Consulte la versión de esta bolsa y revise plazo, orden y cobertura antes de publicar. La publicación requiere concesión expresa y genera un recibo; el servidor vuelve a comprobar el permiso al registrarla.",
   rrhh_plazos_confirmacion: "La resolución requiere confirmación de RRHH",
 });
 
