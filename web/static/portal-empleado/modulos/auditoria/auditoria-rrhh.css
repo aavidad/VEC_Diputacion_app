@@ -8,7 +8,9 @@
 .modulo-auditoria-rrhh .cuerpo-panel { padding: 18px 20px; }
 .modulo-auditoria-rrhh .auditoria-ayuda .cuerpo-panel { display: grid; gap: 10px; }
 .modulo-auditoria-rrhh .auditoria-ayuda p { margin: 0; }
-.modulo-auditoria-rrhh .auditoria-filtros { display: grid; grid-template-columns: minmax(14rem, 1.5fr) repeat(2, minmax(11rem, 1fr)) minmax(12rem, 1fr) auto; gap: 12px; align-items: end; }
+.modulo-auditoria-rrhh .auditoria-expediente { margin: 0 0 14px; overflow-wrap: anywhere; }
+.modulo-auditoria-rrhh .auditoria-ejemplo { margin: 0 0 14px; padding: 8px 12px; border-left: 4px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-aviso-suave); }
+.modulo-auditoria-rrhh .auditoria-filtros { display: grid; grid-template-columns: repeat(2, minmax(11rem, 1fr)) auto; gap: 12px; align-items: end; }
 .modulo-auditoria-rrhh .auditoria-filtros label { display: grid; gap: 5px; min-width: 0; color: var(--portal-muted); font-size: .82rem; font-weight: 600; }
 .modulo-auditoria-rrhh .auditoria-filtros input { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); }
 .modulo-auditoria-rrhh .auditoria-filtros button { min-height: 42px; white-space: nowrap; }

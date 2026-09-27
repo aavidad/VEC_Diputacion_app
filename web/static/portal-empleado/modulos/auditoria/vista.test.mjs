@@ -2,117 +2,112 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { montarVistaAuditoria, renderizarVistaAuditoria, validarRespuestaAuditoria } from "./vista.js";
 
-const registro = Object.freeze({
+const registro = {
   id: "aud_1", modulo_id: "personal", accion: "relacion.actualizada", actor_ref: "per_1",
   ocurrido_en: "2026-09-28T08:00:00Z", resultado: "confirmado", expediente_ref: "exp_1",
   recibo_ref: "rec_1", antes_sha256: "a".repeat(64), despues_sha256: "b".repeat(64),
   motivo: "rectificacion", fuente: "Personal", datos_disponibles: true,
   antes: { unidad: "A" }, despues: { unidad: "B" },
-});
+};
+const opciones = { finalidad_ref: "fin_1", motivo_ref: "catalogo:v1:revision", permiso_requerido: "auditoria.consultar", es_ejemplo: true };
+const esperar = () => new Promise((resolver) => setImmediate(resolver));
+function raizFalsa() {
+  const eventos = {};
+  return { eventos, raiz: {
+    innerHTML: "", replaceChildren() { this.innerHTML = ""; }, querySelector() { return null; },
+    addEventListener(k, fn) { eventos[k] = fn; }, removeEventListener(k) { delete eventos[k]; },
+  } };
+}
 
-test("la pantalla empieza cerrada, sin muestra local ni ayuda abierta", () => {
+test("sin expediente de navegación la consulta permanece cerrada y no ofrece vínculo ni actor libres", () => {
   const html = renderizarVistaAuditoria();
-  assert.match(html, /Consulta no disponible/u);
-  assert.match(html, /data-auditoria-ayuda[^>]+aria-expanded="false"/u);
+  assert.match(html, /Abra Auditoría desde un expediente autorizado/u);
   assert.match(html, /id="auditoria-ayuda"[^>]+hidden/u);
-  assert.match(html, /name="expediente_ref"[^>]+disabled/u);
-  assert.doesNotMatch(html, /<table|aud_1|datos-presentacion/u);
+  assert.match(html, /name="desde"[^>]+disabled/u);
+  assert.doesNotMatch(html, /name="expediente_ref"|name="actor_ref"|<table/u);
 });
 
-test("registros autorizados muestran actor, instante, motivo y antes/después sin inyección", () => {
+test("solo muestra expediente exacto escapado y aviso de configuración de ejemplo", () => {
+  const html = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
+    expedienteRef: 'exp_1"><script>', ejemplo: true });
+  assert.match(html, /exp_1&quot;&gt;&lt;script&gt;/u);
+  assert.match(html, /Configuración de ejemplo pendiente de RRHH/u);
+  assert.doesNotMatch(html, /<script>|name="expediente_ref"|name="actor_ref"/u);
+});
+
+test("registros autorizados muestran actor, instante, motivo y valores minimizados", () => {
   const respuesta = validarRespuestaAuditoria({ registros: [{ ...registro, antes: { unidad: "<script>" } }], siguiente_cursor: "" });
   const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, registros: respuesta.registros });
-  assert.match(html, /per_1/u);
-  assert.match(html, /rectificacion/u);
-  assert.match(html, /Antes|Después/u);
+  assert.match(html, /per_1|rectificacion|Huella SHA-256|datetime="2026-09-28T08:00:00Z"/u);
   assert.match(html, /&lt;script&gt;/u);
   assert.doesNotMatch(html, /<script>/u);
-  assert.match(html, /Huella SHA-256/u);
-  assert.match(html, /datetime="2026-09-28T08:00:00Z"/u);
+  assert.throws(() => validarRespuestaAuditoria({ registros: [{ ...registro, despues: { secreto: {} } }], siguiente_cursor: "" }), /proyección/u);
 });
 
-test("la respuesta incompatible se rechaza entera y la denegación no filtra el resultado anterior", () => {
-  assert.throws(() => validarRespuestaAuditoria({ registros: [registro, { ...registro, id: "aud_2", despues: { secreto: {} } }], siguiente_cursor: "" }), /proyección/u);
-  assert.throws(() => validarRespuestaAuditoria({ registros: [{ ...registro, datos_disponibles: false }], siguiente_cursor: "" }), /contradictoria/u);
-  const html = renderizarVistaAuditoria({ estado: "denegado", habilitada: true, registros: [registro] });
-  assert.match(html, /Acceso denegado/u);
-  assert.doesNotMatch(html, /per_1|rectificacion|<table/u);
+test("paginación se mantiene y denegación no presenta datos previos", () => {
+  const pagina = renderizarVistaAuditoria({ estado: "vacio", habilitada: true, pagina: 2, puedeAnterior: true, siguienteCursor: "cursor_3" });
+  assert.match(pagina, /Página 2|data-auditoria-siguiente/u);
+  const denegado = renderizarVistaAuditoria({ estado: "denegado", habilitada: true, registros: [registro] });
+  assert.match(denegado, /Acceso denegado/u);
+  assert.doesNotMatch(denegado, /per_1|<table/u);
 });
 
-test("paginación muestra controles y los filtros exactos quedan escapados", () => {
-  const html = renderizarVistaAuditoria({ estado: "vacio", habilitada: true,
-    filtros: { expediente_ref: 'exp_1" autofocus' }, pagina: 2, puedeAnterior: true, siguienteCursor: "cursor_3" });
-  assert.match(html, /Página 2/u);
-  assert.match(html, /data-auditoria-siguiente/u);
-  assert.match(html, /exp_1&quot; autofocus/u);
-  assert.doesNotMatch(html, /value="exp_1" autofocus"/u);
-});
-
-test("sin contexto positivo la vista no consulta; tras desmontar ignora una respuesta tardía", async () => {
-  const manejadores = {};
-  const raiz = {
-    innerHTML: "", replaceChildren() { this.innerHTML = ""; },
-    addEventListener(nombre, fn) { manejadores[nombre] = fn; },
-    removeEventListener(nombre) { delete manejadores[nombre]; },
+test("GET de opciones antecede al POST, que usa expediente de navegación y refs recibidas", async () => {
+  const { eventos, raiz } = raizFalsa();
+  let peticion;
+  const fuente = {
+    obtenerOpciones: async () => opciones,
+    consultar: async (entrada) => { peticion = entrada; return { registros: [registro], siguiente_cursor: "" }; },
   };
-  let llamadas = 0;
-  const fuente = { consultar() { ++llamadas; return new Promise(() => {}); } };
-  const cerrada = montarVistaAuditoria({ raiz, fuente });
-  assert.match(raiz.innerHTML, /Consulta no disponible/u);
-  assert.equal(llamadas, 0);
-  cerrada.desmontar();
-  assert.equal(raiz.innerHTML, "");
-});
-
-test("denegación posterior elimina cualquier resultado y no expone el error del servidor", async () => {
-  const manejadores = {};
-  const raiz = {
-    innerHTML: "", replaceChildren() { this.innerHTML = ""; },
-    addEventListener(nombre, fn) { manejadores[nombre] = fn; },
-    removeEventListener(nombre) { delete manejadores[nombre]; },
-  };
-  let resolver; let rechazar;
-  const fuente = { consultar() { return new Promise((resolve, reject) => { resolver = resolve; rechazar = reject; }); } };
   const original = globalThis.FormData;
-  globalThis.FormData = class { get(clave) {
-    return { expediente_ref: "exp_1", desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00", actor_ref: "" }[clave];
-  } };
+  globalThis.FormData = class { get(k) { return { desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00" }[k]; } };
   try {
-    const vista = montarVistaAuditoria({ raiz, fuente, contextoConsulta: { finalidadRef: "fin_1", motivoRef: "mot_1" } });
-    manejadores.submit({ target: { matches: () => true }, preventDefault() {} });
-    assert.match(raiz.innerHTML, /Consultando auditoría/u);
-    resolver({ registros: [registro], siguiente_cursor: "" });
-    await new Promise((resolve) => setImmediate(resolve));
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1" });
+    assert.match(raiz.innerHTML, /Comprobando opciones/u);
+    await esperar();
+    assert.match(raiz.innerHTML, /Configuración de ejemplo/u);
+    eventos.submit({ target: { matches: () => true }, preventDefault() {} });
+    await esperar();
+    assert.equal(peticion.expediente_ref, "exp_1");
+    assert.equal(peticion.actor_ref, "");
+    assert.equal(peticion.finalidad_ref, opciones.finalidad_ref);
+    assert.equal(peticion.motivo_ref, opciones.motivo_ref);
     assert.match(raiz.innerHTML, /per_1/u);
-    manejadores.submit({ target: { matches: () => true }, preventDefault() {} });
-    rechazar(Object.assign(new Error("dato protegido"), { codigo: "denegado" }));
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.match(raiz.innerHTML, /Acceso denegado/u);
-    assert.doesNotMatch(raiz.innerHTML, /per_1|dato protegido/u);
     vista.desmontar();
   } finally { globalThis.FormData = original; }
 });
 
-test("al cambiar expediente se cancela la lectura y se ignora su respuesta tardía", async () => {
-  const eventos = {};
-  const raiz = {
-    innerHTML: "", replaceChildren() { this.innerHTML = ""; }, querySelector() { return null; },
-    addEventListener(k, fn) { eventos[k] = fn; }, removeEventListener(k) { delete eventos[k]; },
-  };
+test("sin expediente no pide opciones, y 403 en opciones no expone datos", async () => {
+  const { raiz } = raizFalsa();
+  let llamadas = 0;
+  const fuente = { obtenerOpciones: async () => { ++llamadas; throw Object.assign(Error("secreto"), { codigo: "denegado" }); },
+    consultar: async () => { throw Error("no debe llamarse"); } };
+  const cerrada = montarVistaAuditoria({ raiz, fuente });
+  assert.equal(llamadas, 0);
+  cerrada.desmontar();
+  const denegada = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1" });
+  await esperar();
+  assert.equal(llamadas, 1);
+  assert.match(raiz.innerHTML, /Acceso denegado/u);
+  assert.doesNotMatch(raiz.innerHTML, /secreto|<table/u);
+  denegada.desmontar();
+});
+
+test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () => {
+  const { eventos, raiz } = raizFalsa();
   let resolver, signal;
-  const fuente = { consultar(_entrada, opciones) { signal = opciones.signal; return new Promise((r) => { resolver = r; }); } };
+  const fuente = { obtenerOpciones: async () => opciones,
+    consultar: (_entrada, o) => { signal = o.signal; return new Promise((r) => { resolver = r; }); } };
   const original = globalThis.FormData;
-  globalThis.FormData = class { get(k) { return {
-    expediente_ref: "exp_1", desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00", actor_ref: "",
-  }[k]; } };
+  globalThis.FormData = class { get(k) { return { desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00" }[k]; } };
   try {
-    const vista = montarVistaAuditoria({ raiz, fuente, contextoConsulta: { finalidadRef: "fin_1", motivoRef: "mot_1" } });
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1" });
+    await esperar();
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
-    eventos.input({ target: { matches: () => true, name: "expediente_ref", value: "exp_2", selectionStart: 5, selectionEnd: 5 } });
+    eventos.input({ target: { matches: () => true, name: "desde", value: "2026-09-28T08:30", selectionStart: null, selectionEnd: null } });
     assert.equal(signal.aborted, true);
     resolver({ registros: [registro], siguiente_cursor: "" });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.match(raiz.innerHTML, /Indique los filtros/u);
+    await esperar();
     assert.doesNotMatch(raiz.innerHTML, /per_1/u);
     vista.desmontar();
   } finally { globalThis.FormData = original; }

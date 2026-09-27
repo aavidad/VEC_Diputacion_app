@@ -1,4 +1,5 @@
 const RUTA = "/api/vec/auditoria/consultas";
+const RUTA_OPCIONES = "/api/vec/auditoria/opciones";
 const MAX_RESPUESTA = 256 * 1024;
 const LIMITE_MS = 15000;
 
@@ -12,13 +13,13 @@ function validarConsulta(entrada) {
   if (!entrada || !referencia(entrada.expediente_ref) || !instante(entrada.desde) || !instante(entrada.hasta)
     || Date.parse(entrada.hasta) <= Date.parse(entrada.desde)
     || Date.parse(entrada.hasta) - Date.parse(entrada.desde) > 31 * 86400000
-    || !referencia(entrada.finalidad, 128) || !referencia(entrada.motivo, 128)
+    || !referencia(entrada.finalidad_ref, 128) || !referencia(entrada.motivo_ref, 128)
     || (entrada.actor_ref && !referencia(entrada.actor_ref))
     || (entrada.cursor && !referencia(entrada.cursor, 512))) throw fallo("consulta_invalida");
   return {
-    expediente_ref: entrada.expediente_ref, desde: entrada.desde, hasta: entrada.hasta,
-    ...(entrada.actor_ref ? { actor_ref: entrada.actor_ref } : {}), finalidad: entrada.finalidad,
-    motivo: entrada.motivo, limite: 50, ...(entrada.cursor ? { cursor: entrada.cursor } : {}),
+    expediente_ref: entrada.expediente_ref, actor_ref: entrada.actor_ref || "",
+    desde: entrada.desde, hasta: entrada.hasta, limite: 50, cursor: entrada.cursor || "",
+    finalidad_ref: entrada.finalidad_ref, motivo_ref: entrada.motivo_ref,
   };
 }
 
@@ -45,17 +46,16 @@ async function leerLimitado(respuesta) {
 
 export function crearFuenteAuditoriaHTTP({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente de Auditoría no disponible");
-  return Object.freeze({
-    async consultar(entrada, { signal } = {}) {
-      const cuerpo = JSON.stringify(validarConsulta(entrada));
+  async function pedir(ruta, metodo, entrada, { signal } = {}) {
       const controlador = new AbortController();
       const abortar = () => controlador.abort();
       signal?.addEventListener("abort", abortar, { once: true });
       const temporizador = setTimeout(abortar, LIMITE_MS);
       try {
-        const respuesta = await fetchImpl(RUTA, {
-          method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" },
-          body: cuerpo, signal: controlador.signal, credentials: "same-origin", mode: "same-origin",
+        const respuesta = await fetchImpl(ruta, {
+          method: metodo, headers: { Accept: "application/json", ...(metodo === "POST" ? { "Content-Type": "application/json" } : {}) },
+          ...(metodo === "POST" ? { body: JSON.stringify(entrada) } : {}),
+          signal: controlador.signal, credentials: "same-origin", mode: "same-origin",
           cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         });
         if (respuesta?.redirected || !respuesta) throw fallo("respuesta_invalida");
@@ -66,6 +66,17 @@ export function crearFuenteAuditoriaHTTP({ fetchImpl = globalThis.fetch } = {}) 
         if (signal?.aborted || controlador.signal.aborted) throw fallo("cancelado");
         throw error;
       } finally { clearTimeout(temporizador); signal?.removeEventListener("abort", abortar); }
+  }
+  return Object.freeze({
+    async obtenerOpciones({ signal } = {}) {
+      const respuesta = await pedir(RUTA_OPCIONES, "GET", undefined, { signal });
+      if (!respuesta || !referencia(respuesta.finalidad_ref, 128) || !referencia(respuesta.motivo_ref, 128)
+        || !referencia(respuesta.permiso_requerido, 128) || typeof respuesta.es_ejemplo !== "boolean") throw fallo("respuesta_invalida");
+      return Object.freeze({ finalidad_ref: respuesta.finalidad_ref, motivo_ref: respuesta.motivo_ref,
+        permiso_requerido: respuesta.permiso_requerido, es_ejemplo: respuesta.es_ejemplo });
+    },
+    async consultar(entrada, { signal } = {}) {
+      return pedir(RUTA, "POST", validarConsulta(entrada), { signal });
     },
   });
 }

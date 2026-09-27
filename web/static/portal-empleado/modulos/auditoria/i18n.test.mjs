@@ -8,7 +8,7 @@ test("las etiquetas visibles proceden del catálogo de Auditoría", async () => 
   for (const [, clave] of fuente.matchAll(/\bt\("([a-z_]+)"\)/gu)) {
     assert.equal(typeof MENSAJES_AUDITORIA_ES[clave], "string", clave);
   }
-  for (const estado of ["no_configurado", "esperando", "cargando", "disponible", "vacio", "denegado", "error", "invalido"]) {
+  for (const estado of ["no_configurado", "cargando_opciones", "esperando", "cargando", "disponible", "vacio", "denegado", "error", "invalido"]) {
     assert.equal(typeof MENSAJES_AUDITORIA_ES[`estado_${estado}`], "string");
   }
   assert.equal(crearTraductorAuditoria()("pagina", { numero: 3 }), "Página 3");

@@ -56,9 +56,9 @@ function fila(t, r) {
 
 /** Marcado puro para verificar estados y escape sin consultar datos. */
 export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbierta = false, habilitada = false,
-  filtros = {}, registros = [], pagina = 1, siguienteCursor = "", puedeAnterior = false } = {}) {
+  expedienteRef = "", ejemplo = false, filtros = {}, registros = [], pagina = 1, siguienteCursor = "", puedeAnterior = false } = {}) {
   const t = crearTraductorAuditoria();
-  const mensaje = t(`estado_${["no_configurado", "esperando", "cargando", "disponible", "vacio", "denegado", "error", "invalido"].includes(estado) ? estado : "error"}`);
+  const mensaje = t(`estado_${["no_configurado", "cargando_opciones", "esperando", "cargando", "disponible", "vacio", "denegado", "error", "invalido"].includes(estado) ? estado : "error"}`);
   const bloqueada = !habilitada;
   return `<section class="modulo-auditoria-rrhh" data-auditoria-vista data-estado="${escapar(estado)}">
     <header class="auditoria-cabecera"><h2>${escapar(t("titulo"))}</h2>
@@ -69,10 +69,11 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       <div class="cuerpo-panel"><p>${escapar(t("ayuda_alcance"))}</p><p>${escapar(t("ayuda_lectura"))}</p></div></section>
     <section class="panel auditoria-filtro-panel" aria-labelledby="auditoria-filtros-titulo">
       <div class="cabecera-panel"><h3 id="auditoria-filtros-titulo">${escapar(t("filtros_titulo"))}</h3></div>
-      <div class="cuerpo-panel"><form data-auditoria-filtros class="auditoria-filtros">
-        ${[["expediente_ref", "expediente", "text", "required maxlength=\"512\" autocomplete=\"off\""],
-          ["desde", "desde", "datetime-local", "required"], ["hasta", "hasta", "datetime-local", "required"],
-          ["actor_ref", "actor_filtro", "text", "maxlength=\"512\" autocomplete=\"off\""]].map(([name, label, type, attrs]) =>
+      <div class="cuerpo-panel">
+        <p class="auditoria-expediente"><strong>${escapar(t("expediente"))}:</strong> ${escapar(expedienteRef || t("sin_expediente"))}</p>
+        ${ejemplo ? `<p class="auditoria-ejemplo">${escapar(t("configuracion_ejemplo"))}</p>` : ""}
+        <form data-auditoria-filtros class="auditoria-filtros">
+        ${[["desde", "desde", "datetime-local", "required"], ["hasta", "hasta", "datetime-local", "required"]].map(([name, label, type, attrs]) =>
           `<label>${escapar(t(label))}<input name="${name}" type="${type}" ${attrs} value="${escapar(filtros[name])}" ${bloqueada ? "disabled" : ""}></label>`).join("")}
         <button type="submit" class="boton-primario" ${bloqueada || estado === "cargando" ? "disabled" : ""}>${escapar(t("consultar"))}</button>
       </form></div></section>
@@ -80,6 +81,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       <div class="cabecera-panel"><h3 id="auditoria-resultados-titulo">${escapar(t("resultados_titulo"))}</h3>
         <span class="estado-chip ${["denegado", "error"].includes(estado) ? "peligro" : estado === "disponible" ? "exito" : "aviso"}">${escapar(mensaje)}</span></div>
       <div class="cuerpo-panel"><p class="auditoria-estado-texto" role="status" aria-live="polite">${escapar(mensaje)}</p>
+      ${estado === "error" && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
       ${estado === "disponible" ? `<div class="auditoria-tabla" role="region" tabindex="0" aria-label="${escapar(t("tabla_aria"))}">
         <table><thead><tr>${["fecha", "actor", "accion", "resultado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
         <tbody>${registros.map((r) => fila(t, r)).join("")}</tbody></table></div>` : ""}
@@ -90,29 +92,46 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       </nav>` : ""}</div></section></section>`;
 }
 
-/** Las referencias de finalidad y motivo proceden del contexto autorizado, nunca del formulario. */
-export function montarVistaAuditoria({ raiz, fuente, contextoConsulta, anunciar = () => {}, registrarDesmontar } = {}) {
-  if (!raiz?.replaceChildren || typeof anunciar !== "function" || (fuente !== undefined && typeof fuente.consultar !== "function")
+/** Expediente procede de navegación ya autorizada; opciones del GET autenticado. */
+export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", anunciar = () => {}, registrarDesmontar } = {}) {
+  if (!raiz?.replaceChildren || typeof anunciar !== "function" ||
+    (fuente !== undefined && (typeof fuente.consultar !== "function" || typeof fuente.obtenerOpciones !== "function"))
     || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de Auditoría no disponible");
   const t = crearTraductorAuditoria();
-  const habilitada = Boolean(fuente && typeof contextoConsulta?.finalidadRef === "string" && contextoConsulta.finalidadRef
-    && typeof contextoConsulta?.motivoRef === "string" && contextoConsulta.motivoRef);
-  let activa = true, ayudaAbierta = false, estado = habilitada ? "esperando" : "no_configurado";
+  const expedienteValido = typeof expedienteRef === "string" && expedienteRef.length > 0 && expedienteRef.length <= 512
+    && !/[\x00-\x20\x7f*?%\\/]/u.test(expedienteRef) && !expedienteRef.includes("..");
+  let habilitada = false, opciones = null;
+  let activa = true, ayudaAbierta = false, estado = fuente && expedienteValido ? "cargando_opciones" : "no_configurado";
   let filtros = {}, registros = [], siguienteCursor = "", cursores = [""], controlador, secuencia = 0;
   const pintar = () => { if (activa) raiz.innerHTML = renderizarVistaAuditoria({
-    estado, ayudaAbierta, habilitada, filtros, registros, pagina: cursores.length,
+    estado, ayudaAbierta, habilitada, expedienteRef: expedienteValido ? expedienteRef : "",
+    ejemplo: opciones?.es_ejemplo === true, filtros, registros, pagina: cursores.length,
     siguienteCursor, puedeAnterior: cursores.length > 1,
   }); };
   const cancelar = () => { ++secuencia; controlador?.abort(); controlador = undefined; };
+  async function cargarOpciones() {
+    cancelar(); controlador = new AbortController(); const signal = controlador.signal, actual = secuencia;
+    try {
+      const recibidas = await fuente.obtenerOpciones({ signal });
+      if (!activa || signal.aborted || secuencia !== actual) return;
+      if (!recibidas || typeof recibidas.finalidad_ref !== "string" || !recibidas.finalidad_ref
+        || typeof recibidas.motivo_ref !== "string" || !recibidas.motivo_ref
+        || typeof recibidas.es_ejemplo !== "boolean") throw new TypeError("opciones incompatibles");
+      opciones = recibidas; habilitada = true; estado = "esperando"; pintar();
+    } catch (error) {
+      if (!activa || signal.aborted || secuencia !== actual) return;
+      opciones = null; habilitada = false; registros = []; estado = error?.codigo === "denegado" ? "denegado" : "error"; pintar();
+    }
+  }
   async function consultar() {
     if (!habilitada) return;
     cancelar(); controlador = new AbortController(); const signal = controlador.signal, actual = secuencia;
     estado = "cargando"; registros = []; siguienteCursor = ""; pintar();
     try {
       const respuesta = validarRespuestaAuditoria(await fuente.consultar({
-        expediente_ref: filtros.expediente_ref, actor_ref: filtros.actor_ref,
+        expediente_ref: expedienteRef, actor_ref: "",
         desde: new Date(filtros.desde).toISOString(), hasta: new Date(filtros.hasta).toISOString(),
-        finalidad: contextoConsulta.finalidadRef, motivo: contextoConsulta.motivoRef, cursor: cursores.at(-1),
+        finalidad_ref: opciones.finalidad_ref, motivo_ref: opciones.motivo_ref, cursor: cursores.at(-1),
       }, { signal }));
       if (!activa || signal.aborted || secuencia !== actual) return;
       registros = respuesta.registros; siguienteCursor = respuesta.siguienteCursor;
@@ -130,16 +149,18 @@ export function montarVistaAuditoria({ raiz, fuente, contextoConsulta, anunciar 
       cursores.push(siguienteCursor); void consultar();
     } else if (evento.target.closest?.("[data-auditoria-anterior]") && cursores.length > 1) {
       cursores.pop(); void consultar();
+    } else if (evento.target.closest?.("[data-auditoria-reintentar]") && fuente && expedienteValido) {
+      estado = "cargando_opciones"; pintar(); void cargarOpciones();
     }
   };
   const enviar = (evento) => {
     if (!evento.target.matches?.("[data-auditoria-filtros]")) return;
     evento.preventDefault(); if (!habilitada) return;
     const datos = new FormData(evento.target);
-    filtros = Object.fromEntries(["expediente_ref", "desde", "hasta", "actor_ref"].map((k) => [k, String(datos.get(k) || "").trim()]));
+    filtros = Object.fromEntries(["desde", "hasta"].map((k) => [k, String(datos.get(k) || "").trim()]));
     cursores = [""];
     const inicio = Date.parse(filtros.desde), fin = Date.parse(filtros.hasta);
-    if (!filtros.expediente_ref || !Number.isFinite(inicio) || !Number.isFinite(fin) || fin <= inicio || fin - inicio > 31 * 86400000) {
+    if (!Number.isFinite(inicio) || !Number.isFinite(fin) || fin <= inicio || fin - inicio > 31 * 86400000) {
       cancelar(); registros = []; estado = "invalido"; pintar(); return;
     }
     void consultar();
@@ -148,7 +169,7 @@ export function montarVistaAuditoria({ raiz, fuente, contextoConsulta, anunciar 
     if (!evento.target.matches?.("[data-auditoria-filtros] input") || !habilitada) return;
     cancelar(); registros = []; siguienteCursor = ""; cursores = [""]; estado = "esperando";
     const campo = evento.target.name;
-    if (["expediente_ref", "desde", "hasta", "actor_ref"].includes(campo)) filtros = { ...filtros, [campo]: evento.target.value };
+    if (["desde", "hasta"].includes(campo)) filtros = { ...filtros, [campo]: evento.target.value };
     const inicio = evento.target.selectionStart, fin = evento.target.selectionEnd;
     pintar();
     const nuevo = raiz.querySelector?.(`[data-auditoria-filtros] [name="${campo}"]`);
@@ -157,6 +178,7 @@ export function montarVistaAuditoria({ raiz, fuente, contextoConsulta, anunciar 
   };
   raiz.addEventListener("click", pulsar); raiz.addEventListener("submit", enviar);
   raiz.addEventListener("input", cambiar); pintar();
+  if (fuente && expedienteValido) void cargarOpciones();
   const desmontar = () => { if (!activa) return; activa = false; cancelar(); raiz.removeEventListener("click", pulsar);
     raiz.removeEventListener("submit", enviar); raiz.removeEventListener("input", cambiar); raiz.replaceChildren(); };
   registrarDesmontar?.(desmontar);
