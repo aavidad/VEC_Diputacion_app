@@ -86,7 +86,7 @@ func materialCeseB10Prueba(t *testing.T, evento CesePendienteB10) InstantaneaCes
 	if err != nil {
 		t.Fatal(err)
 	}
-	return InstantaneaCeseB10{OrigenPosicionIncluida: evento.OrigenPosicion, OrigenRefIncluido: evento.OrigenRef,
+	return InstantaneaCeseB10{OrigenPosicionIncluida: evento.OrigenPosicion, OrigenRefIncluido: evento.OrigenRef, FaseIncluida: evento.Fase,
 		ProyeccionV2: proyeccionJSON, ManifiestoV2: manifiestoJSON, BolsasV1: bolsasJSON}
 }
 

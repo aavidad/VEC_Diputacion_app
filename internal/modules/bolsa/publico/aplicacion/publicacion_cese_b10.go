@@ -37,6 +37,7 @@ type FeedPublicacionCeseB10 interface {
 type InstantaneaCeseB10 struct {
 	OrigenPosicionIncluida int64
 	OrigenRefIncluido      string
+	FaseIncluida           string
 	ProyeccionV2           []byte
 	ManifiestoV2           []byte
 	BolsasV1               []byte
@@ -89,7 +90,8 @@ func PublicarSiguienteCeseB10(
 		return ReciboPublicacionCeseB10{}, false, ErrPublicacionCeseB10NoDisponible
 	}
 	snapshot, err := instante.PrepararInstantaneaCeseB10(ctx, evento)
-	if err != nil || snapshot.OrigenPosicionIncluida != evento.OrigenPosicion || snapshot.OrigenRefIncluido != evento.OrigenRef {
+	if err != nil || snapshot.OrigenPosicionIncluida != evento.OrigenPosicion ||
+		snapshot.OrigenRefIncluido != evento.OrigenRef || snapshot.FaseIncluida != evento.Fase {
 		return ReciboPublicacionCeseB10{}, false, ErrPublicacionCeseB10NoDisponible
 	}
 	material, err := canonico.PrepararMaterialPublicacionV3(snapshot.ProyeccionV2, snapshot.ManifiestoV2, snapshot.BolsasV1)
