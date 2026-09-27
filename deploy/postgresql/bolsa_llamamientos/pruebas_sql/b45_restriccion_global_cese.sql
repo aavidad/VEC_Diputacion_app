@@ -120,6 +120,11 @@ BEGIN
     OR p1.situacion<>'disponible_desde' OR p2.situacion<>'disponible_desde' THEN
   RAISE EXCEPTION 'B45: la disponibilidad no cambió en el orden';
  END IF;
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1('participacion:rev:1',now()))<>1
+    OR (SELECT count(*) FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1('participacion:rev:segunda',now()))<>1
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1('participacion:rev:1',now()+interval '1 year')) THEN
+  RAISE EXCEPTION 'B45: lector de fecha global incompatible';
+ END IF;
  SELECT count(*) INTO n FROM vec_bolsa_llamamientos.restriccion_cese_bolsa;
  IF n<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.auditoria_cese_bolsa)<>3
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref IN
@@ -154,6 +159,7 @@ DO $acl$
 BEGIN
  IF has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.restriccion_cese_bolsa','SELECT,INSERT,UPDATE,DELETE')
     OR has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint)','EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz)','EXECUTE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint)','EXECUTE') THEN
   RAISE EXCEPTION 'B45: ACL abierta o cerrada incorrectamente';
  END IF;

@@ -1,7 +1,8 @@
 \set ON_ERROR_STOP on
 -- Bolsa 000045. El cese acreditado por CT produce una restricción por candidato,
--- nunca una copia del estado en cada participación. Requiere CT129 y Bolsa 000008,
--- 000018, 000024, 000037. La política inicial es solo para datos sintéticos.
+-- nunca una copia del estado en cada participación. Se instala antes de CT129;
+-- requiere Bolsa 000008, 000018, 000024, 000037. La política inicial es
+-- solo para datos sintéticos. El registro queda cerrado hasta instalar CT129.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
@@ -29,9 +30,7 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.vinculo_candidato') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.llamamiento_integracion_desarrollo') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.integracion_desarrollo') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
-    OR to_regprocedure('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)') IS NULL
-    OR NOT has_function_privilege('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)','EXECUTE') THEN
+    OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL THEN
   RAISE EXCEPTION 'Bolsa 000045: dependencias incompatibles' USING ERRCODE='55000';
  END IF;
 END $pre$;

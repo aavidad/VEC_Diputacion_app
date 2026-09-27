@@ -47,6 +47,13 @@ done
 for n in 000032_politica_transiciones_situacion 000033_politica_segregacion 000034_traza_valores_participacion 000035_origen_datos_contacto 000037_efectos_sanciones_participacion; do
  fichero "$m/$n.up.sql" >/dev/null
 done
+# ROLLBACK, UP/DOWN/UP y doble UP. DOWN con historia se prueba después.
+sed 's/^COMMIT;$/ROLLBACK;/' "$repo/$m/000045_restriccion_global_cese.up.sql" | psql_pg >/dev/null
+[[ $(psql_pg -tAc "SELECT to_regclass('vec_bolsa_llamamientos.restriccion_cese_bolsa') IS NULL") == t ]]
+fichero "$m/000045_restriccion_global_cese.up.sql" >/dev/null
+if fichero "$m/000045_restriccion_global_cese.up.sql" >/dev/null 2>&1; then echo 'doble UP aceptado' >&2; exit 1; fi
+fichero "$m/000045_restriccion_global_cese.down.sql" >/dev/null
+fichero "$m/000045_restriccion_global_cese.up.sql" >/dev/null
 # La firma del doble es exactamente la de CT129. Solo responde a una fila
 # publicada sintética con triple origen/huella/posición coincidente.
 psql_pg >/dev/null <<'SQL'
@@ -66,13 +73,6 @@ $f$;
 GRANT USAGE ON SCHEMA vec_contratacion_temporal TO vec_bolsa_llamamientos_propietario;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_propietario;
 SQL
-# ROLLBACK, UP/DOWN/UP y doble UP. DOWN con historia se prueba después.
-sed 's/^COMMIT;$/ROLLBACK;/' "$repo/$m/000045_restriccion_global_cese.up.sql" | psql_pg >/dev/null
-[[ $(psql_pg -tAc "SELECT to_regclass('vec_bolsa_llamamientos.restriccion_cese_bolsa') IS NULL") == t ]]
-fichero "$m/000045_restriccion_global_cese.up.sql" >/dev/null
-if fichero "$m/000045_restriccion_global_cese.up.sql" >/dev/null 2>&1; then echo 'doble UP aceptado' >&2; exit 1; fi
-fichero "$m/000045_restriccion_global_cese.down.sql" >/dev/null
-fichero "$m/000045_restriccion_global_cese.up.sql" >/dev/null
 psql_pg >/dev/null <<'SQL'
 CREATE ROLE vec_b45_relevo_test LOGIN INHERIT;
 CREATE ROLE vec_b45_ejecutor_test LOGIN INHERIT;

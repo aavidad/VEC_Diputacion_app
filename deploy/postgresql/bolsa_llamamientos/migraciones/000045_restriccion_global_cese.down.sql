@@ -10,7 +10,8 @@ DO $pre$
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
     OR to_regclass('vec_bolsa_llamamientos.restriccion_cese_bolsa') IS NULL
-    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_relevo_cese') THEN
+    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_relevo_cese')
+    OR to_regprocedure('vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(text,text,bigint)') IS NOT NULL THEN
   RAISE EXCEPTION 'Bolsa 000045 DOWN: sesión o instalación incompatible' USING ERRCODE='55000';
  END IF;
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa)
