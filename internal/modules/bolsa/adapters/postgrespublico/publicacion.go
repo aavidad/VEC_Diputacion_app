@@ -17,6 +17,25 @@ const (
 
 var ErrPublicacionPostgreSQLPublicaRechazada = errors.New("bolsa publica: publicacion PostgreSQL rechazada")
 
+// DestinoProyeccionV3 conserva la credencial técnica de publicación separada
+// de la de lectura pública. El caso de uso B49 puede pasar destino.Publicar
+// como función; cada invocación usa la transacción V3 y comprueba su identidad.
+type DestinoProyeccionV3 struct{ dsn string }
+
+func NuevoDestinoProyeccionV3(dsn string) (*DestinoProyeccionV3, error) {
+	if _, err := prepararConfiguracionPublicador(dsn); err != nil {
+		return nil, ErrConfiguracionPostgreSQLPublicaInvalida
+	}
+	return &DestinoProyeccionV3{dsn: strings.TrimSpace(dsn)}, nil
+}
+
+func (d *DestinoProyeccionV3) Publicar(ctx context.Context, proyeccionV2, bolsasV1 []byte, ancla string) error {
+	if d == nil {
+		return ErrPublicacionPostgreSQLPublicaRechazada
+	}
+	return PublicarProyeccionV3(ctx, d.dsn, proyeccionV2, bolsasV1, ancla)
+}
+
 // PublicarProyeccion abre una conexion de un solo uso e invoca la frontera de
 // escritura como una sentencia autocommit. No expone una transaccion al
 // llamante: al retornar no puede quedar un advisory xact lock en esa sesion.
@@ -86,9 +105,41 @@ func PublicarProyeccionV3(
 		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
 			$1::jsonb, $2::jsonb, $3
 		)`, string(proyeccionV2), string(bolsasV1), anclaManifiestoSHA256); err != nil {
-		return ErrPublicacionPostgreSQLPublicaRechazada
+		// Un COMMIT público puede haber tenido éxito aunque la respuesta se
+		// pierda. La migración pública 000003 comprueba ancla y contenido
+		// exactos con otra conexión; sólo ese replay permite confirmar B49.
+		if ctx.Err() != nil || !replayProyeccionV3Confirmado(ctx, configuracion,
+			proyeccionV2, bolsasV1, anclaManifiestoSHA256) {
+			return ErrPublicacionPostgreSQLPublicaRechazada
+		}
 	}
 	return nil
+}
+
+func replayProyeccionV3Confirmado(
+	ctx context.Context, configuracion *pgx.ConnConfig,
+	proyeccionV2, bolsasV1 []byte, ancla string,
+) bool {
+	if ctx == nil || ctx.Err() != nil || configuracion == nil {
+		return false
+	}
+	conexion, err := pgx.ConnectConfig(ctx, configuracion)
+	if err != nil {
+		return false
+	}
+	defer conexion.Close(context.Background())
+	if err := comprobarIdentidadPublicadorFuncion(ctx, conexion,
+		"vec_bolsa_publica_publicacion.confirmar_replay_proyeccion_v3(jsonb,jsonb,text)"); err != nil {
+		return false
+	}
+	var confirmado bool
+	if err := conexion.QueryRow(ctx, `
+		SELECT vec_bolsa_publica_publicacion.confirmar_replay_proyeccion_v3($1::jsonb,$2::jsonb,$3::text)`,
+		string(proyeccionV2), string(bolsasV1), ancla,
+	).Scan(&confirmado); err != nil {
+		return false
+	}
+	return confirmado
 }
 
 func prepararConfiguracionPublicador(dsn string) (*pgx.ConnConfig, error) {
