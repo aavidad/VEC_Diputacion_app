@@ -99,6 +99,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialConsultaContacto *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDatosContacto    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPoliticaOfertas  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialFirmaDocumento   *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -542,6 +543,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialEmision = proveedorEmision
+			if seleccion.politicaOfertas {
+				dependencias.proveedorMaterialPoliticaOfertas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaPublicarPoliticaOfertas)
+				if err != nil {
+					return vacias, err
+				}
+			}
 		}
 	}
 	etapa = "transaccion_altas"

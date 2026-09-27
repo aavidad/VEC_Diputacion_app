@@ -45,6 +45,7 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
+	reincorporacion ...bool,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
 	return append([]descriptorFronteraComunDesarrollo{
@@ -62,7 +63,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		// que la decisión: sin su frontera, el PDP común las deniega (403).
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
-	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT, reincorporacion...), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
 }
 
 func fronteraContratacionTemporalDesarrollo(
@@ -84,12 +85,19 @@ func fronteraContratacionTemporalDesarrollo(
 // CT con una única frontera y con la política completa recibida por composición.
 func descriptoresAutorizacionContratacionTemporalDesarrollo(
 	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
+	reincorporacion ...bool,
 ) []descriptorAutorizacionComunDesarrollo {
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(
-		"prf_catalogo_ct", []string{"prf_catalogo_ct"},
+		"prf_catalogo_ct", []string{"prf_catalogo_ct"}, reincorporacion...,
 	)
 	descriptores := make([]descriptorAutorizacionComunDesarrollo, 0, len(fronteras))
+	porAccion := map[string]int{}
 	for _, frontera := range fronteras {
+		if i, existe := porAccion[frontera.ClaveCapacidad]; existe {
+			descriptores[i].Fronteras = append(descriptores[i].Fronteras, frontera.Clave)
+			continue
+		}
+		porAccion[frontera.ClaveCapacidad] = len(descriptores)
 		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
 			Accion:         frontera.ClaveCapacidad,
 			ClavePolitica:  frontera.ClavePolitica,

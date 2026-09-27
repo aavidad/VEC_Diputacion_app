@@ -451,7 +451,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 	case httpinterno.RutaFirmaDocumento:
 		return s.motivoFirmaDocumento, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoFirmaDocumento)
 	case httpinterno.RutaCesesNombramiento, httpinterno.RutaCierresExpediente, httpinterno.RutaModificacionesNombramiento, httpinterno.RutaSeguimientoCese,
-		httpinterno.RutaConfirmacionesGINPIX, httpinterno.RutaNoIncorporaciones:
+		httpinterno.RutaConfirmacionesGINPIX, httpinterno.RutaNoIncorporaciones,
+		httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular:
+		if ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular {
+			return motivoSeguimientoCeseDesarrollo(ruta), s.reincorporacionTitular != nil
+		}
 		return motivoSeguimientoCeseDesarrollo(ruta), s.seguimientoCese != nil
 	case httpinterno.RutaCancelacionesExpediente, httpinterno.RutaCancelacionExpediente:
 		return motivoCancelacionCTDesarrollo(ruta), s.cancelacion != nil
@@ -523,7 +527,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaFirmaDocumento), s.instantaneaFirmaDocumento.Validar() == nil
 	}
 	if rutaSeguimientoCeseDesarrollo(ruta) {
-		return s.instantaneaSeguimientoCese()
+		return s.instantaneaSeguimientoCese(ruta)
 	}
 	if rutaCancelacionCTDesarrollo(ruta) {
 		return s.instantaneaCancelacionCT()

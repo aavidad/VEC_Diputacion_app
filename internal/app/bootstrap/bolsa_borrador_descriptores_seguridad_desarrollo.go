@@ -28,6 +28,10 @@ const (
 	claveCapacidadEmisionLlamamientoBolsa           = "capacidad-bolsa-b7-llamamiento-emitir"
 	claveFronteraPlantillaCorreoLlamamientoBolsa    = "bolsa-b7-correo-plantilla"
 	claveFronteraVistaPreviaCorreoLlamamientoBolsa  = "bolsa-b7-correo-vista-previa"
+	claveFronteraConsultarPoliticaOfertasBolsa      = "bolsa-b47-politica-ofertas-consultar"
+	claveFronteraPublicarPoliticaOfertasBolsa       = "bolsa-b47-politica-ofertas-publicar"
+	claveCapacidadPoliticaOfertasBolsa              = "capacidad-bolsa-b47-politica-ofertas-publicar"
+	envBolsaPoliticaOfertasEnabled                  = "VEC_BOLSA_POLITICA_OFERTAS_ENABLED"
 
 	dominioMaterialCrearBorradorLlamamientoBolsa      = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
 	prefijoMaterialCrearBorradorLlamamientoBolsa      = "clave:capacidad:bolsa-borrador-crear:"
@@ -43,18 +47,27 @@ const (
 	prefijoMaterialDatosContactoParticipacionBolsa    = "clave:capacidad:bolsa-datos-contacto-registrar:"
 	dominioMaterialEmisionLlamamientoBolsa            = "vec.bolsa.llamamiento.emitir.desarrollo.capacidad-v3"
 	prefijoMaterialEmisionLlamamientoBolsa            = "clave:capacidad:bolsa-llamamiento-emitir:"
+	dominioMaterialPoliticaOfertasBolsa               = "vec.bolsa.politica-ofertas.publicar.desarrollo.capacidad-v3"
+	prefijoMaterialPoliticaOfertasBolsa               = "clave:capacidad:bolsa-politica-ofertas-publicar:"
 )
+
+func descriptorMaterialPoliticaOfertasBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaPublicarPoliticaOfertas,
+		Dominio: dominioMaterialPoliticaOfertasBolsa, Prefijo: prefijoMaterialPoliticaOfertasBolsa,
+		ProveedorNominal: "proveedor-material-politica-ofertas-bolsa"}
+}
 
 // descriptoresFronterasBorradorLlamamientoBolsaDesarrollo declara las dos
 // fronteras B-BACK. El perfil procede del contexto Bolsa ya resuelto y nunca
 // se sustituye por el perfil de Contratación temporal.
 func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 	perfilActivoRef string,
+	politicaOfertas ...bool,
 ) ([]descriptorFronteraComunDesarrollo, error) {
 	if !perfilActivoSeguridadComunValido(perfilActivoRef) {
 		return nil, ErrSeguridadComunDesarrolloDenegada
 	}
-	return append([]descriptorFronteraComunDesarrollo{
+	descriptores := append([]descriptorFronteraComunDesarrollo{
 		{
 			Clave:      claveFronteraCrearBorradorLlamamientoBolsa,
 			Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -84,18 +97,25 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			ClaveCapacidad:     claveCapacidadConsultarBorradorLlamamientoBolsa,
 			DetalleColeccion:   true,
 		},
-	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...), nil
+	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...)
+	if len(politicaOfertas) != 0 && politicaOfertas[0] {
+		descriptores = append(descriptores,
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraConsultarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraPublicarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa})
+	}
+	return descriptores, nil
 }
 
 // descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo enlaza sólo las
 // acciones B-BACK exactas con la política completa que compone Bolsa.
 func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
+	politicaOfertas ...bool,
 ) ([]descriptorAutorizacionComunDesarrollo, error) {
 	if !politica.valida() {
 		return nil, errAutorizacionComunDesarrolloNoDisponible
 	}
-	return []descriptorAutorizacionComunDesarrollo{
+	descriptores := []descriptorAutorizacionComunDesarrollo{
 		{
 			Accion:         puertosbolsa.AccionCrearBorradorLlamamientoInterno,
 			ClavePolitica:  clavePoliticaBorradorLlamamientoBolsaDesarrollo,
@@ -115,7 +135,13 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		{Accion: puertosbolsa.AccionConsultarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, Fronteras: []string{claveFronteraConsultarContactosBolsa, claveFronteraConsultarContactosB5Bolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarDatosContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa, claveFronteraConsultarDatosContactoBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa, claveFronteraRecuperarEmisionLlamamientoBolsa, claveFronteraPublicarOfertaBolsa, claveFronteraConsultarOfertaBolsa, claveFronteraResolverOfertaBolsa, claveFronteraPlantillaCorreoLlamamientoBolsa, claveFronteraVistaPreviaCorreoLlamamientoBolsa}, Politica: politica},
-	}, nil
+	}
+	if len(politicaOfertas) != 0 && politicaOfertas[0] {
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionPublicarPoliticaOfertas,
+			ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa,
+			Fronteras: []string{claveFronteraConsultarPoliticaOfertasBolsa, claveFronteraPublicarPoliticaOfertasBolsa}, Politica: politica})
+	}
+	return descriptores, nil
 }
 
 // descriptoresMaterialBorradorLlamamientoBolsaDesarrollo conserva las dos

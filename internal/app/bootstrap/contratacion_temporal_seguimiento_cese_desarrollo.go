@@ -5,8 +5,10 @@ import (
 	"errors"
 	"log"
 	"log/slog"
+	"net/http"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
+	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -31,6 +34,7 @@ import (
 // las decisiones inventadas viven en esos catálogos, no en el código.
 
 const accionConsultarSeguimientoCeseDesarrollo = "contratacion_temporal.seguimiento.consultar"
+const envCTReincorporacionTitularEnabled = "VEC_CT_REINCORPORACION_TITULAR_ENABLED"
 
 var errSeguimientoCeseDesarrolloNoDisponible = errors.New("contratacion temporal: cese, cierre y modificacion de desarrollo no disponibles")
 
@@ -54,6 +58,15 @@ func operacionesSeguimientoCeseDesarrollo() []operacionSeguimientoCeseDesarrollo
 }
 
 func operacionSeguimientoCesePorRuta(ruta string) (operacionSeguimientoCeseDesarrollo, bool) {
+	if ruta == httpinterno.RutaReincorporacionesTitular {
+		return operacionSeguimientoCeseDesarrollo{ruta, "ct-reincorporacion-titular-registrar", string(domain.AccionRegistrarReincorporacionTitular),
+			ports.TipoRecursoReincorporacionTitular, ports.FinalidadRegistrarReincorporacionTitular,
+			ports.AudienciaConsumoReincorporacionTitularV1, true}, true
+	}
+	if ruta == httpinterno.RutaCapacidadReincorporacionTitular {
+		return operacionSeguimientoCeseDesarrollo{ruta, "ct-reincorporacion-titular-capacidad", accionConsultarSeguimientoCeseDesarrollo,
+			"seguimiento_contratacion_temporal", "gestionar_contratacion_temporal", "", false}, true
+	}
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
 		if o.ruta == ruta {
 			return o, true
@@ -69,12 +82,28 @@ func rutaSeguimientoCeseDesarrollo(ruta string) bool {
 
 // descriptoresFronterasSeguimientoCeseDesarrollo declara las rutas
 // con el perfil CT base y su acción nominal como capacidad.
-func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string) []descriptorFronteraComunDesarrollo {
+func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string, reincorporacion ...bool) []descriptorFronteraComunDesarrollo {
 	var d []descriptorFronteraComunDesarrollo
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
 		d = append(d, fronteraContratacionTemporalDesarrollo(o.frontera, o.accion, o.ruta, []string{perfilCT}))
 	}
+	if len(reincorporacion) != 0 && reincorporacion[0] {
+		for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
+			o, _ := operacionSeguimientoCesePorRuta(ruta)
+			f := fronteraContratacionTemporalDesarrollo(o.frontera, o.accion, o.ruta, []string{perfilCT})
+			if ruta == httpinterno.RutaCapacidadReincorporacionTitular {
+				f.Metodo = http.MethodPost
+			}
+			d = append(d, f)
+		}
+	}
 	return d
+}
+
+func descriptorMaterialReincorporacionTitularDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: ports.AudienciaConsumoReincorporacionTitularV1,
+		Dominio: "vec.ct.reincorporacion-titular.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-reincorporacion-titular:",
+		ProveedorNominal: proveedorMaterialContratacionTemporal}
 }
 
 func descriptoresMaterialSeguimientoCeseDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
@@ -113,6 +142,14 @@ func operacionIncorporacionAcreditadaDesarrollo(ruta string) bool {
 // añadirle entradas hace que su replay idempotente se rechace al arrancar. Las
 // rutas de CT124 van en su propio catálogo.
 func motivoSeguimientoCeseDesarrollo(ruta string) vecdomain.ReferenciaEntradaCatalogo {
+	if ruta == httpinterno.RutaCapacidadReincorporacionTitular {
+		return motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular)
+	}
+	if ruta == httpinterno.RutaReincorporacionesTitular {
+		return vecdomain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_reincorporacion_titular_ct", CatalogoVersion: 1,
+			CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("reincorporacion-titular-ct-desarrollo-v1"),
+			EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "reincorporacion-titular-ct")}
+	}
 	if operacionIncorporacionAcreditadaDesarrollo(ruta) {
 		return vecdomain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_incorporacion_acreditada_ct", CatalogoVersion: 1,
 			CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("incorporacion-acreditada-ct-desarrollo-v1"),
@@ -151,7 +188,14 @@ type soporteSeguimientoCeseDesarrollo struct {
 	instantanea vecdomain.InstantaneaAutorizacion
 }
 
-func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaSeguimientoCese() (vecdomain.InstantaneaAutorizacion, bool) {
+func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaSeguimientoCese(ruta ...string) (vecdomain.InstantaneaAutorizacion, bool) {
+	if len(ruta) != 0 && (ruta[0] == httpinterno.RutaReincorporacionesTitular || ruta[0] == httpinterno.RutaCapacidadReincorporacionTitular) {
+		if s == nil || s.reincorporacionTitular == nil {
+			return vecdomain.InstantaneaAutorizacion{}, false
+		}
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.reincorporacionTitular.instantanea),
+			s.reincorporacionTitular.instantanea.Validar() == nil
+	}
 	if s == nil || s.seguimientoCese == nil {
 		return vecdomain.InstantaneaAutorizacion{}, false
 	}
@@ -163,6 +207,29 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaSeguimientoCese()
 func (s *soporteAltaContratacionTemporalDesarrollo) ambitosSeguimientoCese(ruta string, d vecdomain.DatosSolicitudAutorizacionLigadaV3) ([]vecdomain.AmbitoPerfil, bool) {
 	o, ok := operacionSeguimientoCesePorRuta(ruta)
 	r := d.Recurso
+	if s != nil && (ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular) &&
+		d.ReferenciaMotivo == motivoSeguimientoCeseDesarrollo(ruta) && r.ModuloID == ports.ModuloContratacion &&
+		r.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		r.Ambitos["expediente_ref"] == r.Referencia && domain.ReferenciaOpacaValida(r.Referencia) {
+		if ruta == httpinterno.RutaReincorporacionesTitular && d.Accion == accionConsultarSeguimientoCeseDesarrollo &&
+			d.Finalidad == "gestionar_contratacion_temporal" && r.Tipo == "seguimiento_contratacion_temporal" &&
+			len(r.Ambitos) == 2 && len(r.Atributos) == 1 && r.Atributos["lectura"] == "reincorporacion_titular" {
+			return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "expediente_ref", Valores: []string{r.Referencia}}}, true
+		}
+		if ruta == httpinterno.RutaCapacidadReincorporacionTitular &&
+			d.Accion == string(domain.AccionRegistrarReincorporacionTitular) &&
+			d.Finalidad == ports.FinalidadRegistrarReincorporacionTitular && r.Tipo == ports.TipoRecursoReincorporacionTitular &&
+			len(r.Ambitos) == 4 && r.Ambitos["fase_previa"] == string(domain.FaseNombramiento) &&
+			r.Ambitos["estado_previo"] == string(domain.EstadoEnCurso) && len(r.Atributos) == 1 {
+			if version, err := strconv.ParseUint(r.Atributos["version_expediente"], 10, 64); err == nil && version > 0 {
+				return []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+					{Clave: "expediente_ref", Valores: []string{r.Referencia}},
+					{Clave: "fase_previa", Valores: []string{r.Ambitos["fase_previa"]}},
+					{Clave: "estado_previo", Valores: []string{r.Ambitos["estado_previo"]}}}, true
+			}
+		}
+	}
 	if s == nil || !ok || d.Accion != o.accion || d.Finalidad != o.finalidad || d.ReferenciaMotivo != motivoSeguimientoCeseDesarrollo(ruta) ||
 		r.ModuloID != ports.ModuloContratacion || r.Tipo != o.tipo || r.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
 		r.Ambitos["expediente_ref"] != r.Referencia || !domain.ReferenciaOpacaValida(r.Referencia) {
@@ -185,7 +252,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ambitosSeguimientoCese(ruta 
 	return ambitos, true
 }
 
-func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, acreditada bool) error {
+func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, acreditada bool, reincorporacion ...bool) error {
 	v, err := alta.soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return err
@@ -216,6 +283,27 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 	alta.soporte.mu.Lock()
 	alta.soporte.seguimientoCese = &soporteSeguimientoCeseDesarrollo{instantanea: instantanea}
 	alta.soporte.mu.Unlock()
+	if len(reincorporacion) != 0 && reincorporacion[0] {
+		acciones := []vecdomain.ConcesionRol{
+			{Accion: accionConsultarSeguimientoCeseDesarrollo, ModuloID: ports.ModuloContratacion,
+				TipoRecurso: "seguimiento_contratacion_temporal", Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+			{Accion: string(domain.AccionRegistrarReincorporacionTitular), ModuloID: ports.ModuloContratacion,
+				TipoRecurso: ports.TipoRecursoReincorporacionTitular, Finalidades: []string{ports.FinalidadRegistrarReincorporacionTitular}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+		}
+		otra, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
+			"reincorporacion_titular_ct_desarrollo", "Reincorporación titular de desarrollo", "reincorporacion-titular-ct-desarrollo", acciones,
+			[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+		if err != nil {
+			return err
+		}
+		if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+			[]vecdomain.ReferenciaEntradaCatalogo{motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular)}, desde); err != nil {
+			return err
+		}
+		alta.soporte.mu.Lock()
+		alta.soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{instantanea: otra}
+		alta.soporte.mu.Unlock()
+	}
 	return nil
 }
 
@@ -223,8 +311,9 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 // su ruta, exige la decisión V3 con la instantánea de desarrollo y entrega el
 // material atestado para la audiencia de la operación.
 type autoridadSeguimientoCeseDesarrollo struct {
-	alta        *dependenciasAltaContratacionTemporalDesarrollo
-	proveedores map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	alta                   *dependenciasAltaContratacionTemporalDesarrollo
+	proveedores            map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	lecturaReincorporacion *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
 }
 
 func (a *autoridadSeguimientoCeseDesarrollo) ResolverContextoCanalSeguimiento(ctx context.Context) (application.ContextoCanalSeguimiento, error) {
@@ -307,11 +396,107 @@ func (a *autoridadSeguimientoCeseDesarrollo) AutorizarLecturaSeguimiento(ctx con
 	if organizacionRef != organizacionAltaContratacionTemporalDesarrollo || !domain.ReferenciaOpacaValida(expedienteRef) {
 		return ports.ErrAutorizacionDenegada
 	}
+	if a == nil || a.alta == nil || a.alta.soporte == nil {
+		return ports.ErrAutorizacionDenegada
+	}
+	capacidad, valida := a.alta.soporte.capacidadValida(ctx)
+	if !valida {
+		return ports.ErrAutorizacionDenegada
+	}
+	if capacidad.ruta == httpinterno.RutaReincorporacionesTitular {
+		return a.autorizarLecturaReincorporacion(ctx, organizacionRef, expedienteRef)
+	}
 	_, _, _, _, err := a.exigir(ctx, accionConsultarSeguimientoCeseDesarrollo, "gestionar_contratacion_temporal", vecdomain.RecursoAutorizable{
 		Referencia: expedienteRef, ModuloID: ports.ModuloContratacion, Tipo: "seguimiento_contratacion_temporal",
 		Ambitos:   map[string]string{"organizacion_ref": organizacionRef, "expediente_ref": expedienteRef},
 		Atributos: map[string]string{"lectura": "cese_cierre_opciones"}})
 	return err
+}
+
+func (a *autoridadSeguimientoCeseDesarrollo) autorizarLecturaReincorporacion(ctx context.Context, organizacionRef, expedienteRef string) error {
+	if a.lecturaReincorporacion == nil {
+		return ports.ErrAutorizacionDenegada
+	}
+	operativo, err := a.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return ports.ErrAutorizacionDenegada
+	}
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		return err
+	}
+	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: operativo.Vinculo,
+		ReferenciaMotivo:          motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular),
+		Accion:                    accionConsultarSeguimientoCeseDesarrollo,
+		Recurso: vecdomain.RecursoAutorizable{Referencia: expedienteRef, ModuloID: ports.ModuloContratacion,
+			Tipo: "seguimiento_contratacion_temporal", Ambitos: map[string]string{
+				"organizacion_ref": organizacionRef, "expediente_ref": expedienteRef},
+			Atributos: map[string]string{"lectura": "reincorporacion_titular"}},
+		Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion}
+	solicitud, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(datos)
+	if err != nil {
+		return ports.ErrAutorizacionDenegada
+	}
+	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+	_, _, err = a.lecturaReincorporacion.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
+	return err
+}
+
+// comprobadorCapacidadReincorporacionTitularDesarrollo evalúa una concesión
+// preliminar sin registrar material consumible. El POST repite la autorización
+// con el documento, la relación y la fecha exactos antes del efecto.
+type comprobadorCapacidadReincorporacionTitularDesarrollo struct {
+	autoridad  *autoridadSeguimientoCeseDesarrollo
+	lector     ports.LectorEstadoSeguimiento
+	preparador *aplicacionvec.ServicioPreparacionSolicitudLigadaV3
+}
+
+func (c *comprobadorCapacidadReincorporacionTitularDesarrollo) ComprobarCapacidadReincorporacionTitular(
+	ctx context.Context, canal application.ContextoCanalSeguimiento, expedienteRef string, version uint64,
+) (bool, error) {
+	if c == nil || c.autoridad == nil || c.autoridad.alta == nil || c.autoridad.alta.soporte == nil ||
+		c.lector == nil || c.preparador == nil || ctx == nil || ctx.Err() != nil || !canal.Valido() ||
+		!domain.ReferenciaOpacaValida(expedienteRef) || version == 0 {
+		return false, ports.ErrAutorizacionDenegada
+	}
+	if err := c.autoridad.AutorizarLecturaSeguimiento(ctx, canal.OrganizacionRef, expedienteRef); err != nil {
+		return false, err
+	}
+	estado, err := c.lector.ConsultarEstadoSeguimiento(ctx, canal.OrganizacionRef, expedienteRef)
+	if err != nil {
+		return false, err
+	}
+	if estado.ExpedienteRef != expedienteRef || estado.Cese == nil || estado.Cese.CausaClave != "fin_sustitucion" {
+		return false, nil
+	}
+	operativo, err := c.autoridad.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return false, ports.ErrAutorizacionDenegada
+	}
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		return false, err
+	}
+	recurso := vecdomain.RecursoAutorizable{Referencia: expedienteRef, ModuloID: ports.ModuloContratacion,
+		Tipo: ports.TipoRecursoReincorporacionTitular,
+		Ambitos: map[string]string{"organizacion_ref": canal.OrganizacionRef, "expediente_ref": expedienteRef,
+			"fase_previa": string(domain.FaseNombramiento), "estado_previo": string(domain.EstadoEnCurso)},
+		Atributos: map[string]string{"version_expediente": strconv.FormatUint(version, 10)}}
+	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular),
+		Accion: string(domain.AccionRegistrarReincorporacionTitular), Recurso: recurso,
+		Finalidad: ports.FinalidadRegistrarReincorporacionTitular, Correlacion: correlacion}
+	solicitud, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(datos)
+	if err != nil {
+		return false, err
+	}
+	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+	_, _, err = c.preparador.PrepararSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
+	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // fuenteReglasSeguimientoDesarrollo lee los catálogos de ejemplo: causas de
@@ -440,6 +625,10 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		return nil, nil
 	}
 	cfg, derivador, reloj := dependencias.cfg, dependencias.derivador, dependencias.reloj
+	reincorporacion, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
+	if err != nil {
+		return nil, err
+	}
 	if alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil || alta.postgresql.gobierno == nil ||
 		alta.postgresql.proveedorMaterial == nil || derivador == nil || !derivador.valido() {
 		log.Print("contratacion temporal: cese y modificacion no disponibles; etapa=dependencias")
@@ -468,8 +657,23 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()
+	var preparador *aplicacionvec.ServicioPreparacionSolicitudLigadaV3
+	if reincorporacion {
+		preparador, err = aplicacionvec.NuevoServicioPreparacionSolicitudLigadaV3(alta.soporte, alta.soporte, alta.soporte,
+			reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
+		if err != nil {
+			return fallar("preflight_reincorporacion", err)
+		}
+		var instalada bool
+		if err := alta.postgresql.ejecucion.QueryRow(ctx, `SELECT
+			to_regclass('vec_contratacion_temporal.reincorporacion_titular_v1') IS NOT NULL AND
+			to_regprocedure('vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)') IS NOT NULL AND
+			to_regprocedure('vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+			return fallar("migracion_reincorporacion", errSeguimientoCeseDesarrolloNoDisponible)
+		}
+	}
 	acreditada := incorporacionAcreditadaSolicitada(cfg)
-	if err := configurarSoporteSeguimientoCeseDesarrollo(ctx, alta, reloj, acreditada); err != nil {
+	if err := configurarSoporteSeguimientoCeseDesarrollo(ctx, alta, reloj, acreditada, reincorporacion); err != nil {
 		return fallar("instantanea", err)
 	}
 	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())
@@ -479,12 +683,23 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 	defer material.borrarCopiasEfimeras()
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
 	autoridad := &autoridadSeguimientoCeseDesarrollo{alta: alta, proveedores: map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{}}
+	if reincorporacion {
+		autoridad.lecturaReincorporacion, err = aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
+			alta.soporte, alta.soporte, alta.soporte, alta.soporte, reloj,
+			seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
+		if err != nil {
+			return fallar("lectura_reincorporacion", err)
+		}
+	}
 	descriptores := descriptoresMaterialSeguimientoCeseDesarrollo()
 	if acreditada {
 		if err := comprobarMigracionesIncorporacionAcreditadaDesarrollo(ctx, alta.postgresql.ejecucion); err != nil {
 			return fallar("migraciones_incorporacion_acreditada", err)
 		}
 		descriptores = append(descriptores, descriptorMaterialConfirmacionGINPIXDesarrollo(), descriptorMaterialNoIncorporacionDesarrollo())
+	}
+	if reincorporacion {
+		descriptores = append(descriptores, descriptorMaterialReincorporacionTitularDesarrollo())
 	}
 	for _, d := range descriptores {
 		p, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, alta.postgresql.catalogoMaterial, d.Audiencia)
@@ -537,6 +752,41 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 			continue
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: o.ruta, Manejador: manejadores[o.ruta]})
+	}
+	if reincorporacion {
+		ambito, retenidasAmbito, err := configuracionesHMACAltaContratacionTemporalDesarrollo(derivador, ports.DominioAmbitoReincorporacionTitular, true)
+		if err != nil {
+			return fallar("sellos_reincorporacion", err)
+		}
+		huella, retenidasHuella, err := configuracionesHMACAltaContratacionTemporalDesarrollo(derivador, ports.DominioHuellaReincorporacionTitular, false)
+		if err != nil {
+			return fallar("sellos_reincorporacion", err)
+		}
+		sellosRetorno, err := seguridadct.NuevaAutoridadSellosReincorporacionTitularHMAC(ambito, huella, retenidasAmbito, retenidasHuella)
+		if err != nil {
+			return fallar("sellos_reincorporacion", err)
+		}
+		repositorioRetorno, err := postgresct.NuevoRepositorioReincorporacionTitularPostgreSQL(alta.postgresql.ejecucion)
+		if err != nil {
+			return fallar("repositorio_reincorporacion", err)
+		}
+		servicioRetorno, err := application.NuevoServicioReincorporacionTitular(application.DependenciasReincorporacionTitular{
+			Contextos: alta.soporte, Sellos: sellosRetorno, Repositorio: repositorioRetorno, Reglas: fuente,
+			Autorizador: autoridad, Lectura: autoridad, Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(), Reloj: reloj})
+		if err != nil {
+			return fallar("servicio_reincorporacion", err)
+		}
+		post, err := httpinterno.NuevoManejadorReincorporacionTitular(autoridad, servicioRetorno)
+		if err != nil {
+			return fallar("http_reincorporacion", err)
+		}
+		get, err := httpinterno.NuevoManejadorCapacidadReincorporacionTitular(autoridad,
+			&comprobadorCapacidadReincorporacionTitularDesarrollo{autoridad: autoridad, lector: repositorio, preparador: preparador})
+		if err != nil {
+			return fallar("http_capacidad_reincorporacion", err)
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaReincorporacionesTitular, Manejador: post},
+			vechttp.RutaExacta{Ruta: httpinterno.RutaCapacidadReincorporacionTitular, Manejador: get})
 	}
 	return rutas, nil
 }
