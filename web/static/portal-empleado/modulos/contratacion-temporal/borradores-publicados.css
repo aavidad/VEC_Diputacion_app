@@ -5,7 +5,7 @@
 .ct-bp-ayuda { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--portal-borde); color: var(--portal-muted); }
 .ct-bp-tabla { max-width: 100%; overflow-x: auto; }
 .ct-bp-tabla table { min-width: 520px; width: 100%; }
-.ct-bp-tabla td { display: flex; flex-wrap: wrap; gap: 8px; }
+.ct-bp-tabla td .boton-secundario { margin: 0 8px 8px 0; }
 .ct-bp-tabla small { display: block; color: var(--portal-muted); font-weight: 400; overflow-wrap: anywhere; }
 .ct-bp-catalogo { color: var(--portal-muted); font-size: .82rem; overflow-wrap: anywhere; }
 .ct-bp-catalogo code { font-size: inherit; }
