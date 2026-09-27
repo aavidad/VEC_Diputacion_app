@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,15 @@ func TestPoliticaCeseSoloAdmiteVersionSinteticaCompleta(t *testing.T) {
 	if p.Validar() != nil {
 		t.Fatal("política B45 válida rechazada")
 	}
+	qMaxima := p.Clonar()
+	qMaxima.MesesGeneral = 0
+	qMaxima.MesesAcumulacion = 0
+	for i := 0; i < 98; i++ {
+		qMaxima.Mapeo[fmt.Sprintf("modalidad_%02d_%s", i, strings.Repeat("x", 60))] = "general"
+	}
+	if qMaxima.Validar() != nil || len(qMaxima.Mapeo) != 100 {
+		t.Fatal("política B45 válida de 100 entradas y meses cero rechazada")
+	}
 	copia := p.Clonar()
 	copia.Mapeo["interinidad"] = "acumulacion_tareas"
 	if p.Mapeo["interinidad"] != "general" {
@@ -21,7 +31,7 @@ func TestPoliticaCeseSoloAdmiteVersionSinteticaCompleta(t *testing.T) {
 	}
 	for _, cambio := range []func(*PoliticaCese){
 		func(x *PoliticaCese) { x.Estado = "vigente" },
-		func(x *PoliticaCese) { x.MesesGeneral = 0 },
+		func(x *PoliticaCese) { x.MesesGeneral = -1 },
 		func(x *PoliticaCese) { x.Mapeo["interinidad"] = "otro" },
 		func(x *PoliticaCese) { x.Mapeo["dni 123"] = "general" },
 	} {

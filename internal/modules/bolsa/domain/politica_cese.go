@@ -10,7 +10,7 @@ import (
 var (
 	ErrPoliticaCeseInvalida = errors.New("bolsa: politica de cese invalida")
 	patronSHA256Cese        = regexp.MustCompile(`^[a-f0-9]{64}$`)
-	patronClaveMapeoCese    = regexp.MustCompile(`^[a-z0-9][a-z0-9._:-]{0,79}(\|[a-z0-9][a-z0-9._:-]{0,79})?$`)
+	patronClaveMapeoCese    = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}(\|[a-z][a-z0-9._-]{1,79})?$`)
 )
 
 // PoliticaCese describe únicamente la versión efectiva que aplica Bolsa B45.
@@ -30,9 +30,9 @@ type PoliticaCese struct {
 func (p PoliticaCese) Validar() error {
 	if p.Version == 0 || p.CatalogoRef == "" || len(p.CatalogoRef) > 512 ||
 		strings.TrimSpace(p.CatalogoRef) != p.CatalogoRef || !patronSHA256Cese.MatchString(p.CatalogoSHA256) ||
-		p.MesesGeneral < 1 || p.MesesGeneral > 120 || p.MesesAcumulacion < 1 || p.MesesAcumulacion > 120 ||
+		p.MesesGeneral < 0 || p.MesesGeneral > 120 || p.MesesAcumulacion < 0 || p.MesesAcumulacion > 120 ||
 		p.Computo != "fecha_cese_meses_calendario_ajuste_fin_mes" || p.Estado != "ejemplo_sintetico" ||
-		p.PublicadaEn.IsZero() || len(p.Mapeo) == 0 || len(p.Mapeo) > 64 {
+		p.PublicadaEn.IsZero() || len(p.Mapeo) == 0 || len(p.Mapeo) > 100 {
 		return ErrPoliticaCeseInvalida
 	}
 	for clave, clase := range p.Mapeo {

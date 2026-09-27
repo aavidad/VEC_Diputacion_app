@@ -43,6 +43,13 @@ func TestHandlerPoliticaCeseRechazaEntradaYMinimizaRespuesta(t *testing.T) {
 			t.Fatalf("entrada no autorizada aceptada: %s: %d", ruta, w.Code)
 		}
 	}
+	conAutorizacion := httptest.NewRequest(http.MethodGet, RutaPoliticaCese, nil)
+	conAutorizacion.Header.Set("Authorization", "Bearer no-admitido")
+	wDenegada := httptest.NewRecorder()
+	h.ServeHTTP(wDenegada, conAutorizacion)
+	if wDenegada.Code != http.StatusBadRequest || p.llamadas != 0 || c.llamadas != 0 {
+		t.Fatalf("Authorization llegó a frontera interna: %d", wDenegada.Code)
+	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaPoliticaCese, nil))
 	if w.Code != http.StatusOK || p.llamadas != 1 || c.llamadas != 1 ||

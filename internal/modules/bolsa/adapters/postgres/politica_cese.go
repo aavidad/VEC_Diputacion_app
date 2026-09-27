@@ -68,7 +68,7 @@ func escanearPoliticaCese(fila pgx.Row) (domain.PoliticaCese, error) {
 		return domain.PoliticaCese{}, ports.ErrConsultaPoliticaCeseNoDisponible
 	}
 	var clases map[string]string
-	if version < 1 || len(mapeo) == 0 || len(mapeo) > 8192 || json.Unmarshal(mapeo, &clases) != nil || clases == nil {
+	if version < 1 || len(mapeo) == 0 || len(mapeo) > 16384 || json.Unmarshal(mapeo, &clases) != nil || clases == nil {
 		return domain.PoliticaCese{}, ports.ErrConsultaPoliticaCeseNoDisponible
 	}
 	p := domain.PoliticaCese{Version: uint64(version), CatalogoRef: ref, CatalogoSHA256: sha,

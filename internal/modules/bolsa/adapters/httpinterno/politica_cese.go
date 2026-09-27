@@ -53,7 +53,7 @@ func (h *HandlerPoliticaCese) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		responderError(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
-	if !entradaVaciaYPermitida(r) {
+	if !entradaVaciaYPermitida(r) || cabeceraPresente(r.Header, "Authorization") {
 		responderError(w, http.StatusBadRequest, "peticion_no_permitida")
 		return
 	}
