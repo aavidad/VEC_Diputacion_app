@@ -18,16 +18,19 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   // caché immutable las conserva, así que el HTML debe pedir otra URL.
   const versionCSSAreaAnterior = "20260925-aspecto-v1";
   const versionPadreAnterior = "20260925-aspecto-v1";
+  const versionHistorialAnterior = "20260926-integracion-bolsa-ct-v1";
   const versionCSSArea = html.match(/\/area-personal\/area-personal\.css\?v=([\w.-]+)"/)?.[1];
   const versionCSSOportunidades = "20260924-f2-b15-area-v1";
   const versionPadre = html.match(/\/area-personal\/arranque\.js\?v=([\w.-]+)"/)?.[1];
   assert.ok(versionCSSArea && versionCSSArea !== versionCSSAreaAnterior, "area-personal.css renueva su URL");
   assert.ok(versionPadre && versionPadre !== versionPadreAnterior, "el montaje renueva su URL");
+  assert.notEqual(versionPadre, versionHistorialAnterior, "el histórico renueva la aplicación cargada por el navegador");
   assert.ok(html.includes(`/area-personal/area-personal.css?v=${versionCSSArea}`));
   assert.ok(html.includes(`/comun/oportunidades/oportunidades.css?v=${versionCSSOportunidades}`));
   assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
   assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
   assert.ok(arranque.includes(`./aplicacion.js?v=${versionPadre}`));
+  assert.match(aplicacion, /from "\.\/mi-bolsa-historial\.js"/u);
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);

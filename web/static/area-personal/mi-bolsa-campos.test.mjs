@@ -20,7 +20,8 @@ test("sin lista de campos se muestran todos, como antes del catálogo", () => {
   assert.deepEqual(datos.campos_visibles, [...CAMPOS_MI_BOLSA]);
   const html = renderizarLlamamientos({ posicion: null }, { participaciones: datos.participaciones, camposMiBolsa: datos.campos_visibles });
   assert.match(html, /12 de 87/u);
-  assert.match(html, /Contratos/u);
+  assert.match(html, /Histórico de mi bolsa[\s\S]*Cargando histórico autorizado/u);
+  assert.doesNotMatch(html, /Sin información de contratos\.|Contrato comunicado a Bolsa/u);
   assert.match(html, /Último resultado de correo/u);
 });
 
