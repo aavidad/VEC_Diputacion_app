@@ -46,7 +46,8 @@ CREATE TABLE vec_bolsa_llamamientos.politica_cese_bolsa (
  meses_general integer NOT NULL CHECK (meses_general BETWEEN 0 AND 120),
  meses_acumulacion integer NOT NULL CHECK (meses_acumulacion BETWEEN 0 AND 120),
  computo text NOT NULL CHECK (computo='fecha_cese_meses_calendario_ajuste_fin_mes'),
- estado text NOT NULL CHECK (estado IN ('ejemplo_sintetico','vigente')),
+ -- La activación para datos reales requiere otro corte con decisión V3 propia.
+ estado text NOT NULL CHECK (estado='ejemplo_sintetico'),
  publicada_en timestamptz(6) NOT NULL,
  publicada_por text NOT NULL DEFAULT session_user CHECK (octet_length(publicada_por) BETWEEN 1 AND 128)
 );
@@ -89,11 +90,23 @@ CREATE TABLE vec_bolsa_llamamientos.auditoria_cese_bolsa (
  registrada_en timestamptz(6) NOT NULL,
  CHECK (auditoria_ref='auditoria:bolsa:cese:'||encode(sha256(convert_to(evento_ref,'UTF8')),'hex'))
 );
+-- Ceses CT publicados que pertenecen a un llamamiento ajeno a Bolsa. El
+-- relevo los confirma con CT129 para avanzar su cursor sin inventar efecto.
+-- Si el llamamiento existe en Bolsa pero falta el vínculo, el error se
+-- reintenta y nunca entra en esta tabla.
+CREATE TABLE vec_bolsa_llamamientos.cese_ajeno_bolsa (
+ origen_ref text PRIMARY KEY CHECK (octet_length(origen_ref) BETWEEN 1 AND 512),
+ origen_huella_sha256 text NOT NULL CHECK (origen_huella_sha256 ~ '^[a-f0-9]{64}$'),
+ origen_posicion bigint NOT NULL CHECK (origen_posicion>=0),
+ llamamiento_ref text NOT NULL,
+ recibido_en timestamptz(6) NOT NULL,
+ recibido_por text NOT NULL DEFAULT session_user CHECK (octet_length(recibido_por) BETWEEN 1 AND 128)
+);
 CREATE INDEX restriccion_cese_bolsa_candidato ON vec_bolsa_llamamientos.restriccion_cese_bolsa(candidato_ref,disponible_desde DESC);
 DO $seguridad$
 DECLARE t text;
 BEGIN
- FOREACH t IN ARRAY ARRAY['politica_cese_bolsa','restriccion_cese_bolsa','auditoria_cese_bolsa'] LOOP
+ FOREACH t IN ARRAY ARRAY['politica_cese_bolsa','restriccion_cese_bolsa','auditoria_cese_bolsa','cese_ajeno_bolsa'] LOOP
   EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('ALTER TABLE vec_bolsa_llamamientos.%I FORCE ROW LEVEL SECURITY',t);
   EXECUTE format('CREATE POLICY %I ON vec_bolsa_llamamientos.%I TO vec_bolsa_llamamientos_propietario USING (current_user=''vec_bolsa_llamamientos_propietario'') WITH CHECK (current_user=''vec_bolsa_llamamientos_propietario'')',t||'_solo_propietario',t);
@@ -108,8 +121,8 @@ RETURNS TABLE(version bigint,reutilizada boolean,catalogo_sha256 text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='5s' AS $f$
 DECLARE v_sha text; v_actual vec_bolsa_llamamientos.politica_cese_bolsa;
 BEGIN
- -- Publicación administrativa de catálogo externo revisado. No hay todavía
- -- operación RRHH con decisión V3 propia: el ejecutor de negocio no publica.
+ -- Publicación administrativa de catálogo externo revisado, solo sintética.
+ -- No hay todavía operación RRHH con decisión V3 propia ni activación real.
  -- El LOGIN DBA queda en publicada_por y la versión conserva el contenido.
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper) THEN
@@ -121,7 +134,7 @@ BEGIN
     OR EXISTS (SELECT 1 FROM jsonb_each(p_mapeo) e WHERE e.key !~ '^[a-z][a-z0-9._-]{1,79}(\|[a-z][a-z0-9._-]{1,79})?$'
                  OR jsonb_typeof(e.value)<>'string' OR e.value #>> '{}' NOT IN ('general','acumulacion_tareas'))
     OR p_meses_general NOT BETWEEN 0 AND 120 OR p_meses_acumulacion NOT BETWEEN 0 AND 120
-    OR p_estado NOT IN ('ejemplo_sintetico','vigente') THEN
+    OR p_estado IS DISTINCT FROM 'ejemplo_sintetico' THEN
   RAISE EXCEPTION 'política de cese inválida' USING ERRCODE='22023';
  END IF;
  v_sha:=encode(sha256(convert_to(jsonb_build_object('mapeo',p_mapeo,'meses_general',p_meses_general,
@@ -138,9 +151,35 @@ BEGIN
  RETURN QUERY SELECT coalesce(v_actual.version,0)+1,false,v_sha;
 END $f$;
 
--- Versión inicial explícita para el ejercicio sintético. Una organización
--- distinta exige otra política publicada como vigente. La regla se revisará
--- cuando RRHH conteste la duda 64; no declara norma ratificada.
+-- Consulta de la política efectiva para la ficha RRHH autorizada: la web
+-- nunca deduce meses/mapeo desde otro JSON. Solo datos normativos sintéticos,
+-- sin persona ni recibo de cese. El adaptador HTTP debe consumir V3 antes de
+-- exponerla; aquí solo se concede al LOGIN técnico ejecutor de Bolsa.
+CREATE FUNCTION vec_bolsa_llamamientos.consultar_politica_cese_bolsa_v1()
+RETURNS TABLE(version bigint,catalogo_ref text,catalogo_sha256 text,mapeo jsonb,
+ meses_general integer,meses_acumulacion integer,computo text,estado text,publicada_en timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+DECLARE v vec_bolsa_llamamientos.politica_cese_bolsa;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER') THEN
+  RAISE EXCEPTION 'consulta política de cese denegada' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v FROM vec_bolsa_llamamientos.politica_cese_bolsa p ORDER BY p.version DESC LIMIT 1;
+ IF NOT FOUND OR v.catalogo_sha256 IS DISTINCT FROM encode(sha256(convert_to(jsonb_build_object(
+   'mapeo',v.mapeo,'meses_general',v.meses_general,'meses_acumulacion',v.meses_acumulacion,
+   'computo',v.computo,'estado',v.estado)::text,'UTF8')),'hex') THEN
+  RAISE EXCEPTION 'política de cese no disponible' USING ERRCODE='55000';
+ END IF;
+ RETURN QUERY SELECT v.version,v.catalogo_ref,v.catalogo_sha256,v.mapeo,v.meses_general,
+  v.meses_acumulacion,v.computo,v.estado,v.publicada_en;
+END $f$;
+
+-- Versión inicial explícita solo para el ejercicio sintético. Una organización
+-- distinta falla cerrada: la publicación real exigirá autorización funcional
+-- V3 y migración posterior. La duda 64 sigue sin respuesta ratificada.
 INSERT INTO vec_bolsa_llamamientos.politica_cese_bolsa(version,catalogo_ref,catalogo_sha256,mapeo,meses_general,
  meses_acumulacion,computo,estado,publicada_en)
 SELECT 1,'catalogo:bolsa:cese:ejemplo-sintetico:v1',
@@ -232,10 +271,69 @@ BEGIN
  RETURN QUERY SELECT false,v_recibo_ref,v_vinculo.candidato_ref,v_desde,v_politica.version;
 END $f$;
 
+CREATE FUNCTION vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(
+ p_origen_ref text,p_huella_sha256 text,p_posicion bigint)
+RETURNS boolean
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE v_ct record; v_previa vec_bolsa_llamamientos.cese_ajeno_bolsa;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+    OR p_origen_ref IS NULL OR octet_length(p_origen_ref) NOT BETWEEN 1 AND 512
+    OR p_huella_sha256 !~ '^[a-f0-9]{64}$' OR p_posicion IS NULL OR p_posicion<0 THEN
+  RAISE EXCEPTION 'cese ajeno no autorizado' USING ERRCODE='42501';
+ END IF;
+ SELECT * INTO v_ct FROM vec_contratacion_temporal.verificar_cese_publicado_bolsa_v1(p_origen_ref,p_huella_sha256,p_posicion);
+ IF NOT FOUND OR v_ct.llamamiento_ref IS NULL THEN
+  RAISE EXCEPTION 'cese CT no acreditado' USING ERRCODE='42501';
+ END IF;
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l
+             WHERE l.llamamiento_ref=v_ct.llamamiento_ref) THEN
+  RAISE EXCEPTION 'llamamiento Bolsa sin vínculo; cese pendiente' USING ERRCODE='23503';
+ END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:cese-ajeno:'||p_origen_ref,0));
+ SELECT * INTO v_previa FROM vec_bolsa_llamamientos.cese_ajeno_bolsa a WHERE a.origen_ref=p_origen_ref;
+ IF FOUND THEN
+  IF v_previa.origen_huella_sha256<>p_huella_sha256 OR v_previa.origen_posicion<>p_posicion
+     OR v_previa.llamamiento_ref<>v_ct.llamamiento_ref THEN
+   RAISE EXCEPTION 'cese ajeno divergente' USING ERRCODE='VBC01';
+  END IF;
+  RETURN true;
+ END IF;
+ INSERT INTO vec_bolsa_llamamientos.cese_ajeno_bolsa(origen_ref,origen_huella_sha256,origen_posicion,llamamiento_ref,recibido_en)
+ VALUES(p_origen_ref,p_huella_sha256,p_posicion,v_ct.llamamiento_ref,clock_timestamp());
+ RETURN false;
+END $f$;
+
+-- Cursor propio de B45, independiente del B13 histórico. La pasada del
+-- relevo se detiene en el primer fallo y confirma cada cese aplicado o
+-- ajeno antes de avanzar; así una lista larga de ajenos no oculta posteriores.
+CREATE FUNCTION vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()
+RETURNS TABLE(origen_posicion bigint,origen_ref text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_bolsa_llamamientos_relevo_cese','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER') THEN
+  RAISE EXCEPTION 'cursor de cese no autorizado' USING ERRCODE='42501';
+ END IF;
+ RETURN QUERY SELECT x.posicion,x.ref FROM (
+  SELECT r.origen_posicion AS posicion,r.origen_ref AS ref FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+  UNION ALL
+  SELECT a.origen_posicion,a.origen_ref FROM vec_bolsa_llamamientos.cese_ajeno_bolsa a
+ ) x ORDER BY x.posicion DESC,x.ref DESC LIMIT 1;
+END $f$;
+
 -- El estado B2 «trabajando» puede seguir como historia tras un cese CT.
--- Solo se considera terminado si no hay una situación B2 posterior ni una
--- incorporación CT posterior del mismo candidato; de lo contrario prevalece
--- la nueva relación. Esta lectura no modifica ninguna participación.
+-- Solo se considera terminado cuando B13 prueba la incorporación del mismo
+-- llamamiento y ninguna otra incorporación del candidato permanece abierta.
+-- Un cese de una relación no da por terminadas otras relaciones simultáneas.
+-- Esta lectura no modifica ninguna participación.
 CREATE FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_v1(p_participacion_ref text,p_corte timestamptz)
 RETURNS TABLE(fecha_efecto date,disponible_desde date,en_restriccion boolean,trabajo_cesado boolean)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -243,7 +341,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
   SELECT vc.candidato_ref FROM vec_bolsa_llamamientos.vinculo_candidato vc
    WHERE vc.participacion_ref=p_participacion_ref
  ), ultimo AS (
-  SELECT r.fecha_efecto FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+  SELECT r.fecha_efecto,r.llamamiento_ref FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
    JOIN candidato c ON c.candidato_ref=r.candidato_ref
   WHERE r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
   ORDER BY r.fecha_efecto DESC,r.evento_ref DESC LIMIT 1
@@ -255,19 +353,32 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
   SELECT s.situacion,s.desde FROM vec_bolsa_llamamientos.situacion_participacion s
   WHERE s.participacion_ref=p_participacion_ref AND s.desde<=p_corte
   ORDER BY s.desde DESC LIMIT 1
+ ), incorporaciones AS (
+  SELECT cp.llamamiento_ref,coalesce(cp.inicio,cp.ocurrido_en) AS inicio
+  FROM vec_bolsa_llamamientos.contrato_participacion cp
+  JOIN vec_bolsa_llamamientos.vinculo_candidato vc2 ON vc2.participacion_ref=cp.participacion_ref
+  JOIN candidato c ON c.candidato_ref=vc2.candidato_ref
+  WHERE cp.tipo='incorporacion' AND coalesce(cp.inicio,cp.ocurrido_en)<=p_corte
+ ), prueba AS (
+  SELECT EXISTS (SELECT 1 FROM incorporaciones i JOIN ultimo u ON u.llamamiento_ref=i.llamamiento_ref
+      WHERE i.inicio<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid')) AS misma_relacion,
+   EXISTS (SELECT 1 FROM incorporaciones i WHERE NOT EXISTS (
+      SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa r
+      JOIN candidato c ON c.candidato_ref=r.candidato_ref
+      WHERE r.llamamiento_ref=i.llamamiento_ref
+        AND r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
+        AND i.inicio<((r.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'))) AS otra_abierta
+ ), efectivo AS (
+  SELECT coalesce(s.situacion='trabajando' AND p.misma_relacion AND NOT p.otra_abierta
+    AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid'),false) AS trabajo_cesado
+  FROM ultimo u LEFT JOIN situacion s ON true CROSS JOIN prueba p
  )
  SELECT u.fecha_efecto,m.disponible_desde,
-   coalesce(m.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date,false),
-   coalesce(s.situacion='trabajando'
-     AND s.desde<((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid')
-     AND NOT EXISTS (
-       SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion cp
-       JOIN vec_bolsa_llamamientos.vinculo_candidato vc2 ON vc2.participacion_ref=cp.participacion_ref
-       JOIN candidato c ON c.candidato_ref=vc2.candidato_ref
-       WHERE cp.tipo='incorporacion'
-         AND coalesce(cp.inicio,cp.ocurrido_en)>=((u.fecha_efecto+1)::timestamp AT TIME ZONE 'Europe/Madrid')
-         AND coalesce(cp.inicio,cp.ocurrido_en)<=p_corte),false)
- FROM ultimo u CROSS JOIN maximo m LEFT JOIN situacion s ON true
+   coalesce(m.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date
+     AND (s.situacion IS DISTINCT FROM 'trabajando' OR e.trabajo_cesado),false),
+   e.trabajo_cesado
+ FROM ultimo u CROSS JOIN maximo m CROSS JOIN prueba p CROSS JOIN efectivo e
+ LEFT JOIN situacion s ON true
 $f$;
 
 -- Lectura mínima para las proyecciones autorizadas de RRHH, Mi Bolsa y
@@ -280,6 +391,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
  SELECT r.disponible_desde,r.fecha_efecto,r.recibo_ref,r.politica_version
  FROM vec_bolsa_llamamientos.vinculo_candidato vc
  JOIN vec_bolsa_llamamientos.restriccion_cese_bolsa r ON r.candidato_ref=vc.candidato_ref
+ JOIN LATERAL vec_bolsa_llamamientos.estado_cese_bolsa_v1(p_participacion_ref,p_corte) e ON e.en_restriccion
  WHERE vc.participacion_ref=p_participacion_ref
    AND r.fecha_efecto<=(p_corte AT TIME ZONE 'Europe/Madrid')::date
    AND r.disponible_desde>(p_corte AT TIME ZONE 'Europe/Madrid')::date
@@ -376,10 +488,16 @@ BEGIN
 END $mi_bolsa$;
 
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(text,jsonb,integer,integer,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_politica_cese_bolsa_v1() FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1() FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_v1(text,timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_relevo_cese;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_relevo_cese;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1() TO vec_bolsa_llamamientos_relevo_cese;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_politica_cese_bolsa_v1() TO vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz) TO vec_bolsa_llamamientos_ejecutor;
 COMMENT ON TABLE vec_bolsa_llamamientos.restriccion_cese_bolsa IS 'Restricción global por candidato derivada de cese CT verificado; el recibo, regla y origen son inmutables.';
 COMMIT;

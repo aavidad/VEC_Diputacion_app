@@ -16,6 +16,7 @@ BEGIN
  END IF;
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.restriccion_cese_bolsa)
     OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.auditoria_cese_bolsa)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.cese_ajeno_bolsa)
     OR (SELECT count(*) FROM vec_bolsa_llamamientos.politica_cese_bolsa)<>1
     OR NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.politica_cese_bolsa
        WHERE version=1 AND catalogo_ref='catalogo:bolsa:cese:ejemplo-sintetico:v1')
@@ -103,10 +104,14 @@ BEGIN
  END IF;
 END $orden$;
 DROP FUNCTION vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint);
+DROP FUNCTION vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint);
+DROP FUNCTION vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1();
 DROP FUNCTION vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(text,jsonb,integer,integer,text);
+DROP FUNCTION vec_bolsa_llamamientos.consultar_politica_cese_bolsa_v1();
 DROP FUNCTION vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz);
 DROP FUNCTION vec_bolsa_llamamientos.estado_cese_bolsa_v1(text,timestamptz);
 DROP TABLE vec_bolsa_llamamientos.auditoria_cese_bolsa;
+DROP TABLE vec_bolsa_llamamientos.cese_ajeno_bolsa;
 DROP TABLE vec_bolsa_llamamientos.restriccion_cese_bolsa;
 DROP TABLE vec_bolsa_llamamientos.politica_cese_bolsa;
 REVOKE USAGE ON SCHEMA vec_bolsa_llamamientos FROM vec_bolsa_llamamientos_relevo_cese;

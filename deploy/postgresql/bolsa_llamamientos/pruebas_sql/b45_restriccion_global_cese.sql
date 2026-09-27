@@ -33,7 +33,8 @@ SELECT 'llamamiento:b45:'||n,'operacion:propuesta:b45:'||n,'propuesta:b45:'||n,'
 INSERT INTO vec_contratacion_temporal.cese_prueba(origen_ref,huella,posicion,modalidad,causa,fecha,llamamiento,relacion)
 VALUES ('origen:cese:b45:1',repeat('a',64),1,'interinidad',NULL,current_date-1,'llamamiento:b45:1','relacion:b45:1'),
        ('origen:cese:b45:2',repeat('b',64),2,'interinidad','acumulacion_tareas',current_date-1,'llamamiento:b45:2','relacion:b45:2'),
-       ('origen:cese:b45:3',repeat('c',64),3,'interinidad',NULL,current_date-1,'llamamiento:b45:2','relacion:b45:2');
+       ('origen:cese:b45:3',repeat('c',64),3,'interinidad',NULL,current_date-1,'llamamiento:b45:2','relacion:b45:2'),
+       ('origen:cese:b45:4',repeat('d',64),4,'interinidad',NULL,current_date-1,'llamamiento:ajeno:b45','relacion:b45:4');
 INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref,situacion,desde,motivo,actor,
  registrada_en,clave_idempotencia,recibo_ref)
 VALUES ('participacion:rev:1','trabajando',(current_date-2)::timestamp AT TIME ZONE 'Europe/Madrid',
@@ -43,6 +44,19 @@ VALUES ('participacion:rev:1','trabajando',(current_date-2)::timestamp AT TIME Z
  'Pausa posterior al cese','sistema:prueba',now()+interval '2 days',
  'b45:pausa:2','recibo:b45:pausa:2');
 COMMIT;
+WITH origen AS (
+ SELECT 'evento:ct:contrato-bolsa:'||repeat('e',64) AS evento_ref,
+   jsonb_build_object('evento_ref','evento:ct:contrato-bolsa:'||repeat('e',64),
+    'tipo','incorporacion','origen_ref','origen:incorporacion:b45:cesada',
+    'organizacion_ref','organizacion:desarrollo:dipgra','expediente_ref','expediente:ct:1',
+    'llamamiento_ref','llamamiento:b45:1') AS evento
+)
+INSERT INTO vec_bolsa_llamamientos.contrato_participacion(evento_ref,huella_sha256,evento,origen_ref,origen_creada_en,
+ origen_posicion,tipo,organizacion_ref,expediente_ref,llamamiento_ref,participacion_ref,bolsa_ref,inicio,ocurrido_en,recibido_en)
+SELECT evento_ref,encode(sha256(convert_to(evento::text,'UTF8')),'hex'),evento,'origen:incorporacion:b45:cesada',
+ now(),0,'incorporacion','organizacion:desarrollo:dipgra','expediente:ct:1','llamamiento:b45:1',
+ 'participacion:rev:1','bolsa:rev',now()-interval '8 days',now()-interval '8 days',now()
+FROM origen;
 
 -- La ventana usa la fecha del cese; PostgreSQL ajusta el día final si el
 -- mes de destino no lo contiene.
@@ -106,7 +120,25 @@ BEGIN
  SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(
   'catalogo:bolsa:cese:ejemplo-sintetico:v3','{"interinidad":"general","interinidad|acumulacion_tareas":"acumulacion_tareas"}'::jsonb,4,8,'ejemplo_sintetico');
  IF v.version<>3 OR v.reutilizada THEN RAISE EXCEPTION 'B45: publicación v3 incorrecta'; END IF;
+ BEGIN
+  PERFORM * FROM vec_bolsa_llamamientos.publicar_politica_cese_bolsa_v1(
+   'catalogo:bolsa:cese:real-sin-v3','{"interinidad":"general"}'::jsonb,5,9,'vigente');
+  RAISE EXCEPTION 'B45: DBA activó política real sin V3';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
 END $politica$;
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_b45_ejecutor_test;
+DO $lectura_politica$
+DECLARE v record;
+BEGIN
+ SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.consultar_politica_cese_bolsa_v1();
+ IF v.version<>3 OR v.meses_general<>4 OR v.meses_acumulacion<>8
+    OR v.catalogo_ref<>'catalogo:bolsa:cese:ejemplo-sintetico:v3'
+    OR v.mapeo->>'interinidad|acumulacion_tareas'<>'acumulacion_tareas'
+    OR v.estado<>'ejemplo_sintetico' THEN
+  RAISE EXCEPTION 'B45: política visible divergente del cálculo efectivo';
+ END IF;
+END $lectura_politica$;
 RESET SESSION AUTHORIZATION;
 SET SESSION AUTHORIZATION vec_b45_relevo_test;
 DO $historia$
@@ -119,6 +151,26 @@ BEGIN
   RAISE EXCEPTION 'B45: nueva política reescribió recibo anterior';
  END IF;
 END $historia$;
+DO $cursor$
+DECLARE v record; reutilizado boolean;
+BEGIN
+ SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1();
+ IF v.origen_posicion<>3 OR v.origen_ref<>'origen:cese:b45:3' THEN
+  RAISE EXCEPTION 'B45: cursor de aplicados incorrecto';
+ END IF;
+ SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1('origen:cese:b45:4',repeat('d',64),4) INTO reutilizado;
+ IF reutilizado THEN RAISE EXCEPTION 'B45: cese ajeno nuevo devuelto como replay'; END IF;
+ SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1('origen:cese:b45:4',repeat('d',64),4) INTO reutilizado;
+ IF NOT reutilizado THEN RAISE EXCEPTION 'B45: replay de cese ajeno duplicado'; END IF;
+ SELECT * INTO STRICT v FROM vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1();
+ IF v.origen_posicion<>4 OR v.origen_ref<>'origen:cese:b45:4' THEN
+  RAISE EXCEPTION 'B45: cursor no avanzó tras cese ajeno acreditado';
+ END IF;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1('origen:cese:b45:1',repeat('a',64),1);
+  RAISE EXCEPTION 'B45: cese de Bolsa saltado como ajeno';
+ EXCEPTION WHEN foreign_key_violation THEN NULL; END;
+END $cursor$;
 RESET SESSION AUTHORIZATION;
 DO $orden$
 DECLARE p1 record; p2 record; futuro1 record; futuro2 record; previo record; n integer;
@@ -192,27 +244,59 @@ WITH origen AS (
    jsonb_build_object('evento_ref','evento:ct:contrato-bolsa:'||repeat('d',64),
     'tipo','incorporacion','origen_ref','origen:incorporacion:b45:posterior',
     'organizacion_ref','organizacion:desarrollo:dipgra','expediente_ref','expediente:ct:2',
-    'llamamiento_ref','llamamiento:b45:1') AS evento
+    'llamamiento_ref','llamamiento:b45:nueva') AS evento
 )
 INSERT INTO vec_bolsa_llamamientos.contrato_participacion(evento_ref,huella_sha256,evento,origen_ref,origen_creada_en,
  origen_posicion,tipo,organizacion_ref,expediente_ref,llamamiento_ref,participacion_ref,bolsa_ref,inicio,ocurrido_en,recibido_en)
 SELECT evento_ref,encode(sha256(convert_to(evento::text,'UTF8')),'hex'),evento,'origen:incorporacion:b45:posterior',
- now(),4,'incorporacion','organizacion:desarrollo:dipgra','expediente:ct:2','llamamiento:b45:1',
+ now(),4,'incorporacion','organizacion:desarrollo:dipgra','expediente:ct:2','llamamiento:b45:nueva',
  'participacion:rev:1','bolsa:rev',now()+interval '30 days',now()+interval '30 days',now()
 FROM origen;
 DO $nuevo_contrato$
 DECLARE p record;
 BEGIN
+ SELECT * INTO STRICT p FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now()+interval '45 days')
+  WHERE participacion_ref='participacion:rev:1';
+ IF p.situacion<>'trabajando' OR p.orden_vigente IS NOT NULL
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(
+      'participacion:rev:1',now()+interval '45 days')) THEN
+  RAISE EXCEPTION 'B45: incorporación posterior durante restricción ocultada';
+ END IF;
  SELECT * INTO STRICT p FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now()+interval '1 year')
   WHERE participacion_ref='participacion:rev:1';
  IF p.situacion<>'trabajando' OR p.orden_vigente IS NOT NULL THEN
   RAISE EXCEPTION 'B45: nueva incorporación posterior ignorada';
  END IF;
 END $nuevo_contrato$;
+WITH origen AS (
+ SELECT 'evento:ct:contrato-bolsa:'||repeat('f',64) AS evento_ref,
+   jsonb_build_object('evento_ref','evento:ct:contrato-bolsa:'||repeat('f',64),
+    'tipo','incorporacion','origen_ref','origen:incorporacion:b45:simultanea',
+    'organizacion_ref','organizacion:desarrollo:dipgra','expediente_ref','expediente:ct:3',
+    'llamamiento_ref','llamamiento:b45:simultanea') AS evento
+)
+INSERT INTO vec_bolsa_llamamientos.contrato_participacion(evento_ref,huella_sha256,evento,origen_ref,origen_creada_en,
+ origen_posicion,tipo,organizacion_ref,expediente_ref,llamamiento_ref,participacion_ref,bolsa_ref,inicio,ocurrido_en,recibido_en)
+SELECT evento_ref,encode(sha256(convert_to(evento::text,'UTF8')),'hex'),evento,'origen:incorporacion:b45:simultanea',
+ now(),5,'incorporacion','organizacion:desarrollo:dipgra','expediente:ct:3','llamamiento:b45:simultanea',
+ 'participacion:rev:1','bolsa:rev',now()-interval '5 days',now()-interval '5 days',now()
+FROM origen;
+DO $simultanea$
+DECLARE p record;
+BEGIN
+ SELECT * INTO STRICT p FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:rev',now())
+  WHERE participacion_ref='participacion:rev:1';
+ IF p.situacion<>'trabajando' OR p.orden_vigente IS NOT NULL
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1('participacion:rev:1',now())) THEN
+  RAISE EXCEPTION 'B45: relación simultánea ocultada por cese de otra';
+ END IF;
+END $simultanea$;
 DO $acl$
 BEGIN
  IF has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.restriccion_cese_bolsa','SELECT,INSERT,UPDATE,DELETE')
+    OR has_table_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.cese_ajeno_bolsa','SELECT,INSERT,UPDATE,DELETE')
     OR has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint)','EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()','EXECUTE')
     OR has_function_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.consultar_restriccion_cese_bolsa_v1(text,timestamptz)','EXECUTE')
     OR NOT has_function_privilege('vec_bolsa_llamamientos_relevo_cese','vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint)','EXECUTE') THEN
   RAISE EXCEPTION 'B45: ACL abierta o cerrada incorrectamente';
