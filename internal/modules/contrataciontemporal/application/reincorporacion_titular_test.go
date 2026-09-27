@@ -13,6 +13,18 @@ import (
 
 type sellosReincorporacionPrueba struct{}
 
+type lecturaReincorporacionPrueba struct {
+	consultas                int
+	organizacion, expediente string
+	err                      error
+}
+
+func (l *lecturaReincorporacionPrueba) AutorizarLecturaSeguimiento(_ context.Context, org, exp string) error {
+	l.consultas++
+	l.organizacion, l.expediente = org, exp
+	return l.err
+}
+
 func (sellosReincorporacionPrueba) SellarAmbitoReincorporacionTitular(context.Context, ports.SolicitudSellarAmbitoIdempotencia) (ports.ColeccionSellosHMAC, error) {
 	return ports.NuevaColeccionSellosHMAC("hmac-sha256:"+ports.DominioAmbitoReincorporacionTitular+"/v1:"+strings.Repeat("a", 64), nil)
 }
@@ -67,8 +79,9 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := &repositorioReincorporacionPrueba{expediente: cesado}
+	lectura := &lecturaReincorporacionPrueba{}
 	s, err := NuevoServicioReincorporacionTitular(DependenciasReincorporacionTitular{Contextos: esc.servicio.contextos,
-		Sellos: sellosReincorporacionPrueba{}, Repositorio: repo, Reglas: esc.reglas, Autorizador: esc.autorizador,
+		Lectura: lectura, Sellos: sellosReincorporacionPrueba{}, Repositorio: repo, Reglas: esc.reglas, Autorizador: esc.autorizador,
 		Referencias: referenciasSeguimientoDoble{}, Reloj: esc.servicio.reloj})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +92,7 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); err != nil {
 		t.Fatal(err)
 	}
-	if repo.confirmaciones != 1 || len(esc.autorizador.solicitudes) != 1 ||
+	if repo.confirmaciones != 1 || lectura.consultas != 1 || lectura.organizacion != sol.Canal.OrganizacionRef || lectura.expediente != sol.ExpedienteRef || len(esc.autorizador.solicitudes) != 1 ||
 		esc.autorizador.solicitudes[0].Audiencia != ports.AudienciaConsumoReincorporacionTitularV1 ||
 		esc.autorizador.solicitudes[0].Accion != domain.AccionRegistrarReincorporacionTitular {
 		t.Fatal("efecto o decisión V3 incorrectos")
@@ -87,8 +100,13 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); err != nil {
 		t.Fatal(err)
 	}
-	if repo.confirmaciones != 1 || len(esc.autorizador.solicitudes) != 2 {
+	if repo.confirmaciones != 1 || lectura.consultas != 2 || len(esc.autorizador.solicitudes) != 2 {
 		t.Fatal("replay duplicó efecto o no reautorizó")
+	}
+	lectura.err = ports.ErrAutorizacionDenegada
+	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); !errors.Is(err, ports.ErrAutorizacionDenegada) ||
+		repo.preparaciones != 2 || len(esc.autorizador.solicitudes) != 2 {
+		t.Fatal("la lectura denegada permitió preparar o distinguir estado del expediente")
 	}
 	sol.Canal.AutenticacionRef = ""
 	if _, err = s.RegistrarReincorporacionTitular(context.Background(), sol); !errors.Is(err, ErrSolicitudReincorporacionTitularInvalida) {

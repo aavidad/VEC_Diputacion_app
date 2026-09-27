@@ -25,6 +25,7 @@ type SolicitudRegistrarReincorporacionTitular struct {
 
 type DependenciasReincorporacionTitular struct {
 	Contextos   ports.ResolutorContextoAutorizacionAltaV3
+	Lectura     ports.AutorizadorLecturaReincorporacionTitular
 	Sellos      ports.SelladorReincorporacionTitular
 	Repositorio ports.RepositorioReincorporacionTitular
 	Reglas      ports.FuenteReglasSeguimiento
@@ -38,7 +39,7 @@ type ServicioReincorporacionTitular struct {
 }
 
 func NuevoServicioReincorporacionTitular(d DependenciasReincorporacionTitular) (*ServicioReincorporacionTitular, error) {
-	if dependenciaNula(d.Contextos) || dependenciaNula(d.Sellos) || dependenciaNula(d.Repositorio) ||
+	if dependenciaNula(d.Contextos) || dependenciaNula(d.Lectura) || dependenciaNula(d.Sellos) || dependenciaNula(d.Repositorio) ||
 		dependenciaNula(d.Reglas) || dependenciaNula(d.Autorizador) || dependenciaNula(d.Referencias) || dependenciaNula(d.Reloj) {
 		return nil, ports.ErrOperacionSeguimientoNoDisponible
 	}
@@ -77,6 +78,12 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 		DocumentoRef: sol.DocumentoRef, DocumentoSHA256: sol.DocumentoSHA256, VersionEsperada: sol.VersionEsperada, ClaveIdempotencia: sol.ClaveIdempotencia}
 	if !m.Valido() {
 		return vacio, ErrSolicitudReincorporacionTitularInvalida
+	}
+	// La preparación SQL distingue ausencia de cese, discrepancia documental,
+	// versión e idempotencia. Exigir antes la lectura V3 del expediente exacto
+	// impide que esos resultados se conviertan en un oráculo para otra unidad.
+	if err := s.d.Lectura.AutorizarLecturaSeguimiento(ctx, m.OrganizacionRef, m.ExpedienteRef); err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
 	}
 	causas, politica, err := s.d.Reglas.CausasCese(ctx, ahora)
 	if err != nil || !politica.ValidaEn(ahora) {

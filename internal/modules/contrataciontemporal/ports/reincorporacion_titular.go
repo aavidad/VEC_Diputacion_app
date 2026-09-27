@@ -78,6 +78,13 @@ type RepositorioReincorporacionTitular interface {
 	ConfirmarReincorporacionTitular(context.Context, OrdenConfirmarReincorporacionTitular) (ReciboReincorporacionTitular, error)
 }
 
+// AutorizadorLecturaReincorporacionTitular exige la lectura V3 del expediente
+// exacto antes de que la preparación durable revele su estado o antecedentes.
+// La autorización de lectura no sustituye la decisión V3 de escritura.
+type AutorizadorLecturaReincorporacionTitular interface {
+	AutorizarLecturaSeguimiento(context.Context, string, string) error
+}
+
 type SelladorReincorporacionTitular interface {
 	SellarAmbitoReincorporacionTitular(context.Context, SolicitudSellarAmbitoIdempotencia) (ColeccionSellosHMAC, error)
 	DerivarHuellaReincorporacionTitular(context.Context, []byte) (ColeccionSellosHMAC, error)

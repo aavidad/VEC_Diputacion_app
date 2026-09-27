@@ -3,16 +3,15 @@ package httpinterno
 import (
 	"context"
 	"net/http"
-	"strconv"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-// RutaCapacidadReincorporacionTitular consulta si la identidad del canal
-// tiene permiso preliminar para iniciar el registro en el expediente actual.
-// El POST vuelve a autorizar la intención completa antes del efecto.
+// RutaCapacidadReincorporacionTitular consulta, sin efecto, si la identidad
+// del canal tiene permiso preliminar para iniciar el registro. El identificador
+// del expediente viaja en JSON, fuera de la URL y sus registros de acceso.
 const RutaCapacidadReincorporacionTitular = RutaReincorporacionesTitular + "/capacidad"
 
 // ComprobadorCapacidadReincorporacionTitular exige lectura V3 del expediente y
@@ -35,26 +34,25 @@ func NuevoManejadorCapacidadReincorporacionTitular(a AutoridadCanalSeguimiento, 
 }
 
 func (h *manejadorCapacidadReincorporacionTitular) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r == nil || r.URL == nil || r.URL.Path != RutaCapacidadReincorporacionTitular || r.URL.ForceQuery {
+	if r == nil || r.URL == nil || r.URL.Path != RutaCapacidadReincorporacionTitular || r.URL.RawQuery != "" || r.URL.ForceQuery {
 		responderErrorSeguimiento(w, r, http.StatusNotFound, "recurso_no_encontrado")
 		return
 	}
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		responderErrorSeguimiento(w, r, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
-	if cabeceraCoberturaProhibida(r.Header) {
+	if !tipoContenidoJSON(r.Header) || cabeceraCoberturaProhibida(r.Header) {
 		responderErrorSeguimiento(w, r, http.StatusBadRequest, "peticion_no_permitida")
 		return
 	}
-	q := r.URL.Query()
-	if len(q) != 2 || len(q["expediente_ref"]) != 1 || len(q["version_esperada"]) != 1 ||
-		!domain.ReferenciaOpacaValida(q.Get("expediente_ref")) {
-		responderErrorSeguimiento(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
-		return
+	contenido, err := leerContenidoReincorporacion(w, r)
+	var in struct {
+		ExpedienteRef   string `json:"expediente_ref"`
+		VersionEsperada uint64 `json:"version_esperada"`
 	}
-	version, err := strconv.ParseUint(q.Get("version_esperada"), 10, 64)
-	if err != nil || !ports.VersionOperacionAnalisisConIncrementoValida(version) {
+	if err != nil || decodificarCuerpoSeguimiento(contenido, &in) != nil ||
+		!domain.ReferenciaOpacaValida(in.ExpedienteRef) || !ports.VersionOperacionAnalisisConIncrementoValida(in.VersionEsperada) {
 		responderErrorSeguimiento(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
@@ -63,7 +61,7 @@ func (h *manejadorCapacidadReincorporacionTitular) ServeHTTP(w http.ResponseWrit
 		responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado")
 		return
 	}
-	permitido, err := h.comprobador.ComprobarCapacidadReincorporacionTitular(r.Context(), canal, q.Get("expediente_ref"), version)
+	permitido, err := h.comprobador.ComprobarCapacidadReincorporacionTitular(r.Context(), canal, in.ExpedienteRef, in.VersionEsperada)
 	if err != nil {
 		responderErrorSeguimiento(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
 		return
