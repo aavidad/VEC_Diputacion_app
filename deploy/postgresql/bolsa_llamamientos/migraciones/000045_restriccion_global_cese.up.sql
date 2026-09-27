@@ -217,6 +217,9 @@ BEGIN
   RAISE EXCEPTION 'cese CT no acreditado' USING ERRCODE='42501';
  END IF;
  v_evento_ref:='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex');
+ -- B13 toma este mismo cerrojo antes de registrar/quarentenar el evento.
+ -- Mantenerlo hasta COMMIT impide que surja una divergencia tras el cotejo.
+ PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:'||v_evento_ref,0));
  SELECT c.participacion_ref,c.bolsa_ref INTO v_b13
  FROM vec_bolsa_llamamientos.contrato_participacion c
  WHERE c.evento_ref=v_evento_ref AND c.origen_ref=p_origen_ref
@@ -301,6 +304,8 @@ BEGIN
  IF NOT FOUND OR v_ct.llamamiento_ref IS NULL THEN
   RAISE EXCEPTION 'cese CT no acreditado' USING ERRCODE='42501';
  END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:'||
+   'evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex'),0));
  IF NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.contrato_participacion c
      WHERE c.evento_ref='evento:ct:contrato-bolsa:'||encode(sha256(convert_to('cese'||chr(31)||p_origen_ref,'UTF8')),'hex')
        AND c.origen_ref=p_origen_ref AND c.huella_sha256=p_huella_sha256
