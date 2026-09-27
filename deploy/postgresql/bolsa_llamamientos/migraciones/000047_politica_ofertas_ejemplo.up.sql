@@ -25,7 +25,7 @@ CREATE TABLE vec_bolsa_llamamientos.politica_ofertas_version(
  huella_sha256 text NOT NULL CHECK (huella_sha256 ~ '^[0-9a-f]{64}$'),
  ejemplo boolean NOT NULL CHECK (ejemplo),
  actor_ref text NOT NULL CHECK (actor_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
- clave_idempotencia text NOT NULL CHECK (clave_idempotencia ~ '^[A-Za-z0-9:_-]{8,256}$'),
+ clave_idempotencia text NOT NULL CHECK (clave_idempotencia ~ '^[A-Za-z0-9:_-]+$' AND octet_length(clave_idempotencia) BETWEEN 8 AND 256),
  version_esperada bigint NOT NULL CHECK (version_esperada>=0),
  recibo_ref text NOT NULL UNIQUE CHECK (recibo_ref ~ '^recibo:politica-ofertas:[0-9a-f]{64}$'),
  publicada_en timestamptz(6) NOT NULL,
@@ -72,7 +72,7 @@ BEGIN
     OR p_bolsa IS NULL OR p_bolsa !~ '^bolsa:[A-Za-z0-9:_-]{1,250}$'
     OR p_version_esperada IS NULL OR p_version_esperada<0 OR p_version_esperada>2147483646
     OR p_actor IS NULL OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$'
-    OR p_clave IS NULL OR p_clave !~ '^[A-Za-z0-9:_-]{8,256}$'
+    OR p_clave IS NULL OR p_clave !~ '^[A-Za-z0-9:_-]+$' OR octet_length(p_clave) NOT BETWEEN 8 AND 256
     OR p_recibo IS NULL OR p_recibo !~ '^recibo:politica-ofertas:[0-9a-f]{64}$'
     OR jsonb_typeof(p_politica) IS DISTINCT FROM 'object'
     OR (SELECT count(*) FROM jsonb_object_keys(p_politica))<>3
@@ -82,10 +82,8 @@ BEGIN
     OR NOT (p_politica->'plazo' ?& ARRAY['unidad','cantidad','computo','municipio_sede'])
     OR coalesce(p_politica#>>'{plazo,unidad}','') NOT IN ('dias_habiles','dias_naturales')
     OR jsonb_typeof(p_politica#>'{plazo,cantidad}') IS DISTINCT FROM 'number'
-    OR (p_politica#>>'{plazo,cantidad}') !~ '^[0-9]+$'
-    OR CASE WHEN (p_politica#>>'{plazo,cantidad}') ~ '^[0-9]{1,2}$'
-            THEN (p_politica#>>'{plazo,cantidad}')::integer NOT BETWEEN 1 AND 30
-            ELSE true END
+    OR coalesce(p_politica#>>'{plazo,cantidad}','') !~ '^[0-9]{1,2}$'
+    OR (p_politica#>'{plazo,cantidad}') NOT BETWEEN '1'::jsonb AND '30'::jsonb
     OR p_politica#>>'{plazo,computo}' IS DISTINCT FROM 'administrativo'
     OR coalesce(p_politica#>>'{plazo,municipio_sede}','') !~ '^[0-9]{5}$'
     OR jsonb_typeof(p_politica->'adjudicacion') IS DISTINCT FROM 'object'
