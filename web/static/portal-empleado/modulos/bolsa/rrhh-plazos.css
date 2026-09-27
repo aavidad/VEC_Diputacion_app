@@ -1,0 +1,90 @@
+.rrhh-plazos {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.rrhh-plazos .cabecera-panel {
+  background: var(--portal-superficie-alterna);
+}
+
+.rrhh-plazos__cabecera-estado,
+.rrhh-plazos__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rrhh-plazos__rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rrhh-plazos__rejilla > .panel:first-child {
+  grid-column: 1 / -1;
+}
+
+.rrhh-plazos__campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rrhh-plazos__campos .campo {
+  min-width: 0;
+}
+
+.rrhh-plazos__campos .campo--ancho {
+  grid-column: 1 / -1;
+}
+
+.rrhh-plazos__valor {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rrhh-plazos__acciones {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.rrhh-plazos__ayuda {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  font-weight: 700;
+}
+
+.rrhh-plazos__error {
+  border-left: 4px solid var(--portal-peligro);
+  padding: 12px 16px;
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+}
+
+.rrhh-plazos__resultado {
+  border-left: 4px solid var(--portal-exito);
+  padding: 12px 16px;
+  background: var(--portal-exito-suave);
+  color: var(--portal-tinta);
+}
+
+@media (max-width: 760px) {
+  .rrhh-plazos__rejilla,
+  .rrhh-plazos__campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rrhh-plazos__rejilla > .panel:first-child,
+  .rrhh-plazos__campos .campo--ancho {
+    grid-column: auto;
+  }
+}
