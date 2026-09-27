@@ -47,7 +47,13 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 		return puertosbolsa.OfertaPublicada{}, err
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
-	plazo, vence, err := s.plazos.PlazoDisposicion(ctx, ahora)
+	var plazo puertosbolsa.PlazoOferta
+	var vence time.Time
+	if porBolsa, ok := s.plazos.(puertosbolsa.CalculadoraPlazoOfertaPorBolsa); ok {
+		plazo, vence, err = porBolsa.PlazoDisposicionBolsa(ctx, q.BolsaRef, ahora)
+	} else {
+		plazo, vence, err = s.plazos.PlazoDisposicion(ctx, ahora)
+	}
 	if err != nil {
 		if errors.Is(err, puertosbolsa.ErrPlazoOfertaNoConfigurado) {
 			return puertosbolsa.OfertaPublicada{}, err

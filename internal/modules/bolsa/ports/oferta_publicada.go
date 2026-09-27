@@ -29,21 +29,29 @@ var (
 // PlazoOferta conserva la regla del catálogo que fijó el vencimiento y el
 // cálculo hecho con Calendarios en el momento de publicar.
 type PlazoOferta struct {
-	ReglaRef       string   `json:"regla_ref"`
-	HuellaCatalogo string   `json:"huella_catalogo"`
-	Unidad         string   `json:"unidad"`
-	Cantidad       int      `json:"cantidad"`
-	Computo        string   `json:"computo"`
-	UltimoDia      string   `json:"ultimo_dia"`
-	Ejemplo        bool     `json:"ejemplo"`
-	Articulo       string   `json:"articulo,omitempty"`
-	Calendarios    []string `json:"calendarios,omitempty"`
+	ReglaRef        string   `json:"regla_ref"`
+	HuellaCatalogo  string   `json:"huella_catalogo"`
+	Unidad          string   `json:"unidad"`
+	Cantidad        int      `json:"cantidad"`
+	Computo         string   `json:"computo"`
+	UltimoDia       string   `json:"ultimo_dia"`
+	Ejemplo         bool     `json:"ejemplo"`
+	Articulo        string   `json:"articulo,omitempty"`
+	Calendarios     []string `json:"calendarios,omitempty"`
+	PoliticaVersion int64    `json:"politica_version,omitempty"`
+	MunicipioSede   string   `json:"municipio_sede,omitempty"`
 }
 
 // CalculadoraPlazoOferta resuelve el plazo de disposición desde la
 // publicación. Devuelve ErrPlazoOfertaNoConfigurado si no hay regla.
 type CalculadoraPlazoOferta interface {
 	PlazoDisposicion(context.Context, time.Time) (PlazoOferta, time.Time, error)
+}
+
+// CalculadoraPlazoOfertaPorBolsa selecciona la versión de política propia de
+// la bolsa. La interfaz anterior sigue sirviendo a pruebas y ofertas previas.
+type CalculadoraPlazoOfertaPorBolsa interface {
+	PlazoDisposicionBolsa(context.Context, string, time.Time) (PlazoOferta, time.Time, error)
 }
 
 type DisposicionOferta struct {
