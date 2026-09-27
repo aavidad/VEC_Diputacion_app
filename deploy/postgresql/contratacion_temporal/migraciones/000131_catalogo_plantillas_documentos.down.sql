@@ -11,9 +11,13 @@ DO $vacia$
 BEGIN
  IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1)
     OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.catalogo_plantillas_outbox_v1)
+    OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1)
  THEN RAISE EXCEPTION 'CT-131: DOWN denegado con historia' USING ERRCODE='55000'; END IF;
 END $vacia$;
 DROP FUNCTION vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
+DROP FUNCTION vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text);
+DROP FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text);
+DROP TABLE vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1;
 DROP TABLE vec_contratacion_temporal.catalogo_plantillas_outbox_v1;
 DROP TABLE vec_contratacion_temporal.catalogo_plantillas_historia_v1;
 COMMIT;

@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 -- CT-131: historia administrativa del catálogo completo de plantillas.
--- AD3-94 debe precederla. La primera edición puede incorporar como preimagen
--- una publicación bootstrap externa; la migración no fija esa definición.
+-- AD3-94 debe precederla. La publicación inicial se provisiona por el
+-- migrador antes de exponer HTTP; ninguna edición puede importarla.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -15,6 +15,8 @@ BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario'
     OR to_regclass('vec_contratacion_temporal.catalogo_plantillas_historia_v1') IS NOT NULL
     OR to_regprocedure('vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text)') IS NOT NULL
+    OR to_regprocedure('vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)') IS NOT NULL
     OR to_regprocedure('vec_contratacion_temporal.rechazar_mutacion_historia_v1()') IS NULL
  THEN RAISE EXCEPTION 'CT-131: preimagen incompatible' USING ERRCODE='55000'; END IF;
  f:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
@@ -38,6 +40,8 @@ CREATE TABLE vec_contratacion_temporal.catalogo_plantillas_historia_v1 (
  decision_ref text NOT NULL,
  consumo_huella_sha256 text NOT NULL,
  auditoria_ref text NOT NULL,
+ provision_fuente_ref text,
+ provision_aprobacion_ref text,
  registrada_en timestamptz(6) NOT NULL,
  UNIQUE(version,revision,estado),
  UNIQUE(clave_idempotencia),
@@ -51,6 +55,11 @@ CREATE TABLE vec_contratacion_temporal.catalogo_plantillas_historia_v1 (
  CHECK (decision_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
  CHECK (consumo_huella_sha256~'^[0-9a-f]{64}$'),
  CHECK (auditoria_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ CHECK ((origen='bootstrap')=(provision_fuente_ref IS NOT NULL)),
+ CHECK ((origen='bootstrap')=(provision_aprobacion_ref IS NOT NULL)),
+ CHECK (provision_fuente_ref IS NULL OR provision_fuente_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ CHECK (provision_aprobacion_ref IS NULL OR provision_aprobacion_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ CHECK (origen<>'bootstrap' OR (catalogo->>'fuente_ref'=provision_fuente_ref AND catalogo->>'aprobacion_ref'=provision_aprobacion_ref)),
  CHECK (registrada_en=date_trunc('microseconds',registrada_en)),
  CHECK (catalogo->>'id'='vec.contratacion_temporal.plantillas_documentos'),
  CHECK (catalogo->>'modulo_id'='contratacion_temporal'),
@@ -68,10 +77,20 @@ CREATE TABLE vec_contratacion_temporal.catalogo_plantillas_outbox_v1 (
  creada_en timestamptz(6) NOT NULL,
  FOREIGN KEY(recibo_ref) REFERENCES vec_contratacion_temporal.catalogo_plantillas_historia_v1(recibo_ref)
 );
+CREATE TABLE vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1 (
+ recibo_ref text PRIMARY KEY CHECK(recibo_ref~'^recibo:[0-9a-f-]{36}$'),
+ historia_secuencia bigint NOT NULL UNIQUE REFERENCES vec_contratacion_temporal.catalogo_plantillas_historia_v1(secuencia),
+ auditoria_ref text NOT NULL UNIQUE CHECK(auditoria_ref~'^provision:[0-9a-f-]{36}$'),
+ solicitud_huella_sha256 text NOT NULL CHECK(solicitud_huella_sha256~'^[0-9a-f]{64}$'),
+ instalador_ref text NOT NULL CHECK(instalador_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ fuente_ref text NOT NULL CHECK(fuente_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ aprobacion_ref text NOT NULL CHECK(aprobacion_ref~'^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
+ registrada_en timestamptz(6) NOT NULL CHECK(registrada_en=date_trunc('microseconds',registrada_en))
+);
 DO $proteccion$
 DECLARE tabla text; r record;
 BEGIN
- FOREACH tabla IN ARRAY ARRAY['catalogo_plantillas_historia_v1','catalogo_plantillas_outbox_v1'] LOOP
+ FOREACH tabla IN ARRAY ARRAY['catalogo_plantillas_historia_v1','catalogo_plantillas_outbox_v1','catalogo_plantillas_provision_auditoria_v1'] LOOP
   EXECUTE format('CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_contratacion_temporal.%I FOR EACH ROW EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1()',tabla);
   EXECUTE format('CREATE TRIGGER historia_no_truncar BEFORE TRUNCATE ON vec_contratacion_temporal.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1()',tabla);
   EXECUTE format('ALTER TABLE vec_contratacion_temporal.%I ENABLE ROW LEVEL SECURITY',tabla);
@@ -86,6 +105,123 @@ BEGIN
  END LOOP;
 END $proteccion$;
 
+-- Instalación gobernada fuera del proceso HTTP. La misma solicitud devuelve
+-- el mismo recibo; otra publicación o una solicitud divergente se rechaza.
+CREATE FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(
+ p_catalogo jsonb,p_huella_sha256 text,p_fuente_ref text,p_aprobacion_ref text)
+RETURNS TABLE(resultado text,recibo_ref text,version bigint,revision bigint,catalogo_huella_sha256 text,
+ contenido_json_sha256 text,procedencia_ref text,registrada_en timestamptz)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s'
+AS $provision$
+DECLARE h record; a record; v bigint; r bigint; json_h text; solicitud_h text;
+ n integer; distintas integer; sec bigint; recibo text; auditoria text; ahora timestamptz(6);
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_gobernador','MEMBER')
+    OR current_setting('transaction_isolation')<>'serializable'
+    OR current_setting('transaction_read_only')<>'off'
+ THEN RAISE EXCEPTION 'CT-131: provisión denegada' USING ERRCODE='42501'; END IF;
+ IF p_catalogo IS NULL OR jsonb_typeof(p_catalogo)<>'object'
+    OR octet_length(p_catalogo::text)>16777216
+    OR p_catalogo->>'id' IS DISTINCT FROM 'vec.contratacion_temporal.plantillas_documentos'
+    OR p_catalogo->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+    OR p_catalogo->>'estado' IS DISTINCT FROM 'publicado'
+    OR jsonb_typeof(p_catalogo->'entradas') IS DISTINCT FROM 'array'
+    OR p_huella_sha256 IS NULL OR p_huella_sha256 !~ '^[0-9a-f]{64}$'
+    OR p_fuente_ref IS NULL OR p_fuente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    OR p_aprobacion_ref IS NULL OR p_aprobacion_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    OR p_catalogo->>'fuente_ref' IS DISTINCT FROM p_fuente_ref
+    OR p_catalogo->>'aprobacion_ref' IS DISTINCT FROM p_aprobacion_ref
+    OR nullif(p_catalogo->>'creado_por','') IS NULL
+    OR nullif(p_catalogo->>'creado_en','') IS NULL
+    OR nullif(p_catalogo->>'publicado_por','') IS NULL
+    OR nullif(p_catalogo->>'publicado_en','') IS NULL
+    OR nullif(p_catalogo->>'motivo_publicacion','') IS NULL
+ THEN RAISE EXCEPTION 'CT-131: catálogo de provisión inválido' USING ERRCODE='22023'; END IF;
+ BEGIN v:=(p_catalogo->>'version')::bigint; r:=(p_catalogo->>'revision')::bigint;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'CT-131: versión de provisión inválida' USING ERRCODE='22023'; END;
+ IF v<1 OR r<1 OR v>9007199254740991 OR r>9007199254740991
+ THEN RAISE EXCEPTION 'CT-131: versión de provisión inválida' USING ERRCODE='22023'; END IF;
+ SELECT count(*)::integer,count(DISTINCT e->>'clave')::integer INTO n,distintas
+ FROM jsonb_array_elements(p_catalogo->'entradas') e;
+ IF n<1 OR n>10000 OR n<>distintas OR EXISTS (
+  SELECT 1 FROM jsonb_array_elements(p_catalogo->'entradas') e
+  WHERE jsonb_typeof(e)<>'object' OR nullif(e->>'clave','') IS NULL)
+ THEN RAISE EXCEPTION 'CT-131: entradas de provisión inválidas' USING ERRCODE='22023'; END IF;
+ json_h:=encode(sha256(convert_to(p_catalogo::text,'UTF8')),'hex');
+ solicitud_h:=encode(sha256(convert_to(p_huella_sha256||'|'||json_h||'|'||p_fuente_ref||'|'||p_aprobacion_ref,'UTF8')),'hex');
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:catalogo_plantillas_documentos',0));
+ SELECT * INTO h FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 ORDER BY secuencia LIMIT 1;
+ IF FOUND THEN
+  IF h.origen<>'bootstrap' OR h.version<>v OR h.revision<>r
+     OR h.catalogo_huella_sha256<>p_huella_sha256 OR h.contenido_json_sha256<>json_h
+     OR h.provision_fuente_ref<>p_fuente_ref OR h.provision_aprobacion_ref<>p_aprobacion_ref
+     OR h.consumo_huella_sha256<>solicitud_h
+  THEN RAISE EXCEPTION 'CT-131: provisión existente divergente' USING ERRCODE='23505'; END IF;
+  SELECT * INTO a FROM vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1
+   WHERE historia_secuencia=h.secuencia;
+  IF NOT FOUND OR a.auditoria_ref<>h.auditoria_ref OR a.solicitud_huella_sha256<>solicitud_h
+     OR a.instalador_ref<>h.actor_ref OR a.fuente_ref<>p_fuente_ref
+     OR a.aprobacion_ref<>p_aprobacion_ref OR a.registrada_en<>h.registrada_en
+  THEN RAISE EXCEPTION 'CT-131: auditoría de provisión incompatible' USING ERRCODE='55000'; END IF;
+  RETURN QUERY SELECT 'replay'::text,a.recibo_ref,h.version,h.revision,h.catalogo_huella_sha256,
+    h.contenido_json_sha256,h.provision_fuente_ref,h.registrada_en;
+  RETURN;
+ END IF;
+ ahora:=date_trunc('microseconds',clock_timestamp());
+ recibo:='recibo:'||gen_random_uuid()::text;
+ auditoria:='provision:'||gen_random_uuid()::text;
+ INSERT INTO vec_contratacion_temporal.catalogo_plantillas_historia_v1(
+  version,revision,estado,origen,catalogo,catalogo_huella_sha256,contenido_json_sha256,
+  actor_ref,decision_ref,consumo_huella_sha256,auditoria_ref,
+  provision_fuente_ref,provision_aprobacion_ref,registrada_en)
+ VALUES(v,r,'publicado','bootstrap',p_catalogo,p_huella_sha256,json_h,
+  session_user::text,p_aprobacion_ref,solicitud_h,auditoria,
+  p_fuente_ref,p_aprobacion_ref,ahora) RETURNING secuencia INTO sec;
+ INSERT INTO vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1(
+  recibo_ref,historia_secuencia,auditoria_ref,solicitud_huella_sha256,
+  instalador_ref,fuente_ref,aprobacion_ref,registrada_en)
+ VALUES(recibo,sec,auditoria,solicitud_h,session_user::text,p_fuente_ref,p_aprobacion_ref,ahora);
+ RETURN QUERY SELECT 'registrado'::text,recibo,v,r,p_huella_sha256,json_h,p_fuente_ref,ahora;
+END $provision$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text) TO vec_contratacion_temporal_migrador;
+
+-- Sonda mínima del arranque. No devuelve el texto del catálogo y nunca escribe.
+CREATE FUNCTION vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(
+ p_huella_sha256 text,p_version bigint,p_fuente_ref text)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s'
+AS $comprobar$
+DECLARE b record; a record;
+BEGIN
+ IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+    OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+    OR p_huella_sha256 IS NULL OR p_huella_sha256 !~ '^[0-9a-f]{64}$'
+    OR p_version IS NULL OR p_version<1 OR p_fuente_ref IS NULL
+ THEN RAISE EXCEPTION 'CT-131: comprobación denegada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO b FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 ORDER BY secuencia LIMIT 1;
+ IF NOT FOUND OR b.origen<>'bootstrap' OR b.estado<>'publicado'
+    OR b.version<>p_version OR b.catalogo_huella_sha256<>p_huella_sha256
+    OR b.provision_fuente_ref<>p_fuente_ref
+    OR b.contenido_json_sha256<>encode(sha256(convert_to(b.catalogo::text,'UTF8')),'hex')
+ THEN RAISE EXCEPTION 'CT-131: publicación inicial no provisionada o divergente' USING ERRCODE='55000'; END IF;
+ SELECT * INTO a FROM vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1
+  WHERE historia_secuencia=b.secuencia;
+ IF NOT FOUND OR a.auditoria_ref<>b.auditoria_ref OR a.solicitud_huella_sha256<>b.consumo_huella_sha256
+    OR a.fuente_ref<>b.provision_fuente_ref OR a.aprobacion_ref<>b.provision_aprobacion_ref
+    OR a.instalador_ref<>b.actor_ref OR a.registrada_en<>b.registrada_en
+ THEN RAISE EXCEPTION 'CT-131: auditoría de provisión ausente o divergente' USING ERRCODE='55000'; END IF;
+ RETURN true;
+END $comprobar$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text) TO vec_contratacion_temporal_ejecutor;
+
 CREATE FUNCTION vec_contratacion_temporal.operar_catalogo_plantillas_v1(
  p_material jsonb,
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -95,9 +231,9 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s'
 AS $funcion$
 DECLARE
- operacion text; d jsonb; c jsonb; nuevo jsonb; base jsonb; solicitud jsonb;
- consumo record; anterior record; previa record; publicado jsonb; borrador jsonb;
- material_h text; contexto_h text; solicitud_h text; catalogo_h text; base_h text;
+ operacion text; d jsonb; c jsonb; nuevo jsonb; solicitud jsonb;
+ consumo record; anterior record; previa record; publicado jsonb; borrador jsonb; provision record; provision_auditoria record;
+ material_h text; contexto_h text; solicitud_h text; catalogo_h text;
  entrada jsonb; vieja_entradas jsonb; nueva_entradas jsonb; clave_entrada text;
  vieja_cantidad integer; nueva_cantidad integer; vieja_claves integer; nueva_claves integer;
  clave uuid; esperado_v bigint; esperado_r bigint; nuevo_v bigint; nuevo_r bigint;
@@ -116,7 +252,7 @@ BEGIN
  THEN RAISE EXCEPTION 'CT-131: material inválido' USING ERRCODE='22023'; END IF;
  operacion:=p_material->>'operacion';
  IF operacion IS NULL OR operacion<>ALL(ARRAY['consultar','editar','publicar'])
-    OR (p_material-ARRAY['operacion','clave_idempotencia','version_esperada','revision_esperada','catalogo','catalogo_huella_sha256','catalogo_base','catalogo_base_huella_sha256','solicitud'])<>'{}'::jsonb
+    OR (p_material-ARRAY['operacion','clave_idempotencia','version_esperada','revision_esperada','catalogo','catalogo_huella_sha256','catalogo_base_huella_sha256','solicitud'])<>'{}'::jsonb
  THEN RAISE EXCEPTION 'CT-131: operación inválida' USING ERRCODE='22023'; END IF;
  BEGIN d:=convert_from(p_decision,'UTF8')::jsonb; c:=convert_from(p_capacidad,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'CT-131: decisión inválida' USING ERRCODE='22023'; END;
@@ -127,6 +263,8 @@ BEGIN
     OR d->>'tipo_recurso' IS DISTINCT FROM 'catalogo_plantillas_contratacion_temporal'
     OR d->>'finalidad' IS DISTINCT FROM 'gestionar_catalogo_plantillas_contratacion_temporal'
     OR d->>'recurso_ref' IS DISTINCT FROM 'vec.contratacion_temporal.plantillas_documentos'
+    OR d->'campos_permitidos' IS DISTINCT FROM (CASE WHEN operacion='consultar'
+         THEN '["borrador","editor_de_esta_version","publicado"]'::jsonb ELSE '["catalogo","recibo"]'::jsonb END)
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM contexto_h
     OR c->>'huella_efecto_sha256' IS DISTINCT FROM contexto_h
  THEN RAISE EXCEPTION 'CT-131: decisión divergente' USING ERRCODE='42501'; END IF;
@@ -146,7 +284,11 @@ BEGIN
   SELECT CASE WHEN h.estado='borrador' THEN h.catalogo ELSE NULL END INTO borrador
    FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 h ORDER BY h.secuencia DESC LIMIT 1;
   SELECT h.catalogo INTO publicado FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 h WHERE h.estado='publicado' ORDER BY h.secuencia DESC LIMIT 1;
-  RETURN jsonb_build_object('borrador',borrador,'publicado',publicado);
+  RETURN jsonb_build_object('borrador',borrador,'publicado',publicado,
+   'editor_de_esta_version',CASE WHEN borrador IS NULL THEN false ELSE EXISTS (
+    SELECT 1 FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 e
+     WHERE e.estado='borrador' AND e.version=(borrador->>'version')::bigint
+       AND e.actor_ref=actor) END);
  END IF;
  IF p_material->>'clave_idempotencia' IS NULL
     OR p_material->>'clave_idempotencia' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -161,7 +303,7 @@ BEGIN
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'CT-131: versión inválida' USING ERRCODE='22023'; END;
  IF esperado_v<0 OR esperado_r<0 OR esperado_v>9007199254740991 OR esperado_r>9007199254740991
  THEN RAISE EXCEPTION 'CT-131: versión inválida' USING ERRCODE='22023'; END IF;
- nuevo:=p_material->'catalogo'; base:=p_material->'catalogo_base'; solicitud:=p_material->'solicitud';
+ nuevo:=p_material->'catalogo'; solicitud:=p_material->'solicitud';
  catalogo_h:=p_material->>'catalogo_huella_sha256';
  solicitud_h:=encode(sha256(convert_to(solicitud::text,'UTF8')),'hex');
  IF solicitud->>'version_esperada' IS DISTINCT FROM esperado_v::text
@@ -195,34 +337,26 @@ BEGIN
     OR octet_length(nuevo::text)>16777216
  THEN RAISE EXCEPTION 'CT-131: catálogo inválido' USING ERRCODE='22023'; END IF;
  SELECT * INTO anterior FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 ORDER BY secuencia DESC LIMIT 1;
- IF NOT FOUND AND base IS NULL
- THEN RAISE EXCEPTION 'CT-131: catálogo bootstrap requerido' USING ERRCODE='55000'; END IF;
- IF NOT FOUND AND base IS NOT NULL THEN
-  IF jsonb_typeof(base)<>'object' OR base->>'id' IS DISTINCT FROM 'vec.contratacion_temporal.plantillas_documentos'
-     OR base->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal' OR base->>'estado' IS DISTINCT FROM 'publicado'
-     OR p_material->>'catalogo_base_huella_sha256' IS NULL
-     OR p_material->>'catalogo_base_huella_sha256' !~ '^[0-9a-f]{64}$'
-     OR jsonb_typeof(base->'entradas')<>'array' OR jsonb_array_length(base->'entradas')=0
-     OR base->>'creado_por' IS NULL OR base->>'creado_en' IS NULL
-     OR base->>'publicado_por' IS NULL OR base->>'publicado_en' IS NULL
-     OR base->>'aprobacion_ref' IS NULL OR base->>'motivo_publicacion' IS NULL
-     OR octet_length(base::text)>16777216
-  THEN RAISE EXCEPTION 'CT-131: preimagen bootstrap inválida' USING ERRCODE='22023'; END IF;
-  BEGIN nuevo_v:=(base->>'version')::bigint; nuevo_r:=(base->>'revision')::bigint;
-  EXCEPTION WHEN others THEN RAISE EXCEPTION 'CT-131: versión bootstrap inválida' USING ERRCODE='22023'; END;
-  IF nuevo_v<1 OR nuevo_r<1 OR esperado_v<>nuevo_v OR esperado_r<>0
-  THEN RAISE EXCEPTION 'CT-131: conflicto bootstrap' USING ERRCODE='40001'; END IF;
-  ahora:=date_trunc('microseconds',clock_timestamp());
-  INSERT INTO vec_contratacion_temporal.catalogo_plantillas_historia_v1(
-   version,revision,estado,origen,catalogo,catalogo_huella_sha256,contenido_json_sha256,
-   actor_ref,decision_ref,consumo_huella_sha256,auditoria_ref,registrada_en)
-  VALUES(nuevo_v,nuevo_r,'publicado','bootstrap',base,p_material->>'catalogo_base_huella_sha256',
-   encode(sha256(convert_to(base::text,'UTF8')),'hex'),actor,consumo.decision_ref,
-   consumo.consumo_huella_sha256,consumo.auditoria_ref,ahora);
-  SELECT * INTO anterior FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 ORDER BY secuencia DESC LIMIT 1;
- END IF;
- IF anterior.secuencia IS NOT NULL AND base IS NOT NULL AND anterior.origen<>'bootstrap'
- THEN RAISE EXCEPTION 'CT-131: bootstrap tardío' USING ERRCODE='40001'; END IF;
+ IF NOT FOUND THEN RAISE EXCEPTION 'CT-131: catálogo bootstrap no provisionado' USING ERRCODE='55000'; END IF;
+ SELECT * INTO provision FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 ORDER BY secuencia LIMIT 1;
+ IF provision.origen<>'bootstrap' OR provision.estado<>'publicado'
+    OR provision.contenido_json_sha256<>encode(sha256(convert_to(provision.catalogo::text,'UTF8')),'hex')
+ THEN RAISE EXCEPTION 'CT-131: control bootstrap incompatible' USING ERRCODE='55000'; END IF;
+ SELECT * INTO provision_auditoria FROM vec_contratacion_temporal.catalogo_plantillas_provision_auditoria_v1
+  WHERE historia_secuencia=provision.secuencia;
+ IF NOT FOUND OR provision_auditoria.auditoria_ref<>provision.auditoria_ref
+    OR provision_auditoria.solicitud_huella_sha256<>provision.consumo_huella_sha256
+    OR provision_auditoria.fuente_ref<>provision.provision_fuente_ref
+    OR provision_auditoria.aprobacion_ref<>provision.provision_aprobacion_ref
+    OR provision_auditoria.instalador_ref<>provision.actor_ref
+    OR provision_auditoria.registrada_en<>provision.registrada_en
+ THEN RAISE EXCEPTION 'CT-131: auditoría bootstrap incompatible' USING ERRCODE='55000'; END IF;
+ IF anterior.origen='bootstrap' AND (
+    operacion<>'editar' OR anterior.version<>esperado_v OR esperado_r<>0
+    OR p_material->>'catalogo_base_huella_sha256' IS DISTINCT FROM anterior.catalogo_huella_sha256)
+ THEN RAISE EXCEPTION 'CT-131: huella o versión bootstrap divergente' USING ERRCODE='40001'; END IF;
+ IF anterior.origen<>'bootstrap' AND p_material ? 'catalogo_base_huella_sha256'
+ THEN RAISE EXCEPTION 'CT-131: huella bootstrap tardía' USING ERRCODE='40001'; END IF;
  IF operacion='editar' THEN
   IF anterior.secuencia IS NULL THEN
    RAISE EXCEPTION 'CT-131: catálogo bootstrap requerido' USING ERRCODE='55000';
@@ -264,6 +398,8 @@ BEGIN
   IF nuevo->>'publicado_por' IS DISTINCT FROM actor
      OR actor=anterior.catalogo->>'creado_por'
      OR actor=anterior.catalogo->>'ultima_modificacion_por'
+     OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.catalogo_plantillas_historia_v1 e
+                 WHERE e.estado='borrador' AND e.version=anterior.version AND e.actor_ref=actor)
      OR nuevo->>'aprobacion_ref' IS NULL OR nuevo->>'aprobacion_ref'=''
      OR nuevo->>'motivo_publicacion' IS NULL OR nuevo->>'motivo_publicacion'=''
      OR nuevo->>'publicado_en' IS NULL OR nuevo->>'publicado_en'=''

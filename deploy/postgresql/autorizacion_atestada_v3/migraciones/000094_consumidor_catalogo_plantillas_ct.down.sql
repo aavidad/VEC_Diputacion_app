@@ -34,6 +34,8 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
  AND d->>'recurso_ref' IS NOT DISTINCT FROM 'vec.contratacion_temporal.plantillas_documentos'
  AND c->>'efecto_ref' IS NOT DISTINCT FROM d->>'recurso_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM CASE WHEN c->>'operacion'='contratacion_temporal.plantillas_documentos.consultar'
+      THEN '["borrador","editor_de_esta_version","publicado"]'::jsonb ELSE '["catalogo","recibo"]'::jsonb END
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
