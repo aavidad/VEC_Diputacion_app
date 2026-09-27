@@ -173,7 +173,11 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 	}
 	datos, err := f.cargar(ctx)
 	if err != nil {
-		log.Printf("bolsa rrhh: bolsas constituidas no legibles: %v", err)
+		if f.ceseActivo {
+			log.Printf("bolsa rrhh: estado de cese no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
+		} else {
+			log.Printf("bolsa rrhh: bolsas constituidas no legibles: %v", err)
+		}
 		if f.cacheada && !f.ceseActivo {
 			return f.cache, true
 		}

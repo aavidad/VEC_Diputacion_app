@@ -159,6 +159,13 @@ type entregaCesesCTBolsa struct {
 	lote   int
 }
 
+// El worker compartido escribe el error recibido en slog. Nunca se le
+// entrega el texto de pgconn: puede contener host, usuario o DSN privado.
+func falloRelevoCeseBolsaDesarrollo(err error) error {
+	slog.Error("relevo de ceses CT a Bolsa no disponible", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+	return puertosbolsa.ErrContratosParticipacionNoDisponible
+}
+
 func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaContratosCT, error) {
 	var resultado resultadoEntregaContratosCT
 	if e == nil || e.lector == nil || e.pool == nil || e.lote < 1 || e.lote > puertosct.LimiteLecturaContratosBolsa || ctx == nil {
@@ -167,12 +174,12 @@ func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaCon
 	var desde puertosct.CursorPublicacionContratosBolsa
 	err := e.pool.QueryRow(ctx, `SELECT origen_posicion,origen_ref FROM vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()`).Scan(&desde.Posicion, &desde.OrigenRef)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return resultado, err
+		return resultado, falloRelevoCeseBolsaDesarrollo(err)
 	}
 	for pagina := 0; pagina < maximoPaginasEntregaContratosCT; pagina++ {
 		eventos, err := e.lector.LeerCesesBolsa(ctx, desde, e.lote)
 		if err != nil {
-			return resultado, err
+			return resultado, falloRelevoCeseBolsaDesarrollo(err)
 		}
 		for _, evento := range eventos {
 			var contenido struct {
@@ -194,13 +201,13 @@ func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaCon
 			if err != nil {
 				var pg *pgconn.PgError
 				if !errors.As(err, &pg) || pg.Code != "23503" {
-					return resultado, err
+					return resultado, falloRelevoCeseBolsaDesarrollo(err)
 				}
 				// Un cese sin llamamiento Bolsa también queda acreditado. Si el
 				// llamamiento existe pero falta su vínculo, SQL deniega y reintenta.
 				if err := e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1($1,$2,$3)`,
 					evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada); err != nil {
-					return resultado, err
+					return resultado, falloRelevoCeseBolsaDesarrollo(err)
 				}
 			} else if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
 				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
@@ -238,7 +245,7 @@ func iniciarEntregaCesesCTBolsaDesarrollo(ctx context.Context, cfg config.Config
 	}
 	pool, err := abrirPoolRelevoBolsaDesarrollo(ctx, dsn, rolRelevoCeseBolsaDesarrollo, "vec-bolsa-relevo-cese-ct")
 	if err != nil {
-		return nada, err
+		return nada, falloRelevoCeseBolsaDesarrollo(err)
 	}
 	var instalada bool
 	err = pool.QueryRow(ctx, `SELECT bool_and(coalesce(has_function_privilege(to_regprocedure(f),'EXECUTE'),false))
