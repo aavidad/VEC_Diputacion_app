@@ -182,3 +182,29 @@ func TestOpcionesAuditoriaDeniegaIdentidadCaducadaConInstanteCanonico(t *testing
 		t.Fatalf("GET caducado status=%d llamadas=%d body=%s", w.Code, opciones.llamadas, w.Body.String())
 	}
 }
+
+func TestOpcionesAuditoriaRespetaLimiteExclusivoDeSesion(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	identidad := identidadVigenteAuditoriaHTTPPrueba(t, ahora)
+	datos, err := identidad.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	opciones := &opcionesAuditoriaHTTPPrueba{}
+	h, err := NuevoManejador(&Servicio{}, opciones, identidadAuditoriaHTTPPrueba{identidad})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.ahora = func() time.Time { return datos.SesionValidaHasta.Add(-time.Nanosecond) }
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaOpciones, nil))
+	if w.Code != http.StatusOK || opciones.llamadas != 1 {
+		t.Fatalf("instante anterior al limite: status=%d llamadas=%d", w.Code, opciones.llamadas)
+	}
+	h.ahora = func() time.Time { return datos.SesionValidaHasta.Add(time.Nanosecond) }
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaOpciones, nil))
+	if w.Code != http.StatusForbidden || opciones.llamadas != 1 {
+		t.Fatalf("instante posterior al limite: status=%d llamadas=%d", w.Code, opciones.llamadas)
+	}
+}

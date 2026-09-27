@@ -93,7 +93,7 @@ func (s *Servicio) Consultar(ctx context.Context, p Peticion) (Pagina, error) {
 		p.Contexto.Motivo.Referencia() != f.MotivoRef ||
 		p.Contexto.Resultado.Validar() != nil ||
 		p.Contexto.Vinculo.ValidarPara(p.Contexto.Resultado) != nil ||
-		!p.Contexto.Vinculo.VigenteEn(s.ahora().UTC(), p.Contexto.Resultado) ||
+		!p.Contexto.Vinculo.VigenteEn(s.ahora().UTC().Truncate(time.Microsecond), p.Contexto.Resultado) ||
 		p.Contexto.Correlacion.Validar() != nil {
 		return Pagina{}, ErrDenegada
 	}
