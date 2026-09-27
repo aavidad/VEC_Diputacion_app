@@ -40,9 +40,9 @@ const (
 // nunca al generar un documento.
 var ErrPlantillasBorradorInvalidas = errors.New("contratacion temporal: catalogo de plantillas de borrador invalido")
 
-// TiposBorradorConocidos es la lista cerrada de documentos que la API sabe
-// servir. Un catálogo puede omitir alguno (entonces no está disponible), pero
-// no puede inventar otro.
+// TiposBorradorConocidos conserva los tipos del catálogo de ejemplo para los
+// consumidores antiguos. La disponibilidad y admisión de tipos nuevos se
+// determinan exclusivamente por la versión publicada del catálogo.
 var TiposBorradorConocidos = []ports.TipoBorradorRRHH{
 	ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
 	ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
@@ -85,6 +85,7 @@ func (p PlantillaBorrador) AdmiteModalidad(modalidad domain.ClaveCatalogo) bool 
 // PlantillasBorrador es la instantánea inmutable cargada al arrancar.
 type PlantillasBorrador struct {
 	plantillas map[ports.TipoBorradorRRHH]PlantillaBorrador
+	tipos      []ports.TipoBorradorRRHH
 	etiquetas  map[string]string
 	referencia string
 	huella     string
@@ -106,18 +107,12 @@ func (p *PlantillasBorrador) Plantilla(tipo ports.TipoBorradorRRHH) (PlantillaBo
 	return plantilla, true
 }
 
-// Tipos lista los documentos disponibles en el orden de la lista cerrada.
+// Tipos lista los documentos vigentes en el orden del catálogo publicado.
 func (p *PlantillasBorrador) Tipos() []ports.TipoBorradorRRHH {
 	if p == nil {
 		return nil
 	}
-	tipos := make([]ports.TipoBorradorRRHH, 0, len(p.plantillas))
-	for _, tipo := range TiposBorradorConocidos {
-		if _, ok := p.plantillas[tipo]; ok {
-			tipos = append(tipos, tipo)
-		}
-	}
-	return tipos
+	return append([]ports.TipoBorradorRRHH(nil), p.tipos...)
 }
 
 // Referencia identifica catálogo y versión; Huella es su SHA-256 canónico.
@@ -144,14 +139,40 @@ func (p *PlantillasBorrador) etiqueta(prefijo, clave string) string {
 	return clave
 }
 
-// NuevasPlantillasBorrador valida el catálogo completo con las entradas
-// vigentes en instante. Cualquier atributo, campo o tipo desconocido, bloque
-// mal cerrado o texto fuera de límites invalida el catálogo entero.
-func NuevasPlantillasBorrador(catalogo vecdomain.CatalogoConfigurable, instante time.Time) (*PlantillasBorrador, error) {
+// ValidarCatalogoPlantillasBorrador comprueba también los borradores antes de
+// publicarlos. La autorización, la transición y el recibo corresponden a la
+// autoridad administrativa de catálogos, no a este adaptador de lectura.
+func ValidarCatalogoPlantillasBorrador(catalogo vecdomain.CatalogoConfigurable) error {
 	canonico, err := catalogo.ClonarCanonico()
 	if err != nil || canonico.ID != CatalogoPlantillasBorradorID || canonico.ModuloID != ModuloPlantillasBorrador ||
-		canonico.Estado != vecdomain.EstadoCatalogoPublicado || instante.IsZero() ||
 		len(canonico.Entradas) > maximoPlantillasCatalogo+1 {
+		return ErrPlantillasBorradorInvalidas
+	}
+	contador := 0
+	for _, entrada := range canonico.Entradas {
+		if entrada.Clave == claveEntradaEtiquetas {
+			if err := (&PlantillasBorrador{etiquetas: map[string]string{}}).cargarEtiquetas(entrada.Atributos); err != nil {
+				return err
+			}
+			continue
+		}
+		contador++
+		if _, err := plantillaDesdeEntrada(canonico, ports.TipoBorradorRRHH(entrada.Clave), entrada); err != nil {
+			return err
+		}
+	}
+	if contador == 0 {
+		return ErrPlantillasBorradorInvalidas
+	}
+	return nil
+}
+
+// NuevasPlantillasBorrador carga únicamente las entradas vigentes en instante.
+// Una entrada futura o caducada inválida también impide cargar la versión.
+func NuevasPlantillasBorrador(catalogo vecdomain.CatalogoConfigurable, instante time.Time) (*PlantillasBorrador, error) {
+	canonico, err := catalogo.ClonarCanonico()
+	if err != nil || canonico.Estado != vecdomain.EstadoCatalogoPublicado || instante.IsZero() ||
+		ValidarCatalogoPlantillasBorrador(canonico) != nil {
 		return nil, ErrPlantillasBorradorInvalidas
 	}
 	huella, err := canonico.HuellaSHA256()
@@ -163,32 +184,23 @@ func NuevasPlantillasBorrador(catalogo vecdomain.CatalogoConfigurable, instante 
 		etiquetas:  map[string]string{},
 		referencia: canonico.Referencia(), huella: huella,
 	}
-	conocidos := make(map[ports.TipoBorradorRRHH]struct{}, len(TiposBorradorConocidos))
-	for _, tipo := range TiposBorradorConocidos {
-		conocidos[tipo] = struct{}{}
-	}
 	for _, entrada := range canonico.Entradas {
 		if entrada.Clave == claveEntradaEtiquetas {
-			if !entrada.VigenteEn(instante) {
-				continue
-			}
-			if err := resultado.cargarEtiquetas(entrada.Atributos); err != nil {
-				return nil, err
+			if entrada.VigenteEn(instante) {
+				if err := resultado.cargarEtiquetas(entrada.Atributos); err != nil {
+					return nil, err
+				}
 			}
 			continue
 		}
 		tipo := ports.TipoBorradorRRHH(entrada.Clave)
-		if _, ok := conocidos[tipo]; !ok {
-			return nil, ErrPlantillasBorradorInvalidas
-		}
-		// Una entrada no vigente se valida igual: un error latente no espera
-		// a la fecha en que entraría en vigor.
 		plantilla, err := plantillaDesdeEntrada(canonico, tipo, entrada)
 		if err != nil {
 			return nil, err
 		}
 		if entrada.VigenteEn(instante) {
 			resultado.plantillas[tipo] = plantilla
+			resultado.tipos = append(resultado.tipos, tipo)
 		}
 	}
 	if len(resultado.plantillas) == 0 {
