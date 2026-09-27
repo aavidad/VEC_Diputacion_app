@@ -31,6 +31,22 @@ func (r *RepositorioPoliticaOfertasPostgreSQL) Vigente(ctx context.Context, bols
 	return decodificarPoliticaOfertas(salida, false)
 }
 
+func (r *RepositorioPoliticaOfertasPostgreSQL) ConsultarAutorizada(ctx context.Context, c ports.ConsultaPoliticaOfertasAutorizada) (ports.VersionPoliticaOfertas, error) {
+	if r == nil || r.pool == nil || ctx == nil || c.BolsaRef == "" || c.Material.ValidarEstructura() != nil {
+		return ports.VersionPoliticaOfertas{}, ports.ErrPoliticaOfertasNoDisponible
+	}
+	m := c.Material
+	var salida []byte
+	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.consultar_politica_ofertas_v2(
+		$1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`,
+		c.BolsaRef, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
+		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(),
+		m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salida); err != nil {
+		return ports.VersionPoliticaOfertas{}, errorPoliticaOfertas(err)
+	}
+	return decodificarPoliticaOfertas(salida, false)
+}
+
 func (r *RepositorioPoliticaOfertasPostgreSQL) Publicar(ctx context.Context, c ports.ComandoPublicarPoliticaOfertas) (ports.VersionPoliticaOfertas, error) {
 	if r == nil || r.pool == nil || ctx == nil || c.Material.ValidarEstructura() != nil {
 		return ports.VersionPoliticaOfertas{}, ports.ErrPoliticaOfertasNoDisponible

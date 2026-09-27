@@ -53,6 +53,25 @@ func (s *Servicio) Vigente(ctx context.Context, bolsa string) (ports.VersionPoli
 	return v, nil
 }
 
+// ConsultarAutorizada es la única lectura para RRHH. El repositorio consume
+// AD3-97 y registra actor, decisión, auditoría y versión en la misma
+// transacción que obtiene la política. Vigente queda para el cálculo interno.
+func (s *Servicio) ConsultarAutorizada(ctx context.Context, c ports.ConsultaPoliticaOfertasAutorizada) (ports.VersionPoliticaOfertas, error) {
+	if s == nil || ctx == nil || !bolsaRef.MatchString(c.BolsaRef) || c.Material.ValidarEstructura() != nil {
+		return ports.VersionPoliticaOfertas{}, ports.ErrPoliticaOfertasNoDisponible
+	}
+	v, err := s.repositorio.ConsultarAutorizada(ctx, c)
+	if err != nil {
+		return ports.VersionPoliticaOfertas{}, err
+	}
+	if v.BolsaRef != c.BolsaRef || !v.Ejemplo ||
+		(v.Version == 0 && (v.Configurada || v.Politica != nil)) ||
+		(v.Version > 0 && (!v.Configurada || v.Politica == nil || v.Politica.Validar() != nil || len(v.HuellaSHA256) != 64)) {
+		return ports.VersionPoliticaOfertas{}, ports.ErrPoliticaOfertasNoDisponible
+	}
+	return v, nil
+}
+
 func (s *Servicio) Publicar(ctx context.Context, c ports.ComandoPublicarPoliticaOfertas) (ports.VersionPoliticaOfertas, error) {
 	if s == nil || ctx == nil || !bolsaRef.MatchString(c.BolsaRef) || c.VersionEsperada < 0 ||
 		!clave.MatchString(c.ClaveIdempotencia) || c.ActorRef == "" ||

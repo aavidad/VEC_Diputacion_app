@@ -15,7 +15,20 @@ import (
 
 type repoPrueba struct{ version ports.VersionPoliticaOfertas }
 
+type repoConsultaContada struct {
+	repoPrueba
+	llamadas int
+}
+
+func (r *repoConsultaContada) ConsultarAutorizada(_ context.Context, _ ports.ConsultaPoliticaOfertasAutorizada) (ports.VersionPoliticaOfertas, error) {
+	r.llamadas++
+	return ports.VersionPoliticaOfertas{}, nil
+}
+
 func (r repoPrueba) Vigente(_ context.Context, _ string) (ports.VersionPoliticaOfertas, error) {
+	return r.version, nil
+}
+func (r repoPrueba) ConsultarAutorizada(_ context.Context, _ ports.ConsultaPoliticaOfertasAutorizada) (ports.VersionPoliticaOfertas, error) {
 	return r.version, nil
 }
 func (r repoPrueba) Publicar(_ context.Context, _ ports.ComandoPublicarPoliticaOfertas) (ports.VersionPoliticaOfertas, error) {
@@ -98,5 +111,16 @@ func TestCalendariosAusentePermiteConsultarPoliticaPeroNoPublicarOferta(t *testi
 	}
 	if _, _, err := s.PlazoDisposicionBolsa(t.Context(), "bolsa:prueba", time.Now()); !errors.Is(err, ports.ErrOfertaNoDisponible) {
 		t.Fatalf("oferta sin calendario: %v", err)
+	}
+}
+
+func TestConsultaRRHHExigeMaterialAtestado(t *testing.T) {
+	repo := &repoConsultaContada{}
+	s, err := NuevoServicio(repo, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ConsultarAutorizada(t.Context(), ports.ConsultaPoliticaOfertasAutorizada{BolsaRef: "bolsa:prueba"}); !errors.Is(err, ports.ErrPoliticaOfertasNoDisponible) || repo.llamadas != 0 {
+		t.Fatalf("GET sin material V3: %v", err)
 	}
 }

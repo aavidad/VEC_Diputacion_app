@@ -13,13 +13,14 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-type preparadorPoliticaPrueba struct{ denegar, puedePublicar bool }
+type preparadorPoliticaPrueba struct{ denegar, denegarConsulta, puedePublicar bool }
 
 func (p preparadorPoliticaPrueba) PrepararConsultaPoliticaOfertas(_ context.Context, bolsa string) (ConsultaPoliticaOfertasPreparada, error) {
-	if p.denegar {
+	if p.denegar || p.denegarConsulta {
 		return ConsultaPoliticaOfertasPreparada{}, dominiovec.ErrAutorizacionDenegada
 	}
-	return ConsultaPoliticaOfertasPreparada{BolsaRef: bolsa, PuedePublicar: p.puedePublicar}, nil
+	return ConsultaPoliticaOfertasPreparada{BolsaRef: bolsa, PuedePublicar: p.puedePublicar,
+		Material: ports.ConsultaPoliticaOfertasAutorizada{BolsaRef: bolsa}}, nil
 }
 func (p preparadorPoliticaPrueba) PrepararPublicacionPoliticaOfertas(_ context.Context, e EntradaPublicarPoliticaOfertas) (ports.ComandoPublicarPoliticaOfertas, error) {
 	if p.denegar {
@@ -28,10 +29,14 @@ func (p preparadorPoliticaPrueba) PrepararPublicacionPoliticaOfertas(_ context.C
 	return ports.ComandoPublicarPoliticaOfertas{BolsaRef: e.BolsaRef, VersionEsperada: e.VersionEsperada, ClaveIdempotencia: e.ClaveIdempotencia, Politica: e.Politica, ActorRef: "per_abcdefghijklmnopqrstuv"}, nil
 }
 
-type operadorPoliticaPrueba struct{ publicada bool }
+type operadorPoliticaPrueba struct {
+	publicada   bool
+	consultadas int
+}
 
-func (o *operadorPoliticaPrueba) Vigente(_ context.Context, bolsa string) (ports.VersionPoliticaOfertas, error) {
-	return ports.VersionPoliticaOfertas{BolsaRef: bolsa, Ejemplo: true}, nil
+func (o *operadorPoliticaPrueba) ConsultarAutorizada(_ context.Context, c ports.ConsultaPoliticaOfertasAutorizada) (ports.VersionPoliticaOfertas, error) {
+	o.consultadas++
+	return ports.VersionPoliticaOfertas{BolsaRef: c.BolsaRef, Ejemplo: true}, nil
 }
 func (o *operadorPoliticaPrueba) Publicar(_ context.Context, c ports.ComandoPublicarPoliticaOfertas) (ports.VersionPoliticaOfertas, error) {
 	o.publicada = true
@@ -96,5 +101,18 @@ func TestPoliticaOfertasDeniegaAntesDeConsultarOEscribir(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != 403 || o.publicada {
 		t.Fatalf("POST denegado %d", w.Code)
+	}
+}
+
+func TestPoliticaOfertasGETDenegadoAunquePublique(t *testing.T) {
+	o := &operadorPoliticaPrueba{}
+	h, err := NuevoHandlerPoliticaOfertas(preparadorPoliticaPrueba{denegarConsulta: true, puedePublicar: true}, o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaPoliticaOfertas+"?bolsa_ref=bolsa:prueba", nil))
+	if w.Code != http.StatusForbidden || o.consultadas != 0 || strings.Contains(w.Body.String(), `"data"`) {
+		t.Fatalf("GET sin permiso propio: estado=%d llamadas=%d cuerpo=%s", w.Code, o.consultadas, w.Body.String())
 	}
 }

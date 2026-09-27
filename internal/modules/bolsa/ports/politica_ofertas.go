@@ -10,10 +10,14 @@ import (
 )
 
 const (
-	AccionPublicarPoliticaOfertas    = "bolsa.politica_ofertas.publicar"
-	AudienciaPublicarPoliticaOfertas = "vec_bolsa_llamamientos.politica_ofertas.publicar.v1"
-	FinalidadPoliticaOfertas         = "gobierno_politica_ofertas_bolsa"
-	EsquemaPoliticaOfertas           = "vec.bolsa.rrhh.politica-ofertas.v1"
+	AccionConsultarPoliticaOfertas    = "bolsa.politica_ofertas.consultar"
+	AudienciaConsultarPoliticaOfertas = "vec_bolsa_llamamientos.politica_ofertas.consultar.v1"
+	FinalidadConsultarPoliticaOfertas = "consultar_politica_ofertas_bolsa"
+	CampoConsultarPoliticaOfertas     = "politica_ofertas"
+	AccionPublicarPoliticaOfertas     = "bolsa.politica_ofertas.publicar"
+	AudienciaPublicarPoliticaOfertas  = "vec_bolsa_llamamientos.politica_ofertas.publicar.v1"
+	FinalidadPoliticaOfertas          = "gobierno_politica_ofertas_bolsa"
+	EsquemaPoliticaOfertas            = "vec.bolsa.rrhh.politica-ofertas.v1"
 )
 
 var (
@@ -42,10 +46,16 @@ type ComandoPublicarPoliticaOfertas struct {
 	Material                                         puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
+type ConsultaPoliticaOfertasAutorizada struct {
+	BolsaRef string
+	Material puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
 // El repositorio consume la autorización y confirma versión, recibo y
 // auditoría en la misma transacción PostgreSQL. La lectura no confía en una
 // versión aportada por el navegador.
 type RepositorioPoliticaOfertas interface {
 	Vigente(context.Context, string) (VersionPoliticaOfertas, error)
+	ConsultarAutorizada(context.Context, ConsultaPoliticaOfertasAutorizada) (VersionPoliticaOfertas, error)
 	Publicar(context.Context, ComandoPublicarPoliticaOfertas) (VersionPoliticaOfertas, error)
 }
