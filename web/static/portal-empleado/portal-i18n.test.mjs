@@ -54,3 +54,14 @@ test("Bolsa interna usa catálogo común y formatos es-ES para textos y valores"
   assert.equal(formatearFechaPortal("2026-08-01T09:00"), "1/8/26, 9:00");
   assert.throws(() => traducir("bolsa_texto_improvisado"), /desconocida/);
 });
+
+test("B24 traduce desde el catálogo común los eventos del recurso", async () => {
+  const { traducirBolsaInterna, MENSAJES_BOLSA_INTERNA_ES } = await import("./portal-i18n.js");
+  assert.equal(traducirBolsaInterna("b24_recurso_historial", { total: 2 }), "Historial del recurso (2)");
+  assert.equal(traducirBolsaInterna("b24_recurso_evento", { estado: "Interpuesto", fecha: "24 sept 2026", actor: "persona:registro" }),
+    "Interpuesto · 24 sept 2026 · Anotado por persona:registro");
+  assert.equal(traducirBolsaInterna("b24_recurso_documento", { referencia: "registro:1" }), "Escrito: registro:1");
+  for (const clave of ["b24_recurso_historial", "b24_recurso_evento", "b24_recurso_documento"]) {
+    assert.equal(typeof MENSAJES_BOLSA_INTERNA_ES[clave], "string");
+  }
+});

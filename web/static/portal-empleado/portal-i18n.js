@@ -92,6 +92,9 @@ export function textoPortal(clave, variables = {}) {
 
 /** Textos comunes de las vistas internas de Bolsa. */
 export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
+  b24_recurso_historial: "Historial del recurso ({total})",
+  b24_recurso_evento: "{estado} · {fecha} · Anotado por {actor}",
+  b24_recurso_documento: "Escrito: {referencia}",
   b7_seleccion_denegada: "Permiso denegado al consultar candidatos. Se han retirado los datos y la selección.",
   b7_consulta_fallida: "No se pudo completar la consulta: {motivo}",
   b7_error_lectura: "error de lectura",

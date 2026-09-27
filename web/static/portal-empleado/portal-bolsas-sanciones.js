@@ -2,9 +2,9 @@
 // duda 62). Bloque «Sanciones» de la ficha del candidato en la vista de RRHH.
 // Las consecuencias, su efecto, los plazos y los estados del recurso vienen del
 // catálogo que sirve la API: aquí no se fija ninguno.
-import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260926-pulido-portal-v1";
+import { referenciaContieneDocumentoIdentidad } from "./portal-bolsas-operaciones.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "./portal-huella-archivo.js";
-import { LOCALIZACION_PORTAL, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260927-rrhh-sanciones-i18n-v1";
 import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
@@ -44,9 +44,6 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   situacion_restaurada: "Vuelve a: {situacion}",
   recurso_vence: "Vence el {fecha}",
   recurso_sin_estado: "Sin recurso anotado",
-  recurso_historial: "Historial del recurso ({total})",
-  recurso_evento: "{estado} · {fecha} · Anotado por {actor}",
-  recurso_documento: "Escrito: {referencia}",
   anotar_recurso: "Anotar recurso",
   efecto_excluir: "Baja",
   efecto_pausar: "Suspensión",
@@ -280,9 +277,9 @@ function filaSancion(item, e, recursoAbierto, catalogo) {
   const accion = catalogo && recursoAbierto !== item.sancion_ref && !item.reversion
     ? `<button type="button" class="boton-secundario" data-b24-accion="abrir-recurso" data-sancion-ref="${e(item.sancion_ref)}">${e(t("anotar_recurso"))}</button>` : "";
   const eventos = item.recurso.eventos || [];
-  const historial = eventos.length ? `<details><summary>${e(t("recurso_historial", { total: eventos.length }))}</summary><ol>${eventos.map((evento) => {
-    const descripcion = t("recurso_evento", { estado: etiquetaEstado(evento.estado), fecha: fechaVisible(evento.fecha), actor: evento.actor });
-    const documento = evento.documento?.referencia ? `<br><small>${e(t("recurso_documento", { referencia: evento.documento.referencia }))}</small>` : "";
+  const historial = eventos.length ? `<details><summary>${e(traducirBolsaInterna("b24_recurso_historial", { total: eventos.length }))}</summary><ol>${eventos.map((evento) => {
+    const descripcion = traducirBolsaInterna("b24_recurso_evento", { estado: etiquetaEstado(evento.estado), fecha: fechaVisible(evento.fecha), actor: evento.actor });
+    const documento = evento.documento?.referencia ? `<br><small>${e(traducirBolsaInterna("b24_recurso_documento", { referencia: evento.documento.referencia }))}</small>` : "";
     return `<li>${e(descripcion)}${documento}</li>`;
   }).join("")}</ol></details>` : "";
   return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small></td><td>${celdaEfecto(item, e)}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small>${historial}</td><td>${accion}</td></tr>`;
