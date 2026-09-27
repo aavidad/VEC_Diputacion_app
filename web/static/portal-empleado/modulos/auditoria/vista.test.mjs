@@ -9,7 +9,7 @@ const registro = {
   motivo: "rectificacion", fuente: "Personal", datos_disponibles: true,
   antes: { unidad: "A" }, despues: { unidad: "B" },
 };
-const opciones = { finalidad_ref: "fin_1", motivo_ref: "catalogo:v1:revision", permiso_requerido: "auditoria.consultar", es_ejemplo: true };
+const opciones = { finalidad_ref: "fin_1", motivo_ref: "catalogo:v1:revision", permiso_requerido: "auditoria.consultar", es_ejemplo: true, fuentes: ["ct", "bolsa"] };
 const esperar = () => new Promise((resolver) => setImmediate(resolver));
 function raizFalsa() {
   const eventos = {};
@@ -21,7 +21,7 @@ function raizFalsa() {
 
 test("sin expediente de navegación la consulta permanece cerrada y no ofrece vínculo ni actor libres", () => {
   const html = renderizarVistaAuditoria();
-  assert.match(html, /Abra Auditoría desde un expediente autorizado/u);
+  assert.match(html, /Abra Auditoría desde un expediente o participación autorizados/u);
   assert.match(html, /id="auditoria-ayuda"[^>]+hidden/u);
   assert.match(html, /name="desde"[^>]+disabled/u);
   assert.doesNotMatch(html, /name="expediente_ref"|name="actor_ref"|<table/u);
@@ -29,10 +29,14 @@ test("sin expediente de navegación la consulta permanece cerrada y no ofrece v�
 
 test("solo muestra expediente exacto escapado y aviso de configuración de ejemplo", () => {
   const html = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
-    expedienteRef: 'exp_1"><script>', ejemplo: true });
+    expedienteRef: 'exp_1"><script>', fuenteContexto: "ct", ejemplo: true });
   assert.match(html, /exp_1&quot;&gt;&lt;script&gt;/u);
   assert.match(html, /Configuración de ejemplo pendiente de RRHH/u);
   assert.doesNotMatch(html, /<script>|name="expediente_ref"|name="actor_ref"/u);
+  const bolsa = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
+    expedienteRef: "participacion_1", fuenteContexto: "bolsa" });
+  assert.match(bolsa, /<strong>Participación:<\/strong> participacion_1/u);
+  assert.doesNotMatch(bolsa, /name="fuente"/u);
 });
 
 test("registros autorizados muestran actor, instante, motivo y valores minimizados", () => {
@@ -62,13 +66,14 @@ test("GET de opciones antecede al POST, que usa expediente de navegación y refs
   const original = globalThis.FormData;
   globalThis.FormData = class { get(k) { return { desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00" }[k]; } };
   try {
-    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1" });
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
     assert.match(raiz.innerHTML, /Comprobando opciones/u);
     await esperar();
     assert.match(raiz.innerHTML, /Configuración de ejemplo/u);
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     await esperar();
     assert.equal(peticion.expediente_ref, "exp_1");
+    assert.equal(peticion.fuente, "ct");
     assert.equal(peticion.actor_ref, "");
     assert.equal(peticion.finalidad_ref, opciones.finalidad_ref);
     assert.equal(peticion.motivo_ref, opciones.motivo_ref);
@@ -85,12 +90,29 @@ test("sin expediente no pide opciones, y 403 en opciones no expone datos", async
   const cerrada = montarVistaAuditoria({ raiz, fuente });
   assert.equal(llamadas, 0);
   cerrada.desmontar();
-  const denegada = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1" });
+  const denegada = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
   await esperar();
   assert.equal(llamadas, 1);
   assert.match(raiz.innerHTML, /Acceso denegado/u);
   assert.doesNotMatch(raiz.innerHTML, /secreto|<table/u);
   denegada.desmontar();
+});
+
+test("sin fuente de navegación o sin fuente ofrecida por GET no consulta", async () => {
+  const { raiz } = raizFalsa();
+  let get = 0, post = 0;
+  const fuente = { obtenerOpciones: async () => { ++get; return { ...opciones, fuentes: ["ct"] }; },
+    consultar: async () => { ++post; throw Error("no debe llamarse"); } };
+  const sinFuente = montarVistaAuditoria({ raiz, fuente, expedienteRef: "participacion_1" });
+  assert.equal(get, 0);
+  sinFuente.desmontar();
+  const noOfrecida = montarVistaAuditoria({ raiz, fuente, expedienteRef: "participacion_1", fuenteContexto: "bolsa" });
+  await esperar();
+  assert.equal(get, 1);
+  assert.equal(post, 0);
+  assert.match(raiz.innerHTML, /Acceso denegado/u);
+  assert.doesNotMatch(raiz.innerHTML, /name="fuente"/u);
+  noOfrecida.desmontar();
 });
 
 test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () => {
@@ -101,7 +123,7 @@ test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () =
   const original = globalThis.FormData;
   globalThis.FormData = class { get(k) { return { desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00" }[k]; } };
   try {
-    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1" });
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
     await esperar();
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     eventos.input({ target: { matches: () => true, name: "desde", value: "2026-09-28T08:30", selectionStart: null, selectionEnd: null } });

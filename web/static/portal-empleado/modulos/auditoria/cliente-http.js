@@ -10,14 +10,14 @@ const instante = (valor) => typeof valor === "string" && /^\d{4}-\d{2}-\d{2}T\d{
 const fallo = (codigo, estado = 0) => Object.assign(new Error(codigo), { codigo, estado });
 
 function validarConsulta(entrada) {
-  if (!entrada || !referencia(entrada.expediente_ref) || !instante(entrada.desde) || !instante(entrada.hasta)
+  if (!entrada || !["ct", "bolsa"].includes(entrada.fuente) || !referencia(entrada.expediente_ref) || !instante(entrada.desde) || !instante(entrada.hasta)
     || Date.parse(entrada.hasta) <= Date.parse(entrada.desde)
     || Date.parse(entrada.hasta) - Date.parse(entrada.desde) > 31 * 86400000
     || !referencia(entrada.finalidad_ref, 128) || !referencia(entrada.motivo_ref, 128)
     || (entrada.actor_ref && !referencia(entrada.actor_ref))
     || (entrada.cursor && !referencia(entrada.cursor, 512))) throw fallo("consulta_invalida");
   return {
-    expediente_ref: entrada.expediente_ref, actor_ref: entrada.actor_ref || "",
+    fuente: entrada.fuente, expediente_ref: entrada.expediente_ref, actor_ref: entrada.actor_ref || "",
     desde: entrada.desde, hasta: entrada.hasta, limite: 50, cursor: entrada.cursor || "",
     finalidad_ref: entrada.finalidad_ref, motivo_ref: entrada.motivo_ref,
   };
@@ -71,9 +71,12 @@ export function crearFuenteAuditoriaHTTP({ fetchImpl = globalThis.fetch } = {}) 
     async obtenerOpciones({ signal } = {}) {
       const respuesta = await pedir(RUTA_OPCIONES, "GET", undefined, { signal });
       if (!respuesta || !referencia(respuesta.finalidad_ref, 128) || !referencia(respuesta.motivo_ref, 128)
+        || !Array.isArray(respuesta.fuentes) || respuesta.fuentes.length < 1 || respuesta.fuentes.length > 2
+        || new Set(respuesta.fuentes).size !== respuesta.fuentes.length || respuesta.fuentes.some((valor) => !["ct", "bolsa"].includes(valor))
         || !referencia(respuesta.permiso_requerido, 128) || typeof respuesta.es_ejemplo !== "boolean") throw fallo("respuesta_invalida");
       return Object.freeze({ finalidad_ref: respuesta.finalidad_ref, motivo_ref: respuesta.motivo_ref,
-        permiso_requerido: respuesta.permiso_requerido, es_ejemplo: respuesta.es_ejemplo });
+        permiso_requerido: respuesta.permiso_requerido, es_ejemplo: respuesta.es_ejemplo,
+        fuentes: Object.freeze([...respuesta.fuentes]) });
     },
     async consultar(entrada, { signal } = {}) {
       return pedir(RUTA, "POST", validarConsulta(entrada), { signal });

@@ -56,7 +56,7 @@ function fila(t, r) {
 
 /** Marcado puro para verificar estados y escape sin consultar datos. */
 export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbierta = false, habilitada = false,
-  expedienteRef = "", ejemplo = false, filtros = {}, registros = [], pagina = 1, siguienteCursor = "", puedeAnterior = false } = {}) {
+  expedienteRef = "", fuenteContexto = "", ejemplo = false, filtros = {}, registros = [], pagina = 1, siguienteCursor = "", puedeAnterior = false } = {}) {
   const t = crearTraductorAuditoria();
   const mensaje = t(`estado_${["no_configurado", "cargando_opciones", "esperando", "cargando", "disponible", "vacio", "denegado", "error", "invalido"].includes(estado) ? estado : "error"}`);
   const bloqueada = !habilitada;
@@ -70,7 +70,7 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
     <section class="panel auditoria-filtro-panel" aria-labelledby="auditoria-filtros-titulo">
       <div class="cabecera-panel"><h3 id="auditoria-filtros-titulo">${escapar(t("filtros_titulo"))}</h3></div>
       <div class="cuerpo-panel">
-        <p class="auditoria-expediente"><strong>${escapar(t("expediente"))}:</strong> ${escapar(expedienteRef || t("sin_expediente"))}</p>
+        <p class="auditoria-expediente"><strong>${escapar(t(fuenteContexto === "bolsa" ? "participacion" : "expediente"))}:</strong> ${escapar(expedienteRef || t("sin_expediente"))}</p>
         ${ejemplo ? `<p class="auditoria-ejemplo">${escapar(t("configuracion_ejemplo"))}</p>` : ""}
         <form data-auditoria-filtros class="auditoria-filtros">
         ${[["desde", "desde", "datetime-local", "required"], ["hasta", "hasta", "datetime-local", "required"]].map(([name, label, type, attrs]) =>
@@ -93,18 +93,20 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
 }
 
 /** Expediente procede de navegación ya autorizada; opciones del GET autenticado. */
-export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", anunciar = () => {}, registrarDesmontar } = {}) {
+export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteContexto = "", anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.replaceChildren || typeof anunciar !== "function" ||
     (fuente !== undefined && (typeof fuente.consultar !== "function" || typeof fuente.obtenerOpciones !== "function"))
     || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de Auditoría no disponible");
   const t = crearTraductorAuditoria();
   const expedienteValido = typeof expedienteRef === "string" && expedienteRef.length > 0 && expedienteRef.length <= 512
     && !/[\x00-\x20\x7f*?%\\/]/u.test(expedienteRef) && !expedienteRef.includes("..");
+  const fuenteValida = fuenteContexto === "ct" || fuenteContexto === "bolsa";
   let habilitada = false, opciones = null;
-  let activa = true, ayudaAbierta = false, estado = fuente && expedienteValido ? "cargando_opciones" : "no_configurado";
+  let activa = true, ayudaAbierta = false, estado = fuente && expedienteValido && fuenteValida ? "cargando_opciones" : "no_configurado";
   let filtros = {}, registros = [], siguienteCursor = "", cursores = [""], controlador, secuencia = 0;
   const pintar = () => { if (activa) raiz.innerHTML = renderizarVistaAuditoria({
-    estado, ayudaAbierta, habilitada, expedienteRef: expedienteValido ? expedienteRef : "",
+    estado, ayudaAbierta, habilitada, expedienteRef: expedienteValido && fuenteValida ? expedienteRef : "",
+    fuenteContexto: fuenteValida ? fuenteContexto : "",
     ejemplo: opciones?.es_ejemplo === true, filtros, registros, pagina: cursores.length,
     siguienteCursor, puedeAnterior: cursores.length > 1,
   }); };
@@ -116,7 +118,10 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", anuncia
       if (!activa || signal.aborted || secuencia !== actual) return;
       if (!recibidas || typeof recibidas.finalidad_ref !== "string" || !recibidas.finalidad_ref
         || typeof recibidas.motivo_ref !== "string" || !recibidas.motivo_ref
-        || typeof recibidas.es_ejemplo !== "boolean") throw new TypeError("opciones incompatibles");
+        || typeof recibidas.es_ejemplo !== "boolean" || !Array.isArray(recibidas.fuentes)) throw new TypeError("opciones incompatibles");
+      if (!recibidas.fuentes.includes(fuenteContexto)) {
+        opciones = null; habilitada = false; registros = []; estado = "denegado"; pintar(); return;
+      }
       opciones = recibidas; habilitada = true; estado = "esperando"; pintar();
     } catch (error) {
       if (!activa || signal.aborted || secuencia !== actual) return;
@@ -129,7 +134,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", anuncia
     estado = "cargando"; registros = []; siguienteCursor = ""; pintar();
     try {
       const respuesta = validarRespuestaAuditoria(await fuente.consultar({
-        expediente_ref: expedienteRef, actor_ref: "",
+        fuente: fuenteContexto, expediente_ref: expedienteRef, actor_ref: "",
         desde: new Date(filtros.desde).toISOString(), hasta: new Date(filtros.hasta).toISOString(),
         finalidad_ref: opciones.finalidad_ref, motivo_ref: opciones.motivo_ref, cursor: cursores.at(-1),
       }, { signal }));
@@ -149,7 +154,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", anuncia
       cursores.push(siguienteCursor); void consultar();
     } else if (evento.target.closest?.("[data-auditoria-anterior]") && cursores.length > 1) {
       cursores.pop(); void consultar();
-    } else if (evento.target.closest?.("[data-auditoria-reintentar]") && fuente && expedienteValido) {
+    } else if (evento.target.closest?.("[data-auditoria-reintentar]") && fuente && expedienteValido && fuenteValida) {
       estado = "cargando_opciones"; pintar(); void cargarOpciones();
     }
   };
@@ -178,7 +183,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", anuncia
   };
   raiz.addEventListener("click", pulsar); raiz.addEventListener("submit", enviar);
   raiz.addEventListener("input", cambiar); pintar();
-  if (fuente && expedienteValido) void cargarOpciones();
+  if (fuente && expedienteValido && fuenteValida) void cargarOpciones();
   const desmontar = () => { if (!activa) return; activa = false; cancelar(); raiz.removeEventListener("click", pulsar);
     raiz.removeEventListener("submit", enviar); raiz.removeEventListener("input", cambiar); raiz.replaceChildren(); };
   registrarDesmontar?.(desmontar);
