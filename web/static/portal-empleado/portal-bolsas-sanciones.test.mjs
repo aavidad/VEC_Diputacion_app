@@ -80,6 +80,27 @@ test("B24 pinta histórico accesible y escapa el contenido", () => {
   assert.match(renderizarSanciones({ estado: { carga: "listo", datos: { ...datos, items: [] } } }), /No hay sanciones/);
 });
 
+test("B24 permite consultar cada estado del recurso y su escrito en la ficha", () => {
+  const conRecursos = { ...datos, items: [{ ...item, recurso: { ...item.recurso, estado: "desestimado", eventos: [
+    { estado: "interpuesto", fecha: "2026-09-24", actor: "persona:registro", documento: { referencia: "registro:1", sha256: SHA } },
+    { estado: "desestimado", fecha: "2026-09-26", actor: "persona:<script>", documento: { referencia: "registro:<b>", sha256: SHA } },
+  ] } }] };
+  const salida = renderizarSanciones({ estado: { carga: "listo", datos: conRecursos } });
+  assert.match(salida, /<summary>Historial del recurso \(2\)<\/summary>/);
+  assert.match(salida, /Interpuesto · 24 sept 2026 · Anotado por persona:registro/);
+  assert.match(salida, /Desestimado · 26 sept 2026 · Anotado por persona:&lt;script&gt;/);
+  assert.match(salida, /Escrito: registro:&lt;b&gt;/);
+  assert.doesNotMatch(salida, /<script>|Escrito: registro:<b>/);
+});
+
+test("B24 rechaza eventos del recurso incompletos antes de mostrarlos", async () => {
+  const invalido = { ...datos, items: [{ ...item, recurso: { ...item.recurso, eventos: [
+    { estado: "interpuesto", fecha: "2026-09-24", actor: "persona:registro", documento: { referencia: "registro:1", sha256: "invalida" } },
+  ] } }] };
+  const resultado = await consultarSanciones("b", "p", { fetchImpl: respuesta(200, { data: invalido }) });
+  assert.equal(resultado.codigo, "respuesta_invalida");
+});
+
 test("B24 controlador registra, conserva la clave en el reintento y recarga", async () => {
   const anterior = globalThis.FormData;
   globalThis.FormData = class { constructor(f) { this.v = f.valores; } get(c) { return this.v[c]; } };

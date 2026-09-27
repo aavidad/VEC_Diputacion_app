@@ -44,6 +44,9 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   situacion_restaurada: "Vuelve a: {situacion}",
   recurso_vence: "Vence el {fecha}",
   recurso_sin_estado: "Sin recurso anotado",
+  recurso_historial: "Historial del recurso ({total})",
+  recurso_evento: "{estado} · {fecha} · Anotado por {actor}",
+  recurso_documento: "Escrito: {referencia}",
   anotar_recurso: "Anotar recurso",
   efecto_excluir: "Baja",
   efecto_pausar: "Suspensión",
@@ -129,8 +132,15 @@ function sancionValida(item) {
     && item.resolucion && cadena(item.resolucion.referencia) && HEX_SHA256.test(item.resolucion.sha256 || "")
     && (item.suspension_hasta === null || FECHA.test(item.suspension_hasta))
     && item.recurso && FECHA.test(item.recurso.vence || "") && Array.isArray(item.recurso.eventos)
+    && item.recurso.eventos.every(eventoRecursoValido)
     && (item.recurso.estado === null || cadena(item.recurso.estado))
     && efectoAplicadoValido(item.efecto_aplicado) && reversionValida(item.reversion);
+}
+
+function eventoRecursoValido(evento) {
+  return evento && cadena(evento.estado) && FECHA.test(evento.fecha || "") && cadena(evento.actor)
+    && (evento.documento === null || (evento.documento && cadena(evento.documento.referencia)
+      && HEX_SHA256.test(evento.documento.sha256 || "")));
 }
 
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
@@ -269,7 +279,13 @@ function filaSancion(item, e, recursoAbierto, catalogo) {
     : `<span class="estado-chip neutro">${e(t("recurso_sin_estado"))}</span>`;
   const accion = catalogo && recursoAbierto !== item.sancion_ref && !item.reversion
     ? `<button type="button" class="boton-secundario" data-b24-accion="abrir-recurso" data-sancion-ref="${e(item.sancion_ref)}">${e(t("anotar_recurso"))}</button>` : "";
-  return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small></td><td>${celdaEfecto(item, e)}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small></td><td>${accion}</td></tr>`;
+  const eventos = item.recurso.eventos || [];
+  const historial = eventos.length ? `<details><summary>${e(t("recurso_historial", { total: eventos.length }))}</summary><ol>${eventos.map((evento) => {
+    const descripcion = t("recurso_evento", { estado: etiquetaEstado(evento.estado), fecha: fechaVisible(evento.fecha), actor: evento.actor });
+    const documento = evento.documento?.referencia ? `<br><small>${e(t("recurso_documento", { referencia: evento.documento.referencia }))}</small>` : "";
+    return `<li>${e(descripcion)}${documento}</li>`;
+  }).join("")}</ol></details>` : "";
+  return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small></td><td>${celdaEfecto(item, e)}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small>${historial}</td><td>${accion}</td></tr>`;
 }
 
 function campo(etiqueta, control, e) {
