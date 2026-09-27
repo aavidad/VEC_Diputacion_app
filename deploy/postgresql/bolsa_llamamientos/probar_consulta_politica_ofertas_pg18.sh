@@ -184,6 +184,7 @@ INSERT INTO vec_bolsa_llamamientos.constitucion VALUES
  ('acta:of:2','bolsa:of:2',1,encode(sha256('{}'::bytea),'hex'),'inst:of:2',1,repeat('c',64),'categoria:rpt:aux','per_actoractoractoractoractor',now()-interval '10 days',now()-interval '10 days');
 SET session_replication_role=origin;
 SQL
+fichero deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_up.sql >/dev/null
 b51="$m/000051_consulta_politica_ofertas_v3"
 sed 's/^COMMIT;$/ROLLBACK;/' "$repo/$b51.up.sql" | psql_pg >/dev/null
 [[ $(psql_pg -tAc "SELECT to_regclass('vec_bolsa_llamamientos.politica_ofertas_lectura_v3') IS NULL") == t ]] || { echo 'B51 ROLLBACK dejó historia' >&2; exit 1; }
@@ -193,15 +194,21 @@ psql_pg >/dev/null <<'SQL'
 DO $acl$ BEGIN
  IF NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR has_function_privilege('public','vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)','EXECUTE')
+    OR NOT has_function_privilege('vec_bolsa_llamamientos_calculador_politica','vec_bolsa_llamamientos.leer_politica_ofertas_v1(text)','EXECUTE')
+    OR has_function_privilege('vec_bolsa_llamamientos_calculador_politica','vec_bolsa_llamamientos.consultar_politica_ofertas_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.politica_ofertas_lectura_v3','SELECT,INSERT,UPDATE,DELETE')
  THEN RAISE EXCEPTION 'B51 ACL incorrecta'; END IF;
 END $acl$;
 SQL
 fichero "$b51.down.sql" >/dev/null
+fichero deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_down.sql >/dev/null
+fichero deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_up.sql >/dev/null
 fichero "$b51.up.sql" >/dev/null
 psql_pg >/dev/null <<'SQL'
 DO $prueba$
 DECLARE cap bytea:=convert_to('{"efecto_ref":"bolsa:of:1"}','UTF8');
+ cap2 bytea:=convert_to('{"efecto_ref":"bolsa:of:2"}','UTF8');
  repetida bytea:=convert_to('{"efecto_ref":"bolsa:of:1","repetida":true}','UTF8');
  d jsonb:=jsonb_build_object('principal_id','per_actoractoractoractoractor',
    'accion','bolsa.politica_ofertas.consultar','modulo_id','bolsa',
@@ -214,6 +221,11 @@ BEGIN
  IF v->>'version'<>'1' OR v->>'bolsa_ref'<>'bolsa:of:1' THEN RAISE EXCEPTION 'B51 lectura autorizada divergente'; END IF;
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.politica_ofertas_lectura_v3 WHERE bolsa_ref='bolsa:of:1' AND version_leida=1)<>1 THEN
   RAISE EXCEPTION 'B51 lectura no auditada'; END IF;
+ SELECT vec_bolsa_llamamientos.consultar_politica_ofertas_v2('bolsa:of:2',cap2,
+  convert_to((d||'{"recurso_ref":"bolsa:of:2"}'::jsonb)::text,'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00') INTO v;
+ IF v->>'version'<>'0' OR v->>'configurada'<>'false' OR
+    (SELECT count(*) FROM vec_bolsa_llamamientos.politica_ofertas_lectura_v3 WHERE bolsa_ref='bolsa:of:2' AND version_leida=0)<>1
+ THEN RAISE EXCEPTION 'B51 versión 0 o traza incorrecta: %',v; END IF;
  BEGIN
   PERFORM vec_bolsa_llamamientos.consultar_politica_ofertas_v2('bolsa:of:2',cap,convert_to(d::text,'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
   RAISE EXCEPTION 'B51 lectura cruzada aceptada';
@@ -227,7 +239,7 @@ BEGIN
   RAISE EXCEPTION 'B51 decisión reutilizada aceptada';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  SELECT count(*) INTO n FROM vec_bolsa_llamamientos.politica_ofertas_lectura_v3;
- IF n<>1 THEN RAISE EXCEPTION 'B51 denegaciones dejaron traza de éxito: %',n; END IF;
+ IF n<>2 THEN RAISE EXCEPTION 'B51 denegaciones dejaron traza de éxito: %',n; END IF;
 END $prueba$;
 SQL
 if fichero "$b51.down.sql" >/dev/null 2>&1; then echo 'B51 DOWN con historia aceptado' >&2; exit 1; fi
