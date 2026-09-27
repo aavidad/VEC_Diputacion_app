@@ -13,13 +13,13 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-type preparadorPoliticaPrueba struct{ denegar bool }
+type preparadorPoliticaPrueba struct{ denegar, puedePublicar bool }
 
-func (p preparadorPoliticaPrueba) PrepararConsultaPoliticaOfertas(_ context.Context, bolsa string) (string, error) {
+func (p preparadorPoliticaPrueba) PrepararConsultaPoliticaOfertas(_ context.Context, bolsa string) (ConsultaPoliticaOfertasPreparada, error) {
 	if p.denegar {
-		return "", dominiovec.ErrAutorizacionDenegada
+		return ConsultaPoliticaOfertasPreparada{}, dominiovec.ErrAutorizacionDenegada
 	}
-	return bolsa, nil
+	return ConsultaPoliticaOfertasPreparada{BolsaRef: bolsa, PuedePublicar: p.puedePublicar}, nil
 }
 func (p preparadorPoliticaPrueba) PrepararPublicacionPoliticaOfertas(_ context.Context, e EntradaPublicarPoliticaOfertas) (ports.ComandoPublicarPoliticaOfertas, error) {
 	if p.denegar {
@@ -50,13 +50,13 @@ func cuerpoPoliticaPrueba(t *testing.T) string {
 
 func TestPoliticaOfertasGETyPOSTAutorizados(t *testing.T) {
 	o := &operadorPoliticaPrueba{}
-	h, e := NuevoHandlerPoliticaOfertas(preparadorPoliticaPrueba{}, o)
+	h, e := NuevoHandlerPoliticaOfertas(preparadorPoliticaPrueba{puedePublicar: true}, o)
 	if e != nil {
 		t.Fatal(e)
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaPoliticaOfertas+"?bolsa_ref=bolsa:prueba", nil))
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"configurada":false`) || !strings.Contains(w.Body.String(), ports.EsquemaPoliticaOfertas) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"configurada":false`) || !strings.Contains(w.Body.String(), `"puede_publicar":true`) || !strings.Contains(w.Body.String(), ports.EsquemaPoliticaOfertas) {
 		t.Fatalf("GET %d %s", w.Code, w.Body.String())
 	}
 	r := httptest.NewRequest(http.MethodPost, RutaPoliticaOfertas, strings.NewReader(cuerpoPoliticaPrueba(t)))
@@ -66,6 +66,18 @@ func TestPoliticaOfertasGETyPOSTAutorizados(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != 201 || !o.publicada || !strings.Contains(w.Body.String(), `"recibo_ref":"recibo:politica-ofertas:`) {
 		t.Fatalf("POST %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPoliticaOfertasGETNoSuponePermisoDeEdicion(t *testing.T) {
+	h, e := NuevoHandlerPoliticaOfertas(preparadorPoliticaPrueba{}, &operadorPoliticaPrueba{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaPoliticaOfertas+"?bolsa_ref=bolsa:prueba", nil))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"puede_publicar":false`) {
+		t.Fatalf("GET %d %s", w.Code, w.Body.String())
 	}
 }
 

@@ -20,10 +20,15 @@ type EntradaPublicarPoliticaOfertas struct {
 	Politica          domain.PoliticaOfertas
 }
 
+type ConsultaPoliticaOfertasPreparada struct {
+	BolsaRef      string
+	PuedePublicar bool // decisión positiva exacta del PDP central, nunca del rol de shell
+}
+
 // El preparador deriva actor, ámbito y material V3 de la sesión confiable.
 // GET reutiliza la autorización de consulta RRHH de la bolsa exacta.
 type PreparadorPoliticaOfertas interface {
-	PrepararConsultaPoliticaOfertas(context.Context, string) (string, error)
+	PrepararConsultaPoliticaOfertas(context.Context, string) (ConsultaPoliticaOfertasPreparada, error)
 	PrepararPublicacionPoliticaOfertas(context.Context, EntradaPublicarPoliticaOfertas) (ports.ComandoPublicarPoliticaOfertas, error)
 }
 
@@ -72,7 +77,7 @@ func (h *HandlerPoliticaOfertas) consultar(w http.ResponseWriter, r *http.Reques
 		responderErrorPoliticaOfertas(w, err)
 		return
 	}
-	if resuelta != bolsa {
+	if resuelta.BolsaRef != bolsa {
 		responderOferta(w, http.StatusForbidden, "acceso_denegado", nil)
 		return
 	}
@@ -81,7 +86,9 @@ func (h *HandlerPoliticaOfertas) consultar(w http.ResponseWriter, r *http.Reques
 		responderErrorPoliticaOfertas(w, err)
 		return
 	}
-	responderOferta(w, http.StatusOK, "", salidaPoliticaOfertas(v))
+	salida := salidaPoliticaOfertas(v)
+	salida["puede_publicar"] = resuelta.PuedePublicar
+	responderOferta(w, http.StatusOK, "", salida)
 }
 
 func (h *HandlerPoliticaOfertas) publicar(w http.ResponseWriter, r *http.Request) {
