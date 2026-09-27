@@ -31,13 +31,14 @@ type Manejador struct {
 	servicio  *Servicio
 	opciones  ProveedorOpciones
 	identidad IdentidadConsulta
+	ahora     func() time.Time
 }
 
 func NuevoManejador(servicio *Servicio, opciones ProveedorOpciones, identidad IdentidadConsulta) (*Manejador, error) {
 	if servicio == nil || dependenciaNula(opciones) || dependenciaNula(identidad) {
 		return nil, ErrNoDisponible
 	}
-	return &Manejador{servicio: servicio, opciones: opciones, identidad: identidad}, nil
+	return &Manejador{servicio: servicio, opciones: opciones, identidad: identidad, ahora: time.Now}, nil
 }
 
 func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +73,7 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Manejador) resolverIdentidad(r *http.Request) (IdentidadResuelta, error) {
 	identidad, err := h.identidad.ResolverIdentidadConsulta(r.Context(), r)
 	if err != nil || identidad.Resultado.Validar() != nil || identidad.Vinculo.ValidarPara(identidad.Resultado) != nil ||
-		!identidad.Vinculo.VigenteEn(time.Now().UTC(), identidad.Resultado) || identidad.Correlacion.Validar() != nil {
+		!identidad.Vinculo.VigenteEn(h.ahora().UTC().Truncate(time.Microsecond), identidad.Resultado) || identidad.Correlacion.Validar() != nil {
 		return IdentidadResuelta{}, ErrDenegada
 	}
 	return identidad, nil
@@ -114,8 +115,11 @@ func (h *Manejador) servirConsulta(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest)
 		return
 	}
-	if r.ContentLength > maximoCuerpoConsulta {responderError(w,http.StatusBadRequest);return}
-	dec := json.NewDecoder(http.MaxBytesReader(w,r.Body,maximoCuerpoConsulta))
+	if r.ContentLength > maximoCuerpoConsulta {
+		responderError(w, http.StatusBadRequest)
+		return
+	}
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maximoCuerpoConsulta))
 	dec.DisallowUnknownFields()
 	var cuerpo cuerpoConsulta
 	if dec.Decode(&cuerpo) != nil || dec.Decode(new(any)) != io.EOF {
