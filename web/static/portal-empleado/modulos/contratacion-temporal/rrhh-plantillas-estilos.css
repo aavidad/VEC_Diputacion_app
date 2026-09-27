@@ -21,7 +21,8 @@
 .rrhh-plantillas-ayuda-boton { width: 36px; height: 36px; padding: 0; font-weight: 800; }
 .rrhh-plantillas-ayuda,
 .rrhh-plantillas-error,
-.rrhh-plantillas-recibo {
+.rrhh-plantillas-recibo,
+.rrhh-plantillas-lectura {
   margin: 0;
   padding: 12px 16px;
   border: 1px solid var(--portal-borde);
@@ -30,6 +31,7 @@
   box-shadow: var(--portal-sombra-sm);
 }
 .rrhh-plantillas-ayuda { border-inline-start: 4px solid var(--portal-azul-700); }
+.rrhh-plantillas-lectura { border-inline-start: 4px solid var(--portal-aviso); }
 .rrhh-plantillas-error { border-inline-start: 4px solid var(--portal-peligro); color: var(--portal-peligro); }
 .rrhh-plantillas-recibo { border-inline-start: 4px solid var(--portal-exito); }
 .rrhh-plantillas-recibo strong { color: var(--portal-exito); }

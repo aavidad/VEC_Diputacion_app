@@ -78,6 +78,8 @@ export function montarRRHHPlantillas({
   let recibo = null;
   let claveIdempotencia = null;
   const catalogo = () => consulta?.borrador ?? consulta?.publicado ?? null;
+  const puedeEditar = () => consulta?.puede_editar === true;
+  const puedePublicar = () => consulta?.puede_publicar === true;
   const entradas = () => [...(catalogo()?.entradas ?? [])].filter((entrada) => entrada.clave !== "etiquetas")
     .sort((a, b) => a.orden - b.orden || a.etiqueta.localeCompare(b.etiqueta, locale));
   const entradaActual = () => entradas().find((entrada) => entrada.clave === seleccionado) ?? null;
@@ -93,18 +95,18 @@ export function montarRRHHPlantillas({
     const filas = entradas();
     return `<section class="panel rrhh-plantillas-panel" aria-labelledby="rrhh-plantillas-lista-titulo">
       <header class="cabecera-panel"><div><h3 id="rrhh-plantillas-lista-titulo">${e(t("plantillas_rrhh_lista_titulo"))}</h3><p>${e(t("plantillas_rrhh_lista_subtitulo"))}</p></div>
-      <button type="button" class="boton-primario" data-plantillas-accion="nueva" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_nueva"))}</button></header>
+      ${puedeEditar() ? `<button type="button" class="boton-primario" data-plantillas-accion="nueva" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_nueva"))}</button>` : ""}</header>
       ${filas.length ? `<div class="tabla-contenedor rrhh-plantillas-tabla" tabindex="0" role="region" aria-label="${e(t("plantillas_rrhh_lista_titulo"))}">
       <table class="tabla-datos"><thead><tr><th scope="col">${e(t("plantillas_rrhh_nombre"))}</th><th scope="col">${e(t("plantillas_rrhh_titulo_documento"))}</th>
       <th scope="col">${e(t("plantillas_rrhh_orden"))}</th><th scope="col">${e(t("plantillas_rrhh_estado"))}</th><th scope="col"></th></tr></thead><tbody>
       ${filas.map((fila) => `<tr><th scope="row"><strong>${e(fila.etiqueta)}</strong><small>${e(fila.clave)}</small></th><td>${e(fila.atributos.titulo ?? t("plantillas_rrhh_sin_valor"))}</td>
       <td class="rrhh-plantillas-numero">${e(new Intl.NumberFormat(locale).format(fila.orden))}</td><td><span class="estado-chip ${catalogo()?.estado === "publicado" ? "info" : "violeta"}">${e(estado(catalogo()?.estado))}</span></td>
-      <td><button type="button" class="boton-secundario" data-plantillas-accion="editar" data-clave="${e(fila.clave)}" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_editar"))}</button></td></tr>`).join("")}</tbody></table></div>`
+      <td>${puedeEditar() ? `<button type="button" class="boton-secundario" data-plantillas-accion="editar" data-clave="${e(fila.clave)}" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_editar"))}</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
     : `<div class="cuerpo-panel"><p class="rrhh-plantillas-vacio">${e(t("plantillas_rrhh_vacio"))}</p></div>`}</section>`;
   }
 
   function pintarFormulario() {
-    if (seleccionado === null) return "";
+    if (seleccionado === null || !puedeEditar()) return "";
     const anterior = entradaActual();
     const parrafos = anterior ? parrafosDe(anterior) : [""];
     const fuente = catalogo()?.fuente_ref ?? "";
@@ -133,7 +135,7 @@ export function montarRRHHPlantillas({
 
   function pintarPublicacion() {
     const borrador = consulta?.borrador;
-    if (!borrador || seleccionado !== null) return "";
+    if (!borrador || seleccionado !== null || !puedePublicar()) return "";
     return `<section class="panel rrhh-plantillas-panel rrhh-plantillas-publicacion" aria-labelledby="rrhh-plantillas-publicacion-titulo">
       <header class="cabecera-panel"><div><h3 id="rrhh-plantillas-publicacion-titulo">${e(t("plantillas_rrhh_publicacion_titulo"))}</h3></div>
       <span class="estado-chip violeta">${e(t("plantillas_rrhh_borrador"))}</span></header>
@@ -168,6 +170,7 @@ export function montarRRHHPlantillas({
       <p>${e(c?.id ?? t("plantillas_rrhh_vacio"))}</p></div><span class="estado-chip ${c?.estado === "publicado" ? "info" : "violeta"}">${e(estado(c?.estado))}</span></header>
       <dl class="cuerpo-panel"><div><dt>${e(t("plantillas_rrhh_version"))}</dt><dd>${c ? `${e(String(c.version))} / ${e(String(c.revision))}` : "—"}</dd></div>
       <div><dt>${e(t("plantillas_rrhh_huella"))}</dt><dd class="rrhh-plantillas-huella">${e(c?.huella_sha256 ?? "—")}</dd></div></dl></section>
+      ${!puedeEditar() && !puedePublicar() ? `<p class="rrhh-plantillas-lectura" role="status">${e(t("plantillas_rrhh_no_editable"))}</p>` : ""}
       ${pintarLista()}${pintarFormulario()}${pintarPublicacion()}`}</div>`;
   }
 
@@ -176,7 +179,7 @@ export function montarRRHHPlantillas({
     ocupado = true; error = null; pintar();
     try {
       consulta = await cliente.consultar({ signal: controlador.signal });
-      if (seleccionado !== "" && !entradaActual()) seleccionado = null;
+      if (!puedeEditar() || (seleccionado !== "" && !entradaActual())) seleccionado = null;
       anunciar(t("plantillas_rrhh_lista_titulo"));
     } catch (fallo) {
       if (controlador.signal.aborted) return;
@@ -186,7 +189,7 @@ export function montarRRHHPlantillas({
   }
 
   async function guardar(formulario) {
-    if (ocupado || bloqueado || consulta === null) return;
+    if (ocupado || bloqueado || consulta === null || !puedeEditar()) return;
     let preparado;
     try { preparado = prepararEntradaPlantilla(formulario, entradaActual()); }
     catch (fallo) {
@@ -217,7 +220,7 @@ export function montarRRHHPlantillas({
     let conservarFormulario = false;
     try {
       const resultado = await cliente.guardar(solicitud, { signal: controlador.signal });
-      consulta = { ...consulta, borrador: resultado.catalogo };
+      consulta = { ...consulta, borrador: resultado.catalogo, puede_publicar: false };
       recibo = resultado;
       seleccionado = null;
       claveIdempotencia = null;
@@ -250,7 +253,7 @@ export function montarRRHHPlantillas({
 
   async function publicar(formulario) {
     const borrador = consulta?.borrador;
-    if (!borrador || ocupado || bloqueado || seleccionado !== null) return;
+    if (!borrador || ocupado || bloqueado || seleccionado !== null || !puedePublicar()) return;
     const datos = new FormData(formulario);
     const aprobacion = String(datos.get("aprobacion_ref") ?? "");
     const motivo = String(datos.get("motivo") ?? "");
@@ -277,7 +280,7 @@ export function montarRRHHPlantillas({
     let conservarFormulario = false;
     try {
       const resultado = await cliente.publicar(solicitud, { signal: controlador.signal });
-      consulta = { borrador: null, publicado: resultado.catalogo };
+      consulta = { ...consulta, borrador: null, publicado: resultado.catalogo, puede_publicar: false };
       recibo = { ...resultado, publicacion: true };
       claveIdempotencia = null;
       anunciar(t("plantillas_rrhh_publicacion_confirmada"));
@@ -318,6 +321,7 @@ export function montarRRHHPlantillas({
     if (accion === "recargar") { void cargar(); return; }
     if (accion === "cancelar") { seleccionado = null; claveIdempotencia = null; error = null; pintar(); return; }
     if (ocupado || bloqueado) return;
+    if (["nueva", "editar"].includes(accion) && !puedeEditar()) return;
     if (accion === "nueva") { seleccionado = ""; claveIdempotencia = null; pintar(); raiz.querySelector('[name="clave"]')?.focus(); }
     if (accion === "editar") { seleccionado = boton.dataset.clave; claveIdempotencia = null; pintar(); raiz.querySelector('[name="etiqueta"]')?.focus(); }
     if (accion === "anadir-parrafo") {

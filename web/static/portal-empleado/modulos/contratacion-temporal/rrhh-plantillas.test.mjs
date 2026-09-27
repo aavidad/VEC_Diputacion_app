@@ -20,15 +20,19 @@ test("cliente consulta sin credenciales persistidas y conserva versión publicad
   let peticion;
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
     peticion = { ruta, opciones };
-    return respuesta({ borrador: catalogo, publicado: null });
+    return respuesta({ borrador: catalogo, publicado: null, puede_editar: true, puede_publicar: false });
   } });
   const datos = await cliente.consultar();
   assert.equal(datos.borrador.version, 3);
+  assert.equal(datos.puede_editar, true);
+  assert.equal(datos.puede_publicar, false);
   assert.equal(peticion.ruta, RUTA_RRHH_PLANTILLAS);
   assert.equal(peticion.opciones.method, "GET");
   assert.equal(peticion.opciones.credentials, "same-origin");
   assert.equal(peticion.opciones.cache, "no-store");
   assert.equal(peticion.opciones.body, undefined);
+  const sinPermisos = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({ borrador: catalogo, publicado: null }) });
+  await assert.rejects(sinPermisos.consultar(), (error) => error instanceof ErrorPlantillasRRHH && error.codigo === "respuesta_incompatible");
 });
 
 test("cliente solo confirma un cambio con catálogo, versión y recibo válidos", async () => {
@@ -114,7 +118,8 @@ test("vista separa borrador y publicación, escapa datos y oculta ayuda hasta pu
     replaceChildren() { this.innerHTML = ""; },
   };
   const cliente = {
-    async consultar() { return { borrador: { ...catalogo, entradas: [{ ...catalogo.entradas[0], etiqueta: "<modelo>" }] }, publicado: null }; },
+    async consultar() { return { borrador: { ...catalogo, entradas: [{ ...catalogo.entradas[0], etiqueta: "<modelo>" }] },
+      publicado: null, puede_editar: true, puede_publicar: true }; },
     async guardar() { throw new Error("no se llama"); },
     async publicar() { throw new Error("no se llama"); },
   };
@@ -129,4 +134,14 @@ test("vista separa borrador y publicación, escapa datos y oculta ayuda hasta pu
   assert.doesNotMatch(raiz.innerHTML, /id="rrhh-plantillas-ayuda"[^>]*hidden/u);
   vista.desmontar();
   assert.equal(raiz.innerHTML, "");
+});
+
+test("sin concesiones positivas la consulta es solo lectura y no ofrece acciones", async () => {
+  const raiz = { innerHTML: "", addEventListener() {}, removeEventListener() {}, replaceChildren() {} };
+  const cliente = { async consultar() { return { borrador: catalogo, publicado: null, puede_editar: false, puede_publicar: false }; },
+    async guardar() { throw new Error("no se llama"); }, async publicar() { throw new Error("no se llama"); } };
+  montarRRHHPlantillas({ raiz, cliente });
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.match(raiz.innerHTML, /La configuración consultada no admite edición/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-plantillas-accion="nueva"|data-plantillas-accion="editar"|data-plantillas-publicar/u);
 });

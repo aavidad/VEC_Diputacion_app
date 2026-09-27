@@ -50,12 +50,15 @@ export function validarCatalogoPlantillas(valor) {
 }
 
 export function validarConsultaPlantillas(valor) {
-  if (!objeto(valor) || !Object.hasOwn(valor, "borrador") || !Object.hasOwn(valor, "publicado")) {
+  if (!objeto(valor) || !Object.hasOwn(valor, "borrador") || !Object.hasOwn(valor, "publicado")
+    || typeof valor.puede_editar !== "boolean" || typeof valor.puede_publicar !== "boolean") {
     throw new ErrorPlantillasRRHH("respuesta_incompatible");
   }
   return {
     borrador: valor.borrador === null ? null : validarCatalogoPlantillas(valor.borrador),
     publicado: valor.publicado === null ? null : validarCatalogoPlantillas(valor.publicado),
+    puede_editar: valor.puede_editar,
+    puede_publicar: valor.puede_publicar,
   };
 }
 
