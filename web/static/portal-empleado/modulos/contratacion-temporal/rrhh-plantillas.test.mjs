@@ -35,6 +35,50 @@ test("cliente consulta sin credenciales persistidas y conserva versión publicad
   await assert.rejects(sinPermisos.consultar(), (error) => error instanceof ErrorPlantillasRRHH && error.codigo === "respuesta_incompatible");
 });
 
+test("consulta acepta catálogo legal de más de 4 MiB y corta lectura por encima de 17 MB", async () => {
+  const atributos = Object.fromEntries(Array.from({ length: 80 }, (_, indice) =>
+    [`parrafo.${String(indice).padStart(2, "0")}`, "a".repeat(65_536)]));
+  const grande = { ...catalogo, entradas: [{ ...catalogo.entradas[0], atributos }] };
+  const cuerpo = JSON.stringify({ borrador: grande, publicado: null, puede_editar: false, puede_publicar: false });
+  const bytes = new TextEncoder().encode(cuerpo);
+  assert.ok(bytes.byteLength > 4 * 1024 * 1024 && bytes.byteLength < 17_000_000);
+  const clienteGrande = crearClientePlantillasRRHH({ fetchImpl: async () => new Response(bytes, {
+    status: 200, headers: { "Content-Type": "application/json; charset=utf-8" },
+  }) });
+  assert.equal((await clienteGrande.consultar()).borrador.entradas[0].atributos["parrafo.79"].length, 65_536);
+
+  const excesiva = new ReadableStream({ start(controlador) {
+    controlador.enqueue(new Uint8Array(9_000_000));
+    controlador.enqueue(new Uint8Array(8_000_001));
+    controlador.close();
+  } });
+  const clienteExcesivo = crearClientePlantillasRRHH({ fetchImpl: async () => new Response(excesiva, {
+    status: 200, headers: { "Content-Type": "application/json; charset=utf-8" },
+  }) });
+  await assert.rejects(clienteExcesivo.consultar(), (error) =>
+    error instanceof ErrorPlantillasRRHH && error.codigo === "respuesta_incompatible");
+});
+
+test("señal ya cancelada impide la petición de plantillas", async () => {
+  const controlador = new AbortController();
+  controlador.abort();
+  const cliente = crearClientePlantillasRRHH({ fetchImpl: async () => assert.fail("red inesperada") });
+  await assert.rejects(cliente.consultar({ signal: controlador.signal }), (error) => error.name === "AbortError");
+});
+
+test("abortar durante la lectura streaming no entrega catálogo parcial", async () => {
+  const controlador = new AbortController();
+  let tramo = 0;
+  const cuerpo = new ReadableStream({ pull(lector) {
+    if (tramo++ === 0) lector.enqueue(new TextEncoder().encode('{"borrador":'));
+    else { controlador.abort(); lector.enqueue(new TextEncoder().encode("{}")); lector.close(); }
+  } });
+  const cliente = crearClientePlantillasRRHH({ fetchImpl: async () => new Response(cuerpo, {
+    status: 200, headers: { "Content-Type": "application/json; charset=utf-8" },
+  }) });
+  await assert.rejects(cliente.consultar({ signal: controlador.signal }), (error) => error.name === "AbortError");
+});
+
 test("cliente solo confirma un cambio con catálogo, versión y recibo válidos", async () => {
   let peticion;
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {

@@ -6,7 +6,7 @@ export const RUTA_RRHH_PLANTILLAS_PUBLICAR = `${RUTA_RRHH_PLANTILLAS}/publicar`;
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
-const MAXIMO_RESPUESTA = 4 * 1024 * 1024;
+const MAXIMO_RESPUESTA = 17_000_000;
 const MAXIMO_PETICION = 256 * 1024;
 
 export class ErrorPlantillasRRHH extends Error {
@@ -73,23 +73,36 @@ export function validarRespuestaGuardadoPlantillas(valor, estadoEsperado = "borr
   return { catalogo, recibo: valor.recibo };
 }
 
-async function leerAcotado(respuesta) {
+async function leerAcotado(respuesta, signal) {
   const tipo = respuesta.headers?.get?.("content-type") ?? "";
   if (!/^application\/json(?:;\s*charset=utf-8)?$/iu.test(tipo)) throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status);
   const longitud = Number(respuesta.headers?.get?.("content-length"));
   if (Number.isFinite(longitud) && longitud > MAXIMO_RESPUESTA) throw new ErrorPlantillasRRHH("respuesta_excesiva", respuesta.status);
   if (!respuesta.body?.getReader) throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status);
   const lector = respuesta.body.getReader();
-  const fragmentos = [];
+  let bytes = new Uint8Array(64 * 1024);
   let tamano = 0;
+  let vacios = 0;
   try {
     while (true) {
+      if (signal?.aborted) throw new DOMException("Lectura cancelada", "AbortError");
       const { done, value } = await lector.read();
       if (done) break;
       if (!(value instanceof Uint8Array)) throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status);
-      tamano += value.byteLength;
-      if (tamano > MAXIMO_RESPUESTA || fragmentos.length >= 1024) throw new ErrorPlantillasRRHH("respuesta_excesiva", respuesta.status);
-      fragmentos.push(value);
+      if (value.byteLength === 0) {
+        if (++vacios > 1024) throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status);
+        continue;
+      }
+      vacios = 0;
+      const siguiente = tamano + value.byteLength;
+      if (siguiente > MAXIMO_RESPUESTA) throw new ErrorPlantillasRRHH("respuesta_excesiva", respuesta.status);
+      if (siguiente > bytes.byteLength) {
+        const ampliados = new Uint8Array(Math.min(MAXIMO_RESPUESTA, Math.max(siguiente, bytes.byteLength * 2)));
+        ampliados.set(bytes.subarray(0, tamano));
+        bytes = ampliados;
+      }
+      bytes.set(value, tamano);
+      tamano = siguiente;
     }
   } catch (error) {
     await lector.cancel().catch(() => {});
@@ -97,10 +110,7 @@ async function leerAcotado(respuesta) {
   } finally {
     lector.releaseLock();
   }
-  const bytes = new Uint8Array(tamano);
-  let posicion = 0;
-  for (const fragmento of fragmentos) { bytes.set(fragmento, posicion); posicion += fragmento.byteLength; }
-  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
+  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, tamano))); }
   catch { throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status); }
 }
 
@@ -128,6 +138,7 @@ function validarSolicitudPublicacion(valor) {
 export function crearClientePlantillasRRHH({ fetchImpl = globalThis.fetch, HeadersImpl = globalThis.Headers } = {}) {
   if (typeof fetchImpl !== "function" || typeof HeadersImpl !== "function") throw new TypeError("transporte no disponible");
   async function solicitar(ruta, metodo, cuerpo, signal) {
+    if (signal?.aborted) throw new DOMException("Petición cancelada", "AbortError");
     const headers = new HeadersImpl({ Accept: "application/json" });
     if (metodo === "POST") headers.set("Content-Type", "application/json");
     let respuesta;
@@ -146,15 +157,19 @@ export function crearClientePlantillasRRHH({ fetchImpl = globalThis.fetch, Heade
     }
     if (respuesta.status >= 400) {
       let codigo = "error_http";
-      try { const detalle = await leerAcotado(respuesta); codigo = detalle?.error?.codigo ?? detalle?.codigo ?? codigo; }
+      try { const detalle = await leerAcotado(respuesta, signal); codigo = detalle?.error?.codigo ?? detalle?.codigo ?? codigo; }
       catch { /* El estado sigue siendo fiable; el contenido se descarta. */ }
+      if (signal?.aborted) throw new DOMException("Lectura cancelada", "AbortError");
       throw new ErrorPlantillasRRHH(codigo, respuesta.status, metodo === "POST" && respuesta.status >= 500);
     }
     if (metodo === "GET" ? respuesta.status !== 200 : ![200, 201].includes(respuesta.status)) {
       throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status, metodo === "POST");
     }
-    try { return await leerAcotado(respuesta); }
-    catch (error) { throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status, metodo === "POST"); }
+    try { return await leerAcotado(respuesta, signal); }
+    catch (error) {
+      if (signal?.aborted) throw error;
+      throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status, metodo === "POST");
+    }
   }
   return Object.freeze({
     async consultar({ signal } = {}) {
