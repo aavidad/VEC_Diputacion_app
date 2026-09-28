@@ -6,7 +6,8 @@ import {
   validarConsultaReciboRespuesta, validarReciboRespuestaConsultado,
 } from "./cliente-http-consulta-recibo-respuesta.js";
 
-const consulta = { organizacion_ref: "organizacion:sintetica:001", comunicacion_ref: "comunicacion:sintetica:001" };
+const consulta = { organizacion_ref: "organizacion:sintetica:001",
+  expediente_ref: "expediente:ct:sintetico:001", comunicacion_ref: "comunicacion:sintetica:001" };
 const recibo = {
   esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
   ...consulta, respuesta: "aceptacion", justificante_ref: "justificante:sintetico:001",
@@ -20,7 +21,7 @@ test("GET envía solo referencias opacas y valida el recibo autorizado", async (
     validarOpciones: ({ signal }) => ({ signal }),
     ejecutar: async (opciones) => {
       assert.equal(opciones.metodo, "GET");
-      assert.equal(opciones.ruta, `${RUTA_CONSULTA_RECIBO_RESPUESTA}?organizacion_ref=organizacion%3Asintetica%3A001&comunicacion_ref=comunicacion%3Asintetica%3A001`);
+      assert.equal(opciones.ruta, `${RUTA_CONSULTA_RECIBO_RESPUESTA}?organizacion_ref=organizacion%3Asintetica%3A001&expediente_ref=expediente%3Act%3Asintetico%3A001&comunicacion_ref=comunicacion%3Asintetica%3A001`);
       assert.equal(opciones.signal, controlador.signal);
       assert.equal(opciones.estadoEsperado, 200);
       assert.equal(opciones.efecto, false);
@@ -34,10 +35,12 @@ test("GET envía solo referencias opacas y valida el recibo autorizado", async (
 test("GET rechaza referencias y recibos ajenos, añadidos o de tipos incorrectos", () => {
   for (const entrada of [{ ...consulta, clave_idempotencia: "clave:ajena" },
     { ...consulta, organizacion_ref: [consulta.organizacion_ref] },
+    { organizacion_ref: consulta.organizacion_ref, comunicacion_ref: consulta.comunicacion_ref },
     { ...consulta, comunicacion_ref: "persona@example.invalid" }]) {
     assert.throws(() => validarConsultaReciboRespuesta(entrada), TypeError);
   }
   for (const cambio of [{ organizacion_ref: "organizacion:ajena" },
+    { expediente_ref: "expediente:ajeno" },
     { comunicacion_ref: "comunicacion:ajena" }, { respuesta: "otra" },
     { justificante_ref: [recibo.justificante_ref] }, { estado: "replay_registrada_por_rrhh" },
     { registrada_en: "2026-02-30T09:00:00Z" }, { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002" }]) {
@@ -48,7 +51,7 @@ test("GET rechaza referencias y recibos ajenos, añadidos o de tipos incorrectos
 test("cliente común compone GET de recibo sin cuerpo ni clave y valida 404 uniforme", async () => {
   assert.equal(RUTAS_HTTP_CONTRATACION_TEMPORAL.consultaReciboRespuesta, RUTA_CONSULTA_RECIBO_RESPUESTA);
   const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
-    assert.equal(ruta, `${RUTA_CONSULTA_RECIBO_RESPUESTA}?organizacion_ref=organizacion%3Asintetica%3A001&comunicacion_ref=comunicacion%3Asintetica%3A001`);
+    assert.equal(ruta, `${RUTA_CONSULTA_RECIBO_RESPUESTA}?organizacion_ref=organizacion%3Asintetica%3A001&expediente_ref=expediente%3Act%3Asintetico%3A001&comunicacion_ref=comunicacion%3Asintetica%3A001`);
     assert.equal(opciones.method, "GET");
     assert.equal(Object.hasOwn(opciones, "body"), false);
     return new Response(JSON.stringify({ data: recibo }), { status: 200,
@@ -62,4 +65,8 @@ test("cliente común compone GET de recibo sin cuerpo ni clave y valida 404 unif
     } }), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
   await assert.rejects(ausente.consultarReciboRespuesta(consulta), (error) =>
     error.estado === 404 && error.envelopeValido === true);
+  assert.throws(() => ausente.consultarReciboRespuesta({
+    organizacion_ref: "a".repeat(159), expediente_ref: "b".repeat(159),
+    comunicacion_ref: "c".repeat(159),
+  }), TypeError);
 });

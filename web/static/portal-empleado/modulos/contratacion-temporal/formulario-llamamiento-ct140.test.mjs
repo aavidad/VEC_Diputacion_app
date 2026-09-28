@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   EXPEDIENTE, recibo, raizPrueba, montar, archivoCorreo, declaracion, justificante,
+  CLAVE_RESOLUCION, revisionManual, reciboResolucion, continuacionConfirmada,
+  PUBLICACIONES_PROPUESTA,
 } from "./formulario-llamamiento-pruebas.js";
 import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
 
@@ -114,7 +116,8 @@ test("CT140 y GET200 muestran respuesta existente sin formulario ni nuevo POST",
     consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
     consultarReciboRespuesta: async () => ({
       esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
-      organizacion_ref: fila(1).organizacion_ref, comunicacion_ref: fila(1).comunicacion_ref,
+      organizacion_ref: fila(1).organizacion_ref, expediente_ref: fila(1).expediente_ref,
+      comunicacion_ref: fila(1).comunicacion_ref,
       respuesta: "aceptacion", justificante_ref: "justificante:ct140:001",
       recibo_ref: "recibo:respuesta:ct140:001", auditoria_ref: "auditoria:ct140:001",
       registrada_en: "2026-09-24T11:00:00Z", estado: "registrada_por_rrhh",
@@ -155,6 +158,67 @@ test("CT140 sin_respuesta con selección permite POST tras GET404 sin fabricar r
   cerrar();
 });
 
+test("renuncia restaurada permite resolución y siguiente llamamiento sin saltar guardas", async () => {
+  const raiz = raizPrueba(); let resoluciones = 0, siguientes = 0;
+  const cerrar = montar(raiz, {
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
+    consultarReciboRespuesta: async () => { throw sinRespuesta(); },
+    registrarRespuestaRecibida: async (solicitud) => ({ ...justificante(solicitud),
+      registrada_en: "2026-09-24T10:30:00Z" }),
+    resolverLlamamiento: async () => {
+      resoluciones += 1;
+      return { ...reciboResolucion("renuncia"), resuelta_en: "2026-09-24T11:00:00Z",
+        intencion_siguiente: { referencia: "intencion:siguiente:001", estado_local: "pendiente",
+          actualizada_en: "2026-09-24T11:00:00Z" } };
+    },
+    continuarLlamamiento: async () => {
+      siguientes += 1;
+      return { ...continuacionConfirmada,
+        llamamiento_anterior_ref: fila(1).llamamiento_ref,
+        confirmada_en: "2026-09-24T11:10:00Z" };
+    },
+  }, { contexto });
+  await esperar(); elegir(raiz, 0); await esperar();
+  await raiz.archivo(archivoCorreo("renuncia"));
+  await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia", recibida_en: "2026-09-24T11:00" });
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  assert.equal(resoluciones, 1);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="siguiente"/u);
+  await raiz.enviar("siguiente", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174004" });
+  assert.equal(siguientes, 1);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="siguiente"/u);
+  cerrar();
+});
+
+test("aceptación restaurada permite propuesta solo con resolución y publicaciones", async () => {
+  const raiz = raizPrueba(); let propuestas = 0;
+  const cerrar = montar(raiz, {
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
+    consultarReciboRespuesta: async () => { throw sinRespuesta(); },
+    registrarRespuestaRecibida: async (solicitud) => ({ ...justificante(solicitud),
+      registrada_en: "2026-09-24T10:30:00Z" }),
+    resolverLlamamiento: async () => ({ ...reciboResolucion("aceptacion"),
+      resuelta_en: "2026-09-24T11:00:00Z" }),
+    prepararPropuestaFormalizacion: async () => {
+      propuestas += 1;
+      return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1",
+        estado_local: "confirmado", propuesta_ref: "propuesta:ct140:001",
+        recibo_local_ref: "recibo:propuesta:ct140:001", version_resultante: 7,
+        confirmada_en: "2026-09-24T11:10:00Z" };
+    },
+  }, { contexto, fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA,
+    { status: 200, headers: { "Content-Type": "application/json" } }) });
+  await esperar(); elegir(raiz, 0); await esperar();
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", { ...declaracion(), recibida_en: "2026-09-24T11:00" });
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="propuesta"/u);
+  await raiz.enviar("propuesta", { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174005" });
+  assert.equal(propuestas, 1);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="propuesta"/u);
+  cerrar();
+});
+
 for (const ingles of [false, true]) test(`CT140 registrada y GET404 ${ingles ? "EN" : "ES"} oculta POST y explica recibo de otra comunicación`, async () => {
   const raiz = raizPrueba(); let escrituras = 0;
   const registrada = { ...fila(1), estado_respuesta: "registrada" };
@@ -177,10 +241,13 @@ for (const ingles of [false, true]) test(`CT140 registrada y GET404 ${ingles ? "
 });
 
 for (const estado of [403, 409]) test(`POST CT140 rechazado ${estado} bloquea lista anterior hasta nueva consulta`, async () => {
-  const raiz = raizPrueba(); let escrituras = 0;
+  const raiz = raizPrueba(); let escrituras = 0, listas = 0, recibos = 0;
   const cerrar = montar(raiz, {
-    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
-    consultarReciboRespuesta: async () => { throw sinRespuesta(); },
+    consultarComunicacionesExpediente: async () => {
+      listas += 1;
+      return { expediente_ref: EXPEDIENTE, comunicaciones: [fila(1), fila(2)] };
+    },
+    consultarReciboRespuesta: async () => { recibos += 1; throw sinRespuesta(); },
     registrarRespuestaRecibida: async () => {
       escrituras += 1;
       throw Object.assign(new Error(), { estado,
@@ -195,9 +262,22 @@ for (const estado of [403, 409]) test(`POST CT140 rechazado ${estado} bloquea li
   await raiz.enviar("respuesta", declaracion());
   assert.equal(escrituras, 1);
   assert.match(raiz.innerHTML, /Vuelva a consultar la lista antes de continuar/u);
+  assert.match(raiz.innerHTML, /Esta pantalla conserva la declaración sin recibo/u);
   assert.doesNotMatch(raiz.innerHTML, /Respuesta pendiente según la lista|data-ct-llamamiento-form=/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(escrituras, 1);
+  raiz.eventos.get("click")({ preventDefault() {}, target: { closest: (selector) =>
+    selector === "[data-ct-comunicaciones-reintentar]"
+      ? { dataset: { ctComunicacionesReintentar: "" } } : null } });
+  await esperar();
+  assert.equal(listas, 2);
+  elegir(raiz, 1);
+  await esperar();
+  assert.equal(recibos, 2, "puede consultar otra comunicación después del rechazo");
+  assert.match(raiz.innerHTML, /declaración anterior sin recibo confirmado/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 1, "no reenvía la declaración ni admite otra escritura");
   cerrar();
 });
 
@@ -217,7 +297,8 @@ test("al cambiar de fila ignora respuesta tardía de la comunicación anterior",
   await esperar();
   assert.equal(signalAnterior.aborted, true);
   resolverAnterior({ esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
-    organizacion_ref: fila(1).organizacion_ref, comunicacion_ref: fila(1).comunicacion_ref,
+    organizacion_ref: fila(1).organizacion_ref, expediente_ref: fila(1).expediente_ref,
+    comunicacion_ref: fila(1).comunicacion_ref,
     respuesta: "aceptacion", justificante_ref: "justificante:ct140:001",
     recibo_ref: "recibo:respuesta:ct140:001", auditoria_ref: "auditoria:ct140:001",
     registrada_en: "2026-09-24T11:00:00Z", estado: "registrada_por_rrhh" });

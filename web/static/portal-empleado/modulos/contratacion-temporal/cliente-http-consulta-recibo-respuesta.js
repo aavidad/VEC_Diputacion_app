@@ -1,7 +1,7 @@
 import { referenciaLlamamientoValida } from "./contrato-llamamiento.js";
 
 export const RUTA_CONSULTA_RECIBO_RESPUESTA = "/api/vec/contratacion-temporal/llamamientos/respuestas/recibo";
-const CAMPOS = Object.freeze(["esquema", "organizacion_ref", "comunicacion_ref", "respuesta",
+const CAMPOS = Object.freeze(["esquema", "organizacion_ref", "expediente_ref", "comunicacion_ref", "respuesta",
   "justificante_ref", "recibo_ref", "auditoria_ref", "registrada_en", "estado"]);
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 
@@ -9,14 +9,13 @@ export function validarConsultaReciboRespuesta(entrada) {
   if (entrada === null || typeof entrada !== "object" || Array.isArray(entrada)
     || Object.getPrototypeOf(entrada) !== Object.prototype
     || Object.getOwnPropertySymbols(entrada).length !== 0
-    || Object.keys(entrada).length !== 2
-    || !Object.hasOwn(entrada, "organizacion_ref") || !Object.hasOwn(entrada, "comunicacion_ref")
-    || !["organizacion_ref", "comunicacion_ref"].every((campo) => {
+    || Object.keys(entrada).length !== 3
+    || !["organizacion_ref", "expediente_ref", "comunicacion_ref"].every((campo) => {
       const descriptor = Object.getOwnPropertyDescriptor(entrada, campo);
       return descriptor?.enumerable === true && Object.hasOwn(descriptor, "value")
         && referenciaLlamamientoValida(descriptor.value);
     })) throw new TypeError("consulta de recibo de respuesta no válida");
-  return Object.freeze({ organizacion_ref: entrada.organizacion_ref,
+  return Object.freeze({ organizacion_ref: entrada.organizacion_ref, expediente_ref: entrada.expediente_ref,
     comunicacion_ref: entrada.comunicacion_ref });
 }
 
@@ -32,6 +31,7 @@ export function validarReciboRespuestaConsultado(entrada, consulta) {
     })
     || entrada.esquema !== "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1"
     || entrada.organizacion_ref !== esperada.organizacion_ref
+    || entrada.expediente_ref !== esperada.expediente_ref
     || entrada.comunicacion_ref !== esperada.comunicacion_ref
     || !["aceptacion", "renuncia"].includes(entrada.respuesta)
     || !["justificante_ref", "recibo_ref", "auditoria_ref"].every(
@@ -54,6 +54,7 @@ export function crearConsultaReciboRespuestaClienteHTTP({ ejecutar, validarOpcio
       const entrada = validarConsultaReciboRespuesta(consulta);
       const { signal } = validarOpciones(opciones);
       const query = new URLSearchParams(entrada);
+      if (query.toString().length > 400) throw new TypeError("consulta de recibo demasiado larga");
       return ejecutar({ metodo: "GET", ruta: `${RUTA_CONSULTA_RECIBO_RESPUESTA}?${query}`,
         signal, estadoEsperado: 200, maximoRespuesta: 4096, efecto: false,
         validarRespuesta: (respuesta) => validarReciboRespuestaConsultado(respuesta, entrada) });

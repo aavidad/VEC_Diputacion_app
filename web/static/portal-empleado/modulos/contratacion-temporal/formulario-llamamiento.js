@@ -141,7 +141,7 @@ export function montarFormularioLlamamiento({
     enlazado: false, comunicacionAbierta: false,
     consultaRespuesta: { estado: "sin_contexto", referencias: null, recibo: null,
       controlador: null, generacion: 0, mensaje: "llamamiento_consulta_sin_contexto", tono: "informacion" },
-    comunicaciones: { estado: "sin_contexto", filas: [], seleccionada: null, controlador: null,
+    comunicaciones: { estado: "sin_contexto", filas: [], seleccionada: null, intentoNoConfirmado: null, controlador: null,
       generacion: 0, mensaje: "llamamiento_comunicaciones_sin_contexto", tono: "informacion" } };
   function ahora() {
     try { const valor = reloj(); return Number.isFinite(valor) ? valor : Date.now(); } catch { return Date.now(); }
@@ -167,35 +167,42 @@ export function montarFormularioLlamamiento({
   }
 
   function puedeDeclarar(operacion) {
+    if (estado.comunicaciones.intentoNoConfirmado) return false;
+    const comunicado = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"];
+    const recibo = comunicado.recibo;
+    const coincideRecibo = estado.consultaRespuesta.estado === "ausente"
+      && estado.consultaRespuesta.referencias?.organizacion_ref === comunicado.solicitud?.organizacion_ref
+      && estado.consultaRespuesta.referencias?.expediente_ref === comunicado.solicitud?.expediente_ref
+      && estado.consultaRespuesta.referencias?.comunicacion_ref === recibo?.comunicacion_ref
+      && recibo?.version_resultante === 2 && (operacion !== "respuesta_siguiente"
+        || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local));
+    if (coincideRecibo) return true;
     if (estado.comunicaciones.estado === "lista") {
       const fila = estado.comunicaciones.seleccionada;
       return fila?.estado_respuesta === "sin_respuesta"
         && estado.consultaRespuesta.estado === "ausente"
         && fila.organizacion_ref === estado.consultaRespuesta.referencias?.organizacion_ref
+        && fila.expediente_ref === estado.consultaRespuesta.referencias?.expediente_ref
         && fila.comunicacion_ref === estado.consultaRespuesta.referencias?.comunicacion_ref
         && fila.expediente_ref === estado.seleccion.valores.expediente_ref
         && fila.version === 2
         && operacion === (fila.antecedente_tipo === "continuacion_confirmada" ? "respuesta_siguiente" : "respuesta");
     }
-    const comunicado = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"];
-    const recibo = comunicado.recibo;
-    return estado.consultaRespuesta.estado === "ausente"
-      && (estado.consultaRespuesta.referencias?.organizacion_ref === comunicado.solicitud?.organizacion_ref
-        && estado.consultaRespuesta.referencias?.comunicacion_ref === recibo?.comunicacion_ref
-        && recibo?.version_resultante === 2 && (operacion !== "respuesta_siguiente"
-          || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local)));
+    return false;
   }
   function antecedenteConsultaDisponible() {
     const consulta = estado.consultaRespuesta.referencias;
     return [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
       paso.recibo?.comunicacion_ref === consulta?.comunicacion_ref
-      && paso.solicitud?.organizacion_ref === consulta?.organizacion_ref)
+      && paso.solicitud?.organizacion_ref === consulta?.organizacion_ref
+      && paso.solicitud?.expediente_ref === consulta?.expediente_ref)
       || (estado.comunicaciones.estado === "lista"
         && estado.comunicaciones.seleccionada?.comunicacion_ref === consulta?.comunicacion_ref
-        && estado.comunicaciones.seleccionada?.organizacion_ref === consulta?.organizacion_ref);
+        && estado.comunicaciones.seleccionada?.organizacion_ref === consulta?.organizacion_ref
+        && estado.comunicaciones.seleccionada?.expediente_ref === consulta?.expediente_ref);
   }
   function consultaDesdeRecibo(recibo, solicitud) {
-    return { organizacion_ref: solicitud.organizacion_ref,
+    return { organizacion_ref: solicitud.organizacion_ref, expediente_ref: solicitud.expediente_ref,
       comunicacion_ref: recibo.comunicacion_ref };
   }
   function consultarReciboRespuesta(referencias, forzar = false) {
@@ -204,6 +211,7 @@ export function montarFormularioLlamamiento({
     try { consulta = validarConsultaReciboRespuesta(referencias); } catch { return; }
     const paso = estado.consultaRespuesta;
     const misma = paso.referencias?.organizacion_ref === consulta.organizacion_ref
+      && paso.referencias?.expediente_ref === consulta.expediente_ref
       && paso.referencias?.comunicacion_ref === consulta.comunicacion_ref;
     if (!forzar && misma && ["cargando", "ausente", "confirmado"].includes(paso.estado)) return;
     paso.controlador?.abort();
@@ -313,7 +321,8 @@ export function montarFormularioLlamamiento({
     const fila = lista.filas[indice];
     if (fila.expediente_ref !== estado.seleccion.valores.expediente_ref) return;
     if ([estado.respuesta, estado.respuesta_siguiente, estado.resolucion, estado.resolucion_siguiente]
-      .some((paso) => paso.ocupado || (paso.solicitud !== null && paso.recibo === null))) return;
+      .some((paso) => paso.ocupado || (paso.solicitud !== null && paso.recibo === null
+        && paso.solicitud !== lista.intentoNoConfirmado?.solicitud))) return;
     if (lista.seleccionada?.comunicacion_ref === fila.comunicacion_ref) return;
     estado.respuesta = nuevoPaso();
     estado.respuesta_siguiente = { ...nuevoPaso(), claveConservada: false };
@@ -326,6 +335,7 @@ export function montarFormularioLlamamiento({
       llamamiento_ref: fila.llamamiento_ref, comunicacion_ref: fila.comunicacion_ref,
       version_comunicacion_esperada: fila.version };
     consultarReciboRespuesta({ organizacion_ref: fila.organizacion_ref,
+      expediente_ref: fila.expediente_ref,
       comunicacion_ref: fila.comunicacion_ref });
   }
   function puedeResolver(operacion) {
@@ -441,7 +451,8 @@ export function montarFormularioLlamamiento({
     return reciboAntecedenteSiguiente(estado)?.intencion_siguiente?.estado_local === "pendiente";
   }
   function versionFiscalizadaPermitePropuesta() {
-    const version = estado.seleccion.solicitud?.version_esperada;
+    const version = estado.seleccion.solicitud?.version_esperada
+      ?? estado.seleccion.valores.version_esperada;
     return Number.isSafeInteger(version) && version >= 6 && version < Number.MAX_SAFE_INTEGER;
   }
   function puedeProponer() {
@@ -459,7 +470,8 @@ export function montarFormularioLlamamiento({
       paso.aceptacion = r;
       paso.valores = { expediente_ref: s.expediente_ref, llamamiento_ref: s.llamamiento_ref,
         resolucion_llamamiento_aceptada_ref: r.resolucion_ref, recibo_resolucion_aceptada_ref: r.recibo_local_ref,
-        version_esperada: estado.seleccion.solicitud.version_esperada, anexos: Object.freeze([]) };
+        version_esperada: estado.seleccion.solicitud?.version_esperada
+          ?? estado.seleccion.valores.version_esperada, anexos: Object.freeze([]) };
     }
     if (typeof cliente.prepararPropuestaFormalizacion !== "function") return;
     paso.calculando = true;
@@ -493,7 +505,8 @@ export function montarFormularioLlamamiento({
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
-      && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente"].includes(operacion))) return;
+      && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente",
+        "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion))) return;
     if (estado.consultaRespuesta.referencias !== null
       && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
@@ -703,6 +716,7 @@ export function montarFormularioLlamamiento({
       if (rechazo && !conflicto) paso.solicitud = null;
       if (esRespuesta(operacion) && estado.comunicaciones.estado === "lista"
         && error?.envelopeValido === true && [403, 409].includes(error.estado)) {
+        estado.comunicaciones.intentoNoConfirmado = Object.freeze({ operacion, solicitud });
         paso.bloqueado = true;
         estado.comunicaciones.filas = [];
         estado.comunicaciones.seleccionada = null;

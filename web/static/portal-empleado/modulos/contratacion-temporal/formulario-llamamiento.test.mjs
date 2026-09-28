@@ -174,6 +174,7 @@ for (const ingles of [false, true]) test(`consulta 404 y POST ${estado} ${ingles
 });
 
 const consultaRespuesta = { organizacion_ref: recibo.organizacion_ref,
+  expediente_ref: EXPEDIENTE,
   comunicacion_ref: comunicacionRegistrada.comunicacion_ref };
 const reciboConsultado = { esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
   ...consultaRespuesta, respuesta: "aceptacion", justificante_ref: "justificante:sintetico:001",

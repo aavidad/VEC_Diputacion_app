@@ -40,12 +40,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref)) return "";
     const antecedente = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
       paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref
-      && paso.solicitud?.organizacion_ref === consulta.referencias?.organizacion_ref)
+      && paso.solicitud?.organizacion_ref === consulta.referencias?.organizacion_ref
+      && paso.solicitud?.expediente_ref === consulta.referencias?.expediente_ref)
       || (estado.comunicaciones?.estado === "lista"
         && estado.comunicaciones.seleccionada?.comunicacion_ref === consulta.referencias?.comunicacion_ref
-        && estado.comunicaciones.seleccionada?.organizacion_ref === consulta.referencias?.organizacion_ref);
+        && estado.comunicaciones.seleccionada?.organizacion_ref === consulta.referencias?.organizacion_ref
+        && estado.comunicaciones.seleccionada?.expediente_ref === consulta.referencias?.expediente_ref);
     const fila = estado.comunicaciones?.seleccionada;
-    const mensaje = consulta.estado === "ausente" && fila?.estado_respuesta === "registrada"
+    const mensaje = estado.comunicaciones?.intentoNoConfirmado
+      ? "llamamiento_consulta_intento_no_confirmado"
+      : consulta.estado === "ausente" && fila?.estado_respuesta === "registrada"
       ? "llamamiento_consulta_registrada_sin_recibo"
       : consulta.estado === "ausente" && fila?.estado_respuesta === "sin_respuesta"
         ? "llamamiento_consulta_sin_respuesta_verificada"
@@ -89,6 +93,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     return `<section class="ct-recibo" data-ct-llamamiento-estado="comunicaciones" tabindex="-1">
       <h3>${e(t("llamamiento_comunicaciones_titulo"))}</h3>
       <p role="status">${e(t(lista.mensaje))}</p>${opciones}
+      ${lista.intentoNoConfirmado ? `<p role="alert">${e(t("llamamiento_comunicaciones_intento_no_confirmado"))}</p>` : ""}
       ${lista.estado === "error" ? `<button class="boton-secundario" type="button"
         data-ct-comunicaciones-reintentar>${e(t("llamamiento_comunicaciones_reintentar"))}</button>` : ""}
     </section>`;
@@ -299,9 +304,11 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   const restaurada = estado.comunicaciones?.estado === "lista" ? estado.comunicaciones.seleccionada : null;
   const antecedenteConsulta = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
     paso.recibo?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
-    && paso.solicitud?.organizacion_ref === consulta?.referencias?.organizacion_ref)
+    && paso.solicitud?.organizacion_ref === consulta?.referencias?.organizacion_ref
+    && paso.solicitud?.expediente_ref === consulta?.referencias?.expediente_ref)
     || (restaurada?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
-      && restaurada?.organizacion_ref === consulta?.referencias?.organizacion_ref);
+      && restaurada?.organizacion_ref === consulta?.referencias?.organizacion_ref
+      && restaurada?.expediente_ref === consulta?.referencias?.expediente_ref);
   const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
     || (consulta.estado === "ausente" && ((estado.comunicaciones?.estado === "lista"
       && restaurada?.estado_respuesta !== "sin_respuesta") || !antecedenteConsulta)));
@@ -317,7 +324,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     ))}</p>
     ${listaComunicaciones()}
     ${consultaRespuesta()}
-    ${bloqueaFlujo || bloqueaLista ? "</section>" : `
+    ${bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado ? "</section>" : `
     ${resumenResultado()}
     ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
     ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
@@ -344,9 +351,10 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada)
-      && estado.seleccion.solicitud.version_esperada >= 6
-      && estado.seleccion.solicitud.version_esperada < Number.MAX_SAFE_INTEGER
+    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada
+      ?? estado.seleccion.valores.version_esperada)
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
       ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
   </section>`}`;
 }
