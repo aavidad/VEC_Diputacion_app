@@ -9,7 +9,7 @@
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
-import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
+import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
 const ESQUEMA = "vec.contratacion_temporal.circuito_firma.v1";
@@ -137,6 +137,7 @@ export function crearClienteHTTPCircuitoFirma({ fetchImpl = globalThis.fetch } =
 
 function renderizarPaso(paso, t, circuito, documento) {
   const tono = TONO_ESTADO[paso.estado];
+  const cargo = traducirValorCircuitoFirma("cargo", paso.cargo, t);
   const detalles = [
     t(`circuito_firma_accion_${paso.accion}`),
     t(`circuito_firma_habilita_${paso.habilita}`),
@@ -146,12 +147,12 @@ function renderizarPaso(paso, t, circuito, documento) {
   return `<li class="ct-circuito-paso ct-circuito-paso--${tono}"${paso.estado === "pendiente_firma" ? ' aria-current="step"' : ""}>
     <span class="ct-circuito-orden" aria-hidden="true">${paso.orden}</span>
     <div class="ct-circuito-paso-cuerpo">
-      <p class="ct-circuito-cargo">${escaparHTML(paso.cargo)}</p>
+      <p class="ct-circuito-cargo">${escaparHTML(cargo)}</p>
       <p class="ct-circuito-detalle">${detalles.map(escaparHTML).join(" · ")}</p>
       ${paso.estado === "devuelto" && paso.motivo_devolucion ? `<p class="ct-circuito-motivo">${escaparHTML(t("circuito_firma_motivo", { motivo: paso.motivo_devolucion }))}</p>` : ""}
       ${renderizarAccionesPaso(circuito, documento, paso, t)}
     </div>
-    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo: paso.cargo }))}</span>
+    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo }))}</span>
   </li>`;
 }
 
@@ -165,17 +166,27 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h3 id="ct-circuito-firma-titulo">${escaparHTML(t("circuito_firma_titulo"))}</h3>
       ${circuito?.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
-    <p class="ct-circuito-aviso" role="status" aria-live="polite" data-ct-firma-aviso></p>
+    <p class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
     <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
       <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
       <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
-      <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>
+      <div class="ct-circuito-envio">
+        <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_enviar"))}</button>
+        <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_bloqueado"))}</p>
+      </div>
+      <details class="ct-circuito-limite"><summary>${escaparHTML(t("circuito_firma_portafirmas_detalle"))}</summary>
+        <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>
+      </details>
     </section>
-    ${circuito ? `<h4 class="ct-circuito-subtitulo">${escaparHTML(t("circuito_firma_autofirma_prueba"))}</h4>
-    <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
-      <h5>${escaparHTML(documento.etiqueta)}</h5>
-      <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: documento.etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
-    </article>`).join("")}</div>` : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
+    ${circuito ? `<details class="ct-circuito-prueba" data-ct-firma-detalles>
+      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
+      <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => {
+    const etiqueta = traducirValorCircuitoFirma("documento", documento.etiqueta, t);
+    return `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
+      <h5>${escaparHTML(etiqueta)}</h5>
+      <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
+    </article>`;
+  }).join("")}</div></details>` : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
   </section>`;
 }
 
@@ -232,20 +243,30 @@ export function crearGestorCircuitoFirma({
       const nuevo = await conEstadoReal(await consulta);
       const actual = raiz.querySelector?.("[data-ct-circuito-firma]");
       if (!actual || !esMontada()) return;
+      const detallesAbiertos = Boolean(actual.querySelector?.("[data-ct-firma-detalles]")?.open);
+      const limiteAbierto = Boolean(actual.querySelector?.(".ct-circuito-limite")?.open);
       actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado);
       const repintado = raiz.querySelector?.("[data-ct-circuito-firma]");
       repintado?.addEventListener?.("click", manejar);
+      const detalles = repintado?.querySelector?.("[data-ct-firma-detalles]");
+      if (detalles) detalles.open = detallesAbiertos;
+      const limite = repintado?.querySelector?.(".ct-circuito-limite");
+      if (limite) limite.open = limiteAbierto;
       const aviso_ = repintado?.querySelector?.("[data-ct-firma-aviso]");
-      if (aviso_) aviso_.textContent = aviso;
+      if (aviso_) {
+        aviso_.textContent = aviso;
+        aviso_.focus?.({ preventScroll: true });
+        aviso_.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      }
     },
   });
   function manejar(evento) { void acciones.manejarClic(evento); }
 
   function insertar(resultado) {
     if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
-    const cabecera = raiz.querySelector?.(".ct-exp-cabecera-expediente");
-    if (typeof cabecera?.insertAdjacentHTML !== "function") return;
-    cabecera.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado));
+    const ancla = raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
+    if (typeof ancla?.insertAdjacentHTML !== "function") return;
+    ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado));
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 

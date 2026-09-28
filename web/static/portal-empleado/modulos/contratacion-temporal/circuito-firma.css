@@ -1,4 +1,4 @@
-/* Circuito de firma del expediente: panel propio bajo la cabecera. */
+/* Circuito de firma del expediente: después de la fase y el siguiente paso. */
 .ct-circuito-firma {
   min-width: 0;
   border: 1px solid var(--portal-borde);
@@ -53,14 +53,56 @@
 }
 
 .ct-circuito-portafirmas p {
-  grid-column: 1 / -1;
   margin: 0;
   color: var(--portal-muted);
   font-size: 0.85rem;
 }
 
+.ct-circuito-limite {
+  grid-column: 1 / -1;
+}
+
+.ct-circuito-limite p {
+  padding-top: 8px;
+}
+
+.ct-circuito-limite summary,
+.ct-circuito-prueba summary {
+  width: fit-content;
+  min-height: 24px;
+  cursor: pointer;
+  color: var(--portal-azul-700);
+  font-weight: 600;
+}
+
+.ct-circuito-limite summary:focus-visible,
+.ct-circuito-prueba summary:focus-visible {
+  outline: 2px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.ct-circuito-prueba {
+  margin: 16px 24px 20px;
+}
+
+.ct-circuito-prueba summary {
+  font-size: 0.9rem;
+}
+
 .ct-circuito-portafirmas .ct-circuito-estado {
   grid-column: 2;
+}
+
+.ct-circuito-envio {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.ct-circuito-envio .boton-primario {
+  min-height: 36px;
 }
 
 .ct-circuito-subtitulo,
@@ -82,7 +124,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 16px;
-  padding: 16px 24px 20px;
+  padding: 16px 0 0;
 }
 
 .ct-circuito-documento {
@@ -178,6 +220,7 @@
   }
 
   .ct-circuito-portafirmas,
+  .ct-circuito-prueba,
   .ct-circuito-subtitulo,
   .ct-circuito-indisponible {
     margin-inline: 16px;

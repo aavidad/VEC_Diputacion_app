@@ -22,11 +22,15 @@ export const MENSAJES_CIRCUITO_FIRMA_ES = Object.freeze({
   circuito_firma_sin_eficacia: "Firma de prueba, sin eficacia administrativa",
   circuito_firma_portafirmas_titulo: "Firma oficial en Firmadoc",
   circuito_firma_portafirmas_pendiente: "Conexión pendiente",
+  circuito_firma_portafirmas_detalle: "Qué falta para la firma oficial",
+  circuito_firma_enviar: "Enviar a firma",
+  circuito_firma_envio_bloqueado: "Pendiente de conexión con Firmadoc, permiso y confirmación de entrega. Aún no se puede enviar.",
   circuito_firma_portafirmas_sin_envio: "Sin constancia de envío ni firma oficial en VEC.",
   circuito_firma_portafirmas_estado_no_disponible: "No se puede consultar el circuito de firma.",
   circuito_firma_consulta_denegada: "No dispone de permiso para consultar las firmas de este expediente.",
   circuito_firma_consulta_no_disponible: "El estado de las firmas no está disponible. Vuelva a intentarlo.",
-  circuito_firma_autofirma_prueba: "Firmas de prueba con AutoFirma",
+  circuito_firma_autofirma_prueba: "AutoFirma · PRUEBA sin eficacia administrativa",
+  circuito_firma_ver_pasos: "Ver pasos",
   circuito_firma_motivo: "Motivo: {motivo}",
   circuito_firma_firmar: "Firmar",
   circuito_firma_devolver: "Devolver",
@@ -40,7 +44,7 @@ export const MENSAJES_CIRCUITO_FIRMA_ES = Object.freeze({
   circuito_firma_registrada: "Firma verificada y registrada con el recibo {recibo}. No tiene eficacia administrativa hasta el portafirmas corporativo.",
   circuito_firma_devuelta: "Devolución registrada con el recibo {recibo}.",
   circuito_firma_error_verificacion: "La verificación de firmas no está activada en este servidor, así que la firma no se ha registrado.",
-  circuito_firma_error_no_verificada: "El validador no ha podido acreditar la firma ({motivo}); no se ha registrado.",
+  circuito_firma_error_no_verificada: "No se ha podido verificar la firma. No se ha registrado; vuelva a intentarlo o avise a Informática.",
   circuito_firma_error_autofirma: "No se ha podido conectar con AutoFirma. Compruebe que está instalada y vuelva a intentarlo.",
   circuito_firma_error_cancelada: "Se ha cancelado la firma en AutoFirma.",
   circuito_firma_error_fallida: "AutoFirma no ha podido firmar el documento.",
@@ -48,6 +52,19 @@ export const MENSAJES_CIRCUITO_FIRMA_ES = Object.freeze({
   circuito_firma_error_cadena: "El borrador no coincide con el que firmó el paso anterior; hace falta devolverlo a redacción.",
   circuito_firma_error_denegado: "No tiene permiso para firmar este documento.",
   circuito_firma_error_generico: "No se ha podido completar la operación. Vuelva a intentarlo.",
+  circuito_firma_documento_informe_definitivo: "Informe definitivo",
+  circuito_firma_documento_resolucion: "Resolución de nombramiento o contratación",
+  circuito_firma_documento_diligencia: "Diligencia",
+  circuito_firma_documento_toma_posesion: "Toma de posesión",
+  circuito_firma_documento_notificacion: "Notificación",
+  circuito_firma_documento_comunicacion_centro: "Comunicación al centro",
+  circuito_firma_cargo_tecnico_rrhh: "Técnico/a de RRHH responsable del expediente",
+  circuito_firma_cargo_jefatura_rrhh: "Jefatura del Servicio de RRHH",
+  circuito_firma_cargo_jefatura_propuesta: "Jefatura del Servicio de RRHH (propuesta)",
+  circuito_firma_cargo_diputacion_delegada: "Diputado/a delegado/a de Recursos Humanos",
+  circuito_firma_cargo_secretaria_razon: "Secretaría General (toma de razón)",
+  circuito_firma_cargo_secretaria_fe: "Secretaría General (fe pública)",
+  circuito_firma_cargo_persona_nombrada: "Persona nombrada",
 });
 
 export const MENSAJES_CIRCUITO_FIRMA_EN = Object.freeze({
@@ -72,11 +89,15 @@ export const MENSAJES_CIRCUITO_FIRMA_EN = Object.freeze({
   circuito_firma_sin_eficacia: "Test signature with no administrative effect",
   circuito_firma_portafirmas_titulo: "Official signing in Firmadoc",
   circuito_firma_portafirmas_pendiente: "Connection pending",
+  circuito_firma_portafirmas_detalle: "What is needed for official signing",
+  circuito_firma_enviar: "Send for signing",
+  circuito_firma_envio_bloqueado: "Firmadoc connection, permission and delivery confirmation are pending. Sending is not yet available.",
   circuito_firma_portafirmas_sin_envio: "No recorded submission or official signature in VEC.",
   circuito_firma_portafirmas_estado_no_disponible: "The signing workflow cannot be retrieved.",
   circuito_firma_consulta_denegada: "You are not authorised to view the signatures for this case.",
   circuito_firma_consulta_no_disponible: "The signature status is unavailable. Please try again.",
-  circuito_firma_autofirma_prueba: "Test signatures with AutoFirma",
+  circuito_firma_autofirma_prueba: "AutoFirma · TEST with no administrative effect",
+  circuito_firma_ver_pasos: "View steps",
   circuito_firma_motivo: "Reason: {motivo}",
   circuito_firma_firmar: "Sign",
   circuito_firma_devolver: "Return",
@@ -90,7 +111,7 @@ export const MENSAJES_CIRCUITO_FIRMA_EN = Object.freeze({
   circuito_firma_registrada: "Signature verified and recorded under receipt {recibo}. It has no administrative effect until processed by the corporate signing platform.",
   circuito_firma_devuelta: "Return recorded under receipt {recibo}.",
   circuito_firma_error_verificacion: "Signature verification is not enabled on this server, so the signature was not recorded.",
-  circuito_firma_error_no_verificada: "The verifier could not validate the signature ({motivo}); it was not recorded.",
+  circuito_firma_error_no_verificada: "The signature could not be verified. It was not recorded; try again or contact IT support.",
   circuito_firma_error_autofirma: "Could not connect to AutoFirma. Check that it is installed and try again.",
   circuito_firma_error_cancelada: "Signing was cancelled in AutoFirma.",
   circuito_firma_error_fallida: "AutoFirma could not sign the document.",
@@ -98,6 +119,19 @@ export const MENSAJES_CIRCUITO_FIRMA_EN = Object.freeze({
   circuito_firma_error_cadena: "The draft does not match the one signed in the previous step; it must be returned for redrafting.",
   circuito_firma_error_denegado: "You are not authorised to sign this document.",
   circuito_firma_error_generico: "The operation could not be completed. Try again.",
+  circuito_firma_documento_informe_definitivo: "Final report",
+  circuito_firma_documento_resolucion: "Appointment or hiring decision",
+  circuito_firma_documento_diligencia: "Certification note",
+  circuito_firma_documento_toma_posesion: "Assumption of office",
+  circuito_firma_documento_notificacion: "Notification",
+  circuito_firma_documento_comunicacion_centro: "Notice to the requesting centre",
+  circuito_firma_cargo_tecnico_rrhh: "HR officer responsible for the case",
+  circuito_firma_cargo_jefatura_rrhh: "Head of the HR Service",
+  circuito_firma_cargo_jefatura_propuesta: "Head of the HR Service (proposal)",
+  circuito_firma_cargo_diputacion_delegada: "Delegate for Human Resources",
+  circuito_firma_cargo_secretaria_razon: "General Secretariat (acknowledgement)",
+  circuito_firma_cargo_secretaria_fe: "General Secretariat (certification)",
+  circuito_firma_cargo_persona_nombrada: "Appointed person",
 });
 
 export function crearTraductorCircuitoFirma(sobrescrituras = {}, locale = "es-ES") {
@@ -116,4 +150,30 @@ export function crearTraductorCircuitoFirma(sobrescrituras = {}, locale = "es-ES
       mensajes[clave],
     );
   };
+}
+
+const VALORES_CONTROLADOS = Object.freeze({
+  documento: Object.freeze({
+    "Informe definitivo": "informe_definitivo",
+    "Resolución de nombramiento o contratación": "resolucion",
+    Diligencia: "diligencia",
+    "Toma de posesión": "toma_posesion",
+    Notificación: "notificacion",
+    "Comunicación al centro": "comunicacion_centro",
+  }),
+  cargo: Object.freeze({
+    "Técnico/a de RRHH responsable del expediente": "tecnico_rrhh",
+    "Jefatura del Servicio de RRHH": "jefatura_rrhh",
+    "Jefatura del Servicio de RRHH (propuesta)": "jefatura_propuesta",
+    "Diputado/a delegado/a de Recursos Humanos": "diputacion_delegada",
+    "Secretaría General (toma de razón)": "secretaria_razon",
+    "Secretaría General (fe pública)": "secretaria_fe",
+    "Persona nombrada": "persona_nombrada",
+  }),
+});
+
+/** Traduce únicamente valores conocidos del catálogo; conserva otros como datos. */
+export function traducirValorCircuitoFirma(tipo, valor, t) {
+  const clave = VALORES_CONTROLADOS[tipo]?.[valor];
+  return clave ? t(`circuito_firma_${tipo}_${clave}`) : valor;
 }
