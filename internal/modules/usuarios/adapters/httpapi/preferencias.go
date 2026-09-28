@@ -23,16 +23,23 @@ type ResolverOrden interface {
 	ResolverOrdenPreferencias(context.Context) (ports.OrdenPreferencias, error)
 }
 
+// El dueño del handler registra sólo denegaciones del caso de uso tras pasar
+// la frontera exacta. Una caída de auditoría se anuncia como indisponibilidad.
+type AuditorDenegacion interface {
+	AuditarDenegacionPreferencias(context.Context, int) error
+}
+
 type ManejadorPreferencias struct {
 	servicio *application.ServicioPreferencias
 	orden    ResolverOrden
+	auditor  AuditorDenegacion
 }
 
-func NuevoManejadorPreferencias(servicio *application.ServicioPreferencias, orden ResolverOrden) (*ManejadorPreferencias, error) {
-	if servicio == nil || orden == nil {
+func NuevoManejadorPreferencias(servicio *application.ServicioPreferencias, orden ResolverOrden, auditor AuditorDenegacion) (*ManejadorPreferencias, error) {
+	if servicio == nil || orden == nil || auditor == nil {
 		return nil, ports.ErrNoDisponible
 	}
-	return &ManejadorPreferencias{servicio: servicio, orden: orden}, nil
+	return &ManejadorPreferencias{servicio: servicio, orden: orden, auditor: auditor}, nil
 }
 
 func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +62,7 @@ func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 	orden, err := m.orden.ResolverOrdenPreferencias(r.Context())
 	if err != nil {
-		responderError(w, err)
+		m.responderError(w, r, err)
 		return
 	}
 	if r.Method == http.MethodGet {
@@ -65,7 +72,7 @@ func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request
 		}
 		vista, err := m.servicio.Consultar(r.Context(), orden)
 		if err != nil {
-			responderError(w, err)
+			m.responderError(w, r, err)
 			return
 		}
 		responder(w, http.StatusOK, map[string]any{"data": vista})
@@ -90,7 +97,7 @@ func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 	recibo, err := m.servicio.Guardar(r.Context(), orden, peticion)
 	if err != nil {
-		responderError(w, err)
+		m.responderError(w, r, err)
 		return
 	}
 	estado := http.StatusCreated
@@ -179,7 +186,18 @@ func leerValorJSON(d *json.Decoder) bool {
 	}
 }
 
-func responderError(w http.ResponseWriter, err error) {
+func (m *ManejadorPreferencias) responderError(w http.ResponseWriter, r *http.Request, err error) {
+	estado, _ := clasificarError(err)
+	if estado == http.StatusUnauthorized || estado == http.StatusForbidden {
+		if m.auditor.AuditarDenegacionPreferencias(r.Context(), estado) != nil {
+			responderError(w, ports.ErrNoDisponible)
+			return
+		}
+	}
+	responderError(w, err)
+}
+
+func clasificarError(err error) (int, string) {
 	estado, codigo := http.StatusServiceUnavailable, "no_disponible"
 	switch {
 	case errors.Is(err, ports.ErrNoAutenticado):
@@ -191,6 +209,11 @@ func responderError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ports.ErrPeticionInvalida):
 		estado, codigo = http.StatusUnprocessableEntity, "peticion_invalida"
 	}
+	return estado, codigo
+}
+
+func responderError(w http.ResponseWriter, err error) {
+	estado, codigo := clasificarError(err)
 	responder(w, estado, map[string]any{"error": map[string]string{"codigo": codigo, "clave_i18n": "api.usuarios.preferencias.error." + codigo}})
 }
 

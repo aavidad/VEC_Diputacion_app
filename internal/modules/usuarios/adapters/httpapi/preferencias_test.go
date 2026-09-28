@@ -23,6 +23,16 @@ type ordenHTTPPrueba struct {
 	err   error
 }
 
+type auditorHTTPPrueba struct {
+	estados []int
+	err     error
+}
+
+func (a *auditorHTTPPrueba) AuditarDenegacionPreferencias(_ context.Context, estado int) error {
+	a.estados = append(a.estados, estado)
+	return a.err
+}
+
 func (o ordenHTTPPrueba) ResolverOrdenPreferencias(context.Context) (ports.OrdenPreferencias, error) {
 	return o.orden, o.err
 }
@@ -77,7 +87,7 @@ func manejadorPrueba(t *testing.T) (*ManejadorPreferencias, *registroHTTPPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := NuevoManejadorPreferencias(s, ordenHTTPPrueba{orden: orden})
+	m, err := NuevoManejadorPreferencias(s, ordenHTTPPrueba{orden: orden}, &auditorHTTPPrueba{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,9 +155,31 @@ func TestErroresHTTPPreferenciasYJSONCerrado(t *testing.T) {
 		}
 	}
 	s, _ := application.NuevoServicioPreferencias(r, time.Now)
-	anonimo, _ := NuevoManejadorPreferencias(s, ordenHTTPPrueba{err: ports.ErrNoAutenticado})
+	anonimo, _ := NuevoManejadorPreferencias(s, ordenHTTPPrueba{err: ports.ErrNoAutenticado}, &auditorHTTPPrueba{})
 	estado, sobre, _ := hacerPeticion(t, anonimo, http.MethodGet, RutaMisPreferencias, "")
 	if estado != 401 || !strings.Contains(string(sobre["error"]), `"codigo":"no_autenticado"`) {
 		t.Fatalf("anónimo aceptado: %d %s", estado, sobre)
+	}
+}
+
+func TestHandlerAuditaSoloDenegacionesDelCasoDeUso(t *testing.T) {
+	m, r := manejadorPrueba(t)
+	a := &auditorHTTPPrueba{}
+	m.auditor = a
+	r.err = ports.ErrProhibido
+	estado, _, _ := hacerPeticion(t, m, http.MethodGet, RutaMisPreferencias, "")
+	if estado != 403 || len(a.estados) != 1 || a.estados[0] != 403 {
+		t.Fatal("403 no auditado una sola vez")
+	}
+	r.err = ports.ErrConflicto
+	estado, _, _ = hacerPeticion(t, m, http.MethodGet, RutaMisPreferencias, "")
+	if estado != 409 || len(a.estados) != 1 {
+		t.Fatal("conflicto auditado como denegación")
+	}
+	r.err = ports.ErrProhibido
+	a.err = ports.ErrNoDisponible
+	estado, sobre, _ := hacerPeticion(t, m, http.MethodGet, RutaMisPreferencias, "")
+	if estado != 503 || !strings.Contains(string(sobre["error"]), `"codigo":"no_disponible"`) || len(a.estados) != 2 {
+		t.Fatal("caída de auditoría no cierra la respuesta")
 	}
 }
