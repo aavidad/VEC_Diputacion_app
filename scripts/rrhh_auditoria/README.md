@@ -39,3 +39,21 @@ aplicación y reiniciar PostgreSQL, vuelve a arrancar y compara las respuestas
 auditorías V3 nuevos, mientras las historias de los dos propietarios mantienen
 su cardinalidad. Sin volcado, hook y composición final, el script es una puerta
 preparada, no una prueba E2E ejecutada.
+
+## Preflight CT136 independiente
+
+`probar_preflight_ct136_pg18.sh SQL_REF GO_REF` monta CT136 y el delta DBA de
+`SQL_REF` en PG18 efímero, con un LOGIN sintético exclusivo. Extrae del código
+de `GO_REF` la expresión SQL literal de `preflightRegistradorFronteraAuditoriaConsultaDesarrollo`.
+Comprueba que concede el arranque solo con la ACL mínima y lo niega si `USAGE`
+se atribuye directamente al LOGIN en vez de al rol CT136, si se concede
+`SELECT(actor_ref)` o si se concede `CREATE` sobre el esquema. Repite la sonda
+tras cada revocación. Extrae también el `SELECT ... FOR UPDATE OF vigente` del
+helper de asignaciones: funciona en `Serializable ReadWrite` y recibe SQLSTATE
+`25006` en `Serializable ReadOnly`.
+
+```sh
+scripts/rrhh_auditoria/probar_preflight_ct136_pg18.sh 5ab27fc92 bcc84de09
+```
+
+Esta sonda no necesita el volcado de historia y no acredita el HTTP ni V3.
