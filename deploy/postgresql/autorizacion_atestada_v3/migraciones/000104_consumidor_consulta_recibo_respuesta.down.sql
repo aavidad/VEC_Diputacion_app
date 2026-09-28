@@ -1,0 +1,1 @@
+-- Solo documental. AD3-104 participa en auditoría de lecturas; no ejecutar DOWN con historia.
