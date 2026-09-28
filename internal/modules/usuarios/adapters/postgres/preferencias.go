@@ -276,37 +276,9 @@ func argumentosV3(material ports.MaterialPreferencias, v3 vecports.ExportacionMa
 		v3.PayloadVECAD3(), v3.SobreCOSESign1(), v3.EvidenciaVerificacion(), v3.RaizPublicaSPKI()}, nil
 }
 
-type catalogoSQL struct {
-	VersionRef      string                     `json:"version_ref"`
-	Idiomas         []opcionSQL                `json:"idiomas"`
-	TamanosTexto    []opcionSQL                `json:"tamano_textos"`
-	Temas           []opcionSQL                `json:"temas"`
-	Inicios         []opcionSQL                `json:"inicios"`
-	Filas           []int                      `json:"filas"`
-	Predeterminados domain.ValoresPreferencias `json:"predeterminados"`
-}
-
-type opcionSQL struct {
-	Codigo    string `json:"codigo"`
-	NombreKey string `json:"nombre_key"`
-}
-
-func opcionesDominio(opciones []opcionSQL) []domain.OpcionPreferencia {
-	salida := make([]domain.OpcionPreferencia, 0, len(opciones))
-	for _, opcion := range opciones {
-		salida = append(salida, domain.OpcionPreferencia{Codigo: opcion.Codigo, NombreKey: opcion.NombreKey})
-	}
-	return salida
-}
-
 func decodificarCatalogo(datos []byte) (domain.CatalogoPreferencias, error) {
-	var sql catalogoSQL
-	if decodificarEstricto(datos, &sql) != nil {
-		return domain.CatalogoPreferencias{}, ports.ErrNoDisponible
-	}
-	c := domain.CatalogoPreferencias{VersionRef: sql.VersionRef, Idiomas: opcionesDominio(sql.Idiomas), TamanosTexto: opcionesDominio(sql.TamanosTexto),
-		Temas: opcionesDominio(sql.Temas), Inicios: opcionesDominio(sql.Inicios), Filas: sql.Filas, Predeterminados: sql.Predeterminados}
-	if c.Validar() != nil {
+	var c domain.CatalogoPreferencias
+	if decodificarEstricto(datos, &c) != nil || c.Validar() != nil {
 		return domain.CatalogoPreferencias{}, ports.ErrNoDisponible
 	}
 	return c, nil
