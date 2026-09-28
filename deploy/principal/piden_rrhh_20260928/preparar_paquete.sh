@@ -20,6 +20,13 @@ if grep -Eq '^deploy/postgresql/(bolsa_llamamientos/migraciones/000049_publicaci
     "$script_dir/migraciones.txt"; then
   fallar 'plan contiene Bolsa B49 o Bolsa pública 000003: NO-GO de publicación B10'
 fi
+rol_linea=$(grep -nFx 'deploy/postgresql/contratacion_temporal/roles_registrador_auditoria_up.sql' \
+  "$script_dir/migraciones.txt" | cut -d: -f1)
+ct136_linea=$(grep -nFx 'deploy/postgresql/contratacion_temporal/migraciones/000136_auditoria_frontera_auditoria_ruta_exacta.up.sql' \
+  "$script_dir/migraciones.txt" | cut -d: -f1)
+[[ $rol_linea =~ ^[0-9]+$ && $ct136_linea =~ ^[0-9]+$ \
+   && $ct136_linea -eq $((rol_linea + 1)) ]] \
+  || fallar 'plan CT136 sin delta DBA inmediatamente anterior'
 
 for manifest in produccion.manifest interno.manifest; do
   [[ -f $repo/web/$manifest ]] || fallar "falta $manifest"

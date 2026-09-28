@@ -13,7 +13,7 @@ command -v psql >/dev/null || fallar 'falta psql'
 git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
 git -C "$repo" diff --quiet "$base" HEAD -- deploy/postgresql || fallar 'SQL cambió: revisar el plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
-"$script_dir/preflight_no_go.sh" --clon
+"$script_dir/preflight_roles_ct136.sh" --clon
 
 # PGSERVICE/PGPASSFILE se resuelven fuera de Git. No pasar DSN ni clave en argumentos.
 conexion=(psql -X --no-psqlrc --set=ON_ERROR_STOP=1 --no-align --tuples-only)
@@ -24,14 +24,31 @@ version=$("${conexion[@]}" --command 'SHOW server_version_num')
 
 # El publicador B10 separado es NO-GO: ACK sin prueba de publicación y fuente
 # V2/documental sin componer. Validar toda la lista antes del primer UP.
+anterior=''
+rol='deploy/postgresql/contratacion_temporal/roles_registrador_auditoria_up.sql'
+ct136='deploy/postgresql/contratacion_temporal/migraciones/000136_auditoria_frontera_auditoria_ruta_exacta.up.sql'
+visto_rol=false
+visto_ct136=false
 while IFS= read -r ruta; do
   [[ -n $ruta && $ruta != \#* ]] || continue
   case $ruta in
     */000049_publicacion_cese_b10.up.sql|*/000003_publicacion_cese_replay.up.sql)
       fallar "migración NO-GO en plan: $ruta" ;;
   esac
-  [[ $ruta == deploy/postgresql/*/*.up.sql && -f $repo/$ruta ]] || fallar "ruta no válida: $ruta"
+  if [[ $ruta == "$rol" ]]; then
+    [[ $visto_rol == false ]] || fallar 'delta de rol CT136 duplicado'
+    visto_rol=true
+  elif [[ $ruta == "$ct136" ]]; then
+    [[ $anterior == "$rol" && $visto_ct136 == false ]] \
+      || fallar 'CT136 debe seguir inmediatamente al delta DBA de rol'
+    visto_ct136=true
+  elif [[ $ruta != deploy/postgresql/*/*.up.sql ]]; then
+    fallar "ruta no válida: $ruta"
+  fi
+  [[ -f $repo/$ruta ]] || fallar "falta SQL: $ruta"
+  anterior=$ruta
 done <"$script_dir/migraciones.txt"
+[[ $visto_rol == true && $visto_ct136 == true ]] || fallar 'falta delta DBA o CT136'
 
 while IFS= read -r ruta; do
   [[ -n $ruta && $ruta != \#* ]] || continue
