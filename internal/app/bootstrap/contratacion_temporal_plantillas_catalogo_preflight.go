@@ -88,6 +88,8 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
       WHERE n.nspname='vec_autorizacion_atestada_v3'
         AND p.proname='registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada'
         AND p.pronargs=11
+        AND p.prokind='f' AND p.prosecdef
+        AND p.proowner='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
         AND p.proargtypes[0]='pg_catalog.jsonb'::pg_catalog.regtype
         AND p.proargtypes[1]='pg_catalog.bytea'::pg_catalog.regtype
         AND p.proargtypes[2]='pg_catalog.bytea'::pg_catalog.regtype

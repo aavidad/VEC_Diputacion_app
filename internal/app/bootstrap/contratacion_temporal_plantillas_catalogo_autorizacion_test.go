@@ -123,6 +123,8 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 	if strings.Contains(c.sql, "to_regprocedure('vec_autorizacion_atestada_v3.") ||
 		!strings.Contains(c.sql, "FROM pg_catalog.pg_proc p") ||
 		!strings.Contains(c.sql, "p.pronargs=11") ||
+		!strings.Contains(c.sql, "p.prokind='f' AND p.prosecdef") ||
+		!strings.Contains(c.sql, "p.proowner='vec_autorizacion_atestada_v3_propietario'") ||
 		!strings.Contains(c.sql, "p.proargtypes[10]") {
 		t.Fatal("preflight resuelve la funcion AD3 con el LOGIN CT sin USAGE o no coteja la firma")
 	}
