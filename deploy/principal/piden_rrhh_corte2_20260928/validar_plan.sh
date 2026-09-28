@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-fuente=f2ed82dec75d5af9c7aeab6beb8a976af42578d0
+fuente=da48a409b7e75249fa1b2378d612a90998aa25bd
 base_publicada=7247682cbd1e6e630c86c290e3ddeca281456a94
 fallar() { printf 'ERROR: plan SQL corte2: %s\n' "$*" >&2; exit 1; }
 if [[ $# == 0 ]]; then

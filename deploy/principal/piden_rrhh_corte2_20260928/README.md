@@ -1,7 +1,7 @@
 # Segundo corte PIDEN RRHH para cidonia
 
 Fuente fijada: `trabajo/piden-rrhh-corte2-20260928` en
-`f2ed82dec75d5af9c7aeab6beb8a976af42578d0`. Incorpora CT130, Bolsa47
+`da48a409b7e75249fa1b2378d612a90998aa25bd`. Incorpora CT130, Bolsa47
 y las rutas nominales de Auditoría sobre el primer corte. La puerta completa
 del hash fuente y dos revisiones del hash de este paquete son requisitos antes
 de exportar o anunciar la entrega. Los guiones comprueban
@@ -189,8 +189,9 @@ bash deploy/principal/piden_rrhh_corte2_20260928/preparar_paquete.sh
 Imprime `PAQUETE_LOCAL=/dev/shm/vec-piden-corte2-20260928...`. Construye `vec-server`,
 sincroniza por `rsync` **solo las rutas** de `web/produccion.manifest` dentro
 de una carpeta temporal nueva y pasa `scripts/verificar_web_produccion.sh` al
-árbol extraído. Conserva los demás manifiestos en `evidencia/` y escribe
-`SHA256SUMS` y hash del commit. La compilación usa una caché Go temporal dentro
+árbol extraído. Copia también los 27 `UP` y los dos deltas DBA de rol exactos,
+con sus rutas relativas, y conserva los demás manifiestos en `evidencia/`.
+Escribe `SHA256SUMS` y hash del commit. La compilación usa una caché Go temporal dentro
 de la carpeta del paquete, que se retira antes de calcular las huellas. Usa
 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, `-trimpath` y `-ldflags='-s -w'`
 como el Dockerfile del servidor; `file` y `ldd` deben confirmar un ELF amd64

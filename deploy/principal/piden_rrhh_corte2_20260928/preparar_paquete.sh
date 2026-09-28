@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=f2ed82dec75d5af9c7aeab6beb8a976af42578d0
+base=da48a409b7e75249fa1b2378d612a90998aa25bd
 
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null || fallar 'falta git'
@@ -68,6 +68,8 @@ ldd_salida=$(ldd "$destino/vec-server" 2>&1 || true)
   || fallar 'vec-server conserva dependencias dinámicas'
 rsync -a --delete --files-from="$repo/web/produccion.manifest" \
   -- "$repo/web/" "$destino/web/"
+rsync -a --files-from=<(grep -vE '^[[:space:]]*(#|$)' "$script_dir/migraciones.txt") \
+  -- "$repo/" "$destino/"
 "$repo/scripts/verificar_web_produccion.sh" "$destino/web" \
   "$repo/web/produccion.manifest" >/dev/null
 cp -- "$repo/web/interno.manifest" "$repo/web/publico.manifest" \
@@ -77,7 +79,7 @@ printf '%s\n' "$(git -C "$repo" rev-parse HEAD)" >"$destino/evidencia/commit.txt
 printf '%s\n' "$base" >"$destino/evidencia/fuente_commit.txt"
 (
   cd "$destino"
-  find vec-server web evidencia -type f -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+  find vec-server web deploy evidencia -type f -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
   sha256sum -c SHA256SUMS >/dev/null
 )
 trap - ERR
