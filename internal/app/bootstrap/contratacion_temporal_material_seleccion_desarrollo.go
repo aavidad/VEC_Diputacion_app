@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"vec-diputacion-granada/config"
 )
@@ -187,6 +189,15 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 // API pública), que comparten el entorno pero no la doble llave: allí un
 // "true" no activa nada, pero un valor ilegible sigue siendo un error.
 func validarValorSelectoresDespliegueBolsaCT(cfg config.Config) error {
+	// Estas dos capacidades se seleccionan desde el entorno. Las raíces
+	// públicas no aplican la doble llave, pero sí rechazan valores ilegibles.
+	for _, nombre := range []string{envCTPlantillasGobiernoEnabled, envCTPlantillasDocumentalEnabled} {
+		switch strings.TrimSpace(os.Getenv(nombre)) {
+		case "", "false", "true":
+		default:
+			return ErrActivacionDesarrolloInvalida
+		}
+	}
 	for _, err := range []error{
 		func() error { _, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); return err }(),
 		func() error { _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); return err }(),
