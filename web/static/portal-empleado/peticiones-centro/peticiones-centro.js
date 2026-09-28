@@ -10,7 +10,7 @@ import {
   renderizarRevisionPeticionCentro,
 } from "../modulos/contratacion-temporal/vista.js";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-ppt-c3-v3";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-ppt-503-v4";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
