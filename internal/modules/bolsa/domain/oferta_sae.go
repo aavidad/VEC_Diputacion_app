@@ -397,7 +397,7 @@ func (o *OfertaSAE) aplicarAccion(c CambioOfertaSAE) error {
 					continue
 				}
 				if candidato.EstadoConciliacion != ConciliacionSAEAcreditada || candidato.Acreditacion == nil ||
-					candidato.PersonaRef != c.Acreditacion.PersonaRef || !candidato.Acreditacion.VigenteEn(c.Instante) {
+					candidato.PersonaRef != c.Acreditacion.PersonaRef {
 					return ErrOfertaSAEConciliacionPendiente
 				}
 				o.Estado, o.CandidatoSeleccionadoRef = EstadoSAEResuelta, candidato.Referencia
@@ -417,13 +417,19 @@ func (o *OfertaSAE) aplicarAccion(c CambioOfertaSAE) error {
 
 func huellaCambioSAE(c CambioOfertaSAE) (string, error) {
 	// Clave, versión e instante son metadatos de operación; la huella vincula
-	// acción y contenido para que un replay no introduzca otros datos.
+	// acción y contenido para que un replay no introduzca otros datos. La
+	// evidencia renovable acredita el efecto nuevo, pero no cambia la identidad
+	// semántica de una actuación ya aceptada.
+	var persona *struct{ PersonaRef string }
+	if c.Acreditacion != nil {
+		persona = &struct{ PersonaRef string }{c.Acreditacion.PersonaRef}
+	}
 	material := struct {
 		Accion, Numero, Fecha, CandidatoElegidoRef string
 		Candidato                                  *CandidatoOfertaSAE
 		Valoracion                                 *ValoracionOfertaSAE
-		Acreditacion                               *AcreditacionPersonaSAE
-	}{c.Accion, c.NumeroSAE, c.FechaEnvio, c.CandidatoElegidoRef, c.Candidato, c.Valoracion, c.Acreditacion}
+		Acreditacion                               *struct{ PersonaRef string }
+	}{c.Accion, c.NumeroSAE, c.FechaEnvio, c.CandidatoElegidoRef, c.Candidato, c.Valoracion, persona}
 	b, err := json.Marshal(material)
 	if err != nil {
 		return "", err

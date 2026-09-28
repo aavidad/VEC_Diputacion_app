@@ -108,13 +108,12 @@ func (s *ServicioOfertaSAE) Actuar(ctx context.Context, q puertosbolsa.Solicitud
 	// El instante de recepción no forma parte de la huella semántica: repetir
 	// la misma petición tras reiniciar debe conservar el mismo material.
 	materialHash, err := hashSAE(struct {
-		OfertaRef, Accion, Clave, NumeroSAE, FechaEnvio, CandidatoElegidoRef string
-		VersionEsperada                                                      int64
-		Candidato                                                            *dominiobolsa.CandidatoOfertaSAE
-		Valoracion                                                           *dominiobolsa.ValoracionOfertaSAE
-		Acreditacion                                                         *dominiobolsa.AcreditacionPersonaSAE
+		OfertaRef, Accion, Clave, NumeroSAE, FechaEnvio, CandidatoElegidoRef, PersonaRef string
+		VersionEsperada                                                                  int64
+		Candidato                                                                        *dominiobolsa.CandidatoOfertaSAE
+		Valoracion                                                                       *dominiobolsa.ValoracionOfertaSAE
 	}{q.OfertaRef, cambio.Accion, cambio.Clave, cambio.NumeroSAE, cambio.FechaEnvio, cambio.CandidatoElegidoRef,
-		cambio.VersionEsperada, cambio.Candidato, cambio.Valoracion, cambio.Acreditacion})
+		personaRefSAE(cambio.Acreditacion), cambio.VersionEsperada, cambio.Candidato, cambio.Valoracion})
 	if err != nil {
 		return puertosbolsa.ReciboOfertaSAE{}, puertosbolsa.ErrOfertaSAENoDisponible
 	}
@@ -158,7 +157,7 @@ func (s *ServicioOfertaSAE) acreditarCandidato(ctx context.Context, q puertosbol
 	}
 	acreditacion, err := s.personas.AcreditarVinculoPersonaSAE(ctx, q.ResultadoContexto.Contexto, q.OfertaRef, *candidato)
 	if err != nil {
-		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) {
 			return dominiobolsa.AcreditacionPersonaSAE{}, err
 		}
 		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEConciliacionPendiente
@@ -168,6 +167,13 @@ func (s *ServicioOfertaSAE) acreditarCandidato(ctx context.Context, q puertosbol
 		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEConciliacionPendiente
 	}
 	return acreditacion, nil
+}
+
+func personaRefSAE(a *dominiobolsa.AcreditacionPersonaSAE) string {
+	if a == nil {
+		return ""
+	}
+	return a.PersonaRef
 }
 
 func (s *ServicioOfertaSAE) Consultar(ctx context.Context, q puertosbolsa.SolicitudConsultarOfertaSAE) (dominiobolsa.OfertaSAE, error) {
