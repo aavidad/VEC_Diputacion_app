@@ -434,6 +434,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	alta.soporte.mu.Lock()
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
 	alta.soporte.mu.Unlock()
+	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
+	if err != nil || (auditoriaActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas())) {
+		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	}
 	lectoresDeclarados := resolvedorDesarrollo.lectoresConsultaRRHH()
 	lectoresConsulta := make([]string, 0, len(lectoresDeclarados))
 	for _, lector := range lectoresDeclarados {
@@ -494,6 +498,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+	}
+	var soportesAuditoria soportesAuditoriaConsultaDesarrollo
+	if auditoriaActiva {
+		soportesAuditoria, err = nuevosSoportesAuditoriaConsultaDesarrollo(cfg, &alta, soporteBolsaCatalogo, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		fronterasAuditoria, err := descriptoresFronterasAuditoriaRRHHDesarrollo(soportesAuditoria.PerfilCT, soportesAuditoria.PerfilBolsa)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		declaracionesFrontera = append(declaracionesFrontera, fronterasAuditoria...)
 	}
 	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(declaracionesFrontera)
 	if err != nil {
@@ -699,6 +715,25 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	rutas = append(rutas, rutasBorrador...)
+	cerrarAuditoria := func() {}
+	cerrarAuditoriaPendiente := true
+	defer func() {
+		if cerrarAuditoriaPendiente {
+			cerrarAuditoria()
+		}
+	}()
+	if auditoriaActiva {
+		if consultasRRHH.identidad == nil {
+			return nil, nil, nil, errAutoridadesAuditoriaConsultaDesarrollo
+		}
+		rutasAuditoria, detener, err := nuevasRutasAuditoriaConsultaDesarrollo(
+			context.Background(), cfg, &alta, soportesAuditoria, consultasRRHH.identidad, seguridadBorrador, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		cerrarAuditoria = detener
+		rutas = append(rutas, rutasAuditoria...)
+	}
 	if resolvedorDesarrollo.candidatoBolsa != nil {
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
@@ -748,6 +783,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		cerrarAuditoria()
 		cerrarBorrador()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
@@ -757,6 +793,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarCobertura = false
 	cerrarAlta = false
 	cerrarBorradorPendiente = false
+	cerrarAuditoriaPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
 }
 

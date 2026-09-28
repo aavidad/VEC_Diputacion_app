@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -42,5 +43,49 @@ func TestExpedientesAuditoriaConsultaDesarrolloExigeDosReferenciasExactas(t *tes
 	}
 	if _, _, err := (Config{ExecutionProfile: ExecutionProfileProduction}).ExpedientesAuditoriaConsultaDesarrollo(); !errors.Is(err, ErrExpedientesAuditoriaConsultaInvalidos) {
 		t.Fatalf("referencias DEMO disponibles en producción: %v", err)
+	}
+}
+
+func TestDSNFuenteAutorizacionAuditoriaDesarrolloExigeLoginNominalSeparado(t *testing.T) {
+	dsn := func(login string) string {
+		return "postgres://" + login + ":secreto-privado@localhost/vec?sslmode=require"
+	}
+	c := Config{
+		ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
+		DevelopmentGuard: DevelopmentGuardAcknowledgement,
+		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
+			dsnEjecucion: dsn("ct_ejecutor"), dsnGobierno: dsn("gobierno"),
+			dsnRegistroAutorizacion: dsn("registro_v3"), dsnConfirmador: dsn("confirmador"),
+			dsnLectorResultado: dsn("lector"), dsnBolsaLlamamientos: dsn("bolsa_puente"),
+			dsnConsultasRRHH: dsn("ct_consultor"), dsnMotivosRRHH: dsn("motivos"),
+		},
+		BolsaBorradoresPostgreSQL: ConfiguracionPostgreSQLBorradores{
+			dsnEjecutorConsulta:  dsn("bolsa_ejecutor"),
+			dsnProyectorGobierno: dsn("bolsa_gobierno"),
+			dsnVerificadorRecibo: dsn("bolsa_verificador"),
+		},
+	}
+	if _, err := c.DSNFuenteAutorizacionAuditoriaDesarrollo(); !errors.Is(err, ErrFuenteAutorizacionAuditoriaIncompleta) {
+		t.Fatalf("fuente ausente admitida: %v", err)
+	}
+	const fuente = "postgres://fuente_auditoria:secreto-privado@localhost/vec?sslmode=require"
+	t.Setenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL, " "+fuente+" ")
+	if obtenida, err := c.DSNFuenteAutorizacionAuditoriaDesarrollo(); err != nil || obtenida != fuente {
+		t.Fatalf("fuente nominal: %t, %v", obtenida == fuente, err)
+	}
+	for _, login := range []string{"ct_consultor", "bolsa_ejecutor", "registro_v3", "motivos", "gobierno"} {
+		t.Setenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL,
+			"postgres://"+login+":otra-clave@localhost/otra_base?sslmode=require")
+		if _, err := c.DSNFuenteAutorizacionAuditoriaDesarrollo(); !errors.Is(err, ErrFuenteAutorizacionAuditoriaNoSeparada) || strings.Contains(err.Error(), "otra-clave") {
+			t.Fatalf("LOGIN %s compartido o secreto expuesto: %v", login, err)
+		}
+	}
+	t.Setenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL, "postgres://mal%zz")
+	if _, err := c.DSNFuenteAutorizacionAuditoriaDesarrollo(); !errors.Is(err, ErrFuenteAutorizacionAuditoriaIncompleta) || strings.Contains(err.Error(), "mal%zz") {
+		t.Fatalf("DSN inválido admitido o expuesto: %v", err)
+	}
+	t.Setenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL, fuente)
+	if _, err := (Config{}).DSNFuenteAutorizacionAuditoriaDesarrollo(); !errors.Is(err, ErrFuenteAutorizacionAuditoriaIncompleta) {
+		t.Fatalf("fuente DEMO disponible fuera de desarrollo: %v", err)
 	}
 }
