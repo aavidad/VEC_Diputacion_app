@@ -14,12 +14,13 @@ import (
 
 func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 	for _, caso := range []struct {
-		nombre             string
-		lectura, escritura bool
+		nombre                          string
+		lectura, antecedente, escritura bool
 	}{
-		{"ambas", true, true},
-		{"solo lectura", true, false},
-		{"solo escritura", false, true},
+		{"tres concesiones", true, true, true},
+		{"sin antecedente", true, false, true},
+		{"sin consulta", false, true, true},
+		{"sin escritura", true, true, false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
@@ -37,6 +38,13 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 				concesiones = append(concesiones, vecdomain.ConcesionRol{Accion: string(ctdomain.AccionRegistrarReincorporacionTitular),
 					ModuloID: ctports.ModuloContratacion, TipoRecurso: ctports.TipoRecursoReincorporacionTitular,
 					Finalidades: []string{ctports.FinalidadRegistrarReincorporacionTitular}, GarantiaMinima: vecdomain.AuthAssuranceHigh})
+			}
+			if caso.antecedente {
+				concesiones = append(concesiones, vecdomain.ConcesionRol{Accion: string(ctports.AccionConsultarAntecedenteReincorporacionTitular),
+					ModuloID: ctports.ModuloContratacion, TipoRecurso: ctports.TipoRecursoLecturaReincorporacionTitular,
+					Finalidades:      []string{ctports.FinalidadLecturaReincorporacionTitular},
+					CamposPermitidos: []string{"cese_evento_ref", "cese_recibo_ref", "documento_ref", "documento_sha256", "existe_cese", "fecha_efectiva", "relacion_ref"},
+					GarantiaMinima:   vecdomain.AuthAssuranceHigh})
 			}
 			instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef,
 				soporte.reloj.Ahora(), "reincorporacion_titular_ct_prueba", "Retorno titular", "retorno-titular-prueba", concesiones,
@@ -66,6 +74,18 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 				ctports.FinalidadRegistrarReincorporacionTitular, recurso)
 			if (err == nil) != caso.escritura {
 				t.Fatalf("escritura=%v error=%v", caso.escritura, err)
+			}
+			antecedente := vecdomain.RecursoAutorizable{Referencia: "expediente:1", ModuloID: ctports.ModuloContratacion,
+				Tipo:    ctports.TipoRecursoLecturaReincorporacionTitular,
+				Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "expediente_ref": "expediente:1"},
+				Atributos: map[string]string{"version_expediente": "1", "relacion_ref": "relacion:1", "fecha_efectiva": "2026-09-20",
+					"documento_ref": "documento:1", "documento_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+			_, _, _, _, err = autoridad.exigirLecturaAntecedenteReincorporacion(ctx, ctports.SolicitudAutorizarOperacionSeguimiento{
+				Accion: ctports.AccionConsultarAntecedenteReincorporacionTitular, Finalidad: ctports.FinalidadLecturaReincorporacionTitular,
+				Audiencia: ctports.AudienciaLecturaReincorporacionTitularV1,
+				Motivo:    motivoSeguimientoCeseDesarrollo(cthttp.RutaReincorporacionesTitular), Recurso: antecedente})
+			if (err == nil) != caso.antecedente {
+				t.Fatalf("antecedente=%v error=%v", caso.antecedente, err)
 			}
 			ajena := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, cthttp.RutaCesesNombramiento)
 			if err := autoridad.AutorizarLecturaSeguimiento(ajena, organizacionAltaContratacionTemporalDesarrollo, "expediente:1"); err == nil {
