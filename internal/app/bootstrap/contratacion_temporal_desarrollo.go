@@ -781,6 +781,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		cerrarFronteraAuditoria = detener
 		registradorFrontera = registradorFronterasPorSuperficieDesarrollo{
 			ct: alta.postgresql.registradorAuditoriaFrontera, auditoria: registrador}
+		for i := range rutas {
+			if rutas[i].Ruta == auditoria.RutaOpciones || rutas[i].Ruta == auditoria.RutaConsulta {
+				rutas[i].Manejador = manejadorAuditoriaDenegacionesLocales{
+					siguiente: rutas[i].Manejador, registrador: registrador}
+			}
+		}
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,
@@ -843,9 +849,15 @@ func (i identidadSesionAuditoriaConsultaDesarrollo) ResolverIdentidadConsulta(ct
 	if err != nil || resuelta.Resultado.Validar() != nil || resuelta.Vinculo.ValidarPara(resuelta.Resultado) != nil {
 		return auditoria.IdentidadResuelta{}, auditoria.ErrDenegada
 	}
-	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
-	if err != nil {
-		return auditoria.IdentidadResuelta{}, auditoria.ErrNoDisponible
+	if holder, ok := ctx.Value(claveActorAuditoriaLocal{}).(*actorAuditoriaLocal); ok {
+		holder.fijar(resuelta.Resultado.Contexto.Principal.ID)
+	}
+	correlacion, ok := ctx.Value(claveCorrelacionAuditoriaLocal{}).(vecdomain.ReferenciaCorrelacionAutorizacionV2)
+	if !ok || correlacion.Validar() != nil {
+		correlacion, err = vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+		if err != nil {
+			return auditoria.IdentidadResuelta{}, auditoria.ErrNoDisponible
+		}
 	}
 	return auditoria.IdentidadResuelta{Vinculo: resuelta.Vinculo, Resultado: resuelta.Resultado, Correlacion: correlacion}, nil
 }
