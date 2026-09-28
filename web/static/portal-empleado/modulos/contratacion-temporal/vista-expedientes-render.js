@@ -168,19 +168,13 @@ function renderizarFirmaPendiente(expediente, t) {
   if (!(informe?.accion_clave === "contratacion_temporal.informe_juridico.generar"
       || informe?.accion_clave === "registrar_informe_juridico")) return "";
   return `<section class="ct-exp-firma-pendiente" role="note" aria-labelledby="ct-exp-firma-pendiente-titulo">
-    <p class="sobrelinea">${escaparHTML(t("firma_pendiente_sobrelinea"))}</p>
     <h3 id="ct-exp-firma-pendiente-titulo">${escaparHTML(t("firma_pendiente_titulo"))}</h3>
     <p>${escaparHTML(t("firma_pendiente_estado"))}</p>
-    <dl>
-      <div><dt>${escaparHTML(t("firma_pendiente_documento"))}</dt><dd>${escaparHTML(t("firma_pendiente_documento_valor"))}</dd></div>
-      <div><dt>${escaparHTML(t("firma_pendiente_destino"))}</dt><dd>${escaparHTML(t("firma_pendiente_destino_valor"))}</dd></div>
-    </dl>
-    <h4>${escaparHTML(t("firma_pendiente_pasos"))}</h4>
-    <ul>
-      <li>${escaparHTML(t("firma_pendiente_paso_configuracion"))}</li>
-      <li>${escaparHTML(t("firma_pendiente_paso_remision"))}</li>
-    </ul>
-    <p>${escaparHTML(t("firma_pendiente_limite"))}</p>
+    <button type="button" class="boton-primario" disabled aria-describedby="ct-exp-enviar-firma-motivo">${escaparHTML(t("firma_enviar"))}</button>
+    <p id="ct-exp-enviar-firma-motivo">${escaparHTML(t("firma_enviar_motivo"))}</p>
+    <details class="ct-exp-autofirma-prueba"><summary>${escaparHTML(t("firma_autofirma_prueba_titulo"))}</summary>
+      <p>${escaparHTML(t("firma_autofirma_prueba"))}</p>
+    </details>
   </section>`;
 }
 

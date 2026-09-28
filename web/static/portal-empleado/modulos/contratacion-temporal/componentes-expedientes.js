@@ -394,6 +394,30 @@ function renderizarFases(expediente, t) {
   </nav>`;
 }
 
+function renderizarSiguientePaso(expediente, estado, t) {
+  const tarea = expediente.tareas.find(({ estado_clave }) => estado_clave === "en_curso")
+    ?? expediente.tareas.find(({ estado_clave }) => estado_clave === "espera")
+    ?? expediente.tareas.find(({ estado_clave }) => estado_clave === "pendiente");
+  const accion = estado.carga !== "listo" || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
+    ? null : tarea?.acciones?.find(({ tipo, disponible }) => tipo === "efecto" && disponible === true);
+  const actorLegible = (valor) => typeof valor === "string" && valor.trim() !== ""
+    && !/^(—|-|pendiente|por asignar|sin asignar)$/iu.test(valor.trim())
+    && !/^[a-z_]+:[^ ]+$/iu.test(valor.trim());
+  const actor = actorLegible(tarea?.responsable)
+    ? tarea.responsable : actorLegible(tarea?.unidad)
+      ? tarea.unidad : "";
+  // El contrato de tarea no contiene vencimiento. El plazo de la bandeja es del
+  // expediente y no se atribuye a esta actuación sin una fuente que lo enlace.
+  return `<section class="ct-exp-siguiente-paso panel" aria-labelledby="ct-exp-siguiente-paso-titulo">
+    <header class="cabecera-panel"><h3 id="ct-exp-siguiente-paso-titulo">${escaparHTML(t("siguiente_paso_titulo"))}</h3></header>
+    <div class="ct-exp-siguiente-paso-cuerpo">
+      <p><strong>${escaparHTML(t("siguiente_paso_que"))}</strong> ${escaparHTML(accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea")))}</p>
+      <p><strong>${escaparHTML(t("siguiente_paso_quien"))}</strong> ${escaparHTML(actor || t("siguiente_paso_quien_desconocido"))}</p>
+      <p><strong>${escaparHTML(t("siguiente_paso_hasta"))}</strong> ${escaparHTML(t("siguiente_paso_plazo_desconocido"))}</p>
+    </div>
+  </section>`;
+}
+
 function renderizarHistorialHitos(expediente, t) {
   if (!Array.isArray(expediente.historial) || expediente.historial.length === 0) return "";
   return `<details class="ct-exp-detalle-tecnico ct-exp-historial">
@@ -746,6 +770,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   return `${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null, resolverBolsa)}
     ${renderizarFases(expediente, t)}
+    ${renderizarSiguientePaso(expediente, estado, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}
     ${renderizarCambiosExpediente(expediente)}
@@ -796,25 +821,18 @@ export function renderizarDocumentos(estado, t) {
           <p>${escaparHTML(t("documentos_descripcion"))}</p></div>
         <button type="button" class="boton-secundario" data-ct-exp-vista="expediente">${escaparHTML(t("nav_expediente"))}</button>
       </header>
-      ${indice.documentos.length ? `<div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0" role="region" aria-label="${escaparHTML(t("documentos_tabla"))}">
-      <table class="tabla-datos tabla-datos--prioritaria">
-        <caption>${escaparHTML(t("documentos_tabla"))}</caption>
-        <thead><tr>
-          <th scope="col">${escaparHTML(t("documento"))}</th><th scope="col">${escaparHTML(t("tipo"))}</th>
-          <th scope="col">${escaparHTML(t("version"))}</th><th scope="col">${escaparHTML(t("columna_estado"))}</th>
-          <th scope="col">${escaparHTML(t("firma"))}</th><th scope="col">${escaparHTML(t("fecha"))}</th>
-          <th scope="col">${escaparHTML(t("descarga"))}</th>
-        </tr></thead>
-        <tbody>${indice.documentos.map((documento) => `<tr>
-          <th scope="row">${escaparHTML(documento.titulo)}</th>
-          <td>${escaparHTML(documento.tipo)}</td><td>${documento.version}</td>
-          <td>${escaparHTML(documento.estado)}</td><td>${escaparHTML(documento.firma)}</td>
-          <td>${escaparHTML(documento.fecha)}</td><td>${documento.descarga_disponible
-    ? `<span class="ct-exp-descarga-pendiente">${escaparHTML(t("descarga_conector_pendiente"))}</span>`
-    : escaparHTML(t("no_disponible"))}</td>
-        </tr>`).join("")}</tbody>
-      </table>
-    </div>` : `<p class="ct-exp-documentos-vacio" role="status">${escaparHTML(t("panel_sin_datos"))}</p>`}
+      ${indice.documentos.length ? `<ul class="ct-exp-documentos-lista" aria-label="${escaparHTML(t("documentos_tabla"))}">
+        ${indice.documentos.map((documento) => `<li class="ct-exp-documento">
+          <div class="ct-exp-documento-principal"><h4>${escaparHTML(documento.titulo)}</h4>
+            <span class="ct-exp-chip">${escaparHTML(documento.estado)}</span></div>
+          <dl><div><dt>${escaparHTML(t("tipo"))}</dt><dd>${escaparHTML(documento.tipo)}</dd></div>
+            <div><dt>${escaparHTML(t("version"))}</dt><dd>${documento.version}</dd></div>
+            <div><dt>${escaparHTML(t("firma"))}</dt><dd>${escaparHTML(documento.firma)}</dd></div>
+            <div><dt>${escaparHTML(t("fecha"))}</dt><dd>${escaparHTML(documento.fecha)}</dd></div></dl>
+          <p class="ct-exp-documento-descarga">${escaparHTML(documento.descarga_disponible
+    ? t("descarga_indice_sin_accion") : t("descarga_no_disponible"))}</p>
+        </li>`).join("")}
+      </ul>` : `<p class="ct-exp-documentos-vacio" role="status">${escaparHTML(t("panel_sin_datos"))}</p>`}
     </section>
     ${renderizarContinuidadDesdeDocumentos(expediente, t)}`;
 }
