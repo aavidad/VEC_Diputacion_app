@@ -1147,6 +1147,13 @@ export function crearCoordinadorModulosPortal({
     return composicion?.contratacionTemporal?.fiscalizacion === null;
   }
 
+  // Indica únicamente que la composición actual ofrece el alta. La operación
+  // conserva su autorización y revalidación propias al entrar y guardar.
+  function altaCTDisponible() {
+    return vistaDisponible("contratacion-temporal")
+      && composicion?.contratacionTemporal?.alta != null;
+  }
+
   function obtenerMetricasCuadro() {
     if (!esPerfilRRHH()) return null;
     return composicion?.contratacionTemporal?.obtenerMetricas?.() || null;
@@ -1158,6 +1165,7 @@ export function crearCoordinadorModulosPortal({
   }
 
   return Object.freeze({
+    altaCTDisponible,
     cargarInterno,
     desmontarVistaActual,
     prepararVista,
