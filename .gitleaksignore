@@ -31,6 +31,9 @@ d0601a460a4737dd0234b8e71b042ff9810f7bf2:scripts/revision_web/modelo.py:vep-clav
 # B53: clave de idempotencia sintetica de una prueba SQL de disponibilidad; no es una credencial.
 51ce844ae6b9cdc6508520e2949506c8ab42063d:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b53_mi_bolsa_disponibilidad.sql:vep-clave-castellana-asignada:45
 
+# B54: clave de idempotencia sintetica de una asercion SQL de ofertas; no es una credencial.
+9e3c2144feaab979cc71b174afcf73eaa2872d30:deploy/postgresql/bolsa_llamamientos/pruebas_sql/politica_ofertas_48h_b54.sql:vep-clave-castellana-asignada:74
+
 # Reincorporacion RRHH: UUID fijo del recorrido de prueba web; no es una credencial.
 e3e347c38fd2a138eb8aaaab25f5c6d2c56bb20b:web/static/portal-empleado/modulos/contratacion-temporal/rrhh-reincorporacion.test.mjs:vep-clave-castellana-asignada:9
 
