@@ -105,6 +105,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialConsultaPoliticaOfertas *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaCT             *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPlantillasCatalogo      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialFirmaDocumento          *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -395,6 +396,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if seleccion.plantillasCatalogo {
+		etapa = "material_plantillas_catalogo"
+		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, audienciaCatalogoPlantillasCT)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	etapa = "material_dietas"
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)

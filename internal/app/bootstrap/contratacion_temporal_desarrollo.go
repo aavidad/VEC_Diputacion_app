@@ -18,6 +18,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
@@ -260,6 +261,46 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
+	plantillasActivas, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas *pgxpool.Pool
+	cerrarAutoridadesPlantillas := func() {
+		if motivosEvaluadorPlantillas != nil {
+			motivosEvaluadorPlantillas.Close()
+		}
+		if fuenteAutorizacionPlantillas != nil {
+			fuenteAutorizacionPlantillas.Close()
+		}
+	}
+	cerrarAutoridadesPlantillasPendiente := true
+	defer func() {
+		if cerrarAutoridadesPlantillasPendiente {
+			cerrarAutoridadesPlantillas()
+		}
+	}()
+	if plantillasActivas {
+		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+			return nil, nil, nil, plantillasapp.ErrNoDisponible
+		}
+		dsnFuente, dsnMotivos, err := cfg.DSNAutoridadesAutorizacionRRHH()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		sonda, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancelar()
+		fuenteAutorizacionPlantillas, err = abrirPoolAutorizacionRRHHDesarrollo(
+			sonda, dsnFuente, config.RolAutorizacionFuenteRRHH, "vec-ct-plantillas-fuente")
+		if err != nil {
+			return nil, nil, nil, plantillasapp.ErrNoDisponible
+		}
+		motivosEvaluadorPlantillas, err = abrirPoolAutorizacionRRHHDesarrollo(
+			sonda, dsnMotivos, config.RolAutorizacionMotivosEvaluadorRRHH, "vec-ct-plantillas-motivos")
+		if err != nil || preflightAutoridadesPlantillasCT(sonda, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas) != nil {
+			return nil, nil, nil, plantillasapp.ErrNoDisponible
+		}
+	}
 	noCompuesta, err := nuevaCapacidadNoCompuestaContratacionTemporalDesarrollo(registro)
 	if err != nil {
 		return nil, nil, nil, err
@@ -291,6 +332,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			alta.cerrar()
 		}
 	}()
+	var soportePlantillas *soporteAltaContratacionTemporalDesarrollo
+	var perfilPlantillas string
+	if plantillasActivas {
+		soportePlantillas, perfilPlantillas, err = nuevoSoportePlantillasCatalogoCTDesdeBaseDesarrollo(alta.soporte, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	fuenteMotivosRectificacion, err := nuevaFuenteMotivosRectificacionAnalisisDesarrolloConfigurada(cfg, reloj)
 	if err != nil {
 		return nil, nil, nil, err
@@ -468,7 +517,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil || (politicaOfertasActiva && !cfg.BolsaBorradoresEnabled) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
-	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta)
+	declaracionesFrontera, err := descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
+		perfilCTCatalogo, perfilesConsulta, false, plantillasActivas, perfilPlantillas)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if reincorporacionTitular {
 		declaracionesFrontera = append(declaracionesFrontera,
 			descriptoresFronterasReincorporacionTitularDesarrollo(perfilReincorporacionTitular)...)
@@ -735,6 +788,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}()
 	rutas = append(rutas, rutasBorrador...)
+	if plantillasActivas {
+		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasCatalogo == nil {
+			return nil, nil, nil, plantillasapp.ErrNoDisponible
+		}
+		sondaPlantillas, cancelarPlantillas := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancelarPlantillas()
+		rutasPlantillas, err := nuevasRutasPlantillasCTDesarrollo(
+			sondaPlantillas, cfg, &alta, soportePlantillas, consultasRRHH.identidad,
+			seguridadBorrador, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas,
+			reloj, alta.postgresql.proveedorMaterialPlantillasCatalogo)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutasPlantillas...)
+	}
 	cerrarAuditoria := func() {}
 	cerrarAuditoriaPendiente := true
 	defer func() {
@@ -826,6 +894,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		cerrarAutoridadesPlantillas()
 		cerrarFronteraAuditoria()
 		cerrarAuditoria()
 		cerrarBorrador()
@@ -839,6 +908,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarBorradorPendiente = false
 	cerrarAuditoriaPendiente = false
 	cerrarFronteraAuditoriaPendiente = false
+	cerrarAutoridadesPlantillasPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
 }
 
