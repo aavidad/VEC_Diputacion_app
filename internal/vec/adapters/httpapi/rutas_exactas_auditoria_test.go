@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/internal/vec/ports"
@@ -100,7 +102,56 @@ func TestRutasExactasUsuariosRechazanDuplicadoYNoInventanActor(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodPut, ruta, nil))
-	if w.Code != http.StatusForbidden || len(auditoria.ordenesRegistradas()) != 0 {
-		t.Fatalf("403 sin actor verificado produjo auditoria: estado=%d ordenes=%#v", w.Code, auditoria.ordenesRegistradas())
+	if w.Code != http.StatusServiceUnavailable || len(auditoria.ordenesRegistradas()) != 0 {
+		t.Fatalf("denegacion sin actor verificado no cerro: estado=%d ordenes=%#v", w.Code, auditoria.ordenesRegistradas())
+	}
+}
+
+func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testing.T) {
+	t.Parallel()
+	const ruta = "/api/vec/usuarios/mis-preferencias"
+	for _, caso := range []struct {
+		nombre     string
+		ruta       string
+		denegacion error
+		conActor   bool
+		estado     int
+	}{
+		{"usuarios 401", ruta, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"usuarios 403", ruta, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"contratacion conserva 403", rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, false, http.StatusForbidden},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			manejador := &manejadorExactoPrueba{}
+			autoridad := &autoridadRutasExactasEspia{err: caso.denegacion}
+			auditoria := &registradorAuditoriaFronteraRutaExactaEspia{err: errors.New("detalle privado de PostgreSQL")}
+			h, err := NewHandlerSoloRutasExactas([]RutaExacta{{Ruta: caso.ruta, Manejador: manejador}}, autoridad, auditoria)
+			if err != nil {
+				t.Fatal(err)
+			}
+			peticion := httptest.NewRequest(http.MethodGet, caso.ruta, nil)
+			if caso.conActor {
+				ctx, err := ConActorVerificadoAuditoriaPreferenciasUsuarios(peticion.Context(), actorOrganizacionHistoricaPrueba(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				peticion = peticion.WithContext(ctx)
+			}
+			respuesta := httptest.NewRecorder()
+			h.ServeHTTP(respuesta, peticion)
+			if respuesta.Code != caso.estado || len(auditoria.ordenesRegistradas()) != 1 {
+				t.Fatalf("estado=%d ordenes=%#v", respuesta.Code, auditoria.ordenesRegistradas())
+			}
+			if llamadas, _, _ := manejador.estado(); llamadas != 0 {
+				t.Fatalf("negocio invocado %d veces", llamadas)
+			}
+			if strings.Contains(respuesta.Body.String(), "detalle privado") || strings.Contains(respuesta.Body.String(), "per_") {
+				t.Fatalf("respuesta revelo detalle privado: %s", respuesta.Body.String())
+			}
+			if caso.estado == http.StatusServiceUnavailable && !strings.Contains(respuesta.Body.String(), `"codigo":"servicio_no_disponible"`) {
+				t.Fatalf("503 sin codigo estable: %s", respuesta.Body.String())
+			}
+		})
 	}
 }
