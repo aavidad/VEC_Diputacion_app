@@ -3,8 +3,11 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"reflect"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,6 +28,103 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
+
+type claveCorrelacionAuditoriaLocal struct{}
+type claveActorAuditoriaLocal struct{}
+
+type actorAuditoriaLocal struct {
+	mu  sync.Mutex
+	ref string
+}
+
+func (a *actorAuditoriaLocal) fijar(ref string) {
+	if a == nil || ref == "" {
+		return
+	}
+	a.mu.Lock()
+	a.ref = ref
+	a.mu.Unlock()
+}
+
+func (a *actorAuditoriaLocal) valor() string {
+	if a == nil {
+		return ""
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.ref
+}
+
+type respuestaEstadoAuditoriaLocal struct {
+	http.ResponseWriter
+	codigo int
+}
+
+func (r *respuestaEstadoAuditoriaLocal) WriteHeader(codigo int) {
+	if r.codigo != 0 {
+		return
+	}
+	r.codigo = codigo
+	r.ResponseWriter.WriteHeader(codigo)
+}
+
+func (r *respuestaEstadoAuditoriaLocal) Write(b []byte) (int, error) {
+	if r.codigo == 0 {
+		r.WriteHeader(http.StatusOK)
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+type manejadorAuditoriaDenegacionesLocales struct {
+	siguiente   http.Handler
+	registrador vecports.RegistradorAuditoriaFronteraRutaExacta
+}
+
+func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if w == nil {
+		return
+	}
+	if r == nil || r.URL == nil || m.siguiente == nil || dependenciaAuditoriaConsultaNula(m.registrador) {
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+	ruta := r.URL.Path
+	if ruta != auditoria.RutaOpciones && ruta != auditoria.RutaConsulta {
+		http.NotFound(w, r)
+		return
+	}
+	correlacion := "corr_no_disponible"
+	if generada, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(r.Context(), seguridadvec.GeneradorReferenciasCriptograficas{}); err == nil {
+		if canonica, err := generada.ValorCanonico(); err == nil {
+			if strings.HasPrefix(canonica, "correlacion_") && len(canonica) == len("correlacion_")+32 {
+				correlacion = "corr_" + strings.TrimPrefix(canonica, "correlacion_")
+				r = r.WithContext(context.WithValue(r.Context(), claveCorrelacionAuditoriaLocal{}, generada))
+			}
+		}
+	}
+	actor := &actorAuditoriaLocal{}
+	r = r.WithContext(context.WithValue(r.Context(), claveActorAuditoriaLocal{}, actor))
+	w.Header().Set("X-Correlation-Ref", correlacion)
+	respuesta := &respuestaEstadoAuditoriaLocal{ResponseWriter: w}
+	m.siguiente.ServeHTTP(respuesta, r)
+	if respuesta.codigo != http.StatusForbidden && respuesta.codigo != http.StatusUnauthorized {
+		return
+	}
+	motivo := vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
+	if respuesta.codigo == http.StatusUnauthorized {
+		motivo = vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
+	}
+	ctxRegistro, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
+	defer cancelar()
+	if err := m.registrador.RegistrarAuditoriaFronteraRutaExacta(ctxRegistro, vecports.OrdenAuditoriaFronteraRutaExacta{
+		CorrelacionRef: correlacion, Motivo: motivo,
+		Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaAuditoria,
+		Ruta:       ruta, ActorRef: actor.valor(),
+	}); err != nil {
+		slog.Error("auditoria: denegacion local sin bitacora", "correlacion_ref", correlacion,
+			"ruta", ruta, "causa", "registro_frontera_no_disponible")
+	}
+}
 
 // La raíz aporta pools nominales, emisores independientes y fronteras ya
 // compuestas. Esta fábrica no activa la capacidad ni publica concesiones.

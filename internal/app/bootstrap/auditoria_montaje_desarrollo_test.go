@@ -27,11 +27,39 @@ func (registradorRutaAuditoriaSintetica) RegistrarAuditoriaFronteraRutaExacta(co
 	return nil
 }
 
-type registradorFronteraSuperficiePrueba struct{ llamadas int }
+type registradorFronteraSuperficiePrueba struct {
+	llamadas int
+	ultima   vecports.OrdenAuditoriaFronteraRutaExacta
+}
 
-func (r *registradorFronteraSuperficiePrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, _ vecports.OrdenAuditoriaFronteraRutaExacta) error {
+func (r *registradorFronteraSuperficiePrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
 	r.llamadas++
+	r.ultima = orden
 	return nil
+}
+
+func TestManejadorAuditoriaRegistra403LocalConActorVerificado(t *testing.T) {
+	registrador := &registradorFronteraSuperficiePrueba{}
+	h := manejadorAuditoriaDenegacionesLocales{registrador: registrador, siguiente: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		holder, _ := r.Context().Value(claveActorAuditoriaLocal{}).(*actorAuditoriaLocal)
+		holder.fijar("per_actor_verificado")
+		w.WriteHeader(http.StatusForbidden)
+	})}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, nil))
+	if w.Code != http.StatusForbidden || registrador.llamadas != 1 ||
+		registrador.ultima.Validar() != nil || registrador.ultima.ActorRef != "per_actor_verificado" ||
+		registrador.ultima.Ruta != auditoria.RutaConsulta ||
+		registrador.ultima.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaAuditoria ||
+		w.Header().Get("X-Correlation-Ref") != registrador.ultima.CorrelacionRef {
+		t.Fatalf("403 local sin bitácora correlacionable: estado=%d orden=%+v", w.Code, registrador.ultima)
+	}
+	registrador.llamadas = 0
+	h.siguiente = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, auditoria.RutaOpciones, nil))
+	if registrador.llamadas != 0 {
+		t.Fatal("GET permitido registró denegación")
+	}
 }
 
 type filaPreflightFronteraAuditoriaPrueba struct{ valida bool }
@@ -149,6 +177,11 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	registradorLocal := &registradorFronteraSuperficiePrueba{}
+	for i := range rutas {
+		rutas[i].Manejador = manejadorAuditoriaDenegacionesLocales{
+			siguiente: rutas[i].Manejador, registrador: registradorLocal}
+	}
 	raiz, err := vechttp.NewHandlerSoloRutasExactas(rutas, autoridadRutaAuditoriaSintetica{}, registradorRutaAuditoriaSintetica{})
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +198,23 @@ func TestRaizExactaAuditoriaSirveOpcionesYDeniegaFuenteAjena(t *testing.T) {
 	peticion.Header.Set("Content-Type", "application/json")
 	post := httptest.NewRecorder()
 	raiz.ServeHTTP(post, peticion)
-	if post.Code != http.StatusForbidden {
-		t.Fatalf("fuente Bolsa con identidad CT en raíz = HTTP %d", post.Code)
+	if post.Code != http.StatusForbidden || registradorLocal.llamadas != 1 ||
+		registradorLocal.ultima.Validar() != nil || registradorLocal.ultima.Ruta != auditoria.RutaConsulta {
+		t.Fatalf("fuente Bolsa con identidad CT en raíz = HTTP %d orden=%+v", post.Code, registradorLocal.ultima)
+	}
+	registradorLocal.llamadas = 0
+	var datosAjenos map[string]any
+	if err := json.Unmarshal(cuerpo, &datosAjenos); err != nil {
+		t.Fatal(err)
+	}
+	datosAjenos["fuente"], datosAjenos["motivo_ref"] = "ct", "motivo:ajeno"
+	cuerpoAjeno, _ := json.Marshal(datosAjenos)
+	peticionAjena := httptest.NewRequest(http.MethodPost, auditoria.RutaConsulta, strings.NewReader(string(cuerpoAjeno)))
+	peticionAjena.Header.Set("Content-Type", "application/json")
+	respuestaAjena := httptest.NewRecorder()
+	raiz.ServeHTTP(respuestaAjena, peticionAjena)
+	if respuestaAjena.Code != http.StatusForbidden || registradorLocal.llamadas != 1 ||
+		registradorLocal.ultima.Validar() != nil {
+		t.Fatalf("motivo ajeno sin bitácora local: HTTP %d orden=%+v", respuestaAjena.Code, registradorLocal.ultima)
 	}
 }
