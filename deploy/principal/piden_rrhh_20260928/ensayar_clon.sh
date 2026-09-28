@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Exclusivo para una base PG18 desechable cuyo nombre termina en _clon_piden_20260928.
+set -Eeuo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+repo=$(git -C "$script_dir" rev-parse --show-toplevel)
+base=cba5aa618372f178cd269858ca6454ffb9d86fca
+fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+[[ ${1:-} == --aplicar-en-clon && $# == 1 ]] || fallar 'uso: ensayar_clon.sh --aplicar-en-clon'
+[[ -n ${PGSERVICE:-} && -n ${VEC_PIDEN_CLON_DB:-} ]] || fallar 'faltan PGSERVICE o VEC_PIDEN_CLON_DB'
+[[ $VEC_PIDEN_CLON_DB == *_clon_piden_20260928 ]] || fallar 'nombre de clon no autorizado'
+command -v psql >/dev/null || fallar 'falta psql'
+git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
+git -C "$repo" diff --quiet "$base" HEAD -- deploy/postgresql || fallar 'SQL cambió: revisar el plan'
+[[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
+
+# PGSERVICE/PGPASSFILE se resuelven fuera de Git. No pasar DSN ni clave en argumentos.
+conexion=(psql -X --no-psqlrc --set=ON_ERROR_STOP=1 --no-align --tuples-only)
+actual=$("${conexion[@]}" --command 'SELECT current_database()')
+[[ $actual == "$VEC_PIDEN_CLON_DB" ]] || fallar "la conexión apunta a $actual"
+version=$("${conexion[@]}" --command 'SHOW server_version_num')
+[[ $version =~ ^18[0-9]{4}$ ]] || fallar "se requiere PG18; recibido $version"
+
+while IFS= read -r ruta; do
+  [[ -n $ruta && $ruta != \#* ]] || continue
+  [[ $ruta == deploy/postgresql/*/*.up.sql && -f $repo/$ruta ]] || fallar "ruta no válida: $ruta"
+  printf 'Aplicando en clon: %s\n' "$ruta"
+  "${conexion[@]}" --file "$repo/$ruta" >/dev/null
+done <"$script_dir/migraciones.txt"
+printf 'CLON_PG18_UP_OK commit=%s base=%s\n' "$(git -C "$repo" rev-parse HEAD)" "$actual"
