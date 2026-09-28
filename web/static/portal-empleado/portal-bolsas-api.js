@@ -15,9 +15,9 @@ import {
 } from "./portal-bolsas-contrato.js?v=20260928-rrhh-corte3-cache-v1";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260928-rrhh-corte3-cache-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260928-rrhh-corte3-cache-v2";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260928-rrhh-corte3-cache-v3";
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260928-rrhh-corte3-cache-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260928-rrhh-corte3-cache-v2";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260928-rrhh-corte3-cache-v3";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260928-rrhh-corte3-cache-v1";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260928-rrhh-corte3-cache-v1";
