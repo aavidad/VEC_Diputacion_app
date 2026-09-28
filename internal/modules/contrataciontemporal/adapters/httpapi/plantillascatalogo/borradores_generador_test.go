@@ -133,7 +133,9 @@ func TestBorradoresCatalogoTipoNuevoListaYPDFDOCXReales(t *testing.T) {
 			t.Fatalf("%s: %d, %q", formato.nombre, w.Code, w.Body.String())
 		}
 	}
-	if c.llamadas != 3 || fuente.llamadas != 3 || fuente.material.OrganizacionRef != "organizacion:desarrollo:dipgra" || fuente.material.VersionObservada != 7 || fuente.material.Tipo != "certificacion_servicio" {
+	if c.llamadas != 3 || fuente.llamadas != 3 || fuente.material.OrganizacionRef != "organizacion:desarrollo:dipgra" ||
+		fuente.material.ClaseAmbito != "organizacion" || fuente.material.AmbitoRef != fuente.material.OrganizacionRef ||
+		fuente.material.VersionObservada != 7 || fuente.material.Tipo != "certificacion_servicio" {
 		t.Fatal("la descarga no quedó ligada al expediente y versión consultados")
 	}
 }
