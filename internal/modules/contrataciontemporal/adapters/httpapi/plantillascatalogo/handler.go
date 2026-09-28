@@ -125,9 +125,15 @@ func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		falloServicio(w, err)
 		return
 	}
-	codigo := http.StatusCreated
-	if resultado.Recibo.EstadoReplay == "replay" {
+	var codigo int
+	switch resultado.Recibo.EstadoReplay {
+	case "registrado":
+		codigo = http.StatusCreated
+	case "replay":
 		codigo = http.StatusOK
+	default:
+		fallo(w, http.StatusServiceUnavailable, "no_disponible")
+		return
 	}
 	responder(w, codigo, cambioDTO{Catalogo: convertirCatalogoDTO(resultado.Catalogo), Recibo: resultado.Recibo})
 }
