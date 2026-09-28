@@ -22,6 +22,8 @@ type autoridadPostgreSQLDesarrollo struct {
 	actoControlRol string
 	actoAsignacion string
 	actoSesion     string
+	// La provisión inicial dedicada no modifica una asignación concurrente.
+	soloInicial bool
 }
 
 func (a autoridadPostgreSQLDesarrollo) validaConfiguracion() bool {
@@ -352,6 +354,9 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	)
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
+	}
+	if a.soloInicial && encontrada {
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if encontrada {
 		yaPublicada := actual.referencia == asignacionRef && actual.huella == huellaAsignacion

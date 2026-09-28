@@ -18,7 +18,9 @@ const (
 	EnvAuditoriaConsultaExpedienteCT              = "VEC_AUDITORIA_CONSULTA_EXPEDIENTE_CT"
 	EnvAuditoriaConsultaExpedienteBolsa           = "VEC_AUDITORIA_CONSULTA_EXPEDIENTE_BOLSA"
 	EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL = "VEC_RRHH_AUDITORIA_FUENTE_AUTORIZACION_DATABASE_URL"
+	EnvRRHHAuditoriaMotivosDatabaseURL            = "VEC_RRHH_AUDITORIA_MOTIVOS_DATABASE_URL"
 	RolFuenteAutorizacionAuditoriaDesarrollo      = "vec_autorizacion_fuente"
+	RolMotivosAuditoriaDesarrollo                 = "vec_autorizacion_motivos_evaluador"
 )
 
 const RutaCatalogoAuditoriaConsultaEjemplo = "data/demo/reglas/auditoria_consulta.ejemplo.demo.json"
@@ -27,6 +29,8 @@ var ErrCatalogoAuditoriaConsultaFueraDesarrollo = errors.New("config: catalogo d
 var ErrExpedientesAuditoriaConsultaInvalidos = errors.New("config: expedientes de auditoria no disponibles")
 var ErrFuenteAutorizacionAuditoriaIncompleta = errors.New("config: falta la fuente PostgreSQL de autorizacion de auditoria")
 var ErrFuenteAutorizacionAuditoriaNoSeparada = errors.New("config: la fuente PostgreSQL de autorizacion de auditoria comparte LOGIN")
+var ErrMotivosAuditoriaIncompletos = errors.New("config: falta el resolutor PostgreSQL de motivos de auditoria")
+var ErrMotivosAuditoriaNoSeparados = errors.New("config: el resolutor PostgreSQL de motivos de auditoria comparte LOGIN")
 
 // RutaCatalogoAuditoriaConsultaDesarrollo no activa rutas ni concede permisos.
 // Una ruta declarada fuera de desarrollo es un error, incluso si el selector
@@ -97,6 +101,36 @@ func (c Config) DSNFuenteAutorizacionAuditoriaDesarrollo() (string, error) {
 		if conexionPostgreSQLComparteLogin(dsn, previo) {
 			return "", ErrFuenteAutorizacionAuditoriaNoSeparada
 		}
+	}
+	if conexionPostgreSQLComparteLogin(dsn, os.Getenv(EnvRRHHAuditoriaMotivosDatabaseURL)) {
+		return "", ErrFuenteAutorizacionAuditoriaNoSeparada
+	}
+	return dsn, nil
+}
+
+// DSNMotivosAuditoriaDesarrollo usa el rol evaluador V2 propio. El resolutor
+// de motivos RRHH configurado para otras consultas tiene otro rol y no se
+// reutiliza para ampliar accidentalmente sus privilegios.
+func (c Config) DSNMotivosAuditoriaDesarrollo() (string, error) {
+	c = c.Normalize()
+	if !c.DevelopmentEnabledByDoubleKey() {
+		return "", ErrMotivosAuditoriaIncompletos
+	}
+	dsn := strings.TrimSpace(os.Getenv(EnvRRHHAuditoriaMotivosDatabaseURL))
+	if dsn == "" {
+		return "", ErrMotivosAuditoriaIncompletos
+	}
+	configuracion, err := pgconn.ParseConfig(dsn)
+	if err != nil || configuracion.User == "" {
+		return "", ErrMotivosAuditoriaIncompletos
+	}
+	for _, previo := range c.dsnsPostgreSQLConfigurados() {
+		if conexionPostgreSQLComparteLogin(dsn, previo) {
+			return "", ErrMotivosAuditoriaNoSeparados
+		}
+	}
+	if conexionPostgreSQLComparteLogin(dsn, os.Getenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL)) {
+		return "", ErrMotivosAuditoriaNoSeparados
 	}
 	return dsn, nil
 }
