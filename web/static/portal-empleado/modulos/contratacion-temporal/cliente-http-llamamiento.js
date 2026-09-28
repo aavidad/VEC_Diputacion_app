@@ -69,6 +69,8 @@ export function prefijoErrorLlamamiento(ruta) {
   return null;
 }
 export function conflictoLlamamientoValido(ruta, codigo) {
+  if (ruta === RUTAS_LLAMAMIENTO.respuestaRecibida)
+    return ["contenido_respuesta_en_conflicto", "version_en_conflicto"].includes(codigo);
   if (ruta === RUTAS_LLAMAMIENTO.propuestaFormalizacion)
     return ["version_en_conflicto", "clave_idempotencia_reutilizada", "resolucion_no_aceptada"].includes(codigo);
   if (ruta === RUTAS_LLAMAMIENTO.continuacionLlamamiento) return codigo === "clave_idempotencia_reutilizada";

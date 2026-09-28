@@ -334,9 +334,6 @@ export function montarFormularioLlamamiento({
     const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) && paso.solicitud !== null;
     let solicitud;
     try {
-      if (esRespuesta(operacion) && !paso.valores.clave_idempotencia) {
-        paso.valores.clave_idempotencia = generarClaveIdempotencia() ?? "";
-      }
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
         contrato.campos.map((campo) => [
           campo, campo === "version_esperada" || campo === "version_comunicacion_esperada"
@@ -348,13 +345,15 @@ export function montarFormularioLlamamiento({
               : paso.valores[campo],
         ]),
       ));
-      if (["comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion) && Object.keys(OPERACIONES).some(
+      if (solicitud.clave_idempotencia && ["comunicacion_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion) && Object.keys(OPERACIONES).some(
         (anterior) => anterior !== operacion
-          && estado[anterior].solicitud?.clave_idempotencia === solicitud.clave_idempotencia,
+          && (estado[anterior].solicitud?.clave_idempotencia ?? estado[anterior].recibo?.clave_idempotencia)
+            === solicitud.clave_idempotencia,
       )) throw new TypeError("la operación necesita su propia clave");
       if (["resolucion", "siguiente"].includes(operacion) && [estado.seleccion, estado.comunicacion,
         estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion, estado.expiracion] : [])]
-        .some((anterior) => anterior.solicitud?.clave_idempotencia === solicitud.clave_idempotencia)) {
+        .some((anterior) => (anterior.solicitud?.clave_idempotencia ?? anterior.recibo?.clave_idempotencia)
+          === solicitud.clave_idempotencia)) {
         throw new TypeError("la operación necesita su propia clave");
       }
     } catch (error) {
@@ -504,7 +503,8 @@ export function montarFormularioLlamamiento({
     } catch (error) {
       if (!montado) return;
       guardarBorradores();
-      const conflicto = ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
+      const conflictoContenido = esRespuesta(operacion) && error?.codigo === "contenido_respuesta_en_conflicto";
+      const conflicto = conflictoContenido || ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
         "version_en_conflicto", "seleccion_no_disponible", "resolucion_no_aceptada", "evento_en_conflicto"].includes(error?.codigo);
       const validacionPendiente = esResolucion(operacion) && esValidacionRespuestaPendiente(error)
         && error.resultadoIndeterminado === false && !recuperandoRespuesta && !respuestaRecibida;
@@ -512,9 +512,11 @@ export function montarFormularioLlamamiento({
       const rechazo = !validacionPendiente && !recuperandoRespuesta && !respuestaRecibida && error?.resultadoIndeterminado === false
         && error?.envelopeValido === true;
       paso.bloqueado = conflicto;
-      paso.mensaje = validacionPendiente ? "llamamiento_validacion_respuesta_pendiente"
+      paso.mensaje = conflictoContenido ? "llamamiento_contenido_respuesta_en_conflicto"
+        : validacionPendiente ? "llamamiento_validacion_respuesta_pendiente"
         : conflicto ? "llamamiento_conflicto"
-        : rechazo ? "llamamiento_rechazada" : "llamamiento_error";
+        : rechazo ? "llamamiento_rechazada"
+        : esRespuesta(operacion) ? "llamamiento_respuesta_resultado_incierto" : "llamamiento_error";
       paso.tono = conflicto || rechazo ? "error" : "aviso";
       // Solo un rechazo conocido de este primer intento permite corregir las
       // casillas. Un intento anterior ambiguo nunca se libera por un replay.
@@ -579,7 +581,7 @@ export function montarFormularioLlamamiento({
     const operacion = control.dataset.ctLlamamientoClave;
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
-    if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
+    if (esRespuesta(operacion)) return;
     if (esResolucion(operacion) && !puedeResolver(operacion)) return;
     if (esEventoPlazo(operacion) && !puedeRegistrarEventoPlazo(operacion)) return;
     if (operacion === "expiracion" && !puedeConfirmarExpiracion()) return;

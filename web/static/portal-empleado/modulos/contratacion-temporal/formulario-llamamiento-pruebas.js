@@ -123,10 +123,10 @@ export const comunicacionRegistrada = {
   intencion_envio_ref: "intencion:sintetica:001",
 };
 export const declaracion = () => ({
-  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
   respuesta: "aceptacion", correo_ref: "correo:sintetico:001", recibida_en: "2026-09-05T10:30",
 });
 export const justificante = (solicitud) => ({
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
   ...solicitud, esquema: "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1",
   justificante_ref: "justificante:sintetico:001", recibo_ref: "recibo:respuesta:001",
   auditoria_ref: "auditoria:respuesta:001", registrada_en: "2026-09-05T09:00:00.123456Z",
@@ -191,9 +191,9 @@ export const avisoSiguienteRegistrado = { ...comunicacionRegistrada,
   auditoria_ref: "auditoria:sucesor:002", registrada_en: "2026-09-05T09:07:00.123456Z",
   intencion_envio_ref: "intencion:aviso:sucesor:002" };
 export const declaracionSiguiente = () => ({ ...declaracion(),
-  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174007",
   correo_ref: "correo:sintetico:sucesor:002", recibida_en: "2026-09-05T11:08" });
 export const justificanteSiguiente = (s) => ({ ...justificante(s),
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174007",
   justificante_ref: "justificante:sucesor:002", recibo_ref: "recibo:respuesta:sucesor:002",
   auditoria_ref: "auditoria:respuesta:sucesor:002", registrada_en: "2026-09-05T09:09:00.123456Z" });
 export async function abrirResolucion(raiz, cliente = {}, extras = {}, opcion = "aceptacion") {

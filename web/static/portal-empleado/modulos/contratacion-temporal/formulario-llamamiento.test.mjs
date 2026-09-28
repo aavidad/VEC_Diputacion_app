@@ -77,7 +77,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, revision_respuesta_rrhh, revision_plazo_rrhh });
     assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0); assert.match(raiz.innerHTML, /Marque ambas comprobaciones manuales\./u);
   }
-  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia]) {
+  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia]) {
     await raiz.enviar("resolucion", { clave_idempotencia, ...revisionManual });
     assert.match(raiz.innerHTML, /utilice una clave propia de resolución/u);
   }
@@ -123,7 +123,6 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",
     correo_sha256: "f".repeat(64), contenido: CORREO, actor_ref: "actor:inventado" });
   assert.deepEqual(solicitudes, [{
-    clave_idempotencia: declaracion().clave_idempotencia,
     organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
     llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
     version_comunicacion_esperada: 2, respuesta: "aceptacion", correo_ref: declaracion().correo_ref,
@@ -142,20 +141,19 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   cerrar();
 });
 
-test("respuesta genera una clave interna y convierte la hora de Madrid sin cambiar el recibo", async () => {
+test("respuesta omite clave cliente y convierte la hora de Madrid sin cambiar el recibo", async () => {
   const raiz = raizPrueba(), solicitudes = [];
-  const clave = "123e4567-e89b-42d3-a456-426614174009";
   await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
     solicitudes.push(s); return justificante(s);
-  } }, { generarClaveIdempotencia: () => clave });
+  } }, { generarClaveIdempotencia: () => assert.fail("la respuesta no genera clave") });
   const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="respuesta"[\s\S]*?<\/form>/u)[0];
   assert.match(raiz.innerHTML, /Registrar respuesta del candidato/u);
   assert.match(formulario, /Ha aceptado/u);
   assert.match(formulario, /Ha renunciado/u);
-  assert.doesNotMatch(formulario, /data-ct-llamamiento-clave="respuesta"|Huella SHA-256 declarada/u);
+  assert.doesNotMatch(formulario, /data-ct-llamamiento-clave="respuesta"|name="clave_idempotencia"|Huella SHA-256 declarada/u);
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", { ...declaracion(), clave_idempotencia: "", recibida_en: "2026-09-05T10:30" });
-  assert.equal(solicitudes[0].clave_idempotencia, clave);
+  assert.equal(Object.hasOwn(solicitudes[0], "clave_idempotencia"), false);
   assert.equal(solicitudes[0].recibida_en, "2026-09-05T08:30:00Z");
   assert.match(raiz.innerHTML, /Siguiente acción/u);
 });
@@ -245,7 +243,7 @@ test("huella en curso bloquea envío y desmontar descarta su resolución tardía
   assert.equal(raiz.innerHTML, ""); assert.equal(raiz.eventos.size, 0); assert.equal(bytes[0], 0);
 });
 
-test("respuesta perdida congela clave, fecha, declaración y huella; replay usa el mismo intento", async () => {
+test("respuesta perdida conserva fecha, declaración y huella; reintento usa el mismo contenido", async () => {
   const raiz = raizPrueba(), solicitudes = [];
   await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
     solicitudes.push(s);
@@ -257,7 +255,7 @@ test("respuesta perdida congela clave, fecha, declaración y huella; replay usa 
   } });
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
-  assert.match(raiz.innerHTML, /Recuperar con los mismos datos/u);
+  assert.match(raiz.innerHTML, /Reintentar la misma declaración/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="respuesta"/u); // gitleaks:allow — selector HTML, no credencial.
   await raiz.archivo(new File(["otro"], "otro.eml"));
   await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia",
@@ -279,7 +277,7 @@ test("doble envío de respuesta no duplica y conflicto impide reintentar", async
   assert.equal(solicitudes.length, 1);
   resolver(justificante(solicitudes[0]));
   await pendiente;
-  for (const codigo of ["version_en_conflicto", "clave_idempotencia_reutilizada"]) {
+  for (const codigo of ["version_en_conflicto", "contenido_respuesta_en_conflicto"]) {
     const otra = raizPrueba(); let llamadas = 0;
     await abrirRespuesta(otra, { registrarRespuestaRecibida: async () => {
       llamadas += 1; throw Object.assign(new Error(), { codigo, envelopeValido: true });
@@ -287,8 +285,25 @@ test("doble envío de respuesta no duplica y conflicto impide reintentar", async
     await otra.archivo(archivoCorreo());
     await otra.enviar("respuesta", declaracion());
     await otra.enviar("respuesta", declaracion());
-    assert.equal(llamadas, 1); assert.match(otra.innerHTML, /requiere revisión del servidor/u); assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+    assert.equal(llamadas, 1);
+    assert.match(otra.innerHTML, codigo === "contenido_respuesta_en_conflicto"
+      ? /Ya existe una respuesta distinta.*Abra el expediente/u : /requiere revisión del servidor/u);
+    assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   }
+});
+
+test("conflicto de contenido en inglés bloquea otro POST y remite al expediente", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async () => {
+    llamadas += 1;
+    throw Object.assign(new Error(), { codigo: "contenido_respuesta_en_conflicto", envelopeValido: true });
+  } }, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" });
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(llamadas, 1);
+  assert.match(raiz.innerHTML, /A different reply already exists.*Open the case/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
 });
 
 test("el expediente fiscalizado seleccionado rellena el formulario existente sin POST ni clave automática", async () => {

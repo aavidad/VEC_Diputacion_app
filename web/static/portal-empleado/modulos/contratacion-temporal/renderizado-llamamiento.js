@@ -79,9 +79,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   }
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
-    if (esRespuesta(operacion) && nombre === "clave_idempotencia") {
-      return `<input id="${id}" name="${nombre}" type="hidden" value="${e(valor)}" readonly>`;
-    }
     if (esRespuesta(operacion) && nombre === "correo_sha256") {
       return `<input id="${id}" name="${nombre}" type="hidden" value="${e(valor)}" readonly>`;
     }
@@ -218,7 +215,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           data-ct-llamamiento-clave="${operacion}"${paso.calculando ? " disabled" : ""}>${e(t("llamamiento_crear_clave"))}</button>` : ""}
         ${!paso.recibo && !paso.bloqueado && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
-            ? esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
+            ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
+              : esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
             : operacion === "seleccion" ? "llamamiento_seleccionar"
               : operacion === "propuesta" ? "llamamiento_preparar_propuesta" : operacion === "siguiente" ? "llamamiento_continuar"
               : esResolucion(operacion) ? "llamamiento_solicitar_resolucion"

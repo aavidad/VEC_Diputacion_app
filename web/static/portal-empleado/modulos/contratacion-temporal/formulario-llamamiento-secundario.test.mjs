@@ -74,9 +74,9 @@ for (const caso of ["confirmado", "renuncia", "asset_invalido", "ambiguo", "fech
   assert.equal(lecturas, 1); assert.match(raiz.innerHTML, /id="ct-llamamiento-propuesta-version_esperada"[^>]*value="6"[^>]*readonly/u);
   assert.equal([...raiz.innerHTML.matchAll(/data-ct-llamamiento-form="propuesta"/gu)].length, 1);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="(?:propuesta_siguiente|siguiente_siguiente)"/u);
-  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION,
+  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia, CLAVE_RESOLUCION,
     ...(sucesor ? [solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia,
-      declaracionSiguiente().clave_idempotencia, CLAVE_RESOLUCION_SIGUIENTE] : [])])
+      justificanteSiguiente({}).clave_idempotencia, CLAVE_RESOLUCION_SIGUIENTE] : [])])
     await raiz.enviar("propuesta", { clave_idempotencia });
   assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0);
   await raiz.enviar("propuesta", { clave_idempotencia: operacionId }); assert.equal(solicitudes.length, 0);
@@ -150,7 +150,7 @@ test("siguiente exige renuncia, clave propia y confirmación; no modifica recibo
   assert.doesNotMatch(form, /checkbox|type="file"|name="(?:actor_ref|version_esperada|llamamiento_ref)"/u);
   const pulsarClave = () => raiz.eventos.get("click")({ preventDefault() {}, target: { closest: () => ({ dataset: { ctLlamamientoClave: "siguiente" } }) } });
   assert.equal(claves, 0); pulsarClave(); assert.equal(claves, 1);
-  for (const clave_idempotencia of [CLAVE, CLAVE_RESOLUCION, declaracion().clave_idempotencia]) await raiz.enviar("siguiente", { clave_idempotencia });
+  for (const clave_idempotencia of [CLAVE, CLAVE_RESOLUCION, justificante({}).clave_idempotencia]) await raiz.enviar("siguiente", { clave_idempotencia });
   await raiz.enviar("siguiente", solicitudSiguiente); assert.equal(solicitudes.length, 0);
   confirmar = true;
   await raiz.enviar("siguiente", { ...solicitudSiguiente, organizacion_ref: "org:ajena", expediente_ref: "exp:ajeno",
@@ -216,7 +216,7 @@ test("aviso local al sucesor exige continuación, clave propia y confirmación; 
   const anteriores = previos();
   assert.equal(claves, 0); assert.equal(solicitudes.length, 1);
   pulsarClave(); assert.equal(claves, 1);
-  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION, solicitudSiguiente.clave_idempotencia])
+  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia, CLAVE_RESOLUCION, solicitudSiguiente.clave_idempotencia])
     await raiz.enviar("comunicacion_siguiente", { clave_idempotencia });
   assert.equal(confirmaciones.length, 0);
   await raiz.enviar("comunicacion_siguiente", solicitudAvisoSiguiente);
@@ -281,7 +281,7 @@ test("aviso al sucesor en vuelo evita duplicación y se cancela al desmontar sin
   assert.equal(raiz.innerHTML, "");
 });
 
-for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor ${respuesta}: diez campos derivados, confirmación y recibos anteriores intactos sin resolver`, async () => {
+for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor ${respuesta}: nueve campos derivados, confirmación y recibos anteriores intactos sin resolver`, async () => {
   const raiz = raizPrueba(), solicitudes = [], confirmaciones = []; let confirmar = false;
   const cerrar = await abrirRespuestaSiguiente(raiz, (s) => { solicitudes.push(s); return justificanteSiguiente(s); }, {
     confirmarOperacion: (d) => {
@@ -306,17 +306,18 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor 
   await raiz.archivo(archivoCorreo(respuesta), "respuesta_siguiente");
   assert.match(formulario(), /Correo comprobado en este equipo/u);
   assert.match(formulario(), /name="correo_sha256"[^>]*readonly/u);
-  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION,
+  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia, CLAVE_RESOLUCION,
     solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia])
     await raiz.enviar("respuesta_siguiente", { ...valores, clave_idempotencia });
-  assert.equal(confirmaciones.length, 0);
+  assert.equal(solicitudes.length, 0);
+  assert.ok(confirmaciones.every((datos) => !Object.hasOwn(datos.datos, "clave_idempotencia")));
   await raiz.enviar("respuesta_siguiente", valores); assert.equal(solicitudes.length, 0);
   confirmar = true;
   await raiz.enviar("respuesta_siguiente", { ...valores, organizacion_ref: "org:ajena",
     expediente_ref: "exp:ajeno", llamamiento_ref: "llamamiento:ajeno", comunicacion_ref: "comunicacion:ajena",
     version_comunicacion_esperada: 99, correo_sha256: "f".repeat(64), tipo_antecedente: "inventado" });
   const esperada = {
-    clave_idempotencia: valores.clave_idempotencia, organizacion_ref: solicitudAvisoSiguiente.organizacion_ref,
+    organizacion_ref: solicitudAvisoSiguiente.organizacion_ref,
     expediente_ref: solicitudAvisoSiguiente.expediente_ref, llamamiento_ref: solicitudAvisoSiguiente.llamamiento_ref,
     comunicacion_ref: avisoSiguienteRegistrado.comunicacion_ref, version_comunicacion_esperada: 2,
     respuesta, correo_ref: valores.correo_ref,
@@ -438,8 +439,8 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`octava operación ${re
   assert.equal(new Set(ids).size, ids.length);
   for (const revision of [{}, { revision_respuesta_rrhh: true }, { revision_plazo_rrhh: true }])
     await raiz.enviar("resolucion_siguiente", { clave_idempotencia: CLAVE_RESOLUCION_SIGUIENTE, ...revision });
-  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia, CLAVE_RESOLUCION,
-    solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia, declaracionSiguiente().clave_idempotencia])
+  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia, CLAVE_RESOLUCION,
+    solicitudSiguiente.clave_idempotencia, solicitudAvisoSiguiente.clave_idempotencia, justificanteSiguiente({}).clave_idempotencia])
     await raiz.enviar("resolucion_siguiente", { ...valores, clave_idempotencia });
   assert.equal(confirmaciones.length, 0);
   await raiz.enviar("resolucion_siguiente", valores); assert.equal(solicitudes.length, 0); confirmar = true;
