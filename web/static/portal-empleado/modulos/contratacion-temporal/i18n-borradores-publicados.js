@@ -17,6 +17,8 @@ export const MENSAJES_BORRADORES_PUBLICADOS_ES = Object.freeze({
   bp_cancelar: "Cancelar espera",
   bp_cancelada: "La descarga se ha cancelado.",
   bp_listo: "Borrador descargado y huella comprobada: {nombre}",
+  bp_publicacion: "Publicación comprobada:",
+  bp_publicacion_recibo: "Recibo de publicación: {recibo}",
   bp_huella: "SHA-256: {huella}",
   bp_descarga_error: "No se pudo comprobar la descarga. No se ha guardado ningún documento.",
   bp_catalogo: "Catálogo publicado",
