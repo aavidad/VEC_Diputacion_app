@@ -121,6 +121,14 @@
     grid-template-columns: 1fr;
   }
 
+  .portal-rrhh-panel .rejilla-metricas-rrhh {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .portal-rrhh-panel .tarjeta-metrica-rrhh:last-child {
+    grid-column: 1 / -1;
+  }
+
   .portal-rrhh-tab {
     justify-content: flex-start;
     margin-bottom: 6px;
