@@ -1,0 +1,2 @@
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000102_consumidor_confirmacion_adjudicacion_oferta.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000057_doble_validacion_adjudicacion.up.sql
