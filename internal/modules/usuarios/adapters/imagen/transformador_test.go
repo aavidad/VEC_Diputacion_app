@@ -38,7 +38,7 @@ func TestPNGRecortaCentroYEliminaMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if procesada.TipoReal != "image/png" || procesada.TipoSalida != "image/png" || procesada.AnchoOriginal != 8 || procesada.AltoOriginal != 4 || procesada.Ancho != 256 || procesada.Alto != 256 || !procesada.MetadatosEliminados {
+	if procesada.TipoReal != "image/png" || procesada.TipoSalida != "image/png" || procesada.AnchoOriginal != 8 || procesada.AltoOriginal != 4 || procesada.Ancho != 256 || procesada.Alto != 256 || !procesada.OrientacionAplicada || !procesada.MetadatosEliminados {
 		t.Fatalf("contrato de salida incorrecto: %+v", metadatos(procesada))
 	}
 	salida, err := png.Decode(bytes.NewReader(procesada.Bytes))

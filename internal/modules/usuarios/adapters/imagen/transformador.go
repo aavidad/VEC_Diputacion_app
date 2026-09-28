@@ -66,7 +66,9 @@ func (Transformador) Procesar(ctx context.Context, original []byte, solicitados 
 		Bytes: buffer.Bytes(), TipoReal: tipo, TipoSalida: "image/png",
 		AnchoOriginal: config.Width, AltoOriginal: config.Height,
 		Ancho: limites.LadoSalida, Alto: limites.LadoSalida,
-		OrientacionAplicada: orientacion != 1, MetadatosEliminados: true,
+		// La orientación identidad también queda resuelta: el consumidor exige
+		// esta garantía incluso cuando la entrada carece de EXIF.
+		OrientacionAplicada: true, MetadatosEliminados: true,
 	}, nil
 }
 
