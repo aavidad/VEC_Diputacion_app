@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -17,8 +16,9 @@ import (
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
 )
 
-// ErrImagenInvalida no incorpora bytes, metadatos ni detalles del archivo original.
-var ErrImagenInvalida = errors.New("imagen no admitida")
+// El error neutral permite que el caso de uso responda petición inválida.
+// Nunca incorpora bytes, metadatos ni detalles del archivo original.
+var ErrImagenInvalida = ports.ErrImagenPeticionInvalida
 
 type Transformador struct{}
 
@@ -94,12 +94,14 @@ func detectar(b []byte) (formato, tipo string, orientacion uint8, err error) {
 		o, err := orientacionJPEG(b)
 		return "jpeg", "image/jpeg", o, err
 	case len(b) >= 8 && bytes.Equal(b[:8], []byte("\x89PNG\r\n\x1a\n")):
-		return "png", "image/png", 1, nil
+		o, err := orientacionPNG(b)
+		return "png", "image/png", o, err
 	case len(b) >= 12 && bytes.Equal(b[:4], []byte("RIFF")) && bytes.Equal(b[8:12], []byte("WEBP")):
 		if uint64(binary.LittleEndian.Uint32(b[4:8]))+8 != uint64(len(b)) {
 			return "", "", 0, ErrImagenInvalida
 		}
-		return "webp", "image/webp", 1, nil
+		o, err := orientacionWebP(b)
+		return "webp", "image/webp", o, err
 	default:
 		return "", "", 0, ErrImagenInvalida
 	}

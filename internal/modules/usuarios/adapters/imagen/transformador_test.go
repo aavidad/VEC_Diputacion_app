@@ -13,6 +13,8 @@ import (
 	"image/png"
 	"testing"
 
+	"golang.org/x/image/webp"
+
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
 )
 
@@ -109,7 +111,7 @@ func TestRechazaLimitesYTipoFalsoAntesDeDecodificar(t *testing.T) {
 	}
 	for _, tc := range casos {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := Nuevo().Procesar(ctx, tc.original, ports.LimitesTransformacionImagen{MaxBytes: 1 << 30, MaxDimension: 1 << 30, MaxPixeles: 1 << 30, LadoSalida: 1024}); !errors.Is(err, ErrImagenInvalida) {
+			if _, err := Nuevo().Procesar(ctx, tc.original, ports.LimitesTransformacionImagen{MaxBytes: 1 << 30, MaxDimension: 1 << 30, MaxPixeles: 1 << 30, LadoSalida: 1024}); !errors.Is(err, ports.ErrImagenPeticionInvalida) {
 				t.Fatalf("entrada adversarial aceptada: %v", err)
 			}
 		})
@@ -132,6 +134,153 @@ func TestWebPSintetico(t *testing.T) {
 	if _, err := png.Decode(bytes.NewReader(r.Bytes)); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestWebPVP8ConPerdidas(t *testing.T) {
+	b, err := base64.StdEncoding.DecodeString("UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoCAAIAAMASJaACdLoB+AADsAD++3sX/zBK/IN5C//v3X99VPvqp/350AA=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Nuevo().Procesar(context.Background(), b, ports.LimitesTransformacionImagen{})
+	if err != nil || r.TipoReal != "image/webp" {
+		t.Fatalf("WebP VP8 válido rechazado: %v", err)
+	}
+}
+
+func TestVP8XNoOcultaDimensionesVP8L(t *testing.T) {
+	// DecodeConfig de WebP devuelve el canvas VP8X. La cabecera VP8L interna
+	// declara 8192x8192 y debe rechazarse antes de llamar a Decode.
+	base, err := base64.StdEncoding.DecodeString("UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQhSLXo/+BiOh/AAA=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk := append([]byte(nil), base[12:]...)
+	if string(chunk[:4]) != "VP8L" {
+		t.Fatal("fixture VP8L incorrecto")
+	}
+	binary.LittleEndian.PutUint32(chunk[9:13], uint32(8191)|uint32(8191)<<14)
+	adversarial := webpExtendido(2, 2, chunk, nil)
+	config, err := webp.DecodeConfig(bytes.NewReader(adversarial))
+	if err != nil || config.Width != 2 || config.Height != 2 {
+		t.Fatalf("fixture no oculta tamaño: %+v %v", config, err)
+	}
+	if _, err := Nuevo().Procesar(context.Background(), adversarial, ports.LimitesTransformacionImagen{}); !errors.Is(err, ErrImagenInvalida) {
+		t.Fatalf("VP8L con dimensión oculta aceptado: %v", err)
+	}
+}
+
+func TestOrientacionEXIFEnPNGWebP(t *testing.T) {
+	original := image.NewRGBA(image.Rect(0, 0, 40, 20))
+	for y := 0; y < 20; y++ {
+		for x := 0; x < 40; x++ {
+			c := color.RGBA{230, 10, 10, 255}
+			if x >= 20 {
+				c = color.RGBA{10, 10, 230, 255}
+			}
+			original.Set(x, y, c)
+		}
+	}
+	var pngBase bytes.Buffer
+	if err := png.Encode(&pngBase, original); err != nil {
+		t.Fatal(err)
+	}
+	pngExif := pngConExif(pngBase.Bytes(), exifOrientacion6()[6:])
+	webpBase, err := base64.StdEncoding.DecodeString("UklGRioAAABXRUJQVlA4TB4AAAAvJ8AEAA8wClfgPon5/EcLBAKEA/+1BgRE9D9K2AM=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	webpExif := webpExtendido(40, 20, webpBase[12:], exifOrientacion6()[6:])
+	for _, tc := range []struct {
+		name     string
+		original []byte
+		tipo     string
+	}{{"png", pngExif, "image/png"}, {"webp", webpExif, "image/webp"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			procesada, err := Nuevo().Procesar(context.Background(), tc.original, ports.LimitesTransformacionImagen{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if procesada.TipoReal != tc.tipo || bytes.Contains(procesada.Bytes, []byte("Exif")) || bytes.Contains(procesada.Bytes, []byte("eXIf")) || bytes.Contains(procesada.Bytes, []byte("EXIF")) {
+				t.Fatalf("tipo o limpieza incorrecta: %+v", metadatos(procesada))
+			}
+			salida, err := png.Decode(bytes.NewReader(procesada.Bytes))
+			if err != nil {
+				t.Fatal(err)
+			}
+			arribaR, _, arribaB, _ := salida.At(128, 20).RGBA()
+			abajoR, _, abajoB, _ := salida.At(128, 235).RGBA()
+			if arribaR < 40000 || arribaB > 12000 || abajoB < 40000 || abajoR > 12000 {
+				t.Fatalf("EXIF no aplicado antes del recorte: arriba %d/%d, abajo %d/%d", arribaR, arribaB, abajoR, abajoB)
+			}
+		})
+	}
+}
+
+func TestRechazaEXIFMalformadoEnPNGWebP(t *testing.T) {
+	var basePNG bytes.Buffer
+	if err := png.Encode(&basePNG, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	baseWebP, err := base64.StdEncoding.DecodeString("UklGRh4AAABXRUJQVlA4TBEAAAAvAUAAAAdQhSLXo/+BiOh/AAA=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exif := append([]byte(nil), exifOrientacion6()[6:]...)
+	exif[0] = 0xff // Orden TIFF imposible, con CRC y RIFF válidos.
+	for _, entrada := range [][]byte{pngConExif(basePNG.Bytes(), exif), webpExtendido(2, 2, baseWebP[12:], exif)} {
+		if _, err := Nuevo().Procesar(context.Background(), entrada, ports.LimitesTransformacionImagen{}); !errors.Is(err, ports.ErrImagenPeticionInvalida) {
+			t.Fatalf("EXIF malformado aceptado o error incorrecto: %v", err)
+		}
+	}
+}
+
+func webpExtendido(ancho, alto int, imagenChunk, exif []byte) []byte {
+	var chunks bytes.Buffer
+	chunk := func(nombre string, contenido []byte) {
+		chunks.WriteString(nombre)
+		var n [4]byte
+		binary.LittleEndian.PutUint32(n[:], uint32(len(contenido)))
+		chunks.Write(n[:])
+		chunks.Write(contenido)
+		if len(contenido)%2 != 0 {
+			chunks.WriteByte(0)
+		}
+	}
+	encabezado := make([]byte, 10)
+	if len(exif) > 0 {
+		encabezado[0] = 0x08
+	}
+	a := ancho - 1
+	h := alto - 1
+	encabezado[4], encabezado[5], encabezado[6] = byte(a), byte(a>>8), byte(a>>16)
+	encabezado[7], encabezado[8], encabezado[9] = byte(h), byte(h>>8), byte(h>>16)
+	chunk("VP8X", encabezado)
+	chunks.Write(imagenChunk)
+	if len(exif) > 0 {
+		chunk("EXIF", exif)
+	}
+	var salida bytes.Buffer
+	salida.WriteString("RIFF")
+	var n [4]byte
+	binary.LittleEndian.PutUint32(n[:], uint32(chunks.Len()+4))
+	salida.Write(n[:])
+	salida.WriteString("WEBP")
+	salida.Write(chunks.Bytes())
+	return salida.Bytes()
+}
+
+func pngConExif(base, exif []byte) []byte {
+	var b bytes.Buffer
+	b.Write(base[:33]) // Firma e IHDR completo.
+	var n [4]byte
+	binary.BigEndian.PutUint32(n[:], uint32(len(exif)))
+	b.Write(n[:])
+	b.WriteString("eXIf")
+	b.Write(exif)
+	binary.BigEndian.PutUint32(n[:], crc32.ChecksumIEEE(append([]byte("eXIf"), exif...)))
+	b.Write(n[:])
+	b.Write(base[33:])
+	return b.Bytes()
 }
 
 func anadirSegmentosJPEG(jpg, exif, comentario []byte) []byte {
