@@ -42,7 +42,9 @@ func (a *actorAuditoriaLocal) fijar(ref string) {
 		return
 	}
 	a.mu.Lock()
-	a.ref = ref
+	if a.ref == "" {
+		a.ref = ref
+	}
 	a.mu.Unlock()
 }
 
@@ -78,6 +80,7 @@ func (r *respuestaEstadoAuditoriaLocal) Write(b []byte) (int, error) {
 type manejadorAuditoriaDenegacionesLocales struct {
 	siguiente   http.Handler
 	registrador vecports.RegistradorAuditoriaFronteraRutaExacta
+	soporte     *soporteAltaContratacionTemporalDesarrollo
 }
 
 func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +106,14 @@ func (m manejadorAuditoriaDenegacionesLocales) ServeHTTP(w http.ResponseWriter, 
 		}
 	}
 	actor := &actorAuditoriaLocal{}
+	if m.soporte != nil {
+		if capacidad, valida := m.soporte.capacidadValida(r.Context()); valida && capacidad.ruta == ruta {
+			ahora := m.soporte.reloj.Ahora().UTC().Truncate(time.Microsecond)
+			if !capacidad.certificadoVerificadoEn.After(ahora) && ahora.Before(capacidad.certificadoValidoHasta) {
+				actor.fijar(capacidad.principal.ID)
+			}
+		}
+	}
 	r = r.WithContext(context.WithValue(r.Context(), claveActorAuditoriaLocal{}, actor))
 	w.Header().Set("X-Correlation-Ref", correlacion)
 	respuesta := &respuestaEstadoAuditoriaLocal{ResponseWriter: w}
