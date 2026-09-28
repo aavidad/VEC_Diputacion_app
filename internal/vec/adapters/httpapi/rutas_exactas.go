@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -40,6 +41,21 @@ var (
 		"vec http: autoridad de ruta exacta no disponible",
 	)
 )
+
+type claveActorAuditoriaPreferenciasUsuarios struct{}
+
+// ConActorVerificadoAuditoriaPreferenciasUsuarios recibe solo el contexto ya
+// resuelto por la autoridad de identidad. Conserva la referencia opaca y no
+// transporta datos de la petición ni la instantánea completa al registrador.
+func ConActorVerificadoAuditoriaPreferenciasUsuarios(
+	ctx context.Context,
+	actor domain.ContextoActor,
+) (context.Context, error) {
+	if ctx == nil || actor.Validar() != nil {
+		return nil, domain.ErrContextoActorInvalido
+	}
+	return context.WithValue(ctx, claveActorAuditoriaPreferenciasUsuarios{}, actor.PersonaRef), nil
+}
 
 // AutoridadRutasExactas comprueba la capacidad opaca que la frontera
 // corporativa incorpora al contexto. Nunca debe deducir autoridad desde
@@ -243,6 +259,10 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		Superficie:     superficieAuditoriaFronteraRutaExacta(ruta),
 		Ruta:           ruta,
 	}
+	if orden.Superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
+		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
+		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
+	}
 	if orden.Validar() != nil {
 		return
 	}
@@ -266,6 +286,8 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 	switch ruta {
 	case "/api/vec/auditoria/opciones", "/api/vec/auditoria/consultas":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAuditoria
+	case "/api/vec/usuarios/mis-preferencias":
+		return ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
 	default:
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}

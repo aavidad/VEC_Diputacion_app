@@ -9,6 +9,7 @@ import (
 const SuperficieAuditoriaFronteraRutaExactaContratacionTemporal = "api.contratacion_temporal.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaPersonal = "api.personal.registro_empleado.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaAuditoria = "api.auditoria.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias = "api.usuarios.preferencias.ruta_exacta"
 
 var ErrOrdenAuditoriaFronteraRutaExactaInvalida = errors.New(
 	"vec ports: orden de auditoria de frontera de ruta exacta invalida",
@@ -39,7 +40,11 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 		(o.Motivo != MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida &&
 			o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado) ||
 		!rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(o.Superficie, o.Ruta) ||
-		(o.ActorRef != "" && !referenciaActorAuditoriaFronteraRutaExactaValida(o.ActorRef)) {
+		(o.ActorRef != "" && !referenciaActorAuditoriaFronteraRutaExactaValida(o.ActorRef)) ||
+		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
+			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
+				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
+					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) {
 		return ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	return nil
@@ -73,6 +78,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return true
 	case SuperficieAuditoriaFronteraRutaExactaAuditoria:
 		return ruta == "/api/vec/auditoria/opciones" || ruta == "/api/vec/auditoria/consultas"
+	case SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias:
+		return ruta == "/api/vec/usuarios/mis-preferencias"
 	default:
 		return false
 	}
