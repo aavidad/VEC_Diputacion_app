@@ -158,6 +158,19 @@ func EstadoIntentos(p PoliticaIntentosTelefonicos, r ResumenIntentosTelefonicos)
 	return e
 }
 
+// IniciaCicloPosterior identifica el primer intento de un ciclo posterior.
+// Solo clasifica el historial; el calendario y la fecha exigida se resuelven
+// con la política versionada antes de registrar el contacto.
+func IniciaCicloPosterior(p PoliticaIntentosTelefonicos, r ResumenIntentosTelefonicos) (bool, error) {
+	if p.Validar() != nil || r.SinContacto < 0 {
+		return false, ErrPoliticaIntentosInvalida
+	}
+	if r.Contactado || r.SinContacto == 0 || r.SinContacto >= p.MaximoIntentos() {
+		return false, nil
+	}
+	return r.SinContacto%p.IntentosPorProceso == 0, nil
+}
+
 // EnFranja indica si el instante cae dentro de la franja horaria (sin mirar
 // si el día es hábil). Sin franja siempre es cierto.
 func (f FranjaLlamadas) EnFranja(instante time.Time) bool {

@@ -7,6 +7,32 @@ import (
 	"time"
 )
 
+func TestInicioCicloPosteriorSoloEnFronteraSinContacto(t *testing.T) {
+	p := politicaIntentosPrueba(t, ControlReglaImpedir, ControlReglaImpedir)
+	for _, caso := range []struct {
+		nombre  string
+		resumen ResumenIntentosTelefonicos
+		espera  bool
+	}{
+		{"primer intento", ResumenIntentosTelefonicos{}, false},
+		{"segundo intento del primer ciclo", ResumenIntentosTelefonicos{SinContacto: 1}, false},
+		{"primer intento del segundo ciclo", ResumenIntentosTelefonicos{SinContacto: 2}, true},
+		{"contactado", ResumenIntentosTelefonicos{SinContacto: 2, Contactado: true}, false},
+		{"agotado", ResumenIntentosTelefonicos{SinContacto: p.MaximoIntentos()}, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			obtenido, err := IniciaCicloPosterior(p, caso.resumen)
+			if err != nil || obtenido != caso.espera {
+				t.Fatalf("inicio de ciclo = %t, %v; esperado %t", obtenido, err, caso.espera)
+			}
+		})
+	}
+	p.IntentosPorProceso = 0
+	if _, err := IniciaCicloPosterior(p, ResumenIntentosTelefonicos{SinContacto: 2}); !errors.Is(err, ErrPoliticaIntentosInvalida) {
+		t.Fatalf("politica invalida = %v", err)
+	}
+}
+
 func politicaIntentosPrueba(t *testing.T, controlSeparacion, controlFranja string) PoliticaIntentosTelefonicos {
 	t.Helper()
 	zona, err := time.LoadLocation("Europe/Madrid")
