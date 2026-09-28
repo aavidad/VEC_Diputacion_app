@@ -1,4 +1,4 @@
-import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-web-v3";
+import { crearTraductorDocumentos } from "./i18n.js?v=20260928-ppt-v2";
 
 // El servidor devuelve la clave del tipo documental catalogado, nunca su
 // referencia opaca; un tipo sin rótulo se muestra como documento genérico.

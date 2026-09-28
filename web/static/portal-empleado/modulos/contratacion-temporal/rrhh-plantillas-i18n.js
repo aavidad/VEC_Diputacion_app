@@ -1,7 +1,7 @@
 /** Textos de la configuración de tipos de plantilla de Contratación temporal. */
 export const MENSAJES_RRHH_PLANTILLAS_ES = Object.freeze({
   plantillas_rrhh_titulo: "Tipos de plantilla",
-  plantillas_rrhh_subtitulo: "Configuración de los borradores de Contratación temporal",
+  plantillas_rrhh_subtitulo: "Configuración de los borradores de Peticiones de personal temporal",
   plantillas_rrhh_ayuda_boton: "Mostrar ayuda sobre los tipos de plantilla",
   plantillas_rrhh_ayuda: "Cada tipo define un borrador. Guardar crea o modifica una versión en preparación. Para usarla, otra persona con permiso de publicación debe registrar la referencia de aprobación y publicar el catálogo. Si no se confirma una operación, Recuperar resultado repite la misma petición con su clave original. Publicar no firma ni envía documentos.",
   plantillas_rrhh_cargando: "Cargando tipos de plantilla…",
@@ -79,7 +79,7 @@ export const MENSAJES_RRHH_PLANTILLAS_ES = Object.freeze({
 
 export const MENSAJES_RRHH_PLANTILLAS_EN = Object.freeze({
   plantillas_rrhh_titulo: "Template types",
-  plantillas_rrhh_subtitulo: "Configuration of Temporary Recruitment drafts",
+  plantillas_rrhh_subtitulo: "Configuration of Temporary Staff Requests drafts",
   plantillas_rrhh_ayuda_boton: "Show help for template types",
   plantillas_rrhh_ayuda: "Each type defines a draft. Saving creates or changes a version in preparation. To use it, another person with publication permission must record the approval reference and publish the catalogue. If an operation is not confirmed, ‘Recover outcome’ repeats the same request using its original key. Publishing does not sign or send documents.",
   plantillas_rrhh_cargando: "Loading template types…",

@@ -7,9 +7,22 @@ import {
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
-import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
+import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260928-ppt-v2";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
+
+// Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
+// del cuadro: en «Nueva petición» el formulario no depende de esa carga y no
+// debe aparecer, por ejemplo, «No se pudo cargar el cuadro».
+const MENSAJES_CARGA_CUADRO = new Set([
+  "estado_cargando", "estado_listo", "estado_vacio", "estado_error_carga", "estado_error_paginacion",
+]);
+
+/** Clave del mensaje de estado que corresponde mostrar en la vista actual («» si ninguno). */
+export function mensajeEstadoVisible(estado) {
+  const clave = estado?.mensaje_clave || "";
+  return estado?.vista === "alta" && MENSAJES_CARGA_CUADRO.has(clave) ? "" : clave;
+}
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
@@ -427,14 +440,15 @@ export function renderizarModuloContratacionTemporal(estado, {
   } else {
     contenido = renderizarCuadro(estado, t);
   }
+  const mensajeVisible = mensajeEstadoVisible(estado);
   return `<section class="ct-expedientes" data-modulo="contratacion-temporal"
     aria-labelledby="ct-exp-titulo">
     ${renderizarCabeceraModulo(estado, t)
     .replace("<h2>", '<h2 id="ct-exp-titulo">')}
     ${renderizarNavegacion(estado, t)}
-    <div class="ct-exp-mensaje ct-tono-${escaparHTML(estado.tipo_mensaje || "info")}"
-      data-ct-exp-mensaje role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"
-      aria-live="polite">${escaparHTML(estado.mensaje_clave ? t(estado.mensaje_clave) : "")}</div>
+    <div class="ct-exp-mensaje ct-tono-${escaparHTML((mensajeVisible && estado.tipo_mensaje) || "info")}"
+      data-ct-exp-mensaje role="${mensajeVisible && estado.tipo_mensaje === "error" ? "alert" : "status"}"
+      aria-live="polite">${escaparHTML(mensajeVisible ? t(mensajeVisible) : "")}</div>
     <div class="ct-exp-contenido">${contenido}${llamamientoDisponible
       && estado.vista === "expediente" && estado.carga === "listo"
       && estado.expediente !== null

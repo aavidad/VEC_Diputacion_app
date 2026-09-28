@@ -1,4 +1,4 @@
-# Manual de usuario · Contratación temporal
+# Manual de usuario · Peticiones de personal temporal
 
 **Ventanilla Electrónica del Empleado Público (VEC) · Guía para RRHH**
 **Alcance:** funciones presentes en `main` a 28 de septiembre de 2026, con
@@ -12,7 +12,7 @@ Esta guía acompaña un expediente desde la petición del centro hasta su seguim
 
 ## 1. Encontrar y abrir un expediente
 
-1. Abra el portal y entre en **Contratación temporal**. Si el módulo o una acción no aparecen, solicite la concesión correspondiente por el cauce interno; el menú no concede permisos.
+1. Abra el portal y entre en **Peticiones de personal temporal**. Si el módulo o una acción no aparecen, solicite la concesión correspondiente por el cauce interno; el menú no concede permisos.
 2. En el **cuadro de mando**, use los filtros disponibles para localizar el expediente por referencia, estado o fase. Los indicadores resumen los expedientes de la página mostrada, no necesariamente todos los de la Diputación.
 3. Abra el detalle. Revise fase, versión, unidad y actuaciones anteriores antes de registrar un cambio. La disponibilidad de cada formulario procede del servidor y del estado actual.
 
@@ -160,7 +160,7 @@ Pulse el botón **«?»** de la barra o del apartado para abrir la ayuda context
 
 VEC reúne petición, decisiones, recibos e historia en el expediente para que RRHH pueda retomar el trabajo y distinguir qué actuación quedó confirmada. Las reglas y opciones proceden de catálogos versionados, por lo que cada decisión conserva su contexto.
 
-El sistema separa responsabilidades: **Contratación temporal** coordina el expediente, **Bolsa** decide sobre candidaturas y llamamientos, y **Personal** conserva las relaciones e incorporaciones que le pertenecen. Los módulos comparten identidad, permisos, auditoría y presentación. Su arquitectura separa reglas de negocio, conexiones con otros servicios y pantallas; esto permite evolucionar un módulo y conectar otros clientes a los mismos casos de uso. El recorrido acreditado aquí es el del navegador: esta guía no afirma que exista un cliente de escritorio o CLI operativo para este trámite.
+El sistema separa responsabilidades: **Peticiones de personal temporal** coordina el expediente, **Bolsa** decide sobre candidaturas y llamamientos, y **Personal** conserva las relaciones e incorporaciones que le pertenecen. Los módulos comparten identidad, permisos, auditoría y presentación. Su arquitectura separa reglas de negocio, conexiones con otros servicios y pantallas; esto permite evolucionar un módulo y conectar otros clientes a los mismos casos de uso. El recorrido acreditado aquí es el del navegador: esta guía no afirma que exista un cliente de escritorio o CLI operativo para este trámite.
 
 ## 11. Alcance del ejercicio
 

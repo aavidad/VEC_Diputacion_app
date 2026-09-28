@@ -178,7 +178,7 @@ test("renderizarAyudaContratacionTemporal produce marcado semántico accesible y
   const escapador = (t) => t.replaceAll("&", "&amp;").replaceAll("<", "&lt;");
   const resultado = renderizarAyudaContratacionTemporal(ayuda, escapador);
 
-  assert.equal(resultado.titulo, "Ayuda — Cuadro de mando de contratación temporal");
+  assert.equal(resultado.titulo, "Ayuda — Cuadro de mando de peticiones de personal temporal");
   assert.match(resultado.contenido, /<section class="ayuda-contextual ayuda-contratacion-temporal" tabindex="-1">/);
   assert.match(resultado.contenido, /<div class="ayuda-descripcion">/);
   for (const frase of ayuda.frases) {

@@ -7,7 +7,7 @@ import { crearTraductorContratos, MENSAJES_CONTRATOS_ES } from "./portal-i18n-co
 
 test("el import de i18n de contratos renueva la URL del asset inmutable", () => {
   const codigo = readFileSync(new URL("./portal-vistas-operaciones.js", import.meta.url), "utf8");
-  assert.match(codigo, /from "\.\/portal-i18n-contratos\.js\?v=20260924-f2-web2";/u);
+  assert.match(codigo, /from "\.\/portal-i18n-contratos\.js\?v=20260928-ppt-v2";/u);
 });
 
 function utilidades() {
