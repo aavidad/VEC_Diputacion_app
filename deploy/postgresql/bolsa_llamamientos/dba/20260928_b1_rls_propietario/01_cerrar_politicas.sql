@@ -30,6 +30,8 @@ DECLARE
     usos text[] := ARRAY[]::text[];
     checks text[] := ARRAY[]::text[];
     acls text[] := ARRAY[]::text[];
+    acls_columnas text[] := ARRAY[]::text[];
+    acl_columnas text;
     i integer;
 BEGIN
     IF current_user <> 'vec_bolsa_llamamientos_propietario'
@@ -71,6 +73,13 @@ BEGIN
                      )
                  ) a
                 WHERE a.grantee <> propietario
+           )
+           OR EXISTS (
+               SELECT 1
+                 FROM pg_catalog.pg_attribute a
+                 CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) permiso
+                WHERE a.attrelid = clase.oid AND a.attnum > 0
+                  AND NOT a.attisdropped AND permiso.grantee <> propietario
            ) THEN
             RAISE EXCEPTION 'B1 RLS: tabla o ACL incompatible: %', nombre_tabla
                 USING ERRCODE = '55000';
@@ -97,6 +106,13 @@ BEGIN
         usos := array_append(usos, politica.uso);
         checks := array_append(checks, politica.check_expr);
         acls := array_append(acls, clase.acl);
+        SELECT coalesce(string_agg(
+                   a.attnum::text || ':' || coalesce(a.attacl::text, '<NULL>'),
+                   '|' ORDER BY a.attnum
+               ), '') INTO acl_columnas
+          FROM pg_catalog.pg_attribute a
+         WHERE a.attrelid = clase.oid AND a.attnum > 0 AND NOT a.attisdropped;
+        acls_columnas := array_append(acls_columnas, acl_columnas);
     END LOOP;
 
     FOREACH nombre_tabla IN ARRAY tablas LOOP
@@ -120,8 +136,15 @@ BEGIN
           INTO STRICT politica
           FROM pg_catalog.pg_policy p
          WHERE p.polrelid = clase.oid AND p.polname = 'solo_propietario';
+        SELECT coalesce(string_agg(
+                   a.attnum::text || ':' || coalesce(a.attacl::text, '<NULL>'),
+                   '|' ORDER BY a.attnum
+               ), '') INTO acl_columnas
+          FROM pg_catalog.pg_attribute a
+         WHERE a.attrelid = clase.oid AND a.attnum > 0 AND NOT a.attisdropped;
         IF clase.relowner <> propietario OR NOT clase.relrowsecurity
            OR NOT clase.relforcerowsecurity OR clase.acl <> acls[i]
+           OR acl_columnas <> acls_columnas[i]
            OR politica.oid <> oids[i]
            OR politica.polroles <> ARRAY[propietario]::oid[]
            OR politica.uso <> usos[i]

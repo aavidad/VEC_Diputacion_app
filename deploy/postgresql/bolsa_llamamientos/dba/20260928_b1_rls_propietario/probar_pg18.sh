@@ -46,8 +46,12 @@ huella_predicados() {
 huella_acl() {
     escalar "SELECT md5(string_agg(c.relname || ':' || coalesce(c.relacl::text,'<NULL>'), '|' ORDER BY c.relname)) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='r'"
 }
+huella_acl_columnas() {
+    escalar "SELECT md5(coalesce(string_agg(c.relname || ':' || a.attnum::text || ':' || coalesce(a.attacl::text,'<NULL>'), '|' ORDER BY c.relname,a.attnum),'')) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped"
+}
 antes_predicados=$(huella_predicados)
 antes_acl=$(huella_acl)
+antes_acl_columnas=$(huella_acl_columnas)
 antes_historia=$(escalar "SELECT md5(row_to_json(a)::text) FROM vec_bolsa_llamamientos.auditoria_actual a")
 
 rechazar_deriva() {
@@ -74,18 +78,27 @@ escalar "GRANT SELECT ON vec_bolsa_llamamientos.bolsa_autoritativa TO vec_bolsa_
 rechazar_deriva acl_directa
 escalar "REVOKE SELECT ON vec_bolsa_llamamientos.bolsa_autoritativa FROM vec_bolsa_llamamientos_ejecutor" >/dev/null
 
+escalar "GRANT SELECT (bolsa_ref) ON vec_bolsa_llamamientos.bolsa_autoritativa TO vec_bolsa_llamamientos_ejecutor" >/dev/null
+[[ $(escalar "SELECT has_column_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.bolsa_autoritativa','bolsa_ref','SELECT')") == t ]] || fallar 'no se creó la deriva de ACL por columna'
+rechazar_deriva acl_columna
+escalar "REVOKE SELECT (bolsa_ref) ON vec_bolsa_llamamientos.bolsa_autoritativa FROM vec_bolsa_llamamientos_ejecutor" >/dev/null
+
 escalar "ALTER TABLE vec_bolsa_llamamientos.bolsa_autoritativa NO FORCE ROW LEVEL SECURITY" >/dev/null
 rechazar_deriva rls_no_forzada
 escalar "ALTER TABLE vec_bolsa_llamamientos.bolsa_autoritativa FORCE ROW LEVEL SECURITY" >/dev/null
 
 [[ $(huella_predicados) == "$antes_predicados" ]] || fallar 'restauración negativa alteró predicados'
 [[ $(huella_acl) == "$antes_acl" ]] || fallar 'restauración negativa alteró ACL'
+# GRANT/REVOKE puede materializar un ACL de columna equivalente al implícito;
+# la comparación de postimagen toma la preimagen exacta justo antes del paquete.
+antes_acl_columnas=$(huella_acl_columnas)
 
 archivo "$paquete" >/dev/null
 [[ $(contar_roles "ARRAY['vec_bolsa_llamamientos_propietario'::regrole::oid]") == 14 ]] || fallar 'postimagen: roles no cerrados'
 [[ $(contar_roles 'ARRAY[0]::oid[]') == 0 ]] || fallar 'postimagen: quedan políticas PUBLIC B1'
 [[ $(huella_predicados) == "$antes_predicados" ]] || fallar 'postimagen: predicados cambiados'
 [[ $(huella_acl) == "$antes_acl" ]] || fallar 'postimagen: ACL cambiadas'
+[[ $(huella_acl_columnas) == "$antes_acl_columnas" ]] || fallar 'postimagen: ACL de columna cambiadas'
 [[ $(escalar "SELECT md5(row_to_json(a)::text) FROM vec_bolsa_llamamientos.auditoria_actual a") == "$antes_historia" ]] || fallar 'postimagen: historia alterada'
 [[ $(escalar "SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='vec_bolsa_llamamientos' AND c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity") == 14 ]] || fallar 'postimagen: RLS FORCE alterada'
 if archivo "$paquete" >/dev/null 2>&1; then fallar 'el paquete pudo reaplicarse'; fi

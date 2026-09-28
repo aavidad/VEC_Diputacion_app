@@ -10,9 +10,9 @@ predicados, ACL, roles, funciones ni políticas de otras migraciones.
 La transacción exige la preimagen cerrada: catorce nombres exactos, dueño
 `NOLOGIN` sin `BYPASSRLS`, RLS habilitada y forzada, una única política por
 tabla con `polroles={0}`, comando `ALL`, modo permisivo, predicados idénticos
-a los de B1 y ausencia de permisos directos para otros roles. Toma bloqueos de
+a los de B1 y ausencia de permisos directos de tabla **o columna** para otros roles. Toma bloqueos de
 tabla antes de comprobar y devuelve error `55000` ante deriva. La postimagen
-comprueba que los mismos OID, predicados y ACL persisten y solo el propietario
+comprueba que los mismos OID, predicados y ACL de tabla y columna persisten y solo el propietario
 figura en `polroles`.
 
 No hay `DOWN`: devolver `TO PUBLIC` reabriría el defecto. Si la preimagen no
@@ -27,7 +27,7 @@ datos sintéticos:
 deploy/postgresql/bolsa_llamamientos/dba/20260928_b1_rls_propietario/probar_pg18.sh
 ```
 
-El runner usa un contenedor efímero sin red, verifica cinco derivas negativas
-(predicado, rol, política adicional, ACL y `FORCE RLS`), ausencia de efectos
+El runner usa un contenedor efímero sin red, verifica seis derivas negativas
+(predicado, rol, política adicional, ACL de tabla, ACL de columna y `FORCE RLS`), ausencia de efectos
 parciales, historia/ACL conservadas y rechazo de reaplicación. No instala SQL
 en bases compartidas.
