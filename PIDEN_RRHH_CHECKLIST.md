@@ -14,6 +14,11 @@ en navegador ni entrega corporativa. Estado contrastado el 28/09/2026 con
 uno BLOQUEADO (2.12). Ningún PARCIAL se eleva a HECHO por pruebas aisladas.
 La ayuda visible se abre desde «?» conforme al shell vigente, sin convertirla
 en efecto de negocio.
+El bloque 5 procede del seguimiento del Departamento de 25/09/2026 (texto y
+cinco capturas) y se cuenta aparte de la fotografía anterior: añade siete
+requisitos, ninguno HECHO; cinco PARCIAL y dos PENDIENTE. Total de esta lista:
+67 requisitos, 48 HECHO, 16 PARCIAL, dos PENDIENTE y uno BLOQUEADO. No se altera
+la evidencia ni el cómputo original de los puntos 1.01–4.15.
 
 ## Fotografía 1: histórico, estados y transparencia
 
@@ -94,6 +99,33 @@ en efecto de negocio.
 | 4.13 | Auditoría: documento o expediente relacionado. | Historial autorizado. | **PARCIAL**: consulta común montada en corte 2 `da48a409b` enlaza expediente/participación, recibo y fuente en CT132/Bolsa48; UI abre desde ficha CT o Bolsa. Falta consulta positiva con autorización V3 y recuperación en servidor (duda 67). |
 | 4.14 | Auditoría: IP o equipo cuando la política lo permita. | Auditoría segregada. | **HECHO (diseño VEC)**: la condición de la foto es «si la política lo permite»; CT117 omite IP/equipo por minimización y conserva actor, instante y correlación. No se inventa permiso para captarlos (duda 36). |
 | 4.15 | Impedir alteraciones sin rastro y conservar historia. | Todas las operaciones y consulta de auditoría. | **PARCIAL**: CT008 y Bolsa conservan historia/recibos; AD3-91/CT132/Bolsa48 y montaje corte 2 `da48a409b` añaden lectura segregada con ACL y reversión protegida, ensayadas en PostgreSQL 18. Falta consulta positiva mTLS, reinicio de la aplicación y verificar cada acción del recorrido CT/Bolsa contra su registro (E06; duda 67). |
+
+## Bloque 5: seguimiento del Departamento (25/09/2026)
+
+Fuente: `fotos/2026-09-25 Seguimiento app de gestión Departamento.docx`, texto y
+cinco capturas. Las capturas muestran tarjetas con recuento y «Ver trámites»,
+tabla de categoría, fase y estado, menú actual «Contratación temporal» y el
+error de carga en «Nueva petición». La petición escrita añade las dos vías del
+expediente y el envío a firmas. **PENDIENTE** indica que aún no hay comprobación
+o capacidad suficiente en `origin/main@e2ca2c061`; **PARCIAL** distingue las
+piezas existentes de la función solicitada. No se atribuyen a `main` ramas
+productoras todavía sin integrar.
+
+Prioridad del bloque: **5.02 + 5.07**, luego **5.03 / 5.04**, después
+**5.05 / 5.06**. **5.01** es transversal a todos esos recorridos. El cuadro
+general del portal debe consumir vistas autorizadas de cada módulo sin duplicar
+la autoridad de Bolsa ni de Contratación; resolver con Dirección su encaje con
+el inicio común antes de implementar 5.03.
+
+| Nº | Requisito concreto | Pantalla o ruta | Estado real y siguiente comprobación |
+| --- | --- | --- | --- |
+| 5.01 | Aplicación intuitiva para cualquier trabajador del Departamento, sin formación previa; rótulos claros, pocos pasos y ayuda desde «?». | Portal RRHH; recorridos CT y Bolsa. | **PARCIAL**: existen shell común, formularios por pasos y ayuda «?», pero falta revisión de usabilidad con el recorrido completo de ambos módulos y valoración de RRHH. Mantener PC prioritario, móvil usable, teclado y estados accesibles (E08). |
+| 5.02 | Renombrar los textos visibles «Contratación temporal» a «Peticiones de personal temporal» en castellano e inglés. | Menú, portada, títulos y ayudas de la interfaz. | **PENDIENTE**: el menú de la captura aún dice «Contratación temporal»; comprobar y cambiar los catálogos i18n y textos visibles de `main` en ambas lenguas. No renombrar código, rutas, permisos ni referencias persistidas. |
+| 5.03 | Abrir el portal RRHH en un cuadro de mandos general con «Expedientes en trámite», «Bolsas de trabajo» y «Ofertas al SAE»: tarjetas con recuento, «Ver trámites» y listas con categoría, fase y estado. | Primera pantalla del portal RRHH. | **PARCIAL**: CT ya tiene cuadro y tabla de expedientes, y Bolsa estadísticas propias (2.08–2.09, 3.01–3.03); falta la vista inicial conjunta y la proyección autorizada de ofertas SAE. Confirmar su encaje en el portal común y probar conteos, enlaces, permisos, vacío/error y escritorio/móvil. |
+| 5.04 | Ofrecer en «Expediente» dos entradas, «Por bolsa de trabajo» y «Por oferta al SAE», cada una con relación de documentos y datos que se deben rellenar para esa vía. | Expediente RRHH y nueva petición. | **PARCIAL**: CT reconoce vías de cobertura gobernadas, incluida `oferta_sae`, y muestra formularios/avisos; falta la elección inicial de dos recorridos y la relación contextual de documentos y campos por vía desde catálogo versionado. No fijar por código una lista universal ni confundir elegir vía con seleccionar candidato. |
+| 5.05 | Gestionar ofertas al Servicio Andaluz de Empleo como vía alternativa: oferta, candidatos remitidos y selección. | Expediente CT; ofertas SAE del cuadro. | **PARCIAL**: CT dispone de `oferta_sae` como vía de cobertura y puerto para fuentes, pero no consta un recorrido durable de oferta, remisión y selección ni conexión real con SAE. Construir el mínimo gobernado por catálogo y autorización; registrar en `dudas.md` el contrato y fuente externa pendientes antes de afirmar intercambio con SAE. |
+| 5.06 | Enviar a Firmadoc y demás firmas y mostrar siempre la fase de firma en el expediente; AutoFirma para la firma del órgano. | Expediente CT, documentos y fase de firma. | **PARCIAL**: se generan borradores y el flujo prevé formalización/firma, pero falta un circuito acreditado de envío, estados, recepción, verificación y documento firmado. Definir adaptador Firmadoc apagado por defecto hasta conocer su API (duda en `dudas.md`); separar autenticación, borrador, firma del órgano con AutoFirma y eficacia del acto. |
+| 5.07 | Comprobar y corregir el error «No se pudo cargar el cuadro. Reintente o contacte con soporte.» que aparece en «Nueva petición». | CT, pestaña «Nueva petición». | **PENDIENTE**: la captura acredita el fallo y `main` conserva el mensaje de error; no hay prueba de que la causa ya esté resuelta. Reproducir con la aplicación, API, autorización y base compatibles; corregir la causa y comprobar carga, reintento y ausencia de error en navegador. |
 
 ## Bloqueos que no deben presentarse como funciones terminadas
 
