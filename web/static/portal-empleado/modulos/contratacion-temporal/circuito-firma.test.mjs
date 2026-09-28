@@ -92,8 +92,8 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   assert.doesNotMatch(html, /<details[^>]*\sopen/u);
   assert.doesNotMatch(html, /Enviad[ao] a Firmadoc|Firma oficial completada/u);
   assert.doesNotMatch(html, /Circuito de ejemplo/u);
-  assert.match(html, /Pendiente de firma por Cargo &lt;1&gt;/u);
-  assert.match(html, /En espera del paso anterior/u);
+  assert.match(html, /Pendiente de firma de prueba por Cargo &lt;1&gt;/u);
+  assert.match(html, /Prueba en espera del paso anterior/u);
   assert.match(html, /Permite remitir a Intervención/u);
   assert.equal((html.match(/aria-current="step"/gu) ?? []).length, 1);
   assert.doesNotMatch(html, /<1>/u);
@@ -105,7 +105,7 @@ test("si falla el catálogo, conserva visible la fase oficial sin afirmar estado
   assert.match(html, /Firma oficial en Firmadoc/u);
   assert.match(html, /Conexión pendiente/u);
   assert.match(html, /El estado de las firmas no está disponible/u);
-  assert.doesNotMatch(html, /data-ct-firma-accion|Firmado por/u);
+  assert.doesNotMatch(html, /data-ct-firma-accion|Firma de prueba registrada por/u);
   const denegado = renderizarCircuitoFirma(null, t, "denegado");
   assert.match(denegado, /No dispone de permiso para consultar/u);
   assert.match(denegado, /class="ct-circuito-indisponible" role="alert"/u);
@@ -121,10 +121,25 @@ test("dos pasos CT118 firmados no convierten Firmadoc en envío o firma oficial"
   };
   const unido = fusionarEstadoFirmas(catalogo, estado);
   const html = renderizarCircuitoFirma(unido, crearTraductorCircuitoFirma());
-  assert.equal((html.match(/Firmado por/gu) ?? []).length, 2);
+  assert.equal((html.match(/Firma de prueba registrada por/gu) ?? []).length, 2);
   assert.match(html, /Conexión pendiente/u);
   assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
   assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
+});
+
+test("las acciones activas de AutoFirma indican que son PRUEBA", () => {
+  const catalogo = validarCircuitoFirma(circuito());
+  const real = fusionarEstadoFirmas(catalogo, {
+    huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
+      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
+  });
+  const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
+  assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
+  assert.match(html, />Firmar en PRUEBA<\/button>/u);
+  assert.match(html, />Devolver en PRUEBA<\/button>/u);
+  assert.match(html, />Registrar devolución de PRUEBA<\/button>/u);
+  assert.match(html, /Pendiente de firma de prueba por/u);
 });
 
 test("todas las claves de vocabulario tienen traducción", () => {
@@ -151,11 +166,13 @@ test("la fase Firmadoc usa el idioma del portal", () => {
   assert.match(html, /Send for signing<\/button>/u);
   assert.match(html, /Firmadoc connection, permission and delivery confirmation are pending/u);
   assert.match(html, /No recorded submission or official signature in VEC/u);
-  assert.match(html, /Awaiting signature by/u);
+  assert.match(html, /Awaiting test signature by/u);
   assert.match(html, /Allows referral to Financial Control/u);
   assert.match(html, /If returned, goes back to drafting/u);
   assert.doesNotMatch(html, /Pendiente de firma|Permite remitir|Si se devuelve/u);
   assert.match(html, /AutoFirma · TEST with no administrative effect/u);
+  assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_firmar, /TEST/u);
+  assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_devolver, /TEST/u);
 });
 
 test("el catálogo de prueba traduce documentos y cargos conocidos sin alterar valores ajenos", () => {

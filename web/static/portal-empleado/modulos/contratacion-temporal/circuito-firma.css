@@ -101,8 +101,12 @@
   gap: 8px 12px;
 }
 
-.ct-circuito-envio .boton-primario {
+.ct-circuito-envio .boton-primario:disabled {
   min-height: 36px;
+  border-color: var(--portal-borde);
+  background: var(--portal-neutro-suave);
+  color: var(--portal-tinta);
+  opacity: 1;
 }
 
 .ct-circuito-subtitulo,
