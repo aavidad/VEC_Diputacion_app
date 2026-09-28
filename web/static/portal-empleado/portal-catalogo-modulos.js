@@ -7,10 +7,11 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
-const RUTA_TRADUCCIONES = "/locales/es.json";
+const RUTA_TRADUCCIONES = `/locales/${IDIOMA_ACTUAL}.json`;
 const CAMPOS_MANIFIESTO = new Set([
   "id", "name_key", "description_key", "version", "group", "base_path", "permissions", "menu",
 ]);
@@ -264,6 +265,6 @@ export function presentarSesionPortal(sesion) {
     ? PERFILES_VISIBLES[roles[0]] : "";
   const perfil = clavePerfil ? traducirPortal(clavePerfil) : "";
   const iniciales = nombre.split(/\s+/u).filter(Boolean).slice(0, 2)
-    .map((parte) => parte[0].toLocaleUpperCase("es-ES")).join("");
+    .map((parte) => parte[0].toLocaleUpperCase(LOCALIZACION_ACTUAL)).join("");
   return Object.freeze({ nombre, perfil, iniciales: iniciales || "—" });
 }

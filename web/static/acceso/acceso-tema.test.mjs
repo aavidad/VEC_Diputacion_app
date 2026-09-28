@@ -48,7 +48,7 @@ test("acceso carga el tema común versionado antes de su hoja local", () => {
   assert.ok(versionTema && versionTema !== "20260924-f2-tema-base-v2", "tema-vec.css renueva su URL");
   assert.doesNotMatch(html, /\/acceso\/acceso\.css\?v=20260924-f1-acceso-ayuda-v2/u);
   assert.doesNotMatch(html, /\/acceso\/acceso\.css\?v=20260924-f1-acceso-scroll-v2/u);
-  assert.match(html, /<script type="module" src="\/acceso\/acceso-i18n\.js\?v=20260924-f1-acceso-ayuda-v1"><\/script>/u);
+  assert.match(html, /<script type="module" src="\/acceso\/acceso-i18n\.js\?v=20260928-i18n-ingles-v1"><\/script>/u);
 });
 
 test("escritorio encierra el desplazamiento en el marco y móvil conserva flujo natural", () => {

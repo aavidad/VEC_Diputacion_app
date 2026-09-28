@@ -5,9 +5,57 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+type repositorioLecturaRetornosPrueba struct {
+	*repositorioSituacionPrueba
+	lecturas int
+}
+
+func (r *repositorioLecturaRetornosPrueba) ListarReincorporacionesTitular(context.Context, string, string, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]ports.ReincorporacionTitularFicha, error) {
+	r.lecturas++
+	return nil, nil
+}
+
+type autorizadorLecturaRetornosPrueba struct {
+	accion, recurso, finalidad string
+	llamadas                   int
+}
+
+func (a *autorizadorLecturaRetornosPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, _ dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	a.llamadas++
+	datos, err := solicitud.Datos()
+	if err == nil {
+		a.accion, a.recurso, a.finalidad = datos.Accion, datos.Recurso.Referencia, datos.Finalidad
+	}
+	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, dominiovec.ErrAutorizacionDenegada
+}
+
+func TestConsultaReincorporacionTitularDeniegaAjenoYRevocadoSinLeer(t *testing.T) {
+	ahora := time.Date(2026, 9, 28, 9, 0, 0, 0, time.UTC)
+	base := solicitudSituacionPrueba(t, ahora)
+	q := ports.SolicitudConsultarReincorporacionesTitular{Vinculo: base.Vinculo, ResultadoContexto: base.ResultadoContexto,
+		BolsaRef: base.BolsaRef, ParticipacionRef: base.ParticipacionRef, Correlacion: base.Correlacion,
+		MotivoAutorizacion: base.MotivoAutorizacion}
+	repo := &repositorioLecturaRetornosPrueba{repositorioSituacionPrueba: &repositorioSituacionPrueba{pertenece: false}}
+	autorizador := &autorizadorLecturaRetornosPrueba{}
+	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, autorizador, repo, func() time.Time { return ahora })
+	if _, err := servicio.ListarReincorporacionesTitular(context.Background(), q); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) ||
+		autorizador.llamadas != 0 || repo.lecturas != 0 {
+		t.Fatalf("ajeno: err=%v autorizaciones=%d lecturas=%d", err, autorizador.llamadas, repo.lecturas)
+	}
+	repo.pertenece = true
+	if _, err := servicio.ListarReincorporacionesTitular(context.Background(), q); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) ||
+		autorizador.llamadas != 1 || repo.lecturas != 0 || autorizador.accion != ports.AccionConsultarReincorporacionTitular ||
+		autorizador.finalidad != ports.FinalidadConsultarReincorporacionTitular || autorizador.recurso != q.ParticipacionRef {
+		t.Fatalf("revocado: err=%v auth=%+v lecturas=%d", err, autorizador, repo.lecturas)
+	}
+}
 
 type fuenteRetornosPrueba struct {
 	eventos []ports.PublicacionReincorporacionTitularCT

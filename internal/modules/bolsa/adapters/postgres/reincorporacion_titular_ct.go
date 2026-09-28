@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -117,7 +116,7 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarReincorporacionesTit
 	defer tx.Rollback(context.Background())
 	filas, err := tx.Query(ctx, `SELECT evento_ref,expediente_ref,relacion_ref,fecha_efectiva,recibo_ct_ref,cese_evento_ref,
 		estado,disponible_desde,regla_version,regla_huella_sha256
-		FROM vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`,
+		FROM vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v2($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`,
 		ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(),
 		m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
 	if err != nil {
@@ -150,7 +149,7 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarReincorporacionesTit
 func errorReincorporacionTitular(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42501" {
-		return fmt.Errorf("%w: %w", dominiovec.ErrAutorizacionDenegada, err)
+		return dominiovec.ErrAutorizacionDenegada
 	}
-	return fmt.Errorf("%w: %w", ports.ErrReincorporacionTitularNoDisponible, err)
+	return ports.ErrReincorporacionTitularNoDisponible
 }

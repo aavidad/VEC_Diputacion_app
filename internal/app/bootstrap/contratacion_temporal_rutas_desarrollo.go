@@ -18,6 +18,8 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		return true
 	}
 	return rutaContinuidadNominal(r.URL.Path) || r.URL.Path == httpinterno.RutaConsultaSeguimientoV2 || r.URL.Path == httpinterno.RutaFichaGINPIXV2 || r.URL.Path == httpinterno.RutaIncorporacionEjercicioV2 || r.URL.Path == httpinterno.RutaResolucionFormalizacion || r.URL.Path == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(r.URL.Path) || rutaAnalisisContratacionTemporalDesarrollo(r.URL.Path) ||
+		rutaPlantillasCatalogoCTDesarrollo(r.URL.Path) ||
+		rutaPlantillasDocumentalCTDesarrollo(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaContinuacionLlamamiento ||
 		r.URL.Path == httpinterno.RutaRegistroRespuestaRecibida ||

@@ -10,7 +10,7 @@ import {
   renderizarRevisionPeticionCentro,
 } from "../modulos/contratacion-temporal/vista.js";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-ppt-503-v4";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
@@ -22,9 +22,9 @@ const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
 const traducirCentro = crearTraductorContratacionTemporal();
 const TEXTO = Object.freeze({
-  sobrelinea: "Contratación temporal · circuito previo",
+  sobrelinea: "Peticiones de personal temporal · circuito previo",
   titulo: "Petición del centro y ratificación",
-  descripcion: "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de contratación.",
+  descripcion: "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de personal temporal.",
   pendienteEntrada: "RRHH tramita las peticiones ratificadas desde su bandeja",
   solicitante: "Presentar petición",
   ratificador: "Bandeja de ratificación",
@@ -34,7 +34,7 @@ const TEXTO = Object.freeze({
   cargar: "Cargando contexto y peticiones…",
   recargar: "Recargar bandeja",
   seleccionar: "Revisar",
-  volver: "Volver a Contratación",
+  volver: "Volver a Peticiones de personal temporal",
   confirmarPresentar: "Confirmar presentación de esta petición",
   confirmarRatificar: "Confirmar ratificación de esta petición",
   confirmarPregunta: "Revise todos los datos y confirme expresamente para continuar.",
@@ -66,9 +66,9 @@ const TEXTO = Object.freeze({
   enviando: "Registrando la operación. Espere el recibo antes de cerrar.",
   bandejaNoActualizada: "El registro está confirmado. No se pudo actualizar la bandeja; puede recargarla sin volver a registrar.",
   motivoInvalido: "Escriba el motivo sin saltos de línea (máximo 1000 bytes) y marque la confirmación.",
-  rrhhSobrelinea: "Contratación temporal · Recursos Humanos",
+  rrhhSobrelinea: "Peticiones de personal temporal · Recursos Humanos",
   rrhhTitulo: "Peticiones de los centros",
-  rrhhDescripcion: "Revise los datos ratificados antes de crear el expediente de contratación. Esta acción no modifica la petición original.",
+  rrhhDescripcion: "Revise los datos ratificados antes de crear el expediente de personal temporal. Esta acción no modifica la petición original.",
   rrhhPendiente: "Pendiente de preparación",
   rrhhPreparada: "Preparada para crear expediente",
   rrhhConfirmada: "Expediente creado",
@@ -612,7 +612,7 @@ export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = Object.freeze({
   pc_ayuda_registro_titulo: "¿Qué queda registrado?",
   pc_ayuda_registro: "La petición y su ratificación quedan registradas con su autor, su fecha y un recibo. La firma electrónica todavía no está disponible: se incorporará cuando se establezca el circuito de firma corporativo.",
   pc_ayuda_despues_titulo: "¿Qué pasa después?",
-  pc_ayuda_despues: "Cuando la petición está ratificada, llega a la bandeja de Recursos Humanos. RRHH revisa los datos y, si procede, crea con ellos el expediente de contratación. El centro no tiene que volver a enviarla.",
+  pc_ayuda_despues: "Cuando la petición está ratificada, llega a la bandeja de Recursos Humanos. RRHH revisa los datos y, si procede, crea con ellos el expediente de personal temporal. El centro no tiene que volver a enviarla.",
   pc_ayuda_cerrar: "Cerrar",
 });
 

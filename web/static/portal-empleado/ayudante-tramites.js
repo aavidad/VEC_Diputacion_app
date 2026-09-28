@@ -1,5 +1,5 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-rrhh-cache-unificada-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-ppt-503-v4";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
 
 const TEXTO = Object.freeze({
   titulo: traducirPortal("ayuda_contenido_302"),

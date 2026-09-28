@@ -31,13 +31,25 @@ func (c *consultaDetalleBorradorPrueba) Consultar(_ context.Context, _ ports.Sol
 }
 
 type proveedorBorradorPrueba struct {
-	plantillas *informejuridico.PlantillasBorrador
-	llamadas   int
+	plantillas  *informejuridico.PlantillasBorrador
+	llamadas    int
+	material    plantillasapp.SolicitudDocumental
+	err         error
+	procedencia string
 }
 
-func (p *proveedorBorradorPrueba) ObtenerPlantillasDocumento(_ context.Context, _ plantillasapp.SolicitudDocumental, _ time.Time) (*informejuridico.PlantillasBorrador, error) {
+const reciboCatalogoPrueba = "recibo:12345678-1234-1234-1234-123456789abc"
+
+func (p *proveedorBorradorPrueba) ObtenerPlantillasDocumento(_ context.Context, s plantillasapp.SolicitudDocumental, _ time.Time) (*informejuridico.PlantillasBorrador, string, error) {
 	p.llamadas++
-	return p.plantillas, nil
+	p.material = s
+	if p.err != nil {
+		return nil, "", p.err
+	}
+	if p.procedencia != "" {
+		return p.plantillas, p.procedencia, nil
+	}
+	return p.plantillas, reciboCatalogoPrueba, nil
 }
 
 func detalleBorradorPrueba() ports.DetalleExpedienteRRHH {
@@ -98,7 +110,7 @@ func TestBorradorGenericoFijaCatalogoYConsultaDetalleAntesDeDescargar(t *testing
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, peticionBorradorPrueba(RutaBorradores, "application/pdf", `{"expediente_ref":"expediente:ct:0001","version_observada":3,"tipo":"informe_definitivo","formato":"pdf"}`))
-	if w.Code != 200 || llamadas != 1 || !bytes.HasPrefix(w.Body.Bytes(), []byte("%PDF-")) || w.Header().Get("X-VEC-Catalogo-Huella-SHA256") != p.Huella() || w.Header().Get("X-VEC-Documento-SHA256") == "" || w.Header().Get("Content-Disposition") != `attachment; filename="informe_definitivo-borrador.pdf"` {
+	if w.Code != 200 || llamadas != 1 || !bytes.HasPrefix(w.Body.Bytes(), []byte("%PDF-")) || w.Header().Get("X-VEC-Catalogo-Huella-SHA256") != p.Huella() || w.Header().Get("X-VEC-Documento-SHA256") == "" || w.Header().Get("X-VEC-Plantilla-Procedencia-Ref") != reciboCatalogoPrueba || w.Header().Get("Content-Disposition") != `attachment; filename="informe_definitivo-borrador.pdf"` {
 		t.Fatalf("descarga: %d, %q", w.Code, w.Body.String())
 	}
 }
@@ -115,7 +127,7 @@ func TestListaBorradoresUsaConsultaExpedienteSinGobiernoCatalogo(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, peticionBorradorPrueba(RutaBorradoresDisponibles, "application/json", `{"expediente_ref":"expediente:ct:0001","version_observada":3}`))
 	var z listaDisponibles
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &z) != nil || z.Esquema != EsquemaBorradoresDisponibles || z.CatalogoHuellaSHA256 != p.Huella() || len(z.Tipos) == 0 || c.llamadas != 1 || fuente.llamadas != 1 {
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &z) != nil || z.Esquema != EsquemaBorradoresDisponibles || z.CatalogoHuellaSHA256 != p.Huella() || z.ProcedenciaRef != reciboCatalogoPrueba || len(z.Tipos) == 0 || c.llamadas != 1 || fuente.llamadas != 1 {
 		t.Fatalf("lista: %d %q", w.Code, w.Body.String())
 	}
 }

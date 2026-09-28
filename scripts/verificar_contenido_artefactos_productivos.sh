@@ -256,6 +256,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/auditoria/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js
+	# Bolsa B55 (28/09): GET nominal de reincorporaciones con lectura V3 propia;
+	# rechaza segmentos . y .. antes de formar la ruta, same-origin, no-store,
+	# redirect error y no-referrer; sin DNI ni datos de contacto.
+	static/portal-empleado/portal-bolsas-reincorporaciones.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

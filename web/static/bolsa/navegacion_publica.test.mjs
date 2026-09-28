@@ -75,16 +75,16 @@ test("la entrada de listas conduce a la consulta pública B10", () => {
 
 test("el menú de ambas páginas presenta solo interrogación para la ayuda", () => {
   const listas = readFileSync(join(directorio, "listas.html"), "utf8");
-  assert.match(menu, /<a href="#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"><span aria-hidden="true">\?<\/span><\/a>/);
-  assert.match(listas, /<a href="\/bolsa\/#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública">\?<\/a>/);
+  assert.match(menu, /<a href="#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"[^>]*><span aria-hidden="true">\?<\/span><\/a>/);
+  assert.match(listas, /<a href="\/bolsa\/#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"[^>]*>\?<\/a>/);
   assert.doesNotMatch(menu, /<span aria-hidden="true">5<\/span> Ayuda pública/);
 });
 
 test("la consulta pública rechaza fuentes sintéticas y conserva la navegación de Bolsa", () => {
-  assert.match(html, /<h1 id="titulo-portal">Bolsas y procesos selectivos<\/h1>/);
+  assert.match(html, /<h1 id="titulo-portal"[^>]*>Bolsas y procesos selectivos<\/h1>/);
   assert.doesNotMatch(html, /id="aviso-demostracion"|DEMOSTRACIÓN/);
   assert.match(html, /id="ayuda-publica"[^>]*>[\s\S]*?<details>[\s\S]*?<summary id="titulo-ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"[^>]*><span aria-hidden="true">\?<\/span><\/summary>/);
-  assert.match(html, /<details id="ayuda-filtro-categoria"[^>]*><summary aria-label="Ayuda sobre categorías con procesos publicados" title="Ayuda sobre categorías con procesos publicados"><span aria-hidden="true">\?<\/span><\/summary>/);
+  assert.match(html, /<details id="ayuda-filtro-categoria"[^>]*><summary aria-label="Ayuda sobre categorías con procesos publicados" title="Ayuda sobre categorías con procesos publicados"[^>]*><span aria-hidden="true">\?<\/span><\/summary>/);
   assert.match(javascript, /if \(contenido\?\.fuente\?\.demostracion === true\) throw new Error\(FUENTE_NO_CONFIGURADA\)/);
   assert.match(javascript, /t\(error\.message === FUENTE_NO_CONFIGURADA \? "fuente_no_configurada" : "consulta_no_disponible"\)/);
   assert.doesNotMatch(javascript, /\/presentacion\/|actualizarAvisoDemostracion/);
@@ -103,9 +103,7 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
     const versionTema = pagina.match(/\/comun\/tema-vec\.css\?v=([\w.-]+)"/)?.[1];
     assert.ok(versionTema && versionTema !== "20260924-bolsa-publica-final", "tema-vec.css renueva su URL");
     assert.equal(versionTema, html.match(/\/comun\/tema-vec\.css\?v=([\w.-]+)"/)?.[1]);
-    assert.match(pagina, pagina === html
-      ? /i18n-publica\.js\?v=20260924-rescate-bolsa-i18n-v3/
-      : /i18n-publica\.js\?v=20260924-bolsa-i18n-v2/);
+    assert.match(pagina, /i18n-publica\.js\?v=20260928-i18n-ingles-v1/);
     assert.doesNotMatch(pagina, /i18n-publica\.js\?v=20260924-bolsa-publica-final/);
     const versionBolsa = pagina.match(/\/bolsa\/bolsa\.css\?v=([\w.-]+)"/)?.[1];
     assert.ok(versionBolsa, "bolsa.css se carga versionada");

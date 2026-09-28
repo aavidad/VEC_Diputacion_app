@@ -94,7 +94,7 @@ test("envía una sola asignación cerrada y muestra el recibo mínimo", async ()
   // La unidad y la persona responsable se nombran; su referencia solo va en el valor enviado.
   assert.match(raiz.innerHTML, /<output>Recursos Humanos<\/output>/u);
   assert.doesNotMatch(raiz.innerHTML, /unidad:desarrollo:rrhh/u);
-  assert.match(raiz.innerHTML, /value="persona:responsable-sintetica-001">Responsable de contratación temporal</u);
+  assert.match(raiz.innerHTML, /value="persona:responsable-sintetica-001">Responsable de peticiones de personal temporal</u);
   assert.match(raiz.innerHTML, /name="confirmacion" type="checkbox" required/u);
   await raiz.enviar(false);
   assert.equal(llamadas.length, 0);
