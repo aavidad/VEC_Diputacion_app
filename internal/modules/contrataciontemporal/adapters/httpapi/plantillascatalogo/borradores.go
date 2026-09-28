@@ -181,7 +181,12 @@ func (h *ManejadorBorradores) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if listar {
 		operacion = "listar"
 	}
-	material := plantillasapp.SolicitudDocumental{Operacion: operacion, OrganizacionRef: detalle.Resumen.OrganizacionRef, ExpedienteRef: detalle.Resumen.ExpedienteRef, VersionObservada: detalle.Resumen.Version, ConsultaHuellaSHA256: detalle.Lectura.ConsultaHuellaSHA256()}
+	material := plantillasapp.SolicitudDocumental{
+		Operacion: operacion, OrganizacionRef: detalle.Resumen.OrganizacionRef,
+		ClaseAmbito: string(ports.AmbitoOrganizacionRRHH), AmbitoRef: detalle.Resumen.OrganizacionRef,
+		ExpedienteRef: detalle.Resumen.ExpedienteRef, VersionObservada: detalle.Resumen.Version,
+		ConsultaHuellaSHA256: detalle.Lectura.ConsultaHuellaSHA256(),
+	}
 	if !listar {
 		material.Tipo = pedido.Tipo
 		material.Formato = pedido.Formato
