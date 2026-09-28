@@ -58,24 +58,26 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 // efimeras emitidas tras revalidar el certificado mTLS local. No representa
 // autoridad corporativa ni se construye fuera del perfil de desarrollo.
 type autoridadConsultasContratacionTemporalDesarrollo struct {
-	sello                                     *selloConsultasContratacionTemporalDesarrollo
-	resolvedor                                *resolvedorIdentidadDesarrollo
-	noCompuesta                               *capacidadNoCompuestaContratacionTemporalDesarrollo
-	llamamientoCompuesto                      bool
-	consultasRRHHCompuestas                   bool
-	subsanacionCompuesta                      bool
-	fronterasSeguridadComun                   catalogoFronterasComunDesarrollo
-	envolverBorradorLlamamiento               func(http.Handler) http.Handler
-	manejadorSituacionParticipacion           http.Handler
-	coleccionesAdicionales                    []vechttp.RutaColeccion
-	registradorAuditoriaFronteraRutasExactas  puertosvec.RegistradorAuditoriaFronteraRutaExacta
-	materialDietas                            materialDietasDesdeCTDesarrollo
-	materialCronos                            materialCronosDesdeCTDesarrollo
-	materialDocumentos                        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalFichaPropia               *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialUsuariosPreferenciasConsulta      *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialUsuariosPreferenciasActualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo
-	plazosOfertasBolsa                        *calculadoraPlazoOfertaDesarrollo
+	sello                                            *selloConsultasContratacionTemporalDesarrollo
+	resolvedor                                       *resolvedorIdentidadDesarrollo
+	noCompuesta                                      *capacidadNoCompuestaContratacionTemporalDesarrollo
+	llamamientoCompuesto                             bool
+	consultasRRHHCompuestas                          bool
+	subsanacionCompuesta                             bool
+	fronterasSeguridadComun                          catalogoFronterasComunDesarrollo
+	envolverBorradorLlamamiento                      func(http.Handler) http.Handler
+	manejadorSituacionParticipacion                  http.Handler
+	coleccionesAdicionales                           []vechttp.RutaColeccion
+	registradorAuditoriaFronteraRutasExactas         puertosvec.RegistradorAuditoriaFronteraRutaExacta
+	materialDietas                                   materialDietasDesdeCTDesarrollo
+	materialCronos                                   materialCronosDesdeCTDesarrollo
+	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
+	plazosOfertasBolsa                               *calculadoraPlazoOfertaDesarrollo
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
 	presentadorCobertura avisosViaCoberturaConfigurable
@@ -930,27 +932,29 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:                                     sello,
-		resolvedor:                                resolvedorDesarrollo,
-		noCompuesta:                               noCompuesta,
-		llamamientoCompuesto:                      comunicacionReal != nil,
-		consultasRRHHCompuestas:                   consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
-		subsanacionCompuesta:                      subsanacionReal.servicio != nil,
-		fronterasSeguridadComun:                   seguridadBorrador,
-		envolverBorradorLlamamiento:               envolverBorrador,
-		manejadorSituacionParticipacion:           manejadorSituacion,
-		plazosOfertasBolsa:                        dependencias.plazosOfertasBolsa,
-		personalizacionB7:                         personalizacionB7,
-		coleccionesAdicionales:                    coleccionesBorrador,
-		registradorAuditoriaFronteraRutasExactas:  registradorFrontera,
-		materialDietas:                            alta.postgresql.materialDietas,
-		materialCronos:                            alta.postgresql.materialCronos,
-		materialDocumentos:                        alta.postgresql.materialDocumentos,
-		materialPersonalFichaPropia:               alta.postgresql.materialPersonalFichaPropia,
-		materialUsuariosPreferenciasConsulta:      alta.postgresql.materialUsuariosPreferenciasConsulta,
-		materialUsuariosPreferenciasActualizacion: alta.postgresql.materialUsuariosPreferenciasActualizacion,
-		presentadorCobertura:                      coberturaReal.presentador,
-		firmaDocumento:                            firmaDocumento,
+		sello:                                       sello,
+		resolvedor:                                  resolvedorDesarrollo,
+		noCompuesta:                                 noCompuesta,
+		llamamientoCompuesto:                        comunicacionReal != nil,
+		consultasRRHHCompuestas:                     consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
+		subsanacionCompuesta:                        subsanacionReal.servicio != nil,
+		fronterasSeguridadComun:                     seguridadBorrador,
+		envolverBorradorLlamamiento:                 envolverBorrador,
+		manejadorSituacionParticipacion:             manejadorSituacion,
+		plazosOfertasBolsa:                          dependencias.plazosOfertasBolsa,
+		personalizacionB7:                           personalizacionB7,
+		coleccionesAdicionales:                      coleccionesBorrador,
+		registradorAuditoriaFronteraRutasExactas:    registradorFrontera,
+		materialDietas:                              alta.postgresql.materialDietas,
+		materialCronos:                              alta.postgresql.materialCronos,
+		materialDocumentos:                          alta.postgresql.materialDocumentos,
+		materialPersonalFichaPropia:                 alta.postgresql.materialPersonalFichaPropia,
+		materialUsuariosPreferenciasConsultaInterna: alta.postgresql.materialUsuariosPreferenciasConsultaInterna,
+		materialUsuariosPreferenciasActualizacionInterna: alta.postgresql.materialUsuariosPreferenciasActualizacionInterna,
+		materialUsuariosPreferenciasConsultaExterna:      alta.postgresql.materialUsuariosPreferenciasConsultaExterna,
+		materialUsuariosPreferenciasActualizacionExterna: alta.postgresql.materialUsuariosPreferenciasActualizacionExterna,
+		presentadorCobertura:                             coberturaReal.presentador,
+		firmaDocumento:                                   firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)

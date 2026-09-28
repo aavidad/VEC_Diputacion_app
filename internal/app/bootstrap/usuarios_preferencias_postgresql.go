@@ -9,8 +9,27 @@ import (
 
 // Usuarios usa un LOGIN propio, con membresía única en el rol ejecutor de
 // AD3-106. La composición conserva el pool y lo cierra al apagar el servidor.
+func rolEjecutorPreferencias(superficie string) string {
+	if superficie == "interna_corporativa" {
+		return "vec_usuarios_ejecutor_interno"
+	}
+	if superficie == "externa_personal" {
+		return "vec_usuarios_ejecutor_externo"
+	}
+	return ""
+}
+func rolRegistradorPreferencias(superficie string) string {
+	if superficie == "interna_corporativa" {
+		return "vec_usuarios_registrador_frontera_interno"
+	}
+	if superficie == "externa_personal" {
+		return "vec_usuarios_registrador_frontera_externo"
+	}
+	return ""
+}
+
 func abrirPoolUsuariosPreferencias(ctx context.Context, dsn, rol string) (*pgxpool.Pool, string, error) {
-	if dsn == "" || (rol != "vec_usuarios_ejecutor" && rol != "vec_usuarios_registrador_frontera") {
+	if dsn == "" || (rol != "vec_usuarios_ejecutor_interno" && rol != "vec_usuarios_ejecutor_externo" && rol != "vec_usuarios_registrador_frontera_interno" && rol != "vec_usuarios_registrador_frontera_externo") {
 		return nil, "", errComposicionUsuariosPreferencias
 	}
 	c, err := pgxpool.ParseConfig(dsn)

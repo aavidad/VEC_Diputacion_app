@@ -32,7 +32,7 @@ func (r *registradorFronteraDelegadoPrueba) RegistrarAuditoriaFronteraRutaExacta
 
 func TestAuditoriaUsuariosWrapperTempranoUnaFilaSinCT(t *testing.T) {
 	r := &registradorDenegacionPreferenciasPrueba{}
-	a := &autoridadPreferenciasUsuariosDesarrollo{base: &autoridadRutasDietasDesarrollo{}, manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}), registrador: r}
+	a := &autoridadPreferenciasUsuariosDesarrollo{base: &autoridadRutasDietasDesarrollo{}, manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}), registrador: r, ruta: usuarioshttp.RutaMisPreferencias}
 	pasos := 0
 	h := a.proteger(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { pasos++ }))
 	rec := httptest.NewRecorder()
@@ -50,13 +50,33 @@ func TestAuditoriaUsuariosWrapperTempranoUnaFilaSinCT(t *testing.T) {
 
 func TestAuditoriaDispatcherUsuariosNoPasaPorCT(t *testing.T) {
 	usuarios := &registradorDenegacionPreferenciasPrueba{}
+	exterior := &registradorDenegacionPreferenciasPrueba{}
 	ct := &registradorFronteraDelegadoPrueba{}
-	m := registradorFronterasConUsuariosPreferencias{delegado: ct, usuarios: usuarios}
+	m := registradorFronterasConUsuariosPreferencias{delegado: ct, interna: usuarios, externa: exterior}
 	o := vecports.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: "corr_0123456789abcdef0123456789abcdef", Motivo: vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, Ruta: usuarioshttp.RutaMisPreferencias, ActorRef: "per_0123456789abcdefghijkl"}
 	if err := m.RegistrarAuditoriaFronteraRutaExacta(context.Background(), o); err != nil {
 		t.Fatal(err)
 	}
 	if len(usuarios.ordenes) != 1 || len(ct.ordenes) != 0 || usuarios.ordenes[0].ActorRef != o.ActorRef {
 		t.Fatal("403 del dispatcher se atribuyó a CT o se duplicó")
+	}
+	o.Ruta = usuarioshttp.RutaMisPreferenciasAreaPersonal
+	if err := m.RegistrarAuditoriaFronteraRutaExacta(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	if len(exterior.ordenes) != 1 || len(usuarios.ordenes) != 1 || len(ct.ordenes) != 0 {
+		t.Fatal("ruta exterior mezcló registradores")
+	}
+}
+
+func TestAuditoriaAnonimaFijaRutaIntentada(t *testing.T) {
+	for _, ruta := range []string{usuarioshttp.RutaMisPreferencias, usuarioshttp.RutaMisPreferenciasAreaPersonal} {
+		r := &registradorDenegacionPreferenciasPrueba{}
+		a := &autoridadPreferenciasUsuariosDesarrollo{base: &autoridadRutasDietasDesarrollo{}, manejador: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}), registrador: r, ruta: ruta}
+		rec := httptest.NewRecorder()
+		a.proteger(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("anónimo llegó al despacho") })).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, ruta, nil))
+		if rec.Code != 401 || len(r.ordenes) != 1 || r.ordenes[0].Ruta != ruta || r.ordenes[0].ActorRef != "" {
+			t.Fatalf("401 no fija ruta intentada: %s %d %+v", ruta, rec.Code, r.ordenes)
+		}
 	}
 }

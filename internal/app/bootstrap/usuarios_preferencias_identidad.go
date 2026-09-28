@@ -14,7 +14,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 	vacio := core.VinculoAutenticacionActorV2{}
 	resultadoVacio := core.ResultadoContextoActorRegistradoV2{}
 	if a == nil || a.base == nil || r == nil || r.TLS == nil || len(r.TLS.VerifiedChains) != 1 || len(r.TLS.VerifiedChains[0]) == 0 ||
-		(cuenta.Superficie != string(httpseguridad.SuperficieExternaPersonal) && cuenta.Superficie != string(httpseguridad.SuperficieInternaCorporativa)) {
+		(a.superficie != core.SuperficieAutenticacionExternaPersonalV1 && a.superficie != core.SuperficieAutenticacionInternaCorporativaV1) {
 		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
 	}
 	asercion, err := nonceRutasDietas()
@@ -29,7 +29,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 	if limite := r.TLS.VerifiedChains[0][0].NotAfter.UTC().Truncate(time.Microsecond); limite.Before(hasta) {
 		hasta = limite
 	}
-	superficie := httpseguridad.Superficie(cuenta.Superficie)
+	superficie := httpseguridad.Superficie(a.superficie)
 	politica := "dev-certificado-mtls-v1;solo-sintetico;canal-privado-validado;garantia-alta-desarrollo;vigencia-120s;sin-kerberos;no-corporativa"
 	alta := httpseguridad.AltaSesionAtomica{
 		AsercionID: asercion, SesionID: sesion, SujetoID: cuenta.Sujeto, CuentaID: "desarrollo:" + cuenta.CuentaRef,
@@ -38,7 +38,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 		AutenticacionVerificadaEn: ahora, SesionEmitidaEn: ahora, AsercionExpiraEn: hasta,
 		PoliticaGarantiaRef:          referenciaAltaContratacionTemporalDesarrollo("pga_", "dev-certificado-mtls-v1"),
 		PoliticaGarantiaHuellaSHA256: huellaRutasDietas(politica),
-		AutenticacionHuellaSHA256:    huellaRutasDietas(a.base.instancia + "|" + asercion + "|" + sesion + "|" + cuenta.CertificadoSHA256 + "|" + cuenta.CuentaRef + "|" + cuenta.PerfilRef + "|" + r.URL.Path + "|" + r.Method + "|" + cuenta.Superficie + "|" + ahora.Format(time.RFC3339Nano)),
+		AutenticacionHuellaSHA256:    huellaRutasDietas(a.base.instancia + "|" + asercion + "|" + sesion + "|" + cuenta.CertificadoSHA256 + "|" + cuenta.CuentaRef + "|" + cuenta.PerfilRef + "|" + r.URL.Path + "|" + r.Method + "|" + string(a.superficie) + "|" + ahora.Format(time.RFC3339Nano)),
 	}
 	confirmacion, err := a.base.registro.ConsumirAsercionYRegistrar(r.Context(), alta)
 	if err != nil || confirmacion.ValidarPara(alta) != nil || confirmacion.CuentaRef != cuenta.CuentaRef {
@@ -53,7 +53,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) resolverSesion(r *http.Request
 	}
 	datos, err := vinculo.Datos()
 	if err != nil || datos.CuentaRef != cuenta.CuentaRef || datos.PerfilActivoRef != cuenta.PerfilRef || datos.CuentaPrivilegiada ||
-		datos.Superficie != core.SuperficieAutenticacionActorV1(cuenta.Superficie) || !vinculo.VigenteEn(a.reloj.Ahora(), resultado) ||
+		datos.Superficie != a.superficie || !vinculo.VigenteEn(a.reloj.Ahora(), resultado) ||
 		resultado.Contexto.PersonaRef == "" || resultado.Contexto.PersonaRef != resultado.Contexto.Instantanea.PersonaRef {
 		return vacio, resultadoVacio, errComposicionUsuariosPreferencias
 	}
