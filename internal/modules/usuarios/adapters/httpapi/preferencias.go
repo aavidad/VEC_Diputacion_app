@@ -15,6 +15,7 @@ import (
 )
 
 const RutaMisPreferencias = "/api/vec/usuarios/mis-preferencias"
+const RutaMisPreferenciasAreaPersonal = "/api/vec/usuarios/area-personal/mis-preferencias"
 const limitePeticionPreferencias int64 = 16 << 10
 
 // ResolverOrden recibe una identidad ya acreditada por la frontera del portal.
@@ -33,13 +34,21 @@ type ManejadorPreferencias struct {
 	servicio *application.ServicioPreferencias
 	orden    ResolverOrden
 	auditor  AuditorDenegacion
+	ruta     string
 }
 
 func NuevoManejadorPreferencias(servicio *application.ServicioPreferencias, orden ResolverOrden, auditor AuditorDenegacion) (*ManejadorPreferencias, error) {
+	return NuevoManejadorPreferenciasEnRuta(servicio, orden, auditor, RutaMisPreferencias)
+}
+
+func NuevoManejadorPreferenciasEnRuta(servicio *application.ServicioPreferencias, orden ResolverOrden, auditor AuditorDenegacion, ruta string) (*ManejadorPreferencias, error) {
 	if servicio == nil || orden == nil || auditor == nil {
 		return nil, ports.ErrNoDisponible
 	}
-	return &ManejadorPreferencias{servicio: servicio, orden: orden, auditor: auditor}, nil
+	if ruta != RutaMisPreferencias && ruta != RutaMisPreferenciasAreaPersonal {
+		return nil, ports.ErrNoDisponible
+	}
+	return &ManejadorPreferencias{servicio: servicio, orden: orden, auditor: auditor, ruta: ruta}, nil
 }
 
 func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +60,7 @@ func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request
 		responderError(w, ports.ErrNoDisponible)
 		return
 	}
-	if r.URL.Path != RutaMisPreferencias || r.URL.RawPath != "" || r.URL.RawQuery != "" || r.URL.ForceQuery || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 {
+	if r.URL.Path != m.ruta || r.URL.RawPath != "" || r.URL.RawQuery != "" || r.URL.ForceQuery || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 {
 		responderError(w, ports.ErrPeticionInvalida)
 		return
 	}

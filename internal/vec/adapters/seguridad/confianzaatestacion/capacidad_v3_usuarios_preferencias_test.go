@@ -23,11 +23,11 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 		accion, audiencia string
 		campos            []string
 	}{
-		{usuariosports.AccionConsultarPreferencias, "vec_usuarios.preferencias.consultar.v1", []string{"catalogo", "valores", "version"}},
-		{usuariosports.AccionActualizarPreferencias, "vec_usuarios.preferencias.actualizar.v1", []string{"valores", "version"}},
+		{usuariosports.AccionConsultarPreferencias, usuariosports.AudienciaConsultarPreferenciasInterna, []string{"catalogo", "valores", "version"}},
+		{usuariosports.AccionActualizarPreferencias, usuariosports.AudienciaActualizarPreferenciasInterna, []string{"valores", "version"}},
 	} {
 		t.Run(caso.accion, func(t *testing.T) {
-			m := usuariosports.MaterialPreferencias{
+			m := usuariosports.MaterialPreferencias{Superficie: core.SuperficieAutenticacionInternaCorporativaV1,
 				PersonaRef: base.resultado.Contexto.PersonaRef, PerfilRef: base.resultado.Contexto.PerfilActivoRef,
 				Accion: caso.accion, FinalidadRef: usuariosports.FinalidadPreferenciasPropias,
 				CatalogoVersionRef: "usuarios-preferencias-v1", VersionEsperada: 0,
@@ -121,6 +121,9 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 				func(x *usuariosports.MaterialPreferencias) { x.PerfilRef = "prf_otro_perfil_0123456789" },
 				func(x *usuariosports.MaterialPreferencias) { x.CatalogoVersionRef = "usuarios-preferencias-v2" },
 				func(x *usuariosports.MaterialPreferencias) { x.Valores.Tema = "oscuro" },
+				func(x *usuariosports.MaterialPreferencias) {
+					x.Superficie = core.SuperficieAutenticacionExternaPersonalV1
+				},
 			} {
 				copia := m
 				mutar(&copia)
