@@ -1,0 +1,212 @@
+.rrhh-causas {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.rrhh-causas > .cabecera-panel,
+.rrhh-causas .cabecera-panel {
+  background: var(--portal-superficie-alterna);
+}
+
+.rrhh-causas > .cabecera-panel {
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.rrhh-causas__ayuda-boton {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  font-weight: 700;
+}
+
+.rrhh-causas__navegacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rrhh-causas__navegacion [aria-pressed="true"] {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-700);
+}
+
+.rrhh-causas__ayuda {
+  margin: -20px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  color: var(--portal-muted);
+}
+
+.rrhh-causas__rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.rrhh-causas__rejilla > .panel,
+.rrhh-causas__tabla,
+.rrhh-causas__campos .campo {
+  min-width: 0;
+}
+
+.rrhh-causas__tabla {
+  overflow-x: auto;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+}
+
+.rrhh-causas__tabla .tabla-datos {
+  width: 100%;
+}
+
+.rrhh-causas__tabla .tabla-datos thead th {
+  background: var(--portal-superficie-alterna);
+}
+
+.rrhh-causas__tabla .tabla-datos tbody tr:nth-child(even) {
+  background: var(--portal-superficie-alterna);
+}
+
+.rrhh-causas__tabla .tabla-datos tbody tr:hover,
+.rrhh-causas__tabla .tabla-datos tbody tr:focus-within {
+  background: var(--portal-azul-100);
+}
+
+.rrhh-causas__accion-fila {
+  text-align: right;
+}
+
+.rrhh-causas__campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rrhh-causas__campo-ancho {
+  grid-column: 1 / -1;
+}
+
+.rrhh-causas__opciones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.rrhh-causas__opciones label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie-alterna);
+}
+
+.rrhh-causas__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.rrhh-causas__consulta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.rrhh-causas__consulta .campo {
+  min-width: 0;
+}
+
+.rrhh-causas__propuesta-detalle {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie-alterna);
+}
+
+.rrhh-causas__propuesta-detalle dl {
+  margin: 0;
+}
+
+.rrhh-causas__propuesta-detalle dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.rrhh-causas__propuesta-detalle .estado-chip {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.rrhh-causas__error {
+  padding: 12px 16px;
+  border-left: 4px solid var(--portal-peligro);
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+}
+
+.rrhh-causas__confirmacion {
+  border-left: 4px solid var(--portal-exito);
+}
+
+.rrhh-causas__confirmacion .cuerpo-panel > p:first-child {
+  font-weight: 600;
+}
+
+.rrhh-causas__confirmacion dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.rrhh-causas__confirmacion dl > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.25fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.rrhh-causas__confirmacion dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .rrhh-causas__rejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .rrhh-causas__campos,
+  .rrhh-causas__consulta,
+  .rrhh-causas__opciones,
+  .rrhh-causas__confirmacion dl > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rrhh-causas__campo-ancho {
+    grid-column: auto;
+  }
+}
