@@ -105,7 +105,7 @@ def abrir_plantillas(pagina, cfg):
 
 
 def alta(navegador, cfg):
-    evidencia = {"base": "bb67ac3ac", "tipo": cfg.tipo, "expediente_ref": cfg.expediente_ref,
+    evidencia = {"tipo": cfg.tipo, "expediente_ref": cfg.expediente_ref,
                  "version": cfg.version, "viewports": [1440, 390], "fase": "alta"}
     for ancho in (1440, 390):
         ctx = contexto(navegador, cfg, "editor", ancho)
@@ -115,6 +115,14 @@ def alta(navegador, cfg):
                 abrir_plantillas(page, cfg)
             if peticion.value.status != 200:
                 raise Fallo("GET catálogo del editor no respondió 200")
+            lectura = peticion.value.json()
+            if ancho == 1440 and any(
+                entrada.get("clave") == cfg.tipo
+                for catalogo in (lectura.get("borrador"), lectura.get("publicado"))
+                if isinstance(catalogo, dict)
+                for entrada in catalogo.get("entradas", [])
+            ):
+                raise Fallo("el tipo ya existe; no se puede repetir un alta nueva")
             if page.locator("[data-plantillas-publicar]").count():
                 raise Fallo("el editor también presenta formulario de publicación")
             if ancho == 1440:
