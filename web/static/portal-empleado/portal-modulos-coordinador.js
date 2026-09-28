@@ -97,7 +97,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-rrhh-cache-unificada-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-rrhh-corte3-cache-v5"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
       import("./modulos/auditoria/vista.js?v=20260928-rrhh-cache-unificada-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-rrhh-cache-unificada-v1"),
@@ -864,7 +864,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-rrhh-plantillas-v1");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-rrhh-corte3-cache-v4");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
