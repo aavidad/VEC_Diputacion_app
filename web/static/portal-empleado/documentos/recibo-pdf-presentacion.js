@@ -1,3 +1,8 @@
+import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
+import { crearTraductorReciboPDF, MENSAJES_RECIBO_PDF_EN } from "./recibo-pdf-i18n.js";
+
+const traducir = crearTraductorReciboPDF(IDIOMA_ACTUAL === "en" ? MENSAJES_RECIBO_PDF_EN : undefined);
+
 /**
  * Adaptador documental exclusivo de presentación.
  *
@@ -19,15 +24,15 @@ export function generarReciboPDFPresentacion(descriptor) {
   dibujarLogoDiputacion(contenido, 58, 782, 0.7);
   contenido.push("0.09 0.23 0.31 rg");
   lineaPDF(contenido, 370, 787, datos.rotuloDocumento, { tamano: 10.5, negrita: true });
-  lineaPDF(contenido, 370, 770, "Portal del Empleado - DEMO", { tamano: 8 });
+  lineaPDF(contenido, 370, 770, traducir("portal_demo"), { tamano: 8 });
 
   contenido.push("0.08 0.13 0.20 rg");
   lineaPDF(contenido, 58, 704, abreviar(datos.titulo, 62), { tamano: 13, negrita: true });
   lineaPDF(contenido, 58, 686, abreviar(datos.subtitulo, 78), { tamano: 9 });
 
   contenido.push("0.10 0.29 0.47 rg 58 642 474 24 re f", "1 1 1 rg");
-  lineaPDF(contenido, 66, 650, "DATO", { tamano: 8.5, negrita: true });
-  lineaPDF(contenido, 230, 650, "VALOR", { tamano: 8.5, negrita: true });
+  lineaPDF(contenido, 66, 650, traducir("dato"), { tamano: 8.5, negrita: true });
+  lineaPDF(contenido, 230, 650, traducir("valor"), { tamano: 8.5, negrita: true });
   let y = 610;
   datos.filas.forEach(([etiqueta, valor], indice) => {
     contenido.push(`${indice % 2 ? "0.94 0.97 0.95" : "0.97 0.99 1"} rg 58 ${y - 8} 474 24 re f`);
@@ -38,18 +43,18 @@ export function generarReciboPDFPresentacion(descriptor) {
   });
 
   contenido.push("0.97 0.99 1 rg 58 270 474 100 re f", "0.72 0.80 0.88 RG 58 270 474 100 re S", "0.08 0.13 0.20 rg");
-  lineaPDF(contenido, 66, 346, "CERTIFICA", { tamano: 10, negrita: true });
+  lineaPDF(contenido, 66, 346, traducir("certifica"), { tamano: 10, negrita: true });
   partirTexto(datos.textoCertificacion, 94).slice(0, 5).forEach((linea, indice) => {
     lineaPDF(contenido, 66, 326 - indice * 13, linea, { tamano: 8.2 });
   });
 
   contenido.push("0.96 0.98 1 rg 58 174 310 70 re f", "0.72 0.80 0.88 RG 58 174 310 70 re S", "0.08 0.13 0.20 rg");
-  lineaPDF(contenido, 66, 221, "Firma y verificación", { tamano: 10, negrita: true });
-  lineaPDF(contenido, 66, 203, `Referencia: ${datos.referencia}`, { tamano: 8.5, negrita: true });
-  lineaPDF(contenido, 66, 187, "Estado: documento de demostración sin validez administrativa", { tamano: 8.1 });
+  lineaPDF(contenido, 66, 221, traducir("firma_verificacion"), { tamano: 10, negrita: true });
+  lineaPDF(contenido, 66, 203, traducir("referencia", { referencia: datos.referencia }), { tamano: 8.5, negrita: true });
+  lineaPDF(contenido, 66, 187, traducir("estado_demo"), { tamano: 8.1 });
   lineaPDF(contenido, 66, 158, abreviar(datos.nota, 78), { tamano: 8 });
   dibujarQR(contenido, datos.urlVerificacion, 480, 54, 1.3);
-  lineaPDF(contenido, 382, 98, "Comprobar documento", { tamano: 8, negrita: true });
+  lineaPDF(contenido, 382, 98, traducir("comprobar"), { tamano: 8, negrita: true });
   lineaPDF(contenido, 382, 84, abreviar(datos.referencia, 30), { tamano: 7 });
 
   return construirPDF(contenido.join("\n"));
@@ -77,8 +82,8 @@ function validarDescriptor(descriptor) {
   if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)) throw new TypeError("descriptor documental no válido");
   const referencia = referenciaDemoCerrada(descriptor.referencia);
   const titulo = textoAcotado(descriptor.titulo, 3, 120);
-  const subtitulo = textoAcotado(descriptor.subtitulo || "Recibo emitido por el Portal del Empleado", 3, 160);
-  const nota = textoAcotado(descriptor.nota || "El documento definitivo se generara y firmara en el servidor autorizado.", 3, 220);
+  const subtitulo = textoAcotado(descriptor.subtitulo || traducir("subtitulo_defecto"), 3, 160);
+  const nota = textoAcotado(descriptor.nota || traducir("nota_defecto"), 3, 220);
   if (!Array.isArray(descriptor.filas) || descriptor.filas.length < 1 || descriptor.filas.length > 8) throw new TypeError("filas documentales no válidas");
   const filas = descriptor.filas.map((fila) => {
     if (!Array.isArray(fila) || fila.length !== 2) throw new TypeError("fila documental no válida");
@@ -89,14 +94,15 @@ function validarDescriptor(descriptor) {
   const nombreArchivo = String(descriptor.nombreArchivo || `recibo-${referencia.toLowerCase()}.pdf`);
   if (!/^[a-z0-9][a-z0-9._-]{1,119}\.pdf$/i.test(nombreArchivo)) throw new TypeError("nombre de PDF no válido");
   const textoCertificacion = textoAcotado(descriptor.textoCertificacion
-    || "Se deja constancia de la actuación indicada y de su referencia de comprobación. El documento definitivo se emitirá desde el expediente administrativo autorizado.", 3, 430);
+    || traducir("certificacion_defecto"), 3, 430);
   const rotuloDocumento = descriptor.rotuloDocumento === undefined
     ? "RECIBO DE ACTUACIÓN" : textoAcotado(descriptor.rotuloDocumento, 3, 40);
   if (!["RECIBO DE ACTUACIÓN", "CERTIFICADO"].includes(rotuloDocumento)) {
     throw new TypeError("rótulo documental no permitido");
   }
   return Object.freeze({ referencia, titulo, subtitulo, nota, filas: Object.freeze(filas),
-    urlVerificacion: url.href, origenInstitucional, nombreArchivo, textoCertificacion, rotuloDocumento });
+    urlVerificacion: url.href, origenInstitucional, nombreArchivo, textoCertificacion,
+    rotuloDocumento: rotuloDocumento === "CERTIFICADO" ? traducir("rotulo_certificado") : traducir("rotulo_recibo") });
 }
 
 function referenciaDemoCerrada(valor) {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { generarReciboPDFPresentacion } from "./recibo-pdf-presentacion.js";
+import { crearTraductorReciboPDF, MENSAJES_RECIBO_PDF_EN, MENSAJES_RECIBO_PDF_ES } from "./recibo-pdf-i18n.js";
 
 const descriptor = {
   referencia: "DEMO-DIE-REC-0007",
@@ -30,6 +31,13 @@ test("genera un PDF institucional de presentación con referencia verificable", 
   assert.match(contenido, /sin validez administrativa/);
   assert.match(contenido, /%%EOF$/);
   assert.ok(blob.size > 10_000, "el PDF debe contener la representación vectorial del QR");
+});
+
+test("el catálogo inglés tiene las mismas claves y marcadores", () => {
+  assert.deepEqual(Object.keys(MENSAJES_RECIBO_PDF_EN), Object.keys(MENSAJES_RECIBO_PDF_ES));
+  assert.equal(crearTraductorReciboPDF(MENSAJES_RECIBO_PDF_EN)("referencia", { referencia: descriptor.referencia }),
+    `Reference: ${descriptor.referencia}`);
+  assert.throws(() => crearTraductorReciboPDF({ ...MENSAJES_RECIBO_PDF_EN, referencia: "Reference" }), /catálogo/u);
 });
 
 test("rechaza referencias, destinos y campos que no respetan el contrato cerrado", () => {

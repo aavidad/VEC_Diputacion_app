@@ -4,9 +4,10 @@
  * habilita una acción: devuelve solo un fragmento HTML seguro para inyectar.
  */
 
-import { crearTraductorEstadoEntrega } from "./estado-entrega-i18n.js";
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
+import { crearTraductorEstadoEntrega, MENSAJES_ESTADO_ENTREGA_EN } from "./estado-entrega-i18n.js";
 
-const traducir = crearTraductorEstadoEntrega();
+const traducir = crearTraductorEstadoEntrega(IDIOMA_ACTUAL === "en" ? MENSAJES_ESTADO_ENTREGA_EN : undefined);
 
 const ESTADOS = Object.freeze({
   conectado: Object.freeze({

@@ -10,6 +10,7 @@ import {
   CLAVES_ESTADO_ENTREGA,
   crearTraductorEstadoEntrega,
   MENSAJES_ESTADO_ENTREGA_ES,
+  MENSAJES_ESTADO_ENTREGA_EN,
 } from "./estado-entrega-i18n.js";
 
 const pendiente = {
@@ -46,6 +47,13 @@ test("el catálogo español es completo, cerrado y sirve todas las etiquetas de 
   assert.throws(() => traducir("texto_inventado"), /clave de estado de entrega desconocida/u);
   assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA_ES, extra: "no" }), /catálogo/u);
   assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA_ES, pendientes_titulo: "" }), /catálogo/u);
+});
+
+test("el catálogo inglés tiene las mismas claves y marcadores", () => {
+  assert.deepEqual(Object.keys(MENSAJES_ESTADO_ENTREGA_EN), CLAVES_ESTADO_ENTREGA);
+  const traducir = crearTraductorEstadoEntrega(MENSAJES_ESTADO_ENTREGA_EN);
+  assert.equal(traducir("aria_estado", { estado: "Connected" }), "Delivery status: Connected");
+  assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA_EN, aria_estado: "Delivery status" }), /catálogo/u);
 });
 
 test("escapa todo texto interpolado", () => {

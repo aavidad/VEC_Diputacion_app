@@ -1,5 +1,9 @@
 /** Puente exclusivo de presentación entre el puerto documental y el PDF local. */
 import { descargarReciboPDFPresentacion } from "./recibo-pdf-presentacion.js";
+import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
+import { crearTraductorReciboPDF, MENSAJES_RECIBO_PDF_EN } from "./recibo-pdf-i18n.js";
+
+const traducir = crearTraductorReciboPDF(IDIOMA_ACTUAL === "en" ? MENSAJES_RECIBO_PDF_EN : undefined);
 
 export function crearDescargadorRecibosPresentacion(entorno = globalThis) {
   return async function descargarRecibo(descriptor) {
@@ -14,14 +18,14 @@ export function crearDescargadorRecibosPresentacion(entorno = globalThis) {
       ? entorno.location.origin : "";
     return descargarReciboPDFPresentacion({
       referencia,
-      titulo: descriptor.titulo || "Recibo del Portal del Empleado",
-      subtitulo: descriptor.subtitulo || "Diputación de Granada · documento de demostración",
+      titulo: descriptor.titulo || traducir("titulo_descargador"),
+      subtitulo: descriptor.subtitulo || traducir("subtitulo_descargador"),
       filas,
       urlVerificacion,
       origenInstitucional,
       nombreArchivo,
       rotuloDocumento: descriptor.tipo_documento,
-      nota: descriptor.marca || "Documento DEMO. En producción se emitirá desde el expediente firmado y custodiado.",
+      nota: descriptor.marca || traducir("marca_descargador"),
       textoCertificacion: descriptor.texto_certificacion,
     }, entorno);
   };

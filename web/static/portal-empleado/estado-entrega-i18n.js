@@ -17,6 +17,20 @@ export const MENSAJES_ESTADO_ENTREGA_ES = Object.freeze({
   conexion_etiqueta: "Conexión:",
 });
 
+export const MENSAJES_ESTADO_ENTREGA_EN = Object.freeze({
+  estado_conectado_etiqueta: "Connected",
+  estado_conectado_encabezado: "Available with the current connection",
+  estado_pendiente_etiqueta: "Connection pending",
+  estado_pendiente_encabezado: "Interface prepared; connection pending",
+  estado_bloqueado_etiqueta: "Blocked by a dependency",
+  estado_bloqueado_encabezado: "Unavailable until a dependency is resolved",
+  aria_estado: "Delivery status: {estado}",
+  pendientes_vacios: "No pending items have been declared.",
+  pendientes_titulo: "What remains to be done",
+  fuente_etiqueta: "Source:",
+  conexion_etiqueta: "Connection:",
+});
+
 export const CLAVES_ESTADO_ENTREGA = Object.freeze(Object.keys(MENSAJES_ESTADO_ENTREGA_ES));
 
 function esCatalogoCerrado(catalogo) {
@@ -24,7 +38,9 @@ function esCatalogoCerrado(catalogo) {
     || Object.getPrototypeOf(catalogo) !== Object.prototype) return false;
   const claves = Object.keys(catalogo);
   return claves.length === CLAVES_ESTADO_ENTREGA.length
-    && CLAVES_ESTADO_ENTREGA.every((clave) => typeof catalogo[clave] === "string" && catalogo[clave].trim() !== "");
+    && CLAVES_ESTADO_ENTREGA.every((clave) => typeof catalogo[clave] === "string" && catalogo[clave].trim() !== ""
+      && [...MENSAJES_ESTADO_ENTREGA_ES[clave].matchAll(/\{([a-z_]+)\}/gu)].map((coincidencia) => coincidencia[1]).sort().join(",")
+        === [...catalogo[clave].matchAll(/\{([a-z_]+)\}/gu)].map((coincidencia) => coincidencia[1]).sort().join(","));
 }
 
 /** Crea un traductor estricto: no admite catálogos ni claves incompletas. */
