@@ -1,16 +1,16 @@
 import {
   crearClienteBorradores,
   generarClaveIdempotencia,
-} from "./portal-borradores-api.js?v=20260928-ppt-503-v4";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260928-ppt-503-v4";
+} from "./portal-borradores-api.js?v=20260928-ppt-503-v5";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260928-ppt-503-v5";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   crearEstadoBorradores,
   limpiarEstadoBorradoresRevocado,
 } from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
 import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
-import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20260928-ppt-503-v4";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { crearRenderizadorBorradores } from "./portal-borradores-vista.js?v=20260928-ppt-503-v5";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v5";
 import {
   FASE_CARGANDO,
   FASE_ERROR,
@@ -21,8 +21,8 @@ import {
   editorDesdeDetalle,
   editorNuevo,
   errorSeguro,
-} from "./portal-borradores-ui-soporte.js?v=20260928-ppt-503-v4";
-export { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui-soporte.js?v=20260928-ppt-503-v4";
+} from "./portal-borradores-ui-soporte.js?v=20260928-ppt-503-v5";
+export { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui-soporte.js?v=20260928-ppt-503-v5";
 
 export function crearSuperficieBorradoresPortal({
   escaparHTML,

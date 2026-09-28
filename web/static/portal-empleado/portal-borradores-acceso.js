@@ -1,5 +1,5 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-ppt-503-v4";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-ppt-503-v5";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v5";
 
 const FASE_INICIAL = "inicial";
 const FASE_COMPROBANDO = "comprobando";

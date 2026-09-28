@@ -3,7 +3,7 @@
  * referencia interna: número de orden, datos legibles y botón «Copiar
  * referencia». Los textos del justificante son los comunes del panel.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v5";
 
 export const MENSAJES_REFERENCIAS_ES = Object.freeze({
   persona_fuera_de_pagina: "Persona seleccionada fuera de esta página",
