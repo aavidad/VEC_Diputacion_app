@@ -1,12 +1,30 @@
-import { crearTraductorAuditoria } from "./i18n.js?v=20260928-rrhh-auditoria";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, formatearNumeroPortal } from "../../portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v1";
+import { presentarRegistroAuditoria, presentarExpedienteAuditoria } from "./datos-presentacion.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const texto = (v, n = 512) => typeof v === "string" && v.length <= n && !/[\x00-\x1f\x7f]/u.test(v);
 const fecha = (v) => typeof v === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/u.test(v) && Number.isFinite(Date.parse(v));
 const digest = (v) => v == null || v === "" || typeof v === "string" && /^[a-f0-9]{64}$/iu.test(v);
-const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeStyle: "medium", timeZone: ZONA_HORARIA_PORTAL });
+const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "medium", timeZone: ZONA_HORARIA_PORTAL });
+const formatoNumero = new Intl.NumberFormat(LOCALIZACION_ACTUAL);
+const formatoPartesMadrid = new Intl.DateTimeFormat("en-GB", { timeZone: ZONA_HORARIA_PORTAL,
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const DIA_MS = 86400000;
+
+/** Convierte la fecha introducida en hora de Madrid y rechaza horas inexistentes por cambio de horario. */
+function instanteMadrid(valor) {
+  if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/u.test(valor)) return NaN;
+  const local = Date.parse(`${valor}Z`);
+  if (!Number.isFinite(local)) return NaN;
+  const partes = Object.fromEntries(formatoPartesMadrid.formatToParts(new Date(local)).map(({ type, value }) => [type, value]));
+  const madridEnUTC = Date.UTC(+partes.year, +partes.month - 1, +partes.day, +partes.hour, +partes.minute);
+  const instante = local - (madridEnUTC - local);
+  const real = Object.fromEntries(formatoPartesMadrid.formatToParts(new Date(instante)).map(({ type, value }) => [type, value]));
+  return `${real.year}-${real.month}-${real.day}T${real.hour}:${real.minute}` === valor ? instante : NaN;
+}
 
 function proyeccion(v) {
   if (!v || typeof v !== "object" || Array.isArray(v) || Object.keys(v).length > 20
@@ -40,12 +58,16 @@ function bloqueValores(t, clave, valores, huella) {
     ${huella ? `<p class="auditoria-huella">${escapar(t("huella"))} <code>${escapar(huella)}</code></p>` : ""}</section>`;
 }
 
-function fila(t, r) {
+function fila(t, r, ejemplo) {
+  const visible = presentarRegistroAuditoria(r, t, ejemplo);
   return `<tr><td><time datetime="${escapar(r.ocurrido_en)}">${escapar(formatoFecha.format(new Date(r.ocurrido_en)))}</time></td>
-    <td>${escapar(r.actor_ref)}</td><td>${escapar(r.accion)}</td><td><span class="auditoria-resultado">${escapar(r.resultado)}</span></td>
+    <td>${escapar(visible.actor)}</td><td>${escapar(visible.accion)}</td><td>${escapar(visible.expediente)}</td><td><span class="auditoria-resultado">${escapar(visible.resultado)}</span></td>
     <td><details><summary>${escapar(t("ver_cambio"))}</summary><div class="auditoria-detalle">
+      <h4>${escapar(t("detalle_tecnico"))}</h4>
       <dl class="auditoria-metadatos">
-        ${[["campo_modulo", r.modulo_id], ["campo_expediente", r.expediente_ref], ["campo_recibo", r.recibo_ref],
+        ${[["campo_registro_ref", r.id], ["campo_actor_ref", r.actor_ref], ["campo_accion_ref", r.accion],
+          ["campo_resultado_ref", r.resultado], ["campo_expediente_ref", r.expediente_ref],
+          ["campo_modulo", r.modulo_id], ["campo_recibo", r.recibo_ref],
           ["campo_fuente", r.fuente], ["campo_motivo", r.motivo]].map(([k, v]) =>
             `<div><dt>${escapar(t(k))}</dt><dd>${escapar(v || t("sin_dato"))}</dd></div>`).join("")}
       </dl><div class="auditoria-comparacion">${bloqueValores(t, "antes", r.antes, r.antes_sha256)}
@@ -70,11 +92,11 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
     <section class="panel auditoria-filtro-panel" aria-labelledby="auditoria-filtros-titulo">
       <div class="cabecera-panel"><h3 id="auditoria-filtros-titulo">${escapar(t("filtros_titulo"))}</h3></div>
       <div class="cuerpo-panel">
-        <p class="auditoria-expediente"><strong>${escapar(t(fuenteContexto === "bolsa" ? "participacion" : "expediente"))}:</strong> ${escapar(expedienteRef || t("sin_expediente"))}</p>
+        <p class="auditoria-expediente"><strong>${escapar(t(fuenteContexto === "bolsa" ? "participacion" : "expediente"))}:</strong> ${escapar(expedienteRef ? presentarExpedienteAuditoria(expedienteRef, t, ejemplo) : t("sin_expediente"))}</p>
         ${ejemplo ? `<p class="auditoria-ejemplo">${escapar(t("configuracion_ejemplo"))}</p>` : ""}
         <form data-auditoria-filtros class="auditoria-filtros">
-        ${[["desde", "desde", "datetime-local", "required"], ["hasta", "hasta", "datetime-local", "required"]].map(([name, label, type, attrs]) =>
-          `<label>${escapar(t(label))}<input name="${name}" type="${type}" ${attrs} value="${escapar(filtros[name])}" ${bloqueada ? "disabled" : ""}></label>`).join("")}
+        ${[["desde", "desde"], ["hasta", "hasta"]].map(([name, label]) =>
+          `<label>${escapar(t(label))}<input name="${name}" type="datetime-local" value="${escapar(filtros[name] || "")}" ${bloqueada ? "disabled" : ""}></label>`).join("")}
         <button type="submit" class="boton-primario" ${bloqueada || estado === "cargando" ? "disabled" : ""}>${escapar(t("consultar"))}</button>
       </form></div></section>
     <section class="panel auditoria-resultados" aria-labelledby="auditoria-resultados-titulo">
@@ -83,11 +105,11 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       <div class="cuerpo-panel"><p class="auditoria-estado-texto" role="status" aria-live="polite">${escapar(mensaje)}</p>
       ${estado === "error" && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
       ${estado === "disponible" ? `<div class="auditoria-tabla" role="region" tabindex="0" aria-label="${escapar(t("tabla_aria"))}">
-        <table><thead><tr>${["fecha", "actor", "accion", "resultado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
-        <tbody>${registros.map((r) => fila(t, r)).join("")}</tbody></table></div>` : ""}
+        <table><thead><tr>${["fecha", "actor", "accion", "numero", "resultado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
+        <tbody>${registros.map((r) => fila(t, r, ejemplo)).join("")}</tbody></table></div>` : ""}
       ${["disponible", "vacio"].includes(estado) ? `<nav class="auditoria-paginacion" aria-label="${escapar(t("paginacion"))}">
         <button type="button" class="boton-secundario" data-auditoria-anterior ${puedeAnterior ? "" : "disabled"}>${escapar(t("anterior"))}</button>
-        <span>${escapar(t("pagina", { numero: formatearNumeroPortal(pagina) }))}</span>
+        <span>${escapar(t("pagina", { numero: formatoNumero.format(pagina) }))}</span>
         <button type="button" class="boton-secundario" data-auditoria-siguiente ${siguienteCursor ? "" : "disabled"}>${escapar(t("siguiente"))}</button>
       </nav>` : ""}</div></section></section>`;
 }
@@ -122,7 +144,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
       if (!recibidas.fuentes.includes(fuenteContexto)) {
         opciones = null; habilitada = false; registros = []; estado = "denegado"; pintar(); return;
       }
-      opciones = recibidas; habilitada = true; estado = "esperando"; pintar();
+      opciones = recibidas; habilitada = true; estado = "esperando"; pintar(); void consultar();
     } catch (error) {
       if (!activa || signal.aborted || secuencia !== actual) return;
       opciones = null; habilitada = false; registros = []; estado = error?.codigo === "denegado" ? "denegado" : "error"; pintar();
@@ -133,9 +155,15 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
     cancelar(); controlador = new AbortController(); const signal = controlador.signal, actual = secuencia;
     estado = "cargando"; registros = []; siguienteCursor = ""; pintar();
     try {
+      const ahora = Date.now();
+      const inicio = filtros.desde ? instanteMadrid(filtros.desde) : ahora - 30 * DIA_MS;
+      const fin = filtros.hasta ? instanteMadrid(filtros.hasta) : ahora;
+      if (!Number.isFinite(inicio) || !Number.isFinite(fin) || fin <= inicio || fin - inicio > 31 * DIA_MS) {
+        estado = "invalido"; pintar(); anunciar(t("estado_invalido"), "error"); return;
+      }
       const respuesta = validarRespuestaAuditoria(await fuente.consultar({
         fuente: fuenteContexto, expediente_ref: expedienteRef, actor_ref: "",
-        desde: new Date(filtros.desde).toISOString(), hasta: new Date(filtros.hasta).toISOString(),
+        desde: new Date(inicio).toISOString(), hasta: new Date(fin).toISOString(),
         finalidad_ref: opciones.finalidad_ref, motivo_ref: opciones.motivo_ref, cursor: cursores.at(-1),
       }, { signal }));
       if (!activa || signal.aborted || secuencia !== actual) return;
@@ -164,10 +192,6 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
     const datos = new FormData(evento.target);
     filtros = Object.fromEntries(["desde", "hasta"].map((k) => [k, String(datos.get(k) || "").trim()]));
     cursores = [""];
-    const inicio = Date.parse(filtros.desde), fin = Date.parse(filtros.hasta);
-    if (!Number.isFinite(inicio) || !Number.isFinite(fin) || fin <= inicio || fin - inicio > 31 * 86400000) {
-      cancelar(); registros = []; estado = "invalido"; pintar(); return;
-    }
     void consultar();
   };
   const cambiar = (evento) => {

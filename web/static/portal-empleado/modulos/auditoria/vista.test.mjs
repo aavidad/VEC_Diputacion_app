@@ -30,21 +30,27 @@ test("sin expediente de navegación la consulta permanece cerrada y no ofrece v�
 test("solo muestra expediente exacto escapado y aviso de configuración de ejemplo", () => {
   const html = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
     expedienteRef: 'exp_1"><script>', fuenteContexto: "ct", ejemplo: true });
-  assert.match(html, /exp_1&quot;&gt;&lt;script&gt;/u);
-  assert.match(html, /Configuración de ejemplo pendiente de RRHH/u);
+  assert.match(html, /Número no disponible/u);
+  assert.match(html, /Muestra ficticia/u);
+  assert.doesNotMatch(html, /exp_1&quot;&gt;&lt;script&gt;/u);
   assert.doesNotMatch(html, /<script>|name="expediente_ref"|name="actor_ref"/u);
   const bolsa = renderizarVistaAuditoria({ estado: "esperando", habilitada: true,
     expedienteRef: "participacion_1", fuenteContexto: "bolsa" });
-  assert.match(bolsa, /<strong>Participación:<\/strong> participacion_1/u);
+  assert.match(bolsa, /<strong>Participación:<\/strong> Número no disponible/u);
   assert.doesNotMatch(bolsa, /name="fuente"/u);
 });
 
-test("registros autorizados muestran actor, instante, motivo y valores minimizados", () => {
+test("la muestra enseña nombres y números ficticios; las referencias y huellas quedan plegadas", () => {
   const respuesta = validarRespuestaAuditoria({ registros: [{ ...registro, antes: { unidad: "<script>" } }], siguiente_cursor: "" });
-  const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, registros: respuesta.registros });
-  assert.match(html, /per_1|rectificacion|Huella SHA-256|datetime="2026-09-28T08:00:00Z"/u);
+  const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, ejemplo: true, registros: respuesta.registros });
+  assert.match(html, /Carmen Molina \(ficticio\).*Actualizó la relación de servicio.*EXP-2026-001 \(ficticio\)/su);
+  assert.match(html, /<details><summary>Ver detalle técnico<\/summary>[\s\S]*per_1[\s\S]*relacion\.actualizada[\s\S]*Huella SHA-256/u);
+  assert.match(html, /datetime="2026-09-28T08:00:00Z"/u);
   assert.match(html, /&lt;script&gt;/u);
   assert.doesNotMatch(html, /<script>/u);
+  const real = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, registros: respuesta.registros });
+  assert.match(real, /Nombre no disponible.*Número no disponible/su);
+  assert.doesNotMatch(real.split("<details>")[0], /per_1|exp_1|relacion\.actualizada/u);
   assert.throws(() => validarRespuestaAuditoria({ registros: [{ ...registro, despues: { secreto: {} } }], siguiente_cursor: "" }), /proyección/u);
 });
 
@@ -58,10 +64,10 @@ test("paginación se mantiene y denegación no presenta datos previos", () => {
 
 test("GET de opciones antecede al POST, que usa expediente de navegación y refs recibidas", async () => {
   const { eventos, raiz } = raizFalsa();
-  let peticion;
+  const peticiones = [];
   const fuente = {
     obtenerOpciones: async () => opciones,
-    consultar: async (entrada) => { peticion = entrada; return { registros: [registro], siguiente_cursor: "" }; },
+    consultar: async (entrada) => { peticiones.push(entrada); return { registros: [registro], siguiente_cursor: "" }; },
   };
   const original = globalThis.FormData;
   globalThis.FormData = class { get(k) { return { desde: "2026-09-28T08:00", hasta: "2026-09-28T09:00" }[k]; } };
@@ -69,15 +75,20 @@ test("GET de opciones antecede al POST, que usa expediente de navegación y refs
     const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
     assert.match(raiz.innerHTML, /Comprobando opciones/u);
     await esperar();
-    assert.match(raiz.innerHTML, /Configuración de ejemplo/u);
+    assert.match(raiz.innerHTML, /Muestra ficticia/u);
+    assert.equal(peticiones.length, 1, "consulta automática al abrir");
+    assert.equal(Date.parse(peticiones[0].hasta) - Date.parse(peticiones[0].desde), 30 * 86400000);
+    assert.match(raiz.innerHTML, /Carmen Molina \(ficticio\)/u);
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     await esperar();
+    assert.equal(peticiones.length, 2);
+    const peticion = peticiones[1];
     assert.equal(peticion.expediente_ref, "exp_1");
     assert.equal(peticion.fuente, "ct");
     assert.equal(peticion.actor_ref, "");
     assert.equal(peticion.finalidad_ref, opciones.finalidad_ref);
     assert.equal(peticion.motivo_ref, opciones.motivo_ref);
-    assert.match(raiz.innerHTML, /per_1/u);
+    assert.match(raiz.innerHTML, /Ver detalle técnico/u);
     vista.desmontar();
   } finally { globalThis.FormData = original; }
 });
@@ -113,6 +124,29 @@ test("sin fuente de navegación o sin fuente ofrecida por GET no consulta", asyn
   assert.match(raiz.innerHTML, /Acceso denegado/u);
   assert.doesNotMatch(raiz.innerHTML, /name="fuente"/u);
   noOfrecida.desmontar();
+});
+
+test("filtros opcionales usan hora de Madrid y rechazan intervalos mayores de 31 días", async () => {
+  const { eventos, raiz } = raizFalsa();
+  const peticiones = [];
+  const fuente = { obtenerOpciones: async () => opciones,
+    consultar: async (entrada) => { peticiones.push(entrada); return { registros: [], siguiente_cursor: "" }; } };
+  const original = globalThis.FormData;
+  let valores = { desde: "2026-09-28T10:00", hasta: "2026-09-29T10:00" };
+  globalThis.FormData = class { get(k) { return valores[k]; } };
+  try {
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
+    await esperar();
+    eventos.submit({ target: { matches: () => true }, preventDefault() {} });
+    await esperar();
+    assert.equal(peticiones.at(-1).desde, "2026-09-28T08:00:00.000Z");
+    valores = { desde: "2026-08-01T10:00", hasta: "2026-09-28T10:00" };
+    eventos.submit({ target: { matches: () => true }, preventDefault() {} });
+    await esperar();
+    assert.match(raiz.innerHTML, /Revise las fechas/u);
+    assert.equal(peticiones.length, 2);
+    vista.desmontar();
+  } finally { globalThis.FormData = original; }
 });
 
 test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () => {
