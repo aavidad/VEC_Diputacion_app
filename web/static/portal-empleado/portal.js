@@ -1,32 +1,32 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-peticiones-personal-temporal-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-rrhh-cache-unificada-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260928-peticiones-personal-temporal-v1";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260928-peticiones-personal-temporal-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-peticiones-personal-temporal-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260928-peticiones-personal-temporal-v1";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260928-rrhh-cache-unificada-v1";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260928-rrhh-cache-unificada-v1";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
-import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-peticiones-personal-temporal-v1";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260928-peticiones-personal-temporal-v1";
+import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260928-peticiones-personal-temporal-v1";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-peticiones-personal-temporal-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-peticiones-personal-temporal-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260928-rrhh-cache-unificada-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-rrhh-cache-unificada-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260928-peticiones-personal-temporal-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260928-peticiones-personal-temporal-v1";
-import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-peticiones-personal-temporal-v1";
-import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260928-peticiones-personal-temporal-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260928-rrhh-cache-unificada-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-rrhh-cache-unificada-v1";
+import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260928-peticiones-personal-temporal-v1";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260928-rrhh-cache-unificada-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -1032,6 +1032,7 @@ const controlador = crearControladorPortal({
 async function inicializar() {
   aplicarTextosPortal(document);
   aplicarIdiomaDocumento(document);
+  instalarSelectorIdiomaPortal(document);
   instalarValidacionI18n(document);
   configurarInicioInstitucional();
   controlador.restaurarPreferencias();

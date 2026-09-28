@@ -380,16 +380,16 @@ test("interfaz pública: listas.html es accesible, semántica y sin textos demo 
   assert.match(html, /<main\b[^>]*\bid="contenido-principal"/);
   assert.match(html, /<header\b[^>]*\bclass="cabecera-publica"/);
   assert.match(html, /<table\b[^>]*\bclass="tabla-listas-publica"/);
-  assert.match(html, /<caption>/);
-  assert.match(html, /<th scope="col">/);
+  assert.match(html, /<caption\b[^>]*>/);
+  assert.match(html, /<th scope="col"[^>]*>/);
   assert.match(html, /id="seccion-lista" aria-label="Lista de aspirantes de la bolsa seleccionada"/);
   assert.doesNotMatch(html, /aria-labelledby="titulo-seccion-lista"/);
-  assert.match(html, /<details class="ayuda-formato-lista">\s*<summary aria-label="Formato del documento enmascarado" title="Formato del documento enmascarado"><span aria-hidden="true">\?<\/span><\/summary>/);
-  assert.match(html, /<p id="ayuda-formato-documento" class="ayuda-busqueda-doc">Introduzca únicamente/);
+  assert.match(html, /<details class="ayuda-formato-lista">\s*<summary aria-label="Formato del documento enmascarado" title="Formato del documento enmascarado"[^>]*><span aria-hidden="true">\?<\/span><\/summary>/);
+  assert.match(html, /<p id="ayuda-formato-documento" class="ayuda-busqueda-doc"[^>]*>Introduzca únicamente/);
   assert.match(html, /<p id="error-formato-documento" class="ayuda-busqueda-doc ayuda-busqueda-doc--error" hidden><\/p>\s*<details class="ayuda-formato-lista">/);
 
   // Enlace de salto
-  assert.match(html, /<a class="salto-contenido" href="#contenido-principal">/);
+  assert.match(html, /<a class="salto-contenido" href="#contenido-principal"[^>]*>/);
 
   // Protección anti desbordamiento a 390 px
   assert.match(css, /overflow-x:\s*auto/);

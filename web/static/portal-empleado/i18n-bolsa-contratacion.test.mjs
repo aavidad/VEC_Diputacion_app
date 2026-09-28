@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 import { MENSAJES_PORTAL_ES } from "./portal-i18n.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./modulos/contratacion-temporal/i18n.js";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js";
 import { cadenasHumanas, hallazgosHTML, hallazgosTextosLiterales } from "./textos-literales.test-helper.mjs";
 
@@ -28,6 +28,20 @@ async function ficherosAuditados() {
 }
 
 const PAGINAS = ["index.html", "peticiones-centro/index.html", "reglas/index.html", "modulos/contratacion-temporal/consulta-seguimiento.html"];
+
+test("Contratación temporal conserva claves y marcadores en inglés", () => {
+  const es = MENSAJES_CONTRATACION_TEMPORAL_ES;
+  const en = MENSAJES_CONTRATACION_TEMPORAL_EN;
+  assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
+  const marcadores = (valor) => [...valor.matchAll(/\{[a-z_]+\}/gu)].map((match) => match[0]).sort();
+  for (const clave of Object.keys(es)) {
+    assert.equal(typeof en[clave], "string", clave);
+    assert.ok(en[clave].trim(), clave);
+    assert.deepEqual(marcadores(en[clave]), marcadores(es[clave]), clave);
+  }
+  const traducirEN = crearTraductorContratacionTemporal(en);
+  assert.notEqual(traducirEN("titulo"), es.titulo);
+});
 
 // Cadenas con aspecto de texto que no se muestran como tal. Cada entrada se
 // justifica; una cadena nueva visible debe ir al catálogo, no a esta lista.

@@ -8,10 +8,12 @@ import {
   seleccionarIdiomaAcceso,
 } from "./acceso-i18n.js";
 
-test("elige exclusivamente el catálogo empaquetado español", () => {
+test("elige catálogos empaquetados por URL y preferencia del navegador", () => {
   assert.equal(seleccionarIdiomaAcceso(["fr-FR", "es-ES"]), "es");
   assert.equal(seleccionarIdiomaAcceso(["../../privado"]), "es");
-  assert.equal(rutaCatalogoAcceso(["en-US"]), "/acceso/locales/es.json");
+  assert.equal(rutaCatalogoAcceso(["en-US"]), "/acceso/locales/en.json");
+  assert.equal(rutaCatalogoAcceso(["en-US"], "es"), "/acceso/locales/es.json");
+  assert.equal(rutaCatalogoAcceso(["es-ES"], "en"), "/acceso/locales/en.json");
 });
 
 test("traduce texto y atributos admitidos sin construir rutas", async () => {
@@ -40,6 +42,17 @@ test("traduce texto y atributos admitidos sin construir rutas", async () => {
     return { ok: false, json: async () => ({}) };
   }, ["../../privado"]);
   assert.deepEqual(llamadas, [["/acceso/locales/es.json", { credentials: "omit" }]]);
+});
+
+test("el catálogo inglés cambia el idioma del documento solo tras cargarlo", async () => {
+  const documento = { documentElement: { lang: "es" }, querySelectorAll: () => [] };
+  const ubicacion = { href: "https://vec.example/acceso/?lang=en" };
+  const cargado = await iniciarI18nAcceso(documento, async (ruta) => {
+    assert.equal(ruta, "/acceso/locales/en.json");
+    return { ok: true, json: async () => ({ "acceso.titulo": "Human Resources portal" }) };
+  }, ["es-ES"], ubicacion);
+  assert.equal(cargado, "en");
+  assert.equal(documento.documentElement.lang, "en");
 });
 
 test("la ayuda empieza oculta, se abre con ?, y Escape la cierra devolviendo el foco", () => {
