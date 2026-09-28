@@ -240,7 +240,7 @@ BEGIN
       OR x.recibo_json->>'Estado' IS DISTINCT FROM x.estado
       OR x.recibo_json->>'RegistradaEn' IS NULL
       OR (x.recibo_json->>'RegistradaEn')::timestamptz IS DISTINCT FROM x.registrada_en
-      OR NOT (
+      OR (
        (NOT (x.material_json->'solicitud' ? 'TipoAntecedente') AND EXISTS (
         SELECT 1 FROM vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
         WHERE e.clave_idempotencia=x.seleccion_clave AND e.situacion='confirmada'
@@ -281,7 +281,7 @@ BEGIN
              AND e.recibo_json->>'llamamiento_ref'=r.llamamiento_ref
              AND e.recibo_json->'propuesta_generada'='true'::jsonb
           ))
-      )
+      ) IS NOT TRUE
     )
  ) THEN RAISE EXCEPTION 'CT140: comunicación inconsistente' USING ERRCODE='P1405'; END IF;
  FOR v_fila IN
