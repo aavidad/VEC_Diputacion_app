@@ -139,6 +139,23 @@ func TestMontajeExigeCuentasPerfilesYPoolsSeparados(t *testing.T) {
 	}
 }
 
+func TestPreflightRechazaCuentasMezcladasAntesDeAbrirSQL(t *testing.T) {
+	interna := configuracionUsuariosPreferenciasDesarrollo{Superficie: core.SuperficieAutenticacionInternaCorporativaV1, Cuentas: []cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{CertificadoSHA256: strings.Repeat("a", 64), Sujeto: "sujeto-i", CuentaRef: "cta_i", PerfilRef: "prf_i"}}}}
+	externa := configuracionUsuariosPreferenciasDesarrollo{Superficie: core.SuperficieAutenticacionExternaPersonalV1, Cuentas: []cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{CertificadoSHA256: strings.Repeat("b", 64), Sujeto: "sujeto-e", CuentaRef: "cta_e", PerfilRef: "prf_e"}}}}
+	if !configuracionesPreferenciasSeparadas(interna, externa) {
+		t.Fatal("configuración válida rechazada")
+	}
+	externa.Cuentas[0].CertificadoSHA256 = interna.Cuentas[0].CertificadoSHA256
+	if configuracionesPreferenciasSeparadas(interna, externa) {
+		t.Fatal("certificado mezclado pasó preflight")
+	}
+	externa.Cuentas[0].CertificadoSHA256 = strings.Repeat("b", 64)
+	externa.Cuentas[0].PerfilRef = interna.Cuentas[0].PerfilRef
+	if configuracionesPreferenciasSeparadas(interna, externa) {
+		t.Fatal("perfil mezclado pasó preflight")
+	}
+}
+
 func TestDescriptorUsuariosSoloConSelectorYAudienciasDistintas(t *testing.T) {
 	apagado := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{})
 	encendido := append(append([]descriptorMaterialConsumidorV3Desarrollo(nil), apagado...), descriptoresMaterialPreferenciasUsuariosDesarrollo()...)

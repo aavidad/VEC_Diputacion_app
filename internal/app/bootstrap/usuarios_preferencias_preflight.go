@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -38,10 +40,44 @@ func leerConfiguracionUsuariosPreferenciasDesarrollo(cfg config.Config, superfic
 	return c, nil
 }
 
+func configuracionesPreferenciasSeparadas(interna, externa configuracionUsuariosPreferenciasDesarrollo) bool {
+	if interna.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 || externa.Superficie != core.SuperficieAutenticacionExternaPersonalV1 {
+		return false
+	}
+	certificados := map[string]bool{}
+	cuentas := map[string]bool{}
+	perfiles := map[string]bool{}
+	for _, c := range interna.Cuentas {
+		b, err := hex.DecodeString(c.CertificadoSHA256)
+		if err != nil || len(b) != sha256.Size || hex.EncodeToString(b) != c.CertificadoSHA256 || c.Sujeto == "" || c.CuentaRef == "" || c.PerfilRef == "" {
+			return false
+		}
+		certificados[c.CertificadoSHA256] = true
+		cuentas[c.CuentaRef] = true
+		perfiles[c.PerfilRef] = true
+	}
+	for _, c := range externa.Cuentas {
+		b, err := hex.DecodeString(c.CertificadoSHA256)
+		if err != nil || len(b) != sha256.Size || hex.EncodeToString(b) != c.CertificadoSHA256 || c.Sujeto == "" || c.CuentaRef == "" || c.PerfilRef == "" ||
+			certificados[c.CertificadoSHA256] || cuentas[c.CuentaRef] || perfiles[c.PerfilRef] {
+			return false
+		}
+	}
+	return true
+}
+
 // Los cuatro roles de Usuarios y las seis identidades de infraestructura por
 // superficie se comprueban antes de publicar cualquiera de las cuatro claves
 // V3. Esta sonda no conserva pools: el montaje vuelve a abrirlos y los posee.
 func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config) error {
+	cInterna, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionInternaCorporativaV1)
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	cExterna, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1)
+	if err != nil || !configuracionesPreferenciasSeparadas(cInterna, cExterna) {
+		return errComposicionUsuariosPreferencias
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var pools []*pgxpool.Pool
@@ -51,11 +87,8 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config) error {
 		}
 	}()
 	logins := map[string]bool{}
-	for _, superficie := range []core.SuperficieAutenticacionActorV1{core.SuperficieAutenticacionInternaCorporativaV1, core.SuperficieAutenticacionExternaPersonalV1} {
-		c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, superficie)
-		if err != nil {
-			return errComposicionUsuariosPreferencias
-		}
+	for _, c := range []configuracionUsuariosPreferenciasDesarrollo{cInterna, cExterna} {
+		superficie := c.Superficie
 		entradas := []struct{ dsn, rol string }{
 			{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},
 			{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
