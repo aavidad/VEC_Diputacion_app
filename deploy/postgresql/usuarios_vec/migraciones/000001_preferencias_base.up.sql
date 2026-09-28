@@ -17,10 +17,10 @@ DO $pre$ BEGIN
 END $pre$;
 CREATE SCHEMA vec_usuarios AUTHORIZATION vec_usuarios_propietario;
 REVOKE ALL ON SCHEMA vec_usuarios FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON TABLES FROM PUBLIC,vec_usuarios_ejecutor;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON SEQUENCES FROM PUBLIC,vec_usuarios_ejecutor;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON FUNCTIONS FROM PUBLIC,vec_usuarios_ejecutor;
-ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON TYPES FROM PUBLIC,vec_usuarios_ejecutor;
+ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON TABLES FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON SEQUENCES FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON FUNCTIONS FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+ALTER DEFAULT PRIVILEGES FOR ROLE vec_usuarios_propietario REVOKE ALL ON TYPES FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE FUNCTION vec_usuarios.rechazar_cambio_inmutable()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
@@ -43,6 +43,46 @@ BEGIN
   AND jsonb_typeof(v->'aviso_correo_plazos')='boolean';
 END $f$;
 REVOKE ALL ON FUNCTION vec_usuarios.valores_validos(jsonb) FROM PUBLIC;
+
+CREATE FUNCTION vec_usuarios.sesion_superficie_valida(p_superficie text)
+RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT current_user='vec_usuarios_propietario'
+  AND session_user<>current_user
+  AND p_superficie IN ('interna_corporativa','externa_personal')
+  AND (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)=1
+  AND EXISTS(SELECT 1 FROM pg_auth_members m
+    WHERE m.member=session_user::regrole
+      AND m.roleid=(CASE p_superficie WHEN 'interna_corporativa' THEN 'vec_usuarios_ejecutor_interno'::regrole
+                                    ELSE 'vec_usuarios_ejecutor_externo'::regrole END)
+      AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+  AND NOT EXISTS(SELECT 1 FROM pg_auth_members m
+    WHERE m.member=(CASE p_superficie WHEN 'interna_corporativa' THEN 'vec_usuarios_ejecutor_interno'::regrole
+                                     ELSE 'vec_usuarios_ejecutor_externo'::regrole END))
+  AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_'
+    AND r.rolname<>session_user
+    AND r.rolname<>(CASE p_superficie WHEN 'interna_corporativa' THEN 'vec_usuarios_ejecutor_interno'
+                                          ELSE 'vec_usuarios_ejecutor_externo' END)
+    AND pg_has_role(session_user,r.oid,'MEMBER'))
+$f$;
+REVOKE ALL ON FUNCTION vec_usuarios.sesion_superficie_valida(text) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+
+CREATE FUNCTION vec_usuarios.sesion_migradora_catalogo()
+RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT current_user='vec_usuarios_propietario' AND session_user<>current_user
+  AND (EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
+       OR (pg_has_role(session_user,'vec_usuarios_migrador','MEMBER')
+         AND NOT pg_has_role(session_user,'vec_usuarios_ejecutor_interno','MEMBER')
+         AND NOT pg_has_role(session_user,'vec_usuarios_ejecutor_externo','MEMBER')))
+$f$;
+REVOKE ALL ON FUNCTION vec_usuarios.sesion_migradora_catalogo() FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+
+CREATE FUNCTION vec_usuarios.sesion_lectora_catalogo()
+RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT vec_usuarios.sesion_superficie_valida('interna_corporativa')
+     OR vec_usuarios.sesion_superficie_valida('externa_personal')
+     OR vec_usuarios.sesion_migradora_catalogo()
+$f$;
+REVOKE ALL ON FUNCTION vec_usuarios.sesion_lectora_catalogo() FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE TABLE vec_usuarios.catalogo_preferencias (
  version_ref text PRIMARY KEY CHECK(version_ref ~ '^[a-z][A-Za-z0-9:._-]{2,95}$'),
@@ -120,6 +160,7 @@ CREATE TABLE vec_usuarios.contexto_transaccion (
  backend_pid integer NOT NULL,
  sesion text NOT NULL,
  persona_ref text NOT NULL CHECK(persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
+ superficie text NOT NULL CHECK(superficie IN ('interna_corporativa','externa_personal')),
  modo text NOT NULL CHECK(modo IN ('consultar','recuperar','actualizar')),
  decision_ref text NOT NULL CHECK(length(decision_ref) BETWEEN 1 AND 256),
  consumo_huella_sha256 text NOT NULL CHECK(consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
@@ -132,30 +173,42 @@ CREATE FUNCTION vec_usuarios.contexto_autorizado(p_persona text,p_modos text[])
 RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
  SELECT EXISTS(SELECT 1 FROM vec_usuarios.contexto_transaccion c
   WHERE c.xid=pg_current_xact_id_if_assigned() AND c.backend_pid=pg_backend_pid()
-    AND c.sesion=session_user AND c.persona_ref=p_persona AND c.modo=ANY(p_modos))
+    AND c.sesion=session_user AND c.persona_ref=p_persona AND c.modo=ANY(p_modos)
+    AND vec_usuarios.sesion_superficie_valida(c.superficie))
 $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.contexto_autorizado(text,text[]) FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.contexto_autorizado(text,text[]) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 DO $rls$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['catalogo_preferencias','catalogo_publicacion','preferencias_actual','preferencias_historia','preferencias_recibo','contexto_transaccion'] LOOP
   EXECUTE format('ALTER TABLE vec_usuarios.%I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('ALTER TABLE vec_usuarios.%I FORCE ROW LEVEL SECURITY',t);
-  EXECUTE format('REVOKE ALL ON TABLE vec_usuarios.%I FROM PUBLIC,vec_usuarios_ejecutor',t);
+  EXECUTE format('REVOKE ALL ON TABLE vec_usuarios.%I FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo',t);
  END LOOP;
 END $rls$;
--- El catálogo es gobernado por migración; no contiene estado personal.
-CREATE POLICY catalogo_lectura ON vec_usuarios.catalogo_preferencias FOR SELECT TO vec_usuarios_propietario USING (true);
-CREATE POLICY catalogo_alta ON vec_usuarios.catalogo_preferencias FOR INSERT TO vec_usuarios_propietario WITH CHECK (true);
-CREATE POLICY publicacion_lectura ON vec_usuarios.catalogo_publicacion FOR SELECT TO vec_usuarios_propietario USING (true);
-CREATE POLICY publicacion_alta ON vec_usuarios.catalogo_publicacion FOR INSERT TO vec_usuarios_propietario WITH CHECK (true);
+-- Lectura por sesión técnica de una de las superficies; publicación solo DBA
+-- o migrador acreditado. Cada fila conserva su versión y huella gobernadas.
+CREATE POLICY catalogo_lectura ON vec_usuarios.catalogo_preferencias FOR SELECT TO vec_usuarios_propietario
+ USING (vec_usuarios.sesion_lectora_catalogo() AND definicion->>'version_ref'=version_ref
+  AND huella_sha256=encode(sha256(convert_to(definicion::text,'UTF8')),'hex'));
+CREATE POLICY catalogo_alta ON vec_usuarios.catalogo_preferencias FOR INSERT TO vec_usuarios_propietario
+ WITH CHECK (vec_usuarios.sesion_migradora_catalogo() AND definicion->>'version_ref'=version_ref
+  AND huella_sha256=encode(sha256(convert_to(definicion::text,'UTF8')),'hex'));
+CREATE POLICY publicacion_lectura ON vec_usuarios.catalogo_publicacion FOR SELECT TO vec_usuarios_propietario
+ USING (vec_usuarios.sesion_lectora_catalogo() AND secuencia>0 AND version_ref<>'');
+CREATE POLICY publicacion_alta ON vec_usuarios.catalogo_publicacion FOR INSERT TO vec_usuarios_propietario
+ WITH CHECK (vec_usuarios.sesion_migradora_catalogo() AND secuencia>0 AND version_ref<>'');
 -- El contexto sólo es accesible al propietario de funciones. Los predicados
 -- de estado se atan al xid8 completo, backend, LOGIN, persona y modo.
 CREATE POLICY contexto_lectura ON vec_usuarios.contexto_transaccion FOR SELECT TO vec_usuarios_propietario
- USING (current_user='vec_usuarios_propietario');
+ USING (current_user='vec_usuarios_propietario' AND backend_pid=pg_backend_pid()
+  AND sesion=session_user AND vec_usuarios.sesion_superficie_valida(superficie));
 CREATE POLICY contexto_alta ON vec_usuarios.contexto_transaccion FOR INSERT TO vec_usuarios_propietario
- WITH CHECK (current_user='vec_usuarios_propietario');
+ WITH CHECK (current_user='vec_usuarios_propietario' AND xid=pg_current_xact_id()
+  AND backend_pid=pg_backend_pid() AND sesion=session_user
+  AND vec_usuarios.sesion_superficie_valida(superficie));
 CREATE POLICY contexto_retirada ON vec_usuarios.contexto_transaccion FOR DELETE TO vec_usuarios_propietario
- USING (current_user='vec_usuarios_propietario');
+ USING (current_user='vec_usuarios_propietario' AND backend_pid=pg_backend_pid()
+  AND vec_usuarios.sesion_superficie_valida(superficie));
 CREATE POLICY estado_lectura ON vec_usuarios.preferencias_actual FOR SELECT TO vec_usuarios_propietario
  USING (vec_usuarios.contexto_autorizado(persona_ref,ARRAY['consultar','actualizar']));
 CREATE POLICY estado_alta ON vec_usuarios.preferencias_actual FOR INSERT TO vec_usuarios_propietario
