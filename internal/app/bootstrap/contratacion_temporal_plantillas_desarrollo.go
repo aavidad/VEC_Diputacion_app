@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	plantillaspg "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres/plantillascatalogo"
+	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -19,6 +20,8 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	docxvec "vec-diputacion-granada/internal/vec/adapters/documentos/docx"
+	pdfvec "vec-diputacion-granada/internal/vec/adapters/documentos/pdf"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -223,6 +226,19 @@ func (c catalogoFronterasComunDesarrollo) contienePerfilesRutasPlantillasCT(perf
 		{http.MethodPost, plantillashttp.RutaPublicar, "contratacion_temporal.plantillas_documentos.publicar"},
 	} {
 		d, ok := c.resolver(par.metodo, par.ruta)
+		if !ok || d.ClaveCapacidad != par.accion || !d.admitePerfil(perfil) {
+			return false
+		}
+	}
+	return true
+}
+
+func (c catalogoFronterasComunDesarrollo) contienePerfilRutasPlantillasDocumentalCT(perfil string) bool {
+	for _, par := range []struct{ ruta, accion string }{
+		{plantillashttp.RutaBorradoresDisponibles, "contratacion_temporal.plantillas_documentos.documental_listar"},
+		{plantillashttp.RutaBorradores, "contratacion_temporal.plantillas_documentos.documental_descargar"},
+	} {
+		d, ok := c.resolver(http.MethodPost, par.ruta)
 		if !ok || d.ClaveCapacidad != par.accion || !d.admitePerfil(perfil) {
 			return false
 		}
@@ -569,4 +585,155 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	}
 	return []vechttp.RutaExacta{{Ruta: plantillashttp.RutaCatalogo, Manejador: h},
 		{Ruta: plantillashttp.RutaEntradas, Manejador: h}, {Ruta: plantillashttp.RutaPublicar, Manejador: h}}, nil
+}
+
+// CT133 usa un único perfil mTLS para la lectura de detalle y la del catálogo.
+// El detalle se resuelve primero y entrega el recibo V3 al proveedor documental.
+func nuevasRutasPlantillasDocumentalCTDesarrollo(
+	ctx context.Context, cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo,
+	soporte *soporteAltaContratacionTemporalDesarrollo, identidadBase *proveedorSesionConsultaRRHHDesarrollo,
+	fronteras catalogoFronterasComunDesarrollo, fuentePool, motivosPool *pgxpool.Pool,
+	reloj relojContratacionTemporalDesarrollo, consultas dependenciasConsultasRRHHDesarrollo,
+	etiquetas informejuridico.EtiquetadorReferencias,
+) ([]vechttp.RutaExacta, error) {
+	activo, err := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if err != nil || !activo || ctx == nil || ctx.Err() != nil || alta == nil || alta.soporte == nil ||
+		alta.postgresql.gobierno == nil || alta.postgresql.ejecucion == nil || alta.postgresql.registroAutorizacion == nil ||
+		alta.postgresql.proveedorMaterialPlantillasDocumental == nil || soporte == nil || identidadBase == nil ||
+		fuentePool == nil || motivosPool == nil || fuentePool == motivosPool ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(consultas.motivos) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(consultas.sesion) ||
+		consultas.materialDetalle == nil || consultas.emisorCuadro == nil || fronteras.identidad == nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	if err := preflightCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion); err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	perfil := soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	if perfil == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
+		soporte.principalID != alta.soporte.principalID ||
+		soporte.certificadoSHA256 != alta.soporte.certificadoSHA256 ||
+		!fronteras.contienePerfilRutasPlantillasDocumentalCT(perfil) {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	catalogo, err := CargarCatalogoPlantillasCT(cfg.Normalize().ReglasEjemplo.CTPlantillasSourcePath)
+	if err != nil || comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, catalogo) != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	fuente, err := postgresvec.NuevoAlmacenAutorizacion(fuentePool)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	registro, err := postgresvec.NuevoAlmacenAutorizacion(alta.postgresql.registroAutorizacion)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	motivoDocumental := motivoDocumentalPlantillasCTDesarrollo()
+	validadorDocumental, err := postgresvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivosPool, motivoDocumental.CatalogoID)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	motivoDetalle, err := consultas.motivos.ResolverMotivoDetalleRRHH(ctx, reloj.Ahora())
+	if err != nil || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(motivoDetalle) {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	validadorDetalle, err := postgresvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(motivosPool, motivoDetalle.CatalogoID)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
+	if !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]vecdomain.ReferenciaEntradaCatalogo{motivoDocumental}, desde) != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	operacion := referenciaAltaContratacionTemporalDesarrollo("oca_", soporte.principalID+"\x00"+soporte.certificadoSHA256+"\x00registro-contexto-plantillas-documental-ct-v1")
+	if publicarResultadoContextoPostgreSQLDesarrollo(ctx, alta.postgresql.gobierno, soporte.contexto.Resultado, operacion) != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	esperado, err := contextoEsperadoRegistradoDesarrollo(ctx, identidadBase.resolutor, soporte)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	soporte.mu.Lock()
+	soporte.contextoEsperadoRegistrado = esperado
+	soporte.mu.Unlock()
+	semilla, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(
+		soporte.contexto.Resultado.Contexto.Principal.ID, perfil, reloj.Ahora())
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	publicador := publicadorPostgreSQLInicialPlantillasCT{autoridad: autoridadPostgreSQLDesarrollo{
+		pool: alta.postgresql.gobierno, vinculo: soporte.contexto.Vinculo,
+		prefijoBloqueo: "vec:ct:plantillas-documental:desarrollo:autorizacion:",
+		actoControlRol: "acto:ct:plantillas-documental:desarrollo:control-rol:v1",
+		actoAsignacion: "acto:ct:plantillas-documental:desarrollo:asignacion:v1",
+		actoSesion:     "acto:ct:plantillas-documental:desarrollo:sesion:v1", soloInicial: true}}
+	if asegurarPerfilPlantillasCatalogoCTSoloInicial(ctx, fuente, publicador, semilla) != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	identidad, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte,
+		identidadBase.registro, identidadBase.revalidador, reloj, identidadBase.resolutor, fronteras)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	soporte.mu.Lock()
+	soporte.sesionOperativa = identidad
+	soporte.mu.Unlock()
+	configuracionPDP := aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second}
+	pdpDocumental, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
+		fuente, registro, registro, validadorDocumental, reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, configuracionPDP)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	pdpDetalle, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
+		fuente, registro, registro, validadorDetalle, reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, configuracionPDP)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	autoridadDetalle := &autoridadConsultasRRHHDesarrollo{
+		soporte: soporte, delegado: pdpDetalle, reloj: reloj, clase: ctports.AmbitoOrganizacionRRHH,
+		ambitoRef:       organizacionAltaContratacionTemporalDesarrollo,
+		documentalCT133: true, motivoDetalleDocumental: motivoDetalle,
+	}
+	err = autoridadDetalle.configurarProveedorContextoConsultaRRHHDesarrollo(
+		proveedorContextoConsultaRRHHDesarrolloFunc(func(ctx context.Context) (ctports.ContextoAutorizacionAltaV3, error) {
+			return soporte.contextoOperativoDesarrollo(ctx)
+		}))
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	materialDetalle := *consultas.materialDetalle
+	materialDetalle.soporte, materialDetalle.motivo = soporte, motivoDetalle
+	emisorDetalle, err := nuevoEmisorMaterialRenovableCTDesarrollo(autoridadDetalle, &materialDetalle)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	emisor, err := ctports.NuevoEmisorMaterialConsultaRRHH(consultas.motivos,
+		seguridadvec.GeneradorReferenciasCriptograficas{}, reloj, consultas.emisorCuadro, emisorDetalle)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	consultorDetalle, err := ctapplication.NuevoServicioConsultaDetalleRRHH(autoridadDetalle, emisor, consultas.sesion, reloj)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	materialDocumental := alta.postgresql.proveedorMaterialPlantillasDocumental
+	materialDocumental.soporte, materialDocumental.motivo = soporte, motivoDocumental
+	proveedorAutorizacion, err := nuevoProveedorDocumentalPlantillasCT(soporte, pdpDocumental, materialDocumental, motivoDocumental, reloj)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	proveedorDocumental, err := plantillaspg.NuevoProveedorDocumental(alta.postgresql.ejecucion,
+		proveedorAutorizacion, proveedorAutorizacion, &catalogo, organizacionAltaContratacionTemporalDesarrollo)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	manejador, err := plantillashttp.NuevoManejadorBorradores(consultorDetalle, proveedorDocumental,
+		plantillashttp.GeneradorBorradoresCatalogo{PDF: pdfvec.Renderizador{}, DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas},
+		reloj.Ahora)
+	if err != nil {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	return []vechttp.RutaExacta{{Ruta: plantillashttp.RutaBorradoresDisponibles, Manejador: manejador},
+		{Ruta: plantillashttp.RutaBorradores, Manejador: manejador}}, nil
 }

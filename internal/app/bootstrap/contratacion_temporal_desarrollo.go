@@ -269,12 +269,6 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if documentalActiva {
-		// CT133 exige aún la fachada de tres ámbitos CT137/AD3-100 y el
-		// consultor de detalle del mismo perfil. Hasta componerlos, el
-		// selector falla antes de publicar material o abrir rutas.
-		return nil, nil, nil, plantillasapp.ErrNoDisponible
-	}
 	var fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas *pgxpool.Pool
 	cerrarAutoridadesPlantillas := func() {
 		if motivosEvaluadorPlantillas != nil {
@@ -290,7 +284,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			cerrarAutoridadesPlantillas()
 		}
 	}()
-	if plantillasActivas {
+	if plantillasActivas || documentalActiva {
 		if !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 			return nil, nil, nil, plantillasapp.ErrNoDisponible
 		}
@@ -346,6 +340,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var perfilPlantillas string
 	if plantillasActivas {
 		soportePlantillas, perfilPlantillas, err = nuevoSoportePlantillasCatalogoCTDesdeBaseDesarrollo(alta.soporte, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	var soporteDocumental *soporteAltaContratacionTemporalDesarrollo
+	var perfilDocumental string
+	if documentalActiva {
+		soporteDocumental, perfilDocumental, err = nuevoSoportePlantillasDocumentalCTDesdeBaseDesarrollo(alta.soporte, reloj.Ahora())
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -522,6 +524,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, reincorporacionTitular, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	if documentalActiva {
+		declaracionesFrontera, err = anexarFronterasPlantillasDocumentalCTDesarrollo(
+			declaracionesFrontera, perfilCTCatalogo, perfilPlantillas, perfilDocumental, perfilesConsulta)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil {
 		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
@@ -799,6 +808,21 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, rutasPlantillas...)
+	}
+	if documentalActiva {
+		if consultasRRHH.identidad == nil || alta.postgresql.proveedorMaterialPlantillasDocumental == nil {
+			return nil, nil, nil, plantillasapp.ErrNoDisponible
+		}
+		sondaDocumental, cancelarDocumental := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancelarDocumental()
+		rutasDocumentales, err := nuevasRutasPlantillasDocumentalCTDesarrollo(
+			sondaDocumental, cfg, &alta, soporteDocumental, consultasRRHH.identidad,
+			seguridadBorrador, fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas,
+			reloj, consultasRRHH, origen.etiquetasReferenciasCatalogosAlta())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, rutasDocumentales...)
 	}
 	cerrarAuditoria := func() {}
 	cerrarAuditoriaPendiente := true

@@ -106,6 +106,18 @@ func TestPlantillasDocumentalCTSelectorIndependienteYFronteras(t *testing.T) {
 			t.Fatal("GET adquirió catálogo documental")
 		}
 	}
+	base := descriptoresFronterasContratacionTemporalDesarrollo("prf_ct_base", []string{"prf_ct_base"})
+	combinadas, err := anexarFronterasPlantillasDocumentalCTDesarrollo(base, "prf_ct_base", "prf_ct131", "prf_ct133", []string{"prf_ct_base"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	completo, err := nuevoCatalogoFronterasComunDesarrollo(combinadas)
+	if err != nil || !completo.contienePerfilRutasPlantillasDocumentalCT("prf_ct133") {
+		t.Fatalf("rutas CT133 no publicadas bajo perfil exclusivo: %v", err)
+	}
+	if _, err := anexarFronterasPlantillasDocumentalCTDesarrollo(base, "prf_ct_base", "prf_ct131", "prf_ct131", nil); err == nil {
+		t.Fatal("CT133 reutilizó perfil administrativo CT131")
+	}
 }
 
 func TestPlantillasCatalogoCTSolicitudesLimitadasACanalYMotivo(t *testing.T) {
@@ -127,6 +139,38 @@ func TestPlantillasCatalogoCTSolicitudesLimitadasACanalYMotivo(t *testing.T) {
 	base.Recurso.Ambitos["organizacion_ref"] = "organizacion:ajena"
 	if solicitudAutorizacionPlantillasCTDesarrolloValida(plantillashttp.RutaEntradas, base) {
 		t.Fatal("organización ajena autorizada")
+	}
+}
+
+func TestDetalleDocumentalCT133ExigeMotivoYRutaPropios(t *testing.T) {
+	alta, _, _ := escenarioConsultasRRHHDesarrolloPrueba(t)
+	motivo := alta.soporte.motivoDetalleRRHH
+	a := &autoridadConsultasRRHHDesarrollo{
+		soporte: alta.soporte, clase: ctports.AmbitoOrganizacionRRHH,
+		ambitoRef:       organizacionAltaContratacionTemporalDesarrollo,
+		documentalCT133: true, motivoDetalleDocumental: motivo,
+	}
+	datos := datosSolicitudConsultasRRHHDesarrolloPrueba(t, alta.soporte, cthttp.RutaConsultaDetalleRRHH)
+	if a.solicitudAutorizacionConsultaRRHHDesarrolloValida(cthttp.RutaConsultaDetalleRRHH, datos) {
+		t.Fatal("perfil documental admitió la ruta de detalle CT base")
+	}
+	for _, ruta := range []string{plantillashttp.RutaBorradoresDisponibles, plantillashttp.RutaBorradores} {
+		if !a.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos) {
+			t.Fatalf("detalle CT133 propio rechazado en %s", ruta)
+		}
+	}
+	datos.ReferenciaMotivo = motivoDocumentalPlantillasCTDesarrollo()
+	if a.solicitudAutorizacionConsultaRRHHDesarrolloValida(plantillashttp.RutaBorradores, datos) {
+		t.Fatal("motivo de catálogo sustituyó al motivo de detalle")
+	}
+	datos.ReferenciaMotivo = motivo
+	datos.Recurso.Ambitos["ambito_ref"] = "organizacion:ajena"
+	if a.solicitudAutorizacionConsultaRRHHDesarrolloValida(plantillashttp.RutaBorradores, datos) {
+		t.Fatal("ámbito ajeno admitido para recibo de detalle")
+	}
+	a.documentalCT133 = false
+	if a.solicitudAutorizacionConsultaRRHHDesarrolloValida(plantillashttp.RutaBorradores, datos) {
+		t.Fatal("la autoridad CT base admitió una ruta documental")
 	}
 }
 
@@ -249,6 +293,29 @@ func TestPlantillasCatalogoCTSoloInicialConservaRevocacionRestriccionYReinicio(t
 				t.Fatalf("CAS inicial = err %v, consultas %d, publicaciones %d", err, fuente.consultas, publicador.publicaciones)
 			}
 		})
+	}
+}
+
+func TestPlantillasDocumentalCTSoloInicialNoRepueblaRevocacion(t *testing.T) {
+	ahora := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
+	semilla, err := instantaneaInicialPlantillasDocumentalCTDesarrollo("per_ct_documental", "prf_ct_documental", ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revocada := semilla
+	revocada.AsignacionPerfil.Estado = vecdomain.EstadoAsignacionPerfilRevocada
+	revocada.AsignacionPerfil.RevocadaPor = "seguridad:desarrollo"
+	revocada.AsignacionPerfil.RevocadaEn = ahora.Add(time.Minute)
+	revocada.AsignacionPerfil.RevocacionRef = "revocacion:ct:documental"
+	fuente := &fuentePerfilPlantillasCTPrueba{actual: revocada}
+	publicador := &publicadorPerfilPlantillasCTPrueba{}
+	if err := asegurarPerfilPlantillasCatalogoCTSoloInicial(context.Background(), fuente, publicador, semilla); err != nil || publicador.publicaciones != 0 {
+		t.Fatalf("reinicio repobló perfil documental revocado: err=%v publicaciones=%d", err, publicador.publicaciones)
+	}
+	fuente = &fuentePerfilPlantillasCTPrueba{err: vecports.ErrAsignacionPerfilNoEncontrada}
+	publicador = &publicadorPerfilPlantillasCTPrueba{err: errors.New("CAS ocupado")}
+	if err := asegurarPerfilPlantillasCatalogoCTSoloInicial(context.Background(), fuente, publicador, semilla); err == nil || publicador.publicaciones != 1 {
+		t.Fatalf("carrera CAS documental no falló cerrada: err=%v publicaciones=%d", err, publicador.publicaciones)
 	}
 }
 

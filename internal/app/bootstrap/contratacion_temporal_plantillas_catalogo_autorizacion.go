@@ -3,11 +3,15 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strconv"
+	"strings"
 
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	plantillaspg "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres/plantillascatalogo"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -268,3 +272,170 @@ func huellaMaterialPlantillasCTValida(v string) bool {
 
 var _ plantillaspg.ProveedorAutorizacion = (*proveedorCatalogoPlantillasCT)(nil)
 var _ plantillaspg.ResolverActor = (*proveedorCatalogoPlantillasCT)(nil)
+
+// proveedorDocumentalPlantillasCT emite decisiones nuevas para CT133. El
+// detalle RRHH usa su propia accion V3 antes de llegar a este proveedor.
+type proveedorDocumentalPlantillasCT struct {
+	soporte  *soporteAltaContratacionTemporalDesarrollo
+	pdp      *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
+	material *proveedorMaterialAltaContratacionTemporalDesarrollo
+	motivo   vecdomain.ReferenciaEntradaCatalogo
+	reloj    relojContratacionTemporalDesarrollo
+}
+
+func nuevoProveedorDocumentalPlantillasCT(
+	soporte *soporteAltaContratacionTemporalDesarrollo,
+	pdp *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3,
+	material *proveedorMaterialAltaContratacionTemporalDesarrollo,
+	motivo vecdomain.ReferenciaEntradaCatalogo,
+	reloj relojContratacionTemporalDesarrollo,
+) (*proveedorDocumentalPlantillasCT, error) {
+	if soporte == nil || pdp == nil || material == nil ||
+		material.soporte != soporte || material.motivo != motivo ||
+		motivo != motivoDocumentalPlantillasCTDesarrollo() ||
+		!vecdomain.ReferenciaMotivoAutorizacionV2Valida(motivo) {
+		return nil, plantillasapp.ErrNoDisponible
+	}
+	return &proveedorDocumentalPlantillasCT{
+		soporte: soporte, pdp: pdp, material: material, motivo: motivo, reloj: reloj,
+	}, nil
+}
+
+func rutaAccionPlantillasDocumentalCT(accion string) string {
+	switch accion {
+	case "contratacion_temporal.plantillas_documentos.documental_listar":
+		return plantillashttp.RutaBorradoresDisponibles
+	case "contratacion_temporal.plantillas_documentos.documental_descargar":
+		return plantillashttp.RutaBorradores
+	default:
+		return ""
+	}
+}
+
+func accionRutaPlantillasDocumentalCT(ruta string) string {
+	switch ruta {
+	case plantillashttp.RutaBorradoresDisponibles:
+		return "contratacion_temporal.plantillas_documentos.documental_listar"
+	case plantillashttp.RutaBorradores:
+		return "contratacion_temporal.plantillas_documentos.documental_descargar"
+	default:
+		return ""
+	}
+}
+
+func (p *proveedorDocumentalPlantillasCT) contextoVigente(ctx context.Context, accion string) (contextoSeguridadComunDesarrollo, error) {
+	vacio := contextoSeguridadComunDesarrollo{}
+	if p == nil || p.soporte == nil || p.pdp == nil || contextoInterfazNulo(ctx) || ctx.Err() != nil {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	ruta := rutaAccionPlantillasDocumentalCT(accion)
+	capacidad, valida := p.soporte.capacidadValida(ctx)
+	frontera, validaFrontera := fronteraSeguridadComunDesdeContexto(ctx)
+	perfil := p.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	if ruta == "" || !valida || !validaFrontera || capacidad.ruta != ruta ||
+		frontera.metodo != http.MethodPost || frontera.ruta != ruta ||
+		frontera.descriptor.ClavePolitica != "ct-plantillas-documental-v3" ||
+		frontera.descriptor.ClaveCapacidad != accion || !frontera.descriptor.admitePerfil(perfil) ||
+		capacidad.principal.ID != p.soporte.principalID ||
+		capacidad.principal.Attributes["certificate_sha256"] != p.soporte.certificadoSHA256 {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	// El holder mTLS entrega la misma sesion revalidada al detalle RRHH y a
+	// la lectura documental de esta peticion, sin emitir otra identidad.
+	operativo, err := p.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil || operativo.Resultado.Validar() != nil ||
+		operativo.Vinculo.ValidarPara(operativo.Resultado) != nil ||
+		!operativo.Vinculo.VigenteEn(p.reloj.Ahora(), operativo.Resultado) ||
+		operativo.Resultado.Contexto.PerfilActivoRef != perfil {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	return contextoSeguridadComunDesarrollo{Vinculo: operativo.Vinculo, Resultado: operativo.Resultado}, nil
+}
+
+func (p *proveedorDocumentalPlantillasCT) ResolverContextoActor(ctx context.Context) (vecdomain.ContextoActor, error) {
+	if p == nil || p.soporte == nil || contextoInterfazNulo(ctx) {
+		return vecdomain.ContextoActor{}, vecdomain.ErrAutorizacionDenegada
+	}
+	capacidad, valida := p.soporte.capacidadValida(ctx)
+	if !valida {
+		return vecdomain.ContextoActor{}, vecdomain.ErrAutorizacionDenegada
+	}
+	operativo, err := p.contextoVigente(ctx, accionRutaPlantillasDocumentalCT(capacidad.ruta))
+	if err != nil {
+		return vecdomain.ContextoActor{}, err
+	}
+	return operativo.Resultado.Contexto.Clonar()
+}
+
+func (p *proveedorDocumentalPlantillasCT) AutorizarCatalogoDocumental(
+	ctx context.Context, actor vecdomain.ContextoActor, accion string, recurso vecdomain.RecursoAutorizable,
+) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
+	if p == nil || p.material == nil || p.material.soporte != p.soporte ||
+		p.material.motivo != p.motivo || p.motivo != motivoDocumentalPlantillasCTDesarrollo() ||
+		!recursoPlantillasDocumentalCTValido(accion, recurso) || actor.Validar() != nil {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	operativo, err := p.contextoVigente(ctx, accion)
+	if err != nil {
+		return vacio, err
+	}
+	huellaActor, errActor := actor.HuellaSHA256VinculadaV2()
+	huellaActual, errActual := operativo.Resultado.Contexto.HuellaSHA256VinculadaV2()
+	if errActor != nil || errActual != nil || huellaActor != huellaActual ||
+		actor.Principal.ID != operativo.Resultado.Contexto.Principal.ID ||
+		actor.PerfilActivoRef != operativo.Resultado.Contexto.PerfilActivoRef {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	correlacion, err := vecdomain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+	if err != nil {
+		return vacio, plantillasapp.ErrNoDisponible
+	}
+	solicitud, err := vecdomain.NuevaSolicitudAutorizacionLigadaV3(vecdomain.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: p.motivo,
+		Accion: accion, Recurso: recurso, Finalidad: finalidadDocumentalPlantillasCT, Correlacion: correlacion,
+	})
+	if err != nil {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	datos, err := solicitud.Datos()
+	if err != nil || datos.ReferenciaMotivo != motivoDocumentalPlantillasCTDesarrollo() ||
+		datos.Finalidad != finalidadDocumentalPlantillasCT ||
+		!recursoPlantillasDocumentalCTValido(datos.Accion, datos.Recurso) ||
+		rutaAccionPlantillasDocumentalCT(datos.Accion) != rutaAccionPlantillasDocumentalCT(accion) {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	decision, confirmacion, err := p.pdp.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
+	if err != nil {
+		return vacio, err
+	}
+	exportacion, err := p.material.proveerMaterialConfirmacion(
+		ctx, solicitud, decision, confirmacion, p.motivo, operativo.Resultado)
+	if err != nil || exportacion.ValidarEstructura() != nil {
+		return vacio, plantillasapp.ErrNoDisponible
+	}
+	resumen := exportacion.ResumenCapacidad()
+	huella, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil || resumen.Operacion() != accion ||
+		resumen.AudienciaConsumo() != audienciaDocumentalPlantillasCT ||
+		resumen.EfectoRef() != recurso.Referencia || resumen.EfectoHuellaSHA256() != huella ||
+		exportacion.PersonaVersion() != actor.Instantanea.PersonaVersion ||
+		exportacion.PerfilVersion() != actor.Instantanea.PerfilVersion {
+		return vacio, vecdomain.ErrAutorizacionDenegada
+	}
+	return exportacion, nil
+}
+
+func recursoPlantillasDocumentalCTValido(accion string, r vecdomain.RecursoAutorizable) bool {
+	return rutaAccionPlantillasDocumentalCT(accion) != "" && r.Validar() == nil &&
+		ctdomain.ReferenciaOpacaValida(r.Referencia) && strings.HasPrefix(r.Referencia, "expediente:") &&
+		r.ModuloID == plantillasapp.ModuloID &&
+		r.Tipo == tipoDocumentalPlantillasCT && len(r.Ambitos) == 3 &&
+		r.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		r.Ambitos["clase_ambito"] == string(ctports.AmbitoOrganizacionRRHH) &&
+		r.Ambitos["ambito_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		len(r.Atributos) == 1 && huellaMaterialPlantillasCTValida(r.Atributos["material_sha256"])
+}
+
+var _ plantillaspg.ProveedorAutorizacionDocumental = (*proveedorDocumentalPlantillasCT)(nil)
+var _ plantillaspg.ResolverActor = (*proveedorDocumentalPlantillasCT)(nil)

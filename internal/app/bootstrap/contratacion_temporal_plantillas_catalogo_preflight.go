@@ -10,9 +10,11 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-// preflightCatalogoPlantillasCT comprueba que CT131 y CT133 estén instaladas
-// y ejecutables por el LOGIN CT nominal antes de publicar las rutas. No
+// preflightCatalogoPlantillasCT comprueba CT131, CT135, CT137 y AD3-100
+// antes de publicar las rutas documentales al LOGIN CT nominal. No
 // provisiona la preimagen ni toca datos: eso pertenece al migrador separado.
+// La existencia, firma y ACL se cotejan en pg_catalog; el consumo atestado y
+// los tres ámbitos se revalidan al ejecutar las fachadas SQL.
 func preflightCatalogoPlantillasCT(ctx context.Context, pool *pgxpool.Pool) error {
 	if pool == nil {
 		return plantillasapp.ErrNoDisponible
@@ -41,8 +43,9 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
 	}
 	if len(documental) == 0 || documental[0] {
 		funciones = append(funciones,
-			"vec_contratacion_temporal.obtener_catalogo_plantillas_publicado_documental_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)")
+			"vec_contratacion_temporal.obtener_catalogo_plantillas_publicado_documental_ambitos_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)")
 	}
+	exigirDocumental := len(documental) == 0 || documental[0]
 	const sql = `SELECT EXISTS (
   SELECT 1 FROM pg_catalog.pg_roles l
   JOIN pg_catalog.pg_roles g ON g.rolname='vec_contratacion_temporal_ejecutor'
@@ -50,10 +53,12 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
   WHERE l.rolname=session_user AND session_user=current_user
     AND l.rolcanlogin AND l.rolinherit AND NOT l.rolsuper
     AND NOT l.rolcreatedb AND NOT l.rolcreaterole AND NOT l.rolreplication AND NOT l.rolbypassrls
-    AND NOT g.rolcanlogin AND NOT g.rolbypassrls
+    AND NOT g.rolcanlogin AND NOT g.rolsuper AND NOT g.rolcreatedb
+    AND NOT g.rolcreaterole AND NOT g.rolreplication AND NOT g.rolbypassrls
     AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option
     AND (SELECT count(*) FROM pg_catalog.pg_auth_members x WHERE x.member=l.oid)=1
     AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members x WHERE x.roleid=l.oid)
+    AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members x WHERE x.member=g.oid)
     AND pg_catalog.pg_has_role(session_user,g.oid,'MEMBER')
     AND pg_catalog.pg_has_role(session_user,g.oid,'USAGE')
     AND pg_catalog.has_schema_privilege(session_user,'vec_contratacion_temporal','USAGE')
@@ -63,8 +68,18 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
     AND NOT pg_catalog.pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
     AND NOT pg_catalog.pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
     AND NOT pg_catalog.pg_has_role(session_user,'vec_contratacion_temporal_gobernador','MEMBER')
-    AND (SELECT coalesce(bool_and(pg_catalog.to_regprocedure(f.nombre) IS NOT NULL
-           AND pg_catalog.has_function_privilege(session_user,pg_catalog.to_regprocedure(f.nombre),'EXECUTE')),false)
+    AND (SELECT coalesce(bool_and(EXISTS (
+           SELECT 1 FROM pg_catalog.pg_proc p
+           WHERE p.oid=pg_catalog.to_regprocedure(f.nombre)
+             AND p.proowner='vec_contratacion_temporal_propietario'::pg_catalog.regrole
+             AND p.prokind='f' AND p.prosecdef
+             AND pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+             AND pg_catalog.has_function_privilege(g.oid,p.oid,'EXECUTE')
+             AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,
+                 pg_catalog.acldefault('f',p.proowner))) a
+               WHERE a.grantee NOT IN (p.proowner,g.oid) OR a.privilege_type<>'EXECUTE'
+             ))),false)
          FROM pg_catalog.unnest($1::text[]) AS f(nombre))
     AND NOT pg_catalog.has_function_privilege(session_user,
         'vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text)','EXECUTE')
@@ -101,16 +116,82 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
         AND p.proargtypes[8]='pg_catalog.bytea'::pg_catalog.regtype
         AND p.proargtypes[9]='pg_catalog.bytea'::pg_catalog.regtype
         AND p.proargtypes[10]='pg_catalog.bytea'::pg_catalog.regtype
-        AND pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',p.oid,'EXECUTE'))
+        AND pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',p.oid,'EXECUTE')
+        AND NOT pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+        AND NOT pg_catalog.has_function_privilege(g.oid,p.oid,'EXECUTE')
+        AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,
+            pg_catalog.acldefault('f',p.proowner))) a
+          WHERE a.grantee NOT IN (p.proowner,'vec_contratacion_temporal_propietario'::pg_catalog.regrole)
+            OR a.privilege_type<>'EXECUTE'))
     AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
       WHERE a.attrelid=pg_catalog.to_regclass('vec_contratacion_temporal.catalogo_plantillas_historia_v1')
         AND a.attname='organizacion_ref' AND NOT a.attisdropped)
-    AND coalesce(pg_catalog.strpos(pg_catalog.pg_get_functiondef(
-      pg_catalog.to_regprocedure('vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),
-      'registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada')>0,false)
+    AND ($2::boolean IS NOT TRUE OR (
+      EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='vec_autorizacion_atestada_v3'
+          AND p.proname='registrar_y_consumir_plantillas_doc_ct_ambitos_v3_atestada'
+          AND p.pronargs=11 AND p.prokind='f' AND p.prosecdef
+          AND p.proowner='vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
+          AND p.proargtypes[0]='pg_catalog.jsonb'::pg_catalog.regtype
+          AND p.proargtypes[1]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[2]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[3]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[4]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[5]='pg_catalog.numeric'::pg_catalog.regtype
+          AND p.proargtypes[6]='pg_catalog.numeric'::pg_catalog.regtype
+          AND p.proargtypes[7]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[8]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[9]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[10]='pg_catalog.bytea'::pg_catalog.regtype
+          AND pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',p.oid,'EXECUTE')
+          AND NOT pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+          AND NOT pg_catalog.has_function_privilege(g.oid,p.oid,'EXECUTE')
+          AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,
+              pg_catalog.acldefault('f',p.proowner))) a
+            WHERE a.grantee NOT IN (p.proowner,'vec_contratacion_temporal_propietario'::pg_catalog.regrole)
+              OR a.privilege_type<>'EXECUTE'))
+      AND EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='vec_autorizacion_atestada_v3'
+          AND p.proname='registrar_y_consumir_plantillas_doc_ct_org_v3_atestada'
+          AND p.pronargs=11 AND p.prokind='f'
+          AND p.proargtypes[0]='pg_catalog.jsonb'::pg_catalog.regtype
+          AND p.proargtypes[1]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[2]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[3]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[4]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[5]='pg_catalog.numeric'::pg_catalog.regtype
+          AND p.proargtypes[6]='pg_catalog.numeric'::pg_catalog.regtype
+          AND p.proargtypes[7]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[8]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[9]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[10]='pg_catalog.bytea'::pg_catalog.regtype
+          AND NOT pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',p.oid,'EXECUTE')
+          AND NOT pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+          AND NOT pg_catalog.has_function_privilege(g.oid,p.oid,'EXECUTE'))
+      AND EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='vec_contratacion_temporal'
+          AND p.proname='obtener_catalogo_plantillas_publicado_documental_v1'
+          AND p.pronargs=11 AND p.prokind='f'
+          AND p.proargtypes[0]='pg_catalog.jsonb'::pg_catalog.regtype
+          AND p.proargtypes[1]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[2]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[3]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[4]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[5]='pg_catalog.numeric'::pg_catalog.regtype
+          AND p.proargtypes[6]='pg_catalog.numeric'::pg_catalog.regtype
+          AND p.proargtypes[7]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[8]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[9]='pg_catalog.bytea'::pg_catalog.regtype
+          AND p.proargtypes[10]='pg_catalog.bytea'::pg_catalog.regtype
+          AND NOT pg_catalog.has_function_privilege(session_user,p.oid,'EXECUTE')
+          AND NOT pg_catalog.has_function_privilege(g.oid,p.oid,'EXECUTE'))
+    ))
  )`
 	var valido bool
-	if err := consulta.QueryRow(ctx, sql, funciones).Scan(&valido); err != nil || !valido {
+	if err := consulta.QueryRow(ctx, sql, funciones, exigirDocumental).Scan(&valido); err != nil || !valido {
 		return plantillasapp.ErrNoDisponible
 	}
 	return nil
