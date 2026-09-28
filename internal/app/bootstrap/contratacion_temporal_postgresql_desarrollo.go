@@ -77,6 +77,7 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	ejecucion                         *pgxpool.Pool
 	bolsa                             *pgxpool.Pool
+	calculadorPoliticaOfertas         *pgxpool.Pool
 	gobierno                          *pgxpool.Pool
 	registroAutorizacion              *pgxpool.Pool
 	confirmador                       *pgxpool.Pool
@@ -91,28 +92,29 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialHistorialMiBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
-	proveedoresMaterialPortal         map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialContacto         *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaContacto *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDatosContacto    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialPoliticaOfertas  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialFirmaDocumento   *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialDietas                    materialDietasDesdeCTDesarrollo
-	materialCronos                    materialCronosDesdeCTDesarrollo
-	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
-	detenerRenovacion                 func()
-	detenerEntregaContratos           func()
-	detenerEntregaCeses               func()
-	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
-	cerrarUnaVez                      func()
+	proveedoresMaterialPortal                map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorCrear           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorConsulta        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialSituacion               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaContacto        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialEmision                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaPoliticaOfertas *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialFirmaDocumento          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialDietas                           materialDietasDesdeCTDesarrollo
+	materialCronos                           materialCronosDesdeCTDesarrollo
+	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalB2                       [8]CapacidadPublicadaPersonalB2V3
+	detenerRenovacion                        func()
+	detenerEntregaContratos                  func()
+	detenerEntregaCeses                      func()
+	catalogoMaterial                         catalogoMaterialAutorizacionComunDesarrollo
+	cerrarUnaVez                             func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -277,6 +279,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
+			}
+			if dependencias.calculadorPoliticaOfertas != nil {
+				dependencias.calculadorPoliticaOfertas.Close()
 			}
 			if dependencias.lectorResultado != nil {
 				dependencias.lectorResultado.Cerrar()
@@ -470,6 +475,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.bolsa = bolsa
+		if seleccion.politicaOfertas {
+			dsnCalculador, err := cfg.DSNBolsaPoliticaOfertasCalculadorSeparado()
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.calculadorPoliticaOfertas, err = abrirPoolRelevoBolsaDesarrollo(ctx, dsnCalculador,
+				"vec_bolsa_llamamientos_calculador_politica", "vec-bolsa-calculador-politica-ofertas")
+			if err != nil {
+				return vacias, falloPostgreSQLCTDesarrollo(err)
+			}
+		}
 		if seleccion.portalCandidato {
 			if err := comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa); err != nil {
 				slog.Error("portal del candidato de Bolsa encendido sin sus migraciones", "causa", err)
@@ -546,6 +562,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			if seleccion.politicaOfertas {
 				dependencias.proveedorMaterialPoliticaOfertas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaPublicarPoliticaOfertas)
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedorMaterialConsultaPoliticaOfertas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarPoliticaOfertas)
 				if err != nil {
 					return vacias, err
 				}

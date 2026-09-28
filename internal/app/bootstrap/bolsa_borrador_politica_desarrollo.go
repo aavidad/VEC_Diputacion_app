@@ -167,6 +167,11 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 			TipoRecurso: "bolsa_constituida", Finalidades: []string{puertosbolsa.FinalidadPoliticaOfertas},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		})
+		concesiones = append(concesiones, dominiovec.ConcesionRol{
+			Accion: puertosbolsa.AccionConsultarPoliticaOfertas, ModuloID: "bolsa",
+			TipoRecurso: "bolsa_constituida", Finalidades: []string{puertosbolsa.FinalidadConsultarPoliticaOfertas},
+			GarantiaMinima: dominiovec.AuthAssuranceHigh, CamposPermitidos: []string{puertosbolsa.CampoConsultarPoliticaOfertas},
+		})
 	}
 	version := dominiovec.VersionRol{
 		RolID: "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo", Version: versionRol,
@@ -228,7 +233,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 	if !publicada || instantanea.Validar() != nil || !instantanea.AsignacionPerfil.VigenteEn(instante) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
-	if referencia == motivoPublicarPoliticaOfertasBolsaDesarrollo() {
+	if referencia == motivoPublicarPoliticaOfertasBolsaDesarrollo() || referencia == motivoConsultarPoliticaOfertasBolsaDesarrollo() {
 		if instantanea.VersionRol.Version < 6 {
 			return dominiovec.ErrSolicitudAutorizacionInvalida
 		}
@@ -308,6 +313,8 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoEmitirLlamamientoBolsaDesarrollo()
 	case puertosbolsa.AccionPublicarPoliticaOfertas:
 		return motivo == motivoPublicarPoliticaOfertasBolsaDesarrollo()
+	case puertosbolsa.AccionConsultarPoliticaOfertas:
+		return motivo == motivoConsultarPoliticaOfertasBolsaDesarrollo()
 	default:
 		return false
 	}
@@ -337,6 +344,12 @@ func motivoPublicarPoliticaOfertasBolsaDesarrollo() dominiovec.ReferenciaEntrada
 	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_politica_ofertas_bolsa", CatalogoVersion: 1,
 		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b47-v1"),
 		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b47-politica-ofertas-publicar")}
+}
+
+func motivoConsultarPoliticaOfertasBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_politica_ofertas_bolsa", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b47-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b51-politica-ofertas-consultar")}
 }
 
 func motivoCrearBorradorLlamamientoBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
