@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"reflect"
 	"regexp"
 	"slices"
 	"time"
@@ -427,6 +428,65 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 	return instantanea, nil
 }
 
+// La autoridad compara la preimagen en la transacción que mueve el puntero
+// actual. Sólo se admiten alta, replay exacto y consulta → portal desde
+// la versión activa inmediatamente anterior, sea cual sea su número.
+type autoridadInicialMiBolsaDesarrollo interface {
+	prepararInstantanea(context.Context, dominiovec.InstantaneaAutorizacion, bool) (dominiovec.InstantaneaAutorizacion, error)
+	publicarInstantaneaDesdePreimagen(context.Context, dominiovec.InstantaneaAutorizacion, dominiovec.InstantaneaAutorizacion) error
+}
+
+func publicarPerfilMiBolsaDesarrollo(
+	ctx context.Context, autoridad autoridadInicialMiBolsaDesarrollo,
+	identidad *identidadCandidatoBolsaDesarrollo, ahora time.Time, portal bool,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	vacia := dominiovec.InstantaneaAutorizacion{}
+	if ctx == nil || ctx.Err() != nil || autoridad == nil {
+		return vacia, errMiBolsaNoDisponible
+	}
+	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, portal)
+	if err != nil {
+		return vacia, errMiBolsaNoDisponible
+	}
+	preparada, err := autoridad.prepararInstantanea(ctx, semilla, true)
+	if err != nil || preparada.Validar() != nil || preparada.VersionRol.Version < 1 {
+		return vacia, errMiBolsaNoDisponible
+	}
+	esperada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+	esperada.VersionRol.Version = preparada.VersionRol.Version
+	esperada.AsignacionPerfil.VersionRolRef = esperada.VersionRol.Referencia()
+	esperada.ControlVigenciaVersionRol.VersionRolRef = esperada.VersionRol.Referencia()
+	esperada.AsignacionPerfil.Version = preparada.AsignacionPerfil.Version
+	if !reflect.DeepEqual(preparada, esperada) {
+		return vacia, errMiBolsaNoDisponible
+	}
+	preimagen := esperada
+	if preparada.AsignacionPerfil.Version <= 0 {
+		return vacia, errMiBolsaNoDisponible
+	}
+	if portal && preparada.AsignacionPerfil.Version > 1 {
+		preimagen, err = nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, false)
+		if err != nil {
+			return vacia, errMiBolsaNoDisponible
+		}
+		legadaPreparada, err := autoridad.prepararInstantanea(ctx, preimagen, true)
+		if err != nil || legadaPreparada.Validar() != nil || legadaPreparada.VersionRol.Version < 1 {
+			return vacia, errMiBolsaNoDisponible
+		}
+		preimagen.VersionRol.Version = legadaPreparada.VersionRol.Version
+		preimagen.AsignacionPerfil.VersionRolRef = preimagen.VersionRol.Referencia()
+		preimagen.ControlVigenciaVersionRol.VersionRolRef = preimagen.VersionRol.Referencia()
+		preimagen.AsignacionPerfil.Version = preparada.AsignacionPerfil.Version - 1
+		if preimagen.Validar() != nil {
+			return vacia, errMiBolsaNoDisponible
+		}
+	}
+	if autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, preimagen) != nil {
+		return vacia, errMiBolsaNoDisponible
+	}
+	return preparada, nil
+}
+
 func nuevaRutaMiBolsaDesarrollo(
 	ctx context.Context, identidad *identidadCandidatoBolsaDesarrollo,
 	sello *selloConsultasContratacionTemporalDesarrollo,
@@ -493,12 +553,11 @@ func nuevaRutaMiBolsaDesarrollo(
 		actoAsignacion: "acto:bolsa:mi-bolsa:asignacion:v1",
 		actoSesion:     "acto:bolsa:mi-bolsa:sesion:v1",
 	}
-	semilla, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, reloj.Ahora(), portal != nil)
-	if err != nil || !autoridad.validaConfiguracion() {
+	if !autoridad.validaConfiguracion() {
 		return nil, errMiBolsaNoDisponible
 	}
-	preparada, err := autoridad.prepararInstantanea(ctx, semilla, true)
-	if err != nil || preparada.Validar() != nil || autoridad.publicarInstantanea(ctx, preparada) != nil {
+	preparada, err := publicarPerfilMiBolsaDesarrollo(ctx, &autoridad, identidad, reloj.Ahora(), portal != nil)
+	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
 	politica := &politicaMiBolsaDesarrollo{instantanea: preparada, registro: alta.soporte.registroDecisionesAnalisis, motivo: motivoMiBolsaDesarrollo(), motivoHistorial: motivoHistorialMiBolsaDesarrollo()}
