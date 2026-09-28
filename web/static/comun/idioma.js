@@ -1,12 +1,10 @@
-/** Idioma de la interfaz. La URL tiene prioridad sobre la preferencia del navegador. */
-export function seleccionarIdioma(parametro = "", preferencias = []) {
+/**
+ * Idioma de la interfaz: castellano por defecto; inglés solo si la persona lo
+ * elige en el selector (parámetro lang). No se sigue el idioma del navegador.
+ */
+export function seleccionarIdioma(parametro = "", _preferencias = []) {
   const solicitado = String(parametro ?? "").toLowerCase();
-  if (solicitado === "es" || solicitado === "en") return solicitado;
-  for (const preferencia of preferencias ?? []) {
-    const base = String(preferencia ?? "").toLowerCase().split("-", 1)[0];
-    if (base === "es" || base === "en") return base;
-  }
-  return "es";
+  return solicitado === "en" ? "en" : "es";
 }
 
 function parametroActual(ubicacion) {

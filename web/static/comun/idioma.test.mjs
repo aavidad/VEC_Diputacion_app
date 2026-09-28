@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cambiarIdioma, montarSelectorIdioma, seleccionarIdioma } from "./idioma.js";
 
-test("la elección explícita de interfaz prevalece y solo admite es/en", () => {
+test("castellano por defecto; inglés solo por elección explícita", () => {
   assert.equal(seleccionarIdioma("en", ["es-ES"]), "en");
-  assert.equal(seleccionarIdioma("fr", ["en-GB", "es-ES"]), "en");
+  assert.equal(seleccionarIdioma("", ["en-GB", "es-ES"]), "es");
+  assert.equal(seleccionarIdioma("fr", ["en-GB"]), "es");
   assert.equal(seleccionarIdioma("", ["fr-FR"]), "es");
 });
 
