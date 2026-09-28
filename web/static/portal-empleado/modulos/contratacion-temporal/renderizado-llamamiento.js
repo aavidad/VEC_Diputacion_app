@@ -34,6 +34,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   function consultaRespuesta() {
     const consulta = estado.consultaRespuesta;
     if (!consulta || consulta.estado === "sin_contexto") return "";
+    if (consulta.estado === "ausente" && [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
+      paso.recibo?.organizacion_ref === consulta.referencias?.organizacion_ref
+      && paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref)) return "";
     const antecedente = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
       paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref
       && paso.solicitud?.organizacion_ref === consulta.referencias?.organizacion_ref);

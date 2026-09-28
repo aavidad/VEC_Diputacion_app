@@ -158,6 +158,21 @@ test("respuesta omite clave cliente y convierte la hora de Madrid sin cambiar el
   assert.match(raiz.innerHTML, /Siguiente acción/u);
 });
 
+for (const estado of ["registrada_por_rrhh", "replay_registrada_por_rrhh"])
+for (const ingles of [false, true]) test(`consulta 404 y POST ${estado} ${ingles ? "EN" : "ES"}: oculta aviso antiguo y conserva resolución`, async () => {
+  const raiz = raizPrueba();
+  const cerrar = await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (solicitud) => ({
+    ...justificante(solicitud), estado,
+  }) }, ingles ? { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" } : {});
+  assert.match(raiz.innerHTML, ingles ? /No reply is recorded/u : /No consta una respuesta/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  assert.doesNotMatch(raiz.innerHTML, /No consta una respuesta|No reply is recorded/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+  cerrar();
+});
+
 const consultaRespuesta = { organizacion_ref: recibo.organizacion_ref,
   comunicacion_ref: comunicacionRegistrada.comunicacion_ref };
 const reciboConsultado = { esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
