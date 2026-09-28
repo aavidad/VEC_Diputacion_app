@@ -239,13 +239,25 @@ def descargar(navegador, cfg):
 
 
 def recuperar(navegador, cfg, anterior):
-    if anterior.get("tipo") != cfg.tipo or anterior.get("expediente_ref") != cfg.expediente_ref:
+    if (anterior.get("tipo") != cfg.tipo or anterior.get("expediente_ref") != cfg.expediente_ref
+            or anterior.get("version") != cfg.version):
         raise Fallo("la evidencia previa no corresponde al caso solicitado")
+    recibo_publicacion = anterior["publicacion"]["recibo"]["recibo_ref"]
+    descarga_anterior = anterior["descarga"]
+    if (not recibo_publicacion or len(descarga_anterior) != 2
+            or any(r.get("procedencia_ref") != recibo_publicacion for r in descarga_anterior)):
+        raise Fallo("la evidencia previa no corresponde a la publicación registrada")
     nuevo = descargar(navegador, cfg)
-    if [r["catalogo_huella"] for r in nuevo] != [r["catalogo_huella"] for r in anterior["descarga"]]:
+    if [r["catalogo_ref"] for r in nuevo] != [r["catalogo_ref"] for r in descarga_anterior]:
+        raise Fallo("la referencia del catálogo cambió tras reinicio")
+    if [r["catalogo_huella"] for r in nuevo] != [r["catalogo_huella"] for r in descarga_anterior]:
         raise Fallo("la versión del catálogo cambió tras reinicio")
-    if [r["pdf_sha256"] for r in nuevo] != [r["pdf_sha256"] for r in anterior["descarga"]]:
+    if [r["pdf_sha256"] for r in nuevo] != [r["pdf_sha256"] for r in descarga_anterior]:
         raise Fallo("el PDF cambió tras reinicio")
+    if (any(r["procedencia_ref"] != recibo_publicacion for r in nuevo)
+            or [r["procedencia_ref"] for r in nuevo]
+            != [r["procedencia_ref"] for r in descarga_anterior]):
+        raise Fallo("la procedencia de la publicación cambió tras reinicio")
     anterior["recuperacion"] = nuevo
     anterior["fase"] = "recuperada_tras_reinicio_externo"
     return anterior
