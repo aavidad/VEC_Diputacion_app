@@ -434,6 +434,8 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 type autoridadInicialMiBolsaDesarrollo interface {
 	prepararInstantanea(context.Context, dominiovec.InstantaneaAutorizacion, bool) (dominiovec.InstantaneaAutorizacion, error)
 	publicarInstantaneaDesdePreimagen(context.Context, dominiovec.InstantaneaAutorizacion, dominiovec.InstantaneaAutorizacion) error
+	publicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error
+	versionActualHabilitada(context.Context, string) (bool, error)
 }
 
 func publicarPerfilMiBolsaDesarrollo(
@@ -457,6 +459,10 @@ func publicarPerfilMiBolsaDesarrollo(
 	esperada.AsignacionPerfil.VersionRolRef = esperada.VersionRol.Referencia()
 	esperada.ControlVigenciaVersionRol.VersionRolRef = esperada.VersionRol.Referencia()
 	esperada.AsignacionPerfil.Version = preparada.AsignacionPerfil.Version
+	// El identificador de una asignación ya publicada lo fija la base: un
+	// arranque anterior pudo crearla con otro identificador para el mismo
+	// perfil y principal, que prepararInstantanea ya ha comprobado.
+	esperada.AsignacionPerfil.AsignacionID = preparada.AsignacionPerfil.AsignacionID
 	if !reflect.DeepEqual(preparada, esperada) {
 		return vacia, errMiBolsaNoDisponible
 	}
@@ -477,12 +483,23 @@ func publicarPerfilMiBolsaDesarrollo(
 		preimagen.AsignacionPerfil.VersionRolRef = preimagen.VersionRol.Referencia()
 		preimagen.ControlVigenciaVersionRol.VersionRolRef = preimagen.VersionRol.Referencia()
 		preimagen.AsignacionPerfil.Version = preparada.AsignacionPerfil.Version - 1
+		preimagen.AsignacionPerfil.AsignacionID = preparada.AsignacionPerfil.AsignacionID
 		if preimagen.Validar() != nil {
 			return vacia, errMiBolsaNoDisponible
 		}
 	}
 	if autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, preimagen) != nil {
-		return vacia, errMiBolsaNoDisponible
+		// Un binario anterior pudo publicar ya el portal con otras concesiones,
+		// de modo que la preimagen de consulta no coincide. Sólo se sube a la
+		// versión siguiente si la versión de rol vigente sigue habilitada: una
+		// retirada nunca se reactiva al arrancar.
+		if !portal || preparada.AsignacionPerfil.Version <= 1 {
+			return vacia, errMiBolsaNoDisponible
+		}
+		habilitada, err := autoridad.versionActualHabilitada(ctx, preparada.AsignacionPerfil.PerfilActivoRef)
+		if err != nil || !habilitada || autoridad.publicarInstantanea(ctx, preparada) != nil {
+			return vacia, errMiBolsaNoDisponible
+		}
 	}
 	return preparada, nil
 }
@@ -565,8 +582,15 @@ func nuevaRutaMiBolsaDesarrollo(
 	// replay del publicador exige el mismo publicado_en y el reloj rompería
 	// cualquier arranque posterior al primero.
 	desdeMotivos, _, vigenteMotivos := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
-	if !vigenteMotivos || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{politica.motivo, politica.motivoHistorial}, desdeMotivos) != nil {
+	// Consulta e historial viven en catálogos distintos: cada catálogo se
+	// publica por separado, porque la publicación exige un único catálogo.
+	if !vigenteMotivos {
 		return nil, errMiBolsaNoDisponible
+	}
+	for _, motivo := range []dominiovec.ReferenciaEntradaCatalogo{politica.motivo, politica.motivoHistorial} {
+		if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{motivo}, desdeMotivos) != nil {
+			return nil, errMiBolsaNoDisponible
+		}
 	}
 	if portal != nil {
 		motivoPortal := motivoPortalMiBolsaDesarrollo()
