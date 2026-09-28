@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { calcularMetricasCuadro, crearVistaInicioPortal, tramitesParaInicio } from "./portal-inicio.js";
+import { calcularMetricasCuadro, crearVistaInicioPortal, resumirBolsasInicio, tramitesParaInicio } from "./portal-inicio.js";
 import { crearControladorPortal } from "./portal-eventos.js";
+import { crearTraductorPortal, MENSAJES_INICIO_RRHH_EN, MENSAJES_PORTAL_ES } from "./portal-i18n.js";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -231,8 +232,19 @@ test("G10: una página parcial del cuadro no produce cifras", () => {
     obtenerMetricasCuadro: () => null,
   });
   const html = renderizar();
-  assert.doesNotMatch(html, /class="rejilla-metricas-rrhh"/);
-  assert.match(html, /Los totales se consultan en el cuadro de mando/);
+  assert.match(html, /Recuento no disponible/);
+  assert.doesNotMatch(html, /<strong class="metrica-valor">1<\/strong>/);
+});
+
+test("el cursor real del cuadro impide convertir la página en total", () => {
+  assert.equal(calcularMetricasCuadro({
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "cursor:otra" },
+    expedientes: [{ estado_clave: "en_curso", fase_clave: "solicitud" }],
+  }), null);
+  assert.equal(calcularMetricasCuadro({
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "" },
+    expedientes: [{ estado_clave: "en_curso", fase_clave: "solicitud" }],
+  }).en_tramitacion, 1);
 });
 
 test("C17: los totales del servidor prevalecen sobre una página parcial", () => {
@@ -268,7 +280,7 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
   // 3 accesos directos requeridos
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Cuadro de mando<\/button>/);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición<\/button>/);
-  assert.match(html, /data-accion="ayuda">Ayuda<\/button>/);
+  assert.match(html, /data-accion="ayuda" aria-label="Ayuda">\?<\/button>/);
 
   // 3 cifras leídas del cuadro
   assert.match(html, /data-metrica="en_tramitacion"[^>]*>[\s\S]*?<strong class="metrica-valor">5<\/strong>/);
@@ -321,4 +333,72 @@ test("el inicio de RRHH lista los trámites recientes con incidencias primero y 
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="expediente:ct:b"/);
   assert.match(html, /class="ct-exp-chip ct-fase-incidencia">Con incidencia</);
   assert.match(html, /2026\/CT-000002[\s\S]*2026\/CT-000001/);
+});
+
+test("el cuadro de RRHH muestra Bolsa autorizada y SAE pendiente sin cifras inventadas", () => {
+  const bolsas = { carga: "listo", datos: { bolsas: [
+    { bolsa_ref: "bolsa:1", categoria: "Auxiliar <A>", vigente_hasta: null, llamamientos_en_curso: 2 },
+    { bolsa_ref: "bolsa:2", categoria: "Técnica", vigente_hasta: "2026-09-01", llamamientos_en_curso: 0 },
+  ] } };
+  assert.deepEqual({ ...resumirBolsasInicio(bolsas), bolsas: undefined },
+    { estado: "listo", bolsas: undefined, total: 2, vigentes: 1, llamamientos: 2 });
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: (clave) => ({ disponible: true, vista: clave === "bolsa" ? "elaboracion" : "contratacion-temporal" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [],
+    obtenerBolsasInicio: () => bolsas,
+  })();
+  assert.match(html, /for="portal-rrhh-tab-expedientes">Expedientes en trámite/);
+  assert.match(html, /for="portal-rrhh-tab-bolsas">Bolsas de trabajo/);
+  assert.match(html, /for="portal-rrhh-tab-sae">Ofertas al SAE/);
+  assert.match(html, /data-metrica="vigentes"[^>]*>[\s\S]*?<strong class="metrica-valor">1<\/strong>/);
+  assert.match(html, /Auxiliar &lt;A&gt;/);
+  assert.match(html, /Sin fase administrativa/);
+  assert.match(html, /data-vista="resumen"/);
+  assert.match(html, /Las ofertas al SAE no se pueden consultar todavía: falta una fuente autorizada/);
+  assert.match(html, /portal-rrhh-panel-sae[\s\S]*?<button[^>]*disabled>Ver trámites<\/button>/);
+  assert.doesNotMatch(html, /<strong class="metrica-valor">70<\/strong>/);
+});
+
+test("Bolsa denegada no muestra datos retenidos y los controles CT se retiran sin acceso", () => {
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: false, estado: "denegado", vista: "" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 9, con_incidencia: 0, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [{ expediente_ref: "exp:privado", categoria: "Dato privado" }],
+    obtenerBolsasInicio: () => ({ carga: "denegado", datos: { bolsas: [{ categoria: "Bolsa privada" }] } }),
+  })();
+  assert.doesNotMatch(html, /Dato privado|Bolsa privada|exp:privado/);
+  assert.doesNotMatch(html, /<strong class="metrica-valor">9<\/strong>/);
+  assert.match(html, /Sin permiso/);
+  assert.doesNotMatch(html, /data-vista="contratacion-temporal"/);
+  assert.doesNotMatch(html, /data-vista="resumen"/);
+});
+
+test("las diez claves del cuadro se traducen con el traductor común", () => {
+  const traducirEN = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  for (const clave of Object.keys(MENSAJES_INICIO_RRHH_EN)) {
+    assert.equal(traducirEN(clave), MENSAJES_INICIO_RRHH_EN[clave]);
+  }
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "resumen" }),
+    esPerfilRRHH: () => true,
+    traducir: traducirEN,
+    obtenerMetricasCuadro: () => null,
+    obtenerTramitesInicio: () => null,
+    obtenerBolsasInicio: () => ({ carga: "listo", datos: { bolsas: [] } }),
+  })();
+  assert.match(html, /Cases in progress|Job pools|Offers to SAE/);
+  assert.match(html, /SAE offers cannot be viewed yet/);
+  assert.match(html, /The cases dashboard could not be loaded/);
 });

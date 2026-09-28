@@ -11,6 +11,16 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   ...MENSAJES_TEXTOS_PORTAL_ES,
   ...MENSAJES_RRHH_PLAZOS_ES,
   ...MENSAJES_POLITICA_CESE_ES,
+  inicio_rrhh_pestana_expedientes: "Expedientes en trámite",
+  inicio_rrhh_pestana_bolsas: "Bolsas de trabajo",
+  inicio_rrhh_pestana_sae: "Ofertas al SAE",
+  inicio_rrhh_sae_pendiente: "Las ofertas al SAE no se pueden consultar todavía: falta una fuente autorizada.",
+  inicio_rrhh_sin_fase_bolsa: "Sin fase administrativa",
+  inicio_rrhh_llamamientos_curso: "Llamamientos en curso",
+  inicio_rrhh_recuento_no_disponible: "Recuento no disponible",
+  inicio_rrhh_cuadro_no_disponible: "No se pudo consultar el cuadro de expedientes.",
+  inicio_rrhh_ver_bolsas: "Ver bolsas",
+  inicio_rrhh_tramites_bolsa: "Bolsas consultadas",
   plantillas_rrhh_nav: "Plantillas de documentos",
   plantillas_rrhh_miga: "Portal del Empleado → Contratación temporal → Plantillas",
   plantillas_rrhh_titulo: "Plantillas de contratación temporal",
@@ -80,6 +90,20 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   paginacion_marco_primera: "Primera",
   paginacion_marco_anterior: "Anterior",
   paginacion_marco_siguiente: "Siguiente",
+});
+
+// Pares de 5.03 para la composición del catálogo inglés del portal.
+export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
+  inicio_rrhh_pestana_expedientes: "Cases in progress",
+  inicio_rrhh_pestana_bolsas: "Job pools",
+  inicio_rrhh_pestana_sae: "Offers to SAE",
+  inicio_rrhh_sae_pendiente: "SAE offers cannot be viewed yet: an authorized data source is missing.",
+  inicio_rrhh_sin_fase_bolsa: "No administrative phase",
+  inicio_rrhh_llamamientos_curso: "Calls in progress",
+  inicio_rrhh_recuento_no_disponible: "Count unavailable",
+  inicio_rrhh_cuadro_no_disponible: "The cases dashboard could not be loaded.",
+  inicio_rrhh_ver_bolsas: "View job pools",
+  inicio_rrhh_tramites_bolsa: "Job pools viewed",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PORTAL_ES));
