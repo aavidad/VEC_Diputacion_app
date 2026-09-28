@@ -1,7 +1,7 @@
 import { validarPreparacionIncorporacionEjercicio } from "./contrato-incorporacion-ejercicio.js";
 import { validarConsultaSeguimientoIncorporacion, validarSeguimientoIncorporacion } from "./contrato-seguimiento-incorporacion.js";
 import { escaparHTML as escapar } from "./componentes-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 export const CLAVES_I18N_SEGUIMIENTO_INCORPORACION = Object.freeze([

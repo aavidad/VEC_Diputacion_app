@@ -5,11 +5,11 @@ import {
   renderizarEstadoCarga, renderizarExpediente,
 } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260928-rrhh-corte3-cache-v1";
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
