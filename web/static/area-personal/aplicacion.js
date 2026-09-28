@@ -207,7 +207,7 @@ export function datosMinimosMiBolsa(consulta) {
 function datosMinimosPreferencias() {
   const base = datosMinimosMiBolsa({ consultada_en: "" });
   return { ...base,
-    meta: { presentacion: false, origen: "GET /api/vec/usuarios/mis-preferencias" },
+    meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias" },
     sesion: { ...base.sesion, metodo: traducir("areaPersonal.preferencias.identidadServicio") },
   };
 }

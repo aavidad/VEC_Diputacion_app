@@ -1,7 +1,7 @@
 import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js";
 
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
-export const RUTA_MIS_PREFERENCIAS = "/api/vec/usuarios/mis-preferencias";
+export const RUTA_MIS_PREFERENCIAS = "/api/vec/usuarios/area-personal/mis-preferencias";
 const CAMPOS_MIS_PREFERENCIAS = Object.freeze(["idioma", "tamano_texto", "alto_contraste", "tema", "inicio", "filas", "aviso_correo_tareas", "aviso_correo_plazos"]);
 const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
 const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;

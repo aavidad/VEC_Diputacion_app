@@ -1,6 +1,6 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-usuarios-pref-v1";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-usuarios-pref-v2";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { crearClientePreferencias } from "./cliente-http.js?v=20260929-usuarios-pref-v1";
+import { crearClientePreferencias } from "./cliente-http.js?v=20260929-usuarios-pref-v2";
 import * as temaComun from "../comun/tema-vec.js?v=20260929-usuarios-pref-v1";
 
 const clientePreferencias = crearClientePreferencias();
@@ -16,7 +16,7 @@ const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVi
 
 async function resolverCliente() {
   exigirParametrosConocidos(new URLSearchParams(window.location.search));
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260929-usuarios-pref-v1");
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260929-usuarios-pref-v2");
   return { cliente: crearClienteHTTPAreaPersonal() };
 }
 

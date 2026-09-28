@@ -20,6 +20,9 @@ const json = (data, status = 200) => ({ status, headers: { get: (nombre) => nomb
   text: async () => JSON.stringify({ data }) });
 
 test("GET y PUT usan el contrato único, omiten credenciales y conservan recibo real", async () => {
+  assert.equal(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/area-personal/mis-preferencias");
+  const codigoCliente = await readFile(new URL("./cliente-http.js", import.meta.url), "utf8");
+  assert.doesNotMatch(codigoCliente, /["']\/api\/vec\/usuarios\/mis-preferencias["']/u);
   const llamadas = [];
   const recibo = { ...estado, version: 1, recibo_ref: "recibo:propio", fecha_utc: "2026-09-29T00:00:00Z", replay: false };
   const cliente = crearClientePreferencias({ fetchImpl: async (ruta, opciones) => {
