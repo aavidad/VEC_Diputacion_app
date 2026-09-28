@@ -16,6 +16,7 @@ git -C "$repo" diff --quiet "$base" HEAD -- . \
   || fallar 'fuente distinta del corte 1 fijado: revisar el plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
 "$script_dir/validar_plan.sh"
+"$script_dir/preflight_roles_calculador.sh" --clon
 "$script_dir/preflight_roles_ct136.sh" --clon
 
 # PGSERVICE/PGPASSFILE se resuelven fuera de Git. No pasar DSN ni clave en argumentos.
@@ -28,8 +29,12 @@ version=$("${conexion[@]}" --command 'SHOW server_version_num')
 # El publicador B10 separado es NO-GO: ACK sin prueba de publicación y fuente
 # V2/documental sin componer. Validar toda la lista antes del primer UP.
 anterior=''
+rol_calculador='deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_up.sql'
+b51='deploy/postgresql/bolsa_llamamientos/migraciones/000051_consulta_politica_ofertas_v3.up.sql'
 rol='deploy/postgresql/contratacion_temporal/roles_registrador_auditoria_up.sql'
 ct136='deploy/postgresql/contratacion_temporal/migraciones/000136_auditoria_frontera_auditoria_ruta_exacta.up.sql'
+visto_calculador=false
+visto_b51=false
 visto_rol=false
 visto_ct136=false
 while IFS= read -r ruta; do
@@ -38,7 +43,14 @@ while IFS= read -r ruta; do
     */000049_publicacion_cese_b10.up.sql|*/000003_publicacion_cese_replay.up.sql)
       fallar "migración NO-GO en plan: $ruta" ;;
   esac
-  if [[ $ruta == "$rol" ]]; then
+  if [[ $ruta == "$rol_calculador" ]]; then
+    [[ $visto_calculador == false ]] || fallar 'delta de rol calculador duplicado'
+    visto_calculador=true
+  elif [[ $ruta == "$b51" ]]; then
+    [[ $anterior == "$rol_calculador" && $visto_b51 == false ]] \
+      || fallar 'B51 debe seguir inmediatamente al delta DBA de rol calculador'
+    visto_b51=true
+  elif [[ $ruta == "$rol" ]]; then
     [[ $visto_rol == false ]] || fallar 'delta de rol CT136 duplicado'
     visto_rol=true
   elif [[ $ruta == "$ct136" ]]; then
@@ -51,7 +63,9 @@ while IFS= read -r ruta; do
   [[ -f $repo/$ruta ]] || fallar "falta SQL: $ruta"
   anterior=$ruta
 done <"$script_dir/migraciones.txt"
-[[ $visto_rol == true && $visto_ct136 == true ]] || fallar 'falta delta DBA o CT136'
+[[ $visto_calculador == true && $visto_b51 == true \
+   && $visto_rol == true && $visto_ct136 == true ]] \
+  || fallar 'falta B51/CT136 o alguno de sus deltas DBA'
 
 while IFS= read -r ruta; do
   [[ -n $ruta && $ruta != \#* ]] || continue

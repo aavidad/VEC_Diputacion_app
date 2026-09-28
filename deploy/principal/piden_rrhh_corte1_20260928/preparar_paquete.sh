@@ -29,9 +29,16 @@ rol_linea=$(grep -nFx 'deploy/postgresql/contratacion_temporal/roles_registrador
   "$script_dir/migraciones.txt" | cut -d: -f1)
 ct136_linea=$(grep -nFx 'deploy/postgresql/contratacion_temporal/migraciones/000136_auditoria_frontera_auditoria_ruta_exacta.up.sql' \
   "$script_dir/migraciones.txt" | cut -d: -f1)
+calculador_linea=$(grep -nFx 'deploy/postgresql/bolsa_llamamientos/roles_calculador_politica_up.sql' \
+  "$script_dir/migraciones.txt" | cut -d: -f1)
+b51_linea=$(grep -nFx 'deploy/postgresql/bolsa_llamamientos/migraciones/000051_consulta_politica_ofertas_v3.up.sql' \
+  "$script_dir/migraciones.txt" | cut -d: -f1)
 [[ $rol_linea =~ ^[0-9]+$ && $ct136_linea =~ ^[0-9]+$ \
    && $ct136_linea -eq $((rol_linea + 1)) ]] \
   || fallar 'plan CT136 sin delta DBA inmediatamente anterior'
+[[ $calculador_linea =~ ^[0-9]+$ && $b51_linea =~ ^[0-9]+$ \
+   && $b51_linea -eq $((calculador_linea + 1)) ]] \
+  || fallar 'plan B51 sin delta DBA inmediatamente anterior'
 
 for manifest in produccion.manifest interno.manifest; do
   [[ -f $repo/web/$manifest ]] || fallar "falta $manifest"

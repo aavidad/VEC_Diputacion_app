@@ -6,11 +6,17 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
 fuente=190d98ead7cb1c93828fc076311a8c9c914db776
 base_publicada=7247682cbd1e6e630c86c290e3ddeca281456a94
-plan=$script_dir/migraciones.txt
 fallar() { printf 'ERROR: plan SQL corte1: %s\n' "$*" >&2; exit 1; }
+if [[ $# == 0 ]]; then
+  plan=$script_dir/migraciones.txt
+elif [[ $# == 2 && $1 == --plan && -f $2 ]]; then
+  plan=$2
+else
+  fallar 'uso: validar_plan.sh [--plan FICHERO para ensayo aislado]'
+fi
 
 mapfile -t rutas < <(grep -vE '^[[:space:]]*(#|$)' "$plan")
-[[ ${#rutas[@]} == 28 ]] || fallar 'se esperaban 27 UP y un delta DBA'
+[[ ${#rutas[@]} == 29 ]] || fallar 'se esperaban 27 UP y dos deltas DBA'
 declare -A posicion=()
 indice=0
 for ruta in "${rutas[@]}"; do
@@ -27,10 +33,11 @@ for ruta in "${rutas[@]}"; do
 done
 
 esperados=$(git -C "$repo" diff --name-only "$base_publicada" "$fuente" \
-  -- deploy/postgresql | grep -E '\.up\.sql$' | LC_ALL=C sort)
-actuales=$(printf '%s\n' "${rutas[@]}" | grep -E '\.up\.sql$' | LC_ALL=C sort)
+  -- deploy/postgresql | grep -E '(/migraciones/.*\.up\.sql$|/roles_[^/]*_up\.sql$)' | LC_ALL=C sort)
+actuales=$(printf '%s\n' "${rutas[@]}" \
+  | grep -E '(/migraciones/.*\.up\.sql$|/roles_[^/]*_up\.sql$)' | LC_ALL=C sort)
 [[ $actuales == "$esperados" ]] \
-  || fallar 'el conjunto UP difiere del delta exacto entre base publicada y fuente fijada'
+  || fallar 'el conjunto UP/deltas DBA difiere del delta exacto entre base publicada y fuente fijada'
 
 antes() {
   local anterior=$1 posterior=$2 a b
@@ -68,6 +75,7 @@ antes 000096_consumidor_catalogo_plantillas_documental_ct.up.sql 000133_obtener_
 antes 000093_consumidor_politica_ofertas_bolsa.up.sql 000097_consumidor_consulta_politica_ofertas_bolsa.up.sql
 antes 000047_politica_ofertas_ejemplo.up.sql 000051_consulta_politica_ofertas_v3.up.sql
 antes 000097_consumidor_consulta_politica_ofertas_bolsa.up.sql 000051_consulta_politica_ofertas_v3.up.sql
+antes roles_calculador_politica_up.sql 000051_consulta_politica_ofertas_v3.up.sql
 antes 000098_consumidor_lectura_reincorporacion_ct.up.sql 000134_lectura_reincorporacion_titular.up.sql
 antes 000130_reincorporacion_titular.up.sql 000134_lectura_reincorporacion_titular.up.sql
 antes 000047_politica_ofertas_ejemplo.up.sql 000054_plazo_ofertas_48_horas.up.sql
@@ -75,9 +83,13 @@ antes 000051_consulta_politica_ofertas_v3.up.sql 000054_plazo_ofertas_48_horas.u
 antes 000099_ambito_organizacion_plantillas_ct.up.sql 000135_ambito_organizacion_plantillas.up.sql
 antes 000131_catalogo_plantillas_documentos.up.sql 000135_ambito_organizacion_plantillas.up.sql
 antes roles_registrador_auditoria_up.sql 000136_auditoria_frontera_auditoria_ruta_exacta.up.sql
+calculador_pos=${posicion[roles_calculador_politica_up.sql]}
+b51_pos=${posicion[000051_consulta_politica_ofertas_v3.up.sql]}
+[[ $b51_pos -eq $((calculador_pos + 1)) ]] \
+  || fallar 'B51 debe seguir inmediatamente al delta DBA del calculador'
 rol_pos=${posicion[roles_registrador_auditoria_up.sql]}
 ct136_pos=${posicion[000136_auditoria_frontera_auditoria_ruta_exacta.up.sql]}
 [[ $ct136_pos -eq $((rol_pos + 1)) ]] \
   || fallar 'CT136 debe seguir inmediatamente al delta DBA del rol'
 
-printf 'PLAN_SQL_CORTE1_OK: 27 UP, rol CT136 y dependencias causales\n'
+printf 'PLAN_SQL_CORTE1_OK: 27 UP, dos roles DBA y dependencias causales\n'

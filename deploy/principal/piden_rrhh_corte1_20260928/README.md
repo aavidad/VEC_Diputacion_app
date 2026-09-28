@@ -22,13 +22,18 @@ acreditadas antes de instalarse. El inventario de cidonia puede mostrar que
 alguna ya tiene historia; **detenerse y conciliar** en vez de repetirla. La
 lista se invalida si se añaden, retiran o modifican migraciones del candidato.
 No equivale a una aprobación de SQL ni a un inventario de la base real.
-[`validar_plan.sh`](validar_plan.sh) compara el conjunto de 27 UP con la base
-publicada fijada y exige el orden causal AD3, CT y Bolsa antes de ensayar o
-empaquetar. Incluye explícitamente AD3-96 antes de CT133.
-CT136 añade además un **delta DBA de rol**, listado inmediatamente antes del
-`UP` CT136: `roles_registrador_auditoria_up.sql` debe ensayarse con `ROLLBACK`
-y confirmarse antes de CT136. El rol no concede permiso por sí solo a LOGIN;
-sus membresías nominales se aprovisionan por el procedimiento privado.
+[`validar_plan.sh`](validar_plan.sh) compara los **27 UP y dos deltas DBA de
+rol** con el delta Git exacto de la base publicada a la fuente fijada, y exige
+el orden causal AD3, CT y Bolsa antes de ensayar o empaquetar. Incluye
+AD3-96 antes de CT133, `roles_calculador_politica_up.sql` inmediatamente
+antes de Bolsa51 y `roles_registrador_auditoria_up.sql` inmediatamente antes
+de CT136. Los dos deltas se ensayan con `ROLLBACK` y se confirman por DBA
+antes de su migración respectiva. Los LOGIN y sus membresías nominales se
+aprovisionan por el procedimiento privado, nunca desde este paquete.
+`probar_paquete.sh` comprueba de forma local y sin PostgreSQL real que el
+validador rechaza ambas omisiones de rol y la inversión AD3-96/CT133, y que
+los preflights rechazan B49, Pública3 y ACL simuladas incompatibles. No
+sustituye el ensayo sobre un clon PG18 íntegro.
 
 **NO-GO B10:** Bolsa `000049_publicacion_cese_b10` y Bolsa pública
 `000003_publicacion_cese_replay` quedan fuera del plan ejecutable. El
@@ -148,13 +153,14 @@ export VEC_PIDEN_CLON_DB=vec_clon_piden_20260928
 export VEC_PIDEN_BOLSA_PUBLICA_PGSERVICE=piden_bolsa_publica_clon
 export VEC_PIDEN_BOLSA_PUBLICA_CLON_DB=bolsa_publica_clon_piden_20260928
 bash deploy/principal/piden_rrhh_corte1_20260928/preflight_no_go.sh --clon
+bash deploy/principal/piden_rrhh_corte1_20260928/preflight_roles_calculador.sh --clon
 bash deploy/principal/piden_rrhh_corte1_20260928/preflight_roles_ct136.sh --clon
 bash deploy/principal/piden_rrhh_corte1_20260928/ensayar_clon.sh --aplicar-en-clon
 ```
 
 El guion verifica nombre de base y PG18, y aplica los `UP` por orden con
-`ON_ERROR_STOP=1`; antes ensaya el delta de rol CT136 con `ROLLBACK` y
-comprueba ACL. Cada fichero canónico abre y confirma su propia transacción;
+`ON_ERROR_STOP=1`; antes ensaya ambos deltas de rol con `ROLLBACK` y
+comprueba sus preimágenes y ACL. Cada fichero canónico abre y confirma su propia transacción;
 por eso no se simula un `ROLLBACK` exterior que no protegería nada. Si falla,
 descartar el clon, corregir la causa y restaurar otro: **nunca hacer `DOWN`**.
 Comprobar postimagen estructural, ACL, permisos negativos, recibos y contadores
@@ -194,8 +200,9 @@ de seguridad de ambas bases y ACL. Configurar `PGSERVICE` y
 `VEC_PIDEN_DESTINO_DB` y `VEC_PIDEN_BOLSA_PUBLICA_DESTINO_DB`; ejecutar
 `preflight_no_go.sh --destino` y conservar su salida privada. Cualquier huella
 B49/Pública3 significa **NO-GO**; no continuar por el resto del plan. Con
-preflight limpio, ejecutar `preflight_roles_ct136.sh --destino` para ensayar
-rol y ACL con `ROLLBACK` exacto; un rechazo es **NO-GO**. Con revisiones
+preflight limpio, ejecutar `preflight_roles_calculador.sh --destino` y
+`preflight_roles_ct136.sh --destino` para ensayar ambos roles y ACL con
+`ROLLBACK` exacto; un rechazo es **NO-GO**. Con revisiones
 cerradas, aplicar en la **principal** únicamente los `UP`
 inventariados como pendientes, en el orden de `migraciones.txt`, y verificar
 postimagen tras cada `COMMIT`. La aplicación de producción es una decisión
@@ -206,8 +213,8 @@ dedicada, instalar binario de forma atómica, y activar esa release conservando
 la anterior. Mantener configuración privada fuera de la release y comprobar
 permisos antes del arranque.
 
-En la pareja CT136, el primer fichero es el delta de **roles DBA**; después
-se instala la migración CT136 con su propietario según el propio SQL. No crear
+En las parejas Bolsa51 y CT136, el primer fichero es un delta de **roles DBA**;
+después se instala la migración del módulo con su propietario según el propio SQL. No crear
 ni asignar LOGIN nominales desde este paquete. Una preimagen de rol o ACL
 distinta aborta antes de CT136; no conceder privilegios amplios para forzarla.
 
