@@ -3,6 +3,7 @@ import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=2026
 import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260928-ppt-c3-v3";
 import { MENSAJES_RRHH_PLAZOS_ES } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
 import { MENSAJES_POLITICA_CESE_ES } from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-rrhh-politica-cese-v1";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
@@ -23,6 +24,24 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   inicio_rrhh_tramites_bolsa: "Bolsas consultadas",
   inicio_rrhh_no_vigente: "No vigente",
   inicio_rrhh_vigencia_no_disponible: "Vigencia no disponible",
+  inicio_rrhh_tramites_vacio: "No hay expedientes recientes. Consulte el cuadro para ver todos los trámites.",
+  inicio_rrhh_fase_solicitud: "Solicitud",
+  inicio_rrhh_fase_analisis: "Análisis",
+  inicio_rrhh_fase_cobertura: "Cobertura",
+  inicio_rrhh_fase_asignacion_unidad: "Asignación a unidad",
+  inicio_rrhh_fase_informe: "Informe",
+  inicio_rrhh_fase_informe_juridico: "Informe jurídico",
+  inicio_rrhh_fase_fiscalizacion: "Fiscalización",
+  inicio_rrhh_fase_subsanacion_unidad: "Subsanación de la unidad",
+  inicio_rrhh_fase_llamamiento: "Llamamiento",
+  inicio_rrhh_fase_nombramiento: "Nombramiento",
+  inicio_rrhh_fase_seguimiento: "Seguimiento",
+  inicio_rrhh_fase_cierre: "Cierre",
+  inicio_rrhh_estado_pendiente: "Pendiente",
+  inicio_rrhh_estado_en_curso: "En tramitación",
+  inicio_rrhh_estado_incidencia: "Con incidencia",
+  inicio_rrhh_estado_completado: "Completado",
+  inicio_rrhh_estado_cerrado: "Cerrado",
   plantillas_rrhh_nav: "Plantillas de documentos",
   plantillas_rrhh_miga: "Portal del Empleado → Peticiones de personal temporal → Plantillas",
   plantillas_rrhh_titulo: "Plantillas de peticiones de personal temporal",
@@ -94,7 +113,7 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   paginacion_marco_siguiente: "Siguiente",
 });
 
-// Pares de 5.03 para la composición del catálogo inglés del portal.
+// Textos del inicio en inglés. El resto del shell conserva el catálogo común.
 export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   inicio_rrhh_pestana_expedientes: "Cases in progress",
   inicio_rrhh_pestana_bolsas: "Job pools",
@@ -108,6 +127,72 @@ export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   inicio_rrhh_tramites_bolsa: "Job pools viewed",
   inicio_rrhh_no_vigente: "Not active",
   inicio_rrhh_vigencia_no_disponible: "Status unavailable",
+  inicio_rrhh_tramites_vacio: "No recent cases. Open the dashboard to see all cases.",
+  inicio_rrhh_fase_solicitud: "Request",
+  inicio_rrhh_fase_analisis: "Review",
+  inicio_rrhh_fase_cobertura: "Staffing route",
+  inicio_rrhh_fase_asignacion_unidad: "Unit assignment",
+  inicio_rrhh_fase_informe: "Report",
+  inicio_rrhh_fase_informe_juridico: "Legal report",
+  inicio_rrhh_fase_fiscalizacion: "Financial review",
+  inicio_rrhh_fase_subsanacion_unidad: "Unit correction",
+  inicio_rrhh_fase_llamamiento: "Call-up",
+  inicio_rrhh_fase_nombramiento: "Appointment",
+  inicio_rrhh_fase_seguimiento: "Follow-up",
+  inicio_rrhh_fase_cierre: "Closure",
+  inicio_rrhh_estado_pendiente: "Pending",
+  inicio_rrhh_estado_en_curso: "In progress",
+  inicio_rrhh_estado_incidencia: "Needs attention",
+  inicio_rrhh_estado_completado: "Completed",
+  inicio_rrhh_estado_cerrado: "Closed",
+  accion_entrar: "Open",
+  accion_reintentar: "Try again",
+  contratacion_temporal_encabezado: "Temporary staff requests",
+  error_catalogo_modulos: "The internal module catalogue is unavailable. Try again.",
+  estado_modulo_comprobando: "Checking",
+  estado_modulo_disponible_perfil: "Available for your current profile",
+  estado_modulo_no_disponible: "Unavailable",
+  estado_modulo_no_disponible_titulo: "Module unavailable",
+  estado_modulo_no_habilitado: "Not enabled",
+  estado_modulo_sin_permiso: "No permission",
+  inicio_comprobando_accesos: "Checking access…",
+  inicio_empleado_sin_modulos: "No modules are available for your profile.",
+  inicio_modulos_etiqueta: "Portal modules",
+  inicio_titulo_neutro: "Home",
+  permiso_perfil_denegado: "No permission for this profile",
+  personal_catalogo_profesional: "Personnel professional catalogue",
+  perfil_sesion_rrhh: "Human Resources",
+  perfil_sesion_intervencion: "Financial Control",
+  perfil_sesion_personal: "Personnel",
+  perfil_sesion_jefatura: "Management",
+  titulo_error_catalogo_modulos: "Modules could not be checked",
+  txt_accesos_directos: "Quick access",
+  txt_ayuda: "Help",
+  txt_cargando_bolsas_de_trabajo: "Loading job pools",
+  txt_categoria: "Category",
+  txt_centro: "Department",
+  txt_cuadro_de_mando: "Dashboard",
+  txt_el_servicio_no_ha_devuelto_bolsas_de_trabajo_reg: "No job pools were returned.",
+  txt_en_tramitacion: "In progress",
+  txt_con_incidencia: "Needs attention",
+  txt_en_llamamiento: "In call-up",
+  txt_estado: "Status",
+  txt_expediente: "Case",
+  txt_fase: "Phase",
+  txt_inicio_del_portal: "Portal home",
+  txt_la_sesion_actual_no_dispone_de_permisos_suficien: "Your session does not have permission to view job pools.",
+  txt_los_totales_se_consultan_en_el_cuadro_de_mando: "Open the dashboard to see the totals.",
+  txt_modulos_del_portal_del_empleado: "Employee Portal modules",
+  txt_no_se_pudieron_cargar_las_bolsas_de_trabajo: "Job pools could not be loaded. Try again later.",
+  txt_nueva_peticion: "New request",
+  txt_portal_del_empleado: "Employee Portal",
+  txt_resumen_del_cuadro_de_mando: "Dashboard summary",
+  txt_todos_los_modulos_de_recursos_humanos: "All Human Resources modules",
+  txt_tramites_recientes: "Recent cases",
+  txt_ver_todos: "View all",
+  txt_ver_tramites: "View cases",
+  txt_vigentes: "Active",
+  txt_vigente: "Active",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PORTAL_ES));
@@ -124,7 +209,8 @@ export function crearTraductorPortal(catalogo = MENSAJES_PORTAL_ES) {
   };
 }
 
-export const traducirPortal = crearTraductorPortal();
+export const traducirPortal = crearTraductorPortal(IDIOMA_ACTUAL === "en"
+  ? { ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN } : MENSAJES_PORTAL_ES);
 
 /** Texto del catálogo común ya escapado para insertarlo en una plantilla HTML. */
 export function textoPortal(clave, variables = {}) {
@@ -217,7 +303,7 @@ export function crearTraductorBolsaInterna(catalogo = MENSAJES_BOLSA_INTERNA_ES)
 }
 export const traducirBolsaInterna = crearTraductorBolsaInterna();
 /** Localización y zona horaria del portal: autoridad común para formatear fechas, horas, importes y cifras. */
-export const LOCALIZACION_PORTAL = "es-ES";
+export const LOCALIZACION_PORTAL = LOCALIZACION_ACTUAL;
 export const ZONA_HORARIA_PORTAL = "Europe/Madrid";
 export function formatearNumeroPortal(valor, opciones = {}) {
   const numero = Number(valor);

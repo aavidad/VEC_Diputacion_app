@@ -6,7 +6,21 @@
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+
+// Sólo estas claves de estado y fase pertenecen a un vocabulario controlado.
+// Los nombres de centro, categoría y cualquier texto libre se muestran tal como
+// los devuelve la consulta autorizada, siempre escapados.
+const FASES_INICIO = new Set([
+  "solicitud", "analisis", "cobertura", "asignacion_unidad", "informe",
+  "informe_juridico", "fiscalizacion", "subsanacion_unidad", "llamamiento",
+  "nombramiento", "seguimiento", "cierre",
+]);
+const ESTADOS_INICIO = new Set(["pendiente", "en_curso", "incidencia", "completado", "cerrado"]);
+
+function etiquetaControlada(prefijo, clave, valor, admitidas, traducir) {
+  return admitidas.has(clave) ? traducir(`${prefijo}${clave}`) : (valor ?? "—");
+}
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -60,7 +74,7 @@ export function tramitesParaInicio(cuadro, maximo = MAXIMO_TRAMITES_INICIO) {
 function renderizarTramitesInicio(tramites, escaparHTML, traducir) {
   const t = (clave) => escaparHTML(traducir(clave));
   if (!Array.isArray(tramites) || tramites.length === 0) {
-    return `<p class="portal-rrhh-resumen-vacio">${t("txt_no_hay_tramites_que_mostrar")}</p>`;
+    return `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_tramites_vacio")}</p>`;
   }
   return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("txt_tramites_recientes")}">
       <table class="tabla-datos portal-rrhh-tramites">
@@ -69,8 +83,8 @@ function renderizarTramitesInicio(tramites, escaparHTML, traducir) {
           <th scope="row"><button type="button" class="boton-terciario portal-rrhh-abrir" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">${escaparHTML(e.numero_visible ?? "")}</button></th>
           <td>${escaparHTML(e.centro ?? "—")}</td>
           <td>${escaparHTML(e.categoria ?? "—")}</td>
-          <td>${escaparHTML(e.fase_actual ?? "—")}</td>
-          <td><span class="ct-exp-chip ct-fase-${escaparHTML(e.estado_clave ?? "pendiente")}">${escaparHTML(e.estado ?? "—")}</span></td>
+          <td>${escaparHTML(etiquetaControlada("inicio_rrhh_fase_", e.fase_clave, e.fase_actual, FASES_INICIO, traducir))}</td>
+          <td><span class="ct-exp-chip${ESTADOS_INICIO.has(e.estado_clave) ? ` ct-fase-${e.estado_clave}` : ""}">${escaparHTML(etiquetaControlada("inicio_rrhh_estado_", e.estado_clave, e.estado, ESTADOS_INICIO, traducir))}</span></td>
         </tr>`).join("")}</tbody>
       </table>
     </div>`;
@@ -237,13 +251,12 @@ export function crearVistaInicioPortal({
           ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>`
           : (!metricas ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_los_totales_se_consultan_en_el_cuadro_de_mando")}</p>` : ""));
       return `
-        ${encabezadoVista("", traducir("txt_inicio_del_portal"), "")}
+        ${encabezadoVista("", traducir("contratacion_temporal_encabezado"), "", `<button type="button" class="boton-secundario portal-rrhh-ayuda" data-accion="ayuda" aria-label="${t("txt_ayuda")}">?</button>`)}
         ${avisoCatalogo}
         <section class="portal-rrhh-inicio" aria-label="${t("txt_resumen_del_cuadro_de_mando")}">
           <div class="portal-rrhh-accesos" aria-label="${t("txt_accesos_directos")}">
             ${destinoCT ? `<button type="button" class="boton-primario" ${destinoCT}>${t("txt_cuadro_de_mando")}</button>
               <button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("txt_nueva_peticion")}</button>` : ""}
-            <button type="button" class="boton-secundario portal-rrhh-ayuda" data-accion="ayuda" aria-label="${t("txt_ayuda")}">?</button>
           </div>
           <section class="portal-rrhh-cuadro panel" aria-label="${t("txt_resumen_del_cuadro_de_mando")}">
             <div class="cabecera-panel"><h3>${t("txt_resumen_del_cuadro_de_mando")}</h3></div>
@@ -290,11 +303,11 @@ export function crearVistaInicioPortal({
       ? `<section class="panel portal-inicio-empleado-vacio"><div class="cuerpo-panel vacio-controlado" role="status" data-inicio-sin-modulos>
           <p>${escaparHTML(traducir("inicio_empleado_sin_modulos"))}</p>
         </div></section>`
-      : `<div class="rejilla-modulos portal-inicio-empleado" aria-label="${textoPortal("txt_modulos_del_portal_del_empleado")}">
+      : `<div class="rejilla-modulos portal-inicio-empleado" aria-label="${escaparHTML(traducir("txt_modulos_del_portal_del_empleado"))}">
         ${modulos}
       </div>`;
     return `
-      ${encabezadoVista("", traducirPortal("txt_portal_del_empleado"), "")}
+      ${encabezadoVista("", traducir("txt_portal_del_empleado"), "")}
       ${avisoCatalogo}
       ${contenido}`;
   };

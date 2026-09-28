@@ -257,7 +257,7 @@ test("C17: los totales del servidor prevalecen sobre una página parcial", () =>
 
 test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el catálogo completo", () => {
   const renderizarRRHH = crearVistaInicioPortal({
-    encabezadoVista: (sup, tit, desc) => `<header><h1>${tit}</h1><p>${sup}</p></header>`,
+    encabezadoVista: (sup, tit, desc, acciones) => `<header><h1>${tit}</h1>${acciones}<p>${sup}</p></header>`,
     escaparHTML,
     obtenerCatalogo: () => [moduloBolsa],
     resolverAcceso: () => ({ disponible: true, vista: "bolsa" }),
@@ -273,7 +273,7 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
   const html = renderizarRRHH();
 
   // Encabezado y sección RRHH, sin textos técnicos ni de ayuda en pantalla.
-  assert.match(html, /Inicio del portal/);
+  assert.match(html, /Peticiones de personal temporal/);
   assert.doesNotMatch(html, /adaptador de backend|Accesos por módulo|fase inicial/u);
   assert.match(html, /class="portal-rrhh-inicio"/);
 
@@ -428,4 +428,44 @@ test("las claves del cuadro se traducen con el traductor común", () => {
   assert.match(html, /Cases in progress|Job pools|Offers to SAE/);
   assert.match(html, /SAE offers cannot be viewed yet/);
   assert.match(html, /The cases dashboard could not be loaded/);
+});
+
+test("la ayuda de RRHH queda en la cabecera y el vacío indica dónde consultar", () => {
+  const html = crearVistaInicioPortal({
+    encabezadoVista: (_sobrelinea, titulo, _descripcion, acciones) =>
+      `<header><h1>${escaparHTML(titulo)}</h1>${acciones}</header>`,
+    escaparHTML, obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "contratacion-temporal" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [],
+  })();
+  assert.match(html, /<header><h1>Peticiones de personal temporal<\/h1><button[^>]*data-accion="ayuda"[^>]*>\?<\/button><\/header>/u);
+  assert.equal((html.match(/data-accion="ayuda"/gu) || []).length, 1);
+  assert.match(html, /No hay expedientes recientes\. Consulte el cuadro para ver todos los trámites\./u);
+});
+
+test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", () => {
+  const traducir = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const html = crearVistaInicioPortal({
+    encabezadoVista: (_sobrelinea, titulo, _descripcion, acciones) =>
+      `<header><h1>${escaparHTML(titulo)}</h1>${acciones}</header>`,
+    escaparHTML, traducir, obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "contratacion-temporal" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 2, con_incidencia: 1, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [
+      { expediente_ref: "exp:1", numero_visible: "CT-1", centro: "Centro <libre>", categoria: "Auxiliar & más", fase_clave: "fiscalizacion", fase_actual: "Fiscalización", estado_clave: "incidencia", estado: "Con incidencia" },
+      { expediente_ref: "exp:2", numero_visible: "CT-2", centro: "Centro B", categoria: "Auxiliar", fase_clave: "fase_no_catalogada", fase_actual: "Fase <libre>", estado_clave: "estado_no_catalogado", estado: "Estado <libre>" },
+    ],
+    obtenerBolsasInicio: () => ({ carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [] } }),
+  })();
+  assert.match(html, /<h1>Temporary staff requests<\/h1>/u);
+  assert.match(html, /Financial review<\/td>/u);
+  assert.match(html, /ct-fase-incidencia">Needs attention<\/span>/u);
+  assert.match(html, /Centro &lt;libre&gt;|Auxiliar &amp; más/u);
+  assert.match(html, /Fase &lt;libre&gt;|Estado &lt;libre&gt;/u);
+  assert.doesNotMatch(html, /ct-fase-estado_no_catalogado|<libre>|Con incidencia|Fiscalización/u);
+  assert.match(html, /No job pools were returned\./u);
+  assert.match(html, /SAE offers cannot be viewed yet/u);
 });
