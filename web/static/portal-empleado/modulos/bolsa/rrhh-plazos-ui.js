@@ -3,7 +3,7 @@ import { crearClientePoliticaOfertas, validarPoliticaEditable } from "./rrhh-pla
 
 const EJEMPLO_VACIO = Object.freeze({
   plazo: { unidad: "horas_naturales", cantidad: 48, computo: "continuo_utc", municipio_sede: "" },
-  adjudicacion: { criterio: "orden_vigente", elegibilidad: "disposicion_en_plazo" },
+  adjudicacion: { criterio: "orden_vigente", elegibilidad: "disposicion_en_plazo", requiere_segunda_validacion: true },
   no_cubierta: { accion: "llamamiento_directo", condicion: "sin_disposiciones_elegibles" },
 });
 
@@ -157,7 +157,7 @@ export function crearSuperficieRRHHPlazos({
     const calendario = horas ? t("calendario_continuo_utc") : /^[0-9]{5}$/u.test(v.plazo.municipio_sede)
       ? t("calendario_municipio", { municipio: v.plazo.municipio_sede }) : t("calendario_pendiente");
     const plazo = `<section class="panel"><div class="cabecera-panel"><h3>${t("plazo_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos"><label class="campo"><span>${t("cantidad")}</span><input name="cantidad" type="number" min="1" max="${horas ? 720 : 30}" step="1" required value="${escapar(v.plazo.cantidad)}"${disabled}></label><label class="campo"><span>${t("unidad")}</span><select name="unidad"${disabled}><option value="horas_naturales"${horas ? " selected" : ""}>${t("horas_naturales")}</option><option value="dias_habiles"${v.plazo.unidad === "dias_habiles" ? " selected" : ""}>${t("dias_habiles")}</option><option value="dias_naturales"${v.plazo.unidad === "dias_naturales" ? " selected" : ""}>${t("dias_naturales")}</option></select></label><label class="campo"><span>${t("municipio_sede")}</span><input name="municipio_sede" inputmode="numeric" pattern="[0-9]{5}" minlength="5" maxlength="5" required value="${escapar(v.plazo.municipio_sede)}"${disabled}></label>${dato("computo", t(horas ? "continuo_utc" : "administrativo"))}${dato("calendario_fuente", calendario)}</div></section>`;
-    const orden = `<section class="panel"><div class="cabecera-panel"><h3>${t("orden_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("criterio", t("orden_vigente"))}${dato("elegibilidad", t("disposicion_en_plazo"))}<p class="campo--ancho dato-secundario">${t("confirmacion")}</p></div></section>`;
+    const orden = `<section class="panel"><div class="cabecera-panel"><h3>${t("orden_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("criterio", t("orden_vigente"))}${dato("elegibilidad", t("disposicion_en_plazo"))}${dato("segunda_validacion",t("dos_personas"))}</div></section>`;
     const noCubierta = `<section class="panel"><div class="cabecera-panel"><h3>${t("no_cubierta_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("condicion", t("sin_elegibles"))}${dato("accion", t("llamamiento_directo"))}</div></section>`;
     const aviso = `${!configurada ? `<p role="status">${t("vacio")}</p>` : ""}${estado.error ? `<p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>` : ""}${estado.mensaje ? `<p class="rrhh-plazos__resultado" role="status">${escapar(estado.mensaje)}</p>` : ""}`;
     const boton = puedeEditar() ? `<div class="rrhh-plazos__acciones">${estado.conflicto ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="revisar">${t("revisar")}</button>` : ""}<button type="submit" class="boton-primario"${disabled}>${t(estado.guardando ? "guardando" : estado.clave ? "reintentar_guardado" : "guardar")}</button></div>`

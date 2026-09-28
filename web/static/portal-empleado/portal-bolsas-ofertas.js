@@ -5,6 +5,7 @@ import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=202
 // adjudicación que calcula VEC o el paso a llamamiento directo.
 export const RUTA_OFERTAS_BOLSA = "/api/vec/bolsa/ofertas";
 export const RUTA_RESOLUCIONES_OFERTA = "/api/vec/bolsa/ofertas/resoluciones";
+export const RUTA_CONFIRMACION_ADJUDICACION_OFERTA = "/api/vec/bolsa/ofertas/adjudicaciones/confirmacion";
 export const ESQUEMA_OFERTAS_BOLSA = "vec.bolsa.rrhh.ofertas.v1";
 
 export const MENSAJES_OFERTAS_BOLSA_ES = Object.freeze({
@@ -16,6 +17,8 @@ export const MENSAJES_OFERTAS_BOLSA_ES = Object.freeze({
   fecha_inicio: "Fecha de inicio",
   fecha_fin: "Fecha de fin (opcional)",
   descripcion: "Descripción",
+  numero_plazas: "Número de plazas",
+  plazas_cubiertas: "Plazas cubiertas: {cubiertas}/{total}",
   publicar: "Publicar oferta",
   publicando: "Publicando…",
   reintentar: "Reintentar la misma publicación",
@@ -32,17 +35,21 @@ export const MENSAJES_OFERTAS_BOLSA_ES = Object.freeze({
   sin_fin: "sin fecha de fin",
   estado_abierta: "Abierta",
   estado_pendiente_resolucion: "Pendiente de resolver",
-  estado_adjudicada: "Adjudicada",
+  estado_adjudicada: "Adjudicación confirmada; resolución firmada pendiente",
   estado_llamamiento_directo: "Llamamiento directo",
+  estado_pendiente_segunda_validacion: "Pendiente de segunda confirmación",
   regla_ejemplo: "Regla de ejemplo",
   propuesta_adjudicar: "Adjudicar al orden {orden}",
   propuesta_directo: "Sin disposiciones",
   confirmar_adjudicacion: "Confirmar adjudicación",
+  preparar_adjudicacion: "Preparar adjudicación",
+  segunda_confirmacion: "Confirmar como segunda persona",
+  preparacion_registrada: "Preparación registrada. Otra persona autorizada debe confirmar la adjudicación.",
   confirmar_directo: "Pasar a llamamiento directo",
   resolviendo: "Confirmando…",
-  resuelta_adjudicada: "Adjudicada al orden {orden}",
+  resuelta_adjudicada: "Confirmada por RRHH para el orden {orden}; resolución firmada pendiente",
   resuelta_directo: "Pasa a llamamiento directo",
-  resolucion_registrada: "Resolución registrada.",
+  resolucion_registrada: "Decisión registrada. La resolución firmada sigue su trámite posterior.",
   en_plazo: "En plazo",
   orden: "Orden {orden}",
   sin_turno: "Sin turno",
@@ -59,7 +66,19 @@ export const MENSAJES_OFERTAS_BOLSA_ES = Object.freeze({
   error_generico: "No se pudo completar la operación. Consulte las ofertas antes de repetirla.",
 });
 
-export function crearTraductorOfertas(catalogo = MENSAJES_OFERTAS_BOLSA_ES) {
+export const MENSAJES_OFERTAS_BOLSA_EN = Object.freeze({
+  numero_plazas: "Number of positions",
+  plazas_cubiertas: "Positions filled: {cubiertas}/{total}",
+  estado_pendiente_segunda_validacion: "Awaiting second confirmation",
+  estado_adjudicada: "Award confirmed; signed resolution pending",
+  resuelta_adjudicada: "HR confirmed candidate at rank {orden}; signed resolution pending",
+  preparar_adjudicacion: "Prepare award",
+  segunda_confirmacion: "Confirm as second authorized person",
+  preparacion_registrada: "Preparation recorded. Another authorized person must confirm the award.",
+  resolucion_registrada: "Decision recorded. The signed resolution follows its own procedure.",
+});
+
+export function crearTraductorOfertas(catalogo = LOCALIZACION_PORTAL.startsWith("en") ? {...MENSAJES_OFERTAS_BOLSA_ES,...MENSAJES_OFERTAS_BOLSA_EN} : MENSAJES_OFERTAS_BOLSA_ES) {
   return (clave, valores = {}) => String(catalogo[clave] ?? clave).replace(/\{(\w+)\}/g, (_, nombre) => String(valores[nombre] ?? ""));
 }
 
@@ -67,7 +86,7 @@ function escapar(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-const ESTADOS = Object.freeze({ abierta: "info", pendiente_resolucion: "advertencia", adjudicada: "exito", llamamiento_directo: "neutro" });
+const ESTADOS = Object.freeze({ abierta: "info", pendiente_resolucion: "advertencia", pendiente_segunda_validacion:"advertencia", adjudicada: "exito", llamamiento_directo: "neutro" });
 const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$/;
 const FECHA_DIA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -83,8 +102,17 @@ export function validarOferta(oferta) {
       !Array.isArray(oferta.disposiciones) || !Number.isSafeInteger(oferta.disposiciones_total) || typeof oferta.plazo?.ejemplo !== "boolean") {
     throw new TypeError("Contrato de oferta de Bolsa no válido.");
   }
+  if (d.numero_plazas !== undefined && (!Number.isSafeInteger(d.numero_plazas) || d.numero_plazas < 1 || d.numero_plazas > 100)) throw new TypeError("Número de plazas no válido.");
+  if (oferta.adjudicaciones !== undefined && (!Array.isArray(oferta.adjudicaciones) || oferta.adjudicaciones.length > (d.numero_plazas ?? 1) ||
+    oferta.adjudicaciones.some((a,i) => !Number.isSafeInteger(a.numero_de_plaza) || a.numero_de_plaza !== i+1 || !REFERENCIA.test(a.recibo_ref ?? "")))) {
+    throw new TypeError("Adjudicaciones de oferta no válidas.");
+  }
+  if (oferta.preparacion != null && (!Number.isSafeInteger(oferta.preparacion.numero_de_plaza) ||
+    !REFERENCIA.test(oferta.preparacion.recibo_ref ?? "") || !REFERENCIA.test(oferta.preparacion.participacion_ref ?? ""))) {
+    throw new TypeError("Preparación de oferta no válida.");
+  }
   const p = oferta.propuesta;
-  if (p !== null && p !== undefined && !(p.tipo === "llamamiento_directo" || (p.tipo === "adjudicar" && REFERENCIA.test(p.participacion_ref ?? "") && Number.isSafeInteger(p.orden_vigente)))) {
+  if (p !== null && p !== undefined && !(p.tipo === "llamamiento_directo" || (p.tipo === "adjudicar" && REFERENCIA.test(p.participacion_ref ?? "") && Number.isSafeInteger(p.orden_vigente) && (p.numero_de_plaza === undefined || Number.isSafeInteger(p.numero_de_plaza))))) {
     throw new TypeError("Propuesta de oferta no válida.");
   }
   return oferta;
@@ -117,8 +145,11 @@ export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
       return { ok: true, datos: validarOfertasBolsa(await respuesta.json()) };
     },
     publicar: (bolsaRef, datos, clave, { signal } = {}) => escribir(RUTA_OFERTAS_BOLSA, { bolsa_ref: bolsaRef, datos }, clave, signal),
-    resolver: (bolsaRef, ofertaRef, participacionRef, clave, { signal } = {}) =>
-      escribir(RUTA_RESOLUCIONES_OFERTA, { bolsa_ref: bolsaRef, oferta_ref: ofertaRef, participacion_ref: participacionRef ?? null }, clave, signal),
+    resolver: (bolsaRef, ofertaRef, participacionRef, clave, { signal, numeroDePlaza=1 } = {}) =>
+      escribir(RUTA_RESOLUCIONES_OFERTA, { bolsa_ref: bolsaRef, oferta_ref: ofertaRef, participacion_ref: participacionRef ?? null, numero_de_plaza:numeroDePlaza }, clave, signal),
+    confirmarAdjudicacion: (bolsaRef,ofertaRef,numeroDePlaza,preparacionRef,clave,{signal}={}) =>
+      escribir(RUTA_CONFIRMACION_ADJUDICACION_OFERTA,{bolsa_ref:bolsaRef,oferta_ref:ofertaRef,
+        numero_de_plaza:numeroDePlaza,preparacion_ref:preparacionRef},clave,signal),
   });
 }
 
@@ -143,7 +174,7 @@ function fechaDia(valor) {
 }
 
 export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
-  const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "", resolviendo: "", clavesResolucion: new Map() };
+  const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "", resolviendo: "", clavesResolucion: new Map(), clavesConfirmacion:new Map() };
   let controlador = null;
   const cambiar = () => alCambiar();
 
@@ -180,40 +211,62 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     estado.enviando = false; cambiar();
   }
 
-  async function resolver(ofertaRef, participacionRef) {
+  async function resolver(ofertaRef, participacionRef, numeroDePlaza=1) {
     if (estado.resolviendo || !estado.bolsa) return;
-    const clave = estado.clavesResolucion.get(ofertaRef) || generarClave();
-    estado.clavesResolucion.set(ofertaRef, clave);
+    const referenciaOperacion = `${ofertaRef}:${numeroDePlaza}`;
+    const clave = estado.clavesResolucion.get(referenciaOperacion) || generarClave();
+    estado.clavesResolucion.set(referenciaOperacion, clave);
     estado.resolviendo = ofertaRef; estado.mensaje = ""; estado.errorOperacion = ""; cambiar();
     try {
-      const resultado = await cliente.resolver(estado.bolsa, ofertaRef, participacionRef, clave);
-      if (resultado.ok) { estado.mensaje = traducir("resolucion_registrada"); estado.clavesResolucion.delete(ofertaRef); anunciar(estado.mensaje); void cargar(); }
+      const resultado = await cliente.resolver(estado.bolsa, ofertaRef, participacionRef, clave,{numeroDePlaza});
+      if (resultado.ok) { estado.mensaje = traducir(resultado.oferta.preparacion && !resultado.oferta.adjudicaciones?.some((a)=>a.numero_de_plaza===numeroDePlaza) ? "preparacion_registrada" : "resolucion_registrada"); estado.clavesResolucion.delete(referenciaOperacion); anunciar(estado.mensaje); void cargar(); }
       else {
         estado.errorOperacion = mensajeError(traducir, resultado);
         // Si la propuesta cambió, la clave usada queda ligada a la anterior.
-        if (resultado.status === 409) { estado.clavesResolucion.delete(ofertaRef); void cargar(); }
+        if (resultado.status === 409) { estado.clavesResolucion.delete(referenciaOperacion); void cargar(); }
       }
     } catch { estado.errorOperacion = traducir("error_generico"); }
     estado.resolviendo = ""; cambiar();
   }
 
+  async function confirmarAdjudicacion(ofertaRef,numeroDePlaza,preparacionRef) {
+    if (estado.resolviendo || !estado.bolsa) return;
+    const clave=estado.clavesConfirmacion.get(preparacionRef)||generarClave();
+    estado.clavesConfirmacion.set(preparacionRef,clave);
+    estado.resolviendo=ofertaRef;estado.mensaje="";estado.errorOperacion="";cambiar();
+    try {
+      const resultado=await cliente.confirmarAdjudicacion(estado.bolsa,ofertaRef,numeroDePlaza,preparacionRef,clave);
+      if (resultado.ok) { estado.clavesConfirmacion.delete(preparacionRef);estado.mensaje=traducir("resolucion_registrada");anunciar(estado.mensaje);void cargar(); }
+      else { estado.errorOperacion=mensajeError(traducir,resultado);if(resultado.status===409){estado.clavesConfirmacion.delete(preparacionRef);void cargar();} }
+    } catch { estado.errorOperacion=traducir("error_generico"); }
+    estado.resolviendo="";cambiar();
+  }
+
   function filaOferta(o) {
     const d = o.datos;
+    const plazas = d.numero_plazas ?? 1;
+    const cubiertas = o.adjudicaciones?.length ?? (o.resolucion?.tipo === "adjudicada" ? 1 : 0);
     const fechas = `${escapar(fechaDia(d.fecha_inicio))} – ${d.fecha_fin ? escapar(fechaDia(d.fecha_fin)) : escapar(traducir("sin_fin"))}`;
     let propuesta = `<span class="dato-secundario">${escapar(traducir("en_plazo"))}</span>`;
     if (o.resolucion) {
       propuesta = o.resolucion.tipo === "adjudicada" ? escapar(traducir("resuelta_adjudicada", { orden: o.resolucion.orden_vigente })) : escapar(traducir("resuelta_directo"));
+    } else if (cubiertas === plazas) {
+      propuesta = escapar(traducir("plazas_cubiertas",{cubiertas,total:plazas}));
+    } else if (o.preparacion) {
+      propuesta = `<div class="acciones-fila"><span>${escapar(traducir("estado_pendiente_segunda_validacion"))}</span>`+
+        `<button type="button" class="boton-secundario" data-ofertas-accion="confirmar-adjudicacion" data-oferta-ref="${escapar(o.oferta_ref)}"`+
+        ` data-numero-de-plaza="${escapar(o.preparacion.numero_de_plaza)}" data-preparacion-ref="${escapar(o.preparacion.recibo_ref)}"${estado.resolviendo ? " disabled" : ""}>${escapar(traducir("segunda_confirmacion"))}</button></div>`;
     } else if (o.propuesta) {
       const adjudicar = o.propuesta.tipo === "adjudicar";
       const ocupado = estado.resolviendo === o.oferta_ref;
       propuesta = `<div class="acciones-fila"><span>${escapar(adjudicar ? traducir("propuesta_adjudicar", { orden: o.propuesta.orden_vigente }) : traducir("propuesta_directo"))}</span>` +
-        `<button type="button" class="${adjudicar ? "boton-primario" : "boton-secundario"}" data-ofertas-accion="resolver" data-oferta-ref="${escapar(o.oferta_ref)}"` +
+        `<button type="button" class="${adjudicar ? "boton-primario" : "boton-secundario"}" data-ofertas-accion="resolver" data-oferta-ref="${escapar(o.oferta_ref)}" data-numero-de-plaza="${escapar(o.propuesta.numero_de_plaza ?? 1)}"` +
         `${adjudicar ? ` data-participacion-ref="${escapar(o.propuesta.participacion_ref)}"` : ""}${estado.resolviendo ? " disabled" : ""}>` +
-        `${escapar(ocupado ? traducir("resolviendo") : traducir(adjudicar ? "confirmar_adjudicacion" : "confirmar_directo"))}</button></div>`;
+        `${escapar(ocupado ? traducir("resolviendo") : traducir(adjudicar ? "preparar_adjudicacion" : "confirmar_directo"))}</button></div>`;
     }
     const disposiciones = o.disposiciones.length === 0 ? "" : `<div class="lista-chips">${o.disposiciones.map((x) =>
       `<span class="estado-chip${Number.isSafeInteger(x.orden_vigente) ? " info" : ""}">${escapar(Number.isSafeInteger(x.orden_vigente) ? traducir("orden", { orden: x.orden_vigente }) : traducir("sin_turno"))}</span>`).join("")}</div>`;
-    return `<tr data-oferta-ref="${escapar(o.oferta_ref)}"><td><strong>${escapar(d.categoria)}</strong><br><span class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</span></td>` +
+    return `<tr data-oferta-ref="${escapar(o.oferta_ref)}"><td><strong>${escapar(d.categoria)}</strong><br><span class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</span><br><span class="dato-secundario">${escapar(traducir("plazas_cubiertas",{cubiertas,total:plazas}))}</span></td>` +
       `<td>${fechas}</td><td>${escapar(fechaHora(o.vence_antes_de))}</td>` +
       `<td class="numero">${escapar(o.disposiciones_total)}${disposiciones}</td>` +
       `<td><span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></td><td>${propuesta}</td></tr>`;
@@ -230,6 +283,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
       campo("centro", "text", "centro", b.centro, ' required minlength="2" maxlength="2000"') +
       campo("fecha_inicio", "date", "fecha_inicio", b.fecha_inicio, " required") +
       campo("fecha_fin", "date", "fecha_fin", b.fecha_fin) +
+      campo("numero_plazas","number","numero_plazas",b.numero_plazas??1,' required min="1" max="100" step="1"') +
       campo("descripcion", "textarea", "descripcion", b.descripcion) +
       `</div><div class="acciones-formulario"><button type="submit" class="boton-primario"${inactivo}>${escapar(traducir(estado.enviando ? "publicando" : estado.claveEnCurso ? "reintentar" : "publicar"))}</button></div></fieldset></form>`;
   }
@@ -252,7 +306,9 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     if (typeof form.reportValidity === "function" && !form.reportValidity()) return true;
     const valores = new FormData(form);
     const datos = { categoria: String(valores.get("categoria") ?? "").trim(), centro: String(valores.get("centro") ?? "").trim(),
-      fecha_inicio: String(valores.get("fecha_inicio") ?? ""), descripcion: String(valores.get("descripcion") ?? "").trim() };
+      fecha_inicio: String(valores.get("fecha_inicio") ?? ""), descripcion: String(valores.get("descripcion") ?? "").trim(),
+      numero_plazas: Number(valores.get("numero_plazas")) };
+    if (!Number.isSafeInteger(datos.numero_plazas) || datos.numero_plazas < 1 || datos.numero_plazas > 100) return true;
     const fin = String(valores.get("fecha_fin") ?? "");
     if (fin) datos.fecha_fin = fin;
     void publicar(datos);
@@ -263,7 +319,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     const control = evento.target?.closest?.("[data-ofertas-accion]");
     if (!control || control.disabled) return false;
     if (control.dataset.ofertasAccion === "recargar") void cargar();
-    else if (control.dataset.ofertasAccion === "resolver") void resolver(control.dataset.ofertaRef, control.dataset.participacionRef || null);
+    else if (control.dataset.ofertasAccion === "resolver") void resolver(control.dataset.ofertaRef, control.dataset.participacionRef || null, Number(control.dataset.numeroDePlaza || 1));
+    else if (control.dataset.ofertasAccion === "confirmar-adjudicacion") void confirmarAdjudicacion(control.dataset.ofertaRef,Number(control.dataset.numeroDePlaza),control.dataset.preparacionRef);
     else return false;
     return true;
   }
@@ -273,6 +330,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
       if (!bolsaRef || bolsaRef === estado.bolsa) return;
       Object.assign(estado, { bolsa: bolsaRef, carga: "inactiva", ofertas: [], mensaje: "", errorOperacion: "", claveEnCurso: null, borrador: null });
       estado.clavesResolucion.clear();
+      estado.clavesConfirmacion.clear();
       void cargar();
     },
     desmontar() { controlador?.abort(); controlador = null; estado.bolsa = ""; estado.carga = "inactiva"; },

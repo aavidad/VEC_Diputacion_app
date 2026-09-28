@@ -53,6 +53,13 @@ export const MENSAJES_RRHH_PLAZOS_ES = Object.freeze({
   rrhh_plazos_ayuda: "Ayuda sobre la política de ofertas",
   rrhh_plazos_ayuda_contenido: "La regla de ejemplo propone 48 horas naturales desde la apertura expresa de cada oferta. Cada oferta conserva apertura y vencimiento exactos en UTC; la hora local se interpreta en Europe/Madrid, también al cambiar el horario de verano. Es un plazo operativo provisional: el correo no acredita notificación ni inicia un plazo legal. Consulte la versión de la bolsa antes de publicar; el servidor vuelve a comprobar el permiso y genera un recibo.",
   rrhh_plazos_confirmacion: "La resolución requiere confirmación de RRHH",
+  rrhh_plazos_segunda_validacion: "Segunda confirmación",
+  rrhh_plazos_dos_personas: "Exigida a otra persona autorizada",
+});
+
+export const MENSAJES_RRHH_PLAZOS_EN = Object.freeze({
+  rrhh_plazos_segunda_validacion: "Second confirmation",
+  rrhh_plazos_dos_personas: "Required from another authorized person",
 });
 
 export function crearTraductorRRHHPlazos(catalogo = MENSAJES_RRHH_PLAZOS_ES) {

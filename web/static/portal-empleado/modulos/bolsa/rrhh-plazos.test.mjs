@@ -3,7 +3,7 @@ import test from "node:test";
 import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OFERTAS,
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
   validarPoliticaEditable, validarPoliticaRecibida } from "./rrhh-plazos-api.js";
-import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
+import { crearTraductorRRHHPlazos, MENSAJES_RRHH_PLAZOS_EN } from "./rrhh-plazos-i18n.js";
 import { crearSuperficieRRHHPlazos } from "./rrhh-plazos-ui.js";
 
 const POLITICA = Object.freeze({
@@ -88,6 +88,23 @@ test("la política acepta 48 horas naturales continuas y conserva el rango propi
   const dias = structuredClone(POLITICA);
   dias.plazo.cantidad = 31;
   assert.throws(() => validarPoliticaEditable(dias), /política/u);
+});
+
+test("la adjudicación exige segunda persona incluso con una política antigua", async () => {
+  const historica=structuredClone(POLITICA);
+  assert.equal(validarPoliticaEditable(historica).adjudicacion.requiere_segunda_validacion,undefined);
+  const cambiada=structuredClone(POLITICA);
+  cambiada.adjudicacion.requiere_segunda_validacion=false;
+  assert.throws(()=>validarPoliticaEditable(cambiada),/política/u);
+  cambiada.adjudicacion.requiere_segunda_validacion="false";
+  assert.throws(()=>validarPoliticaEditable(cambiada),/política/u);
+  assert.match(crearTraductorRRHHPlazos()("rrhh_plazos_dos_personas"),/otra persona/u);
+  assert.match(MENSAJES_RRHH_PLAZOS_EN.rrhh_plazos_dos_personas,/another authorized person/u);
+  const superficie=crearSuperficieRRHHPlazos({cliente:{consultar:async()=>({ok:true,politica:vacia().data}),
+    consultarCapacidad:async()=>({ok:true,puede_publicar:true})},traducir:crearTraductorRRHHPlazos()});
+  superficie.activar("bolsa:1");await turno();
+  assert.match(superficie.renderizar(),/Exigida a otra persona autorizada/u);
+  assert.doesNotMatch(superficie.renderizar(),/name="requiere_segunda_validacion"/u);
 });
 
 test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST válido", async () => {

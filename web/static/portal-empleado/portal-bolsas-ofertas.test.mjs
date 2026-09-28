@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa, ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA } from "./portal-bolsas-ofertas.js";
+import { crearClienteOfertas, crearSuperficieOfertasBolsa, crearTraductorOfertas, mensajeError, validarOfertasBolsa, ESQUEMA_OFERTAS_BOLSA, RUTA_OFERTAS_BOLSA, RUTA_RESOLUCIONES_OFERTA, RUTA_CONFIRMACION_ADJUDICACION_OFERTA, MENSAJES_OFERTAS_BOLSA_EN } from "./portal-bolsas-ofertas.js";
 
 function oferta(extra = {}) {
   return {
@@ -33,6 +33,9 @@ test("el cliente envía solo bolsa, datos y clave, sin identidad", async () => {
   await cliente.resolver("bolsa:1", "oferta:1", null, "clave-resol-1");
   assert.equal(llamadas[1].ruta, RUTA_RESOLUCIONES_OFERTA);
   assert.equal(JSON.parse(llamadas[1].opciones.body).participacion_ref, null);
+  await cliente.confirmarAdjudicacion("bolsa:1","oferta:1",1,"recibo:preparacion-oferta:abc","clave-confirmar-1");
+  assert.equal(llamadas[2].ruta,RUTA_CONFIRMACION_ADJUDICACION_OFERTA);
+  assert.equal(JSON.parse(llamadas[2].opciones.body).numero_de_plaza,1);
 });
 
 test("los errores del servidor se traducen sin mostrar códigos", () => {
@@ -40,6 +43,12 @@ test("los errores del servidor se traducen sin mostrar códigos", () => {
   assert.match(mensajeError(t, { status: 409, codigo: "propuesta_cambiada" }), /orden ha cambiado/);
   assert.match(mensajeError(t, { status: 503, codigo: "plazo_no_configurado" }), /regla de plazo/);
   assert.match(mensajeError(t, { status: 500, codigo: "x" }), /No se pudo completar/);
+});
+
+test("las acciones nuevas de múltiples plazas tienen traducción inglesa", () => {
+  for (const clave of ["numero_plazas","plazas_cubiertas","estado_pendiente_segunda_validacion","preparar_adjudicacion","segunda_confirmacion","preparacion_registrada"]) {
+    assert.equal(typeof MENSAJES_OFERTAS_BOLSA_EN[clave],"string");
+  }
 });
 
 test("la superficie publica con clave estable al reintentar y escapa los datos", async () => {
@@ -58,7 +67,7 @@ test("la superficie publica con clave estable al reintentar y escapa los datos",
   assert.doesNotMatch(html, /<b>/);
   const datos = { categoria: "Aux", centro: "Res", fecha_inicio: "2026-10-01", descripcion: "Des" };
   const formulario = { closest: () => formulario, reportValidity: () => true };
-  globalThis.FormData = class { get(k) { return datos[k] ?? ""; } };
+  globalThis.FormData = class { get(k) { return k === "numero_plazas" ? "1" : datos[k] ?? ""; } };
   s.manejarSubmit({ target: formulario, preventDefault() {} });
   await new Promise((r) => setTimeout(r, 0));
   assert.match(s.renderizar(), /Reintentar la misma publicación/);
@@ -83,7 +92,7 @@ test("la propuesta vencida ofrece confirmar adjudicación o llamamiento directo"
   await new Promise((r) => setTimeout(r, 0));
   const html = s.renderizar();
   assert.match(html, /Adjudicar al orden 2/);
-  assert.match(html, /Confirmar adjudicación/);
+  assert.match(html, /Preparar adjudicación/);
   assert.match(html, /Pasar a llamamiento directo/);
   const boton = (ofertaRef, participacionRef) => { const b = { disabled: false, dataset: { ofertasAccion: "resolver", ofertaRef, participacionRef } }; b.closest = () => b; return b; };
   s.manejarClick({ target: boton("oferta:2", "p:3") });
@@ -91,4 +100,20 @@ test("la propuesta vencida ofrece confirmar adjudicación o llamamiento directo"
   s.manejarClick({ target: boton("oferta:3", undefined) });
   await new Promise((r) => setTimeout(r, 0));
   assert.deepEqual(resueltas, [["oferta:2", "p:3"], ["oferta:3", null]]);
+});
+
+test("la segunda persona confirma la preparación de una plaza sin reutilizar la clave de otra", async () => {
+  const p = oferta({oferta_ref:"oferta:4",estado:"pendiente_segunda_validacion",
+    datos:{...oferta().datos,numero_plazas:2},adjudicaciones:[],propuesta:{tipo:"adjudicar",numero_de_plaza:1,participacion_ref:"p:3",orden_vigente:2},
+    preparacion:{numero_de_plaza:1,participacion_ref:"p:3",orden_vigente:2,recibo_ref:"recibo:preparacion-oferta:abc",preparada_en:"2026-09-30T10:00:00Z"}});
+  const llamadas=[];
+  const cliente={consultar:async()=>({ok:true,datos:{esquema:ESQUEMA_OFERTAS_BOLSA,ofertas:[p]}}),
+    publicar:async()=>({ok:false,status:503}),resolver:async()=>({ok:false,status:503}),
+    confirmarAdjudicacion:async(...args)=>{llamadas.push(args);return {ok:true,status:201,oferta:{...p,adjudicaciones:[{numero_de_plaza:1,recibo_ref:"recibo:adjudicacion-oferta:abc"}]}}}};
+  const s=crearSuperficieOfertasBolsa({cliente,generarClave:()=>"clave-confirmar-1"});
+  s.activar("bolsa:1");await new Promise((r)=>setTimeout(r,0));
+  assert.match(s.renderizar(),/Confirmar como segunda persona/);
+  const b={disabled:false,dataset:{ofertasAccion:"confirmar-adjudicacion",ofertaRef:"oferta:4",numeroDePlaza:"1",preparacionRef:"recibo:preparacion-oferta:abc"}};
+  b.closest=()=>b;s.manejarClick({target:b});await new Promise((r)=>setTimeout(r,0));
+  assert.deepEqual(llamadas[0].slice(0,5),["bolsa:1","oferta:4",1,"recibo:preparacion-oferta:abc","clave-confirmar-1"]);
 });

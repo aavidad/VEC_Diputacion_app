@@ -16,6 +16,9 @@ export function validarPoliticaEditable(politica) {
     || typeof plazo.municipio_sede !== "string" || !MUNICIPIO.test(plazo.municipio_sede)
     || politica?.adjudicacion?.criterio !== "orden_vigente"
     || politica.adjudicacion.elegibilidad !== "disposicion_en_plazo"
+    || (politica.adjudicacion.requiere_segunda_validacion !== undefined
+      && typeof politica.adjudicacion.requiere_segunda_validacion !== "boolean")
+    || politica.adjudicacion.requiere_segunda_validacion === false
     || politica?.no_cubierta?.accion !== "llamamiento_directo"
     || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles") {
     throw new TypeError("política de ofertas no válida");
