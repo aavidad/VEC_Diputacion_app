@@ -154,9 +154,10 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) ejecutar(ctx context.Conte
 }
 
 func (r *RepositorioReincorporacionTitularPostgreSQL) PrepararReincorporacionTitular(ctx context.Context, m ports.MaterialReincorporacionTitular,
-	sellos ports.SellosOperacionSeguimiento, refs ports.ReferenciasEfectoSeguimiento) (ports.PreparacionReincorporacionTitular, error) {
+	lectura ports.AntecedenteReincorporacionTitular, sellos ports.SellosOperacionSeguimiento, refs ports.ReferenciasEfectoSeguimiento) (ports.PreparacionReincorporacionTitular, error) {
 	var vacio ports.PreparacionReincorporacionTitular
-	if !m.Valido() || !refs.Validas() || sellos.Ambitos.ValidarDominio(ports.DominioAmbitoReincorporacionTitular) != nil ||
+	if !m.Valido() || !lectura.ValidoPara(m) || lectura.Resultado != ports.ResultadoAntecedenteCoincide ||
+		!refs.Validas() || sellos.Ambitos.ValidarDominio(ports.DominioAmbitoReincorporacionTitular) != nil ||
 		sellos.Huellas.ValidarDominio(ports.DominioHuellaReincorporacionTitular) != nil {
 		return vacio, ports.ErrOperacionSeguimientoInvalida
 	}
@@ -172,9 +173,12 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) PrepararReincorporacionTit
 	}
 	defer borrarBytes(cuerpo)
 	var respuesta respuestaReincorporacionSQL
-	err = r.ejecutar(ctx, true, func(tx pgx.Tx) error {
+	// CT134 registra el uso único del recibo de lectura en la misma transacción
+	// que la preparación; ambas escrituras se deshacen juntas ante cualquier fallo.
+	err = r.ejecutar(ctx, false, func(tx pgx.Tx) error {
 		var b []byte
-		if e := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.preparar_reincorporacion_titular_v1($1::jsonb)::text", cuerpo).Scan(&b); e != nil {
+		if e := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1($1::jsonb,$2::text,$3::text)::text",
+			cuerpo, lectura.LecturaRef, lectura.AuditoriaRef).Scan(&b); e != nil {
 			return e
 		}
 		defer borrarBytes(b)
@@ -260,7 +264,8 @@ func autorizacionReincorporacionSQL(o ports.OrdenConfirmarReincorporacionTitular
 func (r *RepositorioReincorporacionTitularPostgreSQL) ConfirmarReincorporacionTitular(ctx context.Context, o ports.OrdenConfirmarReincorporacionTitular) (ports.ReciboReincorporacionTitular, error) {
 	var vacio ports.ReciboReincorporacionTitular
 	m := o.Material
-	if !m.Valido() || o.Preparacion.Confirmada || !o.Preparacion.Referencias.Validas() || len(o.Siguiente.Actuaciones)==0 ||
+	if !m.Valido() || !o.Lectura.ValidoPara(m) || o.Lectura.Resultado != ports.ResultadoAntecedenteCoincide ||
+		o.Preparacion.Confirmada || !o.Preparacion.Referencias.Validas() || len(o.Siguiente.Actuaciones) == 0 ||
 		o.Siguiente.Validar() != nil || !domain.InstanteUTCCanonico(o.InstanteEfecto) || !o.Politica.ValidaEn(o.InstanteEfecto) {
 		return vacio, ports.ErrOperacionSeguimientoInvalida
 	}
@@ -294,8 +299,9 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) ConfirmarReincorporacionTi
 	var respuesta respuestaReincorporacionSQL
 	err = r.ejecutar(ctx, false, func(tx pgx.Tx) error {
 		var b []byte
-		if e := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.confirmar_reincorporacion_titular_v1($1::jsonb,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text",
-			cuerpo, secretos[0], secretos[1], secretos[2], secretos[3], int64(x.PersonaVersion()), int64(x.PerfilVersion()),
+		if e := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1($1::jsonb,$2::text,$3::text,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)::text",
+			cuerpo, o.Lectura.LecturaRef, o.Lectura.AuditoriaRef,
+			secretos[0], secretos[1], secretos[2], secretos[3], int64(x.PersonaVersion()), int64(x.PerfilVersion()),
 			secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&b); e != nil {
 			return e
 		}

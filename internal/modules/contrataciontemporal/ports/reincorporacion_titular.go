@@ -65,6 +65,7 @@ type PreparacionReincorporacionTitular struct {
 
 type OrdenConfirmarReincorporacionTitular struct {
 	Material       MaterialReincorporacionTitular
+	Lectura        AntecedenteReincorporacionTitular
 	Preparacion    PreparacionReincorporacionTitular
 	Siguiente      domain.Expediente
 	Politica       PoliticaOperacionSeguimiento
@@ -74,7 +75,7 @@ type OrdenConfirmarReincorporacionTitular struct {
 }
 
 type RepositorioReincorporacionTitular interface {
-	PrepararReincorporacionTitular(context.Context, MaterialReincorporacionTitular, SellosOperacionSeguimiento, ReferenciasEfectoSeguimiento) (PreparacionReincorporacionTitular, error)
+	PrepararReincorporacionTitular(context.Context, MaterialReincorporacionTitular, AntecedenteReincorporacionTitular, SellosOperacionSeguimiento, ReferenciasEfectoSeguimiento) (PreparacionReincorporacionTitular, error)
 	ConfirmarReincorporacionTitular(context.Context, OrdenConfirmarReincorporacionTitular) (ReciboReincorporacionTitular, error)
 }
 
