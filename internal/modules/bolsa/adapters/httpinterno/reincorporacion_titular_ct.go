@@ -7,22 +7,25 @@ import (
 	"strings"
 	"time"
 
-	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
 const EsquemaReincorporacionesTitularCT = "vec.bolsa.rrhh.reincorporaciones_titular.v1"
 
 type LectorReincorporacionesTitularCT interface {
-	ListarReincorporacionesTitular(context.Context, ports.SolicitudCambiarSituacionParticipacion) ([]ports.ReincorporacionTitularFicha, error)
+	ListarReincorporacionesTitular(context.Context, ports.SolicitudConsultarReincorporacionesTitular) ([]ports.ReincorporacionTitularFicha, error)
+}
+
+type PreparadorConsultaReincorporacionesTitularCT interface {
+	PrepararConsultaReincorporacionesTitular(context.Context, string, string) (ports.SolicitudConsultarReincorporacionesTitular, error)
 }
 
 type HandlerReincorporacionesTitularCT struct {
-	preparador PreparadorSituacionParticipacion
+	preparador PreparadorConsultaReincorporacionesTitularCT
 	lector     LectorReincorporacionesTitularCT
 }
 
-func NuevoHandlerReincorporacionesTitularCT(p PreparadorSituacionParticipacion, l LectorReincorporacionesTitularCT) (http.Handler, error) {
+func NuevoHandlerReincorporacionesTitularCT(p PreparadorConsultaReincorporacionesTitularCT, l LectorReincorporacionesTitularCT) (http.Handler, error) {
 	if p == nil || l == nil {
 		return nil, ports.ErrReincorporacionTitularNoDisponible
 	}
@@ -63,10 +66,7 @@ func (h *HandlerReincorporacionesTitularCT) ServeHTTP(w http.ResponseWriter, r *
 		responderOperacion(w, http.StatusBadRequest, "solicitud_invalida")
 		return
 	}
-	q, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), EntradaCambiarSituacionParticipacion{
-		BolsaRef: bolsa, ParticipacionRef: participacion, Destino: domain.SituacionDisponible,
-		Motivo: "consulta", ClaveIdempotencia: "consulta",
-	})
+	q, err := h.preparador.PrepararConsultaReincorporacionesTitular(r.Context(), bolsa, participacion)
 	if err != nil {
 		responderErrorReincorporacionesTitular(w, err)
 		return
