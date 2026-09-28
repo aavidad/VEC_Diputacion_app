@@ -79,7 +79,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 	case SuperficieAuditoriaFronteraRutaExactaAuditoria:
 		return ruta == "/api/vec/auditoria/opciones" || ruta == "/api/vec/auditoria/consultas"
 	case SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias:
-		return ruta == "/api/vec/usuarios/mis-preferencias"
+		return ruta == "/api/vec/usuarios/mis-preferencias" ||
+			ruta == "/api/vec/usuarios/area-personal/mis-preferencias"
 	default:
 		return false
 	}

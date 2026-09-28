@@ -30,10 +30,14 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 		{"contratacion", http.MethodPost, rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, true, false},
 		{"usuarios sin autenticacion", http.MethodGet, "/api/vec/usuarios/mis-preferencias", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, false},
 		{"usuarios sin permiso", http.MethodPut, "/api/vec/usuarios/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
+		{"usuarios exterior sin autenticacion", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, false},
+		{"usuarios exterior sin permiso", http.MethodPut, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
 		{"prefijo auditoria", http.MethodGet, "/api/vec/auditoria/opciones_extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"otra ruta auditoria", http.MethodGet, "/api/vec/auditoria/otra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"prefijo usuarios", http.MethodGet, "/api/vec/usuarios/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"otra ruta usuarios", http.MethodGet, "/api/vec/usuarios/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"prefijo usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"otra ruta usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"personal", http.MethodGet, "/api/vec/personal/vacantes", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 	}
 	for _, caso := range casos {
@@ -50,6 +54,10 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 			}
 			respuesta := httptest.NewRecorder()
 			peticion := httptest.NewRequest(caso.metodo, caso.ruta, nil)
+			if caso.superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias {
+				peticion.Host = "otro-portal.invalid"
+				peticion.Header.Set("Referer", "https://otro-portal.invalid/api/vec/contratacion-temporal/")
+			}
 			if caso.conActor {
 				ctx, err := ConActorVerificadoAuditoriaPreferenciasUsuarios(peticion.Context(), actorOrganizacionHistoricaPrueba(t))
 				if err != nil {
@@ -89,12 +97,17 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 
 func TestRutasExactasUsuariosRechazanDuplicadoYNoInventanActor(t *testing.T) {
 	const ruta = "/api/vec/usuarios/mis-preferencias"
+	const rutaExterior = "/api/vec/usuarios/area-personal/mis-preferencias"
 	manejador := &manejadorExactoPrueba{}
 	autoridad := &autoridadRutasExactasEspia{err: ErrAccesoRutaExactaDenegado}
 	auditoria := &registradorAuditoriaFronteraRutaExactaEspia{}
 	declarada := RutaExacta{Ruta: ruta, Manejador: manejador}
 	if h, err := NewHandlerSoloRutasExactas([]RutaExacta{declarada, declarada}, autoridad, auditoria); h != nil || err != ErrRutaExactaInvalida {
 		t.Fatalf("duplicado aceptado: (%T, %v)", h, err)
+	}
+	exterior := RutaExacta{Ruta: rutaExterior, Manejador: manejador}
+	if h, err := NewHandlerSoloRutasExactas([]RutaExacta{declarada, exterior, exterior}, autoridad, auditoria); h != nil || err != ErrRutaExactaInvalida {
+		t.Fatalf("duplicado exterior aceptado: (%T, %v)", h, err)
 	}
 	h, err := NewHandlerSoloRutasExactas([]RutaExacta{declarada}, autoridad, auditoria)
 	if err != nil {
@@ -110,6 +123,7 @@ func TestRutasExactasUsuariosRechazanDuplicadoYNoInventanActor(t *testing.T) {
 func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testing.T) {
 	t.Parallel()
 	const ruta = "/api/vec/usuarios/mis-preferencias"
+	const rutaExterior = "/api/vec/usuarios/area-personal/mis-preferencias"
 	for _, caso := range []struct {
 		nombre     string
 		ruta       string
@@ -119,6 +133,8 @@ func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testin
 	}{
 		{"usuarios 401", ruta, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
 		{"usuarios 403", ruta, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"usuarios exterior 401", rutaExterior, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"usuarios exterior 403", rutaExterior, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"contratacion conserva 403", rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, false, http.StatusForbidden},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
