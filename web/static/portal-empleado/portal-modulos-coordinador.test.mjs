@@ -814,9 +814,9 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
   );
 
-  for (const [idioma, mensajes, texto] of [
-    ["es-ES", {}, "Expediente cargado."],
-    ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Case file loaded."],
+  for (const [idioma, texto, navegacion, cabecera] of [
+    ["es-ES", "Expediente cargado.", "Cuadro de mando", "Fecha de registro"],
+    ["en-GB", "Case file loaded.", "Dashboard", "Date recorded"],
   ]) {
     const llamadas = [];
     let presentador;
@@ -828,6 +828,7 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     };
     const coordinador = crearCoordinadorModulosPortal({
       escaparHTML: String,
+      locale: idioma,
       cargarCatalogoInterno: async () => catalogo,
       cargadoresInternos: { contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => ({
@@ -838,8 +839,22 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
           presentador = crearPresentadorExpedientesContratacionTemporal(opciones)
         ) },
-        vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual }) => {
-          raiz.innerHTML = renderizarModuloContratacionTemporal(actual.obtenerEstado(), { mensajes, locale: idioma });
+        vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual,
+          mensajes, locale, zonaHoraria }) => {
+          assert.equal(locale, idioma);
+          if (idioma === "en-GB") assert.equal(mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          const estado = actual.obtenerEstado();
+          const recibo = estado.carga === "listo" && estado.vista === "expediente" ? {
+            recibo_ref: "recibo:ct:sintetico:001",
+            numero_visible: expediente.numero_visible,
+            version: expediente.version,
+            actuacion: "Acto sintético",
+            estado_resultante: "Estado sintético",
+            registrada_en: "2026-09-24T11:00:00Z",
+          } : null;
+          raiz.innerHTML = renderizarModuloContratacionTemporal({ ...estado, recibo }, {
+            mensajes, locale, zonaHoraria,
+          });
           return { desmontar() { actual.desmontar(); } };
         } },
       }) },
@@ -852,6 +867,14 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
     assert.equal(presentador.obtenerEstado().vista, "expediente");
     assert.equal(presentador.obtenerEstado().carga, "listo");
     assert.match(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
+    assert.match(raiz.innerHTML, new RegExp(navegacion, "u"));
+    assert.match(raiz.innerHTML, new RegExp(`<dt>${cabecera}</dt>`, "u"));
+    assert.match(raiz.innerHTML, /<dt>Categoría<\/dt>/u); // etiqueta recibida del servidor
+    const fecha = new Intl.DateTimeFormat(idioma, {
+      dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",
+    }).format(new Date("2026-09-24T11:00:00Z"));
+    assert.match(raiz.innerHTML, new RegExp(fecha, "u"));
+    assert.match(raiz.innerHTML, /Acto sintético/u); // dato del servidor, sin traducción inventada
     assert.doesNotMatch(raiz.innerHTML, /No dispone de acceso al detalle|You do not have access to the case-file details/u);
 
     assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);

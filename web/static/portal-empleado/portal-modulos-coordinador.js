@@ -9,7 +9,7 @@ import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260928-ppt-503-v6";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v6";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-ppt-503-v6";
 import {
   componerCronosInterno,
@@ -97,7 +97,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-ppt-503-v6"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-ct-inicio-en-v2"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
       import("./modulos/auditoria/vista.js?v=20260928-ppt-503-v6"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-ppt-503-v5"),
@@ -205,6 +205,7 @@ export function crearCoordinadorModulosPortal({
   montajeBolsa = null,
   entorno = globalThis,
   traducir = traducirPortal,
+  locale = LOCALIZACION_PORTAL,
   cargarCatalogoInterno = null,
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   consultarSesion = null,
@@ -220,6 +221,7 @@ export function crearCoordinadorModulosPortal({
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function"
+    || !["es-ES", "en-GB"].includes(locale)
     || !Number.isSafeInteger(limiteCargaModularMs)
     || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000
     || !Array.isArray(modulosDiferidos) || !modulosDiferidos.every((clave) => CLAVES_CARGA_PORTAL.includes(clave))) {
@@ -900,16 +902,25 @@ export function crearCoordinadorModulosPortal({
         await presentadorCT.seleccionarExpediente(expedienteRef);
         if (montaje !== secuenciaMontaje) return false;
       }
+      const mensajesExpedientes = !esFiscalizacion && locale === "en-GB"
+        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+        : {};
+      if (montaje !== secuenciaMontaje) return false;
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,
           cliente: composicion.contratacionTemporal.fiscalizacion.cliente,
+          locale,
+          zonaHoraria: ZONA_HORARIA_PORTAL,
           confirmarOperacion,
           anunciar,
         })
         : await composicion.contratacionTemporal.montar({
           raiz,
           presentador: presentadorCT,
+          locale,
+          zonaHoraria: ZONA_HORARIA_PORTAL,
+          mensajes: mensajesExpedientes,
           alta: composicion.contratacionTemporal.alta,
           analisis: composicion.contratacionTemporal.analisis,
           fiscalizacion: typeof composicion.contratacionTemporal.analisis?.cliente
