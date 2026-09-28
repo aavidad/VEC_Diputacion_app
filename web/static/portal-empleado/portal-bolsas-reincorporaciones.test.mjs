@@ -64,6 +64,42 @@ test("rechaza más de 512 KiB sin Content-Length antes de decodificar JSON", asy
   assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_contrato"));
   assert.equal(cancelaciones, 1);
   assert.equal(LIMITES_REINCORPORACIONES_TITULAR.maximoBytes, 512 * 1024);
+  assert.equal(Object.hasOwn(LIMITES_REINCORPORACIONES_TITULAR, "maximoFragmentos"), false);
+});
+
+test("acepta JSON válido de 762 bytes en 762 trozos y fragmentos vacíos", async () => {
+  const texto = JSON.stringify(cuerpo([]));
+  const bytes = new TextEncoder().encode(texto + " ".repeat(762 - texto.length));
+  assert.equal(bytes.byteLength, 762);
+  const body = new ReadableStream({
+    start(controlador) {
+      for (let indice = 0; indice < bytes.byteLength; indice++) {
+        if (indice % 17 === 0) controlador.enqueue(new Uint8Array(0));
+        controlador.enqueue(bytes.subarray(indice, indice + 1));
+      }
+      controlador.enqueue(new Uint8Array(0));
+      controlador.close();
+    },
+  });
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => new Response(body, { status: 200 }),
+  });
+  assert.deepEqual(resultado, { ok: true, datos: [] });
+});
+
+test("un flujo infinito de fragmentos vacíos termina por tiempo sin aceptar JSON", async () => {
+  let cancelaciones = 0;
+  const body = new ReadableStream({
+    pull(controlador) { controlador.enqueue(new Uint8Array(0)); },
+    cancel() { cancelaciones++; },
+  });
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => new Response(body, { status: 200 }),
+    limites: { tiempoMs: 20 },
+  });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_red"));
+  assert.equal(cancelaciones, 1);
 });
 
 test("límite técnico menor y Content-Length excesivo cancelan el cuerpo sin leerlo", async () => {

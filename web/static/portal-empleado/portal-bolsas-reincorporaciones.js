@@ -6,7 +6,7 @@ const REFERENCIA_RUTA = /^[A-Za-z0-9:._-]{1,512}$/u;
 const FECHA_CIVIL = /^(\d{4})-(\d{2})-(\d{2})$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
 const POR_PAGINA = 6;
-export const LIMITES_REINCORPORACIONES_TITULAR = Object.freeze({ maximoBytes: 512 * 1024, maximoFragmentos: 512, tiempoMs: 15_000 });
+export const LIMITES_REINCORPORACIONES_TITULAR = Object.freeze({ maximoBytes: 512 * 1024, tiempoMs: 15_000 });
 
 function limiteSeguro(valor, maximo) {
   return Number.isSafeInteger(valor) && valor > 0 ? Math.min(valor, maximo) : maximo;
@@ -19,9 +19,8 @@ function cancelarCuerpo(respuesta, lector) {
   } catch { /* Una cancelación defectuosa no habilita la respuesta. */ }
 }
 
-async function leerJSONAcotado(respuesta, signal, abortada, limites) {
+async function leerJSONAcotado(respuesta, signal, abortada, limites, finTiempo) {
   const maximoBytes = limiteSeguro(limites?.maximoBytes, LIMITES_REINCORPORACIONES_TITULAR.maximoBytes);
-  const maximoFragmentos = limiteSeguro(limites?.maximoFragmentos, LIMITES_REINCORPORACIONES_TITULAR.maximoFragmentos);
   const declarada = respuesta.headers?.get?.("content-length");
   if (declarada !== null && declarada !== undefined && (!/^(?:0|[1-9][0-9]*)$/u.test(declarada) || Number(declarada) > maximoBytes)) {
     cancelarCuerpo(respuesta);
@@ -38,22 +37,23 @@ async function leerJSONAcotado(respuesta, signal, abortada, limites) {
   const descodificador = new TextDecoder("utf-8", { fatal: true });
   let texto = "";
   let total = 0;
-  let fragmentos = 0;
   const cancelar = () => cancelarCuerpo(respuesta, lector);
   signal.addEventListener("abort", cancelar, { once: true });
   try {
     for (;;) {
       if (signal.aborted) throw new DOMException("", "AbortError");
+      if (performance.now() >= finTiempo) throw new Error("tiempo_agotado");
       const parte = await Promise.race([lector.read(), abortada]);
       // reader.cancel() puede resolver read() con done=true antes de que gane
       // la promesa de aborto; ese cierre nunca convierte un JSON parcial en éxito.
       if (signal.aborted) throw new DOMException("", "AbortError");
+      if (performance.now() >= finTiempo) throw new Error("tiempo_agotado");
       if (!parte || typeof parte.done !== "boolean") throw new Error("respuesta_incompatible");
       if (parte.done) break;
-      if (!(parte.value instanceof Uint8Array) || parte.value.byteLength === 0) throw new Error("respuesta_incompatible");
+      if (!(parte.value instanceof Uint8Array)) throw new Error("respuesta_incompatible");
       total += parte.value.byteLength;
-      fragmentos += 1;
-      if (total > maximoBytes || fragmentos > maximoFragmentos) throw new Error("respuesta_excesiva");
+      if (total > maximoBytes) throw new Error("respuesta_excesiva");
+      if (parte.value.byteLength === 0) continue;
       try { texto += descodificador.decode(parte.value, { stream: true }); }
       catch { throw new Error("respuesta_incompatible"); }
     }
@@ -114,6 +114,7 @@ export async function consultarReincorporacionesTitular(bolsa, participacion, { 
   const cancelarPorSignal = () => cancelar(true);
   signal?.addEventListener?.("abort", cancelarPorSignal, { once: true });
   const tiempoMs = limiteSeguro(limites?.tiempoMs, LIMITES_REINCORPORACIONES_TITULAR.tiempoMs);
+  const finTiempo = performance.now() + tiempoMs;
   const temporizador = setTimeout(() => cancelar(), tiempoMs);
   try {
     if (signal?.aborted) cancelar(true);
@@ -131,7 +132,7 @@ export async function consultarReincorporacionesTitular(bolsa, participacion, { 
       const clave = ({ 401: "reincorporacion_error_401", 403: "reincorporacion_error_403", 404: "reincorporacion_error_404", 503: "reincorporacion_error_503" })[respuesta.status];
       return { ok: false, status: respuesta.status, mensaje: traducirPortal(clave || "reincorporacion_error_http", { estado: respuesta.status }) };
     }
-    const datos = (await leerJSONAcotado(respuesta, controlador.signal, abortada, limites))?.data;
+    const datos = (await leerJSONAcotado(respuesta, controlador.signal, abortada, limites, finTiempo))?.data;
     if (datos?.esquema !== ESQUEMA_REINCORPORACIONES_TITULAR || !Array.isArray(datos.items)
       || datos.items.length > 100 || !datos.items.every(itemValido)) {
       return { ok: false, status: 0, mensaje: traducirPortal("reincorporacion_error_contrato") };
