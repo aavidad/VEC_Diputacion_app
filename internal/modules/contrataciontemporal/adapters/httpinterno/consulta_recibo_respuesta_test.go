@@ -95,6 +95,24 @@ func TestConsultaReciboRespuestaRechazaParametrosExtra(t *testing.T) {
 	}
 }
 
+func TestConsultaReciboRespuestaAdmiteTresReferenciasValidasLargas(t *testing.T) {
+	e := &ejecutorConsultaReciboPrueba{err: ports.ErrReciboRespuestaNoEncontrado}
+	h, err := NuevoManejadorConsultaReciboRespuesta(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	referencia := strings.Repeat("a", 160)
+	query := "?organizacion_ref=" + referencia + "&expediente_ref=" + referencia + "&comunicacion_ref=" + referencia
+	if len(query) <= 400 {
+		t.Fatal("la prueba no supera el límite anterior")
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+query, nil))
+	if w.Code != http.StatusNotFound || e.llamadas != 1 {
+		t.Fatalf("estado=%d llamadas=%d", w.Code, e.llamadas)
+	}
+}
+
 func TestConsultaReciboRespuestaExigeExpedienteYVerificaRecibo(t *testing.T) {
 	e := &ejecutorConsultaReciboPrueba{resultado: ports.ReciboRespuestaConsultado{
 		OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:otro", ComunicacionRef: "comunicacion:prueba",

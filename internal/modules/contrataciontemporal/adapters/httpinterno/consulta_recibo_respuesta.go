@@ -51,7 +51,7 @@ func NuevoManejadorConsultaReciboRespuesta(e EjecutorConsultaReciboRespuesta) (h
 			fallo(http.StatusMethodNotAllowed, "metodo_no_permitido", nil)
 			return
 		}
-		if r.ContentLength != 0 || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 || len(r.URL.RawQuery) > 400 {
+		if r.ContentLength != 0 || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 || len(r.URL.RawQuery) > 2048 {
 			fallo(http.StatusBadRequest, "peticion_no_permitida", nil)
 			return
 		}
