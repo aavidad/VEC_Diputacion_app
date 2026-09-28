@@ -36,6 +36,44 @@ export const MENSAJES_REINCORPORACION_RRHH_ES = Object.freeze({
   rrhh_reincorporacion_bolsa_pendiente: "Pendiente de confirmación por Bolsa",
 });
 
+export const MENSAJES_REINCORPORACION_RRHH_EN = Object.freeze({
+  rrhh_reincorporacion_titulo: "Record the substantive postholder’s return",
+  rrhh_reincorporacion_subtitulo: "Human Resources action in the temporary recruitment case",
+  rrhh_reincorporacion_pasos: "Follow-up sequence",
+  rrhh_reincorporacion_paso_cese: "End of service",
+  rrhh_reincorporacion_paso_reincorporacion: "Return to post",
+  rrhh_reincorporacion_paso_cierre: "Closure",
+  rrhh_reincorporacion_ayuda_boton: "Help with return to post",
+  rrhh_reincorporacion_ayuda: "This action requires a recorded end of service due to the end of the substitution. The affected employment relationship belongs to the substitute whose service ended, not to the substantive postholder. This is recorded after the end of service and before the case is closed. The operation retains a receipt in Temporary Recruitment; the recruitment pool receives the event and applies its own availability rule where applicable. The document reference and digest do not replace custody of the document.",
+  rrhh_reincorporacion_datos: "Return to post details",
+  rrhh_reincorporacion_expediente: "Case",
+  rrhh_reincorporacion_version: "Version viewed",
+  rrhh_reincorporacion_relacion: "Affected relationship of the substitute whose service ended",
+  rrhh_reincorporacion_fecha: "Effective date of return",
+  rrhh_reincorporacion_documento: "Supporting document reference",
+  rrhh_reincorporacion_huella: "Document SHA-256 digest",
+  rrhh_reincorporacion_registrar: "Record return to post",
+  rrhh_reincorporacion_reintentar: "Check using the same operation",
+  rrhh_reincorporacion_confirmar: "The substantive postholder’s return will be recorded in this case. Confirm the details?",
+  rrhh_reincorporacion_lista: "Ready to record.",
+  rrhh_reincorporacion_validacion: "Check the references, date and document digest.",
+  rrhh_reincorporacion_cancelada: "The operation has not been submitted.",
+  rrhh_reincorporacion_enviando: "Recording the return to post. Wait for a response.",
+  rrhh_reincorporacion_denegada: "You do not have permission to record this return to post. The form data has been cleared.",
+  rrhh_reincorporacion_conflicto: "The case has changed or the data conflicts. Refresh the details before proceeding.",
+  rrhh_reincorporacion_rechazada: "The operation was rejected. Check the details before submitting again.",
+  rrhh_reincorporacion_incierta: "The outcome cannot be confirmed. Check the record using only the same operation and data.",
+  rrhh_reincorporacion_incierta_clave: "Original operation key",
+  rrhh_reincorporacion_confirmada: "Return to post recorded in Temporary Recruitment.",
+  rrhh_reincorporacion_recibo: "Action receipt",
+  rrhh_reincorporacion_recibo_ref: "Receipt",
+  rrhh_reincorporacion_cese_recibo_ref: "Associated end of service",
+  rrhh_reincorporacion_evento_ref: "Event",
+  rrhh_reincorporacion_registrada_en: "Recorded on",
+  rrhh_reincorporacion_bolsa: "Recruitment pool update",
+  rrhh_reincorporacion_bolsa_pendiente: "Awaiting confirmation from the recruitment pool",
+});
+
 export function crearTraductorReincorporacionRRHH(mensajes = MENSAJES_REINCORPORACION_RRHH_ES) {
   return (clave) => {
     if (!Object.hasOwn(mensajes, clave) || typeof mensajes[clave] !== "string") {
