@@ -10,7 +10,7 @@
 import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260928-rrhh-cache-unificada-v1";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260928-rrhh-cache-unificada-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260928-rrhh-cache-unificada-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260928-rrhh-corte3-cache-v5";
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260927-rrhh-reposicion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260928-rrhh-cache-unificada-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260928-rrhh-cache-unificada-v1";
