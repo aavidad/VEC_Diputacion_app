@@ -215,6 +215,8 @@ test("Madrid acepta horas válidas a ambos lados del horario de verano y rechaza
 test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () => {
   const { eventos, raiz } = raizFalsa();
   let resolver, signal;
+  let focoRestaurado = false;
+  raiz.querySelector = () => ({ focus() { focoRestaurado = true; } });
   const fuente = { obtenerOpciones: async () => opciones,
     consultar: (_entrada, o) => { signal = o.signal; return new Promise((r) => { resolver = r; }); } };
   const original = globalThis.FormData;
@@ -225,7 +227,8 @@ test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () =
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     eventos.input({ target: { matches: () => true, name: "desde", value: "2026-09-28T08:30", selectionStart: null, selectionEnd: null } });
     assert.equal(signal.aborted, true);
-    assert.match(raiz.innerHTML, /Pulse Consultar para aplicar los filtros/u);
+    assert.match(raiz.innerHTML, /role="status" aria-live="polite">Pulse Consultar para aplicar los filtros/u);
+    assert.equal(focoRestaurado, true);
     resolver({ registros: [registro], siguiente_cursor: "" });
     await esperar();
     assert.doesNotMatch(raiz.innerHTML, /per_1/u);
