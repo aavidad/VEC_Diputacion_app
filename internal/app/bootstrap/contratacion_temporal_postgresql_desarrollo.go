@@ -18,6 +18,7 @@ import (
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	"vec-diputacion-granada/internal/vec/auditoria"
 )
 
 const (
@@ -102,6 +103,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialEmision                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaPoliticaOfertas *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaCT             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialFirmaDocumento          *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -377,6 +380,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
+	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
+	if err != nil {
+		return vacias, err
+	}
+	if auditoriaActiva {
+		if _, err := cfg.RutaCatalogoAuditoriaConsultaDesarrollo(); err != nil {
+			return vacias, err
+		}
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -446,6 +459,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	etapa = "material_firma_documento"
 	if firmaDocumento {
 		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	etapa = "material_auditoria_rrhh"
+	if auditoriaActiva {
+		dependencias.proveedorMaterialAuditoriaCT, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
+		if err != nil {
+			return vacias, err
+		}
+		dependencias.proveedorMaterialAuditoriaBolsa, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
 		if err != nil {
 			return vacias, err
 		}
