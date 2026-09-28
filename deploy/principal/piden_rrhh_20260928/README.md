@@ -1,16 +1,17 @@
 # Preparación de la tanda PIDEN RRHH para cidonia
 
 Punto de partida: `trabajo/piden-rrhh-20260927` en
-`1433c6a44d757358742dc0932f0ed78b0a95dbb9`. Esta carpeta **no ejecuta
+`100fa464ed3fd40cbd998b4a24d14c616376c614`. Esta carpeta **no ejecuta
 un despliegue**. Dirección integra en la rama canónica y decide la puesta en
 servicio. El script histórico `deploy/principal/desplegar.sh` hace `checkout
 main`, `pull`, reaplica SQL D6 y cambia contenedores: **no usarlo para esta
 tanda**. Tampoco repetir `00_puesta_al_dia.sh`, `02_migraciones.sh`, F4/D7 ni
 ningún `DOWN` sobre la principal con historia.
 
-La lista [`migraciones.txt`](migraciones.txt) contiene **24 `UP` candidatos**
+La lista [`migraciones.txt`](migraciones.txt) contiene **26 `UP` candidatos**
 frente a `origin/main` en este corte, en orden de introducción causal. Incluye
-AD3-98/CT134 y Bolsa54. Incluye también AD3-90/Bolsa44, cuya preimagen
+AD3-98/CT134, Bolsa54 y AD3-99 antes de CT135. Incluye también
+AD3-90/Bolsa44, cuya preimagen
 PostgreSQL 18 y dos revisiones deben quedar
 acreditadas antes de instalarse. El inventario de cidonia puede mostrar que
 alguna ya tiene historia; **detenerse y conciliar** en vez de repetirla. La
@@ -27,6 +28,10 @@ los guiones rechazan esas rutas si reaparecen en `migraciones.txt`.
 Si el binario nuevo o la sonda B10 requieren cualquiera de las dos, la
 activación de esta tanda es **NO-GO**; no suplirlas con una instalación parcial
 ni presentar B10 como publicado.
+Antes de aplicar cualquier UP, [`preflight_no_go.sh`](preflight_no_go.sh) debe
+confirmar también que B49/Pública3 **no están ya instaladas** en las bases
+principal y pública de destino/clon. Busca sus tablas, funciones y rol; una
+huella encontrada o una conexión no inventariable detiene toda la tanda.
 
 ## Puertas antes de tocar un servicio
 
@@ -66,11 +71,20 @@ mkdir -m 700 -p "$EVIDENCIA_PRIVADA"
 PGSERVICE=piden_principal pg_dump -Fc --file "$EVIDENCIA_PRIVADA/principal.dump"
 PGSERVICE=piden_principal pg_dumpall --globals-only \
   --file "$EVIDENCIA_PRIVADA/globals.sql"
+PGSERVICE=piden_bolsa_publica pg_dump -Fc \
+  --file "$EVIDENCIA_PRIVADA/bolsa-publica.dump"
+# Si Bolsa pública está en otro clúster, conservar allí sus globales por separado.
+PGSERVICE=piden_bolsa_publica pg_dumpall --globals-only \
+  --file "$EVIDENCIA_PRIVADA/globals-bolsa-publica.sql"
 sha256sum "$EVIDENCIA_PRIVADA/principal.dump" \
-  "$EVIDENCIA_PRIVADA/globals.sql" >"$EVIDENCIA_PRIVADA/dumps.sha256"
+  "$EVIDENCIA_PRIVADA/globals.sql" \
+  "$EVIDENCIA_PRIVADA/bolsa-publica.dump" \
+  "$EVIDENCIA_PRIVADA/globals-bolsa-publica.sql" \
+  >"$EVIDENCIA_PRIVADA/dumps.sha256"
 ```
 
-`globals.sql` puede contener verificadores de contraseñas: custodiarlo como
+Los ficheros `globals*.sql` pueden contener verificadores de contraseñas:
+custodiarlos como
 secreto. Acreditar además con consultas de catálogo y salidas privadas las ACL
 explícitas y predeterminadas, roles, membresías, tipos de fila y la postimagen
 de funciones: el volcado lógico por sí solo no prueba esa equivalencia. En el
@@ -88,6 +102,16 @@ psql -X -v ON_ERROR_STOP=1 -f "$EVIDENCIA_PRIVADA/globals.sql"
 createdb --template=template0 --owner="$CLON_OWNER" "$VEC_PIDEN_CLON_DB"
 pg_restore --exit-on-error --single-transaction \
   --dbname="$VEC_PIDEN_CLON_DB" "$EVIDENCIA_PRIVADA/principal.dump"
+# Repetir en el clúster/base pública aislados. Si comparten clúster,
+# no restaurar globales una segunda vez.
+export PGSERVICE=piden_bolsa_publica_clon_admin
+export VEC_PIDEN_BOLSA_PUBLICA_CLON_DB=bolsa_publica_clon_piden_20260928
+psql -X -v ON_ERROR_STOP=1 -f "$EVIDENCIA_PRIVADA/globals-bolsa-publica.sql"
+createdb --template=template0 --owner="$CLON_PUBLICA_OWNER" \
+  "$VEC_PIDEN_BOLSA_PUBLICA_CLON_DB"
+pg_restore --exit-on-error --single-transaction \
+  --dbname="$VEC_PIDEN_BOLSA_PUBLICA_CLON_DB" \
+  "$EVIDENCIA_PRIVADA/bolsa-publica.dump"
 ```
 
 `CLON_OWNER`, codificación, locale y extensiones se toman del inventario real;
@@ -95,13 +119,18 @@ si el destino aislado no los reproduce, detener el ensayo. No ejecutar estos
 comandos apuntando a cidonia. Los servicios de origen y clon se configuran
 fuera de Git y deben tener host/puerto distintos, cotejados antes de restaurar.
 
-Configurar `PGSERVICE` para la base restaurada cuyo nombre termina literalmente
-en `_clon_piden_20260928`; comprobar que el servicio resuelve al clúster
-aislado. El ensayo se ejecuta **una vez** sobre un clon nuevo:
+Configurar los dos servicios para bases restauradas cuyos nombres terminan
+literalmente en `_clon_piden_20260928`; comprobar que resuelven a los
+clústeres aislados. El preflight lee ambas bases y aborta si detecta B49 o
+Pública3 ya instaladas, incluso si no figuran en el plan. El ensayo se ejecuta
+**una vez** sobre un clon nuevo:
 
 ```bash
 export PGSERVICE=piden_clon
 export VEC_PIDEN_CLON_DB=vec_clon_piden_20260928
+export VEC_PIDEN_BOLSA_PUBLICA_PGSERVICE=piden_bolsa_publica_clon
+export VEC_PIDEN_BOLSA_PUBLICA_CLON_DB=bolsa_publica_clon_piden_20260928
+bash deploy/principal/piden_rrhh_20260928/preflight_no_go.sh --clon
 bash deploy/principal/piden_rrhh_20260928/ensayar_clon.sh --aplicar-en-clon
 ```
 
@@ -133,7 +162,12 @@ Dirección lo copia al directorio privado de releases del servicio. No usar
 
 En la ventana de cambio: detener solo la aplicación principal autorizada,
 conservar binario y `web/` actuales con huellas y permisos, tomar nueva copia
-de seguridad de base y ACL, aplicar en la **principal** únicamente los `UP`
+de seguridad de ambas bases y ACL. Configurar `PGSERVICE` y
+`VEC_PIDEN_BOLSA_PUBLICA_PGSERVICE` para sus servicios reales, junto con
+`VEC_PIDEN_DESTINO_DB` y `VEC_PIDEN_BOLSA_PUBLICA_DESTINO_DB`; ejecutar
+`preflight_no_go.sh --destino` y conservar su salida privada. Cualquier huella
+B49/Pública3 significa **NO-GO**; no continuar por el resto del plan. Con
+preflight limpio y revisiones cerradas, aplicar en la **principal** únicamente los `UP`
 inventariados como pendientes, en el orden de `migraciones.txt`, y verificar
 postimagen tras cada `COMMIT`. La aplicación de producción es una decisión
 manual de Dirección después del ensayo y las revisiones; este directorio no

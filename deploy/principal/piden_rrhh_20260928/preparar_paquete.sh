@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=1433c6a44d757358742dc0932f0ed78b0a95dbb9
+base=100fa464ed3fd40cbd998b4a24d14c616376c614
 
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null || fallar 'falta git'

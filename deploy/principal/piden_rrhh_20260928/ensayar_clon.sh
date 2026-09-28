@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=1433c6a44d757358742dc0932f0ed78b0a95dbb9
+base=100fa464ed3fd40cbd998b4a24d14c616376c614
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${1:-} == --aplicar-en-clon && $# == 1 ]] || fallar 'uso: ensayar_clon.sh --aplicar-en-clon'
 [[ -n ${PGSERVICE:-} && -n ${VEC_PIDEN_CLON_DB:-} ]] || fallar 'faltan PGSERVICE o VEC_PIDEN_CLON_DB'
@@ -13,6 +13,7 @@ command -v psql >/dev/null || fallar 'falta psql'
 git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
 git -C "$repo" diff --quiet "$base" HEAD -- deploy/postgresql || fallar 'SQL cambió: revisar el plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
+"$script_dir/preflight_no_go.sh" --clon
 
 # PGSERVICE/PGPASSFILE se resuelven fuera de Git. No pasar DSN ni clave en argumentos.
 conexion=(psql -X --no-psqlrc --set=ON_ERROR_STOP=1 --no-align --tuples-only)
