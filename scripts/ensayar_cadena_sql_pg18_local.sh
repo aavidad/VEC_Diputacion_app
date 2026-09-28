@@ -2,7 +2,7 @@
 # Puerta local: cadena SQL completa, binario sobre PostgreSQL 18.4 y sonda HTTP.
 # Uso: scripts/ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE --probe RUTA [--repo CHECKOUT] [--browser EJECUTABLE]
 # ORDEN contiene una ruta relativa deploy/postgresql/... por línea, en orden causal.
-# Debe incluir todos los roles*_up.sql y *.up.sql de CT/Bolsa rastreados por
+# Debe incluir todos los roles*_up.sql y *.up.sql del alcance rastreados por
 # Git; puede añadir dependencias SQL rastreadas de los módulos comunes.
 # EJECUTABLE configura identidades nominales en la base efímera y arranca el
 # binario indicado por VEC_ENSAYO_BINARIO. Recibe PGHOST, PGPORT y PGDATABASE.
@@ -16,10 +16,12 @@ fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 ayuda() {
   cat <<'AYUDA'
 Uso: ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE
-     --probe RUTA [--repo CHECKOUT] [--browser EJECUTABLE]
+     --probe RUTA [--repo CHECKOUT] [--scope ct-llamamientos|ct-bolsa]
+     [--browser EJECUTABLE]
 
 ORDEN enumera rutas relativas deploy/postgresql/... en orden causal. Debe
-contener todos los UP y roles de CT/Bolsa rastreados por Git en CHECKOUT;
+contener todos los UP y roles de CT y Bolsa Llamamientos rastreados en CHECKOUT
+(o de todos los módulos bolsa_* con --scope ct-bolsa);
 puede incluir dependencias rastreadas de otros módulos. Cada SQL se aplica
 una vez, con ON_ERROR_STOP, a una base nueva de PostgreSQL 18.4.
 
@@ -38,14 +40,14 @@ se rechazan por estar «dentro del repositorio», use TMPDIR=/var/tmp escribible
 AYUDA
 }
 
-plan='' runtime='' probe='' browser='' checkout=''
+plan='' runtime='' probe='' browser='' checkout='' scope='ct-llamamientos'
 while (( $# )); do
   case "$1" in
-    --plan|--runtime|--probe|--browser|--repo)
+    --plan|--runtime|--probe|--browser|--repo|--scope)
       (( $# >= 2 )) || fallar "falta valor para $1"
       case "$1" in
         --plan) plan=$2 ;; --runtime) runtime=$2 ;;
-        --probe) probe=$2 ;; --browser) browser=$2 ;; --repo) checkout=$2 ;;
+        --probe) probe=$2 ;; --browser) browser=$2 ;; --repo) checkout=$2 ;; --scope) scope=$2 ;;
       esac
       shift 2 ;;
     -h|--help) ayuda; exit 0 ;;
@@ -53,6 +55,7 @@ while (( $# )); do
   esac
 done
 [[ -n $plan && -n $runtime && -n $probe ]] || fallar 'uso: --plan ORDEN --runtime EJECUTABLE --probe RUTA [--browser EJECUTABLE]'
+[[ $scope == ct-llamamientos || $scope == ct-bolsa ]] || fallar "alcance SQL desconocido: $scope"
 [[ -f $plan ]] || fallar "no existe el plan SQL: $plan"
 [[ -x $runtime ]] || fallar "runtime no ejecutable: $runtime"
 [[ -z $browser || -x $browser ]] || fallar "navegador no ejecutable: $browser"
@@ -70,16 +73,17 @@ done
 
 # Comprobar cobertura antes de crear la base. Un SQL ajeno, repetido o ausente
 # hace fallar la puerta; no se ejecuta una cadena parcial por accidente.
-python3 - "$repo" "$plan" <<'PY'
+python3 - "$repo" "$plan" "$scope" <<'PY'
 import pathlib, subprocess, sys
-repo, plan = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+repo, plan, scope = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), sys.argv[3]
 tracked = subprocess.check_output(
     ['git', '-C', str(repo), 'ls-files', '-z', 'deploy/postgresql'],
 ).decode().split('\0')
 available = {p for p in tracked if p.endswith('.up.sql') or
              (p.rsplit('/', 1)[-1].startswith('roles') and p.endswith('_up.sql'))}
 required = {p for p in available if p.split('/')[2] == 'contratacion_temporal'
-            or p.split('/')[2].startswith('bolsa_')}
+            or (scope == 'ct-bolsa' and p.split('/')[2].startswith('bolsa_'))
+            or (scope == 'ct-llamamientos' and p.split('/')[2] == 'bolsa_llamamientos')}
 lines = plan.read_text(encoding='utf-8').splitlines()
 if any(line and line != line.strip() for line in lines):
     raise SystemExit('ERROR: el plan SQL contiene espacios alrededor de una ruta')
@@ -93,11 +97,11 @@ if missing or extra:
     for p in sorted(extra)[:8]: print(f'  sobra: {p}', file=sys.stderr)
     raise SystemExit(1)
 if not required:
-    raise SystemExit('ERROR: no se encontraron migraciones SQL de CT/Bolsa')
+    raise SystemExit('ERROR: no se encontraron migraciones SQL del alcance')
 for p in ordered:
     if not (repo / p).is_file():
         raise SystemExit(f'ERROR: fichero SQL ausente: {p}')
-print(f'Plan CT/Bolsa completo: {len(required)} propios, {len(ordered) - len(required)} dependencias.', flush=True)
+print(f'Plan {scope} completo: {len(required)} propios, {len(ordered) - len(required)} dependencias.', flush=True)
 PY
 
 if ! docker info >/dev/null 2>&1; then
