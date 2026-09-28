@@ -1,0 +1,8 @@
+# Orden causal de la respuesta RRHH desde la base publicada. Preparación para ensayo controlado.
+# Requiere preimagen CT54/CT62 y AD3-101; verificar dependencias instaladas en el clon.
+# No ejecutar en la base principal ni presentar esta lista como instalación acreditada.
+deploy/postgresql/contratacion_temporal/migraciones/000138_respuesta_recibida_semantica.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000104_consumidor_consulta_recibo_respuesta.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000139_consulta_recibo_respuesta.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000105_consumidor_consulta_comunicaciones_expediente_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000140_consulta_comunicaciones_expediente.up.sql
