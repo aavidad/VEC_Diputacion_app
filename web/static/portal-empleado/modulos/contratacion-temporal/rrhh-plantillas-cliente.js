@@ -8,6 +8,7 @@ export const RUTA_RRHH_PLANTILLAS_PUBLICAR = `${RUTA_RRHH_PLANTILLAS}/publicar`;
 
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
+const RECIBO = /^recibo:[0-9a-f-]{36}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAXIMO_RESPUESTA = 17_000_000;
 const MAXIMO_PETICION = 256 * 1024;
@@ -67,7 +68,8 @@ export function validarConsultaPlantillas(valor) {
 }
 
 export function validarRespuestaGuardadoPlantillas(valor, estadoEsperado = "borrador") {
-  if (!objeto(valor) || !objeto(valor.recibo) || !texto(valor.recibo.recibo_ref, 160)
+  if (!objeto(valor) || !objeto(valor.recibo) || typeof valor.recibo.recibo_ref !== "string"
+    || valor.recibo.recibo_ref.length !== 43 || !RECIBO.test(valor.recibo.recibo_ref)
     || !instante(valor.recibo.registrado_en)
     || !["registrado", "replay"].includes(valor.recibo.estado_replay)) {
     throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true);

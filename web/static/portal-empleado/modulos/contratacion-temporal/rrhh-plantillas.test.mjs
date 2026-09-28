@@ -7,6 +7,8 @@ import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const instante = "2026-09-28T09:00:00Z";
+const reciboEdicion = "recibo:ad6eaa70-bc5f-4a27-90b4-5bf02043d021";
+const reciboPublicacion = "recibo:f805f3e8-4d4f-48d3-8b01-318c9fe66ed4";
 const catalogo = Object.freeze({
   id: "vec.contratacion_temporal.plantillas_documentos", fuente_ref: "fuente:rrhh:ejemplo",
   version: 3, revision: 2, estado: "borrador", huella_sha256: "a".repeat(64),
@@ -89,7 +91,7 @@ test("cliente solo confirma un cambio con catálogo, versión y recibo válidos"
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
     peticion = { ruta, opciones };
     return respuesta({ catalogo: { ...catalogo, revision: 3 }, recibo: {
-      recibo_ref: "recibo:plantillas:uno", registrado_en: instante, estado_replay: "registrado",
+      recibo_ref: reciboEdicion, registrado_en: instante, estado_replay: "registrado",
     } }, 201);
   } });
   const solicitud = { clave_idempotencia: "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789",
@@ -97,14 +99,19 @@ test("cliente solo confirma un cambio con catálogo, versión y recibo válidos"
     entrada: catalogo.entradas[0] };
   const guardado = await cliente.guardar(solicitud);
   assert.equal(guardado.catalogo.revision, 3);
-  assert.equal(guardado.recibo.recibo_ref, "recibo:plantillas:uno");
+  assert.equal(guardado.recibo.recibo_ref, reciboEdicion);
   assert.equal(peticion.ruta, RUTA_RRHH_PLANTILLAS_ENTRADAS);
   assert.deepEqual(JSON.parse(peticion.opciones.body), solicitud);
   assert.equal(peticion.opciones.headers.get("Content-Type"), "application/json");
-  const incompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
-    catalogo: { ...catalogo, revision: 3 }, recibo: { recibo_ref: "", registrado_en: instante, estado_replay: "registrado" },
-  }, 201) });
-  await assert.rejects(incompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH && error.resultadoIndeterminado);
+  for (const referencia of ["", "recibo:plantillas:uno", [reciboEdicion], reciboEdicion.toUpperCase(),
+    `${reciboEdicion}a`, `${reciboEdicion}\n`, reciboEdicion.slice(0, -1),
+    "recibo:ad6eaa70-bc5f-4a27-90b4-5bf02043d02g"]) {
+    const incompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+      catalogo: { ...catalogo, revision: 3 }, recibo: { recibo_ref: referencia, registrado_en: instante, estado_replay: "registrado" },
+    }, 201) });
+    await assert.rejects(incompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+      && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado, referencia);
+  }
 });
 
 test("cliente distingue conflicto previo y resultado indeterminado", async () => {
@@ -113,6 +120,8 @@ test("cliente distingue conflicto previo y resultado indeterminado", async () =>
     entrada: catalogo.entradas[0] };
   const conflicto = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({ codigo: "version_en_conflicto" }, 409) });
   await assert.rejects(conflicto.guardar(solicitud), (error) => error.estado === 409 && !error.resultadoIndeterminado);
+  const denegado = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({ codigo: "acceso_denegado" }, 403) });
+  await assert.rejects(denegado.guardar(solicitud), (error) => error.estado === 403 && !error.resultadoIndeterminado);
   const sinRespuesta = crearClientePlantillasRRHH({ fetchImpl: async () => { throw new TypeError("red caída"); } });
   await assert.rejects(sinRespuesta.guardar(solicitud), (error) => error.resultadoIndeterminado);
 });
@@ -122,7 +131,7 @@ test("publicación exige aprobación y solo confirma catálogo publicado con rec
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
     peticion = { ruta, opciones };
     return respuesta({ catalogo: { ...catalogo, estado: "publicado" }, recibo: {
-      recibo_ref: "recibo:plantillas:publicacion", registrado_en: instante, estado_replay: "registrado",
+      recibo_ref: reciboPublicacion, registrado_en: instante, estado_replay: "registrado",
     } }, 201);
   } });
   const solicitud = { clave_idempotencia: "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789",
@@ -131,6 +140,13 @@ test("publicación exige aprobación y solo confirma catálogo publicado con rec
   assert.equal(peticion.ruta, RUTA_RRHH_PLANTILLAS_PUBLICAR);
   assert.deepEqual(JSON.parse(peticion.opciones.body), solicitud);
   await assert.rejects(cliente.publicar({ ...solicitud, aprobacion_ref: "" }), TypeError);
+  const incompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: { ...catalogo, estado: "publicado" }, recibo: {
+      recibo_ref: "recibo:plantillas:publicacion", registrado_en: instante, estado_replay: "registrado",
+    },
+  }, 201) });
+  await assert.rejects(incompatible.publicar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+    && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
 });
 
 test("formulario conserva metadatos y el instante exacto al editar", () => {
