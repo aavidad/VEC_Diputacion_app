@@ -57,10 +57,12 @@ func TestPreflightFronteraAuditoriaRechazaDerivaDeColumnasYCrear(t *testing.T) {
 	if err := preflightRegistradorFronteraAuditoriaConsultaDesarrollo(t.Context(), q); err != nil ||
 		len(q.argumentos) != 1 || !strings.Contains(q.consulta, "has_any_column_privilege") ||
 		!strings.Contains(q.consulta, "has_schema_privilege(session_user,'vec_contratacion_temporal','CREATE')") ||
+		!strings.Contains(q.consulta, "has_schema_privilege('vec_contratacion_temporal_registrador_auditoria'::regrole,'vec_contratacion_temporal','USAGE')") ||
+		!strings.Contains(q.consulta, "has_function_privilege('vec_contratacion_temporal_registrador_auditoria'::regrole,p.oid,'EXECUTE')") ||
 		!strings.Contains(q.consulta, "x.oid<>p.oid") {
 		t.Fatalf("preflight nominal incompleto: %v", err)
 	}
-	q.valida = false // PG18: GRANT SELECT(actor_ref) o CREATE hace falsa la sonda.
+	q.valida = false // PG18: GRANT SELECT(actor_ref), CREATE o REVOKE USAGE del grupo hace falsa la sonda.
 	if err := preflightRegistradorFronteraAuditoriaConsultaDesarrollo(t.Context(), q); err == nil {
 		t.Fatal("deriva de ACL admitida antes de publicar rutas")
 	}
