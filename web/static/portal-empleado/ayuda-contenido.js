@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

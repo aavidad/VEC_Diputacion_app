@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
 
 export const ESQUEMA_REINCORPORACIONES_TITULAR = "vec.bolsa.rrhh.reincorporaciones_titular.v1";
 const BASE = "/api/vec/bolsa/bolsas";

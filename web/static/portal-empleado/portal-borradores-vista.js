@@ -1,6 +1,6 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-ppt-c3-v3";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-ppt-503-v4";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-503-v4";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";

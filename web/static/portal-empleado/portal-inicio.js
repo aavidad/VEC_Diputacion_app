@@ -6,7 +6,7 @@
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
 
 // Sólo estas claves de estado y fase pertenecen a un vocabulario controlado.
 // Los nombres de centro, categoría y cualquier texto libre se muestran tal como
