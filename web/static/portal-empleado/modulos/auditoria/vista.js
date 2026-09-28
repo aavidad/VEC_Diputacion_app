@@ -1,5 +1,4 @@
-import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v1";
-import { presentarRegistroAuditoria, presentarExpedienteAuditoria } from "./datos-presentacion.js";
+import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v2";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
 
@@ -13,6 +12,28 @@ const formatoNumero = new Intl.NumberFormat(LOCALIZACION_ACTUAL);
 const formatoPartesMadrid = new Intl.DateTimeFormat("en-GB", { timeZone: ZONA_HORARIA_PORTAL,
   year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const DIA_MS = 86400000;
+
+/** Etiquetas exclusivas de la muestra ficticia; nunca se infieren nombres reales de referencias. */
+const PERSONAS_EJEMPLO = Object.freeze({ per_1: "Carmen Molina" });
+const EXPEDIENTES_EJEMPLO = Object.freeze({ exp_1: "EXP-2026-001" });
+const ACCIONES = Object.freeze({ "relacion.actualizada": "accion_relacion_actualizada",
+  "bolsa.participacion.cambiar": "accion_participacion_cambiada" });
+const RESULTADOS = Object.freeze({ confirmado: "resultado_confirmado", denegado: "resultado_denegado", ok: "resultado_confirmado" });
+
+function presentarRegistroAuditoria(registro, t, ejemplo) {
+  const actor = ejemplo && Object.hasOwn(PERSONAS_EJEMPLO, registro.actor_ref)
+    ? `${PERSONAS_EJEMPLO[registro.actor_ref]} (${t("dato_ficticio")})` : t("persona_no_disponible");
+  const expediente = ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, registro.expediente_ref)
+    ? `${EXPEDIENTES_EJEMPLO[registro.expediente_ref]} (${t("dato_ficticio")})` : t("numero_no_disponible");
+  const accion = Object.hasOwn(ACCIONES, registro.accion) ? ACCIONES[registro.accion] : null;
+  const resultado = Object.hasOwn(RESULTADOS, registro.resultado) ? RESULTADOS[registro.resultado] : null;
+  return Object.freeze({ actor, expediente, accion: t(accion || "accion_otra"), resultado: t(resultado || "resultado_otro") });
+}
+
+function presentarExpedienteAuditoria(ref, t, ejemplo) {
+  return ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, ref)
+    ? `${EXPEDIENTES_EJEMPLO[ref]} (${t("dato_ficticio")})` : t("numero_no_disponible");
+}
 
 /** Convierte la fecha introducida en hora de Madrid y rechaza horas inexistentes por cambio de horario. */
 function instanteMadrid(valor) {
