@@ -40,7 +40,7 @@ e3e347c38fd2a138eb8aaaab25f5c6d2c56bb20b:web/static/portal-empleado/modulos/cont
 # Clave de catálogo i18n de Dietas, no credencial; historia F1 conservada.
 7b1b1344c7cbb47e89ace9f254971ceb2f963b14:web/static/portal-empleado/modulos/dietas/i18n-extensiones.test.mjs:vep-clave-castellana-asignada:20
 
-# Respuesta CT: aserciones negativas sobre un selector HTML y una clave de cliente vacia; no son credenciales.
+# Respuesta CT: dos aserciones negativas de selector HTML y un UUID sintetico de idempotencia; no son credenciales.
 ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs:vep-clave-castellana-asignada:153
 5c096ba98b36ae928b98ebd7e306936c022344a8:web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs:vep-clave-castellana-asignada:147
 5c096ba98b36ae928b98ebd7e306936c022344a8:web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs:vep-clave-castellana-asignada:155
