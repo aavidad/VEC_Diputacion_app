@@ -122,7 +122,13 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
     registrarRespuestaRecibida(solicitud, opciones) {
       const entrada = validarSolicitudRespuestaRecibida(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.respuestaRecibida, entrada, opciones,
-        (respuesta) => validarReciboRespuestaRecibida(respuesta, entrada));
+        (respuesta, status) => {
+          const recibo = validarReciboRespuestaRecibida(respuesta, entrada);
+          if (recibo.estado !== (status === 201 ? "registrada_por_rrhh" : "replay_registrada_por_rrhh")) {
+            throw new TypeError("estado de respuesta recibida incompatible con HTTP");
+          }
+          return recibo;
+        });
     },
     registrarEventoPlazoLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudEventoPlazo(solicitud);

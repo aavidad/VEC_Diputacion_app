@@ -199,7 +199,7 @@ export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
     "esquema", "justificante_ref", "recibo_ref", "auditoria_ref", "registrada_en", "estado"]);
   const esperada = validarSolicitudRespuestaRecibida(solicitudEntrada);
   exigir(valor.esquema === "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1"
-    && UUID.test(valor.clave_idempotencia)
+    && typeof valor.clave_idempotencia === "string" && UUID.test(valor.clave_idempotencia)
     && valor.clave_idempotencia !== "00000000-0000-4000-8000-000000000000"
     && ["registrada_por_rrhh", "replay_registrada_por_rrhh"].includes(valor.estado)
     && ["justificante_ref", "recibo_ref", "auditoria_ref"].every(

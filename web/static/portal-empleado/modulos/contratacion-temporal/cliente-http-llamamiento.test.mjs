@@ -470,6 +470,9 @@ test("recibo de respuesta exige todo el eco y conserva diferencias de un microse
     clave_idempotencia: "123e4567-e89b-42d3-a456-426614174099" }, s).clave_idempotencia,
   "123e4567-e89b-42d3-a456-426614174099");
   assert.throws(() => validarReciboRespuestaRecibida({ ...eco, clave_idempotencia: "otra" }, s), TypeError);
+  for (const clave_idempotencia of [[eco.clave_idempotencia], null, 42, { valor: eco.clave_idempotencia }]) {
+    assert.throws(() => validarReciboRespuestaRecibida({ ...eco, clave_idempotencia }, s), TypeError);
+  }
   for (const cambio of [{ version_resultante: 3 }, { actor_ref: "actor:inventado" },
     { estado: "aceptada" }, { registrada_en: "2026-09-05T09:00:00.1234567Z" }]) {
     assert.throws(() => validarReciboRespuestaRecibida({ ...eco, ...cambio }, s), TypeError);
@@ -480,6 +483,25 @@ test("recibo de respuesta exige todo el eco y conserva diferencias de un microse
   assert.throws(() => validarReciboRespuestaRecibida({
     ...eco, registrada_en: "2026-09-05T08:30:00.123449Z",
   }, s), TypeError);
+});
+
+test("respuesta rechaza cruces HTTP y estado del recibo sin entregar datos como confirmados", async () => {
+  for (const [status, estado] of [[201, "replay_registrada_por_rrhh"], [200, "registrada_por_rrhh"]]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+      ...registroRespuesta(), estado,
+    } }, status) });
+    await assert.rejects(cliente.registrarRespuestaRecibida(RESPUESTA_RECIBIDA), (error) => {
+      assert.equal(error.resultadoIndeterminado, true);
+      return true;
+    });
+  }
+  const clienteClaveArray = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+    ...registroRespuesta(), clave_idempotencia: [registroRespuesta().clave_idempotencia],
+  } }, 201) });
+  await assert.rejects(clienteClaveArray.registrarRespuestaRecibida(RESPUESTA_RECIBIDA), (error) => {
+    assert.equal(error.resultadoIndeterminado, true);
+    return true;
+  });
 });
 
 test("respuesta recibida conserva errores genéricos y distingue rechazo previo de resultado ambiguo", async () => {
