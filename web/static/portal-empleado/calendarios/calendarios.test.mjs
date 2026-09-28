@@ -4,9 +4,9 @@ import test from "node:test";
 import { versionDe } from "../versiones-cache.test-helper.mjs";
 import {
   API_CALENDARIO, ErrorCalendarios, crearCliente, etiquetaMunicipio, instanteDesdeCampo, mensajeError,
-  renderizarCalendario, renderizarFestivos, renderizarMes, renderizarPlazo, tipoDia, validarCalendario, validarPlazo,
+  renderizarCalendario, renderizarFestivos, renderizarMes, renderizarPlazo, renderizarResumen, tipoDia, validarCalendario, validarPlazo,
 } from "./calendarios.js";
-import { MENSAJES_CALENDARIOS_ES, crearTraductorCalendarios, formatearFechaCivil } from "./i18n.js";
+import { MENSAJES_CALENDARIOS_EN, MENSAJES_CALENDARIOS_ES, crearTraductorCalendarios, formatearFechaCivil, formatearInstante, formatearNumero, nombreMes } from "./i18n.js";
 
 const leer = (nombre) => readFileSync(new URL(nombre, import.meta.url), "utf8");
 
@@ -35,6 +35,14 @@ function calendario() {
 
 test("el catálogo i18n está completo y toda clave de la página existe", () => {
   const t = crearTraductorCalendarios();
+  const en = crearTraductorCalendarios(MENSAJES_CALENDARIOS_EN);
+  assert.deepEqual(Object.keys(MENSAJES_CALENDARIOS_EN).sort(), Object.keys(MENSAJES_CALENDARIOS_ES).sort());
+  assert.equal(en("plazoVence", { fecha: "28 February 2026" }), "Due on 28 February 2026");
+  assert.equal(formatearFechaCivil("2026-10-25", "long", "en-GB"), "25 October 2026");
+  assert.equal(formatearInstante("2026-01-20T09:00:00Z", "en-GB"), "20 Jan 2026, 10:00");
+  assert.equal(formatearNumero(1234, "en-GB"), "1,234");
+  assert.equal(nombreMes(2, "en-GB"), "February");
+  assert.throws(() => crearTraductorCalendarios({ ...MENSAJES_CALENDARIOS_EN, plazoVence: "Due" }), /incompleto/u);
   assert.throws(() => crearTraductorCalendarios({ titulo: "x" }), /incompleto/);
   assert.throws(() => t("desconocida"), /desconocida/);
   const html = leer("./index.html");
@@ -61,6 +69,7 @@ test("el mes se pinta en rejilla de lunes a domingo con colores por ámbito", ()
   assert.equal((febrero.match(/class="cal-vacio"/gu) || []).length, 6 + 1); // empieza en domingo y acaba en sábado
   assert.match(febrero, /cal-dia--autonomico[^>]*title="28 de febrero de 2026: Sábado o domingo, Día de Andalucía \(Andalucía\), inhábil"/u);
   assert.match(febrero, /<caption>Febrero<\/caption>/u);
+  assert.match(febrero, /<th scope="col" abbr="lunes">L<\/th>/u);
   assert.equal(tipoDia(porFecha.get("2026-12-24")), "centro");
   assert.equal(tipoDia(porFecha.get("2026-12-26")), "finde");
   assert.equal(tipoDia(porFecha.get("2026-12-23")), "habil");
@@ -68,6 +77,9 @@ test("el mes se pinta en rejilla de lunes a domingo con colores por ámbito", ()
   const festivos = renderizarFestivos(cal);
   assert.match(festivos, /Cierre interno sintético<\/td><td>Centro<\/td><td><span class="cal-estado cal-estado--sintetico">Sintético/u);
   assert.match(festivos, /Año Nuevo<\/td><td>Nacional<\/td><td><span class="cal-estado cal-estado--oficial">Oficial/u);
+  const resumen = renderizarResumen({ resumen: { ...cal.resumen, festivos_oficiales: 1 } });
+  assert.match(resumen, /<strong>1<\/strong><span>Festivo oficial<\/span>/u);
+  assert.match(resumen, /<strong>2<\/strong><span>Cierres del centro<\/span>/u);
 });
 
 test("las respuestas inválidas se rechazan y el texto se escapa", () => {

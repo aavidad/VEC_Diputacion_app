@@ -6,7 +6,7 @@ import {
   API_REGLAS, ErrorReglas, crearCliente, filtrar, mensajeError, origenRegla, renderizarCatalogo, renderizarResumen,
   validarReglas, valorRegla,
 } from "./reglas.js";
-import { MENSAJES_REGLAS_ES, crearTraductorReglas } from "./i18n.js";
+import { MENSAJES_REGLAS_EN, MENSAJES_REGLAS_ES, crearTraductorReglas, formatearNumero } from "./i18n.js";
 
 const leer = (nombre) => readFileSync(new URL(nombre, import.meta.url), "utf8");
 
@@ -27,6 +27,14 @@ function respuesta() {
 
 test("el catálogo i18n está completo y toda clave de la página existe", () => {
   const t = crearTraductorReglas();
+  const en = crearTraductorReglas(MENSAJES_REGLAS_EN);
+  assert.deepEqual(Object.keys(MENSAJES_REGLAS_EN).sort(), Object.keys(MENSAJES_REGLAS_ES).sort());
+  assert.equal(en("contadorRegla", { cantidad: 1 }), "1 rule");
+  assert.equal(t("ayudaSimbolo"), "?");
+  assert.equal(en("ayudaSimbolo"), "?");
+  assert.equal(en("catalogoVersion", { catalogo: "x", version: 2 }), "Catalogue x · version 2");
+  assert.equal(formatearNumero(1234, "en-GB"), "1,234");
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS_EN, catalogoVersion: "Version {version}" }), /incompleto/u);
   assert.throws(() => crearTraductorReglas({ titulo: "x" }), /incompleto/u);
   assert.throws(() => t("desconocida"), /desconocida/u);
   const html = leer("./index.html");
@@ -34,7 +42,7 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
   const js = leer("./reglas.js");
   for (const [, id] of js.matchAll(/\$\("([a-z-]+)"\)/gu)) assert.match(html, new RegExp(`id="${id}"`, "u"), id);
   assert.ok(!/style=|<script>/u.test(html), "sin estilos ni guiones en línea");
-  assert.match(html, /id="rg-ayuda-abrir"[^>]*>\?</u, "la ayuda solo se abre con «?»");
+  assert.match(html, /id="rg-ayuda-abrir"[^>]*data-i18n="ayudaSimbolo"/u, "el símbolo de ayuda usa i18n");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
@@ -76,6 +84,7 @@ test("pinta valor, unidad, origen, duda y versión, escapando el contenido", () 
   assert.match(html, /Franja &lt;b&gt;/u);
   assert.ok(!html.includes("<b>"));
   assert.match(renderizarCatalogo(d.catalogos[1]), /Sin catálogo de reglas cargado/u);
+  assert.match(renderizarCatalogo({ ...d.catalogos[0], reglas: [d.catalogos[0].reglas[0]] }), /1 regla/u);
   assert.equal(valorRegla({ unidad: "ninguna" }), "No aplica");
   assert.equal(valorRegla({ unidad: "lista", valor: "a,b" }), "a, b");
   assert.equal(origenRegla({ origen: "ejemplo" }), "Ejemplo");

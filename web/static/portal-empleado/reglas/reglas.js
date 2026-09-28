@@ -1,5 +1,6 @@
-import { crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260928-i18n-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../comun/idioma.js";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
 export const ESQUEMA = "vec.reglas.vigentes.v1";
@@ -96,11 +97,11 @@ export function origenRegla(r) {
 }
 
 export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta = "" } = {}) {
-  const q = consulta.trim().toLocaleLowerCase("es-ES");
+  const q = consulta.trim().toLocaleLowerCase(LOCALIZACION_ACTUAL);
   return catalogos.filter((c) => !modulo || c.modulo === modulo).map((c) => ({
     ...c,
     reglas: c.reglas.filter((r) => (!origen || r.origen === origen)
-      && (!q || [r.etiqueta, r.descripcion, r.clave, r.duda, r.norma].some((v) => String(v ?? "").toLocaleLowerCase("es-ES").includes(q)))),
+      && (!q || [r.etiqueta, r.descripcion, r.clave, r.duda, r.norma].some((v) => String(v ?? "").toLocaleLowerCase(LOCALIZACION_ACTUAL).includes(q)))),
   }));
 }
 
@@ -146,7 +147,7 @@ export function renderizarCatalogo(c) {
   }
   return `<section class="rg-panel" aria-labelledby="${id}">
     <div class="rg-panel-cabecera"><div><h2 id="${id}">${esc(etiquetaModulo(c.modulo))}</h2>${meta}</div>
-      <div class="rg-panel-acciones">${pastilla}<span class="rg-contador">${esc(t("contadorReglas", { cantidad: formatearNumero(c.reglas.length) }))}</span></div></div>
+      <div class="rg-panel-acciones">${pastilla}<span class="rg-contador">${esc(t(c.reglas.length === 1 ? "contadorRegla" : "contadorReglas", { cantidad: formatearNumero(c.reglas.length) }))}</span></div></div>
     ${cuerpo}
   </section>`;
 }
@@ -157,7 +158,9 @@ export function mensajeError(error) {
 }
 
 function traducirDocumento(doc) {
+  doc.documentElement.lang = IDIOMA_ACTUAL;
   doc.title = t("documentTitle");
+  doc.querySelector(".rg-volver").href = `/portal-empleado/?lang=${IDIOMA_ACTUAL}`;
   doc.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   doc.querySelectorAll("[data-i18n-label]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nLabel)); });
 }

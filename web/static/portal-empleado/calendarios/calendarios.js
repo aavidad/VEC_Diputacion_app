@@ -1,8 +1,9 @@
 import {
   crearTraductorCalendarios, formatearFechaCivil, formatearInstante, formatearNumero, nombreMes,
-} from "./i18n.js?v=20260925-tanda2-v1";
+} from "./i18n.js?v=20260928-i18n-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { instanteDesdeHoraMadrid } from "../hora-madrid.js";
+import { IDIOMA_ACTUAL } from "../../comun/idioma.js";
 
 export const API_CENTROS = "/api/vec/calendarios/centros";
 export const API_CALENDARIO = "/api/vec/calendarios/centro";
@@ -146,7 +147,8 @@ export function renderizarMes(anio, mes, porFecha) {
   const primero = new Date(Date.UTC(anio, mes - 1, 1));
   const desplazamiento = (primero.getUTCDay() + 6) % 7;
   const total = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
-  const cabecera = t("semanaCorta").split(",").map((d) => `<th scope="col" abbr="${esc(d)}">${esc(d)}</th>`).join("");
+  const nombresDias = t("semanaLarga").split(",");
+  const cabecera = t("semanaCorta").split(",").map((d, i) => `<th scope="col" abbr="${esc(nombresDias[i])}">${esc(d)}</th>`).join("");
   const celdas = [];
   for (let i = 0; i < desplazamiento; i += 1) celdas.push('<td class="cal-vacio"></td>');
   for (let d = 1; d <= total; d += 1) {
@@ -175,9 +177,11 @@ const ICONOS_KPI = Object.freeze({ habiles: "calendario", laborables: "correcto"
 
 export function renderizarResumen(cal) {
   const r = cal.resumen;
-  const kpi = (clase, clave, valor) => `<div class="cal-kpi cal-kpi--${clase}"><span class="cal-kpi-icono">${icono(ICONOS_KPI[clase])}</span><strong>${esc(formatearNumero(valor))}</strong><span>${esc(t(clave))}</span></div>`;
-  return kpi("habiles", "kpiHabiles", r.habiles_administrativos) + kpi("laborables", "kpiLaborables", r.laborables)
-    + kpi("festivos", "kpiFestivos", r.festivos_oficiales) + kpi("cierres", "kpiCierres", r.no_laborables_centro);
+  const kpi = (clase, plural, singular, valor) => `<div class="cal-kpi cal-kpi--${clase}"><span class="cal-kpi-icono">${icono(ICONOS_KPI[clase])}</span><strong>${esc(formatearNumero(valor))}</strong><span>${esc(t(valor === 1 ? singular : plural))}</span></div>`;
+  return kpi("habiles", "kpiHabiles", "kpiHabil", r.habiles_administrativos)
+    + kpi("laborables", "kpiLaborables", "kpiLaborable", r.laborables)
+    + kpi("festivos", "kpiFestivos", "kpiFestivo", r.festivos_oficiales)
+    + kpi("cierres", "kpiCierres", "kpiCierre", r.no_laborables_centro);
 }
 
 function sinteticaDe(cal, versionID) {
@@ -242,7 +246,9 @@ export function instanteDesdeCampo(valor) {
 }
 
 function traducirDocumento(doc) {
+  doc.documentElement.lang = IDIOMA_ACTUAL;
   doc.title = t("documentTitle");
+  doc.querySelector(".cal-volver").href = `/portal-empleado/?lang=${IDIOMA_ACTUAL}`;
   doc.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   doc.querySelectorAll("[data-i18n-label]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nLabel)); });
 }
@@ -253,7 +259,7 @@ export function iniciar(doc, cliente) {
   const estado = { calendario: null, centros: [] };
   const anioActual = Number(new Intl.DateTimeFormat("en-CA", { year: "numeric", timeZone: "Europe/Madrid" }).format(new Date()));
   const selAnio = $("cal-anio");
-  selAnio.innerHTML = [anioActual - 1, anioActual, anioActual + 1].map((a) => `<option value="${a}"${a === anioActual ? " selected" : ""}>${a}</option>`).join("");
+  selAnio.innerHTML = [anioActual - 1, anioActual, anioActual + 1].map((a) => `<option value="${a}"${a === anioActual ? " selected" : ""}>${esc(formatearNumero(a))}</option>`).join("");
   $("cal-unidad").innerHTML = UNIDADES.map((u) => `<option value="${u}">${esc(t(`unidad_${u}`))}</option>`).join("");
   const avisar = (id, mensaje, error = false) => {
     const el = $(id);
@@ -291,7 +297,7 @@ export function iniciar(doc, cliente) {
       const cal = await cliente.calendario($("cal-centro").value, selAnio.value, instanteDesdeCampo($("cal-conocido").value));
       estado.calendario = cal;
       $("cal-kpis").innerHTML = renderizarResumen(cal);
-      $("cal-titulo-anual").textContent = t("calendarioTitulo", { anio: cal.anio });
+      $("cal-titulo-anual").textContent = t("calendarioTitulo", { anio: formatearNumero(cal.anio) });
       $("cal-meses").innerHTML = renderizarCalendario(cal);
       $("cal-festivos").innerHTML = renderizarFestivos(cal);
       $("cal-versiones").innerHTML = renderizarVersiones(cal.versiones);
