@@ -6,16 +6,25 @@ SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000056', 0));
 
--- Reposición de B48 para ensayo transaccional. No ejecutar DOWN sobre historia conservada.
+-- Reposición de B48 solo en un ensayo sin historia. Las tablas se bloquean
+-- antes de comprobarlas para que ninguna actuación se inserte entre la sonda
+-- y el reemplazo de la consulta.
+LOCK TABLE vec_bolsa_llamamientos.situacion_participacion,
+           vec_bolsa_llamamientos.datos_contacto_participacion,
+           vec_bolsa_llamamientos.traza_valor_participacion IN SHARE ROW EXCLUSIVE MODE;
 DO $precondicion$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.operacion_situacion_participacion') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.traza_valor_participacion') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.datos_contacto_participacion') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_auditoria_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
-  RAISE EXCEPTION 'estado incompatible para consulta de auditoria Bolsa' USING ERRCODE='55000';
+    OR to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.datos_contacto_participacion)
+    OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.traza_valor_participacion) THEN
+  RAISE EXCEPTION 'B56: DOWN denegado con historia de Bolsa' USING ERRCODE='55000';
  END IF;
 END $precondicion$;
 

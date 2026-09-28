@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 BEGIN;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
@@ -11,6 +12,25 @@ SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos
 -- La fila B48 de situación solo permanece si carece de traza: la actuación con
 -- cambio se consulta en la fila completa, sin depender de otra página.
 -- Preserva firma, consumo V3, cursor y ACL de B48. Requiere B48 y B16.
+-- La preimagen fija procede de B48 aplicada en PostgreSQL 18.4; un hotfix,
+-- concesión u owner distinto exige revisión, no sustitución silenciosa.
+-- Leer primero en SERIALIZABLE evita normalizar un hotfix previo. La escritura
+-- posterior de pg_proc falla si otro DDL cambió la tupla entre lectura y ALTER.
+DO $preimagen$
+BEGIN
+ IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+     WHERE p.oid=to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+       AND pg_get_userbyid(p.proowner)='vec_bolsa_llamamientos_propietario'
+       AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}'
+       AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='363c4dfa08690195a47ad8ea90478ddf8edd12b0dee8a64b48180571536c3d91') THEN
+  RAISE EXCEPTION 'estado incompatible para consulta de auditoria Bolsa' USING ERRCODE='55000';
+ END IF;
+END $preimagen$;
+-- ALTER con el valor vigente bloquea la tupla hasta COMMIT. Se vuelve a
+-- comprobar bajo el bloqueo antes de CREATE OR REPLACE.
+ALTER FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ SET search_path=pg_catalog;
 DO $precondicion$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
@@ -20,6 +40,12 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.datos_contacto_participacion') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_auditoria_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM pg_proc p
+       WHERE p.oid=to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+         AND pg_get_userbyid(p.proowner)='vec_bolsa_llamamientos_propietario'
+         AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}'
+         AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='363c4dfa08690195a47ad8ea90478ddf8edd12b0dee8a64b48180571536c3d91')
     OR position('B56: motivo unido' in pg_get_functiondef(to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'))) > 0 THEN
   RAISE EXCEPTION 'estado incompatible para consulta de auditoria Bolsa' USING ERRCODE='55000';
  END IF;
