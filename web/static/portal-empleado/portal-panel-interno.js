@@ -18,6 +18,7 @@ import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporac
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260928-ppt-c3-v3";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260928-ppt-c3-v3";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260928-ppt-c3-v3";
+import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { traducirEnlacesBolsa } from "./portal-enlaces-i18n.js?v=20260926-pulido-portal-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { actorTraducido, justificanteTraducido, referenciaCopiableTraducida } from "./portal-justificante.js";
@@ -539,7 +540,8 @@ export function crearPresentadorPanelInterno(dependencias) {
     const accionesBolsa = `<div class="cuerpo-panel acciones-vista">
             <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">${textoPortal("txt_consultar_historial_de_contactos")}</button>
             <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">${textoPortal("txt_nuevo_llamamiento")}</button>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">${textoPortal("txt_registrar_resultado")}</button>
+            <button type="button" class="boton-secundario boton-ancho" aria-describedby="bolsa-resultado-sin-expediente" disabled aria-disabled="true">${textoPortal("txt_registrar_resultado")}</button>
+            <p id="bolsa-resultado-sin-expediente" class="nota-pendiente" role="status">${escaparHTML(traducirAvisoPanelInterno("panel_resultado_sin_expediente"))}</p>
           </div>`;
     const bolsas = typeof obtenerDatosBolsas === "function"
       ? obtenerDatosBolsas()?.datos?.bolsas || []
@@ -655,9 +657,6 @@ export function crearPresentadorPanelInterno(dependencias) {
       </form>` : "";
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
     const reciboContacto = modal.reciboContacto ? `<p class="mensaje-exito" role="status">${escaparHTML(traducirBolsaInterna("contacto_registrado"))} ${justificanteTraducido(modal.reciboContacto, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
-    const opcionLlamamiento = candidato.ultimo_llamamiento ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}">${escaparHTML(traducirBolsaInterna("contacto_ultimo_llamamiento"))}</option>` : "";
-    const t = traducirBolsaInterna;
-    const formularioContacto = `<form data-bolsa-form="contacto" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"><h4>${t("contacto_registrar")}</h4><label>${t("contacto_canal")} <select name="canal" required><option value="telefono">${t("contacto_telefono")}</option><option value="correo">${t("contacto_correo")}</option><option value="sms">${t("contacto_sms")}</option><option value="presencial">${t("contacto_presencial")}</option><option value="otro">${t("contacto_otro")}</option></select></label><label>${t("contacto_resultado")} <select name="resultado" required><option value="contactado">${t("contacto_contactado")}</option><option value="no_contesta">${t("contacto_no_contesta")}</option><option value="buzon">${t("contacto_buzon")}</option><option value="acepta">${t("contacto_acepta")}</option><option value="rechaza">${t("contacto_rechaza")}</option><option value="aplazado">${t("contacto_aplazado")}</option><option value="otro">${t("contacto_otro")}</option></select></label>${opcionLlamamiento?`<label>${t("contacto_llamamiento")} <select name="llamamiento_ref"><option value="">${t("contacto_sin_vincular")}</option>${opcionLlamamiento}</select></label>`:""}<label>${t("contacto_anotacion")} <textarea name="anotacion" required maxlength="1000"></textarea></label><button type="submit" class="boton-primario">${t("contacto_registrar")}</button><p class="mensaje-error" role="alert">${escaparHTML(modal.errorContacto||"")}</p></form>`;
     return `
       <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
         <td colspan="7">
@@ -679,6 +678,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 ${renderizarOrigenContacto({ estado: modal.contactoOrigen || {}, escaparHTML })}
               </dl>
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
+              ${candidato.ultimo_llamamiento ? `<p class="nota-pendiente" role="note">${escaparHTML(traducirAvisoPanelInterno("panel_contacto_no_respuesta"))}</p>` : ""}
               ${reciboSituacion}
               ${reciboContacto}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
@@ -694,7 +694,6 @@ export function crearPresentadorPanelInterno(dependencias) {
             </div>
           </section>
           ${cambio}
-          ${formularioContacto}
         </td>
       </tr>`;
   }
