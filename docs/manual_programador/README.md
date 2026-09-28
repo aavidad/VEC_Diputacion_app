@@ -124,13 +124,14 @@ Use solo datos sintéticos. Mantenga secretos y configuración privada fuera de
 Git. Los borradores, avisos y recibos técnicos no acreditan firma, entrega
 legal, incorporación ni confirmación de un sistema externo.
 
-## Estado técnico vigente — 23 de septiembre de 2026
+## Estado técnico del 23 de septiembre de 2026 — histórico
 
-Base contrastada: `e73792989220c69e5aeb61e39d6d7f488b816bc4`. Este apartado
-describe el código integrado; la instalación, los recorridos conservados y la
-publicación se acreditan por separado en [Estado del proyecto](../../ESTADO_PROYECTO.md)
-y la [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md). Los cortes fechados
-inferiores conservan antecedentes y no actualizan por sí solos este estado.
+Base contrastada en aquel corte: `e73792989220c69e5aeb61e39d6d7f488b816bc4`.
+Este apartado conserva la fotografía técnica del 23/09, no el estado vigente.
+La instalación, los recorridos posteriores y la publicación se acreditan en
+[Estado del proyecto](../../ESTADO_PROYECTO.md), incluido el cierre para la
+presentación del 26/09, y en la [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
+Las cifras y pendientes de la tabla siguiente pertenecen solo a esa fecha.
 
 **Ningún módulo es todavía un programa terminado y aceptado en producción.**
 El plan consensuado y aprobado el 23/09 exige requisitos completos en la
@@ -139,13 +140,13 @@ historia, i18n, accesibilidad, recuperación, operación y restauración. Una
 capacidad que espera una decisión de RRHH o un contrato externo debe identificarse
 como «implementada, pendiente de validación externa» solo si su implementación
 está realmente probada; un puerto aislado no equivale a un conector terminado.
-La prioridad siguiente es el corte conjunto de identidad/contexto común y
+La prioridad siguiente en aquel corte era el conjunto de identidad/contexto común y
 primera composición productiva, seguido de contacto VEC, Contratación y Bolsa.
 
-| Superficie | Integrado y comprobable en este árbol | Límite actual |
+| Superficie | Integrado y comprobable en el corte del 23/09 | Límite observado entonces |
 | --- | --- | --- |
-| Contratación temporal | `internal/modules/contrataciontemporal/` contiene dominio, aplicación, puertos y adaptadores; el perfil de desarrollo compone el recorrido con PostgreSQL y Bolsa. [Estado](../../ESTADO_PROYECTO.md) conserva ≈6/8 pasos y 15/19 pantallas funcionales. | Faltan efectos institucionales de firma/formalización, correo y plazos, confirmación externa GINPIX, identidad/roles completos y composición productiva. Los seis documentos demostrados son borradores. |
-| Bolsa | `internal/modules/bolsa/` posee convocatorias, candidaturas, orden y llamamientos; [Estado](../../ESTADO_PROYECTO.md) registra B1–B10, B12 y B13 en desarrollo (12/14 del corte de gestión). | B11 es parcial; B14 depende de decisiones pendientes. B15 y S1–S7 forman parte del alcance de sustitución de CONVOCA y siguen abiertos. La cifra 12/14 no mide toda Bolsa. |
+| Contratación temporal | `internal/modules/contrataciontemporal/` contiene dominio, aplicación, puertos y adaptadores; el perfil de desarrollo compone el recorrido con PostgreSQL y Bolsa. La fotografía de entonces estimaba ≈6/8 pasos y 15/19 pantallas funcionales. | Faltan efectos institucionales de firma/formalización, correo y plazos, confirmación externa GINPIX, identidad/roles completos y composición productiva. Los seis documentos demostrados son borradores. |
+| Bolsa | `internal/modules/bolsa/` posee convocatorias, candidaturas, orden y llamamientos; la fotografía de entonces registraba B1–B10, B12 y B13 en desarrollo (12/14 del corte de gestión). | B11 es parcial; B14 depende de decisiones pendientes. B15 y S1–S7 forman parte del alcance de sustitución de CONVOCA y siguen abiertos. La cifra 12/14 no mide toda Bolsa. |
 | Servidor interno productivo | [cmd/vec-interno](../../cmd/vec-interno/main.go) usa [composicion/interna](../../internal/app/composicion/interna/raiz.go). | `NuevoServidor` devuelve las 14 dependencias productivas pendientes después de validar configuración; no construye listener. [bootstrap](../../internal/app/bootstrap/bootstrap.go) separa el perfil de desarrollo y también rechaza la composición productiva no disponible. |
 
 La arquitectura aplica la regla `domain` → `application` + `ports` →
@@ -338,12 +339,22 @@ libro de runtime quedan fuera de este commit. Esta integración de código no
 acredita un cierre visible ni completa el objetivo 13.
 
 
+### Incorporación y recuperación — antecedente del 10 de septiembre de 2026
+
+Este bloque conserva la evidencia previa a la recuperación posterior. [Estado
+del proyecto](../../ESTADO_PROYECTO.md) acredita después los objetivos 11 y 12
+tras reiniciar aplicación y PostgreSQL, con Auth13 ya instalada; su primer
+apartado recoge el cierre de presentación del 26/09. Los `GET 503` y la falta
+de instalación de Auth13 describen este corte histórico; no son instrucciones
+de operación vigentes.
+
 Base del cierre funcional `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
 `trabajo/ct-app-llamamiento-b4a-20260905`; producto publicado en
-`integracion/ct-producto-ligero-20260821`. El desarrollo activo está en el
-servidor y conserva trabajo pendiente ajeno. No programe en la raíz histórica
-local ni copie implementaciones entre ramas. Antes de integrar, inventaríe
-ramas, worktrees, diferencias y equivalencias de parches.
+`integracion/ct-producto-ligero-20260821`. En aquel momento, el desarrollo activo
+estaba en el servidor y conservaba trabajo pendiente ajeno. La instrucción del
+corte era no programar en la raíz histórica local ni copiar implementaciones
+entre ramas; antes de integrar, había que inventariar ramas, worktrees,
+diferencias y equivalencias de parches.
 
 La capacidad cerrada es resolución manual sintética y acceso posterior a
 los documentos. La API registra con autorización y PostgreSQL, devuelve
@@ -364,19 +375,19 @@ de negocio. El formulario real registró solicitud `7`/expediente `8`, periodo
 alta, relación y ocupación en Personal, y una incorporación, raíz y dos estados
 en CT, con auditorías y outbox en ambos lados.
 
-Separar integración de evidencia visible: tras reiniciar aplicación y
+En aquel corte se separó integración de evidencia visible: tras reiniciar aplicación y
 PostgreSQL, la recuperación quedó bloqueada por `GET 503` en la restauración
 histórica Auth12. Auth13 tiene dos revisiones `GO` y regresión verde en
-`ef6704a6`, pero no está instalada. No hay ciclo completo acreditado ni debe
-repetirse la escritura. `firma_oficial` y `eficacia_administrativa` siguen en
-`false`; la métrica queda en cinco pasos completos y partes de 6/7/8 hasta la
-recuperación. GINPIX es el siguiente corte existente aún sin cierre visible.
+`ef6704a6`, pero todavía no estaba instalada. No había ciclo completo acreditado
+y no debía repetirse la escritura. `firma_oficial` y `eficacia_administrativa`
+seguían en `false`; la métrica de entonces quedaba en cinco pasos completos y
+partes de 6/7/8 hasta la recuperación. GINPIX era el siguiente corte existente
+aún sin cierre visible.
 
-Consulte [operación actual](../manual_sistemas/README.md#entorno-privado-vigente).
-El cierre funcional citado no identifica por sí solo el artefacto servido
-actualmente, ni lo hace el HEAD del árbol compartido con trabajo pendiente.
-Pruebas focales al terminar el hito; documentación no requiere
-repetir pruebas de producto ya acreditadas.
+El cierre funcional citado no identificaba por sí solo el artefacto servido en
+ese momento, ni lo hacía el HEAD del árbol compartido con trabajo pendiente.
+Las pruebas focales correspondían al final de aquel hito; este registro
+documental no repite pruebas de producto ya acreditadas.
 
 ## Contexto y recorridos anteriores
 
