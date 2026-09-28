@@ -19,6 +19,10 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.resolver_oferta_v1(text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_confirmacion_adjudicacion_oferta_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.politica_ofertas_version') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3') IS NULL
+    OR NOT EXISTS(SELECT 1 FROM pg_proc p
+       WHERE p.oid=to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+         AND position('B56: motivo unido' in pg_get_functiondef(p.oid))>0)
  THEN RAISE EXCEPTION 'B57: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
