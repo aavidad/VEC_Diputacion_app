@@ -473,6 +473,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
+	var consultaReciboRespuestaReal http.Handler
 	var eventoPlazoReal http.Handler
 	if alta.postgresql.bolsa != nil {
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
@@ -482,6 +483,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		respuestaRecibidaReal, err = nuevoManejadorRespuestaRecibidaDesarrollo(&alta, reloj)
 		if err != nil {
 			return nil, nil, nil, err
+		}
+		consultaReciboRespuestaReal, err = nuevoManejadorConsultaReciboRespuestaDesarrollo(&alta, reloj)
+		if err != nil || alta.postgresql.registradorAuditoriaFrontera == nil {
+			return nil, nil, nil, ports.ErrConsultaReciboRespuestaFallo
+		}
+		consultaReciboRespuestaReal = auditorConsultaReciboRespuestaDenegada{
+			siguiente: consultaReciboRespuestaReal, registrador: alta.postgresql.registradorAuditoriaFrontera,
 		}
 		eventoPlazoReal, err = nuevoManejadorEventoPlazoDesarrollo(&alta, reloj)
 		if err != nil {
@@ -776,6 +784,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
+	}
+	if consultaReciboRespuestaReal != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaConsultaReciboRespuesta, Manejador: consultaReciboRespuestaReal})
 	}
 	if eventoPlazoReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaEventoPlazoLlamamiento, Manejador: eventoPlazoReal})
