@@ -118,6 +118,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialCronos                                  materialCronosDesdeCTDesarrollo
 	materialDocumentos                              *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasConsulta            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasActualizacion       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                              [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                               func()
 	detenerEntregaContratos                         func()
@@ -406,6 +408,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
+	usuariosPreferenciasActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
+	if err != nil {
+		return vacias, err
+	}
+	if usuariosPreferenciasActivas {
+		etapa = "preflight_sql_usuarios_preferencias"
+		if err = preflightSQLPreferenciasUsuariosDesarrollo(cfg); err != nil {
+			return vacias, err
+		}
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPreferenciasUsuariosDesarrollo()...)
+	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -421,6 +434,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if usuariosPreferenciasActivas {
+		etapa = "material_usuarios_preferencias"
+		dependencias.materialUsuariosPreferenciasConsulta, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, audienciaConsultaPreferenciasUsuarios)
+		if err != nil {
+			return vacias, err
+		}
+		dependencias.materialUsuariosPreferenciasActualizacion, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, audienciaActualizacionPreferenciasUsuarios)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	if seleccion.plantillasCatalogo {
 		etapa = "material_plantillas_catalogo"
 		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(

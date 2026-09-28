@@ -396,6 +396,19 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
+	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+		autoridadContratacion.materialUsuariosPreferenciasConsulta, autoridadContratacion.materialUsuariosPreferenciasActualizacion)
+	if err != nil {
+		return nil, nil, err
+	}
+	if usuariosPreferencias != nil {
+		defer func() {
+			if !completa {
+				usuariosPreferencias.cerrar()
+			}
+		}()
+		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
+	}
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
@@ -403,9 +416,16 @@ func nuevoServidorDesarrollo(
 	if documentos != nil {
 		autoridadExactas = autoridadExactasConDocumentos{delegada: autoridadExactas, documentos: documentos}
 	}
+	if usuariosPreferencias != nil {
+		autoridadExactas = autoridadExactasConUsuariosPreferencias{delegada: autoridadExactas, usuarios: usuariosPreferencias}
+	}
+	registradorFrontera := vecports.RegistradorAuditoriaFronteraRutaExacta(autoridadContratacion.registradorAuditoriaFronteraRutasExactas)
+	if usuariosPreferencias != nil {
+		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, usuarios: usuariosPreferencias.registrador}
+	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
-		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, autoridadDietas, coleccionesBolsasRRHH...,
+		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -416,6 +436,9 @@ func nuevoServidorDesarrollo(
 	}
 	if documentos != nil {
 		vecAPI = documentos.proteger(vecAPI)
+	}
+	if usuariosPreferencias != nil {
+		vecAPI = usuariosPreferencias.proteger(vecAPI)
 	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
@@ -449,6 +472,9 @@ func nuevoServidorDesarrollo(
 	}
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
+	}
+	if usuariosPreferencias != nil {
+		servidor.RegisterOnShutdown(usuariosPreferencias.cerrar)
 	}
 	completa = true
 	calendariosCompletos = true
