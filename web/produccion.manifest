@@ -24,6 +24,8 @@ static/area-personal/mi-bolsa-contacto.js
 static/area-personal/mi-bolsa-historial.js
 static/area-personal/mi-bolsa-ofertas.js
 static/area-personal/mi-bolsa-portal.js
+static/area-personal/preferencias.js
+static/area-personal/preferencias.css
 static/area-personal/vistas/comunes.js
 static/area-personal/vistas/comunicaciones-ayuda.js
 static/area-personal/vistas/inicio-convocatorias.js
