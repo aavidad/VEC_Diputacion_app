@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Runtime exclusivo del runner PG18 local. Solo usa el clúster y material efímero
 # que recibe de scripts/ensayar_cadena_sql_pg18_local.sh.
+# WIP APARCADO: membresías de gobierno y sonda HTTP pendientes de revisión final;
+# no acredita arranque real de CT ni debe usarse como puerta de entrega.
 set -Eeuo pipefail
 IFS=$'\n\t'
 umask 077
@@ -10,6 +12,7 @@ fallar() { printf 'ERROR runtime CT PG18: %s\n' "$*" >&2; exit 1; }
 if (( $# == 1 )) && [[ $1 == --help ]]; then
   cat <<'AYUDA'
 Runtime para --runtime de ensayar_cadena_sql_pg18_local.sh.
+Estado: WIP aparcado, sin GO de arranque binario ni consulta PostgreSQL real.
 Requiere --tls-material auto en el runner y sus variables VEC_ENSAYO_*.
 Crea doce LOGIN nominales sin contraseña solo en vec_ensayo, genera material
 de desarrollo sintético en /dev/shm y ejecuta VEC_ENSAYO_BINARIO en loopback.
@@ -79,6 +82,12 @@ grupos=(
   vec_contexto_actor_v1_runtime
   vec_contratacion_temporal_registrador_frontera
 )
+roles_gobierno=(
+  vec_contexto_actor_v1_propietario
+  vec_autorizacion_propietario
+  vec_autorizacion_motivos_proyector
+  vec_identidad_sesiones_v1_propietario
+)
 (( ${#variables[@]} == ${#grupos[@]} )) || fallar 'mapa técnico incoherente'
 
 sql="$directorio/roles_runtime_ct.sql"
@@ -106,6 +115,11 @@ for i in "${!variables[@]}"; do
     printf 'CREATE ROLE %s LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;\n' "$usuario"
     printf 'GRANT %s TO %s WITH ADMIN FALSE, %s;\n' "$grupo" "$usuario" "$opciones"
     printf 'GRANT CONNECT ON DATABASE vec_ensayo TO %s;\n' "$usuario"
+    if [[ $i == 1 ]]; then
+      for rol in "${roles_gobierno[@]}"; do
+        printf 'GRANT %s TO %s WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;\n' "$rol" "$usuario"
+      done
+    fi
   } >> "$sql"
   entorno+=("${variables[i]}=postgresql://$usuario@127.0.0.1:$PGPORT/vec_ensayo?sslmode=disable")
 done

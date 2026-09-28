@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Puerta local: cadena SQL completa, binario sobre PostgreSQL 18.4 y sonda HTTP.
+# WIP APARCADO: la cadena, el arranque real y la sonda no tienen GO/E2E final.
+# Las correcciones de gobierno/curl indicadas en revisión están pendientes.
 # Uso: scripts/ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE --probe RUTA [--repo CHECKOUT] [--browser EJECUTABLE]
 # ORDEN contiene una ruta relativa deploy/postgresql/... por línea, en orden causal.
 # Debe incluir todos los roles*_up.sql y *.up.sql del alcance rastreados por
@@ -19,6 +21,9 @@ Uso: ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE
      --probe RUTA [--probe-method GET|POST] [--probe-json JSON]
      [--repo CHECKOUT] [--scope ct-llamamientos|ct-bolsa]
      [--tls-material auto|DIRECTORIO] [--browser EJECUTABLE]
+
+Estado: WIP aparcado. No acredita cadena completa, arranque ni consulta real.
+Requiere cerrar las revisiones de gobierno y sonda antes de usarlo como puerta.
 
 ORDEN enumera rutas relativas deploy/postgresql/... en orden causal. Debe
 contener todos los UP y roles de CT y Bolsa Llamamientos rastreados en CHECKOUT
