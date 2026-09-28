@@ -256,8 +256,11 @@ export function crearPresentadorExpedientesContratacionTemporal({
         cuadro: estadoAntesCarga.cuadro,
         paginacion: estadoAntesCarga.paginacion,
         paginacion_requiere_reinicio: Boolean(estadoAntesCarga.cuadro?.paginacion),
-        mensaje_clave: estadoAntesCarga.cuadro === null ? "estado_error_carga" : "estado_error_paginacion",
-        tipo_mensaje: "error",
+        // El alta consulta su propio catálogo. Un fallo del cuadro no debe
+        // anunciarse como fallo del formulario mientras esa vista está abierta.
+        mensaje_clave: estado.vista === "alta" ? ""
+          : estadoAntesCarga.cuadro === null ? "estado_error_carga" : "estado_error_paginacion",
+        tipo_mensaje: estado.vista === "alta" ? "informacion" : "error",
       });
     } finally {
       if (operacion === secuencia) controlador = null;
@@ -389,7 +392,16 @@ export function crearPresentadorExpedientesContratacionTemporal({
     // Navegar no acredita una consulta: conserva errores, denegaciones y
     // ausencia de resultado hasta que cargar obtenga un cuadro válido.
     if (estado.cuadro === null || !["listo", "vacio"].includes(estado.carga)) {
-      reemplazar({ vista, recibo: null });
+      const errorCuadro = estado.carga === "error" && estado.cuadro === null
+        && ["", "estado_error_carga"].includes(estado.mensaje_clave);
+      reemplazar({
+        vista,
+        recibo: null,
+        ...(errorCuadro ? {
+          mensaje_clave: vista === "alta" ? "" : "estado_error_carga",
+          tipo_mensaje: vista === "alta" ? "informacion" : "error",
+        } : {}),
+      });
       return estado;
     }
     reemplazar({
