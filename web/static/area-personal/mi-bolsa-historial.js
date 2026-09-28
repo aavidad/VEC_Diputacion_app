@@ -5,8 +5,8 @@ import { escaparHTML, listaDatos, panel } from "./vistas/comunes.js";
 
 export const RUTA_HISTORIAL_MI_BOLSA = "/api/vec/bolsa/mi-bolsa/historial";
 export const ESQUEMA_HISTORIAL_MI_BOLSA = "vec.bolsa.mi-bolsa.historial.v1";
-const CAMPOS = ["contratos", "llamamientos", "renuncias"];
-const CLASE_CAMPO = { contrato_bolsa: "contratos", llamamiento: "llamamientos", renuncia: "renuncias" };
+const CAMPOS = ["contratos_propios", "llamamientos_propios", "renuncias_propias"];
+const CLASE_CAMPO = { contrato_bolsa: "contratos_propios", llamamiento: "llamamientos_propios", renuncia: "renuncias_propias" };
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u;
 const TIPO = /^[a-z][a-z0-9_]{1,39}$/u;
 const MAXIMO_BYTES = 256 * 1024;

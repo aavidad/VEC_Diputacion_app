@@ -10,7 +10,7 @@ const contrato = () => ({ ...comunes, clase: "contrato_bolsa", tipo: "incorporac
 const llamamiento = () => ({ ...comunes, clase: "llamamiento", canal: "correo", resultado: "enviado" });
 const renuncia = () => ({ ...comunes, clase: "renuncia", respuesta: "renuncia_justificada", modo: "propuesta_rrhh", estado: "propuesta_pendiente_rrhh" });
 const pagina = (items = [], extra = {}) => ({ data: { esquema: "vec.bolsa.mi-bolsa.historial.v1", consultada_en: ahora,
-  campos_visibles: ["contratos", "llamamientos", "renuncias"], historial: { pagina: 1, tamano: 20, hay_mas: false, items }, ...extra } });
+  campos_visibles: ["contratos_propios", "llamamientos_propios", "renuncias_propias"], historial: { pagina: 1, tamano: 20, hay_mas: false, items }, ...extra } });
 
 test("el contrato admite solo los tres tipos y campos expresamente visibles", () => {
   const original = pagina([contrato(), llamamiento(), renuncia()]);
@@ -18,8 +18,9 @@ test("el contrato admite solo los tres tipos y campos expresamente visibles", ()
   assert.equal(datos.historial.items.length, 3);
   assert.notEqual(datos, original.data);
   assert.throws(() => validarHistorialMiBolsa(pagina([{ ...contrato(), candidato_ref: "ajeno" }]), 1), /no autorizados/u);
-  assert.throws(() => validarHistorialMiBolsa(pagina([renuncia()], { campos_visibles: ["contratos"] }), 1), /no autorizada/u);
-  assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { campos_visibles: ["renuncias", "contratos"] }), 1), /Campos visibles/u);
+  assert.throws(() => validarHistorialMiBolsa(pagina([renuncia()], { campos_visibles: ["contratos_propios"] }), 1), /no autorizada/u);
+  assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { campos_visibles: ["renuncias_propias", "contratos_propios"] }), 1), /Campos visibles/u);
+  assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { campos_visibles: ["contratos", "llamamientos", "renuncias"] }), 1), /Campos visibles/u);
   assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { historial: { pagina: 2, tamano: 20, hay_mas: false, items: [contrato()] } }), 1), /Paginación/u);
   assert.throws(() => validarHistorialMiBolsa(pagina([contrato()], { historial: { pagina: 1, tamano: 20, hay_mas: true, items: [contrato()] } }), 1), /Paginación/u);
 });
