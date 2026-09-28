@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"strings"
+
+	importacionconvoca "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 )
 
 type argumentosImportarConvoca struct {
@@ -30,4 +33,15 @@ func leerArgumentosImportarConvoca(args []string, salida io.Writer) (argumentosI
 		return a, fmt.Errorf("uso: vec-server importar-convoca --fichero X.xls --categoria <clave-rpt> [--bolsa-ref referencia] [--admitir-rechazos]")
 	}
 	return a, nil
+}
+
+func escribirReciboImportacionConvoca(salida io.Writer, resultado importacionconvoca.ResultadoImportacion) (importacionconvoca.ReciboImportacion, error) {
+	recibo, err := resultado.Recibo()
+	if err != nil {
+		return importacionconvoca.ReciboImportacion{}, err
+	}
+	if err := json.NewEncoder(salida).Encode(recibo); err != nil {
+		return importacionconvoca.ReciboImportacion{}, err
+	}
+	return recibo, nil
 }

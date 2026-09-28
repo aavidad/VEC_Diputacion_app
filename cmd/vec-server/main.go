@@ -63,8 +63,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("acta=%s huella=%s leidas=%d aceptadas=%d rechazadas=%d", r.Acta.ActaRef, r.Acta.HuellaFicheroSHA256, r.Acta.FilasLeidas, r.Acta.FilasAceptadas, r.Acta.FilasRechazadas)
-		if r.Acta.FilasRechazadas > 0 && !a.admitirRechazos {
+		recibo, err := escribirReciboImportacionConvoca(os.Stdout, r)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if recibo.FilasRechazadas > 0 && !a.admitirRechazos {
 			os.Exit(2)
 		}
 		return
