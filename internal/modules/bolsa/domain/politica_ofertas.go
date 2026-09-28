@@ -39,9 +39,11 @@ var (
 // Validar limita el catálogo a reglas que ejecuta el evaluador de Bolsa.
 // No acepta una etiqueta libre que pudiera prometer un efecto no implementado.
 func (p PoliticaOfertas) Validar() error {
-	if (p.Plazo.Unidad != "dias_habiles" && p.Plazo.Unidad != "dias_naturales") ||
-		p.Plazo.Cantidad < 1 || p.Plazo.Cantidad > 30 ||
-		p.Plazo.Computo != "administrativo" || !municipioINE.MatchString(p.Plazo.MunicipioSede) ||
+	unidad, cantidad, computo := p.Plazo.Unidad, p.Plazo.Cantidad, p.Plazo.Computo
+	plazoValido := ((unidad == "dias_habiles" || unidad == "dias_naturales") &&
+		cantidad >= 1 && cantidad <= 30 && computo == "administrativo") ||
+		(unidad == "horas_naturales" && cantidad >= 1 && cantidad <= 720 && computo == "continuo_utc")
+	if !plazoValido || !municipioINE.MatchString(p.Plazo.MunicipioSede) ||
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida

@@ -155,6 +155,9 @@ func huellaMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puert
 		vence.UTC().Format(formatoInstanteMaterialOferta), p.ReglaRef, p.HuellaCatalogo,
 		p.Unidad, fmt.Sprint(p.Cantidad), p.Computo, p.MunicipioSede, p.UltimoDia,
 		fmt.Sprint(p.PoliticaVersion), strings.Join(p.Calendarios, "\x1e")}
+	if p.Unidad == "horas_naturales" {
+		campos = append(campos, p.AperturaEn, p.VenceEn)
+	}
 	h := sha256.Sum256([]byte(strings.Join(campos, "\x1f")))
 	return hex.EncodeToString(h[:])
 }

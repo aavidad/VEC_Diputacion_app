@@ -26,3 +26,26 @@ func TestPoliticaOfertasSoloAdmiteReglaEjecutable(t *testing.T) {
 		})
 	}
 }
+
+func TestPoliticaOfertasHorasNaturalesConfigurables(t *testing.T) {
+	p := PoliticaOfertas{
+		Plazo:        PlazoPoliticaOfertas{Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087"},
+		Adjudicacion: AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"},
+		NoCubierta:   NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"},
+	}
+	if err := p.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	p.Plazo.Cantidad = 720
+	if err := p.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	p.Plazo.Cantidad = 721
+	if p.Validar() == nil {
+		t.Fatal("duración excesiva aceptada")
+	}
+	p.Plazo.Cantidad, p.Plazo.Computo = 48, "administrativo"
+	if p.Validar() == nil {
+		t.Fatal("horas con calendario administrativo aceptadas")
+	}
+}

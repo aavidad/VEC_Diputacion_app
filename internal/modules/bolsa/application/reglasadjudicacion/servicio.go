@@ -106,10 +106,27 @@ func (s *Servicio) PlazoDisposicionBolsa(ctx context.Context, bolsa string, publ
 	if !v.Configurada || v.Politica == nil {
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrPlazoOfertaNoConfigurado
 	}
+	p := v.Politica.Plazo
+	if p.Unidad == "horas_naturales" {
+		apertura := publicada.UTC().Truncate(time.Microsecond)
+		vence := apertura.Add(time.Duration(p.Cantidad) * time.Hour)
+		madrid, err := time.LoadLocation("Europe/Madrid")
+		if err != nil {
+			return ports.PlazoOferta{}, time.Time{}, ports.ErrOfertaNoDisponible
+		}
+		return ports.PlazoOferta{
+			ReglaRef:       fmt.Sprintf("politica-ofertas:%s:%d", bolsa, v.Version),
+			HuellaCatalogo: v.HuellaSHA256, Unidad: p.Unidad, Cantidad: p.Cantidad,
+			Computo: p.Computo, UltimoDia: vence.Add(-time.Nanosecond).In(madrid).Format(time.DateOnly),
+			Ejemplo: true, Calendarios: []string{"calendario:utc-continuo:v1"},
+			PoliticaVersion: v.Version, MunicipioSede: p.MunicipioSede,
+			AperturaEn: apertura.Format("2006-01-02T15:04:05.000000Z"),
+			VenceEn:    vence.Format("2006-01-02T15:04:05.000000Z"),
+		}, vence, nil
+	}
 	if s.calendarios == nil {
 		return ports.PlazoOferta{}, time.Time{}, ports.ErrOfertaNoDisponible
 	}
-	p := v.Politica.Plazo
 	resultado, err := s.calendarios.CalcularPlazo(ctx, calendariosports.SolicitudCalculoPlazo{
 		NotificadoEn: publicada.UTC(), Unidad: calendariosdomain.UnidadPlazo(p.Unidad),
 		Cantidad: p.Cantidad, MunicipioSede: "municipio:ine:" + p.MunicipioSede,

@@ -60,3 +60,22 @@ func TestHuellaMaterialPlazoOfertaCoincideConContextoV3(t *testing.T) {
 		t.Fatalf("contexto V3 divergente: %s %v", contexto, err)
 	}
 }
+
+func TestHuellaMaterialHorasIncluyeAperturaYVencimiento(t *testing.T) {
+	apertura := time.Date(2026, 3, 28, 12, 17, 13, 123456000, time.UTC)
+	vence := apertura.Add(48 * time.Hour)
+	plazo := ports.PlazoOferta{
+		ReglaRef: "politica-ofertas:bolsa:of:1:2", HuellaCatalogo: strings.Repeat("a", 64),
+		Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087",
+		UltimoDia: "2026-03-30", PoliticaVersion: 2, Calendarios: []string{"calendario:utc-continuo:v1"},
+		AperturaEn: apertura.Format(formatoInstanteMaterialOferta), VenceEn: vence.Format(formatoInstanteMaterialOferta),
+	}
+	h := huellaMaterialPlazoOferta("bolsa:of:1", apertura, vence, plazo)
+	if h != "fa8852b8fc417012ce19880e4525e2d57247ef78ef33f8d0da4568b58e735255" {
+		t.Fatalf("vector Go/SQL B54 divergente: %s", h)
+	}
+	plazo.VenceEn = vence.Add(90 * 24 * time.Hour).Format(formatoInstanteMaterialOferta)
+	if huellaMaterialPlazoOferta("bolsa:of:1", apertura, vence, plazo) == h {
+		t.Fatal("la huella V3 no liga el vencimiento del recibo")
+	}
+}

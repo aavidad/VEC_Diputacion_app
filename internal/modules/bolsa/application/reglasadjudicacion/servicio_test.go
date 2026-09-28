@@ -86,6 +86,33 @@ func TestPlazoOfertaCongelaVersionYCalendario(t *testing.T) {
 	}
 }
 
+func TestPlazoHorasNaturalesCruzaCambiosHorarioMadrid(t *testing.T) {
+	madrid, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, apertura := range []time.Time{
+		time.Date(2026, 3, 28, 12, 17, 13, 123456000, time.UTC),
+		time.Date(2026, 10, 24, 12, 17, 13, 123456000, time.UTC),
+	} {
+		p := politicaPrueba()
+		p.Plazo = domain.PlazoPoliticaOfertas{Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087"}
+		s, err := NuevoServicio(repoPrueba{version: ports.VersionPoliticaOfertas{
+			BolsaRef: "bolsa:prueba", Version: 3, HuellaSHA256: strings.Repeat("a", 64), Ejemplo: true, Configurada: true, Politica: &p,
+		}}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plazo, vence, err := s.PlazoDisposicionBolsa(t.Context(), "bolsa:prueba", apertura)
+		if err != nil || vence.Sub(apertura) != 48*time.Hour || plazo.AperturaEn != apertura.Format("2006-01-02T15:04:05.000000Z") ||
+			plazo.VenceEn != vence.Format("2006-01-02T15:04:05.000000Z") ||
+			plazo.UltimoDia != vence.Add(-time.Nanosecond).In(madrid).Format(time.DateOnly) ||
+			plazo.Unidad != "horas_naturales" || len(plazo.Calendarios) != 1 {
+			t.Fatalf("apertura=%s plazo=%+v vence=%s err=%v", apertura, plazo, vence, err)
+		}
+	}
+}
+
 func TestSinPoliticaNoPublicaOferta(t *testing.T) {
 	s, err := NuevoServicio(repoPrueba{}, &calendarioPrueba{})
 	if err != nil {

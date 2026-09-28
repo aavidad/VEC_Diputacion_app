@@ -40,6 +40,10 @@ type PlazoOferta struct {
 	Calendarios     []string `json:"calendarios,omitempty"`
 	PoliticaVersion int64    `json:"politica_version,omitempty"`
 	MunicipioSede   string   `json:"municipio_sede,omitempty"`
+	// En horas naturales estos dos instantes UTC forman parte del recibo y
+	// del material autorizado. UltimoDia queda solo como ayuda de presentación.
+	AperturaEn string `json:"apertura_en,omitempty"`
+	VenceEn    string `json:"vence_en,omitempty"`
 }
 
 // CalculadoraPlazoOferta resuelve el plazo de disposición desde la
