@@ -36,7 +36,7 @@ func RecursoConsultaReciboRespuesta(s ports.SolicitudConsultaReciboRespuesta) (d
 	h := sha256.Sum256(b)
 	return dominiovec.RecursoAutorizable{
 		Referencia: s.ComunicacionRef, ModuloID: "contratacion_temporal", Tipo: TipoRecursoConsultaReciboRespuesta,
-		Ambitos:   map[string]string{"organizacion_ref": s.OrganizacionRef},
+		Ambitos:   map[string]string{"organizacion_ref": s.OrganizacionRef, "expediente_ref": s.ExpedienteRef},
 		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])},
 	}, nil
 }

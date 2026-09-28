@@ -26,7 +26,7 @@ func (e *ejecutorConsultaReciboPrueba) Consultar(_ context.Context, _ ports.Soli
 
 func TestConsultaReciboRespuestaSoloExponeVistaMinima(t *testing.T) {
 	e := &ejecutorConsultaReciboPrueba{resultado: ports.ReciboRespuestaConsultado{
-		OrganizacionRef: "organizacion:prueba", ComunicacionRef: "comunicacion:prueba",
+		OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:prueba", ComunicacionRef: "comunicacion:prueba",
 		Respuesta: ports.RespuestaLlamamientoAceptada, JustificanteRef: "justificante:prueba",
 		ReciboRef: "recibo:prueba", AuditoriaRef: "auditoria:prueba",
 		RegistradaEn: time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC), Estado: ports.EstadoRespuestaRecibidaRegistrada,
@@ -35,7 +35,7 @@ func TestConsultaReciboRespuestaSoloExponeVistaMinima(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&comunicacion_ref=comunicacion:prueba", nil)
+	r := httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&expediente_ref=expediente:prueba&comunicacion_ref=comunicacion:prueba", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusOK || e.llamadas != 1 {
@@ -46,7 +46,7 @@ func TestConsultaReciboRespuestaSoloExponeVistaMinima(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := got["data"]
-	if len(data) != 9 || data["esquema"] != EsquemaConsultaReciboRespuesta || data["recibo_ref"] != "recibo:prueba" {
+	if len(data) != 10 || data["esquema"] != EsquemaConsultaReciboRespuesta || data["expediente_ref"] != "expediente:prueba" || data["recibo_ref"] != "recibo:prueba" {
 		t.Fatalf("contrato inesperado: %v", data)
 	}
 	for _, prohibido := range []string{"recibo_json", "correo_ref", "correo_sha256", "clave_idempotencia", "actor_ref", "perfil_ref"} {
@@ -68,7 +68,7 @@ func TestConsultaReciboRespuestaNoFiltraAusenciaNiAjeno(t *testing.T) {
 			t.Fatal(err)
 		}
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&comunicacion_ref=comunicacion:prueba", nil))
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&expediente_ref=expediente:prueba&comunicacion_ref=comunicacion:prueba", nil))
 		if w.Code != http.StatusNotFound {
 			t.Fatalf("estado=%d", w.Code)
 		}
@@ -89,9 +89,36 @@ func TestConsultaReciboRespuestaRechazaParametrosExtra(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&comunicacion_ref=comunicacion:prueba&perfil=otro", nil))
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&expediente_ref=expediente:prueba&comunicacion_ref=comunicacion:prueba&perfil=otro", nil))
 	if w.Code != http.StatusBadRequest || e.llamadas != 0 {
 		t.Fatalf("estado=%d llamadas=%d", w.Code, e.llamadas)
+	}
+}
+
+func TestConsultaReciboRespuestaExigeExpedienteYVerificaRecibo(t *testing.T) {
+	e := &ejecutorConsultaReciboPrueba{resultado: ports.ReciboRespuestaConsultado{
+		OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:otro", ComunicacionRef: "comunicacion:prueba",
+		Respuesta: ports.RespuestaLlamamientoAceptada, JustificanteRef: "justificante:prueba",
+		ReciboRef: "recibo:prueba", AuditoriaRef: "auditoria:prueba",
+		RegistradaEn: time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC), Estado: ports.EstadoRespuestaRecibidaRegistrada,
+	}}
+	h, err := NuevoManejadorConsultaReciboRespuesta(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		query    string
+		estado   int
+		llamadas int
+	}{
+		{"?organizacion_ref=organizacion:prueba&comunicacion_ref=comunicacion:prueba", http.StatusBadRequest, 0},
+		{"?organizacion_ref=organizacion:prueba&expediente_ref=expediente:prueba&comunicacion_ref=comunicacion:prueba", http.StatusBadGateway, 1},
+	} {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultaReciboRespuesta+caso.query, nil))
+		if w.Code != caso.estado || e.llamadas != caso.llamadas {
+			t.Fatalf("estado=%d llamadas=%d", w.Code, e.llamadas)
+		}
 	}
 }
 
@@ -110,7 +137,7 @@ func TestConsultaReciboRespuestaTransitorioNoEsDenegacion(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
-			RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&comunicacion_ref=comunicacion:prueba", nil))
+			RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&expediente_ref=expediente:prueba&comunicacion_ref=comunicacion:prueba", nil))
 		if w.Code != caso.estado {
 			t.Fatalf("error=%v: estado=%d", caso.err, w.Code)
 		}

@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- CT139: lectura mínima del recibo CT56 con decisión fresca AD3-104.
--- Ausencia, otra organización y otro actor/perfil comparten el mismo resultado.
+-- Ausencia, otra organización, expediente o comunicación comparten el mismo resultado.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -44,16 +44,19 @@ BEGIN
     RAISE EXCEPTION 'CT139: material inválido' USING ERRCODE='P1390'; END IF;
  BEGIN s:=p_material::jsonb;
  EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'CT139: JSON inválido' USING ERRCODE='P1390'; END;
- IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY['OrganizacionRef','ComunicacionRef']) IS NOT TRUE
-    OR (SELECT count(*) FROM json_each(p_material::json))<>2
+ IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY['OrganizacionRef','ExpedienteRef','ComunicacionRef']) IS NOT TRUE
+    OR (SELECT count(*) FROM json_each(p_material::json))<>3
     OR jsonb_typeof(s->'OrganizacionRef') IS DISTINCT FROM 'string'
+    OR jsonb_typeof(s->'ExpedienteRef') IS DISTINCT FROM 'string'
     OR jsonb_typeof(s->'ComunicacionRef') IS DISTINCT FROM 'string'
     OR s->>'OrganizacionRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    OR s->>'ExpedienteRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
     OR s->>'ComunicacionRef' !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
     RAISE EXCEPTION 'CT139: referencias inválidas' USING ERRCODE='P1390'; END IF;
  v_material_huella:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
  v_hash:=encode(sha256(convert_to(
-    '{"ambitos":{"organizacion_ref":"'||(s->>'OrganizacionRef')||
+    '{"ambitos":{"expediente_ref":"'||(s->>'ExpedienteRef')||
+    '","organizacion_ref":"'||(s->>'OrganizacionRef')||
     '"},"atributos":{"material_sha256":"'||v_material_huella||'"}}','UTF8')),'hex');
  IF p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 1 AND 524288
     OR p_contexto IS NULL OR octet_length(p_contexto) NOT BETWEEN 1 AND 524288 THEN
@@ -73,7 +76,7 @@ BEGIN
     OR v_contexto->>'persona_version' IS DISTINCT FROM p_persona_version::text
     OR v_contexto->>'perfil_version' IS DISTINCT FROM p_perfil_version::text
     OR d->'campos_permitidos' IS DISTINCT FROM
-       '["auditoria_ref","comunicacion_ref","estado","justificante_ref","organizacion_ref","recibo_ref","registrada_en","respuesta"]'::jsonb
+       '["auditoria_ref","comunicacion_ref","estado","expediente_ref","justificante_ref","organizacion_ref","recibo_ref","registrada_en","respuesta"]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN
     RAISE EXCEPTION 'CT139: decisión divergente' USING ERRCODE='P1393'; END IF;
  -- AD3 conserva un evento de consulta incluso si CT no encuentra fila o la
@@ -98,18 +101,39 @@ BEGIN
     OR v_consumo.auditoria_ref IS NULL THEN
     RAISE EXCEPTION 'CT139: consumo divergente' USING ERRCODE='P1393'; END IF;
 
- SELECT r.organizacion_ref,r.comunicacion_ref,r.respuesta,r.justificante_ref,
+ SELECT r.organizacion_ref,r.expediente_ref,r.comunicacion_ref,r.respuesta,r.justificante_ref,
         r.recibo_ref,h.auditoria_ref,r.registrada_en,r.estado
    INTO v_respuesta
    FROM vec_contratacion_temporal.respuesta_recibida_rrhh r
    JOIN vec_contratacion_temporal.historia_respuesta_recibida_rrhh h
      ON h.justificante_ref=r.justificante_ref
+   JOIN vec_contratacion_temporal.comunicacion_llamamiento_local c
+     ON c.comunicacion_ref=r.comunicacion_ref
+   JOIN vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+     ON e.clave_idempotencia=r.seleccion_clave
   WHERE r.organizacion_ref=s->>'OrganizacionRef'
+    AND r.expediente_ref=s->>'ExpedienteRef'
     AND r.comunicacion_ref=s->>'ComunicacionRef'
-    AND r.actor_ref=d->>'principal_id'
-    AND r.perfil_ref=d->>'perfil_activo_ref'
     AND h.actor_ref=r.actor_ref AND h.perfil_ref=r.perfil_ref
+    AND c.organizacion_ref=r.organizacion_ref AND c.expediente_ref=r.expediente_ref
+    AND c.llamamiento_ref=r.llamamiento_ref AND c.seleccion_clave=r.seleccion_clave
+    AND c.estado='registrada_localmente' AND c.version_resultante=2
+    AND c.recibo_json->>'ComunicacionRef'=c.comunicacion_ref
+    AND c.recibo_json->'Solicitud'->>'OrganizacionRef'=r.organizacion_ref
+    AND c.recibo_json->'Solicitud'->>'ExpedienteRef'=r.expediente_ref
+    AND c.recibo_json->'Solicitud'->>'LlamamientoRef'=r.llamamiento_ref
+    AND e.situacion='confirmada'
+    AND e.solicitud_json->>'organizacion_ref'=r.organizacion_ref
+    AND e.solicitud_json->>'expediente_ref'=r.expediente_ref
+    AND e.recibo_json->>'organizacion_ref'=r.organizacion_ref
+    AND e.recibo_json->>'expediente_ref'=r.expediente_ref
+    AND e.recibo_json->>'llamamiento_ref'=r.llamamiento_ref
+    AND e.recibo_json->>'recibo_ref'=c.recibo_json->'Solicitud'->>'PruebaEntregaRef'
     AND r.estado='registrada_por_rrhh'
+    AND r.material_json->>'OrganizacionRef'=r.organizacion_ref
+    AND r.material_json->>'ExpedienteRef'=r.expediente_ref
+    AND r.material_json->>'LlamamientoRef'=r.llamamiento_ref
+    AND r.material_json->>'ComunicacionRef'=r.comunicacion_ref
     AND r.recibo_json->>'JustificanteRef'=r.justificante_ref
     AND r.recibo_json->>'ReciboRef'=r.recibo_ref
     AND r.recibo_json->>'AuditoriaRef'=h.auditoria_ref
@@ -120,6 +144,7 @@ BEGIN
  IF NOT FOUND THEN RETURN jsonb_build_object('Encontrado',false,'Recibo',jsonb_build_object()); END IF;
  RETURN jsonb_build_object('Encontrado',true,'Recibo',jsonb_build_object(
     'OrganizacionRef',v_respuesta.organizacion_ref,
+    'ExpedienteRef',v_respuesta.expediente_ref,
     'ComunicacionRef',v_respuesta.comunicacion_ref,
     'Respuesta',v_respuesta.respuesta,
     'JustificanteRef',v_respuesta.justificante_ref,

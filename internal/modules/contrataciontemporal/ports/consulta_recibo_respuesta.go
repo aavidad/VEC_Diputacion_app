@@ -18,11 +18,12 @@ var (
 
 type SolicitudConsultaReciboRespuesta struct {
 	OrganizacionRef string
+	ExpedienteRef   string
 	ComunicacionRef string
 }
 
 func (s SolicitudConsultaReciboRespuesta) Validar() error {
-	if !domain.ReferenciaOpacaValida(s.OrganizacionRef) || !domain.ReferenciaOpacaValida(s.ComunicacionRef) {
+	if !domain.ReferenciaOpacaValida(s.OrganizacionRef) || !domain.ReferenciaOpacaValida(s.ExpedienteRef) || !domain.ReferenciaOpacaValida(s.ComunicacionRef) {
 		return ErrConsultaReciboRespuestaInvalida
 	}
 	return nil
@@ -31,6 +32,7 @@ func (s SolicitudConsultaReciboRespuesta) Validar() error {
 // Vista mínima del registro original. La lectura no confirma el correo ni resuelve el llamamiento.
 type ReciboRespuestaConsultado struct {
 	OrganizacionRef string
+	ExpedienteRef   string
 	ComunicacionRef string
 	Respuesta       RespuestaLlamamiento
 	JustificanteRef string
@@ -41,7 +43,7 @@ type ReciboRespuestaConsultado struct {
 }
 
 func (r ReciboRespuestaConsultado) ValidarPara(s SolicitudConsultaReciboRespuesta) error {
-	if s.Validar() != nil || r.OrganizacionRef != s.OrganizacionRef || r.ComunicacionRef != s.ComunicacionRef ||
+	if s.Validar() != nil || r.OrganizacionRef != s.OrganizacionRef || r.ExpedienteRef != s.ExpedienteRef || r.ComunicacionRef != s.ComunicacionRef ||
 		(r.Respuesta != RespuestaLlamamientoAceptada && r.Respuesta != RespuestaLlamamientoRenunciada) ||
 		!domain.ReferenciaOpacaValida(r.JustificanteRef) || !domain.ReferenciaOpacaValida(r.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) || !domain.InstanteUTCCanonico(r.RegistradaEn) ||

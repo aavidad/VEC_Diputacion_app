@@ -20,6 +20,7 @@ type EjecutorConsultaReciboRespuesta interface {
 type reciboRespuestaConsultadoJSON struct {
 	Esquema         string `json:"esquema"`
 	OrganizacionRef string `json:"organizacion_ref"`
+	ExpedienteRef   string `json:"expediente_ref"`
 	ComunicacionRef string `json:"comunicacion_ref"`
 	Respuesta       string `json:"respuesta"`
 	JustificanteRef string `json:"justificante_ref"`
@@ -55,11 +56,11 @@ func NuevoManejadorConsultaReciboRespuesta(e EjecutorConsultaReciboRespuesta) (h
 			return
 		}
 		q, err := url.ParseQuery(r.URL.RawQuery)
-		if err != nil || len(q) != 2 || len(q["organizacion_ref"]) != 1 || len(q["comunicacion_ref"]) != 1 {
+		if err != nil || len(q) != 3 || len(q["organizacion_ref"]) != 1 || len(q["expediente_ref"]) != 1 || len(q["comunicacion_ref"]) != 1 {
 			fallo(http.StatusBadRequest, "peticion_no_permitida", nil)
 			return
 		}
-		s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: q.Get("organizacion_ref"), ComunicacionRef: q.Get("comunicacion_ref")}
+		s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: q.Get("organizacion_ref"), ExpedienteRef: q.Get("expediente_ref"), ComunicacionRef: q.Get("comunicacion_ref")}
 		if s.Validar() != nil {
 			fallo(http.StatusBadRequest, "peticion_no_permitida", nil)
 			return
@@ -92,7 +93,7 @@ func NuevoManejadorConsultaReciboRespuesta(e EjecutorConsultaReciboRespuesta) (h
 			return
 		}
 		salida := reciboRespuestaConsultadoJSON{
-			Esquema: EsquemaConsultaReciboRespuesta, OrganizacionRef: resultado.OrganizacionRef,
+			Esquema: EsquemaConsultaReciboRespuesta, OrganizacionRef: resultado.OrganizacionRef, ExpedienteRef: resultado.ExpedienteRef,
 			ComunicacionRef: resultado.ComunicacionRef, Respuesta: string(resultado.Respuesta),
 			JustificanteRef: resultado.JustificanteRef, ReciboRef: resultado.ReciboRef,
 			AuditoriaRef: resultado.AuditoriaRef, RegistradaEn: resultado.RegistradaEn.Format(time.RFC3339Nano),

@@ -27,7 +27,7 @@ DECLARE
                AND d ->> 'recurso_ref' IS NOT DISTINCT FROM c ->> 'efecto_ref'
                AND d ->> 'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c ->> 'huella_efecto_sha256'
                AND d -> 'campos_permitidos' IS NOT DISTINCT FROM
-                   '["auditoria_ref","comunicacion_ref","estado","justificante_ref","organizacion_ref","recibo_ref","registrada_en","respuesta"]'::jsonb
+                   '["auditoria_ref","comunicacion_ref","estado","expediente_ref","justificante_ref","organizacion_ref","recibo_ref","registrada_en","respuesta"]'::jsonb
                AND d -> 'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb
            )
 $perfil$;

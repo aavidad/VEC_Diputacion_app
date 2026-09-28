@@ -20,7 +20,7 @@ func (l *lectorReciboRespuestaPrueba) ConsultarReciboRespuesta(_ context.Context
 
 func TestConsultaReciboRespuestaVerificaResultadoAntesDeEntregarlo(t *testing.T) {
 	l := &lectorReciboRespuestaPrueba{resultado: ports.ReciboRespuestaConsultado{
-		OrganizacionRef: "organizacion:otra", ComunicacionRef: "comunicacion:prueba",
+		OrganizacionRef: "organizacion:otra", ExpedienteRef: "expediente:prueba", ComunicacionRef: "comunicacion:prueba",
 		Respuesta: ports.RespuestaLlamamientoRenunciada, JustificanteRef: "justificante:prueba",
 		ReciboRef: "recibo:prueba", AuditoriaRef: "auditoria:prueba",
 		RegistradaEn: time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC), Estado: ports.EstadoRespuestaRecibidaRegistrada,
@@ -29,7 +29,7 @@ func TestConsultaReciboRespuestaVerificaResultadoAntesDeEntregarlo(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := s.Consultar(context.Background(), ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: "organizacion:prueba", ComunicacionRef: "comunicacion:prueba"})
+	r, err := s.Consultar(context.Background(), ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: "organizacion:prueba", ExpedienteRef: "expediente:prueba", ComunicacionRef: "comunicacion:prueba"})
 	if err != ports.ErrReciboRespuestaNoConfiable || r != (ports.ReciboRespuestaConsultado{}) || l.llamadas != 1 {
 		t.Fatalf("resultado=%+v error=%v llamadas=%d", r, err, l.llamadas)
 	}

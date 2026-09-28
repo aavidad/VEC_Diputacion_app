@@ -1,23 +1,32 @@
 \set ON_ERROR_STOP on
 -- Solo lectura del catálogo. Ejecutar después de AD3-104 y CT139 en PG18.
 DO $verificar$
-DECLARE f oid; g oid; def text; v_owner oid; v_sec boolean; v_config text[];
+DECLARE f oid; g oid; nucleo oid; def text; v_owner oid; v_sec boolean; v_config text[];
 BEGIN
  f:=to_regprocedure('vec_contratacion_temporal.consultar_recibo_respuesta_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  g:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_recibo_respuesta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
- IF f IS NULL OR g IS NULL THEN RAISE EXCEPTION 'CT139/AD3-104: función ausente'; END IF;
+ nucleo:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
+ IF f IS NULL OR g IS NULL OR nucleo IS NULL THEN RAISE EXCEPTION 'CT139/AD3-104: función ausente'; END IF;
  SELECT pg_get_functiondef(f),p.proowner,p.prosecdef,p.proconfig INTO STRICT def,v_owner,v_sec,v_config
    FROM pg_proc p WHERE p.oid=f;
  IF v_owner IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
     OR v_sec IS NOT TRUE
     OR v_config IS DISTINCT FROM ARRAY['search_path=pg_catalog','row_security=on','TimeZone=UTC','lock_timeout=2s']
-    OR strpos(def,'r.actor_ref=d->>''principal_id''')=0
-    OR strpos(def,'r.perfil_ref=d->>''perfil_activo_ref''')=0
+    OR strpos(def,'r.actor_ref=d->>''principal_id''')<>0
+    OR strpos(def,'r.perfil_ref=d->>''perfil_activo_ref''')<>0
+    OR strpos(def,'h.actor_ref=r.actor_ref')=0
+    OR strpos(def,'h.perfil_ref=r.perfil_ref')=0
+    OR strpos(def,'c.expediente_ref=r.expediente_ref')=0
+    OR strpos(def,'e.recibo_json->>''expediente_ref''=r.expediente_ref')=0
+    OR strpos(def,'expediente_ref')=0
     OR strpos(def,'registrar_y_consumir_recibo_respuesta_ct_v3_atestada')=0
     OR strpos(def,'WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN')=0
     OR strpos(def,'ERRCODE=''P1394''')=0
     OR strpos(def,'vec_bolsa')<>0 OR strpos(def,'vec_persona')<>0 THEN
     RAISE EXCEPTION 'CT139: contrato de autoridad incompatible'; END IF;
+ SELECT pg_get_functiondef(nucleo) INTO STRICT def;
+ IF strpos(def,'["auditoria_ref","comunicacion_ref","estado","expediente_ref","justificante_ref","organizacion_ref","recibo_ref","registrada_en","respuesta"]')=0 THEN
+    RAISE EXCEPTION 'AD3-104: campos de lectura compartida no publicados'; END IF;
  IF NOT has_function_privilege('vec_contratacion_temporal_ejecutor',f,'EXECUTE')
     OR has_function_privilege('vec_contratacion_temporal_ejecutor',g,'EXECUTE')
     OR has_table_privilege('vec_contratacion_temporal_ejecutor',
