@@ -3,6 +3,7 @@ package postgres
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -111,16 +112,13 @@ func materialPrueba(t *testing.T, accion string) (ports.OrdenPreferencias, ports
 
 func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
 	base := domain.CatalogoBasePreferencias()
-	opciones := func(lista []domain.OpcionPreferencia) []opcionSQL {
-		salida := make([]opcionSQL, 0, len(lista))
-		for _, o := range lista {
-			salida = append(salida, opcionSQL{o.Codigo, o.NombreKey})
-		}
-		return salida
-	}
-	datos, err := json.Marshal(catalogoSQL{base.VersionRef, opciones(base.Idiomas), opciones(base.TamanosTexto), opciones(base.Temas), opciones(base.Inicios), base.Filas, base.Predeterminados})
+	// El catálogo publicado en SQL usa el JSON canónico del núcleo.
+	datos, err := json.Marshal(base)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !bytes.Contains(datos, []byte(`"tamanos_texto"`)) {
+		t.Fatal("nombre de catálogo ajeno al contrato Go")
 	}
 	tx := &txPrueba{valido: true, respuesta: datos}
 	c, err := repositorioPrueba(tx).CatalogoVigente(context.Background())
@@ -133,6 +131,10 @@ func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
 	tx = &txPrueba{valido: false, respuesta: datos}
 	if _, err := repositorioPrueba(tx).CatalogoVigente(context.Background()); !errors.Is(err, ports.ErrNoDisponible) || len(tx.consultas) != 1 || tx.commits != 0 {
 		t.Fatal("login no exclusivo paso la sonda")
+	}
+	conClaveAjena := bytes.Replace(datos, []byte(`"tamanos_texto"`), []byte(`"tamano_textos"`), 1)
+	if _, err := decodificarCatalogo(conClaveAjena); !errors.Is(err, ports.ErrNoDisponible) {
+		t.Fatal("catálogo con clave vieja aceptado")
 	}
 }
 
@@ -155,6 +157,29 @@ func TestConsultaEnviaMaterialLiteralYDiezPiezas(t *testing.T) {
 	literal, _ := json.Marshal(m)
 	if call.args[0] != string(literal) || !bytes.Equal(call.args[1].([]byte), v3.CapacidadCanonica()) || call.args[5] != int64(1) || call.args[6] != int64(1) {
 		t.Fatal("material V3 mezclado o transformado")
+	}
+}
+
+func TestMaterialLiteralCoincideConVectorSQLV3(t *testing.T) {
+	m := ports.MaterialPreferencias{
+		PersonaRef: "per_0123456789abcdefghijkl", PerfilRef: "prf_0123456789abcdefghijkl",
+		Accion: ports.AccionActualizarPreferencias, FinalidadRef: ports.FinalidadPreferenciasPropias,
+		CatalogoVersionRef: "usuarios-preferencias-v1", VersionEsperada: 0,
+		ClaveOperacion: "operacion-1234567890",
+		HuellaPeticion: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		Valores:        domain.CatalogoBasePreferencias().Predeterminados,
+	}
+	args, err := argumentosV3(m, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{})
+	if err != nil || len(args) != 11 {
+		t.Fatal("material SQL no construido")
+	}
+	literal, ok := args[0].(string)
+	if !ok {
+		t.Fatal("material no transmitido como texto")
+	}
+	huella := sha256.Sum256([]byte(literal))
+	if got := hex.EncodeToString(huella[:]); got != "aa8e47b6de7519c4c2ca35179a88959263d553235f46e1b5a96dbd5b5cb67780" {
+		t.Fatalf("vector SQL/V3 divergente: %s", got)
 	}
 }
 
