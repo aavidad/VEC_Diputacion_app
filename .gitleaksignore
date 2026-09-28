@@ -28,5 +28,11 @@ f9460b55b050169eeb8449e71e5d186d01ef6b28:internal/app/bootstrap/bootstrap_test.g
 d0601a460a4737dd0234b8e71b042ff9810f7bf2:scripts/revision_web/modelo.py:vep-clave-castellana-asignada:245
 d0601a460a4737dd0234b8e71b042ff9810f7bf2:scripts/revision_web/modelo.py:vep-clave-castellana-asignada:378
 
+# B53: clave de idempotencia sintetica de una prueba SQL de disponibilidad; no es una credencial.
+51ce844ae6b9cdc6508520e2949506c8ab42063d:deploy/postgresql/bolsa_llamamientos/pruebas_sql/b53_mi_bolsa_disponibilidad.sql:vep-clave-castellana-asignada:45
+
+# Reincorporacion RRHH: UUID fijo del recorrido de prueba web; no es una credencial.
+e3e347c38fd2a138eb8aaaab25f5c6d2c56bb20b:web/static/portal-empleado/modulos/contratacion-temporal/rrhh-reincorporacion.test.mjs:vep-clave-castellana-asignada:9
+
 # Clave de catálogo i18n de Dietas, no credencial; historia F1 conservada.
 7b1b1344c7cbb47e89ace9f254971ceb2f963b14:web/static/portal-empleado/modulos/dietas/i18n-extensiones.test.mjs:vep-clave-castellana-asignada:20
