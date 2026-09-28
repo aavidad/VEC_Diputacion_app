@@ -701,6 +701,32 @@ button.ct-exp-chip:focus-visible {
   list-style: none;
 }
 
+.ct-exp-siguiente-paso {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-exp-siguiente-paso .cabecera-panel {
+  padding: 12px 16px;
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-exp-siguiente-paso h3,
+.ct-exp-siguiente-paso p { margin: 0; }
+
+.ct-exp-siguiente-paso-cuerpo {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+
+.ct-exp-siguiente-paso strong { margin-right: 4px; }
+
 .ct-exp-progreso li {
   position: relative;
   display: grid;
@@ -1062,6 +1088,62 @@ button.ct-exp-chip:focus-visible {
   background: var(--portal-superficie-alterna);
   color: var(--portal-muted);
 }
+
+.ct-exp-documentos-lista {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  list-style: none;
+}
+
+.ct-exp-documento {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--modulo-acento, var(--portal-azul-700));
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+  overflow-wrap: anywhere;
+}
+
+.ct-exp-documento-principal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ct-exp-documento h4,
+.ct-exp-documento p { margin: 0; }
+
+.ct-exp-documento dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 12px 0;
+}
+
+.ct-exp-documento dt { color: var(--portal-muted); }
+.ct-exp-documento dd { margin: 0; }
+.ct-exp-documento-descarga { color: var(--portal-muted); }
+
+.ct-expedientes .ct-exp-firma-pendiente {
+  border: 1px solid var(--portal-borde);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-exp-firma-pendiente .boton-primario { margin-top: 12px; }
+
+.ct-exp-autofirma-prueba { margin-top: 12px; }
+.ct-exp-autofirma-prueba summary { cursor: pointer; }
+.ct-exp-autofirma-prueba summary:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 3px;
+}
+.ct-exp-autofirma-prueba p { margin-top: 8px; }
 
 .ct-exp-tabla-auditoria {
   min-width: 1320px !important;

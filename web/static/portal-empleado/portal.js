@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260928-auditor
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260928-auditoria-expediente-en-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260928-auditoria-expediente-en-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-ppt-v2";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260928-usab-auditoria-v3";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-usab-auditoria-firma-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260928-auditoria-expediente-en-v2";

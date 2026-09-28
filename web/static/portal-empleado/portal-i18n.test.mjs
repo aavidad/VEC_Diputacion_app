@@ -49,6 +49,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1"];
   const vigente = "20260928-auditoria-expediente-en-v2";
+  const versionesEspeciales = new Map([
+    ["portal.js", "20260929-usab-auditoria-firma-v1"],
+    ["portal-modulos-coordinador.js", "20260929-usab-auditoria-firma-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20260928-usab-exp-firma-v1"],
+    ["modulos/auditoria/vista.js", "20260928-usab-auditoria-v3"],
+    ["modulos/auditoria/i18n.js", "20260928-usab-auditoria-v3"],
+  ]);
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -83,7 +90,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   assert.ok(ancestros.has("modulos/contratacion-temporal/vista-expedientes.js"));
   for (const { archivo, destino, version } of aristas) {
     if (!ancestros.has(destino)) continue;
-    assert.equal(version, vigente, `${archivo} → ${destino}: URL immutable renovada`);
+    assert.equal(version, versionesEspeciales.get(destino) ?? vigente,
+      `${archivo} → ${destino}: URL immutable renovada`);
     const urls = versiones.get(destino) ?? new Set();
     urls.add(version);
     versiones.set(destino, urls);
