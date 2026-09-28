@@ -1,10 +1,46 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   crearTraductorPortal,
   MENSAJES_PORTAL_ES,
+  MENSAJES_PORTAL_EN,
+  MENSAJES_BOLSA_INTERNA_ES,
+  MENSAJES_BOLSA_INTERNA_EN,
 } from "./portal-i18n.js";
+
+test("los catálogos británicos tienen las mismas claves y marcadores que los castellanos", () => {
+  const marcadores = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort();
+  for (const [es, en] of [
+    [MENSAJES_PORTAL_ES, MENSAJES_PORTAL_EN],
+    [MENSAJES_BOLSA_INTERNA_ES, MENSAJES_BOLSA_INTERNA_EN],
+  ]) {
+    assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
+    for (const clave of Object.keys(es)) {
+      assert.ok(en[clave].trim(), `traducción inglesa vacía: ${clave}`);
+      assert.deepEqual(marcadores(en[clave]), marcadores(es[clave]), clave);
+    }
+  }
+  assert.equal(crearTraductorPortal(MENSAJES_PORTAL_EN)("selector_idioma_etiqueta"), "Interface language");
+  assert.equal(crearTraductorPortal(MENSAJES_PORTAL_EN)("paginacion_marco_recuento", { inicio: 1, fin: 10, total: 20 }), "Showing 1–10 of 20");
+});
+
+test("la selección inglesa toma el catálogo y los formatos en-GB de la autoridad común", () => {
+  const script = `globalThis.navigator = { languages: ["en-GB"] };
+    const modulo = await import(${JSON.stringify(new URL("portal-i18n.js", import.meta.url).href)});
+    console.log(JSON.stringify({ idioma: modulo.IDIOMA_PORTAL,
+      localizacion: modulo.LOCALIZACION_PORTAL,
+      titulo: modulo.traducirPortal("selector_idioma_etiqueta"),
+      estado: modulo.traducirBolsaInterna("fecha_sin_valor"),
+      cifra: modulo.formatearNumeroPortal(12345),
+      fecha: modulo.formatearFechaPortal("2026-08-01T09:00") }));`;
+  const resultado = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8" }));
+  assert.deepEqual(resultado, {
+    idioma: "en", localizacion: "en-GB", titulo: "Interface language", estado: "No date",
+    cifra: "12,345", fecha: "01/08/2026, 09:00",
+  });
+});
 
 test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reintento", () => {
   const traducir = crearTraductorPortal();
