@@ -8,9 +8,9 @@ import {
   extraerBorradorPeticionCentro,
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
-} from "../modulos/contratacion-temporal/vista.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
+} from "../modulos/contratacion-temporal/vista.js?v=20260928-rrhh-corte3-cache-v1";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-rrhh-corte3-cache-v1";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",

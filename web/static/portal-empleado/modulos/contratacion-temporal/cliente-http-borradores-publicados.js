@@ -5,6 +5,7 @@ const ESQUEMA = "vec.contratacion-temporal.borradores-disponibles.v1";
 const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
+const RECIBO_PUBLICACION = /^recibo:[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/u;
 const MIME = Object.freeze({ pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
 const MAXIMO_CATALOGO = 64 * 1024;
@@ -21,11 +22,13 @@ function contextoValido(contexto) {
 
 export function validarBorradoresDisponibles(respuesta) {
   if (!respuesta || typeof respuesta !== "object" || Array.isArray(respuesta)
-    || Object.keys(respuesta).length !== 4
-    || !["esquema", "catalogo_ref", "catalogo_huella_sha256", "tipos"].every((clave) => Object.hasOwn(respuesta, clave))
+    || Object.keys(respuesta).length !== 5
+    || !["esquema", "catalogo_ref", "catalogo_huella_sha256", "procedencia_ref", "tipos"].every((clave) => Object.hasOwn(respuesta, clave))
     || respuesta.esquema !== ESQUEMA || typeof respuesta.catalogo_ref !== "string"
     || !REF.test(respuesta.catalogo_ref) || typeof respuesta.catalogo_huella_sha256 !== "string"
-    || !HUELLA.test(respuesta.catalogo_huella_sha256) || !Array.isArray(respuesta.tipos)
+    || !HUELLA.test(respuesta.catalogo_huella_sha256)
+    || typeof respuesta.procedencia_ref !== "string" || !RECIBO_PUBLICACION.test(respuesta.procedencia_ref)
+    || !Array.isArray(respuesta.tipos)
     || respuesta.tipos.length > 64) throw fallo("catalogo_incompatible");
   const claves = new Set();
   const tipos = respuesta.tipos.map((tipo) => {
@@ -41,7 +44,8 @@ export function validarBorradoresDisponibles(respuesta) {
     return Object.freeze({ clave: tipo.clave, etiqueta: tipo.etiqueta, formatos: Object.freeze([...tipo.formatos]) });
   });
   return Object.freeze({ catalogo_ref: respuesta.catalogo_ref,
-    catalogo_huella_sha256: respuesta.catalogo_huella_sha256, tipos: Object.freeze(tipos) });
+    catalogo_huella_sha256: respuesta.catalogo_huella_sha256,
+    procedencia_ref: respuesta.procedencia_ref, tipos: Object.freeze(tipos) });
 }
 
 async function leerAcotado(respuesta, maximo) {
@@ -117,6 +121,7 @@ export function crearClienteBorradoresPublicados({ fetchImpl = globalThis.fetch,
         || respuesta.headers.get("content-disposition") !== `attachment; filename="${nombre}"`
         || respuesta.headers.get("x-vec-catalogo-ref") !== valido.catalogo_ref
         || respuesta.headers.get("x-vec-catalogo-huella-sha256") !== valido.catalogo_huella_sha256
+        || respuesta.headers.get("x-vec-plantilla-procedencia-ref") !== valido.procedencia_ref
         || !HUELLA.test(respuesta.headers.get("x-vec-documento-sha256") || "")
         || bytes.length === 0 || (formato === "pdf" && new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-")
         || (formato === "docx" && !(bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04))) {
@@ -127,6 +132,7 @@ export function crearClienteBorradoresPublicados({ fetchImpl = globalThis.fetch,
       if (huella !== respuesta.headers.get("x-vec-documento-sha256")) throw fallo("huella_no_coincide");
       return Object.freeze({ nombre, mime: MIME[formato], huella_sha256: huella,
         catalogo_ref: valido.catalogo_ref, catalogo_huella_sha256: valido.catalogo_huella_sha256,
+        procedencia_ref: valido.procedencia_ref,
         bytes });
     },
   });

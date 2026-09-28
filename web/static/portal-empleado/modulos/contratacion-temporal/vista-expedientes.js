@@ -1,35 +1,34 @@
 /** Vista y enlace DOM de la superficie de expedientes de contratación temporal. */
 
 import { validarReciboAlta } from "./contrato.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
-import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20260926-pulido-portal-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioLlamamiento } from "./formulario-llamamiento.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20260928-rrhh-corte3-cache-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
 import { cerrarFase, mostrarFase } from "./fases-expediente.js";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
 import {
   contextoLlamamientoDesdeEstado,
   renderizarModuloContratacionTemporal,
-} from "./vista-expedientes-render.js";
-import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
+} from "./vista-expedientes-render.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20260928-rrhh-corte3-cache-v1";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
-import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
-import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
+import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260928-rrhh-corte3-cache-v1";
+import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js?v=20260928-rrhh-corte3-cache-v1";
+import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260928-rrhh-corte3-cache-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
-import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-cache-unificada-v1";
-import { traducirPortal } from "../../portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-corte3-cache-v1";
+import { traducirPortal } from "../../portal-i18n.js?v=20260928-rrhh-corte3-i18n-v1";
 
-export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
-export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
+export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js?v=20260928-rrhh-corte3-cache-v1";
+export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js?v=20260928-rrhh-corte3-cache-v1";
 export { numeroExpedienteVisible } from "./componentes-expedientes.js";
 
 // Exportaciones auxiliares conservadas para compatibilidad con tests e importadores
@@ -84,6 +83,25 @@ function enfocarCabeceraExpediente(raiz) {
   cabecera.setAttribute?.("tabindex", "-1");
   cabecera.focus?.();
   cabecera.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
+// La disponibilidad de cada tipo pertenece al servidor y al catálogo publicado.
+// La vista solo aporta la referencia y versión del detalle RRHH ya autorizado.
+export function contextoPlantillasPublicadasDesdeEstado(estado) {
+  const expediente = estado?.expediente;
+  if (!["expediente", "documentos"].includes(estado?.vista) || estado?.carga !== "listo"
+    || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
+    || expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
+    || typeof expediente.expediente_ref !== "string" || !expediente.expediente_ref
+    || estado.expediente_ref !== expediente.expediente_ref
+    || !Number.isSafeInteger(expediente.version) || expediente.version < 1
+    || (estado.vista === "documentos" && (estado.documentos?.demostracion !== false
+      || estado.documentos.expediente_ref !== expediente.expediente_ref
+      || estado.documentos.version !== expediente.version))) return null;
+  if (!Array.isArray(estado.cuadro.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => referencia === expediente.expediente_ref);
+  if (resumen?.version !== expediente.version) return null;
+  return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
 export async function montarModuloContratacionTemporal({
@@ -194,7 +212,7 @@ export async function montarModuloContratacionTemporal({
   }
 
   function montarBorradoresPublicadosSiProcede(estado) {
-    const contexto = solicitudInformeDefinitivoDesdeEstado(estado);
+    const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
     if (!contexto || !zona) return;
     const contenedor = raiz.ownerDocument.createElement("div");

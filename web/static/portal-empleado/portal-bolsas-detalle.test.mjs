@@ -419,6 +419,7 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
 
   let modalContactos = null;
   let modalResultado = null;
+  let modalFicha = null;
 
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (c) => `chip-${c}`,
@@ -431,6 +432,7 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
     obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: datosCandidatosValidados, error: "" }),
     obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
     obtenerModalContactos: () => modalContactos,
+    obtenerModalFicha: () => modalFicha,
     obtenerModalResultado: () => modalResultado,
   });
 
@@ -447,6 +449,18 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   assert.match(html, /disabled aria-disabled="true">Registrar resultado/);
   assert.doesNotMatch(html, /Pendiente de RRHH/);
   assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
+
+  modalFicha = {
+    abierto: true,
+    candidato: datosCandidatosValidados.candidatos[0],
+    bolsa: datosCandidatosValidados.bolsa,
+    reincorporacionesTitular: { carga: "pendiente", error: "La consulta de reincorporaciones aún no está disponible en este entorno.", items: [] },
+  };
+  const htmlFicha = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(htmlFicha, /data-reincorporacion-raiz="true"/);
+  assert.match(htmlFicha, /Reincorporación de la persona titular/);
+  assert.match(htmlFicha, /La consulta de reincorporaciones aún no está disponible/);
+  modalFicha = null;
 
   // Modal de contactos abierto con datos
   modalContactos = {

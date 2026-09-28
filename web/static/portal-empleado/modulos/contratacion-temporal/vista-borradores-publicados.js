@@ -1,6 +1,6 @@
 /** Panel de tipos publicados: el catálogo y cada documento se autorizan en servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
+import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20260928-rrhh-ct133-v2";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -20,7 +20,7 @@ export function renderizarBorradoresPublicados({ estado = "cargando", catalogo =
     <div class="cuerpo-panel">${estadoTexto ? `<p role="${estado === "cargando" ? "status" : "alert"}">${estadoTexto}</p>` : ""}
       ${estado === "lista" && catalogo?.tipos?.length === 0 ? `<p role="status">${t("vacio")}</p>` : ""}
       ${estado === "lista" && filas ? `<div class="ct-bp-tabla" role="region" tabindex="0" aria-label="${t("tipo")}"><table class="tabla-datos"><thead><tr><th scope="col">${t("tipo")}</th><th scope="col">${t("formatos")}</th></tr></thead><tbody>${filas}</tbody></table></div>` : ""}
-      ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo"><span>${t("catalogo")}</span> <code>${esc(catalogo.catalogo_ref)}</code></p>` : ""}
+      ${catalogo && estado === "lista" ? `<p class="ct-bp-catalogo"><span>${t("publicacion")}</span> <code>${esc(catalogo.procedencia_ref)}</code></p>` : ""}
       ${ocupado ? `<p role="status">${t("descargando")}</p><button type="button" class="boton-secundario" data-bp-cancelar>${t("cancelar")}</button>` : ""}
       ${mensaje ? `<p class="ct-bp-mensaje${mensajeError ? " ct-bp-mensaje--error" : ""}" role="${mensajeError ? "alert" : "status"}">${esc(mensaje)}</p>` : ""}
       ${["error", "conflicto"].includes(estado) ? `<button type="button" class="boton-secundario" data-bp-reintentar>${t("reintentar")}</button>` : ""}
@@ -80,6 +80,9 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
     try {
       const resultado = await cliente.descargar(contexto, catalogo, tipo, formato, { signal });
       if (!montado || signal.aborted || secuencia !== actual) return;
+      if (resultado?.catalogo_ref !== catalogo.catalogo_ref
+        || resultado.catalogo_huella_sha256 !== catalogo.catalogo_huella_sha256
+        || resultado.procedencia_ref !== catalogo.procedencia_ref) throw new TypeError("procedencia de descarga incompatible");
       const documento = entornoDescarga.documento ?? entornoDescarga.document;
       const urls = entornoDescarga.URL;
       if (!documento?.body || typeof urls?.createObjectURL !== "function"
@@ -90,7 +93,7 @@ export function montarBorradoresPublicados({ raiz, contexto, cliente = crearClie
       try { enlace.href = urlDocumento; enlace.download = resultado.nombre; enlace.hidden = true;
         documento.body.append(enlace); enlace.click(); }
       finally { enlace.remove(); revocacion = setTimeout(liberarURL, 0); }
-      mensaje = `${t("bp_listo", { nombre: resultado.nombre })}. ${t("bp_huella", { huella: resultado.huella_sha256 })}`;
+      mensaje = `${t("bp_listo", { nombre: resultado.nombre })}. ${t("bp_publicacion_recibo", { recibo: resultado.procedencia_ref })}. ${t("bp_huella", { huella: resultado.huella_sha256 })}`;
       mensajeError = false;
       anunciar(mensaje, "informacion");
     } catch (error) {

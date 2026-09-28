@@ -6,7 +6,7 @@ import {
   validarSolicitudDecisionCobertura,
   validarSolicitudPropuestaCobertura,
 } from "./contrato-cobertura.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260926-huecos-rrhh-v1";
