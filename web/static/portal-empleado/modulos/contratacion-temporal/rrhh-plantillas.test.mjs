@@ -227,7 +227,9 @@ test("formulario conserva metadatos y el instante exacto al editar", () => {
 
 test("los textos visibles de la vista están en el catálogo i18n", () => {
   for (const clave of ["plantillas_rrhh_titulo", "plantillas_rrhh_ayuda", "plantillas_rrhh_recibo",
-    "plantillas_rrhh_indeterminado", "plantillas_rrhh_fuente"]) {
+    "plantillas_rrhh_indeterminado", "plantillas_rrhh_fuente", "plantillas_rrhh_recuperar_resultado",
+    "plantillas_rrhh_recuperando", "plantillas_rrhh_recuperacion_pendiente",
+    "plantillas_rrhh_recuperacion_conflicto", "plantillas_rrhh_recuperacion_denegada"]) {
     assert.equal(typeof MENSAJES_RRHH_PLANTILLAS_ES[clave], "string");
   }
 });
@@ -324,5 +326,129 @@ test("cancelar y recargar no pierden la clave ni ocultan un registro indetermina
   assert.equal(consultas, 1);
   assert.equal(guardados, 1);
   assert.equal(clavesGeneradas, 1);
+  vista.desmontar();
+});
+
+function vistaConEventos(cliente) {
+  const eventos = new Map();
+  let focosRecuperacion = 0;
+  let focosRecibo = 0;
+  const raiz = { innerHTML: "", contains: () => true,
+    addEventListener(nombre, gestor) { eventos.set(nombre, gestor); },
+    removeEventListener(nombre) { eventos.delete(nombre); },
+    querySelector: (selector) => selector === '[data-plantillas-accion="recuperar"]'
+      ? { focus() { focosRecuperacion++; } }
+      : selector === ".rrhh-plantillas-recibo" ? { focus() { focosRecibo++; }, remove() {} } : null,
+    replaceChildren() { this.innerHTML = ""; } };
+  const vista = montarRRHHPlantillas({ raiz, cliente,
+    generarClave: () => "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789" });
+  return { raiz, vista, focosRecuperacion: () => focosRecuperacion, focosRecibo: () => focosRecibo,
+    pulsar: (accion, clave) => eventos.get("click")({ target: { closest: () =>
+      ({ dataset: { plantillasAccion: accion, clave } }) } }),
+    enviar: (formulario) => eventos.get("submit")({ target: formulario, preventDefault() {} }) };
+}
+
+function formularioPrueba(campos, tipo) {
+  const formulario = new FormData();
+  for (const [clave, valor] of Object.entries(campos)) formulario.set(clave, valor);
+  formulario.matches = (selector) => selector.split(/,\s*/u).includes(`[data-plantillas-${tipo}]`);
+  formulario.querySelector = () => null;
+  formulario.querySelectorAll = () => [];
+  formulario.insertAdjacentHTML = () => {};
+  return formulario;
+}
+
+const siguienteTurno = () => new Promise((resolver) => setImmediate(resolver));
+
+test("recuperación de edición reenvía bytes lógicos idénticos y acepta solo replay vinculado", async () => {
+  const cuerpos = [];
+  const resultado = { ...catalogo, revision: 3 };
+  const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
+    if (ruta === RUTA_RRHH_PLANTILLAS) return respuesta({ borrador: catalogo, publicado: null,
+      puede_editar: true, puede_publicar: false });
+    cuerpos.push(opciones.body);
+    if (cuerpos.length === 1) return respuesta({ codigo: "servicio_no_disponible" }, 503);
+    const solicitud = JSON.parse(opciones.body);
+    const recibo = reciboCambio(solicitud, resultado, "editar", reciboEdicion, "replay");
+    if (cuerpos.length === 2) {
+      const clave = solicitud.clave_idempotencia;
+      recibo.clave_idempotencia = `${clave.slice(0, -1)}${clave.endsWith("0") ? "1" : "0"}`;
+      assert.notEqual(recibo.clave_idempotencia, clave);
+    }
+    return respuesta({ catalogo: resultado, recibo }, 200);
+  } });
+  const { raiz, vista, pulsar, enviar, focosRecuperacion, focosRecibo } = vistaConEventos(cliente);
+  await siguienteTurno();
+  pulsar("editar", "modelo_nuevo");
+  const formulario = formularioPrueba({ etiqueta: "Modelo nuevo", descripcion: "Modelo de prueba",
+    titulo: "Título original", orden: "11", vigente_desde: "2026-09-28", fuente_ref: "fuente:rrhh:ejemplo",
+    modalidades: "*", firmantes: "", requiere_accion: "", motivo: "Ajuste original" }, "form");
+  formulario.append("parrafo", "Primer párrafo");
+  enviar(formulario);
+  await siguienteTurno();
+  assert.match(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  assert.match(raiz.innerHTML, /El resultado del cambio es indeterminado/u);
+  assert.equal(focosRecuperacion(), 1);
+  formulario.set("motivo", "Motivo distinto");
+  pulsar("recuperar");
+  await siguienteTurno();
+  assert.equal(cuerpos.length, 2);
+  assert.equal(cuerpos[1], cuerpos[0]);
+  assert.match(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  assert.doesNotMatch(raiz.innerHTML, new RegExp(reciboEdicion));
+  assert.equal(focosRecuperacion(), 2);
+  pulsar("recuperar");
+  await siguienteTurno();
+  assert.equal(cuerpos[2], cuerpos[0]);
+  assert.match(raiz.innerHTML, new RegExp(reciboEdicion));
+  assert.match(raiz.innerHTML, /class="rrhh-plantillas-recibo" role="status" tabindex="-1"/u);
+  assert.equal(focosRecibo(), 1);
+  assert.doesNotMatch(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  vista.desmontar();
+});
+
+test("recuperación de publicación conserva solicitud y bloqueo tras 409 hasta replay válido", async () => {
+  const cuerpos = [];
+  const resultado = { ...catalogo, estado: "publicado" };
+  const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
+    if (ruta === RUTA_RRHH_PLANTILLAS) return respuesta({ borrador: catalogo, publicado: null,
+      puede_editar: false, puede_publicar: true });
+    cuerpos.push(opciones.body);
+    if (cuerpos.length === 1) return respuesta({ codigo: "servicio_no_disponible" }, 503);
+    if (cuerpos.length === 2) return respuesta({ codigo: "servicio_no_disponible" }, 503);
+    if (cuerpos.length === 3) return respuesta({ codigo: "acceso_denegado" }, 403);
+    if (cuerpos.length === 4) return respuesta({ codigo: "version_en_conflicto" }, 409);
+    const solicitud = JSON.parse(opciones.body);
+    return respuesta({ catalogo: resultado,
+      recibo: reciboCambio(solicitud, resultado, "publicar", reciboPublicacion, "replay") }, 200);
+  } });
+  const { raiz, vista, pulsar, enviar } = vistaConEventos(cliente);
+  await siguienteTurno();
+  const formulario = formularioPrueba({ aprobacion_ref: "aprobacion:rrhh:uno", motivo: "Publicación aprobada" }, "publicar");
+  enviar(formulario);
+  await siguienteTurno();
+  assert.match(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  formulario.set("aprobacion_ref", "aprobacion:distinta");
+  pulsar("recuperar");
+  await siguienteTurno();
+  assert.match(raiz.innerHTML, /Sigue sin poder comprobarse el resultado/u);
+  assert.match(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  pulsar("recuperar");
+  await siguienteTurno();
+  assert.match(raiz.innerHTML, /No dispone de autorización para comprobar este resultado/u);
+  assert.doesNotMatch(raiz.innerHTML, /<form data-plantillas-publicar/u);
+  assert.match(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  pulsar("recuperar");
+  await siguienteTurno();
+  assert.match(raiz.innerHTML, /La misma petición está en conflicto/u);
+  assert.match(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
+  pulsar("cancelar");
+  enviar(formulario);
+  assert.equal(cuerpos.length, 4);
+  pulsar("recuperar");
+  await siguienteTurno();
+  assert.deepEqual(cuerpos, [cuerpos[0], cuerpos[0], cuerpos[0], cuerpos[0], cuerpos[0]]);
+  assert.match(raiz.innerHTML, new RegExp(reciboPublicacion));
+  assert.doesNotMatch(raiz.innerHTML, /data-plantillas-accion="recuperar"/u);
   vista.desmontar();
 });
