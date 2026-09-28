@@ -120,11 +120,15 @@ test("cliente solo confirma un cambio con catálogo, versión y recibo válidos"
     await assert.rejects(incompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
       && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado, referencia);
   }
-  const catalogoIncompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
-    catalogo: { ...resultado, revision: "3" }, recibo,
-  }, 201) });
-  await assert.rejects(catalogoIncompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
-    && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+  for (const [estado, estadoReplay] of [[201, "registrado"], [200, "replay"]]) {
+    for (const catalogoMalo of [undefined, { ...resultado, revision: "3" }]) {
+      const catalogoIncompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+        catalogo: catalogoMalo, recibo: { ...recibo, estado_replay: estadoReplay },
+      }, estado) });
+      await assert.rejects(catalogoIncompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+        && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+    }
+  }
   const replay = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
     catalogo: resultado, recibo: { ...recibo, estado_replay: "replay" },
   }, 200) });
@@ -193,6 +197,15 @@ test("publicación exige aprobación y solo confirma catálogo publicado con rec
   }, 201) });
   await assert.rejects(incompatible.publicar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
     && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+  for (const [estado, estadoReplay] of [[201, "registrado"], [200, "replay"]]) {
+    for (const catalogoMalo of [undefined, { ...resultado, revision: "2" }]) {
+      const catalogoIncompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+        catalogo: catalogoMalo, recibo: { ...recibo, estado_replay: estadoReplay },
+      }, estado) });
+      await assert.rejects(catalogoIncompatible.publicar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+        && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+    }
+  }
 });
 
 test("formulario conserva metadatos y el instante exacto al editar", () => {
