@@ -245,6 +245,8 @@ func comprobarPreflightAutoridadesPlantillasCT(ctx context.Context, fuente, moti
      AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
        pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_auditoria_ct_atestada_v1(text,text,text,timestamptz,timestamptz,integer,timestamptz,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')::oid,'EXECUTE'),false)
      AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
+       pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_ruta_exacta_v1(text,text,text,text,text)')::oid,'EXECUTE'),false)
+     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
        pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)')::oid,'EXECUTE'),false)
      AND NOT EXISTS (
        SELECT 1 FROM pg_catalog.pg_class c
