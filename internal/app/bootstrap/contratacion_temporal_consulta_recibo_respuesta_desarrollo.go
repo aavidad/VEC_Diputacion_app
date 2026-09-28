@@ -115,15 +115,26 @@ func certificadoConsultaReciboRespuestaVigente(c capacidadConsultaContratacionTe
 }
 
 // La auditoría de frontera se escribe fuera de la transacción del lector. Una
-// denegación SQL P1393 revierte esa transacción; aquí se conserva el 403 final.
-type auditorConsultaReciboRespuestaDenegada struct {
+// denegación SQL revierte esa transacción; aquí se conserva el fallo HTTP final.
+type auditorConsultaCTDenegada struct {
 	siguiente   http.Handler
 	registrador puertosvec.RegistradorAuditoriaFronteraRutaExacta
 	soporte     *soporteAltaContratacionTemporalDesarrollo
+	ruta        string
 }
 
-func (a auditorConsultaReciboRespuestaDenegada) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+type auditorConsultaReciboRespuestaDenegada = auditorConsultaCTDenegada
+
+func (a auditorConsultaCTDenegada) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if a.siguiente == nil || dependenciaEsNulaContratacionTemporalDesarrollo(a.registrador) {
+		responderConsultaReciboRespuestaNoDisponible(w)
+		return
+	}
+	ruta := a.ruta
+	if ruta == "" {
+		ruta = httpinterno.RutaConsultaReciboRespuesta
+	}
+	if ruta != httpinterno.RutaConsultaReciboRespuesta && ruta != httpinterno.RutaConsultaComunicacionesExpediente {
 		responderConsultaReciboRespuestaNoDisponible(w)
 		return
 	}
@@ -133,7 +144,7 @@ func (a auditorConsultaReciboRespuestaDenegada) ServeHTTP(w http.ResponseWriter,
 	if estado == 0 {
 		estado = http.StatusOK
 	}
-	if estado == http.StatusForbidden {
+	if estado == http.StatusForbidden || estado == http.StatusUnauthorized {
 		var cuerpo struct {
 			Error struct {
 				CorrelacionRef string `json:"correlacion_ref"`
@@ -143,14 +154,18 @@ func (a auditorConsultaReciboRespuestaDenegada) ServeHTTP(w http.ResponseWriter,
 			responderConsultaReciboRespuestaNoDisponible(w)
 			return
 		}
+		motivo := puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado
+		if estado == http.StatusUnauthorized {
+			motivo = puertosvec.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
+		}
 		orden := puertosvec.OrdenAuditoriaFronteraRutaExacta{
 			CorrelacionRef: cuerpo.Error.CorrelacionRef,
-			Motivo:         puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
+			Motivo:         motivo,
 			Superficie:     puertosvec.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal,
-			Ruta:           httpinterno.RutaConsultaReciboRespuesta,
+			Ruta:           ruta,
 		}
-		if a.soporte != nil {
-			if capacidad, valida := a.soporte.capacidadValida(r.Context()); valida && capacidad.ruta == httpinterno.RutaConsultaReciboRespuesta {
+		if estado == http.StatusForbidden && a.soporte != nil {
+			if capacidad, valida := a.soporte.capacidadValida(r.Context()); valida && capacidad.ruta == ruta {
 				orden.ActorRef = capacidad.principal.ID
 			}
 		}
