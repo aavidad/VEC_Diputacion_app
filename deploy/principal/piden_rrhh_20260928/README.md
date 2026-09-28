@@ -1,10 +1,9 @@
 # Preparación de la tanda PIDEN RRHH para cidonia
 
-Punto de partida: `trabajo/piden-rrhh-20260927` en
-`100fa464ed3fd40cbd998b4a24d14c616376c614`. El plan documental incluye
-el corte CT136 de `5ab27fc92302071cf7447226f12cffc7eaff27ab`, pero el pin
-ejecutable sigue en `100fa464e` y **rechaza el SQL posterior** hasta que
-Dirección cierre backend/HTTP y la puerta final. Esta carpeta **no ejecuta
+Fuente fijada: `trabajo/piden-root-stage-20260928` en
+`600783c8ee34281ed9e5e98fa6b4c6ec4fab0a2e`. Los guiones comprueban
+que el árbol de producto coincide con ese hash, salvo esta carpeta de entrega;
+un cambio de código, SQL o web exige revisar y fijar otro hash. Esta carpeta **no ejecuta
 un despliegue**. Dirección integra en la rama canónica y decide la puesta en
 servicio. El script histórico `deploy/principal/desplegar.sh` hace `checkout
 main`, `pull`, reaplica SQL D6 y cambia contenedores: **no usarlo para esta
@@ -12,7 +11,7 @@ tanda**. Tampoco repetir `00_puesta_al_dia.sh`, `02_migraciones.sh`, F4/D7 ni
 ningún `DOWN` sobre la principal con historia.
 
 La lista [`migraciones.txt`](migraciones.txt) contiene **27 `UP` candidatos**
-frente a `origin/main` en este corte, en orden de introducción causal. Incluye
+frente a `origin/main` en este stage, en orden de introducción causal. Incluye
 AD3-98/CT134, Bolsa54 y AD3-99 antes de CT135. Incluye también
 AD3-90/Bolsa44, cuya preimagen
 PostgreSQL 18 y dos revisiones deben quedar
@@ -59,10 +58,15 @@ huella encontrada o una conexión no inventariable detiene toda la tanda.
    dudas deja reglas de ejemplo configurables y pendientes de ratificación RRHH;
    el paquete no convierte avisos, borradores ni autenticación en firma,
    notificación acreditada o decisión legal.
-4. Validar las dos listas `web/produccion.manifest` y
-   `web/interno.manifest`. `mi-bolsa-historial.js` es importado por el área
-   personal y debe figurar en ambas. `preparar_paquete.sh` falla expresamente
-   si falta. Revisar que no haya más imports dinámicos ausentes.
+4. Validar `web/produccion.manifest` y `web/interno.manifest`.
+   `mi-bolsa-historial.js` es importado por el área personal y debe figurar en
+   **producción**; el inventario interno no incluye el área personal.
+   `preparar_paquete.sh` falla expresamente si falta en producción. Revisar
+   que no haya más imports dinámicos ausentes. El ZIP OSM público declarado
+   por ambos manifiestos se aprovisiona con
+   `scripts/aprovisionar_cartografia_osm.sh`, que verifica su SHA-256 fijado;
+   está ignorado por Git y no aparece en un checkout nuevo. Sin ese ZIP
+   verificado, el empaquetado se detiene.
 
 ## Clon exacto y ensayo PG18
 
@@ -155,15 +159,19 @@ de aplicación; probar cada rol real en el clon.
 
 ## Artefacto local y cambio controlado por Dirección
 
-Una vez corregidos los manifiestos y con el checkout limpio:
+Con el ZIP OSM verificado y el checkout limpio:
 
 ```bash
 bash deploy/principal/piden_rrhh_20260928/preparar_paquete.sh
 ```
 
 Imprime `PAQUETE_LOCAL=/tmp/vec-piden-20260928...`. Construye `vec-server`,
-sincroniza **todo** `web/` mediante `rsync -a --delete` dentro de una carpeta
-temporal nueva, incluye manifiestos y escribe `SHA256SUMS` y hash del commit.
+sincroniza por `rsync` **solo las rutas** de `web/produccion.manifest` dentro
+de una carpeta temporal nueva y pasa `scripts/verificar_web_produccion.sh` al
+árbol extraído. Conserva los demás manifiestos en `evidencia/` y escribe
+`SHA256SUMS` y hash del commit.
+`evidencia/fuente_commit.txt` fija el stage de producto;
+`evidencia/commit.txt` identifica el commit de este paquete.
 No incluye configuración privada. Comprobar `sha256sum -c SHA256SUMS` y que el
 binario/activos proceden del hash publicado. El paquete es local y temporal;
 Dirección lo copia al directorio privado de releases del servicio. No usar

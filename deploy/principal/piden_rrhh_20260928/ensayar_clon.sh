@@ -4,14 +4,16 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=100fa464ed3fd40cbd998b4a24d14c616376c614
+base=600783c8ee34281ed9e5e98fa6b4c6ec4fab0a2e
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${1:-} == --aplicar-en-clon && $# == 1 ]] || fallar 'uso: ensayar_clon.sh --aplicar-en-clon'
 [[ -n ${PGSERVICE:-} && -n ${VEC_PIDEN_CLON_DB:-} ]] || fallar 'faltan PGSERVICE o VEC_PIDEN_CLON_DB'
 [[ $VEC_PIDEN_CLON_DB == *_clon_piden_20260928 ]] || fallar 'nombre de clon no autorizado'
 command -v psql >/dev/null || fallar 'falta psql'
 git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
-git -C "$repo" diff --quiet "$base" HEAD -- deploy/postgresql || fallar 'SQL cambió: revisar el plan'
+git -C "$repo" diff --quiet "$base" HEAD -- . \
+  ':(exclude)deploy/principal/piden_rrhh_20260928/**' \
+  || fallar 'fuente distinta del stage fijado: revisar el plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
 "$script_dir/preflight_roles_ct136.sh" --clon
 
@@ -55,4 +57,5 @@ while IFS= read -r ruta; do
   printf 'Aplicando en clon: %s\n' "$ruta"
   "${conexion[@]}" --file "$repo/$ruta" >/dev/null
 done <"$script_dir/migraciones.txt"
-printf 'CLON_PG18_UP_OK commit=%s base=%s\n' "$(git -C "$repo" rev-parse HEAD)" "$actual"
+printf 'CLON_PG18_UP_OK fuente=%s paquete=%s base=%s\n' \
+  "$base" "$(git -C "$repo" rev-parse HEAD)" "$actual"

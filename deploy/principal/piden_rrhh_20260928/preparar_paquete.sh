@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=100fa464ed3fd40cbd998b4a24d14c616376c614
+base=600783c8ee34281ed9e5e98fa6b4c6ec4fab0a2e
 
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null || fallar 'falta git'
@@ -12,7 +12,9 @@ command -v rsync >/dev/null || fallar 'falta rsync'
 command -v go >/dev/null || fallar 'falta Go'
 command -v sha256sum >/dev/null || fallar 'falta sha256sum'
 git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
-git -C "$repo" diff --quiet "$base" HEAD -- deploy/postgresql || fallar 'SQL cambió: revisar y actualizar plan'
+git -C "$repo" diff --quiet "$base" HEAD -- . \
+  ':(exclude)deploy/principal/piden_rrhh_20260928/**' \
+  || fallar 'fuente distinta del stage fijado: revisar y actualizar plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
 
 # Nunca empaquetar un plan que active el publicador B10 separado sin nuevo GO.
@@ -30,23 +32,29 @@ ct136_linea=$(grep -nFx 'deploy/postgresql/contratacion_temporal/migraciones/000
 
 for manifest in produccion.manifest interno.manifest; do
   [[ -f $repo/web/$manifest ]] || fallar "falta $manifest"
-  # Importado por aplicacion.js y seguimiento-tramites.js en este candidato.
-  grep -Fxq 'static/area-personal/mi-bolsa-historial.js' "$repo/web/$manifest" \
-    || fallar "mi-bolsa-historial.js falta en $manifest"
   while IFS= read -r ruta; do
     [[ -n $ruta && $ruta != \#* ]] || continue
     [[ $ruta != /* && $ruta != *../* && -f $repo/web/$ruta ]] \
-      || fallar "entrada ausente o insegura en $manifest: $ruta"
+      || fallar "entrada ausente o insegura en $manifest: $ruta (para OSM: scripts/aprovisionar_cartografia_osm.sh)"
   done <"$repo/web/$manifest"
 done
+# El área personal pertenece al inventario productivo, no al interno.
+grep -Fxq 'static/area-personal/mi-bolsa-historial.js' "$repo/web/produccion.manifest" \
+  || fallar 'mi-bolsa-historial.js falta en produccion.manifest'
 
 destino=$(mktemp -d /tmp/vec-piden-20260928.XXXXXXXX)
 trap 'rm -rf -- "$destino"' ERR
 mkdir -p -- "$destino/web" "$destino/evidencia"
 go -C "$repo" build -buildvcs=false -o "$destino/vec-server" ./cmd/vec-server
-rsync -a --delete -- "$repo/web/" "$destino/web/"
+rsync -a --delete --files-from="$repo/web/produccion.manifest" \
+  -- "$repo/web/" "$destino/web/"
+"$repo/scripts/verificar_web_produccion.sh" "$destino/web" \
+  "$repo/web/produccion.manifest" >/dev/null
+cp -- "$repo/web/interno.manifest" "$repo/web/publico.manifest" \
+  "$repo/web/interno.locales.manifest" "$destino/evidencia/"
 cp -- "$script_dir/migraciones.txt" "$destino/evidencia/migraciones.txt"
 printf '%s\n' "$(git -C "$repo" rev-parse HEAD)" >"$destino/evidencia/commit.txt"
+printf '%s\n' "$base" >"$destino/evidencia/fuente_commit.txt"
 (
   cd "$destino"
   find vec-server web evidencia -type f -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
