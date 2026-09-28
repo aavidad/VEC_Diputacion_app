@@ -327,7 +327,7 @@ func TestPlantillasCatalogoCTPreflightDeniegaRolesYACLIncompletas(t *testing.T) 
 			"NOT pg_catalog.has_schema_privilege(session_user,'vec_autorizacion','CREATE')",
 			"to_regrole('vec_contratacion_temporal_ejecutor')", "to_regrole('vec_bolsa_llamamientos_ejecutor')",
 			"to_regnamespace('vec_bolsa_llamamientos')", "consultar_auditoria_ct_atestada_v1",
-			"registrar_auditoria_frontera_auditoria_v1",
+			"registrar_auditoria_frontera_ruta_exacta_v1", "registrar_auditoria_frontera_auditoria_v1",
 			"has_table_privilege", "has_any_column_privilege", "NOT coalesce(pg_catalog.has_function_privilege"} {
 			if !strings.Contains(c.sql, fragmento) {
 				t.Fatalf("ACL omitida: %s", fragmento)
