@@ -142,35 +142,43 @@ el inicio común antes de implementar 5.03.
 - La puerta completa de los cortes 1 y 2 de código fue verde antes de sus PR; los ensayos PostgreSQL 18 de reglas, auditoría y reincorporación son aislados. Faltan clon exacto de la base conservada, instalación controlada de las migraciones aplicables, identidad V3 y recorrido navegador con recuperación tras reinicio para los puntos PARCIAL. En particular, 3.06 carece de segunda validación durable por otra persona y 3.07 no impone el siguiente día hábil ni el horario 09:00–14:00; ambos requieren contrato transaccional pendiente.
 - Los datos de prueba son sintéticos. Este corte solo actualiza documentación: no instala migraciones, modifica servicios compartidos ni envía correos o SMS.
 
-## SQL acumulada pendiente de conciliación en cidonia (28/09/2026)
+## SQL acumulada de cidonia: 29 instaladas y 10 pendientes (28/09/2026)
 
-Inventario acumulado para un **futuro despliegue**, fijado sobre
+Inventario acumulado para preparar un **futuro despliegue de las diez
+pendientes**, fijado sobre
 `origin/main@089933415e18e5c5cf710e40df865e911320d33d` (merge #97).
 Las filas funcionales anteriores conservan su fotografía histórica y no se
 reinterpretan aquí; C3 ya entró en `main` mediante #88. Este apartado actualiza
-solo el inventario SQL pendiente de conciliación.
-Son 39 rutas únicas en orden causal: 27 `UP` y dos deltas DBA de rol de los
-cortes 1/2, cinco `UP` de C3 y cinco `UP` de #97. El corte 2 repite la lista
+solo el inventario SQL y su estado de instalación comunicado por Dirección.
+Son 39 rutas únicas en orden causal: **29 ya instaladas en cidonia/principal**
+(27 `UP` y dos deltas DBA de rol de los cortes 1/2) y **10 pendientes de
+instalación** (cinco `UP` de C3 y cinco `UP` de #97). El corte 2 repite la lista
 del corte 1: se incluye **una sola vez**. Las listas de respuesta semántica,
 consulta de recibo y contexto ya están reunidas en la lista de #97: CT138,
 AD3-104, CT139, AD3-105 y CT140 aparecen **una sola vez**.
 
-**Estado comunicado por Dirección para #97:** ENSAYO-OK solo en clon. Los
-cinco `UP` de #97 **NO están instalados en cidonia/principal**. El binario
-preparado en el clon queda pendiente para el despliegue; esta anotación no
-acredita servicio, navegador ni producción. El estado de instalación de las
-34 rutas anteriores se concilia con la historia de cidonia antes de aplicar:
-Dirección debe inventariar preimagen, roles y postimagen y retirar del plan de
-ejecución cualquier migración ya instalada. **No
+**Estado comunicado por Dirección:** las 29 rutas de los cortes 1/2 quedaron
+**instaladas el 28/09/2026 en cidonia/principal; NO reaplicar ninguna**.
+AD3-94 y AD3-95 se instalaron con las correcciones del PR #84; conservar esa
+historia y su postimagen. Las cinco rutas de C3 y las cinco de #97 siguen
+**pendientes de instalación en cidonia/principal**. El ENSAYO-OK de #97 fue
+**solo en clon**; el binario preparado allí queda pendiente para el despliegue.
+Esta anotación no acredita servicio, navegador ni producción. Antes de
+aplicar las diez pendientes, Dirección debe inventariar preimagen, roles y
+postimagen de cidonia, verificar dependencias y conciliar cada entrada con
+la historia real. **No
 reaplicar migraciones históricas ni ejecutar `DOWN` sobre historia conservada.**
 Las preimágenes CT54/CT62 y AD3-101 se verifican en el destino. AD3-104 no
 arrastra AD3-102/103; no se incorporan migraciones ajenas por su numeración.
 Bolsa 000049 y Pública 000003 siguen excluidas por `NO-GO` del paquete de
 los primeros cortes.
 
-### Cortes 1 y 2: mismo conjunto, 27 UP y dos deltas DBA de rol
+### Cortes 1 y 2: 29 rutas instaladas el 28/09/2026 — NO reaplicar
 
 Fuente: `deploy/principal/piden_rrhh_corte2_20260928/migraciones.txt`.
+
+**Cada una de las 29 rutas siguientes está instalada en cidonia/principal desde
+el 28/09/2026: NO reaplicar.** Son 27 `UP` y dos deltas DBA de rol.
 
 ```text
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000090_consumidor_historial_propio_bolsa.up.sql
@@ -204,7 +212,7 @@ deploy/postgresql/contratacion_temporal/roles_registrador_auditoria_up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000136_auditoria_frontera_auditoria_ruta_exacta.up.sql
 ```
 
-### Corte C3: cinco UP adicionales
+### Corte C3: cinco UP pendientes de instalar en cidonia/principal
 
 Fuente: `deploy/principal/lista_sql_trabajo_codexg_rrhh_c3_20260928.txt`.
 
@@ -216,7 +224,7 @@ deploy/postgresql/bolsa_llamamientos/migraciones/000055_lectura_reincorporacion_
 deploy/postgresql/bolsa_llamamientos/migraciones/000056_motivo_traza_auditoria_participacion.up.sql
 ```
 
-### Corte #97: cinco UP adicionales
+### Corte #97: cinco UP pendientes de instalar en cidonia/principal
 
 Fuente: `deploy/principal/lista_sql_trabajo_codexg_respuesta_integracion_20260928.txt`.
 
@@ -239,5 +247,5 @@ deploy/postgresql/contratacion_temporal/migraciones/000140_consulta_comunicacion
 | `deploy/postgresql/contratacion_temporal/migraciones/000140_consulta_comunicaciones_expediente.up.sql` | `30dfe1a3b20a9157c3571338581353bc6ae97a9be887f90e335c37808ad664d5` |
 
 Estas huellas corresponden a los ficheros `UP` del árbol #97. La lista y
-sus huellas preparan la conciliación; no son un acta de instalación ni elevan
-los pasos de RRHH a 6/8.
+sus huellas preparan las diez instalaciones pendientes; no son un acta de
+instalación de C3/#97 ni elevan los pasos de RRHH a 6/8.
