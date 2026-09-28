@@ -52,7 +52,9 @@ normalizar_manifiesto() {
 			*.json)
 				case "${ruta}" in
 					"${cartografia_indice}" | static/acceso/locales/es.json | \
+						static/acceso/locales/en.json | \
 						static/area-personal/locales/es.json | \
+						static/area-personal/locales/en.json | \
 						static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json)
 						;;
 					*) fallar "JSON no autorizado en ${nombre}: ${ruta}" ;;

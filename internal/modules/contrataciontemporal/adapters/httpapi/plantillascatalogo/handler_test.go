@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,6 +30,8 @@ type servicioPrueba struct {
 	lecturas      int
 	ediciones     int
 	publicaciones int
+	resultado     *app.ResultadoCambio
+	err           error
 }
 
 func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor) (app.Lectura, error) {
@@ -37,10 +40,16 @@ func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor) (ap
 }
 func (s *servicioPrueba) Editar(context.Context, vecdomain.ContextoActor, app.SolicitudEditar) (app.ResultadoCambio, error) {
 	s.ediciones++
+	if s.resultado != nil {
+		return *s.resultado, s.err
+	}
 	return app.ResultadoCambio{}, app.ErrEntradaInvalida
 }
 func (s *servicioPrueba) Publicar(context.Context, vecdomain.ContextoActor, app.SolicitudPublicar) (app.ResultadoCambio, error) {
 	s.publicaciones++
+	if s.resultado != nil {
+		return *s.resultado, s.err
+	}
 	return app.ResultadoCambio{}, app.ErrEntradaInvalida
 }
 func actorPrueba(t *testing.T) vecdomain.ContextoActor {
@@ -98,5 +107,47 @@ func TestHTTPConsultaAutenticadaSinCacheNiCookie(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaCatalogo, nil))
 	if w.Code != 200 || s.lecturas != 1 || w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Set-Cookie") != "" || !strings.Contains(w.Body.String(), `"borrador":null`) {
 		t.Fatalf("consulta: %d, %q", w.Code, w.Body.String())
+	}
+}
+
+func TestHTTPEstadoYVinculoDelRecibo(t *testing.T) {
+	clave := "11111111-1111-4111-8111-111111111111"
+	z := app.ResultadoCambio{Recibo: app.Recibo{
+		ReciboRef: "recibo:prueba", ClaveIdempotencia: clave, Operacion: "editar",
+		Version: 2, Revision: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64),
+		RegistradoEn: time.Date(2026, 9, 28, 10, 0, 0, 0, time.UTC), EstadoReplay: "registrado",
+	}}
+	s := &servicioPrueba{resultado: &z}
+	h, _ := NuevoManejador(&resolverPrueba{actor: actorPrueba(t)}, s)
+	peticion := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, RutaEntradas, strings.NewReader(`{"clave_idempotencia":"`+clave+`"}`))
+		r.Header.Set("Content-Type", "application/json")
+		return r
+	}
+	for _, caso := range []struct {
+		estado string
+		codigo int
+	}{{"registrado", 201}, {"replay", 200}, {"desconocido", 503}} {
+		z.Recibo.EstadoReplay = caso.estado
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticion())
+		if w.Code != caso.codigo {
+			t.Fatalf("%s: HTTP %d", caso.estado, w.Code)
+		}
+		if caso.codigo == 503 {
+			continue
+		}
+		var cuerpo struct {
+			Recibo app.Recibo `json:"recibo"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &cuerpo); err != nil || cuerpo.Recibo != z.Recibo {
+			t.Fatalf("%s: recibo divergente: %+v, %v", caso.estado, cuerpo.Recibo, err)
+		}
+	}
+	s.err = app.ErrConflicto
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticion())
+	if w.Code != 409 || strings.Contains(w.Body.String(), "recibo_ref") {
+		t.Fatalf("conflicto respondió con recibo: %d %s", w.Code, w.Body.String())
 	}
 }

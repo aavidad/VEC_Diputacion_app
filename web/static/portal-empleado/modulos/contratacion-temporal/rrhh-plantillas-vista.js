@@ -12,6 +12,13 @@ const fechaValida = (valor) => FECHA.test(valor) && Number.isFinite(Date.parse(`
   && new Date(`${valor}T00:00:00Z`).toISOString().slice(0, 10) === valor;
 const claveNueva = () => globalThis.crypto?.randomUUID?.();
 
+function instantaneaOperacion(operacion, solicitud) {
+  const entrada = solicitud.entrada && Object.freeze({ ...solicitud.entrada,
+    atributos: Object.freeze({ ...solicitud.entrada.atributos }) });
+  return Object.freeze({ operacion, clave: solicitud.clave_idempotencia,
+    solicitud: Object.freeze({ ...solicitud, ...(entrada ? { entrada } : {}) }) });
+}
+
 function parrafosDe(entrada) {
   return Object.keys(entrada?.atributos ?? {}).filter((clave) => /^parrafo\.\d{2}$/u.test(clave))
     .sort().map((clave) => entrada.atributos[clave]);
@@ -77,6 +84,9 @@ export function montarRRHHPlantillas({
   let seleccionado = null;
   let recibo = null;
   let claveIdempotencia = null;
+  let instantaneaPendiente = null;
+  let recuperando = false;
+  let errorRecuperacion = null;
   const catalogo = () => consulta?.borrador ?? consulta?.publicado ?? null;
   const puedeEditar = () => consulta?.puede_editar === true;
   const puedePublicar = () => consulta?.puede_publicar === true;
@@ -91,15 +101,36 @@ export function montarRRHHPlantillas({
   };
   const estado = (valor) => t(`plantillas_rrhh_${["borrador", "publicado", "sustituido"].includes(valor) ? valor : "sin_estado"}`);
 
+  function confirmar(operacion, resultado) {
+    if (instantaneaPendiente?.operacion !== operacion
+      || resultado?.recibo?.clave_idempotencia !== instantaneaPendiente.clave
+      || resultado.recibo.operacion !== operacion) {
+      throw Object.assign(new TypeError("recibo de plantilla incompatible"), { resultadoIndeterminado: true });
+    }
+    if (operacion === "editar") {
+      consulta = { ...consulta, borrador: resultado.catalogo, puede_publicar: false };
+      seleccionado = null;
+    } else {
+      consulta = { ...consulta, borrador: null, publicado: resultado.catalogo, puede_publicar: false };
+    }
+    recibo = operacion === "publicar" ? { ...resultado, publicacion: true } : resultado;
+    claveIdempotencia = null;
+    instantaneaPendiente = null;
+    bloqueado = false;
+    error = null;
+    errorRecuperacion = null;
+    anunciar(t(operacion === "publicar" ? "plantillas_rrhh_publicacion_confirmada" : "plantillas_rrhh_guardado"));
+  }
+
   function pintarLista() {
     const filas = entradas();
     return `<section class="panel rrhh-plantillas-panel" aria-labelledby="rrhh-plantillas-lista-titulo">
-      <header class="cabecera-panel"><div><h3 id="rrhh-plantillas-lista-titulo">${e(t("plantillas_rrhh_lista_titulo"))}</h3><p>${e(t("plantillas_rrhh_lista_subtitulo"))}</p></div>
+      <header class="cabecera-panel"><div><h3 id="rrhh-plantillas-lista-titulo">${e(t("plantillas_rrhh_lista_titulo"))}</h3></div>
       ${puedeEditar() ? `<button type="button" class="boton-primario" data-plantillas-accion="nueva" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_nueva"))}</button>` : ""}</header>
       ${filas.length ? `<div class="tabla-contenedor rrhh-plantillas-tabla" tabindex="0" role="region" aria-label="${e(t("plantillas_rrhh_lista_titulo"))}">
       <table class="tabla-datos"><thead><tr><th scope="col">${e(t("plantillas_rrhh_nombre"))}</th><th scope="col">${e(t("plantillas_rrhh_titulo_documento"))}</th>
       <th scope="col">${e(t("plantillas_rrhh_orden"))}</th><th scope="col">${e(t("plantillas_rrhh_estado"))}</th><th scope="col"></th></tr></thead><tbody>
-      ${filas.map((fila) => `<tr><th scope="row"><strong>${e(fila.etiqueta)}</strong><small>${e(fila.clave)}</small></th><td>${e(fila.atributos.titulo ?? t("plantillas_rrhh_sin_valor"))}</td>
+      ${filas.map((fila) => `<tr><th scope="row"><strong>${e(fila.etiqueta)}</strong></th><td>${e(fila.atributos.titulo ?? t("plantillas_rrhh_sin_valor"))}</td>
       <td class="rrhh-plantillas-numero">${e(new Intl.NumberFormat(locale).format(fila.orden))}</td><td><span class="estado-chip ${catalogo()?.estado === "publicado" ? "info" : "violeta"}">${e(estado(catalogo()?.estado))}</span></td>
       <td>${puedeEditar() ? `<button type="button" class="boton-secundario" data-plantillas-accion="editar" data-clave="${e(fila.clave)}" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_editar"))}</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
     : `<div class="cuerpo-panel"><p class="rrhh-plantillas-vacio">${e(t("plantillas_rrhh_vacio"))}</p></div>`}</section>`;
@@ -112,10 +143,9 @@ export function montarRRHHPlantillas({
     const fuente = catalogo()?.fuente_ref ?? "";
     const campo = (nombre, clave, valor, extra = "") => `<label><span>${e(t(clave))}</span><input name="${nombre}" value="${e(valor)}" ${extra}></label>`;
     return `<section class="panel rrhh-plantillas-panel" aria-labelledby="rrhh-plantillas-form-titulo"><header class="cabecera-panel"><div>
-      <h3 id="rrhh-plantillas-form-titulo">${e(t(anterior ? "plantillas_rrhh_form_editar" : "plantillas_rrhh_form_nueva"))}</h3>
-      <p>${e(anterior?.etiqueta ?? "")}</p></div></header><div class="cuerpo-panel">
+      <h3 id="rrhh-plantillas-form-titulo">${e(t(anterior ? "plantillas_rrhh_form_editar" : "plantillas_rrhh_form_nueva"))}</h3></div></header><div class="cuerpo-panel">
       <form data-plantillas-form novalidate><div class="rrhh-plantillas-campos">
-      ${campo("clave", "plantillas_rrhh_clave", anterior?.clave ?? "", `${anterior ? "readonly" : "required"} maxlength="80" autocomplete="off"`)}
+      ${anterior ? "" : campo("clave", "plantillas_rrhh_clave", "", 'required maxlength="80" autocomplete="off"')}
       ${campo("etiqueta", "plantillas_rrhh_nombre", anterior?.etiqueta ?? "", "required maxlength=\"256\"")}
       ${campo("titulo", "plantillas_rrhh_titulo_documento", anterior?.atributos?.titulo ?? "", "required maxlength=\"256\"")}
       ${campo("orden", "plantillas_rrhh_orden", anterior?.orden ?? 0, "required type=\"number\" min=\"0\" step=\"1\"")}
@@ -130,7 +160,7 @@ export function montarRRHHPlantillas({
       <div data-plantillas-parrafos>${parrafos.map((valor, i) => parrafoHTML(valor, i + 1)).join("")}</div></div>
       <label class="rrhh-plantillas-ancho"><span>${e(t("plantillas_rrhh_motivo"))}</span><textarea name="motivo" rows="2" maxlength="4000" required></textarea></label>
       </div><div class="rrhh-plantillas-acciones"><button type="submit" class="boton-primario" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_guardar"))}</button>
-      <button type="button" class="boton-secundario" data-plantillas-accion="cancelar">${e(t("plantillas_rrhh_cancelar"))}</button></div></form></div></section>`;
+      <button type="button" class="boton-secundario" data-plantillas-accion="cancelar" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_cancelar"))}</button></div></form></div></section>`;
   }
 
   function pintarPublicacion() {
@@ -155,19 +185,20 @@ export function montarRRHHPlantillas({
     if (controlador.signal.aborted) return;
     const c = catalogo();
     const mensaje = error ? t(error) : null;
-    raiz.innerHTML = `<div class="rrhh-plantillas"><div class="rrhh-plantillas-encabezado"><div><h2>${e(t("plantillas_rrhh_titulo"))}</h2>
-      <p>${e(t("plantillas_rrhh_subtitulo"))}</p></div><button type="button" class="boton-secundario rrhh-plantillas-ayuda-boton" data-plantillas-accion="ayuda"
+    raiz.innerHTML = `<div class="rrhh-plantillas"><div class="rrhh-plantillas-encabezado"><div><h2>${e(t("plantillas_rrhh_titulo"))}</h2></div><button type="button" class="boton-secundario rrhh-plantillas-ayuda-boton" data-plantillas-accion="ayuda"
       aria-label="${e(t("plantillas_rrhh_ayuda_boton"))}" aria-expanded="${ayuda}" aria-controls="rrhh-plantillas-ayuda">?</button></div>
       <p id="rrhh-plantillas-ayuda" class="rrhh-plantillas-ayuda" ${ayuda ? "" : "hidden"}>${e(t("plantillas_rrhh_ayuda"))}</p>
-      ${recibo ? `<section class="rrhh-plantillas-recibo" role="status" aria-label="${e(t("plantillas_rrhh_resultado_titulo"))}"><strong>${e(t(recibo.publicacion ? "plantillas_rrhh_publicacion_confirmada" : "plantillas_rrhh_guardado"))}</strong>
+      ${recibo ? `<section class="rrhh-plantillas-recibo" role="status" tabindex="-1" aria-label="${e(t("plantillas_rrhh_resultado_titulo"))}"><strong>${e(t(recibo.publicacion ? "plantillas_rrhh_publicacion_confirmada" : "plantillas_rrhh_guardado"))}</strong>
       <dl><div><dt>${e(t("plantillas_rrhh_version"))}</dt><dd>${e(String(recibo.catalogo.version))} / ${e(String(recibo.catalogo.revision))}</dd></div>
       <div><dt>${e(t("plantillas_rrhh_recibo"))}</dt><dd>${e(recibo.recibo.recibo_ref)}</dd></div>
       <div><dt>${e(t("plantillas_rrhh_fecha"))}</dt><dd>${e(fecha(recibo.recibo.registrado_en))}</dd></div></dl></section>` : ""}
-      ${mensaje ? `<div class="rrhh-plantillas-error" role="${error === "plantillas_rrhh_denegado" ? "alert" : "status"}">${e(mensaje)}</div>` : ""}
-      ${consulta === null ? `<section class="panel rrhh-plantillas-panel"><div class="cuerpo-panel" aria-busy="${ocupado}"><p>${e(t(ocupado ? "plantillas_rrhh_cargando" : "plantillas_rrhh_error_lectura"))}</p>
+      ${mensaje ? `<div id="rrhh-plantillas-estado" class="rrhh-plantillas-error" role="${bloqueado || error === "plantillas_rrhh_denegado" ? "alert" : "status"}">${e(mensaje)}</div>` : ""}
+      ${errorRecuperacion ? `<div class="rrhh-plantillas-error" role="alert">${e(t(errorRecuperacion))}</div>` : ""}
+      ${bloqueado && instantaneaPendiente ? `<div class="rrhh-plantillas-acciones"><button type="button" class="boton-secundario" data-plantillas-accion="recuperar" aria-describedby="rrhh-plantillas-estado" ${ocupado ? "disabled" : ""}>${e(t("plantillas_rrhh_recuperar_resultado"))}</button></div>` : ""}
+      ${recuperando ? `<p role="status">${e(t("plantillas_rrhh_recuperando"))}</p>` : ""}
+      ${consulta === null && bloqueado ? "" : consulta === null ? `<section class="panel rrhh-plantillas-panel"><div class="cuerpo-panel" aria-busy="${ocupado}"><p>${e(t(ocupado ? "plantillas_rrhh_cargando" : "plantillas_rrhh_error_lectura"))}</p>
       ${!ocupado ? `<button type="button" class="boton-secundario" data-plantillas-accion="recargar">${e(t("plantillas_rrhh_reintentar"))}</button>` : ""}</div></section>`
-    : `<section class="panel rrhh-plantillas-panel rrhh-plantillas-meta"><header class="cabecera-panel"><div><h3>${e(t("plantillas_rrhh_version"))}</h3>
-      <p>${e(c?.id ?? t("plantillas_rrhh_vacio"))}</p></div><span class="estado-chip ${c?.estado === "publicado" ? "info" : "violeta"}">${e(estado(c?.estado))}</span></header>
+    : `<section class="panel rrhh-plantillas-panel rrhh-plantillas-meta"><header class="cabecera-panel"><div><h3>${e(t("plantillas_rrhh_version"))}</h3></div><span class="estado-chip ${c?.estado === "publicado" ? "info" : "violeta"}">${e(estado(c?.estado))}</span></header>
       <dl class="cuerpo-panel"><div><dt>${e(t("plantillas_rrhh_version"))}</dt><dd>${c ? `${e(String(c.version))} / ${e(String(c.revision))}` : "—"}</dd></div>
       <div><dt>${e(t("plantillas_rrhh_huella"))}</dt><dd class="rrhh-plantillas-huella">${e(c?.huella_sha256 ?? "—")}</dd></div></dl></section>
       ${!puedeEditar() && !puedePublicar() ? `<p class="rrhh-plantillas-lectura" role="status">${e(t("plantillas_rrhh_no_editable"))}</p>` : ""}
@@ -175,7 +206,7 @@ export function montarRRHHPlantillas({
   }
 
   async function cargar() {
-    if (ocupado || controlador.signal.aborted) return;
+    if (ocupado || bloqueado || controlador.signal.aborted) return;
     ocupado = true; error = null; pintar();
     try {
       consulta = await cliente.consultar({ signal: controlador.signal });
@@ -211,6 +242,7 @@ export function montarRRHHPlantillas({
       fuente_ref: preparado.fuente_ref,
       entrada: preparado.entrada,
     };
+    instantaneaPendiente = instantaneaOperacion("editar", solicitud);
     ocupado = true; error = null; recibo = null;
     raiz.querySelector(".rrhh-plantillas-recibo")?.remove();
     formulario.querySelector("[data-plantillas-error]")?.remove();
@@ -219,12 +251,8 @@ export function montarRRHHPlantillas({
     formulario.querySelectorAll("button, input, textarea").forEach((nodo) => { nodo.disabled = true; });
     let conservarFormulario = false;
     try {
-      const resultado = await cliente.guardar(solicitud, { signal: controlador.signal });
-      consulta = { ...consulta, borrador: resultado.catalogo, puede_publicar: false };
-      recibo = resultado;
-      seleccionado = null;
-      claveIdempotencia = null;
-      anunciar(t("plantillas_rrhh_guardado"));
+      const resultado = await cliente.guardar(instantaneaPendiente.solicitud, { signal: controlador.signal });
+      confirmar("editar", resultado);
     } catch (fallo) {
       if (controlador.signal.aborted) return;
       if (fallo?.resultadoIndeterminado) {
@@ -234,9 +262,11 @@ export function montarRRHHPlantillas({
         error = "plantillas_rrhh_conflicto";
         seleccionado = null;
         claveIdempotencia = null;
+        instantaneaPendiente = null;
         try { consulta = await cliente.consultar({ signal: controlador.signal }); } catch { consulta = null; }
       } else {
         error = [401, 403].includes(fallo?.estado) ? "plantillas_rrhh_denegado" : "plantillas_rrhh_error_guardar";
+        instantaneaPendiente = null;
         if ([401, 403].includes(fallo?.estado)) { consulta = null; seleccionado = null; }
         else { conservarFormulario = true; claveIdempotencia = null; }
       }
@@ -247,14 +277,18 @@ export function montarRRHHPlantillas({
         formulario.querySelectorAll("button, input, textarea").forEach((nodo) => { nodo.disabled = false; });
         formulario.querySelector("[data-plantillas-error]")?.remove();
         formulario.insertAdjacentHTML("afterbegin", `<p class="rrhh-plantillas-error" data-plantillas-error role="alert">${e(t(error))}</p>`);
-      } else pintar();
+      } else {
+        pintar();
+        if (bloqueado) raiz.querySelector?.('[data-plantillas-accion="recuperar"]')?.focus?.({ preventScroll: true });
+        else if (recibo) raiz.querySelector?.(".rrhh-plantillas-recibo")?.focus?.({ preventScroll: true });
+      }
     }
   }
 
   async function publicar(formulario) {
     const borrador = consulta?.borrador;
     if (!borrador || ocupado || bloqueado || seleccionado !== null || !puedePublicar()) return;
-    const datos = new FormData(formulario);
+    const datos = formulario instanceof FormData ? formulario : new FormData(formulario);
     const aprobacion = String(datos.get("aprobacion_ref") ?? "");
     const motivo = String(datos.get("motivo") ?? "");
     if (!texto(aprobacion, 160) || !texto(motivo, 4000)) {
@@ -271,6 +305,7 @@ export function montarRRHHPlantillas({
       motivo,
       aprobacion_ref: aprobacion,
     };
+    instantaneaPendiente = instantaneaOperacion("publicar", solicitud);
     ocupado = true; error = null; recibo = null;
     raiz.querySelector(".rrhh-plantillas-recibo")?.remove();
     formulario.querySelector("[data-plantillas-error]")?.remove();
@@ -279,11 +314,8 @@ export function montarRRHHPlantillas({
     formulario.querySelectorAll("button, input, textarea").forEach((nodo) => { nodo.disabled = true; });
     let conservarFormulario = false;
     try {
-      const resultado = await cliente.publicar(solicitud, { signal: controlador.signal });
-      consulta = { ...consulta, borrador: null, publicado: resultado.catalogo, puede_publicar: false };
-      recibo = { ...resultado, publicacion: true };
-      claveIdempotencia = null;
-      anunciar(t("plantillas_rrhh_publicacion_confirmada"));
+      const resultado = await cliente.publicar(instantaneaPendiente.solicitud, { signal: controlador.signal });
+      confirmar("publicar", resultado);
     } catch (fallo) {
       if (controlador.signal.aborted) return;
       if (fallo?.resultadoIndeterminado) {
@@ -291,14 +323,17 @@ export function montarRRHHPlantillas({
         error = "plantillas_rrhh_publicacion_indeterminada";
       } else if (fallo?.estado === 409) {
         claveIdempotencia = null;
+        instantaneaPendiente = null;
         error = "plantillas_rrhh_publicacion_conflicto";
         try { consulta = await cliente.consultar({ signal: controlador.signal }); }
         catch { consulta = null; }
       } else if ([401, 403].includes(fallo?.estado)) {
         claveIdempotencia = null;
+        instantaneaPendiente = null;
         error = "plantillas_rrhh_publicacion_denegada";
       } else {
         claveIdempotencia = null;
+        instantaneaPendiente = null;
         error = "plantillas_rrhh_publicacion_error";
         conservarFormulario = true;
       }
@@ -309,7 +344,43 @@ export function montarRRHHPlantillas({
         formulario.querySelectorAll("button, input, textarea").forEach((nodo) => { nodo.disabled = false; });
         formulario.querySelector("[data-plantillas-error]")?.remove();
         formulario.insertAdjacentHTML("afterbegin", `<p class="rrhh-plantillas-error" data-plantillas-error role="alert">${e(t(error))}</p>`);
-      } else pintar();
+      } else {
+        pintar();
+        if (bloqueado) raiz.querySelector?.('[data-plantillas-accion="recuperar"]')?.focus?.({ preventScroll: true });
+        else if (recibo) raiz.querySelector?.(".rrhh-plantillas-recibo")?.focus?.({ preventScroll: true });
+      }
+    }
+  }
+
+  async function recuperar() {
+    if (!bloqueado || !instantaneaPendiente || ocupado || controlador.signal.aborted) return;
+    const instantanea = instantaneaPendiente;
+    ocupado = true;
+    recuperando = true;
+    errorRecuperacion = null;
+    pintar();
+    try {
+      const resultado = await (instantanea.operacion === "editar" ? cliente.guardar : cliente.publicar)(
+        instantanea.solicitud, { signal: controlador.signal });
+      if (controlador.signal.aborted) return;
+      confirmar(instantanea.operacion, resultado);
+    } catch (fallo) {
+      if (controlador.signal.aborted) return;
+      if ([401, 403].includes(fallo?.estado)) {
+        consulta = null;
+        seleccionado = null;
+        errorRecuperacion = "plantillas_rrhh_recuperacion_denegada";
+      } else if (fallo?.estado === 409) {
+        errorRecuperacion = "plantillas_rrhh_recuperacion_conflicto";
+      } else {
+        errorRecuperacion = "plantillas_rrhh_recuperacion_pendiente";
+      }
+    } finally {
+      ocupado = false;
+      recuperando = false;
+      pintar();
+      if (bloqueado) raiz.querySelector?.('[data-plantillas-accion="recuperar"]')?.focus?.({ preventScroll: true });
+      else if (recibo) raiz.querySelector?.(".rrhh-plantillas-recibo")?.focus?.({ preventScroll: true });
     }
   }
 
@@ -317,10 +388,11 @@ export function montarRRHHPlantillas({
     const boton = evento.target.closest?.("[data-plantillas-accion]");
     if (!boton || !raiz.contains(boton)) return;
     const accion = boton.dataset.plantillasAccion;
-    if (accion === "ayuda") { ayuda = !ayuda; pintar(); return; }
+    if (accion === "ayuda") { ayuda = !ayuda; pintar(); raiz.querySelector?.('[data-plantillas-accion="ayuda"]')?.focus?.({ preventScroll: true }); return; }
+    if (accion === "recuperar") { void recuperar(); return; }
+    if (ocupado || bloqueado) return;
     if (accion === "recargar") { void cargar(); return; }
     if (accion === "cancelar") { seleccionado = null; claveIdempotencia = null; error = null; pintar(); return; }
-    if (ocupado || bloqueado) return;
     if (["nueva", "editar"].includes(accion) && !puedeEditar()) return;
     if (accion === "nueva") { seleccionado = ""; claveIdempotencia = null; pintar(); raiz.querySelector('[name="clave"]')?.focus(); }
     if (accion === "editar") { seleccionado = boton.dataset.clave; claveIdempotencia = null; pintar(); raiz.querySelector('[name="etiqueta"]')?.focus(); }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -23,10 +24,20 @@ type autoridadConsultasRRHHDesarrollo struct {
 	ambitoRef string
 	mu        sync.Mutex
 	proveedor proveedorContextoConsultaRRHHDesarrollo
+	// El detalle documental se autoriza dentro de las dos rutas POST CT133.
+	// Conserva el mismo perfil y contexto de petición que la descarga.
+	documentalCT133         bool
+	motivoDetalleDocumental dominiovec.ReferenciaEntradaCatalogo
 }
 
 type proveedorContextoConsultaRRHHDesarrollo interface {
 	ResolverContexto(context.Context) (ports.ContextoAutorizacionAltaV3, error)
+}
+
+type proveedorContextoConsultaRRHHDesarrolloFunc func(context.Context) (ports.ContextoAutorizacionAltaV3, error)
+
+func (f proveedorContextoConsultaRRHHDesarrolloFunc) ResolverContexto(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
+	return f(ctx)
 }
 
 type adaptadorContextoConsultaRRHHCTDesarrollo struct {
@@ -212,7 +223,11 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrConsultaRRHHNoDisponible
 	}
 	capacidad, valida := a.soporte.capacidadValida(ctx)
-	if !valida || !rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) || capacidad.consultaRRHH == nil {
+	rutaValida := rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta)
+	if a.documentalCT133 {
+		rutaValida = rutaPlantillasDocumentalCTDesarrollo(capacidad.ruta)
+	}
+	if !valida || !rutaValida || capacidad.consultaRRHH == nil {
 		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaAutoridadContexto, nil)
 	}
 	a.mu.Lock()
@@ -307,6 +322,10 @@ func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesa
 		return false
 	}
 	motivo, valido := a.soporte.motivoAutorizacionParaRuta(ruta)
+	if a.documentalCT133 && rutaPlantillasDocumentalCTDesarrollo(ruta) {
+		motivo = a.motivoDetalleDocumental
+		valido = dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo)
+	}
 	r := datos.Recurso
 	if !valido || datos.ReferenciaMotivo != motivo || r.Validar() != nil ||
 		r.ModuloID != ports.ModuloContratacion || len(r.Ambitos) != 3 ||
@@ -321,8 +340,13 @@ func (a *autoridadConsultasRRHHDesarrollo) solicitudAutorizacionConsultaRRHHDesa
 			r.Tipo == ports.TipoRecursoCuadroRRHH && r.Referencia == a.ambitoRef &&
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaCuadroRRHH
 	case httpinterno.RutaConsultaDetalleRRHH:
-		return datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&
+		return !a.documentalCT133 && datos.Accion == ports.AccionConsultarDetalleRRHH && datos.Finalidad == ports.FinalidadConsultarDetalleRRHH &&
 			r.Tipo == ports.TipoRecursoExpediente && domain.ReferenciaOpacaValida(r.Referencia) &&
+			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
+	case plantillashttp.RutaBorradoresDisponibles, plantillashttp.RutaBorradores:
+		return a.documentalCT133 && datos.Accion == ports.AccionConsultarDetalleRRHH &&
+			datos.Finalidad == ports.FinalidadConsultarDetalleRRHH && r.Tipo == ports.TipoRecursoExpediente &&
+			domain.ReferenciaOpacaValida(r.Referencia) &&
 			r.Atributos["consulta_dominio"] == ports.DominioHuellaConsultaDetalleRRHH
 	default:
 		return false

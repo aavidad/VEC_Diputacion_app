@@ -44,9 +44,14 @@ type Lectura struct {
 }
 
 type Recibo struct {
-	ReciboRef    string    `json:"recibo_ref"`
-	RegistradoEn time.Time `json:"registrado_en"`
-	EstadoReplay string    `json:"estado_replay"`
+	ReciboRef            string    `json:"recibo_ref"`
+	ClaveIdempotencia    string    `json:"clave_idempotencia"`
+	Operacion            string    `json:"operacion"`
+	Version              int       `json:"version"`
+	Revision             int       `json:"revision"`
+	CatalogoHuellaSHA256 string    `json:"catalogo_huella_sha256"`
+	RegistradoEn         time.Time `json:"registrado_en"`
+	EstadoReplay         string    `json:"estado_replay"`
 }
 
 type ResultadoCambio struct {
@@ -184,7 +189,7 @@ func (s *Servicio) Editar(ctx context.Context, actor vecdomain.ContextoActor, so
 	if actual != nil && (actual.Version != solicitud.VersionEsperada || actual.Revision != solicitud.RevisionEsperada) ||
 		actual == nil && lectura.Publicado != nil && (lectura.Publicado.Version != solicitud.VersionEsperada || solicitud.RevisionEsperada != 0) ||
 		actual == nil && lectura.Publicado == nil && (solicitud.VersionEsperada != 0 || solicitud.RevisionEsperada != 0) {
-		return s.repo.Cambiar(ctx, actor, material)
+		return s.cambiar(ctx, actor, material)
 	}
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if ahora.IsZero() {
@@ -235,7 +240,7 @@ func (s *Servicio) Editar(ctx context.Context, actor vecdomain.ContextoActor, so
 	}
 	material.Catalogo = &siguiente
 	material.CatalogoHuellaSHA256, _ = siguiente.HuellaSHA256()
-	return s.repo.Cambiar(ctx, actor, material)
+	return s.cambiar(ctx, actor, material)
 }
 
 func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, solicitud SolicitudPublicar) (ResultadoCambio, error) {
@@ -252,7 +257,7 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 		return ResultadoCambio{}, err
 	}
 	if lectura.Borrador == nil || lectura.Borrador.Version != solicitud.VersionEsperada || lectura.Borrador.Revision != solicitud.RevisionEsperada {
-		return s.repo.Cambiar(ctx, actor, material)
+		return s.cambiar(ctx, actor, material)
 	}
 	if lectura.EditorDeEstaVersion || actor.Principal.ID == lectura.Borrador.CreadoPor || actor.Principal.ID == lectura.Borrador.UltimaModificacionPor {
 		return ResultadoCambio{}, vecdomain.ErrAutorizacionDenegada
@@ -263,7 +268,40 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 	}
 	material.Catalogo = &publicado
 	material.CatalogoHuellaSHA256, _ = publicado.HuellaSHA256()
-	return s.repo.Cambiar(ctx, actor, material)
+	return s.cambiar(ctx, actor, material)
+}
+
+// El recibo que cruza HTTP debe identificar exactamente la operación y el
+// catálogo confirmado por SQL, también cuando la clave recupera un replay.
+func (s *Servicio) cambiar(ctx context.Context, actor vecdomain.ContextoActor, material MaterialCambio) (ResultadoCambio, error) {
+	resultado, err := s.repo.Cambiar(ctx, actor, material)
+	if err != nil {
+		return ResultadoCambio{}, err
+	}
+	r := resultado.Recibo
+	h, err := resultado.Catalogo.HuellaSHA256()
+	if err != nil || r.ReciboRef == "" || r.RegistradoEn.IsZero() ||
+		(r.EstadoReplay != "registrado" && r.EstadoReplay != "replay") ||
+		r.ClaveIdempotencia != material.ClaveIdempotencia || r.Operacion != material.Operacion ||
+		r.Version != resultado.Catalogo.Version || r.Revision != resultado.Catalogo.Revision ||
+		r.CatalogoHuellaSHA256 != h {
+		return ResultadoCambio{}, ErrNoDisponible
+	}
+	if material.Operacion == "editar" {
+		version, revision := material.VersionEsperada, material.RevisionEsperada+1
+		if material.RevisionEsperada == 0 {
+			version, revision = material.VersionEsperada+1, 1
+		}
+		if r.Version != version || r.Revision != revision || resultado.Catalogo.Estado != vecdomain.EstadoCatalogoBorrador {
+			return ResultadoCambio{}, ErrNoDisponible
+		}
+	} else if r.Version != material.VersionEsperada || r.Revision != material.RevisionEsperada || resultado.Catalogo.Estado != vecdomain.EstadoCatalogoPublicado {
+		return ResultadoCambio{}, ErrNoDisponible
+	}
+	if material.Catalogo != nil && r.EstadoReplay == "registrado" && r.CatalogoHuellaSHA256 != material.CatalogoHuellaSHA256 {
+		return ResultadoCambio{}, ErrNoDisponible
+	}
+	return resultado, nil
 }
 
 func nuevoMaterial(operacion, clave string, version, revision int, solicitud any) (MaterialCambio, error) {

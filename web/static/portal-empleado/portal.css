@@ -375,6 +375,11 @@ a:focus-visible,
   gap: 4px;
 }
 
+.selector-idioma { display: inline-flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--portal-muted); font-size: 0.8rem; }
+.selector-idioma select { min-height: 40px; padding: 0 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
+.selector-idioma select:focus-visible { outline: 2px solid var(--portal-azul-700); outline-offset: 2px; }
+@media (max-width: 720px) { .selector-idioma > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+
 .boton-cabecera,
 .boton-menu-movil {
   min-height: 40px;

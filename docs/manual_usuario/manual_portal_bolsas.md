@@ -11,7 +11,7 @@ tramitación de personas reales: faltan decisiones de RRHH y la puerta de
 producción sigue cerrada.
 
 VEC reúne en una misma navegación la bolsa, sus candidaturas y la continuación
-de Contratación temporal. RRHH puede consultar orden, situación, contactos y
+de Peticiones de personal temporal. RRHH puede consultar orden, situación, contactos y
 actuaciones con su contexto; la persona candidata puede ver **sus propias**
 participaciones y el resultado de las acciones que el servidor admita. Los
 recibos y el historial facilitan comprobar una actuación y recuperar su
@@ -20,7 +20,7 @@ catálogo gobernado; no hay que inventar una regla jurídica para enseñar el
 recorrido.
 
 El [apartado 5](#5-bolsas-de-trabajo-recorrido-de-presentación) explica el
-recorrido de Bolsa y sus límites. Las referencias de Contratación temporal
+recorrido de Bolsa y sus límites. Las referencias de Peticiones de personal temporal
 anteriores a este corte se conservan abajo como historial de sus pruebas.
 
 ## Disponible para enseñar — 10 de septiembre de 2026
@@ -39,7 +39,7 @@ su ordenador. Consulte [acceso actual](../manual_sistemas/README.md#entorno-priv
 
 ### Consultar la validación y los documentos
 
-1. Entre en **Contratación temporal**, localice el expediente sintético
+1. Entre en **Peticiones de personal temporal**, localice el expediente sintético
    indicado por quien presenta y abra su detalle.
 2. En un caso con propuesta pendiente de validación, revise el formulario de
    resolución y marque sus dos comprobaciones solo después de leerlas.
@@ -72,7 +72,7 @@ portal, qué resultados debe esperar y qué opciones siguen pendientes.
 Describe un entorno de desarrollo con datos sintéticos, no un servicio
 autorizado para tramitar expedientes de personas reales.
 
-**Centros y organización:** en Contratación temporal, el enlace
+**Centros y organización:** en Peticiones de personal temporal, el enlace
 «Centros y organización de referencia» permite buscar unidades y consultar
 su procedencia. Los controles de edición solo aparecen cuando Sistemas
 habilita el guardado persistente. Un cambio exige revisar unidad, adscripción
@@ -83,7 +83,7 @@ viven en esa pestaña. Añadir un cargo no asigna una persona ni le concede
 permisos para solicitar o ratificar. Consulte la
 [guía vigente de organización](../../GUIA_RECORRIDO_ALBERTO.md#centros-y-organización-de-referencia).
 
-**Disponible: cinco pasos completos de Contratación temporal y partes del sexto
+**Disponible: cinco pasos completos de Peticiones de personal temporal y partes del sexto
 y séptimo: llamamiento sintético y propuesta de nombramiento de desarrollo.** No están
 completados el llamamiento corporativo, el nombramiento ni la incorporación.
 La base principal conserva 51 solicitudes, con bandeja y detalle consultables
@@ -175,8 +175,8 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.
 
 | Zona | Qué puede esperar en esta edición |
 |---|---|
-| Contratación temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
-| Cuadro y detalle de expedientes de Contratación temporal | La base del servidor conserva 52 expedientes sintéticos; bandeja y detalle consultables mediante el acceso privado preparado por Sistemas. |
+| Peticiones de personal temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
+| Cuadro y detalle de expedientes de Peticiones de personal temporal | La base del servidor conserva 52 expedientes sintéticos; bandeja y detalle consultables mediante el acceso privado preparado por Sistemas. |
 | Gestión interna de Bolsas | Cuadro, ficha de candidatos y acciones de la presentación integrada en `main`. El menú solo ofrece las capacidades habilitadas para la sesión. Consulte el apartado 5 antes de registrar una actuación sintética. |
 | Mi bolsa, área personal | Consulta de participaciones propias, situación y último llamamiento; algunas acciones muestran recibo si el servidor las confirma. Acceso con identidad de candidato habilitada para la presentación. |
 | Consulta pública de bolsas y convocatorias | Listados y detalles minimizados sin identidad. Un documento de ejemplo no son unas bases aprobadas ni permite tramitar una candidatura personal. |
@@ -198,7 +198,7 @@ correos ni expedientes reales en ninguno de estos recorridos de desarrollo.
 3. Utilice el certificado correspondiente a su función. Recursos Humanos e
    Intervención usan certificados y perfiles de navegador separados.
 4. Espere a que el portal compruebe los módulos disponibles. Para Bolsa,
-   abra **Gestión de Bolsas → Bolsas y candidatos**. Para Contratación temporal,
+   abra **Gestión de Bolsas → Bolsas y candidatos**. Para Peticiones de personal temporal,
    entre desde **Inicio del portal** en ese módulo y consulte el expediente
    sintético indicado por quien presenta.
 
@@ -219,7 +219,7 @@ competencias distintas y no se verificaría el aislamiento de la ficha propia.
 Si Sistemas ha habilitado la consulta pública, abra `/bolsa/`. Esa zona
 muestra información de convocatorias, no los expedientes internos de RRHH
 ni la ficha privada de cada aspirante. Su disponibilidad es independiente
-del recorrido interno de Contratación temporal.
+del recorrido interno de Peticiones de personal temporal.
 
 ### Conocer la presentación
 
@@ -248,7 +248,7 @@ Cerrar una pestaña no revoca por sí solo un certificado.
   con el botón de navegación. En Bolsa, los grupos desplegables reúnen
   opciones relacionadas; el apartado activo queda señalado.
 - Las **migas de navegación** y el título de la cabecera indican dónde está.
-  No confunda el llamamiento de Contratación temporal con el asistente de
+  No confunda el llamamiento de Peticiones de personal temporal con el asistente de
   presentación de Bolsa: son accesos distintos.
 - **A+** aumenta o restablece el texto y **Contraste** activa o desactiva el
   alto contraste. Estos ajustes afectan a la página abierta; no se guardan
@@ -260,10 +260,10 @@ Cerrar una pestaña no revoca por sí solo un certificado.
   texto de ayuda permanente en esa superficie.
 
 Si el panel de Bolsa no carga, no suponga que ha perdido todos los permisos
-del portal: la disponibilidad de Contratación temporal se comprueba por
+del portal: la disponibilidad de Peticiones de personal temporal se comprueba por
 separado.
 
-## 4. Recorrido real de Contratación temporal
+## 4. Recorrido real de Peticiones de personal temporal
 
 El orden disponible se resume a continuación. Los campos concretos, las
 responsabilidades y las alternativas de tramitación se desarrollan en el
@@ -287,7 +287,7 @@ completados: el paso 5 contiene más de una actuación.
 
 ### Iniciar y continuar una petición
 
-1. En **Contratación temporal → Nueva petición**, complete el formulario con
+1. En **Peticiones de personal temporal → Nueva petición**, complete el formulario con
    las entradas sintéticas de los catálogos. Revise fechas y campos
    obligatorios.
 2. Pulse **Revisar solicitud** y después **Confirmar y registrar** una sola
@@ -298,7 +298,7 @@ completados: el paso 5 contiene más de una actuación.
 4. Lea los avisos antes de confirmar. El informe muestra expresamente
    **DOCUMENTO DE DESARROLLO — SIN FIRMA NI VALIDEZ JURIDICA**.
 5. Para fiscalizar, use el perfil separado de Intervención. En
-   **Contratación temporal**, introduzca la referencia del expediente y su
+   **Peticiones de personal temporal**, introduzca la referencia del expediente y su
    versión remitida `5`; pulse **Abrir fiscalización**.
 
 Fiscalización admite **Favorable**, **Favorable con observaciones** y
@@ -312,7 +312,7 @@ conservadas y las entradas indicadas en la guía.
 
 ### Iniciar o recuperar el llamamiento y su aviso local
 
-1. Con el perfil de RRHH, abra **Contratación temporal → Nueva petición →
+1. Con el perfil de RRHH, abra **Peticiones de personal temporal → Nueva petición →
    Llamamiento y comunicación**.
 2. Para recuperar el ejemplo ya existente, tome de la guía la referencia
    del expediente fiscalizado, la versión de entrada `6` y la clave de
@@ -468,7 +468,7 @@ En el caso ya validado `v8` también están disponibles: los botones recuperan
 los borradores de su propuesta `v7`, no documentos nuevos ni firmados.
 El ejemplo original siguiente permanece conservado sin esa validación.
 
-En **Contratación temporal → Cuadro de mando**, busque
+En **Peticiones de personal temporal → Cuadro de mando**, busque
 `2026/CT-f5a5578760afec875187195d4108606a`, aplique el filtro y pulse **Abrir expediente**.
 En el detalle real `v7`, `nombramiento/en_curso`, elija un botón de cabecera:
 **Descargar informe · borrador de desarrollo** (`informe-definitivo-borrador.pdf`),
@@ -671,7 +671,7 @@ transcripción que puede leerse sin reproducir audio.
 
 Ese contenido explica el recorrido visible de Bolsa; no confirma por sí solo
 que cada operación esté habilitada para la sesión actual.
-Para el recorrido disponible de Contratación temporal, consulte el apartado
+Para el recorrido disponible de Peticiones de personal temporal, consulte el apartado
 4, el [manual de RRHH](../manual_rrhh/README.md) y la
 [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
 

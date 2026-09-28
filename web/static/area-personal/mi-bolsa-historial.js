@@ -26,7 +26,7 @@ const RESPALDO = Object.freeze({
   respuesta: "Respuesta", renuncia_simple: "Renuncia", renuncia_justificada: "Renuncia con causa justificada",
   estado: "Estado", respuesta_registrada: "Respuesta registrada", propuesta_pendiente_rrhh: "Propuesta pendiente de RRHH",
   modo: "Tratamiento", firme: "Registro directo en Bolsa", propuesta_rrhh: "Pendiente de confirmación de RRHH",
-  limite: "Solo se muestran actuaciones de VEC. Un correo enviado no acredita recepción; una renuncia registrada no acredita su resolución en Contratación; una incorporación comunicada no acredita contrato firmado ni historia laboral anterior a VEC.",
+  limite: "Solo se muestran actuaciones de VEC. Un correo enviado no acredita recepción; una renuncia registrada no acredita su resolución en Peticiones de personal temporal; una incorporación comunicada no acredita contrato firmado ni historia laboral anterior a VEC.",
 });
 
 function t(clave, variables = {}) {

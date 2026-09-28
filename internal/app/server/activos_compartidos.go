@@ -13,4 +13,5 @@ func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/comun/tema-vec.css", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/tema-vec.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/iconos-vec.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/idioma.js", soloLecturaHTTP(estaticos))
 }

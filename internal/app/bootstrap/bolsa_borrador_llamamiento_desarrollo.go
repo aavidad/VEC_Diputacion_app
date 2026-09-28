@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
@@ -77,6 +78,20 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCambiarSituac
 		return puertosbolsa.SolicitudCambiarSituacionParticipacion{}, err
 	}
 	return puertosbolsa.SolicitudCambiarSituacionParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Destino: entrada.Destino, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, FechaDisponible: entrada.FechaDisponible, Correlacion: correlacion, MotivoAutorizacion: motivoCambiarSituacionParticipacionBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaReincorporacionesTitular(ctx context.Context, bolsaRef, participacionRef string) (puertosbolsa.SolicitudConsultarReincorporacionesTitular, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarReincorporacionesTitular{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarReincorporacionesTitular{}, err
+	}
+	return puertosbolsa.SolicitudConsultarReincorporacionesTitular{Vinculo: contexto.Vinculo,
+		ResultadoContexto: contexto.Resultado, BolsaRef: bolsaRef, ParticipacionRef: participacionRef,
+		Correlacion: correlacion, MotivoAutorizacion: motivoConsultarReincorporacionTitularBolsaDesarrollo()}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarContacto(ctx context.Context, entrada bolsahttp.EntradaRegistrarContactoParticipacion) (puertosbolsa.SolicitudRegistrarContactoParticipacion, error) {
@@ -193,7 +208,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarBorr
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) contextoRevalidado(ctx context.Context) (contextoSeguridadComunDesarrollo, error) {
-	if p == nil || p.sesion == nil || ctx == nil {
+	if p == nil || p.sesion == nil || p.soporte == nil || p.soporte.soporteCanal == nil || ctx == nil {
 		return contextoSeguridadComunDesarrollo{}, ErrSeguridadComunDesarrolloDenegada
 	}
 	contexto, err := p.sesion.ResolverContexto(ctx)
@@ -277,12 +292,13 @@ var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.Generado
 type emisorBorradorLlamamientoDesarrollo struct {
 	crear, consultar, situacion, contacto, consultaContacto, datosContacto, emision, politicaOfertas *emisorMaterialRenovableCTDesarrollo
 	consultaPoliticaOfertas                                                                          *emisorMaterialRenovableCTDesarrollo
+	consultaReincorporacion                                                                          *emisorMaterialRenovableCTDesarrollo
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	situacion, operaciones, contacto, datosContacto, contratos, sanciones http.Handler
-	preparador                                                            *preparadorBorradorLlamamientoDesarrollo
-	servicio                                                              *aplicacionbolsa.ServicioContactoParticipacion
+	situacion, operaciones, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
+	preparador                                                                               *preparadorBorradorLlamamientoDesarrollo
+	servicio                                                                                 *aplicacionbolsa.ServicioContactoParticipacion
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
 	// datos y emision reciben después la regla del contacto de origen CONVOCA.
@@ -298,6 +314,10 @@ func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter,
 	}
 	if _, _, ok := bolsahttp.ReferenciasRutaContratosParticipacion(r); ok && m.contratos != nil {
 		m.contratos.ServeHTTP(w, r)
+		return
+	}
+	if _, _, ok := bolsahttp.ReferenciasRutaReincorporacionesTitularCT(r); ok && m.reincorporaciones != nil {
+		m.reincorporaciones.ServeHTTP(w, r)
 		return
 	}
 	if _, _, _, ok := bolsahttp.ReferenciasRutaSancionesParticipacion(r); ok && m.sanciones != nil {
@@ -368,6 +388,10 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 		if e != nil && e.consultaPoliticaOfertas != nil {
 			return e.consultaPoliticaOfertas.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
+	case puertosbolsa.AccionConsultarReincorporacionTitular:
+		if e != nil && e.consultaReincorporacion != nil {
+			return e.consultaReincorporacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
 	}
 	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorNoDisponibleEn()
 }
@@ -384,6 +408,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	catalogoFronteras catalogoFronterasComunDesarrollo,
 	identidadCT *proveedorSesionConsultaRRHHDesarrollo,
 	personalizacion *fuentePersonalizacionB7,
+	proveedorReincorporacion ...*proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
 	if ctx == nil || personalizacion == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
@@ -399,6 +424,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	reincorporacionActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, err
+	}
+	if reincorporacionActiva && (len(proveedorReincorporacion) != 1 || proveedorReincorporacion[0] == nil ||
+		alta.postgresql.ejecucion == nil || alta.postgresql.bolsa == nil) {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	vinculo, err := soporteBolsa.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil || !perfilActivoSeguridadComunValido(vinculo.PerfilActivoRef) ||
@@ -420,8 +449,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	soporteBolsa.soporteCanal.contextoEsperadoRegistrado = esperadoRegistrado
 	completa := false
+	detenerReincorporaciones := func() {}
 	defer func() {
 		if !completa {
+			detenerReincorporaciones()
 			cerrarAuditoria()
 		}
 	}()
@@ -481,8 +512,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoPublicarPoliticaOfertasBolsaDesarrollo(), motivoConsultarPoliticaOfertasBolsaDesarrollo()}, desde) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	if reincorporacionActiva && publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultarReincorporacionTitularBolsaDesarrollo()}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	var publicarPolitica error
-	if politicaOfertasActiva {
+	if reincorporacionActiva {
+		publicarPolitica = politicaBolsa.PublicarInicialConReincorporacion(ctx, politicaOfertasActiva)
+	} else if politicaOfertasActiva {
 		publicarPolitica = politicaBolsa.PublicarInicialConPoliticaOfertas(ctx)
 	} else {
 		publicarPolitica = politicaBolsa.PublicarInicial(ctx)
@@ -498,7 +535,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB, politicaOfertasActiva)
+	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB, politicaOfertasActiva, reincorporacionActiva)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -561,6 +598,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}}
 	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
+	if reincorporacionActiva {
+		emisor.consultaReincorporacion, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, proveedorReincorporacion[0])
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+	}
 	var rutaPoliticaOfertas vechttp.RutaExacta
 	var rutaCapacidadPoliticaOfertas vechttp.RutaExacta
 	var calculadoraOfertas puertosbolsa.CalculadoraPlazoOferta = dependenciasCT.plazosOfertasBolsa
@@ -626,6 +669,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	var handlerReincorporaciones http.Handler
+	if reincorporacionActiva {
+		handlerReincorporaciones, detenerReincorporaciones, err = nuevaCapacidadReincorporacionesTitularBolsaDesarrollo(
+			ctx, cfg, alta.postgresql.ejecucion, alta.postgresql.bolsa, preparador, servicioSituacion)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+	}
 	repositorioContacto, err := postgresbolsa.NuevoRepositorioContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -687,7 +738,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {
@@ -708,7 +759,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	// No incorporación (CT124/Bolsa 000042): con la incorporación acreditada
 	// encendida, el relevo lleva la baja a la bandeja de Bolsa.
-	cerrar := cerrarAuditoria
+	cerrar := func() { detenerReincorporaciones(); cerrarAuditoria() }
 	if incorporacionAcreditadaSolicitada(cfg) {
 		var catalogo catalogoNoIncorporacionBolsa
 		if c, ok := catalogoSanciones.(catalogoNoIncorporacionBolsa); ok && c != nil {
@@ -716,11 +767,13 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		}
 		detener, err := iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(ctx, cfg, alta.postgresql.ejecucion, alta.postgresql.bolsa, catalogo)
 		if err != nil {
+			detenerReincorporaciones()
 			slog.Error("entrega de no incorporaciones CT a Bolsa no iniciada", "causa", err)
 			return nil, nil, nil, vacio, nil, nil, err
 		}
 		cerrar = func() {
 			detener()
+			detenerReincorporaciones()
 			cerrarAuditoria()
 		}
 	}
@@ -730,6 +783,67 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		rutas = append(rutas, rutaPoliticaOfertas, rutaCapacidadPoliticaOfertas)
 	}
 	return rutas, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrar, nil
+}
+
+// nuevaCapacidadReincorporacionesTitularBolsaDesarrollo sólo activa la lectura
+// B55 y el relevo B46 cuando existen ambas fachadas SQL y sus dos ejecutores
+// nominales. Cada pool conserva su propia autoridad y el cursor queda en Bolsa.
+func nuevaCapacidadReincorporacionesTitularBolsaDesarrollo(
+	ctx context.Context, cfg config.Config, ejecucionCT, ejecucionBolsa *pgxpool.Pool,
+	preparador *preparadorBorradorLlamamientoDesarrollo, servicio *aplicacionbolsa.ServicioSituacionParticipacion,
+) (http.Handler, func(), error) {
+	if ctx == nil || ejecucionCT == nil || ejecucionBolsa == nil || ejecucionCT == ejecucionBolsa ||
+		preparador == nil || servicio == nil {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	opciones, err := cfg.BolsaContratosCT.Resolver()
+	if err != nil || !opciones.Activa || opciones.Lote < 1 || opciones.Lote > 100 {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	var usuarioCT, usuarioBolsa string
+	var ctPropio, ctAjeno, ctPermiso, bolsaPropio, bolsaAjeno, bolsaPermiso bool
+	err = ejecucionCT.QueryRow(ctx, `SELECT session_user::text,
+		pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER'),
+		pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER'),
+		coalesce(has_function_privilege(to_regprocedure('vec_contratacion_temporal.leer_reincorporaciones_bolsa_v1(bigint,text,integer)'),'EXECUTE'),false)`).
+		Scan(&usuarioCT, &ctPropio, &ctAjeno, &ctPermiso)
+	if err != nil || usuarioCT == "" || !ctPropio || ctAjeno || !ctPermiso {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	err = ejecucionBolsa.QueryRow(ctx, `SELECT session_user::text,
+		pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER'),
+		pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER'),
+		coalesce(bool_and(coalesce(has_function_privilege(to_regprocedure(f),'EXECUTE'),false)),false)
+		FROM unnest(ARRAY[
+			'vec_bolsa_llamamientos.cursor_reincorporaciones_titular_ct_v1()',
+			'vec_bolsa_llamamientos.registrar_reincorporacion_titular_ct_v1(text,text,bigint)',
+			'vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v2(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).
+		Scan(&usuarioBolsa, &bolsaPropio, &bolsaAjeno, &bolsaPermiso)
+	if err != nil || usuarioBolsa == "" || usuarioBolsa == usuarioCT || !bolsaPropio || bolsaAjeno || !bolsaPermiso {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	handler, err := bolsahttp.NuevoHandlerReincorporacionesTitularCT(preparador, servicio)
+	if err != nil {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	fuente, err := postgresbolsa.NuevaFuenteReincorporacionesTitularCTPostgreSQL(ejecucionCT)
+	if err != nil {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	buzon, err := postgresbolsa.NuevoBuzonReincorporacionesTitularCTPostgreSQL(ejecucionBolsa)
+	if err != nil {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	receptor, err := aplicacionbolsa.NuevoServicioRecepcionReincorporacionesTitular(fuente, buzon)
+	if err != nil {
+		return nil, nil, errBorradorNoDisponibleEn()
+	}
+	entregar := func(ctx context.Context) (resultadoEntregaContratosCT, error) {
+		r, err := receptor.Entregar(ctx, opciones.Lote)
+		return resultadoEntregaContratosCT{nuevos: r.Nuevas, reentregas: r.Reutilizadas,
+			rechazados: r.PendientesCese + r.CesesIncompatibles}, err
+	}
+	return handler, mantenerEntregaCTBolsa("reincorporaciones titular", entregar, opciones.Intervalo, esperarTemporizadorCTDesarrollo), nil
 }
 
 type fuenteCorreoParticipacionB7 struct {

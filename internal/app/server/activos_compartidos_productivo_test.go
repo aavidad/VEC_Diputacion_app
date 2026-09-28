@@ -16,6 +16,7 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 		"/comun/tema-vec.css",
 		"/comun/tema-vec.js",
 		"/comun/iconos-vec.js",
+		"/comun/idioma.js",
 		"/comun/oportunidades/vista.js",
 		"/comun/oportunidades/i18n.js",
 		"/comun/oportunidades/oportunidades.css",
