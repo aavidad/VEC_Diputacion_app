@@ -116,7 +116,7 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
   for (const recurso of ["portal-vistas-operaciones.js"]) {
-    assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
+    exigirVersiones(portal, `./${recurso}`, posterior(version));
     await access(new URL(recurso, raiz));
   }
   // El menú de Bolsa cambió después de F2: sus dos importadores piden la misma

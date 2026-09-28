@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-rrhh-cache-unificada-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-peticiones-personal-temporal-v1";
 import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js";
 import { opciones } from "./portal-borradores-fixtures.test-helper.mjs";
 

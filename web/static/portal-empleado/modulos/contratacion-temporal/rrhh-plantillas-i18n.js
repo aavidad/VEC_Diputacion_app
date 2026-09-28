@@ -1,7 +1,7 @@
 /** Textos de la configuración de tipos de plantilla de Contratación temporal. */
 export const MENSAJES_RRHH_PLANTILLAS_ES = Object.freeze({
   plantillas_rrhh_titulo: "Tipos de plantilla",
-  plantillas_rrhh_subtitulo: "Configuración de los borradores de Contratación temporal",
+  plantillas_rrhh_subtitulo: "Configuración de los borradores de Peticiones de personal temporal",
   plantillas_rrhh_ayuda_boton: "Mostrar ayuda sobre los tipos de plantilla",
   plantillas_rrhh_ayuda: "Cada tipo define un borrador. Guardar crea o modifica una versión en preparación. Para usarla, otra persona con permiso de publicación debe registrar la referencia de aprobación y publicar el catálogo. Publicar no firma ni envía documentos.",
   plantillas_rrhh_cargando: "Cargando tipos de plantilla…",

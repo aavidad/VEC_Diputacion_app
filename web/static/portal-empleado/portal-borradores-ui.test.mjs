@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   ErrorAPIBorradores,
-} from "./portal-borradores-api.js?v=20260928-rrhh-cache-unificada-v1";
+} from "./portal-borradores-api.js?v=20260928-peticiones-personal-temporal-v1";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,

@@ -50,5 +50,5 @@ test("RRHH enlaza cada petición entregada con su expediente en Contratación te
     { peticion: { ...peticion, referencia: "peticion:centro:sintetica-2" }, estado_entrega: "preparada", recibo_alta: null },
   ] });
   assert.equal(html.match(/class="pc-enlace-expediente"/gu)?.length, 1);
-  assert.match(html, /href="\/portal-empleado\/\?expediente=expediente%3Asintetico%3A1#contratacion-temporal" aria-label="Petición peticion:centro:sintetica-1: abrir su expediente 2026\/CT-00001 en Contratación temporal">Expediente 2026\/CT-00001<\/a>/u);
+  assert.match(html, /href="\/portal-empleado\/\?expediente=expediente%3Asintetico%3A1#contratacion-temporal" aria-label="Petición peticion:centro:sintetica-1: abrir su expediente 2026\/CT-00001 en Peticiones de personal temporal">Expediente 2026\/CT-00001<\/a>/u);
 });

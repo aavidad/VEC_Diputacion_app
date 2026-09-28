@@ -19,11 +19,11 @@ export const MENSAJES_CONTRATOS_ES = Object.freeze({
   circuito_subtitulo: "Cada autoridad debe confirmar su propio hecho antes de avanzar.",
   paso_bolsa: "Propuesta y aceptación · Bolsa",
   paso_bolsa_descripcion: "Una propuesta de llamamiento no acredita aceptación.",
-  paso_formalizacion: "Formalización y firma · Contratación",
+  paso_formalizacion: "Formalización y firma · Peticiones de personal temporal",
   paso_formalizacion_descripcion: "El borrador y la autenticación no son firma.",
   paso_personal: "Relación e incorporación · Personal",
   paso_personal_descripcion: "Solo Personal confirma la relación y la incorporación.",
-  paso_ginpix: "Entrega a GINPIX · Contratación",
+  paso_ginpix: "Entrega a GINPIX · Peticiones de personal temporal",
   paso_ginpix_descripcion: "La ficha o descarga no acredita entrega al sistema.",
   paso_reincorporacion: "Cese y disponibilidad · Personal y Bolsa",
   paso_reincorporacion_descripcion: "El cese acreditado precede a la política de Bolsa.",
@@ -49,7 +49,7 @@ export const MENSAJES_CONTRATOS_ES = Object.freeze({
   accion_reincorporar: "Reincorporar en Bolsa",
   motivo_reincorporar: "Faltan el cese acreditado y la política versionada de Bolsa.",
   ayuda: "? Ayuda sobre el circuito",
-  ayuda_contenido: "Contratación coordina referencias; Bolsa conserva propuestas, aceptaciones, orden y disponibilidad. Personal conserva relaciones e incorporaciones. La firma y la entrega a GINPIX requieren sus propios recibos. Tras un cese, Bolsa aplica la política vigente a la persona, sin inferir disponibilidad desde esta pantalla.",
+  ayuda_contenido: "Peticiones de personal temporal coordina referencias; Bolsa conserva propuestas, aceptaciones, orden y disponibilidad. Personal conserva relaciones e incorporaciones. La firma y la entrega a GINPIX requieren sus propios recibos. Tras un cese, Bolsa aplica la política vigente a la persona, sin inferir disponibilidad desde esta pantalla.",
 });
 
 export function crearTraductorContratos(catalogo = MENSAJES_CONTRATOS_ES) {

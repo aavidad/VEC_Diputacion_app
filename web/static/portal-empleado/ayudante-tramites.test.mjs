@@ -56,7 +56,7 @@ test("la guía presenta pasos, detalle accesible y límites sin interpolar HTML"
   const ayudante = crearAyudanteTramites();
   assert.equal(ayudante.titulo, MENSAJES_AYUDANTE_TRAMITES_ES.titulo);
   assert.match(ayudante.contenido, /data-ayudante-tramite=/u);
-  assert.match(ayudante.contenido, /Bolsa de trabajo y Contratación temporal/u);
+  assert.match(ayudante.contenido, /Bolsa de trabajo y Peticiones de personal temporal/u);
   assert.doesNotMatch(ayudante.contenido, /<script/u);
   assert.match(ayudante.contenido, /no guarda datos/u);
   const paso = await renderizarPrimerPaso();
