@@ -5,14 +5,14 @@ SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
-SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000056', 0));
 
 -- Reposición de B48 solo en un ensayo sin historia. Las tablas se bloquean
--- antes de comprobarlas para que ninguna actuación se inserte entre la sonda
--- y el reemplazo de la consulta.
+-- antes de fijar la instantánea SERIALIZABLE: un escritor pendiente puede
+-- confirmar mientras esperamos y debe quedar visible en la sonda posterior.
 LOCK TABLE vec_bolsa_llamamientos.situacion_participacion,
            vec_bolsa_llamamientos.datos_contacto_participacion,
            vec_bolsa_llamamientos.traza_valor_participacion IN SHARE ROW EXCLUSIVE MODE;
+SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000056', 0));
 DO $precondicion$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'

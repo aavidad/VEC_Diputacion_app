@@ -14,7 +14,7 @@ limpiar() {
   if [[ -n $contenedor ]]; then docker rm -f "$contenedor" >/dev/null 2>&1 || true; fi
   if [[ -d $temporal ]]; then
     docker run --rm --network none --pull never -v "$temporal:/limpiar" --entrypoint rm "$imagen" -rf /limpiar/18 >/dev/null 2>&1 || true
-    rm -f -- "$temporal/carrera.sql" "$temporal/carrera.log" "$temporal/prealter.sql" "$temporal/prealter.log"
+    rm -f -- "$temporal/carrera.sql" "$temporal/carrera.log" "$temporal/prealter.sql" "$temporal/prealter.log" "$temporal/down_carrera.log"
     rmdir "$temporal" 2>/dev/null || true
   fi
 }
@@ -234,6 +234,33 @@ echo 'OK postimagen B56: cuerpo, configuración y ACL ajenos conservados frente 
 sed 's/^COMMIT;$/ROLLBACK;/' "$b56.down.sql" | admin >/dev/null
 [[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") == "$nuevo" ]]
 echo 'OK B56: UP/DOWN en ROLLBACK, UP, doble UP denegado'
+# Intercalación adversarial DOWN: la primera sonda debe hacerse después de
+# esperar el bloqueo de historia. Un escritor confirma mientras DOWN espera.
+admin <<'SQL' >/dev/null &
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+INSERT INTO vec_bolsa_llamamientos.situacion_participacion
+ (participacion_ref,desde,situacion,fecha_disponible,motivo,actor,recibo_ref,registrada_en)
+ VALUES ('participacion:carrera','2026-09-28 08:00Z','disponible',NULL,
+         'Historia concurrente','actor:rrhh','recibo:carrera','2026-09-28 08:00Z');
+SELECT pg_sleep(4);
+COMMIT;
+SQL
+pid_escritura=$!
+en_barrera=false
+for _ in $(seq 1 100); do
+  if [[ $(scalar "SELECT count(*) FROM pg_stat_activity WHERE query='SELECT pg_sleep(4);' AND state='active'") == 1 ]]; then en_barrera=true; break; fi
+  sleep 0.05
+done
+[[ $en_barrera == true ]] || { echo 'B56: no alcanzó barrera DOWN concurrente' >&2; exit 1; }
+admin < "$b56.down.sql" > "$temporal/down_carrera.log" 2>&1 &
+pid_down=$!
+wait "$pid_escritura"
+if wait "$pid_down"; then echo 'B56: DOWN aceptó historia confirmada mientras esperaba' >&2; exit 1; fi
+grep -q 'B56: DOWN denegado con historia de Bolsa' "$temporal/down_carrera.log"
+[[ $(scalar "SELECT count(*) FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref='participacion:carrera'") == 1 ]]
+[[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") == "$nuevo" ]]
+echo 'OK carrera B56 DOWN: historia confirmada visible tras bloqueo'
 admin < "$directorio/fixture_y_consulta.sql" >/dev/null
 historia=$(scalar "SELECT (SELECT count(*) FROM vec_bolsa_llamamientos.situacion_participacion)::text || ':' || (SELECT count(*) FROM vec_bolsa_llamamientos.datos_contacto_participacion)::text || ':' || (SELECT count(*) FROM vec_bolsa_llamamientos.traza_valor_participacion)::text")
 if salida_down=$(admin < "$b56.down.sql" 2>&1); then
