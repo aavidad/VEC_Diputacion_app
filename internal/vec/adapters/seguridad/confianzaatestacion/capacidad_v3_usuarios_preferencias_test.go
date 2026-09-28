@@ -25,8 +25,11 @@ func (proveedorOrdenUsuariosPrueba) ProveerMaterialPreferencias(context.Context,
 
 func TestVinculoExteriorUsuariosRechazaRutaYCuentaSustituidas(t *testing.T) {
 	base := nuevoEscenarioConfianzaAtestacionV3Prueba(t)
-	v := vinculoExternoUsuariosPrueba(t, base)
-	actor := base.resultado.Contexto
+	resultado, v := vinculoExternoUsuariosPrueba(t, base)
+	actor := resultado.Contexto
+	if actor.PersonaRef != base.resultado.Contexto.PersonaRef || actor.PerfilActivoRef == base.resultado.Contexto.PerfilActivoRef || actor.Instantanea.CuentaRef == base.resultado.Contexto.Instantanea.CuentaRef {
+		t.Fatal("fixture exterior no separa cuenta/perfil de interna para misma persona")
+	}
 	if _, err := usuariosports.NuevaOrdenPreferencias(actor, v, core.SuperficieAutenticacionExternaPersonalV1, proveedorOrdenUsuariosPrueba{}); err != nil {
 		t.Fatalf("vínculo exterior legítimo: %v", err)
 	}
@@ -47,7 +50,7 @@ func TestVinculoExteriorUsuariosRechazaRutaYCuentaSustituidas(t *testing.T) {
 
 // Atraviesa el emisor HMAC real con una decisión y una atestación reales de
 // prueba, usando exactamente la preimagen de Usuarios que reconstruye SQL.
-func vinculoExternoUsuariosPrueba(t *testing.T, base escenarioConfianzaAtestacionV3Prueba) core.VinculoAutenticacionActorV2 {
+func vinculoExternoUsuariosPrueba(t *testing.T, base escenarioConfianzaAtestacionV3Prueba) (core.ResultadoContextoActorRegistradoV2, core.VinculoAutenticacionActorV2) {
 	t.Helper()
 	d, err := base.solicitud.Datos()
 	if err != nil {
@@ -57,24 +60,75 @@ func vinculoExternoUsuariosPrueba(t *testing.T, base escenarioConfianzaAtestacio
 	if err != nil {
 		t.Fatal(err)
 	}
+	z := strings.Repeat("e", 24)
+	cuenta := core.CuentaAutenticadaContextoActor{CuentaRef: "cta_" + z, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}
+	snap := base.resultado.Contexto.Instantanea
+	snap.VinculoRef = "vca_" + z
+	snap.VinculoVersion = 1
+	snap.CuentaRef = cuenta.CuentaRef
+	snap.CuentaVersion = 1
+	snap.PerfilActivoRef = "prf_" + z
+	snap.PerfilVersion = 1
+	actor, err := core.NuevoContextoActor(cuenta, snap, base.resultado.Contexto.ResueltoEn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := actor.RepresentacionCanonicaVinculadaV2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella, err := actor.HuellaSHA256VinculadaV2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ac := core.AcreditacionProcedenciaComponenteContextoActorV1{ProcedenciaRef: "prc_" + z, ProcedenciaVersion: 1, ProcedenciaHuellaSHA256: strings.Repeat("e", 64), ProcedenciaAutoridad: core.AutoridadProcedenciaContextoActorMaestraAcreditadaV1}
+	man := core.ManifiestoProcedenciaContextoActorV1{Esquema: core.EsquemaManifiestoProcedenciaContextoActorV1, AutoridadEfectiva: core.AutoridadProcedenciaContextoActorMaestraAcreditadaV1,
+		Cuenta:   core.ProcedenciaCuentaContextoActorV1{CuentaRef: cuenta.CuentaRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac},
+		Persona:  core.ProcedenciaPersonaContextoActorV1{PersonaRef: actor.PersonaRef, Version: snap.PersonaVersion, AcreditacionProcedenciaComponenteContextoActorV1: ac},
+		Perfil:   core.ProcedenciaPerfilContextoActorV1{PerfilRef: actor.PerfilActivoRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac},
+		Contexto: core.ProcedenciaVinculoContextoActorV1{VinculoRef: snap.VinculoRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac},
+		Vinculos: []core.ProcedenciaVinculoReferenciaContextoActorV1{}}
+	bm, err := man.RepresentacionCanonicaV1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hm, err := core.HuellaSHA256ManifiestoProcedenciaContextoActorV1(bm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado := core.ResultadoContextoActorRegistradoV2{RegistroContextoRef: "rca_" + z, Contexto: actor, RepresentacionCanonica: canon, HuellaSHA256: huella,
+		ManifiestoProcedenciaCanonico: bm, ManifiestoProcedenciaHuellaSHA256: hm, AutoridadEfectiva: core.AutoridadProcedenciaContextoActorMaestraAcreditadaV1, ResueltoEnAutoritativo: actor.ResueltoEn}
+	if err = resultado.Validar(); err != nil {
+		t.Fatal(err)
+	}
 	auth := v.Autenticacion()
 	auth.Superficie = core.SuperficieAutenticacionExternaPersonalV1
+	auth.AutenticacionRef = "aut_" + z
+	auth.AsercionRef = "ase_" + z
+	auth.SesionRef = "ses_" + z
+	auth.ControlSesionRef = "cse_" + z
 	auth.AutenticacionHuellaSHA256 = strings.Repeat("9", 64)
-	actor := base.resultado.Contexto
-	cuenta := core.CuentaAutenticadaContextoActor{CuentaRef: actor.Instantanea.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}
+	auth.ControlSesionHuellaSHA256 = strings.Repeat("e", 64)
+	auth.CuentaRef = cuenta.CuentaRef
+	auth.CuentaOrdinariaRef = cuenta.CuentaRef
 	externo, err := core.CrearVinculoAutenticacionActorV2(context.Background(), revalidadorConfianzaAtestacionV3Prueba{resultado: auth},
 		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auth.AutenticacionRef, SesionRef: auth.SesionRef},
-		resolutorConfianzaAtestacionV3Prueba{resultado: base.resultado}, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actor.PerfilActivoRef},
+		resolutorConfianzaAtestacionV3Prueba{resultado: resultado}, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actor.PerfilActivoRef},
 		&relojConfianzaAtestacionV3Prueba{ahora: base.ahora})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return externo
+	return resultado, externo
 }
 
 func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 	base := nuevoEscenarioConfianzaAtestacionV3Prueba(t)
-	vinculoExterno := vinculoExternoUsuariosPrueba(t, base)
+	resultadoExterno, vinculoExterno := vinculoExternoUsuariosPrueba(t, base)
+	if resultadoExterno.Contexto.PersonaRef != base.resultado.Contexto.PersonaRef || resultadoExterno.Contexto.PerfilActivoRef == base.resultado.Contexto.PerfilActivoRef ||
+		resultadoExterno.Contexto.Instantanea.CuentaRef == base.resultado.Contexto.Instantanea.CuentaRef {
+		t.Fatal("superficies sin cuenta/perfil distintos para la misma persona")
+	}
+	var huellaInternaActualizar, huellaExternaActualizar string
 	for _, caso := range []struct {
 		accion, audiencia string
 		campos            []string
@@ -87,8 +141,12 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 		{usuariosports.AccionActualizarPreferencias, usuariosports.AudienciaActualizarPreferenciasExterna, []string{"valores", "version"}, core.SuperficieAutenticacionExternaPersonalV1, "titular_preferencias_externo"},
 	} {
 		t.Run(string(caso.superficie)+"/"+caso.accion, func(t *testing.T) {
+			resultadoCaso := base.resultado
+			if caso.superficie == core.SuperficieAutenticacionExternaPersonalV1 {
+				resultadoCaso = resultadoExterno
+			}
 			m := usuariosports.MaterialPreferencias{Superficie: caso.superficie,
-				PersonaRef: base.resultado.Contexto.PersonaRef, PerfilRef: base.resultado.Contexto.PerfilActivoRef,
+				PersonaRef: resultadoCaso.Contexto.PersonaRef, PerfilRef: resultadoCaso.Contexto.PerfilActivoRef,
 				Accion: caso.accion, FinalidadRef: usuariosports.FinalidadPreferenciasPropias,
 				CatalogoVersionRef: "usuarios-preferencias-v1", VersionEsperada: 0,
 				ClaveOperacion: "operacion-1234567890", HuellaPeticion: strings.Repeat("a", 64),
@@ -140,8 +198,8 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 				t.Fatal(err)
 			}
 			cabecera := core.CabeceraAtestacionAutorizacionV3{FormatoVersion: core.VersionFormatoAtestacionAutorizacionV3, Suite: SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: base.raiz.claveID, Audiencia: audienciaConfianzaAtestacionV3Prueba}
-			atestacion := atestacionConfianzaAtestacionV3Prueba(t, cabecera, decision, base.motivo, base.resultado, base.privada, base.ahora)
-			prueba, err := base.servicio.Verificar(context.Background(), solicitud, decision, base.motivo, base.resultado, atestacion)
+			atestacion := atestacionConfianzaAtestacionV3Prueba(t, cabecera, decision, base.motivo, resultadoCaso, base.privada, base.ahora)
+			prueba, err := base.servicio.Verificar(context.Background(), solicitud, decision, base.motivo, resultadoCaso, atestacion)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -153,11 +211,11 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			capacidad, err := emisor.Emitir(context.Background(), solicitud, decision, base.motivo, base.resultado, atestacion, prueba)
+			capacidad, err := emisor.Emitir(context.Background(), solicitud, decision, base.motivo, resultadoCaso, atestacion, prueba)
 			if err != nil {
 				t.Fatal(err)
 			}
-			segunda, err := emisor.Emitir(context.Background(), solicitud, decision, base.motivo, base.resultado, atestacion, prueba)
+			segunda, err := emisor.Emitir(context.Background(), solicitud, decision, base.motivo, resultadoCaso, atestacion, prueba)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -179,6 +237,13 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 			}
 			if resumen.AudienciaConsumo() != caso.audiencia || resumen.Operacion() != caso.accion || resumen.EfectoRef() != m.PersonaRef || resumen.EfectoHuellaSHA256() != huellaRecurso {
 				t.Fatal("capacidad real no liga acción, persona, audiencia y preimagen")
+			}
+			if caso.accion == usuariosports.AccionActualizarPreferencias {
+				if caso.superficie == core.SuperficieAutenticacionInternaCorporativaV1 {
+					huellaInternaActualizar = resumen.EfectoHuellaSHA256()
+				} else {
+					huellaExternaActualizar = resumen.EfectoHuellaSHA256()
+				}
 			}
 			for indice, mutar := range []func(*usuariosports.MaterialPreferencias){
 				func(x *usuariosports.MaterialPreferencias) { x.PersonaRef = "per_otra_persona_0123456789" },
@@ -218,5 +283,8 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 				}
 			}
 		})
+	}
+	if huellaInternaActualizar == "" || huellaExternaActualizar == "" || huellaInternaActualizar == huellaExternaActualizar {
+		t.Fatal("mismo comando semántico reutiliza capacidad V3 entre portales")
 	}
 }
