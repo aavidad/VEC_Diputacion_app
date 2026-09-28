@@ -299,6 +299,10 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
+    const mensajesExpedientes = locale === "en-GB"
+      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+      : {};
+    exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),
       HeadersImpl: entorno.Headers,
@@ -311,7 +315,8 @@ export function crearCoordinadorModulosPortal({
     const promesaModalidades = new Promise((resolver) => { entregarModalidades = resolver; });
     const fuente = recursos.adaptador
       .crearAdaptadorHTTPExpedientesContratacionTemporal({
-        cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
+        cliente, locale, mensajes: mensajesExpedientes,
+        obtenerCatalogos: () => alta?.catalogos ?? null,
         obtenerJornadaCompleta: () => jornadaCompleta,
         obtenerModalidades: () => promesaModalidades,
       });
@@ -403,6 +408,7 @@ export function crearCoordinadorModulosPortal({
     }
     return {
       contratacionTemporal: Object.freeze({
+        mensajesExpedientes,
         crearPresentador: () => recursos.presentador
           .crearPresentadorExpedientesContratacionTemporal({
             fuente, capacidades: fuente.capacidades,
@@ -902,10 +908,6 @@ export function crearCoordinadorModulosPortal({
         await presentadorCT.seleccionarExpediente(expedienteRef);
         if (montaje !== secuenciaMontaje) return false;
       }
-      const mensajesExpedientes = !esFiscalizacion && locale === "en-GB"
-        ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
-        : {};
-      if (montaje !== secuenciaMontaje) return false;
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,
@@ -920,7 +922,7 @@ export function crearCoordinadorModulosPortal({
           presentador: presentadorCT,
           locale,
           zonaHoraria: ZONA_HORARIA_PORTAL,
-          mensajes: mensajesExpedientes,
+          mensajes: composicion.contratacionTemporal.mensajesExpedientes,
           alta: composicion.contratacionTemporal.alta,
           analisis: composicion.contratacionTemporal.analisis,
           fiscalizacion: typeof composicion.contratacionTemporal.analisis?.cliente
