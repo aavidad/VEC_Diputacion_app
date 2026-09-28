@@ -89,7 +89,7 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 		}
 		return n, sesionViva
 	}
-	for _, caso := range []string{"permitida", "restringida", "revocada", "cambio_entre_preparacion_y_publicacion"} {
+	for _, caso := range []string{"permitida", "restringida", "revocada", "carrera"} {
 		t.Run(caso, func(t *testing.T) {
 			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 			var aleatorio [8]byte
@@ -174,6 +174,79 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 			base := soporte.instantanea
 			if exacta, encontrada, err := instantaneaCentralCTExacta(ctx, pool, base); err != nil || !encontrada || !exacta {
 				t.Fatal("la publicación CT130 alteró el perfil base")
+			}
+			if caso == "carrera" {
+				objetivoTres := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+				objetivoTres.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{
+					{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+					{Clave: "expediente_ref", Valores: []string{"expediente:ct130:tres"}},
+				}
+				ctxDos := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)
+				competidor := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}
+				segunda, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoDos)
+				if err != nil {
+					t.Fatal(err)
+				}
+				tercera, err := competidor.PrepararInstantaneaReincorporacionTitular(ctxDos, objetivoTres)
+				if err != nil || segunda.AsignacionPerfil.Version != tercera.AsignacionPerfil.Version {
+					t.Fatal("la prueba no preparó dos candidatos desde la misma preimagen")
+				}
+				type resultadoPublicacion struct {
+					indice int
+					err    error
+				}
+				inicio := make(chan struct{})
+				resultados := make(chan resultadoPublicacion, 2)
+				go func() {
+					<-inicio
+					resultados <- resultadoPublicacion{0, a.PublicarInstantaneaReincorporacionTitular(ctxRuta, segunda)}
+				}()
+				go func() {
+					<-inicio
+					resultados <- resultadoPublicacion{1, competidor.PublicarInstantaneaReincorporacionTitular(ctxDos, tercera)}
+				}()
+				close(inicio)
+				primera, segundaRespuesta := <-resultados, <-resultados
+				exitos := 0
+				ganadora := segunda
+				for _, respuesta := range []resultadoPublicacion{primera, segundaRespuesta} {
+					if respuesta.err == nil {
+						exitos++
+						if respuesta.indice == 1 {
+							ganadora = tercera
+						}
+					}
+				}
+				if exitos != 1 {
+					t.Fatalf("CAS concurrente confirmó %d candidatos; se esperaba uno", exitos)
+				}
+				if exacta, encontrada, err := instantaneaCentralCTExacta(ctx, pool, ganadora); err != nil || !encontrada || !exacta {
+					t.Fatal("el ganador del CAS no quedó como asignación central")
+				}
+				administrativa, err := a.autoridadReincorporacionTitular(ctxRuta)
+				if err != nil {
+					t.Fatal(err)
+				}
+				administrativa.actoAsignacion = "acto:ct130:prueba:revocacion-concurrente"
+				revocada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(ganadora)
+				revocada.AsignacionPerfil.Estado = vecdomain.EstadoAsignacionPerfilRevocada
+				revocada.AsignacionPerfil.RevocadaEn = ganadora.AsignacionPerfil.EmitidaEn.Add(time.Second)
+				revocada.AsignacionPerfil.RevocadaPor = "seguridad:prueba"
+				revocada.AsignacionPerfil.RevocacionRef = "revocacion:prueba:carrera"
+				revocada, err = administrativa.prepararInstantanea(ctxRuta, revocada, false)
+				if err != nil || administrativa.publicarInstantaneaDesdePreimagen(ctxRuta, revocada, ganadora) != nil {
+					t.Fatalf("no se pudo revocar tras CAS: %v", err)
+				}
+				antes, viva := contar(t, vinculoCT130.PerfilActivoRef, vinculoCT130.SesionRef)
+				if !viva || a.PublicarInstantaneaReincorporacionTitular(ctxRuta, segunda) == nil ||
+					competidor.PublicarInstantaneaReincorporacionTitular(ctxDos, tercera) == nil {
+					t.Fatal("un candidato antiguo reactivó CT130 revocada o cayó la sesión")
+				}
+				despues, viva := contar(t, vinculoCT130.PerfilActivoRef, vinculoCT130.SesionRef)
+				if despues != antes || !viva {
+					t.Fatal("la carrera tras revocación alteró historia o sesión")
+				}
+				return
 			}
 			if caso != "permitida" {
 				segunda, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoDos)
