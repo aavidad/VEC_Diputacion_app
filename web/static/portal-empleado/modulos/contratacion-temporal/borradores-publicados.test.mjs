@@ -110,6 +110,8 @@ test("el panel solo ofrece tipos recibidos y ayuda tras ?", () => {
   assert.match(html, /data-bp-descargar="acta_ampliada" data-bp-formato="pdf"/u);
   assert.match(html, /data-bp-descargar="acta_ampliada" data-bp-formato="docx"/u);
   assert.match(html, /id="ct-bp-ayuda"[^>]*hidden/u);
+  assert.doesNotMatch(html, /Tipos disponibles para este expediente y su versión actual|<small>acta_ampliada<\/small>|catalogo:ct:publicado:1/u);
+  assert.match(html, /Recibo de publicación: recibo:12345678/u);
   assert.doesNotMatch(renderizarBorradoresPublicados({ estado: "denegado" }), /data-bp-descargar/u);
 });
 

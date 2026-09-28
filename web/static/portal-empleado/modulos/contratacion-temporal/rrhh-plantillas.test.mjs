@@ -191,11 +191,14 @@ test("los textos visibles de la vista están en el catálogo i18n", () => {
 
 test("vista separa borrador y publicación, escapa datos y oculta ayuda hasta pulsar ?", async () => {
   const eventos = new Map();
+  let focoAyuda = 0;
   const raiz = {
     innerHTML: "",
     addEventListener(nombre, gestor) { eventos.set(nombre, gestor); },
     removeEventListener(nombre) { eventos.delete(nombre); },
     contains() { return true; },
+    querySelector(selector) { return selector === '[data-plantillas-accion="ayuda"]'
+      ? { focus() { focoAyuda++; } } : null; },
     replaceChildren() { this.innerHTML = ""; },
   };
   const cliente = {
@@ -211,8 +214,16 @@ test("vista separa borrador y publicación, escapa datos y oculta ayuda hasta pu
   assert.doesNotMatch(raiz.innerHTML, /<modelo>/u);
   assert.match(raiz.innerHTML, /id="rrhh-plantillas-ayuda"[^>]*hidden/u);
   assert.match(raiz.innerHTML, /aria-controls="rrhh-plantillas-ayuda">\?<\/button>/u);
+  assert.doesNotMatch(raiz.innerHTML, /Configuración de los borradores de Contratación temporal|Seleccione una fila para revisar o editar su definición/u);
+  assert.doesNotMatch(raiz.innerHTML, /vec\.contratacion_temporal\.plantillas_documentos|<small>modelo_nuevo<\/small>/u);
+  assert.match(raiz.innerHTML, /Huella SHA-256/u);
+  assert.match(raiz.innerHTML, new RegExp("a".repeat(64)));
+  eventos.get("click")({ target: { closest() { return { dataset: { plantillasAccion: "editar", clave: "modelo_nuevo" } }; } } });
+  assert.match(raiz.innerHTML, /<form data-plantillas-form/u);
+  assert.doesNotMatch(raiz.innerHTML, /name="clave"/u);
   eventos.get("click")({ target: { closest() { return { dataset: { plantillasAccion: "ayuda" } }; } } });
   assert.doesNotMatch(raiz.innerHTML, /id="rrhh-plantillas-ayuda"[^>]*hidden/u);
+  assert.equal(focoAyuda, 1);
   vista.desmontar();
   assert.equal(raiz.innerHTML, "");
 });

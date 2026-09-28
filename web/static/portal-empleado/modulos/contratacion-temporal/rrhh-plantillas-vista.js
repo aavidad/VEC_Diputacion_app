@@ -94,12 +94,12 @@ export function montarRRHHPlantillas({
   function pintarLista() {
     const filas = entradas();
     return `<section class="panel rrhh-plantillas-panel" aria-labelledby="rrhh-plantillas-lista-titulo">
-      <header class="cabecera-panel"><div><h3 id="rrhh-plantillas-lista-titulo">${e(t("plantillas_rrhh_lista_titulo"))}</h3><p>${e(t("plantillas_rrhh_lista_subtitulo"))}</p></div>
+      <header class="cabecera-panel"><div><h3 id="rrhh-plantillas-lista-titulo">${e(t("plantillas_rrhh_lista_titulo"))}</h3></div>
       ${puedeEditar() ? `<button type="button" class="boton-primario" data-plantillas-accion="nueva" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_nueva"))}</button>` : ""}</header>
       ${filas.length ? `<div class="tabla-contenedor rrhh-plantillas-tabla" tabindex="0" role="region" aria-label="${e(t("plantillas_rrhh_lista_titulo"))}">
       <table class="tabla-datos"><thead><tr><th scope="col">${e(t("plantillas_rrhh_nombre"))}</th><th scope="col">${e(t("plantillas_rrhh_titulo_documento"))}</th>
       <th scope="col">${e(t("plantillas_rrhh_orden"))}</th><th scope="col">${e(t("plantillas_rrhh_estado"))}</th><th scope="col"></th></tr></thead><tbody>
-      ${filas.map((fila) => `<tr><th scope="row"><strong>${e(fila.etiqueta)}</strong><small>${e(fila.clave)}</small></th><td>${e(fila.atributos.titulo ?? t("plantillas_rrhh_sin_valor"))}</td>
+      ${filas.map((fila) => `<tr><th scope="row"><strong>${e(fila.etiqueta)}</strong></th><td>${e(fila.atributos.titulo ?? t("plantillas_rrhh_sin_valor"))}</td>
       <td class="rrhh-plantillas-numero">${e(new Intl.NumberFormat(locale).format(fila.orden))}</td><td><span class="estado-chip ${catalogo()?.estado === "publicado" ? "info" : "violeta"}">${e(estado(catalogo()?.estado))}</span></td>
       <td>${puedeEditar() ? `<button type="button" class="boton-secundario" data-plantillas-accion="editar" data-clave="${e(fila.clave)}" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_editar"))}</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
     : `<div class="cuerpo-panel"><p class="rrhh-plantillas-vacio">${e(t("plantillas_rrhh_vacio"))}</p></div>`}</section>`;
@@ -112,10 +112,9 @@ export function montarRRHHPlantillas({
     const fuente = catalogo()?.fuente_ref ?? "";
     const campo = (nombre, clave, valor, extra = "") => `<label><span>${e(t(clave))}</span><input name="${nombre}" value="${e(valor)}" ${extra}></label>`;
     return `<section class="panel rrhh-plantillas-panel" aria-labelledby="rrhh-plantillas-form-titulo"><header class="cabecera-panel"><div>
-      <h3 id="rrhh-plantillas-form-titulo">${e(t(anterior ? "plantillas_rrhh_form_editar" : "plantillas_rrhh_form_nueva"))}</h3>
-      <p>${e(anterior?.etiqueta ?? "")}</p></div></header><div class="cuerpo-panel">
+      <h3 id="rrhh-plantillas-form-titulo">${e(t(anterior ? "plantillas_rrhh_form_editar" : "plantillas_rrhh_form_nueva"))}</h3></div></header><div class="cuerpo-panel">
       <form data-plantillas-form novalidate><div class="rrhh-plantillas-campos">
-      ${campo("clave", "plantillas_rrhh_clave", anterior?.clave ?? "", `${anterior ? "readonly" : "required"} maxlength="80" autocomplete="off"`)}
+      ${anterior ? "" : campo("clave", "plantillas_rrhh_clave", "", 'required maxlength="80" autocomplete="off"')}
       ${campo("etiqueta", "plantillas_rrhh_nombre", anterior?.etiqueta ?? "", "required maxlength=\"256\"")}
       ${campo("titulo", "plantillas_rrhh_titulo_documento", anterior?.atributos?.titulo ?? "", "required maxlength=\"256\"")}
       ${campo("orden", "plantillas_rrhh_orden", anterior?.orden ?? 0, "required type=\"number\" min=\"0\" step=\"1\"")}
@@ -155,8 +154,7 @@ export function montarRRHHPlantillas({
     if (controlador.signal.aborted) return;
     const c = catalogo();
     const mensaje = error ? t(error) : null;
-    raiz.innerHTML = `<div class="rrhh-plantillas"><div class="rrhh-plantillas-encabezado"><div><h2>${e(t("plantillas_rrhh_titulo"))}</h2>
-      <p>${e(t("plantillas_rrhh_subtitulo"))}</p></div><button type="button" class="boton-secundario rrhh-plantillas-ayuda-boton" data-plantillas-accion="ayuda"
+    raiz.innerHTML = `<div class="rrhh-plantillas"><div class="rrhh-plantillas-encabezado"><div><h2>${e(t("plantillas_rrhh_titulo"))}</h2></div><button type="button" class="boton-secundario rrhh-plantillas-ayuda-boton" data-plantillas-accion="ayuda"
       aria-label="${e(t("plantillas_rrhh_ayuda_boton"))}" aria-expanded="${ayuda}" aria-controls="rrhh-plantillas-ayuda">?</button></div>
       <p id="rrhh-plantillas-ayuda" class="rrhh-plantillas-ayuda" ${ayuda ? "" : "hidden"}>${e(t("plantillas_rrhh_ayuda"))}</p>
       ${recibo ? `<section class="rrhh-plantillas-recibo" role="status" aria-label="${e(t("plantillas_rrhh_resultado_titulo"))}"><strong>${e(t(recibo.publicacion ? "plantillas_rrhh_publicacion_confirmada" : "plantillas_rrhh_guardado"))}</strong>
@@ -166,8 +164,7 @@ export function montarRRHHPlantillas({
       ${mensaje ? `<div class="rrhh-plantillas-error" role="${error === "plantillas_rrhh_denegado" ? "alert" : "status"}">${e(mensaje)}</div>` : ""}
       ${consulta === null ? `<section class="panel rrhh-plantillas-panel"><div class="cuerpo-panel" aria-busy="${ocupado}"><p>${e(t(ocupado ? "plantillas_rrhh_cargando" : "plantillas_rrhh_error_lectura"))}</p>
       ${!ocupado ? `<button type="button" class="boton-secundario" data-plantillas-accion="recargar">${e(t("plantillas_rrhh_reintentar"))}</button>` : ""}</div></section>`
-    : `<section class="panel rrhh-plantillas-panel rrhh-plantillas-meta"><header class="cabecera-panel"><div><h3>${e(t("plantillas_rrhh_version"))}</h3>
-      <p>${e(c?.id ?? t("plantillas_rrhh_vacio"))}</p></div><span class="estado-chip ${c?.estado === "publicado" ? "info" : "violeta"}">${e(estado(c?.estado))}</span></header>
+    : `<section class="panel rrhh-plantillas-panel rrhh-plantillas-meta"><header class="cabecera-panel"><div><h3>${e(t("plantillas_rrhh_version"))}</h3></div><span class="estado-chip ${c?.estado === "publicado" ? "info" : "violeta"}">${e(estado(c?.estado))}</span></header>
       <dl class="cuerpo-panel"><div><dt>${e(t("plantillas_rrhh_version"))}</dt><dd>${c ? `${e(String(c.version))} / ${e(String(c.revision))}` : "—"}</dd></div>
       <div><dt>${e(t("plantillas_rrhh_huella"))}</dt><dd class="rrhh-plantillas-huella">${e(c?.huella_sha256 ?? "—")}</dd></div></dl></section>
       ${!puedeEditar() && !puedePublicar() ? `<p class="rrhh-plantillas-lectura" role="status">${e(t("plantillas_rrhh_no_editable"))}</p>` : ""}
@@ -317,7 +314,7 @@ export function montarRRHHPlantillas({
     const boton = evento.target.closest?.("[data-plantillas-accion]");
     if (!boton || !raiz.contains(boton)) return;
     const accion = boton.dataset.plantillasAccion;
-    if (accion === "ayuda") { ayuda = !ayuda; pintar(); return; }
+    if (accion === "ayuda") { ayuda = !ayuda; pintar(); raiz.querySelector?.('[data-plantillas-accion="ayuda"]')?.focus?.({ preventScroll: true }); return; }
     if (accion === "recargar") { void cargar(); return; }
     if (accion === "cancelar") { seleccionado = null; claveIdempotencia = null; error = null; pintar(); return; }
     if (ocupado || bloqueado) return;
