@@ -126,6 +126,17 @@ func TestValidacionSelectoresDespliegueBolsaCT(t *testing.T) {
 	}
 }
 
+func TestValorSelectorPlantillasDocumentalEnRaizPublica(t *testing.T) {
+	t.Setenv(envCTPlantillasDocumentalEnabled, "si")
+	if err := validarValorSelectoresDespliegueBolsaCT(config.Config{}); !errors.Is(err, ErrActivacionDesarrolloInvalida) {
+		t.Fatalf("selector documental ilegible admitido: %v", err)
+	}
+	t.Setenv(envCTPlantillasDocumentalEnabled, "true")
+	if err := validarValorSelectoresDespliegueBolsaCT(config.Config{}); err != nil {
+		t.Fatalf("valor legible rechazado fuera de la raiz CT: %v", err)
+	}
+}
+
 // Pedir el portal del candidato sin su catálogo de reglas o sin poder componer
 // «Mi bolsa» detiene el arranque en lugar de no montar sus rutas en silencio.
 func TestPortalCandidatoPedidoSinSusRequisitosDetieneElArranque(t *testing.T) {
