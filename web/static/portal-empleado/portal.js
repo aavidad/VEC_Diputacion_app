@@ -27,7 +27,8 @@ import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=
 import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260928-usab-auditoria-v3";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260928-auditoria-expediente-en-v2";
-const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
+import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20260929-usuarios-pref-v1";
+let tamanoPaginaMarco = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = tamanoPaginaMarco) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : tamanoPaginaMarco; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
     .filter((pagina, indice, lista) => lista.indexOf(pagina) === indice)
@@ -70,7 +71,7 @@ function pintarPaginacionMarco(tabla, paginaSolicitada = 1) {
   });
   estado.pagina = calculo.pagina;
   estado.navegacion.innerHTML = `<span aria-live="polite">${traducirPortal('paginacion_marco_recuento', calculo)}</span><span class="paginacion-marco__paginas"><button type="button" data-paginacion-marco-accion="primera" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_primera')}</button><button type="button" data-paginacion-marco-accion="anterior" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_anterior')}</button>${botonesPaginaMarco(calculo)}<button type="button" data-paginacion-marco-accion="siguiente" ${calculo.pagina === calculo.paginas ? 'disabled' : ''}>${traducirPortal('paginacion_marco_siguiente')}</button></span>`;
-} function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = filasPaginablesMarco(tabla); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla, paginaInicialMarco(filas, TAMANO_PAGINA_MARCO)); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
+} function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = filasPaginablesMarco(tabla); if (filas.length <= tamanoPaginaMarco) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: tamanoPaginaMarco }); pintarPaginacionMarco(tabla, paginaInicialMarco(filas, tamanoPaginaMarco)); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function aplicarFilasMarco(filas) { if (![20, 50, 100].includes(filas) || filas === tamanoPaginaMarco) return; tamanoPaginaMarco = filas; document.querySelectorAll("#espacio-trabajo .tabla-contenedor > table").forEach((tabla) => { const estadoTabla = tablasPaginadas.get(tabla); if (!estadoTabla) return; estadoTabla.tamano = filas; pintarPaginacionMarco(tabla, 1); }); actualizarPaginacionesMarco(); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
 // El portal usa la API interna; Borradores mantiene su cliente autenticado, CAS e idempotencia.
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
@@ -133,6 +134,7 @@ const TITULOS = Object.freeze({
     traducirPortal("contratacion_temporal_titulo"),
   ],
   [VISTA_PLANTILLAS_RRHH]: [traducirPortal("plantillas_rrhh_miga"), traducirPortal("plantillas_rrhh_titulo")],
+  "mis-preferencias": [traducirPortal("preferencias_miga"), traducirPortal("preferencias_titulo")],
 });
 const VISTAS_BOLSA_SIN_LECTURA = new Set([
   "contratos",
@@ -308,6 +310,7 @@ function capacidadesBolsa() {
   };
 }
 function vistaPermitida(vista) {
+  if (vista === "mis-preferencias") return true;
   if (vista === VISTA_PLANTILLAS_RRHH) return estado.plantillasAutorizadas === true;
   if (vista.startsWith("seleccion-")) return false;
   if (moduloDeVistaPortal(vista) === "bolsa") return vistaBolsaNavegable(vista, capacidadesBolsa());
@@ -343,7 +346,9 @@ async function actualizarSesionVisible() {
   perfil.textContent = datos.perfil;
   perfil.hidden = datos.perfil === "";
   sesion.querySelector("[data-sesion-texto]").hidden = false;
-  sesion.setAttribute("aria-label", datos.perfil ? `${datos.nombre}, ${datos.perfil}` : datos.nombre);
+  const boton = porId("boton-identidad");
+  boton.disabled = false;
+  boton.setAttribute("aria-label", datos.perfil ? `${datos.nombre}, ${datos.perfil}` : datos.nombre);
 }
 // Repinta en cuanto llega el catálogo y cada vez que termina un módulo: Inicio
 // muestra las tarjetas con «Comprobando» y cada una se actualiza sola. Una vista
@@ -579,7 +584,7 @@ function vistaDesdeHash() {
   return "portal";
 }
 
-function rutaDeVista(vista) { return rutaDeVistaPortal(vista); }
+function rutaDeVista(vista) { return vista === "mis-preferencias" ? "#mis-preferencias" : rutaDeVistaPortal(vista); }
 function tituloDeVista(vista) { return TITULOS[vista] || TITULOS.portal; }
 function moduloActivoDeVista(vista) { return moduloDeVistaPortal(vista); }
 function actualizarNavegacionModulos() {
@@ -629,6 +634,7 @@ function navegar(vista, opciones = {}) {
   estado.vista = vista;
   estado.opcionesVista = opciones;
   renderizar();
+  if (vista === "mis-preferencias" && superficiePreferencias.leerCarga() === "sin_cargar") void superficiePreferencias.cargar();
   if (requiereLecturaBolsas(vista) && estado.datosBolsas === null) void controladorBolsas.cargarBolsas();
   cerrarMenuMovil();
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
@@ -749,6 +755,12 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
+  if (estado.vista === "mis-preferencias") {
+    coordinadorModulos.retirarVistaMontada();
+    estado.vistaMontada = "";
+    contenedor.innerHTML = superficiePreferencias.renderizar();
+    return;
+  }
   coordinadorModulos.prepararVista(estado.vista);
   const pendiente = estado.vista === "portal" ? coordinadorModulos.inicioPendiente()
     : coordinadorModulos.vistaPendiente(estado.vista);
@@ -1041,6 +1053,10 @@ function instalarEventosAuditoriaBolsa() {
   });
 }
 
+const integracionPreferencias = crearIntegracionPreferenciasPortal({ documento: document, ventana: window, porId, estado, renderizar,
+  aplicarFilas: aplicarFilasMarco, navegar, vistaBolsaDisponible: () => vistaPermitida("resumen") && resolverAccesoPerfil("bolsa").disponible === true,
+  altaCTDisponible: () => coordinadorModulos.altaCTDisponible(), anunciar, traducir: traducirPortal });
+const superficiePreferencias = integracionPreferencias.superficie;
 const controlador = crearControladorPortal({
   anunciar, cargarFuenteDatos,
   cerrarMenuMovil, comprobarDisponibilidadBorradores: superficieBorradores.comprobarDisponibilidad,
@@ -1048,6 +1064,7 @@ const controlador = crearControladorPortal({
   etiquetaFuentePanel, navegar, notaOperacionNoCompuesta, numero,
   obtenerDatosPanel: () => DATOS_PANEL, porcentajeSeguro, porId, renderizar,
   renderizarContenidoAyuda, solicitarPropuestaLlamamiento, traducir: traducirPortal, vistaDesdeHash,
+  alternarPreferenciaVisual: integracionPreferencias.alternarVisualVolatil,
 });
 
 async function inicializar() {
@@ -1057,6 +1074,7 @@ async function inicializar() {
   instalarValidacionI18n(document);
   configurarInicioInstitucional();
   controlador.restaurarPreferencias();
+  const aperturaSinDestino = !window.location.hash || window.location.hash === "#portal";
   const vistaInicial = vistaDesdeHash();
   destinoPlantillasInicial = vistaInicial === VISTA_PLANTILLAS_RRHH;
   destinoPoliticaCeseInicial = vistaInicial === "reglas";
@@ -1064,16 +1082,19 @@ async function inicializar() {
   estado.opcionesVista = opcionesDesdeEnlace(estado.vista);
   renderizar();
   controlador.instalar();
+  integracionPreferencias.instalarMenu();
   controladorBolsas.instalar();
   instalarEventosAvisosBolsa();
   instalarEventosAuditoriaBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarCopiaJustificantes(document);
   instalarEventosBorradores(); instalarPaginacionMarco();
+  superficiePreferencias.instalar(porId("espacio-trabajo"));
   void actualizarSesionVisible();
-  // cargarFuenteDatos pinta el resultado: Inicio conservando el foco y una
-  // vista de módulo solo si no se montó ya durante la carga.
+  const cargaPreferencias = superficiePreferencias.cargar();
   await cargarFuenteDatos();
+  await cargaPreferencias;
+  if (aperturaSinDestino) integracionPreferencias.aplicarInicio();
 }
 
 document.addEventListener("DOMContentLoaded", inicializar, { once: true });

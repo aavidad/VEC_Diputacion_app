@@ -55,6 +55,9 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     ["modulos/contratacion-temporal/vista-expedientes.js", "20260928-usab-exp-firma-v1"],
     ["modulos/auditoria/vista.js", "20260928-usab-auditoria-v3"],
     ["modulos/auditoria/i18n.js", "20260928-usab-auditoria-v3"],
+    ["portal-preferencias-integracion.js", "20260929-usuarios-pref-v1"],
+    ["portal-preferencias.js", "20260929-usuarios-pref-v1"],
+    ["portal-preferencias-i18n.js", "20260929-usuarios-pref-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

@@ -3,6 +3,7 @@ import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=2026
 import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260928-ppt-503-v5";
 import { MENSAJES_RRHH_PLAZOS_ES } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
 import { MENSAJES_POLITICA_CESE_ES } from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-rrhh-politica-cese-v1";
+import { PREFERENCIAS_ES, PREFERENCIAS_EN } from "./portal-preferencias-i18n.js?v=20260929-usuarios-pref-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
@@ -12,6 +13,12 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   ...MENSAJES_TEXTOS_PORTAL_ES,
   ...MENSAJES_RRHH_PLAZOS_ES,
   ...MENSAJES_POLITICA_CESE_ES,
+  ...PREFERENCIAS_ES,
+  "api.usuarios.preferencias.error.no_autenticado": "La sesión ha caducado. Identifíquese de nuevo.",
+  "api.usuarios.preferencias.error.prohibido": "No tiene permiso para estas preferencias.",
+  "api.usuarios.preferencias.error.conflicto": "Las preferencias cambiaron en otra sesión. Consulte de nuevo.",
+  "api.usuarios.preferencias.error.peticion_invalida": "El servidor rechazó una opción. Consulte de nuevo el catálogo.",
+  "api.usuarios.preferencias.error.no_disponible": "El servicio de preferencias no está disponible. Consulte de nuevo más tarde.",
   inicio_rrhh_pestana_expedientes: "Expedientes en trámite",
   inicio_rrhh_pestana_bolsas: "Bolsas de trabajo",
   inicio_rrhh_pestana_sae: "Ofertas al SAE",
@@ -119,6 +126,12 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
 // Textos ingleses del shell. Las claves no cubiertas conservan el catálogo común.
 export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   ...MENSAJES_AYUDA_INICIO_RRHH_EN,
+  ...PREFERENCIAS_EN,
+  "api.usuarios.preferencias.error.no_autenticado": "Your session has expired. Sign in again.",
+  "api.usuarios.preferencias.error.prohibido": "You do not have permission to access these preferences.",
+  "api.usuarios.preferencias.error.conflicto": "Your preferences changed in another session. Load them again.",
+  "api.usuarios.preferencias.error.peticion_invalida": "The server rejected an option. Load the catalogue again.",
+  "api.usuarios.preferencias.error.no_disponible": "The preferences service is unavailable. Try loading it later.",
   auditoria_expediente_accion: "View this case’s audit trail",
   auditoria_expediente_panel: "Case audit trail",
   contratacion_temporal_miga: "Employee Portal → Temporary staff requests",
