@@ -42,12 +42,12 @@ BEGIN
     OR coalesce(p_politica#>>'{plazo,unidad}','') NOT IN ('dias_habiles','dias_naturales','horas_naturales')
     OR jsonb_typeof(p_politica#>'{plazo,cantidad}') IS DISTINCT FROM 'number'
     OR coalesce(p_politica#>>'{plazo,cantidad}','') !~ '^[0-9]{1,3}$'
-    OR NOT ((p_politica#>>'{plazo,unidad}' IN ('dias_habiles','dias_naturales')
+    OR ((p_politica#>>'{plazo,unidad}' IN ('dias_habiles','dias_naturales')
              AND (p_politica#>>'{plazo,cantidad}')::int BETWEEN 1 AND 30
              AND p_politica#>>'{plazo,computo}'='administrativo')
          OR (p_politica#>>'{plazo,unidad}'='horas_naturales'
              AND (p_politica#>>'{plazo,cantidad}')::int BETWEEN 1 AND 720
-             AND p_politica#>>'{plazo,computo}'='continuo_utc'))
+             AND p_politica#>>'{plazo,computo}'='continuo_utc')) IS NOT TRUE
     OR coalesce(p_politica#>>'{plazo,municipio_sede}','') !~ '^[0-9]{5}$'
     OR jsonb_typeof(p_politica->'adjudicacion') IS DISTINCT FROM 'object'
     OR (SELECT count(*) FROM jsonb_object_keys(p_politica->'adjudicacion'))<>2

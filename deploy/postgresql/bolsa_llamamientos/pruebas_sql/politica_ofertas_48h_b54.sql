@@ -35,6 +35,18 @@ DECLARE
  decof bytea; h text; contexto text; v jsonb; r record; q record; i integer;
  ap timestamptz; fin timestamptz; ph jsonb;
 BEGIN
+ FOR i IN 1..2 LOOP
+  BEGIN
+   PERFORM vec_bolsa_llamamientos.publicar_politica_ofertas_v1(
+    'bolsa:of:1',1,jsonb_set(jsonb_set(jsonb_set(p,'{plazo,unidad}',to_jsonb(
+      CASE WHEN i=1 THEN 'dias_habiles' ELSE 'horas_naturales' END)),
+      '{plazo,cantidad}',to_jsonb(CASE WHEN i=1 THEN 2 ELSE 48 END)),
+      '{plazo,computo}','null'::jsonb),
+    'per_actoractoractoractoractor','clave-null-computo-'||i::text,
+    'recibo:politica-ofertas:'||repeat((i+2)::text,64),cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+   RAISE EXCEPTION 'B54 aceptó cómputo nulo';
+  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
+ END LOOP;
  SELECT * INTO r FROM vec_bolsa_llamamientos.publicar_politica_ofertas_v1(
   'bolsa:of:1',1,p,'per_actoractoractoractoractor','clave-horas-0001',
   'recibo:politica-ofertas:'||repeat('d',64),cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
