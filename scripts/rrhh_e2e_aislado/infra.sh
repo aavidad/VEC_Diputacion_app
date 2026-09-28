@@ -37,10 +37,10 @@ rrhh_e2e_iniciar_pg() {
     clave=$(openssl rand -hex 32) || return 1
     mascara=$(umask)
     umask 077
-    docker run --rm --name "$nombre" \
+    docker run --rm --pull never --name "$nombre" \
         --publish "$publicar" \
         --shm-size 2g --env PGDATA=/dev/shm/vec-rrhh-e2e-pgdata \
-        --mount "type=bind,src=$VEC_E2E_ROOT,dst=/repo,readonly" \
+        --mount "type=bind,src=$VEC_E2E_ROOT/deploy/postgresql,dst=/repo/deploy/postgresql,readonly" \
         --env "POSTGRES_PASSWORD=$clave" --env POSTGRES_INITDB_ARGS='--auth-host=scram-sha-256' \
         "$imagen" >"$VEC_E2E_WORK/pg_docker.log" 2>&1 &
     VEC_E2E_PG_RUN_PID=$!

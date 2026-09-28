@@ -13,6 +13,10 @@ case "$MODE" in --smoke|--preflight|--full) ;; *) printf 'Uso: %s [--smoke|--pre
 for NAME in $(compgen -e); do
   case "$NAME" in VEC_*|PG*) unset "$NAME" ;; esac
 done
+# Fijar el daemon local antes de cualquier llamada Docker.
+unset DOCKER_CONTEXT DOCKER_HOST DOCKER_TLS_VERIFY DOCKER_CERT_PATH DOCKER_CONFIG
+[[ -S /var/run/docker.sock ]] || { echo 'Falta socket Docker Unix local' >&2; exit 2; }
+export DOCKER_HOST=unix:///var/run/docker.sock
 for TOOL in docker python3 curl openssl go mktemp sha256sum; do
   command -v "$TOOL" >/dev/null 2>&1 || { printf 'Falta %s\n' "$TOOL" >&2; exit 2; }
 done
@@ -20,6 +24,9 @@ done
 VEC_E2E_ROOT="$ROOT"
 VEC_E2E_WORK=$(mktemp -d /dev/shm/vec-e2e-rrhh.XXXXXXXX)
 export VEC_E2E_ROOT VEC_E2E_WORK
+DOCKER_CONFIG="$VEC_E2E_WORK/docker-config"
+mkdir -m 0700 -- "$DOCKER_CONFIG"
+export DOCKER_CONFIG
 VEC_E2E_MATERIAL="$VEC_E2E_WORK/material"
 export VEC_E2E_MATERIAL
 VEC_E2E_HTTP_PORT=$(python3 - <<'PY'

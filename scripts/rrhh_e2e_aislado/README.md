@@ -8,8 +8,10 @@ LOGINs nominales, certificados mTLS sintéticos y Chrome a 1440/390 px.
 
 El runner borra del proceso todas las variables `VEC_*` y `PG*` heredadas.
 Datos, secretos, binario y caché viven en `/dev/shm/vec-e2e-*`; Docker usa
-`--rm`; la única salida conservada es `ultima_evidencia.json` con códigos de
-estado, métricas visuales y referencias de recibo sintéticas. No usa SSH,
+`--rm` contra el socket Unix local y monta únicamente `deploy/postgresql`.
+La única salida conservada es `ultima_evidencia.json`, ignorada por Git, con
+códigos de estado, métricas visuales y referencias de recibo sintéticas; no
+guarda valores de cookies ni mensajes de consola. No usa SSH,
 servicios compartidos ni la base principal. Nunca se debe pasar un DSN de
 administrador al servidor. `rrhh_e2e_exportar_dsns` falla cerrado hasta que
 exista un contrato de LOGINs nominales compatible con las cuatro autoridades
@@ -29,7 +31,9 @@ positivas y las denegaciones exactas de CT y Bolsa usando el servidor mTLS
 del arnés. La sonda Chrome usa el certificado de RRHH, observa el portal y, si existe
 `VEC_E2E_BOLSA_REF` dentro del proceso aislado, consulta la política de esa
 bolsa. Verifica códigos HTTP, errores JS, cookies, almacenamiento y
-desbordamiento global. La recuperación de recibo tras reinicio y las
-interacciones específicas en pantalla deben conectarse con el recorrido
-versionado `scripts/recorridos_rrhh_auditoria_web/recorrido.py` cuando la
-historia sintética y las cuentas nominales estén preparadas.
+desbordamiento global, estado 200 de la política y su regla de 48 horas/no
+cubierta. El proxy de certificados cliente de Playwright valida la CA local
+y Chrome exige rechazo sin certificado cliente. La recuperación de recibo tras reinicio y las
+interacciones específicas en pantalla siguen pendientes de un recorrido
+versionado cuando la historia sintética y las cuentas nominales estén
+preparadas.
