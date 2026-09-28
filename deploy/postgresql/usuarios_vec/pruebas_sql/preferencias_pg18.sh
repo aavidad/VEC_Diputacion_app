@@ -40,6 +40,8 @@ psql_pg < "$sql/pruebas_sql/operaciones_sinteticas.sql" >/dev/null
 psql_login() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_usuarios_prueba_interna -d postgres "$@"; }
 psql_externa() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_usuarios_prueba_externa -d postgres "$@"; }
 psql_cruzada() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_usuarios_prueba_cruzada -d postgres "$@"; }
+psql_bolsa() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_bolsa_prueba -d postgres "$@"; }
+psql_ct() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_ct_prueba -d postgres "$@"; }
 psql_pg <<'SQL' >/dev/null
 DO $prueba$ BEGIN
  IF EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a
@@ -68,6 +70,19 @@ DO $prueba$ BEGIN
  THEN RAISE EXCEPTION 'ACL Usuarios abierta o ejecutor sin fachada'; END IF;
 END $prueba$;
 SQL
+for perfil_ajeno in bolsa ct; do
+ if [[ $perfil_ajeno == bolsa ]]; then prueba_ajena=psql_bolsa; else prueba_ajena=psql_ct; fi
+ "$prueba_ajena" <<'SQL' >/dev/null
+DO $guarda$ BEGIN
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
+   'preferencias_consulta_usuarios','x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea,
+   1,1,convert_to('sonda_bolsa','UTF8'),'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'núcleo aceptó perfil Usuarios de sesión ajena';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $guarda$;
+SQL
+done
 psql_login <<'SQL' >/dev/null
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL TimeZone='UTC';

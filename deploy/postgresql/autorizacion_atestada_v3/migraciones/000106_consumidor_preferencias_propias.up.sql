@@ -29,10 +29,24 @@ DECLARE
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  excl text:=E'               AND p_perfil_mutacion IS DISTINCT FROM ''consulta_reincorporacion_titular_bolsa''\n';
  excl_nuevo text:=excl||E'               AND p_perfil_mutacion IS DISTINCT FROM ''preferencias_consulta_usuarios''\n               AND p_perfil_mutacion IS DISTINCT FROM ''preferencias_actualizacion_usuarios''\n';
- runtime text:=E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''consulta_reincorporacion_titular_bolsa''\n';
- runtime_nuevo text:=runtime||E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''preferencias_consulta_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''preferencias_actualizacion_usuarios''\n';
  guarda text:=E'           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
- guarda_nueva text:=E'           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND d #>> ''{vinculo_autenticacion_actor,superficie}'' IS NOT DISTINCT FROM ''interna_corporativa''\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor_interno'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor_interno''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor_interno''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor_interno'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND d #>> ''{vinculo_autenticacion_actor,superficie}'' IS NOT DISTINCT FROM ''externa_personal''\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor_externo'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor_externo''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor_externo''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor_externo'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
+ guarda_nueva text:=E'           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor_interno'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor_interno''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor_interno''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor_interno'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor_externo'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor_externo''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor_externo''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor_externo'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
+ post_marca text:=E'    v_huella_capacidad := pg_catalog.encode(';
+ post_guard text:=$post$    IF p_perfil_mutacion IN ('preferencias_consulta_usuarios','preferencias_actualizacion_usuarios')
+       AND NOT (
+         (d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa'
+          AND pg_catalog.pg_has_role(session_user,'vec_usuarios_ejecutor_interno','MEMBER')
+          AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid='vec_usuarios_ejecutor_interno'::regrole AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+          AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1)
+         OR
+         (d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'
+          AND pg_catalog.pg_has_role(session_user,'vec_usuarios_ejecutor_externo','MEMBER')
+          AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid='vec_usuarios_ejecutor_externo'::regrole AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+          AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1)
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='consumo Usuarios rechazado';
+    END IF;
+$post$;
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'preferencias_consulta_usuarios'
  AND ((c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.consultar.interna_corporativa.v1'
@@ -73,19 +87,19 @@ BEGIN
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
     OR length(original)-length(replace(original,marca,''))<>length(marca)
     OR length(original)-length(replace(original,excl,''))<>length(excl)
-    OR length(original)-length(replace(original,runtime,''))<>length(runtime)
     OR length(original)-length(replace(original,guarda,''))<>length(guarda)
+    OR length(original)-length(replace(original,post_marca,''))<>length(post_marca)
     OR strpos(original,'preferencias_consulta_usuarios')<>0
     OR strpos(original,'preferencias_actualizacion_usuarios')<>0
  THEN RAISE EXCEPTION 'AD3-106: núcleo incompatible' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,excl,excl_nuevo);
- nuevo:=replace(nuevo,runtime,runtime_nuevo);
  nuevo:=replace(nuevo,guarda,guarda_nueva);
  nuevo:=replace(nuevo,marca,extension||marca);
+ nuevo:=replace(nuevo,post_marca,post_guard||post_marca);
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo
-    OR replace(replace(replace(replace(actual,extension||marca,marca),guarda_nueva,guarda),runtime_nuevo,runtime),excl_nuevo,excl) IS DISTINCT FROM original
+    OR replace(replace(replace(replace(actual,post_guard||post_marca,post_marca),extension||marca,marca),guarda_nueva,guarda),excl_nuevo,excl) IS DISTINCT FROM original
     OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
     OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
