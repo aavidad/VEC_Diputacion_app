@@ -111,6 +111,108 @@ func (s *ServicioImagen) ConsultarAjena(ctx context.Context, o ports.OrdenImagen
 	return s.consultar(ctx, o, a, titularRef, ports.AccionImagenConsultarAjena, ports.FinalidadImagenInterna)
 }
 
+func alcanceLecturaImagen(a vecdomain.ContextoActor, o ports.OrdenImagen, titularRef string) (string, string, error) {
+	if titularRef == a.PersonaRef {
+		return ports.AccionImagenConsultarPropia, ports.FinalidadImagenPropia, nil
+	}
+	if o.Audiencia() != ports.AudienciaImagenInterna {
+		return "", "", ports.ErrImagenProhibido
+	}
+	if !referenciaPersonaImagenValida(titularRef) {
+		return "", "", ports.ErrImagenPeticionInvalida
+	}
+	return ports.AccionImagenConsultarAjena, ports.FinalidadImagenInterna, nil
+}
+
+// ReferenciaActiva es la comprobación fresca que Documentos debe consumir
+// inmediatamente antes de abrir los bytes. Revalida V3 y lee sólo el estado
+// actual de Usuarios; un recibo previo no conserva acceso tras la retirada.
+func (s *ServicioImagen) ReferenciaActiva(ctx context.Context, o ports.OrdenImagen, titularRef, documentoRef string) (bool, error) {
+	a, err := s.actor(ctx, o)
+	if err != nil {
+		return false, err
+	}
+	_, _, activa, err := s.comprobarReferenciaActiva(ctx, o, a, titularRef, documentoRef)
+	return activa, err
+}
+
+func (s *ServicioImagen) comprobarReferenciaActiva(ctx context.Context, o ports.OrdenImagen, a vecdomain.ContextoActor, titularRef, documentoRef string) (ports.EstadoImagen, ports.MaterialImagen, bool, error) {
+	if !domain.ReferenciaDocumentoValida(documentoRef) {
+		return ports.EstadoImagen{}, ports.MaterialImagen{}, false, ports.ErrImagenPeticionInvalida
+	}
+	accion, finalidad, err := alcanceLecturaImagen(a, o, titularRef)
+	if err != nil {
+		return ports.EstadoImagen{}, ports.MaterialImagen{}, false, err
+	}
+	c, err := s.catalogo(ctx)
+	if err != nil {
+		return ports.EstadoImagen{}, ports.MaterialImagen{}, false, err
+	}
+	m := materialImagen(a, o, titularRef, accion, finalidad, 0, c.VersionRef, "", "", domain.EleccionImagen{})
+	v3, err := autorizacionImagen(ctx, o, m)
+	if err != nil {
+		return ports.EstadoImagen{}, ports.MaterialImagen{}, false, err
+	}
+	estado, existe, err := s.registro.Leer(ctx, o, m, v3)
+	if err != nil {
+		return ports.EstadoImagen{}, ports.MaterialImagen{}, false, err
+	}
+	if !existe {
+		return ports.EstadoImagen{}, m, false, nil
+	}
+	if estado.PersonaRef != titularRef || estado.Version == 0 || estado.CatalogoVersionRef == "" || domain.CatalogoBaseImagen().ValidarEleccion(estado.Eleccion) != nil {
+		return ports.EstadoImagen{}, ports.MaterialImagen{}, false, ports.ErrImagenNoDisponible
+	}
+	activa := estado.Eleccion.Modo == domain.ModoFoto && estado.Eleccion.DocumentoRef == documentoRef
+	return estado, m, activa, nil
+}
+
+// AbrirFoto entrega sólo la foto propia actualmente elegida. HTTP debe usar
+// Cache-Control privado con revalidación o no-store y nunca cachearla en Mi Bolsa.
+func (s *ServicioImagen) AbrirFoto(ctx context.Context, o ports.OrdenImagen, documentoRef string) (ports.ContenidoImagen, error) {
+	a, err := s.actor(ctx, o)
+	if err != nil {
+		return ports.ContenidoImagen{}, err
+	}
+	return s.abrirFoto(ctx, o, a, a.PersonaRef, documentoRef)
+}
+
+func (s *ServicioImagen) AbrirFotoAjena(ctx context.Context, o ports.OrdenImagen, titularRef, documentoRef string) (ports.ContenidoImagen, error) {
+	a, err := s.actor(ctx, o)
+	if err != nil {
+		return ports.ContenidoImagen{}, err
+	}
+	if titularRef == a.PersonaRef {
+		return ports.ContenidoImagen{}, ports.ErrImagenPeticionInvalida
+	}
+	return s.abrirFoto(ctx, o, a, titularRef, documentoRef)
+}
+
+func (s *ServicioImagen) abrirFoto(ctx context.Context, o ports.OrdenImagen, a vecdomain.ContextoActor, titularRef, documentoRef string) (ports.ContenidoImagen, error) {
+	estado, m, activa, err := s.comprobarReferenciaActiva(ctx, o, a, titularRef, documentoRef)
+	if err != nil {
+		return ports.ContenidoImagen{}, err
+	}
+	if !activa {
+		return ports.ContenidoImagen{}, ports.ErrImagenNoEncontrada
+	}
+	// El material documental se deriva del estado durable, no del cliente.
+	m.VersionEsperada, m.CatalogoVersionRef, m.Eleccion = estado.Version, estado.CatalogoVersionRef, estado.Eleccion
+	contenido, err := s.custodia.Abrir(ctx, o, m, documentoRef)
+	if err != nil {
+		clear(contenido.Bytes)
+		if errors.Is(err, ports.ErrImagenNoEncontrada) || errors.Is(err, ports.ErrImagenProhibido) || errors.Is(err, ports.ErrImagenNoAutenticado) {
+			return ports.ContenidoImagen{}, err
+		}
+		return ports.ContenidoImagen{}, ports.ErrImagenNoDisponible
+	}
+	if contenido.DocumentoRef != documentoRef || contenido.Tipo != "image/png" || len(contenido.Bytes) == 0 || len(contenido.Bytes) > ports.TamanoMaximoOriginalImagen {
+		clear(contenido.Bytes)
+		return ports.ContenidoImagen{}, ports.ErrImagenNoDisponible
+	}
+	return contenido, nil
+}
+
 func (s *ServicioImagen) consultar(ctx context.Context, o ports.OrdenImagen, a vecdomain.ContextoActor, titular, accion, finalidad string) (ports.VistaImagen, error) {
 	c, err := s.catalogo(ctx)
 	if err != nil {

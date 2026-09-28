@@ -106,6 +106,11 @@ type custodiaImagenPrueba struct {
 	existe, confirmada, disponible bool
 	reservas, recuperaciones       int
 	errorConfirmar                 bool
+	comprobador                    ports.ComprobadorReferenciaImagenActiva
+	antesAbrir                     func()
+	denegarAbrir                   bool
+	aperturas                      int
+	ultimoMaterialAbrir            ports.MaterialImagen
 }
 
 func (c *custodiaImagenPrueba) Reservar(_ context.Context, _ ports.OrdenImagen, _ ports.MaterialImagen, r ports.ReservaImagen, p ports.ImagenProcesada) (ports.ReservaImagen, error) {
@@ -136,6 +141,27 @@ func (c *custodiaImagenPrueba) ConfirmarReserva(_ context.Context, _ ports.Orden
 func (c *custodiaImagenPrueba) Disponible(_ context.Context, _ ports.OrdenImagen, _ ports.MaterialImagen, ref string) (bool, error) {
 	return c.disponible && ref == c.reserva.DocumentoRef, nil
 }
+func (c *custodiaImagenPrueba) Abrir(ctx context.Context, o ports.OrdenImagen, m ports.MaterialImagen, ref string) (ports.ContenidoImagen, error) {
+	c.aperturas++
+	c.ultimoMaterialAbrir = m
+	if c.denegarAbrir {
+		return ports.ContenidoImagen{}, ports.ErrImagenProhibido
+	}
+	if c.antesAbrir != nil {
+		c.antesAbrir()
+	}
+	if c.comprobador == nil {
+		return ports.ContenidoImagen{}, ports.ErrImagenNoDisponible
+	}
+	activa, err := c.comprobador.ReferenciaActiva(ctx, o, m.TitularPersonaRef, ref)
+	if err != nil {
+		return ports.ContenidoImagen{}, err
+	}
+	if !activa || !c.disponible || ref != c.reserva.DocumentoRef {
+		return ports.ContenidoImagen{}, ports.ErrImagenNoEncontrada
+	}
+	return ports.ContenidoImagen{DocumentoRef: ref, Tipo: "image/png", Bytes: []byte("png-de-prueba")}, nil
+}
 
 type nombreImagenPrueba struct {
 	nombre string
@@ -161,6 +187,7 @@ func fixtureImagen(t *testing.T, audiencia ports.AudienciaImagen) (*ServicioImag
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.comprobador = s
 	return s, o, p, r, c, tr, actor
 }
 
@@ -331,5 +358,105 @@ func TestFotoDenegadaNoLeeReservaNiProcesa(t *testing.T) {
 	_, err = s.ReconciliarFoto(ctx, o, p.ClaveOperacion)
 	if !errors.Is(err, ports.ErrImagenProhibido) || c.recuperaciones != 0 {
 		t.Fatalf("reconciliación sin permiso: %v", err)
+	}
+}
+
+func activarFotoImagenPrueba(t *testing.T, s *ServicioImagen, o ports.OrdenImagen, r *registroImagenPrueba) ports.ReciboImagen {
+	t.Helper()
+	rec, err := s.Subir(context.Background(), o, ports.PeticionSubirImagen{VersionEsperada: 0, CatalogoVersionRef: r.catalogo.VersionRef, ClaveOperacion: "imagen_abrir_0123456789", Paleta: "azul", TipoDeclarado: "image/png", Original: []byte("original")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rec
+}
+
+func TestAbrirFotoPropiaSoloReferenciaActiva(t *testing.T) {
+	ctx := context.Background()
+	s, o, _, r, c, _, actor := fixtureImagen(t, ports.AudienciaImagenPersonal)
+	rec := activarFotoImagenPrueba(t, s, o, r)
+	contenido, err := s.AbrirFoto(ctx, o, rec.Eleccion.DocumentoRef)
+	if err != nil || contenido.DocumentoRef != rec.Eleccion.DocumentoRef || contenido.Tipo != "image/png" || len(contenido.Bytes) == 0 || c.aperturas != 1 {
+		t.Fatalf("apertura propia %+v %v", contenido, err)
+	}
+	if c.ultimoMaterialAbrir.ActorPersonaRef != actor.PersonaRef || c.ultimoMaterialAbrir.TitularPersonaRef != actor.PersonaRef || c.ultimoMaterialAbrir.VersionEsperada != 1 || c.ultimoMaterialAbrir.Eleccion.DocumentoRef != rec.Eleccion.DocumentoRef {
+		t.Fatal("material documental no refleja la elección activa")
+	}
+	clear(contenido.Bytes)
+	ret, err := s.Retirar(ctx, o, 1, r.catalogo.VersionRef, "imagen_retirada_abrir_123", "azul")
+	if err != nil || ret.Version != 2 {
+		t.Fatalf("retirada %+v %v", ret, err)
+	}
+	activa, err := s.ReferenciaActiva(ctx, o, actor.PersonaRef, rec.Eleccion.DocumentoRef)
+	if err != nil || activa {
+		t.Fatalf("referencia retirada activa: %v %v", activa, err)
+	}
+	_, err = s.AbrirFoto(ctx, o, rec.Eleccion.DocumentoRef)
+	if !errors.Is(err, ports.ErrImagenNoEncontrada) || c.aperturas != 1 {
+		t.Fatalf("sirvió referencia retirada: %v", err)
+	}
+}
+
+func TestAbrirFotoAjenaNominalYRefSustituida(t *testing.T) {
+	ctx := context.Background()
+	s, o, p, r, c, _, _ := fixtureImagen(t, ports.AudienciaImagenInterna)
+	otra := "per_123456789abcdefghijkl"
+	ref := "doc_0123456789abcdef"
+	r.existe = true
+	r.estado = ports.EstadoImagen{PersonaRef: otra, Version: 3, CatalogoVersionRef: r.catalogo.VersionRef, Eleccion: domain.EleccionImagen{Modo: domain.ModoFoto, Paleta: "azul", DocumentoRef: ref}}
+	c.reserva = ports.ReservaImagen{PersonaRef: otra, DocumentoRef: ref}
+	c.disponible = true
+	contenido, err := s.AbrirFotoAjena(ctx, o, otra, ref)
+	if err != nil || len(contenido.Bytes) == 0 || c.ultimoMaterialAbrir.Accion != ports.AccionImagenConsultarAjena || c.ultimoMaterialAbrir.FinalidadRef != ports.FinalidadImagenInterna || c.ultimoMaterialAbrir.TitularPersonaRef != otra {
+		t.Fatalf("ajena autorizada %+v %v", contenido, err)
+	}
+	clear(contenido.Bytes)
+	r.estado.Version = 4
+	r.estado.Eleccion.DocumentoRef = "doc_nueva_0123456789abcdef"
+	_, err = s.AbrirFotoAjena(ctx, o, otra, ref)
+	if !errors.Is(err, ports.ErrImagenNoEncontrada) || c.aperturas != 1 {
+		t.Fatalf("referencia sustituida: %v", err)
+	}
+	p.denegar = true
+	_, err = s.AbrirFotoAjena(ctx, o, otra, r.estado.Eleccion.DocumentoRef)
+	if !errors.Is(err, ports.ErrImagenProhibido) || c.aperturas != 1 {
+		t.Fatalf("revocación V3: %v", err)
+	}
+	externa, ordenExterna, _, _, custodiaExterna, _, _ := fixtureImagen(t, ports.AudienciaImagenPersonal)
+	_, err = externa.AbrirFotoAjena(ctx, ordenExterna, otra, ref)
+	if !errors.Is(err, ports.ErrImagenProhibido) || custodiaExterna.aperturas != 0 {
+		t.Fatalf("audiencia personal ajena: %v", err)
+	}
+}
+
+func TestAbrirFotoRecompruebaRetiradaEnDocumentosYFallback(t *testing.T) {
+	ctx := context.Background()
+	s, o, p, r, c, _, _ := fixtureImagen(t, ports.AudienciaImagenPersonal)
+	rec := activarFotoImagenPrueba(t, s, o, r)
+	c.antesAbrir = func() {
+		r.estado.Version = 2
+		r.estado.Eleccion = domain.EleccionImagen{Modo: domain.ModoIniciales, Paleta: "azul"}
+	}
+	contenido, err := s.AbrirFoto(ctx, o, rec.Eleccion.DocumentoRef)
+	if !errors.Is(err, ports.ErrImagenNoEncontrada) || len(contenido.Bytes) != 0 || c.aperturas != 1 {
+		t.Fatalf("retirada concurrente %+v %v", contenido, err)
+	}
+	// Revocación entre la lectura de Usuarios y la apertura documental.
+	r.estado.Version = 1
+	r.estado.Eleccion = rec.Eleccion
+	c.antesAbrir = func() { p.denegar = true }
+	contenido, err = s.AbrirFoto(ctx, o, rec.Eleccion.DocumentoRef)
+	if !errors.Is(err, ports.ErrImagenProhibido) || len(contenido.Bytes) != 0 {
+		t.Fatalf("revocación concurrente %+v %v", contenido, err)
+	}
+	p.denegar = false
+	c.antesAbrir = nil
+	c.disponible = false
+	vista, err := s.ConsultarPropia(ctx, o)
+	if err != nil || vista.Estado.Eleccion.Modo != domain.ModoFoto || vista.FotoDisponible {
+		t.Fatalf("fallback visible %+v %v", vista, err)
+	}
+	contenido, err = s.AbrirFoto(ctx, o, rec.Eleccion.DocumentoRef)
+	if !errors.Is(err, ports.ErrImagenNoEncontrada) || len(contenido.Bytes) != 0 {
+		t.Fatalf("fallback bytes %+v %v", contenido, err)
 	}
 }

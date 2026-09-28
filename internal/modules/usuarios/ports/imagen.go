@@ -14,6 +14,7 @@ var (
 	ErrImagenNoAutenticado    = errors.New("usuarios imagen: no autenticado")
 	ErrImagenProhibido        = errors.New("usuarios imagen: prohibido")
 	ErrImagenConflicto        = errors.New("usuarios imagen: conflicto")
+	ErrImagenNoEncontrada     = errors.New("usuarios imagen: foto no activa o no encontrada")
 	ErrImagenPeticionInvalida = errors.New("usuarios imagen: peticion invalida")
 	ErrImagenNoDisponible     = errors.New("usuarios imagen: no disponible")
 )
@@ -178,6 +179,18 @@ type ReservaImagen struct {
 	HuellaContenido    string
 }
 
+// ContenidoImagen es la proyección mínima que HTTP podrá entregar tras una
+// lectura autorizada. El adaptador devuelve bytes propios ya recodificados,
+// verifica la huella y versión del objeto y jamás entrega el original. El
+// adaptador limita la lectura antes de asignar memoria. El consumidor libera
+// estos bytes tras responder; cabeceras de caché y tipo seguro pertenecen a
+// HTTP, no al dominio.
+type ContenidoImagen struct {
+	DocumentoRef string
+	Tipo         string
+	Bytes        []byte
+}
+
 // Documentos comunes custodia sólo la salida recodificada. Cada método
 // reautoriza actor, titular, acción, audiencia y finalidad con su autoridad
 // propia; el V3 estructural obtenido por Usuarios no basta para Documentos.
@@ -189,6 +202,19 @@ type CustodiaImagen interface {
 	RecuperarReserva(context.Context, OrdenImagen, MaterialImagen, string, string) (ReservaImagen, bool, error)
 	ConfirmarReserva(context.Context, OrdenImagen, MaterialImagen, ReservaImagen) error
 	Disponible(context.Context, OrdenImagen, MaterialImagen, string) (bool, error)
+	// Abrir reautoriza en Documentos el actor, titular, finalidad, audiencia,
+	// versión de elección activa y la referencia exacta; nunca un recibo
+	// histórico ni la mera existencia del objeto concede acceso.
+	Abrir(context.Context, OrdenImagen, MaterialImagen, string) (ContenidoImagen, error)
+}
+
+// Documentos consume este puerto justo antes de leer el objeto. La respuesta
+// procede del estado actual de Usuarios con V3 nuevo para actor, titular y
+// audiencia; no de una reserva, recibo ni referencia histórica. false niega
+// la apertura. El puente de composición puede adaptar esta interfaz sin que
+// Documentos importe tablas o tipos privados de Usuarios.
+type ComprobadorReferenciaImagenActiva interface {
+	ReferenciaActiva(context.Context, OrdenImagen, string, string) (bool, error)
 }
 
 // Una fuente de identidad separada devuelve el nombre visible autorizado sólo
