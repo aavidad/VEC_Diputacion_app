@@ -93,6 +93,38 @@ test("GET de opciones antecede al POST, que usa expediente de navegación y refs
   } finally { globalThis.FormData = original; }
 });
 
+test("paginación y reintento conservan el intervalo ligado al cursor aunque avance el reloj", async () => {
+  const { eventos, raiz } = raizFalsa();
+  const peticiones = [];
+  let fallar = false;
+  const fuente = { obtenerOpciones: async () => opciones,
+    consultar: async (entrada) => {
+      peticiones.push(entrada);
+      if (fallar) { fallar = false; throw Object.assign(Error("temporal"), { codigo: "consulta_fallida" }); }
+      return { registros: [registro], siguiente_cursor: entrada.cursor ? "" : "cursor_2" };
+    } };
+  const reloj = Date.now;
+  try {
+    Date.now = () => Date.parse("2026-09-28T12:00:00Z");
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
+    await esperar();
+    Date.now = () => Date.parse("2026-09-28T12:00:30Z");
+    eventos.click({ target: { closest: (selector) => selector === "[data-auditoria-siguiente]" ? {} : null } });
+    await esperar();
+    assert.equal(peticiones[1].cursor, "cursor_2");
+    assert.deepEqual([peticiones[1].desde, peticiones[1].hasta], [peticiones[0].desde, peticiones[0].hasta]);
+    fallar = true;
+    eventos.click({ target: { closest: (selector) => selector === "[data-auditoria-anterior]" ? {} : null } });
+    await esperar();
+    assert.match(raiz.innerHTML, /No se pudo completar/u);
+    Date.now = () => Date.parse("2026-09-28T12:01:00Z");
+    eventos.click({ target: { closest: (selector) => selector === "[data-auditoria-reintentar]" ? {} : null } });
+    await esperar();
+    assert.deepEqual([peticiones.at(-1).desde, peticiones.at(-1).hasta], [peticiones[0].desde, peticiones[0].hasta]);
+    vista.desmontar();
+  } finally { Date.now = reloj; }
+});
+
 test("sin expediente no pide opciones, y 403 en opciones no expone datos", async () => {
   const { raiz } = raizFalsa();
   let llamadas = 0;
@@ -149,6 +181,37 @@ test("filtros opcionales usan hora de Madrid y rechazan intervalos mayores de 31
   } finally { globalThis.FormData = original; }
 });
 
+test("Madrid acepta horas válidas a ambos lados del horario de verano y rechaza el hueco", async () => {
+  const { eventos, raiz } = raizFalsa();
+  const peticiones = [];
+  const fuente = { obtenerOpciones: async () => opciones,
+    consultar: async (entrada) => { peticiones.push(entrada); return { registros: [], siguiente_cursor: "" }; } };
+  const original = globalThis.FormData;
+  let valores = { desde: "2026-03-29T01:30", hasta: "2026-03-29T04:30" };
+  globalThis.FormData = class { get(k) { return valores[k]; } };
+  try {
+    const vista = montarVistaAuditoria({ raiz, fuente, expedienteRef: "exp_1", fuenteContexto: "ct" });
+    await esperar();
+    for (const [desde, hasta, utc] of [
+      ["2026-03-29T01:30", "2026-03-29T04:30", "2026-03-29T00:30:00.000Z"],
+      ["2026-10-25T01:30", "2026-10-25T04:30", "2026-10-24T23:30:00.000Z"],
+      ["2026-10-25T02:30", "2026-10-25T04:30", "2026-10-25T00:30:00.000Z"],
+    ]) {
+      valores = { desde, hasta };
+      eventos.submit({ target: { matches: () => true }, preventDefault() {} });
+      await esperar();
+      assert.equal(peticiones.at(-1).desde, utc);
+    }
+    const cantidad = peticiones.length;
+    valores = { desde: "2026-03-29T02:30", hasta: "2026-03-29T04:30" };
+    eventos.submit({ target: { matches: () => true }, preventDefault() {} });
+    await esperar();
+    assert.equal(peticiones.length, cantidad);
+    assert.match(raiz.innerHTML, /Revise las fechas/u);
+    vista.desmontar();
+  } finally { globalThis.FormData = original; }
+});
+
 test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () => {
   const { eventos, raiz } = raizFalsa();
   let resolver, signal;
@@ -162,6 +225,7 @@ test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () =
     eventos.submit({ target: { matches: () => true }, preventDefault() {} });
     eventos.input({ target: { matches: () => true, name: "desde", value: "2026-09-28T08:30", selectionStart: null, selectionEnd: null } });
     assert.equal(signal.aborted, true);
+    assert.match(raiz.innerHTML, /Pulse Consultar para aplicar los filtros/u);
     resolver({ registros: [registro], siguiente_cursor: "" });
     await esperar();
     assert.doesNotMatch(raiz.innerHTML, /per_1/u);

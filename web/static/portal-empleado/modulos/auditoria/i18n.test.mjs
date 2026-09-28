@@ -23,12 +23,13 @@ test("catálogo inglés completo y elegido por el idioma común", () => {
   const codigo = `globalThis.location = { href: "https://example.test/?lang=en" };
     const { renderizarVistaAuditoria } = await import(${JSON.stringify(new URL("./vista.js", import.meta.url).href)});
     const denegado = renderizarVistaAuditoria({ estado: "denegado" });
+    const filtrosPendientes = renderizarVistaAuditoria({ estado: "esperando", habilitada: true });
     const registro = { id: "aud_1", modulo_id: "personal", accion: "relacion.actualizada", actor_ref: "per_1",
       ocurrido_en: "2026-09-28T08:00:00Z", resultado: "confirmado", expediente_ref: "exp_1",
       recibo_ref: "rec_1", antes_sha256: "a".repeat(64), despues_sha256: "b".repeat(64),
       motivo: "rectificacion", fuente: "Personal", datos_disponibles: true, antes: {}, despues: {} };
     const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, ejemplo: true, registros: [registro] });
-    if (!denegado.includes("Access denied") || html.includes("Acceso denegado") ||
+    if (!denegado.includes("Access denied") || !filtrosPendientes.includes("Press Search to apply the filters") || html.includes("Acceso denegado") ||
       !html.includes("Updated the employment record") || !html.includes("Fictitious sample") ||
       !html.includes("View technical details") || !html.includes("Sept 2026")) process.exit(1);`;
   const resultado = spawnSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" });

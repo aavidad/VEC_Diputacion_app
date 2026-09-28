@@ -1,4 +1,4 @@
-import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v2";
+import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
 
@@ -35,16 +35,20 @@ function presentarExpedienteAuditoria(ref, t, ejemplo) {
     ? `${EXPEDIENTES_EJEMPLO[ref]} (${t("dato_ficticio")})` : t("numero_no_disponible");
 }
 
-/** Convierte la fecha introducida en hora de Madrid y rechaza horas inexistentes por cambio de horario. */
+/** Convierte una hora local de Madrid; prueba ambos lados del cambio horario y rechaza huecos. */
 function instanteMadrid(valor) {
   if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/u.test(valor)) return NaN;
   const local = Date.parse(`${valor}Z`);
   if (!Number.isFinite(local)) return NaN;
-  const partes = Object.fromEntries(formatoPartesMadrid.formatToParts(new Date(local)).map(({ type, value }) => [type, value]));
-  const madridEnUTC = Date.UTC(+partes.year, +partes.month - 1, +partes.day, +partes.hour, +partes.minute);
-  const instante = local - (madridEnUTC - local);
-  const real = Object.fromEntries(formatoPartesMadrid.formatToParts(new Date(instante)).map(({ type, value }) => [type, value]));
-  return `${real.year}-${real.month}-${real.day}T${real.hour}:${real.minute}` === valor ? instante : NaN;
+  const candidatos = [];
+  for (const prueba of [local - DIA_MS, local, local + DIA_MS]) {
+    const partes = Object.fromEntries(formatoPartesMadrid.formatToParts(new Date(prueba)).map(({ type, value }) => [type, value]));
+    const desplazamiento = Date.parse(`${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}:00Z`) - prueba;
+    const instante = local - desplazamiento;
+    const real = Object.fromEntries(formatoPartesMadrid.formatToParts(new Date(instante)).map(({ type, value }) => [type, value]));
+    if (`${real.year}-${real.month}-${real.day}T${real.hour}:${real.minute}` === valor) candidatos.push(instante);
+  }
+  return candidatos.length ? Math.min(...candidatos) : NaN;
 }
 
 function proyeccion(v) {
@@ -146,6 +150,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
   const fuenteValida = fuenteContexto === "ct" || fuenteContexto === "bolsa";
   let habilitada = false, opciones = null;
   let activa = true, ayudaAbierta = false, estado = fuente && expedienteValido && fuenteValida ? "cargando_opciones" : "no_configurado";
+  const ahoraApertura = Date.now();
   let filtros = {}, registros = [], siguienteCursor = "", cursores = [""], controlador, secuencia = 0;
   const pintar = () => { if (activa) raiz.innerHTML = renderizarVistaAuditoria({
     estado, ayudaAbierta, habilitada, expedienteRef: expedienteValido && fuenteValida ? expedienteRef : "",
@@ -165,7 +170,7 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
       if (!recibidas.fuentes.includes(fuenteContexto)) {
         opciones = null; habilitada = false; registros = []; estado = "denegado"; pintar(); return;
       }
-      opciones = recibidas; habilitada = true; estado = "esperando"; pintar(); void consultar();
+      opciones = recibidas; habilitada = true; void consultar();
     } catch (error) {
       if (!activa || signal.aborted || secuencia !== actual) return;
       opciones = null; habilitada = false; registros = []; estado = error?.codigo === "denegado" ? "denegado" : "error"; pintar();
@@ -176,9 +181,8 @@ export function montarVistaAuditoria({ raiz, fuente, expedienteRef = "", fuenteC
     cancelar(); controlador = new AbortController(); const signal = controlador.signal, actual = secuencia;
     estado = "cargando"; registros = []; siguienteCursor = ""; pintar();
     try {
-      const ahora = Date.now();
-      const inicio = filtros.desde ? instanteMadrid(filtros.desde) : ahora - 30 * DIA_MS;
-      const fin = filtros.hasta ? instanteMadrid(filtros.hasta) : ahora;
+      const inicio = filtros.desde ? instanteMadrid(filtros.desde) : ahoraApertura - 30 * DIA_MS;
+      const fin = filtros.hasta ? instanteMadrid(filtros.hasta) : ahoraApertura;
       if (!Number.isFinite(inicio) || !Number.isFinite(fin) || fin <= inicio || fin - inicio > 31 * DIA_MS) {
         estado = "invalido"; pintar(); anunciar(t("estado_invalido"), "error"); return;
       }

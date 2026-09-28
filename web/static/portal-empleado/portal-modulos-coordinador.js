@@ -99,7 +99,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
       import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-auditoria-expediente-en-v2"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
-      import("./modulos/auditoria/vista.js?v=20260928-usab-auditoria-v2"),
+      import("./modulos/auditoria/vista.js?v=20260928-usab-auditoria-v3"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
