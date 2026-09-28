@@ -11,6 +11,9 @@ func TestDatosOfertaValidar(t *testing.T) {
 	if err := valida.Validar(); err != nil {
 		t.Fatalf("oferta sin fecha de fin rechazada: %v", err)
 	}
+	if valida.NumeroPlazasEfectivas() != 1 {
+		t.Fatal("la oferta histórica perdió su única plaza")
+	}
 	casos := map[string]func(*DatosOferta){
 		"categoria vacía":   func(d *DatosOferta) { d.Categoria = "" },
 		"centro con blanco": func(d *DatosOferta) { d.Centro = " Residencia" },
@@ -18,6 +21,8 @@ func TestDatosOfertaValidar(t *testing.T) {
 		"fin anterior":      func(d *DatosOferta) { d.FechaFin = "2026-09-30" },
 		"fin mal formada":   func(d *DatosOferta) { d.FechaFin = "31/12/2026" },
 		"descripción larga": func(d *DatosOferta) { d.Descripcion = strings.Repeat("x", 2001) },
+		"plazas negativas":  func(d *DatosOferta) { d.NumeroPlazas = -1 },
+		"plazas excesivas":  func(d *DatosOferta) { d.NumeroPlazas = MaximoPlazasOferta + 1 },
 	}
 	for nombre, mutar := range casos {
 		d := valida
@@ -30,5 +35,9 @@ func TestDatosOfertaValidar(t *testing.T) {
 	d.FechaFin = "2026-10-01"
 	if err := d.Validar(); err != nil {
 		t.Fatalf("fin igual al inicio rechazado: %v", err)
+	}
+	d.NumeroPlazas = 3
+	if err := d.Validar(); err != nil || d.NumeroPlazasEfectivas() != 3 {
+		t.Fatalf("oferta de tres plazas rechazada: %v", err)
 	}
 }

@@ -49,3 +49,18 @@ func TestPoliticaOfertasHorasNaturalesConfigurables(t *testing.T) {
 		t.Fatal("horas con calendario administrativo aceptadas")
 	}
 }
+
+func TestPoliticaAdjudicacionExigeSegundaPersonaPorDefecto(t *testing.T) {
+	p := AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"}
+	if !p.SegundaValidacionRequerida() {
+		t.Fatal("una versión histórica sin campo permitiría confirmar con una persona")
+	}
+	no := false
+	p.RequiereSegundaValidacion = &no
+	if p.SegundaValidacionRequerida() {
+		t.Fatal("false no se conservó como dato histórico")
+	}
+	politica := PoliticaOfertas{Plazo: PlazoPoliticaOfertas{Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087"},
+		Adjudicacion: p, NoCubierta: NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"}}
+	if politica.Validar() == nil { t.Fatal("false abrió una adjudicación de un solo actor") }
+}

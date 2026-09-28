@@ -24,6 +24,12 @@ type PlazoPoliticaOfertas struct {
 type AdjudicacionPoliticaOfertas struct {
 	Criterio     string `json:"criterio"`
 	Elegibilidad string `json:"elegibilidad"`
+	// Ausente en versiones anteriores: el valor seguro es exigir otra persona.
+	RequiereSegundaValidacion *bool `json:"requiere_segunda_validacion,omitempty"`
+}
+
+func (p AdjudicacionPoliticaOfertas) SegundaValidacionRequerida() bool {
+	return p.RequiereSegundaValidacion == nil || *p.RequiereSegundaValidacion
 }
 
 type NoCubiertaPoliticaOfertas struct {
@@ -45,6 +51,7 @@ func (p PoliticaOfertas) Validar() error {
 		(unidad == "horas_naturales" && cantidad >= 1 && cantidad <= 720 && computo == "continuo_utc")
 	if !plazoValido || !municipioINE.MatchString(p.Plazo.MunicipioSede) ||
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
+		!p.Adjudicacion.SegundaValidacionRequerida() ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
 	}

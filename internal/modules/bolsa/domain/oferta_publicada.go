@@ -23,9 +23,10 @@ const (
 )
 
 const (
-	minimoTextoOferta = 2
-	maximoTextoOferta = 2000
-	formatoFechaDia   = "2006-01-02"
+	minimoTextoOferta  = 2
+	maximoTextoOferta  = 2000
+	MaximoPlazasOferta = 100
+	formatoFechaDia    = "2006-01-02"
 )
 
 var ErrDatosOfertaInvalidos = errors.New("bolsa: datos de oferta invalidos")
@@ -38,10 +39,23 @@ type DatosOferta struct {
 	FechaInicio string `json:"fecha_inicio"`
 	FechaFin    string `json:"fecha_fin,omitempty"`
 	Descripcion string `json:"descripcion"`
+	// Cero solo representa una oferta histórica anterior al catálogo de plazas:
+	// su capacidad efectiva es una. Las ofertas nuevas declaran 1..100.
+	NumeroPlazas int `json:"numero_plazas,omitempty"`
+}
+
+func (d DatosOferta) NumeroPlazasEfectivas() int {
+	if d.NumeroPlazas == 0 {
+		return 1
+	}
+	return d.NumeroPlazas
 }
 
 // Validar exige textos recortados y acotados y fechas coherentes.
 func (d DatosOferta) Validar() error {
+	if d.NumeroPlazas < 0 || d.NumeroPlazas > MaximoPlazasOferta {
+		return ErrDatosOfertaInvalidos
+	}
 	for _, texto := range []string{d.Categoria, d.Centro, d.FechaInicio, d.Descripcion} {
 		if !textoOfertaValido(texto) {
 			return ErrDatosOfertaInvalidos
