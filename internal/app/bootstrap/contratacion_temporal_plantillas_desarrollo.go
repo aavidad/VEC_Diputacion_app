@@ -41,15 +41,30 @@ func cargarPlantillasBorradorCTDesarrollo(cfg config.Config, instante time.Time)
 }
 
 func plantillasBorradorCTDesdeFichero(ruta string, instante time.Time) (*informejuridico.PlantillasBorrador, error) {
-	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	catalogo, err := CargarCatalogoPlantillasCT(ruta)
+	if err != nil {
+		return nil, err
+	}
+	plantillas, err := informejuridico.NuevasPlantillasBorrador(catalogo, instante)
 	if err != nil {
 		return nil, errors.Join(errPlantillasCTNoDisponibles, err)
+	}
+	return plantillas, nil
+}
+
+// CargarCatalogoPlantillasCT devuelve exactamente la versión publicada que
+// consumen el arranque y la CLI de provisión. La huella se calcula después
+// con CatalogoConfigurable.HuellaSHA256, sobre el contenido canónico validado.
+func CargarCatalogoPlantillasCT(ruta string) (vecdomain.CatalogoConfigurable, error) {
+	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	if err != nil {
+		return vecdomain.CatalogoConfigurable{}, errors.Join(errPlantillasCTNoDisponibles, err)
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelar()
 	versiones, err := consulta.ListarVersionesCatalogo(ctx, informejuridico.CatalogoPlantillasBorradorID)
 	if err != nil {
-		return nil, errors.Join(errPlantillasCTNoDisponibles, err)
+		return vecdomain.CatalogoConfigurable{}, errors.Join(errPlantillasCTNoDisponibles, err)
 	}
 	var elegido *vecdomain.CatalogoConfigurable
 	for i := range versiones {
@@ -58,11 +73,14 @@ func plantillasBorradorCTDesdeFichero(ruta string, instante time.Time) (*informe
 		}
 	}
 	if elegido == nil {
-		return nil, errPlantillasCTNoDisponibles
+		return vecdomain.CatalogoConfigurable{}, errPlantillasCTNoDisponibles
 	}
-	plantillas, err := informejuridico.NuevasPlantillasBorrador(*elegido, instante)
+	if err := informejuridico.ValidarCatalogoPlantillasBorrador(*elegido); err != nil {
+		return vecdomain.CatalogoConfigurable{}, errors.Join(errPlantillasCTNoDisponibles, err)
+	}
+	copia, err := elegido.ClonarCanonico()
 	if err != nil {
-		return nil, errors.Join(errPlantillasCTNoDisponibles, err)
+		return vecdomain.CatalogoConfigurable{}, errors.Join(errPlantillasCTNoDisponibles, err)
 	}
-	return plantillas, nil
+	return copia, nil
 }

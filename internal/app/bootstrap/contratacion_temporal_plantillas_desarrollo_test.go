@@ -29,6 +29,14 @@ func TestPlantillasCTSeCarganDelRepositorioOdeLaRutaDeclarada(t *testing.T) {
 	if err != nil || declarado.Huella() != porDefecto.Huella() {
 		t.Fatalf("ruta declarada: %v", err)
 	}
+	catalogo, err := CargarCatalogoPlantillasCT("../../../" + rutaPlantillasCTEjemplo)
+	if err != nil {
+		t.Fatalf("catálogo de provisión: %v", err)
+	}
+	huella, err := catalogo.HuellaSHA256()
+	if err != nil || huella != declarado.Huella() {
+		t.Fatalf("CLI y renderizador difieren en versión/huella: %v", err)
+	}
 	if _, err := cargarPlantillasBorradorCTDesarrollo(configPlantillasDesarrolloPrueba(filepath.Join(t.TempDir(), "no-existe.json")), instante); !errors.Is(err, errPlantillasCTNoDisponibles) {
 		t.Fatalf("ruta declarada inexistente: %v", err)
 	}
