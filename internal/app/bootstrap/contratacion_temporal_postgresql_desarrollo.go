@@ -18,6 +18,7 @@ import (
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	"vec-diputacion-granada/internal/vec/auditoria"
 )
 
 const (
@@ -77,6 +78,7 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	ejecucion                         *pgxpool.Pool
 	bolsa                             *pgxpool.Pool
+	calculadorPoliticaOfertas         *pgxpool.Pool
 	gobierno                          *pgxpool.Pool
 	registroAutorizacion              *pgxpool.Pool
 	confirmador                       *pgxpool.Pool
@@ -91,27 +93,31 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialHistorialMiBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
-	proveedoresMaterialPortal         map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialContacto         *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaContacto *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDatosContacto    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialFirmaDocumento   *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialDietas                    materialDietasDesdeCTDesarrollo
-	materialCronos                    materialCronosDesdeCTDesarrollo
-	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
-	detenerRenovacion                 func()
-	detenerEntregaContratos           func()
-	detenerEntregaCeses               func()
-	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
-	cerrarUnaVez                      func()
+	proveedoresMaterialPortal                map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorCrear           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorConsulta        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialSituacion               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaContacto        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialEmision                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaPoliticaOfertas *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaCT             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialFirmaDocumento          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialDietas                           materialDietasDesdeCTDesarrollo
+	materialCronos                           materialCronosDesdeCTDesarrollo
+	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalB2                       [8]CapacidadPublicadaPersonalB2V3
+	detenerRenovacion                        func()
+	detenerEntregaContratos                  func()
+	detenerEntregaCeses                      func()
+	catalogoMaterial                         catalogoMaterialAutorizacionComunDesarrollo
+	cerrarUnaVez                             func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -277,6 +283,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
 			}
+			if dependencias.calculadorPoliticaOfertas != nil {
+				dependencias.calculadorPoliticaOfertas.Close()
+			}
 			if dependencias.lectorResultado != nil {
 				dependencias.lectorResultado.Cerrar()
 			}
@@ -371,6 +380,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
+	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
+	if err != nil {
+		return vacias, err
+	}
+	if auditoriaActiva {
+		if _, err := cfg.RutaCatalogoAuditoriaConsultaDesarrollo(); err != nil {
+			return vacias, err
+		}
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialAuditoriaConsultaDesarrollo())
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -444,6 +463,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	etapa = "material_auditoria_rrhh"
+	if auditoriaActiva {
+		dependencias.proveedorMaterialAuditoriaCT, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
+		if err != nil {
+			return vacias, err
+		}
+		dependencias.proveedorMaterialAuditoriaBolsa, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, auditoria.AudienciaConsumo)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	etapa = "publicar_gobierno_personal_b2"
 	if personalB2 {
 		// vec-server no consume B2: sólo publica sus claves para vec-interno.
@@ -469,6 +501,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.bolsa = bolsa
+		if seleccion.politicaOfertas {
+			dsnCalculador, err := cfg.DSNBolsaPoliticaOfertasCalculadorSeparado()
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.calculadorPoliticaOfertas, err = abrirPoolRelevoBolsaDesarrollo(ctx, dsnCalculador,
+				"vec_bolsa_llamamientos_calculador_politica", "vec-bolsa-calculador-politica-ofertas")
+			if err != nil {
+				return vacias, falloPostgreSQLCTDesarrollo(err)
+			}
+		}
 		if seleccion.portalCandidato {
 			if err := comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa); err != nil {
 				slog.Error("portal del candidato de Bolsa encendido sin sus migraciones", "causa", err)
@@ -542,6 +585,18 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialEmision = proveedorEmision
+			if seleccion.politicaOfertas {
+				dependencias.proveedorMaterialPoliticaOfertas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaPublicarPoliticaOfertas)
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedorMaterialConsultaPoliticaOfertas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarPoliticaOfertas)
+				if err != nil {
+					return vacias, err
+				}
+			}
 		}
 	}
 	etapa = "transaccion_altas"

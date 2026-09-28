@@ -269,6 +269,7 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	reglasEjemplo.calendarios = consultaCalendarios
 	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
 	if err != nil {
 		return nil, nil, err

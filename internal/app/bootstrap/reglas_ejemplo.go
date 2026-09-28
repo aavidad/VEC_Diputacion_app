@@ -27,6 +27,9 @@ var errReglasEjemploSinCalendarios = errors.New("bootstrap: reglas de ejemplo si
 type reglasEjemploDesarrollo struct {
 	bolsa                *reglas.Resolutor
 	contratacionTemporal *reglas.Resolutor
+	// calendarios es la consulta nominal compartida. La política de ofertas
+	// la necesita aunque no se hayan declarado reglas de ejemplo.
+	calendarios calendariosports.ConsultaCalendarios
 	// circuitoFirmaCT resuelve el circuito de firma de ejemplo de los
 	// documentos de Contratación temporal.
 	circuitoFirmaCT *reglas.Resolutor
