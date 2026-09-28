@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -61,6 +62,26 @@ func publicarContextoPostgreSQLContratacionTemporalDesarrollo(
 		ctx, pool, soporte.contexto.Resultado,
 		operacionContextoContratacionTemporalDesarrollo(soporte),
 	)
+}
+
+// El perfil CT130 usa una sesión/contexto propio. Su operación de registro
+// incluye el perfil para que no colisione con el contexto base de la persona.
+func publicarContextoPostgreSQLReincorporacionTitularDesarrollo(
+	ctx context.Context, pool *pgxpool.Pool, soporte *soporteAltaContratacionTemporalDesarrollo,
+) error {
+	if soporte == nil {
+		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	contexto, err := soporte.contextoReincorporacionTitular(ctx)
+	if err != nil || contexto.Resultado.Validar() != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	datos, err := contexto.Vinculo.Datos()
+	if err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	operacion := referenciaAltaContratacionTemporalDesarrollo("oca_", datos.PrincipalID+"\x00"+datos.PerfilActivoRef+"\x00registro-contexto-ct130")
+	return publicarResultadoContextoPostgreSQLDesarrollo(ctx, pool, contexto.Resultado, operacion)
 }
 
 func operacionContextoContratacionTemporalDesarrollo(
@@ -306,8 +327,13 @@ type autoridadPostgreSQLContratacionTemporalDesarrollo struct {
 	soporte *soporteAltaContratacionTemporalDesarrollo
 }
 
-// La ruta CT130 opta expresamente por una preimagen central aprobada. La
-// instantánea local del binario nunca basta para renovar una revocación.
+type autoridadReincorporacionTitularPostgreSQL interface {
+	PrepararInstantaneaReincorporacionTitular(context.Context, dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error)
+	PublicarInstantaneaReincorporacionTitular(context.Context, dominiovec.InstantaneaAutorizacion) error
+}
+
+// El perfil CT130 dedicado sólo admite una publicación inicial ausente o el
+// replay exacto de su propia instantánea central.
 func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PrepararInstantaneaReincorporacionTitular(
 	ctx context.Context, solicitada dominiovec.InstantaneaAutorizacion,
 ) (dominiovec.InstantaneaAutorizacion, error) {
@@ -316,14 +342,17 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PrepararInstantaneaR
 		ctx == nil || ctx.Err() != nil || solicitada.Validar() != nil {
 		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
-	base := a.soporte.instantanea
 	semilla := a.soporte.reincorporacionTitular.instantanea
 	esperada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
 	esperada.AsignacionPerfil.Ambitos = solicitada.AsignacionPerfil.Ambitos
-	if base.Validar() != nil || !reflect.DeepEqual(solicitada, esperada) {
+	if !reflect.DeepEqual(solicitada, esperada) {
 		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
-	preparada, err := a.autoridadComun().prepararInstantanea(ctx, solicitada, true)
+	comun, err := a.autoridadReincorporacionTitular(ctx)
+	if err != nil {
+		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
+	preparada, err := comun.prepararInstantanea(ctx, solicitada, true)
 	if err != nil {
 		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
@@ -332,8 +361,7 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PrepararInstantaneaR
 		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	if encontrada && !coincide {
-		baseExacta, baseEncontrada, err := instantaneaCentralCTExacta(ctx, a.pool, base)
-		if err != nil || !baseEncontrada || !baseExacta {
+		if _, aprobada, err := a.preimagenReincorporacionTitularAcreditada(ctx, semilla); err != nil || !aprobada {
 			return vacia, falloPostgreSQLCTDesarrollo(err)
 		}
 	}
@@ -463,8 +491,7 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PublicarInstantaneaR
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	semilla := a.soporte.reincorporacionTitular.instantanea
-	base := a.soporte.instantanea
-	if base.Validar() != nil || instantanea.VersionRol.RolID != semilla.VersionRol.RolID ||
+	if instantanea.VersionRol.RolID != semilla.VersionRol.RolID ||
 		!reflect.DeepEqual(instantanea.VersionRol.Concesiones, semilla.VersionRol.Concesiones) ||
 		instantanea.AsignacionPerfil.PrincipalID != semilla.AsignacionPerfil.PrincipalID ||
 		instantanea.AsignacionPerfil.PerfilActivoRef != semilla.AsignacionPerfil.PerfilActivoRef {
@@ -474,7 +501,10 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PublicarInstantaneaR
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	comun := a.autoridadComun()
+	comun, err := a.autoridadReincorporacionTitular(ctx)
+	if err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
 	if !encontrada {
 		comun.soloInicial = true
 		return comun.publicarInstantanea(ctx, instantanea)
@@ -482,11 +512,125 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PublicarInstantaneaR
 	if exacta {
 		return comun.publicarInstantaneaDesdePreimagen(ctx, instantanea, instantanea)
 	}
-	baseExacta, baseEncontrada, err := instantaneaCentralCTExacta(ctx, a.pool, base)
-	if err != nil || !baseEncontrada || !baseExacta {
+	preimagen, aprobada, err := a.preimagenReincorporacionTitularAcreditada(ctx, semilla)
+	if err != nil || !aprobada {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	return comun.publicarInstantaneaDesdePreimagen(ctx, instantanea, base)
+	return comun.publicarInstantaneaDesdePreimagen(ctx, instantanea, preimagen)
+}
+
+// Solo una asignación CT130 publicada por este acto puede servir como
+// preimagen para otro expediente. Una restricción administrativa conserva su
+// propia procedencia y no se transforma en una ampliación por la semilla.
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) preimagenReincorporacionTitularAcreditada(
+	ctx context.Context, semilla dominiovec.InstantaneaAutorizacion,
+) (dominiovec.InstantaneaAutorizacion, bool, error) {
+	vacia := dominiovec.InstantaneaAutorizacion{}
+	if a == nil || a.pool == nil || a.soporte == nil || ctx == nil || ctx.Err() != nil || semilla.Validar() != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(nil)
+	}
+	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
+	actual, encontrada, err := leerAsignacionActualPostgreSQLDesarrollo(ctx, tx, semilla.AsignacionPerfil.PerfilActivoRef)
+	if err != nil || !encontrada {
+		return vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
+	var documentoAsignacion, documentoRol, documentoControl []byte
+	var huellaAsignacion, huellaRol, huellaControl string
+	var revisionCatalogoTexto, huellaCatalogo, actoAsignacion, actualizadaPor, actoControl string
+	err = tx.QueryRow(ctx, `
+		SELECT asignacion.documento, rol.documento, control.documento,
+		       asignacion.huella_sha256, rol.huella_sha256, control.huella_sha256,
+		       catalogo.revision::text, catalogo.huella_sha256,
+		       vigente.acto_ref, vigente.actualizada_por, control_actual.acto_ref
+		  FROM vec_autorizacion.asignacion_perfil_actual AS vigente
+		  JOIN vec_autorizacion.asignacion_perfil AS asignacion
+		    ON asignacion.perfil_activo_ref=vigente.perfil_activo_ref
+		   AND asignacion.asignacion_ref=vigente.asignacion_ref
+		  JOIN vec_autorizacion.version_rol AS rol
+		    ON rol.version_rol_ref=asignacion.version_rol_ref
+		  JOIN vec_autorizacion.control_vigencia_version_rol_actual AS control_actual
+		    ON control_actual.version_rol_ref=rol.version_rol_ref
+		  JOIN vec_autorizacion.control_vigencia_version_rol AS control
+		    ON control.version_rol_ref=control_actual.version_rol_ref
+		   AND control.revision=control_actual.revision
+		  JOIN vec_autorizacion.control_catalogo_politicas AS catalogo ON catalogo.control_id=true
+		 WHERE vigente.perfil_activo_ref=$1 AND vigente.asignacion_ref=$2
+		 FOR SHARE OF asignacion, rol, control, control_actual, catalogo`,
+		semilla.AsignacionPerfil.PerfilActivoRef, actual.referencia,
+	).Scan(&documentoAsignacion, &documentoRol, &documentoControl,
+		&huellaAsignacion, &huellaRol, &huellaControl,
+		&revisionCatalogoTexto, &huellaCatalogo, &actoAsignacion, &actualizadaPor, &actoControl)
+	if err != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
+	revisionCatalogo, err := strconv.ParseUint(revisionCatalogoTexto, 10, 64)
+	if err != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
+	var preimagen dominiovec.InstantaneaAutorizacion
+	if json.Unmarshal(documentoAsignacion, &preimagen.AsignacionPerfil) != nil ||
+		json.Unmarshal(documentoRol, &preimagen.VersionRol) != nil ||
+		json.Unmarshal(documentoControl, &preimagen.ControlVigenciaVersionRol) != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(nil)
+	}
+	preimagen.RevisionCatalogoPoliticas = revisionCatalogo
+	preimagen.CatalogoPoliticasHuellaSHA256 = huellaCatalogo
+	comun := a.autoridadComun()
+	huellaAsignacionCalculada, errAsignacion := preimagen.AsignacionPerfil.HuellaSHA256()
+	huellaRolCalculada, errRol := preimagen.VersionRol.HuellaSHA256()
+	huellaControlCalculada, errControl := preimagen.ControlVigenciaVersionRol.HuellaSHA256()
+	aprobada := preimagen.Validar() == nil && errAsignacion == nil && errRol == nil && errControl == nil &&
+		preimagen.AsignacionPerfil.Referencia() == actual.referencia &&
+		preimagen.AsignacionPerfil.AsignacionID == actual.identificador &&
+		int64(preimagen.AsignacionPerfil.Version) == actual.version &&
+		preimagen.AsignacionPerfil.PerfilActivoRef == actual.perfilRef &&
+		preimagen.AsignacionPerfil.PrincipalID == actual.principalID &&
+		preimagen.AsignacionPerfil.VersionRolRef == actual.versionRolRef &&
+		huellaAsignacionCalculada == huellaAsignacion && huellaAsignacion == actual.huella &&
+		huellaRolCalculada == huellaRol && huellaControlCalculada == huellaControl &&
+		preimagen.AsignacionPerfil.Estado == dominiovec.EstadoAsignacionPerfilActiva &&
+		preimagen.AsignacionPerfil.VigenteEn(a.soporte.reloj.Ahora()) &&
+		preimagen.ControlVigenciaVersionRol.Estado == dominiovec.EstadoControlVigenciaVersionRolHabilitada &&
+		preimagen.AsignacionPerfil.AsignacionID == semilla.AsignacionPerfil.AsignacionID &&
+		preimagen.AsignacionPerfil.PrincipalID == semilla.AsignacionPerfil.PrincipalID &&
+		preimagen.AsignacionPerfil.PerfilActivoRef == semilla.AsignacionPerfil.PerfilActivoRef &&
+		preimagen.VersionRol.RolID == semilla.VersionRol.RolID &&
+		reflect.DeepEqual(preimagen.VersionRol.Concesiones, semilla.VersionRol.Concesiones) &&
+		preimagen.RevisionCatalogoPoliticas == semilla.RevisionCatalogoPoliticas &&
+		preimagen.CatalogoPoliticasHuellaSHA256 == semilla.CatalogoPoliticasHuellaSHA256 &&
+		actoAsignacion == comun.actoAsignacion && actoControl == comun.actoControlRol &&
+		actualizadaPor == preimagen.AsignacionPerfil.EmitidaPor
+	if err = tx.Commit(ctx); err != nil {
+		return vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
+	if !aprobada {
+		return vacia, false, nil
+	}
+	return preimagen, true, nil
+}
+
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) autoridadReincorporacionTitular(
+	ctx context.Context,
+) (autoridadPostgreSQLDesarrollo, error) {
+	if a == nil || a.soporte == nil {
+		return autoridadPostgreSQLDesarrollo{}, falloPostgreSQLCTDesarrollo(nil)
+	}
+	contexto, err := a.soporte.contextoOperativoDesarrollo(ctx)
+	semilla := a.soporte.reincorporacionTitular.instantanea
+	if err != nil || contexto.Resultado.Validar() != nil ||
+		contexto.Resultado.Contexto.PerfilActivoRef != semilla.AsignacionPerfil.PerfilActivoRef {
+		return autoridadPostgreSQLDesarrollo{}, falloPostgreSQLCTDesarrollo(err)
+	}
+	comun := a.autoridadComun()
+	comun.vinculo = contexto.Vinculo
+	return comun, nil
 }
 
 func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) PublicarInstantanea(
@@ -505,9 +649,11 @@ func publicarInstantaneaAsignacionCTSegunRuta(
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular {
-		if ct130, ok := autoridad.(*autoridadPostgreSQLContratacionTemporalDesarrollo); ok {
-			return ct130.PublicarInstantaneaReincorporacionTitular(ctx, instantanea)
+		ct130, ok := autoridad.(autoridadReincorporacionTitularPostgreSQL)
+		if !ok {
+			return falloPostgreSQLCTDesarrollo(nil)
 		}
+		return ct130.PublicarInstantaneaReincorporacionTitular(ctx, instantanea)
 	}
 	return autoridad.PublicarInstantanea(ctx, instantanea)
 }

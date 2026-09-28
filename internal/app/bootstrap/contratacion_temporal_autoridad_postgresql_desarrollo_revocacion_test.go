@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"testing"
@@ -11,10 +12,42 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
+
+func (a *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) PrepararInstantaneaReincorporacionTitular(
+	ctx context.Context, i vecdomain.InstantaneaAutorizacion,
+) (vecdomain.InstantaneaAutorizacion, error) {
+	return a.PrepararInstantanea(ctx, i)
+}
+
+func (a *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) PublicarInstantaneaReincorporacionTitular(
+	ctx context.Context, i vecdomain.InstantaneaAutorizacion,
+) error {
+	return a.PublicarInstantanea(ctx, i)
+}
+
+type autoridadSinContratoCT130Prueba struct{}
+
+func (autoridadSinContratoCT130Prueba) PrepararInstantanea(_ context.Context, i vecdomain.InstantaneaAutorizacion) (vecdomain.InstantaneaAutorizacion, error) {
+	return i, nil
+}
+
+func (autoridadSinContratoCT130Prueba) PublicarInstantanea(context.Context, vecdomain.InstantaneaAutorizacion) error {
+	return nil
+}
+
+func TestCT130NoUsaPublicadorGenericoSinContratoEspecifico(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
+		if err := publicarInstantaneaAsignacionCTSegunRuta(context.Background(), ruta, autoridadSinContratoCT130Prueba{}, soporte.instantanea); err == nil {
+			t.Fatalf("%s aceptó autoridad sin contrato CT130", ruta)
+		}
+	}
+}
 
 // Requiere exclusivamente una base PostgreSQL 18 desechable con las migraciones
 // de autorización y contexto instaladas. Nunca apunta a la base conservada.
@@ -64,6 +97,10 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 				t.Fatal(err)
 			}
 			principal.ID += "_" + hex.EncodeToString(aleatorio[:])
+			huellaCertificado := sha256.Sum256(aleatorio[:])
+			principal.Attributes["certificate_sha256"] = hex.EncodeToString(huellaCertificado[:])
+			soporte.principalID = principal.ID
+			soporte.certificadoSHA256 = principal.Attributes["certificate_sha256"]
 			ahora := time.Now().UTC().Truncate(time.Microsecond)
 			soporte.contexto, err = nuevoContextoAltaContratacionTemporalDesarrollo(principal, ahora)
 			if err != nil {

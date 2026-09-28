@@ -208,14 +208,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	}
 	var err error
 	if ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular {
-		ct130, ok := autoridad.(*autoridadPostgreSQLContratacionTemporalDesarrollo)
-		if ok {
-			preparada, err = ct130.PrepararInstantaneaReincorporacionTitular(ctx, instantanea)
-		} else {
-			// La composición de desarrollo PostgreSQL registra el adaptador
-			// anterior; los dobles focales conservan su propio contrato.
-			preparada, err = autoridad.PrepararInstantanea(ctx, instantanea)
+		ct130, ok := autoridad.(autoridadReincorporacionTitularPostgreSQL)
+		if !ok {
+			return dominiovec.InstantaneaAutorizacion{}, false
 		}
+		preparada, err = ct130.PrepararInstantaneaReincorporacionTitular(ctx, instantanea)
 	} else {
 		preparada, err = autoridad.PrepararInstantanea(ctx, instantanea)
 	}
