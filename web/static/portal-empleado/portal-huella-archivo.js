@@ -15,6 +15,7 @@
  *    captura, bloquea el envío de un formulario cuya huella obligatoria falta
  *    o aún se está calculando, con un mensaje legible y el foco en el control.
  */
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 /**
  * Tamaño máximo que se lee en memoria para calcular la huella: 20 MiB.
@@ -38,6 +39,20 @@ export const MENSAJES_HUELLA_ARCHIVO_ES = Object.freeze({
   ayuda: "El archivo del justificante se lee solo en este equipo para calcular su huella digital, que es lo único que se registra junto a su referencia. El documento no se envía ni se guarda en VEC y sigue en su custodia. Tamaño máximo: {limite} MB.",
 });
 
+export const MENSAJES_HUELLA_ARCHIVO_EN = Object.freeze({
+  etiqueta: "Supporting document file",
+  comprobado: "Document checked on this device; its contents are not stored.",
+  calculando: "Checking the document on this device…",
+  sin_archivo: "Choose the supporting document file to continue.",
+  esperando: "Wait until the document check is complete.",
+  demasiado_grande: "The file exceeds the {limite} MB limit. Choose a smaller copy of the document.",
+  vacio: "The file is empty. Choose the correct document.",
+  no_disponible: "This browser cannot check the document. Use an up-to-date browser.",
+  error_lectura: "The file could not be read. Choose it again.",
+  ayuda_aria: "Help with the supporting document",
+  ayuda: "The supporting document file is read only on this device to calculate its digital fingerprint. Only that fingerprint and its reference are recorded. The document is not sent to or stored in VEC and remains in your custody. Maximum size: {limite} MB.",
+});
+
 export function crearTraductorHuellaArchivo(catalogo = MENSAJES_HUELLA_ARCHIVO_ES) {
   return (clave, valores = {}) => {
     const plantilla = typeof catalogo?.[clave] === "string" ? catalogo[clave] : MENSAJES_HUELLA_ARCHIVO_ES[clave] ?? clave;
@@ -45,10 +60,12 @@ export function crearTraductorHuellaArchivo(catalogo = MENSAJES_HUELLA_ARCHIVO_E
   };
 }
 
-export const traducirHuellaArchivo = crearTraductorHuellaArchivo();
+export const traducirHuellaArchivo = crearTraductorHuellaArchivo(
+  IDIOMA_ACTUAL === "en" ? MENSAJES_HUELLA_ARCHIVO_EN : MENSAJES_HUELLA_ARCHIVO_ES,
+);
 
 const HEX_SHA256 = /^[0-9a-f]{64}$/u;
-const megas = (bytes) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 0 }).format(bytes / (1024 * 1024));
+const megas = (bytes) => new Intl.NumberFormat(LOCALIZACION_ACTUAL, { maximumFractionDigits: 0 }).format(bytes / (1024 * 1024));
 
 /** Texto de ayuda de la pantalla que usa el control, con el límite vigente. */
 export function ayudaHuellaArchivo(t = traducirHuellaArchivo, limite = LIMITE_HUELLA_ARCHIVO_BYTES) {
