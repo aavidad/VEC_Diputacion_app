@@ -6,6 +6,68 @@ const REFERENCIA_RUTA = /^[A-Za-z0-9:._-]{1,512}$/u;
 const FECHA_CIVIL = /^(\d{4})-(\d{2})-(\d{2})$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
 const POR_PAGINA = 6;
+export const LIMITES_REINCORPORACIONES_TITULAR = Object.freeze({ maximoBytes: 512 * 1024, maximoFragmentos: 512, tiempoMs: 15_000 });
+
+function limiteSeguro(valor, maximo) {
+  return Number.isSafeInteger(valor) && valor > 0 ? Math.min(valor, maximo) : maximo;
+}
+
+function cancelarCuerpo(respuesta, lector) {
+  try {
+    const cancelacion = lector?.cancel?.() ?? respuesta?.body?.cancel?.();
+    Promise.resolve(cancelacion).catch(() => {});
+  } catch { /* Una cancelación defectuosa no habilita la respuesta. */ }
+}
+
+async function leerJSONAcotado(respuesta, signal, abortada, limites) {
+  const maximoBytes = limiteSeguro(limites?.maximoBytes, LIMITES_REINCORPORACIONES_TITULAR.maximoBytes);
+  const maximoFragmentos = limiteSeguro(limites?.maximoFragmentos, LIMITES_REINCORPORACIONES_TITULAR.maximoFragmentos);
+  const declarada = respuesta.headers?.get?.("content-length");
+  if (declarada !== null && declarada !== undefined && (!/^(?:0|[1-9][0-9]*)$/u.test(declarada) || Number(declarada) > maximoBytes)) {
+    cancelarCuerpo(respuesta);
+    throw new Error("respuesta_excesiva");
+  }
+  if (!respuesta.body || typeof respuesta.body.getReader !== "function") throw new Error("respuesta_no_incremental");
+  let lector;
+  try { lector = respuesta.body.getReader(); }
+  catch { cancelarCuerpo(respuesta); throw new Error("respuesta_no_incremental"); }
+  if (!lector || typeof lector.read !== "function" || typeof lector.cancel !== "function") {
+    cancelarCuerpo(respuesta, lector);
+    throw new Error("respuesta_no_incremental");
+  }
+  const descodificador = new TextDecoder("utf-8", { fatal: true });
+  let texto = "";
+  let total = 0;
+  let fragmentos = 0;
+  const cancelar = () => cancelarCuerpo(respuesta, lector);
+  signal.addEventListener("abort", cancelar, { once: true });
+  try {
+    for (;;) {
+      if (signal.aborted) throw new DOMException("", "AbortError");
+      const parte = await Promise.race([lector.read(), abortada]);
+      // reader.cancel() puede resolver read() con done=true antes de que gane
+      // la promesa de aborto; ese cierre nunca convierte un JSON parcial en éxito.
+      if (signal.aborted) throw new DOMException("", "AbortError");
+      if (!parte || typeof parte.done !== "boolean") throw new Error("respuesta_incompatible");
+      if (parte.done) break;
+      if (!(parte.value instanceof Uint8Array) || parte.value.byteLength === 0) throw new Error("respuesta_incompatible");
+      total += parte.value.byteLength;
+      fragmentos += 1;
+      if (total > maximoBytes || fragmentos > maximoFragmentos) throw new Error("respuesta_excesiva");
+      try { texto += descodificador.decode(parte.value, { stream: true }); }
+      catch { throw new Error("respuesta_incompatible"); }
+    }
+    try { texto += descodificador.decode(); }
+    catch { throw new Error("respuesta_incompatible"); }
+    return JSON.parse(texto);
+  } catch (error) {
+    cancelar();
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", cancelar);
+    try { lector.releaseLock?.(); } catch { /* El cuerpo ya se ha descartado. */ }
+  }
+}
 
 export function rutaReincorporacionesTitular(bolsa, participacion) {
   if (!REFERENCIA_RUTA.test(bolsa) || !REFERENCIA_RUTA.test(participacion)) return null;
@@ -35,27 +97,54 @@ function itemValido(item) {
     && (item.regla_huella_sha256 === "" || (typeof item.regla_huella_sha256 === "string" && HUELLA.test(item.regla_huella_sha256)));
 }
 
-export async function consultarReincorporacionesTitular(bolsa, participacion, { fetchImpl = fetch, signal } = {}) {
+export async function consultarReincorporacionesTitular(bolsa, participacion, { fetchImpl = fetch, signal, limites = LIMITES_REINCORPORACIONES_TITULAR } = {}) {
   const ruta = rutaReincorporacionesTitular(bolsa, participacion);
   if (!ruta) return { ok: false, status: 400, mensaje: traducirPortal("reincorporacion_error_referencia") };
+  const controlador = new AbortController();
+  let cancelacionExterna = false;
+  let rechazoAbortar;
+  const abortada = new Promise((_, reject) => { rechazoAbortar = reject; });
+  void abortada.catch(() => {});
+  const cancelar = (externa = false) => {
+    if (controlador.signal.aborted) return;
+    cancelacionExterna = externa;
+    controlador.abort();
+    rechazoAbortar(new DOMException("", "AbortError"));
+  };
+  const cancelarPorSignal = () => cancelar(true);
+  signal?.addEventListener?.("abort", cancelarPorSignal, { once: true });
+  const tiempoMs = limiteSeguro(limites?.tiempoMs, LIMITES_REINCORPORACIONES_TITULAR.tiempoMs);
+  const temporizador = setTimeout(() => cancelar(), tiempoMs);
   try {
-    const respuesta = await fetchImpl(ruta, {
+    if (signal?.aborted) cancelar(true);
+    if (controlador.signal.aborted) return { ok: false, status: 0, abortada: true, mensaje: "" };
+    const peticion = Promise.resolve(fetchImpl(ruta, {
       method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
-      referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
-    });
+      referrerPolicy: "no-referrer", signal: controlador.signal, headers: { Accept: "application/json" },
+    }));
+    void peticion.then((respuestaTardia) => {
+      if (controlador.signal.aborted) cancelarCuerpo(respuestaTardia);
+    }, () => {});
+    const respuesta = await Promise.race([peticion, abortada]);
     if (!respuesta.ok) {
+      cancelarCuerpo(respuesta);
       const clave = ({ 401: "reincorporacion_error_401", 403: "reincorporacion_error_403", 404: "reincorporacion_error_404", 503: "reincorporacion_error_503" })[respuesta.status];
       return { ok: false, status: respuesta.status, mensaje: traducirPortal(clave || "reincorporacion_error_http", { estado: respuesta.status }) };
     }
-    const datos = (await respuesta.json())?.data;
+    const datos = (await leerJSONAcotado(respuesta, controlador.signal, abortada, limites))?.data;
     if (datos?.esquema !== ESQUEMA_REINCORPORACIONES_TITULAR || !Array.isArray(datos.items)
       || datos.items.length > 100 || !datos.items.every(itemValido)) {
       return { ok: false, status: 0, mensaje: traducirPortal("reincorporacion_error_contrato") };
     }
     return { ok: true, datos: datos.items };
   } catch (error) {
-    if (error?.name === "AbortError") return { ok: false, status: 0, abortada: true, mensaje: "" };
-    return { ok: false, status: 0, mensaje: traducirPortal("reincorporacion_error_red") };
+    if (error?.name === "AbortError" && cancelacionExterna) return { ok: false, status: 0, abortada: true, mensaje: "" };
+    const clave = ["respuesta_excesiva", "respuesta_no_incremental", "respuesta_incompatible"].includes(error?.message)
+      || error?.name === "SyntaxError" ? "reincorporacion_error_contrato" : "reincorporacion_error_red";
+    return { ok: false, status: 0, mensaje: traducirPortal(clave) };
+  } finally {
+    clearTimeout(temporizador);
+    signal?.removeEventListener?.("abort", cancelarPorSignal);
   }
 }
 

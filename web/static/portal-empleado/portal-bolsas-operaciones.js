@@ -1,7 +1,7 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260927-rrhh-reposicion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260928-rrhh-corte3-cache-v1";
-import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20260928-rrhh-corte3-cache-v1";
+import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20260928-rrhh-reincorporaciones-v2";
 import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260928-rrhh-corte3-cache-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v1";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";

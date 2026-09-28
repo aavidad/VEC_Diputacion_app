@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
 import {
   ESQUEMA_REINCORPORACIONES_TITULAR,
+  LIMITES_REINCORPORACIONES_TITULAR,
   cargarReincorporacionesTitularFicha,
   consultarReincorporacionesTitular,
   manejarClickReincorporacionesTitular,
@@ -17,7 +18,7 @@ const item = Object.freeze({
   estado: "cese_aplicado", disponible_desde: "2026-10-01", regla_version: 1,
   regla_huella_sha256: "a".repeat(64),
 });
-const respuesta = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+const respuesta = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const cuerpo = (items) => ({ data: { esquema: ESQUEMA_REINCORPORACIONES_TITULAR, items } });
 
 test("la consulta usa la ruta canónica y GET sin credenciales persistidas ni caché", async () => {
@@ -48,6 +49,115 @@ test("falla cerrado ante esquema, fechas, estado o datos inesperados", async () 
     assert.equal(resultado.ok, false);
     assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_contrato"));
   }
+});
+
+test("rechaza más de 512 KiB sin Content-Length antes de decodificar JSON", async () => {
+  let cancelaciones = 0;
+  const body = new ReadableStream({
+    start(controlador) { controlador.enqueue(new Uint8Array(4_194_304)); },
+    cancel() { cancelaciones++; },
+  });
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => new Response(body, { status: 200 }),
+  });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_contrato"));
+  assert.equal(cancelaciones, 1);
+  assert.equal(LIMITES_REINCORPORACIONES_TITULAR.maximoBytes, 512 * 1024);
+});
+
+test("límite técnico menor y Content-Length excesivo cancelan el cuerpo sin leerlo", async () => {
+  let lecturas = 0;
+  let cancelaciones = 0;
+  const respuestaGrande = {
+    ok: true, status: 200, headers: { get: () => "33" },
+    body: { cancel: () => { cancelaciones++; }, getReader: () => { lecturas++; throw new Error("no debe leer"); } },
+  };
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => respuestaGrande,
+    limites: { maximoBytes: 32 },
+  });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_contrato"));
+  assert.equal(lecturas, 0);
+  assert.equal(cancelaciones, 1);
+});
+
+test("stream detenido termina por timeout y cancela reader aunque read no responda", async () => {
+  let cancelaciones = 0;
+  const lector = { read: () => new Promise(() => {}), cancel: () => { cancelaciones++; }, releaseLock() {} };
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => ({ ok: true, status: 200, headers: { get: () => null }, body: { getReader: () => lector } }),
+    limites: { tiempoMs: 20 },
+  });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.abortada, undefined);
+  assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_red"));
+  assert.ok(cancelaciones >= 1);
+});
+
+test("timeout nunca acepta JSON completo de un stream nativo que no cerró", async () => {
+  let cancelaciones = 0;
+  const body = new ReadableStream({
+    start(controlador) { controlador.enqueue(new TextEncoder().encode(JSON.stringify(cuerpo([])))); },
+    cancel() { cancelaciones++; },
+  });
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => new Response(body, { status: 200 }),
+    limites: { tiempoMs: 20 },
+  });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_red"));
+  assert.equal(cancelaciones, 1);
+});
+
+test("AbortSignal externo cancela stream detenido y devuelve cancelación", async () => {
+  let cancelaciones = 0;
+  let lecturaEmpezada;
+  const leyendo = new Promise((resolver) => { lecturaEmpezada = resolver; });
+  const controlador = new AbortController();
+  const lector = { read: () => { lecturaEmpezada(); return new Promise(() => {}); }, cancel: () => { cancelaciones++; }, releaseLock() {} };
+  const tarea = consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => ({ ok: true, status: 200, headers: { get: () => null }, body: { getReader: () => lector } }),
+    signal: controlador.signal,
+  });
+  await leyendo;
+  controlador.abort();
+  const resultado = await tarea;
+  assert.equal(resultado.abortada, true);
+  assert.ok(cancelaciones >= 1);
+});
+
+test("AbortSignal externo nunca acepta JSON completo de stream nativo sin fin", async () => {
+  let cancelaciones = 0;
+  let lecturaPendiente;
+  const pendiente = new Promise((resolver) => { lecturaPendiente = resolver; });
+  const body = new ReadableStream({
+    start(controlador) { controlador.enqueue(new TextEncoder().encode(JSON.stringify(cuerpo([])))); },
+    pull() { lecturaPendiente(); },
+    cancel() { cancelaciones++; },
+  });
+  const controlador = new AbortController();
+  const tarea = consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => new Response(body, { status: 200 }),
+    signal: controlador.signal,
+  });
+  await pendiente;
+  controlador.abort();
+  const resultado = await tarea;
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.abortada, true);
+  assert.equal(cancelaciones, 1);
+});
+
+test("rechaza respuestas sin stream sin llamar a json() ilimitado", async () => {
+  let jsonLlamado = false;
+  const resultado = await consultarReincorporacionesTitular("b", "p", {
+    fetchImpl: async () => ({ ok: true, status: 200, body: null, json: () => { jsonLlamado = true; return cuerpo([item]); } }),
+  });
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.mensaje, traducirPortal("reincorporacion_error_contrato"));
+  assert.equal(jsonLlamado, false);
 });
 
 test("denegación y servicio pendiente se comunican sin reutilizar datos ni revelar errores internos", async () => {
