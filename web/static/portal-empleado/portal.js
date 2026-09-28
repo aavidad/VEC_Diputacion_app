@@ -13,7 +13,7 @@ import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260928-rrhh-cuadro-general-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260928-rrhh-cuadro-general-v2";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-rrhh-cache-unificada-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
@@ -356,7 +356,7 @@ let inicioComprobando = false;
 function alCambiarModulos(clave) {
   // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
   // del catálogo o de identidad: la API debe revalidar el acceso actual.
-  if (clave === "catalogo" && estado.datosBolsas?.carga !== "cargando") {
+  if (clave === "catalogo") {
     void controladorBolsas.cargarBolsas();
   }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")) {
