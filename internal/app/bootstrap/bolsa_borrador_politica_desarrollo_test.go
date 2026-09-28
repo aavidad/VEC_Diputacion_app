@@ -38,7 +38,9 @@ func (a *autoridadInicialBorradorBolsaPrueba) prepararInstantanea(
 func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
-	if preimagen.VersionRol.Version != 4 || len(preimagen.VersionRol.Concesiones) != 6 ||
+	preimagenValida := (preimagen.VersionRol.Version == 4 && len(preimagen.VersionRol.Concesiones) == 6) ||
+		(preimagen.VersionRol.Version == 5 && len(preimagen.VersionRol.Concesiones) == 7)
+	if !preimagenValida ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
 	}
@@ -137,6 +139,28 @@ func TestPoliticaBorradorBolsaPublicaSieteConcesionesNominales(t *testing.T) {
 	}
 }
 
+func TestMotivoPoliticaOfertasSoloConVersionSeisActiva(t *testing.T) {
+	for _, motivo := range []dominiovec.ReferenciaEntradaCatalogo{motivoPublicarPoliticaOfertasBolsaDesarrollo(), motivoConsultarPoliticaOfertasBolsaDesarrollo()} {
+		politicaCinco, _, _, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+		if err := politicaCinco.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivo, time.Now().UTC().Truncate(time.Microsecond)); !errors.Is(err, dominiovec.ErrSolicitudAutorizacionInvalida) {
+			t.Fatalf("motivo B47 admitido antes de publicar: %v", err)
+		}
+		if err := politicaCinco.PublicarInicial(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if err := politicaCinco.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivo, time.Now().UTC().Truncate(time.Microsecond)); !errors.Is(err, dominiovec.ErrSolicitudAutorizacionInvalida) {
+			t.Fatalf("rol v5 admitió B47: %v", err)
+		}
+		politicaSeis, _, _, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+		if err := politicaSeis.PublicarInicialConPoliticaOfertas(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if err := politicaSeis.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivo, time.Now().UTC().Truncate(time.Microsecond)); err != nil {
+			t.Fatalf("rol v6 denegó motivo B47 publicado: %v", err)
+		}
+	}
+}
+
 func TestPoliticaBorradorBolsaSoloInauguraSemillaExacta(t *testing.T) {
 	casos := []struct {
 		nombre   string
@@ -222,6 +246,38 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB7Exacta(t *testing.T) {
 	}
 	if autoridad.publicada.VersionRol.Version != 5 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 7 {
 		t.Fatalf("sucesión B4 no exacta: %+v", autoridad.publicada)
+	}
+}
+
+func TestPoliticaBorradorBolsaAmpliaB5AConcesionB47Exacta(t *testing.T) {
+	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+	autoridad.permitirSucesion = true
+	if err := politica.PublicarInicialConPoliticaOfertas(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if autoridad.publicada.VersionRol.Version != 6 || len(autoridad.publicada.VersionRol.Concesiones) != 9 {
+		t.Fatalf("B47 no evolucionó conservadoramente B5: %+v", autoridad.publicada.VersionRol)
+	}
+	encontradas := map[string]*dominiovec.ConcesionRol{}
+	for i := range autoridad.publicada.VersionRol.Concesiones {
+		concesion := &autoridad.publicada.VersionRol.Concesiones[i]
+		if concesion.Accion == puertosbolsa.AccionPublicarPoliticaOfertas || concesion.Accion == puertosbolsa.AccionConsultarPoliticaOfertas {
+			encontradas[concesion.Accion] = concesion
+		}
+	}
+	for _, accion := range []string{puertosbolsa.AccionPublicarPoliticaOfertas, puertosbolsa.AccionConsultarPoliticaOfertas} {
+		encontrada := encontradas[accion]
+		finalidad := puertosbolsa.FinalidadPoliticaOfertas
+		if accion == puertosbolsa.AccionConsultarPoliticaOfertas {
+			finalidad = puertosbolsa.FinalidadConsultarPoliticaOfertas
+		}
+		if encontrada == nil || encontrada.ModuloID != "bolsa" || encontrada.TipoRecurso != "bolsa_constituida" ||
+			!reflect.DeepEqual(encontrada.Finalidades, []string{finalidad}) {
+			t.Fatalf("concesión %s distinta: %+v", accion, encontrada)
+		}
+		if accion == puertosbolsa.AccionConsultarPoliticaOfertas && !reflect.DeepEqual(encontrada.CamposPermitidos, []string{puertosbolsa.CampoConsultarPoliticaOfertas}) {
+			t.Fatalf("consulta sin campo exacto: %+v", encontrada)
+		}
 	}
 }
 

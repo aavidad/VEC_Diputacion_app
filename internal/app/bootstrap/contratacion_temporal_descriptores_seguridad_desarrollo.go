@@ -45,6 +45,7 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
+	_ ...bool,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
 	return append([]descriptorFronteraComunDesarrollo{
@@ -84,12 +85,19 @@ func fronteraContratacionTemporalDesarrollo(
 // CT con una única frontera y con la política completa recibida por composición.
 func descriptoresAutorizacionContratacionTemporalDesarrollo(
 	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
+	reincorporacion ...bool,
 ) []descriptorAutorizacionComunDesarrollo {
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(
 		"prf_catalogo_ct", []string{"prf_catalogo_ct"},
 	)
 	descriptores := make([]descriptorAutorizacionComunDesarrollo, 0, len(fronteras))
+	porAccion := map[string]int{}
 	for _, frontera := range fronteras {
+		if i, existe := porAccion[frontera.ClaveCapacidad]; existe {
+			descriptores[i].Fronteras = append(descriptores[i].Fronteras, frontera.Clave)
+			continue
+		}
+		porAccion[frontera.ClaveCapacidad] = len(descriptores)
 		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
 			Accion:         frontera.ClaveCapacidad,
 			ClavePolitica:  frontera.ClavePolitica,
@@ -97,6 +105,20 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Fronteras:      []string{frontera.Clave},
 			Politica:       politica,
 		})
+	}
+	if len(reincorporacion) != 0 && reincorporacion[0] {
+		for _, ruta := range []string{cthttp.RutaReincorporacionesTitular, cthttp.RutaCapacidadReincorporacionTitular} {
+			o, _ := operacionSeguimientoCesePorRuta(ruta)
+			if indice, existe := porAccion[o.accion]; existe {
+				descriptores[indice].Fronteras = append(descriptores[indice].Fronteras, o.frontera)
+				continue
+			}
+			porAccion[o.accion] = len(descriptores)
+			descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+				Accion: o.accion, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+				ClaveCapacidad: o.accion, Fronteras: []string{o.frontera}, Politica: politica,
+			})
+		}
 	}
 	return descriptores
 }

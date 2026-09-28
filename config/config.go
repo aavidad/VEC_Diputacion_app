@@ -188,6 +188,7 @@ type Config struct {
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaRelevoNoIncorporacionPostgreSQL        ConfiguracionPostgreSQLBolsaRelevoNoIncorporacion
 	BolsaRelevoCesePostgreSQL                   ConfiguracionPostgreSQLBolsaRelevoCese
+	BolsaPoliticaOfertasCalculadorPostgreSQL    ConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 	CalendariosPostgreSQL                       ConfiguracionCalendarios
@@ -289,8 +290,9 @@ func Load() Config {
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
 		},
-		BolsaRelevoNoIncorporacionPostgreSQL: NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
-		BolsaRelevoCesePostgreSQL:            NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
+		BolsaRelevoNoIncorporacionPostgreSQL:     NuevaConfiguracionPostgreSQLBolsaRelevoNoIncorporacion(envFirst(EnvBolsaRelevoNoIncorporacionDatabaseURL)),
+		BolsaRelevoCesePostgreSQL:                NuevaConfiguracionPostgreSQLBolsaRelevoCese(envFirst(EnvBolsaRelevoCeseDatabaseURL)),
+		BolsaPoliticaOfertasCalculadorPostgreSQL: NuevaConfiguracionPostgreSQLBolsaPoliticaOfertasCalculador(envFirst(EnvBolsaPoliticaOfertasCalculadorDatabaseURL)),
 		ContratacionTemporalPostgreSQL: ConfiguracionPostgreSQLContratacionTemporal{
 			dsnEjecucion: envFirst(EnvContratacionTemporalDatabaseURL),
 			dsnGobierno:  envFirst(EnvContratacionTemporalGobiernoDatabaseURL),
@@ -422,6 +424,7 @@ func (c Config) Normalize() Config {
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaRelevoNoIncorporacionPostgreSQL = c.BolsaRelevoNoIncorporacionPostgreSQL.normalizar()
 	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
+	c.BolsaPoliticaOfertasCalculadorPostgreSQL = c.BolsaPoliticaOfertasCalculadorPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ContratacionTemporalPostgreSQL = c.ContratacionTemporalPostgreSQL.normalizar()
 	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)

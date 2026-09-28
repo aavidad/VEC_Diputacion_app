@@ -147,3 +147,51 @@ func TestReincorporacionExigeCanalYReautorizaReplay(t *testing.T) {
 		t.Fatalf("canal: %v", err)
 	}
 }
+
+type autorizadorReincorporacionDenegadorPrueba struct{ llamadas int }
+
+func (a *autorizadorReincorporacionDenegadorPrueba) AutorizarOperacionSeguimiento(
+	context.Context, ports.SolicitudAutorizarOperacionSeguimiento,
+) (vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	a.llamadas++
+	return vp.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrAutorizacionDenegada
+}
+
+func TestReincorporacionDenegadaAntesDeLectorYRepositorio(t *testing.T) {
+	esc := nuevoEscenarioSeguimiento(t, 1)
+	fecha := time.Date(2027, 2, 15, 0, 0, 0, 0, time.UTC)
+	ref := "documento:ct:justificante:1"
+	sha := strings.Repeat("b", 64)
+	cesado, err := esc.repo.expediente.RegistrarCese(esc.repo.expediente.Version, domain.DatosCese{
+		CausaClave: "fin_sustitucion", FechaEfecto: fecha, JustificanteTipo: "comunicacion_reincorporacion",
+		JustificanteRef: ref, JustificanteSHA256: sha,
+	}, domain.DatosActuacion{
+		AccionClave: domain.AccionCesarNombramiento, ActorRef: "per_prueba", UnidadRef: esc.repo.expediente.Asignacion.UnidadRef,
+		ReciboRef: "recibo:cese:prueba", RealizadaEn: esc.repo.expediente.ActualizadoEn.Add(time.Minute),
+		FaseDestino: domain.FaseNombramiento, EstadoDestino: domain.EstadoEnCurso, DocumentosRef: []string{ref},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &repositorioReincorporacionPrueba{expediente: cesado}
+	lector := &lecturaReincorporacionPrueba{}
+	denegador := &autorizadorReincorporacionDenegadorPrueba{}
+	servicio, err := NuevoServicioReincorporacionTitular(DependenciasReincorporacionTitular{
+		Contextos: esc.servicio.contextos, Lector: lector, PoliticaLectura: politicaLecturaReincorporacionPrueba{esc.reglas},
+		Sellos: sellosReincorporacionPrueba{}, Repositorio: repo, Reglas: esc.reglas, Autorizador: denegador,
+		Referencias: referenciasSeguimientoDoble{}, Reloj: esc.servicio.reloj,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = servicio.RegistrarReincorporacionTitular(context.Background(), SolicitudRegistrarReincorporacionTitular{
+		Canal: esc.canal, ExpedienteRef: cesado.Referencia, RelacionRef: "relacion:personal:1",
+		FechaEfectiva: fecha, DocumentoRef: ref, DocumentoSHA256: sha, VersionEsperada: cesado.Version,
+		ClaveIdempotencia: "88888888-8888-4888-8888-888888888888",
+	})
+	if !errors.Is(err, ports.ErrAutorizacionDenegada) || denegador.llamadas != 1 ||
+		lector.consultas != 0 || repo.preparaciones != 0 || repo.confirmaciones != 0 {
+		t.Fatalf("denegación permitió lectura o efecto CT: err=%v autorización=%d lectura=%d preparación=%d confirmación=%d",
+			err, denegador.llamadas, lector.consultas, repo.preparaciones, repo.confirmaciones)
+	}
+}

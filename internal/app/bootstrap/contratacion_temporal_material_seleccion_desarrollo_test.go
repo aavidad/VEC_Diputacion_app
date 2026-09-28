@@ -15,7 +15,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
 		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
-		incorporacionAcreditada: true,
+		incorporacionAcreditada: true, reincorporacionTitular: true, politicaOfertas: true,
 	}
 }
 
@@ -53,6 +53,28 @@ func TestSeleccionMiBolsaIncluyeMaterialHistorialPropio(t *testing.T) {
 	}
 	if coincidencias != 1 {
 		t.Fatalf("historial de Mi Bolsa requiere un único material nominal: %d", coincidencias)
+	}
+}
+
+func TestSeleccionReincorporacionTitularIncluyeSoloSusDosAudiencias(t *testing.T) {
+	apagada := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{})
+	encendida := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{reincorporacionTitular: true})
+	escritura := descriptorMaterialReincorporacionTitularDesarrollo()
+	lectura := descriptorMaterialLecturaReincorporacionTitularDesarrollo()
+	if escritura.Audiencia == lectura.Audiencia {
+		t.Fatal("escritura y lectura comparten audiencia")
+	}
+	if len(encendida) != len(apagada)+2 {
+		t.Fatalf("el selector debe añadir solo dos audiencias: apagada=%d encendida=%d", len(apagada), len(encendida))
+	}
+	for _, d := range apagada {
+		if d.Audiencia == escritura.Audiencia || d.Audiencia == lectura.Audiencia {
+			t.Fatalf("audiencia CT130 publicada con selector apagado: %s", d.Audiencia)
+		}
+	}
+	if !reflect.DeepEqual(encendida[:len(apagada)], apagada) ||
+		!reflect.DeepEqual(encendida[len(apagada):], []descriptorMaterialConsumidorV3Desarrollo{escritura, lectura}) {
+		t.Fatal("el selector CT130 debe añadir solo los descriptores nominales de escritura y lectura")
 	}
 }
 

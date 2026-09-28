@@ -1,7 +1,13 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log"
+	"net/http"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +15,74 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+type resolutorContextoEsperadoPrueba func(context.Context, dominiovec.SolicitudContextoActor) (dominiovec.ResultadoContextoActorRegistradoV2, error)
+
+func (f resolutorContextoEsperadoPrueba) ResolverContextoActorRegistradoV2(
+	ctx context.Context, solicitud dominiovec.SolicitudContextoActor,
+) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
+	return f(ctx, solicitud)
+}
+
+func TestContextoEsperadoRegistradoFallaCerradoSinDatosEnLog(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	const secreto = "secreto-certificado-dsn-persona"
+	invalidado, err := soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidado.HuellaSHA256 = secreto
+	semillaInvalida := invalidado
+	perfilCT130, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := perfilCT130.Resultado.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre, etapa string
+		resultado     dominiovec.ResultadoContextoActorRegistradoV2
+		semilla       *dominiovec.ResultadoContextoActorRegistradoV2
+		selloInvalido bool
+		err           error
+	}{
+		{nombre: "semilla_invalida", etapa: "validar_semilla_contexto", semilla: &semillaInvalida},
+		{nombre: "sello_soporte_invalido", etapa: "validar_soporte_contexto", selloInvalido: true},
+		{nombre: "resolutor", etapa: "resolver_contexto_registrado", err: errors.New(secreto)},
+		{nombre: "resultado_invalido", etapa: "validar_contexto_registrado", resultado: invalidado},
+		{nombre: "perfil_ct130_distinto", etapa: "identidad_contexto_registrado", resultado: perfilCT130.Resultado},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var salida bytes.Buffer
+			anterior := log.Writer()
+			log.SetOutput(&salida)
+			t.Cleanup(func() { log.SetOutput(anterior) })
+			resolutor := resolutorContextoEsperadoPrueba(func(context.Context, dominiovec.SolicitudContextoActor) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
+				return caso.resultado, caso.err
+			})
+			if caso.selloInvalido {
+				anterior := soporte.certificadoSHA256
+				soporte.certificadoSHA256 = secreto
+				t.Cleanup(func() { soporte.certificadoSHA256 = anterior })
+			}
+			var resultado dominiovec.ResultadoContextoActorRegistradoV2
+			var err error
+			if caso.semilla != nil {
+				resultado, err = contextoEsperadoRegistradoParaSemillaDesarrollo(context.Background(), resolutor, soporte, *caso.semilla)
+			} else {
+				resultado, err = contextoEsperadoRegistradoDesarrollo(context.Background(), resolutor, soporte)
+			}
+			if err != ports.ErrConsultaRRHHNoDisponible || !reflect.DeepEqual(resultado, dominiovec.ResultadoContextoActorRegistradoV2{}) {
+				t.Fatalf("el fallo de %s no denegó con error público genérico: %v", caso.nombre, err)
+			}
+			if !strings.Contains(salida.String(), "etapa="+caso.etapa) || strings.Contains(salida.String(), secreto) {
+				t.Fatalf("el diagnóstico de %s falta o contiene datos sensibles", caso.nombre)
+			}
+		})
+	}
+}
 
 func resultadoConVinculoEmpleadoF1(t *testing.T, semilla dominiovec.ResultadoContextoActorRegistradoV2) dominiovec.ResultadoContextoActorRegistradoV2 {
 	return resultadoConVersionVinculoEmpleadoF1(t, semilla, 1)
@@ -165,5 +239,92 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 	}
 	if len(e.soporte.contexto.Resultado.Contexto.Instantanea.Vinculos) != 0 {
 		t.Fatal("la semilla histórica fue modificada")
+	}
+}
+
+func TestContextoOperativoReincorporacionSeleccionaPerfilYSesionDedicados(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	base := soporte.contexto
+	reincorporacion, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseVinculo, _ := base.Vinculo.Datos()
+	reincVinculo, _ := reincorporacion.Vinculo.Datos()
+	if baseVinculo.PerfilActivoRef == reincVinculo.PerfilActivoRef ||
+		baseVinculo.SesionRef == reincVinculo.SesionRef ||
+		base.Resultado.Contexto.Instantanea.VinculoRef == reincorporacion.Resultado.Contexto.Instantanea.VinculoRef ||
+		base.Resultado.Contexto.Instantanea.CuentaRef != reincorporacion.Resultado.Contexto.Instantanea.CuentaRef ||
+		base.Resultado.Contexto.PersonaRef != reincorporacion.Resultado.Contexto.PersonaRef {
+		t.Fatal("reincorporación no tiene perfil, sesión y contexto propios sobre la misma persona")
+	}
+	soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+		contexto: reincorporacion, contextoEsperadoRegistrado: reincorporacion.Resultado,
+		sesionOperativa: proveedorSesionOperativaCTPrueba{contexto: reincorporacion},
+	}
+	baseOperativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes))
+	if err != nil || baseOperativo.Resultado.Contexto.PerfilActivoRef != baseVinculo.PerfilActivoRef {
+		t.Fatalf("perfil CT base alterado: %v", err)
+	}
+	for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
+		operativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta))
+		if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != reincVinculo.PerfilActivoRef {
+			t.Fatalf("ruta %s no usa perfil dedicado: %v", ruta, err)
+		}
+	}
+	soporte.reincorporacionTitular.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: base}
+	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)); err == nil {
+		t.Fatal("sesión CT base fue aceptada para CT130")
+	}
+}
+
+func TestSesionReincorporacionTitularRevalidaMTLSConPerfilPropio(t *testing.T) {
+	e := nuevaSesionConsultaPrueba(t)
+	basePerfil := e.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	contextoCT130, err := nuevoContextoReincorporacionTitularDesarrollo(e.soporte, e.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	perfilCT130 := contextoCT130.Resultado.Contexto.PerfilActivoRef
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo(append(
+		descriptoresFronterasContratacionTemporalDesarrollo(basePerfil, []string{basePerfil}),
+		descriptoresFronterasReincorporacionTitularDesarrollo(perfilCT130)...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.p.fronteras = fronteras
+	e.soporte.sesionOperativa = e.p
+	sesionCT130, err := nuevaSesionReincorporacionTitularDesarrollo(e.p, contextoCT130.Resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+		contexto: contextoCT130, contextoEsperadoRegistrado: contextoCT130.Resultado,
+		sesionOperativa: sesionCT130,
+	}
+	e.resolutor.base = contextoCT130.Resultado
+	ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaReincorporacionesTitular)
+	frontera, ok := fronteras.resolver(http.MethodPost, httpinterno.RutaReincorporacionesTitular)
+	if !ok {
+		t.Fatal("frontera CT130 ausente")
+	}
+	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+		metodo: http.MethodPost, ruta: httpinterno.RutaReincorporacionesTitular,
+		superficie: superficieInternaSeguridadComunDesarrollo, catalogo: fronteras, descriptor: frontera,
+	})
+	operativo, err := e.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := operativo.Vinculo.Datos()
+	nominal, _ := contextoCT130.Vinculo.Datos()
+	if err != nil || vinculo.PerfilActivoRef != perfilCT130 || vinculo.SesionRef == "" ||
+		vinculo.SesionRef == nominal.SesionRef ||
+		len(e.registro.altas) != 1 || e.revalidador.llamadas != 1 || e.resolutor.llamadas != 1 ||
+		e.registro.altas[0].CuentaID != "desarrollo:"+contextoCT130.Resultado.Contexto.Instantanea.CuentaRef {
+		t.Fatalf("sesión mTLS CT130 no revalidada con perfil propio: %v", err)
+	}
+	if _, err := e.p.ResolverContexto(ctx); err == nil {
+		t.Fatal("proveedor CT base aceptó frontera exclusiva CT130")
 	}
 }

@@ -18,6 +18,8 @@ type seleccionMaterialCTDesarrollo struct {
 	fichaPropiaPersonal, firmaDocumento, seguimientoCese, personalB2 bool
 	cancelacion                                                      bool
 	incorporacionAcreditada                                          bool
+	reincorporacionTitular                                           bool
+	politicaOfertas                                                  bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -35,6 +37,14 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return s, err
+	}
+	reincorporacion, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
+	if err != nil || (reincorporacion && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
+		return s, ErrActivacionDesarrolloInvalida
+	}
+	politicaOfertas, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled)
+	if err != nil || (politicaOfertas && !cfg.BolsaBorradoresEnabled) {
+		return s, ErrActivacionDesarrolloInvalida
 	}
 	// Pedir el portal del candidato sin poder componer «Mi bolsa» (PostgreSQL
 	// de llamamientos y material de identidad del candidato) no se ignora.
@@ -57,6 +67,8 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		cancelacion:             cancelacionCTSolicitada(cfg),
 		personalB2:              personalB2,
 		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
+		reincorporacionTitular:  reincorporacion,
+		politicaOfertas:         politicaOfertas,
 	}
 	return s, nil
 }
@@ -79,6 +91,12 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled); err != nil {
 		return err
 	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled); err != nil {
+		return err
+	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled); err != nil {
+		return err
+	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
 	return err
 }
@@ -89,6 +107,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	d := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
 	if s.borradoresBolsa {
 		d = append(d, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
+	}
+	if s.politicaOfertas {
+		d = append(d, descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
 	}
 	if s.miBolsa {
 		d = append(d, descriptorMaterialMiBolsaDesarrollo())
@@ -121,6 +142,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.seguimientoCese {
 		d = append(d, descriptoresMaterialSeguimientoCeseDesarrollo()...)
+	}
+	if s.reincorporacionTitular {
+		d = append(d, descriptorMaterialReincorporacionTitularDesarrollo(), descriptorMaterialLecturaReincorporacionTitularDesarrollo())
 	}
 	if s.incorporacionAcreditada {
 		d = append(d, descriptorMaterialConfirmacionGINPIXDesarrollo(), descriptorMaterialNoIncorporacionDesarrollo())
