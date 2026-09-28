@@ -18,13 +18,24 @@ for _ in $(seq 1 60); do
 done
 docker exec "$contenedor" pg_isready -U postgres -d "$base" >/dev/null
 
-sql() {
+sql_en() {
+    local db=$1
+    shift
     docker exec --interactive "$contenedor" psql -X -qAt \
-        -v ON_ERROR_STOP=1 -U postgres -d "$base" "$@"
+        -v ON_ERROR_STOP=1 -U postgres -d "$db" "$@"
 }
+sql() { sql_en "$base" "$@"; }
 archivo() { sql < "$raiz/$1"; }
 escalar() { sql -c "$1"; }
+archivo_en() { local db=$1; shift; sql_en "$db" < "$raiz/$1"; }
+escalar_en() { local db=$1; shift; sql_en "$db" -c "$1"; }
 fallar() { printf '%s\n' "$1" >&2; exit 1; }
+
+# La ausencia total, también con esquema Bolsa de migraciones posteriores,
+# debe informar NO_APLICA sin tocar políticas ni exigir SET ROLE.
+salida_cero=$(archivo "$paquete")
+[[ $salida_cero == *NO_APLICA* ]] || fallar 'ausencia B1 sin respuesta NO_APLICA'
+[[ $(escalar "SELECT count(*) FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='vec_bolsa_llamamientos'") == 0 ]] || fallar 'ausencia B1 alteró políticas'
 
 # Cadena auténtica mínima que instaló B1: roles, autorización y almacén.
 archivo deploy/postgresql/autorizacion/roles_up.sql >/dev/null
@@ -32,6 +43,27 @@ archivo deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql >/
 archivo deploy/postgresql/ejecucion_documental_v4/migraciones_autorizacion/000002_vinculo_autenticacion_actor_actual.up.sql >/dev/null
 archivo deploy/postgresql/bolsa_llamamientos/roles_up.sql >/dev/null
 archivo deploy/postgresql/bolsa_llamamientos/migraciones_autorizacion/000001_revalidacion_llamamientos.up.sql >/dev/null
+
+parcial=vec_b1_rls_parcial
+docker exec "$contenedor" createdb -U postgres "$parcial"
+escalar_en "$parcial" "CREATE SCHEMA vec_bolsa_llamamientos AUTHORIZATION vec_bolsa_llamamientos_propietario" >/dev/null
+escalar_en "$parcial" "CREATE TABLE vec_bolsa_llamamientos.tabla_posterior(id integer); CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.tabla_posterior TO vec_bolsa_llamamientos_propietario USING (true)" >/dev/null
+salida_cero=$(archivo_en "$parcial" "$paquete")
+[[ $salida_cero == *NO_APLICA* ]] || fallar 'esquema Bolsa sin B1 no devolvió NO_APLICA'
+[[ $(escalar_en "$parcial" "SELECT polroles=ARRAY['vec_bolsa_llamamientos_propietario'::regrole::oid] FROM pg_catalog.pg_policy WHERE polrelid='vec_bolsa_llamamientos.tabla_posterior'::regclass") == t ]] || fallar 'NO_APLICA alteró política ajena'
+
+tablas_b1=(bolsa_autoritativa necesidad_autoritativa necesidad_actual politica_autoritativa instantanea_autoritativa evaluacion_autoritativa atestacion_autorizacion_version atestacion_autorizacion_actual propuesta referencia_consumida uso_decision auditoria auditoria_actual outbox)
+for indice in $(seq 0 12); do
+    tabla=${tablas_b1[$indice]}
+    escalar_en "$parcial" "CREATE TABLE vec_bolsa_llamamientos.$tabla(id integer); CREATE POLICY solo_propietario ON vec_bolsa_llamamientos.$tabla USING (current_user='vec_bolsa_llamamientos_propietario') WITH CHECK (current_user='vec_bolsa_llamamientos_propietario')" >/dev/null
+    if salida_parcial=$(archivo_en "$parcial" "$paquete" 2>&1); then
+        fallar "B1 parcial $((indice+1))/14 fue aceptada"
+    fi
+    siguiente=${tablas_b1[$((indice+1))]}
+    [[ $salida_parcial == *'preimagen parcial o derivada'* && $salida_parcial == *"$siguiente:tabla_ausente"* ]] || fallar "B1 parcial $((indice+1))/14 no nombró $siguiente"
+    [[ $(escalar_en "$parcial" "SELECT count(*) FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='vec_bolsa_llamamientos' AND c.relname <> 'tabla_posterior' AND p.polroles=ARRAY[0]::oid[]") == $((indice+1)) ]] || fallar "B1 parcial $((indice+1))/14 cambió políticas"
+done
+
 archivo deploy/postgresql/bolsa_llamamientos/migraciones/000001_almacen_llamamientos.up.sql >/dev/null
 
 contar_roles() {
@@ -104,4 +136,4 @@ archivo "$paquete" >/dev/null
 if archivo "$paquete" >/dev/null 2>&1; then fallar 'el paquete pudo reaplicarse'; fi
 [[ $(contar_roles "ARRAY['vec_bolsa_llamamientos_propietario'::regrole::oid]") == 14 ]] || fallar 'reaplicación afectó postimagen'
 
-printf '%s\n' 'B1 RLS PG18.4: preimagen, negativas, postimagen, historia y ACL OK'
+printf '%s\n' 'B1 RLS PG18.4: NO_APLICA 0/14, parciales 1..13 rechazados, 14/14, replay, ACL columna e historia OK'

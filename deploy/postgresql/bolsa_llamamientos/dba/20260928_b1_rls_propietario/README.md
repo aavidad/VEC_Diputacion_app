@@ -1,19 +1,27 @@
 # Cierre DBA de las políticas RLS de Bolsa B1 — 28/09/2026
 
-`01_cerrar_politicas.sql` es un ajuste aditivo de una sola ejecución. Debe
-aplicarse **después** de `bolsa_llamamientos` B1 y **antes** del selector de
-conexiones corporativas. Solo cambia el destino `TO` de las catorce políticas
-`solo_propietario` creadas en B1: de `PUBLIC` a
+`01_cerrar_politicas.sql` es un ajuste aditivo para bases que tengan B1. Se
+invoca **antes** del selector de conexiones corporativas. Una comprobación
+previa al primer bloqueo distingue tres estados:
+
+- **0/14 tablas y políticas B1:** imprime `NO_APLICA` y no altera nada. Esto
+  no acredita que la seguridad esté cerrada; el selector debe comprobar su
+  propia preimagen.
+- **1–13/14 o deriva estructural:** falla cerrado con nombre de tabla/política.
+- **14/14 exactas:** entra en la transacción protegida y cambia solo el destino
+  `TO` de las catorce políticas.
+
+En el caso 14/14, las políticas `solo_propietario` pasan de `PUBLIC` a
 `vec_bolsa_llamamientos_propietario`. No modifica B1 histórica, tablas, datos,
 predicados, ACL, roles, funciones ni políticas de otras migraciones.
 
-La transacción exige la preimagen cerrada: catorce nombres exactos, dueño
+Cuando B1 está presente, la transacción exige catorce nombres exactos, dueño
 `NOLOGIN` sin `BYPASSRLS`, RLS habilitada y forzada, una única política por
 tabla con `polroles={0}`, comando `ALL`, modo permisivo, predicados idénticos
-a los de B1 y ausencia de permisos directos de tabla **o columna** para otros roles. Toma bloqueos de
-tabla antes de comprobar y devuelve error `55000` ante deriva. La postimagen
-comprueba que los mismos OID, predicados y ACL de tabla y columna persisten y solo el propietario
-figura en `polroles`.
+a B1 y ausencia de permisos directos de tabla o columna para otros roles.
+Toma bloqueos antes de comprobar y devuelve error `55000` ante deriva. La
+postimagen exige los mismos OID, predicados y ACL de tabla y columna, con
+solo el propietario en `polroles`.
 
 No hay `DOWN`: devolver `TO PUBLIC` reabriría el defecto. Si la preimagen no
 coincide, detener la instalación y revisar la base; no relajar guardas ni
@@ -27,7 +35,8 @@ datos sintéticos:
 deploy/postgresql/bolsa_llamamientos/dba/20260928_b1_rls_propietario/probar_pg18.sh
 ```
 
-El runner usa un contenedor efímero sin red, verifica seis derivas negativas
-(predicado, rol, política adicional, ACL de tabla, ACL de columna y `FORCE RLS`), ausencia de efectos
-parciales, historia/ACL conservadas y rechazo de reaplicación. No instala SQL
-en bases compartidas.
+El runner usa un contenedor efímero sin red. Prueba `NO_APLICA` sin esquema y
+con esquema Bolsa, los trece estados parciales y seis derivas negativas:
+predicado, rol, política adicional, ACL de tabla, ACL de columna y `FORCE RLS`.
+Comprueba ausencia de efectos parciales, historia/ACL conservadas y rechazo de
+reaplicación. No instala SQL en bases compartidas.

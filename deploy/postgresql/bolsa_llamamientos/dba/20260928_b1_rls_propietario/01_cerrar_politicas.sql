@@ -1,9 +1,55 @@
 \set ON_ERROR_STOP on
 BEGIN;
-SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
+
+-- Esta preimagen se toma como DBA, antes de SET ROLE y de cualquier LOCK.
+-- El clon principal puede carecer por completo de B1; ese estado no prueba
+-- seguridad cerrada y se informa como NO_APLICA, sin intentar ALTER.
+DO $preimagen$
+DECLARE
+    tablas constant text[] := ARRAY[
+        'bolsa_autoritativa', 'necesidad_autoritativa', 'necesidad_actual',
+        'politica_autoritativa', 'instantanea_autoritativa',
+        'evaluacion_autoritativa', 'atestacion_autorizacion_version',
+        'atestacion_autorizacion_actual', 'propuesta', 'referencia_consumida',
+        'uso_decision', 'auditoria', 'auditoria_actual', 'outbox'
+    ];
+    total_tablas integer;
+    total_politicas integer;
+    deriva text;
+BEGIN
+    SELECT count(c.oid), count(p.oid),
+           string_agg(
+               CASE WHEN c.oid IS NULL THEN t.nombre || ':tabla_ausente'
+                    WHEN c.relkind <> 'r' THEN t.nombre || ':tipo_ajeno'
+                    WHEN p.oid IS NULL THEN t.nombre || ':politica_ausente'
+                    ELSE NULL END,
+               ', ' ORDER BY t.nombre
+           )
+      INTO total_tablas, total_politicas, deriva
+      FROM unnest(tablas) AS t(nombre)
+      LEFT JOIN pg_catalog.pg_namespace n
+        ON n.nspname = 'vec_bolsa_llamamientos'
+      LEFT JOIN pg_catalog.pg_class c
+        ON c.relnamespace = n.oid AND c.relname = t.nombre
+      LEFT JOIN pg_catalog.pg_policy p
+        ON p.polrelid = c.oid AND p.polname = 'solo_propietario';
+    IF total_tablas = 0 AND total_politicas = 0 THEN
+        PERFORM pg_catalog.set_config('vec.b1_rls_aplicar', 'false', true);
+        RETURN;
+    END IF;
+    IF total_tablas <> 14 OR total_politicas <> 14 OR deriva IS NOT NULL THEN
+        RAISE EXCEPTION 'B1 RLS: preimagen parcial o derivada: %',
+            coalesce(deriva, 'inventario incompleto') USING ERRCODE = '55000';
+    END IF;
+    PERFORM pg_catalog.set_config('vec.b1_rls_aplicar', 'true', true);
+END
+$preimagen$;
+SELECT pg_catalog.current_setting('vec.b1_rls_aplicar') AS b1_rls_aplicar \gset
+\if :b1_rls_aplicar
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('vec_bolsa_llamamientos:dba:b1-rls-propietario:20260928', 0)
 );
@@ -48,10 +94,15 @@ BEGIN
     -- Bloqueos en orden fijo: ningún DDL puede cambiar la preimagen mientras
     -- la transacción comprueba y ajusta las catorce políticas.
     FOREACH nombre_tabla IN ARRAY tablas LOOP
-        EXECUTE format(
-            'LOCK TABLE vec_bolsa_llamamientos.%I IN ACCESS EXCLUSIVE MODE',
-            nombre_tabla
-        );
+        BEGIN
+            EXECUTE format(
+                'LOCK TABLE vec_bolsa_llamamientos.%I IN ACCESS EXCLUSIVE MODE',
+                nombre_tabla
+            );
+        EXCEPTION WHEN undefined_table THEN
+            RAISE EXCEPTION 'B1 RLS: tabla desaparecida antes del LOCK: %',
+                nombre_tabla USING ERRCODE = '55000';
+        END;
     END LOOP;
 
     FOR i IN 1..14 LOOP
@@ -156,4 +207,7 @@ BEGIN
     END LOOP;
 END
 $cerrar$;
+\else
+\echo NO_APLICA: las catorce tablas y políticas B1 están ausentes; no se certifica el selector
+\endif
 COMMIT;
