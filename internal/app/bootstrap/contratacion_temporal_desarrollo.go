@@ -457,7 +457,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	perfilReincorporacionTitular := ""
 	if reincorporacionTitular {
-		contexto, err := nuevoContextoReincorporacionTitularDesarrollo(alta.soporte.contexto, reloj.Ahora())
+		contexto, err := nuevoContextoReincorporacionTitularDesarrollo(alta.soporte, reloj.Ahora())
 		if err != nil {
 			return nil, nil, nil, ErrActivacionDesarrolloInvalida
 		}

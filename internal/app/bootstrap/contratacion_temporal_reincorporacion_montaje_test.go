@@ -64,7 +64,11 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-			v, err := soporte.contexto.Vinculo.Datos()
+			contextoReincorporacion, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, soporte.reloj.Ahora())
+			if err != nil {
+				t.Fatal(err)
+			}
+			v, err := contextoReincorporacion.Vinculo.Datos()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -92,7 +96,11 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{instantanea: instantanea}
+			soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+				instantanea: instantanea, contexto: contextoReincorporacion,
+				contextoEsperadoRegistrado: contextoReincorporacion.Resultado,
+				sesionOperativa:            proveedorSesionOperativaCTPrueba{contexto: contextoReincorporacion},
+			}
 			servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(soporte, soporte, soporte, soporte,
 				soporte.reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 			if err != nil {

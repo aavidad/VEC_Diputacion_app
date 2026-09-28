@@ -171,7 +171,7 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 func TestContextoOperativoReincorporacionSeleccionaPerfilYSesionDedicados(t *testing.T) {
 	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	base := soporte.contexto
-	reincorporacion, err := nuevoContextoReincorporacionTitularDesarrollo(base, soporte.reloj.Ahora())
+	reincorporacion, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, soporte.reloj.Ahora())
 	if err != nil {
 		t.Fatal(err)
 	}

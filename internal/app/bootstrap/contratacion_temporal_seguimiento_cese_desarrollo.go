@@ -80,16 +80,11 @@ func rutaSeguimientoCeseDesarrollo(ruta string) bool {
 	return ok
 }
 
-// descriptoresFronterasSeguimientoCeseDesarrollo declara las rutas base.
-func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string, reincorporacion ...bool) []descriptorFronteraComunDesarrollo {
+// descriptoresFronterasSeguimientoCeseDesarrollo declara sólo las rutas base.
+func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string) []descriptorFronteraComunDesarrollo {
 	var d []descriptorFronteraComunDesarrollo
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
 		d = append(d, fronteraContratacionTemporalDesarrollo(o.frontera, o.accion, o.ruta, []string{perfilCT}))
-	}
-	if len(reincorporacion) != 0 && reincorporacion[0] {
-		// El catálogo de acciones conserva claves estables, pero nunca reutiliza
-		// el perfil base para declarar las dos fronteras de reincorporación.
-		d = append(d, descriptoresFronterasReincorporacionTitularDesarrollo("prf_catalogo_reincorporacion_titular")...)
 	}
 	return d
 }
@@ -215,13 +210,26 @@ func discriminadorContextoReincorporacionTitularDesarrollo() discriminadorContex
 	}
 }
 
-func nuevoContextoReincorporacionTitularDesarrollo(base ports.ContextoAutorizacionAltaV3, ahora time.Time) (ports.ContextoAutorizacionAltaV3, error) {
+func nuevoContextoReincorporacionTitularDesarrollo(soporte *soporteAltaContratacionTemporalDesarrollo, ahora time.Time) (ports.ContextoAutorizacionAltaV3, error) {
 	vacio := ports.ContextoAutorizacionAltaV3{}
+	if soporte == nil || soporte.principalID == "" || !huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) {
+		return vacio, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	base := soporte.contexto
 	if base.Resultado.Validar() != nil || base.Vinculo.ValidarPara(base.Resultado) != nil {
 		return vacio, errSeguimientoCeseDesarrolloNoDisponible
 	}
+	// El contexto V3 no transporta los atributos de la identidad mTLS que
+	// iniciaron la semilla. Se reconstruye sólo desde el soporte ya sellado.
+	principal := vecdomain.Principal{ID: soporte.principalID, Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": soporte.certificadoSHA256}}
+	if !principalContratacionTemporalDesarrolloValido(principal) {
+		return vacio, errSeguimientoCeseDesarrolloNoDisponible
+	}
 	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
-		base.Resultado.Contexto.Principal, ahora, discriminadorContextoReincorporacionTitularDesarrollo())
+		principal, ahora, discriminadorContextoReincorporacionTitularDesarrollo())
 	if err != nil || contexto.Resultado.Contexto.PerfilActivoRef == base.Resultado.Contexto.PerfilActivoRef ||
 		contexto.Resultado.Contexto.Instantanea.CuentaRef != base.Resultado.Contexto.Instantanea.CuentaRef ||
 		contexto.Resultado.Contexto.PersonaRef != base.Resultado.Contexto.PersonaRef {

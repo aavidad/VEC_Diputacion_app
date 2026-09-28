@@ -45,7 +45,7 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
-	reincorporacion ...bool,
+	_ ...bool,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
 	return append([]descriptorFronteraComunDesarrollo{
@@ -63,7 +63,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		// que la decisión: sin su frontera, el PDP común las deniega (403).
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
-	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT, reincorporacion...), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
 }
 
 func fronteraContratacionTemporalDesarrollo(
@@ -88,7 +88,7 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 	reincorporacion ...bool,
 ) []descriptorAutorizacionComunDesarrollo {
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(
-		"prf_catalogo_ct", []string{"prf_catalogo_ct"}, reincorporacion...,
+		"prf_catalogo_ct", []string{"prf_catalogo_ct"},
 	)
 	descriptores := make([]descriptorAutorizacionComunDesarrollo, 0, len(fronteras))
 	porAccion := map[string]int{}
@@ -105,6 +105,20 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			Fronteras:      []string{frontera.Clave},
 			Politica:       politica,
 		})
+	}
+	if len(reincorporacion) != 0 && reincorporacion[0] {
+		for _, ruta := range []string{cthttp.RutaReincorporacionesTitular, cthttp.RutaCapacidadReincorporacionTitular} {
+			o, _ := operacionSeguimientoCesePorRuta(ruta)
+			if indice, existe := porAccion[o.accion]; existe {
+				descriptores[indice].Fronteras = append(descriptores[indice].Fronteras, o.frontera)
+				continue
+			}
+			porAccion[o.accion] = len(descriptores)
+			descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+				Accion: o.accion, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+				ClaveCapacidad: o.accion, Fronteras: []string{o.frontera}, Politica: politica,
+			})
+		}
 	}
 	return descriptores
 }
