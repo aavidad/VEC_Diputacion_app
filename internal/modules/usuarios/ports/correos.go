@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -70,7 +71,43 @@ type PeticionCorreo struct {
 	SustitutoRef    string `json:"sustituto_ref,omitempty"`
 }
 
-// Sólo lleva el digest semántico de la entrada. Nunca el código de verificación.
+// La colección contiene HMAC dedicados y versionados de la preimagen completa.
+// El activo se persiste; retenidos sirven exclusivamente para comparar replay
+// tras rotación, sin reescribir el recibo ni ampliar el ámbito de autorización.
+type HuellaSemanticaCorreo struct {
+	ClaveRef string
+	Valor    string
+}
+
+type HuellasSemanticasCorreo struct {
+	Activa    HuellaSemanticaCorreo
+	Retenidas []HuellaSemanticaCorreo
+}
+
+func (h HuellasSemanticasCorreo) Validar() bool {
+	if len(h.Retenidas) > 8 {
+		return false
+	}
+	vistas := make(map[string]bool, len(h.Retenidas)+1)
+	for _, sello := range append([]HuellaSemanticaCorreo{h.Activa}, h.Retenidas...) {
+		valor, err := hex.DecodeString(sello.Valor)
+		if sello.ClaveRef == "" || vistas[sello.ClaveRef] || err != nil || len(valor) != 32 {
+			return false
+		}
+		vistas[sello.ClaveRef] = true
+	}
+	return true
+}
+
+// Sellar acepta bytes sólo en memoria y nunca registra ni devuelve la
+// preimagen. Usa HMAC-SHA256 con clave de huella semántica propia del módulo;
+// no la clave de desafío ni de igualdad de direcciones. Retener generaciones
+// válidas permite comparar la misma petición con su clave histórica.
+type SelladorHuellaCorreos interface {
+	SellarHuellaCorreo(context.Context, []byte) (HuellasSemanticasCorreo, error)
+}
+
+// Sólo lleva HMAC semánticos de la entrada. Nunca dirección ni código.
 type MaterialCorreos struct {
 	PersonaRef      string
 	PerfilRef       string
@@ -78,7 +115,7 @@ type MaterialCorreos struct {
 	FinalidadRef    string
 	VersionEsperada uint64
 	ClaveOperacion  string
-	HuellaPeticion  string
+	HuellasPeticion HuellasSemanticasCorreo
 	CorreoRef       string
 	SustitutoRef    string
 }
@@ -158,6 +195,11 @@ type ValidadorCodigoCorreo interface {
 // pendiente no se convierte en activo. Activar exige verificado y reserva
 // aviso al anterior; retirar activo exige SustitutoRef verificado distinto y
 // realiza ambos cambios de forma atómica. No elige sustituto por defecto.
+// Si una llamada concurrente ya confirmó misma persona+clave+huella de una
+// generación válida, devuelve el recibo ORIGINAL con Replay=true, incluso
+// cuando el correo_ref aleatorio de la segunda alta sea distinto. Descarta su
+// sobre/desafío nuevos y no consume cuota, historia, auditoría ni outbox extra.
+// La misma clave con huella distinta devuelve ErrCorreosConflicto.
 type RegistroCorreos interface {
 	ConsultarPropios(context.Context, OrdenCorreos, MaterialCorreos, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (VistaCorreos, error)
 	RecuperarOperacion(context.Context, OrdenCorreos, MaterialCorreos, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboCorreos, bool, error)

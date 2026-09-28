@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,21 +15,33 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-const VigenciaDesafioCorreo = 24 * time.Hour
+const VigenciaDesafioCorreoPredeterminada = 24 * time.Hour
+
+type PoliticaDesafioCorreo struct{ Vigencia time.Duration }
+
+func (p PoliticaDesafioCorreo) vigenciaValida() bool {
+	return p.Vigencia >= 15*time.Minute && p.Vigencia <= 72*time.Hour && p.Vigencia%time.Microsecond == 0
+}
 
 type ServicioCorreos struct {
 	registro  ports.RegistroCorreos
 	protector ports.ProtectorDireccionCorreo
+	sellador  ports.SelladorHuellaCorreos
 	desafios  ports.PreparadorDesafioCorreo
 	validador ports.ValidadorCodigoCorreo
 	ahoraUTC  func() time.Time
+	politica  PoliticaDesafioCorreo
 }
 
-func NuevoServicioCorreos(registro ports.RegistroCorreos, protector ports.ProtectorDireccionCorreo, desafios ports.PreparadorDesafioCorreo, validador ports.ValidadorCodigoCorreo, ahoraUTC func() time.Time) (*ServicioCorreos, error) {
-	if registro == nil || protector == nil || desafios == nil || validador == nil || ahoraUTC == nil {
+func NuevoServicioCorreos(registro ports.RegistroCorreos, protector ports.ProtectorDireccionCorreo, sellador ports.SelladorHuellaCorreos, desafios ports.PreparadorDesafioCorreo, validador ports.ValidadorCodigoCorreo, ahoraUTC func() time.Time) (*ServicioCorreos, error) {
+	return NuevoServicioCorreosConPolitica(registro, protector, sellador, desafios, validador, ahoraUTC, PoliticaDesafioCorreo{Vigencia: VigenciaDesafioCorreoPredeterminada})
+}
+
+func NuevoServicioCorreosConPolitica(registro ports.RegistroCorreos, protector ports.ProtectorDireccionCorreo, sellador ports.SelladorHuellaCorreos, desafios ports.PreparadorDesafioCorreo, validador ports.ValidadorCodigoCorreo, ahoraUTC func() time.Time, politica PoliticaDesafioCorreo) (*ServicioCorreos, error) {
+	if registro == nil || protector == nil || sellador == nil || desafios == nil || validador == nil || ahoraUTC == nil || !politica.vigenciaValida() {
 		return nil, ports.ErrCorreosNoDisponible
 	}
-	return &ServicioCorreos{registro: registro, protector: protector, desafios: desafios, validador: validador, ahoraUTC: ahoraUTC}, nil
+	return &ServicioCorreos{registro: registro, protector: protector, sellador: sellador, desafios: desafios, validador: validador, ahoraUTC: ahoraUTC, politica: politica}, nil
 }
 
 func (s *ServicioCorreos) actor(ctx context.Context, orden ports.OrdenCorreos) (vecdomain.ContextoActor, error) {
@@ -47,8 +58,8 @@ func (s *ServicioCorreos) actor(ctx context.Context, orden ports.OrdenCorreos) (
 	return actor, nil
 }
 
-func materialCorreos(actor vecdomain.ContextoActor, accion string, p ports.PeticionCorreo, huella string) ports.MaterialCorreos {
-	return ports.MaterialCorreos{PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Accion: accion, FinalidadRef: ports.FinalidadCorreosPropios, VersionEsperada: p.VersionEsperada, ClaveOperacion: p.ClaveOperacion, HuellaPeticion: huella, CorreoRef: p.CorreoRef, SustitutoRef: p.SustitutoRef}
+func materialCorreos(actor vecdomain.ContextoActor, accion string, p ports.PeticionCorreo, huellas ports.HuellasSemanticasCorreo) ports.MaterialCorreos {
+	return ports.MaterialCorreos{PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Accion: accion, FinalidadRef: ports.FinalidadCorreosPropios, VersionEsperada: p.VersionEsperada, ClaveOperacion: p.ClaveOperacion, HuellasPeticion: huellas, CorreoRef: p.CorreoRef, SustitutoRef: p.SustitutoRef}
 }
 
 func autorizarCorreos(ctx context.Context, orden ports.OrdenCorreos, m ports.MaterialCorreos) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -74,7 +85,7 @@ func (s *ServicioCorreos) Consultar(ctx context.Context, orden ports.OrdenCorreo
 	if err != nil {
 		return ports.VistaCorreos{}, err
 	}
-	m := materialCorreos(actor, ports.AccionConsultarCorreos, ports.PeticionCorreo{}, "")
+	m := materialCorreos(actor, ports.AccionConsultarCorreos, ports.PeticionCorreo{}, ports.HuellasSemanticasCorreo{})
 	v3, err := autorizarCorreos(ctx, orden, m)
 	if err != nil {
 		return ports.VistaCorreos{}, err
@@ -131,23 +142,17 @@ func peticionCorreoValida(accion string, p ports.PeticionCorreo) bool {
 	}
 }
 
-func huellaCorreo(persona, accion string, p ports.PeticionCorreo) (string, error) {
-	// El código no viaja al material V3; su digest sólo ata el replay a los
-	// mismos bytes. El código tiene al menos 128 bits y el digest no se publica.
-	codigoHuella := ""
-	if p.Codigo != "" {
-		h := sha256.Sum256([]byte(p.Codigo))
-		codigoHuella = hex.EncodeToString(h[:])
-	}
+func preimagenCorreo(persona, accion string, p ports.PeticionCorreo) ([]byte, error) {
+	// Sólo vive en memoria durante SellarHuellaCorreo. Ni la dirección ni el
+	// código pueden tener un SHA-256 público que permita diccionario offline.
 	b, err := json.Marshal(struct {
-		Esquema, Persona, Accion, CorreoRef, Direccion, CodigoHuella, SustitutoRef string
-		Version                                                                    uint64
-	}{"usuarios.correos.peticion.v1", persona, accion, p.CorreoRef, p.Direccion, codigoHuella, p.SustitutoRef, p.VersionEsperada})
+		Esquema, Persona, Accion, CorreoRef, Direccion, Codigo, SustitutoRef string
+		Version                                                              uint64
+	}{"usuarios.correos.peticion.v2", persona, accion, p.CorreoRef, p.Direccion, p.Codigo, p.SustitutoRef, p.VersionEsperada})
 	if err != nil {
-		return "", ports.ErrCorreosInvalidos
+		return nil, ports.ErrCorreosInvalidos
 	}
-	h := sha256.Sum256(b)
-	return hex.EncodeToString(h[:]), nil
+	return b, nil
 }
 
 func nuevaReferenciaCorreo() (string, error) {
@@ -178,11 +183,18 @@ func (s *ServicioCorreos) mutar(ctx context.Context, orden ports.OrdenCorreos, a
 	if !peticionCorreoValida(accion, p) {
 		return ports.ReciboCorreos{}, ports.ErrCorreosInvalidos
 	}
-	huella, err := huellaCorreo(actor.PersonaRef, accion, p)
+	preimagen, err := preimagenCorreo(actor.PersonaRef, accion, p)
 	if err != nil {
 		return ports.ReciboCorreos{}, err
 	}
-	m := materialCorreos(actor, accion, p, huella)
+	huellas, err := s.sellador.SellarHuellaCorreo(ctx, preimagen)
+	for i := range preimagen {
+		preimagen[i] = 0
+	}
+	if err != nil || !huellas.Validar() {
+		return ports.ReciboCorreos{}, ports.ErrCorreosNoDisponible
+	}
+	m := materialCorreos(actor, accion, p, huellas)
 	v3, err := autorizarCorreos(ctx, orden, m)
 	if err != nil {
 		return ports.ReciboCorreos{}, err
@@ -192,7 +204,7 @@ func (s *ServicioCorreos) mutar(ctx context.Context, orden ports.OrdenCorreos, a
 		return ports.ReciboCorreos{}, err
 	}
 	if existe {
-		if !reciboCorreoValido(recibo, actor.PersonaRef, accion) {
+		if !reciboCorreoValido(recibo, actor.PersonaRef, accion) || recibo.Version != p.VersionEsperada+1 || (accion != ports.AccionAnadirCorreo && recibo.CorreoRef != p.CorreoRef) {
 			return ports.ReciboCorreos{}, ports.ErrCorreosNoDisponible
 		}
 		recibo.Replay = true
@@ -216,8 +228,9 @@ func (s *ServicioCorreos) mutar(ctx context.Context, orden ports.OrdenCorreos, a
 		p.Direccion = "" // El registro recibe sólo el sobre, nunca el claro.
 	}
 	if accion == ports.AccionAnadirCorreo || accion == ports.AccionReenviarCorreo {
-		reserva, err = s.desafios.PrepararDesafioCorreo(ctx, actor.PersonaRef, p.CorreoRef, s.ahoraUTC().UTC().Add(VigenciaDesafioCorreo))
-		if err != nil || len(reserva.Desafio) < 16 || len(reserva.HuellaCodigo) < 16 || reserva.ClaveRef == "" || reserva.DesafioRef == "" || reserva.VenceUTC.IsZero() {
+		vence := s.ahoraUTC().UTC().Truncate(time.Microsecond).Add(s.politica.Vigencia)
+		reserva, err = s.desafios.PrepararDesafioCorreo(ctx, actor.PersonaRef, p.CorreoRef, vence)
+		if err != nil || len(reserva.Desafio) < 16 || len(reserva.HuellaCodigo) < 16 || reserva.ClaveRef == "" || reserva.DesafioRef == "" || !reserva.VenceUTC.Equal(vence) || reserva.VenceUTC.Location() != time.UTC || reserva.VenceUTC.Nanosecond()%1000 != 0 {
 			return ports.ReciboCorreos{}, ports.ErrCorreosNoDisponible
 		}
 	}
@@ -230,7 +243,7 @@ func (s *ServicioCorreos) mutar(ctx context.Context, orden ports.OrdenCorreos, a
 	if err != nil {
 		return ports.ReciboCorreos{}, err
 	}
-	if !reciboCorreoValido(recibo, actor.PersonaRef, accion) || recibo.Version != m.VersionEsperada+1 || recibo.Replay || (accion != ports.AccionAnadirCorreo && recibo.CorreoRef != m.CorreoRef) || (accion == ports.AccionAnadirCorreo && recibo.CorreoRef != p.CorreoRef) {
+	if !reciboCorreoValido(recibo, actor.PersonaRef, accion) || recibo.Version != m.VersionEsperada+1 || (accion != ports.AccionAnadirCorreo && recibo.CorreoRef != m.CorreoRef) || (accion == ports.AccionAnadirCorreo && !recibo.Replay && recibo.CorreoRef != p.CorreoRef) {
 		return ports.ReciboCorreos{}, ports.ErrCorreosNoDisponible
 	}
 	return recibo, nil
