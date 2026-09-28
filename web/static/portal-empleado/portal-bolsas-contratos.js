@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento
@@ -12,7 +12,7 @@ const POR_PAGINA = 6;
 
 export const MENSAJES_CONTRATOS_ES = Object.freeze({
   titulo: "Histórico de contratos",
-  descripcion: "Contratos registrados en Contratación temporal a partir de un llamamiento de esta bolsa.",
+  descripcion: "Contratos registrados en Peticiones de personal temporal a partir de un llamamiento de esta bolsa.",
   tabla: "Contratos de la participación",
   col_tipo: "Hecho",
   col_periodo: "Periodo",

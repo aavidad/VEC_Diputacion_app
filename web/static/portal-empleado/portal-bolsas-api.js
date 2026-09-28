@@ -12,17 +12,17 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20260928-rrhh-cache-unificada-v1";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260928-rrhh-cache-unificada-v1";
-import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260928-rrhh-cache-unificada-v1";
-import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260928-rrhh-cache-unificada-v1";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260928-rrhh-cache-unificada-v1";
+} from "./portal-bolsas-contrato.js?v=20260928-ppt-503-v6";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260928-ppt-503-v6";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-503-v6";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260928-ppt-503-v6";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260928-ppt-503-v6";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260928-ppt-503-v6";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260928-rrhh-cache-unificada-v1";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260928-rrhh-cache-unificada-v1";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260928-rrhh-cache-unificada-v1";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260928-rrhh-cache-unificada-v1";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260928-ppt-503-v6";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260928-ppt-503-v6";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260928-ppt-503-v6";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260928-ppt-503-v6";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
@@ -433,6 +433,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       controladoresLectura.delete(clave);
     }
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     estado.modalFicha = null;
     estado.modalContactos = null;
@@ -534,6 +535,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
     if (!flujo?.enviando && !flujo?.clave_idempotencia) invalidarSeleccionMasiva();
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
@@ -651,6 +653,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
     void controladorSancionesB24.cargar(estado.modalFicha);
@@ -670,6 +673,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   function cerrarFicha() {
     const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     estado.modalFicha = null;
     renderizar();

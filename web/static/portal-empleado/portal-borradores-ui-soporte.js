@@ -1,5 +1,5 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-rrhh-cache-unificada-v1";
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-ppt-503-v6";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 
 export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";

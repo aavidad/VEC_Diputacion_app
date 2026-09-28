@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 export const RUTA_BORRADORES_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/borradores";
 
 const MAXIMO_RESPUESTA_BYTES = 16 * 1024;

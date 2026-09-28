@@ -13,6 +13,7 @@ import { cerrarFase, mostrarFase } from "./fases-expediente.js";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
 import {
   contextoLlamamientoDesdeEstado,
+  mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -24,9 +25,8 @@ import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
-import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-cache-unificada-v1";
-import { traducirPortal } from "../../portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-503-v5";
+import { traducirPortal } from "../../portal-i18n.js?v=20260928-ppt-503-v6";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -84,6 +84,25 @@ function enfocarCabeceraExpediente(raiz) {
   cabecera.setAttribute?.("tabindex", "-1");
   cabecera.focus?.();
   cabecera.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
+// La disponibilidad de cada tipo pertenece al servidor y al catálogo publicado.
+// La vista solo aporta la referencia y versión del detalle RRHH ya autorizado.
+export function contextoPlantillasPublicadasDesdeEstado(estado) {
+  const expediente = estado?.expediente;
+  if (!["expediente", "documentos"].includes(estado?.vista) || estado?.carga !== "listo"
+    || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
+    || expediente?.demostracion !== false || estado.cuadro?.demostracion !== false
+    || typeof expediente.expediente_ref !== "string" || !expediente.expediente_ref
+    || estado.expediente_ref !== expediente.expediente_ref
+    || !Number.isSafeInteger(expediente.version) || expediente.version < 1
+    || (estado.vista === "documentos" && (estado.documentos?.demostracion !== false
+      || estado.documentos.expediente_ref !== expediente.expediente_ref
+      || estado.documentos.version !== expediente.version))) return null;
+  if (!Array.isArray(estado.cuadro.expedientes)) return null;
+  const resumen = estado.cuadro.expedientes.find(({ expediente_ref: referencia }) => referencia === expediente.expediente_ref);
+  if (resumen?.version !== expediente.version) return null;
+  return Object.freeze({ expediente_ref: expediente.expediente_ref, version_observada: expediente.version });
 }
 
 export async function montarModuloContratacionTemporal({
@@ -194,9 +213,9 @@ export async function montarModuloContratacionTemporal({
   }
 
   function montarBorradoresPublicadosSiProcede(estado) {
-    const contexto = solicitudInformeDefinitivoDesdeEstado(estado);
+    const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
-    if (!contexto || !zona) return;
+    if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.append(contenedor);
@@ -529,9 +548,9 @@ export async function montarModuloContratacionTemporal({
     montarAuditoriaComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
-    if (estado.mensaje_clave) {
+    if (mensajeEstadoVisible(estado)) {
       anunciar(
-        crearTraductorExpedientesContratacion(mensajes)(estado.mensaje_clave),
+        crearTraductorExpedientesContratacion(mensajes)(mensajeEstadoVisible(estado)),
         estado.tipo_mensaje,
       );
     }

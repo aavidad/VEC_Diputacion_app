@@ -116,7 +116,7 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
   for (const recurso of ["portal-vistas-operaciones.js"]) {
-    assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
+    exigirVersiones(portal, `./${recurso}`, posterior(version));
     await access(new URL(recurso, raiz));
   }
   // El menú de Bolsa cambió después de F2: sus dos importadores piden la misma
@@ -133,12 +133,11 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     await access(new URL(recurso, raiz));
   }
   const versionAuditoriaAnterior = "20260928-rrhh-auditoria-fuente-v1";
-  const versionesAuditoria = [];
+  // La vista consume i18n y se versiona por separado del cliente HTTP.
   for (const recurso of ["modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"]) {
-    versionesAuditoria.push(exigirVersiones(coordinador, `./${recurso}`, posterior(versionAuditoriaAnterior)));
+    exigirVersiones(coordinador, `./${recurso}`, posterior(versionAuditoriaAnterior));
     await access(new URL(recurso, raiz));
   }
-  assert.equal(new Set(versionesAuditoria).size, 1, "la vista y el cliente de auditoría usan la misma versión");
   for (const recurso of ["nominas", "solicitudes", "meritos", "comunicaciones", "aprobaciones", "administracion"]) {
     assert.equal(versionesDe(coordinador, `./modulos/${recurso}/vista.js`).length, 0,
       `${recurso}: sin cargador productivo`);

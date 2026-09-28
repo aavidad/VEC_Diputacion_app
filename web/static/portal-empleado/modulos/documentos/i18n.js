@@ -26,7 +26,7 @@ export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
   firma_sin_acreditar: "Firma sin acreditar",
   tipo_comision: "Comisión de servicio",
   tipo_justificante: "Justificante de comisión",
-  tipo_contratacion: "Documento de contratación temporal",
+  tipo_contratacion: "Documento de petición de personal temporal",
   tipo_generico: "Documento",
   descargar: "Descargar original",
   descargar_de: "Descargar original del documento {numero}",

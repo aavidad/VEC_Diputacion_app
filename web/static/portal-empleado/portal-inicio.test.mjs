@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { calcularMetricasCuadro, crearVistaInicioPortal, tramitesParaInicio } from "./portal-inicio.js";
+import { calcularMetricasCuadro, crearVistaInicioPortal, resumirBolsasInicio, tramitesParaInicio } from "./portal-inicio.js";
 import { crearControladorPortal } from "./portal-eventos.js";
+import { crearTraductorPortal, MENSAJES_INICIO_RRHH_EN, MENSAJES_PORTAL_ES } from "./portal-i18n.js";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -231,8 +232,19 @@ test("G10: una página parcial del cuadro no produce cifras", () => {
     obtenerMetricasCuadro: () => null,
   });
   const html = renderizar();
-  assert.doesNotMatch(html, /class="rejilla-metricas-rrhh"/);
-  assert.match(html, /Los totales se consultan en el cuadro de mando/);
+  assert.match(html, /Recuento no disponible/);
+  assert.doesNotMatch(html, /<strong class="metrica-valor">1<\/strong>/);
+});
+
+test("el cursor real del cuadro impide convertir la página en total", () => {
+  assert.equal(calcularMetricasCuadro({
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "cursor:otra" },
+    expedientes: [{ estado_clave: "en_curso", fase_clave: "solicitud" }],
+  }), null);
+  assert.equal(calcularMetricasCuadro({
+    paginacion: { pagina: 1, cursor_actual: "", cursor_siguiente: "" },
+    expedientes: [{ estado_clave: "en_curso", fase_clave: "solicitud" }],
+  }).en_tramitacion, 1);
 });
 
 test("C17: los totales del servidor prevalecen sobre una página parcial", () => {
@@ -245,7 +257,7 @@ test("C17: los totales del servidor prevalecen sobre una página parcial", () =>
 
 test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el catálogo completo", () => {
   const renderizarRRHH = crearVistaInicioPortal({
-    encabezadoVista: (sup, tit, desc) => `<header><h1>${tit}</h1><p>${sup}</p></header>`,
+    encabezadoVista: (sup, tit, desc, acciones) => `<header><h1>${tit}</h1>${acciones}<p>${sup}</p></header>`,
     escaparHTML,
     obtenerCatalogo: () => [moduloBolsa],
     resolverAcceso: () => ({ disponible: true, vista: "bolsa" }),
@@ -261,14 +273,14 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
   const html = renderizarRRHH();
 
   // Encabezado y sección RRHH, sin textos técnicos ni de ayuda en pantalla.
-  assert.match(html, /Inicio del portal/);
+  assert.match(html, /Peticiones de personal temporal/);
   assert.doesNotMatch(html, /adaptador de backend|Accesos por módulo|fase inicial/u);
   assert.match(html, /class="portal-rrhh-inicio"/);
 
   // 3 accesos directos requeridos
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Cuadro de mando<\/button>/);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición<\/button>/);
-  assert.match(html, /data-accion="ayuda">Ayuda<\/button>/);
+  assert.match(html, /data-accion="ayuda" aria-label="Ayuda">\?<\/button>/);
 
   // 3 cifras leídas del cuadro
   assert.match(html, /data-metrica="en_tramitacion"[^>]*>[\s\S]*?<strong class="metrica-valor">5<\/strong>/);
@@ -321,4 +333,159 @@ test("el inicio de RRHH lista los trámites recientes con incidencias primero y 
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="expediente:ct:b"/);
   assert.match(html, /class="ct-exp-chip ct-fase-incidencia">Con incidencia</);
   assert.match(html, /2026\/CT-000002[\s\S]*2026\/CT-000001/);
+});
+
+test("el cuadro de RRHH muestra Bolsa autorizada y SAE pendiente sin cifras inventadas", () => {
+  const bolsas = { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
+    { bolsa_ref: "bolsa:1", categoria: "Auxiliar <A>", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2 },
+    { bolsa_ref: "bolsa:2", categoria: "Técnica", vigente_desde: "2026-01-01", vigente_hasta: "2026-09-01", llamamientos_en_curso: 0 },
+  ] } };
+  assert.deepEqual({ ...resumirBolsasInicio(bolsas), bolsas: undefined },
+    { estado: "listo", bolsas: undefined, total: 2, generadoEn: "2026-09-28T10:00:00Z", vigentes: 1, llamamientos: 2 });
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: (clave) => ({ disponible: true, vista: clave === "bolsa" ? "elaboracion" : "contratacion-temporal" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [],
+    obtenerBolsasInicio: () => bolsas,
+  })();
+  assert.match(html, /for="portal-rrhh-tab-expedientes">Expedientes en trámite/);
+  assert.match(html, /for="portal-rrhh-tab-bolsas">Bolsas de trabajo/);
+  assert.match(html, /for="portal-rrhh-tab-sae">Ofertas al SAE/);
+  assert.match(html, /data-metrica="vigentes"[^>]*>[\s\S]*?<strong class="metrica-valor">1<\/strong>/);
+  assert.match(html, /Auxiliar &lt;A&gt;/);
+  assert.match(html, /Sin fase administrativa/);
+  assert.match(html, /data-vista="resumen"/);
+  assert.match(html, /Las ofertas al SAE no se pueden consultar todavía: falta una fuente autorizada/);
+  assert.match(html, /portal-rrhh-panel-sae[\s\S]*?<button[^>]*disabled>Ver trámites<\/button>/);
+  assert.doesNotMatch(html, /<strong class="metrica-valor">70<\/strong>/);
+});
+
+test("Bolsa denegada no muestra datos retenidos y los controles CT se retiran sin acceso", () => {
+  let lecturaRetenidaConsultada = false;
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: false, estado: "denegado", vista: "" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 9, con_incidencia: 0, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [{ expediente_ref: "exp:privado", categoria: "Dato privado" }],
+    obtenerBolsasInicio: () => {
+      lecturaRetenidaConsultada = true;
+      return { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
+        { categoria: "Bolsa privada", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 1 },
+      ] } };
+    },
+  })();
+  assert.equal(lecturaRetenidaConsultada, false, "el inicio no lee datos de Bolsa sin acceso positivo");
+  assert.doesNotMatch(html, /Dato privado|Bolsa privada|exp:privado/);
+  assert.doesNotMatch(html, /<strong class="metrica-valor">9<\/strong>/);
+  assert.match(html, /Sin permiso/);
+  assert.doesNotMatch(html, /data-vista="contratacion-temporal"/);
+  assert.doesNotMatch(html, /data-vista="resumen"/);
+});
+
+test("la vigencia de Bolsa usa la fecha de la lectura y no llama sustituida a una bolsa con fin futuro", () => {
+  const bolsa = { categoria: "Auxiliar", vigente_desde: "2026-01-01", vigente_hasta: "2027-01-01", llamamientos_en_curso: 0 };
+  const lectura = { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [bolsa] } };
+  assert.equal(resumirBolsasInicio(lectura).vigentes, 1);
+  const mostrar = () => crearVistaInicioPortal({
+    encabezadoVista: () => "", escaparHTML, obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "resumen" }), esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => null, obtenerTramitesInicio: () => null,
+    obtenerBolsasInicio: () => lectura,
+  })();
+  assert.match(mostrar(), /Auxiliar[\s\S]*?Vigente/);
+  assert.doesNotMatch(mostrar(), /Sustituida/);
+  lectura.datos.generado_en = "2027-01-02T10:00:00Z";
+  assert.equal(resumirBolsasInicio(lectura).vigentes, 0);
+  assert.match(mostrar(), /Auxiliar[\s\S]*?No vigente/);
+  lectura.datos.generado_en = "";
+  assert.equal(resumirBolsasInicio(lectura).vigentes, null, "sin instante verificado no se inventa el recuento");
+  assert.match(mostrar(), /Recuento no disponible/);
+});
+
+test("las claves del cuadro se traducen con el traductor común", () => {
+  const traducirEN = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const variables = { actual: "2", total: "3", contexto: "Cases" };
+  for (const clave of Object.keys(MENSAJES_INICIO_RRHH_EN)) {
+    const esperado = MENSAJES_INICIO_RRHH_EN[clave].replace(/\{([a-z_]+)\}/gu,
+      (_coincidencia, variable) => variables[variable] ?? "");
+    assert.equal(traducirEN(clave, variables), esperado);
+  }
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "resumen" }),
+    esPerfilRRHH: () => true,
+    traducir: traducirEN,
+    obtenerMetricasCuadro: () => null,
+    obtenerTramitesInicio: () => null,
+    obtenerBolsasInicio: () => ({ carga: "listo", datos: { bolsas: [] } }),
+  })();
+  assert.match(html, /Cases in progress|Job pools|Offers to SAE/);
+  assert.match(html, /SAE offers cannot be viewed yet/);
+  assert.match(html, /The cases dashboard could not be loaded/);
+});
+
+test("la ayuda de RRHH queda en la cabecera y el vacío indica dónde consultar", () => {
+  const html = crearVistaInicioPortal({
+    encabezadoVista: (_sobrelinea, titulo, _descripcion, acciones) =>
+      `<header><h1>${escaparHTML(titulo)}</h1>${acciones}</header>`,
+    escaparHTML, obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "contratacion-temporal" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [],
+  })();
+  assert.match(html, /<header><h1>Peticiones de personal temporal<\/h1><button[^>]*data-accion="ayuda"[^>]*>\?<\/button><\/header>/u);
+  assert.equal((html.match(/data-accion="ayuda"/gu) || []).length, 1);
+  assert.match(html, /No hay expedientes recientes\. Consulte el cuadro para ver todos los trámites\./u);
+});
+
+test("un fallo del cuadro no se presenta como ausencia de expedientes", () => {
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "", escaparHTML, obtenerCatalogo: () => [],
+    resolverAcceso: (clave) => clave === "contratacion_temporal"
+      ? { disponible: true, vista: "contratacion-temporal" }
+      : { disponible: false, estado: "denegado" },
+    esPerfilRRHH: () => true, obtenerMetricasCuadro: () => null,
+    obtenerTramitesInicio: () => null,
+  })();
+  assert.match(html, /No se pudo consultar el cuadro de expedientes/u);
+  assert.doesNotMatch(html, /No hay expedientes recientes|portal-rrhh-tramites-seccion/u);
+});
+
+test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", () => {
+  const traducir = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const html = crearVistaInicioPortal({
+    encabezadoVista: (_sobrelinea, titulo, _descripcion, acciones) =>
+      `<header><h1>${escaparHTML(titulo)}</h1>${acciones}</header>`,
+    escaparHTML, traducir, obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "contratacion-temporal" }),
+    esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => ({ en_tramitacion: 2, con_incidencia: 1, en_llamamiento: 0 }),
+    obtenerTramitesInicio: () => [
+      { expediente_ref: "exp:1", numero_visible: "CT-1", centro: "Centro <libre>", categoria: "Auxiliar & más", fase_clave: "fiscalizacion", fase_actual: "Fiscalización", estado_clave: "incidencia", estado: "Con incidencia" },
+      { expediente_ref: "exp:2", numero_visible: "CT-2", centro: "Centro B", categoria: "Auxiliar", fase_clave: "fase_no_catalogada", fase_actual: "Fase <libre>", estado_clave: "estado_no_catalogado", estado: "Estado <libre>" },
+    ],
+    obtenerBolsasInicio: () => ({ carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
+      { bolsa_ref: "bolsa:1", categoria: "Auxiliar", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2 },
+    ] } }),
+  })();
+  assert.match(html, /<h1>Temporary staff requests<\/h1>/u);
+  assert.match(html, /Financial review<\/td>/u);
+  assert.match(html, /ct-fase-incidencia">Needs attention<\/span>/u);
+  assert.match(html, /Centro &lt;libre&gt;|Auxiliar &amp; más/u);
+  assert.match(html, /Fase &lt;libre&gt;|Estado &lt;libre&gt;/u);
+  assert.doesNotMatch(html, /ct-fase-estado_no_catalogado|<libre>|Con incidencia|Fiscalización/u);
+  assert.match(html, /Job pools viewed/u);
+  assert.match(html, /SAE offers cannot be viewed yet/u);
+  assert.match(html, /Calls in progress/u);
+  assert.doesNotMatch(html, /Llamamientos en curso/u);
 });

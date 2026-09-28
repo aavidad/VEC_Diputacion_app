@@ -282,3 +282,12 @@ test("un expediente con incidencia explica su origen y ofrece atajos", () => {
   assert.match(html, /<li class="ct-fase-incidencia"/u);
   assert.match(html, /<li class="ct-fase-pendiente"/u);
 });
+
+test("«Nueva petición» no muestra el error de carga del cuadro; la pestaña del cuadro sí", () => {
+  const base = { carga: "error", expediente: null, cuadro: null, mensaje_clave: "estado_error_carga", tipo_mensaje: "error" };
+  const htmlAlta = renderizarModuloContratacionTemporal({ ...base, vista: "alta" }, { mensajes: {} });
+  assert.doesNotMatch(htmlAlta, /No se pudo cargar el cuadro/u);
+  assert.doesNotMatch(htmlAlta, /data-ct-exp-mensaje role="alert"/u);
+  const htmlCuadro = renderizarModuloContratacionTemporal({ ...base, vista: "cuadro" }, { mensajes: {} });
+  assert.match(htmlCuadro, /No se pudo cargar el cuadro/u);
+});

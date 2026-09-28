@@ -5,7 +5,7 @@
  * CONVOCA la fija el servidor con la regla del catálogo; aquí no se calcula.
  * El formulario nunca se rellena con el contacto vigente: el claro no se pide.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 import { justificanteTraducido } from "./portal-justificante.js";
 
 const BASE = "/api/vec/bolsa/bolsas";

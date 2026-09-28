@@ -239,6 +239,14 @@ func (a *autoridadMiBolsaCASPrueba) prepararInstantanea(_ context.Context, semil
 	return preparada, nil
 }
 
+func (a *autoridadMiBolsaCASPrueba) publicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error {
+	return errMiBolsaNoDisponible
+}
+
+func (a *autoridadMiBolsaCASPrueba) versionActualHabilitada(context.Context, string) (bool, error) {
+	return false, nil
+}
+
 func (a *autoridadMiBolsaCASPrueba) publicarInstantaneaDesdePreimagen(_ context.Context, preparada, preimagen dominiovec.InstantaneaAutorizacion) error {
 	if a.antesPublicar != nil {
 		a.antesPublicar(a)
