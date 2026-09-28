@@ -1,0 +1,1 @@
+-- Solo documental. CT139 audita lecturas; no ejecutar DOWN tras uso.
