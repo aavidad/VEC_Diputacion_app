@@ -285,7 +285,11 @@ func (a *AdaptadorCorreos) PrepararDesafioCorreo(ctx context.Context, persona, c
 		return ports.ReservaDesafio{}, ErrCorreosCriptoNoDisponible
 	}
 	c, err := a.claves(ctx)
-	if err != nil || !claveUsable(c.CodigoActivo, a.ahora()) {
+	if err != nil {
+		return ports.ReservaDesafio{}, ErrCorreosCriptoNoDisponible
+	}
+	instante := a.ahora()
+	if !instante.Before(vence) || !claveUsable(c.CodigoActivo, instante) {
 		return ports.ReservaDesafio{}, ErrCorreosCriptoNoDisponible
 	}
 	desafio := make([]byte, 32)
@@ -294,8 +298,10 @@ func (a *AdaptadorCorreos) PrepararDesafioCorreo(ctx context.Context, persona, c
 	}
 	ref := "desafio:" + hex.EncodeToString(desafio)
 	_, huella := derivarCodigo(c.CodigoActivo.Material, persona, correo, desafio, vence)
-	if ctx.Err() != nil {
+	instante = a.ahora()
+	if ctx.Err() != nil || !instante.Before(vence) || !claveUsable(c.CodigoActivo, instante) {
 		borrar(desafio)
+		borrar(huella)
 		return ports.ReservaDesafio{}, ErrCorreosCriptoNoDisponible
 	}
 	return ports.ReservaDesafio{DesafioRef: ref, Desafio: desafio, HuellaCodigo: huella, ClaveRef: c.CodigoActivo.Ref, VenceUTC: vence}, nil
@@ -328,13 +334,18 @@ func (a *AdaptadorCorreos) ComprobarCodigoCorreo(ctx context.Context, m ports.Me
 	if err != nil {
 		return false, err
 	}
-	k, ok := buscarClave(c.CodigoActivo, c.CodigoRetenidas, m.ClaveRef, a.ahora())
+	instante := a.ahora()
+	if !instante.Before(m.VenceUTC) {
+		return false, ErrCorreosCriptoNoDisponible
+	}
+	k, ok := buscarClave(c.CodigoActivo, c.CodigoRetenidas, m.ClaveRef, instante)
 	if !ok {
 		return false, ErrCorreosCriptoNoDisponible
 	}
 	esperado, huella := derivarCodigo(k.Material, m.PersonaRef, m.CorreoRef, desafio, m.VenceUTC)
 	acierto := subtle.ConstantTimeCompare([]byte(codigo), []byte(esperado)) & subtle.ConstantTimeCompare(m.HuellaCodigo, huella)
-	if ctx.Err() != nil {
+	instante = a.ahora()
+	if ctx.Err() != nil || !instante.Before(m.VenceUTC) || !claveUsable(k, instante) {
 		return false, ErrCorreosCriptoNoDisponible
 	}
 	return acierto == 1, nil
@@ -349,12 +360,17 @@ func (a *AdaptadorCorreos) DerivarCodigoCorreo(ctx context.Context, d ports.Desp
 	if err != nil {
 		return "", err
 	}
-	k, ok := buscarClave(c.CodigoActivo, c.CodigoRetenidas, d.ClaveRef, a.ahora())
+	instante := a.ahora()
+	if !instante.Before(d.VenceUTC) {
+		return "", ErrCorreosCriptoNoDisponible
+	}
+	k, ok := buscarClave(c.CodigoActivo, c.CodigoRetenidas, d.ClaveRef, instante)
 	if !ok {
 		return "", ErrCorreosCriptoNoDisponible
 	}
 	codigo, _ := derivarCodigo(k.Material, d.PersonaRef, d.CorreoRef, desafio, d.VenceUTC)
-	if ctx.Err() != nil {
+	instante = a.ahora()
+	if ctx.Err() != nil || !instante.Before(d.VenceUTC) || !claveUsable(k, instante) {
 		return "", ErrCorreosCriptoNoDisponible
 	}
 	return codigo, nil

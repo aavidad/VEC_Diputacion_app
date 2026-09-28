@@ -11,9 +11,15 @@ import (
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
 )
 
-type fuentePrueba struct{ claves ClavesCorreos }
+type fuentePrueba struct {
+	claves   ClavesCorreos
+	alCargar func()
+}
 
 func (f *fuentePrueba) CargarClavesCorreos(context.Context) (ClavesCorreos, error) {
+	if f.alCargar != nil {
+		f.alCargar()
+	}
 	return f.claves, nil
 }
 
@@ -49,7 +55,7 @@ func preparar(t *testing.T) (*AdaptadorCorreos, *fuentePrueba, *time.Time) {
 }
 
 func TestDireccionAEADYHuellaSeparada(t *testing.T) {
-	a, f, _ := preparar(t)
+	a, f, ahora := preparar(t)
 	ctx := context.Background()
 	s, err := a.CifrarDireccionCorreo(ctx, persona, correo, 1, []byte("persona@example.org"))
 	if err != nil || len(s.Nonce) != 12 || len(s.HuellaIgualdad) != 32 || strings.Contains(string(s.Cifrado), "persona@example.org") {
@@ -85,7 +91,7 @@ func TestDireccionAEADYHuellaSeparada(t *testing.T) {
 		t.Fatal("persona intercambiada")
 	}
 	// La generación anterior permite leer sólo durante su retención.
-	f.claves.CifradoRetenidas = []ClaveCorreo{{Ref: f.claves.CifradoActivo.Ref, Material: f.claves.CifradoActivo.Material, RetenerHasta: time.Now().Add(24 * time.Hour)}}
+	f.claves.CifradoRetenidas = []ClaveCorreo{{Ref: f.claves.CifradoActivo.Ref, Material: f.claves.CifradoActivo.Material, RetenerHasta: ahora.Add(24 * time.Hour)}}
 	f.claves.CifradoActivo = ClaveCorreo{Ref: "clave:cifrado:v2", Material: material(5)}
 	if err := ver(persona, s); err != nil {
 		t.Fatal("rotacion:", err)
@@ -178,5 +184,47 @@ func TestErroresNoFiltranSecretosYExpiracion(t *testing.T) {
 	f.claves.CodigoActivo.Revocada = true
 	if _, err := a.PrepararDesafioCorreo(context.Background(), persona, correo, vence.Add(time.Hour)); err == nil {
 		t.Fatal("clave revocada")
+	}
+}
+
+func TestCaducidadDuranteCargaClaves(t *testing.T) {
+	ctx := context.Background()
+	for _, operacion := range []string{"preparar", "comprobar", "derivar"} {
+		t.Run(operacion, func(t *testing.T) {
+			a, fuente, ahora := preparar(t)
+			vence := ahora.Add(time.Hour)
+			var reserva ports.ReservaDesafio
+			var codigo string
+			var meta ports.MetadatosDesafioCorreo
+			var despacho ports.DespachoVerificacionCorreo
+			if operacion != "preparar" {
+				var err error
+				reserva, err = a.PrepararDesafioCorreo(ctx, persona, correo, vence)
+				if err != nil {
+					t.Fatal(err)
+				}
+				despacho = ports.DespachoVerificacionCorreo{OutboxRef: "outbox:1234567890123456", PersonaRef: persona, CorreoRef: correo, DesafioRef: reserva.DesafioRef, Desafio: reserva.Desafio, ClaveRef: reserva.ClaveRef, VenceUTC: vence}
+				codigo, err = a.DerivarCodigoCorreo(ctx, despacho)
+				if err != nil {
+					t.Fatal(err)
+				}
+				meta = ports.MetadatosDesafioCorreo{PersonaRef: persona, CorreoRef: correo, DesafioRef: reserva.DesafioRef, HuellaCodigo: reserva.HuellaCodigo, ClaveRef: reserva.ClaveRef, VenceUTC: vence}
+			}
+			fuente.alCargar = func() { *ahora = vence }
+			switch operacion {
+			case "preparar":
+				if r, err := a.PrepararDesafioCorreo(ctx, persona, correo, vence); err == nil || r.DesafioRef != "" {
+					t.Fatal("reserva caducada")
+				}
+			case "comprobar":
+				if ok, err := a.ComprobarCodigoCorreo(ctx, meta, codigo); err == nil || ok {
+					t.Fatal("codigo caducado aceptado")
+				}
+			case "derivar":
+				if obtenido, err := a.DerivarCodigoCorreo(ctx, despacho); err == nil || obtenido != "" {
+					t.Fatal("codigo caducado derivado")
+				}
+			}
+		})
 	}
 }
