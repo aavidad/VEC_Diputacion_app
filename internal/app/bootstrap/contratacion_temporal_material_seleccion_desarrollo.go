@@ -22,6 +22,7 @@ type seleccionMaterialCTDesarrollo struct {
 	incorporacionAcreditada                                          bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
+	causasParticipacion                                              bool
 	plantillasCatalogo                                               bool
 	plantillasDocumental                                             bool
 }
@@ -48,6 +49,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	}
 	politicaOfertas, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled)
 	if err != nil || (politicaOfertas && !cfg.BolsaBorradoresEnabled) {
+		return s, ErrActivacionDesarrolloInvalida
+	}
+	causasParticipacion, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCausasParticipacionEnabled)
+	if err != nil || (causasParticipacion && !cfg.BolsaBorradoresEnabled) {
 		return s, ErrActivacionDesarrolloInvalida
 	}
 	plantillasCatalogo, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
@@ -81,6 +86,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
 		reincorporacionTitular:  reincorporacion,
 		politicaOfertas:         politicaOfertas,
+		causasParticipacion:     causasParticipacion,
 		plantillasCatalogo:      plantillasCatalogo,
 		plantillasDocumental:    plantillasDocumental,
 	}
@@ -111,6 +117,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled); err != nil {
 		return err
 	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCausasParticipacionEnabled); err != nil {
+		return err
+	}
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasGobiernoEnabled); err != nil {
 		return err
 	}
@@ -133,6 +142,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.politicaOfertas {
 		d = append(d, descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
+	}
+	if s.causasParticipacion {
+		d = append(d, descriptorMaterialProponerCausasParticipacionBolsaDesarrollo(), descriptorMaterialConsultarPropuestaCausasBolsaDesarrollo(), descriptorMaterialPublicarCausasParticipacionBolsaDesarrollo(), descriptorMaterialConsultarCausasParticipacionBolsaDesarrollo())
 	}
 	if s.miBolsa {
 		d = append(d, descriptorMaterialMiBolsaDesarrollo())

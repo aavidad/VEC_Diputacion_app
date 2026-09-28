@@ -121,3 +121,34 @@ func TestCatalogoFronterasComunResolverNoExponePerfilesMutables(t *testing.T) {
 		t.Fatal("resolver expuso perfiles mutables")
 	}
 }
+
+func TestCatalogoFronterasExactaYPlantillaDisjuntasSinAbrirSolapes(t *testing.T) {
+	exacta := fronteraComunPrueba("proponer", http.MethodPost, "/api/vec/bolsa/causas-participacion/propuestas", false)
+	publicar := fronteraComunPrueba("publicar", http.MethodPost, exacta.Ruta, false)
+	publicar.PlantillaDetalle = []string{"*", "publicar"}
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{exacta, publicar})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, ok := catalogo.resolver(http.MethodPost, exacta.Ruta); !ok || d.Clave != "proponer" {
+		t.Fatal("POST exacto de propuesta no quedó aislado")
+	}
+	if d, ok := catalogo.resolver(http.MethodPost, exacta.Ruta+"/propuesta:causa:abc/publicar"); !ok || d.Clave != "publicar" {
+		t.Fatal("POST detalle de publicación no quedó aislado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, exacta.Ruta+"/propuesta:causa:abc/otro"); ok {
+		t.Fatal("plantilla abrió una ruta no declarada")
+	}
+	for _, otro := range []descriptorFronteraComunDesarrollo{
+		fronteraComunPrueba("otra-exacta", http.MethodPost, exacta.Ruta, false),
+		func() descriptorFronteraComunDesarrollo {
+			d := fronteraComunPrueba("otra-plantilla", http.MethodPost, exacta.Ruta, false)
+			d.PlantillaDetalle = []string{"*", "publicar"}
+			return d
+		}(),
+	} {
+		if _, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{exacta, publicar, otro}); err == nil {
+			t.Fatal("solape real admitido")
+		}
+	}
+}

@@ -66,3 +66,34 @@ func TestOperacionesSituacionDenegacionSinDatos(t *testing.T) {
 		t.Fatalf("GET status=%d body=%s", w.Code, w.Body.String())
 	}
 }
+
+func TestOperacionesSituacionGateCausaCatalogada(t *testing.T) {
+	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/operaciones"
+	justificante := `"validador":"per_validadora","justificante":{"tipo":"solicitud_candidato","referencia":"justificante:01","sha256":"` + strings.Repeat("a", 64) + `"}`
+	libre := `{"operacion":"pausar","motivo":"Solicitud registrada",` + justificante + `}`
+	catalogado := `{"operacion":"pausar","causa":{"codigo":"gestion_situacion","version":1,"huella_sha256":"` + strings.Repeat("b", 64) + `"},` + justificante + `}`
+	mezclado := `{"operacion":"pausar","motivo":"libre","causa":{"codigo":"gestion_situacion","version":1,"huella_sha256":"` + strings.Repeat("b", 64) + `"},` + justificante + `}`
+	operador := operadorOperacionesHTTPPrueba{resultado: ports.RegistroSituacionParticipacion{ReciboRef: "recibo:01", SituacionParticipacion: ports.SituacionParticipacion{Situacion: "no_disponible", Desde: time.Date(2026, 9, 23, 9, 0, 0, 0, time.UTC)}}}
+	for _, caso := range []struct {
+		catalogo bool
+		body     string
+		estado   int
+	}{
+		{false, libre, 201}, {false, catalogado, 400},
+		{true, libre, 400}, {true, catalogado, 201}, {true, mezclado, 400},
+	} {
+		h, err := NuevoHandlerOperacionesSituacionConCausasCatalogadas(preparadorSituacionHTTPPrueba{}, operador, caso.catalogo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodPost, ruta, strings.NewReader(caso.body))
+		r.Header.Set("Accept", "application/json")
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Idempotency-Key", "b8-gate-01")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != caso.estado {
+			t.Fatalf("catalogo=%v estado=%d esperado=%d cuerpo=%s", caso.catalogo, w.Code, caso.estado, w.Body.String())
+		}
+	}
+}

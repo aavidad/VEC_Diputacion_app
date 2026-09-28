@@ -136,7 +136,10 @@ func colisionanFronterasComunDesarrollo(a, b descriptorFronteraComunDesarrollo) 
 		return false
 	}
 	if a.DetalleColeccion == b.DetalleColeccion && a.Ruta == b.Ruta {
-		if !a.DetalleColeccion && len(a.PlantillaDetalle) != 0 && len(b.PlantillaDetalle) != 0 {
+		if !a.DetalleColeccion {
+			if len(a.PlantillaDetalle) == 0 || len(b.PlantillaDetalle) == 0 {
+				return len(a.PlantillaDetalle) == len(b.PlantillaDetalle)
+			}
 			return plantillasFronteraComunColisionan(a.PlantillaDetalle, b.PlantillaDetalle)
 		}
 		return true

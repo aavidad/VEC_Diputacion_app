@@ -56,3 +56,20 @@ func TestHandlerReglasSituacionContrato(t *testing.T) {
 		}
 	}
 }
+
+func TestReglasSituacionAnunciaModoCausasDelServidor(t *testing.T) {
+	for _, caso := range []struct {
+		catalogadas bool
+		modo        string
+	}{{false, "libre"}, {true, "catalogado"}} {
+		h, err := NuevoHandlerReglasSituacionConTransicionesYModo(reglasSituacionPrueba{}, nil, caso.catalogadas)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaReglasSituacion, nil))
+		if w.Code != 200 || !strings.Contains(w.Body.String(), `"modo_causas_participacion":"`+caso.modo+`"`) {
+			t.Fatalf("gate=%v estado=%d cuerpo=%s", caso.catalogadas, w.Code, w.Body.String())
+		}
+	}
+}

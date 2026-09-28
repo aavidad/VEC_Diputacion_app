@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -39,10 +40,11 @@ type generadorCorrelacionIntentoBorradorLlamamiento interface {
 }
 
 type auditoriaBorradorLlamamiento struct {
-	siguiente   http.Handler
-	registrador puertosbolsa.RegistradorIntentoBorradorLlamamiento
-	generador   generadorCorrelacionIntentoBorradorLlamamiento
-	actor       ResolutorActorVerificadoBorradorLlamamiento
+	siguiente                  http.Handler
+	registrador                puertosbolsa.RegistradorIntentoBorradorLlamamiento
+	generador                  generadorCorrelacionIntentoBorradorLlamamiento
+	actor                      ResolutorActorVerificadoBorradorLlamamiento
+	auditarCausasParticipacion bool
 }
 
 // NuevaAuditoriaBorradorLlamamiento debe envolver la protección de ruta y el
@@ -53,11 +55,13 @@ func NuevaAuditoriaBorradorLlamamiento(
 	registrador puertosbolsa.RegistradorIntentoBorradorLlamamiento,
 	generador generadorCorrelacionIntentoBorradorLlamamiento,
 	actor ResolutorActorVerificadoBorradorLlamamiento,
+	auditarCausasParticipacion ...bool,
 ) (http.Handler, error) {
-	if dependenciaNula(siguiente) || dependenciaNula(registrador) || dependenciaNula(generador) {
+	if dependenciaNula(siguiente) || dependenciaNula(registrador) || dependenciaNula(generador) || len(auditarCausasParticipacion) > 1 {
 		return nil, ErrAuditoriaBorradorLlamamientoInvalida
 	}
-	return &auditoriaBorradorLlamamiento{siguiente: siguiente, registrador: registrador, generador: generador, actor: actor}, nil
+	activar := len(auditarCausasParticipacion) == 1 && auditarCausasParticipacion[0]
+	return &auditoriaBorradorLlamamiento{siguiente: siguiente, registrador: registrador, generador: generador, actor: actor, auditarCausasParticipacion: activar}, nil
 }
 
 func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +70,7 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 		return
 	}
 
-	accion, clase, aplicable := intentoAuditableBorradorLlamamiento(r)
+	accion, clase, aplicable := intentoAuditableBorradorLlamamiento(r, a.auditarCausasParticipacion)
 	if !aplicable {
 		a.siguiente.ServeHTTP(w, r)
 		return
@@ -108,7 +112,24 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 	respuesta.volcarEn(w, false, r.Method == http.MethodGet)
 }
 
-func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+func intentoAuditableBorradorLlamamiento(r *http.Request, auditarCausasParticipacion ...bool) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+	if len(auditarCausasParticipacion) == 1 && auditarCausasParticipacion[0] && r != nil && r.URL != nil && r.URL.RawPath == "" && r.URL.RawQuery == "" && r.RequestURI == r.URL.Path && !strings.Contains(r.URL.EscapedPath(), "%") {
+		if r.Method == http.MethodGet && r.URL.Path == RutaCatalogoCausasParticipacion {
+			return puertosbolsa.AccionIntentoConsultarCausasParticipacion, puertosbolsa.ClaseRutaCatalogoCausasParticipacion, true
+		}
+		if r.Method == http.MethodPost && r.URL.Path == RutaPropuestasCausasParticipacion {
+			return puertosbolsa.AccionIntentoProponerCausaParticipacion, puertosbolsa.ClaseRutaPropuestasCausas, true
+		}
+		resto, detalle := strings.CutPrefix(r.URL.Path, RutaPropuestasCausasParticipacion+"/")
+		if detalle {
+			if r.Method == http.MethodGet && patronPropuestaCausaAuditoria.MatchString(resto) {
+				return puertosbolsa.AccionIntentoConsultarPropuestaCausa, puertosbolsa.ClaseRutaPropuestaCausas, true
+			}
+			if r.Method == http.MethodPost && strings.HasSuffix(resto, "/publicar") && patronPropuestaCausaAuditoria.MatchString(strings.TrimSuffix(resto, "/publicar")) {
+				return puertosbolsa.AccionIntentoPublicarCausaParticipacion, puertosbolsa.ClaseRutaPublicacionCausas, true
+			}
+		}
+	}
 	if _, _, ok := ReferenciasRutaOperacionesSituacion(r); ok {
 		if r.Method == http.MethodPost {
 			return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
@@ -183,6 +204,8 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 	}
 	return "", "", false
 }
+
+var patronPropuestaCausaAuditoria = regexp.MustCompile(`^propuesta:causa:[a-f0-9]{64}$`)
 
 func resultadoIntentoBorradorLlamamiento(estado int) puertosbolsa.ResultadoIntentoBorradorLlamamiento {
 	if estado < http.StatusBadRequest {

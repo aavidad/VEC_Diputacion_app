@@ -25,7 +25,7 @@ func (p *preparadorDatosContactoPrueba) PrepararSolicitudRegistrarDatosContacto(
 	if p.err != nil {
 		return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{}, p.err
 	}
-	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{BolsaRef: e.BolsaRef, ParticipacionRef: e.ParticipacionRef, Datos: e.Datos, Motivo: e.Motivo, ClaveIdempotencia: e.ClaveIdempotencia}, nil
+	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{BolsaRef: e.BolsaRef, ParticipacionRef: e.ParticipacionRef, Datos: e.Datos, Motivo: e.Motivo, Causa: e.Causa, ClaveIdempotencia: e.ClaveIdempotencia}, nil
 }
 
 func (p *preparadorDatosContactoPrueba) PrepararSolicitudConsultarDatosContacto(_ context.Context, bolsa, participacion string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
@@ -72,12 +72,12 @@ func TestHandlerDatosContactoRegistraYDevuelveRecibo(t *testing.T) {
 	ahora := time.Date(2026, 9, 22, 15, 0, 0, 0, time.UTC)
 	prep := &preparadorDatosContactoPrueba{}
 	op := &operadorDatosContactoPrueba{registro: puertosbolsa.RegistroDatosContactoParticipacion{ReciboRef: "recibo:datos-contacto:0001", ParticipacionRef: "participacion:b4", Version: 1, RegistradaEn: ahora}}
-	h, err := NuevoHandlerDatosContactoParticipacion(prep, op)
+	h, err := NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(prep, op, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","motivo":"Alta comunicada"}`))
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, cuerpoDatosContactoCausa()))
 	if rec.Code != http.StatusCreated || rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("estado=%d cabeceras=%v", rec.Code, rec.Header())
 	}
@@ -96,7 +96,7 @@ func TestHandlerDatosContactoRegistraYDevuelveRecibo(t *testing.T) {
 	// Repetición: el caso de uso decide; el adaptador responde 200.
 	op.registro.Reutilizada = true
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","motivo":"Alta comunicada"}`))
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, cuerpoDatosContactoCausa()))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("repetición: %d", rec.Code)
 	}
@@ -107,7 +107,7 @@ func TestHandlerDatosContactoConsultaEnmascaraSalvoVerCompleto(t *testing.T) {
 	datos := dominiobolsa.DatosContactoParticipacion{ParticipacionRef: "participacion:b4", Correo: "candidata@dipgra.es", Telefono1: "600123456"}
 	prep := &preparadorDatosContactoPrueba{}
 	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", Version: 2, RegistradaEn: ahora, Datos: datos, Enmascarados: datos.Enmascarados()}}
-	h, _ := NuevoHandlerDatosContactoParticipacion(prep, op)
+	h, _ := NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(prep, op, true)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
 	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "candidata@dipgra.es") || strings.Contains(rec.Body.String(), "600123456") {
@@ -129,7 +129,7 @@ func TestHandlerDatosContactoConsultaEnmascaraSalvoVerCompleto(t *testing.T) {
 func TestHandlerDatosContactoRechazaRutasMetodosYErrores(t *testing.T) {
 	prep := &preparadorDatosContactoPrueba{}
 	op := &operadorDatosContactoPrueba{}
-	h, _ := NuevoHandlerDatosContactoParticipacion(prep, op)
+	h, _ := NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(prep, op, true)
 	casos := []struct {
 		nombre, metodo, ruta, cuerpo string
 		esperado                     int
@@ -137,8 +137,8 @@ func TestHandlerDatosContactoRechazaRutasMetodosYErrores(t *testing.T) {
 		{"ruta ajena", http.MethodGet, RutaBolsasGestion + "/bolsa:b4/candidatos/participacion:b4/otra", "", http.StatusNotFound},
 		{"consulta desconocida", http.MethodGet, rutaDatosContactoPrueba + "?ver=todo", "", http.StatusNotFound},
 		{"método", http.MethodDelete, rutaDatosContactoPrueba, "", http.StatusMethodNotAllowed},
-		{"cuerpo sin motivo", http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","motivo":""}`, http.StatusBadRequest},
-		{"campo desconocido", http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","motivo":"x","otro":1}`, http.StatusBadRequest},
+		{"cuerpo sin causa", http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es"}`, http.StatusBadRequest},
+		{"campo desconocido", http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","causa":{"codigo":"alta_contacto","version":1,"huella_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"otro":1}`, http.StatusBadRequest},
 	}
 	for _, caso := range casos {
 		rec := httptest.NewRecorder()
@@ -161,7 +161,7 @@ func TestHandlerDatosContactoRechazaRutasMetodosYErrores(t *testing.T) {
 	} {
 		op.errRegist = caso.err
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","motivo":"Alta"}`))
+		h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, cuerpoDatosContactoCausa()))
 		if rec.Code != caso.esperado {
 			t.Errorf("error %v: %d, se esperaba %d", caso.err, rec.Code, caso.esperado)
 		}
@@ -169,4 +169,8 @@ func TestHandlerDatosContactoRechazaRutasMetodosYErrores(t *testing.T) {
 			t.Errorf("la respuesta de error no debe traer datos: %s", rec.Body.String())
 		}
 	}
+}
+
+func cuerpoDatosContactoCausa() string {
+	return `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","causa":{"codigo":"alta_contacto","version":1,"huella_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}`
 }

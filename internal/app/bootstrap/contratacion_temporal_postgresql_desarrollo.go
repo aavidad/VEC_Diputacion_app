@@ -107,6 +107,10 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialEmision                        *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPoliticaOfertas                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaPoliticaOfertas        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPublicarCausasParticipacion    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialProponerCausasParticipacion    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultarPropuestaCausas       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultarCausasParticipacion   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaCT                    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialAuditoriaBolsa                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialPlantillasCatalogo             *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -645,6 +649,28 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				}
 				dependencias.proveedorMaterialConsultaPoliticaOfertas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarPoliticaOfertas)
+				if err != nil {
+					return vacias, err
+				}
+			}
+			if seleccion.causasParticipacion {
+				dependencias.proveedorMaterialProponerCausasParticipacion, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaProponerCausasParticipacion)
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedorMaterialConsultarPropuestaCausas, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarPropuestaCausasParticipacion)
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedorMaterialPublicarCausasParticipacion, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaPublicarCausasParticipacion)
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedorMaterialConsultarCausasParticipacion, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarCausasParticipacion)
 				if err != nil {
 					return vacias, err
 				}

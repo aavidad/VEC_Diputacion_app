@@ -23,6 +23,7 @@ func (p preparadorSituacionHTTPPrueba) PrepararSolicitudCambiarSituacion(_ conte
 	s.ParticipacionRef = e.ParticipacionRef
 	s.Destino = e.Destino
 	s.Motivo = e.Motivo
+	s.Causa = e.Causa
 	s.ClaveIdempotencia = e.ClaveIdempotencia
 	s.FechaDisponible = e.FechaDisponible
 	return s, nil
@@ -44,8 +45,8 @@ func TestHandlerSituacionParticipacionDevuelveReciboYReplay(t *testing.T) {
 		estado      int
 	}{{false, 201}, {true, 200}} {
 		o := operadorSituacionHTTPPrueba{resultado: puertosbolsa.RegistroSituacionParticipacion{Reutilizada: caso.reutilizada, ReciboRef: "recibo:situacion:01", SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:01", Situacion: "no_disponible", Desde: ahora}}}
-		h, _ := NuevoHandlerSituacionParticipacion(preparadorSituacionHTTPPrueba{}, o)
-		r := httptest.NewRequest(http.MethodPost, RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion", strings.NewReader(`{"situacion":"no_disponible","motivo":"Pausa comunicada","fecha_disponible":null}`))
+		h, _ := NuevoHandlerSituacionParticipacionConCausasCatalogadas(preparadorSituacionHTTPPrueba{}, o, true)
+		r := httptest.NewRequest(http.MethodPost, RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion", strings.NewReader(cuerpoSituacionCausa()))
 		r.Header.Set("Accept", "application/json")
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Idempotency-Key", "b2-cambio-0001")
@@ -63,8 +64,8 @@ func TestHandlerSituacionParticipacionDistingueDenegacionYConflicto(t *testing.T
 		estado int
 		codigo string
 	}{{dominiovec.ErrAutorizacionDenegada, http.StatusForbidden, "acceso_denegado"}, {dominiobolsa.ErrCambioSituacionParticipacionInvalido, http.StatusConflict, "cambio_en_conflicto"}} {
-		h, _ := NuevoHandlerSituacionParticipacion(preparadorSituacionHTTPPrueba{}, operadorSituacionHTTPPrueba{err: caso.err})
-		r := httptest.NewRequest(http.MethodPost, RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion", strings.NewReader(`{"situacion":"no_disponible","motivo":"Pausa comunicada","fecha_disponible":null}`))
+		h, _ := NuevoHandlerSituacionParticipacionConCausasCatalogadas(preparadorSituacionHTTPPrueba{}, operadorSituacionHTTPPrueba{err: caso.err}, true)
+		r := httptest.NewRequest(http.MethodPost, RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion", strings.NewReader(cuerpoSituacionCausa()))
 		r.Header.Set("Accept", "application/json")
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Idempotency-Key", "b2-cambio-0001")
@@ -74,4 +75,8 @@ func TestHandlerSituacionParticipacionDistingueDenegacionYConflicto(t *testing.T
 			t.Fatalf("err=%v estado=%d cuerpo=%s", caso.err, w.Code, w.Body.String())
 		}
 	}
+}
+
+func cuerpoSituacionCausa() string {
+	return `{"situacion":"no_disponible","causa":{"codigo":"pausa_comunicada","version":1,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"fecha_disponible":null}`
 }

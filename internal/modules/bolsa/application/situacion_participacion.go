@@ -21,14 +21,18 @@ type ServicioSituacionParticipacion struct {
 	reloj       func() time.Time
 	// reglas restringe la tabla compilada de transiciones con el catálogo
 	// versionado. Nula: rige solo la tabla compilada.
-	reglas puertosbolsa.ReglasTransicionesSituacion
+	reglas      puertosbolsa.ReglasTransicionesSituacion
+	exigirCausa bool
 }
 
 func NuevoServicioSituacionParticipacion(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioSituacionParticipacion, reloj func() time.Time) (*ServicioSituacionParticipacion, error) {
+	return NuevoServicioSituacionParticipacionConCausasCatalogadas(c, a, r, reloj, false)
+}
+func NuevoServicioSituacionParticipacionConCausasCatalogadas(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioSituacionParticipacion, reloj func() time.Time, exigirCausa bool) (*ServicioSituacionParticipacion, error) {
 	if c == nil || a == nil || r == nil || reloj == nil {
 		return nil, ErrCambioSituacionParticipacionNoDisponible
 	}
-	return &ServicioSituacionParticipacion{contexto: c, autorizador: a, repositorio: r, reloj: reloj}, nil
+	return &ServicioSituacionParticipacion{contexto: c, autorizador: a, repositorio: r, reloj: reloj, exigirCausa: exigirCausa}, nil
 }
 
 // EstablecerReglasTransiciones compone el catálogo de transiciones. Se llama
@@ -107,7 +111,7 @@ func (s *ServicioSituacionParticipacion) PublicarPoliticaTransiciones(ctx contex
 }
 
 func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud puertosbolsa.SolicitudCambiarSituacionParticipacion) (puertosbolsa.RegistroSituacionParticipacion, error) {
-	if ctx == nil || s == nil || s.contexto == nil || s.autorizador == nil || s.repositorio == nil || solicitud.Validar() != nil {
+	if ctx == nil || s == nil || s.contexto == nil || s.autorizador == nil || s.repositorio == nil || solicitud.Validar() != nil || (s.exigirCausa && (solicitud.Motivo != solicitud.Causa.Codigo || solicitud.Causa.Validar() != nil)) {
 		return puertosbolsa.RegistroSituacionParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
 	actor := solicitud.ResultadoContexto.Contexto
@@ -145,7 +149,7 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 	repeticion := err == nil
 	if err == nil {
 		if previo.Situacion != solicitud.Destino || previo.ParticipacionRef != solicitud.ParticipacionRef ||
-			previo.Motivo != solicitud.Motivo ||
+			previo.Motivo != solicitud.Motivo || (s.exigirCausa && (previo.Causa == nil || !previo.Causa.Igual(solicitud.Causa))) ||
 			!mismaFechaDisponible(previo.FechaDisponible, solicitud.FechaDisponible) {
 			return puertosbolsa.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 		}
@@ -170,7 +174,7 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
-	return s.repositorio.RegistrarSituacion(ctx, puertosbolsa.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor.PersonaRef, BolsaRef: solicitud.BolsaRef, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
+	return s.repositorio.RegistrarSituacion(ctx, puertosbolsa.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor.PersonaRef, BolsaRef: solicitud.BolsaRef, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, Causa: solicitud.Causa})
 }
 
 func errorDependenciaSituacion(err error) error {

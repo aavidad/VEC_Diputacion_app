@@ -54,6 +54,7 @@ type RegistroDatosContactoParticipacion struct {
 	ParticipacionRef string
 	Version          uint64
 	Motivo           string
+	Causa            *SelectorCausaParticipacion
 	RegistradaEn     time.Time
 	Sobre            SobreDatosContacto
 	// Origen solo existe en una versión de origen CONVOCA (duda 45).
@@ -81,6 +82,7 @@ type SolicitudRegistrarDatosContactoParticipacion struct {
 	ParticipacionRef   string
 	Datos              dominiobolsa.DatosContactoParticipacion
 	Motivo             string
+	Causa              SelectorCausaParticipacion
 	ClaveIdempotencia  string
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
@@ -92,7 +94,7 @@ type SolicitudRegistrarDatosContactoParticipacion struct {
 func (s SolicitudRegistrarDatosContactoParticipacion) Validar() error {
 	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
 		s.BolsaRef == "" || s.ParticipacionRef == "" || s.Datos.ParticipacionRef != s.ParticipacionRef ||
-		s.Motivo == "" || s.ClaveIdempotencia == "" || !dominiobolsa.OrigenDatosContactoAdmitido(s.Origen) ||
+		s.ClaveIdempotencia == "" || !dominiobolsa.OrigenDatosContactoAdmitido(s.Origen) ||
 		s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
 		return ErrDatosContactoParticipacionNoDisponibles
 	}
@@ -120,6 +122,7 @@ type ComandoRegistrarDatosContactoParticipacion struct {
 	Decision              dominiovec.DecisionAutorizacionLigadaV3
 	Confirmacion          puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	Material              puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Causa                 SelectorCausaParticipacion
 	// CamposCambiados nombra, sin valores, los campos que difieren de la
 	// versión anterior; alimenta la traza de valores (petición RRHH p.4).
 	CamposCambiados []string

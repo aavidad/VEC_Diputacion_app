@@ -23,9 +23,9 @@ func TestHandlerDatosContactoRegistraYMuestraOrigenConvoca(t *testing.T) {
 	ahora := time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)
 	prep := &preparadorDatosContactoPrueba{}
 	op := &operadorDatosContactoPrueba{registro: puertosbolsa.RegistroDatosContactoParticipacion{ReciboRef: "recibo:datos-contacto:0001", ParticipacionRef: "participacion:b4", Version: 1, RegistradaEn: ahora, Origen: marcaOrigenHTTPPrueba()}}
-	h, _ := NuevoHandlerDatosContactoParticipacion(prep, op)
+	h, _ := NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(prep, op, true)
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","motivo":"Traído de CONVOCA","origen":"convoca"}`))
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, cuerpoDatosContactoCausaOrigen("convoca")))
 	if rec.Code != http.StatusCreated || prep.ultimaEntrada.Origen != "convoca" {
 		t.Fatalf("estado=%d entrada=%+v", rec.Code, prep.ultimaEntrada)
 	}
@@ -40,23 +40,27 @@ func TestHandlerDatosContactoRegistraYMuestraOrigenConvoca(t *testing.T) {
 	// Un origen desconocido no llega al caso de uso.
 	op.registros = 0
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","motivo":"x","origen":"persona"}`))
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, cuerpoDatosContactoCausaOrigen("persona")))
 	if rec.Code != http.StatusBadRequest || op.registros != 0 {
 		t.Fatalf("origen desconocido: %d registros=%d", rec.Code, op.registros)
 	}
 	// Sin regla configurada: 422 explícito, nunca una vigencia supuesta.
 	op.errRegist = puertosbolsa.ErrOrigenDatosContactoNoConfigurado
 	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","motivo":"x","origen":"convoca"}`))
+	h.ServeHTTP(rec, peticionDatosContacto(http.MethodPost, rutaDatosContactoPrueba, cuerpoDatosContactoCausaOrigen("convoca")))
 	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), "origen_contacto_no_disponible") {
 		t.Fatalf("sin regla: %d %s", rec.Code, rec.Body.String())
 	}
 }
 
+func cuerpoDatosContactoCausaOrigen(origen string) string {
+	return `{"correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":"","causa":{"codigo":"alta_contacto","version":1,"huella_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"origen":"` + origen + `"}`
+}
+
 func TestHandlerDatosContactoConsultaIncluyeEstadoDelOrigen(t *testing.T) {
 	datos := dominiobolsa.DatosContactoParticipacion{ParticipacionRef: "participacion:b4", Correo: "candidata@dipgra.es", Telefono1: "600123456"}
 	op := &operadorDatosContactoPrueba{leidos: puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: "participacion:b4", Version: 1, RegistradaEn: time.Now(), Datos: datos, Enmascarados: datos.Enmascarados(), Origen: marcaOrigenHTTPPrueba(), EstadoOrigen: dominiobolsa.EstadoOrigenContactoVencido}}
-	h, _ := NuevoHandlerDatosContactoParticipacion(&preparadorDatosContactoPrueba{}, op)
+	h, _ := NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(&preparadorDatosContactoPrueba{}, op, true)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, peticionDatosContacto(http.MethodGet, rutaDatosContactoPrueba, ""))
 	var salida struct {

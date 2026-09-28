@@ -19,6 +19,7 @@ const RutaBolsasGestion = "/api/vec/bolsa/bolsas"
 
 type EntradaCambiarSituacionParticipacion struct {
 	BolsaRef, ParticipacionRef, Destino, Motivo, ClaveIdempotencia string
+	Causa                                                          puertosbolsa.SelectorCausaParticipacion
 	FechaDisponible                                                *time.Time
 }
 
@@ -31,15 +32,19 @@ type OperadorSituacionParticipacion interface {
 }
 
 type HandlerSituacionParticipacion struct {
-	preparador PreparadorSituacionParticipacion
-	operador   OperadorSituacionParticipacion
+	preparador  PreparadorSituacionParticipacion
+	operador    OperadorSituacionParticipacion
+	exigirCausa bool
 }
 
 func NuevoHandlerSituacionParticipacion(p PreparadorSituacionParticipacion, o OperadorSituacionParticipacion) (http.Handler, error) {
+	return NuevoHandlerSituacionParticipacionConCausasCatalogadas(p, o, false)
+}
+func NuevoHandlerSituacionParticipacionConCausasCatalogadas(p PreparadorSituacionParticipacion, o OperadorSituacionParticipacion, exigirCausa bool) (http.Handler, error) {
 	if p == nil || o == nil {
 		return nil, errors.New("bolsa http interno: situacion no disponible")
 	}
-	return &HandlerSituacionParticipacion{p, o}, nil
+	return &HandlerSituacionParticipacion{preparador: p, operador: o, exigirCausa: exigirCausa}, nil
 }
 
 func (h *HandlerSituacionParticipacion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -63,17 +68,22 @@ func (h *HandlerSituacionParticipacion) ServeHTTP(w http.ResponseWriter, r *http
 		return
 	}
 	var cuerpo struct {
-		Situacion       string     `json:"situacion"`
-		Motivo          string     `json:"motivo"`
-		FechaDisponible *time.Time `json:"fecha_disponible"`
+		Situacion       string                                  `json:"situacion"`
+		Motivo          string                                  `json:"motivo"`
+		Causa           puertosbolsa.SelectorCausaParticipacion `json:"causa"`
+		FechaDisponible *time.Time                              `json:"fecha_disponible"`
 	}
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&cuerpo) != nil || dec.Decode(&struct{}{}) != io.EOF || strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || cuerpo.Motivo == "" || len(cuerpo.Motivo) > 1000 {
+	if dec.Decode(&cuerpo) != nil || dec.Decode(&struct{}{}) != io.EOF || (h.exigirCausa && (cuerpo.Causa.Validar() != nil || cuerpo.Motivo != "")) || (!h.exigirCausa && (strings.TrimSpace(cuerpo.Motivo) == "" || cuerpo.Causa != (puertosbolsa.SelectorCausaParticipacion{}))) {
 		responderSituacion(w, http.StatusBadRequest, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	solicitud, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), EntradaCambiarSituacionParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Destino: cuerpo.Situacion, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave, FechaDisponible: cuerpo.FechaDisponible})
+	motivo := cuerpo.Motivo
+	if h.exigirCausa {
+		motivo = cuerpo.Causa.Codigo
+	}
+	solicitud, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), EntradaCambiarSituacionParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Destino: cuerpo.Situacion, Motivo: motivo, Causa: cuerpo.Causa, ClaveIdempotencia: clave, FechaDisponible: cuerpo.FechaDisponible})
 	if err != nil {
 		responderErrorSituacion(w, err)
 		return

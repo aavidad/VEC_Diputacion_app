@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func (r *repositorioDatosContactoPrueba) BuscarRegistroDatosContacto(_ context.C
 func (r *repositorioDatosContactoPrueba) RegistrarDatosContacto(_ context.Context, comando puertosbolsa.ComandoRegistrarDatosContactoParticipacion) (puertosbolsa.RegistroDatosContactoParticipacion, error) {
 	r.llamadas++
 	r.ultimo = comando
-	registro := puertosbolsa.RegistroDatosContactoParticipacion{ReciboRef: comando.ReciboRef, ParticipacionRef: comando.ParticipacionRef, Version: comando.Sobre.Version, Motivo: comando.Motivo, RegistradaEn: comando.RegistradaEn, Sobre: comando.Sobre, Origen: comando.Origen}
+	registro := puertosbolsa.RegistroDatosContactoParticipacion{ReciboRef: comando.ReciboRef, ParticipacionRef: comando.ParticipacionRef, Version: comando.Sobre.Version, Motivo: comando.Motivo, Causa: &comando.Causa, RegistradaEn: comando.RegistradaEn, Sobre: comando.Sobre, Origen: comando.Origen}
 	r.registros = append(r.registros, registro)
 	return registro, nil
 }
@@ -90,7 +91,8 @@ func solicitudDatosContactoPrueba(t *testing.T, ahora time.Time, clave string, d
 	if err != nil {
 		t.Fatal(err)
 	}
-	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:b4", ParticipacionRef: datos.ParticipacionRef, Datos: datos, Motivo: "Alta de contacto comunicada por el candidato", ClaveIdempotencia: clave, Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
+	causa := puertosbolsa.SelectorCausaParticipacion{Codigo: "alta_contacto", Version: 1, HuellaSHA256: strings.Repeat("b", 64)}
+	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:b4", ParticipacionRef: datos.ParticipacionRef, Datos: datos, Motivo: causa.Codigo, Causa: causa, ClaveIdempotencia: clave, Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
 }
 
 func datosDatosContactoPrueba() dominiobolsa.DatosContactoParticipacion {

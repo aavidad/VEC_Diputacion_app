@@ -16,15 +16,21 @@ import (
 
 // RepositorioDatosContactoParticipacionPostgreSQL (B4) guarda el sobre cifrado
 // de los datos de contacto; nunca recibe ni devuelve el claro.
-type RepositorioDatosContactoParticipacionPostgreSQL struct{ pool *pgxpool.Pool }
+type RepositorioDatosContactoParticipacionPostgreSQL struct {
+	pool        *pgxpool.Pool
+	exigirCausa bool
+}
 
 var _ ports.RepositorioDatosContactoParticipacion = (*RepositorioDatosContactoParticipacionPostgreSQL)(nil)
 
 func NuevoRepositorioDatosContactoParticipacionPostgreSQL(pool *pgxpool.Pool) (*RepositorioDatosContactoParticipacionPostgreSQL, error) {
+	return NuevoRepositorioDatosContactoParticipacionPostgreSQLConCausasCatalogadas(pool, false)
+}
+func NuevoRepositorioDatosContactoParticipacionPostgreSQLConCausasCatalogadas(pool *pgxpool.Pool, exigirCausa bool) (*RepositorioDatosContactoParticipacionPostgreSQL, error) {
 	if pool == nil {
 		return nil, ports.ErrDatosContactoParticipacionNoDisponibles
 	}
-	return &RepositorioDatosContactoParticipacionPostgreSQL{pool}, nil
+	return &RepositorioDatosContactoParticipacionPostgreSQL{pool: pool, exigirCausa: exigirCausa}, nil
 }
 
 func (r *RepositorioDatosContactoParticipacionPostgreSQL) DatosContactoVigentes(ctx context.Context, ref string) (ports.RegistroDatosContactoParticipacion, error) {
@@ -38,11 +44,40 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) BuscarRegistroDatosCon
 	if r == nil || r.pool == nil || ctx == nil || ref == "" || clave == "" {
 		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
 	}
-	registro, err := r.leer(ctx, ref, `SELECT version,clave_ref,nonce,cifrado,motivo,registrada_en,recibo_ref FROM vec_bolsa_llamamientos.recuperar_datos_contacto_participacion_v1($1,$2)`, ref, clave)
+	registro, err := r.leerCatalogado(ctx, ref, clave)
 	if err != nil {
 		return ports.RegistroDatosContactoParticipacion{}, err
 	}
 	registro.Reutilizada = true
+	return registro, nil
+}
+
+func (r *RepositorioDatosContactoParticipacionPostgreSQL) leerCatalogado(ctx context.Context, ref, clave string) (ports.RegistroDatosContactoParticipacion, error) {
+	var registro ports.RegistroDatosContactoParticipacion
+	registro.ParticipacionRef = ref
+	var version int64
+	var codigo, huella, etiqueta *string
+	var causaVersion *int64
+	err := r.pool.QueryRow(ctx, `SELECT version,clave_ref,nonce,cifrado,motivo,registrada_en,recibo_ref,causa_codigo,causa_version,causa_sha256,causa_etiqueta FROM vec_bolsa_llamamientos.recuperar_datos_contacto_participacion_v2($1,$2)`, ref, clave).Scan(&version, &registro.Sobre.ClaveRef, &registro.Sobre.Nonce, &registro.Sobre.Cifrado, &registro.Motivo, &registro.RegistradaEn, &registro.ReciboRef, &codigo, &causaVersion, &huella, &etiqueta)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoEncontrados
+	}
+	if err != nil || version <= 0 {
+		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	causa, valida := selectorCausaParticipacionRecuperada(codigo, causaVersion, huella, etiqueta, registro.Motivo)
+	if !valida {
+		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	registro.Causa = causa
+	registro.Version, registro.Sobre.Version = uint64(version), uint64(version)
+	registro.RegistradaEn = registro.RegistradaEn.UTC()
+	if registro.Sobre.Validar() != nil {
+		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	if registro.Origen, err = r.leerOrigen(ctx, ref, version); err != nil {
+		return ports.RegistroDatosContactoParticipacion{}, err
+	}
 	return registro, nil
 }
 
@@ -102,7 +137,7 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) leerOrigen(ctx context
 
 func (r *RepositorioDatosContactoParticipacionPostgreSQL) RegistrarDatosContacto(ctx context.Context, comando ports.ComandoRegistrarDatosContactoParticipacion) (ports.RegistroDatosContactoParticipacion, error) {
 	if r == nil || r.pool == nil || ctx == nil || comando.ParticipacionRef == "" || comando.BolsaRef == "" || comando.Sobre.Validar() != nil ||
-		comando.Motivo == "" || comando.Actor == "" || comando.RegistradaEn.IsZero() || comando.ClaveIdempotencia == "" || comando.ReciboRef == "" ||
+		(r.exigirCausa && (comando.Motivo != comando.Causa.Codigo || comando.Causa.Validar() != nil)) || comando.Actor == "" || comando.RegistradaEn.IsZero() || comando.ClaveIdempotencia == "" || comando.ReciboRef == "" ||
 		comando.Material.ValidarEstructura() != nil || (comando.Origen != nil && comando.Origen.Validar() != nil) {
 		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
 	}
@@ -126,11 +161,18 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) RegistrarDatosContacto
 		comando.Motivo, comando.Actor, comando.RegistradaEn.UTC(), comando.ClaveIdempotencia, comando.ReciboRef,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
 	}
-	consulta := `SELECT reutilizada,recibo_ref,version,registrada_en FROM vec_bolsa_llamamientos.registrar_datos_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`
+	consulta := `SELECT reutilizada,recibo_ref,version,registrada_en FROM vec_bolsa_llamamientos.registrar_datos_contacto_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21,$22,$23,$24)`
 	if o := comando.Origen; o != nil {
 		// Duda 45: la versión y su marca de origen CONVOCA en la misma llamada.
-		consulta = `SELECT o_reutilizada,o_recibo_ref,o_version,o_registrada_en FROM vec_bolsa_llamamientos.registrar_datos_contacto_origen_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21,$22,$23,$24::date,$25,$26)`
+		consulta = `SELECT o_reutilizada,o_recibo_ref,o_version,o_registrada_en FROM vec_bolsa_llamamientos.registrar_datos_contacto_origen_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21,$22,$23,$24::date,$25,$26,$27,$28,$29)`
 		argumentos = append(argumentos, o.Origen, o.VigenteHasta.UTC(), o.UltimoDia, o.ReglaRef, o.ReglaHuella)
+	}
+	if r.exigirCausa {
+		argumentos = append(argumentos, comando.Causa.Codigo, comando.Causa.Version, comando.Causa.HuellaSHA256)
+	} else {
+		if comando.Origen == nil {
+			consulta = `SELECT reutilizada,recibo_ref,version,registrada_en FROM vec_bolsa_llamamientos.registrar_datos_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`
+		}
 	}
 	err = tx.QueryRow(ctx, consulta, argumentos...).Scan(&registro.Reutilizada, &registro.ReciboRef, &version, &registro.RegistradaEn)
 	if err != nil {
@@ -146,6 +188,9 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) RegistrarDatosContacto
 		return r.BuscarRegistroDatosContacto(ctx, comando.ParticipacionRef, comando.ClaveIdempotencia)
 	}
 	registro.ParticipacionRef, registro.Version, registro.Motivo = comando.ParticipacionRef, uint64(version), comando.Motivo
+	if r.exigirCausa {
+		registro.Causa = &comando.Causa
+	}
 	registro.RegistradaEn = registro.RegistradaEn.UTC()
 	registro.Sobre = comando.Sobre
 	if comando.Origen != nil {

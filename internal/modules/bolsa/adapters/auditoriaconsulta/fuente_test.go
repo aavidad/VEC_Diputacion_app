@@ -70,7 +70,7 @@ func TestProyeccionRechazaContactoEnClaro(t *testing.T) {
 func TestProyeccionRechazaMotivoLibre(t *testing.T) {
 	desde := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
 	filtro := auditoria.Filtro{Fuente: "bolsa", ExpedienteRef: "participacion:prueba", Desde: desde, Hasta: desde.Add(time.Hour)}
-	libre := "Motivo con datos de una persona"
+	libre := "Motivo con datos\nde una persona"
 	fila := filaSQL{ID: "situacion:recibo:prueba", OcurridoEn: desde.Add(time.Minute),
 		Accion: "pausar", ActorRef: "per_sintetica", Resultado: "confirmado",
 		ExpedienteRef: filtro.ExpedienteRef, ReciboRef: "recibo:prueba", Motivo: &libre}

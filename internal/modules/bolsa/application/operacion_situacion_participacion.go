@@ -16,7 +16,8 @@ import (
 // Operar aplica B8 a la situación B2 vigente. La operación se conserva junto
 // al cambio en una sola transacción del repositorio.
 func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.SolicitudOperacionSituacion) (ports.RegistroSituacionParticipacion, error) {
-	if s == nil || ctx == nil || q.SolicitudCambiarSituacionParticipacion.Validar() != nil || q.Justificante.Validar() != nil {
+	if s == nil || ctx == nil || q.SolicitudCambiarSituacionParticipacion.Validar() != nil ||
+		(s.exigirCausa && (q.Motivo != q.Causa.Codigo || q.Causa.Validar() != nil)) || q.Justificante.Validar() != nil {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
 	}
 	destino, ok := dominiobolsa.DestinoOperacionSituacion(q.Operacion)
@@ -70,7 +71,7 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	}
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
-	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora})
+	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, Causa: q.Causa}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora})
 }
 
 // politicaSegregacion lee la política vigente del repositorio. Sin consulta

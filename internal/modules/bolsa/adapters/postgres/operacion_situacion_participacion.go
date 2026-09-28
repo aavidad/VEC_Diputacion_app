@@ -14,7 +14,9 @@ var _ ports.RepositorioOperacionSituacion = (*RepositorioSituacionParticipacionP
 
 func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarOperacion(ctx context.Context, cmd ports.ComandoOperacionSituacion) (ports.RegistroSituacionParticipacion, error) {
 	c := cmd.Cambio
-	if r == nil || r.pool == nil || ctx == nil || c.ParticipacionRef == "" || cmd.BolsaRef == "" || c.Destino == "" || c.Motivo == "" || cmd.Actor == "" || cmd.ClaveIdempotencia == "" || cmd.ReciboRef == "" || cmd.Justificante.Validar() != nil || cmd.Material.ValidarEstructura() != nil {
+	if r == nil || r.pool == nil || ctx == nil || c.ParticipacionRef == "" || cmd.BolsaRef == "" || c.Destino == "" ||
+		(r.exigirCausa && (c.Motivo != cmd.Causa.Codigo || cmd.Causa.Validar() != nil)) ||
+		cmd.Actor == "" || cmd.ClaveIdempotencia == "" || cmd.ReciboRef == "" || cmd.Justificante.Validar() != nil || cmd.Material.ValidarEstructura() != nil {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
@@ -25,7 +27,12 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarOperacion(ctx con
 	m := cmd.Material
 	var result ports.RegistroSituacionParticipacion
 	result.ParticipacionRef = c.ParticipacionRef
-	err = tx.QueryRow(ctx, `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::numeric,$21::numeric,$22,$23,$24,$25)`, cmd.BolsaRef, c.ParticipacionRef, cmd.Operacion, c.Desde.UTC(), c.FechaDisponible, c.Motivo, cmd.Actor, cmd.ClaveIdempotencia, cmd.ReciboRef, c.RegistradaEn.UTC(), cmd.Justificante.Tipo, cmd.Justificante.Referencia, cmd.Justificante.SHA256, cmd.Validador, cmd.ValidadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&result.Reutilizada, &result.ReciboRef, &result.Situacion, &result.Desde, &result.FechaDisponible)
+	consulta := sqlRegistrarOperacionSituacion(r.exigirCausa)
+	args := []any{cmd.BolsaRef, c.ParticipacionRef, cmd.Operacion, c.Desde.UTC(), c.FechaDisponible, c.Motivo, cmd.Actor, cmd.ClaveIdempotencia, cmd.ReciboRef, c.RegistradaEn.UTC(), cmd.Justificante.Tipo, cmd.Justificante.Referencia, cmd.Justificante.SHA256, cmd.Validador, cmd.ValidadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
+	if r.exigirCausa {
+		args = append(args, cmd.Causa.Codigo, cmd.Causa.Version, cmd.Causa.HuellaSHA256)
+	}
+	err = tx.QueryRow(ctx, consulta, args...).Scan(&result.Reutilizada, &result.ReciboRef, &result.Situacion, &result.Desde, &result.FechaDisponible)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "VBS01" {
@@ -51,7 +58,8 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarOperaciones(ctx cont
 		return nil, ports.ErrSituacionParticipacionNoDisponible
 	}
 	defer tx.Rollback(context.Background())
-	rows, err := tx.Query(ctx, `SELECT desde,operacion,situacion,justificante_tipo,justificante_ref,justificante_sha256,actor,validador,validada_en,motivo FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`, ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	consulta := sqlListarOperacionesSituacion(r.exigirCausa)
+	rows, err := tx.Query(ctx, consulta, ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
 	if err != nil {
 		return nil, errorSituacionParticipacion(err)
 	}
@@ -73,4 +81,18 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarOperaciones(ctx cont
 		return nil, errorSituacionParticipacion(err)
 	}
 	return items, nil
+}
+
+func sqlRegistrarOperacionSituacion(exigirCausa bool) string {
+	if exigirCausa {
+		return `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::numeric,$21::numeric,$22,$23,$24,$25,$26,$27,$28)`
+	}
+	return `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::numeric,$21::numeric,$22,$23,$24,$25)`
+}
+
+func sqlListarOperacionesSituacion(exigirCausa bool) string {
+	if exigirCausa {
+		return `SELECT desde,operacion,situacion,justificante_tipo,justificante_ref,justificante_sha256,actor,validador,validada_en,motivo FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v2($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`
+	}
+	return `SELECT desde,operacion,situacion,justificante_tipo,justificante_ref,justificante_sha256,actor,validador,validada_en,motivo FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`
 }

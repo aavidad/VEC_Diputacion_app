@@ -32,6 +32,7 @@ type RegistroSituacionParticipacion struct {
 	Reutilizada bool
 	ReciboRef   string
 	Motivo      string
+	Causa       *SelectorCausaParticipacion
 	SituacionParticipacion
 }
 
@@ -51,6 +52,7 @@ type SolicitudCambiarSituacionParticipacion struct {
 	BolsaRef           string
 	Destino            string
 	Motivo             string
+	Causa              SelectorCausaParticipacion
 	ClaveIdempotencia  string
 	FechaDisponible    *time.Time
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
@@ -76,6 +78,7 @@ type ComandoCambiarSituacionParticipacion struct {
 	Decision              dominiovec.DecisionAutorizacionLigadaV3
 	Confirmacion          puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	Material              puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Causa                 SelectorCausaParticipacion
 }
 
 type ResolutorContextoSituacionParticipacion interface {

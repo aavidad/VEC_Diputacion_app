@@ -21,15 +21,20 @@ type OperadorOperacionesSituacion interface {
 }
 
 type HandlerOperacionesSituacion struct {
-	preparador PreparadorSituacionParticipacion
-	operador   OperadorOperacionesSituacion
+	preparador  PreparadorSituacionParticipacion
+	operador    OperadorOperacionesSituacion
+	exigirCausa bool
 }
 
 func NuevoHandlerOperacionesSituacion(p PreparadorSituacionParticipacion, o OperadorOperacionesSituacion) (http.Handler, error) {
+	return NuevoHandlerOperacionesSituacionConCausasCatalogadas(p, o, false)
+}
+
+func NuevoHandlerOperacionesSituacionConCausasCatalogadas(p PreparadorSituacionParticipacion, o OperadorOperacionesSituacion, exigirCausa bool) (http.Handler, error) {
 	if p == nil || o == nil {
 		return nil, ports.ErrSituacionParticipacionNoDisponible
 	}
-	return &HandlerOperacionesSituacion{p, o}, nil
+	return &HandlerOperacionesSituacion{preparador: p, operador: o, exigirCausa: exigirCausa}, nil
 }
 
 func ReferenciasRutaOperacionesSituacion(r *http.Request) (string, string, bool) {
@@ -99,9 +104,10 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 	var cuerpo struct {
-		Operacion    string `json:"operacion"`
-		Motivo       string `json:"motivo"`
-		Validador    string `json:"validador"`
+		Operacion    string                           `json:"operacion"`
+		Motivo       string                           `json:"motivo"`
+		Causa        ports.SelectorCausaParticipacion `json:"causa"`
+		Validador    string                           `json:"validador"`
 		Justificante struct {
 			Tipo       string `json:"tipo"`
 			Referencia string `json:"referencia"`
@@ -110,7 +116,10 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 	}
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	dec.DisallowUnknownFields()
-	if dec.Decode(&cuerpo) != nil || dec.Decode(&struct{}{}) != io.EOF || cuerpo.Motivo == "" || strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || len(cuerpo.Motivo) > 1000 || cuerpo.Validador == "" || strings.TrimSpace(cuerpo.Validador) != cuerpo.Validador || len(cuerpo.Validador) > 256 {
+	if dec.Decode(&cuerpo) != nil || dec.Decode(&struct{}{}) != io.EOF ||
+		(h.exigirCausa && (cuerpo.Motivo != "" || cuerpo.Causa.Validar() != nil)) ||
+		(!h.exigirCausa && (cuerpo.Motivo == "" || strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || len(cuerpo.Motivo) > 1000 || cuerpo.Causa.Codigo != "" || cuerpo.Causa.Version != 0 || cuerpo.Causa.HuellaSHA256 != "")) ||
+		cuerpo.Validador == "" || strings.TrimSpace(cuerpo.Validador) != cuerpo.Validador || len(cuerpo.Validador) > 256 {
 		responderOperacion(w, 400, "solicitud_invalida")
 		return
 	}
@@ -120,7 +129,11 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderOperacion(w, 400, "solicitud_invalida")
 		return
 	}
-	q, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), EntradaCambiarSituacionParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Destino: destino, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave})
+	motivo := cuerpo.Motivo
+	if h.exigirCausa {
+		motivo = cuerpo.Causa.Codigo
+	}
+	q, err := h.preparador.PrepararSolicitudCambiarSituacion(r.Context(), EntradaCambiarSituacionParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Destino: destino, Motivo: motivo, Causa: cuerpo.Causa, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOperacion(w, err)
 		return

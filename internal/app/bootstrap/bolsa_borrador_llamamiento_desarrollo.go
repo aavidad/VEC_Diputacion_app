@@ -77,7 +77,80 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCambiarSituac
 	if err != nil {
 		return puertosbolsa.SolicitudCambiarSituacionParticipacion{}, err
 	}
-	return puertosbolsa.SolicitudCambiarSituacionParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Destino: entrada.Destino, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, FechaDisponible: entrada.FechaDisponible, Correlacion: correlacion, MotivoAutorizacion: motivoCambiarSituacionParticipacionBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudCambiarSituacionParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Destino: entrada.Destino, Motivo: entrada.Motivo, Causa: entrada.Causa, ClaveIdempotencia: entrada.ClaveIdempotencia, FechaDisponible: entrada.FechaDisponible, Correlacion: correlacion, MotivoAutorizacion: motivoCambiarSituacionParticipacionBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararPropuesta(ctx context.Context, entrada bolsahttp.EntradaPublicarCatalogoCausaParticipacion) (puertosbolsa.SolicitudProponerCausaParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudProponerCausaParticipacion{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudProponerCausaParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudProponerCausaParticipacion{
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, Correlacion: correlacion,
+		MotivoAutorizacion: motivoProponerCausasParticipacionBolsaDesarrollo(),
+		Causa:              causaParticipacionDesdeEntrada(entrada),
+	}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararPublicacion(ctx context.Context, propuestaRef string, entrada bolsahttp.EntradaPublicarCatalogoCausaParticipacion) (puertosbolsa.SolicitudPublicarCausaParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudPublicarCausaParticipacion{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudPublicarCausaParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudPublicarCausaParticipacion{
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, Correlacion: correlacion, PropuestaRef: propuestaRef,
+		MotivoAutorizacion: motivoPublicarCausasParticipacionBolsaDesarrollo(),
+		Causa:              causaParticipacionDesdeEntrada(entrada),
+	}, nil
+}
+
+func causaParticipacionDesdeEntrada(entrada bolsahttp.EntradaPublicarCatalogoCausaParticipacion) puertosbolsa.CausaParticipacionCatalogada {
+	if entrada.AplicaSituacion == nil || entrada.AplicaContacto == nil || entrada.Publicable == nil || entrada.Activa == nil {
+		return puertosbolsa.CausaParticipacionCatalogada{}
+	}
+	return puertosbolsa.CausaParticipacionCatalogada{
+		Codigo: entrada.Codigo, Version: entrada.Version, Etiqueta: entrada.Etiqueta,
+		AplicaSituacion: *entrada.AplicaSituacion, AplicaContacto: *entrada.AplicaContacto,
+		Publicable: *entrada.Publicable, Activa: *entrada.Activa,
+	}
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsulta(ctx context.Context) (puertosbolsa.SolicitudConsultarCausasParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarCausasParticipacion{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarCausasParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudConsultarCausasParticipacion{
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, Correlacion: correlacion,
+		MotivoAutorizacion: motivoConsultarCausasParticipacionBolsaDesarrollo(),
+	}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaPropuesta(ctx context.Context, propuestaRef string) (puertosbolsa.SolicitudConsultarPropuestaCausaParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarPropuestaCausaParticipacion{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarPropuestaCausaParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudConsultarPropuestaCausaParticipacion{
+		Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, PropuestaRef: propuestaRef,
+		Correlacion: correlacion, MotivoAutorizacion: motivoConsultarPropuestaCausasBolsaDesarrollo(),
+	}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaReincorporacionesTitular(ctx context.Context, bolsaRef, participacionRef string) (puertosbolsa.SolicitudConsultarReincorporacionesTitular, error) {
@@ -115,7 +188,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarDato
 	if err != nil {
 		return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{}, err
 	}
-	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(), Origen: entrada.Origen}, nil
+	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, Causa: entrada.Causa, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(), Origen: entrada.Origen}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDatosContacto(ctx context.Context, bolsaRef, participacionRef string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
@@ -292,11 +365,14 @@ var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.Generado
 type emisorBorradorLlamamientoDesarrollo struct {
 	crear, consultar, situacion, contacto, consultaContacto, datosContacto, emision, politicaOfertas *emisorMaterialRenovableCTDesarrollo
 	consultaPoliticaOfertas                                                                          *emisorMaterialRenovableCTDesarrollo
+	publicarCausasParticipacion, consultarCausasParticipacion                                        *emisorMaterialRenovableCTDesarrollo
+	proponerCausasParticipacion, consultarPropuestaCausas                                            *emisorMaterialRenovableCTDesarrollo
 	consultaReincorporacion                                                                          *emisorMaterialRenovableCTDesarrollo
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
 	situacion, operaciones, contacto, datosContacto, contratos, sanciones, reincorporaciones http.Handler
+	causasParticipacionActivas                                                               bool
 	preparador                                                                               *preparadorBorradorLlamamientoDesarrollo
 	servicio                                                                                 *aplicacionbolsa.ServicioContactoParticipacion
 	// servicioSituacion permite componer después las reglas de transición.
@@ -388,6 +464,22 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 		if e != nil && e.consultaPoliticaOfertas != nil {
 			return e.consultaPoliticaOfertas.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
+	case puertosbolsa.AccionPublicarCausasParticipacion:
+		if e != nil && e.publicarCausasParticipacion != nil {
+			return e.publicarCausasParticipacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionConsultarCausasParticipacion:
+		if e != nil && e.consultarCausasParticipacion != nil {
+			return e.consultarCausasParticipacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionProponerCausasParticipacion:
+		if e != nil && e.proponerCausasParticipacion != nil {
+			return e.proponerCausasParticipacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionConsultarPropuestaCausasParticipacion:
+		if e != nil && e.consultarPropuestaCausas != nil {
+			return e.consultarPropuestaCausas.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
 	case puertosbolsa.AccionConsultarReincorporacionTitular:
 		if e != nil && e.consultaReincorporacion != nil {
 			return e.consultaReincorporacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
@@ -419,6 +511,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	var err error
 	politicaOfertasActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled)
 	if err != nil || (politicaOfertasActiva && (alta.postgresql.proveedorMaterialPoliticaOfertas == nil || alta.postgresql.proveedorMaterialConsultaPoliticaOfertas == nil)) {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	causasParticipacionActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCausasParticipacionEnabled)
+	if err != nil || (causasParticipacionActivas && (alta.postgresql.proveedorMaterialProponerCausasParticipacion == nil || alta.postgresql.proveedorMaterialConsultarPropuestaCausas == nil || alta.postgresql.proveedorMaterialPublicarCausasParticipacion == nil || alta.postgresql.proveedorMaterialConsultarCausasParticipacion == nil)) {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	reincorporacionActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envCTReincorporacionTitularEnabled)
@@ -516,8 +612,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultarReincorporacionTitularBolsaDesarrollo()}, desde) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	if causasParticipacionActivas && publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoProponerCausasParticipacionBolsaDesarrollo(), motivoConsultarPropuestaCausasBolsaDesarrollo(), motivoPublicarCausasParticipacionBolsaDesarrollo(), motivoConsultarCausasParticipacionBolsaDesarrollo()}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	var publicarPolitica error
-	if reincorporacionActiva {
+	if causasParticipacionActivas {
+		publicarPolitica = politicaBolsa.PublicarInicialConCausasParticipacion(ctx, politicaOfertasActiva, reincorporacionActiva)
+	} else if reincorporacionActiva {
 		publicarPolitica = politicaBolsa.PublicarInicialConReincorporacion(ctx, politicaOfertasActiva)
 	} else if politicaOfertasActiva {
 		publicarPolitica = politicaBolsa.PublicarInicialConPoliticaOfertas(ctx)
@@ -535,7 +637,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB, politicaOfertasActiva, reincorporacionActiva)
+	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB, politicaOfertasActiva, reincorporacionActiva, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -592,12 +694,31 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 		}
 	}
+	var emisorProponerCausas, emisorConsultarPropuestaCausas, emisorPublicarCausas, emisorConsultarCausas *emisorMaterialRenovableCTDesarrollo
+	if causasParticipacionActivas {
+		emisorProponerCausas, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialProponerCausasParticipacion)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		emisorConsultarPropuestaCausas, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultarPropuestaCausas)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		emisorPublicarCausas, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialPublicarCausasParticipacion)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		emisorConsultarCausas, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultarCausasParticipacion)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+	}
 	repositorio, err := postgresbolsa.NuevoRepositorioBorradorLlamamientoPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa, generar: seguridadvec.GeneradorReferenciasCriptograficas{}}
-	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas}
+	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision, politicaOfertas: emisorPoliticaOfertas, consultaPoliticaOfertas: emisorConsultaPoliticaOfertas, proponerCausasParticipacion: emisorProponerCausas, consultarPropuestaCausas: emisorConsultarPropuestaCausas, publicarCausasParticipacion: emisorPublicarCausas, consultarCausasParticipacion: emisorConsultarCausas}
 	if reincorporacionActiva {
 		emisor.consultaReincorporacion, err = nuevoEmisorMaterialRenovableCTDesarrollo(pdp, proveedorReincorporacion[0])
 		if err != nil {
@@ -606,6 +727,26 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}
 	var rutaPoliticaOfertas vechttp.RutaExacta
 	var rutaCapacidadPoliticaOfertas vechttp.RutaExacta
+	var rutaCausasParticipacion vechttp.RutaExacta
+	var rutaPropuestasCausas vechttp.RutaExacta
+	var coleccionPropuestasCausas vechttp.RutaColeccion
+	if causasParticipacionActivas {
+		repoCausas, err := postgresbolsa.NuevoRepositorioCatalogoCausasParticipacionPostgreSQL(alta.postgresql.bolsa)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		servicioCausas, err := aplicacionbolsa.NuevoServicioCatalogoCausasParticipacion(emisor, repoCausas)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		handlerCausas, err := bolsahttp.NuevoHandlerCatalogoCausasParticipacion(preparador, servicioCausas)
+		if err != nil {
+			return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+		}
+		rutaCausasParticipacion = vechttp.RutaExacta{Ruta: bolsahttp.RutaCatalogoCausasParticipacion, Manejador: handlerCausas}
+		rutaPropuestasCausas = vechttp.RutaExacta{Ruta: bolsahttp.RutaPropuestasCausasParticipacion, Manejador: handlerCausas}
+		coleccionPropuestasCausas = vechttp.RutaColeccion{Prefijo: bolsahttp.RutaPropuestasCausasParticipacion, Manejador: handlerCausas}
+	}
 	var calculadoraOfertas puertosbolsa.CalculadoraPlazoOferta = dependenciasCT.plazosOfertasBolsa
 	if politicaOfertasActiva {
 		var servicioPolitica *reglasadjudicacion.Servicio
@@ -628,22 +769,22 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	repositorioSituacion, err := postgresbolsa.NuevoRepositorioSituacionParticipacionPostgreSQL(alta.postgresql.bolsa)
+	repositorioSituacion, err := postgresbolsa.NuevoRepositorioSituacionParticipacionPostgreSQLConCausasCatalogadas(alta.postgresql.bolsa, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if err := publicarPoliticaSegregacionDesarrollo(ctx, cfg, repositorioSituacion, relojCalendariosDesarrollo{}); err != nil {
 		return nil, nil, nil, vacio, nil, nil, err
 	}
-	servicioSituacion, err := aplicacionbolsa.NuevoServicioSituacionParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.reloj.Ahora)
+	servicioSituacion, err := aplicacionbolsa.NuevoServicioSituacionParticipacionConCausasCatalogadas(preparador, emisor, repositorioSituacion, dependenciasCT.reloj.Ahora, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	handlerSituacion, err := bolsahttp.NuevoHandlerSituacionParticipacion(preparador, servicioSituacion)
+	handlerSituacion, err := bolsahttp.NuevoHandlerSituacionParticipacionConCausasCatalogadas(preparador, servicioSituacion, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	handlerOperaciones, err := bolsahttp.NuevoHandlerOperacionesSituacion(preparador, servicioSituacion)
+	handlerOperaciones, err := bolsahttp.NuevoHandlerOperacionesSituacionConCausasCatalogadas(preparador, servicioSituacion, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -693,15 +834,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	repositorioDatos, err := postgresbolsa.NuevoRepositorioDatosContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
+	repositorioDatos, err := postgresbolsa.NuevoRepositorioDatosContactoParticipacionPostgreSQLConCausasCatalogadas(alta.postgresql.bolsa, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	servicioDatos, err := aplicacionbolsa.NuevoServicioDatosContactoParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.kms, repositorioDatos, dependenciasCT.reloj.Ahora)
+	servicioDatos, err := aplicacionbolsa.NuevoServicioDatosContactoParticipacionConCausasCatalogadas(preparador, emisor, repositorioSituacion, dependenciasCT.kms, repositorioDatos, dependenciasCT.reloj.Ahora, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	handlerDatos, err := bolsahttp.NuevoHandlerDatosContactoParticipacion(preparador, servicioDatos)
+	handlerDatos, err := bolsahttp.NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(preparador, servicioDatos, causasParticipacionActivas)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -738,9 +879,9 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, reincorporaciones: handlerReincorporaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, causasParticipacionActivas: causasParticipacionActivas, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
-		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
+		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{}, causasParticipacionActivas)
 		if auditErr != nil {
 			return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
@@ -782,7 +923,14 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if politicaOfertasActiva {
 		rutas = append(rutas, rutaPoliticaOfertas, rutaCapacidadPoliticaOfertas)
 	}
-	return rutas, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrar, nil
+	if causasParticipacionActivas {
+		rutas = append(rutas, rutaCausasParticipacion, rutaPropuestasCausas)
+	}
+	colecciones := []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}
+	if causasParticipacionActivas {
+		colecciones = append(colecciones, coleccionPropuestasCausas)
+	}
+	return rutas, colecciones, mutador, catalogoFronteras, envolver, cerrar, nil
 }
 
 // nuevaCapacidadReincorporacionesTitularBolsaDesarrollo sólo activa la lectura

@@ -13,15 +13,21 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-type RepositorioSituacionParticipacionPostgreSQL struct{ pool *pgxpool.Pool }
+type RepositorioSituacionParticipacionPostgreSQL struct {
+	pool        *pgxpool.Pool
+	exigirCausa bool
+}
 
 var _ ports.RepositorioSituacionParticipacion = (*RepositorioSituacionParticipacionPostgreSQL)(nil)
 
 func NuevoRepositorioSituacionParticipacionPostgreSQL(pool *pgxpool.Pool) (*RepositorioSituacionParticipacionPostgreSQL, error) {
+	return NuevoRepositorioSituacionParticipacionPostgreSQLConCausasCatalogadas(pool, false)
+}
+func NuevoRepositorioSituacionParticipacionPostgreSQLConCausasCatalogadas(pool *pgxpool.Pool, exigirCausa bool) (*RepositorioSituacionParticipacionPostgreSQL, error) {
 	if pool == nil {
 		return nil, ports.ErrSituacionParticipacionNoDisponible
 	}
-	return &RepositorioSituacionParticipacionPostgreSQL{pool}, nil
+	return &RepositorioSituacionParticipacionPostgreSQL{pool: pool, exigirCausa: exigirCausa}, nil
 }
 func (r *RepositorioSituacionParticipacionPostgreSQL) ParticipacionPerteneceABolsa(ctx context.Context, bolsaRef, participacionRef string) (bool, error) {
 	if r == nil || r.pool == nil || ctx == nil || bolsaRef == "" || participacionRef == "" {
@@ -62,19 +68,26 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) BuscarRegistroSituacion(ct
 	}
 	var resultado ports.RegistroSituacionParticipacion
 	resultado.ParticipacionRef = ref
-	err := r.pool.QueryRow(ctx, `SELECT recibo_ref,situacion,desde,fecha_disponible,motivo FROM vec_bolsa_llamamientos.recuperar_situacion_participacion_v1($1,$2)`, ref, clave).Scan(&resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible, &resultado.Motivo)
+	var codigo, huella, etiqueta *string
+	var version *int64
+	err := r.pool.QueryRow(ctx, `SELECT recibo_ref,situacion,desde,fecha_disponible,motivo,causa_codigo,causa_version,causa_sha256,causa_etiqueta FROM vec_bolsa_llamamientos.recuperar_situacion_participacion_v2($1,$2)`, ref, clave).Scan(&resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible, &resultado.Motivo, &codigo, &version, &huella, &etiqueta)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoEncontrada
 	}
 	if err != nil {
 		return ports.RegistroSituacionParticipacion{}, errorSituacionParticipacion(err)
 	}
+	causa, valida := selectorCausaParticipacionRecuperada(codigo, version, huella, etiqueta, resultado.Motivo)
+	if !valida {
+		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
+	}
+	resultado.Causa = causa
 	resultado.Reutilizada = true
 	return resultado, nil
 }
 func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarSituacion(ctx context.Context, comando ports.ComandoCambiarSituacionParticipacion) (ports.RegistroSituacionParticipacion, error) {
 	cambio := comando.Cambio
-	if r == nil || r.pool == nil || ctx == nil || cambio.ParticipacionRef == "" || comando.BolsaRef == "" || cambio.Destino == "" || cambio.Motivo == "" || comando.Actor == "" || comando.ClaveIdempotencia == "" || comando.ReciboRef == "" || cambio.Desde.IsZero() || cambio.RegistradaEn.IsZero() || comando.Material.ValidarEstructura() != nil {
+	if r == nil || r.pool == nil || ctx == nil || cambio.ParticipacionRef == "" || comando.BolsaRef == "" || cambio.Destino == "" || (r.exigirCausa && (cambio.Motivo != comando.Causa.Codigo || comando.Causa.Validar() != nil)) || comando.Actor == "" || comando.ClaveIdempotencia == "" || comando.ReciboRef == "" || cambio.Desde.IsZero() || cambio.RegistradaEn.IsZero() || comando.Material.ValidarEstructura() != nil {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
@@ -85,7 +98,13 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarSituacion(ctx con
 	var resultado ports.RegistroSituacionParticipacion
 	resultado.ParticipacionRef = cambio.ParticipacionRef
 	m := comando.Material
-	err = tx.QueryRow(ctx, `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::numeric,$16::numeric,$17,$18,$19,$20)`, comando.BolsaRef, cambio.ParticipacionRef, cambio.Destino, cambio.Desde.UTC(), cambio.FechaDisponible, cambio.Motivo, comando.Actor, comando.ClaveIdempotencia, comando.ReciboRef, cambio.RegistradaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&resultado.Reutilizada, &resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible)
+	args := []any{comando.BolsaRef, cambio.ParticipacionRef, cambio.Destino, cambio.Desde.UTC(), cambio.FechaDisponible, cambio.Motivo, comando.Actor, comando.ClaveIdempotencia, comando.ReciboRef, cambio.RegistradaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()}
+	consulta := `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::numeric,$16::numeric,$17,$18,$19,$20)`
+	if r.exigirCausa {
+		consulta = `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::numeric,$16::numeric,$17,$18,$19,$20,$21,$22,$23)`
+		args = append(args, comando.Causa.Codigo, comando.Causa.Version, comando.Causa.HuellaSHA256)
+	}
+	err = tx.QueryRow(ctx, consulta, args...).Scan(&resultado.Reutilizada, &resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible)
 	if err != nil {
 		return ports.RegistroSituacionParticipacion{}, errorSituacionParticipacion(err)
 	}

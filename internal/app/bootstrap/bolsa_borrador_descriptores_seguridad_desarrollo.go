@@ -8,34 +8,51 @@ import (
 )
 
 const (
-	clavePoliticaBorradorLlamamientoBolsaDesarrollo = "politica-bolsa-bback-borrador-llamamiento"
-	claveFronteraCrearBorradorLlamamientoBolsa      = "bolsa-bback-borrador-crear"
-	claveFronteraConsultarBorradorLlamamientoBolsa  = "bolsa-bback-borrador-consultar"
-	claveCapacidadCrearBorradorLlamamientoBolsa     = "capacidad-bolsa-bback-borrador-crear"
-	claveCapacidadConsultarBorradorLlamamientoBolsa = "capacidad-bolsa-bback-borrador-consultar"
-	claveFronteraSituacionParticipacionBolsa        = "bolsa-b2-situacion-cambiar"
-	claveFronteraOperacionesSituacionBolsa          = "bolsa-b8-operaciones-situacion"
-	claveFronteraContratosParticipacionBolsa        = "bolsa-b13-contratos-consultar"
-	claveFronteraReincorporacionesTitularBolsa      = "bolsa-b46-reincorporaciones-titular-consultar"
-	claveFronteraConsultarSancionesBolsa            = "bolsa-b24-sanciones-consultar"
-	claveFronteraRecursoSancionBolsa                = "bolsa-b24-sancion-recurso"
-	claveCapacidadSituacionParticipacionBolsa       = "capacidad-bolsa-b2-situacion-cambiar"
-	claveCapacidadConsultaReincorporacionBolsa      = "capacidad-bolsa-b55-reincorporacion-consultar"
-	claveFronteraConsultarContactosBolsa            = "bolsa-b3-contactos-consultar"
-	claveFronteraConsultarContactosB5Bolsa          = "bolsa-b3-contactos-b5-consultar"
-	claveCapacidadConsultarContactosBolsa           = "capacidad-bolsa-b3-contactos-consultar"
-	claveFronteraConsultarDatosContactoBolsa        = "bolsa-b4-datos-contacto-consultar"
-	claveFronteraEmisionLlamamientoBolsa            = "bolsa-b7-llamamiento-emitir"
-	claveFronteraRecuperarEmisionLlamamientoBolsa   = "bolsa-b7-llamamiento-recuperar"
-	claveCapacidadEmisionLlamamientoBolsa           = "capacidad-bolsa-b7-llamamiento-emitir"
-	claveFronteraPlantillaCorreoLlamamientoBolsa    = "bolsa-b7-correo-plantilla"
-	claveFronteraVistaPreviaCorreoLlamamientoBolsa  = "bolsa-b7-correo-vista-previa"
-	claveFronteraConsultarPoliticaOfertasBolsa      = "bolsa-b47-politica-ofertas-consultar"
-	claveFronteraPublicarPoliticaOfertasBolsa       = "bolsa-b47-politica-ofertas-publicar"
-	claveFronteraCapacidadPoliticaOfertasBolsa      = "bolsa-b47-politica-ofertas-capacidad-publicar"
-	claveCapacidadPoliticaOfertasBolsa              = "capacidad-bolsa-b47-politica-ofertas-publicar"
-	claveCapacidadConsultarPoliticaOfertasBolsa     = "capacidad-bolsa-b51-politica-ofertas-consultar"
-	envBolsaPoliticaOfertasEnabled                  = "VEC_BOLSA_POLITICA_OFERTAS_ENABLED"
+	clavePoliticaBorradorLlamamientoBolsaDesarrollo  = "politica-bolsa-bback-borrador-llamamiento"
+	claveFronteraCrearBorradorLlamamientoBolsa       = "bolsa-bback-borrador-crear"
+	claveFronteraConsultarBorradorLlamamientoBolsa   = "bolsa-bback-borrador-consultar"
+	claveCapacidadCrearBorradorLlamamientoBolsa      = "capacidad-bolsa-bback-borrador-crear"
+	claveCapacidadConsultarBorradorLlamamientoBolsa  = "capacidad-bolsa-bback-borrador-consultar"
+	claveFronteraSituacionParticipacionBolsa         = "bolsa-b2-situacion-cambiar"
+	claveFronteraOperacionesSituacionBolsa           = "bolsa-b8-operaciones-situacion"
+	claveFronteraContratosParticipacionBolsa         = "bolsa-b13-contratos-consultar"
+	claveFronteraReincorporacionesTitularBolsa       = "bolsa-b46-reincorporaciones-titular-consultar"
+	claveFronteraConsultarSancionesBolsa             = "bolsa-b24-sanciones-consultar"
+	claveFronteraRecursoSancionBolsa                 = "bolsa-b24-sancion-recurso"
+	claveCapacidadSituacionParticipacionBolsa        = "capacidad-bolsa-b2-situacion-cambiar"
+	claveCapacidadConsultaReincorporacionBolsa       = "capacidad-bolsa-b55-reincorporacion-consultar"
+	claveFronteraConsultarContactosBolsa             = "bolsa-b3-contactos-consultar"
+	claveFronteraConsultarContactosB5Bolsa           = "bolsa-b3-contactos-b5-consultar"
+	claveCapacidadConsultarContactosBolsa            = "capacidad-bolsa-b3-contactos-consultar"
+	claveFronteraConsultarDatosContactoBolsa         = "bolsa-b4-datos-contacto-consultar"
+	claveFronteraEmisionLlamamientoBolsa             = "bolsa-b7-llamamiento-emitir"
+	claveFronteraRecuperarEmisionLlamamientoBolsa    = "bolsa-b7-llamamiento-recuperar"
+	claveCapacidadEmisionLlamamientoBolsa            = "capacidad-bolsa-b7-llamamiento-emitir"
+	claveFronteraPlantillaCorreoLlamamientoBolsa     = "bolsa-b7-correo-plantilla"
+	claveFronteraVistaPreviaCorreoLlamamientoBolsa   = "bolsa-b7-correo-vista-previa"
+	claveFronteraConsultarPoliticaOfertasBolsa       = "bolsa-b47-politica-ofertas-consultar"
+	claveFronteraConsultarCausasParticipacionBolsa   = "bolsa-b57-causas-participacion-consultar"
+	claveFronteraProponerCausasParticipacionBolsa    = "bolsa-b57-causas-participacion-proponer"
+	claveFronteraConsultarPropuestaCausasBolsa       = "bolsa-b57-propuesta-causas-consultar"
+	claveFronteraPublicarCausasParticipacionBolsa    = "bolsa-b57-causas-participacion-publicar"
+	claveCapacidadConsultarCausasParticipacionBolsa  = "capacidad-bolsa-b57-causas-participacion-consultar"
+	claveCapacidadProponerCausasParticipacionBolsa   = "capacidad-bolsa-b57-causas-participacion-proponer"
+	claveCapacidadConsultarPropuestaCausasBolsa      = "capacidad-bolsa-b57-propuesta-causas-consultar"
+	claveCapacidadPublicarCausasParticipacionBolsa   = "capacidad-bolsa-b57-causas-participacion-publicar"
+	envBolsaCausasParticipacionEnabled               = "VEC_BOLSA_CAUSAS_PARTICIPACION_ENABLED"
+	dominioMaterialProponerCausasParticipacionBolsa  = "vec.bolsa.causas-participacion.proponer.desarrollo.capacidad-v3"
+	prefijoMaterialProponerCausasParticipacionBolsa  = "clave:capacidad:bolsa-causas-participacion-proponer:"
+	dominioMaterialConsultarPropuestaCausasBolsa     = "vec.bolsa.causas-participacion.propuesta.consultar.desarrollo.capacidad-v3"
+	prefijoMaterialConsultarPropuestaCausasBolsa     = "clave:capacidad:bolsa-causas-participacion-propuesta-consultar:"
+	dominioMaterialPublicarCausasParticipacionBolsa  = "vec.bolsa.causas-participacion.publicar.desarrollo.capacidad-v3"
+	prefijoMaterialPublicarCausasParticipacionBolsa  = "clave:capacidad:bolsa-causas-participacion-publicar:"
+	dominioMaterialConsultarCausasParticipacionBolsa = "vec.bolsa.causas-participacion.consultar.desarrollo.capacidad-v3"
+	prefijoMaterialConsultarCausasParticipacionBolsa = "clave:capacidad:bolsa-causas-participacion-consultar:"
+	claveFronteraPublicarPoliticaOfertasBolsa        = "bolsa-b47-politica-ofertas-publicar"
+	claveFronteraCapacidadPoliticaOfertasBolsa       = "bolsa-b47-politica-ofertas-capacidad-publicar"
+	claveCapacidadPoliticaOfertasBolsa               = "capacidad-bolsa-b47-politica-ofertas-publicar"
+	claveCapacidadConsultarPoliticaOfertasBolsa      = "capacidad-bolsa-b51-politica-ofertas-consultar"
+	envBolsaPoliticaOfertasEnabled                   = "VEC_BOLSA_POLITICA_OFERTAS_ENABLED"
 
 	dominioMaterialCrearBorradorLlamamientoBolsa      = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
 	prefijoMaterialCrearBorradorLlamamientoBolsa      = "clave:capacidad:bolsa-borrador-crear:"
@@ -135,6 +152,13 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			descriptorFronteraComunDesarrollo{Clave: claveFronteraPublicarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa},
 			descriptorFronteraComunDesarrollo{Clave: claveFronteraCapacidadPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaCapacidadPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa})
 	}
+	if len(capacidades) > 2 && capacidades[2] {
+		descriptores = append(descriptores,
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraConsultarCausasParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaCatalogoCausasParticipacion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarCausasParticipacionBolsa},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraProponerCausasParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPropuestasCausasParticipacion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadProponerCausasParticipacionBolsa},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraConsultarPropuestaCausasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaPropuestasCausasParticipacion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarPropuestaCausasBolsa, PlantillaDetalle: []string{"*"}},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraPublicarCausasParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPropuestasCausasParticipacion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPublicarCausasParticipacionBolsa, PlantillaDetalle: []string{"*", "publicar"}})
+	}
 	return descriptores, nil
 }
 
@@ -184,7 +208,38 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 			ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa,
 			Fronteras: []string{claveFronteraPublicarPoliticaOfertasBolsa, claveFronteraCapacidadPoliticaOfertasBolsa}, Politica: politica})
 	}
+	if len(capacidades) > 2 && capacidades[2] {
+		descriptores = append(descriptores,
+			descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionConsultarCausasParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarCausasParticipacionBolsa, Fronteras: []string{claveFronteraConsultarCausasParticipacionBolsa}, Politica: politica},
+			descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionProponerCausasParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadProponerCausasParticipacionBolsa, Fronteras: []string{claveFronteraProponerCausasParticipacionBolsa}, Politica: politica},
+			descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionConsultarPropuestaCausasParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarPropuestaCausasBolsa, Fronteras: []string{claveFronteraConsultarPropuestaCausasBolsa}, Politica: politica},
+			descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionPublicarCausasParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPublicarCausasParticipacionBolsa, Fronteras: []string{claveFronteraPublicarCausasParticipacionBolsa}, Politica: politica})
+	}
 	return descriptores, nil
+}
+
+func descriptorMaterialProponerCausasParticipacionBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaProponerCausasParticipacion,
+		Dominio: dominioMaterialProponerCausasParticipacionBolsa, Prefijo: prefijoMaterialProponerCausasParticipacionBolsa,
+		ProveedorNominal: "proveedor-material-proponer-causas-participacion-bolsa"}
+}
+
+func descriptorMaterialConsultarPropuestaCausasBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaConsultarPropuestaCausasParticipacion,
+		Dominio: dominioMaterialConsultarPropuestaCausasBolsa, Prefijo: prefijoMaterialConsultarPropuestaCausasBolsa,
+		ProveedorNominal: "proveedor-material-consultar-propuesta-causas-bolsa"}
+}
+
+func descriptorMaterialPublicarCausasParticipacionBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaPublicarCausasParticipacion,
+		Dominio: dominioMaterialPublicarCausasParticipacionBolsa, Prefijo: prefijoMaterialPublicarCausasParticipacionBolsa,
+		ProveedorNominal: "proveedor-material-publicar-causas-participacion-bolsa"}
+}
+
+func descriptorMaterialConsultarCausasParticipacionBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaConsultarCausasParticipacion,
+		Dominio: dominioMaterialConsultarCausasParticipacionBolsa, Prefijo: prefijoMaterialConsultarCausasParticipacionBolsa,
+		ProveedorNominal: "proveedor-material-consultar-causas-participacion-bolsa"}
 }
 
 // descriptoresMaterialBorradorLlamamientoBolsaDesarrollo conserva las dos

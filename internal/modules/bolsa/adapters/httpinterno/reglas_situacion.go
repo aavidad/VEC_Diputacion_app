@@ -25,7 +25,8 @@ type HandlerReglasSituacion struct {
 	reglas puertosbolsa.ConsultaReglasSituacion
 	// transiciones da los destinos que admitirá el servicio, con la política
 	// que publica la base. Nula: tabla compilada restringida por el catálogo.
-	transiciones FuenteTransicionesSituacion
+	transiciones      FuenteTransicionesSituacion
+	causasCatalogadas bool
 }
 
 // FuenteTransicionesSituacion es el servicio de situación visto desde la
@@ -41,10 +42,16 @@ func NuevoHandlerReglasSituacion(reglas puertosbolsa.ConsultaReglasSituacion) (h
 // NuevoHandlerReglasSituacionConTransiciones toma los destinos del servicio,
 // de modo que la pantalla ofrece exactamente lo que se podrá registrar.
 func NuevoHandlerReglasSituacionConTransiciones(reglas puertosbolsa.ConsultaReglasSituacion, transiciones FuenteTransicionesSituacion) (http.Handler, error) {
+	return NuevoHandlerReglasSituacionConTransicionesYModo(reglas, transiciones, false)
+}
+
+// NuevoHandlerReglasSituacionConTransicionesYModo anuncia el modo de la misma
+// instancia que compone los POST de situación, operaciones y contacto.
+func NuevoHandlerReglasSituacionConTransicionesYModo(reglas puertosbolsa.ConsultaReglasSituacion, transiciones FuenteTransicionesSituacion, causasCatalogadas bool) (http.Handler, error) {
 	if reglas == nil {
 		return nil, errors.New("bolsa http interno: reglas de situacion no disponibles")
 	}
-	return &HandlerReglasSituacion{reglas: reglas, transiciones: transiciones}, nil
+	return &HandlerReglasSituacion{reglas: reglas, transiciones: transiciones, causasCatalogadas: causasCatalogadas}, nil
 }
 
 func (h *HandlerReglasSituacion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +93,11 @@ func (h *HandlerReglasSituacion) datos(ctx context.Context, fin time.Time, modal
 	}
 	datos := map[string]any{"esquema": esquemaReglasSituacion, "configuradas": h.reglas.Configurada(),
 		"transiciones": transiciones, "causas_baja": []any{}, "reposicion": nil}
+	if h.causasCatalogadas {
+		datos["modo_causas_participacion"] = "catalogado"
+	} else {
+		datos["modo_causas_participacion"] = "libre"
+	}
 	if !h.reglas.Configurada() {
 		return datos, nil
 	}

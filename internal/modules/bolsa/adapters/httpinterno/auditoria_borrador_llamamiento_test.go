@@ -166,6 +166,34 @@ func TestAuditoriaBorradorLlamamientoIncluyeFronterasB4YB7(t *testing.T) {
 	}
 }
 
+func TestAuditoriaCatalogoCausasSoloConGateB57YRutaCanonica(t *testing.T) {
+	ref := "propuesta:causa:" + strings.Repeat("a", 64)
+	for _, caso := range []struct {
+		metodo, ruta string
+		accion       puertosbolsa.AccionIntentoBorradorLlamamiento
+		clase        puertosbolsa.ClaseRutaIntentoBorradorLlamamiento
+	}{
+		{http.MethodGet, RutaCatalogoCausasParticipacion, puertosbolsa.AccionIntentoConsultarCausasParticipacion, puertosbolsa.ClaseRutaCatalogoCausasParticipacion},
+		{http.MethodPost, RutaPropuestasCausasParticipacion, puertosbolsa.AccionIntentoProponerCausaParticipacion, puertosbolsa.ClaseRutaPropuestasCausas},
+		{http.MethodGet, RutaPropuestasCausasParticipacion + "/" + ref, puertosbolsa.AccionIntentoConsultarPropuestaCausa, puertosbolsa.ClaseRutaPropuestaCausas},
+		{http.MethodPost, RutaPropuestasCausasParticipacion + "/" + ref + "/publicar", puertosbolsa.AccionIntentoPublicarCausaParticipacion, puertosbolsa.ClaseRutaPublicacionCausas},
+	} {
+		r := httptest.NewRequest(caso.metodo, caso.ruta, nil)
+		if _, _, ok := intentoAuditableBorradorLlamamiento(r); ok {
+			t.Fatalf("gate off auditó ruta B57 %s", caso.ruta)
+		}
+		accion, clase, ok := intentoAuditableBorradorLlamamiento(r, true)
+		if !ok || accion != caso.accion || clase != caso.clase {
+			t.Fatalf("gate on %s %s: %q %q %v", caso.metodo, caso.ruta, accion, clase, ok)
+		}
+	}
+	for _, ruta := range []string{RutaPropuestasCausasParticipacion + "/" + ref + "/otro", RutaPropuestasCausasParticipacion + "/propuesta:causa:no-valida/publicar", RutaPropuestasCausasParticipacion + "?x=1"} {
+		if _, _, ok := intentoAuditableBorradorLlamamiento(httptest.NewRequest(http.MethodPost, ruta, nil), true); ok {
+			t.Fatalf("auditó ruta no canónica %s", ruta)
+		}
+	}
+}
+
 func TestAuditoriaBorradorLlamamientoFallaCerradoSiNoPuedePersistir(t *testing.T) {
 	registrador := &registradorIntentoBorradorDoble{err: errors.New("base no disponible")}
 	h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

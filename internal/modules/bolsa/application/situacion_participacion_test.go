@@ -3,9 +3,11 @@ package application
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/pruebas"
@@ -56,7 +58,7 @@ func (r *repositorioSituacionPrueba) RegistrarSituacion(_ context.Context, coman
 	if r.reutilizado != nil {
 		return *r.reutilizado, nil
 	}
-	return puertosbolsa.RegistroSituacionParticipacion{ReciboRef: comando.ReciboRef, SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: comando.Cambio.ParticipacionRef, Situacion: comando.Cambio.Destino, Desde: comando.Cambio.Desde, FechaDisponible: comando.Cambio.FechaDisponible}}, nil
+	return puertosbolsa.RegistroSituacionParticipacion{ReciboRef: comando.ReciboRef, Motivo: comando.Cambio.Motivo, Causa: &comando.Causa, SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: comando.Cambio.ParticipacionRef, Situacion: comando.Cambio.Destino, Desde: comando.Cambio.Desde, FechaDisponible: comando.Cambio.FechaDisponible}}, nil
 }
 
 func solicitudSituacionPrueba(t *testing.T, ahora time.Time) puertosbolsa.SolicitudCambiarSituacionParticipacion {
@@ -65,18 +67,33 @@ func solicitudSituacionPrueba(t *testing.T, ahora time.Time) puertosbolsa.Solici
 	if err != nil {
 		t.Fatal(err)
 	}
-	return puertosbolsa.SolicitudCambiarSituacionParticipacion{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:b2", ParticipacionRef: "participacion:b2", Destino: "no_disponible", Motivo: "Pausa comunicada", ClaveIdempotencia: "b2-cambio-0001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
+	causa := puertosbolsa.SelectorCausaParticipacion{Codigo: "pausa_comunicada", Version: 1, HuellaSHA256: strings.Repeat("a", 64)}
+	return puertosbolsa.SolicitudCambiarSituacionParticipacion{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:b2", ParticipacionRef: "participacion:b2", Destino: "no_disponible", Motivo: causa.Codigo, Causa: causa, ClaveIdempotencia: "b2-cambio-0001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
 }
 
 func TestServicioSituacionRecuperaElMismoReciboSinNuevaFila(t *testing.T) {
 	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
-	recibo := puertosbolsa.RegistroSituacionParticipacion{Reutilizada: true, ReciboRef: "recibo:situacion:existente", Motivo: "Pausa comunicada", SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "no_disponible", Desde: ahora}}
+	causa := puertosbolsa.SelectorCausaParticipacion{Codigo: "pausa_comunicada", Version: 1, HuellaSHA256: strings.Repeat("a", 64)}
+	recibo := puertosbolsa.RegistroSituacionParticipacion{Reutilizada: true, ReciboRef: "recibo:situacion:existente", Motivo: causa.Codigo, Causa: &causa, SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "no_disponible", Desde: ahora}}
 	repo := &repositorioSituacionPrueba{pertenece: true, reutilizado: &recibo}
 	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
 	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{}, autorizador, repo, func() time.Time { return ahora })
 	resultado, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
 	if err != nil || !resultado.Reutilizada || resultado.ReciboRef != recibo.ReciboRef || repo.llamadas != 1 || autorizador.llamadas != 1 {
 		t.Fatalf("resultado=%+v err=%v llamadas=%d", resultado, err, repo.llamadas)
+	}
+}
+
+func TestServicioSituacionRechazaReplayConSelectorDeCausaDistinto(t *testing.T) {
+	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
+	causaPrevia := puertosbolsa.SelectorCausaParticipacion{Codigo: "pausa_comunicada", Version: 1, HuellaSHA256: strings.Repeat("a", 64)}
+	previo := puertosbolsa.RegistroSituacionParticipacion{Reutilizada: true, ReciboRef: "recibo:situacion:existente", Motivo: causaPrevia.Codigo, Causa: &causaPrevia, SituacionParticipacion: puertosbolsa.SituacionParticipacion{ParticipacionRef: "participacion:b2", Situacion: "no_disponible", Desde: ahora}}
+	repo := &repositorioSituacionPrueba{pertenece: true, reutilizado: &previo}
+	servicio, _ := NuevoServicioSituacionParticipacionConCausasCatalogadas(contextoSituacionPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repo, func() time.Time { return ahora }, true)
+	solicitud := solicitudSituacionPrueba(t, ahora)
+	solicitud.Causa.HuellaSHA256 = strings.Repeat("c", 64)
+	if _, err := servicio.Cambiar(context.Background(), solicitud); !errors.Is(err, dominiobolsa.ErrCambioSituacionParticipacionInvalido) || repo.llamadas != 0 {
+		t.Fatalf("err=%v escrituras=%d", err, repo.llamadas)
 	}
 }
 

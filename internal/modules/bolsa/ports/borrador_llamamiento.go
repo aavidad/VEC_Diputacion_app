@@ -143,6 +143,10 @@ const (
 	AccionIntentoRegistrarDatosContactoParticipacion AccionIntentoBorradorLlamamiento = "registrar_datos_contacto"
 	AccionIntentoEmitirLlamamiento                   AccionIntentoBorradorLlamamiento = "emitir_llamamiento"
 	AccionIntentoRecuperarLlamamiento                AccionIntentoBorradorLlamamiento = "recuperar_llamamiento"
+	AccionIntentoConsultarCausasParticipacion        AccionIntentoBorradorLlamamiento = "consultar_causas_participacion"
+	AccionIntentoProponerCausaParticipacion          AccionIntentoBorradorLlamamiento = "proponer_causa_participacion"
+	AccionIntentoConsultarPropuestaCausa             AccionIntentoBorradorLlamamiento = "consultar_propuesta_causa_participacion"
+	AccionIntentoPublicarCausaParticipacion          AccionIntentoBorradorLlamamiento = "publicar_causa_participacion"
 )
 
 type ClaseRutaIntentoBorradorLlamamiento string
@@ -154,6 +158,10 @@ const (
 	ClaseRutaContactosParticipacion       ClaseRutaIntentoBorradorLlamamiento = "contactos"
 	ClaseRutaDatosContactoParticipacion   ClaseRutaIntentoBorradorLlamamiento = "datos_contacto"
 	ClaseRutaEmisionesLlamamiento         ClaseRutaIntentoBorradorLlamamiento = "emisiones"
+	ClaseRutaCatalogoCausasParticipacion  ClaseRutaIntentoBorradorLlamamiento = "catalogo_causas"
+	ClaseRutaPropuestasCausas             ClaseRutaIntentoBorradorLlamamiento = "propuestas_causas"
+	ClaseRutaPropuestaCausas              ClaseRutaIntentoBorradorLlamamiento = "propuesta_causas"
+	ClaseRutaPublicacionCausas            ClaseRutaIntentoBorradorLlamamiento = "publicacion_causas"
 )
 
 type ResultadoIntentoBorradorLlamamiento string
@@ -177,8 +185,8 @@ type IntentoBorradorLlamamiento struct {
 
 func (i IntentoBorradorLlamamiento) Validar() error {
 	if i.Correlacion.Validar() != nil ||
-		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion && i.Accion != AccionIntentoConsultarDatosContactoParticipacion && i.Accion != AccionIntentoRegistrarDatosContactoParticipacion && i.Accion != AccionIntentoEmitirLlamamiento && i.Accion != AccionIntentoRecuperarLlamamiento) ||
-		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion && i.ClaseRuta != ClaseRutaDatosContactoParticipacion && i.ClaseRuta != ClaseRutaEmisionesLlamamiento) ||
+		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion && i.Accion != AccionIntentoConsultarDatosContactoParticipacion && i.Accion != AccionIntentoRegistrarDatosContactoParticipacion && i.Accion != AccionIntentoEmitirLlamamiento && i.Accion != AccionIntentoRecuperarLlamamiento && i.Accion != AccionIntentoConsultarCausasParticipacion && i.Accion != AccionIntentoProponerCausaParticipacion && i.Accion != AccionIntentoConsultarPropuestaCausa && i.Accion != AccionIntentoPublicarCausaParticipacion) ||
+		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion && i.ClaseRuta != ClaseRutaDatosContactoParticipacion && i.ClaseRuta != ClaseRutaEmisionesLlamamiento && i.ClaseRuta != ClaseRutaCatalogoCausasParticipacion && i.ClaseRuta != ClaseRutaPropuestasCausas && i.ClaseRuta != ClaseRutaPropuestaCausas && i.ClaseRuta != ClaseRutaPublicacionCausas) ||
 		(i.ActorVerificado != "" && !patronActorIntentoBorradorLlamamiento.MatchString(i.ActorVerificado)) ||
 		(i.Resultado != ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoAccesoDenegadoBorradorLlamamiento &&

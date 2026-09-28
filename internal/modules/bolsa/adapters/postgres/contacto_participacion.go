@@ -24,7 +24,7 @@ func NuevoRepositorioContactoParticipacionPostgreSQL(pool *pgxpool.Pool) (*Repos
 	return &RepositorioContactoParticipacionPostgreSQL{pool}, nil
 }
 func (r *RepositorioContactoParticipacionPostgreSQL) ParticipacionPerteneceABolsa(ctx context.Context, bolsa, participacion string) (bool, error) {
-	s := RepositorioSituacionParticipacionPostgreSQL{r.pool}
+	s := RepositorioSituacionParticipacionPostgreSQL{pool: r.pool}
 	return s.ParticipacionPerteneceABolsa(ctx, bolsa, participacion)
 }
 func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx context.Context, c ports.ComandoRegistrarContactoParticipacion) (ports.RegistroContactoParticipacion, error) {

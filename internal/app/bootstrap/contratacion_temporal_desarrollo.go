@@ -529,6 +529,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil || (politicaOfertasActiva && !cfg.BolsaBorradoresEnabled) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
+	causasParticipacionActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCausasParticipacionEnabled)
+	if err != nil || (causasParticipacionActivas && !cfg.BolsaBorradoresEnabled) {
+		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	}
 	declaracionesFrontera, err := descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, false, plantillasActivas, perfilPlantillas)
 	if err != nil {
@@ -585,7 +589,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, fmt.Errorf("%w: %w", errBorradorNoDisponibleEn(), err)
 		}
 		perfilBolsa := soporteBolsaCatalogo.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
-		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva, reincorporacionTitular)
+		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa, politicaOfertasActiva, reincorporacionTitular, causasParticipacionActivas)
 		if e != nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}

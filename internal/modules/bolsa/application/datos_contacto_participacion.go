@@ -26,7 +26,8 @@ type ServicioDatosContactoParticipacion struct {
 	repositorio puertosbolsa.RepositorioDatosContactoParticipacion
 	reloj       func() time.Time
 	// origen es opcional: sin él solo se registran contactos propios.
-	origen puertosbolsa.PoliticaOrigenDatosContacto
+	origen      puertosbolsa.PoliticaOrigenDatosContacto
+	exigirCausa bool
 }
 
 func NuevoServicioDatosContactoParticipacion(
@@ -37,10 +38,13 @@ func NuevoServicioDatosContactoParticipacion(
 	r puertosbolsa.RepositorioDatosContactoParticipacion,
 	reloj func() time.Time,
 ) (*ServicioDatosContactoParticipacion, error) {
+	return NuevoServicioDatosContactoParticipacionConCausasCatalogadas(c, a, p, cifrador, r, reloj, false)
+}
+func NuevoServicioDatosContactoParticipacionConCausasCatalogadas(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, p puertosbolsa.VerificadorPertenenciaParticipacion, cifrador puertosbolsa.CifradorDatosContactoParticipacion, r puertosbolsa.RepositorioDatosContactoParticipacion, reloj func() time.Time, exigirCausa bool) (*ServicioDatosContactoParticipacion, error) {
 	if c == nil || a == nil || p == nil || cifrador == nil || r == nil || reloj == nil {
 		return nil, ErrRegistroDatosContactoParticipacionNoDisponible
 	}
-	return &ServicioDatosContactoParticipacion{contexto: c, autorizador: a, pertenencia: p, cifrador: cifrador, repositorio: r, reloj: reloj}, nil
+	return &ServicioDatosContactoParticipacion{contexto: c, autorizador: a, pertenencia: p, cifrador: cifrador, repositorio: r, reloj: reloj, exigirCausa: exigirCausa}, nil
 }
 
 // EstablecerPoliticaOrigenDatosContacto habilita el alta de contactos de
@@ -54,7 +58,7 @@ func (s *ServicioDatosContactoParticipacion) EstablecerPoliticaOrigenDatosContac
 }
 
 func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, solicitud puertosbolsa.SolicitudRegistrarDatosContactoParticipacion) (puertosbolsa.RegistroDatosContactoParticipacion, error) {
-	if ctx == nil || s == nil || solicitud.Validar() != nil {
+	if ctx == nil || s == nil || solicitud.Validar() != nil || (s.exigirCausa && (solicitud.Motivo != solicitud.Causa.Codigo || solicitud.Causa.Validar() != nil)) {
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, ErrRegistroDatosContactoParticipacionNoDisponible
 	}
 	datos := solicitud.Datos.Normalizar()
@@ -98,7 +102,7 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		if errComparacion != nil {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, errComparacion
 		}
-		if !iguales || previo.Motivo != solicitud.Motivo || (previo.Origen != nil) != conOrigen {
+		if !iguales || previo.Motivo != solicitud.Motivo || (s.exigirCausa && (previo.Causa == nil || !previo.Causa.Igual(solicitud.Causa))) || (previo.Origen != nil) != conOrigen {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, dominiobolsa.ErrDatosContactoParticipacionInvalidos
 		}
 		previo.Reutilizada = true
@@ -147,6 +151,7 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material,
 		CamposCambiados: dominiobolsa.CamposContactoCambiados(anteriores, datos),
 		Origen:          marca,
+		Causa:           solicitud.Causa,
 	})
 	if err != nil {
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
@@ -156,7 +161,7 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		if compararErr != nil {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, compararErr
 		}
-		if !iguales || registrado.Motivo != solicitud.Motivo || (registrado.Origen != nil) != conOrigen {
+		if !iguales || registrado.Motivo != solicitud.Motivo || (s.exigirCausa && (registrado.Causa == nil || !registrado.Causa.Igual(solicitud.Causa))) || (registrado.Origen != nil) != conOrigen {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, dominiobolsa.ErrDatosContactoParticipacionInvalidos
 		}
 	}

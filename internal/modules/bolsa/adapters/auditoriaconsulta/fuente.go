@@ -3,6 +3,7 @@ package auditoriaconsulta
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -122,7 +123,7 @@ func proyectar(f filaSQL, filtro auditoria.Filtro) (auditoria.Registro, bool) {
 		ActorRef: f.ActorRef, OcurridoEn: f.OcurridoEn.UTC(), Resultado: f.Resultado,
 		ExpedienteRef: f.ExpedienteRef, ReciboRef: f.ReciboRef}
 	if f.Motivo != nil {
-		if *f.Motivo != "Constitución de bolsa" && *f.Motivo != "Motivo reservado en Bolsa" {
+		if !etiquetaMotivoBolsaSegura(*f.Motivo) {
 			return auditoria.Registro{}, false
 		}
 		r.Motivo = *f.Motivo
@@ -142,6 +143,14 @@ func proyectar(f filaSQL, filtro auditoria.Filtro) (auditoria.Registro, bool) {
 		r.DatosDisponibles = true
 	}
 	return r, true
+}
+
+// La función SQL solo entrega etiquetas publicables del catálogo B57 o el
+// literal reservado para historia. Esta frontera descarta formas que no son
+// una etiqueta minimizada antes de proyectarla a auditoría.
+func etiquetaMotivoBolsaSegura(etiqueta string) bool {
+	return etiqueta == "Constitución de bolsa" || etiqueta == "Motivo reservado en Bolsa" ||
+		(len(etiqueta) > 0 && len(etiqueta) <= 256 && strings.TrimSpace(etiqueta) == etiqueta && !strings.ContainsAny(etiqueta, "\x00\r\n\u2028\u2029"))
 }
 
 func campoMinimizado(campo string, anterior, nuevo *string) bool {

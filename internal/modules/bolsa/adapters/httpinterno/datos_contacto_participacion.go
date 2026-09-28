@@ -22,6 +22,7 @@ import (
 // autoriza igual que la escritura.
 type EntradaRegistrarDatosContactoParticipacion struct {
 	BolsaRef, ParticipacionRef, Motivo, ClaveIdempotencia string
+	Causa                                                 puertosbolsa.SelectorCausaParticipacion
 	Datos                                                 dominiobolsa.DatosContactoParticipacion
 	// Origen es vacío (contacto propio) o «convoca» (duda 45).
 	Origen string
@@ -38,15 +39,19 @@ type OperadorDatosContactoParticipacion interface {
 }
 
 type HandlerDatosContactoParticipacion struct {
-	preparador PreparadorDatosContactoParticipacion
-	operador   OperadorDatosContactoParticipacion
+	preparador  PreparadorDatosContactoParticipacion
+	operador    OperadorDatosContactoParticipacion
+	exigirCausa bool
 }
 
 func NuevoHandlerDatosContactoParticipacion(p PreparadorDatosContactoParticipacion, o OperadorDatosContactoParticipacion) (http.Handler, error) {
+	return NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(p, o, false)
+}
+func NuevoHandlerDatosContactoParticipacionConCausasCatalogadas(p PreparadorDatosContactoParticipacion, o OperadorDatosContactoParticipacion, exigirCausa bool) (http.Handler, error) {
 	if p == nil || o == nil {
 		return nil, errors.New("bolsa http interno: datos de contacto no disponibles")
 	}
-	return &HandlerDatosContactoParticipacion{p, o}, nil
+	return &HandlerDatosContactoParticipacion{preparador: p, operador: o, exigirCausa: exigirCausa}, nil
 }
 
 func (h *HandlerDatosContactoParticipacion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -109,22 +114,26 @@ func (h *HandlerDatosContactoParticipacion) registrar(w http.ResponseWriter, r *
 		return
 	}
 	var cuerpo struct {
-		Correo    string `json:"correo"`
-		Telefono1 string `json:"telefono_1"`
-		Telefono2 string `json:"telefono_2"`
-		Motivo    string `json:"motivo"`
-		Origen    string `json:"origen"`
+		Correo    string                                  `json:"correo"`
+		Telefono1 string                                  `json:"telefono_1"`
+		Telefono2 string                                  `json:"telefono_2"`
+		Motivo    string                                  `json:"motivo"`
+		Causa     puertosbolsa.SelectorCausaParticipacion `json:"causa"`
+		Origen    string                                  `json:"origen"`
 	}
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	dec.DisallowUnknownFields()
 	if dec.Decode(&cuerpo) != nil || dec.Decode(&struct{}{}) != io.EOF ||
-		strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || cuerpo.Motivo == "" || len(cuerpo.Motivo) > 1000 ||
-		!dominiobolsa.OrigenDatosContactoAdmitido(cuerpo.Origen) {
+		(h.exigirCausa && (cuerpo.Causa.Validar() != nil || cuerpo.Motivo != "")) || (!h.exigirCausa && (strings.TrimSpace(cuerpo.Motivo) == "" || cuerpo.Causa != (puertosbolsa.SelectorCausaParticipacion{}))) || !dominiobolsa.OrigenDatosContactoAdmitido(cuerpo.Origen) {
 		responderSituacion(w, http.StatusBadRequest, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
+	motivo := cuerpo.Motivo
+	if h.exigirCausa {
+		motivo = cuerpo.Causa.Codigo
+	}
 	entrada := EntradaRegistrarDatosContactoParticipacion{
-		BolsaRef: bolsa, ParticipacionRef: participacion, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave, Origen: cuerpo.Origen,
+		BolsaRef: bolsa, ParticipacionRef: participacion, Motivo: motivo, Causa: cuerpo.Causa, ClaveIdempotencia: clave, Origen: cuerpo.Origen,
 		Datos: dominiobolsa.DatosContactoParticipacion{ParticipacionRef: participacion, Correo: cuerpo.Correo, Telefono1: cuerpo.Telefono1, Telefono2: cuerpo.Telefono2},
 	}
 	solicitud, err := h.preparador.PrepararSolicitudRegistrarDatosContacto(r.Context(), entrada)
