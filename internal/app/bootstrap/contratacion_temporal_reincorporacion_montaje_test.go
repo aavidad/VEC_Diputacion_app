@@ -1,18 +1,58 @@
 package bootstrap
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
+func TestReincorporacionTomaCausasPublicadasConMotivoV3Propio(t *testing.T) {
+	consulta, err := fichero.NuevaConsultaCatalogos(rutaCausasCeseEjemploPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuenteCese := fuenteReglasSeguimientoDesarrollo{reglas: resolutorReglasCTEjemploPrueba(t), causas: consulta}
+	fuenteRetorno := fuenteReglasReincorporacionTitularDesarrollo{FuenteReglasSeguimiento: fuenteCese}
+	instante := relojPresentacionReglasEjemplo.ahora
+	causasCese, politicaCese, err := fuenteCese.CausasCese(context.Background(), instante)
+	if err != nil {
+		t.Fatal(err)
+	}
+	causasRetorno, politicaRetorno, err := fuenteRetorno.CausasCese(context.Background(), instante)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(causasRetorno) != len(causasCese) || causasRetorno[0] != causasCese[0] ||
+		politicaRetorno.DefinicionRef != politicaCese.DefinicionRef ||
+		politicaRetorno.DefinicionVersion != politicaCese.DefinicionVersion ||
+		politicaRetorno.DefinicionHuellaSHA256 != politicaCese.DefinicionHuellaSHA256 {
+		t.Fatalf("CT130 debe conservar las causas y definición publicada: cese=%+v retorno=%+v", politicaCese, politicaRetorno)
+	}
+	if politicaCese.MotivoAutorizacion != motivoSeguimientoCeseDesarrollo(cthttp.RutaCesesNombramiento) ||
+		politicaRetorno.MotivoAutorizacion != motivoSeguimientoCeseDesarrollo(cthttp.RutaReincorporacionesTitular) {
+		t.Fatalf("motivos V3 cruzados: cese=%+v retorno=%+v", politicaCese.MotivoAutorizacion, politicaRetorno.MotivoAutorizacion)
+	}
+}
+
 func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
+	consulta, err := fichero.NuevaConsultaCatalogos(rutaCausasCeseEjemploPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente := fuenteReglasReincorporacionTitularDesarrollo{FuenteReglasSeguimiento: fuenteReglasSeguimientoDesarrollo{
+		reglas: resolutorReglasCTEjemploPrueba(t), causas: consulta}}
+	_, politica, err := fuente.CausasCese(context.Background(), relojPresentacionReglasEjemplo.ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, caso := range []struct {
 		nombre                          string
 		lectura, antecedente, escritura bool
@@ -70,10 +110,16 @@ func TestReincorporacionExigeLecturaYEscrituraV3Distintas(t *testing.T) {
 				Tipo: ctports.TipoRecursoReincorporacionTitular,
 				Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
 					"expediente_ref": "expediente:1", "fase_previa": string(ctdomain.FaseNombramiento), "estado_previo": string(ctdomain.EstadoEnCurso)}}
-			_, _, _, _, err = autoridad.exigir(ctx, string(ctdomain.AccionRegistrarReincorporacionTitular),
+			solicitud, _, _, _, err := autoridad.exigir(ctx, string(ctdomain.AccionRegistrarReincorporacionTitular),
 				ctports.FinalidadRegistrarReincorporacionTitular, recurso)
 			if (err == nil) != caso.escritura {
 				t.Fatalf("escritura=%v error=%v", caso.escritura, err)
+			}
+			if caso.escritura {
+				datos, err := solicitud.Datos()
+				if err != nil || datos.ReferenciaMotivo != politica.MotivoAutorizacion {
+					t.Fatalf("CT130 V3 usa motivo ajeno: datos=%+v error=%v", datos, err)
+				}
 			}
 			antecedente := vecdomain.RecursoAutorizable{Referencia: "expediente:1", ModuloID: ctports.ModuloContratacion,
 				Tipo:    ctports.TipoRecursoLecturaReincorporacionTitular,

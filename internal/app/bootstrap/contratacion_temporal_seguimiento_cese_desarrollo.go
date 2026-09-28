@@ -572,6 +572,22 @@ type fuenteReglasSeguimientoDesarrollo struct {
 	motivos puertosvec.ConsultaCatalogosConfigurables
 }
 
+// CT130 comparte el catálogo de causas con cese, pero su decisión V3 exige
+// el motivo de la ruta de reincorporación. La definición y huella permanecen
+// ligadas a la versión publicada del catálogo.
+type fuenteReglasReincorporacionTitularDesarrollo struct {
+	ports.FuenteReglasSeguimiento
+}
+
+func (f fuenteReglasReincorporacionTitularDesarrollo) CausasCese(ctx context.Context, instante time.Time) ([]ports.CausaCese, ports.PoliticaOperacionSeguimiento, error) {
+	causas, politica, err := f.FuenteReglasSeguimiento.CausasCese(ctx, instante)
+	if err != nil {
+		return nil, ports.PoliticaOperacionSeguimiento{}, err
+	}
+	politica.MotivoAutorizacion = motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular)
+	return causas, politica, nil
+}
+
 func politicaSeguimientoDesarrollo(regla reglas.Regla, ruta string, instante time.Time) ports.PoliticaOperacionSeguimiento {
 	return ports.PoliticaOperacionSeguimiento{DefinicionRef: regla.ReferenciaEntrada.CatalogoID, DefinicionVersion: uint64(regla.ReferenciaEntrada.CatalogoVersion),
 		DefinicionHuellaSHA256: regla.ReferenciaEntrada.CatalogoHuellaSHA256, MotivoAutorizacion: motivoSeguimientoCeseDesarrollo(ruta),
@@ -851,7 +867,8 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 			return fallar("lector_reincorporacion", err)
 		}
 		servicioRetorno, err := application.NuevoServicioReincorporacionTitular(application.DependenciasReincorporacionTitular{
-			Contextos: alta.soporte, Sellos: sellosRetorno, Repositorio: repositorioRetorno, Reglas: fuente,
+			Contextos: alta.soporte, Sellos: sellosRetorno, Repositorio: repositorioRetorno,
+			Reglas:      fuenteReglasReincorporacionTitularDesarrollo{FuenteReglasSeguimiento: fuente},
 			Autorizador: autoridad, Lector: lectorRetorno, PoliticaLectura: fuente,
 			Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(), Reloj: reloj})
 		if err != nil {
