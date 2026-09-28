@@ -32,13 +32,14 @@ const (
 )
 
 var claveTipoBorrador = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
+var reciboPublicacionDocumental = regexp.MustCompile(`^recibo:[0-9a-f-]{36}$`)
 
 // ConsultorDetalle reusa el caso de uso con concesión V3 y recibo de lectura.
 type ConsultorDetalle interface {
 	Consultar(context.Context, ports.SolicitudDetalleRRHH) (ports.DetalleExpedienteRRHH, error)
 }
 type ProveedorPlantillas interface {
-	ObtenerPlantillasDocumento(context.Context, plantillasapp.SolicitudDocumental, time.Time) (*informejuridico.PlantillasBorrador, error)
+	ObtenerPlantillasDocumento(context.Context, plantillasapp.SolicitudDocumental, time.Time) (*informejuridico.PlantillasBorrador, string, error)
 }
 
 // PlantillasFijadas se usa únicamente en el generador de una petición cuyo
@@ -105,6 +106,7 @@ type listaDisponibles struct {
 	Esquema              string           `json:"esquema"`
 	CatalogoRef          string           `json:"catalogo_ref"`
 	CatalogoHuellaSHA256 string           `json:"catalogo_huella_sha256"`
+	ProcedenciaRef       string           `json:"procedencia_ref"`
 	Tipos                []tipoDisponible `json:"tipos"`
 }
 
@@ -184,16 +186,20 @@ func (h *ManejadorBorradores) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		material.Tipo = pedido.Tipo
 		material.Formato = pedido.Formato
 	}
-	instantanea, err := h.plantillas.ObtenerPlantillasDocumento(r.Context(), material, h.ahora().UTC())
-	if err != nil || instantanea == nil {
+	instantanea, procedencia, err := h.plantillas.ObtenerPlantillasDocumento(r.Context(), material, h.ahora().UTC())
+	if errors.Is(err, pgplantillas.ErrDenegado) || errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
+		fallo(w, 403, "denegado")
+		return
+	}
+	if err != nil || instantanea == nil || !reciboPublicacionDocumental.MatchString(procedencia) {
 		fallo(w, 503, "no_disponible")
 		return
 	}
 	if listar {
-		h.listar(w, instantanea, detalle)
+		h.listar(w, instantanea, procedencia, detalle)
 		return
 	}
-	h.descargar(w, r, instantanea, detalle, pedido)
+	h.descargar(w, r, instantanea, procedencia, detalle, pedido)
 }
 
 func rutaBorradorValida(r *http.Request) bool {
@@ -201,7 +207,7 @@ func rutaBorradorValida(r *http.Request) bool {
 	return (u.Path == RutaBorradores || u.Path == RutaBorradoresDisponibles) && u.RawQuery == "" && !u.ForceQuery && u.RawPath == "" && u.Scheme == "" && u.Host == "" && u.User == nil && u.Opaque == "" && u.Fragment == "" && u.RawFragment == "" && u.EscapedPath() == u.Path
 }
 
-func (h *ManejadorBorradores) listar(w http.ResponseWriter, p *informejuridico.PlantillasBorrador, d ports.DetalleExpedienteRRHH) {
+func (h *ManejadorBorradores) listar(w http.ResponseWriter, p *informejuridico.PlantillasBorrador, procedencia string, d ports.DetalleExpedienteRRHH) {
 	tipos := make([]tipoDisponible, 0, len(p.Tipos()))
 	for _, tipo := range p.Tipos() {
 		plantilla, ok := p.Plantilla(tipo)
@@ -210,10 +216,10 @@ func (h *ManejadorBorradores) listar(w http.ResponseWriter, p *informejuridico.P
 		}
 		tipos = append(tipos, tipoDisponible{Clave: string(tipo), Etiqueta: plantilla.Nombre, Formatos: []string{"pdf", "docx"}})
 	}
-	responder(w, 200, listaDisponibles{Esquema: EsquemaBorradoresDisponibles, CatalogoRef: p.Referencia(), CatalogoHuellaSHA256: p.Huella(), Tipos: tipos})
+	responder(w, 200, listaDisponibles{Esquema: EsquemaBorradoresDisponibles, CatalogoRef: p.Referencia(), CatalogoHuellaSHA256: p.Huella(), ProcedenciaRef: procedencia, Tipos: tipos})
 }
 
-func (h *ManejadorBorradores) descargar(w http.ResponseWriter, r *http.Request, p *informejuridico.PlantillasBorrador, d ports.DetalleExpedienteRRHH, pedido peticionBorrador) {
+func (h *ManejadorBorradores) descargar(w http.ResponseWriter, r *http.Request, p *informejuridico.PlantillasBorrador, procedencia string, d ports.DetalleExpedienteRRHH, pedido peticionBorrador) {
 	tipo := ports.TipoBorradorRRHH(pedido.Tipo)
 	plantilla, ok := p.Plantilla(tipo)
 	if !ok || !plantilla.AdmiteModalidad(d.Resumen.ModalidadClave) || !accionPlantillaCumplida(plantilla, d) {
@@ -253,6 +259,7 @@ func (h *ManejadorBorradores) descargar(w http.ResponseWriter, r *http.Request, 
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.Header().Set("X-VEC-Catalogo-Ref", p.Referencia())
 	w.Header().Set("X-VEC-Catalogo-Huella-SHA256", p.Huella())
+	w.Header().Set("X-VEC-Plantilla-Procedencia-Ref", procedencia)
 	w.Header().Set("X-VEC-Documento-SHA256", hex.EncodeToString(suma[:]))
 	w.WriteHeader(200)
 	_, _ = w.Write(contenido)
