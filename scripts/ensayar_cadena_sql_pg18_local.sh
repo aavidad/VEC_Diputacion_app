@@ -154,6 +154,7 @@ chmod 1777 "$ensayo/data" # postgres del contenedor crea pgdata con modo 0700
 # elimina incluso al fallar. El puerto libre lo elige Docker y se verifica.
 docker run -d --name "$contenedor" \
   --mount "type=bind,src=$ensayo/data,dst=/var/lib/postgresql/data" \
+  --mount "type=bind,src=$repo,dst=/repo,readonly" \
   -e PGDATA=/var/lib/postgresql/data/pgdata \
   -e POSTGRES_HOST_AUTH_METHOD=trust \
   -p 127.0.0.1::5432 postgres:18.4-alpine >/dev/null \
@@ -176,7 +177,7 @@ puerto=$(docker port "$contenedor" 5432/tcp | sed -n 's/^127\.0\.0\.1://p')
 [[ $puerto =~ ^[0-9]+$ ]] || fallar 'Docker no publicó PostgreSQL solo en 127.0.0.1'
 docker exec "$contenedor" createdb -U postgres vec_ensayo
 docker exec "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d vec_ensayo \
-  -c 'CREATE EXTENSION pgcrypto WITH SCHEMA public; REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;' \
+  -c 'REVOKE ALL ON DATABASE postgres FROM PUBLIC; REVOKE ALL ON DATABASE vec_ensayo FROM PUBLIC; REVOKE ALL ON SCHEMA public FROM PUBLIC; CREATE EXTENSION pgcrypto WITH SCHEMA public; REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;' \
   >/dev/null || fallar 'no se pudo instalar pgcrypto en la base efímera'
 
 num=0
@@ -189,8 +190,8 @@ while IFS= read -r archivo || [[ -n $archivo ]]; do
     # El clúster es nuevo y no hay tráfico de aplicación durante esta fase.
     opciones=(-e PGOPTIONS=-c\ vec.confirmar_mantenimiento_bolsa_baremacion_v3=INSTALAR_MIGRACION_BOLSA_BAREMACION_V3_SIN_TRAFICO)
   fi
-  if ! docker exec -i "${opciones[@]}" "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d vec_ensayo \
-      < "$repo/$archivo" >"$ensayo/sql.out" 2>"$ensayo/sql.err"; then
+  if ! docker exec "${opciones[@]}" "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d vec_ensayo \
+      -f "/repo/$archivo" >"$ensayo/sql.out" 2>"$ensayo/sql.err"; then
     sed -n '1,16p' "$ensayo/sql.err" >&2
     fallar "cadena SQL detenida en [$num] $archivo"
   fi
