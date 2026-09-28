@@ -580,12 +580,34 @@ administrativa.
 | Solicitud de pausa o reactivación | Puede quedar **pendiente de RRHH**. El recibo confirma el registro de la solicitud, no su aprobación. |
 | Oferta publicada | **Me ofrezco** manifiesta disposición para esa oferta. Su recibo no adjudica el puesto; consulte después si está abierta, pendiente de RRHH, resuelta o adjudicada a usted. |
 
-Cuando se ofrece confirmar un contacto propio, revise primero la información
-mostrada y confirme solo si es correcta. Una incidencia de conexión después de
-pulsar una acción exige consultar el resultado o reintentar **la misma**
-operación según indique la pantalla; cambiar datos o abrir otra solicitud puede
-producir un conflicto. Los formularios sin confirmar no se conservan al cerrar
-la pestaña.
+#### Confirmar el contacto de origen CONVOCA
+
+En el código integrado en `main@bb88e662`, **Mi contacto** aparece por bolsa
+cuando el servidor incluye ese estado en la consulta propia. Indica si el
+contacto procede de CONVOCA y está sin confirmar, si su confirmación está
+pendiente desde una fecha, si ya se confirmó o si lo registró RRHH. Esta vista
+no muestra el correo ni los teléfonos: la confirmación se refiere a la versión
+del contacto que el servidor presentó, no a una edición de esos datos.
+
+1. Entre con la identidad sintética de la persona candidata en **Mi área
+   personal → Mi bolsa** y localice **Mi contacto** de la bolsa correspondiente.
+2. Si aparece **Contacto de origen CONVOCA sin confirmar** o **Confirmación
+   pendiente**, coteje los datos con RRHH por el cauce autorizado antes de
+   pulsar **Confirmo que mi contacto es correcto**. No pulse el botón si no
+   puede verificarlos: la pantalla no muestra los valores en claro.
+3. Tras confirmar, el servidor devuelve un recibo y la pantalla vuelve a
+   consultar el estado. Compruebe **Contacto confirmado** y su fecha. Si RRHH
+   cambió el contacto mientras estaba abierta la página, la operación se
+   rechaza y se pide recargar antes de revisar la nueva versión.
+
+El botón solo se ofrece para un contacto de origen CONVOCA aún sin confirmar;
+un contacto ya confirmado o registrado por RRHH no se confirma de nuevo aquí.
+El recorrido anterior describe la interfaz y el contrato presentes en el código,
+sin acreditar que esta operación esté instalada o recorrida en un servidor.
+Una incidencia de conexión después de pulsar otra acción de «Mi bolsa» exige
+consultar el resultado o reintentar **la misma** operación según indique la
+pantalla; cambiar datos o abrir otra solicitud puede producir un conflicto.
+Los formularios sin confirmar no se conservan al cerrar la pestaña.
 
 ### Consulta pública y reglas del ejercicio
 
