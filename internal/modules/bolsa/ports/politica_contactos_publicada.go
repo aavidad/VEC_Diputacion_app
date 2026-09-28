@@ -12,6 +12,7 @@ import (
 type FuentePoliticaContactos struct {
 	BolsaRef                                     string
 	CatalogoRef, CatalogoHuellaSHA256            string
+	Ejemplo                                      bool
 	TipoDia, SedeRef, Zona                       string
 	DesdeMinuto, HastaMinuto                     int
 	ControlFranja                                string

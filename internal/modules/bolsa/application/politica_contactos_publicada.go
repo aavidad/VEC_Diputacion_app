@@ -98,7 +98,7 @@ func (s *ServicioPoliticaContactos) Publicar(
 func prepararFuentePoliticaContactos(f puertosbolsa.FuentePoliticaContactos, bolsaRef string) (dominiobolsa.PoliticaContactosPublicada, error) {
 	p := dominiobolsa.PoliticaContactosPublicada{
 		Esquema: dominiobolsa.EsquemaPoliticaContactos, BolsaRef: f.BolsaRef, Version: 1,
-		CatalogoRef: f.CatalogoRef, CatalogoHuellaSHA256: f.CatalogoHuellaSHA256,
+		CatalogoRef: f.CatalogoRef, CatalogoHuellaSHA256: f.CatalogoHuellaSHA256, Ejemplo: f.Ejemplo,
 		TipoDia: f.TipoDia, SedeRef: f.SedeRef, Zona: f.Zona,
 		DesdeMinuto: f.DesdeMinuto, HastaMinuto: f.HastaMinuto,
 		ControlFranja: f.ControlFranja, IntentosPorCiclo: f.IntentosPorCiclo,
@@ -119,7 +119,7 @@ func prepararFuentePoliticaContactos(f puertosbolsa.FuentePoliticaContactos, bol
 
 func mismaFuentePolitica(p dominiobolsa.PoliticaContactosPublicada, f puertosbolsa.FuentePoliticaContactos) bool {
 	return p.BolsaRef == f.BolsaRef && p.CatalogoRef == f.CatalogoRef &&
-		p.CatalogoHuellaSHA256 == f.CatalogoHuellaSHA256 && p.TipoDia == f.TipoDia &&
+		p.CatalogoHuellaSHA256 == f.CatalogoHuellaSHA256 && p.Ejemplo == f.Ejemplo && p.TipoDia == f.TipoDia &&
 		p.SedeRef == f.SedeRef && p.Zona == f.Zona && p.DesdeMinuto == f.DesdeMinuto &&
 		p.HastaMinuto == f.HastaMinuto && p.ControlFranja == f.ControlFranja &&
 		p.IntentosPorCiclo == f.IntentosPorCiclo && p.Ciclos == f.Ciclos &&

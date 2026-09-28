@@ -38,7 +38,7 @@ func TestFuentePoliticaContactosPreparaSoloCatalogoEstrictoCoherente(t *testing.
 	resultado, err := fuente.ObtenerPublicada(t.Context(), "bolsa:administrativo:2026")
 	if err != nil || resultado.DesdeMinuto != 540 || resultado.HastaMinuto != 840 ||
 		resultado.ControlFranja != dominiobolsa.ControlReglaImpedir ||
-		resultado.HuellaFuenteSHA256 == "" || resultado.CatalogoHuellaSHA256 == "" {
+		resultado.HuellaFuenteSHA256 == "" || resultado.CatalogoHuellaSHA256 == "" || !resultado.Ejemplo {
 		t.Fatalf("politica estricta = %+v, %v", resultado, err)
 	}
 }

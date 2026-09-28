@@ -39,6 +39,7 @@ func (f *FuentePoliticaContactos) ObtenerPublicada(ctx context.Context, bolsaRef
 	}
 	var franja puertosbolsa.ReglaIntentosContacto
 	var huellaCatalogo string
+	var ejemplo bool
 	for _, regla := range reglas {
 		if regla.Clave == vecreglas.BolsaFranjaLlamadas {
 			franja = regla
@@ -47,6 +48,7 @@ func (f *FuentePoliticaContactos) ObtenerPublicada(ctx context.Context, bolsaRef
 			return vacio, ErrFuentePoliticaContactosNoDisponible
 		}
 		huellaCatalogo = regla.HuellaCatalogo
+		ejemplo = ejemplo || regla.Ejemplo
 	}
 	if franja.Referencia == "" || franja.HuellaCatalogo == "" {
 		return vacio, ErrFuentePoliticaContactosNoDisponible
@@ -54,6 +56,7 @@ func (f *FuentePoliticaContactos) ObtenerPublicada(ctx context.Context, bolsaRef
 	vacio = puertosbolsa.FuentePoliticaContactos{
 		BolsaRef: bolsaRef, CatalogoRef: franja.Referencia,
 		CatalogoHuellaSHA256: franja.HuellaCatalogo,
+		Ejemplo:              ejemplo,
 		TipoDia:              dominiobolsa.TipoCalendarioHabilSede, SedeRef: f.sedeRef,
 		Zona: politica.Franja.Zona.String(), DesdeMinuto: politica.Franja.DesdeMinuto,
 		HastaMinuto: politica.Franja.HastaMinuto, ControlFranja: politica.Franja.Control,
@@ -64,7 +67,7 @@ func (f *FuentePoliticaContactos) ObtenerPublicada(ctx context.Context, bolsaRef
 	}
 	version := dominiobolsa.PoliticaContactosPublicada{
 		Esquema: dominiobolsa.EsquemaPoliticaContactos, BolsaRef: vacio.BolsaRef, Version: 1,
-		CatalogoRef: vacio.CatalogoRef, CatalogoHuellaSHA256: vacio.CatalogoHuellaSHA256,
+		CatalogoRef: vacio.CatalogoRef, CatalogoHuellaSHA256: vacio.CatalogoHuellaSHA256, Ejemplo: vacio.Ejemplo,
 		TipoDia: vacio.TipoDia, SedeRef: vacio.SedeRef, Zona: vacio.Zona,
 		DesdeMinuto: vacio.DesdeMinuto, HastaMinuto: vacio.HastaMinuto,
 		ControlFranja: vacio.ControlFranja, IntentosPorCiclo: vacio.IntentosPorCiclo,

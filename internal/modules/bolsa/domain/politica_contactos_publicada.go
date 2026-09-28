@@ -26,6 +26,7 @@ type PoliticaContactosPublicada struct {
 	VersionAnterior       string   `json:"version_anterior,omitempty"`
 	CatalogoRef           string   `json:"catalogo_ref"`
 	CatalogoHuellaSHA256  string   `json:"catalogo_huella_sha256"`
+	Ejemplo               bool     `json:"ejemplo"`
 	TipoDia               string   `json:"tipo_dia"`
 	SedeRef               string   `json:"sede_ref"`
 	Zona                  string   `json:"zona"`
@@ -47,6 +48,7 @@ type materialPoliticaContactos struct {
 	VersionAnterior       string   `json:"version_anterior,omitempty"`
 	CatalogoRef           string   `json:"catalogo_ref"`
 	CatalogoHuellaSHA256  string   `json:"catalogo_huella_sha256"`
+	Ejemplo               bool     `json:"ejemplo"`
 	TipoDia               string   `json:"tipo_dia"`
 	SedeRef               string   `json:"sede_ref"`
 	Zona                  string   `json:"zona"`
@@ -63,7 +65,7 @@ type materialPoliticaContactos struct {
 func (p PoliticaContactosPublicada) material() materialPoliticaContactos {
 	return materialPoliticaContactos{
 		Esquema: p.Esquema, BolsaRef: p.BolsaRef, Version: p.Version, VersionAnterior: p.VersionAnterior,
-		CatalogoRef: p.CatalogoRef, CatalogoHuellaSHA256: p.CatalogoHuellaSHA256,
+		CatalogoRef: p.CatalogoRef, CatalogoHuellaSHA256: p.CatalogoHuellaSHA256, Ejemplo: p.Ejemplo,
 		TipoDia: p.TipoDia, SedeRef: p.SedeRef, Zona: p.Zona,
 		DesdeMinuto: p.DesdeMinuto, HastaMinuto: p.HastaMinuto, ControlFranja: p.ControlFranja,
 		IntentosPorCiclo: p.IntentosPorCiclo, Ciclos: p.Ciclos, SeparacionSegundos: p.SeparacionSegundos,
