@@ -355,6 +355,34 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	}
 	if encontrada {
 		yaPublicada := actual.referencia == asignacionRef && actual.huella == huellaAsignacion
+		if yaPublicada {
+			// El replay también consume el control actual de la versión de rol.
+			// Bloquear su puntero impide confirmar después de una retirada
+			// concurrente usando una lectura anterior del snapshot serializable.
+			var controlActualExacto bool
+			errControl := tx.QueryRow(ctx, `
+				SELECT true
+				  FROM vec_autorizacion.version_rol AS rol
+				  JOIN vec_autorizacion.control_vigencia_version_rol_actual AS actual
+				    ON actual.version_rol_ref=rol.version_rol_ref
+				  JOIN vec_autorizacion.control_vigencia_version_rol AS control
+				    ON control.version_rol_ref=actual.version_rol_ref AND control.revision=actual.revision
+				 WHERE rol.version_rol_ref=$1 AND rol.rol_id=$2 AND rol.version=$3
+				   AND rol.huella_sha256=$4 AND rol.publicada_en=$5 AND rol.documento=$6::jsonb
+				   AND control.revision=$7 AND control.estado=$8
+				   AND control.huella_sha256=$9 AND control.actualizado_en=$10 AND control.documento=$11::jsonb
+				   AND actual.actualizada_en=$10 AND actual.actualizada_por=$12 AND actual.acto_ref=$13
+				 FOR SHARE OF rol, control, actual`,
+				rolRef, instantanea.VersionRol.RolID, instantanea.VersionRol.Version,
+				huellaRol, instantanea.VersionRol.PublicadaEn, documentoRol,
+				instantanea.ControlVigenciaVersionRol.Revision, string(instantanea.ControlVigenciaVersionRol.Estado),
+				huellaControl, instantanea.ControlVigenciaVersionRol.ActualizadoEn, documentoControl,
+				instantanea.ControlVigenciaVersionRol.ActualizadoPor, a.actoControlRol,
+			).Scan(&controlActualExacto)
+			if errControl != nil || !controlActualExacto {
+				return falloPostgreSQLCTDesarrollo(errControl)
+			}
+		}
 		siguienteExacta := actual.identificador == instantanea.AsignacionPerfil.AsignacionID &&
 			actual.perfilRef == datosVinculo.PerfilActivoRef &&
 			actual.principalID == datosVinculo.PrincipalID &&

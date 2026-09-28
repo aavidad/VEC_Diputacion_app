@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -44,7 +45,7 @@ func TestMiBolsaPreimagenPostgreSQL18(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	for _, caso := range []string{"alta_replay_portal", "revocada", "restringida", "carrera"} {
+	for _, caso := range []string{"alta_replay_portal", "revocada", "restringida", "carrera", "carrera_control"} {
 		t.Run(caso, func(t *testing.T) {
 			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 			var aleatorio [8]byte
@@ -105,6 +106,66 @@ func TestMiBolsaPreimagenPostgreSQL18(t *testing.T) {
 			}
 			if ref, filas := actual(); ref != ref1 || filas != filas1 {
 				t.Fatal("replay v1 cambió el puntero o duplicó historia")
+			}
+			if caso == "carrera_control" {
+				control := primera.ControlVigenciaVersionRol
+				control.Revision++
+				control.Estado = dominiovec.EstadoControlVigenciaVersionRolRetirada
+				control.ActualizadoEn = ahora.Add(time.Second)
+				control.ActualizadoPor = "seguridad:prueba"
+				control.ActoRef = "acto:mi-bolsa:retirada-prueba"
+				control.MotivoCodigo = "baja"
+				huellaControl, err := control.HuellaSHA256()
+				if err != nil {
+					t.Fatal(err)
+				}
+				documento, err := json.Marshal(control)
+				if err != nil {
+					t.Fatal(err)
+				}
+				tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tx.Rollback(context.Background())
+				if _, err := tx.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := tx.Exec(ctx, `INSERT INTO vec_autorizacion.control_vigencia_version_rol
+					(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
+					VALUES ($1,$2,$3,$4,$5,$6::jsonb)`, control.VersionRolRef, control.Revision,
+					string(control.Estado), huellaControl, control.ActualizadoEn, documento); err != nil {
+					t.Fatal(err)
+				}
+				actualizada, err := tx.Exec(ctx, `UPDATE vec_autorizacion.control_vigencia_version_rol_actual
+					SET revision=$2, actualizada_en=$3, actualizada_por=$4, acto_ref=$5
+					WHERE version_rol_ref=$1 AND revision=$6`, control.VersionRolRef, control.Revision,
+					control.ActualizadoEn, control.ActualizadoPor, control.ActoRef, primera.ControlVigenciaVersionRol.Revision)
+				if err != nil || actualizada.RowsAffected() != 1 {
+					t.Fatalf("puntero control no retirado: %v", err)
+				}
+				resultado := make(chan error, 1)
+				go func() {
+					_, err := publicarPerfilMiBolsaDesarrollo(ctx, &a, identidad, ahora, false)
+					resultado <- err
+				}()
+				// La retirada mantiene el bloqueo hasta que el replay intente
+				// cotejar el control; después confirma antes que el replay.
+				time.Sleep(100 * time.Millisecond)
+				if err := tx.Commit(ctx); err != nil {
+					t.Fatal(err)
+				}
+				replay := <-resultado
+				if replay == nil {
+					t.Fatal("replay admitido tras retirada del control de rol")
+				}
+				if _, err := publicarPerfilMiBolsaDesarrollo(ctx, &a, identidad, ahora, false); err == nil {
+					t.Fatal("rearranque admitido con control de rol retirado")
+				}
+				if ref, filas := actual(); ref != ref1 || filas != filas1 {
+					t.Fatal("retirada de rol movió asignación o añadió historia")
+				}
+				return
 			}
 			if caso == "alta_replay_portal" {
 				portal, err := publicarPerfilMiBolsaDesarrollo(ctx, &a, identidad, ahora, true)
