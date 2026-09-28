@@ -168,7 +168,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		)
 		if err != nil {
 			correlacion := nuevaCorrelacionRutaExacta()
-			h.registrarDenegacionRutaExacta(r.Context(), r.URL.Path, err, correlacion)
+			if errRegistro := h.registrarDenegacionRutaExacta(r.Context(), r.URL.Path, err, correlacion); errRegistro != nil {
+				responderAutorizacionRutaExactaConCorrelacion(w, errRegistro, correlacion)
+				return
+			}
 			responderAutorizacionRutaExactaConCorrelacion(w, err, correlacion)
 			return
 		}
@@ -189,7 +192,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.autoridadRutasExactas.AutorizarRutaExacta(r.Context(), r.URL.Path); err != nil {
 			correlacion := nuevaCorrelacionRutaExacta()
-			h.registrarDenegacionRutaExacta(r.Context(), r.URL.Path, err, correlacion)
+			if errRegistro := h.registrarDenegacionRutaExacta(r.Context(), r.URL.Path, err, correlacion); errRegistro != nil {
+				responderAutorizacionRutaExactaConCorrelacion(w, errRegistro, correlacion)
+				return
+			}
 			responderAutorizacionRutaExactaConCorrelacion(w, err, correlacion)
 			return
 		}

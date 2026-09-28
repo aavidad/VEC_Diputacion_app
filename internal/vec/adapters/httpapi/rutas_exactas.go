@@ -27,6 +27,10 @@ var ErrRutaExactaInvalida = errors.New(
 	"vec http: ruta exacta adicional invalida",
 )
 
+var errAuditoriaFronteraUsuariosNoDisponible = errors.New(
+	"vec http: auditoria de frontera de usuarios no disponible",
+)
+
 var (
 	errRutaExactaNoEncontrada = errors.New(
 		"vec http: ruta exacta no encontrada",
@@ -245,26 +249,34 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	ruta string,
 	err error,
 	correlacion string,
-) {
-	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
-		return
-	}
+) error {
 	motivo, registrar := motivoAuditoriaDenegacionRutaExacta(err)
 	if !registrar {
-		return
+		return nil
+	}
+	superficie := superficieAuditoriaFronteraRutaExacta(ruta)
+	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
+	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
+		if usuarios {
+			return errAuditoriaFronteraUsuariosNoDisponible
+		}
+		return nil
 	}
 	orden := ports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacion,
 		Motivo:         motivo,
-		Superficie:     superficieAuditoriaFronteraRutaExacta(ruta),
+		Superficie:     superficie,
 		Ruta:           ruta,
 	}
-	if orden.Superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
+	if usuarios &&
 		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
 		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
 	}
 	if orden.Validar() != nil {
-		return
+		if usuarios {
+			return errAuditoriaFronteraUsuariosNoDisponible
+		}
+		return nil
 	}
 	ctxAuditoria, cancelar := context.WithTimeout(
 		context.WithoutCancel(ctx),
@@ -279,7 +291,11 @@ func (h *Handler) registrarDenegacionRutaExacta(
 			"vec http: auditoria_frontera_no_registrada correlacion=%s",
 			correlacion,
 		)
+		if usuarios {
+			return errAuditoriaFronteraUsuariosNoDisponible
+		}
 	}
+	return nil
 }
 
 func superficieAuditoriaFronteraRutaExacta(ruta string) string {
