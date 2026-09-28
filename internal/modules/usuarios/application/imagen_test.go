@@ -39,6 +39,7 @@ type registroImagenPrueba struct {
 	existe              bool
 	ops                 map[string]opImagenPrueba
 	guardarErr          error
+	guardarReplay       bool
 	lecturas, guardados int
 }
 
@@ -85,7 +86,7 @@ func (r *registroImagenPrueba) Guardar(_ context.Context, _ ports.OrdenImagen, m
 	}
 	r.estado = ports.EstadoImagen{PersonaRef: m.TitularPersonaRef, Version: actual + 1, CatalogoVersionRef: m.CatalogoVersionRef, Eleccion: m.Eleccion}
 	r.existe = true
-	recibo := ports.ReciboImagen{ReciboRef: "recibo_0123456789abcdef", PersonaRef: m.TitularPersonaRef, Version: actual + 1, CatalogoVersionRef: m.CatalogoVersionRef, Eleccion: m.Eleccion, FechaUTC: time.Now().UTC()}
+	recibo := ports.ReciboImagen{ReciboRef: "recibo_0123456789abcdef", PersonaRef: m.TitularPersonaRef, Version: actual + 1, CatalogoVersionRef: m.CatalogoVersionRef, Eleccion: m.Eleccion, FechaUTC: time.Now().UTC(), Replay: r.guardarReplay}
 	r.ops[m.ClaveOperacion] = opImagenPrueba{m.HuellaPeticion, recibo}
 	return recibo, nil
 }
@@ -264,16 +265,31 @@ func TestFotoReservaReconciliableSinOriginal(t *testing.T) {
 	if err != nil || !replay.Replay || replay.ReciboRef != rec.ReciboRef || r.estado.Version != 1 {
 		t.Fatalf("replay reconciliado %+v %v", replay, err)
 	}
-	// La ausencia del objeto custodiado degrada la presentación a iniciales,
-	// sin alterar versión ni fabricar nombre.
+	visible, err := s.ConsultarPropia(ctx, o)
+	if err != nil || visible.Estado.Eleccion.Modo != domain.ModoFoto || !visible.FotoDisponible {
+		t.Fatalf("foto disponible %+v %v", visible, err)
+	}
+	// La ausencia del objeto custodiado pide iniciales para presentar, pero
+	// conserva la elección real, la versión y la referencia en el estado.
 	c.disponible = false
 	vista, err := s.ConsultarPropia(ctx, o)
-	if err != nil || vista.Estado.Eleccion.Modo != domain.ModoIniciales || vista.Estado.Version != 1 || vista.NombreAutorizado != "" {
+	if err != nil || vista.Estado.Eleccion.Modo != domain.ModoFoto || vista.FotoDisponible || vista.Estado.Eleccion.DocumentoRef != rec.Eleccion.DocumentoRef || vista.Estado.Version != 1 || vista.NombreAutorizado != "" {
 		t.Fatalf("fallback %+v %v", vista, err)
 	}
 	retirada, err := s.Retirar(ctx, o, 1, r.catalogo.VersionRef, "imagen_retirar_foto_123456", "azul")
 	if err != nil || retirada.Version != 2 || r.estado.Eleccion.DocumentoRef != "" {
 		t.Fatalf("retirada de referencia %+v %v", retirada, err)
+	}
+}
+
+func TestFotoConservaReplayQueDevuelveGuardarEnCarrera(t *testing.T) {
+	ctx := context.Background()
+	s, o, _, r, c, _, _ := fixtureImagen(t, ports.AudienciaImagenPersonal)
+	r.guardarReplay = true
+	p := ports.PeticionSubirImagen{VersionEsperada: 0, CatalogoVersionRef: r.catalogo.VersionRef, ClaveOperacion: "imagen_foto_carrera_12345", Paleta: "azul", TipoDeclarado: "image/png", Original: []byte("dato")}
+	recibo, err := s.Subir(ctx, o, p)
+	if err != nil || !recibo.Replay || !c.confirmada || r.guardados != 1 {
+		t.Fatalf("replay concurrente %+v %v", recibo, err)
 	}
 }
 

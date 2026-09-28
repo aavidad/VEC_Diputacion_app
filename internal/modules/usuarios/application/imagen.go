@@ -133,16 +133,14 @@ func (s *ServicioImagen) consultar(ctx context.Context, o ports.OrdenImagen, a v
 	if estado.PersonaRef != titular || (existe && (estado.Version == 0 || estado.CatalogoVersionRef == "")) || domain.CatalogoBaseImagen().ValidarEleccion(estado.Eleccion) != nil {
 		return ports.VistaImagen{}, ports.ErrImagenNoDisponible
 	}
+	vista := ports.VistaImagen{Catalogo: c.Clonar(), Estado: estado}
 	if estado.Eleccion.Modo == domain.ModoFoto {
 		disponible, err := s.custodia.Disponible(ctx, o, m, estado.Eleccion.DocumentoRef)
 		if err != nil {
 			return ports.VistaImagen{}, ports.ErrImagenNoDisponible
 		}
-		if !disponible {
-			estado.Eleccion = domain.EleccionImagen{Modo: domain.ModoIniciales, Paleta: estado.Eleccion.Paleta}
-		}
+		vista.FotoDisponible = disponible
 	}
-	vista := ports.VistaImagen{Catalogo: c.Clonar(), Estado: estado}
 	if s.nombres != nil {
 		nombre, err := s.nombres.NombreVisible(ctx, o, m, titular)
 		if err == nil {
@@ -348,7 +346,7 @@ func (s *ServicioImagen) consumarReserva(ctx context.Context, o ports.OrdenImage
 	if err := s.custodia.ConfirmarReserva(ctx, o, m, r); err != nil {
 		return ports.ReciboImagen{}, ports.ErrImagenNoDisponible
 	}
-	recibo.Replay = existe
+	recibo.Replay = existe || recibo.Replay
 	return recibo, nil
 }
 

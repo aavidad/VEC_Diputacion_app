@@ -94,6 +94,9 @@ type EstadoImagen struct {
 type VistaImagen struct {
 	Catalogo domain.CatalogoImagen `json:"catalogo"`
 	Estado   EstadoImagen          `json:"estado"`
+	// FotoDisponible sólo se consulta cuando la elección persistida es foto.
+	// Si es false, la presentación usa iniciales sin ocultar la elección real.
+	FotoDisponible bool `json:"foto_disponible"`
 	// NombreAutorizado sólo lo aporta una fuente de identidad autorizada para
 	// esa lectura. Nunca se deriva de la referencia opaca ni del cliente.
 	NombreAutorizado string `json:"nombre_autorizado,omitempty"`
