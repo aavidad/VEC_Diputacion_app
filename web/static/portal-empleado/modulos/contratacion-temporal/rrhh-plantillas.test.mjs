@@ -105,13 +105,29 @@ test("cliente solo confirma un cambio con catálogo, versión y recibo válidos"
   assert.equal(peticion.opciones.headers.get("Content-Type"), "application/json");
   for (const referencia of ["", "recibo:plantillas:uno", [reciboEdicion], reciboEdicion.toUpperCase(),
     `${reciboEdicion}a`, `${reciboEdicion}\n`, reciboEdicion.slice(0, -1),
-    "recibo:ad6eaa70-bc5f-4a27-90b4-5bf02043d02g"]) {
+    "recibo:ad6eaa70-bc5f-4a27-90b4-5bf02043d02g", `recibo:${"-".repeat(36)}`,
+    "recibo:ad6eaa70bc5f4a2790b45bf02043d021----",
+    "recibo:ad6eaa70-bc5f-5a27-90b4-5bf02043d021",
+    "recibo:ad6eaa70-bc5f-4a27-70b4-5bf02043d021"]) {
     const incompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
       catalogo: { ...catalogo, revision: 3 }, recibo: { recibo_ref: referencia, registrado_en: instante, estado_replay: "registrado" },
     }, 201) });
     await assert.rejects(incompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
       && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado, referencia);
   }
+  const catalogoIncompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: { ...catalogo, revision: "3" }, recibo: {
+      recibo_ref: reciboEdicion, registrado_en: instante, estado_replay: "registrado",
+    },
+  }, 201) });
+  await assert.rejects(catalogoIncompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+    && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+  const replay = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: { ...catalogo, revision: 3 }, recibo: {
+      recibo_ref: reciboEdicion, registrado_en: instante, estado_replay: "replay",
+    },
+  }, 200) });
+  assert.equal((await replay.guardar(solicitud)).recibo.recibo_ref, reciboEdicion);
 });
 
 test("cliente distingue conflicto previo y resultado indeterminado", async () => {

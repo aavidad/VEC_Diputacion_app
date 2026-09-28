@@ -8,7 +8,7 @@ export const RUTA_RRHH_PLANTILLAS_PUBLICAR = `${RUTA_RRHH_PLANTILLAS}/publicar`;
 
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
-const RECIBO = /^recibo:[0-9a-f-]{36}$/u;
+const RECIBO = /^recibo:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAXIMO_RESPUESTA = 17_000_000;
 const MAXIMO_PETICION = 256 * 1024;
@@ -74,7 +74,9 @@ export function validarRespuestaGuardadoPlantillas(valor, estadoEsperado = "borr
     || !["registrado", "replay"].includes(valor.recibo.estado_replay)) {
     throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true);
   }
-  const catalogo = validarCatalogoPlantillas(valor.catalogo);
+  let catalogo;
+  try { catalogo = validarCatalogoPlantillas(valor.catalogo); }
+  catch { throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true); }
   if (catalogo.estado !== estadoEsperado) throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true);
   return { catalogo, recibo: valor.recibo };
 }
