@@ -1,6 +1,6 @@
 /** Catálogo común de las superficies públicas de Bolsa. Sin estado persistente. */
 (function registrarI18nPublico(raiz) {
-  const mensajes = Object.freeze({
+  const mensajesES = Object.freeze({
     cargando_convocatorias: "Cargando convocatorias…",
     consulta_no_disponible: "La consulta no está disponible.",
     fuente_no_configurada: "La fuente pública de Bolsa no está configurada para esta consulta.",
@@ -70,7 +70,85 @@
     cargando_catalogo: "Cargando el catálogo profesional…",
     directorio_no_disponible: "El directorio no está disponible.",
   });
-  const formateadorNumero = new Intl.NumberFormat("es-ES");
+  const mensajesEN = Object.freeze({
+    cargando_convocatorias: "Loading recruitment notices…",
+    consulta_no_disponible: "The information is unavailable.",
+    fuente_no_configurada: "The public recruitment pool source is not configured for this enquiry.",
+    ficha_no_disponible: "Record unavailable",
+    seleccione_convocatoria: "Select a recruitment notice",
+    todos_tipos: "All types",
+    todas_categorias: "All categories with processes",
+    todos_estados: "All statuses",
+    todas_areas: "All areas",
+    sin_plazos: "No public deadlines are associated with this notice.",
+    sin_requisitos: "No public requirements are associated with this notice.",
+    sin_documentos: "No public documents are associated with this notice.",
+    sin_ayuda: "No help answers are associated with this notice.",
+    consultar_ficha: "View public record",
+    error_bolsas: "Error retrieving recruitment pools",
+    error_lista: "Error retrieving the list",
+    documento_formato: "The document must use the format ***1234** (3 asterisks, 4 digits and 2 asterisks).",
+    consultar_lista: "View list",
+    disponible: "Available",
+    ocupado: "Employed / Appointed",
+    no_disponible: "Unavailable (paused)",
+    excluido: "Excluded",
+    renuncia_pendiente: "Withdrawal pending",
+    dato_no_disponible: "Not recorded",
+    grupos: "Groups",
+    tipo_lista: "List type",
+    vigente_desde: "In force from",
+    total_aspirantes: "Applicants",
+    error_bolsas_denegado: "The public recruitment pool enquiry is unavailable for this access.",
+    error_lista_denegado: "The public enquiry for this list is unavailable for this access.",
+    error_lista_no_encontrada: "The requested recruitment pool is unavailable for public enquiry.",
+    ayuda_privacidad_listas: "Help and privacy for this enquiry",
+    ayuda_documento_lista: "Search format",
+    area_no_indicada: "Area not specified",
+    plazo_desde: "From",
+    plazo_hasta: "to",
+    opcion_con_numero: "{etiqueta} ({total})",
+    categoria_sin_procesos: "{categoria} (no published processes)",
+    seleccion_sin_resultados: "No results for selection: {seleccionado}",
+    requisito_uno: "{total} requirement",
+    requisito_otros: "{total} requirements",
+    documento_uno: "{total} document",
+    documento_otros: "{total} documents",
+    ayuda_uno: "{total} help item",
+    ayuda_otros: "{total} help items",
+    convocatoria_encontrada_uno: "{total} recruitment notice found",
+    convocatoria_encontrada_otros: "{total} recruitment notices found",
+    proceso_publicado_uno: "{total} published process",
+    proceso_publicado_otros: "{total} published processes",
+    plazo_abierto_uno: "{total} open deadline",
+    plazo_abierto_otros: "{total} open deadlines",
+    publicada_el: "Published on",
+    fuente_actualizada: "Source {revision} · updated {fecha}",
+    pagina_de: "Page {pagina} of {paginas}",
+    obligatorio: "Required",
+    no_obligatorio: "Optional",
+    abrir_documento: "Open {formato}: {titulo}",
+    bases_publicadas_el: "Rules published on",
+    version_huella: "Version {version} · SHA-256 hash {huella}",
+    ver_procesos: "View processes",
+    ver_procesos_de: "View processes for {categoria}",
+    sin_convocatorias_publicadas: "No recruitment notices are currently published",
+    categorias_mostradas: "Showing {mostradas} of {total} categories",
+    catalogo_resumen: "Catalogue {referencia} · version {version} · {total} categories · hash {huella}…",
+    catalogo_resumen_aria: "Catalogue {referencia}, version {version}, {total} categories, SHA-256 hash {huella}",
+    huella_sha256: "SHA-256 {huella}",
+    cargando_catalogo: "Loading the professional categories catalogue…",
+    directorio_no_disponible: "The directory is unavailable.",
+  });
+
+  let parametro = "";
+  try { parametro = new URL(raiz.location?.href).searchParams.get("lang") ?? ""; }
+  catch { /* La página empaquetada conserva el castellano si no hay URL. */ }
+  const preferencia = (raiz.navigator?.languages ?? []).find((valor) => /^(es|en)(-|$)/iu.test(String(valor ?? "")));
+  const idioma = [parametro, preferencia].map((valor) => String(valor ?? "").toLowerCase().split("-", 1)[0])
+    .find((valor) => valor === "es" || valor === "en") ?? "es";
+  const mensajes = idioma === "en" ? mensajesEN : mensajesES;
+  const formateadorNumero = new Intl.NumberFormat(idioma === "en" ? "en-GB" : "es-ES");
   function t(clave, variables = {}) {
     const plantilla = mensajes[clave];
     if (typeof plantilla !== "string") return clave;
@@ -82,5 +160,5 @@
   function plural(clave, total) {
     return t(`${clave}_${total === 1 ? "uno" : "otros"}`, { total: numero(total) });
   }
-  raiz.VECBolsaI18n = Object.freeze({ t, numero, plural, mensajes });
+  raiz.VECBolsaI18n = Object.freeze({ t, numero, plural, mensajes, mensajesES, mensajesEN, idioma });
 }(globalThis));
