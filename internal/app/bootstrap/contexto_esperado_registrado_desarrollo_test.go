@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -165,5 +166,92 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 	}
 	if len(e.soporte.contexto.Resultado.Contexto.Instantanea.Vinculos) != 0 {
 		t.Fatal("la semilla histórica fue modificada")
+	}
+}
+
+func TestContextoOperativoReincorporacionSeleccionaPerfilYSesionDedicados(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	base := soporte.contexto
+	reincorporacion, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseVinculo, _ := base.Vinculo.Datos()
+	reincVinculo, _ := reincorporacion.Vinculo.Datos()
+	if baseVinculo.PerfilActivoRef == reincVinculo.PerfilActivoRef ||
+		baseVinculo.SesionRef == reincVinculo.SesionRef ||
+		base.Resultado.Contexto.Instantanea.VinculoRef == reincorporacion.Resultado.Contexto.Instantanea.VinculoRef ||
+		base.Resultado.Contexto.Instantanea.CuentaRef != reincorporacion.Resultado.Contexto.Instantanea.CuentaRef ||
+		base.Resultado.Contexto.PersonaRef != reincorporacion.Resultado.Contexto.PersonaRef {
+		t.Fatal("reincorporación no tiene perfil, sesión y contexto propios sobre la misma persona")
+	}
+	soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+		contexto: reincorporacion, contextoEsperadoRegistrado: reincorporacion.Resultado,
+		sesionOperativa: proveedorSesionOperativaCTPrueba{contexto: reincorporacion},
+	}
+	baseOperativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes))
+	if err != nil || baseOperativo.Resultado.Contexto.PerfilActivoRef != baseVinculo.PerfilActivoRef {
+		t.Fatalf("perfil CT base alterado: %v", err)
+	}
+	for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
+		operativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta))
+		if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != reincVinculo.PerfilActivoRef {
+			t.Fatalf("ruta %s no usa perfil dedicado: %v", ruta, err)
+		}
+	}
+	soporte.reincorporacionTitular.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: base}
+	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)); err == nil {
+		t.Fatal("sesión CT base fue aceptada para CT130")
+	}
+}
+
+func TestSesionReincorporacionTitularRevalidaMTLSConPerfilPropio(t *testing.T) {
+	e := nuevaSesionConsultaPrueba(t)
+	basePerfil := e.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	contextoCT130, err := nuevoContextoReincorporacionTitularDesarrollo(e.soporte, e.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	perfilCT130 := contextoCT130.Resultado.Contexto.PerfilActivoRef
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo(append(
+		descriptoresFronterasContratacionTemporalDesarrollo(basePerfil, []string{basePerfil}),
+		descriptoresFronterasReincorporacionTitularDesarrollo(perfilCT130)...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.p.fronteras = fronteras
+	e.soporte.sesionOperativa = e.p
+	sesionCT130, err := nuevaSesionReincorporacionTitularDesarrollo(e.p, contextoCT130.Resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+		contexto: contextoCT130, contextoEsperadoRegistrado: contextoCT130.Resultado,
+		sesionOperativa: sesionCT130,
+	}
+	e.resolutor.base = contextoCT130.Resultado
+	ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaReincorporacionesTitular)
+	frontera, ok := fronteras.resolver(http.MethodPost, httpinterno.RutaReincorporacionesTitular)
+	if !ok {
+		t.Fatal("frontera CT130 ausente")
+	}
+	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+		metodo: http.MethodPost, ruta: httpinterno.RutaReincorporacionesTitular,
+		superficie: superficieInternaSeguridadComunDesarrollo, catalogo: fronteras, descriptor: frontera,
+	})
+	operativo, err := e.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := operativo.Vinculo.Datos()
+	nominal, _ := contextoCT130.Vinculo.Datos()
+	if err != nil || vinculo.PerfilActivoRef != perfilCT130 || vinculo.SesionRef == "" ||
+		vinculo.SesionRef == nominal.SesionRef ||
+		len(e.registro.altas) != 1 || e.revalidador.llamadas != 1 || e.resolutor.llamadas != 1 ||
+		e.registro.altas[0].CuentaID != "desarrollo:"+contextoCT130.Resultado.Contexto.Instantanea.CuentaRef {
+		t.Fatalf("sesión mTLS CT130 no revalidada con perfil propio: %v", err)
+	}
+	if _, err := e.p.ResolverContexto(ctx); err == nil {
+		t.Fatal("proveedor CT base aceptó frontera exclusiva CT130")
 	}
 }
