@@ -1,5 +1,5 @@
 import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260924-f2-web2";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v2";
 
 /**
  * Consulta S1 de solo lectura. El montaje aporta funciones autorizadas; esta

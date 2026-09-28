@@ -25,7 +25,7 @@ export const MENSAJES_RRHH_PLANTILLAS_ES = Object.freeze({
   plantillas_rrhh_nueva: "Añadir tipo",
   plantillas_rrhh_form_nueva: "Nuevo tipo de plantilla",
   plantillas_rrhh_form_editar: "Editar tipo de plantilla",
-  plantillas_rrhh_clave: "Clave del tipo",
+  plantillas_rrhh_clave: "Código de plantilla",
   plantillas_rrhh_descripcion: "Descripción",
   plantillas_rrhh_parrafos: "Párrafos del borrador",
   plantillas_rrhh_modalidades: "Modalidades admitidas",

@@ -5,7 +5,6 @@
  */
 export const MENSAJES_TEXTOS_PORTAL_ES = Object.freeze({
   reincorporacion_titulo: "Reincorporación de la persona titular",
-  reincorporacion_descripcion: "Reflejo recibido desde Contratación temporal para esta participación. La disponibilidad se consulta en su situación actual.",
   reincorporacion_tabla: "Histórico de reincorporaciones del titular",
   reincorporacion_col_hecho: "Hecho",
   reincorporacion_col_fecha: "Fecha efectiva",

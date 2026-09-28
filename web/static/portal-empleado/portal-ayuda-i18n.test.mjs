@@ -6,6 +6,7 @@ import { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORT
 import { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } from "./ayudante-tramites.js";
 import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js";
 import { MENSAJES_PORTAL_ES, crearTraductorPortal, traducirPortal } from "./portal-i18n.js";
+import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 test("todo texto de la ayuda y del ayudante procede del catálogo común", () => {
@@ -28,6 +29,15 @@ test("todo texto de la ayuda y del ayudante procede del catálogo común", () =>
   const traducirPersonalizado = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ayuda_pasos: "Etapas" });
   assert.equal(traducirPersonalizado("ayuda_pasos"), "Etapas");
   assert.equal(traducirPortal("ayuda_abrir_contextual", { contexto: "Dietas" }), "Abrir ayuda de Dietas");
+});
+
+test("la ayuda de la ficha explica el origen CT y la disponibilidad vigente sin clave huérfana", () => {
+  const tramite = TRAMITES_AYUDANTE_PORTAL.find(({ id }) => id === "bolsa-consultar-reincorporacion");
+  assert.ok(tramite);
+  assert.equal(tramite.vista, "bolsa-candidatos");
+  assert.match(tramite.pasos[0].limite, /Contratación temporal/u);
+  assert.match(tramite.pasos[0].limite, /Bolsa calcula la disponibilidad/u);
+  assert.equal(Object.hasOwn(MENSAJES_TEXTOS_PORTAL_ES, "reincorporacion_descripcion"), false);
 });
 
 test("el botón ? abre la ayuda contextual sin cargar una grabación obsoleta", async () => {

@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v1";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v2";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -184,6 +184,13 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
     pasos: Object.freeze([
       Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-cambio-situacion"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_407"), instruccion: traducirPortal("ayuda_contenido_408"), objetivo: traducirPortal("ayuda_contenido_409"), preparacion: traducirPortal("ayuda_contenido_410"), resultado: traducirPortal("ayuda_contenido_411"), actor: traducirPortal("ayuda_contenido_412"), limite: traducirPortal("ayuda_contenido_413") }),
       Object.freeze({ vista: "bolsa-candidatos", selector: '[data-b8-raiz="true"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_414"), instruccion: traducirPortal("ayuda_contenido_415"), objetivo: traducirPortal("ayuda_contenido_416"), preparacion: traducirPortal("ayuda_contenido_417"), resultado: traducirPortal("ayuda_contenido_418"), actor: traducirPortal("ayuda_contenido_419"), limite: traducirPortal("ayuda_contenido_420") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "bolsa-consultar-reincorporacion", titulo: traducirPortal("ayuda_reincorporacion_titulo"), modulo: traducirPortal("ayuda_reincorporacion_modulo"), vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]',
+    resumen: traducirPortal("ayuda_reincorporacion_resumen"),
+    pasos: Object.freeze([
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]', bloqueado: false, titulo: traducirPortal("ayuda_reincorporacion_paso_titulo"), instruccion: traducirPortal("ayuda_reincorporacion_instruccion"), objetivo: traducirPortal("ayuda_reincorporacion_objetivo"), preparacion: traducirPortal("ayuda_reincorporacion_preparacion"), resultado: traducirPortal("ayuda_reincorporacion_resultado"), actor: traducirPortal("ayuda_reincorporacion_actor"), limite: traducirPortal("ayuda_reincorporacion_limite") }),
     ]),
   }),
 ]);
