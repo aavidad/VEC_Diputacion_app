@@ -89,7 +89,7 @@ export VEC_CT_PLANTILLAS_MIGRADOR_DATABASE_URL="host=$temporal/socket user=vec_p
 export VEC_PLANTILLAS_PG18_DSN="host=$temporal/socket user=vec_plantillas_ejecutor_ensayo dbname=postgres sslmode=disable"
 export VEC_PLANTILLAS_PG18_CATALOGO="$temporal/catalogo.json"
 docker exec "$contenedor" psql -X -At -v ON_ERROR_STOP=1 -U vec_plantillas_migrador_ensayo -d postgres -c 'SELECT session_user' >/dev/null
-python3 - "$repo" "$directorio/_provision_overlay_test.go" "$temporal/overlay-provision.json" <<'PY'
+python3 - "$repo" "$directorio/_provision_overlay_test.go.txt" "$temporal/overlay-provision.json" <<'PY'
 import json,pathlib,sys
 repo,source,output=sys.argv[1:]
 virtual=str(pathlib.Path(repo)/'cmd/vec-provision-plantillas/zz_rrhh_bundle_pg18_test.go')
@@ -112,7 +112,7 @@ instalar "${archivos[1]}" "to_regprocedure('vec_contratacion_temporal.obtener_ca
 instalar "${archivos[2]}" "to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL"
 instalar "${archivos[3]}" "EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='vec_contratacion_temporal.catalogo_plantillas_historia_v1'::regclass AND attname='organizacion_ref' AND NOT attisdropped)"
 admin <"$directorio/autoridades_preflight_sinteticas.sql" >/dev/null
-python3 - "$repo" "$directorio/_preflight_overlay_test.go" "$temporal/overlay.json" <<'PY'
+python3 - "$repo" "$directorio/_preflight_overlay_test.go.txt" "$temporal/overlay.json" <<'PY'
 import json,pathlib,sys
 repo,source,output=sys.argv[1:]
 virtual=str(pathlib.Path(repo)/'internal/app/bootstrap/zz_rrhh_bundle_pg18_test.go')
