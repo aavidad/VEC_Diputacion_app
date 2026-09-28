@@ -1,0 +1,4 @@
+# Orden causal del GET de recibo CT. Solo preparación; no acredita instalación.
+# Preimagen: CT138 y AD3-101. AD3-104 no depende de AD3-102/103.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000104_consumidor_consulta_recibo_respuesta.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000139_consulta_recibo_respuesta.up.sql

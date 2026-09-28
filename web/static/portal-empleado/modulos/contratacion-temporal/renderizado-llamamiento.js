@@ -31,8 +31,76 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     // Date pierde los microsegundos: el atributo y el nombre accesible conservan el recibo exacto.
     return `<time datetime="${e(valor)}" title="${e(valor)}" aria-label="${e(`${visible} · ${valor}`)}">${e(visible)}</time>`;
   }
+  function consultaRespuesta() {
+    const consulta = estado.consultaRespuesta;
+    if (!consulta || consulta.estado === "sin_contexto") return "";
+    if (["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)) return "";
+    if (consulta.estado === "ausente" && [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
+      paso.recibo?.organizacion_ref === consulta.referencias?.organizacion_ref
+      && paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref)) return "";
+    const antecedente = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
+      paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref
+      && paso.solicitud?.organizacion_ref === consulta.referencias?.organizacion_ref
+      && paso.solicitud?.expediente_ref === consulta.referencias?.expediente_ref)
+      || (estado.comunicaciones?.estado === "lista"
+        && estado.comunicaciones.seleccionada?.comunicacion_ref === consulta.referencias?.comunicacion_ref
+        && estado.comunicaciones.seleccionada?.organizacion_ref === consulta.referencias?.organizacion_ref
+        && estado.comunicaciones.seleccionada?.expediente_ref === consulta.referencias?.expediente_ref);
+    const fila = estado.comunicaciones?.seleccionada;
+    const mensaje = estado.comunicaciones?.intentoNoConfirmado
+      ? "llamamiento_consulta_intento_no_confirmado"
+      : consulta.estado === "ausente" && fila?.estado_respuesta === "registrada"
+      ? "llamamiento_consulta_registrada_sin_recibo"
+      : consulta.estado === "ausente" && fila?.estado_respuesta === "sin_respuesta"
+        ? "llamamiento_consulta_sin_respuesta_verificada"
+        : consulta.estado === "ausente" && !antecedente
+          ? "llamamiento_consulta_ausente_sin_antecedente" : consulta.mensaje;
+    const contenido = consulta.estado === "confirmado" && consulta.recibo
+      ? `<dl><div><dt>${e(t("llamamiento_respuesta_declarada"))}</dt><dd>${e(t("llamamiento_respuesta_" + consulta.recibo.respuesta))}</dd></div>
+        <div><dt>${e(t("llamamiento_respuesta_recibo"))}</dt><dd>${justificanteTraducido(consulta.recibo.recibo_ref, e, t)}</dd></div>
+        <div><dt>${e(t("llamamiento_registrada_en"))}</dt><dd>${tiempoVisible(consulta.recibo.registrada_en)}</dd></div></dl>` : "";
+    return `<section class="ct-recibo" data-ct-llamamiento-estado="consultaRespuesta"
+      ${consulta.estado === "confirmado" ? 'data-ct-llamamiento-recibo="consultaRespuesta"' : 'role="status"'} tabindex="-1">
+      <h3>${e(t("llamamiento_consulta_titulo"))}</h3>
+      <p>${e(t(mensaje))}</p>${contenido}
+      ${consulta.estado === "error" ? `<button class="boton-secundario" type="button"
+        data-ct-llamamiento-reintentar-consulta>${e(t("llamamiento_consulta_reintentar"))}</button>` : ""}
+    </section>`;
+  }
+  function listaComunicaciones() {
+    const lista = estado.comunicaciones;
+    if (!lista || lista.estado === "sin_contexto") return "";
+    const opciones = lista.estado === "lista" ? `<ol class="ct-comunicaciones-opciones">
+      ${lista.filas.map((fila, indice) => {
+        const elegida = lista.seleccionada?.comunicacion_ref === fila.comunicacion_ref;
+        const consulta = estado.consultaRespuesta;
+        const reciboSesion = [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
+          paso.recibo?.comunicacion_ref === fila.comunicacion_ref
+          && paso.recibo?.organizacion_ref === fila.organizacion_ref);
+        const estadoRespuesta = reciboSesion || fila.estado_respuesta === "registrada"
+          || elegida && consulta?.estado === "confirmado"
+          ? "registrada" : fila.estado_respuesta === "sin_respuesta" && elegida && consulta?.estado === "ausente"
+            ? "pendiente" : "por_comprobar";
+        const fechaLista = new Intl.DateTimeFormat(fecha.resolvedOptions().locale, {
+          timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric",
+        }).format(new Date(fila.registrada_en));
+        const rotulo = t("llamamiento_comunicaciones_opcion", { ordinal: indice + 1,
+          total: lista.filas.length, fecha: fechaLista,
+          estado: t("llamamiento_comunicaciones_respuesta_" + estadoRespuesta) });
+        return `<li><button type="button" class="boton-secundario" data-ct-comunicacion-indice="${indice}"
+          ${elegida ? 'aria-current="true"' : ""}>${e(rotulo)}</button></li>`;
+      }).join("")}</ol>` : "";
+    return `<section class="ct-recibo" data-ct-llamamiento-estado="comunicaciones" tabindex="-1">
+      <h3>${e(t("llamamiento_comunicaciones_titulo"))}</h3>
+      <p role="status">${e(t(lista.mensaje))}</p>${opciones}
+      ${lista.intentoNoConfirmado ? `<p role="alert">${e(t("llamamiento_comunicaciones_intento_no_confirmado"))}</p>` : ""}
+      ${lista.estado === "error" ? `<button class="boton-secundario" type="button"
+        data-ct-comunicaciones-reintentar>${e(t("llamamiento_comunicaciones_reintentar"))}</button>` : ""}
+    </section>`;
+  }
   function resumenResultado() {
-    const esSucesor = Boolean(estado.siguiente?.recibo);
+    const esSucesor = Boolean(estado.siguiente?.recibo
+      || estado.comunicaciones?.seleccionada?.antecedente_tipo === "continuacion_confirmada");
     const declaracion = estado[esSucesor ? "respuesta_siguiente" : "respuesta"].recibo;
     const resolucion = estado[esSucesor ? "resolucion_siguiente" : "resolucion"].recibo;
     const expiracion = esSucesor ? null : estado.expiracion?.recibo;
@@ -79,6 +147,9 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   }
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
+    if (esRespuesta(operacion) && nombre === "correo_sha256") {
+      return `<input id="${id}" name="${nombre}" type="hidden" value="${e(valor)}" readonly>`;
+    }
     if (operacion === "propuesta" && nombre === "anexos") return `<p class="ct-ayuda">${e(t("llamamiento_propuesta_sin_anexos"))}</p>`;
     if (operacion === "propuesta" && Object.hasOwn(PUBLICACIONES_FORMALIZACION, nombre)) {
       // Referencia y huella viajan en el estado del formulario; en pantalla solo la versión publicada.
@@ -90,6 +161,11 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}> ${e(t("llamamiento_" + nombre))}</label></div>`;
     }
     const numero = nombre === "version_esperada" || nombre === "version_comunicacion_esperada";
+    if (nombre === "respuesta" && esRespuesta(operacion)) return `<fieldset class="ct-campo ct-respuesta-opciones">
+      <legend>${e(t("llamamiento_respuesta_declarada"))} *</legend>
+      ${RESPUESTAS_RESOLUCION.map((opcion) => `<label for="${id}-${opcion}"><input id="${id}-${opcion}"
+        type="radio" name="respuesta" value="${opcion}"${valor === opcion ? " checked" : ""}${bloqueado ? " disabled" : ""} required>
+        ${e(t("llamamiento_opcion_" + opcion))}</label>`).join("")}</fieldset>`;
     if (nombre === "respuesta") return `<div class="ct-campo">
       <label for="${id}">${e(t(esResolucion(operacion)
         ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"))} *</label>
@@ -114,12 +190,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       return `<div class="ct-campo">${clave ? "" : `<span>${e(t("llamamiento_version_rotulo"))}</span>`}${oculto}<p id="${id}-visible" tabindex="-1">${visible}</p></div>`;
     }
     const recepcion = nombre === "recibida_en";
+    const fechaMadrid = recepcion && esRespuesta(operacion) && /Z$/u.test(valor)
+      ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit",
+        day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(valor)).replace(" ", "T")
+      : String(valor).replace(/Z$/u, "");
     const tipo = numero ? 'type="number" min="1" max="9007199254740990" step="1"'
-      : recepcion ? 'type="datetime-local" step="0.000001"'
+      : recepcion ? `type="datetime-local" step="${esRespuesta(operacion) ? 60 : "0.000001"}"`
       : `type="text" maxlength="${nombre === "correo_sha256" ? 64 : 160}"`;
     return `<div class="ct-campo"><label for="${id}">${e(t(operacion === "comunicacion_siguiente"
       && nombre === "prueba_entrega_ref" ? "llamamiento_prueba_continuacion_ref" : "llamamiento_" + nombre))} *</label>
-      <input id="${id}" name="${nombre}" value="${e(recepcion ? String(valor).replace(/Z$/u, "") : valor)}"
+      <input id="${id}" name="${nombre}" value="${e(recepcion ? fechaMadrid : valor)}"
         ${tipo}
         required autocomplete="off" spellcheck="false"${bloqueado ? " readonly" : ""}>
       </div>`;
@@ -193,16 +273,18 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           <label for="${idCorreo}">${e(t("llamamiento_correo_archivo"))} *</label>
           <input id="${idCorreo}" type="file" accept=".eml" data-ct-llamamiento-correo
             ${paso.solicitud !== null ? "disabled" : ""}>
+          <p class="ct-ayuda">${e(t("llamamiento_correo_ayuda"))}</p>
           ${paso.valores.correo_sha256 ? `<p class="ct-ayuda" data-ct-llamamiento-huella-calculada>
             ${e(t("llamamiento_correo_huella_conservada"))}</p>` : ""}
         </div>` : ""}
         </fieldset>
         <div class="ct-acciones">
-        ${paso.solicitud === null && !paso.claveConservada && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-secundario" type="button"
+        ${paso.solicitud === null && !paso.claveConservada && !esRespuesta(operacion) && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-secundario" type="button"
           data-ct-llamamiento-clave="${operacion}"${paso.calculando ? " disabled" : ""}>${e(t("llamamiento_crear_clave"))}</button>` : ""}
         ${!paso.recibo && !paso.bloqueado && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null
-            ? esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
+            ? esRespuesta(operacion) ? "llamamiento_respuesta_reintentar_misma"
+              : esResolucion(operacion) ? "llamamiento_reintentar_resolucion" : "llamamiento_recuperar"
             : operacion === "seleccion" ? "llamamiento_seleccionar"
               : operacion === "propuesta" ? "llamamiento_preparar_propuesta" : operacion === "siguiente" ? "llamamiento_continuar"
               : esResolucion(operacion) ? "llamamiento_solicitar_resolucion"
@@ -218,6 +300,20 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ${recibo(operacion, paso.recibo)}
     </section>`;
   }
+  const consulta = estado.consultaRespuesta;
+  const restaurada = estado.comunicaciones?.estado === "lista" ? estado.comunicaciones.seleccionada : null;
+  const antecedenteConsulta = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
+    paso.recibo?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
+    && paso.solicitud?.organizacion_ref === consulta?.referencias?.organizacion_ref
+    && paso.solicitud?.expediente_ref === consulta?.referencias?.expediente_ref)
+    || (restaurada?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
+      && restaurada?.organizacion_ref === consulta?.referencias?.organizacion_ref
+      && restaurada?.expediente_ref === consulta?.referencias?.expediente_ref);
+  const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
+    || (consulta.estado === "ausente" && ((estado.comunicaciones?.estado === "lista"
+      && restaurada?.estado_respuesta !== "sin_respuesta") || !antecedenteConsulta)));
+  const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
+    || (estado.comunicaciones?.estado === "lista" && !restaurada);
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo">
     <header class="ct-cabecera"><div>
@@ -226,15 +322,20 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     <p class="ct-exp-mensaje ct-tono-informacion" data-ct-llamamiento-contexto>${e(t(
       estado.enlazado ? "llamamiento_contexto_enlazado" : "llamamiento_contexto_manual",
     ))}</p>
+    ${listaComunicaciones()}
+    ${consultaRespuesta()}
+    ${bloqueaFlujo || bloqueaLista || estado.comunicaciones?.intentoNoConfirmado ? "</section>" : `
     ${resumenResultado()}
-    ${formulario("seleccion", CAMPOS_SELECCION)}
-    <details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
+    ${restaurada ? "" : formulario("seleccion", CAMPOS_SELECCION)}
+    ${restaurada ? "" : `<details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
       <summary>${e(t("llamamiento_comunicacion"))}</summary>
       ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION)
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
-    </details>
-    ${renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}
-    ${estado.comunicacion.recibo?.version_resultante === 2 && !estado.expiracion?.recibo
+    </details>`}
+    ${restaurada ? "" : renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}
+    ${(consulta?.estado === "ausente" || estado.respuesta.recibo) && ((restaurada?.antecedente_tipo === "seleccion_confirmada"
+      && restaurada?.estado_respuesta === "sin_respuesta")
+      || estado.comunicacion.recibo?.version_resultante === 2) && !estado.expiracion?.recibo
       ? formulario("respuesta", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)
       ? formulario("resolucion", CAMPOS_RESOLUCION) : ""}
@@ -242,14 +343,18 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? formulario("siguiente", CAMPOS_SIGUIENTE) : ""}
     ${estado.siguiente?.recibo && estado.resolucion.recibo?.respuesta === "renuncia"
       ? formulario("comunicacion_siguiente", CAMPOS_COMUNICACION) : ""}
-    ${estado.comunicacion_siguiente?.recibo?.version_resultante === 2
-      && ["registrada_localmente", "replay_registrada_localmente"].includes(estado.comunicacion_siguiente.recibo.estado_local)
+    ${(consulta?.estado === "ausente" || estado.respuesta_siguiente?.recibo)
+      && (restaurada?.antecedente_tipo === "continuacion_confirmada"
+        && restaurada?.estado_respuesta === "sin_respuesta"
+        || (estado.comunicacion_siguiente?.recibo?.version_resultante === 2
+          && ["registrada_localmente", "replay_registrada_localmente"].includes(estado.comunicacion_siguiente.recibo.estado_local)))
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
       ? formulario("resolucion_siguiente", CAMPOS_RESOLUCION) : ""}
-    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada)
-      && estado.seleccion.solicitud.version_esperada >= 6
-      && estado.seleccion.solicitud.version_esperada < Number.MAX_SAFE_INTEGER
+    ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada
+      ?? estado.seleccion.valores.version_esperada)
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) >= 6
+      && (estado.seleccion.solicitud?.version_esperada ?? estado.seleccion.valores.version_esperada) < Number.MAX_SAFE_INTEGER
       ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
-  </section>`;
+  </section>`}`;
 }

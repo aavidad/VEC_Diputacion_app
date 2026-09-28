@@ -7,7 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestRevalidadorAutenticacionActorProyectaSoloReferenciasOpacas(t *testing.T) {
@@ -97,19 +100,20 @@ func TestConstructorRevalidadorAutenticacionActorRechazaTypedNil(t *testing.T) {
 func TestRevalidadorAutenticacionActorSaneaFilasAdversariales(t *testing.T) {
 	solicitud := solicitudRevalidacionActorValida()
 	casos := []struct {
-		nombre string
-		fila   []any
+		nombre   string
+		fila     []any
+		esperado error
 	}{
-		{"revision cero", cambiarCampoRevalidacionActor(5, "0")},
-		{"revision fuera de uint64", cambiarCampoRevalidacionActor(5, "18446744073709551616")},
-		{"eco de autenticacion distinto", cambiarCampoRevalidacionActor(0, referencia("aut_", "z"))},
-		{"eco de sesion distinto", cambiarCampoRevalidacionActor(3, referencia("ses_", "z"))},
-		{"metodo demo", cambiarCampoRevalidacionActor(11, string(domain.AuthMethodDemo))},
-		{"superficie inventada", cambiarCampoRevalidacionActor(10, "superficie_inventada")},
-		{"cuenta confundida", cambiarCampoRevalidacionActor(8, referencia("cta_", "z"))},
-		{"cronologia alterada", cambiarCampoRevalidacionActor(18, instanteRevalidacionActor().Add(-time.Minute))},
-		{"fila truncada", filaRevalidacionActorValida()[:18]},
-		{"fila ampliada", append(filaRevalidacionActorValida(), "campo-no-contratado")},
+		{"revision cero", cambiarCampoRevalidacionActor(5, "0"), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"revision fuera de uint64", cambiarCampoRevalidacionActor(5, "18446744073709551616"), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"eco de autenticacion distinto", cambiarCampoRevalidacionActor(0, referencia("aut_", "z")), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"eco de sesion distinto", cambiarCampoRevalidacionActor(3, referencia("ses_", "z")), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"metodo demo", cambiarCampoRevalidacionActor(11, string(domain.AuthMethodDemo)), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"superficie inventada", cambiarCampoRevalidacionActor(10, "superficie_inventada"), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"cuenta confundida", cambiarCampoRevalidacionActor(8, referencia("cta_", "z")), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"cronologia alterada", cambiarCampoRevalidacionActor(18, instanteRevalidacionActor().Add(-time.Minute)), ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"fila truncada", filaRevalidacionActorValida()[:18], ports.ErrRevalidacionAutenticacionActorNoDisponible},
+		{"fila ampliada", append(filaRevalidacionActorValida(), "campo-no-contratado"), ports.ErrRevalidacionAutenticacionActorNoDisponible},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -123,7 +127,7 @@ func TestRevalidadorAutenticacionActorSaneaFilasAdversariales(t *testing.T) {
 				context.Background(), solicitud,
 			)
 			if resultado != (domain.AutenticacionRevalidadaV1{}) ||
-				!errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) ||
+				!errors.Is(err, caso.esperado) ||
 				strings.Contains(err.Error(), "columna") || tx.commits != 0 {
 				t.Fatal("una fila adversarial no fallo cerrada y saneada")
 			}
@@ -151,12 +155,39 @@ func TestRevalidadorAutenticacionActorSaneaFallosTransaccionales(t *testing.T) {
 			_, err = revalidador.RevalidarAutenticacionActorV1(
 				context.Background(), solicitud,
 			)
-			if !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) ||
+			if !errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) ||
 				strings.Contains(err.Error(), "secreto") ||
 				strings.Contains(err.Error(), "detalle") {
 				t.Fatal("un error de infraestructura no fue saneado")
 			}
 		})
+	}
+}
+
+type transaccionRevalidacionSinFilaPrueba struct{ *transaccionDoble }
+
+func (t transaccionRevalidacionSinFilaPrueba) QueryRow(context.Context, string, ...any) pgx.Row {
+	return filaDoble{err: pgx.ErrNoRows}
+}
+
+type iniciadorRevalidacionSinFilaPrueba struct{ tx pgx.Tx }
+
+func (i iniciadorRevalidacionSinFilaPrueba) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	return i.tx, nil
+}
+
+func TestRevalidadorAutenticacionActorDistingueRevocacionDeDependencia(t *testing.T) {
+	tx := &transaccionDoble{}
+	r, err := nuevoRevalidadorAutenticacionActorPostgreSQL(iniciadorRevalidacionSinFilaPrueba{
+		tx: transaccionRevalidacionSinFilaPrueba{tx},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = r.RevalidarAutenticacionActorV1(context.Background(), solicitudRevalidacionActorValida())
+	if !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) ||
+		errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) || tx.commits != 0 {
+		t.Fatal("revocación/ausencia convertida en caída o confirmada")
 	}
 }
 

@@ -51,6 +51,32 @@ func TestRespuestaRecibidaValidaDeclaracionSinReloj(t *testing.T) {
 	}
 }
 
+func TestRespuestaRecibidaAdmiteClaveOmitidaYValidaReciboSemantico(t *testing.T) {
+	solicitud := solicitudRespuestaRecibidaPrueba()
+	solicitud.ClaveIdempotencia = ""
+	if err := solicitud.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	recibo := resultadoRespuestaRecibidaPrueba()
+	if err := recibo.ValidarPara(solicitud); err != nil {
+		t.Fatalf("recibo original con clave durable rechazado: %v", err)
+	}
+	legacy := solicitud
+	legacy.ClaveIdempotencia = "11111111-1111-4111-8111-111111111111"
+	if err := recibo.ValidarPara(legacy); err != nil {
+		t.Fatalf("replay de cliente legacy rechazado: %v", err)
+	}
+	recibo.Solicitud.CorreoSHA256 = strings.Repeat("b", 64)
+	if err := recibo.ValidarPara(solicitud); !errors.Is(err, ErrResultadoRespuestaRecibidaNoConfiable) {
+		t.Fatal("el recibo sustituyó el contenido")
+	}
+	recibo = resultadoRespuestaRecibidaPrueba()
+	recibo.Solicitud.ClaveIdempotencia = ""
+	if err := recibo.ValidarPara(solicitud); !errors.Is(err, ErrResultadoRespuestaRecibidaNoConfiable) {
+		t.Fatal("el recibo carece de clave durable")
+	}
+}
+
 func TestRespuestaRecibidaRechazaMaterialInvalido(t *testing.T) {
 	casos := []struct {
 		nombre string

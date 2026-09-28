@@ -476,6 +476,8 @@ test("el inventario expone las rutas compuestas y los cinco flujos previos sigue
     "/api/vec/contratacion-temporal/llamamientos/resoluciones",
     "/api/vec/contratacion-temporal/llamamientos/siguientes",
     "/api/vec/contratacion-temporal/formalizacion/propuestas",
+    "/api/vec/contratacion-temporal/llamamientos/respuestas/recibo",
+    "/api/vec/contratacion-temporal/expedientes/comunicaciones",
     "/api/vec/contratacion-temporal/resoluciones-formalizacion",
     "/api/vec/contratacion-temporal/incorporaciones-ejercicio",
     "/api/vec/contratacion-temporal/incorporaciones-ejercicio/ficha-ginpix",

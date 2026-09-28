@@ -39,13 +39,13 @@ const REGISTRO = {
   version_resultante: 8, respuesta_hasta: "2026-09-06T08:00:00Z",
 };
 const RESPUESTA_RECIBIDA = {
-  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
   organizacion_ref: COMUNICACION.organizacion_ref, expediente_ref: SELECCION.expediente_ref,
   llamamiento_ref: COMUNICACION.llamamiento_ref, comunicacion_ref: REGISTRO.comunicacion_ref,
   version_comunicacion_esperada: 2, respuesta: "aceptacion", correo_ref: "correo:sintetico:001",
   correo_sha256: "1234567890abcdef".repeat(4), recibida_en: "2026-09-05T08:30:00.000Z",
 };
 const registroRespuesta = (entrada = RESPUESTA_RECIBIDA) => ({
+  clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
   ...entrada, esquema: "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1",
   justificante_ref: "justificante:sintetico:001", recibo_ref: "recibo:respuesta:001",
   auditoria_ref: "auditoria:respuesta:001", registrada_en: "2026-09-05T09:00:00.123456Z",
@@ -179,6 +179,7 @@ test("propuesta: errores con namespace propio y ningún éxito falso ni reintent
 test("manifiestos publican todos los recursos del llamamiento sin duplicados", async () => {
   const recursos = [
     "cliente-http-llamamiento.js", "contrato-llamamiento.js",
+    "cliente-http-consulta-recibo-respuesta.js", "cliente-http-consulta-comunicaciones-expediente.js",
     "formulario-llamamiento.js", "i18n-llamamiento.js", "renderizado-llamamiento.js",
   ];
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
@@ -421,7 +422,7 @@ test("conserva códigos de conflicto y no trata caídas del servicio como rechaz
   }
 });
 
-test("respuesta recibida: POST canónico diez campos, eco normalizado UTC y replay", async () => {
+test("respuesta recibida: POST canónico sin clave, eco normalizado UTC y replay", async () => {
   for (const [status, estado, opcion] of [[201, "registrada_por_rrhh", "aceptacion"],
     [200, "replay_registrada_por_rrhh", "renuncia"]]) {
     const esperada = { ...RESPUESTA_RECIBIDA, respuesta: opcion };
@@ -443,6 +444,7 @@ test("respuesta recibida rechaza campos ajenos, huella o fecha inválidas antes 
   const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: () => assert.fail("HTTP") });
   const casos = [
     { actor_ref: "actor:inventado" }, { contenido: "correo" }, { version_resultante: 3 },
+    { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174099" },
     { version_comunicacion_esperada: 3 }, { respuesta: "expiracion_gobernada" },
     { correo_ref: "persona@example.invalid" }, { correo_sha256: "0".repeat(64) },
     { correo_sha256: "A".repeat(64) }, { correo_sha256: "a".repeat(63) },
@@ -465,6 +467,13 @@ test("recibo de respuesta exige todo el eco y conserva diferencias de un microse
     const cambio = campo === "recibida_en" ? "2026-09-05T08:30:00.123451Z" : "otro";
     assert.throws(() => validarReciboRespuestaRecibida({ ...eco, [campo]: cambio }, s), TypeError);
   }
+  assert.equal(validarReciboRespuestaRecibida({ ...eco,
+    clave_idempotencia: "123e4567-e89b-42d3-a456-426614174099" }, s).clave_idempotencia,
+  "123e4567-e89b-42d3-a456-426614174099");
+  assert.throws(() => validarReciboRespuestaRecibida({ ...eco, clave_idempotencia: "otra" }, s), TypeError);
+  for (const clave_idempotencia of [[eco.clave_idempotencia], null, 42, { valor: eco.clave_idempotencia }]) {
+    assert.throws(() => validarReciboRespuestaRecibida({ ...eco, clave_idempotencia }, s), TypeError);
+  }
   for (const cambio of [{ version_resultante: 3 }, { actor_ref: "actor:inventado" },
     { estado: "aceptada" }, { registrada_en: "2026-09-05T09:00:00.1234567Z" }]) {
     assert.throws(() => validarReciboRespuestaRecibida({ ...eco, ...cambio }, s), TypeError);
@@ -477,9 +486,28 @@ test("recibo de respuesta exige todo el eco y conserva diferencias de un microse
   }, s), TypeError);
 });
 
+test("respuesta rechaza cruces HTTP y estado del recibo sin entregar datos como confirmados", async () => {
+  for (const [status, estado] of [[201, "replay_registrada_por_rrhh"], [200, "registrada_por_rrhh"]]) {
+    const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+      ...registroRespuesta(), estado,
+    } }, status) });
+    await assert.rejects(cliente.registrarRespuestaRecibida(RESPUESTA_RECIBIDA), (error) => {
+      assert.equal(error.resultadoIndeterminado, true);
+      return true;
+    });
+  }
+  const clienteClaveArray = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+    ...registroRespuesta(), clave_idempotencia: [registroRespuesta().clave_idempotencia],
+  } }, 201) });
+  await assert.rejects(clienteClaveArray.registrarRespuestaRecibida(RESPUESTA_RECIBIDA), (error) => {
+    assert.equal(error.resultadoIndeterminado, true);
+    return true;
+  });
+});
+
 test("respuesta recibida conserva errores genéricos y distingue rechazo previo de resultado ambiguo", async () => {
   for (const [status, codigo, indeterminado] of [[403, "acceso_denegado", false],
-    [422, "contenido_no_valido", false], [409, "clave_idempotencia_reutilizada", true],
+    [422, "contenido_no_valido", false], [409, "contenido_respuesta_en_conflicto", true],
     [409, "version_en_conflicto", true], [503, "servicio_no_disponible", true],
     [502, "resultado_no_confiable", true]]) {
     const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ error: {
