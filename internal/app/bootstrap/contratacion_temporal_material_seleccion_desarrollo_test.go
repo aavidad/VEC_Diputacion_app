@@ -16,6 +16,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
 		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
 		incorporacionAcreditada: true, reincorporacionTitular: true, politicaOfertas: true,
+		plantillasCatalogo: true, plantillasDocumental: true,
 	}
 }
 
@@ -56,25 +57,58 @@ func TestSeleccionMiBolsaIncluyeMaterialHistorialPropio(t *testing.T) {
 	}
 }
 
-func TestSeleccionReincorporacionTitularIncluyeSoloSusDosAudiencias(t *testing.T) {
+func TestSeleccionReincorporacionTitularIncluyeSusTresAudiencias(t *testing.T) {
 	apagada := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{})
 	encendida := descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{reincorporacionTitular: true})
 	escritura := descriptorMaterialReincorporacionTitularDesarrollo()
 	lectura := descriptorMaterialLecturaReincorporacionTitularDesarrollo()
+	bolsa := descriptorMaterialConsultaReincorporacionTitularBolsaDesarrollo()
 	if escritura.Audiencia == lectura.Audiencia {
 		t.Fatal("escritura y lectura comparten audiencia")
 	}
-	if len(encendida) != len(apagada)+2 {
-		t.Fatalf("el selector debe añadir solo dos audiencias: apagada=%d encendida=%d", len(apagada), len(encendida))
+	if len(encendida) != len(apagada)+3 {
+		t.Fatalf("el selector debe añadir tres audiencias: apagada=%d encendida=%d", len(apagada), len(encendida))
 	}
 	for _, d := range apagada {
-		if d.Audiencia == escritura.Audiencia || d.Audiencia == lectura.Audiencia {
+		if d.Audiencia == escritura.Audiencia || d.Audiencia == lectura.Audiencia || d.Audiencia == bolsa.Audiencia {
 			t.Fatalf("audiencia CT130 publicada con selector apagado: %s", d.Audiencia)
 		}
 	}
-	if !reflect.DeepEqual(encendida[:len(apagada)], apagada) ||
-		!reflect.DeepEqual(encendida[len(apagada):], []descriptorMaterialConsumidorV3Desarrollo{escritura, lectura}) {
-		t.Fatal("el selector CT130 debe añadir solo los descriptores nominales de escritura y lectura")
+	for _, esperada := range []descriptorMaterialConsumidorV3Desarrollo{escritura, lectura, bolsa} {
+		coincidencias := 0
+		for _, d := range encendida {
+			if reflect.DeepEqual(d, esperada) {
+				coincidencias++
+			}
+		}
+		if coincidencias != 1 {
+			t.Fatalf("descriptor de reincorporación %s publicado %d veces", esperada.Audiencia, coincidencias)
+		}
+	}
+	restantes := make([]descriptorMaterialConsumidorV3Desarrollo, 0, len(apagada))
+	for _, d := range encendida {
+		if d.Audiencia != escritura.Audiencia && d.Audiencia != lectura.Audiencia && d.Audiencia != bolsa.Audiencia {
+			restantes = append(restantes, d)
+		}
+	}
+	if !reflect.DeepEqual(restantes, apagada) {
+		t.Fatal("el selector de reincorporación cambió otros descriptores")
+	}
+}
+
+func TestSeleccionReincorporacionPublicaUnaAudienciaDeLectura(t *testing.T) {
+	audiencia := descriptorMaterialConsultaReincorporacionTitularBolsaDesarrollo().Audiencia
+	contar := func(s seleccionMaterialCTDesarrollo) int {
+		n := 0
+		for _, d := range descriptoresMaterialSeleccionadosCTDesarrollo(s) {
+			if d.Audiencia == audiencia {
+				n++
+			}
+		}
+		return n
+	}
+	if contar(seleccionMaterialCTDesarrollo{}) != 0 || contar(seleccionMaterialCTDesarrollo{reincorporacionTitular: true}) != 1 {
+		t.Fatal("audiencia B55 no depende exactamente del selector CT130")
 	}
 }
 
@@ -122,6 +156,17 @@ func TestValidacionSelectoresDespliegueBolsaCT(t *testing.T) {
 	}
 	if err := validarSelectoresDespliegueBolsaCT(config.Config{}); err != nil {
 		t.Fatalf("la ausencia equivale a apagado: %v", err)
+	}
+}
+
+func TestValorSelectorPlantillasDocumentalEnRaizPublica(t *testing.T) {
+	t.Setenv(envCTPlantillasDocumentalEnabled, "si")
+	if err := validarValorSelectoresDespliegueBolsaCT(config.Config{}); !errors.Is(err, ErrActivacionDesarrolloInvalida) {
+		t.Fatalf("selector documental ilegible admitido: %v", err)
+	}
+	t.Setenv(envCTPlantillasDocumentalEnabled, "true")
+	if err := validarValorSelectoresDespliegueBolsaCT(config.Config{}); err != nil {
+		t.Fatalf("valor legible rechazado fuera de la raiz CT: %v", err)
 	}
 }
 

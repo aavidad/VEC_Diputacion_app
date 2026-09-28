@@ -20,9 +20,10 @@ type relojPrueba struct{}
 func (relojPrueba) Ahora() time.Time { return fechaPrueba }
 
 type repoPrueba struct {
-	lectura  Lectura
-	material MaterialCambio
-	llamadas int
+	lectura   Lectura
+	material  MaterialCambio
+	llamadas  int
+	respuesta *ResultadoCambio
 }
 
 func (r *repoPrueba) ComprobarAccion(_ context.Context, _ vecdomain.ContextoActor, accion string, _ Lectura) (bool, error) {
@@ -35,7 +36,18 @@ func (r *repoPrueba) Consultar(context.Context, vecdomain.ContextoActor) (Lectur
 func (r *repoPrueba) Cambiar(_ context.Context, _ vecdomain.ContextoActor, m MaterialCambio) (ResultadoCambio, error) {
 	r.material = m
 	r.llamadas++
-	return ResultadoCambio{Recibo: Recibo{EstadoReplay: "registrado"}}, nil
+	if r.respuesta != nil {
+		return *r.respuesta, nil
+	}
+	if m.Catalogo == nil {
+		return ResultadoCambio{}, ErrNoDisponible
+	}
+	h, _ := m.Catalogo.HuellaSHA256()
+	return ResultadoCambio{Catalogo: *m.Catalogo, Recibo: Recibo{
+		ReciboRef: "recibo:prueba", ClaveIdempotencia: m.ClaveIdempotencia,
+		Operacion: m.Operacion, Version: m.Catalogo.Version, Revision: m.Catalogo.Revision,
+		CatalogoHuellaSHA256: h, RegistradoEn: fechaPrueba, EstadoReplay: "registrado",
+	}}, nil
 }
 func referencia(prefijo, semilla string) string {
 	h := sha256.Sum256([]byte(semilla))
@@ -155,11 +167,45 @@ func TestConflictoDeVersionEntregaSolicitudParaRecuperarClave(t *testing.T) {
 	s, a := servicioPrueba(t, r)
 	peticion := solicitudPrueba()
 	peticion.VersionEsperada = 99
-	if _, err := s.Editar(context.Background(), a, peticion); err != nil {
-		t.Fatal(err)
+	if _, err := s.Editar(context.Background(), a, peticion); !errors.Is(err, ErrNoDisponible) {
+		t.Fatalf("respuesta vacía del doble SQL aceptada: %v", err)
 	}
 	if r.llamadas != 1 || r.material.Catalogo != nil || len(r.material.Solicitud) == 0 {
 		t.Fatalf("no delegó replay a SQL: %+v", r.material)
+	}
+}
+
+func TestReciboExigeClaveOperacionVersionRevisionYHuellaDelCatalogo(t *testing.T) {
+	r := &repoPrueba{}
+	s, a := servicioPrueba(t, r)
+	peticion := solicitudPrueba()
+	registrado, err := s.Editar(context.Background(), a, peticion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if registrado.Recibo.Version != 2 || registrado.Recibo.Revision != 1 || registrado.Recibo.Operacion != "editar" || registrado.Recibo.ClaveIdempotencia != peticion.ClaveIdempotencia {
+		t.Fatalf("recibo registrado divergente: %+v", registrado.Recibo)
+	}
+	for nombre, mutar := range map[string]func(*ResultadoCambio){
+		"clave":     func(z *ResultadoCambio) { z.Recibo.ClaveIdempotencia = "22222222-2222-4222-8222-222222222222" },
+		"operacion": func(z *ResultadoCambio) { z.Recibo.Operacion = "publicar" },
+		"version":   func(z *ResultadoCambio) { z.Recibo.Version++ },
+		"revision":  func(z *ResultadoCambio) { z.Recibo.Revision++ },
+		"huella":    func(z *ResultadoCambio) { z.Recibo.CatalogoHuellaSHA256 = "otra" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			respuesta := registrado
+			mutar(&respuesta)
+			r.respuesta = &respuesta
+			if _, err := s.Editar(context.Background(), a, peticion); !errors.Is(err, ErrNoDisponible) {
+				t.Fatalf("recibo divergente aceptado: %v", err)
+			}
+		})
+	}
+	r.respuesta = &registrado
+	r.respuesta.Recibo.EstadoReplay = "replay"
+	if replay, err := s.Editar(context.Background(), a, peticion); err != nil || replay.Recibo.ReciboRef != registrado.Recibo.ReciboRef || replay.Recibo.CatalogoHuellaSHA256 != registrado.Recibo.CatalogoHuellaSHA256 {
+		t.Fatalf("replay no conservó el recibo: %+v, %v", replay, err)
 	}
 }
 
