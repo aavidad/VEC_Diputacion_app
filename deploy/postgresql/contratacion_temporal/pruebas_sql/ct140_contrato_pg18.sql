@@ -34,7 +34,7 @@ GRANT EXECUTE ON FUNCTION public.probar_ct140(text,text,integer,text,boolean) TO
 \connect postgres vec_ct140_login
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 DO $prueba$
-DECLARE p jsonb; q jsonb; v jsonb;
+DECLARE p jsonb; q jsonb; v jsonb; ausente jsonb;
 BEGIN
  p:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1);
  IF jsonb_array_length(p->'comunicaciones')<>1
@@ -58,15 +58,17 @@ BEGIN
   PERFORM public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1,'',false);
   RAISE EXCEPTION 'CT140: aceptó campos V3 divergentes';
  EXCEPTION WHEN SQLSTATE 'P1403' THEN NULL; END;
- BEGIN
-  PERFORM public.probar_ct140('expediente:ct140-a','organizacion:ct140-b',1);
-  RAISE EXCEPTION 'CT140: filtró expediente ajeno';
- EXCEPTION WHEN SQLSTATE 'P1404' THEN NULL; END;
- BEGIN
-  PERFORM public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1,
-   'comunicacion:ct140-c#'||encode(sha256(convert_to(
-    'organizacion:ct140-a'||chr(10)||'expediente:ct140-a'||chr(10)||'2','UTF8')),'hex'));
-  RAISE EXCEPTION 'CT140: aceptó cursor ajeno';
- EXCEPTION WHEN SQLSTATE 'P1404' THEN NULL; END;
+ ausente:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-b',1);
+ IF ausente->'encontrado' IS DISTINCT FROM 'false'::jsonb
+    OR jsonb_array_length(ausente->'comunicaciones')<>0
+    OR ausente->>'siguiente_cursor'<>''
+ THEN RAISE EXCEPTION 'CT140: filtró expediente ajeno: %',ausente; END IF;
+ ausente:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1,
+  'comunicacion:ct140-c#'||encode(sha256(convert_to(
+   'organizacion:ct140-a'||chr(10)||'expediente:ct140-a'||chr(10)||'2','UTF8')),'hex'));
+ IF ausente->'encontrado' IS DISTINCT FROM 'false'::jsonb
+    OR jsonb_array_length(ausente->'comunicaciones')<>0
+    OR ausente->>'siguiente_cursor'<>''
+ THEN RAISE EXCEPTION 'CT140: aceptó cursor ajeno: %',ausente; END IF;
 END $prueba$;
 COMMIT;

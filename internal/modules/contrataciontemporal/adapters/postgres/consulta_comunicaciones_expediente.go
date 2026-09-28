@@ -131,10 +131,34 @@ func (l *LectorComunicacionesExpedientePostgreSQL) ConsultarComunicacionesExpedi
 	if err != nil {
 		return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
 	}
-	var pagina ports.PaginaComunicacionesExpediente
+	var respuesta struct {
+		Encontrado *bool `json:"encontrado"`
+		ports.PaginaComunicacionesExpediente
+	}
 	if len(salida) == 0 || len(salida) > maximoRespuestaComunicacionesExpediente ||
-		decodificarJSONEstricto([]byte(salida), &pagina) != nil {
+		decodificarJSONEstricto([]byte(salida), &respuesta) != nil ||
+		respuesta.Encontrado == nil {
 		return vacia, ports.ErrResultadoComunicacionesExpedienteNoConfiable
+	}
+	pagina := respuesta.PaginaComunicacionesExpediente
+	if !*respuesta.Encontrado {
+		if pagina.ExpedienteRef != c.ExpedienteRef ||
+			pagina.Comunicaciones == nil || len(pagina.Comunicaciones) != 0 ||
+			pagina.SiguienteCursor != "" {
+			return vacia, ports.ErrResultadoComunicacionesExpedienteNoConfiable
+		}
+		if err = ctx.Err(); err != nil {
+			return vacia, err
+		}
+		// La ausencia es un resultado autorizado. Confirmar su consumo y su
+		// auditoría antes de traducirla a 404 en la frontera HTTP.
+		if err = tx.Commit(ctx); err != nil {
+			return vacia, normalizarErrorConsultaComunicacionesExpediente(ctx, err)
+		}
+		if err = ctx.Err(); err != nil {
+			return vacia, err
+		}
+		return vacia, ports.ErrConsultaComunicacionesExpedienteNoEncontrado
 	}
 	for i := range pagina.Comunicaciones {
 		pagina.Comunicaciones[i].RegistradaEn = pagina.Comunicaciones[i].RegistradaEn.UTC()

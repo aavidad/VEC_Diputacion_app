@@ -27,6 +27,7 @@ psql_super -f "$ad3/migraciones/000105_consumidor_consulta_comunicaciones_expedi
 psql_super -f "$ct/migraciones/000140_consulta_comunicaciones_expediente.up.sql" >/dev/null
 psql_super -f "$ct/pruebas_sql/ct140_contrato_pg18.sql" >/dev/null
 psql_super -c "DO \$\$ BEGIN IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.prueba_consumos WHERE efecto_ref='expediente:ct140-vacio')<>1 THEN RAISE EXCEPTION 'lectura vacía sin consumo'; END IF; END \$\$" >/dev/null
+psql_super -c "DO \$\$ BEGIN IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.prueba_consumos WHERE efecto_ref='expediente:ct140-a')<>4 THEN RAISE EXCEPTION '404 sin consumo o 403 consumió'; END IF; END \$\$" >/dev/null
 if psql_super -f "$ad3/migraciones/000105_consumidor_consulta_comunicaciones_expediente_ct.up.sql" >/dev/null 2>&1; then
  echo 'AD3-105 admitió doble UP' >&2; exit 1
 fi

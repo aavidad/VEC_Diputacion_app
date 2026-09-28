@@ -112,7 +112,8 @@ BEGIN
  IF NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_alta e
   WHERE e.expediente_ref=s->>'expediente_ref'
     AND e.organizacion_ref=s->>'organizacion_ref') THEN
-  RAISE EXCEPTION 'CT140: expediente no encontrado' USING ERRCODE='P1404';
+  RETURN jsonb_build_object('encontrado',false,'expediente_ref',s->>'expediente_ref',
+   'comunicaciones','[]'::jsonb,'siguiente_cursor','');
  END IF;
  -- Todo elemento visible debe conservar el recibo CT54 y uno de los dos
  -- antecedentes propios que CT54/CT62 comprobaron al crearlo.
@@ -188,7 +189,10 @@ BEGIN
   WHERE x.comunicacion_ref=v_cursor_ref
     AND x.organizacion_ref=s->>'organizacion_ref'
     AND x.expediente_ref=s->>'expediente_ref';
-  IF NOT FOUND THEN RAISE EXCEPTION 'CT140: cursor no encontrado' USING ERRCODE='P1404'; END IF;
+  IF NOT FOUND THEN
+   RETURN jsonb_build_object('encontrado',false,'expediente_ref',s->>'expediente_ref',
+    'comunicaciones','[]'::jsonb,'siguiente_cursor','');
+  END IF;
  END IF;
  WITH orden AS (
   SELECT x.organizacion_ref,x.expediente_ref,x.llamamiento_ref,x.comunicacion_ref,
@@ -223,7 +227,7 @@ BEGIN
   THEN RAISE EXCEPTION 'CT140: cursor no representable' USING ERRCODE='P1405'; END IF;
   v_siguiente:=v_siguiente||'#'||v_ancla;
  END IF;
- RETURN jsonb_build_object('expediente_ref',s->>'expediente_ref',
+ RETURN jsonb_build_object('encontrado',true,'expediente_ref',s->>'expediente_ref',
   'comunicaciones',v_items,'siguiente_cursor',v_siguiente);
 EXCEPTION
  WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN
