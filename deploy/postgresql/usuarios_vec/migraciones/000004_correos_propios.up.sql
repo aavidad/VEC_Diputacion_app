@@ -96,6 +96,7 @@ CREATE TABLE vec_usuarios.correos_historia (
  auditoria_ref text NOT NULL,
  registrada_en timestamptz(6) NOT NULL,
  PRIMARY KEY(persona_ref,version),
+ UNIQUE(persona_ref,version,accion,correo_ref,recibo_ref),
  CHECK((accion='vec.correos.retirar' AND (sustituto_ref IS NULL OR sustituto_ref<>correo_ref))
     OR (accion<>'vec.correos.retirar' AND sustituto_ref IS NULL)),
  FOREIGN KEY(persona_ref,correo_ref) REFERENCES vec_usuarios.correos_direccion(persona_ref,correo_ref)
@@ -115,7 +116,9 @@ CREATE TABLE vec_usuarios.correos_recibo (
  registrada_en timestamptz(6) NOT NULL,
  PRIMARY KEY(persona_ref,clave_operacion),
  FOREIGN KEY(persona_ref,correo_ref) REFERENCES vec_usuarios.correos_direccion(persona_ref,correo_ref),
- FOREIGN KEY(persona_ref,version) REFERENCES vec_usuarios.correos_historia(persona_ref,version) DEFERRABLE INITIALLY DEFERRED
+ FOREIGN KEY(persona_ref,version,accion,correo_ref,recibo_ref)
+  REFERENCES vec_usuarios.correos_historia(persona_ref,version,accion,correo_ref,recibo_ref)
+  DEFERRABLE INITIALLY DEFERRED
 );
 CREATE TABLE vec_usuarios.correos_outbox (
  outbox_ref text PRIMARY KEY CHECK(outbox_ref ~ '^correo_outbox:[0-9a-f]{32}$'),
