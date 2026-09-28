@@ -94,3 +94,25 @@ func TestConsultaReciboRespuestaRechazaParametrosExtra(t *testing.T) {
 		t.Fatalf("estado=%d llamadas=%d", w.Code, e.llamadas)
 	}
 }
+
+func TestConsultaReciboRespuestaTransitorioNoEsDenegacion(t *testing.T) {
+	for _, caso := range []struct {
+		err    error
+		estado int
+	}{
+		{ports.ErrConsultaReciboRespuestaFallo, http.StatusServiceUnavailable},
+		{ports.ErrConsultaReciboRespuestaDenegada, http.StatusForbidden},
+	} {
+		e := &ejecutorConsultaReciboPrueba{err: caso.err}
+		h, err := NuevoManejadorConsultaReciboRespuesta(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+			RutaConsultaReciboRespuesta+"?organizacion_ref=organizacion:prueba&comunicacion_ref=comunicacion:prueba", nil))
+		if w.Code != caso.estado {
+			t.Fatalf("error=%v: estado=%d", caso.err, w.Code)
+		}
+	}
+}
