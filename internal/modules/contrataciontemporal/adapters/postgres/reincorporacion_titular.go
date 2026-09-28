@@ -85,19 +85,28 @@ func decodificarReincorporacionSQL(b []byte) (respuestaReincorporacionSQL, error
 	if len(b) == 0 || len(b) > maximoCargaSeguimiento || decodificarJSONEstricto(b, &r) != nil || r.Esquema != esquemaResultadoReincorporacion {
 		return r, ports.ErrResultadoSeguimientoNoConfiable
 	}
+	// Los conflictos de CT130 son respuestas mínimas. Un campo adicional
+	// convertiría un recibo o una proyección contradictorios en COMMIT.
+	conflicto := func(err error) (respuestaReincorporacionSQL, error) {
+		var campos map[string]json.RawMessage
+		if decodificarJSONEstricto(b, &campos) != nil || len(campos) != 2 {
+			return r, ports.ErrResultadoSeguimientoNoConfiable
+		}
+		return r, err
+	}
 	switch r.Resultado {
 	case "preparada", "confirmada":
 		return r, nil
 	case "sin_cese":
-		return r, ports.ErrReincorporacionSinCese
+		return conflicto(ports.ErrReincorporacionSinCese)
 	case "cese_no_coincide":
-		return r, ports.ErrReincorporacionCeseNoCoincide
+		return conflicto(ports.ErrReincorporacionCeseNoCoincide)
 	case "reincorporacion_existente":
-		return r, ports.ErrReincorporacionYaRegistrada
+		return conflicto(ports.ErrReincorporacionYaRegistrada)
 	case "version_en_conflicto":
-		return r, domain.ErrVersionEnConflicto
+		return conflicto(domain.ErrVersionEnConflicto)
 	case "idempotencia_reutilizada":
-		return r, ports.ErrClaveIdempotenciaUsada
+		return conflicto(ports.ErrClaveIdempotenciaUsada)
 	default:
 		return r, ports.ErrResultadoSeguimientoNoConfiable
 	}
