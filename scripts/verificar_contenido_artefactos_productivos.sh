@@ -248,6 +248,14 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-bolsas-reglas-situacion.js
 	static/portal-empleado/portal-bolsas-sanciones.js
 	static/portal-empleado/reglas/reglas.js
+	# Peticiones RRHH (28/09): plazos y política de cese de Bolsa, Auditoría
+	# común, plantillas y borradores publicados de Contratación. Rutas internas
+	# fijas, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
+	static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
+	static/portal-empleado/modulos/auditoria/cliente-http.js
+	static/portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-cliente.js
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-borradores-publicados.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
