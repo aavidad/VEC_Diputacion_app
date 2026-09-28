@@ -109,7 +109,7 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 		d = append(d, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	}
 	if s.politicaOfertas {
-		d = append(d, descriptorMaterialPoliticaOfertasBolsaDesarrollo())
+		d = append(d, descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
 	}
 	if s.miBolsa {
 		d = append(d, descriptorMaterialMiBolsaDesarrollo())

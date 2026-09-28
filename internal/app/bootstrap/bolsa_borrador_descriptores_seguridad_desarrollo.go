@@ -30,7 +30,9 @@ const (
 	claveFronteraVistaPreviaCorreoLlamamientoBolsa  = "bolsa-b7-correo-vista-previa"
 	claveFronteraConsultarPoliticaOfertasBolsa      = "bolsa-b47-politica-ofertas-consultar"
 	claveFronteraPublicarPoliticaOfertasBolsa       = "bolsa-b47-politica-ofertas-publicar"
+	claveFronteraCapacidadPoliticaOfertasBolsa      = "bolsa-b47-politica-ofertas-capacidad-publicar"
 	claveCapacidadPoliticaOfertasBolsa              = "capacidad-bolsa-b47-politica-ofertas-publicar"
+	claveCapacidadConsultarPoliticaOfertasBolsa     = "capacidad-bolsa-b51-politica-ofertas-consultar"
 	envBolsaPoliticaOfertasEnabled                  = "VEC_BOLSA_POLITICA_OFERTAS_ENABLED"
 
 	dominioMaterialCrearBorradorLlamamientoBolsa      = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
@@ -49,12 +51,20 @@ const (
 	prefijoMaterialEmisionLlamamientoBolsa            = "clave:capacidad:bolsa-llamamiento-emitir:"
 	dominioMaterialPoliticaOfertasBolsa               = "vec.bolsa.politica-ofertas.publicar.desarrollo.capacidad-v3"
 	prefijoMaterialPoliticaOfertasBolsa               = "clave:capacidad:bolsa-politica-ofertas-publicar:"
+	dominioMaterialConsultaPoliticaOfertasBolsa       = "vec.bolsa.politica-ofertas.consultar.desarrollo.capacidad-v3"
+	prefijoMaterialConsultaPoliticaOfertasBolsa       = "clave:capacidad:bolsa-politica-ofertas-consultar:"
 )
 
 func descriptorMaterialPoliticaOfertasBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
 	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaPublicarPoliticaOfertas,
 		Dominio: dominioMaterialPoliticaOfertasBolsa, Prefijo: prefijoMaterialPoliticaOfertasBolsa,
 		ProveedorNominal: "proveedor-material-politica-ofertas-bolsa"}
+}
+
+func descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{Audiencia: puertosbolsa.AudienciaConsultarPoliticaOfertas,
+		Dominio: dominioMaterialConsultaPoliticaOfertasBolsa, Prefijo: prefijoMaterialConsultaPoliticaOfertasBolsa,
+		ProveedorNominal: "proveedor-material-consulta-politica-ofertas-bolsa"}
 }
 
 // descriptoresFronterasBorradorLlamamientoBolsaDesarrollo declara las dos
@@ -100,8 +110,9 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...)
 	if len(politicaOfertas) != 0 && politicaOfertas[0] {
 		descriptores = append(descriptores,
-			descriptorFronteraComunDesarrollo{Clave: claveFronteraConsultarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa},
-			descriptorFronteraComunDesarrollo{Clave: claveFronteraPublicarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa})
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraConsultarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarPoliticaOfertasBolsa},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraPublicarPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa},
+			descriptorFronteraComunDesarrollo{Clave: claveFronteraCapacidadPoliticaOfertasBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaCapacidadPoliticaOfertas, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa})
 	}
 	return descriptores, nil
 }
@@ -137,9 +148,12 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa, claveFronteraRecuperarEmisionLlamamientoBolsa, claveFronteraPublicarOfertaBolsa, claveFronteraConsultarOfertaBolsa, claveFronteraResolverOfertaBolsa, claveFronteraPlantillaCorreoLlamamientoBolsa, claveFronteraVistaPreviaCorreoLlamamientoBolsa}, Politica: politica},
 	}
 	if len(politicaOfertas) != 0 && politicaOfertas[0] {
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionConsultarPoliticaOfertas,
+			ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarPoliticaOfertasBolsa,
+			Fronteras: []string{claveFronteraConsultarPoliticaOfertasBolsa}, Politica: politica})
 		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{Accion: puertosbolsa.AccionPublicarPoliticaOfertas,
 			ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadPoliticaOfertasBolsa,
-			Fronteras: []string{claveFronteraConsultarPoliticaOfertasBolsa, claveFronteraPublicarPoliticaOfertasBolsa}, Politica: politica})
+			Fronteras: []string{claveFronteraPublicarPoliticaOfertasBolsa, claveFronteraCapacidadPoliticaOfertasBolsa}, Politica: politica})
 	}
 	return descriptores, nil
 }
