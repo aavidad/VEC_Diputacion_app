@@ -48,7 +48,9 @@ type AutoridadImagen interface {
 }
 
 // RegistroImagen es propiedad exclusiva de Documentos: unicidad persona+clave,
-// historia y recibo durables. Nunca consulta tablas de Usuarios ni del almacén.
+// historia y recibo durables. Persiste la intención completa de Usuarios
+// (versión esperada, catálogo, paleta, perfil, audiencia y finalidad) para
+// reconstruirla tras una caída. Nunca consulta tablas de Usuarios ni del almacén.
 // Los métodos de transición aceptan solo el objeto exacto verificado por el
 // caso de uso; el adaptador debe aplicar CAS y guardar versión/SHA/tamaño.
 type RegistroImagen interface {
@@ -66,6 +68,10 @@ type ReservaImagen struct {
 	ObjetoCuarentena vecports.ObjetoAlmacenado
 	ObjetoAdmitido   vecports.ObjetoAlmacenado
 }
+
+// Reservada y cuarentena son estados recuperables: el llamante con bytes
+// reintenta Reservar con la misma intención. Solo admitida o confirmada puede
+// consumarse sin volver a aportar el original; no se inventan bytes perdidos.
 
 // La política de análisis debe comprobar la versión exacta en cuarentena.
 // Solo evidencia limpia habilita promoción; ausencia o fallo deniegan.

@@ -93,7 +93,11 @@ func reservaExacta(r ports.ReservaImagen, id domain.IdentidadCustodiaImagen) boo
 // usan claves técnicas estables: una caída entre S3 y SQL no crea otra intención.
 // Nunca publica la referencia en Usuarios; eso pertenece a su transacción.
 func (s *ServicioCustodiaImagen) Reservar(ctx context.Context, op ports.OperacionImagen, id domain.IdentidadCustodiaImagen, contenido []byte) (ports.ReservaImagen, error) {
-	if id.Validar() != nil || id.DocumentoRef != "" || op.Actor.PersonaRef != id.PersonaRef || op.TitularPersonaRef != id.PersonaRef || op.ClaveOperacion != id.ClaveOperacion || op.HuellaPeticion != id.HuellaPeticion || op.Accion != ports.AccionImagenReservar || !bytesPNG256(contenido) || huella(contenido) != id.ContenidoSHA256 {
+	if id.Validar() != nil || id.DocumentoRef != "" || op.Actor.PersonaRef != id.PersonaRef ||
+		op.Actor.PerfilActivoRef != id.PerfilRef || op.Audiencia != id.Audiencia || op.Finalidad != id.Finalidad ||
+		op.TitularPersonaRef != id.PersonaRef || op.ClaveOperacion != id.ClaveOperacion ||
+		op.HuellaPeticion != id.HuellaPeticion || op.Accion != ports.AccionImagenReservar ||
+		!bytesPNG256(contenido) || huella(contenido) != id.ContenidoSHA256 {
 		return ports.ReservaImagen{}, ports.ErrImagenInvalida
 	}
 	permiso, err := s.autorizar(ctx, op)
@@ -206,14 +210,15 @@ func (s *ServicioCustodiaImagen) Recuperar(ctx context.Context, op ports.Operaci
 	if err != nil {
 		return ports.ReservaImagen{}, false, err
 	}
-	if ok && (r.Identidad.Validar() != nil || r.Identidad.PersonaRef != op.TitularPersonaRef || r.Identidad.ClaveOperacion != op.ClaveOperacion || r.Identidad.DocumentoRef == "" || !r.Estado.Valido()) {
+	if ok && (r.Identidad.Validar() != nil || r.Identidad.PersonaRef != op.TitularPersonaRef ||
+		r.Identidad.PerfilRef != op.Actor.PerfilActivoRef || r.Identidad.Audiencia != op.Audiencia ||
+		r.Identidad.Finalidad != op.Finalidad || r.Identidad.ClaveOperacion != op.ClaveOperacion ||
+		r.Identidad.DocumentoRef == "" || !r.Estado.Valido()) {
 		return ports.ReservaImagen{}, false, ports.ErrImagenNoDisponible
 	}
-	// La recuperación sin bytes solo puede continuar cuando el objeto ya está
-	// admitido. Antes de eso se reintenta la carga con el original del usuario.
-	if ok && r.Estado != domain.EstadoImagenAdmitida && r.Estado != domain.EstadoImagenConfirmada {
-		return ports.ReservaImagen{}, false, ports.ErrImagenNoDisponible
-	}
+	// Una reserva incompleta sigue siendo recuperable para reanudar Reservar
+	// con los mismos bytes. El consumidor sin bytes solo puede consumar cuando
+	// Estado es admitida o confirmada.
 	return r, ok, nil
 }
 func (s *ServicioCustodiaImagen) referenciaActiva(ctx context.Context, op ports.OperacionImagen) error {
@@ -296,6 +301,13 @@ func (s *ServicioCustodiaImagen) entregarTrasLectura(ctx context.Context, op por
 	}
 	return contenido, nil
 }
+func validarContenidoLeidoImagen(contenido []byte, lecturaErr error, huellaEsperada string, tamanoEsperado int64) ([]byte, error) {
+	if lecturaErr != nil || !bytesPNG256(contenido) || huella(contenido) != huellaEsperada || int64(len(contenido)) != tamanoEsperado {
+		clear(contenido)
+		return nil, ports.ErrImagenNoDisponible
+	}
+	return contenido, nil
+}
 func (s *ServicioCustodiaImagen) Abrir(ctx context.Context, op ports.OperacionImagen) ([]byte, error) {
 	if op.Accion != ports.AccionImagenAbrirPropia && op.Accion != ports.AccionImagenAbrirAjena || op.DocumentoRef == "" {
 		return nil, ports.ErrImagenInvalida
@@ -334,11 +346,9 @@ func (s *ServicioCustodiaImagen) Abrir(ctx context.Context, op ports.OperacionIm
 		return nil, ports.ErrImagenNoDisponible
 	}
 	contenido, err := io.ReadAll(io.LimitReader(lectura.Contenido, maxBytesImagen+1))
+	contenido, err = validarContenidoLeidoImagen(contenido, err, r.Identidad.ContenidoSHA256, r.ObjetoAdmitido.Tamano)
 	if err != nil {
-		return nil, ports.ErrImagenNoDisponible
-	}
-	if !bytesPNG256(contenido) || huella(contenido) != r.Identidad.ContenidoSHA256 || int64(len(contenido)) != r.ObjetoAdmitido.Tamano {
-		return nil, ports.ErrImagenNoDisponible
+		return nil, err
 	}
 	// S3 pudo tardar mientras se revocaba Documentos o se retiraba en Usuarios.
 	// Ambas autoridades se consultan de nuevo antes de entregar el buffer.

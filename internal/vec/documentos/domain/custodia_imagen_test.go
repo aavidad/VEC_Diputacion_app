@@ -3,7 +3,7 @@ package domain
 import "testing"
 
 func TestCustodiaImagenReplayYColision(t *testing.T) {
-	base := IdentidadCustodiaImagen{PersonaRef: "per_1234567890123456", ClaveOperacion: "operacion-1234567890", HuellaPeticion: hexPrueba('a'), OriginalSHA256: hexPrueba('b'), ContenidoSHA256: hexPrueba('c')}
+	base := IdentidadCustodiaImagen{PersonaRef: "per_1234567890123456", PerfilRef: "prf_1234567890123456", Audiencia: "portal_personal_autenticado", Finalidad: "finalidad:usuarios:imagen-propia:v1", VersionEsperada: 3, CatalogoVersionRef: "usuarios-imagen-v1", Paleta: "azul", ClaveOperacion: "operacion-1234567890", HuellaPeticion: hexPrueba('a'), OriginalSHA256: hexPrueba('b'), ContenidoSHA256: hexPrueba('c')}
 	if err := base.Validar(); err != nil {
 		t.Fatal(err)
 	}
@@ -20,6 +20,19 @@ func TestCustodiaImagenReplayYColision(t *testing.T) {
 	replay.HuellaPeticion = hexPrueba('e')
 	if base.MismaPeticion(replay) {
 		t.Fatal("misma clave con otra petición debe rechazar")
+	}
+	for _, cambio := range []func(*IdentidadCustodiaImagen){
+		func(i *IdentidadCustodiaImagen) { i.VersionEsperada++ },
+		func(i *IdentidadCustodiaImagen) { i.CatalogoVersionRef = "usuarios-imagen-v2" },
+		func(i *IdentidadCustodiaImagen) { i.Paleta = "verde" },
+		func(i *IdentidadCustodiaImagen) { i.PerfilRef = "prf_2222222222222222" },
+		func(i *IdentidadCustodiaImagen) { i.Audiencia = "portal_interno_autenticado" },
+	} {
+		replay = base
+		cambio(&replay)
+		if base.MismaPeticion(replay) {
+			t.Fatal("replay perdió un dato necesario para reconstruir la intención")
+		}
 	}
 }
 func TestCustodiaImagenEstadosTrasCaida(t *testing.T) {

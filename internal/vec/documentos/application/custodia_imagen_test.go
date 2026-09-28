@@ -3,6 +3,7 @@ package application
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"image"
 	"image/color"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	docdomain "vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -110,5 +112,87 @@ func TestCustodiaImagenRevocacionDocumentosDuranteLectura(t *testing.T) {
 	}
 	if !usuarios.activa {
 		t.Fatal("la prueba debe conservar Usuarios activo")
+	}
+}
+
+func TestCustodiaImagenLecturaParcialYHuellaLimpianBytes(t *testing.T) {
+	for _, tc := range []struct {
+		nombre string
+		err    error
+		sha    string
+		tamano int64
+	}{
+		{"lectura parcial", errors.New("corte de S3"), strings.Repeat("a", 64), 5},
+		{"huella incorrecta", nil, strings.Repeat("a", 64), 5},
+		{"tamano incorrecto", nil, huella([]byte("cinco")), 4},
+	} {
+		t.Run(tc.nombre, func(t *testing.T) {
+			buffer := []byte("cinco")
+			got, err := validarContenidoLeidoImagen(buffer, tc.err, tc.sha, tc.tamano)
+			if !errors.Is(err, ports.ErrImagenNoDisponible) || got != nil {
+				t.Fatalf("se expusieron bytes: %v %q", err, got)
+			}
+			for _, b := range buffer {
+				if b != 0 {
+					t.Fatal("buffer denegado no borrado")
+				}
+			}
+		})
+	}
+}
+
+type autoridadMaterialImagen struct {
+	material vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+}
+
+func (a autoridadMaterialImagen) AutorizarImagen(context.Context, ports.OperacionImagen) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return a.material, nil
+}
+
+type registroRecuperacionImagen struct {
+	ports.RegistroImagen
+	reserva ports.ReservaImagen
+}
+
+func (r *registroRecuperacionImagen) RecuperarImagen(context.Context, ports.OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReservaImagen, bool, error) {
+	return r.reserva, true, nil
+}
+func materialImagenPrueba(t *testing.T, actor vecdomain.ContextoActor, ahora time.Time) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
+	t.Helper()
+	h := strings.Repeat("a", 64)
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", h, h, "ctx_prueba", h, ports.AccionImagenRecuperar, actor.PersonaRef, h, "vec_documentos.imagen.v1", ahora, ahora.Add(3*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raiz, err := hex.DecodeString("302a300506032b65700321002152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := actor.RepresentacionCanonicaVinculadaV2()
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(bytes.Repeat([]byte("x"), 512), resumen, []byte("d"), []byte("m"), canon, 1, 1, []byte("p"), []byte("s"), []byte("e"), raiz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return material
+}
+func TestCustodiaImagenRecuperaReservaIncompletaTrasCaida(t *testing.T) {
+	ahora := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	actor := actorImagenPrueba(t, ahora)
+	id := docdomain.IdentidadCustodiaImagen{PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Audiencia: ports.AudienciaImagenPersonal, Finalidad: ports.FinalidadImagenPropia, VersionEsperada: 7, CatalogoVersionRef: "usuarios-imagen-v1", Paleta: "azul", ClaveOperacion: "operacion-1234567890", HuellaPeticion: strings.Repeat("a", 64), OriginalSHA256: strings.Repeat("b", 64), ContenidoSHA256: strings.Repeat("c", 64), DocumentoRef: "doc_1234567890123456"}
+	if err := id.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	registro := &registroRecuperacionImagen{}
+	s := ServicioCustodiaImagen{Registro: registro, Autoridad: autoridadMaterialImagen{materialImagenPrueba(t, actor, ahora)}, Contextos: &contextosImagenNoUsados{}, Almacen: &almacenImagenNoUsado{}, Admisor: &admisorImagenNoUsado{}, Usuarios: &referenciaImagenPrueba{activa: true}, AhoraUTC: func() time.Time { return ahora }}
+	op := ports.OperacionImagen{Actor: actor, TitularPersonaRef: actor.PersonaRef, Audiencia: ports.AudienciaImagenPersonal, Finalidad: ports.FinalidadImagenPropia, Accion: ports.AccionImagenRecuperar, ClaveOperacion: id.ClaveOperacion}
+	for _, estado := range []docdomain.EstadoCustodiaImagen{docdomain.EstadoImagenReservada, docdomain.EstadoImagenCuarentena, docdomain.EstadoImagenAdmitida} {
+		registro.reserva = ports.ReservaImagen{Identidad: id, Estado: estado}
+		recuperada, existe, err := s.Recuperar(context.Background(), op)
+		if err != nil || !existe || recuperada.Estado != estado || recuperada.Identidad != id {
+			t.Fatalf("caída en %s no recuperable: existe=%v err=%v", estado, existe, err)
+		}
 	}
 }
