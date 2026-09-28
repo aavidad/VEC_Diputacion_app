@@ -16,8 +16,9 @@ fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 ayuda() {
   cat <<'AYUDA'
 Uso: ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE
-     --probe RUTA [--repo CHECKOUT] [--scope ct-llamamientos|ct-bolsa]
-     [--tls-material DIRECTORIO] [--browser EJECUTABLE]
+     --probe RUTA [--probe-method GET|POST] [--probe-json JSON]
+     [--repo CHECKOUT] [--scope ct-llamamientos|ct-bolsa]
+     [--tls-material auto|DIRECTORIO] [--browser EJECUTABLE]
 
 ORDEN enumera rutas relativas deploy/postgresql/... en orden causal. Debe
 contener todos los UP y roles de CT y Bolsa Llamamientos rastreados en CHECKOUT
@@ -36,9 +37,11 @@ después arranca el binario y escribe
 URL=http://127.0.0.1:PUERTO en stdout. Con --tls-material escribe en cambio
 URL=https://localhost:PUERTO y se usan ca/ca.crt, mtls/cliente.crt y
 mtls/cliente.key de ese directorio privado; localhost se fija a 127.0.0.1.
+Con `auto`, el runtime genera material sintético en VEC_ENSAYO_DIRECTORIO.
 El runtime y navegador reciben VEC_ENSAYO_TLS_MATERIAL cuando se configura.
-RUTA debe ser un GET que consulta la base; se exige respuesta HTTP 2xx y una
-conexión PG de aplicación activa.
+RUTA debe ser una ruta local que consulta la base. GET admite solo las consultas
+CT de expediente/recibo con claves opacas; POST admite un JSON de lectura de
+hasta 2 KiB. Se exige HTTP 2xx y una conexión PG de aplicación activa.
 El navegador es opcional y recibe VEC_ENSAYO_URL para recorrer el caso local.
 
 Para scripts/verificar_calidad.sh, si /tmp/.git existe y los fixtures privados
@@ -47,14 +50,16 @@ AYUDA
 }
 
 plan='' runtime='' probe='' browser='' checkout='' scope='ct-llamamientos' tls_material=''
+probe_method='GET' probe_json=''
 while (( $# )); do
   case "$1" in
-    --plan|--runtime|--probe|--browser|--repo|--scope|--tls-material)
+    --plan|--runtime|--probe|--probe-method|--probe-json|--browser|--repo|--scope|--tls-material)
       (( $# >= 2 )) || fallar "falta valor para $1"
       case "$1" in
         --plan) plan=$2 ;; --runtime) runtime=$2 ;;
         --probe) probe=$2 ;; --browser) browser=$2 ;; --repo) checkout=$2 ;; --scope) scope=$2 ;;
         --tls-material) tls_material=$2 ;;
+        --probe-method) probe_method=$2 ;; --probe-json) probe_json=$2 ;;
       esac
       shift 2 ;;
     -h|--help) ayuda; exit 0 ;;
@@ -66,8 +71,64 @@ done
 [[ -f $plan ]] || fallar "no existe el plan SQL: $plan"
 [[ -x $runtime ]] || fallar "runtime no ejecutable: $runtime"
 [[ -z $browser || -x $browser ]] || fallar "navegador no ejecutable: $browser"
-[[ $probe == /* && $probe != /livez && $probe != *://* && $probe != *'?'* ]] || fallar 'la sonda debe ser una ruta HTTP local y distinta de /livez'
-if [[ -n $tls_material ]]; then
+[[ $probe_method == GET || $probe_method == POST ]] || fallar 'la sonda solo admite GET o POST'
+python3 - "$probe" "$probe_method" "$probe_json" <<'PY' || fallar 'la sonda HTTP local no supera el contrato cerrado'
+import json, re, sys
+from urllib.parse import parse_qsl, urlsplit
+probe, method, body = sys.argv[1:]
+if len(probe) > 1024 or not re.fullmatch(r'[A-Za-z0-9/_:.?&=%-]+', probe):
+    raise SystemExit(1)
+u = urlsplit(probe)
+if u.scheme or u.netloc or u.fragment or not u.path.startswith('/') or u.path.startswith('//'):
+    raise SystemExit(1)
+if '..' in u.path.split('/') or u.path == '/livez':
+    raise SystemExit(1)
+if method == 'GET':
+    if body:
+        raise SystemExit(1)
+    pairs = parse_qsl(u.query, keep_blank_values=True, strict_parsing=True)
+    keys = [k for k, _ in pairs]
+    expected = {
+        '/api/vec/contratacion-temporal/expedientes/comunicaciones': {'expediente_ref', 'limite', 'cursor'},
+        '/api/vec/contratacion-temporal/llamamientos/respuestas/recibo': {'organizacion_ref', 'expediente_ref', 'comunicacion_ref'},
+    }.get(u.path)
+    if expected is None or not set(keys) <= expected or len(keys) != len(set(keys)):
+        raise SystemExit(1)
+    if u.path.endswith('/expedientes/comunicaciones') and 'expediente_ref' not in keys:
+        raise SystemExit(1)
+    if u.path.endswith('/llamamientos/respuestas/recibo') and set(keys) != expected:
+        raise SystemExit(1)
+    for key, value in pairs:
+        if key == 'limite':
+            if not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 100:
+                raise SystemExit(1)
+        elif key == 'cursor':
+            if len(value) > 160 or not re.fullmatch(r'[A-Za-z0-9_:.\-/]*', value):
+                raise SystemExit(1)
+        elif not 1 <= len(value) <= 160 or not re.fullmatch(r'[A-Za-z0-9_:.\-/]+', value):
+            raise SystemExit(1)
+else:
+    if u.query or len(body) > 2048:
+        raise SystemExit(1)
+    try:
+        value = json.loads(body)
+    except ValueError:
+        raise SystemExit(1)
+    if not isinstance(value, dict) or set(value) != {'filtros', 'paginacion'} or \
+            u.path != '/api/vec/contratacion-temporal/cuadro/consultas':
+        raise SystemExit(1)
+    filters, page = value['filtros'], value['paginacion']
+    if not isinstance(filters, dict) or not set(filters) <= {'texto', 'estado_clave', 'fase_clave'} or \
+            not isinstance(page, dict) or set(page) != {'limite', 'cursor'}:
+        raise SystemExit(1)
+    if type(page['limite']) is not int or not 1 <= page['limite'] <= 100 or \
+            not isinstance(page['cursor'], str) or len(page['cursor']) > 160:
+        raise SystemExit(1)
+    for field in [*filters.values(), page['cursor']]:
+        if not isinstance(field, str) or len(field) > 160 or '://' in field or '@' in field:
+            raise SystemExit(1)
+PY
+if [[ -n $tls_material && $tls_material != auto ]]; then
   [[ $tls_material == /* ]] || fallar 'el directorio TLS debe ser absoluto'
   for certificado in ca/ca.crt mtls/cliente.crt mtls/cliente.key; do
     [[ -f $tls_material/$certificado ]] || fallar "falta material TLS local: $certificado"
@@ -83,6 +144,9 @@ for orden in docker git python3 curl go; do
 done
 [[ -x $repo/scripts/seleccionar_toolchain_go_local.sh ]] || fallar 'falta selector de Go local'
 [[ -d /dev/shm && -w /dev/shm ]] || fallar '/dev/shm no es escribible'
+[[ -S /var/run/docker.sock ]] || fallar 'falta el socket Docker local'
+unset DOCKER_CONTEXT
+export DOCKER_HOST=unix:///var/run/docker.sock
 
 # Comprobar cobertura antes de crear la base. Un SQL ajeno, repetido o ausente
 # hace fallar la puerta; no se ejecuta una cadena parcial por accidente.
@@ -94,6 +158,10 @@ tracked = subprocess.check_output(
 ).decode().split('\0')
 available = {p for p in tracked if p.endswith('.up.sql') or
              (p.rsplit('/', 1)[-1].startswith('roles') and p.endswith('_up.sql'))}
+dba_b1 = 'deploy/postgresql/bolsa_llamamientos/dba/20260928_b1_rls_propietario/01_cerrar_politicas.sql'
+selector = 'deploy/postgresql/contexto_actor_v1/roles_contexto_corporativo_rrhh_selector_v1_up.sql'
+if dba_b1 in tracked:
+    available.add(dba_b1)
 required = {p for p in available if p.split('/')[2] == 'contratacion_temporal'
             or (scope == 'ct-bolsa' and p.split('/')[2].startswith('bolsa_'))
             or (scope == 'ct-llamamientos' and p.split('/')[2] == 'bolsa_llamamientos')}
@@ -104,6 +172,8 @@ ordered = [line.strip() for line in lines if line.strip() and not line.lstrip().
 if len(ordered) != len(set(ordered)):
     raise SystemExit('ERROR: el plan SQL repite archivos')
 missing, extra = required - set(ordered), set(ordered) - available
+if selector in ordered and dba_b1 not in ordered:
+    missing.add(dba_b1)
 if missing or extra:
     print(f'ERROR: plan incompleto o ajeno: faltan {len(missing)}, sobran {len(extra)}', file=sys.stderr)
     for p in sorted(missing)[:8]: print(f'  falta: {p}', file=sys.stderr)
@@ -125,6 +195,7 @@ if ! docker image inspect postgres:18.4-alpine >/dev/null 2>&1; then
 fi
 
 ensayo=$(mktemp -d /dev/shm/vec-cadena-pg18.XXXXXXXX)
+if [[ $tls_material == auto ]]; then tls_material="$ensayo/material"; fi
 contenedor="vec-cadena-pg18-$$"
 pid=''
 limpiar() {
@@ -205,6 +276,7 @@ go_local=$("$repo/scripts/seleccionar_toolchain_go_local.sh")
 export PGHOST=127.0.0.1 PGPORT="$puerto" PGDATABASE=vec_ensayo
 export VEC_ENSAYO_BINARIO="$ensayo/vec-server" VEC_ENSAYO_TLS_MATERIAL="$tls_material"
 export VEC_ENSAYO_CONTENEDOR="$contenedor" VEC_ENSAYO_DIRECTORIO="$ensayo"
+export VEC_ENSAYO_REPO="$repo"
 # El runtime debe generar sus LOGIN locales nominales y configurar la aplicación
 # con DSN distintos, todos al PGHOST/PGPORT/PGDATABASE suministrados. No se
 # acepta una variable heredada que pudiera señalar otra base.
@@ -232,9 +304,17 @@ done
 export VEC_ENSAYO_URL="$url"
 curl_local=(curl --fail --silent --show-error --max-time 10)
 if [[ -n $tls_material ]]; then
+  for certificado in ca/ca.crt mtls/cliente.crt mtls/cliente.key; do
+    [[ -f $tls_material/$certificado ]] || fallar "el runtime no generó material TLS local: $certificado"
+  done
   puerto_http=${url##*:}
   curl_local+=(--resolve "localhost:$puerto_http:127.0.0.1" --cacert "$tls_material/ca/ca.crt"
     --cert "$tls_material/mtls/cliente.crt" --key "$tls_material/mtls/cliente.key")
+fi
+if [[ $probe_method == POST ]]; then
+  curl_local+=(--request POST --header 'Content-Type: application/json' --header 'Accept: application/json' --data-binary "$probe_json")
+else
+  curl_local+=(--header 'Accept: application/json')
 fi
 "${curl_local[@]}" "$url$probe" >"$ensayo/probe.out" \
   || { sed -n '1,20p' "$ensayo/server.log" >&2; fallar "sonda PostgreSQL HTTP fallida: $probe"; }
