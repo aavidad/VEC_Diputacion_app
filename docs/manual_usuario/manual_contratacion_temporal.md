@@ -19,11 +19,13 @@ Si una consulta falla, use **Reintentar** o actualice el detalle. Si ya obtuvo u
 
 ## 2. Petición del centro y alta en RRHH
 
-El centro inicia una petición con la necesidad de cobertura, categoría, causa, fechas previstas y datos de retención de crédito (RC) cuando correspondan. Otra identidad autorizada la ratifica. Después, la petición ratificada se entrega al alta de RRHH. Son actuaciones separadas, cada una con su recibo.
+El centro inicia una petición con la necesidad de cobertura, categoría, causa, fechas previstas y datos de retención de crédito (RC) cuando correspondan.
+
+![Revisión de la solicitud inicial del centro antes de confirmar y registrar](capturas/contratacion/06_revision_confirmar_registrar.png)
+
+Otra identidad autorizada la ratifica. Después, la petición ratificada se entrega al alta de RRHH. Son actuaciones separadas, cada una con su recibo.
 
 En RRHH, abra la petición entregada, compruebe sus datos y registre el alta desde la acción ofrecida. El alta crea **un expediente** con referencia y versión; el recibo identifica la operación. Si la respuesta se pierde, recupere esa petición y consulte el resultado antes de intentar otra alta. La repetición exacta enlaza con el expediente creado sin duplicarlo.
-
-![Revisión del alta en el ejercicio](capturas/contratacion/06_revision_confirmar_registrar.png)
 
 La ratificación y el alta acreditan actuaciones registradas en VEC. Ninguna constituye una firma legal de la petición.
 
