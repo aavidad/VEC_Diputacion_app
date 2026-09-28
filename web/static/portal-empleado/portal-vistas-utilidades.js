@@ -1,4 +1,4 @@
-import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260928-ppt-503-v5";
+import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 
 /**
  * Componentes HTML puros compartidos por las vistas de consulta.

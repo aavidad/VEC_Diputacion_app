@@ -180,6 +180,7 @@ export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   txt_en_tramitacion: "In progress",
   txt_con_incidencia: "Needs attention",
   txt_en_llamamiento: "In call-up",
+  txt_gestion_de_recursos_humanos: "Human Resources Management",
   txt_estado: "Status",
   txt_expediente: "Case",
   txt_fase: "Phase",
@@ -197,6 +198,9 @@ export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   txt_ver_tramites: "View cases",
   txt_vigentes: "Active",
   txt_vigente: "Active",
+  selector_idioma_etiqueta: "Interface language",
+  selector_idioma_es: "Español",
+  selector_idioma_en: "English",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PORTAL_ES));
