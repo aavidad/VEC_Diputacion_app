@@ -1,4 +1,5 @@
 /** Textos del control de intentos de contacto de la ficha de Bolsa. */
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 export const MENSAJES_INTENTOS_ES = Object.freeze({
   titulo: "Intentos de contacto del llamamiento",
   sin_llamamiento: "Sin llamamiento en curso para esta participación.",
@@ -46,6 +47,53 @@ export const MENSAJES_INTENTOS_ES = Object.freeze({
   error_servicio: "No se pudo registrar el contacto. Puede reintentar.",
 });
 
+export const MENSAJES_INTENTOS_EN = Object.freeze({
+  titulo: "Call-up contact attempts",
+  sin_llamamiento: "No call-up is in progress for this application.",
+  cargando: "Loading contact attempts…",
+  error_carga: "The contact attempt record could not be retrieved.",
+  reintentar: "Retry",
+  sin_catalogo: "No attempt rules in the catalogue: recorded without attempt controls.",
+  historico_incompleto: "Partial history: the count may omit older contacts.",
+  estado_contactado: "Contacted",
+  estado_baja_propuesta: "Removal proposed",
+  estado_proceso: "Round {proceso} of {procesos} · attempt {intento} of {intentos}",
+  dato_sin_contacto: "Unsuccessful contact attempts",
+  dato_valor_sin_contacto: "{sin} of {maximo}",
+  dato_ultimo: "Last attempt",
+  dato_siguiente: "Next attempt from",
+  dato_franja: "Calling hours",
+  franja_habiles: "{valor}, working days",
+  sin_valor: "Not recorded",
+  aviso_antes_de_separacion: "Before the minimum interval",
+  aviso_fuera_de_franja: "Outside calling hours",
+  aviso_dia_no_habil: "Non-working day",
+  reglas: "Rules applied",
+  regla_ejemplo: "Example rule",
+  regla_reglamento: "Regulations",
+  formulario_intento: "Record phone attempt",
+  formulario_rebote: "Record undelivered email",
+  campo_resultado: "Outcome",
+  campo_instante: "Date and time",
+  campo_anotacion: "Note",
+  resultado_contactado: "Contacted",
+  resultado_no_contesta: "No answer",
+  resultado_numero_erroneo: "Wrong number",
+  boton_intento: "Record attempt",
+  boton_rebote: "Record bounce",
+  boton_enviando: "Recording…",
+  boton_proponer_baja: "Propose removal",
+  registrado: "Contact recorded.",
+  baja_propuesta_texto: "All contact rounds were exhausted. HR confirms removal through the exclusion operation.",
+  error_intento_antes_de_separacion: "The minimum interval since the last attempt has not elapsed.",
+  error_intento_fuera_de_franja: "The attempt falls outside calling hours.",
+  error_intentos_agotados: "The call-up attempts are exhausted.",
+  error_acceso_denegado: "This session cannot record contacts.",
+  error_contacto_en_conflicto: "The contact is invalid or the key was already used with different data.",
+  error_solicitud_invalida: "Check the form fields.",
+  error_servicio: "The contact could not be recorded. You can retry.",
+});
+
 const CLAVES = Object.freeze(Object.keys(MENSAJES_INTENTOS_ES));
 export function crearTraductorIntentos(catalogo = MENSAJES_INTENTOS_ES) {
   if (!catalogo || typeof catalogo !== "object" || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) {
@@ -56,4 +104,6 @@ export function crearTraductorIntentos(catalogo = MENSAJES_INTENTOS_ES) {
     return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_c, variable) => String(variables[variable] ?? ""));
   };
 }
-export const traducirIntentos = crearTraductorIntentos();
+export const traducirIntentos = crearTraductorIntentos(
+  IDIOMA_ACTUAL === "en" ? MENSAJES_INTENTOS_EN : MENSAJES_INTENTOS_ES,
+);

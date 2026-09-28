@@ -1,4 +1,5 @@
 /** Catálogo castellano de la consulta S1. El montaje puede inyectar un traductor. */
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 export const MENSAJES_CONVOCATORIAS_S1_ES = Object.freeze({
   sobrelinea: "Selección · Bolsa",
   titulo: "Convocatorias, bases y calendario",
@@ -57,6 +58,64 @@ export const MENSAJES_CONVOCATORIAS_S1_ES = Object.freeze({
   accion_no_conectada: "Acción no conectada al servidor",
 });
 
+export const MENSAJES_CONVOCATORIAS_S1_EN = Object.freeze({
+  sobrelinea: "Recruitment · Pool",
+  titulo: "Calls for applications, terms and calendar",
+  descripcion: "Query versions, requirements and dates within the authorised scope.",
+  ayuda_aria: "Help with calls for applications and terms",
+  ayuda_detalle: "The information comes from the authorised query. A published version cannot be changed on this screen. Signature and publication follow their own procedures.",
+  estado_no_configurado_titulo: "Query not configured",
+  estado_no_configurado_detalle: "The calls for applications service is not yet connected to this screen.",
+  estado_cargando_titulo: "Loading calls for applications",
+  estado_cargando_detalle: "Querying the authorised scope.",
+  estado_cargando_detalle_titulo: "Loading details",
+  estado_cargando_detalle_detalle: "Querying the terms and versions of the selected call for applications.",
+  estado_denegado_titulo: "Access denied",
+  estado_denegado_detalle: "This session does not have permission to view this information.",
+  estado_error_titulo: "Query unavailable",
+  estado_error_detalle: "The list of calls for applications could not be retrieved. Please try again later.",
+  estado_error_detalle_titulo: "Details unavailable",
+  estado_error_detalle_detalle: "The terms and versions for this call for applications could not be retrieved.",
+  estado_vacio_titulo: "No calls for applications",
+  estado_vacio_detalle: "The authorised source returned no calls for applications in this scope.",
+  estado_sin_seleccion_titulo: "Select a call for applications",
+  estado_sin_seleccion_detalle: "Details will appear when you select a call from the list.",
+  listado: "Calls for applications",
+  cantidad: "{numero} calls for applications",
+  solo_lectura: "Read only",
+  navegacion_detalle: "Call for applications sections",
+  resumen: "Summary",
+  bases_apartado: "Terms",
+  navegacion_versiones: "Versions",
+  navegacion_requisitos: "Requirements",
+  navegacion_hitos: "Milestones",
+  navegacion_documentos: "Documents",
+  version: "Version",
+  cierre: "Closing date",
+  sin_fecha: "Date unavailable",
+  sin_dato: "Not recorded",
+  version_actual: "Current version",
+  identificador_publico: "Public identifier",
+  bases: "Terms",
+  bases_vacias: "The query returned no summary of the terms for this version.",
+  versiones: "Versions of the call for applications",
+  versiones_vacias: "No versions were returned.",
+  requisitos: "Eligibility requirements",
+  requisitos_vacios: "No structured requirements were returned for this version.",
+  obligatorio: "Required",
+  no_obligatorio: "Optional",
+  hito_exigibilidad: "Required by",
+  hitos: "Milestones and deadlines",
+  hitos_vacios: "No calendar milestones were returned.",
+  documentos: "Documents in the terms",
+  documentos_vacios: "No documents in the terms were returned.",
+  acciones: "Processing",
+  editar_bases: "Edit terms",
+  enviar_firma: "Send for signature",
+  publicar: "Publish call for applications",
+  accion_no_conectada: "Action not connected to the server",
+});
+
 const CLAVES = Object.freeze(Object.keys(MENSAJES_CONVOCATORIAS_S1_ES));
 
 export function crearTraductorConvocatoriasS1(catalogo = MENSAJES_CONVOCATORIAS_S1_ES) {
@@ -69,4 +128,6 @@ export function crearTraductorConvocatoriasS1(catalogo = MENSAJES_CONVOCATORIAS_
   };
 }
 
-export const traducirConvocatoriasS1 = crearTraductorConvocatoriasS1();
+export const traducirConvocatoriasS1 = crearTraductorConvocatoriasS1(
+  IDIOMA_ACTUAL === "en" ? MENSAJES_CONVOCATORIAS_S1_EN : MENSAJES_CONVOCATORIAS_S1_ES,
+);

@@ -1,4 +1,5 @@
 /** Textos de la vista de contratos y reincorporación de Bolsa. */
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 export const MENSAJES_CONTRATOS_ES = Object.freeze({
   sobrelinea: "Bolsa · continuidad del expediente",
   titulo: "Contratos, ceses y reincorporaciones",
@@ -52,6 +53,59 @@ export const MENSAJES_CONTRATOS_ES = Object.freeze({
   ayuda_contenido: "Contratación coordina referencias; Bolsa conserva propuestas, aceptaciones, orden y disponibilidad. Personal conserva relaciones e incorporaciones. La firma y la entrega a GINPIX requieren sus propios recibos. Tras un cese, Bolsa aplica la política vigente a la persona, sin inferir disponibilidad desde esta pantalla.",
 });
 
+export const MENSAJES_CONTRATOS_EN = Object.freeze({
+  sobrelinea: "Pool · case continuity",
+  titulo: "Contracts, terminations and return to the pool",
+  descripcion: "Presentation of employment relationships and availability from an authorised source. This view alone does not establish an employment relationship, termination or start of service.",
+  estado_cargando: "Loading",
+  estado_disponible: "Available",
+  estado_vacio: "No records",
+  estado_no_configurado: "Not configured",
+  estado_denegado: "Access denied",
+  estado_error: "Query error",
+  detalle_cargando: "The authorised source is being queried. No rows are available yet.",
+  detalle_disponible: "Only relationships returned by the authorised source are shown.",
+  detalle_vacio: "The source responded successfully and returned no relationships.",
+  detalle_no_configurado: "No contract source is configured for this view. No records or actions are available.",
+  detalle_denegado: "Your current profile cannot view these relationships.",
+  detalle_error: "The relationship source could not be queried. Retry through the authorised access point.",
+  circuito_titulo: "Cross-module process",
+  circuito_subtitulo: "Each authority must confirm its own event before the process continues.",
+  paso_bolsa: "Proposal and acceptance · Pool",
+  paso_bolsa_descripcion: "A call-up proposal does not establish acceptance.",
+  paso_formalizacion: "Formalisation and signature · Temporary Recruitment",
+  paso_formalizacion_descripcion: "A draft and authentication do not constitute a signature.",
+  paso_personal: "Employment relationship and start of service · Personnel",
+  paso_personal_descripcion: "Only Personnel confirms the relationship and start of service.",
+  paso_ginpix: "Delivery to GINPIX · Temporary Recruitment",
+  paso_ginpix_descripcion: "A record or download does not establish delivery to the system.",
+  paso_reincorporacion: "Termination and availability · Personnel and Pool",
+  paso_reincorporacion_descripcion: "Confirmed termination precedes the Pool policy.",
+  navegacion_titulo: "Contracts, terminations and return to the pool",
+  seccion_contratos: "Contracts and relationships",
+  seccion_ceses: "Terminations",
+  seccion_reincorporacion: "Return to the pool",
+  accion_pendiente: "Action pending",
+  descripcion_ceses: "Termination requires confirmation by Personnel. A relationship query does not replace its receipt.",
+  descripcion_reincorporacion: "The Pool determines availability after receiving confirmed termination and applying its current policy.",
+  registros_subtitulo: "Only rows supplied by the authorised source are shown.",
+  tabla_titulo: "Contracts, terminations and returns to the pool",
+  columna_expediente: "Case",
+  columna_acto: "Action",
+  columna_bolsa: "Pool",
+  columna_fechas: "Start / end",
+  columna_estado: "Status",
+  vacio: "No relationships are available to display.",
+  accion_contrato: "Record contract",
+  motivo_contrato: "Personnel confirmation, authorisation and a durable receipt are required.",
+  accion_cese: "Record termination",
+  motivo_cese: "Confirmed termination by Personnel and its receipt are required.",
+  accion_reincorporar: "Return to pool",
+  motivo_reincorporar: "Confirmed termination and the versioned Pool policy are required.",
+  ayuda: "? Help with this process",
+  ayuda_contenido: "Temporary Recruitment coordinates references; the Pool owns proposals, acceptances, order and availability. Personnel owns employment relationships and starts of service. Signatures and delivery to GINPIX require their own receipts. After a termination, the Pool applies the current policy to the person; this screen does not infer availability.",
+});
+
 export function crearTraductorContratos(catalogo = MENSAJES_CONTRATOS_ES) {
   const claves = Object.keys(MENSAJES_CONTRATOS_ES);
   if (!catalogo || typeof catalogo !== "object" || claves.some((clave) => typeof catalogo[clave] !== "string" || !catalogo[clave])) {
@@ -63,4 +117,6 @@ export function crearTraductorContratos(catalogo = MENSAJES_CONTRATOS_ES) {
   };
 }
 
-export const traducirContratos = crearTraductorContratos();
+export const traducirContratos = crearTraductorContratos(
+  IDIOMA_ACTUAL === "en" ? MENSAJES_CONTRATOS_EN : MENSAJES_CONTRATOS_ES,
+);
