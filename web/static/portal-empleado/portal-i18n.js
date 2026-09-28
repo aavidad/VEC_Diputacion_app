@@ -1,4 +1,4 @@
-import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260928-ppt-v2";
+import { MENSAJES_AYUDA_INICIO_RRHH_EN, MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260928-ppt-v2";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260928-ppt-c3-v3";
 import { MENSAJES_RRHH_PLAZOS_ES } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
@@ -115,6 +115,7 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
 
 // Textos del inicio en inglés. El resto del shell conserva el catálogo común.
 export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
+  ...MENSAJES_AYUDA_INICIO_RRHH_EN,
   inicio_rrhh_pestana_expedientes: "Cases in progress",
   inicio_rrhh_pestana_bolsas: "Job pools",
   inicio_rrhh_pestana_sae: "Offers to SAE",
