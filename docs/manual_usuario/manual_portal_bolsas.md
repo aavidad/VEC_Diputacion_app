@@ -1,28 +1,27 @@
 # Manual de usuario · Portal VEC y Bolsas de trabajo
 
-## Preparar o recuperar un borrador interno de llamamiento — 21 de septiembre de 2026
+## Bolsa en la presentación a RRHH — 28 de septiembre de 2026
 
-Este recorrido está integrado en código, pero todavía no está habilitado en el
-servidor conservado. Cuando Sistemas complete las puertas del backend y active
-la capacidad interna, RRHH podrá:
+Esta actualización describe lo integrado en `main@7247682cb`, a partir del
+[corte de presentación del 26 de septiembre](../../ESTADO_PROYECTO.md#bolsa-y-contratación-temporal-cerradas-para-la-presentación--26-de-septiembre-de-2026).
+«Mi bolsa» y el portal del candidato figuran en ese corte como desplegados y
+habilitados en la instancia principal de presentación. Use solo identidades y
+datos **sintéticos** facilitados por Sistemas. La presentación no autoriza
+tramitación de personas reales: faltan decisiones de RRHH y la puerta de
+producción sigue cerrada.
 
-1. entrar en **Bolsa → Llamamientos**;
-2. escribir únicamente un resumen operativo, sin nombres, DNI, teléfonos,
-   correos ni datos de candidatos, y pulsar **Guardar borrador**;
-3. conservar la referencia y el recibo mostrados por la pantalla; y
-4. recuperar la misma operación introduciendo su referencia opaca, sin crear
-   otro borrador para comprobarla.
+VEC reúne en una misma navegación la bolsa, sus candidaturas y la continuación
+de Contratación temporal. RRHH puede consultar orden, situación, contactos y
+actuaciones con su contexto; la persona candidata puede ver **sus propias**
+participaciones y el resultado de las acciones que el servidor admita. Los
+recibos y el historial facilitan comprobar una actuación y recuperar su
+resultado tras una interrupción. Las reglas de ejemplo se cambian en su
+catálogo gobernado; no hay que inventar una regla jurídica para enseñar el
+recorrido.
 
-Salir de Llamamientos cancela las operaciones pendientes. Salir de
-**Elaboración y borradores** desmonta además su editor, para que una respuesta
-tardía no sustituya la vista actual. Una ruta desconocida vuelve a la portada
-del portal. El borrador no selecciona personas, no inicia contactos, no envía
-correo y no acredita plazo, firma, nombramiento ni efecto administrativo.
-
-La presentación local permite comprobar la composición visual en
-`/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/llamamientos`,
-pero sus datos son sintéticos y la falta de conexión del formulario es
-deliberada mientras el backend no esté activado. No use datos reales.
+El [apartado 5](#5-bolsas-de-trabajo-recorrido-de-presentación) explica el
+recorrido de Bolsa y sus límites. Las referencias de Contratación temporal
+anteriores a este corte se conservan abajo como historial de sus pruebas.
 
 ## Disponible para enseñar — 10 de septiembre de 2026
 
@@ -178,8 +177,9 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.
 |---|---|
 | Contratación temporal | Recorrido real de desarrollo descrito en el apartado 4, con recibos y persistencia. |
 | Cuadro y detalle de expedientes de Contratación temporal | La base del servidor conserva 52 expedientes sintéticos; bandeja y detalle consultables mediante el acceso privado preparado por Sistemas. |
-| Gestión interna de Bolsas | Pantallas de presentación y componentes reales todavía sin ensamblar como gestión completa. Consulte el estado de cada opción en el apartado 5. |
-| Consulta pública de convocatorias | Listado, filtros, detalle y documentos cuando el servicio público esté habilitado. Compruebe el aviso de la fuente; no permite tramitar una candidatura personal. |
+| Gestión interna de Bolsas | Cuadro, ficha de candidatos y acciones de la presentación integrada en `main`. El menú solo ofrece las capacidades habilitadas para la sesión. Consulte el apartado 5 antes de registrar una actuación sintética. |
+| Mi bolsa, área personal | Consulta de participaciones propias, situación y último llamamiento; algunas acciones muestran recibo si el servidor las confirma. Acceso con identidad de candidato habilitada para la presentación. |
+| Consulta pública de bolsas y convocatorias | Listados y detalles minimizados sin identidad. Un documento de ejemplo no son unas bases aprobadas ni permite tramitar una candidatura personal. |
 | Otros módulos del portal | Solo están disponibles si el servidor los habilita para su perfil. No se consideran terminados por aparecer en la portada. |
 
 No utilice datos de personas reales, documentos de identidad, teléfonos,
@@ -197,10 +197,10 @@ correos ni expedientes reales en ninguno de estos recorridos de desarrollo.
    antes de abrirla desde otro equipo.
 3. Utilice el certificado correspondiente a su función. Recursos Humanos e
    Intervención usan certificados y perfiles de navegador separados.
-4. Espere a que el portal compruebe los módulos disponibles. Entre desde
-   **Inicio del portal** en **Contratación temporal**. Abra el expediente
-   existente para consultar o presentar el caso; use **Nueva petición**
-   únicamente cuando se haya acordado crear otro caso sintético.
+4. Espere a que el portal compruebe los módulos disponibles. Para Bolsa,
+   abra **Gestión de Bolsas → Bolsas y candidatos**. Para Contratación temporal,
+   entre desde **Inicio del portal** en ese módulo y consulte el expediente
+   sintético indicado por quien presenta.
 
 La conexión exige un certificado de cliente válido. Si el navegador indica
 que falta el certificado o no reconoce el servidor, pida ayuda a Sistemas:
@@ -209,6 +209,10 @@ no omita la advertencia de seguridad ni cambie la dirección para sortearla.
 El perfil y los permisos los determina el servidor. Escribir otro nombre de
 perfil en la dirección, cambiar una referencia o seleccionar un perfil de
 presentación no concede permisos reales.
+
+La persona candidata utiliza su propio acceso a **Mi área personal**. No use
+el certificado ni la sesión de RRHH para enseñar «Mi bolsa»: se mostrarían
+competencias distintas y no se verificaría el aislamiento de la ficha propia.
 
 ### Consultar la zona pública
 
@@ -251,8 +255,9 @@ Cerrar una pestaña no revoca por sí solo un certificado.
   como preferencias para otra sesión.
 - **Avisos** muestra los avisos accesibles. Un guion o un mensaje de fuente
   no disponible no equivale a «cero asuntos pendientes».
-- **Ayuda** abre una explicación del portal. **Cerrar** permite volver a la
-  pantalla sin realizar una actuación.
+- El botón **«?»** del portal RRHH abre la ayuda de la vista actual. **Cerrar**
+  devuelve a la pantalla sin registrar una actuación; no hay un bloque de
+  texto de ayuda permanente en esa superficie.
 
 Si el panel de Bolsa no carga, no suponga que ha perdido todos los permisos
 del portal: la disponibilidad de Contratación temporal se comprueba por
@@ -507,60 +512,102 @@ Después de cerrar o recargar puede tener que introducir de nuevo sus datos.
 La guía contiene el ejemplo y la comprobación del reinicio; no reinicie ni
 recree el servidor por su cuenta.
 
-## 5. Bolsas de trabajo: estado de todas las opciones
+## 5. Bolsas de trabajo: recorrido de presentación
 
-El menú organiza 17 vistas en diez grupos. La tabla distingue la pantalla
-escrita de la función realmente utilizable en la versión de referencia.
-Las opciones de presentación no sustituyen al recorrido real del apartado 4.
+### RRHH: consultar una bolsa y actuar sobre una candidatura
 
-| Opción del menú | Uso y estado en esta edición |
-|---|---|
-| Elaboración y borradores | Tiene un formulario de guardado real separado de la DEMO, pero su recorrido completo no está habilitado en el entorno descrito. No dé un borrador por guardado sin confirmación del servicio. |
-| Convocatorias, bases y calendario | Presentación de configuración y publicación. No acredita aprobación, firma ni publicación administrativa de unas bases. |
-| Solicitudes y admisión | Presentación de revisión, admisión y subsanación de candidaturas a Bolsa. No es el alta real de una petición de personal de Contratación temporal. |
-| Revisión de méritos | Presentación de méritos sintéticos. No registra una valoración administrativa real de una persona. |
-| Alegaciones | Presentación de revisión y resolución. No presenta ni notifica una alegación real. |
-| Importación Convoca | Simula lotes ya incluidos en la presentación. No procesa un archivo del equipo ni concilia personas con un sistema corporativo. |
-| Llamamientos automáticos según bases y Reglamento | Asistente general de presentación en cuatro pasos. La vía real escrita bloquea la continuación tras confirmar la propuesta; no ofrece el llamamiento corporativo completo. |
-| Contratos, ceses y reincorporaciones | Presentación. No registra un contrato, un cese o una reincorporación reales desde esta pantalla. |
-| Reglas y versiones | Presentación de reglas. No cambia las reglas autorizadas del recorrido real. |
-| Baremación y ranking | Presentación de cálculo y ordenación. No publica una lista oficial ni una puntuación administrativa. |
-| Portal de consulta para candidatos | Presentación de una consulta minimizada. No es una sesión personal operativa para consultar la posición real o datos privados. |
-| Cuadro de mando para dirección | Pantalla y consulta de datos escritas, pero todavía sin conectar en el entorno descrito. Sus indicadores DEMO no representan actividad real. |
-| Estadísticas y explotación de datos | Presentación de agregados. No se ofrece como informe real sobre personas o expedientes. |
-| Generación y firma de documentos | Presentación de plantillas y circuito de firma. No acredita firma, cotejo ni custodia jurídica. El informe real de desarrollo se obtiene en Contratación temporal y lleva su aviso sin validez jurídica. |
-| Correo y mensajería | Presentación de canales y envíos. No envía correo ni acredita recepción. Es distinta del registro real de aviso local de Contratación temporal. |
-| Auditoría y trazabilidad | Pantalla de presentación. Los hechos persistentes del recorrido real no convierten esta vista en un historial operativo completo. |
-| Configuración, roles y permisos | Presentación de administración. Cambiar un ejemplo no concede permisos reales ni modifica la seguridad del servidor. |
+1. Entre en **Gestión de Bolsas → Bolsas y candidatos** y abra el **Cuadro de
+   bolsas**. La tabla reúne categoría, vigencia, totales por situación y
+   llamamientos en curso. Una fila sin datos no significa que se hayan borrado
+   candidaturas: compruebe el estado de carga y los filtros.
+2. Elija una bolsa para abrir **Candidatos**. Consulte el orden calculado, el
+   estado y, cuando exista, el último llamamiento. El filtro por situación y la
+   búsqueda sirven para localizar la candidatura sin alterar su posición. El
+   documento se muestra enmascarado cuando corresponde; no copie datos
+   personales a una nota libre.
+3. Abra la ficha de la candidatura. La pestaña **Histórico** y los bloques de
+   contactos y situación distinguen qué se registró, cuándo y por quién. Si la
+   pantalla ofrece **Pausar**, **Reactivar** o **Excluir**, revise la causa, el
+   justificante y la persona validadora exigidos antes de confirmar. Una
+   solicitud o un cambio solo existe cuando el servidor devuelve su recibo.
+4. Para una necesidad de cobertura, use **Nuevo llamamiento** desde la bolsa o
+   la vista de llamamientos que ofrezca su sesión. Revise puesto, destino,
+   jornada, propuesta de orden, versiones y plazo de la regla mostrada. El
+   servidor calcula la prelación: cambiar una fila de la tabla no selecciona a
+   otra persona. Distinga propuesta, borrador, contacto, respuesta y
+   resolución; cada una requiere su propia confirmación.
+5. Si se muestran **Ofertas publicadas**, revise centro, fechas y plazo de
+   disposición antes de publicar una oferta sintética. Al vencer el plazo
+   configurado, vuelva a consultar la propuesta vigente antes de confirmar una
+   adjudicación o el paso a llamamiento directo. El estado **Pendiente de
+   resolver** significa que RRHH aún debe decidir.
 
-### Explorar la presentación de llamamientos
+La pantalla agrupa información y evita reconstruir el orden y los contactos en
+hojas separadas. Una tabla permite ver varios casos a la vez y la ficha
+conserva el detalle de cada uno. Los contadores, los estados escritos y el
+historial facilitan localizar la siguiente acción, pero no reemplazan la
+lectura de las bases ni la competencia de RRHH. Las entradas del menú dependen
+del permiso y de la capacidad realmente conectada; una entrada visible o una
+pantalla de presentación no acreditan por sí solas una actuación guardada.
 
-Desde la presentación, entre en **Bolsas de trabajo → Llamamientos** y siga
-el asistente: elegir necesidad, revisar la propuesta, configurar y revisar
-la preparación. Sirve para conocer la disposición y el vocabulario de la
-pantalla. Sus recibos y efectos siguen siendo DEMO.
+**Otras opciones del menú.** Elaboración, convocatorias, solicitudes, méritos,
+alegaciones, importación, reglas, baremación, estadísticas, documentos,
+comunicaciones, auditoría y configuración reúnen consultas y pantallas con
+alcances distintos. Siga el estado y el recibo de cada operación concreta. Ver
+una pantalla no significa que se hayan publicado bases, importado un lote
+corporativo, firmado un documento, enviado una comunicación o cambiado un
+permiso. La vista de auditoría tampoco sustituye el registro protegido del
+servidor.
 
-En acceso real, un mensaje de «detalle no disponible» tras confirmar una
-propuesta no autoriza a avanzar a configuración o comunicación. No cambie
-al modo DEMO para completar aparentemente esa operación.
+### Persona candidata: consultar «Mi bolsa»
 
-### Buscar una convocatoria pública
+Con la identidad sintética de candidato preparada por Sistemas, entre en **Mi
+área personal → Mi bolsa**. La consulta muestra únicamente las participaciones
+vinculadas a esa identidad. Cada ficha puede mostrar categoría, versión y
+vigencia de la bolsa, orden inicial dentro de su instantánea y última situación
+registrada. **Orden inicial** no promete la posición futura: la prelación
+depende de la versión y de las reglas aplicables. El catálogo de campos puede
+ocultar un dato; no interprete su ausencia como cero o como una decisión
+administrativa.
 
-Cuando esté habilitada la zona `/bolsa/`:
+| Lo que aparece | Cómo leerlo |
+| --- | --- |
+| Disponible, No disponible o Disponible desde fecha | Situación de esa participación en Bolsa; la fecha indicada no equivale a un nuevo llamamiento. |
+| Trabajando o Pendiente de incorporación | Estado comunicado a Bolsa; «pendiente» todavía no acredita relación de servicio. |
+| Renuncia o Excluido | Situación registrada para esa participación; consulte su fecha y el cauce de revisión aplicable. |
+| Último llamamiento por correo | Fecha, canal y resultado registrado. «Enviado» no prueba por sí solo entrega, lectura o aceptación. |
+| Llamamiento abierto | La pantalla indica el vencimiento y el modo: **RRHH confirmará la respuesta** o **Respuesta firme**. Elija la respuesta admitida y conserve el recibo; una renuncia justificada exige la causa y el justificante previstos. |
+| Solicitud de pausa o reactivación | Puede quedar **pendiente de RRHH**. El recibo confirma el registro de la solicitud, no su aprobación. |
+| Oferta publicada | **Me ofrezco** manifiesta disposición para esa oferta. Su recibo no adjudica el puesto; consulte después si está abierta, pendiente de RRHH, resuelta o adjudicada a usted. |
 
-1. Revise el aviso de la fuente para saber si está consultando una
-   presentación.
-2. Busque por texto y use los filtros de tipo, categoría, estado o plazo.
-   Puede limpiar los filtros y recorrer las páginas de resultados.
-3. Abra el detalle de la convocatoria y consulte su descripción, requisitos,
-   plazos, publicación y documentos asociados.
-4. Abra solo los documentos que la propia ficha ofrezca. Un archivo rotulado
-   DEMO no es una base aprobada.
-5. Si no hay resultados, compruebe los filtros. Si hay un error de servicio,
-   la consulta no ha confirmado que no existan convocatorias.
+Cuando se ofrece confirmar un contacto propio, revise primero la información
+mostrada y confirme solo si es correcta. Una incidencia de conexión después de
+pulsar una acción exige consultar el resultado o reintentar **la misma**
+operación según indique la pantalla; cambiar datos o abrir otra solicitud puede
+producir un conflicto. Los formularios sin confirmar no se conservan al cerrar
+la pestaña.
 
-Este listado no registra inscripciones, no comunica una selección y no
-muestra la posición privada de una persona candidata.
+### Consulta pública y reglas del ejercicio
+
+En la consulta pública de bolsas se muestran solo campos minimizados, como
+orden y documento enmascarado; no se abre la ficha privada del candidato. La
+consulta de convocatorias permite filtrar, abrir detalles y examinar documentos
+ofrecidos por la propia ficha. Un estado vacío puede deberse a filtros; un
+error de servicio no demuestra que no existan convocatorias.
+
+Las reglas todavía pendientes de decisión de RRHH están en un **catálogo de
+ejemplo**, identificado como tal. Entre sus ejemplos están el orden por
+puntuación y acta, la lista cerrada o rotatoria, la reposición tras un
+contrato, las causas de situación y los plazos de disposición. Son parámetros
+revisables y versionados; el rótulo **Regla de ejemplo** no les da validez
+administrativa. El personal usuario no debe cambiar una fecha o una causa para
+convertir una simulación en una regla aprobada.
+
+El recorrido de presentación tampoco acredita firma legal, envío y entrega
+corporativos, plazo legal, nombramiento eficaz ni incorporación. La
+autenticación con certificado identifica a la persona ante la aplicación; no
+firma documentos. Las capturas antiguas de este manual muestran cortes
+anteriores y no prueban las funciones descritas en esta actualización.
 
 ## 6. Recibos y mensajes: cómo actuar
 
@@ -600,6 +647,11 @@ que la actuación ha finalizado.
 - El portal no utiliza cookies ni almacenamiento web para conservar
   sesiones, expedientes o preferencias. Los datos confirmados permanecen en
   el servidor, no en una copia local del navegador.
+- El servidor comprueba el permiso y el ámbito de cada consulta o cambio;
+  acceder con certificado no concede por sí solo la función de RRHH. Los
+  cambios confirmados conservan recibo e historia, y la auditoría registra
+  quién actuó y cuándo según su autoridad. Use la ficha y los recibos para
+  revisar el resultado; no trate una captura de pantalla como auditoría.
 - La falta de nombres o contactos en un recibo de selección es intencionada.
   No intente reconstruir identidades desde referencias ni consultar
   expedientes ajenos.
@@ -611,13 +663,14 @@ que la actuación ha finalizado.
 
 ## 8. Ayuda y accesibilidad
 
-Use **Ayuda** en el menú o en el pie del portal para abrir la explicación
-contextual. La ayuda de Bolsa incluye preguntas frecuentes, un audio servido
-por el propio portal y su transcripción. Puede leer el texto sin reproducir
-el audio.
+En el portal de RRHH, pulse el botón **«?»** para abrir la explicación
+contextual en un diálogo. El botón tiene un nombre accesible para lectores de
+pantalla; el texto de ayuda se muestra al abrirlo, sin ocupar espacio fijo en
+la vista de trabajo. La ayuda de Bolsa incluye preguntas frecuentes y una
+transcripción que puede leerse sin reproducir audio.
 
-Ese contenido explica el asistente general de Bolsa; no constituye una
-confirmación de que sus cuatro pasos estén habilitados en operación real.
+Ese contenido explica el recorrido visible de Bolsa; no confirma por sí solo
+que cada operación esté habilitada para la sesión actual.
 Para el recorrido disponible de Contratación temporal, consulte el apartado
 4, el [manual de RRHH](../manual_rrhh/README.md) y la
 [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).

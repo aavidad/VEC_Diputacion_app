@@ -1,12 +1,137 @@
 # Manual mantenido del programador de VEC
 
-## Estado técnico vigente — 23 de septiembre de 2026
+## Guía de desarrollo — `main@7247682cb` (28 de septiembre de 2026)
 
-Base contrastada: `e73792989220c69e5aeb61e39d6d7f488b816bc4`. Este apartado
-describe el código integrado; la instalación, los recorridos conservados y la
-publicación se acreditan por separado en [Estado del proyecto](../../ESTADO_PROYECTO.md)
-y la [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md). Los cortes fechados
-inferiores conservan antecedentes y no actualizan por sí solos este estado.
+Esta guía describe el árbol integrado en `main` en ese hash. Para saber qué
+está instalado, publicado o probado de extremo a extremo, consulte el
+[estado del proyecto](../../ESTADO_PROYECTO.md) y la
+[guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md). Una carpeta, un
+manifiesto o una prueba aislada no convierten una capacidad en operativa.
+El [índice de API Go](LEEME.md) es generado: para actualizar sus firmas y
+comentarios, cambie la documentación del código y ejecute
+`python3 scripts/generar_manual_programador.py`. Su texto introductorio no
+reemplaza esta guía mantenida; el generador aún necesita sincronizar esa
+introducción con el estado actual antes de regenerar el índice completo.
+
+### Dónde va cada cambio
+
+| Pieza | Código integrado | Responsabilidad |
+| --- | --- | --- |
+| Dominio | `internal/modules/<modulo>/domain`, `internal/vec/domain` | Estados, invariantes y decisiones puras; sin HTTP, SQL ni proveedores. |
+| Aplicación | `internal/modules/<modulo>/application`, `internal/vec/application` | Casos de uso que coordinan reglas y puertos; una misma regla sirve a todos los canales. |
+| Puertos | `internal/modules/<modulo>/ports`, `internal/vec/ports` | Contratos y DTO mínimos entre propietarios; no contienen lógica de transporte. |
+| Adaptadores | `internal/modules/<modulo>/adapters`, `internal/vec/adapters` | Traducción HTTP, PostgreSQL, documentos y proveedores concretos. |
+| Composición | `internal/app/bootstrap`, `cmd/vec-server`, `cmd/vec-publico`, `cmd/vec-interno` | Selección explícita de adaptadores, dependencias, rutas y superficies de cada ejecutable. |
+| Interfaz | `web/static/portal-empleado`, `web/static/bolsa` | Vistas y clientes HTTP que consumen contratos publicados; no deciden permisos. |
+
+La dependencia apunta hacia el caso de uso y el dominio. El adaptador
+implementa el puerto que necesita la aplicación; la composición inyecta la
+implementación. Esto permite probar decisiones sin servidor y sustituir una
+dependencia de infraestructura sin copiar las reglas en cada canal. No todo
+paquete antiguo sigue exactamente esta disposición: antes de mover código,
+compruebe el propietario y el contrato real.
+
+### Módulos, persona y datos
+
+El núcleo contiene el [manifiesto de módulo](../../internal/vec/domain/types.go)
+y su [registro de aplicación](../../internal/vec/application/service.go).
+La [composición](../../internal/app/bootstrap/bootstrap.go) registra los
+módulos; el [catálogo web](../../web/static/portal-empleado/portal-catalogo-modulos.js)
+lee `/api/vec/modules` para construir navegación. El registro y el menú
+describen la capacidad: sus rutas, permisos, persistencia y dependencias se
+conectan expresamente. Añadir un módulo exige código revisado, composición y,
+si procede, migraciones y despliegue; no hay carga dinámica ni instalador
+genérico de plugins.
+
+Cada módulo conserva sus reglas y datos. Contratación temporal coordina
+referencias y puertos; Bolsa conserva convocatorias, candidaturas, orden y
+llamamientos; Personal conserva relaciones de servicio, ocupación e
+incorporación. Una integración nueva pide una proyección autorizada al dueño
+del dato y no consulta ni escribe tablas ajenas. El
+[ContextoActor](../../internal/vec/domain/contexto_actor.go) enlaza la persona
+común con referencias opacas de candidato o empleado, con versión y vigencia.
+Una persona externa puede ser candidata sin ser empleada; una cuenta o un
+certificado tampoco prueban una relación de servicio.
+
+Los catálogos y reglas que gobiernan una actuación pertenecen a su autoridad
+y versión. Una mejora concreta de este diseño es poder cambiar una definición
+admitida conservando qué versión usó cada expediente, sin reinterpretar su
+historia. El [contrato de módulos](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026)
+detalla el límite entre extensiones existentes y ampliaciones aún previstas.
+
+### Seguridad, recibos e historia
+
+La [matriz de roles y ámbitos](../portal_vec/matriz_roles_y_ambitos.md)
+define denegación por defecto: las operaciones conectadas a V3 exigen una
+concesión central positiva, exacta y vigente para actor, acción, recurso,
+ámbito, finalidad, perfil, campos y obligaciones. El perfil o un botón visible
+no conceden autoridad. La frontera obtiene el actor del canal validado y el
+caso de uso revalida la decisión antes del efecto; una dependencia caída no
+abre acceso. Compruebe la composición concreta antes de afirmar que una ruta
+usa V3: el requisito de producto no acredita por sí mismo todos los caminos.
+
+Para escrituras durables, el caso de uso y su adaptador deben conservar la
+versión esperada, la clave de idempotencia, la auditoría, el recibo, la
+historia de solo adición y, cuando haya intercambio, la salida pendiente.
+Un reintento con la misma clave recupera el resultado admitido sin crear otra
+operación; una clave reutilizada con material distinto se rechaza. La
+autorización se vuelve a comprobar dentro de la transacción que produce el
+efecto. Las [reglas de PostgreSQL](../portal_vec/seguridad_persistencia_postgresql.md)
+exigen roles técnicos propios y permisos mínimos por propietario. Estas
+garantías se prueban por recorrido; no se deducen de una interfaz o de un
+repositorio en memoria.
+
+### Idiomas y clientes
+
+Los textos y formatos compartidos usan
+[i18n Go](../../internal/shared/i18n/i18n.go) y los
+[catálogos del portal](../../web/static/portal-empleado/portal-i18n.js).
+Los manifiestos describen nombres y navegación, pero no sustituyen el
+catálogo ni dan permisos. La localización de toda la superficie sigue siendo
+parcial: al añadir un estado, mensaje, documento o ayuda, agregue su clave y
+pruébela con el traductor real. La ayuda de usuario se abre desde «?»; no
+disperse instrucciones permanentes por las pantallas.
+
+El cliente web existente llama a la API de los casos de uso compuestos.
+`cmd/` contiene ejecutables de servidor y herramientas operativas concretas;
+no constituye hoy un cliente CLI general del expediente. Tampoco hay un
+cliente de escritorio integrado. Si se crean esos canales, deberán adaptar
+entrada y salida a los mismos casos de uso, con identidad, autorización,
+auditoría y resultado equivalentes: poner las reglas en la aplicación evita
+que web, escritorio y CLI den respuestas distintas.
+
+### Cómo verificar un incremento
+
+1. Localice el propietario, la fuente funcional y el caso de uso existente;
+   conserve las referencias opacas y las versiones. Añada un puerto solo si
+   hay una dependencia concreta que lo consume.
+2. Pruebe la decisión del dominio o aplicación y el adaptador afectado. Para
+   una escritura, cubra denegación, versión obsoleta, replay, material
+   distinto con la misma clave e historia conservada.
+3. Ejecute la [puerta local](../../scripts/verificar_calidad.sh) cuando el
+   cambio de código lo requiera: formato, módulos Go, pruebas, `go vet`,
+   pruebas web y verificadores de superficies. La
+   [CI](../../.github/workflows/ci.yml) añade puertas de secretos, artefactos
+   y PostgreSQL focales. Un cambio solo documental se comprueba con enlaces y
+   `git diff --check`.
+4. Para afirmar persistencia o disponibilidad, pruebe navegador → API →
+   autorización → aplicación → PostgreSQL → recibo, y recupere tras reinicio.
+   Separe código integrado, SQL instalado, recorrido verificado y publicación.
+   Los cambios de SQL, identidad, criptografía o datos personales requieren
+   dos revisiones independientes de la versión final.
+
+Use solo datos sintéticos. Mantenga secretos y configuración privada fuera de
+Git. Los borradores, avisos y recibos técnicos no acreditan firma, entrega
+legal, incorporación ni confirmación de un sistema externo.
+
+## Estado técnico del 23 de septiembre de 2026 — histórico
+
+Base contrastada en aquel corte: `e73792989220c69e5aeb61e39d6d7f488b816bc4`.
+Este apartado conserva la fotografía técnica del 23/09, no el estado vigente.
+La instalación, los recorridos posteriores y la publicación se acreditan en
+[Estado del proyecto](../../ESTADO_PROYECTO.md), incluido el cierre para la
+presentación del 26/09, y en la [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md).
+Las cifras y pendientes de la tabla siguiente pertenecen solo a esa fecha.
 
 **Ningún módulo es todavía un programa terminado y aceptado en producción.**
 El plan consensuado y aprobado el 23/09 exige requisitos completos en la
@@ -15,13 +140,13 @@ historia, i18n, accesibilidad, recuperación, operación y restauración. Una
 capacidad que espera una decisión de RRHH o un contrato externo debe identificarse
 como «implementada, pendiente de validación externa» solo si su implementación
 está realmente probada; un puerto aislado no equivale a un conector terminado.
-La prioridad siguiente es el corte conjunto de identidad/contexto común y
+La prioridad siguiente en aquel corte era el conjunto de identidad/contexto común y
 primera composición productiva, seguido de contacto VEC, Contratación y Bolsa.
 
-| Superficie | Integrado y comprobable en este árbol | Límite actual |
+| Superficie | Integrado y comprobable en el corte del 23/09 | Límite observado entonces |
 | --- | --- | --- |
-| Contratación temporal | `internal/modules/contrataciontemporal/` contiene dominio, aplicación, puertos y adaptadores; el perfil de desarrollo compone el recorrido con PostgreSQL y Bolsa. [Estado](../../ESTADO_PROYECTO.md) conserva ≈6/8 pasos y 15/19 pantallas funcionales. | Faltan efectos institucionales de firma/formalización, correo y plazos, confirmación externa GINPIX, identidad/roles completos y composición productiva. Los seis documentos demostrados son borradores. |
-| Bolsa | `internal/modules/bolsa/` posee convocatorias, candidaturas, orden y llamamientos; [Estado](../../ESTADO_PROYECTO.md) registra B1–B10, B12 y B13 en desarrollo (12/14 del corte de gestión). | B11 es parcial; B14 depende de decisiones pendientes. B15 y S1–S7 forman parte del alcance de sustitución de CONVOCA y siguen abiertos. La cifra 12/14 no mide toda Bolsa. |
+| Contratación temporal | `internal/modules/contrataciontemporal/` contiene dominio, aplicación, puertos y adaptadores; el perfil de desarrollo compone el recorrido con PostgreSQL y Bolsa. La fotografía de entonces estimaba ≈6/8 pasos y 15/19 pantallas funcionales. | Faltan efectos institucionales de firma/formalización, correo y plazos, confirmación externa GINPIX, identidad/roles completos y composición productiva. Los seis documentos demostrados son borradores. |
+| Bolsa | `internal/modules/bolsa/` posee convocatorias, candidaturas, orden y llamamientos; la fotografía de entonces registraba B1–B10, B12 y B13 en desarrollo (12/14 del corte de gestión). | B11 es parcial; B14 depende de decisiones pendientes. B15 y S1–S7 forman parte del alcance de sustitución de CONVOCA y siguen abiertos. La cifra 12/14 no mide toda Bolsa. |
 | Servidor interno productivo | [cmd/vec-interno](../../cmd/vec-interno/main.go) usa [composicion/interna](../../internal/app/composicion/interna/raiz.go). | `NuevoServidor` devuelve las 14 dependencias productivas pendientes después de validar configuración; no construye listener. [bootstrap](../../internal/app/bootstrap/bootstrap.go) separa el perfil de desarrollo y también rechaza la composición productiva no disponible. |
 
 La arquitectura aplica la regla `domain` → `application` + `ports` →
@@ -214,12 +339,22 @@ libro de runtime quedan fuera de este commit. Esta integración de código no
 acredita un cierre visible ni completa el objetivo 13.
 
 
+### Incorporación y recuperación — antecedente del 10 de septiembre de 2026
+
+Este bloque conserva la evidencia previa a la recuperación posterior. [Estado
+del proyecto](../../ESTADO_PROYECTO.md) acredita después los objetivos 11 y 12
+tras reiniciar aplicación y PostgreSQL, con Auth13 ya instalada; su primer
+apartado recoge el cierre de presentación del 26/09. Los `GET 503` y la falta
+de instalación de Auth13 describen este corte histórico; no son instrucciones
+de operación vigentes.
+
 Base del cierre funcional `00558603dbd3040eacb03cb511f3b840be241b10`. Una sola línea:
 `trabajo/ct-app-llamamiento-b4a-20260905`; producto publicado en
-`integracion/ct-producto-ligero-20260821`. El desarrollo activo está en el
-servidor y conserva trabajo pendiente ajeno. No programe en la raíz histórica
-local ni copie implementaciones entre ramas. Antes de integrar, inventaríe
-ramas, worktrees, diferencias y equivalencias de parches.
+`integracion/ct-producto-ligero-20260821`. En aquel momento, el desarrollo activo
+estaba en el servidor y conservaba trabajo pendiente ajeno. La instrucción del
+corte era no programar en la raíz histórica local ni copiar implementaciones
+entre ramas; antes de integrar, había que inventariar ramas, worktrees,
+diferencias y equivalencias de parches.
 
 La capacidad cerrada es resolución manual sintética y acceso posterior a
 los documentos. La API registra con autorización y PostgreSQL, devuelve
@@ -240,19 +375,19 @@ de negocio. El formulario real registró solicitud `7`/expediente `8`, periodo
 alta, relación y ocupación en Personal, y una incorporación, raíz y dos estados
 en CT, con auditorías y outbox en ambos lados.
 
-Separar integración de evidencia visible: tras reiniciar aplicación y
+En aquel corte se separó integración de evidencia visible: tras reiniciar aplicación y
 PostgreSQL, la recuperación quedó bloqueada por `GET 503` en la restauración
 histórica Auth12. Auth13 tiene dos revisiones `GO` y regresión verde en
-`ef6704a6`, pero no está instalada. No hay ciclo completo acreditado ni debe
-repetirse la escritura. `firma_oficial` y `eficacia_administrativa` siguen en
-`false`; la métrica queda en cinco pasos completos y partes de 6/7/8 hasta la
-recuperación. GINPIX es el siguiente corte existente aún sin cierre visible.
+`ef6704a6`, pero todavía no estaba instalada. No había ciclo completo acreditado
+y no debía repetirse la escritura. `firma_oficial` y `eficacia_administrativa`
+seguían en `false`; la métrica de entonces quedaba en cinco pasos completos y
+partes de 6/7/8 hasta la recuperación. GINPIX era el siguiente corte existente
+aún sin cierre visible.
 
-Consulte [operación actual](../manual_sistemas/README.md#entorno-privado-vigente).
-El cierre funcional citado no identifica por sí solo el artefacto servido
-actualmente, ni lo hace el HEAD del árbol compartido con trabajo pendiente.
-Pruebas focales al terminar el hito; documentación no requiere
-repetir pruebas de producto ya acreditadas.
+El cierre funcional citado no identificaba por sí solo el artefacto servido en
+ese momento, ni lo hacía el HEAD del árbol compartido con trabajo pendiente.
+Las pruebas focales correspondían al final de aquel hito; este registro
+documental no repite pruebas de producto ya acreditadas.
 
 ## Contexto y recorridos anteriores
 
