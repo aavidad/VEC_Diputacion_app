@@ -17,7 +17,7 @@ import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260928-rrhh-cache
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-rrhh-cache-unificada-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260928-rrhh-cache-unificada-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260928-rrhh-cache-unificada-v1";
@@ -1032,6 +1032,7 @@ const controlador = crearControladorPortal({
 async function inicializar() {
   aplicarTextosPortal(document);
   aplicarIdiomaDocumento(document);
+  instalarSelectorIdiomaPortal(document);
   instalarValidacionI18n(document);
   configurarInicioInstitucional();
   controlador.restaurarPreferencias();
