@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
+import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   CLAVE, EXPEDIENTE, PUBLICACIONES_PROPUESTA, seleccion, recibo,
@@ -115,7 +117,7 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     assert.match(raiz.innerHTML, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
   }
   await raiz.archivo(archivoCorreo());
-  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado en este equipo/u); assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
+  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado en este equipo/u); assert.match(raiz.innerHTML, /Fecha y hora en que llegó la respuesta \(Madrid\)/u);
   await raiz.enviar("respuesta", { ...declaracion(), organizacion_ref: "org:inventada",
     expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
     comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",
@@ -128,7 +130,7 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     correo_sha256: HUELLA, recibida_en: "2026-09-05T08:30:00Z",
   }]);
   const confirmacion = confirmaciones.at(-1);
-  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u")); assert.match(confirmacion.advertencia, /no cambia la candidatura/iu); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, /no el correo ni su custodia/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   assert.doesNotMatch(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
   assert.match(raiz.innerHTML, /Estado de la respuesta y del circuito/u);
   assert.match(raiz.innerHTML, /Aceptación declarada en el correo; recibo recuperable registrado/u);
@@ -138,6 +140,50 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   await raiz.enviar("respuesta", declaracion());
   assert.equal(solicitudes.length, 1);
   cerrar();
+});
+
+test("respuesta genera una clave interna y convierte la hora de Madrid sin cambiar el recibo", async () => {
+  const raiz = raizPrueba(), solicitudes = [];
+  const clave = "123e4567-e89b-42d3-a456-426614174009";
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
+    solicitudes.push(s); return justificante(s);
+  } }, { generarClaveIdempotencia: () => clave });
+  const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="respuesta"[\s\S]*?<\/form>/u)[0];
+  assert.match(raiz.innerHTML, /Registrar respuesta del candidato/u);
+  assert.match(formulario, /Ha aceptado/u);
+  assert.match(formulario, /Ha renunciado/u);
+  assert.doesNotMatch(formulario, /data-ct-llamamiento-clave="respuesta"|Huella SHA-256 declarada/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", { ...declaracion(), clave_idempotencia: "", recibida_en: "2026-09-05T10:30" });
+  assert.equal(solicitudes[0].clave_idempotencia, clave);
+  assert.equal(solicitudes[0].recibida_en, "2026-09-05T08:30:00Z");
+  assert.match(raiz.innerHTML, /Siguiente acción/u);
+});
+
+test("hora civil de Madrid distingue verano e invierno y rechaza saltos ambiguos", () => {
+  assert.equal(fechaRespuestaMadridUTC("2026-01-15T10:30"), "2026-01-15T09:30:00Z");
+  assert.equal(fechaRespuestaMadridUTC("2026-09-05T10:30"), "2026-09-05T08:30:00Z");
+  assert.throws(() => fechaRespuestaMadridUTC("2026-03-29T02:30"), TypeError);
+  assert.throws(() => fechaRespuestaMadridUTC("2026-10-25T02:30"), TypeError);
+});
+
+test("hora ambigua muestra una acción clara y no registra la respuesta", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async () => { llamadas += 1; } });
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", { ...declaracion(), recibida_en: "2026-10-25T02:30" });
+  assert.equal(llamadas, 0);
+  assert.match(raiz.innerHTML, /se repitió por el cambio horario/u);
+});
+
+test("respuesta en inglés conserva campos obligatorios y explica el límite del correo", async () => {
+  const raiz = raizPrueba();
+  await abrirRespuesta(raiz, {}, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" });
+  assert.match(raiz.innerHTML, /Record the candidate/u);
+  assert.match(raiz.innerHTML, /They accepted/u);
+  assert.match(raiz.innerHTML, /They declined/u);
+  assert.match(raiz.innerHTML, /Date and time the reply arrived \(Madrid\)/u);
+  assert.match(raiz.innerHTML, /does not store the email or evidence custody/u);
 });
 
 test("respuesta exige comunicación confirmada, archivo, datos y confirmación explícita", async () => {
@@ -151,7 +197,7 @@ test("respuesta exige comunicación confirmada, archivo, datos y confirmación e
     confirmarOperacion: (datos) => !datos.datos.respuesta,
   });
   await otra.enviar("respuesta", declaracion());
-  assert.match(otra.innerHTML, /Calcule la huella desde un .eml/u);
+  assert.match(otra.innerHTML, /Adjunte un .eml de hasta 2 MB/u);
   await otra.archivo(archivoCorreo());
   await otra.enviar("respuesta", { ...declaracion(), respuesta: "expiracion_gobernada" });
   await otra.enviar("respuesta", declaracion());
@@ -167,12 +213,12 @@ test("correo limita tamaño antes de leer, vacía huella anterior y falla cerrad
     if (archivo) archivo.arrayBuffer = () => assert.fail("no debe leer");
     await raiz.archivo(archivo);
     await raiz.enviar("respuesta", declaracion());
-    assert.equal(llamadas, 0); assert.match(raiz.innerHTML, /name="correo_sha256" value=""/u);
+    assert.equal(llamadas, 0); assert.match(raiz.innerHTML, /name="correo_sha256" type="hidden" value=""/u);
   }
   const raiz = raizPrueba();
   await abrirRespuesta(raiz, {}, { criptografia: null });
   await raiz.archivo(archivoCorreo());
-  assert.match(raiz.innerHTML, /No se pudo calcular la huella/u); assert.match(raiz.innerHTML, /name="correo_sha256" value=""/u);
+  assert.match(raiz.innerHTML, /No se pudo calcular la huella/u); assert.match(raiz.innerHTML, /name="correo_sha256" type="hidden" value=""/u);
 });
 
 test("huella admite exactamente 2 MiB y descarta bytes locales al terminar", async () => {
@@ -181,7 +227,7 @@ test("huella admite exactamente 2 MiB y descarta bytes locales al terminar", asy
   const bytes = new Uint8Array(2 * 1024 * 1024).fill(65);
   const esperada = createHash("sha256").update(bytes).digest("hex");
   await raiz.archivo({ name: "limite.eml", size: bytes.length, arrayBuffer: async () => bytes.buffer });
-  assert.match(raiz.innerHTML, new RegExp(`name="correo_sha256" value="${esperada}"`, "u")); assert.ok(bytes.every((b) => b === 0));
+  assert.match(raiz.innerHTML, new RegExp(`name="correo_sha256" type="hidden" value="${esperada}"`, "u")); assert.ok(bytes.every((b) => b === 0));
 });
 
 test("huella en curso bloquea envío y desmontar descarta su resolución tardía", async () => {

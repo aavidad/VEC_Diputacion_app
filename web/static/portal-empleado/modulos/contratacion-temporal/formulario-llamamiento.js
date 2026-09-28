@@ -66,6 +66,22 @@ function esRespuesta(operacion) { return OPERACIONES[operacion] === OPERACION_RE
 function esResolucion(operacion) { return OPERACIONES[operacion] === OPERACION_RESOLUCION; }
 function esEventoPlazo(operacion) { return OPERACIONES[operacion] === OPERACION_EVENTO_PLAZO; }
 const OPERACIONES_OPCIONALES = Object.freeze(["propuesta", "contacto", "causa"]);
+// El control muestra hora civil de Madrid; el contrato HTTP exige un instante UTC.
+// Rechazamos la hora repetida del cambio de otoño en vez de elegir una sin avisar.
+export function fechaRespuestaMadridUTC(valor) {
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/u.test(valor)) throw new TypeError();
+  const normalizada = valor.length === 16 ? `${valor}:00` : valor;
+  const base = Date.parse(`${normalizada}Z`);
+  if (!Number.isFinite(base) || new Date(base).toISOString().slice(0, 19) !== normalizada) throw new TypeError();
+  const partes = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const coincidencias = [-2, -1, 0, 1, 2].map((horas) => new Date(base + horas * 3600000)).filter((instante) => {
+    const p = Object.fromEntries(partes.formatToParts(instante).map(({ type, value }) => [type, value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}` === normalizada;
+  });
+  if (coincidencias.length !== 1) throw new TypeError("hora_madrid_no_univoca");
+  return coincidencias[0].toISOString().replace(/\.000Z$/u, "Z");
+}
 function nuevoPaso() {
   return { valores: {}, solicitud: null, recibo: null, ocupado: false, bloqueado: false,
     calculando: false, lecturaCorreo: 0,
@@ -318,11 +334,16 @@ export function montarFormularioLlamamiento({
     const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) && paso.solicitud !== null;
     let solicitud;
     try {
+      if (esRespuesta(operacion) && !paso.valores.clave_idempotencia) {
+        paso.valores.clave_idempotencia = generarClaveIdempotencia() ?? "";
+      }
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
         contrato.campos.map((campo) => [
           campo, campo === "version_esperada" || campo === "version_comunicacion_esperada"
             ? Number(paso.valores[campo])
-            : (campo === "recibida_en" || campo === "instante_en") && !paso.valores[campo]?.endsWith("Z")
+            : campo === "recibida_en" && esRespuesta(operacion) && !paso.valores[campo]?.endsWith("Z")
+              ? fechaRespuestaMadridUTC(paso.valores[campo])
+              : campo === "instante_en" && !paso.valores[campo]?.endsWith("Z")
               ? `${paso.valores[campo]}${paso.valores[campo]?.length === 16 ? ":00" : ""}Z`
               : paso.valores[campo],
         ]),
@@ -336,8 +357,10 @@ export function montarFormularioLlamamiento({
         .some((anterior) => anterior.solicitud?.clave_idempotencia === solicitud.clave_idempotencia)) {
         throw new TypeError("la operación necesita su propia clave");
       }
-    } catch {
-      paso.mensaje = ["contacto", "causa", "expiracion"].includes(operacion) ? `llamamiento_${operacion}_validacion`
+    } catch (error) {
+      paso.mensaje = esRespuesta(operacion) && error?.message === "hora_madrid_no_univoca"
+        ? "llamamiento_respuesta_hora_no_univoca"
+        : ["contacto", "causa", "expiracion"].includes(operacion) ? `llamamiento_${operacion}_validacion`
         : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_validacion"
         : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_validacion"
         : operacion === "propuesta" ? "llamamiento_propuesta_validacion" : operacion === "siguiente" ? "llamamiento_siguiente_validacion"
@@ -367,7 +390,7 @@ export function montarFormularioLlamamiento({
           ...(esRespuesta(operacion) ? {
             respuesta: t("llamamiento_respuesta_" + solicitud.respuesta),
             correo: solicitud.correo_ref, huella: solicitud.correo_sha256,
-            recibida: solicitud.recibida_en,
+            recibida: fecha.format(new Date(solicitud.recibida_en)),
           } : {}),
         }),
         referencia: solicitud.expediente_ref,
