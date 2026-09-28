@@ -7,6 +7,7 @@ import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { renderizarViasExpediente } from "./vias-expediente.js";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -746,6 +747,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
   return `${renderizarIncidencia(expediente, t, estado.navegacion)}
     ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null, resolverBolsa)}
     ${renderizarFases(expediente, t)}
+    ${renderizarViasExpediente(estado, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}
     ${renderizarCambiosExpediente(expediente)}

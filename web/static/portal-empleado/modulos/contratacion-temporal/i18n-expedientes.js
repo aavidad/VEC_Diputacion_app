@@ -1,6 +1,16 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
 
+import {
+  MENSAJES_VIAS_EXPEDIENTE_ES,
+  MENSAJES_VIAS_EXPEDIENTE_EN,
+} from "./i18n-vias-expediente.js";
+
+// Sobrescrituras para el idioma inglés del catálogo común; la selección del
+// idioma pertenece al montaje del portal, no a esta vista.
+export const SOBRESCRITURAS_VIAS_EXPEDIENTE_EN = MENSAJES_VIAS_EXPEDIENTE_EN;
+
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
+  ...MENSAJES_VIAS_EXPEDIENTE_ES,
   centro_visible: "Centro {ambito} · {numero}",
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",

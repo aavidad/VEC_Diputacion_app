@@ -1081,3 +1081,189 @@ button.ct-exp-chip:focus-visible {
   color: var(--portal-muted);
   font-size: 0.8125rem;
 }
+
+/* Entradas de consulta de la vía de cobertura del expediente. */
+.ct-vias-expediente {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.ct-vias-cabecera h3 {
+  margin: 0 0 4px;
+  font-size: 1.0625rem;
+}
+
+.ct-vias-cabecera p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.875rem;
+}
+
+.ct-vias-entradas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ct-via-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-via-panel[data-ct-via="sae"] {
+  border-left-color: var(--portal-aviso);
+}
+
+.ct-via-resumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 50px;
+  padding: 12px 16px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 650;
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-via-resumen::-webkit-details-marker,
+.ct-via-ayuda > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ct-via-panel[open] .ct-via-indicador {
+  transform: rotate(180deg);
+}
+
+.ct-via-cuerpo {
+  display: grid;
+  gap: 16px;
+  max-height: min(65vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+
+.ct-via-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ct-via-estado,
+.ct-via-nota {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+}
+
+.ct-via-estado {
+  padding: 10px 12px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-via-ayuda {
+  flex: none;
+  position: relative;
+}
+
+.ct-via-ayuda > summary {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  color: var(--portal-azul-700);
+  font-weight: 700;
+  list-style: none;
+  cursor: pointer;
+}
+
+.ct-via-ayuda p {
+  max-width: 42ch;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-100);
+  font-size: 0.8125rem;
+}
+
+.ct-via-bloque {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+}
+
+.ct-via-bloque h4 {
+  margin: 0 0 10px;
+  font-size: 0.9375rem;
+}
+
+.ct-via-datos {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.ct-via-dato {
+  display: grid;
+  grid-template-columns: minmax(0, 45%) minmax(0, 55%);
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--portal-borde);
+  font-size: 0.8125rem;
+}
+
+.ct-via-dato:first-child {
+  border-top: 0;
+}
+
+.ct-via-dato dt {
+  color: var(--portal-muted);
+}
+
+.ct-via-dato dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ct-via-pendiente {
+  white-space: normal;
+}
+
+.ct-via-documentos {
+  columns: 2;
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 0.8125rem;
+}
+
+.ct-via-documentos li {
+  break-inside: avoid;
+  margin-bottom: 6px;
+}
+
+.ct-via-bloque .boton-secundario {
+  margin-top: 12px;
+}
+
+@media (max-width: 780px) {
+  .ct-vias-entradas { grid-template-columns: minmax(0, 1fr); }
+  .ct-via-documentos { columns: 1; }
+}
