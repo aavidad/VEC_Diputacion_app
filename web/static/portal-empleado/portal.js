@@ -3,7 +3,7 @@ import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=202609
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260928-ppt-c3-v3";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260928-ppt-c3-v3";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-ppt-c3-v3";
+import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-ppt-c3-v3";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260928-ppt-c3-v3";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260928-ppt-c3-v3";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260928-ppt-c3-v3";
@@ -258,7 +258,7 @@ function renderizarContenidoAyuda(contexto = null) {
     return { ...renderizarAyudaContratacionTemporal(ayuda, escaparHTML), instalar: enfocarAyuda };
   }
   if (estado.vista === "portal" && esPerfilRRHH()) {
-    const ayuda = AYUDA_PORTAL_BOLSA;
+    const ayuda = AYUDA_PORTAL_RRHH;
     return {
       titulo: ayuda.titulo,
       contenido: `<section class="ayuda-contextual" tabindex="-1"><p>${escaparHTML(ayuda.introduccion)}</p><h3>${escaparHTML(traducirPortal("ayuda_pasos"))}</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="faq-ayuda"><h3>${escaparHTML(traducirPortal("ayuda_preguntas"))}</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details class="transcripcion-ayuda"><summary>${escaparHTML(traducirPortal("ayuda_transcripcion"))}</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`,
@@ -724,8 +724,12 @@ function renderizar() {
   const moduloActivo = moduloActivoDeVista(estado.vista);
   porId("migas-pan").textContent = migas;
   porId("titulo-vista").textContent = titulo;
-  document.querySelector('[data-accion="ayuda"]')?.setAttribute("aria-label",
-    traducirPortal("ayuda_abrir_contextual", { contexto: titulo }));
+  const etiquetaAyuda = traducirPortal("ayuda_abrir_contextual", { contexto: titulo });
+  document.querySelectorAll('[data-accion="ayuda"]').forEach((control) => {
+    control.setAttribute("aria-label", etiquetaAyuda);
+  });
+  const ayudaLateral = document.querySelector('.enlace-lateral[data-accion="ayuda"]');
+  if (ayudaLateral) ayudaLateral.hidden = estado.vista === "portal" && esPerfilRRHH();
   porId("navegacion-bolsa").hidden = moduloActivo !== "bolsa";
   actualizarNavegacionModulos();
 
@@ -780,6 +784,9 @@ function renderizar() {
     portal: renderizarPortal,
   };
   contenedor.innerHTML = (renderizadores[estado.vista] || renderizarPortal)();
+  contenedor.querySelectorAll('[data-accion="ayuda"]').forEach((control) => {
+    control.setAttribute("aria-label", etiquetaAyuda);
+  });
   aplicarBarrasDinamicas(contenedor);
 }
 

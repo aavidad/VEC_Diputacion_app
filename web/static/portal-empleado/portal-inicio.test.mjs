@@ -411,8 +411,11 @@ test("la vigencia de Bolsa usa la fecha de la lectura y no llama sustituida a un
 
 test("las claves del cuadro se traducen con el traductor común", () => {
   const traducirEN = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const variables = { actual: "2", total: "3", contexto: "Cases" };
   for (const clave of Object.keys(MENSAJES_INICIO_RRHH_EN)) {
-    assert.equal(traducirEN(clave), MENSAJES_INICIO_RRHH_EN[clave]);
+    const esperado = MENSAJES_INICIO_RRHH_EN[clave].replace(/\{([a-z_]+)\}/gu,
+      (_coincidencia, variable) => variables[variable] ?? "");
+    assert.equal(traducirEN(clave, variables), esperado);
   }
   const html = crearVistaInicioPortal({
     encabezadoVista: () => "",
