@@ -57,7 +57,7 @@ func NuevoManejadorConsultaReciboRespuesta(e EjecutorConsultaReciboRespuesta) (h
 		}
 		q, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil || len(q) != 3 || len(q["organizacion_ref"]) != 1 || len(q["expediente_ref"]) != 1 || len(q["comunicacion_ref"]) != 1 {
-			fallo(http.StatusBadRequest, "peticion_no_permitida", nil)
+			fallo(http.StatusBadRequest, "peticion_no_permitida", err)
 			return
 		}
 		s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: q.Get("organizacion_ref"), ExpedienteRef: q.Get("expediente_ref"), ComunicacionRef: q.Get("comunicacion_ref")}

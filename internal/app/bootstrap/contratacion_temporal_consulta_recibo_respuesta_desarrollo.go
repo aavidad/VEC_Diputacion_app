@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -229,6 +230,7 @@ var _ postgresct.ProveedorConsultaReciboRespuesta = (*proveedorConsultaReciboRes
 func nuevaCorrelacionConsultaReciboRespuesta() string {
 	aleatorio := make([]byte, 16)
 	if _, err := rand.Read(aleatorio); err != nil {
+		slog.Error("fallo al generar correlacion de consulta de recibo CT", "causa", err)
 		return "corr_no_disponible"
 	}
 	return "corr_" + hex.EncodeToString(aleatorio)
