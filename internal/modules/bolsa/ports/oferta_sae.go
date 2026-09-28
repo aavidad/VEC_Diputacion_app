@@ -43,6 +43,13 @@ type LectorCatalogoOfertaSAE interface {
 	CatalogoOfertaSAEVigente(context.Context) (dominiobolsa.CatalogoOfertaSAE, error)
 }
 
+// AcreditadorPersonaOfertaSAE consulta la autoridad canónica de Persona por
+// contrato. No crea Persona ni infiere empleo; la ausencia o ambigüedad deniega.
+// Solo recibe referencias protegidas de una candidatura ya autorizada.
+type AcreditadorPersonaOfertaSAE interface {
+	AcreditarVinculoPersonaSAE(context.Context, dominiovec.ContextoActor, string, dominiobolsa.CandidatoOfertaSAE) (dominiobolsa.AcreditacionPersonaSAE, error)
+}
+
 type SolicitudPrepararOfertaSAE struct {
 	Vinculo            dominiovec.VinculoAutenticacionActorV2
 	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2

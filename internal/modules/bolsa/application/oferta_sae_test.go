@@ -61,7 +61,7 @@ func TestOfertaSAESinCatalogoPublicadoNoPreparaNiAutoriza(t *testing.T) {
 	resultado, vinculo := solicitudSAEContextoPrueba(t, ahora)
 	cat, ambito, repo := &catalogoSAEInexistente{}, &ambitoSAEPrueba{}, &repoSAENoLlamado{}
 	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
-	servicio, err := NuevoServicioOfertaSAE(ambito, cat, autorizador, repo, func() time.Time { return ahora })
+	servicio, err := NuevoServicioOfertaSAE(ambito, cat, autorizador, repo, nil, func() time.Time { return ahora })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,10 +81,42 @@ func TestOfertaSAENoConsultaSinAmbitoAcreditado(t *testing.T) {
 	resultado, vinculo := solicitudSAEContextoPrueba(t, ahora)
 	ambito, repo := &ambitoSAEPrueba{err: dominiovec.ErrAutorizacionDenegada}, &repoSAENoLlamado{}
 	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
-	servicio, _ := NuevoServicioOfertaSAE(ambito, &catalogoSAEInexistente{}, autorizador, repo, func() time.Time { return ahora })
+	servicio, _ := NuevoServicioOfertaSAE(ambito, &catalogoSAEInexistente{}, autorizador, repo, nil, func() time.Time { return ahora })
 	_, err := servicio.Consultar(context.Background(), puertosbolsa.SolicitudConsultarOfertaSAE{Vinculo: vinculo, ResultadoContexto: resultado,
 		OfertaRef: "oferta-sae:001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()})
 	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || ambito.llamadas != 1 || autorizador.llamadas != 0 || repo.llamadas != 0 {
 		t.Fatalf("denegación: err=%v ámbito=%d autorizador=%d repo=%d", err, ambito.llamadas, autorizador.llamadas, repo.llamadas)
+	}
+}
+
+func TestOfertaSAEResolucionSinAutoridadPersonaQuedaPendienteSinEfecto(t *testing.T) {
+	ahora := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	resultado, vinculo := solicitudSAEContextoPrueba(t, ahora)
+	ambito, repo := &ambitoSAEPrueba{}, &repoSAENoLlamado{}
+	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
+	servicio, _ := NuevoServicioOfertaSAE(ambito, &catalogoSAEInexistente{}, autorizador, repo, nil, func() time.Time { return ahora })
+	q := puertosbolsa.SolicitudActuarOfertaSAE{Vinculo: vinculo, ResultadoContexto: resultado, OfertaRef: "oferta-sae:001",
+		Cambio: dominiobolsa.CambioOfertaSAE{Accion: dominiobolsa.AccionSAEResolver, Clave: "clave-resolver-0001", VersionEsperada: 5,
+			CandidatoElegidoRef: "candidato:externo:001"}, Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
+	if _, err := servicio.Actuar(context.Background(), q); !errors.Is(err, dominiobolsa.ErrOfertaSAEConciliacionPendiente) ||
+		ambito.llamadas != 0 || autorizador.llamadas != 0 || repo.llamadas != 0 {
+		t.Fatalf("sin autoridad Persona: err=%v ámbito=%d autorizador=%d repo=%d", err, ambito.llamadas, autorizador.llamadas, repo.llamadas)
+	}
+	q.Cambio.Accion = dominiobolsa.AccionSAEConciliarPersona
+	if _, err := servicio.Actuar(context.Background(), q); !errors.Is(err, dominiobolsa.ErrOfertaSAEConciliacionPendiente) {
+		t.Fatalf("conciliación sin autoridad: %v", err)
+	}
+	q.Cambio.Accion = dominiobolsa.AccionSAERegistrarCandidato
+	q.Cambio.Candidato = &dominiobolsa.CandidatoOfertaSAE{Referencia: "candidato:externo:001", PersonaRef: "per_0123456789abcdefghijkl",
+		NombreProtegidoRef: "dato:nombre:001", DocumentoProtegidoRef: "dato:documento:001", ContactoProtegidoRef: "dato:contacto:001"}
+	if _, err := servicio.Actuar(context.Background(), q); !errors.Is(err, dominiobolsa.ErrOfertaSAEInvalida) || autorizador.llamadas != 0 || repo.llamadas != 0 {
+		t.Fatalf("per_ cliente aceptado: %v", err)
+	}
+	q.Cambio.Accion = dominiobolsa.AccionSAEResolver
+	q.Cambio.Candidato = nil
+	q.Cambio.Acreditacion = &dominiobolsa.AcreditacionPersonaSAE{PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 1,
+		EvidenciaRef: "evidencia:inventada", VerificadaEn: ahora.Add(-time.Minute), ValidaHasta: ahora.Add(time.Minute)}
+	if _, err := servicio.Actuar(context.Background(), q); !errors.Is(err, dominiobolsa.ErrOfertaSAEInvalida) || repo.llamadas != 0 {
+		t.Fatalf("acreditación del cliente aceptada: %v", err)
 	}
 }

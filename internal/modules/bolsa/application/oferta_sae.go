@@ -21,14 +21,18 @@ type ServicioOfertaSAE struct {
 	catalogos   puertosbolsa.LectorCatalogoOfertaSAE
 	autorizador puertosbolsa.AutorizadorSituacionParticipacionV3
 	repositorio puertosbolsa.RepositorioOfertaSAE
+	personas    puertosbolsa.AcreditadorPersonaOfertaSAE
 	reloj       func() time.Time
 }
 
-func NuevoServicioOfertaSAE(a puertosbolsa.ResolutorAmbitoOfertaSAE, c puertosbolsa.LectorCatalogoOfertaSAE, v3 puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioOfertaSAE, reloj func() time.Time) (*ServicioOfertaSAE, error) {
+// personas puede quedar nil mientras no exista un adaptador a la autoridad
+// canónica: preparación, registro y desierta siguen; conciliación y resolución
+// devuelven un pendiente nominal antes de cualquier efecto.
+func NuevoServicioOfertaSAE(a puertosbolsa.ResolutorAmbitoOfertaSAE, c puertosbolsa.LectorCatalogoOfertaSAE, v3 puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioOfertaSAE, personas puertosbolsa.AcreditadorPersonaOfertaSAE, reloj func() time.Time) (*ServicioOfertaSAE, error) {
 	if nulo(a) || nulo(c) || nulo(v3) || nulo(r) || reloj == nil {
 		return nil, puertosbolsa.ErrOfertaSAENoDisponible
 	}
-	return &ServicioOfertaSAE{ambitos: a, catalogos: c, autorizador: v3, repositorio: r, reloj: reloj}, nil
+	return &ServicioOfertaSAE{ambitos: a, catalogos: c, autorizador: v3, repositorio: r, personas: personas, reloj: reloj}, nil
 }
 
 func (s *ServicioOfertaSAE) Preparar(ctx context.Context, q puertosbolsa.SolicitudPrepararOfertaSAE) (puertosbolsa.ReciboOfertaSAE, error) {
@@ -77,27 +81,40 @@ func (s *ServicioOfertaSAE) Preparar(ctx context.Context, q puertosbolsa.Solicit
 func (s *ServicioOfertaSAE) Actuar(ctx context.Context, q puertosbolsa.SolicitudActuarOfertaSAE) (puertosbolsa.ReciboOfertaSAE, error) {
 	if !s.solicitudValida(ctx, q.Vinculo, q.ResultadoContexto, q.Correlacion, q.MotivoAutorizacion) ||
 		!refOfertaSAEValida(q.OfertaRef) || !claveSAEValida(q.Cambio.Clave) || q.Cambio.VersionEsperada < 1 ||
-		!accionSAEValida(q.Cambio.Accion) {
+		!accionSAEValida(q.Cambio.Accion) || q.Cambio.Acreditacion != nil ||
+		(q.Cambio.Accion == dominiobolsa.AccionSAERegistrarCandidato &&
+			(q.Cambio.Candidato == nil || q.Cambio.Candidato.PersonaRef != "" || q.Cambio.Candidato.Acreditacion != nil || q.Cambio.Candidato.EstadoConciliacion != "")) {
 		return puertosbolsa.ReciboOfertaSAE{}, dominiobolsa.ErrOfertaSAEInvalida
+	}
+	cambio := q.Cambio
+	if cambio.Accion == dominiobolsa.AccionSAEConciliarPersona || cambio.Accion == dominiobolsa.AccionSAEResolver {
+		if nulo(s.personas) {
+			return puertosbolsa.ReciboOfertaSAE{}, dominiobolsa.ErrOfertaSAEConciliacionPendiente
+		}
+		acreditacion, err := s.acreditarCandidato(ctx, q)
+		if err != nil {
+			return puertosbolsa.ReciboOfertaSAE{}, err
+		}
+		cambio.Acreditacion = &acreditacion
 	}
 	actor := q.ResultadoContexto.Contexto
 	ambito, err := s.ambitos.ResolverAmbitoOfertaSAE(ctx, actor)
 	if err != nil || !ambito.Validar() {
 		return puertosbolsa.ReciboOfertaSAE{}, dependenciaSAE(err)
 	}
-	cambio := q.Cambio
 	cambio.ActorRef = actor.PersonaRef
 	cambio.ReciboRef = "recibo:oferta-sae:" + sufijoSAE(q.OfertaRef, cambio.Clave)
 	cambio.Instante = s.reloj().UTC().Truncate(time.Microsecond)
 	// El instante de recepción no forma parte de la huella semántica: repetir
 	// la misma petición tras reiniciar debe conservar el mismo material.
 	materialHash, err := hashSAE(struct {
-		OfertaRef, Accion, Clave, NumeroSAE, FechaEnvio string
-		VersionEsperada                                 int64
-		Candidato                                       *dominiobolsa.CandidatoOfertaSAE
-		Valoracion                                      *dominiobolsa.ValoracionOfertaSAE
-	}{q.OfertaRef, cambio.Accion, cambio.Clave, cambio.NumeroSAE, cambio.FechaEnvio,
-		cambio.VersionEsperada, cambio.Candidato, cambio.Valoracion})
+		OfertaRef, Accion, Clave, NumeroSAE, FechaEnvio, CandidatoElegidoRef string
+		VersionEsperada                                                      int64
+		Candidato                                                            *dominiobolsa.CandidatoOfertaSAE
+		Valoracion                                                           *dominiobolsa.ValoracionOfertaSAE
+		Acreditacion                                                         *dominiobolsa.AcreditacionPersonaSAE
+	}{q.OfertaRef, cambio.Accion, cambio.Clave, cambio.NumeroSAE, cambio.FechaEnvio, cambio.CandidatoElegidoRef,
+		cambio.VersionEsperada, cambio.Candidato, cambio.Valoracion, cambio.Acreditacion})
 	if err != nil {
 		return puertosbolsa.ReciboOfertaSAE{}, puertosbolsa.ErrOfertaSAENoDisponible
 	}
@@ -115,6 +132,42 @@ func (s *ServicioOfertaSAE) Actuar(ctx context.Context, q puertosbolsa.Solicitud
 		return puertosbolsa.ReciboOfertaSAE{}, puertosbolsa.ErrOfertaSAENoDisponible
 	}
 	return resultado, nil
+}
+
+func (s *ServicioOfertaSAE) acreditarCandidato(ctx context.Context, q puertosbolsa.SolicitudActuarOfertaSAE) (dominiobolsa.AcreditacionPersonaSAE, error) {
+	if !strings.HasPrefix(q.Cambio.CandidatoElegidoRef, "candidato:") || len(q.Cambio.CandidatoElegidoRef) > 256 {
+		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEInvalida
+	}
+	oferta, err := s.Consultar(ctx, puertosbolsa.SolicitudConsultarOfertaSAE{Vinculo: q.Vinculo,
+		ResultadoContexto: q.ResultadoContexto, OfertaRef: q.OfertaRef, Correlacion: q.Correlacion, MotivoAutorizacion: q.MotivoAutorizacion})
+	if err != nil {
+		return dominiobolsa.AcreditacionPersonaSAE{}, err
+	}
+	var candidato *dominiobolsa.CandidatoOfertaSAE
+	for i := range oferta.Candidatos {
+		if oferta.Candidatos[i].Referencia == q.Cambio.CandidatoElegidoRef {
+			candidato = &oferta.Candidatos[i]
+			break
+		}
+	}
+	if candidato == nil {
+		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEInvalida
+	}
+	if q.Cambio.Accion == dominiobolsa.AccionSAEResolver && candidato.EstadoConciliacion != dominiobolsa.ConciliacionSAEAcreditada {
+		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEConciliacionPendiente
+	}
+	acreditacion, err := s.personas.AcreditarVinculoPersonaSAE(ctx, q.ResultadoContexto.Contexto, q.OfertaRef, *candidato)
+	if err != nil {
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+			return dominiobolsa.AcreditacionPersonaSAE{}, err
+		}
+		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEConciliacionPendiente
+	}
+	if !acreditacion.VigenteEn(s.reloj().UTC().Truncate(time.Microsecond)) ||
+		(q.Cambio.Accion == dominiobolsa.AccionSAEResolver && candidato.PersonaRef != acreditacion.PersonaRef) {
+		return dominiobolsa.AcreditacionPersonaSAE{}, dominiobolsa.ErrOfertaSAEConciliacionPendiente
+	}
+	return acreditacion, nil
 }
 
 func (s *ServicioOfertaSAE) Consultar(ctx context.Context, q puertosbolsa.SolicitudConsultarOfertaSAE) (dominiobolsa.OfertaSAE, error) {
@@ -181,7 +234,7 @@ func refOfertaSAEValida(s string) bool {
 }
 func accionSAEValida(s string) bool {
 	switch s {
-	case dominiobolsa.AccionSAEEnviar, dominiobolsa.AccionSAERegistrarCandidato, dominiobolsa.AccionSAERecibirCandidatos,
+	case dominiobolsa.AccionSAEEnviar, dominiobolsa.AccionSAERegistrarCandidato, dominiobolsa.AccionSAEConciliarPersona, dominiobolsa.AccionSAERecibirCandidatos,
 		dominiobolsa.AccionSAEIniciarSeleccion, dominiobolsa.AccionSAEValorar, dominiobolsa.AccionSAEResolver, dominiobolsa.AccionSAEDeclararDesierta:
 		return true
 	}
