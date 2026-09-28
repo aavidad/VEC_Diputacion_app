@@ -68,27 +68,44 @@ func (t *RegistroRespuestasRecibidasPostgreSQL) RegistrarRespuestaRecibida(ctx c
 	if err := s.Validar(); err != nil {
 		return vacio, err
 	}
-	a, err := t.proveedor.AutorizarRegistroRespuestaRecibida(ctx, s)
+	recurso, err := RecursoRegistroRespuestaRecibida(s)
 	if err != nil {
 		return vacio, normalizarErrorRespuestaRecibida(ctx, err)
 	}
-	recurso, err := RecursoRegistroRespuestaRecibida(s)
 	huella, errHuella := recurso.HuellaContextoAutorizacionSHA256()
-	r := a.ResumenCapacidad()
-	if err != nil || errHuella != nil || a.ValidarEstructura() != nil ||
-		r.Operacion() != AccionRegistroRespuestaRecibida || r.EfectoRef() != s.ExpedienteRef ||
-		r.EfectoHuellaSHA256() != huella || r.AudienciaConsumo() != AudienciaRegistroComunicacionLlamamiento {
+	if errHuella != nil {
 		return vacio, ports.ErrOperacionRespuestaRecibidaDenegada
 	}
 	contenido, err := json.Marshal(s)
 	if err != nil {
 		return vacio, ports.ErrSolicitudRespuestaRecibidaInvalida
 	}
-	recibo, err := t.registrar(ctx, s, contenido, a)
-	if err != nil {
-		return vacio, normalizarErrorRespuestaRecibida(ctx, err)
+	// Una serialización fallida certifica rollback y permite reintentar con
+	// autorización nueva. Un COMMIT incierto o un error de red no se reintenta.
+	for intento := 0; intento < 3; intento++ {
+		if err := ctx.Err(); err != nil {
+			return vacio, err
+		}
+		a, err := t.proveedor.AutorizarRegistroRespuestaRecibida(ctx, s)
+		if err != nil {
+			return vacio, normalizarErrorRespuestaRecibida(ctx, err)
+		}
+		r := a.ResumenCapacidad()
+		if a.ValidarEstructura() != nil ||
+			r.Operacion() != AccionRegistroRespuestaRecibida || r.EfectoRef() != s.ExpedienteRef ||
+			r.EfectoHuellaSHA256() != huella || r.AudienciaConsumo() != AudienciaRegistroComunicacionLlamamiento {
+			return vacio, ports.ErrOperacionRespuestaRecibidaDenegada
+		}
+		recibo, err := t.registrar(ctx, s, contenido, a)
+		if err == nil {
+			return recibo, nil
+		}
+		var pg *pgconn.PgError
+		if !errors.As(err, &pg) || pg.Code != "40001" || intento == 2 {
+			return vacio, normalizarErrorRespuestaRecibida(ctx, err)
+		}
 	}
-	return recibo, nil
+	return vacio, ports.ErrRespuestaRecibidaNoDisponible
 }
 
 func (t *RegistroRespuestasRecibidasPostgreSQL) registrar(ctx context.Context, s ports.SolicitudRegistrarRespuestaRecibida, contenido []byte, a puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.RespuestaRecibidaRegistrada, error) {
@@ -112,7 +129,7 @@ func (t *RegistroRespuestasRecibidasPostgreSQL) registrar(ctx context.Context, s
 		}
 	}()
 	var contenidoRecibo string
-	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.registrar_respuesta_recibida_rrhh_v1(
+	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.registrar_respuesta_recibida_rrhh_v2(
 		$1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text`,
 		string(contenido), secretos[0], secretos[1], secretos[2], secretos[3],
 		int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&contenidoRecibo)

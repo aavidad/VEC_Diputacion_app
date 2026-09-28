@@ -1,0 +1,4 @@
+# Orden causal para revisión e instalación controlada. No ejecutar automáticamente.
+# Requiere previamente AD3-104 y CT139, además de CT54/CT62.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000105_consumidor_consulta_comunicaciones_expediente_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000140_consulta_comunicaciones_expediente.up.sql

@@ -14,9 +14,10 @@ import (
 )
 
 type ejecutorRespuestaPrueba struct {
-	llamadas int
-	estado   string
-	err      error
+	llamadas     int
+	estado       string
+	err          error
+	claveDurable string
 }
 
 func (e *ejecutorRespuestaPrueba) Registrar(_ context.Context, s ports.SolicitudRegistrarRespuestaRecibida) (ports.RespuestaRecibidaRegistrada, error) {
@@ -24,8 +25,36 @@ func (e *ejecutorRespuestaPrueba) Registrar(_ context.Context, s ports.Solicitud
 	if e.err != nil {
 		return ports.RespuestaRecibidaRegistrada{}, e.err
 	}
+	if e.claveDurable != "" {
+		s.ClaveIdempotencia = e.claveDurable
+	}
 	return ports.RespuestaRecibidaRegistrada{Solicitud: s, Estado: e.estado, JustificanteRef: "respuesta:sintetica",
 		ReciboRef: "recibo:sintetico", AuditoriaRef: "auditoria:sintetica", RegistradaEn: s.RecibidaEn.Add(time.Minute)}, nil
+}
+
+func TestRespuestaRecibidaHTTPClaveOmitidaYLegacyRecuperanMismoRecibo(t *testing.T) {
+	const claveDurable = "e53cb792-4c62-4daf-8c80-d5d18521748a"
+	for _, clave := range []string{"", "11111111-1111-4111-8111-111111111111"} {
+		e := &ejecutorRespuestaPrueba{estado: ports.EstadoRespuestaRecibidaReplay, claveDurable: claveDurable}
+		h, err := NuevoManejadorRespuestaRecibida(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entrada := entradaRespuestaPrueba()
+		entrada.ClaveIdempotencia = clave
+		b, _ := json.Marshal(entrada)
+		r := httptest.NewRequest(http.MethodPost, RutaRegistroRespuestaRecibida, strings.NewReader(string(b)))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		var salida struct {
+			Data respuestaRecibidaSalidaJSON `json:"data"`
+		}
+		if w.Code != http.StatusOK || e.llamadas != 1 || json.Unmarshal(w.Body.Bytes(), &salida) != nil ||
+			salida.Data.ClaveIdempotencia != claveDurable || salida.Data.ReciboRef != "recibo:sintetico" {
+			t.Fatalf("clave %q: HTTP %d %s", clave, w.Code, w.Body.String())
+		}
+	}
 }
 
 func entradaRespuestaPrueba() respuestaRecibidaJSON {
@@ -60,6 +89,9 @@ func TestRespuestaRecibidaHTTPRegistroReplayYErrores(t *testing.T) {
 			if w.Code != caso.http || e.llamadas != 1 {
 				t.Fatalf("HTTP %d: %s", w.Code, w.Body.String())
 			}
+			if caso.nombre == "clave" && !strings.Contains(w.Body.String(), `"codigo":"contenido_respuesta_en_conflicto"`) {
+				t.Fatalf("409 semántico sin código claro: %s", w.Body.String())
+			}
 			if caso.err == nil {
 				var salida struct {
 					Data respuestaRecibidaSalidaJSON `json:"data"`
@@ -86,6 +118,7 @@ func TestRespuestaRecibidaHTTPNoAceptaAutoridadNiEntradaAmbigua(t *testing.T) {
 		{"query", func(r *http.Request, s *respuestaRecibidaJSON) { r.URL.RawQuery = "actor=x" }, ""},
 		{"version", func(r *http.Request, s *respuestaRecibidaJSON) { s.VersionComunicacionEsperada = 6 }, ""},
 		{"expiracion", func(r *http.Request, s *respuestaRecibidaJSON) { s.Respuesta = "expiracion_gobernada" }, ""},
+		{"clave legacy malformada", func(r *http.Request, s *respuestaRecibidaJSON) { s.ClaveIdempotencia = "cliente-invalido" }, ""},
 		{"precisión temporal no canónica", func(r *http.Request, s *respuestaRecibidaJSON) { s.RecibidaEn = "2026-09-05T10:00:00.0000001Z" }, ""},
 		{"duplicada", nil, `{"respuesta":"aceptacion","respuesta":"renuncia"}`},
 		{"campos ajenos", nil, `{"actor_ref":"actor:ajeno"}`},
