@@ -1,6 +1,6 @@
 /** Transporte de la configuración RRHH. La identidad y V3 se resuelven en el servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
+import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js?v=20260928-rrhh-plantillas-i18n-v3";
 
 export const RUTA_RRHH_PLANTILLAS = "/api/vec/contratacion-temporal/plantillas";
 export const RUTA_RRHH_PLANTILLAS_ENTRADAS = `${RUTA_RRHH_PLANTILLAS}/entradas`;
@@ -8,7 +8,8 @@ export const RUTA_RRHH_PLANTILLAS_PUBLICAR = `${RUTA_RRHH_PLANTILLAS}/publicar`;
 
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const RECIBO = /^recibo:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const MAXIMO_RESPUESTA = 17_000_000;
 const MAXIMO_PETICION = 256 * 1024;
 const t = crearTraductorContratacionTemporal(MENSAJES_RRHH_PLANTILLAS_ES);
@@ -66,14 +67,33 @@ export function validarConsultaPlantillas(valor) {
   };
 }
 
-export function validarRespuestaGuardadoPlantillas(valor, estadoEsperado = "borrador") {
-  if (!objeto(valor) || !objeto(valor.recibo) || !texto(valor.recibo.recibo_ref, 160)
+export function validarRespuestaGuardadoPlantillas(valor, solicitud, estadoEsperado, estadoHTTP) {
+  const operacion = estadoEsperado === "publicado" ? "publicar" : "editar";
+  const versionResultado = estadoEsperado === "publicado" || solicitud?.revision_esperada > 0
+    ? solicitud?.version_esperada : solicitud?.version_esperada + 1;
+  const revisionResultado = estadoEsperado === "publicado" ? solicitud?.revision_esperada
+    : solicitud?.revision_esperada === 0 ? 1 : solicitud?.revision_esperada + 1;
+  if (!objeto(solicitud) || !UUID.test(solicitud.clave_idempotencia)
+    || !entero(versionResultado, 1) || !entero(revisionResultado, 1)
+    || !objeto(valor) || !objeto(valor.recibo) || typeof valor.recibo.recibo_ref !== "string"
+    || valor.recibo.recibo_ref.length !== 43 || !RECIBO.test(valor.recibo.recibo_ref)
+    || valor.recibo.clave_idempotencia !== solicitud.clave_idempotencia
+    || valor.recibo.operacion !== operacion
+    || valor.recibo.version !== versionResultado || valor.recibo.revision !== revisionResultado
+    || !HUELLA.test(valor.recibo.catalogo_huella_sha256)
     || !instante(valor.recibo.registrado_en)
-    || !["registrado", "replay"].includes(valor.recibo.estado_replay)) {
+    || !(estadoHTTP === 201 && valor.recibo.estado_replay === "registrado"
+      || estadoHTTP === 200 && valor.recibo.estado_replay === "replay")) {
     throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true);
   }
-  const catalogo = validarCatalogoPlantillas(valor.catalogo);
-  if (catalogo.estado !== estadoEsperado) throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true);
+  let catalogo;
+  try { catalogo = validarCatalogoPlantillas(valor.catalogo); }
+  catch { throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true); }
+  if (catalogo.estado !== estadoEsperado || catalogo.version !== versionResultado
+    || catalogo.revision !== revisionResultado
+    || catalogo.huella_sha256 !== valor.recibo.catalogo_huella_sha256) {
+    throw new ErrorPlantillasRRHH("respuesta_incompatible", 0, true);
+  }
   return { catalogo, recibo: valor.recibo };
 }
 
@@ -169,7 +189,7 @@ export function crearClientePlantillasRRHH({ fetchImpl = globalThis.fetch, Heade
     if (metodo === "GET" ? respuesta.status !== 200 : ![200, 201].includes(respuesta.status)) {
       throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status, metodo === "POST");
     }
-    try { return await leerAcotado(respuesta, signal); }
+    try { return { datos: await leerAcotado(respuesta, signal), estado: respuesta.status }; }
     catch (error) {
       if (signal?.aborted) throw error;
       throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status, metodo === "POST");
@@ -177,15 +197,16 @@ export function crearClientePlantillasRRHH({ fetchImpl = globalThis.fetch, Heade
   }
   return Object.freeze({
     async consultar({ signal } = {}) {
-      return validarConsultaPlantillas(await solicitar(RUTA_RRHH_PLANTILLAS, "GET", undefined, signal));
+      const { datos } = await solicitar(RUTA_RRHH_PLANTILLAS, "GET", undefined, signal);
+      return validarConsultaPlantillas(datos);
     },
     async guardar(solicitud, { signal } = {}) {
       const respuesta = await solicitar(RUTA_RRHH_PLANTILLAS_ENTRADAS, "POST", validarSolicitud(solicitud), signal);
-      return validarRespuestaGuardadoPlantillas(respuesta);
+      return validarRespuestaGuardadoPlantillas(respuesta.datos, solicitud, "borrador", respuesta.estado);
     },
     async publicar(solicitud, { signal } = {}) {
       const respuesta = await solicitar(RUTA_RRHH_PLANTILLAS_PUBLICAR, "POST", validarSolicitudPublicacion(solicitud), signal);
-      return validarRespuestaGuardadoPlantillas(respuesta, "publicado");
+      return validarRespuestaGuardadoPlantillas(respuesta.datos, solicitud, "publicado", respuesta.estado);
     },
   });
 }
