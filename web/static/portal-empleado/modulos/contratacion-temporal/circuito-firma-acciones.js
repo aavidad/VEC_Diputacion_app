@@ -85,7 +85,7 @@ export function crearAccionesFirma({
 
   function textoError(error) {
     const clave = CLAVE_ERROR[error?.codigo] ?? "circuito_firma_error_generico";
-    return t(clave, { motivo: error?.motivo || error?.codigo || "" });
+    return t(clave);
   }
 
   async function ejecutar(contenedor, documento, orden, accion) {
