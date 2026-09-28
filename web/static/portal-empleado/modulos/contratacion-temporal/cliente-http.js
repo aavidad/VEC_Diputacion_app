@@ -19,6 +19,8 @@ import { crearConsultasRRHHClienteHTTP, RUTAS_CONSULTA_RRHH } from "./cliente-ht
 import { crearInformeJuridicoClienteHTTP, RUTA_PREPARACION_INFORME_JURIDICO } from "./cliente-http-informe-juridico.js";
 import { crearFiscalizacionClienteHTTP, RUTA_RESULTADOS_FISCALIZACION } from "./cliente-http-fiscalizacion.js";
 import { crearLlamamientoClienteHTTP, RUTAS_LLAMAMIENTO } from "./cliente-http-llamamiento.js";
+import { crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js";
+import { crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js";
 import { crearResolucionFormalizacionClienteHTTP, RUTA_RESOLUCION_FORMALIZACION } from "./cliente-http-resolucion-formalizacion.js";
 import { crearIncorporacionEjercicioClienteHTTP, RUTA_INCORPORACION_EJERCICIO } from "./cliente-http-incorporacion-ejercicio.js";
 import { crearFichaGINPIXClienteHTTP, RUTA_FICHA_GINPIX, NOMBRE_FICHA_GINPIX } from "./cliente-http-ficha-ginpix.js";
@@ -60,6 +62,8 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   ...RUTAS_CONSULTA_RRHH,
   catalogosAlta: RUTAS_ALTA_CONTRATACION_TEMPORAL.catalogosAlta,
   ...RUTAS_LLAMAMIENTO,
+  consultaReciboRespuesta: RUTA_CONSULTA_RECIBO_RESPUESTA,
+  consultaComunicacionesExpediente: RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
   resolucionFormalizacion: RUTA_RESOLUCION_FORMALIZACION,
   incorporacionEjercicio: RUTA_INCORPORACION_EJERCICIO,
   fichaGINPIX: RUTA_FICHA_GINPIX,
@@ -575,6 +579,8 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     cancelacion: crearClienteCancelacionHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     reincorporacionTitular: crearClienteReincorporacionRRHHHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
+    ...crearConsultaReciboRespuestaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
+    ...crearConsultaComunicacionesExpedienteClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     anotacionAdministrativa: crearClienteAnotacionAdministrativaHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),

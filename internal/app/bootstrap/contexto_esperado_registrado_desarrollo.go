@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"log"
 	"sync"
 
@@ -175,6 +176,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 	}
 	s.mu.Unlock()
 	if esperado.Validar() != nil || sesion == nil {
+		if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
+			return vacio, ports.ErrConsultaRRHHNoDisponible
+		}
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	holder := capacidad.contextoOperacion
@@ -186,11 +190,17 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		if err == nil && comun.Vinculo.ValidarPara(comun.Resultado) == nil &&
 			mismoContextoEsperadoRegistradoDesarrollo(esperado, comun.Resultado) {
 			holder.contexto = ports.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
+		} else if err != nil && rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) &&
+			(errors.Is(err, ports.ErrConsultaRRHHNoDisponible) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
+			holder.err = ports.ErrConsultaRRHHNoDisponible
 		} else {
 			holder.err = ports.ErrAutorizacionDenegada
 		}
 	}
 	datos, err := holder.contexto.Vinculo.Datos()
+	if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) && errors.Is(holder.err, ports.ErrConsultaRRHHNoDisponible) {
+		return vacio, ports.ErrConsultaRRHHNoDisponible
+	}
 	if holder.soporte != s || holder.err != nil || err != nil ||
 		holder.contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
 			AutenticacionRef: datos.AutenticacionRef,

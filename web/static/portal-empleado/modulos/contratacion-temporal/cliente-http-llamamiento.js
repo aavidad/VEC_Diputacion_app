@@ -7,6 +7,8 @@ import {
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
 } from "./contrato-llamamiento.js";
+import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js";
+import { RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE } from "./cliente-http-consulta-comunicaciones-expediente.js";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
@@ -53,6 +55,10 @@ export async function cargarPublicacionesFormalizacionDesarrollo({
   }
 }
 export function prefijoErrorLlamamiento(ruta) {
+  if (ruta.split("?")[0] === RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE)
+    return "api.contratacion_temporal.comunicacion_llamamiento.error.";
+  if (ruta.split("?")[0] === RUTA_CONSULTA_RECIBO_RESPUESTA)
+    return "api.contratacion_temporal.respuesta_recibida.error.";
   if (ruta === RUTAS_LLAMAMIENTO.propuestaFormalizacion) return "api.contratacion_temporal.propuesta_formalizacion.error.";
   if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento) {
     return "api.contratacion_temporal.seleccion_llamamiento.error.";
@@ -69,6 +75,8 @@ export function prefijoErrorLlamamiento(ruta) {
   return null;
 }
 export function conflictoLlamamientoValido(ruta, codigo) {
+  if (ruta === RUTAS_LLAMAMIENTO.respuestaRecibida)
+    return ["contenido_respuesta_en_conflicto", "version_en_conflicto"].includes(codigo);
   if (ruta === RUTAS_LLAMAMIENTO.propuestaFormalizacion)
     return ["version_en_conflicto", "clave_idempotencia_reutilizada", "resolucion_no_aceptada"].includes(codigo);
   if (ruta === RUTAS_LLAMAMIENTO.continuacionLlamamiento) return codigo === "clave_idempotencia_reutilizada";
@@ -120,7 +128,13 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
     registrarRespuestaRecibida(solicitud, opciones) {
       const entrada = validarSolicitudRespuestaRecibida(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.respuestaRecibida, entrada, opciones,
-        (respuesta) => validarReciboRespuestaRecibida(respuesta, entrada));
+        (respuesta, status) => {
+          const recibo = validarReciboRespuestaRecibida(respuesta, entrada);
+          if (recibo.estado !== (status === 201 ? "registrada_por_rrhh" : "replay_registrada_por_rrhh")) {
+            throw new TypeError("estado de respuesta recibida incompatible con HTTP");
+          }
+          return recibo;
+        });
     },
     registrarEventoPlazoLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudEventoPlazo(solicitud);

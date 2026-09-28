@@ -138,6 +138,11 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoResultadoCobertura           dominiovec.ReferenciaEntradaCatalogo
 	motivoAsignacion                   dominiovec.ReferenciaEntradaCatalogo
 	motivoInformeJuridico              dominiovec.ReferenciaEntradaCatalogo
+
+	instantaneaConsultaReciboRespuesta dominiovec.InstantaneaAutorizacion
+	motivoConsultaReciboRespuesta      dominiovec.ReferenciaEntradaCatalogo
+	instantaneaConsultaComunicaciones  dominiovec.InstantaneaAutorizacion
+	motivoConsultaComunicaciones       dominiovec.ReferenciaEntradaCatalogo
 	motivoSubsanacion                  dominiovec.ReferenciaEntradaCatalogo
 	motivoFirmaDocumento               dominiovec.ReferenciaEntradaCatalogo
 	ambitos                            ports.SelladorAmbitoIdempotencia

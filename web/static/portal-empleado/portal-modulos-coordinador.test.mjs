@@ -13,6 +13,13 @@ import {
   rutaDeVistaPortal,
   VISTA_PLANTILLAS_RRHH,
 } from "./portal-modulos-coordinador.js";
+import { crearPresentadorExpedientesContratacionTemporal } from "./modulos/contratacion-temporal/presentador-expedientes.js";
+import {
+  crearCuadroContratacionTemporalPresentacion,
+  crearExpedienteContratacionTemporalPresentacion,
+} from "./modulos/contratacion-temporal/datos-presentacion.js";
+import { renderizarModuloContratacionTemporal } from "./modulos/contratacion-temporal/vista-expedientes-render.js";
+import { MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./modulos/contratacion-temporal/i18n-expedientes.js";
 
 test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
   assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
@@ -793,6 +800,158 @@ test("CT interno se activa solo después de una consulta autorizada", async () =
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
   assert.equal(montajes, 1);
+});
+
+test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en ES/EN", async () => {
+  const referencia = "expediente:ct:sintetico:001";
+  const cuadro = crearCuadroContratacionTemporalPresentacion();
+  cuadro.demostracion = false;
+  cuadro.expedientes[0].expediente_ref = referencia;
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  expediente.demostracion = false;
+  expediente.expediente_ref = referencia;
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+
+  for (const [idioma, texto, navegacion, cabecera] of [
+    ["es-ES", "Expediente cargado.", "Cuadro de mando", "Fecha de registro"],
+    ["en-GB", "Case file loaded.", "Dashboard", "Date recorded"],
+  ]) {
+    const llamadas = [];
+    let presentador;
+    const fuente = {
+      capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
+      async listar() { llamadas.push("cuadro"); return cuadro; },
+      async obtener(ref) { llamadas.push(`detalle:${ref}`); return expediente; },
+      async ejecutar() { throw new Error("solo lectura"); },
+    };
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      locale: idioma,
+      cargarCatalogoInterno: async () => catalogo,
+      cargadoresInternos: { contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => ({
+          obtenerCatalogosAlta: async () => { throw new Error("sin alta"); },
+          obtenerConfiguracionAnalisis: async () => { throw new Error("sin análisis"); },
+        }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: (opciones) => {
+          assert.equal(opciones.locale, idioma);
+          if (idioma === "en-GB") assert.equal(opciones.mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          else assert.deepEqual(opciones.mensajes, {});
+          return fuente;
+        } },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
+          presentador = crearPresentadorExpedientesContratacionTemporal(opciones)
+        ) },
+        vista: { montarModuloContratacionTemporal: async ({ raiz, presentador: actual,
+          mensajes, locale, zonaHoraria }) => {
+          assert.equal(locale, idioma);
+          if (idioma === "en-GB") assert.equal(mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          const estado = actual.obtenerEstado();
+          const recibo = estado.carga === "listo" && estado.vista === "expediente" ? {
+            recibo_ref: "recibo:ct:sintetico:001",
+            numero_visible: expediente.numero_visible,
+            version: expediente.version,
+            actuacion: "Acto sintético",
+            estado_resultante: "Estado sintético",
+            registrada_en: "2026-09-24T11:00:00Z",
+          } : null;
+          raiz.innerHTML = renderizarModuloContratacionTemporal({ ...estado, recibo }, {
+            mensajes, locale, zonaHoraria,
+          });
+          return { desmontar() { actual.desmontar(); } };
+        } },
+      }) },
+    });
+    await coordinador.cargarInterno();
+    llamadas.length = 0; // la sonda inicial autorizada ya terminó
+    const raiz = raizFalsa();
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { expedienteRef: referencia }), true);
+    assert.deepEqual(llamadas, ["cuadro", `detalle:${referencia}`]);
+    assert.equal(presentador.obtenerEstado().vista, "expediente");
+    assert.equal(presentador.obtenerEstado().carga, "listo");
+    assert.match(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
+    assert.match(raiz.innerHTML, new RegExp(navegacion, "u"));
+    assert.match(raiz.innerHTML, new RegExp(`<dt>${cabecera}</dt>`, "u"));
+    assert.match(raiz.innerHTML, /<dt>Categoría<\/dt>/u); // etiqueta recibida del servidor
+    const fecha = new Intl.DateTimeFormat(idioma, {
+      dateStyle: "medium", timeStyle: "medium", timeZone: "Europe/Madrid",
+    }).format(new Date("2026-09-24T11:00:00Z"));
+    assert.match(raiz.innerHTML, new RegExp(fecha, "u"));
+    assert.match(raiz.innerHTML, /Acto sintético/u); // dato del servidor, sin traducción inventada
+    assert.doesNotMatch(raiz.innerHTML, /No dispone de acceso al detalle|You do not have access to the case-file details/u);
+
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz), true);
+    assert.deepEqual(llamadas, ["cuadro", `detalle:${referencia}`]);
+    await presentador.cargar(); // camino ordinario del Cuadro
+    await presentador.seleccionarExpediente(referencia);
+    assert.deepEqual(llamadas.slice(-2), ["cuadro", `detalle:${referencia}`]);
+
+    fuente.obtener = async () => { llamadas.push("detalle-denegado"); throw new Error("403"); };
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, { expedienteRef: referencia }), true);
+    assert.deepEqual(llamadas.slice(-2), ["cuadro", "detalle-denegado"]);
+    assert.equal(presentador.obtenerEstado().carga, "error");
+    assert.equal(presentador.obtenerEstado().expediente, null);
+    assert.doesNotMatch(raiz.innerHTML, new RegExp(texto.replaceAll(".", "\\."), "u"));
+
+    const antes = llamadas.length;
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raiz, {
+      expedienteRef: "expediente:ct:fuera-del-cuadro",
+    }), true);
+    assert.deepEqual(llamadas.slice(antes), ["cuadro"]);
+    assert.equal(presentador.obtenerEstado().vista, "cuadro");
+    coordinador.desmontarVistaActual();
+  }
+});
+
+test("el enlace directo CT conserva denegación y cancela la consulta al salir", async () => {
+  const referencia = "expediente:ct:sintetico:001";
+  const cuadro = crearCuadroContratacionTemporalPresentacion();
+  cuadro.demostracion = false;
+  cuadro.expedientes[0].expediente_ref = referencia;
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  let detalle = 0;
+  let senalDetalle;
+  let presentador;
+  const fuente = {
+    capacidades: ["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"],
+    async listar() { return cuadro; },
+    obtener(_ref, { signal }) {
+      detalle += 1;
+      senalDetalle = signal;
+      return new Promise((_resolver, rechazar) => signal.addEventListener("abort", () =>
+        rechazar(new DOMException("cancelada", "AbortError")), { once: true }));
+    },
+    async ejecutar() { throw new Error("solo lectura"); },
+  };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    cargadoresInternos: { contratacion_temporal: async () => ({
+      cliente: { crearClienteHTTPContratacionTemporal: () => ({
+        obtenerCatalogosAlta: async () => { throw new Error("sin alta"); },
+        obtenerConfiguracionAnalisis: async () => { throw new Error("sin análisis"); },
+      }) },
+      adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+      presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
+        presentador = crearPresentadorExpedientesContratacionTemporal(opciones)
+      ) },
+      vista: { montarModuloContratacionTemporal: async () => {
+        throw new Error("no debe montar tras desmontar");
+      } },
+    }) },
+  });
+  await coordinador.cargarInterno();
+  const montaje = coordinador.montarVista("contratacion-temporal", raizFalsa(), { expedienteRef: referencia });
+  for (let intento = 0; intento < 20 && !senalDetalle; intento += 1) await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(detalle, 1);
+  coordinador.desmontarVistaActual();
+  assert.equal(senalDetalle.aborted, true);
+  assert.equal(await montaje, false);
+  assert.equal(presentador.obtenerEstado().expediente, null);
 });
 
 test("Intervención abre CT con acceso directo a fiscalización, sin funciones de RRHH", async () => {

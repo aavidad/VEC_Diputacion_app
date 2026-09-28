@@ -18,7 +18,7 @@ type EjecutorRespuestaRecibida interface {
 }
 
 type respuestaRecibidaJSON struct {
-	ClaveIdempotencia           string `json:"clave_idempotencia"`
+	ClaveIdempotencia           string `json:"clave_idempotencia,omitempty"`
 	OrganizacionRef             string `json:"organizacion_ref"`
 	ExpedienteRef               string `json:"expediente_ref"`
 	LlamamientoRef              string `json:"llamamiento_ref"`
@@ -99,6 +99,7 @@ func NuevoManejadorRespuestaRecibida(e EjecutorRespuestaRecibida) (http.Handler,
 		}
 		// Fechas y referencias provienen del recibo durable verificado, no se
 		// declara aceptación terminal ni se añaden datos de la persona candidata.
+		entrada.ClaveIdempotencia = resultado.Solicitud.ClaveIdempotencia
 		entrada.RecibidaEn = resultado.Solicitud.RecibidaEn.Format(time.RFC3339Nano)
 		salida := respuestaRecibidaSalidaJSON{respuestaRecibidaJSON: entrada,
 			Esquema: EsquemaRegistroRespuestaRecibida, JustificanteRef: resultado.JustificanteRef,
@@ -125,7 +126,7 @@ func errorRespuestaRecibidaHTTP(err error) (int, string) {
 	case errors.Is(err, application.ErrRespuestaRecibidaDenegada):
 		return http.StatusForbidden, "acceso_denegado"
 	case errors.Is(err, application.ErrClaveRespuestaRecibidaEnColision):
-		return http.StatusConflict, "clave_idempotencia_reutilizada"
+		return http.StatusConflict, "contenido_respuesta_en_conflicto"
 	case errors.Is(err, application.ErrVersionRespuestaRecibidaEnConflicto):
 		return http.StatusConflict, "version_en_conflicto"
 	case errors.Is(err, application.ErrResultadoRespuestaRecibidaNoConfiable):
