@@ -76,16 +76,28 @@ function renderizarTramitesInicio(tramites, escaparHTML, traducir) {
     </div>`;
 }
 
+function vigenciaBolsaEn(bolsa, generadoEn) {
+  const instante = Date.parse(generadoEn);
+  const desde = Date.parse(bolsa?.vigente_desde);
+  const hasta = bolsa?.vigente_hasta === null ? Infinity : Date.parse(bolsa?.vigente_hasta);
+  if (!Number.isFinite(instante) || !Number.isFinite(desde)
+    || !(Number.isFinite(hasta) || hasta === Infinity)) return null;
+  return instante >= desde && instante < hasta;
+}
+
 export function resumirBolsasInicio(lectura) {
   if (lectura?.carga !== "listo") return { estado: lectura?.carga || "cargando", bolsas: null };
   const bolsas = lectura.datos?.bolsas;
   if (!Array.isArray(bolsas)) return { estado: "error", bolsas: null };
-  const vigentes = bolsas.filter((bolsa) => bolsa.vigente_hasta === null);
+  const generadoEn = lectura.datos?.generado_en;
+  const vigencias = bolsas.map((bolsa) => vigenciaBolsaEn(bolsa, generadoEn));
   return Object.freeze({
     estado: "listo",
     bolsas,
     total: bolsas.length,
-    vigentes: vigentes.length,
+    generadoEn,
+    vigentes: vigencias.every((vigente) => vigente !== null)
+      ? vigencias.filter(Boolean).length : null,
     llamamientos: bolsas.reduce((total, bolsa) => total + bolsa.llamamientos_en_curso, 0),
   });
 }
@@ -103,24 +115,35 @@ function renderizarTarjetaInicio({ clave, etiqueta, valor, destino, accion, esca
 
 function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero) {
   const t = (clave) => escaparHTML(traducir(clave));
+  if (acceso?.disponible !== true) {
+    if (acceso?.estado === "cargando") return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
+    return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
+  }
   if (resumen.estado === "cargando") return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
   if (resumen.estado === "denegado") return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
   if (resumen.estado !== "listo") return `<p role="alert" class="portal-rrhh-resumen-vacio">${t("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</p>`;
   // La portada de Bolsa puede ofrecer Elaboración por su capacidad propia;
   // el cuadro se abre si además llegó la lista autorizada que vemos aquí.
-  const destino = acceso?.disponible === true ? 'data-vista="resumen"' : "";
+  const destino = 'data-vista="resumen"';
   const tarjetas = [
     ["bolsas", "inicio_rrhh_tramites_bolsa", resumen.total],
     ["vigentes", "txt_vigentes", resumen.vigentes],
     ["llamamientos", "txt_llamamientos_en_curso", resumen.llamamientos],
   ].map(([clave, etiqueta, valor]) => renderizarTarjetaInicio({
-    clave, etiqueta, valor: numero(valor), destino, accion: "inicio_rrhh_ver_bolsas", escaparHTML, traducir,
+    clave, etiqueta, valor: valor === null ? null : numero(valor), destino,
+    accion: "inicio_rrhh_ver_bolsas", escaparHTML, traducir,
   })).join("");
-  const filas = resumen.bolsas.slice(0, MAXIMO_TRAMITES_INICIO).map((bolsa) => `<tr>
+  const filas = resumen.bolsas.slice(0, MAXIMO_TRAMITES_INICIO).map((bolsa) => {
+    const vigente = vigenciaBolsaEn(bolsa, resumen.generadoEn);
+    const estado = vigente === true ? "txt_vigente"
+      : vigente === false ? "inicio_rrhh_no_vigente" : "inicio_rrhh_vigencia_no_disponible";
+    const clase = vigente === true ? "ct-fase-en_curso" : "ct-fase-completado";
+    return `<tr>
     <th scope="row">${escaparHTML(bolsa.categoria)}</th>
     <td>${t("inicio_rrhh_sin_fase_bolsa")}</td>
-    <td><span class="ct-exp-chip ${bolsa.vigente_hasta === null ? "ct-fase-en_curso" : "ct-fase-completado"}">${t(bolsa.vigente_hasta === null ? "txt_vigente" : "txt_sustituida")}</span></td>
-  </tr>`).join("");
+    <td><span class="ct-exp-chip ${clase}">${t(estado)}</span></td>
+  </tr>`;
+  }).join("");
   return `<div class="rejilla-metricas-rrhh">${tarjetas}</div>
     <section class="portal-rrhh-tramites-seccion" aria-label="${t("inicio_rrhh_pestana_bolsas")}">
       <div class="cabecera-panel"><h3>${t("inicio_rrhh_tramites_bolsa")}</h3>
@@ -204,8 +227,10 @@ export function crearVistaInicioPortal({
         clave, etiqueta, valor: metricas ? numero(metricas[clave]) : null,
         destino: destinoCT ? `${destinoCT} ${filtro}` : "", accion: "txt_ver_tramites", escaparHTML, traducir,
       })).join("");
-      const resumenBolsas = resumirBolsasInicio(obtenerBolsasInicio?.());
       const accesoBolsa = resolverAcceso("bolsa");
+      const resumenBolsas = accesoBolsa?.disponible === true
+        ? resumirBolsasInicio(obtenerBolsasInicio?.())
+        : { estado: accesoBolsa?.estado || "denegado", bolsas: null };
       const estadoCT = accesoCT?.estado === "denegado"
         ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("permiso_perfil_denegado")}</p>`
         : (!metricas && tramites === null

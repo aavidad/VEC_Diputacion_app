@@ -21,6 +21,8 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   inicio_rrhh_cuadro_no_disponible: "No se pudo consultar el cuadro de expedientes.",
   inicio_rrhh_ver_bolsas: "Ver bolsas",
   inicio_rrhh_tramites_bolsa: "Bolsas consultadas",
+  inicio_rrhh_no_vigente: "No vigente",
+  inicio_rrhh_vigencia_no_disponible: "Vigencia no disponible",
   plantillas_rrhh_nav: "Plantillas de documentos",
   plantillas_rrhh_miga: "Portal del Empleado → Contratación temporal → Plantillas",
   plantillas_rrhh_titulo: "Plantillas de contratación temporal",
@@ -104,6 +106,8 @@ export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   inicio_rrhh_cuadro_no_disponible: "The cases dashboard could not be loaded.",
   inicio_rrhh_ver_bolsas: "View job pools",
   inicio_rrhh_tramites_bolsa: "Job pools viewed",
+  inicio_rrhh_no_vigente: "Not active",
+  inicio_rrhh_vigencia_no_disponible: "Status unavailable",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PORTAL_ES));

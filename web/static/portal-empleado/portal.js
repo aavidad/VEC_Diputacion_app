@@ -354,6 +354,11 @@ let inicioComprobando = false;
 // no la sirve respondería 404 en cada carga. Elaboración solo se ofrece en el
 // menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
 function alCambiarModulos(clave) {
+  // La lectura anterior no habilita a seguir mostrando Bolsa tras un cambio
+  // del catálogo o de identidad: la API debe revalidar el acceso actual.
+  if (clave === "catalogo" && estado.datosBolsas?.carga !== "cargando") {
+    void controladorBolsas.cargarBolsas();
+  }
   if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")) {
     void comprobarAccesoPlantillas();
   }

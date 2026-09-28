@@ -336,12 +336,12 @@ test("el inicio de RRHH lista los trámites recientes con incidencias primero y 
 });
 
 test("el cuadro de RRHH muestra Bolsa autorizada y SAE pendiente sin cifras inventadas", () => {
-  const bolsas = { carga: "listo", datos: { bolsas: [
-    { bolsa_ref: "bolsa:1", categoria: "Auxiliar <A>", vigente_hasta: null, llamamientos_en_curso: 2 },
-    { bolsa_ref: "bolsa:2", categoria: "Técnica", vigente_hasta: "2026-09-01", llamamientos_en_curso: 0 },
+  const bolsas = { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
+    { bolsa_ref: "bolsa:1", categoria: "Auxiliar <A>", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2 },
+    { bolsa_ref: "bolsa:2", categoria: "Técnica", vigente_desde: "2026-01-01", vigente_hasta: "2026-09-01", llamamientos_en_curso: 0 },
   ] } };
   assert.deepEqual({ ...resumirBolsasInicio(bolsas), bolsas: undefined },
-    { estado: "listo", bolsas: undefined, total: 2, vigentes: 1, llamamientos: 2 });
+    { estado: "listo", bolsas: undefined, total: 2, generadoEn: "2026-09-28T10:00:00Z", vigentes: 1, llamamientos: 2 });
   const html = crearVistaInicioPortal({
     encabezadoVista: () => "",
     escaparHTML,
@@ -365,6 +365,7 @@ test("el cuadro de RRHH muestra Bolsa autorizada y SAE pendiente sin cifras inve
 });
 
 test("Bolsa denegada no muestra datos retenidos y los controles CT se retiran sin acceso", () => {
+  let lecturaRetenidaConsultada = false;
   const html = crearVistaInicioPortal({
     encabezadoVista: () => "",
     escaparHTML,
@@ -373,8 +374,14 @@ test("Bolsa denegada no muestra datos retenidos y los controles CT se retiran si
     esPerfilRRHH: () => true,
     obtenerMetricasCuadro: () => ({ en_tramitacion: 9, con_incidencia: 0, en_llamamiento: 0 }),
     obtenerTramitesInicio: () => [{ expediente_ref: "exp:privado", categoria: "Dato privado" }],
-    obtenerBolsasInicio: () => ({ carga: "denegado", datos: { bolsas: [{ categoria: "Bolsa privada" }] } }),
+    obtenerBolsasInicio: () => {
+      lecturaRetenidaConsultada = true;
+      return { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
+        { categoria: "Bolsa privada", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 1 },
+      ] } };
+    },
   })();
+  assert.equal(lecturaRetenidaConsultada, false, "el inicio no lee datos de Bolsa sin acceso positivo");
   assert.doesNotMatch(html, /Dato privado|Bolsa privada|exp:privado/);
   assert.doesNotMatch(html, /<strong class="metrica-valor">9<\/strong>/);
   assert.match(html, /Sin permiso/);
@@ -382,7 +389,27 @@ test("Bolsa denegada no muestra datos retenidos y los controles CT se retiran si
   assert.doesNotMatch(html, /data-vista="resumen"/);
 });
 
-test("las diez claves del cuadro se traducen con el traductor común", () => {
+test("la vigencia de Bolsa usa la fecha de la lectura y no llama sustituida a una bolsa con fin futuro", () => {
+  const bolsa = { categoria: "Auxiliar", vigente_desde: "2026-01-01", vigente_hasta: "2027-01-01", llamamientos_en_curso: 0 };
+  const lectura = { carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [bolsa] } };
+  assert.equal(resumirBolsasInicio(lectura).vigentes, 1);
+  const mostrar = () => crearVistaInicioPortal({
+    encabezadoVista: () => "", escaparHTML, obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "resumen" }), esPerfilRRHH: () => true,
+    obtenerMetricasCuadro: () => null, obtenerTramitesInicio: () => null,
+    obtenerBolsasInicio: () => lectura,
+  })();
+  assert.match(mostrar(), /Auxiliar[\s\S]*?Vigente/);
+  assert.doesNotMatch(mostrar(), /Sustituida/);
+  lectura.datos.generado_en = "2027-01-02T10:00:00Z";
+  assert.equal(resumirBolsasInicio(lectura).vigentes, 0);
+  assert.match(mostrar(), /Auxiliar[\s\S]*?No vigente/);
+  lectura.datos.generado_en = "";
+  assert.equal(resumirBolsasInicio(lectura).vigentes, null, "sin instante verificado no se inventa el recuento");
+  assert.match(mostrar(), /Recuento no disponible/);
+});
+
+test("las claves del cuadro se traducen con el traductor común", () => {
   const traducirEN = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
   for (const clave of Object.keys(MENSAJES_INICIO_RRHH_EN)) {
     assert.equal(traducirEN(clave), MENSAJES_INICIO_RRHH_EN[clave]);
