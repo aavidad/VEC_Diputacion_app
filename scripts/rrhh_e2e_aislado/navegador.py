@@ -58,8 +58,16 @@ def main() -> int:
             try:
                 page = context.new_page()
                 errors: list[str] = []
+                set_cookie_seen = [False]
+                def observe_response(response) -> None:
+                    try:
+                        if response.header_value("set-cookie") is not None:
+                            set_cookie_seen[0] = True
+                    except Exception:
+                        set_cookie_seen[0] = True
                 page.on("pageerror", lambda _error: errors.append("pageerror"))
                 page.on("console", lambda message: errors.append("console_error") if message.type == "error" else None)
+                page.on("response", observe_response)
                 for width in (1440, 390):
                     page.set_viewport_size({"width": width, "height": 900})
                     before_errors = len(errors)
@@ -87,6 +95,10 @@ def main() -> int:
                                 no_cubierta: data?.politica?.no_cubierta ?? null,
                                 recibo_ref: data?.recibo_ref ?? null};
                         }""", args.bolsa_ref)
+                    # context.cookies incluye HttpOnly; Set-Cookie detecta
+                    # incluso una cookie emitida y borrada en la misma vista.
+                    view["set_cookie"] = set_cookie_seen[0]
+                    view["cookies"] = view["cookies"] or bool(context.cookies()) or set_cookie_seen[0]
                     resultado["vistas"].append(view)
             finally:
                 context.close()
@@ -110,7 +122,7 @@ def main() -> int:
     if not resultado["sin_certificado_denegado"]:
         return 1
     if any(v["portal_http"] != 200 or v["overflow_global"] or v["errores_js"]
-           or v["cookies"] or v["local_storage"] or v["session_storage"] for v in resultado["vistas"]):
+           or v["cookies"] or v["set_cookie"] or v["local_storage"] or v["session_storage"] for v in resultado["vistas"]):
         return 1
     if args.bolsa_ref:
         for view in resultado["vistas"]:

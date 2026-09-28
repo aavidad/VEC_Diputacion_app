@@ -14,6 +14,7 @@ secretos de la base principal.
 | `DOCKER_HOST=tcp://127.0.0.1:1 DOCKER_CONTEXT=invalid-remote-context bash scripts/rrhh_e2e_aislado/run.sh --preflight` | Llegó al mismo bloqueo SQL local tras fijar el socket Unix. | Verifica que el arnés ignora un destino Docker remoto heredado. |
 | `navegador.py` contra HTTPS/mTLS sintético con PKCS#12, CA propia y servidor de prueba temporal | HTTP 200 a 1440/390, sin JS/cookies/storage/overflow; acceso sin certificado denegado. | Verifica la mecánica Chrome del arnés, **no VEC**. |
 | `navegador.py --bolsa-ref bolsa:sintetica:1` con API sintética que devuelve 403 | Retorno 1; política HTTP 403 a 1440/390. | Verifica fallo cerrado de la sonda, **no B47 real**. |
+| `navegador.py` con respuesta sintética `Set-Cookie: ...; HttpOnly; Secure` | Retorno 1; `cookies:true` y `set_cookie:true` a 1440/390 sin conservar el valor. | Verifica detección de cookies ocultas a JavaScript. |
 | `bash -n` y `shellcheck -S warning` sobre los scripts; compilación Python de `navegador.py` | Verdes al cerrar la edición. | Verificación estática, no E2E. |
 
 El último preflight identificó:
