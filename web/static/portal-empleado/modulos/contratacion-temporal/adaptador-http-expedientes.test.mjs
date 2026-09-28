@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal, etiquetaCatalogo } from "./adaptador-http-expedientes.js";
 import { renderizarExpediente, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 
@@ -161,6 +161,51 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
     expediente_ref: resumen.expediente_ref,
     version_observada: 2,
   });
+});
+
+test("la proyección autorizada localiza cabeceras, fase, estado y período sin alterar datos de servidor", async () => {
+  for (const [locale, mensajes, fase, estado, cabecera] of [
+    ["es-ES", {}, "Llamamiento", "En tramitación", "Período solicitado"],
+    ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Candidate call", "Being processed", "Requested period"],
+  ]) {
+    const llamadas = [];
+    const cliente = clienteFalso(llamadas);
+    const consultarCuadro = cliente.consultarCuadroRRHH;
+    const consultarDetalle = cliente.consultarDetalleRRHH;
+    const resumenLocalizado = { ...resumen, fase_clave: "llamamiento", estado_clave: "en_curso" };
+    cliente.consultarCuadroRRHH = async (...args) => ({
+      ...await consultarCuadro(...args), expedientes: [resumenLocalizado],
+    });
+    cliente.consultarDetalleRRHH = async (...args) => ({
+      ...await consultarDetalle(...args), resumen: resumenLocalizado,
+    });
+    const adaptador = crearAdaptadorHTTPExpedientesContratacionTemporal({ cliente, locale, mensajes });
+    const cuadro = await adaptador.listar();
+    const detalle = await adaptador.obtener(resumen.expediente_ref);
+    const campo = (clave) => detalle.cabecera.find((item) => item.clave === clave);
+    const fecha = (instante) => new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium", timeZone: "UTC",
+    }).format(new Date(instante));
+
+    assert.deepEqual(llamadas.map(({ operacion }) => operacion), ["cuadro", "detalle"]);
+    assert.deepEqual(adaptador.capacidades, [
+      "contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar",
+    ]);
+    assert.equal(cuadro.expedientes[0].fase_actual, fase);
+    assert.equal(cuadro.expedientes[0].estado, estado);
+    assert.equal(campo("fase").valor, fase);
+    assert.equal(campo("estado").valor, estado);
+    assert.equal(campo("periodo").etiqueta, cabecera);
+    assert.equal(campo("periodo").valor, `${fecha("2026-09-04T00:00:00Z")} — ${fecha("2026-12-31T00:00:00Z")}`);
+    assert.equal(campo("centro").etiqueta, locale === "en-GB" ? "Centre" : "Centro");
+    assert.equal(campo("categoria").etiqueta, locale === "en-GB" ? "Category" : "Categoría");
+    assert.equal(campo("modalidad").etiqueta, locale === "en-GB" ? "Type" : "Modalidad");
+    assert.equal(campo("grupo_subgrupo").etiqueta, locale === "en-GB" ? "Group/Subgroup" : "Grupo/Subgrupo");
+    assert.equal(campo("motivo").etiqueta, locale === "en-GB" ? "Reason" : "Motivo");
+    assert.equal(campo("centro").valor, "centro:001");
+    assert.equal(campo("categoria").valor, "categoria:auxiliar");
+    assert.equal(detalle.analisis_previo.observaciones, "Análisis de demostración RRHH C6-05; necesidad temporal verificada.");
+  }
 });
 
 test("traduce las etiquetas conocidas con mensajes inyectados y conserva el fallback", async () => {
