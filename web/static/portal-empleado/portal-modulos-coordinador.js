@@ -95,7 +95,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js"),
-      import("./modulos/contratacion-temporal/cliente-http.js?v=20260928-ct140-consulta-v1"),
+      import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
       import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-ct-inicio-en-v2"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
