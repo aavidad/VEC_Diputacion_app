@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -138,11 +139,11 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	}
 	ctxCapsula, capsula, err := p.acreditarPeticion(ctx)
 	if err != nil {
-		return vacio, ErrSeguridadComunDesarrolloDenegada
+		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, err)
 	}
 	alta, confirmacion, err := p.registrarCapsula(ctxCapsula, capsula)
 	if err != nil {
-		return vacio, ErrSeguridadComunDesarrolloDenegada
+		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, err)
 	}
 	// El decorador invoca el puerto nominal real y coteja todos sus datos con
 	// el alta confirmada; nunca devuelve la autenticación histórica del soporte.
@@ -164,13 +165,52 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 		},
 		p.reloj,
 	)
-	if err != nil || !mismaIdentidadVersionadaSesionDesarrolloParaPerfil(p.base, resultado, perfil) {
+	if err != nil {
+		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, err)
+	}
+	if !mismaIdentidadVersionadaSesionDesarrolloParaPerfil(p.base, resultado, perfil) {
 		return vacio, ErrSeguridadComunDesarrolloDenegada
 	}
-	if vinculo.ValidarPara(resultado) != nil || ctxCapsula.Err() != nil {
+	if vinculo.ValidarPara(resultado) != nil {
 		return vacio, ErrSeguridadComunDesarrolloDenegada
+	}
+	if err := ctxCapsula.Err(); err != nil {
+		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, err)
 	}
 	return contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}, nil
+}
+
+// CT140 debe distinguir la falta de concesión de una dependencia de sesión
+// caída. Otras rutas conservan su clasificación histórica. Nunca expone el
+// error original, que podría contener identificadores o detalles de SQL.
+func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {
+	if p == nil || p.soporte == nil {
+		return ErrSeguridadComunDesarrolloDenegada
+	}
+	if ctx != nil && ctx.Err() != nil {
+		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if existe && capacidad.sello == p.soporte.sello && capacidad.ruta == httpinterno.RutaConsultaComunicacionesExpediente {
+			return ctx.Err()
+		}
+	}
+	capacidad, valida := p.soporte.capacidadValida(ctx)
+	if !valida || capacidad.ruta != httpinterno.RutaConsultaComunicacionesExpediente {
+		return ErrSeguridadComunDesarrolloDenegada
+	}
+	var falloRevalidador *diagnostico.FalloConsultaRRHH
+	if errors.As(err, &falloRevalidador) && falloRevalidador.Etapa == diagnostico.EtapaSesionRevalidador {
+		if errors.Is(falloRevalidador.Causa, dominiovec.ErrAutenticacionRevalidadaInvalida) ||
+			errors.Is(falloRevalidador.Causa, dominiovec.ErrAutorizacionDenegada) ||
+			errors.Is(falloRevalidador.Causa, ports.ErrAutorizacionDenegada) {
+			return ErrSeguridadComunDesarrolloDenegada
+		}
+		return ports.ErrConsultaRRHHNoDisponible
+	}
+	if errors.Is(err, ports.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrAutorizacionDenegada) ||
+		errors.Is(err, ErrSeguridadComunDesarrolloDenegada) {
+		return ErrSeguridadComunDesarrolloDenegada
+	}
+	return ports.ErrConsultaRRHHNoDisponible
 }
 
 func (p *proveedorSesionConsultaRRHHDesarrollo) acreditarPeticion(

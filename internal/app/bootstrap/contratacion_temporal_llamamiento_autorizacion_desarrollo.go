@@ -40,6 +40,8 @@ type preparacionLlamamientoDesarrollo struct {
 func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaResolucionFormalizacion || ruta == httpinterno.RutaSeleccionLlamamiento ||
 		ruta == httpinterno.RutaRegistroRespuestaRecibida ||
+		ruta == httpinterno.RutaConsultaReciboRespuesta ||
+		ruta == httpinterno.RutaConsultaComunicacionesExpediente ||
 		ruta == httpinterno.RutaEventoPlazoLlamamiento ||
 		ruta == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
@@ -74,6 +76,26 @@ func ambitosLlamamientoDesarrollo(recurso dominiovec.RecursoAutorizable) []domin
 func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta string, datos dominiovec.DatosSolicitudAutorizacionLigadaV3) bool {
 	if ctx == nil || datos.Finalidad != "gestionar_contratacion_temporal" {
 		return false
+	}
+	if ruta == httpinterno.RutaConsultaReciboRespuesta {
+		s, existe := ctx.Value(claveConsultaReciboRespuestaDesarrollo{}).(ports.SolicitudConsultaReciboRespuesta)
+		esperado, err := postgresct.RecursoConsultaReciboRespuesta(s)
+		r := datos.Recurso
+		return existe && err == nil && s.OrganizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+			datos.Accion == postgresct.AccionConsultaReciboRespuesta &&
+			datos.ReferenciaMotivo == motivoConsultaReciboRespuestaDesarrollo() &&
+			r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
+			r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
+	}
+	if ruta == httpinterno.RutaConsultaComunicacionesExpediente {
+		ligada, existe := ctx.Value(claveConsultaComunicacionesExpedienteDesarrollo{}).(solicitudLigadaComunicacionesExpedienteDesarrollo)
+		esperado, err := postgresct.RecursoConsultaComunicacionesExpediente(ligada.consulta, ligada.organizacionRef)
+		r := datos.Recurso
+		return existe && err == nil && ligada.organizacionRef == organizacionAltaContratacionTemporalDesarrollo &&
+			datos.Accion == postgresct.AccionConsultaComunicacionesExpediente &&
+			datos.ReferenciaMotivo == motivoConsultaComunicacionesExpedienteDesarrollo() &&
+			r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID &&
+			r.Tipo == esperado.Tipo && maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 	}
 	if ruta == httpinterno.RutaResolucionFormalizacion {
 		return solicitudAutorizacionResolucionFormalizacionValida(ctx, datos)
@@ -302,12 +324,38 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultaJustificanteRespuestaDesarrollo()}, desde); err != nil {
 		return err
 	}
+	consultaRecibo, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
+		"consulta_recibo_respuesta_rrhh_desarrollo", "Consulta de recibo de respuesta RRHH", "consulta-recibo-respuesta-rrhh-desarrollo",
+		[]dominiovec.ConcesionRol{concesionConsultaReciboRespuestaDesarrollo()},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	if err != nil {
+		return err
+	}
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultaReciboRespuestaDesarrollo()}, desde); err != nil {
+		return err
+	}
+	consultaComunicaciones, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
+		"consulta_comunicaciones_expediente_rrhh_desarrollo", "Consulta de comunicaciones por expediente RRHH", "consulta-comunicaciones-expediente-rrhh-desarrollo",
+		[]dominiovec.ConcesionRol{concesionConsultaComunicacionesExpedienteDesarrollo()},
+		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	if err != nil {
+		return err
+	}
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno,
+		[]dominiovec.ReferenciaEntradaCatalogo{motivoConsultaComunicacionesExpedienteDesarrollo()}, desde); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	s.instantaneaLlamamiento, s.instantaneaComunicacion = seleccion, comunicacion
 	s.instantaneaReanudacionLlamamiento = reanudacion
 	s.motivoLlamamiento, s.motivoComunicacion = motivoLlamamientoDesarrollo(false), motivoLlamamientoDesarrollo(true)
 	s.instantaneaRespuestaRecibida, s.motivoRespuestaRecibida = respuesta, motivoRespuestaRecibidaDesarrollo()
 	s.instantaneaConsultaJustificante, s.motivoConsultaJustificante = consultaJustificante, motivoConsultaJustificanteRespuestaDesarrollo()
+	s.instantaneaConsultaReciboRespuesta, s.motivoConsultaReciboRespuesta = consultaRecibo, motivoConsultaReciboRespuestaDesarrollo()
+	s.instantaneaConsultaComunicaciones, s.motivoConsultaComunicaciones = consultaComunicaciones, motivoConsultaComunicacionesExpedienteDesarrollo()
 	s.mu.Unlock()
 	if err := configurarAutoridadResolucionManualDesarrollo(ctx, alta, reloj, desde); err != nil {
 		return err
@@ -322,20 +370,22 @@ func configurarAutoridadLlamamientoDesarrollo(alta *dependenciasAltaContratacion
 }
 
 type autorizadorLlamamientoDesarrollo struct {
-	alta                    *dependenciasAltaContratacionTemporalDesarrollo
-	material                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	comunicacion            bool
-	respuestaRecibida       bool
-	despachoCorreo          bool
-	resultadoCorreo         bool
-	consultaJustificante    bool
-	resolucionManual        bool
-	aceptacionBolsa         bool
-	renunciaBolsa           bool
-	continuacionCT          bool
-	siguienteBolsa          bool
-	propuestaFormalizacion  bool
-	resolucionFormalizacion bool
+	alta                             *dependenciasAltaContratacionTemporalDesarrollo
+	material                         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	comunicacion                     bool
+	respuestaRecibida                bool
+	despachoCorreo                   bool
+	resultadoCorreo                  bool
+	consultaJustificante             bool
+	consultaReciboRespuesta          bool
+	consultaComunicacionesExpediente bool
+	resolucionManual                 bool
+	aceptacionBolsa                  bool
+	renunciaBolsa                    bool
+	continuacionCT                   bool
+	siguienteBolsa                   bool
+	propuestaFormalizacion           bool
+	resolucionFormalizacion          bool
 }
 
 func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -346,7 +396,30 @@ func motivoRespuestaRecibidaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 	}
 }
 
+func motivoConsultaReciboRespuestaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_consulta_recibo_respuesta_rrhh", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("consulta-recibo-respuesta-rrhh-desarrollo-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "consulta-recibo-respuesta-rrhh"),
+	}
+}
+
+func concesionConsultaReciboRespuestaDesarrollo() dominiovec.ConcesionRol {
+	return dominiovec.ConcesionRol{
+		Accion: postgresct.AccionConsultaReciboRespuesta, ModuloID: "contratacion_temporal",
+		TipoRecurso: postgresct.TipoRecursoConsultaReciboRespuesta,
+		Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+		CamposPermitidos: []string{"auditoria_ref", "comunicacion_ref", "estado", "justificante_ref", "organizacion_ref", "recibo_ref", "registrada_en", "respuesta"},
+	}
+}
+
 func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntradaCatalogo {
+	if a.consultaComunicacionesExpediente {
+		return motivoConsultaComunicacionesExpedienteDesarrollo()
+	}
+	if a.consultaReciboRespuesta {
+		return motivoConsultaReciboRespuestaDesarrollo()
+	}
 	if a.resolucionFormalizacion {
 		return motivoResolucionFormalizacionDesarrollo()
 	}
@@ -378,13 +451,15 @@ func (a *autorizadorLlamamientoDesarrollo) motivo() dominiovec.ReferenciaEntrada
 }
 
 func (a *autorizadorLlamamientoDesarrollo) modoCorreoExclusivo() bool {
-	if a == nil || (!a.despachoCorreo && !a.resultadoCorreo) {
+	if a == nil || (!a.despachoCorreo && !a.resultadoCorreo && !a.consultaReciboRespuesta && !a.consultaComunicacionesExpediente) {
 		return a != nil
 	}
 	activos := 0
 	for _, activo := range []bool{
 		a.comunicacion, a.respuestaRecibida, a.despachoCorreo, a.resultadoCorreo,
 		a.consultaJustificante, a.resolucionManual, a.aceptacionBolsa,
+		a.consultaReciboRespuesta,
+		a.consultaComunicacionesExpediente,
 		a.renunciaBolsa, a.continuacionCT, a.siguienteBolsa,
 		a.propuestaFormalizacion, a.resolucionFormalizacion,
 	} {
@@ -450,6 +525,10 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	if !a.modoResolucionOContinuacionValido(capacidad.ruta) ||
 		!a.modoCorreoExclusivo() ||
 		(a.consultaJustificante && accion != postgresct.AccionConsultaJustificanteRespuestaRecibida) ||
+		(a.consultaReciboRespuesta && (accion != postgresct.AccionConsultaReciboRespuesta || capacidad.ruta != httpinterno.RutaConsultaReciboRespuesta)) ||
+		(!a.consultaReciboRespuesta && capacidad.ruta == httpinterno.RutaConsultaReciboRespuesta) ||
+		(a.consultaComunicacionesExpediente && (accion != postgresct.AccionConsultaComunicacionesExpediente || capacidad.ruta != httpinterno.RutaConsultaComunicacionesExpediente)) ||
+		(!a.consultaComunicacionesExpediente && capacidad.ruta == httpinterno.RutaConsultaComunicacionesExpediente) ||
 		(a.resolucionManual && accion != postgresct.AccionResolucionManualLlamamiento) ||
 		(a.aceptacionBolsa && accion != puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo) ||
 		(a.renunciaBolsa && accion != puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo) ||

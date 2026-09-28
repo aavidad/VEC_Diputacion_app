@@ -13,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -157,7 +158,8 @@ func TestIntegracionRevalidadorAutenticacionActorPostgreSQL18(t *testing.T) {
 			AutenticacionRef: confirmacionBase.AutenticacionRef,
 			SesionRef:        confirmacionBase.SesionRef,
 		},
-	); !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) {
+	); !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) ||
+		errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) {
 		t.Fatal("una sesion revocada produjo autenticacion rica")
 	}
 
@@ -216,6 +218,16 @@ func TestIntegracionRevalidadorAutenticacionActorPostgreSQL18(t *testing.T) {
 		       'UNIQUE (autenticacion_ref, sesion_ref)'`).Scan(&restriccionesExactas); err != nil ||
 		restriccionesExactas != 1 {
 		t.Fatal("la cardinalidad exacta autenticacion/sesion no esta protegida")
+	}
+	// El mismo adaptador y petición opaca distinguen una dependencia cerrada
+	// de la revocación comprobada arriba, sin exponer el fallo del pool.
+	poolRevalidacion.Close()
+	if _, err = revalidador.RevalidarAutenticacionActorV1(ctx, domain.SolicitudRevalidacionAutenticacionActorV1{
+		AutenticacionRef: confirmacionSegunda.AutenticacionRef,
+		SesionRef:        confirmacionSegunda.SesionRef,
+	}); !errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) ||
+		errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) {
+		t.Fatal("caída del pool confundida con revocación")
 	}
 }
 
@@ -686,8 +698,20 @@ func probarEsperaYRevocacionIntegracionRevalidador(
 	}
 	select {
 	case err = <-resultado:
-		if !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) {
-			t.Fatal("la revalidacion acepto la revision anterior tras esperar")
+		if !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) &&
+			!errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) {
+			t.Fatal("la revalidacion acepto la revision anterior o expuso fallo interno")
+		}
+		// SERIALIZABLE puede abortar la lectura que esperaba el mismo
+		// puntero. La siguiente lectura debe ver la revocación estable.
+		_, err = revalidador.RevalidarAutenticacionActorV1(ctx,
+			domain.SolicitudRevalidacionAutenticacionActorV1{
+				AutenticacionRef: confirmacion.AutenticacionRef,
+				SesionRef:        confirmacion.SesionRef,
+			})
+		if !errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) ||
+			errors.Is(err, ports.ErrRevalidacionAutenticacionActorNoDisponible) {
+			t.Fatal("la revalidación estable no reconoció la sesión revocada")
 		}
 	case <-ctx.Done():
 		t.Fatal("la revalidacion no termino tras liberar el bloqueo")
