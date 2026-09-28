@@ -4,13 +4,16 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/config"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -93,31 +96,34 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialHistorialMiBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
-	proveedoresMaterialPortal                map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorCrear           *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorConsulta        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialSituacion               *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaContacto        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDatosContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialEmision                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaPoliticaOfertas *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialAuditoriaCT             *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialAuditoriaBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDespachoCorreo          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialResultadoCorreo         *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialFirmaDocumento          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialDietas                           materialDietasDesdeCTDesarrollo
-	materialCronos                           materialCronosDesdeCTDesarrollo
-	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalB2                       [8]CapacidadPublicadaPersonalB2V3
-	detenerRenovacion                        func()
-	detenerEntregaContratos                  func()
-	detenerEntregaCeses                      func()
-	catalogoMaterial                         catalogoMaterialAutorizacionComunDesarrollo
-	cerrarUnaVez                             func()
+	proveedoresMaterialPortal                       map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorCrear                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorConsulta               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialSituacion                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaReincorporacionTitular *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialContacto                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaContacto               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDatosContacto                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialEmision                        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPoliticaOfertas                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaPoliticaOfertas        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaCT                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaBolsa                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPlantillasCatalogo             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPlantillasDocumental           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialFirmaDocumento                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialDietas                                  materialDietasDesdeCTDesarrollo
+	materialCronos                                  materialCronosDesdeCTDesarrollo
+	materialDocumentos                              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia                     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalB2                              [8]CapacidadPublicadaPersonalB2V3
+	detenerRenovacion                               func()
+	detenerEntregaContratos                         func()
+	detenerEntregaCeses                             func()
+	catalogoMaterial                                catalogoMaterialAutorizacionComunDesarrollo
+	cerrarUnaVez                                    func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -378,6 +384,26 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
+	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
+	if seleccion.plantillasDocumental {
+		etapa = "preflight_plantillas_documental"
+		if err := preflightCatalogoPlantillasCT(ctx, ejecucion); err != nil {
+			return vacias, err
+		}
+	}
+	// B55 se comprueba con el LOGIN Bolsa que consumirá la lectura. La
+	// comprobación precede a la publicación de su clave en el gobierno V3.
+	if seleccion.reincorporacionTitular {
+		etapa = "preflight_lectura_reincorporacion_bolsa"
+		dependencias.bolsa, err = abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
+		if err != nil {
+			return vacias, err
+		}
+		if err := comprobarLecturaReincorporacionTitularB55Desarrollo(ctx, dependencias.bolsa); err != nil {
+			return vacias, err
+		}
+	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
@@ -395,6 +421,22 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if seleccion.plantillasCatalogo {
+		etapa = "material_plantillas_catalogo"
+		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, audienciaCatalogoPlantillasCT)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	if seleccion.plantillasDocumental {
+		etapa = "material_plantillas_documental"
+		dependencias.proveedorMaterialPlantillasDocumental, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+			ctx, gobierno, material, reloj, catalogoMaterial, audienciaDocumentalPlantillasCT)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	etapa = "material_dietas"
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
@@ -496,11 +538,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	etapa = "material_bolsa"
 	if configuracion.BolsaLlamamientosConfigurada() {
-		bolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
-		if err != nil {
-			return vacias, err
+		if dependencias.bolsa == nil {
+			dependencias.bolsa, err = abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, configuracion)
+			if err != nil {
+				return vacias, err
+			}
 		}
-		dependencias.bolsa = bolsa
+		bolsa := dependencias.bolsa
 		if seleccion.politicaOfertas {
 			dsnCalculador, err := cfg.DSNBolsaPoliticaOfertasCalculadorSeparado()
 			if err != nil {
@@ -546,6 +590,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		if cfg.BolsaBorradoresEnabled {
+			if seleccion.reincorporacionTitular {
+				etapa = "material_consulta_reincorporacion_titular_bolsa"
+				dependencias.proveedorMaterialConsultaReincorporacionTitular, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+					ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarReincorporacionTitular)
+				if err != nil {
+					return vacias, err
+				}
+			}
 			proveedorBorradorCrear, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 				ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 			)
@@ -735,4 +787,89 @@ func debeComponerMiBolsaDesarrollo(cfg config.Config) bool {
 	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "bolsa-candidato.json")
 	_, err := os.Lstat(ruta)
 	return err == nil
+}
+
+// La lectura B55 usa el ejecutor nominal de Bolsa y la función v2. La v1
+// permanece como historia B46, pero no puede seguir ejecutable por ese LOGIN.
+// La fachada AD3-101 sólo la invoca el propietario de Bolsa desde la v2.
+const consultaLecturaReincorporacionTitularB55Desarrollo = `WITH RECURSIVE membresias_efectivas(rol_id) AS (
+ SELECT directa.roleid FROM pg_catalog.pg_auth_members AS directa
+ WHERE directa.member = session_user::pg_catalog.regrole
+ UNION
+ SELECT siguiente.roleid FROM pg_catalog.pg_auth_members AS siguiente
+ JOIN membresias_efectivas AS previa ON previa.rol_id = siguiente.member
+), funciones AS (
+ SELECT
+  pg_catalog.to_regprocedure('vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v2(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') AS nueva,
+  pg_catalog.to_regprocedure('vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') AS anterior
+), fachada AS (
+ SELECT p.oid FROM pg_catalog.pg_proc AS p
+ JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'vec_autorizacion_atestada_v3'
+  AND p.proname = 'consumir_consulta_reincorporacion_titular_bolsa_v3_atestada'
+  AND p.pronargs = 10
+  AND p.proargtypes[0] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[1] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[2] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[3] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[4] = 'pg_catalog.numeric'::pg_catalog.regtype
+  AND p.proargtypes[5] = 'pg_catalog.numeric'::pg_catalog.regtype
+  AND p.proargtypes[6] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[7] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[8] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proargtypes[9] = 'pg_catalog.bytea'::pg_catalog.regtype
+  AND p.proowner = 'vec_autorizacion_atestada_v3_propietario'::pg_catalog.regrole
+  AND p.prosecdef
+), tabla_lectura AS (
+ SELECT c.oid FROM pg_catalog.pg_class AS c
+ JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'vec_bolsa_llamamientos'
+  AND c.relname = 'reincorporacion_titular_lectura_v3'
+  AND c.relkind = 'r'
+  AND c.relowner = 'vec_bolsa_llamamientos_propietario'::pg_catalog.regrole
+  AND EXISTS (SELECT 1 FROM pg_catalog.pg_trigger AS t
+   WHERE t.tgrelid = c.oid AND t.tgname = 'reincorporacion_titular_lectura_inmutable'
+    AND NOT t.tgisinternal AND t.tgenabled = 'O' AND t.tgtype = 27
+    AND t.tgqual IS NULL AND t.tgattr::text = ''
+    AND t.tgfoid = pg_catalog.to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()'))
+)
+SELECT session_user = current_user
+ AND identidad.rolcanlogin AND identidad.rolinherit
+ AND NOT identidad.rolsuper AND NOT identidad.rolcreatedb
+ AND NOT identidad.rolcreaterole AND NOT identidad.rolreplication
+ AND NOT identidad.rolbypassrls
+ AND pg_catalog.pg_has_role(session_user,'vec_bolsa_llamamientos_ejecutor','MEMBER')
+ AND NOT EXISTS (SELECT 1 FROM membresias_efectivas
+  WHERE rol_id <> 'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole)
+ AND NOT pg_catalog.pg_has_role(session_user,'vec_bolsa_llamamientos_propietario','MEMBER')
+ AND NOT pg_catalog.pg_has_role(session_user,'vec_bolsa_llamamientos_migrador','MEMBER')
+ AND funciones.nueva IS NOT NULL AND funciones.anterior IS NOT NULL
+ AND pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','USAGE')
+ AND pg_catalog.has_schema_privilege('vec_bolsa_llamamientos_propietario','vec_autorizacion_atestada_v3','USAGE')
+ AND COALESCE(pg_catalog.has_function_privilege(session_user,funciones.nueva,'EXECUTE'),false)
+ AND NOT COALESCE(pg_catalog.has_function_privilege(session_user,funciones.anterior,'EXECUTE'),false)
+ AND pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',fachada.oid,'EXECUTE')
+ AND NOT pg_catalog.has_function_privilege(session_user,fachada.oid,'EXECUTE')
+ AND pg_catalog.has_table_privilege(session_user,tabla_lectura.oid,
+  'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') IS FALSE
+ AND pg_catalog.has_table_privilege('vec_bolsa_llamamientos_ejecutor',tabla_lectura.oid,
+  'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') IS FALSE
+ AND pg_catalog.has_any_column_privilege(session_user,tabla_lectura.oid,
+  'SELECT,INSERT,UPDATE,REFERENCES') IS FALSE
+ AND pg_catalog.has_any_column_privilege('vec_bolsa_llamamientos_ejecutor',tabla_lectura.oid,
+  'SELECT,INSERT,UPDATE,REFERENCES') IS FALSE
+FROM pg_catalog.pg_roles AS identidad CROSS JOIN funciones CROSS JOIN fachada CROSS JOIN tabla_lectura
+WHERE identidad.rolname = session_user`
+
+func comprobarLecturaReincorporacionTitularB55Desarrollo(ctx context.Context, consultador interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}) error {
+	if ctx == nil || consultador == nil {
+		return puertosbolsa.ErrReincorporacionTitularNoDisponible
+	}
+	var autorizada bool
+	if err := consultador.QueryRow(ctx, consultaLecturaReincorporacionTitularB55Desarrollo).Scan(&autorizada); err != nil || !autorizada {
+		return puertosbolsa.ErrReincorporacionTitularNoDisponible
+	}
+	return nil
 }

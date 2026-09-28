@@ -3,6 +3,8 @@ package bootstrap
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"vec-diputacion-granada/config"
 )
@@ -20,6 +22,8 @@ type seleccionMaterialCTDesarrollo struct {
 	incorporacionAcreditada                                          bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
+	plantillasCatalogo                                               bool
+	plantillasDocumental                                             bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -46,6 +50,14 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	if err != nil || (politicaOfertas && !cfg.BolsaBorradoresEnabled) {
 		return s, ErrActivacionDesarrolloInvalida
 	}
+	plantillasCatalogo, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return s, ErrActivacionDesarrolloInvalida
+	}
+	plantillasDocumental, err := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return s, ErrActivacionDesarrolloInvalida
+	}
 	// Pedir el portal del candidato sin poder componer «Mi bolsa» (PostgreSQL
 	// de llamamientos y material de identidad del candidato) no se ignora.
 	if portal, _ := cfg.BolsaPortalCandidatoDesarrolloActivo(); portal && !debeComponerMiBolsaDesarrollo(cfg) {
@@ -69,6 +81,8 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
 		reincorporacionTitular:  reincorporacion,
 		politicaOfertas:         politicaOfertas,
+		plantillasCatalogo:      plantillasCatalogo,
+		plantillasDocumental:    plantillasDocumental,
 	}
 	return s, nil
 }
@@ -97,6 +111,12 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled); err != nil {
 		return err
 	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasGobiernoEnabled); err != nil {
+		return err
+	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasDocumentalEnabled); err != nil {
+		return err
+	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
 	return err
 }
@@ -107,6 +127,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	d := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
 	if s.borradoresBolsa {
 		d = append(d, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
+	}
+	if s.reincorporacionTitular {
+		d = append(d, descriptorMaterialConsultaReincorporacionTitularBolsaDesarrollo())
 	}
 	if s.politicaOfertas {
 		d = append(d, descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
@@ -155,6 +178,12 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	if s.cancelacion {
 		d = append(d, descriptoresMaterialCancelacionCTDesarrollo()...)
 	}
+	if s.plantillasCatalogo {
+		d = append(d, descriptoresMaterialPlantillasCTDesarrollo()...)
+	}
+	if s.plantillasDocumental {
+		d = append(d, descriptorMaterialPlantillasDocumentalCTDesarrollo())
+	}
 	return d
 }
 
@@ -163,6 +192,15 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 // API pública), que comparten el entorno pero no la doble llave: allí un
 // "true" no activa nada, pero un valor ilegible sigue siendo un error.
 func validarValorSelectoresDespliegueBolsaCT(cfg config.Config) error {
+	// Estas dos capacidades se seleccionan desde el entorno. Las raíces
+	// públicas no aplican la doble llave, pero sí rechazan valores ilegibles.
+	for _, nombre := range []string{envCTPlantillasGobiernoEnabled, envCTPlantillasDocumentalEnabled} {
+		switch strings.TrimSpace(os.Getenv(nombre)) {
+		case "", "false", "true":
+		default:
+			return ErrActivacionDesarrolloInvalida
+		}
+	}
 	for _, err := range []error{
 		func() error { _, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); return err }(),
 		func() error { _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); return err }(),
