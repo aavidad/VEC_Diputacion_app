@@ -26,13 +26,14 @@ DO $test$ BEGIN
  BEGIN
   PERFORM vec_usuarios.registrar_denegacion_preferencias_v1(
    'corr_no_disponible','acceso_denegado',
-   'api.usuarios.preferencias.ruta_exacta','/api/vec/usuarios/otra',NULL);
+   'api.usuarios.preferencias.ruta_exacta','/api/vec/usuarios/otra',
+   'per_abcdefghijklmnopqrstuv');
   RAISE EXCEPTION 'Usuarios 000003: ruta ajena aceptada';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  BEGIN
   PERFORM vec_usuarios.registrar_denegacion_preferencias_v1(
    'corr_no_disponible','acceso_denegado','api.contratacion.ruta_exacta',
-   '/api/vec/usuarios/mis-preferencias',NULL);
+   '/api/vec/usuarios/mis-preferencias','per_abcdefghijklmnopqrstuv');
   RAISE EXCEPTION 'Usuarios 000003: superficie ajena aceptada';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  BEGIN
@@ -48,9 +49,23 @@ DO $test$ BEGIN
    '12345678Z');
   RAISE EXCEPTION 'Usuarios 000003: identidad no opaca aceptada';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_usuarios.registrar_denegacion_preferencias_v1(
+   'corr_no_disponible','acceso_denegado',
+   'api.usuarios.preferencias.ruta_exacta','/api/vec/usuarios/mis-preferencias',NULL);
+  RAISE EXCEPTION 'Usuarios 000003: 403 sin actor aceptado';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_usuarios.registrar_denegacion_preferencias_v1(
+   'corr_no_disponible','autenticacion_requerida',
+   'api.usuarios.preferencias.ruta_exacta',
+   '/api/vec/usuarios/area-personal/mis-preferencias',NULL);
+  RAISE EXCEPTION 'Usuarios 000003: ingreso interno cruzó ruta exterior';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
 END $test$;
 BEGIN;
 SELECT vec_usuarios.registrar_denegacion_preferencias_v1(
  'corr_no_disponible','acceso_denegado',
- 'api.usuarios.preferencias.ruta_exacta','/api/vec/usuarios/mis-preferencias',NULL);
+ 'api.usuarios.preferencias.ruta_exacta','/api/vec/usuarios/mis-preferencias',
+ 'per_abcdefghijklmnopqrstuv');
 ROLLBACK;
