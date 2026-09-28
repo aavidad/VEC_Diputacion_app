@@ -232,6 +232,10 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoNoIncorporacionV1,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
+		// Preferencias propias de Usuarios (AD3-106); únicamente cuando la
+		// composición autenticada publica ambas audiencias nominales.
+		audienciaConsultaPreferenciasUsuarios,
+		audienciaActualizacionPreferenciasUsuarios,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,
