@@ -142,7 +142,7 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero) 
   const tarjetas = [
     ["bolsas", "inicio_rrhh_tramites_bolsa", resumen.total],
     ["vigentes", "txt_vigentes", resumen.vigentes],
-    ["llamamientos", "txt_llamamientos_en_curso", resumen.llamamientos],
+    ["llamamientos", "inicio_rrhh_llamamientos_curso", resumen.llamamientos],
   ].map(([clave, etiqueta, valor]) => renderizarTarjetaInicio({
     clave, etiqueta, valor: valor === null ? null : numero(valor), destino,
     accion: "inicio_rrhh_ver_bolsas", escaparHTML, traducir,
@@ -247,6 +247,8 @@ export function crearVistaInicioPortal({
         : { estado: accesoBolsa?.estado || "denegado", bolsas: null };
       const estadoCT = accesoCT?.estado === "denegado"
         ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("permiso_perfil_denegado")}</p>`
+        : accesoCT?.estado === "cargando"
+          ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("inicio_comprobando_accesos")}</p>`
         : (!metricas && tramites === null
           ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>`
           : (!metricas ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_los_totales_se_consultan_en_el_cuadro_de_mando")}</p>` : ""));
@@ -270,11 +272,11 @@ export function crearVistaInicioPortal({
               <section class="portal-rrhh-panel portal-rrhh-panel-expedientes" aria-label="${t("inicio_rrhh_pestana_expedientes")}">
                 ${estadoCT}
                 <div class="rejilla-metricas-rrhh">${tarjetasCT}</div>
-                <section class="portal-rrhh-tramites-seccion" aria-label="${t("txt_tramites_recientes")}">
+                ${accesoCT?.disponible === true && Array.isArray(tramites) ? `<section class="portal-rrhh-tramites-seccion" aria-label="${t("txt_tramites_recientes")}">
                   <div class="cabecera-panel"><h3>${t("txt_tramites_recientes")}</h3>
                     ${destinoCT ? `<button type="button" class="boton-terciario" ${destinoCT}>${t("txt_ver_todos")}</button>` : ""}</div>
-                  ${accesoCT?.disponible === true ? renderizarTramitesInicio(tramites, escaparHTML, traducir) : ""}
-                </section>
+                  ${renderizarTramitesInicio(tramites, escaparHTML, traducir)}
+                </section>` : ""}
               </section>
               <section class="portal-rrhh-panel portal-rrhh-panel-bolsas" aria-label="${t("inicio_rrhh_pestana_bolsas")}">
                 ${renderizarBolsasInicio(resumenBolsas, accesoBolsa, escaparHTML, traducir, numero)}

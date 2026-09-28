@@ -408,7 +408,14 @@ function renderizarConservandoFoco() {
   const contenedor = porId("espacio-trabajo");
   const activo = document.activeElement;
   const selector = contenedor && activo ? selectorFoco(activo, contenedor) : "";
+  const pestañaSeleccionada = contenedor?.querySelector(".portal-rrhh-tab-radio:checked")?.id;
+  const pestañaEnfocada = activo?.matches?.(".portal-rrhh-tab-radio") ? activo.id : "";
   renderizar();
+  const radios = [...(contenedor?.querySelectorAll(".portal-rrhh-tab-radio") ?? [])];
+  const seleccionada = radios.find((radio) => radio.id === pestañaSeleccionada);
+  if (seleccionada) seleccionada.checked = true;
+  const focoRadio = radios.find((radio) => radio.id === pestañaEnfocada);
+  if (focoRadio) { focoRadio.focus({ preventScroll: true }); return; }
   if (!selector) return;
   const destino = contenedor.querySelector(selector);
   const enfocable = destino?.matches?.("[data-modulo-catalogo]")

@@ -448,6 +448,19 @@ test("la ayuda de RRHH queda en la cabecera y el vacío indica dónde consultar"
   assert.match(html, /No hay expedientes recientes\. Consulte el cuadro para ver todos los trámites\./u);
 });
 
+test("un fallo del cuadro no se presenta como ausencia de expedientes", () => {
+  const html = crearVistaInicioPortal({
+    encabezadoVista: () => "", escaparHTML, obtenerCatalogo: () => [],
+    resolverAcceso: (clave) => clave === "contratacion_temporal"
+      ? { disponible: true, vista: "contratacion-temporal" }
+      : { disponible: false, estado: "denegado" },
+    esPerfilRRHH: () => true, obtenerMetricasCuadro: () => null,
+    obtenerTramitesInicio: () => null,
+  })();
+  assert.match(html, /No se pudo consultar el cuadro de expedientes/u);
+  assert.doesNotMatch(html, /No hay expedientes recientes|portal-rrhh-tramites-seccion/u);
+});
+
 test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", () => {
   const traducir = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
   const html = crearVistaInicioPortal({
@@ -461,7 +474,9 @@ test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", (
       { expediente_ref: "exp:1", numero_visible: "CT-1", centro: "Centro <libre>", categoria: "Auxiliar & más", fase_clave: "fiscalizacion", fase_actual: "Fiscalización", estado_clave: "incidencia", estado: "Con incidencia" },
       { expediente_ref: "exp:2", numero_visible: "CT-2", centro: "Centro B", categoria: "Auxiliar", fase_clave: "fase_no_catalogada", fase_actual: "Fase <libre>", estado_clave: "estado_no_catalogado", estado: "Estado <libre>" },
     ],
-    obtenerBolsasInicio: () => ({ carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [] } }),
+    obtenerBolsasInicio: () => ({ carga: "listo", datos: { generado_en: "2026-09-28T10:00:00Z", bolsas: [
+      { bolsa_ref: "bolsa:1", categoria: "Auxiliar", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2 },
+    ] } }),
   })();
   assert.match(html, /<h1>Temporary staff requests<\/h1>/u);
   assert.match(html, /Financial review<\/td>/u);
@@ -469,6 +484,8 @@ test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", (
   assert.match(html, /Centro &lt;libre&gt;|Auxiliar &amp; más/u);
   assert.match(html, /Fase &lt;libre&gt;|Estado &lt;libre&gt;/u);
   assert.doesNotMatch(html, /ct-fase-estado_no_catalogado|<libre>|Con incidencia|Fiscalización/u);
-  assert.match(html, /No job pools were returned\./u);
+  assert.match(html, /Job pools viewed/u);
   assert.match(html, /SAE offers cannot be viewed yet/u);
+  assert.match(html, /Calls in progress/u);
+  assert.doesNotMatch(html, /Llamamientos en curso/u);
 });
