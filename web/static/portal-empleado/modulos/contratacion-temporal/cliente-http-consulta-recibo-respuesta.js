@@ -54,7 +54,7 @@ export function crearConsultaReciboRespuestaClienteHTTP({ ejecutar, validarOpcio
       const entrada = validarConsultaReciboRespuesta(consulta);
       const { signal } = validarOpciones(opciones);
       const query = new URLSearchParams(entrada);
-      if (query.toString().length > 400) throw new TypeError("consulta de recibo demasiado larga");
+      if (query.toString().length > 2048) throw new TypeError("consulta de recibo demasiado larga");
       return ejecutar({ metodo: "GET", ruta: `${RUTA_CONSULTA_RECIBO_RESPUESTA}?${query}`,
         signal, estadoEsperado: 200, maximoRespuesta: 4096, efecto: false,
         validarRespuesta: (respuesta) => validarReciboRespuestaConsultado(respuesta, entrada) });

@@ -219,6 +219,43 @@ test("aceptación restaurada permite propuesta solo con resolución y publicacio
   cerrar();
 });
 
+for (const opcion of ["renuncia", "aceptacion"]) test(`cambiar de fila limpia ${opcion === "renuncia" ? "siguiente" : "propuesta"} de la fila anterior`, async () => {
+  const raiz = raizPrueba(); let efectos = 0;
+  const accion = opcion === "renuncia" ? "siguiente" : "propuesta";
+  const cerrar = montar(raiz, {
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE,
+      comunicaciones: [fila(1), fila(2)] }),
+    consultarReciboRespuesta: async () => { throw sinRespuesta(); },
+    registrarRespuestaRecibida: async (solicitud) => ({ ...justificante(solicitud),
+      registrada_en: "2026-09-24T10:30:00Z" }),
+    resolverLlamamiento: async () => ({ ...reciboResolucion(opcion),
+      resuelta_en: "2026-09-24T11:00:00Z",
+      ...(opcion === "renuncia" ? { intencion_siguiente: { referencia: "intencion:siguiente:001",
+        estado_local: "pendiente", actualizada_en: "2026-09-24T11:00:00Z" } } : {}) }),
+    continuarLlamamiento: async () => { efectos += 1; return continuacionConfirmada; },
+    prepararPropuestaFormalizacion: async () => {
+      efectos += 1;
+      return { esquema: "vec.contratacion-temporal.propuesta-formalizacion-local.v1",
+        estado_local: "confirmado", propuesta_ref: "propuesta:ct140:001",
+        recibo_local_ref: "recibo:propuesta:ct140:001", version_resultante: 7,
+        confirmada_en: "2026-09-24T11:10:00Z" };
+    },
+  }, { contexto, fetchPublicaciones: async () => new Response(PUBLICACIONES_PROPUESTA,
+    { status: 200, headers: { "Content-Type": "application/json" } }) });
+  await esperar(); elegir(raiz, 0); await esperar();
+  await raiz.archivo(archivoCorreo(opcion));
+  await raiz.enviar("respuesta", { ...declaracion(), respuesta: opcion, recibida_en: "2026-09-24T11:00" });
+  await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, ...revisionManual });
+  assert.match(raiz.innerHTML, new RegExp(`data-ct-llamamiento-form="${accion}"`, "u"));
+  elegir(raiz, 1);
+  await esperar();
+  assert.doesNotMatch(raiz.innerHTML, new RegExp(`data-ct-llamamiento-form="${accion}"`, "u"));
+  await raiz.enviar(accion, { clave_idempotencia: accion === "siguiente"
+    ? "123e4567-e89b-42d3-a456-426614174004" : "123e4567-e89b-42d3-a456-426614174005" });
+  assert.equal(efectos, 0, "no reutiliza el efecto del llamamiento anterior");
+  cerrar();
+});
+
 for (const ingles of [false, true]) test(`CT140 registrada y GET404 ${ingles ? "EN" : "ES"} oculta POST y explica recibo de otra comunicación`, async () => {
   const raiz = raizPrueba(); let escrituras = 0;
   const registrada = { ...fila(1), estado_respuesta: "registrada" };

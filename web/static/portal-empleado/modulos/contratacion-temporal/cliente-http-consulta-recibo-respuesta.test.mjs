@@ -65,8 +65,25 @@ test("cliente común compone GET de recibo sin cuerpo ni clave y valida 404 unif
     } }), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
   await assert.rejects(ausente.consultarReciboRespuesta(consulta), (error) =>
     error.estado === 404 && error.envelopeValido === true);
-  assert.throws(() => ausente.consultarReciboRespuesta({
-    organizacion_ref: "a".repeat(159), expediente_ref: "b".repeat(159),
-    comunicacion_ref: "c".repeat(159),
+});
+
+test("GET CT139 admite tres referencias máximas codificadas y rechaza entrada mayor", async () => {
+  const maxima = `a${":/#".repeat(53)}`;
+  assert.equal(maxima.length, 160);
+  let ruta = "", llamadas = 0;
+  const cliente = crearConsultaReciboRespuestaClienteHTTP({
+    validarOpciones: () => ({ signal: undefined }),
+    ejecutar: async (opciones) => { ruta = opciones.ruta; llamadas += 1; return null; },
+  });
+  await cliente.consultarReciboRespuesta({ organizacion_ref: maxima,
+    expediente_ref: maxima, comunicacion_ref: maxima });
+  const query = ruta.split("?")[1];
+  assert.ok(query.length > 400 && query.length <= 2048);
+  assert.match(query, /%3A%2F%23/u);
+  assert.equal(llamadas, 1);
+  assert.throws(() => cliente.consultarReciboRespuesta({
+    organizacion_ref: `a${":/#".repeat(250)}`,
+    expediente_ref: maxima, comunicacion_ref: maxima,
   }), TypeError);
+  assert.equal(llamadas, 1);
 });

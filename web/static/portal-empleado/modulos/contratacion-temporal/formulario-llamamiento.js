@@ -123,9 +123,10 @@ export function montarFormularioLlamamiento({
   // La fuente HTTP solo se crea si hay fetch; sin ella el panel no se pinta.
   const fuenteDocumentacion = fuenteDocumentacionFormalizacion
     ?? (typeof globalThis.fetch === "function" ? crearFuenteDocumentacionFormalizacionHTTP() : null);
-  const documentacion = fuenteDocumentacion ? crearPanelDocumentacionFormalizacion({
+  const crearDocumentacion = () => fuenteDocumentacion ? crearPanelDocumentacionFormalizacion({
     fuente: fuenteDocumentacion, t, locale, zonaHoraria, criptografia, generarClaveIdempotencia, anunciar,
   }) : null;
+  let documentacion = crearDocumentacion();
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
     comunicacion_siguiente: { ...nuevoPaso(), claveConservada: false },
     respuesta_siguiente: { ...nuevoPaso(), claveConservada: false },
@@ -320,14 +321,33 @@ export function montarFormularioLlamamiento({
     if (lista.estado !== "lista" || !Number.isSafeInteger(indice) || indice < 0 || indice >= lista.filas.length) return;
     const fila = lista.filas[indice];
     if (fila.expediente_ref !== estado.seleccion.valores.expediente_ref) return;
-    if ([estado.respuesta, estado.respuesta_siguiente, estado.resolucion, estado.resolucion_siguiente]
-      .some((paso) => paso.ocupado || (paso.solicitud !== null && paso.recibo === null
-        && paso.solicitud !== lista.intentoNoConfirmado?.solicitud))) return;
+    if (Object.keys(OPERACIONES).some((operacion) => {
+      const paso = estado[operacion];
+      return paso.ocupado || paso.calculando || paso.actualizando
+        || (paso.solicitud !== null && paso.recibo === null
+          && paso.solicitud !== lista.intentoNoConfirmado?.solicitud);
+    })) return;
     if (lista.seleccionada?.comunicacion_ref === fila.comunicacion_ref) return;
+    const expedienteRef = estado.seleccion.valores.expediente_ref;
+    const versionEsperada = estado.seleccion.valores.version_esperada;
+    clearTimeout(temporizadorPlazo);
+    documentacion?.desmontar();
+    documentacion = crearDocumentacion();
+    estado.seleccion = { ...nuevoPaso(), valores: { expediente_ref: expedienteRef, version_esperada: versionEsperada } };
+    estado.comunicacion = nuevoPaso();
     estado.respuesta = nuevoPaso();
+    estado.contacto = { ...nuevoPaso(), mensaje: "llamamiento_contacto_pendiente" };
+    estado.causa = { ...nuevoPaso(), mensaje: "llamamiento_causa_pendiente" };
+    estado.expiracion = { ...nuevoPaso(), mensaje: "llamamiento_expiracion_pendiente",
+      valores: { revision_respuesta_rrhh: false, revision_plazo_rrhh: false } };
+    estado.siguiente = { ...nuevoPaso(), mensaje: "llamamiento_siguiente_pendiente", claveConservada: false };
+    estado.comunicacion_siguiente = { ...nuevoPaso(), claveConservada: false };
     estado.respuesta_siguiente = { ...nuevoPaso(), claveConservada: false };
     estado.resolucion = nuevoPasoResolucion();
     estado.resolucion_siguiente = nuevoPasoResolucion();
+    estado.propuesta = { ...nuevoPaso(), aceptacion: null, disponible: false, claveConservada: false,
+      actualizando: false, actualizacionPendiente: false, mensaje: "llamamiento_propuesta_no_disponible" };
+    estado.comunicacionAbierta = false;
     lista.seleccionada = fila;
     const operacion = fila.antecedente_tipo === "continuacion_confirmada" ? "respuesta_siguiente" : "respuesta";
     estado[operacion].valores = { ...estado[operacion].valores,
