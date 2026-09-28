@@ -34,6 +34,8 @@ export const MENSAJES_RRHH_PLAZOS_ES = Object.freeze({
   rrhh_plazos_validacion: "Revise los campos señalados por el formulario.",
   rrhh_plazos_sin_permiso: "Su sesión no permite modificar esta política.",
   rrhh_plazos_sin_edicion: "La edición no está disponible para esta sesión.",
+  rrhh_plazos_comprobando_edicion: "Comprobando permiso de edición…",
+  rrhh_plazos_error_capacidad: "No se pudo comprobar el permiso de edición. La política sigue en solo lectura.",
   rrhh_plazos_desconocido: "Valor no disponible",
   rrhh_plazos_calendario_fuente: "Calendario",
   rrhh_plazos_calendario_municipio: "Hábil del municipio INE {municipio}",
@@ -44,9 +46,12 @@ export const MENSAJES_RRHH_PLAZOS_ES = Object.freeze({
   rrhh_plazos_sin_elegibles: "Ninguna disposición elegible",
   rrhh_plazos_dias_naturales: "Días naturales",
   rrhh_plazos_dias_habiles: "Días hábiles",
+  rrhh_plazos_horas_naturales: "Horas naturales",
   rrhh_plazos_administrativo: "Cómputo administrativo",
+  rrhh_plazos_continuo_utc: "Desde la apertura expresa de la oferta, en tiempo continuo UTC",
+  rrhh_plazos_calendario_continuo_utc: "Tiempo continuo UTC, sin excluir festivos",
   rrhh_plazos_ayuda: "Ayuda sobre la política de ofertas",
-  rrhh_plazos_ayuda_contenido: "Consulte la versión de esta bolsa y revise plazo, orden y cobertura antes de publicar. La publicación requiere concesión expresa y genera un recibo; el servidor vuelve a comprobar el permiso al registrarla.",
+  rrhh_plazos_ayuda_contenido: "La regla de ejemplo propone 48 horas naturales desde la apertura expresa de cada oferta. Cada oferta conserva apertura y vencimiento exactos en UTC; la hora local se interpreta en Europe/Madrid, también al cambiar el horario de verano. Es un plazo operativo provisional: el correo no acredita notificación ni inicia un plazo legal. Consulte la versión de la bolsa antes de publicar; el servidor vuelve a comprobar el permiso y genera un recibo.",
   rrhh_plazos_confirmacion: "La resolución requiere confirmación de RRHH",
 });
 
