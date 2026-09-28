@@ -401,7 +401,7 @@ function renderizarSiguientePaso(expediente, estado, t) {
   const accion = estado.carga !== "listo" || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
     ? null : tarea?.acciones?.find(({ tipo, disponible }) => tipo === "efecto" && disponible === true);
   const actorLegible = (valor) => typeof valor === "string" && valor.trim() !== ""
-    && !/^(—|-|pendiente|por asignar|sin asignar)$/iu.test(valor.trim())
+    && !/^(—|-|pendiente\b|por asignar\b|por definir\b|sin asignar\b|sin determinar\b|no consta\b)/iu.test(valor.trim())
     && !/^[a-z_]+:[^ ]+$/iu.test(valor.trim());
   const actor = actorLegible(tarea?.responsable)
     ? tarea.responsable : actorLegible(tarea?.unidad)

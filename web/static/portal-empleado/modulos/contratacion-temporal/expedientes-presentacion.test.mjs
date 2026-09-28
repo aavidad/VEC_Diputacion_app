@@ -112,7 +112,7 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   assert.match(html, /Quién:<\/strong> Unidad RRHH/u);
   assert.match(html, /No consta un plazo autorizado para este paso/u);
 
-  const bloqueada = { ...tarea, responsable: "Por asignar", unidad: "—",
+  const bloqueada = { ...tarea, responsable: "Pendiente de definición por RRHH", unidad: "—",
     acciones: [{ tipo: "efecto", disponible: false, etiqueta: "Firmar" }] };
   const en = renderizarExpediente({ ...estado, expediente: { ...expediente, tareas: [bloqueada] } },
     crearTraductorExpedientesContratacion(MENSAJES_EXPEDIENTES_CONTRATACION_EN), "en-GB", "Europe/Madrid");
