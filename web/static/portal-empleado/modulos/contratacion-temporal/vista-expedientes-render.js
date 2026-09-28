@@ -163,21 +163,6 @@ export function asignacionConfirmadaEnDetalle(expediente) {
   );
 }
 
-function renderizarFirmaPendiente(expediente, t) {
-  const informe = expediente?.historial?.at?.(-1);
-  if (!(informe?.accion_clave === "contratacion_temporal.informe_juridico.generar"
-      || informe?.accion_clave === "registrar_informe_juridico")) return "";
-  return `<section class="ct-exp-firma-pendiente" role="note" aria-labelledby="ct-exp-firma-pendiente-titulo">
-    <h3 id="ct-exp-firma-pendiente-titulo">${escaparHTML(t("firma_pendiente_titulo"))}</h3>
-    <p>${escaparHTML(t("firma_pendiente_estado"))}</p>
-    <button type="button" class="boton-primario" disabled aria-describedby="ct-exp-enviar-firma-motivo">${escaparHTML(t("firma_enviar"))}</button>
-    <p id="ct-exp-enviar-firma-motivo">${escaparHTML(t("firma_enviar_motivo"))}</p>
-    <details class="ct-exp-autofirma-prueba"><summary>${escaparHTML(t("firma_autofirma_prueba_titulo"))}</summary>
-      <p>${escaparHTML(t("firma_autofirma_prueba"))}</p>
-    </details>
-  </section>`;
-}
-
 // La fase y el reparo proyectado solo acotan el contenedor. La disponibilidad
 // efectiva llega como dependencia de composición y el servidor la revalida al
 // registrar; la vista nunca la deduce de este estado.
@@ -410,7 +395,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
       && ultimoHito.version_expediente === contextoSubsanacion.version_esperada
       && ultimoHito.secuencia === contextoSubsanacion.version_esperada;
-    contenido = `${detalle}${renderizarFirmaPendiente(estado.expediente, t)}${reciboAsignacion}${reciboFiscalizacion}${contextoRectificacion
+    contenido = `${detalle}${reciboAsignacion}${reciboFiscalizacion}${contextoRectificacion
       ? '<div data-ct-exp-rectificacion></div>'
       : ""}${contextoCobertura
       ? '<div data-ct-exp-cobertura></div>'

@@ -124,7 +124,7 @@ test("ofrece el informe al reabrir un expediente asignado", () => {
   assert.match(html, /data-ct-exp-informe-juridico/u);
 });
 
-test("presenta la firma pendiente con sus límites sin simular una firma o envío", () => {
+test("el detalle base deja un solo lugar para el circuito de firma", () => {
   const expediente = {
     expediente_ref: EXPEDIENTE, numero_visible: "2026/CT-001", version: 5,
     flujo_ref: "flujo:ct:sintetico", flujo_version: 1, flujo_huella: "b".repeat(64),
@@ -136,13 +136,9 @@ test("presenta la firma pendiente con sus límites sin simular una firma o enví
     vista: "expediente", carga: "listo", cuadro: { expedientes: [] }, expediente,
     tarea_ref: "", mensaje_clave: "", tipo_mensaje: "informacion",
   });
-  const panelFirma = html.match(/<section class="ct-exp-firma-pendiente"[\s\S]*?<\/section>/u)?.[0] ?? "";
-  assert.match(panelFirma, /El envío a Firmadoc está pendiente de conexión/u);
-  assert.match(panelFirma, /<button[^>]*disabled[^>]*aria-describedby="ct-exp-enviar-firma-motivo"[^>]*>Enviar a firma<\/button>/u);
-  assert.match(panelFirma, /La conexión con Firmadoc aún no está disponible/u);
-  assert.match(panelFirma, /<details class="ct-exp-autofirma-prueba"><summary>AutoFirma de prueba<\/summary>/u);
-  assert.match(panelFirma, /AutoFirma solo permite probar una firma local/u);
-  assert.doesNotMatch(panelFirma, /<form|data-ct-exp-efecto|Firma confirmada|Documento firmado|recibo.*confirmado|descargar/iu);
+  assert.match(html, /ct-exp-siguiente-paso/u);
+  assert.doesNotMatch(html, /ct-exp-firma-pendiente|ct-exp-enviar-firma-motivo/u);
+  assert.doesNotMatch(html, /Firma confirmada|Documento firmado|recibo.*confirmado/iu);
 });
 
 test("no mantiene la firma pendiente cuando la historia ya avanzó", () => {
