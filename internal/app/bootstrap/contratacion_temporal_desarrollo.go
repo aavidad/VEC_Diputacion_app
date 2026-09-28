@@ -1052,7 +1052,7 @@ func existeAsignacionAuditoriaConsultaDesarrollo(ctx context.Context, gobierno *
 	if ctx == nil || ctx.Err() != nil || gobierno == nil || !perfilActivoSeguridadComunValido(perfil) {
 		return false, errAutoridadesAuditoriaConsultaDesarrollo
 	}
-	tx, err := gobierno.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadOnly})
+	tx, err := gobierno.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return false, errAutoridadesAuditoriaConsultaDesarrollo
 	}
