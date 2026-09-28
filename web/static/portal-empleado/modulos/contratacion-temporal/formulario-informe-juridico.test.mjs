@@ -137,14 +137,12 @@ test("presenta la firma pendiente con sus límites sin simular una firma o enví
     tarea_ref: "", mensaje_clave: "", tipo_mensaje: "informacion",
   });
   const panelFirma = html.match(/<section class="ct-exp-firma-pendiente"[\s\S]*?<\/section>/u)?.[0] ?? "";
-  assert.match(panelFirma, /Firma y remisión a Intervención/u);
-  assert.match(panelFirma, /Pendiente de integración con el portafirmas corporativo/u);
-  assert.match(panelFirma, /Informe jurídico preparado; no consta firmado/u);
-  assert.match(panelFirma, /Portafirmas corporativo de Diputación → Intervención/u);
-  assert.match(panelFirma, /Pendientes para continuar/u);
-  assert.match(panelFirma, /RRHH debe confirmar los documentos, cargos y orden del circuito de firma/u);
-  assert.match(panelFirma, /VEC no ha enviado el documento ni acredita firma o remisión/u);
-  assert.doesNotMatch(panelFirma, /<form|<button|Firma confirmada|Documento firmado|Enviar a firma|recibo.*confirmado|descargar/iu);
+  assert.match(panelFirma, /El envío a Firmadoc está pendiente de conexión/u);
+  assert.match(panelFirma, /<button[^>]*disabled[^>]*aria-describedby="ct-exp-enviar-firma-motivo"[^>]*>Enviar a firma<\/button>/u);
+  assert.match(panelFirma, /La conexión con Firmadoc aún no está disponible/u);
+  assert.match(panelFirma, /<details class="ct-exp-autofirma-prueba"><summary>AutoFirma de prueba<\/summary>/u);
+  assert.match(panelFirma, /AutoFirma solo permite probar una firma local/u);
+  assert.doesNotMatch(panelFirma, /<form|data-ct-exp-efecto|Firma confirmada|Documento firmado|recibo.*confirmado|descargar/iu);
 });
 
 test("no mantiene la firma pendiente cuando la historia ya avanzó", () => {
