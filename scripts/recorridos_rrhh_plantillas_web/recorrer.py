@@ -189,6 +189,9 @@ def descargar(navegador, cfg):
             lista = peticion.value
             if inicial is None or inicial.status != 200 or lista.status != 200:
                 raise Fallo(f"detalle/lista de documentos no respondió 200 a {ancho}px")
+            entrada = lista.request.post_data_json
+            if entrada != {"expediente_ref": cfg.expediente_ref, "version_observada": cfg.version}:
+                raise Fallo("el detalle no corresponde a la versión esperada del expediente")
             catalogo = lista.json()
             if not any(t.get("clave") == cfg.tipo for t in catalogo.get("tipos", [])):
                 raise Fallo("la API del expediente no incluye el tipo publicado")
@@ -203,6 +206,10 @@ def descargar(navegador, cfg):
             r = peticion.value
             if r.status != 200:
                 raise Fallo(f"descarga respondió {r.status}")
+            entrada_descarga = r.request.post_data_json
+            if entrada_descarga != {"expediente_ref": cfg.expediente_ref,
+                                    "version_observada": cfg.version, "tipo": cfg.tipo, "formato": "pdf"}:
+                raise Fallo("la descarga no corresponde al tipo y expediente esperado")
             documento = descarga.value
             bytes_pdf = Path(documento.path()).read_bytes()
             huella = hashlib.sha256(bytes_pdf).hexdigest()
@@ -218,8 +225,8 @@ def descargar(navegador, cfg):
             comprobar_pagina(ctx, page, ancho, errores, cookies)
         finally:
             ctx.close()
-    if resultados[0]["catalogo_huella"] != resultados[1]["catalogo_huella"]:
-        raise Fallo("el catálogo difiere entre vistas")
+    if (resultados[0]["catalogo_huella"], resultados[0]["pdf_sha256"]) != (resultados[1]["catalogo_huella"], resultados[1]["pdf_sha256"]):
+        raise Fallo("el catálogo o documento difiere entre vistas")
     return resultados
 
 
