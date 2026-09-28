@@ -167,7 +167,8 @@ func NuevaOfertaSAE(ref string, datos DatosOfertaSAE, catalogo CatalogoOfertaSAE
 // devuelve el recibo anterior incluso si la versión ya avanzó; otro contenido
 // con esa clave se rechaza. El repositorio deberá repetirlo transaccionalmente.
 func (o OfertaSAE) Aplicar(c CambioOfertaSAE) (OfertaSAE, string, bool, error) {
-	if !referenciaSAE(o.Referencia) || o.Version < 1 || !referenciaSAE(c.Clave) ||
+	if !referenciaPrefijoSAE(o.Referencia, "oferta-sae:") || o.Version < 1 ||
+		o.Datos.Validar(o.Catalogo) != nil || !estadoSAEValido(o.Estado) || !referenciaSAE(c.Clave) ||
 		!referenciaSAE(c.ReciboRef) || !referenciaSAE(c.ActorRef) || c.Instante.IsZero() ||
 		c.Instante.Nanosecond()%1000 != 0 || !contenidoCambioSAEValido(c) {
 		return OfertaSAE{}, "", false, ErrOfertaSAEInvalida
@@ -235,7 +236,7 @@ func contenidoCambioSAEValido(c CambioOfertaSAE) bool {
 func (o *OfertaSAE) aplicarAccion(c CambioOfertaSAE) error {
 	switch c.Accion {
 	case AccionSAEEnviar:
-		if o.Estado != EstadoSAEPreparada || !textoSAE(c.NumeroSAE, 200) || !fechaSAE(c.FechaEnvio) {
+		if o.Estado != EstadoSAEPreparada || !numeroSAEValido(c.NumeroSAE) || !fechaSAE(c.FechaEnvio) {
 			break
 		}
 		o.Estado, o.NumeroSAE, o.FechaEnvio = EstadoSAEEnviada, c.NumeroSAE, c.FechaEnvio
@@ -321,6 +322,14 @@ func referenciaPrefijoSAE(s, prefijo string) bool {
 }
 func textoSAE(s string, max int) bool {
 	return s != "" && len(s) <= max && strings.TrimSpace(s) == s && !strings.ContainsAny(s, "\x00")
+}
+func numeroSAEValido(s string) bool { return textoSAE(s, 200) && !strings.ContainsAny(s, "\r\n\t") }
+func estadoSAEValido(s string) bool {
+	switch s {
+	case EstadoSAEPreparada, EstadoSAEEnviada, EstadoSAECandidatosRecibidos, EstadoSAEEnSeleccion, EstadoSAEResuelta, EstadoSAEDesierta:
+		return true
+	}
+	return false
 }
 func fechaSAE(s string) bool {
 	t, err := time.Parse("2006-01-02", s)

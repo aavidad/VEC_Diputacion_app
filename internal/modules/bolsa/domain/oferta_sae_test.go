@@ -123,4 +123,8 @@ func TestOfertaSAEDeniegaReglasAusentesYVersionObsoleta(t *testing.T) {
 	if _, _, _, err := o.Aplicar(registro); !errors.Is(err, ErrOfertaSAETransicion) {
 		t.Fatalf("documento sin protección: %v", err)
 	}
+	envio.NumeroSAE = "SAE/2026/003\nOtra línea"
+	if _, _, _, err := ofertaSAEPrueba(t).Aplicar(envio); !errors.Is(err, ErrOfertaSAETransicion) {
+		t.Fatalf("número con salto de línea: %v", err)
+	}
 }
