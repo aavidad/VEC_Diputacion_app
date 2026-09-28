@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   ErrorAPIBorradores,
-} from "./portal-borradores-api.js?v=20260928-ppt-503-v4";
+} from "./portal-borradores-api.js?v=20260928-ppt-503-v5";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,
