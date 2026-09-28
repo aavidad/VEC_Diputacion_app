@@ -35,6 +35,10 @@ touch "$tmp/vacio"
 expect_error 'alcance SQL desconocido' --scope desconocido --plan "$tmp/vacio" --runtime "$tmp/runtime" --probe /api/vec/contratacion-temporal/cuadro/consultas
 expect_error 'la sonda debe ser una ruta HTTP local' \
   --plan "$tmp/vacio" --runtime "$tmp/runtime" --probe http://example.test/
+expect_error 'el directorio TLS debe ser absoluto' \
+  --plan "$tmp/vacio" --runtime "$tmp/runtime" --probe /api/ct --tls-material relativo
+expect_error 'falta material TLS local: ca/ca.crt' \
+  --plan "$tmp/vacio" --runtime "$tmp/runtime" --probe /api/ct --tls-material "$tmp/tls"
 expect_error 'faltan ' --plan "$tmp/vacio" --runtime "$tmp/runtime" --probe /api/vec/contratacion-temporal/cuadro/consultas
 
 git -C "$repo" ls-files 'deploy/postgresql' | grep -E '/roles[^/]*_up[.]sql$|[.]up[.]sql$' \

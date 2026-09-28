@@ -17,7 +17,7 @@ ayuda() {
   cat <<'AYUDA'
 Uso: ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE
      --probe RUTA [--repo CHECKOUT] [--scope ct-llamamientos|ct-bolsa]
-     [--browser EJECUTABLE]
+     [--tls-material DIRECTORIO] [--browser EJECUTABLE]
 
 ORDEN enumera rutas relativas deploy/postgresql/... en orden causal. Debe
 contener todos los UP y roles de CT y Bolsa Llamamientos rastreados en CHECKOUT
@@ -31,8 +31,12 @@ efímeros; PostgreSQL solo publica en 127.0.0.1. No usa datos ni red remotos.
 
 EJECUTABLE recibe PGHOST/PGPORT/PGDATABASE y VEC_ENSAYO_BINARIO. Debe crear
 LOGIN nominales separados sobre esa base, arrancar ese binario y escribir
-URL=http://127.0.0.1:PUERTO en stdout. RUTA debe ser un GET que consulta la
-base; se exige respuesta HTTP 2xx y una conexión PG de aplicación activa.
+URL=http://127.0.0.1:PUERTO en stdout. Con --tls-material escribe en cambio
+URL=https://localhost:PUERTO y se usan ca/ca.crt, mtls/cliente.crt y
+mtls/cliente.key de ese directorio privado; localhost se fija a 127.0.0.1.
+El runtime y navegador reciben VEC_ENSAYO_TLS_MATERIAL cuando se configura.
+RUTA debe ser un GET que consulta la base; se exige respuesta HTTP 2xx y una
+conexión PG de aplicación activa.
 El navegador es opcional y recibe VEC_ENSAYO_URL para recorrer el caso local.
 
 Para scripts/verificar_calidad.sh, si /tmp/.git existe y los fixtures privados
@@ -40,14 +44,15 @@ se rechazan por estar «dentro del repositorio», use TMPDIR=/var/tmp escribible
 AYUDA
 }
 
-plan='' runtime='' probe='' browser='' checkout='' scope='ct-llamamientos'
+plan='' runtime='' probe='' browser='' checkout='' scope='ct-llamamientos' tls_material=''
 while (( $# )); do
   case "$1" in
-    --plan|--runtime|--probe|--browser|--repo|--scope)
+    --plan|--runtime|--probe|--browser|--repo|--scope|--tls-material)
       (( $# >= 2 )) || fallar "falta valor para $1"
       case "$1" in
         --plan) plan=$2 ;; --runtime) runtime=$2 ;;
         --probe) probe=$2 ;; --browser) browser=$2 ;; --repo) checkout=$2 ;; --scope) scope=$2 ;;
+        --tls-material) tls_material=$2 ;;
       esac
       shift 2 ;;
     -h|--help) ayuda; exit 0 ;;
@@ -60,6 +65,12 @@ done
 [[ -x $runtime ]] || fallar "runtime no ejecutable: $runtime"
 [[ -z $browser || -x $browser ]] || fallar "navegador no ejecutable: $browser"
 [[ $probe == /* && $probe != /livez && $probe != *://* && $probe != *'?'* ]] || fallar 'la sonda debe ser una ruta HTTP local y distinta de /livez'
+if [[ -n $tls_material ]]; then
+  [[ $tls_material == /* ]] || fallar 'el directorio TLS debe ser absoluto'
+  for certificado in ca/ca.crt mtls/cliente.crt mtls/cliente.key; do
+    [[ -f $tls_material/$certificado ]] || fallar "falta material TLS local: $certificado"
+  done
+fi
 
 if [[ -z $checkout ]]; then checkout=$(dirname -- "${BASH_SOURCE[0]}"); fi
 [[ -d $checkout ]] || fallar "no existe el checkout: $checkout"
@@ -189,7 +200,7 @@ go_local=$("$repo/scripts/seleccionar_toolchain_go_local.sh")
   || fallar 'no se pudo compilar vec-server'
 
 export PGHOST=127.0.0.1 PGPORT="$puerto" PGDATABASE=vec_ensayo
-export VEC_ENSAYO_BINARIO="$ensayo/vec-server" VEC_ENSAYO_URL='http://127.0.0.1:0'
+export VEC_ENSAYO_BINARIO="$ensayo/vec-server" VEC_ENSAYO_TLS_MATERIAL="$tls_material"
 # El runtime debe generar sus LOGIN locales nominales y configurar la aplicación
 # con DSN distintos, todos al PGHOST/PGPORT/PGDATABASE suministrados. No se
 # acepta una variable heredada que pudiera señalar otra base.
@@ -197,7 +208,7 @@ while IFS= read -r nombre; do unset "$nombre"; done < <(compgen -e | grep -E '^(
 export PGHOST PGPORT PGDATABASE VEC_ENSAYO_BINARIO
 "$runtime" >"$ensayo/server.log" 2>&1 & pid=$!
 
-# El runtime escribe exclusivamente una línea `URL=http://127.0.0.1:PUERTO`
+# El runtime escribe exclusivamente una línea URL local
 # en stdout cuando termina de configurar la aplicación.
 url=''
 for (( intento=0; intento<120; intento++ )); do
@@ -205,13 +216,23 @@ for (( intento=0; intento<120; intento++ )); do
     sed -n '1,20p' "$ensayo/server.log" >&2
     fallar 'el runtime terminó antes de publicar URL local'
   fi
-  url=$(sed -n 's/^URL=\(http:\/\/127\.0\.0\.1:[0-9][0-9]*\)$/\1/p' "$ensayo/server.log" | head -1)
+  if [[ -n $tls_material ]]; then
+    url=$(sed -n 's/^URL=\(https:\/\/localhost:[0-9][0-9]*\)$/\1/p' "$ensayo/server.log" | head -1)
+  else
+    url=$(sed -n 's/^URL=\(http:\/\/127\.0\.0\.1:[0-9][0-9]*\)$/\1/p' "$ensayo/server.log" | head -1)
+  fi
   [[ -n $url ]] && break
   sleep 0.25
 done
-[[ -n $url ]] || fallar 'el runtime no publicó URL=http://127.0.0.1:PUERTO'
+[[ -n $url ]] || fallar 'el runtime no publicó la URL local esperada para el modo HTTP/TLS'
 export VEC_ENSAYO_URL="$url"
-curl --fail --silent --show-error --max-time 10 "$url$probe" >"$ensayo/probe.out" \
+curl_local=(curl --fail --silent --show-error --max-time 10)
+if [[ -n $tls_material ]]; then
+  puerto_http=${url##*:}
+  curl_local+=(--resolve "localhost:$puerto_http:127.0.0.1" --cacert "$tls_material/ca/ca.crt"
+    --cert "$tls_material/mtls/cliente.crt" --key "$tls_material/mtls/cliente.key")
+fi
+"${curl_local[@]}" "$url$probe" >"$ensayo/probe.out" \
   || { sed -n '1,20p' "$ensayo/server.log" >&2; fallar "sonda PostgreSQL HTTP fallida: $probe"; }
 conexiones=$(docker exec "$contenedor" psql -XAt -U postgres -d vec_ensayo -c \
   "SELECT count(*) FROM pg_stat_activity WHERE datname = 'vec_ensayo' AND usename <> 'postgres'")
