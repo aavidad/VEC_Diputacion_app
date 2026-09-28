@@ -8,6 +8,11 @@ import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
 
 const valores = Object.freeze({ idioma: "en", tamano_texto: "grande", alto_contraste: true,
   tema: "oscuro", inicio: "bolsas", filas: 50, aviso_correo_tareas: true, aviso_correo_plazos: false });
+
+test("el área personal usa su ruta exacta exterior, separada de RRHH", () => {
+  assert.equal(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/area-personal/mis-preferencias");
+  assert.notEqual(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/mis-preferencias");
+});
 const catalogo = Object.freeze({ version_ref: "usuarios-preferencias-v1",
   idiomas: ["navegador", "es", "en"].map((codigo) => ({ codigo, nombre_key: codigo })),
   tamanos_texto: ["normal", "grande", "muy_grande"].map((codigo) => ({ codigo, nombre_key: codigo })),
