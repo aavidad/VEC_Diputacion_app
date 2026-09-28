@@ -32,6 +32,7 @@ CREATE TABLE vec_usuarios.correos_direccion (
  version_sobre bigint NOT NULL CHECK(version_sobre>0),
  clave_sobre_ref text NOT NULL CHECK(length(clave_sobre_ref) BETWEEN 1 AND 128),
  clave_igualdad_ref text NOT NULL CHECK(clave_igualdad_ref ~ '^[A-Za-z0-9:._-]{1,128}$'),
+ CHECK(clave_sobre_ref<>clave_igualdad_ref),
  nonce bytea NOT NULL CHECK(octet_length(nonce) BETWEEN 12 AND 32),
  cifrado bytea NOT NULL CHECK(octet_length(cifrado) BETWEEN 16 AND 4096),
  huella_igualdad bytea NOT NULL CHECK(octet_length(huella_igualdad)=32),
@@ -502,6 +503,7 @@ BEGIN
      OR p_sobre->>'version' IS DISTINCT FROM v::text
      OR p_sobre->>'clave_ref' !~ '^[A-Za-z0-9:._-]{1,128}$'
      OR p_sobre->>'clave_igualdad_ref' !~ '^[A-Za-z0-9:._-]{1,128}$'
+     OR p_sobre->>'clave_igualdad_ref' IS NOT DISTINCT FROM p_sobre->>'clave_ref'
      OR p_sobre->>'nonce_hex' !~ '^[0-9a-f]{24,64}$' OR length(p_sobre->>'nonce_hex')%2<>0
      OR p_sobre->>'cifrado_hex' !~ '^[0-9a-f]+$' OR length(p_sobre->>'cifrado_hex') NOT BETWEEN 32 AND 8192 OR length(p_sobre->>'cifrado_hex')%2<>0
      OR p_sobre->>'huella_igualdad_hex' !~ '^[0-9a-f]{64}$'

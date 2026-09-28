@@ -88,6 +88,11 @@ BEGIN
   RAISE EXCEPTION 'rotación sin reindexado aceptada';
  EXCEPTION WHEN SQLSTATE 'P1409' THEN NULL; END;
  BEGIN
+  PERFORM public.probar_correos('vec.correos.anadir',1,'correo-prueba-claves-iguales',b,'',
+   'aplicar',NULL,false,'interna_corporativa','kms-contacto-v1');
+  RAISE EXCEPTION 'clave AEAD reutilizada para igualdad';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
   PERFORM public.probar_correos('vec.correos.anadir',1,'correo-prueba-misma-igualdad',b,'',
    'aplicar',NULL,false,'interna_corporativa','igualdad-v1',a);
   RAISE EXCEPTION 'misma huella de dirección admitida';
