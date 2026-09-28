@@ -1265,5 +1265,10 @@ button.ct-exp-chip:focus-visible {
 
 @media (max-width: 780px) {
   .ct-vias-entradas { grid-template-columns: minmax(0, 1fr); }
+  .ct-via-cuerpo {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+  }
   .ct-via-documentos { columns: 1; }
 }
