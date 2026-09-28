@@ -2,14 +2,14 @@
 
 import { CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO } from "./cliente-http-transporte.js";
 import { escaparHTML } from "./componentes-expedientes.js";
-import { montarFichaGINPIX } from "./ficha-ginpix.js";
-import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
-import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
-import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js";
-import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js";
+import { montarFichaGINPIX } from "./ficha-ginpix.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioIncorporacionEjercicio } from "./formulario-incorporacion-ejercicio.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion-formalizacion.js?v=20260928-rrhh-corte3-cache-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
+import { montarSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20260928-rrhh-corte3-cache-v1";
 
 export function crearGestorIncorporacion({
   raiz,

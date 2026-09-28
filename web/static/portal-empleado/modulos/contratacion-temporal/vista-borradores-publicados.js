@@ -1,5 +1,5 @@
 /** Panel de tipos publicados: el catálogo y cada documento se autorizan en servidor. */
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
 import { crearClienteBorradoresPublicados } from "./cliente-http-borradores-publicados.js?v=20260928-rrhh-ct133-v2";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")

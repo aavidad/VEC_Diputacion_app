@@ -1,8 +1,8 @@
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
+import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js?v=20260928-rrhh-corte3-cache-v1";
 
 // Este listener usa certificado TLS personal. El navegador presenta el
 // certificado aunque fetch omita las credenciales web de ambiente.

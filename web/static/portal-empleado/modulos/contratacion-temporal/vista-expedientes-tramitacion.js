@@ -1,23 +1,23 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
 import { escaparHTML } from "./componentes-expedientes.js";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20260926-huecos-rrhh-v1";
-import { montarFormularioAsignacion } from "./formulario-asignacion.js";
-import { montarFormularioCobertura } from "./formulario-cobertura.js";
-import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
-import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioAsignacion } from "./formulario-asignacion.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioCobertura } from "./formulario-cobertura.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js?v=20260928-rrhh-corte3-cache-v1";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
 import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
 import { crearClienteAnalisisCercado, PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
 import {
   contextoAsignacionDesdeEstado, contextoCoberturaDesdeEstado,
   contextoFiscalizacionDesdeEstado, contextoInformeJuridicoDesdeEstado,
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
-} from "./vista-expedientes-render.js";
-import { montarAltaContratacionTemporal } from "./vista.js";
+} from "./vista-expedientes-render.js?v=20260928-rrhh-corte3-cache-v1";
+import { montarAltaContratacionTemporal } from "./vista.js?v=20260928-rrhh-corte3-cache-v1";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
