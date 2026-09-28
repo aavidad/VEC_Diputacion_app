@@ -1,16 +1,17 @@
 # Preparación de la tanda PIDEN RRHH para cidonia
 
 Punto de partida: `trabajo/piden-rrhh-20260927` en
-`cba5aa618372f178cd269858ca6454ffb9d86fca`. Esta carpeta **no ejecuta
+`1433c6a44d757358742dc0932f0ed78b0a95dbb9`. Esta carpeta **no ejecuta
 un despliegue**. Dirección integra en la rama canónica y decide la puesta en
 servicio. El script histórico `deploy/principal/desplegar.sh` hace `checkout
 main`, `pull`, reaplica SQL D6 y cambia contenedores: **no usarlo para esta
 tanda**. Tampoco repetir `00_puesta_al_dia.sh`, `02_migraciones.sh`, F4/D7 ni
 ningún `DOWN` sobre la principal con historia.
 
-La lista [`migraciones.txt`](migraciones.txt) contiene **21 `UP` candidatos**
+La lista [`migraciones.txt`](migraciones.txt) contiene **24 `UP` candidatos**
 frente a `origin/main` en este corte, en orden de introducción causal. Incluye
-AD3-90/Bolsa44, cuya preimagen PostgreSQL 18 y dos revisiones deben quedar
+AD3-98/CT134 y Bolsa54. Incluye también AD3-90/Bolsa44, cuya preimagen
+PostgreSQL 18 y dos revisiones deben quedar
 acreditadas antes de instalarse. El inventario de cidonia puede mostrar que
 alguna ya tiene historia; **detenerse y conciliar** en vez de repetirla. La
 lista se invalida si se añaden, retiran o modifican migraciones del candidato.

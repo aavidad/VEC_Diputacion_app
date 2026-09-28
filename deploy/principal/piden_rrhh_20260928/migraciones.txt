@@ -1,4 +1,4 @@
-# Orden causal ACTIVABLE del candidato cba5aa618. Bolsa B49 y Pública 3 excluidas por NO-GO.
+# Orden causal del candidato 1433c6a44. Bolsa B49 y Pública 3 excluidas por NO-GO.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000090_consumidor_historial_propio_bolsa.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000044_historial_propio_candidato.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000091_consumidor_consulta_auditoria_rrhh.up.sql
@@ -20,3 +20,6 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000096_consumidor_catalog
 deploy/postgresql/bolsa_llamamientos/migraciones/000053_mi_bolsa_disponibilidad_maxima.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000097_consumidor_consulta_politica_ofertas_bolsa.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000051_consulta_politica_ofertas_v3.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000098_consumidor_lectura_reincorporacion_ct.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000134_lectura_reincorporacion_titular.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000054_plazo_ofertas_48_horas.up.sql

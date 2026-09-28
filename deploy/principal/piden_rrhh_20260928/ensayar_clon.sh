@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=cba5aa618372f178cd269858ca6454ffb9d86fca
+base=1433c6a44d757358742dc0932f0ed78b0a95dbb9
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${1:-} == --aplicar-en-clon && $# == 1 ]] || fallar 'uso: ensayar_clon.sh --aplicar-en-clon'
 [[ -n ${PGSERVICE:-} && -n ${VEC_PIDEN_CLON_DB:-} ]] || fallar 'faltan PGSERVICE o VEC_PIDEN_CLON_DB'
