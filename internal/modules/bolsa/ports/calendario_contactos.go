@@ -2,10 +2,21 @@ package ports
 
 import (
 	"context"
+	"strconv"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+const (
+	AccionEntregarCalendarioContactos    = "calendarios.calendario_contactos.entregar"
+	AudienciaEntregarCalendarioContactos = "vec_bolsa_llamamientos.calendario_contactos.importar.v1"
+	FinalidadEntregarCalendarioContactos = "entregar_calendario_contactos"
+)
+
+func RecursoCalendarioContactos(sedeRef string, anio int) string {
+	return "calendario-contactos:" + sedeRef + ":" + strconv.Itoa(anio)
+}
 
 // FuenteCalendarioContactos es una proyección publicada por Calendarios.
 // Ningún valor de este contrato se obtiene del cuerpo HTTP de un contacto.

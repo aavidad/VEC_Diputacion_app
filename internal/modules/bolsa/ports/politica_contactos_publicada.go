@@ -7,6 +7,12 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
+const (
+	AccionPublicarPoliticaContactos    = "bolsa.politica_contactos.publicar"
+	AudienciaPublicarPoliticaContactos = "vec_bolsa_llamamientos.politica_contactos.publicar.v1"
+	FinalidadPublicarPoliticaContactos = "gobierno_politica_contactos"
+)
+
 // FuentePoliticaContactos procede del gobierno de reglas de Bolsa, nunca
 // del importador de días de Calendarios ni del cuerpo HTTP de un contacto.
 type FuentePoliticaContactos struct {

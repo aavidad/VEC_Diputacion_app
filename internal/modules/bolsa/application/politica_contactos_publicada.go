@@ -49,6 +49,12 @@ func (s *ServicioPoliticaContactos) Publicar(
 		solicitud.Material.ValidarEstructura() != nil {
 		return vacio, ErrPoliticaContactosNoDisponible
 	}
+	capacidad := solicitud.Material.ResumenCapacidad()
+	if capacidad.Operacion() != puertosbolsa.AccionPublicarPoliticaContactos ||
+		capacidad.AudienciaConsumo() != puertosbolsa.AudienciaPublicarPoliticaContactos ||
+		capacidad.EfectoRef() != solicitud.BolsaRef {
+		return vacio, ErrPoliticaContactosNoDisponible
+	}
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}

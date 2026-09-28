@@ -55,6 +55,12 @@ func (s *ServicioCalendarioContactos) Importar(
 		solicitud.Material.ValidarEstructura() != nil {
 		return vacio, ErrCalendarioContactosNoDisponible
 	}
+	capacidad := solicitud.Material.ResumenCapacidad()
+	if capacidad.Operacion() != puertosbolsa.AccionEntregarCalendarioContactos ||
+		capacidad.AudienciaConsumo() != puertosbolsa.AudienciaEntregarCalendarioContactos ||
+		capacidad.EfectoRef() != puertosbolsa.RecursoCalendarioContactos(solicitud.SedeRef, solicitud.Anio) {
+		return vacio, ErrCalendarioContactosNoDisponible
+	}
 	if err := ctx.Err(); err != nil {
 		return vacio, err
 	}
