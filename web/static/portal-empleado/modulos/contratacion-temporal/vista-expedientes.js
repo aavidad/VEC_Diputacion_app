@@ -13,6 +13,7 @@ import { cerrarFase, mostrarFase } from "./fases-expediente.js";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
 import {
   contextoLlamamientoDesdeEstado,
+  mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -529,9 +530,9 @@ export async function montarModuloContratacionTemporal({
     montarAuditoriaComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
-    if (estado.mensaje_clave) {
+    if (mensajeEstadoVisible(estado)) {
       anunciar(
-        crearTraductorExpedientesContratacion(mensajes)(estado.mensaje_clave),
+        crearTraductorExpedientesContratacion(mensajes)(mensajeEstadoVisible(estado)),
         estado.tipo_mensaje,
       );
     }
