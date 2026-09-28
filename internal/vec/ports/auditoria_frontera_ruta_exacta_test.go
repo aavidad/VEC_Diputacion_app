@@ -7,6 +7,9 @@ import (
 )
 
 func TestOrdenAuditoriaFronteraRutaExactaEsMinimaYCerrada(t *testing.T) {
+	if SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias != "api.usuarios.preferencias.ruta_exacta" {
+		t.Fatal("superficie de Usuarios fuera del contrato nominal")
+	}
 	orden := OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: "corr_0123456789abcdef0123456789abcdef",
 		Motivo:         MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
