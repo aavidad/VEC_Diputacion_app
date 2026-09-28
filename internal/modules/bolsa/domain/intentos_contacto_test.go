@@ -9,16 +9,17 @@ import (
 
 func TestInicioCicloPosteriorSoloEnFronteraSinContacto(t *testing.T) {
 	p := politicaIntentosPrueba(t, ControlReglaImpedir, ControlReglaImpedir)
+	ultimo := time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)
 	for _, caso := range []struct {
 		nombre  string
 		resumen ResumenIntentosTelefonicos
 		espera  bool
 	}{
 		{"primer intento", ResumenIntentosTelefonicos{}, false},
-		{"segundo intento del primer ciclo", ResumenIntentosTelefonicos{SinContacto: 1}, false},
-		{"primer intento del segundo ciclo", ResumenIntentosTelefonicos{SinContacto: 2}, true},
-		{"contactado", ResumenIntentosTelefonicos{SinContacto: 2, Contactado: true}, false},
-		{"agotado", ResumenIntentosTelefonicos{SinContacto: p.MaximoIntentos()}, false},
+		{"segundo intento del primer ciclo", ResumenIntentosTelefonicos{SinContacto: 1, UltimoIntento: ultimo}, false},
+		{"primer intento del segundo ciclo", ResumenIntentosTelefonicos{SinContacto: 2, UltimoIntento: ultimo}, true},
+		{"contactado", ResumenIntentosTelefonicos{SinContacto: 2, Contactado: true, UltimoIntento: ultimo}, false},
+		{"agotado", ResumenIntentosTelefonicos{SinContacto: p.MaximoIntentos(), UltimoIntento: ultimo}, false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			obtenido, err := IniciaCicloPosterior(p, caso.resumen)
@@ -28,8 +29,12 @@ func TestInicioCicloPosteriorSoloEnFronteraSinContacto(t *testing.T) {
 		})
 	}
 	p.IntentosPorProceso = 0
-	if _, err := IniciaCicloPosterior(p, ResumenIntentosTelefonicos{SinContacto: 2}); !errors.Is(err, ErrPoliticaIntentosInvalida) {
+	if _, err := IniciaCicloPosterior(p, ResumenIntentosTelefonicos{SinContacto: 2, UltimoIntento: ultimo}); !errors.Is(err, ErrPoliticaIntentosInvalida) {
 		t.Fatalf("politica invalida = %v", err)
+	}
+	p = politicaIntentosPrueba(t, ControlReglaImpedir, ControlReglaImpedir)
+	if _, err := IniciaCicloPosterior(p, ResumenIntentosTelefonicos{SinContacto: 2}); !errors.Is(err, ErrPoliticaIntentosInvalida) {
+		t.Fatalf("resumen sin ultimo intento = %v", err)
 	}
 }
 

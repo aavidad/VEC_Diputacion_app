@@ -162,7 +162,7 @@ func EstadoIntentos(p PoliticaIntentosTelefonicos, r ResumenIntentosTelefonicos)
 // Solo clasifica el historial; el calendario y la fecha exigida se resuelven
 // con la política versionada antes de registrar el contacto.
 func IniciaCicloPosterior(p PoliticaIntentosTelefonicos, r ResumenIntentosTelefonicos) (bool, error) {
-	if p.Validar() != nil || r.SinContacto < 0 {
+	if p.Validar() != nil || r.SinContacto < 0 || (r.SinContacto > 0 && r.UltimoIntento.IsZero()) {
 		return false, ErrPoliticaIntentosInvalida
 	}
 	if r.Contactado || r.SinContacto == 0 || r.SinContacto >= p.MaximoIntentos() {
