@@ -2,9 +2,9 @@ import {
   construirEnvelopeAccionBolsa,
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
-} from "./portal-bolsas-contrato.js?v=20260928-ppt-503-v4";
+} from "./portal-bolsas-contrato.js?v=20260928-ppt-503-v5";
 import { validarEmisionLlamamiento } from "./portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v5";
 
 export const RUTA_EMISIONES_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/emisiones";
 

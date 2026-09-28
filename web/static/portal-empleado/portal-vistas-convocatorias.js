@@ -1,5 +1,5 @@
 import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260924-f2-web2";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-503-v5";
 
 /**
  * Consulta S1 de solo lectura. El montaje aporta funciones autorizadas; esta

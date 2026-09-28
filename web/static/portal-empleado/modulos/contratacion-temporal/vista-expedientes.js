@@ -25,8 +25,8 @@ import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-503-v4";
-import { traducirPortal } from "../../portal-i18n.js?v=20260928-ppt-503-v4";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-503-v5";
+import { traducirPortal } from "../../portal-i18n.js?v=20260928-ppt-503-v5";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
