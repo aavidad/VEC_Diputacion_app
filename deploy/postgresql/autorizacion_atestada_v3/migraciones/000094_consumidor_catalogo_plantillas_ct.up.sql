@@ -86,8 +86,8 @@ BEGIN
     OR d->>'recurso_ref' IS DISTINCT FROM 'vec.contratacion_temporal.plantillas_documentos'
     OR c->>'efecto_ref' IS DISTINCT FROM d->>'recurso_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
-    OR d->'campos_permitidos' IS DISTINCT FROM CASE WHEN c->>'operacion'='contratacion_temporal.plantillas_documentos.consultar'
-         THEN '["borrador","editor_de_esta_version","publicado"]'::jsonb ELSE '["catalogo","recibo"]'::jsonb END
+    OR d->'campos_permitidos' IS DISTINCT FROM (CASE WHEN c->>'operacion'='contratacion_temporal.plantillas_documentos.consultar'
+         THEN '["borrador","editor_de_esta_version","publicado"]'::jsonb ELSE '["catalogo","recibo"]'::jsonb END)
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'AD3-94: decisión de plantillas denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
