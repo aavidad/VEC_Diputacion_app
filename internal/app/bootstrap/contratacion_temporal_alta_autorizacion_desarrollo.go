@@ -66,6 +66,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadSubsanacionVigente(
 
 func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == rutaEntregaPeticionCentro || rutaPeticionCentroDesarrollo(ruta) || ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
+		rutaPlantillasCatalogoCTDesarrollo(ruta) ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
 		ruta == httpinterno.RutaPropuestaCobertura ||
 		ruta == httpinterno.RutaDecisionCobertura ||

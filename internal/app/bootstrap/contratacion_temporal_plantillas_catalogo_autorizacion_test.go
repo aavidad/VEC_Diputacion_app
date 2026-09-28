@@ -16,7 +16,7 @@ func TestProveedorCatalogoPlantillasCTExigeRecursosExactos(t *testing.T) {
 	huella := strings.Repeat("a", 64)
 	base := vecdomain.RecursoAutorizable{
 		Referencia: plantillasapp.CatalogoID, ModuloID: plantillasapp.ModuloID,
-		Tipo: tipoCatalogoPlantillasCT, Ambitos: map[string]string{},
+		Tipo: tipoCatalogoPlantillasCT, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
 		Atributos: map[string]string{"material_sha256": huella},
 	}
 	if !recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.consultar", base, false) {
@@ -24,7 +24,7 @@ func TestProveedorCatalogoPlantillasCTExigeRecursosExactos(t *testing.T) {
 	}
 	for nombre, mutar := range map[string]func(*vecdomain.RecursoAutorizable){
 		"ambito_ajeno": func(r *vecdomain.RecursoAutorizable) {
-			r.Ambitos = map[string]string{"expediente_ref": "expediente:ct:ajeno"}
+			r.Ambitos = map[string]string{"organizacion_ref": "organizacion:ajena"}
 		},
 		"atributo_extra":  func(r *vecdomain.RecursoAutorizable) { r.Atributos["operacion"] = "editar" },
 		"huella_invalida": func(r *vecdomain.RecursoAutorizable) { r.Atributos["material_sha256"] = strings.Repeat("A", 64) },
@@ -32,7 +32,7 @@ func TestProveedorCatalogoPlantillasCTExigeRecursosExactos(t *testing.T) {
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			r := base
-			r.Ambitos = map[string]string{}
+			r.Ambitos = map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo}
 			r.Atributos = map[string]string{"material_sha256": huella}
 			mutar(&r)
 			if recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.consultar", r, false) {
@@ -53,15 +53,6 @@ func TestProveedorCatalogoPlantillasCTExigeRecursosExactos(t *testing.T) {
 	if recursoCatalogoPlantillasCTValido("contratacion_temporal.plantillas_documentos.editar", indicador, true) {
 		t.Fatal("versión no canónica admitida")
 	}
-	documental := vecdomain.RecursoAutorizable{Referencia: "expediente:ct:123", ModuloID: plantillasapp.ModuloID,
-		Tipo: tipoDocumentalPlantillasCT, Ambitos: map[string]string{}, Atributos: map[string]string{"material_sha256": huella}}
-	if !recursoDocumentalPlantillasCTValido("contratacion_temporal.plantillas_documentos.documental_descargar", documental) {
-		t.Fatal("lectura documental CT133 legítima rechazada")
-	}
-	documental.Ambitos["organizacion_ref"] = "organizacion:ajena"
-	if recursoDocumentalPlantillasCTValido("contratacion_temporal.plantillas_documentos.documental_descargar", documental) {
-		t.Fatal("ámbito extra admitido")
-	}
 }
 
 func TestProveedorCatalogoPlantillasCTDeniegaSinSesionNiMotivos(t *testing.T) {
@@ -69,8 +60,8 @@ func TestProveedorCatalogoPlantillasCTDeniegaSinSesionNiMotivos(t *testing.T) {
 	if _, err := p.ResolverContextoActor(context.Background()); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
 		t.Fatalf("actor sin fuente = %v", err)
 	}
-	if _, err := nuevoProveedorCatalogoPlantillasCT(nil, nil, nil, nil,
-		vecdomain.ReferenciaEntradaCatalogo{}, vecdomain.ReferenciaEntradaCatalogo{}, relojContratacionTemporalDesarrollo{}); !errors.Is(err, plantillasapp.ErrNoDisponible) {
+	if _, err := nuevoProveedorCatalogoPlantillasCT(nil, nil, nil,
+		vecdomain.ReferenciaEntradaCatalogo{}, relojContratacionTemporalDesarrollo{}); !errors.Is(err, plantillasapp.ErrNoDisponible) {
 		t.Fatalf("constructor incompleto = %v", err)
 	}
 }
@@ -89,12 +80,16 @@ func (f filaPreflightPlantillasCT) Scan(destinos ...any) error {
 }
 
 type consultaPreflightPlantillasCT struct {
-	sql  string
-	fila filaPreflightPlantillasCT
+	sql       string
+	funciones []string
+	fila      filaPreflightPlantillasCT
 }
 
-func (c *consultaPreflightPlantillasCT) QueryRow(_ context.Context, sql string, _ ...any) pgx.Row {
+func (c *consultaPreflightPlantillasCT) QueryRow(_ context.Context, sql string, argumentos ...any) pgx.Row {
 	c.sql = sql
+	if len(argumentos) == 1 {
+		c.funciones, _ = argumentos[0].([]string)
+	}
 	return c.fila
 }
 
@@ -105,13 +100,19 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 	}
 	for _, fragmento := range []string{
 		"current_user = session_user", "rolcanlogin", "rolbypassrls", "pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')", "to_regprocedure",
-		"operar_catalogo_plantillas_v1", "obtener_catalogo_plantillas_publicado_documental_v1",
-		"comprobar_catalogo_plantillas_base_v1", "NOT pg_catalog.has_function_privilege",
+		"NOT pg_catalog.has_function_privilege",
 		"provisionar_catalogo_plantillas_base_v1",
 	} {
 		if !strings.Contains(c.sql, fragmento) {
 			t.Fatalf("preflight omite %s", fragmento)
 		}
+	}
+	if len(c.funciones) != 3 || !strings.Contains(strings.Join(c.funciones, " "), "obtener_catalogo_plantillas_publicado_documental_v1") {
+		t.Fatalf("preflight CT131/133 no exige ambas fachadas: %v", c.funciones)
+	}
+	if err := comprobarPreflightCatalogoPlantillasCT(context.Background(), c, false); err != nil || len(c.funciones) != 2 ||
+		strings.Contains(strings.Join(c.funciones, " "), "obtener_catalogo_plantillas_publicado_documental_v1") {
+		t.Fatalf("preflight CT131 independiente de CT133: %v %v", err, c.funciones)
 	}
 	c.fila.valida = false
 	if err := comprobarPreflightCatalogoPlantillasCT(context.Background(), c); !errors.Is(err, plantillasapp.ErrNoDisponible) {

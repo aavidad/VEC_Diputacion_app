@@ -19,11 +19,28 @@ func preflightCatalogoPlantillasCT(ctx context.Context, pool *pgxpool.Pool) erro
 	return comprobarPreflightCatalogoPlantillasCT(ctx, pool)
 }
 
+// CT131 puede montarse con CT133 pendiente. Ambos comparten el mismo LOGIN,
+// pero solo se exige la fachada de gobierno que este corte consume.
+func preflightCatalogoPlantillasGobiernoCT(ctx context.Context, pool *pgxpool.Pool) error {
+	if pool == nil {
+		return plantillasapp.ErrNoDisponible
+	}
+	return comprobarPreflightCatalogoPlantillasCT(ctx, pool, false)
+}
+
 func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}) error {
+}, documental ...bool) error {
 	if ctx == nil || ctx.Err() != nil || consulta == nil {
 		return plantillasapp.ErrNoDisponible
+	}
+	funciones := []string{
+		"vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+		"vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)",
+	}
+	if len(documental) == 0 || documental[0] {
+		funciones = append(funciones,
+			"vec_contratacion_temporal.obtener_catalogo_plantillas_publicado_documental_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)")
 	}
 	const sql = `SELECT
   current_user = session_user
@@ -32,17 +49,13 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
   AND NOT pg_catalog.pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
   AND NOT pg_catalog.pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
   AND NOT pg_catalog.pg_has_role(session_user,'vec_contratacion_temporal_gobernador','MEMBER')
-  AND (SELECT coalesce(bool_and(f.oid IS NOT NULL AND pg_catalog.has_function_privilege(session_user,f.oid,'EXECUTE')),false)
-       FROM pg_catalog.unnest(ARRAY[
-         'vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-         'vec_contratacion_temporal.obtener_catalogo_plantillas_publicado_documental_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-         'vec_contratacion_temporal.comprobar_catalogo_plantillas_base_v1(text,bigint,text)'
-       ]) AS nombre
-       CROSS JOIN LATERAL pg_catalog.to_regprocedure(nombre) AS f(oid))
+  AND (SELECT coalesce(bool_and(pg_catalog.to_regprocedure(f.nombre) IS NOT NULL
+         AND pg_catalog.has_function_privilege(session_user,pg_catalog.to_regprocedure(f.nombre),'EXECUTE')),false)
+       FROM pg_catalog.unnest($1::text[]) AS f(nombre))
   AND NOT pg_catalog.has_function_privilege(session_user,
       'vec_contratacion_temporal.provisionar_catalogo_plantillas_base_v1(jsonb,text,text,text)','EXECUTE')`
 	var valido bool
-	if err := consulta.QueryRow(ctx, sql).Scan(&valido); err != nil || !valido {
+	if err := consulta.QueryRow(ctx, sql, funciones).Scan(&valido); err != nil || !valido {
 		return plantillasapp.ErrNoDisponible
 	}
 	return nil
