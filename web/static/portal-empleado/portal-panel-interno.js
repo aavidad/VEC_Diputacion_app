@@ -14,6 +14,7 @@ import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260927-rrhh-reposicion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260928-rrhh-cache-unificada-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260928-rrhh-cache-unificada-v1";
+import { renderizarReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20260928-rrhh-reincorporaciones-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260928-rrhh-cache-unificada-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260928-rrhh-cache-unificada-v1";
 import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260928-rrhh-cache-unificada-v1";
@@ -683,6 +684,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
               ${renderizarIntentosContacto({ candidato, estado: modal.intentosContacto || {}, escaparHTML })}
               ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML, categoria: bolsa.categoria })}
+              ${renderizarReincorporacionesTitular({ estado: modal.reincorporacionesTitular || {}, escaparHTML })}
               ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">

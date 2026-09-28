@@ -433,6 +433,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       controladoresLectura.delete(clave);
     }
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     estado.modalFicha = null;
     estado.modalContactos = null;
@@ -534,6 +535,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
     if (!flujo?.enviando && !flujo?.clave_idempotencia) invalidarSeleccionMasiva();
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
@@ -651,6 +653,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
     void controladorSancionesB24.cargar(estado.modalFicha);
@@ -670,6 +673,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   function cerrarFicha() {
     const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha?.controladorReincorporaciones?.abort();
     estado.modalFicha?.controladorSanciones?.abort();
     estado.modalFicha = null;
     renderizar();
