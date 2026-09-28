@@ -81,14 +81,30 @@ rm -f /tmp/vec-ct138-conflicto-$$
 [[ $(psql_super -At -c 'SELECT count(*) FROM vec_contratacion_temporal.outbox_respuesta_recibida_rrhh') == 2 ]]
 consulta llamamiento:concurrente comunicacion:concurrente '' d 2 >/tmp/vec-ct138-uno-$$ 2>&1 & p1=$!
 consulta llamamiento:concurrente comunicacion:concurrente '' d 2 >/tmp/vec-ct138-dos-$$ 2>&1 & p2=$!
-wait "$p1" || true
-wait "$p2" || true
-# El segundo intento serializable puede recibir 40001. Otro POST con
-# autorización nueva recupera exactamente el recibo único.
+estado1=0
+estado2=0
+wait "$p1" || estado1=$?
+wait "$p2" || estado2=$?
+# El segundo intento serializable puede recibir 40001. Ningún error ajeno
+# se toma por éxito, ni se atribuye un replay sin leer su recibo.
 concurrente=$(consulta llamamiento:concurrente comunicacion:concurrente '' d 2)
-python3 - "$concurrente" <<'PY'
-import json,sys
-assert json.loads(sys.argv[1])['Estado']=='replay_registrada_por_rrhh'
+python3 - "$estado1" /tmp/vec-ct138-uno-$$ "$estado2" /tmp/vec-ct138-dos-$$ "$concurrente" <<'PY'
+import json,re,sys
+salidas=[]
+for estado,ruta in ((int(sys.argv[1]),sys.argv[2]),(int(sys.argv[3]),sys.argv[4])):
+    contenido=open(ruta,encoding='utf-8').read()
+    if estado==0:
+        filas=[linea for linea in contenido.splitlines() if linea.startswith('{')]
+        assert len(filas)==1, f'resultado concurrente ausente o duplicado: {contenido}'
+        salidas.append(json.loads(filas[0]))
+    else:
+        assert re.search(r'serialización de respuesta|could not serialize access',contenido), contenido
+assert sum(r['Estado']=='registrada_por_rrhh' for r in salidas)==1, salidas
+assert all(r['Estado'] in ('registrada_por_rrhh','replay_registrada_por_rrhh') for r in salidas)
+replay=json.loads(sys.argv[5])
+assert replay['Estado']=='replay_registrada_por_rrhh'
+for recibo in salidas:
+    assert {k:v for k,v in recibo.items() if k!='Estado'}=={k:v for k,v in replay.items() if k!='Estado'}
 PY
 rm -f /tmp/vec-ct138-uno-$$ /tmp/vec-ct138-dos-$$
 [[ $(psql_super -At -c 'SELECT count(*) FROM vec_contratacion_temporal.respuesta_recibida_rrhh') == 3 ]]
