@@ -878,18 +878,26 @@ export function crearCoordinadorModulosPortal({
       if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
       const presentadorCT = composicion.contratacionTemporal.crearPresentador();
+      // El montaje puede cambiar mientras se consulta el cuadro o el detalle.
+      // Registrar la limpieza antes de esperar evita publicar una respuesta tardía.
+      desmontarVista = () => presentadorCT.desmontar?.();
       if (opciones?.subvista && typeof presentadorCT?.cambiarVista === "function"
         && ["alta", "cuadro"].includes(opciones.subvista)) {
         try { presentadorCT.cambiarVista(opciones.subvista); } catch {}
       }
-      if (typeof opciones?.expedienteRef === "string" && opciones.expedienteRef !== ""
-        && typeof presentadorCT?.seleccionarExpediente === "function") {
-        try { void presentadorCT.seleccionarExpediente(opciones.expedienteRef); } catch {}
+      const expedienteRef = typeof opciones?.expedienteRef === "string" ? opciones.expedienteRef : "";
+      if (!esFiscalizacion && (opciones?.filtros || expedienteRef)
+        && typeof presentadorCT?.cargar === "function") {
+        // La selección exige un cuadro consultado con capacidad positiva.
+        // La vista no repetirá la carga porque el presentador ya tiene estado.
+        await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...(opciones.filtros || {}) });
+        if (montaje !== secuenciaMontaje) return false;
       }
-      if (!esFiscalizacion && opciones?.filtros && typeof presentadorCT?.cargar === "function") {
-        // Filtros pedidos desde el inicio (cifras del resumen): se cargan antes de
-        // montar la vista, que así pinta directamente el cuadro filtrado.
-        try { await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...opciones.filtros }); } catch {}
+      if (!esFiscalizacion && expedienteRef
+        && presentadorCT?.obtenerEstado?.().cuadro?.expedientes?.some(
+          (expediente) => expediente.expediente_ref === expedienteRef,
+        ) && typeof presentadorCT?.seleccionarExpediente === "function") {
+        await presentadorCT.seleccionarExpediente(expedienteRef);
         if (montaje !== secuenciaMontaje) return false;
       }
       const moduloContratacion = esFiscalizacion
