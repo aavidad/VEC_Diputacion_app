@@ -45,10 +45,14 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
-	reincorporacion ...bool,
+	activaciones ...bool,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
-	return append([]descriptorFronteraComunDesarrollo{
+	var reincorporacion bool
+	if len(activaciones) > 0 {
+		reincorporacion = activaciones[0]
+	}
+	fronteras := append([]descriptorFronteraComunDesarrollo{
 		fronteraContratacionTemporalDesarrollo("ct-analisis-registrar", ctports.AccionRegistrarAnalisis, cthttp.RutaRegistroAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-analisis-rectificar", ctports.AccionRectificarAnalisis, cthttp.RutaRectificacionAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-solicitud-crear", ctports.AccionCrearSolicitud, cthttp.RutaAltaSolicitudes, []string{perfilCT}),
@@ -63,7 +67,32 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		// que la decisión: sin su frontera, el PDP común las deniega (403).
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
-	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT, reincorporacion...), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT, reincorporacion), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	return fronteras
+}
+
+// CT131 añade únicamente sus tres fronteras con un perfil derivado distinto.
+// El perfil CT base conserva todas las rutas anteriores y su PDP común.
+func descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
+	perfilCT string, perfilesConsulta []string, reincorporacion bool,
+	plantillasActivas bool, perfilPlantillas string,
+) ([]descriptorFronteraComunDesarrollo, error) {
+	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(perfilCT, perfilesConsulta, reincorporacion)
+	if !plantillasActivas {
+		if perfilPlantillas != "" {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+		return fronteras, nil
+	}
+	if !perfilActivoSeguridadComunValido(perfilPlantillas) || perfilPlantillas == perfilCT {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
+	for _, perfil := range perfilesConsulta {
+		if perfil == perfilPlantillas {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+	}
+	return append(fronteras, descriptoresFronterasPlantillasCTDesarrollo(perfilPlantillas)...), nil
 }
 
 func fronteraContratacionTemporalDesarrollo(
@@ -85,10 +114,10 @@ func fronteraContratacionTemporalDesarrollo(
 // CT con una única frontera y con la política completa recibida por composición.
 func descriptoresAutorizacionContratacionTemporalDesarrollo(
 	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
-	reincorporacion ...bool,
+	activaciones ...bool,
 ) []descriptorAutorizacionComunDesarrollo {
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(
-		"prf_catalogo_ct", []string{"prf_catalogo_ct"}, reincorporacion...,
+		"prf_catalogo_ct", []string{"prf_catalogo_ct"}, activaciones...,
 	)
 	descriptores := make([]descriptorAutorizacionComunDesarrollo, 0, len(fronteras))
 	porAccion := map[string]int{}
