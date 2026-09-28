@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -121,6 +122,85 @@ func huellaAuditoriaConsultaValida(valor string) bool {
 		}
 	}
 	return true
+}
+
+// El registrador CT136 usa LOGIN y transacción propios; la frontera nunca
+// transporta certificados, cabeceras ni el cuerpo del intento denegado.
+type registradorFronteraAuditoriaConsultaDesarrollo struct{ pool *pgxpool.Pool }
+
+func (r *registradorFronteraAuditoriaConsultaDesarrollo) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
+	if r == nil || r.pool == nil || ctx == nil || ctx.Err() != nil ||
+		orden.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaAuditoria || orden.Validar() != nil {
+		return auditoria.ErrNoDisponible
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return auditoria.ErrNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true),
+	 set_config('row_security','on',true),set_config('timezone','UTC',true),
+	 set_config('lock_timeout','1s',true),set_config('statement_timeout','2s',true)`); err != nil {
+		return auditoria.ErrNoDisponible
+	}
+	var actor any
+	if orden.ActorRef != "" {
+		actor = orden.ActorRef
+	}
+	var registrado bool
+	if err := tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(
+	 $1::text,$2::text,$3::text,$4::text,$5::text)`, orden.CorrelacionRef, string(orden.Motivo), orden.Superficie, orden.Ruta, actor).Scan(&registrado); err != nil || !registrado {
+		return auditoria.ErrNoDisponible
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return auditoria.ErrNoDisponible
+	}
+	return nil
+}
+
+type registradorFronterasPorSuperficieDesarrollo struct {
+	ct, auditoria vecports.RegistradorAuditoriaFronteraRutaExacta
+}
+
+func (r registradorFronterasPorSuperficieDesarrollo) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
+	if orden.Validar() != nil {
+		return auditoria.ErrDenegada
+	}
+	switch orden.Superficie {
+	case vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal:
+		if dependenciaAuditoriaConsultaNula(r.ct) {
+			return auditoria.ErrNoDisponible
+		}
+		return r.ct.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+	case vecports.SuperficieAuditoriaFronteraRutaExactaAuditoria:
+		if dependenciaAuditoriaConsultaNula(r.auditoria) {
+			return auditoria.ErrNoDisponible
+		}
+		return r.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+	default:
+		return auditoria.ErrDenegada
+	}
+}
+
+func nuevoRegistradorFronteraAuditoriaConsultaDesarrollo(ctx context.Context, cfg config.Config) (*registradorFronteraAuditoriaConsultaDesarrollo, func(), error) {
+	dsn, err := cfg.DSNFronteraAuditoriaDesarrollo()
+	if err != nil {
+		return nil, nil, auditoria.ErrNoDisponible
+	}
+	pool, err := abrirPoolAutoridadAuditoriaDesarrollo(ctx, dsn, config.RolFronteraAuditoriaDesarrollo, "vec-auditoria-frontera")
+	if err != nil {
+		return nil, nil, err
+	}
+	const propia = "vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)"
+	const ajena = "vec_contratacion_temporal.registrar_auditoria_frontera_ruta_exacta_v1(text,text,text,text,text)"
+	var valida bool
+	if err := pool.QueryRow(ctx, `SELECT to_regprocedure($1) IS NOT NULL
+	 AND coalesce(has_function_privilege(session_user,to_regprocedure($1)::oid,'EXECUTE'),false)
+	 AND NOT coalesce(has_function_privilege(session_user,to_regprocedure($2)::oid,'EXECUTE'),false)`, propia, ajena).Scan(&valida); err != nil || !valida {
+		pool.Close()
+		return nil, nil, auditoria.ErrNoDisponible
+	}
+	return &registradorFronteraAuditoriaConsultaDesarrollo{pool: pool}, pool.Close, nil
 }
 
 var errAutoridadesAuditoriaConsultaDesarrollo = errors.New("bootstrap: autoridades de consulta de auditoria no disponibles")
