@@ -7,6 +7,8 @@ export const MENSAJES_RRHH_PLANTILLAS_ES = Object.freeze({
   plantillas_rrhh_cargando: "Cargando tipos de plantilla…",
   plantillas_rrhh_reintentar: "Reintentar consulta",
   plantillas_rrhh_error_lectura: "No se pudieron consultar las plantillas. Reintente antes de editar.",
+  plantillas_rrhh_lectura_cancelada: "Lectura cancelada",
+  plantillas_rrhh_peticion_cancelada: "Petición cancelada",
   plantillas_rrhh_denegado: "No dispone de autorización para consultar estas plantillas.",
   plantillas_rrhh_vacio: "No hay tipos de plantilla disponibles para esta configuración.",
   plantillas_rrhh_lista_titulo: "Plantillas configuradas",

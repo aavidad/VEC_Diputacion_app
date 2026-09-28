@@ -4,6 +4,7 @@ import { crearClientePlantillasRRHH, ErrorPlantillasRRHH, RUTA_RRHH_PLANTILLAS,
   RUTA_RRHH_PLANTILLAS_ENTRADAS, RUTA_RRHH_PLANTILLAS_PUBLICAR } from "./rrhh-plantillas-cliente.js";
 import { montarRRHHPlantillas, prepararEntradaPlantilla } from "./rrhh-plantillas-vista.js";
 import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 const instante = "2026-09-28T09:00:00Z";
 const catalogo = Object.freeze({
@@ -63,7 +64,9 @@ test("señal ya cancelada impide la petición de plantillas", async () => {
   const controlador = new AbortController();
   controlador.abort();
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async () => assert.fail("red inesperada") });
-  await assert.rejects(cliente.consultar({ signal: controlador.signal }), (error) => error.name === "AbortError");
+  const t = crearTraductorContratacionTemporal(MENSAJES_RRHH_PLANTILLAS_ES);
+  await assert.rejects(cliente.consultar({ signal: controlador.signal }), (error) =>
+    error.name === "AbortError" && error.message === t("plantillas_rrhh_peticion_cancelada"));
 });
 
 test("abortar durante la lectura streaming no entrega catálogo parcial", async () => {
@@ -76,7 +79,9 @@ test("abortar durante la lectura streaming no entrega catálogo parcial", async 
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async () => new Response(cuerpo, {
     status: 200, headers: { "Content-Type": "application/json; charset=utf-8" },
   }) });
-  await assert.rejects(cliente.consultar({ signal: controlador.signal }), (error) => error.name === "AbortError");
+  const t = crearTraductorContratacionTemporal(MENSAJES_RRHH_PLANTILLAS_ES);
+  await assert.rejects(cliente.consultar({ signal: controlador.signal }), (error) =>
+    error.name === "AbortError" && error.message === t("plantillas_rrhh_lectura_cancelada"));
 });
 
 test("cliente solo confirma un cambio con catálogo, versión y recibo válidos", async () => {

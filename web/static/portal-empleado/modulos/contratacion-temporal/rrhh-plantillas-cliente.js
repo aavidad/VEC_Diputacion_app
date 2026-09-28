@@ -1,4 +1,7 @@
 /** Transporte de la configuración RRHH. La identidad y V3 se resuelven en el servidor. */
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
+
 export const RUTA_RRHH_PLANTILLAS = "/api/vec/contratacion-temporal/plantillas";
 export const RUTA_RRHH_PLANTILLAS_ENTRADAS = `${RUTA_RRHH_PLANTILLAS}/entradas`;
 export const RUTA_RRHH_PLANTILLAS_PUBLICAR = `${RUTA_RRHH_PLANTILLAS}/publicar`;
@@ -8,6 +11,7 @@ const HUELLA = /^[a-f0-9]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const MAXIMO_RESPUESTA = 17_000_000;
 const MAXIMO_PETICION = 256 * 1024;
+const t = crearTraductorContratacionTemporal(MENSAJES_RRHH_PLANTILLAS_ES);
 
 export class ErrorPlantillasRRHH extends Error {
   constructor(codigo, estado = 0, resultadoIndeterminado = false) {
@@ -85,7 +89,7 @@ async function leerAcotado(respuesta, signal) {
   let vacios = 0;
   try {
     while (true) {
-      if (signal?.aborted) throw new DOMException("Lectura cancelada", "AbortError");
+      if (signal?.aborted) throw new DOMException(t("plantillas_rrhh_lectura_cancelada"), "AbortError");
       const { done, value } = await lector.read();
       if (done) break;
       if (!(value instanceof Uint8Array)) throw new ErrorPlantillasRRHH("respuesta_incompatible", respuesta.status);
@@ -138,7 +142,7 @@ function validarSolicitudPublicacion(valor) {
 export function crearClientePlantillasRRHH({ fetchImpl = globalThis.fetch, HeadersImpl = globalThis.Headers } = {}) {
   if (typeof fetchImpl !== "function" || typeof HeadersImpl !== "function") throw new TypeError("transporte no disponible");
   async function solicitar(ruta, metodo, cuerpo, signal) {
-    if (signal?.aborted) throw new DOMException("Petición cancelada", "AbortError");
+    if (signal?.aborted) throw new DOMException(t("plantillas_rrhh_peticion_cancelada"), "AbortError");
     const headers = new HeadersImpl({ Accept: "application/json" });
     if (metodo === "POST") headers.set("Content-Type", "application/json");
     let respuesta;
@@ -159,7 +163,7 @@ export function crearClientePlantillasRRHH({ fetchImpl = globalThis.fetch, Heade
       let codigo = "error_http";
       try { const detalle = await leerAcotado(respuesta, signal); codigo = detalle?.error?.codigo ?? detalle?.codigo ?? codigo; }
       catch { /* El estado sigue siendo fiable; el contenido se descarta. */ }
-      if (signal?.aborted) throw new DOMException("Lectura cancelada", "AbortError");
+      if (signal?.aborted) throw new DOMException(t("plantillas_rrhh_lectura_cancelada"), "AbortError");
       throw new ErrorPlantillasRRHH(codigo, respuesta.status, metodo === "POST" && respuesta.status >= 500);
     }
     if (metodo === "GET" ? respuesta.status !== 200 : ![200, 201].includes(respuesta.status)) {
