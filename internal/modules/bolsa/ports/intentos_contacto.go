@@ -10,8 +10,8 @@ import (
 // ReglaIntentosContacto es una regla del catálogo que la ficha muestra junto
 // al control de intentos, con su referencia exacta catálogo:versión:entrada.
 type ReglaIntentosContacto struct {
-	Clave, Etiqueta, Descripcion, Referencia string
-	Ejemplo                                  bool
+	Clave, Etiqueta, Descripcion, Referencia, HuellaCatalogo string
+	Ejemplo                                                  bool
 }
 
 // PoliticaIntentosContacto traduce el catálogo de reglas de Bolsa. Sin

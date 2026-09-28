@@ -93,7 +93,7 @@ func (r *IntentosContacto) PoliticaIntentosTelefonicos(ctx context.Context) (dom
 	for _, regla := range mostradas {
 		reglas = append(reglas, puertosbolsa.ReglaIntentosContacto{
 			Clave: regla.Clave, Etiqueta: regla.Etiqueta, Descripcion: regla.Descripcion,
-			Referencia: regla.Referencia, Ejemplo: regla.EsEjemplo(),
+			Referencia: regla.Referencia, HuellaCatalogo: regla.HuellaCatalogo, Ejemplo: regla.EsEjemplo(),
 		})
 	}
 	return politica, reglas, true, nil
