@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	consultaPublicadaDocumental = `SELECT vec_contratacion_temporal.obtener_catalogo_plantillas_publicado_documental_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	consultaPublicadaDocumental = `SELECT vec_contratacion_temporal.obtener_catalogo_plantillas_publicado_documental_ambitos_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
 	audienciaDocumental         = "vec_contratacion_temporal.catalogo_plantillas_documental.v1"
 )
 
@@ -72,7 +72,9 @@ func (p *ProveedorDocumental) ObtenerPlantillasDocumento(ctx context.Context, s 
 	if !huellaDocumental.MatchString(huellaMaterial) {
 		return nil, "", app.ErrNoDisponible
 	}
-	recurso := vecdomain.RecursoAutorizable{Referencia: s.ExpedienteRef, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_documental_ct", Ambitos: map[string]string{"organizacion_ref": p.organizacionRef}, Atributos: map[string]string{"material_sha256": huellaMaterial}}
+	recurso := vecdomain.RecursoAutorizable{Referencia: s.ExpedienteRef, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_documental_ct", Ambitos: map[string]string{
+		"organizacion_ref": p.organizacionRef, "clase_ambito": s.ClaseAmbito, "ambito_ref": s.AmbitoRef,
+	}, Atributos: map[string]string{"material_sha256": huellaMaterial}}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
 		return nil, "", app.ErrNoDisponible
