@@ -17,6 +17,9 @@ const (
 	rolPropietarioContextoContratacionTemporalDesarrollo     = "vec_contexto_actor_v1_propietario"
 	rolPropietarioAutorizacionContratacionTemporalDesarrollo = rolPropietarioAutorizacionPostgreSQLDesarrollo
 	rolProyectorMotivosContratacionTemporalDesarrollo        = "vec_autorizacion_motivos_proyector"
+	actoControlRolReincorporacionTitularDesarrollo           = "acto:ct:reincorporacion-titular:control-rol:v1"
+	actoAsignacionReincorporacionTitularDesarrollo           = "acto:ct:reincorporacion-titular:asignacion:v1"
+	actoSesionReincorporacionTitularDesarrollo               = "acto:ct:reincorporacion-titular:sesion:v1"
 )
 
 func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
@@ -582,7 +585,6 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) preimagenReincorpora
 	}
 	preimagen.RevisionCatalogoPoliticas = revisionCatalogo
 	preimagen.CatalogoPoliticasHuellaSHA256 = huellaCatalogo
-	comun := a.autoridadComun()
 	huellaAsignacionCalculada, errAsignacion := preimagen.AsignacionPerfil.HuellaSHA256()
 	huellaRolCalculada, errRol := preimagen.VersionRol.HuellaSHA256()
 	huellaControlCalculada, errControl := preimagen.ControlVigenciaVersionRol.HuellaSHA256()
@@ -605,7 +607,8 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) preimagenReincorpora
 		reflect.DeepEqual(preimagen.VersionRol.Concesiones, semilla.VersionRol.Concesiones) &&
 		preimagen.RevisionCatalogoPoliticas == semilla.RevisionCatalogoPoliticas &&
 		preimagen.CatalogoPoliticasHuellaSHA256 == semilla.CatalogoPoliticasHuellaSHA256 &&
-		actoAsignacion == comun.actoAsignacion && actoControl == comun.actoControlRol &&
+		actoAsignacion == actoAsignacionReincorporacionTitularDesarrollo &&
+		actoControl == actoControlRolReincorporacionTitularDesarrollo &&
 		actualizadaPor == preimagen.AsignacionPerfil.EmitidaPor
 	if err = tx.Commit(ctx); err != nil {
 		return vacia, false, falloPostgreSQLCTDesarrollo(err)
@@ -630,6 +633,9 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) autoridadReincorpora
 	}
 	comun := a.autoridadComun()
 	comun.vinculo = contexto.Vinculo
+	comun.actoControlRol = actoControlRolReincorporacionTitularDesarrollo
+	comun.actoAsignacion = actoAsignacionReincorporacionTitularDesarrollo
+	comun.actoSesion = actoSesionReincorporacionTitularDesarrollo
 	return comun, nil
 }
 
