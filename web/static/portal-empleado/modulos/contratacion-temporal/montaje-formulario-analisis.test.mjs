@@ -269,6 +269,8 @@ function crearContenedorAlta() {
 function crearRaizModulo() {
   const eventos = new Map();
   const atributos = new Map();
+  const zonaContenido = { hijos: [], append(...nodos) { this.hijos.push(...nodos); } };
+  const crearNodoDocumento = () => Object.assign(crearContenedorAnalisis(), { dataset: {} });
   let html = "";
   let contenedorAlta = null;
   let contenedorAnalisis = null;
@@ -279,9 +281,11 @@ function crearRaizModulo() {
   let montajesAnalisis = 0;
   let controles = [];
   const raiz = {
+    ownerDocument: { createElement: crearNodoDocumento },
     get innerHTML() { return html; },
     set innerHTML(valor) {
       html = valor;
+      zonaContenido.hijos = [];
       contenedorAlta = valor.includes("data-ct-exp-alta")
         ? crearContenedorAlta() : null;
       contenedorAnalisis = valor.includes("data-ct-exp-analisis")
@@ -315,6 +319,7 @@ function crearRaizModulo() {
     removeAttribute(nombre) { atributos.delete(nombre); },
     querySelectorAll() { return controles; },
     querySelector(selector) {
+      if (selector === ".ct-exp-contenido") return html.includes("ct-exp-contenido") ? zonaContenido : null;
       if (selector === "[data-ct-exp-alta]") return contenedorAlta;
       if (selector === "[data-ct-exp-analisis]") return contenedorAnalisis;
       if (selector === "[data-ct-exp-rectificacion]") return contenedorRectificacion;
