@@ -4,6 +4,7 @@ import { MENSAJES_TEXTOS_PORTAL_ES, MENSAJES_TEXTOS_PORTAL_EN } from "./portal-i
 import { MENSAJES_RRHH_PLAZOS_ES, MENSAJES_RRHH_PLAZOS_EN } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-idioma-en-v1";
 import { MENSAJES_POLITICA_CESE_ES, MENSAJES_POLITICA_CESE_EN } from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-idioma-en-v1";
 import { MENSAJES_BORRADORES_ES, MENSAJES_BORRADORES_EN } from "./portal-borradores-i18n.js?v=20260928-idioma-en-v1";
+import { MENSAJES_MODULOS_PORTAL_ES, MENSAJES_MODULOS_PORTAL_EN } from "./portal-modulos-i18n.js?v=20260928-idioma-en-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 export { IDIOMA_ACTUAL as IDIOMA_PORTAL, LOCALIZACION_ACTUAL as LOCALIZACION_PORTAL } from "../comun/idioma.js";
 
@@ -15,6 +16,7 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   ...MENSAJES_RRHH_PLAZOS_ES,
   ...MENSAJES_POLITICA_CESE_ES,
   ...MENSAJES_BORRADORES_ES,
+  ...MENSAJES_MODULOS_PORTAL_ES,
   plantillas_rrhh_nav: "Plantillas de documentos",
   plantillas_rrhh_miga: "Portal del Empleado → Contratación temporal → Plantillas",
   plantillas_rrhh_titulo: "Plantillas de contratación temporal",
@@ -171,6 +173,7 @@ export const MENSAJES_PORTAL_EN = Object.freeze({
   ...MENSAJES_RRHH_PLAZOS_EN,
   ...MENSAJES_POLITICA_CESE_EN,
   ...MENSAJES_BORRADORES_EN,
+  ...MENSAJES_MODULOS_PORTAL_EN,
   ...MENSAJES_PORTAL_PROPIOS_EN,
 });
 
