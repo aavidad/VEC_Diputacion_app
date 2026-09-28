@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -87,6 +88,44 @@ func TestDecodificarLecturaReincorporacionTitularMinimizaYVincula(t *testing.T) 
 	base["otro_dato"] = "secreto"
 	if err := decodificar(base); !errors.Is(err, ports.ErrResultadoSeguimientoNoConfiable) {
 		t.Fatalf("campo inesperado aceptado: %v", err)
+	}
+}
+
+func TestPrepararReincorporacionConservaConflictoYRevierteRespuestaMalformada(t *testing.T) {
+	m := ports.MaterialReincorporacionTitular{OrganizacionRef: "org:test", ExpedienteRef: "exp:test", RelacionRef: "rel:test",
+		ActorRef: "actor:test", PerfilRef: "perfil:test", VersionEsperada: 4,
+		FechaEfectiva: time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC), DocumentoRef: "doc:test",
+		DocumentoSHA256: strings.Repeat("a", 64), ClaveIdempotencia: "11111111-1111-4111-8111-111111111111"}
+	lectura := ports.AntecedenteReincorporacionTitular{Resultado: ports.ResultadoAntecedenteCoincide, ExpedienteRef: m.ExpedienteRef,
+		CeseEventoRef: "evento:cese", CeseReciboRef: "recibo:cese", LecturaRef: "lectura:" + strings.Repeat("c", 64),
+		AuditoriaRef: "aud_v3_" + strings.Repeat("d", 32), ConsumoHuellaSHA256: strings.Repeat("b", 64),
+		RegistradaEn: time.Date(2026, 9, 28, 10, 0, 0, 0, time.UTC)}
+	ambito, err := ports.NuevaColeccionSellosHMAC("hmac-sha256:"+ports.DominioAmbitoReincorporacionTitular+"/v1:"+strings.Repeat("a", 64), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella, err := ports.NuevaColeccionSellosHMAC("hmac-sha256:"+ports.DominioHuellaReincorporacionTitular+"/v1:"+strings.Repeat("b", 64), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sellos := ports.SellosOperacionSeguimiento{Ambitos: ambito, Huellas: huella}
+	refs := ports.ReferenciasEfectoSeguimiento{ReservaRef: "reserva:test", ReciboRef: "recibo:test", EventoRef: "evento:test"}
+	for _, tc := range []struct {
+		nombre, respuesta string
+		esperado          error
+		commits           int
+	}{
+		{"conflicto confiable", `{"esquema":"vec.contratacion-temporal.resultado-reincorporacion-titular.v1","resultado":"version_en_conflicto"}`, domain.ErrVersionEnConflicto, 1},
+		{"respuesta malformada", `{"esquema":"vec.contratacion-temporal.resultado-reincorporacion-titular.v1","resultado":"preparada"}`, ports.ErrResultadoSeguimientoNoConfiable, 0},
+	} {
+		t.Run(tc.nombre, func(t *testing.T) {
+			tx := &txLecturaReincorporacionPrueba{respuesta: []byte(tc.respuesta)}
+			r := &RepositorioReincorporacionTitularPostgreSQL{pool: &poolLecturaReincorporacionPrueba{tx: tx}}
+			_, err := r.PrepararReincorporacionTitular(context.Background(), m, lectura, sellos, refs)
+			if !errors.Is(err, tc.esperado) || tx.commits != tc.commits {
+				t.Fatalf("error=%v, commits=%d; esperado error=%v, commits=%d", err, tx.commits, tc.esperado, tc.commits)
+			}
+		})
 	}
 }
 

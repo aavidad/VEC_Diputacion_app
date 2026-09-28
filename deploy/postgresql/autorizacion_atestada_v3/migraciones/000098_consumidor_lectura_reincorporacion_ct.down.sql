@@ -15,7 +15,11 @@ DO $pre$
 BEGIN
  IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_lectura_reincorporacion_titular_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  THEN RAISE EXCEPTION 'AD3-98 DOWN: AD3-98 no instalada' USING ERRCODE='55000'; END IF;
- IF to_regprocedure('vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ -- El propietario AD3 no tiene USAGE en el esquema CT: inspeccionar el
+ -- catálogo evita que to_regprocedure falle antes de la guarda nominal.
+ IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+            WHERE n.nspname='vec_contratacion_temporal'
+              AND p.proname='leer_antecedente_reincorporacion_titular_atestada_v1')
     OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                WHERE n.nspname='vec_contratacion_temporal' AND c.relname='lectura_reincorporacion_titular_v1')
  THEN RAISE EXCEPTION 'AD3-98 DOWN: CT 000134 sigue instalada' USING ERRCODE='55000'; END IF;

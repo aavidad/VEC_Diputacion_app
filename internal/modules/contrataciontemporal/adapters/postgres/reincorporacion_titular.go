@@ -22,7 +22,9 @@ const (
 	esquemaResultadoReincorporacion = "vec.contratacion-temporal.resultado-reincorporacion-titular.v1"
 )
 
-type RepositorioReincorporacionTitularPostgreSQL struct{ pool *pgxpool.Pool }
+type RepositorioReincorporacionTitularPostgreSQL struct {
+	pool iniciadorLecturaReincorporacionTitular
+}
 
 var _ ports.RepositorioReincorporacionTitular = (*RepositorioReincorporacionTitularPostgreSQL)(nil)
 
@@ -141,6 +143,9 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) ejecutar(ctx context.Conte
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if errors.Is(err, ports.ErrResultadoSeguimientoNoConfiable) {
+		return err
+	}
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) {
 		switch pg.Code {
@@ -172,10 +177,12 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) PrepararReincorporacionTit
 		return vacio, ports.ErrOperacionSeguimientoInvalida
 	}
 	defer borrarBytes(cuerpo)
-	var respuesta respuestaReincorporacionSQL
+	var preparacion ports.PreparacionReincorporacionTitular
+	var resultadoError error
 	// CT134 registra el uso único del recibo de lectura en la misma transacción
 	// que la preparación; ambas escrituras se deshacen juntas ante cualquier fallo.
 	err = r.ejecutar(ctx, false, func(tx pgx.Tx) error {
+		resultadoError = nil
 		var b []byte
 		if e := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1($1::jsonb,$2::text,$3::text)::text",
 			cuerpo, lectura.LecturaRef, lectura.AuditoriaRef).Scan(&b); e != nil {
@@ -183,40 +190,54 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) PrepararReincorporacionTit
 		}
 		defer borrarBytes(b)
 		var e error
-		respuesta, e = decodificarReincorporacionSQL(b)
-		return e
+		respuesta, e := decodificarReincorporacionSQL(b)
+		if e != nil {
+			if errors.Is(e, ports.ErrResultadoSeguimientoNoConfiable) {
+				return e
+			}
+			resultadoError = e
+			return nil
+		}
+		if respuesta.Referencias == nil || respuesta.RelacionRef != m.RelacionRef ||
+			!ports.ColeccionesHMACContienenPar(sellos.Ambitos, ports.DominioAmbitoReincorporacionTitular, sellos.Huellas,
+				ports.DominioHuellaReincorporacionTitular, respuesta.AmbitoHMAC, respuesta.HuellaHMAC) {
+			return ports.ErrResultadoSeguimientoNoConfiable
+		}
+		p := ports.PreparacionReincorporacionTitular{Referencias: ports.ReferenciasEfectoSeguimiento{ReservaRef: respuesta.Referencias.ReservaRef,
+			ReciboRef: respuesta.Referencias.ReciboRef, EventoRef: respuesta.Referencias.EventoRef},
+			AmbitoIdempotenciaHMAC: respuesta.AmbitoHMAC, HuellaPeticionHMAC: respuesta.HuellaHMAC,
+			CeseEventoRef: respuesta.CeseEventoRef, CeseReciboRef: respuesta.CeseReciboRef, Confirmada: respuesta.Resultado == "confirmada"}
+		if !p.Referencias.Validas() || p.CeseEventoRef != lectura.CeseEventoRef || p.CeseReciboRef != lectura.CeseReciboRef {
+			return ports.ErrResultadoSeguimientoNoConfiable
+		}
+		if p.Confirmada {
+			if respuesta.Recibo == nil {
+				return ports.ErrResultadoSeguimientoNoConfiable
+			}
+			x := respuesta.recibo()
+			if !x.ValidoPara(m) || x.CeseEventoRef != p.CeseEventoRef || x.CeseReciboRef != p.CeseReciboRef ||
+				x.ReciboRef != p.Referencias.ReciboRef || x.EventoRef != p.Referencias.EventoRef {
+				return ports.ErrResultadoSeguimientoNoConfiable
+			}
+			p.Recibo = &x
+		} else {
+			if respuesta.Expediente == nil || respuesta.Expediente.Validar() != nil || respuesta.Recibo != nil ||
+				respuesta.Expediente.Referencia != m.ExpedienteRef || respuesta.Expediente.OrganizacionRef != m.OrganizacionRef ||
+				respuesta.Expediente.Version != m.VersionEsperada || respuesta.Expediente.Asignacion == nil {
+				return ports.ErrResultadoSeguimientoNoConfiable
+			}
+			p.Expediente = respuesta.Expediente.Clonar()
+		}
+		preparacion = p
+		return nil
 	})
 	if err != nil {
 		return vacio, err
 	}
-	if respuesta.Referencias == nil || respuesta.RelacionRef != m.RelacionRef ||
-		!ports.ColeccionesHMACContienenPar(sellos.Ambitos, ports.DominioAmbitoReincorporacionTitular, sellos.Huellas,
-			ports.DominioHuellaReincorporacionTitular, respuesta.AmbitoHMAC, respuesta.HuellaHMAC) {
-		return vacio, ports.ErrResultadoSeguimientoNoConfiable
+	if resultadoError != nil {
+		return vacio, resultadoError
 	}
-	p := ports.PreparacionReincorporacionTitular{Referencias: ports.ReferenciasEfectoSeguimiento{ReservaRef: respuesta.Referencias.ReservaRef,
-		ReciboRef: respuesta.Referencias.ReciboRef, EventoRef: respuesta.Referencias.EventoRef},
-		AmbitoIdempotenciaHMAC: respuesta.AmbitoHMAC, HuellaPeticionHMAC: respuesta.HuellaHMAC,
-		CeseEventoRef: respuesta.CeseEventoRef, CeseReciboRef: respuesta.CeseReciboRef, Confirmada: respuesta.Resultado == "confirmada"}
-	if !p.Referencias.Validas() {
-		return vacio, ports.ErrResultadoSeguimientoNoConfiable
-	}
-	if p.Confirmada {
-		if respuesta.Recibo == nil {
-			return vacio, ports.ErrResultadoSeguimientoNoConfiable
-		}
-		x := respuesta.recibo()
-		if !x.ValidoPara(m) {
-			return vacio, ports.ErrResultadoSeguimientoNoConfiable
-		}
-		p.Recibo = &x
-	} else {
-		if respuesta.Expediente == nil || respuesta.Expediente.Validar() != nil || respuesta.Recibo != nil {
-			return vacio, ports.ErrResultadoSeguimientoNoConfiable
-		}
-		p.Expediente = respuesta.Expediente.Clonar()
-	}
-	return p, nil
+	return preparacion, nil
 }
 
 func autorizacionReincorporacionSQL(o ports.OrdenConfirmarReincorporacionTitular) (autorizacionConfirmarFiscalizacionV1, error) {
@@ -296,8 +317,10 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) ConfirmarReincorporacionTi
 			borrarBytes(b)
 		}
 	}()
-	var respuesta respuestaReincorporacionSQL
+	var recibo ports.ReciboReincorporacionTitular
+	var resultadoError error
 	err = r.ejecutar(ctx, false, func(tx pgx.Tx) error {
+		resultadoError = nil
 		var b []byte
 		if e := tx.QueryRow(ctx, "SELECT vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1($1::jsonb,$2::text,$3::text,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)::text",
 			cuerpo, o.Lectura.LecturaRef, o.Lectura.AuditoriaRef,
@@ -307,19 +330,31 @@ func (r *RepositorioReincorporacionTitularPostgreSQL) ConfirmarReincorporacionTi
 		}
 		defer borrarBytes(b)
 		var e error
-		respuesta, e = decodificarReincorporacionSQL(b)
-		return e
+		respuesta, e := decodificarReincorporacionSQL(b)
+		if e != nil {
+			if errors.Is(e, ports.ErrResultadoSeguimientoNoConfiable) {
+				return e
+			}
+			resultadoError = e
+			return nil
+		}
+		if respuesta.Resultado != "confirmada" || respuesta.Recibo == nil {
+			return ports.ErrResultadoSeguimientoNoConfiable
+		}
+		recibo = respuesta.recibo()
+		if !recibo.ValidoPara(m) || recibo.ReciboRef != o.Preparacion.Referencias.ReciboRef ||
+			recibo.EventoRef != o.Preparacion.Referencias.EventoRef ||
+			recibo.CeseEventoRef != o.Preparacion.CeseEventoRef || recibo.CeseReciboRef != o.Preparacion.CeseReciboRef ||
+			!recibo.RegistradaEn.Equal(o.InstanteEfecto) {
+			return ports.ErrResultadoSeguimientoNoConfiable
+		}
+		return nil
 	})
 	if err != nil {
 		return vacio, err
 	}
-	if respuesta.Resultado != "confirmada" || respuesta.Recibo == nil {
-		return vacio, ports.ErrResultadoSeguimientoNoConfiable
-	}
-	recibo := respuesta.recibo()
-	if !recibo.ValidoPara(m) || recibo.ReciboRef != o.Preparacion.Referencias.ReciboRef ||
-		recibo.EventoRef != o.Preparacion.Referencias.EventoRef {
-		return vacio, ports.ErrResultadoSeguimientoNoConfiable
+	if resultadoError != nil {
+		return vacio, resultadoError
 	}
 	return recibo, nil
 }
