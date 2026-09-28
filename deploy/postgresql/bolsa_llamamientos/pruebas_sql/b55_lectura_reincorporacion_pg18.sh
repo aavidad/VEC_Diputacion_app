@@ -56,6 +56,30 @@ psql_pg < "$m.up.sql" >/dev/null
 if psql_pg < "$m.up.sql" >/dev/null 2>&1; then echo 'B55 doble UP aceptado' >&2; exit 1; fi
 psql_pg < "$m.down.sql" >/dev/null
 psql_pg < "$m.up.sql" >/dev/null
+[[ $(psql_pg -Atc "SELECT c.relrowsecurity::text||':'||c.relforcerowsecurity::text FROM pg_class c WHERE c.oid='vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3'::regclass") == 'true:true' || $(psql_pg -Atc "SELECT c.relrowsecurity::text||':'||c.relforcerowsecurity::text FROM pg_class c WHERE c.oid='vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3'::regclass") == 't:t' ]]
+[[ $(psql_pg -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='vec_bolsa_llamamientos' AND tablename='reincorporacion_titular_lectura_v3' AND policyname='reincorporacion_titular_lectura_v3_solo_propietario' AND roles='{vec_bolsa_llamamientos_propietario}'") == 1 ]]
+# Una inserción confirmada después de la sonda de DOWN jamás debe perderse.
+# La transacción escritora mantiene RowExclusive mientras DOWN espera el bloqueo.
+psql_pg <<'SQL' >/dev/null &
+BEGIN;
+INSERT INTO vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3
+ (decision_ref,auditoria_ref,participacion_ref,actor_ref,filas_devueltas,consultada_en)
+ VALUES ('decision:carrera','auditoria:carrera','participacion:uno','per_abcdefghijklmnopqrstuv',0,clock_timestamp());
+SELECT pg_sleep(4);
+COMMIT;
+SQL
+pid_escritura=$!
+en_barrera=false
+for _ in $(seq 1 80); do
+  if [[ $(psql_pg -Atc "SELECT count(*) FROM pg_stat_activity WHERE query='SELECT pg_sleep(4);' AND state='active'") == 1 ]]; then en_barrera=true; break; fi
+  sleep 0.05
+done
+[[ $en_barrera == true ]] || { echo 'B55: no alcanzó barrera de escritura concurrente' >&2; exit 1; }
+psql_pg < "$m.down.sql" >/dev/null 2>&1 &
+pid_down=$!
+wait "$pid_escritura"
+if wait "$pid_down"; then echo 'B55 DOWN borró historia concurrente' >&2; exit 1; fi
+[[ $(psql_pg -Atc "SELECT count(*) FROM vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3") == 1 ]]
 psql_pg <<'SQL' >/dev/null
 DO $acl$ BEGIN
  IF has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.listar_reincorporaciones_titular_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
@@ -100,7 +124,7 @@ END $test$;
 COMMIT;
 RESET SESSION AUTHORIZATION;
 DO $hist$ BEGIN
- IF (SELECT count(*) FROM vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3)<>2 THEN RAISE EXCEPTION 'B55: lecturas no conservadas'; END IF;
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3)<>3 THEN RAISE EXCEPTION 'B55: lecturas no conservadas'; END IF;
 END $hist$;
 UPDATE prueba_reincorporacion.revocacion SET revocada=true;
 SET SESSION AUTHORIZATION vec_b55_rrhh;
@@ -120,7 +144,7 @@ END $test$;
 COMMIT;
 RESET SESSION AUTHORIZATION;
 DO $hist$ BEGIN
- IF (SELECT count(*) FROM vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3)<>2 THEN RAISE EXCEPTION 'B55: denegación añadió historia'; END IF;
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3)<>3 THEN RAISE EXCEPTION 'B55: denegación añadió historia'; END IF;
 END $hist$;
 SQL
 if psql_pg < "$m.down.sql" >/dev/null 2>&1; then echo 'B55 DOWN borró historia' >&2; exit 1; fi

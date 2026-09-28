@@ -24,6 +24,13 @@ CREATE TABLE vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3(
  filas_devueltas integer NOT NULL CHECK(filas_devueltas BETWEEN 0 AND 100),
  consultada_en timestamptz(6) NOT NULL
 );
+ALTER TABLE vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3 FORCE ROW LEVEL SECURITY;
+CREATE POLICY reincorporacion_titular_lectura_v3_solo_propietario
+ ON vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3
+ TO vec_bolsa_llamamientos_propietario
+ USING (current_user = 'vec_bolsa_llamamientos_propietario')
+ WITH CHECK (current_user = 'vec_bolsa_llamamientos_propietario');
 CREATE TRIGGER reincorporacion_titular_lectura_inmutable
  BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3
  FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();

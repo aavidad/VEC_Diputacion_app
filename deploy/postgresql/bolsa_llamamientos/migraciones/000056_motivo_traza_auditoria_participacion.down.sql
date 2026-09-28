@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 BEGIN;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
@@ -21,12 +22,34 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.datos_contacto_participacion') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_auditoria_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR NOT EXISTS (
+      SELECT 1 FROM pg_proc p
+       WHERE p.oid=to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+         AND pg_get_userbyid(p.proowner)='vec_bolsa_llamamientos_propietario'
+         AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}'
+         AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='8f10b5bd29a48ffc5cbabadfb5319923499342661baddf675d22fecbf67c32ee')
     OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion)
     OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.datos_contacto_participacion)
     OR EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.traza_valor_participacion) THEN
   RAISE EXCEPTION 'B56: DOWN denegado con historia de Bolsa' USING ERRCODE='55000';
  END IF;
 END $precondicion$;
+
+-- El valor vigente bloquea la función hasta COMMIT. Un DDL intercalado antes
+-- del ALTER causa conflicto serializable; después no puede cambiar la postimagen.
+ALTER FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ SET search_path=pg_catalog;
+DO $postimagen$
+BEGIN
+ IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+     WHERE p.oid=to_regprocedure('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+       AND pg_get_userbyid(p.proowner)='vec_bolsa_llamamientos_propietario'
+       AND p.proacl::text='{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}'
+       AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='8f10b5bd29a48ffc5cbabadfb5319923499342661baddf675d22fecbf67c32ee') THEN
+  RAISE EXCEPTION 'B56: DOWN denegado por postimagen incompatible' USING ERRCODE='55000';
+ END IF;
+END $postimagen$;
 
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(
  p_participacion_ref text, p_actor_filtro text, p_desde timestamptz, p_hasta timestamptz,

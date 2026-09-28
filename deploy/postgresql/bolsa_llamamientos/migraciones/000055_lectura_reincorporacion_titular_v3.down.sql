@@ -6,6 +6,9 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000055',0));
+-- Una lectura en curso conserva RowExclusive hasta confirmar. Tomar el bloqueo
+-- antes de mirar la historia impide que una inserción confirme entre EXISTS y DROP.
+LOCK TABLE vec_bolsa_llamamientos.reincorporacion_titular_lectura_v3 IN ACCESS EXCLUSIVE MODE;
 DO $pre$
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario'

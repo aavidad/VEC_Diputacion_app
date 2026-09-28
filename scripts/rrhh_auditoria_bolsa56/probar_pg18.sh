@@ -169,10 +169,68 @@ SQL
 then echo 'B56: hotfix concurrente confirmó durante UP' >&2; exit 1; fi
 wait "$pid_carrera" || { cat "$temporal/carrera.log" >&2; exit 1; }
 nuevo=$(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))")
+[[ $(scalar "SELECT encode(sha256(convert_to(pg_get_functiondef('$firma'::regprocedure),'UTF8')),'hex')") == '8f10b5bd29a48ffc5cbabadfb5319923499342661baddf675d22fecbf67c32ee' ]]
 [[ $nuevo != "$anterior" ]]
 [[ $(scalar "SELECT pg_get_userbyid(p.proowner)||':'||p.proacl::text FROM pg_proc p WHERE p.oid='$firma'::regprocedure") == 'vec_bolsa_llamamientos_propietario:{vec_bolsa_llamamientos_propietario=X/vec_bolsa_llamamientos_propietario,vec_bolsa_llamamientos_ejecutor=X/vec_bolsa_llamamientos_propietario}' ]]
 echo 'OK carrera B56: hotfix y GRANT concurrentes no sustituyen preimagen'
 if admin < "$b56.up.sql" >/dev/null 2>&1; then echo 'B56: doble UP aceptado' >&2; exit 1; fi
+rechazar_down_postimagen() {
+  if admin < "$b56.down.sql" >/dev/null 2>&1; then
+    echo 'B56: DOWN sustituyó postimagen ajena' >&2; exit 1
+  fi
+}
+admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+DO $hotfix$
+BEGIN
+ EXECUTE replace(pg_get_functiondef('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
+                 'Motivo reservado en Bolsa','Motivo alterado en Bolsa');
+END $hotfix$;
+COMMIT;
+SQL
+rechazar_down_postimagen
+[[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") != "$nuevo" ]]
+admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+DO $restaurar$
+BEGIN
+ EXECUTE replace(pg_get_functiondef('vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
+                 'Motivo alterado en Bolsa','Motivo reservado en Bolsa');
+END $restaurar$;
+COMMIT;
+SQL
+[[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") == "$nuevo" ]]
+admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+ALTER FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) SET search_path=pg_catalog,pg_temp;
+COMMIT;
+SQL
+rechazar_down_postimagen
+admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+ALTER FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) SET search_path=pg_catalog;
+COMMIT;
+SQL
+[[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") == "$nuevo" ]]
+admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_b56_sin_permiso;
+COMMIT;
+SQL
+rechazar_down_postimagen
+admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+REVOKE EXECUTE ON FUNCTION vec_bolsa_llamamientos.consultar_auditoria_participacion_v1(text,text,timestamptz,timestamptz,timestamptz,text,text,integer,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_b56_sin_permiso;
+COMMIT;
+SQL
+[[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") == "$nuevo" ]]
+echo 'OK postimagen B56: cuerpo, configuración y ACL ajenos conservados frente a DOWN'
 sed 's/^COMMIT;$/ROLLBACK;/' "$b56.down.sql" | admin >/dev/null
 [[ $(scalar "SELECT md5(pg_get_functiondef('$firma'::regprocedure))") == "$nuevo" ]]
 echo 'OK B56: UP/DOWN en ROLLBACK, UP, doble UP denegado'
