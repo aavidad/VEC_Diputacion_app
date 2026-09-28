@@ -56,6 +56,22 @@ func TestSeleccionMiBolsaIncluyeMaterialHistorialPropio(t *testing.T) {
 	}
 }
 
+func TestSeleccionReincorporacionPublicaUnaAudienciaDeLectura(t *testing.T) {
+	audiencia := descriptorMaterialConsultaReincorporacionTitularBolsaDesarrollo().Audiencia
+	contar := func(s seleccionMaterialCTDesarrollo) int {
+		n := 0
+		for _, d := range descriptoresMaterialSeleccionadosCTDesarrollo(s) {
+			if d.Audiencia == audiencia {
+				n++
+			}
+		}
+		return n
+	}
+	if contar(seleccionMaterialCTDesarrollo{}) != 0 || contar(seleccionMaterialCTDesarrollo{reincorporacionTitular: true}) != 1 {
+		t.Fatal("audiencia B55 no depende exactamente del selector CT130")
+	}
+}
+
 // El portal publica un proveedor por acción propia: pausa, reactivación,
 // respuesta, disposición y confirmación del contacto.
 func TestAudienciasPortalCandidatoPublicablesPorElGobiernoCT(t *testing.T) {

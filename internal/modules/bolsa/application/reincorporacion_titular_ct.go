@@ -2,27 +2,60 @@ package application
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-// ListarReincorporacionesTitular usa el mismo contexto y consumo V3 que el
-// histórico de contratos de la ficha RRHH. La base restringe la lectura a la
-// participación autorizada y obtiene la fecha disponible de Bolsa 000045.
-func (s *ServicioSituacionParticipacion) ListarReincorporacionesTitular(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion) ([]ports.ReincorporacionTitularFicha, error) {
+// ListarReincorporacionesTitular consume una decisión V3 de lectura nominal.
+// La pertenencia se contrasta antes de emitir material; la función SQL vuelve
+// a verificar recurso, actor, ámbito, vigencia y consumo dentro de la lectura.
+func (s *ServicioSituacionParticipacion) ListarReincorporacionesTitular(ctx context.Context, q ports.SolicitudConsultarReincorporacionesTitular) ([]ports.ReincorporacionTitularFicha, error) {
 	if s == nil || ctx == nil || q.Validar() != nil {
-		return nil, ErrCambioSituacionParticipacionNoDisponible
-	}
-	repo, ok := s.repositorio.(ports.RepositorioReincorporacionesTitularCT)
-	if !ok {
 		return nil, ports.ErrReincorporacionTitularNoDisponible
 	}
-	_, _, _, material, err := s.autorizarOperacion(ctx, q)
+	repo, ok := s.repositorio.(ports.RepositorioReincorporacionesTitularCT)
+	if !ok || s.contexto == nil || s.autorizador == nil || s.repositorio == nil {
+		return nil, ports.ErrReincorporacionTitularNoDisponible
+	}
+	actor := q.ResultadoContexto.Contexto
+	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor, q.BolsaRef, q.ParticipacionRef)
+	if err != nil || resuelto.Validar() != nil || actor.PersonaRef == "" {
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) {
+			return nil, err
+		}
+		return nil, ports.ErrReincorporacionTitularNoDisponible
+	}
+	pertenece, err := s.repositorio.ParticipacionPerteneceABolsa(ctx, q.BolsaRef, q.ParticipacionRef)
 	if err != nil {
 		return nil, err
 	}
-	return repo.ListarReincorporacionesTitular(ctx, q.ParticipacionRef, q.ResultadoContexto.Contexto.PersonaRef, material)
+	if !pertenece {
+		return nil, dominiovec.ErrAutorizacionDenegada
+	}
+	recurso := dominiovec.RecursoAutorizable{Referencia: q.ParticipacionRef, ModuloID: ports.ModuloSituacionParticipacion,
+		Tipo:    ports.TipoRecursoSituacionParticipacion,
+		Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion,
+		Accion: ports.AccionConsultarReincorporacionTitular, Recurso: recurso,
+		Finalidad: ports.FinalidadConsultarReincorporacionTitular, Correlacion: q.Correlacion,
+	})
+	if err != nil {
+		return nil, dominiovec.ErrAutorizacionDenegada
+	}
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, q.ResultadoContexto)
+	if err != nil || exportador == nil || decision.ValidarPara(solicitud) != nil {
+		return nil, errorDependenciaSituacion(err)
+	}
+	material, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(solicitud, decision, confirmacion, q.ResultadoContexto,
+		q.MotivoAutorizacion, material, ports.AudienciaConsultarReincorporacionTitular) {
+		return nil, errorDependenciaSituacion(err)
+	}
+	return repo.ListarReincorporacionesTitular(ctx, q.ParticipacionRef, actor.Principal.ID, material)
 }
 
 type ResultadoEntregaReincorporacionesTitular struct {
