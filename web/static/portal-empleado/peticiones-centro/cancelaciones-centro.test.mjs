@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RUTAS_CANCELACIONES_CENTRO, crearClienteCancelacionesCentro, montarCancelacionesCentro } from "./cancelaciones-centro.js";
+import {
+  MENSAJES_CANCELACIONES_CENTRO_EN,
+  MENSAJES_CANCELACIONES_CENTRO_ES,
+  RUTAS_CANCELACIONES_CENTRO,
+  crearClienteCancelacionesCentro,
+  crearTraductorCancelacionesCentro,
+  montarCancelacionesCentro,
+} from "./cancelaciones-centro.js";
 
 const fila = (extra = {}) => ({ peticion_ref: "peticion:centro:1", expediente_ref: "expediente:ct:1", numero_visible: "2026/CT-000124", version: 3,
   fase: "solicitud", estado: "en_curso", modalidad_clave: "", categoria_ref: "cat:1", periodo: { inicio: "2026-10-01", fin: "2026-12-31" },
@@ -18,6 +25,18 @@ function contenedorFalso() {
   return { innerHTML: "", hidden: true, eventos, ownerDocument: { addEventListener() {} },
     addEventListener: (n, f) => eventos.set(n, f), removeEventListener: (n) => eventos.delete(n), querySelector: () => null };
 }
+
+test("el catálogo inglés conserva exactamente las claves y marcadores castellanos", () => {
+  assert.deepEqual(Object.keys(MENSAJES_CANCELACIONES_CENTRO_EN), Object.keys(MENSAJES_CANCELACIONES_CENTRO_ES));
+  const marcadores = (mensaje) => [...mensaje.matchAll(/\{([a-z_]+)\}/gu)].map((coincidencia) => coincidencia[1]).sort();
+  for (const clave of Object.keys(MENSAJES_CANCELACIONES_CENTRO_ES)) {
+    assert.deepEqual(marcadores(MENSAJES_CANCELACIONES_CENTRO_EN[clave]), marcadores(MENSAJES_CANCELACIONES_CENTRO_ES[clave]), clave);
+  }
+  const traducir = crearTraductorCancelacionesCentro(MENSAJES_CANCELACIONES_CENTRO_EN);
+  assert.equal(traducir("titulo"), "Cancel a case file");
+  assert.equal(traducir("detalle_titulo", { accion: "Cancel", expediente: "2026/CT-000124" }), "Cancel · 2026/CT-000124");
+  assert.equal(traducir("sin_valor"), "—");
+});
 
 test("el cliente pide solo las rutas fijas del centro, sin caché, redirecciones ni referente", async () => {
   const llamadas = [];
@@ -64,6 +83,7 @@ test("solo ofrece cancelar en las fases que admite el catálogo y se oculta si e
   c.eventos.get("click")({ target: { closest: () => ({ matches: () => false, dataset: { ccAbrir: "expediente:ct:1" } }) } });
   assert.match(c.innerHTML, /data-cc-form="expediente:ct:1"/u);
   assert.match(c.innerHTML, /<option value="necesidad_desaparecida">Ha desaparecido la necesidad<\/option>/u);
+  assert.match(c.innerHTML, /1 de octubre de 2026/u, "la fecha se formatea para la localización activa");
   assert.doesNotMatch(c.innerHTML, /peticion:centro|expediente:ct:1<|recibo:/u, "sin referencias internas visibles");
   desmontar();
   assert.equal(c.eventos.size, 0);

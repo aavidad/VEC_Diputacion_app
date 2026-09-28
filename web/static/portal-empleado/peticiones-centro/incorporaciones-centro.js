@@ -9,6 +9,7 @@
  */
 import { instalarHuellaArchivo, renderizarCampoHuellaArchivo } from "../portal-huella-archivo.js";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../comun/idioma.js";
 
 export const RUTAS_INCORPORACIONES_CENTRO = Object.freeze({
   bandeja: "/api/vec/contratacion-temporal/peticiones-centro/incorporaciones",
@@ -31,6 +32,9 @@ export const MENSAJES_INCORPORACIONES_CENTRO_ES = Object.freeze({
   periodo: "Periodo solicitado",
   situacion: "Situación",
   incorporacion: "Incorporación",
+  periodo_rango: "{inicio} — {fin}",
+  sin_periodo: "—",
+  fecha_no_disponible: "—",
   pendiente: "Pendiente de confirmar",
   no_procede: "Aún no procede",
   confirmada: "Confirmada el {fecha} con {documento}",
@@ -61,7 +65,52 @@ export const MENSAJES_INCORPORACIONES_CENTRO_ES = Object.freeze({
   ayuda: "Cuando RRHH ha nombrado o contratado a la persona, el centro confirma el día en que se incorporó con el documento que lo acredita: la toma de posesión en los nombramientos y el contrato firmado en los contratos laborales, según fija el catálogo. Indique la referencia del documento (la de su registro en Documentos o la del registro del centro) y elija el archivo: se comprueba en este equipo para calcular su huella digital, que es lo único que se registra; el documento no se envía ni se guarda en VEC. Si RRHH aún no ha nombrado, el expediente aparece como «Aún no procede».",
 });
 
-export function crearTraductorIncorporacionesCentro(mensajes = MENSAJES_INCORPORACIONES_CENTRO_ES) {
+export const MENSAJES_INCORPORACIONES_CENTRO_EN = Object.freeze({
+  titulo: "Centre onboarding",
+  cargando: "Loading centre onboarding records…",
+  sin_expedientes: "There are no records from this centre's requests.",
+  error_lectura: "The onboarding records could not be loaded. Please try again.",
+  reintentar: "Try again",
+  expediente: "Case file",
+  periodo: "Requested period",
+  situacion: "Status",
+  incorporacion: "Onboarding",
+  periodo_rango: "{inicio} — {fin}",
+  sin_periodo: "—",
+  fecha_no_disponible: "—",
+  pendiente: "Awaiting confirmation",
+  no_procede: "Not applicable yet",
+  confirmada: "Confirmed on {fecha} with {documento}",
+  confirmar: "Confirm onboarding",
+  fecha_incorporacion: "Onboarding date",
+  documento_referencia: "Document reference",
+  documento_archivo: "Document file",
+  documento_exigido: "Document that proves onboarding: {documento}",
+  confirmacion_expresa: "I confirm that the person joined on that date and that the document proves it.",
+  enviar: "Register confirmation",
+  enviando: "Registering confirmation; wait for the receipt.",
+  exito: "Onboarding confirmed on {fecha}.",
+  error_datos: "Check the date (it cannot be in the future), reference, file and confirmation.",
+  error_no_admitida: "This case file no longer accepts confirmation. The list has been updated.",
+  error_clave_reutilizada: "This confirmation was already registered with different details.",
+  error_denegado: "You do not have permission to confirm onboarding for this centre.",
+  error_pendiente: "It could not be determined whether it was registered. Click again: the same operation will be used and it will not be duplicated.",
+  error_general: "The confirmation could not be registered. Please try again later.",
+  justificante_registrado: "Receipt registered.",
+  justificante_copiar: "Copy receipt reference",
+  justificante_copiado: "Reference copied",
+  documento_toma_posesion: "the assumption-of-duties record",
+  documento_contrato_firmado: "the signed contract",
+  fase_nombramiento: "Appointment or contract in progress",
+  fase_otra: "Being processed by HR",
+  estado_completado: "Case file closed",
+  ayuda_titulo: "How is onboarding confirmed?",
+  ayuda: "Once HR has appointed or hired the person, the centre confirms the date they joined with the document that proves it: the assumption-of-duties record for appointments and the signed contract for employment contracts, as set by the catalogue. Enter the document reference (from its Documents register or the centre's register) and select the file: it is checked on this device to calculate its digital fingerprint, which is the only item registered; the document is not sent to or stored in VEC. If HR has not appointed the person yet, the case file shows “Not applicable yet.”",
+});
+
+const catalogoActual = () => IDIOMA_ACTUAL === "en" ? MENSAJES_INCORPORACIONES_CENTRO_EN : MENSAJES_INCORPORACIONES_CENTRO_ES;
+
+export function crearTraductorIncorporacionesCentro(mensajes = catalogoActual()) {
   return (clave, valores = {}) => {
     const plantilla = typeof mensajes?.[clave] === "string" ? mensajes[clave] : MENSAJES_INCORPORACIONES_CENTRO_ES[clave] ?? clave;
     return plantilla.replace(/\{([a-z_]+)\}/gu, (_, n) => (Object.hasOwn(valores, n) ? String(valores[n]) : `{${n}}`));
@@ -70,10 +119,10 @@ export function crearTraductorIncorporacionesCentro(mensajes = MENSAJES_INCORPOR
 
 const escapar = (v) => String(v ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-function fechaVisible(valor) {
-  if (typeof valor !== "string" || !FECHA.test(valor)) return "—";
+export function fechaVisible(valor, localizacion = LOCALIZACION_ACTUAL, noDisponible = "—") {
+  if (typeof valor !== "string" || !FECHA.test(valor)) return noDisponible;
   const f = new Date(`${valor}T00:00:00Z`);
-  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
+  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(localizacion, { dateStyle: "long", timeZone: "UTC" }).format(f) : noDisponible;
 }
 
 export function fechaCivilValida(valor) {
@@ -202,14 +251,15 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
   }
 
   function fila(e) {
+    const fecha = (valor) => fechaVisible(valor, LOCALIZACION_ACTUAL, t("fecha_no_disponible"));
     const estadoIncorporacion = e.confirmacion
-      ? `<span class="pc-estado pc-estado-confirmada">${escapar(t("confirmada", { fecha: fechaVisible(e.confirmacion.fecha_incorporacion), documento: documento(e.confirmacion.documento_tipo) }))}</span>`
+      ? `<span class="pc-estado pc-estado-confirmada">${escapar(t("confirmada", { fecha: fecha(e.confirmacion.fecha_incorporacion), documento: documento(e.confirmacion.documento_tipo) }))}</span>`
       : e.documento_exigido && e.fase === "nombramiento" && e.estado === "en_curso"
         ? (datos.puede_confirmar
           ? `<button type="button" class="boton-secundario" data-ic-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("confirmar"))}</button>`
           : `<span class="pc-estado pc-estado-pendiente">${escapar(t("pendiente"))}</span>`)
         : `<span class="pc-estado">${escapar(t("no_procede"))}</span>`;
-    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
+    const periodo = e.periodo ? t("periodo_rango", { inicio: fecha(e.periodo.inicio), fin: fecha(e.periodo.fin) }) : t("sin_periodo");
     return `<tr id="${escapar(idFilaExpediente(e))}" tabindex="-1"><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(situacion(e))}</td><td>${estadoIncorporacion}</td></tr>`;
   }
 
@@ -265,7 +315,7 @@ export function montarIncorporacionesCentro({ contenedor, cliente = crearCliente
       const recibo = await cliente.confirmar(solicitud, hoyMadrid(ahora()));
       claves.delete(e.expediente_ref);
       ocupado = false; abierto = null;
-      aviso = { tono: "exito", texto: t("exito", { fecha: fechaVisible(recibo.fecha_incorporacion) }), recibo: recibo.recibo_ref };
+      aviso = { tono: "exito", texto: t("exito", { fecha: fechaVisible(recibo.fecha_incorporacion, LOCALIZACION_ACTUAL, t("fecha_no_disponible")) }), recibo: recibo.recibo_ref };
       await cargar();
     } catch (error) {
       ocupado = false;

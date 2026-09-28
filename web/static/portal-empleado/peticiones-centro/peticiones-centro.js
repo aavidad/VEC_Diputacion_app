@@ -10,6 +10,7 @@ import {
   renderizarRevisionPeticionCentro,
 } from "../modulos/contratacion-temporal/vista.js";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../comun/idioma.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "../portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
 
 const RUTAS = Object.freeze({
@@ -20,8 +21,116 @@ const RUTAS = Object.freeze({
 });
 const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
-const traducirCentro = crearTraductorContratacionTemporal();
-const TEXTO = Object.freeze({
+const MENSAJES_CT_CENTRO_EN = Object.freeze({
+  pc_expediente_enlace: "Case {numero}",
+  pc_expediente_enlace_rrhh_aria: "Request {peticion}: open case {numero} in Temporary Employment",
+  pc_expediente_enlace_centro_aria: "Request {peticion}: view case {numero} in the centre's incorporations",
+  pc_abrir_expediente: "Open case",
+  pc_titulo_denegado: "Access denied",
+  pc_titulo_incierto: "Result awaiting verification",
+  pc_titulo_sin_consulta: "Query unavailable",
+  pc_reintentar_consulta: "Retry query",
+  ct_txt_detalle: "Details",
+  ct_txt_observaciones: "Notes",
+  ct_txt_motivo_de_ratificacion: "Reason for ratification",
+  ct_txt_retencion_de_credito: "Budget commitment",
+  ct_txt_documentos_aportados: "Documents supplied",
+  ct_txt_sin_retencion_de_credito_aportada: "No budget commitment supplied",
+  ct_txt_centro: "Centre",
+  ct_txt_contacto: "Contact",
+  ct_txt_categoria: "Category",
+  ct_txt_grupo_o_subgrupo: "Group or subgroup",
+  ct_txt_motivo: "Reason",
+  ct_txt_periodo: "Period",
+  ct_txt_ninguno: "None",
+  ct_txt_cargo_resuelto_por_identidad: "Position resolved from identity",
+  ct_txt_creada_en: "Created at",
+  ct_txt_ratificador_y_cargo: "Ratifier and position",
+  ct_txt_ratificada_en: "Ratified at",
+  ct_txt_numero_visible: "Visible number",
+  ct_txt_referencia_de_auditoria: "Audit reference",
+  ct_txt_referencia_de_evento: "Event reference",
+  ct_txt_confirmada_en: "Confirmed at",
+  ct_txt_referencia: "Reference",
+  ct_txt_estado_de_entrega: "Delivery status",
+  ct_txt_ratificacion: "Ratification",
+  ct_txt_accion: "Action",
+  ct_txt_reintentar_la_misma_operacion: "Retry the same operation",
+  ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum: "Latest 50 requests visible to Human Resources",
+  ct_txt_estado: "Status",
+  ct_txt_creada: "Created",
+  ct_txt_ultimas_50_peticiones_visibles_para_su_identidad: "Latest 50 requests visible to your identity",
+  errores_titulo: "Review the indicated fields",
+  errores_descripcion: "The request is not ready for review.",
+  campo_obligatorio: "Required field",
+  seleccionar: "Select an option",
+  centro_leyenda: "Centre and need",
+  centro_ref: "Requesting centre",
+  contacto_ref: "Contact person",
+  categoria_ref: "Category",
+  grupo_subgrupo: "Group or subgroup",
+  motivo_clave: "Reason",
+  detalle_periodo_leyenda: "Details and expected period",
+  detalle: "Details of the need",
+  contador_caracteres: "{actual} of {maximo} characters",
+  inicio: "Expected start date",
+  fin: "Expected end date",
+  observaciones: "Notes",
+  rc_leyenda: "Budget commitment",
+  rc_existe: "Is there a budget commitment?",
+  si: "Yes",
+  no: "No",
+  rc_numero: "Budget commitment number or reference",
+  rc_fecha: "Budget commitment date",
+  rc_importe: "Exact amount",
+  rc_importe_placeholder: "0.00",
+  rc_documento_ref: "Attached budget commitment document",
+  documentos_leyenda: "Attached documentation",
+  documentos_adjuntos: "Attached documents",
+  documentos_vacios: "No attached documents available.",
+  revisar: "Review request",
+  volver_editar: "Back to editing",
+  confirmar: "Confirm and record",
+  reintentar: "Retry registration",
+  cancelar_envio: "Stop waiting",
+  revision_sobrelinea: "Preliminary check",
+  revision_titulo: "Review the request before recording it",
+  revision_aviso: "Confirmation will request creation of the case. Check the period and budget commitment carefully.",
+  resumen_centro: "Centre",
+  resumen_contacto: "Responsible person",
+  resumen_categoria: "Category",
+  resumen_grupo: "Group or subgroup",
+  resumen_motivo: "Reason",
+  resumen_detalle: "Details",
+  resumen_periodo: "Expected period",
+  resumen_rc: "Budget commitment",
+  resumen_rc_no: "Not declared",
+  resumen_rc_si: "Declared",
+  resumen_documentos: "Attached documents",
+  resumen_sin_documentos: "No supporting documents",
+  resumen_observaciones: "Notes",
+  resumen_sin_observaciones: "No notes",
+  estado_operacion_pendiente_ayuda: "The request remains blocked until its receipt is checked through protected recovery or support assists you.",
+  error_contrato_cerrado: "The input contains fields that are not allowed.",
+  error_opcion_catalogo: "Select an available catalogue option.",
+  error_texto_obligatorio: "Enter valid text without leading or trailing spaces, up to 4,000 characters.",
+  error_texto_opcional: "Use no more than 4,000 characters and remove leading or trailing spaces and control characters.",
+  error_fecha: "Enter a valid calendar date.",
+  error_periodo: "The end date cannot be before the start date.",
+  error_periodo_maximo: "The expected period cannot exceed 100 calendar years.",
+  error_booleano: "Indicate whether a budget commitment exists.",
+  error_referencia: "Enter a valid opaque reference.",
+  error_importe: "Enter a positive amount with two decimal places.",
+  error_importe_maximo: "The amount cannot exceed €9,223,372,036,854.77.",
+  error_rc_residual: "If there is no budget commitment, its associated fields must be empty.",
+  error_adjuntos: "Select up to 64 valid documents without duplicates.",
+  error_generico: "The value is invalid.",
+});
+const MENSAJES_CT_CENTRO_ES = Object.freeze(Object.fromEntries(
+  Object.keys(MENSAJES_CT_CENTRO_EN).map((clave) => [clave, MENSAJES_CONTRATACION_TEMPORAL_ES[clave]]),
+));
+const traducirCentro = crearTraductorContratacionTemporal(IDIOMA_ACTUAL === "en" ? MENSAJES_CT_CENTRO_EN : {});
+export const MENSAJES_PETICIONES_CENTRO_ES = Object.freeze({
   sobrelinea: "Contratación temporal · circuito previo",
   titulo: "Petición del centro y ratificación",
   descripcion: "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de contratación.",
@@ -87,12 +196,12 @@ const TEXTO = Object.freeze({
   operacionInciertaOculta: traducirCentro("pc_operacion_incierta_oculta"),
   operacionInciertaVerificada: traducirCentro("pc_operacion_incierta_verificada"),
 });
-const MENSAJES = Object.freeze({
-  ...MENSAJES_CONTRATACION_TEMPORAL_ES,
-  sobrelinea: TEXTO.sobrelinea,
-  titulo: TEXTO.solicitante,
-  descripcion: TEXTO.descripcion,
-  alcance: TEXTO.pendienteEntrada,
+export const MENSAJES_FORMULARIO_PETICION_CENTRO_ES = Object.freeze({
+  ...MENSAJES_CT_CENTRO_ES,
+  sobrelinea: MENSAJES_PETICIONES_CENTRO_ES.sobrelinea,
+  titulo: MENSAJES_PETICIONES_CENTRO_ES.solicitante,
+  descripcion: MENSAJES_PETICIONES_CENTRO_ES.descripcion,
+  alcance: MENSAJES_PETICIONES_CENTRO_ES.pendienteEntrada,
   progreso_etiqueta: "Progreso de la petición",
   progreso_datos: "Datos",
   progreso_revision: "Revisión",
@@ -105,6 +214,98 @@ const MENSAJES = Object.freeze({
   resumen_contacto: "Contacto del centro (no quien presenta)",
   contacto_ref: "Contacto del centro",
 });
+export const MENSAJES_PETICIONES_CENTRO_EN = Object.freeze({
+  sobrelinea: "Temporary employment · preliminary process",
+  titulo: "Centre request and ratification",
+  descripcion: "A preliminary request records the centre's need before HR transfers it to a recruitment case.",
+  pendienteEntrada: "HR processes ratified requests in its inbox",
+  solicitante: "Submit request",
+  ratificador: "Ratification inbox",
+  peticiones: "Centre requests",
+  detalle: "Details for review",
+  sinPeticiones: "There are no requests available to this user.",
+  cargar: "Loading context and requests…",
+  recargar: "Reload inbox",
+  seleccionar: "Review",
+  volver: "Back to Recruitment",
+  confirmarPresentar: "Confirm submission of this request",
+  confirmarRatificar: "Confirm ratification of this request",
+  confirmarPregunta: "Review all details and expressly confirm to continue.",
+  motivo: "Reason for ratification",
+  motivoAyuda: "Briefly explain the review carried out.",
+  ratificar: "Ratify request",
+  cancelar: "Back to inbox",
+  estadoPendiente: "Result pending: keep this page open and retry the same operation.",
+  error: "The operation could not be completed.",
+  conflicto: "The request has changed. The inbox has been reloaded; review it before continuing.",
+  exito: "Operation recorded",
+  peticionRef: "Request reference",
+  reciboRef: "Receipt reference",
+  version: "Version",
+  actor: "Recorded by",
+  registrado: "Recorded at",
+  estado: "Status",
+  solicitanteDatos: "Applicant and position",
+  transferencia: "The case is created in the HR inbox. This view does not check its delivery status.",
+  peticionNoEnviada: "This receipt confirms the centre's action, not the creation of a recruitment case",
+  confirmacion: "I expressly confirm this operation",
+  volverEditar: "Back to editing",
+  datosNoDisponibles: "No details selected.",
+  nombre: "Name",
+  cargo: "Position",
+  centro: "Centre",
+  pendiente: "awaiting ratification",
+  ratificada: "ratified",
+  enviando: "Recording the operation. Wait for the receipt before closing this page.",
+  bandejaNoActualizada: "The operation was recorded. The inbox could not be updated; you can reload it without recording again.",
+  motivoInvalido: "Enter a reason without line breaks (maximum 1,000 bytes) and tick the confirmation box.",
+  rrhhSobrelinea: "Temporary employment · Human Resources",
+  rrhhTitulo: "Centre requests",
+  rrhhDescripcion: "Review the ratified details before creating the recruitment case. This action does not change the original request.",
+  rrhhPendiente: "Awaiting preparation",
+  rrhhPreparada: "Ready to create case",
+  rrhhConfirmada: "Case created",
+  rrhhConfirmar: "Create case in HR",
+  rrhhCompletar: "Complete registration",
+  rrhhConfirmacion: "I expressly confirm creation of the HR case with these details.",
+  rrhhAviso: "Confirmation creates one case from the ratified request. Review the original details before continuing.",
+  rrhhRecibo: "Historical registration receipt",
+  rrhhExpediente: "Case reference",
+  rrhhBandeja: "Open case inbox",
+  rrhhSinPeticiones: "There are no requests available to Human Resources.",
+  rrhhError: "The HR registration could not be completed.",
+  accesoDenegado: "Access denied. The data has been removed from this view; recorded actions remain on the server.",
+  lecturaFallida: "Access could not be verified because of a temporary error. The data has been removed from this view. Retry the query before continuing.",
+  operacionConfirmadaOculta: "The operation was recorded, but its receipt cannot currently be viewed here.",
+  operacionInciertaOculta: "An operation remains unconfirmed. Do not start another; contact HR if access is not restored.",
+  operacionInciertaVerificada: "The query is responding again, but the previous operation remains unconfirmed. Do not repeat registration with another key or identity; contact HR.",
+});
+const TEXTO = IDIOMA_ACTUAL === "en" ? MENSAJES_PETICIONES_CENTRO_EN : MENSAJES_PETICIONES_CENTRO_ES;
+export const MENSAJES_FORMULARIO_PETICION_CENTRO_EN = Object.freeze({
+  ...MENSAJES_CT_CENTRO_EN,
+  sobrelinea: MENSAJES_PETICIONES_CENTRO_EN.sobrelinea,
+  titulo: MENSAJES_PETICIONES_CENTRO_EN.solicitante,
+  descripcion: MENSAJES_PETICIONES_CENTRO_EN.descripcion,
+  alcance: MENSAJES_PETICIONES_CENTRO_EN.pendienteEntrada,
+  progreso_etiqueta: "Request progress",
+  progreso_datos: "Details",
+  progreso_revision: "Review",
+  progreso_recibo: "Registration",
+  revision_titulo: "Review the request before submitting it",
+  revision_aviso: "Confirmation records a preliminary request; it does not create a case.",
+  confirmar: "Confirm submission",
+  revisar: "Review request",
+  estado_disponible: "Request ready for review",
+  resumen_contacto: "Centre contact (not the person submitting)",
+  contacto_ref: "Centre contact",
+});
+const MENSAJES = IDIOMA_ACTUAL === "en" ? MENSAJES_FORMULARIO_PETICION_CENTRO_EN : MENSAJES_FORMULARIO_PETICION_CENTRO_ES;
+
+function estadoVisible(estado) {
+  if (estado === "pendiente_ratificacion") return TEXTO.pendiente;
+  if (estado === "ratificada") return TEXTO.ratificada;
+  return estado;
+}
 
 const textoCT = (clave, variables) => esc(traducirCentro(clave, variables));
 
@@ -198,7 +399,7 @@ function vistaSinDatos(cabecera, modo, mensaje, accionRecargar) {
 
 function fecha(valor, hora = false) {
   if (!valor || !Number.isFinite(Date.parse(valor))) return "—";
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", ...(hora ? { timeStyle: "medium" } : {}), timeZone: hora ? "Europe/Madrid" : "UTC" }).format(new Date(valor));
+  return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", ...(hora ? { timeStyle: "medium" } : {}), timeZone: hora ? "Europe/Madrid" : "UTC" }).format(new Date(valor));
 }
 
 // Campos anchos: texto libre o valores compuestos que necesitan toda la fila.
@@ -226,9 +427,9 @@ function detallePeticion(peticion, contexto) {
   const centro = catalogos?.centros.find((v) => v.referencia === s.centro_ref);
   const etiqueta = (opciones, referencia) => opciones?.find((v) => v.referencia === referencia)?.etiqueta || referencia || "—";
   const rc = s.rc?.existe
-    ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
+    ? `${s.rc.numero} · ${fecha(s.rc.fecha)} · ${new Intl.NumberFormat(LOCALIZACION_ACTUAL, { style: "currency", currency: "EUR" }).format(s.rc.importe.centimos / 100)} · ${s.rc.documento_ref}`
     : traducirCentro("ct_txt_sin_retencion_de_credito_aportada");
-  const filas = [[TEXTO.peticionRef, peticion.referencia], [TEXTO.estado, peticion.estado], [TEXTO.version, peticion.version],
+  const filas = [[TEXTO.peticionRef, peticion.referencia], [TEXTO.estado, estadoVisible(peticion.estado)], [TEXTO.version, peticion.version],
     [traducirCentro("ct_txt_centro"), centro?.etiqueta || s.centro_ref], [traducirCentro("ct_txt_contacto"), etiqueta(centro?.contactos, s.contacto_ref)],
     [traducirCentro("ct_txt_categoria"), etiqueta(catalogos?.categorias, s.categoria_ref)], [traducirCentro("ct_txt_grupo_o_subgrupo"), s.grupo_subgrupo], [traducirCentro("ct_txt_motivo"), s.motivo_clave],
     [traducirCentro("ct_txt_detalle"), s.detalle], [traducirCentro("ct_txt_periodo"), `${fecha(s.periodo?.inicio)} — ${fecha(s.periodo?.fin)}`], [traducirCentro("ct_txt_observaciones"), s.observaciones || "—"],
@@ -249,7 +450,7 @@ function detallePeticion(peticion, contexto) {
 function reciboHTML(recibo) {
   return `<section class="pc-panel pc-recibo" role="status"><h2>${esc(TEXTO.exito)}</h2><dl>
     <dt>${esc(TEXTO.reciboRef)}</dt><dd>${esc(recibo.recibo_ref)}</dd><dt>${esc(TEXTO.peticionRef)}</dt><dd>${esc(recibo.peticion_ref)}</dd>
-    <dt>${esc(TEXTO.version)}</dt><dd>${esc(recibo.version)}</dd><dt>${esc(TEXTO.estado)}</dt><dd>${esc(recibo.estado)}</dd>
+    <dt>${esc(TEXTO.version)}</dt><dd>${esc(recibo.version)}</dd><dt>${esc(TEXTO.estado)}</dt><dd>${esc(estadoVisible(recibo.estado))}</dd>
     <dt>${esc(TEXTO.actor)}</dt><dd>${esc(recibo.actor_ref)}</dd><dt>${esc(TEXTO.registrado)}</dt><dd>${esc(fecha(recibo.registrado_en, true))}</dd></dl>
     <p>${esc(TEXTO.peticionNoEnviada)}. ${esc(TEXTO.transferencia)}</p></section>`;
 }
@@ -329,7 +530,7 @@ function tabla(peticiones, seleccionada, expedientes = new Map()) {
 }
 
 function formularioHTML(contexto, estado, revision) {
-  const contenido = revision ? renderizarRevisionPeticionCentro(estado, { mensajes: MENSAJES }) : renderizarFormularioPeticionCentro(estado, { mensajes: MENSAJES });
+  const contenido = revision ? renderizarRevisionPeticionCentro(estado, { mensajes: MENSAJES, locale: LOCALIZACION_ACTUAL }) : renderizarFormularioPeticionCentro(estado, { mensajes: MENSAJES });
   return `<section class="pc-panel ct-alta"><h2>${esc(TEXTO.solicitante)}</h2><p class="pc-aviso">${esc(TEXTO.confirmarPregunta)}</p>${contenido}<button type="button" class="boton-secundario" data-accion="cancelar-ratificacion">${esc(TEXTO.cancelar)}</button></section>`;
 }
 
@@ -615,9 +816,20 @@ export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = Object.freeze({
   pc_ayuda_despues: "Cuando la petición está ratificada, llega a la bandeja de Recursos Humanos. RRHH revisa los datos y, si procede, crea con ellos el expediente de contratación. El centro no tiene que volver a enviarla.",
   pc_ayuda_cerrar: "Cerrar",
 });
+export const MENSAJES_AYUDA_PETICIONES_CENTRO_EN = Object.freeze({
+  pc_ayuda_abrir: "Help with the centre request",
+  pc_ayuda_titulo: "Centre request: what it does and does not do",
+  pc_ayuda_certificado_titulo: "Does signing in with a certificate sign documents?",
+  pc_ayuda_certificado: "No. The certificate identifies you when you sign in. Submitting or ratifying a request does not electronically sign any document.",
+  pc_ayuda_registro_titulo: "What is recorded?",
+  pc_ayuda_registro: "The request and its ratification are recorded with their author, date and receipt. Electronic signing is not available yet; it will be added when the corporate signing process is established.",
+  pc_ayuda_despues_titulo: "What happens next?",
+  pc_ayuda_despues: "Once ratified, the request reaches the Human Resources inbox. HR reviews the details and, if appropriate, creates the recruitment case. The centre does not need to send it again.",
+  pc_ayuda_cerrar: "Close",
+});
 
 /** Traduce una clave de la ayuda; una clave desconocida nunca muestra texto inventado. */
-function traducirAyudaPeticionCentro(clave, mensajes = MENSAJES_AYUDA_PETICIONES_CENTRO_ES) {
+function traducirAyudaPeticionCentro(clave, mensajes = IDIOMA_ACTUAL === "en" ? MENSAJES_AYUDA_PETICIONES_CENTRO_EN : MENSAJES_AYUDA_PETICIONES_CENTRO_ES) {
   return Object.hasOwn(mensajes, clave) ? mensajes[clave] : "";
 }
 

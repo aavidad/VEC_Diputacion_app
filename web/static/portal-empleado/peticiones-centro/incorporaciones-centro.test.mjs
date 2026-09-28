@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  RUTAS_INCORPORACIONES_CENTRO, crearClienteIncorporacionesCentro, montarIncorporacionesCentro, validarBandejaIncorporaciones,
+  MENSAJES_INCORPORACIONES_CENTRO_EN, MENSAJES_INCORPORACIONES_CENTRO_ES, RUTAS_INCORPORACIONES_CENTRO, crearClienteIncorporacionesCentro,
+  crearTraductorIncorporacionesCentro, fechaVisible, montarIncorporacionesCentro, validarBandejaIncorporaciones,
   validarSolicitudConfirmacionCentro,
 } from "./incorporaciones-centro.js";
 
@@ -12,6 +13,17 @@ const bandeja = (extra = {}) => ({ esquema: "vec.contratacion-temporal.incorpora
 const solicitud = { clave_idempotencia: "7c9e6679-7425-40de-944b-e07fc1f90ae7", peticion_ref: "peticion:centro:1", expediente_ref: "expediente:ct:1",
   fecha_incorporacion: "2026-09-01", documento_ref: "registro:centro-520:2026/15", documento_sha256: "f".repeat(64) };
 const esperar = () => new Promise((r) => setImmediate(r));
+
+test("el catálogo inglés conserva todas las claves y marcadores del castellano", () => {
+  assert.deepEqual(Object.keys(MENSAJES_INCORPORACIONES_CENTRO_EN).sort(), Object.keys(MENSAJES_INCORPORACIONES_CENTRO_ES).sort());
+  for (const clave of Object.keys(MENSAJES_INCORPORACIONES_CENTRO_ES)) {
+    assert.deepEqual([...MENSAJES_INCORPORACIONES_CENTRO_EN[clave].matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort(),
+      [...MENSAJES_INCORPORACIONES_CENTRO_ES[clave].matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort(), clave);
+  }
+  const t = crearTraductorIncorporacionesCentro(MENSAJES_INCORPORACIONES_CENTRO_EN);
+  assert.equal(t("confirmada", { fecha: "September 2, 2026", documento: "the signed contract" }), "Confirmed on September 2, 2026 with the signed contract");
+  assert.equal(fechaVisible("2026-09-02", "en-GB"), "2 September 2026");
+});
 
 test("la solicitud y la bandeja se validan: nada ajeno, fechas reales y no futuras", () => {
   assert.equal(validarSolicitudConfirmacionCentro({ ...solicitud }, "2026-09-26").fecha_incorporacion, "2026-09-01");

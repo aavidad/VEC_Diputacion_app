@@ -5,9 +5,9 @@ export const FUENTE_RPT =
 export const ESQUEMA_ORGANIZACION = "personal.estructura_organizativa.v1";
 export const LIMITE_UNIDADES = 1000;
 export const LIMITE_RESPUESTA = 512 * 1024;
-import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
-import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js";
-const traducirOrganizacion = crearTraductorPersonal();
+import { crearTraductorOrganizacion, localizacionOrganizacion } from "./i18n.js";
+import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js?v=20260928-i18n-organizacion-v1";
+const traducirOrganizacion = crearTraductorOrganizacion();
 
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
 const esc = (v) =>
@@ -164,7 +164,7 @@ const normalizar = (v) =>
   String(v ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/gu, "")
-    .toLocaleLowerCase("es");
+    .toLocaleLowerCase(localizacionOrganizacion());
 export function filtrarUnidades(us, filtro, tipo) {
   const padres = new Map(us.map((u) => [u.clave, u.etiqueta])),
     n = normalizar(filtro.trim());
@@ -229,6 +229,7 @@ export function crearEstadoFormulario() {
   });
 }
 function mostrarTextos() {
+  if (document.documentElement) document.documentElement.lang = localizacionOrganizacion().startsWith("en") ? "en" : "es";
   document
     .querySelectorAll("[data-i18n]")
     .forEach((e) => (e.textContent = traducirOrganizacion("organizacion_" + e.dataset.i18n)));
@@ -286,7 +287,7 @@ export function iniciarOrganizacion(client = crearCliente(), historico = null, i
     document.querySelector("#catalog-status").textContent =
       traducirOrganizacion("organizacion_draft") +
       (Number.isInteger(data.catalogo_revision)
-        ? " · " + traducirOrganizacion("organizacion_revision") + " " + data.catalogo_revision
+        ? " · " + traducirOrganizacion("organizacion_revision") + " " + new Intl.NumberFormat(localizacionOrganizacion()).format(data.catalogo_revision)
         : "");
     document.querySelector("#provenance").textContent = data.descripcion;
     document.querySelector("#source-ref").textContent = data.fuente_ref;
@@ -300,9 +301,9 @@ export function iniciarOrganizacion(client = crearCliente(), historico = null, i
         filtroTexto.value,
         filtroTipo.value,
       );
-    document.querySelector("#result-count").textContent = traducirOrganizacion("organizacion_count", {
-      visible: new Intl.NumberFormat("es-ES").format(vs.length),
-      total: new Intl.NumberFormat("es-ES").format(data.unidades.length),
+    document.querySelector("#result-count").textContent = traducirOrganizacion("count", {
+      visible: new Intl.NumberFormat(localizacionOrganizacion()).format(vs.length),
+      total: new Intl.NumberFormat(localizacionOrganizacion()).format(data.unidades.length),
     });
     document.querySelector("#rows").innerHTML = vs
       .map(
@@ -372,8 +373,11 @@ export function iniciarOrganizacion(client = crearCliente(), historico = null, i
     actualizarBloqueos();
   };
   const mostrarRecibo = (x) => {
+    const fecha = new Intl.DateTimeFormat(localizacionOrganizacion(), {
+      dateStyle: "short", timeStyle: "medium", timeZone: "Europe/Madrid", hourCycle: "h23",
+    }).format(new Date(x.registrado_en));
     out.className = "org-state success";
-    out.innerHTML = `<strong>${traducirOrganizacion("organizacion_saved")}</strong><p class="org-receipt">${traducirOrganizacion("organizacion_revision")} ${esc(x.catalogo_revision)} · ${traducirOrganizacion("organizacion_receiptDate")}: ${esc(x.registrado_en)} · ${traducirOrganizacion("organizacion_receiptRef")}: ${esc(x.recibo_ref)}</p>`;
+    out.innerHTML = `<strong>${traducirOrganizacion("organizacion_saved")}</strong><p class="org-receipt">${traducirOrganizacion("organizacion_revision")} ${esc(new Intl.NumberFormat(localizacionOrganizacion()).format(x.catalogo_revision))} · ${traducirOrganizacion("organizacion_receiptDate")}: ${esc(fecha)} · ${traducirOrganizacion("organizacion_receiptRef")}: ${esc(x.recibo_ref)}</p>`;
   };
   const recargarRevision = async () => {
     const button = document.querySelector("#reload-review");

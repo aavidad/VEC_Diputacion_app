@@ -9,7 +9,28 @@ import {
   validarReciboPeticionCentro,
   registrarOperacionPeticionCentro,
   registrarAltaRRHH,
+  MENSAJES_PETICIONES_CENTRO_ES,
+  MENSAJES_PETICIONES_CENTRO_EN,
+  MENSAJES_FORMULARIO_PETICION_CENTRO_ES,
+  MENSAJES_FORMULARIO_PETICION_CENTRO_EN,
+  MENSAJES_AYUDA_PETICIONES_CENTRO_ES,
+  MENSAJES_AYUDA_PETICIONES_CENTRO_EN,
 } from "./peticiones-centro.js";
+
+test("catálogos de peticiones conservan claves y marcadores", () => {
+  for (const [es, en] of [
+    [MENSAJES_PETICIONES_CENTRO_ES, MENSAJES_PETICIONES_CENTRO_EN],
+    [MENSAJES_FORMULARIO_PETICION_CENTRO_ES, MENSAJES_FORMULARIO_PETICION_CENTRO_EN],
+    [MENSAJES_AYUDA_PETICIONES_CENTRO_ES, MENSAJES_AYUDA_PETICIONES_CENTRO_EN],
+  ]) {
+    assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
+    for (const clave of Object.keys(es)) {
+      const marcadores = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort();
+      assert.deepEqual(marcadores(en[clave]), marcadores(es[clave]), clave);
+    }
+  }
+  assert.match(MENSAJES_AYUDA_PETICIONES_CENTRO_EN.pc_ayuda_certificado, /does not electronically sign/u);
+});
 
 const catalogos = {
   esquema: "vec.contratacion_temporal.catalogos_alta.v1",

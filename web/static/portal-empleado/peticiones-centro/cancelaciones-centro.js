@@ -7,9 +7,10 @@
  * un motivo del catálogo. Fases y motivos los decide el servidor; la vista
  * solo evita ofrecer la cancelación cuando no procede.
  */
-import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20260926-pulido-portal-v1";
+import { crearClienteIncorporacionesCentro } from "./incorporaciones-centro.js?v=20260928-i18n-centro-v1";
 import { validarConsultaCancelacion, validarReciboCancelacion, validarSolicitudCancelacion } from "../modulos/contratacion-temporal/cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { instalarCopiaJustificantes, renderizarJustificante } from "../portal-justificante.js";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../comun/idioma.js";
 
 export const RUTAS_CANCELACIONES_CENTRO = Object.freeze({
   consulta: "/api/vec/contratacion-temporal/peticiones-centro/cancelacion",
@@ -53,11 +54,56 @@ export const MENSAJES_CANCELACIONES_CENTRO_ES = Object.freeze({
   fase_asignacion_unidad: "Asignación de unidad",
   fase_informe_juridico: "Informe jurídico",
   fase_otra: "En tramitación en RRHH",
+  sin_valor: "—",
+  detalle_titulo: "{accion} · {expediente}",
   ayuda_titulo: "¿Cuándo puede el centro cancelar un expediente?",
   ayuda: "Mientras RRHH no haya fiscalizado el expediente, el centro puede cancelarlo si la necesidad ha desaparecido o por otro motivo del catálogo. Solo aparecen los expedientes de las peticiones de su centro que siguen en una fase en la que el catálogo admite la cancelación. Elija el motivo y, si quiere, añada una observación. El expediente queda cancelado, conserva toda su historia y RRHH ve quién lo canceló y por qué.",
 });
 
-export function crearTraductorCancelacionesCentro(mensajes = MENSAJES_CANCELACIONES_CENTRO_ES) {
+export const MENSAJES_CANCELACIONES_CENTRO_EN = Object.freeze({
+  titulo: "Cancel a case file",
+  cargando: "Checking the case files that can be cancelled…",
+  sin_expedientes: "There are no case files from this centre that can be cancelled.",
+  error_lectura: "The cancellations could not be checked. Please try again.",
+  reintentar: "Check again",
+  expediente: "Case file",
+  periodo: "Requested period",
+  situacion: "Status",
+  cancelacion: "Cancellation",
+  cancelar: "Cancel",
+  cancelado: "Cancelled",
+  motivo: "Reason for cancellation",
+  observaciones: "Notes (optional)",
+  confirmacion_expresa: "I confirm that the case file will be cancelled and will not accept any further actions.",
+  enviar: "Cancel the case file",
+  volver: "Go back without cancelling",
+  enviando: "Cancelling; please wait for the receipt.",
+  exito: "Case file cancelled.",
+  error_datos: "Choose a reason, review the notes and confirm the cancellation.",
+  error_fase_no_admitida: "The case file is no longer at a stage where it can be cancelled. The list has been updated.",
+  error_tras_fiscalizacion: "The case file has already passed review and cannot be cancelled.",
+  error_cancelacion_existente: "The case file had already been cancelled. The list has been updated.",
+  error_version_en_conflicto: "The case file has changed. The list has been updated; review it before continuing.",
+  error_clave_reutilizada: "This cancellation was already recorded with different data.",
+  error_acceso_denegado: "You do not have permission to cancel this case file.",
+  error_pendiente: "It could not be confirmed whether it was recorded. Select it again: the same operation will be used and it will not be duplicated.",
+  error_general: "The case file could not be cancelled. Please try again later.",
+  justificante_registrado: "Cancellation receipt",
+  justificante_copiar: "Copy receipt reference",
+  justificante_copiado: "Reference copied",
+  fase_solicitud: "Request with HR",
+  fase_asignacion_unidad: "Unit assignment",
+  fase_informe_juridico: "Legal report",
+  fase_otra: "Being processed by HR",
+  sin_valor: "—",
+  detalle_titulo: "{accion} · {expediente}",
+  ayuda_titulo: "When can a centre cancel a case file?",
+  ayuda: "Until HR has completed its review of the case file, the centre can cancel it if the need has disappeared or for another reason in the catalogue. Only case files from this centre's requests that are still at a stage where the catalogue permits cancellation are shown. Choose the reason and, if desired, add a note. The case file is cancelled, keeps its full history, and HR can see who cancelled it and why.",
+});
+
+const catalogoActual = () => IDIOMA_ACTUAL === "en" ? MENSAJES_CANCELACIONES_CENTRO_EN : MENSAJES_CANCELACIONES_CENTRO_ES;
+
+export function crearTraductorCancelacionesCentro(mensajes = catalogoActual()) {
   return (clave, valores = {}) => {
     const plantilla = typeof mensajes?.[clave] === "string" ? mensajes[clave] : MENSAJES_CANCELACIONES_CENTRO_ES[clave] ?? clave;
     return plantilla.replace(/\{([a-z_]+)\}/gu, (_, n) => (Object.hasOwn(valores, n) ? String(valores[n]) : `{${n}}`));
@@ -66,10 +112,10 @@ export function crearTraductorCancelacionesCentro(mensajes = MENSAJES_CANCELACIO
 
 const escapar = (v) => String(v ?? "").replace(/[&<>"']/gu, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-function fechaVisible(valor) {
-  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return "—";
+function fechaVisible(valor, t) {
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return t("sin_valor");
   const f = new Date(`${valor}T00:00:00Z`);
-  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
+  return Number.isFinite(f.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "long", timeZone: "UTC" }).format(f) : valor;
 }
 
 /** Cliente de las dos rutas del centro: mismo origen, sin caché, redirecciones ni referente. */
@@ -132,7 +178,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
     const id = `cc-form-${escapar(e.expediente_ref)}`;
     const motivos = datos.opciones.motivos.map((m) => `<option value="${escapar(m.clave)}">${escapar(m.etiqueta)}</option>`).join("");
     return `<form class="pc-detalle" data-cc-form="${escapar(e.expediente_ref)}" aria-labelledby="${id}" novalidate>
-      <h3 id="${id}">${escapar(t("cancelar"))} · ${escapar(e.numero_visible)}</h3>
+      <h3 id="${id}">${escapar(t("detalle_titulo", { accion: t("cancelar"), expediente: e.numero_visible }))}</h3>
       <label>${escapar(t("motivo"))}<select name="motivo_clave" required ${ocupado ? "disabled" : ""}><option value=""></option>${motivos}</select></label>
       <label>${escapar(t("observaciones"))}<textarea name="observaciones" maxlength="2000" rows="3" ${ocupado ? "disabled" : ""}></textarea></label>
       <label class="pc-confirmacion"><input type="checkbox" name="confirmacion" required ${ocupado ? "disabled" : ""}> ${escapar(t("confirmacion_expresa"))}</label>
@@ -144,7 +190,7 @@ export function montarCancelacionesCentro({ contenedor, bandeja = crearClienteIn
     const accion = e.estado === "cancelado"
       ? `<span class="pc-estado">${escapar(t("cancelado"))}</span>`
       : `<button type="button" class="boton-secundario" data-cc-abrir="${escapar(e.expediente_ref)}" aria-expanded="${abierto === e.expediente_ref}">${escapar(t("cancelar"))}</button>`;
-    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio)} — ${fechaVisible(e.periodo.fin)}` : "—";
+    const periodo = e.periodo ? `${fechaVisible(e.periodo.inicio, t)} ${t("sin_valor")} ${fechaVisible(e.periodo.fin, t)}` : t("sin_valor");
     return `<tr><td>${escapar(e.numero_visible)}</td><td>${escapar(periodo)}</td><td>${escapar(e.estado === "cancelado" ? t("cancelado") : fase(e.fase))}</td><td>${accion}</td></tr>`;
   }
 

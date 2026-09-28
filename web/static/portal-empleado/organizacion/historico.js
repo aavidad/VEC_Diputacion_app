@@ -1,11 +1,10 @@
-import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { crearTraductorOrganizacion, localizacionOrganizacion } from "./i18n.js";
 import { ZONA_MADRID, instanteDesdeHoraMadrid, localMadrid } from "../hora-madrid.js";
 
 export { instanteDesdeHoraMadrid };
 
 export const API_ORGANIZACION_HISTORICA = "/api/vec/personal/organizacion-historica";
-const tPersonal = crearTraductorPersonal();
-const t = (clave, variables) => tPersonal(`organizacion_${clave}`, variables);
+const t = crearTraductorOrganizacion();
 const SECCIONES = ["unidades", "puestos_tipo", "dotaciones", "plazas", "puestos_individuales", "vinculos"];
 const COBERTURA = new Set(["completa", "parcial", "sin_datos"]);
 const PARAMETROS = new Set(["vigente_en", "conocido_en", "unidad_clave", "version_rpt_ref", "version_plantilla_ref", "limite", "cursor"]);
@@ -100,13 +99,13 @@ export function filtrosHistoricos(campos) {
   return filtro;
 }
 
-export const formatearConocidoEn = (iso) => new Intl.DateTimeFormat("es-ES", {
+export const formatearConocidoEn = (iso) => new Intl.DateTimeFormat(localizacionOrganizacion(), {
   dateStyle: "medium", timeStyle: "short", timeZone: ZONA_CONOCIMIENTO, hourCycle: "h23",
 }).format(new Date(iso));
-const fechaCivil = (iso) => new Intl.DateTimeFormat("es-ES", {
+const fechaCivil = (iso) => new Intl.DateTimeFormat(localizacionOrganizacion(), {
   dateStyle: "medium", timeZone: "UTC",
 }).format(new Date(`${iso}T12:00:00Z`));
-const numero = (n) => new Intl.NumberFormat("es-ES").format(n);
+const numero = (n) => new Intl.NumberFormat(localizacionOrganizacion()).format(n);
 const dato = (v) => v === "" || v == null ? t("historyNotProvided") : String(v);
 const tipoUnidad = (valor) => ({
   delegacion: t("delegacion"), centro: t("centro"), puesto_responsabilidad: t("puesto"),
@@ -420,7 +419,7 @@ export function crearClienteImportacion(fetchImpl = globalThis.fetch, timeoutMs 
   };
 }
 
-export const formatearFechaReciboImportacion = (iso) => new Intl.DateTimeFormat("es-ES", {
+export const formatearFechaReciboImportacion = (iso) => new Intl.DateTimeFormat(localizacionOrganizacion(), {
   dateStyle: "short", timeStyle: "medium", timeZone: "Europe/Madrid", hourCycle: "h23",
 }).format(new Date(iso));
 const claseTexto = Object.freeze({
@@ -432,8 +431,8 @@ export function formatearRecuentoImportacion(clave, total) {
   if (!RECUENTOS_IMPORTACION.has(clave) || !Number.isSafeInteger(total) || total < 0) {
     throw new TypeError("recuento de importación no válido");
   }
-  const forma = new Intl.PluralRules("es-ES").select(total) === "one" ? "One" : "Many";
-  return t(`${clave}${forma}`, { total: new Intl.NumberFormat("es-ES", { useGrouping: true }).format(total) });
+  const forma = new Intl.PluralRules(localizacionOrganizacion()).select(total) === "one" ? "One" : "Many";
+  return t(`${clave}${forma}`, { total: new Intl.NumberFormat(localizacionOrganizacion(), { useGrouping: true }).format(total) });
 }
 export function renderizarResumenImportacion(m, hashPaquete, hechos) {
   const frases = [
