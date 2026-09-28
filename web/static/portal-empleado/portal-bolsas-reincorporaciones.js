@@ -72,8 +72,12 @@ async function leerJSONAcotado(respuesta, signal, abortada, limites, finTiempo) 
   }
 }
 
+function segmentoRutaValido(valor) {
+  return typeof valor === "string" && REFERENCIA_RUTA.test(valor) && valor !== "." && valor !== "..";
+}
+
 export function rutaReincorporacionesTitular(bolsa, participacion) {
-  if (!REFERENCIA_RUTA.test(bolsa) || !REFERENCIA_RUTA.test(participacion)) return null;
+  if (!segmentoRutaValido(bolsa) || !segmentoRutaValido(participacion)) return null;
   return `${BASE}/${bolsa}/candidatos/${participacion}/reincorporaciones-titular`;
 }
 

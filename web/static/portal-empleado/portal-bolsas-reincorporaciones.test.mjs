@@ -23,6 +23,7 @@ const cuerpo = (items) => ({ data: { esquema: ESQUEMA_REINCORPORACIONES_TITULAR,
 
 test("la consulta usa la ruta canónica y GET sin credenciales persistidas ni caché", async () => {
   assert.equal(rutaReincorporacionesTitular("bolsa:1", "participacion:1"), "/api/vec/bolsa/bolsas/bolsa:1/candidatos/participacion:1/reincorporaciones-titular");
+  assert.equal(rutaReincorporacionesTitular("bolsa:a.b", "participacion:a..b"), "/api/vec/bolsa/bolsas/bolsa:a.b/candidatos/participacion:a..b/reincorporaciones-titular");
   assert.equal(rutaReincorporacionesTitular("bolsa/ajena", "participacion:1"), null);
   let llamada;
   const resultado = await consultarReincorporacionesTitular("bolsa:1", "participacion:1", {
@@ -36,6 +37,21 @@ test("la consulta usa la ruta canónica y GET sin credenciales persistidas ni ca
   assert.equal(llamada.opciones.cache, "no-store");
   assert.equal(llamada.opciones.redirect, "error");
   assert.equal(llamada.opciones.body, undefined);
+  assert.equal(new URL(llamada.ruta, "https://vec.example").pathname, llamada.ruta);
+});
+
+test("rechaza segmentos de navegación literales, codificados y doblemente codificados sin emitir GET", async () => {
+  const segmentos = [".", "..", "%2e", "%2E%2E", ".%2e", "%2e.", "%252e", "%252e%252e"];
+  let llamadas = 0;
+  const fetchImpl = () => { llamadas++; throw new Error("no debe consultar la red"); };
+  for (const segmento of segmentos) {
+    for (const [bolsa, participacion] of [[segmento, "participacion:1"], ["bolsa:1", segmento]]) {
+      assert.equal(rutaReincorporacionesTitular(bolsa, participacion), null, `${bolsa} / ${participacion}`);
+      const resultado = await consultarReincorporacionesTitular(bolsa, participacion, { fetchImpl });
+      assert.deepEqual(resultado, { ok: false, status: 400, mensaje: traducirPortal("reincorporacion_error_referencia") });
+    }
+  }
+  assert.equal(llamadas, 0);
 });
 
 test("falla cerrado ante esquema, fechas, estado o datos inesperados", async () => {
