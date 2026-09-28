@@ -111,8 +111,8 @@ o capacidad suficiente en `origin/main@e2ca2c061`; **PARCIAL** distingue las
 piezas existentes de la función solicitada. No se atribuyen a `main` ramas
 productoras todavía sin integrar.
 
-Prioridad del bloque: **5.02 + 5.07**, luego **5.03 / 5.04**, después
-**5.05 / 5.06**. **5.01** es transversal a todos esos recorridos. El cuadro
+Prioridad del bloque: **5.02 + 5.07**, luego **5.03**, después **5.08** y a
+continuación **5.04–5.06**. **5.01** es transversal a todos esos recorridos. El cuadro
 general del portal debe consumir vistas autorizadas de cada módulo sin duplicar
 la autoridad de Bolsa ni de Contratación; resolver con Dirección su encaje con
 el inicio común antes de implementar 5.03.
@@ -126,6 +126,16 @@ el inicio común antes de implementar 5.03.
 | 5.05 | Gestionar ofertas al Servicio Andaluz de Empleo como vía alternativa: oferta, candidatos remitidos y selección. | Expediente CT; ofertas SAE del cuadro. | **PARCIAL**: CT dispone de `oferta_sae` como vía de cobertura y puerto para fuentes, pero no consta un recorrido durable de oferta, remisión y selección ni conexión real con SAE. Construir el mínimo gobernado por catálogo y autorización; registrar en `dudas.md` el contrato y fuente externa pendientes antes de afirmar intercambio con SAE. |
 | 5.06 | Enviar a Firmadoc y demás firmas y mostrar siempre la fase de firma en el expediente; AutoFirma para la firma del órgano. | Expediente CT, documentos y fase de firma. | **PARCIAL**: se generan borradores y el flujo prevé formalización/firma, pero falta un circuito acreditado de envío, estados, recepción, verificación y documento firmado. Definir adaptador Firmadoc apagado por defecto hasta conocer su API (duda en `dudas.md`); separar autenticación, borrador, firma del órgano con AutoFirma y eficacia del acto. |
 | 5.07 | Comprobar y corregir el error «No se pudo cargar el cuadro. Reintente o contacte con soporte.» que aparece en «Nueva petición». | CT, pestaña «Nueva petición». | **PENDIENTE**: la captura acredita el fallo y `main` conserva el mensaje de error; no hay prueba de que la causa ya esté resuelta. Reproducir con la aplicación, API, autorización y base compatibles; corregir la causa y comprobar carga, reintento y ausencia de error en navegador. |
+| 5.08 | «Mis preferencias» por persona: idioma, accesibilidad, tema, inicio, filas, avisos, correos verificados e imagen propia. | Solo desde el avatar de RRHH y área personal; sin entrada lateral. | **EN PREPARACIÓN LOCAL**: hay contrato de diseño y ramas de 5.08a, b y c, sin vertical publicada ni SQL instalado. Usuarios será propietario de preferencias y correos; Documentos custodiará la foto. Requiere V3 nominal, historia, auditoría, recibos, consumidor en ambos portales, clon PG18 con binario, navegador y revisiones sensibles. La pregunta DPD 73 está preparada en rama documental sin integrar; las elecciones de aviso no acreditan envío. |
+
+5.08 se entrega por recorridos verificables: **a)** preferencias guardadas en
+servidor con catálogo cerrado, versión y lectura al arrancar; **b)** varios
+correos propios con uno solo activo y verificado, código de un uso sin token en
+URL y consulta del activo por puerto para CT/Bolsa; **c)** iniciales, icono o
+foto tratada en servidor y custodiada en Documentos, visible únicamente en la
+audiencia interna con permiso nominal. Ningún corte se contará cerrado por
+mostrar solamente el formulario. Los límites de filas de cada API permanecen;
+si son menores que la preferencia, la interfaz explicará el límite efectivo.
 
 ## Bloqueos que no deben presentarse como funciones terminadas
 
