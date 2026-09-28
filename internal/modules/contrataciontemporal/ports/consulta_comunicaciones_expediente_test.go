@@ -12,7 +12,7 @@ func TestPaginaComunicacionesExpedienteOrdenYCampos(t *testing.T) {
 	a := ComunicacionExpediente{
 		OrganizacionRef: "organizacion:ct140-uno", ExpedienteRef: c.ExpedienteRef,
 		LlamamientoRef: "llamamiento:ct140-uno", ComunicacionRef: "comunicacion:ct140-a",
-		Version: 2, Estado: "registrada_localmente", RegistradaEn: fecha,
+		Version: 2, Estado: "registrada_localmente", EstadoRespuesta: "sin_respuesta", RegistradaEn: fecha,
 		ReciboComunicacionRef: "recibo:ct140-a", AntecedenteTipo: "seleccion_confirmada",
 		ReciboAntecedenteRef: "recibo:seleccion-a",
 	}
@@ -21,6 +21,7 @@ func TestPaginaComunicacionesExpedienteOrdenYCampos(t *testing.T) {
 	b.ComunicacionRef = "comunicacion:ct140-b"
 	b.ReciboComunicacionRef = "recibo:ct140-b"
 	b.AntecedenteTipo = "continuacion_confirmada"
+	b.EstadoRespuesta = "registrada"
 	b.ReciboAntecedenteRef = "recibo:continuacion-b"
 	p := PaginaComunicacionesExpediente{ExpedienteRef: c.ExpedienteRef, Comunicaciones: []ComunicacionExpediente{a, b}, SiguienteCursor: b.ComunicacionRef + "#" + strings.Repeat("a", 64)}
 	if err := p.ValidarPara(c); err != nil {
@@ -29,6 +30,11 @@ func TestPaginaComunicacionesExpedienteOrdenYCampos(t *testing.T) {
 	p.Comunicaciones[1].ReciboAntecedenteRef = ""
 	if err := p.ValidarPara(c); err == nil {
 		t.Fatal("aceptó antecedente ausente")
+	}
+	p.Comunicaciones[1] = b
+	p.Comunicaciones[1].EstadoRespuesta = ""
+	if err := p.ValidarPara(c); err == nil {
+		t.Fatal("aceptó estado de respuesta ausente")
 	}
 	p.Comunicaciones[1] = b
 	p.Comunicaciones[1].ComunicacionRef = a.ComunicacionRef

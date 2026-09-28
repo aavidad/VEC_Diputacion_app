@@ -41,7 +41,7 @@ DECLARE
  AND d->>'finalidad' IS NOT DISTINCT FROM 'gestionar_contratacion_temporal'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
- AND d->'campos_permitidos' IS NOT DISTINCT FROM '["antecedente_tipo","comunicacion_ref","estado","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
+ AND d->'campos_permitidos' IS NOT DISTINCT FROM '["antecedente_tipo","comunicacion_ref","estado","estado_respuesta","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
@@ -110,7 +110,7 @@ BEGIN
     OR d->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
     OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
-    OR d->'campos_permitidos' IS DISTINCT FROM '["antecedente_tipo","comunicacion_ref","estado","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
+    OR d->'campos_permitidos' IS DISTINCT FROM '["antecedente_tipo","comunicacion_ref","estado","estado_respuesta","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'AD3-105: consulta de comunicaciones denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(

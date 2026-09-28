@@ -11,8 +11,8 @@ BEGIN
   '{"ambitos":{"organizacion_ref":"'||p_organizacion||
   '"},"atributos":{"material_sha256":"'||encode(sha256(convert_to(m,'UTF8')),'hex')||'"}}','UTF8')),'hex');
  campos:=CASE WHEN p_campos_correctos THEN
-  '["antecedente_tipo","comunicacion_ref","estado","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
-  ELSE '[]'::jsonb END;
+  '["antecedente_tipo","comunicacion_ref","estado","estado_respuesta","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
+  ELSE '["antecedente_tipo","comunicacion_ref","estado","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb END;
  decision:=jsonb_build_object('accion','contratacion_temporal.llamamiento.comunicaciones.consultar',
   'modulo_id','contratacion_temporal','tipo_recurso','expediente_contratacion_temporal',
   'finalidad','gestionar_contratacion_temporal','recurso_ref',p_expediente,
@@ -39,14 +39,18 @@ BEGIN
  p:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1);
  IF jsonb_array_length(p->'comunicaciones')<>1
     OR p->'comunicaciones'->0->>'comunicacion_ref'<>'comunicacion:ct140-a'
+    OR p->'comunicaciones'->0->>'estado_respuesta'<>'registrada'
     OR p->'comunicaciones'->0->>'recibo_antecedente_ref'<>'recibo:seleccion-a'
     OR p->>'siguiente_cursor' IS DISTINCT FROM
       'comunicacion:ct140-a#'||encode(sha256(convert_to(
-       'organizacion:ct140-a'||chr(10)||'expediente:ct140-a'||chr(10)||'2','UTF8')),'hex') THEN
+       'organizacion:ct140-a'||chr(10)||'expediente:ct140-a'||chr(10)||'2'||chr(10)||
+       'comunicacion:ct140-a=registrada'||chr(10)||
+       'comunicacion:ct140-a2=sin_respuesta'||chr(10),'UTF8')),'hex') THEN
   RAISE EXCEPTION 'CT140: primera página incorrecta: %',p; END IF;
  q:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1,p->>'siguiente_cursor');
  IF jsonb_array_length(q->'comunicaciones')<>1
     OR q->'comunicaciones'->0->>'comunicacion_ref'<>'comunicacion:ct140-a2'
+    OR q->'comunicaciones'->0->>'estado_respuesta'<>'sin_respuesta'
     OR q->'comunicaciones'->0->>'antecedente_tipo'<>'continuacion_confirmada'
     OR q->'comunicaciones'->0->>'recibo_antecedente_ref'<>'recibo:continuacion-a'
     OR q->>'siguiente_cursor'<>''
@@ -56,7 +60,7 @@ BEGIN
   RAISE EXCEPTION 'CT140: vacío incorrecto: %',v; END IF;
  BEGIN
   PERFORM public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1,'',false);
-  RAISE EXCEPTION 'CT140: aceptó campos V3 divergentes';
+  RAISE EXCEPTION 'CT140: aceptó concesión V3 antigua sin estado_respuesta';
  EXCEPTION WHEN SQLSTATE 'P1403' THEN NULL; END;
  ausente:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-b',1);
  IF ausente->'encontrado' IS DISTINCT FROM 'false'::jsonb
@@ -64,8 +68,7 @@ BEGIN
     OR ausente->>'siguiente_cursor'<>''
  THEN RAISE EXCEPTION 'CT140: filtró expediente ajeno: %',ausente; END IF;
  ausente:=public.probar_ct140('expediente:ct140-a','organizacion:ct140-a',1,
-  'comunicacion:ct140-c#'||encode(sha256(convert_to(
-   'organizacion:ct140-a'||chr(10)||'expediente:ct140-a'||chr(10)||'2','UTF8')),'hex'));
+  'comunicacion:ct140-c#'||right(p->>'siguiente_cursor',64));
  IF ausente->'encontrado' IS DISTINCT FROM 'false'::jsonb
     OR jsonb_array_length(ausente->'comunicaciones')<>0
     OR ausente->>'siguiente_cursor'<>''

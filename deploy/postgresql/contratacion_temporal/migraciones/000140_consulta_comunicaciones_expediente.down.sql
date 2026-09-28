@@ -7,4 +7,5 @@ SET LOCAL lock_timeout='5s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:000140',0));
 DROP FUNCTION vec_contratacion_temporal.consultar_comunicaciones_expediente_rrhh_v1(
  text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
+DROP FUNCTION vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(text);
 COMMIT;

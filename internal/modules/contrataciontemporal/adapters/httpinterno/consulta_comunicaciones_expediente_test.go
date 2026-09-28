@@ -35,7 +35,7 @@ func (l *lectorConsultaComunicacionesPrueba) ConsultarComunicacionesExpediente(_
 	}
 	return ports.PaginaComunicacionesExpediente{ExpedienteRef: c.ExpedienteRef, Comunicaciones: []ports.ComunicacionExpediente{
 		{OrganizacionRef: "organizacion:ct140", ExpedienteRef: c.ExpedienteRef, LlamamientoRef: "llamamiento:ct140",
-			ComunicacionRef: "comunicacion:ct140", Version: 2, Estado: "registrada_localmente",
+			ComunicacionRef: "comunicacion:ct140", Version: 2, Estado: "registrada_localmente", EstadoRespuesta: "sin_respuesta",
 			RegistradaEn:          time.Date(2026, 9, 28, 12, 0, 0, 123456000, time.UTC),
 			ReciboComunicacionRef: "recibo:ct140", AntecedenteTipo: "seleccion_confirmada", ReciboAntecedenteRef: "recibo:seleccion"},
 	}}, nil
@@ -57,7 +57,8 @@ func TestConsultaComunicacionesExpedienteGET(t *testing.T) {
 		Data ports.PaginaComunicacionesExpediente `json:"data"`
 	}
 	if err = json.Unmarshal(w.Body.Bytes(), &salida); err != nil || len(salida.Data.Comunicaciones) != 1 ||
-		salida.Data.Comunicaciones[0].ReciboAntecedenteRef != "recibo:seleccion" {
+		salida.Data.Comunicaciones[0].ReciboAntecedenteRef != "recibo:seleccion" ||
+		salida.Data.Comunicaciones[0].EstadoRespuesta != "sin_respuesta" {
 		t.Fatalf("salida: %v %+v", err, salida)
 	}
 	if w.Header().Get("Cache-Control") != "no-store, no-transform" {

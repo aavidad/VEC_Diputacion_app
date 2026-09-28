@@ -46,6 +46,7 @@ type ComunicacionExpediente struct {
 	ComunicacionRef       string    `json:"comunicacion_ref"`
 	Version               uint64    `json:"version"`
 	Estado                string    `json:"estado"`
+	EstadoRespuesta       string    `json:"estado_respuesta"`
 	RegistradaEn          time.Time `json:"registrada_en"`
 	ReciboComunicacionRef string    `json:"recibo_comunicacion_ref"`
 	AntecedenteTipo       string    `json:"antecedente_tipo"`
@@ -78,6 +79,7 @@ func (p PaginaComunicacionesExpediente) ValidarPara(c ConsultaComunicacionesExpe
 			!domain.ReferenciaOpacaValida(e.ReciboAntecedenteRef) ||
 			(e.AntecedenteTipo != "seleccion_confirmada" && e.AntecedenteTipo != "continuacion_confirmada") ||
 			e.Version != 2 || e.Estado != "registrada_localmente" ||
+			(e.EstadoRespuesta != "sin_respuesta" && e.EstadoRespuesta != "registrada") ||
 			!domain.InstanteUTCCanonico(e.RegistradaEn) ||
 			(i > 0 && (e.RegistradaEn.Before(anterior) ||
 				(e.RegistradaEn.Equal(anterior) && e.ComunicacionRef <= refAnterior))) ||

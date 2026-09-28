@@ -62,11 +62,20 @@ CREATE TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh(
  comunicacion_ref text,seleccion_clave uuid,organizacion_ref text,expediente_ref text,
  llamamiento_ref text,resolucion_ref text,estado text,solicitud_json jsonb,
  continuacion_clave uuid,continuacion_recibo jsonb);
+CREATE TABLE vec_contratacion_temporal.respuesta_recibida_rrhh(
+ justificante_ref text PRIMARY KEY,organizacion_ref text,expediente_ref text,
+ llamamiento_ref text,comunicacion_ref text,seleccion_clave uuid,
+ actor_ref text,perfil_ref text,version_comunicacion numeric,respuesta text,
+ recibo_ref text,recibo_json jsonb,material_json jsonb,estado text,
+ registrada_en timestamptz(6));
+CREATE TABLE vec_contratacion_temporal.historia_respuesta_recibida_rrhh(
+ justificante_ref text PRIMARY KEY,auditoria_ref text,actor_ref text,perfil_ref text);
 DO $rls$
 DECLARE t text;
 BEGIN
  FOREACH t IN ARRAY ARRAY['expediente_alta','ejecucion_seleccion_llamamiento_o6',
- 'comunicacion_llamamiento_local','resolucion_manual_respuesta_rrhh'] LOOP
+ 'comunicacion_llamamiento_local','resolucion_manual_respuesta_rrhh',
+ 'respuesta_recibida_rrhh','historia_respuesta_recibida_rrhh'] LOOP
   EXECUTE format('ALTER TABLE vec_contratacion_temporal.%I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('ALTER TABLE vec_contratacion_temporal.%I FORCE ROW LEVEL SECURITY',t);
   EXECUTE format('CREATE POLICY propietario ON vec_contratacion_temporal.%I TO vec_contratacion_temporal_propietario USING (true) WITH CHECK (true)',t);
@@ -75,7 +84,8 @@ BEGIN
 END $rls$;
 INSERT INTO vec_contratacion_temporal.expediente_alta VALUES
  ('expediente:ct140-a','organizacion:ct140-a'),('expediente:ct140-b','organizacion:ct140-a'),
- ('expediente:ct140-c','organizacion:ct140-b'),('expediente:ct140-vacio','organizacion:ct140-a');
+ ('expediente:ct140-c','organizacion:ct140-b'),('expediente:ct140-d','organizacion:ct140-a'),
+ ('expediente:ct140-vacio','organizacion:ct140-a');
 INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 VALUES
  ('10000000-0000-4000-8000-000000000001','confirmada',
   '{"organizacion_ref":"organizacion:ct140-a","expediente_ref":"expediente:ct140-a"}',
@@ -85,7 +95,18 @@ INSERT INTO vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 VALUES
   '{"organizacion_ref":"organizacion:ct140-a","expediente_ref":"expediente:ct140-b","llamamiento_ref":"llamamiento:ct140-b","recibo_ref":"recibo:seleccion-b","propuesta_generada":true}'),
  ('10000000-0000-4000-8000-000000000003','confirmada',
   '{"organizacion_ref":"organizacion:ct140-b","expediente_ref":"expediente:ct140-c"}',
-  '{"organizacion_ref":"organizacion:ct140-b","expediente_ref":"expediente:ct140-c","llamamiento_ref":"llamamiento:ct140-c","recibo_ref":"recibo:seleccion-c","propuesta_generada":true}');
+  '{"organizacion_ref":"organizacion:ct140-b","expediente_ref":"expediente:ct140-c","llamamiento_ref":"llamamiento:ct140-c","recibo_ref":"recibo:seleccion-c","propuesta_generada":true}'),
+ ('10000000-0000-4000-8000-000000000004','confirmada',
+  '{"organizacion_ref":"organizacion:ct140-a","expediente_ref":"expediente:ct140-d"}',
+  '{"organizacion_ref":"organizacion:ct140-a","expediente_ref":"expediente:ct140-d","llamamiento_ref":"llamamiento:ct140-a","recibo_ref":"recibo:seleccion-d","propuesta_generada":true}');
+UPDATE vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6
+ SET recibo_json=jsonb_set(recibo_json,'{seleccion_ref}',
+  to_jsonb('hmac-sha256:vec.contratacion-temporal.seleccion/v1:'||
+   CASE clave_idempotencia
+    WHEN '10000000-0000-4000-8000-000000000001'::uuid THEN repeat('a',64)
+    WHEN '10000000-0000-4000-8000-000000000002'::uuid THEN repeat('b',64)
+    WHEN '10000000-0000-4000-8000-000000000004'::uuid THEN repeat('a',64)
+    ELSE repeat('c',64) END));
 INSERT INTO vec_contratacion_temporal.comunicacion_llamamiento_local
 SELECT 'comunicacion:ct140-a','organizacion:ct140-a','expediente:ct140-a','llamamiento:ct140-a',
  '10000000-0000-4000-8000-000000000001',2,
@@ -120,8 +141,29 @@ SELECT 'comunicacion:ct140-c','organizacion:ct140-b','expediente:ct140-c','llama
   'ExpedienteRef','expediente:ct140-c','LlamamientoRef','llamamiento:ct140-c',
   'PruebaEntregaRef','recibo:seleccion-c')),
  '{}'::jsonb,'registrada_localmente','2026-09-28 12:00:00.000004+00';
+INSERT INTO vec_contratacion_temporal.comunicacion_llamamiento_local
+SELECT 'comunicacion:ct140-d','organizacion:ct140-a','expediente:ct140-d','llamamiento:ct140-a',
+ '10000000-0000-4000-8000-000000000004',2,
+ jsonb_build_object('solicitud',jsonb_build_object('OrganizacionRef','organizacion:ct140-a',
+  'ExpedienteRef','expediente:ct140-d','LlamamientoRef','llamamiento:ct140-a',
+  'PruebaEntregaRef','recibo:seleccion-d')),
+ '{}'::jsonb,'registrada_localmente','2026-09-28 12:00:00.000005+00';
 UPDATE vec_contratacion_temporal.comunicacion_llamamiento_local x SET recibo_json=
  jsonb_build_object('ComunicacionRef',x.comunicacion_ref,'ReciboRef',
  'recibo:'||split_part(x.comunicacion_ref,':',2),'Solicitud',x.material_json->'solicitud',
  'Estado',x.estado,'RegistradaEn',x.registrada_en);
+INSERT INTO vec_contratacion_temporal.respuesta_recibida_rrhh
+SELECT 'justificante:ct140-d','organizacion:ct140-a','expediente:ct140-d',
+ 'llamamiento:ct140-a','comunicacion:ct140-d',
+ '10000000-0000-4000-8000-000000000004','actor:otro','perfil:rrhh-otro',
+ 2,'aceptacion','recibo:respuesta-a',r,m,'registrada_por_rrhh',
+ '2026-09-28 12:10:00+00'::timestamptz
+FROM (SELECT '{"Respuesta":"aceptacion","OrganizacionRef":"organizacion:ct140-a","ExpedienteRef":"expediente:ct140-d","LlamamientoRef":"llamamiento:ct140-a","ComunicacionRef":"comunicacion:ct140-d"}'::jsonb m) s
+CROSS JOIN LATERAL (SELECT jsonb_build_object(
+ 'Solicitud',m,'JustificanteRef','justificante:ct140-d',
+ 'ReciboRef','recibo:respuesta-a','AuditoriaRef','auditoria:respuesta-a',
+ 'Estado','registrada_por_rrhh','RegistradaEn',
+ '2026-09-28T12:10:00.000000Z') r) z;
+INSERT INTO vec_contratacion_temporal.historia_respuesta_recibida_rrhh
+VALUES('justificante:ct140-d','auditoria:respuesta-a','actor:otro','perfil:rrhh-otro');
 RESET ROLE;

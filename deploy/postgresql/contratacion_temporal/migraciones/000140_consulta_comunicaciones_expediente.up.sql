@@ -14,11 +14,122 @@ BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario'
     OR to_regclass('vec_contratacion_temporal.comunicacion_llamamiento_local') IS NULL
     OR to_regclass('vec_contratacion_temporal.expediente_alta') IS NULL
+    OR to_regclass('vec_contratacion_temporal.respuesta_recibida_rrhh') IS NULL
+    OR to_regclass('vec_contratacion_temporal.historia_respuesta_recibida_rrhh') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_recibo_respuesta_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_lista_comunicaciones_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_comunicaciones_expediente_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  THEN RAISE EXCEPTION 'CT140: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
+
+-- Misma clave semántica que CT138: organización + llamamiento + selección
+-- seudonimizada en el recibo CT46. El estado no revela actor ni respuesta.
+CREATE FUNCTION vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(
+ p_comunicacion_ref text)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY INVOKER PARALLEL UNSAFE
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' AS $estado$
+DECLARE
+ v_comunicacion record; v_seleccion_ref text; v_total bigint; v_validas boolean;
+BEGIN
+ SELECT c.organizacion_ref,c.expediente_ref,c.llamamiento_ref,c.seleccion_clave,
+  e.situacion,e.solicitud_json,e.recibo_json
+ INTO v_comunicacion
+ FROM vec_contratacion_temporal.comunicacion_llamamiento_local c
+ JOIN vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+   ON e.clave_idempotencia=c.seleccion_clave
+ WHERE c.comunicacion_ref=p_comunicacion_ref;
+ IF NOT FOUND OR v_comunicacion.situacion IS DISTINCT FROM 'confirmada'
+    OR v_comunicacion.solicitud_json->>'organizacion_ref' IS DISTINCT FROM v_comunicacion.organizacion_ref
+    OR v_comunicacion.solicitud_json->>'expediente_ref' IS DISTINCT FROM v_comunicacion.expediente_ref
+    OR v_comunicacion.recibo_json->>'organizacion_ref' IS DISTINCT FROM v_comunicacion.organizacion_ref
+    OR v_comunicacion.recibo_json->>'expediente_ref' IS DISTINCT FROM v_comunicacion.expediente_ref THEN
+  RAISE EXCEPTION 'CT140: selección inconsistente' USING ERRCODE='P1405';
+ END IF;
+ v_seleccion_ref:=v_comunicacion.recibo_json->>'seleccion_ref';
+ IF v_seleccion_ref IS NULL
+    OR v_seleccion_ref !~ '^hmac-sha256:vec[.]contratacion-temporal[.]seleccion/v[1-9][0-9]*:[0-9a-f]{64}$'
+    OR right(v_seleccion_ref,64)=repeat('0',64) THEN
+  RAISE EXCEPTION 'CT140: selección sin seudónimo' USING ERRCODE='P1405';
+ END IF;
+ -- Si existe una respuesta del mismo llamamiento sin pseudónimo válido,
+ -- no podemos concluir que esta selección carezca de respuesta.
+ IF EXISTS (
+  SELECT 1 FROM vec_contratacion_temporal.respuesta_recibida_rrhh r
+  LEFT JOIN vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+    ON e.clave_idempotencia=r.seleccion_clave
+  WHERE r.organizacion_ref=v_comunicacion.organizacion_ref
+    AND r.llamamiento_ref=v_comunicacion.llamamiento_ref
+    AND (e.clave_idempotencia IS NULL
+      OR coalesce(e.recibo_json->>'seleccion_ref','') !~
+       '^hmac-sha256:vec[.]contratacion-temporal[.]seleccion/v[1-9][0-9]*:[0-9a-f]{64}$'
+      OR right(coalesce(e.recibo_json->>'seleccion_ref',''),64)=repeat('0',64))
+ ) THEN RAISE EXCEPTION 'CT140: respuesta sin selección acreditada' USING ERRCODE='P1405'; END IF;
+
+ -- La fila CT56 apunta a una comunicación concreta, pero CT138 deduplica
+ -- también si la misma selección respondió en otra comunicación.
+ SELECT count(*),coalesce(bool_and(coalesce((
+   r.estado='registrada_por_rrhh'
+   AND r.version_comunicacion=2
+   AND e.situacion='confirmada'
+   AND e.solicitud_json->>'organizacion_ref'=r.organizacion_ref
+   AND e.solicitud_json->>'expediente_ref'=r.expediente_ref
+   AND e.recibo_json->>'organizacion_ref'=r.organizacion_ref
+   AND e.recibo_json->>'expediente_ref'=r.expediente_ref
+   AND (e.recibo_json->>'llamamiento_ref'=r.llamamiento_ref
+     OR c.material_json->'solicitud'->>'TipoAntecedente'='continuacion_confirmada')
+   AND c.comunicacion_ref IS NOT NULL
+   AND c.organizacion_ref=r.organizacion_ref
+   AND c.expediente_ref=r.expediente_ref
+   AND c.llamamiento_ref=r.llamamiento_ref
+   AND c.seleccion_clave=r.seleccion_clave
+   AND c.estado='registrada_localmente'
+   AND c.version_resultante=2
+   AND c.recibo_json->>'ComunicacionRef'=c.comunicacion_ref
+   AND c.recibo_json->>'Estado'=c.estado
+   AND c.recibo_json->'Solicitud'=c.material_json->'solicitud'
+   AND h.justificante_ref=r.justificante_ref
+   AND h.actor_ref=r.actor_ref AND h.perfil_ref=r.perfil_ref
+   AND r.recibo_json->>'JustificanteRef'=r.justificante_ref
+   AND r.recibo_json->>'ReciboRef'=r.recibo_ref
+   AND r.recibo_json->>'AuditoriaRef'=h.auditoria_ref
+   AND r.recibo_json->>'Estado'=r.estado
+   AND r.recibo_json->>'RegistradaEn'=to_char(r.registrada_en,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+   AND r.recibo_json->'Solicitud'=r.material_json
+   AND r.material_json->>'OrganizacionRef'=r.organizacion_ref
+   AND r.material_json->>'ExpedienteRef'=r.expediente_ref
+   AND r.material_json->>'LlamamientoRef'=r.llamamiento_ref
+   AND r.material_json->>'ComunicacionRef'=r.comunicacion_ref
+   AND r.material_json->>'Respuesta'=r.respuesta
+  ),false)),true)
+ INTO v_total,v_validas
+ FROM vec_contratacion_temporal.respuesta_recibida_rrhh r
+ JOIN vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+   ON e.clave_idempotencia=r.seleccion_clave
+ LEFT JOIN vec_contratacion_temporal.comunicacion_llamamiento_local c
+   ON c.comunicacion_ref=r.comunicacion_ref
+ LEFT JOIN vec_contratacion_temporal.historia_respuesta_recibida_rrhh h
+   ON h.justificante_ref=r.justificante_ref
+ WHERE r.organizacion_ref=v_comunicacion.organizacion_ref
+   AND r.llamamiento_ref=v_comunicacion.llamamiento_ref
+   AND e.recibo_json->>'seleccion_ref'=v_seleccion_ref;
+ IF v_total>1 OR v_validas IS NOT TRUE THEN
+  RAISE EXCEPTION 'CT140: respuestas incompatibles' USING ERRCODE='P1405';
+ END IF;
+ -- El índice CT56 impide una segunda respuesta sobre la misma comunicación.
+ -- Si su selección no coincide con la clave semántica, no responder ausente.
+ IF EXISTS (
+  SELECT 1 FROM vec_contratacion_temporal.respuesta_recibida_rrhh r
+  JOIN vec_contratacion_temporal.ejecucion_seleccion_llamamiento_o6 e
+    ON e.clave_idempotencia=r.seleccion_clave
+  WHERE r.organizacion_ref=v_comunicacion.organizacion_ref
+    AND r.comunicacion_ref=p_comunicacion_ref
+    AND (r.llamamiento_ref IS DISTINCT FROM v_comunicacion.llamamiento_ref
+      OR e.recibo_json->>'seleccion_ref' IS DISTINCT FROM v_seleccion_ref)
+ ) THEN RAISE EXCEPTION 'CT140: respuesta directa incompatible' USING ERRCODE='P1405'; END IF;
+ RETURN CASE WHEN v_total=1 THEN 'registrada' ELSE 'sin_respuesta' END;
+END $estado$;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(text)
+ FROM PUBLIC,vec_contratacion_temporal_ejecutor;
 
 CREATE FUNCTION vec_contratacion_temporal.consultar_comunicaciones_expediente_rrhh_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -28,7 +139,7 @@ SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_tim
 DECLARE
  s jsonb; d jsonb; c jsonb; v_hash text; v_material_hash text; v_consumo record;
  v_cursor_fecha timestamptz(6); v_cursor_ref text; v_items jsonb; v_cantidad integer;
- v_total bigint; v_ancla text;
+ v_total bigint:=0; v_ancla text; v_estados text:=''; v_fila record;
  v_siguiente text:=''; v_limite integer;
 BEGIN
  IF current_user<>'vec_contratacion_temporal_propietario'
@@ -95,7 +206,7 @@ BEGIN
     OR d->>'recurso_ref' IS DISTINCT FROM s->>'expediente_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM v_hash
     OR d->'campos_permitidos' IS DISTINCT FROM
-       '["antecedente_tipo","comunicacion_ref","estado","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
+       '["antecedente_tipo","comunicacion_ref","estado","estado_respuesta","expediente_ref","llamamiento_ref","organizacion_ref","recibo_antecedente_ref","recibo_comunicacion_ref","registrada_en","version"]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'CT140: autorización divergente' USING ERRCODE='P1403'; END IF;
  SELECT * INTO STRICT v_consumo FROM
@@ -172,14 +283,21 @@ BEGIN
       )
     )
  ) THEN RAISE EXCEPTION 'CT140: comunicación inconsistente' USING ERRCODE='P1405'; END IF;
- SELECT count(*) INTO v_total
- FROM vec_contratacion_temporal.comunicacion_llamamiento_local x
- WHERE x.organizacion_ref=s->>'organizacion_ref'
-   AND x.expediente_ref=s->>'expediente_ref';
- -- CT54 es inmutable. El ancla detecta cualquier alta entre páginas de
- -- peticiones distintas y obliga al cliente a reiniciar el recorrido.
+ FOR v_fila IN
+  SELECT x.comunicacion_ref FROM vec_contratacion_temporal.comunicacion_llamamiento_local x
+  WHERE x.organizacion_ref=s->>'organizacion_ref'
+    AND x.expediente_ref=s->>'expediente_ref'
+  ORDER BY x.registrada_en,x.comunicacion_ref
+ LOOP
+  v_total:=v_total+1;
+  v_estados:=v_estados||v_fila.comunicacion_ref||'='||
+   vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(v_fila.comunicacion_ref)||chr(10);
+ END LOOP;
+ -- CT54 y CT56 son inmutables. El ancla detecta altas o cambios del estado
+ -- semántico entre páginas y obliga al cliente a reiniciar el recorrido.
  v_ancla:=encode(sha256(convert_to(
-  (s->>'organizacion_ref')||chr(10)||(s->>'expediente_ref')||chr(10)||v_total::text,'UTF8')),'hex');
+  (s->>'organizacion_ref')||chr(10)||(s->>'expediente_ref')||chr(10)||
+  v_total::text||chr(10)||v_estados,'UTF8')),'hex');
  IF s->>'cursor'<>'' THEN
   IF right(s->>'cursor',64) IS DISTINCT FROM v_ancla
   THEN RAISE EXCEPTION 'CT140: página caducada' USING ERRCODE='P1405'; END IF;
@@ -197,6 +315,7 @@ BEGIN
  WITH orden AS (
   SELECT x.organizacion_ref,x.expediente_ref,x.llamamiento_ref,x.comunicacion_ref,
     x.version_resultante::bigint AS version,x.estado,x.registrada_en,
+    vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(x.comunicacion_ref) AS estado_respuesta,
     x.recibo_json->>'ReciboRef' AS recibo_comunicacion_ref,
     CASE WHEN x.material_json->'solicitud'->>'TipoAntecedente'='continuacion_confirmada'
       THEN 'continuacion_confirmada' ELSE 'seleccion_confirmada' END AS antecedente_tipo,
@@ -214,6 +333,7 @@ BEGIN
    'organizacion_ref',p.organizacion_ref,'expediente_ref',p.expediente_ref,
    'llamamiento_ref',p.llamamiento_ref,
    'comunicacion_ref',p.comunicacion_ref,'version',p.version,'estado',p.estado,
+   'estado_respuesta',p.estado_respuesta,
    'recibo_comunicacion_ref',p.recibo_comunicacion_ref,
    'antecedente_tipo',p.antecedente_tipo,
    'recibo_antecedente_ref',p.recibo_antecedente_ref,
@@ -248,6 +368,8 @@ BEGIN
   text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
   TO vec_contratacion_temporal_ejecutor;
  IF has_function_privilege('public',f,'EXECUTE')
+    OR has_function_privilege('public','vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(text)','EXECUTE')
+    OR has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.estado_respuesta_comunicacion_ct140(text)','EXECUTE')
     OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor',f,'EXECUTE')
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
