@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260928-rrhh-corte3-cache-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-rrhh-corte3-cache-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-rrhh-corte3-cache-v2";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260928-rrhh-corte3-cache-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260928-rrhh-corte3-cache-v1";
@@ -18,7 +18,7 @@ import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa,
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-corte3-i18n-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-rrhh-corte3-cache-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-rrhh-corte3-cache-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-rrhh-corte3-cache-v2";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260928-rrhh-corte3-cache-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260928-rrhh-corte3-cache-v1";
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260928-rrhh-corte3-cache-v1";
