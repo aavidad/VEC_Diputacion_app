@@ -434,7 +434,9 @@ func comprobarPoolAutoridadAuditoriaDesarrollo(ctx context.Context, q interface 
 	 session_user=current_user AND l.rolcanlogin AND l.rolinherit
 	 AND NOT l.rolsuper AND NOT l.rolcreatedb AND NOT l.rolcreaterole
 	 AND NOT l.rolreplication AND NOT l.rolbypassrls
-	 AND NOT g.rolcanlogin AND g.rolinherit AND NOT g.rolsuper
+	 AND NOT g.rolcanlogin
+	 AND g.rolinherit = (g.rolname IN ('vec_autorizacion_fuente','vec_contratacion_temporal_registrador_auditoria'))
+	 AND NOT g.rolsuper
 	 AND NOT g.rolcreatedb AND NOT g.rolcreaterole AND NOT g.rolreplication AND NOT g.rolbypassrls
 	 AND pg_has_role(session_user,g.oid,'MEMBER') AND pg_has_role(session_user,g.oid,'USAGE')
 	 AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=l.oid)=1
