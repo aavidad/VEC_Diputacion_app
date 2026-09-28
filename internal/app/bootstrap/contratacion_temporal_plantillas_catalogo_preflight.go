@@ -81,10 +81,25 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
       pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_ruta_exacta_v1(text,text,text,text,text)'),'EXECUTE'),false)
     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
       pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)'),'EXECUTE'),false)
-    AND pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     AND pg_catalog.has_schema_privilege('vec_contratacion_temporal_propietario','vec_autorizacion_atestada_v3','USAGE')
-    AND coalesce(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
-      pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE'),false)
+    AND EXISTS (
+      SELECT 1 FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='vec_autorizacion_atestada_v3'
+        AND p.proname='registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada'
+        AND p.pronargs=11
+        AND p.proargtypes[0]='pg_catalog.jsonb'::pg_catalog.regtype
+        AND p.proargtypes[1]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[2]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[3]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[4]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[5]='pg_catalog.numeric'::pg_catalog.regtype
+        AND p.proargtypes[6]='pg_catalog.numeric'::pg_catalog.regtype
+        AND p.proargtypes[7]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[8]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[9]='pg_catalog.bytea'::pg_catalog.regtype
+        AND p.proargtypes[10]='pg_catalog.bytea'::pg_catalog.regtype
+        AND pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',p.oid,'EXECUTE'))
     AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
       WHERE a.attrelid=pg_catalog.to_regclass('vec_contratacion_temporal.catalogo_plantillas_historia_v1')
         AND a.attname='organizacion_ref' AND NOT a.attisdropped)
