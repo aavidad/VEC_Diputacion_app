@@ -118,6 +118,14 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 	if len(c.funciones) != 3 || !strings.Contains(strings.Join(c.funciones, " "), "obtener_catalogo_plantillas_publicado_documental_v1") {
 		t.Fatalf("preflight CT131/133 no exige ambas fachadas: %v", c.funciones)
 	}
+	// El LOGIN CT no tiene USAGE en AD3: resolver allí un regprocedure lanza
+	// 42501 antes de que pueda comprobarse el EXECUTE del propietario CT.
+	if strings.Contains(c.sql, "to_regprocedure('vec_autorizacion_atestada_v3.") ||
+		!strings.Contains(c.sql, "FROM pg_catalog.pg_proc p") ||
+		!strings.Contains(c.sql, "p.pronargs=11") ||
+		!strings.Contains(c.sql, "p.proargtypes[10]") {
+		t.Fatal("preflight resuelve la funcion AD3 con el LOGIN CT sin USAGE o no coteja la firma")
+	}
 	if err := comprobarPreflightCatalogoPlantillasCT(context.Background(), c, false); err != nil || len(c.funciones) != 2 ||
 		strings.Contains(strings.Join(c.funciones, " "), "obtener_catalogo_plantillas_publicado_documental_v1") {
 		t.Fatalf("preflight CT131 independiente de CT133: %v %v", err, c.funciones)

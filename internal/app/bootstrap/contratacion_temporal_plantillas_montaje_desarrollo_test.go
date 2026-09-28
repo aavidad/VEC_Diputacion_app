@@ -321,6 +321,13 @@ func TestPlantillasCatalogoCTPreflightDeniegaRolesYACLIncompletas(t *testing.T) 
 		t.Fatalf("ACL nominal positiva = %v", err)
 	}
 	for _, c := range []*consultaACLPlantillasCTPrueba{fuente, motivos} {
+		// Estos LOGIN no tienen USAGE en CT; resolver sus funciones con
+		// to_regprocedure provoca 42501 antes de evaluar la ACL.
+		if strings.Contains(c.sql, "to_regprocedure('vec_contratacion_temporal.") ||
+			!strings.Contains(c.sql, "FROM pg_catalog.pg_proc p") ||
+			!strings.Contains(c.sql, "has_function_privilege(session_user,p.oid,'EXECUTE')") {
+			t.Fatal("preflight resuelve funcion CT con LOGIN sin USAGE o no coteja su ACL")
+		}
 		for _, fragmento := range []string{"current_user=session_user", "pg_has_role(session_user,$3::regrole,'USAGE')",
 			"has_schema_privilege(session_user,'vec_autorizacion','USAGE')",
 			"has_schema_privilege($3::text,'vec_autorizacion','USAGE')",
