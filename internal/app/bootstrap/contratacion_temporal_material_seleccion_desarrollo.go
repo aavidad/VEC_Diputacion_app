@@ -144,7 +144,7 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 		d = append(d, descriptoresMaterialSeguimientoCeseDesarrollo()...)
 	}
 	if s.reincorporacionTitular {
-		d = append(d, descriptorMaterialReincorporacionTitularDesarrollo())
+		d = append(d, descriptorMaterialReincorporacionTitularDesarrollo(), descriptorMaterialLecturaReincorporacionTitularDesarrollo())
 	}
 	if s.incorporacionAcreditada {
 		d = append(d, descriptorMaterialConfirmacionGINPIXDesarrollo(), descriptorMaterialNoIncorporacionDesarrollo())
