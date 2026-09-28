@@ -80,6 +80,9 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   paginacion_marco_primera: "Primera",
   paginacion_marco_anterior: "Anterior",
   paginacion_marco_siguiente: "Siguiente",
+  selector_idioma_etiqueta: "Idioma de la interfaz",
+  selector_idioma_es: "Español",
+  selector_idioma_en: "Inglés",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PORTAL_ES));
