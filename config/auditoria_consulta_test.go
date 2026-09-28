@@ -85,7 +85,26 @@ func TestDSNFuenteAutorizacionAuditoriaDesarrolloExigeLoginNominalSeparado(t *te
 		t.Fatalf("DSN inválido admitido o expuesto: %v", err)
 	}
 	t.Setenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL, fuente)
+	if _, err := c.DSNMotivosAuditoriaDesarrollo(); !errors.Is(err, ErrMotivosAuditoriaIncompletos) {
+		t.Fatalf("resolutor de motivos ausente admitido: %v", err)
+	}
+	const motivos = "postgres://motivos_auditoria:secreto-privado@localhost/vec?sslmode=require"
+	t.Setenv(EnvRRHHAuditoriaMotivosDatabaseURL, motivos)
+	if obtenido, err := c.DSNMotivosAuditoriaDesarrollo(); err != nil || obtenido != motivos {
+		t.Fatalf("resolutor nominal: %t, %v", obtenido == motivos, err)
+	}
+	for _, login := range []string{"fuente_auditoria", "motivos", "ct_consultor", "registro_v3"} {
+		t.Setenv(EnvRRHHAuditoriaMotivosDatabaseURL,
+			"postgres://"+login+":otra-clave@localhost/otra_base?sslmode=require")
+		if _, err := c.DSNMotivosAuditoriaDesarrollo(); !errors.Is(err, ErrMotivosAuditoriaNoSeparados) || strings.Contains(err.Error(), "otra-clave") {
+			t.Fatalf("LOGIN de motivos %s compartido o secreto expuesto: %v", login, err)
+		}
+	}
+	t.Setenv(EnvRRHHAuditoriaMotivosDatabaseURL, motivos)
 	if _, err := (Config{}).DSNFuenteAutorizacionAuditoriaDesarrollo(); !errors.Is(err, ErrFuenteAutorizacionAuditoriaIncompleta) {
 		t.Fatalf("fuente DEMO disponible fuera de desarrollo: %v", err)
+	}
+	if _, err := (Config{}).DSNMotivosAuditoriaDesarrollo(); !errors.Is(err, ErrMotivosAuditoriaIncompletos) {
+		t.Fatalf("motivos DEMO disponibles fuera de desarrollo: %v", err)
 	}
 }
