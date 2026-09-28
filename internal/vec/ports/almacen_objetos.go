@@ -123,6 +123,11 @@ func (s SolicitudEscribirObjeto) Validar() error {
 	); err != nil {
 		return err
 	}
+	if err := s.Contexto.validarEscrituraImagen(
+		s.ClaveIdempotencia, s.Zona, s.MIME, s.Tamano, s.HuellaSHA256,
+	); err != nil {
+		return err
+	}
 	return nil
 }
 

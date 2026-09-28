@@ -101,6 +101,7 @@ type especificacionAutorizacionAlmacen struct {
 	pasos                  []pasoPlanOperacionAlmacen
 	requiereObjeto         bool
 	huellaManifiestoSHA256 string
+	imagen                 *vinculoImagenAlmacen
 }
 
 type datosContextoOperacionAlmacen struct {
@@ -130,6 +131,7 @@ type datosContextoOperacionAlmacen struct {
 	validaHasta            time.Time
 	evidencia              EvidenciaUsoDecisionAutorizacion
 	pasos                  []pasoPlanOperacionAlmacen
+	imagen                 *vinculoImagenAlmacen
 }
 
 // ContextoOperacionAlmacen es una capacidad opaca e inmutable. Su valor cero
@@ -302,7 +304,8 @@ func nuevoContextoOperacionAlmacen(
 		objetoVinculado:      vinculos.ObjetoVinculado,
 		huellaDecisionSHA256: datosEvidencia.HuellaDecisionSHA256,
 		verificadaEn:         verificadaEn, validaHasta: decision.ValidaHasta.UTC(), evidencia: evidencia,
-		pasos: pasos,
+		pasos:  pasos,
+		imagen: clonarVinculoImagen(especificacion.imagen),
 	}
 	contexto := ContextoOperacionAlmacen{datos: datos}
 	if contexto.validarEstructura() != nil {
@@ -402,6 +405,9 @@ func (e especificacionAutorizacionAlmacen) valida() bool {
 		return false
 	}
 	esDocumental := e.huellaManifiestoSHA256 != ""
+	if e.imagen != nil && (esDocumental || !e.imagen.validoPara(e.accionNegocio)) {
+		return false
+	}
 	if esDocumental && !esSHA256Hexadecimal(e.huellaManifiestoSHA256) {
 		return false
 	}
@@ -473,9 +479,10 @@ func recursoVinculaOperacionAlmacen(
 	objetoVersion, existeVersion := atributos[AtributoAlmacenObjetoVersion]
 	if especificacion.requiereObjeto {
 		return existeRef && existeVersion && objetoRef == v.ObjetoVinculado.Referencia &&
-			objetoVersion == v.ObjetoVinculado.Version
+			objetoVersion == v.ObjetoVinculado.Version &&
+			recursoVinculaImagenAlmacen(recurso, v, especificacion)
 	}
-	return !existeRef && !existeVersion
+	return !existeRef && !existeVersion && recursoVinculaImagenAlmacen(recurso, v, especificacion)
 }
 
 func (c ContextoOperacionAlmacen) Proyeccion() (ProyeccionContextoOperacionAlmacen, error) {
@@ -547,6 +554,7 @@ func (c ContextoOperacionAlmacen) DerivarPaso(pasoRef PasoOperacionAlmacen) (Con
 	copia.pasoRef = seleccionado.referencia
 	copia.huellaPasoSHA256 = seleccionado.huellaPasoSHA256
 	copia.pasos = clonarPasosOperacionAlmacen(c.datos.pasos)
+	copia.imagen = clonarVinculoImagen(c.datos.imagen)
 	resultado := ContextoOperacionAlmacen{datos: &copia}
 	if resultado.validarEstructura() != nil {
 		return ContextoOperacionAlmacen{}, errorAutorizacionAlmacen()
@@ -631,6 +639,7 @@ func (c ContextoOperacionAlmacen) validarEstructura() error {
 		accionNegocio: d.accionNegocio, camposExactos: datosEvidencia.Decision.CamposPermitidos,
 		pasos: d.pasos, requiereObjeto: d.objetoVinculado != (ReferenciaObjetoAlmacen{}),
 		huellaManifiestoSHA256: d.huellaManifiestoSHA256,
+		imagen:                 clonarVinculoImagen(d.imagen),
 	}
 	vinculos := VinculosOperacionAlmacen{
 		OperacionRef: d.operacionRef, CargaRef: d.cargaRef, Clasificacion: d.clasificacion,
@@ -705,6 +714,12 @@ func huellaPlanOperacionAlmacen(
 	}
 	if e.huellaManifiestoSHA256 != "" {
 		valores = append(valores, e.huellaManifiestoSHA256)
+	}
+	if e.imagen != nil {
+		valores = append(valores, e.imagen.DocumentoRef, e.imagen.ActorPersonaRef,
+			e.imagen.TitularPersonaRef,
+			e.imagen.Audiencia, e.imagen.Finalidad, e.imagen.HuellaSHA256,
+			strconv.FormatInt(e.imagen.Tamano, 10), e.imagen.ClaveIdempotencia)
 	}
 	for _, paso := range e.pasos {
 		valores = append(valores, string(paso.referencia), paso.accion)
