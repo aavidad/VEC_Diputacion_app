@@ -1,4 +1,10 @@
 \set ON_ERROR_STOP on
+-- El LOGIN puede crear objetos TEMP homónimos. La función definidora debe
+-- resolver siempre los catálogos verdaderos y conservar la validación nominal.
+CREATE TEMP VIEW pg_roles AS SELECT * FROM pg_catalog.pg_roles WHERE false;
+CREATE TEMP VIEW pg_auth_members AS SELECT * FROM pg_catalog.pg_auth_members WHERE false;
+CREATE TEMP VIEW pg_proc AS SELECT * FROM pg_catalog.pg_proc WHERE false;
+CREATE TEMP VIEW pg_class AS SELECT * FROM pg_catalog.pg_class WHERE false;
 DO $test$ BEGIN
  IF vec_usuarios.registrar_denegacion_preferencias_v1(
     'corr_no_disponible','autenticacion_requerida',

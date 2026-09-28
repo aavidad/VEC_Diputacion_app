@@ -75,6 +75,48 @@ SQL
   exit 1
  fi
 done
+probar_grant_directo() {
+ psql_pg >/dev/null <<SQL
+$1
+SQL
+ psql_login >/dev/null <<'SQL'
+DO $test$ BEGIN
+ BEGIN
+  PERFORM vec_usuarios.registrar_denegacion_preferencias_v1(
+   'corr_no_disponible','autenticacion_requerida',
+   'api.usuarios.preferencias.ruta_exacta','/api/vec/usuarios/mis-preferencias',NULL);
+  RAISE EXCEPTION 'Usuarios 000003: LOGIN con GRANT directo aceptado';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $test$;
+SQL
+ psql_pg >/dev/null <<SQL
+$2
+SQL
+}
+probar_grant_directo \
+ 'GRANT CREATE ON SCHEMA vec_usuarios TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE CREATE ON SCHEMA vec_usuarios FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT SELECT ON vec_usuarios.preferencias_actual TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE SELECT ON vec_usuarios.preferencias_actual FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT SELECT (persona_ref) ON vec_usuarios.preferencias_actual TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE SELECT (persona_ref) ON vec_usuarios.preferencias_actual FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT USAGE ON SEQUENCE vec_usuarios.denegacion_frontera_preferencias_evento_id_seq TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE USAGE ON SEQUENCE vec_usuarios.denegacion_frontera_preferencias_evento_id_seq FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT EXECUTE ON FUNCTION vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE EXECUTE ON FUNCTION vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT EXECUTE ON FUNCTION vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text) TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE EXECUTE ON FUNCTION vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text) FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_usuarios_registrador_prueba;' \
+ 'REVOKE USAGE ON SCHEMA vec_autorizacion_atestada_v3 FROM vec_usuarios_registrador_prueba;'
+probar_grant_directo \
+ 'GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_preferencias_actualizacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_registrador_frontera;' \
+ 'REVOKE EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_preferencias_actualizacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_usuarios_registrador_frontera;'
 psql_login < "$sql/pruebas_sql/frontera_operaciones.sql" >/dev/null
 psql_pg <<'SQL' >/dev/null
 SET ROLE vec_usuarios_propietario;
@@ -111,4 +153,4 @@ DO $test$ BEGIN
  THEN RAISE EXCEPTION 'Usuarios 000003: historia tras reinicio incorrecta'; END IF;
 END $test$;
 SQL
-echo 'Usuarios 000003 PG18: ACL, entradas cerradas, append-only, rollback y reinicio OK (base sintética)'
+echo 'Usuarios 000003 PG18: ACL y GRANT directo, TEMP, entradas cerradas, append-only, rollback y reinicio OK (base sintética)'

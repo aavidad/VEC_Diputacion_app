@@ -74,12 +74,12 @@ REVOKE ALL ON SEQUENCE vec_usuarios.denegacion_frontera_preferencias_evento_id_s
 CREATE FUNCTION vec_usuarios.registrar_denegacion_preferencias_v1(
  p_correlacion_ref text,p_motivo text,p_superficie text,p_ruta text,p_actor_ref text)
 RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
- SET search_path=pg_catalog SET row_security=on SET timezone='UTC'
+ SET search_path=pg_catalog,pg_temp SET row_security=on SET timezone='UTC'
  SET lock_timeout='1s' SET statement_timeout='2s' AS $f$
-DECLARE login pg_roles%ROWTYPE; grupo pg_roles%ROWTYPE;
+DECLARE login pg_catalog.pg_roles%ROWTYPE; grupo pg_catalog.pg_roles%ROWTYPE;
 BEGIN
- SELECT * INTO login FROM pg_roles WHERE rolname=session_user;
- SELECT * INTO grupo FROM pg_roles WHERE rolname='vec_usuarios_registrador_frontera';
+ SELECT * INTO login FROM pg_catalog.pg_roles WHERE rolname=session_user;
+ SELECT * INTO grupo FROM pg_catalog.pg_roles WHERE rolname='vec_usuarios_registrador_frontera';
  IF current_user<>'vec_usuarios_propietario' OR session_user=current_user
     OR login.oid IS NULL OR NOT login.rolcanlogin OR NOT login.rolinherit
     OR login.rolsuper OR login.rolcreatedb OR login.rolcreaterole
@@ -87,16 +87,62 @@ BEGIN
     OR grupo.oid IS NULL OR grupo.rolcanlogin OR grupo.rolsuper
     OR grupo.rolcreatedb OR grupo.rolcreaterole OR NOT grupo.rolinherit
     OR grupo.rolreplication OR grupo.rolbypassrls
-    OR (SELECT count(*) FROM pg_auth_members m WHERE m.member=login.oid)<>1
-    OR NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=login.oid
+    OR (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=login.oid)<>1
+    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=login.oid
       AND m.roleid=grupo.oid AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
-    OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.roleid=login.oid OR m.member=grupo.oid)
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid=login.oid OR m.member=grupo.oid)
+    -- La cuenta privada no recibe ACL directas ni propiedad en ningún módulo
+    -- vec_*. La función nominal le llega únicamente por el grupo exclusivo.
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n
+      WHERE n.nspname ~ '^vec_' AND (n.nspowner=login.oid
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(n.nspacl) a WHERE a.grantee=login.oid)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname ~ '^vec_' AND (c.relowner=login.oid
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(c.relacl) a WHERE a.grantee=login.oid)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+      JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname ~ '^vec_' AND EXISTS
+        (SELECT 1 FROM pg_catalog.aclexplode(a.attacl) x WHERE x.grantee=login.oid))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname ~ '^vec_' AND (p.proowner=login.oid
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=login.oid)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_type t
+      JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+      WHERE n.nspname ~ '^vec_' AND (t.typowner=login.oid
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(t.typacl) a WHERE a.grantee=login.oid)))
+    -- El grupo tampoco puede adquirir otra capacidad directa en VEC.
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname ~ '^vec_'
+      AND (n.nspowner=grupo.oid OR EXISTS
+        (SELECT 1 FROM pg_catalog.aclexplode(n.nspacl) a WHERE a.grantee=grupo.oid
+         AND (n.nspname<>'vec_usuarios' OR a.privilege_type<>'USAGE'))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname ~ '^vec_' AND (c.relowner=grupo.oid
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(c.relacl) a WHERE a.grantee=grupo.oid)))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+      JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname ~ '^vec_' AND EXISTS
+        (SELECT 1 FROM pg_catalog.aclexplode(a.attacl) x WHERE x.grantee=grupo.oid))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname ~ '^vec_' AND (p.proowner=grupo.oid OR EXISTS
+        (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=grupo.oid
+         AND (p.oid<>'vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text)'::pg_catalog.regprocedure
+           OR a.privilege_type<>'EXECUTE'))))
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_type t
+      JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace
+      WHERE n.nspname ~ '^vec_' AND (t.typowner=grupo.oid
+        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(t.typacl) a WHERE a.grantee=grupo.oid)))
     OR NOT has_schema_privilege(grupo.oid,'vec_usuarios','USAGE')
     OR has_schema_privilege(grupo.oid,'vec_usuarios','CREATE')
-    OR EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace='vec_usuarios'::regnamespace
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.pronamespace='vec_usuarios'::pg_catalog.regnamespace
       AND p.oid<>'vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text)'::regprocedure
       AND has_function_privilege(grupo.oid,p.oid,'EXECUTE'))
-    OR EXISTS (SELECT 1 FROM pg_class c WHERE c.relnamespace='vec_usuarios'::regnamespace
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c WHERE c.relnamespace='vec_usuarios'::pg_catalog.regnamespace
       AND c.relkind IN ('r','p','v','m') AND (has_table_privilege(grupo.oid,c.oid,'SELECT')
        OR has_table_privilege(grupo.oid,c.oid,'INSERT') OR has_table_privilege(grupo.oid,c.oid,'UPDATE')
        OR has_table_privilege(grupo.oid,c.oid,'DELETE') OR has_table_privilege(grupo.oid,c.oid,'TRUNCATE')
@@ -106,7 +152,7 @@ BEGIN
        OR has_any_column_privilege(grupo.oid,c.oid,'INSERT')
        OR has_any_column_privilege(grupo.oid,c.oid,'UPDATE')
        OR has_any_column_privilege(grupo.oid,c.oid,'REFERENCES')))
-    OR EXISTS (SELECT 1 FROM pg_class c WHERE c.relnamespace='vec_usuarios'::regnamespace
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c WHERE c.relnamespace='vec_usuarios'::pg_catalog.regnamespace
       AND c.relkind='S' AND (has_sequence_privilege(grupo.oid,c.oid,'USAGE')
        OR has_sequence_privilege(grupo.oid,c.oid,'SELECT')
        OR has_sequence_privilege(grupo.oid,c.oid,'UPDATE')))
