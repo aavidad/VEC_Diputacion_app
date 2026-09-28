@@ -158,6 +158,139 @@ test("respuesta omite clave cliente y convierte la hora de Madrid sin cambiar el
   assert.match(raiz.innerHTML, /Siguiente acción/u);
 });
 
+const consultaRespuesta = { organizacion_ref: recibo.organizacion_ref,
+  comunicacion_ref: comunicacionRegistrada.comunicacion_ref };
+const reciboConsultado = { esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
+  ...consultaRespuesta, respuesta: "aceptacion", justificante_ref: "justificante:sintetico:001",
+  recibo_ref: "recibo:respuesta:001", auditoria_ref: "auditoria:respuesta:001",
+  registrada_en: "2026-09-05T09:00:00.123456Z", estado: "registrada_por_rrhh" };
+
+test("recarga con contexto autorizado consulta y muestra solo la respuesta ya registrada", async () => {
+  const raiz = raizPrueba(); let consultas = 0, escrituras = 0;
+  const cerrar = montar(raiz, {
+    consultarReciboRespuesta: async (entrada, { signal }) => {
+      consultas += 1; assert.deepEqual(entrada, consultaRespuesta); assert.equal(signal.aborted, false);
+      return reciboConsultado;
+    },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+    consulta_respuesta: consultaRespuesta } });
+  await new Promise(setImmediate);
+  assert.equal(consultas, 1);
+  assert.match(raiz.innerHTML, /Ya consta esta respuesta/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="consultaRespuesta"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  cerrar();
+});
+
+test("consulta 404 permite registrar tras el aviso; 401/403 ocultan datos y bloquean POST", async () => {
+  for (const estado of [404, 401, 403]) {
+    const raiz = raizPrueba(); let escrituras = 0;
+    const codigo = estado === 404 ? "recurso_no_encontrado"
+      : estado === 401 ? "autenticacion_requerida" : "acceso_denegado";
+    const cerrar = await abrirRespuesta(raiz, {
+      consultarReciboRespuesta: async () => { throw Object.assign(new Error(), {
+        estado, codigo, envelopeValido: true,
+      }); },
+      registrarRespuestaRecibida: async () => { escrituras += 1; },
+    });
+    if (estado === 404) {
+      assert.match(raiz.innerHTML, /No consta una respuesta/u);
+      assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+    } else {
+      assert.match(raiz.innerHTML, /No puede consultar esta respuesta/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|justificante:sintetico/u);
+      await raiz.archivo(archivoCorreo());
+      await raiz.enviar("respuesta", declaracion());
+      assert.equal(escrituras, 0);
+    }
+    cerrar();
+  }
+});
+
+test("404 tras recarga sin antecedente autorizado conserva cerrado el POST", async () => {
+  const raiz = raizPrueba(); let escrituras = 0;
+  const cerrar = montar(raiz, {
+    consultarReciboRespuesta: async () => { throw Object.assign(new Error(), {
+      estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+    }); },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+    consulta_respuesta: consultaRespuesta } });
+  await new Promise(setImmediate);
+  assert.match(raiz.innerHTML, /Abra el llamamiento para recuperar sus antecedentes/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  cerrar();
+});
+
+test("consulta temporal fallida bloquea POST hasta un 404 autorizado y permite reintentar", async () => {
+  const raiz = raizPrueba(); let consultas = 0, escrituras = 0;
+  const cerrar = await abrirRespuesta(raiz, {
+    consultarReciboRespuesta: async () => {
+      consultas += 1;
+      if (consultas === 1) throw Object.assign(new Error(), {
+        estado: 503, codigo: "servicio_no_disponible", envelopeValido: true,
+      });
+      throw Object.assign(new Error(), { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true });
+    },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  });
+  assert.match(raiz.innerHTML, /Reintente la consulta antes de registrar otra/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  raiz.eventos.get("click")({ preventDefault() {}, target: { closest: (selector) =>
+    selector === "[data-ct-llamamiento-reintentar-consulta]"
+      ? { dataset: { ctLlamamientoReintentarConsulta: "" } } : null } });
+  await new Promise(setImmediate);
+  assert.equal(consultas, 2);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+  cerrar();
+});
+
+test("consulta en inglés explica la denegación sin mostrar formulario ni recibo", async () => {
+  const raiz = raizPrueba();
+  const cerrar = montar(raiz, { consultarReciboRespuesta: async () => {
+    throw Object.assign(new Error(), { estado: 403, codigo: "acceso_denegado", envelopeValido: true });
+  } }, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB",
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      consulta_respuesta: consultaRespuesta } });
+  await new Promise(setImmediate);
+  assert.match(raiz.innerHTML, /You cannot view this reply/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|recibo:respuesta:001/u);
+  cerrar();
+});
+
+test("consulta pendiente bloquea POST y se cancela al desmontar o cambiar de expediente", async () => {
+  for (const cambioExpediente of [false, true]) {
+    const raiz = raizPrueba(); let resolver, signal, escrituras = 0;
+    const cerrar = montar(raiz, {
+      consultarReciboRespuesta: (_entrada, opciones) => {
+        signal = opciones.signal;
+        return new Promise((resolve) => { resolver = resolve; });
+      },
+      registrarRespuestaRecibida: async () => { escrituras += 1; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      consulta_respuesta: consultaRespuesta } });
+    await new Promise(setImmediate);
+    assert.match(raiz.innerHTML, /Comprobando si ya consta una respuesta/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+    await raiz.enviar("respuesta", declaracion());
+    assert.equal(escrituras, 0);
+    if (cambioExpediente) cerrar.actualizarContexto({ expediente_ref: "expediente:otro:002", version_esperada: 6 });
+    else cerrar();
+    assert.equal(signal.aborted, true);
+    resolver(reciboConsultado);
+    await new Promise(setImmediate);
+    assert.equal(raiz.innerHTML, "");
+  }
+});
+
 test("hora civil de Madrid distingue verano e invierno y rechaza saltos ambiguos", () => {
   assert.equal(fechaRespuestaMadridUTC("2026-01-15T10:30"), "2026-01-15T09:30:00Z");
   assert.equal(fechaRespuestaMadridUTC("2026-09-05T10:30"), "2026-09-05T08:30:00Z");

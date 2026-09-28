@@ -7,6 +7,7 @@ import {
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
   snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
 } from "./contrato-llamamiento.js";
+import { RUTA_CONSULTA_RECIBO_RESPUESTA } from "./cliente-http-consulta-recibo-respuesta.js";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
@@ -53,6 +54,8 @@ export async function cargarPublicacionesFormalizacionDesarrollo({
   }
 }
 export function prefijoErrorLlamamiento(ruta) {
+  if (ruta.split("?")[0] === RUTA_CONSULTA_RECIBO_RESPUESTA)
+    return "api.contratacion_temporal.respuesta_recibida.error.";
   if (ruta === RUTAS_LLAMAMIENTO.propuestaFormalizacion) return "api.contratacion_temporal.propuesta_formalizacion.error.";
   if (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento) {
     return "api.contratacion_temporal.seleccion_llamamiento.error.";

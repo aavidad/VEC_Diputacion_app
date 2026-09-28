@@ -20,6 +20,7 @@ import {
   RESPUESTA_EXPIRACION,
 } from "./contrato-llamamiento.js";
 import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js";
+import { validarConsultaReciboRespuesta, validarReciboRespuestaConsultado } from "./cliente-http-consulta-recibo-respuesta.js";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -136,7 +137,9 @@ export function montarFormularioLlamamiento({
     expiracion: { ...nuevoPaso(), mensaje: "llamamiento_expiracion_pendiente",
       valores: { revision_respuesta_rrhh: false, revision_plazo_rrhh: false } },
     plazoDisponible: typeof cliente.registrarEventoPlazoLlamamiento === "function",
-    enlazado: false, comunicacionAbierta: false };
+    enlazado: false, comunicacionAbierta: false,
+    consultaRespuesta: { estado: "sin_contexto", referencias: null, recibo: null,
+      controlador: null, generacion: 0, mensaje: "llamamiento_consulta_sin_contexto", tono: "informacion" } };
   function ahora() {
     try { const valor = reloj(); return Number.isFinite(valor) ? valor : Date.now(); } catch { return Date.now(); }
   }
@@ -161,9 +164,66 @@ export function montarFormularioLlamamiento({
   }
 
   function puedeDeclarar(operacion) {
-    const recibo = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"].recibo;
-    return recibo?.version_resultante === 2 && (operacion !== "respuesta_siguiente"
+    const comunicado = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"];
+    const recibo = comunicado.recibo;
+    return estado.consultaRespuesta.estado === "ausente"
+      && estado.consultaRespuesta.referencias?.organizacion_ref === comunicado.solicitud?.organizacion_ref
+      && estado.consultaRespuesta.referencias?.comunicacion_ref === recibo?.comunicacion_ref
+      && recibo?.version_resultante === 2 && (operacion !== "respuesta_siguiente"
       || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local));
+  }
+  function antecedenteConsultaDisponible() {
+    const consulta = estado.consultaRespuesta.referencias;
+    return [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
+      paso.recibo?.comunicacion_ref === consulta?.comunicacion_ref
+      && paso.solicitud?.organizacion_ref === consulta?.organizacion_ref);
+  }
+  function consultaDesdeRecibo(recibo, solicitud) {
+    return { organizacion_ref: solicitud.organizacion_ref,
+      comunicacion_ref: recibo.comunicacion_ref };
+  }
+  function consultarReciboRespuesta(referencias, forzar = false) {
+    if (!montado) return;
+    let consulta;
+    try { consulta = validarConsultaReciboRespuesta(referencias); } catch { return; }
+    const paso = estado.consultaRespuesta;
+    const misma = paso.referencias?.organizacion_ref === consulta.organizacion_ref
+      && paso.referencias?.comunicacion_ref === consulta.comunicacion_ref;
+    if (!forzar && misma && ["cargando", "ausente", "confirmado"].includes(paso.estado)) return;
+    paso.controlador?.abort();
+    const generacion = ++paso.generacion;
+    const controlador = new AbortController();
+    paso.controlador = controlador;
+    paso.referencias = consulta;
+    paso.recibo = null;
+    paso.estado = "cargando";
+    paso.mensaje = "llamamiento_consulta_cargando";
+    paso.tono = "informacion";
+    repintar();
+    return Promise.resolve().then(() => {
+      if (!montado || generacion !== paso.generacion || controlador.signal.aborted) return null;
+      if (typeof cliente.consultarReciboRespuesta !== "function") throw new TypeError("consulta no compuesta");
+      return cliente.consultarReciboRespuesta(consulta, { signal: controlador.signal });
+    }).then((respuesta) => {
+      if (!montado || generacion !== paso.generacion || controlador.signal.aborted) return;
+      paso.recibo = validarReciboRespuestaConsultado(respuesta, consulta);
+      paso.estado = "confirmado";
+      paso.mensaje = "llamamiento_consulta_confirmada";
+      paso.tono = "exito";
+      repintar("consultaRespuesta");
+    }).catch((error) => {
+      if (!montado || generacion !== paso.generacion || controlador.signal.aborted) return;
+      const conocido = error?.envelopeValido === true;
+      paso.estado = conocido && error.estado === 404 && error.codigo === "recurso_no_encontrado"
+        ? "ausente" : conocido && [401, 403].includes(error.estado)
+          && ["autenticacion_requerida", "acceso_denegado"].includes(error.codigo)
+          ? "denegado" : "error";
+      paso.mensaje = `llamamiento_consulta_${paso.estado}`;
+      paso.tono = paso.estado === "denegado" ? "error" : "aviso";
+      repintar("consultaRespuesta");
+    }).finally(() => {
+      if (generacion === paso.generacion) paso.controlador = null;
+    });
   }
   function puedeResolver(operacion) {
     const lectura = operacion === "resolucion" ? lecturaPlazo() : null;
@@ -252,6 +312,11 @@ export function montarFormularioLlamamiento({
     }
   }
   function actualizarContexto(nuevo) {
+    if (montado && estado.enlazado
+      && estado.seleccion.valores.expediente_ref !== nuevo?.expediente_ref) {
+      desmontar();
+      return false;
+    }
     if (!montado || estado.seleccion.solicitud !== null
       || !referenciaLlamamientoValida(nuevo?.expediente_ref)
       || !Number.isSafeInteger(nuevo?.version_esperada) || nuevo.version_esperada < 1) return false;
@@ -262,7 +327,8 @@ export function montarFormularioLlamamiento({
       estado.comunicacion.valores.expediente_ref = nuevo.expediente_ref;
     }
     estado.enlazado = true;
-    repintar();
+    if (nuevo.consulta_respuesta !== undefined) consultarReciboRespuesta(nuevo.consulta_respuesta);
+    else repintar();
     return true;
   }
   // Antecedente del siguiente llamamiento: renuncia resuelta o expiración
@@ -321,6 +387,8 @@ export function montarFormularioLlamamiento({
     if (!Object.hasOwn(OPERACIONES, operacion)) return;
     const paso = estado[operacion];
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
+    if (estado.consultaRespuesta.referencias !== null
+      && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
     if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
@@ -473,6 +541,7 @@ export function montarFormularioLlamamiento({
           comunicacion_ref: recibo.comunicacion_ref,
           version_comunicacion_esperada: recibo.version_resultante,
         };
+        await consultarReciboRespuesta(consultaDesdeRecibo(recibo, solicitud));
       }
       if (esRespuesta(operacion) && RESPUESTAS_RESOLUCION.includes(recibo.respuesta)) {
         const destino = estado[operacion === "respuesta" ? "resolucion" : "resolucion_siguiente"];
@@ -532,6 +601,15 @@ export function montarFormularioLlamamiento({
     }
   }
   function alPulsar(evento) {
+    const reintentarConsulta = evento.target?.closest?.("[data-ct-llamamiento-reintentar-consulta]");
+    if (reintentarConsulta?.dataset?.ctLlamamientoReintentarConsulta !== undefined
+      && raiz.contains(reintentarConsulta)) {
+      evento.preventDefault();
+      if (estado.consultaRespuesta.estado === "error") {
+        consultarReciboRespuesta(estado.consultaRespuesta.referencias, true);
+      }
+      return;
+    }
     const revisarPropuesta = evento.target?.closest?.("[data-ct-propuesta-formalizacion-siguiente]");
     if (revisarPropuesta?.dataset?.ctPropuestaFormalizacionSiguiente !== undefined
       && raiz.contains(revisarPropuesta)) {
@@ -611,6 +689,8 @@ export function montarFormularioLlamamiento({
       estado[operacion].lecturaCorreo += 1;
       estado[operacion].controlador?.abort();
     }
+    estado.consultaRespuesta.generacion += 1;
+    estado.consultaRespuesta.controlador?.abort();
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("click", alPulsar);
     raiz.removeEventListener("change", alCambiarArchivo);

@@ -31,6 +31,25 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     // Date pierde los microsegundos: el atributo y el nombre accesible conservan el recibo exacto.
     return `<time datetime="${e(valor)}" title="${e(valor)}" aria-label="${e(`${visible} · ${valor}`)}">${e(visible)}</time>`;
   }
+  function consultaRespuesta() {
+    const consulta = estado.consultaRespuesta;
+    if (!consulta || consulta.estado === "sin_contexto") return "";
+    const antecedente = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
+      paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref
+      && paso.solicitud?.organizacion_ref === consulta.referencias?.organizacion_ref);
+    const contenido = consulta.estado === "confirmado" && consulta.recibo
+      ? `<dl><div><dt>${e(t("llamamiento_respuesta_declarada"))}</dt><dd>${e(t("llamamiento_respuesta_" + consulta.recibo.respuesta))}</dd></div>
+        <div><dt>${e(t("llamamiento_respuesta_recibo"))}</dt><dd>${justificanteTraducido(consulta.recibo.recibo_ref, e, t)}</dd></div>
+        <div><dt>${e(t("llamamiento_registrada_en"))}</dt><dd>${tiempoVisible(consulta.recibo.registrada_en)}</dd></div></dl>` : "";
+    return `<section class="ct-recibo" data-ct-llamamiento-estado="consultaRespuesta"
+      ${consulta.estado === "confirmado" ? 'data-ct-llamamiento-recibo="consultaRespuesta"' : 'role="status"'} tabindex="-1">
+      <h3>${e(t("llamamiento_consulta_titulo"))}</h3>
+      <p>${e(t(consulta.estado === "ausente" && !antecedente
+        ? "llamamiento_consulta_ausente_sin_antecedente" : consulta.mensaje))}</p>${contenido}
+      ${consulta.estado === "error" ? `<button class="boton-secundario" type="button"
+        data-ct-llamamiento-reintentar-consulta>${e(t("llamamiento_consulta_reintentar"))}</button>` : ""}
+    </section>`;
+  }
   function resumenResultado() {
     const esSucesor = Boolean(estado.siguiente?.recibo);
     const declaracion = estado[esSucesor ? "respuesta_siguiente" : "respuesta"].recibo;
@@ -232,6 +251,12 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ${recibo(operacion, paso.recibo)}
     </section>`;
   }
+  const consulta = estado.consultaRespuesta;
+  const antecedenteConsulta = [estado.comunicacion, estado.comunicacion_siguiente].some((paso) =>
+    paso.recibo?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
+    && paso.solicitud?.organizacion_ref === consulta?.referencias?.organizacion_ref);
+  const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
+    || (consulta.estado === "ausente" && !antecedenteConsulta));
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo">
     <header class="ct-cabecera"><div>
@@ -240,6 +265,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     <p class="ct-exp-mensaje ct-tono-informacion" data-ct-llamamiento-contexto>${e(t(
       estado.enlazado ? "llamamiento_contexto_enlazado" : "llamamiento_contexto_manual",
     ))}</p>
+    ${consultaRespuesta()}
+    ${bloqueaFlujo ? "</section>" : `
     ${resumenResultado()}
     ${formulario("seleccion", CAMPOS_SELECCION)}
     <details data-ct-llamamiento-comunicacion${estado.comunicacionAbierta ? " open" : ""}>
@@ -248,7 +275,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>
     ${renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}
-    ${estado.comunicacion.recibo?.version_resultante === 2 && !estado.expiracion?.recibo
+    ${(consulta?.estado === "ausente" || estado.respuesta.recibo) && estado.comunicacion.recibo?.version_resultante === 2 && !estado.expiracion?.recibo
       ? formulario("respuesta", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)
       ? formulario("resolucion", CAMPOS_RESOLUCION) : ""}
@@ -256,7 +283,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? formulario("siguiente", CAMPOS_SIGUIENTE) : ""}
     ${estado.siguiente?.recibo && estado.resolucion.recibo?.respuesta === "renuncia"
       ? formulario("comunicacion_siguiente", CAMPOS_COMUNICACION) : ""}
-    ${estado.comunicacion_siguiente?.recibo?.version_resultante === 2
+    ${(consulta?.estado === "ausente" || estado.respuesta_siguiente?.recibo) && estado.comunicacion_siguiente?.recibo?.version_resultante === 2
       && ["registrada_localmente", "replay_registrada_localmente"].includes(estado.comunicacion_siguiente.recibo.estado_local)
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta_siguiente?.recibo?.respuesta)
@@ -265,5 +292,5 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && estado.seleccion.solicitud.version_esperada >= 6
       && estado.seleccion.solicitud.version_esperada < Number.MAX_SAFE_INTEGER
       ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
-  </section>`;
+  </section>`}`;
 }

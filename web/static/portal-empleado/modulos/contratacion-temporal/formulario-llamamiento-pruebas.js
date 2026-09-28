@@ -58,6 +58,9 @@ export function montar(raiz, cliente = {}, extras = {}) {
   return montarFormularioLlamamiento({
     raiz, cliente: { seleccionarLlamamiento: async () => recibo,
       registrarComunicacionLlamamiento: async () => {},
+      consultarReciboRespuesta: async () => { throw Object.assign(new Error("sin respuesta"), {
+        estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+      }); },
       registrarRespuestaRecibida: async () => {}, resolverLlamamiento: async () => {},
       continuarLlamamiento: async () => {}, ...cliente },
     confirmarOperacion: () => true, criptografia: webcrypto, ...extras,
