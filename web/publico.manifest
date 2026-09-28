@@ -3,6 +3,7 @@ static/acceso/index.html
 static/acceso/acceso.css
 static/acceso/acceso-i18n.js
 static/acceso/locales/es.json
+static/acceso/locales/en.json
 static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css
