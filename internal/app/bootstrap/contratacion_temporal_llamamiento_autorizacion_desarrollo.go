@@ -409,7 +409,7 @@ func concesionConsultaReciboRespuestaDesarrollo() dominiovec.ConcesionRol {
 		Accion: postgresct.AccionConsultaReciboRespuesta, ModuloID: "contratacion_temporal",
 		TipoRecurso: postgresct.TipoRecursoConsultaReciboRespuesta,
 		Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
-		CamposPermitidos: []string{"auditoria_ref", "comunicacion_ref", "estado", "justificante_ref", "organizacion_ref", "recibo_ref", "registrada_en", "respuesta"},
+		CamposPermitidos: []string{"auditoria_ref", "comunicacion_ref", "estado", "expediente_ref", "justificante_ref", "organizacion_ref", "recibo_ref", "registrada_en", "respuesta"},
 	}
 }
 

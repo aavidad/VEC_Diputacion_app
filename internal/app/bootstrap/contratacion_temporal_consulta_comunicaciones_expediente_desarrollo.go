@@ -41,7 +41,7 @@ func concesionConsultaComunicacionesExpedienteDesarrollo() dominiovec.ConcesionR
 		TipoRecurso: postgresct.TipoRecursoConsultaComunicacionesExpediente,
 		Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		CamposPermitidos: []string{
-			"antecedente_tipo", "comunicacion_ref", "estado", "expediente_ref", "llamamiento_ref",
+			"antecedente_tipo", "comunicacion_ref", "estado", "estado_respuesta", "expediente_ref", "llamamiento_ref",
 			"organizacion_ref", "recibo_antecedente_ref", "recibo_comunicacion_ref", "registrada_en", "version",
 		},
 	}

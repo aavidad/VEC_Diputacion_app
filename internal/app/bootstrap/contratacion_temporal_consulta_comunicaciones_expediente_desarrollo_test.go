@@ -69,7 +69,7 @@ func TestConsultaComunicacionesMontajePermisoV3YMaterialExactos(t *testing.T) {
 	concesion := concesionConsultaComunicacionesExpedienteDesarrollo()
 	if concesion.Accion != postgresct.AccionConsultaComunicacionesExpediente ||
 		concesion.TipoRecurso != postgresct.TipoRecursoConsultaComunicacionesExpediente ||
-		!reflect.DeepEqual(concesion.CamposPermitidos, []string{"antecedente_tipo", "comunicacion_ref", "estado", "expediente_ref", "llamamiento_ref", "organizacion_ref", "recibo_antecedente_ref", "recibo_comunicacion_ref", "registrada_en", "version"}) ||
+		!reflect.DeepEqual(concesion.CamposPermitidos, []string{"antecedente_tipo", "comunicacion_ref", "estado", "estado_respuesta", "expediente_ref", "llamamiento_ref", "organizacion_ref", "recibo_antecedente_ref", "recibo_comunicacion_ref", "registrada_en", "version"}) ||
 		len(concesion.Obligaciones) != 0 {
 		t.Fatal("concesión CT140 divergente")
 	}

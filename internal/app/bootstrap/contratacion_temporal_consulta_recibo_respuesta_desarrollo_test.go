@@ -36,7 +36,7 @@ func (a *auditorConsultaReciboPrueba) RegistrarAuditoriaFronteraRutaExacta(_ con
 }
 
 func TestConsultaReciboRespuestaMontajeLigaPermisoPropioYCamposExactos(t *testing.T) {
-	s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ComunicacionRef: "comunicacion:sintetica:001"}
+	s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:sintetico:001", ComunicacionRef: "comunicacion:sintetica:001"}
 	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaConsultaReciboRespuesta)
 	ctx = context.WithValue(ctx, claveConsultaReciboRespuestaDesarrollo{}, s)
@@ -60,14 +60,17 @@ func TestConsultaReciboRespuestaMontajeLigaPermisoPropioYCamposExactos(t *testin
 		},
 		func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) { d.Recurso.Referencia = "comunicacion:ajena" },
 		func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
-			d.Recurso.Ambitos = map[string]string{"organizacion_ref": "organizacion:ajena"}
+			d.Recurso.Ambitos = map[string]string{"organizacion_ref": "organizacion:ajena", "expediente_ref": s.ExpedienteRef}
+		},
+		func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
+			d.Recurso.Ambitos = map[string]string{"organizacion_ref": s.OrganizacionRef, "expediente_ref": "expediente:ajeno"}
 		},
 		func(d *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
 			d.Recurso.Atributos = map[string]string{"material_sha256": strings.Repeat("f", 64)}
 		},
 	} {
 		otro := d
-		otro.Recurso.Ambitos = map[string]string{"organizacion_ref": s.OrganizacionRef}
+		otro.Recurso.Ambitos = map[string]string{"organizacion_ref": s.OrganizacionRef, "expediente_ref": s.ExpedienteRef}
 		otro.Recurso.Atributos = map[string]string{"material_sha256": d.Recurso.Atributos["material_sha256"]}
 		cambiar(&otro)
 		if solicitudAutorizacionLlamamientoDesarrolloValida(ctx, httpinterno.RutaConsultaReciboRespuesta, otro) {
@@ -88,7 +91,7 @@ func TestConsultaReciboRespuestaMontajeLigaPermisoPropioYCamposExactos(t *testin
 		t.Fatal(err)
 	}
 	concesion = instantanea.VersionRol.Concesiones[0]
-	if !reflect.DeepEqual(concesion.CamposPermitidos, []string{"auditoria_ref", "comunicacion_ref", "estado", "justificante_ref", "organizacion_ref", "recibo_ref", "registrada_en", "respuesta"}) ||
+	if !reflect.DeepEqual(concesion.CamposPermitidos, []string{"auditoria_ref", "comunicacion_ref", "estado", "expediente_ref", "justificante_ref", "organizacion_ref", "recibo_ref", "registrada_en", "respuesta"}) ||
 		len(concesion.Obligaciones) != 0 || concesion.Accion != postgresct.AccionConsultaReciboRespuesta {
 		t.Fatal("concesión GET divergente")
 	}
@@ -97,7 +100,7 @@ func TestConsultaReciboRespuestaMontajeLigaPermisoPropioYCamposExactos(t *testin
 func TestConsultaReciboRespuestaMontajeExigeMTLSVigenteYAutorizacionNueva(t *testing.T) {
 	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ahora := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
-	s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ComunicacionRef: "comunicacion:sintetica:001"}
+	s := ports.SolicitudConsultaReciboRespuesta{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:sintetico:001", ComunicacionRef: "comunicacion:sintetica:001"}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaConsultaReciboRespuesta)
 	a := &autorizacionComunicacionDesarrolloPrueba{}
 	p := &proveedorConsultaReciboRespuestaDesarrollo{soporte: soporte, autorizador: a, reloj: relojFijoAltaContratacionTemporalDesarrollo{ahora: ahora}}
@@ -144,7 +147,7 @@ func TestConsultaReciboRespuestaMontaje401YAuditoriaFronteraSinQuery(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := httptest.NewRequest(http.MethodGet, ruta+"?organizacion_ref=organizacion:sintetica&comunicacion_ref=comunicacion:sintetica", nil)
+	r := httptest.NewRequest(http.MethodGet, ruta+"?organizacion_ref=organizacion:sintetica&expediente_ref=expediente:sintetico&comunicacion_ref=comunicacion:sintetica", nil)
 	w := httptest.NewRecorder()
 	autoridad.proteger(h).ServeHTTP(w, r)
 	if w.Code != http.StatusUnauthorized || len(registro.ordenes) != 1 ||
@@ -237,7 +240,7 @@ func TestConsultaReciboRespuestaMontajeCorrelacionRealDeHandlerYActorSellado(t *
 	registro := &auditorConsultaReciboPrueba{}
 	h := auditorConsultaReciboRespuestaDenegada{registrador: registro, soporte: soporte, siguiente: get}
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta+"?organizacion_ref="+organizacionAltaContratacionTemporalDesarrollo+"&comunicacion_ref=comunicacion:sintetica:001", nil).WithContext(ctx))
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta+"?organizacion_ref="+organizacionAltaContratacionTemporalDesarrollo+"&expediente_ref=expediente:sintetico:001&comunicacion_ref=comunicacion:sintetica:001", nil).WithContext(ctx))
 	var cuerpo struct {
 		Error struct {
 			CorrelacionRef string `json:"correlacion_ref"`
