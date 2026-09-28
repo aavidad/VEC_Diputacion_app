@@ -5,6 +5,43 @@ BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
+-- Este delta pertenece a la cadena nueva AD4+B1. La base principal puede
+-- carecer por completo de B1: ese estado no acredita ACL cerrada y no se
+-- modifica. Un B1 parcial o derivado sí se rechaza antes de cualquier REVOKE.
+DO $alcance$
+DECLARE
+    tablas integer;
+    tipos integer;
+BEGIN
+    WITH objetivos(nombre) AS (
+        SELECT pg_catalog.unnest(ARRAY[
+            'bolsa_autoritativa', 'necesidad_autoritativa', 'necesidad_actual',
+            'politica_autoritativa', 'instantanea_autoritativa',
+            'evaluacion_autoritativa', 'atestacion_autorizacion_version',
+            'atestacion_autorizacion_actual', 'propuesta', 'referencia_consumida',
+            'uso_decision', 'auditoria', 'auditoria_actual', 'outbox'
+        ])
+    )
+    SELECT count(c.oid), count(t.oid) INTO tablas, tipos
+      FROM objetivos o
+      LEFT JOIN pg_catalog.pg_namespace n
+        ON n.nspname = 'vec_bolsa_llamamientos'
+      LEFT JOIN pg_catalog.pg_class c
+        ON c.relnamespace = n.oid AND c.relname = o.nombre
+      LEFT JOIN pg_catalog.pg_type t
+        ON t.typnamespace = n.oid AND t.typname = o.nombre;
+    IF tablas = 0 AND tipos = 0 THEN
+        PERFORM pg_catalog.set_config('vec.c3_acl_aplicar', 'false', true);
+        RETURN;
+    END IF;
+    IF tablas <> 14 OR tipos <> 14 THEN
+        RAISE EXCEPTION 'C3 ACL tipos: B1 parcial: %/14 tablas, %/14 tipos',
+            tablas, tipos USING ERRCODE = '55000';
+    END IF;
+    PERFORM pg_catalog.set_config('vec.c3_acl_aplicar', 'true', true);
+END $alcance$;
+SELECT pg_catalog.current_setting('vec.c3_acl_aplicar') AS c3_acl_aplicar \gset
+\if :c3_acl_aplicar
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('vec_contexto_actor_v1:acl-tipos-preselector:c3:v1', 0)
 );
@@ -19,10 +56,14 @@ DECLARE
     cantidad integer := 0;
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles
-                    WHERE rolname = current_user AND rolsuper)
-       OR pg_catalog.current_setting('server_version_num')::integer < 180000
-       OR pg_catalog.to_regrole('vec_contexto_actor_corporativo_rrhh_selector') IS NOT NULL THEN
-        RAISE EXCEPTION 'C3 ACL tipos: preimagen DBA incompatible' USING ERRCODE = '55000';
+                    WHERE rolname = current_user AND rolsuper) THEN
+        RAISE EXCEPTION 'C3 ACL tipos: requiere DBA superusuario' USING ERRCODE = '55000';
+    END IF;
+    IF pg_catalog.current_setting('server_version_num')::integer < 180000 THEN
+        RAISE EXCEPTION 'C3 ACL tipos: requiere PostgreSQL 18' USING ERRCODE = '55000';
+    END IF;
+    IF pg_catalog.to_regrole('vec_contexto_actor_corporativo_rrhh_selector') IS NOT NULL THEN
+        RAISE EXCEPTION 'C3 ACL tipos: selector ya existe' USING ERRCODE = '55000';
     END IF;
     FOREACH nombre IN ARRAY ARRAY[
         'bolsa_autoritativa', 'necesidad_autoritativa', 'necesidad_actual',
@@ -138,4 +179,7 @@ BEGIN
         RAISE EXCEPTION 'C3 ACL tipos: postimagen abierta' USING ERRCODE = '55000';
     END IF;
 END $postimagen$;
+\else
+\echo 'NO_APLICA C3 ACL tipos: B1 ausente (0/14 tablas y tipos); cadena desde cero no instalada'
+\endif
 COMMIT;

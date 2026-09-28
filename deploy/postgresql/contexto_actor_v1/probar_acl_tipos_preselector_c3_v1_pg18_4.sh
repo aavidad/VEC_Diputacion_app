@@ -41,6 +41,39 @@ psql_archivo deploy/postgresql/autorizacion/migraciones/000003_proyeccion_motivo
 psql_archivo deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.up.sql
 psql_archivo deploy/postgresql/bolsa_llamamientos/roles_up.sql
 psql_archivo deploy/postgresql/bolsa_llamamientos/migraciones_autorizacion/000001_revalidacion_llamamientos.up.sql
+paquete=deploy/postgresql/contexto_actor_v1/acl_tipos_preselector_c3_v1.up.sql
+puerta=deploy/postgresql/contexto_actor_v1/pruebas_sql/acl_tipos_preselector_c3_v1.sql
+
+# El clon principal no tiene las catorce tablas B1. Incluso si el rol selector
+# existe, el delta de la cadena nueva debe informar NO_APLICA sin tocar AD4.
+psql_sql <<'SQL'
+CREATE ROLE vec_contexto_actor_corporativo_rrhh_selector NOLOGIN;
+SQL
+psql_archivo "$paquete" >"$tmp/sin_b1" 2>&1
+grep -Fq 'NO_APLICA C3 ACL tipos: B1 ausente (0/14 tablas y tipos)' "$tmp/sin_b1"
+[[ $(valor "SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace
+  CROSS JOIN LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+  WHERE n.nspname='vec_autorizacion'
+    AND t.typname='decision_autorizacion_solicitud_ligada_v2'
+    AND a.grantee=0 AND a.privilege_type='USAGE'") == 1 ]]
+[[ $(valor "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='vec_bolsa_llamamientos' AND c.relname='bolsa_autoritativa'") == 0 ]]
+psql_sql <<'SQL'
+DROP ROLE vec_contexto_actor_corporativo_rrhh_selector;
+SET ROLE vec_bolsa_llamamientos_propietario;
+CREATE SCHEMA vec_bolsa_llamamientos AUTHORIZATION vec_bolsa_llamamientos_propietario;
+CREATE TABLE vec_bolsa_llamamientos.bolsa_autoritativa (id integer PRIMARY KEY);
+RESET ROLE;
+SQL
+if psql_archivo "$paquete" >"$tmp/b1_parcial" 2>&1; then
+  echo 'paquete aceptó B1 parcial' >&2; exit 1
+fi
+grep -Fq 'B1 parcial: 1/14 tablas, 1/14 tipos' "$tmp/b1_parcial"
+[[ $(valor "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+  WHERE n.nspname='vec_bolsa_llamamientos' AND c.relname='bolsa_autoritativa'") == 1 ]]
+psql_sql <<'SQL'
+DROP SCHEMA vec_bolsa_llamamientos CASCADE;
+SQL
 psql_archivo deploy/postgresql/bolsa_llamamientos/migraciones/000001_almacen_llamamientos.up.sql
 
 abiertos=$(valor "SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace
@@ -49,9 +82,6 @@ abiertos=$(valor "SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid=t.
       OR (n.nspname='vec_autorizacion' AND t.typname='decision_autorizacion_solicitud_ligada_v2'))
     AND a.grantee=0 AND a.privilege_type='USAGE'")
 [[ $abiertos == 15 ]] || { echo "preimagen esperada: 15 tipos abiertos; obtenidos $abiertos" >&2; exit 1; }
-
-paquete=deploy/postgresql/contexto_actor_v1/acl_tipos_preselector_c3_v1.up.sql
-puerta=deploy/postgresql/contexto_actor_v1/pruebas_sql/acl_tipos_preselector_c3_v1.sql
 
 # Una concesión ajena adicional debe detener toda la transacción sin cerrar
 # parcialmente los quince tipos.
@@ -108,4 +138,4 @@ psql_sql <<'SQL'
 REVOKE USAGE ON TYPE vec_bolsa_llamamientos.c3_tipo_posterior FROM PUBLIC;
 SQL
 psql_archivo "$puerta"
-echo 'OK C3 ACL tipos: AD4+B1 reales, deriva y repetición rechazadas, puerta posterior cerrada'
+echo 'OK C3 ACL tipos: NO_APLICA sin B1, parcial rechazado, AD4+B1 reales y puerta posterior cerrada'

@@ -89,6 +89,14 @@ restringidas al propietario; no ejecuta ni sustituye el delta de Bolsa. El
 orden es B1 → delta RLS Bolsa → ACL de quince tipos → puerta de tipos → selector
 → puerta de tipos. AD4 también debe estar instalada antes del instalador.
 
+El SQL de ACL de tipos, ejecutado por separado sobre una base sin las catorce
+tablas ni tipos B1, informa `NO_APLICA` y no cambia AD4 ni otra ACL. Este es el
+estado del clon de la principal anterior a B1, no una certificación de ACL
+cerrada. Un B1 parcial se rechaza; con B1 completo se mantienen todas las
+guardas de DBA, propietario, tipo y ACL. El instalador del selector continúa
+exigiendo las catorce políticas RLS B1 cerradas y nunca convierte el
+`NO_APLICA` en un permiso para instalarlo.
+
 `instalar_selector_c3_v1.sh` exige nombre de contenedor PostgreSQL local,
 base y usuario DBA explícitos. `--inspect` devuelve la huella SHA-256 de la
 preimagen de los quince tipos; el operador revisa esa preimagen y la pasa en
