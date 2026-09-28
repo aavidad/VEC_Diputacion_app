@@ -15,11 +15,6 @@ administración pública, sobria y legible. No añadir fuentes externas: solo la
 El motor se descarga bajo demanda desde las versiones publicadas del proyecto (con suma
 SHA-256); no se incluyen binarios en el repositorio.
 
-## 21st.dev (catálogo de componentes)
-21st.dev genera React + Tailwind + shadcn, que VEC no usa. Se consulta solo como catálogo de
-ideas (cuadros de mando, tablas con filtros, líneas de fases, listas de documentos, estados
-vacíos); cada idea se reimplementa en JavaScript sin frameworks con los tokens del tema
-común. Nunca se añade React, Tailwind ni CSS estructural propio.
 
 ## Humanizer
 Para repasar textos (manuales, ayuda «?», mensajes); ver `../humanizer/VEC-USO.md`.
