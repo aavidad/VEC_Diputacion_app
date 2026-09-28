@@ -5,10 +5,12 @@ import "vec-diputacion-granada/internal/vec/domain"
 // El manifiesto identifica al propietario del contacto VEC. Su registro no
 // concede permisos ni publica políticas de autorización.
 const (
-	ModuleID                     = "vec.module.usuarios"
-	PermissionContactoAlta       = "vec.contacto_usuario.alta"
-	PermissionContactoActualizar = "vec.contacto_usuario.actualizar"
-	PermissionContactoConsultar  = "vec.contacto_usuario.consultar"
+	ModuleID                         = "vec.module.usuarios"
+	PermissionContactoAlta           = "vec.contacto_usuario.alta"
+	PermissionContactoActualizar     = "vec.contacto_usuario.actualizar"
+	PermissionContactoConsultar      = "vec.contacto_usuario.consultar"
+	PermissionPreferenciasConsultar  = "vec.preferencias.consultar"
+	PermissionPreferenciasActualizar = "vec.preferencias.actualizar"
 )
 
 func Manifest() domain.ModuleManifest {
@@ -23,6 +25,8 @@ func Manifest() domain.ModuleManifest {
 			{Key: PermissionContactoAlta, LabelKey: "ui.permission.usuarios.contacto_alta"},
 			{Key: PermissionContactoActualizar, LabelKey: "ui.permission.usuarios.contacto_actualizar"},
 			{Key: PermissionContactoConsultar, LabelKey: "ui.permission.usuarios.contacto_consultar"},
+			{Key: PermissionPreferenciasConsultar, LabelKey: "ui.permission.usuarios.preferencias_consultar"},
+			{Key: PermissionPreferenciasActualizar, LabelKey: "ui.permission.usuarios.preferencias_actualizar"},
 		},
 	}
 }
