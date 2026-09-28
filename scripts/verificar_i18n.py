@@ -15,7 +15,7 @@ VISIBLE_JS = re.compile(
     r"(?:\.textContent\s*=|\.innerHTML\s*=|\.setAttribute\(\s*['\"](?:aria-label|title|placeholder)['\"]\s*,)\s*"
     r"(['\"`])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^'\"`]*?)\1"
 )
-TEXTO_PLANTILLA = re.compile(r">\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^<>{}$]+?)\s*<")
+TEXTO_PLANTILLA = re.compile(r"<[A-Za-z][^>]*>\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^<>{}$]+?)\s*<")
 EXCEPCIONES_HTML = {
     # Una inicial decorativa oculta al lector; no transmite información.
     ("portal-empleado/index.html", "P"),
