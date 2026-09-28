@@ -118,3 +118,77 @@ export function crearControladorTema({ documento = globalThis.document } = {}) {
     },
   });
 }
+
+const MODOS_COLOR = new Set(["sistema", "claro", "oscuro"]);
+const TAMANOS_TEXTO = new Set(["normal", "grande", "muy_grande"]);
+
+/** Acepta exclusivamente las opciones visuales del catálogo de Usuarios. */
+export function validarPreferenciasVisuales(preferencias) {
+  if (!preferencias || typeof preferencias !== "object" || Array.isArray(preferencias)) {
+    throw new ErrorTemaVec("preferencias_invalidas", "Las preferencias visuales deben ser un objeto.");
+  }
+  const { tema, alto_contraste: altoContraste, tamano_texto: tamanoTexto } = preferencias;
+  if (!MODOS_COLOR.has(tema)) {
+    throw new ErrorTemaVec("modo_color_invalido", "El modo de color no pertenece al catálogo.");
+  }
+  if (typeof altoContraste !== "boolean") {
+    throw new ErrorTemaVec("contraste_invalido", "El alto contraste debe ser booleano.");
+  }
+  if (!TAMANOS_TEXTO.has(tamanoTexto)) {
+    throw new ErrorTemaVec("tamano_texto_invalido", "El tamaño de texto no pertenece al catálogo.");
+  }
+  return Object.freeze({ tema, alto_contraste: altoContraste, tamano_texto: tamanoTexto });
+}
+
+/** Aplica respuestas del servidor sin HTTP ni persistencia local. */
+export function crearControladorPreferenciasVisuales({ documento = globalThis.document, ventana = globalThis.window } = {}) {
+  const raiz = documento?.documentElement;
+  const cuerpo = documento?.body;
+  if (!raiz?.dataset || !cuerpo?.dataset) {
+    throw new ErrorTemaVec("documento_no_disponible", "El documento no permite aplicar preferencias.");
+  }
+
+  let preferenciasServidor = null;
+  let consultaSistema = null;
+  const modoSistema = () => consultaSistema?.matches ? "oscuro" : "claro";
+  const actualizarSistema = () => {
+    if (preferenciasServidor?.tema === "sistema") cuerpo.dataset.modoColor = modoSistema();
+  };
+  const desconectarSistema = () => {
+    consultaSistema?.removeEventListener?.("change", actualizarSistema);
+    consultaSistema?.removeListener?.(actualizarSistema);
+    consultaSistema = null;
+  };
+  const leerEstado = () => Object.freeze({
+    preferencias_servidor: preferenciasServidor,
+    modo_color: cuerpo.dataset.modoColor ?? null,
+    alto_contraste: cuerpo.dataset.contraste === "true",
+    tamano_texto: raiz.dataset.tamanoTexto ?? null,
+  });
+
+  return Object.freeze({
+    leerEstado,
+    aplicarPreferenciasServidor(preferencias) {
+      const validas = validarPreferenciasVisuales(preferencias);
+      desconectarSistema();
+      preferenciasServidor = validas;
+      if (validas.tema === "sistema") {
+        consultaSistema = ventana?.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
+        consultaSistema?.addEventListener?.("change", actualizarSistema);
+        if (!consultaSistema?.addEventListener) consultaSistema?.addListener?.(actualizarSistema);
+      }
+      cuerpo.dataset.modoColor = validas.tema === "sistema" ? modoSistema() : validas.tema;
+      cuerpo.dataset.contraste = String(validas.alto_contraste);
+      raiz.dataset.tamanoTexto = validas.tamano_texto;
+      return leerEstado();
+    },
+    desmontar() { desconectarSistema(); },
+  });
+}
+
+/** Atajo para una respuesta del servidor; devuelve controlador para desmontar al salir. */
+export function aplicarPreferenciasVisuales(preferencias, opciones = {}) {
+  const controlador = crearControladorPreferenciasVisuales(opciones);
+  controlador.aplicarPreferenciasServidor(preferencias);
+  return controlador;
+}
