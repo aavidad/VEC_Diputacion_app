@@ -12,6 +12,7 @@ BEGIN
  IF encode(sha256(convert_to(material,'UTF8')),'hex') IS DISTINCT FROM
    '2733127cd1d454edebdd5f3e3e975fe391febac0c9d1929b85f2f158f6c082c7'
  THEN RAISE EXCEPTION 'material Go/SQL válido no coincide en bytes'; END IF;
- IF vec_usuarios.huella_contexto_correos(material) !~ '^[0-9a-f]{64}$'
- THEN RAISE EXCEPTION 'contexto de correo no calculable'; END IF;
+ IF vec_usuarios.huella_contexto_correos(material) IS DISTINCT FROM
+   '31e961606d676ba64bb577e4666777ad78c0a3100710693edd219388a8c954a8'
+ THEN RAISE EXCEPTION 'contexto V3 Go/SQL no coincide'; END IF;
 END $vector$;
