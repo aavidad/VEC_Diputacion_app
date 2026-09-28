@@ -1,7 +1,7 @@
 /** Alta y edición RRHH de tipos de borrador; la publicación usa otra autorización. */
-import { crearTraductorContratacionTemporal } from "./i18n.js?v=20260928-rrhh-corte3-ct-i18n-v1";
-import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js?v=20260928-rrhh-plantillas-i18n-v3";
-import { crearClientePlantillasRRHH } from "./rrhh-plantillas-cliente.js?v=20260928-rrhh-corte3-cache-v3";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { MENSAJES_RRHH_PLANTILLAS_ES } from "./rrhh-plantillas-i18n.js";
+import { crearClientePlantillasRRHH } from "./rrhh-plantillas-cliente.js";
 
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/u;
