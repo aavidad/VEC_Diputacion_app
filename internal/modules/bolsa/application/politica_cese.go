@@ -89,15 +89,18 @@ func concesionPoliticaCeseExacta(s vd.SolicitudAutorizacionLigadaV3, d vd.Decisi
 		return false
 	}
 	concedida, _, err := d.Resultado()
-	if err != nil || !concedida {
+	switch {
+	case err != nil, !concedida:
 		return false
 	}
 	datos, err := s.Datos()
-	if err != nil {
+	switch {
+	case err != nil:
 		return false
 	}
 	registro, err := vecports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, d, datos.ReferenciaMotivo, actor)
-	if err != nil || c.ValidarPara(registro) != nil || !c.DentroDeVentanaEn(ahora) {
+	switch {
+	case err != nil, c.ValidarPara(registro) != nil, !c.DentroDeVentanaEn(ahora):
 		return false
 	}
 	canon, err := vd.RepresentacionCanonicaDecisionAutorizacionV3(d)
