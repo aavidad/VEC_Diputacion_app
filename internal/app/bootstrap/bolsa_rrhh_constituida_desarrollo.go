@@ -47,6 +47,12 @@ type fuenteConstituidaRRHHDesarrollo struct {
 const validezCacheBolsasConstituidas = 30 * time.Second
 const envBolsaCeseCTEnabled = "VEC_BOLSA_CESE_CT_ENABLED"
 
+// El texto original del error puede incluir datos de conexión. La etapa y la
+// clasificación bastan para diagnosticar por qué esta fuente queda desactivada.
+func registrarFalloFuenteConstituidaRRHHDesarrollo(etapa string, err error) {
+	log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=%s causa=%s", etapa, causaFalloPostgreSQLCTDesarrollo(err))
+}
+
 func (f *fuenteConstituidaRRHHDesarrollo) invalidar() {
 	if f == nil {
 		return
@@ -62,20 +68,23 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	}
 	ceseActivo, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("selector_cese", err)
 		return nil
 	}
 	poolBolsa, err := abrirBolsaLlamamientosPostgreSQLDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL)
 	if err != nil {
-		log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=pool_bolsa")
+		registrarFalloFuenteConstituidaRRHHDesarrollo("pool_bolsa", err)
 		return nil
 	}
 	repositorio, err := postgresbolsa.NuevoRepositorioConstitucionPostgreSQL(poolBolsa)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("repositorio_constitucion", err)
 		poolBolsa.Close()
 		return nil
 	}
 	situaciones, err := postgresbolsa.NuevoRepositorioSituacionParticipacionPostgreSQL(poolBolsa)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("repositorio_situaciones", err)
 		poolBolsa.Close()
 		return nil
 	}
@@ -83,22 +92,26 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	if ceseActivo {
 		var instalada bool
 		if err := poolBolsa.QueryRow(ctx, `SELECT to_regprocedure('vec_bolsa_llamamientos.consultar_estado_cese_bolsa_v1(text,timestamptz)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+			registrarFalloFuenteConstituidaRRHHDesarrollo("capacidad_cese", err)
 			poolBolsa.Close()
 			return nil
 		}
 		estadosCese, err = postgresbolsa.NuevaConsultaEstadoCesePostgreSQL(poolBolsa)
 		if err != nil {
+			registrarFalloFuenteConstituidaRRHHDesarrollo("consulta_estado_cese", err)
 			poolBolsa.Close()
 			return nil
 		}
 	}
 	consultaOrden, err := postgresbolsa.NuevaConsultaOrdenVigentePostgreSQL(poolBolsa)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("consulta_orden", err)
 		poolBolsa.Close()
 		return nil
 	}
 	orden, err := bolsaapplication.NuevoServicioOrdenVigente(consultaOrden)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("servicio_orden", err)
 		poolBolsa.Close()
 		return nil
 	}
@@ -108,39 +121,44 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	}
 	consultaAvisos, err := nuevaConsultaAvisos(poolBolsa)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("consulta_avisos", err)
 		poolBolsa.Close()
 		return nil
 	}
 	avisos, err := bolsaapplication.NuevoServicioAvisosRRHH(consultaAvisos, time.Now)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("servicio_avisos", err)
 		poolBolsa.Close()
 		return nil
 	}
 	emisiones, err := postgresbolsa.NuevoRepositorioEmisionLlamamientoPostgreSQL(poolBolsa)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("repositorio_emisiones", err)
 		poolBolsa.Close()
 		return nil
 	}
 	material, err := cargarMaterialSeguridadDesarrollo(cfg)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("material", err)
 		poolBolsa.Close()
-		log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=material")
 		return nil
 	}
 	defer borrarMaterialImportacionConvoca(material)
 	p, err := protector.Nuevo(material.claveKMS)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("protector_staging", err)
 		poolBolsa.Close()
 		return nil
 	}
 	poolImportacion, err := abrirPoolImportacionConvoca(ctx, cfg)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("pool_importacion", err)
 		poolBolsa.Close()
-		log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=pool_importacion")
 		return nil
 	}
 	recuperador, err := importacionpg.NuevoRepositorioRecuperacionPostgreSQL(poolImportacion, p)
 	if err != nil {
+		registrarFalloFuenteConstituidaRRHHDesarrollo("recuperador_staging", err)
 		poolBolsa.Close()
 		poolImportacion.Close()
 		return nil
@@ -153,10 +171,12 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 				grupos[categoria.Referencia] = append(grupos[categoria.Referencia], grupo.Clave)
 			}
 		}
+	} else if strings.TrimSpace(cfg.RPTCatalogoPath) != "" {
+		log.Printf("bolsa rrhh: catalogo RPT opcional no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 	}
 	parametros, err := postgresbolsa.NuevoRepositorioPoliticaAvisosPostgreSQL(poolBolsa)
 	if err != nil {
-		log.Printf("bolsa rrhh: bolsas constituidas no disponibles; etapa=parametros_avisos: %v", err)
+		registrarFalloFuenteConstituidaRRHHDesarrollo("parametros_avisos", err)
 		poolBolsa.Close()
 		poolImportacion.Close()
 		return nil
@@ -176,7 +196,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 		if f.ceseActivo {
 			log.Printf("bolsa rrhh: estado de cese no legible; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 		} else {
-			log.Printf("bolsa rrhh: bolsas constituidas no legibles: %v", err)
+			log.Printf("bolsa rrhh: bolsas constituidas no legibles; causa=%s", causaFalloPostgreSQLCTDesarrollo(err))
 		}
 		if f.cacheada && !f.ceseActivo {
 			return f.cache, true
