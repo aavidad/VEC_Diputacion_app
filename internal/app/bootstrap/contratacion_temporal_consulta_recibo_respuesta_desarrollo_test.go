@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,12 @@ import (
 type auditorConsultaReciboPrueba struct {
 	ordenes []puertosvec.OrdenAuditoriaFronteraRutaExacta
 	err     error
+}
+
+type consultorReciboRespuestaDenegadoPrueba struct{}
+
+func (consultorReciboRespuestaDenegadoPrueba) Consultar(context.Context, ports.SolicitudConsultaReciboRespuesta) (ports.ReciboRespuestaConsultado, error) {
+	return ports.ReciboRespuestaConsultado{}, ports.ErrConsultaReciboRespuestaDenegada
 }
 
 func (a *auditorConsultaReciboPrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, orden puertosvec.OrdenAuditoriaFronteraRutaExacta) error {
@@ -162,31 +169,84 @@ func TestConsultaReciboRespuestaMontaje401YAuditoriaFronteraSinQuery(t *testing.
 
 func TestConsultaReciboRespuestaMontaje403AuditoriaSeparadaY404Uniforme(t *testing.T) {
 	ruta := httpinterno.RutaConsultaReciboRespuesta
+	const correlacion = "corr_1234567890abcdef1234567890abcdef"
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)
 	for _, estado := range []int{http.StatusForbidden, http.StatusNotFound} {
 		registro := &auditorConsultaReciboPrueba{}
-		h := auditorConsultaReciboRespuestaDenegada{registrador: registro, siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		h := auditorConsultaReciboRespuestaDenegada{registrador: registro, soporte: soporte, siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(estado)
-			_, _ = w.Write([]byte(`{"error":"uniforme"}`))
+			_, _ = w.Write([]byte(`{"error":{"codigo":"recurso_no_encontrado","correlacion_ref":"` + correlacion + `"}}`))
 		})}
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta+"?comunicacion_ref=comunicacion:sintetica", nil))
-		if w.Code != estado || !strings.Contains(w.Body.String(), "uniforme") {
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta+"?comunicacion_ref=comunicacion:sintetica", nil).WithContext(ctx))
+		if w.Code != estado || !strings.Contains(w.Body.String(), correlacion) {
 			t.Fatalf("estado %d: %d %q", estado, w.Code, w.Body.String())
 		}
 		if estado == http.StatusForbidden {
 			if len(registro.ordenes) != 1 || registro.ordenes[0].Validar() != nil ||
-				registro.ordenes[0].Ruta != ruta || registro.ordenes[0].Motivo != puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
+				registro.ordenes[0].Ruta != ruta || registro.ordenes[0].Motivo != puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado ||
+				registro.ordenes[0].CorrelacionRef != correlacion || registro.ordenes[0].ActorRef != principal.ID {
 				t.Fatalf("403 sin auditoría minimizada: %#v", registro.ordenes)
 			}
 		} else if len(registro.ordenes) != 0 {
 			t.Fatal("404 reveló información mediante auditoría de denegación")
 		}
 	}
+	registroSinIdentidad := &auditorConsultaReciboPrueba{}
+	hSinIdentidad := auditorConsultaReciboRespuestaDenegada{registrador: registroSinIdentidad, soporte: soporte, siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"correlacion_ref":"` + correlacion + `"}}`))
+	})}
+	wSinIdentidad := httptest.NewRecorder()
+	hSinIdentidad.ServeHTTP(wSinIdentidad, httptest.NewRequest(http.MethodGet, ruta, nil))
+	if wSinIdentidad.Code != http.StatusForbidden || len(registroSinIdentidad.ordenes) != 1 ||
+		registroSinIdentidad.ordenes[0].ActorRef != "" || registroSinIdentidad.ordenes[0].CorrelacionRef != correlacion {
+		t.Fatal("identidad no atestada filtrada en auditoría")
+	}
 	registro := &auditorConsultaReciboPrueba{err: errors.New("auditoria caída")}
-	h := auditorConsultaReciboRespuestaDenegada{registrador: registro, siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) })}
+	h := auditorConsultaReciboRespuestaDenegada{registrador: registro, siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"correlacion_ref":"` + correlacion + `"}}`))
+	})}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
-	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "clave_i18n") || strings.Contains(w.Body.String(), "uniforme") {
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "clave_i18n") || strings.Contains(w.Body.String(), correlacion) {
 		t.Fatal("403 sin registro durable no se cerró")
+	}
+	registro.ordenes = nil
+	h = auditorConsultaReciboRespuestaDenegada{registrador: registro, siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":{"correlacion_ref":"no-confiable"}}`))
+	})}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+	if w.Code != http.StatusServiceUnavailable || len(registro.ordenes) != 0 {
+		t.Fatal("correlación no confiable enviada a auditoría")
+	}
+}
+
+func TestConsultaReciboRespuestaMontajeCorrelacionRealDeHandlerYActorSellado(t *testing.T) {
+	ruta := httpinterno.RutaConsultaReciboRespuesta
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)
+	get, err := httpinterno.NuevoManejadorConsultaReciboRespuesta(consultorReciboRespuestaDenegadoPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	registro := &auditorConsultaReciboPrueba{}
+	h := auditorConsultaReciboRespuestaDenegada{registrador: registro, soporte: soporte, siguiente: get}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta+"?organizacion_ref="+organizacionAltaContratacionTemporalDesarrollo+"&comunicacion_ref=comunicacion:sintetica:001", nil).WithContext(ctx))
+	var cuerpo struct {
+		Error struct {
+			CorrelacionRef string `json:"correlacion_ref"`
+		} `json:"error"`
+	}
+	if w.Code != http.StatusForbidden || json.Unmarshal(w.Body.Bytes(), &cuerpo) != nil ||
+		len(registro.ordenes) != 1 || registro.ordenes[0].Validar() != nil ||
+		registro.ordenes[0].CorrelacionRef != cuerpo.Error.CorrelacionRef ||
+		registro.ordenes[0].ActorRef != principal.ID {
+		t.Fatalf("403/recibo auditoría desalineados: estado=%d ordenes=%#v", w.Code, registro.ordenes)
 	}
 }

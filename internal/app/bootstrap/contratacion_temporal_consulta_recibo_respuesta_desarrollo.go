@@ -119,6 +119,7 @@ func certificadoConsultaReciboRespuestaVigente(c capacidadConsultaContratacionTe
 type auditorConsultaReciboRespuestaDenegada struct {
 	siguiente   http.Handler
 	registrador puertosvec.RegistradorAuditoriaFronteraRutaExacta
+	soporte     *soporteAltaContratacionTemporalDesarrollo
 }
 
 func (a auditorConsultaReciboRespuestaDenegada) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -133,11 +134,29 @@ func (a auditorConsultaReciboRespuestaDenegada) ServeHTTP(w http.ResponseWriter,
 		estado = http.StatusOK
 	}
 	if estado == http.StatusForbidden {
+		var cuerpo struct {
+			Error struct {
+				CorrelacionRef string `json:"correlacion_ref"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(respuesta.cuerpo.Bytes(), &cuerpo) != nil {
+			responderConsultaReciboRespuestaNoDisponible(w)
+			return
+		}
 		orden := puertosvec.OrdenAuditoriaFronteraRutaExacta{
-			CorrelacionRef: nuevaCorrelacionConsultaReciboRespuesta(),
+			CorrelacionRef: cuerpo.Error.CorrelacionRef,
 			Motivo:         puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
 			Superficie:     puertosvec.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal,
 			Ruta:           httpinterno.RutaConsultaReciboRespuesta,
+		}
+		if a.soporte != nil {
+			if capacidad, valida := a.soporte.capacidadValida(r.Context()); valida && capacidad.ruta == httpinterno.RutaConsultaReciboRespuesta {
+				orden.ActorRef = capacidad.principal.ID
+			}
+		}
+		if orden.Validar() != nil {
+			responderConsultaReciboRespuestaNoDisponible(w)
+			return
 		}
 		ctx, cancelar := context.WithTimeout(context.WithoutCancel(r.Context()), 250*time.Millisecond)
 		err := a.registrador.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)

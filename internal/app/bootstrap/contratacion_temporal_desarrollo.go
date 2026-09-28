@@ -489,7 +489,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, ports.ErrConsultaReciboRespuestaFallo
 		}
 		consultaReciboRespuestaReal = auditorConsultaReciboRespuestaDenegada{
-			siguiente: consultaReciboRespuestaReal, registrador: alta.postgresql.registradorAuditoriaFrontera,
+			siguiente: consultaReciboRespuestaReal, registrador: alta.postgresql.registradorAuditoriaFrontera, soporte: alta.soporte,
 		}
 		eventoPlazoReal, err = nuevoManejadorEventoPlazoDesarrollo(&alta, reloj)
 		if err != nil {
