@@ -263,6 +263,39 @@ func (s *ServicioCustodiaImagen) Disponible(ctx context.Context, op ports.Operac
 	}
 	return true, nil
 }
+
+// La comprobación posterior usa una decisión nueva de Documentos y consume su
+// material en una nueva lectura durable y auditada. También fija que no haya
+// cambiado la versión exacta del objeto mientras S3 entregaba el contenido.
+func (s *ServicioCustodiaImagen) revalidarDocumentoTrasLectura(ctx context.Context, op ports.OperacionImagen, anterior ports.ReservaImagen) error {
+	permiso, err := s.autorizar(ctx, op)
+	if err != nil {
+		return err
+	}
+	actual, ok, err := s.Registro.LeerImagen(ctx, op, permiso)
+	if err != nil {
+		return err
+	}
+	if !ok || actual.Estado != domain.EstadoImagenConfirmada || actual.Identidad != anterior.Identidad ||
+		actual.ObjetoAdmitido.Objeto != anterior.ObjetoAdmitido.Objeto ||
+		actual.ObjetoAdmitido.HuellaSHA256 != anterior.ObjetoAdmitido.HuellaSHA256 ||
+		actual.ObjetoAdmitido.Tamano != anterior.ObjetoAdmitido.Tamano ||
+		!objetoExacto(actual.ObjetoAdmitido, actual.Identidad, vecports.ZonaAlmacenAdmitida, anterior.ObjetoAdmitido.Tamano) {
+		return ports.ErrImagenNoDisponible
+	}
+	return nil
+}
+func (s *ServicioCustodiaImagen) entregarTrasLectura(ctx context.Context, op ports.OperacionImagen, r ports.ReservaImagen, contenido []byte) ([]byte, error) {
+	if err := s.revalidarDocumentoTrasLectura(ctx, op, r); err != nil {
+		clear(contenido)
+		return nil, err
+	}
+	if err := s.referenciaActiva(ctx, op); err != nil {
+		clear(contenido)
+		return nil, err
+	}
+	return contenido, nil
+}
 func (s *ServicioCustodiaImagen) Abrir(ctx context.Context, op ports.OperacionImagen) ([]byte, error) {
 	if op.Accion != ports.AccionImagenAbrirPropia && op.Accion != ports.AccionImagenAbrirAjena || op.DocumentoRef == "" {
 		return nil, ports.ErrImagenInvalida
@@ -307,9 +340,7 @@ func (s *ServicioCustodiaImagen) Abrir(ctx context.Context, op ports.OperacionIm
 	if !bytesPNG256(contenido) || huella(contenido) != r.Identidad.ContenidoSHA256 || int64(len(contenido)) != r.ObjetoAdmitido.Tamano {
 		return nil, ports.ErrImagenNoDisponible
 	}
-	// Revalidación final: una retirada mientras S3 respondía no entrega bytes.
-	if err := s.referenciaActiva(ctx, op); err != nil {
-		return nil, err
-	}
-	return contenido, nil
+	// S3 pudo tardar mientras se revocaba Documentos o se retiraba en Usuarios.
+	// Ambas autoridades se consultan de nuevo antes de entregar el buffer.
+	return s.entregarTrasLectura(ctx, op, r, contenido)
 }
