@@ -15,9 +15,12 @@ import (
 )
 
 const (
-	finalidadCatalogoPlantillasCT = "gestionar_catalogo_plantillas_contratacion_temporal"
-	audienciaCatalogoPlantillasCT = "vec_contratacion_temporal.catalogo_plantillas.v1"
-	tipoCatalogoPlantillasCT      = "catalogo_plantillas_contratacion_temporal"
+	finalidadCatalogoPlantillasCT   = "gestionar_catalogo_plantillas_contratacion_temporal"
+	audienciaCatalogoPlantillasCT   = "vec_contratacion_temporal.catalogo_plantillas.v1"
+	tipoCatalogoPlantillasCT        = "catalogo_plantillas_contratacion_temporal"
+	audienciaDocumentalPlantillasCT = "vec_contratacion_temporal.catalogo_plantillas_documental.v1"
+	finalidadDocumentalPlantillasCT = "consultar_borradores_expediente"
+	tipoDocumentalPlantillasCT      = "catalogo_plantillas_documental_ct"
 )
 
 // proveedorCatalogoPlantillasCT reutiliza identidad mTLS y el PDP central.

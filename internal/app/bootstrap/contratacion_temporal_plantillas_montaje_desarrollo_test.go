@@ -13,6 +13,7 @@ import (
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -74,6 +75,39 @@ func TestPlantillasCatalogoCTSelectorYFronteras(t *testing.T) {
 	}
 }
 
+func TestPlantillasDocumentalCTSelectorIndependienteYFronteras(t *testing.T) {
+	cfg := configPlantillasDesarrolloPrueba("../../../" + rutaPlantillasCTEjemplo)
+	t.Setenv(envCTPlantillasGobiernoEnabled, "false")
+	t.Setenv(envCTPlantillasDocumentalEnabled, "true")
+	if activa, err := plantillasDocumentalCTDesarrolloSolicitado(cfg); err != nil || !activa {
+		t.Fatalf("CT133 depende indebidamente de CT131: activa=%v err=%v", activa, err)
+	}
+	if admin, err := plantillasCatalogoCTDesarrolloSolicitado(cfg); err != nil || admin {
+		t.Fatalf("selector CT133 abrió CT131: %v %v", admin, err)
+	}
+	cfg.ReglasEjemplo.CTPlantillasSourcePath = ""
+	if _, err := plantillasDocumentalCTDesarrolloSolicitado(cfg); err == nil {
+		t.Fatal("CT133 activado sin catálogo explícito")
+	}
+	fronteras := descriptoresFronterasPlantillasDocumentalCTDesarrollo("prf_ct133")
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, par := range []struct{ ruta, accion string }{
+		{plantillashttp.RutaBorradoresDisponibles, "contratacion_temporal.plantillas_documentos.documental_listar"},
+		{plantillashttp.RutaBorradores, "contratacion_temporal.plantillas_documentos.documental_descargar"},
+	} {
+		d, ok := catalogo.resolver(http.MethodPost, par.ruta)
+		if !ok || d.ClaveCapacidad != par.accion || !d.admitePerfil("prf_ct133") || d.admitePerfil("prf_ct_base") {
+			t.Fatalf("frontera CT133 amplió perfil: %v %#v", ok, d)
+		}
+		if _, ok := catalogo.resolver(http.MethodGet, par.ruta); ok {
+			t.Fatal("GET adquirió catálogo documental")
+		}
+	}
+}
+
 func TestPlantillasCatalogoCTSolicitudesLimitadasACanalYMotivo(t *testing.T) {
 	const sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	base := vecdomain.DatosSolicitudAutorizacionLigadaV3{
@@ -115,6 +149,12 @@ func TestPlantillasCatalogoCTPerfilDedicadoYConcesionesLimitadas(t *testing.T) {
 		dedicado.contexto.Resultado.Contexto.Instantanea.CuentaRef != base.Resultado.Contexto.Instantanea.CuentaRef {
 		t.Fatalf("perfil CT131 no segregado: %v", err)
 	}
+	documental, perfilDocumental, err := nuevoSoportePlantillasDocumentalCTDesdeBaseDesarrollo(soporte, ahora)
+	if err != nil || documental == nil || perfilDocumental == perfil || perfilDocumental == base.Resultado.Contexto.PerfilActivoRef ||
+		documental.contexto.Resultado.Contexto.PersonaRef != dedicado.contexto.Resultado.Contexto.PersonaRef ||
+		documental.contexto.Resultado.Contexto.Instantanea.CuentaRef != dedicado.contexto.Resultado.Contexto.Instantanea.CuentaRef {
+		t.Fatalf("perfil CT133 no segregado de CT131/base: %v", err)
+	}
 	semilla, err := instantaneaInicialPlantillasCatalogoCTDesarrollo(dedicado.contexto.Resultado.Contexto.Principal.ID, perfil, ahora)
 	if err != nil || semilla.Validar() != nil || len(semilla.VersionRol.Concesiones) != 3 ||
 		len(semilla.AsignacionPerfil.Ambitos) != 1 || semilla.AsignacionPerfil.Ambitos[0].Clave != "organizacion_ref" ||
@@ -125,6 +165,25 @@ func TestPlantillasCatalogoCTPerfilDedicadoYConcesionesLimitadas(t *testing.T) {
 		if strings.Contains(concesion.Accion, "documental") || concesion.TipoRecurso != tipoCatalogoPlantillasCT ||
 			len(concesion.Obligaciones) != 0 {
 			t.Fatalf("concesión CT133 o ajena en CT131: %#v", concesion)
+		}
+	}
+	semillaDocumental, err := instantaneaInicialPlantillasDocumentalCTDesarrollo(
+		documental.contexto.Resultado.Contexto.Principal.ID, perfilDocumental, ahora)
+	if err != nil || semillaDocumental.Validar() != nil || len(semillaDocumental.VersionRol.Concesiones) != 3 ||
+		len(semillaDocumental.AsignacionPerfil.Ambitos) != 3 {
+		t.Fatalf("semilla CT133 incompleta: %v", err)
+	}
+	if !semillaDocumental.AsignacionPerfil.Cubre(vecdomain.RecursoAutorizable{
+		Referencia: "expediente:ct:0001", ModuloID: plantillasapp.ModuloID, Tipo: tipoDocumentalPlantillasCT,
+		Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+			"clase_ambito": string(ctports.AmbitoOrganizacionRRHH), "ambito_ref": organizacionAltaContratacionTemporalDesarrollo},
+		Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)}}) {
+		t.Fatal("ámbito CT133 de organización no cubre documento propio")
+	}
+	for _, concesion := range semillaDocumental.VersionRol.Concesiones {
+		if concesion.Accion == "contratacion_temporal.plantillas_documentos.editar" ||
+			concesion.Accion == "contratacion_temporal.plantillas_documentos.publicar" {
+			t.Fatal("CT133 adquirió gobierno de plantillas")
 		}
 	}
 }
