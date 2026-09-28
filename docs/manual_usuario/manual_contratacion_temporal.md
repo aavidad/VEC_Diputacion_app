@@ -1,328 +1,118 @@
-# Manual de usuario · Contratación Temporal (VEC)
+# Manual de usuario · Contratación temporal
 
-**Ventanilla Electrónica del Empleado Público · Diputación de Granada**
-*Guía de uso para el personal tramitador de Recursos Humanos y el personal de Intervención.*
+**Ventanilla Electrónica del Empleado Público (VEC) · Guía para RRHH**
+**Alcance:** funciones presentes en main a 28 de septiembre de 2026, con datos sintéticos.
 
----
+Esta guía acompaña un expediente desde la petición del centro hasta su seguimiento y cierre. Algunas actuaciones corresponden al centro o a Intervención: RRHH ve su resultado y continúa cuando su perfil y el estado del expediente lo permiten. Las capturas proceden de recorridos de ensayo; los rótulos y datos pueden variar según el catálogo vigente.
 
-## 1. Introducción y acceso al portal
+> **Antes de empezar:** acceda con el certificado digital admitido y el perfil autorizado para su actuación. El certificado identifica a la persona; cada operación comprueba además sus permisos. Identificarse no firma un documento. Este recorrido no utiliza «DNI y clave».
 
-La tramitación de contrataciones temporales en la Diputación de Granada se realiza de forma centralizada y unificada a través del Portal del Empleado (VEC). El sistema ofrece un entorno visual y guiado que acompaña a los tramitadores paso a paso a lo largo de las ocho fases del procedimiento: desde que el centro gestor solicita la cobertura de una vacante o sustitución, hasta el cese o cierre del expediente tras la incorporación de la persona seleccionada.
+## 1. Encontrar y abrir un expediente
 
-El acceso se realiza mediante navegador web institucional. En la pantalla inicial de bienvenida se muestran los accesos directos a los módulos operativos, la ayuda y el estado de los servicios.
+1. Abra el portal y entre en **Contratación temporal**. Si el módulo o una acción no aparecen, solicite la concesión correspondiente por el cauce interno; el menú no concede permisos.
+2. En el **cuadro de mando**, use los filtros disponibles para localizar el expediente por referencia, estado o fase. Los indicadores resumen los expedientes de la página mostrada, no necesariamente todos los de la Diputación.
+3. Abra el detalle. Revise fase, versión, unidad y actuaciones anteriores antes de registrar un cambio. La disponibilidad de cada formulario procede del servidor y del estado actual.
 
-![Pantalla de inicio del portal](capturas/contratacion/01_inicio_portal.png)
+![Cuadro de mando del ejercicio](capturas/contratacion/02_cuadro_mando_completo.png)
 
-### Quién lo hace
-Cualquier persona autorizada de la Diputación (responsable de centro solicitante, tramitador de Recursos Humanos o personal de Intervención) accede con su identidad corporativa habitual.
+Si una consulta falla, use **Reintentar** o actualice el detalle. Si ya obtuvo un recibo, consérvelo: abrir un expediente o consultar el recibo no repite la operación.
 
-### Cómo se hace clic a clic
-1. Abra el navegador web y acceda a la dirección del Portal del Empleado.
-2. En el menú de navegación lateral o en la tarjeta central, pulse sobre **Contratación temporal**.
-3. El sistema carga automáticamente el módulo situándole en la vista del **Cuadro de mando**.
+## 2. Petición del centro y alta en RRHH
 
----
+El centro inicia una petición con la necesidad de cobertura, categoría, causa, fechas previstas y datos de retención de crédito (RC) cuando correspondan.
 
-## 2. Cuadro de mando de expedientes
+![Revisión de la solicitud inicial del centro antes de confirmar y registrar](capturas/contratacion/06_revision_confirmar_registrar.png)
 
-El cuadro de mando es el panel principal de control del tramitador. Ofrece una panorámica completa de todas las peticiones y expedientes en curso dentro de la Diputación, permitiendo consultar su estado administrativo, la fase actual en la que se encuentran y localizar rápidamente cualquier asunto mediante filtros combinados.
+Otra identidad autorizada la ratifica. Después, la petición ratificada se entrega al alta de RRHH. Son actuaciones separadas, cada una con su recibo.
 
-![Cuadro de mando completo](capturas/contratacion/02_cuadro_mando_completo.png)
+En RRHH, abra la petición entregada, compruebe sus datos y registre el alta desde la acción ofrecida. El alta crea **un expediente** con referencia y versión; el recibo identifica la operación. Si la respuesta se pierde, recupere esa petición y consulte el resultado antes de intentar otra alta. La repetición exacta enlaza con el expediente creado sin duplicarlo.
 
-### Qué es y para qué sirve
-Permite monitorizar el conjunto de la contratación temporal de la corporación. Cada fila de la tabla representa un expediente administrativo único, identificado por su referencia anual canónica (por ejemplo, `2026/CT-000005`), el centro solicitante, la categoría profesional, la modalidad de contratación solicitada, el estado de tramitación y la fase del procedimiento.
+La ratificación y el alta acreditan actuaciones registradas en VEC. Ninguna constituye una firma legal de la petición.
 
-### Quién lo utiliza
-El personal técnico y administrativo del Servicio de Personal y Recursos Humanos, así como los responsables de los centros gestores para consultar sus propias solicitudes.
+## 3. Análisis de RRHH y decisión de cobertura
 
-### Cómo se hace clic a clic
-1. En la parte superior del cuadro de mando dispone de tres filtros de búsqueda:
-   - **Buscar en el cuadro:** escriba palabras clave como el nombre del centro (por ejemplo, `PARQUE MÓVIL` o `DEPORTES`), la categoría profesional o el número de referencia.
-   - **Estado:** filtre por estado global (`En tramitación`, `Con incidencia`, `Completado`).
-   - **Fase del procedimiento:** filtre por la etapa exacta en la que se halla el expediente (`Solicitud`, `Asignación de unidad`, `Fiscalización`, `Nombramiento`, etc.).
-2. La tabla actualiza sus resultados de forma instantánea al modificar cualquier criterio.
-3. Para consultar el detalle completo de un expediente, haga clic sobre su número de referencia o pulse el botón **Abrir detalle** situado en la fila correspondiente.
-4. Para limpiar los filtros y volver a la lista general, seleccione la opción «Todos» o borre el texto introducido.
+1. Desde el detalle, abra **Análisis de RRHH**. Revise categoría, grupo, modalidad y causa del catálogo, fechas, jornada, coste obtenido de la fuente configurada y resultado de RC. La jornada se presenta en horas y minutos de media semanal; la referencia del ejercicio es provisional.
+2. Confirme el análisis y espere su recibo. Si necesita corregirlo, use **Rectificar análisis**: el sistema precarga los datos previos y exige el motivo y la identidad distinta que corresponda. La rectificación añade historia; no borra la anterior.
+3. En **Gestión de bolsa / vía de cobertura**, revise las comprobaciones y la propuesta disponibles, seleccione la vía admitida y confirme. Bolsa conserva candidaturas, disponibilidad, orden y llamamientos; Contratación recibe referencias y resultados.
+4. Registre la **asignación a unidad**. La unidad asignada prepara el **informe jurídico** para fiscalización. Compruebe el recibo de cada decisión antes de avanzar.
 
-![Cuadro de mando con filtro por fase](capturas/contratacion/03_cuadro_filtro_fase.png)
+![Análisis en el expediente de ensayo](capturas/contratacion/09_detalle_000006_analisis_coste.png)
 
-### Qué significa cada campo del listado
-- **Expediente:** código oficial y correlativo asignado por registro al crearse la solicitud (ej. `2026/CT-000009`).
-- **Centro:** unidad orgánica o servicio provincial solicitante (ej. `PATRIMONIO`, `RECURSOS HUMANOS`).
-- **Categoría:** puesto o denominación funcional de la plaza a cubrir de acuerdo con el catálogo de la corporación.
-- **Modalidad:** tipo legal de cobertura temporal (`Sustitución`, `Acumulación de tareas`, `Ejecución de programas`, etc.).
-- **Estado:** situación administrativa operativa (`En tramitación` para expedientes activos ordinarios; `Con incidencia` cuando existe un reparo o paralización que exige subsanación).
-- **Fase actual:** etapa procedural concreta en la que se encuentra la actuación (`Solicitud`, `Asignación de unidad`, `Fiscalización`, `Obtención de candidato`, etc.).
+Una decisión de cobertura o un informe preparado no acredita por sí solo selección de persona, fiscalización favorable ni firma.
 
----
+## 4. Fiscalización y subsanación
 
-## 3. Paso 1 — Solicitud de contratación temporal
+Intervención accede con su perfil propio, abre el expediente remitido y registra el resultado de la fiscalización. RRHH consulta el resultado y su recibo desde el expediente.
 
-El procedimiento comienza cuando un centro directivo, servicio o área provincial detecta una necesidad urgente de personal temporal y cumplimenta la solicitud formal a través del portal.
+- Si es **favorable** o **favorable con observaciones**, revise lo indicado y continúe por las acciones que el servidor habilite.
+- Si hay **reparo**, abra la incidencia y registre la subsanación que proceda. El expediente vuelve a Intervención para una nueva decisión; subsanar no convierte el reparo en favorable.
 
-### 3.1. Formulario inicial en blanco
+![Fiscalización en el ejercicio](capturas/contratacion/13_fiscalizacion_intervencion_000009.png)
 
-Para registrar una nueva petición, el usuario pulsa en la pestaña superior **Nueva petición** o en el botón destacado **Registrar nueva petición** del cuadro de mando.
+Intervención y RRHH tienen permisos y responsabilidades distintos. Una pantalla compartida no permite asumir el perfil de la otra persona.
 
-![Nueva petición vacía](capturas/contratacion/04_nueva_peticion_vacia.png)
+## 5. Llamamiento desde Bolsa
 
-### 3.2. Cumplimentación de datos y retención de crédito
+Tras la fiscalización que habilita la continuación, RRHH abre **Llamamiento y comunicación**. Siga el orden que devuelva Bolsa y espere el recibo de cada operación:
 
-El formulario solicita exclusivamente la información indispensable para justificar la necesidad funcional y presupuestaria.
+1. **Iniciar llamamiento:** revise la propuesta y confirme. El recibo contiene referencias protegidas, sin exponer aquí identidad ni datos de contacto de la candidatura.
+2. **Registrar comunicación:** confirme el aviso local vinculado al llamamiento. El registro no prueba que un correo haya salido o llegado.
+3. **Registrar respuesta:** si llegó por un canal externo, indique aceptación o renuncia, referencia y fecha, y seleccione el archivo de correo del ensayo para calcular su huella. VEC conserva referencia y huella; no custodia el mensaje.
+4. **Solicitar resolución:** revise la declaración, haga las comprobaciones expresas exigidas y confirme. Declarar una respuesta no equivale a resolverla.
+5. Con aceptación resuelta, continúe hacia la propuesta de nombramiento. Con renuncia resuelta, revise y abra expresamente el siguiente llamamiento; registre también su aviso local. El siguiente candidato no recibe una comunicación automática por esta acción.
 
-![Nueva petición cumplimentada](capturas/contratacion/05_nueva_peticion_rellena.png)
+![Llamamiento del ejercicio](capturas/contratacion/15_llamamiento_comunicacion_000011.png)
 
-#### Significado de los campos:
-- **Centro solicitante:** área o servicio provincial donde se prestará el servicio (ej. `Parque Móvil`).
-- **Persona de contacto:** nombre, apellidos y extensión telefónica o correo de la persona de referencia para resolver dudas funcionales.
-- **Categoría profesional:** categoría laboral o escala funcionarial solicitada, seleccionada del catálogo oficial.
-- **Grupo / Subgrupo:** subgrupo de clasificación profesional (`A1`, `A2`, `C1`, `C2`, `Agrupaciones profesionales`).
-- **Motivo de la contratación:** causa legal de cobertura temporal establecida en el Texto Refundido del Estatuto Básico del Empleado Público.
-- **Memoria justificativa (Detalle):** explicación circunstanciada de la necesidad inaplazable que motiva el llamamiento.
-- **Período previsto (Inicio y Fin):** fechas estimadas de comienzo y término de la prestación temporal del servicio.
-- **Observaciones:** aclaraciones adicionales, jornada aplicable o turnos requeridos.
-- **Retención de crédito (RC):** declaración sobre la existencia de dotación presupuestaria. Si se marca afirmativamente, se indican el número de documento contable, fecha e importe reservado.
+La selección se rige por Bolsa, con su propio orden y disponibilidad. Los recibos del ejercicio no acreditan envío corporativo, entrega, plazo legal, penalización ni custodia del correo.
 
-### 3.3. Revisión previa y confirmación sin registro inadvertido
+## 6. Propuesta, documentos y formalización
 
-Para prevenir registros erróneos o duplicados accidentales, el sistema incorpora un paso de revisión obligatoria. Al pulsar **Revisar solicitud**, el formulario pasa a modo de comprobación: muestra un resumen ordenado de todos los datos introducidos y ofrece dos opciones explícitas: **Volver a editar** (para subsanar cualquier errata) y **Confirmar y registrar**.
+Con la aceptación registrada, consulte la **propuesta de nombramiento** y el índice documental. Puede descargar los seis borradores previstos para el ejercicio: informe definitivo, resolución, diligencia, toma de posesión, notificación y comunicación al centro. Compruebe nombre y contenido antes de usarlos.
 
-![Revisión previa a confirmación y registro](capturas/contratacion/06_revision_confirmar_registrar.png)
+El panel de **circuito de firma** muestra los pasos y estados que proporciona el servidor. Para un paso pendiente y autorizado ofrece **Firmar** mediante AutoFirma o **Devolver** con motivo. El servicio verifica y registra la firma de prueba y da un recibo; si la verificación falla o el servicio no está disponible, no la acepta. El certificado usado para acceder sigue siendo distinto del acto de firmar.
 
-### Qué pasa después
-Al confirmar, el sistema genera de forma irrevocable el número de expediente oficial, genera el recibo de registro y sitúa el expediente en fase de **Solicitud registrada**, visible de inmediato en el cuadro de mando y listo para el análisis técnico de RRHH.
+**Las firmas de este entorno son de prueba y carecen de eficacia administrativa.** La formalización real depende del portafirmas corporativo y de las decisiones y documentos que este valide. Un borrador descargado o una firma técnica registrada no acredita nombramiento eficaz, notificación ni entrega.
 
-![Detalle del expediente 000005 con raíl de progreso](capturas/contratacion/07_detalle_000005_solicitud_rail.png)
+## 7. Incorporación y ficha manual de GINPIX
 
----
+El centro confirma la incorporación desde sus peticiones, con el tipo de documento que exija el catálogo (toma de posesión o contrato firmado). RRHH consulta esa confirmación y el seguimiento. No deduzca la incorporación de una aceptación o propuesta: espere su recibo específico.
 
-## 4. Paso 2 — Análisis de RRHH y propuesta de cobertura
+La **ficha de GINPIX** se descarga para carga manual. No hay transmisión ni confirmación automática de alta externa. Cuando GINPIX devuelve el número de alta, RRHH puede registrar **Confirmar la ficha de GINPIX** con número y fecha, si la acción está disponible. La confirmación queda ligada a la incorporación y el cierre la utiliza cuando el catálogo la exige.
 
-Una vez registrada la solicitud, los técnicos de Recursos Humanos examinan la adecuación formal, la causa justificativa alegada y calculan la estimación económica de la contratación.
+Si la persona aceptada no llega a incorporarse, el panel ofrece **No incorporación** según la regla vigente. Registre motivo y referencia de resolución. Si se exige segunda persona, la primera solo propone y otra identidad autorizada confirma o rechaza. Al confirmarse, el expediente vuelve a la fase indicada por el catálogo y el nuevo llamamiento se hace expresamente; la propuesta anterior permanece en la historia.
 
-![Formulario y datos de análisis de RRHH](capturas/contratacion/08_formulario_analisis_000005.png)
+## 8. Seguimiento, cese y cierre
 
-### Quién lo hace
-Personal técnico asignado del Servicio de Recursos Humanos.
+En **Seguimiento del nombramiento**, consulte incorporación, recibos y opciones vigentes. Una anotación administrativa conserva una observación y su recibo sin iniciar un cese. Modificar fechas o jornada crea una nueva versión del análisis, recalcula el coste y devuelve el expediente a la fase configurada; revise la nueva RC y el estado antes de continuar.
 
-### Cómo se hace clic a clic
-1. Abra el expediente desde el cuadro de mando.
-2. Compruebe en la cabecera los datos de la solicitud y en el raíl superior que la fase actual marca `Solicitud`.
-3. Seleccione la categoría y el grupo o subgrupo del catálogo disponible y revise la causa de contratación temporal analizada conforme a la normativa vigente.
-4. Introduzca las fechas definitivas validadas por RRHH y la jornada en diezmilésimas. El formulario muestra su equivalencia al escribir: 5000 corresponde al 50,00 % y 10000 al 100,00 %. El coste estimado procede de la fuente configurada; este campo de jornada no permite introducirlo manualmente.
-5. Indique si existe retención de crédito suficiente y añada las observaciones técnicas de la valoración.
-6. Guarde el análisis para cerrar la propuesta técnica de cobertura.
-7. Para corregir un análisis registrado, abra **Rectificar análisis**. Los datos y las observaciones anteriores se precargan; revise grupo y RC, seleccione el motivo disponible y confirme. Se exige una identidad distinta de la autora del análisis anterior. Espere el recibo antes de continuar. En el historial del expediente o de cada fase puede consultar la fecha y hora de cada actuación en horario peninsular.
+Para registrar un **cese**, debe constar la incorporación acreditada. Seleccione causa del catálogo y fecha de efecto, indique la referencia del justificante y elija el archivo para calcular su huella. Revise y confirme: recibo e historial reflejan el cese, y Bolsa recibe el fin del contrato para reponer la disponibilidad conforme a su propia regla.
 
-![Detalle del expediente 000006 con análisis, coste y observaciones](capturas/contratacion/09_detalle_000006_analisis_coste.png)
+Después del cese, use **Cerrar el expediente** cuando el panel lo habilite. Si la regla exige confirmación de la ficha de GINPIX, regístrela antes: el cierre toma el número ya confirmado y no admite sustituirlo por otro. El cierre tiene su propio recibo. Existe además un **cierre administrativo sin cese** para su supuesto específico; no lo confunda con el cierre posterior al cese.
 
-### Qué pasa después
-El expediente avanza en el raíl de seguimiento, quedando acreditado el coste presupuestario y la justificación de la necesidad para decidir la vía de cobertura.
+La referencia y la huella de un justificante no equivalen a custodiar el archivo o a obtener una confirmación técnica de GINPIX.
 
----
+## 9. Recibos, historial y recuperación
 
-## 5. Paso 3 — Gestión de bolsa y vía de cobertura
+Cada confirmación muestra un **recibo**. Consérvelo junto a la referencia del expediente y revise la versión resultante. En el detalle puede consultar la cronología de actuaciones y los recibos disponibles; una rectificación o sustitución añade historia en lugar de borrar la actuación anterior.
 
-Recursos Humanos comprueba la existencia de instrumentos de provisión vigentes y determina la vía jurídica por la que se seleccionará a la persona candidata.
+Si aparece «resultado incierto» o se interrumpe la conexión, **no cree una operación distinta para probar**. Consulte el expediente o el recibo y reintente la misma operación con los mismos datos cuando la pantalla lo permita. Una versión en conflicto exige actualizar el detalle y decidir de nuevo. Un mensaje de carga, borrador o declaración no es una confirmación.
 
-![Comprobaciones de bolsa y vía de cobertura en 000007](capturas/contratacion/10_gestion_bolsa_000007.png)
+![Historial del expediente de ensayo](capturas/contratacion/16_historial_actuaciones_desplegado.png)
 
-### Quién lo hace
-Técnicos de selección y gestión de bolsas de trabajo de Recursos Humanos.
+La auditoría de acceso y efectos se conserva con permisos propios. El historial visible ayuda a seguir el trámite, pero no muestra todos los datos de la auditoría técnica.
 
-### Cómo se hace clic a clic
-1. En el expediente, consulte el bloque de **Gestión de bolsa**.
-2. El sistema realiza y documenta cuatro comprobaciones objetivas:
-   - *¿Existe bolsa de trabajo vigente para la categoría solicitada?*
-   - *¿Hay candidaturas disponibles y activas en dicha bolsa?*
-   - *¿Procede realizar oferta genérica a los Servicios Públicos de Empleo (SAE)?*
-   - *¿Requiere tramitar una nueva convocatoria pública de selección?*
-3. Seleccione la vía de cobertura adoptada (`Bolsa vigente`, `Oferta SAE`, `Nueva convocatoria`, etc.).
-4. Confirme la decisión de cobertura.
+## 10. Ayuda y ventajas de VEC
 
----
+Pulse el botón **«?»** de la barra o del apartado para abrir la ayuda contextual. Allí se explican el paso, sus límites y qué hacer ante un error. La pantalla de trabajo muestra acciones y datos necesarios; la explicación extensa está en la ayuda.
 
-## 6. Asignación a unidad gestora
+VEC reúne petición, decisiones, recibos e historia en el expediente para que RRHH pueda retomar el trabajo y distinguir qué actuación quedó confirmada. Las reglas y opciones proceden de catálogos versionados, por lo que cada decisión conserva su contexto.
 
-Determinada la vía de cobertura, la Jefatura o responsable de tramitación asigna formalmente el expediente a la unidad administrativa competente para instruir las actuaciones sucesivas.
+El sistema separa responsabilidades: **Contratación temporal** coordina el expediente, **Bolsa** decide sobre candidaturas y llamamientos, y **Personal** conserva las relaciones e incorporaciones que le pertenecen. Los módulos comparten identidad, permisos, auditoría y presentación. Su arquitectura separa reglas de negocio, conexiones con otros servicios y pantallas; esto permite evolucionar un módulo y conectar otros clientes a los mismos casos de uso. El recorrido acreditado aquí es el del navegador: esta guía no afirma que exista un cliente de escritorio o CLI operativo para este trámite.
 
-![Asignación formal a la unidad gestora en 000008](capturas/contratacion/11_asignacion_unidad_000008.png)
+## 11. Alcance del ejercicio
 
-### Qué significa y qué pasa después
-La unidad gestora (por ejemplo, `Servicio de Personal y Selección`) asume la responsabilidad del expediente. A partir de este momento, los avisos y notificaciones de tramitación se canalizan directamente al equipo instructor responsable de la confección del informe jurídico previo a la fiscalización.
+El corte de main y los recorridos documentados usan **datos sintéticos**. La presentación de septiembre incluyó lectura en la principal y escritura, cese, recuperación tras reiniciar aplicación y PostgreSQL y casos negativos en una copia de ensayo. Esto no autoriza datos reales ni uso productivo.
 
----
+Siguen pendientes la firma con validez legal mediante el portafirmas corporativo, la acreditación de envío y entrega del correo, las reglas legales aún no aprobadas por RRHH y la transmisión automática a GINPIX. Una ficha manual o un número confirmado en VEC no son una confirmación del sistema externo obtenida por integración. Consulte la ayuda «?» y el estado del expediente antes de interpretar cualquier recibo.
 
-## 7. Documentos del expediente e informe jurídico
-
-Antes de remitir el expediente al órgano de control interno, la unidad instructora incorpora al expediente el informe jurídico justificativo y el índice documental preceptivo.
-
-![Índice documental e informe jurídico en 000009](capturas/contratacion/12_informe_juridico_documentos_000009.png)
-
-### Quién lo hace
-La unidad instructora designada de Recursos Humanos.
-
-### Cómo se hace clic a clic
-1. En el detalle del expediente, pulse sobre la pestaña **Documentos**.
-2. La vista muestra el índice cronológico y estructurado de los documentos generados e incorporados:
-   - Memoria justificativa del centro solicitante.
-   - Documento contable de retención de crédito (RC).
-   - Informe técnico de valoración y coste emitido por Recursos Humanos.
-   - Propuesta motivada de incoación y cobertura.
-3. Se genera el borrador de informe jurídico para someter a la firma de la jefatura competente antes de su elevación a Intervención.
-
----
-
-## 8. Paso 4 — Fiscalización previa por Intervención
-
-El Servicio de Intervención General ejerce la función interventora previa sobre la propuesta de contratación temporal, comprobando la legalidad del gasto y la existencia de crédito adecuado y suficiente.
-
-### 8.1. Acceso y revisión desde Intervención (8083)
-
-El personal de Intervención accede con su perfil de fiscalización exclusivo al entorno de control.
-
-![Fiscalización desde la identidad de Intervención en 000009](capturas/contratacion/13_fiscalizacion_intervencion_000009.png)
-
-#### Cómo se hace clic a clic:
-1. El interventor o interventora accede al portal en la vista de Intervención.
-2. Introduce la referencia del expediente remitido (ej. `2026/CT-000009`) y la versión documental remitida por RRHH.
-3. Pulsa **Abrir fiscalización**.
-4. Examina la documentación contable y jurídica adjunta.
-5. Selecciona el resultado de la función interventora:
-   - **Favorable:** el expediente continúa su curso ordinario hacia la selección del candidato.
-   - **Favorable con observaciones:** el expediente continúa pero con advertencias a subsanar antes del pago.
-   - **Desfavorable (con reparo):** suspende la tramitación del expediente hasta que el centro o RRHH subsanen los defectos observados.
-6. Redacta las observaciones o motivos del reparo y pulsa **Registrar resultado**.
-
-### 8.2. Tratamiento de reparos y subsanación en RRHH
-
-Cuando Intervención formula un reparo, el raíl de seguimiento del expediente pasa automáticamente al estado destacado **«Con incidencia»** en color ámbar.
-
-![Tratamiento de reparo y subsanación en 000010](capturas/contratacion/14_reparo_subsanacion_000010.png)
-
-#### Cómo se subsana:
-1. El tramitador de RRHH abre el expediente con incidencia.
-2. En la cabecera se visualiza el motivo exacto del reparo emitido por Intervención.
-3. Se abre el bloque de subsanación de reparos, donde se aporta la aclaración técnica, corrección presupuestaria o documentación requerida.
-4. Se registra la subsanación, lo que devuelve el expediente a Intervención para su nueva fiscalización sin necesidad de reiniciar la solicitud desde el principio.
-
----
-
-## 9. Paso 5 — Obtención del candidato y llamamiento
-
-Superada favorablemente la fiscalización, RRHH puede iniciar desde el expediente el recorrido sintético de llamamiento. El servidor aplica el orden de la fuente de Bolsa y comprueba los permisos. El recibo confirma la selección mediante referencias opacas; no muestra la identidad, la posición ni datos de contacto de la persona candidata.
-
-![Bloque de llamamiento y comunicación al candidato en 000011](capturas/contratacion/15_llamamiento_comunicacion_000011.png)
-
-### Qué es y quién lo hace
-El Servicio de Personal de RRHH registra y recupera las operaciones del llamamiento de desarrollo. Cada operación exige confirmación y conserva un recibo. La comunicación que aparece en esta pantalla es un registro local y no acredita un envío o una entrega.
-
-### Cómo se hace clic a clic
-1. Abra el expediente fiscalizado y entre en **Llamamiento y comunicación**.
-2. En **1. Iniciar llamamiento**, pulse **Revisar e iniciar llamamiento**, compruebe los datos y confirme. Espere a que aparezca el recibo verificado.
-3. Abra **2. Registrar comunicación** y pulse **Revisar y registrar comunicación**. Confirme el aviso local vinculado al recibo de selección.
-4. Si RRHH ha recibido una respuesta por el canal externo, en **3. Registrar respuesta recibida por correo** seleccione aceptación o renuncia, indique una referencia opaca y la fecha UTC y elija un `.eml` sintético para calcular su huella SHA-256. Pulse **Revisar y registrar respuesta declarada** y confirme. VEC no sube ni conserva el contenido del correo.
-5. En **4. Solicitar resolución de respuesta**, revise la declaración y su justificante, marque las dos comprobaciones expresas del ejercicio y pulse **Revisar y solicitar resolución**. La declaración anterior no resuelve por sí sola la aceptación o la renuncia.
-6. Si se confirma una aceptación, queda disponible la preparación de la propuesta del paso siguiente. Si se confirma una renuncia, queda una intención pendiente: pulse **Revisar y abrir el siguiente llamamiento** y, después, registre de forma expresa el aviso local al sucesor. El servidor vuelve a aplicar el orden; no selecciona ni avisa automáticamente a otra persona.
-7. Conserve la clave y los campos de cada operación. Ante una interrupción, use exactamente los mismos datos para recuperar el recibo sin duplicar el efecto.
-
-Este recorrido usa datos sintéticos y una validación manual de desarrollo. No acredita datos de contacto de la candidatura, notificación oficial, envío o entrega de correo, plazo legal o caducidad, penalización, firma, custodia del correo ni convocatoria automática de la siguiente persona.
-
----
-
-## 10. Paso 6 — Propuesta de nombramiento y borradores
-
-Con la aceptación registrada en el ejercicio sintético, la aplicación permite consultar la propuesta de nombramiento y descargar los borradores documentales asociados. Esta etapa no acredita una resolución firmada ni un nombramiento eficaz.
-
-### Qué es y cómo se tramita
-1. Se consulta la propuesta de nombramiento vinculada a la aceptación registrada en el ejercicio.
-2. Se descargan, cuando corresponda, los seis borradores disponibles: informe definitivo, resolución, diligencia, toma de posesión, notificación y comunicación al centro.
-3. Los documentos permanecen sin firma o validación. La aplicación no los remite al portafirmas corporativo porque ese circuito no está compuesto.
-
----
-
-## 11. Paso 7 — Incorporación y ficha manual para GINPIX
-
-El recorrido de desarrollo conserva una incorporación sintética y su recibo, sin acreditar firma, toma de posesión ni nombramiento eficaz.
-
-### Qué es y cómo se tramita
-1. Recursos Humanos consulta los datos y el periodo de la incorporación registrada en el ejercicio.
-2. Se recupera el recibo de incorporación sin repetir el alta. Si no está disponible la configuración de análisis, esta recuperación mantiene su acceso desde el expediente RRHH mientras el portal disponga del acceso y los datos necesarios.
-3. Se descarga una ficha estructurada para su grabación manual en GINPIX. La descarga no transmite datos a GINPIX ni confirma un alta externa.
-
----
-
-## 12. Paso 8 — Seguimiento y control de la contratación
-
-El recorrido acreditado permite registrar una anotación administrativa y cerrar administrativamente el seguimiento, conservando recibos e historia. Este recorrido no acredita la gestión de prórrogas, plazos legales ni el cese final.
-
-### Qué es y cómo se tramita
-1. Se registra una anotación administrativa y se puede recuperar con el mismo recibo.
-2. Después se prepara, confirma y recupera el cierre administrativo sin cese. El estado **Cerrado** no supone cese, cierre jurídico del expediente, efecto legal ni cómputo de plazos.
-
----
-
-## 13. Trazabilidad, historial de actuaciones y auditoría
-
-El principio de transparencia y seguridad jurídica exige que cada clic, cambio de estado y decisión quede registrado de forma inalterable.
-
-### 13.1. Historial de actuaciones del expediente
-
-En cualquier momento, desplegando el bloque **Historial de actuaciones**, se puede consultar la cronología completa de las actuaciones practicadas sobre el expediente.
-
-![Historial de actuaciones desplegado](capturas/contratacion/16_historial_actuaciones_desplegado.png)
-
-Cada fila del historial recoge:
-- **Secuencia:** número correlativo de la actuación.
-- **Fecha y hora:** marca temporal exacta del evento.
-- **Actuación practicada:** acción administrativa realizada (ej. `Alta`, `Análisis de RRHH registrado`, `Decisión de cobertura`, `Fiscalización registrada`).
-- **Fase y Estado resultantes:** situación en la que quedó el expediente tras la actuación.
-
-### 13.2. Pestaña de Auditoría técnica
-
-Para labores de control interno, inspección de servicios o soporte informático, la pestaña **Auditoría** muestra las referencias criptográficas de cada evento, los actores involucrados y las huellas de verificación de los datos persistidos.
-
-![Pestaña de Auditoría del expediente](capturas/contratacion/17_auditoria_expediente.png)
-
----
-
-## 14. Ayuda contextual integrada y soporte
-
-En cualquier pantalla del portal, el usuario dispone en la barra superior del botón **Ayuda (?)**. Al pulsarlo se despliega un panel lateral interactivo con explicaciones adaptadas a la vista y fase en la que se encuentre en ese instante.
-
-![Panel de ayuda contextual abierto](capturas/contratacion/18_ayuda_contextual_abierta.png)
-
-La ayuda aclara la normativa aplicable a cada paso, el significado de los términos administrativos y los teléfonos o correos de soporte de la Unidad de Selección y Provisión de Puestos.
-
----
-
-## 15. Adaptabilidad móvil y diseño accesible
-
-El módulo de contratación temporal cumple con las directrices de diseño accesible (WCAG 2.1 AA) y es completamente funcional en pantallas reducidas o dispositivos móviles (viewport de 390 px de anchura).
-
-![Detalle de expediente a 390 px en dispositivo móvil](capturas/contratacion/19_detalle_movil_390px_000010.png)
-
-El raíl de seguimiento se adapta verticalmente mostrando cada fase conectada por líneas claras sin solapamientos, los campos de cabecera se apilan ordenadamente de arriba abajo facilitando la lectura natural, y las tablas permiten desplazamiento horizontal sin alterar el ancho de la página ni cortar información crítica.
-
----
-
-## 16. Lo que todavía no está y dependencias de integración
-
-Para garantizar la máxima claridad con los servicios gestores, este manual refleja el estado operativo actual de la aplicación. Existen trámites pendientes y otros acreditados únicamente dentro del ejercicio sintético; su integración definitiva está condicionada a las respuestas de la corporación recogidas en el documento institucional `dudas.md`:
-
-1. **Circuito de portafirmas oficial:**
-   La aplicación permite descargar seis borradores de desarrollo. No están firmados ni validados y el portafirmas corporativo no está compuesto con la aplicación.
-
-2. **Conexión en tiempo real con la Bolsa de Trabajo:**
-   El código incorpora importación y constitución de bolsas procedentes de CONVOCA. Esto no acredita todavía que el llamamiento de Contratación utilice las participaciones constituidas; esa conexión debe verificarse en el recorrido correspondiente.
-
-3. **Envío de correos y notificaciones reales:**
-   El aviso local conserva su recibo. La composición opcional de SMTP permite usar un buzón de pruebas; no acredita entrega a candidatos. El contacto del destinatario debe proceder del alta propia de VEC y la configuración corporativa sigue pendiente.
-
-4. **Ficha manual para GINPIX:**
-   La aplicación genera una ficha estructurada para descarga y grabación manual. No existe transmisión automática ni confirmación de alta en GINPIX.
-
-5. **Plazos, penalizaciones y cese:**
-   La aplicación no calcula plazos legales ni aplica penalizaciones gobernadas. La anotación y el cierre administrativo sin cese conservan la historia del ejercicio, pero no constituyen cese ni cierre jurídico del expediente. Las reglas aplicables siguen a la espera de confirmación por la Jefatura de Recursos Humanos (ver apartados 1 a 5 de `dudas.md`).
-
-*Para cualquier consulta técnica o propuesta de mejora sobre este manual, contacte con el equipo de implantación de la VEC.*
+**Fuentes del alcance:** [estado del proyecto](../../ESTADO_PROYECTO.md), [flujo solicitado por RRHH](../portal_vec/expediente_contratacion_temporal_rrhh.md) y [contrato modular vigente](../portal_vec/contrato_modulos_vec.md#criterio-vigente-de-ampliación--19-de-septiembre-de-2026).
