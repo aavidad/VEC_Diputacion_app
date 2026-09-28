@@ -17,7 +17,8 @@ DO $pre$ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_preferencias_consulta_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_preferencias_actualizacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_usuarios_propietario' AND NOT rolcanlogin AND NOT rolbypassrls)
-    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_usuarios_ejecutor' AND NOT rolcanlogin AND NOT rolbypassrls)
+    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_usuarios_ejecutor_interno' AND NOT rolcanlogin AND NOT rolbypassrls)
+    OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_usuarios_ejecutor_externo' AND NOT rolcanlogin AND NOT rolbypassrls)
  THEN RAISE EXCEPTION 'AD3-106: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 DO $nucleo$
@@ -31,10 +32,13 @@ DECLARE
  runtime text:=E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''consulta_reincorporacion_titular_bolsa''\n';
  runtime_nuevo text:=runtime||E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''preferencias_consulta_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''preferencias_actualizacion_usuarios''\n';
  guarda text:=E'           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
- guarda_nueva text:=E'           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
+ guarda_nueva text:=E'           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND d #>> ''{vinculo_autenticacion_actor,superficie}'' IS NOT DISTINCT FROM ''interna_corporativa''\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor_interno'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor_interno''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor_interno''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor_interno'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n           OR (\n               p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')\n               AND d #>> ''{vinculo_autenticacion_actor,superficie}'' IS NOT DISTINCT FROM ''externa_personal''\n               AND pg_catalog.pg_has_role(session_user,''vec_usuarios_ejecutor_externo'',''MEMBER'')\n               AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole AND m.roleid=''vec_usuarios_ejecutor_externo''::regrole AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)\n               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=''vec_usuarios_ejecutor_externo''::regrole)\n               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1\n               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)=''vec_'' AND r.rolname<>session_user AND r.rolname<>''vec_usuarios_ejecutor_externo'' AND pg_catalog.pg_has_role(session_user,r.oid,''MEMBER''))\n           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'preferencias_consulta_usuarios'
- AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.consultar.v1'
+ AND ((c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.consultar.interna_corporativa.v1'
+       AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa')
+   OR (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.consultar.externa_personal.v1'
+       AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'))
  AND c->>'operacion' IS NOT DISTINCT FROM 'vec.preferencias.consultar'
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'usuarios'
@@ -46,7 +50,10 @@ DECLARE
  AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
            OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'preferencias_actualizacion_usuarios'
- AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.actualizar.v1'
+ AND ((c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.actualizar.interna_corporativa.v1'
+       AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa')
+   OR (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.actualizar.externa_personal.v1'
+       AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'))
  AND c->>'operacion' IS NOT DISTINCT FROM 'vec.preferencias.actualizar'
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'usuarios'
@@ -98,7 +105,11 @@ BEGIN
     OR strpos(d,'vec_contratacion_temporal.comunicaciones_expediente.consultar.v1')=0
  THEN RAISE EXCEPTION 'AD3-106: audiencias incompatibles' USING ERRCODE='55000'; END IF;
  nueva:=left(d,length(d)-3);
- FOREACH a IN ARRAY ARRAY['vec_usuarios.preferencias.consultar.v1','vec_usuarios.preferencias.actualizar.v1'] LOOP
+ FOREACH a IN ARRAY ARRAY[
+  'vec_usuarios.preferencias.consultar.interna_corporativa.v1',
+  'vec_usuarios.preferencias.actualizar.interna_corporativa.v1',
+  'vec_usuarios.preferencias.consultar.externa_personal.v1',
+  'vec_usuarios.preferencias.actualizar.externa_personal.v1'] LOOP
   IF strpos(d,quote_literal(a))<>0 THEN RAISE EXCEPTION 'AD3-106: audiencia ya registrada' USING ERRCODE='55000'; END IF;
   nueva:=nueva||', '||quote_literal(a)||'::text';
  END LOOP;
@@ -114,7 +125,10 @@ DECLARE c jsonb; d jsonb; x record;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-106: material inválido' USING ERRCODE='22023'; END;
- IF c->>'audiencia_consumo' IS DISTINCT FROM 'vec_usuarios.preferencias.consultar.v1'
+ IF NOT ((c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.consultar.interna_corporativa.v1'
+          AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa')
+       OR (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.consultar.externa_personal.v1'
+          AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'))
     OR c->>'operacion' IS DISTINCT FROM 'vec.preferencias.consultar'
     OR d->>'accion' IS DISTINCT FROM c->>'operacion'
     OR d->>'modulo_id' IS DISTINCT FROM 'usuarios'
@@ -139,7 +153,10 @@ DECLARE c jsonb; d jsonb; x record;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-106: material inválido' USING ERRCODE='22023'; END;
- IF c->>'audiencia_consumo' IS DISTINCT FROM 'vec_usuarios.preferencias.actualizar.v1'
+ IF NOT ((c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.actualizar.interna_corporativa.v1'
+          AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'interna_corporativa')
+       OR (c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_usuarios.preferencias.actualizar.externa_personal.v1'
+          AND d #>> '{vinculo_autenticacion_actor,superficie}' IS NOT DISTINCT FROM 'externa_personal'))
     OR c->>'operacion' IS DISTINCT FROM 'vec.preferencias.actualizar'
     OR d->>'accion' IS DISTINCT FROM c->>'operacion'
     OR d->>'modulo_id' IS DISTINCT FROM 'usuarios'

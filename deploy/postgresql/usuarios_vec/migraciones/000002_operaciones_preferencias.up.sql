@@ -18,22 +18,19 @@ DO $pre$ BEGIN
 END $pre$;
 
 CREATE FUNCTION vec_usuarios.exigir_ejecutor_preferencias()
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS text LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+DECLARE interno boolean; externo boolean;
 BEGIN
- IF current_user<>'vec_usuarios_propietario' OR session_user=current_user
-    OR NOT pg_has_role(session_user,'vec_usuarios_ejecutor','MEMBER')
-    OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND (rolsuper OR rolbypassrls))
-    OR NOT EXISTS (SELECT 1 FROM pg_auth_members m
-      WHERE m.member=session_user::regrole AND m.roleid='vec_usuarios_ejecutor'::regrole
-      AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
-    OR (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)<>1
-    OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member='vec_usuarios_ejecutor'::regrole)
+ interno:=vec_usuarios.sesion_superficie_valida('interna_corporativa');
+ externo:=vec_usuarios.sesion_superficie_valida('externa_personal');
+ IF interno=externo OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND (rolsuper OR rolbypassrls))
  THEN RAISE EXCEPTION 'Usuarios: ejecutor denegado' USING ERRCODE='42501'; END IF;
+ RETURN CASE WHEN interno THEN 'interna_corporativa' ELSE 'externa_personal' END;
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.exigir_ejecutor_preferencias() FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.exigir_ejecutor_preferencias() FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE FUNCTION vec_usuarios.activar_contexto_preferencias(
- p_persona text,p_modo text,p_decision_ref text,p_consumo_huella_sha256 text)
+ p_persona text,p_superficie text,p_modo text,p_decision_ref text,p_consumo_huella_sha256 text)
 RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog SET row_security=on AS $f$
 DECLARE xid_actual xid8;
@@ -41,6 +38,7 @@ BEGIN
  PERFORM vec_usuarios.exigir_ejecutor_preferencias();
  IF current_setting('transaction_isolation')<>'serializable'
     OR p_persona !~ '^per_[A-Za-z0-9_-]{22,128}$'
+    OR p_superficie IS DISTINCT FROM vec_usuarios.exigir_ejecutor_preferencias()
     OR p_modo NOT IN ('consultar','recuperar','actualizar')
     OR p_decision_ref IS NULL OR length(p_decision_ref) NOT BETWEEN 1 AND 256
     OR p_consumo_huella_sha256 !~ '^[0-9a-f]{64}$'
@@ -51,12 +49,12 @@ BEGIN
  DELETE FROM vec_usuarios.contexto_transaccion
  WHERE backend_pid=pg_backend_pid() AND xid<>xid_actual;
  INSERT INTO vec_usuarios.contexto_transaccion
-  (xid,backend_pid,sesion,persona_ref,modo,decision_ref,consumo_huella_sha256)
- VALUES(xid_actual,pg_backend_pid(),session_user,p_persona,p_modo,p_decision_ref,p_consumo_huella_sha256);
+  (xid,backend_pid,sesion,persona_ref,superficie,modo,decision_ref,consumo_huella_sha256)
+ VALUES(xid_actual,pg_backend_pid(),session_user,p_persona,p_superficie,p_modo,p_decision_ref,p_consumo_huella_sha256);
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.activar_contexto_preferencias(text,text,text,text) FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.activar_contexto_preferencias(text,text,text,text,text) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
-CREATE FUNCTION vec_usuarios.retirar_contexto_preferencias(p_persona text,p_modo text)
+CREATE FUNCTION vec_usuarios.retirar_contexto_preferencias(p_persona text,p_superficie text,p_modo text)
 RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog SET row_security=on AS $f$
 DECLARE n integer;
@@ -64,11 +62,11 @@ BEGIN
  PERFORM vec_usuarios.exigir_ejecutor_preferencias();
  DELETE FROM vec_usuarios.contexto_transaccion
  WHERE xid=pg_current_xact_id_if_assigned() AND backend_pid=pg_backend_pid()
-   AND sesion=session_user AND persona_ref=p_persona AND modo=p_modo;
+   AND sesion=session_user AND persona_ref=p_persona AND superficie=p_superficie AND modo=p_modo;
  GET DIAGNOSTICS n=ROW_COUNT;
  IF n<>1 THEN RAISE EXCEPTION 'Usuarios: contexto incompleto' USING ERRCODE='42501'; END IF;
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.retirar_contexto_preferencias(text,text) FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.retirar_contexto_preferencias(text,text,text) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 -- La secuencia reproduce el struct de huellaPeticion de application. Todos
 -- los textos admitidos aquí son códigos cerrados, sin caracteres escapables.
@@ -89,7 +87,7 @@ BEGIN
   ',"aviso_correo_plazos":'||(p_valores->'aviso_correo_plazos')::text||'}}';
  RETURN encode(sha256(convert_to(canon,'UTF8')),'hex');
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.huella_semantica_preferencias(text,bigint,text,jsonb) FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.huella_semantica_preferencias(text,bigint,text,jsonb) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 -- RecursoAutorizable.HuellaContextoAutorizacionSHA256(): el ámbito persona_ref
 -- satisface la asignación V3 exacta; el atributo deriva de los bytes literales.
@@ -107,7 +105,7 @@ BEGIN
  canon:='{"ambitos":{"persona_ref":'||to_jsonb(persona)::text||'},"atributos":{"material_sha256":"'||material_sha||'"}}';
  RETURN encode(sha256(convert_to(canon,'UTF8')),'hex');
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.huella_contexto_preferencias(text) FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.huella_contexto_preferencias(text) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE FUNCTION vec_usuarios.validar_material_preferencias(
  p_material text,p_accion text,p_capacidad bytea,p_decision bytea,
@@ -130,7 +128,18 @@ BEGIN
  SELECT array_agg(x ORDER BY x) INTO k FROM jsonb_object_keys(m) x;
  h:=vec_usuarios.huella_contexto_preferencias(p_material);
  IF jsonb_typeof(m) IS DISTINCT FROM 'object'
-    OR k IS DISTINCT FROM ARRAY['accion','catalogo_version_ref','clave_operacion','finalidad_ref','huella_peticion','perfil_ref','persona_ref','valores','version_esperada']
+    OR k IS DISTINCT FROM ARRAY['accion','catalogo_version_ref','clave_operacion','finalidad_ref','huella_peticion','perfil_ref','persona_ref','superficie','valores','version_esperada']
+    OR m->>'superficie' IS DISTINCT FROM vec_usuarios.exigir_ejecutor_preferencias()
+    OR m->>'superficie' IS DISTINCT FROM (d #>> '{vinculo_autenticacion_actor,superficie}')
+    OR NOT (
+      (p_accion='vec.preferencias.consultar' AND m->>'superficie'='interna_corporativa'
+        AND c->>'audiencia_consumo'='vec_usuarios.preferencias.consultar.interna_corporativa.v1')
+      OR (p_accion='vec.preferencias.consultar' AND m->>'superficie'='externa_personal'
+        AND c->>'audiencia_consumo'='vec_usuarios.preferencias.consultar.externa_personal.v1')
+      OR (p_accion='vec.preferencias.actualizar' AND m->>'superficie'='interna_corporativa'
+        AND c->>'audiencia_consumo'='vec_usuarios.preferencias.actualizar.interna_corporativa.v1')
+      OR (p_accion='vec.preferencias.actualizar' AND m->>'superficie'='externa_personal'
+        AND c->>'audiencia_consumo'='vec_usuarios.preferencias.actualizar.externa_personal.v1'))
     OR m->>'persona_ref' !~ '^per_[A-Za-z0-9_-]{22,128}$'
     OR m->>'perfil_ref' !~ '^prf_[A-Za-z0-9_-]{22,128}$'
     OR m->>'accion' IS DISTINCT FROM p_accion
@@ -163,14 +172,15 @@ BEGIN
  THEN RAISE EXCEPTION 'Usuarios: material no autorizado' USING ERRCODE='42501'; END IF;
  RETURN m;
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.validar_material_preferencias(text,text,bytea,bytea,numeric,numeric) FROM PUBLIC,vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.validar_material_preferencias(text,text,bytea,bytea,numeric,numeric) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
-CREATE FUNCTION vec_usuarios.catalogo_vigente_preferencias_v1()
+CREATE FUNCTION vec_usuarios.catalogo_vigente_preferencias_v1(p_superficie text)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog SET row_security=on AS $f$
 DECLARE c record;
 BEGIN
- PERFORM vec_usuarios.exigir_ejecutor_preferencias();
+ IF p_superficie IS DISTINCT FROM vec_usuarios.exigir_ejecutor_preferencias()
+ THEN RAISE EXCEPTION 'Usuarios: superficie de catálogo denegada' USING ERRCODE='42501'; END IF;
  SELECT p.version_ref,p.definicion,p.huella_sha256 INTO STRICT c
  FROM vec_usuarios.catalogo_publicacion b JOIN vec_usuarios.catalogo_preferencias p USING(version_ref)
  ORDER BY b.secuencia DESC LIMIT 1;
@@ -179,9 +189,9 @@ BEGIN
  THEN RAISE EXCEPTION 'Usuarios: catálogo incompatible' USING ERRCODE='55000'; END IF;
  RETURN c.definicion;
 END $f$;
-REVOKE ALL ON FUNCTION vec_usuarios.catalogo_vigente_preferencias_v1() FROM PUBLIC;
-GRANT USAGE ON SCHEMA vec_usuarios TO vec_usuarios_ejecutor;
-GRANT EXECUTE ON FUNCTION vec_usuarios.catalogo_vigente_preferencias_v1() TO vec_usuarios_ejecutor;
+REVOKE ALL ON FUNCTION vec_usuarios.catalogo_vigente_preferencias_v1(text) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_usuarios TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+GRANT EXECUTE ON FUNCTION vec_usuarios.catalogo_vigente_preferencias_v1(text) TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE FUNCTION vec_usuarios.consultar_preferencias_propias_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -197,7 +207,7 @@ BEGIN
     OR x.decision_ref IS DISTINCT FROM convert_from(p_decision,'UTF8')::jsonb->>'decision_ref'
     OR x.huella_efecto_sha256 IS DISTINCT FROM vec_usuarios.huella_contexto_preferencias(p_material)
  THEN RAISE EXCEPTION 'Usuarios: consumo divergente' USING ERRCODE='42501'; END IF;
- PERFORM vec_usuarios.activar_contexto_preferencias(m->>'persona_ref','consultar',x.decision_ref,x.consumo_huella_sha256);
+ PERFORM vec_usuarios.activar_contexto_preferencias(m->>'persona_ref',m->>'superficie','consultar',x.decision_ref,x.consumo_huella_sha256);
  SELECT p.version_ref,p.definicion INTO STRICT c
  FROM vec_usuarios.catalogo_publicacion b JOIN vec_usuarios.catalogo_preferencias p USING(version_ref)
  ORDER BY b.secuencia DESC LIMIT 1;
@@ -211,11 +221,11 @@ BEGIN
   respuesta:=jsonb_build_object('existe',false,'persona_ref',m->>'persona_ref','version',0,
    'catalogo_version_ref',c.version_ref,'valores',c.definicion->'predeterminados');
  END IF;
- PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref','consultar');
+ PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref',m->>'superficie','consultar');
  RETURN respuesta;
 END $f$;
 REVOKE ALL ON FUNCTION vec_usuarios.consultar_preferencias_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_usuarios.consultar_preferencias_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_usuarios.consultar_preferencias_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE FUNCTION vec_usuarios.recuperar_preferencias_operacion_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -231,22 +241,22 @@ BEGIN
     OR x.decision_ref IS DISTINCT FROM convert_from(p_decision,'UTF8')::jsonb->>'decision_ref'
     OR x.huella_efecto_sha256 IS DISTINCT FROM vec_usuarios.huella_contexto_preferencias(p_material)
  THEN RAISE EXCEPTION 'Usuarios: recuperación denegada' USING ERRCODE='42501'; END IF;
- PERFORM vec_usuarios.activar_contexto_preferencias(m->>'persona_ref','recuperar',x.decision_ref,x.consumo_huella_sha256);
+ PERFORM vec_usuarios.activar_contexto_preferencias(m->>'persona_ref',m->>'superficie','recuperar',x.decision_ref,x.consumo_huella_sha256);
  SELECT * INTO r FROM vec_usuarios.preferencias_recibo
   WHERE persona_ref=m->>'persona_ref' AND clave_operacion=m->>'clave_operacion';
  IF NOT FOUND THEN
-  PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref','recuperar');
+  PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref',m->>'superficie','recuperar');
   RETURN NULL;
  END IF;
  IF r.huella_peticion IS DISTINCT FROM m->>'huella_peticion'
  THEN RAISE EXCEPTION 'Usuarios: clave reutilizada con otra petición' USING ERRCODE='P1409'; END IF;
  respuesta:=jsonb_build_object('recibo_ref',r.recibo_ref,'persona_ref',r.persona_ref,'version',r.version,
    'catalogo_version_ref',r.catalogo_version_ref,'valores',r.valores,'fecha_utc',r.registrada_en,'replay',true);
- PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref','recuperar');
+ PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref',m->>'superficie','recuperar');
  RETURN respuesta;
 END $f$;
 REVOKE ALL ON FUNCTION vec_usuarios.recuperar_preferencias_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_usuarios.recuperar_preferencias_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_usuarios.recuperar_preferencias_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 
 CREATE FUNCTION vec_usuarios.guardar_preferencias_propias_v1(
  p_material text,p_valores jsonb,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
@@ -264,7 +274,7 @@ BEGIN
     OR x.decision_ref IS DISTINCT FROM convert_from(p_decision,'UTF8')::jsonb->>'decision_ref'
     OR x.huella_efecto_sha256 IS DISTINCT FROM vec_usuarios.huella_contexto_preferencias(p_material)
  THEN RAISE EXCEPTION 'Usuarios: consumo divergente' USING ERRCODE='42501'; END IF;
- PERFORM vec_usuarios.activar_contexto_preferencias(m->>'persona_ref','actualizar',x.decision_ref,x.consumo_huella_sha256);
+ PERFORM vec_usuarios.activar_contexto_preferencias(m->>'persona_ref',m->>'superficie','actualizar',x.decision_ref,x.consumo_huella_sha256);
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_usuarios:preferencias:'||(m->>'persona_ref'),0));
  IF EXISTS (SELECT 1 FROM vec_usuarios.preferencias_recibo WHERE persona_ref=m->>'persona_ref' AND clave_operacion=m->>'clave_operacion')
  THEN RAISE EXCEPTION 'Usuarios: operación ya registrada; recuperar recibo' USING ERRCODE='40001'; END IF;
@@ -301,9 +311,9 @@ BEGIN
  VALUES(m->>'persona_ref',m->>'clave_operacion',m->>'huella_peticion',ref,v,c.version_ref,p_valores,x.decision_ref,x.auditoria_ref,x.consumo_huella_sha256,ahora);
  respuesta:=jsonb_build_object('recibo_ref',ref,'persona_ref',m->>'persona_ref','version',v,
    'catalogo_version_ref',c.version_ref,'valores',p_valores,'fecha_utc',ahora,'replay',false);
- PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref','actualizar');
+ PERFORM vec_usuarios.retirar_contexto_preferencias(m->>'persona_ref',m->>'superficie','actualizar');
  RETURN respuesta;
 END $f$;
 REVOKE ALL ON FUNCTION vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
 COMMIT;

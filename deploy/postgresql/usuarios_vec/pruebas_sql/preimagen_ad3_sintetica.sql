@@ -2,9 +2,14 @@
 -- Doble estructural V3: valida la composición SQL, no la criptografía COSE.
 CREATE ROLE vec_autorizacion_atestada_v3_propietario NOLOGIN NOBYPASSRLS;
 CREATE ROLE vec_contratacion_temporal_ejecutor NOLOGIN NOBYPASSRLS;
-CREATE ROLE vec_usuarios_prueba LOGIN INHERIT NOBYPASSRLS;
+CREATE ROLE vec_usuarios_prueba_interna LOGIN INHERIT NOBYPASSRLS;
+CREATE ROLE vec_usuarios_prueba_externa LOGIN INHERIT NOBYPASSRLS;
+CREATE ROLE vec_usuarios_prueba_cruzada LOGIN INHERIT NOBYPASSRLS;
 CREATE ROLE vec_ct_prueba LOGIN INHERIT NOBYPASSRLS;
-GRANT vec_usuarios_ejecutor TO vec_usuarios_prueba WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_usuarios_ejecutor_interno TO vec_usuarios_prueba_interna WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_usuarios_ejecutor_externo TO vec_usuarios_prueba_externa WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_usuarios_ejecutor_interno TO vec_usuarios_prueba_cruzada WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_usuarios_ejecutor_externo TO vec_usuarios_prueba_cruzada WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 GRANT vec_contratacion_temporal_ejecutor TO vec_ct_prueba WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 CREATE SCHEMA vec_autorizacion_atestada_v3 AUTHORIZATION vec_autorizacion_atestada_v3_propietario;
 SET ROLE vec_autorizacion_atestada_v3_propietario;
