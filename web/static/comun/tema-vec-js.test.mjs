@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crearControladorTema, ErrorTemaVec, TEMAS_VEC, validarEstadoTema } from "./tema-vec.js";
+import { aplicarPreferenciasVisuales, crearControladorTema, ErrorTemaVec, TEMAS_VEC, validarEstadoTema, validarPreferenciasVisuales } from "./tema-vec.js";
 
 function elemento() {
   const atributos = new Map();
@@ -140,4 +140,43 @@ test("un tema inicial ajeno al catálogo falla de forma explícita", () => {
   const d = documento();
   d.documentElement.dataset.tema = "remoto";
   assert.throws(() => crearControladorTema({ documento: d }), (error) => error.codigo === "tema_desconocido");
+});
+
+test("preferencias del servidor aplican tamaño, contraste y modo cerrado sin almacenar", () => {
+  const d = documento();
+  Object.defineProperty(d, "cookie", { get() { throw Error("cookie prohibida"); } });
+  const consulta = { matches: true, oyentes: new Set(), addEventListener(_tipo, fn) { this.oyentes.add(fn); }, removeEventListener(_tipo, fn) { this.oyentes.delete(fn); } };
+  const ventana = { matchMedia: (consultaCSS) => {
+    assert.equal(consultaCSS, "(prefers-color-scheme: dark)");
+    return consulta;
+  }, get localStorage() { throw Error("storage prohibido"); }, get sessionStorage() { throw Error("storage prohibido"); }, get indexedDB() { throw Error("storage prohibido"); }, get fetch() { throw Error("HTTP prohibido"); } };
+  const controlador = aplicarPreferenciasVisuales({ tema: "sistema", alto_contraste: true, tamano_texto: "muy_grande" }, { documento: d, ventana });
+  assert.equal(d.body.dataset.modoColor, "oscuro");
+  assert.equal(d.body.dataset.contraste, "true");
+  assert.equal(d.documentElement.dataset.tamanoTexto, "muy_grande");
+  assert.equal(controlador.leerEstado().preferencias_servidor.tema, "sistema");
+  consulta.matches = false;
+  for (const oyente of consulta.oyentes) oyente();
+  assert.equal(controlador.leerEstado().modo_color, "claro");
+  controlador.aplicarPreferenciasServidor({ tema: "claro", alto_contraste: false, tamano_texto: "grande" });
+  assert.equal(consulta.oyentes.size, 0);
+  assert.equal(controlador.leerEstado().tamano_texto, "grande");
+  controlador.desmontar();
+  assert.equal(consulta.oyentes.size, 0);
+});
+
+test("modo explícito no escucha al sistema y entrada inválida no altera el DOM", () => {
+  const d = documento();
+  const ventana = { matchMedia() { throw Error("no debe consultarse el sistema"); } };
+  const controlador = aplicarPreferenciasVisuales({ tema: "oscuro", alto_contraste: false, tamano_texto: "normal" }, { documento: d, ventana });
+  assert.equal(controlador.leerEstado().modo_color, "oscuro");
+  assert.throws(() => controlador.aplicarPreferenciasServidor({ tema: "url(https://example.test)", alto_contraste: true, tamano_texto: "grande" }),
+    (error) => error.codigo === "modo_color_invalido");
+  assert.equal(controlador.leerEstado().modo_color, "oscuro");
+  for (const tamano_texto of ["200%", "gigante", null]) {
+    assert.throws(() => validarPreferenciasVisuales({ tema: "claro", alto_contraste: false, tamano_texto }),
+      (error) => error.codigo === "tamano_texto_invalido");
+  }
+  assert.throws(() => validarPreferenciasVisuales({ tema: "claro", alto_contraste: "false", tamano_texto: "normal" }),
+    (error) => error.codigo === "contraste_invalido");
 });
