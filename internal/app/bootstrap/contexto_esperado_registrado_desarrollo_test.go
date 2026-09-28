@@ -167,3 +167,39 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 		t.Fatal("la semilla histórica fue modificada")
 	}
 }
+
+func TestContextoOperativoReincorporacionSeleccionaPerfilYSesionDedicados(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	base := soporte.contexto
+	reincorporacion, err := nuevoContextoReincorporacionTitularDesarrollo(base, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseVinculo, _ := base.Vinculo.Datos()
+	reincVinculo, _ := reincorporacion.Vinculo.Datos()
+	if baseVinculo.PerfilActivoRef == reincVinculo.PerfilActivoRef ||
+		baseVinculo.SesionRef == reincVinculo.SesionRef ||
+		base.Resultado.Contexto.Instantanea.VinculoRef == reincorporacion.Resultado.Contexto.Instantanea.VinculoRef ||
+		base.Resultado.Contexto.Instantanea.CuentaRef != reincorporacion.Resultado.Contexto.Instantanea.CuentaRef ||
+		base.Resultado.Contexto.PersonaRef != reincorporacion.Resultado.Contexto.PersonaRef {
+		t.Fatal("reincorporación no tiene perfil, sesión y contexto propios sobre la misma persona")
+	}
+	soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+		contexto: reincorporacion, contextoEsperadoRegistrado: reincorporacion.Resultado,
+		sesionOperativa: proveedorSesionOperativaCTPrueba{contexto: reincorporacion},
+	}
+	baseOperativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes))
+	if err != nil || baseOperativo.Resultado.Contexto.PerfilActivoRef != baseVinculo.PerfilActivoRef {
+		t.Fatalf("perfil CT base alterado: %v", err)
+	}
+	for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
+		operativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta))
+		if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != reincVinculo.PerfilActivoRef {
+			t.Fatalf("ruta %s no usa perfil dedicado: %v", ruta, err)
+		}
+	}
+	soporte.reincorporacionTitular.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: base}
+	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)); err == nil {
+		t.Fatal("sesión CT base fue aceptada para CT130")
+	}
+}

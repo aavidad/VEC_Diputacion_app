@@ -143,6 +143,27 @@ func TestDescriptoresContratacionTemporalAutorizacionRechazanCruces(t *testing.T
 	}
 }
 
+func TestFronterasReincorporacionTitularExigenPerfilPropio(t *testing.T) {
+	const base = "prf_ct_base"
+	const reincorporacion = "prf_ct_reincorporacion_titular"
+	fronteras := append(descriptoresFronterasContratacionTemporalDesarrollo(base, []string{base}),
+		descriptoresFronterasReincorporacionTitularDesarrollo(reincorporacion)...)
+	catalogo, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ruta := range []string{cthttp.RutaReincorporacionesTitular, cthttp.RutaCapacidadReincorporacionTitular} {
+		frontera, ok := catalogo.resolver(http.MethodPost, ruta)
+		if !ok || !frontera.admitePerfil(reincorporacion) || frontera.admitePerfil(base) {
+			t.Fatalf("frontera %s no aísla CT130: %#v", ruta, frontera)
+		}
+	}
+	baseFrontera, ok := catalogo.resolver(http.MethodPost, cthttp.RutaAltaSolicitudes)
+	if !ok || !baseFrontera.admitePerfil(base) || baseFrontera.admitePerfil(reincorporacion) {
+		t.Fatal("el perfil CT130 obtuvo la ruta CT base")
+	}
+}
+
 func TestDescriptoresMaterialContratacionTemporalSonNominales(t *testing.T) {
 	descriptores := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
 	if len(descriptores) != 4 {

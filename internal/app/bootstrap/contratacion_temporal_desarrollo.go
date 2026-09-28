@@ -455,11 +455,24 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil || (reincorporacionTitular && (!seguimientoCeseSolicitado(cfg) || !cfg.BolsaBorradoresEnabled)) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
+	perfilReincorporacionTitular := ""
+	if reincorporacionTitular {
+		contexto, err := nuevoContextoReincorporacionTitularDesarrollo(alta.soporte.contexto, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, ErrActivacionDesarrolloInvalida
+		}
+		perfilReincorporacionTitular = contexto.Resultado.Contexto.PerfilActivoRef
+		alta.soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{contexto: contexto}
+	}
 	politicaOfertasActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled)
 	if err != nil || (politicaOfertasActiva && !cfg.BolsaBorradoresEnabled) {
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
-	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta, reincorporacionTitular)
+	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta)
+	if reincorporacionTitular {
+		declaracionesFrontera = append(declaracionesFrontera,
+			descriptoresFronterasReincorporacionTitularDesarrollo(perfilReincorporacionTitular)...)
+	}
 	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil {
 		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
 			return nil, nil, nil, errMiBolsaNoDisponible
