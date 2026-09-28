@@ -83,8 +83,14 @@ BEGIN
       vec_autorizacion_atestada_v3.registrar_y_consumir_recibo_respuesta_ct_v3_atestada(
        p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
        p_payload,p_sobre,p_evidencia,p_raiz);
- EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'CT139: consumo denegado' USING ERRCODE='P1393'; END;
+ EXCEPTION
+    WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN
+      RAISE EXCEPTION 'CT139: consumo transitorio no disponible' USING ERRCODE='P1394';
+    WHEN insufficient_privilege OR invalid_authorization_specification OR SQLSTATE 'P1393' THEN
+      RAISE EXCEPTION 'CT139: consumo denegado' USING ERRCODE='P1393';
+    WHEN OTHERS THEN
+      RAISE EXCEPTION 'CT139: consumo no disponible' USING ERRCODE='P1394';
+ END;
  IF v_consumo.consumo_nuevo IS NOT TRUE
     OR v_consumo.efecto_ref IS DISTINCT FROM s->>'ComunicacionRef'
     OR v_consumo.huella_efecto_sha256 IS DISTINCT FROM v_hash

@@ -14,6 +14,8 @@ BEGIN
     OR strpos(def,'r.actor_ref=d->>''principal_id''')=0
     OR strpos(def,'r.perfil_ref=d->>''perfil_activo_ref''')=0
     OR strpos(def,'registrar_y_consumir_recibo_respuesta_ct_v3_atestada')=0
+    OR strpos(def,'WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN')=0
+    OR strpos(def,'ERRCODE=''P1394''')=0
     OR strpos(def,'vec_bolsa')<>0 OR strpos(def,'vec_persona')<>0 THEN
     RAISE EXCEPTION 'CT139: contrato de autoridad incompatible'; END IF;
  IF NOT has_function_privilege('vec_contratacion_temporal_ejecutor',f,'EXECUTE')

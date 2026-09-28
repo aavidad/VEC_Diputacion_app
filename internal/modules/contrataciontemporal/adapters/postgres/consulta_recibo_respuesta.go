@@ -162,6 +162,8 @@ func normalizarErrorConsultaReciboRespuesta(ctx context.Context, err error) erro
 			return ports.ErrConsultaReciboRespuestaInvalida
 		case "P1393", "42501":
 			return ports.ErrConsultaReciboRespuestaDenegada
+		case "P1394", "40001", "40P01", "55P03", "57014":
+			return ports.ErrConsultaReciboRespuestaFallo
 		}
 	}
 	return ports.ErrConsultaReciboRespuestaFallo
