@@ -1,7 +1,8 @@
-/** Idioma de la interfaz. La URL tiene prioridad sobre la preferencia del navegador. */
-export function seleccionarIdioma(parametro = "", preferencias = []) {
+/** Idioma de la interfaz: navegación, preferencia explícita del servidor, navegador. */
+export function seleccionarIdioma(parametro = "", preferencias = [], idiomaPreferido = "navegador") {
   const solicitado = String(parametro ?? "").toLowerCase();
   if (solicitado === "es" || solicitado === "en") return solicitado;
+  if (idiomaPreferido === "es" || idiomaPreferido === "en") return idiomaPreferido;
   for (const preferencia of preferencias ?? []) {
     const base = String(preferencia ?? "").toLowerCase().split("-", 1)[0];
     if (base === "es" || base === "en") return base;
@@ -14,8 +15,17 @@ function parametroActual(ubicacion) {
   catch { return ""; }
 }
 
+/** Resuelve cada navegación con los datos recibidos, sin guardar el resultado. */
+export function resolverIdiomaNavegacion({
+  ubicacion = globalThis.location,
+  idiomaPreferido = "navegador",
+  navegador = globalThis.navigator,
+} = {}) {
+  return seleccionarIdioma(parametroActual(ubicacion), navegador?.languages ?? (navegador?.language ? [navegador.language] : []), idiomaPreferido);
+}
+
 const ubicacionActual = globalThis.location;
-export const IDIOMA_ACTUAL = seleccionarIdioma(parametroActual(ubicacionActual), globalThis.navigator?.languages ?? []);
+export const IDIOMA_ACTUAL = resolverIdiomaNavegacion({ ubicacion: ubicacionActual });
 export const LOCALIZACION_ACTUAL = IDIOMA_ACTUAL === "en" ? "en-GB" : "es-ES";
 
 /** Conserva ruta, parámetros ajenos y ancla al cambiar el idioma. */
@@ -29,9 +39,9 @@ export function cambiarIdioma(idioma, ubicacion = globalThis.location) {
 }
 
 /** Conecta un selector nativo al idioma de la interfaz. */
-export function montarSelectorIdioma(selector, ubicacion = globalThis.location) {
+export function montarSelectorIdioma(selector, ubicacion = globalThis.location, idiomaPreferido = "navegador") {
   if (!selector?.addEventListener) return false;
-  selector.value = seleccionarIdioma(parametroActual(ubicacion), globalThis.navigator?.languages ?? []);
+  selector.value = resolverIdiomaNavegacion({ ubicacion, idiomaPreferido });
   selector.addEventListener("change", () => { cambiarIdioma(selector.value, ubicacion); });
   return true;
 }
