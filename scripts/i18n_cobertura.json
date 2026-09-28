@@ -1,0 +1,22 @@
+{
+  "_motivo": "Superficies web traducidas al inglés. Las guardas de i18n exigen paridad ES/EN de catálogos JS y ausencia de literales visibles solo en estas rutas (prefijos relativos a web/static). El resto del portal mantiene catálogos solo en castellano hasta su propia traducción. Se añade una ruta al traducirla; nunca se retira para pasar la guarda. Los locales/*.json se verifican siempre, en todo el árbol.",
+  "catalogos": [
+    "acceso/",
+    "area-personal/",
+    "bolsa/",
+    "comun/idioma.js",
+    "portal-empleado/modulos/contratacion-temporal/",
+    "portal-empleado/portal-idioma.js"
+  ],
+  "literales": [
+    "acceso/",
+    "bolsa/",
+    "comun/",
+    "portal-empleado/modulos/contratacion-temporal/",
+    "portal-empleado/portal-idioma.js"
+  ],
+  "_motivo_excluidos": "bolsa/documentos contiene bases normativas publicadas, texto jurídico oficial que solo existe en castellano.",
+  "literales_excluidos": [
+    "bolsa/documentos/"
+  ]
+}

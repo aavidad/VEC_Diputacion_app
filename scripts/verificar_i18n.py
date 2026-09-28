@@ -23,6 +23,10 @@ EXCEPCIONES_HTML = {
     ("acceso/index.html", "i"),
 }
 ATRIBUTOS_VISIBLES = {"aria-label", "title", "placeholder", "alt"}
+COBERTURA = json.loads((ROOT / "scripts/i18n_cobertura.json").read_text())
+# Marcadores de clave admitidos: el genérico `data-i18n*` y el propio de las
+# copias de Contratación temporal (`data-ct-copia*`), que resuelve su traductor.
+PREFIJOS_MARCA = ("data-i18n", "data-ct-copia")
 EXCEPCIONES_JS = {
     # Acrónimos y marcas técnicas invariables entre idiomas.
     "PDF", "SMS", "SHA-256",
@@ -76,9 +80,9 @@ class TextosHTML(HTMLParser):
         atributos = dict(attrs)
         for nombre in ATRIBUTOS_VISIBLES | ({"content"} if tag == "meta" and atributos.get("name") == "description" else set()):
             valor = (atributos.get(nombre) or "").strip()
-            if not valor or atributos.get("aria-hidden") == "true":
+            if not any(c.isalpha() for c in valor) or atributos.get("aria-hidden") == "true":
                 continue
-            marcado = f"data-i18n-{nombre}" in atributos or f"data-i18n-portal-{nombre}" in atributos
+            marcado = any(f"{prefijo}-{nombre}" in atributos for prefijo in (*PREFIJOS_MARCA, "data-i18n-portal"))
             marcado = marcado or f"{nombre}:" in (atributos.get("data-i18n-atributo") or "")
             if not marcado:
                 self.fallos.append(f"{self.ruta.relative_to(ROOT)}: atributo {nombre} sin clave: {valor[:90]}")
@@ -101,7 +105,11 @@ class TextosHTML(HTMLParser):
         tag, attrs = self.pila[-1]
         if tag in {"script", "style", "svg"} or attrs.get("aria-hidden") == "true":
             return
-        if any(nombre.startswith("data-i18n") for nombre in attrs):
+        # Sin JavaScript no hay traductor posible: el aviso de <noscript>
+        # queda en el idioma base del documento.
+        if any(etiqueta == "noscript" for etiqueta, _ in self.pila):
+            return
+        if any(nombre.startswith(PREFIJOS_MARCA) for nombre in attrs):
             return
         relativa = str(self.ruta.relative_to(WEB))
         if (relativa, texto) in EXCEPCIONES_HTML:
@@ -109,16 +117,22 @@ class TextosHTML(HTMLParser):
         self.fallos.append(f"{self.ruta.relative_to(ROOT)}: texto HTML sin clave: {texto[:90]}")
 
 
+def cubierto(ruta: Path, prefijos: list[str], excluidos: list[str] = ()) -> bool:
+    relativa = ruta.relative_to(WEB).as_posix()
+    return any(relativa.startswith(p) for p in prefijos) and not any(relativa.startswith(p) for p in excluidos)
+
+
 def verificar_web() -> list[str]:
     fallos = []
+    prefijos, excluidos = COBERTURA["literales"], COBERTURA["literales_excluidos"]
     for ruta in WEB.rglob("*.html"):
-        if "vendor" in ruta.parts:
+        if "vendor" in ruta.parts or not cubierto(ruta, prefijos, excluidos):
             continue
         analizador = TextosHTML(ruta)
         analizador.feed(ruta.read_text(errors="replace"))
         fallos.extend(analizador.fallos)
     for ruta in WEB.rglob("*.js"):
-        if "vendor" in ruta.parts or ruta.name.endswith(".test.js"):
+        if "vendor" in ruta.parts or ruta.name.endswith(".test.js") or not cubierto(ruta, prefijos, excluidos):
             continue
         for numero, linea in enumerate(ruta.read_text(errors="replace").splitlines(), 1):
             for coinc in VISIBLE_JS.finditer(linea):

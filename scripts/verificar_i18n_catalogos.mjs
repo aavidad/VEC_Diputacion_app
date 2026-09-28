@@ -3,6 +3,9 @@ import { resolve, relative, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const raiz = resolve(import.meta.dirname, "../web/static");
+// Solo las superficies ya traducidas exigen catálogo inglés; véase el motivo en
+// i18n_cobertura.json. Se amplía al traducir, nunca se recorta para pasar.
+const cobertura = JSON.parse(await readFile(resolve(import.meta.dirname, "i18n_cobertura.json"), "utf8")).catalogos;
 const marcador = /\{[a-z_]+\}/giu;
 const errores = [];
 
@@ -16,6 +19,8 @@ async function* ficheros(dir) {
 }
 
 for await (const ruta of ficheros(raiz)) {
+  const relativa = relative(raiz, ruta).split("\\").join("/");
+  if (!cobertura.some((prefijo) => relativa.startsWith(prefijo))) continue;
   const fuente = await readFile(ruta, "utf8");
   const nombres = [...fuente.matchAll(/export const ([A-Z][A-Z_0-9]*_ES)\s*=/gu)].map((coincidencia) => coincidencia[1]);
   if (!nombres.length) continue;
