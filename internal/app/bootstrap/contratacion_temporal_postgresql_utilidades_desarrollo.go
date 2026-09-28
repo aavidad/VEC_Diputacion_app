@@ -420,19 +420,21 @@ func comprobarPoolAutoridadAuditoriaDesarrollo(ctx context.Context, q interface 
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, login, rol string) error {
 	if ctx == nil || ctx.Err() != nil || q == nil || login == "" ||
-		(rol != "vec_autorizacion_fuente" && rol != "vec_autorizacion_motivos_evaluador") {
+		(rol != "vec_autorizacion_fuente" && rol != "vec_autorizacion_motivos_evaluador" && rol != "vec_contratacion_temporal_registrador_auditoria") {
 		return auditoria.ErrNoDisponible
 	}
 	const sonda = `SELECT session_user::text,
 	 session_user=current_user AND l.rolcanlogin AND l.rolinherit
 	 AND NOT l.rolsuper AND NOT l.rolcreatedb AND NOT l.rolcreaterole
 	 AND NOT l.rolreplication AND NOT l.rolbypassrls
-	 AND NOT g.rolcanlogin AND NOT g.rolbypassrls
+	 AND NOT g.rolcanlogin AND g.rolinherit AND NOT g.rolsuper
+	 AND NOT g.rolcreatedb AND NOT g.rolcreaterole AND NOT g.rolreplication AND NOT g.rolbypassrls
 	 AND pg_has_role(session_user,g.oid,'MEMBER') AND pg_has_role(session_user,g.oid,'USAGE')
 	 AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=l.oid)=1
 	 AND EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid
 	            AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
 	 AND NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.roleid=l.oid)
+	 AND NOT EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=g.oid)
 	 FROM pg_roles l JOIN pg_roles g ON g.rolname=$1 WHERE l.rolname=session_user`
 	var usuario string
 	var valido bool

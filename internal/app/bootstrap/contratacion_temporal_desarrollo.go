@@ -765,6 +765,23 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 		rutas = append(rutas, rutasMiBolsa...)
 	}
+	registradorFrontera := puertosvec.RegistradorAuditoriaFronteraRutaExacta(alta.postgresql.registradorAuditoriaFrontera)
+	cerrarFronteraAuditoria := func() {}
+	cerrarFronteraAuditoriaPendiente := true
+	defer func() {
+		if cerrarFronteraAuditoriaPendiente {
+			cerrarFronteraAuditoria()
+		}
+	}()
+	if auditoriaActiva {
+		registrador, detener, err := nuevoRegistradorFronteraAuditoriaConsultaDesarrollo(context.Background(), cfg)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		cerrarFronteraAuditoria = detener
+		registradorFrontera = registradorFronterasPorSuperficieDesarrollo{
+			ct: alta.postgresql.registradorAuditoriaFrontera, auditoria: registrador}
+	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,
 		resolvedor:                               resolvedorDesarrollo,
@@ -778,7 +795,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		plazosOfertasBolsa:                       dependencias.plazosOfertasBolsa,
 		personalizacionB7:                        personalizacionB7,
 		coleccionesAdicionales:                   coleccionesBorrador,
-		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
+		registradorAuditoriaFronteraRutasExactas: registradorFrontera,
 		materialDietas:                           alta.postgresql.materialDietas,
 		materialCronos:                           alta.postgresql.materialCronos,
 		materialDocumentos:                       alta.postgresql.materialDocumentos,
@@ -790,6 +807,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, falloPostgreSQLCTDesarrollo(nil)
 	}
 	dependencias.cerrar = func() {
+		cerrarFronteraAuditoria()
 		cerrarAuditoria()
 		cerrarBorrador()
 		cerrarIncorporacion()
@@ -801,6 +819,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cerrarAlta = false
 	cerrarBorradorPendiente = false
 	cerrarAuditoriaPendiente = false
+	cerrarFronteraAuditoriaPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
 }
 

@@ -19,8 +19,10 @@ const (
 	EnvAuditoriaConsultaExpedienteBolsa           = "VEC_AUDITORIA_CONSULTA_EXPEDIENTE_BOLSA"
 	EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL = "VEC_RRHH_AUDITORIA_FUENTE_AUTORIZACION_DATABASE_URL"
 	EnvRRHHAuditoriaMotivosDatabaseURL            = "VEC_RRHH_AUDITORIA_MOTIVOS_DATABASE_URL"
+	EnvRRHHAuditoriaFronteraDatabaseURL           = "VEC_RRHH_AUDITORIA_FRONTERA_DATABASE_URL"
 	RolFuenteAutorizacionAuditoriaDesarrollo      = "vec_autorizacion_fuente"
 	RolMotivosAuditoriaDesarrollo                 = "vec_autorizacion_motivos_evaluador"
+	RolFronteraAuditoriaDesarrollo                = "vec_contratacion_temporal_registrador_auditoria"
 )
 
 const RutaCatalogoAuditoriaConsultaEjemplo = "data/demo/reglas/auditoria_consulta.ejemplo.demo.json"
@@ -31,6 +33,8 @@ var ErrFuenteAutorizacionAuditoriaIncompleta = errors.New("config: falta la fuen
 var ErrFuenteAutorizacionAuditoriaNoSeparada = errors.New("config: la fuente PostgreSQL de autorizacion de auditoria comparte LOGIN")
 var ErrMotivosAuditoriaIncompletos = errors.New("config: falta el resolutor PostgreSQL de motivos de auditoria")
 var ErrMotivosAuditoriaNoSeparados = errors.New("config: el resolutor PostgreSQL de motivos de auditoria comparte LOGIN")
+var ErrFronteraAuditoriaIncompleta = errors.New("config: falta el registrador PostgreSQL de frontera de auditoria")
+var ErrFronteraAuditoriaNoSeparada = errors.New("config: el registrador PostgreSQL de frontera de auditoria comparte LOGIN")
 
 // RutaCatalogoAuditoriaConsultaDesarrollo no activa rutas ni concede permisos.
 // Una ruta declarada fuera de desarrollo es un error, incluso si el selector
@@ -131,6 +135,34 @@ func (c Config) DSNMotivosAuditoriaDesarrollo() (string, error) {
 	}
 	if conexionPostgreSQLComparteLogin(dsn, os.Getenv(EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL)) {
 		return "", ErrMotivosAuditoriaNoSeparados
+	}
+	return dsn, nil
+}
+
+// DSNFronteraAuditoriaDesarrollo reserva un LOGIN para CT136 con una sola
+// membresía nominal. Ningún DSN ni error imprime credenciales.
+func (c Config) DSNFronteraAuditoriaDesarrollo() (string, error) {
+	c = c.Normalize()
+	if !c.DevelopmentEnabledByDoubleKey() {
+		return "", ErrFronteraAuditoriaIncompleta
+	}
+	dsn := strings.TrimSpace(os.Getenv(EnvRRHHAuditoriaFronteraDatabaseURL))
+	if dsn == "" {
+		return "", ErrFronteraAuditoriaIncompleta
+	}
+	configuracion, err := pgconn.ParseConfig(dsn)
+	if err != nil || configuracion.User == "" {
+		return "", ErrFronteraAuditoriaIncompleta
+	}
+	for _, previo := range c.dsnsPostgreSQLConfigurados() {
+		if conexionPostgreSQLComparteLogin(dsn, previo) {
+			return "", ErrFronteraAuditoriaNoSeparada
+		}
+	}
+	for _, nombre := range []string{EnvRRHHAuditoriaFuenteAutorizacionDatabaseURL, EnvRRHHAuditoriaMotivosDatabaseURL} {
+		if conexionPostgreSQLComparteLogin(dsn, os.Getenv(nombre)) {
+			return "", ErrFronteraAuditoriaNoSeparada
+		}
 	}
 	return dsn, nil
 }

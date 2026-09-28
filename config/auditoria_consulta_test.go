@@ -90,6 +90,22 @@ func TestDSNFuenteAutorizacionAuditoriaDesarrolloExigeLoginNominalSeparado(t *te
 	}
 	const motivos = "postgres://motivos_auditoria:secreto-privado@localhost/vec?sslmode=require"
 	t.Setenv(EnvRRHHAuditoriaMotivosDatabaseURL, motivos)
+	if _, err := c.DSNFronteraAuditoriaDesarrollo(); !errors.Is(err, ErrFronteraAuditoriaIncompleta) {
+		t.Fatalf("registrador de frontera ausente admitido: %v", err)
+	}
+	const frontera = "postgres://frontera_auditoria:secreto-privado@localhost/vec?sslmode=require"
+	t.Setenv(EnvRRHHAuditoriaFronteraDatabaseURL, frontera)
+	if obtenido, err := c.DSNFronteraAuditoriaDesarrollo(); err != nil || obtenido != frontera {
+		t.Fatalf("registrador nominal: %t, %v", obtenido == frontera, err)
+	}
+	for _, login := range []string{"fuente_auditoria", "motivos_auditoria", "ct_consultor", "registro_v3"} {
+		t.Setenv(EnvRRHHAuditoriaFronteraDatabaseURL,
+			"postgres://"+login+":otra-clave@localhost/otra_base?sslmode=require")
+		if _, err := c.DSNFronteraAuditoriaDesarrollo(); !errors.Is(err, ErrFronteraAuditoriaNoSeparada) || strings.Contains(err.Error(), "otra-clave") {
+			t.Fatalf("LOGIN de frontera %s compartido o secreto expuesto: %v", login, err)
+		}
+	}
+	t.Setenv(EnvRRHHAuditoriaFronteraDatabaseURL, frontera)
 	if obtenido, err := c.DSNMotivosAuditoriaDesarrollo(); err != nil || obtenido != motivos {
 		t.Fatalf("resolutor nominal: %t, %v", obtenido == motivos, err)
 	}
@@ -106,5 +122,8 @@ func TestDSNFuenteAutorizacionAuditoriaDesarrolloExigeLoginNominalSeparado(t *te
 	}
 	if _, err := (Config{}).DSNMotivosAuditoriaDesarrollo(); !errors.Is(err, ErrMotivosAuditoriaIncompletos) {
 		t.Fatalf("motivos DEMO disponibles fuera de desarrollo: %v", err)
+	}
+	if _, err := (Config{}).DSNFronteraAuditoriaDesarrollo(); !errors.Is(err, ErrFronteraAuditoriaIncompleta) {
+		t.Fatalf("frontera DEMO disponible fuera de desarrollo: %v", err)
 	}
 }

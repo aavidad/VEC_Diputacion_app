@@ -26,6 +26,34 @@ func (registradorRutaAuditoriaSintetica) RegistrarAuditoriaFronteraRutaExacta(co
 	return nil
 }
 
+type registradorFronteraSuperficiePrueba struct{ llamadas int }
+
+func (r *registradorFronteraSuperficiePrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, _ vecports.OrdenAuditoriaFronteraRutaExacta) error {
+	r.llamadas++
+	return nil
+}
+
+func TestRegistradorFronteraAuditoriaSeparaCTYAuditoria(t *testing.T) {
+	ct, audit := &registradorFronteraSuperficiePrueba{}, &registradorFronteraSuperficiePrueba{}
+	r := registradorFronterasPorSuperficieDesarrollo{ct: ct, auditoria: audit}
+	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
+		CorrelacionRef: "corr_no_disponible", Motivo: vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
+		Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaAuditoria,
+		Ruta:       auditoria.RutaConsulta}
+	if err := r.RegistrarAuditoriaFronteraRutaExacta(t.Context(), orden); err != nil || audit.llamadas != 1 || ct.llamadas != 0 {
+		t.Fatalf("Auditoría cruzó registrador CT: %v ct=%d audit=%d", err, ct.llamadas, audit.llamadas)
+	}
+	orden.Superficie = vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
+	orden.Ruta = "/api/vec/contratacion-temporal/solicitudes"
+	if err := r.RegistrarAuditoriaFronteraRutaExacta(t.Context(), orden); err != nil || audit.llamadas != 1 || ct.llamadas != 1 {
+		t.Fatalf("CT cruzó registrador Audit: %v ct=%d audit=%d", err, ct.llamadas, audit.llamadas)
+	}
+	orden.Ruta = auditoria.RutaConsulta
+	if err := r.RegistrarAuditoriaFronteraRutaExacta(t.Context(), orden); err == nil || audit.llamadas != 1 || ct.llamadas != 1 {
+		t.Fatal("superficie CT aceptó ruta Audit")
+	}
+}
+
 func TestAuditoriaNoReestablecePerfilRevocadoORestringido(t *testing.T) {
 	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ahora := soporte.reloj.Ahora()
