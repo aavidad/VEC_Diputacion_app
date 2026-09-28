@@ -8,15 +8,17 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrAuditoriaFronteraPreferenciasNoDisponible = errors.New("usuarios: auditoria de frontera no disponible")
 
 const (
-	superficieAuditoriaPreferencias = "api.usuarios.preferencias.ruta_exacta"
-	rutaAuditoriaPreferencias       = "/api/vec/usuarios/mis-preferencias"
-	registrarDenegacionSQL          = `SELECT vec_usuarios.registrar_denegacion_preferencias_v1($1::text,$2::text,$3::text,$4::text,NULLIF($5::text,''))`
+	superficieAuditoriaPreferencias  = "api.usuarios.preferencias.ruta_exacta"
+	rutaAuditoriaPreferenciasInterna = "/api/vec/usuarios/mis-preferencias"
+	rutaAuditoriaPreferenciasExterna = "/api/vec/usuarios/area-personal/mis-preferencias"
+	registrarDenegacionSQL           = `SELECT vec_usuarios.registrar_denegacion_preferencias_v1($1::text,$2::text,$3::text,$4::text,NULLIF($5::text,''))`
 )
 
 // La sonda comprueba permisos efectivos, no solo una membresía nominal. La
@@ -52,8 +54,29 @@ const preflightDenegacionSQL = `SELECT session_user=current_user
    AND c.relkind='S' AND (pg_catalog.has_sequence_privilege(session_user,c.oid,'USAGE')
    OR pg_catalog.has_sequence_privilege(session_user,c.oid,'SELECT')
    OR pg_catalog.has_sequence_privilege(session_user,c.oid,'UPDATE')))
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE left(n.nspname,4)='vec_'
+   AND (n.nspowner IN (l.oid,g.oid) OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(n.nspacl) a
+     WHERE a.grantee=l.oid OR (a.grantee=g.oid AND (n.nspname<>'vec_usuarios' OR a.privilege_type<>'USAGE')))))
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+   JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE left(n.nspname,4)='vec_'
+   AND (c.relowner IN (l.oid,g.oid) OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(c.relacl) a
+     WHERE a.grantee IN (l.oid,g.oid))))
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+   JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
+   JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE left(n.nspname,4)='vec_'
+   AND EXISTS (SELECT 1 FROM pg_catalog.aclexplode(a.attacl) x WHERE x.grantee IN (l.oid,g.oid)))
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+   JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE left(n.nspname,4)='vec_'
+   AND (p.proowner IN (l.oid,g.oid) OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+     WHERE a.grantee=l.oid OR (a.grantee=g.oid AND
+       (p.oid<>'vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text)'::pg_catalog.regprocedure
+        OR a.privilege_type<>'EXECUTE')))))
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_type t
+   JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace WHERE left(n.nspname,4)='vec_'
+   AND (t.typowner IN (l.oid,g.oid) OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(t.typacl) a
+     WHERE a.grantee IN (l.oid,g.oid))))
  AND NOT pg_catalog.pg_is_in_recovery()
- FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname='vec_usuarios_registrador_frontera'
+ FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1
  WHERE l.rolname=session_user`
 
 var (
@@ -69,18 +92,33 @@ var _ vecports.RegistradorAuditoriaFronteraRutaExacta = (*RegistradorDenegacionP
 
 // El pool pertenece a bootstrap y usa un LOGIN privado distinto del ejecutor.
 type RegistradorDenegacionPreferenciasPostgreSQL struct {
-	consultor consultorDenegaciones
+	consultor  consultorDenegaciones
+	superficie vecdomain.SuperficieAutenticacionActorV1
+	ruta       string
+	rol        string
 }
 
-func NuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx context.Context, pool *pgxpool.Pool) (*RegistradorDenegacionPreferenciasPostgreSQL, error) {
+func parametrosRegistradorDenegacion(superficie vecdomain.SuperficieAutenticacionActorV1) (string, string) {
+	switch superficie {
+	case vecdomain.SuperficieAutenticacionInternaCorporativaV1:
+		return "vec_usuarios_registrador_frontera_interno", rutaAuditoriaPreferenciasInterna
+	case vecdomain.SuperficieAutenticacionExternaPersonalV1:
+		return "vec_usuarios_registrador_frontera_externo", rutaAuditoriaPreferenciasExterna
+	default:
+		return "", ""
+	}
+}
+
+func NuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx context.Context, pool *pgxpool.Pool, superficie vecdomain.SuperficieAutenticacionActorV1) (*RegistradorDenegacionPreferenciasPostgreSQL, error) {
 	if pool == nil {
 		return nil, ErrAuditoriaFronteraPreferenciasNoDisponible
 	}
-	return nuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx, pool)
+	return nuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx, pool, superficie)
 }
 
-func nuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx context.Context, consultor consultorDenegaciones) (*RegistradorDenegacionPreferenciasPostgreSQL, error) {
-	if ctx == nil || consultor == nil {
+func nuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx context.Context, consultor consultorDenegaciones, superficie vecdomain.SuperficieAutenticacionActorV1) (*RegistradorDenegacionPreferenciasPostgreSQL, error) {
+	rol, ruta := parametrosRegistradorDenegacion(superficie)
+	if ctx == nil || consultor == nil || rol == "" {
 		return nil, ErrAuditoriaFronteraPreferenciasNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -89,17 +127,18 @@ func nuevoRegistradorDenegacionPreferenciasPostgreSQL(ctx context.Context, consu
 	sonda, cancelar := context.WithTimeout(ctx, 3*time.Second)
 	defer cancelar()
 	var valido bool
-	if err := consultor.QueryRow(sonda, preflightDenegacionSQL).Scan(&valido); err != nil || !valido {
+	if err := consultor.QueryRow(sonda, preflightDenegacionSQL, rol).Scan(&valido); err != nil || !valido {
 		return nil, ErrAuditoriaFronteraPreferenciasNoDisponible
 	}
-	return &RegistradorDenegacionPreferenciasPostgreSQL{consultor: consultor}, nil
+	return &RegistradorDenegacionPreferenciasPostgreSQL{consultor: consultor, superficie: superficie, ruta: ruta, rol: rol}, nil
 }
 
 func (r *RegistradorDenegacionPreferenciasPostgreSQL) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
 	if r == nil || r.consultor == nil || ctx == nil {
 		return ErrAuditoriaFronteraPreferenciasNoDisponible
 	}
-	if !ordenDenegacionPreferenciasValida(orden) {
+	rol, ruta := parametrosRegistradorDenegacion(r.superficie)
+	if rol == "" || r.rol != rol || r.ruta != ruta || !ordenDenegacionPreferenciasValida(orden, ruta) {
 		return vecports.ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	// La petición ya fue denegada. Su cancelación no debe impedir registrar el
@@ -115,8 +154,8 @@ func (r *RegistradorDenegacionPreferenciasPostgreSQL) RegistrarAuditoriaFrontera
 	return nil
 }
 
-func ordenDenegacionPreferenciasValida(o vecports.OrdenAuditoriaFronteraRutaExacta) bool {
-	if o.Superficie != superficieAuditoriaPreferencias || o.Ruta != rutaAuditoriaPreferencias ||
+func ordenDenegacionPreferenciasValida(o vecports.OrdenAuditoriaFronteraRutaExacta, ruta string) bool {
+	if o.Superficie != superficieAuditoriaPreferencias || o.Ruta != ruta ||
 		(o.CorrelacionRef != "corr_no_disponible" && !correlacionPreferencias.MatchString(o.CorrelacionRef)) {
 		return false
 	}

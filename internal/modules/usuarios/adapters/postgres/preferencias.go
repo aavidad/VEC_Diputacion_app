@@ -12,11 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
-	consultarCatalogoSQL = `SELECT vec_usuarios.catalogo_vigente_preferencias_v1()`
+	consultarCatalogoSQL = `SELECT vec_usuarios.catalogo_vigente_preferencias_v1($1::text)`
 	consultarPropiasSQL  = `SELECT vec_usuarios.consultar_preferencias_propias_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	recuperarSQL         = `SELECT vec_usuarios.recuperar_preferencias_operacion_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 	guardarSQL           = `SELECT vec_usuarios.guardar_preferencias_propias_v1($1::text,$2::jsonb,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`
@@ -25,20 +26,20 @@ const (
 // El login debe heredar únicamente el ejecutor Usuarios y ninguna autoridad de
 // tablas. Se vuelve a comprobar en cada transacción para cerrar revocaciones.
 const acreditarEjecutorSQL = `SELECT session_user=current_user
- AND l.rolcanlogin AND NOT l.rolsuper AND NOT l.rolcreatedb
+ AND l.rolcanlogin AND l.rolinherit AND NOT l.rolsuper AND NOT l.rolcreatedb
  AND NOT l.rolcreaterole AND NOT l.rolreplication AND NOT l.rolbypassrls
- AND g.rolname='vec_usuarios_ejecutor' AND NOT g.rolcanlogin
- AND g.rolinherit AND NOT g.rolbypassrls
- AND pg_has_role(session_user,g.oid,'MEMBER') AND pg_has_role(session_user,g.oid,'USAGE')
- AND EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid
+ AND g.rolname=$1 AND NOT g.rolcanlogin AND NOT g.rolsuper AND NOT g.rolcreatedb
+ AND NOT g.rolcreaterole AND g.rolinherit AND NOT g.rolreplication AND NOT g.rolbypassrls
+ AND pg_catalog.pg_has_role(session_user,g.oid,'MEMBER') AND pg_catalog.pg_has_role(session_user,g.oid,'USAGE')
+ AND EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=l.oid AND m.roleid=g.oid
    AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
- AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=l.oid)=1
- AND NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=g.oid)
- AND has_function_privilege(session_user,'vec_usuarios.catalogo_vigente_preferencias_v1()','EXECUTE')
- AND has_function_privilege(session_user,'vec_usuarios.consultar_preferencias_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND has_function_privilege(session_user,'vec_usuarios.recuperar_preferencias_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND has_function_privilege(session_user,'vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- FROM pg_roles l JOIN pg_roles g ON g.rolname='vec_usuarios_ejecutor'
+ AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=l.oid)=1
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.roleid=l.oid OR m.member=g.oid)
+ AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.catalogo_vigente_preferencias_v1(text)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.consultar_preferencias_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.recuperar_preferencias_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1
  WHERE l.rolname=session_user`
 
 type filaPreferencias interface{ Scan(...any) error }
@@ -59,14 +60,28 @@ var _ ports.RegistroPreferencias = (*RegistroPreferenciasPostgreSQL)(nil)
 
 // RegistroPreferenciasPostgreSQL no posee el pool: bootstrap debe cerrarlo.
 type RegistroPreferenciasPostgreSQL struct {
-	iniciar func(context.Context) (transaccionPreferencias, error)
+	iniciar    func(context.Context) (transaccionPreferencias, error)
+	superficie vecdomain.SuperficieAutenticacionActorV1
+	rol        string
 }
 
-func NuevoRegistroPreferenciasPostgreSQL(ctx context.Context, pool *pgxpool.Pool) (*RegistroPreferenciasPostgreSQL, error) {
-	if ctx == nil || pool == nil || ctx.Err() != nil {
+func rolEjecutorPreferencias(superficie vecdomain.SuperficieAutenticacionActorV1) string {
+	switch superficie {
+	case vecdomain.SuperficieAutenticacionInternaCorporativaV1:
+		return "vec_usuarios_ejecutor_interno"
+	case vecdomain.SuperficieAutenticacionExternaPersonalV1:
+		return "vec_usuarios_ejecutor_externo"
+	default:
+		return ""
+	}
+}
+
+func NuevoRegistroPreferenciasPostgreSQL(ctx context.Context, pool *pgxpool.Pool, superficie vecdomain.SuperficieAutenticacionActorV1) (*RegistroPreferenciasPostgreSQL, error) {
+	rol := rolEjecutorPreferencias(superficie)
+	if ctx == nil || pool == nil || ctx.Err() != nil || rol == "" {
 		return nil, ports.ErrNoDisponible
 	}
-	r := &RegistroPreferenciasPostgreSQL{iniciar: func(ctx context.Context) (transaccionPreferencias, error) {
+	r := &RegistroPreferenciasPostgreSQL{superficie: superficie, rol: rol, iniciar: func(ctx context.Context) (transaccionPreferencias, error) {
 		tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 		if err != nil {
 			return nil, err
@@ -104,7 +119,7 @@ func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccion
 		return nil, errorSeguro(ctx, err)
 	}
 	for _, ajuste := range [...]string{
-		"SET LOCAL search_path = pg_catalog",
+		"SET LOCAL search_path = pg_catalog, pg_temp",
 		"SET LOCAL row_security = on",
 		"SET LOCAL TIME ZONE 'UTC'",
 		"SET LOCAL lock_timeout = '3s'",
@@ -116,7 +131,7 @@ func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccion
 		}
 	}
 	var valido bool
-	if err := tx.QueryRow(ctx, acreditarEjecutorSQL).Scan(&valido); err != nil {
+	if err := tx.QueryRow(ctx, acreditarEjecutorSQL, r.rol).Scan(&valido); err != nil {
 		return fallar(err)
 	}
 	if !valido {
@@ -126,15 +141,19 @@ func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccion
 	return tx, nil
 }
 
-func (r *RegistroPreferenciasPostgreSQL) CatalogoVigente(ctx context.Context) (domain.CatalogoPreferencias, error) {
+func (r *RegistroPreferenciasPostgreSQL) CatalogoVigente(ctx context.Context, orden ports.OrdenPreferencias) (domain.CatalogoPreferencias, error) {
 	var vacio domain.CatalogoPreferencias
+	superficie, err := orden.Superficie()
+	if err != nil || r == nil || superficie != r.superficie || rolEjecutorPreferencias(superficie) != r.rol {
+		return vacio, ports.ErrProhibido
+	}
 	tx, err := r.abrir(ctx)
 	if err != nil {
 		return vacio, err
 	}
 	defer tx.Rollback(context.Background())
 	var datos []byte
-	if err := tx.QueryRow(ctx, consultarCatalogoSQL).Scan(&datos); err != nil {
+	if err := tx.QueryRow(ctx, consultarCatalogoSQL, string(superficie)).Scan(&datos); err != nil {
 		return vacio, errorSeguro(ctx, err)
 	}
 	c, err := decodificarCatalogo(datos)
@@ -149,7 +168,7 @@ func (r *RegistroPreferenciasPostgreSQL) CatalogoVigente(ctx context.Context) (d
 
 func (r *RegistroPreferenciasPostgreSQL) ConsultarPropias(ctx context.Context, orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoPreferencias, bool, error) {
 	var vacio ports.EstadoPreferencias
-	if err := validarMaterial(orden, material, v3, ports.AccionConsultarPreferencias); err != nil {
+	if err := r.validarMaterial(orden, material, v3, ports.AccionConsultarPreferencias); err != nil {
 		return vacio, false, err
 	}
 	tx, err := r.abrir(ctx)
@@ -182,7 +201,7 @@ func (r *RegistroPreferenciasPostgreSQL) ConsultarPropias(ctx context.Context, o
 
 func (r *RegistroPreferenciasPostgreSQL) RecuperarOperacion(ctx context.Context, orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboPreferencias, bool, error) {
 	var vacio ports.ReciboPreferencias
-	if err := validarMaterial(orden, material, v3, ports.AccionActualizarPreferencias); err != nil {
+	if err := r.validarMaterial(orden, material, v3, ports.AccionActualizarPreferencias); err != nil {
 		return vacio, false, err
 	}
 	tx, err := r.abrir(ctx)
@@ -216,7 +235,7 @@ func (r *RegistroPreferenciasPostgreSQL) RecuperarOperacion(ctx context.Context,
 
 func (r *RegistroPreferenciasPostgreSQL) Guardar(ctx context.Context, orden ports.OrdenPreferencias, peticion ports.PeticionGuardarPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboPreferencias, error) {
 	var vacio ports.ReciboPreferencias
-	if err := validarMaterial(orden, material, v3, ports.AccionActualizarPreferencias); err != nil {
+	if err := r.validarMaterial(orden, material, v3, ports.AccionActualizarPreferencias); err != nil {
 		return vacio, err
 	}
 	if peticion.VersionEsperada != material.VersionEsperada || peticion.CatalogoVersionRef != material.CatalogoVersionRef ||
@@ -251,16 +270,23 @@ func (r *RegistroPreferenciasPostgreSQL) Guardar(ctx context.Context, orden port
 	return recibo, nil
 }
 
-func validarMaterial(orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, accion string) error {
+func (r *RegistroPreferenciasPostgreSQL) validarMaterial(orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, accion string) error {
 	actor, err := orden.ContextoActor()
 	if err != nil {
 		return ports.ErrNoAutenticado
+	}
+	superficie, err := orden.Superficie()
+	audiencia, errAudiencia := ports.AudienciaPreferencias(accion, superficie)
+	if err != nil || errAudiencia != nil || r == nil || superficie != r.superficie || material.Superficie != superficie ||
+		rolEjecutorPreferencias(superficie) != r.rol {
+		return ports.ErrProhibido
 	}
 	if material.PersonaRef == "" || material.PersonaRef != actor.PersonaRef || material.PerfilRef != actor.PerfilActivoRef ||
 		material.Accion != accion || material.FinalidadRef != ports.FinalidadPreferenciasPropias ||
 		material.CatalogoVersionRef == "" || v3.ValidarEstructura() != nil ||
 		v3.PersonaVersion() != actor.Instantanea.PersonaVersion || v3.PerfilVersion() != actor.Instantanea.PerfilVersion ||
-		v3.ResumenCapacidad().Operacion() != accion {
+		v3.ResumenCapacidad().Operacion() != accion || v3.ResumenCapacidad().EfectoRef() != actor.PersonaRef ||
+		v3.ResumenCapacidad().AudienciaConsumo() != audiencia {
 		return ports.ErrProhibido
 	}
 	return nil
