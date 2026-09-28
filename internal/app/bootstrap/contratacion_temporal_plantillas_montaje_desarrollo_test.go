@@ -13,7 +13,6 @@ import (
 	plantillashttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpapi/plantillascatalogo"
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
-	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -202,6 +201,23 @@ func (s sesionPlantillasCTPrueba) ResolverContexto(context.Context) (contextoSeg
 	return s.contexto, nil
 }
 
+type pdpIndicadorPlantillasCTPrueba struct{ preparaciones, exigencias int }
+
+func (p *pdpIndicadorPlantillasCTPrueba) ExigirSolicitudLigadaV3(context.Context, vecdomain.SolicitudAutorizacionLigadaV3,
+	vecdomain.ResultadoContextoActorRegistradoV2) (vecdomain.DecisionAutorizacionLigadaV3,
+	vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
+	p.exigencias++
+	return vecdomain.DecisionAutorizacionLigadaV3{}, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, vecdomain.ErrAutorizacionDenegada
+}
+
+func (p *pdpIndicadorPlantillasCTPrueba) PrepararRegistroCompuestoSolicitudLigadaV3(context.Context,
+	vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.ResultadoContextoActorRegistradoV2,
+	vecports.GeneradorReferenciaDecisionAutorizacion) (vecdomain.DecisionAutorizacionLigadaV3,
+	vecports.CandidataRegistroDecisionAutorizacionLigadaV3, error) {
+	p.preparaciones++
+	return vecdomain.DecisionAutorizacionLigadaV3{}, vecports.CandidataRegistroDecisionAutorizacionLigadaV3{}, vecdomain.ErrAutorizacionDenegada
+}
+
 func TestPlantillasCatalogoCTIndicadorSoloDesdeGETAutenticado(t *testing.T) {
 	ahora := relojContratacionTemporalDesarrollo{}.Ahora()
 	principal := vecdomain.Principal{ID: "rrhh:ct:desarrollo", Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
@@ -237,13 +253,26 @@ func TestPlantillasCatalogoCTIndicadorSoloDesdeGETAutenticado(t *testing.T) {
 	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
 		metodo: http.MethodGet, ruta: plantillashttp.RutaCatalogo, superficie: superficieInternaSeguridadComunDesarrollo,
 		catalogo: fronteras, descriptor: descriptor})
-	p := &proveedorCatalogoPlantillasCT{soporte: soporte, pdp: &aplicacionvec.ServicioAutorizacionSolicitudLigadaV3{},
+	pdp := &pdpIndicadorPlantillasCTPrueba{}
+	p := &proveedorCatalogoPlantillasCT{soporte: soporte, pdp: pdp,
 		motivo: motivoCatalogoPlantillasCTDesarrollo(), reloj: relojContratacionTemporalDesarrollo{}}
 	if _, err := p.contextoVigente(ctx, "contratacion_temporal.plantillas_documentos.editar", true); err != nil {
 		t.Fatalf("indicador GET legítimo denegado: %v", err)
 	}
 	if _, err := p.contextoVigente(ctx, "contratacion_temporal.plantillas_documentos.editar", false); !errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
 		t.Fatalf("GET convertido en efecto POST: %v", err)
+	}
+	actor, err := p.ResolverContextoActor(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indicador := vecdomain.RecursoAutorizable{Referencia: plantillasapp.CatalogoID, ModuloID: plantillasapp.ModuloID,
+		Tipo: tipoCatalogoPlantillasCT, Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo},
+		Atributos: map[string]string{"operacion": "editar", "estado": "publicado", "version": "1", "revision": "0"}}
+	puede, err := p.ComprobarCapacidadCatalogoPlantillas(ctx, actor, "contratacion_temporal.plantillas_documentos.editar", indicador)
+	if err != nil || puede || pdp.preparaciones != 1 || pdp.exigencias != 0 {
+		t.Fatalf("indicador denegado exigió concesión: puede=%v err=%v preparaciones=%d exigencias=%d",
+			puede, err, pdp.preparaciones, pdp.exigencias)
 	}
 	descriptorPOST, ok := fronteras.resolver(http.MethodPost, plantillashttp.RutaEntradas)
 	if !ok {
@@ -296,6 +325,9 @@ func TestPlantillasCatalogoCTPreflightDeniegaRolesYACLIncompletas(t *testing.T) 
 			"has_schema_privilege(session_user,'vec_autorizacion','USAGE')",
 			"has_schema_privilege($3::text,'vec_autorizacion','USAGE')",
 			"NOT pg_catalog.has_schema_privilege(session_user,'vec_autorizacion','CREATE')",
+			"to_regrole('vec_contratacion_temporal_ejecutor')", "to_regrole('vec_bolsa_llamamientos_ejecutor')",
+			"to_regnamespace('vec_bolsa_llamamientos')", "consultar_auditoria_ct_atestada_v1",
+			"registrar_auditoria_frontera_auditoria_v1",
 			"has_table_privilege", "has_any_column_privilege", "NOT coalesce(pg_catalog.has_function_privilege"} {
 			if !strings.Contains(c.sql, fragmento) {
 				t.Fatalf("ACL omitida: %s", fragmento)

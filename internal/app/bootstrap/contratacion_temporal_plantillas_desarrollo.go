@@ -232,12 +232,25 @@ func comprobarPreflightAutoridadesPlantillasCT(ctx context.Context, fuente, moti
      AND pg_catalog.has_schema_privilege($3::text,'vec_autorizacion','USAGE')
      AND NOT pg_catalog.has_schema_privilege(session_user,'vec_autorizacion','CREATE')
      AND NOT pg_catalog.has_schema_privilege($3::text,'vec_autorizacion','CREATE')
+     AND NOT coalesce(pg_catalog.pg_has_role(session_user,pg_catalog.to_regrole('vec_contratacion_temporal_ejecutor'),'MEMBER'),false)
+     AND NOT coalesce(pg_catalog.pg_has_role(session_user,pg_catalog.to_regrole('vec_contratacion_temporal_propietario'),'MEMBER'),false)
+     AND NOT coalesce(pg_catalog.pg_has_role(session_user,pg_catalog.to_regrole('vec_bolsa_llamamientos_ejecutor'),'MEMBER'),false)
+     AND NOT coalesce(pg_catalog.has_schema_privilege(session_user,pg_catalog.to_regnamespace('vec_contratacion_temporal'),'USAGE'),false)
+     AND NOT coalesce(pg_catalog.has_schema_privilege(session_user,pg_catalog.to_regnamespace('vec_bolsa_llamamientos'),'USAGE'),false)
+     AND NOT coalesce(pg_catalog.has_schema_privilege(session_user,pg_catalog.to_regnamespace('vec_autorizacion_atestada_v3'),'USAGE'),false)
      AND coalesce(pg_catalog.has_function_privilege(session_user,pg_catalog.to_regprocedure($1)::oid,'EXECUTE'),false)
      AND NOT coalesce(pg_catalog.has_function_privilege(session_user,pg_catalog.to_regprocedure($2)::oid,'EXECUTE'),false)
+     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
+       pg_catalog.to_regprocedure('vec_contratacion_temporal.operar_catalogo_plantillas_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')::oid,'EXECUTE'),false)
+     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
+       pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_auditoria_ct_atestada_v1(text,text,text,timestamptz,timestamptz,integer,timestamptz,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')::oid,'EXECUTE'),false)
+     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
+       pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)')::oid,'EXECUTE'),false)
      AND NOT EXISTS (
        SELECT 1 FROM pg_catalog.pg_class c
        JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
-       WHERE n.nspname='vec_autorizacion' AND c.relkind IN ('r','p','v','m')
+       WHERE n.nspname IN ('vec_autorizacion','vec_contratacion_temporal','vec_bolsa_llamamientos','vec_autorizacion_atestada_v3')
+         AND c.relkind IN ('r','p','v','m')
          AND (pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
            OR pg_catalog.has_any_column_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))`
 	const funcionFuente = "vec_autorizacion.obtener_instantanea(text,text)"
@@ -384,6 +397,9 @@ func nuevasRutasPlantillasCTDesarrollo(ctx context.Context, cfg config.Config,
 	catalogo, err := CargarCatalogoPlantillasCT(cfg.Normalize().ReglasEjemplo.CTPlantillasSourcePath)
 	if err != nil {
 		return nil, plantillasapp.ErrNoDisponible
+	}
+	if err := comprobarPreimagenCatalogoPlantillasCT(ctx, alta.postgresql.ejecucion, catalogo); err != nil {
+		return nil, err
 	}
 	if soporte.contexto.Resultado.Contexto.PerfilActivoRef == alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef ||
 		soporte.principalID != alta.soporte.principalID || soporte.certificadoSHA256 != alta.soporte.certificadoSHA256 ||
