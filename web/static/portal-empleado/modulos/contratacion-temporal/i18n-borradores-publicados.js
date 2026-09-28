@@ -20,6 +20,8 @@ export const MENSAJES_BORRADORES_PUBLICADOS_ES = Object.freeze({
   bp_huella: "SHA-256: {huella}",
   bp_descarga_error: "No se pudo comprobar la descarga. No se ha guardado ningún documento.",
   bp_catalogo: "Catálogo publicado",
+  bp_publicacion: "Publicación comprobada:",
+  bp_publicacion_recibo: "Recibo de publicación: {recibo}",
 });
 
 export const MENSAJES_BORRADORES_PUBLICADOS_EN = Object.freeze({
@@ -44,4 +46,6 @@ export const MENSAJES_BORRADORES_PUBLICADOS_EN = Object.freeze({
   bp_huella: "SHA-256: {huella}",
   bp_descarga_error: "The download could not be verified. No document has been saved.",
   bp_catalogo: "Published catalogue",
+  bp_publicacion: "Publication verified:",
+  bp_publicacion_recibo: "Publication receipt: {recibo}",
 });
