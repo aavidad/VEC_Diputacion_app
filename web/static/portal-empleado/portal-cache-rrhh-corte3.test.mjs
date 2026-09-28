@@ -17,20 +17,21 @@ test("el corte RRHH renueva las rutas de B55 y CT133 hasta la entrada HTML", asy
     [panel, "portal-bolsas-reincorporaciones.js", "20260928-rrhh-reincorporaciones-v5"],
     [api, "portal-bolsas-operaciones.js", "20260928-rrhh-corte3-cache-v5"],
     [vistaCT, "vista-borradores-publicados.js", "20260928-rrhh-corte3-cache-v2"],
-    [coordinador, "rrhh-plantillas-vista.js", "20260928-rrhh-corte3-cache-v3"],
+    [coordinador, "rrhh-plantillas-vista.js", "20260928-rrhh-corte3-cache-v4"],
     [coordinador, "vista-expedientes.js", "20260928-rrhh-corte3-cache-v5"],
-    [portal, "rrhh-plantillas-cliente.js", "20260928-rrhh-corte3-cache-v2"],
-    [portal, "portal-modulos-coordinador.js", "20260928-rrhh-corte3-cache-v6"],
-    [html, "portal.js", "20260928-rrhh-corte3-cache-v6"],
+    [portal, "rrhh-plantillas-cliente.js", "20260928-rrhh-corte3-cache-v3"],
+    [portal, "portal-modulos-coordinador.js", "20260928-rrhh-corte3-cache-v7"],
+    [html, "portal.js", "20260928-rrhh-corte3-cache-v7"],
   ];
   for (const [fuente, modulo, version] of aristas) {
     assert.ok(fuente.includes(`${modulo}?v=${version}`), `${modulo}: falta URL renovada`);
   }
   assert.ok(![operaciones, panel, api, vistaCT, coordinador, portal, html].some((fuente) =>
     fuente.includes("portal-bolsas-reincorporaciones.js?v=20260928-rrhh-reincorporaciones-v4")));
-  assert.ok(!coordinador.includes("rrhh-plantillas-vista.js?v=20260928-rrhh-corte3-cache-v2"));
-  assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260928-rrhh-corte3-cache-v5"));
-  assert.ok(!html.includes("portal.js?v=20260928-rrhh-corte3-cache-v5"));
+  assert.ok(!coordinador.includes("rrhh-plantillas-vista.js?v=20260928-rrhh-corte3-cache-v3"));
+  assert.ok(!portal.includes("rrhh-plantillas-cliente.js?v=20260928-rrhh-corte3-cache-v2"));
+  assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260928-rrhh-corte3-cache-v6"));
+  assert.ok(!html.includes("portal.js?v=20260928-rrhh-corte3-cache-v6"));
 });
 
 test("manifiestos conservan las cuatro hojas y la ayuda distribuida", async () => {
