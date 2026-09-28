@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -28,6 +29,12 @@ type consultorComunicacionesPrueba struct{ err error }
 
 func (c consultorComunicacionesPrueba) ConsultarComunicacionesExpediente(context.Context, ports.ConsultaComunicacionesExpediente) (ports.PaginaComunicacionesExpediente, error) {
 	return ports.PaginaComunicacionesExpediente{}, c.err
+}
+
+type sesionOperativaErrorComunicacionesPrueba struct{ err error }
+
+func (s sesionOperativaErrorComunicacionesPrueba) ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error) {
+	return contextoSeguridadComunDesarrollo{}, s.err
 }
 
 func TestConsultaComunicacionesMontajePermisoV3YMaterialExactos(t *testing.T) {
@@ -129,6 +136,64 @@ func TestConsultaComunicacionesMontajeContextoSelladoYAutorizacionFresca(t *test
 	}
 	if _, err := p.AutorizarConsultaComunicacionesExpediente(context.Background(), c); !errors.Is(err, ports.ErrConsultaComunicacionesExpedienteDenegada) || a.llamadas != 2 {
 		t.Fatal("referencia de expediente sustituyó identidad")
+	}
+}
+
+func TestConsultaComunicacionesMontajeFalloSesion503Denegacion403SinCambiarOtrasRutas(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	p := &proveedorConsultaComunicacionesExpedienteDesarrollo{soporte: soporte, reloj: soporte.reloj}
+	ruta := httpinterno.RutaConsultaComunicacionesExpediente
+	for _, caso := range []struct {
+		nombre   string
+		fallo    error
+		esperado error
+	}{
+		{"registro_caido", ports.ErrConsultaRRHHNoDisponible, ports.ErrConsultaComunicacionesExpedienteNoDisponible},
+		{"identidad_denegada", ErrSeguridadComunDesarrolloDenegada, ports.ErrConsultaComunicacionesExpedienteDenegada},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			soporte.sesionOperativa = sesionOperativaErrorComunicacionesPrueba{caso.fallo}
+			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)
+			if err := p.ResolverContextoConsultaComunicacionesExpediente(ctx); !errors.Is(err, caso.esperado) {
+				t.Fatalf("fallo de sesión %v: %v, esperado %v", caso.fallo, err, caso.esperado)
+			}
+		})
+	}
+	soporte.sesionOperativa = sesionOperativaErrorComunicacionesPrueba{ports.ErrConsultaRRHHNoDisponible}
+	ctxAnterior := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaRegistroRespuestaRecibida)
+	if _, err := soporte.contextoOperativoDesarrollo(ctxAnterior); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		t.Fatal("cambió la clasificación histórica de otra ruta")
+	}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)
+	proveedorSesion := &proveedorSesionConsultaRRHHDesarrollo{soporte: soporte}
+	if !errors.Is(proveedorSesion.errorSesionConsultaComunicacionesExpediente(ctx, ports.ErrConsultaRRHHNoDisponible), ports.ErrConsultaRRHHNoDisponible) ||
+		!errors.Is(proveedorSesion.errorSesionConsultaComunicacionesExpediente(ctx, ports.ErrAutorizacionDenegada), ErrSeguridadComunDesarrolloDenegada) {
+		t.Fatal("la sesión perdió la distinción entre dependencia y denegación")
+	}
+}
+
+func TestConsultaComunicacionesMontajeRevalidadorRealClasifica503Y403(t *testing.T) {
+	for _, caso := range []struct {
+		nombre   string
+		fallo    error
+		esperado error
+	}{
+		{"dependencia_caida", errors.New("fallo sintético del revalidador"), ports.ErrConsultaRRHHNoDisponible},
+		{"identidad_denegada", dominiovec.ErrAutorizacionDenegada, ports.ErrAutorizacionDenegada},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := nuevaSesionConsultaPrueba(t)
+			e.revalidador.err = caso.fallo
+			e.soporte.sesionOperativa = e.p
+			ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaConsultaComunicacionesExpediente)
+			capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+			capacidad.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
+			capacidad.certificadoValidoHasta = e.reloj.Ahora().Add(time.Minute)
+			ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+			if _, err := e.soporte.contextoOperativoDesarrollo(ctx); !errors.Is(err, caso.esperado) {
+				t.Fatalf("sesión/revalidador: %v; esperado %v", err, caso.esperado)
+			}
+		})
 	}
 }
 

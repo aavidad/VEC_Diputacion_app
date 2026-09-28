@@ -110,7 +110,9 @@ func (p *proveedorConsultaComunicacionesExpedienteDesarrollo) ResolverContextoCo
 	if !certificadoConsultaReciboRespuestaVigente(capacidad, p.reloj.Ahora()) {
 		return httpinterno.ErrContextoCanalCaducado
 	}
-	if _, err := p.soporte.contextoOperativoDesarrollo(ctx); err != nil {
+	if _, err := p.soporte.contextoOperativoDesarrollo(ctx); errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+		return ports.ErrConsultaComunicacionesExpedienteNoDisponible
+	} else if err != nil {
 		return ports.ErrConsultaComunicacionesExpedienteDenegada
 	}
 	return nil
