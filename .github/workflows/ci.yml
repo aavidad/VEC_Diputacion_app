@@ -6,10 +6,15 @@ name: ci
 
 on:
   push:
+    branches-ignore: ['respaldo/**']
+    # Conservar la cobertura de tags al definir un filtro para ramas.
+    tags: ['**']
     paths-ignore:
       - '**.md'
       - 'docs/**'
   pull_request:
+    # Este filtro afecta a la rama destino; los jobs filtran tambien el origen.
+    branches-ignore: ['respaldo/**']
 
 # Un push nuevo en la misma rama cancela la ejecucion anterior: el canal de
 # direccion produce varios commits seguidos y solo interesa el ultimo.
@@ -22,6 +27,7 @@ permissions:
 
 jobs:
   puerta-secretos:
+    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,6 +45,7 @@ jobs:
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
   puerta-calidad:
+    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -66,6 +73,7 @@ jobs:
       # go test ./... con el arnes existente. El codigo sigue en tools/.
 
   puerta-artefactos-productivos:
+    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -89,6 +97,7 @@ jobs:
             vec-ci-publico:revision vec-ci-interno:revision
 
   puerta-postgresql-contexto-actor-v3:
+    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -102,6 +111,7 @@ jobs:
         run: bash deploy/postgresql/autorizacion/probar_integracion_contexto_actor_v3.sh
 
   puerta-postgresql-bolsa-publica:
+    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'respaldo/') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
