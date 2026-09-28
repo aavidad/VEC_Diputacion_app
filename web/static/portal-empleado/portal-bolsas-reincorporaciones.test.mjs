@@ -254,12 +254,31 @@ test("cancela el resultado antiguo al cambiar de ficha y deja la situación sin 
 
 test("la ficha muestra recibo y fecha sin inventar actor ni mutar disponibilidad", () => {
   const html = renderizarReincorporacionesTitular({ estado: { carga: "listo", items: [{ ...item, recibo_ct_ref: "recibo:<script>" }] }, escaparHTML });
+  assert.match(html, /<section[^>]+aria-labelledby="reincorporacion-titulo"/);
+  assert.match(html, /<h4 id="reincorporacion-titulo">Reincorporación de la persona titular<\/h4>/);
+  assert.doesNotMatch(html, /Reflejo recibido desde Contratación temporal|La disponibilidad se consulta en su situación actual/);
+  assert.match(html, /Cese aplicado en Bolsa/);
   assert.match(html, /recibo:&lt;script&gt;/);
   assert.match(html, /<time datetime="2026-10-01">1\/10\/26<\/time>/);
   assert.match(html, /role="region"/);
   assert.doesNotMatch(html, /actor|data-bolsa-accion="cambiar|<script>/i);
   assert.match(renderizarReincorporacionesTitular({ estado: { carga: "pendiente", error: traducirPortal("reincorporacion_error_404") }, escaparHTML }), /Reintentar consulta/);
   assert.doesNotMatch(renderizarReincorporacionesTitular({ estado: { carga: "denegado" }, escaparHTML }), /data-reincorporacion-accion="reintentar"/);
+});
+
+test("403 en la ficha muestra solo la denegación y no expone filas ni ayuda fija", async () => {
+  const modalFicha = { candidato: { participacion_ref: "participacion:1" } };
+  const estado = { bolsaSeleccionada: "bolsa:1", modalFicha };
+  await cargarReincorporacionesTitularFicha(modalFicha, {
+    estado,
+    renderizar() {},
+    consultar: async () => ({ ok: false, status: 403, mensaje: traducirPortal("reincorporacion_error_403") }),
+  });
+  assert.equal(modalFicha.reincorporacionesTitular.carga, "denegado");
+  assert.deepEqual(modalFicha.reincorporacionesTitular.items, []);
+  const html = renderizarReincorporacionesTitular({ estado: modalFicha.reincorporacionesTitular, escaparHTML });
+  assert.match(html, /role="alert"/);
+  assert.doesNotMatch(html, /<table|recibo:ct:1|data-reincorporacion-accion="reintentar"|Reflejo recibido desde Contratación temporal/);
 });
 
 test("catálogo común cubre todos los textos y el control pagina sin llamada de red", () => {
