@@ -79,6 +79,51 @@ psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/contexto_actor_v1/migraciones/00
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql
 ```
 
+### C3: ACL de tipos antes del selector corporativo RRHH
+
+La cadena nueva instala AD4 y Bolsa B1 una sola vez. Antes del selector, el
+DBA aplica el delta aditivo de políticas B1
+`deploy/postgresql/bolsa_llamamientos/dba/20260928_b1_rls_propietario/01_cerrar_politicas.sql`.
+El instalador de este módulo comprueba que las catorce políticas están
+restringidas al propietario; no ejecuta ni sustituye el delta de Bolsa. El
+orden es B1 → delta RLS Bolsa → ACL de quince tipos → puerta de tipos → selector
+→ puerta de tipos. AD4 también debe estar instalada antes del instalador.
+
+El SQL de ACL de tipos, ejecutado por separado sobre una base sin las catorce
+tablas ni tipos B1, informa `NO_APLICA` y no cambia AD4 ni otra ACL. Este es el
+estado del clon de la principal anterior a B1, no una certificación de ACL
+cerrada. Un B1 parcial se rechaza; con B1 completo se mantienen todas las
+guardas de DBA, propietario, tipo y ACL. El instalador del selector continúa
+exigiendo las catorce políticas RLS B1 cerradas y nunca convierte el
+`NO_APLICA` en un permiso para instalarlo.
+
+`instalar_selector_c3_v1.sh` exige nombre de contenedor PostgreSQL local,
+base y usuario DBA explícitos. `--inspect` devuelve la huella SHA-256 de la
+preimagen de los quince tipos; el operador revisa esa preimagen y la pasa en
+`--expected-preimage-sha256` al modo `--apply`. No recibe DSN ni contraseña,
+no acepta un contexto Docker remoto ni un contenedor llamado cidonia. `--apply`
+bloquea las catorce tablas B1, la tabla AD4 y el catálogo `pg_type`; repite
+preimagen y comprobación RLS bajo esos bloqueos con aislamiento `READ COMMITTED`,
+incluso si la base configura otro valor predeterminado, y confirma ACL, puertas y
+selector en una sola transacción. Si falla
+cualquiera, revierte todos esos efectos; antes de repetir se reconcilia el
+estado de la base. Nunca se aplica un `DOWN` para restaurar `USAGE PUBLIC`.
+
+```sh
+SCRIPT=deploy/postgresql/contexto_actor_v1/instalar_selector_c3_v1.sh
+HUELLA=$("$SCRIPT" --inspect --container "$CONTENEDOR_LOCAL" \
+  --database "$BASE_LOCAL" --admin-user "$DBA_LOCAL")
+"$SCRIPT" --apply --container "$CONTENEDOR_LOCAL" \
+  --database "$BASE_LOCAL" --admin-user "$DBA_LOCAL" \
+  --expected-preimage-sha256 "$HUELLA"
+```
+
+Después de cualquier migración posterior en `vec_bolsa_llamamientos` o
+`vec_autorizacion`, se ejecuta
+`pruebas_sql/acl_tipos_preselector_c3_v1.sql`: un tipo nuevo con `USAGE`
+para `PUBLIC` bloquea la cadena. Esta puerta puntual no sustituye el inventario
+global de ACL del selector ni instala automáticamente permisos de otros módulos.
+
 ### Acreditación cerrada de uso del recibo V2
 
 La migración aditiva `000002` añade la función cerrada
