@@ -37,8 +37,12 @@ func TestAuditoriaResuelveFuenteTipadaTrasDecodificarUnaVez(t *testing.T) {
 		t.Fatal(err)
 	}
 	get := httptest.NewRecorder()
-	h.ServeHTTP(get, httptest.NewRequest(http.MethodGet, RutaOpciones, nil))
-	if get.Code != http.StatusOK || len(identidad.fuentes) != 1 || identidad.fuentes[0] != FuenteConsultaGeneral {
+	peticionGET := httptest.NewRequest(http.MethodGet, RutaOpciones, nil)
+	peticionGET.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(strings.NewReader("material que no debe releerse")), nil
+	}
+	h.ServeHTTP(get, peticionGET)
+	if get.Code != http.StatusOK || len(identidad.fuentes) != 1 || identidad.fuentes[0] != FuenteConsultaGeneral || !identidad.bodyVacio {
 		t.Fatalf("GET debe usar contexto general: status=%d fuentes=%v", get.Code, identidad.fuentes)
 	}
 	for _, caso := range []struct {
@@ -58,6 +62,32 @@ func TestAuditoriaResuelveFuenteTipadaTrasDecodificarUnaVez(t *testing.T) {
 		h.ServeHTTP(w, r)
 		if w.Code != http.StatusForbidden || identidad.fuentes[len(identidad.fuentes)-1] != caso.esperado || !identidad.bodyVacio {
 			t.Fatalf("POST fuente=%q status=%d fuentes=%v bodyVacio=%v", caso.fuente, w.Code, identidad.fuentes, identidad.bodyVacio)
+		}
+	}
+}
+
+func TestAuditoriaGETNoEntregaCuerpoAlResolvedor(t *testing.T) {
+	identidad := &identidadFuenteAuditoriaHTTPPrueba{identidad: identidadVigenteAuditoriaHTTPPrueba(t, time.Now())}
+	h, err := NuevoManejador(&Servicio{}, &opcionesAuditoriaHTTPPrueba{}, identidad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct {
+		cuerpo      string
+		desconocido bool
+	}{
+		{"material inesperado", false},
+		{"material inesperado", true},
+	} {
+		r := httptest.NewRequest(http.MethodGet, RutaOpciones, strings.NewReader(caso.cuerpo))
+		if caso.desconocido {
+			r.ContentLength = -1
+			r.TransferEncoding = []string{"chunked"}
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != http.StatusBadRequest || len(identidad.fuentes) != 0 {
+			t.Fatalf("GET con cuerpo status=%d fuentes=%v", w.Code, identidad.fuentes)
 		}
 	}
 }

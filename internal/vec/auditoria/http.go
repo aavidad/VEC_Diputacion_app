@@ -108,6 +108,15 @@ func (h *Manejador) resolverIdentidad(r *http.Request, fuente FuenteConsulta) (I
 }
 
 func (h *Manejador) servirOpciones(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
+		responderError(w, http.StatusBadRequest)
+		return
+	}
+	if r.Body != nil {
+		_ = r.Body.Close()
+	}
+	r.Body = http.NoBody
+	r.GetBody = nil
 	if _, err := h.resolverIdentidad(r, FuenteConsultaGeneral); err != nil {
 		responderError(w, http.StatusForbidden)
 		return
