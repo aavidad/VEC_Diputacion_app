@@ -3,7 +3,7 @@ const CATALOGOS_EMPAQUETADOS = Object.freeze({
   en: "/acceso/locales/en.json",
 });
 
-const ATRIBUTOS_ADMITIDOS = new Set(["content", "aria-label"]);
+const ATRIBUTOS_ADMITIDOS = new Set(["content", "aria-label", "alt"]);
 
 function idiomaBase(valor) {
   return String(valor ?? "").trim().toLowerCase().split("-", 1)[0];
