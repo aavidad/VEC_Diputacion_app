@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260928-rrhh-cache-unificada-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-rrhh-corte3-cache-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260928-rrhh-cache-unificada-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260928-rrhh-cache-unificada-v1";
@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260928-rrhh-ca
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260928-rrhh-cache-unificada-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260928-rrhh-corte3-cache-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260928-rrhh-cache-unificada-v1";
@@ -18,7 +18,7 @@ import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa,
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-rrhh-cache-unificada-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-rrhh-cache-unificada-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-rrhh-corte3-cache-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260928-rrhh-cache-unificada-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260928-rrhh-cache-unificada-v1";
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260928-rrhh-cache-unificada-v1";
