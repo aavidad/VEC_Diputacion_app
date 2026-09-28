@@ -1,0 +1,13 @@
+.politica-cese-rrhh { display: grid; gap: 20px; min-width: 0; }
+.politica-cese-rrhh > .cabecera-panel { border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); box-shadow: var(--portal-sombra-sm); }
+.politica-cese-ayuda-boton { width: 2rem; height: 2rem; border-radius: 50%; }
+.politica-cese-ayuda { margin: 0; padding: 12px 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-muted); }
+.politica-cese-resumen { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.politica-cese-resumen .cuerpo-panel strong { font-size: 1.35rem; color: var(--portal-azul-800); }
+.politica-cese-tabla { max-width: 100%; max-height: 52vh; overflow: auto; }
+.politica-cese-tabla table { min-width: 540px; width: 100%; }
+.politica-cese-tabla th, .politica-cese-tabla td { vertical-align: top; }
+.politica-cese-tabla small { display: block; color: var(--portal-muted); overflow-wrap: anywhere; font-weight: 400; }
+.politica-cese-fuente { margin: 14px 0; }
+.politica-cese-fuente code { display: block; padding: 4px 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .politica-cese-resumen { grid-template-columns: minmax(0, 1fr); } }

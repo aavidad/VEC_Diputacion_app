@@ -190,6 +190,13 @@ func iniciarEntregaNoIncorporacionesCTBolsaDesarrollo(ctx context.Context, cfg c
 // exige, al nacer cada conexión física, que su LOGIN solo pertenezca al grupo
 // del relevo: ni el ejecutor general de Bolsa ni ningún rol de CT.
 func abrirPoolRelevoNoIncorporacionesDesarrollo(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	return abrirPoolRelevoBolsaDesarrollo(ctx, dsn, rolRelevoNoIncorporacionBolsaDesarrollo, "vec-bolsa-relevo-no-incorporaciones")
+}
+
+func abrirPoolRelevoBolsaDesarrollo(ctx context.Context, dsn, rol, nombreAplicacion string) (*pgxpool.Pool, error) {
+	if rol == "" || nombreAplicacion == "" {
+		return nil, falloPostgreSQLCTDesarrollo(nil)
+	}
 	configuracion, err := pgxpool.ParseConfig(dsn)
 	if err != nil || configuracion == nil || configuracion.ConnConfig == nil ||
 		validarTLSPostgreSQLBorradores(&configuracion.ConnConfig.Config, true) != nil {
@@ -201,7 +208,7 @@ func abrirPoolRelevoNoIncorporacionesDesarrollo(ctx context.Context, dsn string)
 		configuracion.ConnConfig.RuntimeParams = make(map[string]string)
 	}
 	parametros := configuracion.ConnConfig.RuntimeParams
-	parametros["application_name"] = "vec-bolsa-relevo-no-incorporaciones"
+	parametros["application_name"] = nombreAplicacion
 	parametros["timezone"] = "UTC"
 	parametros["search_path"] = "pg_catalog,pg_temp"
 	parametros["statement_timeout"] = "15s"
@@ -211,13 +218,13 @@ func abrirPoolRelevoNoIncorporacionesDesarrollo(ctx context.Context, dsn string)
 		if conexion == nil {
 			return falloPostgreSQLCTDesarrollo(nil)
 		}
-		return comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx, conexion)
+		return comprobarIdentidadRelevoBolsaDesarrollo(ctx, conexion, rol)
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, falloPostgreSQLCTDesarrollo(err)
 	}
-	if err := comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx, pool); err != nil {
+	if err := comprobarIdentidadRelevoBolsaDesarrollo(ctx, pool, rol); err != nil {
 		pool.Close()
 		return nil, err
 	}
@@ -227,7 +234,13 @@ func abrirPoolRelevoNoIncorporacionesDesarrollo(ctx context.Context, dsn string)
 func comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx context.Context, consultador interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) error {
-	if ctx == nil || consultador == nil {
+	return comprobarIdentidadRelevoBolsaDesarrollo(ctx, consultador, rolRelevoNoIncorporacionBolsaDesarrollo)
+}
+
+func comprobarIdentidadRelevoBolsaDesarrollo(ctx context.Context, consultador interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, rol string) error {
+	if ctx == nil || consultador == nil || rol == "" {
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	var valido bool
@@ -245,7 +258,7 @@ func comprobarIdentidadRelevoNoIncorporacionesDesarrollo(ctx context.Context, co
 		       AND NOT EXISTS (SELECT 1 FROM membresias_efectivas WHERE rol_id <> $1::regrole OR admin_option)
 		  FROM pg_catalog.pg_roles AS identidad
 		 CROSS JOIN pg_catalog.pg_roles AS grupo
-		 WHERE identidad.rolname = session_user AND grupo.oid = $1::regrole`, rolRelevoNoIncorporacionBolsaDesarrollo).Scan(&valido)
+		 WHERE identidad.rolname = session_user AND grupo.oid = $1::regrole`, rol).Scan(&valido)
 	if err != nil || !valido {
 		return falloPostgreSQLCTDesarrollo(err)
 	}

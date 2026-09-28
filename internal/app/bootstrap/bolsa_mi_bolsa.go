@@ -34,6 +34,14 @@ func motivoMiBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 	}
 }
 
+func motivoHistorialMiBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_historial_mi_bolsa_desarrollo", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-historial-mi-bolsa-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-mi-bolsa-historial-consultar"),
+	}
+}
+
 // motivoPortalMiBolsaDesarrollo motiva las acciones propias del candidato
 // (AD3-84); la consulta conserva su propio motivo.
 func motivoPortalMiBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
@@ -90,7 +98,9 @@ func (p *preparadorMiBolsaDesarrollo) PrepararMiBolsa(r *http.Request) (mibolsa.
 		return mibolsa.Orden{}, errMiBolsaNoDisponible
 	}
 	motivo := motivoMiBolsaDesarrollo()
-	if capacidad.ruta != bolsapersonal.RutaMiBolsa {
+	if capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial {
+		motivo = motivoHistorialMiBolsaDesarrollo()
+	} else if capacidad.ruta != bolsapersonal.RutaMiBolsa {
 		motivo = motivoPortalMiBolsaDesarrollo()
 	}
 	return mibolsa.Orden{ResultadoContexto: registrado.Resultado, Vinculo: registrado.Vinculo, Motivo: motivo, Correlacion: correlacion}, nil
@@ -160,9 +170,10 @@ func vincularCertificadoMiBolsaDesarrollo(ctx context.Context, resolutor dominio
 }
 
 type politicaMiBolsaDesarrollo struct {
-	instantanea dominiovec.InstantaneaAutorizacion
-	registro    registroDecisionesAnalisisContratacionTemporalDesarrollo
-	motivo      dominiovec.ReferenciaEntradaCatalogo
+	instantanea     dominiovec.InstantaneaAutorizacion
+	registro        registroDecisionesAnalisisContratacionTemporalDesarrollo
+	motivo          dominiovec.ReferenciaEntradaCatalogo
+	motivoHistorial dominiovec.ReferenciaEntradaCatalogo
 	// motivoPortal solo existe si están compuestas las acciones propias.
 	motivoPortal *dominiovec.ReferenciaEntradaCatalogo
 }
@@ -172,6 +183,9 @@ type politicaMiBolsaDesarrollo struct {
 func (p *politicaMiBolsaDesarrollo) motivoDe(accion string) (dominiovec.ReferenciaEntradaCatalogo, bool) {
 	if accion == puertosbolsa.AccionConsultarMiBolsa {
 		return p.motivo, true
+	}
+	if accion == puertosbolsa.AccionConsultarHistorialPropio {
+		return p.motivoHistorial, p.motivoHistorial.CatalogoID != ""
 	}
 	if p.motivoPortal == nil {
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
@@ -192,7 +206,7 @@ func (p *politicaMiBolsaDesarrollo) ObtenerInstantaneaAutorizacion(ctx context.C
 	return clonarInstantaneaAutorizacionPostgreSQLDesarrollo(p.instantanea), nil
 }
 func (p *politicaMiBolsaDesarrollo) ValidarReferenciaMotivoAutorizacionV2(ctx context.Context, motivo dominiovec.ReferenciaEntradaCatalogo, ahora time.Time) error {
-	if p == nil || ctx == nil || ctx.Err() != nil || (p.motivo != motivo && (p.motivoPortal == nil || *p.motivoPortal != motivo)) || !p.instantanea.AsignacionPerfil.VigenteEn(ahora) {
+	if p == nil || ctx == nil || ctx.Err() != nil || (p.motivo != motivo && p.motivoHistorial != motivo && (p.motivoPortal == nil || *p.motivoPortal != motivo)) || !p.instantanea.AsignacionPerfil.VigenteEn(ahora) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	return nil
@@ -243,7 +257,7 @@ func (a *autorizadorMiBolsaDesarrollo) ExigirSolicitudLigadaV3(ctx context.Conte
 	capacidad, ok := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
 	datos, err := solicitud.Datos()
 	metodo := http.MethodPost
-	if capacidad.ruta == bolsapersonal.RutaMiBolsa {
+	if capacidad.ruta == bolsapersonal.RutaMiBolsa || capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial {
 		metodo = http.MethodGet
 	}
 	if !ok || a.sello == nil || capacidad.sello != a.sello || !bolsapersonal.EsRutaPortal(capacidad.ruta) ||
@@ -272,6 +286,18 @@ var ofertaPortalDesarrollo = regexp.MustCompile(`^oferta:[0-9a-f]{64}$`)
 
 type proveedorMiBolsaDesarrollo struct {
 	delegado *proveedorMaterialAltaContratacionTemporalDesarrollo
+}
+
+type proveedorHistorialMiBolsaDesarrollo struct {
+	delegado *proveedorMaterialAltaContratacionTemporalDesarrollo
+}
+
+func (p proveedorHistorialMiBolsaDesarrollo) EmitirMaterialHistorialMiBolsa(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2, decision dominiovec.DecisionAutorizacionLigadaV3, confirmacion puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3) (puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	material, err := emitirMaterialNominalMiBolsaDesarrollo(ctx, p.delegado, motivoHistorialMiBolsaDesarrollo(), solicitud, resultado, decision, confirmacion)
+	if err != nil {
+		return nil, puertosbolsa.ErrHistorialMiBolsaNoDisponible
+	}
+	return material, nil
 }
 
 func (p proveedorMiBolsaDesarrollo) EmitirMaterialMiBolsa(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2, decision dominiovec.DecisionAutorizacionLigadaV3, confirmacion puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3) (puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -353,25 +379,30 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 		return dominiovec.InstantaneaAutorizacion{}, errMiBolsaNoDisponible
 	}
 	rol := dominiovec.VersionRol{
-		RolID: "candidato_bolsa_consulta_propia_desarrollo", Version: 1,
+		RolID: "candidato_bolsa_historial_propio_desarrollo", Version: 1,
 		Nombre: "Consulta propia de bolsa en desarrollo", Estado: dominiovec.EstadoVersionRolPublicada,
 		Concesiones: []dominiovec.ConcesionRol{{
 			Accion: puertosbolsa.AccionConsultarMiBolsa, ModuloID: puertosbolsa.ModuloMiBolsa,
 			TipoRecurso:      puertosbolsa.TipoRecursoMiBolsa,
 			Finalidades:      []string{puertosbolsa.FinalidadMiBolsa},
 			CamposPermitidos: []string{puertosbolsa.CampoMiBolsa}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+		}, {
+			Accion: puertosbolsa.AccionConsultarHistorialPropio, ModuloID: puertosbolsa.ModuloMiBolsa,
+			TipoRecurso:      puertosbolsa.TipoRecursoMiBolsa,
+			Finalidades:      []string{puertosbolsa.FinalidadHistorialMiBolsa},
+			CamposPermitidos: puertosbolsa.CamposHistorialMiBolsa(), GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
 		PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: desde,
 	}
 	if len(portal) == 1 && portal[0] {
 		// Rol distinto (no una versión nueva del de consulta): la asignación
 		// sube de versión al cambiar de rol y la historia anterior se conserva.
-		rol.RolID, rol.Nombre = "candidato_bolsa_portal_propio_desarrollo", "Consulta y acciones propias de bolsa en desarrollo"
+		rol.RolID, rol.Nombre = "candidato_bolsa_portal_historial_propio_desarrollo", "Consulta y acciones propias de bolsa en desarrollo"
 		rol.Concesiones = append(rol.Concesiones, concesionesPortalMiBolsaDesarrollo()...)
 		rol.Concesiones = append(rol.Concesiones, concesionesContactoPropioDesarrollo()...)
 	}
 	asignacion := dominiovec.AsignacionPerfil{
-		AsignacionID: referenciaAltaContratacionTemporalDesarrollo("asg_", identidad.personaRef+"\x00"+identidad.perfilRef+"\x00bolsa-mi-bolsa-v1"),
+		AsignacionID: referenciaAltaContratacionTemporalDesarrollo("asg_", identidad.personaRef+"\x00"+identidad.perfilRef+"\x00bolsa-mi-bolsa-historial-v1"),
 		Version:      1, PerfilActivoRef: identidad.perfilRef, PrincipalID: identidad.personaRef,
 		VersionRolRef: rol.Referencia(), Estado: dominiovec.EstadoAsignacionPerfilActiva,
 		Ambitos:      []dominiovec.AmbitoPerfil{{Clave: "candidato_ref", Valores: []string{identidad.candidatoRef}}},
@@ -409,7 +440,7 @@ func nuevaRutaMiBolsaDesarrollo(
 ) ([]vechttp.RutaExacta, error) {
 	if ctx == nil || identidad == nil || sello == nil || alta == nil || alta.soporte == nil ||
 		alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil ||
-		alta.postgresql.proveedorMaterialMiBolsa == nil || identidadCT == nil ||
+		alta.postgresql.proveedorMaterialMiBolsa == nil || alta.postgresql.proveedorMaterialHistorialMiBolsa == nil || identidadCT == nil ||
 		identidadCT.resolutor == nil || derivador == nil || !derivador.valido() ||
 		alta.soporte.registroDecisionesAnalisis == nil ||
 		(portal != nil && len(alta.postgresql.proveedoresMaterialPortal) != len(accionesPropiasPortalDesarrollo())) {
@@ -470,12 +501,12 @@ func nuevaRutaMiBolsaDesarrollo(
 	if err != nil || preparada.Validar() != nil || autoridad.publicarInstantanea(ctx, preparada) != nil {
 		return nil, errMiBolsaNoDisponible
 	}
-	politica := &politicaMiBolsaDesarrollo{instantanea: preparada, registro: alta.soporte.registroDecisionesAnalisis, motivo: motivoMiBolsaDesarrollo()}
+	politica := &politicaMiBolsaDesarrollo{instantanea: preparada, registro: alta.soporte.registroDecisionesAnalisis, motivo: motivoMiBolsaDesarrollo(), motivoHistorial: motivoHistorialMiBolsaDesarrollo()}
 	// Instante fijo de la ventana sintética, como el resto de catálogos: el
 	// replay del publicador exige el mismo publicado_en y el reloj rompería
 	// cualquier arranque posterior al primero.
 	desdeMotivos, _, vigenteMotivos := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
-	if !vigenteMotivos || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{politica.motivo}, desdeMotivos) != nil {
+	if !vigenteMotivos || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{politica.motivo, politica.motivoHistorial}, desdeMotivos) != nil {
 		return nil, errMiBolsaNoDisponible
 	}
 	if portal != nil {
@@ -524,6 +555,15 @@ func nuevaRutaMiBolsaDesarrollo(
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: bolsapersonal.RutaMiBolsa, Manejador: consultaHTTP}}
+	servicioHistorial, err := mibolsa.NuevoHistorial(consulta, autorizadorPropio, proveedorHistorialMiBolsaDesarrollo{delegado: alta.postgresql.proveedorMaterialHistorialMiBolsa}, reloj)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	historialHTTP, err := bolsapersonal.NuevoHistorial(preparador, servicioHistorial)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsaHistorial, Manejador: historialHTTP})
 	if portal == nil {
 		return rutas, nil
 	}

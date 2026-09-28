@@ -99,14 +99,92 @@ func TestCatalogoRechazaCamposYAtributosDesconocidosAlCargar(t *testing.T) {
 		})
 	}
 	catalogo := catalogoPlantillasPrueba(t)
-	catalogo.Entradas[0].Clave = "contrato_de_alquiler"
-	if _, err := NuevasPlantillasBorrador(catalogo, instantePlantillasPrueba); !errors.Is(err, ErrPlantillasBorradorInvalidas) {
-		t.Fatal("se aceptó un tipo de documento desconocido")
-	}
-	catalogo = catalogoPlantillasPrueba(t)
 	catalogo.ID = "otro.catalogo"
 	if _, err := NuevasPlantillasBorrador(catalogo, instantePlantillasPrueba); err == nil {
 		t.Fatal("se aceptó otro catálogo")
+	}
+}
+
+func TestTipoNuevoEnVersionPublicadaGeneraWordYPDF(t *testing.T) {
+	original := catalogoPlantillasPrueba(t)
+	fecha := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	borrador, err := original.NuevaVersion(2, "configurador:rrhh:001", "fuente:rrhh:plantillas", "Añadir tipo de borrador", fecha)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nueva := vecdomain.EntradaCatalogoConfigurable{
+		Clave: "certificacion_servicio", Etiqueta: "Certificación de servicio", Orden: 11,
+		VigenteDesde: fecha, Atributos: map[string]string{
+			"titulo":      "Certificación de servicio — borrador",
+			"parrafo.01":  "BORRADOR SIN FIRMA NI VALIDEZ ADMINISTRATIVA.",
+			"parrafo.02":  "Expediente {{numero_expediente}}; centro {{centro}}; plantilla {{plantilla_ref}}.",
+			"modalidades": "*",
+		},
+	}
+	borrador, err = borrador.ActualizarBorrador(
+		borrador.Revision, "configurador:rrhh:001", borrador.Nombre, borrador.Descripcion,
+		borrador.FuenteRef, "Añadir certificación", append(borrador.Entradas, nueva), fecha.Add(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidarCatalogoPlantillasBorrador(borrador); err != nil {
+		t.Fatalf("nuevo tipo válido rechazado en borrador: %v", err)
+	}
+	if _, err := NuevasPlantillasBorrador(borrador, fecha); !errors.Is(err, ErrPlantillasBorradorInvalidas) {
+		t.Fatalf("borrador no publicado disponible: %v", err)
+	}
+	publicado, err := borrador.Publicar("revisor:rrhh:002", "aprobacion:rrhh:plantillas", "Validado para ejercicio sintético", fecha.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plantillas, err := NuevasPlantillasBorrador(publicado, fecha.Add(3*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tipo := ports.TipoBorradorRRHH(nueva.Clave)
+	tipos := plantillas.Tipos()
+	if len(tipos) != len(TiposBorradorConocidos)+1 || tipos[len(tipos)-1] != tipo {
+		t.Fatalf("tipo nuevo fuera del catálogo: %v", tipos)
+	}
+	plantilla, ok := plantillas.Plantilla(tipo)
+	if !ok || plantilla.Nombre != nueva.Etiqueta || plantilla.Referencia != publicado.Referencia()+":"+nueva.Clave {
+		t.Fatalf("plantilla nueva: %+v, existe=%v", plantilla, ok)
+	}
+	contenido, err := contenidoBorradorDesarrollo(tipo, detalleInformeDefinitivoPrueba(), nil, plantillas)
+	if err != nil || !strings.Contains(strings.Join(contenido.Parrafos, "\n"), publicado.Referencia()+":"+nueva.Clave) {
+		t.Fatalf("contenido desde tipo nuevo: %+v, %v", contenido, err)
+	}
+	pdfBytes, err := (RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillas}).RenderizarBorrador(
+		context.Background(), tipo, detalleInformeDefinitivoPrueba(),
+	)
+	if err != nil || !strings.HasPrefix(string(pdfBytes), "%PDF-") {
+		t.Fatalf("PDF nuevo: bytes=%d, error=%v", len(pdfBytes), err)
+	}
+	docxBytes, err := (RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Plantillas: plantillas}).RenderizarBorradorDOCX(
+		context.Background(), tipo, detalleInformeDefinitivoPrueba(),
+	)
+	if err != nil || !strings.HasPrefix(string(docxBytes), "PK") {
+		t.Fatalf("Word nuevo: bytes=%d, error=%v", len(docxBytes), err)
+	}
+	if original.Version != 1 || original.Referencia() != CatalogoPlantillasBorradorID+":1" {
+		t.Fatal("se modificó la versión original")
+	}
+}
+
+func TestValidacionDeBorradorRechazaTipoNuevoConCampoNoAdmitido(t *testing.T) {
+	catalogo := catalogoPlantillasPrueba(t)
+	catalogo.Estado = vecdomain.EstadoCatalogoBorrador
+	catalogo.PublicadoPor, catalogo.AprobacionRef, catalogo.MotivoPublicacion = "", "", ""
+	catalogo.PublicadoEn = time.Time{}
+	catalogo.Entradas = append(catalogo.Entradas, vecdomain.EntradaCatalogoConfigurable{
+		Clave: "certificacion_servicio", Etiqueta: "Certificación", Orden: 11,
+		VigenteDesde: instantePlantillasPrueba, Atributos: map[string]string{
+			"titulo": "Certificación", "parrafo.01": "{{dato_personal_no_autorizado}}",
+		},
+	})
+	if err := ValidarCatalogoPlantillasBorrador(catalogo); !errors.Is(err, ErrPlantillasBorradorInvalidas) {
+		t.Fatalf("se aceptó campo fuera del detalle autorizado: %v", err)
 	}
 }
 

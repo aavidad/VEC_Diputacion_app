@@ -76,6 +76,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := cfg.CTCancelacionDesarrolloActivo(); err != nil {
 		return err
 	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled); err != nil {
+		return err
+	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
 	return err
 }
@@ -89,6 +92,7 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.miBolsa {
 		d = append(d, descriptorMaterialMiBolsaDesarrollo())
+		d = append(d, descriptorMaterialHistorialMiBolsaDesarrollo())
 	}
 	if s.portalCandidato {
 		d = append(d, descriptoresMaterialPortalCandidatoDesarrollo()...)

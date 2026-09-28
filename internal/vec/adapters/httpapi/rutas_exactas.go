@@ -240,7 +240,7 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	orden := ports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacion,
 		Motivo:         motivo,
-		Superficie:     ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal,
+		Superficie:     superficieAuditoriaFronteraRutaExacta(ruta),
 		Ruta:           ruta,
 	}
 	if orden.Validar() != nil {
@@ -259,6 +259,15 @@ func (h *Handler) registrarDenegacionRutaExacta(
 			"vec http: auditoria_frontera_no_registrada correlacion=%s",
 			correlacion,
 		)
+	}
+}
+
+func superficieAuditoriaFronteraRutaExacta(ruta string) string {
+	switch ruta {
+	case "/api/vec/auditoria/opciones", "/api/vec/auditoria/consultas":
+		return ports.SuperficieAuditoriaFronteraRutaExactaAuditoria
+	default:
+		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}
 }
 

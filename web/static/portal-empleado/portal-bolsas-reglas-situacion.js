@@ -111,7 +111,7 @@ export function renderizarCamposReposicion({ reglas, candidato, estadoReposicion
   const modalidad = estadoReposicion.modalidad || "general";
   const opciones = [`<option value="general"${modalidad === "general" ? " selected" : ""}>${escaparHTML(t("modalidad_general"))}</option>`]
     .concat(reglas.reposicion.modalidades.map((m) => `<option value="${escaparHTML(m.codigo)}"${modalidad === m.codigo ? " selected" : ""}>${escaparHTML(t("modalidad_meses", { modalidad: etiquetaModalidadReposicion(m.codigo), meses: m.meses }))}</option>`));
-  const propuesta = estadoReposicion.propuesta || reglas.reposicion.propuesta;
+  const propuesta = Object.hasOwn(estadoReposicion, "propuesta") ? estadoReposicion.propuesta : reglas.reposicion.propuesta;
   return `<fieldset data-bolsa-reposicion><legend>${escaparHTML(t("reposicion"))}</legend>`
     + `<label>${escaparHTML(t("fin_relacion"))} <input type="date" name="fin_relacion" value="${escaparHTML(fin)}"></label>`
     + `<label>${escaparHTML(t("modalidad"))} <select name="modalidad_relacion">${opciones.join("")}</select></label>`
@@ -120,7 +120,7 @@ export function renderizarCamposReposicion({ reglas, candidato, estadoReposicion
 
 /** Valor inicial del campo de fecha: la propuesta del catálogo, si la hay. */
 export function fechaDisponiblePropuesta(reglas, estadoReposicion = {}) {
-  const propuesta = estadoReposicion.propuesta || reglas?.reposicion?.propuesta;
+  const propuesta = Object.hasOwn(estadoReposicion, "propuesta") ? estadoReposicion.propuesta : reglas?.reposicion?.propuesta;
   return propuesta ? valorFechaLocal(propuesta.fecha_disponible) : "";
 }
 
@@ -158,14 +158,18 @@ export function instalarPropuestaReposicion(documento, obtenerModal, { consultar
     const modal = obtenerModal();
     if (!modal) return;
     const datos = new FormData(formulario);
-    const estadoReposicion = { finRelacion: String(datos.get("fin_relacion") || ""), modalidad: String(datos.get("modalidad_relacion") || "general") };
+    const estadoReposicion = { finRelacion: String(datos.get("fin_relacion") || ""), modalidad: String(datos.get("modalidad_relacion") || "general"), propuesta: null };
     modal.reposicion = estadoReposicion;
     const procedencia = formulario.querySelector("[data-bolsa-procedencia-reposicion]");
+    const campo = formulario.querySelector('[name="fecha_disponible"]');
+    // La fecha anterior ya no corresponde a estos datos. Sin propuesta nueva,
+    // RRHH debe introducir explícitamente otra fecha antes de confirmar.
+    if (campo) campo.value = "";
+    if (procedencia) procedencia.textContent = "";
     const res = estadoReposicion.finRelacion ? await consultar(estadoReposicion) : { ok: false };
     if (obtenerModal() !== modal || modal.reposicion !== estadoReposicion) return;
     const propuesta = res.ok ? res.datos.reposicion?.propuesta : null;
     estadoReposicion.propuesta = propuesta || null;
-    const campo = formulario.querySelector('[name="fecha_disponible"]');
     if (campo && propuesta) campo.value = valorFechaLocal(propuesta.fecha_disponible);
     if (procedencia) procedencia.textContent = propuesta ? textoProcedenciaReposicion(propuesta) : t("propuesta_no_disponible");
   });

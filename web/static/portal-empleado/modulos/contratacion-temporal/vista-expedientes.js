@@ -23,6 +23,10 @@ import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js?v=20260926-huecos-rrhh-v2";
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
+import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-cache-unificada-v1";
+import { traducirPortal } from "../../portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -90,8 +94,10 @@ export async function montarModuloContratacionTemporal({
   fiscalizacion = null,
   subsanacion = null,
   continuidad = null,
+  auditoriaComun = null,
   llamamiento = null,
   clienteBorradorRRHH,
+  clienteBorradoresPublicados,
   clienteCircuitoFirma,
   entornoDescarga = globalThis,
   mensajes = {},
@@ -156,10 +162,103 @@ export async function montarModuloContratacionTemporal({
   let reciboPropuestaConfirmado = null;
   let desmontarEstadisticas = null;
   let desmontarSeguimientoCese = null;
+  let desmontarReincorporacion = null;
+  let desmontarAuditoriaComun = null;
+  let desmontarBorradoresPublicados = null;
+  let zonaAuditoriaComun = null;
+  let controladorCapacidadReincorporacion = null;
   let avisoSeguimientoCese = null;
   let secuenciaInterfaz = 0;
   const clienteSeguimientoCese = typeof clienteLlamamiento?.seguimientoCese?.consultarSeguimientoCese === "function"
     ? clienteLlamamiento.seguimientoCese : null;
+  const clienteReincorporacion = typeof clienteLlamamiento?.reincorporacionTitular?.consultarCapacidadReincorporacion === "function"
+    && typeof clienteLlamamiento?.reincorporacionTitular?.registrarReincorporacion === "function"
+    ? clienteLlamamiento.reincorporacionTitular : null;
+
+  function retirarReincorporacion() {
+    controladorCapacidadReincorporacion?.abort();
+    controladorCapacidadReincorporacion = null;
+    desmontarReincorporacion?.();
+    desmontarReincorporacion = null;
+  }
+
+  function retirarAuditoriaComun() {
+    desmontarAuditoriaComun?.();
+    desmontarAuditoriaComun = null;
+    zonaAuditoriaComun = null;
+  }
+
+  function retirarBorradoresPublicados() {
+    desmontarBorradoresPublicados?.();
+    desmontarBorradoresPublicados = null;
+  }
+
+  function montarBorradoresPublicadosSiProcede(estado) {
+    const contexto = solicitudInformeDefinitivoDesdeEstado(estado);
+    const zona = raiz.querySelector(".ct-exp-contenido");
+    if (!contexto || !zona) return;
+    const contenedor = raiz.ownerDocument.createElement("div");
+    contenedor.dataset.ctExpBorradoresPublicados = "";
+    zona.append(contenedor);
+    desmontarBorradoresPublicados = montarBorradoresPublicados({ raiz: contenedor,
+      contexto, ...(clienteBorradoresPublicados === undefined ? {} : { cliente: clienteBorradoresPublicados }),
+      entornoDescarga, anunciar }).desmontar;
+  }
+
+  function montarAuditoriaComunSiProcede(estado) {
+    if (!["expediente", "auditoria"].includes(estado.vista) || estado.carga !== "listo"
+      || estado.expediente?.demostracion !== false
+      || estado.expediente_ref !== estado.expediente?.expediente_ref
+      || typeof auditoriaComun?.montar !== "function" || !auditoriaComun.fuente) return;
+    const zona = raiz.querySelector(".ct-exp-contenido");
+    if (!zona) return;
+    const contenedor = raiz.ownerDocument.createElement("section");
+    contenedor.className = "panel";
+    contenedor.dataset.ctExpAuditoriaComun = "";
+    zona.append(contenedor);
+    if (estado.vista === "expediente") {
+      contenedor.innerHTML = `<div class="cabecera-panel"><h3>${traducirPortal("auditoria_expediente_panel")}</h3>
+        <button type="button" class="boton-secundario" data-ct-exp-auditoria-comun aria-expanded="false">${traducirPortal("auditoria_expediente_accion")}</button></div>
+        <div class="cuerpo-panel" data-ct-exp-auditoria-contenido hidden></div>`;
+      zonaAuditoriaComun = contenedor.querySelector("[data-ct-exp-auditoria-contenido]");
+      return;
+    }
+    zonaAuditoriaComun = contenedor;
+    desmontarAuditoriaComun = auditoriaComun.montar({ raiz: contenedor,
+      fuente: auditoriaComun.fuente, expedienteRef: estado.expediente_ref,
+      fuenteContexto: "ct", anunciar }).desmontar;
+  }
+
+  // La ficha y el cese proceden de consultas CT autorizadas. El GET de
+  // capacidad decide aparte si esta identidad puede registrar el efecto.
+  function montarReincorporacionSiProcede(estado) {
+    const contexto = contextoSeguimientoCeseDesdeEstado(estado);
+    if (!clienteReincorporacion || !clienteSeguimientoCese || !contexto) return;
+    const zona = raiz.querySelector(".ct-exp-contenido");
+    if (!zona) return;
+    const controlador = new AbortController();
+    controladorCapacidadReincorporacion = controlador;
+    const expediente = { expediente_ref: contexto.expediente_ref, version_esperada: contexto.version };
+    void Promise.all([
+      clienteReincorporacion.consultarCapacidadReincorporacion(expediente, { signal: controlador.signal }),
+      clienteSeguimientoCese.consultarSeguimientoCese(expediente.expediente_ref, { signal: controlador.signal }),
+    ]).then(([puedeRegistrar, seguimiento]) => {
+        if (!montada || controlador.signal.aborted || controladorCapacidadReincorporacion !== controlador
+          || puedeRegistrar !== true || !zona.isConnected
+          || seguimiento?.estado?.expediente_ref !== expediente.expediente_ref
+          || seguimiento.estado.cese?.causa_clave !== "fin_sustitucion") return;
+        const actual = presentador.obtenerEstado();
+        if (actual.carga !== "listo" || actual.vista !== "expediente"
+          || actual.expediente?.expediente_ref !== expediente.expediente_ref
+          || actual.expediente?.version !== expediente.version_esperada) return;
+        const contenedor = raiz.ownerDocument.createElement("div");
+        contenedor.dataset.ctExpReincorporacionTitular = "";
+        zona.append(contenedor);
+        desmontarReincorporacion = montarFormularioReincorporacionRRHH({ raiz: contenedor,
+          cliente: clienteReincorporacion, expediente, puedeRegistrar: true,
+          confirmarOperacion, locale, zonaHoraria });
+      }).catch(() => { /* Sin decisión positiva no se ofrece la escritura. */ });
+  }
 
   function retirarSeguimientoCese() {
     desmontarSeguimientoCese?.();
@@ -371,6 +470,9 @@ export async function montarModuloContratacionTemporal({
     gestorTramitacion.retirarComponentes();
     gestorInformeTrasSubsanacion.retirar();
     retirarSeguimientoCese();
+    retirarReincorporacion();
+    retirarAuditoriaComun();
+    retirarBorradoresPublicados();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -421,8 +523,11 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
       gestorInformeTrasSubsanacion.montarSiProcede();
       montarSeguimientoCeseSiProcede(estado);
+      montarReincorporacionSiProcede(estado);
       gestorCancelacion.montar(estado);
     }
+    montarAuditoriaComunSiProcede(estado);
+    montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (estado.mensaje_clave) {
       anunciar(
@@ -463,6 +568,25 @@ export async function montarModuloContratacionTemporal({
   }
 
   async function manejarClick(evento) {
+    const consultarAuditoria = evento.target?.closest?.("[data-ct-exp-auditoria-comun]");
+    if (consultarAuditoria && raiz.contains(consultarAuditoria) && zonaAuditoriaComun) {
+      evento.preventDefault();
+      if (desmontarAuditoriaComun) {
+        desmontarAuditoriaComun(); desmontarAuditoriaComun = null;
+        zonaAuditoriaComun.hidden = true;
+        consultarAuditoria.setAttribute("aria-expanded", "false");
+      } else {
+        const estadoActual = presentador.obtenerEstado();
+        if (estadoActual.vista !== "expediente" || estadoActual.carga !== "listo"
+          || estadoActual.expediente?.expediente_ref !== estadoActual.expediente_ref) return;
+        zonaAuditoriaComun.hidden = false;
+        desmontarAuditoriaComun = auditoriaComun.montar({ raiz: zonaAuditoriaComun,
+          fuente: auditoriaComun.fuente, expedienteRef: estadoActual.expediente_ref,
+          fuenteContexto: "ct", anunciar }).desmontar;
+        consultarAuditoria.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
     const verFase = evento.target?.closest?.("[data-ct-exp-fase-ver]");
     if (verFase && raiz.contains(verFase)) {
       evento.preventDefault();
@@ -673,6 +797,9 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.retirarComponentes();
       gestorInformeTrasSubsanacion.retirar();
       retirarSeguimientoCese();
+      retirarReincorporacion();
+      retirarAuditoriaComun();
+      retirarBorradoresPublicados();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
       presentador.desmontar?.();

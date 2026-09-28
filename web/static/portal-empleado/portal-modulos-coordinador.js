@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260926-pulido-portal-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-pulido-portal-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-pulido-portal-v1";
+} from "./portal-catalogo-modulos.js?v=20260928-rrhh-cache-unificada-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-rrhh-cache-unificada-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-pulido-portal-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-rrhh-cache-unificada-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -32,6 +32,7 @@ const CLAVE_DOCUMENTOS = "documentos";
 // «documentos» es también una sección de Bolsa; la vista del servicio común
 // de Documentos usa un nombre propio para no confundirse con ella.
 export const VISTA_DOCUMENTOS_EXPEDIENTE = "documentos-expediente";
+export const VISTA_PLANTILLAS_RRHH = "plantillas-rrhh";
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa",
   CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
@@ -92,14 +93,16 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones });
   },
   contratacion_temporal: async () => {
-    const [contrato, cliente, presentador, vista, adaptador] = await Promise.all([
+    const [contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260926-pulido-portal-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-rrhh-cache-unificada-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
+      import("./modulos/auditoria/vista.js?v=20260928-rrhh-cache-unificada-v1"),
+      import("./modulos/auditoria/cliente-http.js?v=20260928-rrhh-cache-unificada-v1"),
     ]);
-    return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
+    return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
   },
   personal: async () => {
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
@@ -131,7 +134,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260926-pulido-portal-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260928-rrhh-cache-unificada-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
@@ -156,7 +159,7 @@ export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "crono
 const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja", "cronos-notificaciones", "cronos-bandeja-notificaciones"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
-  "contratacion-temporal", VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES,
+  "contratacion-temporal", VISTA_PLANTILLAS_RRHH, VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES,
 ]));
 
 // Estado de un módulo autorizado sin entrada en el portal que aún no se ha
@@ -171,7 +174,7 @@ function errorCargaSustituida() {
 
 export function moduloDeVistaPortal(vista) {
   if (vista === "portal") return "portal";
-  if (vista === "contratacion-temporal") return "contratacion_temporal";
+  if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) return "contratacion_temporal";
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (SUBVISTAS_CRONOS.has(vista)) return "cronos";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return CLAVE_DOCUMENTOS;
@@ -188,6 +191,7 @@ export function vistaConEntradaPortal(vista) {
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
+  if (vista === VISTA_PLANTILLAS_RRHH) return "#contratacion-temporal/plantillas-rrhh";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return `#${VISTA_DOCUMENTOS_EXPEDIENTE}`;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
   if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
@@ -408,6 +412,10 @@ export function crearCoordinadorModulosPortal({
         fiscalizacion,
         subsanacion,
         continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
+        auditoriaComun: typeof recursos.auditoriaVista?.montarVistaAuditoria === "function"
+          && typeof recursos.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
+          ? Object.freeze({ montar: recursos.auditoriaVista.montarVistaAuditoria,
+            fuente: recursos.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null,
         obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
         // Número, centro y categoría se presentan al pedirlo, con los catálogos de alta que hayan llegado.
         obtenerTramitesInicio: () => {
@@ -711,7 +719,7 @@ export function crearCoordinadorModulosPortal({
     if (VISTAS_MODULO_BOLSA.has(vista)) {
       return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
     }
-    if (vista === "contratacion-temporal") {
+    if (vista === "contratacion-temporal" || vista === VISTA_PLANTILLAS_RRHH) {
       return composicion?.contratacionTemporal !== undefined;
     }
     if (vista === "cronos") return composicion?.cronos !== undefined;
@@ -855,6 +863,15 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
+    if (vista === VISTA_PLANTILLAS_RRHH) {
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-rrhh-plantillas-v1");
+      if (montaje !== secuenciaMontaje) return false;
+      const modulo = montarRRHHPlantillas({ raiz, anunciar });
+      if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
+      desmontarVista = modulo.desmontar;
+      return true;
+    }
+
     if (vista === "contratacion-temporal") {
       // Los catálogos del alta ya están en camino desde la carga del módulo.
       await composicion.contratacionTemporal.esperarAlta?.();
@@ -893,6 +910,7 @@ export function crearCoordinadorModulosPortal({
             : null,
           continuidad: composicion.contratacionTemporal.continuidad,
           subsanacion: composicion.contratacionTemporal.subsanacion,
+          auditoriaComun: composicion.contratacionTemporal.auditoriaComun,
           confirmarOperacion,
           anunciar,
           resolverBolsa: typeof montajeBolsa?.resolverBolsa === "function" ? montajeBolsa.resolverBolsa : null,

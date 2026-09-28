@@ -243,6 +243,30 @@ test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sint
     assert.ok(Number.isSafeInteger(c.orden) && c.orden >= 1);
   }
 });
+
+test("B45 acepta restricciones con fecha y B46 retorno al turno, pero rechaza cruces", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const base = envelopeCandidatos.data.candidatos[0];
+  const restriccion = { ...base, razon_orden: "restriccion_cese", orden: null,
+    estado_clave: "disponible_desde", disponible_desde: "2027-02-28T23:00:00Z" };
+  const retorno = { ...base, razon_orden: "retorno_tras_cese", estado_clave: "disponible",
+    orden: 1, disponible_desde: null };
+  assert.equal(validarCandidato(restriccion).razon_orden, "restriccion_cese");
+  assert.equal(validarCandidato(retorno).razon_orden, "retorno_tras_cese");
+  assert.throws(() => validarCandidato({ ...restriccion, disponible_desde: null }));
+  assert.throws(() => validarCandidato({ ...retorno, orden: null }));
+  const datos = validarRespuestaCandidatosBolsa({ data: { ...envelopeCandidatos.data,
+    candidatos: [restriccion, retorno] } });
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: (clave) => clave, encabezadoVista: () => "", escaparHTML: (valor) => String(valor ?? ""),
+    numero: (valor) => String(valor ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (vista) => vista, obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
+  });
+  const html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /Fuera de turno por cese hasta/u);
+  assert.match(html, /Retorno al turno tras cese verificado/u);
+});
 test("validarRespuestaBolsas rechaza respuestas no canónicas o alteradas", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   // Sin data
@@ -662,12 +686,16 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
   // La referencia interna solo enlaza la fila con su ficha; no se muestra como dato.
   assert.doesNotMatch(htmlAbierto, /Referencia de participación|<code>participacion:/);
   assert.match(htmlAbierto, /data-bolsa-accion="cerrar-ficha"/);
+  assert.match(htmlAbierto, new RegExp(`data-bolsa-auditoria="${candidato.participacion_ref}"`));
   assert.match(htmlAbierto, new RegExp(`aria-expanded="true" aria-controls="${fichaId}"`));
   assert.match(htmlAbierto, new RegExp(`</tr>\\s*<tr class="fila-ficha-participacion" data-ficha-participacion-ref="${candidato.participacion_ref}"`));
   assert.doesNotMatch(htmlAbierto, /role="dialog"|aria-modal="true"|modal-fondo/);
   assert.match(htmlAbierto, new RegExp(`id="${fichaId}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1"`));
   const ficha = htmlAbierto.match(new RegExp(`<section id="${fichaId}"[\\s\\S]*?</section>`))[0];
   assert.doesNotMatch(ficha, /correo|teléfono|puntuación|relación laboral/i);
+  modalFicha = { abierto: true, candidato: { ...candidato, estado_clave: "disponible_desde",
+    disponible_desde: "2026-10-10T00:00:00Z" }, bolsa: datos.bolsa };
+  assert.match(presentador.renderizarVista("bolsa-candidatos"), /No disponible hasta/);
   modalFicha = { abierto: true, candidato: segundoCandidato, bolsa: datos.bolsa };
   const htmlSegundo = presentador.renderizarVista("bolsa-candidatos");
   assert.equal((htmlSegundo.match(/fila-ficha-participacion/g) || []).length, 1);

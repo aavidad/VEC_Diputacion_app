@@ -43,6 +43,19 @@ func TestAudienciasSeleccionCompletaPublicablesPorElGobiernoCT(t *testing.T) {
 	}
 }
 
+func TestSeleccionMiBolsaIncluyeMaterialHistorialPropio(t *testing.T) {
+	audiencia := descriptorMaterialHistorialMiBolsaDesarrollo().Audiencia
+	coincidencias := 0
+	for _, d := range descriptoresMaterialSeleccionadosCTDesarrollo(seleccionMaterialCTDesarrollo{miBolsa: true}) {
+		if d.Audiencia == audiencia {
+			coincidencias++
+		}
+	}
+	if coincidencias != 1 {
+		t.Fatalf("historial de Mi Bolsa requiere un único material nominal: %d", coincidencias)
+	}
+}
+
 // El portal publica un proveedor por acción propia: pausa, reactivación,
 // respuesta, disposición y confirmación del contacto.
 func TestAudienciasPortalCandidatoPublicablesPorElGobiernoCT(t *testing.T) {

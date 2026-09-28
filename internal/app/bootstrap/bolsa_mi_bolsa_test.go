@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -130,6 +131,10 @@ func TestMiBolsaFronteraSeparaCertificadosExternosEInternos(t *testing.T) {
 		Clave: "bolsa-mi-bolsa-consultar", Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
 		Metodo: http.MethodGet, Ruta: bolsapersonal.RutaMiBolsa,
 		PerfilesActivosRef: []string{identidad.perfilRef}, ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
+	}, {
+		Clave: "bolsa-mi-bolsa-historial-consultar", Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
+		Metodo: http.MethodGet, Ruta: bolsapersonal.RutaMiBolsaHistorial,
+		PerfilesActivosRef: []string{identidad.perfilRef}, ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-historial-consultar",
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -161,8 +166,10 @@ func TestMiBolsaFronteraSeparaCertificadosExternosEInternos(t *testing.T) {
 		estado int
 	}{
 		{"candidato propia", certCandidato, bolsapersonal.RutaMiBolsa, http.StatusOK},
+		{"candidato historial propio", certCandidato, bolsapersonal.RutaMiBolsaHistorial, http.StatusOK},
 		{"candidato interna", certCandidato, cthttp.RutaEstadisticasRRHH, http.StatusUnauthorized},
 		{"rrhh personal", certRRHH, bolsapersonal.RutaMiBolsa, http.StatusUnauthorized},
+		{"rrhh historial personal", certRRHH, bolsapersonal.RutaMiBolsaHistorial, http.StatusUnauthorized},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			if !esRutaContratacionTemporalDesarrollo(peticion(caso.cert, caso.ruta)) {
@@ -188,8 +195,10 @@ func TestMiBolsaPoliticaLimitaCampoYCandidato(t *testing.T) {
 		t.Fatalf("política candidata inválida: %v", err)
 	}
 	concesiones := instantanea.VersionRol.Concesiones
-	if len(concesiones) != 1 || len(concesiones[0].CamposPermitidos) != 1 ||
+	if len(concesiones) != 2 || len(concesiones[0].CamposPermitidos) != 1 ||
 		concesiones[0].CamposPermitidos[0] != puertosbolsa.CampoMiBolsa ||
+		concesiones[1].Accion != puertosbolsa.AccionConsultarHistorialPropio ||
+		!slices.Equal(concesiones[1].CamposPermitidos, puertosbolsa.CamposHistorialMiBolsa()) ||
 		len(instantanea.AsignacionPerfil.Ambitos) != 1 ||
 		instantanea.AsignacionPerfil.Ambitos[0].Clave != "candidato_ref" ||
 		len(instantanea.AsignacionPerfil.Ambitos[0].Valores) != 1 ||

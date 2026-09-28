@@ -288,6 +288,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// Consumidores del catálogo común sin entrada previa en la lista:
 		// Mi bolsa (AD3-43), Documentos (AD3-60) y ficha propia (AD3-74).
 		puertosbolsa.AudienciaMiBolsa,
+		puertosbolsa.AudienciaHistorialMiBolsa,
 		docports.AudienciaV3,
 		personal.AudienciaFichaPropia,
 	}

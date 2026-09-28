@@ -268,7 +268,7 @@ test("la disponibilidad B8 no se simula mientras sigue pendiente de integración
   assert.doesNotMatch(htmlDisponible, /data-operacion="cambiar_disponibilidad"|Ensayar pausa|Ensayar reactivación/u);
 });
 
-test("el correo propio y los contratos vacíos son explícitos sin inventar fecha de comunicación", () => {
+test("el correo propio y el histórico separado esperan una consulta autorizada", () => {
   const datos = datosPrueba();
   datos.llamamientos = [];
   datos.contratos = [];
@@ -276,8 +276,8 @@ test("el correo propio y los contratos vacíos son explícitos sin inventar fech
   assert.match(html, /Último resultado de correo/u);
   assert.match(html, /No constan llamamientos por correo para estas participaciones\./u);
   assert.doesNotMatch(html, /B7/u);
-  assert.match(html, /Contratos/u);
-  assert.match(html, /Sin información de contratos\./u);
+  assert.match(html, /Histórico de mi bolsa[\s\S]*Cargando histórico autorizado/u);
+  assert.doesNotMatch(html, /Sin información de contratos\./u);
   const conLlamamientos = renderizarLlamamientos(datosPrueba());
   assert.doesNotMatch(conLlamamientos, /Comunicado el|Aceptar llamamiento/u);
 });

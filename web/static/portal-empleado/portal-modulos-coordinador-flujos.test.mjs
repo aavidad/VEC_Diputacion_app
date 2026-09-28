@@ -508,9 +508,9 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js/u);
   const versionDietasMontaje = exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 1);
   assert.notEqual(versionDietasMontaje, versionPublicada);
-  // El mapa comparte los textos de la vista y se renueva con ella; los clientes
-  // HTTP no cambian y conservan su URL de montaje, también posterior a lo publicado.
-  exigirVersiones(coordinador, "./modulos/dietas/mapa-ruta.js", versionDietasMontaje, 1);
+  // La vista se renueva por el catálogo i18n; el mapa no ha cambiado y conserva
+  // su propia URL. Los clientes HTTP también conservan su URL de montaje.
+  assert.notEqual(exigirVersiones(coordinador, "./modulos/dietas/mapa-ruta.js", posterior(versionDietasVista), 1), versionPublicada);
   for (const cliente of ["cliente-borradores-http", "cliente-asignacion-http", "calculador-rutas-http"])
     assert.notEqual(exigirVersiones(coordinador, `./modulos/dietas/${cliente}.js`, posterior(versionDietasVista), 1), versionPublicada);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);

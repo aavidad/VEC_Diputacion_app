@@ -1,5 +1,18 @@
 # Estado y plan de ataque del proyecto
 
+## Petición de cuatro fotografías de RRHH — 27 de septiembre de 2026 (rama candidata)
+
+`PIDEN_RRHH_CHECKLIST.md` contrasta 60 requisitos sobre `origin/main@7247682c`:
+44 HECHO (cubiertos con diseño VEC) y 16 BLOQUEADO con motivo; ningún PARCIAL/FALTA.
+Sanciones muestra historia de recursos con dos revisiones GO del código productor;
+Bolsa evita confirmar una propuesta de reposición obsoleta y renueva la caché.
+El cálculo +5/+9 existe, pero aplicarlo tras cese CT exige origen verificable y
+regla no provisional. Reincorporación del titular requiere acto de Personal.
+Histórico propio Mi Bolsa está preservado en `archivo/rrhh-historial-pendiente-pg-20260927`:
+AD3-90/Bolsa44 no se integran sin preimagen PostgreSQL 18 íntegra y prueba real.
+La puerta común debe repetirse tras estos cortes; no hay E2E, instalación ni
+despliegue nuevos. La cifra no cambia los contadores funcionales ratificados.
+
 ## Bolsa y Contratación temporal cerradas para la presentación — 26 de septiembre de 2026
 
 Corte de cierre para la presentación a RRHH del lunes 28/09/2026. `main` = `c14172597`

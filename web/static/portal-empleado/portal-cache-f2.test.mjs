@@ -132,7 +132,14 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
       : recurso === "modulos/personal/vista-ficha-integral.js" ? posterior(versionVistasC) : version);
     await access(new URL(recurso, raiz));
   }
-  for (const recurso of ["nominas", "solicitudes", "meritos", "comunicaciones", "aprobaciones", "auditoria", "administracion"]) {
+  const versionAuditoriaAnterior = "20260928-rrhh-auditoria-fuente-v1";
+  const versionesAuditoria = [];
+  for (const recurso of ["modulos/auditoria/vista.js", "modulos/auditoria/cliente-http.js"]) {
+    versionesAuditoria.push(exigirVersiones(coordinador, `./${recurso}`, posterior(versionAuditoriaAnterior)));
+    await access(new URL(recurso, raiz));
+  }
+  assert.equal(new Set(versionesAuditoria).size, 1, "la vista y el cliente de auditoría usan la misma versión");
+  for (const recurso of ["nominas", "solicitudes", "meritos", "comunicaciones", "aprobaciones", "administracion"]) {
     assert.equal(versionesDe(coordinador, `./modulos/${recurso}/vista.js`).length, 0,
       `${recurso}: sin cargador productivo`);
   }

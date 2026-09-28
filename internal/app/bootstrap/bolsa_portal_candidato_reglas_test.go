@@ -103,10 +103,10 @@ func TestMiBolsaConPortalConcedeSoloAccionesPropias(t *testing.T) {
 	if err != nil || con.Validar() != nil {
 		t.Fatalf("instantánea con portal: %v", err)
 	}
-	if con.VersionRol.RolID == sin.VersionRol.RolID || len(con.VersionRol.Concesiones) != 1+len(accionesPropiasPortalDesarrollo()) {
+	if con.VersionRol.RolID == sin.VersionRol.RolID || len(con.VersionRol.Concesiones) != 2+len(accionesPropiasPortalDesarrollo()) {
 		t.Fatal("el portal debe usar un rol propio con la consulta y cada acción propia")
 	}
-	for _, c := range con.VersionRol.Concesiones[1:] {
+	for _, c := range con.VersionRol.Concesiones[2:] {
 		esperado := puertosbolsa.TipoRecursoMiBolsa
 		if c.Accion == puertosbolsa.AccionManifestarDisposicionPropia {
 			esperado = puertosbolsa.TipoRecursoOfertaBolsa

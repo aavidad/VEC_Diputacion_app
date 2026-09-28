@@ -11,7 +11,19 @@ import {
   resumenAccesosModulos,
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
+  vistaBolsaOfrecida,
 } from "./portal-menu-bolsa.js";
+
+test("Auditoría de Bolsa exige una participación procedente de una ficha consultada", () => {
+  assert.equal(vistaBolsaOfrecida("auditoria", { panelInterno: true }), false);
+  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaReferencia: false }), false);
+  assert.equal(vistaBolsaOfrecida("auditoria", { auditoriaReferencia: true }), true);
+});
+
+test("Reglas de cese solo se ofrecen tras su consulta V3 positiva", () => {
+  assert.equal(vistaBolsaOfrecida("reglas", { panelInterno: true }), false);
+  assert.equal(vistaBolsaOfrecida("reglas", { politicaCese: true }), true);
+});
 
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];

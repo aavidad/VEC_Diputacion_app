@@ -14,6 +14,7 @@ import {
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
+import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
@@ -227,6 +228,8 @@ function actualizarShell(estado) {
 
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
+  estado.destruirHistorialMiBolsa?.();
+  estado.destruirHistorialMiBolsa = null;
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
   estado.destruirContactoPropio?.();
@@ -237,6 +240,11 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.vista === "llamamientos") {
+    estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
+      contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
+    })?.destruir ?? null;
+  }
   if (estado.vista === "oportunidades") {
     // La bandeja actual no aporta una evaluación B15 autorizada: no derivarla de convocatorias.
     const vista = montarVistaOportunidades({ raiz: porId("oportunidades-montaje"), anunciar });
@@ -707,6 +715,8 @@ function conectarEventos(estado) {
 }
 
 async function cargar(estado) {
+  estado.destruirHistorialMiBolsa?.();
+  estado.destruirHistorialMiBolsa = null;
   const reintento = document.activeElement?.dataset.accion === "reintentar"; porId("estado-carga").hidden = false;
   porId("estado-carga").className = "estado-carga";
   porId("estado-carga").innerHTML = '<span aria-hidden="true"></span>Cargando información autorizada…';
@@ -760,6 +770,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     contactoPropioRecibo: null,
     controladorContactoPropio: null,
     destruirContactoPropio: null,
+    destruirHistorialMiBolsa: null,
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],

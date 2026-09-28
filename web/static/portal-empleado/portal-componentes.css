@@ -314,11 +314,17 @@ button.tarjeta-kpi .metrica-enlace { margin-top: 4px; }
 .avisos-bolsa-icono { display: inline-grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 50%; background: var(--portal-exito-suave); color: var(--portal-exito); font-weight: 800; }
 .avisos-bolsa-lista { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .avisos-bolsa .lista-actividad { margin: 0; }
+.avisos-bolsa .lista-actividad__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--portal-borde); }
+.avisos-bolsa .lista-actividad__item:nth-child(even) { background: var(--portal-superficie-alterna); }
+.avisos-bolsa .lista-actividad__item strong { color: var(--portal-azul-950); }
+.avisos-bolsa .lista-actividad__item p { margin: 4px 0; }
 .avisos-bolsa-nota { margin: 0; padding: 6px 14px; border-top: 1px solid var(--portal-borde); background: var(--portal-superficie-alterna); color: var(--portal-muted); font-size: 0.72rem; }
 
 @media (max-width: 760px) {
   .rejilla-kpi.cuadro-b12-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .avisos-bolsa { max-height: none; }
   .avisos-bolsa .cabecera-panel { align-items: start; }
+  .avisos-bolsa .lista-actividad__item { grid-template-columns: minmax(0, 1fr); }
 }
 
 .enlace-kpi {

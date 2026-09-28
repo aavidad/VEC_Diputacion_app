@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"time"
+	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -38,7 +39,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}
 	if s.candidatoBolsa {
-		principalValido = capacidad.ruta == "/api/vec/bolsa/mi-bolsa" &&
+		principalValido = (capacidad.ruta == bolsapersonal.RutaMiBolsa || capacidad.ruta == bolsapersonal.RutaMiBolsaHistorial) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal) &&
 			len(capacidad.principal.Roles) == 1 && capacidad.principal.Roles[0] == "candidato_bolsa"
 	}

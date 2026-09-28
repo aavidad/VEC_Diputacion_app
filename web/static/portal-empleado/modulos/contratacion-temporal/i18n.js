@@ -5,6 +5,7 @@ import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-fo
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
 import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260926-pulido-portal-v1";
+import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   justificante_registrado: "Justificante registrado",
@@ -41,6 +42,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...MENSAJES_AVISOS_VIA_COBERTURA_ES,
   ...MENSAJES_ANALISIS_CATALOGO_ES,
   ...MENSAJES_TEXTOS_VISTAS_ES,
+  ...MENSAJES_BORRADORES_PUBLICADOS_ES,
   titulo: "Nueva solicitud de contratación temporal",
   progreso_etiqueta: "Progreso del alta",
   progreso_datos: "Datos",

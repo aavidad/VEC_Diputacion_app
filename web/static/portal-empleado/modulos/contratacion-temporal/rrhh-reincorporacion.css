@@ -1,0 +1,216 @@
+.ct-rrhh-reincorporacion {
+  min-width: 0;
+  margin-block: 20px;
+  color: var(--portal-tinta);
+}
+
+.ct-rrhh-reincorporacion .cabecera-panel {
+  background: var(--portal-cabecera-panel);
+}
+
+.ct-rrhh-reincorporacion .cabecera-panel > div {
+  min-width: 0;
+}
+
+.ct-rrhh-reincorporacion-ayuda-boton {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.ct-rrhh-reincorporacion :focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.ct-rrhh-reincorporacion-ayuda {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-100);
+  line-height: 1.5;
+}
+
+.ct-rrhh-reincorporacion-ayuda[hidden] {
+  display: none;
+}
+
+.ct-rrhh-reincorporacion-pasos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-rrhh-reincorporacion-pasos li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.ct-rrhh-reincorporacion-pasos li span {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  background: var(--portal-superficie);
+}
+
+.ct-rrhh-reincorporacion-pasos li[aria-current="step"] {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-700);
+  font-weight: 700;
+}
+
+.ct-rrhh-reincorporacion-pasos li[aria-current="step"] span {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-700);
+  color: var(--portal-superficie);
+}
+
+.ct-rrhh-reincorporacion-contexto,
+.ct-rrhh-reincorporacion-resultado dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0 0 20px;
+}
+
+.ct-rrhh-reincorporacion-contexto > div,
+.ct-rrhh-reincorporacion-resultado dl > div {
+  min-width: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-rrhh-reincorporacion dt,
+.ct-rrhh-reincorporacion-campo > span,
+.ct-rrhh-reincorporacion-clave > span,
+.ct-rrhh-reincorporacion-bolsa > span {
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+}
+
+.ct-rrhh-reincorporacion dd {
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+
+.ct-rrhh-reincorporacion fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ct-rrhh-reincorporacion-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.ct-rrhh-reincorporacion-campo {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.ct-rrhh-reincorporacion-campo input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+
+.ct-rrhh-reincorporacion-acciones {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.ct-rrhh-reincorporacion-estado,
+.ct-rrhh-reincorporacion-bolsa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-100);
+}
+
+.ct-rrhh-reincorporacion-estado[data-estado="incierta"],
+.ct-rrhh-reincorporacion-estado[data-estado="conflicto"],
+.ct-rrhh-reincorporacion-bolsa {
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
+}
+
+.ct-rrhh-reincorporacion-estado[data-estado="denegada"],
+.ct-rrhh-reincorporacion-estado[data-estado="rechazada"],
+.ct-rrhh-reincorporacion-estado[data-estado="validacion"] {
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+}
+
+.ct-rrhh-reincorporacion-estado[data-estado="confirmada"] {
+  background: var(--portal-exito-suave);
+  color: var(--portal-exito);
+}
+
+.ct-rrhh-reincorporacion-resultado {
+  padding: 16px;
+  border-left: 4px solid var(--portal-exito);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-rrhh-reincorporacion-resultado h4 {
+  margin: 0 0 12px;
+}
+
+.ct-rrhh-reincorporacion-bolsa {
+  flex-wrap: wrap;
+}
+
+.ct-rrhh-reincorporacion-clave code {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 650px) {
+  .ct-rrhh-reincorporacion-contexto,
+  .ct-rrhh-reincorporacion-resultado dl,
+  .ct-rrhh-reincorporacion-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ct-rrhh-reincorporacion .cabecera-panel {
+    align-items: flex-start;
+  }
+}

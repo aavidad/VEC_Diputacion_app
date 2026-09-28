@@ -29,21 +29,33 @@ var (
 // PlazoOferta conserva la regla del catálogo que fijó el vencimiento y el
 // cálculo hecho con Calendarios en el momento de publicar.
 type PlazoOferta struct {
-	ReglaRef       string   `json:"regla_ref"`
-	HuellaCatalogo string   `json:"huella_catalogo"`
-	Unidad         string   `json:"unidad"`
-	Cantidad       int      `json:"cantidad"`
-	Computo        string   `json:"computo"`
-	UltimoDia      string   `json:"ultimo_dia"`
-	Ejemplo        bool     `json:"ejemplo"`
-	Articulo       string   `json:"articulo,omitempty"`
-	Calendarios    []string `json:"calendarios,omitempty"`
+	ReglaRef        string   `json:"regla_ref"`
+	HuellaCatalogo  string   `json:"huella_catalogo"`
+	Unidad          string   `json:"unidad"`
+	Cantidad        int      `json:"cantidad"`
+	Computo         string   `json:"computo"`
+	UltimoDia       string   `json:"ultimo_dia"`
+	Ejemplo         bool     `json:"ejemplo"`
+	Articulo        string   `json:"articulo,omitempty"`
+	Calendarios     []string `json:"calendarios,omitempty"`
+	PoliticaVersion int64    `json:"politica_version,omitempty"`
+	MunicipioSede   string   `json:"municipio_sede,omitempty"`
+	// En horas naturales estos dos instantes UTC forman parte del recibo y
+	// del material autorizado. UltimoDia queda solo como ayuda de presentación.
+	AperturaEn string `json:"apertura_en,omitempty"`
+	VenceEn    string `json:"vence_en,omitempty"`
 }
 
 // CalculadoraPlazoOferta resuelve el plazo de disposición desde la
 // publicación. Devuelve ErrPlazoOfertaNoConfigurado si no hay regla.
 type CalculadoraPlazoOferta interface {
 	PlazoDisposicion(context.Context, time.Time) (PlazoOferta, time.Time, error)
+}
+
+// CalculadoraPlazoOfertaPorBolsa selecciona la versión de política propia de
+// la bolsa. La interfaz anterior sigue sirviendo a pruebas y ofertas previas.
+type CalculadoraPlazoOfertaPorBolsa interface {
+	PlazoDisposicionBolsa(context.Context, string, time.Time) (PlazoOferta, time.Time, error)
 }
 
 type DisposicionOferta struct {
@@ -116,6 +128,7 @@ type SolicitudResolverOferta struct {
 
 type ComandoPublicarOferta struct {
 	OfertaRef, ReciboRef, BolsaRef, ActorRef, ClaveIdempotencia string
+	UnidadRef, AmbitoRef                                        string
 	Datos                                                       dominiobolsa.DatosOferta
 	Plazo                                                       PlazoOferta
 	PublicadaEn, VenceAntesDe                                   time.Time

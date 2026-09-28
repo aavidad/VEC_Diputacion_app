@@ -75,19 +75,20 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion                    *pgxpool.Pool
-	bolsa                        *pgxpool.Pool
-	gobierno                     *pgxpool.Pool
-	registroAutorizacion         *pgxpool.Pool
-	confirmador                  *pgxpool.Pool
-	lectorResultado              *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	registradorAuditoriaFrontera *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
-	auditoriaFrontera            *pgxpool.Pool
-	candidaturas                 ports.ResolutorCandidaturaAlta
-	transaccionAlta              ports.TransaccionAltasCandidata
-	proveedorMaterial            *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBolsa       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialMiBolsa     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	ejecucion                         *pgxpool.Pool
+	bolsa                             *pgxpool.Pool
+	gobierno                          *pgxpool.Pool
+	registroAutorizacion              *pgxpool.Pool
+	confirmador                       *pgxpool.Pool
+	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
+	auditoriaFrontera                 *pgxpool.Pool
+	candidaturas                      ports.ResolutorCandidaturaAlta
+	transaccionAlta                   ports.TransaccionAltasCandidata
+	proveedorMaterial                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialMiBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialHistorialMiBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
 	proveedoresMaterialPortal         map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -108,6 +109,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
 	detenerEntregaContratos           func()
+	detenerEntregaCeses               func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -268,6 +270,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 			if dependencias.detenerEntregaContratos != nil {
 				dependencias.detenerEntregaContratos()
+			}
+			if dependencias.detenerEntregaCeses != nil {
+				dependencias.detenerEntregaCeses()
 			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
@@ -481,6 +486,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
+			proveedorHistorial, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaHistorialMiBolsa)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialHistorialMiBolsa = proveedorHistorial
 		}
 		if seleccion.portalCandidato {
 			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, len(accionesPropiasPortalDesarrollo()))
@@ -593,6 +603,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			slog.Error("entrega de contratos CT a Bolsa no iniciada", "causa", err)
 		}
 	}
+	ceseActivo, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled)
+	if err != nil {
+		return vacias, err
+	}
+	if ceseActivo {
+		if dependencias.detenerEntregaContratos == nil {
+			return vacias, puertosbolsa.ErrContratosParticipacionNoDisponible
+		}
+		dependencias.detenerEntregaCeses, err = iniciarEntregaCesesCTBolsaDesarrollo(ctx, cfg, ejecucion)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	completa = true
 	return dependencias, nil
 }
@@ -603,6 +626,15 @@ func descriptorMaterialMiBolsaDesarrollo() descriptorMaterialConsumidorV3Desarro
 		Dominio:          "vec.bolsa.mi-bolsa.desarrollo.capacidad-v3",
 		Prefijo:          "clave:capacidad:bolsa-mi-bolsa:",
 		ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
+	}
+}
+
+func descriptorMaterialHistorialMiBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        puertosbolsa.AudienciaHistorialMiBolsa,
+		Dominio:          "vec.bolsa.mi-bolsa.historial.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:bolsa-mi-bolsa-historial:",
+		ProveedorNominal: "proveedor-material-bolsa-mi-bolsa-historial",
 	}
 }
 

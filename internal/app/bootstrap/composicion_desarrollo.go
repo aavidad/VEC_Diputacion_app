@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -17,6 +18,24 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+// selectorCapacidadRRHHDesarrollo activa una migración nueva únicamente con
+// una petición explícita y la doble llave de desarrollo. Un valor mal formado
+// detiene el arranque en lugar de ampliar rutas por error.
+func selectorCapacidadRRHHDesarrollo(cfg config.Config, nombre string) (bool, error) {
+	valor := strings.TrimSpace(os.Getenv(nombre))
+	switch valor {
+	case "", "false":
+		return false, nil
+	case "true":
+		if !cfg.DevelopmentEnabledByDoubleKey() {
+			return false, ErrActivacionDesarrolloInvalida
+		}
+		return true, nil
+	default:
+		return false, ErrActivacionDesarrolloInvalida
+	}
+}
 
 // ComposicionSeguridadDesarrollo agrupa proveedores concretos ya validados.
 // Los campos privados impiden extraer las claves locales; solo se entregan las

@@ -28,6 +28,7 @@ import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
 import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
 import { crearClienteCancelacionHTTP } from "./cliente-http-cancelacion.js?v=20260926-huecos-rrhh-v1";
+import { crearClienteReincorporacionRRHHHTTP, RUTA_CAPACIDAD_REINCORPORACION_RRHH, RUTA_REINCORPORACION_RRHH } from "./rrhh-reincorporacion-cliente.js?v=20260928-rrhh-reincorporacion-v1";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
@@ -68,6 +69,8 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   preparacionCierreSinCese: "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion",
   cierreAdministrativo: RUTA_CIERRE_ADMINISTRATIVO,
   subsanacionReparos: RUTA_SUBSANACION_REPAROS,
+  reincorporacionTitular: RUTA_REINCORPORACION_RRHH,
+  capacidadReincorporacionTitular: RUTA_CAPACIDAD_REINCORPORACION_RRHH,
 });
 
 export const MAXIMO_SOLICITUD_COBERTURA_BYTES = 64 * 1024;
@@ -570,6 +573,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearClienteSubsanacionReparosHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     seguimientoCese: crearClienteSeguimientoCeseHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     cancelacion: crearClienteCancelacionHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
+    reincorporacionTitular: crearClienteReincorporacionRRHHHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),

@@ -11,7 +11,13 @@ import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
+  VISTA_PLANTILLAS_RRHH,
 } from "./portal-modulos-coordinador.js";
+
+test("plantillas RRHH conserva la autoridad CT y una ruta interna propia", () => {
+  assert.equal(moduloDeVistaPortal(VISTA_PLANTILLAS_RRHH), "contratacion_temporal");
+  assert.equal(rutaDeVistaPortal(VISTA_PLANTILLAS_RRHH), "#contratacion-temporal/plantillas-rrhh");
+});
 
 
 // Personal, Cronos y Dietas no tienen entrada en el portal: no se cargan al

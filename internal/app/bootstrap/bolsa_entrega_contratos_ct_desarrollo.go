@@ -2,11 +2,14 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
@@ -20,6 +23,10 @@ import (
 // maximoPaginasEntregaContratosCT acota una pasada: con lote 100 son 10.000
 // eventos; el resto queda para la siguiente, nunca se pierde.
 const maximoPaginasEntregaContratosCT = 100
+
+const (
+	rolRelevoCeseBolsaDesarrollo = "vec_bolsa_llamamientos_relevo_cese"
+)
 
 // entregaContratosCTBolsa es el relevo B13 entre dos módulos: lee la
 // publicación de CT (CT113) y entrega cada evento al inbox de Bolsa. Solo
@@ -141,4 +148,125 @@ func mantenerEntregaCTBolsa(nombre string, entregar func(context.Context) (resul
 			<-terminado
 		})
 	}
+}
+
+// entregaCesesCTBolsa usa un cursor B45 distinto del inbox B13. Lee solo
+// ceses CT confirmados, ya filtrados antes de paginar por el propietario CT.
+// Un fallo detiene la pasada y conserva el cursor durable anterior.
+type entregaCesesCTBolsa struct {
+	lector puertosct.LectorPublicacionCesesBolsa
+	pool   *pgxpool.Pool
+	lote   int
+}
+
+// El worker compartido escribe el error recibido en slog. Nunca se le
+// entrega el texto de pgconn: puede contener host, usuario o DSN privado.
+func falloRelevoCeseBolsaDesarrollo(err error) error {
+	slog.Error("relevo de ceses CT a Bolsa no disponible", "causa", causaFalloPostgreSQLCTDesarrollo(err))
+	return puertosbolsa.ErrContratosParticipacionNoDisponible
+}
+
+func (e *entregaCesesCTBolsa) entregar(ctx context.Context) (resultadoEntregaContratosCT, error) {
+	var resultado resultadoEntregaContratosCT
+	if e == nil || e.lector == nil || e.pool == nil || e.lote < 1 || e.lote > puertosct.LimiteLecturaContratosBolsa || ctx == nil {
+		return resultado, puertosct.ErrPublicacionContratosBolsaNoDisponible
+	}
+	var desde puertosct.CursorPublicacionContratosBolsa
+	err := e.pool.QueryRow(ctx, `SELECT origen_posicion,origen_ref FROM vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()`).Scan(&desde.Posicion, &desde.OrigenRef)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return resultado, falloRelevoCeseBolsaDesarrollo(err)
+	}
+	for pagina := 0; pagina < maximoPaginasEntregaContratosCT; pagina++ {
+		eventos, err := e.lector.LeerCesesBolsa(ctx, desde, e.lote)
+		if err != nil {
+			return resultado, falloRelevoCeseBolsaDesarrollo(err)
+		}
+		for _, evento := range eventos {
+			var contenido struct {
+				Esquema   string `json:"esquema"`
+				Tipo      string `json:"tipo"`
+				OrigenRef string `json:"origen_ref"`
+			}
+			if json.Unmarshal(evento.Contenido, &contenido) != nil || contenido.Esquema != "vec.contratacion-temporal.contrato-bolsa.v1" ||
+				contenido.Tipo != "cese" || contenido.OrigenRef != evento.OrigenRef || evento.HuellaSHA256 == "" || evento.OrigenPosicion < 0 {
+				return resultado, puertosct.ErrPublicacionContratosBolsaNoDisponible
+			}
+			var reutilizada bool
+			var recibo, candidato string
+			var disponible time.Time
+			var politica int64
+			err := e.pool.QueryRow(ctx, `SELECT reutilizada,recibo_ref,candidato_ref,disponible_desde,politica_version
+				FROM vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1($1,$2,$3)`, evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).
+				Scan(&reutilizada, &recibo, &candidato, &disponible, &politica)
+			if err != nil {
+				var pg *pgconn.PgError
+				if !errors.As(err, &pg) || pg.Code != "23503" {
+					return resultado, falloRelevoCeseBolsaDesarrollo(err)
+				}
+				// Un cese sin llamamiento Bolsa también queda acreditado. Si el
+				// llamamiento existe pero falta su vínculo, SQL deniega y reintenta.
+				if err := e.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1($1,$2,$3)`,
+					evento.OrigenRef, evento.HuellaSHA256, evento.OrigenPosicion).Scan(&reutilizada); err != nil {
+					return resultado, falloRelevoCeseBolsaDesarrollo(err)
+				}
+			} else if recibo == "" || candidato == "" || disponible.IsZero() || politica < 1 {
+				return resultado, puertosbolsa.ErrContratosParticipacionNoDisponible
+			}
+			if reutilizada {
+				resultado.reentregas++
+			} else {
+				resultado.nuevos++
+			}
+			desde = puertosct.CursorPublicacionContratosBolsa{Posicion: evento.OrigenPosicion, OrigenRef: evento.OrigenRef}
+		}
+		if len(eventos) < e.lote {
+			return resultado, nil
+		}
+	}
+	return resultado, nil
+}
+
+// iniciarEntregaCesesCTBolsaDesarrollo exige un LOGIN exclusivo del relevo y
+// las funciones CT129/B45 antes de iniciar el trabajador. No reutiliza el
+// pool del ejecutor Bolsa ni su cursor de contratos B13.
+func iniciarEntregaCesesCTBolsaDesarrollo(ctx context.Context, cfg config.Config, ejecucionCT *pgxpool.Pool) (func(), error) {
+	nada := func() {}
+	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaCeseCTEnabled)
+	if err != nil || !activo {
+		return nada, err
+	}
+	opciones, err := cfg.BolsaContratosCT.Resolver()
+	if err != nil || !opciones.Activa || ejecucionCT == nil || ctx == nil {
+		return nada, puertosct.ErrPublicacionContratosBolsaNoDisponible
+	}
+	dsn, err := cfg.DSNBolsaRelevoCeseSeparado()
+	if err != nil {
+		return nada, err
+	}
+	pool, err := abrirPoolRelevoBolsaDesarrollo(ctx, dsn, rolRelevoCeseBolsaDesarrollo, "vec-bolsa-relevo-cese-ct")
+	if err != nil {
+		return nada, falloRelevoCeseBolsaDesarrollo(err)
+	}
+	var instalada bool
+	err = pool.QueryRow(ctx, `SELECT bool_and(coalesce(has_function_privilege(to_regprocedure(f),'EXECUTE'),false))
+		FROM unnest(ARRAY[
+			'vec_bolsa_llamamientos.registrar_restriccion_cese_bolsa_v1(text,text,bigint)',
+			'vec_bolsa_llamamientos.cursor_restriccion_cese_bolsa_v1()',
+			'vec_bolsa_llamamientos.confirmar_cese_ajeno_bolsa_v1(text,text,bigint)']) f`).Scan(&instalada)
+	if err != nil || !instalada {
+		pool.Close()
+		return nada, puertosbolsa.ErrContratosParticipacionNoDisponible
+	}
+	if err = ejecucionCT.QueryRow(ctx, `SELECT to_regprocedure('vec_contratacion_temporal.leer_ceses_bolsa_v1(bigint,text,integer)') IS NOT NULL`).Scan(&instalada); err != nil || !instalada {
+		pool.Close()
+		return nada, puertosct.ErrPublicacionContratosBolsaNoDisponible
+	}
+	lector, err := postgresct.NuevoLectorPublicacionContratosBolsaPostgreSQL(ejecucionCT)
+	if err != nil {
+		pool.Close()
+		return nada, err
+	}
+	relevo := &entregaCesesCTBolsa{lector: lector, pool: pool, lote: opciones.Lote}
+	detener := mantenerEntregaCTBolsa("ceses", relevo.entregar, opciones.Intervalo, esperarTemporizadorCTDesarrollo)
+	return func() { detener(); pool.Close() }, nil
 }

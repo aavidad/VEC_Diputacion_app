@@ -1,12 +1,26 @@
 import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260926-huecos-rrhh-v2";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260926-pulido-portal-v1";
+import { MENSAJES_RRHH_PLAZOS_ES } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
+import { MENSAJES_POLITICA_CESE_ES } from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-rrhh-politica-cese-v1";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
   ...MENSAJES_AYUDA_PORTAL_ES,
   ...MENSAJES_PANEL_INTERNO_ES,
   ...MENSAJES_TEXTOS_PORTAL_ES,
+  ...MENSAJES_RRHH_PLAZOS_ES,
+  ...MENSAJES_POLITICA_CESE_ES,
+  plantillas_rrhh_nav: "Plantillas de documentos",
+  plantillas_rrhh_miga: "Portal del Empleado → Contratación temporal → Plantillas",
+  plantillas_rrhh_titulo: "Plantillas de contratación temporal",
+  auditoria_participacion_accion: "Consultar auditoría de esta participación",
+  auditoria_sin_ficha: "Abra una ficha de participación para consultar su auditoría.",
+  auditoria_expediente_accion: "Consultar auditoría de este expediente",
+  auditoria_expediente_panel: "Auditoría del expediente",
+  rrhh_no_disponible_hasta: "No disponible hasta",
+  bolsa_razon_restriccion_cese: "Fuera de turno por cese hasta {fecha}",
+  bolsa_razon_retorno_tras_cese: "Retorno al turno tras cese verificado",
   acceso_borradores_disponible: "Borradores disponibles",
   acceso_borradores_denegado: "Sin permiso para gestionar borradores",
   acceso_borradores_error: "Servicio de borradores no disponible",
@@ -92,6 +106,9 @@ export function textoPortal(clave, variables = {}) {
 
 /** Textos comunes de las vistas internas de Bolsa. */
 export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
+  b24_recurso_historial: "Historial del recurso ({total})",
+  b24_recurso_evento: "{estado} · {fecha} · Anotado por {actor}",
+  b24_recurso_documento: "Escrito: {referencia}",
   b7_seleccion_denegada: "Permiso denegado al consultar candidatos. Se han retirado los datos y la selección.",
   b7_consulta_fallida: "No se pudo completar la consulta: {motivo}",
   b7_error_lectura: "error de lectura",

@@ -28,7 +28,8 @@ test("seguimiento y trámites informan de ámbitos vacíos sin datos aparentes",
   assert.match(seguimiento, /Sin expedientes en el ámbito autorizado/u);
   assert.match(seguimiento, /No hay acciones disponibles hasta que el servicio facilite un expediente autorizado/u);
   assert.doesNotMatch(seguimiento, /undefined|\[object Object\]|Descargar expediente/u);
-  assert.match(renderizarLlamamientos(datos), /Sin información de contratos\./u);
+  assert.match(renderizarLlamamientos(datos), /Cargando histórico autorizado/u);
+  assert.doesNotMatch(renderizarLlamamientos(datos), /Sin información de contratos\./u);
   assert.match(renderizarSubsanaciones(datos), /Sin subsanaciones/u);
   assert.match(renderizarAlegaciones(datos), /Sin alegaciones/u);
 });
@@ -42,7 +43,8 @@ test("mi bolsa muestra tarjetas propias, provisionalidad y paginación", () => {
   assert.match(vista, /Versión de la bolsa/u);
   assert.match(vista, /Mostrando 1 a 6 de 7/u);
   assert.doesNotMatch(vista, /Identificarse con certificado no firma documentos|Pendiente de integración/u);
-  assert.match(vista, /Sin información de contratos\./u);
+  assert.match(vista, /Histórico de mi bolsa[\s\S]*Cargando histórico autorizado/u);
+  assert.doesNotMatch(vista, /Sin información de contratos\./u);
   assert.match(vista, /La situación actual de esta participación aún no está disponible/u);
   assert.doesNotMatch(vista, /Ensayar pausa|Ensayar reactivación/u);
 });

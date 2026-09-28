@@ -485,6 +485,8 @@ test("el inventario expone las rutas compuestas y los cinco flujos previos sigue
     "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese/preparacion",
     "/api/vec/contratacion-temporal/seguimiento/cerrar-sin-cese",
     "/api/vec/contratacion-temporal/subsanacion-reparos",
+    "/api/vec/contratacion-temporal/reincorporaciones-titular",
+    "/api/vec/contratacion-temporal/reincorporaciones-titular/capacidad",
   ]);
   for (const { ruta, opciones } of llamadas) {
     assert.equal(opciones.method, "POST");
@@ -521,6 +523,22 @@ test("el inventario expone las rutas compuestas y los cinco flujos previos sigue
     JSON.parse(llamadas[4].opciones.body),
     solicitudConsultaResultadoCobertura(),
   );
+});
+
+test("la capacidad de reincorporación usa POST de consulta sin URL sensible ni efecto", async () => {
+  const rutas = [];
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+    rutas.push(ruta);
+    assert.equal(opciones.method, "POST");
+    assert.deepEqual(JSON.parse(opciones.body), { expediente_ref: "expediente:ct:0001", version_esperada: 7 });
+    assert.equal(opciones.credentials, "same-origin");
+    return respuestaJSON({ data: { esquema: "vec.contratacion-temporal.capacidad-reincorporacion-titular.v1",
+      puede_registrar_reincorporacion_titular: false } }, 200);
+  } });
+  assert.equal(await cliente.reincorporacionTitular.consultarCapacidadReincorporacion({
+    expediente_ref: "expediente:ct:0001", version_esperada: 7,
+  }), false);
+  assert.equal(rutas[0], RUTAS_HTTP_CONTRATACION_TEMPORAL.capacidadReincorporacionTitular);
 });
 
 test("el catálogo de alta se consulta sin cuerpo, caché ni autoridad fabricada", async () => {
