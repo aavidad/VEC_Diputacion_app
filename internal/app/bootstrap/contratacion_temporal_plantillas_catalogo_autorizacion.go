@@ -24,8 +24,11 @@ const (
 // El perfil de catálogo es distinto del de tramitación y se coteja en cada
 // llamada; ninguna instantánea local puede reemplazar una revocación vigente.
 type proveedorCatalogoPlantillasCT struct {
-	soporte          *soporteAltaContratacionTemporalDesarrollo
-	pdp              *aplicacionvec.ServicioAutorizacionSolicitudLigadaV3
+	soporte *soporteAltaContratacionTemporalDesarrollo
+	pdp     interface {
+		vecports.AutorizadorSolicitudLigadaV3
+		vecports.PreparadorRegistroCompuestoSolicitudLigadaV3
+	}
 	materialCatalogo *proveedorMaterialAltaContratacionTemporalDesarrollo
 	motivo           vecdomain.ReferenciaEntradaCatalogo
 	reloj            relojContratacionTemporalDesarrollo
@@ -171,11 +174,18 @@ func (p *proveedorCatalogoPlantillasCT) ComprobarCapacidadCatalogoPlantillas(
 	if err != nil {
 		return false, err
 	}
-	_, _, err = p.pdp.PrepararSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
+	// Esta preparación no registra candidata ni denegación. Una consulta
+	// visual no equivale a intentar una escritura administrativa.
+	decision, _, err := p.pdp.PrepararRegistroCompuestoSolicitudLigadaV3(
+		ctx, solicitud, operativo.Resultado, seguridadvec.GeneradorReferenciasCriptograficas{})
 	if errors.Is(err, vecdomain.ErrAutorizacionDenegada) {
 		return false, nil
 	}
-	return err == nil, err
+	if err != nil {
+		return false, err
+	}
+	concedida, _, err := decision.Resultado()
+	return err == nil && concedida, err
 }
 
 func (p *proveedorCatalogoPlantillasCT) solicitud(
