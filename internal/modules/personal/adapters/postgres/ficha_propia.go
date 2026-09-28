@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -115,10 +116,32 @@ func decodificarFichaPropia(bruto []byte, o ports.OrdenFichaPropia) (ports.Resul
 		return vacio, errRegistroEmpleadoB2NoDisponible
 	}
 	var r ports.ResultadoFichaPropia
-	if err := decodificarJSONRegistroB2(bruto, &r); err != nil || r.Ficha.ValidarPara(o.Material) != nil || !evidenciaRegistroB2Valida(r.Evidencia, o.Autorizacion) {
+	if err := decodificarJSONRegistroB2(bruto, &r); err != nil || !finInclusivoServiciosFichaPropia(&r.Ficha) || r.Ficha.ValidarPara(o.Material) != nil || !evidenciaRegistroB2Valida(r.Evidencia, o.Autorizacion) {
 		return vacio, errRegistroEmpleadoB2NoDisponible
 	}
 	return r, nil
+}
+
+// Personal 000017 conserva los servicios como [periodo_desde, periodo_hasta).
+// La función de lectura 000022 entrega ese fin exclusivo; la ficha visible usa
+// el último día incluido, igual que sus relaciones de servicio.
+func finInclusivoServiciosFichaPropia(f *domain.FichaPropia) bool {
+	if f == nil {
+		return false
+	}
+	for i := range f.Servicios {
+		s := &f.Servicios[i]
+		if s.Inicio.Validar() != nil || s.Fin.Validar() != nil {
+			return false
+		}
+		inicio, errInicio := time.Parse("2006-01-02", s.Inicio.Texto())
+		finExclusivo, errFin := time.Parse("2006-01-02", s.Fin.Texto())
+		if errInicio != nil || errFin != nil || !inicio.Before(finExclusivo) {
+			return false
+		}
+		s.Fin = domain.FechaCivil(finExclusivo.AddDate(0, 0, -1).Format("2006-01-02"))
+	}
+	return true
 }
 
 func filasExactasFichaPropia(bruto json.RawMessage, claves []string) bool {

@@ -139,7 +139,8 @@ type RelacionFichaPropia struct {
 	Situacion string     `json:"situacion"`
 }
 
-// ServicioFichaPropia es un servicio reconocido tal como consta en su acto.
+// ServicioFichaPropia muestra un servicio reconocido tal como consta en su
+// acto. Fin es el último día incluido; la historia almacena el fin exclusivo.
 type ServicioFichaPropia struct {
 	Inicio FechaCivil `json:"inicio"`
 	Fin    FechaCivil `json:"fin"`

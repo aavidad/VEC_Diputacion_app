@@ -53,7 +53,7 @@ func respuestaFichaPropiaPrueba(t *testing.T, o ports.OrdenFichaPropia) []byte {
 	consultada := o.Autorizacion.ResumenCapacidad().EmitidaEn().Add(time.Microsecond).Format("2006-01-02T15:04:05.000000Z")
 	return []byte(`{"ficha":{"corte":{"vigente_en":"2026-09-25","conocido_en":"` + o.Material.Corte().ConocidoEn.Format("2006-01-02T15:04:05.000000Z") + `"},` +
 		`"relaciones":[{"inicio":"2026-01-01","fin":"","estado":"vigente","regimen":"Funcionario interino","modalidad":"Vacante","unidad":"Servicio de Personal","puesto":"Técnico/a","situacion":"Servicio activo"}],` +
-		`"servicios":[{"inicio":"2019-01-01","fin":"2019-12-31","clase":"Servicios previos","dias":365,"estado":"reconocido"}]},` +
+		`"servicios":[{"inicio":"2019-01-01","fin":"2020-01-01","clase":"Servicios previos","dias":365,"estado":"reconocido"}]},` +
 		`"evidencia":{"recibo_ref":"fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100","decision_ref":"dec_prueba","efecto_ref":"` + o.Material.EmpleadoRef() + `","consumo_huella_sha256":"` + strings.Repeat("d", 64) + `","auditoria_ref":"auditoria:prueba","consultada_en":"` + consultada + `"}}`)
 }
 
@@ -66,7 +66,7 @@ func TestFichaPropiaConsultaConfirmaRespuestaExacta(t *testing.T) {
 	if err != nil || tx.commits != 1 || tx.rollbacks != 0 || pool.o.IsoLevel != pgx.Serializable || tx.q[1] != consultaFichaPropiaSQL || len(tx.a[0]) != 11 {
 		t.Fatalf("consulta no confirmada: %v", err)
 	}
-	if len(resultado.Ficha.Relaciones) != 1 || resultado.Ficha.Relaciones[0].Unidad != "Servicio de Personal" || resultado.Ficha.Servicios[0].Dias != 365 {
+	if len(resultado.Ficha.Relaciones) != 1 || resultado.Ficha.Relaciones[0].Unidad != "Servicio de Personal" || resultado.Ficha.Servicios[0].Dias != 365 || resultado.Ficha.Servicios[0].Fin != "2019-12-31" || resultado.Evidencia.ReciboRef == "" {
 		t.Fatalf("ficha inesperada: %+v", resultado.Ficha)
 	}
 	if !bytes.Equal([]byte(tx.a[0][0].(string)), o.Material.Canonico()) {
@@ -85,6 +85,7 @@ func TestFichaPropiaRevierteRespuestaSinFormaExacta(t *testing.T) {
 		"decision_ajena":     bytes.Replace(base, []byte(`"decision_ref":"dec_prueba"`), []byte(`"decision_ref":"dec_otra"`), 1),
 		"estado_libre":       bytes.Replace(base, []byte(`"estado":"vigente"`), []byte(`"estado":"activo"`), 1),
 		"relaciones_nulas":   bytes.Replace(base, []byte(`"relaciones":[`), []byte(`"relaciones":null,"x":[`), 1),
+		"periodo_vacio":      bytes.Replace(base, []byte(`"fin":"2020-01-01"`), []byte(`"fin":"2019-01-01"`), 1),
 	}
 	for nombre, bruto := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -95,6 +96,16 @@ func TestFichaPropiaRevierteRespuestaSinFormaExacta(t *testing.T) {
 				t.Fatal("respuesta alterada confirmada", err)
 			}
 		})
+	}
+}
+
+func TestFichaPropiaFinExclusivoDeUnDiaYBisiesto(t *testing.T) {
+	o := ordenFichaPropiaPrueba(t)
+	base := respuestaFichaPropiaPrueba(t, o)
+	base = bytes.Replace(base, []byte(`"inicio":"2019-01-01","fin":"2020-01-01"`), []byte(`"inicio":"2024-02-29","fin":"2024-03-01"`), 1)
+	r, err := decodificarFichaPropia(base, o)
+	if err != nil || len(r.Ficha.Servicios) != 1 || r.Ficha.Servicios[0].Fin != "2024-02-29" {
+		t.Fatalf("servicio de un día alterado: %v %+v", err, r.Ficha.Servicios)
 	}
 }
 
