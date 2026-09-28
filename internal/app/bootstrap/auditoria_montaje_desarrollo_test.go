@@ -62,6 +62,30 @@ func TestManejadorAuditoriaRegistra403LocalConActorVerificado(t *testing.T) {
 	}
 }
 
+func TestManejadorAuditoriaRegistra403TempranoConActorMTLSSellado(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	registrador := &registradorFronteraSuperficiePrueba{}
+	h := manejadorAuditoriaDenegacionesLocales{registrador: registrador, soporte: soporte,
+		siguiente: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusForbidden) // RawQuery/Cookie/filtro: antes de ResolverContexto.
+		})}
+	for _, ruta := range []string{auditoria.RutaOpciones, auditoria.RutaConsulta} {
+		ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)
+		peticion := httptest.NewRequest(http.MethodPost, ruta+"?no-admitida=1", nil).WithContext(ctx)
+		peticion.Header.Set("Cookie", "no-admitida=1")
+		respuesta := httptest.NewRecorder()
+		h.ServeHTTP(respuesta, peticion)
+		if respuesta.Code != http.StatusForbidden || registrador.ultima.Validar() != nil ||
+			registrador.ultima.ActorRef != principal.ID || registrador.ultima.Ruta != ruta ||
+			registrador.ultima.CorrelacionRef != respuesta.Header().Get("X-Correlation-Ref") {
+			t.Fatalf("403 temprano sin actor/correlación mTLS: HTTP %d orden=%+v", respuesta.Code, registrador.ultima)
+		}
+	}
+	if registrador.llamadas != 2 {
+		t.Fatalf("una sola fila por petición denegada: %d", registrador.llamadas)
+	}
+}
+
 type filaPreflightFronteraAuditoriaPrueba struct{ valida bool }
 
 func (f filaPreflightFronteraAuditoriaPrueba) Scan(destino ...any) error {

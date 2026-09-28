@@ -784,7 +784,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		for i := range rutas {
 			if rutas[i].Ruta == auditoria.RutaOpciones || rutas[i].Ruta == auditoria.RutaConsulta {
 				rutas[i].Manejador = manejadorAuditoriaDenegacionesLocales{
-					siguiente: rutas[i].Manejador, registrador: registrador}
+					siguiente: rutas[i].Manejador, registrador: registrador, soporte: alta.soporte}
 			}
 		}
 	}
