@@ -191,16 +191,51 @@ func nuevoRegistradorFronteraAuditoriaConsultaDesarrollo(ctx context.Context, cf
 	if err != nil {
 		return nil, nil, err
 	}
-	const propia = "vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)"
-	const ajena = "vec_contratacion_temporal.registrar_auditoria_frontera_ruta_exacta_v1(text,text,text,text,text)"
-	var valida bool
-	if err := pool.QueryRow(ctx, `SELECT to_regprocedure($1) IS NOT NULL
-	 AND coalesce(has_function_privilege(session_user,to_regprocedure($1)::oid,'EXECUTE'),false)
-	 AND NOT coalesce(has_function_privilege(session_user,to_regprocedure($2)::oid,'EXECUTE'),false)`, propia, ajena).Scan(&valida); err != nil || !valida {
+	if preflightRegistradorFronteraAuditoriaConsultaDesarrollo(ctx, pool) != nil {
 		pool.Close()
 		return nil, nil, auditoria.ErrNoDisponible
 	}
 	return &registradorFronteraAuditoriaConsultaDesarrollo{pool: pool}, pool.Close, nil
+}
+
+func preflightRegistradorFronteraAuditoriaConsultaDesarrollo(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}) error {
+	if ctx == nil || ctx.Err() != nil || q == nil {
+		return auditoria.ErrNoDisponible
+	}
+	const funcion = "vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)"
+	const sql = `WITH propia AS (SELECT to_regprocedure($1)::oid AS oid)
+	SELECT p.oid IS NOT NULL AND f.prosecdef
+	 AND f.proowner='vec_contratacion_temporal_propietario'::regrole
+	 AND coalesce(has_function_privilege(session_user,p.oid,'EXECUTE'),false)
+	 AND has_schema_privilege(session_user,'vec_contratacion_temporal','USAGE')
+	 AND NOT has_schema_privilege(session_user,'vec_contratacion_temporal','CREATE')
+	 AND current_setting('transaction_read_only')='off' AND NOT pg_is_in_recovery()
+	 AND NOT EXISTS (SELECT 1 FROM pg_proc x
+	  WHERE x.pronamespace='vec_contratacion_temporal'::regnamespace AND x.oid<>p.oid
+	    AND has_function_privilege(session_user,x.oid,'EXECUTE'))
+	 AND NOT EXISTS (SELECT 1 FROM pg_class x
+	  WHERE x.relnamespace='vec_contratacion_temporal'::regnamespace AND x.relkind IN ('r','p','v','m')
+	    AND (has_table_privilege(session_user,x.oid,'SELECT') OR has_table_privilege(session_user,x.oid,'INSERT')
+	     OR has_table_privilege(session_user,x.oid,'UPDATE') OR has_table_privilege(session_user,x.oid,'DELETE')
+	     OR has_table_privilege(session_user,x.oid,'TRUNCATE') OR has_table_privilege(session_user,x.oid,'REFERENCES')
+	     OR has_table_privilege(session_user,x.oid,'TRIGGER') OR has_table_privilege(session_user,x.oid,'MAINTAIN')
+	     OR has_any_column_privilege(session_user,x.oid,'SELECT')
+	     OR has_any_column_privilege(session_user,x.oid,'INSERT')
+	     OR has_any_column_privilege(session_user,x.oid,'UPDATE')
+	     OR has_any_column_privilege(session_user,x.oid,'REFERENCES')))
+	 AND NOT EXISTS (SELECT 1 FROM pg_class x
+	  WHERE x.relnamespace='vec_contratacion_temporal'::regnamespace AND x.relkind='S'
+	    AND (has_sequence_privilege(session_user,x.oid,'USAGE')
+	     OR has_sequence_privilege(session_user,x.oid,'SELECT')
+	     OR has_sequence_privilege(session_user,x.oid,'UPDATE')))
+	 FROM propia p LEFT JOIN pg_proc f ON f.oid=p.oid`
+	var valida bool
+	if err := q.QueryRow(ctx, sql, funcion).Scan(&valida); err != nil || !valida {
+		return auditoria.ErrNoDisponible
+	}
+	return nil
 }
 
 var errAutoridadesAuditoriaConsultaDesarrollo = errors.New("bootstrap: autoridades de consulta de auditoria no disponibles")
