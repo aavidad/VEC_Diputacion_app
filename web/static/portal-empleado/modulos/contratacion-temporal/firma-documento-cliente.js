@@ -115,6 +115,10 @@ export function crearClienteFirmaDocumento({ fetchImpl = globalThis.fetch } = {}
       throw new ErrorFirmaDocumento(signal?.aborted ? "operacion_abortada" : "servicio_no_disponible");
     }
     if (respuesta.redirected) throw new ErrorFirmaDocumento("resultado_no_confiable");
+    if (respuesta.status === 401 || respuesta.status === 403) {
+      void respuesta.body?.cancel?.().catch(() => {});
+      throw new ErrorFirmaDocumento("acceso_denegado");
+    }
     let datos;
     try { datos = await leerJSON(respuesta); } catch (error) {
       if (error instanceof ErrorFirmaDocumento) throw error;
@@ -130,16 +134,25 @@ export function crearClienteFirmaDocumento({ fetchImpl = globalThis.fetch } = {}
     return { estado: respuesta.status, datos: datos.data };
   }
 
+  async function consultarConEstado(expedienteRef, { signal } = {}) {
+    if (!REFERENCIA.test(expedienteRef ?? "")) return Object.freeze({ estado: "no_disponible" });
+    try {
+      const respuesta = await pedir(RUTA_CONSULTA_FIRMA_DOCUMENTO, { expediente_ref: expedienteRef }, signal);
+      const datos = respuesta.estado === 200 ? validarEstadoFirmas(respuesta.datos) : null;
+      return datos ? Object.freeze({ estado: "disponible", datos }) : Object.freeze({ estado: "no_disponible" });
+    } catch (error) {
+      return Object.freeze({ estado: error instanceof ErrorFirmaDocumento && error.codigo === "acceso_denegado"
+        ? "denegado" : "no_disponible" });
+    }
+  }
+
   return Object.freeze({
+    /** Consulta tipada para distinguir denegación de indisponibilidad sin datos personales. */
+    consultarConEstado,
     /** Estado real del circuito; null si el registro no está compuesto. */
     async consultar(expedienteRef, { signal } = {}) {
-      if (!REFERENCIA.test(expedienteRef ?? "")) return null;
-      try {
-        const { estado, datos } = await pedir(RUTA_CONSULTA_FIRMA_DOCUMENTO, { expediente_ref: expedienteRef }, signal);
-        return estado === 200 ? validarEstadoFirmas(datos) : null;
-      } catch {
-        return null;
-      }
+      const resultado = await consultarConEstado(expedienteRef, { signal });
+      return resultado.estado === "disponible" ? resultado.datos : null;
     },
     /** Registra una firma verificada o una devolución y devuelve el recibo. */
     async registrar({ expedienteRef, version, documento, pasoOrden, resultado, motivoDevolucion = "", original, firmado, clave }, { signal } = {}) {

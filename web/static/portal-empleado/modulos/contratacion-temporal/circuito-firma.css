@@ -1,4 +1,4 @@
-/* Circuito de firma del expediente: panel propio bajo la cabecera. */
+/* Circuito de firma del expediente: después de la fase y el siguiente paso. */
 .ct-circuito-firma {
   min-width: 0;
   border: 1px solid var(--portal-borde);
@@ -34,11 +34,101 @@
   font-weight: 600;
 }
 
+.ct-circuito-portafirmas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 16px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-fondo);
+}
+
+.ct-circuito-portafirmas h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ct-circuito-portafirmas p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.85rem;
+}
+
+.ct-circuito-limite {
+  grid-column: 1 / -1;
+}
+
+.ct-circuito-limite p {
+  padding-top: 8px;
+}
+
+.ct-circuito-limite summary,
+.ct-circuito-prueba summary {
+  width: fit-content;
+  min-height: 24px;
+  cursor: pointer;
+  color: var(--portal-azul-700);
+  font-weight: 600;
+}
+
+.ct-circuito-limite summary:focus-visible,
+.ct-circuito-prueba summary:focus-visible {
+  outline: 2px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.ct-circuito-prueba {
+  margin: 16px 24px 20px;
+}
+
+.ct-circuito-prueba summary {
+  font-size: 0.9rem;
+}
+
+.ct-circuito-portafirmas .ct-circuito-estado {
+  grid-column: 2;
+}
+
+.ct-circuito-envio {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.ct-circuito-envio .boton-primario:disabled {
+  min-height: 36px;
+  border-color: var(--portal-borde);
+  background: var(--portal-neutro-suave);
+  color: var(--portal-tinta);
+  opacity: 1;
+}
+
+.ct-circuito-subtitulo,
+.ct-circuito-indisponible {
+  margin: 16px 24px 0;
+  font-size: 0.85rem;
+}
+
+.ct-circuito-subtitulo {
+  font-weight: 600;
+}
+
+.ct-circuito-indisponible {
+  padding-bottom: 20px;
+  color: var(--portal-muted);
+}
+
 .ct-circuito-documentos {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 16px;
-  padding: 16px 24px 20px;
+  padding: 16px 0 0;
 }
 
 .ct-circuito-documento {
@@ -50,7 +140,7 @@
   background: var(--portal-fondo);
 }
 
-.ct-circuito-documento h4 {
+.ct-circuito-documento h5 {
   margin: 0 0 8px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -131,6 +221,21 @@
   .ct-circuito-cabecera,
   .ct-circuito-documentos {
     padding-inline: 16px;
+  }
+
+  .ct-circuito-portafirmas,
+  .ct-circuito-prueba,
+  .ct-circuito-subtitulo,
+  .ct-circuito-indisponible {
+    margin-inline: 16px;
+  }
+
+  .ct-circuito-portafirmas {
+    grid-template-columns: 1fr;
+  }
+
+  .ct-circuito-portafirmas .ct-circuito-estado {
+    grid-column: 1;
   }
 }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { exigirRenovado } from "../../versiones-cache.test-helper.mjs";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
@@ -20,7 +21,7 @@ import {
   crearDocumentosContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { crearTraductorExpedientesContratacion, MENSAJES_EXPEDIENTES_CONTRATACION_EN } from "./i18n-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 import {
   crearEjecutorAltaConRefresco,
@@ -80,7 +81,7 @@ test("el índice documental mantiene el regreso al expediente y explica el estad
   assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-exp-efecto="[^"]*ginpix\.enviar/u);
 });
 
-test("el índice documental conserva cada estado y escapa referencias en la tabla", () => {
+test("el índice documental lista el estado autorizado sin inventar una descarga", () => {
   const expediente = crearExpedienteContratacionTemporalPresentacion();
   const t = crearTraductorExpedientesContratacion();
   const html = renderizarDocumentos({ expediente, documentos: { documentos: [{
@@ -90,11 +91,36 @@ test("el índice documental conserva cada estado y escapa referencias en la tabl
   }] } }, t);
 
   // El documento se nombra; su referencia interna no se muestra.
-  assert.match(html, /<th scope="row">Ficha &lt;GINPIX&gt;<\/th>/u);
+  assert.match(html, /<h4>Ficha &lt;GINPIX&gt;<\/h4>/u);
   assert.doesNotMatch(html, /documento:&lt;interno&gt;<\/code>/u);
-  assert.match(html, /Preparado<\/td><td>Sin firma<\/td>/u);
-  assert.match(html, /Descarga pendiente de conectar/u);
-  assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar/u);
+  assert.match(html, /<span class="ct-exp-chip">Preparado<\/span>/u);
+  assert.match(html, /<dt>Firma<\/dt><dd>Sin firma<\/dd>/u);
+  assert.match(html, /El índice señala una descarga disponible, pero esta pantalla aún no puede abrirla/u);
+  assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar|>Descargar<\/button>/u);
+});
+
+test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmados", () => {
+  const base = crearExpedienteContratacionTemporalPresentacion();
+  const tarea = { ...base.tareas[0], estado_clave: "en_curso", responsable: "Unidad RRHH",
+    acciones: [{ tipo: "efecto", disponible: true, etiqueta: "Revisar petición" }] };
+  const expediente = { ...base, tareas: [tarea] };
+  const estado = { vista: "expediente", carga: "listo", expediente,
+    expediente_ref: expediente.expediente_ref, tarea_ref: tarea.tarea_ref };
+  const html = renderizarExpediente(estado, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
+  assert.ok(html.indexOf('class="ct-exp-progreso"') < html.indexOf('class="ct-exp-siguiente-paso panel"'));
+  assert.ok(html.indexOf('class="ct-exp-siguiente-paso panel"') < html.indexOf('class="ct-exp-tramitacion"'));
+  assert.match(html, /Qué:<\/strong> Revisar petición/u);
+  assert.match(html, /Quién:<\/strong> Unidad RRHH/u);
+  assert.match(html, /No consta un plazo autorizado para este paso/u);
+
+  const bloqueada = { ...tarea, responsable: "Pendiente de definición por RRHH", unidad: "—",
+    acciones: [{ tipo: "efecto", disponible: false, etiqueta: "Firmar" }] };
+  const en = renderizarExpediente({ ...estado, expediente: { ...expediente, tareas: [bloqueada] } },
+    crearTraductorExpedientesContratacion(MENSAJES_EXPEDIENTES_CONTRATACION_EN), "en-GB", "Europe/Madrid");
+  assert.match(en, /Next step/u);
+  assert.match(en, /No person or unit is assigned in the record/u);
+  assert.match(en, /No authorised deadline is recorded/u);
+  assert.doesNotMatch(en, /What:<\/strong> Firmar/u);
 });
 
 
@@ -689,4 +715,21 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   for (const actuacion of auditoria.actuaciones) {
     assert.ok(htmlAuditoria.includes(actuacion.fecha));
   }
+});
+
+test("el expediente renovado atraviesa la caché immutable desde el HTML hasta firma y estilos", async () => {
+  const raiz = new URL("../../", import.meta.url);
+  const [html, portal, coordinador, vista, pruebas] = await Promise.all([
+    readFile(new URL("index.html", raiz), "utf8"),
+    readFile(new URL("portal.js", raiz), "utf8"),
+    readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
+    readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", raiz), "utf8"),
+    readFile(new URL("modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", raiz), "utf8"),
+  ]);
+  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", "20260926-pulido-portal-v1");
+  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/circuito-firma.css", "20260926-integracion-bolsa-ct-v1");
+  exigirRenovado(html, "/portal-empleado/portal.js", "20260928-auditoria-expediente-en-v2");
+  exigirRenovado([html, portal], "portal-modulos-coordinador.js", "20260928-auditoria-expediente-en-v2");
+  exigirRenovado([coordinador, pruebas], "vista-expedientes.js", "20260928-auditoria-expediente-en-v2");
+  exigirRenovado(vista, "circuito-firma.js", "20260926-integracion-bolsa-ct-v1");
 });

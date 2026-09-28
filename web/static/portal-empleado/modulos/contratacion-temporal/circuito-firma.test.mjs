@@ -6,7 +6,8 @@ import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
 } from "./circuito-firma.js";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES } from "./i18n-circuito-firma.js";
+import { crearAccionesFirma, fusionarEstadoFirmas } from "./circuito-firma-acciones.js";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN } from "./i18n-circuito-firma.js";
 
 function paso(orden, total, extra = {}) {
   return {
@@ -69,18 +70,76 @@ test("el cliente pide la ruta de solo lectura y falla cerrado", async () => {
   ]) {
     assert.equal(await crearClienteHTTPCircuitoFirma({ fetchImpl }).obtenerCircuito(), null);
   }
+  for (const [codigo, esperado] of [[403, "denegado"], [503, "no_disponible"]]) {
+    const conEstado = crearClienteHTTPCircuitoFirma({ fetchImpl: async () => respuestaJSON({ error: { codigo: "acceso_denegado" } }, codigo) });
+    assert.deepEqual(await conEstado.obtenerCircuitoConEstado(), { estado: esperado });
+    assert.equal(await conEstado.obtenerCircuito(), null);
+  }
 });
 
 test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el ejemplo", () => {
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), t);
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
+  assert.match(html, /Firma oficial en Firmadoc/u);
+  assert.match(html, /Conexión pendiente/u);
+  assert.match(html, /<button[^>]*disabled[^>]*aria-describedby="ct-circuito-envio-motivo"[^>]*>Enviar a firma<\/button>/u);
+  assert.match(html, /Pendiente de conexión con Firmadoc, permiso y confirmación de entrega/u);
+  assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
+  assert.match(html, /AutoFirma · PRUEBA sin eficacia administrativa/u);
+  assert.match(html, /<details class="ct-circuito-limite">/u);
+  assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
+  assert.doesNotMatch(html, /<details[^>]*\sopen/u);
+  assert.doesNotMatch(html, /Enviad[ao] a Firmadoc|Firma oficial completada/u);
   assert.doesNotMatch(html, /Circuito de ejemplo/u);
-  assert.match(html, /Pendiente de firma por Cargo &lt;1&gt;/u);
-  assert.match(html, /En espera del paso anterior/u);
+  assert.match(html, /Pendiente de firma de prueba por Cargo &lt;1&gt;/u);
+  assert.match(html, /Prueba en espera del paso anterior/u);
   assert.match(html, /Permite remitir a Intervención/u);
   assert.equal((html.match(/aria-current="step"/gu) ?? []).length, 1);
   assert.doesNotMatch(html, /<1>/u);
+});
+
+test("si falla el catálogo, conserva visible la fase oficial sin afirmar estado de firma", () => {
+  const t = crearTraductorCircuitoFirma();
+  const html = renderizarCircuitoFirma(null, t, "no_disponible");
+  assert.match(html, /Firma oficial en Firmadoc/u);
+  assert.match(html, /Conexión pendiente/u);
+  assert.match(html, /El estado de las firmas no está disponible/u);
+  assert.doesNotMatch(html, /data-ct-firma-accion|Firma de prueba registrada por/u);
+  const denegado = renderizarCircuitoFirma(null, t, "denegado");
+  assert.match(denegado, /No dispone de permiso para consultar/u);
+  assert.match(denegado, /class="ct-circuito-indisponible" role="alert"/u);
+  assert.doesNotMatch(denegado, /El estado de las firmas no está disponible/u);
+});
+
+test("dos pasos CT118 firmados no convierten Firmadoc en envío o firma oficial", () => {
+  const catalogo = validarCircuitoFirma(circuito());
+  const estado = {
+    huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 0,
+      pasos: [{ estado: "firmado" }, { estado: "firmado" }] }],
+  };
+  const unido = fusionarEstadoFirmas(catalogo, estado);
+  const html = renderizarCircuitoFirma(unido, crearTraductorCircuitoFirma());
+  assert.equal((html.match(/Firma de prueba registrada por/gu) ?? []).length, 2);
+  assert.match(html, /Conexión pendiente/u);
+  assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
+  assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
+});
+
+test("las acciones activas de AutoFirma indican que son PRUEBA", () => {
+  const catalogo = validarCircuitoFirma(circuito());
+  const real = fusionarEstadoFirmas(catalogo, {
+    huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
+      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }],
+  });
+  const html = renderizarCircuitoFirma(real, crearTraductorCircuitoFirma());
+  assert.match(html, /<details class="ct-circuito-prueba" data-ct-firma-detalles>/u);
+  assert.match(html, />Firmar en PRUEBA<\/button>/u);
+  assert.match(html, />Devolver en PRUEBA<\/button>/u);
+  assert.match(html, />Registrar devolución de PRUEBA<\/button>/u);
+  assert.match(html, /Pendiente de firma de prueba por/u);
 });
 
 test("todas las claves de vocabulario tienen traducción", () => {
@@ -93,17 +152,54 @@ test("todas las claves de vocabulario tienen traducción", () => {
   }
 });
 
-test("el gestor inserta el bloque tras la cabecera solo en el expediente vigente", async () => {
+test("la fase Firmadoc usa el idioma del portal", () => {
+  assert.deepEqual(Object.keys(MENSAJES_CIRCUITO_FIRMA_EN).sort(), Object.keys(MENSAJES_CIRCUITO_FIRMA_ES).sort());
+  for (const [clave, valor] of Object.entries(MENSAJES_CIRCUITO_FIRMA_EN)) {
+    assert.ok(valor.trim(), clave);
+    const variables = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort();
+    assert.deepEqual(variables(valor), variables(MENSAJES_CIRCUITO_FIRMA_ES[clave]), clave);
+  }
+  const traductor = crearTraductorCircuitoFirma({}, "en-GB");
+  const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), traductor);
+  assert.match(html, /Official signing in Firmadoc/u);
+  assert.match(html, /Connection pending/u);
+  assert.match(html, /Send for signing<\/button>/u);
+  assert.match(html, /Firmadoc connection, permission and delivery confirmation are pending/u);
+  assert.match(html, /No recorded submission or official signature in VEC/u);
+  assert.match(html, /Awaiting test signature by/u);
+  assert.match(html, /Allows referral to Financial Control/u);
+  assert.match(html, /If returned, goes back to drafting/u);
+  assert.doesNotMatch(html, /Pendiente de firma|Permite remitir|Si se devuelve/u);
+  assert.match(html, /AutoFirma · TEST with no administrative effect/u);
+  assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_firmar, /TEST/u);
+  assert.match(MENSAJES_CIRCUITO_FIRMA_EN.circuito_firma_devolver, /TEST/u);
+});
+
+test("el catálogo de prueba traduce documentos y cargos conocidos sin alterar valores ajenos", () => {
+  const dato = circuito();
+  dato.documentos[0].pasos[0].cargo = "Técnico/a de RRHH responsable del expediente";
+  const html = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma({}, "en-GB"));
+  assert.match(html, /Final report/u);
+  assert.match(html, /HR officer responsible for the case/u);
+  assert.doesNotMatch(html, /Informe definitivo|Técnico\/a de RRHH/u);
+  dato.documentos[0].etiqueta = "Nombre ajeno <x>";
+  const otro = renderizarCircuitoFirma(validarCircuitoFirma(dato), crearTraductorCircuitoFirma({}, "en-GB"));
+  assert.match(otro, /Nombre ajeno &lt;x&gt;/u);
+});
+
+test("el gestor inserta el bloque después de siguiente paso, con fallback tras las fases", async () => {
   const insertados = [];
-  const cabecera = { insertAdjacentHTML: (posicion, html) => insertados.push({ posicion, html }) };
+  const siguiente = { insertAdjacentHTML: (posicion, html) => insertados.push({ ancla: "siguiente", posicion, html }) };
+  const fases = { insertAdjacentHTML: (posicion, html) => insertados.push({ ancla: "fases", posicion, html }) };
   let estado = { vista: "expediente", expediente: { expediente_ref: "exp:1" } };
-  const raiz = { querySelector: (selector) => (selector === ".ct-exp-cabecera-expediente" ? cabecera : null) };
+  const raiz = { querySelector: (selector) => selector === ".ct-exp-siguiente-paso" ? siguiente : selector === ".ct-exp-progreso" ? fases : null };
   let consultas = 0;
   const cliente = { obtenerCircuito: async () => { consultas += 1; return validarCircuitoFirma(circuito()); } };
   const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado, cliente });
   gestor.montarSiProcede(estado);
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 1);
+  assert.equal(insertados[0].ancla, "siguiente");
   assert.equal(insertados[0].posicion, "afterend");
   gestor.montarSiProcede({ vista: "cuadro" });
   const anterior = estado;
@@ -112,6 +208,125 @@ test("el gestor inserta el bloque tras la cabecera solo en el expediente vigente
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 1, "un expediente ya sustituido no recibe el bloque");
   assert.equal(consultas, 1, "el catálogo se consulta una vez por montaje");
+  const sinSiguiente = { querySelector: (selector) => selector === ".ct-exp-progreso" ? fases : null };
+  const segundo = crearGestorCircuitoFirma({ raiz: sinSiguiente, obtenerEstado: () => estado, cliente });
+  segundo.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(insertados.at(-1).ancla, "fases");
+  segundo.retirar();
+});
+
+test("un fallo de consulta deja el estado pendiente visible en el expediente actual", async () => {
+  const insertados = [];
+  const fases = { insertAdjacentHTML: (_, html) => insertados.push(html) };
+  const estado = { vista: "expediente", expediente: { expediente_ref: "exp:1" } };
+  const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
+  const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado,
+    cliente: { obtenerCircuito: async () => null }, clienteFirma: { consultar: () => { throw new Error("no debe consultarse"); } } });
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(insertados.length, 1);
+  assert.match(insertados[0], /Conexión pendiente/u);
+  assert.match(insertados[0], /El estado de las firmas no está disponible/u);
+  gestor.retirar();
+});
+
+test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
+      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
+  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "no está disponible"]]) {
+    const insertados = [];
+    const fases = { insertAdjacentHTML: (_, html) => insertados.push(html) };
+    const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
+    const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado,
+      cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: validarCircuitoFirma(circuito()) }) },
+      clienteFirma: { consultarConEstado: async (expedienteRef) => {
+        assert.equal(expedienteRef, ref);
+        return { estado: resultado };
+      } },
+    });
+    gestor.montarSiProcede(estado);
+    await new Promise((resolver) => setTimeout(resolver, 0));
+    assert.equal(insertados.length, 1);
+    assert.match(insertados[0], new RegExp(texto, "u"));
+    assert.doesNotMatch(insertados[0], /data-ct-firma-accion|Cargo &lt;1&gt;/u);
+    gestor.retirar();
+  }
+});
+
+test("tras registrar una firma, el repintado conserva el detalle abierto y devuelve el foco al aviso", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
+      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
+  let actual = null;
+  let focoRestaurado = false;
+  function seccion() {
+    const detalles = { open: true };
+    const limite = { open: false };
+    const aviso = { textContent: "", focus: () => { focoRestaurado = true; } };
+    return {
+      detalles, aviso,
+      set outerHTML(html) { assert.match(html, /AutoFirma · PRUEBA/u); actual = seccion(); actual.detalles.open = false; },
+      querySelector: (selector) => selector === "[data-ct-firma-detalles]" ? detalles
+        : selector === ".ct-circuito-limite" ? limite
+          : selector === "[data-ct-firma-aviso]" ? aviso : null,
+      addEventListener: (tipo, callback) => { if (tipo === "click") actual.manejar = callback; },
+    };
+  }
+  const fases = { insertAdjacentHTML: () => { actual = seccion(); } };
+  const raiz = { querySelector: (selector) => selector === ".ct-exp-progreso" ? fases
+    : selector === "[data-ct-circuito-firma]" ? actual : null };
+  const catalogo = validarCircuitoFirma(circuito());
+  const registro = { huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 1,
+      pasos: [{ estado: "pendiente_firma" }, { estado: "en_espera" }] }] };
+  const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado,
+    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "disponible", circuito: catalogo }) },
+    clienteFirma: { consultarConEstado: async () => ({ estado: "disponible", datos: registro }),
+      registrar: async () => ({ recibo_ref: "recibo:firma:1" }) },
+    dependenciasAcciones: { clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
+      autofirma: { firmarPDF: async () => new Uint8Array([1, 2, 3]) },
+      aleatorio: (n) => new Uint8Array(n).fill(1) },
+  });
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  const salida = { textContent: "" };
+  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida : null,
+    querySelectorAll: () => [] };
+  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
+    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
+  actual.manejar({ target: { closest: () => boton } });
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(actual.detalles.open, true);
+  assert.equal(focoRestaurado, true);
+  assert.match(actual.aviso.textContent, /recibo:firma:1/u);
+  gestor.retirar();
+});
+
+test("un rechazo del verificador no muestra sus códigos internos", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false },
+    cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
+      fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
+  const salida = { textContent: "" };
+  const contenedor = { querySelector: (selector) => selector === "[data-ct-firma-resultado]" ? salida : null,
+    querySelectorAll: () => [] };
+  const boton = { dataset: { ctFirmaAccion: "firmar", ctFirmaDocumento: "informe_definitivo", ctFirmaOrden: "1" },
+    closest: (selector) => selector === "[data-ct-firma-accion]" ? boton : contenedor };
+  const acciones = crearAccionesFirma({ obtenerEstado: () => estado, t: crearTraductorCircuitoFirma({}, "en-GB"),
+    clienteBorrador: { descargarBorrador: async () => new Blob(["%PDF-1.7"]) },
+    autofirma: { firmarPDF: async () => new Uint8Array([1]) },
+    clienteFirma: { registrar: async () => { throw { codigo: "firma_no_verificada", motivo: "revocacion_no_acreditada" }; } },
+    aleatorio: (n) => new Uint8Array(n) });
+  await acciones.manejarClic({ target: { closest: () => boton } });
+  assert.match(salida.textContent, /could not be verified/u);
+  assert.doesNotMatch(salida.textContent, /firma_no_verificada|revocacion_no_acreditada/u);
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {

@@ -1,15 +1,15 @@
 /**
  * Circuito de firma de los borradores del expediente. Consulta el catálogo
  * vigente y, si el registro de firmas está compuesto, el estado real de cada
- * paso. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver». No
- * decide estados: los recibe del servidor. Una firma de prueba registrada no
- * tiene eficacia administrativa hasta el portafirmas corporativo.
+ * paso. Mantiene visible la fase oficial aunque el catálogo o el registro no
+ * respondan. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver».
+ * Una firma de prueba registrada no acredita envío ni firma en Firmadoc.
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
-import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
+import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
 const ESQUEMA = "vec.contratacion_temporal.circuito_firma.v1";
@@ -103,33 +103,41 @@ async function leerAcotado(respuesta) {
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
-/** Cliente de solo lectura. Devuelve null si el circuito no está disponible. */
+/** Cliente de solo lectura; la consulta tipada distingue denegación de fallo. */
 export function crearClienteHTTPCircuitoFirma({ fetchImpl = globalThis.fetch } = {}) {
-  return Object.freeze({
-    async obtenerCircuito({ signal } = {}) {
-      if (typeof fetchImpl !== "function") return null;
-      try {
-        const respuesta = await fetchImpl(RUTA_CIRCUITO_FIRMA, {
-          method: "GET", headers: { Accept: "application/json" }, signal,
-          mode: "same-origin", credentials: "same-origin", cache: "no-store",
-          redirect: "error", referrerPolicy: "no-referrer",
-        });
-        if (respuesta.redirected || respuesta.status !== 200
-          || !/^application\/json(?:;\s*charset=utf-8)?$/iu.test(respuesta.headers.get("Content-Type") ?? "")) {
-          void respuesta.body?.cancel?.().catch(() => {});
-          return null;
-        }
-        const envoltorio = JSON.parse(await leerAcotado(respuesta));
-        return camposExactos(envoltorio, ["data"]) ? validarCircuitoFirma(envoltorio.data) : null;
-      } catch {
-        return null;
+  async function obtenerCircuitoConEstado({ signal } = {}) {
+    if (typeof fetchImpl !== "function") return Object.freeze({ estado: "no_disponible" });
+    try {
+      const respuesta = await fetchImpl(RUTA_CIRCUITO_FIRMA, {
+        method: "GET", headers: { Accept: "application/json" }, signal,
+        mode: "same-origin", credentials: "same-origin", cache: "no-store",
+        redirect: "error", referrerPolicy: "no-referrer",
+      });
+      if (respuesta.redirected || respuesta.status !== 200
+        || !/^application\/json(?:;\s*charset=utf-8)?$/iu.test(respuesta.headers.get("Content-Type") ?? "")) {
+        void respuesta.body?.cancel?.().catch(() => {});
+        return Object.freeze({ estado: respuesta.status === 401 || respuesta.status === 403 ? "denegado" : "no_disponible" });
       }
+      const envoltorio = JSON.parse(await leerAcotado(respuesta));
+      const circuito = camposExactos(envoltorio, ["data"]) ? validarCircuitoFirma(envoltorio.data) : null;
+      return circuito ? Object.freeze({ estado: "disponible", circuito }) : Object.freeze({ estado: "no_disponible" });
+    } catch {
+      return Object.freeze({ estado: "no_disponible" });
+    }
+  }
+  return Object.freeze({
+    obtenerCircuitoConEstado,
+    /** Conserva el contrato anterior para consumidores de solo lectura. */
+    async obtenerCircuito({ signal } = {}) {
+      const resultado = await obtenerCircuitoConEstado({ signal });
+      return resultado.estado === "disponible" ? resultado.circuito : null;
     },
   });
 }
 
 function renderizarPaso(paso, t, circuito, documento) {
   const tono = TONO_ESTADO[paso.estado];
+  const cargo = traducirValorCircuitoFirma("cargo", paso.cargo, t);
   const detalles = [
     t(`circuito_firma_accion_${paso.accion}`),
     t(`circuito_firma_habilita_${paso.habilita}`),
@@ -139,83 +147,137 @@ function renderizarPaso(paso, t, circuito, documento) {
   return `<li class="ct-circuito-paso ct-circuito-paso--${tono}"${paso.estado === "pendiente_firma" ? ' aria-current="step"' : ""}>
     <span class="ct-circuito-orden" aria-hidden="true">${paso.orden}</span>
     <div class="ct-circuito-paso-cuerpo">
-      <p class="ct-circuito-cargo">${escaparHTML(paso.cargo)}</p>
+      <p class="ct-circuito-cargo">${escaparHTML(cargo)}</p>
       <p class="ct-circuito-detalle">${detalles.map(escaparHTML).join(" · ")}</p>
       ${paso.estado === "devuelto" && paso.motivo_devolucion ? `<p class="ct-circuito-motivo">${escaparHTML(t("circuito_firma_motivo", { motivo: paso.motivo_devolucion }))}</p>` : ""}
       ${renderizarAccionesPaso(circuito, documento, paso, t)}
     </div>
-    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo: paso.cargo }))}</span>
+    <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo }))}</span>
   </li>`;
 }
 
 /** HTML del bloque; los textos visibles salen del traductor o del catálogo. */
-export function renderizarCircuitoFirma(circuito, t) {
+export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ? "disponible" : "no_disponible") {
+  const claveFallo = estadoConsulta === "denegado" ? "circuito_firma_consulta_denegada"
+    : estadoConsulta === "no_disponible" ? "circuito_firma_consulta_no_disponible"
+      : "circuito_firma_portafirmas_estado_no_disponible";
   return `<section class="ct-circuito-firma" aria-labelledby="ct-circuito-firma-titulo" data-ct-circuito-firma>
     <header class="ct-circuito-cabecera">
       <h3 id="ct-circuito-firma-titulo">${escaparHTML(t("circuito_firma_titulo"))}</h3>
-      ${circuito.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
+      ${circuito?.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
-    <p class="ct-circuito-aviso" role="status" aria-live="polite" data-ct-firma-aviso></p>
-    <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
-      <h4>${escaparHTML(documento.etiqueta)}</h4>
-      <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: documento.etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
-    </article>`).join("")}</div>
+    <p class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
+    <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
+      <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
+      <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
+      <div class="ct-circuito-envio">
+        <button type="button" class="boton-primario" disabled aria-describedby="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_enviar"))}</button>
+        <p id="ct-circuito-envio-motivo">${escaparHTML(t("circuito_firma_envio_bloqueado"))}</p>
+      </div>
+      <details class="ct-circuito-limite"><summary>${escaparHTML(t("circuito_firma_portafirmas_detalle"))}</summary>
+        <p>${escaparHTML(t("circuito_firma_portafirmas_sin_envio"))}</p>
+      </details>
+    </section>
+    ${circuito ? `<details class="ct-circuito-prueba" data-ct-firma-detalles>
+      <summary>${escaparHTML(t("circuito_firma_autofirma_prueba"))} · ${escaparHTML(t("circuito_firma_ver_pasos"))}</summary>
+      <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => {
+    const etiqueta = traducirValorCircuitoFirma("documento", documento.etiqueta, t);
+    return `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
+      <h5>${escaparHTML(etiqueta)}</h5>
+      <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
+    </article>`;
+  }).join("")}</div></details>` : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
   </section>`;
 }
 
 /**
  * Monta el bloque tras la cabecera del expediente. La consulta se hace una
- * vez por montaje; si falla o no hay catálogo, el bloque no aparece.
+ * vez por montaje; si falla el catálogo, la fase oficial sigue visible y
+ * el estado de los pasos se declara no disponible.
  */
 export function crearGestorCircuitoFirma({
   raiz, obtenerEstado, cliente = crearClienteHTTPCircuitoFirma(), mensajes = {}, esMontada = () => true,
   clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {},
+  locale = globalThis.document?.documentElement?.lang || "es-ES",
 } = {}) {
   if (typeof obtenerEstado !== "function") throw new TypeError("estado del circuito de firma no disponible");
-  const t = crearTraductorCircuitoFirma(mensajes);
+  const t = crearTraductorCircuitoFirma(mensajes, locale);
   const controlador = new AbortController();
   let consulta = null;
 
+  async function obtenerCatalogo() {
+    if (typeof cliente?.obtenerCircuitoConEstado === "function") {
+      const resultado = await cliente.obtenerCircuitoConEstado({ signal: controlador.signal });
+      if (resultado?.estado === "disponible" && resultado.circuito) return resultado;
+      return { estado: resultado?.estado === "denegado" ? "denegado" : "no_disponible" };
+    }
+    const circuito = await cliente.obtenerCircuito({ signal: controlador.signal });
+    return { estado: circuito ? "disponible" : "no_disponible", circuito };
+  }
+
   // El estado real solo se consulta con un expediente cuyos borradores
   // existen; sin registro compuesto el bloque sigue siendo informativo.
-  async function conEstadoReal(circuito) {
+  async function conEstadoReal(resultado) {
+    const circuito = resultado?.circuito;
     const solicitud = circuito ? solicitudInformeDefinitivoDesdeEstado(obtenerEstado()) : null;
-    if (!solicitud || typeof clienteFirma?.consultar !== "function") return circuito;
-    const estado = await clienteFirma.consultar(solicitud.expediente_ref, { signal: controlador.signal }).catch(() => null);
-    return fusionarEstadoFirmas(circuito, estado) ?? circuito;
+    if (!solicitud) return resultado;
+    let respuesta;
+    if (typeof clienteFirma?.consultarConEstado === "function") {
+      respuesta = await clienteFirma.consultarConEstado(solicitud.expediente_ref, { signal: controlador.signal })
+        .catch(() => ({ estado: "no_disponible" }));
+    } else if (typeof clienteFirma?.consultar === "function") {
+      const datos = await clienteFirma.consultar(solicitud.expediente_ref, { signal: controlador.signal }).catch(() => null);
+      respuesta = { estado: datos ? "disponible" : "no_disponible", datos };
+    } else {
+      respuesta = { estado: "no_disponible" };
+    }
+    // El catálogo describe los pasos, pero no acredita su estado. Si CT118 no
+    // responde o no coincide, no se muestran estados derivados del ejemplo.
+    const real = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
+    return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real };
   }
 
   const acciones = crearAccionesFirma({
     obtenerEstado, t, clienteFirma, ...dependenciasAcciones,
     async alCambiar(aviso) {
-      const circuito = await consulta;
-      const nuevo = await conEstadoReal(circuito);
+      const nuevo = await conEstadoReal(await consulta);
       const actual = raiz.querySelector?.("[data-ct-circuito-firma]");
-      if (!nuevo || !actual || !esMontada()) return;
-      actual.outerHTML = renderizarCircuitoFirma(nuevo, t);
+      if (!actual || !esMontada()) return;
+      const detallesAbiertos = Boolean(actual.querySelector?.("[data-ct-firma-detalles]")?.open);
+      const limiteAbierto = Boolean(actual.querySelector?.(".ct-circuito-limite")?.open);
+      actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado);
       const repintado = raiz.querySelector?.("[data-ct-circuito-firma]");
       repintado?.addEventListener?.("click", manejar);
+      const detalles = repintado?.querySelector?.("[data-ct-firma-detalles]");
+      if (detalles) detalles.open = detallesAbiertos;
+      const limite = repintado?.querySelector?.(".ct-circuito-limite");
+      if (limite) limite.open = limiteAbierto;
       const aviso_ = repintado?.querySelector?.("[data-ct-firma-aviso]");
-      if (aviso_) aviso_.textContent = aviso;
+      if (aviso_) {
+        aviso_.textContent = aviso;
+        aviso_.focus?.({ preventScroll: true });
+        aviso_.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      }
     },
   });
   function manejar(evento) { void acciones.manejarClic(evento); }
 
-  function insertar(circuito) {
-    if (!circuito || !esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
-    const cabecera = raiz.querySelector?.(".ct-exp-cabecera-expediente");
-    if (typeof cabecera?.insertAdjacentHTML !== "function") return;
-    cabecera.insertAdjacentHTML("afterend", renderizarCircuitoFirma(circuito, t));
+  function insertar(resultado) {
+    if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
+    const ancla = raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
+    if (typeof ancla?.insertAdjacentHTML !== "function") return;
+    ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado));
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 
   function montarSiProcede(estado) {
-    if (estado?.vista !== "expediente" || !estado.expediente || typeof cliente?.obtenerCircuito !== "function") return;
-    consulta ??= Promise.resolve(cliente.obtenerCircuito({ signal: controlador.signal })).catch(() => null);
+    if (estado?.vista !== "expediente" || !estado.expediente ||
+      (typeof cliente?.obtenerCircuito !== "function" && typeof cliente?.obtenerCircuitoConEstado !== "function")) return;
+    consulta ??= Promise.resolve(obtenerCatalogo()).catch(() => ({ estado: "no_disponible" }));
     const expedienteRef = estado.expediente.expediente_ref;
-    void consulta.then(conEstadoReal).then((circuito) => {
+    void consulta.then(conEstadoReal).then((resultado) => {
       const actual = obtenerEstado();
-      if (actual?.vista === "expediente" && actual.expediente?.expediente_ref === expedienteRef) insertar(circuito);
+      if (actual?.vista === "expediente" && actual.expediente?.expediente_ref === expedienteRef) insertar(resultado);
     });
   }
 
