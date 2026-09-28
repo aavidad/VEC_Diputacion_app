@@ -1,7 +1,7 @@
 /** Textos del panel interno de Bolsa y del nuevo llamamiento para el catálogo común. */
 export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
   panel_resultado_sin_expediente: "La aceptación o renuncia se registra en el expediente de Peticiones de personal temporal. Bolsa no identifica aquí el expediente de cada llamamiento; búsquelo en el cuadro de peticiones.",
-  panel_contacto_no_respuesta: "Las llamadas y los datos de contacto son anotaciones. La aceptación o renuncia formal se registra en el expediente de Peticiones de personal temporal.",
+  panel_contacto_no_respuesta: "Este formulario anota contactos. Si la persona acepta o renuncia, registre su respuesta en el expediente de Peticiones de personal temporal.",
   panel_justificante_registrado: "Justificante registrado",
   panel_justificante_copiar: "Copiar referencia",
   panel_justificante_copiado: "Referencia copiada",
@@ -109,7 +109,7 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
 
 export const MENSAJES_PANEL_INTERNO_EN = Object.freeze({
   panel_resultado_sin_expediente: "Record an acceptance or withdrawal in the Temporary Staff Requests case. This pool does not identify the case for each call; find it in the requests dashboard.",
-  panel_contacto_no_respuesta: "Calls and contact details are notes. Record a formal acceptance or withdrawal in the Temporary Staff Requests case.",
+  panel_contacto_no_respuesta: "This form records contact notes. If the person accepts or withdraws, record their response in the Temporary Staff Requests case.",
 });
 
 export function traducirAvisoPanelInterno(clave, idioma = globalThis.document?.documentElement?.lang) {

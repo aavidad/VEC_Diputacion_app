@@ -657,6 +657,19 @@ export function crearPresentadorPanelInterno(dependencias) {
       </form>` : "";
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">${textoPortal("txt_cambio_registrado")} ${justificanteTraducido(modal.reciboSituacion, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
     const reciboContacto = modal.reciboContacto ? `<p class="mensaje-exito" role="status">${escaparHTML(traducirBolsaInterna("contacto_registrado"))} ${justificanteTraducido(modal.reciboContacto, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}</p>` : "";
+    const t = traducirBolsaInterna;
+    const opcionLlamamiento = candidato.ultimo_llamamiento
+      ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}">${escaparHTML(t("contacto_ultimo_llamamiento"))}</option>` : "";
+    const formularioContacto = `<form data-bolsa-form="contacto" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}" aria-describedby="bolsa-contacto-no-respuesta">
+      <h4>${t("contacto_registrar")}</h4>
+      <p id="bolsa-contacto-no-respuesta" class="nota-pendiente">${escaparHTML(traducirAvisoPanelInterno("panel_contacto_no_respuesta"))}</p>
+      <label>${t("contacto_canal")} <select name="canal" required><option value="telefono">${t("contacto_telefono")}</option><option value="correo">${t("contacto_correo")}</option><option value="sms">${t("contacto_sms")}</option><option value="presencial">${t("contacto_presencial")}</option><option value="otro">${t("contacto_otro")}</option></select></label>
+      <label>${t("contacto_resultado")} <select name="resultado" required><option value="contactado">${t("contacto_contactado")}</option><option value="no_contesta">${t("contacto_no_contesta")}</option><option value="buzon">${t("contacto_buzon")}</option><option value="aplazado">${t("contacto_aplazado")}</option><option value="otro">${t("contacto_otro")}</option></select></label>
+      ${opcionLlamamiento ? `<label>${t("contacto_llamamiento")} <select name="llamamiento_ref"><option value="">${t("contacto_sin_vincular")}</option>${opcionLlamamiento}</select></label>` : ""}
+      <label>${t("contacto_anotacion")} <textarea name="anotacion" required maxlength="1000"></textarea></label>
+      <button type="submit" class="boton-primario">${t("contacto_registrar")}</button>
+      <p class="mensaje-error" role="alert">${escaparHTML(modal.errorContacto || "")}</p>
+    </form>`;
     return `
       <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
         <td colspan="7">
@@ -678,7 +691,6 @@ export function crearPresentadorPanelInterno(dependencias) {
                 ${renderizarOrigenContacto({ estado: modal.contactoOrigen || {}, escaparHTML })}
               </dl>
               ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
-              ${candidato.ultimo_llamamiento ? `<p class="nota-pendiente" role="note">${escaparHTML(traducirAvisoPanelInterno("panel_contacto_no_respuesta"))}</p>` : ""}
               ${reciboSituacion}
               ${reciboContacto}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
@@ -694,6 +706,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             </div>
           </section>
           ${cambio}
+          ${formularioContacto}
         </td>
       </tr>`;
   }

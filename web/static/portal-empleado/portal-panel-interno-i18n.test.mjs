@@ -78,17 +78,26 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   assert.match(html, /id="bolsa-resultado-sin-expediente"[^>]+>La aceptación o renuncia se registra en el expediente/);
   assert.doesNotMatch(html, /data-bolsa-accion="abrir-resultado"|data-bolsa-form="resultado"|href="[^"]*llamamiento:01/);
 
-  modalFicha = { abierto: true, candidato, bolsa, registroContacto: {}, intentosContacto: { carga: "cargando" } };
+  modalFicha = { abierto: true, candidato, bolsa, registroContacto: {}, intentosContacto: { carga: "cargando" }, reciboContacto: "recibo:contacto:01" };
   const ficha = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(ficha, /Las llamadas y los datos de contacto son anotaciones/);
-  assert.doesNotMatch(ficha, /<option value="acepta"|<option value="rechaza"|data-bolsa-form="contacto"/);
+  assert.match(ficha, /data-bolsa-form="contacto"[^>]*aria-describedby="bolsa-contacto-no-respuesta"/);
+  assert.match(ficha, /Este formulario anota contactos/);
+  assert.match(ficha, /<option value="sms">|<option value="presencial">|<option value="buzon">|<option value="aplazado">/);
+  assert.doesNotMatch(ficha, /<option value="acepta"|<option value="rechaza"/);
+  assert.match(ficha, /data-copiar-justificante="recibo:contacto:01"/);
   assert.match(ficha, /data-contacto-rrhh-accion="abrir"/);
+
+  candidato.ultimo_llamamiento = null;
+  const fichaSinLlamamiento = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(fichaSinLlamamiento, /data-bolsa-form="contacto"/);
+  assert.match(fichaSinLlamamiento, /<option value="telefono">|<option value="sms">|<option value="presencial">/);
+  assert.doesNotMatch(fichaSinLlamamiento, /name="llamamiento_ref"|<option value="acepta"|<option value="rechaza"/);
 
   carga = "denegado";
   const sinPermiso = presentador.renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(sinPermiso, /Registrar resultado|bolsa-resultado-sin-expediente|data-bolsa-accion="abrir-ficha"/);
 
   assert.match(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "en"), /This pool does not identify the case/);
-  assert.match(traducirAvisoPanelInterno("panel_contacto_no_respuesta", "en-GB"), /formal acceptance or withdrawal/);
+  assert.match(traducirAvisoPanelInterno("panel_contacto_no_respuesta", "en-GB"), /If the person accepts or withdraws/);
   assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "es"), /\bHTTP\b|B3|CT[0-9]/);
 });
