@@ -22,13 +22,16 @@ END $pre$;
 CREATE TABLE vec_usuarios.correos_conjunto (
  persona_ref text PRIMARY KEY CHECK(persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
  version bigint NOT NULL CHECK(version>0),
- actualizado_en timestamptz(6) NOT NULL
+ clave_igualdad_ref text NOT NULL CHECK(clave_igualdad_ref ~ '^[A-Za-z0-9:._-]{1,128}$'),
+ actualizado_en timestamptz(6) NOT NULL,
+ UNIQUE(persona_ref,clave_igualdad_ref)
 );
 CREATE TABLE vec_usuarios.correos_direccion (
  persona_ref text NOT NULL REFERENCES vec_usuarios.correos_conjunto(persona_ref),
  correo_ref text NOT NULL CHECK(correo_ref ~ '^[A-Za-z0-9:._-]{12,128}$'),
  version_sobre bigint NOT NULL CHECK(version_sobre>0),
  clave_sobre_ref text NOT NULL CHECK(length(clave_sobre_ref) BETWEEN 1 AND 128),
+ clave_igualdad_ref text NOT NULL CHECK(clave_igualdad_ref ~ '^[A-Za-z0-9:._-]{1,128}$'),
  nonce bytea NOT NULL CHECK(octet_length(nonce) BETWEEN 12 AND 32),
  cifrado bytea NOT NULL CHECK(octet_length(cifrado) BETWEEN 16 AND 4096),
  huella_igualdad bytea NOT NULL CHECK(octet_length(huella_igualdad)=32),
@@ -38,6 +41,9 @@ CREATE TABLE vec_usuarios.correos_direccion (
  verificado_en timestamptz(6),
  retirado_en timestamptz(6),
  PRIMARY KEY(persona_ref,correo_ref),
+ FOREIGN KEY(persona_ref,clave_igualdad_ref)
+  REFERENCES vec_usuarios.correos_conjunto(persona_ref,clave_igualdad_ref)
+  DEFERRABLE INITIALLY DEFERRED,
  CHECK(NOT activo OR (estado='verificado' AND verificado_en IS NOT NULL)),
  CHECK((estado='pendiente' AND verificado_en IS NULL AND retirado_en IS NULL)
     OR (estado='verificado' AND verificado_en IS NOT NULL AND retirado_en IS NULL)
@@ -488,23 +494,31 @@ BEGIN
  v:=coalesce(c.version,0)+1; ahora:=date_trunc('microseconds',clock_timestamp());
  IF accion='vec.correos.anadir' THEN
   IF jsonb_typeof(p_sobre) IS DISTINCT FROM 'object'
-     OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(p_sobre) x) IS DISTINCT FROM ARRAY['cifrado_hex','clave_ref','correo_ref','huella_igualdad_hex','nonce_hex','version']
+     OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(p_sobre) x) IS DISTINCT FROM ARRAY['cifrado_hex','clave_igualdad_ref','clave_ref','correo_ref','huella_igualdad_hex','nonce_hex','version']
      OR EXISTS(SELECT 1 FROM jsonb_each(p_sobre) z WHERE z.key IN
-       ('cifrado_hex','clave_ref','correo_ref','huella_igualdad_hex','nonce_hex') AND jsonb_typeof(z.value)<>'string')
+       ('cifrado_hex','clave_igualdad_ref','clave_ref','correo_ref','huella_igualdad_hex','nonce_hex') AND jsonb_typeof(z.value)<>'string')
      OR jsonb_typeof(p_sobre->'version') IS DISTINCT FROM 'number'
      OR p_sobre->>'correo_ref' !~ '^[A-Za-z0-9:._-]{12,128}$'
      OR p_sobre->>'version' IS DISTINCT FROM v::text
      OR p_sobre->>'clave_ref' !~ '^[A-Za-z0-9:._-]{1,128}$'
+     OR p_sobre->>'clave_igualdad_ref' !~ '^[A-Za-z0-9:._-]{1,128}$'
      OR p_sobre->>'nonce_hex' !~ '^[0-9a-f]{24,64}$' OR length(p_sobre->>'nonce_hex')%2<>0
      OR p_sobre->>'cifrado_hex' !~ '^[0-9a-f]+$' OR length(p_sobre->>'cifrado_hex') NOT BETWEEN 32 AND 8192 OR length(p_sobre->>'cifrado_hex')%2<>0
      OR p_sobre->>'huella_igualdad_hex' !~ '^[0-9a-f]{64}$'
   THEN RAISE EXCEPTION 'Usuarios: sobre correo inválido' USING ERRCODE='22023'; END IF;
   correo:=p_sobre->>'correo_ref';
+  IF c.version IS NOT NULL AND c.clave_igualdad_ref IS DISTINCT FROM p_sobre->>'clave_igualdad_ref'
+  THEN RAISE EXCEPTION 'Usuarios: generación de igualdad requiere reindexado' USING ERRCODE='P1409'; END IF;
+  IF EXISTS(SELECT 1 FROM vec_usuarios.correos_direccion e WHERE e.persona_ref=m->>'persona_ref'
+      AND (e.correo_ref=correo OR (e.estado<>'retirado'
+       AND e.huella_igualdad=decode(p_sobre->>'huella_igualdad_hex','hex'))))
+  THEN RAISE EXCEPTION 'Usuarios: correo ya registrado' USING ERRCODE='P1409'; END IF;
   IF c.version IS NULL THEN
-   INSERT INTO vec_usuarios.correos_conjunto(persona_ref,version,actualizado_en) VALUES(m->>'persona_ref',v,ahora);
+   INSERT INTO vec_usuarios.correos_conjunto(persona_ref,version,clave_igualdad_ref,actualizado_en)
+   VALUES(m->>'persona_ref',v,p_sobre->>'clave_igualdad_ref',ahora);
   END IF;
-  INSERT INTO vec_usuarios.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en)
-  VALUES(m->>'persona_ref',correo,v,p_sobre->>'clave_ref',decode(p_sobre->>'nonce_hex','hex'),decode(p_sobre->>'cifrado_hex','hex'),
+  INSERT INTO vec_usuarios.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,clave_igualdad_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en)
+  VALUES(m->>'persona_ref',correo,v,p_sobre->>'clave_ref',p_sobre->>'clave_igualdad_ref',decode(p_sobre->>'nonce_hex','hex'),decode(p_sobre->>'cifrado_hex','hex'),
    decode(p_sobre->>'huella_igualdad_hex','hex'),'pendiente',false,ahora);
   nuevo_estado:='pendiente'; nuevo_activo:=false;
  ELSE

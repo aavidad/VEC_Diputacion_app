@@ -82,6 +82,16 @@ BEGIN
  IF (g->>'version')::integer<>0 OR g->'correos'<>'[]'::jsonb THEN RAISE EXCEPTION 'GET inicial'; END IF;
  r:=public.probar_correos('vec.correos.anadir',0,'correo-prueba-anadir-0001',a,'');
  IF (r->>'version')::integer<>1 OR r->>'correo_ref'<>a THEN RAISE EXCEPTION 'alta inicial'; END IF;
+ BEGIN
+  PERFORM public.probar_correos('vec.correos.anadir',1,'correo-prueba-clave-igualdad-v2',b,'',
+   'aplicar',NULL,false,'interna_corporativa','igualdad-v2');
+  RAISE EXCEPTION 'rotación sin reindexado aceptada';
+ EXCEPTION WHEN SQLSTATE 'P1409' THEN NULL; END;
+ BEGIN
+  PERFORM public.probar_correos('vec.correos.anadir',1,'correo-prueba-misma-igualdad',b,'',
+   'aplicar',NULL,false,'interna_corporativa','igualdad-v1',a);
+  RAISE EXCEPTION 'misma huella de dirección admitida';
+ EXCEPTION WHEN SQLSTATE 'P1409' THEN NULL; END;
  IF public.probar_correos('vec.correos.anadir',0,'correo-prueba-anadir-0001',a,'','recuperar')->>'recibo_ref'<>r->>'recibo_ref'
  THEN RAISE EXCEPTION 'replay alta'; END IF;
  BEGIN
@@ -180,6 +190,7 @@ DO $test$ BEGIN
     OR (SELECT count(*) FROM vec_usuarios.correos_desafio WHERE intentos=5 AND estado='agotado')<>1
     OR (SELECT count(*) FROM vec_usuarios.correos_intento_fallido)<>6
     OR (SELECT count(*) FROM vec_usuarios.correos_reenvio)<>3
+    OR (SELECT clave_igualdad_ref FROM vec_usuarios.correos_conjunto)<>'igualdad-v1'
     OR NOT EXISTS(SELECT 1 FROM vec_usuarios.correos_historia WHERE version=6
        AND anterior_activo_ref='correo:11111111111111111111111111111111'
        AND sustituto_ref='correo:22222222222222222222222222222222')

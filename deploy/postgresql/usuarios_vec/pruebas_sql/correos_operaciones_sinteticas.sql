@@ -2,7 +2,8 @@
 -- Doble V3 de forma; no acredita COSE, secreto HMAC, KMS ni SMTP.
 CREATE FUNCTION public.probar_correos(p_accion text,p_version bigint,p_clave text,p_correo text,p_sustituto text,
  p_modo text DEFAULT 'aplicar',p_valido boolean DEFAULT NULL,p_falsa boolean DEFAULT false,
- p_superficie text DEFAULT 'interna_corporativa')
+ p_superficie text DEFAULT 'interna_corporativa',p_igualdad_ref text DEFAULT 'igualdad-v1',
+ p_huella_ref text DEFAULT '')
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $f$
 DECLARE persona constant text:='per_ABCDEFGHIJKLMNOPQRSTUV';
  perfil constant text:='prf_ABCDEFGHIJKLMNOPQRSTUV';
@@ -51,8 +52,9 @@ BEGIN
   IF p_accion='vec.correos.anadir' THEN
    ref:=p_correo;
    sobre:=jsonb_build_object('correo_ref',ref,'version',p_version+1,'clave_ref','kms-contacto-v1',
+    'clave_igualdad_ref',p_igualdad_ref,
     'nonce_hex',repeat('aa',12),'cifrado_hex',repeat('bb',32),
-    'huella_igualdad_hex',encode(sha256(convert_to(ref,'UTF8')),'hex'));
+    'huella_igualdad_hex',encode(sha256(convert_to(coalesce(nullif(p_huella_ref,''),ref),'UTF8')),'hex'));
   END IF;
   IF p_accion IN ('vec.correos.anadir','vec.correos.reenviar') THEN
    reserva:=jsonb_build_object('desafio_ref','desafio:'||replace(gen_random_uuid()::text,'-',''),
@@ -62,5 +64,5 @@ BEGIN
   RETURN vec_usuarios.aplicar_correos_propios_v1(material,sobre,reserva,c,d,'x'::bytea,'x'::bytea,1,1,carga,'x'::bytea,'x'::bytea,'x'::bytea);
  END IF;
 END $f$;
-REVOKE ALL ON FUNCTION public.probar_correos(text,bigint,text,text,text,text,boolean,boolean,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.probar_correos(text,bigint,text,text,text,text,boolean,boolean,text) TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+REVOKE ALL ON FUNCTION public.probar_correos(text,bigint,text,text,text,text,boolean,boolean,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.probar_correos(text,bigint,text,text,text,text,boolean,boolean,text,text,text) TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
