@@ -277,7 +277,7 @@ func (c *CapturadorCeseB10PostgreSQL) construirBolsas(ctx context.Context, corte
 			fila.Orden != len(actual.Participaciones)+1 {
 			return nil, ErrCapturaCeseB10NoDisponible
 		}
-		estado, err := estadoPublicoCeseB10(fila.EstadoEfectivo)
+		estado, err := estadoPublicoCeseB10(fila.EstadoEfectivo, fila.FechaDisponible, corte)
 		if err != nil {
 			return nil, err
 		}
@@ -294,13 +294,21 @@ func (c *CapturadorCeseB10PostgreSQL) construirBolsas(ctx context.Context, corte
 	return bolsas, nil
 }
 
-func estadoPublicoCeseB10(efectivo string) (string, error) {
+func estadoPublicoCeseB10(efectivo string, disponible *time.Time, corte time.Time) (string, error) {
 	switch efectivo {
 	case "disponible":
 		return "disponible", nil
 	case "trabajando", "pendiente_incorporacion":
 		return "ocupado", nil
-	case "no_disponible", "disponible_desde":
+	case "disponible_desde":
+		if disponible == nil {
+			return "", ErrCapturaCeseB10NoDisponible
+		}
+		if !disponible.After(corte) {
+			return "disponible", nil
+		}
+		return "no_disponible", nil
+	case "no_disponible":
 		return "no_disponible", nil
 	case "excluido":
 		return "excluido", nil
@@ -354,7 +362,7 @@ func cotejarMaterialBolsasCeseB10(corte time.Time, filas []filaSnapshotCeseB10,
 			return nil, ErrCapturaCeseB10NoDisponible
 		}
 		p := b.Posiciones[fila.Orden-1]
-		estado, err := estadoPublicoCeseB10(fila.EstadoEfectivo)
+		estado, err := estadoPublicoCeseB10(fila.EstadoEfectivo, fila.FechaDisponible, corte)
 		if err != nil || p.Orden != fila.Orden || p.EstadoClave != estado || !documentoPublicoB10.MatchString(p.DocumentoEnmascarado) {
 			return nil, ErrCapturaCeseB10NoDisponible
 		}
