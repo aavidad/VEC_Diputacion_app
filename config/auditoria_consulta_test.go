@@ -46,6 +46,52 @@ func TestExpedientesAuditoriaConsultaDesarrolloExigeDosReferenciasExactas(t *tes
 	}
 }
 
+func TestReferenciaOpacaConfiguracionValidaSintaxisTecnica(t *testing.T) {
+	for _, caso := range []struct {
+		ref    string
+		valida bool
+	}{
+		{"expediente:ct:sintetico:001", true},
+		{"participacion:bolsa:sintetica:001", true},
+		{"A._:/#-", true},
+		{"a12", true},
+		{strings.Repeat("a", 160), true},
+		{"", false},
+		{"a1", false},
+		{strings.Repeat("a", 161), false},
+		{"-a1", false},
+		{"a*1", false},
+		{"a 1", false},
+		{"a\n1", false},
+		{"á12", false},
+	} {
+		if obtenida := referenciaOpacaConfiguracionValida(caso.ref); obtenida != caso.valida {
+			t.Errorf("referencia sintética %q: valida=%t, esperada=%t", caso.ref, obtenida, caso.valida)
+		}
+	}
+}
+
+func TestExpedientesAuditoriaConsultaDesarrolloRechazaAmbasReferenciasInvalidasSinExponerlas(t *testing.T) {
+	activo := Config{ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment, DevelopmentGuard: DevelopmentGuardAcknowledgement}
+	const ct = "expediente:ct:sintetico:001"
+	const bolsa = "participacion:bolsa:sintetica:001"
+	for _, caso := range []struct{ ct, bolsa string }{
+		{" " + ct, bolsa},
+		{ct + "*", bolsa},
+		{ct, " " + bolsa},
+		{ct, bolsa + "*"},
+		{ct, ct},
+	} {
+		t.Setenv(EnvAuditoriaConsultaExpedienteCT, caso.ct)
+		t.Setenv(EnvAuditoriaConsultaExpedienteBolsa, caso.bolsa)
+		ctObtenida, bolsaObtenida, err := activo.ExpedientesAuditoriaConsultaDesarrollo()
+		if ctObtenida != "" || bolsaObtenida != "" || !errors.Is(err, ErrExpedientesAuditoriaConsultaInvalidos) ||
+			strings.Contains(err.Error(), caso.ct) || strings.Contains(err.Error(), caso.bolsa) {
+			t.Fatalf("referencias no rechazadas o expuestas: %q, %q, %v", ctObtenida, bolsaObtenida, err)
+		}
+	}
+}
+
 func TestDSNFuenteAutorizacionAuditoriaDesarrolloExigeLoginNominalSeparado(t *testing.T) {
 	dsn := func(login string) string {
 		return "postgres://" + login + ":secreto-privado@localhost/vec?sslmode=require"

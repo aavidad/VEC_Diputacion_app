@@ -3,12 +3,19 @@ package config
 import (
 	"errors"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
-
-	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+// La configuración solo comprueba la sintaxis técnica común de una referencia
+// opaca. No interpreta el prefijo ni valida la pertenencia al módulo.
+var patronReferenciaOpacaConfiguracion = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$`)
+
+func referenciaOpacaConfiguracionValida(valor string) bool {
+	return patronReferenciaOpacaConfiguracion.MatchString(valor)
+}
 
 // EnvAuditoriaConsultaCatalogoPath permite editar el ejemplo publicado para
 // RRHH. Solo se lee cuando la capacidad está activada con doble llave.
@@ -66,8 +73,8 @@ func (c Config) ExpedientesAuditoriaConsultaDesarrollo() (ct, bolsa string, err 
 	}
 	ct, presenteCT := os.LookupEnv(EnvAuditoriaConsultaExpedienteCT)
 	bolsa, presenteBolsa := os.LookupEnv(EnvAuditoriaConsultaExpedienteBolsa)
-	if !presenteCT || !presenteBolsa || !ctdomain.ReferenciaOpacaValida(ct) ||
-		!ctdomain.ReferenciaOpacaValida(bolsa) || ct == bolsa {
+	if !presenteCT || !presenteBolsa || !referenciaOpacaConfiguracionValida(ct) ||
+		!referenciaOpacaConfiguracionValida(bolsa) || ct == bolsa {
 		return "", "", ErrExpedientesAuditoriaConsultaInvalidos
 	}
 	return ct, bolsa, nil
