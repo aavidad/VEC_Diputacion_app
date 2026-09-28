@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Puerta local: cadena SQL completa, binario sobre PostgreSQL 18.4 y sonda HTTP.
-# Uso: scripts/ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE --probe RUTA [--browser EJECUTABLE]
+# Uso: scripts/ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE --probe RUTA [--repo CHECKOUT] [--browser EJECUTABLE]
 # ORDEN contiene una ruta relativa deploy/postgresql/... por línea, en orden causal.
 # Debe incluir todos los roles*_up.sql y *.up.sql de CT/Bolsa rastreados por
 # Git; puede añadir dependencias SQL rastreadas de los módulos comunes.
@@ -13,16 +13,39 @@ IFS=$'\n\t'
 umask 077
 
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-ayuda() { sed -n '2,9p' "$0" | sed 's/^# //'; }
+ayuda() {
+  cat <<'AYUDA'
+Uso: ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE
+     --probe RUTA [--repo CHECKOUT] [--browser EJECUTABLE]
 
-plan='' runtime='' probe='' browser=''
+ORDEN enumera rutas relativas deploy/postgresql/... en orden causal. Debe
+contener todos los UP y roles de CT/Bolsa rastreados por Git en CHECKOUT;
+puede incluir dependencias rastreadas de otros módulos. Cada SQL se aplica
+una vez, con ON_ERROR_STOP, a una base nueva de PostgreSQL 18.4.
+
+Requiere Docker local accesible, imagen postgres:18.4-alpine ya cargada,
+/dev/shm escribible y Go local compatible. La base, binario y logs son
+efímeros; PostgreSQL solo publica en 127.0.0.1. No usa datos ni red remotos.
+
+EJECUTABLE recibe PGHOST/PGPORT/PGDATABASE y VEC_ENSAYO_BINARIO. Debe crear
+LOGIN nominales separados sobre esa base, arrancar ese binario y escribir
+URL=http://127.0.0.1:PUERTO en stdout. RUTA debe ser un GET que consulta la
+base; se exige respuesta HTTP 2xx y una conexión PG de aplicación activa.
+El navegador es opcional y recibe VEC_ENSAYO_URL para recorrer el caso local.
+
+Para scripts/verificar_calidad.sh, si /tmp/.git existe y los fixtures privados
+se rechazan por estar «dentro del repositorio», use TMPDIR=/var/tmp escribible.
+AYUDA
+}
+
+plan='' runtime='' probe='' browser='' checkout=''
 while (( $# )); do
   case "$1" in
-    --plan|--runtime|--probe|--browser)
+    --plan|--runtime|--probe|--browser|--repo)
       (( $# >= 2 )) || fallar "falta valor para $1"
       case "$1" in
         --plan) plan=$2 ;; --runtime) runtime=$2 ;;
-        --probe) probe=$2 ;; --browser) browser=$2 ;;
+        --probe) probe=$2 ;; --browser) browser=$2 ;; --repo) checkout=$2 ;;
       esac
       shift 2 ;;
     -h|--help) ayuda; exit 0 ;;
@@ -35,7 +58,10 @@ done
 [[ -z $browser || -x $browser ]] || fallar "navegador no ejecutable: $browser"
 [[ $probe == /* && $probe != /livez && $probe != *://* && $probe != *'?'* ]] || fallar 'la sonda debe ser una ruta HTTP local y distinta de /livez'
 
-repo=$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
+if [[ -z $checkout ]]; then checkout=$(dirname -- "${BASH_SOURCE[0]}"); fi
+[[ -d $checkout ]] || fallar "no existe el checkout: $checkout"
+repo=$(git -C "$checkout" rev-parse --show-toplevel) || fallar "no es un checkout Git: $checkout"
+[[ -d $repo/deploy/postgresql && -d $repo/cmd/vec-server ]] || fallar "checkout VEC incompleto: $repo"
 for orden in docker git python3 curl go; do
   command -v "$orden" >/dev/null 2>&1 || fallar "falta la herramienta: $orden"
 done

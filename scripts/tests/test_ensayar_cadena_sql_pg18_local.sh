@@ -42,5 +42,5 @@ primero=$(head -1 "$tmp/completo")
 printf '%s\n' "$primero" >> "$tmp/completo"
 expect_error 'repite archivos' --plan "$tmp/completo" --runtime "$tmp/runtime" --probe /api/vec/contratacion-temporal/cuadro/consultas
 sed -i '$d' "$tmp/completo"
-expect_error 'Docker local inaccesible' --plan "$tmp/completo" --runtime "$tmp/runtime" --probe /api/vec/contratacion-temporal/cuadro/consultas
+expect_error 'Docker local inaccesible' --repo "$repo" --plan "$tmp/completo" --runtime "$tmp/runtime" --probe /api/vec/contratacion-temporal/cuadro/consultas
 printf 'OK guardas del plan CT/Bolsa y Docker inaccesible\n'
