@@ -5,8 +5,9 @@
  * personales llegan como la marca «*protegido»: solo se sabe que cambiaron.
  */
 import { crearClienteHTTPCambiosExpediente } from "./cliente-http-cambios-expediente.js";
-import { MENSAJES_CAMBIOS_EXPEDIENTE_ES } from "./i18n-cambios-expediente.js";
+import { MENSAJES_CAMBIOS_EXPEDIENTE_ES, MENSAJES_CAMBIOS_EXPEDIENTE_EN } from "./i18n-cambios-expediente.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const PROTEGIDO = "*protegido";
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
@@ -17,10 +18,11 @@ function escapar(valor) {
 }
 
 export function crearTraductorCambiosExpediente(mensajes = {}) {
-  return crearTraductorExpedientesContratacion({ ...MENSAJES_CAMBIOS_EXPEDIENTE_ES, ...mensajes });
+  const catalogo = IDIOMA_ACTUAL === "en" ? MENSAJES_CAMBIOS_EXPEDIENTE_EN : MENSAJES_CAMBIOS_EXPEDIENTE_ES;
+  return crearTraductorExpedientesContratacion({ ...catalogo, ...mensajes });
 }
 
-const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" });
+const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" });
 
 function fecha(valor) {
   const instante = new Date(valor);

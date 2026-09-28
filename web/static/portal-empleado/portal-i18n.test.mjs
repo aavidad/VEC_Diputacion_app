@@ -1,10 +1,98 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import {
   crearTraductorPortal,
+  MENSAJES_INICIO_RRHH_EN,
   MENSAJES_PORTAL_ES,
 } from "./portal-i18n.js";
+
+test("la auditoría del expediente tiene textos simétricos ES y EN", async () => {
+  const es = crearTraductorPortal();
+  const en = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  assert.equal(es("auditoria_expediente_panel"), "Auditoría del expediente");
+  assert.equal(es("auditoria_expediente_accion"), "Consultar auditoría de este expediente");
+  assert.equal(en("auditoria_expediente_panel"), "Case audit trail");
+  assert.equal(en("auditoria_expediente_accion"), "View this case’s audit trail");
+  const vista = await readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", import.meta.url), "utf8");
+  for (const clave of ["auditoria_expediente_panel", "auditoria_expediente_accion"]) {
+    assert.match(vista, new RegExp(`traducirPortal\\(\"${clave}\"\\)`, "u"));
+  }
+});
+
+test("miga, título, navegación y pie de CT usan el catálogo común en ambos idiomas", async () => {
+  const es = crearTraductorPortal();
+  const en = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const textos = [
+    ["contratacion_temporal_miga", "Portal del Empleado → Peticiones de personal temporal", "Employee Portal → Temporary staff requests"],
+    ["contratacion_temporal_titulo", "Gestión de peticiones de personal temporal", "Manage temporary staff requests"],
+    ["plantillas_rrhh_nav", "Plantillas de documentos", "Document templates"],
+    ["txt_modulos", "Módulos", "Modules"],
+    ["txt_modulos_del_portal", "Módulos del portal", "Portal modules"],
+    ["txt_portal_de_recursos_humanos", "Portal de Recursos Humanos", "Human Resources Portal"],
+    ["txt_2026_diputacion_de_granada_portal_del_empleado", "© 2026 Diputación de Granada · Portal del Empleado", "© 2026 Diputación de Granada · Employee Portal"],
+    ["txt_proteccion_de_datos_accesibilidad_ayuda", "Protección de datos · Accesibilidad · Ayuda", "Data protection · Accessibility · Help"],
+  ];
+  const [portal, html] = await Promise.all([
+    readFile(new URL("portal.js", import.meta.url), "utf8"),
+    readFile(new URL("index.html", import.meta.url), "utf8"),
+  ]);
+  for (const [clave, textoES, textoEN] of textos) {
+    assert.equal(es(clave), textoES, clave);
+    assert.equal(en(clave), textoEN, clave);
+    if (clave.startsWith("contratacion_temporal_")) assert.ok(portal.includes(`traducirPortal("${clave}")`));
+    else assert.ok(html.includes(`data-i18n-portal${clave === "txt_modulos_del_portal" ? "-aria-label" : ""}="${clave}"`), clave);
+  }
+});
+
+test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
+  const raiz = new URL("./", import.meta.url);
+  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1"];
+  const vigente = "20260928-auditoria-expediente-en-v2";
+  const archivos = ["index.html"];
+  const pendientes = [""];
+  while (pendientes.length) {
+    const directorio = pendientes.shift();
+    for (const entrada of await readdir(new URL(directorio, raiz), { withFileTypes: true })) {
+      const nombre = `${directorio}${entrada.name}`;
+      if (entrada.isDirectory()) pendientes.push(`${nombre}/`);
+      else if (entrada.name.endsWith(".js")) archivos.push(nombre);
+    }
+  }
+  const versiones = new Map();
+  const aristas = [];
+  const codigo = new Map();
+  const patron = /["']((?:\.{1,2}\/|\/portal-empleado\/)[^"']+?\.js)\?v=([\w.-]+)["']/gu;
+  for (const archivo of archivos) {
+    const fuente = await readFile(new URL(archivo, raiz), "utf8");
+    codigo.set(archivo, fuente);
+    for (const [, ruta, version] of fuente.matchAll(patron)) {
+      const destino = ruta.startsWith("/portal-empleado/")
+        ? ruta.slice("/portal-empleado/".length)
+        : new URL(ruta, new URL(archivo, raiz)).pathname.split("/portal-empleado/")[1];
+      if (destino) aristas.push({ archivo, destino, version });
+    }
+  }
+  const ancestros = new Set(["portal-i18n.js"]);
+  let cantidad;
+  do {
+    cantidad = ancestros.size;
+    for (const { archivo, destino } of aristas) if (ancestros.has(destino)) ancestros.add(archivo);
+  } while (cantidad !== ancestros.size);
+  assert.ok(ancestros.has("index.html"), "el HTML carga el catálogo mediante el grafo real");
+  assert.ok(ancestros.has("modulos/contratacion-temporal/vista-expedientes.js"));
+  for (const { archivo, destino, version } of aristas) {
+    if (!ancestros.has(destino)) continue;
+    assert.equal(version, vigente, `${archivo} → ${destino}: URL immutable renovada`);
+    const urls = versiones.get(destino) ?? new Set();
+    urls.add(version);
+    versiones.set(destino, urls);
+  }
+  for (const [destino, urls] of versiones) assert.equal(urls.size, 1, `${destino}: una URL en todos sus importadores`);
+  for (const archivo of ancestros) {
+    for (const anterior of anteriores) assert.ok(!codigo.get(archivo)?.includes(anterior), `${archivo}: ningún import antiguo`);
+  }
+});
 
 test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reintento", () => {
   const traducir = crearTraductorPortal();

@@ -417,6 +417,36 @@ test("el controlador absorbe AbortError y otros rechazos tardíos al desmontar",
     assert.equal(renders, 1);
   }
 });
+test("una nueva lectura de Bolsa invalida la respuesta en vuelo del ámbito anterior", async () => {
+  const pendientes = [];
+  const senales = [];
+  let renders = 0;
+  const estado = { datosBolsas: null };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renders += 1; },
+    navegar: () => {},
+    obtenerFuenteLectura: () => ({
+      consultarBolsas: ({ signal }) => {
+        senales.push(signal);
+        return new Promise((resolver) => { pendientes.push(resolver); });
+      },
+    }),
+  });
+  const anterior = controlador.cargarBolsas();
+  await Promise.resolve();
+  const actual = controlador.cargarBolsas();
+  await Promise.resolve();
+  assert.equal(senales[0].aborted, true);
+  assert.equal(senales[1].aborted, false);
+  pendientes[0]({ ok: true, datos: { bolsas: [{ categoria: "Ámbito anterior" }] } });
+  await anterior;
+  assert.equal(estado.datosBolsas.carga, "cargando");
+  pendientes[1]({ ok: true, datos: { bolsas: [{ categoria: "Ámbito vigente" }] } });
+  await actual;
+  assert.equal(estado.datosBolsas.datos.bolsas[0].categoria, "Ámbito vigente");
+  assert.equal(renders, 3, "la respuesta anterior no repinta datos tras el cambio de ámbito");
+});
 test("un rechazo vigente de fuente inyectada termina en error con un único render final", async () => {
   let renders = 0;
   const estado = { datosBolsas: null };

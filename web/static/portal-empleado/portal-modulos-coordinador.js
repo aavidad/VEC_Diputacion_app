@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260928-ppt-c3-v3";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-ppt-c3-v3";
+} from "./portal-catalogo-modulos.js?v=20260928-auditoria-expediente-en-v2";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-auditoria-expediente-en-v2";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-ppt-c3-v3";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-auditoria-expediente-en-v2";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -97,10 +97,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-ppt-c3-v3"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-auditoria-expediente-en-v2"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
-      import("./modulos/auditoria/vista.js?v=20260928-ppt-c3-v3"),
-      import("./modulos/auditoria/cliente-http.js?v=20260928-ppt-c3-v3"),
+      import("./modulos/auditoria/vista.js?v=20260928-auditoria-expediente-en-v2"),
+      import("./modulos/auditoria/cliente-http.js?v=20260928-ppt-503-v5"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
   },
@@ -134,7 +134,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260928-ppt-c3-v3"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260928-auditoria-expediente-en-v2"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
@@ -205,6 +205,7 @@ export function crearCoordinadorModulosPortal({
   montajeBolsa = null,
   entorno = globalThis,
   traducir = traducirPortal,
+  locale = LOCALIZACION_PORTAL,
   cargarCatalogoInterno = null,
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   consultarSesion = null,
@@ -220,6 +221,7 @@ export function crearCoordinadorModulosPortal({
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function"
+    || !["es-ES", "en-GB"].includes(locale)
     || !Number.isSafeInteger(limiteCargaModularMs)
     || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000
     || !Array.isArray(modulosDiferidos) || !modulosDiferidos.every((clave) => CLAVES_CARGA_PORTAL.includes(clave))) {
@@ -297,6 +299,10 @@ export function crearCoordinadorModulosPortal({
       temporizadores,
     );
     exigirVigente();
+    const mensajesExpedientes = locale === "en-GB"
+      ? (await import("./modulos/contratacion-temporal/i18n-expedientes.js")).MENSAJES_EXPEDIENTES_CONTRATACION_EN
+      : {};
+    exigirVigente();
     const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
       fetchImpl: fetchDelEntorno(),
       HeadersImpl: entorno.Headers,
@@ -309,7 +315,8 @@ export function crearCoordinadorModulosPortal({
     const promesaModalidades = new Promise((resolver) => { entregarModalidades = resolver; });
     const fuente = recursos.adaptador
       .crearAdaptadorHTTPExpedientesContratacionTemporal({
-        cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
+        cliente, locale, mensajes: mensajesExpedientes,
+        obtenerCatalogos: () => alta?.catalogos ?? null,
         obtenerJornadaCompleta: () => jornadaCompleta,
         obtenerModalidades: () => promesaModalidades,
       });
@@ -401,6 +408,7 @@ export function crearCoordinadorModulosPortal({
     }
     return {
       contratacionTemporal: Object.freeze({
+        mensajesExpedientes,
         crearPresentador: () => recursos.presentador
           .crearPresentadorExpedientesContratacionTemporal({
             fuente, capacidades: fuente.capacidades,
@@ -864,7 +872,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-ppt-c3-v3");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-ppt-503-v5");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
@@ -878,30 +886,43 @@ export function crearCoordinadorModulosPortal({
       if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
       const presentadorCT = composicion.contratacionTemporal.crearPresentador();
+      // El montaje puede cambiar mientras se consulta el cuadro o el detalle.
+      // Registrar la limpieza antes de esperar evita publicar una respuesta tardía.
+      desmontarVista = () => presentadorCT.desmontar?.();
       if (opciones?.subvista && typeof presentadorCT?.cambiarVista === "function"
         && ["alta", "cuadro"].includes(opciones.subvista)) {
         try { presentadorCT.cambiarVista(opciones.subvista); } catch {}
       }
-      if (typeof opciones?.expedienteRef === "string" && opciones.expedienteRef !== ""
-        && typeof presentadorCT?.seleccionarExpediente === "function") {
-        try { void presentadorCT.seleccionarExpediente(opciones.expedienteRef); } catch {}
+      const expedienteRef = typeof opciones?.expedienteRef === "string" ? opciones.expedienteRef : "";
+      if (!esFiscalizacion && (opciones?.filtros || expedienteRef)
+        && typeof presentadorCT?.cargar === "function") {
+        // La selección exige un cuadro consultado con capacidad positiva.
+        // La vista no repetirá la carga porque el presentador ya tiene estado.
+        await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...(opciones.filtros || {}) });
+        if (montaje !== secuenciaMontaje) return false;
       }
-      if (!esFiscalizacion && opciones?.filtros && typeof presentadorCT?.cargar === "function") {
-        // Filtros pedidos desde el inicio (cifras del resumen): se cargan antes de
-        // montar la vista, que así pinta directamente el cuadro filtrado.
-        try { await presentadorCT.cargar({ texto: "", estado: "", fase: "", ...opciones.filtros }); } catch {}
+      if (!esFiscalizacion && expedienteRef
+        && presentadorCT?.obtenerEstado?.().cuadro?.expedientes?.some(
+          (expediente) => expediente.expediente_ref === expedienteRef,
+        ) && typeof presentadorCT?.seleccionarExpediente === "function") {
+        await presentadorCT.seleccionarExpediente(expedienteRef);
         if (montaje !== secuenciaMontaje) return false;
       }
       const moduloContratacion = esFiscalizacion
         ? await composicion.contratacionTemporal.montarFiscalizacion({
           raiz,
           cliente: composicion.contratacionTemporal.fiscalizacion.cliente,
+          locale,
+          zonaHoraria: ZONA_HORARIA_PORTAL,
           confirmarOperacion,
           anunciar,
         })
         : await composicion.contratacionTemporal.montar({
           raiz,
           presentador: presentadorCT,
+          locale,
+          zonaHoraria: ZONA_HORARIA_PORTAL,
+          mensajes: composicion.contratacionTemporal.mensajesExpedientes,
           alta: composicion.contratacionTemporal.alta,
           analisis: composicion.contratacionTemporal.analisis,
           fiscalizacion: typeof composicion.contratacionTemporal.analisis?.cliente
