@@ -192,7 +192,7 @@ test("recarga con contexto autorizado consulta y muestra solo la respuesta ya re
     consulta_respuesta: consultaRespuesta } });
   await new Promise(setImmediate);
   assert.equal(consultas, 1);
-  assert.match(raiz.innerHTML, /Ya consta esta respuesta/u);
+  assert.match(raiz.innerHTML, /Respuesta registrada por el Departamento/u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="consultaRespuesta"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   await raiz.enviar("respuesta", declaracion());

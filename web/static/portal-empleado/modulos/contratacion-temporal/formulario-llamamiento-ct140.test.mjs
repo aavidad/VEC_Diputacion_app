@@ -14,6 +14,7 @@ const fila = (n) => ({
   recibo_comunicacion_ref: `recibo:comunicacion:${n}`,
   antecedente_tipo: n === 12 ? "continuacion_confirmada" : "seleccion_confirmada",
   recibo_antecedente_ref: `recibo:antecedente:${n}`,
+  estado_respuesta: "sin_respuesta",
 });
 const cursor = `${fila(10).comunicacion_ref}#${"a".repeat(64)}`;
 const contexto = { expediente_ref: EXPEDIENTE, version_esperada: 6 };
@@ -26,7 +27,7 @@ const elegir = (raiz, indice) => raiz.eventos.get("click")({ preventDefault() {}
     ? { dataset: { ctComunicacionIndice: String(indice) } } : null,
 } });
 
-for (const ingles of [false, true]) test(`CT140 pagina completa 12 filas, ordinal ${ingles ? "EN" : "ES"}, GET404 sin POST`, async () => {
+for (const ingles of [false, true]) test(`CT140 sin_respuesta en 12 filas, ${ingles ? "EN" : "ES"}, GET404 y POST`, async () => {
   const raiz = raizPrueba(), consultas = [], escrituras = [];
   const cerrar = montar(raiz, {
     consultarComunicacionesExpediente: async (consulta) => {
@@ -53,13 +54,16 @@ for (const ingles of [false, true]) test(`CT140 pagina completa 12 filas, ordina
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   elegir(raiz, 11);
   await esperar();
-  assert.match(raiz.innerHTML, ingles ? /No viewable reply found/u : /No consta respuesta consultable/u);
-  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  assert.match(raiz.innerHTML, ingles ? /Reply pending in the checked list/u : /Respuesta pendiente según la lista consultada/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta_siguiente"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion_siguiente"/u);
   await raiz.archivo(archivoCorreo(), "respuesta_siguiente");
   await raiz.enviar("respuesta_siguiente", declaracion());
-  assert.equal(escrituras.length, 0);
-  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta_siguiente"/u);
+  assert.equal(escrituras.length, 1);
+  assert.equal(escrituras[0].comunicacion_ref, fila(12).comunicacion_ref);
+  assert.equal(escrituras[0].llamamiento_ref, fila(12).llamamiento_ref);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta_siguiente"/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion_siguiente"/u);
   cerrar();
 });
 
@@ -120,7 +124,7 @@ test("CT140 y GET200 muestran respuesta existente sin formulario ni nuevo POST",
   await esperar();
   elegir(raiz, 0);
   await esperar();
-  assert.match(raiz.innerHTML, /Llamamiento 1 de 1 · 24\/09\/2026 · Respuesta registrada/u);
+  assert.match(raiz.innerHTML, /Llamamiento 1 de 1 · 24\/09\/2026 · Respuesta registrada por el Departamento/u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="consultaRespuesta"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   await raiz.enviar("respuesta", declaracion());
@@ -128,7 +132,7 @@ test("CT140 y GET200 muestran respuesta existente sin formulario ni nuevo POST",
   cerrar();
 });
 
-test("CT140 con antecedente de selección no permite POST tras GET404 ambiguo", async () => {
+test("CT140 sin_respuesta con selección permite POST tras GET404 sin fabricar recibo", async () => {
   const raiz = raizPrueba(), escrituras = [];
   const cerrar = montar(raiz, {
     consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
@@ -140,13 +144,60 @@ test("CT140 con antecedente de selección no permite POST tras GET404 ambiguo", 
   await esperar();
   elegir(raiz, 0);
   await esperar();
-  assert.match(raiz.innerHTML, /No consta una respuesta consultable con esta identidad/u);
-  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  assert.match(raiz.innerHTML, /La lista autorizada no mostraba una respuesta/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion"/u);
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
-  assert.equal(escrituras.length, 0);
-  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+  assert.equal(escrituras.length, 1);
+  assert.equal(escrituras[0].comunicacion_ref, fila(1).comunicacion_ref);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+  cerrar();
+});
+
+for (const ingles of [false, true]) test(`CT140 registrada y GET404 ${ingles ? "EN" : "ES"} oculta POST y explica recibo de otra comunicación`, async () => {
+  const raiz = raizPrueba(); let escrituras = 0;
+  const registrada = { ...fila(1), estado_respuesta: "registrada" };
+  const cerrar = montar(raiz, {
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [registrada] }),
+    consultarReciboRespuesta: async () => { throw sinRespuesta(); },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  }, { contexto, ...(ingles ? { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" } : {}) });
+  await esperar();
+  assert.match(raiz.innerHTML, ingles ? /Reply recorded by the Department/u : /Respuesta registrada por el Departamento/u);
+  elegir(raiz, 0);
+  await esperar();
+  assert.match(raiz.innerHTML, ingles
+    ? /receipt is not available for this notice/u
+    : /recibo no está disponible en esta comunicación/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  cerrar();
+});
+
+for (const estado of [403, 409]) test(`POST CT140 rechazado ${estado} bloquea lista anterior hasta nueva consulta`, async () => {
+  const raiz = raizPrueba(); let escrituras = 0;
+  const cerrar = montar(raiz, {
+    consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
+    consultarReciboRespuesta: async () => { throw sinRespuesta(); },
+    registrarRespuestaRecibida: async () => {
+      escrituras += 1;
+      throw Object.assign(new Error(), { estado,
+        codigo: estado === 403 ? "acceso_denegado" : "contenido_respuesta_en_conflicto",
+        envelopeValido: true, resultadoIndeterminado: false });
+    },
+  }, { contexto });
+  await esperar();
+  elegir(raiz, 0);
+  await esperar();
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 1);
+  assert.match(raiz.innerHTML, /Vuelva a consultar la lista antes de continuar/u);
+  assert.doesNotMatch(raiz.innerHTML, /Respuesta pendiente según la lista|data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 1);
   cerrar();
 });
 
@@ -171,7 +222,7 @@ test("al cambiar de fila ignora respuesta tardía de la comunicación anterior",
     recibo_ref: "recibo:respuesta:ct140:001", auditoria_ref: "auditoria:ct140:001",
     registrada_en: "2026-09-24T11:00:00Z", estado: "registrada_por_rrhh" });
   await esperar();
-  assert.match(raiz.innerHTML, /Llamamiento 2 de 2 · 24\/09\/2026 · No consta respuesta consultable/u);
+  assert.match(raiz.innerHTML, /Llamamiento 2 de 2 · 24\/09\/2026 · Respuesta pendiente según la lista consultada/u);
   assert.doesNotMatch(raiz.innerHTML, /recibo:respuesta:ct140:001/u);
   cerrar();
 });

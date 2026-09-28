@@ -7,7 +7,7 @@ const CURSOR = /^[A-Za-z0-9][A-Za-z0-9._:/-]{2,94}#[0-9a-f]{64}$/u;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/u;
 const CAMPOS_FILA = Object.freeze(["organizacion_ref", "expediente_ref", "llamamiento_ref",
   "comunicacion_ref", "version", "estado", "registrada_en", "recibo_comunicacion_ref",
-  "antecedente_tipo", "recibo_antecedente_ref"]);
+  "antecedente_tipo", "recibo_antecedente_ref", "estado_respuesta"]);
 
 function registro(valor, campos, opcionales = []) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)
@@ -56,6 +56,7 @@ export function validarPaginaComunicacionesExpediente(entrada, consulta) {
       || fila.expediente_ref !== esperada.expediente_ref || fila.version !== 2
       || fila.estado !== "registrada_localmente" || !instante(fila.registrada_en)
       || !["seleccion_confirmada", "continuacion_confirmada"].includes(fila.antecedente_tipo)
+      || !["sin_respuesta", "registrada"].includes(fila.estado_respuesta)
       || (organizacion !== null && organizacion !== fila.organizacion_ref)
       || (anterior && (instanteOrdenComunicacion(fila.registrada_en) < instanteOrdenComunicacion(anterior.registrada_en)
         || (instanteOrdenComunicacion(fila.registrada_en) === instanteOrdenComunicacion(anterior.registrada_en)

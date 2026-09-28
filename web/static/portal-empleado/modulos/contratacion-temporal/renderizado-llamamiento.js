@@ -34,6 +34,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   function consultaRespuesta() {
     const consulta = estado.consultaRespuesta;
     if (!consulta || consulta.estado === "sin_contexto") return "";
+    if (["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)) return "";
     if (consulta.estado === "ausente" && [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
       paso.recibo?.organizacion_ref === consulta.referencias?.organizacion_ref
       && paso.recibo?.comunicacion_ref === consulta.referencias?.comunicacion_ref)) return "";
@@ -43,6 +44,13 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       || (estado.comunicaciones?.estado === "lista"
         && estado.comunicaciones.seleccionada?.comunicacion_ref === consulta.referencias?.comunicacion_ref
         && estado.comunicaciones.seleccionada?.organizacion_ref === consulta.referencias?.organizacion_ref);
+    const fila = estado.comunicaciones?.seleccionada;
+    const mensaje = consulta.estado === "ausente" && fila?.estado_respuesta === "registrada"
+      ? "llamamiento_consulta_registrada_sin_recibo"
+      : consulta.estado === "ausente" && fila?.estado_respuesta === "sin_respuesta"
+        ? "llamamiento_consulta_sin_respuesta_verificada"
+        : consulta.estado === "ausente" && !antecedente
+          ? "llamamiento_consulta_ausente_sin_antecedente" : consulta.mensaje;
     const contenido = consulta.estado === "confirmado" && consulta.recibo
       ? `<dl><div><dt>${e(t("llamamiento_respuesta_declarada"))}</dt><dd>${e(t("llamamiento_respuesta_" + consulta.recibo.respuesta))}</dd></div>
         <div><dt>${e(t("llamamiento_respuesta_recibo"))}</dt><dd>${justificanteTraducido(consulta.recibo.recibo_ref, e, t)}</dd></div>
@@ -50,8 +58,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     return `<section class="ct-recibo" data-ct-llamamiento-estado="consultaRespuesta"
       ${consulta.estado === "confirmado" ? 'data-ct-llamamiento-recibo="consultaRespuesta"' : 'role="status"'} tabindex="-1">
       <h3>${e(t("llamamiento_consulta_titulo"))}</h3>
-      <p>${e(t(consulta.estado === "ausente" && !antecedente
-        ? "llamamiento_consulta_ausente_sin_antecedente" : consulta.mensaje))}</p>${contenido}
+      <p>${e(t(mensaje))}</p>${contenido}
       ${consulta.estado === "error" ? `<button class="boton-secundario" type="button"
         data-ct-llamamiento-reintentar-consulta>${e(t("llamamiento_consulta_reintentar"))}</button>` : ""}
     </section>`;
@@ -66,9 +73,10 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         const reciboSesion = [estado.respuesta, estado.respuesta_siguiente].some((paso) =>
           paso.recibo?.comunicacion_ref === fila.comunicacion_ref
           && paso.recibo?.organizacion_ref === fila.organizacion_ref);
-        const estadoRespuesta = elegida && (reciboSesion || consulta?.estado === "confirmado")
-          ? "registrada" : elegida && consulta?.estado === "ausente"
-            ? "no_consultable" : "por_comprobar";
+        const estadoRespuesta = reciboSesion || fila.estado_respuesta === "registrada"
+          || elegida && consulta?.estado === "confirmado"
+          ? "registrada" : fila.estado_respuesta === "sin_respuesta" && elegida && consulta?.estado === "ausente"
+            ? "pendiente" : "por_comprobar";
         const fechaLista = new Intl.DateTimeFormat(fecha.resolvedOptions().locale, {
           timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric",
         }).format(new Date(fila.registrada_en));
@@ -295,7 +303,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     || (restaurada?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
       && restaurada?.organizacion_ref === consulta?.referencias?.organizacion_ref);
   const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
-    || (consulta.estado === "ausente" && (estado.comunicaciones?.estado === "lista" || !antecedenteConsulta)));
+    || (consulta.estado === "ausente" && ((estado.comunicaciones?.estado === "lista"
+      && restaurada?.estado_respuesta !== "sin_respuesta") || !antecedenteConsulta)));
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
@@ -317,7 +326,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>`}
     ${restaurada ? "" : renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}
-    ${(consulta?.estado === "ausente" || estado.respuesta.recibo) && ((restaurada?.antecedente_tipo === "seleccion_confirmada")
+    ${(consulta?.estado === "ausente" || estado.respuesta.recibo) && ((restaurada?.antecedente_tipo === "seleccion_confirmada"
+      && restaurada?.estado_respuesta === "sin_respuesta")
       || estado.comunicacion.recibo?.version_resultante === 2) && !estado.expiracion?.recibo
       ? formulario("respuesta", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)
@@ -328,6 +338,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? formulario("comunicacion_siguiente", CAMPOS_COMUNICACION) : ""}
     ${(consulta?.estado === "ausente" || estado.respuesta_siguiente?.recibo)
       && (restaurada?.antecedente_tipo === "continuacion_confirmada"
+        && restaurada?.estado_respuesta === "sin_respuesta"
         || (estado.comunicacion_siguiente?.recibo?.version_resultante === 2
           && ["registrada_localmente", "replay_registrada_localmente"].includes(estado.comunicacion_siguiente.recibo.estado_local)))
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}

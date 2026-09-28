@@ -167,7 +167,16 @@ export function montarFormularioLlamamiento({
   }
 
   function puedeDeclarar(operacion) {
-    if (estado.comunicaciones.estado === "lista") return false;
+    if (estado.comunicaciones.estado === "lista") {
+      const fila = estado.comunicaciones.seleccionada;
+      return fila?.estado_respuesta === "sin_respuesta"
+        && estado.consultaRespuesta.estado === "ausente"
+        && fila.organizacion_ref === estado.consultaRespuesta.referencias?.organizacion_ref
+        && fila.comunicacion_ref === estado.consultaRespuesta.referencias?.comunicacion_ref
+        && fila.expediente_ref === estado.seleccion.valores.expediente_ref
+        && fila.version === 2
+        && operacion === (fila.antecedente_tipo === "continuacion_confirmada" ? "respuesta_siguiente" : "respuesta");
+    }
     const comunicado = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"];
     const recibo = comunicado.recibo;
     return estado.consultaRespuesta.estado === "ausente"
@@ -484,7 +493,7 @@ export function montarFormularioLlamamiento({
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
-      && (!estado.comunicaciones.seleccionada || !["resolucion", "resolucion_siguiente"].includes(operacion))) return;
+      && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente"].includes(operacion))) return;
     if (estado.consultaRespuesta.referencias !== null
       && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;
@@ -692,6 +701,15 @@ export function montarFormularioLlamamiento({
         paso.claveConservada = true;
       }
       if (rechazo && !conflicto) paso.solicitud = null;
+      if (esRespuesta(operacion) && estado.comunicaciones.estado === "lista"
+        && error?.envelopeValido === true && [403, 409].includes(error.estado)) {
+        paso.bloqueado = true;
+        estado.comunicaciones.filas = [];
+        estado.comunicaciones.seleccionada = null;
+        estado.comunicaciones.estado = "error";
+        estado.comunicaciones.mensaje = "llamamiento_comunicaciones_revisar_tras_rechazo";
+        estado.comunicaciones.tono = "aviso";
+      }
     } finally {
       paso.ocupado = false;
       paso.controlador = null;
