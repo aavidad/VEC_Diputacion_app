@@ -16,6 +16,7 @@ VISIBLE_JS = re.compile(
     r"(['\"`])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^'\"`]*?)\1"
 )
 TEXTO_PLANTILLA = re.compile(r"<[A-Za-z][^>]*>\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^<>{}$]+?)\s*<")
+ATRIBUTO_PLANTILLA = re.compile(r"(?:aria-label|title|placeholder|alt)=([\"'])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^\"'${}]+)\1")
 EXCEPCIONES_HTML = {
     # Una inicial decorativa oculta al lector; no transmite información.
     ("portal-empleado/index.html", "P"),
@@ -132,6 +133,8 @@ def verificar_web() -> list[str]:
                     texto = coinc.group(1).strip()
                     if texto not in EXCEPCIONES_JS:
                         fallos.append(f"{ruta.relative_to(ROOT)}:{numero}: HTML de plantilla sin clave: {texto[:90]}")
+                for coinc in ATRIBUTO_PLANTILLA.finditer(linea):
+                    fallos.append(f"{ruta.relative_to(ROOT)}:{numero}: atributo de plantilla sin clave: {coinc.group(2)[:90]}")
     return fallos
 
 
