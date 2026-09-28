@@ -20,6 +20,7 @@ type seleccionMaterialCTDesarrollo struct {
 	incorporacionAcreditada                                          bool
 	reincorporacionTitular                                           bool
 	politicaOfertas                                                  bool
+	plantillasCatalogo                                               bool
 }
 
 // seleccionMaterialCTDesarrolloDesdeConfig valida los selectores (un valor
@@ -46,6 +47,10 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	if err != nil || (politicaOfertas && !cfg.BolsaBorradoresEnabled) {
 		return s, ErrActivacionDesarrolloInvalida
 	}
+	plantillasCatalogo, err := plantillasCatalogoCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return s, ErrActivacionDesarrolloInvalida
+	}
 	// Pedir el portal del candidato sin poder componer «Mi bolsa» (PostgreSQL
 	// de llamamientos y material de identidad del candidato) no se ignora.
 	if portal, _ := cfg.BolsaPortalCandidatoDesarrolloActivo(); portal && !debeComponerMiBolsaDesarrollo(cfg) {
@@ -69,6 +74,7 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 		incorporacionAcreditada: incorporacionAcreditadaSolicitada(cfg),
 		reincorporacionTitular:  reincorporacion,
 		politicaOfertas:         politicaOfertas,
+		plantillasCatalogo:      plantillasCatalogo,
 	}
 	return s, nil
 }
@@ -95,6 +101,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 		return err
 	}
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaPoliticaOfertasEnabled); err != nil {
+		return err
+	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasGobiernoEnabled); err != nil {
 		return err
 	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
@@ -154,6 +163,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	}
 	if s.cancelacion {
 		d = append(d, descriptoresMaterialCancelacionCTDesarrollo()...)
+	}
+	if s.plantillasCatalogo {
+		d = append(d, descriptoresMaterialPlantillasCTDesarrollo()...)
 	}
 	return d
 }
