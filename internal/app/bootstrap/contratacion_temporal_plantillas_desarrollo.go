@@ -14,6 +14,7 @@ import (
 	plantillaspg "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres/plantillascatalogo"
 	plantillasapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application/plantillascatalogo"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 
 	"vec-diputacion-granada/config"
@@ -100,6 +101,7 @@ func CargarCatalogoPlantillasCT(ruta string) (vecdomain.CatalogoConfigurable, er
 }
 
 const envCTPlantillasGobiernoEnabled = "VEC_CT_PLANTILLAS_GOBIERNO_ENABLED"
+const envCTPlantillasDocumentalEnabled = "VEC_CT_PLANTILLAS_DOCUMENTAL_ENABLED"
 
 func plantillasCatalogoCTDesarrolloSolicitado(cfg config.Config) (bool, error) {
 	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasGobiernoEnabled)
@@ -109,8 +111,20 @@ func plantillasCatalogoCTDesarrolloSolicitado(cfg config.Config) (bool, error) {
 	return activo, nil
 }
 
+func plantillasDocumentalCTDesarrolloSolicitado(cfg config.Config) (bool, error) {
+	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envCTPlantillasDocumentalEnabled)
+	if err != nil || activo && cfg.Normalize().ReglasEjemplo.CTPlantillasSourcePath == "" {
+		return false, ErrActivacionDesarrolloInvalida
+	}
+	return activo, nil
+}
+
 func rutaPlantillasCatalogoCTDesarrollo(ruta string) bool {
 	return ruta == plantillashttp.RutaCatalogo || ruta == plantillashttp.RutaEntradas || ruta == plantillashttp.RutaPublicar
+}
+
+func rutaPlantillasDocumentalCTDesarrollo(ruta string) bool {
+	return ruta == plantillashttp.RutaBorradoresDisponibles || ruta == plantillashttp.RutaBorradores
 }
 
 func discriminadorContextoPlantillasCatalogoCTDesarrollo() discriminadorContextoSinteticoDesarrollo {
@@ -124,9 +138,29 @@ func discriminadorContextoPlantillasCatalogoCTDesarrollo() discriminadorContexto
 	}
 }
 
+func discriminadorContextoPlantillasDocumentalCTDesarrollo() discriminadorContextoSinteticoDesarrollo {
+	const etiqueta = "plantillas-documental-ct-v1"
+	return discriminadorContextoSinteticoDesarrollo{
+		perfil: "perfil-" + etiqueta, vinculo: "vinculo-" + etiqueta,
+		procedencia: "procedencia", registro: "registro-contexto-" + etiqueta,
+		autenticacion: "autenticacion-" + etiqueta, asercion: "asercion-" + etiqueta,
+		sesion: "sesion-" + etiqueta, controlSesion: "control-sesion-" + etiqueta,
+		politicaGarantia: "politica-garantia-" + etiqueta,
+	}
+}
+
 // El principal procede de la hoja mTLS ya aceptada por CT. El perfil y
 // vínculo son distintos de la tramitación y de la auditoría RRHH.
 func nuevoSoportePlantillasCatalogoCTDesdeBaseDesarrollo(base *soporteAltaContratacionTemporalDesarrollo, ahora time.Time) (*soporteAltaContratacionTemporalDesarrollo, string, error) {
+	return nuevoSoportePlantillasCTDesdeBaseDesarrollo(base, ahora, discriminadorContextoPlantillasCatalogoCTDesarrollo())
+}
+
+func nuevoSoportePlantillasDocumentalCTDesdeBaseDesarrollo(base *soporteAltaContratacionTemporalDesarrollo, ahora time.Time) (*soporteAltaContratacionTemporalDesarrollo, string, error) {
+	return nuevoSoportePlantillasCTDesdeBaseDesarrollo(base, ahora, discriminadorContextoPlantillasDocumentalCTDesarrollo())
+}
+
+func nuevoSoportePlantillasCTDesdeBaseDesarrollo(base *soporteAltaContratacionTemporalDesarrollo, ahora time.Time,
+	discriminador discriminadorContextoSinteticoDesarrollo) (*soporteAltaContratacionTemporalDesarrollo, string, error) {
 	if base == nil || !ctdomain.InstanteUTCCanonico(ahora) {
 		return nil, "", plantillasapp.ErrNoDisponible
 	}
@@ -145,7 +179,7 @@ func nuevoSoportePlantillasCatalogoCTDesdeBaseDesarrollo(base *soporteAltaContra
 			"perfil_ejecucion": config.ExecutionProfileDevelopment, "certificate_sha256": certificado},
 	}
 	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
-		principal, ahora, discriminadorContextoPlantillasCatalogoCTDesarrollo())
+		principal, ahora, discriminador)
 	if err != nil || !contextoSinteticoBolsaSeparadoDeCT(contextoBase, contexto) {
 		return nil, "", plantillasapp.ErrNoDisponible
 	}
@@ -170,6 +204,18 @@ func descriptoresFronterasPlantillasCTDesarrollo(perfil string) []descriptorFron
 	}
 }
 
+func descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfil string) []descriptorFronteraComunDesarrollo {
+	const politica = "ct-plantillas-documental-v3"
+	return []descriptorFronteraComunDesarrollo{
+		{Clave: "ct-plantillas-documental-listar", Superficie: superficieInternaSeguridadComunDesarrollo,
+			Metodo: http.MethodPost, Ruta: plantillashttp.RutaBorradoresDisponibles, PerfilesActivosRef: []string{perfil},
+			ClavePolitica: politica, ClaveCapacidad: "contratacion_temporal.plantillas_documentos.documental_listar"},
+		{Clave: "ct-plantillas-documental-descargar", Superficie: superficieInternaSeguridadComunDesarrollo,
+			Metodo: http.MethodPost, Ruta: plantillashttp.RutaBorradores, PerfilesActivosRef: []string{perfil},
+			ClavePolitica: politica, ClaveCapacidad: "contratacion_temporal.plantillas_documentos.documental_descargar"},
+	}
+}
+
 func (c catalogoFronterasComunDesarrollo) contienePerfilesRutasPlantillasCT(perfil string) bool {
 	for _, par := range []struct{ metodo, ruta, accion string }{
 		{http.MethodGet, plantillashttp.RutaCatalogo, "contratacion_temporal.plantillas_documentos.consultar"},
@@ -188,6 +234,43 @@ func descriptoresMaterialPlantillasCTDesarrollo() []descriptorMaterialConsumidor
 	return []descriptorMaterialConsumidorV3Desarrollo{
 		{Audiencia: audienciaCatalogoPlantillasCT, Dominio: "vec.ct.plantillas-catalogo.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:ct-plantillas:", ProveedorNominal: proveedorMaterialContratacionTemporal},
 	}
+}
+
+func descriptorMaterialPlantillasDocumentalCTDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        audienciaDocumentalPlantillasCT,
+		Dominio:          "vec.ct.plantillas-documental.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:ct-plantillas-doc:",
+		ProveedorNominal: proveedorMaterialContratacionTemporal,
+	}
+}
+
+func motivoDocumentalPlantillasCTDesarrollo() vecdomain.ReferenciaEntradaCatalogo {
+	return vecdomain.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_autorizacion_plantillas_documental_ct", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("motivos-autorizacion-plantillas-documental-ct-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "consultar-plantillas-documental-ct"),
+	}
+}
+
+func instantaneaInicialPlantillasDocumentalCTDesarrollo(principal, perfil string, ahora time.Time) (vecdomain.InstantaneaAutorizacion, error) {
+	campos := []string{"catalogo", "catalogo_huella_sha256", "contenido_json_sha256", "procedencia_ref", "revision", "version"}
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principal, perfil, ahora,
+		"ct_plantillas_documental_desarrollo", "Lectura documental de plantillas CT de desarrollo", "ct-plantillas-documental-desarrollo",
+		[]vecdomain.ConcesionRol{
+			{Accion: ctports.AccionConsultarDetalleRRHH, ModuloID: plantillasapp.ModuloID,
+				TipoRecurso: ctports.TipoRecursoExpediente, Finalidades: []string{ctports.FinalidadConsultarDetalleRRHH}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+			{Accion: "contratacion_temporal.plantillas_documentos.documental_listar", ModuloID: plantillasapp.ModuloID,
+				TipoRecurso: tipoDocumentalPlantillasCT, Finalidades: []string{finalidadDocumentalPlantillasCT},
+				CamposPermitidos: append([]string(nil), campos...), GarantiaMinima: vecdomain.AuthAssuranceHigh},
+			{Accion: "contratacion_temporal.plantillas_documentos.documental_descargar", ModuloID: plantillasapp.ModuloID,
+				TipoRecurso: tipoDocumentalPlantillasCT, Finalidades: []string{finalidadDocumentalPlantillasCT},
+				CamposPermitidos: append([]string(nil), campos...), GarantiaMinima: vecdomain.AuthAssuranceHigh},
+		}, []vecdomain.AmbitoPerfil{
+			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "clase_ambito", Valores: []string{string(ctports.AmbitoOrganizacionRRHH)}},
+			{Clave: "ambito_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+		})
 }
 
 func motivoCatalogoPlantillasCTDesarrollo() vecdomain.ReferenciaEntradaCatalogo {

@@ -265,6 +265,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	documentalActiva, err := plantillasDocumentalCTDesarrolloSolicitado(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if documentalActiva {
+		// CT133 exige aún la fachada de tres ámbitos CT137/AD3-100 y el
+		// consultor de detalle del mismo perfil. Hasta componerlos, el
+		// selector falla antes de publicar material o abrir rutas.
+		return nil, nil, nil, plantillasapp.ErrNoDisponible
+	}
 	var fuenteAutorizacionPlantillas, motivosEvaluadorPlantillas *pgxpool.Pool
 	cerrarAutoridadesPlantillas := func() {
 		if motivosEvaluadorPlantillas != nil {
