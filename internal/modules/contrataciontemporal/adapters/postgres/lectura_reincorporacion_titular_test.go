@@ -116,6 +116,7 @@ func TestPrepararReincorporacionConservaConflictoYRevierteRespuestaMalformada(t 
 		commits           int
 	}{
 		{"conflicto confiable", `{"esquema":"vec.contratacion-temporal.resultado-reincorporacion-titular.v1","resultado":"version_en_conflicto"}`, domain.ErrVersionEnConflicto, 1},
+		{"conflicto contradictorio", `{"esquema":"vec.contratacion-temporal.resultado-reincorporacion-titular.v1","resultado":"version_en_conflicto","material":{}}`, ports.ErrResultadoSeguimientoNoConfiable, 0},
 		{"respuesta malformada", `{"esquema":"vec.contratacion-temporal.resultado-reincorporacion-titular.v1","resultado":"preparada"}`, ports.ErrResultadoSeguimientoNoConfiable, 0},
 	} {
 		t.Run(tc.nombre, func(t *testing.T) {
