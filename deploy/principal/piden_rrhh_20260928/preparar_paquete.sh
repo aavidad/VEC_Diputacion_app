@@ -46,7 +46,7 @@ destino=$(mktemp -d /tmp/vec-piden-20260928.XXXXXXXX)
 trap 'rm -rf -- "$destino"' ERR
 mkdir -p -- "$destino/web" "$destino/evidencia"
 mkdir -p -- "$destino/.go-cache"
-GOCACHE="$destino/.go-cache" GOTOOLCHAIN=local GOMAXPROCS=2 \
+GOCACHE="$destino/.go-cache" GOTOOLCHAIN=auto GOMAXPROCS=2 \
   go -C "$repo" build -buildvcs=false -o "$destino/vec-server" ./cmd/vec-server
 rm -rf -- "$destino/.go-cache"
 rsync -a --delete --files-from="$repo/web/produccion.manifest" \
