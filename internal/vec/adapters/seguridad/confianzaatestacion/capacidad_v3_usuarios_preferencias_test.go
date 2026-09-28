@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -13,21 +14,80 @@ import (
 	usuariosdomain "vec-diputacion-granada/internal/modules/usuarios/domain"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type proveedorOrdenUsuariosPrueba struct{}
+
+func (proveedorOrdenUsuariosPrueba) ProveerMaterialPreferencias(context.Context, core.VinculoAutenticacionActorV2, usuariosports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, usuariosports.ErrNoDisponible
+}
+
+func TestVinculoExteriorUsuariosRechazaRutaYCuentaSustituidas(t *testing.T) {
+	base := nuevoEscenarioConfianzaAtestacionV3Prueba(t)
+	v := vinculoExternoUsuariosPrueba(t, base)
+	actor := base.resultado.Contexto
+	if _, err := usuariosports.NuevaOrdenPreferencias(actor, v, core.SuperficieAutenticacionExternaPersonalV1, proveedorOrdenUsuariosPrueba{}); err != nil {
+		t.Fatalf("vínculo exterior legítimo: %v", err)
+	}
+	if _, err := usuariosports.NuevaOrdenPreferencias(actor, v, core.SuperficieAutenticacionInternaCorporativaV1, proveedorOrdenUsuariosPrueba{}); !errors.Is(err, usuariosports.ErrProhibido) {
+		t.Fatalf("ruta interna con V2 exterior: %v", err)
+	}
+	cuenta := core.CuentaAutenticadaContextoActor{CuentaRef: "cta_otra_cuenta_0123456789abcd", Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}
+	snap := actor.Instantanea
+	snap.CuentaRef = cuenta.CuentaRef
+	ajeno, err := core.NuevoContextoActor(cuenta, snap, actor.ResueltoEn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = usuariosports.NuevaOrdenPreferencias(ajeno, v, core.SuperficieAutenticacionExternaPersonalV1, proveedorOrdenUsuariosPrueba{}); !errors.Is(err, usuariosports.ErrNoAutenticado) {
+		t.Fatalf("certificado/cuenta sustituida aceptada: %v", err)
+	}
+}
 
 // Atraviesa el emisor HMAC real con una decisión y una atestación reales de
 // prueba, usando exactamente la preimagen de Usuarios que reconstruye SQL.
+func vinculoExternoUsuariosPrueba(t *testing.T, base escenarioConfianzaAtestacionV3Prueba) core.VinculoAutenticacionActorV2 {
+	t.Helper()
+	d, err := base.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := d.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth := v.Autenticacion()
+	auth.Superficie = core.SuperficieAutenticacionExternaPersonalV1
+	auth.AutenticacionHuellaSHA256 = strings.Repeat("9", 64)
+	actor := base.resultado.Contexto
+	cuenta := core.CuentaAutenticadaContextoActor{CuentaRef: actor.Instantanea.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}
+	externo, err := core.CrearVinculoAutenticacionActorV2(context.Background(), revalidadorConfianzaAtestacionV3Prueba{resultado: auth},
+		core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auth.AutenticacionRef, SesionRef: auth.SesionRef},
+		resolutorConfianzaAtestacionV3Prueba{resultado: base.resultado}, core.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actor.PerfilActivoRef},
+		&relojConfianzaAtestacionV3Prueba{ahora: base.ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return externo
+}
+
 func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 	base := nuevoEscenarioConfianzaAtestacionV3Prueba(t)
+	vinculoExterno := vinculoExternoUsuariosPrueba(t, base)
 	for _, caso := range []struct {
 		accion, audiencia string
 		campos            []string
+		superficie        core.SuperficieAutenticacionActorV1
+		rol               string
 	}{
-		{usuariosports.AccionConsultarPreferencias, usuariosports.AudienciaConsultarPreferenciasInterna, []string{"catalogo", "valores", "version"}},
-		{usuariosports.AccionActualizarPreferencias, usuariosports.AudienciaActualizarPreferenciasInterna, []string{"valores", "version"}},
+		{usuariosports.AccionConsultarPreferencias, usuariosports.AudienciaConsultarPreferenciasInterna, []string{"catalogo", "valores", "version"}, core.SuperficieAutenticacionInternaCorporativaV1, "titular_preferencias_interno"},
+		{usuariosports.AccionActualizarPreferencias, usuariosports.AudienciaActualizarPreferenciasInterna, []string{"valores", "version"}, core.SuperficieAutenticacionInternaCorporativaV1, "titular_preferencias_interno"},
+		{usuariosports.AccionConsultarPreferencias, usuariosports.AudienciaConsultarPreferenciasExterna, []string{"catalogo", "valores", "version"}, core.SuperficieAutenticacionExternaPersonalV1, "titular_preferencias_externo"},
+		{usuariosports.AccionActualizarPreferencias, usuariosports.AudienciaActualizarPreferenciasExterna, []string{"valores", "version"}, core.SuperficieAutenticacionExternaPersonalV1, "titular_preferencias_externo"},
 	} {
-		t.Run(caso.accion, func(t *testing.T) {
-			m := usuariosports.MaterialPreferencias{Superficie: core.SuperficieAutenticacionInternaCorporativaV1,
+		t.Run(string(caso.superficie)+"/"+caso.accion, func(t *testing.T) {
+			m := usuariosports.MaterialPreferencias{Superficie: caso.superficie,
 				PersonaRef: base.resultado.Contexto.PersonaRef, PerfilRef: base.resultado.Contexto.PerfilActivoRef,
 				Accion: caso.accion, FinalidadRef: usuariosports.FinalidadPreferenciasPropias,
 				CatalogoVersionRef: "usuarios-preferencias-v1", VersionEsperada: 0,
@@ -44,18 +104,22 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			vinculoCaso := datosBase.VinculoAutenticacionActor
+			if caso.superficie == core.SuperficieAutenticacionExternaPersonalV1 {
+				vinculoCaso = vinculoExterno
+			}
 			solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
-				VinculoAutenticacionActor: datosBase.VinculoAutenticacionActor, ReferenciaMotivo: base.motivo, Accion: caso.accion, Recurso: recurso,
+				VinculoAutenticacionActor: vinculoCaso, ReferenciaMotivo: base.motivo, Accion: caso.accion, Recurso: recurso,
 				Finalidad: usuariosports.FinalidadPreferenciasPropias, Correlacion: datosBase.Correlacion,
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			vinculo, err := datosBase.VinculoAutenticacionActor.Datos()
+			vinculo, err := vinculoCaso.Datos()
 			if err != nil {
 				t.Fatal(err)
 			}
-			version := core.VersionRol{RolID: "titular_preferencias", Version: 1, Nombre: "Titular preferencias", Estado: core.EstadoVersionRolPublicada,
+			version := core.VersionRol{RolID: caso.rol, Version: 1, Nombre: "Titular preferencias", Estado: core.EstadoVersionRolPublicada,
 				Concesiones:  []core.ConcesionRol{{Accion: caso.accion, ModuloID: "usuarios", TipoRecurso: "preferencias_persona", Finalidades: []string{usuariosports.FinalidadPreferenciasPropias}, GarantiaMinima: core.AuthAssuranceSubstantial, CamposPermitidos: caso.campos}},
 				PublicadaPor: "responsable-seguridad", PublicadaEn: base.ahora.Add(-24 * time.Hour)}
 			huellaCatalogo, err := core.HuellaCatalogoPoliticasAutorizacion(nil)
@@ -122,7 +186,11 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 				func(x *usuariosports.MaterialPreferencias) { x.CatalogoVersionRef = "usuarios-preferencias-v2" },
 				func(x *usuariosports.MaterialPreferencias) { x.Valores.Tema = "oscuro" },
 				func(x *usuariosports.MaterialPreferencias) {
-					x.Superficie = core.SuperficieAutenticacionExternaPersonalV1
+					if x.Superficie == core.SuperficieAutenticacionInternaCorporativaV1 {
+						x.Superficie = core.SuperficieAutenticacionExternaPersonalV1
+					} else {
+						x.Superficie = core.SuperficieAutenticacionInternaCorporativaV1
+					}
 				},
 			} {
 				copia := m
@@ -141,7 +209,7 @@ func TestEmisorRealCapacidadV3UsuariosPreferencias(t *testing.T) {
 					t.Fatal("la asignación propia cubriría otra persona")
 				}
 				solicitudMutada, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{
-					VinculoAutenticacionActor: datosBase.VinculoAutenticacionActor, ReferenciaMotivo: base.motivo,
+					VinculoAutenticacionActor: vinculoCaso, ReferenciaMotivo: base.motivo,
 					Accion: caso.accion, Recurso: recursoMutado, Finalidad: usuariosports.FinalidadPreferenciasPropias,
 					Correlacion: datosBase.Correlacion,
 				})
