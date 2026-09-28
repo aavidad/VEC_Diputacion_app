@@ -32,6 +32,14 @@ func (a autoridadMiBolsaCarreraPG) publicarInstantaneaDesdePreimagen(ctx context
 	return a.base.publicarInstantaneaDesdePreimagen(ctx, i, preimagen)
 }
 
+func (a autoridadMiBolsaCarreraPG) publicarInstantanea(ctx context.Context, i dominiovec.InstantaneaAutorizacion) error {
+	return a.base.publicarInstantanea(ctx, i)
+}
+
+func (a autoridadMiBolsaCarreraPG) versionActualHabilitada(ctx context.Context, perfilRef string) (bool, error) {
+	return a.base.versionActualHabilitada(ctx, perfilRef)
+}
+
 // Requiere exclusivamente AD3/ContextoActor reales en PostgreSQL 18 efímero.
 // El contexto sintético prepara las claves de actor y sesión; no prueba HTTP.
 func TestMiBolsaPreimagenPostgreSQL18(t *testing.T) {
