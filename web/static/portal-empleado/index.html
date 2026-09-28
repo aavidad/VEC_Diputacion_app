@@ -71,6 +71,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-i18n-correo-llamamiento.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/comun/iconos-vec.js?v=20260925-aspecto-v1">
+    <link rel="modulepreload" href="/comun/idioma.js">
     <link rel="modulepreload" href="/portal-empleado/portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-contrato.js">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-operaciones.js?v=20260721-acceso-real-v2">
@@ -252,6 +253,9 @@
             <h1 id="titulo-vista" data-i18n-portal="txt_portal_del_empleado">Portal del Empleado</h1>
           </div>
           <div class="acciones-cabecera">
+            <label class="selector-idioma" for="idioma-interfaz"><span data-i18n-portal="selector_idioma_etiqueta">Idioma de la interfaz</span>
+              <select id="idioma-interfaz" name="lang"><option value="es" data-i18n-portal="selector_idioma_es">Español</option><option value="en" data-i18n-portal="selector_idioma_en">Inglés</option></select>
+            </label>
             <button type="button" class="boton-cabecera" id="boton-texto" aria-label="Aumentar o restablecer el tamaño del texto" aria-pressed="false" title="Aumentar tamaño del texto" data-i18n-portal-aria-label="txt_aumentar_o_restablecer_el_tamano_del_texto" data-i18n-portal-title="txt_aumentar_tamano_del_texto">A+</button>
             <button type="button" class="boton-cabecera boton-icono" id="boton-contraste" aria-label="Activar o desactivar el alto contraste" aria-pressed="false" title="Alto contraste" data-i18n-portal-aria-label="txt_activar_o_desactivar_el_alto_contraste" data-i18n-portal-title="txt_alto_contraste"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
             <button type="button" class="boton-cabecera boton-icono boton-avisos" data-accion="avisos" title="Avisos" data-i18n-portal-title="txt_avisos">

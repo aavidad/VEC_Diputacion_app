@@ -58,6 +58,9 @@ go build ./cmd/...
 # Pruebas web (Node >= 20, sin dependencias): el portal y los clientes HTTP
 # tienen su propia suite y hasta hoy no formaba parte de la puerta.
 node --test $(git ls-files 'web/**/*.test.mjs')
+python3 scripts/verificar_i18n.py
+python3 -m unittest scripts.tests.test_verificar_i18n
+node scripts/verificar_i18n_catalogos.mjs
 scripts/verificar_dependencias_superficie_publica.sh
 scripts/probar_verificador_dependencias_superficie_publica.sh
 scripts/verificar_dependencias_superficie_interna.sh
