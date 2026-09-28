@@ -89,7 +89,7 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 		}
 		return n, sesionViva
 	}
-	for _, caso := range []string{"permitida", "restringida", "revocada", "carrera"} {
+	for _, caso := range []string{"permitida", "restringida", "revocada", "cambio_entre_preparacion_y_publicacion"} {
 		t.Run(caso, func(t *testing.T) {
 			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 			var aleatorio [8]byte
@@ -114,6 +114,14 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			contextoCT130, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, ahora)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vinculoCT130, err := contextoCT130.Vinculo.Datos()
+			if err != nil || vinculoCT130.PerfilActivoRef == vinculo.PerfilActivoRef {
+				t.Fatal("CT130 no tiene perfil dedicado")
+			}
 			acciones := []vecdomain.ConcesionRol{
 				{Accion: accionConsultarSeguimientoCeseDesarrollo, ModuloID: ctports.ModuloContratacion,
 					TipoRecurso: "seguimiento_contratacion_temporal", Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
@@ -124,73 +132,124 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 					CamposPermitidos: []string{"cese_evento_ref", "cese_recibo_ref", "documento_ref", "documento_sha256", "existe_cese", "fecha_efectiva", "relacion_ref"},
 					GarantiaMinima:   vecdomain.AuthAssuranceHigh},
 			}
-			semilla, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, ahora,
+			semilla, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculoCT130.PrincipalID, vinculoCT130.PerfilActivoRef, ahora,
 				"reincorporacion_titular_ct_desarrollo", "Reincorporación titular de desarrollo", "reincorporacion-titular-ct-desarrollo", acciones,
 				[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{instantanea: semilla}
+			soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{
+				instantanea: semilla, contexto: contextoCT130,
+				contextoEsperadoRegistrado: contextoCT130.Resultado,
+				sesionOperativa:            proveedorSesionOperativaCTPrueba{contexto: contextoCT130},
+			}
 			if err := publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, pool, soporte); err != nil {
 				t.Fatal(err)
 			}
 			if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, pool, soporte); err != nil {
 				t.Fatal(err)
 			}
+			if err := publicarContextoPostgreSQLReincorporacionTitularDesarrollo(ctx, pool, soporte); err != nil {
+				t.Fatal(err)
+			}
+			ctxRuta := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)
+			objetivoUno := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+			objetivoUno.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{
+				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "expediente_ref", Valores: []string{"expediente:ct130:uno"}},
+			}
+			objetivoDos := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+			objetivoDos.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{
+				{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+				{Clave: "expediente_ref", Valores: []string{"expediente:ct130:dos"}},
+			}
 			a := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}
-			preparada, err := a.PrepararInstantaneaReincorporacionTitular(ctx, semilla)
+			preparada, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoUno)
 			if err != nil {
-				t.Fatalf("CT130 con preimagen base exacta: %v", err)
+				t.Fatalf("CT130 ausente con perfil dedicado: %v", err)
+			}
+			if err := a.PublicarInstantaneaReincorporacionTitular(ctxRuta, preparada); err != nil {
+				t.Fatalf("CT130 inicial: %v", err)
 			}
 			base := soporte.instantanea
+			if exacta, encontrada, err := instantaneaCentralCTExacta(ctx, pool, base); err != nil || !encontrada || !exacta {
+				t.Fatal("la publicación CT130 alteró el perfil base")
+			}
 			if caso != "permitida" {
-				otra := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(base)
-				if caso == "revocada" {
-					otra.AsignacionPerfil.Estado = vecdomain.EstadoAsignacionPerfilRevocada
-					otra.AsignacionPerfil.RevocadaEn = base.AsignacionPerfil.EmitidaEn.Add(time.Second)
-					otra.AsignacionPerfil.RevocadaPor = "seguridad:prueba"
-					otra.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
-				} else {
-					otra.AsignacionPerfil.Ambitos[0].Valores[0] = "organizacion:restringida"
-				}
-				otra, err = a.autoridadComun().prepararInstantanea(ctx, otra, false)
+				segunda, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoDos)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := a.autoridadComun().publicarInstantaneaDesdePreimagen(ctx, otra, base); err != nil {
+				otra := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(preparada)
+				if caso == "revocada" {
+					otra.AsignacionPerfil.Estado = vecdomain.EstadoAsignacionPerfilRevocada
+					otra.AsignacionPerfil.RevocadaEn = preparada.AsignacionPerfil.EmitidaEn.Add(time.Second)
+					otra.AsignacionPerfil.RevocadaPor = "seguridad:prueba"
+					otra.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
+				} else {
+					otra.AsignacionPerfil.Ambitos[1].Valores[0] = "expediente:ct130:restringido"
+				}
+				administrativa, err := a.autoridadReincorporacionTitular(ctxRuta)
+				if err != nil {
 					t.Fatal(err)
 				}
-				antes, viva := contar(t, vinculo.PerfilActivoRef, vinculo.SesionRef)
+				administrativa.actoAsignacion = "acto:ct130:prueba:administrativa"
+				otra, err = administrativa.prepararInstantanea(ctxRuta, otra, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := administrativa.publicarInstantaneaDesdePreimagen(ctxRuta, otra, preparada); err != nil {
+					t.Fatal(err)
+				}
+				antes, viva := contar(t, vinculoCT130.PerfilActivoRef, vinculoCT130.SesionRef)
 				if !viva {
 					t.Fatal("la prueba no conserva sesión viva tras cambiar asignación")
 				}
-				if err := a.PublicarInstantaneaReincorporacionTitular(ctx, preparada); err == nil {
+				if err := a.PublicarInstantaneaReincorporacionTitular(ctxRuta, segunda); err == nil {
 					t.Fatal("CT130 restauró permiso tras cambio central concurrente")
 				}
-				despues, viva := contar(t, vinculo.PerfilActivoRef, vinculo.SesionRef)
+				if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, pool, soporte); err != nil {
+					t.Fatalf("el reinicio base falló: %v", err)
+				}
+				if exacta, encontrada, err := instantaneaCentralCTExacta(ctx, pool, base); err != nil || !encontrada || !exacta {
+					t.Fatal("el reinicio alteró el perfil base")
+				}
+				despues, viva := contar(t, vinculoCT130.PerfilActivoRef, vinculoCT130.SesionRef)
 				if despues != antes || !viva {
 					t.Fatal("el rechazo alteró historia o sesión")
 				}
 				a = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}
-				if _, err := a.PrepararInstantaneaReincorporacionTitular(ctx, semilla); err == nil {
+				ctxRuta = contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)
+				if _, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoDos); err == nil {
 					t.Fatal("CT130 aceptó preimagen central restringida o revocada tras reinicio")
 				}
 				return
 			}
-			if err := a.PublicarInstantaneaReincorporacionTitular(ctx, preparada); err != nil {
+			segunda, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoDos)
+			if err != nil {
+				t.Fatalf("segundo expediente CT130: %v", err)
+			}
+			if err := a.PublicarInstantaneaReincorporacionTitular(ctxRuta, segunda); err != nil {
 				t.Fatal(err)
 			}
-			antes, viva := contar(t, vinculo.PerfilActivoRef, vinculo.SesionRef)
+			antes, viva := contar(t, vinculoCT130.PerfilActivoRef, vinculoCT130.SesionRef)
 			if !viva {
 				t.Fatal("la sesión inicial no sigue activa")
 			}
+			if exacta, encontrada, err := instantaneaCentralCTExacta(ctx, pool, base); err != nil || !encontrada || !exacta {
+				t.Fatal("dos expedientes CT130 alteraron el perfil base")
+			}
+			if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, pool, soporte); err != nil {
+				t.Fatal(err)
+			}
 			a = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}
-			replay, err := a.PrepararInstantaneaReincorporacionTitular(ctx, semilla)
-			if err != nil || replay.AsignacionPerfil.Referencia() != preparada.AsignacionPerfil.Referencia() ||
-				a.PublicarInstantaneaReincorporacionTitular(ctx, replay) != nil {
+			ctxRuta = contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaReincorporacionesTitular)
+			replay, err := a.PrepararInstantaneaReincorporacionTitular(ctxRuta, objetivoDos)
+			if err != nil || replay.AsignacionPerfil.Referencia() != segunda.AsignacionPerfil.Referencia() ||
+				a.PublicarInstantaneaReincorporacionTitular(ctxRuta, replay) != nil {
 				t.Fatalf("CT130 no recuperó publicación exacta: %v", err)
 			}
-			despues, viva := contar(t, vinculo.PerfilActivoRef, vinculo.SesionRef)
+			despues, viva := contar(t, vinculoCT130.PerfilActivoRef, vinculoCT130.SesionRef)
 			if despues != antes || !viva {
 				t.Fatal("el replay duplicó asignación o alteró sesión")
 			}
