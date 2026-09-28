@@ -22,6 +22,9 @@ var (
 const FinalidadPreferenciasPropias = "finalidad:usuarios:preferencias-propias:v1"
 const AccionConsultarPreferencias = "vec.preferencias.consultar"
 const AccionActualizarPreferencias = "vec.preferencias.actualizar"
+const AudienciaConsultarPreferencias = "vec_usuarios.preferencias.consultar.v1"
+const AudienciaActualizarPreferencias = "vec_usuarios.preferencias.actualizar.v1"
+const TipoRecursoPreferencias = "preferencias_persona"
 
 type MaterialPreferencias struct {
 	PersonaRef         string                     `json:"persona_ref"`
@@ -98,7 +101,8 @@ type ReciboPreferencias struct {
 
 // Implementar en una sola transacción PostgreSQL la autorización V3 fresca,
 // el CAS, estado, historia, auditoría y recibo. En replay no alterar el estado
-// vigente ni el recibo original; reautorizar la lectura de la operación.
+// vigente ni el recibo original. RecuperarOperacion consume V3 aun cuando no
+// existe la clave; Guardar exige otra exportación fresca y consume su V3 propio.
 type RegistroPreferencias interface {
 	CatalogoVigente(context.Context) (domain.CatalogoPreferencias, error)
 	ConsultarPropias(context.Context, OrdenPreferencias, MaterialPreferencias, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (EstadoPreferencias, bool, error)
