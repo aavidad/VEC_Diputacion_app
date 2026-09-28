@@ -835,7 +835,12 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
           obtenerCatalogosAlta: async () => { throw new Error("sin alta"); },
           obtenerConfiguracionAnalisis: async () => { throw new Error("sin análisis"); },
         }) },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: (opciones) => {
+          assert.equal(opciones.locale, idioma);
+          if (idioma === "en-GB") assert.equal(opciones.mensajes, MENSAJES_EXPEDIENTES_CONTRATACION_EN);
+          else assert.deepEqual(opciones.mensajes, {});
+          return fuente;
+        } },
         presentador: { crearPresentadorExpedientesContratacionTemporal: (opciones) => (
           presentador = crearPresentadorExpedientesContratacionTemporal(opciones)
         ) },
