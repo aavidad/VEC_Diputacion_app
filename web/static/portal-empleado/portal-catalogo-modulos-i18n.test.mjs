@@ -71,6 +71,18 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
     ["Human Resources Management", "Interface language", "Español", "English"]);
   assert.equal(traducirPortal("txt_portal_del_empleado"), "Employee Portal");
   assert.equal(traducirPortal("contratacion_temporal_encabezado"), "Temporary staff requests");
+  assert.equal(traducirPortal("auditoria_expediente_panel"), "Case audit trail");
+  assert.equal(traducirPortal("auditoria_expediente_accion"), "View this case’s audit trail");
+  assert.equal(traducirPortal("contratacion_temporal_miga"), "Employee Portal → Temporary staff requests");
+  assert.equal(traducirPortal("contratacion_temporal_titulo"), "Manage temporary staff requests");
+  assert.equal(traducirPortal("plantillas_rrhh_nav"), "Document templates");
+  assert.equal(traducirPortal("txt_modulos"), "Modules");
+  assert.equal(traducirPortal("txt_modulos_del_portal"), "Portal modules");
+  assert.equal(traducirPortal("txt_portal_de_recursos_humanos"), "Human Resources Portal");
+  assert.equal(traducirPortal("txt_2026_diputacion_de_granada_portal_del_empleado"),
+    "© 2026 Diputación de Granada · Employee Portal");
+  assert.equal(traducirPortal("txt_proteccion_de_datos_accesibilidad_ayuda"),
+    "Data protection · Accessibility · Help");
 
   let alCambiar;
   let destino;
@@ -85,6 +97,13 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
   alCambiar();
   assert.equal(destino, "https://vec.example/portal-empleado/?lang=es&vista=ct#expedientes");
   assert.equal(cambiarIdioma("invalido", ubicacion), false);
+  const es = crearTraductorPortal(MENSAJES_PORTAL_ES);
+  assert.equal(es("auditoria_expediente_panel"), "Auditoría del expediente");
+  assert.equal(es("auditoria_expediente_accion"), "Consultar auditoría de este expediente");
+  assert.equal(es("contratacion_temporal_titulo"), "Gestión de peticiones de personal temporal");
+  assert.equal(es("plantillas_rrhh_nav"), "Plantillas de documentos");
+  assert.equal(es("txt_modulos"), "Módulos");
+  assert.equal(es("txt_proteccion_de_datos_accesibilidad_ayuda"), "Protección de datos · Accesibilidad · Ayuda");
   aplicarTextosPortal(documento, crearTraductorPortal(MENSAJES_PORTAL_ES));
   assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),
     ["Gestión de Recursos Humanos", "Idioma de la interfaz", "Español", "Inglés"]);

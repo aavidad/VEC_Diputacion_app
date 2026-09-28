@@ -1,5 +1,5 @@
 import { crearTraductorAuditoria } from "./i18n.js?v=20260928-rrhh-auditoria";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, formatearNumeroPortal } from "../../portal-i18n.js?v=20260928-ppt-503-v6";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, formatearNumeroPortal } from "../../portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

@@ -116,9 +116,19 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   selector_idioma_en: "Inglés",
 });
 
-// Textos del inicio en inglés. El resto del shell conserva el catálogo común.
+// Textos ingleses del shell. Las claves no cubiertas conservan el catálogo común.
 export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   ...MENSAJES_AYUDA_INICIO_RRHH_EN,
+  auditoria_expediente_accion: "View this case’s audit trail",
+  auditoria_expediente_panel: "Case audit trail",
+  contratacion_temporal_miga: "Employee Portal → Temporary staff requests",
+  contratacion_temporal_titulo: "Manage temporary staff requests",
+  plantillas_rrhh_nav: "Document templates",
+  txt_2026_diputacion_de_granada_portal_del_empleado: "© 2026 Diputación de Granada · Employee Portal",
+  txt_modulos: "Modules",
+  txt_modulos_del_portal: "Portal modules",
+  txt_portal_de_recursos_humanos: "Human Resources Portal",
+  txt_proteccion_de_datos_accesibilidad_ayuda: "Data protection · Accessibility · Help",
   inicio_rrhh_pestana_expedientes: "Cases in progress",
   inicio_rrhh_pestana_bolsas: "Job pools",
   inicio_rrhh_pestana_sae: "Offers to SAE",
