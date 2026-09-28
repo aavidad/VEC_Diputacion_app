@@ -280,6 +280,10 @@ BEGIN
  ) x(accion,finalidad,campos) WHERE x.accion=m->>'accion';
  h:=vec_usuarios.huella_contexto_correos(p_material);
  IF k IS DISTINCT FROM ARRAY['accion','clave_operacion','correo_ref','finalidad_ref','huellas_peticion','perfil_ref','persona_ref','superficie','sustituto_ref','version_esperada']
+    OR EXISTS(SELECT 1 FROM jsonb_each(m) z WHERE z.key IN
+      ('accion','clave_operacion','correo_ref','finalidad_ref','perfil_ref','persona_ref','superficie','sustituto_ref')
+      AND jsonb_typeof(z.value)<>'string')
+    OR jsonb_typeof(m->'version_esperada') IS DISTINCT FROM 'number'
     OR m->>'superficie' IS DISTINCT FROM vec_usuarios.superficie_sesion_correos()
     OR m->>'superficie' IS DISTINCT FROM d #>> '{vinculo_autenticacion_actor,superficie}'
     OR c->>'audiencia_consumo' IS DISTINCT FROM
@@ -293,7 +297,7 @@ BEGIN
     OR m->>'persona_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'accion' IS DISTINCT FROM accion OR c->>'operacion' IS DISTINCT FROM accion
     OR d->>'modulo_id' IS DISTINCT FROM 'usuarios' OR d->>'tipo_recurso' IS DISTINCT FROM 'correos_persona'
-    OR d->>'finalidad' IS DISTINCT FROM finalidad OR d->>'concedida' IS DISTINCT FROM 'true'
+    OR d->>'finalidad' IS DISTINCT FROM finalidad OR d->'concedida' IS DISTINCT FROM 'true'::jsonb
     OR d->'campos_permitidos' IS DISTINCT FROM campos OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
     OR d->>'decision_ref' IS NULL OR length(d->>'decision_ref') NOT BETWEEN 1 AND 256
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM h OR c->>'huella_efecto_sha256' IS DISTINCT FROM h
@@ -320,6 +324,8 @@ BEGIN
   FOR sello IN SELECT value FROM jsonb_array_elements(jsonb_build_array(m#>'{huellas_peticion,activa}') || (m#>'{huellas_peticion,retenidas}')) LOOP
    IF jsonb_typeof(sello) IS DISTINCT FROM 'object'
       OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(sello) x) IS DISTINCT FROM ARRAY['clave_ref','valor']
+      OR jsonb_typeof(sello->'clave_ref') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(sello->'valor') IS DISTINCT FROM 'string'
       OR sello->>'clave_ref' !~ '^[A-Za-z0-9:._-]{1,128}$'
       OR sello->>'valor' !~ '^[0-9a-f]{64}$' OR sello->>'clave_ref'=ANY(claves)
    THEN RAISE EXCEPTION 'Usuarios: huella correo inválida' USING ERRCODE='22023'; END IF;
@@ -480,6 +486,9 @@ BEGIN
  IF accion='vec.correos.anadir' THEN
   IF jsonb_typeof(p_sobre) IS DISTINCT FROM 'object'
      OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(p_sobre) x) IS DISTINCT FROM ARRAY['cifrado_hex','clave_ref','correo_ref','huella_igualdad_hex','nonce_hex','version']
+     OR EXISTS(SELECT 1 FROM jsonb_each(p_sobre) z WHERE z.key IN
+       ('cifrado_hex','clave_ref','correo_ref','huella_igualdad_hex','nonce_hex') AND jsonb_typeof(z.value)<>'string')
+     OR jsonb_typeof(p_sobre->'version') IS DISTINCT FROM 'number'
      OR p_sobre->>'correo_ref' !~ '^[A-Za-z0-9:._-]{12,128}$'
      OR p_sobre->>'version' IS DISTINCT FROM v::text
      OR p_sobre->>'clave_ref' !~ '^[A-Za-z0-9:._-]{1,128}$'
@@ -509,6 +518,7 @@ BEGIN
   END IF;
   IF jsonb_typeof(p_reserva) IS DISTINCT FROM 'object'
      OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(p_reserva) x) IS DISTINCT FROM ARRAY['clave_ref','desafio_hex','desafio_ref','huella_codigo_hex','vence_utc']
+     OR EXISTS(SELECT 1 FROM jsonb_each(p_reserva) z WHERE jsonb_typeof(z.value)<>'string')
      OR p_reserva->>'desafio_ref' !~ '^[A-Za-z0-9:._-]{16,128}$'
      OR p_reserva->>'desafio_hex' !~ '^[0-9a-f]+$' OR length(p_reserva->>'desafio_hex') NOT BETWEEN 32 AND 512 OR length(p_reserva->>'desafio_hex')%2<>0
      OR p_reserva->>'huella_codigo_hex' !~ '^[0-9a-f]{64}$'
