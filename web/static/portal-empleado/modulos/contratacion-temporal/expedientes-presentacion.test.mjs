@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { exigirRenovado } from "../../versiones-cache.test-helper.mjs";
 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
@@ -714,4 +715,21 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   for (const actuacion of auditoria.actuaciones) {
     assert.ok(htmlAuditoria.includes(actuacion.fecha));
   }
+});
+
+test("el expediente renovado atraviesa la caché immutable desde el HTML hasta firma y estilos", async () => {
+  const raiz = new URL("../../", import.meta.url);
+  const [html, portal, coordinador, vista, pruebas] = await Promise.all([
+    readFile(new URL("index.html", raiz), "utf8"),
+    readFile(new URL("portal.js", raiz), "utf8"),
+    readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
+    readFile(new URL("modulos/contratacion-temporal/vista-expedientes.js", raiz), "utf8"),
+    readFile(new URL("modulos/contratacion-temporal/formulario-llamamiento-pruebas.js", raiz), "utf8"),
+  ]);
+  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes.css", "20260926-pulido-portal-v1");
+  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/circuito-firma.css", "20260926-integracion-bolsa-ct-v1");
+  exigirRenovado(html, "/portal-empleado/portal.js", "20260928-auditoria-expediente-en-v2");
+  exigirRenovado([html, portal], "portal-modulos-coordinador.js", "20260928-auditoria-expediente-en-v2");
+  exigirRenovado([coordinador, pruebas], "vista-expedientes.js", "20260928-auditoria-expediente-en-v2");
+  exigirRenovado(vista, "circuito-firma.js", "20260926-integracion-bolsa-ct-v1");
 });
