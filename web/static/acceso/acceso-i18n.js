@@ -1,5 +1,6 @@
 const CATALOGOS_EMPAQUETADOS = Object.freeze({
   es: "/acceso/locales/es.json",
+  en: "/acceso/locales/en.json",
 });
 
 const ATRIBUTOS_ADMITIDOS = new Set(["content", "aria-label"]);
@@ -8,7 +9,9 @@ function idiomaBase(valor) {
   return String(valor ?? "").trim().toLowerCase().split("-", 1)[0];
 }
 
-export function seleccionarIdiomaAcceso(preferidos = []) {
+export function seleccionarIdiomaAcceso(preferidos = [], explicito = "") {
+  const elegido = idiomaBase(explicito);
+  if (Object.hasOwn(CATALOGOS_EMPAQUETADOS, elegido)) return elegido;
   for (const preferido of preferidos) {
     const idioma = idiomaBase(preferido);
     if (Object.hasOwn(CATALOGOS_EMPAQUETADOS, idioma)) return idioma;
@@ -16,8 +19,13 @@ export function seleccionarIdiomaAcceso(preferidos = []) {
   return "es";
 }
 
-export function rutaCatalogoAcceso(preferidos = []) {
-  return CATALOGOS_EMPAQUETADOS[seleccionarIdiomaAcceso(preferidos)];
+export function rutaCatalogoAcceso(preferidos = [], explicito = "") {
+  return CATALOGOS_EMPAQUETADOS[seleccionarIdiomaAcceso(preferidos, explicito)];
+}
+
+function idiomaURL(ubicacion) {
+  try { return new URL(ubicacion?.href).searchParams.get("lang") ?? ""; }
+  catch { return ""; }
 }
 
 function esCatalogo(valor) {
@@ -37,15 +45,17 @@ export function aplicarCatalogoAcceso(documento, catalogo) {
   });
 }
 
-export async function iniciarI18nAcceso(documento = document, fetcher = fetch, idiomasNavegador = navigator.languages) {
-  const idioma = seleccionarIdiomaAcceso([documento?.documentElement?.lang, ...(idiomasNavegador ?? [])]);
+export async function iniciarI18nAcceso(documento = document, fetcher = fetch, idiomasNavegador = navigator.languages, ubicacion = globalThis.location) {
+  const idioma = seleccionarIdiomaAcceso(idiomasNavegador, idiomaURL(ubicacion));
   try {
     const respuesta = await fetcher(rutaCatalogoAcceso([idioma]), { credentials: "omit" });
-    if (!respuesta?.ok) return idioma;
+    if (!respuesta?.ok) return "es";
     const catalogo = await respuesta.json();
     aplicarCatalogoAcceso(documento, catalogo);
+    if (documento?.documentElement) documento.documentElement.lang = idioma;
   } catch {
     // El HTML empaquetado ya contiene el español de respaldo.
+    return "es";
   }
   return idioma;
 }
