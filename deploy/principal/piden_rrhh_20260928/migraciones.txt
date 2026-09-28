@@ -1,4 +1,4 @@
-# Orden causal del candidato cba5aa618. Sólo UP nuevos frente a origin/main en ese corte.
+# Orden causal ACTIVABLE del candidato cba5aa618. Bolsa B49 y Pública 3 excluidas por NO-GO.
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000090_consumidor_historial_propio_bolsa.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000044_historial_propio_candidato.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000091_consumidor_consulta_auditoria_rrhh.up.sql
@@ -15,8 +15,6 @@ deploy/postgresql/autorizacion_atestada_v3/migraciones/000094_consumidor_catalog
 deploy/postgresql/contratacion_temporal/migraciones/000131_catalogo_plantillas_documentos.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000050_lectura_estado_cese.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000095_consumidor_politica_cese_bolsa.up.sql
-deploy/postgresql/bolsa_llamamientos/migraciones/000049_publicacion_cese_b10.up.sql
-deploy/postgresql/bolsa_publica/migraciones/000003_publicacion_cese_replay.up.sql
 deploy/postgresql/contratacion_temporal/migraciones/000133_obtener_catalogo_plantillas_publicado_documental.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000096_consumidor_catalogo_plantillas_documental_ct.up.sql
 deploy/postgresql/bolsa_llamamientos/migraciones/000053_mi_bolsa_disponibilidad_maxima.up.sql

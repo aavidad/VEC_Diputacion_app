@@ -21,9 +21,19 @@ actual=$("${conexion[@]}" --command 'SELECT current_database()')
 version=$("${conexion[@]}" --command 'SHOW server_version_num')
 [[ $version =~ ^18[0-9]{4}$ ]] || fallar "se requiere PG18; recibido $version"
 
+# El publicador B10 separado es NO-GO: ACK sin prueba de publicación y fuente
+# V2/documental sin componer. Validar toda la lista antes del primer UP.
 while IFS= read -r ruta; do
   [[ -n $ruta && $ruta != \#* ]] || continue
+  case $ruta in
+    */000049_publicacion_cese_b10.up.sql|*/000003_publicacion_cese_replay.up.sql)
+      fallar "migración NO-GO en plan: $ruta" ;;
+  esac
   [[ $ruta == deploy/postgresql/*/*.up.sql && -f $repo/$ruta ]] || fallar "ruta no válida: $ruta"
+done <"$script_dir/migraciones.txt"
+
+while IFS= read -r ruta; do
+  [[ -n $ruta && $ruta != \#* ]] || continue
   printf 'Aplicando en clon: %s\n' "$ruta"
   "${conexion[@]}" --file "$repo/$ruta" >/dev/null
 done <"$script_dir/migraciones.txt"

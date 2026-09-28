@@ -15,6 +15,12 @@ git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno a
 git -C "$repo" diff --quiet "$base" HEAD -- deploy/postgresql || fallar 'SQL cambió: revisar y actualizar plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
 
+# Nunca empaquetar un plan que active el publicador B10 separado sin nuevo GO.
+if grep -Eq '^deploy/postgresql/(bolsa_llamamientos/migraciones/000049_publicacion_cese_b10|bolsa_publica/migraciones/000003_publicacion_cese_replay)\.up\.sql$' \
+    "$script_dir/migraciones.txt"; then
+  fallar 'plan contiene Bolsa B49 o Bolsa pública 000003: NO-GO de publicación B10'
+fi
+
 for manifest in produccion.manifest interno.manifest; do
   [[ -f $repo/web/$manifest ]] || fallar "falta $manifest"
   # Importado por aplicacion.js y seguimiento-tramites.js en este candidato.

@@ -8,13 +8,24 @@ main`, `pull`, reaplica SQL D6 y cambia contenedores: **no usarlo para esta
 tanda**. Tampoco repetir `00_puesta_al_dia.sh`, `02_migraciones.sh`, F4/D7 ni
 ningún `DOWN` sobre la principal con historia.
 
-La lista [`migraciones.txt`](migraciones.txt) contiene los 23 `UP` nuevos
+La lista [`migraciones.txt`](migraciones.txt) contiene **21 `UP` candidatos**
 frente a `origin/main` en este corte, en orden de introducción causal. Incluye
 AD3-90/Bolsa44, cuya preimagen PostgreSQL 18 y dos revisiones deben quedar
 acreditadas antes de instalarse. El inventario de cidonia puede mostrar que
 alguna ya tiene historia; **detenerse y conciliar** en vez de repetirla. La
 lista se invalida si se añaden, retiran o modifican migraciones del candidato.
 No equivale a una aprobación de SQL ni a un inventario de la base real.
+
+**NO-GO B10:** Bolsa `000049_publicacion_cese_b10` y Bolsa pública
+`000003_publicacion_cese_replay` quedan fuera del plan ejecutable. El
+publicador separado puede acusar el evento sin probar la publicación y la
+fuente V2/documental B10 no está compuesta. No instalarlas ni en el clon de
+esta tanda ni en cidonia. Su presencia en el árbol Git no acredita uso. Exigen
+corrección, prueba y revisión independiente con `GO`, seguidas de un plan nuevo;
+los guiones rechazan esas rutas si reaparecen en `migraciones.txt`.
+Si el binario nuevo o la sonda B10 requieren cualquiera de las dos, la
+activación de esta tanda es **NO-GO**; no suplirlas con una instalación parcial
+ni presentar B10 como publicado.
 
 ## Puertas antes de tocar un servicio
 
@@ -26,7 +37,8 @@ No equivale a una aprobación de SQL ni a un inventario de la base real.
    propietarios, `SECURITY DEFINER`, ACL explícitas y predeterminadas, tipos de
    fila, recibos y contadores testigo. Comparar con cada precondición de la lista.
    Conservar el informe privado fuera de Git. No asumir que el número de versión
-   más alto implica que las anteriores están instaladas.
+   más alto implica que las anteriores están instaladas. Dejar B49/Pública3
+   expresamente fuera de la lista de aplicación aun si figuran como archivos.
 3. Confirmar que las credenciales, certificados, perfiles, políticas V3,
    catálogos y fuentes externas necesarios existen en el material privado del
    servicio, con permisos restrictivos. No copiar, imprimir ni registrar sus
