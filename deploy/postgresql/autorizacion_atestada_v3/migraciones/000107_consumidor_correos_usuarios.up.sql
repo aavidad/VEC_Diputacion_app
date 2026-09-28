@@ -21,10 +21,9 @@ END $pre$;
 DO $nucleo$
 DECLARE
  f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; excl_nuevo text; runtime_nuevo text; guarda_nueva text;
+ original text; nuevo text; actual text; excl_nuevo text; guarda_nueva text;
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  excl text:=E'               AND p_perfil_mutacion IS DISTINCT FROM ''preferencias_actualizacion_usuarios''\n';
- runtime text:=E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''preferencias_actualizacion_usuarios''\n';
  guarda text:=E'p_perfil_mutacion IN (''preferencias_consulta_usuarios'',''preferencias_actualizacion_usuarios'')';
  perfiles text:=E'''correos_consultar_usuarios'',''correos_anadir_usuarios'',''correos_reenviar_usuarios'',''correos_verificar_usuarios'',''correos_activar_usuarios'',''correos_retirar_usuarios''';
  extension text;
@@ -39,17 +38,15 @@ BEGIN
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
     OR (length(original)-length(replace(original,marca,'')))<>length(marca)
     OR (length(original)-length(replace(original,excl,'')))<>length(excl)
-    OR (length(original)-length(replace(original,runtime,'')))<>length(runtime)
-    OR (length(original)-length(replace(original,guarda,'')))<>2*length(guarda)
+    OR (length(original)-length(replace(original,guarda,'')))<>3*length(guarda)
     OR strpos(original,'correos_consultar_usuarios')<>0
  THEN RAISE EXCEPTION 'AD3-107: núcleo incompatible' USING ERRCODE='55000'; END IF;
  excl_nuevo:=excl||
   E'               AND p_perfil_mutacion IS DISTINCT FROM ''correos_consultar_usuarios''\n               AND p_perfil_mutacion IS DISTINCT FROM ''correos_anadir_usuarios''\n               AND p_perfil_mutacion IS DISTINCT FROM ''correos_reenviar_usuarios''\n               AND p_perfil_mutacion IS DISTINCT FROM ''correos_verificar_usuarios''\n               AND p_perfil_mutacion IS DISTINCT FROM ''correos_activar_usuarios''\n               AND p_perfil_mutacion IS DISTINCT FROM ''correos_retirar_usuarios''\n';
- runtime_nuevo:=runtime||
-  E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''correos_consultar_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''correos_anadir_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''correos_reenviar_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''correos_verificar_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''correos_activar_usuarios''\n               OR p_perfil_mutacion IS NOT DISTINCT FROM ''correos_retirar_usuarios''\n';
  guarda_nueva:=replace(guarda,')',','||perfiles||')');
  nuevo:=replace(original,excl,excl_nuevo);
- nuevo:=replace(nuevo,runtime,runtime_nuevo);
+ -- Tres lugares: guardas técnicas interna/externa previas al parseo y
+ -- guarda de superficie después del parseo de la decisión firmada.
  nuevo:=replace(nuevo,guarda,guarda_nueva);
  extension:='';
  FOR i IN 1..6 LOOP
@@ -69,7 +66,7 @@ BEGIN
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo
-    OR replace(replace(replace(replace(actual,extension||marca,marca),guarda_nueva,guarda),runtime_nuevo,runtime),excl_nuevo,excl) IS DISTINCT FROM original
+    OR replace(replace(replace(actual,extension||marca,marca),guarda_nueva,guarda),excl_nuevo,excl) IS DISTINCT FROM original
     OR (SELECT to_jsonb(q)-'prosrc' FROM pg_proc q WHERE q.oid=f) IS DISTINCT FROM meta
     OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
