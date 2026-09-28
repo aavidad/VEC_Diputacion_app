@@ -4,6 +4,7 @@ import (
 	"regexp"
 
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
 var huellaConsultaDocumental = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -15,6 +16,8 @@ var claveTipoDocumental = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,79}$`)
 type SolicitudDocumental struct {
 	Operacion            string `json:"operacion"`
 	OrganizacionRef      string `json:"organizacion_ref"`
+	ClaseAmbito          string `json:"clase_ambito"`
+	AmbitoRef            string `json:"ambito_ref"`
 	ExpedienteRef        string `json:"expediente_ref"`
 	VersionObservada     uint64 `json:"version_observada"`
 	ConsultaHuellaSHA256 string `json:"consulta_huella_sha256"`
@@ -23,7 +26,9 @@ type SolicitudDocumental struct {
 }
 
 func (s SolicitudDocumental) Validar() error {
-	if !ctdomain.ReferenciaOpacaValida(s.ExpedienteRef) || !ctdomain.ReferenciaOpacaValida(s.OrganizacionRef) || s.VersionObservada < 1 || s.VersionObservada > 9_007_199_254_740_991 || !huellaConsultaDocumental.MatchString(s.ConsultaHuellaSHA256) {
+	if !ctdomain.ReferenciaOpacaValida(s.ExpedienteRef) || !ctdomain.ReferenciaOpacaValida(s.OrganizacionRef) ||
+		s.ClaseAmbito != string(ports.AmbitoOrganizacionRRHH) || s.AmbitoRef != s.OrganizacionRef ||
+		s.VersionObservada < 1 || s.VersionObservada > 9_007_199_254_740_991 || !huellaConsultaDocumental.MatchString(s.ConsultaHuellaSHA256) {
 		return ErrEntradaInvalida
 	}
 	switch s.Operacion {

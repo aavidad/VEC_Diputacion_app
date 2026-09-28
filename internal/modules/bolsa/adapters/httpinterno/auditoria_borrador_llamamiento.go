@@ -120,6 +120,12 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 	if _, _, ok := ReferenciasRutaContratosParticipacion(r); ok && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
 	}
+	// B55 es una lectura de la ficha de participación. El vocabulario durable
+	// de la bitácora B-BACK agrupa estas consultas como consultar/situacion;
+	// la decisión V3 y el consumo SQL conservan la acción B55 nominal.
+	if _, _, ok := ReferenciasRutaReincorporacionesTitularCT(r); ok && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+	}
 	// Las sanciones usan la autorización de las operaciones de situación y
 	// se auditan con su misma acción y clase de ruta.
 	if _, _, _, ok := ReferenciasRutaSancionesParticipacion(r); ok {

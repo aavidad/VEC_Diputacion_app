@@ -4,8 +4,8 @@
  * llamamiento por correo muestra los avisos de contactos vencidos sin
  * confirmar. Solo se lee la forma enmascarada: el claro nunca se pide aquí.
  */
-import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-rrhh-cache-unificada-v1";
+import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-ppt-c3-v3";
 import { MENSAJES_CONTACTO_ORIGEN_ES } from "./portal-i18n-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
 
 const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";

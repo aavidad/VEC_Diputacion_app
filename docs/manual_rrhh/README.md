@@ -810,7 +810,7 @@ consulte ese recibo; no repita la entrega para presentar el caso.
 ## Antes de actuar
 
 1. Pida al operador el entorno de desarrollo preparado según la guía. Entre
-   en **Portal del Empleado → Contratación temporal** con el certificado
+   en **Portal del Empleado → Peticiones de personal temporal** con el certificado
    asignado al perfil de prueba. No use un entorno o certificado de producción.
 2. Compruebe el perfil efectivo y el expediente. El perfil RRHH no permite
    actuar como Intervención; un campo de formulario no cambia los permisos.

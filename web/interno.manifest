@@ -3,6 +3,7 @@ cartografia/granada-base-20260719-z8-z12.json
 static/assets/logo-diputacion-granada.svg
 static/comun/tema-vec.css
 static/comun/iconos-vec.js
+static/comun/idioma.js
 static/comun/tema-vec.js
 static/favicon.svg
 static/portal-empleado/ayuda-contenido.js
@@ -230,6 +231,7 @@ static/portal-empleado/portal-bolsas-correo.js
 static/portal-empleado/portal-bolsas-contacto-origen.js
 static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
+static/portal-empleado/portal-bolsas-reincorporaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js

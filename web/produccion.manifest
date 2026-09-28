@@ -5,6 +5,7 @@ static/acceso/index.html
 static/acceso/acceso.css
 static/acceso/acceso-i18n.js
 static/acceso/locales/es.json
+static/acceso/locales/en.json
 static/area-personal/aplicacion.js
 static/area-personal/area-personal.css
 static/area-personal/arranque.js
@@ -17,6 +18,7 @@ static/area-personal/i18n.js
 static/area-personal/i18n-contacto-propio.js
 static/area-personal/index.html
 static/area-personal/locales/es.json
+static/area-personal/locales/en.json
 static/area-personal/mi-bolsa-campos.js
 static/area-personal/mi-bolsa-contacto.js
 static/area-personal/mi-bolsa-historial.js
@@ -42,6 +44,7 @@ static/bolsa/listas.css
 static/bolsa/listas.html
 static/comun/tema-vec.css
 static/comun/iconos-vec.js
+static/comun/idioma.js
 static/comun/tema-vec.js
 static/comun/oportunidades/vista.js
 static/comun/oportunidades/i18n.js
@@ -274,6 +277,7 @@ static/portal-empleado/portal-bolsas-correo.js
 static/portal-empleado/portal-bolsas-contacto-origen.js
 static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
+static/portal-empleado/portal-bolsas-reincorporaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js

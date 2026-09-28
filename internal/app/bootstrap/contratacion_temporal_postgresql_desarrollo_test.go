@@ -5,9 +5,79 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
+
+type filaPreflightB55Prueba struct {
+	autorizada bool
+	err        error
+}
+
+func (f filaPreflightB55Prueba) Scan(destino ...any) error {
+	if f.err != nil {
+		return f.err
+	}
+	*destino[0].(*bool) = f.autorizada
+	return nil
+}
+
+type consultaPreflightB55Prueba struct {
+	fila     filaPreflightB55Prueba
+	consulta string
+}
+
+func (c *consultaPreflightB55Prueba) QueryRow(_ context.Context, consulta string, _ ...any) pgx.Row {
+	c.consulta = consulta
+	return c.fila
+}
+
+func TestPreflightB55ExigeFuncionLecturaYLoginNominal(t *testing.T) {
+	for _, caso := range []struct {
+		nombre      string
+		fila        filaPreflightB55Prueba
+		debeAceptar bool
+	}{
+		{"permitido", filaPreflightB55Prueba{autorizada: true}, true},
+		{"revocado_o_rol_ajeno", filaPreflightB55Prueba{}, false},
+		{"sql_ausente", filaPreflightB55Prueba{err: errors.New("funcion ausente")}, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			consulta := &consultaPreflightB55Prueba{fila: caso.fila}
+			err := comprobarLecturaReincorporacionTitularB55Desarrollo(t.Context(), consulta)
+			if caso.debeAceptar && err != nil || !caso.debeAceptar && !errors.Is(err, puertosbolsa.ErrReincorporacionTitularNoDisponible) {
+				t.Fatalf("preflight B55: %v", err)
+			}
+			for _, contrato := range []string{
+				"listar_reincorporaciones_titular_ct_v2", "consumir_consulta_reincorporacion_titular_bolsa_v3_atestada",
+				"vec_bolsa_llamamientos_ejecutor", "session_user = current_user", "has_function_privilege(session_user,funciones.nueva,'EXECUTE')",
+				"NOT EXISTS (SELECT 1 FROM membresias_efectivas",
+				"NOT COALESCE(pg_catalog.has_function_privilege(session_user,funciones.anterior,'EXECUTE')",
+				"JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace",
+				"pg_catalog.has_function_privilege('vec_bolsa_llamamientos_propietario',fachada.oid,'EXECUTE')",
+				"NOT pg_catalog.has_function_privilege(session_user,fachada.oid,'EXECUTE')",
+				"c.relowner = 'vec_bolsa_llamamientos_propietario'::pg_catalog.regrole",
+				"t.tgname = 'reincorporacion_titular_lectura_inmutable'",
+				"t.tgqual IS NULL AND t.tgattr::text = ''",
+				"has_table_privilege(session_user,tabla_lectura.oid,",
+				"has_table_privilege('vec_bolsa_llamamientos_ejecutor',tabla_lectura.oid,",
+				"has_any_column_privilege(session_user,tabla_lectura.oid,",
+				"has_any_column_privilege('vec_bolsa_llamamientos_ejecutor',tabla_lectura.oid,",
+			} {
+				if !strings.Contains(consulta.consulta, contrato) {
+					t.Fatalf("preflight B55 omite %s", contrato)
+				}
+			}
+		})
+	}
+	if err := comprobarLecturaReincorporacionTitularB55Desarrollo(t.Context(), nil); !errors.Is(err, puertosbolsa.ErrReincorporacionTitularNoDisponible) {
+		t.Fatalf("consulta B55 sin pool aceptada: %v", err)
+	}
+}
 
 func TestMaterialAtestacionContratacionTemporalDesarrolloEsEstableYSeparado(
 	t *testing.T,

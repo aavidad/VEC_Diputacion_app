@@ -1,7 +1,10 @@
-# Manual de usuario · Contratación temporal
+# Manual de usuario · Peticiones de personal temporal
 
 **Ventanilla Electrónica del Empleado Público (VEC) · Guía para RRHH**
-**Alcance:** funciones presentes en main a 28 de septiembre de 2026, con datos sintéticos.
+**Alcance:** funciones presentes en `main` a 28 de septiembre de 2026, con
+datos sintéticos. Los apartados marcados **C3** describen únicamente la rama
+candidata `trabajo/codexg-rrhh-c3-20260928` en `a0fe8b8b4a57`: todavía no
+acreditan integración en `main`, instalación ni recorrido completo en navegador.
 
 Esta guía acompaña un expediente desde la petición del centro hasta su seguimiento y cierre. Algunas actuaciones corresponden al centro o a Intervención: RRHH ve su resultado y continúa cuando su perfil y el estado del expediente lo permiten. Las capturas proceden de recorridos de ensayo; los rótulos y datos pueden variar según el catálogo vigente.
 
@@ -9,7 +12,7 @@ Esta guía acompaña un expediente desde la petición del centro hasta su seguim
 
 ## 1. Encontrar y abrir un expediente
 
-1. Abra el portal y entre en **Contratación temporal**. Si el módulo o una acción no aparecen, solicite la concesión correspondiente por el cauce interno; el menú no concede permisos.
+1. Abra el portal y entre en **Peticiones de personal temporal**. Si el módulo o una acción no aparecen, solicite la concesión correspondiente por el cauce interno; el menú no concede permisos.
 2. En el **cuadro de mando**, use los filtros disponibles para localizar el expediente por referencia, estado o fase. Los indicadores resumen los expedientes de la página mostrada, no necesariamente todos los de la Diputación.
 3. Abra el detalle. Revise fase, versión, unidad y actuaciones anteriores antes de registrar un cambio. La disponibilidad de cada formulario procede del servidor y del estado actual.
 
@@ -73,6 +76,32 @@ El panel de **circuito de firma** muestra los pasos y estados que proporciona el
 
 **Las firmas de este entorno son de prueba y carecen de eficacia administrativa.** La formalización real depende del portafirmas corporativo y de las decisiones y documentos que este valide. Un borrador descargado o una firma técnica registrada no acredita nombramiento eficaz, notificación ni entrega.
 
+### Tipos de plantilla y borradores publicados — C3 candidato
+
+Con el permiso correspondiente, abra **Contratación temporal → Plantillas de
+documentos**. La vista **Tipos de plantilla** permite consultar el catálogo y su
+versión. Quien prepara una definición puede pulsar **Añadir tipo** o **Editar**,
+revisar código, nombre, título, orden, fecha de vigencia, modalidades, párrafos
+y referencia de la fuente RRHH, indicar el motivo y pulsar **Guardar nueva
+versión**. Compruebe la versión y el recibo: el resultado queda como
+**Borrador** del catálogo, aún sin uso documental publicado.
+
+La publicación exige otra persona autorizada, distinta de quien preparó o
+editó la versión. Tras comprobar la aprobación previa, esa persona introduce
+su referencia y el motivo en **Publicar versión** y pulsa **Publicar catálogo**.
+Conserve el recibo de publicación. Si la pantalla indica un resultado
+indeterminado, use **Recuperar resultado** para comprobar la misma petición;
+no cree otra clave para repetir el acto.
+
+En el detalle de un expediente autorizado, **Borradores del catálogo
+publicado** muestra solo los tipos y formatos que devuelve el servidor para
+ese expediente. Descargue DOCX o PDF únicamente cuando aparezca el botón
+correspondiente; la pantalla informa del recibo de publicación y comprueba la
+huella de la descarga. Un tipo guardado en borrador no aparece como publicado.
+Si se deniega o falla la consulta, revalide permiso, versión y estado antes de
+volver a intentarlo. **Publicar un catálogo o descargar un borrador no firma ni
+envía el documento.**
+
 ## 7. Incorporación y ficha manual de GINPIX
 
 El centro confirma la incorporación desde sus peticiones, con el tipo de documento que exija el catálogo (toma de posesión o contrato firmado). RRHH consulta esa confirmación y el seguimiento. No deduzca la incorporación de una aceptación o propuesta: espere su recibo específico.
@@ -86,6 +115,30 @@ Si la persona aceptada no llega a incorporarse, el panel ofrece **No incorporaci
 En **Seguimiento del nombramiento**, consulte incorporación, recibos y opciones vigentes. Una anotación administrativa conserva una observación y su recibo sin iniciar un cese. Modificar fechas o jornada crea una nueva versión del análisis, recalcula el coste y devuelve el expediente a la fase configurada; revise la nueva RC y el estado antes de continuar.
 
 Para registrar un **cese**, debe constar la incorporación acreditada. Seleccione causa del catálogo y fecha de efecto, indique la referencia del justificante y elija el archivo para calcular su huella. Revise y confirme: recibo e historial reflejan el cese, y Bolsa recibe el fin del contrato para reponer la disponibilidad conforme a su propia regla.
+
+### Reincorporación de la persona titular y consulta en Bolsa — C3 candidato
+
+Cuando el cese registrado corresponde al **fin de sustitución**, antes del
+cierre abra **Registrar la reincorporación del titular** en el detalle del
+expediente, si el servidor habilita la acción para su perfil. Revise la versión
+observada e indique la **relación afectada del sustituto cesado** —no una
+relación laboral de la persona titular—, la fecha efectiva, la referencia del
+documento acreditativo y su huella SHA-256. Compruebe los datos en la
+confirmación y pulse **Registrar reincorporación**. El recibo de Contratación
+identifica la actuación y el cese asociado; el panel indica que el reflejo en
+Bolsa queda **pendiente de confirmación por Bolsa**. La referencia y la huella
+no custodian el documento.
+
+Si el resultado queda incierto, use **Comprobar con la misma operación** y los
+mismos datos. Si aparece un conflicto de versión, actualice el detalle antes de
+decidir de nuevo. Para consultar el reflejo, entre en **Gestión de Bolsas →
+Bolsas y candidatos**, abra la ficha de la participación afectada y consulte
+**Reincorporación de la persona titular**. La tabla muestra fecha efectiva,
+**Disponible desde** cuando Bolsa la comunica y recibo de Contratación;
+**Cese aplicado en Bolsa** describe el efecto registrado allí. Una tabla
+vacía, una denegación o un servicio no disponible no prueban que la
+reincorporación no exista en Contratación. La consulta de Bolsa no registra
+otra reincorporación.
 
 Después del cese, use **Cerrar el expediente** cuando el panel lo habilite. Si la regla exige confirmación de la ficha de GINPIX, regístrela antes: el cierre toma el número ya confirmado y no admite sustituirlo por otro. El cierre tiene su propio recibo. Existe además un **cierre administrativo sin cese** para su supuesto específico; no lo confunda con el cierre posterior al cese.
 
@@ -107,11 +160,18 @@ Pulse el botón **«?»** de la barra o del apartado para abrir la ayuda context
 
 VEC reúne petición, decisiones, recibos e historia en el expediente para que RRHH pueda retomar el trabajo y distinguir qué actuación quedó confirmada. Las reglas y opciones proceden de catálogos versionados, por lo que cada decisión conserva su contexto.
 
-El sistema separa responsabilidades: **Contratación temporal** coordina el expediente, **Bolsa** decide sobre candidaturas y llamamientos, y **Personal** conserva las relaciones e incorporaciones que le pertenecen. Los módulos comparten identidad, permisos, auditoría y presentación. Su arquitectura separa reglas de negocio, conexiones con otros servicios y pantallas; esto permite evolucionar un módulo y conectar otros clientes a los mismos casos de uso. El recorrido acreditado aquí es el del navegador: esta guía no afirma que exista un cliente de escritorio o CLI operativo para este trámite.
+El sistema separa responsabilidades: **Peticiones de personal temporal** coordina el expediente, **Bolsa** decide sobre candidaturas y llamamientos, y **Personal** conserva las relaciones e incorporaciones que le pertenecen. Los módulos comparten identidad, permisos, auditoría y presentación. Su arquitectura separa reglas de negocio, conexiones con otros servicios y pantallas; esto permite evolucionar un módulo y conectar otros clientes a los mismos casos de uso. El recorrido acreditado aquí es el del navegador: esta guía no afirma que exista un cliente de escritorio o CLI operativo para este trámite.
 
 ## 11. Alcance del ejercicio
 
 El corte de main y los recorridos documentados usan **datos sintéticos**. La presentación de septiembre incluyó lectura en la principal y escritura, cese, recuperación tras reiniciar aplicación y PostgreSQL y casos negativos en una copia de ensayo. Esto no autoriza datos reales ni uso productivo.
+
+Las funciones **C3** anteriores cuentan con código y pruebas focales en una
+rama candidata; las comprobaciones PostgreSQL citadas en el seguimiento son
+ensayos aislados. Quedan pendientes su integración y la verificación conjunta
+navegador → API → autorización → PostgreSQL → recibo con recuperación tras
+reinicio. No atribuya a la instancia de presentación las pantallas, migraciones
+o datos de esta rama por el hecho de estar descritos aquí.
 
 Siguen pendientes la firma con validez legal mediante el portafirmas corporativo, la acreditación de envío y entrega del correo, las reglas legales aún no aprobadas por RRHH y la transmisión automática a GINPIX. Una ficha manual o un número confirmado en VEC no son una confirmación del sistema externo obtenida por integración. Consulte la ayuda «?» y el estado del expediente antes de interpretar cualquier recibo.
 

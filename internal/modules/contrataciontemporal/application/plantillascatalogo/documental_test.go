@@ -6,7 +6,7 @@ import (
 )
 
 func TestSolicitudDocumentalFijaOperacionYExpediente(t *testing.T) {
-	base := SolicitudDocumental{Operacion: "listar", OrganizacionRef: "organizacion:desarrollo:dipgra", ExpedienteRef: "expediente:ct:0001", VersionObservada: 7, ConsultaHuellaSHA256: strings.Repeat("a", 64)}
+	base := SolicitudDocumental{Operacion: "listar", OrganizacionRef: "organizacion:desarrollo:dipgra", ClaseAmbito: "organizacion", AmbitoRef: "organizacion:desarrollo:dipgra", ExpedienteRef: "expediente:ct:0001", VersionObservada: 7, ConsultaHuellaSHA256: strings.Repeat("a", 64)}
 	if err := base.Validar(); err != nil {
 		t.Fatal(err)
 	}
@@ -19,6 +19,10 @@ func TestSolicitudDocumentalFijaOperacionYExpediente(t *testing.T) {
 	}
 	for nombre, mutar := range map[string]func(*SolicitudDocumental){
 		"sin organización":     func(s *SolicitudDocumental) { s.OrganizacionRef = "" },
+		"sin clase":            func(s *SolicitudDocumental) { s.ClaseAmbito = "" },
+		"clase centro":         func(s *SolicitudDocumental) { s.ClaseAmbito = "centro" },
+		"ámbito ajeno":         func(s *SolicitudDocumental) { s.AmbitoRef = "organizacion:otra:001" },
+		"sin ámbito":           func(s *SolicitudDocumental) { s.AmbitoRef = "" },
 		"sin expediente":       func(s *SolicitudDocumental) { s.ExpedienteRef = "" },
 		"sin version":          func(s *SolicitudDocumental) { s.VersionObservada = 0 },
 		"sin recibo detalle":   func(s *SolicitudDocumental) { s.ConsultaHuellaSHA256 = "" },

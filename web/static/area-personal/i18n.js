@@ -1,4 +1,14 @@
-const RUTA_CATALOGO_ES = "/area-personal/locales/es.json";
+import { seleccionarIdioma } from "../comun/idioma.js";
+
+const RUTAS_CATALOGO = Object.freeze({
+  es: "/area-personal/locales/es.json",
+  en: "/area-personal/locales/en.json",
+});
+
+function idiomaURL(ubicacion) {
+  try { return new URL(ubicacion?.href).searchParams.get("lang") ?? ""; }
+  catch { return ""; }
+}
 const respaldo = Object.freeze({
   "areaPersonal.rutas.inicio": "Inicio y plazos", "areaPersonal.rutas.convocatorias": "Convocatorias", "areaPersonal.rutas.oportunidades": "Oportunidades para ti", "areaPersonal.rutas.convocatoria": "Detalle de convocatoria", "areaPersonal.rutas.perfil": "Perfil y contacto", "areaPersonal.rutas.meritos": "Méritos y documentos", "areaPersonal.rutas.solicitud": "Nueva solicitud", "areaPersonal.rutas.autobaremacion": "Autobaremación", "areaPersonal.rutas.seguimiento": "Mis expedientes", "areaPersonal.rutas.llamamientos": "Disponibilidad y llamamientos", "areaPersonal.rutas.subsanaciones": "Subsanaciones", "areaPersonal.rutas.alegaciones": "Alegaciones", "areaPersonal.rutas.mensajes": "Mensajes y noticias", "areaPersonal.rutas.certificados": "Certificados y descargas", "areaPersonal.rutas.ayuda": "Ayuda y accesibilidad",
   "areaPersonal.tabla.sinResultados": "Sin resultados", "areaPersonal.tabla.sinRegistros": "No hay registros para mostrar.",
@@ -113,6 +123,21 @@ export function textosErrorCargaAreaPersonal(error) {
     reintentar: claves.reintentar === false ? "" : traducir(`${base}reintentar`),
   });
 }
-export function rutaCatalogoAreaPersonal() { return RUTA_CATALOGO_ES; }
+export function rutaCatalogoAreaPersonal(preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location) {
+  return RUTAS_CATALOGO[seleccionarIdioma(idiomaURL(ubicacion), preferidos)];
+}
 export function aplicarCatalogoAreaPersonal(documento, entradas) { if (!documento?.querySelectorAll || !entradas || typeof entradas !== "object" || Array.isArray(entradas)) return; documento.querySelectorAll("[data-i18n]").forEach((elemento) => { const clave = elemento.getAttribute("data-i18n"); if (typeof entradas[clave] === "string") elemento.textContent = entradas[clave]; }); }
-export async function iniciarI18nAreaPersonal(documento = document, fetcher = fetch) { try { const respuesta = await fetcher(rutaCatalogoAreaPersonal(), { credentials: "omit" }); if (!respuesta?.ok) return "es"; const cargado = await respuesta.json(); if (!cargado || typeof cargado !== "object" || Array.isArray(cargado)) return "es"; catalogo = Object.freeze({ ...respaldo, ...cargado }); aplicarCatalogoAreaPersonal(documento, catalogo); } catch { /* El HTML y las rutas incluyen castellano de respaldo sin persistir preferencias. */ } return "es"; }
+export async function iniciarI18nAreaPersonal(documento = document, fetcher = fetch, preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location) {
+  const idioma = seleccionarIdioma(idiomaURL(ubicacion), preferidos);
+  try {
+    const respuesta = await fetcher(rutaCatalogoAreaPersonal(preferidos, ubicacion), { credentials: "omit" });
+    if (!respuesta?.ok) return "es";
+    const cargado = await respuesta.json();
+    if (!cargado || typeof cargado !== "object" || Array.isArray(cargado)) return "es";
+    catalogo = Object.freeze({ ...respaldo, ...cargado });
+    aplicarCatalogoAreaPersonal(documento, catalogo);
+    if (documento?.documentElement) documento.documentElement.lang = idioma;
+    return idioma;
+  } catch { /* El HTML y las rutas incluyen castellano de respaldo sin persistir preferencias. */ }
+  return "es";
+}

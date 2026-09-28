@@ -9,7 +9,7 @@ import {
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260926-huecos-rrhh-v1";
+import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260928-ppt-v2";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
