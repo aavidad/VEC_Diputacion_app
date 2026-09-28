@@ -25,8 +25,10 @@ const (
 // SolicitudRegistrarRespuestaRecibida recoge lo declarado por RRHH sobre un
 // correo recibido. No acredita origen, firma, custodia ni entrega del aviso.
 // Respuesta describe el correo, no una resolución terminal del llamamiento.
-// El material autorizado es json.Marshal de esta solicitud directa: conservar
-// estos diez campos, su orden y sus nombres sin etiquetas JSON ni envoltorio.
+// ClaveIdempotencia es opcional en la entrada v2. Si llega de un cliente v1,
+// se valida pero no decide la identidad de la operación. SQL deriva la clave
+// durable del antecedente CT y del contenido. El material autorizado sigue
+// siendo json.Marshal de estos diez campos, con su orden y nombres originales.
 // La identidad del actor procede del contexto confiable, nunca de la solicitud.
 type SolicitudRegistrarRespuestaRecibida struct {
 	ClaveIdempotencia           string
@@ -44,7 +46,7 @@ type SolicitudRegistrarRespuestaRecibida struct {
 // Validar comprueba representación, no consulta un reloj ni verifica el correo.
 // La persistencia rechaza fechas futuras con su reloj transaccional.
 func (s SolicitudRegistrarRespuestaRecibida) Validar() error {
-	if !ClaveIdempotenciaValida(s.ClaveIdempotencia) ||
+	if (s.ClaveIdempotencia != "" && !ClaveIdempotenciaValida(s.ClaveIdempotencia)) ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(s.LlamamientoRef) ||
@@ -72,7 +74,13 @@ type RespuestaRecibidaRegistrada struct {
 }
 
 func (r RespuestaRecibidaRegistrada) ValidarPara(solicitud SolicitudRegistrarRespuestaRecibida) error {
-	if solicitud.Validar() != nil || r.Solicitud != solicitud ||
+	// CT138 devuelve el recibo original de CT56 y conserva su clave histórica.
+	// La única diferencia permitida es esa clave: todo el contenido de la
+	// declaración, incluidas comunicación y fecha, debe ser idéntico.
+	original := r.Solicitud
+	original.ClaveIdempotencia = solicitud.ClaveIdempotencia
+	if solicitud.Validar() != nil || r.Solicitud.Validar() != nil ||
+		!ClaveIdempotenciaValida(r.Solicitud.ClaveIdempotencia) || original != solicitud ||
 		!domain.ReferenciaOpacaValida(r.JustificanteRef) ||
 		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
@@ -86,8 +94,8 @@ func (r RespuestaRecibidaRegistrada) ValidarPara(solicitud SolicitudRegistrarRes
 
 // RegistroRespuestasRecibidas une autorización vigente, actor confiable,
 // declaración, recibo y auditoría en una transacción durable. Conserva una
-// respuesta por organización/comunicación y por organización/clave.
-// El replay exige autorización fresca y coincidencia de todo el material;
+// respuesta por organización, llamamiento y selección seudonimizada.
+// El replay exige autorización fresca y coincidencia de la declaración;
 // devuelve las referencias y fecha originales, sin nuevos efectos de negocio.
 // Un error no entrega un resultado utilizable ni acredita ausencia de commit.
 type RegistroRespuestasRecibidas interface {
