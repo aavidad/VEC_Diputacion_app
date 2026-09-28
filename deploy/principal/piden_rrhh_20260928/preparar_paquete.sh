@@ -42,7 +42,7 @@ done
 grep -Fxq 'static/area-personal/mi-bolsa-historial.js' "$repo/web/produccion.manifest" \
   || fallar 'mi-bolsa-historial.js falta en produccion.manifest'
 
-destino=$(mktemp -d /tmp/vec-piden-20260928.XXXXXXXX)
+destino=$(mktemp -d /dev/shm/vec-piden-20260928.XXXXXXXX)
 trap 'rm -rf -- "$destino"' ERR
 mkdir -p -- "$destino/web" "$destino/evidencia"
 mkdir -p -- "$destino/.go-cache"

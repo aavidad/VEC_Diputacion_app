@@ -165,7 +165,7 @@ Con el ZIP OSM verificado y el checkout limpio:
 bash deploy/principal/piden_rrhh_20260928/preparar_paquete.sh
 ```
 
-Imprime `PAQUETE_LOCAL=/tmp/vec-piden-20260928...`. Construye `vec-server`,
+Imprime `PAQUETE_LOCAL=/dev/shm/vec-piden-20260928...`. Construye `vec-server`,
 sincroniza por `rsync` **solo las rutas** de `web/produccion.manifest` dentro
 de una carpeta temporal nueva y pasa `scripts/verificar_web_produccion.sh` al
 árbol extraído. Conserva los demás manifiestos en `evidencia/` y escribe
