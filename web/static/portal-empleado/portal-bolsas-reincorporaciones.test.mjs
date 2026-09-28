@@ -87,6 +87,32 @@ test("acepta JSON válido de 762 bytes en 762 trozos y fragmentos vacíos", asyn
   assert.deepEqual(resultado, { ok: true, datos: [] });
 });
 
+test("90.000 fragmentos vacíos mantienen constante el número de carreras de cancelación", async () => {
+  const bytes = new TextEncoder().encode(JSON.stringify(cuerpo([])));
+  let vacios = 0;
+  const body = new ReadableStream({
+    pull(controlador) {
+      if (vacios++ < 90_000) controlador.enqueue(new Uint8Array(0));
+      else { controlador.enqueue(bytes); controlador.close(); }
+    },
+  });
+  const raceOriginal = Promise.race;
+  let carreras = 0;
+  Promise.race = function (promesas) {
+    carreras++;
+    return Reflect.apply(raceOriginal, this, [promesas]);
+  };
+  try {
+    const resultado = await consultarReincorporacionesTitular("b", "p", {
+      fetchImpl: async () => new Response(body, { status: 200 }),
+    });
+    assert.deepEqual(resultado, { ok: true, datos: [] });
+    assert.ok(carreras <= 3, `${carreras} carreras para ${vacios} fragmentos vacíos`);
+  } finally {
+    Promise.race = raceOriginal;
+  }
+});
+
 test("un flujo infinito de fragmentos vacíos termina por tiempo sin aceptar JSON", async () => {
   let cancelaciones = 0;
   const body = new ReadableStream({

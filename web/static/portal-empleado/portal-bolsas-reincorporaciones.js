@@ -39,11 +39,11 @@ async function leerJSONAcotado(respuesta, signal, abortada, limites, finTiempo) 
   let total = 0;
   const cancelar = () => cancelarCuerpo(respuesta, lector);
   signal.addEventListener("abort", cancelar, { once: true });
-  try {
+  const leerCuerpo = async () => {
     for (;;) {
       if (signal.aborted) throw new DOMException("", "AbortError");
       if (performance.now() >= finTiempo) throw new Error("tiempo_agotado");
-      const parte = await Promise.race([lector.read(), abortada]);
+      const parte = await lector.read();
       // reader.cancel() puede resolver read() con done=true antes de que gane
       // la promesa de aborto; ese cierre nunca convierte un JSON parcial en éxito.
       if (signal.aborted) throw new DOMException("", "AbortError");
@@ -60,6 +60,9 @@ async function leerJSONAcotado(respuesta, signal, abortada, limites, finTiempo) 
     try { texto += descodificador.decode(); }
     catch { throw new Error("respuesta_incompatible"); }
     return JSON.parse(texto);
+  };
+  try {
+    return await Promise.race([leerCuerpo(), abortada]);
   } catch (error) {
     cancelar();
     throw error;
