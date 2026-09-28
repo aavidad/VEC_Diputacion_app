@@ -384,6 +384,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	// CT137/AD3-100 deben existir y conservar sus ACL antes de publicar la
+	// audiencia documental. Se reutiliza el pool ejecutor ya acreditado.
+	if seleccion.plantillasDocumental {
+		etapa = "preflight_plantillas_documental"
+		if err := preflightCatalogoPlantillasCT(ctx, ejecucion); err != nil {
+			return vacias, err
+		}
+	}
 	// B55 se comprueba con el LOGIN Bolsa que consumirá la lectura. La
 	// comprobación precede a la publicación de su clave en el gobierno V3.
 	if seleccion.reincorporacionTitular {
