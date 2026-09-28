@@ -327,8 +327,8 @@ func abrirPoolConsultaAuditoriaCTDesarrollo(ctx context.Context, dsn string) (*p
 	p["application_name"] = "vec-auditoria-ct-rrhh"
 	p["timezone"] = "UTC"
 	p["search_path"] = "pg_catalog,pg_temp"
-	p["default_transaction_isolation"] = "serializable"
 	p["default_transaction_read_only"] = "off"
+	p["default_transaction_isolation"] = "serializable"
 	p["statement_timeout"] = "15s"
 	p["lock_timeout"] = "2s"
 	p["idle_in_transaction_session_timeout"] = "20s"
@@ -398,12 +398,19 @@ func abrirPoolAutoridadAuditoriaDesarrollo(ctx context.Context, dsn, rol, aplica
 	p["application_name"] = aplicacion
 	p["timezone"] = "UTC"
 	p["search_path"] = "pg_catalog,pg_temp"
+	p["default_transaction_read_only"] = "off"
 	p["statement_timeout"] = "15s"
 	p["lock_timeout"] = "2s"
 	p["idle_in_transaction_session_timeout"] = "20s"
 	login := c.ConnConfig.User
 	c.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		return comprobarPoolAutoridadAuditoriaDesarrollo(ctx, conn, login, rol)
+		if err := comprobarPoolAutoridadAuditoriaDesarrollo(ctx, conn, login, rol); err != nil {
+			return err
+		}
+		if rol == "vec_contratacion_temporal_registrador_auditoria" {
+			return preflightRegistradorFronteraAuditoriaConsultaDesarrollo(ctx, conn)
+		}
+		return nil
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {

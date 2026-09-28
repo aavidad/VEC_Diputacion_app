@@ -209,8 +209,11 @@ func preflightRegistradorFronteraAuditoriaConsultaDesarrollo(ctx context.Context
 	SELECT p.oid IS NOT NULL AND f.prosecdef
 	 AND f.proowner='vec_contratacion_temporal_propietario'::regrole
 	 AND coalesce(has_function_privilege(session_user,p.oid,'EXECUTE'),false)
+	 AND coalesce(has_function_privilege('vec_contratacion_temporal_registrador_auditoria'::regrole,p.oid,'EXECUTE'),false)
 	 AND has_schema_privilege(session_user,'vec_contratacion_temporal','USAGE')
+	 AND has_schema_privilege('vec_contratacion_temporal_registrador_auditoria'::regrole,'vec_contratacion_temporal','USAGE')
 	 AND NOT has_schema_privilege(session_user,'vec_contratacion_temporal','CREATE')
+	 AND NOT has_schema_privilege('vec_contratacion_temporal_registrador_auditoria'::regrole,'vec_contratacion_temporal','CREATE')
 	 AND current_setting('transaction_read_only')='off' AND NOT pg_is_in_recovery()
 	 AND NOT EXISTS (SELECT 1 FROM pg_proc x
 	  WHERE x.pronamespace='vec_contratacion_temporal'::regnamespace AND x.oid<>p.oid
