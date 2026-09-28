@@ -439,26 +439,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.catalogoMaterial = catalogoMaterial
 	if usuariosPreferenciasActivas {
 		etapa = "material_usuarios_preferencias"
-		dependencias.materialUsuariosPreferenciasConsultaInterna, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, audienciaConsultaPreferenciasUsuariosInterna)
-		if err != nil {
-			return vacias, err
+		lote, fallo := publicarMaterialPreferenciasUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
+		if fallo != nil {
+			return vacias, fallo
 		}
-		dependencias.materialUsuariosPreferenciasActualizacionInterna, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, audienciaActualizacionPreferenciasUsuariosInterna)
-		if err != nil {
-			return vacias, err
-		}
-		dependencias.materialUsuariosPreferenciasConsultaExterna, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, audienciaConsultaPreferenciasUsuariosExterna)
-		if err != nil {
-			return vacias, err
-		}
-		dependencias.materialUsuariosPreferenciasActualizacionExterna, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
-			ctx, gobierno, material, reloj, catalogoMaterial, audienciaActualizacionPreferenciasUsuariosExterna)
-		if err != nil {
-			return vacias, err
-		}
+		dependencias.materialUsuariosPreferenciasConsultaInterna = lote[0]
+		dependencias.materialUsuariosPreferenciasActualizacionInterna = lote[1]
+		dependencias.materialUsuariosPreferenciasConsultaExterna = lote[2]
+		dependencias.materialUsuariosPreferenciasActualizacionExterna = lote[3]
 	}
 	if seleccion.plantillasCatalogo {
 		etapa = "material_plantillas_catalogo"

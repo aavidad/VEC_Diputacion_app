@@ -233,7 +233,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		// Preferencias propias de Usuarios (AD3-106); únicamente cuando la
-		// composición autenticada publica ambas audiencias nominales.
+		// composición autenticada publica las cuatro audiencias nominales.
 		audienciaConsultaPreferenciasUsuariosInterna,
 		audienciaActualizacionPreferenciasUsuariosInterna,
 		audienciaConsultaPreferenciasUsuariosExterna,
