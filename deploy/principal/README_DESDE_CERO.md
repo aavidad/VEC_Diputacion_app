@@ -22,4 +22,17 @@ recibo ni recuperación tras reinicio para este plan.
 
 La comprobación estática pasó con 210 propios y 101 dependencias. El ensayo PG18.4 se hizo en un contenedor sin puertos publicados y con `PGDATA` en tmpfs; se detuvo en las guardas descritas. Se retiró el contenedor al terminar. La revocación diagnóstica no es una migración ni una instalación acreditada. No se ejecutó `DOWN`, no se alteró historia conservada y no se usaron datos personales reales.
 
-El runner y runtime de Calidad son un trabajo separado (`trabajo/codexg-calidad-20260928`@`4330ad75e` al redactar este diagnóstico). Aceptan un `--plan` externo y el DBA RLS B1 exacto, pero **no se han integrado ni ejecutado con esta lista final**. Falta resolver por escrito la preimagen Contexto4a y el lugar seguro del delta ACL42, intercalar Personal, revalidar la cobertura, obtener dos revisiones independientes del contenido final sensible y ensayar la cadena completa en PostgreSQL 18.4. Solo después corresponde al runner de Calidad probar arranque del binario y consumidor web real. Este README no autoriza publicación de producto, instalación ni uso de un servicio compartido.
+La base ACL C3 está preservada en la rama remota
+`trabajo/codexg-acl-tipos-c3-20260928`@`8fa2ab1ba`. El delta ACL42 está
+preservado, sin integrar en este plan, en
+`trabajo/codexg-acl-ct-ad3-preselector-20260928`@`020e4b735`. El runner y
+runtime de Calidad son un trabajo separado,
+`trabajo/codexg-calidad-20260928`@`d5286745`, también preservado en remoto.
+Aceptan un `--plan` externo y el DBA RLS B1 exacto, pero **no se han
+integrado ni ejecutado con esta lista final**. Falta resolver por escrito la
+preimagen Contexto4a y el lugar seguro del delta ACL42, intercalar Personal,
+revalidar la cobertura, obtener dos revisiones independientes del contenido
+final sensible y ensayar la cadena completa en PostgreSQL 18.4. Solo después
+corresponde al runner de Calidad probar arranque del binario y consumidor web
+real. Este README no autoriza publicación de producto, instalación ni uso de
+un servicio compartido.
