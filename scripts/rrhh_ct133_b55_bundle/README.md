@@ -4,7 +4,7 @@ Ejecutar desde el candidato ensamblado
 `bb67ac3ac6535cda5acd27a62677d9e09a531725` o un descendiente que conserve
 las migraciones y el preflight utilizados por el runner. El ensamblado sobre
 `da48a409b` añade además la corrección de configuración, la base R9 y la duda
-71; el script vuelve a verificar las huellas SQL:
+71; el script imprime las huellas SQL para cotejarlas con la tabla siguiente:
 
 ```bash
 bash scripts/rrhh_ct133_b55_bundle/probar_pg18.sh --synthetic
