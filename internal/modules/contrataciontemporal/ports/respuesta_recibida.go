@@ -95,8 +95,9 @@ func (r RespuestaRecibidaRegistrada) ValidarPara(solicitud SolicitudRegistrarRes
 // RegistroRespuestasRecibidas une autorización vigente, actor confiable,
 // declaración, recibo y auditoría en una transacción durable. Conserva una
 // respuesta por organización, llamamiento y selección seudonimizada.
-// El replay exige autorización fresca y coincidencia de la declaración;
-// devuelve las referencias y fecha originales, sin nuevos efectos de negocio.
+// El replay exige autorización fresca, mismo actor/perfil creador y
+// coincidencia de la declaración; devuelve las referencias y fecha originales,
+// sin nuevos efectos de negocio.
 // Un error no entrega un resultado utilizable ni acredita ausencia de commit.
 type RegistroRespuestasRecibidas interface {
 	RegistrarRespuestaRecibida(context.Context, SolicitudRegistrarRespuestaRecibida) (RespuestaRecibidaRegistrada, error)

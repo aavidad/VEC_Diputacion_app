@@ -11,7 +11,8 @@ RETURNS text LANGUAGE sql IMMUTABLE AS $funcion$
         'CorreoSHA256',p_huella,'RecibidaEn','2026-09-05T10:00:00Z')::text
 $funcion$;
 CREATE FUNCTION vec_contratacion_temporal.ct138_registrar_sintetico(
-    p_material text,p_version integer,p_denegar boolean DEFAULT false)
+    p_material text,p_version integer,p_denegar boolean DEFAULT false,
+    p_actor text DEFAULT 'actor:sintetico',p_perfil text DEFAULT 'perfil:sintetico')
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path=pg_catalog AS $funcion$
 DECLARE
     s jsonb; h text; d jsonb;
@@ -28,7 +29,7 @@ BEGIN
         'tipo_recurso','respuesta_recibida_llamamiento_contratacion_temporal',
         'finalidad','gestionar_contratacion_temporal',
         'recurso_ref','exp:ct138','contexto_recurso_huella_sha256',h,
-        'principal_id','actor:sintetico','perfil_activo_ref','perfil:sintetico');
+        'principal_id',p_actor,'perfil_activo_ref',p_perfil);
     IF p_version=1 THEN
         RETURN vec_contratacion_temporal.registrar_respuesta_recibida_rrhh_v1(
             p_material,decode('01','hex'),convert_to(d::text,'UTF8'),decode('02','hex'),
@@ -41,7 +42,7 @@ BEGIN
         decode('06','hex'),decode('07','hex'));
 END $funcion$;
 REVOKE ALL ON FUNCTION vec_contratacion_temporal.ct138_material_sintetico(text,text,text,text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION vec_contratacion_temporal.ct138_registrar_sintetico(text,integer,boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.ct138_registrar_sintetico(text,integer,boolean,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.ct138_material_sintetico(text,text,text,text) TO vec_contratacion_temporal_ejecutor;
-GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.ct138_registrar_sintetico(text,integer,boolean) TO vec_contratacion_temporal_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.ct138_registrar_sintetico(text,integer,boolean,text,text) TO vec_contratacion_temporal_ejecutor;
 RESET ROLE;

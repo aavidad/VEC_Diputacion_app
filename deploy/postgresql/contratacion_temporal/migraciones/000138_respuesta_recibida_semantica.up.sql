@@ -82,6 +82,10 @@ BEGIN
          WHERE r.organizacion_ref=s->>'OrganizacionRef'
            AND r.llamamiento_ref=s->>'LlamamientoRef'
            AND e.recibo_json->>'seleccion_ref'=v_seleccion_ref;
+        IF v_previa.actor_ref IS DISTINCT FROM d->>'principal_id'
+           OR v_previa.perfil_ref IS DISTINCT FROM d->>'perfil_activo_ref' THEN
+            RAISE EXCEPTION 'replay de respuesta denegado' USING ERRCODE='P0563';
+        END IF;
         IF v_previa.material_json-'ClaveIdempotencia' IS DISTINCT FROM s-'ClaveIdempotencia' THEN
             RAISE EXCEPTION 'contenido de respuesta divergente' USING ERRCODE='P0561';
         END IF;

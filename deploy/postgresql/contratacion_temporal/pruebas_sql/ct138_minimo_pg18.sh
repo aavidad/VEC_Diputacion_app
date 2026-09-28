@@ -44,6 +44,18 @@ psql_super -f "$ct/migraciones/000138_respuesta_recibida_semantica.up.sql" >/dev
 replay_legacy=$(consulta llamamiento:legado comunicacion:legada 99999999-9999-4999-8999-999999999999 a 2)
 nuevo=$(consulta llamamiento:nuevo comunicacion:nueva '' b 2)
 replay_nuevo=$(consulta llamamiento:nuevo comunicacion:nueva 88888888-8888-4888-8888-888888888888 b 2)
+rechazar_cruce_identidad() {
+  local llamamiento=$1 comunicacion=$2 clave=$3 huella=$4 actor=$5 perfil=$6
+  if psql_login -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT vec_contratacion_temporal.ct138_registrar_sintetico(vec_contratacion_temporal.ct138_material_sintetico('$llamamiento','$comunicacion','$clave',repeat('$huella',64)),2,false,'$actor','$perfil'); COMMIT;" >/tmp/vec-ct138-identidad-$$ 2>&1; then
+    echo 'CT138 reveló un recibo a otra identidad'; exit 1
+  fi
+  grep -q 'replay de respuesta denegado' /tmp/vec-ct138-identidad-$$
+  rm -f /tmp/vec-ct138-identidad-$$
+}
+rechazar_cruce_identidad llamamiento:legado comunicacion:legada '' a actor:ajeno perfil:sintetico
+rechazar_cruce_identidad llamamiento:legado comunicacion:legada '' a actor:sintetico perfil:ajeno
+rechazar_cruce_identidad llamamiento:nuevo comunicacion:nueva '' b actor:ajeno perfil:sintetico
+rechazar_cruce_identidad llamamiento:nuevo comunicacion:nueva '' b actor:sintetico perfil:ajeno
 python3 - "$legacy" "$replay_legacy" "$nuevo" "$replay_nuevo" <<'PY'
 import json,sys
 a,b,c,d=map(json.loads,sys.argv[1:])
@@ -93,4 +105,4 @@ if psql_login -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT vec_contratacion_te
 fi
 grep -q 'autorización de respuesta divergente' /tmp/vec-ct138-denegado-$$
 rm -f /tmp/vec-ct138-denegado-$$
-printf 'CT138 sintético PostgreSQL 18: CT56 intacta, ACL, replay, conflicto, concurrencia, reinicio y denegación OK\n'
+printf 'CT138 sintético PostgreSQL 18: CT56 intacta, ACL, replay, identidad, conflicto, concurrencia, reinicio y denegación OK\n'
