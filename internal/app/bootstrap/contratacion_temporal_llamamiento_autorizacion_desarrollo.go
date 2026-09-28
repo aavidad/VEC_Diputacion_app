@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"sort"
 	"time"
@@ -493,6 +494,9 @@ func (a *autorizadorLlamamientoDesarrollo) AutorizarOperacion(ctx context.Contex
 	}
 	operativo, err := a.alta.soporte.contextoOperativoDesarrollo(ctx)
 	if err != nil {
+		if (a.consultaReciboRespuesta || a.consultaComunicacionesExpediente) && errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+			return vacio, ports.ErrConsultaRRHHNoDisponible
+		}
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	return a.material.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion,
@@ -560,6 +564,9 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	}
 	operativo, err := s.contextoOperativoDesarrollo(ctx)
 	if err != nil {
+		if (a.consultaReciboRespuesta || a.consultaComunicacionesExpediente) && errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+			return fallo(ports.ErrConsultaRRHHNoDisponible)
+		}
 		return fallo(ports.ErrAutorizacionDenegada)
 	}
 	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{

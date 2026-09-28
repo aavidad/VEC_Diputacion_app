@@ -180,21 +180,25 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	return contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}, nil
 }
 
-// CT140 debe distinguir la falta de concesión de una dependencia de sesión
-// caída. Otras rutas conservan su clasificación histórica. Nunca expone el
-// error original, que podría contener identificadores o detalles de SQL.
+// Las dos lecturas de respuesta CT distinguen la falta de concesión de una
+// dependencia de sesión caída. Otras rutas conservan su clasificación histórica.
+// Nunca se expone el error original, que podría incluir detalles de SQL.
+func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaConsultaReciboRespuesta || ruta == httpinterno.RutaConsultaComunicacionesExpediente
+}
+
 func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {
 	if p == nil || p.soporte == nil {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	if ctx != nil && ctx.Err() != nil {
 		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		if existe && capacidad.sello == p.soporte.sello && capacidad.ruta == httpinterno.RutaConsultaComunicacionesExpediente {
+		if existe && capacidad.sello == p.soporte.sello && rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
 			return ctx.Err()
 		}
 	}
 	capacidad, valida := p.soporte.capacidadValida(ctx)
-	if !valida || capacidad.ruta != httpinterno.RutaConsultaComunicacionesExpediente {
+	if !valida || !rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	var falloRevalidador *diagnostico.FalloConsultaRRHH

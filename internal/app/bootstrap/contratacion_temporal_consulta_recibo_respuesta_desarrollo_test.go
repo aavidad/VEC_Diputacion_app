@@ -30,6 +30,15 @@ func (consultorReciboRespuestaDenegadoPrueba) Consultar(context.Context, ports.S
 	return ports.ReciboRespuestaConsultado{}, ports.ErrConsultaReciboRespuestaDenegada
 }
 
+type consultorReciboRespuestaSesionPrueba struct {
+	proveedor *proveedorConsultaReciboRespuestaDesarrollo
+}
+
+func (c consultorReciboRespuestaSesionPrueba) Consultar(ctx context.Context, s ports.SolicitudConsultaReciboRespuesta) (ports.ReciboRespuestaConsultado, error) {
+	_, err := c.proveedor.AutorizarConsultaReciboRespuesta(ctx, s)
+	return ports.ReciboRespuestaConsultado{}, err
+}
+
 func (a *auditorConsultaReciboPrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, orden puertosvec.OrdenAuditoriaFronteraRutaExacta) error {
 	a.ordenes = append(a.ordenes, orden)
 	return a.err
@@ -134,6 +143,52 @@ func TestConsultaReciboRespuestaMontajeDistingueDenegacionDeDependenciaCaida(t *
 		if !errors.Is(errorAutorizacionConsultaReciboRespuesta(errors.Join(dominiovec.ErrAutorizacionDenegada, causa)), ports.ErrConsultaReciboRespuestaFallo) {
 			t.Fatalf("dependencia %v presentada como 403", causa)
 		}
+	}
+}
+
+func TestConsultaReciboRespuestaMontajeRevalidadorRealDistingueCaidaDeRevocacion(t *testing.T) {
+	for _, caso := range []struct {
+		nombre     string
+		fallo      error
+		estado     int
+		auditorias int
+	}{
+		{"dependencia_caida", puertosvec.ErrRevalidacionAutenticacionActorNoDisponible, http.StatusServiceUnavailable, 0},
+		{"sesion_revocada", dominiovec.ErrAutenticacionRevalidadaInvalida, http.StatusForbidden, 1},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := nuevaSesionConsultaPrueba(t)
+			e.revalidador.err = caso.fallo
+			e.soporte.sesionOperativa = e.p
+			ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaConsultaReciboRespuesta)
+			capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+			capacidad.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
+			capacidad.certificadoValidoHasta = e.reloj.Ahora().Add(time.Minute)
+			ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+			autorizador := &autorizadorLlamamientoDesarrollo{
+				alta:     &dependenciasAltaContratacionTemporalDesarrollo{soporte: e.soporte},
+				material: &proveedorMaterialAltaContratacionTemporalDesarrollo{}, consultaReciboRespuesta: true,
+			}
+			proveedor := &proveedorConsultaReciboRespuestaDesarrollo{soporte: e.soporte, autorizador: autorizador, reloj: e.reloj}
+			manejador, err := httpinterno.NuevoManejadorConsultaReciboRespuesta(consultorReciboRespuestaSesionPrueba{proveedor})
+			if err != nil {
+				t.Fatal(err)
+			}
+			registro := &auditorConsultaReciboPrueba{}
+			ruta := httpinterno.RutaConsultaReciboRespuesta
+			h := auditorConsultaReciboRespuestaDenegada{registrador: registro, soporte: e.soporte, ruta: ruta, siguiente: manejador}
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest(http.MethodGet,
+				ruta+"?organizacion_ref="+organizacionAltaContratacionTemporalDesarrollo+
+					"&expediente_ref=expediente:sintetico:001&comunicacion_ref=comunicacion:sintetica:001", nil).WithContext(ctx))
+			if w.Code != caso.estado || len(registro.ordenes) != caso.auditorias {
+				t.Fatalf("fallo=%v: estado=%d auditorias=%d", caso.fallo, w.Code, len(registro.ordenes))
+			}
+			if caso.auditorias == 1 && (registro.ordenes[0].Motivo != puertosvec.MotivoAuditoriaFronteraRutaExactaAccesoDenegado ||
+				registro.ordenes[0].ActorRef != e.principal.ID || registro.ordenes[0].Validar() != nil) {
+				t.Fatalf("revocacion sin auditoria de denegacion: %#v", registro.ordenes)
+			}
+		})
 	}
 }
 

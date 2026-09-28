@@ -176,7 +176,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 	}
 	s.mu.Unlock()
 	if esperado.Validar() != nil || sesion == nil {
-		if capacidad.ruta == httpinterno.RutaConsultaComunicacionesExpediente {
+		if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
 			return vacio, ports.ErrConsultaRRHHNoDisponible
 		}
 		return vacio, ports.ErrAutorizacionDenegada
@@ -190,7 +190,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		if err == nil && comun.Vinculo.ValidarPara(comun.Resultado) == nil &&
 			mismoContextoEsperadoRegistradoDesarrollo(esperado, comun.Resultado) {
 			holder.contexto = ports.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
-		} else if err != nil && capacidad.ruta == httpinterno.RutaConsultaComunicacionesExpediente &&
+		} else if err != nil && rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) &&
 			(errors.Is(err, ports.ErrConsultaRRHHNoDisponible) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
 			holder.err = ports.ErrConsultaRRHHNoDisponible
 		} else {
@@ -198,7 +198,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		}
 	}
 	datos, err := holder.contexto.Vinculo.Datos()
-	if capacidad.ruta == httpinterno.RutaConsultaComunicacionesExpediente && errors.Is(holder.err, ports.ErrConsultaRRHHNoDisponible) {
+	if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) && errors.Is(holder.err, ports.ErrConsultaRRHHNoDisponible) {
 		return vacio, ports.ErrConsultaRRHHNoDisponible
 	}
 	if holder.soporte != s || holder.err != nil || err != nil ||

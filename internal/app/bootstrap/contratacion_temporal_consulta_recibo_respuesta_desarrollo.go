@@ -94,7 +94,7 @@ func (p *proveedorConsultaReciboRespuestaDesarrollo) AutorizarConsultaReciboResp
 
 func errorAutorizacionConsultaReciboRespuesta(err error) error {
 	for _, dependencia := range []error{
-		ports.ErrPersistenciaNoDisponible, puertosvec.ErrFuenteAutorizacionNoDisponible,
+		ports.ErrConsultaRRHHNoDisponible, ports.ErrPersistenciaNoDisponible, puertosvec.ErrFuenteAutorizacionNoDisponible,
 		puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
 		puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible,
 		dominiovec.ErrConfiguracionAccesoInvalida,
