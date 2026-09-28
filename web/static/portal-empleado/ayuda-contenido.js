@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -26,6 +26,34 @@ export const AYUDA_PORTAL_BOLSA = Object.freeze({
     }),
   ]),
   transcripcion: traducirPortal("ayuda_contenido_009"),
+});
+
+/** Ayuda del inicio RRHH, separada del recorrido de llamamiento de Bolsa. */
+export const AYUDA_PORTAL_RRHH = Object.freeze({
+  esquema: "vec.portal.ayuda.v1",
+  titulo: traducirPortal("ayuda_rrhh_portada_titulo"),
+  introduccion: traducirPortal("ayuda_rrhh_portada_introduccion"),
+  pasos: Object.freeze([
+    traducirPortal("ayuda_rrhh_portada_paso_expedientes"),
+    traducirPortal("ayuda_rrhh_portada_paso_nueva"),
+    traducirPortal("ayuda_rrhh_portada_paso_bolsas"),
+    traducirPortal("ayuda_rrhh_portada_paso_sae"),
+  ]),
+  preguntas: Object.freeze([
+    Object.freeze({
+      pregunta: traducirPortal("ayuda_rrhh_portada_pregunta_acceso"),
+      respuesta: traducirPortal("ayuda_rrhh_portada_respuesta_acceso"),
+    }),
+    Object.freeze({
+      pregunta: traducirPortal("ayuda_rrhh_portada_pregunta_error"),
+      respuesta: traducirPortal("ayuda_rrhh_portada_respuesta_error"),
+    }),
+    Object.freeze({
+      pregunta: traducirPortal("ayuda_rrhh_portada_pregunta_efectos"),
+      respuesta: traducirPortal("ayuda_rrhh_portada_respuesta_efectos"),
+    }),
+  ]),
+  transcripcion: traducirPortal("ayuda_rrhh_portada_transcripcion"),
 });
 
 /**

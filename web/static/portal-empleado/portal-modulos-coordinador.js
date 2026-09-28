@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260928-ppt-c3-v3";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-ppt-c3-v3";
+} from "./portal-catalogo-modulos.js?v=20260928-ppt-503-v4";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v4";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-ppt-503-v4";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-ppt-c3-v3";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-ppt-503-v4";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -97,10 +97,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-ppt-c3-v3"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-ppt-503-v4"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
-      import("./modulos/auditoria/vista.js?v=20260928-ppt-c3-v3"),
-      import("./modulos/auditoria/cliente-http.js?v=20260928-ppt-c3-v3"),
+      import("./modulos/auditoria/vista.js?v=20260928-ppt-503-v4"),
+      import("./modulos/auditoria/cliente-http.js?v=20260928-ppt-503-v4"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
   },
@@ -134,7 +134,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260928-ppt-c3-v3"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260928-ppt-503-v4"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
@@ -864,7 +864,7 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === VISTA_PLANTILLAS_RRHH) {
-      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-ppt-c3-v3");
+      const { montarRRHHPlantillas } = await import("./modulos/contratacion-temporal/rrhh-plantillas-vista.js?v=20260928-ppt-503-v4");
       if (montaje !== secuenciaMontaje) return false;
       const modulo = montarRRHHPlantillas({ raiz, anunciar });
       if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
