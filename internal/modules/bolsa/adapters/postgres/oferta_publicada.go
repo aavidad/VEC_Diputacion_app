@@ -36,7 +36,7 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Publicar(ctx context.Context, c
 	m := c.Material
 	var salida []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v2($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21)`,
+	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.publicar_oferta_v3($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19,$20,$21)`,
 		c.OfertaRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, datos, plazo, c.PublicadaEn, c.VenceAntesDe,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
 		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef).Scan(&salida, &reutilizada)
@@ -57,8 +57,25 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Resolver(ctx context.Context, c
 	m := c.Material
 	var salida []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.resolver_oferta_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12::numeric,$13,$14,$15,$16)`,
-		c.OfertaRef, c.ReciboRef, c.BolsaRef, participacion, c.ActorRef, c.ClaveIdempotencia,
+	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.resolver_oferta_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14,$15,$16,$17,$18,$19)`,
+		c.OfertaRef, c.ReciboRef, c.BolsaRef, participacion, c.ActorRef, c.ClaveIdempotencia, c.NumeroDePlaza,
+		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
+		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(), c.UnidadRef, c.AmbitoRef).Scan(&salida, &reutilizada)
+	if err != nil {
+		return ports.OfertaPublicada{}, errorOferta(err)
+	}
+	return decodificarOferta(salida, reutilizada)
+}
+
+func (r *RepositorioOfertasPublicadasPostgreSQL) ConfirmarAdjudicacion(ctx context.Context, c ports.ComandoConfirmarAdjudicacionOferta) (ports.OfertaPublicada, error) {
+	if r == nil || r.pool == nil || ctx == nil || c.Material.ValidarEstructura() != nil || c.NumeroDePlaza < 1 || c.NumeroDePlaza > 100 {
+		return ports.OfertaPublicada{}, ports.ErrOfertaNoDisponible
+	}
+	m := c.Material
+	var salida []byte
+	var reutilizada bool
+	err := r.pool.QueryRow(ctx, `SELECT oferta,reutilizada FROM vec_bolsa_llamamientos.confirmar_adjudicacion_oferta_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12::numeric,$13,$14,$15,$16)`,
+		c.OfertaRef, c.BolsaRef, c.NumeroDePlaza, c.PreparacionRef, c.ActorRef, c.ClaveIdempotencia,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(),
 		m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salida, &reutilizada)
 	if err != nil {
@@ -72,7 +89,7 @@ func (r *RepositorioOfertasPublicadasPostgreSQL) Listar(ctx context.Context, bol
 		return nil, ports.ErrOfertaNoDisponible
 	}
 	var salida []byte
-	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.listar_ofertas_bolsa_v1($1,$2,$3)`, bolsa, corte, limite).Scan(&salida); err != nil {
+	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.listar_ofertas_bolsa_v2($1,$2,$3)`, bolsa, corte, limite).Scan(&salida); err != nil {
 		return nil, errorOferta(err)
 	}
 	return decodificarListaOfertas(salida)

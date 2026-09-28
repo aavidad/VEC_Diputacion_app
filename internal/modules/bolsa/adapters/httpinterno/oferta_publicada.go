@@ -20,7 +20,8 @@ const (
 	RutaOfertasPublicadas = "/api/vec/bolsa/ofertas"
 	// RutaResolucionesOferta: POST confirma la propuesta de adjudicación o el
 	// paso a llamamiento directo de una oferta vencida.
-	RutaResolucionesOferta = "/api/vec/bolsa/ofertas/resoluciones"
+	RutaResolucionesOferta          = "/api/vec/bolsa/ofertas/resoluciones"
+	RutaConfirmarAdjudicacionOferta = "/api/vec/bolsa/ofertas/adjudicaciones/confirmacion"
 
 	maximoCuerpoOferta     = 16384
 	limiteOfertasOmision   = 20
@@ -35,6 +36,20 @@ type EntradaPublicarOferta struct {
 
 type EntradaResolverOferta struct {
 	BolsaRef, OfertaRef, ParticipacionRef, ClaveIdempotencia string
+	NumeroDePlaza                                            int
+}
+
+type EntradaConfirmarAdjudicacionOferta struct {
+	BolsaRef, OfertaRef, PreparacionRef, ClaveIdempotencia string
+	NumeroDePlaza                                          int
+}
+
+type PreparadorConfirmacionAdjudicacionOferta interface {
+	PrepararSolicitudConfirmarAdjudicacionOferta(context.Context, EntradaConfirmarAdjudicacionOferta) (ports.SolicitudConfirmarAdjudicacionOferta, error)
+}
+
+type OperadorConfirmacionAdjudicacionOferta interface {
+	ConfirmarAdjudicacionOferta(context.Context, ports.SolicitudConfirmarAdjudicacionOferta) (ports.OfertaPublicada, error)
 }
 
 // PreparadorOfertasPublicadas liga la entrada mínima a la sesión revalidada;
@@ -75,10 +90,15 @@ func (h *HandlerOfertasPublicadas) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		h.publicar(w, r)
 	case r.URL.Path == RutaResolucionesOferta && r.Method == http.MethodPost:
 		h.resolver(w, r)
+	case r.URL.Path == RutaConfirmarAdjudicacionOferta && r.Method == http.MethodPost:
+		h.confirmarAdjudicacion(w, r)
 	case r.URL.Path == RutaOfertasPublicadas:
 		w.Header().Set("Allow", "GET, POST")
 		responderOferta(w, http.StatusMethodNotAllowed, "metodo_no_permitido", nil)
 	case r.URL.Path == RutaResolucionesOferta:
+		w.Header().Set("Allow", "POST")
+		responderOferta(w, http.StatusMethodNotAllowed, "metodo_no_permitido", nil)
+	case r.URL.Path == RutaConfirmarAdjudicacionOferta:
 		w.Header().Set("Allow", "POST")
 		responderOferta(w, http.StatusMethodNotAllowed, "metodo_no_permitido", nil)
 	default:
@@ -158,12 +178,20 @@ func (h *HandlerOfertasPublicadas) resolver(w http.ResponseWriter, r *http.Reque
 		BolsaRef         string  `json:"bolsa_ref"`
 		OfertaRef        string  `json:"oferta_ref"`
 		ParticipacionRef *string `json:"participacion_ref"`
+		NumeroDePlaza    int     `json:"numero_de_plaza"`
 	}
 	if !decodificarCuerpoOferta(r, &cuerpo) {
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
 	participacion := ""
+	if cuerpo.NumeroDePlaza == 0 {
+		cuerpo.NumeroDePlaza = 1
+	}
+	if cuerpo.NumeroDePlaza < 1 || cuerpo.NumeroDePlaza > 100 {
+		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
+		return
+	}
 	if cuerpo.ParticipacionRef != nil {
 		if *cuerpo.ParticipacionRef == "" {
 			responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
@@ -171,12 +199,54 @@ func (h *HandlerOfertasPublicadas) resolver(w http.ResponseWriter, r *http.Reque
 		}
 		participacion = *cuerpo.ParticipacionRef
 	}
-	q, err := h.preparador.PrepararSolicitudResolverOferta(r.Context(), EntradaResolverOferta{BolsaRef: cuerpo.BolsaRef, OfertaRef: cuerpo.OfertaRef, ParticipacionRef: participacion, ClaveIdempotencia: clave})
+	q, err := h.preparador.PrepararSolicitudResolverOferta(r.Context(), EntradaResolverOferta{BolsaRef: cuerpo.BolsaRef, OfertaRef: cuerpo.OfertaRef, ParticipacionRef: participacion, NumeroDePlaza: cuerpo.NumeroDePlaza, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOferta(w, err)
 		return
 	}
 	oferta, err := h.operador.ResolverOferta(r.Context(), q)
+	if err != nil {
+		responderErrorOferta(w, err)
+		return
+	}
+	responderOferta(w, estadoEscrituraOferta(oferta), "", oferta)
+}
+
+func (h *HandlerOfertasPublicadas) confirmarAdjudicacion(w http.ResponseWriter, r *http.Request) {
+	clave, ok := cabecerasEscrituraOferta(r)
+	if !ok {
+		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
+		return
+	}
+	preparador, ok := h.preparador.(PreparadorConfirmacionAdjudicacionOferta)
+	if !ok {
+		responderOferta(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+		return
+	}
+	operador, ok := h.operador.(OperadorConfirmacionAdjudicacionOferta)
+	if !ok {
+		responderOferta(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+		return
+	}
+	var cuerpo struct {
+		BolsaRef       string `json:"bolsa_ref"`
+		OfertaRef      string `json:"oferta_ref"`
+		NumeroDePlaza  int    `json:"numero_de_plaza"`
+		PreparacionRef string `json:"preparacion_ref"`
+	}
+	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroDePlaza < 1 || cuerpo.NumeroDePlaza > 100 ||
+		cuerpo.BolsaRef == "" || cuerpo.OfertaRef == "" || cuerpo.PreparacionRef == "" {
+		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
+		return
+	}
+	q, err := preparador.PrepararSolicitudConfirmarAdjudicacionOferta(r.Context(), EntradaConfirmarAdjudicacionOferta{
+		BolsaRef: cuerpo.BolsaRef, OfertaRef: cuerpo.OfertaRef, NumeroDePlaza: cuerpo.NumeroDePlaza,
+		PreparacionRef: cuerpo.PreparacionRef, ClaveIdempotencia: clave})
+	if err != nil {
+		responderErrorOferta(w, err)
+		return
+	}
+	oferta, err := operador.ConfirmarAdjudicacionOferta(r.Context(), q)
 	if err != nil {
 		responderErrorOferta(w, err)
 		return

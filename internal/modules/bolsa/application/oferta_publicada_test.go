@@ -10,8 +10,36 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/pruebas"
 )
+
+type autorizadorConfirmacionOfertaPrueba struct {
+	base  *autorizadorBorradorPrueba
+	datos dominiovec.DatosSolicitudAutorizacionLigadaV3
+}
+
+func (a *autorizadorConfirmacionOfertaPrueba) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	a.datos, _ = solicitud.Datos()
+	decision, confirmacion, exportador, err := a.base.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+	if err != nil {
+		return decision, confirmacion, nil, err
+	}
+	m, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil {
+		return decision, confirmacion, nil, err
+	}
+	r := m.ResumenCapacidad()
+	resumen, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3(r.DecisionRef(), r.DecisionHuellaSHA256(), r.MotivoHuellaSHA256(), r.ContextoRef(), r.ContextoHuellaSHA256(), r.Operacion(), r.EfectoRef(), r.EfectoHuellaSHA256(), puertosbolsa.AudienciaConfirmarAdjudicacionOferta, r.EmitidaEn(), r.ExpiraEn())
+	if err != nil {
+		return decision, confirmacion, nil, err
+	}
+	nuevo, err := puertosvec.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(m.CapacidadCanonica(), resumen, m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	if err != nil {
+		return decision, confirmacion, nil, err
+	}
+	return decision, confirmacion, exportadorBorradorPrueba{material: nuevo}, nil
+}
 
 type plazoOfertaPrueba struct {
 	err     error
@@ -27,11 +55,12 @@ func (p *plazoOfertaPrueba) PlazoDisposicion(_ context.Context, desde time.Time)
 }
 
 type repositorioOfertasPrueba struct {
-	publicado *puertosbolsa.ComandoPublicarOferta
-	resuelto  *puertosbolsa.ComandoResolverOferta
-	devolver  *puertosbolsa.OfertaPublicada
-	err       error
-	listadas  int
+	publicado  *puertosbolsa.ComandoPublicarOferta
+	resuelto   *puertosbolsa.ComandoResolverOferta
+	confirmado *puertosbolsa.ComandoConfirmarAdjudicacionOferta
+	devolver   *puertosbolsa.OfertaPublicada
+	err        error
+	listadas   int
 }
 
 func (r *repositorioOfertasPrueba) Publicar(_ context.Context, c puertosbolsa.ComandoPublicarOferta) (puertosbolsa.OfertaPublicada, error) {
@@ -53,6 +82,15 @@ func (r *repositorioOfertasPrueba) Resolver(_ context.Context, c puertosbolsa.Co
 	return puertosbolsa.OfertaPublicada{OfertaRef: c.OfertaRef, BolsaRef: c.BolsaRef, Estado: dominiobolsa.EstadoOfertaAdjudicada}, nil
 }
 
+func (r *repositorioOfertasPrueba) ConfirmarAdjudicacion(_ context.Context, c puertosbolsa.ComandoConfirmarAdjudicacionOferta) (puertosbolsa.OfertaPublicada, error) {
+	r.confirmado = &c
+	if r.err != nil {
+		return puertosbolsa.OfertaPublicada{}, r.err
+	}
+	return puertosbolsa.OfertaPublicada{OfertaRef: c.OfertaRef, BolsaRef: c.BolsaRef, Estado: dominiobolsa.EstadoOfertaAdjudicada,
+		Adjudicaciones: []puertosbolsa.AdjudicacionOferta{{NumeroDePlaza: c.NumeroDePlaza, ReciboRef: "recibo:adjudicacion:prueba"}}}, nil
+}
+
 func (r *repositorioOfertasPrueba) Listar(context.Context, string, time.Time, int) ([]puertosbolsa.OfertaPublicada, error) {
 	r.listadas++
 	return []puertosbolsa.OfertaPublicada{}, r.err
@@ -60,6 +98,81 @@ func (r *repositorioOfertasPrueba) Listar(context.Context, string, time.Time, in
 
 func datosOfertaPrueba() dominiobolsa.DatosOferta {
 	return dominiobolsa.DatosOferta{Categoria: "Auxiliar administrativo", Centro: "Residencia Sierra", FechaInicio: "2026-10-01", FechaFin: "2026-12-31", Descripcion: "Sustitución por baja"}
+}
+
+func TestResolucionOfertaSeparaRecibosPorPlaza(t *testing.T) {
+	uno := huellaResolucionOferta("oferta:prueba", 1, "clave-repetida")
+	dos := huellaResolucionOferta("oferta:prueba", 2, "clave-repetida")
+	if uno == dos || len(uno) != 64 || uno != huellaResolucionOferta("oferta:prueba", 1, "clave-repetida") {
+		t.Fatal("una misma clave cruzó plazas o perdió estabilidad")
+	}
+}
+
+func TestPublicarOfertaLigaNumeroDePlazasAlMaterialAutorizado(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	p := puertosbolsa.PlazoOferta{ReglaRef: "politica-ofertas:bolsa:of:1", HuellaCatalogo: strings.Repeat("a", 64),
+		Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087",
+		UltimoDia: "2026-09-27", PoliticaVersion: 1, Calendarios: []string{"calendario:utc-continuo:v1"},
+		AperturaEn: ahora.Format(formatoInstanteMaterialOferta), VenceEn: ahora.Add(48 * time.Hour).Format(formatoInstanteMaterialOferta)}
+	uno := huellaMaterialPlazoOferta("bolsa:of", ahora, ahora.Add(48*time.Hour), p, 1)
+	cien := huellaMaterialPlazoOferta("bolsa:of", ahora, ahora.Add(48*time.Hour), p, 100)
+	if uno == cien || uno == huellaMaterialPlazoOferta("bolsa:of", ahora, ahora.Add(48*time.Hour), p) {
+		t.Fatal("numero de plazas no cambió el material V3")
+	}
+}
+
+func TestConfirmacionOfertaRechazaPreparacionAusenteAntesDeAutorizar(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	base := solicitudPublicarOfertaPrueba(t, ahora)
+	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
+	servicio, _ := NuevoServicioOfertasPublicadas(contextoContactoPrueba{}, autorizador, &repositorioOfertasPrueba{}, &plazoOfertaPrueba{}, func() time.Time { return ahora })
+	_, err := servicio.ConfirmarAdjudicacionOferta(context.Background(), puertosbolsa.SolicitudConfirmarAdjudicacionOferta{
+		Vinculo: base.Vinculo, ResultadoContexto: base.ResultadoContexto, BolsaRef: base.BolsaRef,
+		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroDePlaza: 1, ClaveIdempotencia: "clave-confirmar-1",
+		Correlacion: base.Correlacion, MotivoAutorizacion: base.MotivoAutorizacion})
+	if !errors.Is(err, puertosbolsa.ErrOfertaInvalida) || autorizador.llamadas != 0 {
+		t.Fatalf("confirmación sin preparación alcanzó autoridad: %v llamadas=%d", err, autorizador.llamadas)
+	}
+}
+
+func TestConfirmacionOfertaExigeCertificadoAntesDeAutorizar(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	resultado, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora, "per_0123456789abcdefghijkl", "prf_0123456789abcdefghijkl", dominiovec.AuthMethodSSO, dominiovec.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := solicitudPublicarOfertaPrueba(t, ahora)
+	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
+	servicio, _ := NuevoServicioOfertasPublicadas(contextoContactoPrueba{}, autorizador, &repositorioOfertasPrueba{}, &plazoOfertaPrueba{}, func() time.Time { return ahora })
+	_, err = servicio.ConfirmarAdjudicacionOferta(context.Background(), puertosbolsa.SolicitudConfirmarAdjudicacionOferta{
+		Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: base.BolsaRef,
+		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroDePlaza: 1,
+		PreparacionRef: "recibo:preparacion-oferta:" + strings.Repeat("b", 64), ClaveIdempotencia: "clave-confirmar-1",
+		Correlacion: base.Correlacion, MotivoAutorizacion: base.MotivoAutorizacion})
+	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || autorizador.llamadas != 0 {
+		t.Fatalf("autenticación no certificada llegó al PDP: %v llamadas=%d", err, autorizador.llamadas)
+	}
+}
+
+func TestConfirmacionOfertaAutorizaPreparacionNominal(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	base := solicitudPublicarOfertaPrueba(t, ahora)
+	a := &autorizadorConfirmacionOfertaPrueba{base: &autorizadorBorradorPrueba{t: t, instante: ahora}}
+	repo := &repositorioOfertasPrueba{}
+	servicio, _ := NuevoServicioOfertasPublicadas(contextoContactoPrueba{}, a, repo, &plazoOfertaPrueba{}, func() time.Time { return ahora })
+	preparacion := "recibo:preparacion-oferta:" + strings.Repeat("b", 64)
+	o, err := servicio.ConfirmarAdjudicacionOferta(context.Background(), puertosbolsa.SolicitudConfirmarAdjudicacionOferta{
+		Vinculo: base.Vinculo, ResultadoContexto: base.ResultadoContexto, BolsaRef: base.BolsaRef,
+		OfertaRef: "oferta:" + strings.Repeat("a", 64), NumeroDePlaza: 1, PreparacionRef: preparacion,
+		ClaveIdempotencia: "clave-confirmar-1", Correlacion: base.Correlacion, MotivoAutorizacion: base.MotivoAutorizacion})
+	if err != nil || o.Adjudicaciones[0].NumeroDePlaza != 1 || repo.confirmado == nil ||
+		a.datos.Accion != puertosbolsa.AccionConfirmarAdjudicacionOferta || a.datos.Finalidad != puertosbolsa.FinalidadConfirmarAdjudicacionOferta ||
+		a.datos.Recurso.Referencia != preparacion || a.datos.Recurso.Tipo != "preparacion_adjudicacion_oferta" ||
+		a.datos.Recurso.Ambitos["unidad_ref"] != "unidad:rrhh" || a.datos.Recurso.Ambitos["ambito_ref"] != "ambito:bolsa" ||
+		a.datos.Recurso.Atributos["numero_de_plaza"] != "1" ||
+		repo.confirmado.Material.ResumenCapacidad().AudienciaConsumo() != puertosbolsa.AudienciaConfirmarAdjudicacionOferta {
+		t.Fatalf("confirmación no quedó ligada al permiso nominal: %v %+v", err, a.datos)
+	}
 }
 
 func solicitudPublicarOfertaPrueba(t *testing.T, ahora time.Time) puertosbolsa.SolicitudPublicarOferta {
@@ -151,7 +264,7 @@ func TestResolverOfertaPasaLaPropuestaYElReciboDeterminista(t *testing.T) {
 	if _, err := servicio.ResolverOferta(context.Background(), q); err != nil || repo.resuelto == nil {
 		t.Fatalf("err=%v", err)
 	}
-	if repo.resuelto.ParticipacionRef != "participacion:3" || !strings.HasPrefix(repo.resuelto.ReciboRef, "recibo:resolucion-oferta:") || repo.resuelto.Material.ValidarEstructura() != nil {
+	if repo.resuelto.ParticipacionRef != "participacion:3" || !strings.HasPrefix(repo.resuelto.ReciboRef, "recibo:resolucion-oferta:") || repo.resuelto.Material.ValidarEstructura() != nil || repo.resuelto.UnidadRef != "unidad:rrhh" || repo.resuelto.AmbitoRef != "ambito:bolsa" {
 		t.Fatalf("comando=%+v", repo.resuelto)
 	}
 	q.OfertaRef = "llamamiento:x"

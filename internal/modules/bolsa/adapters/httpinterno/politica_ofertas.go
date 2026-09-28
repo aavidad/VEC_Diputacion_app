@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
@@ -118,7 +119,7 @@ func (h *HandlerPoliticaOfertas) publicar(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if c.BolsaRef != cuerpo.BolsaRef || c.VersionEsperada != *cuerpo.VersionEsperada ||
-		c.ClaveIdempotencia != cuerpo.ClaveIdempotencia || c.Politica != cuerpo.Politica {
+		c.ClaveIdempotencia != cuerpo.ClaveIdempotencia || !reflect.DeepEqual(c.Politica, cuerpo.Politica) {
 		responderOferta(w, http.StatusForbidden, "acceso_denegado", nil)
 		return
 	}

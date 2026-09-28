@@ -15,6 +15,7 @@ import (
 type preparadorOfertasPrueba struct {
 	publicar  *EntradaPublicarOferta
 	resolver  *EntradaResolverOferta
+	confirmar *EntradaConfirmarAdjudicacionOferta
 	consultar string
 	limite    int
 }
@@ -25,7 +26,11 @@ func (p *preparadorOfertasPrueba) PrepararSolicitudPublicarOferta(_ context.Cont
 }
 func (p *preparadorOfertasPrueba) PrepararSolicitudResolverOferta(_ context.Context, e EntradaResolverOferta) (ports.SolicitudResolverOferta, error) {
 	p.resolver = &e
-	return ports.SolicitudResolverOferta{BolsaRef: e.BolsaRef, OfertaRef: e.OfertaRef, ParticipacionRef: e.ParticipacionRef}, nil
+	return ports.SolicitudResolverOferta{BolsaRef: e.BolsaRef, OfertaRef: e.OfertaRef, ParticipacionRef: e.ParticipacionRef, NumeroDePlaza: e.NumeroDePlaza}, nil
+}
+func (p *preparadorOfertasPrueba) PrepararSolicitudConfirmarAdjudicacionOferta(_ context.Context, e EntradaConfirmarAdjudicacionOferta) (ports.SolicitudConfirmarAdjudicacionOferta, error) {
+	p.confirmar = &e
+	return ports.SolicitudConfirmarAdjudicacionOferta{BolsaRef: e.BolsaRef, OfertaRef: e.OfertaRef, NumeroDePlaza: e.NumeroDePlaza, PreparacionRef: e.PreparacionRef}, nil
 }
 func (p *preparadorOfertasPrueba) PrepararSolicitudConsultarOfertas(_ context.Context, bolsa string, limite int) (ports.SolicitudConsultarOfertas, error) {
 	p.consultar, p.limite = bolsa, limite
@@ -42,6 +47,9 @@ func (o operadorOfertasPrueba) PublicarOferta(_ context.Context, q ports.Solicit
 }
 func (o operadorOfertasPrueba) ResolverOferta(_ context.Context, q ports.SolicitudResolverOferta) (ports.OfertaPublicada, error) {
 	return ports.OfertaPublicada{OfertaRef: q.OfertaRef, Estado: "adjudicada", Reutilizada: o.reutilizada}, o.err
+}
+func (o operadorOfertasPrueba) ConfirmarAdjudicacionOferta(_ context.Context, q ports.SolicitudConfirmarAdjudicacionOferta) (ports.OfertaPublicada, error) {
+	return ports.OfertaPublicada{OfertaRef: q.OfertaRef, BolsaRef: q.BolsaRef, Estado: "adjudicada", Reutilizada: o.reutilizada}, o.err
 }
 func (o operadorOfertasPrueba) ConsultarOfertas(context.Context, ports.SolicitudConsultarOfertas) ([]ports.OfertaPublicada, error) {
 	return []ports.OfertaPublicada{}, o.err
@@ -91,6 +99,7 @@ func TestHandlerOfertasRechazaEntradasSinLlegarAlPreparador(t *testing.T) {
 		"campo ajeno":        peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"b","actor":"x","datos":{}}`, "clave-oferta-1"),
 		"dos documentos":     peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba+cuerpoOfertaPrueba, "clave-oferta-1"),
 		"participación ''":   peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","participacion_ref":""}`, "clave-resol-1"),
+		"plaza cero":         peticionOferta(http.MethodPost, RutaConfirmarAdjudicacionOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":0,"preparacion_ref":"recibo:preparacion-oferta:1"}`, "clave-confirmar-1"),
 		"consulta sin bolsa": peticionOferta(http.MethodGet, RutaOfertasPublicadas, "", ""),
 		"parámetro ajeno":    peticionOferta(http.MethodGet, RutaOfertasPublicadas+"?bolsa_ref=b&actor=x", "", ""),
 		"límite excesivo":    peticionOferta(http.MethodGet, RutaOfertasPublicadas+"?bolsa_ref=b&limite=101", "", ""),
@@ -103,6 +112,17 @@ func TestHandlerOfertasRechazaEntradasSinLlegarAlPreparador(t *testing.T) {
 		if w.Code != http.StatusBadRequest || p.publicar != nil || p.resolver != nil || p.consultar != "" {
 			t.Errorf("%s: estado=%d", nombre, w.Code)
 		}
+	}
+}
+
+func TestHandlerOfertasConfirmaPorPreparacionYPlaza(t *testing.T) {
+	p := &preparadorOfertasPrueba{}
+	h, _ := NuevoHandlerOfertasPublicadas(p, operadorOfertasPrueba{})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaConfirmarAdjudicacionOferta,
+		`{"bolsa_ref":"bolsa:1","oferta_ref":"oferta:1","numero_de_plaza":2,"preparacion_ref":"recibo:preparacion-oferta:abc"}`, "clave-confirmar-1"))
+	if w.Code != http.StatusCreated || p.confirmar == nil || p.confirmar.NumeroDePlaza != 2 || p.confirmar.PreparacionRef != "recibo:preparacion-oferta:abc" {
+		t.Fatalf("confirmación no ligada a la preparación: %d %s", w.Code, w.Body.String())
 	}
 }
 

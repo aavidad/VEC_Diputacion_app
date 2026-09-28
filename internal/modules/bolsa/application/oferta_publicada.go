@@ -62,7 +62,7 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
 	}
 	vence = vence.UTC().Truncate(time.Microsecond)
-	materialHash := huellaMaterialPlazoOferta(q.BolsaRef, ahora, vence, plazo)
+	materialHash := huellaMaterialPlazoOferta(q.BolsaRef, ahora, vence, plazo, q.Datos.NumeroPlazasEfectivas())
 	emision, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion, materialHash)
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err
@@ -86,9 +86,13 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 // ResolverOferta confirma la propuesta que el almacén recalcula en ese mismo
 // instante; si difiere de la que RRHH vio, el almacén la rechaza.
 func (s *ServicioOfertasPublicadas) ResolverOferta(ctx context.Context, q puertosbolsa.SolicitudResolverOferta) (puertosbolsa.OfertaPublicada, error) {
+	numeroDePlaza := q.NumeroDePlaza
+	if numeroDePlaza == 0 {
+		numeroDePlaza = 1
+	}
 	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil ||
 		!referenciaOfertaValida(q.BolsaRef) || !strings.HasPrefix(q.OfertaRef, "oferta:") || !referenciaOfertaValida(q.OfertaRef) ||
-		(q.ParticipacionRef != "" && !referenciaOfertaValida(q.ParticipacionRef)) || !claveOfertaValida(q.ClaveIdempotencia) ||
+		(q.ParticipacionRef != "" && !referenciaOfertaValida(q.ParticipacionRef)) || numeroDePlaza < 1 || numeroDePlaza > 100 || !claveOfertaValida(q.ClaveIdempotencia) ||
 		q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
@@ -97,10 +101,63 @@ func (s *ServicioOfertasPublicadas) ResolverOferta(ctx context.Context, q puerto
 		return puertosbolsa.OfertaPublicada{}, err
 	}
 	return s.repositorio.Resolver(ctx, puertosbolsa.ComandoResolverOferta{
-		OfertaRef: q.OfertaRef, ReciboRef: "recibo:resolucion-oferta:" + huellaOferta(q.OfertaRef, q.ClaveIdempotencia),
+		OfertaRef: q.OfertaRef, ReciboRef: "recibo:resolucion-oferta:" + huellaResolucionOferta(q.OfertaRef, numeroDePlaza, q.ClaveIdempotencia),
 		BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef, ActorRef: emision.ActorRef,
-		ClaveIdempotencia: q.ClaveIdempotencia, Material: emision.Material,
+		ClaveIdempotencia: q.ClaveIdempotencia, NumeroDePlaza: numeroDePlaza, UnidadRef: emision.UnidadRef, AmbitoRef: emision.AmbitoRef, Material: emision.Material,
 	})
+}
+
+// ConfirmarAdjudicacionOferta consume una autorización distinta, ligada a la
+// preparación exacta. SQL verifica actor distinto, plaza, orden y replay.
+func (s *ServicioOfertasPublicadas) ConfirmarAdjudicacionOferta(ctx context.Context, q puertosbolsa.SolicitudConfirmarAdjudicacionOferta) (puertosbolsa.OfertaPublicada, error) {
+	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil ||
+		!referenciaOfertaValida(q.BolsaRef) || !strings.HasPrefix(q.OfertaRef, "oferta:") || !referenciaOfertaValida(q.OfertaRef) ||
+		!strings.HasPrefix(q.PreparacionRef, "recibo:preparacion-oferta:") || !referenciaOfertaValida(q.PreparacionRef) ||
+		q.NumeroDePlaza < 1 || q.NumeroDePlaza > 100 || !claveOfertaValida(q.ClaveIdempotencia) ||
+		q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
+	}
+	confirmador, ok := s.repositorio.(puertosbolsa.RepositorioConfirmacionAdjudicacionOferta)
+	if !ok {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
+	}
+	actor := q.ResultadoContexto.Contexto
+	if (actor.Principal.AuthMethod != dominiovec.AuthMethodCertificate && actor.Principal.AuthMethod != dominiovec.AuthMethodDNIe) || actor.Principal.AuthAssurance != dominiovec.AuthAssuranceHigh {
+		return puertosbolsa.OfertaPublicada{}, dominiovec.ErrAutorizacionDenegada
+	}
+	resuelto, err := s.contextoBolsa.ResolverContextoContactosBolsa(ctx, actor, q.BolsaRef)
+	if err != nil || resuelto.Validar() != nil {
+		return puertosbolsa.OfertaPublicada{}, errorDependenciaOferta(err)
+	}
+	recurso := dominiovec.RecursoAutorizable{Referencia: q.PreparacionRef, ModuloID: "bolsa", Tipo: "preparacion_adjudicacion_oferta",
+		Ambitos:   map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef},
+		Atributos: map[string]string{"bolsa_ref": q.BolsaRef, "oferta_ref": q.OfertaRef, "numero_de_plaza": fmt.Sprint(q.NumeroDePlaza)}}
+	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion,
+		Accion: puertosbolsa.AccionConfirmarAdjudicacionOferta, Recurso: recurso,
+		Finalidad: puertosbolsa.FinalidadConfirmarAdjudicacionOferta, Correlacion: q.Correlacion})
+	if err != nil {
+		return puertosbolsa.OfertaPublicada{}, dominiovec.ErrAutorizacionDenegada
+	}
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, q.ResultadoContexto)
+	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		return puertosbolsa.OfertaPublicada{}, errorDependenciaOferta(err)
+	}
+	material, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, q.ResultadoContexto, q.MotivoAutorizacion, material, puertosbolsa.AudienciaConfirmarAdjudicacionOferta) {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
+	}
+	oferta, err := confirmador.ConfirmarAdjudicacion(ctx, puertosbolsa.ComandoConfirmarAdjudicacionOferta{
+		OfertaRef: q.OfertaRef, BolsaRef: q.BolsaRef, PreparacionRef: q.PreparacionRef, NumeroDePlaza: q.NumeroDePlaza,
+		ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Material: material})
+	if err != nil {
+		return puertosbolsa.OfertaPublicada{}, err
+	}
+	if oferta.OfertaRef != q.OfertaRef || oferta.BolsaRef != q.BolsaRef || len(oferta.Adjudicaciones) < q.NumeroDePlaza ||
+		oferta.Adjudicaciones[q.NumeroDePlaza-1].NumeroDePlaza != q.NumeroDePlaza || oferta.Adjudicaciones[q.NumeroDePlaza-1].ReciboRef == "" {
+		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
+	}
+	return oferta, nil
 }
 
 // ConsultarOfertas devuelve las ofertas de una bolsa admitida para la sesión
@@ -148,15 +205,18 @@ func (s *ServicioOfertasPublicadas) materialEmision(ctx context.Context, vinculo
 
 const formatoInstanteMaterialOferta = "2006-01-02T15:04:05.000000Z"
 
-// Esta preimagen no incluye textos personales y tiene los mismos campos y
-// separadores que publicar_oferta_v2 en Bolsa B47.
-func huellaMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta) string {
+// La variante B57 añade el número de plazas al final del material B54; así la
+// autorización de publicación no puede ampliarse a más plazas desde SQL.
+func huellaMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta, numeroPlazas ...int) string {
 	campos := []string{bolsa, publicada.UTC().Format(formatoInstanteMaterialOferta),
 		vence.UTC().Format(formatoInstanteMaterialOferta), p.ReglaRef, p.HuellaCatalogo,
 		p.Unidad, fmt.Sprint(p.Cantidad), p.Computo, p.MunicipioSede, p.UltimoDia,
 		fmt.Sprint(p.PoliticaVersion), strings.Join(p.Calendarios, "\x1e")}
 	if p.Unidad == "horas_naturales" {
 		campos = append(campos, p.AperturaEn, p.VenceEn)
+	}
+	if len(numeroPlazas) == 1 {
+		campos = append(campos, fmt.Sprint(numeroPlazas[0]))
 	}
 	h := sha256.Sum256([]byte(strings.Join(campos, "\x1f")))
 	return hex.EncodeToString(h[:])
@@ -171,6 +231,11 @@ func errorDependenciaOferta(err error) error {
 
 func huellaOferta(base, clave string) string {
 	h := sha256.Sum256([]byte(base + "\x1f" + clave))
+	return hex.EncodeToString(h[:])
+}
+
+func huellaResolucionOferta(oferta string, numeroDePlaza int, clave string) string {
+	h := sha256.Sum256([]byte(oferta + "\x1f" + fmt.Sprint(numeroDePlaza) + "\x1f" + clave))
 	return hex.EncodeToString(h[:])
 }
 

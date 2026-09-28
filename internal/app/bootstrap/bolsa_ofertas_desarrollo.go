@@ -269,7 +269,28 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudResolverOfert
 	if err != nil {
 		return puertosbolsa.SolicitudResolverOferta{}, err
 	}
-	return puertosbolsa.SolicitudResolverOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef, ParticipacionRef: entrada.ParticipacionRef, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudResolverOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef, ParticipacionRef: entrada.ParticipacionRef, NumeroDePlaza: entrada.NumeroDePlaza, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+}
+
+func motivoConfirmarAdjudicacionOfertaBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_confirmacion_adjudicacion_oferta_bolsa", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b57-v1"),
+		EntradaClave:         referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b57-adjudicacion-confirmar")}
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConfirmarAdjudicacionOferta(ctx context.Context, entrada bolsahttp.EntradaConfirmarAdjudicacionOferta) (puertosbolsa.SolicitudConfirmarAdjudicacionOferta, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudConfirmarAdjudicacionOferta{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudConfirmarAdjudicacionOferta{}, err
+	}
+	return puertosbolsa.SolicitudConfirmarAdjudicacionOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado,
+		BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef, NumeroDePlaza: entrada.NumeroDePlaza,
+		PreparacionRef: entrada.PreparacionRef, ClaveIdempotencia: entrada.ClaveIdempotencia,
+		Correlacion: correlacion, MotivoAutorizacion: motivoConfirmarAdjudicacionOfertaBolsaDesarrollo()}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarOfertas(ctx context.Context, bolsaRef string, limite int) (puertosbolsa.SolicitudConsultarOfertas, error) {
@@ -281,6 +302,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarOfer
 }
 
 var _ bolsahttp.PreparadorOfertasPublicadas = (*preparadorBorradorLlamamientoDesarrollo)(nil)
+var _ bolsahttp.PreparadorConfirmacionAdjudicacionOferta = (*preparadorBorradorLlamamientoDesarrollo)(nil)
 
 // calculadoraPlazoOfertaDesarrollo resuelve la regla b10 del catálogo de
 // reglas de Bolsa. El resolutor se fija una sola vez al componer, antes de
