@@ -1,6 +1,6 @@
 import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260928-ppt-v2";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260928-ppt-v2";
+import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260928-ppt-c3-v3";
 import { MENSAJES_RRHH_PLAZOS_ES } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
 import { MENSAJES_POLITICA_CESE_ES } from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-rrhh-politica-cese-v1";
 

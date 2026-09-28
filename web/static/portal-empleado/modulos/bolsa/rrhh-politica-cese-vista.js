@@ -1,5 +1,5 @@
 /** Lectura del catálogo efectivo B45 para RRHH; ninguna regla se calcula en el navegador. */
-import { traducirPortal, LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260928-ppt-v2";
+import { traducirPortal, LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260928-ppt-c3-v3";
 
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

@@ -1,10 +1,11 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260927-rrhh-reposicion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
-import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260928-ppt-v2";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260928-ppt-v2";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-v2";
+import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260928-ppt-c3-v3";
+import { cargarReincorporacionesTitularFicha, manejarClickReincorporacionesTitular } from "./portal-bolsas-reincorporaciones.js?v=20260928-ppt-c3-v3";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260928-ppt-c3-v3";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
 import { actorTraducido, justificanteTraducido } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-ppt-v2";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-ppt-c3-v3";
 import { ayudaHuellaArchivo, instalarHuellaArchivo, renderizarCampoHuellaArchivo, traducirHuellaArchivo } from "./portal-huella-archivo.js";
 
 const BASE = "/api/vec/bolsa/bolsas";
@@ -192,6 +193,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   async function cargar(modalFicha) {
     // B13: el histórico de contratos se carga junto a la ficha, en paralelo.
     void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
+    void cargarReincorporacionesTitularFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
     const controlador = new AbortController();
     modalFicha.controladorOperaciones?.abort();
     modalFicha.controladorOperaciones = controlador;
@@ -312,7 +314,10 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
 
   function instalar(documento = globalThis.document) {
     instalarHuellaArchivo(documento);
-    documento.addEventListener("click", (evento) => { if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento); });
+    documento.addEventListener("click", (evento) => {
+      if (manejarClickReincorporacionesTitular(evento, { estado, renderizar })) return;
+      if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento);
+    });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
     instalarPropuestaReposicion(documento, () => estado.modalFicha);
   }

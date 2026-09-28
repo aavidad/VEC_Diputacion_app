@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
 /** Una confirmación HTTP no autoriza el paso siguiente sin un detalle real. */
 export async function resolverSolicitudPropuestaLlamamiento({
   necesidadId,

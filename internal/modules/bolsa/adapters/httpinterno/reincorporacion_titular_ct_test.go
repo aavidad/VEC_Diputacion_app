@@ -18,8 +18,14 @@ type lectorRetornosHTTPPrueba struct {
 	err   error
 }
 
-func (l lectorRetornosHTTPPrueba) ListarReincorporacionesTitular(context.Context, ports.SolicitudCambiarSituacionParticipacion) ([]ports.ReincorporacionTitularFicha, error) {
+func (l lectorRetornosHTTPPrueba) ListarReincorporacionesTitular(context.Context, ports.SolicitudConsultarReincorporacionesTitular) ([]ports.ReincorporacionTitularFicha, error) {
 	return l.items, l.err
+}
+
+type preparadorRetornosHTTPPrueba struct{}
+
+func (preparadorRetornosHTTPPrueba) PrepararConsultaReincorporacionesTitular(_ context.Context, bolsa, participacion string) (ports.SolicitudConsultarReincorporacionesTitular, error) {
+	return ports.SolicitudConsultarReincorporacionesTitular{BolsaRef: bolsa, ParticipacionRef: participacion}, nil
 }
 
 const rutaRetornosPrueba = RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/reincorporaciones-titular"
@@ -34,7 +40,7 @@ func TestReincorporacionesTitularFichaYDenegacion(t *testing.T) {
 	fecha := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	disponible := time.Date(2027, 2, 1, 0, 0, 0, 0, time.UTC)
 	version := int64(3)
-	h, err := NuevoHandlerReincorporacionesTitularCT(preparadorSituacionHTTPPrueba{}, lectorRetornosHTTPPrueba{items: []ports.ReincorporacionTitularFicha{{
+	h, err := NuevoHandlerReincorporacionesTitularCT(preparadorRetornosHTTPPrueba{}, lectorRetornosHTTPPrueba{items: []ports.ReincorporacionTitularFicha{{
 		EventoRef: "evento:ct:retorno:uno", ExpedienteRef: "expediente:uno", RelacionRef: "relacion:uno",
 		FechaEfectiva: fecha, ReciboCTRef: "recibo:ct:uno", CeseEventoRef: "evento:ct:cese:uno",
 		Estado: "cese_aplicado", DisponibleDesde: &disponible, ReglaVersion: &version,
@@ -57,7 +63,7 @@ func TestReincorporacionesTitularFichaYDenegacion(t *testing.T) {
 		body.Data.Items[0]["disponible_desde"] != "2027-02-01" {
 		t.Fatalf("respuesta: %d %s", w.Code, w.Body.String())
 	}
-	denegado, _ := NuevoHandlerReincorporacionesTitularCT(preparadorSituacionHTTPPrueba{}, lectorRetornosHTTPPrueba{err: dominiovec.ErrAutorizacionDenegada})
+	denegado, _ := NuevoHandlerReincorporacionesTitularCT(preparadorRetornosHTTPPrueba{}, lectorRetornosHTTPPrueba{err: dominiovec.ErrAutorizacionDenegada})
 	w = httptest.NewRecorder()
 	denegado.ServeHTTP(w, peticionRetornos(http.MethodGet, rutaRetornosPrueba))
 	if w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "relacion:uno") {
@@ -66,7 +72,7 @@ func TestReincorporacionesTitularFichaYDenegacion(t *testing.T) {
 }
 
 func TestReincorporacionesTitularRutaCerrada(t *testing.T) {
-	h, _ := NuevoHandlerReincorporacionesTitularCT(preparadorSituacionHTTPPrueba{}, lectorRetornosHTTPPrueba{})
+	h, _ := NuevoHandlerReincorporacionesTitularCT(preparadorRetornosHTTPPrueba{}, lectorRetornosHTTPPrueba{})
 	for _, c := range []struct {
 		ruta   string
 		metodo string

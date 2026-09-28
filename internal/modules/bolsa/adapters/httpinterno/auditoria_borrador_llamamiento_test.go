@@ -109,6 +109,41 @@ func TestAuditoriaOperacionesB8RegistraGETyPOST(t *testing.T) {
 	}
 }
 
+func TestAuditoriaReincorporacionesTitularRegistraLecturaDenegacionYFallo(t *testing.T) {
+	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/reincorporaciones-titular"
+	for _, caso := range []struct {
+		nombre    string
+		estado    int
+		fallo     bool
+		esperado  int
+		resultado puertosbolsa.ResultadoIntentoBorradorLlamamiento
+	}{
+		{"lectura", http.StatusOK, false, http.StatusOK, puertosbolsa.ResultadoIntentoCorrectoBorradorLlamamiento},
+		{"denegacion", http.StatusForbidden, false, http.StatusForbidden, puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento},
+		{"registrador caido", http.StatusOK, true, http.StatusServiceUnavailable, puertosbolsa.ResultadoIntentoCorrectoBorradorLlamamiento},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			registrador := &registradorIntentoBorradorDoble{}
+			if caso.fallo {
+				registrador.err = errors.New("auditoria no disponible")
+			}
+			h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(caso.estado)
+			}), registrador, nil)
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+			if w.Code != caso.esperado || len(registrador.intentos) != 1 {
+				t.Fatalf("GET B55 estado=%d intentos=%+v", w.Code, registrador.intentos)
+			}
+			i := registrador.intentos[0]
+			if i.Accion != puertosbolsa.AccionIntentoConsultarBorradorLlamamiento ||
+				i.ClaseRuta != puertosbolsa.ClaseRutaSituacionParticipacion || i.Resultado != caso.resultado {
+				t.Fatalf("GET B55 intento=%+v", i)
+			}
+		})
+	}
+}
+
 func TestAuditoriaBorradorLlamamientoIncluyeFronterasB4YB7(t *testing.T) {
 	casos := []struct {
 		metodo, ruta string

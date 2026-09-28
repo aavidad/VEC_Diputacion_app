@@ -6,7 +6,7 @@
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-v2";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-c3-v3";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;

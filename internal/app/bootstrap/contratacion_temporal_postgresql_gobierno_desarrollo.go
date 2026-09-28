@@ -209,6 +209,10 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		// CT131: sólo al activar el gobierno de plantillas sintéticas.
+		audienciaCatalogoPlantillasCT,
+		// CT133: sólo al activar lectura documental con perfil propio.
+		audienciaDocumentalPlantillasCT,
 		altapersonal.AudienciaAltaEjercicio,
 		lecturapersonal.AudienciaV2,
 		ports.AudienciaConfirmacionIncorporacionV2,
@@ -234,6 +238,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
+		puertosbolsa.AudienciaConsultarReincorporacionTitular,
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,

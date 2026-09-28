@@ -48,7 +48,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 	_ ...bool,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
-	return append([]descriptorFronteraComunDesarrollo{
+	fronteras := append([]descriptorFronteraComunDesarrollo{
 		fronteraContratacionTemporalDesarrollo("ct-analisis-registrar", ctports.AccionRegistrarAnalisis, cthttp.RutaRegistroAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-analisis-rectificar", ctports.AccionRectificarAnalisis, cthttp.RutaRectificacionAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-solicitud-crear", ctports.AccionCrearSolicitud, cthttp.RutaAltaSolicitudes, []string{perfilCT}),
@@ -64,6 +64,49 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
+	return fronteras
+}
+
+// CT131 añade únicamente sus tres fronteras con un perfil derivado distinto.
+// El perfil CT base conserva todas las rutas anteriores y su PDP común.
+func descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
+	perfilCT string, perfilesConsulta []string, _ bool,
+	plantillasActivas bool, perfilPlantillas string,
+) ([]descriptorFronteraComunDesarrollo, error) {
+	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(perfilCT, perfilesConsulta)
+	if !plantillasActivas {
+		if perfilPlantillas != "" {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+		return fronteras, nil
+	}
+	if !perfilActivoSeguridadComunValido(perfilPlantillas) || perfilPlantillas == perfilCT {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
+	for _, perfil := range perfilesConsulta {
+		if perfil == perfilPlantillas {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+	}
+	return append(fronteras, descriptoresFronterasPlantillasCTDesarrollo(perfilPlantillas)...), nil
+}
+
+// CT133 se publica sólo para su perfil documental. La consulta de detalle
+// dentro de estas rutas usa otra decisión V3, con el mismo vínculo nominal.
+func anexarFronterasPlantillasDocumentalCTDesarrollo(
+	fronteras []descriptorFronteraComunDesarrollo, perfilCT, perfilCatalogo, perfilDocumental string,
+	perfilesConsulta []string,
+) ([]descriptorFronteraComunDesarrollo, error) {
+	if !perfilActivoSeguridadComunValido(perfilDocumental) ||
+		perfilDocumental == perfilCT || perfilDocumental == perfilCatalogo {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
+	for _, perfil := range perfilesConsulta {
+		if perfil == perfilDocumental {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+	}
+	return append(fronteras, descriptoresFronterasPlantillasDocumentalCTDesarrollo(perfilDocumental)...), nil
 }
 
 func fronteraContratacionTemporalDesarrollo(
