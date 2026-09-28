@@ -217,6 +217,42 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	}
 }
 
+func TestReincorporacionTitularTieneFronteraYAccionDeLecturaPropias(t *testing.T) {
+	politica := politicaDescriptoresBolsaPrueba(t)
+	fronteras, err := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo("prf_bolsa_bback", false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/reincorporaciones-titular"
+	frontera, ok := catalogoFronteras.resolver(http.MethodGet, ruta)
+	if !ok || frontera.Clave != claveFronteraReincorporacionesTitularBolsa ||
+		frontera.ClaveCapacidad != claveCapacidadConsultaReincorporacionBolsa {
+		t.Fatalf("GET B55 sin frontera de lectura: %+v", frontera)
+	}
+	descriptores, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politica, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptores)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := catalogo.politicaPara(puertosbolsa.AccionConsultarReincorporacionTitular,
+		claveFronteraReincorporacionesTitularBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+		claveCapacidadConsultaReincorporacionBolsa); !ok {
+		t.Fatal("GET B55 sin PDP Bolsa nominal")
+	}
+	if _, ok := catalogo.politicaPara(puertosbolsa.AccionCambiarSituacionParticipacion,
+		claveFronteraReincorporacionesTitularBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo,
+		claveCapacidadConsultaReincorporacionBolsa); ok {
+		t.Fatal("GET B55 aceptó acción de mutación")
+	}
+}
+
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	descriptores := append(descriptoresMaterialBorradorLlamamientoBolsaDesarrollo(), descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
 	if len(descriptores) != 9 {

@@ -128,6 +128,9 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 	if s.borradoresBolsa {
 		d = append(d, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	}
+	if s.reincorporacionTitular {
+		d = append(d, descriptorMaterialConsultaReincorporacionTitularBolsaDesarrollo())
+	}
 	if s.politicaOfertas {
 		d = append(d, descriptorMaterialPoliticaOfertasBolsaDesarrollo(), descriptorMaterialConsultaPoliticaOfertasBolsaDesarrollo())
 	}

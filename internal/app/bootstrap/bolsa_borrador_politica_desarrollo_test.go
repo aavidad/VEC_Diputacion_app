@@ -39,7 +39,8 @@ func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
 	preimagenValida := (preimagen.VersionRol.Version == 4 && len(preimagen.VersionRol.Concesiones) == 6) ||
-		(preimagen.VersionRol.Version == 5 && len(preimagen.VersionRol.Concesiones) == 7)
+		(preimagen.VersionRol.Version == 5 && len(preimagen.VersionRol.Concesiones) == 7) ||
+		(preimagen.VersionRol.Version == 6 && len(preimagen.VersionRol.Concesiones) == 9)
 	if !preimagenValida ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
@@ -277,6 +278,38 @@ func TestPoliticaBorradorBolsaAmpliaB5AConcesionB47Exacta(t *testing.T) {
 		}
 		if accion == puertosbolsa.AccionConsultarPoliticaOfertas && !reflect.DeepEqual(encontrada.CamposPermitidos, []string{puertosbolsa.CampoConsultarPoliticaOfertas}) {
 			t.Fatalf("consulta sin campo exacto: %+v", encontrada)
+		}
+	}
+}
+
+func TestPoliticaBorradorBolsaReincorporacionTieneRamasExactas(t *testing.T) {
+	for _, caso := range []struct {
+		ofertas, version, concesiones int
+	}{
+		{0, 7, 8},
+		{1, 8, 10},
+	} {
+		politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+		if err := politica.PublicarInicialConReincorporacion(context.Background(), caso.ofertas == 1); err != nil {
+			t.Fatal(err)
+		}
+		rol := autoridad.publicada.VersionRol
+		if rol.Version != caso.version || len(rol.Concesiones) != caso.concesiones {
+			t.Fatalf("rama %d: versión=%d concesiones=%d", caso.ofertas, rol.Version, len(rol.Concesiones))
+		}
+		var lectura, edicionOfertas bool
+		for _, concesion := range rol.Concesiones {
+			if concesion.Accion == puertosbolsa.AccionConsultarReincorporacionTitular {
+				lectura = concesion.ModuloID == "bolsa" && concesion.TipoRecurso == puertosbolsa.TipoRecursoSituacionParticipacion &&
+					reflect.DeepEqual(concesion.Finalidades, []string{puertosbolsa.FinalidadConsultarReincorporacionTitular}) &&
+					reflect.DeepEqual(concesion.CamposPermitidos, []string{puertosbolsa.CampoConsultarReincorporacionTitular}) && len(concesion.Obligaciones) == 0
+			}
+			if concesion.Accion == puertosbolsa.AccionPublicarPoliticaOfertas {
+				edicionOfertas = true
+			}
+		}
+		if !lectura || edicionOfertas != (caso.ofertas == 1) {
+			t.Fatalf("rama %d mezcló permisos: lectura=%t edición_ofertas=%t", caso.ofertas, lectura, edicionOfertas)
 		}
 	}
 }
