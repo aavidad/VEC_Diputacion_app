@@ -1,5 +1,5 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-peticiones-personal-temporal-v1";
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-peticiones-personal-temporal-v1";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260928-ppt-v2";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-ppt-v2";
 
 export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";

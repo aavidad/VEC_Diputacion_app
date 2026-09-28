@@ -26,8 +26,8 @@ import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-cache-unificada-v1";
-import { traducirPortal } from "../../portal-i18n.js?v=20260928-peticiones-personal-temporal-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20260928-ppt-v2";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";

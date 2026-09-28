@@ -1,5 +1,5 @@
 /** Consulta de relaciones autorizadas y pasos pendientes de formalización. */
-import { traducirContratos } from "./portal-i18n-contratos.js?v=20260928-peticiones-personal-temporal-v1";
+import { traducirContratos } from "./portal-i18n-contratos.js?v=20260928-ppt-v2";
 
 export function crearVistasOperaciones({ escaparHTML: e, fecha, chip, tabla, encabezadoVista }) {
   function renderizarContratos(datos) {

@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-peticiones-personal-temporal-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-v2";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento

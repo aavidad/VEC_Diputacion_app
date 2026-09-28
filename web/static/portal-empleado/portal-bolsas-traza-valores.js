@@ -4,8 +4,8 @@
 // cambió (nunca el correo o el teléfono en claro).
 
 import { actorTraducido } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-peticiones-personal-temporal-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-peticiones-personal-temporal-v1";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-ppt-v2";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-ppt-v2";
 
 const CAMPOS = Object.freeze({
   situacion: "campo_situacion",

@@ -79,7 +79,7 @@ export const MENSAJES_RRHH_PLANTILLAS_ES = Object.freeze({
 
 export const MENSAJES_RRHH_PLANTILLAS_EN = Object.freeze({
   plantillas_rrhh_titulo: "Template types",
-  plantillas_rrhh_subtitulo: "Configuration of Temporary Recruitment drafts",
+  plantillas_rrhh_subtitulo: "Configuration of Temporary Staff Requests drafts",
   plantillas_rrhh_ayuda_boton: "Show help for template types",
   plantillas_rrhh_ayuda: "Each type defines a draft. Saving creates or changes a version in preparation. To use it, another person with publication permission must record the approval reference and publish the catalogue. If an operation is not confirmed, ‘Recover outcome’ repeats the same request using its original key. Publishing does not sign or send documents.",
   plantillas_rrhh_cargando: "Loading template types…",

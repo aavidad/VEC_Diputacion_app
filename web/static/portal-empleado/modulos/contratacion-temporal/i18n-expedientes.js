@@ -385,7 +385,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   comprobacion_resultado_no_consta: "No consta",
 });
 
-/** British English texts for the temporary recruitment case-file interface. */
+/** British English texts for the temporary staff requests case-file interface. */
 export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   centro_visible: "Centre {ambito} · {numero}",
   justificante_registrado: "Acknowledgement recorded",
@@ -439,7 +439,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   incorporacion_preparacion_no_disponible: "Commencement has not been prepared or the enquiry is unavailable. This enquiry does not record a commencement.",
   incorporacion_preparacion_reintentar: "Check commencement again",
   titulo: "Recruitment case files",
-  navegacion: "Temporary recruitment areas",
+  navegacion: "Temporary staff requests areas",
   nav_cuadro: "Dashboard",
   nav_alta: "New request",
   nav_expediente: "Case file",
@@ -447,8 +447,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   nav_auditoria: "Audit",
   nav_estadisticas: "Statistics",
   estado_inicial: "The page is ready to load case files.",
-  estado_cargando: "Loading the temporary recruitment dashboard.",
-  estado_listo: "Temporary recruitment dashboard updated.",
+  estado_cargando: "Loading the temporary staff requests dashboard.",
+  estado_listo: "Temporary staff requests dashboard updated.",
   estado_vacio: "No case files match the filters.",
   estado_error_carga: "The dashboard could not be loaded. Try again or contact support.",
   estado_error_filtros: "Check the filters: text may contain up to 80 characters. Use letters, numbers, spaces or the symbols / . _ -.",
@@ -497,7 +497,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   volver_cuadro: "Return to dashboard",
   indicadores: "Case-file summary",
   indicadores_pagina: "Summary of case files on this page",
-  trabajo_titulo: "Temporary recruitment priorities",
+  trabajo_titulo: "Temporary staff requests priorities",
   bandeja_titulo: "Pending work",
   mis_tareas: "My priority tasks",
   bandeja_expedientes: "Case files awaiting processing",
@@ -520,7 +520,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   pagina_actual: "Page {pagina}",
   pagina_primera: "Restart enquiry",
   pagina_siguiente: "Next page",
-  tabla_expedientes: "Temporary recruitment case files",
+  tabla_expedientes: "Temporary staff requests case files",
   columna_numero: "Case-file no.",
   columna_centro: "Centre",
   columna_categoria: "Category",

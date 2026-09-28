@@ -7,7 +7,7 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-peticiones-personal-temporal-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-v2";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
 const RUTA_TRADUCCIONES = "/locales/es.json";
