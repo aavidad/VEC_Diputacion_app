@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
@@ -21,6 +22,28 @@ import (
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+type consultaFuncionAutorizacionPreferencias interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+const sondaFuncionAutorizacionPreferenciasSQL = `SELECT session_user=current_user
+ AND has_schema_privilege(session_user,'vec_autorizacion','USAGE')
+ AND (SELECT count(*)=1 FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='vec_autorizacion' AND p.proname=$1 AND p.prokind='f'
+        AND has_function_privilege(session_user,p.oid,'EXECUTE'))`
+
+func acreditarFuncionAutorizacionPreferencias(ctx context.Context, consulta consultaFuncionAutorizacionPreferencias, nombre string) error {
+	if ctx == nil || consulta == nil || (nombre != "obtener_instantanea" && nombre != "registrar_decision_contexto_actor_v3" && nombre != "resolver_motivo_autorizacion_v2_historico") {
+		return errComposicionUsuariosPreferencias
+	}
+	var acreditada bool
+	if err := consulta.QueryRow(ctx, sondaFuncionAutorizacionPreferenciasSQL, nombre).Scan(&acreditada); err != nil || !acreditada {
+		return errComposicionUsuariosPreferencias
+	}
+	return nil
+}
 
 func leerConfiguracionUsuariosPreferenciasDesarrollo(cfg config.Config, superficie core.SuperficieAutenticacionActorV1) (configuracionUsuariosPreferenciasDesarrollo, error) {
 	vacia := configuracionUsuariosPreferenciasDesarrollo{}
@@ -54,7 +77,8 @@ func configuracionesPreferenciasSeparadas(interna, externa configuracionUsuarios
 	perfiles := map[string]bool{}
 	for _, c := range interna.Cuentas {
 		b, err := hex.DecodeString(c.CertificadoSHA256)
-		if err != nil || len(b) != sha256.Size || hex.EncodeToString(b) != c.CertificadoSHA256 || c.Sujeto == "" || c.CuentaRef == "" || c.PerfilRef == "" {
+		if err != nil || len(b) != sha256.Size || hex.EncodeToString(b) != c.CertificadoSHA256 || c.Sujeto == "" || c.CuentaRef == "" || c.PerfilRef == "" ||
+			certificados[c.CertificadoSHA256] || cuentas[c.CuentaRef] || perfiles[c.PerfilRef] {
 			return false
 		}
 		certificados[c.CertificadoSHA256] = true
@@ -67,6 +91,9 @@ func configuracionesPreferenciasSeparadas(interna, externa configuracionUsuarios
 			certificados[c.CertificadoSHA256] || cuentas[c.CuentaRef] || perfiles[c.PerfilRef] {
 			return false
 		}
+		certificados[c.CertificadoSHA256] = true
+		cuentas[c.CuentaRef] = true
+		perfiles[c.PerfilRef] = true
 	}
 	return true
 }
@@ -151,6 +178,14 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 		if _, err = vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registroAutorizacion, registroAutorizacion, motivos, reloj,
 			seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second}); err != nil {
 			return errComposicionUsuariosPreferencias
+		}
+		for _, sonda := range []struct {
+			pool   *pgxpool.Pool
+			nombre string
+		}{{pools[inicio+3], "obtener_instantanea"}, {pools[inicio+4], "registrar_decision_contexto_actor_v3"}, {pools[inicio+5], "resolver_motivo_autorizacion_v2_historico"}} {
+			if acreditarFuncionAutorizacionPreferencias(ctx, sonda.pool, sonda.nombre) != nil {
+				return errComposicionUsuariosPreferencias
+			}
 		}
 		ejecutor, loginE, err := abrirPoolUsuariosPreferencias(ctx, c.DSNUsuarios, rolEjecutorPreferencias(string(superficie)))
 		if err != nil || loginE == "" || logins[loginE] {

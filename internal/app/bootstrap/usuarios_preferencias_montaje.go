@@ -2,8 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -301,22 +299,9 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	cuentas := map[string]cuentaUsuariosPreferenciasDesarrollo{}
-	for _, cuenta := range c.Cuentas {
-		huella, e := hex.DecodeString(cuenta.CertificadoSHA256)
-		if e != nil || len(huella) != sha256.Size || hex.EncodeToString(huella) != cuenta.CertificadoSHA256 || cuenta.Sujeto == "" || cuenta.CuentaRef == "" || cuenta.PerfilRef == "" || cuentas[cuenta.CertificadoSHA256].Sujeto != "" {
-			return nil, errComposicionUsuariosPreferencias
-		}
-		var digest [32]byte
-		copy(digest[:], huella)
-		principal, existe := identidad.porHuella[digest]
-		if !existe || principal.ID != cuenta.Sujeto || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh {
-			return nil, errComposicionUsuariosPreferencias
-		}
-		if !principalParaSuperficieUsuariosPreferenciasValido(identidad, principal, string(superficie)) {
-			return nil, errComposicionUsuariosPreferencias
-		}
-		cuentas[cuenta.CertificadoSHA256] = cuenta
+	cuentas, err := cuentasPreferenciasAcreditadas(identidad, c)
+	if err != nil {
+		return nil, errComposicionUsuariosPreferencias
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()

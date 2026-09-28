@@ -244,6 +244,9 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
+		return nil, nil, err
+	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, err

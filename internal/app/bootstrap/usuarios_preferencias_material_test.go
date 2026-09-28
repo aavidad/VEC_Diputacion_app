@@ -1,12 +1,16 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,6 +20,51 @@ import (
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+type filaFuncionPreferenciasPrueba struct {
+	permitido bool
+	err       error
+}
+
+func (f filaFuncionPreferenciasPrueba) Scan(destinos ...any) error {
+	if f.err != nil {
+		return f.err
+	}
+	*destinos[0].(*bool) = f.permitido
+	return nil
+}
+
+type consultaFuncionPreferenciasPrueba struct {
+	fila        filaFuncionPreferenciasPrueba
+	nombre, sql string
+}
+
+func (c *consultaFuncionPreferenciasPrueba) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
+	c.sql = sql
+	if len(args) == 1 {
+		c.nombre, _ = args[0].(string)
+	}
+	return c.fila
+}
+
+func TestSondaPDPRechazaFuncionDenegadaAntesDeV3(t *testing.T) {
+	ctx := context.Background()
+	for _, nombre := range []string{"obtener_instantanea", "registrar_decision_contexto_actor_v3", "resolver_motivo_autorizacion_v2_historico"} {
+		c := &consultaFuncionPreferenciasPrueba{fila: filaFuncionPreferenciasPrueba{permitido: true}}
+		if err := acreditarFuncionAutorizacionPreferencias(ctx, c, nombre); err != nil || c.nombre != nombre || !strings.Contains(c.sql, "has_function_privilege") {
+			t.Fatalf("sonda positiva %s: %v", nombre, err)
+		}
+		c.fila.permitido = false
+		descriptores, err := descriptoresMaterialPreferenciasTrasPreflight(func() error { return acreditarFuncionAutorizacionPreferencias(ctx, c, nombre) })
+		if err == nil || len(descriptores) != 0 {
+			t.Fatalf("función %s sin EXECUTE entregó %d descriptores", nombre, len(descriptores))
+		}
+		c.fila.err = errors.New("42501: detalle privado")
+		if err := acreditarFuncionAutorizacionPreferencias(ctx, c, nombre); err == nil || strings.Contains(err.Error(), "privado") {
+			t.Fatalf("falla fuente no redactada: %v", err)
+		}
+	}
+}
 
 func TestRecursoPreferenciasUsuariosVectorV3(t *testing.T) {
 	for _, caso := range []struct {
@@ -166,6 +215,65 @@ func TestPreflightRechazaCuentasMezcladasAntesDeAbrirSQL(t *testing.T) {
 	externa.Cuentas[0].PerfilRef = interna.Cuentas[0].PerfilRef
 	if configuracionesPreferenciasSeparadas(interna, externa) {
 		t.Fatal("perfil mezclado pasó preflight")
+	}
+}
+
+func TestIdentidadPrivadaInvalidaFallaAntesDeConstruirCT(t *testing.T) {
+	t.Setenv(envUsuariosPreferenciasDesarrollo, "true")
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "identidad"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{DevelopmentMaterialDir: dir, ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
+	hI := sha256.Sum256([]byte("cert-interno"))
+	hE := sha256.Sum256([]byte("cert-exterior"))
+	principal := func(id, rol string, h [32]byte) core.Principal {
+		return core.Principal{ID: id, Roles: []string{rol}, AuthMethod: core.AuthMethodCertificate, AuthAssurance: core.AuthAssuranceHigh, Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment, "certificate_sha256": hex.EncodeToString(h[:])}}
+	}
+	pI := principal("per_interna_0123456789abcdefghijkl", "tecnico_rrhh", hI)
+	pE := principal("per_externa_0123456789abcdefghijkl", "aspirante", hE)
+	identidad, err := nuevoResolvedorIdentidadDesarrollo(identidadCertificadoDesarrollo{huella: hI, principal: pI}, identidadCertificadoDesarrollo{huella: hE, principal: pE})
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 2, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
+	cI := configuracionUsuariosPreferenciasDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa, Superficie: core.SuperficieAutenticacionInternaCorporativaV1, MotivoConsulta: motivo, MotivoActualizacion: motivo,
+		Cuentas: []cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{CertificadoSHA256: hex.EncodeToString(hI[:]), Sujeto: pI.ID, CuentaRef: "cta_interna_0123456789abcdefghijkl", PerfilRef: "prf_interna_0123456789abcdefghijkl"}}}}
+	cE := configuracionUsuariosPreferenciasDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa, Superficie: core.SuperficieAutenticacionExternaPersonalV1, MotivoConsulta: motivo, MotivoActualizacion: motivo,
+		Cuentas: []cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{CertificadoSHA256: hex.EncodeToString(hE[:]), Sujeto: pE.ID, CuentaRef: "cta_externa_0123456789abcdefghijkl", PerfilRef: "prf_externa_0123456789abcdefghijkl"}}}}
+	escribir := func() {
+		t.Helper()
+		for _, c := range []configuracionUsuariosPreferenciasDesarrollo{cI, cE} {
+			b, e := json.Marshal(c)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if e = os.WriteFile(filepath.Join(dir, "identidad", nombreConfiguracionPreferencias(c.Superficie)), b, 0600); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	escribir()
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, identidad); err != nil {
+		t.Fatalf("identidad válida: %v", err)
+	}
+	original := cE.Cuentas[0]
+	cE.Cuentas[0].CertificadoSHA256 = strings.Repeat("c", 64)
+	escribir()
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, identidad); err == nil {
+		t.Fatal("certificado no registrado alcanzaría publicación")
+	}
+	cE.Cuentas[0] = original
+	cE.Cuentas[0].Sujeto = "per_sujeto_ajeno_0123456789abc"
+	escribir()
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, identidad); err == nil {
+		t.Fatal("sujeto ajeno alcanzaría publicación")
+	}
+	cE.Cuentas[0] = original
+	cE.Cuentas = append(cE.Cuentas, original)
+	escribir()
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, identidad); err == nil {
+		t.Fatal("certificado duplicado alcanzaría publicación")
 	}
 }
 
