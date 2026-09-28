@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"log"
 	"sync"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -32,8 +33,12 @@ func contextoEsperadoRegistradoParaSemillaDesarrollo(
 	if ctx == nil || ctx.Err() != nil || resolutor == nil || soporte == nil {
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 	}
-	if semilla.Validar() != nil || soporte.principalID == "" ||
-		!huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) {
+	if err := semilla.Validar(); err != nil {
+		log.Print("contratacion temporal: contexto esperado no disponible; etapa=validar_semilla_contexto")
+		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
+	}
+	if soporte.principalID == "" || !huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) {
+		log.Print("contratacion temporal: contexto esperado no disponible; etapa=validar_soporte_contexto")
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 	}
 	actor := semilla.Contexto
@@ -44,8 +49,15 @@ func contextoEsperadoRegistradoParaSemillaDesarrollo(
 		},
 		PerfilActivoRef: actor.PerfilActivoRef,
 	})
-	if err != nil || registrado.Validar() != nil ||
-		registrado.AutoridadEfectiva != dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1 ||
+	if err != nil {
+		log.Print("contratacion temporal: contexto esperado no disponible; etapa=resolver_contexto_registrado")
+		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
+	}
+	if err := registrado.Validar(); err != nil {
+		log.Print("contratacion temporal: contexto esperado no disponible; etapa=validar_contexto_registrado")
+		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
+	}
+	if registrado.AutoridadEfectiva != dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1 ||
 		registrado.Contexto.Principal.AuthMethod != dominiovec.AuthMethodCertificate ||
 		registrado.Contexto.Principal.AuthAssurance != dominiovec.AuthAssuranceHigh ||
 		registrado.Contexto.Instantanea.CuentaRef != actor.Instantanea.CuentaRef ||
@@ -56,10 +68,12 @@ func contextoEsperadoRegistradoParaSemillaDesarrollo(
 		registrado.Contexto.PerfilActivoRef != actor.PerfilActivoRef ||
 		registrado.Contexto.Principal.ID != actor.Principal.ID ||
 		!registrado.Contexto.Instantanea.VigenteEn(registrado.ResueltoEnAutoritativo) {
+		log.Print("contratacion temporal: contexto esperado no disponible; etapa=identidad_contexto_registrado")
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 	}
 	for _, vinculo := range registrado.Contexto.Instantanea.Vinculos {
 		if !vinculo.VigenteEn(registrado.ResueltoEnAutoritativo) {
+			log.Print("contratacion temporal: contexto esperado no disponible; etapa=vigencia_vinculo_registrado")
 			return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 		}
 	}

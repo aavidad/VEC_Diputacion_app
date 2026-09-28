@@ -1,8 +1,13 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log"
 	"net/http"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +15,74 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+type resolutorContextoEsperadoPrueba func(context.Context, dominiovec.SolicitudContextoActor) (dominiovec.ResultadoContextoActorRegistradoV2, error)
+
+func (f resolutorContextoEsperadoPrueba) ResolverContextoActorRegistradoV2(
+	ctx context.Context, solicitud dominiovec.SolicitudContextoActor,
+) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
+	return f(ctx, solicitud)
+}
+
+func TestContextoEsperadoRegistradoFallaCerradoSinDatosEnLog(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	const secreto = "secreto-certificado-dsn-persona"
+	invalidado, err := soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidado.HuellaSHA256 = secreto
+	semillaInvalida := invalidado
+	perfilCT130, err := nuevoContextoReincorporacionTitularDesarrollo(soporte, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := perfilCT130.Resultado.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre, etapa string
+		resultado     dominiovec.ResultadoContextoActorRegistradoV2
+		semilla       *dominiovec.ResultadoContextoActorRegistradoV2
+		selloInvalido bool
+		err           error
+	}{
+		{nombre: "semilla_invalida", etapa: "validar_semilla_contexto", semilla: &semillaInvalida},
+		{nombre: "sello_soporte_invalido", etapa: "validar_soporte_contexto", selloInvalido: true},
+		{nombre: "resolutor", etapa: "resolver_contexto_registrado", err: errors.New(secreto)},
+		{nombre: "resultado_invalido", etapa: "validar_contexto_registrado", resultado: invalidado},
+		{nombre: "perfil_ct130_distinto", etapa: "identidad_contexto_registrado", resultado: perfilCT130.Resultado},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			var salida bytes.Buffer
+			anterior := log.Writer()
+			log.SetOutput(&salida)
+			t.Cleanup(func() { log.SetOutput(anterior) })
+			resolutor := resolutorContextoEsperadoPrueba(func(context.Context, dominiovec.SolicitudContextoActor) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
+				return caso.resultado, caso.err
+			})
+			if caso.selloInvalido {
+				anterior := soporte.certificadoSHA256
+				soporte.certificadoSHA256 = secreto
+				t.Cleanup(func() { soporte.certificadoSHA256 = anterior })
+			}
+			var resultado dominiovec.ResultadoContextoActorRegistradoV2
+			var err error
+			if caso.semilla != nil {
+				resultado, err = contextoEsperadoRegistradoParaSemillaDesarrollo(context.Background(), resolutor, soporte, *caso.semilla)
+			} else {
+				resultado, err = contextoEsperadoRegistradoDesarrollo(context.Background(), resolutor, soporte)
+			}
+			if err != ports.ErrConsultaRRHHNoDisponible || !reflect.DeepEqual(resultado, dominiovec.ResultadoContextoActorRegistradoV2{}) {
+				t.Fatalf("el fallo de %s no denegó con error público genérico: %v", caso.nombre, err)
+			}
+			if !strings.Contains(salida.String(), "etapa="+caso.etapa) || strings.Contains(salida.String(), secreto) {
+				t.Fatalf("el diagnóstico de %s falta o contiene datos sensibles", caso.nombre)
+			}
+		})
+	}
+}
 
 func resultadoConVinculoEmpleadoF1(t *testing.T, semilla dominiovec.ResultadoContextoActorRegistradoV2) dominiovec.ResultadoContextoActorRegistradoV2 {
 	return resultadoConVersionVinculoEmpleadoF1(t, semilla, 1)
