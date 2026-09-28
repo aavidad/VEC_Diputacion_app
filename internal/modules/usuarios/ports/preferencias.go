@@ -22,51 +22,110 @@ var (
 const FinalidadPreferenciasPropias = "finalidad:usuarios:preferencias-propias:v1"
 const AccionConsultarPreferencias = "vec.preferencias.consultar"
 const AccionActualizarPreferencias = "vec.preferencias.actualizar"
-const AudienciaConsultarPreferencias = "vec_usuarios.preferencias.consultar.v1"
-const AudienciaActualizarPreferencias = "vec_usuarios.preferencias.actualizar.v1"
+const AudienciaConsultarPreferenciasInterna = "vec_usuarios.preferencias.consultar.interna_corporativa.v1"
+const AudienciaActualizarPreferenciasInterna = "vec_usuarios.preferencias.actualizar.interna_corporativa.v1"
+const AudienciaConsultarPreferenciasExterna = "vec_usuarios.preferencias.consultar.externa_personal.v1"
+const AudienciaActualizarPreferenciasExterna = "vec_usuarios.preferencias.actualizar.externa_personal.v1"
 const TipoRecursoPreferencias = "preferencias_persona"
 
+func AudienciaPreferencias(accion string, superficie vecdomain.SuperficieAutenticacionActorV1) (string, error) {
+	switch {
+	case accion == AccionConsultarPreferencias && superficie == vecdomain.SuperficieAutenticacionInternaCorporativaV1:
+		return AudienciaConsultarPreferenciasInterna, nil
+	case accion == AccionActualizarPreferencias && superficie == vecdomain.SuperficieAutenticacionInternaCorporativaV1:
+		return AudienciaActualizarPreferenciasInterna, nil
+	case accion == AccionConsultarPreferencias && superficie == vecdomain.SuperficieAutenticacionExternaPersonalV1:
+		return AudienciaConsultarPreferenciasExterna, nil
+	case accion == AccionActualizarPreferencias && superficie == vecdomain.SuperficieAutenticacionExternaPersonalV1:
+		return AudienciaActualizarPreferenciasExterna, nil
+	default:
+		return "", ErrProhibido
+	}
+}
+
 type MaterialPreferencias struct {
-	PersonaRef         string                     `json:"persona_ref"`
-	PerfilRef          string                     `json:"perfil_ref"`
-	Accion             string                     `json:"accion"`
-	FinalidadRef       string                     `json:"finalidad_ref"`
-	CatalogoVersionRef string                     `json:"catalogo_version_ref"`
-	VersionEsperada    uint64                     `json:"version_esperada"`
-	ClaveOperacion     string                     `json:"clave_operacion"`
-	HuellaPeticion     string                     `json:"huella_peticion"`
-	Valores            domain.ValoresPreferencias `json:"valores"`
+	Superficie         vecdomain.SuperficieAutenticacionActorV1 `json:"superficie"`
+	PersonaRef         string                                   `json:"persona_ref"`
+	PerfilRef          string                                   `json:"perfil_ref"`
+	Accion             string                                   `json:"accion"`
+	FinalidadRef       string                                   `json:"finalidad_ref"`
+	CatalogoVersionRef string                                   `json:"catalogo_version_ref"`
+	VersionEsperada    uint64                                   `json:"version_esperada"`
+	ClaveOperacion     string                                   `json:"clave_operacion"`
+	HuellaPeticion     string                                   `json:"huella_peticion"`
+	Valores            domain.ValoresPreferencias               `json:"valores"`
 }
 
 type ProveedorMaterialPreferencias interface {
-	ProveerMaterialPreferencias(context.Context, MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	ProveerMaterialPreferencias(context.Context, vecdomain.VinculoAutenticacionActorV2, MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
-// OrdenPreferencias sólo se construye con un contexto canónico ya resuelto.
+// OrdenPreferencias sólo se construye desde la identidad V2 acreditada y la
+// superficie exacta que el servidor fija por ruta; nunca desde un campo HTTP.
 func metodoCertificado(m vecdomain.AuthMethod) bool {
 	return m == vecdomain.AuthMethodCertificate || m == vecdomain.AuthMethodDNIe
 }
 
 type OrdenPreferencias struct {
-	actor     vecdomain.ContextoActor
-	proveedor ProveedorMaterialPreferencias
+	actor      vecdomain.ContextoActor
+	vinculo    vecdomain.VinculoAutenticacionActorV2
+	superficie vecdomain.SuperficieAutenticacionActorV1
+	proveedor  ProveedorMaterialPreferencias
 }
 
-func NuevaOrdenPreferencias(actor vecdomain.ContextoActor, proveedor ProveedorMaterialPreferencias) (OrdenPreferencias, error) {
-	if actor.Validar() != nil || !metodoCertificado(actor.Principal.AuthMethod) || proveedor == nil {
+func cotejarIdentidadVinculo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2) bool {
+	if actor.Validar() != nil || !metodoCertificado(actor.Principal.AuthMethod) || actor.Instantanea.CuentaVersion == 0 {
+		return false
+	}
+	datos, err := vinculo.Datos()
+	if err != nil || datos.CuentaPrivilegiada {
+		return false
+	}
+	huella, err := actor.HuellaSHA256VinculadaV2()
+	return err == nil && datos.PrincipalID == actor.PersonaRef && datos.PerfilActivoRef == actor.PerfilActivoRef &&
+		datos.CuentaRef == actor.Instantanea.CuentaRef && datos.CuentaOrdinariaRef == actor.Instantanea.CuentaRef &&
+		datos.MetodoObservado == actor.Principal.AuthMethod && datos.GarantiaObservada == actor.Principal.AuthAssurance &&
+		datos.ContextoActorRef == actor.Instantanea.VinculoRef && datos.ContextoActorVersion == actor.Instantanea.VinculoVersion &&
+		datos.ContextoActorCuentaVersion == actor.Instantanea.CuentaVersion && datos.ContextoActorHuellaSHA256 == huella
+}
+func cotejarVinculo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1) bool {
+	if !cotejarIdentidadVinculo(actor, vinculo) {
+		return false
+	}
+	datos, _ := vinculo.Datos()
+	return (superficieRuta == vecdomain.SuperficieAutenticacionInternaCorporativaV1 || superficieRuta == vecdomain.SuperficieAutenticacionExternaPersonalV1) && datos.Superficie == superficieRuta
+}
+
+func NuevaOrdenPreferencias(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1, proveedor ProveedorMaterialPreferencias) (OrdenPreferencias, error) {
+	if proveedor == nil || !cotejarIdentidadVinculo(actor, vinculo) {
 		return OrdenPreferencias{}, ErrNoAutenticado
+	}
+	if !cotejarVinculo(actor, vinculo, superficieRuta) {
+		return OrdenPreferencias{}, ErrProhibido
 	}
 	copia, err := actor.Clonar()
 	if err != nil {
 		return OrdenPreferencias{}, ErrNoAutenticado
 	}
-	return OrdenPreferencias{actor: copia, proveedor: proveedor}, nil
+	return OrdenPreferencias{actor: copia, vinculo: vinculo, superficie: superficieRuta, proveedor: proveedor}, nil
 }
 func (o OrdenPreferencias) ContextoActor() (vecdomain.ContextoActor, error) {
-	if o.proveedor == nil || o.actor.Validar() != nil || !metodoCertificado(o.actor.Principal.AuthMethod) {
+	if o.proveedor == nil || !cotejarVinculo(o.actor, o.vinculo, o.superficie) {
 		return vecdomain.ContextoActor{}, ErrNoAutenticado
 	}
 	return o.actor.Clonar()
+}
+func (o OrdenPreferencias) Vinculo() (vecdomain.VinculoAutenticacionActorV2, error) {
+	if o.proveedor == nil || !cotejarVinculo(o.actor, o.vinculo, o.superficie) {
+		return vecdomain.VinculoAutenticacionActorV2{}, ErrNoAutenticado
+	}
+	return o.vinculo, nil
+}
+func (o OrdenPreferencias) Superficie() (vecdomain.SuperficieAutenticacionActorV1, error) {
+	if o.proveedor == nil || !cotejarVinculo(o.actor, o.vinculo, o.superficie) {
+		return "", ErrNoAutenticado
+	}
+	return o.superficie, nil
 }
 func (o OrdenPreferencias) Proveedor() ProveedorMaterialPreferencias { return o.proveedor }
 
@@ -104,7 +163,7 @@ type ReciboPreferencias struct {
 // vigente ni el recibo original. RecuperarOperacion consume V3 aun cuando no
 // existe la clave; Guardar exige otra exportación fresca y consume su V3 propio.
 type RegistroPreferencias interface {
-	CatalogoVigente(context.Context) (domain.CatalogoPreferencias, error)
+	CatalogoVigente(context.Context, OrdenPreferencias) (domain.CatalogoPreferencias, error)
 	ConsultarPropias(context.Context, OrdenPreferencias, MaterialPreferencias, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (EstadoPreferencias, bool, error)
 	RecuperarOperacion(context.Context, OrdenPreferencias, MaterialPreferencias, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboPreferencias, bool, error)
 	Guardar(context.Context, OrdenPreferencias, PeticionGuardarPreferencias, MaterialPreferencias, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReciboPreferencias, error)

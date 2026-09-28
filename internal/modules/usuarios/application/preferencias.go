@@ -36,14 +36,19 @@ func (s *ServicioPreferencias) actor(ctx context.Context, orden ports.OrdenPrefe
 		return vecdomain.ContextoActor{}, ports.ErrNoAutenticado
 	}
 	ahora := s.ahoraUTC().UTC().Truncate(time.Microsecond)
-	if ahora.IsZero() || !actor.Instantanea.VigenteEn(ahora) {
+	vinculo, err := orden.Vinculo()
+	if err != nil {
+		return vecdomain.ContextoActor{}, ports.ErrNoAutenticado
+	}
+	datos, err := vinculo.Datos()
+	if err != nil || ahora.IsZero() || !actor.Instantanea.VigenteEn(ahora) || ahora.Before(datos.SesionRevalidadaEn) || !ahora.Before(datos.SesionValidaHasta) {
 		return vecdomain.ContextoActor{}, ports.ErrNoAutenticado
 	}
 	return actor, nil
 }
 
-func material(actor vecdomain.ContextoActor, accion string, p ports.PeticionGuardarPreferencias, huella string) ports.MaterialPreferencias {
-	return ports.MaterialPreferencias{PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Accion: accion, FinalidadRef: ports.FinalidadPreferenciasPropias, CatalogoVersionRef: p.CatalogoVersionRef, VersionEsperada: p.VersionEsperada, ClaveOperacion: p.ClaveOperacion, HuellaPeticion: huella, Valores: p.Valores}
+func material(actor vecdomain.ContextoActor, superficie vecdomain.SuperficieAutenticacionActorV1, accion string, p ports.PeticionGuardarPreferencias, huella string) ports.MaterialPreferencias {
+	return ports.MaterialPreferencias{Superficie: superficie, PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Accion: accion, FinalidadRef: ports.FinalidadPreferenciasPropias, CatalogoVersionRef: p.CatalogoVersionRef, VersionEsperada: p.VersionEsperada, ClaveOperacion: p.ClaveOperacion, HuellaPeticion: huella, Valores: p.Valores}
 }
 
 func proveer(ctx context.Context, orden ports.OrdenPreferencias, m ports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -51,7 +56,19 @@ func proveer(ctx context.Context, orden ports.OrdenPreferencias, m ports.Materia
 	if proveedor == nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrNoAutenticado
 	}
-	v3, err := proveedor.ProveerMaterialPreferencias(ctx, m)
+	vinculo, err := orden.Vinculo()
+	if err != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrNoAutenticado
+	}
+	superficie, err := orden.Superficie()
+	if err != nil || superficie != m.Superficie {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrProhibido
+	}
+	audiencia, err := ports.AudienciaPreferencias(m.Accion, superficie)
+	if err != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
+	}
+	v3, err := proveedor.ProveerMaterialPreferencias(ctx, vinculo, m)
 	if err != nil {
 		if errors.Is(err, ports.ErrNoAutenticado) || errors.Is(err, ports.ErrProhibido) {
 			return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
@@ -59,6 +76,12 @@ func proveer(ctx context.Context, orden ports.OrdenPreferencias, m ports.Materia
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrNoDisponible
 	}
 	if v3.ValidarEstructura() != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrNoDisponible
+	}
+	resumen := v3.ResumenCapacidad()
+	// La huella de efecto V3 corresponde al RecursoAutorizable canónico; el
+	// proveedor nominal y PostgreSQL ligan allí la huella del material.
+	if resumen.Operacion() != m.Accion || resumen.EfectoRef() != m.PersonaRef || resumen.AudienciaConsumo() != audiencia {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrNoDisponible
 	}
 	return v3, nil
@@ -69,11 +92,15 @@ func (s *ServicioPreferencias) Consultar(ctx context.Context, orden ports.OrdenP
 	if err != nil {
 		return ports.VistaPreferencias{}, err
 	}
-	catalogo, err := s.registro.CatalogoVigente(ctx)
+	catalogo, err := s.registro.CatalogoVigente(ctx, orden)
 	if err != nil || catalogo.Validar() != nil {
 		return ports.VistaPreferencias{}, ports.ErrNoDisponible
 	}
-	m := material(actor, ports.AccionConsultarPreferencias, ports.PeticionGuardarPreferencias{CatalogoVersionRef: catalogo.VersionRef}, "")
+	superficie, err := orden.Superficie()
+	if err != nil {
+		return ports.VistaPreferencias{}, err
+	}
+	m := material(actor, superficie, ports.AccionConsultarPreferencias, ports.PeticionGuardarPreferencias{CatalogoVersionRef: catalogo.VersionRef}, "")
 	v3, err := proveer(ctx, orden, m)
 	if err != nil {
 		return ports.VistaPreferencias{}, err
@@ -130,7 +157,11 @@ func (s *ServicioPreferencias) Guardar(ctx context.Context, orden ports.OrdenPre
 	if err != nil {
 		return ports.ReciboPreferencias{}, err
 	}
-	m := material(actor, ports.AccionActualizarPreferencias, p, huella)
+	superficie, err := orden.Superficie()
+	if err != nil {
+		return ports.ReciboPreferencias{}, err
+	}
+	m := material(actor, superficie, ports.AccionActualizarPreferencias, p, huella)
 	v3, err := proveer(ctx, orden, m)
 	if err != nil {
 		return ports.ReciboPreferencias{}, err
@@ -148,7 +179,7 @@ func (s *ServicioPreferencias) Guardar(ctx context.Context, orden ports.OrdenPre
 		recibo.Replay = true
 		return recibo, nil
 	}
-	catalogo, err := s.registro.CatalogoVigente(ctx)
+	catalogo, err := s.registro.CatalogoVigente(ctx, orden)
 	if err != nil || catalogo.Validar() != nil {
 		return ports.ReciboPreferencias{}, ports.ErrNoDisponible
 	}

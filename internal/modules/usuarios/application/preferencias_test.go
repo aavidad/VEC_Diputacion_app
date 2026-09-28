@@ -3,7 +3,9 @@ package application
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -17,14 +19,19 @@ import (
 )
 
 type proveedorPrueba struct {
-	materiales []ports.MaterialPreferencias
-	denegar    bool
-	denegarEn  int
-	reutilizar bool
-	primera    vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	materiales       []ports.MaterialPreferencias
+	denegar          bool
+	denegarEn        int
+	reutilizar       bool
+	audienciaForzada string
+	primera          vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
-func (p *proveedorPrueba) ProveerMaterialPreferencias(_ context.Context, m ports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+func (p *proveedorPrueba) ProveerMaterialPreferencias(_ context.Context, vinculo vecdomain.VinculoAutenticacionActorV2, m ports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	datos, err := vinculo.Datos()
+	if err != nil || datos.Superficie != m.Superficie {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrProhibido
+	}
 	p.materiales = append(p.materiales, m)
 	if p.denegar || p.denegarEn == len(p.materiales) {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrProhibido
@@ -33,7 +40,13 @@ func (p *proveedorPrueba) ProveerMaterialPreferencias(_ context.Context, m ports
 		return p.primera, nil
 	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(fmt.Sprintf("dec_prueba_%d", len(p.materiales)), strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), m.Accion, m.PersonaRef, strings.Repeat("d", 64), "usuarios_preferencias", ahora, ahora.Add(3*time.Second))
+	audiencia, _ := ports.AudienciaPreferencias(m.Accion, m.Superficie)
+	if p.audienciaForzada != "" {
+		audiencia = p.audienciaForzada
+	}
+	canon, _ := json.Marshal(m)
+	huella := sha256.Sum256(canon)
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(fmt.Sprintf("dec_prueba_%d", len(p.materiales)), strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), m.Accion, m.PersonaRef, hex.EncodeToString(huella[:]), audiencia, ahora, ahora.Add(3*time.Second))
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
@@ -61,7 +74,7 @@ type registroPrueba struct {
 	huellaRecuperacion, huellaGuardado   string
 }
 
-func (r *registroPrueba) CatalogoVigente(context.Context) (domain.CatalogoPreferencias, error) {
+func (r *registroPrueba) CatalogoVigente(context.Context, ports.OrdenPreferencias) (domain.CatalogoPreferencias, error) {
 	return r.catalogo, nil
 }
 func (r *registroPrueba) ConsultarPropias(_ context.Context, _ ports.OrdenPreferencias, m ports.MaterialPreferencias, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoPreferencias, bool, error) {
@@ -82,16 +95,60 @@ func (r *registroPrueba) Guardar(_ context.Context, _ ports.OrdenPreferencias, _
 	return r.recibo, r.errorGuardar
 }
 
-func ordenPrueba(t *testing.T, p *proveedorPrueba) (ports.OrdenPreferencias, vecdomain.ContextoActor) {
+type revalidadorPrefPrueba struct {
+	a vecdomain.AutenticacionRevalidadaV1
+}
+
+func (r revalidadorPrefPrueba) RevalidarAutenticacionActorV1(context.Context, vecdomain.SolicitudRevalidacionAutenticacionActorV1) (vecdomain.AutenticacionRevalidadaV1, error) {
+	return r.a, nil
+}
+
+type resolutorPrefPrueba struct {
+	r vecdomain.ResultadoContextoActorRegistradoV2
+}
+
+func (r resolutorPrefPrueba) ResolverContextoActorRegistradoV2(context.Context, vecdomain.SolicitudContextoActor) (vecdomain.ResultadoContextoActorRegistradoV2, error) {
+	return r.r, nil
+}
+
+type relojPrefPrueba struct{ ahora time.Time }
+
+func (r relojPrefPrueba) Ahora() time.Time { return r.ahora }
+
+func identidadPrueba(t *testing.T, superficie vecdomain.SuperficieAutenticacionActorV1, personaLetra, perfilLetra string) (vecdomain.ContextoActor, vecdomain.VinculoAutenticacionActorV2) {
 	t.Helper()
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	cuenta := vecdomain.CuentaAutenticadaContextoActor{CuentaRef: "cta_0123456789abcdefghijkl", Metodo: vecdomain.AuthMethodCertificate, Garantia: vecdomain.AuthAssuranceHigh}
-	snap := vecdomain.InstantaneaContextoActor{VinculoRef: "vca_0123456789abcdefghijkl", VinculoVersion: 1, CuentaRef: cuenta.CuentaRef, CuentaVersion: 1, PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 1, PerfilActivoRef: "prf_0123456789abcdefghijkl", PerfilVersion: 1, Estado: vecdomain.EstadoVinculoContextoActorActivo, VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour)}
+	z := strings.Repeat("a", 24)
+	cuenta := vecdomain.CuentaAutenticadaContextoActor{CuentaRef: "cta_" + z, Metodo: vecdomain.AuthMethodCertificate, Garantia: vecdomain.AuthAssuranceHigh}
+	snap := vecdomain.InstantaneaContextoActor{VinculoRef: "vca_" + z, VinculoVersion: 1, CuentaRef: cuenta.CuentaRef, CuentaVersion: 1, PersonaRef: "per_" + strings.Repeat(personaLetra, 24), PersonaVersion: 1, PerfilActivoRef: "prf_" + strings.Repeat(perfilLetra, 24), PerfilVersion: 1, Estado: vecdomain.EstadoVinculoContextoActorActivo, VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour)}
 	actor, err := vecdomain.NuevoContextoActor(cuenta, snap, ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
-	orden, err := ports.NuevaOrdenPreferencias(actor, p)
+	canon, _ := actor.RepresentacionCanonicaVinculadaV2()
+	huella, _ := actor.HuellaSHA256VinculadaV2()
+	ac := vecdomain.AcreditacionProcedenciaComponenteContextoActorV1{ProcedenciaRef: "prc_" + z, ProcedenciaVersion: 1, ProcedenciaHuellaSHA256: strings.Repeat("a", 64), ProcedenciaAutoridad: vecdomain.AutoridadProcedenciaContextoActorMaestraAcreditadaV1}
+	man := vecdomain.ManifiestoProcedenciaContextoActorV1{Esquema: vecdomain.EsquemaManifiestoProcedenciaContextoActorV1, AutoridadEfectiva: vecdomain.AutoridadProcedenciaContextoActorMaestraAcreditadaV1, Cuenta: vecdomain.ProcedenciaCuentaContextoActorV1{CuentaRef: cuenta.CuentaRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Persona: vecdomain.ProcedenciaPersonaContextoActorV1{PersonaRef: actor.PersonaRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Perfil: vecdomain.ProcedenciaPerfilContextoActorV1{PerfilRef: actor.PerfilActivoRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Contexto: vecdomain.ProcedenciaVinculoContextoActorV1{VinculoRef: snap.VinculoRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Vinculos: []vecdomain.ProcedenciaVinculoReferenciaContextoActorV1{}}
+	bm, _ := man.RepresentacionCanonicaV1()
+	hm, _ := vecdomain.HuellaSHA256ManifiestoProcedenciaContextoActorV1(bm)
+	res := vecdomain.ResultadoContextoActorRegistradoV2{RegistroContextoRef: "rca_" + z, Contexto: actor, RepresentacionCanonica: canon, HuellaSHA256: huella, ManifiestoProcedenciaCanonico: bm, ManifiestoProcedenciaHuellaSHA256: hm, AutoridadEfectiva: vecdomain.AutoridadProcedenciaContextoActorMaestraAcreditadaV1, ResueltoEnAutoritativo: ahora}
+	if err := res.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	auth := vecdomain.AutenticacionRevalidadaV1{AutenticacionRef: "aut_" + z, AutenticacionHuellaSHA256: strings.Repeat("a", 64), AsercionRef: "ase_" + z, SesionRef: "ses_" + z, ControlSesionRef: "cse_" + z, ControlSesionRevision: 1, ControlSesionHuellaSHA256: strings.Repeat("b", 64), CuentaRef: cuenta.CuentaRef, CuentaOrdinariaRef: cuenta.CuentaRef, Superficie: superficie, MetodoObservado: vecdomain.AuthMethodCertificate, GarantiaObservada: vecdomain.AuthAssuranceHigh, PoliticaGarantiaRef: "pga_" + z, PoliticaGarantiaHuellaSHA256: strings.Repeat("c", 64), AutenticacionVerificadaEn: ahora.Add(-time.Minute), SesionEmitidaEn: ahora.Add(-time.Minute), SesionRevalidadaEn: ahora.Add(-time.Second), SesionValidaHasta: ahora.Add(time.Minute)}
+	if err := auth.Validar(); err != nil {
+		t.Fatalf("auth: %v", err)
+	}
+	v, err := vecdomain.CrearVinculoAutenticacionActorV2(context.Background(), revalidadorPrefPrueba{auth}, vecdomain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auth.AutenticacionRef, SesionRef: auth.SesionRef}, resolutorPrefPrueba{res}, vecdomain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actor.PerfilActivoRef}, relojPrefPrueba{ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return actor, v
+}
+func ordenPrueba(t *testing.T, p *proveedorPrueba) (ports.OrdenPreferencias, vecdomain.ContextoActor) {
+	t.Helper()
+	actor, v := identidadPrueba(t, vecdomain.SuperficieAutenticacionInternaCorporativaV1, "r", "p")
+	orden, err := ports.NuevaOrdenPreferencias(actor, v, vecdomain.SuperficieAutenticacionInternaCorporativaV1, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,5 +266,88 @@ func TestNoReutilizaCapacidadConsumida(t *testing.T) {
 	_, err := s.Guardar(context.Background(), o, pet)
 	if !errors.Is(err, ports.ErrNoDisponible) || len(p.materiales) != 2 || r.recuperaciones != 1 || r.guardados != 0 {
 		t.Fatalf("capacidad V3 consumida reutilizada: %v", err)
+	}
+}
+
+func TestSuperficiePerfilYPersonaNoSeSustituyen(t *testing.T) {
+	p := &proveedorPrueba{}
+	actorInterno, vinculoInterno := identidadPrueba(t, vecdomain.SuperficieAutenticacionInternaCorporativaV1, "r", "p")
+	actorExterno, vinculoExterno := identidadPrueba(t, vecdomain.SuperficieAutenticacionExternaPersonalV1, "r", "q")
+	actorAjeno, _ := identidadPrueba(t, vecdomain.SuperficieAutenticacionInternaCorporativaV1, "s", "p")
+	casos := []struct {
+		nombre     string
+		actor      vecdomain.ContextoActor
+		vinculo    vecdomain.VinculoAutenticacionActorV2
+		superficie vecdomain.SuperficieAutenticacionActorV1
+		esperado   error
+	}{
+		{"ruta externa con vinculo interno", actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, ports.ErrProhibido},
+		{"perfil sustituido", actorExterno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, ports.ErrNoAutenticado},
+		{"persona sustituida", actorAjeno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, ports.ErrNoAutenticado},
+		{"administracion ajena", actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionAdministracionPrivilegiadaV1, ports.ErrProhibido},
+	}
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			if _, err := ports.NuevaOrdenPreferencias(tc.actor, tc.vinculo, tc.superficie, p); !errors.Is(err, tc.esperado) {
+				t.Fatalf("sustitucion aceptada: %v", err)
+			}
+		})
+	}
+	orden, err := ports.NuevaOrdenPreferencias(actorExterno, vinculoExterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, p)
+	if err != nil {
+		t.Fatalf("actor externo sin vinculo candidato rechazado: %v", err)
+	}
+	superficie, err := orden.Superficie()
+	if err != nil || superficie != vecdomain.SuperficieAutenticacionExternaPersonalV1 {
+		t.Fatal("superficie canonica perdida")
+	}
+	for _, accion := range []string{ports.AccionConsultarPreferencias, ports.AccionActualizarPreferencias} {
+		audiencia, err := ports.AudienciaPreferencias(accion, superficie)
+		if err != nil || !strings.Contains(audiencia, "externa_personal") {
+			t.Fatalf("audiencia incorrecta: %q %v", audiencia, err)
+		}
+	}
+}
+
+func TestReplayEntreSuperficiesConservaHuellaYRecibo(t *testing.T) {
+	proveedorInterno := &proveedorPrueba{}
+	ordenInterno, actorInterno := ordenPrueba(t, proveedorInterno)
+	c := domain.CatalogoBasePreferencias()
+	fecha := time.Now().UTC()
+	original := ports.ReciboPreferencias{ReciboRef: "recibo:original", PersonaRef: actorInterno.PersonaRef, Version: 1, CatalogoVersionRef: c.VersionRef, Valores: c.Predeterminados, FechaUTC: fecha}
+	r := &registroPrueba{catalogo: c, recibo: original}
+	s, _ := NuevoServicioPreferencias(r, time.Now)
+	pet := ports.PeticionGuardarPreferencias{CatalogoVersionRef: c.VersionRef, ClaveOperacion: "operacion-1234567890", Valores: c.Predeterminados}
+	if _, err := s.Guardar(context.Background(), ordenInterno, pet); err != nil {
+		t.Fatal(err)
+	}
+	huellaInterna := r.material.HuellaPeticion
+	proveedorExterno := &proveedorPrueba{}
+	actorExterno, vinculoExterno := identidadPrueba(t, vecdomain.SuperficieAutenticacionExternaPersonalV1, "r", "q")
+	ordenExterno, err := ports.NuevaOrdenPreferencias(actorExterno, vinculoExterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, proveedorExterno)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.replay = true
+	recibo, err := s.Guardar(context.Background(), ordenExterno, pet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !recibo.Replay || recibo.ReciboRef != original.ReciboRef || !recibo.FechaUTC.Equal(fecha) || r.guardados != 1 || r.material.HuellaPeticion != huellaInterna || r.material.Superficie != vecdomain.SuperficieAutenticacionExternaPersonalV1 || r.material.PerfilRef != actorExterno.PerfilActivoRef || len(proveedorExterno.materiales) != 1 {
+		t.Fatalf("replay cruzado no conservo identidad semantica y recibo: %#v %#v", recibo, r.material)
+	}
+	audiencia, _ := ports.AudienciaPreferencias(ports.AccionActualizarPreferencias, vecdomain.SuperficieAutenticacionExternaPersonalV1)
+	if audiencia != proveedorExterno.primera.ResumenCapacidad().AudienciaConsumo() {
+		t.Fatal("replay usó audiencia interna")
+	}
+}
+
+func TestAudienciaV3DeOtraSuperficieNoLlegaALectura(t *testing.T) {
+	p := &proveedorPrueba{audienciaForzada: ports.AudienciaConsultarPreferenciasExterna}
+	orden, _ := ordenPrueba(t, p)
+	r := &registroPrueba{catalogo: domain.CatalogoBasePreferencias()}
+	s, _ := NuevoServicioPreferencias(r, time.Now)
+	if _, err := s.Consultar(context.Background(), orden); !errors.Is(err, ports.ErrNoDisponible) || r.consultas != 0 {
+		t.Fatalf("audiencia sustituida alcanzó SQL: %v", err)
 	}
 }
