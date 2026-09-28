@@ -29,12 +29,13 @@ montarVistaRecorridosDietas(raiz, {
 ```
 
 El portal interno (`componerDietasInternas`) compone hoy `clienteBorradores`,
-`clienteAsignacion`, `calculadorRuta`, `visorRuta` y las relaciones que
+`clienteAsignacion`, `clienteCircuito`, `calculadorRuta`, `visorRuta` y las relaciones que
 Personal acredita antes de montar. Si Personal deniega por falta de empleado
 canónico (`empleado_no_disponible`) o por ambigüedad (`empleado_ambiguo`), la
-vista lo dice y deja el alta y el envío cerrados. `clienteCircuito`,
-`clienteRectificacion` y `clienteRectificacionAdmin` todavía no se componen:
-sin ellos no aparecen los pasos del circuito ni la corrección de la asignación.
+vista lo dice y deja el alta y el envío cerrados. El circuito solo muestra las
+etapas acreditadas por su consulta de competencias. `clienteRectificacion` y
+`clienteRectificacionAdmin` todavía no se componen, por lo que no aparece la
+corrección de la asignación.
 
 `clienteBorradores` usa `/api/vec/dietas/comisiones` para alta, consulta,
 edición, borrado lógico y envío. POST crea cabecera v1; PUT conserva documento

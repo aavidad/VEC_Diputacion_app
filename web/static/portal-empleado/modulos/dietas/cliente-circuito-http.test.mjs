@@ -17,6 +17,16 @@ test("consulta la bandeja D8 con parámetros cerrados y transporte same-origin",
   await assert.rejects(() => cliente.listar({ etapa: "revision", unidad_ref: "uni_ajena" }), /consulta/u);
 });
 
+test("la bandeja rechaza filas de otra etapa antes de ofrecer decisiones", async () => {
+  const cliente = crearClienteCircuitoDietasHTTP({ fetchImpl: async () => respuesta({
+    items: [{ ...item, estado: "pendiente_autorizacion" }], competencia: "acreditada",
+  }) });
+  await assert.rejects(() => cliente.listar({ etapa: "revision" }),
+    (error) => error instanceof ErrorClienteCircuitoDietas && error.codigo === "respuesta_incompatible");
+  const autorizacion = await cliente.listar({ etapa: "autorizacion" });
+  assert.equal(autorizacion.items[0].estado, "pendiente_autorizacion");
+});
+
 test("registra una decisión sin identidad ni unidad libres y conserva el recibo", async () => {
   const llamadas = []; const cliente = crearClienteCircuitoDietasHTTP({ fetchImpl: async (ruta, opciones) => { llamadas.push({ ruta, opciones }); return respuesta({ comision: { referencia, estado: "pendiente_autorizacion", version: 4 }, recibo }, 201); } });
   const entrada = { etapa: "revision", decision: "aprobar", motivo: "", clave_idempotencia: "decision-circuito-0001", version_esperada: 3 };

@@ -69,18 +69,18 @@ function validarComision(comision, referenciaEsperada) {
     || !Number.isSafeInteger(comision.version) || comision.version < 1) throw new TypeError("comisión de circuito incompatible");
   return Object.freeze({ ...comision });
 }
-function validarItem(item) {
+function validarItem(item, etapa) {
   if (!registro(item) || Object.keys(item).some((clave) => !["referencia", "estado", "version", "fecha_inicio", "fecha_fin"].includes(clave))
-    || !referencia(item.referencia) || typeof item.estado !== "string" || !Number.isSafeInteger(item.version) || item.version < 1
+    || !referencia(item.referencia) || item.estado !== ESTADO_PENDIENTE[etapa] || !Number.isSafeInteger(item.version) || item.version < 1
     || !fechaCivil(item.fecha_inicio) || !fechaCivil(item.fecha_fin) || item.fecha_fin < item.fecha_inicio) throw new TypeError("fila del circuito incompatible");
   return Object.freeze({ ...item });
 }
-function validarPagina(pagina) {
+function validarPagina(pagina, etapa) {
   if (!registro(pagina) || Object.keys(pagina).some((clave) => !["items", "siguiente_cursor", "competencia"].includes(clave))
     || !Array.isArray(pagina.items) || pagina.items.length > 50 || (pagina.siguiente_cursor !== undefined && !referencia(pagina.siguiente_cursor))
     || !["acreditada", "sin_fuente"].includes(pagina.competencia)
     || (pagina.competencia === "sin_fuente" && (pagina.items.length || pagina.siguiente_cursor))) throw new TypeError("página del circuito incompatible");
-  return Object.freeze({ items: Object.freeze(pagina.items.map(validarItem)), competencia: pagina.competencia, ...(pagina.siguiente_cursor ? { siguiente_cursor: pagina.siguiente_cursor } : {}) });
+  return Object.freeze({ items: Object.freeze(pagina.items.map((item) => validarItem(item, etapa))), competencia: pagina.competencia, ...(pagina.siguiente_cursor ? { siguiente_cursor: pagina.siguiente_cursor } : {}) });
 }
 function validarCompetencias(estado) {
   if (!registro(estado) || Object.keys(estado).some((clave) => clave !== "fuente" && clave !== "etapas")
@@ -184,7 +184,7 @@ export function crearClienteCircuitoDietasHTTP({ fetchImpl = globalThis.fetch } 
     listar: async (consulta, opciones = {}) => {
       const valores = validarConsulta(consulta); const parametros = new URLSearchParams({ etapa: valores.etapa, limit: String(valores.limit) });
       for (const clave of ["fecha_desde", "fecha_hasta", "cursor"]) if (valores[clave]) parametros.set(clave, valores[clave]);
-      return ejecutar(fetchImpl, `${RUTA_CIRCUITO}?${parametros}`, { method: "GET", headers: { Accept: "application/json" } }, [200], validarOpciones(opciones), false, validarPagina);
+      return ejecutar(fetchImpl, `${RUTA_CIRCUITO}?${parametros}`, { method: "GET", headers: { Accept: "application/json" } }, [200], validarOpciones(opciones), false, (pagina) => validarPagina(pagina, valores.etapa));
     },
     decidir: async (referenciaComision, entrada, opciones = {}) => {
       if (!referencia(referenciaComision)) throw new TypeError("referencia de comisión no válida");
