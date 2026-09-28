@@ -68,7 +68,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           && paso.recibo?.organizacion_ref === fila.organizacion_ref);
         const estadoRespuesta = elegida && (reciboSesion || consulta?.estado === "confirmado")
           ? "registrada" : elegida && consulta?.estado === "ausente"
-            ? "pendiente" : "por_comprobar";
+            ? "no_consultable" : "por_comprobar";
         const fechaLista = new Intl.DateTimeFormat(fecha.resolvedOptions().locale, {
           timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric",
         }).format(new Date(fila.registrada_en));
@@ -295,7 +295,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     || (restaurada?.comunicacion_ref === consulta?.referencias?.comunicacion_ref
       && restaurada?.organizacion_ref === consulta?.referencias?.organizacion_ref);
   const bloqueaFlujo = consulta?.referencias && (["cargando", "confirmado", "denegado", "error"].includes(consulta.estado)
-    || (consulta.estado === "ausente" && !antecedenteConsulta));
+    || (consulta.estado === "ausente" && (estado.comunicaciones?.estado === "lista" || !antecedenteConsulta)));
   const bloqueaLista = ["cargando", "error", "denegado"].includes(estado.comunicaciones?.estado)
     || (estado.comunicaciones?.estado === "lista" && !restaurada);
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento

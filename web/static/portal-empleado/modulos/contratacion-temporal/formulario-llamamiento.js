@@ -167,21 +167,14 @@ export function montarFormularioLlamamiento({
   }
 
   function puedeDeclarar(operacion) {
+    if (estado.comunicaciones.estado === "lista") return false;
     const comunicado = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"];
     const recibo = comunicado.recibo;
-    const restaurada = estado.comunicaciones.seleccionada;
-    const operacionRestaurada = restaurada?.antecedente_tipo === "continuacion_confirmada"
-      ? "respuesta_siguiente" : "respuesta";
-    const coincideRestaurada = estado.comunicaciones.estado === "lista"
-      && operacion === operacionRestaurada && restaurada?.organizacion_ref === estado.consultaRespuesta.referencias?.organizacion_ref
-      && restaurada?.comunicacion_ref === estado.consultaRespuesta.referencias?.comunicacion_ref
-      && restaurada?.expediente_ref === estado.seleccion.valores.expediente_ref
-      && restaurada?.version === 2;
     return estado.consultaRespuesta.estado === "ausente"
-      && (coincideRestaurada || (estado.consultaRespuesta.referencias?.organizacion_ref === comunicado.solicitud?.organizacion_ref
+      && (estado.consultaRespuesta.referencias?.organizacion_ref === comunicado.solicitud?.organizacion_ref
         && estado.consultaRespuesta.referencias?.comunicacion_ref === recibo?.comunicacion_ref
         && recibo?.version_resultante === 2 && (operacion !== "respuesta_siguiente"
-          || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local))));
+          || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local)));
   }
   function antecedenteConsultaDisponible() {
     const consulta = estado.consultaRespuesta.referencias;
@@ -491,7 +484,7 @@ export function montarFormularioLlamamiento({
     if (paso.ocupado || paso.calculando || paso.recibo || paso.bloqueado) return;
     if (["cargando", "error", "denegado"].includes(estado.comunicaciones.estado)) return;
     if (estado.comunicaciones.estado === "lista"
-      && (!estado.comunicaciones.seleccionada || !["respuesta", "respuesta_siguiente", "resolucion", "resolucion_siguiente"].includes(operacion))) return;
+      && (!estado.comunicaciones.seleccionada || !["resolucion", "resolucion_siguiente"].includes(operacion))) return;
     if (estado.consultaRespuesta.referencias !== null
       && (estado.consultaRespuesta.estado !== "ausente" || !antecedenteConsultaDisponible())) return;
     if (operacion === "comunicacion" && estado.seleccion.recibo === null) return;

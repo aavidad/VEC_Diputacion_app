@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
 import {
   crearConsultaReciboRespuestaClienteHTTP, RUTA_CONSULTA_RECIBO_RESPUESTA,
   validarConsultaReciboRespuesta, validarReciboRespuestaConsultado,
@@ -42,4 +43,23 @@ test("GET rechaza referencias y recibos ajenos, añadidos o de tipos incorrectos
     { registrada_en: "2026-02-30T09:00:00Z" }, { clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002" }]) {
     assert.throws(() => validarReciboRespuestaConsultado({ ...recibo, ...cambio }, consulta), TypeError);
   }
+});
+
+test("cliente común compone GET de recibo sin cuerpo ni clave y valida 404 uniforme", async () => {
+  assert.equal(RUTAS_HTTP_CONTRATACION_TEMPORAL.consultaReciboRespuesta, RUTA_CONSULTA_RECIBO_RESPUESTA);
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+    assert.equal(ruta, `${RUTA_CONSULTA_RECIBO_RESPUESTA}?organizacion_ref=organizacion%3Asintetica%3A001&comunicacion_ref=comunicacion%3Asintetica%3A001`);
+    assert.equal(opciones.method, "GET");
+    assert.equal(Object.hasOwn(opciones, "body"), false);
+    return new Response(JSON.stringify({ data: recibo }), { status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8" } });
+  } });
+  assert.deepEqual(await cliente.consultarReciboRespuesta(consulta), recibo);
+  const ausente = crearClienteHTTPContratacionTemporal({ fetchImpl: async () =>
+    new Response(JSON.stringify({ error: { codigo: "recurso_no_encontrado",
+      clave_i18n: "api.contratacion_temporal.respuesta_recibida.error.recurso_no_encontrado",
+      correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
+  await assert.rejects(ausente.consultarReciboRespuesta(consulta), (error) =>
+    error.estado === 404 && error.envelopeValido === true);
 });

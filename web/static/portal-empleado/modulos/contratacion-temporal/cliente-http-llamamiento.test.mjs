@@ -179,6 +179,7 @@ test("propuesta: errores con namespace propio y ningún éxito falso ni reintent
 test("manifiestos publican todos los recursos del llamamiento sin duplicados", async () => {
   const recursos = [
     "cliente-http-llamamiento.js", "contrato-llamamiento.js",
+    "cliente-http-consulta-recibo-respuesta.js", "cliente-http-consulta-comunicaciones-expediente.js",
     "formulario-llamamiento.js", "i18n-llamamiento.js", "renderizado-llamamiento.js",
   ];
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {

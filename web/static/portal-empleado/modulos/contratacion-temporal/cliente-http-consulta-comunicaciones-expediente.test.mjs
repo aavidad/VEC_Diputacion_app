@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL } from "./cliente-http.js";
 import {
   crearConsultaComunicacionesExpedienteClienteHTTP, RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE,
   validarPaginaComunicacionesExpediente, instanteOrdenComunicacion,
@@ -55,4 +56,34 @@ test("CT140 valida diez campos, orden microsegundo, cursor y referencias del exp
     comunicaciones: [fila(1)], siguiente_cursor: cursor }, { expediente_ref }), TypeError);
   assert.throws(() => validarPaginaComunicacionesExpediente({ expediente_ref,
     comunicaciones: Array(2) }, { expediente_ref }), TypeError);
+});
+
+test("cliente común compone GET CT140 y conserva 403/404/503 con prefijo exacto", async () => {
+  assert.equal(RUTAS_HTTP_CONTRATACION_TEMPORAL.consultaComunicacionesExpediente,
+    RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE);
+  const pagina = { expediente_ref, comunicaciones: [fila(1)] };
+  const cliente = crearClienteHTTPContratacionTemporal({ fetchImpl: async (ruta, opciones) => {
+    assert.equal(ruta, `${RUTA_CONSULTA_COMUNICACIONES_EXPEDIENTE}?expediente_ref=expediente%3Act140%3A001&limite=10`);
+    assert.equal(opciones.method, "GET");
+    assert.equal(opciones.cache, "no-store");
+    assert.equal(Object.hasOwn(opciones, "body"), false);
+    return new Response(JSON.stringify({ data: pagina }), { status: 200,
+      headers: { "Content-Type": "application/json; charset=utf-8" } });
+  } });
+  assert.deepEqual(await cliente.consultarComunicacionesExpediente({ expediente_ref }),
+    validarPaginaComunicacionesExpediente(pagina, { expediente_ref }));
+  for (const [status, codigo] of [[403, "acceso_denegado"], [404, "recurso_no_encontrado"],
+    [503, "servicio_no_disponible"]]) {
+    const denegado = crearClienteHTTPContratacionTemporal({ fetchImpl: async () =>
+      new Response(JSON.stringify({ error: { codigo,
+        clave_i18n: `api.contratacion_temporal.comunicacion_llamamiento.error.${codigo}`,
+        correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+      } }), { status, headers: { "Content-Type": "application/json; charset=utf-8" } }) });
+    await assert.rejects(denegado.consultarComunicacionesExpediente({ expediente_ref }), (error) => {
+      assert.equal(error.estado, status);
+      assert.equal(error.codigo, codigo);
+      assert.equal(error.envelopeValido, true);
+      return true;
+    });
+  }
 });

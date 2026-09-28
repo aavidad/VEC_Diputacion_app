@@ -164,10 +164,10 @@ for (const ingles of [false, true]) test(`consulta 404 y POST ${estado} ${ingles
   const cerrar = await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (solicitud) => ({
     ...justificante(solicitud), estado,
   }) }, ingles ? { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" } : {});
-  assert.match(raiz.innerHTML, ingles ? /No reply is recorded/u : /No consta una respuesta/u);
+  assert.match(raiz.innerHTML, ingles ? /No reply can be viewed/u : /No consta una respuesta consultable/u);
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
-  assert.doesNotMatch(raiz.innerHTML, /No consta una respuesta|No reply is recorded/u);
+  assert.doesNotMatch(raiz.innerHTML, /No consta una respuesta consultable|No reply can be viewed/u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
   cerrar();
@@ -212,7 +212,7 @@ test("consulta 404 permite registrar tras el aviso; 401/403 ocultan datos y bloq
       registrarRespuestaRecibida: async () => { escrituras += 1; },
     });
     if (estado === 404) {
-      assert.match(raiz.innerHTML, /No consta una respuesta/u);
+      assert.match(raiz.innerHTML, /No consta una respuesta consultable/u);
       assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
     } else {
       assert.match(raiz.innerHTML, /No puede consultar esta respuesta/u);
@@ -235,7 +235,7 @@ test("404 tras recarga sin antecedente autorizado conserva cerrado el POST", asy
   }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
     consulta_respuesta: consultaRespuesta } });
   await new Promise(setImmediate);
-  assert.match(raiz.innerHTML, /Abra el llamamiento para recuperar sus antecedentes/u);
+  assert.match(raiz.innerHTML, /Abra el llamamiento y pida a RRHH/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   await raiz.enviar("respuesta", declaracion());
   assert.equal(escrituras, 0);
@@ -597,6 +597,11 @@ test("encadenado selección y replay autorrellenan comunicación local sin trans
     const raiz = raizPrueba();
     const cliente = crearClienteHTTPContratacionTemporal({
       fetchImpl: async (ruta, opciones) => {
+        if (opciones.method === "GET") return new Response(JSON.stringify({ error: {
+          codigo: "recurso_no_encontrado",
+          clave_i18n: "api.contratacion_temporal.respuesta_recibida.error.recurso_no_encontrado",
+          correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+        } }), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } });
         const entrada = JSON.parse(opciones.body);
         llamadas.push({ ruta, entrada });
         const data = ruta.endsWith("/seleccion") ? recibo : {

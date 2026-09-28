@@ -26,7 +26,7 @@ const elegir = (raiz, indice) => raiz.eventos.get("click")({ preventDefault() {}
     ? { dataset: { ctComunicacionIndice: String(indice) } } : null,
 } });
 
-for (const ingles of [false, true]) test(`CT140 pagina completa 12 filas, ordinal ${ingles ? "EN" : "ES"}, GET404 y POST con antecedente`, async () => {
+for (const ingles of [false, true]) test(`CT140 pagina completa 12 filas, ordinal ${ingles ? "EN" : "ES"}, GET404 sin POST`, async () => {
   const raiz = raizPrueba(), consultas = [], escrituras = [];
   const cerrar = montar(raiz, {
     consultarComunicacionesExpediente: async (consulta) => {
@@ -53,17 +53,13 @@ for (const ingles of [false, true]) test(`CT140 pagina completa 12 filas, ordina
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   elegir(raiz, 11);
   await esperar();
-  assert.match(raiz.innerHTML, ingles ? /Response pending/u : /Respuesta pendiente/u);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta_siguiente"/u);
+  assert.match(raiz.innerHTML, ingles ? /No viewable reply found/u : /No consta respuesta consultable/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion_siguiente"/u);
   await raiz.archivo(archivoCorreo(), "respuesta_siguiente");
   await raiz.enviar("respuesta_siguiente", declaracion());
-  assert.equal(escrituras.length, 1);
-  assert.equal(escrituras[0].comunicacion_ref, fila(12).comunicacion_ref);
-  assert.equal(escrituras[0].llamamiento_ref, fila(12).llamamiento_ref);
-  assert.equal(escrituras[0].version_comunicacion_esperada, 2);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta_siguiente"/u);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion_siguiente"/u);
+  assert.equal(escrituras.length, 0);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta_siguiente"/u);
   cerrar();
 });
 
@@ -132,7 +128,7 @@ test("CT140 y GET200 muestran respuesta existente sin formulario ni nuevo POST",
   cerrar();
 });
 
-test("CT140 con antecedente de selección habilita respuesta original tras GET404", async () => {
+test("CT140 con antecedente de selección no permite POST tras GET404 ambiguo", async () => {
   const raiz = raizPrueba(), escrituras = [];
   const cerrar = montar(raiz, {
     consultarComunicacionesExpediente: async () => ({ expediente_ref: EXPEDIENTE, comunicaciones: [fila(1)] }),
@@ -144,13 +140,13 @@ test("CT140 con antecedente de selección habilita respuesta original tras GET40
   await esperar();
   elegir(raiz, 0);
   await esperar();
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+  assert.match(raiz.innerHTML, /No consta una respuesta consultable con esta identidad/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="comunicacion"/u);
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
-  assert.equal(escrituras.length, 1);
-  assert.equal(escrituras[0].comunicacion_ref, fila(1).comunicacion_ref);
-  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+  assert.equal(escrituras.length, 0);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
   cerrar();
 });
 
@@ -175,7 +171,7 @@ test("al cambiar de fila ignora respuesta tardía de la comunicación anterior",
     recibo_ref: "recibo:respuesta:ct140:001", auditoria_ref: "auditoria:ct140:001",
     registrada_en: "2026-09-24T11:00:00Z", estado: "registrada_por_rrhh" });
   await esperar();
-  assert.match(raiz.innerHTML, /Llamamiento 2 de 2 · 24\/09\/2026 · Respuesta pendiente/u);
+  assert.match(raiz.innerHTML, /Llamamiento 2 de 2 · 24\/09\/2026 · No consta respuesta consultable/u);
   assert.doesNotMatch(raiz.innerHTML, /recibo:respuesta:ct140:001/u);
   cerrar();
 });
