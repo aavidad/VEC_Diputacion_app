@@ -214,7 +214,7 @@ export async function montarModuloContratacionTemporal({
   function montarBorradoresPublicadosSiProcede(estado) {
     const contexto = contextoPlantillasPublicadasDesdeEstado(estado);
     const zona = raiz.querySelector(".ct-exp-contenido");
-    if (!contexto || !zona) return;
+    if (!contexto || !zona || typeof raiz.ownerDocument?.createElement !== "function") return;
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.dataset.ctExpBorradoresPublicados = "";
     zona.append(contenedor);
