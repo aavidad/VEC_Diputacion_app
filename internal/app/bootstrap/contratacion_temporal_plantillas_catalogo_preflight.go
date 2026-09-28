@@ -78,8 +78,13 @@ func comprobarPreflightCatalogoPlantillasCT(ctx context.Context, consulta interf
     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
       pg_catalog.to_regprocedure('vec_contratacion_temporal.consultar_auditoria_ct_atestada_v1(text,text,text,timestamptz,timestamptz,integer,timestamptz,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE'),false)
     AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
+      pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_ruta_exacta_v1(text,text,text,text,text)'),'EXECUTE'),false)
+    AND NOT coalesce(pg_catalog.has_function_privilege(session_user,
       pg_catalog.to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_auditoria_v1(text,text,text,text,text)'),'EXECUTE'),false)
     AND pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    AND pg_catalog.has_schema_privilege('vec_contratacion_temporal_propietario','vec_autorizacion_atestada_v3','USAGE')
+    AND coalesce(pg_catalog.has_function_privilege('vec_contratacion_temporal_propietario',
+      pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),'EXECUTE'),false)
     AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
       WHERE a.attrelid=pg_catalog.to_regclass('vec_contratacion_temporal.catalogo_plantillas_historia_v1')
         AND a.attname='organizacion_ref' AND NOT a.attisdropped)

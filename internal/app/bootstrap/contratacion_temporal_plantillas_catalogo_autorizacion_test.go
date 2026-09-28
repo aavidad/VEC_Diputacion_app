@@ -104,8 +104,10 @@ func TestProveedorCatalogoPlantillasCTPreflightCompruebaLOGINYFunciones(t *testi
 		"session_user=current_user", "rolcanlogin", "rolbypassrls", "pg_auth_members", "inherit_option", "NOT m.set_option", "to_regprocedure",
 		"has_schema_privilege(session_user,'vec_contratacion_temporal','USAGE')", "has_schema_privilege(g.oid,'vec_contratacion_temporal','USAGE')",
 		"has_table_privilege", "has_any_column_privilege", "vec_bolsa_llamamientos", "vec_autorizacion_atestada_v3",
-		"consultar_auditoria_ct_atestada_v1", "registrar_auditoria_frontera_auditoria_v1",
+		"consultar_auditoria_ct_atestada_v1", "registrar_auditoria_frontera_ruta_exacta_v1", "registrar_auditoria_frontera_auditoria_v1",
 		"registrar_y_consumir_catalogo_plantillas_ct_org_v3_atestada", "catalogo_plantillas_historia_v1", "organizacion_ref", "pg_get_functiondef",
+		"has_schema_privilege('vec_contratacion_temporal_propietario','vec_autorizacion_atestada_v3','USAGE')",
+		"has_function_privilege('vec_contratacion_temporal_propietario'",
 		"NOT pg_catalog.has_function_privilege",
 		"provisionar_catalogo_plantillas_base_v1",
 	} {
