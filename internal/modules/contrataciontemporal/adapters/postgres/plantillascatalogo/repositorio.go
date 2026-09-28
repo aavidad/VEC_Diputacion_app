@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	funcion   = `SELECT vec_contratacion_temporal.operar_catalogo_plantillas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
-	audiencia = "vec_contratacion_temporal.catalogo_plantillas.v1"
+	funcion                = `SELECT vec_contratacion_temporal.operar_catalogo_plantillas_v1($1::jsonb,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	audiencia              = "vec_contratacion_temporal.catalogo_plantillas.v1"
+	organizacionCatalogoCT = "organizacion:desarrollo:dipgra"
 	// CT131 admite hasta 16 MiB de catálogo y 17 MB de material JSONB.
 	// El límite de lectura cubre esa representación sin aceptar una respuesta
 	// mayor que la frontera SQL.
@@ -37,22 +38,29 @@ type ProveedorAutorizacion interface {
 }
 
 type Repositorio struct {
-	pool      *pgxpool.Pool
-	proveedor ProveedorAutorizacion
+	pool            *pgxpool.Pool
+	proveedor       ProveedorAutorizacion
+	organizacionRef string
 }
 
-func NuevoRepositorio(pool *pgxpool.Pool, proveedor ProveedorAutorizacion) (*Repositorio, error) {
-	if pool == nil || proveedor == nil {
+func NuevoRepositorio(pool *pgxpool.Pool, proveedor ProveedorAutorizacion, organizacionRef string) (*Repositorio, error) {
+	if pool == nil || proveedor == nil || organizacionRef != organizacionCatalogoCT {
 		return nil, app.ErrNoDisponible
 	}
-	return &Repositorio{pool: pool, proveedor: proveedor}, nil
+	return &Repositorio{pool: pool, proveedor: proveedor, organizacionRef: organizacionRef}, nil
 }
 
 func (r *Repositorio) Consultar(ctx context.Context, actor vecdomain.ContextoActor) (app.Lectura, error) {
 	if r == nil || r.pool == nil || r.proveedor == nil || ctx == nil || actor.Validar() != nil {
 		return app.Lectura{}, app.ErrNoDisponible
 	}
-	b := []byte(`{"operacion":"consultar"}`)
+	b, err := json.Marshal(struct {
+		Operacion       string `json:"operacion"`
+		OrganizacionRef string `json:"organizacion_ref"`
+	}{"consultar", r.organizacionRef})
+	if err != nil {
+		return app.Lectura{}, app.ErrNoDisponible
+	}
 	var z app.Lectura
 	if err := r.operar(ctx, actor, "consultar", b, &z); err != nil {
 		return app.Lectura{}, err
@@ -74,7 +82,7 @@ func (r *Repositorio) ComprobarAccion(ctx context.Context, actor vecdomain.Conte
 	if c == nil || c.ID != app.CatalogoID || c.ModuloID != app.ModuloID {
 		return false, nil
 	}
-	recurso := vecdomain.RecursoAutorizable{Referencia: app.CatalogoID, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_contratacion_temporal", Ambitos: map[string]string{},
+	recurso := vecdomain.RecursoAutorizable{Referencia: app.CatalogoID, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_contratacion_temporal", Ambitos: map[string]string{"organizacion_ref": r.organizacionRef},
 		Atributos: map[string]string{"operacion": operacion, "estado": string(c.Estado), "version": strconv.Itoa(c.Version), "revision": strconv.Itoa(c.Revision)}}
 	if recurso.Validar() != nil {
 		return false, app.ErrNoDisponible
@@ -89,6 +97,10 @@ func (r *Repositorio) ComprobarAccion(ctx context.Context, actor vecdomain.Conte
 func (r *Repositorio) Cambiar(ctx context.Context, actor vecdomain.ContextoActor, material app.MaterialCambio) (app.ResultadoCambio, error) {
 	if r == nil || r.pool == nil || r.proveedor == nil || ctx == nil || actor.Validar() != nil || (material.Operacion != "editar" && material.Operacion != "publicar") {
 		return app.ResultadoCambio{}, app.ErrNoDisponible
+	}
+	material, err := material.LigarOrganizacion(r.organizacionRef)
+	if err != nil {
+		return app.ResultadoCambio{}, err
 	}
 	b, err := json.Marshal(material)
 	if err != nil || len(b) > 17_000_000 {
@@ -115,6 +127,12 @@ func (r *Repositorio) operar(ctx context.Context, actor vecdomain.ContextoActor,
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	var ambito struct {
+		OrganizacionRef string `json:"organizacion_ref"`
+	}
+	if json.Unmarshal(material, &ambito) != nil || ambito.OrganizacionRef != r.organizacionRef {
+		return app.ErrEntradaInvalida
+	}
 	// PostgreSQL canoniza jsonb antes de fijar la huella del material. Se usa
 	// exactamente esa representación para la capacidad y se vuelve a comprobar
 	// dentro de la función que consume V3.
@@ -125,7 +143,7 @@ func (r *Repositorio) operar(ctx context.Context, actor vecdomain.ContextoActor,
 	if len(huellaMaterial) != 64 {
 		return app.ErrNoDisponible
 	}
-	recurso := vecdomain.RecursoAutorizable{Referencia: app.CatalogoID, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_contratacion_temporal", Ambitos: map[string]string{}, Atributos: map[string]string{"material_sha256": huellaMaterial}}
+	recurso := vecdomain.RecursoAutorizable{Referencia: app.CatalogoID, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_contratacion_temporal", Ambitos: map[string]string{"organizacion_ref": r.organizacionRef}, Atributos: map[string]string{"material_sha256": huellaMaterial}}
 	huellaRecurso, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
 		return app.ErrNoDisponible

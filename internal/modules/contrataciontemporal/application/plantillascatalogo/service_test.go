@@ -162,3 +162,26 @@ func TestConflictoDeVersionEntregaSolicitudParaRecuperarClave(t *testing.T) {
 		t.Fatalf("no delegó replay a SQL: %+v", r.material)
 	}
 }
+
+func TestMaterialCambioLigaOrganizacionEnSolicitudIdempotente(t *testing.T) {
+	base, err := nuevoMaterial("editar", "11111111-1111-4111-8111-111111111111", 1, 0, solicitudPrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	org := "organizacion:desarrollo:dipgra"
+	ligado, err := base.LigarOrganizacion(org)
+	if err != nil || ligado.OrganizacionRef != org {
+		t.Fatalf("ámbito no ligado: %+v, %v", ligado, err)
+	}
+	var solicitud map[string]json.RawMessage
+	if json.Unmarshal(ligado.Solicitud, &solicitud) != nil || string(solicitud["organizacion_ref"]) != `"organizacion:desarrollo:dipgra"` {
+		t.Fatalf("solicitud sin ámbito: %s", ligado.Solicitud)
+	}
+	ajeno, err := base.LigarOrganizacion("organizacion:desarrollo:ajena")
+	if err != nil || string(ajeno.Solicitud) == string(ligado.Solicitud) {
+		t.Fatal("claves de ámbitos distintos comparten solicitud idempotente")
+	}
+	if _, err := ligado.LigarOrganizacion(org); err == nil {
+		t.Fatal("doble ligadura aceptada")
+	}
+}

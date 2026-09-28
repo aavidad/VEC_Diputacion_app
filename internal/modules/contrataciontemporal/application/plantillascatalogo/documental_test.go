@@ -6,7 +6,7 @@ import (
 )
 
 func TestSolicitudDocumentalFijaOperacionYExpediente(t *testing.T) {
-	base := SolicitudDocumental{Operacion: "listar", ExpedienteRef: "expediente:ct:0001", VersionObservada: 7, ConsultaHuellaSHA256: strings.Repeat("a", 64)}
+	base := SolicitudDocumental{Operacion: "listar", OrganizacionRef: "organizacion:desarrollo:dipgra", ExpedienteRef: "expediente:ct:0001", VersionObservada: 7, ConsultaHuellaSHA256: strings.Repeat("a", 64)}
 	if err := base.Validar(); err != nil {
 		t.Fatal(err)
 	}
@@ -18,6 +18,7 @@ func TestSolicitudDocumentalFijaOperacionYExpediente(t *testing.T) {
 		t.Fatal(err)
 	}
 	for nombre, mutar := range map[string]func(*SolicitudDocumental){
+		"sin organización":     func(s *SolicitudDocumental) { s.OrganizacionRef = "" },
 		"sin expediente":       func(s *SolicitudDocumental) { s.ExpedienteRef = "" },
 		"sin version":          func(s *SolicitudDocumental) { s.VersionObservada = 0 },
 		"sin recibo detalle":   func(s *SolicitudDocumental) { s.ConsultaHuellaSHA256 = "" },
