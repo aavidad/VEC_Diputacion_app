@@ -163,27 +163,6 @@ export function asignacionConfirmadaEnDetalle(expediente) {
   );
 }
 
-function renderizarFirmaPendiente(expediente, t) {
-  const informe = expediente?.historial?.at?.(-1);
-  if (!(informe?.accion_clave === "contratacion_temporal.informe_juridico.generar"
-      || informe?.accion_clave === "registrar_informe_juridico")) return "";
-  return `<section class="ct-exp-firma-pendiente" role="note" aria-labelledby="ct-exp-firma-pendiente-titulo">
-    <p class="sobrelinea">${escaparHTML(t("firma_pendiente_sobrelinea"))}</p>
-    <h3 id="ct-exp-firma-pendiente-titulo">${escaparHTML(t("firma_pendiente_titulo"))}</h3>
-    <p>${escaparHTML(t("firma_pendiente_estado"))}</p>
-    <dl>
-      <div><dt>${escaparHTML(t("firma_pendiente_documento"))}</dt><dd>${escaparHTML(t("firma_pendiente_documento_valor"))}</dd></div>
-      <div><dt>${escaparHTML(t("firma_pendiente_destino"))}</dt><dd>${escaparHTML(t("firma_pendiente_destino_valor"))}</dd></div>
-    </dl>
-    <h4>${escaparHTML(t("firma_pendiente_pasos"))}</h4>
-    <ul>
-      <li>${escaparHTML(t("firma_pendiente_paso_configuracion"))}</li>
-      <li>${escaparHTML(t("firma_pendiente_paso_remision"))}</li>
-    </ul>
-    <p>${escaparHTML(t("firma_pendiente_limite"))}</p>
-  </section>`;
-}
-
 // La fase y el reparo proyectado solo acotan el contenedor. La disponibilidad
 // efectiva llega como dependencia de composición y el servidor la revalida al
 // registrar; la vista nunca la deduce de este estado.
@@ -416,7 +395,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
       && ultimoHito.version_expediente === contextoSubsanacion.version_esperada
       && ultimoHito.secuencia === contextoSubsanacion.version_esperada;
-    contenido = `${detalle}${renderizarFirmaPendiente(estado.expediente, t)}${reciboAsignacion}${reciboFiscalizacion}${contextoRectificacion
+    contenido = `${detalle}${reciboAsignacion}${reciboFiscalizacion}${contextoRectificacion
       ? '<div data-ct-exp-rectificacion></div>'
       : ""}${contextoCobertura
       ? '<div data-ct-exp-cobertura></div>'

@@ -80,12 +80,27 @@ test("cliente del registro: consulta con contrato exacto y falla cerrado", async
   let peticion;
   const cliente = crearClienteFirmaDocumento({ fetchImpl: async (ruta, opciones) => { peticion = { ruta, opciones }; return respuesta({ data: estadoServidor() }); } });
   const estado = await cliente.consultar("expediente:ct:001");
+  const consultaTipada = await cliente.consultarConEstado("expediente:ct:001");
+  assert.equal(consultaTipada.estado, "disponible");
+  assert.equal(consultaTipada.datos.documentos[0].paso_pendiente, 2);
   assert.equal(peticion.ruta, RUTA_CONSULTA_FIRMA_DOCUMENTO);
   assert.equal(peticion.opciones.method, "POST");
   assert.equal(peticion.opciones.credentials, "same-origin");
   assert.equal(estado.documentos[0].paso_pendiente, 2);
   const sinRegistro = crearClienteFirmaDocumento({ fetchImpl: async () => respuesta({ error: { codigo: "recurso_no_encontrado", clave_i18n: "x", correlacion_ref: "corr_no_disponible" } }, 404) });
   assert.equal(await sinRegistro.consultar("expediente:ct:001"), null);
+  for (const [codigoHTTP, codigoAPI, esperado] of [[403, "acceso_denegado", "denegado"],
+    [503, "servicio_no_disponible", "no_disponible"]]) {
+    const fallido = crearClienteFirmaDocumento({ fetchImpl: async () => respuesta({ error: {
+      codigo: codigoAPI, clave_i18n: "x", correlacion_ref: "correlacion-opaca",
+    } }, codigoHTTP) });
+    assert.deepEqual(await fallido.consultarConEstado("expediente:ct:001"), { estado: esperado });
+    assert.equal(await fallido.consultar("expediente:ct:001"), null);
+  }
+  const sinRed = crearClienteFirmaDocumento({ fetchImpl: async () => { throw new TypeError("red"); } });
+  assert.deepEqual(await sinRed.consultarConEstado("expediente:ct:001"), { estado: "no_disponible" });
+  const accesoCerrado = crearClienteFirmaDocumento({ fetchImpl: async () => new Response("", { status: 403 }) });
+  assert.deepEqual(await accesoCerrado.consultarConEstado("expediente:ct:001"), { estado: "denegado" });
 });
 
 test("cliente del registro: firma, devolución y errores con motivo del validador", async () => {
