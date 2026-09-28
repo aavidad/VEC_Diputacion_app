@@ -12,6 +12,7 @@ DO $pre$
 BEGIN
  IF to_regclass('vec_contratacion_temporal.respuesta_recibida_rrhh') IS NULL
     OR to_regclass('vec_contratacion_temporal.historia_respuesta_recibida_rrhh') IS NULL
+    OR to_regclass('vec_contratacion_temporal.resolucion_manual_respuesta_rrhh') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.registrar_respuesta_recibida_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_recibo_respuesta_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_recibo_respuesta_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
@@ -122,13 +123,45 @@ BEGIN
     AND c.recibo_json->'Solicitud'->>'OrganizacionRef'=r.organizacion_ref
     AND c.recibo_json->'Solicitud'->>'ExpedienteRef'=r.expediente_ref
     AND c.recibo_json->'Solicitud'->>'LlamamientoRef'=r.llamamiento_ref
+    AND c.recibo_json->'Solicitud'=c.material_json->'solicitud'
     AND e.situacion='confirmada'
+    AND e.recibo_json->'propuesta_generada'='true'::jsonb
     AND e.solicitud_json->>'organizacion_ref'=r.organizacion_ref
     AND e.solicitud_json->>'expediente_ref'=r.expediente_ref
     AND e.recibo_json->>'organizacion_ref'=r.organizacion_ref
     AND e.recibo_json->>'expediente_ref'=r.expediente_ref
-    AND e.recibo_json->>'llamamiento_ref'=r.llamamiento_ref
-    AND e.recibo_json->>'recibo_ref'=c.recibo_json->'Solicitud'->>'PruebaEntregaRef'
+    AND (
+      (c.material_json->'solicitud'->>'TipoAntecedente' IS NULL
+       AND e.recibo_json->>'llamamiento_ref'=r.llamamiento_ref
+       AND e.recibo_json->>'recibo_ref'=c.recibo_json->'Solicitud'->>'PruebaEntregaRef')
+      OR
+      (c.material_json->'solicitud'->>'TipoAntecedente'='continuacion_confirmada'
+       AND EXISTS (
+         SELECT 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh q
+         JOIN vec_contratacion_temporal.comunicacion_llamamiento_local previa
+           ON previa.comunicacion_ref=q.comunicacion_ref
+          AND previa.seleccion_clave=e.clave_idempotencia
+          AND previa.organizacion_ref=q.organizacion_ref
+          AND previa.expediente_ref=q.expediente_ref
+          AND previa.llamamiento_ref=q.llamamiento_ref
+         WHERE q.seleccion_clave=e.clave_idempotencia
+           AND q.organizacion_ref=r.organizacion_ref
+           AND q.expediente_ref=r.expediente_ref
+           AND q.estado='confirmado'
+           AND q.solicitud_json->>'Respuesta' IN ('renuncia','expiracion_gobernada','aceptacion')
+           AND q.continuacion_clave IS NOT NULL
+           AND q.continuacion_recibo->>'Estado'='confirmado'
+           AND q.continuacion_recibo->>'ReciboRef'=c.recibo_json->'Solicitud'->>'PruebaEntregaRef'
+           AND q.continuacion_recibo->'Solicitud'->>'OrganizacionRef'=q.organizacion_ref
+           AND q.continuacion_recibo->'Solicitud'->>'ExpedienteRef'=q.expediente_ref
+           AND q.continuacion_recibo->'Solicitud'->>'ResolucionRef'=q.resolucion_ref
+           AND q.continuacion_recibo->'Solicitud'->>'ClaveIdempotencia'=q.continuacion_clave::text
+           AND q.continuacion_recibo->>'LlamamientoAnteriorRef'=q.llamamiento_ref
+           AND q.continuacion_recibo->'ReciboBolsa'->>'LlamamientoRef'=r.llamamiento_ref
+           AND q.llamamiento_ref=e.recibo_json->>'llamamiento_ref'
+           AND q.llamamiento_ref<>r.llamamiento_ref
+       ))
+    )
     AND r.estado='registrada_por_rrhh'
     AND r.material_json->>'OrganizacionRef'=r.organizacion_ref
     AND r.material_json->>'ExpedienteRef'=r.expediente_ref

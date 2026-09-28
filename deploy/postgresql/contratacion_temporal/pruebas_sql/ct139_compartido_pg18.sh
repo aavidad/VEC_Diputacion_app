@@ -48,12 +48,24 @@ python3 - "$ausencia" <<'PY'
 import json,sys
 r=json.loads(sys.argv[1]); assert r=={'Encontrado':False,'Recibo':{}},r
 PY
-[[ $(psql_super -At -c "SELECT count(*) FROM vec_autorizacion_atestada_v3.ct139_lecturas_sinteticas") == 3 ]]
+sucesora=$(psql_login -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT vec_contratacion_temporal.ct139_consultar_sintetico('org:ct138','exp:ct138','comunicacion:sucesora','actor:otro')::text; COMMIT;" | rg '^\{')
+python3 - "$sucesora" <<'PY'
+import json,sys
+r=json.loads(sys.argv[1]); assert r['Encontrado'] is True,r
+assert r['Recibo']['ComunicacionRef']=='comunicacion:sucesora',r
+PY
+psql_super -c "SET ROLE vec_contratacion_temporal_propietario; UPDATE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh SET continuacion_recibo=jsonb_set(continuacion_recibo,'{ReciboBolsa,LlamamientoRef}','\"llamamiento:ajeno\"');" >/dev/null
+cruce=$(psql_login -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT vec_contratacion_temporal.ct139_consultar_sintetico('org:ct138','exp:ct138','comunicacion:sucesora','actor:otro')::text; COMMIT;" | rg '^\{')
+python3 - "$cruce" <<'PY'
+import json,sys
+r=json.loads(sys.argv[1]); assert r=={'Encontrado':False,'Recibo':{}},r
+PY
+[[ $(psql_super -At -c "SELECT count(*) FROM vec_autorizacion_atestada_v3.ct139_lecturas_sinteticas") == 5 ]]
 psql_super -c "SET ROLE vec_contratacion_temporal_propietario; UPDATE vec_contratacion_temporal.comunicacion_llamamiento_local SET recibo_json=jsonb_set(recibo_json,'{Solicitud,ExpedienteRef}','\"exp:inconsistente\"') WHERE comunicacion_ref='comunicacion:nueva';" >/dev/null
 inconsistente=$(psql_login -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT vec_contratacion_temporal.ct139_consultar_sintetico('org:ct138','exp:ct138','comunicacion:nueva','actor:otro')::text; COMMIT;" | rg '^\{')
 python3 - "$inconsistente" <<'PY'
 import json,sys
 r=json.loads(sys.argv[1]); assert r=={'Encontrado':False,'Recibo':{}},r
 PY
-[[ $(psql_super -At -c "SELECT count(*) FROM vec_autorizacion_atestada_v3.ct139_lecturas_sinteticas") == 4 ]]
-printf 'CT139 PG18 sintético: lector distinto, expediente ajeno, ausencia, recibo inconsistente y cuatro auditorías OK\n'
+[[ $(psql_super -At -c "SELECT count(*) FROM vec_autorizacion_atestada_v3.ct139_lecturas_sinteticas") == 6 ]]
+printf 'CT139 PG18 sintético: lector distinto, sucesor, cruce rechazado, ausencias y seis auditorías OK\n'

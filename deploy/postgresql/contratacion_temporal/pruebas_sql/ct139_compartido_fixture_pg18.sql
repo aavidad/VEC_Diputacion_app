@@ -1,12 +1,71 @@
 \set ON_ERROR_STOP on
 -- Solo fixture de consulta CT139: V3 se sustituye por auditoría sintética.
 SET ROLE vec_contratacion_temporal_propietario;
+CREATE TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh (
+    resolucion_ref text PRIMARY KEY, organizacion_ref text, expediente_ref text,
+    llamamiento_ref text, comunicacion_ref text, seleccion_clave uuid, estado text,
+    solicitud_json jsonb, continuacion_clave uuid, continuacion_recibo jsonb);
 ALTER TABLE vec_contratacion_temporal.comunicacion_llamamiento_local ADD COLUMN recibo_json jsonb;
 UPDATE vec_contratacion_temporal.comunicacion_llamamiento_local c
    SET recibo_json=jsonb_build_object('ComunicacionRef',c.comunicacion_ref,
        'Solicitud',jsonb_build_object('OrganizacionRef',c.organizacion_ref,
            'ExpedienteRef',c.expediente_ref,'LlamamientoRef',c.llamamiento_ref,
            'PruebaEntregaRef',c.material_json->'solicitud'->>'PruebaEntregaRef'));
+UPDATE vec_contratacion_temporal.comunicacion_llamamiento_local
+   SET material_json=jsonb_set(material_json,'{solicitud}',recibo_json->'Solicitud');
+INSERT INTO vec_contratacion_temporal.resolucion_manual_respuesta_rrhh VALUES (
+    'resolucion:previa','org:ct138','exp:ct138','llamamiento:nuevo',
+    'comunicacion:nueva','22222222-2222-4222-8222-222222222222','confirmado',
+    '{"Respuesta":"renuncia"}','44444444-4444-4444-8444-444444444444',
+    jsonb_build_object('Estado','confirmado','ReciboRef','recibo:continuacion',
+      'Solicitud',jsonb_build_object('OrganizacionRef','org:ct138',
+        'ExpedienteRef','exp:ct138','ResolucionRef','resolucion:previa',
+        'ClaveIdempotencia','44444444-4444-4444-8444-444444444444'),
+      'LlamamientoAnteriorRef','llamamiento:nuevo',
+      'ReciboBolsa',jsonb_build_object('LlamamientoRef','llamamiento:sucesor')));
+INSERT INTO vec_contratacion_temporal.comunicacion_llamamiento_local
+    (comunicacion_ref,organizacion_ref,expediente_ref,llamamiento_ref,estado,
+     version_resultante,material_json,seleccion_clave,recibo_json)
+SELECT 'comunicacion:sucesora','org:ct138','exp:ct138','llamamiento:sucesor',
+    'registrada_localmente',2,
+    jsonb_build_object('solicitud',jsonb_build_object('OrganizacionRef','org:ct138',
+      'ExpedienteRef','exp:ct138','LlamamientoRef','llamamiento:sucesor',
+      'PruebaEntregaRef','recibo:continuacion','TipoAntecedente','continuacion_confirmada')),
+    '22222222-2222-4222-8222-222222222222',
+    jsonb_build_object('ComunicacionRef','comunicacion:sucesora',
+      'Solicitud',jsonb_build_object('OrganizacionRef','org:ct138',
+        'ExpedienteRef','exp:ct138','LlamamientoRef','llamamiento:sucesor',
+        'PruebaEntregaRef','recibo:continuacion','TipoAntecedente','continuacion_confirmada'));
+DO $respuesta$
+DECLARE b vec_contratacion_temporal.respuesta_recibida_rrhh%ROWTYPE;
+        m jsonb; h text;
+BEGIN
+  SELECT * INTO STRICT b FROM vec_contratacion_temporal.respuesta_recibida_rrhh
+   WHERE comunicacion_ref='comunicacion:nueva';
+  m:=b.material_json || jsonb_build_object('LlamamientoRef','llamamiento:sucesor',
+      'ComunicacionRef','comunicacion:sucesora',
+      'ClaveIdempotencia','55555555-5555-4555-8555-555555555555');
+  h:=encode(sha256(convert_to(m::text,'UTF8')),'hex');
+  INSERT INTO vec_contratacion_temporal.respuesta_recibida_rrhh
+    (justificante_ref,organizacion_ref,expediente_ref,llamamiento_ref,comunicacion_ref,
+     seleccion_clave,clave_idempotencia,actor_ref,perfil_ref,version_comunicacion,
+     respuesta,correo_ref,correo_sha256,recibida_en,material,material_json,
+     material_huella_sha256,recibo_ref,recibo_json,estado,registrada_en)
+  VALUES ('justificante:sucesora',b.organizacion_ref,b.expediente_ref,
+     'llamamiento:sucesor','comunicacion:sucesora',b.seleccion_clave,
+     '55555555-5555-4555-8555-555555555555',b.actor_ref,b.perfil_ref,
+     2,b.respuesta,b.correo_ref,b.correo_sha256,b.recibida_en,m::text,m,h,
+     'recibo:sucesora',jsonb_build_object('Solicitud',m,
+       'JustificanteRef','justificante:sucesora','ReciboRef','recibo:sucesora',
+       'AuditoriaRef','auditoria:sucesora',
+       'RegistradaEn',to_char(b.registrada_en,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+       'Estado','registrada_por_rrhh'),'registrada_por_rrhh',b.registrada_en);
+  INSERT INTO vec_contratacion_temporal.historia_respuesta_recibida_rrhh
+    (auditoria_ref,justificante_ref,actor_ref,perfil_ref,decision_ref,
+     consumo_huella_sha256,evidencia_huella_sha256,material_huella_sha256,registrada_en)
+  VALUES ('auditoria:sucesora','justificante:sucesora',b.actor_ref,b.perfil_ref,
+    'decision:sucesora',repeat('f',64),repeat('e',64),h,b.registrada_en);
+END $respuesta$;
 RESET ROLE;
 
 SET ROLE vec_autorizacion_atestada_v3_propietario;
