@@ -60,6 +60,17 @@ DO $test$ BEGIN
  THEN RAISE EXCEPTION 'ACL/RLS correos incompatible'; END IF;
 END $test$;
 SQL
+psql_pg <<'SQL' >/dev/null
+DO $test$ BEGIN
+ BEGIN
+  INSERT INTO vec_usuarios.correos_outbox(outbox_ref,persona_ref,correo_ref,desafio_ref,clave_ref,vence_en,tipo,creado_en)
+  VALUES('correo_outbox:'||replace(gen_random_uuid()::text,'-',''),
+   'per_ABCDEFGHIJKLMNOPQRSTUV','correo:11111111111111111111111111111111',
+   'desafio:sintetico-0000000001','codigo-v1',clock_timestamp()+interval '1 day','verificacion',clock_timestamp());
+  RAISE EXCEPTION 'outbox sin desafio admitido';
+ EXCEPTION WHEN check_violation THEN NULL; END;
+END $test$;
+SQL
 docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_usuarios_prueba_interna -d postgres <<'SQL' >/dev/null
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 DO $test$

@@ -131,7 +131,7 @@ CREATE TABLE vec_usuarios.correos_outbox (
  reservado_en timestamptz(6),
  aceptado_en timestamptz(6),
  creado_en timestamptz(6) NOT NULL,
- CHECK((tipo='verificacion' AND desafio_ref IS NOT NULL AND octet_length(desafio)>=16 AND clave_ref IS NOT NULL AND vence_en IS NOT NULL)
+ CHECK((tipo='verificacion' AND desafio_ref IS NOT NULL AND desafio IS NOT NULL AND octet_length(desafio)>=16 AND clave_ref IS NOT NULL AND vence_en IS NOT NULL)
     OR (tipo='aviso_anterior' AND desafio_ref IS NULL AND desafio IS NULL AND clave_ref IS NULL AND vence_en IS NULL)),
  CHECK((estado='pendiente' AND reserva_ref IS NULL AND reservado_en IS NULL AND aceptado_en IS NULL)
     OR (estado='reservado' AND reserva_ref IS NOT NULL AND reservado_en IS NOT NULL AND aceptado_en IS NULL)
