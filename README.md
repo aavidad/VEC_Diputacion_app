@@ -45,6 +45,7 @@ La autorización deniega por defecto: exige actor, acción, recurso, ámbito, fi
 | Usar Contratación temporal | [Manual de usuario de Contratación](docs/manual_usuario/manual_contratacion_temporal.md) y [manual funcional de RRHH](docs/manual_rrhh/README.md). |
 | Usar Bolsa y el portal | [Manual de usuario del portal y Bolsa](docs/manual_usuario/manual_portal_bolsas.md). |
 | Administrar y operar el entorno | [Manual de Sistemas](docs/manual_sistemas/README.md). |
+| Entender la administración técnica y el gobierno funcional de RRHH | [Manual de administración](docs/manual_administracion/README.md): alcance y límites actuales; la consola ADMIN aún no está operativa. |
 | Desarrollar o integrar módulos | [Manual del programador](docs/manual_programador/README.md), [arquitectura técnica](docs/portal_vec/arquitectura_tecnica.md) y [especificaciones para agentes](ESPECIFICACIONES_AGENTES.md). |
 | Consultar el procedimiento de referencia | [Expediente de Contratación temporal remitido por RRHH](docs/portal_vec/expediente_contratacion_temporal_rrhh.md). |
 
