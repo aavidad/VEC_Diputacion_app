@@ -67,6 +67,18 @@ func TestSerializarMaterialCorreosVectorCanonico(t *testing.T) {
 	h = sha256.Sum256(b)
 	t.Logf("vector SQL identidad válida bytes=%s", b)
 	t.Logf("vector SQL identidad válida SHA256=%s", hex.EncodeToString(h[:]))
+	recurso, err := RecursoCorreos(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recurso.Referencia != m.PersonaRef || recurso.ModuloID != "usuarios" || recurso.Tipo != TipoRecursoCorreos || len(recurso.Ambitos) != 1 || recurso.Ambitos["persona_ref"] != m.PersonaRef || len(recurso.Atributos) != 1 || recurso.Atributos["material_sha256"] != hex.EncodeToString(h[:]) {
+		t.Fatalf("recurso V3 no canónico: %+v", recurso)
+	}
+	huellaContexto, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil || huellaContexto != "31e961606d676ba64bb577e4666777ad78c0a3100710693edd219388a8c954a8" || huellaContexto == hex.EncodeToString(h[:]) {
+		t.Fatalf("huella V3 confundida con SHA material: %s, %v", huellaContexto, err)
+	}
+	t.Logf("vector V3 contexto SHA256=%s", huellaContexto)
 	m.PersonaRef, m.PerfilRef = "per_prueba", "prf_prueba"
 
 	m.Accion = AccionConsultarCorreos
