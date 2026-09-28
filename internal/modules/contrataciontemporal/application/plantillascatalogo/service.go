@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -76,6 +77,7 @@ type SolicitudPublicar struct {
 // resolverá la clave idempotente o devolverá 409 sin efecto.
 type MaterialCambio struct {
 	Operacion            string                          `json:"operacion"`
+	OrganizacionRef      string                          `json:"organizacion_ref"`
 	ClaveIdempotencia    string                          `json:"clave_idempotencia"`
 	VersionEsperada      int                             `json:"version_esperada"`
 	RevisionEsperada     int                             `json:"revision_esperada"`
@@ -83,6 +85,29 @@ type MaterialCambio struct {
 	Catalogo             *vecdomain.CatalogoConfigurable `json:"catalogo"`
 	CatalogoHuellaSHA256 string                          `json:"catalogo_huella_sha256,omitempty"`
 	BaseHuellaSHA256     string                          `json:"catalogo_base_huella_sha256,omitempty"`
+}
+
+// LigarOrganizacion añade el ámbito resuelto por el servidor a la solicitud
+// idempotente: una misma clave no puede recuperar un recibo de otro ámbito.
+func (m MaterialCambio) LigarOrganizacion(organizacionRef string) (MaterialCambio, error) {
+	if !ctdomain.ReferenciaOpacaValida(organizacionRef) || (m.OrganizacionRef != "" && m.OrganizacionRef != organizacionRef) {
+		return MaterialCambio{}, ErrEntradaInvalida
+	}
+	var campos map[string]json.RawMessage
+	if len(m.Solicitud) == 0 || json.Unmarshal(m.Solicitud, &campos) != nil || campos == nil {
+		return MaterialCambio{}, ErrEntradaInvalida
+	}
+	if _, existe := campos["organizacion_ref"]; existe {
+		return MaterialCambio{}, ErrEntradaInvalida
+	}
+	b, _ := json.Marshal(organizacionRef)
+	campos["organizacion_ref"] = b
+	canon, err := json.Marshal(campos)
+	if err != nil || len(canon) > 256<<10 {
+		return MaterialCambio{}, ErrEntradaInvalida
+	}
+	m.OrganizacionRef, m.Solicitud = organizacionRef, canon
+	return m, nil
 }
 
 type Servicio struct {

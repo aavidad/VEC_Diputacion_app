@@ -31,25 +31,26 @@ type ProveedorAutorizacionDocumental interface {
 // ProveedorDocumental sirve solo la última publicación a un expediente ya
 // leído con V3 y vuelve a autorizar la lectura del catálogo dentro de CT133.
 type ProveedorDocumental struct {
-	pool      *pgxpool.Pool
-	resolver  ResolverActor
-	proveedor ProveedorAutorizacionDocumental
-	inicial   vecdomain.CatalogoConfigurable
+	pool            *pgxpool.Pool
+	resolver        ResolverActor
+	proveedor       ProveedorAutorizacionDocumental
+	inicial         vecdomain.CatalogoConfigurable
+	organizacionRef string
 }
 
-func NuevoProveedorDocumental(pool *pgxpool.Pool, resolver ResolverActor, proveedor ProveedorAutorizacionDocumental, inicial *vecdomain.CatalogoConfigurable) (*ProveedorDocumental, error) {
-	if pool == nil || resolver == nil || proveedor == nil || inicial == nil {
+func NuevoProveedorDocumental(pool *pgxpool.Pool, resolver ResolverActor, proveedor ProveedorAutorizacionDocumental, inicial *vecdomain.CatalogoConfigurable, organizacionRef string) (*ProveedorDocumental, error) {
+	if pool == nil || resolver == nil || proveedor == nil || inicial == nil || organizacionRef != organizacionCatalogoCT {
 		return nil, app.ErrNoDisponible
 	}
 	c, err := inicial.ClonarCanonico()
 	if err != nil || c.ID != app.CatalogoID || c.ModuloID != app.ModuloID || c.Estado != vecdomain.EstadoCatalogoPublicado {
 		return nil, app.ErrNoDisponible
 	}
-	return &ProveedorDocumental{pool: pool, resolver: resolver, proveedor: proveedor, inicial: c}, nil
+	return &ProveedorDocumental{pool: pool, resolver: resolver, proveedor: proveedor, inicial: c, organizacionRef: organizacionRef}, nil
 }
 
 func (p *ProveedorDocumental) ObtenerPlantillasDocumento(ctx context.Context, s app.SolicitudDocumental, instante time.Time) (*informejuridico.PlantillasBorrador, error) {
-	if p == nil || p.pool == nil || p.resolver == nil || p.proveedor == nil || ctx == nil || instante.IsZero() || s.Validar() != nil {
+	if p == nil || p.pool == nil || p.resolver == nil || p.proveedor == nil || ctx == nil || instante.IsZero() || s.Validar() != nil || s.OrganizacionRef != p.organizacionRef {
 		return nil, app.ErrNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
@@ -70,7 +71,7 @@ func (p *ProveedorDocumental) ObtenerPlantillasDocumento(ctx context.Context, s 
 	if !huellaDocumental.MatchString(huellaMaterial) {
 		return nil, app.ErrNoDisponible
 	}
-	recurso := vecdomain.RecursoAutorizable{Referencia: s.ExpedienteRef, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_documental_ct", Ambitos: map[string]string{}, Atributos: map[string]string{"material_sha256": huellaMaterial}}
+	recurso := vecdomain.RecursoAutorizable{Referencia: s.ExpedienteRef, ModuloID: app.ModuloID, Tipo: "catalogo_plantillas_documental_ct", Ambitos: map[string]string{"organizacion_ref": p.organizacionRef}, Atributos: map[string]string{"material_sha256": huellaMaterial}}
 	h, err := recurso.HuellaContextoAutorizacionSHA256()
 	if err != nil {
 		return nil, app.ErrNoDisponible
