@@ -1,0 +1,60 @@
+package config
+
+import (
+	"errors"
+	"os"
+	"strings"
+
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+)
+
+// EnvAuditoriaConsultaCatalogoPath permite editar el ejemplo publicado para
+// RRHH. Solo se lee cuando la capacidad está activada con doble llave.
+const EnvAuditoriaConsultaCatalogoPath = "VEC_AUDITORIA_CONSULTA_CATALOGO_PATH"
+
+const (
+	EnvAuditoriaConsultaExpedienteCT    = "VEC_AUDITORIA_CONSULTA_EXPEDIENTE_CT"
+	EnvAuditoriaConsultaExpedienteBolsa = "VEC_AUDITORIA_CONSULTA_EXPEDIENTE_BOLSA"
+)
+
+const RutaCatalogoAuditoriaConsultaEjemplo = "data/demo/reglas/auditoria_consulta.ejemplo.demo.json"
+
+var ErrCatalogoAuditoriaConsultaFueraDesarrollo = errors.New("config: catalogo de auditoria fuera de desarrollo")
+var ErrExpedientesAuditoriaConsultaInvalidos = errors.New("config: expedientes de auditoria no disponibles")
+
+// RutaCatalogoAuditoriaConsultaDesarrollo no activa rutas ni concede permisos.
+// Una ruta declarada fuera de desarrollo es un error, incluso si el selector
+// de la capacidad está apagado, para evitar que el despliegue la ignore.
+func (c Config) RutaCatalogoAuditoriaConsultaDesarrollo() (string, error) {
+	ruta, declarada := os.LookupEnv(EnvAuditoriaConsultaCatalogoPath)
+	if !c.DevelopmentEnabledByDoubleKey() {
+		if declarada {
+			return "", ErrCatalogoAuditoriaConsultaFueraDesarrollo
+		}
+		return "", ErrCatalogoAuditoriaConsultaFueraDesarrollo
+	}
+	if !declarada {
+		return RutaCatalogoAuditoriaConsultaEjemplo, nil
+	}
+	ruta = strings.TrimSpace(ruta)
+	if ruta == "" {
+		return "", ErrCatalogoAuditoriaConsultaFueraDesarrollo
+	}
+	return ruta, nil
+}
+
+// ExpedientesAuditoriaConsultaDesarrollo exige dos referencias privadas
+// exactas cuando la raíz activa la consulta. No tiene valores por defecto y
+// el error no contiene ninguna de las referencias recibidas.
+func (c Config) ExpedientesAuditoriaConsultaDesarrollo() (ct, bolsa string, err error) {
+	if !c.DevelopmentEnabledByDoubleKey() {
+		return "", "", ErrExpedientesAuditoriaConsultaInvalidos
+	}
+	ct, presenteCT := os.LookupEnv(EnvAuditoriaConsultaExpedienteCT)
+	bolsa, presenteBolsa := os.LookupEnv(EnvAuditoriaConsultaExpedienteBolsa)
+	if !presenteCT || !presenteBolsa || !ctdomain.ReferenciaOpacaValida(ct) ||
+		!ctdomain.ReferenciaOpacaValida(bolsa) || ct == bolsa {
+		return "", "", ErrExpedientesAuditoriaConsultaInvalidos
+	}
+	return ct, bolsa, nil
+}
