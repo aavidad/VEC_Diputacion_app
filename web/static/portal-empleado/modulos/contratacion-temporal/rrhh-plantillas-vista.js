@@ -129,7 +129,7 @@ export function montarRRHHPlantillas({
       <div data-plantillas-parrafos>${parrafos.map((valor, i) => parrafoHTML(valor, i + 1)).join("")}</div></div>
       <label class="rrhh-plantillas-ancho"><span>${e(t("plantillas_rrhh_motivo"))}</span><textarea name="motivo" rows="2" maxlength="4000" required></textarea></label>
       </div><div class="rrhh-plantillas-acciones"><button type="submit" class="boton-primario" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_guardar"))}</button>
-      <button type="button" class="boton-secundario" data-plantillas-accion="cancelar">${e(t("plantillas_rrhh_cancelar"))}</button></div></form></div></section>`;
+      <button type="button" class="boton-secundario" data-plantillas-accion="cancelar" ${ocupado || bloqueado ? "disabled" : ""}>${e(t("plantillas_rrhh_cancelar"))}</button></div></form></div></section>`;
   }
 
   function pintarPublicacion() {
@@ -172,7 +172,7 @@ export function montarRRHHPlantillas({
   }
 
   async function cargar() {
-    if (ocupado || controlador.signal.aborted) return;
+    if (ocupado || bloqueado || controlador.signal.aborted) return;
     ocupado = true; error = null; pintar();
     try {
       consulta = await cliente.consultar({ signal: controlador.signal });
@@ -315,9 +315,9 @@ export function montarRRHHPlantillas({
     if (!boton || !raiz.contains(boton)) return;
     const accion = boton.dataset.plantillasAccion;
     if (accion === "ayuda") { ayuda = !ayuda; pintar(); raiz.querySelector?.('[data-plantillas-accion="ayuda"]')?.focus?.({ preventScroll: true }); return; }
+    if (ocupado || bloqueado) return;
     if (accion === "recargar") { void cargar(); return; }
     if (accion === "cancelar") { seleccionado = null; claveIdempotencia = null; error = null; pintar(); return; }
-    if (ocupado || bloqueado) return;
     if (["nueva", "editar"].includes(accion) && !puedeEditar()) return;
     if (accion === "nueva") { seleccionado = ""; claveIdempotencia = null; pintar(); raiz.querySelector('[name="clave"]')?.focus(); }
     if (accion === "editar") { seleccionado = boton.dataset.clave; claveIdempotencia = null; pintar(); raiz.querySelector('[name="etiqueta"]')?.focus(); }

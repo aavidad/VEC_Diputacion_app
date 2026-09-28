@@ -267,3 +267,49 @@ test("sin concesiones positivas la consulta es solo lectura y no ofrece acciones
   assert.match(raiz.innerHTML, /La configuración consultada no admite edición/u);
   assert.doesNotMatch(raiz.innerHTML, /data-plantillas-accion="nueva"|data-plantillas-accion="editar"|data-plantillas-publicar/u);
 });
+
+test("cancelar y recargar no pierden la clave ni ocultan un registro indeterminado", async () => {
+  const eventos = new Map();
+  const raiz = { innerHTML: "", contains: () => true,
+    addEventListener(nombre, gestor) { eventos.set(nombre, gestor); },
+    removeEventListener(nombre) { eventos.delete(nombre); },
+    querySelector: () => null, replaceChildren() { this.innerHTML = ""; } };
+  let consultas = 0, guardados = 0, clavesGeneradas = 0, rechazar;
+  const pendiente = new Promise((_, rechazo) => { rechazar = rechazo; });
+  const cliente = { async consultar() { consultas++; return { borrador: catalogo, publicado: null,
+    puede_editar: true, puede_publicar: false }; },
+  guardar() { guardados++; return pendiente; },
+  async publicar() { assert.fail("publicación inesperada"); } };
+  const vista = montarRRHHPlantillas({ raiz, cliente,
+    generarClave: () => { clavesGeneradas++; return "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789"; } });
+  await new Promise((resolver) => setImmediate(resolver));
+  const pulsar = (accion, clave) => eventos.get("click")({ target: { closest: () =>
+    ({ dataset: { plantillasAccion: accion, clave } }) } });
+  pulsar("editar", "modelo_nuevo");
+  const formulario = new FormData();
+  for (const [clave, valor] of Object.entries({ etiqueta: "Modelo nuevo", descripcion: "Modelo de prueba",
+    titulo: "Título original", orden: "11", vigente_desde: "2026-09-28", fuente_ref: "fuente:rrhh:ejemplo",
+    modalidades: "*", firmantes: "", requiere_accion: "", motivo: "Ajuste del texto" })) formulario.set(clave, valor);
+  formulario.append("parrafo", "Primer párrafo");
+  formulario.matches = (selector) => selector === "[data-plantillas-form]" || selector.includes("[data-plantillas-form]");
+  formulario.querySelector = () => null;
+  formulario.querySelectorAll = () => [];
+  formulario.insertAdjacentHTML = () => {};
+  const enviar = () => eventos.get("submit")({ target: formulario, preventDefault() {} });
+  enviar();
+  assert.equal(guardados, 1);
+  pulsar("cancelar"); // Incluso un clic programático durante el POST debe ser inocuo.
+  rechazar(Object.assign(new Error("respuesta indeterminada"), { resultadoIndeterminado: true }));
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.match(raiz.innerHTML, /El resultado del cambio es indeterminado/u);
+  assert.match(raiz.innerHTML, /data-plantillas-accion="cancelar" disabled/u);
+  pulsar("cancelar");
+  pulsar("recargar");
+  pulsar("nueva");
+  enviar();
+  assert.match(raiz.innerHTML, /El resultado del cambio es indeterminado/u);
+  assert.equal(consultas, 1);
+  assert.equal(guardados, 1);
+  assert.equal(clavesGeneradas, 1);
+  vista.desmontar();
+});
