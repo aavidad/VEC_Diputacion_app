@@ -8,8 +8,10 @@ que VEC cubre la necesidad con su diseño y una ruta/caso de uso real en el ento
 sintético; no exige copiar tablas, DNI + clave ni redacción de las fotos. **PARCIAL**
 indica la parte exacta que existe; **FALTA** no se sustituye por una vista DEMO. La evidencia de código
 no acredita por sí sola instalación ni entrega corporativa. Estado contrastado
-con `origin/main@7247682c` el 27/09/2026; el entorno servido solo se afirma
-cuando `ESTADO_PROYECTO.md` documenta su comprobación. La ayuda visible se
+con `origin/main@7247682c` el 27/09/2026. En la rama RRHH `2e25aa66a`
+pasaron `go test ./...`, `go vet ./...`, `scripts/verificar_calidad.sh` y
+1973 pruebas Node; esto no acredita despliegue. El entorno servido solo se
+afirma cuando `ESTADO_PROYECTO.md` documenta su comprobación. La ayuda visible se
 abre desde «?» conforme al shell vigente, sin convertirla en efecto de negocio.
 
 ## Fotografía 1: histórico, estados y transparencia
@@ -53,7 +55,7 @@ abre desde «?» conforme al shell vigente, sin convertirla en efecto de negocio
 | 2.10 | Generar documentos Word y PDF. | Detalle de Contratación, descargas. | **HECHO (diseño VEC)**: `cliente-http-informe-definitivo.js` descarga DOCX/PDF generados desde catálogo versionado; se rotulan borradores hasta firma y custodia oficiales, que son efectos distintos. |
 | 2.11 | Integrar correo electrónico. | «Nuevo llamamiento» y contactos. | **HECHO (diseño VEC)**: `application/emision_llamamiento.go` envía por adaptador SMTP configurable, registra resultado y recibo por persona; en presentación usa relay de desarrollo, no se afirma entrega corporativa (dudas 10 y 45). |
 | 2.12 | Integrar SMS y, si procede, mensajería instantánea. | «Nuevo llamamiento» y contactos. | **BLOQUEADO**: B7 tiene correo real y registro de intento manual de otros canales, pero falta conector corporativo SMS y política/canal autorizado; WhatsApp depende además de viabilidad y normativa (dudas 3 y 35). No se simula un envío. |
-| 2.13 | Auditar acciones con trazabilidad. | Ficha RRHH, «Cambios», y auditoría autorizada. | **PARCIAL**: `internal/vec/auditoria/`, AD3-91, CT132 y Bolsa48 integran consulta por fuente con permiso V3, finalidad catalogada, historial minimizado y cursor; `internal/vec/domain/auditoria_frontera_ruta_exacta.go` admite solo dos rutas nominales. La UI `modulos/auditoria/vista.js` está montada por ficha. Falta integrar CT136 y el montaje backend tras sus revisiones, más consulta positiva real (duda 67). |
+| 2.13 | Auditar acciones con trazabilidad. | Ficha RRHH, «Cambios», y auditoría autorizada. | **PARCIAL**: `internal/vec/auditoria/`, AD3-91, CT132 y Bolsa48 integran consulta por fuente con permiso V3, finalidad catalogada, historial minimizado y cursor; `internal/vec/domain/auditoria_frontera_ruta_exacta.go` limita dos rutas nominales y CT136 registra sus denegaciones con rol separado, probado en PostgreSQL 18. La UI `modulos/auditoria/vista.js` está montada por ficha. Falta integrar el montaje backend ya revisado y recorrer una consulta positiva con autorización real (duda 67). |
 | 2.14 | Bolsa: id, nombre/categoría, vigencia, resolución aprobatoria y orden. | Lista/ficha Bolsa. | **HECHO (diseño VEC)**: `domain/llamamientos.go` conserva referencia, categoría, vigencia y resolución con huella; `InstantaneaOrdenBolsa` versiona posiciones en vez de una columna mutable universal. |
 | 2.15 | Candidato: pertenencia a bolsa, DNI protegido, nombre, apellidos, correo y dos teléfonos. | Ficha RRHH de candidato. | **HECHO (diseño VEC)**: Persona común + participación por bolsa; `application/datos_contacto_participacion.go` protege correo/dos teléfonos y `portal-bolsas-contrato.js` exige documento enmascarado. No se duplica el DNI en cada bolsa. |
 | 2.16 | Situación: bolsa, candidato, posición, estado, disponibilidad y observaciones. | Ficha RRHH de candidato. | **HECHO (diseño VEC)**: `situacion_participacion.go`, orden versionado y `portal-panel-interno.js` muestran posición, estado y fecha; observaciones se conservan como actuaciones autorizadas, evitando un texto libre público universal. |

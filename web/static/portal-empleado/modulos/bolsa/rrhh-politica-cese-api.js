@@ -72,7 +72,7 @@ export function crearClientePoliticaCeseRRHH({ fetchImpl = globalThis.fetch } = 
       const temporizador = setTimeout(abortar, 15_000);
       try {
         // El mismo origen conserva el certificado TLS cliente; JS no añade
-        // Authorization ni Cookie y el servidor vuelve a evaluar V3.
+        // cabeceras de credencial ni cookies y el servidor vuelve a evaluar V3.
         const respuesta = await fetchImpl(RUTA_POLITICA_CESE, { method: "GET", signal: controlador.signal,
           credentials: "same-origin", mode: "same-origin", cache: "no-store",
           redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json" } });
