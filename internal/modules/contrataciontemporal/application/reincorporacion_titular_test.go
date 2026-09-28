@@ -59,7 +59,10 @@ type repositorioReincorporacionPrueba struct {
 	recibo                        ports.ReciboReincorporacionTitular
 }
 
-func (r *repositorioReincorporacionPrueba) PrepararReincorporacionTitular(_ context.Context, m ports.MaterialReincorporacionTitular, s ports.SellosOperacionSeguimiento, refs ports.ReferenciasEfectoSeguimiento) (ports.PreparacionReincorporacionTitular, error) {
+func (r *repositorioReincorporacionPrueba) PrepararReincorporacionTitular(_ context.Context, m ports.MaterialReincorporacionTitular, lectura ports.AntecedenteReincorporacionTitular, s ports.SellosOperacionSeguimiento, refs ports.ReferenciasEfectoSeguimiento) (ports.PreparacionReincorporacionTitular, error) {
+	if !lectura.ValidoPara(m) || lectura.Resultado != ports.ResultadoAntecedenteCoincide {
+		return ports.PreparacionReincorporacionTitular{}, ports.ErrAutorizacionDenegada
+	}
 	r.preparaciones++
 	a, _ := s.Ambitos.Datos()
 	h, _ := s.Huellas.Datos()
@@ -72,6 +75,9 @@ func (r *repositorioReincorporacionPrueba) PrepararReincorporacionTitular(_ cont
 	return p, nil
 }
 func (r *repositorioReincorporacionPrueba) ConfirmarReincorporacionTitular(_ context.Context, o ports.OrdenConfirmarReincorporacionTitular) (ports.ReciboReincorporacionTitular, error) {
+	if !o.Lectura.ValidoPara(o.Material) || o.Lectura.Resultado != ports.ResultadoAntecedenteCoincide {
+		return ports.ReciboReincorporacionTitular{}, ports.ErrAutorizacionDenegada
+	}
 	r.confirmaciones++
 	r.recibo = ports.ReciboReincorporacionTitular{Operacion: ports.OperacionRegistrarReincorporacionTitular,
 		OrganizacionRef: o.Material.OrganizacionRef, ExpedienteRef: o.Material.ExpedienteRef, RelacionRef: o.Material.RelacionRef,

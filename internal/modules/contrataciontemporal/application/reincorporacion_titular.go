@@ -144,7 +144,7 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 	if err != nil || !refs.Validas() {
 		return vacio, ports.ErrOperacionSeguimientoNoDisponible
 	}
-	prep, err := s.d.Repositorio.PrepararReincorporacionTitular(ctx, m, ports.SellosOperacionSeguimiento{Ambitos: ambitos, Huellas: huellas}, refs)
+	prep, err := s.d.Repositorio.PrepararReincorporacionTitular(ctx, m, antecedente, ports.SellosOperacionSeguimiento{Ambitos: ambitos, Huellas: huellas}, refs)
 	if err != nil {
 		return vacio, err
 	}
@@ -192,7 +192,7 @@ func (s *ServicioReincorporacionTitular) RegistrarReincorporacionTitular(ctx con
 	if err != nil {
 		return vacio, err
 	}
-	orden := ports.OrdenConfirmarReincorporacionTitular{Material: m, Preparacion: prep, Siguiente: siguiente, Politica: politica,
+	orden := ports.OrdenConfirmarReincorporacionTitular{Material: m, Lectura: antecedente, Preparacion: prep, Siguiente: siguiente, Politica: politica,
 		Contexto: ports.ContextoAutorizadoSeguimiento{Ambitos: ambitosRecurso, Atributos: atributos}, Autorizacion: autorizacion, InstanteEfecto: instante}
 	recibo, err := s.d.Repositorio.ConfirmarReincorporacionTitular(ctx, orden)
 	if err != nil {

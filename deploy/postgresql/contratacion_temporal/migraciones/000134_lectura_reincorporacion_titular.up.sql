@@ -10,7 +10,7 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:migracion:000134',0));
 
 DO $pre$
-DECLARE f regprocedure;
+DECLARE f regprocedure; viejo regprocedure; n integer;
 BEGIN
  f:=to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_lectura_reincorporacion_titular_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  IF current_user<>'vec_contratacion_temporal_propietario' OR f IS NULL
@@ -23,7 +23,57 @@ BEGIN
     OR to_regclass('vec_contratacion_temporal.incorporacion_registro_v2') IS NULL
     OR to_regclass('vec_contratacion_temporal.seguimiento_raiz_v2') IS NULL THEN
   RAISE EXCEPTION 'CT134: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ FOREACH viejo IN ARRAY ARRAY[
+  'vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)'::regprocedure,
+  'vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
+  SELECT count(*) INTO n FROM pg_proc p
+   CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=viejo AND a.grantee<>p.proowner
+     AND a.grantee='vec_contratacion_temporal_ejecutor'::regrole
+     AND a.privilege_type='EXECUTE' AND NOT a.is_grantable;
+  IF n<>1 OR (SELECT proowner FROM pg_proc WHERE oid=viejo)
+     IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+     OR (SELECT prosecdef FROM pg_proc WHERE oid=viejo) IS NOT TRUE
+     OR (SELECT count(*) FROM pg_proc p
+      CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+      WHERE p.oid=viejo AND a.grantee<>p.proowner)<>1 THEN
+   RAISE EXCEPTION 'CT134: ACL CT130 incompatible' USING ERRCODE='55000'; END IF;
+ END LOOP;
 END $pre$;
+
+-- La preparación CT130 debe admitir el marcador de uso en su transacción.
+-- Se cambia solo su guarda de READ ONLY a READ WRITE, con pre/postimagen exacta.
+DO $preparacion_rw$
+DECLARE f regprocedure:='vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)'::regprocedure;
+ original text; nuevo text; actual text; marca text:='PERFORM vec_contratacion_temporal.exigir_sesion_ct115(true);';
+ reemplazo text:='PERFORM vec_contratacion_temporal.exigir_sesion_ct115(false);';
+ meta jsonb; acl aclitem[]; deps jsonb; config text[];
+BEGIN
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proconfig,
+  (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+   FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f)
+ INTO STRICT original,meta,acl,config,deps FROM pg_proc p WHERE p.oid=f;
+ IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_contratacion_temporal_propietario'::regrole
+    OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
+    OR (SELECT provolatile FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'v'
+    OR config IS NULL OR NOT ('search_path=pg_catalog'=ANY(config))
+    OR NOT ('row_security=on'=ANY(config))
+    OR NOT ('lock_timeout=2s'=ANY(config))
+    OR lower(array_to_string(config,',')) NOT LIKE '%timezone=utc%'
+    OR length(original)-length(replace(original,marca,''))<>length(marca)
+    OR strpos(original,reemplazo)<>0 THEN
+  RAISE EXCEPTION 'CT134: preparación CT130 incompatible' USING ERRCODE='55000'; END IF;
+ nuevo:=replace(original,marca,reemplazo);
+ EXECUTE nuevo;
+ SELECT pg_get_functiondef(f) INTO STRICT actual;
+ IF actual IS DISTINCT FROM nuevo OR replace(actual,reemplazo,marca) IS DISTINCT FROM original
+    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
+    OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
+    OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+        FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN
+  RAISE EXCEPTION 'CT134: preparación CT130 alterada fuera del contrato' USING ERRCODE='55000'; END IF;
+END $preparacion_rw$;
 
 CREATE TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 (
  lectura_ref text PRIMARY KEY CHECK (lectura_ref ~ '^lectura:[0-9a-f]{64}$'),
@@ -50,8 +100,16 @@ CREATE TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 (
 );
 CREATE INDEX lectura_reincorporacion_titular_v1_expediente
  ON vec_contratacion_temporal.lectura_reincorporacion_titular_v1(organizacion_ref,expediente_ref,registrada_en);
+CREATE TABLE vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1 (
+ lectura_ref text NOT NULL REFERENCES vec_contratacion_temporal.lectura_reincorporacion_titular_v1(lectura_ref),
+ paso text NOT NULL CHECK (paso IN ('preparar','confirmar')),
+ usada_en timestamptz(6) NOT NULL CHECK (isfinite(usada_en)),
+ PRIMARY KEY (lectura_ref,paso)
+);
 ALTER TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 FORCE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1 FORCE ROW LEVEL SECURITY;
 CREATE POLICY insercion_ct134 ON vec_contratacion_temporal.lectura_reincorporacion_titular_v1
  FOR INSERT TO vec_contratacion_temporal_propietario WITH CHECK (
  organizacion_ref=current_setting('vec.ct134.organizacion_ref',true)
@@ -66,8 +124,33 @@ CREATE POLICY lectura_migracion_ct134 ON vec_contratacion_temporal.lectura_reinc
  FOR SELECT TO vec_contratacion_temporal_propietario USING (
  pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
  AND NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER'));
+CREATE POLICY lectura_acreditacion_ct134 ON vec_contratacion_temporal.lectura_reincorporacion_titular_v1
+ FOR SELECT TO vec_contratacion_temporal_propietario USING (
+ lectura_ref=current_setting('vec.ct134.lectura_ref',true)
+ AND pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER'));
+CREATE POLICY insercion_uso_ct134 ON vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1
+ FOR INSERT TO vec_contratacion_temporal_propietario WITH CHECK (
+ lectura_ref=current_setting('vec.ct134.lectura_ref',true)
+ AND pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER'));
+CREATE POLICY lectura_uso_ct134 ON vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1
+ FOR SELECT TO vec_contratacion_temporal_propietario USING (
+ lectura_ref=current_setting('vec.ct134.lectura_ref',true)
+ AND pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER'));
+CREATE POLICY lectura_migracion_uso_ct134 ON vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1
+ FOR SELECT TO vec_contratacion_temporal_propietario USING (
+ pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER')
+ AND NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER'));
 CREATE TRIGGER lectura_reincorporacion_titular_v1_inmutable
  BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_contratacion_temporal.lectura_reincorporacion_titular_v1
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+CREATE TRIGGER uso_lectura_reincorporacion_titular_v1_inmutable
+ BEFORE UPDATE OR DELETE OR TRUNCATE ON vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1
  FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
 
 CREATE FUNCTION vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(
@@ -185,39 +268,156 @@ BEGIN
   'registrada_en',to_char(v_ahora AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
 END $f$;
 
+-- Puerta privada compartida: el recibo de lectura liga exactamente la
+-- operación CT130 y caduca antes de que pueda reutilizarse como concesión.
+CREATE FUNCTION vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(
+ p_operacion jsonb,p_lectura_ref text,p_auditoria_ref text,p_paso text)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY INVOKER
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' AS $f$
+DECLARE m jsonb:=p_operacion->'material'; r record; v_ahora timestamptz(6);
+BEGIN
+ PERFORM vec_contratacion_temporal.exigir_sesion_ct115(false);
+ PERFORM vec_contratacion_temporal.validar_material_reincorporacion_ct130(m);
+ IF p_lectura_ref IS NULL OR p_lectura_ref !~ '^lectura:[0-9a-f]{64}$'
+    OR p_auditoria_ref IS NULL OR p_auditoria_ref !~ '^aud_v3_[0-9a-f]{32}$'
+    OR p_paso IS NULL OR p_paso NOT IN ('preparar','confirmar') THEN
+  RAISE EXCEPTION 'CT134: lectura previa no acreditada' USING ERRCODE='42501'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec.ct134:uso:'||p_lectura_ref,0));
+ PERFORM set_config('vec.ct134.lectura_ref',p_lectura_ref,true);
+ SELECT organizacion_ref,expediente_ref,actor_ref,perfil_ref,version_esperada,
+  peticion_sha256,resultado,auditoria_ref,registrada_en INTO r
+ FROM vec_contratacion_temporal.lectura_reincorporacion_titular_v1
+ WHERE lectura_ref=p_lectura_ref;
+ v_ahora:=date_trunc('microseconds',clock_timestamp());
+ IF NOT FOUND OR r.resultado IS DISTINCT FROM 'coincide'
+    OR r.organizacion_ref IS DISTINCT FROM m->>'organizacion_ref'
+    OR r.expediente_ref IS DISTINCT FROM m->>'expediente_ref'
+    OR r.actor_ref IS DISTINCT FROM m->>'actor_ref'
+    OR r.perfil_ref IS DISTINCT FROM m->>'perfil_ref'
+    OR r.version_esperada IS DISTINCT FROM (m->>'version_esperada')::numeric
+    OR r.peticion_sha256 IS DISTINCT FROM encode(sha256(convert_to(m::text,'UTF8')),'hex')
+    OR r.auditoria_ref IS DISTINCT FROM p_auditoria_ref
+    OR r.registrada_en>v_ahora OR v_ahora-r.registrada_en>interval '2 minutes' THEN
+  RAISE EXCEPTION 'CT134: lectura previa no acreditada' USING ERRCODE='42501'; END IF;
+ IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1
+  WHERE lectura_ref=p_lectura_ref AND paso=p_paso)
+    OR (p_paso='confirmar' AND NOT EXISTS (
+      SELECT 1 FROM vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1
+      WHERE lectura_ref=p_lectura_ref AND paso='preparar')) THEN
+  RAISE EXCEPTION 'CT134: lectura ya utilizada o sin preparación' USING ERRCODE='42501'; END IF;
+ INSERT INTO vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1(lectura_ref,paso,usada_en)
+ VALUES(p_lectura_ref,p_paso,v_ahora);
+EXCEPTION WHEN unique_violation THEN
+ RAISE EXCEPTION 'CT134: lectura ya utilizada' USING ERRCODE='42501';
+END $f$;
+
+CREATE FUNCTION vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1(
+ p_operacion jsonb,p_lectura_ref text,p_auditoria_ref text)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
+BEGIN
+ PERFORM vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(
+  p_operacion,p_lectura_ref,p_auditoria_ref,'preparar');
+ RETURN vec_contratacion_temporal.preparar_reincorporacion_titular_v1(p_operacion);
+END $f$;
+
+CREATE FUNCTION vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1(
+ p_operacion jsonb,p_lectura_ref text,p_auditoria_ref text,
+ p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER PARALLEL UNSAFE
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_timeout='2s' AS $f$
+BEGIN
+ PERFORM vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(
+  p_operacion,p_lectura_ref,p_auditoria_ref,'confirmar');
+ RETURN vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(
+  p_operacion,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
+  p_payload,p_sobre,p_evidencia,p_raiz);
+END $f$;
+
+ALTER FUNCTION vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(jsonb,text,text,text)
+ OWNER TO vec_contratacion_temporal_propietario;
+ALTER FUNCTION vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1(jsonb,text,text)
+ OWNER TO vec_contratacion_temporal_propietario;
+ALTER FUNCTION vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1(
+ jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ OWNER TO vec_contratacion_temporal_propietario;
+
 ALTER FUNCTION vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(
  jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  OWNER TO vec_contratacion_temporal_propietario;
 DO $acl_cerrar$
-DECLARE x record; f regprocedure:=
- 'vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+DECLARE x record; f regprocedure; t regclass;
 BEGIN
- FOR x IN SELECT DISTINCT a.grantee FROM pg_class c
-  CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
-  WHERE c.oid='vec_contratacion_temporal.lectura_reincorporacion_titular_v1'::regclass
-    AND a.grantee<>c.relowner LOOP
-  EXECUTE format('REVOKE ALL ON TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 FROM %s',
-   CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
+ FOREACH t IN ARRAY ARRAY[
+  'vec_contratacion_temporal.lectura_reincorporacion_titular_v1'::regclass,
+  'vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1'::regclass] LOOP
+  FOR x IN SELECT DISTINCT a.grantee FROM pg_class c
+   CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
+   WHERE c.oid=t AND a.grantee<>c.relowner LOOP
+   EXECUTE format('REVOKE ALL ON TABLE %s FROM %s',t::text,
+    CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
+  END LOOP;
  END LOOP;
- FOR x IN SELECT DISTINCT a.grantee FROM pg_proc p
-  CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-  WHERE p.oid=f AND a.grantee<>p.proowner LOOP
-  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,
-   CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
+ FOREACH f IN ARRAY ARRAY[
+  'vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+  'vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(jsonb,text,text,text)'::regprocedure,
+  'vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1(jsonb,text,text)'::regprocedure,
+  'vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1(jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
+  FOR x IN SELECT DISTINCT a.grantee FROM pg_proc p
+   CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+   WHERE p.oid=f AND a.grantee<>p.proowner LOOP
+   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,
+    CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
+  END LOOP;
  END LOOP;
 END $acl_cerrar$;
+REVOKE EXECUTE ON FUNCTION vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)
+ FROM vec_contratacion_temporal_ejecutor;
+REVOKE EXECUTE ON FUNCTION vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(
+ jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ FROM vec_contratacion_temporal_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(
  jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ TO vec_contratacion_temporal_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1(jsonb,text,text)
+ TO vec_contratacion_temporal_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1(
+ jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_contratacion_temporal_ejecutor;
 DO $acl$
 BEGIN
  IF has_table_privilege('vec_contratacion_temporal_ejecutor',
    'vec_contratacion_temporal.lectura_reincorporacion_titular_v1',
    'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+    OR has_table_privilege('vec_contratacion_temporal_ejecutor',
+   'vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1',
+   'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
     OR has_function_privilege('public',
    'vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-   'EXECUTE') THEN RAISE EXCEPTION 'CT134: ACL abierta' USING ERRCODE='42501'; END IF;
+   'EXECUTE')
+    OR has_function_privilege('public',
+   'vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(jsonb,text,text,text)','EXECUTE')
+    OR has_function_privilege('public',
+   'vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1(jsonb,text,text)','EXECUTE')
+    OR has_function_privilege('public',
+   'vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1(jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR has_function_privilege('vec_contratacion_temporal_ejecutor',
+    'vec_contratacion_temporal.preparar_reincorporacion_titular_v1(jsonb)','EXECUTE')
+    OR has_function_privilege('vec_contratacion_temporal_ejecutor',
+    'vec_contratacion_temporal.confirmar_reincorporacion_titular_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR has_function_privilege('vec_contratacion_temporal_ejecutor',
+    'vec_contratacion_temporal.exigir_lectura_reincorporacion_ct134(jsonb,text,text,text)','EXECUTE')
+    OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
+    'vec_contratacion_temporal.leer_antecedente_reincorporacion_titular_atestada_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
+    'vec_contratacion_temporal.preparar_reincorporacion_titular_acreditada_v1(jsonb,text,text)','EXECUTE')
+    OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor',
+    'vec_contratacion_temporal.confirmar_reincorporacion_titular_acreditada_v1(jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') THEN
+  RAISE EXCEPTION 'CT134: ACL abierta' USING ERRCODE='42501'; END IF;
 END $acl$;
 COMMENT ON TABLE vec_contratacion_temporal.lectura_reincorporacion_titular_v1 IS
  'CT134: recibos inmutables de lecturas autorizadas del antecedente de reincorporación del titular.';
+COMMENT ON TABLE vec_contratacion_temporal.uso_lectura_reincorporacion_titular_v1 IS
+ 'CT134: marcas inmutables de preparación y confirmación de uso único por recibo de lectura.';
 COMMIT;
