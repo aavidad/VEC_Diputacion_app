@@ -3,6 +3,8 @@ package httpinterno
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -56,8 +58,8 @@ func (h *HandlerCapacidadPoliticaOfertas) ServeHTTP(w http.ResponseWriter, r *ht
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
-	bolsa, ok := leerBolsaCapacidadPoliticaOfertas(r.Body)
-	if !ok {
+	bolsa, err := leerBolsaCapacidadPoliticaOfertas(r.Body)
+	if err != nil {
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
@@ -75,24 +77,42 @@ func (h *HandlerCapacidadPoliticaOfertas) ServeHTTP(w http.ResponseWriter, r *ht
 	}{PuedePublicar: puedePublicar})
 }
 
-func leerBolsaCapacidadPoliticaOfertas(cuerpo io.Reader) (string, bool) {
+func leerBolsaCapacidadPoliticaOfertas(cuerpo io.Reader) (string, error) {
 	d := json.NewDecoder(io.LimitReader(cuerpo, maximoCuerpoCapacidadPoliticaOfertas+1))
 	inicio, err := d.Token()
-	if err != nil || inicio != json.Delim('{') {
-		return "", false
+	if err != nil {
+		return "", fmt.Errorf("leer inicio de solicitud: %w", err)
+	}
+	if inicio != json.Delim('{') {
+		return "", errors.New("la solicitud no es un objeto")
 	}
 	clave, err := d.Token()
-	if err != nil || clave != "bolsa_ref" {
-		return "", false
+	if err != nil {
+		return "", fmt.Errorf("leer clave de solicitud: %w", err)
+	}
+	if clave != "bolsa_ref" {
+		return "", errors.New("la solicitud no empieza por bolsa_ref")
 	}
 	var bolsa string
-	if err = d.Decode(&bolsa); err != nil || bolsa == "" || len(bolsa) > 256 || strings.TrimSpace(bolsa) != bolsa {
-		return "", false
+	if err = d.Decode(&bolsa); err != nil {
+		return "", fmt.Errorf("leer bolsa_ref: %w", err)
+	}
+	if bolsa == "" || len(bolsa) > 256 || strings.TrimSpace(bolsa) != bolsa {
+		return "", errors.New("bolsa_ref no es canonica")
 	}
 	fin, err := d.Token()
-	if err != nil || fin != json.Delim('}') {
-		return "", false
+	if err != nil {
+		return "", fmt.Errorf("leer fin de solicitud: %w", err)
+	}
+	if fin != json.Delim('}') {
+		return "", errors.New("la solicitud contiene otro campo")
 	}
 	_, err = d.Token()
-	return bolsa, err == io.EOF
+	if err == io.EOF {
+		return bolsa, nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("leer resto de solicitud: %w", err)
+	}
+	return "", errors.New("la solicitud contiene otro valor")
 }
