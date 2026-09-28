@@ -169,7 +169,8 @@ Imprime `PAQUETE_LOCAL=/tmp/vec-piden-20260928...`. Construye `vec-server`,
 sincroniza por `rsync` **solo las rutas** de `web/produccion.manifest` dentro
 de una carpeta temporal nueva y pasa `scripts/verificar_web_produccion.sh` al
 árbol extraído. Conserva los demás manifiestos en `evidencia/` y escribe
-`SHA256SUMS` y hash del commit.
+`SHA256SUMS` y hash del commit. La compilación usa una caché Go temporal dentro
+de la carpeta del paquete, que se retira antes de calcular las huellas.
 `evidencia/fuente_commit.txt` fija el stage de producto;
 `evidencia/commit.txt` identifica el commit de este paquete.
 No incluye configuración privada. Comprobar `sha256sum -c SHA256SUMS` y que el
