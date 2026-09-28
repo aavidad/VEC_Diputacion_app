@@ -79,6 +79,12 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   }
   function campo(operacion, nombre, valor, bloqueado) {
     const id = `ct-llamamiento-${operacion}-${nombre}`;
+    if (esRespuesta(operacion) && nombre === "clave_idempotencia") {
+      return `<input id="${id}" name="${nombre}" type="hidden" value="${e(valor)}" readonly>`;
+    }
+    if (esRespuesta(operacion) && nombre === "correo_sha256") {
+      return `<input id="${id}" name="${nombre}" type="hidden" value="${e(valor)}" readonly>`;
+    }
     if (operacion === "propuesta" && nombre === "anexos") return `<p class="ct-ayuda">${e(t("llamamiento_propuesta_sin_anexos"))}</p>`;
     if (operacion === "propuesta" && Object.hasOwn(PUBLICACIONES_FORMALIZACION, nombre)) {
       // Referencia y huella viajan en el estado del formulario; en pantalla solo la versión publicada.
@@ -90,6 +96,11 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}> ${e(t("llamamiento_" + nombre))}</label></div>`;
     }
     const numero = nombre === "version_esperada" || nombre === "version_comunicacion_esperada";
+    if (nombre === "respuesta" && esRespuesta(operacion)) return `<fieldset class="ct-campo ct-respuesta-opciones">
+      <legend>${e(t("llamamiento_respuesta_declarada"))} *</legend>
+      ${RESPUESTAS_RESOLUCION.map((opcion) => `<label for="${id}-${opcion}"><input id="${id}-${opcion}"
+        type="radio" name="respuesta" value="${opcion}"${valor === opcion ? " checked" : ""}${bloqueado ? " disabled" : ""} required>
+        ${e(t("llamamiento_opcion_" + opcion))}</label>`).join("")}</fieldset>`;
     if (nombre === "respuesta") return `<div class="ct-campo">
       <label for="${id}">${e(t(esResolucion(operacion)
         ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"))} *</label>
@@ -114,12 +125,16 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       return `<div class="ct-campo">${clave ? "" : `<span>${e(t("llamamiento_version_rotulo"))}</span>`}${oculto}<p id="${id}-visible" tabindex="-1">${visible}</p></div>`;
     }
     const recepcion = nombre === "recibida_en";
+    const fechaMadrid = recepcion && esRespuesta(operacion) && /Z$/u.test(valor)
+      ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit",
+        day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(valor)).replace(" ", "T")
+      : String(valor).replace(/Z$/u, "");
     const tipo = numero ? 'type="number" min="1" max="9007199254740990" step="1"'
-      : recepcion ? 'type="datetime-local" step="0.000001"'
+      : recepcion ? `type="datetime-local" step="${esRespuesta(operacion) ? 60 : "0.000001"}"`
       : `type="text" maxlength="${nombre === "correo_sha256" ? 64 : 160}"`;
     return `<div class="ct-campo"><label for="${id}">${e(t(operacion === "comunicacion_siguiente"
       && nombre === "prueba_entrega_ref" ? "llamamiento_prueba_continuacion_ref" : "llamamiento_" + nombre))} *</label>
-      <input id="${id}" name="${nombre}" value="${e(recepcion ? String(valor).replace(/Z$/u, "") : valor)}"
+      <input id="${id}" name="${nombre}" value="${e(recepcion ? fechaMadrid : valor)}"
         ${tipo}
         required autocomplete="off" spellcheck="false"${bloqueado ? " readonly" : ""}>
       </div>`;
@@ -193,12 +208,13 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
           <label for="${idCorreo}">${e(t("llamamiento_correo_archivo"))} *</label>
           <input id="${idCorreo}" type="file" accept=".eml" data-ct-llamamiento-correo
             ${paso.solicitud !== null ? "disabled" : ""}>
+          <p class="ct-ayuda">${e(t("llamamiento_correo_ayuda"))}</p>
           ${paso.valores.correo_sha256 ? `<p class="ct-ayuda" data-ct-llamamiento-huella-calculada>
             ${e(t("llamamiento_correo_huella_conservada"))}</p>` : ""}
         </div>` : ""}
         </fieldset>
         <div class="ct-acciones">
-        ${paso.solicitud === null && !paso.claveConservada && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-secundario" type="button"
+        ${paso.solicitud === null && !paso.claveConservada && !esRespuesta(operacion) && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-secundario" type="button"
           data-ct-llamamiento-clave="${operacion}"${paso.calculando ? " disabled" : ""}>${e(t("llamamiento_crear_clave"))}</button>` : ""}
         ${!paso.recibo && !paso.bloqueado && (operacion !== "propuesta" || paso.disponible) ? `<button class="boton-primario" type="submit"
           ${paso.ocupado || paso.calculando ? "disabled" : ""}>${e(t(paso.solicitud !== null

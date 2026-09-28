@@ -299,7 +299,7 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor 
   assert.equal(new Set(ids).size, ids.length);
   assert.match(formulario(), /id="ct-llamamiento-respuesta_siguiente-correo"/u);
   assert.doesNotMatch(formulario(), /aria-describedby="ct-llamamiento-respuesta_siguiente-correo-ayuda"/u);
-  assert.match(formulario(), /Fecha de recepción[^<]*UTC/u);
+  assert.match(formulario(), /Fecha y hora en que llegó la respuesta \(Madrid\)/u);
   assert.doesNotMatch(formulario(), /name="(?:tipo_antecedente|actor_ref|politica_ref|revision_plazo_rrhh)"/u);
   await raiz.enviar("respuesta_siguiente", { ...valores, correo_sha256: HUELLA });
   assert.equal(confirmaciones.length, 0); // No admite una huella escrita en el DOM.
@@ -324,7 +324,7 @@ for (const respuesta of ["aceptacion", "renuncia"]) test(`respuesta del sucesor 
     recibida_en: "2026-09-05T09:08:00Z",
   };
   assert.equal(JSON.stringify(solicitudes[0]), JSON.stringify(esperada)); assert.ok(Object.isFrozen(solicitudes[0]));
-  assert.match(confirmaciones.at(-1).advertencia, /no cambia la candidatura/iu);
+  assert.match(confirmaciones.at(-1).advertencia, /no el correo ni su custodia/iu);
   assert.deepEqual(previos(), anteriores);
   assert.match(raiz.innerHTML, /Declaración de respuesta del sucesor registrada · Sin resolución/u);
   assert.match(raiz.innerHTML, /justificante:sucesor:002/u);

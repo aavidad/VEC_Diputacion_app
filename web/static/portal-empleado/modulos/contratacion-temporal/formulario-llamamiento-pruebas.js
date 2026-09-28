@@ -124,7 +124,7 @@ export const comunicacionRegistrada = {
 };
 export const declaracion = () => ({
   clave_idempotencia: "123e4567-e89b-42d3-a456-426614174002",
-  respuesta: "aceptacion", correo_ref: "correo:sintetico:001", recibida_en: "2026-09-05T08:30",
+  respuesta: "aceptacion", correo_ref: "correo:sintetico:001", recibida_en: "2026-09-05T10:30",
 });
 export const justificante = (solicitud) => ({
   ...solicitud, esquema: "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1",
@@ -192,7 +192,7 @@ export const avisoSiguienteRegistrado = { ...comunicacionRegistrada,
   intencion_envio_ref: "intencion:aviso:sucesor:002" };
 export const declaracionSiguiente = () => ({ ...declaracion(),
   clave_idempotencia: "123e4567-e89b-42d3-a456-426614174007",
-  correo_ref: "correo:sintetico:sucesor:002", recibida_en: "2026-09-05T09:08" });
+  correo_ref: "correo:sintetico:sucesor:002", recibida_en: "2026-09-05T11:08" });
 export const justificanteSiguiente = (s) => ({ ...justificante(s),
   justificante_ref: "justificante:sucesor:002", recibo_ref: "recibo:respuesta:sucesor:002",
   auditoria_ref: "auditoria:respuesta:sucesor:002", registrada_en: "2026-09-05T09:09:00.123456Z" });
