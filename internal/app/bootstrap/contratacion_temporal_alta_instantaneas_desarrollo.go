@@ -206,7 +206,16 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	if autoridad == nil {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	preparada, err := autoridad.PrepararInstantanea(ctx, instantanea)
+	var err error
+	if ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular {
+		ct130, ok := autoridad.(autoridadReincorporacionTitularPostgreSQL)
+		if !ok {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		preparada, err = ct130.PrepararInstantaneaReincorporacionTitular(ctx, instantanea)
+	} else {
+		preparada, err = autoridad.PrepararInstantanea(ctx, instantanea)
+	}
 	if err != nil || preparada.Validar() != nil {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}

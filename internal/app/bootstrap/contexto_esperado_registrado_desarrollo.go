@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"sync"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -17,11 +18,20 @@ func contextoEsperadoRegistradoDesarrollo(
 	ctx context.Context, resolutor dominiovec.ResolutorContextoActorRegistradoV2,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
+	if soporte == nil {
+		return dominiovec.ResultadoContextoActorRegistradoV2{}, ports.ErrConsultaRRHHNoDisponible
+	}
+	return contextoEsperadoRegistradoParaSemillaDesarrollo(ctx, resolutor, soporte, soporte.contexto.Resultado)
+}
+
+func contextoEsperadoRegistradoParaSemillaDesarrollo(
+	ctx context.Context, resolutor dominiovec.ResolutorContextoActorRegistradoV2,
+	soporte *soporteAltaContratacionTemporalDesarrollo, semilla dominiovec.ResultadoContextoActorRegistradoV2,
+) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
 	fallo := ports.ErrConsultaRRHHNoDisponible
 	if ctx == nil || ctx.Err() != nil || resolutor == nil || soporte == nil {
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 	}
-	semilla := soporte.contexto.Resultado
 	if semilla.Validar() != nil || soporte.principalID == "" ||
 		!huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) {
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
@@ -87,6 +97,38 @@ type proveedorSesionOperativaCTDesarrollo interface {
 	ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error)
 }
 
+// Comparte las autoridades de sesión y contexto, pero conserva base, clave
+// efímera y perfil CT130 propios. El proveedor exige la misma capacidad mTLS.
+func nuevaSesionReincorporacionTitularDesarrollo(
+	base *proveedorSesionConsultaRRHHDesarrollo,
+	esperado dominiovec.ResultadoContextoActorRegistradoV2,
+) (proveedorSesionOperativaCTDesarrollo, error) {
+	if base == nil || base.soporte == nil || esperado.Validar() != nil ||
+		esperado.Contexto.PerfilActivoRef == base.base.Contexto.PerfilActivoRef ||
+		esperado.Contexto.Principal.ID != base.base.Contexto.Principal.ID ||
+		esperado.Contexto.Instantanea.CuentaRef != base.base.Contexto.Instantanea.CuentaRef ||
+		esperado.Contexto.PersonaRef != base.base.Contexto.PersonaRef {
+		return nil, ports.ErrAutorizacionDenegada
+	}
+	clon, err := esperado.Clonar()
+	if err != nil {
+		return nil, ports.ErrAutorizacionDenegada
+	}
+	proveedor := &proveedorSesionConsultaRRHHDesarrollo{
+		soporte: base.soporte, registro: base.registro, revalidador: base.revalidador,
+		reloj: base.reloj, resolutor: base.resolutor, base: clon,
+		fronteras: base.fronteras, superficie: base.superficie,
+	}
+	if _, err := rand.Read(proveedor.clave[:]); err != nil {
+		return nil, ports.ErrAutorizacionDenegada
+	}
+	return proveedor, nil
+}
+
+func rutaReincorporacionTitularDesarrollo(ruta string) bool {
+	return ruta == httpinterno.RutaReincorporacionesTitular || ruta == httpinterno.RutaCapacidadReincorporacionTitular
+}
+
 func rutaSesionOperativaCTDesarrollo(ruta string) bool {
 	return rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaResultadoCobertura
@@ -101,16 +143,24 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 	if s == nil || ctx == nil || ctx.Err() != nil {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
+	capacidad, valida := s.capacidadValida(ctx)
+	if !valida || capacidad.contextoOperacion == nil ||
+		!rutaSesionOperativaCTDesarrollo(capacidad.ruta) {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
 	s.mu.Lock()
 	esperado := s.contextoEsperadoRegistrado
 	sesion := s.sesionOperativa
-	s.mu.Unlock()
-	if esperado.Validar() != nil {
-		return vacio, ports.ErrAutorizacionDenegada
+	if rutaReincorporacionTitularDesarrollo(capacidad.ruta) {
+		if s.reincorporacionTitular == nil {
+			s.mu.Unlock()
+			return vacio, ports.ErrAutorizacionDenegada
+		}
+		esperado = s.reincorporacionTitular.contextoEsperadoRegistrado
+		sesion = s.reincorporacionTitular.sesionOperativa
 	}
-	capacidad, valida := s.capacidadValida(ctx)
-	if !valida || sesion == nil || capacidad.contextoOperacion == nil ||
-		!rutaSesionOperativaCTDesarrollo(capacidad.ruta) {
+	s.mu.Unlock()
+	if esperado.Validar() != nil || sesion == nil {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	holder := capacidad.contextoOperacion

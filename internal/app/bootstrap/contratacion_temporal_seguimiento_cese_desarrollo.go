@@ -80,24 +80,26 @@ func rutaSeguimientoCeseDesarrollo(ruta string) bool {
 	return ok
 }
 
-// descriptoresFronterasSeguimientoCeseDesarrollo declara las rutas
-// con el perfil CT base y su acción nominal como capacidad.
-func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string, reincorporacion ...bool) []descriptorFronteraComunDesarrollo {
+// descriptoresFronterasSeguimientoCeseDesarrollo declara sólo las rutas base.
+func descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT string) []descriptorFronteraComunDesarrollo {
 	var d []descriptorFronteraComunDesarrollo
 	for _, o := range operacionesSeguimientoCeseDesarrollo() {
 		d = append(d, fronteraContratacionTemporalDesarrollo(o.frontera, o.accion, o.ruta, []string{perfilCT}))
 	}
-	if len(reincorporacion) != 0 && reincorporacion[0] {
-		for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
-			o, _ := operacionSeguimientoCesePorRuta(ruta)
-			f := fronteraContratacionTemporalDesarrollo(o.frontera, o.accion, o.ruta, []string{perfilCT})
-			if ruta == httpinterno.RutaCapacidadReincorporacionTitular {
-				f.Metodo = http.MethodPost
-			}
-			d = append(d, f)
-		}
-	}
 	return d
+}
+
+func descriptoresFronterasReincorporacionTitularDesarrollo(perfil string) []descriptorFronteraComunDesarrollo {
+	var descriptores []descriptorFronteraComunDesarrollo
+	for _, ruta := range []string{httpinterno.RutaReincorporacionesTitular, httpinterno.RutaCapacidadReincorporacionTitular} {
+		o, _ := operacionSeguimientoCesePorRuta(ruta)
+		f := fronteraContratacionTemporalDesarrollo(o.frontera, o.accion, o.ruta, []string{perfil})
+		if ruta == httpinterno.RutaCapacidadReincorporacionTitular {
+			f.Metodo = http.MethodPost
+		}
+		descriptores = append(descriptores, f)
+	}
+	return descriptores
 }
 
 func descriptorMaterialReincorporacionTitularDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
@@ -191,7 +193,75 @@ func motivosSeguimientoCesePorCatalogo(acreditada bool) [][]vecdomain.Referencia
 // soporteSeguimientoCeseDesarrollo es la instantánea de desarrollo, no
 // autoritativa, con las cuatro concesiones nominales.
 type soporteSeguimientoCeseDesarrollo struct {
-	instantanea vecdomain.InstantaneaAutorizacion
+	instantanea                vecdomain.InstantaneaAutorizacion
+	contexto                   ports.ContextoAutorizacionAltaV3
+	contextoEsperadoRegistrado vecdomain.ResultadoContextoActorRegistradoV2
+	sesionOperativa            proveedorSesionOperativaCTDesarrollo
+}
+
+func discriminadorContextoReincorporacionTitularDesarrollo() discriminadorContextoSinteticoDesarrollo {
+	return discriminadorContextoSinteticoDesarrollo{
+		perfil: "reincorporacion-titular-perfil", vinculo: "reincorporacion-titular-vinculo",
+		// La cuenta y la persona son las mismas autoridades ya preparadas.
+		procedencia: "procedencia", registro: "reincorporacion-titular-registro-contexto",
+		autenticacion: "reincorporacion-titular-autenticacion", asercion: "reincorporacion-titular-asercion",
+		sesion: "reincorporacion-titular-sesion", controlSesion: "reincorporacion-titular-control-sesion",
+		politicaGarantia: "reincorporacion-titular-politica-garantia",
+	}
+}
+
+func nuevoContextoReincorporacionTitularDesarrollo(soporte *soporteAltaContratacionTemporalDesarrollo, ahora time.Time) (ports.ContextoAutorizacionAltaV3, error) {
+	vacio := ports.ContextoAutorizacionAltaV3{}
+	if soporte == nil || soporte.principalID == "" || !huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) {
+		return vacio, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	base := soporte.contexto
+	if base.Resultado.Validar() != nil || base.Vinculo.ValidarPara(base.Resultado) != nil {
+		return vacio, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	// El contexto V3 no transporta los atributos de la identidad mTLS que
+	// iniciaron la semilla. Se reconstruye sólo desde el soporte ya sellado.
+	principal := vecdomain.Principal{ID: soporte.principalID, Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": soporte.certificadoSHA256}}
+	if !principalContratacionTemporalDesarrolloValido(principal) {
+		return vacio, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
+		principal, ahora, discriminadorContextoReincorporacionTitularDesarrollo())
+	if err != nil || contexto.Resultado.Contexto.PerfilActivoRef == base.Resultado.Contexto.PerfilActivoRef ||
+		contexto.Resultado.Contexto.Instantanea.CuentaRef != base.Resultado.Contexto.Instantanea.CuentaRef ||
+		contexto.Resultado.Contexto.PersonaRef != base.Resultado.Contexto.PersonaRef {
+		return vacio, errSeguimientoCeseDesarrolloNoDisponible
+	}
+	return contexto, nil
+}
+
+// El contexto nominal sólo se usa para preparar las autoridades al arrancar.
+// Las peticiones obtienen un vínculo fresco mediante contextoOperativoDesarrollo.
+func (s *soporteAltaContratacionTemporalDesarrollo) contextoReincorporacionTitular(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
+	vacio := ports.ContextoAutorizacionAltaV3{}
+	if s == nil || ctx == nil || ctx.Err() != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	s.mu.Lock()
+	reincorporacion := s.reincorporacionTitular
+	s.mu.Unlock()
+	if reincorporacion == nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	datos, err := reincorporacion.contexto.Vinculo.Datos()
+	if err != nil || reincorporacion.contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
+		AutenticacionRef: datos.AutenticacionRef, SesionRef: datos.SesionRef, PerfilRef: datos.PerfilActivoRef,
+	}, s.reloj.Ahora()) != nil || datos.PerfilActivoRef == s.contexto.Resultado.Contexto.PerfilActivoRef {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	resultado, err := reincorporacion.contexto.Resultado.Clonar()
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	return ports.ContextoAutorizacionAltaV3{Vinculo: reincorporacion.contexto.Vinculo, Resultado: resultado}, nil
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaSeguimientoCese(ruta ...string) (vecdomain.InstantaneaAutorizacion, bool) {
@@ -299,6 +369,21 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 	alta.soporte.seguimientoCese = &soporteSeguimientoCeseDesarrollo{instantanea: instantanea}
 	alta.soporte.mu.Unlock()
 	if len(reincorporacion) != 0 && reincorporacion[0] {
+		alta.soporte.mu.Lock()
+		soporteReincorporacion := alta.soporte.reincorporacionTitular
+		proveedorBase, proveedorValido := alta.soporte.sesionOperativa.(*proveedorSesionConsultaRRHHDesarrollo)
+		alta.soporte.mu.Unlock()
+		if soporteReincorporacion == nil || !proveedorValido || proveedorBase == nil {
+			return errSeguimientoCeseDesarrolloNoDisponible
+		}
+		contextoNominal, err := alta.soporte.contextoReincorporacionTitular(ctx)
+		if err != nil {
+			return err
+		}
+		vinculoReincorporacion, err := contextoNominal.Vinculo.Datos()
+		if err != nil || vinculoReincorporacion.PerfilActivoRef == v.PerfilActivoRef {
+			return errSeguimientoCeseDesarrolloNoDisponible
+		}
 		acciones := []vecdomain.ConcesionRol{
 			{Accion: accionConsultarSeguimientoCeseDesarrollo, ModuloID: ports.ModuloContratacion,
 				TipoRecurso: "seguimiento_contratacion_temporal", Finalidades: []string{"gestionar_contratacion_temporal"}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
@@ -309,7 +394,7 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 				CamposPermitidos: []string{"cese_evento_ref", "cese_recibo_ref", "documento_ref", "documento_sha256", "existe_cese", "fecha_efectiva", "relacion_ref"},
 				GarantiaMinima:   vecdomain.AuthAssuranceHigh},
 		}
-		otra, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
+		otra, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculoReincorporacion.PrincipalID, vinculoReincorporacion.PerfilActivoRef, reloj.Ahora(),
 			"reincorporacion_titular_ct_desarrollo", "Reincorporación titular de desarrollo", "reincorporacion-titular-ct-desarrollo", acciones,
 			[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 		if err != nil {
@@ -319,8 +404,21 @@ func configurarSoporteSeguimientoCeseDesarrollo(ctx context.Context, alta *depen
 			[]vecdomain.ReferenciaEntradaCatalogo{motivoSeguimientoCeseDesarrollo(httpinterno.RutaReincorporacionesTitular)}, desde); err != nil {
 			return err
 		}
+		soporteReincorporacion.instantanea = otra
+		if err := publicarContextoPostgreSQLReincorporacionTitularDesarrollo(ctx, alta.postgresql.gobierno, alta.soporte); err != nil {
+			return err
+		}
+		esperado, err := contextoEsperadoRegistradoParaSemillaDesarrollo(ctx, proveedorBase.resolutor, alta.soporte, contextoNominal.Resultado)
+		if err != nil {
+			return err
+		}
+		sesion, err := nuevaSesionReincorporacionTitularDesarrollo(proveedorBase, esperado)
+		if err != nil {
+			return err
+		}
 		alta.soporte.mu.Lock()
-		alta.soporte.reincorporacionTitular = &soporteSeguimientoCeseDesarrollo{instantanea: otra}
+		soporteReincorporacion.contextoEsperadoRegistrado = esperado
+		soporteReincorporacion.sesionOperativa = sesion
 		alta.soporte.mu.Unlock()
 	}
 	return nil

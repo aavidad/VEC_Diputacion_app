@@ -329,7 +329,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 		s.mu.Unlock()
 		if !claveValida || !valida || autoridad == nil ||
 			instantanea.Validar() != nil ||
-			autoridad.PublicarInstantanea(ctx, instantanea) != nil {
+			publicarInstantaneaAsignacionCTSegunRuta(ctx, capacidad.ruta, autoridad, instantanea) != nil {
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 		}
 		if (rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
@@ -384,7 +384,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 		s.mu.Unlock()
 		if !claveValida || !existe || autoridad == nil || registro == nil ||
 			instantanea.Validar() != nil ||
-			autoridad.PublicarInstantanea(ctx, instantanea) != nil {
+			publicarInstantaneaAsignacionCTSegunRuta(ctx, capacidad.ruta, autoridad, instantanea) != nil {
 			return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 		}
 		if err := registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden); err != nil {
