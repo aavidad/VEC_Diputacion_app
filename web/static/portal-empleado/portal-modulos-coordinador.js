@@ -10,7 +10,7 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260928-rrhh-cache-unificada-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-rrhh-cache-unificada-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-rrhh-cuadro-general-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
