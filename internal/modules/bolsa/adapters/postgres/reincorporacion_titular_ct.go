@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -150,7 +149,7 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarReincorporacionesTit
 func errorReincorporacionTitular(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "42501" {
-		return fmt.Errorf("%w: %w", dominiovec.ErrAutorizacionDenegada, err)
+		return dominiovec.ErrAutorizacionDenegada
 	}
-	return fmt.Errorf("%w: %w", ports.ErrReincorporacionTitularNoDisponible, err)
+	return ports.ErrReincorporacionTitularNoDisponible
 }
