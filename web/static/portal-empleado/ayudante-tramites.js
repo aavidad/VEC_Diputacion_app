@@ -1,5 +1,5 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-ppt-503-v5";
-import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v5";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-ppt-503-v6";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-ppt-503-v6";
 
 const TEXTO = Object.freeze({
   titulo: traducirPortal("ayuda_contenido_302"),

@@ -5,7 +5,9 @@ import test from "node:test";
 // El selector común fija el idioma al cargar el módulo, como en el navegador.
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=en" };
 const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = await import("../comun/idioma.js");
-const { traducirPortal, formatearNumeroPortal } = await import("./portal-i18n.js");
+const { cambiarIdioma, montarSelectorIdioma } = await import("../comun/idioma.js");
+const { crearTraductorPortal, MENSAJES_PORTAL_ES, traducirPortal, formatearNumeroPortal } = await import("./portal-i18n.js");
+const { aplicarIdiomaDocumento, aplicarTextosPortal } = await import("./portal-idioma.js");
 const { cargarCatalogoModulosInterno, presentarSesionPortal } = await import("./portal-catalogo-modulos.js");
 const { crearVistaInicioPortal } = await import("./portal-inicio.js");
 
@@ -48,4 +50,42 @@ test("?lang=en renderiza la portada y sus estados con las claves inglesas", () =
   assert.match(html, /No permission for this profile|Your session does not have permission/u);
   assert.match(html, /SAE offers cannot be viewed yet/u);
   assert.doesNotMatch(html, /No hay expedientes recientes|Peticiones de personal temporal|Las ofertas al SAE/u);
+});
+
+test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catálogo castellano", async () => {
+  const html = await readFile(new URL("index.html", import.meta.url), "utf8");
+  const claves = ["txt_gestion_de_recursos_humanos", "selector_idioma_etiqueta", "selector_idioma_es", "selector_idioma_en"];
+  const nodos = new Map(claves.map((clave) => [clave, {
+    textContent: "",
+    getAttribute: () => clave,
+  }]));
+  for (const clave of claves) assert.match(html, new RegExp(`data-i18n-portal="${clave}"`, "u"));
+  const documento = {
+    documentElement: { lang: "es" },
+    querySelectorAll: (selector) => selector === "[data-i18n-portal]" ? [...nodos.values()] : [],
+  };
+  aplicarIdiomaDocumento(documento);
+  aplicarTextosPortal(documento);
+  assert.equal(documento.documentElement.lang, "en");
+  assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),
+    ["Human Resources Management", "Interface language", "Español", "English"]);
+  assert.equal(traducirPortal("txt_portal_del_empleado"), "Employee Portal");
+  assert.equal(traducirPortal("contratacion_temporal_encabezado"), "Temporary staff requests");
+
+  let alCambiar;
+  let destino;
+  const selector = { value: "", addEventListener: (_tipo, escucha) => { alCambiar = escucha; } };
+  const ubicacion = {
+    href: "https://vec.example/portal-empleado/?lang=en&vista=ct#expedientes",
+    assign: (url) => { destino = url; },
+  };
+  assert.equal(montarSelectorIdioma(selector, ubicacion), true);
+  assert.equal(selector.value, "en");
+  selector.value = "es";
+  alCambiar();
+  assert.equal(destino, "https://vec.example/portal-empleado/?lang=es&vista=ct#expedientes");
+  assert.equal(cambiarIdioma("invalido", ubicacion), false);
+  aplicarTextosPortal(documento, crearTraductorPortal(MENSAJES_PORTAL_ES));
+  assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),
+    ["Gestión de Recursos Humanos", "Idioma de la interfaz", "Español", "Inglés"]);
 });
