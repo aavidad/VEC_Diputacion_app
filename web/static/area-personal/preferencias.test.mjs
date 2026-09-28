@@ -1,0 +1,79 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+import { crearClientePreferencias, ErrorPreferencias, RUTA_MIS_PREFERENCIAS } from "./cliente-http.js";
+import { crearOperacionPreferencias, renderizarPreferencias } from "./preferencias.js";
+import { idiomaAreaPersonal, iniciarI18nAreaPersonal } from "./i18n.js";
+import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
+
+const valores = Object.freeze({ idioma: "en", tamano_texto: "grande", alto_contraste: true,
+  tema: "oscuro", inicio: "bolsas", filas: 50, aviso_correo_tareas: true, aviso_correo_plazos: false });
+const catalogo = Object.freeze({ version_ref: "usuarios-preferencias-v1",
+  idiomas: ["navegador", "es", "en"].map((codigo) => ({ codigo, nombre_key: codigo })),
+  tamanos_texto: ["normal", "grande", "muy_grande"].map((codigo) => ({ codigo, nombre_key: codigo })),
+  temas: ["sistema", "claro", "oscuro"].map((codigo) => ({ codigo, nombre_key: codigo })),
+  inicios: ["cuadro", "peticiones", "bolsas"].map((codigo) => ({ codigo, nombre_key: codigo })),
+  filas: [20, 50, 100], predeterminados: valores });
+const estado = Object.freeze({ persona_ref: "persona:propia", version: 0,
+  catalogo_version_ref: catalogo.version_ref, valores });
+const json = (data, status = 200) => ({ status, headers: { get: (nombre) => nombre === "Content-Type" ? "application/json" : null },
+  text: async () => JSON.stringify({ data }) });
+
+test("GET y PUT usan el contrato único, omiten credenciales y conservan recibo real", async () => {
+  const llamadas = [];
+  const recibo = { ...estado, version: 1, recibo_ref: "recibo:propio", fecha_utc: "2026-09-29T00:00:00Z", replay: false };
+  const cliente = crearClientePreferencias({ fetchImpl: async (ruta, opciones) => {
+    llamadas.push({ ruta, opciones });
+    return opciones.method === "GET" ? json({ catalogo, estado }) : json(recibo, 201);
+  } });
+  assert.deepEqual(await cliente.cargar(), { catalogo, estado });
+  const operacion = crearOperacionPreferencias({ catalogo, estado }, valores, { randomUUID: () => "clave-1" });
+  assert.deepEqual(await cliente.guardar(operacion), recibo);
+  assert.equal(llamadas.length, 2);
+  assert.ok(llamadas.every(({ ruta, opciones }) => ruta === RUTA_MIS_PREFERENCIAS && opciones.credentials === "omit"));
+  assert.deepEqual(JSON.parse(llamadas[1].opciones.body), operacion);
+  assert.equal(llamadas[1].opciones.headers["X-Idempotency-Key"], undefined);
+});
+
+test("rechaza cuerpo directo, respuesta sin recibo y errores HTTP sin confirmar guardado", async () => {
+  await assert.rejects(crearClientePreferencias({ fetchImpl: async () => ({ status: 200,
+    headers: { get: () => "application/json" }, text: async () => JSON.stringify({ catalogo, estado }) }) }).cargar(),
+  (error) => error instanceof ErrorPreferencias && error.codigo === "respuesta");
+  const cliente = crearClientePreferencias({ fetchImpl: async () => json({ ...estado, version: 1 }, 201) });
+  await assert.rejects(cliente.guardar(crearOperacionPreferencias({ catalogo, estado }, valores,
+    { randomUUID: () => "clave-2" })), (error) => error.codigo === "respuesta");
+  for (const [status, codigo] of [[401, "autenticacion"], [403, "denegado"], [409, "conflicto"], [422, "validacion"], [503, "servicio"]]) {
+    const denegado = crearClientePreferencias({ fetchImpl: async () => ({ status }) });
+    await assert.rejects(denegado.cargar(), (error) => error.codigo === codigo && error.estado === status);
+  }
+});
+
+test("el replay 200 conserva el recibo y exige el indicador de repetición", async () => {
+  const operacion = crearOperacionPreferencias({ catalogo, estado }, valores, { randomUUID: () => "clave-replay" });
+  const recibo = { ...estado, version: 1, recibo_ref: "recibo:original",
+    fecha_utc: "2026-09-29T00:00:00Z", replay: true };
+  const cliente = crearClientePreferencias({ fetchImpl: async () => json(recibo, 200) });
+  assert.equal((await cliente.guardar(operacion)).recibo_ref, "recibo:original");
+  const inconsistente = crearClientePreferencias({ fetchImpl: async () => json({ ...recibo, replay: false }, 200) });
+  await assert.rejects(inconsistente.guardar(operacion), (error) => error.codigo === "respuesta");
+});
+
+test("la vista distingue error de lectura y confirmación con recibo; URL prevalece sobre servidor", async () => {
+  const entradas = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async () => ({ ok: true, json: async () => entradas }));
+  assert.match(renderizarPreferencias({ error: { codigo: "servicio" } }), /No se pudieron consultar sus preferencias/);
+  assert.doesNotMatch(renderizarPreferencias({ error: { codigo: "servicio" } }), /<form/u);
+  const html = renderizarPreferencias({ catalogo, estado, recibo: { recibo_ref: "recibo:propio" } });
+  assert.match(html, /recibo:propio/u);
+  assert.match(html, /name="filas"/u);
+  assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/?lang=es" }, "en"), "es");
+  assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/" }, "en"), "en");
+});
+
+test("la lista local respeta 20, 50 o 100 filas sin cambiar el transporte remoto", async () => {
+  const fuente = await readFile(new URL("./vistas/seguimiento-tramites.js", import.meta.url), "utf8");
+  assert.match(fuente, /\[20, 50, 100\]\.includes\(estado\.filasPreferidas\)/u);
+  const programa = await readFile(new URL("./aplicacion.js", import.meta.url), "utf8");
+  assert.match(programa, /estado\.paginaParticipaciones = 1;/u);
+  assert.equal(typeof renderizarLlamamientos, "function");
+});

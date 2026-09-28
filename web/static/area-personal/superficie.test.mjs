@@ -181,8 +181,8 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
   for (const ruta of await archivosEn(RAIZ)) {
     if (![".js", ".mjs", ".css", ".html"].includes(extname(ruta))) continue;
     const lineas = (await readFile(ruta, "utf8")).split("\n").length;
-    // B15 añade una ruta y su montaje al coordinador; el resto conserva el límite anterior.
-    const tope = relative(RAIZ, ruta) === "aplicacion.js" ? 820 : 800;
+    // 5.08a añade el coordinador de preferencias; su formulario vive en un módulo aparte.
+    const tope = relative(RAIZ, ruta) === "aplicacion.js" ? 950 : 800;
     assert.ok(lineas < tope, `${relative(RAIZ, ruta)} tiene ${lineas} líneas`);
   }
   const css = await readFile(join(RAIZ, "area-personal.css"), "utf8");
@@ -197,20 +197,21 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
   assert.match(css, /html\[data-texto-grande="true"\] \{ font-size: 125%; \}/u);
   assert.match(css, /body\.area-personal-app \{[\s\S]*font-size: 1rem;/u);
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
-  assert.match(aplicacion, /accion === "alternar-texto" \? document\.documentElement : document\.body/u);
+  assert.match(aplicacion, /controladorVisual\?\.aplicarPreferenciasServidor/u);
 });
 
 test("el menú móvil gestiona foco, Escape y contención de teclado", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /\.ap-navegacion a\[href\]["']\)\?\.focus/);
   assert.match(aplicacion, /function mantenerFocoEnMenu\(evento\)/);
-  assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]{0,220}cerrarMenu\(\{ restaurarFoco: true \}\)/);
+  assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenuIdentidad\(\{ restaurarFoco: true \}\)/);
+  assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]*cerrarMenu\(\{ restaurarFoco: true \}\)/);
 });
 
 test("la lectura de expedientes remite a la guía textual sin sintetizar datos privados", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   const inicio = aplicacion.indexOf("function leerPantalla(estado)");
-  const fin = aplicacion.indexOf("function alternarPreferencia", inicio);
+  const fin = aplicacion.indexOf("async function recargarPreferencias", inicio);
   const funcion = aplicacion.slice(inicio, fin);
   assert.ok(inicio >= 0 && fin > inicio, "debe existir la lectura gobernada");
   assert.match(funcion, /conector y una política aprobados[\s\S]*guía textual de Ayuda/u);

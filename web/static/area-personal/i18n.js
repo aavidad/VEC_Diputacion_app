@@ -1,4 +1,4 @@
-import { seleccionarIdioma } from "../comun/idioma.js";
+import * as idiomaComun from "../comun/idioma.js?v=20260929-usuarios-pref-v1";
 
 const RUTAS_CATALOGO = Object.freeze({
   es: "/area-personal/locales/es.json",
@@ -123,14 +123,20 @@ export function textosErrorCargaAreaPersonal(error) {
     reintentar: claves.reintentar === false ? "" : traducir(`${base}reintentar`),
   });
 }
-export function rutaCatalogoAreaPersonal(preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location) {
-  return RUTAS_CATALOGO[seleccionarIdioma(idiomaURL(ubicacion), preferidos)];
+export function idiomaAreaPersonal(preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador") {
+  return typeof idiomaComun.resolverIdiomaNavegacion === "function"
+    ? idiomaComun.resolverIdiomaNavegacion({ ubicacion, idiomaPreferido, navegador: { languages: preferidos } })
+    : idiomaComun.seleccionarIdioma(idiomaURL(ubicacion),
+      idiomaPreferido === "es" || idiomaPreferido === "en" ? [idiomaPreferido] : preferidos);
 }
-export function aplicarCatalogoAreaPersonal(documento, entradas) { if (!documento?.querySelectorAll || !entradas || typeof entradas !== "object" || Array.isArray(entradas)) return; documento.querySelectorAll("[data-i18n]").forEach((elemento) => { const clave = elemento.getAttribute("data-i18n"); if (typeof entradas[clave] === "string") elemento.textContent = entradas[clave]; }); }
-export async function iniciarI18nAreaPersonal(documento = document, fetcher = fetch, preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location) {
-  const idioma = seleccionarIdioma(idiomaURL(ubicacion), preferidos);
+export function rutaCatalogoAreaPersonal(preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador") {
+  return RUTAS_CATALOGO[idiomaAreaPersonal(preferidos, ubicacion, idiomaPreferido)];
+}
+export function aplicarCatalogoAreaPersonal(documento, entradas) { if (!documento?.querySelectorAll || !entradas || typeof entradas !== "object" || Array.isArray(entradas)) return; documento.querySelectorAll("[data-i18n]").forEach((elemento) => { const clave = elemento.getAttribute("data-i18n"); if (typeof entradas[clave] === "string") elemento.textContent = entradas[clave]; }); documento.querySelectorAll("[data-i18n-aria-label]").forEach((elemento) => { const clave = elemento.getAttribute("data-i18n-aria-label"); if (typeof entradas[clave] === "string") elemento.setAttribute("aria-label", entradas[clave]); }); }
+export async function iniciarI18nAreaPersonal(documento = document, fetcher = fetch, preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location, idiomaPreferido = "navegador") {
+  const idioma = idiomaAreaPersonal(preferidos, ubicacion, idiomaPreferido);
   try {
-    const respuesta = await fetcher(rutaCatalogoAreaPersonal(preferidos, ubicacion), { credentials: "omit" });
+    const respuesta = await fetcher(rutaCatalogoAreaPersonal(preferidos, ubicacion, idiomaPreferido), { credentials: "omit" });
     if (!respuesta?.ok) return "es";
     const cargado = await respuesta.json();
     if (!cargado || typeof cargado !== "object" || Array.isArray(cargado)) return "es";
