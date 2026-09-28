@@ -21,6 +21,7 @@ const (
 
 	AccionSAEEnviar             = "registrar_envio"
 	AccionSAERegistrarCandidato = "registrar_candidato"
+	AccionSAEConciliarPersona   = "conciliar_persona"
 	AccionSAERecibirCandidatos  = "confirmar_recepcion"
 	AccionSAEIniciarSeleccion   = "iniciar_seleccion"
 	AccionSAEValorar            = "registrar_valoracion"
@@ -29,16 +30,19 @@ const (
 )
 
 const (
-	DocumentoSAESolicitud  = "solicitud_sae"
-	DocumentoSAEActa       = "acta_seleccion"
-	DocumentoSAEResolucion = "resolucion"
+	DocumentoSAESolicitud     = "solicitud_sae"
+	DocumentoSAEActa          = "acta_seleccion"
+	DocumentoSAEResolucion    = "resolucion"
+	ConciliacionSAEPendiente  = "pendiente_conciliacion"
+	ConciliacionSAEAcreditada = "acreditada"
 )
 
 var (
-	ErrOfertaSAEInvalida         = errors.New("bolsa: oferta SAE invalida")
-	ErrOfertaSAEVersion          = errors.New("bolsa: version de oferta SAE distinta")
-	ErrOfertaSAETransicion       = errors.New("bolsa: transicion de oferta SAE no admitida")
-	ErrOfertaSAEClaveReutilizada = errors.New("bolsa: clave de oferta SAE reutilizada con otro contenido")
+	ErrOfertaSAEInvalida              = errors.New("bolsa: oferta SAE invalida")
+	ErrOfertaSAEVersion               = errors.New("bolsa: version de oferta SAE distinta")
+	ErrOfertaSAETransicion            = errors.New("bolsa: transicion de oferta SAE no admitida")
+	ErrOfertaSAEClaveReutilizada      = errors.New("bolsa: clave de oferta SAE reutilizada con otro contenido")
+	ErrOfertaSAEConciliacionPendiente = errors.New("bolsa: identidad de candidato SAE pendiente de conciliacion")
 )
 
 // CatalogoOfertaSAE inmoviliza la versión usada por una oferta. Las opciones
@@ -85,18 +89,53 @@ func (d DatosOfertaSAE) Validar(c CatalogoOfertaSAE) error {
 }
 
 // El nombre, documento y contacto se guardan mediante referencias a material
-// protegido. PersonaRef es opcional: una persona externa no necesita ser empleada.
+// protegido. Una persona externa no necesita ser empleada; su vínculo con la
+// Persona canónica se obtiene después por una autoridad, nunca del formulario.
 type CandidatoOfertaSAE struct {
 	Referencia, PersonaRef, NombreProtegidoRef, DocumentoProtegidoRef, ContactoProtegidoRef string
+	EstadoConciliacion                                                                      string
+	Acreditacion                                                                            *AcreditacionPersonaSAE
 }
 
 func (c CandidatoOfertaSAE) Validar() error {
 	if !referenciaPrefijoSAE(c.Referencia, "candidato:") || !referenciaPrefijoSAE(c.NombreProtegidoRef, "dato:") ||
-		!referenciaPrefijoSAE(c.DocumentoProtegidoRef, "dato:") || !referenciaPrefijoSAE(c.ContactoProtegidoRef, "dato:") ||
-		(c.PersonaRef != "" && !referenciaPrefijoSAE(c.PersonaRef, "per_")) {
+		!referenciaPrefijoSAE(c.DocumentoProtegidoRef, "dato:") || !referenciaPrefijoSAE(c.ContactoProtegidoRef, "dato:") {
+		return ErrOfertaSAEInvalida
+	}
+	switch c.EstadoConciliacion {
+	case ConciliacionSAEPendiente:
+		if c.PersonaRef != "" || c.Acreditacion != nil {
+			return ErrOfertaSAEInvalida
+		}
+	case ConciliacionSAEAcreditada:
+		if c.Acreditacion == nil || c.Acreditacion.PersonaRef != c.PersonaRef || c.Acreditacion.Validar() != nil {
+			return ErrOfertaSAEInvalida
+		}
+	default:
 		return ErrOfertaSAEInvalida
 	}
 	return nil
+}
+
+// AcreditacionPersonaSAE es evidencia emitida por la autoridad canónica de
+// identidad. Su forma válida no acredita su origen: la aplicación debe recibirla
+// solo por el puerto confiable y el repositorio revalidarla antes del efecto.
+type AcreditacionPersonaSAE struct {
+	PersonaRef, EvidenciaRef  string
+	PersonaVersion            int64
+	VerificadaEn, ValidaHasta time.Time
+}
+
+func (a AcreditacionPersonaSAE) Validar() error {
+	if !referenciaPrefijoSAE(a.PersonaRef, "per_") || !referenciaPrefijoSAE(a.EvidenciaRef, "evidencia:") ||
+		a.PersonaVersion < 1 || a.VerificadaEn.IsZero() || !a.ValidaHasta.After(a.VerificadaEn) ||
+		a.VerificadaEn.Nanosecond()%1000 != 0 || a.ValidaHasta.Nanosecond()%1000 != 0 {
+		return ErrOfertaSAEConciliacionPendiente
+	}
+	return nil
+}
+func (a AcreditacionPersonaSAE) VigenteEn(instante time.Time) bool {
+	return a.Validar() == nil && !instante.Before(a.VerificadaEn) && instante.Before(a.ValidaHasta)
 }
 
 type ResultadoCriterioSAE struct{ Criterio, Resultado string }
@@ -130,21 +169,23 @@ type ActuacionOfertaSAE struct {
 }
 
 type OfertaSAE struct {
-	Referencia, Estado, NumeroSAE, FechaEnvio string
-	Version                                   int64
-	Datos                                     DatosOfertaSAE
-	Catalogo                                  CatalogoOfertaSAE
-	Candidatos                                []CandidatoOfertaSAE
-	Valoraciones                              []ValoracionOfertaSAE
-	Actuaciones                               []ActuacionOfertaSAE
+	Referencia, Estado, NumeroSAE, FechaEnvio, CandidatoSeleccionadoRef string
+	Version                                                             int64
+	Datos                                                               DatosOfertaSAE
+	Catalogo                                                            CatalogoOfertaSAE
+	Candidatos                                                          []CandidatoOfertaSAE
+	Valoraciones                                                        []ValoracionOfertaSAE
+	Actuaciones                                                         []ActuacionOfertaSAE
 }
 
 type CambioOfertaSAE struct {
 	Accion, Clave, ReciboRef, ActorRef, NumeroSAE, FechaEnvio string
+	CandidatoElegidoRef                                       string
 	VersionEsperada                                           int64
 	Instante                                                  time.Time
 	Candidato                                                 *CandidatoOfertaSAE
 	Valoracion                                                *ValoracionOfertaSAE
+	Acreditacion                                              *AcreditacionPersonaSAE
 }
 
 func NuevaOfertaSAE(ref string, datos DatosOfertaSAE, catalogo CatalogoOfertaSAE) (OfertaSAE, error) {
@@ -168,7 +209,7 @@ func NuevaOfertaSAE(ref string, datos DatosOfertaSAE, catalogo CatalogoOfertaSAE
 // con esa clave se rechaza. El repositorio deberá repetirlo transaccionalmente.
 func (o OfertaSAE) Aplicar(c CambioOfertaSAE) (OfertaSAE, string, bool, error) {
 	if !referenciaPrefijoSAE(o.Referencia, "oferta-sae:") || o.Version < 1 ||
-		o.Datos.Validar(o.Catalogo) != nil || !estadoSAEValido(o.Estado) || !referenciaSAE(c.Clave) ||
+		o.Datos.Validar(o.Catalogo) != nil || !estadoSAEValido(o.Estado) || !o.candidatosConsistentes() || !referenciaSAE(c.Clave) ||
 		!referenciaSAE(c.ReciboRef) || !referenciaSAE(c.ActorRef) || c.Instante.IsZero() ||
 		c.Instante.Nanosecond()%1000 != 0 || !contenidoCambioSAEValido(c) {
 		return OfertaSAE{}, "", false, ErrOfertaSAEInvalida
@@ -200,9 +241,30 @@ func (o OfertaSAE) Aplicar(c CambioOfertaSAE) (OfertaSAE, string, bool, error) {
 	return siguiente, c.ReciboRef, false, nil
 }
 
+func (o OfertaSAE) candidatosConsistentes() bool {
+	referencias, documentos, personas := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	for _, candidato := range o.Candidatos {
+		if candidato.Validar() != nil || referencias[candidato.Referencia] || documentos[candidato.DocumentoProtegidoRef] ||
+			(candidato.PersonaRef != "" && personas[candidato.PersonaRef]) {
+			return false
+		}
+		referencias[candidato.Referencia], documentos[candidato.DocumentoProtegidoRef] = true, true
+		if candidato.PersonaRef != "" {
+			personas[candidato.PersonaRef] = true
+		}
+	}
+	return true
+}
+
 func (o OfertaSAE) clonar() OfertaSAE {
 	copia := o
 	copia.Candidatos = append([]CandidatoOfertaSAE(nil), o.Candidatos...)
+	for i := range copia.Candidatos {
+		if o.Candidatos[i].Acreditacion != nil {
+			vinculo := *o.Candidatos[i].Acreditacion
+			copia.Candidatos[i].Acreditacion = &vinculo
+		}
+	}
 	copia.Valoraciones = append([]ValoracionOfertaSAE(nil), o.Valoraciones...)
 	for i := range copia.Valoraciones {
 		copia.Valoraciones[i].Criterios = append([]ResultadoCriterioSAE(nil), o.Valoraciones[i].Criterios...)
@@ -222,13 +284,15 @@ func (o OfertaSAE) clonar() OfertaSAE {
 func contenidoCambioSAEValido(c CambioOfertaSAE) bool {
 	switch c.Accion {
 	case AccionSAEEnviar:
-		return c.Candidato == nil && c.Valoracion == nil
+		return c.Candidato == nil && c.Valoracion == nil && c.Acreditacion == nil && c.CandidatoElegidoRef == ""
 	case AccionSAERegistrarCandidato:
-		return c.Candidato != nil && c.Valoracion == nil && c.NumeroSAE == "" && c.FechaEnvio == ""
+		return c.Candidato != nil && c.Valoracion == nil && c.Acreditacion == nil && c.CandidatoElegidoRef == "" && c.NumeroSAE == "" && c.FechaEnvio == ""
+	case AccionSAEConciliarPersona, AccionSAEResolver:
+		return c.Candidato == nil && c.Valoracion == nil && referenciaPrefijoSAE(c.CandidatoElegidoRef, "candidato:") && c.NumeroSAE == "" && c.FechaEnvio == ""
 	case AccionSAEValorar:
-		return c.Candidato == nil && c.Valoracion != nil && c.NumeroSAE == "" && c.FechaEnvio == ""
-	case AccionSAERecibirCandidatos, AccionSAEIniciarSeleccion, AccionSAEResolver, AccionSAEDeclararDesierta:
-		return c.Candidato == nil && c.Valoracion == nil && c.NumeroSAE == "" && c.FechaEnvio == ""
+		return c.Candidato == nil && c.Valoracion != nil && c.Acreditacion == nil && c.CandidatoElegidoRef == "" && c.NumeroSAE == "" && c.FechaEnvio == ""
+	case AccionSAERecibirCandidatos, AccionSAEIniciarSeleccion, AccionSAEDeclararDesierta:
+		return c.Candidato == nil && c.Valoracion == nil && c.Acreditacion == nil && c.CandidatoElegidoRef == "" && c.NumeroSAE == "" && c.FechaEnvio == ""
 	}
 	return false
 }
@@ -242,16 +306,49 @@ func (o *OfertaSAE) aplicarAccion(c CambioOfertaSAE) error {
 		o.Estado, o.NumeroSAE, o.FechaEnvio = EstadoSAEEnviada, c.NumeroSAE, c.FechaEnvio
 		return nil
 	case AccionSAERegistrarCandidato:
-		if (o.Estado != EstadoSAEEnviada && o.Estado != EstadoSAECandidatosRecibidos) || c.Candidato == nil || c.Candidato.Validar() != nil {
+		if (o.Estado != EstadoSAEEnviada && o.Estado != EstadoSAECandidatosRecibidos) || c.Candidato == nil ||
+			c.Candidato.PersonaRef != "" || c.Candidato.Acreditacion != nil ||
+			(c.Candidato.EstadoConciliacion != "" && c.Candidato.EstadoConciliacion != ConciliacionSAEPendiente) {
+			break
+		}
+		candidatoNuevo := *c.Candidato
+		candidatoNuevo.EstadoConciliacion = ConciliacionSAEPendiente
+		if candidatoNuevo.Validar() != nil {
 			break
 		}
 		for _, candidato := range o.Candidatos {
-			if candidato.Referencia == c.Candidato.Referencia {
+			if candidato.Referencia == candidatoNuevo.Referencia || candidato.DocumentoProtegidoRef == candidatoNuevo.DocumentoProtegidoRef {
 				return ErrOfertaSAEInvalida
 			}
 		}
-		o.Candidatos = append(o.Candidatos, *c.Candidato)
+		o.Candidatos = append(o.Candidatos, candidatoNuevo)
 		return nil
+	case AccionSAEConciliarPersona:
+		if o.Estado != EstadoSAEEnviada && o.Estado != EstadoSAECandidatosRecibidos && o.Estado != EstadoSAEEnSeleccion {
+			break
+		}
+		if c.Acreditacion == nil || !c.Acreditacion.VigenteEn(c.Instante) {
+			return ErrOfertaSAEConciliacionPendiente
+		}
+		for _, candidato := range o.Candidatos {
+			if candidato.Referencia != c.CandidatoElegidoRef && candidato.PersonaRef == c.Acreditacion.PersonaRef {
+				return ErrOfertaSAEInvalida
+			}
+		}
+		for i := range o.Candidatos {
+			if o.Candidatos[i].Referencia != c.CandidatoElegidoRef {
+				continue
+			}
+			if o.Candidatos[i].PersonaRef != "" && o.Candidatos[i].PersonaRef != c.Acreditacion.PersonaRef {
+				return ErrOfertaSAEInvalida
+			}
+			o.Candidatos[i].PersonaRef = c.Acreditacion.PersonaRef
+			o.Candidatos[i].EstadoConciliacion = ConciliacionSAEAcreditada
+			vinculo := *c.Acreditacion
+			o.Candidatos[i].Acreditacion = &vinculo
+			return nil
+		}
+		return ErrOfertaSAEInvalida
 	case AccionSAERecibirCandidatos:
 		if o.Estado != EstadoSAEEnviada || len(o.Candidatos) == 0 {
 			break
@@ -284,15 +381,35 @@ func (o *OfertaSAE) aplicarAccion(c CambioOfertaSAE) error {
 		valoracion.Criterios = append([]ResultadoCriterioSAE(nil), c.Valoracion.Criterios...)
 		o.Valoraciones = append(o.Valoraciones, valoracion)
 		return nil
-	case AccionSAEResolver, AccionSAEDeclararDesierta:
+	case AccionSAEResolver:
 		if o.Estado != EstadoSAEEnSeleccion || len(o.Valoraciones) == 0 {
 			break
 		}
-		if c.Accion == AccionSAEResolver {
-			o.Estado = EstadoSAEResuelta
-		} else {
-			o.Estado = EstadoSAEDesierta
+		if c.Acreditacion == nil || !c.Acreditacion.VigenteEn(c.Instante) {
+			return ErrOfertaSAEConciliacionPendiente
 		}
+		for _, v := range o.Valoraciones {
+			if v.CandidatoRef != c.CandidatoElegidoRef {
+				continue
+			}
+			for _, candidato := range o.Candidatos {
+				if candidato.Referencia != v.CandidatoRef {
+					continue
+				}
+				if candidato.EstadoConciliacion != ConciliacionSAEAcreditada || candidato.Acreditacion == nil ||
+					candidato.PersonaRef != c.Acreditacion.PersonaRef || !candidato.Acreditacion.VigenteEn(c.Instante) {
+					return ErrOfertaSAEConciliacionPendiente
+				}
+				o.Estado, o.CandidatoSeleccionadoRef = EstadoSAEResuelta, candidato.Referencia
+				return nil
+			}
+		}
+		return ErrOfertaSAEConciliacionPendiente
+	case AccionSAEDeclararDesierta:
+		if o.Estado != EstadoSAEEnSeleccion || len(o.Valoraciones) == 0 {
+			break
+		}
+		o.Estado = EstadoSAEDesierta
 		return nil
 	}
 	return ErrOfertaSAETransicion
@@ -302,10 +419,11 @@ func huellaCambioSAE(c CambioOfertaSAE) (string, error) {
 	// Clave, versión e instante son metadatos de operación; la huella vincula
 	// acción y contenido para que un replay no introduzca otros datos.
 	material := struct {
-		Accion, Numero, Fecha string
-		Candidato             *CandidatoOfertaSAE
-		Valoracion            *ValoracionOfertaSAE
-	}{c.Accion, c.NumeroSAE, c.FechaEnvio, c.Candidato, c.Valoracion}
+		Accion, Numero, Fecha, CandidatoElegidoRef string
+		Candidato                                  *CandidatoOfertaSAE
+		Valoracion                                 *ValoracionOfertaSAE
+		Acreditacion                               *AcreditacionPersonaSAE
+	}{c.Accion, c.NumeroSAE, c.FechaEnvio, c.CandidatoElegidoRef, c.Candidato, c.Valoracion, c.Acreditacion}
 	b, err := json.Marshal(material)
 	if err != nil {
 		return "", err

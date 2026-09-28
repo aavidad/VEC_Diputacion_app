@@ -59,15 +59,35 @@ func TestOfertaSAERecorridoManualExternoYReplay(t *testing.T) {
 	registro := cambioSAEPrueba(o, AccionSAERegistrarCandidato, "clave-candidato-0001")
 	registro.Candidato = &candidato // Sin empleado ni persona previa: es aspirante externo válido.
 	o = aplicarSAEPrueba(t, o, registro)
+	if o.Candidatos[0].EstadoConciliacion != ConciliacionSAEPendiente || o.Candidatos[0].PersonaRef != "" {
+		t.Fatalf("aspirante externo sin vínculo: %+v", o.Candidatos[0])
+	}
 	o = aplicarSAEPrueba(t, o, cambioSAEPrueba(o, AccionSAERecibirCandidatos, "clave-recepcion-0001"))
 	o = aplicarSAEPrueba(t, o, cambioSAEPrueba(o, AccionSAEIniciarSeleccion, "clave-seleccion-0001"))
 	valoracion := cambioSAEPrueba(o, AccionSAEValorar, "clave-valoracion-0001")
 	valoracion.Valoracion = &ValoracionOfertaSAE{CandidatoRef: candidato.Referencia, Orden: 1, EntrevistaResultado: "apto", Criterios: []ResultadoCriterioSAE{{Criterio: "experiencia", Resultado: "apto"}}}
 	o = aplicarSAEPrueba(t, o, valoracion)
-	previa := o
 	resolucion := cambioSAEPrueba(o, AccionSAEResolver, "clave-resolucion-0001")
+	resolucion.CandidatoElegidoRef = candidato.Referencia
+	if _, _, _, err := o.Aplicar(resolucion); !errors.Is(err, ErrOfertaSAEConciliacionPendiente) {
+		t.Fatalf("resolvió sin persona canónica: %v", err)
+	}
+	acreditacion := AcreditacionPersonaSAE{PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 2,
+		EvidenciaRef: "evidencia:persona:001", VerificadaEn: resolucion.Instante.Add(-time.Minute), ValidaHasta: resolucion.Instante.Add(time.Hour)}
+	conciliar := cambioSAEPrueba(o, AccionSAEConciliarPersona, "clave-conciliar-0001")
+	conciliar.CandidatoElegidoRef, conciliar.Acreditacion = candidato.Referencia, &acreditacion
+	o = aplicarSAEPrueba(t, o, conciliar)
+	previa := o
+	resolucion.VersionEsperada, resolucion.Acreditacion = o.Version, &acreditacion
+	caducada := acreditacion
+	caducada.ValidaHasta = resolucion.Instante
+	resolucion.Acreditacion = &caducada
+	if _, _, _, err := o.Aplicar(resolucion); !errors.Is(err, ErrOfertaSAEConciliacionPendiente) {
+		t.Fatalf("vínculo caducado: %v", err)
+	}
+	resolucion.Acreditacion = &acreditacion
 	o = aplicarSAEPrueba(t, o, resolucion)
-	if o.Estado != EstadoSAEResuelta || len(o.Actuaciones) != 6 || previa.Estado != EstadoSAEEnSeleccion {
+	if o.Estado != EstadoSAEResuelta || o.CandidatoSeleccionadoRef != candidato.Referencia || len(o.Actuaciones) != 7 || previa.Estado != EstadoSAEEnSeleccion {
 		t.Fatalf("resolución o copia: %+v", o)
 	}
 	repetida, recibo, reutilizado, err := o.Aplicar(registro)
@@ -77,6 +97,36 @@ func TestOfertaSAERecorridoManualExternoYReplay(t *testing.T) {
 	registro.Candidato = &CandidatoOfertaSAE{Referencia: "candidato:otro", NombreProtegidoRef: "dato:nombre:002", DocumentoProtegidoRef: "dato:documento:002", ContactoProtegidoRef: "dato:contacto:002"}
 	if _, _, _, err = o.Aplicar(registro); !errors.Is(err, ErrOfertaSAEClaveReutilizada) {
 		t.Fatalf("clave reutilizada: %v", err)
+	}
+}
+
+func TestOfertaSAEDeniegaPersonaLibreYDuplicadoLogico(t *testing.T) {
+	o := ofertaSAEPrueba(t)
+	envio := cambioSAEPrueba(o, AccionSAEEnviar, "clave-envio-0101")
+	envio.NumeroSAE, envio.FechaEnvio = "SAE/2026/101", "2026-09-28"
+	o = aplicarSAEPrueba(t, o, envio)
+	primer := cambioSAEPrueba(o, AccionSAERegistrarCandidato, "clave-candidato-0101")
+	primer.Candidato = &CandidatoOfertaSAE{Referencia: "candidato:externo:101", PersonaRef: "per_0123456789abcdefghijkl",
+		NombreProtegidoRef: "dato:nombre:101", DocumentoProtegidoRef: "dato:documento:101", ContactoProtegidoRef: "dato:contacto:101"}
+	if _, _, _, err := o.Aplicar(primer); !errors.Is(err, ErrOfertaSAETransicion) {
+		t.Fatalf("per_ libre aceptado: %v", err)
+	}
+	primer.Candidato.PersonaRef = ""
+	o = aplicarSAEPrueba(t, o, primer)
+	segundo := cambioSAEPrueba(o, AccionSAERegistrarCandidato, "clave-candidato-0102")
+	segundo.Candidato = &CandidatoOfertaSAE{Referencia: "candidato:externo:102", NombreProtegidoRef: "dato:nombre:102",
+		DocumentoProtegidoRef: "dato:documento:102", ContactoProtegidoRef: "dato:contacto:102"}
+	o = aplicarSAEPrueba(t, o, segundo)
+	acreditacion := AcreditacionPersonaSAE{PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 1,
+		EvidenciaRef: "evidencia:persona:101", VerificadaEn: primer.Instante.Add(-time.Minute), ValidaHasta: primer.Instante.Add(time.Hour)}
+	conciliar := cambioSAEPrueba(o, AccionSAEConciliarPersona, "clave-conciliar-0101")
+	conciliar.CandidatoElegidoRef, conciliar.Acreditacion = primer.Candidato.Referencia, &acreditacion
+	o = aplicarSAEPrueba(t, o, conciliar)
+	conciliar2 := cambioSAEPrueba(o, AccionSAEConciliarPersona, "clave-conciliar-0102")
+	conciliar2.CandidatoElegidoRef = segundo.Candidato.Referencia
+	conciliar2.Acreditacion = &acreditacion
+	if _, _, _, err := o.Aplicar(conciliar2); !errors.Is(err, ErrOfertaSAEInvalida) {
+		t.Fatalf("doble candidatura Persona: %v", err)
 	}
 }
 
