@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,8 +109,20 @@ func TestRutaPreferenciasNoExisteEnAPIPublicaAnonima(t *testing.T) {
 
 func TestPreflightUsuariosRechazaSQLAusenteAntesDePublicarMaterial(t *testing.T) {
 	cfg := config.Config{DevelopmentMaterialDir: t.TempDir(), ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
-	if err := preflightSQLPreferenciasUsuariosDesarrollo(cfg); err == nil {
+	if err := preflightSQLPreferenciasUsuariosDesarrollo(cfg, nuevoDerivadorIdempotenciaPrueba(t, 2, 1)); err == nil {
 		t.Fatal("sin material/SQL Usuarios publicó audiencia V3")
+	}
+}
+
+func TestFuncionContextoDenegadaNoEntregaDescriptoresParaPublicar(t *testing.T) {
+	llamadas := 0
+	d, err := descriptoresMaterialPreferenciasTrasPreflight(func() error { llamadas++; return errors.New("acreditar_runtime_contexto_actor_v1: 42501") })
+	if err == nil || len(d) != 0 || llamadas != 1 {
+		t.Fatalf("publicación pese a acreditación fallida: descriptores=%d llamadas=%d err=%v", len(d), llamadas, err)
+	}
+	d, err = descriptoresMaterialPreferenciasTrasPreflight(func() error { llamadas++; return nil })
+	if err != nil || len(d) != 4 || llamadas != 2 {
+		t.Fatalf("preflight correcto no entrega cuatro descriptores: %d %v", len(d), err)
 	}
 }
 

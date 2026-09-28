@@ -14,6 +14,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
+	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
+	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
+	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
+	"vec-diputacion-granada/internal/vec/adapters/seguridad"
+	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -69,7 +74,10 @@ func configuracionesPreferenciasSeparadas(interna, externa configuracionUsuarios
 // Los cuatro roles de Usuarios y las seis identidades de infraestructura por
 // superficie se comprueban antes de publicar cualquiera de las cuatro claves
 // V3. Esta sonda no conserva pools: el montaje vuelve a abrirlos y los posee.
-func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config) error {
+func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *derivadorIdentidadOperacionDesarrollo) error {
+	if derivador == nil || !derivador.valido() {
+		return errComposicionUsuariosPreferencias
+	}
 	cInterna, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionInternaCorporativaV1)
 	if err != nil {
 		return errComposicionUsuariosPreferencias
@@ -94,6 +102,7 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config) error {
 			{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
 			{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
 		}
+		inicio := len(pools)
 		for _, entrada := range entradas {
 			p, login, e := abrirPoolRutasDietas(ctx, entrada.dsn, entrada.rol)
 			if e != nil || login == "" || logins[login] {
@@ -104,6 +113,44 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config) error {
 			}
 			pools = append(pools, p)
 			logins[login] = true
+		}
+		// La sonda genérica de membresía no acredita las funciones/ACL de
+		// sesión y Contexto. Sus constructores ejecutan esa acreditación SQL
+		// antes de que el gobierno publique ninguna de las cuatro audiencias.
+		if _, err = identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[inicio], pools[inicio+1],
+			&seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo); err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		if _, err = identidadpg.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, pools[inicio+1]); err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, pools[inicio+2])
+		if err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		reloj := relojRutasDietas{}
+		servicioContexto, err := vecapp.NuevoServicioContextoActorProductivoV2(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
+		if err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		if _, err = vecapp.NuevaAutoridadContextoActorRegistradoV2(servicioContexto); err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		fuente, err := vecpg.NuevoAlmacenAutorizacion(pools[inicio+3])
+		if err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		registroAutorizacion, err := vecpg.NuevoAlmacenAutorizacion(pools[inicio+4])
+		if err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(pools[inicio+5], c.MotivoConsulta.CatalogoID)
+		if err != nil {
+			return errComposicionUsuariosPreferencias
+		}
+		if _, err = vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registroAutorizacion, registroAutorizacion, motivos, reloj,
+			seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second}); err != nil {
+			return errComposicionUsuariosPreferencias
 		}
 		ejecutor, loginE, err := abrirPoolUsuariosPreferencias(ctx, c.DSNUsuarios, rolEjecutorPreferencias(string(superficie)))
 		if err != nil || loginE == "" || logins[loginE] {

@@ -416,10 +416,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if usuariosPreferenciasActivas {
 		etapa = "preflight_sql_usuarios_preferencias"
-		if err = preflightSQLPreferenciasUsuariosDesarrollo(cfg); err != nil {
-			return vacias, err
+		descriptoresUsuarios, falloPreflight := descriptoresMaterialPreferenciasTrasPreflight(func() error { return preflightSQLPreferenciasUsuariosDesarrollo(cfg, derivador) })
+		if falloPreflight != nil {
+			return vacias, falloPreflight
 		}
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPreferenciasUsuariosDesarrollo()...)
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresUsuarios...)
 	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {

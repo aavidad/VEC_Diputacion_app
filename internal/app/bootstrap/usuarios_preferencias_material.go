@@ -22,3 +22,10 @@ func descriptoresMaterialPreferenciasUsuariosDesarrollo() []descriptorMaterialCo
 		{Audiencia: audienciaActualizacionPreferenciasUsuariosExterna, Dominio: "vec.usuarios.preferencias.actualizar.externa.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:usuarios-preferencias-actualizacion-externa:", ProveedorNominal: "proveedor-material-usuarios-preferencias-actualizacion-externa"},
 	}
 }
+
+func descriptoresMaterialPreferenciasTrasPreflight(acreditar func() error) ([]descriptorMaterialConsumidorV3Desarrollo, error) {
+	if acreditar == nil || acreditar() != nil {
+		return nil, errComposicionUsuariosPreferencias
+	}
+	return descriptoresMaterialPreferenciasUsuariosDesarrollo(), nil
+}
