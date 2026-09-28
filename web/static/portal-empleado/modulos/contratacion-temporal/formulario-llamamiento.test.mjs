@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { File } from "node:buffer";
 import test from "node:test";
+import { fechaRespuestaMadridUTC } from "./formulario-llamamiento.js";
+import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import {
   CLAVE, EXPEDIENTE, PUBLICACIONES_PROPUESTA, seleccion, recibo,
@@ -75,7 +77,7 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`resolución ${opcion} exi
     await raiz.enviar("resolucion", { clave_idempotencia: CLAVE_RESOLUCION, revision_respuesta_rrhh, revision_plazo_rrhh });
     assert.equal(solicitudes.length, 0); assert.equal(confirmaciones.length, 0); assert.match(raiz.innerHTML, /Marque ambas comprobaciones manuales\./u);
   }
-  for (const clave_idempotencia of [CLAVE, declaracion().clave_idempotencia]) {
+  for (const clave_idempotencia of [CLAVE, justificante({}).clave_idempotencia]) {
     await raiz.enviar("resolucion", { clave_idempotencia, ...revisionManual });
     assert.match(raiz.innerHTML, /utilice una clave propia de resolución/u);
   }
@@ -115,20 +117,19 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
     assert.match(raiz.innerHTML, new RegExp(`name="${campo}"[^>]*readonly`, "u"));
   }
   await raiz.archivo(archivoCorreo());
-  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado en este equipo/u); assert.match(raiz.innerHTML, /Fecha de recepción declarada \(UTC\)/u);
+  assert.equal(solicitudes.length, 0, "calcular la huella no registra nada"); assert.match(raiz.innerHTML, /Correo comprobado en este equipo/u); assert.match(raiz.innerHTML, /Fecha y hora en que llegó la respuesta \(Madrid\)/u);
   await raiz.enviar("respuesta", { ...declaracion(), organizacion_ref: "org:inventada",
     expediente_ref: "exp:inventado", llamamiento_ref: "llam:inventado",
     comunicacion_ref: "com:inventada", version_comunicacion_esperada: "99",
     correo_sha256: "f".repeat(64), contenido: CORREO, actor_ref: "actor:inventado" });
   assert.deepEqual(solicitudes, [{
-    clave_idempotencia: declaracion().clave_idempotencia,
     organizacion_ref: recibo.organizacion_ref, expediente_ref: EXPEDIENTE,
     llamamiento_ref: recibo.llamamiento_ref, comunicacion_ref: comunicacionRegistrada.comunicacion_ref,
     version_comunicacion_esperada: 2, respuesta: "aceptacion", correo_ref: declaracion().correo_ref,
     correo_sha256: HUELLA, recibida_en: "2026-09-05T08:30:00Z",
   }]);
   const confirmacion = confirmaciones.at(-1);
-  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, new RegExp(HUELLA, "u")); assert.match(confirmacion.advertencia, /no cambia la candidatura/iu); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.equal(confirmacion.referencia, EXPEDIENTE); assert.match(confirmacion.advertencia, /no el correo ni su custodia/u); assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   assert.doesNotMatch(raiz.innerHTML, /no resuelve aceptación o renuncia/u); assert.match(raiz.innerHTML, /2026-09-05T09:00:00.123456Z/u); assert.doesNotMatch(raiz.innerHTML, /Subject:|respuesta-sintetica.eml|name="actor_ref"/u); assert.equal(raiz.foco.at(-1), '[data-ct-llamamiento-recibo="respuesta"]');
   assert.match(raiz.innerHTML, /Estado de la respuesta y del circuito/u);
   assert.match(raiz.innerHTML, /Aceptación declarada en el correo; recibo recuperable registrado/u);
@@ -138,6 +139,198 @@ test("respuesta RRHH se deriva del recibo v2; confirma datos y envía solo decla
   await raiz.enviar("respuesta", declaracion());
   assert.equal(solicitudes.length, 1);
   cerrar();
+});
+
+test("respuesta omite clave cliente y convierte la hora de Madrid sin cambiar el recibo", async () => {
+  const raiz = raizPrueba(), solicitudes = [];
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
+    solicitudes.push(s); return justificante(s);
+  } }, { generarClaveIdempotencia: () => assert.fail("la respuesta no genera clave") });
+  const formulario = raiz.innerHTML.match(/<form data-ct-llamamiento-form="respuesta"[\s\S]*?<\/form>/u)[0];
+  assert.match(raiz.innerHTML, /Registrar respuesta del candidato/u);
+  assert.match(formulario, /Ha aceptado/u);
+  assert.match(formulario, /Ha renunciado/u);
+  assert.doesNotMatch(formulario, /data-ct-llamamiento-clave="respuesta"|name="clave_idempotencia"|Huella SHA-256 declarada/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", { ...declaracion(), clave_idempotencia: "", recibida_en: "2026-09-05T10:30" });
+  assert.equal(Object.hasOwn(solicitudes[0], "clave_idempotencia"), false);
+  assert.equal(solicitudes[0].recibida_en, "2026-09-05T08:30:00Z");
+  assert.match(raiz.innerHTML, /Siguiente acción/u);
+});
+
+for (const estado of ["registrada_por_rrhh", "replay_registrada_por_rrhh"])
+for (const ingles of [false, true]) test(`consulta 404 y POST ${estado} ${ingles ? "EN" : "ES"}: oculta aviso antiguo y conserva resolución`, async () => {
+  const raiz = raizPrueba();
+  const cerrar = await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (solicitud) => ({
+    ...justificante(solicitud), estado,
+  }) }, ingles ? { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" } : {});
+  assert.match(raiz.innerHTML, ingles ? /No reply can be viewed/u : /No consta una respuesta consultable/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  assert.doesNotMatch(raiz.innerHTML, /No consta una respuesta consultable|No reply can be viewed/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="resolucion"/u);
+  cerrar();
+});
+
+const consultaRespuesta = { organizacion_ref: recibo.organizacion_ref,
+  expediente_ref: EXPEDIENTE,
+  comunicacion_ref: comunicacionRegistrada.comunicacion_ref };
+const reciboConsultado = { esquema: "vec.contratacion-temporal.recibo-respuesta-llamamiento.v1",
+  ...consultaRespuesta, respuesta: "aceptacion", justificante_ref: "justificante:sintetico:001",
+  recibo_ref: "recibo:respuesta:001", auditoria_ref: "auditoria:respuesta:001",
+  registrada_en: "2026-09-05T09:00:00.123456Z", estado: "registrada_por_rrhh" };
+
+test("recarga con contexto autorizado consulta y muestra solo la respuesta ya registrada", async () => {
+  const raiz = raizPrueba(); let consultas = 0, escrituras = 0;
+  const cerrar = montar(raiz, {
+    consultarReciboRespuesta: async (entrada, { signal }) => {
+      consultas += 1; assert.deepEqual(entrada, consultaRespuesta); assert.equal(signal.aborted, false);
+      return reciboConsultado;
+    },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+    consulta_respuesta: consultaRespuesta } });
+  await new Promise(setImmediate);
+  assert.equal(consultas, 1);
+  assert.match(raiz.innerHTML, /Respuesta registrada por el Departamento/u);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-recibo="consultaRespuesta"/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  cerrar();
+});
+
+test("consulta 404 permite registrar tras el aviso; 401/403 ocultan datos y bloquean POST", async () => {
+  for (const estado of [404, 401, 403]) {
+    const raiz = raizPrueba(); let escrituras = 0;
+    const codigo = estado === 404 ? "recurso_no_encontrado"
+      : estado === 401 ? "autenticacion_requerida" : "acceso_denegado";
+    const cerrar = await abrirRespuesta(raiz, {
+      consultarReciboRespuesta: async () => { throw Object.assign(new Error(), {
+        estado, codigo, envelopeValido: true,
+      }); },
+      registrarRespuestaRecibida: async () => { escrituras += 1; },
+    });
+    if (estado === 404) {
+      assert.match(raiz.innerHTML, /No consta una respuesta consultable/u);
+      assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+    } else {
+      assert.match(raiz.innerHTML, /No puede consultar esta respuesta/u);
+      assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|justificante:sintetico/u);
+      await raiz.archivo(archivoCorreo());
+      await raiz.enviar("respuesta", declaracion());
+      assert.equal(escrituras, 0);
+    }
+    cerrar();
+  }
+});
+
+test("404 tras recarga sin antecedente autorizado conserva cerrado el POST", async () => {
+  const raiz = raizPrueba(); let escrituras = 0;
+  const cerrar = montar(raiz, {
+    consultarReciboRespuesta: async () => { throw Object.assign(new Error(), {
+      estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true,
+    }); },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+    consulta_respuesta: consultaRespuesta } });
+  await new Promise(setImmediate);
+  assert.match(raiz.innerHTML, /Abra el llamamiento y pida a RRHH/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  cerrar();
+});
+
+test("consulta temporal fallida bloquea POST hasta un 404 autorizado y permite reintentar", async () => {
+  const raiz = raizPrueba(); let consultas = 0, escrituras = 0;
+  const cerrar = await abrirRespuesta(raiz, {
+    consultarReciboRespuesta: async () => {
+      consultas += 1;
+      if (consultas === 1) throw Object.assign(new Error(), {
+        estado: 503, codigo: "servicio_no_disponible", envelopeValido: true,
+      });
+      throw Object.assign(new Error(), { estado: 404, codigo: "recurso_no_encontrado", envelopeValido: true });
+    },
+    registrarRespuestaRecibida: async () => { escrituras += 1; },
+  });
+  assert.match(raiz.innerHTML, /Reintente la consulta antes de registrar otra/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(escrituras, 0);
+  raiz.eventos.get("click")({ preventDefault() {}, target: { closest: (selector) =>
+    selector === "[data-ct-llamamiento-reintentar-consulta]"
+      ? { dataset: { ctLlamamientoReintentarConsulta: "" } } : null } });
+  await new Promise(setImmediate);
+  assert.equal(consultas, 2);
+  assert.match(raiz.innerHTML, /data-ct-llamamiento-form="respuesta"/u);
+  cerrar();
+});
+
+test("consulta en inglés explica la denegación sin mostrar formulario ni recibo", async () => {
+  const raiz = raizPrueba();
+  const cerrar = montar(raiz, { consultarReciboRespuesta: async () => {
+    throw Object.assign(new Error(), { estado: 403, codigo: "acceso_denegado", envelopeValido: true });
+  } }, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB",
+    contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      consulta_respuesta: consultaRespuesta } });
+  await new Promise(setImmediate);
+  assert.match(raiz.innerHTML, /You cannot view this reply/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=|recibo:respuesta:001/u);
+  cerrar();
+});
+
+test("consulta pendiente bloquea POST y se cancela al desmontar o cambiar de expediente", async () => {
+  for (const cambioExpediente of [false, true]) {
+    const raiz = raizPrueba(); let resolver, signal, escrituras = 0;
+    const cerrar = montar(raiz, {
+      consultarReciboRespuesta: (_entrada, opciones) => {
+        signal = opciones.signal;
+        return new Promise((resolve) => { resolver = resolve; });
+      },
+      registrarRespuestaRecibida: async () => { escrituras += 1; },
+    }, { contexto: { expediente_ref: EXPEDIENTE, version_esperada: 6,
+      consulta_respuesta: consultaRespuesta } });
+    await new Promise(setImmediate);
+    assert.match(raiz.innerHTML, /Comprobando si ya consta una respuesta/u);
+    assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-form=/u);
+    await raiz.enviar("respuesta", declaracion());
+    assert.equal(escrituras, 0);
+    if (cambioExpediente) cerrar.actualizarContexto({ expediente_ref: "expediente:otro:002", version_esperada: 6 });
+    else cerrar();
+    assert.equal(signal.aborted, true);
+    resolver(reciboConsultado);
+    await new Promise(setImmediate);
+    assert.equal(raiz.innerHTML, "");
+  }
+});
+
+test("hora civil de Madrid distingue verano e invierno y rechaza saltos ambiguos", () => {
+  assert.equal(fechaRespuestaMadridUTC("2026-01-15T10:30"), "2026-01-15T09:30:00Z");
+  assert.equal(fechaRespuestaMadridUTC("2026-09-05T10:30"), "2026-09-05T08:30:00Z");
+  assert.throws(() => fechaRespuestaMadridUTC("2026-03-29T02:30"), TypeError);
+  assert.throws(() => fechaRespuestaMadridUTC("2026-10-25T02:30"), TypeError);
+});
+
+test("hora ambigua muestra una acción clara y no registra la respuesta", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async () => { llamadas += 1; } });
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", { ...declaracion(), recibida_en: "2026-10-25T02:30" });
+  assert.equal(llamadas, 0);
+  assert.match(raiz.innerHTML, /se repitió por el cambio horario/u);
+});
+
+test("respuesta en inglés conserva campos obligatorios y explica el límite del correo", async () => {
+  const raiz = raizPrueba();
+  await abrirRespuesta(raiz, {}, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" });
+  assert.match(raiz.innerHTML, /Record the candidate/u);
+  assert.match(raiz.innerHTML, /They accepted/u);
+  assert.match(raiz.innerHTML, /They declined/u);
+  assert.match(raiz.innerHTML, /Date and time the reply arrived \(Madrid\)/u);
+  assert.match(raiz.innerHTML, /does not store the email or evidence custody/u);
 });
 
 test("respuesta exige comunicación confirmada, archivo, datos y confirmación explícita", async () => {
@@ -151,7 +344,7 @@ test("respuesta exige comunicación confirmada, archivo, datos y confirmación e
     confirmarOperacion: (datos) => !datos.datos.respuesta,
   });
   await otra.enviar("respuesta", declaracion());
-  assert.match(otra.innerHTML, /Calcule la huella desde un .eml/u);
+  assert.match(otra.innerHTML, /Adjunte un .eml de hasta 2 MB/u);
   await otra.archivo(archivoCorreo());
   await otra.enviar("respuesta", { ...declaracion(), respuesta: "expiracion_gobernada" });
   await otra.enviar("respuesta", declaracion());
@@ -167,12 +360,12 @@ test("correo limita tamaño antes de leer, vacía huella anterior y falla cerrad
     if (archivo) archivo.arrayBuffer = () => assert.fail("no debe leer");
     await raiz.archivo(archivo);
     await raiz.enviar("respuesta", declaracion());
-    assert.equal(llamadas, 0); assert.match(raiz.innerHTML, /name="correo_sha256" value=""/u);
+    assert.equal(llamadas, 0); assert.match(raiz.innerHTML, /name="correo_sha256" type="hidden" value=""/u);
   }
   const raiz = raizPrueba();
   await abrirRespuesta(raiz, {}, { criptografia: null });
   await raiz.archivo(archivoCorreo());
-  assert.match(raiz.innerHTML, /No se pudo calcular la huella/u); assert.match(raiz.innerHTML, /name="correo_sha256" value=""/u);
+  assert.match(raiz.innerHTML, /No se pudo calcular la huella/u); assert.match(raiz.innerHTML, /name="correo_sha256" type="hidden" value=""/u);
 });
 
 test("huella admite exactamente 2 MiB y descarta bytes locales al terminar", async () => {
@@ -181,7 +374,7 @@ test("huella admite exactamente 2 MiB y descarta bytes locales al terminar", asy
   const bytes = new Uint8Array(2 * 1024 * 1024).fill(65);
   const esperada = createHash("sha256").update(bytes).digest("hex");
   await raiz.archivo({ name: "limite.eml", size: bytes.length, arrayBuffer: async () => bytes.buffer });
-  assert.match(raiz.innerHTML, new RegExp(`name="correo_sha256" value="${esperada}"`, "u")); assert.ok(bytes.every((b) => b === 0));
+  assert.match(raiz.innerHTML, new RegExp(`name="correo_sha256" type="hidden" value="${esperada}"`, "u")); assert.ok(bytes.every((b) => b === 0));
 });
 
 test("huella en curso bloquea envío y desmontar descarta su resolución tardía", async () => {
@@ -199,7 +392,7 @@ test("huella en curso bloquea envío y desmontar descarta su resolución tardía
   assert.equal(raiz.innerHTML, ""); assert.equal(raiz.eventos.size, 0); assert.equal(bytes[0], 0);
 });
 
-test("respuesta perdida congela clave, fecha, declaración y huella; replay usa el mismo intento", async () => {
+test("respuesta perdida conserva fecha, declaración y huella; reintento usa el mismo contenido", async () => {
   const raiz = raizPrueba(), solicitudes = [];
   await abrirRespuesta(raiz, { registrarRespuestaRecibida: async (s) => {
     solicitudes.push(s);
@@ -211,7 +404,7 @@ test("respuesta perdida congela clave, fecha, declaración y huella; replay usa 
   } });
   await raiz.archivo(archivoCorreo());
   await raiz.enviar("respuesta", declaracion());
-  assert.match(raiz.innerHTML, /Recuperar con los mismos datos/u);
+  assert.match(raiz.innerHTML, /Reintentar la misma declaración/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-clave="respuesta"/u); // gitleaks:allow — selector HTML, no credencial.
   await raiz.archivo(new File(["otro"], "otro.eml"));
   await raiz.enviar("respuesta", { ...declaracion(), respuesta: "renuncia",
@@ -233,7 +426,7 @@ test("doble envío de respuesta no duplica y conflicto impide reintentar", async
   assert.equal(solicitudes.length, 1);
   resolver(justificante(solicitudes[0]));
   await pendiente;
-  for (const codigo of ["version_en_conflicto", "clave_idempotencia_reutilizada"]) {
+  for (const codigo of ["version_en_conflicto", "contenido_respuesta_en_conflicto"]) {
     const otra = raizPrueba(); let llamadas = 0;
     await abrirRespuesta(otra, { registrarRespuestaRecibida: async () => {
       llamadas += 1; throw Object.assign(new Error(), { codigo, envelopeValido: true });
@@ -241,8 +434,25 @@ test("doble envío de respuesta no duplica y conflicto impide reintentar", async
     await otra.archivo(archivoCorreo());
     await otra.enviar("respuesta", declaracion());
     await otra.enviar("respuesta", declaracion());
-    assert.equal(llamadas, 1); assert.match(otra.innerHTML, /requiere revisión del servidor/u); assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
+    assert.equal(llamadas, 1);
+    assert.match(otra.innerHTML, codigo === "contenido_respuesta_en_conflicto"
+      ? /Ya existe una respuesta distinta.*Abra el expediente/u : /requiere revisión del servidor/u);
+    assert.doesNotMatch(otra.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
   }
+});
+
+test("conflicto de contenido en inglés bloquea otro POST y remite al expediente", async () => {
+  const raiz = raizPrueba(); let llamadas = 0;
+  await abrirRespuesta(raiz, { registrarRespuestaRecibida: async () => {
+    llamadas += 1;
+    throw Object.assign(new Error(), { codigo: "contenido_respuesta_en_conflicto", envelopeValido: true });
+  } }, { mensajes: MENSAJES_LLAMAMIENTO_EN, locale: "en-GB" });
+  await raiz.archivo(archivoCorreo());
+  await raiz.enviar("respuesta", declaracion());
+  await raiz.enviar("respuesta", declaracion());
+  assert.equal(llamadas, 1);
+  assert.match(raiz.innerHTML, /A different reply already exists.*Open the case/u);
+  assert.doesNotMatch(raiz.innerHTML, /data-ct-llamamiento-recibo="respuesta"/u);
 });
 
 test("el expediente fiscalizado seleccionado rellena el formulario existente sin POST ni clave automática", async () => {
@@ -388,6 +598,11 @@ test("encadenado selección y replay autorrellenan comunicación local sin trans
     const raiz = raizPrueba();
     const cliente = crearClienteHTTPContratacionTemporal({
       fetchImpl: async (ruta, opciones) => {
+        if (opciones.method === "GET") return new Response(JSON.stringify({ error: {
+          codigo: "recurso_no_encontrado",
+          clave_i18n: "api.contratacion_temporal.respuesta_recibida.error.recurso_no_encontrado",
+          correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+        } }), { status: 404, headers: { "Content-Type": "application/json; charset=utf-8" } });
         const entrada = JSON.parse(opciones.body);
         llamadas.push({ ruta, entrada });
         const data = ruta.endsWith("/seleccion") ? recibo : {

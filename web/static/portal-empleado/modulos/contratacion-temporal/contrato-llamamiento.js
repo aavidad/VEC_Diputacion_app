@@ -15,12 +15,12 @@ export const CAMPOS_COMUNICACION_SIGUIENTE = Object.freeze([
 ]);
 // El orden forma parte de la representación JSON canónica del POST.
 export const CAMPOS_RESPUESTA_RECIBIDA = Object.freeze([
-  "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
+  "organizacion_ref", "expediente_ref", "llamamiento_ref",
   "comunicacion_ref", "version_comunicacion_esperada", "respuesta", "correo_ref",
   "correo_sha256", "recibida_en",
 ]);
 export const CAMPOS_RESPUESTA_EDITABLES = Object.freeze([
-  "clave_idempotencia", "respuesta", "correo_ref", "recibida_en",
+  "respuesta", "correo_ref", "recibida_en",
 ]);
 // Criterio histórico del ejercicio sintético, sin plazo abierto. Con contacto
 // efectivo el criterio procede del recibo del servidor (catálogo de reglas).
@@ -184,8 +184,10 @@ function instanteRespuesta(valor) {
   return `${valor.slice(0, 19)}.${(valor.match(/\.(\d+)Z$/u)?.[1] ?? "").padEnd(6, "0")}Z`;
 }
 export function validarSolicitudRespuestaRecibida(entrada) {
-  const valor = solicitud(entrada, CAMPOS_RESPUESTA_RECIBIDA, "version_comunicacion_esperada");
-  exigir(valor.version_comunicacion_esperada === 2
+  const valor = registro(entrada, CAMPOS_RESPUESTA_RECIBIDA);
+  exigir(["organizacion_ref", "expediente_ref", "llamamiento_ref", "comunicacion_ref", "correo_ref"]
+    .every((campo) => referenciaLlamamientoValida(valor[campo]))
+    && valor.version_comunicacion_esperada === 2
     && RESPUESTAS_RESOLUCION.includes(valor.respuesta)
     && typeof valor.correo_sha256 === "string" && /^[0-9a-f]{64}$/u.test(valor.correo_sha256)
     && valor.correo_sha256 !== "0".repeat(64));
@@ -193,10 +195,12 @@ export function validarSolicitudRespuestaRecibida(entrada) {
   return valor;
 }
 export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
-  const valor = registro(entrada, [...CAMPOS_RESPUESTA_RECIBIDA,
+  const valor = registro(entrada, ["clave_idempotencia", ...CAMPOS_RESPUESTA_RECIBIDA,
     "esquema", "justificante_ref", "recibo_ref", "auditoria_ref", "registrada_en", "estado"]);
   const esperada = validarSolicitudRespuestaRecibida(solicitudEntrada);
   exigir(valor.esquema === "vec.contratacion-temporal.respuesta-recibida-llamamiento.v1"
+    && typeof valor.clave_idempotencia === "string" && UUID.test(valor.clave_idempotencia)
+    && valor.clave_idempotencia !== "00000000-0000-4000-8000-000000000000"
     && ["registrada_por_rrhh", "replay_registrada_por_rrhh"].includes(valor.estado)
     && ["justificante_ref", "recibo_ref", "auditoria_ref"].every(
       (campo) => referenciaLlamamientoValida(valor[campo]),
