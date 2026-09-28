@@ -19,6 +19,7 @@ type autoridadInicialBorradorBolsaPrueba struct {
 	preparadas, publicadas int
 	permitirInicial        bool
 	permitirSucesion       bool
+	exigirCAS              bool
 	preparar               func(dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error)
 	publicar               func(dominiovec.InstantaneaAutorizacion) error
 	publicada              dominiovec.InstantaneaAutorizacion
@@ -44,6 +45,9 @@ func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	if !preimagenValida ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
+	}
+	if a.exigirCAS && a.publicada.VersionRol.Version > 0 && preimagen.VersionRol.Version != a.publicada.VersionRol.Version {
+		return errors.New("preimagen distinta del rol durable")
 	}
 	a.publicadas++
 	a.publicada = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(instantanea)
@@ -310,6 +314,39 @@ func TestPoliticaBorradorBolsaReincorporacionTieneRamasExactas(t *testing.T) {
 		}
 		if !lectura || edicionOfertas != (caso.ofertas == 1) {
 			t.Fatalf("rama %d mezcló permisos: lectura=%t edición_ofertas=%t", caso.ofertas, lectura, edicionOfertas)
+		}
+	}
+}
+
+func TestPoliticaBorradorBolsaReincorporacionNoAlternaB47ConHistoria(t *testing.T) {
+	for _, caso := range []struct {
+		anterior, nueva int
+		ofertas         bool
+	}{
+		{7, 8, true},
+		{8, 7, false},
+	} {
+		politica, soporte, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+		datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
+		if err != nil {
+			t.Fatal(err)
+		}
+		anterior, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+			datos.PrincipalID, datos.PerfilActivoRef, soporte.unidadRef, soporte.ambitoRef,
+			politica.reloj.Ahora(), caso.anterior)
+		if err != nil {
+			t.Fatal(err)
+		}
+		autoridad.publicada = anterior
+		autoridad.exigirCAS = true
+		autoridad.permitirSucesion = true
+		autoridad.preparar = func(i dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error) {
+			i.AsignacionPerfil.Version = 2
+			return i, nil
+		}
+		if err := politica.PublicarInicialConReincorporacion(context.Background(), caso.ofertas); !errors.Is(err, errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible) ||
+			autoridad.publicadas != 0 || autoridad.publicada.VersionRol.Version != caso.anterior || politica.publicada {
+			t.Fatalf("transición v%d→v%d alteró historia: err=%v autoridad=%+v", caso.anterior, caso.nueva, err, autoridad)
 		}
 	}
 }
