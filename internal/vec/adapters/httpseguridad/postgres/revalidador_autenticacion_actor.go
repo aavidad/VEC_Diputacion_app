@@ -80,7 +80,13 @@ func (r *RevalidadorAutenticacionActorPostgreSQL) RevalidarAutenticacionActorV1(
 	}
 
 	resultado, err := consultarAutenticacionActorV1(ctx, tx, solicitud)
-	if err != nil || resultado.Validar() != nil ||
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, domain.ErrAutenticacionRevalidadaInvalida) {
+			return domain.AutenticacionRevalidadaV1{}, domain.ErrAutenticacionRevalidadaInvalida
+		}
+		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorSaneado(ctx)
+	}
+	if resultado.Validar() != nil ||
 		resultado.AutenticacionRef != solicitud.AutenticacionRef ||
 		resultado.SesionRef != solicitud.SesionRef {
 		return domain.AutenticacionRevalidadaV1{}, errorRevalidacionActorSaneado(ctx)
@@ -130,7 +136,7 @@ func consultarAutenticacionActorV1(
 	revision, err := strconv.ParseUint(revisionTexto, 10, 64)
 	if err != nil || revision == 0 {
 		return domain.AutenticacionRevalidadaV1{},
-			domain.ErrAutenticacionRevalidadaInvalida
+			ports.ErrRevalidacionAutenticacionActorNoDisponible
 	}
 	resultado.ControlSesionRevision = revision
 	resultado.Superficie = domain.SuperficieAutenticacionActorV1(superficie)
@@ -155,7 +161,7 @@ func errorRevalidacionActorSaneado(ctx context.Context) error {
 			return err
 		}
 	}
-	return domain.ErrAutenticacionRevalidadaInvalida
+	return ports.ErrRevalidacionAutenticacionActorNoDisponible
 }
 
 var _ ports.RevalidadorAutenticacionActorV1 = (*RevalidadorAutenticacionActorPostgreSQL)(nil)

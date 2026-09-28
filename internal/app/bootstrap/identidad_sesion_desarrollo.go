@@ -199,7 +199,8 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacione
 	}
 	var falloRevalidador *diagnostico.FalloConsultaRRHH
 	if errors.As(err, &falloRevalidador) && falloRevalidador.Etapa == diagnostico.EtapaSesionRevalidador {
-		if errors.Is(falloRevalidador.Causa, dominiovec.ErrAutorizacionDenegada) ||
+		if errors.Is(falloRevalidador.Causa, dominiovec.ErrAutenticacionRevalidadaInvalida) ||
+			errors.Is(falloRevalidador.Causa, dominiovec.ErrAutorizacionDenegada) ||
 			errors.Is(falloRevalidador.Causa, ports.ErrAutorizacionDenegada) {
 			return ErrSeguridadComunDesarrolloDenegada
 		}

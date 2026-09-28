@@ -178,7 +178,8 @@ func TestConsultaComunicacionesMontajeRevalidadorRealClasifica503Y403(t *testing
 		fallo    error
 		esperado error
 	}{
-		{"dependencia_caida", errors.New("fallo sintético del revalidador"), ports.ErrConsultaRRHHNoDisponible},
+		{"dependencia_caida", puertosvec.ErrRevalidacionAutenticacionActorNoDisponible, ports.ErrConsultaRRHHNoDisponible},
+		{"sesion_revocada", dominiovec.ErrAutenticacionRevalidadaInvalida, ports.ErrAutorizacionDenegada},
 		{"identidad_denegada", dominiovec.ErrAutorizacionDenegada, ports.ErrAutorizacionDenegada},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
