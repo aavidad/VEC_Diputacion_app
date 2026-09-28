@@ -167,7 +167,7 @@ test("renderizarVistaEstadisticas y componentes HTML/SVG accesibles", () => {
   // Verificar gráfico SVG
   assert.ok(html.includes("grafico-svg-contenedor"));
   assert.ok(html.includes("<svg"));
-  assert.ok(html.includes("Gráfico de evolución temporal de contratación"));
+  assert.ok(html.includes("Gráfico de evolución temporal de peticiones de personal temporal"));
   assert.ok(html.includes("<rect"));
 
   // Verificar formulario y exportador CSV
@@ -226,7 +226,7 @@ test("montarVistaEstadisticas: ciclo de vida y montaje con cliente simulado", as
   // Esperar resolución de carga
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  assert.ok(contenido.includes("Estadísticas de contratación temporal"));
+  assert.ok(contenido.includes("Estadísticas de peticiones de personal temporal"));
   assert.ok(contenido.includes("TOTALES"));
   assert.equal(anuncios.includes("Estadísticas actualizadas"), true);
 

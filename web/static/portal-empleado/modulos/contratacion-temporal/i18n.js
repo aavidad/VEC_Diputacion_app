@@ -4,14 +4,14 @@ import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260926-pulido-portal-v1";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
 import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260926-pulido-portal-v1";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
 import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 
@@ -23,7 +23,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   clave_recuperacion_copiar: "Copiar clave",
   clave_recuperacion_copiada: "Clave copiada",
   pc_expediente_enlace: "Expediente {numero}",
-  pc_expediente_enlace_rrhh_aria: "Petición {peticion}: abrir su expediente {numero} en Contratación temporal",
+  pc_expediente_enlace_rrhh_aria: "Petición {peticion}: abrir su expediente {numero} en Peticiones de personal temporal",
   pc_expediente_enlace_centro_aria: "Petición {peticion}: ver su expediente {numero} en las incorporaciones del centro",
   pc_abrir_expediente: "Abrir el expediente",
   pc_acceso_denegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
@@ -51,7 +51,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ...MENSAJES_ANALISIS_CATALOGO_ES,
   ...MENSAJES_TEXTOS_VISTAS_ES,
   ...MENSAJES_BORRADORES_PUBLICADOS_ES,
-  titulo: "Nueva solicitud de contratación temporal",
+  titulo: "Nueva petición de personal temporal",
   progreso_etiqueta: "Progreso del alta",
   progreso_datos: "Datos",
   progreso_revision: "Revisión",
@@ -284,7 +284,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_unidad: "Unidad responsable",
   asignacion_responsable: "Responsable",
   asignacion_unidad_nombre: "Recursos Humanos",
-  asignacion_responsable_nombre: "Responsable de contratación temporal",
+  asignacion_responsable_nombre: "Responsable de peticiones de personal temporal",
   asignacion_confirmacion:
     "He comprobado el expediente, la unidad y la referencia responsable.",
   asignacion_resumen: "Versión actual del expediente: {version}.",
@@ -375,7 +375,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   fiscalizacion_estado_validacion:
     "Seleccione un resultado y aporte observaciones cuando sean obligatorias.",
   fiscalizacion_acceso_area: "Intervención",
-  fiscalizacion_acceso_titulo: "Fiscalización de contratación temporal",
+  fiscalizacion_acceso_titulo: "Fiscalización de peticiones de personal temporal",
   fiscalizacion_acceso_descripcion: "Abra un expediente remitido por Recursos Humanos para registrar su resultado.",
   fiscalizacion_acceso_abrir: "Abrir fiscalización",
   fiscalizacion_acceso_referencia_invalida: "Indique la referencia íntegra del expediente remitido.",
@@ -472,7 +472,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ficha_ginpix_descargando: "Preparando la descarga.", ficha_ginpix_error: "No se ha podido preparar la descarga.",
   seguimiento_incorporacion_titulo: "Seguimiento de la incorporación",
   consulta_seguimiento_pagina_titulo: "Consulta de seguimiento",
-  consulta_seguimiento_pagina_contexto: "Contratación temporal · incorporación",
+  consulta_seguimiento_pagina_contexto: "Peticiones de personal temporal · incorporación",
   consulta_seguimiento_seleccion_titulo: "Expediente",
   consulta_seguimiento_referencia: "Referencia interna del expediente",
   consulta_seguimiento_consultar: "Consultar seguimiento",
@@ -509,7 +509,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   seguimiento_incorporacion_documento_anexo_ejercicio: "Anexo de la resolución",
 });
 
-/** British English messages for the temporary recruitment module. */
+/** British English messages for the temporary staff requests module. */
 export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",
@@ -518,7 +518,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   clave_recuperacion_copiar: "Copy key",
   clave_recuperacion_copiada: "Key copied",
   pc_expediente_enlace: "Case {numero}",
-  pc_expediente_enlace_rrhh_aria: "Request {peticion}: open case {numero} in Temporary Recruitment",
+  pc_expediente_enlace_rrhh_aria: "Request {peticion}: open case {numero} in Temporary Staff Requests",
   pc_expediente_enlace_centro_aria: "Request {peticion}: view case {numero} in the centre's appointments",
   pc_abrir_expediente: "Open case",
   pc_acceso_denegado: "Access denied. Data has been removed from this view; actions already recorded remain on the server.",
@@ -546,7 +546,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   ...MENSAJES_ANALISIS_CATALOGO_EN,
   ...MENSAJES_TEXTOS_VISTAS_EN,
   ...MENSAJES_BORRADORES_PUBLICADOS_EN,
-  titulo: "New temporary recruitment request",
+  titulo: "New temporary staff request",
   progreso_etiqueta: "Registration progress",
   progreso_datos: "Details",
   progreso_revision: "Review",
@@ -749,7 +749,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   asignacion_unidad: "Responsible unit",
   asignacion_responsable: "Responsible person",
   asignacion_unidad_nombre: "Human Resources",
-  asignacion_responsable_nombre: "Temporary Recruitment Manager",
+  asignacion_responsable_nombre: "Temporary Staff Requests Manager",
   asignacion_confirmacion: "I have checked the case, unit and responsible person's reference.",
   asignacion_resumen: "Current case version: {version}.",
   asignacion_confirmar: "Confirm assignment",
@@ -821,7 +821,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   fiscalizacion_estado_rechazada: "The outcome was not confirmed. Review the case before trying again.",
   fiscalizacion_estado_validacion: "Select an outcome and add comments where required.",
   fiscalizacion_acceso_area: "Financial Control",
-  fiscalizacion_acceso_titulo: "Temporary recruitment financial review",
+  fiscalizacion_acceso_titulo: "Temporary staff requests financial review",
   fiscalizacion_acceso_descripcion: "Open a case referred by Human Resources to record the outcome.",
   fiscalizacion_acceso_abrir: "Open financial review",
   fiscalizacion_acceso_referencia_invalida: "Enter the full reference of the referred case.",
@@ -960,7 +960,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   ficha_ginpix_error: "The download could not be prepared.",
   seguimiento_incorporacion_titulo: "Start of service follow-up",
   consulta_seguimiento_pagina_titulo: "Follow-up enquiry",
-  consulta_seguimiento_pagina_contexto: "Temporary recruitment · start of service",
+  consulta_seguimiento_pagina_contexto: "Temporary staff requests · start of service",
   consulta_seguimiento_seleccion_titulo: "Case",
   consulta_seguimiento_referencia: "Internal case reference",
   consulta_seguimiento_consultar: "View follow-up",

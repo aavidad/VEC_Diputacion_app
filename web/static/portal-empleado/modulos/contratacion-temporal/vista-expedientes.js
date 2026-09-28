@@ -13,6 +13,7 @@ import { cerrarFase, mostrarFase } from "./fases-expediente.js";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
 import {
   contextoLlamamientoDesdeEstado,
+  mensajeEstadoVisible,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -25,8 +26,8 @@ import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
-import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-rrhh-cache-unificada-v1";
-import { traducirPortal } from "../../portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20260928-ppt-v2";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -529,9 +530,9 @@ export async function montarModuloContratacionTemporal({
     montarAuditoriaComunSiProcede(estado);
     montarBorradoresPublicadosSiProcede(estado);
     if (selectorFoco) enfocar(raiz, selectorFoco);
-    if (estado.mensaje_clave) {
+    if (mensajeEstadoVisible(estado)) {
       anunciar(
-        crearTraductorExpedientesContratacion(mensajes)(estado.mensaje_clave),
+        crearTraductorExpedientesContratacion(mensajes)(mensajeEstadoVisible(estado)),
         estado.tipo_mensaje,
       );
     }

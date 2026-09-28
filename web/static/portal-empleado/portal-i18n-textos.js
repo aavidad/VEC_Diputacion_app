@@ -316,7 +316,7 @@ export const MENSAJES_TEXTOS_PORTAL_ES = Object.freeze({
   txt_indicadores_operativos_de_bolsa: "Indicadores operativos de Bolsa",
   txt_indique_destino_motivo_y_la_fecha_futura_cuando: "Indique destino, motivo y la fecha futura cuando corresponda.",
   txt_informe_medico: "Informe médico",
-  txt_inicio_de_contratacion_temporal: "Inicio de Contratación Temporal",
+  txt_inicio_de_contratacion_temporal: "Inicio de Peticiones de personal temporal",
   txt_inicio_del_portal: "Inicio del portal",
   txt_instantes_en_utc_iso_8601_el_cierre_debe_ser_pos: "Instantes en UTC ISO 8601. El cierre debe ser posterior a la apertura.",
   txt_ir_a: "Ir a {destino}",
