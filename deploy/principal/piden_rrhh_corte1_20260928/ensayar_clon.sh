@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=2e25aa66a78da5729aea9573cc7ec02af35abeb1
+base=190d98ead7cb1c93828fc076311a8c9c914db776
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ ${1:-} == --aplicar-en-clon && $# == 1 ]] || fallar 'uso: ensayar_clon.sh --aplicar-en-clon'
 [[ -n ${PGSERVICE:-} && -n ${VEC_PIDEN_CLON_DB:-} ]] || fallar 'faltan PGSERVICE o VEC_PIDEN_CLON_DB'
@@ -15,6 +15,7 @@ git -C "$repo" diff --quiet "$base" HEAD -- . \
   ':(exclude)deploy/principal/piden_rrhh_corte1_20260928/**' \
   || fallar 'fuente distinta del corte 1 fijado: revisar el plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
+"$script_dir/validar_plan.sh"
 "$script_dir/preflight_roles_ct136.sh" --clon
 
 # PGSERVICE/PGPASSFILE se resuelven fuera de Git. No pasar DSN ni clave en argumentos.

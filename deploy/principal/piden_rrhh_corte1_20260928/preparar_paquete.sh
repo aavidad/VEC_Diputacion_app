@@ -4,18 +4,21 @@ set -Eeuo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 repo=$(git -C "$script_dir" rev-parse --show-toplevel)
-base=2e25aa66a78da5729aea9573cc7ec02af35abeb1
+base=190d98ead7cb1c93828fc076311a8c9c914db776
 
 fallar() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null || fallar 'falta git'
 command -v rsync >/dev/null || fallar 'falta rsync'
 command -v go >/dev/null || fallar 'falta Go'
 command -v sha256sum >/dev/null || fallar 'falta sha256sum'
+command -v file >/dev/null || fallar 'falta file'
+command -v ldd >/dev/null || fallar 'falta ldd'
 git -C "$repo" merge-base --is-ancestor "$base" HEAD || fallar 'checkout ajeno al candidato'
 git -C "$repo" diff --quiet "$base" HEAD -- . \
   ':(exclude)deploy/principal/piden_rrhh_corte1_20260928/**' \
   || fallar 'fuente distinta del corte 1 fijado: revisar y actualizar plan'
 [[ -z $(git -C "$repo" status --porcelain) ]] || fallar 'checkout sucio'
+"$script_dir/validar_plan.sh"
 
 # Nunca empaquetar un plan que active el publicador B10 separado sin nuevo GO.
 if grep -Eq '^deploy/postgresql/(bolsa_llamamientos/migraciones/000049_publicacion_cese_b10|bolsa_publica/migraciones/000003_publicacion_cese_replay)\.up\.sql$' \
@@ -47,8 +50,15 @@ trap 'rm -rf -- "$destino"' ERR
 mkdir -p -- "$destino/web" "$destino/evidencia"
 mkdir -p -- "$destino/.go-cache"
 GOCACHE="$destino/.go-cache" GOTOOLCHAIN=auto GOMAXPROCS=2 \
-  go -C "$repo" build -buildvcs=false -o "$destino/vec-server" ./cmd/vec-server
+  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go -C "$repo" build -buildvcs=false -trimpath -ldflags='-s -w' \
+  -o "$destino/vec-server" ./cmd/vec-server
 rm -rf -- "$destino/.go-cache"
+file "$destino/vec-server" | grep -Eq 'ELF 64-bit.*x86-64.*statically linked' \
+  || fallar 'vec-server no es ELF amd64 enlazado estáticamente'
+ldd_salida=$(ldd "$destino/vec-server" 2>&1 || true)
+[[ $ldd_salida == *'not a dynamic executable'* ]] \
+  || fallar 'vec-server conserva dependencias dinámicas'
 rsync -a --delete --files-from="$repo/web/produccion.manifest" \
   -- "$repo/web/" "$destino/web/"
 "$repo/scripts/verificar_web_produccion.sh" "$destino/web" \

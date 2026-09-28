@@ -1,7 +1,10 @@
 # Primer corte PIDEN RRHH para cidonia
 
 Fuente fijada: `trabajo/piden-rrhh-20260927` en
-`2e25aa66a78da5729aea9573cc7ec02af35abeb1`. Los guiones comprueban
+`190d98ead7cb1c93828fc076311a8c9c914db776`. La puerta completa se
+ejecutó sobre `2e25aa66a`; el único commit posterior hasta esta fuente cambia
+`PIDEN_RRHH_CHECKLIST.md`, sin código, SQL ni web. La CI de la PR debe validar
+el HEAD publicado. Los guiones comprueban
 que el árbol de producto coincide con ese hash, salvo esta carpeta de entrega;
 un cambio de código, SQL o web exige revisar y fijar otro hash. Esta carpeta **no ejecuta
 un despliegue**. Dirección integra en la rama canónica y decide la puesta en
@@ -19,6 +22,9 @@ acreditadas antes de instalarse. El inventario de cidonia puede mostrar que
 alguna ya tiene historia; **detenerse y conciliar** en vez de repetirla. La
 lista se invalida si se añaden, retiran o modifican migraciones del candidato.
 No equivale a una aprobación de SQL ni a un inventario de la base real.
+[`validar_plan.sh`](validar_plan.sh) compara el conjunto de 27 UP con la base
+publicada fijada y exige el orden causal AD3, CT y Bolsa antes de ensayar o
+empaquetar. Incluye explícitamente AD3-96 antes de CT133.
 CT136 añade además un **delta DBA de rol**, listado inmediatamente antes del
 `UP` CT136: `roles_registrador_auditoria_up.sql` debe ensayarse con `ROLLBACK`
 y confirmarse antes de CT136. El rol no concede permiso por sí solo a LOGIN;
@@ -170,7 +176,10 @@ sincroniza por `rsync` **solo las rutas** de `web/produccion.manifest` dentro
 de una carpeta temporal nueva y pasa `scripts/verificar_web_produccion.sh` al
 árbol extraído. Conserva los demás manifiestos en `evidencia/` y escribe
 `SHA256SUMS` y hash del commit. La compilación usa una caché Go temporal dentro
-de la carpeta del paquete, que se retira antes de calcular las huellas.
+de la carpeta del paquete, que se retira antes de calcular las huellas. Usa
+`CGO_ENABLED=0 GOOS=linux GOARCH=amd64`, `-trimpath` y `-ldflags='-s -w'`
+como el Dockerfile del servidor; `file` y `ldd` deben confirmar un ELF amd64
+sin dependencias dinámicas.
 `evidencia/fuente_commit.txt` fija el primer corte de producto;
 `evidencia/commit.txt` identifica el commit de este paquete.
 No incluye configuración privada. Comprobar `sha256sum -c SHA256SUMS` y que el
