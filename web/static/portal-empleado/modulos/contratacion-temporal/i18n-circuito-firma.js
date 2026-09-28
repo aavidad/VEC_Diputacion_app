@@ -20,6 +20,11 @@ export const MENSAJES_CIRCUITO_FIRMA_ES = Object.freeze({
   circuito_firma_sustitucion_suplente_designado: "Admite suplente designado",
   circuito_firma_sustitucion_no_admitida: "Sin sustitución",
   circuito_firma_sin_eficacia: "Firma de prueba, sin eficacia administrativa",
+  circuito_firma_portafirmas_titulo: "Firma oficial en Firmadoc",
+  circuito_firma_portafirmas_pendiente: "Conexión pendiente",
+  circuito_firma_portafirmas_sin_envio: "Sin constancia de envío ni firma oficial en VEC.",
+  circuito_firma_portafirmas_estado_no_disponible: "No se puede consultar el circuito de firma.",
+  circuito_firma_autofirma_prueba: "Firmas de prueba con AutoFirma",
   circuito_firma_motivo: "Motivo: {motivo}",
   circuito_firma_firmar: "Firmar",
   circuito_firma_devolver: "Devolver",
@@ -43,11 +48,20 @@ export const MENSAJES_CIRCUITO_FIRMA_ES = Object.freeze({
   circuito_firma_error_generico: "No se ha podido completar la operación. Vuelva a intentarlo.",
 });
 
-export function crearTraductorCircuitoFirma(sobrescrituras = {}) {
+export const MENSAJES_CIRCUITO_FIRMA_EN_506 = Object.freeze({
+  circuito_firma_portafirmas_titulo: "Official signing in Firmadoc",
+  circuito_firma_portafirmas_pendiente: "Connection pending",
+  circuito_firma_portafirmas_sin_envio: "No recorded submission or official signature in VEC.",
+  circuito_firma_portafirmas_estado_no_disponible: "The signing workflow cannot be retrieved.",
+  circuito_firma_autofirma_prueba: "Test signatures with AutoFirma",
+});
+
+export function crearTraductorCircuitoFirma(sobrescrituras = {}, locale = "es-ES") {
   if (sobrescrituras === null || typeof sobrescrituras !== "object" || Array.isArray(sobrescrituras)) {
     throw new TypeError("mensajes del circuito de firma no válidos");
   }
-  const mensajes = { ...MENSAJES_CIRCUITO_FIRMA_ES };
+  const mensajes = { ...MENSAJES_CIRCUITO_FIRMA_ES,
+    ...(locale.startsWith("en") ? MENSAJES_CIRCUITO_FIRMA_EN_506 : {}) };
   for (const clave of Object.keys(MENSAJES_CIRCUITO_FIRMA_ES)) {
     const valor = sobrescrituras[clave];
     if (typeof valor === "string" && valor.trim() !== "") mensajes[clave] = valor;

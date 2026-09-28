@@ -6,7 +6,8 @@ import {
   crearClienteHTTPCircuitoFirma, crearGestorCircuitoFirma, renderizarCircuitoFirma,
   RUTA_CIRCUITO_FIRMA, validarCircuitoFirma,
 } from "./circuito-firma.js";
-import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES } from "./i18n-circuito-firma.js";
+import { fusionarEstadoFirmas } from "./circuito-firma-acciones.js";
+import { crearTraductorCircuitoFirma, MENSAJES_CIRCUITO_FIRMA_ES, MENSAJES_CIRCUITO_FIRMA_EN_506 } from "./i18n-circuito-firma.js";
 
 function paso(orden, total, extra = {}) {
   return {
@@ -75,12 +76,41 @@ test("el bloque muestra cada paso con su estado, escapa el catálogo y marca el 
   const t = crearTraductorCircuitoFirma();
   const html = renderizarCircuitoFirma(validarCircuitoFirma(circuito()), t);
   assert.match(html, /aria-labelledby="ct-circuito-firma-titulo"/u);
+  assert.match(html, /Firma oficial en Firmadoc/u);
+  assert.match(html, /Conexión pendiente/u);
+  assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
+  assert.match(html, /Firmas de prueba con AutoFirma/u);
+  assert.doesNotMatch(html, /Enviad[ao] a Firmadoc|Firma oficial completada/u);
   assert.doesNotMatch(html, /Circuito de ejemplo/u);
   assert.match(html, /Pendiente de firma por Cargo &lt;1&gt;/u);
   assert.match(html, /En espera del paso anterior/u);
   assert.match(html, /Permite remitir a Intervención/u);
   assert.equal((html.match(/aria-current="step"/gu) ?? []).length, 1);
   assert.doesNotMatch(html, /<1>/u);
+});
+
+test("si falla el catálogo, conserva visible la fase oficial sin afirmar estado de firma", () => {
+  const t = crearTraductorCircuitoFirma();
+  const html = renderizarCircuitoFirma(null, t);
+  assert.match(html, /Firma oficial en Firmadoc/u);
+  assert.match(html, /Conexión pendiente/u);
+  assert.match(html, /No se puede consultar el circuito de firma/u);
+  assert.doesNotMatch(html, /data-ct-firma-accion|Firmado por/u);
+});
+
+test("dos pasos CT118 firmados no convierten Firmadoc en envío o firma oficial", () => {
+  const catalogo = validarCircuitoFirma(circuito());
+  const estado = {
+    huella_sha256: catalogo.huella_sha256, verificacion_disponible: true,
+    documentos: [{ documento: "informe_definitivo", paso_pendiente: 0,
+      pasos: [{ estado: "firmado" }, { estado: "firmado" }] }],
+  };
+  const unido = fusionarEstadoFirmas(catalogo, estado);
+  const html = renderizarCircuitoFirma(unido, crearTraductorCircuitoFirma());
+  assert.equal((html.match(/Firmado por/gu) ?? []).length, 2);
+  assert.match(html, /Conexión pendiente/u);
+  assert.match(html, /Sin constancia de envío ni firma oficial en VEC/u);
+  assert.equal(fusionarEstadoFirmas(catalogo, { ...estado, huella_sha256: "b".repeat(64) }), null);
 });
 
 test("todas las claves de vocabulario tienen traducción", () => {
@@ -91,6 +121,16 @@ test("todas las claves de vocabulario tienen traducción", () => {
     "sustitucion_no_admitida", "estado_pendiente_firma", "estado_en_espera", "estado_firmado", "estado_devuelto"]) {
     assert.ok(claves.includes(`circuito_firma_${prefijo}`), prefijo);
   }
+});
+
+test("la fase Firmadoc usa el idioma del portal", () => {
+  for (const clave of Object.keys(MENSAJES_CIRCUITO_FIRMA_EN_506)) {
+    assert.ok(Object.hasOwn(MENSAJES_CIRCUITO_FIRMA_ES, clave));
+  }
+  const html = renderizarCircuitoFirma(null, crearTraductorCircuitoFirma({}, "en-GB"));
+  assert.match(html, /Official signing in Firmadoc/u);
+  assert.match(html, /Connection pending/u);
+  assert.match(html, /No recorded submission or official signature in VEC/u);
 });
 
 test("el gestor inserta el bloque tras la cabecera solo en el expediente vigente", async () => {
@@ -112,6 +152,21 @@ test("el gestor inserta el bloque tras la cabecera solo en el expediente vigente
   await new Promise((resolver) => setTimeout(resolver, 0));
   assert.equal(insertados.length, 1, "un expediente ya sustituido no recibe el bloque");
   assert.equal(consultas, 1, "el catálogo se consulta una vez por montaje");
+});
+
+test("un fallo de consulta deja el estado pendiente visible en el expediente actual", async () => {
+  const insertados = [];
+  const cabecera = { insertAdjacentHTML: (_, html) => insertados.push(html) };
+  const estado = { vista: "expediente", expediente: { expediente_ref: "exp:1" } };
+  const raiz = { querySelector: (selector) => (selector === ".ct-exp-cabecera-expediente" ? cabecera : null) };
+  const gestor = crearGestorCircuitoFirma({ raiz, obtenerEstado: () => estado,
+    cliente: { obtenerCircuito: async () => null }, clienteFirma: { consultar: () => { throw new Error("no debe consultarse"); } } });
+  gestor.montarSiProcede(estado);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.equal(insertados.length, 1);
+  assert.match(insertados[0], /Conexión pendiente/u);
+  assert.match(insertados[0], /No se puede consultar el circuito de firma/u);
+  gestor.retirar();
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
