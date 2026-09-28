@@ -32,9 +32,10 @@ function comprobarRecursosComunes(htmlActual, cssActual, aplicacionActual) {
 test("el área personal carga el tema permitido antes de sus alias y sin activos ajenos", () => {
   assert.match(html, /<html lang="es" data-tema="institucional">/);
   comprobarRecursosComunes(html, css, aplicacion);
-  const versionPortal = portal.match(/\/comun\/tema-vec\.css\?v=([A-Za-z0-9-]+)/u)?.[1];
-  assert.ok(versionPortal, "falta versión común en Portal");
-  assert.match(html, new RegExp(`/comun/tema-vec\\.css\\?v=${versionPortal}`));
+  const versionArea = html.match(/\/area-personal\/arranque\.js\?v=([A-Za-z0-9-]+)/u)?.[1];
+  assert.ok(versionArea, "falta versión del Área personal");
+  assert.match(html, new RegExp(`/comun/tema-vec\\.css\\?v=${versionArea}`));
+  assert.match(portal, /\/comun\/tema-vec\.css\?v=/u);
   const enlaces = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/gu)].map(([, href]) => href);
   assert.equal(enlaces.findIndex((href) => href.startsWith("/comun/tema-vec.css?")) + 1,
     enlaces.findIndex((href) => href.startsWith("/area-personal/area-personal.css?")));
@@ -76,6 +77,6 @@ test("alto contraste mantiene una capa propia y el foco de teclado visible", () 
   assert.match(css, /outline: 3px solid var\(--ap-azul-700\)/);
   assert.match(css, /\.ap-lateral :focus-visible \{ outline-color: var\(--ap-texto-inverso\)/);
   assert.doesNotMatch(css, /\.campo input:focus[^}]*outline:none/s);
-  assert.match(aplicacion, /destino\.dataset\[atributo\] = String\(activo\)/);
+  assert.match(aplicacion, /controladorVisual\?\.aplicarPreferenciasServidor/u);
   assert.doesNotMatch(aplicacion, /localStorage|sessionStorage|document\.cookie/);
 });
