@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/auditoria"
@@ -31,6 +32,38 @@ type registradorFronteraSuperficiePrueba struct{ llamadas int }
 func (r *registradorFronteraSuperficiePrueba) RegistrarAuditoriaFronteraRutaExacta(_ context.Context, _ vecports.OrdenAuditoriaFronteraRutaExacta) error {
 	r.llamadas++
 	return nil
+}
+
+type filaPreflightFronteraAuditoriaPrueba struct{ valida bool }
+
+func (f filaPreflightFronteraAuditoriaPrueba) Scan(destino ...any) error {
+	*destino[0].(*bool) = f.valida
+	return nil
+}
+
+type consultadorPreflightFronteraAuditoriaPrueba struct {
+	valida     bool
+	consulta   string
+	argumentos []any
+}
+
+func (q *consultadorPreflightFronteraAuditoriaPrueba) QueryRow(_ context.Context, consulta string, argumentos ...any) pgx.Row {
+	q.consulta, q.argumentos = consulta, argumentos
+	return filaPreflightFronteraAuditoriaPrueba{valida: q.valida}
+}
+
+func TestPreflightFronteraAuditoriaRechazaDerivaDeColumnasYCrear(t *testing.T) {
+	q := &consultadorPreflightFronteraAuditoriaPrueba{valida: true}
+	if err := preflightRegistradorFronteraAuditoriaConsultaDesarrollo(t.Context(), q); err != nil ||
+		len(q.argumentos) != 1 || !strings.Contains(q.consulta, "has_any_column_privilege") ||
+		!strings.Contains(q.consulta, "has_schema_privilege(session_user,'vec_contratacion_temporal','CREATE')") ||
+		!strings.Contains(q.consulta, "x.oid<>p.oid") {
+		t.Fatalf("preflight nominal incompleto: %v", err)
+	}
+	q.valida = false // PG18: GRANT SELECT(actor_ref) o CREATE hace falsa la sonda.
+	if err := preflightRegistradorFronteraAuditoriaConsultaDesarrollo(t.Context(), q); err == nil {
+		t.Fatal("deriva de ACL admitida antes de publicar rutas")
+	}
 }
 
 func TestRegistradorFronteraAuditoriaSeparaCTYAuditoria(t *testing.T) {
