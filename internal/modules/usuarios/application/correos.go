@@ -93,7 +93,12 @@ func autorizarCorreos(ctx context.Context, orden ports.OrdenCorreos, m ports.Mat
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoDisponible
 	}
 	resumen := v3.ResumenCapacidad()
-	if resumen.Operacion() != m.Accion || resumen.EfectoRef() != m.PersonaRef || resumen.AudienciaConsumo() != audiencia {
+	recurso, err := ports.RecursoCorreos(m)
+	if err != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoDisponible
+	}
+	huellaContexto, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil || resumen.Operacion() != m.Accion || resumen.EfectoRef() != m.PersonaRef || resumen.AudienciaConsumo() != audiencia || resumen.EfectoHuellaSHA256() != huellaContexto {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoDisponible
 	}
 	return v3, nil
@@ -255,7 +260,7 @@ func (s *ServicioCorreos) mutar(ctx context.Context, orden ports.OrdenCorreos, a
 		for i := range claro {
 			claro[i] = 0
 		}
-		if err != nil || sobre.CorreoRef != p.CorreoRef || sobre.Version != p.VersionEsperada+1 || sobre.ClaveRef == "" || len(sobre.Nonce) < 12 || len(sobre.Cifrado) == 0 || len(sobre.HuellaIgualdad) < 16 {
+		if err != nil || sobre.CorreoRef != p.CorreoRef || sobre.Version != p.VersionEsperada+1 || sobre.ClaveRef == "" || sobre.ClaveIgualdadRef == "" || sobre.ClaveIgualdadRef == sobre.ClaveRef || len(sobre.Nonce) < 12 || len(sobre.Cifrado) == 0 || len(sobre.HuellaIgualdad) < 16 {
 			return ports.ReciboCorreos{}, ports.ErrCorreosNoDisponible
 		}
 		p.Direccion = "" // El registro recibe sólo el sobre, nunca el claro.

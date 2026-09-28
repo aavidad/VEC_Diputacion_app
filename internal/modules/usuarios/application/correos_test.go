@@ -20,6 +20,7 @@ import (
 type proveedorCorreosPrueba struct {
 	denegar          bool
 	audienciaForzada string
+	huellaForzada    string
 	materiales       []ports.MaterialCorreos
 	bytes            [][]byte
 }
@@ -38,13 +39,24 @@ func (p *proveedorCorreosPrueba) ProveerMaterialCorreos(_ context.Context, vincu
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
 	p.bytes = append(p.bytes, b)
-	h := sha256.Sum256(b)
+	recurso, err := ports.RecursoCorreos(m)
+	if err != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
+	}
+	huellaContexto, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
+	}
+	if p.huellaForzada == "material_directo" {
+		h := sha256.Sum256(b)
+		huellaContexto = hex.EncodeToString(h[:])
+	}
 	audiencia, _ := ports.AudienciaCorreos(m.Accion, m.Superficie)
 	if p.audienciaForzada != "" {
 		audiencia = p.audienciaForzada
 	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(fmt.Sprintf("dec_correos_%d", len(p.materiales)), strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), m.Accion, m.PersonaRef, hex.EncodeToString(h[:]), audiencia, ahora, ahora.Add(3*time.Second))
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(fmt.Sprintf("dec_correos_%d", len(p.materiales)), strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), m.Accion, m.PersonaRef, huellaContexto, audiencia, ahora, ahora.Add(3*time.Second))
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
@@ -58,7 +70,10 @@ type desafioCorreosPrueba struct {
 	venceRecibido time.Time
 }
 
-type protectorCorreosPrueba struct{ llamados int }
+type protectorCorreosPrueba struct {
+	llamados         int
+	sinClaveIgualdad bool
+}
 
 type selladorCorreosPrueba struct{}
 
@@ -84,7 +99,11 @@ func (selladorRotadoCorreosPrueba) SellarHuellaCorreo(_ context.Context, claro [
 
 func (p *protectorCorreosPrueba) CifrarDireccionCorreo(_ context.Context, _, ref string, version uint64, claro []byte) (ports.SobreDireccionCorreo, error) {
 	p.llamados++
-	return ports.SobreDireccionCorreo{CorreoRef: ref, Version: version, ClaveRef: "clave:correo", Nonce: []byte(strings.Repeat("n", 12)), Cifrado: []byte(strings.Repeat("c", 32)), HuellaIgualdad: []byte(strings.Repeat("h", 32))}, nil
+	claveIgualdad := "clave:igualdad:v1"
+	if p.sinClaveIgualdad {
+		claveIgualdad = ""
+	}
+	return ports.SobreDireccionCorreo{CorreoRef: ref, Version: version, ClaveRef: "clave:correo", ClaveIgualdadRef: claveIgualdad, Nonce: []byte(strings.Repeat("n", 12)), Cifrado: []byte(strings.Repeat("c", 32)), HuellaIgualdad: []byte(strings.Repeat("h", 32))}, nil
 }
 
 func (d *desafioCorreosPrueba) PrepararDesafioCorreo(_ context.Context, _, _ string, vence time.Time) (ports.ReservaDesafio, error) {
@@ -261,6 +280,19 @@ func TestDenegacionPrevieneLecturaYMutacion(t *testing.T) {
 	}
 }
 
+func TestAltaSinGeneracionIgualdadFallaCerrada(t *testing.T) {
+	orden, _, registro, desafio, validador, _ := prepararServicioCorreos(t)
+	protector := &protectorCorreosPrueba{sinClaveIgualdad: true}
+	servicio, err := NuevoServicioCorreos(registro, protector, selladorCorreosPrueba{}, desafio, validador, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = servicio.Anadir(context.Background(), orden, ports.PeticionCorreo{ClaveOperacion: "operacion-1234567890", Direccion: "persona@example.org"})
+	if !errors.Is(err, ports.ErrCorreosNoDisponible) || registro.aplicaciones != 0 || desafio.llamados != 0 {
+		t.Fatalf("alta sin clave HMAC igualdad llegó a efecto: %v", err)
+	}
+}
+
 func TestReplayConcurrenteConservaReciboOriginal(t *testing.T) {
 	orden, _, registro, desafio, _, servicio := prepararServicioCorreos(t)
 	registro.aplicarReplay = true // Otro escritor insertó misma clave+huella entre Recuperar y Aplicar.
@@ -328,6 +360,15 @@ func TestSustitucionDeSuperficieYAudienciaSeDeniega(t *testing.T) {
 	servicio, _ := NuevoServicioCorreos(registro, &protectorCorreosPrueba{}, selladorCorreosPrueba{}, &desafioCorreosPrueba{}, &validadorCorreosPrueba{}, time.Now)
 	if _, err := servicio.Consultar(context.Background(), orden); !errors.Is(err, ports.ErrCorreosNoDisponible) || registro.consultas != 0 {
 		t.Fatalf("audiencia cruzada aceptada: %v", err)
+	}
+}
+
+func TestSHADeMaterialDirectoNoEsHuellaDeEfectoV3(t *testing.T) {
+	orden, proveedor, registro, _, _, servicio := prepararServicioCorreos(t)
+	proveedor.huellaForzada = "material_directo"
+	_, err := servicio.Consultar(context.Background(), orden)
+	if !errors.Is(err, ports.ErrCorreosNoDisponible) || registro.consultas != 0 {
+		t.Fatalf("SHA material se aceptó como contexto V3: %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -32,6 +33,7 @@ const (
 	AccionVerificarCorreo            = "vec.correos.verificar"
 	AccionActivarCorreo              = "vec.correos.activar"
 	AccionRetirarCorreo              = "vec.correos.retirar"
+	TipoRecursoCorreos               = "correos_persona"
 	AudienciaConsultarCorreosInterna = "vec_usuarios.correos.consultar.interna_corporativa.v1"
 	AudienciaAnadirCorreoInterna     = "vec_usuarios.correos.anadir.interna_corporativa.v1"
 	AudienciaReenviarCorreoInterna   = "vec_usuarios.correos.reenviar.interna_corporativa.v1"
@@ -214,6 +216,26 @@ type MaterialCorreos struct {
 
 func (m MaterialCorreos) MarshalJSON() ([]byte, error) { return SerializarMaterialCorreos(m) }
 
+// RecursoCorreos construye el mismo recurso para el emisor V3 y el adaptador
+// PostgreSQL. La huella de contexto V3 procede de ámbitos/atributos, no del
+// SHA-256 directo de p_material. La superficie va en material/vínculo/audiencia.
+func RecursoCorreos(m MaterialCorreos) (vecdomain.RecursoAutorizable, error) {
+	b, err := SerializarMaterialCorreos(m)
+	if err != nil {
+		return vecdomain.RecursoAutorizable{}, err
+	}
+	h := sha256.Sum256(b)
+	r := vecdomain.RecursoAutorizable{
+		Referencia: m.PersonaRef, ModuloID: "usuarios", Tipo: TipoRecursoCorreos,
+		Ambitos:   map[string]string{"persona_ref": m.PersonaRef},
+		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])},
+	}
+	if err := r.Validar(); err != nil {
+		return vecdomain.RecursoAutorizable{}, ErrCorreosInvalidos
+	}
+	return r, nil
+}
+
 // SerializarMaterialCorreos es la única preimagen V3/SQL p_material text.
 // El proveedor V3 calcula material_sha256 de estos bytes exactos y el adaptador
 // PG envía esos mismos bytes, sin reconstruir JSON ni incorporar secretos.
@@ -288,14 +310,17 @@ type ReservaDesafio struct {
 
 // El protector cifra con AAD que incorpora persona, correo_ref y versión del
 // conjunto. La huella de igualdad debe ser HMAC separada para la unicidad;
-// nunca SHA-256 simple de una dirección adivinable.
+// nunca SHA-256 simple de una dirección adivinable. ClaveIgualdadRef identifica
+// esa generación HMAC aparte de ClaveRef AEAD; el registro rechaza el alta si
+// la generación de igualdad de la persona cambió sin reindexado gobernado.
 type SobreDireccionCorreo struct {
-	CorreoRef      string
-	Version        uint64
-	ClaveRef       string
-	Nonce          []byte
-	Cifrado        []byte
-	HuellaIgualdad []byte
+	CorreoRef        string
+	Version          uint64
+	ClaveRef         string
+	ClaveIgualdadRef string
+	Nonce            []byte
+	Cifrado          []byte
+	HuellaIgualdad   []byte
 }
 
 type ProtectorDireccionCorreo interface {
