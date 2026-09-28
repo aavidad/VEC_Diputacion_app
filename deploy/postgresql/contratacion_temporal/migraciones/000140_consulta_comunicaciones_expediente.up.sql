@@ -263,7 +263,8 @@ BEGIN
              AND previa.llamamiento_ref=r.llamamiento_ref
            WHERE r.organizacion_ref=x.organizacion_ref
              AND r.expediente_ref=x.expediente_ref
-             AND r.estado='confirmado' AND r.solicitud_json->>'Respuesta'='renuncia'
+             AND r.estado='confirmado'
+             AND r.solicitud_json->>'Respuesta' IN ('renuncia','expiracion_gobernada','aceptacion')
              AND r.continuacion_clave IS NOT NULL
              AND r.continuacion_recibo->>'Estado'='confirmado'
              AND r.continuacion_recibo->>'ReciboRef'=x.material_json->'solicitud'->>'PruebaEntregaRef'
