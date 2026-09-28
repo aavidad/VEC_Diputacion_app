@@ -135,8 +135,8 @@ func (s *ServicioPreferencias) Guardar(ctx context.Context, orden ports.OrdenPre
 	if err != nil {
 		return ports.ReciboPreferencias{}, err
 	}
-	// El almacén reautoriza la recuperación; si no existe, deja este material
-	// sin consumir para el guardado transaccional posterior.
+	// La recuperación consume V3 incluso cuando la clave no existe; así la
+	// existencia de una operación no se observa antes de autorizarla.
 	recibo, existe, err := s.registro.RecuperarOperacion(ctx, orden, m, v3)
 	if err != nil {
 		return ports.ReciboPreferencias{}, err
@@ -158,7 +158,16 @@ func (s *ServicioPreferencias) Guardar(ctx context.Context, orden ports.OrdenPre
 	if catalogo.ValidarValores(p.Valores) != nil {
 		return ports.ReciboPreferencias{}, ports.ErrPeticionInvalida
 	}
-	recibo, err = s.registro.Guardar(ctx, orden, p, m, v3)
+	v3Guardado, err := proveer(ctx, orden, m)
+	if err != nil {
+		return ports.ReciboPreferencias{}, err
+	}
+	huellaRecuperacion, errRecuperacion := v3.HuellaConjuntoSHA256()
+	huellaGuardado, errGuardado := v3Guardado.HuellaConjuntoSHA256()
+	if errRecuperacion != nil || errGuardado != nil || huellaRecuperacion == huellaGuardado {
+		return ports.ReciboPreferencias{}, ports.ErrNoDisponible
+	}
+	recibo, err = s.registro.Guardar(ctx, orden, p, m, v3Guardado)
 	if err != nil {
 		return ports.ReciboPreferencias{}, err
 	}

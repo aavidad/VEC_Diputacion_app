@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -18,15 +19,21 @@ import (
 type proveedorPrueba struct {
 	materiales []ports.MaterialPreferencias
 	denegar    bool
+	denegarEn  int
+	reutilizar bool
+	primera    vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
 func (p *proveedorPrueba) ProveerMaterialPreferencias(_ context.Context, m ports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	p.materiales = append(p.materiales, m)
-	if p.denegar {
+	if p.denegar || p.denegarEn == len(p.materiales) {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrProhibido
 	}
+	if p.reutilizar && len(p.materiales) > 1 {
+		return p.primera, nil
+	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), m.Accion, m.PersonaRef, strings.Repeat("d", 64), "usuarios_preferencias", ahora, ahora.Add(3*time.Second))
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(fmt.Sprintf("dec_prueba_%d", len(p.materiales)), strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), m.Accion, m.PersonaRef, strings.Repeat("d", 64), "usuarios_preferencias", ahora, ahora.Add(3*time.Second))
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
@@ -34,7 +41,11 @@ func (p *proveedorPrueba) ProveerMaterialPreferencias(_ context.Context, m ports
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
-	return vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(bytes.Repeat([]byte("x"), 512), resumen, []byte("decision"), []byte("motivo"), []byte("contexto"), 1, 1, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
+	v3, err := vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(bytes.Repeat([]byte("x"), 512), resumen, []byte("decision"), []byte("motivo"), []byte("contexto"), 1, 1, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
+	if err == nil && len(p.materiales) == 1 {
+		p.primera = v3
+	}
+	return v3, err
 }
 
 type registroPrueba struct {
@@ -47,6 +58,7 @@ type registroPrueba struct {
 	errorRecuperar                       error
 	consultas, recuperaciones, guardados int
 	material                             ports.MaterialPreferencias
+	huellaRecuperacion, huellaGuardado   string
 }
 
 func (r *registroPrueba) CatalogoVigente(context.Context) (domain.CatalogoPreferencias, error) {
@@ -57,13 +69,15 @@ func (r *registroPrueba) ConsultarPropias(_ context.Context, _ ports.OrdenPrefer
 	r.material = m
 	return r.estado, r.existe, nil
 }
-func (r *registroPrueba) RecuperarOperacion(_ context.Context, _ ports.OrdenPreferencias, m ports.MaterialPreferencias, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboPreferencias, bool, error) {
+func (r *registroPrueba) RecuperarOperacion(_ context.Context, _ ports.OrdenPreferencias, m ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboPreferencias, bool, error) {
 	r.recuperaciones++
+	r.huellaRecuperacion, _ = v3.HuellaConjuntoSHA256()
 	r.material = m
 	return r.recibo, r.replay, r.errorRecuperar
 }
-func (r *registroPrueba) Guardar(_ context.Context, _ ports.OrdenPreferencias, _ ports.PeticionGuardarPreferencias, m ports.MaterialPreferencias, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboPreferencias, error) {
+func (r *registroPrueba) Guardar(_ context.Context, _ ports.OrdenPreferencias, _ ports.PeticionGuardarPreferencias, m ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboPreferencias, error) {
 	r.guardados++
+	r.huellaGuardado, _ = v3.HuellaConjuntoSHA256()
 	r.material = m
 	return r.recibo, r.errorGuardar
 }
@@ -113,7 +127,7 @@ func TestPUTDelegaCASYRecuperaReciboOriginal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if recibo.ReciboRef != "recibo:uno" || r.guardados != 1 || r.recuperaciones != 1 || r.material.PersonaRef != actor.PersonaRef || r.material.Accion != ports.AccionActualizarPreferencias || len(r.material.HuellaPeticion) != 64 {
+	if recibo.ReciboRef != "recibo:uno" || r.guardados != 1 || r.recuperaciones != 1 || r.material.PersonaRef != actor.PersonaRef || r.material.Accion != ports.AccionActualizarPreferencias || len(r.material.HuellaPeticion) != 64 || len(p.materiales) != 2 || r.huellaRecuperacion == r.huellaGuardado || r.huellaGuardado == "" {
 		t.Fatal("CAS/material no delegados")
 	}
 	r.replay = true
@@ -125,7 +139,7 @@ func TestPUTDelegaCASYRecuperaReciboOriginal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !recibo.Replay || recibo.ReciboRef != "recibo:uno" || !recibo.FechaUTC.Equal(fecha) || r.guardados != 0 {
+	if !recibo.Replay || recibo.ReciboRef != "recibo:uno" || !recibo.FechaUTC.Equal(fecha) || r.guardados != 0 || len(p.materiales) != 3 {
 		t.Fatal("replay reescribio estado o recibo")
 	}
 	r.replay = false
@@ -169,5 +183,31 @@ func TestCatalogoObsoletoYClaveReutilizada(t *testing.T) {
 	r.errorRecuperar = ports.ErrConflicto
 	if _, err := s.Guardar(context.Background(), o, pet); !errors.Is(err, ports.ErrConflicto) || r.guardados != 0 {
 		t.Fatalf("reuso de clave no rechazado: %v", err)
+	}
+}
+
+func TestFalloSegundaCapacidadNoGuarda(t *testing.T) {
+	p := &proveedorPrueba{denegarEn: 2}
+	o, _ := ordenPrueba(t, p)
+	c := domain.CatalogoBasePreferencias()
+	r := &registroPrueba{catalogo: c}
+	s, _ := NuevoServicioPreferencias(r, time.Now)
+	pet := ports.PeticionGuardarPreferencias{CatalogoVersionRef: c.VersionRef, ClaveOperacion: "operacion-1234567890", Valores: c.Predeterminados}
+	_, err := s.Guardar(context.Background(), o, pet)
+	if !errors.Is(err, ports.ErrProhibido) || len(p.materiales) != 2 || r.recuperaciones != 1 || r.guardados != 0 {
+		t.Fatalf("segunda capacidad denegada no cerró escritura: %v", err)
+	}
+}
+
+func TestNoReutilizaCapacidadConsumida(t *testing.T) {
+	p := &proveedorPrueba{reutilizar: true}
+	o, _ := ordenPrueba(t, p)
+	c := domain.CatalogoBasePreferencias()
+	r := &registroPrueba{catalogo: c}
+	s, _ := NuevoServicioPreferencias(r, time.Now)
+	pet := ports.PeticionGuardarPreferencias{CatalogoVersionRef: c.VersionRef, ClaveOperacion: "operacion-1234567890", Valores: c.Predeterminados}
+	_, err := s.Guardar(context.Background(), o, pet)
+	if !errors.Is(err, ports.ErrNoDisponible) || len(p.materiales) != 2 || r.recuperaciones != 1 || r.guardados != 0 {
+		t.Fatalf("capacidad V3 consumida reutilizada: %v", err)
 	}
 }
