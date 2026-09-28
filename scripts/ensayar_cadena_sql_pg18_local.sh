@@ -21,16 +21,18 @@ Uso: ensayar_cadena_sql_pg18_local.sh --plan ORDEN --runtime EJECUTABLE
 
 ORDEN enumera rutas relativas deploy/postgresql/... en orden causal. Debe
 contener todos los UP y roles de CT y Bolsa Llamamientos rastreados en CHECKOUT
-(o de todos los módulos bolsa_* con --scope ct-bolsa);
-puede incluir dependencias rastreadas de otros módulos. Cada SQL se aplica
+(o de todos los módulos bolsa_* con --scope ct-bolsa). Puede incluir
+dependencias rastreadas de otros módulos. Cada SQL se aplica
 una vez, con ON_ERROR_STOP, a una base nueva de PostgreSQL 18.4.
 
 Requiere Docker local accesible, imagen postgres:18.4-alpine ya cargada,
 /dev/shm escribible y Go local compatible. La base, binario y logs son
 efímeros; PostgreSQL solo publica en 127.0.0.1. No usa datos ni red remotos.
 
-EJECUTABLE recibe PGHOST/PGPORT/PGDATABASE y VEC_ENSAYO_BINARIO. Debe crear
-LOGIN nominales separados sobre esa base, arrancar ese binario y escribir
+EJECUTABLE recibe PGHOST/PGPORT/PGDATABASE, VEC_ENSAYO_BINARIO,
+VEC_ENSAYO_CONTENEDOR y VEC_ENSAYO_DIRECTORIO. Puede crear LOGIN nominales
+separados mediante `docker exec` y `psql` dentro del contenedor indicado;
+después arranca el binario y escribe
 URL=http://127.0.0.1:PUERTO en stdout. Con --tls-material escribe en cambio
 URL=https://localhost:PUERTO y se usan ca/ca.crt, mtls/cliente.crt y
 mtls/cliente.key de ese directorio privado; localhost se fija a 127.0.0.1.
@@ -201,6 +203,7 @@ go_local=$("$repo/scripts/seleccionar_toolchain_go_local.sh")
 
 export PGHOST=127.0.0.1 PGPORT="$puerto" PGDATABASE=vec_ensayo
 export VEC_ENSAYO_BINARIO="$ensayo/vec-server" VEC_ENSAYO_TLS_MATERIAL="$tls_material"
+export VEC_ENSAYO_CONTENEDOR="$contenedor" VEC_ENSAYO_DIRECTORIO="$ensayo"
 # El runtime debe generar sus LOGIN locales nominales y configurar la aplicación
 # con DSN distintos, todos al PGHOST/PGPORT/PGDATABASE suministrados. No se
 # acepta una variable heredada que pudiera señalar otra base.
