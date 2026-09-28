@@ -211,6 +211,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
 		// CT131: sólo al activar el gobierno de plantillas sintéticas.
 		audienciaCatalogoPlantillasCT,
+		// CT133: sólo al activar lectura documental con perfil propio.
+		audienciaDocumentalPlantillasCT,
 		altapersonal.AudienciaAltaEjercicio,
 		lecturapersonal.AudienciaV2,
 		ports.AudienciaConfirmacionIncorporacionV2,
