@@ -64,7 +64,7 @@ BEGIN
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo
     OR replace(replace(replace(actual,extension||marca,marca),runtime_nuevo,runtime),excl_nuevo,excl) IS DISTINCT FROM original
-    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc WHERE oid=f) IS DISTINCT FROM meta
+    OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM meta
     OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config

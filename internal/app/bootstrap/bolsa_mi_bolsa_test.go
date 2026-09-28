@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -214,4 +215,110 @@ func hexHuellaMiBolsaPrueba(v [32]byte) string {
 		r[i*2], r[i*2+1] = digitos[b>>4], digitos[b&15]
 	}
 	return string(r[:])
+}
+
+type autoridadMiBolsaCASPrueba struct {
+	actual        dominiovec.InstantaneaAutorizacion
+	existe        bool
+	antesPublicar func(*autoridadMiBolsaCASPrueba)
+	publicaciones int
+}
+
+func (a *autoridadMiBolsaCASPrueba) prepararInstantanea(_ context.Context, semilla dominiovec.InstantaneaAutorizacion, permitirInicial bool) (dominiovec.InstantaneaAutorizacion, error) {
+	if !permitirInicial {
+		return dominiovec.InstantaneaAutorizacion{}, errMiBolsaNoDisponible
+	}
+	preparada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+	if a.existe {
+		preparada.AsignacionPerfil.AsignacionID = a.actual.AsignacionPerfil.AsignacionID
+		preparada.AsignacionPerfil.Version = a.actual.AsignacionPerfil.Version
+		if !reflect.DeepEqual(preparada, a.actual) {
+			preparada.AsignacionPerfil.Version++
+		}
+	}
+	return preparada, nil
+}
+
+func (a *autoridadMiBolsaCASPrueba) publicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error {
+	return errMiBolsaNoDisponible
+}
+
+func (a *autoridadMiBolsaCASPrueba) versionActualHabilitada(context.Context, string) (bool, error) {
+	return false, nil
+}
+
+func (a *autoridadMiBolsaCASPrueba) publicarInstantaneaDesdePreimagen(_ context.Context, preparada, preimagen dominiovec.InstantaneaAutorizacion) error {
+	if a.antesPublicar != nil {
+		a.antesPublicar(a)
+	}
+	if a.existe && !reflect.DeepEqual(a.actual, preparada) && !reflect.DeepEqual(a.actual, preimagen) {
+		return errMiBolsaNoDisponible
+	}
+	if !a.existe && preparada.AsignacionPerfil.Version != 1 {
+		return errMiBolsaNoDisponible
+	}
+	a.actual, a.existe = preparada, true
+	a.publicaciones++
+	return nil
+}
+
+func TestMiBolsaPublicacionExigePreimagenActivaExacta(t *testing.T) {
+	identidad := &identidadCandidatoBolsaDesarrollo{
+		personaRef: "per_candidato_sintetico_1234567890123456", perfilRef: "prf_candidato_sintetico_1234567890123456",
+		candidatoRef: "can_candidato_sintetico_1234567890123456",
+	}
+	ahora := time.Date(2026, 9, 28, 10, 0, 0, 0, time.UTC)
+	legado, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revocada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(legado)
+	revocada.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+	revocada.AsignacionPerfil.RevocadaPor = "seguridad:desarrollo:no-autoritativa"
+	revocada.AsignacionPerfil.RevocadaEn = legado.AsignacionPerfil.EmitidaEn
+	revocada.AsignacionPerfil.RevocacionRef = "revocacion:mi-bolsa-prueba"
+	if revocada.Validar() != nil {
+		t.Fatal("fixture revocada inválida")
+	}
+	legadoVersionado := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(legado)
+	legadoVersionado.AsignacionPerfil.Version = 3
+	portalVersionado, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, ahora, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	portalVersionado.AsignacionPerfil.Version = 4
+	ajena := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(legado)
+	ajena.AsignacionPerfil.EmitidaPor = "identidad:otra-autoridad"
+	for _, caso := range []struct {
+		nombre  string
+		actual  *dominiovec.InstantaneaAutorizacion
+		portal  bool
+		carrera bool
+		exito   bool
+		version int
+	}{
+		{"alta inicial", nil, false, false, true, 1},
+		{"replay exacto", &legado, false, false, true, 1},
+		{"evolucion legado portal", &legado, true, false, true, 2},
+		{"replay portal version cuatro", &portalVersionado, true, false, true, 4},
+		{"evolucion legado version tres", &legadoVersionado, true, false, true, 4},
+		{"huella ajena denegada", &ajena, true, false, false, 0},
+		{"revocada denegada", &revocada, true, false, false, 0},
+		{"revocacion concurrente", &legado, true, true, false, 0},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			a := &autoridadMiBolsaCASPrueba{}
+			if caso.actual != nil {
+				a.existe, a.actual = true, *caso.actual
+			}
+			if caso.carrera {
+				a.antesPublicar = func(a *autoridadMiBolsaCASPrueba) { a.actual = revocada }
+			}
+			obtenida, err := publicarPerfilMiBolsaDesarrollo(context.Background(), a, identidad, ahora, caso.portal)
+			if (err == nil) != caso.exito || (caso.exito && (obtenida.AsignacionPerfil.Version != caso.version || a.publicaciones != 1)) ||
+				(!caso.exito && a.publicaciones != 0) {
+				t.Fatalf("resultado: error=%v, versión=%d, publicaciones=%d", err, obtenida.AsignacionPerfil.Version, a.publicaciones)
+			}
+		})
+	}
 }
