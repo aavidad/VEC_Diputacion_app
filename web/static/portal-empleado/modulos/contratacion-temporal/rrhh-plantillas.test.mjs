@@ -15,6 +15,11 @@ const catalogo = Object.freeze({
   entradas: [{ clave: "modelo_nuevo", etiqueta: "Modelo nuevo", descripcion: "Modelo de prueba", orden: 11,
     vigente_desde: instante, atributos: { titulo: "Título original", "parrafo.01": "Primer párrafo", "parrafo.02": "Segundo párrafo", origen: "desarrollo" } }],
 });
+const reciboCambio = (solicitud, resultado, operacion, referencia, estado_replay = "registrado") => ({
+  recibo_ref: referencia, clave_idempotencia: solicitud.clave_idempotencia, operacion,
+  version: resultado.version, revision: resultado.revision,
+  catalogo_huella_sha256: resultado.huella_sha256, registrado_en: instante, estado_replay,
+});
 const respuesta = (valor, estado = 200) => new Response(JSON.stringify(valor), {
   status: estado, headers: { "Content-Type": "application/json; charset=utf-8" },
 });
@@ -87,16 +92,16 @@ test("abortar durante la lectura streaming no entrega catálogo parcial", async 
 });
 
 test("cliente solo confirma un cambio con catálogo, versión y recibo válidos", async () => {
-  let peticion;
-  const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
-    peticion = { ruta, opciones };
-    return respuesta({ catalogo: { ...catalogo, revision: 3 }, recibo: {
-      recibo_ref: reciboEdicion, registrado_en: instante, estado_replay: "registrado",
-    } }, 201);
-  } });
   const solicitud = { clave_idempotencia: "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789",
     version_esperada: 3, revision_esperada: 2, motivo: "Ajuste RRHH", fuente_ref: "fuente:rrhh:ejemplo",
     entrada: catalogo.entradas[0] };
+  const resultado = { ...catalogo, revision: 3 };
+  const recibo = reciboCambio(solicitud, resultado, "editar", reciboEdicion);
+  let peticion;
+  const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
+    peticion = { ruta, opciones };
+    return respuesta({ catalogo: resultado, recibo }, 201);
+  } });
   const guardado = await cliente.guardar(solicitud);
   assert.equal(guardado.catalogo.revision, 3);
   assert.equal(guardado.recibo.recibo_ref, reciboEdicion);
@@ -110,24 +115,51 @@ test("cliente solo confirma un cambio con catálogo, versión y recibo válidos"
     "recibo:ad6eaa70-bc5f-5a27-90b4-5bf02043d021",
     "recibo:ad6eaa70-bc5f-4a27-70b4-5bf02043d021"]) {
     const incompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
-      catalogo: { ...catalogo, revision: 3 }, recibo: { recibo_ref: referencia, registrado_en: instante, estado_replay: "registrado" },
+      catalogo: resultado, recibo: { ...recibo, recibo_ref: referencia },
     }, 201) });
     await assert.rejects(incompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
       && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado, referencia);
   }
   const catalogoIncompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
-    catalogo: { ...catalogo, revision: "3" }, recibo: {
-      recibo_ref: reciboEdicion, registrado_en: instante, estado_replay: "registrado",
-    },
+    catalogo: { ...resultado, revision: "3" }, recibo,
   }, 201) });
   await assert.rejects(catalogoIncompatible.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
     && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
   const replay = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
-    catalogo: { ...catalogo, revision: 3 }, recibo: {
-      recibo_ref: reciboEdicion, registrado_en: instante, estado_replay: "replay",
-    },
+    catalogo: resultado, recibo: { ...recibo, estado_replay: "replay" },
   }, 200) });
   assert.equal((await replay.guardar(solicitud)).recibo.recibo_ref, reciboEdicion);
+  for (const [campo, valor] of [["clave_idempotencia", "11111111-1111-4111-8111-111111111111"],
+    ["operacion", "publicar"], ["version", 4], ["revision", 4],
+    ["catalogo_huella_sha256", "b".repeat(64)], ["estado_replay", "replay"]]) {
+    const ajeno = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+      catalogo: resultado, recibo: { ...recibo, [campo]: valor },
+    }, 201) });
+    await assert.rejects(ajeno.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+      && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado, campo);
+  }
+  const estadoAjeno = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: resultado, recibo,
+  }, 200) });
+  await assert.rejects(estadoAjeno.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+    && error.resultadoIndeterminado);
+  const catalogoAjeno = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: { ...resultado, huella_sha256: "b".repeat(64) }, recibo,
+  }, 201) });
+  await assert.rejects(catalogoAjeno.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+    && error.resultadoIndeterminado);
+  const versionAjena = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: { ...resultado, version: 4, revision: 1 }, recibo: { ...recibo, version: 4, revision: 1 },
+  }, 201) });
+  await assert.rejects(versionAjena.guardar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
+    && error.resultadoIndeterminado);
+  const solicitudNueva = { ...solicitud, revision_esperada: 0,
+    clave_idempotencia: "3dd7b65c-3f2f-4bda-9a7f-f5e6f5248410" };
+  const nuevaVersion = { ...resultado, version: 4, revision: 1 };
+  const nueva = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
+    catalogo: nuevaVersion, recibo: reciboCambio(solicitudNueva, nuevaVersion, "editar", reciboEdicion),
+  }, 201) });
+  assert.equal((await nueva.guardar(solicitudNueva)).catalogo.version, 4);
 });
 
 test("cliente distingue conflicto previo y resultado indeterminado", async () => {
@@ -143,23 +175,21 @@ test("cliente distingue conflicto previo y resultado indeterminado", async () =>
 });
 
 test("publicación exige aprobación y solo confirma catálogo publicado con recibo", async () => {
+  const solicitud = { clave_idempotencia: "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789",
+    version_esperada: 3, revision_esperada: 2, motivo: "Modelo aprobado", aprobacion_ref: "aprobacion:rrhh:uno" };
+  const resultado = { ...catalogo, estado: "publicado" };
+  const recibo = reciboCambio(solicitud, resultado, "publicar", reciboPublicacion);
   let peticion;
   const cliente = crearClientePlantillasRRHH({ fetchImpl: async (ruta, opciones) => {
     peticion = { ruta, opciones };
-    return respuesta({ catalogo: { ...catalogo, estado: "publicado" }, recibo: {
-      recibo_ref: reciboPublicacion, registrado_en: instante, estado_replay: "registrado",
-    } }, 201);
+    return respuesta({ catalogo: resultado, recibo }, 201);
   } });
-  const solicitud = { clave_idempotencia: "8cf3f53e-b1c0-4bad-9bc1-08dde1b32789",
-    version_esperada: 3, revision_esperada: 2, motivo: "Modelo aprobado", aprobacion_ref: "aprobacion:rrhh:uno" };
   assert.equal((await cliente.publicar(solicitud)).catalogo.estado, "publicado");
   assert.equal(peticion.ruta, RUTA_RRHH_PLANTILLAS_PUBLICAR);
   assert.deepEqual(JSON.parse(peticion.opciones.body), solicitud);
   await assert.rejects(cliente.publicar({ ...solicitud, aprobacion_ref: "" }), TypeError);
   const incompatible = crearClientePlantillasRRHH({ fetchImpl: async () => respuesta({
-    catalogo: { ...catalogo, estado: "publicado" }, recibo: {
-      recibo_ref: "recibo:plantillas:publicacion", registrado_en: instante, estado_replay: "registrado",
-    },
+    catalogo: resultado, recibo: { ...recibo, recibo_ref: "recibo:plantillas:publicacion" },
   }, 201) });
   await assert.rejects(incompatible.publicar(solicitud), (error) => error instanceof ErrorPlantillasRRHH
     && error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
