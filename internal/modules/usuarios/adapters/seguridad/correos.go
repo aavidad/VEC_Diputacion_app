@@ -35,8 +35,8 @@ type ClaveCorreo struct {
 	Revocada     bool
 }
 
-// ClavesCorreos mantiene ámbitos criptográficos independientes. Igualdad debe
-// permanecer estable hasta reindexar de forma transaccional las huellas SQL.
+// ClavesCorreos mantiene ámbitos criptográficos independientes. Una rotación
+// de Igualdad exige que el registro cierre altas hasta reindexar sus huellas.
 type ClavesCorreos struct {
 	CifradoActivo, Igualdad, SemanticaActiva, CodigoActivo ClaveCorreo
 	CifradoRetenidas, SemanticaRetenidas, CodigoRetenidas  []ClaveCorreo
@@ -177,7 +177,7 @@ func (a *AdaptadorCorreos) CifrarDireccionCorreo(ctx context.Context, persona, c
 		return ports.SobreDireccionCorreo{}, ErrCorreosCriptoNoDisponible
 	}
 	igualdad := mac(c.Igualdad.Material, []byte("vec.usuarios.correos.igualdad.v1"), []byte(strings.ToLower(string(claro))))
-	return ports.SobreDireccionCorreo{CorreoRef: correo, Version: version, ClaveRef: c.CifradoActivo.Ref, Nonce: nonce, Cifrado: cifrado, HuellaIgualdad: igualdad}, nil
+	return ports.SobreDireccionCorreo{CorreoRef: correo, Version: version, ClaveRef: c.CifradoActivo.Ref, ClaveIgualdadRef: c.Igualdad.Ref, Nonce: nonce, Cifrado: cifrado, HuellaIgualdad: igualdad}, nil
 }
 
 // ConDireccionCorreoDescifrada limita la exposición del claro a un callback.

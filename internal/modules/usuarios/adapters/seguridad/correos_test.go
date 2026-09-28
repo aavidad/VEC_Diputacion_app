@@ -58,7 +58,7 @@ func TestDireccionAEADYHuellaSeparada(t *testing.T) {
 	a, f, ahora := preparar(t)
 	ctx := context.Background()
 	s, err := a.CifrarDireccionCorreo(ctx, persona, correo, 1, []byte("persona@example.org"))
-	if err != nil || len(s.Nonce) != 12 || len(s.HuellaIgualdad) != 32 || strings.Contains(string(s.Cifrado), "persona@example.org") {
+	if err != nil || len(s.Nonce) != 12 || len(s.HuellaIgualdad) != 32 || s.ClaveIgualdadRef != f.claves.Igualdad.Ref || s.ClaveIgualdadRef == s.ClaveRef || strings.Contains(string(s.Cifrado), "persona@example.org") {
 		t.Fatalf("cifrado: %v", err)
 	}
 	s2, err := a.CifrarDireccionCorreo(ctx, persona, "correo:otro123456789012", 1, []byte("PERSONA@example.org"))
@@ -95,6 +95,13 @@ func TestDireccionAEADYHuellaSeparada(t *testing.T) {
 	f.claves.CifradoActivo = ClaveCorreo{Ref: "clave:cifrado:v2", Material: material(5)}
 	if err := ver(persona, s); err != nil {
 		t.Fatal("rotacion:", err)
+	}
+	// La cripto informa la generación; SQL deniega altas bajo otra generación
+	// hasta que se reindexe el conjunto de la persona.
+	f.claves.Igualdad = ClaveCorreo{Ref: "clave:igualdad:v2", Material: material(6)}
+	rotado, err := a.CifrarDireccionCorreo(ctx, persona, correo, 1, []byte("persona@example.org"))
+	if err != nil || rotado.ClaveIgualdadRef != f.claves.Igualdad.Ref || rotado.ClaveIgualdadRef == s.ClaveIgualdadRef || subtle.ConstantTimeCompare(rotado.HuellaIgualdad, s.HuellaIgualdad) == 1 || rotado.ClaveRef != f.claves.CifradoActivo.Ref {
+		t.Fatal("rotacion de igualdad sin referencia o huella nueva")
 	}
 }
 
