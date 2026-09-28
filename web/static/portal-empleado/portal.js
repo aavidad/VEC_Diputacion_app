@@ -718,7 +718,8 @@ function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionMo
     montarVistaBolsa(estado.vista, contenedor, {}, { activar });
     return;
   }
-  renderizar();
+  if (estado.vista === "portal") renderizarConservandoFoco();
+  else renderizar();
 }
 function renderizar() {
   const contenedor = porId("espacio-trabajo");
