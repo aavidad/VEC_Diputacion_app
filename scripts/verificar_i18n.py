@@ -15,6 +15,7 @@ VISIBLE_JS = re.compile(
     r"(?:\.textContent\s*=|\.innerHTML\s*=|\.setAttribute\(\s*['\"](?:aria-label|title|placeholder)['\"]\s*,)\s*"
     r"(['\"`])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^'\"`]*?)\1"
 )
+TEXTO_PLANTILLA = re.compile(r">\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ][^<>{}$]+?)\s*<")
 EXCEPCIONES_HTML = {
     # Una inicial decorativa oculta al lector; no transmite información.
     ("portal-empleado/index.html", "P"),
@@ -124,6 +125,13 @@ def verificar_web() -> list[str]:
                 if texto in EXCEPCIONES_JS or not any(c.isalpha() for c in texto):
                     continue
                 fallos.append(f"{ruta.relative_to(ROOT)}:{numero}: literal visible sin clave: {texto[:90]}")
+            # Los catálogos i18n pueden contener HTML traducido. En el resto,
+            # texto estático entre etiquetas dentro de plantillas es interfaz.
+            if "i18n" not in ruta.name:
+                for coinc in TEXTO_PLANTILLA.finditer(linea):
+                    texto = coinc.group(1).strip()
+                    if texto not in EXCEPCIONES_JS:
+                        fallos.append(f"{ruta.relative_to(ROOT)}:{numero}: HTML de plantilla sin clave: {texto[:90]}")
     return fallos
 
 
