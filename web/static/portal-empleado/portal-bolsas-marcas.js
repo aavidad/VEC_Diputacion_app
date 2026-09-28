@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260927-rrhh-sanciones-i18n-v1";
+import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 /**
  * Marcas de una participación en el cuadro, la ficha y la selección de un
  * llamamiento (Bolsa 000041): ya presta servicios (b16), en revisión (duda 18)
