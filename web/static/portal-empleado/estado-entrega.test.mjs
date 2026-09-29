@@ -9,7 +9,7 @@ import {
 import {
   CLAVES_ESTADO_ENTREGA,
   crearTraductorEstadoEntrega,
-  MENSAJES_ESTADO_ENTREGA_ES,
+  MENSAJES_ESTADO_ENTREGA,
 } from "./estado-entrega-i18n.js";
 
 const pendiente = {
@@ -40,12 +40,12 @@ test("el catálogo español es completo, cerrado y sirve todas las etiquetas de 
   ]);
   const traducir = crearTraductorEstadoEntrega();
   for (const clave of CLAVES_ESTADO_ENTREGA.filter((clave) => clave !== "aria_estado")) {
-    assert.equal(traducir(clave), MENSAJES_ESTADO_ENTREGA_ES[clave]);
+    assert.equal(traducir(clave), MENSAJES_ESTADO_ENTREGA[clave]);
   }
   assert.equal(traducir("aria_estado", { estado: "Conectado" }), "Estado de entrega: Conectado");
   assert.throws(() => traducir("texto_inventado"), /clave de estado de entrega desconocida/u);
-  assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA_ES, extra: "no" }), /catálogo/u);
-  assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA_ES, pendientes_titulo: "" }), /catálogo/u);
+  assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA, extra: "no" }), /catálogo/u);
+  assert.throws(() => crearTraductorEstadoEntrega({ ...MENSAJES_ESTADO_ENTREGA, pendientes_titulo: "" }), /catálogo/u);
 });
 
 test("escapa todo texto interpolado", () => {
