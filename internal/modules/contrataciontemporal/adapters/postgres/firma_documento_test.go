@@ -115,8 +115,8 @@ func TestDecodificaElEnlaceDeCustodia145(t *testing.T) {
 		t.Fatalf("recibo con enlace: %+v", w)
 	}
 	var filas []firmaSQL118
-	sin := `[{"FirmaRef":"firma-ct:1","ReciboRef":"recibo-firma-ct:1","Documento":"resolucion","Secuencia":1,"ExpedienteVersion":7,"CatalogoRef":"c","CatalogoHuella":"h","PasoRef":"p","PasoOrden":1,"Resultado":"devuelto","ConMotivoDevolucion":true,"OriginalHuella":null,"FirmadoHuella":null,"SelloTiempoEstado":null,"RegistradaEn":"2026-09-25T10:00:00Z","DocumentoCustodiaRef":null,"DocumentoCustodiaVersion":null}]`
-	if decodificarFirma118([]byte(sin), &filas) != nil || len(filas) != 1 || textoFirma118(filas[0].DocumentoCustodia) != "" || versionFirma118(filas[0].VersionCustodia) != 0 {
+	sin := `[{"FirmaRef":"firma-ct:1","ReciboRef":"recibo-firma-ct:1","Documento":"resolucion","Secuencia":1,"ExpedienteVersion":7,"CatalogoRef":"c","CatalogoHuella":"h","PasoRef":"p","PasoOrden":1,"Resultado":"devuelto","ConMotivoDevolucion":true,"OriginalHuella":null,"FirmadoHuella":null,"SelloTiempoEstado":null,"RegistradaEn":"2026-09-25T10:00:00Z","ClaveIdempotencia":"clave-firma-000000001","DocumentoCustodiaRef":null,"DocumentoCustodiaVersion":null}]`
+	if decodificarFirma118([]byte(sin), &filas) != nil || len(filas) != 1 || textoFirma118(filas[0].DocumentoCustodia) != "" || filas[0].ClaveIdempotencia != "clave-firma-000000001" || versionFirma118(filas[0].VersionCustodia) != 0 {
 		t.Fatalf("historia sin enlace: %+v", filas)
 	}
 }

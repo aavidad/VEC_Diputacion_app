@@ -250,6 +250,9 @@ type FirmaRegistrada struct {
 	ActorRef            string
 	PerfilRef           string
 	RegistradaEn        time.Time
+	// ClaveIdempotencia es la de la operación que registró la fila: permite
+	// reconocer el reintento de una firma ya registrada.
+	ClaveIdempotencia string
 	// Enlace al PDF firmado que custodia Documentos, si lo hay.
 	DocumentoCustodiaRef     string
 	DocumentoCustodiaVersion uint64
