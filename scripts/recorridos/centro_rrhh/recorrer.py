@@ -25,6 +25,7 @@ RUTA_RRHH = "/api/vec/contratacion-temporal/peticiones-centro/rrhh"
 RUTA_OPERACIONES = "/api/vec/contratacion-temporal/peticiones-centro/operaciones"
 RUTA_CONTEXTO = "/api/vec/contratacion-temporal/peticiones-centro/contexto"
 RUTA_BANDEJA = "/api/vec/contratacion-temporal/peticiones-centro/bandeja"
+RUTA_PREFERENCIAS = "/api/vec/usuarios/mis-preferencias"
 
 
 class NoEjecutado(Exception):
@@ -78,9 +79,23 @@ def preflight(args: argparse.Namespace) -> str:
         cert, clave = getattr(args, f"cert_{rol}"), getattr(args, f"clave_{rol}")
         if not cert or not clave or not Path(cert).is_file() or not Path(clave).is_file():
             raise NoEjecutado(f"faltan certificado y clave mTLS externos para {rol}")
-    if len({str(Path(getattr(args, f"cert_{rol}")).resolve()) for rol in ("solicitante", "ratificador", "rrhh")}) != 3:
-        raise NoEjecutado("los tres roles deben usar certificados distintos")
+    huellas_certificados(*(getattr(args, f"cert_{rol}") for rol in ("solicitante", "ratificador", "rrhh")))
     return origen
+
+
+def huellas_certificados(*rutas: str) -> tuple[str, ...]:
+    if len(rutas) != 3 or any(not ruta or not Path(ruta).is_file() for ruta in rutas):
+        raise NoEjecutado("faltan los tres certificados mTLS externos")
+    huellas = tuple(sha256_archivo(Path(ruta)) for ruta in rutas)
+    if len(set(huellas)) != 3:
+        raise NoEjecutado("los tres certificados mTLS deben tener contenido distinto")
+    return huellas
+
+
+def exigir_tres_actores(solicitante: str, ratificador: str, rrhh: str) -> None:
+    if not all(isinstance(actor, str) and actor for actor in (solicitante, ratificador, rrhh)) \
+            or len({solicitante, ratificador, rrhh}) != 3:
+        raise AssertionError("solicitante, ratificador y RRHH no son tres identidades autenticadas distintas")
 
 
 def datos(respuesta, ruta: str, metodo: str = "GET") -> dict:
@@ -147,6 +162,12 @@ def interceptar_ruta(ruta, origen: str) -> None:
         ruta.abort()
 
 
+def bloquear_websocket(_ruta) -> None:
+    # El socket interceptado queda sin conectar: no se llama connect_to_server.
+    # close() dentro del callback síncrono de Playwright bloquea su despachador.
+    return
+
+
 def contexto(browser, origen: str, cert: str, clave: str):
     # Playwright usa Chrome del sistema. El certificado se limita al origen local.
     ctx = browser.new_context(
@@ -157,6 +178,7 @@ def contexto(browser, origen: str, cert: str, clave: str):
         service_workers="block",
     )
     ctx.route("**/*", lambda ruta: interceptar_ruta(ruta, origen))
+    ctx.route_web_socket("**/*", bloquear_websocket)
     return ctx
 
 
@@ -203,10 +225,24 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             for pagina in paginas.values():
                 pagina.on("pageerror", lambda err: errores_js.append(type(err).__name__))
 
+            # La preferencia propia identifica al principal RRHH autenticado.
+            # Se consulta antes de cualquier escritura del centro.
+            identidad = contextos["rrhh"].request.get(origen + RUTA_PREFERENCIAS, max_redirects=0)
+            vista_rrhh = datos_api(identidad, RUTA_PREFERENCIAS)
+            estado_rrhh = vista_rrhh.get("estado")
+            actor_rrhh = estado_rrhh.get("persona_ref") if isinstance(estado_rrhh, dict) else None
+            if not actor_rrhh:
+                raise AssertionError("la consulta propia de RRHH no acredita un principal")
+
             sol, _ = actor_y_bandeja(paginas["solicitante"], origen)
             actor_sol = sol.get("actor", {})
             if actor_sol.get("puede_presentar") is not True or actor_sol.get("puede_ratificar") is not False:
                 raise AssertionError("certificado solicitante sin perfil exclusivo")
+            previo_rat = contextos["ratificador"].request.get(origen + RUTA_CONTEXTO, max_redirects=0)
+            actor_rat_previo = datos_api(previo_rat, RUTA_CONTEXTO).get("actor", {})
+            if actor_rat_previo.get("puede_ratificar") is not True or actor_rat_previo.get("puede_presentar") is not False:
+                raise AssertionError("certificado ratificador sin perfil exclusivo")
+            exigir_tres_actores(actor_sol["referencia"], actor_rat_previo.get("referencia"), actor_rrhh)
             p = paginas["solicitante"]
             p.locator('[data-accion="nueva"]').click()
             for campo in ("contacto_ref", "categoria_ref", "grupo_subgrupo", "motivo_clave"):
@@ -229,7 +265,7 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             rat, bandeja_rat = actor_y_bandeja(paginas["ratificador"], origen)
             actor_rat = rat.get("actor", {})
             if (actor_rat.get("puede_ratificar") is not True or actor_rat.get("puede_presentar") is not False
-                    or actor_rat.get("referencia") == actor_sol["referencia"]):
+                    or actor_rat.get("referencia") != actor_rat_previo["referencia"]):
                 raise AssertionError("ratificador no es una identidad separada")
             if not any(x.get("referencia") == peticion and x.get("version") == 1 for x in bandeja_rat.get("peticiones", [])):
                 raise AssertionError("petición v1 ausente de la bandeja del ratificador")

@@ -31,10 +31,19 @@ ratificador y RRHH. Chrome debe confiar en la CA del servidor mediante el
 almacén de confianza del sistema. Nunca copie certificados, claves, DSN o
 datos personales al repositorio.
 
+El preflight calcula SHA256 del contenido de los tres certificados y exige
+tres huellas distintas. Antes de escribir, consulta la identidad propia de
+RRHH en `/api/vec/usuarios/mis-preferencias` y la del ratificador en el
+contexto del centro. Las compara con la identidad del solicitante. Si alguna
+lectura falta o una identidad se repite, el recorrido se detiene sin crear la
+petición.
+
 El navegador solo acepta respuestas del origen indicado. Inspecciona cada
 respuesta sin seguir redirecciones y bloquea cualquier 3xx; las consultas y
 replays directos aplican el mismo límite. La prueba focal incluye un 302 hacia
 otro puerto local y exige que el servidor de destino reciba cero peticiones.
+También intercepta WebSocket sin conectarlo al servidor; otra prueba local
+comprueba que no se inicia el handshake.
 
 El ejecutable indicado en `--reinicio` reinicia **solo** la aplicación y
 PostgreSQL de ese clon. Debe terminar cuando ambos vuelvan a estar disponibles.

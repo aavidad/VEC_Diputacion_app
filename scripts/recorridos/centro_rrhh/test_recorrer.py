@@ -1,13 +1,15 @@
 """Pruebas con datos sintéticos; no acceden a VEC ni crean peticiones."""
 
 import threading
+import tempfile
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 
 from recorrer import (
-    NoEjecutado, interceptar_ruta, origen_local, preflight,
+    NoEjecutado, bloquear_websocket, exigir_tres_actores, huellas_certificados,
+    interceptar_ruta, origen_local, preflight,
     verificar_entrega, verificar_recibo_centro,
 )
 
@@ -23,6 +25,19 @@ class RecorridoCentroTest(unittest.TestCase):
     def test_sin_acreditacion_no_se_abre_navegador(self):
         with self.assertRaisesRegex(NoEjecutado, "acreditacion"):
             preflight(SimpleNamespace(origen="https://127.0.0.1:8443", acreditacion=None))
+
+    def test_certificado_copiado_y_actor_rrhh_repetido_se_denegan(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            rutas = [Path(carpeta) / f"cert-{n}.pem" for n in range(3)]
+            for ruta, contenido in zip(rutas, (b"certificado-centro", b"certificado-ratificador", b"certificado-centro")):
+                ruta.write_bytes(contenido)
+            with self.assertRaisesRegex(NoEjecutado, "contenido distinto"):
+                huellas_certificados(*(str(ruta) for ruta in rutas))
+        with self.assertRaisesRegex(AssertionError, "tres identidades"):
+            exigir_tres_actores("persona:sol", "persona:rat", "persona:sol")
+        with self.assertRaisesRegex(AssertionError, "tres identidades"):
+            exigir_tres_actores("persona:sol", "persona:rat", "")
+        exigir_tres_actores("persona:sol", "persona:rat", "persona:rrhh")
 
     def test_recibos_exigen_identidad_version_y_misma_alta(self):
         centro = {"peticion_ref": "peticion:centro:uno", "version": 2, "estado": "ratificada",
@@ -91,6 +106,42 @@ class RecorridoCentroTest(unittest.TestCase):
                 servidor.server_close()
             for hilo in hilos:
                 hilo.join(timeout=2)
+
+    @unittest.skipUnless(Path("/usr/bin/google-chrome").is_file(), "falta Chrome del sistema")
+    def test_websocket_no_inicia_handshake(self):
+        from playwright.sync_api import sync_playwright
+
+        contador = {"handshake": 0}
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                contador["handshake"] += 1
+                self.send_response(400)
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+        hilo = threading.Thread(target=destino.serve_forever, daemon=True)
+        hilo.start()
+        try:
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+                try:
+                    contexto = browser.new_context(service_workers="block")
+                    contexto.route_web_socket("**/*", bloquear_websocket)
+                    pagina = contexto.new_page()
+                    pagina.evaluate("url => { window.ws = new WebSocket(url); }",
+                                    f"ws://127.0.0.1:{destino.server_port}/fuera")
+                    pagina.wait_for_timeout(300)
+                    self.assertEqual(contador["handshake"], 0)
+                finally:
+                    browser.close()
+        finally:
+            destino.shutdown()
+            destino.server_close()
+            hilo.join(timeout=2)
 
 
 if __name__ == "__main__":
