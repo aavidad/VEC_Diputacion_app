@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"vec-diputacion-granada/internal/app/separacionportales"
+	"vec-diputacion-granada/config"
 )
 
 // rutasPortal es una lista de rutas exactas y de prefijos. Las rutas ya
@@ -67,21 +67,19 @@ var rutasComunesExterno = rutasPortal{
 // Sin separación deja pasar todo, como siempre. Un valor no válido cierra
 // todas las rutas: nunca se interpreta como portal combinado.
 func restringirRutasPortalProceso(valor string, siguiente http.Handler) http.Handler {
-	portal, err := separacionportales.Parsear(valor)
-	if err != nil {
-		return http.HandlerFunc(http.NotFound)
-	}
-	switch portal {
-	case separacionportales.PortalExterno:
+	switch valor {
+	case config.ValorPortalProcesoExterno:
 		return filtrarRutas(siguiente, func(ruta string) bool {
 			return rutasSoloExterno.contiene(ruta) || rutasComunesExterno.contiene(ruta)
 		})
-	case separacionportales.PortalInterno:
+	case config.ValorPortalProcesoInterno:
 		return filtrarRutas(siguiente, func(ruta string) bool {
 			return !rutasSoloExterno.contiene(ruta)
 		})
-	default:
+	case "":
 		return siguiente
+	default:
+		return http.HandlerFunc(http.NotFound)
 	}
 }
 

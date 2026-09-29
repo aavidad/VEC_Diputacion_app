@@ -18,6 +18,8 @@ package separacionportales
 import (
 	"errors"
 	"fmt"
+
+	"vec-diputacion-granada/config"
 )
 
 // Portal identifica qué superficie atiende un proceso.
@@ -28,9 +30,9 @@ const (
 	// los dos portales. Es el valor por defecto (variable vacía).
 	PortalCombinado Portal = ""
 	// PortalInterno atiende al portal de RRHH y del empleado.
-	PortalInterno Portal = "interno"
+	PortalInterno Portal = config.ValorPortalProcesoInterno
 	// PortalExterno atiende al Área personal y a la consulta pública.
-	PortalExterno Portal = "externo"
+	PortalExterno Portal = config.ValorPortalProcesoExterno
 )
 
 var (

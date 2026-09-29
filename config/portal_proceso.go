@@ -6,6 +6,11 @@ package config
 // un valor mal escrito impide arrancar en lugar de tomarse como vacío.
 const EnvPortalProceso = "VEC_PORTAL_PROCESO"
 
+const (
+	ValorPortalProcesoInterno = "interno"
+	ValorPortalProcesoExterno = "externo"
+)
+
 // El campo Config.PortalProceso guarda el valor tal cual; lo interpreta y
 // valida internal/app/separacionportales antes de componer nada.
 
