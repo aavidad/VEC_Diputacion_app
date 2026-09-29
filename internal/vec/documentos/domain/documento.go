@@ -72,7 +72,7 @@ func (d Documento) Validar() error {
 	}
 	switch d.Custodia {
 	case CustodiaVEC:
-		if !ReferenciaValida(d.ObjetoRef) || !ReferenciaValida(d.ObjetoVersion) ||
+		if !ReferenciaValida(d.ObjetoRef) || !VersionObjetoValida(d.ObjetoVersion) ||
 			d.Tamano < 1 || !MIMEValido(d.MIME) || d.CustodiaExternaRef != (ReferenciaCustodiaExterna{}) {
 			return ErrDocumentoInvalido
 		}
@@ -144,7 +144,24 @@ func ReferenciaOpacaValida(s string) bool {
 }
 
 func IdentificadorTecnicoValido(s string) bool { return identificadorTecnico.MatchString(s) }
-func NumeroVECValido(s string) bool            { return numeroVEC.MatchString(s) }
+
+// VersionObjetoValida sigue el contrato del almacén: la versión es opaca y
+// la fija el conector (el de ficheros usa "1"; S3, su VersionId). Por eso no
+// exige la longitud mínima de ReferenciaValida: imprimible, sin espacios ni
+// rutas y como máximo 256 caracteres.
+func VersionObjetoValida(s string) bool {
+	if len(s) < 1 || len(s) > 256 || strings.Contains(s, "..") || strings.ContainsAny(s, "/\\*?%") {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < 33 || s[i] > 126 {
+			return false
+		}
+	}
+	return true
+}
+
+func NumeroVECValido(s string) bool { return numeroVEC.MatchString(s) }
 
 func HuellaValida(s string) bool {
 	if len(s) != 64 {

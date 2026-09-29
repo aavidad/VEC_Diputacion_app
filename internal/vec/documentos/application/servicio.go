@@ -26,6 +26,10 @@ type Servicio struct {
 	ContextosLectura ports.FabricaContextoLectura
 	// Reservado para el caso de uso de verificación: ningún método actual lo invoca.
 	VerificadorFirma ports.VerificadorFirmaMotivado
+	// Custodia de documentos firmados (5.06): opcionales; sin ellos
+	// CustodiarFirmado se deniega.
+	RepositorioCustodia ports.RepositorioCustodiaFirmado
+	ContextosCustodia   ports.FabricaContextoCustodia
 }
 
 func dependenciaNula(v any) bool {
@@ -66,7 +70,10 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 		len(in.Contenido) == 0 || len(in.Contenido) > limiteOriginal ||
 		in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
-		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
+		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef ||
+		// Los tipos reservados solo entran por CustodiarFirmado (y el SQL
+		// lo impone además al confirmar): se rechazan antes de escribir.
+		s.tipoReservadoFirmado(in.TipoRef) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	ahora := s.Reloj.Ahora()
@@ -193,7 +200,7 @@ func (s *Servicio) registrarExterno(ctx context.Context, in ports.AltaExterna, a
 		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || in.Tamano < 0 ||
 		(in.MIME != "" && !domain.MIMEValido(in.MIME)) || in.Custodia.Validar() != nil ||
-		in.SolicitudPolitica.Validar() != nil ||
+		s.tipoReservadoFirmado(in.TipoRef) || in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
 		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
 		return domain.Documento{}, ports.ErrSolicitudInvalida

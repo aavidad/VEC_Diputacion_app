@@ -107,6 +107,34 @@ identificador no puede nombrar a la vez un original y una referencia externa
 (`identificador_documental`). La lista v2 devuelve ambos tipos con el campo
 `custodia` (`vec` o `externa`), con el mismo cursor.
 
+## Custodia de documentos firmados (5.06)
+
+Contratación temporal entrega a Documentos el PDF ya firmado y verificado de
+una resolución; Documentos lo guarda con custodia VEC. Se instala
+`../autorizacion_atestada_v3/migraciones/000113_custodia_documento_firmado.up.sql`
+y después `migraciones/000009_custodia_documento_firmado.up.sql`; con
+custodias registradas, ninguna de las dos admite `DOWN`.
+
+- Acción propia `documentos.firmado.custodiar`, finalidad
+  `custodiar_documento_firmado`. `custodiar_firmado_v1` consume la V3 en la
+  misma transacción que documento, fila de firmado, auditoría y outbox.
+- El tipo documental debe estar reservado a esta ruta (`"custodia":
+  "firmado"` en el catálogo de conservación). El alta genérica y el registro
+  externo rechazan los tipos reservados, en Go y en SQL.
+- La escritura en el almacén usa una concesión V3 propia ligada a la decisión
+  que consumirá SQL (su referencia y su huella van en los atributos).
+- Recuperación: si se pierde la respuesta, el reintento llega con otra
+  decisión V3. La clave del almacén se deriva de la clave del documento y de
+  esa decisión, así que el reintento escribe otro objeto y SQL devuelve el
+  documento original sin duplicarlo.
+
+**Objetos huérfanos.** Ese objeto del reintento, o el de un intento cuya
+confirmación SQL falló, queda en el almacén sin documento que lo nombre. No se
+anuncia ni se puede descargar, porque la descarga parte siempre de la fila
+`documento`. Falta una tarea de conciliación que liste los objetos del
+conector sin referencia en `vec_documentos.documento` y los retire tras un
+plazo de gracia; hasta entonces ocupan espacio y nada más.
+
 ## Política de conservación provisional
 
 El catálogo local de conservación (`internal/vec/adapters/conservacion`) es
