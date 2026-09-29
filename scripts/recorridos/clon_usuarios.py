@@ -194,17 +194,20 @@ func codexMIdentityFlags(ctx context.Context,pool *pgxpool.Pool,group string,fun
  return fmt.Sprintf("login=%t group=%t direct=%t closure=%t functions=%t login_no_authority=%t exact_group_acl=%t",flags[0],flags[1],flags[2],flags[3],flags[4],flags[5],flags[6])
 }
 
-func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool)(int,error){
+func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool,logins []struct{Name string `json:"name"`;Group string `json:"group"`})(int,error){
  tx,err:=admin.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable});if err!=nil{return 0,err};defer tx.Rollback(ctx)
  if _,err=tx.Exec(ctx,`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:codexm:usuarios:identity-connect',0))`);err!=nil{return 0,err}
  var pending []string
- for _,group:=range []string{"vec_identidad_sesiones_v1_registrador","vec_identidad_sesiones_v1_revalidador"}{
+ groups:=map[string]bool{};for _,login:=range logins{groups[login.Group]=true}
+ for group:=range groups{
   var safe bool;var aclCount int
-  if tx.QueryRow(ctx,`SELECT current_database()='postgres' AND NOT(r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolinherit OR r.rolreplication OR r.rolbypassrls)
- AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=r.oid),
+  inheritExpected:=group!="vec_identidad_sesiones_v1_registrador"&&group!="vec_identidad_sesiones_v1_revalidador"&&group!="vec_contexto_actor_v1_runtime"&&group!="vec_autorizacion_motivos_evaluador"
+  if tx.QueryRow(ctx,`SELECT current_database()='postgres' AND NOT(r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+ AND r.rolinherit=$2 AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=r.oid),
  (SELECT count(*) FROM pg_catalog.pg_database b CROSS JOIN LATERAL pg_catalog.aclexplode(b.datacl) a WHERE b.datname=current_database() AND a.grantee=r.oid)
- FROM pg_catalog.pg_roles r WHERE r.rolname=$1`,group).Scan(&safe,&aclCount)!=nil||!safe{return 0,fmt.Errorf("identity group preimage")}
+ FROM pg_catalog.pg_roles r WHERE r.rolname=$1`,group,inheritExpected).Scan(&safe,&aclCount)!=nil||!safe{return 0,fmt.Errorf("identity group preimage")}
   if aclCount==0{
+   if group=="vec_identidad_sesiones_v1_registrador"||group=="vec_identidad_sesiones_v1_revalidador"{
    expectedFunctions:=[]string{"vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)","vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)"}
    if group=="vec_identidad_sesiones_v1_revalidador"{expectedFunctions=[]string{"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)","vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)","vec_identidad_sesiones_v1.coincide_politica_certificado_desarrollo_v1(text,text,timestamptz)"}}
    var exactDependencies bool
@@ -212,13 +215,32 @@ func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool)(int,e
  ((d.classid='pg_catalog.pg_namespace'::regclass AND d.objid='vec_identidad_sesiones_v1'::regnamespace) OR
  (d.classid='pg_catalog.pg_proc'::regclass AND d.objid IN (SELECT pg_catalog.to_regprocedure(f) FROM unnest($2::text[]) f))))
  FROM pg_catalog.pg_shdepend d WHERE d.refclassid='pg_catalog.pg_authid'::regclass AND d.refobjid=$1::regrole`,group,expectedFunctions).Scan(&exactDependencies)!=nil||!exactDependencies{return 0,fmt.Errorf("identity group has additional authority")}
+   }
    pending=append(pending,group);continue
   }
   var exact bool
   if tx.QueryRow(ctx,`SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable) FROM pg_catalog.pg_database b CROSS JOIN LATERAL pg_catalog.aclexplode(b.datacl) a WHERE b.datname=current_database() AND a.grantee=$1::regrole`,group).Scan(&exact)!=nil||!exact{return 0,fmt.Errorf("identity group database ACL differs")}
  }
  for _,group:=range pending{if _,err=tx.Exec(ctx,`GRANT CONNECT ON DATABASE postgres TO `+pgx.Identifier{group}.Sanitize());err!=nil{return 0,err}}
- if tx.Commit(ctx)!=nil{return 0,fmt.Errorf("identity CONNECT commit")};return len(pending),nil
+ // Validate each source contract inside the same transaction before retaining
+ // any CONNECT repair. The original authenticated DBA can restore its own
+ // session identity; all impersonation is transaction-local and read-only.
+ for _,login:=range logins{
+  if _,err=tx.Exec(ctx,`SET LOCAL SESSION AUTHORIZATION `+pgx.Identifier{login.Name}.Sanitize());err!=nil{return 0,fmt.Errorf("technical identity probe")}
+  var valid bool
+  switch login.Group{
+  case "vec_contexto_actor_v1_runtime":
+   var identity string;if tx.QueryRow(ctx,`SELECT identidad_login,acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()`).Scan(&identity,&valid)!=nil||identity!=login.Name{return 0,fmt.Errorf("Contexto role preflight")}
+  case "vec_autorizacion_fuente","vec_autorizacion_registro","vec_autorizacion_motivos_evaluador":
+   function:="obtener_instantanea";if login.Group=="vec_autorizacion_registro"{function="registrar_decision_contexto_actor_v3"};if login.Group=="vec_autorizacion_motivos_evaluador"{function="resolver_motivo_autorizacion_v2_historico"}
+   if tx.QueryRow(ctx,sondaFuncionAutorizacionPreferenciasSQL,function).Scan(&valid)!=nil{return 0,fmt.Errorf("authorization role preflight")}
+  default:
+   valid=true // Identity and Users constructors provide their exact checks before effect below.
+  }
+  if !valid{return 0,fmt.Errorf("technical role source contract differs")}
+  if _,err=tx.Exec(ctx,`SET LOCAL SESSION AUTHORIZATION DEFAULT`);err!=nil{return 0,fmt.Errorf("restore installer identity")}
+ }
+ if tx.Commit(ctx)!=nil{return 0,fmt.Errorf("technical CONNECT commit")};return len(pending),nil
 }
 
 func codexMSession(ctx context.Context,c configuracionUsuariosPreferenciasDesarrollo,derivador *derivadorIdentidadOperacionDesarrollo,certificate *x509.Certificate,chain []*x509.Certificate)(core.VinculoAutenticacionActorV2,error){
@@ -359,7 +381,7 @@ func TestCodexMInstallUsers(t *testing.T){
   if _,err=txRoles.Exec(ctx,`GRANT `+pgx.Identifier{entry.Group}.Sanitize()+` TO `+pgx.Identifier{entry.Name}.Sanitize()+` WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`);err!=nil{t.Fatal("grant one technical capability")}
  }
  if txRoles.Commit(ctx)!=nil{t.Fatal("technical role commit")}
- connectRestored,err:=codexMRestoreIdentityConnect(ctx,admin);if err!=nil{t.Fatal("identity CONNECT preimage")};t.Logf("identity CONNECT restored=%d",connectRestored)
+ connectRestored,err:=codexMRestoreIdentityConnect(ctx,admin,plan.Logins);if err!=nil{t.Fatalf("technical CONNECT preimage: %s",err.Error())};t.Logf("identity CONNECT restored=%d",connectRestored)
  if crearOComprobarLoginProvisionadorHito1(ctx,admin)!=nil{t.Fatal("identity provisioner authority")}
  provisionCfg:=adminCfg.Copy();provisionCfg.ConnConfig.User=loginProvisionadorHito1;provisionCfg.ConnConfig.Password=""
  provisioner,err:=pgxpool.NewWithConfig(ctx,provisionCfg);if err!=nil{t.Fatal("identity provisioner pool")};defer provisioner.Close()
