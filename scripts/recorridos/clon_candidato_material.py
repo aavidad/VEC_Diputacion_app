@@ -231,7 +231,8 @@ def provision(repo: Path, container: str, state: Path, material: Path,
         fail("candidate_activation_already_present")
     profile = inspect_identity(material)
     inventory = json.loads(run([engine, "exec", "-i", container, "psql", "-X", "-qAt",
-                               "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres", "-f", "-"],
+                               "-h", "/var/run/postgresql", "-p", "5432", "-v", "ON_ERROR_STOP=1",
+                               "-U", "postgres", "-d", "postgres", "-f", "-"],
                               INVENTORY_SQL))
     output = state / "candidato-material"
     output.mkdir(mode=0o700, exist_ok=True)

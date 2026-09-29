@@ -53,6 +53,8 @@ class CandidateMaterialTests(unittest.TestCase):
         if argv[:2] == ["docker", "inspect"]:
             return json.dumps([self.info]).encode()
         if argv[:2] == ["docker", "exec"]:
+            self.assertEqual(argv[argv.index("-h") + 1], "/var/run/postgresql")
+            self.assertEqual(argv[argv.index("-p") + 1], "5432")
             self.assertIn(b"BEGIN READ ONLY", data)
             self.assertIn(b"ROLLBACK", data)
             for forbidden in (b"INSERT", b"UPDATE", b"DELETE", b"GRANT", b"CREATE", b"COMMIT"):
