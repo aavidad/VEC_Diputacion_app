@@ -15,6 +15,7 @@ const (
 	dominioCanonConfirmacionConsumoCobertura = "VEC-CT-CONSUMO-COBERTURA-" +
 		"CONFIRMACION-TCB-V1"
 	dominioCanonCatalogoConsumoCobertura    = "VEC-CT-CONSUMO-COBERTURA-CATALOGO-V1"
+	dominioCanonCatalogoConsumoCoberturaV2  = "VEC-CT-CONSUMO-COBERTURA-CATALOGO-V2"
 	dominioCanonVerificadorConsumoCobertura = "VEC-CT-CONSUMO-COBERTURA-" +
 		"VERIFICADOR-V1"
 	dominioCanonResumenConsumoCobertura       = "VEC-CT-CONSUMO-COBERTURA-RESUMEN-V1"
@@ -299,8 +300,13 @@ func canonCatalogoConsumoCobertura(
 		return nil, ErrResultadoFuenteCoberturaNoConfiable
 	}
 	publicacion := catalogo.Publicacion()
+	canonV2 := publicacion.Canon == domain.CanonHuellaCatalogoCoberturaV2()
 	escritor := nuevoEscritorCanonFuenteAnalisis()
-	escritor.texto(dominioCanonCatalogoConsumoCobertura)
+	if canonV2 {
+		escritor.texto(dominioCanonCatalogoConsumoCoberturaV2)
+	} else {
+		escritor.texto(dominioCanonCatalogoConsumoCobertura)
+	}
 	escritor.texto(datos.PublicadorRef)
 	escritor.instante(datos.VerificadaEn)
 	escritor.texto(publicacion.Canon.Dominio)
@@ -316,6 +322,9 @@ func canonCatalogoConsumoCobertura(
 		escritor.instante(publicacion.Vigencia.Hasta)
 	}
 	escritor.texto(publicacion.ProcedenciaRef)
+	if canonV2 {
+		escritor.booleano(publicacion.EsEjemplo)
+	}
 	escritor.entero64(uint64(len(publicacion.Vias)))
 	for _, via := range publicacion.Vias {
 		escritor.texto(string(via.Clave))
@@ -328,8 +337,28 @@ func canonCatalogoConsumoCobertura(
 			escritor.texto(string(comprobacion.Procedencia.Clave))
 			escritor.texto(comprobacion.Procedencia.DefinicionFuenteRef)
 		}
+		if canonV2 {
+			escribirElementosPreparacionCanonConsumoCobertura(
+				escritor, via.Documentos,
+			)
+			escribirElementosPreparacionCanonConsumoCobertura(
+				escritor, via.Datos,
+			)
+		}
 	}
 	return resultadoCanonConsumoCobertura(escritor)
+}
+
+func escribirElementosPreparacionCanonConsumoCobertura(
+	escritor *escritorCanonFuenteAnalisis,
+	elementos []domain.ElementoPreparacionViaCobertura,
+) {
+	escritor.entero64(uint64(len(elementos)))
+	for _, elemento := range elementos {
+		escritor.texto(string(elemento.Clave))
+		escritor.entero16(elemento.Orden)
+		escritor.texto(string(elemento.ClaveI18n))
+	}
 }
 
 func canonVerificadorConsumoCobertura(
