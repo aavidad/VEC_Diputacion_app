@@ -7,6 +7,10 @@ import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import {
+  renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
+  renderizarLineaFases, renderizarSiguientePasoFicha,
+} from "./vista-expedientes-ficha.js";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -379,65 +383,8 @@ function renderizarIncidencia(expediente, t, navegacion) {
   </section>`;
 }
 
-function renderizarFases(expediente, t) {
-  if (expediente.fases.length === 0) return "";
-  return `<nav class="ct-exp-progreso" aria-label="${escaparHTML(t("fases_expediente"))}">
-    <ol>${expediente.fases.map((fase) => `<li class="${estadoClave(fase.estado_clave)}"
-      ${fase.estado_clave === "en_curso" ? 'aria-current="step"' : ""}>
-      <button type="button" class="ct-exp-fase-boton" data-ct-exp-fase-ver="${escaparHTML(claveDeFase(fase))}" aria-pressed="false"
-        aria-label="${escaparHTML(t("fase_ver_pantalla", { fase: fase.etiqueta }))}">
-        <span class="ct-exp-numero-fase" aria-hidden="true">${fase.orden}</span>
-        <span>${escaparHTML(fase.etiqueta)}</span>
-        <small>${escaparHTML(textoEstado(fase.estado_clave, t))}</small>
-      </button>
-    </li>`).join("")}</ol>
-  </nav>`;
-}
 
-function renderizarSiguientePaso(expediente, estado, t) {
-  const tarea = expediente.tareas.find(({ estado_clave }) => estado_clave === "en_curso")
-    ?? expediente.tareas.find(({ estado_clave }) => estado_clave === "espera")
-    ?? expediente.tareas.find(({ estado_clave }) => estado_clave === "pendiente");
-  const accion = estado.carga !== "listo" || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
-    ? null : tarea?.acciones?.find(({ tipo, disponible }) => tipo === "efecto" && disponible === true);
-  const actorLegible = (valor) => typeof valor === "string" && valor.trim() !== ""
-    && !/^(—|-|pendiente\b|por asignar\b|por definir\b|sin asignar\b|sin determinar\b|no consta\b)/iu.test(valor.trim())
-    && !/^[a-z_]+:[^ ]+$/iu.test(valor.trim());
-  const actor = actorLegible(tarea?.responsable)
-    ? tarea.responsable : actorLegible(tarea?.unidad)
-      ? tarea.unidad : "";
-  // El contrato de tarea no contiene vencimiento. El plazo de la bandeja es del
-  // expediente y no se atribuye a esta actuación sin una fuente que lo enlace.
-  return `<section class="ct-exp-siguiente-paso panel" aria-labelledby="ct-exp-siguiente-paso-titulo">
-    <header class="cabecera-panel"><h3 id="ct-exp-siguiente-paso-titulo">${escaparHTML(t("siguiente_paso_titulo"))}</h3></header>
-    <div class="ct-exp-siguiente-paso-cuerpo">
-      <p><strong>${escaparHTML(t("siguiente_paso_que"))}</strong> ${escaparHTML(accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea")))}</p>
-      <p><strong>${escaparHTML(t("siguiente_paso_quien"))}</strong> ${escaparHTML(actor || t("siguiente_paso_quien_desconocido"))}</p>
-      <p><strong>${escaparHTML(t("siguiente_paso_hasta"))}</strong> ${escaparHTML(t("siguiente_paso_plazo_desconocido"))}</p>
-    </div>
-  </section>`;
-}
 
-function renderizarHistorialHitos(expediente, t) {
-  if (!Array.isArray(expediente.historial) || expediente.historial.length === 0) return "";
-  return `<details class="ct-exp-detalle-tecnico ct-exp-historial">
-    <summary>${escaparHTML(t("historial_hitos_titulo"))} (${expediente.historial.length})</summary>
-    <p>${escaparHTML(t("historial_hitos_descripcion"))}</p>
-    <div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparHTML(t("historial_hitos_titulo"))}">
-      <table class="tabla-datos ct-exp-tabla-panel">
-        <thead><tr><th scope="col">${escaparHTML(t("historial_hito_secuencia"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_fecha"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_accion"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_fase"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_estado"))}</th></tr></thead>
-        <tbody>${expediente.historial.map((hito) => `<tr data-ct-exp-hito-fase="${escaparHTML(hito.fase)}" data-ct-exp-hito-accion="${escaparHTML(hito.accion_clave ?? "")}">
-          <td>${hito.secuencia}</td><td>${escaparHTML(hito.fecha)}</td>
-          <td>${escaparHTML(hito.accion)}</td><td>${escaparHTML(hito.fase)}</td>
-          <td>${escaparHTML(hito.estado)}</td></tr>`).join("")}</tbody>
-      </table>
-    </div>
-  </details>`;
-}
 
 const BORRADORES_FORMALIZACION = Object.freeze([
   ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
@@ -513,22 +460,6 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
   return `<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(campo.valor)}" data-pestana="historico" aria-label="${escaparHTML(t("enlace_bolsa_historico_aria", { bolsa: bolsa.categoria }))}">${escaparHTML(bolsa.categoria)}</button>`;
 }
 
-function renderizarCabecera(expediente, t, informeDisponible = false, resolverBolsa = null) {
-  return `<section class="ct-exp-cabecera-expediente">
-    <div>
-      <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
-      <h3>${numeroExpedienteHTML(expediente.numero_visible)}</h3>
-    </div>
-    <dl>${expediente.cabecera.map((campo) => {
-    const valor = valorCampoCabecera(campo, t, resolverBolsa);
-    return valor === null ? "" : `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
-      <dt>${escaparHTML(campo.etiqueta)}</dt>
-      <dd class="ct-tono-${escaparHTML(campo.tono)}">${valor}</dd>
-    </div>`;
-  }).join("")}</dl>
-    ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
-  </section>`;
-}
 
 function renderizarTareas(expediente, tareaRef, t) {
   return `<nav class="ct-exp-tareas" aria-label="${escaparHTML(t("tareas_expediente"))}">
@@ -767,14 +698,27 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     analisisDisponible,
   )}
     </div>`;
-  return `${renderizarIncidencia(expediente, t, estado.navegacion)}
-    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null, resolverBolsa)}
-    ${renderizarFases(expediente, t)}
-    ${renderizarSiguientePaso(expediente, estado, t)}
+  // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
+  // la fase se montan después, a partir de la marca «ct-exp-tramite».
+  const informeDisponible = solicitudInformeDefinitivoDesdeEstado(estado) !== null;
+  return `${renderizarCabeceraFicha(expediente, estado, t)}
+    ${renderizarSiguientePasoFicha(expediente, estado, t)}
+    ${renderizarIncidencia(expediente, t, estado.navegacion)}
+    ${renderizarLineaFases(expediente, t)}
+    <div class="rejilla-principal ct-exp-ficha-rejilla">
+      <div class="pila">
+        ${renderizarDocumentosFicha(estado, t)}
+        ${renderizarHistorialFicha(expediente, t, faseDeCampo)}
+        ${renderizarCambiosExpediente(expediente)}
+      </div>
+      <div class="pila">
+        ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
+        ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
+      </div>
+    </div>
     ${tramitacion}
-    ${renderizarHistorialHitos(expediente, t)}
-    ${renderizarCambiosExpediente(expediente)}
-    ${renderizarContinuidadDesdeExpediente(estado, t)}`;
+    ${renderizarContinuidadDesdeExpediente(estado, t)}
+    <div class="ct-exp-tramite" id="ct-exp-tramite" tabindex="-1" data-ct-exp-tramite></div>`;
 }
 
 // La versión solo decide si mostrar orientación; el recibo y las consultas
@@ -813,7 +757,7 @@ export function renderizarDocumentos(estado, t) {
   const expediente = estado.expediente;
   const indice = estado.documentos;
   if (!expediente || !indice) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
-  return `${renderizarCabecera(expediente, t)}
+  return `${renderizarCabeceraFicha(expediente, estado, t)}
     ${solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : ""}
     <section class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo">
       <header class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera">
@@ -841,7 +785,7 @@ export function renderizarAuditoria(estado, t) {
   const expediente = estado.expediente;
   const auditoria = estado.auditoria;
   if (!expediente || !auditoria) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
-  return `${renderizarCabecera(expediente, t)}
+  return `${renderizarCabeceraFicha(expediente, estado, t)}
     <header class="ct-exp-subcabecera"><h3>${escaparHTML(t("auditoria_titulo"))}</h3><p>${escaparHTML(t("auditoria_descripcion"))}</p></header>
     <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
       <table class="tabla-datos tabla-datos--prioritaria ct-exp-tabla-auditoria">

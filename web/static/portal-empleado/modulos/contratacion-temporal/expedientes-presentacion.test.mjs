@@ -99,7 +99,7 @@ test("el índice documental lista el estado autorizado sin inventar una descarga
   assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar|>Descargar<\/button>/u);
 });
 
-test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmados", () => {
+test("el siguiente paso va arriba y solo anuncia acción y actor confirmados", () => {
   const base = crearExpedienteContratacionTemporalPresentacion();
   const tarea = { ...base.tareas[0], estado_clave: "en_curso", responsable: "Unidad RRHH",
     acciones: [{ tipo: "efecto", disponible: true, etiqueta: "Revisar petición" }] };
@@ -107,10 +107,11 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   const estado = { vista: "expediente", carga: "listo", expediente,
     expediente_ref: expediente.expediente_ref, tarea_ref: tarea.tarea_ref };
   const html = renderizarExpediente(estado, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
-  assert.ok(html.indexOf('class="ct-exp-progreso"') < html.indexOf('class="ct-exp-siguiente-paso panel"'));
-  assert.ok(html.indexOf('class="ct-exp-siguiente-paso panel"') < html.indexOf('class="ct-exp-tramitacion"'));
-  assert.match(html, /Qué:<\/strong> Revisar petición/u);
-  assert.match(html, /Quién:<\/strong> Unidad RRHH/u);
+  assert.ok(html.indexOf('ct-exp-ficha-cabecera') < html.indexOf('class="siguiente-paso ct-exp-siguiente-paso'));
+  assert.ok(html.indexOf('class="siguiente-paso ct-exp-siguiente-paso') < html.indexOf('data-ct-exp-rail'));
+  assert.ok(html.indexOf('class="siguiente-paso ct-exp-siguiente-paso') < html.indexOf('class="ct-exp-tramitacion"'));
+  assert.match(html, /Qué:<\/dt><dd>Revisar petición/u);
+  assert.match(html, /Quién:<\/dt><dd>Unidad RRHH/u);
   assert.match(html, /No consta un plazo autorizado para este paso/u);
 
   const bloqueada = { ...tarea, responsable: "Pendiente de definición por RRHH", unidad: "—",
@@ -120,7 +121,7 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   assert.match(en, /Next step/u);
   assert.match(en, /No person or unit is assigned in the record/u);
   assert.match(en, /No authorised deadline is recorded/u);
-  assert.doesNotMatch(en, /What:<\/strong> Firmar/u);
+  assert.doesNotMatch(en, /What:<\/dt><dd>Firmar/u);
 });
 
 
@@ -700,9 +701,11 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   const estado = estadoVista(expediente, "");
   const html = renderizarModuloContratacionTemporal(estado);
   // El identificador técnico anterior a la numeración no se muestra: figura sin numerar.
-  assert.ok(html.includes("<h3>Sin numerar</h3>"));
+  assert.ok(html.includes(">Expediente Sin numerar</h2>"));
   assert.ok(!html.includes(expediente.numero_visible));
-  assert.match(html, /ct-exp-cabecera-expediente/u);
+  assert.match(html, /ct-exp-ficha-cabecera/u);
+  const diseno = await readFile(new URL("./expedientes-diseno.css", import.meta.url), "utf8");
+  assert.match(diseno, /\.ct-exp-ficha-cabecera h3 \{[^}]*overflow-wrap: anywhere;/u);
   assert.doesNotMatch(html, /class="ct-exp-(?:progreso|tareas|tramitacion)"/u);
   const auditoria = validarAuditoriaContratacionTemporal(
     crearAuditoriaContratacionTemporalPresentacion(),

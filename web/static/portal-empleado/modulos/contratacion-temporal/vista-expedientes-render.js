@@ -1,7 +1,7 @@
 /** Funciones de renderizado y extracción de contextos para expedientes de contratación temporal. */
 
 import {
-  escaparHTML, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
+  escaparHTML, numeroExpedienteVisible, renderizarAuditoria, renderizarCuadro, renderizarDocumentos,
   renderizarEstadoCarga, renderizarExpediente,
 } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
@@ -55,9 +55,15 @@ export function renderizarCabeceraModulo(estado, t) {
       <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}</a>
       ${enlaceReglasVigentes()}
     </div>` : "";
+  // Dentro de un expediente, el título dice cuál es («Expediente 2026/CT-000015»).
+  const enExpediente = ["expediente", "documentos", "auditoria"].includes(estado.vista)
+    && typeof estado.expediente?.numero_visible === "string";
+  const titulo = enExpediente
+    ? t("ficha_titulo_modulo", { numero: numeroExpedienteVisible(estado.expediente.numero_visible, t) })
+    : t("titulo");
   return `<header class="ct-exp-cabecera-modulo">
     <div>
-      <h2>${escaparHTML(t("titulo"))}</h2>
+      <h2>${escaparHTML(titulo)}</h2>
     </div>
     ${acciones}
   </header>`;

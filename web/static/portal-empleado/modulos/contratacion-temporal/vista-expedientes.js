@@ -18,7 +18,7 @@ import {
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260928-usab-exp-firma-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260929-diseno-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
@@ -79,7 +79,7 @@ function enfocar(raiz, selector) {
 }
 
 function enfocarCabeceraExpediente(raiz) {
-  const cabecera = raiz.querySelector(".ct-exp-cabecera-expediente h3");
+  const cabecera = raiz.querySelector(".ct-exp-ficha-cabecera h3") ?? raiz.querySelector(".ct-exp-cabecera-expediente h3");
   if (!cabecera) return;
   cabecera.setAttribute?.("tabindex", "-1");
   cabecera.focus?.();
@@ -763,6 +763,15 @@ export async function montarModuloContratacionTemporal({
       repintar("[data-ct-exp-mensaje]");
       await promesa;
       repintar(".ct-exp-contenido");
+    } else if (accion.dataset.ctExpAccion === "ir-tramite") {
+      // Lleva al primer trámite montado de la fase (formularios bajo la ficha).
+      const marca = raiz.querySelector("[data-ct-exp-tramite]");
+      let destino = marca?.nextElementSibling;
+      while (destino && !destino.textContent.trim()) destino = destino.nextElementSibling;
+      destino = destino ?? raiz.querySelector("[data-ct-exp-llamamiento]") ?? marca;
+      destino?.scrollIntoView?.({ block: "start" });
+      (destino?.querySelector?.("h2, h3, h4, legend") ?? destino)?.setAttribute?.("tabindex", "-1");
+      (destino?.querySelector?.("h2, h3, h4, legend") ?? destino)?.focus?.({ preventScroll: true });
     } else if (accion.dataset.ctExpAccion === "cancelar") {
       presentador.cancelar();
       repintar("[data-ct-exp-mensaje]");

@@ -1,8 +1,10 @@
 /** Textos castellanos de la superficie de expedientes de contratación temporal. */
 import { mensajesTramite } from "./i18n-fases-rrhh.js";
+import { MENSAJES_FICHA_LISTA_EN, MENSAJES_FICHA_LISTA_ES } from "./i18n-ficha-lista.js";
 
 export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   ...mensajesTramite("es"),
+  ...MENSAJES_FICHA_LISTA_ES,
   centro_visible: "Centro {ambito} · {numero}",
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
@@ -56,7 +58,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   incorporacion_preparacion_reintentar: "Consultar de nuevo la incorporación",
   titulo: "Peticiones de personal temporal",
   navegacion: "Áreas de peticiones de personal temporal",
-  nav_cuadro: "Cuadro de mando",
+  nav_cuadro: "Lista de peticiones",
   nav_alta: "Nueva petición",
   nav_expediente: "Expediente",
   nav_documentos: "Documentos",
@@ -389,6 +391,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
 /** British English texts for the temporary staff requests case-file interface. */
 export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   ...mensajesTramite("en"),
+  ...MENSAJES_FICHA_LISTA_EN,
   centro_visible: "Centre {ambito} · {numero}",
   justificante_registrado: "Acknowledgement recorded",
   justificante_copiar: "Copy reference",
@@ -442,7 +445,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_EN = Object.freeze({
   incorporacion_preparacion_reintentar: "Check commencement again",
   titulo: "Recruitment case files",
   navegacion: "Temporary staff requests areas",
-  nav_cuadro: "Dashboard",
+  nav_cuadro: "Request list",
   nav_alta: "New request",
   nav_expediente: "Case file",
   nav_documentos: "Documents",

@@ -1,0 +1,32 @@
+/*
+ * Ficha y lista de peticiones con los patrones comunes (portal-patrones.css).
+ * Solo ajustes de colocación propios del módulo; sin colores propios.
+ */
+
+/* El sistema calla cuando todo va bien: los avisos informativos quedan para
+   el lector de pantalla; errores y resultados siguen a la vista. */
+.ct-exp-mensaje.ct-tono-informacion,
+.ct-exp-mensaje.ct-tono-info {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ct-exp-ficha-cabecera > div { min-width: 0; }
+.ct-exp-ficha-cabecera h3 { margin: 0; overflow-wrap: anywhere; color: var(--portal-tinta); font-size: 1.125rem; font-weight: 600; }
+.ct-exp-ficha-cabecera .estado-linea { color: var(--portal-muted); font-size: 0.875rem; }
+.ct-exp-ficha-cabecera .estado-linea > span:first-child { color: var(--portal-tinta); font-weight: 600; }
+.ct-exp-fases { margin: 0 0 20px; }
+.ct-exp-fases .cabecera-panel p { margin: 0; }
+.ct-exp-ficha-rejilla { margin: 0 0 20px; }
+.ct-exp-ficha-rejilla .pila { display: grid; gap: 20px; min-width: 0; align-content: start; }
+.ct-exp-ficha-rejilla .ct-exp-cambios { margin: 0; }
+.ct-exp-ficha-documentos .cuerpo-panel { display: grid; gap: 12px; justify-items: start; }
+.ct-exp-ficha-documentos .cuerpo-panel p { margin: 0; color: var(--portal-muted); }
+.ct-exp-ficha-historial .historial-frases { max-height: 420px; overflow-y: auto; }
+.ct-exp-ficha-datos .datos-clave dd .enlace-tabla { padding: 0; text-align: left; }
+.ct-exp-tramite:focus { outline: none; }
+.ct-exp-fase-panel { margin: 0 0 20px; }

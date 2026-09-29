@@ -309,7 +309,7 @@ function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
     fecha: fechaCivil(hito.realizada_en, locale, true),
-    fase: etiqueta(hito.fase_destino, t),
+    fase: faseVisible(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
     estado: etiqueta(hito.estado_destino, t),

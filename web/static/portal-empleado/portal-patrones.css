@@ -23,6 +23,7 @@
 .cabeza-pagina p { margin: 4px 0 0; color: var(--portal-muted); font-size: 0.875rem; }
 .cabeza-pagina .estado-linea { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .rejilla-principal { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.pila { display: grid; gap: 20px; min-width: 0; align-content: start; }
 .rejilla-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
 .pie-panel { display: flex; justify-content: center; padding: 12px 20px; border-top: 1px solid var(--portal-borde); }
 .texto-secundario { color: var(--portal-muted); font-size: 0.8125rem; }
@@ -358,6 +359,8 @@
   .linea-fases > li,
   .linea-fases button { grid-template-columns: 32px minmax(0, 1fr); justify-items: start; align-items: center; column-gap: 12px; text-align: left; }
   .linea-fases > li { padding: 6px 0; }
+  .linea-fases > li:has(> button) { display: block; }
+  .linea-fases button { width: 100%; }
   .linea-fases > li::before { top: -50%; left: 15px; width: 2px; height: 100%; }
   .linea-fases .marca { grid-row: span 2; }
   .filtros-quitables { grid-template-columns: 1fr; padding: 16px; }
