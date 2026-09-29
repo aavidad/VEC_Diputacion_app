@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import MagicMock, patch
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -77,6 +78,42 @@ class RecorridoPrueba(unittest.TestCase):
         (self.raiz / ".git").mkdir()
         with self.assertRaises(NoEjecutado):
             preparar_destino(self.raiz / "capturas")
+
+    def test_cli_observar_sin_destino_sigue_siendo_no_ejecutado(self):
+        escenario = Path(self.temporal.name) / "material" / "apertura.json"
+        escenario.write_text(json.dumps(self.escenario), encoding="utf-8")
+        resultado = subprocess.run(
+            [sys.executable, str(Path(__file__).with_name("recorrido.py")),
+             "--escenario", str(escenario), "--observar"],
+            capture_output=True, text=True, timeout=5, check=False)
+        self.assertEqual(resultado.returncode, 3)
+        self.assertIn("NO EJECUTADO", resultado.stderr)
+
+    def test_timeout_de_apertura_conserva_capturas_en_ambas_vistas(self):
+        from observar import observar_apertura
+        from playwright.sync_api import TimeoutError
+        destino = Path(self.temporal.name) / "capturas"
+        playwright = MagicMock()
+        navegador = playwright.chromium.launch.return_value
+        contexto = navegador.new_context.return_value
+        contexto.cookies.return_value = []
+        pagina = contexto.new_page.return_value
+        pagina.goto.side_effect = TimeoutError("red sin reposo")
+        pagina.evaluate.return_value = {"ancho": 390, "contenido": 390, "local": 0,
+                                       "sesion": 0, "indexeddb": 0}
+        pagina.screenshot.side_effect = lambda **kwargs: Path(kwargs["path"]).write_bytes(b"png sintetico")
+        with patch("playwright.sync_api.sync_playwright") as iniciar:
+            iniciar.return_value.__enter__.return_value = playwright
+            self.assertEqual(observar_apertura(self.escenario, destino), 1)
+        informe = json.loads((destino / "resultado.json").read_text())
+        self.assertEqual(informe["estado"], "CORTE_APLICACION")
+        self.assertEqual(informe["operaciones_completadas"], [])
+        self.assertEqual(informe["flujo_posterior"], "NO_EJECUTADO")
+        for actor in ("rrhh", "candidato"):
+            self.assertEqual(informe["perfiles"][actor]["fallo"], "TimeoutError")
+            self.assertEqual(len(informe["perfiles"][actor]["vistas"]), 2)
+            for ancho in (1440, 390):
+                self.assertTrue((destino / f"llamamiento-{actor}-{ancho}.png").is_file())
 
     def test_faltan_clon_o_binario_cierra(self):
         for campo, valor in (("clon", "HITO1"), ("binario_sha256", "0" * 64)):

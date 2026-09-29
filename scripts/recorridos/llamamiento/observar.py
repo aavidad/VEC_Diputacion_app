@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from recorrido import NoEjecutado, mismo_origen, servir_solo_origen
+from errores import NoEjecutado
+from recorrido import mismo_origen, servir_solo_origen
 
 
 IDIOMA = "en" if os.environ.get("LANG", "").startswith("en") else "es"
@@ -67,24 +68,29 @@ def observar_apertura(escenario, destino):
                           if not mismo_origen(r.url, origen) else None)
                 try:
                     pagina.goto(origen + identidad["ruta"], wait_until="networkidle", timeout=30000)
-                    for ancho, alto in ((1440, 900), (390, 844)):
-                        pagina.set_viewport_size({"width": ancho, "height": alto})
-                        pagina.wait_for_timeout(250)
-                        estado = pagina.evaluate("""async () => ({
-                            ancho: document.documentElement.clientWidth,
-                            contenido: document.documentElement.scrollWidth,
-                            local: localStorage.length, sesion: sessionStorage.length,
-                            indexeddb: typeof indexedDB.databases === 'function'
-                              ? (await indexedDB.databases()).length : null
-                        })""")
-                        estado["cookies"] = len(contexto.cookies())
-                        resultado["vistas"].append(estado)
-                        captura = destino / f"llamamiento-{actor}-{ancho}.png"
-                        pagina.screenshot(path=str(captura), full_page=True)
-                        captura.chmod(0o600)
                 except Exception as error:
                     resultado["fallo"] = type(error).__name__
                 finally:
+                    for ancho, alto in ((1440, 900), (390, 844)):
+                        estado = {"ancho": ancho, "captura": False}
+                        try:
+                            pagina.set_viewport_size({"width": ancho, "height": alto})
+                            pagina.wait_for_timeout(250)
+                            captura = destino / f"llamamiento-{actor}-{ancho}.png"
+                            pagina.screenshot(path=str(captura), full_page=True, timeout=5000)
+                            captura.chmod(0o600)
+                            estado["captura"] = True
+                            estado.update(pagina.evaluate("""async () => ({
+                                ancho: document.documentElement.clientWidth,
+                                contenido: document.documentElement.scrollWidth,
+                                local: localStorage.length, sesion: sessionStorage.length,
+                                indexeddb: typeof indexedDB.databases === 'function'
+                                  ? (await indexedDB.databases()).length : null
+                            })"""))
+                            estado["cookies"] = len(contexto.cookies())
+                        except Exception as error:
+                            estado["fallo"] = type(error).__name__
+                        resultado["vistas"].append(estado)
                     contexto.close()
         finally:
             navegador.close()
@@ -92,8 +98,8 @@ def observar_apertura(escenario, destino):
     informe["primer_corte_http"] = fallos_http[0] if fallos_http else None
     fallo = bool(fallos_http) or any(
         p.get("fallo") or any(p[k] for k in ("errores_js", "set_cookie", "externas", "fallos_red"))
-        or any(v["contenido"] > v["ancho"] or v["local"] or v["sesion"]
-               or v["cookies"] or v["indexeddb"] for v in p["vistas"])
+        or any(v.get("fallo") or v.get("contenido", 0) > v["ancho"] or v.get("local")
+               or v.get("sesion") or v.get("cookies") or v.get("indexeddb") for v in p["vistas"])
         for p in informe["perfiles"].values())
     if fallo:
         informe["estado"] = "CORTE_APLICACION"

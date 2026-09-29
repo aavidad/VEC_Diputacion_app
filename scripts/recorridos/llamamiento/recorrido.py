@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+from errores import NoEjecutado, FalloRecorrido
 
 
 RUTAS = {
@@ -35,14 +36,6 @@ ESTADO_HTTP_INICIAL = {
     "comunicacion": 201, "candidato_respuesta": 201,
     "declaracion_rrhh": 201, "resolucion_rrhh": 201, "siguiente": 201,
 }
-
-
-class NoEjecutado(ValueError):
-    """Falta una condición previa; no se abre el navegador."""
-
-
-class FalloRecorrido(RuntimeError):
-    """El recorrido empezó y una comprobación falló."""
 
 
 def leer_json(ruta: Path) -> dict:
