@@ -54,8 +54,12 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     contenedorInstalado?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
   }
 
-  async function cargar({ enfocar = false } = {}) {
+  // Los correos se piden al terminar las preferencias, nunca a la vez: la
+  // frontera de identidad no admite dos altas simultáneas de la misma cuenta.
+  function cargarCorreos() {
     if (correos && ["sin_cargar", "error"].includes(correos.leerCarga())) void correos.cargar();
+  }
+  async function cargar({ enfocar = false } = {}) {
     controlador?.abort();
     controlador = new AbortController();
     const actual = ++generacion;
@@ -67,10 +71,12 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
       datos = nuevos; estado = "lista"; actualizar();
       if (enfocar) enfocarResultado();
       alCargar(nuevos);
+      cargarCorreos();
     } catch (fallo) {
       if (actual !== generacion || controlador.signal.aborted) return;
       datos = null; estado = "error"; error = fallo; actualizar();
       if (enfocar) enfocarResultado();
+      cargarCorreos();
     }
   }
   function desmontarPeticion() { controlador?.abort(); ++generacion; }

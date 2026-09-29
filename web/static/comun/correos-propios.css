@@ -40,6 +40,7 @@
 .correos-panel button.correos-ayuda-boton { min-height: 32px; }
 @media (max-width: 520px) {
   .correos-verificar, .correos-alta { align-items: stretch; flex-direction: column; }
+  .correos-alta .correos-campo { flex: 0 0 auto; }
   .correos-verificar input { width: 100%; }
   .correos-acciones > button, .correos-verificar > button, .correos-alta > button { width: 100%; }
 }

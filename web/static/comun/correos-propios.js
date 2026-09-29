@@ -138,7 +138,7 @@ const MARCO_PREDETERMINADO = Object.freeze({ panel: "panel", cabecera: "div", cl
  * Superficie de «Mis correos». `marco` adapta las clases del panel a cada
  * portal; el resto del marcado y el comportamiento son comunes.
  */
-export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETERMINADO, aleatorio = globalThis.crypto, zonaHoraria = "Europe/Madrid" } = {}) {
+export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETERMINADO, aleatorio = globalThis.crypto, zonaHoraria = "Europe/Madrid", cargaAlMostrar = false } = {}) {
   if (!cliente || typeof textos?.traducir !== "function") throw new TypeError("superficie de correos incompleta");
   const t = (clave, variables) => textos.traducir(`correos.${clave}`, variables);
   let datos = null;
@@ -346,9 +346,15 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
     return `${cabecera}<div class="${escapar(marco.cuerpo)} correos-cuerpo">${textoAyuda}${contenido}</div>`;
   }
 
-  /** Al mostrarse por primera vez en un contenedor instalado, consulta la lista. */
+  /**
+   * Con `cargaAlMostrar`, la primera vez que se muestra en un contenedor
+   * instalado consulta la lista. Sin él, quien la integra decide cuándo: la
+   * identidad de desarrollo no admite dos altas de sesión simultáneas de la
+   * misma cuenta por rutas distintas, así que el portal la pide después de
+   * sus preferencias y nunca a la vez.
+   */
   function renderizar() {
-    if (carga === "sin_cargar" && contenedor) queueMicrotask(() => { if (carga === "sin_cargar") void cargar(); });
+    if (cargaAlMostrar && carga === "sin_cargar" && contenedor) queueMicrotask(() => { if (carga === "sin_cargar") void cargar(); });
     return `<section class="${escapar(marco.panel)} correos-panel" data-correos-raiz aria-labelledby="correos-titulo"${ocupado ? ' aria-busy="true"' : ""}>${interior()}</section>`;
   }
 

@@ -102,6 +102,6 @@ export function sincronizarAtajosVisuales(valores, documento = globalThis.docume
 export async function crearCorreosAreaPersonal(fetchImpl = globalThis.fetch) {
   try {
     return crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/area-personal/mis-correos", fetchImpl }),
-      textos: await cargarTextosCorreos(), marco: { panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" } });
+      textos: await cargarTextosCorreos(), marco: { panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" }, cargaAlMostrar: true });
   } catch { return null; }
 }
