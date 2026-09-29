@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -138,17 +139,22 @@ func (p *proveedorEntregaPeticionDesarrollo) ComprobarPerfilEntregaPeticionCentr
 		fijo.perfilRef() != perfil || fijo.plantilla.AsignacionPerfil.PrincipalID != a {
 		return p.denegarEntregaPreV3(ctx, a)
 	}
-	if _, ok := p.alta.soporte.consumirPerfilFijoCTDesarrollo(ctx, fijo); !ok {
+	_, estado := p.alta.soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, fijo)
+	switch estado {
+	case perfilFijoConsumoVigente:
+		return nil
+	case perfilFijoConsumoDenegado:
 		return p.denegarEntregaPreV3(ctx, a)
+	default:
+		return ports.ErrPeticionCentroNoDisponible
 	}
-	return nil
 }
 
 func (p *proveedorEntregaPeticionDesarrollo) denegarEntregaPreV3(ctx context.Context, actor string) error {
 	if p.registrarDenegacionPreV3(ctx, actor) != nil {
 		return ports.ErrPeticionCentroNoDisponible
 	}
-	return ports.ErrAutorizacionDenegada
+	return errors.Join(ports.ErrAutorizacionDenegada, vecdomain.ErrAutorizacionDenegada)
 }
 
 // La consulta de ámbitos ocurre antes de solicitar una decisión V3. Su
@@ -218,8 +224,19 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	if m.Modo == "preparar" {
 		sello, err := p.ambitoDeClaveAlta(ctx, m.ClaveAltaCandidata, a, perfil)
 		if err != nil || !hmac.Equal([]byte(sello), []byte(m.AmbitoAltaHMAC)) {
-			return vacio, ports.ErrAutorizacionDenegada
+			return vacio, p.denegarEntregaPreV3(ctx, a)
 		}
+	}
+	fijo := p.alta.soporte.perfilFijoParaContexto(ctx, rutaEntregaPeticionCentro)
+	if fijo == nil || fijo.perfilRef() != perfil {
+		return vacio, p.denegarEntregaPreV3(ctx, a)
+	}
+	_, estado := p.alta.soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, fijo)
+	switch estado {
+	case perfilFijoConsumoDenegado:
+		return vacio, p.denegarEntregaPreV3(ctx, a)
+	case perfilFijoConsumoFuenteNoDisponible:
+		return vacio, ports.ErrPeticionCentroNoDisponible
 	}
 	r, err := postgresct.RecursoEntregaPeticionCentro(m)
 	if err != nil {
@@ -245,6 +262,15 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, d)
 	decision, confirmacion, err := p.alta.autorizador.ExigirSolicitudLigadaV3(ctx, s, operativo.Resultado)
 	if err != nil {
+		// La asignación puede cambiar entre la primera lectura y el PDP. La
+		// segunda lectura conserva la distinción 403/503 sin conceder por carrera.
+		_, estado := p.alta.soporte.consumirPerfilFijoCTDesarrolloConEstado(ctx, fijo)
+		if estado == perfilFijoConsumoDenegado {
+			return vacio, p.denegarEntregaPreV3(ctx, a)
+		}
+		if estado == perfilFijoConsumoFuenteNoDisponible {
+			return vacio, ports.ErrPeticionCentroNoDisponible
+		}
 		return vacio, err
 	}
 	return p.alta.postgresql.proveedorMaterial.proveerMaterialConfirmacion(ctx, s, decision, confirmacion, motivoEntregaPeticionDesarrollo(), operativo.Resultado)
