@@ -149,6 +149,7 @@ func crearOComprobarLoginProvisionadorHito1(ctx context.Context, admin *pgxpool.
 	var valido bool
 	err = tx.QueryRow(ctx, `SELECT r.rolcanlogin AND r.rolinherit AND NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
  AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
+ AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.roleid='vec_identidad_sesiones_v1_provisionador'::regrole)
  AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
  WHERE m.member=r.oid AND g.rolname='vec_identidad_sesiones_v1_provisionador'
  AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option
@@ -169,7 +170,10 @@ func comprobarLoginProvisionadorHito1(ctx context.Context, pool *pgxpool.Pool, t
  AND has_schema_privilege(session_user,'vec_identidad_sesiones_v1','USAGE')
  AND has_function_privilege(session_user,'vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea)','EXECUTE')
  AND has_function_privilege(session_user,'vec_identidad_sesiones_v1.registrar_alias_hmac_cuenta_v1(text,text,text,text,text,bigint,bytea,bytea)','EXECUTE')
- AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole)`, loginProvisionadorHito1).Scan(&valido)
+ AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole)
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole
+ AND m.roleid='vec_identidad_sesiones_v1_provisionador'::regrole
+ AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)`, loginProvisionadorHito1).Scan(&valido)
 	if err != nil || !valido {
 		return errComposicionUsuariosPreferencias
 	}
