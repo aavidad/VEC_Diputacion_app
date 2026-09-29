@@ -74,6 +74,7 @@
 1464 internal/vec/domain/pagos_test.go
 861 internal/vec/ports/almacen_objetos_carga_test.go
 1206 internal/vec/ports/almacen_objetos.go
+834 internal/vec/ports/autorizacion_almacen.go
 802 internal/vec/ports/autorizacion_solicitud_ligada_v3.go
 1154 internal/vec/ports/ejecucion_componentes_documentales_atestada.go
 1010 internal/vec/ports/ejecucion_componentes_documentales_atestada_test.go
