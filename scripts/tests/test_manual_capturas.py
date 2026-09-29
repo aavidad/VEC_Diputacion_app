@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import stat
 import tempfile
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 from PIL import Image
 
@@ -24,7 +27,8 @@ class ContratoCapturas(unittest.TestCase):
                          "http://127.0.0.1:8080")
         for url in ("https://example.org", "http://user:pass@localhost:8000",
                     "http://localhost:8000/?token=secreto", "file:///etc/passwd",
-                    "http://localhost:8000/ruta"):
+                    "http://localhost:8000/ruta", "http://localhost:8000/?",
+                    "http://localhost:8000/#"):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 capturador.validar_url_local(url, origen=True)
         self.assertFalse(capturador._peticion_local("http://127.0.0.1:9999/datos",
@@ -45,6 +49,14 @@ class ContratoCapturas(unittest.TestCase):
             opciones = capturador._certificados_externos("https://localhost:8443", cert, key, None)
             self.assertEqual(opciones[0]["origin"], "https://localhost:8443")
             self.assertEqual(opciones[0]["certPath"], str(cert))
+        otra_raiz = next((raiz for raiz in capturador._raices_git()
+                          if raiz != capturador.RAIZ_REPOSITORIO),
+                         capturador.RAIZ_REPOSITORIO)
+        self.assertTrue(capturador._dentro_de_git(otra_raiz / "README.md"))
+        with self.assertRaises(ValueError):
+            capturador._certificados_externos(
+                "https://localhost:8443", otra_raiz / "README.md",
+                otra_raiz / "README.md", None)
 
     def test_rechaza_datos_sensibles_y_acciones_que_escriben(self):
         escenario = {"pantallas": [{"clave": "inicio", "ruta": "/", "pasos": [],
@@ -71,12 +83,129 @@ class ContratoCapturas(unittest.TestCase):
             manifiesto = capturador.ejecutar_ensayo(salida)
             datos = json.loads(manifiesto.read_text(encoding="utf-8"))
             self.assertEqual(datos["tipo"], "ensayo-sintetico")
+            self.assertTrue(datos["pendiente_revision_visual"])
             self.assertEqual(len(datos["capturas"]), 2)
             self.assertNotIn("127.0.0.1", manifiesto.read_text(encoding="utf-8"))
+            self.assertEqual(stat.S_IMODE(salida.stat().st_mode), 0o700)
+            self.assertEqual(stat.S_IMODE(manifiesto.stat().st_mode), 0o600)
             for captura in datos["capturas"]:
                 with Image.open(salida / captura["archivo"]) as imagen:
                     self.assertEqual(imagen.size, (captura["ancho"], captura["alto"]))
+                self.assertEqual(stat.S_IMODE((salida / captura["archivo"]).stat().st_mode), 0o600)
                 self.assertEqual([marca["numero"] for marca in captura["marcas"]], [1, 2])
+
+    def test_no_sigue_redireccion_a_otro_origen(self):
+        visitas = {"origen": 0, "destino": 0}
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                visitas["destino"] += 1
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"destino")
+
+            def log_message(self, *_args):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+
+        class Origen(BaseHTTPRequestHandler):
+            def do_GET(self):
+                visitas["origen"] += 1
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{destino.server_port}/externo")
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        origen = ThreadingHTTPServer(("127.0.0.1", 0), Origen)
+        hilos = [Thread(target=servidor.serve_forever, daemon=True)
+                 for servidor in (destino, origen)]
+        for hilo in hilos:
+            hilo.start()
+        escenario = {"pantallas": [{"clave": "redirigida", "ruta": "/", "pasos": [],
+                                     "marcas": [{"numero": 1, "selector": "h1",
+                                                 "texto": "Título", "tipo": "recuadro"}], "ocultar": []}]}
+        try:
+            with tempfile.TemporaryDirectory() as temporal:
+                with self.assertRaises(Exception):
+                    capturador.capturar(f"http://127.0.0.1:{origen.server_port}", escenario,
+                                       Path(temporal), confirmar_sinteticos=True)
+            self.assertEqual(visitas["origen"], 1)
+            self.assertEqual(visitas["destino"], 0)
+        finally:
+            for servidor in (origen, destino):
+                servidor.shutdown()
+                servidor.server_close()
+            for hilo in hilos:
+                hilo.join(timeout=2)
+
+    def test_carga_recurso_versionado_y_espera_estado_final(self):
+        visitas = []
+
+        class PaginaVersionada(BaseHTTPRequestHandler):
+            def do_GET(self):
+                visitas.append(self.path)
+                self.send_response(200)
+                if self.path.startswith("/app.js"):
+                    contenido = b'document.querySelector("main").innerHTML = "<h1 id=exito>Listo</h1>";'
+                    self.send_header("Content-Type", "text/javascript")
+                else:
+                    contenido = b'<main></main><script src="/app.js?v=1"></script>'
+                    self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(contenido)))
+                self.end_headers()
+                self.wfile.write(contenido)
+
+            def log_message(self, *_args):
+                pass
+
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), PaginaVersionada)
+        hilo = Thread(target=servidor.serve_forever, daemon=True)
+        hilo.start()
+        escenario = {"pantallas": [{"clave": "versionada", "ruta": "/", "pasos": [],
+                                     "exito": "#exito", "marcas": [
+                                         {"numero": 1, "selector": "#exito",
+                                          "texto": "Estado final", "tipo": "recuadro"}], "ocultar": []}]}
+        try:
+            with tempfile.TemporaryDirectory() as temporal:
+                capturador.capturar(f"http://127.0.0.1:{servidor.server_port}", escenario,
+                                   Path(temporal), confirmar_sinteticos=True)
+            self.assertEqual(visitas.count("/app.js?v=1"), 2)
+        finally:
+            servidor.shutdown()
+            servidor.server_close()
+            hilo.join(timeout=2)
+
+    def test_rechaza_marca_tapada_por_capa(self):
+        class PaginaTapada(BaseHTTPRequestHandler):
+            def do_GET(self):
+                html = (b'<h1 id="titulo">Ensayo</h1>'
+                        b'<div style="position:fixed;inset:0;background:white;z-index:9"></div>')
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(html)
+
+            def log_message(self, *_args):
+                pass
+
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), PaginaTapada)
+        hilo = Thread(target=servidor.serve_forever, daemon=True)
+        hilo.start()
+        escenario = {"pantallas": [{"clave": "tapada", "ruta": "/", "pasos": [],
+                                     "marcas": [{"numero": 1, "selector": "#titulo",
+                                                 "texto": "Título", "tipo": "recuadro"}], "ocultar": []}]}
+        try:
+            with tempfile.TemporaryDirectory() as temporal:
+                with self.assertRaisesRegex(ValueError, "no visible"):
+                    capturador.capturar(f"http://127.0.0.1:{servidor.server_port}", escenario,
+                                       Path(temporal), confirmar_sinteticos=True)
+        finally:
+            servidor.shutdown()
+            servidor.server_close()
+            hilo.join(timeout=2)
 
 
 if __name__ == "__main__":

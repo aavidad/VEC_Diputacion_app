@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capturas locales anotadas para manuales, con una fuente sintética comprobable."""
+"""Capturas locales anotadas para manuales, con fuente sintética declarada."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ import hashlib
 import json
 import os
 import re
+import stat
+import subprocess
 import sys
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -39,7 +41,7 @@ ESTILO_ESTABLE = """*, *::before, *::after {
 
 def validar_url_local(valor: str, *, origen: bool = False) -> str:
     """Admite HTTP(S) de loopback sin credenciales ni parámetros en la URL."""
-    if any(c.isspace() for c in valor) or "\\" in valor:
+    if any(c.isspace() for c in valor) or "\\" in valor or (origen and ("?" in valor or "#" in valor)):
         raise ValueError("URL inválida")
     try:
         url = urlsplit(valor)
@@ -66,7 +68,10 @@ def validar_escenario(datos: object) -> dict:
         raise ValueError("incluya al menos una pantalla")
     claves = set()
     for pantalla in pantallas:
-        if not isinstance(pantalla, dict) or set(pantalla) != {"clave", "ruta", "pasos", "marcas", "ocultar"}:
+        obligatorias = {"clave", "ruta", "pasos", "marcas", "ocultar"}
+        opcionales = {"ruta_final", "exito"}
+        if (not isinstance(pantalla, dict) or not obligatorias <= set(pantalla) or
+                not set(pantalla) <= obligatorias | opcionales):
             raise ValueError("cada pantalla requiere clave, ruta, pasos, marcas y ocultar")
         clave, ruta = pantalla["clave"], pantalla["ruta"]
         if not isinstance(clave, str) or not CLAVE.fullmatch(clave) or clave in claves:
@@ -76,6 +81,13 @@ def validar_escenario(datos: object) -> dict:
                 ruta.startswith("//") or "?" in ruta or "#" in ruta or "\\" in ruta or
                 SENSIBLE.search(ruta)):
             raise ValueError("la ruta debe ser relativa, sin parámetros ni datos sensibles")
+        ruta_final = pantalla.get("ruta_final", ruta)
+        if (not isinstance(ruta_final, str) or not ruta_final.startswith("/") or
+                ruta_final.startswith("//") or "?" in ruta_final or "#" in ruta_final or
+                "\\" in ruta_final or SENSIBLE.search(ruta_final)):
+            raise ValueError("ruta_final debe ser relativa y sin parámetros")
+        if "exito" in pantalla:
+            _validar_selector(pantalla["exito"])
         if not isinstance(pantalla["pasos"], list):
             raise ValueError("pasos debe ser una lista")
         for paso in pantalla["pasos"]:
@@ -137,7 +149,7 @@ def _certificados_externos(base_url: str, certificado: Path | None,
     archivos = []
     for ruta in (certificado, clave):
         real = ruta.resolve()
-        if real.is_relative_to(RAIZ_REPOSITORIO) or not real.is_file():
+        if _dentro_de_git(real) or not real.is_file():
             raise ValueError("los archivos mTLS deben existir fuera del repositorio")
         archivos.append(real)
     datos = {"origin": base_url, "certPath": str(archivos[0]), "keyPath": str(archivos[1])}
@@ -146,6 +158,63 @@ def _certificados_externos(base_url: str, certificado: Path | None,
             raise ValueError("variable de frase mTLS ausente o inválida")
         datos["passphrase"] = os.environ[frase_env]
     return [datos]
+
+
+def _raices_git() -> list[Path]:
+    resultado = subprocess.run(
+        ["git", "-C", str(RAIZ_REPOSITORIO), "worktree", "list", "--porcelain"],
+        check=True, capture_output=True, text=True,
+        env={nombre: valor for nombre, valor in os.environ.items()
+             if not nombre.startswith("GIT_")},
+    )
+    raices = [Path(line[9:]).resolve() for line in resultado.stdout.splitlines()
+              if line.startswith("worktree ")]
+    if not raices:
+        raise RuntimeError("no se pudieron identificar los worktrees Git")
+    return raices
+
+
+def _dentro_de_git(ruta: Path) -> bool:
+    real = ruta.resolve()
+    return any(real.is_relative_to(raiz) for raiz in _raices_git())
+
+
+def _responder_peticion(ruta, base_url: str) -> None:
+    if not _peticion_local(ruta.request.url, base_url):
+        ruta.abort()
+        return
+    respuesta = ruta.fetch(max_redirects=0, timeout=15000)
+    if 300 <= respuesta.status < 400:
+        ruta.abort()
+        return
+    ruta.fulfill(response=respuesta)
+
+
+def _escribir_privado(ruta: Path, contenido: bytes) -> None:
+    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as archivo:
+        archivo.write(contenido)
+
+
+def _vista_final_valida(url: str, base_url: str, ruta_esperada: str) -> bool:
+    try:
+        destino = urlsplit(url)
+        origen = urlsplit(base_url)
+        return (destino.scheme, destino.hostname, destino.port) == (
+            origen.scheme, origen.hostname, origen.port) and (
+            destino.path == ruta_esperada and not destino.query and not destino.fragment)
+    except ValueError:
+        return False
+
+
+def _marca_destapada(pagina, selector: str) -> bool:
+    return bool(pagina.locator(selector).evaluate("""elemento => {
+      const caja = elemento.getBoundingClientRect();
+      const x = caja.left + caja.width / 2;
+      const y = caja.top + caja.height / 2;
+      const superior = document.elementFromPoint(x, y);
+      return Boolean(superior && (elemento === superior || elemento.contains(superior)));
+    }"""))
 
 
 def _anotar(png: bytes, marcas: list[dict], cajas: list[dict]) -> bytes:
@@ -193,9 +262,13 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
     except ImportError as exc:
         raise RuntimeError("falta Python Playwright") from exc
 
+    if salida.is_symlink() or _dentro_de_git(salida):
+        raise ValueError("el directorio de salida debe estar fuera de todos los worktrees Git")
     if salida.exists() and any(salida.iterdir()):
         raise ValueError("el directorio de salida debe estar vacío para evitar mezclar capturas")
-    salida.mkdir(parents=True, exist_ok=True)
+    salida.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if stat.S_IMODE(salida.stat().st_mode) & 0o077:
+        raise ValueError("el directorio de salida debe ser privado (0700)")
     registros = []
     with sync_playwright() as playwright:
         navegador = playwright.chromium.launch(executable_path=str(CHROME), headless=True)
@@ -207,9 +280,7 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
                                                     accept_downloads=False,
                                                     client_certificates=certificados)
                     try:
-                        contexto.route("**/*", lambda ruta: (
-                            ruta.continue_() if _peticion_local(ruta.request.url, base_url) else ruta.abort()
-                        ))
+                        contexto.route("**/*", lambda ruta: _responder_peticion(ruta, base_url))
                         contexto.route_web_socket("**/*", lambda conexion: conexion.close())
                         pagina = contexto.new_page()
                         respuesta = pagina.goto(base_url + pantalla["ruta"], wait_until="domcontentloaded", timeout=15000)
@@ -226,21 +297,27 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
                                 localizador.fill(paso["valor"], timeout=10000)
                             else:
                                 localizador.select_option(value=paso["valor"], timeout=10000)
+                        if "exito" in pantalla:
+                            pagina.locator(pantalla["exito"]).wait_for(state="visible", timeout=10000)
+                        if not _vista_final_valida(pagina.url, base_url, pantalla.get("ruta_final", pantalla["ruta"])):
+                            raise ValueError(f"la vista final no coincide con el escenario: {pantalla['clave']}")
                         pagina.evaluate("() => document.fonts.ready")
                         _detectar_datos_sensibles(pagina)
                         mascaras = [pagina.locator(OCULTAR_BASE)]
                         mascaras.extend(pagina.locator(selector) for selector in pantalla["ocultar"])
                         cajas = []
                         for marca in pantalla["marcas"]:
-                            caja = pagina.locator(marca["selector"]).bounding_box(timeout=10000)
-                            if caja is None:
+                            localizador = pagina.locator(marca["selector"])
+                            caja = localizador.bounding_box(timeout=10000)
+                            if caja is None or not localizador.is_visible() or not _marca_destapada(
+                                    pagina, marca["selector"]):
                                 raise ValueError(f"selector de marca no visible: {marca['numero']}")
                             cajas.append(caja)
                         png = pagina.screenshot(full_page=False, animations="disabled",
                                                 mask=mascaras, mask_color="#273746")
                         anotado = _anotar(png, pantalla["marcas"], cajas)
                         nombre = f"{pantalla['clave']}-{etiqueta}.png"
-                        (salida / nombre).write_bytes(anotado)
+                        _escribir_privado(salida / nombre, anotado)
                         registros.append({"pantalla": pantalla["clave"], "tamano": etiqueta,
                                          "ancho": ancho, "alto": alto, "archivo": nombre,
                                          "estado_http": respuesta.status,
@@ -252,10 +329,11 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
         finally:
             navegador.close()
     manifiesto = salida / "manifiesto.json"
-    manifiesto.write_text(json.dumps({"tipo": "ensayo-sintetico" if ensayo else "navegacion-local-sintetica",
+    _escribir_privado(manifiesto, (json.dumps({"tipo": "ensayo-sintetico" if ensayo else "navegacion-local-sintetica",
+                                    "pendiente_revision_visual": True,
                                     "fecha_utc": datetime.now(timezone.utc).isoformat(),
                                     "chrome": str(CHROME), "capturas": registros},
-                                   ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                                   ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     return manifiesto
 
 
