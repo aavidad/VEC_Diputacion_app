@@ -43,7 +43,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ConsultarOperacion(ctx context.C
 	c := ports.ConsultaPeticionCentro{Modo: "operacion", Actor: actor, Referencia: clave}
 	var material *ports.MaterialPeticionCentro
 	err := r.consultar(ctx, c, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &material); err != nil {
+		if err := decodificarJSONLimpio(b, &material); err != nil {
 			return ports.ErrPeticionCentroNoDisponible
 		}
 		if material != nil && (material.Validar() != nil || material.Actor != actor || material.Comando.ClaveIdempotencia != clave) {
@@ -61,7 +61,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ObtenerPeticion(ctx context.Cont
 	c := ports.ConsultaPeticionCentro{Modo: "peticion", Actor: actor, Referencia: referencia}
 	var datos domain.DatosPeticionCentro
 	err := r.consultar(ctx, c, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &datos); err != nil {
+		if err := decodificarJSONLimpio(b, &datos); err != nil {
 			return ports.ErrPeticionCentroNoDisponible
 		}
 		if datos.Referencia != referencia || !peticionCentroVisiblePara(datos, actor) {
@@ -80,7 +80,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ListarPeticiones(ctx context.Con
 	c := ports.ConsultaPeticionCentro{Modo: "bandeja", Actor: actor, Referencia: actor.CentroRef}
 	var datos []domain.DatosPeticionCentro
 	err := r.consultar(ctx, c, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &datos); err != nil || datos == nil || len(datos) > 50 {
+		if err := decodificarJSONLimpio(b, &datos); err != nil || datos == nil || len(datos) > 50 {
 			return ports.ErrPeticionCentroNoDisponible
 		}
 		vistos := make(map[string]bool, len(datos))
@@ -148,7 +148,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ConfirmarPeticion(ctx context.Co
 		return recibo, domain.ErrPeticionCentroInvalida
 	}
 	err = r.ejecutar(ctx, "registrar_peticion_centro_v1", b, a, AccionEscrituraPeticionCentro(m), recurso, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &recibo); err != nil {
+		if err := decodificarJSONLimpio(b, &recibo); err != nil {
 			return ports.ErrReciboPeticionCentroNoConfiable
 		}
 		recibo.RegistradoEn = recibo.RegistradoEn.UTC()
@@ -213,33 +213,39 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ejecutar(ctx context.Context, fu
 		resumen.EfectoHuellaSHA256() != h || resumen.AudienciaConsumo() != audienciaPeticionCentro {
 		return domain.ErrRatificacionCentroDenegada
 	}
-	tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
-	if err != nil {
-		return errorPeticionCentroSQL(ctx, err)
-	}
-	defer revertirTransaccion(tx)
 	secretos := [][]byte{a.CapacidadCanonica(), a.DecisionCanonica(), a.MotivoCanonico(), a.ContextoActorCanonico(), a.PayloadVECAD3(), a.SobreCOSESign1(), a.EvidenciaVerificacion(), a.RaizPublicaSPKI()}
 	defer func() {
 		for _, b := range secretos {
 			clear(b)
 		}
 	}()
-	var salida []byte
-	err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
-	if err != nil {
+	// Una carrera serializable con otra consulta simultánea repite la
+	// transacción entera; el material no quedó consumido por el aborto.
+	var errValidacion error
+	err = ejecutarConReintentoSerializable(ctx, func() error {
+		tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
+		if err != nil {
+			return err
+		}
+		defer revertirTransaccion(tx)
+		var salida []byte
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		if err != nil {
+			return err
+		}
+		defer clear(salida)
+		if len(salida) == 0 || len(salida) > 2*1024*1024 {
+			return ports.ErrPeticionCentroNoDisponible
+		}
+		if errValidacion = validar(salida); errValidacion != nil {
+			return errValidacion
+		}
+		return tx.Commit(ctx)
+	})
+	if err != nil && err != errValidacion { //nolint:errorlint // identidad exacta del error de validación
 		return errorPeticionCentroSQL(ctx, err)
 	}
-	defer clear(salida)
-	if len(salida) == 0 || len(salida) > 2*1024*1024 {
-		return ports.ErrPeticionCentroNoDisponible
-	}
-	if err := validar(salida); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return errorPeticionCentroSQL(ctx, err)
-	}
-	return nil
+	return err
 }
 
 func errorPeticionCentroSQL(ctx context.Context, err error) error {

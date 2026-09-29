@@ -38,7 +38,7 @@ test("mi bolsa se consulta primero sin cookies, query ni cabeceras de identidad"
   assert.equal(peticiones.length, 1);
   const peticion = peticiones[0];
   assert.equal(peticion.ruta, "/api/vec/bolsa/mi-bolsa");
-  assert.equal(peticion.opciones.credentials, "omit");
+  assert.equal(peticion.opciones.credentials, "same-origin");
   assert.equal(peticion.opciones.cache, "no-store");
   assert.equal(peticion.opciones.headers.Authorization, undefined);
   assert.equal(peticion.opciones.headers["X-Identity"], undefined);
@@ -131,7 +131,7 @@ test("una acción real exige confirmación, idempotencia y recibo productivo", a
   });
   assert.equal(resultado.recibo.presentacion, false);
   assert.equal(peticion.ruta, "/api/vec/bolsa/mis-solicitudes/borrador");
-  assert.equal(peticion.opciones.credentials, "omit");
+  assert.equal(peticion.opciones.credentials, "same-origin");
   assert.match(peticion.opciones.headers["X-Idempotency-Key"], /^WEB-[0-9a-f-]{36}$/u);
   assert.equal(peticion.opciones.headers.Authorization, undefined);
   assert.equal(peticion.opciones.headers.Cookie, undefined);
@@ -169,8 +169,8 @@ test("recargar contacto consulta versión y recibo originales desde servidor", a
   assert.equal(recibido.autorizacion.version, 3);
   assert.equal(recibido.recibo.version, 3);
   assert.deepEqual(peticiones.map((p) => [p.ruta, p.opciones.method, p.opciones.credentials]), [
-    ["/api/vec/usuarios/contacto-propio", "GET", "omit"],
-    ["/api/vec/usuarios/contacto-propio/recibo", "POST", "omit"],
+    ["/api/vec/usuarios/contacto-propio", "GET", "same-origin"],
+    ["/api/vec/usuarios/contacto-propio/recibo", "POST", "same-origin"],
   ]);
   assert.equal(JSON.parse(peticiones[1].opciones.body).version, 3);
   assert.equal(JSON.stringify(recibido).includes("correo"), false);

@@ -130,7 +130,7 @@ export function aplicarCatalogoAreaPersonal(documento, entradas) { if (!document
 export async function iniciarI18nAreaPersonal(documento = document, fetcher = fetch, preferidos = globalThis.navigator?.languages ?? [], ubicacion = globalThis.location) {
   const idioma = seleccionarIdioma(idiomaURL(ubicacion), preferidos);
   try {
-    const respuesta = await fetcher(rutaCatalogoAreaPersonal(preferidos, ubicacion), { credentials: "omit" });
+    const respuesta = await fetcher(rutaCatalogoAreaPersonal(preferidos, ubicacion), { credentials: "same-origin" });
     if (!respuesta?.ok) return "es";
     const cargado = await respuesta.json();
     if (!cargado || typeof cargado !== "object" || Array.isArray(cargado)) return "es";

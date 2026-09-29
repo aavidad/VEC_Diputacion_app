@@ -27,7 +27,7 @@ test("la identidad no facilitada usa las claves del catálogo real y el respaldo
   for (const clave of claves) assert.equal(typeof catalogo[clave], "string", clave);
   await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async (ruta, opciones) => {
     assert.equal(ruta, "/area-personal/locales/es.json");
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     return { ok: true, json: async () => catalogo };
   });
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-24T09:00:00Z", participaciones: [] });
