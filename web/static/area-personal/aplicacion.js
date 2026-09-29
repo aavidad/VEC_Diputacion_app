@@ -556,6 +556,7 @@ async function recargarPreferencias(estado) {
   preferencias.guardando = true;
   preferencias.error = null;
   renderizar(estado);
+  porId("espacio-trabajo")?.querySelector(".preferencias-panel h2")?.focus({ preventScroll: true });
   try {
     const lectura = await estado.clientePreferencias.cargar();
     Object.assign(preferencias, { ...lectura, error: null, recibo: null, pendiente: null, borrador: null });
@@ -570,7 +571,12 @@ async function recargarPreferencias(estado) {
     preferencias.estado = null;
   } finally {
     preferencias.guardando = false;
-    if (estado.vista === "preferencias") renderizar(estado);
+    if (estado.vista === "preferencias") {
+      renderizar(estado);
+      const contenido = porId("espacio-trabajo");
+      (contenido?.querySelector(".preferencias-error") ?? contenido?.querySelector(".preferencias-panel h2"))
+        ?.focus({ preventScroll: true });
+    }
   }
 }
 
@@ -592,6 +598,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
   preferencias.guardando = true;
   preferencias.error = null;
   renderizar(estado);
+  porId("espacio-trabajo")?.querySelector(".preferencias-panel h2")?.focus({ preventScroll: true });
   try {
     const resultado = await estado.clientePreferencias.guardar(operacion);
     if (resultado.persona_ref !== preferencias.estado.persona_ref) {

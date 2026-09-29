@@ -107,19 +107,20 @@ test("un PUT 503 conserva el borrador, exige nueva consulta y enfoca el resultad
     assert.match(html, /No se pudo confirmar el guardado.*operación podría haberse aplicado/u);
     assert.match(html, /id="pref-tema"[^>]*>[\s\S]*?<option value="oscuro" selected/u);
     assert.match(html, /type="submit" disabled/u);
-    assert.equal(focos, 1);
+    assert.equal(focos, 2);
     enviar();
     await new Promise((resolver) => setImmediate(resolver));
     assert.equal(escrituras, 1);
-    await superficie.cargar();
+    await superficie.cargar({ enfocar: true });
     assert.equal(consultas, 2);
+    assert.equal(focos, 4);
     assert.match(html, /id="pref-tema"[^>]*>[\s\S]*?<option value="oscuro" selected/u);
     enviar();
     await new Promise((resolver) => setImmediate(resolver));
     assert.equal(escrituras, 2);
     assert.equal(versionEnviada, 1);
     assert.match(html, /recibo:confirmado/u);
-    assert.equal(focos, 2);
+    assert.equal(focos, 6);
     desmontar();
   } finally { globalThis.FormData = originalFormData; }
 });

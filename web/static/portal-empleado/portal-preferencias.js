@@ -61,18 +61,22 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     contenedorInstalado?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
   }
 
-  async function cargar() {
+  async function cargar({ enfocar = false } = {}) {
     controlador?.abort();
     controlador = new AbortController();
     const actual = ++generacion;
     datos = null; recibo = null; error = null; estado = "cargando"; actualizar();
+    if (enfocar) enfocarResultado();
     try {
       const nuevos = await cliente.consultar({ signal: controlador.signal });
       if (actual !== generacion) return;
-      datos = nuevos; estado = "lista"; actualizar(); alCargar(nuevos);
+      datos = nuevos; estado = "lista"; actualizar();
+      if (enfocar) enfocarResultado();
+      alCargar(nuevos);
     } catch (fallo) {
       if (actual !== generacion || controlador.signal.aborted) return;
-      datos = null; estado = "error"; error = fallo; actualizar(); enfocarResultado();
+      datos = null; estado = "error"; error = fallo; actualizar();
+      if (enfocar) enfocarResultado();
     }
   }
   function desmontarPeticion() { controlador?.abort(); ++generacion; }
@@ -88,7 +92,7 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     if (!clave) { error = new ErrorPreferencias(0); actualizar(); enfocarResultado(); return; }
     controlador?.abort(); controlador = new AbortController();
     const actual = ++generacion;
-    estado = "guardando"; error = null; recibo = null; actualizar();
+    estado = "guardando"; error = null; recibo = null; actualizar(); enfocarResultado();
     try {
       const nuevoRecibo = await cliente.guardar({ version: datos.estado.version, catalogoVersion: datos.catalogo.version_ref,
         clave, valores, signal: controlador.signal });
@@ -107,13 +111,14 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
   }
   function renderizar() {
     const encabezado = `<div class="pref-encabezado"><p>${escapar(t("preferencias_intro"))}</p></div>`;
-    if (estado === "sin_cargar" || estado === "cargando") return `${encabezado}<section class="panel pref-panel" role="status" aria-busy="true"><div class="cuerpo-panel">${escapar(t("preferencias_cargando"))}</div></section>`;
+    if (estado === "sin_cargar" || estado === "cargando") return `${encabezado}<section class="panel pref-panel" role="status" aria-busy="true" tabindex="-1" data-pref-resultado><div class="cuerpo-panel">${escapar(t("preferencias_cargando"))}</div></section>`;
     if (!datos) return `${encabezado}<section class="panel pref-panel" role="alert"><div class="cuerpo-panel"><p tabindex="-1" data-pref-resultado>${escapar(mensajeError(error))}</p><button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></div></section>`;
     const v = borrador ?? datos.estado.valores;
-    const estadoTexto = datos.estado.version === 0 ? t("preferencias_no_guardadas") : t("preferencias_guardadas", { version: datos.estado.version });
+    const estadoTexto = estado === "guardando" ? t("preferencias_guardando")
+      : datos.estado.version === 0 ? t("preferencias_no_guardadas") : t("preferencias_guardadas", { version: datos.estado.version });
     const aviso = error ? `<p class="pref-aviso pref-aviso--error" role="alert" tabindex="-1" data-pref-resultado>${escapar(mensajeError(error, true))} <button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></p>` : "";
     const confirmado = recibo ? `<p class="pref-aviso pref-aviso--exito" role="status" tabindex="-1" data-pref-resultado>${escapar(t("preferencias_exito", { recibo: recibo.recibo_ref }))} ${escapar(t("preferencias_idioma_guardado"))}</p>` : "";
-    return `${encabezado}<p class="pref-estado" role="status">${escapar(estadoTexto)}</p>${aviso}${confirmado}<form id="formulario-preferencias" class="pref-formulario">${panel("preferencias_visual", "preferencias_visual_sub", campoSelect("idioma", datos.catalogo, v.idioma) + campoSelect("tamano_texto", datos.catalogo, v.tamano_texto) + campoBooleano("alto_contraste", v.alto_contraste) + campoSelect("tema", datos.catalogo, v.tema))}${panel("preferencias_navegacion", "preferencias_navegacion_sub", campoSelect("inicio", datos.catalogo, v.inicio) + campoSelect("filas", datos.catalogo, v.filas))}${panel("preferencias_avisos", "preferencias_avisos_sub", campoBooleano("aviso_correo_tareas", v.aviso_correo_tareas) + campoBooleano("aviso_correo_plazos", v.aviso_correo_plazos))}<div class="pref-acciones"><button class="boton-primario" type="submit"${estado !== "lista" ? " disabled" : ""}>${escapar(t(estado === "guardando" ? "preferencias_guardando" : "preferencias_guardar"))}</button></div></form>`;
+    return `${encabezado}<p class="pref-estado" role="status" tabindex="-1"${!aviso && !confirmado ? " data-pref-resultado" : ""}>${escapar(estadoTexto)}</p>${aviso}${confirmado}<form id="formulario-preferencias" class="pref-formulario">${panel("preferencias_visual", "preferencias_visual_sub", campoSelect("idioma", datos.catalogo, v.idioma) + campoSelect("tamano_texto", datos.catalogo, v.tamano_texto) + campoBooleano("alto_contraste", v.alto_contraste) + campoSelect("tema", datos.catalogo, v.tema))}${panel("preferencias_navegacion", "preferencias_navegacion_sub", campoSelect("inicio", datos.catalogo, v.inicio) + campoSelect("filas", datos.catalogo, v.filas))}${panel("preferencias_avisos", "preferencias_avisos_sub", campoBooleano("aviso_correo_tareas", v.aviso_correo_tareas) + campoBooleano("aviso_correo_plazos", v.aviso_correo_plazos))}<div class="pref-acciones"><button class="boton-primario" type="submit"${estado !== "lista" ? " disabled" : ""}>${escapar(t(estado === "guardando" ? "preferencias_guardando" : "preferencias_guardar"))}</button></div></form>`;
   }
   function instalar(contenedor) {
     contenedorInstalado = contenedor;
@@ -126,7 +131,7 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
       if (evento.target.closest?.("[data-pref-reintentar]")) {
         const formulario = contenedor.querySelector("#formulario-preferencias");
         if (formulario && borrador) borrador = valoresFormulario(formulario, borrador);
-        void cargar();
+        void cargar({ enfocar: true });
       }
     };
     const enviar = (evento) => {
