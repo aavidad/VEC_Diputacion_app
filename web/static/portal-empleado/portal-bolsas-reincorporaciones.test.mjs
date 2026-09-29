@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
+import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js";
 import {
   ESQUEMA_REINCORPORACIONES_TITULAR,
   LIMITES_REINCORPORACIONES_TITULAR,
@@ -298,7 +298,7 @@ test("403 en la ficha muestra solo la denegación y no expone filas ni ayuda fij
 });
 
 test("catálogo común cubre todos los textos y el control pagina sin llamada de red", () => {
-  assert.equal(typeof MENSAJES_PORTAL_ES.reincorporacion_titulo, "string");
+  assert.equal(typeof MENSAJES_PORTAL.reincorporacion_titulo, "string");
   assert.equal(traducirPortal("reincorporacion_mostrando", { desde: 1, hasta: 2, total: 3 }), "Mostrando 1 a 2 de 3");
   const modalFicha = { reincorporacionesTitular: { carga: "listo", items: Array(8).fill(item), pagina: 0 } };
   const estado = { modalFicha };

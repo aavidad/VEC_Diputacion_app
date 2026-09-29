@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
 )
 
 const rutaCircuitoFirmaCTEjemploPrueba = "../../../data/demo/reglas/ct_circuito_firma.ejemplo.demo.json"
@@ -23,7 +24,7 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 	if err != nil || !compuestas.circuitoFirmaCT.Disponible() || compuestas.contratacionTemporal.Disponible() {
 		t.Fatalf("el circuito se compone por separado: %+v %v", compuestas, err)
 	}
-	ruta := nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(compuestas.circuitoFirmaCT)
+	ruta := nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(compuestas.circuitoFirmaCT, portafirmasapagado.Conector{})
 	respuesta := httptest.NewRecorder()
 	ruta.Manejador.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, rutaCircuitoFirmaContratacionTemporalDesarrollo, nil))
 	if respuesta.Code != http.StatusOK || respuesta.Header().Get("Cache-Control") != "no-store, no-transform" ||
@@ -39,8 +40,12 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 	datos := cuerpo.Data
 	if datos.Esquema != esquemaCircuitoFirmaContratacionTemporalDesarrollo || !datos.Ejemplo || datos.FirmaEficaz ||
 		datos.CatalogoRef != "vec.contratacion_temporal.circuito_firma:1" || len(datos.HuellaSHA256) != 64 ||
-		len(datos.Documentos) != 6 {
+		len(datos.Documentos) != 2 {
 		t.Fatalf("circuito inesperado: %+v", datos)
+	}
+	// Firmadoc apagado: no conectado, con motivo, y nada que parezca envío.
+	if datos.Portafirmas.Conectado || datos.Portafirmas.Motivo != "conexion_pendiente" {
+		t.Fatalf("portafirmas inesperado: %+v", datos.Portafirmas)
 	}
 	for _, documento := range datos.Documentos {
 		for _, paso := range documento.Pasos {
@@ -56,7 +61,7 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 }
 
 func TestCircuitoFirmaRechazosYFaltaDeCatalogo(t *testing.T) {
-	sinCatalogo := nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(nil)
+	sinCatalogo := nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(nil, nil)
 	casos := []struct {
 		metodo, destino string
 		estado          int
@@ -114,5 +119,23 @@ func TestCircuitoFirmaEjemploConservaHabilitacionRemision(t *testing.T) {
 	}
 	if len(habilitan) != 1 || habilitan[0] != "informe_definitivo.2" {
 		t.Fatalf("pasos que habilitan la remisión: %v", habilitan)
+	}
+}
+
+// Sin conector compuesto, Firmadoc también figura como no conectado.
+func TestCircuitoFirmaSinConectorDeclaraFirmadocNoConectado(t *testing.T) {
+	compuestas, err := nuevasReglasEjemploDesarrollo(configuracionCircuitoFirmaPrueba(rutaCircuitoFirmaCTEjemploPrueba), nil, relojPresentacionReglasEjemplo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(compuestas.circuitoFirmaCT, nil).Manejador.ServeHTTP(respuesta,
+		httptest.NewRequest(http.MethodGet, rutaCircuitoFirmaContratacionTemporalDesarrollo, nil))
+	var cuerpo struct {
+		Data circuitoFirmaDesarrollo `json:"data"`
+	}
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &cuerpo); err != nil || respuesta.Code != http.StatusOK ||
+		cuerpo.Data.Portafirmas.Conectado || cuerpo.Data.Portafirmas.Motivo != "conexion_pendiente" {
+		t.Fatalf("%d %+v %v", respuesta.Code, cuerpo.Data.Portafirmas, err)
 	}
 }

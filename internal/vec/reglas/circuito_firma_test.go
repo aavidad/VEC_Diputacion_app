@@ -7,13 +7,15 @@ import (
 
 const rutaCircuitoFirmaCTPrueba = "../../../data/demo/reglas/ct_circuito_firma.ejemplo.demo.json"
 
-func TestCircuitoFirmaDeEjemploCubreLosSeisBorradores(t *testing.T) {
+// Revisión 2 del ejemplo: firma el órgano solo la resolución; el informe
+// definitivo sigue porque su firma permite remitir a Intervención.
+func TestCircuitoFirmaDeEjemploCubreResolucionEInforme(t *testing.T) {
 	resolutor := resolutorReal(t, rutaCircuitoFirmaCTPrueba, CatalogoCircuitoFirmaCT, ModuloContratacionTemporal, nil)
 	circuito, err := resolutor.CircuitoFirma(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	esperados := []string{"informe_definitivo", "resolucion", "diligencia", "toma_posesion", "notificacion", "comunicacion_centro"}
+	esperados := []string{"informe_definitivo", "resolucion"}
 	if len(circuito.Documentos) != len(esperados) || !circuito.PaqueteEjemplo ||
 		circuito.CatalogoID != CatalogoCircuitoFirmaCT || circuito.Version != 1 || len(circuito.HuellaCatalogo) != 64 {
 		t.Fatalf("circuito inesperado: %+v", circuito)

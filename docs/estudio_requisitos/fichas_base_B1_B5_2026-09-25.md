@@ -78,7 +78,7 @@ B4: formal 0/4, técnico 2/4, uso real 0/4 (servido sin barrido: 2/4).
 | --- | --- | --- | --- | --- |
 | B5.1 | Documento común con custodia VEC o externa (referencia + SHA-256) y almacén de ficheros | Alta y consulta con V3 en la misma transacción | Sí (Documentos 000001–000004, AD3-60/62, PR #50) | No: ninguna migración de Documentos instalada |
 | B5.2 | Generación desde plantilla como servicio común | Plantilla versionada consumida por más de un módulo | No como servicio común: los seis borradores PDF/Word son propios de CT | No (los de CT se cuentan en CT) |
-| B5.3 | Verificación de firma con el validador de AutofirmaV2 como servicio aparte | Dictamen v1 interpretado; indisponible ≠ válida | Sí (PR #52), **sin componer** | No |
+| B5.3 | Verificación de firma con el validador de GrxFirma como servicio aparte | Dictamen v1 interpretado; indisponible ≠ válida | Sí (PR #52), **sin componer** | No |
 | B5.4 | Firma en navegador por protocolo AutoFirma | Documento firmado y verificado por B5.3 | No | No |
 | B5.5 | Registro de entrada y salida | Asiento con justificante | No | No |
 | B5.6 | Notificación y constancia de entrega | Acuse del canal | No: una referencia o borrador no acredita entrega (consenso 24/09, ronda 2, punto 9) | No |
