@@ -109,6 +109,19 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  r:=public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-fallo',a,'','aplicar',false);
  IF r->>'valido'<>'false' THEN RAISE EXCEPTION 'intento falso no persistente'; END IF;
+ r:=public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-fallo',a,'','recuperar');
+ IF r->>'resultado'<>'codigo_invalido' OR r->>'replay'<>'true'
+ THEN RAISE EXCEPTION 'intento falso sin replay'; END IF;
+ BEGIN
+  PERFORM public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-fallo',a,'','aplicar',false);
+  RAISE EXCEPTION 'verificación fallida repetida consumió otro intento';
+ EXCEPTION WHEN serialization_failure THEN NULL; END;
+ BEGIN
+  PERFORM public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-fallo',b,'','recuperar');
+  RAISE EXCEPTION 'misma clave con otro material aceptada';
+ EXCEPTION WHEN SQLSTATE 'P1409' THEN NULL; END;
+ r:=public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-fallo-2',a,'','aplicar',false);
+ IF r->>'valido'<>'false' THEN RAISE EXCEPTION 'clave nueva no consumió intento'; END IF;
  r:=public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-0001',a,'','aplicar',true);
  IF (r->>'version')::integer<>2 THEN RAISE EXCEPTION 'verificación'; END IF;
  r:=public.probar_correos('vec.correos.activar',2,'correo-prueba-activar-0001',a,'');
@@ -171,6 +184,10 @@ DO $test$ DECLARE r jsonb; BEGIN
   'correo:11111111111111111111111111111111','','recuperar');
  IF (r->>'version')::integer<>1 OR r->>'replay'<>'true' OR r->>'recibo_ref' !~ '^correo_recibo:[0-9a-f]{32}$'
  THEN RAISE EXCEPTION 'recibo original perdido tras reinicio'; END IF;
+ r:=public.probar_correos('vec.correos.verificar',1,'correo-prueba-verificar-fallo',
+  'correo:11111111111111111111111111111111','','recuperar');
+ IF r->>'resultado'<>'codigo_invalido' OR r->>'replay'<>'true'
+ THEN RAISE EXCEPTION 'intento fallido perdido tras reinicio'; END IF;
 END $test$;
 COMMIT;
 SQL
@@ -191,9 +208,9 @@ DO $test$ BEGIN
     OR (SELECT count(*) FROM vec_usuarios.correos_direccion WHERE activo)<>1
     OR (SELECT count(*) FROM vec_usuarios.correos_historia)<>10
     OR (SELECT count(*) FROM vec_usuarios.correos_recibo)<>10
-    OR (SELECT count(*) FROM vec_usuarios.correos_desafio WHERE intentos=1)<>1
+    OR (SELECT count(*) FROM vec_usuarios.correos_desafio WHERE intentos=2)<>1
     OR (SELECT count(*) FROM vec_usuarios.correos_desafio WHERE intentos=5 AND estado='agotado')<>1
-    OR (SELECT count(*) FROM vec_usuarios.correos_intento_fallido)<>6
+    OR (SELECT count(*) FROM vec_usuarios.correos_intento_fallido)<>7
     OR (SELECT count(*) FROM vec_usuarios.correos_reenvio)<>3
     OR (SELECT clave_igualdad_ref FROM vec_usuarios.correos_conjunto)<>'igualdad-v1'
     OR NOT EXISTS(SELECT 1 FROM vec_usuarios.correos_historia WHERE version=6

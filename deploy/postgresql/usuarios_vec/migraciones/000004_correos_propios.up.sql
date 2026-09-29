@@ -72,11 +72,15 @@ CREATE TABLE vec_usuarios.correos_intento_fallido (
  correo_ref text NOT NULL,
  desafio_ref text NOT NULL,
  numero smallint NOT NULL CHECK(numero BETWEEN 1 AND 5),
+ clave_operacion text NOT NULL CHECK(clave_operacion ~ '^[A-Za-z0-9:._-]{16,128}$'),
+ huella_clave_ref text NOT NULL CHECK(huella_clave_ref ~ '^[A-Za-z0-9:._-]{1,128}$'),
+ huella_valor text NOT NULL CHECK(huella_valor ~ '^[0-9a-f]{64}$'),
  decision_ref text NOT NULL,
  auditoria_ref text NOT NULL,
  consumo_huella_sha256 text NOT NULL UNIQUE CHECK(consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  ocurrido_en timestamptz(6) NOT NULL,
  PRIMARY KEY(persona_ref,correo_ref,desafio_ref,numero),
+ UNIQUE(persona_ref,clave_operacion),
  FOREIGN KEY(persona_ref,correo_ref,desafio_ref)
   REFERENCES vec_usuarios.correos_desafio(persona_ref,correo_ref,desafio_ref)
 );
@@ -230,6 +234,7 @@ CREATE POLICY correos_direccion_cambio ON vec_usuarios.correos_direccion FOR UPD
 CREATE POLICY correos_desafio_lectura ON vec_usuarios.correos_desafio FOR SELECT TO vec_usuarios_propietario USING (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['actualizar','verificar','despacho']));
 CREATE POLICY correos_desafio_alta ON vec_usuarios.correos_desafio FOR INSERT TO vec_usuarios_propietario WITH CHECK (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['actualizar']));
 CREATE POLICY correos_desafio_cambio ON vec_usuarios.correos_desafio FOR UPDATE TO vec_usuarios_propietario USING (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['actualizar','verificar'])) WITH CHECK (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['actualizar','verificar']));
+CREATE POLICY correos_intento_fallido_lectura ON vec_usuarios.correos_intento_fallido FOR SELECT TO vec_usuarios_propietario USING (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['recuperar','actualizar','verificar']));
 CREATE POLICY correos_intento_fallido_alta ON vec_usuarios.correos_intento_fallido FOR INSERT TO vec_usuarios_propietario WITH CHECK (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['verificar']));
 CREATE POLICY correos_reenvio_lectura ON vec_usuarios.correos_reenvio FOR SELECT TO vec_usuarios_propietario USING (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['actualizar']));
 CREATE POLICY correos_reenvio_alta ON vec_usuarios.correos_reenvio FOR INSERT TO vec_usuarios_propietario WITH CHECK (vec_usuarios.contexto_autorizado_correos(persona_ref,ARRAY['actualizar']));
@@ -395,14 +400,27 @@ REVOKE ALL ON FUNCTION vec_usuarios.consumir_contexto_correos(text,bytea,bytea,b
 
 CREATE FUNCTION vec_usuarios.replay_correos_autorizado(p_m jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
-DECLARE r record; coincide boolean;
+DECLARE r record; coincide boolean; fallido boolean:=false;
 BEGIN
  SELECT * INTO r FROM vec_usuarios.correos_recibo
  WHERE persona_ref=p_m->>'persona_ref' AND clave_operacion=p_m->>'clave_operacion';
- IF NOT FOUND THEN RETURN NULL; END IF;
+ IF NOT FOUND THEN
+  SELECT * INTO r FROM vec_usuarios.correos_intento_fallido
+  WHERE persona_ref=p_m->>'persona_ref' AND clave_operacion=p_m->>'clave_operacion';
+  IF NOT FOUND THEN RETURN NULL; END IF;
+  fallido:=true;
+ END IF;
  SELECT EXISTS(SELECT 1 FROM jsonb_array_elements(jsonb_build_array(p_m#>'{huellas_peticion,activa}') || (p_m#>'{huellas_peticion,retenidas}')) h
   WHERE h->>'clave_ref'=r.huella_clave_ref AND h->>'valor'=r.huella_valor) INTO coincide;
- IF NOT coincide OR r.accion IS DISTINCT FROM p_m->>'accion'
+ IF NOT coincide
+ THEN RAISE EXCEPTION 'Usuarios: clave reutilizada con otra petición' USING ERRCODE='P1409'; END IF;
+ IF fallido THEN
+  IF p_m->>'accion' IS DISTINCT FROM 'vec.correos.verificar'
+  THEN RAISE EXCEPTION 'Usuarios: clave reutilizada con otra petición' USING ERRCODE='P1409'; END IF;
+  RETURN jsonb_build_object('resultado','codigo_invalido','persona_ref',r.persona_ref,
+   'correo_ref',r.correo_ref,'replay',true);
+ END IF;
+ IF r.accion IS DISTINCT FROM p_m->>'accion'
  THEN RAISE EXCEPTION 'Usuarios: clave reutilizada con otra petición' USING ERRCODE='P1409'; END IF;
  RETURN jsonb_build_object('recibo_ref',r.recibo_ref,'persona_ref',r.persona_ref,'accion',r.accion,
   'correo_ref',r.correo_ref,'version',r.version,'fecha_utc',r.registrada_en,'replay',true);
@@ -628,6 +646,7 @@ BEGIN
  THEN RAISE EXCEPTION 'Usuarios: verificación inválida' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_usuarios:correos:'||(m->>'persona_ref'),0));
  IF EXISTS(SELECT 1 FROM vec_usuarios.correos_recibo WHERE persona_ref=m->>'persona_ref' AND clave_operacion=m->>'clave_operacion')
+    OR EXISTS(SELECT 1 FROM vec_usuarios.correos_intento_fallido WHERE persona_ref=m->>'persona_ref' AND clave_operacion=m->>'clave_operacion')
  THEN RAISE EXCEPTION 'Usuarios: operación registrada, recuperar recibo' USING ERRCODE='40001'; END IF;
  SELECT * INTO c FROM vec_usuarios.correos_conjunto WHERE persona_ref=m->>'persona_ref' FOR UPDATE;
  IF c.version IS NULL OR c.version::text IS DISTINCT FROM m->>'version_esperada'
@@ -674,9 +693,9 @@ BEGIN
   GET DIAGNOSTICS n=ROW_COUNT;
   IF n<>1 THEN RAISE EXCEPTION 'Usuarios: intento concurrente' USING ERRCODE='40001'; END IF;
   INSERT INTO vec_usuarios.correos_intento_fallido(persona_ref,correo_ref,desafio_ref,numero,
-   decision_ref,auditoria_ref,consumo_huella_sha256,ocurrido_en)
-  VALUES(c.persona_ref,c.correo_ref,h.desafio_ref,h.intentos+1,c.decision_ref,c.auditoria_ref,
-   c.consumo_huella_sha256,date_trunc('microseconds',clock_timestamp()));
+   clave_operacion,huella_clave_ref,huella_valor,decision_ref,auditoria_ref,consumo_huella_sha256,ocurrido_en)
+  VALUES(c.persona_ref,c.correo_ref,h.desafio_ref,h.intentos+1,c.clave_operacion,c.huella_clave_ref,
+   c.huella_valor,c.decision_ref,c.auditoria_ref,c.consumo_huella_sha256,date_trunc('microseconds',clock_timestamp()));
   PERFORM vec_usuarios.retirar_contexto_correos(c.persona_ref,'verificar');
   RETURN jsonb_build_object('valido',false);
  END IF;
