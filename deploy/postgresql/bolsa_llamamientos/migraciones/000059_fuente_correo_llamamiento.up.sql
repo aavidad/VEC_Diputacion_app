@@ -46,8 +46,10 @@ REVOKE ALL ON vec_bolsa_llamamientos.contacto_fuente_correo FROM PUBLIC;
 CREATE TRIGGER contacto_fuente_correo_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.contacto_fuente_correo FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 -- Referencia de candidato de una participación, o NULL si no está vinculada.
--- Sólo responde para una participación de un llamamiento ya reservado de esa
--- bolsa: la consulta a Usuarios nunca sale de una emisión real.
+-- Sólo responde para una participación de un llamamiento de esa bolsa que ya
+-- existe (reservado o con contactos registrados): Go sólo pregunta por los
+-- avisos de una emisión real. Usuarios no puede comprobarlo por sí mismo; la
+-- referencia queda fijada en la huella auditada de su lectura.
 CREATE FUNCTION vec_bolsa_llamamientos.candidato_participacion_avisos_v1(p_bolsa text,p_llamamiento text,p_participacion text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
  SELECT v.candidato_ref FROM vec_bolsa_llamamientos.vinculo_candidato v
@@ -71,14 +73,15 @@ $f$;
 
 -- Igual que la v1 más la fuente de cada contacto, en la misma transacción.
 -- Si los contactos ya estaban registrados (repetición), no escribe fuentes y
--- devuelve las que hubiera.
+-- devuelve las que hubiera. Dos llamadas simultáneas con el mismo token no
+-- duplican ni fallan: la v1 las serializa y la fuente se inserta una vez.
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_contactos_llamamiento_v2(p_bolsa text,p_clave text,p_actor text,p_token_finalizacion bytea,p_contactos jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
 DECLARE simples jsonb; existentes integer; resultado jsonb;
 BEGIN
  IF current_user<>'vec_bolsa_llamamientos_propietario' OR p_contactos IS NULL OR jsonb_typeof(p_contactos)<>'array'
     OR jsonb_array_length(p_contactos) NOT BETWEEN 1 AND 100
-    OR NOT (SELECT bool_and(
+    OR NOT coalesce((SELECT bool_and(
           jsonb_typeof(c.value)='object'
           AND (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(c.value) k)=ARRAY['fuente_correo','participacion_ref','recibo_ref','resultado']
           AND jsonb_typeof(c.value->'fuente_correo')='object'
@@ -88,7 +91,7 @@ BEGIN
                 AND c.value#>>'{fuente_correo,correo_ref}' ~ '^correo:[0-9a-f]{32}$')
             OR (c.value#>>'{fuente_correo,fuente}'='alta_bolsa' AND c.value->'fuente_correo'->'correo_ref' IS NULL
                 AND c.value#>>'{fuente_correo,motivo}' IN ('sin_correo_activo','sin_persona_vinculada','mis_correos_no_disponible'))))
-       FROM jsonb_array_elements(p_contactos) c)
+       FROM jsonb_array_elements(p_contactos) c),false)
  THEN RAISE EXCEPTION 'resultado B59 inválido' USING ERRCODE='22023'; END IF;
  SELECT jsonb_agg(c.value-'fuente_correo' ORDER BY c.ordinality) INTO simples
    FROM jsonb_array_elements(p_contactos) WITH ORDINALITY c(value,ordinality);
@@ -98,7 +101,8 @@ BEGIN
  IF existentes=0 THEN
   INSERT INTO vec_bolsa_llamamientos.contacto_fuente_correo(recibo_ref,fuente,motivo,correo_ref)
   SELECT c.value->>'recibo_ref',c.value#>>'{fuente_correo,fuente}',c.value#>>'{fuente_correo,motivo}',c.value#>>'{fuente_correo,correo_ref}'
-    FROM jsonb_array_elements(p_contactos) c;
+    FROM jsonb_array_elements(p_contactos) c
+  ON CONFLICT (recibo_ref) DO NOTHING;
  END IF;
  RETURN resultado||jsonb_build_object('fuentes_correo',vec_bolsa_llamamientos.fuentes_correo_llamamiento_v1(p_bolsa,p_clave));
 END $f$;

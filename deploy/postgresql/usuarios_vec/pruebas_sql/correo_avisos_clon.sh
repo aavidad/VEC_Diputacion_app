@@ -9,6 +9,10 @@
 # recurso calculada como en Go, la elección del correo, la separación de
 # superficies, la RLS, las ACL y el registro de la fuente en Bolsa.
 #
+# Requiere un clon RECIÉN migrado: siembra correos para la única candidata
+# con persona vigente y se niega a seguir si ya los tiene (por ejemplo, tras
+# el recorrido de Mailpit sobre el mismo clon).
+#
 # Uso: correo_avisos_clon.sh <contenedor_del_clon>
 set -Eeuo pipefail
 contenedor=${1:?contenedor del clon}

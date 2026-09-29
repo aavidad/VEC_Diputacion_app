@@ -8,8 +8,11 @@
 -- llamamiento.emitir.v1 sobre la bolsa constituida, finalidad de gestión de
 -- llamamientos). La capacidad lleva su propia audiencia y su propio perfil de
 -- consumo: la capacidad de emisión de Bolsa no sirve aquí ni ésta sirve para
--- emitir. El recurso liga, por la huella del material, la bolsa, el
--- llamamiento y la persona candidata exactos. Sin DOWN tras historia.
+-- emitir. La bolsa, el llamamiento y la persona candidata quedan fijados en
+-- la huella del material, que se audita con el consumo; que la candidata
+-- pertenezca a ese llamamiento lo garantiza Bolsa antes de preguntar.
+-- Quien puede emitir en una bolsa puede, por tanto, provocar esta lectura
+-- para sus avisos. Sin DOWN tras historia.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;

@@ -1,3 +1,4 @@
+\set ON_ERROR_STOP on
 -- Fachada nominal de ContextoActor para los avisos de llamamiento. Usuarios
 -- necesita saber qué persona corresponde a la referencia de candidato que
 -- conoce Bolsa para elegir su correo activo de «Mis correos». Devuelve la
@@ -8,6 +9,8 @@
 -- DOWN prohibido tras historia: la concesión y las lecturas consumidoras perduran.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'vec_contexto_actor_v1:migracion:persona_candidato_avisos:v1', 0));
 

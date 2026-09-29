@@ -15,8 +15,9 @@ import (
 // El permiso es el mismo que ya tiene quien emite el llamamiento: acción
 // llamamiento.emitir.v1 sobre la bolsa constituida, con la finalidad de
 // gestión de llamamientos. La capacidad V3 lleva su propia audiencia, que sólo
-// consume Usuarios (AD3-109), y su recurso liga por huella la bolsa, el
-// llamamiento y la persona candidata exactos.
+// consume Usuarios (AD3-109). La bolsa, el llamamiento y la persona candidata
+// quedan fijados en la huella auditada del recurso; que la candidata sea de
+// ese llamamiento lo comprueba Bolsa antes de preguntar.
 const (
 	EsquemaMaterialCorreoAvisos             = "vec.usuarios.correo-avisos-llamamiento.v1"
 	AudienciaCorreoAvisosLlamamientoInterna = "vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1"
