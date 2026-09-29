@@ -96,24 +96,26 @@ type Catalogo struct {
 }
 
 // ReglaVista es la vista de lectura de una regla. Cantidad es cero cuando la
-// unidad no la admite; Valor lleva la franja o la lista.
+// unidad no la admite; Valor lleva la franja o la lista. AjusteNoAplicable
+// indica que ninguno de esos valores se puede usar hasta revisar el ajuste.
 type ReglaVista struct {
-	Clave          string `json:"clave"`
-	Etiqueta       string `json:"etiqueta"`
-	Descripcion    string `json:"descripcion"`
-	Unidad         string `json:"unidad"`
-	Cantidad       int    `json:"cantidad,omitempty"`
-	Valor          string `json:"valor,omitempty"`
-	Computo        string `json:"computo,omitempty"`
-	Inicio         string `json:"inicio,omitempty"`
-	Origen         string `json:"origen"`
-	Articulo       string `json:"articulo,omitempty"`
-	Norma          string `json:"norma"`
-	Duda           string `json:"duda"`
-	ParteEjemplo   string `json:"ejemplo_parcial,omitempty"`
-	Version        int    `json:"version"`
-	Referencia     string `json:"referencia"`
-	PaqueteEjemplo bool   `json:"paquete_ejemplo"`
+	Clave             string `json:"clave"`
+	Etiqueta          string `json:"etiqueta"`
+	Descripcion       string `json:"descripcion"`
+	Unidad            string `json:"unidad"`
+	Cantidad          int    `json:"cantidad,omitempty"`
+	Valor             string `json:"valor,omitempty"`
+	AjusteNoAplicable bool   `json:"ajuste_no_aplicable,omitempty"`
+	Computo           string `json:"computo,omitempty"`
+	Inicio            string `json:"inicio,omitempty"`
+	Origen            string `json:"origen"`
+	Articulo          string `json:"articulo,omitempty"`
+	Norma             string `json:"norma"`
+	Duda              string `json:"duda"`
+	ParteEjemplo      string `json:"ejemplo_parcial,omitempty"`
+	Version           int    `json:"version"`
+	Referencia        string `json:"referencia"`
+	PaqueteEjemplo    bool   `json:"paquete_ejemplo"`
 }
 
 func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +195,8 @@ func consultar(ctx context.Context, f Fuente) Catalogo {
 		catalogo.Reglas = append(catalogo.Reglas, ReglaVista{
 			Clave: regla.Clave, Etiqueta: regla.Etiqueta, Descripcion: regla.Descripcion,
 			Unidad: string(regla.Unidad), Cantidad: cantidad, Valor: valor,
-			Computo: string(regla.Computo), Inicio: regla.Inicio, Origen: string(regla.Origen),
+			AjusteNoAplicable: regla.AjusteNoAplicable,
+			Computo:           string(regla.Computo), Inicio: regla.Inicio, Origen: string(regla.Origen),
 			Articulo: regla.Articulo, Norma: regla.Norma, Duda: regla.Duda, ParteEjemplo: regla.ParteEjemplo,
 			Version: base.CatalogoVersion, Referencia: regla.Referencia,
 			PaqueteEjemplo: regla.PaqueteEjemplo,

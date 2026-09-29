@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -20,6 +21,10 @@ func (r relojFijo) Ahora() time.Time { return time.Time(r) }
 type consultaFallida struct{ err error }
 
 func (c consultaFallida) Reglas(context.Context) ([]reglas.Regla, error) { return nil, c.err }
+
+type consultaFija struct{ reglas []reglas.Regla }
+
+func (c consultaFija) Reglas(context.Context) ([]reglas.Regla, error) { return c.reglas, nil }
 
 func resolutorEjemplo(t *testing.T, ruta, catalogo, modulo string) *reglas.Resolutor {
 	t.Helper()
@@ -204,5 +209,41 @@ func TestReglasVigentesConReglaAjustada(t *testing.T) {
 			regla.Referencia != "vec.contratacion_temporal.reglas.ajustes:2:c03.plazo_fiscalizacion") {
 			t.Fatalf("regla ajustada: %+v", regla)
 		}
+	}
+}
+
+func TestReglasVigentesConAjusteNoAplicableConservaCatalogoYOtraRegla(t *testing.T) {
+	base := domain.ReferenciaEntradaCatalogo{
+		CatalogoID: reglas.CatalogoContratacionTemporal, CatalogoVersion: 3,
+		CatalogoHuellaSHA256: strings.Repeat("a", 64),
+	}
+	incompatible := reglas.Regla{
+		Clave: reglas.CTPlazoFiscalizacion, Etiqueta: "Fiscalizacion", Descripcion: "Plazo de fiscalizacion",
+		Unidad: reglas.UnidadDiasHabiles, Cantidad: 10, Valor: "valor base",
+		Origen: reglas.OrigenEjemplo, Norma: "norma", Duda: "pendiente",
+		Referencia:        "vec.contratacion_temporal.reglas:3:c03.plazo_fiscalizacion",
+		ReferenciaEntrada: base, AjusteNoAplicable: true,
+	}
+	sana := reglas.Regla{
+		Clave: reglas.CTPlazoSubsanacion, Etiqueta: "Subsanacion", Descripcion: "Plazo de subsanacion",
+		Unidad: reglas.UnidadDiasHabiles, Cantidad: 5,
+		Origen: reglas.OrigenEjemplo, Norma: "norma", Duda: "pendiente",
+		Referencia:        "vec.contratacion_temporal.reglas:3:c04.plazo_subsanacion",
+		ReferenciaEntrada: base,
+	}
+	m, err := NuevoManejador(Fuente{
+		Modulo: reglas.ModuloContratacionTemporal, CatalogoID: reglas.CatalogoContratacionTemporal,
+		Consulta: consultaFija{reglas: []reglas.Regla{incompatible, sana}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := pedir(t, m, http.MethodGet, RutaReglasVigentes, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET: %d %s", w.Code, w.Body.String())
+	}
+	esperado := `{"data":{"esquema":"vec.reglas.vigentes.v1","catalogos":[{"modulo":"contratacion_temporal","catalogo_id":"vec.contratacion_temporal.reglas","estado":"disponible","version":3,"huella_sha256":"` + strings.Repeat("a", 64) + `","paquete_ejemplo":false,"reglas":[{"clave":"c03.plazo_fiscalizacion","etiqueta":"Fiscalizacion","descripcion":"Plazo de fiscalizacion","unidad":"dias_habiles","ajuste_no_aplicable":true,"origen":"ejemplo","norma":"norma","duda":"pendiente","version":3,"referencia":"vec.contratacion_temporal.reglas:3:c03.plazo_fiscalizacion","paquete_ejemplo":false},{"clave":"c04.plazo_subsanacion","etiqueta":"Subsanacion","descripcion":"Plazo de subsanacion","unidad":"dias_habiles","cantidad":5,"origen":"ejemplo","norma":"norma","duda":"pendiente","version":3,"referencia":"vec.contratacion_temporal.reglas:3:c04.plazo_subsanacion","paquete_ejemplo":false}]}]}}`
+	if got := w.Body.String(); got != esperado {
+		t.Fatalf("JSON inesperado\nobtenido: %s\nesperado: %s", got, esperado)
 	}
 }
