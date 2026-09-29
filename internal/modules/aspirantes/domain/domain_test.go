@@ -3,6 +3,7 @@ package domain
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -244,7 +245,7 @@ func TestIdentidadAcreditadaRedactadaYValidada(t *testing.T) {
 
 func TestDocumentoNoSeImprimeEnClaro(t *testing.T) {
 	d, _ := NuevoDocumentoIdentidad(DocumentoDNI, "ES", dniSintetico)
-	for _, texto := range []string{fmt.Sprint(d), fmt.Sprintf("%v", d), fmt.Sprintf("%+v", d), fmt.Sprintf("%#v", d), fmt.Sprint(struct{ D DocumentoIdentidad }{d})} {
+	for _, texto := range []string{fmt.Sprint(d), fmt.Sprintf("%v", d), fmt.Sprintf("%+v", d), fmt.Sprintf("%#v", d), fmt.Sprint(struct{ D DocumentoIdentidad }{d}), func() string { b, _ := json.Marshal(struct{ D DocumentoIdentidad }{d}); return string(b) }()} {
 		if strings.Contains(texto, dniSintetico) || !strings.Contains(texto, "***4567**") {
 			t.Fatalf("fuga en %q", texto)
 		}

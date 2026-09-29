@@ -8,13 +8,18 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"errors"
+	"fmt"
+	"log/slog"
 	"strings"
 	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/aspirantes/domain"
 )
 
-var ErrCertificadoNoAdmitido = errors.New("aspirantes: certificado sin identidad de persona física")
+var (
+	ErrCertificadoNoAdmitido = errors.New("aspirantes: certificado sin identidad de persona física")
+	ErrConfiguracion         = errors.New("aspirantes: perfiles de certificado mal configurados")
+)
 
 var (
 	oidNumeroSerie          = asn1.ObjectIdentifier{2, 5, 4, 5}
@@ -24,27 +29,101 @@ var (
 	oidIdentificadorEntidad = asn1.ObjectIdentifier{2, 5, 4, 97}
 )
 
-// Datos es lo que acredita el certificado, sin interpretar.
-type Datos struct {
-	Nombre    string
-	Apellidos string
-	// Numero es el DNI o NIE tal como figura, sin el prefijo IDCES-.
-	Numero string
-	// EsNIE distingue X/Y/Z inicial; el país es siempre España.
-	EsNIE bool
+// Perfil dice cómo se leen los apellidos de un certificado.
+type Perfil string
+
+const (
+	// PerfilFNMT: surname trae los dos apellidos juntos.
+	PerfilFNMT Perfil = "fnmt_persona_fisica"
+	// PerfilDNIe: surname trae solo el primero; los dos van en el nombre
+	// común «APELLIDOS, NOMBRE (AUTENTICACIÓN)».
+	PerfilDNIe Perfil = "dnie_autenticacion"
+)
+
+// PerfilesOficiales son las políticas admitidas en producción: FNMT persona
+// física y DNIe de autenticación. Cualquier otra (empleado público,
+// representante, otros prestadores) se rechaza.
+func PerfilesOficiales() map[string]Perfil {
+	return map[string]Perfil{
+		"1.3.6.1.4.1.5734.3.10.1": PerfilFNMT,
+		"2.16.724.1.2.2.2.3":      PerfilDNIe,
+	}
 }
 
-func (Datos) String() string   { return "certificado.Datos{redactados}" }
-func (Datos) GoString() string { return "certificado.Datos{redactados}" }
+// Lector elige el perfil por la política del certificado, de una lista
+// cerrada. El arranque de desarrollo puede añadir la política de sus
+// certificados sintéticos; nunca se acepta un certificado sin política.
+type Lector struct{ perfiles map[string]Perfil }
 
-// Leer extrae la identidad del sujeto según los perfiles de persona física
-// de la FNMT (serialNumber «IDCES-12345678Z», givenName y surname con los
-// dos apellidos juntos) y del DNIe (serialNumber sin prefijo y, si el
-// surname solo trae el primer apellido, el nombre común «APELLIDOS, NOMBRE
-// (AUTENTICACIÓN)»). Un certificado de representante de una entidad
-// (organizationIdentifier) no acredita a una persona aspirante.
-func Leer(c *x509.Certificate) (Datos, error) {
-	if c == nil {
+func NuevoLector(perfiles map[string]Perfil) (*Lector, error) {
+	if len(perfiles) == 0 || len(perfiles) > 8 {
+		return nil, ErrConfiguracion
+	}
+	copia := make(map[string]Perfil, len(perfiles))
+	for oid, p := range perfiles {
+		if (p != PerfilFNMT && p != PerfilDNIe) || !oidValido(oid) {
+			return nil, ErrConfiguracion
+		}
+		copia[oid] = p
+	}
+	return &Lector{perfiles: copia}, nil
+}
+
+func oidValido(s string) bool {
+	partes := strings.Split(s, ".")
+	if len(partes) < 3 || len(s) > 64 {
+		return false
+	}
+	for _, p := range partes {
+		if p == "" || strings.Trim(p, "0123456789") != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// Datos es lo que acredita el certificado, sin interpretar. Los campos no se
+// exportan: ni %v, ni JSON, ni un registro estructurado los muestran.
+type Datos struct {
+	nombre, apellidos, numero string
+	esNIE                     bool
+}
+
+func (d Datos) Nombre() string    { return d.nombre }
+func (d Datos) Apellidos() string { return d.apellidos }
+func (d Datos) Numero() string    { return d.numero }
+func (d Datos) EsNIE() bool       { return d.esNIE }
+
+func (Datos) String() string               { return "certificado.Datos{redactados}" }
+func (Datos) GoString() string             { return "certificado.Datos{redactados}" }
+func (Datos) LogValue() slog.Value         { return slog.StringValue("certificado.Datos{redactados}") }
+func (Datos) MarshalJSON() ([]byte, error) { return []byte(`"redactados"`), nil }
+
+// Format redacta con cualquier verbo (%d o %x recorrerían los campos).
+func (Datos) Format(f fmt.State, _ rune) { _, _ = f.Write([]byte("certificado.Datos{redactados}")) }
+
+func (l *Lector) perfil(c *x509.Certificate) (Perfil, bool) {
+	var elegido Perfil
+	for _, oid := range c.PolicyIdentifiers {
+		if p, ok := l.perfiles[oid.String()]; ok {
+			if elegido != "" && elegido != p {
+				return "", false
+			}
+			elegido = p
+		}
+	}
+	return elegido, elegido != ""
+}
+
+// Leer extrae la identidad del sujeto según el perfil de su política. Un
+// certificado de representante de una entidad (organizationIdentifier) no
+// acredita a una persona aspirante.
+func (l *Lector) Leer(c *x509.Certificate) (Datos, error) {
+	if l == nil || c == nil {
+		return Datos{}, ErrCertificadoNoAdmitido
+	}
+	perfil, ok := l.perfil(c)
+	if !ok {
 		return Datos{}, ErrCertificadoNoAdmitido
 	}
 	valores := map[string][]string{}
@@ -72,40 +151,43 @@ func Leer(c *x509.Certificate) (Datos, error) {
 	if !ok1 || !ok2 || !ok3 || nombre == "" || apellidos == "" {
 		return Datos{}, ErrCertificadoNoAdmitido
 	}
-	numero := strings.ToUpper(strings.TrimPrefix(strings.ToUpper(serie), "IDCES-"))
+	numero := strings.TrimPrefix(strings.ToUpper(serie), "IDCES-")
 	if len(numero) != 9 {
 		return Datos{}, ErrCertificadoNoAdmitido
 	}
-	// DNIe: si el nombre común es «APELLIDOS, NOMBRE (…)» y empieza por el
-	// surname, sus apellidos son los completos.
-	if comun, ok := unico(oidNombreComun); ok {
-		if antes, despues, hayComa := strings.Cut(comun, ", "); hayComa {
-			nombreComun, _, _ := strings.Cut(despues, " (")
-			if strings.EqualFold(nombreComun, nombre) && len(antes) > len(apellidos) &&
-				strings.HasPrefix(strings.ToUpper(antes), strings.ToUpper(apellidos)+" ") {
-				apellidos = antes
-			}
+	if perfil == PerfilDNIe {
+		// El DNIe exige el nombre común «APELLIDOS, NOMBRE (…)» con los
+		// apellidos completos empezando por el surname; si no, se rechaza.
+		comun, ok := unico(oidNombreComun)
+		antes, despues, hayComa := strings.Cut(comun, ", ")
+		nombreComun, _, _ := strings.Cut(despues, " (")
+		if !ok || !hayComa || !strings.EqualFold(nombreComun, nombre) ||
+			(!strings.EqualFold(antes, apellidos) && !strings.HasPrefix(strings.ToUpper(antes), strings.ToUpper(apellidos)+" ")) {
+			return Datos{}, ErrCertificadoNoAdmitido
 		}
+		apellidos = antes
 	}
-	return Datos{Nombre: nombre, Apellidos: apellidos, Numero: numero, EsNIE: strings.ContainsRune("XYZ", rune(numero[0]))}, nil
+	// Un NIF que empieza por K, L o M (menores sin DNI, extranjeros sin NIE)
+	// no se admite todavía: la ficha solo conoce DNI y NIE.
+	return Datos{nombre: nombre, apellidos: apellidos, numero: numero, esNIE: strings.ContainsRune("XYZ", rune(numero[0]))}, nil
 }
 
 // Identidad convierte lo que acredita el certificado en la identidad del
 // dominio: nombre, apellidos y DNI o NIE español validados (letra incluida).
-func Identidad(c *x509.Certificate) (domain.IdentidadAcreditada, error) {
-	d, err := Leer(c)
+func (l *Lector) Identidad(c *x509.Certificate) (domain.IdentidadAcreditada, error) {
+	d, err := l.Leer(c)
 	if err != nil {
 		return domain.IdentidadAcreditada{}, err
 	}
 	tipo := domain.DocumentoDNI
-	if d.EsNIE {
+	if d.esNIE {
 		tipo = domain.DocumentoNIE
 	}
-	doc, err := domain.NuevoDocumentoIdentidad(tipo, "ES", d.Numero)
+	doc, err := domain.NuevoDocumentoIdentidad(tipo, "ES", d.numero)
 	if err != nil {
 		return domain.IdentidadAcreditada{}, ErrCertificadoNoAdmitido
 	}
-	id, err := domain.NuevaIdentidadAcreditada(d.Nombre, d.Apellidos, doc)
+	id, err := domain.NuevaIdentidadAcreditada(d.nombre, d.apellidos, doc)
 	if err != nil {
 		return domain.IdentidadAcreditada{}, ErrCertificadoNoAdmitido
 	}
