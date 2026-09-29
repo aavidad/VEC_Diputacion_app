@@ -585,6 +585,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
   } catch (error) {
     preferencias.error = { codigo: "servicio" };
     renderizar(estado);
+    porId("espacio-trabajo")?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
     return;
   }
   preferencias.borrador = operacion.valores;
@@ -612,7 +613,10 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
     preferencias.pendiente = ["servicio", "respuesta"].includes(error?.codigo) ? operacion : null;
   } finally {
     preferencias.guardando = false;
-    if (estado.vista === "preferencias") renderizar(estado);
+    if (estado.vista === "preferencias") {
+      renderizar(estado);
+      porId("espacio-trabajo")?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
+    }
   }
 }
 
