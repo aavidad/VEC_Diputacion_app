@@ -12,6 +12,8 @@ const CODIGOS = Object.freeze({ 401: "no_autenticado", 403: "prohibido", 404: "s
 const CODIGOS_CONOCIDOS = new Set(["no_autenticado", "prohibido", "sin_ficha", "ficha_existente", "conflicto", "peticion_invalida", "no_disponible"]);
 const TIPOS_DOCUMENTO = new Set(["dni", "nie", "pasaporte", "otro"]);
 const CONDICION = /^[a-z0-9_]{1,64}$/u;
+// Clases del tema para los avisos (tipo de nota → clase CSS).
+const CLASES_NOTA = Object.freeze({ error: "nota error", aviso: "nota aviso", exito: "nota exito" });
 
 const t = (clave, valores) => traducir(`areaPersonal.ficha.${clave}`, valores);
 
@@ -35,7 +37,7 @@ export function validarVista(v) {
     || !v.contacto || typeof v.contacto !== "object" || Array.isArray(v.contacto)
     || Object.entries(v.contacto).some(([campo, valor]) => !CAMPOS_CONTACTO.includes(campo) || !texto(valor, 400))
     || !Array.isArray(v.exigencias) || v.exigencias.some((e) => !e || !CAMPOS_CONTACTO.includes(e.campo) || typeof e.obligatorio !== "boolean"
-      || (e.condicion !== undefined && !CONDICION.test(e.condicion)))
+      || (e.condicion !== undefined && (typeof e.condicion !== "string" || !CONDICION.test(e.condicion))))
     || typeof v.catalogo_disponible !== "boolean" || typeof v.catalogo_ejemplo !== "boolean") {
     throw new ErrorFicha("no_disponible");
   }
@@ -159,9 +161,9 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
   function pintar() {
     if (!activo) return;
     const hijos = [];
-    if (aviso) hijos.push(nodo(documento, "p", { clase: `nota ${aviso.tipo}`, role: "status", tabindex: "-1", "data-aviso-ficha": true, texto: aviso.texto }));
+    if (aviso) hijos.push(nodo(documento, "p", { clase: CLASES_NOTA[aviso.tipo], role: "status", tabindex: "-1", "data-aviso-ficha": true, texto: aviso.texto }));
     if (errorCarga) {
-      hijos.push(nodo(documento, "div", { clase: "nota error", role: "alert", tabindex: "-1", "data-error-ficha": true },
+      hijos.push(nodo(documento, "div", { clase: CLASES_NOTA.error, role: "alert", tabindex: "-1", "data-error-ficha": true },
         nodo(documento, "p", { texto: t(`error.${errorCarga}`) }),
         nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-accion-ficha": "reintentar", texto: t("accion.reintentar") })));
     } else if (!vista) {
@@ -176,7 +178,12 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     formulario?.addEventListener("input", () => actualizarMotivo(formulario));
     contenedor.querySelectorAll?.("[data-quitar]").forEach((b) => b.addEventListener("click", () => pedirQuitar(b.getAttribute("data-quitar"))));
     contenedor.querySelector?.("[data-confirmar-quitar]")?.addEventListener("click", () => quitar(confirmandoQuitar));
-    contenedor.querySelector?.("[data-cancelar-quitar]")?.addEventListener("click", () => { confirmandoQuitar = null; pintar(); });
+    contenedor.querySelector?.("[data-cancelar-quitar]")?.addEventListener("click", () => {
+      const campo = confirmandoQuitar;
+      confirmandoQuitar = null;
+      pintar();
+      enfocar(`[data-quitar='${campo}']`);
+    });
   }
 
   function bloqueIdentidad() {
@@ -207,16 +214,16 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
       nodo(documento, "h4", { id: "ficha-contacto-titulo", texto: t("contacto.titulo") }));
     const sinFicha = vista.estado === "sin_ficha";
     if (!vista.catalogo_disponible) {
-      seccion.append(nodo(documento, "p", { clase: "nota aviso", texto: t("contacto.sinCatalogo") }));
+      seccion.append(nodo(documento, "p", { clase: CLASES_NOTA.aviso, texto: t("contacto.sinCatalogo") }));
       if (sinFicha) return seccion;
     } else if (vista.exigencias.length === 0) {
       seccion.append(nodo(documento, "p", { texto: t("contacto.nadaPedido") }));
     }
     const formulario = nodo(documento, "form", { "data-ficha": vista.estado, novalidate: true });
     if (errorGuardar) {
-      formulario.append(nodo(documento, "p", { clase: "nota error", role: "alert", tabindex: "-1", "data-error-guardar": true, texto: t(`error.${errorGuardar}`) }));
+      formulario.append(nodo(documento, "p", { clase: CLASES_NOTA.error, role: "alert", tabindex: "-1", "data-error-guardar": true, texto: t(`error.${errorGuardar}`) }));
     } else if (Object.keys(erroresCampo).length) {
-      formulario.append(nodo(documento, "p", { clase: "nota error", role: "alert", tabindex: "-1", "data-error-guardar": true, texto: t("resumen") }));
+      formulario.append(nodo(documento, "p", { clase: CLASES_NOTA.error, role: "alert", tabindex: "-1", "data-error-guardar": true, texto: t("resumen") }));
     }
     if (vista.exigencias.length) formulario.append(nodo(documento, "div", { clase: "formulario-rejilla" }, ...vista.exigencias.map(campoFormulario)));
     if (!sinFicha) {
@@ -224,7 +231,7 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
       const grupo = nodo(documento, "fieldset", { clase: "ficha-motivo", hidden: !habiaValor && !errorMotivo, "data-motivo": true,
         "aria-describedby": errorMotivo ? "ficha-motivo-error" : undefined },
       nodo(documento, "legend", { texto: t("motivo.pregunta") }),
-      errorMotivo ? nodo(documento, "p", { id: "ficha-motivo-error", clase: "error-campo", role: "alert", texto: t("error.motivo") }) : null,
+      errorMotivo ? nodo(documento, "p", { id: "ficha-motivo-error", clase: "error-campo", texto: t("error.motivo") }) : null,
       ...["cambio_de_dato", "correccion_de_error"].map((m, i) => nodo(documento, "label", { clase: "opcion-check" },
         nodo(documento, "input", { type: "radio", name: "motivo", value: m, required: i === 0, checked: borrador?.motivo === m }),
         nodo(documento, "span", { texto: t(`motivo.${m}`) }))));
@@ -243,7 +250,7 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
       const lista = nodo(documento, "dl", { clase: "dato-lista" });
       for (const c of sobrantes) {
         const acciones = confirmandoQuitar === c
-          ? nodo(documento, "div", { clase: "nota aviso", role: "group", "aria-labelledby": `ficha-quitar-${c}` },
+          ? nodo(documento, "div", { clase: CLASES_NOTA.aviso, role: "group", "aria-labelledby": `ficha-quitar-${c}` },
             nodo(documento, "p", { id: `ficha-quitar-${c}`, tabindex: "-1", "data-pregunta-quitar": true, texto: t("quitar.pregunta", { campo: t(`campo.${c}`) }) }),
             nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-confirmar-quitar": true, disabled: ocupado, texto: t("accion.confirmarQuitar") }), " ",
             nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-cancelar-quitar": true, texto: t("accion.cancelar") }))

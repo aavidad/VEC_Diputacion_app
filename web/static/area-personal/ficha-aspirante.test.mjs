@@ -104,7 +104,7 @@ test("cambiar un dato que ya había pide el motivo antes de enviar", async () =>
   await enviar(formulario);
   assert.equal(s.peticiones.length, 1, "sin motivo no se envía");
   const error = c.querySelector("p[id='ficha-motivo-error']");
-  assert.equal(error.attrs.role, "alert");
+  assert.equal(c.querySelector("[data-motivo]").attrs["aria-describedby"], "ficha-motivo-error");
   assert.match(error.textContent, /Elija por qué cambia los datos/u);
   assert.equal(c.ownerDocument.activeElement.attrs.name, "motivo", "el foco va a la pregunta");
   const repintado = c.querySelector("form[data-ficha]");
@@ -141,6 +141,7 @@ test("un dato que ya no se pide se puede quitar", async () => {
   assert.equal(c.ownerDocument.activeElement, c.querySelector("[data-pregunta-quitar]"));
   c.querySelector("[data-cancelar-quitar]").handlers.click();
   assert.equal(c.querySelector("[data-pregunta-quitar]"), null);
+  assert.equal(c.ownerDocument.activeElement, c.querySelector("[data-quitar='domicilio']"), "al cancelar, el foco vuelve a Quitar");
   c.querySelector("[data-quitar]").handlers.click();
   c.querySelector("[data-confirmar-quitar]").handlers.click();
   await esperar(); await esperar();
