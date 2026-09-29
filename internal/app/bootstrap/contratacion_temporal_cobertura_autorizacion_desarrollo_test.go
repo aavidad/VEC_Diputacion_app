@@ -329,6 +329,60 @@ func TestRutasCoberturaNoReprovisionanAsignacion(t *testing.T) {
 	}
 }
 
+func TestAltaNoReprovisionaAsignacionAusenteORevocada(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes)
+	vinculo, err := soporte.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef); err != nil {
+		t.Fatalf("provisión previa de alta no consumible: %v", err)
+	}
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef)
+		}()
+	}
+	wg.Wait()
+	autoridad := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+		t.Fatalf("alta publicó por consulta concurrente: %+v", autoridad)
+	}
+	original := soporte.instantanea
+	for _, caso := range []struct {
+		nombre string
+		i      dominiovec.InstantaneaAutorizacion
+	}{
+		{"ausente", dominiovec.InstantaneaAutorizacion{}},
+		{"caducada", func() dominiovec.InstantaneaAutorizacion {
+			i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(original)
+			i.AsignacionPerfil.VigenteHasta = soporte.reloj.Ahora().Add(-time.Second)
+			return i
+		}()},
+		{"revocada", func() dominiovec.InstantaneaAutorizacion {
+			i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(original)
+			i.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+			return i
+		}()},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			soporte.mu.Lock()
+			soporte.instantanea = caso.i
+			soporte.mu.Unlock()
+			if _, err := soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef); !errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+				t.Fatalf("alta con instantánea %s admitida: %v", caso.nombre, err)
+			}
+			if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+				t.Fatalf("alta con instantánea %s republicó: %+v", caso.nombre, autoridad)
+			}
+		})
+	}
+}
+
 func TestRevocacionCentralDeniegaCuatroRutasCoberturaSinRepublicar(t *testing.T) {
 	casos := []struct {
 		ruta, accion, finalidad, tipo, motivo string
@@ -523,15 +577,21 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 		t.Fatalf("alta posterior a analisis no concedida: %v %v", err, errResultadoAlta)
 	}
 	autoridad, valida := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
-	if !valida || autoridad.preparadas != 2 || autoridad.publicadas != 2 {
-		t.Fatalf("asignaciones de analisis y alta no publicadas: %+v", autoridad)
+	if !valida || autoridad.preparadas != 1 || autoridad.publicadas != 1 {
+		t.Fatalf("alta publicó una asignación por petición: %+v", autoridad)
 	}
 	soporte.mu.Lock()
 	totalConcesionesEfimeras = len(soporte.concesiones)
 	soporte.mu.Unlock()
-	if totalConcesionesEfimeras != 1 {
-		t.Fatalf("alta posterior no registro su concesion efimera: %d", totalConcesionesEfimeras)
+	if totalConcesionesEfimeras != 0 || registro.concesiones != 2 {
+		t.Fatalf("alta posterior no usó CAS central: efímeras=%d centrales=%d", totalConcesionesEfimeras, registro.concesiones)
 	}
+	registro.revocada = true
+	_, _, err = autorizador.ExigirSolicitudLigadaV3(ctxAlta, solicitudAlta, soporte.contexto.Resultado)
+	if err == nil || registro.concesiones != 2 || autoridad.preparadas != 1 || autoridad.publicadas != 1 {
+		t.Fatalf("replay de alta tras revocación: error=%v central=%d autoridad=%+v", err, registro.concesiones, autoridad)
+	}
+	registro.revocada = false
 	instantaneaSinConcesionAnalisis := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		soporte.instantaneaAnalisis,
 	)
@@ -598,8 +658,19 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 			autoridad,
 		)
 	}
-	if autoridad.preparadas != 3 || autoridad.publicadas != 3 {
+	if autoridad.preparadas != 2 || autoridad.publicadas != 2 {
 		t.Fatalf("asignacion de la denegacion no publicada: %+v", autoridad)
+	}
+	altaSinPermiso := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(soporte.instantanea)
+	altaSinPermiso.VersionRol.Concesiones[0].Accion = ports.AccionRegistrarAnalisis
+	soporte.mu.Lock()
+	soporte.instantanea = altaSinPermiso
+	soporte.mu.Unlock()
+	_, _, err = autorizador.ExigirSolicitudLigadaV3(ctxAlta, solicitudAlta, soporte.contexto.Resultado)
+	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) ||
+		registro.denegaciones != 2 || registro.concesiones != 2 ||
+		autoridad.preparadas != 2 || autoridad.publicadas != 2 {
+		t.Fatalf("alta sin concesión exacta alteró autoridad: error=%v registro=%+v autoridad=%+v", err, registro, autoridad)
 	}
 
 	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(

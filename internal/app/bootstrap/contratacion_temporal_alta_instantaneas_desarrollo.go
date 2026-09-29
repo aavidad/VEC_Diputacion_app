@@ -189,6 +189,13 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		// La instantánea de cobertura se provisiona antes de servir peticiones.
 		// Una decisión no puede crear otra asignación tras una revocación.
 		return instantanea, instantanea.Validar() == nil
+	} else if ruta == httpinterno.RutaAltaSolicitudes {
+		if !s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		// Alta consume la provisión gobernada del perfil; el recurso concreto
+		// jamás prepara otra versión de la asignación.
+		return instantanea, true
 	} else if !s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
