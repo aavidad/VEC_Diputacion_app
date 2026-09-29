@@ -12,6 +12,7 @@ import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
 import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js";
+import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
 const ESQUEMA = "vec.contratacion_temporal.circuito_firma.v1";
@@ -208,6 +209,7 @@ export function crearGestorCircuitoFirma({
   raiz, obtenerEstado, cliente = crearClienteHTTPCircuitoFirma(), mensajes = {}, esMontada = () => true,
   clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {}, cargarTextos,
   locale = globalThis.document?.documentElement?.lang || "es-ES",
+  crearDocumentos = crearFuenteDocumentosHTTP, entornoDescarga = globalThis,
 } = {}) {
   if (typeof obtenerEstado !== "function") throw new TypeError("estado del circuito de firma no disponible");
   const t = crearTraductorCircuitoFirma(mensajes, locale);
@@ -283,7 +285,51 @@ export function crearGestorCircuitoFirma({
       }
     },
   });
-  function manejar(evento) { void acciones.manejarClic(evento); }
+  // Descarga el PDF firmado que guarda Documentos: la ruta de Documentos
+  // autoriza la terna expediente, documento y versión, y el cliente coteja la
+  // huella antes de entregar el fichero.
+  let descargando = false;
+  async function descargarFirmado(boton) {
+    if (descargando) return;
+    const textos = await textosFase;
+    const aviso = boton.closest?.("[data-ct-circuito-firma]")?.querySelector?.("[data-ct-firma-aviso]");
+    const decir = (clave, valores) => { if (aviso && textos) aviso.textContent = textos.traducir(clave, valores); };
+    descargando = true;
+    boton.disabled = true;
+    decir("fase.descargando");
+    let url = "";
+    try {
+      const d = boton.dataset;
+      const fuente = crearDocumentos({ expedienteRef: d.ctFirmadoExpediente });
+      const archivo = await fuente.descargar(d.ctFirmadoDocumento, {
+        version: Number(d.ctFirmadoVersion), mime: "application/pdf", huella: d.ctFirmadoHuella, signal: controlador.signal,
+      });
+      const documento = entornoDescarga.document;
+      if (!documento?.body || typeof entornoDescarga.URL?.createObjectURL !== "function" || typeof entornoDescarga.Blob !== "function") {
+        throw new TypeError("descarga no disponible");
+      }
+      url = entornoDescarga.URL.createObjectURL(new entornoDescarga.Blob([archivo.contenido], { type: archivo.tipo }));
+      const enlace = documento.createElement("a");
+      try {
+        enlace.href = url; enlace.download = archivo.nombre; enlace.hidden = true;
+        documento.body.append(enlace); enlace.click();
+      } finally { enlace.remove(); }
+      decir("fase.descargado", { nombre: archivo.nombre });
+    } catch (error) {
+      if (controlador.signal.aborted) return;
+      decir(error?.codigo === "denegado" ? "fase.descarga_denegada" : "fase.descarga_error");
+    } finally {
+      if (url) setTimeout(() => entornoDescarga.URL.revokeObjectURL?.(url), 0);
+      boton.disabled = false;
+      descargando = false;
+    }
+  }
+
+  function manejar(evento) {
+    const boton = evento?.target?.closest?.("[data-ct-descargar-firmado]");
+    if (boton?.dataset?.ctDescargarFirmado !== undefined) { void descargarFirmado(boton); return; }
+    void acciones.manejarClic(evento);
+  }
 
   function insertar(resultado, datosFase) {
     if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
