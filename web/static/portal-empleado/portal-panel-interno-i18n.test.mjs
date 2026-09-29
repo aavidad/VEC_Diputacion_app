@@ -97,7 +97,7 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   const sinPermiso = presentador.renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(sinPermiso, /Registrar resultado|bolsa-resultado-sin-expediente|data-bolsa-accion="abrir-ficha"/);
 
-  assert.match(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "en"), /This pool does not identify the case/);
+  assert.match(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "en"), /This employment pool does not identify the case/);
   assert.match(traducirAvisoPanelInterno("panel_contacto_no_respuesta", "en-GB"), /If the person accepts or withdraws/);
   assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "es"), /\bHTTP\b|B3|CT[0-9]/);
 });

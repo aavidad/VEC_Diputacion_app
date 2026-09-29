@@ -108,7 +108,7 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
 });
 
 export const MENSAJES_PANEL_INTERNO_EN = Object.freeze({
-  panel_resultado_sin_expediente: "Record an acceptance or withdrawal in the Temporary Staff Requests case. This pool does not identify the case for each call; find it in the requests dashboard.",
+  panel_resultado_sin_expediente: "Record an acceptance or withdrawal in the Temporary Staff Requests case. This employment pool does not identify the case for each call; find it in the requests dashboard.",
   panel_contacto_no_respuesta: "This form records contact notes. If the person accepts or withdraws, record their response in the Temporary Staff Requests case.",
 });
 
