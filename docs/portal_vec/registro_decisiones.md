@@ -165,7 +165,7 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Firma multiple: la franja se incorpora antes de firmar; cada cofirma PAdES es
   una revision incremental inmutable. No se estampa ni reimprime el PDF despues
   de firmado. Una firma posterior a la emision crea nueva version y nuevo CSV.
-- Reutilizacion: AutofirmaV2 aporta firma en cliente y apariencia QR; DSS de la
+- Reutilizacion: GrxFirma aporta firma en cliente y apariencia QR; DSS de la
   Comision Europea se evaluara como conector local para validacion PAdES,
   longevidad y deteccion de modificaciones maliciosas.
 - AutofirmaV3: debe fallar cerrado cuando la apariencia sea obligatoria,
@@ -3726,13 +3726,13 @@ Fecha: 26 de julio de 2026. Estado: decisión de integración aprobada; ejecuci�
 aplazada hasta cerrar Bolsa y Contratación.
 
 **Dependencia funcional.** VEP se integrará exclusivamente con AutofirmaV3.
-AutofirmaV2 es otro proyecto y no se modificará desde este repositorio, aunque
+GrxFirma es otro proyecto y no se modificará desde este repositorio, aunque
 V3 dependa de él. VEP no importará paquetes internos de V2 ni creará una
 segunda integración directa que eluda V3.
 
 **Selección de versión.** Al comenzar el trabajo se volverán a inspeccionar
 ambos repositorios. Se elegirá la última revisión estable de AutofirmaV3 que
-supere sus pruebas y se comprobará la revisión exacta de AutofirmaV2 que
+supere sus pruebas y se comprobará la revisión exacta de GrxFirma que
 realmente incorpora o declara. No se reutilizará una copia local antigua ni
 una rama flotante solo porque hubiese sido válida durante el diseño.
 
