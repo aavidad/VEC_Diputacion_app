@@ -199,6 +199,17 @@ def runtime_environment(source, state, port, pg_port):
     for path in (source / 'config').glob('*.go'):
         if not path.name.endswith('_test.go'):
             declared.update(re.findall(r'"(VEC_[A-Z0-9_]+)"', path.read_text()))
+    # Bootstrap owns some feature selectors. Accept only literal names actually
+    # read by its environment accessors in the pinned source, including constants.
+    bootstrap = '\n'.join(p.read_text() for p in (source / 'internal/app/bootstrap').glob('*.go')
+                          if not p.name.endswith('_test.go'))
+    constants = dict(re.findall(r'\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"(VEC_[A-Z0-9_]+)"', bootstrap))
+    reads = re.findall(r'\b(?:os\.Getenv|getenv|envFirst)\(\s*(?:"(VEC_[A-Z0-9_]+)"|([A-Za-z_][A-Za-z0-9_]*))', bootstrap)
+    for literal, constant in reads:
+        if literal:
+            declared.add(literal)
+        elif constant in constants:
+            declared.add(constants[constant])
     if set(values) - declared:
         fail('La configuración contiene variables que no declara esta revisión de VEC.')
     if values.get('VEC_EXECUTION_PROFILE') != 'desarrollo' or values.get('VEC_AUTH_MODE') != 'desarrollo':
@@ -213,6 +224,9 @@ def runtime_environment(source, state, port, pg_port):
     for name, value in values.items():
         if name.endswith('_DATABASE_URL'):
             validate_dsn(value, pg_port, state)
+        elif name == 'VEC_HTTP_ALLOWED_CIDRS':
+            if value != '127.0.0.1/32':
+                fail('La aplicación del clon sólo admite el CIDR loopback exacto.')
         elif name.endswith(('_URL', '_HOST', '_CIDRS')) and value:
             fail('Este clon no admite endpoints adicionales ni redes configuradas.')
         elif name.endswith(('_FILE', '_PATH', '_DIR')) and value:

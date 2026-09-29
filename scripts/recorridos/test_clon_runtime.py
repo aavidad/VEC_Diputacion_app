@@ -101,6 +101,34 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(runtime.RuntimeErrorLocal):
             runtime.runtime_environment(self.source, self.root, 18531, 55531)
 
+    def test_bootstrap_selectors_need_an_actual_environment_read(self):
+        bootstrap = self.source / 'internal/app/bootstrap'
+        bootstrap.mkdir(parents=True)
+        (bootstrap / 'users.go').write_text('const envUsers = "VEC_USUARIOS_PREFERENCIAS_ENABLED"\n'
+                                           'const unused = "VEC_UNUSED_SELECTOR"\n'
+                                           'os.Getenv(envUsers)')
+        self.values['VEC_USUARIOS_PREFERENCIAS_ENABLED'] = 'true'
+        self.save()
+        env, _ = runtime.runtime_environment(self.source, self.root, 18531, 55531)
+        self.assertEqual(env['VEC_USUARIOS_PREFERENCIAS_ENABLED'], 'true')
+        self.values['VEC_UNUSED_SELECTOR'] = 'true'
+        self.save()
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.runtime_environment(self.source, self.root, 18531, 55531)
+
+    def test_allowlist_accepts_only_the_exact_loopback_cidr(self):
+        self.values['VEC_HTTP_ALLOWED_CIDRS'] = '127.0.0.1/32'
+        with (self.source / 'config/config.go').open('a') as out:
+            out.write('"VEC_HTTP_ALLOWED_CIDRS"')
+        self.save()
+        env, _ = runtime.runtime_environment(self.source, self.root, 18531, 55531)
+        self.assertEqual(env['VEC_HTTP_ALLOWED_CIDRS'], '127.0.0.1/32')
+        for value in ['0.0.0.0/0', '127.0.0.0/8', '127.0.0.1/32,192.0.2.0/24']:
+            self.values['VEC_HTTP_ALLOWED_CIDRS'] = value
+            self.save()
+            with self.subTest(value=value), self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.runtime_environment(self.source, self.root, 18531, 55531)
+
     def test_unknown_variables_and_outbound_endpoints_rejected(self):
         self.values['LD_PRELOAD'] = '/dummy'
         self.save()
