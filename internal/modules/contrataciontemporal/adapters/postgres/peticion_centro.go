@@ -213,33 +213,39 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ejecutar(ctx context.Context, fu
 		resumen.EfectoHuellaSHA256() != h || resumen.AudienciaConsumo() != audienciaPeticionCentro {
 		return domain.ErrRatificacionCentroDenegada
 	}
-	tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
-	if err != nil {
-		return errorPeticionCentroSQL(ctx, err)
-	}
-	defer revertirTransaccion(tx)
 	secretos := [][]byte{a.CapacidadCanonica(), a.DecisionCanonica(), a.MotivoCanonico(), a.ContextoActorCanonico(), a.PayloadVECAD3(), a.SobreCOSESign1(), a.EvidenciaVerificacion(), a.RaizPublicaSPKI()}
 	defer func() {
 		for _, b := range secretos {
 			clear(b)
 		}
 	}()
-	var salida []byte
-	err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
-	if err != nil {
+	// Una carrera serializable con otra consulta simultánea repite la
+	// transacción entera; el material no quedó consumido por el aborto.
+	var errValidacion error
+	err = ejecutarConReintentoSerializable(ctx, func() error {
+		tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
+		if err != nil {
+			return err
+		}
+		defer revertirTransaccion(tx)
+		var salida []byte
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		if err != nil {
+			return err
+		}
+		defer clear(salida)
+		if len(salida) == 0 || len(salida) > 2*1024*1024 {
+			return ports.ErrPeticionCentroNoDisponible
+		}
+		if errValidacion = validar(salida); errValidacion != nil {
+			return errValidacion
+		}
+		return tx.Commit(ctx)
+	})
+	if err != nil && err != errValidacion { //nolint:errorlint // identidad exacta del error de validación
 		return errorPeticionCentroSQL(ctx, err)
 	}
-	defer clear(salida)
-	if len(salida) == 0 || len(salida) > 2*1024*1024 {
-		return ports.ErrPeticionCentroNoDisponible
-	}
-	if err := validar(salida); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return errorPeticionCentroSQL(ctx, err)
-	}
-	return nil
+	return err
 }
 
 func errorPeticionCentroSQL(ctx context.Context, err error) error {
