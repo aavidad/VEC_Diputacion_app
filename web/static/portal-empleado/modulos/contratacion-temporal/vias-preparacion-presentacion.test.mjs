@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validarPropuestaCobertura } from "./contrato-cobertura.js";
+import { validarPreparacionCoberturaVigente, validarPropuestaCobertura } from "./contrato-cobertura.js";
 import { renderizarViasPreparacion, traduccionesPreparacionDisponibles } from "./vias-preparacion-presentacion.js";
 import { renderizarAlta } from "./vista-expedientes-render.js";
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
@@ -72,6 +72,7 @@ test("V2 presenta solo documentos y datos de cada vía autorizada", () => {
   assert.match(html, /Muestra pendiente de validación/u);
   assert.match(html, /Ficha de preparación/u);
   assert.match(html, /Nota informativa SAE/u);
+  assert.match(html, /<details[^>]*data-ct-preparacion-via="oferta_sae"[^>]*>\s*<summary>Por oferta al SAE<\/summary>/u);
   assert.doesNotMatch(html, /catalogo:ct:|sha256|descripcion_puesto/u);
   assert.doesNotMatch(html, /<form|type="submit"|data-ct-cobertura-form/u);
 });
@@ -91,16 +92,24 @@ test("V2 rechaza proyección parcial, vía desconocida y traducción no publicad
   assert.equal(traduccionesPreparacionDisponibles(validarPropuestaCobertura(sinTraduccion), t), false);
 });
 
-test("antes del alta aparecen las dos entradas sin atribuir datos al servidor", () => {
-  const html = renderizarViasPreparacion(null, t, { antesAlta: true });
-  assert.match(html, /Por bolsa de trabajo/u);
-  assert.match(html, /Por oferta al SAE/u);
-  assert.equal((html.match(/Registre la petición/gu) ?? []).length, 2);
-  assert.doesNotMatch(html, /<ul>|Ficha de preparación/u);
+test("antes del GET el alta no atribuye datos al servidor", () => {
   const alta = renderizarAlta(t, true, false, false, false, false, false);
   assert.match(alta, /data-ct-exp-alta/u);
-  assert.match(alta, /data-ct-preparacion-via="oferta_sae"/u);
-  assert.doesNotMatch(alta, /Nota informativa SAE/u);
+  assert.match(alta, /data-ct-exp-preparacion/u);
+  assert.doesNotMatch(alta, /Por oferta al SAE|Nota informativa SAE/u);
+});
+
+test("GET vigente valida sobre exacto y reutiliza catálogo cerrado", () => {
+  const respuesta = { esquema: "vec.contratacion-temporal.preparacion-cobertura.v1",
+    catalogo: propuestaV2().catalogo };
+  const validada = validarPreparacionCoberturaVigente(respuesta);
+  assert.equal(validada.catalogo.es_ejemplo, true);
+  assert.match(renderizarViasPreparacion(validada, t), /Nota informativa SAE/u);
+  assert.equal(Object.isFrozen(validada.catalogo.vias[0]), true);
+  assert.throws(() => validarPreparacionCoberturaVigente({ ...respuesta, extra: true }), /contrato cerrado/u);
+  const parcial = structuredClone(respuesta);
+  parcial.catalogo.vias.pop();
+  assert.throws(() => validarPreparacionCoberturaVigente(parcial), /catálogo de preparación/u);
 });
 
 test("el formulario consume V2 y oculta una clave nominal sin traducción", async () => {

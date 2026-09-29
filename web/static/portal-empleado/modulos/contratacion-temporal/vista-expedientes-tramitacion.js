@@ -18,6 +18,8 @@ import {
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
+import { validarPreparacionCoberturaVigente } from "./contrato-cobertura.js";
+import { renderizarViasPreparacion, traduccionesPreparacionDisponibles } from "./vias-preparacion-presentacion.js";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
@@ -51,6 +53,7 @@ export function crearGestorTramitacion({
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
+  let desmontarPreparacionAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
@@ -196,6 +199,8 @@ export function crearGestorTramitacion({
   }
 
   function retirarAlta() {
+    desmontarPreparacionAlta?.();
+    desmontarPreparacionAlta = null;
     if (typeof desmontarAlta === "function") desmontarAlta();
     desmontarAlta = null;
   }
@@ -621,34 +626,97 @@ export function crearGestorTramitacion({
 
   function montarAltaSiProcede() {
     const estado = presentador.obtenerEstado();
-    if (!esMontada() || estado.vista !== "alta") return;
+    if (!esMontada() || estado.vista !== "alta" || desmontarPreparacionAlta !== null) return;
     const contenedor = raiz.querySelector("[data-ct-exp-alta]");
-    if (!contenedor) return;
+    const zonaPreparacion = raiz.querySelector("[data-ct-exp-preparacion]");
+    if (!contenedor || !zonaPreparacion) return;
     if (!altaDisponible || !alta?.catalogos || typeof alta?.ejecutor !== "function") {
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
       return;
     }
-    try {
-      const presentadorAlta = crearPresentadorAltaContratacionTemporal({
-        catalogos: alta.catalogos,
-        capacidad: alta.capacidad,
-        ejecutor: crearEjecutorAltaConRefresco(
-          alta.ejecutor,
-          presentador,
-          montarAnalisisDesdeAlta,
-        ),
-        generarClaveIdempotencia: alta.generarClaveIdempotencia,
-      });
-      desmontarAlta = montarAltaContratacionTemporal({
-        raiz: contenedor,
-        presentador: presentadorAlta,
-        anunciar,
-        locale,
-        zonaHoraria,
-      });
-    } catch {
-      contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
-    }
+    const traducir = (clave, alternativa) => {
+      try { return tExpedientes(clave); } catch { return tExpedientes(alternativa); }
+    };
+    const mostrarEstado = (clave, alternativa, reintentar = false) => {
+      contenedor.replaceChildren();
+      zonaPreparacion.innerHTML = `<section class="ct-exp-estado-global ${reintentar ? "ct-tono-peligro" : "ct-tono-neutro"}"
+        role="${reintentar ? "alert" : "status"}" aria-live="polite" tabindex="-1">
+        <p>${escaparHTML(traducir(clave, alternativa))}</p>
+        ${reintentar ? `<button type="button" class="boton-secundario" data-ct-exp-preparacion-reintentar>
+          ${escaparHTML(traducir("cobertura_preparacion_reintentar", "reintentar"))}</button>` : ""}
+      </section>`;
+    };
+    let activa = true;
+    let controlador = null;
+    let enVuelo = false;
+    const montarFormularioAlta = () => {
+      if (!activa || !esMontada() || presentador.obtenerEstado().vista !== "alta") return;
+      try {
+        const presentadorAlta = crearPresentadorAltaContratacionTemporal({
+          catalogos: alta.catalogos,
+          capacidad: alta.capacidad,
+          ejecutor: crearEjecutorAltaConRefresco(
+            alta.ejecutor,
+            presentador,
+            montarAnalisisDesdeAlta,
+          ),
+          generarClaveIdempotencia: alta.generarClaveIdempotencia,
+        });
+        desmontarAlta = montarAltaContratacionTemporal({
+          raiz: contenedor,
+          presentador: presentadorAlta,
+          anunciar,
+          locale,
+          zonaHoraria,
+        });
+      } catch {
+        mostrarEstado("cobertura_preparacion_error", "catalogo_no_disponible_detalle", true);
+      }
+    };
+    const cargarPreparacion = async () => {
+      if (!activa || enVuelo) return;
+      if (typeof alta?.consultarPreparacion !== "function") {
+        mostrarEstado("cobertura_preparacion_error", "catalogo_no_disponible_detalle", true);
+        return;
+      }
+      enVuelo = true;
+      controlador = new AbortController();
+      const { signal } = controlador;
+      mostrarEstado("cobertura_preparacion_cargando", "estado_cargando");
+      try {
+        const respuesta = validarPreparacionCoberturaVigente(
+          await alta.consultarPreparacion(Object.freeze({ signal })),
+        );
+        if (!activa || signal.aborted || !esMontada()
+          || presentador.obtenerEstado().vista !== "alta") return;
+        if (!traduccionesPreparacionDisponibles(respuesta, tExpedientes)) {
+          throw new TypeError("traducción de preparación no disponible");
+        }
+        zonaPreparacion.innerHTML = renderizarViasPreparacion(respuesta, tExpedientes);
+        montarFormularioAlta();
+      } catch (error) {
+        if (!activa || signal.aborted) return;
+        const denegado = error?.estado === 403 && error?.envelopeValido === true;
+        mostrarEstado(denegado ? "cobertura_preparacion_denegado" : "cobertura_preparacion_error",
+          denegado ? "estado_denegado" : "catalogo_no_disponible_detalle", true);
+      } finally {
+        if (controlador?.signal === signal) controlador = null;
+        enVuelo = false;
+      }
+    };
+    const alReintentar = (evento) => {
+      if (!evento.target?.closest?.("[data-ct-exp-preparacion-reintentar]")) return;
+      evento.preventDefault();
+      void cargarPreparacion();
+    };
+    zonaPreparacion.addEventListener("click", alReintentar);
+    desmontarPreparacionAlta = () => {
+      activa = false;
+      controlador?.abort();
+      zonaPreparacion.removeEventListener("click", alReintentar);
+      zonaPreparacion.replaceChildren();
+    };
+    void cargarPreparacion();
   }
 
   function montarAnalisisEnContenedor(contenedor, contexto, analisisInicial, datosPrevios = null) {

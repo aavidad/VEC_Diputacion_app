@@ -3,8 +3,7 @@ const CLAVES_ESTRUCTURA = Object.freeze([
   "cobertura_preparacion_titulo", "cobertura_preparacion_bolsa",
   "cobertura_preparacion_sae", "cobertura_preparacion_documentos",
   "cobertura_preparacion_datos", "cobertura_preparacion_ejemplo",
-  "cobertura_preparacion_pendiente", "cobertura_preparacion_no_disponible",
-  "cobertura_preparacion_antes_alta", "cobertura_preparacion_sae_solo_lista",
+  "cobertura_preparacion_no_disponible", "cobertura_preparacion_sae_solo_lista",
   "cobertura_preparacion_sin_elementos",
 ]);
 
@@ -34,22 +33,21 @@ function listaElementos(elementos, t) {
 function viaPresentada(via, clave, t) {
   const sae = clave === "oferta_sae";
   const titulo = sae ? "cobertura_preparacion_sae" : "cobertura_preparacion_bolsa";
-  return `<article class="panel ct-bloque ct-via-preparacion" data-ct-preparacion-via="${sae ? "oferta_sae" : "bolsa_vigente"}">
-    <h4>${escapar(t(titulo))}</h4>
-    ${via ? "" : `<span class="ct-exp-chip">${escapar(t("cobertura_preparacion_pendiente"))}</span>`}
-    ${via ? `<div class="ct-exp-paneles">
-      <section><h5>${escapar(t("cobertura_preparacion_documentos"))}</h5>${listaElementos(via.documentos, t)}</section>
-      <section><h5>${escapar(t("cobertura_preparacion_datos"))}</h5>${listaElementos(via.datos, t)}</section>
-    </div>` : `<p>${escapar(t("cobertura_preparacion_antes_alta"))}</p>`}
-    ${sae && via ? `<p>${escapar(t("cobertura_preparacion_sae_solo_lista"))}</p>` : ""}
-  </article>`;
+  return `<details class="panel ct-bloque ct-via-preparacion" data-ct-preparacion-via="${sae ? "oferta_sae" : "bolsa_vigente"}"${sae ? "" : " open"}>
+    <summary>${escapar(t(titulo))}</summary>
+    <div class="ct-exp-paneles">
+      <section><h4>${escapar(t("cobertura_preparacion_documentos"))}</h4>${listaElementos(via.documentos, t)}</section>
+      <section><h4>${escapar(t("cobertura_preparacion_datos"))}</h4>${listaElementos(via.datos, t)}</section>
+    </div>
+    ${sae ? `<p>${escapar(t("cobertura_preparacion_sae_solo_lista"))}</p>` : ""}
+  </details>`;
 }
 
-export function renderizarViasPreparacion(propuesta, t, { antesAlta = false } = {}) {
+export function renderizarViasPreparacion(propuesta, t) {
   const catalogo = propuesta?.catalogo;
   const bolsa = catalogo?.vias.find(({ clave }) => clave === "bolsa_vigente");
   const sae = catalogo?.vias.find(({ clave }) => clave === "oferta_sae");
-  if (!antesAlta && (!bolsa || !sae || !traduccionesPreparacionDisponibles(propuesta, t))) {
+  if (!bolsa || !sae || !traduccionesPreparacionDisponibles(propuesta, t)) {
     return `<section class="panel ct-bloque" role="status" data-ct-preparacion-no-disponible>
       <p>${escapar(t("cobertura_preparacion_no_disponible"))}</p></section>`;
   }
