@@ -16,8 +16,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	ruta string,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
 	// Las rutas con perfil fijo nunca preparan ni publican: consumen.
-	if fijo := s.perfilFijoParaRuta(ruta); fijo != nil {
+	if fijo := s.perfilFijoParaContexto(ctx, ruta); fijo != nil {
 		return s.instantaneaPerfilFijoParaContexto(ctx, ruta, fijo)
+	}
+	if ruta == rutaEntregaPeticionCentro {
+		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	instantanea, valida := s.instantaneaParaRuta(ruta)
 	dinamica := ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
@@ -50,17 +53,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	if ruta == rutaEntregaPeticionCentro {
-		if datos.Accion == ports.AccionCrearSolicitud {
-			if !solicitudAutorizacionAltaDePeticionValida(ctx, datos) {
-				return dominiovec.InstantaneaAutorizacion{}, false
-			}
-			instantanea = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea)
-			instantanea.AsignacionPerfil.Ambitos = ambitosLlamamientoDesarrollo(datos.Recurso)
-		} else if !solicitudAutorizacionEntregaPeticionValida(ctx, datos) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-	} else if rutaPeticionCentroDesarrollo(ruta) {
+	if rutaPeticionCentroDesarrollo(ruta) {
 		if !s.peticionesCentro || !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
@@ -107,15 +100,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		instantanea.AsignacionPerfil.Ambitos = ambitos
 	} else if ruta == httpinterno.RutaSubsanacionReparos {
-		if !s.solicitudAutorizacionSubsanacionReparosValida(datos) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-		}
+		// La subsanación solo se autoriza con su perfil fijo (arriba).
+		return dominiovec.InstantaneaAutorizacion{}, false
 	} else if ruta == httpinterno.RutaFirmaDocumento {
 		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
@@ -235,7 +221,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) publicarInstantaneaDecisionC
 	}
 	// Con perfil fijo basta con que la asignación publicada sea consumible:
 	// la confirmación la vuelve a comprobar bajo bloqueo; no se publica nada.
-	if s.perfilFijoParaRuta(ruta) != nil {
+	if s.perfilFijoParaContexto(ctx, ruta) != nil {
 		return nil
 	}
 	s.mu.Lock()

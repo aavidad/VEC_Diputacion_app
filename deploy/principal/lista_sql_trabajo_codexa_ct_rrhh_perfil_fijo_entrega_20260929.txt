@@ -1,0 +1,5 @@
+# Entrega de petición centro→RRHH: perfil fijo POST, lector GET separado.
+# Base de ensayo: estado hito1 + lista hito3 + lista hito4 + CT144/146/147
+# de la rama base #166. CT68 está instalada y conserva historia; no ejecutar
+# DOWN ni reaplicar CT68. Instalar CT150 una sola vez tras esas dependencias.
+deploy/postgresql/contratacion_temporal/migraciones/000150_entrega_peticion_perfil_fijo.up.sql

@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +12,74 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type auditorDenegacionEntregaPreV3Prueba struct {
+	ordenes []vecports.OrdenAuditoriaFronteraRutaExacta
+	err     error
+}
+
+func (a *auditorDenegacionEntregaPreV3Prueba) RegistrarAuditoriaFronteraRutaExacta(
+	_ context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta,
+) error {
+	a.ordenes = append(a.ordenes, orden)
+	return a.err
+}
+
+func TestDenegacionEntregaPreV3RegistraCausaFijaSinPeticion(t *testing.T) {
+	auditor := &auditorDenegacionEntregaPreV3Prueba{}
+	p := &proveedorEntregaPeticionDesarrollo{auditor: auditor}
+	if err := p.registrarDenegacionPreV3(context.Background(), "actor:rrhh"); err != nil {
+		t.Fatal(err)
+	}
+	if len(auditor.ordenes) != 1 {
+		t.Fatal("la denegación previa a V3 no llegó a auditoría")
+	}
+	o := auditor.ordenes[0]
+	if o.Validar() != nil || o.Motivo != vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado ||
+		o.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal ||
+		o.Ruta != rutaEntregaPeticionCentro || o.ActorRef != "actor:rrhh" {
+		t.Fatalf("orden de auditoría no minimizada: %+v", o)
+	}
+}
+
+func TestPerfilEntregaNoPublicadoAuditaAntesDeProyectarAmbitos(t *testing.T) {
+	s, _ := escenarioPerfilesFijosPrueba(t)
+	_, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	principal.ID, principal.Attributes["certificate_sha256"] = s.principalID, s.certificadoSHA256
+	fijo := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "POST")
+	if fijo == nil {
+		t.Fatal("sin perfil de entrega")
+	}
+	s.mu.Lock()
+	fijo.contextoEsperadoRegistrado = fijo.contexto.Resultado
+	fijo.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: fijo.contexto}
+	s.mu.Unlock()
+	auditor := &auditorDenegacionEntregaPreV3Prueba{}
+	p := &proveedorEntregaPeticionDesarrollo{
+		alta:  &dependenciasAltaContratacionTemporalDesarrollo{soporte: s},
+		reloj: relojContratacionTemporalDesarrollo{}, auditor: auditor,
+	}
+	ahora := p.reloj.Ahora()
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{},
+		capacidadConsultaContratacionTemporalDesarrollo{
+			sello: s.sello, ruta: rutaEntregaPeticionCentro, metodo: "POST", principal: principal,
+			certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour),
+			contextoOperacion: &contextoOperacionCTDesarrollo{},
+		})
+	if err := p.ComprobarPerfilEntregaPeticionCentro(ctx); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		t.Fatalf("asignación ausente llegó a proyección: %v", err)
+	}
+	if len(auditor.ordenes) != 1 || auditor.ordenes[0].ActorRef == "" ||
+		auditor.ordenes[0].Ruta != rutaEntregaPeticionCentro {
+		t.Fatalf("denegación previa a V3 no auditada: %+v", auditor.ordenes)
+	}
+	auditor.err = errors.New("auditoría de prueba indisponible")
+	if err := p.ComprobarPerfilEntregaPeticionCentro(ctx); !errors.Is(err, ports.ErrPeticionCentroNoDisponible) {
+		t.Fatalf("auditoría indisponible no detuvo la proyección con 503: %v", err)
+	}
+}
 
 func TestEntregaPeticionDesarrolloLigaIdentidadMaterialYAltaOriginal(t *testing.T) {
 	p := vecdomain.Principal{ID: "desarrollo:rrhh", DisplayName: "RRHH sintético", Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo}, AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
@@ -95,12 +163,12 @@ func TestEntregaPeticionDesarrolloRechazaSelloDeOtraClaveAntesDeAutorizar(t *tes
 	soporte.contextoEsperadoRegistrado = c.Resultado
 	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: c}
 	proveedor := &proveedorEntregaPeticionDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte}}
-	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: rutaEntregaPeticionCentro, principal: p, certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour), contextoOperacion: &contextoOperacionCTDesarrollo{}})
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: rutaEntregaPeticionCentro, metodo: "POST", principal: p, certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour), contextoOperacion: &contextoOperacionCTDesarrollo{}})
 	clave, selloCorrecto, err := proveedor.NuevaClaveAltaDePeticion(ctx)
 	if err != nil || !ports.ClaveIdempotenciaValida(clave) || hmac.clave != clave {
 		t.Fatal("clave y sello no ligados", err)
 	}
-	m := ports.MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, PeticionRef: "peticion:001", VersionEsperada: 2, ClaveAltaCandidata: clave, AmbitoAltaHMAC: strings.Replace(selloCorrecto, strings.Repeat("a", 64), strings.Repeat("b", 64), 1)}
+	m := ports.MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, PeticionRef: "peticion:001", CentroRef: centroAltaContratacionTemporalDesarrollo, CategoriaRef: categoriaAltaContratacionTemporalDesarrollo, VersionEsperada: 2, ClaveAltaCandidata: clave, AmbitoAltaHMAC: strings.Replace(selloCorrecto, strings.Repeat("a", 64), strings.Repeat("b", 64), 1)}
 	if _, err := proveedor.AutorizarEntregaPeticionCentro(ctx, m); err != ports.ErrAutorizacionDenegada {
 		t.Fatal("sello cruzado alcanzó autorización", err)
 	}

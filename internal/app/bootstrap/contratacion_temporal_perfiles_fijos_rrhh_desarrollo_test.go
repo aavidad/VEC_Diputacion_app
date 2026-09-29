@@ -2,16 +2,19 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 func escenarioPerfilesFijosPrueba(t *testing.T) (*soporteAltaContratacionTemporalDesarrollo, *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) {
 	t.Helper()
 	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
 		t.Fatal(err)
 	}
 	autoridad, ok := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
@@ -19,6 +22,94 @@ func escenarioPerfilesFijosPrueba(t *testing.T) (*soporteAltaContratacionTempora
 		t.Fatal("escenario sin autoridad de prueba")
 	}
 	return s, autoridad
+}
+
+func TestEntregaSinCatalogoNoComponePermisoFijo(t *testing.T) {
+	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal,
+		time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+		t.Fatal(err)
+	}
+	if s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodPost) != nil ||
+		s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet) != nil {
+		t.Fatal("sin fuente de catálogo se perfilaron permisos de entrega")
+	}
+	if _, err := nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
+		s.principalID, s.contexto.Resultado.Contexto.PerfilActivoRef,
+		time.Now().UTC().Truncate(time.Microsecond), nil); err == nil {
+		t.Fatal("la plantilla de entrega aceptó el fallback sintético")
+	}
+}
+
+func origenEntregaPerfilFijoPrueba(t *testing.T) *origenConsultasContratacionTemporalDesarrollo {
+	t.Helper()
+	catalogo, err := nuevoCatalogoDesarrollo("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return nuevoOrigenConsultasConCatalogoDesarrollo(catalogo)
+}
+
+func TestPerfilFijoEntregaSoloSeleccionadoPorMetodoDeCapacidad(t *testing.T) {
+	s, autoridad := escenarioPerfilesFijosPrueba(t)
+	_, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	principal.ID, principal.Attributes["certificate_sha256"] = s.principalID, s.certificadoSHA256
+	fijo := s.perfilFijoParaRuta(rutaEntregaPeticionCentro)
+	lector := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet)
+	if fijo == nil || len(fijo.plantilla.VersionRol.Concesiones) != 2 ||
+		fijo.plantilla.VersionRol.Concesiones[0].Accion != ports.AccionEntregarPeticionRRHH ||
+		fijo.plantilla.VersionRol.Concesiones[1].Accion != ports.AccionCrearSolicitud ||
+		len(fijo.plantilla.AsignacionPerfil.Ambitos) != 3 ||
+		lector == nil || lector == fijo || len(lector.plantilla.VersionRol.Concesiones) != 1 ||
+		lector.plantilla.VersionRol.Concesiones[0].Accion != ports.AccionConsultarPeticionesRRHH ||
+		len(lector.plantilla.AsignacionPerfil.Ambitos) != 1 {
+		t.Fatal("perfil de entrega sin acciones o ámbitos cerrados")
+	}
+	recursoGET := vecdomain.RecursoAutorizable{Referencia: "peticiones:centro:rrhh",
+		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoEntregaPeticionCentro,
+		Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo}}
+	recursoPOST := vecdomain.RecursoAutorizable{Referencia: "peticion:centro:001",
+		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoEntregaPeticionCentro,
+		Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+			"centro_ref": centroAltaContratacionTemporalDesarrollo, "categoria_ref": categoriaAltaContratacionTemporalDesarrollo}}
+	if !lector.plantilla.AsignacionPerfil.Cubre(recursoGET) ||
+		lector.plantilla.AsignacionPerfil.Cubre(recursoPOST) ||
+		!fijo.plantilla.AsignacionPerfil.Cubre(recursoPOST) ||
+		fijo.plantilla.AsignacionPerfil.Cubre(recursoGET) {
+		t.Fatal("la geometría de ámbitos cruzó GET y POST")
+	}
+	capacidad := capacidadConsultaContratacionTemporalDesarrollo{sello: s.sello, ruta: rutaEntregaPeticionCentro,
+		principal: principal, metodo: http.MethodGet}
+	ctxGET := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	if s.perfilFijoParaContexto(ctxGET, rutaEntregaPeticionCentro) != lector {
+		t.Fatal("GET tomó el perfil del POST")
+	}
+	ctxFalso := context.WithValue(ctxGET, claveFronteraSeguridadComunDesarrollo{},
+		fronteraSeguridadComunDesarrollo{metodo: http.MethodPost, ruta: rutaEntregaPeticionCentro})
+	if s.perfilFijoParaContexto(ctxFalso, rutaEntregaPeticionCentro) != lector {
+		t.Fatal("un método de contexto libre sustituyó la capacidad sellada")
+	}
+	capacidad.metodo = http.MethodPost
+	ctxPOST := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	if s.perfilFijoParaContexto(ctxPOST, rutaEntregaPeticionCentro) != fijo {
+		t.Fatal("POST no eligió su perfil fijo")
+	}
+	if _, ok := s.instantaneaParaContexto(ctxPOST, rutaEntregaPeticionCentro); ok {
+		t.Fatal("POST sin asignación publicada recibió permiso")
+	}
+	if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+		t.Fatal("POST preparó o publicó permisos por petición")
+	}
+	dinamico := s.contexto.Resultado.Contexto.PerfilActivoRef
+	fronteras := []descriptorFronteraComunDesarrollo{
+		{Metodo: http.MethodGet, Ruta: rutaEntregaPeticionCentro, PerfilesActivosRef: []string{dinamico}},
+		{Metodo: http.MethodPost, Ruta: rutaEntregaPeticionCentro, PerfilesActivosRef: []string{dinamico}},
+	}
+	asignadas, err := asignarPerfilesFijosEnFronterasCTDesarrollo(s, dinamico, fronteras)
+	if err != nil || asignadas[0].PerfilesActivosRef[0] != lector.perfilRef() ||
+		asignadas[1].PerfilesActivosRef[0] != fijo.perfilRef() {
+		t.Fatalf("GET/POST cruzaron perfiles: %v, %+v", err, asignadas)
+	}
 }
 
 // Las rutas con perfil fijo nunca preparan ni publican; sin la autoridad
@@ -67,11 +158,14 @@ func TestPerfilesFijosSeparanPerfilYRutas(t *testing.T) {
 		}
 		vistos[p] = true
 	}
-	for _, ruta := range []string{rutaEntregaPeticionCentro, httpinterno.RutaSubsanacionReparos,
+	for _, ruta := range []string{httpinterno.RutaSubsanacionReparos,
 		httpinterno.RutaConsultaCuadroRRHH, httpinterno.RutaConsultaDetalleRRHH} {
 		if s.perfilFijoParaRuta(ruta) != nil {
 			t.Fatalf("%s no debe usar un perfil fijo", ruta)
 		}
+	}
+	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) == nil {
+		t.Fatal("POST de entrega sin perfil fijo")
 	}
 	// Una ruta ya asignada no puede pasar a otro perfil.
 	if err := s.registrarPerfilFijoCTDesarrollo(&perfilFijoCTDesarrollo{clave: "otro", plantilla: alta.plantilla,
