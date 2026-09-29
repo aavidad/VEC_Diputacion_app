@@ -255,11 +255,13 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 			datosVinculo.PerfilActivoRef,
 			ahora,
 		)
+	faseAnalisis, _ := dependenciasCT.opcionesCatalogoCT.faseOperacionVigente(operacionFaseAnalisisCT)
 	instantaneaAnalisis, errAnalisis :=
 		nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
+			faseAnalisis,
 		)
 	instantaneaAsignacion, errAsignacion :=
 		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(

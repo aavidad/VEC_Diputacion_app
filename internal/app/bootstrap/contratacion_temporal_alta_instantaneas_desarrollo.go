@@ -88,15 +88,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		// El ámbito de organización es fijo; nunca se amplía desde la petición.
 	} else if rutaAnalisisContratacionTemporalDesarrollo(ruta) {
-		if !solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-		}
+		// El análisis solo se autoriza con su perfil fijo (arriba); nunca
+		// se prepara ni se publica su permiso por petición.
+		return dominiovec.InstantaneaAutorizacion{}, false
 	} else if rutaAsignacionContratacionTemporalDesarrollo(ruta) {
 		if !solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 			ruta,
@@ -309,18 +303,24 @@ func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionAltaCon
 		s.categoriaDeCatalogo(datos.Recurso.Ambitos["categoria_ref"])
 }
 
+// solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida: el
+// recurso lleva el expediente en su referencia y en los ámbitos solo la
+// organización y la fase y el estado previos, que el catálogo debe admitir.
 func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+	fase faseOperacionCT,
 ) bool {
 	accionValida := (ruta == httpinterno.RutaRegistroAnalisisRRHH && datos.Accion == ports.AccionRegistrarAnalisis) ||
 		(ruta == httpinterno.RutaRectificacionAnalisisRRHH && datos.Accion == ports.AccionRectificarAnalisis)
 	return accionValida && datos.Recurso.ModuloID == ports.ModuloContratacion &&
 		datos.Recurso.Tipo == ports.TipoRecursoAnalisis &&
 		datos.Finalidad == finalidadAnalisisContratacionTemporalDesarrollo &&
-		len(datos.Recurso.Ambitos) == 4 &&
+		datos.Recurso.Referencia != "" &&
+		len(datos.Recurso.Ambitos) == 3 &&
 		datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		datos.Recurso.Ambitos["expediente_ref"] == datos.Recurso.Referencia &&
+		fase.admite(domain.ClaveFase(datos.Recurso.Ambitos["fase_previa"]),
+			domain.EstadoOperativo(datos.Recurso.Ambitos["estado_previo"])) &&
 		datos.Recurso.Atributos[ports.AtributoUnidadPoliticaRef] == unidadCoberturaContratacionTemporalDesarrollo
 }
 
@@ -454,11 +454,18 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 	return instantanea, nil
 }
 
+// nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo es la
+// plantilla del perfil fijo del análisis: la organización y las fases y el
+// estado previos del catálogo (c23), sin expediente.
 func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
+	fase faseOperacionCT,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	if !fase.valida() {
+		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
+	}
 	concesion := func(accion string) dominiovec.ConcesionRol {
 		return dominiovec.ConcesionRol{
 			Accion: accion, ModuloID: ports.ModuloContratacion,
@@ -478,12 +485,7 @@ func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
 			concesion(ports.AccionRegistrarAnalisis),
 			concesion(ports.AccionRectificarAnalisis),
 		},
-		[]dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "expediente_ref", Valores: []string{expedienteContratacionTemporalDesarrolloRef}},
-			{Clave: "fase_previa", Valores: []string{"solicitud"}},
-			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso)}},
-		},
+		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo),
 	)
 	if err != nil {
 		return dominiovec.InstantaneaAutorizacion{}, err
