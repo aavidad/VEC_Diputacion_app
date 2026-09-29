@@ -122,3 +122,47 @@ func TestProvisionPerfilesCTRechazaManifiestoInseguroYNoFiltraErrorProveedor(t *
 		t.Fatalf("manifiesto excesivo aceptado: codigo=%d llamadas=%d", codigo, llamadas)
 	}
 }
+
+func TestProvisionPerfilesCTInformaIncidenciaTrasPublicacionSinFiltrarSecreto(t *testing.T) {
+	contenido := []byte(`{"version":1,"aprobacion_ref":"demo:ct-1"}`)
+	ruta := filepath.Join(t.TempDir(), "manifiesto.json")
+	if err := os.WriteFile(ruta, contenido, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	huella := sha256.Sum256(contenido)
+	huellaTexto := hex.EncodeToString(huella[:])
+	args := []string{"--aplicar", "--manifiesto", ruta, "--sha256", huellaTexto, "--aprobacion-ref", "demo:ct-1"}
+	ejecutar := func(context.Context, config.Config, bootstrap.SolicitudProvisionPerfilesCT) (bootstrap.ResultadoProvisionPerfilesCT, error) {
+		return bootstrap.ResultadoProvisionPerfilesCT{
+			Estado:     "incidencia",
+			Manifiesto: json.RawMessage(`{"dato_no_autorizado":"no_emitir"}`),
+			Perfiles: []bootstrap.ReciboPerfilProvisionCT{
+				{Clave: "alta", PerfilRef: "perfil:alta", AsignacionRef: "asignacion:alta", Version: 1, HuellaSHA256: huellaTexto},
+				{Clave: "cobertura", PerfilRef: "postgres://usuario:secreto@host/base", AsignacionRef: "asignacion:cobertura", Version: 1, HuellaSHA256: huellaTexto},
+			},
+		}, errors.Join(bootstrap.ErrProvisionPerfilesCTIncidenciaContexto, errors.New("postgres://usuario:secreto@host/base"))
+	}
+	var salida, errores bytes.Buffer
+	if codigo := ejecutarProvisionPerfilesCT(context.Background(), args, &salida, &errores, config.Config{}, ejecutar); codigo != 1 || salida.Len() != 0 {
+		t.Fatalf("incidencia: codigo=%d salida=%q errores=%q", codigo, salida.String(), errores.String())
+	}
+	var cuerpo struct {
+		Error            string                              `json:"error"`
+		Estado           string                              `json:"estado"`
+		ManifiestoSHA256 string                              `json:"manifiesto_sha256"`
+		AprobacionRef    string                              `json:"aprobacion_ref"`
+		Perfiles         []bootstrap.ReciboPerfilProvisionCT `json:"perfiles"`
+	}
+	if err := json.Unmarshal(errores.Bytes(), &cuerpo); err != nil {
+		t.Fatal(err)
+	}
+	if cuerpo.Error != "incidencia_contexto_tras_publicacion" || cuerpo.Estado != "incidencia" ||
+		cuerpo.ManifiestoSHA256 != huellaTexto || cuerpo.AprobacionRef != "demo:ct-1" ||
+		len(cuerpo.Perfiles) != 1 || cuerpo.Perfiles[0].Clave != "alta" {
+		t.Fatalf("evidencia de incidencia incompleta: %+v", cuerpo)
+	}
+	if strings.Contains(errores.String(), "secreto") || strings.Contains(errores.String(), "no_emitir") ||
+		strings.Contains(errores.String(), ruta) {
+		t.Fatalf("incidencia filtra material privado: %q", errores.String())
+	}
+}
