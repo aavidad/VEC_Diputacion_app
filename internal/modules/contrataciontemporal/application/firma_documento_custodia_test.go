@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -81,8 +82,10 @@ func TestFirmaDocumentoNoRegistraSiLaCustodiaFalla(t *testing.T) {
 		preparar func(*custodioPrueba)
 		esperado error
 	}{
-		"documentos caído":   {func(c *custodioPrueba) { c.err = ports.ErrCustodiaFirmadoNoDisponible }, ports.ErrCustodiaFirmadoNoDisponible},
-		"documentos deniega": {func(c *custodioPrueba) { c.err = errors.New("403") }, ports.ErrCustodiaFirmadoDenegada},
+		"documentos caído":                {func(c *custodioPrueba) { c.err = ports.ErrCustodiaFirmadoNoDisponible }, ports.ErrCustodiaFirmadoNoDisponible},
+		"documentos deniega":              {func(c *custodioPrueba) { c.err = errors.New("403") }, ports.ErrCustodiaFirmadoDenegada},
+		"contenido no admitido":           {func(c *custodioPrueba) { c.err = fmt.Errorf("x: %w", ports.ErrCustodiaFirmadoInvalida) }, ports.ErrCustodiaFirmadoInvalida},
+		"otro PDF con la misma operación": {func(c *custodioPrueba) { c.err = ports.ErrCustodiaFirmadoEnConflicto }, ports.ErrCustodiaFirmadoEnConflicto},
 		"otra huella": {func(c *custodioPrueba) {
 			c.alterar = func(d *ports.DocumentoCustodiado) { d.HuellaSHA256 = huella([]byte("otro")) }
 		}, ports.ErrResultadoFirmaDocumentoInvalido},
