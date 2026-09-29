@@ -30,7 +30,8 @@ BEGIN
               AND r.rolname <> 'vec_autorizacion_atestada_v3_propietario')
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_auth_members AS m
-            WHERE m.roleid = 'vec_autorizacion_atestada_v3_preflight_externo'::regrole)
+            WHERE m.roleid = (SELECT r.oid FROM pg_catalog.pg_roles AS r
+                               WHERE r.rolname = 'vec_autorizacion_atestada_v3_preflight_externo'))
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_depend AS d
             WHERE d.refclassid = 'pg_catalog.pg_proc'::regclass

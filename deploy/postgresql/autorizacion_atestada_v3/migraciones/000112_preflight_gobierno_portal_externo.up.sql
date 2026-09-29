@@ -43,7 +43,7 @@ BEGIN
                    WHERE rolname = 'vec_autorizacion_atestada_v3_preflight_externo')
        OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles AS r
                        WHERE r.rolname = 'vec_autorizacion_atestada_v3_preflight_interno'
-                         AND NOT r.rolcanlogin)
+                         AND NOT r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls)
        OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles AS r
                        WHERE r.rolname = 'vec_autorizacion_atestada_v3_propietario'
                          AND NOT r.rolcanlogin)
