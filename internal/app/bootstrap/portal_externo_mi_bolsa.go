@@ -219,9 +219,11 @@ SELECT (SELECT count(*)=11 AND count(DISTINCT proname)=11 AND bool_and(prosecdef
    OR pg_catalog.has_any_column_privilege(session_user,t.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
  AND NOT EXISTS (SELECT 1 FROM secuencias s WHERE
    pg_catalog.has_sequence_privilege(session_user,s.oid,'USAGE,SELECT,UPDATE'))
- AND NOT pg_catalog.has_schema_privilege(session_user,'vec_autorizacion_atestada_v3','USAGE')
- AND NOT pg_catalog.has_schema_privilege(session_user,'vec_contratacion_temporal','USAGE')
- AND NOT pg_catalog.has_schema_privilege(session_user,'vec_personal','USAGE')`
+ AND NOT pg_catalog.has_schema_privilege(session_user,'vec_bolsa_llamamientos','CREATE')
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n
+   WHERE left(n.nspname,4)='vec_' AND n.nspname<>'vec_bolsa_llamamientos'
+     AND (pg_catalog.has_schema_privilege(session_user,n.oid,'USAGE')
+          OR pg_catalog.has_schema_privilege(session_user,n.oid,'CREATE')))`
 	var permitido bool
 	if err := pool.QueryRow(ctx, acl).Scan(&permitido); err != nil || !permitido {
 		pool.Close()
