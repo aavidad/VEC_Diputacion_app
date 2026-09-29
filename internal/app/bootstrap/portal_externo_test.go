@@ -178,6 +178,19 @@ func TestProcesoExternoArrancaConSuPropioMaterial(t *testing.T) {
 	if estado, cuerpo := codigo("/area-personal/"); estado != http.StatusOK || !bytes.Contains(cuerpo, []byte("<html")) {
 		t.Fatalf("el Area personal debe servirse en el externo: %d", estado)
 	}
+	// El filtro deja pasar las rutas del Área personal, pero en este corte
+	// el externo aún no compone Mi bolsa ni Usuarios: no hay nada detrás.
+	for _, ruta := range []string{"/api/vec/bolsa/area-personal", "/api/vec/bolsa/mi-bolsa", "/api/vec/usuarios/area-personal/mis-preferencias"} {
+		if estado, _ := codigo(ruta); estado != http.StatusNotFound {
+			t.Fatalf("%s aun no debe servirse: %d", ruta, estado)
+		}
+	}
+	// El certificado de RRHH lo emite la misma CA, pero el externo no lo
+	// conoce: la conexión se corta en el saludo TLS.
+	if respuesta, err := m.cliente(t, "cliente").Get(prueba.URL + "/api/publico/bolsa/convocatorias"); err == nil {
+		respuesta.Body.Close()
+		t.Fatal("el externo acepto el certificado de RRHH")
+	}
 	for _, ruta := range []string{
 		"/api/vec/session", "/api/vec/contratacion-temporal/expedientes", "/api/vec/bolsa/bolsas",
 		"/api/vec/usuarios/mis-preferencias", "/portal-empleado/", "/api/vec/personal/categories",
@@ -197,6 +210,14 @@ func TestProcesoExternoNoArrancaSinPersonaCandidataNiConMaterialAjeno(t *testing
 	}
 	if _, err := NewHTTPServerWithConfig(m.cfg); !errors.Is(err, ErrMaterialPortalExternoInvalido) {
 		t.Fatalf("sin persona candidata el externo no debe arrancar: %v", err)
+	}
+	m = generarMaterialPortalExternoPrueba(t)
+	m.cfg.PersonalCatalogPath = "memory"
+	escribirJSONExternoPrueba(t, filepath.Join(m.cfg.DevelopmentMaterialDir, "manifiesto.json"), map[string]any{
+		"version": 4, "perfil": config.ExecutionProfileDevelopment, "autoridad": AutoridadNoAutoritativa,
+		"huella_ca_sha256": strings.Repeat("0", 64), "huella_servidor_sha256": strings.Repeat("0", 64)})
+	if _, err := NewHTTPServerWithConfig(m.cfg); !errors.Is(err, ErrMaterialPortalExternoInvalido) {
+		t.Fatalf("un manifiesto con otras huellas no debe aceptarse: %v", err)
 	}
 	m = generarMaterialPortalExternoPrueba(t)
 	m.cfg.TLSKeyFile = filepath.Join(m.clientes, "cliente.key")

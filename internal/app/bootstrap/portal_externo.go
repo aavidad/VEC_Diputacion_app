@@ -1,14 +1,19 @@
 package bootstrap
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
@@ -82,6 +87,9 @@ func cargarMaterialPortalExterno(cfg config.Config) (materialPortalExterno, erro
 	}
 	// Sin persona candidata no hay nada que atender en el Área personal: el
 	// proceso no arranca vacío.
+	if err := validarManifiestoPortalExterno(filepath.Join(cfg.DevelopmentMaterialDir, "manifiesto.json"), ca, certificadoServidor); err != nil {
+		return vacio, err
+	}
 	candidato, err := cargarIdentidadCandidatoBolsaDesarrollo(cfg.DevelopmentMaterialDir, ca)
 	if err != nil || candidato == nil {
 		return vacio, ErrMaterialPortalExternoInvalido
@@ -97,9 +105,60 @@ func cargarMaterialPortalExterno(cfg config.Config) (materialPortalExterno, erro
 			ClientCAs:    raices,
 			MinVersion:   tls.VersionTLS13,
 			MaxVersion:   tls.VersionTLS13,
+			// La CA emite también los certificados de RRHH, Intervención y
+			// centros. El proceso externo solo acepta los de las personas
+			// que conoce: cualquier otro corta la conexión en el saludo TLS.
+			VerifyConnection: verificarClienteConocido(identidad),
 		},
 		identidad: identidad,
 	}, nil
+}
+
+// verificarClienteConocido rechaza en el saludo TLS cualquier certificado de
+// cliente, aunque lo haya emitido la CA común, cuya huella no esté registrada
+// en el resolvedor del proceso.
+func verificarClienteConocido(identidad *resolvedorIdentidadDesarrollo) func(tls.ConnectionState) error {
+	return func(estado tls.ConnectionState) error {
+		if identidad == nil || len(estado.PeerCertificates) == 0 || estado.PeerCertificates[0] == nil {
+			return ErrMaterialPortalExternoInvalido
+		}
+		huella := sha256.Sum256(estado.PeerCertificates[0].Raw)
+		if _, conocido := identidad.porHuella[huella]; !conocido {
+			return ErrMaterialPortalExternoInvalido
+		}
+		return nil
+	}
+}
+
+// validarManifiestoPortalExterno comprueba lo que el manifiesto del material
+// dice del propio proceso externo: perfil de desarrollo no autoritativo, no
+// migrable, y huellas de su CA y de su certificado de servidor. Los demás
+// campos describen material que el externo no tiene y no se miran.
+func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate) error {
+	contenido, err := leerFicheroMaterialSeguro(ruta, 64<<10)
+	if err != nil || validarClavesJSONUnicas(contenido) != nil {
+		return ErrMaterialPortalExternoInvalido
+	}
+	decodificador := json.NewDecoder(bytes.NewReader(contenido))
+	decodificador.DisallowUnknownFields()
+	var manifiesto archivoManifiestoDesarrollo
+	var sobrante any
+	if decodificador.Decode(&manifiesto) != nil || !errors.Is(decodificador.Decode(&sobrante), io.EOF) ||
+		manifiesto.Perfil != config.ExecutionProfileDevelopment ||
+		manifiesto.Autoridad != AutoridadNoAutoritativa || manifiesto.MigrableAProduccion {
+		return ErrMaterialPortalExternoInvalido
+	}
+	for _, dato := range []struct {
+		declarada string
+		cert      *x509.Certificate
+	}{{manifiesto.HuellaCASHA256, ca}, {manifiesto.HuellaServidorSHA256, servidor}} {
+		huella := sha256.Sum256(dato.cert.Raw)
+		declarada, err := hex.DecodeString(strings.ToLower(dato.declarada))
+		if err != nil || len(declarada) != sha256.Size || subtle.ConstantTimeCompare(declarada, huella[:]) != 1 {
+			return ErrMaterialPortalExternoInvalido
+		}
+	}
+	return nil
 }
 
 // nuevoServidorPortalExternoDesarrollo compone el proceso del portal externo:

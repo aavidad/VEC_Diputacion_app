@@ -246,6 +246,9 @@ func nuevoServidorDesarrollo(
 	if portal == separacionportales.PortalExterno {
 		// El proceso externo tiene su propia composición: no pasa por la
 		// seguridad ni por las conexiones de RRHH.
+		if len(incorporacion) != 0 || strings.TrimSpace(cfg.IncorporacionV2File) != "" {
+			return nil, nil, ErrActivacionDesarrolloInvalida
+		}
 		servidor, err := nuevoServidorPortalExternoDesarrollo(cfg, registro)
 		return servidor, nil, err
 	}
