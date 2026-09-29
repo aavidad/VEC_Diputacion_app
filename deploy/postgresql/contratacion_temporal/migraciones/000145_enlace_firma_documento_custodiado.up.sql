@@ -67,6 +67,12 @@ BEGIN
         EXECUTE format('REVOKE ALL ON TABLE vec_contratacion_temporal.firma_documento_custodia_v1 FROM %I',pg_get_userbyid(a.grantee));
     END LOOP;
     REVOKE ALL ON TYPE vec_contratacion_temporal.firma_documento_custodia_v1 FROM PUBLIC;
+    FOR a IN SELECT DISTINCT x.grantee FROM pg_type ty,
+        LATERAL aclexplode(coalesce(ty.typacl,acldefault('T',ty.typowner))) x
+        WHERE ty.oid=(SELECT c.reltype FROM pg_class c WHERE c.oid='vec_contratacion_temporal.firma_documento_custodia_v1'::regclass)
+          AND x.grantee<>0 AND x.grantee<>ty.typowner LOOP
+        EXECUTE format('REVOKE ALL ON TYPE vec_contratacion_temporal.firma_documento_custodia_v1 FROM %I',pg_get_userbyid(a.grantee));
+    END LOOP;
     CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE OR TRUNCATE
         ON vec_contratacion_temporal.firma_documento_custodia_v1
         FOR EACH STATEMENT EXECUTE FUNCTION vec_contratacion_temporal.rechazar_mutacion_historia_v1();
