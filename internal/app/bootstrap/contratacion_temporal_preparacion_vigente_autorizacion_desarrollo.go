@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"reflect"
-	"sync"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -16,13 +15,12 @@ import (
 )
 
 const (
-	rutaPreparacionVigenteCoberturaDesarrollo              = "/api/vec/contratacion-temporal/cobertura/preparacion-vigente"
-	accionPreparacionVigenteCoberturaDesarrollo            = "contratacion_temporal.cobertura.catalogo_vigente.consultar"
-	finalidadPreparacionVigenteCoberturaDesarrollo         = "consultar_preparacion_cobertura_rrhh"
-	recursoPreparacionVigenteCoberturaDesarrollo           = "catalogo_vias_cobertura_vigente"
-	tipoPreparacionVigenteCoberturaDesarrollo              = "catalogo_vias_cobertura"
-	catalogoMotivosPreparacionVigenteCoberturaDesarrollo   = "motivos_autorizacion_preparacion_vigente_cobertura"
-	maximoSolicitudesPreparacionVigenteCoberturaDesarrollo = 1024
+	rutaPreparacionVigenteCoberturaDesarrollo            = "/api/vec/contratacion-temporal/cobertura/preparacion-vigente"
+	accionPreparacionVigenteCoberturaDesarrollo          = "contratacion_temporal.cobertura.catalogo_vigente.consultar"
+	finalidadPreparacionVigenteCoberturaDesarrollo       = "consultar_preparacion_cobertura_rrhh"
+	recursoPreparacionVigenteCoberturaDesarrollo         = "catalogo_vias_cobertura_vigente"
+	tipoPreparacionVigenteCoberturaDesarrollo            = "catalogo_vias_cobertura"
+	catalogoMotivosPreparacionVigenteCoberturaDesarrollo = "motivos_autorizacion_preparacion_vigente_cobertura"
 )
 
 var errAutorizacionPreparacionVigenteCoberturaDesarrolloNoDisponible = errors.New(
@@ -88,7 +86,7 @@ func instantaneaCoberturaConPreparacionVigenteDesarrollo(
 		}
 	}
 	esperada := concesionPreparacionVigenteCoberturaDesarrollo()
-	if instantanea.VersionRol.Version == 3 && len(instantanea.VersionRol.Concesiones) == 5 {
+	if instantanea.VersionRol.Version >= 3 && len(instantanea.VersionRol.Concesiones) == 5 {
 		concesion := instantanea.VersionRol.Concesiones[4]
 		if reflect.DeepEqual(concesion, esperada) {
 			return instantanea, nil
@@ -114,38 +112,41 @@ func instantaneaCoberturaConPreparacionVigenteDesarrollo(
 }
 
 type politicaPreparacionVigenteCoberturaDesarrollo struct {
-	soporte    *soporteAltaContratacionTemporalDesarrollo
-	semilla    dominiovec.InstantaneaAutorizacion
-	motivo     dominiovec.ReferenciaEntradaCatalogo
-	validador  puertosvec.ValidadorReferenciaMotivoAutorizacionV2
-	mu         sync.Mutex
-	preparadas map[string]dominiovec.InstantaneaAutorizacion
+	soporte   *soporteAltaContratacionTemporalDesarrollo
+	publicada dominiovec.InstantaneaAutorizacion
+	motivo    dominiovec.ReferenciaEntradaCatalogo
+	validador puertosvec.ValidadorReferenciaMotivoAutorizacionV2
 }
 
+// publicada debe proceder de la composición gobernada tras su COMMIT, nunca
+// de una semilla calculada durante el GET. El registro V3 revalida la
+// asignación, el rol y sus controles actuales antes de confirmar cada lectura.
 func nuevaPoliticaPreparacionVigenteCoberturaDesarrollo(
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 	validador puertosvec.ValidadorReferenciaMotivoAutorizacionV2,
+	publicada dominiovec.InstantaneaAutorizacion,
 ) (politicaAutorizacionSolicitudLigadaV3Desarrollo, error) {
 	if soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(validador) ||
-		soporte.registroDecisionesAnalisis == nil || soporte.autoridadAsignaciones == nil {
+		soporte.registroDecisionesAnalisis == nil || publicada.Validar() != nil {
 		return politicaAutorizacionSolicitudLigadaV3Desarrollo{}, errAutorizacionPreparacionVigenteCoberturaDesarrolloNoDisponible
 	}
 	vinculo, err := soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return politicaAutorizacionSolicitudLigadaV3Desarrollo{}, errAutorizacionPreparacionVigenteCoberturaDesarrolloNoDisponible
 	}
-	semilla, err := instantaneaCoberturaConPreparacionVigenteDesarrollo(soporte.instantaneaCobertura)
-	if err != nil {
+	comprobada, err := instantaneaCoberturaConPreparacionVigenteDesarrollo(publicada)
+	if err != nil || comprobada.VersionRol.Referencia() != publicada.VersionRol.Referencia() ||
+		comprobada.AsignacionPerfil.Referencia() != publicada.AsignacionPerfil.Referencia() {
 		return politicaAutorizacionSolicitudLigadaV3Desarrollo{}, errAutorizacionPreparacionVigenteCoberturaDesarrolloNoDisponible
 	}
-	if semilla.AsignacionPerfil.PrincipalID != vinculo.PrincipalID ||
-		semilla.AsignacionPerfil.PerfilActivoRef != vinculo.PerfilActivoRef {
+	if publicada.AsignacionPerfil.PrincipalID != vinculo.PrincipalID ||
+		publicada.AsignacionPerfil.PerfilActivoRef != vinculo.PerfilActivoRef {
 		return politicaAutorizacionSolicitudLigadaV3Desarrollo{}, errAutorizacionPreparacionVigenteCoberturaDesarrolloNoDisponible
 	}
 	p := &politicaPreparacionVigenteCoberturaDesarrollo{
-		soporte: soporte, semilla: semilla,
+		soporte: soporte, publicada: comprobada,
 		motivo:    motivoAutorizacionPreparacionVigenteCoberturaDesarrollo(),
-		validador: validador, preparadas: make(map[string]dominiovec.InstantaneaAutorizacion),
+		validador: validador,
 	}
 	return nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(p, p, p, p)
 }
@@ -178,43 +179,17 @@ func (p *politicaPreparacionVigenteCoberturaDesarrollo) solicitudValida(ctx cont
 func (p *politicaPreparacionVigenteCoberturaDesarrollo) ObtenerInstantaneaAutorizacion(
 	ctx context.Context, principalID, perfilRef string,
 ) (dominiovec.InstantaneaAutorizacion, error) {
-	_, clave, valida := p.solicitudValida(ctx)
-	if !valida || principalID != p.semilla.AsignacionPerfil.PrincipalID ||
-		perfilRef != p.semilla.AsignacionPerfil.PerfilActivoRef {
+	_, _, valida := p.solicitudValida(ctx)
+	if !valida || principalID != p.publicada.AsignacionPerfil.PrincipalID ||
+		perfilRef != p.publicada.AsignacionPerfil.PerfilActivoRef {
 		return dominiovec.InstantaneaAutorizacion{}, puertosvec.ErrFuenteAutorizacionNoDisponible
 	}
-	p.mu.Lock()
-	preparada, existe := p.preparadas[clave]
-	p.mu.Unlock()
-	if existe {
-		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada), nil
-	}
-	p.soporte.mu.Lock()
-	autoridad := p.soporte.autoridadAsignaciones
-	p.soporte.mu.Unlock()
-	if autoridad == nil {
-		return dominiovec.InstantaneaAutorizacion{}, puertosvec.ErrFuenteAutorizacionNoDisponible
-	}
-	var err error
-	preparada, err = autoridad.PrepararInstantanea(ctx, p.semilla)
-	if err != nil || preparada.Validar() != nil {
-		return dominiovec.InstantaneaAutorizacion{}, puertosvec.ErrFuenteAutorizacionNoDisponible
-	}
-	p.mu.Lock()
-	if existente, ok := p.preparadas[clave]; ok {
-		preparada = existente
-	} else if len(p.preparadas) >= maximoSolicitudesPreparacionVigenteCoberturaDesarrollo {
-		p.mu.Unlock()
-		return dominiovec.InstantaneaAutorizacion{}, puertosvec.ErrFuenteAutorizacionNoDisponible
-	} else {
-		p.preparadas[clave] = preparada
-	}
-	p.mu.Unlock()
-	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada), nil
+	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(p.publicada), nil
 }
 
-func (p *politicaPreparacionVigenteCoberturaDesarrollo) publicarYRegistrar(
+func (p *politicaPreparacionVigenteCoberturaDesarrollo) registrarDecisionVigente(
 	ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3,
+	errorNoDisponible error,
 	registrar func(registroDecisionesAnalisisContratacionTemporalDesarrollo) (time.Time, error),
 ) (time.Time, error) {
 	_, clave, valida := p.solicitudValida(ctx)
@@ -222,17 +197,11 @@ func (p *politicaPreparacionVigenteCoberturaDesarrollo) publicarYRegistrar(
 	if !valida || !claveOrdenValida || claveOrden != clave {
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 	}
-	p.mu.Lock()
-	preparada, existe := p.preparadas[clave]
-	delete(p.preparadas, clave)
-	p.mu.Unlock()
 	p.soporte.mu.Lock()
-	autoridad := p.soporte.autoridadAsignaciones
 	registro := p.soporte.registroDecisionesAnalisis
 	p.soporte.mu.Unlock()
-	if !existe || autoridad == nil || registro == nil || preparada.Validar() != nil ||
-		autoridad.PublicarInstantanea(ctx, preparada) != nil {
-		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+	if registro == nil {
+		return time.Time{}, errorNoDisponible
 	}
 	return registrar(registro)
 }
@@ -244,9 +213,11 @@ func (p *politicaPreparacionVigenteCoberturaDesarrollo) RegistrarConcesionCandid
 	if err != nil || datos.Decision.ValidarPara(datos.Solicitud) != nil {
 		return time.Time{}, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
 	}
-	return p.publicarYRegistrar(ctx, datos.Solicitud, func(r registroDecisionesAnalisisContratacionTemporalDesarrollo) (time.Time, error) {
-		return r.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
-	})
+	return p.registrarDecisionVigente(ctx, datos.Solicitud,
+		puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
+		func(r registroDecisionesAnalisisContratacionTemporalDesarrollo) (time.Time, error) {
+			return r.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
+		})
 }
 
 func (p *politicaPreparacionVigenteCoberturaDesarrollo) RegistrarDenegacionAutorizacionLigadaV3(
@@ -256,9 +227,11 @@ func (p *politicaPreparacionVigenteCoberturaDesarrollo) RegistrarDenegacionAutor
 	if err != nil || datos.Decision.ValidarPara(datos.Solicitud) != nil {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
-	_, err = p.publicarYRegistrar(ctx, datos.Solicitud, func(r registroDecisionesAnalisisContratacionTemporalDesarrollo) (time.Time, error) {
-		return time.Time{}, r.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
-	})
+	_, err = p.registrarDecisionVigente(ctx, datos.Solicitud,
+		puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible,
+		func(r registroDecisionesAnalisisContratacionTemporalDesarrollo) (time.Time, error) {
+			return time.Time{}, r.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
+		})
 	return err
 }
 

@@ -35,6 +35,29 @@ type autoridadPreparacionVigenteRevocablePrueba struct {
 	asignaciones []string
 }
 
+type registroPreparacionVigenteRevocablePrueba struct {
+	base      registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba
+	autoridad *autoridadPreparacionVigenteRevocablePrueba
+}
+
+func (r *registroPreparacionVigenteRevocablePrueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
+	ctx context.Context, orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+) (time.Time, error) {
+	if r.autoridad.retirada {
+		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+	}
+	return r.base.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
+}
+
+func (r *registroPreparacionVigenteRevocablePrueba) RegistrarDenegacionAutorizacionLigadaV3(
+	ctx context.Context, orden puertosvec.OrdenRegistroDenegacionAutorizacionLigadaV3,
+) error {
+	if r.autoridad.retirada {
+		return puertosvec.ErrInstantaneaAutorizacionObsoleta
+	}
+	return r.base.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
+}
+
 func (a *autoridadPreparacionVigenteRevocablePrueba) PrepararInstantanea(
 	_ context.Context, i dominiovec.InstantaneaAutorizacion,
 ) (dominiovec.InstantaneaAutorizacion, error) {
@@ -71,8 +94,13 @@ func escenarioPreparacionVigenteAutorizacionPrueba(t *testing.T) (
 	soporte.instantaneaCobertura = v3
 	autoridad := &autoridadPreparacionVigenteRevocablePrueba{}
 	soporte.autoridadAsignaciones = autoridad
+	publicada, err := autoridad.PrepararInstantanea(context.Background(), v3)
+	if err != nil || autoridad.PublicarInstantanea(context.Background(), publicada) != nil {
+		t.Fatalf("publicación gobernada de prueba: %v", err)
+	}
+	soporte.registroDecisionesAnalisis = &registroPreparacionVigenteRevocablePrueba{autoridad: autoridad}
 	politica, err := nuevaPoliticaPreparacionVigenteCoberturaDesarrollo(
-		soporte, validadorMotivoPreparacionVigentePrueba{disponible: true},
+		soporte, validadorMotivoPreparacionVigentePrueba{disponible: true}, publicada,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -111,14 +139,14 @@ func solicitudContextoPreparacionVigentePrueba(t *testing.T, soporte *soporteAlt
 
 func TestPreparacionVigenteCoberturaAccionPropiaYRegistroV3(t *testing.T) {
 	soporte, autorizador, _, politica, autoridad, principal := escenarioPreparacionVigenteAutorizacionPrueba(t)
-	if politica.semilla.VersionRol.Validar() != nil || politica.semilla.VersionRol.Version != 3 ||
-		len(politica.semilla.VersionRol.Concesiones) != 5 ||
-		politica.semilla.VersionRol.Concesiones[4].Accion != accionPreparacionVigenteCoberturaDesarrollo ||
-		politica.semilla.VersionRol.Concesiones[4].TipoRecurso != tipoPreparacionVigenteCoberturaDesarrollo ||
-		len(politica.semilla.VersionRol.Concesiones[4].CamposPermitidos) != 12 ||
-		len(politica.semilla.VersionRol.Concesiones[4].Obligaciones) != 1 ||
-		politica.semilla.VersionRol.Concesiones[4].Obligaciones[0] != "registrar_acceso" {
-		t.Fatalf("concesion GET no independiente: %+v", politica.semilla.VersionRol.Concesiones)
+	if politica.publicada.VersionRol.Validar() != nil || politica.publicada.VersionRol.Version != 3 ||
+		len(politica.publicada.VersionRol.Concesiones) != 5 ||
+		politica.publicada.VersionRol.Concesiones[4].Accion != accionPreparacionVigenteCoberturaDesarrollo ||
+		politica.publicada.VersionRol.Concesiones[4].TipoRecurso != tipoPreparacionVigenteCoberturaDesarrollo ||
+		len(politica.publicada.VersionRol.Concesiones[4].CamposPermitidos) != 12 ||
+		len(politica.publicada.VersionRol.Concesiones[4].Obligaciones) != 1 ||
+		politica.publicada.VersionRol.Concesiones[4].Obligaciones[0] != "registrar_acceso" {
+		t.Fatalf("concesion GET no independiente: %+v", politica.publicada.VersionRol.Concesiones)
 	}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, rutaPreparacionVigenteCoberturaDesarrollo)
 	solicitudContexto := solicitudContextoPreparacionVigentePrueba(t, soporte)
@@ -140,8 +168,8 @@ func TestPreparacionVigenteCoberturaAccionPropiaYRegistroV3(t *testing.T) {
 	); err != nil {
 		t.Fatalf("GET con concesion propia: %v", err)
 	}
-	registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
-	if autoridad.preparadas != 1 || autoridad.publicadas != 1 || registro.concesiones != 1 || registro.huella == "" ||
+	registro := soporte.registroDecisionesAnalisis.(*registroPreparacionVigenteRevocablePrueba)
+	if autoridad.preparadas != 1 || autoridad.publicadas != 1 || registro.base.concesiones != 1 || registro.base.huella == "" ||
 		len(soporte.concesiones) != 0 {
 		t.Fatalf("faltó publicación y registro V3: autoridad=%+v registro=%+v", autoridad, registro)
 	}
@@ -169,8 +197,8 @@ func TestPreparacionVigenteCoberturaVersionaSinMutarRolPublicado(t *testing.T) {
 
 func TestPreparacionVigenteCoberturaComparteRolV3ConPropuestaYRevoca(t *testing.T) {
 	soporte, get, propuesta, politica, autoridad, principal := escenarioPreparacionVigenteAutorizacionPrueba(t)
-	if politica.semilla.VersionRol.Referencia() != soporte.instantaneaCobertura.VersionRol.Referencia() ||
-		politica.semilla.AsignacionPerfil.Referencia() != soporte.instantaneaCobertura.AsignacionPerfil.Referencia() {
+	if politica.publicada.VersionRol.Referencia() != soporte.instantaneaCobertura.VersionRol.Referencia() ||
+		politica.publicada.AsignacionPerfil.Referencia() != soporte.instantaneaCobertura.AsignacionPerfil.Referencia() {
 		t.Fatal("GET y propuesta no comparten la semilla de rol y asignacion v3")
 	}
 	solicitudContexto := solicitudContextoPreparacionVigentePrueba(t, soporte)
@@ -201,12 +229,12 @@ func TestPreparacionVigenteCoberturaComparteRolV3ConPropuestaYRevoca(t *testing.
 			t.Fatalf("operacion %d GET/propuesta/GET: %v", indice, err)
 		}
 	}
-	registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
-	if autoridad.publicadas != 3 || registro.concesiones != 3 || len(autoridad.roles) != 3 ||
-		len(autoridad.asignaciones) != 3 {
+	registro := soporte.registroDecisionesAnalisis.(*registroPreparacionVigenteRevocablePrueba)
+	if autoridad.publicadas != 2 || registro.base.concesiones != 3 || len(autoridad.roles) != 2 ||
+		len(autoridad.asignaciones) != 2 {
 		t.Fatalf("recorrido incompleto: autoridad=%+v registro=%+v", autoridad, registro)
 	}
-	for indice := 1; indice < 3; indice++ {
+	for indice := 1; indice < 2; indice++ {
 		if autoridad.roles[indice] != autoridad.roles[0] ||
 			autoridad.asignaciones[indice] != autoridad.asignaciones[0] {
 			t.Fatalf("flapping de autoridad en %d: %+v", indice, autoridad)
@@ -218,8 +246,40 @@ func TestPreparacionVigenteCoberturaComparteRolV3ConPropuestaYRevoca(t *testing.
 			t.Fatalf("operacion %d autorizada tras revocacion", indice)
 		}
 	}
-	if registro.concesiones != 3 || autoridad.publicadas != 3 {
+	if registro.base.concesiones != 3 || autoridad.publicadas != 2 {
 		t.Fatalf("revocacion produjo efecto: autoridad=%+v registro=%+v", autoridad, registro)
+	}
+}
+
+func TestPreparacionVigenteCoberturaCancelacionesNoRetienenSolicitudes(t *testing.T) {
+	soporte, autorizador, _, politica, autoridad, principal := escenarioPreparacionVigenteAutorizacionPrueba(t)
+	for indice := 0; indice < 1030; indice++ {
+		ctx, cancelar := context.WithCancel(contextoRutaCoberturaDesarrolloPrueba(
+			soporte, principal, rutaPreparacionVigenteCoberturaDesarrollo,
+		))
+		solicitud, err := autorizador.nuevaSolicitud(ctx, soporte.contexto,
+			organizacionAltaContratacionTemporalDesarrollo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx = context.WithValue(ctx, claveSolicitudPreparacionVigenteCoberturaDesarrollo{}, solicitud)
+		vinculo, err := soporte.contexto.Vinculo.Datos()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := politica.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef); err != nil {
+			t.Fatalf("consulta %d agotó la fuente: %v", indice, err)
+		}
+		cancelar()
+	}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, rutaPreparacionVigenteCoberturaDesarrollo)
+	if err := autorizador.AutorizarConsultaPreparacionCoberturaVigente(ctx,
+		solicitudContextoPreparacionVigentePrueba(t, soporte), soporte.contexto,
+		organizacionAltaContratacionTemporalDesarrollo, soporte.reloj.Ahora()); err != nil {
+		t.Fatalf("fuente no recuperó tras cancelaciones: %v", err)
+	}
+	if autoridad.preparadas != 1 || autoridad.publicadas != 1 {
+		t.Fatalf("GET reescribió gobierno durante lectura: %+v", autoridad)
 	}
 }
 
@@ -240,20 +300,20 @@ func TestPreparacionVigenteCoberturaCierraRutaPerfilRevocacionYRegistro(t *testi
 			a.retirada = true
 		}, rutaPreparacionVigenteCoberturaDesarrollo, organizacionAltaContratacionTemporalDesarrollo, application.ErrPresentacionPropuestaCoberturaDenegada},
 		{"registro caido", func(s *soporteAltaContratacionTemporalDesarrollo, _ *politicaPreparacionVigenteCoberturaDesarrollo, _ *autoridadPreparacionVigenteRevocablePrueba) {
-			s.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba).errConcesion =
+			s.registroDecisionesAnalisis.(*registroPreparacionVigenteRevocablePrueba).base.errConcesion =
 				puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
 		}, rutaPreparacionVigenteCoberturaDesarrollo, organizacionAltaContratacionTemporalDesarrollo, application.ErrPresentacionPropuestaCoberturaNoDisponible},
 		{"motivo sin publicar", func(_ *soporteAltaContratacionTemporalDesarrollo, p *politicaPreparacionVigenteCoberturaDesarrollo, _ *autoridadPreparacionVigenteRevocablePrueba) {
 			p.validador = validadorMotivoPreparacionVigentePrueba{disponible: false}
 		}, rutaPreparacionVigenteCoberturaDesarrollo, organizacionAltaContratacionTemporalDesarrollo, application.ErrPresentacionPropuestaCoberturaDenegada},
 		{"campo ausente", func(_ *soporteAltaContratacionTemporalDesarrollo, p *politicaPreparacionVigenteCoberturaDesarrollo, _ *autoridadPreparacionVigenteRevocablePrueba) {
-			p.semilla.VersionRol.Concesiones[4].CamposPermitidos = p.semilla.VersionRol.Concesiones[4].CamposPermitidos[:11]
+			p.publicada.VersionRol.Concesiones[4].CamposPermitidos = p.publicada.VersionRol.Concesiones[4].CamposPermitidos[:11]
 		}, rutaPreparacionVigenteCoberturaDesarrollo, organizacionAltaContratacionTemporalDesarrollo, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil},
 		{"campo futuro", func(_ *soporteAltaContratacionTemporalDesarrollo, p *politicaPreparacionVigenteCoberturaDesarrollo, _ *autoridadPreparacionVigenteRevocablePrueba) {
-			p.semilla.VersionRol.Concesiones[4].CamposPermitidos = append(p.semilla.VersionRol.Concesiones[4].CamposPermitidos, "catalogo.vias.campo_futuro")
+			p.publicada.VersionRol.Concesiones[4].CamposPermitidos = append(p.publicada.VersionRol.Concesiones[4].CamposPermitidos, "catalogo.vias.campo_futuro")
 		}, rutaPreparacionVigenteCoberturaDesarrollo, organizacionAltaContratacionTemporalDesarrollo, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil},
 		{"obligacion futura", func(_ *soporteAltaContratacionTemporalDesarrollo, p *politicaPreparacionVigenteCoberturaDesarrollo, _ *autoridadPreparacionVigenteRevocablePrueba) {
-			p.semilla.VersionRol.Concesiones[4].Obligaciones = []string{"registrar_acceso", "obligacion_futura"}
+			p.publicada.VersionRol.Concesiones[4].Obligaciones = []string{"registrar_acceso", "obligacion_futura"}
 		}, rutaPreparacionVigenteCoberturaDesarrollo, organizacionAltaContratacionTemporalDesarrollo, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -269,9 +329,9 @@ func TestPreparacionVigenteCoberturaCierraRutaPerfilRevocacionYRegistro(t *testi
 			if !errors.Is(err, caso.esperado) {
 				t.Fatalf("error=%v, esperado=%v", err, caso.esperado)
 			}
-			registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+			registro := soporte.registroDecisionesAnalisis.(*registroPreparacionVigenteRevocablePrueba)
 			if caso.nombre == "revocada" || caso.nombre == "registro caido" {
-				if registro.concesiones != 0 {
+				if registro.base.concesiones != 0 {
 					t.Fatalf("registro tras fallo: %+v", registro)
 				}
 			}
