@@ -86,9 +86,19 @@ func TestPDPComunAutorizaLaListaDePeticionesDeCentrosDeRRHH(t *testing.T) {
 			t.Fatalf("la frontera de la lista admite %s", accion)
 		}
 	}
-	// La entrega (POST) no se declara en este corte.
-	if _, ok := catalogoFronteras.resolver(http.MethodPost, rutaEntregaPeticionCentro); ok {
-		t.Fatal("la entrega quedó declarada sin su alta interna")
+	post, ok := catalogoFronteras.resolver(http.MethodPost, rutaEntregaPeticionCentro)
+	if !ok || post.Clave != "ct-peticiones-centro-rrhh-entregar" || !post.admitePerfil(perfil) || post.admitePerfil("prf_ct_ajeno") {
+		t.Fatal("la entrega no conserva una frontera POST del perfil CT")
+	}
+	for _, accion := range []string{ports.AccionEntregarPeticionRRHH, ports.AccionCrearSolicitud} {
+		if _, ok := catalogo.politicaPara(accion, post.Clave, post.ClavePolitica, post.ClaveCapacidad); !ok {
+			t.Fatalf("el POST no enlaza la acción %s", accion)
+		}
+	}
+	ctxPost := context.WithValue(context.Background(), claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{
+		metodo: http.MethodPost, ruta: rutaEntregaPeticionCentro, superficie: post.Superficie, catalogo: catalogoFronteras, descriptor: post})
+	if _, err := pdp.contextoSolicitud(ctxPost, solicitudBandejaEntregaPeticionPrueba(t)); !errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) {
+		t.Fatalf("el POST admitió la acción de consulta: %v", err)
 	}
 }
 
