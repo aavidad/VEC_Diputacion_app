@@ -164,8 +164,11 @@ func TestPerfilesFijosSeparanPerfilYRutas(t *testing.T) {
 			t.Fatalf("%s no debe usar un perfil fijo", ruta)
 		}
 	}
-	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) == nil {
-		t.Fatal("POST de entrega sin perfil fijo")
+	lectorEntrega := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet)
+	escritorEntrega := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodPost)
+	if lectorEntrega == nil || escritorEntrega == nil || lectorEntrega == escritorEntrega ||
+		lectorEntrega.perfilRef() == escritorEntrega.perfilRef() {
+		t.Fatal("GET y POST de entrega sin perfiles fijos separados")
 	}
 	// Una ruta ya asignada no puede pasar a otro perfil.
 	if err := s.registrarPerfilFijoCTDesarrollo(&perfilFijoCTDesarrollo{clave: "otro", plantilla: alta.plantilla,
@@ -178,7 +181,7 @@ func TestPerfilesFijosSeparanPerfilYRutas(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, d := range asignadas {
-		fijo := s.perfilFijoParaRuta(d.Ruta)
+		fijo := s.perfilFijoParaRutaYMetodo(d.Ruta, d.Metodo)
 		switch {
 		case fijo != nil && (len(d.PerfilesActivosRef) != 1 || d.PerfilesActivosRef[0] != fijo.perfilRef()):
 			t.Fatalf("%s: la frontera no admite solo su perfil fijo", d.Ruta)
