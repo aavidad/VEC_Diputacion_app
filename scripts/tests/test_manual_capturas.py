@@ -174,7 +174,8 @@ class ContratoCapturas(unittest.TestCase):
                                  b'location.hash = "contratacion-temporal";')
                     self.send_header("Content-Type", "text/javascript")
                 else:
-                    contenido = b'<main></main><script src="/app.js?v=1"></script>'
+                    contenido = (b'<main></main><input value="dato sintetico">'
+                                 b'<script src="/app.js?v=1"></script>')
                     self.send_header("Content-Type", "text/html")
                 self.send_header("Content-Length", str(len(contenido)))
                 self.end_headers()
@@ -249,6 +250,36 @@ class ContratoCapturas(unittest.TestCase):
         escenario = {"pantallas": [{"clave": "campo", "ruta": "/", "pasos": [],
                                      "marcas": [{"numero": 1, "selector": "#campo",
                                                  "texto": "Campo", "tipo": "recuadro"}], "ocultar": []}]}
+        try:
+            with tempfile.TemporaryDirectory() as temporal:
+                with self.assertRaisesRegex(ValueError, "marca intersecta"):
+                    capturador.capturar(f"http://127.0.0.1:{servidor.server_port}", escenario,
+                                       Path(temporal), confirmar_sinteticos=True)
+        finally:
+            servidor.shutdown()
+            servidor.server_close()
+            hilo.join(timeout=2)
+
+    def test_rechaza_mascara_invisible_con_geometria_sobre_marca(self):
+        class PaginaConMascaraInvisible(BaseHTTPRequestHandler):
+            def do_GET(self):
+                html = (b'<main><h1 id="titulo">Ensayo</h1></main>'
+                        b'<div data-private style="visibility:hidden;position:absolute;'
+                        b'left:0;top:0;width:600px;height:100px">Oculto</div>')
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(html)
+
+            def log_message(self, *_args):
+                pass
+
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), PaginaConMascaraInvisible)
+        hilo = Thread(target=servidor.serve_forever, daemon=True)
+        hilo.start()
+        escenario = {"pantallas": [{"clave": "invisible", "ruta": "/", "pasos": [],
+                                     "marcas": [{"numero": 1, "selector": "#titulo",
+                                                 "texto": "Título", "tipo": "recuadro"}], "ocultar": []}]}
         try:
             with tempfile.TemporaryDirectory() as temporal:
                 with self.assertRaisesRegex(ValueError, "marca intersecta"):

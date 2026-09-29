@@ -250,14 +250,15 @@ def _cajas_intersecan(primera: dict, segunda: dict) -> bool:
             segunda["y"] < primera["y"] + primera["height"])
 
 
-def _comprobar_marcas_sin_mascara(pagina, cajas: list[dict], ocultar: list[str]) -> None:
-    for selector in (OCULTAR_BASE, *ocultar):
-        for elemento in pagina.locator(selector).all():
-            if not elemento.is_visible():
-                continue
-            caja_mascara = elemento.bounding_box()
-            if caja_mascara and any(_cajas_intersecan(caja, caja_mascara) for caja in cajas):
-                raise ValueError("una marca intersecta una zona que se ocultará en la captura")
+def _comprobar_marcas_sin_mascara(cajas: list[dict], mascaras: list) -> None:
+    for elemento in mascaras:
+        caja_mascara = elemento.evaluate("""nodo => {
+          const caja = nodo.getBoundingClientRect();
+          return {x: caja.x, y: caja.y, width: caja.width, height: caja.height};
+        }""")
+        if (caja_mascara["width"] > 0 and caja_mascara["height"] > 0 and
+                any(_cajas_intersecan(caja, caja_mascara) for caja in cajas)):
+            raise ValueError("una marca intersecta una zona que se ocultará en la captura")
 
 
 def _anotar(png: bytes, marcas: list[dict], cajas: list[dict]) -> bytes:
@@ -346,8 +347,8 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
                             raise ValueError(f"la vista final no coincide con el escenario: {pantalla['clave']}")
                         pagina.evaluate("() => document.fonts.ready")
                         _detectar_datos_sensibles(pagina)
-                        mascaras = [pagina.locator(OCULTAR_BASE)]
-                        mascaras.extend(pagina.locator(selector) for selector in pantalla["ocultar"])
+                        mascaras = [elemento for selector in (OCULTAR_BASE, *pantalla["ocultar"])
+                                    for elemento in pagina.locator(selector).all()]
                         cajas = []
                         for marca in pantalla["marcas"]:
                             localizador = pagina.locator(marca["selector"])
@@ -356,7 +357,7 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
                                     pagina, marca["selector"]):
                                 raise ValueError(f"selector de marca no visible: {marca['numero']}")
                             cajas.append(caja)
-                        _comprobar_marcas_sin_mascara(pagina, cajas, pantalla["ocultar"])
+                        _comprobar_marcas_sin_mascara(cajas, mascaras)
                         png = pagina.screenshot(full_page=False, animations="disabled",
                                                 mask=mascaras, mask_color="#273746")
                         anotado = _anotar(png, pantalla["marcas"], cajas)
