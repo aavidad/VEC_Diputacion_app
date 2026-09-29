@@ -11,8 +11,7 @@
     "nadie": "Nadie: la firma está completa",
     "sin_fecha": "Aún no hay firmas",
     "fecha_desconocida": "Fecha no disponible",
-    "estado_no_disponible_aviso": "Ahora no se puede saber en qué estado está cada firma. Se muestra quién firma primero según el circuito. Vuelva a entrar más tarde.",
-    "firmadoc": "Firmadoc todavía no está conectado con VEC: no se envía nada y ningún documento cuenta como firmado oficialmente."
+    "estado_no_disponible_aviso": "Ahora no se puede saber en qué estado está cada firma. Se muestra quién firma primero según el circuito. Vuelva a entrar más tarde."
   },
   "estado": {
     "borrador": "Borrador sin firmar",

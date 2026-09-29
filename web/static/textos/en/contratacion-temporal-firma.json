@@ -11,8 +11,7 @@
     "nadie": "No one: signing is complete",
     "sin_fecha": "No signatures yet",
     "fecha_desconocida": "Date not available",
-    "estado_no_disponible_aviso": "The status of each signature cannot be checked right now. The first signer in the workflow is shown. Please try again later.",
-    "firmadoc": "Firmadoc is not yet connected to VEC: nothing is sent and no document counts as officially signed."
+    "estado_no_disponible_aviso": "The status of each signature cannot be checked right now. The first signer in the workflow is shown. Please try again later."
   },
   "estado": {
     "borrador": "Unsigned draft",

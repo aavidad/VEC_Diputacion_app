@@ -50,7 +50,6 @@ test("el apartado dice documento, estado, quién firma y desde cuándo, escapado
   assert.match(html, />Pendiente de firma</u);
   assert.match(html, /Cargo 2 \(paso 2 de 3\)/u);
   assert.match(html, /28 sept 2026, 10:30/u, "fecha y hora de Madrid");
-  assert.match(html, /Firmadoc todavía no está conectado con VEC/u);
   assert.doesNotMatch(html, /ct-fase-firma-aviso/u);
 });
 
@@ -84,4 +83,11 @@ test("los dos idiomas tienen las mismas claves y un fallo de carga no rompe la f
   }
   assert.equal(await cargarTextosFaseFirma(() => { throw new Error("sin catálogo"); }), null);
   assert.equal(await cargarTextosFaseFirma(async () => { throw new Error("sin catálogo"); }), null);
+});
+
+test("un documento de un solo paso no repite «paso 1 de 1»", () => {
+  const real = { documentos: [documento(["pendiente_firma"], 1)] };
+  const html = renderizarFaseFirma({ catalogo: real, real, textos: es });
+  assert.match(html, /<span>Cargo 1<\/span>/u);
+  assert.doesNotMatch(html, /paso 1 de 1/u);
 });

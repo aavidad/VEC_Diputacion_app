@@ -78,9 +78,9 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
   const filas = documentos.map((documento) => {
     const fase = calcularFaseDocumento(documento, conEstado);
     const tono = TONO[fase.estado];
-    const quien = fase.paso
-      ? `${nombrar("cargo", fase.paso.cargo)} (${textos.traducir("fase.paso", { actual: fase.paso.orden, total: fase.total })})`
-      : textos.traducir("fase.nadie");
+    const cargo = fase.paso ? nombrar("cargo", fase.paso.cargo) : "";
+    const quien = !fase.paso ? textos.traducir("fase.nadie")
+      : fase.total > 1 ? `${cargo} (${textos.traducir("fase.paso", { actual: fase.paso.orden, total: fase.total })})` : cargo;
     return `<li class="ct-fase-firma-fila ct-fase-firma-fila--${tono}" data-ct-fase-firma-documento="${escaparHTML(documento.documento)}"
       data-ct-fase-firma-estado="${fase.estado}">
       <div class="ct-fase-firma-dato ct-fase-firma-documento"><span class="ct-fase-firma-rotulo">${escaparHTML(textos.traducir("fase.documento"))}</span>
@@ -98,6 +98,5 @@ export function renderizarFaseFirma({ catalogo, real, textos, nombrar = (_tipo, 
     <p class="ct-fase-firma-resumen">${escaparHTML(textos.traducir("fase.resumen"))}</p>
     ${conEstado ? "" : `<p class="ct-fase-firma-aviso" role="status">${escaparHTML(textos.traducir("fase.estado_no_disponible_aviso"))}</p>`}
     <ul class="ct-fase-firma-lista" aria-label="${escaparHTML(textos.traducir("fase.lista"))}">${filas}</ul>
-    <p class="ct-fase-firma-firmadoc">${escaparHTML(textos.traducir("fase.firmadoc"))}</p>
   </section>`;
 }
