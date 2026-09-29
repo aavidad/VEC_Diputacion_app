@@ -292,7 +292,8 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 
 // semillasSujeto devuelve la semilla de la referencia de sujeto de cada fila:
 // documento y nombre tal como vienen en el acta. Si dos filas traen
-// exactamente el mismo texto, esa semilla lleva además el número de fila, de
+// exactamente el mismo texto, esa semilla lleva además el número de fila (tras
+// un separador de control que la importación nunca acepta en un nombre), de
 // modo que cada puesto de la lista conserve una entrada propia en la
 // instantánea sin afirmar quién es cada persona (sus vínculos quedan
 // pendientes de revisión). Las filas sin repetición conservan la semilla
@@ -307,7 +308,7 @@ func semillasSujeto(filas []importacion.FilaAceptada) map[int]string {
 	}
 	for numero, semilla := range semillas {
 		if repeticiones[semilla] > 1 {
-			semillas[numero] = semilla + "|fila:" + strconv.Itoa(numero)
+			semillas[numero] = semilla + "\x1ffila:" + strconv.Itoa(numero)
 		}
 	}
 	return semillas
