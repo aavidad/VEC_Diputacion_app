@@ -205,6 +205,8 @@ BEGIN
  THEN RAISE EXCEPTION 'CT-148: consumo divergente' USING ERRCODE='42501'; END IF;
 
  IF operacion='consultar' THEN
+  IF p_material ? 'limite' AND jsonb_typeof(p_material->'limite')<>'number'
+  THEN RAISE EXCEPTION 'CT-148: consulta inválida' USING ERRCODE='22023'; END IF;
   BEGIN
    limite:=coalesce((p_material->>'limite')::integer,50);
    antes_de:=(p_material->>'antes_de_version')::bigint;
@@ -251,6 +253,12 @@ BEGIN
     OR coalesce(p_material->>'motivo_clave','') !~ '^[a-z][a-z0-9_]{2,63}$'
     OR (p_material ? 'referencia' AND jsonb_typeof(p_material->'referencia')<>'string')
     OR (p_material ? 'nota' AND jsonb_typeof(p_material->'nota')<>'string')
+    OR (p_material ? 'referencia' AND (char_length(p_material->>'referencia') NOT BETWEEN 1 AND 120
+         OR p_material->>'referencia' IS DISTINCT FROM btrim(p_material->>'referencia')
+         OR p_material->>'referencia' ~ '[[:cntrl:]]'))
+    OR (p_material ? 'nota' AND (char_length(p_material->>'nota') NOT BETWEEN 1 AND 500
+         OR p_material->>'nota' IS DISTINCT FROM btrim(p_material->>'nota')
+         OR p_material->>'nota' ~ '[[:cntrl:]]'))
  THEN RAISE EXCEPTION 'CT-148: ajuste inválido' USING ERRCODE='22023'; END IF;
  canonico:=p_material->>'ajustes_canonico';
  huella:=encode(sha256(convert_to(canonico,'UTF8')),'hex');
@@ -276,7 +284,9 @@ BEGIN
                ORDER BY e->>'regla_clave',e->>'campo') FROM jsonb_array_elements(p_material->'cambios') e),
    'motivo_clave',p_material->>'motivo_clave','referencia',p_material->>'referencia','nota',p_material->>'nota')::text,'UTF8')),'hex');
 
- -- Serializa clave, control de versión y lectura de la cabeza.
+ -- Serializa escritores cooperantes. La lectura de la cabeza no bloquea la
+ -- instantánea de otro escritor serializable: la PK o UNIQUE detecta el
+ -- conflicto concurrente con 40001 en el cliente que debe reintentar.
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:ajustes_reglas',0));
  SELECT * INTO previa FROM vec_contratacion_temporal.regla_ajuste_version_v1 v WHERE v.clave_idempotencia=clave;
  IF FOUND THEN
@@ -321,6 +331,8 @@ BEGIN
   THEN RAISE EXCEPTION 'CT-148: un ajuste previo no puede desaparecer' USING ERRCODE='22023'; END IF;
  END LOOP;
 
+ -- vigente_desde se toma antes del COMMIT. Un plazo iniciado entre ambos
+ -- instantes puede ver la versión anterior hasta que la transacción confirme.
  ahora:=date_trunc('microseconds',clock_timestamp());
  IF anterior.version IS NOT NULL AND ahora<=anterior.vigente_desde
  THEN RAISE EXCEPTION 'CT-148: reloj anterior a la versión vigente' USING ERRCODE='40001'; END IF;

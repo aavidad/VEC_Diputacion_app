@@ -7,6 +7,36 @@
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL timezone='UTC';
 
+-- Ejercita la fachada AD3 real antes de sustituirla: una decisión de consulta
+-- aplicada a material de ajuste debe denegarse antes de consumir la decisión.
+DO $fachada_real$
+DECLARE p jsonb:='{"operacion":"ajustar","organizacion_ref":"organizacion:desarrollo:dipgra"}'::jsonb;
+ h text; contexto_h text; c jsonb; d jsonb; mensaje text;
+BEGIN
+ h:=encode(sha256(convert_to(p::text,'UTF8')),'hex');
+ contexto_h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"material_sha256":"'||h||'"}}','UTF8')),'hex');
+ c:=jsonb_build_object('operacion','contratacion_temporal.reglas.consultar_ajustes',
+   'audiencia_consumo','vec_contratacion_temporal.ajustes_reglas.v1',
+   'efecto_ref','vec.contratacion_temporal.reglas','huella_efecto_sha256',contexto_h);
+ d:=jsonb_build_object('accion','contratacion_temporal.reglas.consultar_ajustes',
+   'modulo_id','contratacion_temporal','tipo_recurso','catalogo_reglas',
+   'finalidad','gobierno_reglas_contratacion_temporal',
+   'recurso_ref','vec.contratacion_temporal.reglas',
+   'contexto_recurso_huella_sha256',contexto_h,
+   'campos_permitidos',jsonb_build_array('historial','vigente'),
+   'obligaciones','[]'::jsonb);
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.registrar_y_consumir_ajustes_reglas_ct_v3_atestada(
+    p,convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),
+    '\x00'::bytea,'\x00'::bytea,1,1,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea);
+  RAISE EXCEPTION 'PRUEBA FALLIDA: fachada AD3 aceptó consulta sobre ajuste';
+ EXCEPTION WHEN insufficient_privilege THEN
+  GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+  IF mensaje<>'AD3-114: ajuste de reglas denegado'
+  THEN RAISE EXCEPTION 'PRUEBA FALLIDA: rechazo ajeno a la operación AD3: %',mensaje; END IF;
+ END;
+END $fachada_real$;
+
 CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_ajustes_reglas_ct_v3_atestada(
  p_material jsonb,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
@@ -71,7 +101,10 @@ BEGIN
  PERFORM pg_temp.falla(pg_temp.material(k1,0,'{"c03.plazo_fiscalizacion":{"cantidad":"7"},"c04.plazo_subsanacion":{"cantidad":"5"}}',cambio1),'22023','ajuste sin cambio');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1||cambio1),'22023','cambio repetido');
  PERFORM pg_temp.falla(pg_temp.material(k1,1,c1,cambio1),'40001','versión esperada adelantada');
- PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||jsonb_build_object('nota','con'||chr(10)||'control'),'23514','nota con control');
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||jsonb_build_object('nota','con'||chr(10)||'control'),'22023','nota con control');
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||'{"referencia":" Acuerdo"}','22023','referencia con espacios');
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||jsonb_build_object('referencia',repeat('a',121)),'22023','referencia larga');
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||'{"nota":""}','22023','nota vacía');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||'{"extra":1}','22023','clave desconocida');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||'{"organizacion_ref":"otra"}','22023','otra organización');
 
@@ -79,9 +112,20 @@ BEGIN
  r:=pg_temp.operar(pg_temp.material(k1,0,c1,cambio1));
  IF (r->>'replay')::boolean OR (r#>>'{recibo,version}')::int<>1 THEN RAISE EXCEPTION 'PRUEBA FALLIDA: v1 %',r; END IF;
  t1:=(r#>>'{recibo,vigente_desde}')::timestamptz;
- -- Repetición idéntica: mismo recibo; con otro contenido: conflicto de clave.
+ -- La misma solicitud conserva version_esperada=0. El material derivado
+ -- puede cambiar al recalcular el anterior o al releer el catálogo base.
  r2:=pg_temp.operar(pg_temp.material(k1,0,c1,cambio1));
  IF NOT (r2->>'replay')::boolean OR r2#>>'{recibo,recibo_ref}'<>r#>>'{recibo,recibo_ref}' THEN RAISE EXCEPTION 'PRUEBA FALLIDA: replay %',r2; END IF;
+ r2:=pg_temp.operar(pg_temp.material(k1,0,c1,
+   '[{"regla_clave":"c03.plazo_fiscalizacion","campo":"cantidad","anterior":"7","nuevo":"7"}]')
+   ||jsonb_build_object('base_version',2,'base_huella_sha256',repeat('c',64)));
+ IF NOT (r2->>'replay')::boolean OR r2#>>'{recibo,recibo_ref}'<>r#>>'{recibo,recibo_ref}'
+    OR r2#>>'{recibo,version}'<>'1'
+ THEN RAISE EXCEPTION 'PRUEBA FALLIDA: replay con material recalculado %',r2; END IF;
+ -- La misma clave con un valor solicitado distinto no es un replay.
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,'{"c03.plazo_fiscalizacion":{"cantidad":"8"}}',
+   '[{"regla_clave":"c03.plazo_fiscalizacion","campo":"cantidad","anterior":"10","nuevo":"8"}]'),
+   '23505','misma clave, nuevo valor distinto');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||'{"referencia":"Otra"}','23505','clave reutilizada');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1),'23505','misma clave, otro actor','per_otra_persona_000000000000000000');
  -- Otra clave con la versión ya superada.
@@ -112,6 +156,7 @@ BEGIN
  IF jsonb_array_length(r->'historial')<>1 OR (r->>'hay_mas')::boolean OR r#>>'{historial,0,referencia}'<>'Acuerdo 12/2026'
  THEN RAISE EXCEPTION 'PRUEBA FALLIDA: segunda página %',r; END IF;
  PERFORM pg_temp.falla('{"operacion":"consultar","organizacion_ref":"organizacion:desarrollo:dipgra","catalogo_id":"vec.contratacion_temporal.reglas.ajustes","limite":51}','22023','límite');
+ PERFORM pg_temp.falla('{"operacion":"consultar","organizacion_ref":"organizacion:desarrollo:dipgra","catalogo_id":"vec.contratacion_temporal.reglas.ajustes","limite":"1"}','22023','límite textual');
 END $pruebas$;
 RESET SESSION AUTHORIZATION;
 
