@@ -2,10 +2,10 @@ package bootstrap
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -150,56 +150,70 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	}}, nil
 }
 
+// prepararInstantaneasInicialesLectorRRHHDesarrollo es el paso de arranque del
+// perfil de un lector RRHH. Solo publica la semilla de cuadro si el perfil no
+// tiene asignación (publicación inicial transaccional); si la tiene, no
+// escribe nada. Una asignación ajena a la persona detiene el arranque; una
+// revocada, restringida por otro acto o que no es de consulta queda escrita en
+// el registro y sus peticiones se deniegan (guarda de origen operativo), sin
+// que el arranque la reactive ni se detenga.
 func prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo) error {
-	if soporte == nil || ctx == nil || ctx.Err() != nil {
+	if soporte == nil || ctx == nil || ctx.Err() != nil || dependenciaEsNulaContratacionTemporalDesarrollo(soporte.reloj) {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	autoridad, ok := soporte.autoridadAsignaciones.(*autoridadPostgreSQLContratacionTemporalDesarrollo)
-	if !ok || autoridad == nil {
+	if !ok || autoridad == nil || autoridad.pool == nil {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
-	tx, err := autoridad.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	defer tx.Rollback(context.Background())
-	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionContratacionTemporalDesarrollo); err != nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
+	// El técnico RRHH comparte perfil con el alta: lo gobierna su arranque.
 	if soporte.tecnicoConsultaRRHH {
-		if tx.Commit(ctx) != nil {
-			return ports.ErrConsultaRRHHNoDisponible
-		}
 		return nil
 	}
-	if _, err = tx.Exec(ctx, `SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1,0))`, "vec:ct:desarrollo:autorizacion:"+soporte.contexto.Resultado.Contexto.PerfilActivoRef); err != nil {
-		return ports.ErrConsultaRRHHNoDisponible
-	}
-	actual, encontrada, err := leerAsignacionActualPostgreSQLContratacionTemporalDesarrollo(ctx, tx, soporte.contexto.Resultado.Contexto.PerfilActivoRef)
+	vinculo, err := soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
+	publicada, encontrada, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, autoridad.pool, vinculo.PerfilActivoRef)
 	if encontrada {
-		vinculo, err := soporte.contexto.Vinculo.Datos()
-		if err != nil || actual.principalID != vinculo.PrincipalID || actual.perfilRef != vinculo.PerfilActivoRef || !asignacionConsultaLectorRRHHCompatible(soporte, actual) || tx.Commit(ctx) != nil {
+		p := publicada.instantanea.AsignacionPerfil
+		if err == nil && (p.PrincipalID != vinculo.PrincipalID || p.PerfilActivoRef != vinculo.PerfilActivoRef) {
 			return ports.ErrConsultaRRHHNoDisponible
+		}
+		if err != nil || !origenOperativoPublicadoCTDesarrollo(publicada, actoAsignacionCTDesarrollo, soporte.reloj.Ahora()) ||
+			!asignacionConsultaLectorRRHHCompatible(soporte, asignacionActualDesdePublicadaDesarrollo(publicada)) {
+			slog.Warn("perfil de lector RRHH sin asignación operativa: sus consultas se deniegan hasta la provisión",
+				"perfil_ref", vinculo.PerfilActivoRef, "estado", string(perfilDinamicoPendienteProvision))
 		}
 		return nil
 	}
-	if tx.Rollback(context.Background()) != nil {
+	if err != nil {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	soporte.mu.Lock()
 	instantanea := soporte.instantaneaCuadroRRHH
 	soporte.mu.Unlock()
-	preparada, err := autoridad.prepararInstantanea(ctx, instantanea, true)
-	if err != nil || !semillaInicialLectorRRHHIntacta(instantanea, preparada) || autoridad.PublicarInstantanea(ctx, preparada) != nil {
+	comun := autoridad.autoridadComun()
+	comun.soloInicial = true
+	preparada, err := comun.prepararInstantanea(ctx, instantanea, true)
+	if err != nil || !semillaInicialLectorRRHHIntacta(instantanea, preparada) || comun.publicarInstantanea(ctx, preparada) != nil {
 		return ports.ErrConsultaRRHHNoDisponible
 	}
 	soporte.mu.Lock()
 	soporte.instantaneaCuadroRRHH = preparada
 	soporte.mu.Unlock()
 	return nil
+}
+
+// asignacionActualDesdePublicadaDesarrollo resume la instantánea leída sin
+// bloqueo con los campos que cotejan los lectores de la asignación vigente.
+func asignacionActualDesdePublicadaDesarrollo(publicada instantaneaPublicadaDesarrollo) asignacionActualPostgreSQLDesarrollo {
+	a := publicada.instantanea.AsignacionPerfil
+	huella, _ := a.HuellaSHA256()
+	return asignacionActualPostgreSQLDesarrollo{
+		referencia: a.Referencia(), identificador: a.AsignacionID, version: int64(a.Version),
+		perfilRef: a.PerfilActivoRef, principalID: a.PrincipalID, versionRolRef: a.VersionRolRef,
+		huella: huella, actoRef: publicada.actoAsignacion, actualizadaPor: publicada.actualizadaPor,
+	}
 }
 
 func semillaInicialLectorRRHHIntacta(semilla, preparada dominiovec.InstantaneaAutorizacion) bool {

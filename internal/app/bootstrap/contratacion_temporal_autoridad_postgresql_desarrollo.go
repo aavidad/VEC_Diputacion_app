@@ -3,8 +3,10 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -302,27 +304,97 @@ func publicarResultadoContextoPostgreSQLDesarrollo(
 	return nil
 }
 
+// publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo es el paso de
+// arranque del perfil dinámico (RRHH, intervención). Antes preparaba y
+// publicaba siempre la semilla, lo que devolvía a activo un permiso revocado o
+// restringido. Ahora solo lee: publica la semilla únicamente si el perfil no
+// tiene asignación (publicación inicial transaccional) y, si la tiene, no
+// escribe nada. Si la vigente no es operativa (revocada, restringida por otro
+// acto, caducada o con su rol retirado) lo deja escrito en el registro y el
+// arranque sigue: la guarda de origen operativo deniega sus peticiones.
 func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
-	autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{
-		pool: pool, soporte: soporte,
-	}
-	instantanea, err := autoridad.prepararInstantanea(
-		ctx, soporte.instantanea, true,
-	)
+	estado, err := asegurarPerfilDinamicoCTDesarrollo(ctx, pool, soporte)
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	if err := autoridad.publicarInstantanea(ctx, instantanea); err != nil {
-		return falloPostgreSQLCTDesarrollo(err)
+	if estado == perfilDinamicoPendienteProvision {
+		slog.Warn("perfil de Contratación temporal sin asignación operativa: sus peticiones se deniegan hasta la provisión",
+			"perfil_ref", soporte.instantanea.AsignacionPerfil.PerfilActivoRef,
+			"estado", string(perfilDinamicoPendienteProvision))
+	}
+	return nil
+}
+
+// estadoPerfilDinamicoCTDesarrollo resume, sin datos personales, qué hizo el
+// arranque con un perfil dinámico de Contratación temporal.
+type estadoPerfilDinamicoCTDesarrollo string
+
+const (
+	perfilDinamicoPublicadoInicial   estadoPerfilDinamicoCTDesarrollo = "publicado_inicial"
+	perfilDinamicoOperativo          estadoPerfilDinamicoCTDesarrollo = "operativo"
+	perfilDinamicoPendienteProvision estadoPerfilDinamicoCTDesarrollo = "pendiente_provision"
+)
+
+func asegurarPerfilDinamicoCTDesarrollo(
+	ctx context.Context, pool *pgxpool.Pool, soporte *soporteAltaContratacionTemporalDesarrollo,
+) (estadoPerfilDinamicoCTDesarrollo, error) {
+	if ctx == nil || pool == nil || soporte == nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(soporte.reloj) {
+		return "", falloPostgreSQLCTDesarrollo(nil)
 	}
 	soporte.mu.Lock()
-	soporte.instantanea = instantanea
+	plantilla := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(soporte.instantanea)
 	soporte.mu.Unlock()
-	return nil
+	if plantilla.Validar() != nil {
+		return "", falloPostgreSQLCTDesarrollo(nil)
+	}
+	autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}
+	comun := autoridad.autoridadComun()
+	publicada, encontrada, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(
+		ctx, pool, plantilla.AsignacionPerfil.PerfilActivoRef,
+	)
+	if !encontrada {
+		if err != nil {
+			return "", err
+		}
+		comun.soloInicial = true
+		preparada, err := comun.prepararInstantanea(ctx, plantilla, true)
+		if err != nil || preparada.AsignacionPerfil.Version != 1 {
+			return "", falloPostgreSQLCTDesarrollo(err)
+		}
+		if err := comun.publicarInstantanea(ctx, preparada); err != nil {
+			return "", err
+		}
+		soporte.mu.Lock()
+		soporte.instantanea = preparada
+		soporte.mu.Unlock()
+		return perfilDinamicoPublicadoInicial, nil
+	}
+	// Un documento ilegible no es operativo, pero tampoco se toca.
+	if err != nil || publicada.instantanea.AsignacionPerfil.PrincipalID != plantilla.AsignacionPerfil.PrincipalID ||
+		!origenOperativoPublicadoCTDesarrollo(publicada, comun.actoAsignacion, soporte.reloj.Ahora()) {
+		return perfilDinamicoPendienteProvision, nil
+	}
+	return perfilDinamicoOperativo, nil
+}
+
+// origenOperativoPublicadoCTDesarrollo es, sobre la lectura sin bloqueo del
+// arranque, el mismo criterio que comprobarOrigenOperativo aplica bajo
+// bloqueo en cada preparación y publicación: activa, en vigor, con el control
+// de su rol habilitado y con el puntero movido por el propio circuito.
+func origenOperativoPublicadoCTDesarrollo(
+	publicada instantaneaPublicadaDesarrollo, actoAsignacion string, ahora time.Time,
+) bool {
+	p := publicada.instantanea
+	return actoAsignacion != "" && publicada.actoAsignacion == actoAsignacion &&
+		p.Validar() == nil && publicada.actualizadaPor == p.AsignacionPerfil.EmitidaPor &&
+		p.AsignacionPerfil.Estado == dominiovec.EstadoAsignacionPerfilActiva &&
+		p.AsignacionPerfil.VigenteEn(ahora) &&
+		p.ControlVigenciaVersionRol.Estado == dominiovec.EstadoControlVigenciaVersionRolHabilitada
 }
 
 type autoridadPostgreSQLContratacionTemporalDesarrollo struct {
@@ -703,12 +775,18 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) autoridadComun() aut
 			exigirOrigenOperativo: true,
 		}
 	}
+	// Perfiles dinámicos (RRHH, intervención, lectores y CT130): siguen
+	// ajustándose por petición, pero solo encima de una asignación operativa
+	// publicada por este mismo circuito. Ninguna ruta reactiva lo que una
+	// revocación o restricción gobernada (otro acto) haya cerrado. Solo este
+	// circuito publica en esos perfiles (acto CT o, en CT130, su acto propio).
 	return autoridadPostgreSQLDesarrollo{
-		pool:           a.pool,
-		vinculo:        a.soporte.contexto.Vinculo,
-		prefijoBloqueo: "vec:ct:desarrollo:autorizacion:",
-		actoControlRol: actoControlRolCTDesarrollo,
-		actoAsignacion: actoAsignacionCTDesarrollo,
-		actoSesion:     "acto:ct:desarrollo:sesion:v1",
+		pool:                  a.pool,
+		vinculo:               a.soporte.contexto.Vinculo,
+		prefijoBloqueo:        "vec:ct:desarrollo:autorizacion:",
+		actoControlRol:        actoControlRolCTDesarrollo,
+		actoAsignacion:        actoAsignacionCTDesarrollo,
+		actoSesion:            "acto:ct:desarrollo:sesion:v1",
+		exigirOrigenOperativo: true,
 	}
 }
