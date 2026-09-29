@@ -206,7 +206,21 @@ def observar_pagina(pagina, fallos: list[str], cfg: dict | None = None) -> None:
 
 def registrar_paso(cfg: dict, nombre: str, datos: dict) -> None:
     """Conserva cada recibo antes de avanzar; no autoriza repetir un alta parcial."""
-    cfg.setdefault("_pasos", []).append({"paso": nombre, **datos})
+    campos = {
+        "politica": {"bolsa_ref": referencia_obligatoria, "recibo_ref": referencia_obligatoria,
+                     "version": version_obligatoria},
+        "oferta": {"oferta_ref": referencia_obligatoria, "bolsa_ref": referencia_obligatoria,
+                   "publicada_en": instante_obligatorio},
+        "disposicion": {"recibo": referencia_obligatoria, "manifestada_en": instante_obligatorio},
+    }
+    if nombre not in campos:
+        raise FalloRecorrido("paso de evidencia no admitido")
+    limpio = {campo: validar(datos, campo) for campo, validar in campos[nombre].items()}
+    if nombre == "oferta":
+        if datos.get("estado") != "abierta":
+            raise FalloRecorrido("estado de oferta inesperado para el alta")
+        limpio["estado"] = "abierta"
+    cfg.setdefault("_pasos", []).append({"paso": nombre, **limpio})
     if cfg.get("_evidencia"):
         Path(cfg["_evidencia"]).write_text(json.dumps({"estado": "INICIADO",
             "pasos": cfg["_pasos"], "http": cfg.get("_http", [])},

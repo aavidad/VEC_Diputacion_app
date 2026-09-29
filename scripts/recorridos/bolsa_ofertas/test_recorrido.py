@@ -1,6 +1,7 @@
 """Puerta sintética del guion: nunca toca servicios ni inicia Chrome."""
 
 import hashlib
+import json
 import os
 import stat
 import tempfile
@@ -11,10 +12,31 @@ from pathlib import Path
 
 from recorrido import (FalloRecorrido, NoEjecutado, cantidad_seleccionada, dentro_de_git,
                        guardar_captura, instante_obligatorio, instalar_filtro_red, referencia_obligatoria,
+                       registrar_paso,
                        validar_configuracion, validar_origen, version_obligatoria)
 
 
 class PuertaRecorrido(unittest.TestCase):
+    def test_evidencia_parcial_no_copia_correo_tokens_o_cuerpos(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            salida = Path(temporal) / "evidencia.json"
+            cfg = {"_evidencia": str(salida)}
+            comun = {"token": "TOKEN_NO_COPIAR", "correo": "no-copiar@example.test",
+                     "datos": {"descripcion": "CUERPO_NO_COPIAR"}}
+            registrar_paso(cfg, "politica", {**comun, "bolsa_ref": "bolsa:ensayo",
+                           "recibo_ref": "recibo:politica", "version": 1})
+            registrar_paso(cfg, "oferta", {**comun, "bolsa_ref": "bolsa:ensayo",
+                           "oferta_ref": "oferta:ensayo", "estado": "abierta",
+                           "publicada_en": "2026-09-30T00:00:00Z"})
+            registrar_paso(cfg, "disposicion", {**comun, "recibo": "recibo:disposicion",
+                           "manifestada_en": "2026-09-30T00:01:00Z"})
+            for texto in (salida.read_text(), json.dumps(cfg["_pasos"])):
+                for prohibido in ("TOKEN_NO_COPIAR", "no-copiar@example.test", "CUERPO_NO_COPIAR"):
+                    self.assertNotIn(prohibido, texto)
+            self.assertEqual(json.loads(salida.read_text())["pasos"][0]["recibo_ref"], "recibo:politica")
+            with self.assertRaises(FalloRecorrido):
+                registrar_paso(cfg, "paso_desconocido", comun)
+
     def test_captura_privada_exclusiva_sin_seguir_enlaces(self):
         with tempfile.TemporaryDirectory() as temporal:
             raiz = Path(temporal)

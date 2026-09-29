@@ -68,7 +68,8 @@ python3 scripts/recorridos/bolsa_ofertas/recorrido.py \
 
 Si falta clon, binario o material mTLS, devuelve `NO EJECUTADO` (código 2)
 sin abrir Chrome. En `alta` crea primero una marca privada `INICIADO` y conserva cada recibo
-a medida que avanza. Registra método, ruta y estado HTTP sin copiar consultas
+a medida que avanza, limitados a referencias, fechas, versión y estado.
+Registra método, ruta y estado HTTP sin copiar consultas
 ni cuerpos de peticiones. Guarda capturas a 1440 y 390 px en un directorio
 privado junto a la evidencia, con PNG de permisos `0600`, creados sin seguir
 enlaces ni sobrescribir archivos. Si falla, captura la última pantalla alcanzada.
