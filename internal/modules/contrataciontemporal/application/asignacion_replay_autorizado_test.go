@@ -62,8 +62,8 @@ func TestReplayAsignacionRenuevaAutorizacionConAliasActivoSinMutar(t *testing.T)
 	}
 	if datosV3.Accion != ports.AccionRegistrarAsignacion ||
 		datosV3.Recurso.Referencia != escenario.solicitud.ExpedienteRef ||
-		datosV3.Recurso.Ambitos["expediente_ref"] !=
-			escenario.solicitud.ExpedienteRef ||
+		len(datosV3.Recurso.Ambitos) != 4 ||
+		datosV3.Recurso.Ambitos["expediente_ref"] != "" ||
 		datosV3.Recurso.Atributos[ports.AtributoVersionAsignacion] !=
 			strconv.FormatUint(escenario.solicitud.VersionEsperada, 10) ||
 		datosV3.Recurso.Atributos[ports.AtributoUnidadDestino] !=

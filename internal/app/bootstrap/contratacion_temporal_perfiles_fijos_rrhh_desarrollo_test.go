@@ -29,6 +29,7 @@ func TestRutasPerfilFijoNuncaPreparanNiPublican(t *testing.T) {
 	principal.ID, principal.Attributes["certificate_sha256"] = s.principalID, s.certificadoSHA256
 	for _, ruta := range []string{httpinterno.RutaAltaSolicitudes, httpinterno.RutaPropuestaCobertura,
 		httpinterno.RutaRegistroAnalisisRRHH, httpinterno.RutaRectificacionAnalisisRRHH,
+		httpinterno.RutaAsignaciones, httpinterno.RutaPreparacionesInformeJuridico,
 		httpinterno.RutaDecisionCobertura, httpinterno.RutaRectificacionCobertura, httpinterno.RutaResultadoCobertura} {
 		ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, ruta)
 		if _, ok := s.instantaneaParaContexto(ctx, ruta); ok {
@@ -58,7 +59,15 @@ func TestPerfilesFijosSeparanPerfilYRutas(t *testing.T) {
 		analisis == alta || analisis == cobertura || analisis.perfilRef() == dinamico {
 		t.Fatal("el análisis no tiene su propio perfil fijo")
 	}
-	for _, ruta := range []string{rutaEntregaPeticionCentro, httpinterno.RutaAsignaciones,
+	asignacion, informe := s.perfilFijoParaRuta(httpinterno.RutaAsignaciones), s.perfilFijoParaRuta(httpinterno.RutaPreparacionesInformeJuridico)
+	vistos := map[*perfilFijoCTDesarrollo]bool{alta: true, cobertura: true, analisis: true}
+	for _, p := range []*perfilFijoCTDesarrollo{asignacion, informe} {
+		if p == nil || vistos[p] || p.perfilRef() == dinamico {
+			t.Fatal("la asignación y el informe no tienen cada uno su perfil fijo")
+		}
+		vistos[p] = true
+	}
+	for _, ruta := range []string{rutaEntregaPeticionCentro, httpinterno.RutaSubsanacionReparos,
 		httpinterno.RutaConsultaCuadroRRHH, httpinterno.RutaConsultaDetalleRRHH} {
 		if s.perfilFijoParaRuta(ruta) != nil {
 			t.Fatalf("%s no debe usar un perfil fijo", ruta)
