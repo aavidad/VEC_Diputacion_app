@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -190,12 +191,28 @@ func inventarioDesdeMateriales(publicados map[string][]materialAtestacionContrat
 // escribirMaterialV3PortalExterno deja en el material del proceso externo el
 // inventario, la semilla de la raíz de atestación y las claves derivadas de
 // sus audiencias. Nunca escribe la clave base ni la de otras audiencias.
-// Cada fichero se escribe aparte y se renombra al final; el inventario va el
-// último, así que un fallo a medias deja el material anterior en vigor.
+// Los consumidores ya preparados que no se piden ahora se conservan si la raíz
+// es la misma; con otra raíz hay que prepararlos todos de nuevo. Cada fichero
+// se escribe aparte y se renombra, y el inventario va el último: un corte a
+// medias puede dejar un material incoherente, que el proceso externo rechaza
+// al arrancar (falla cerrado) hasta repetir la preparación.
 func escribirMaterialV3PortalExterno(destino string, publicados map[string][]materialAtestacionContratacionTemporalDesarrollo) error {
 	inv, err := inventarioDesdeMateriales(publicados)
 	if err != nil {
 		return err
+	}
+	if previo, errPrevio := leerInventarioV3PortalExterno(destino); errPrevio == nil {
+		mismaRaiz := previo.Raiz.ClaveID == inv.Raiz.ClaveID && previo.Raiz.Version == inv.Raiz.Version &&
+			previo.Raiz.SPKISHA256 == inv.Raiz.SPKISHA256
+		for consumidor, claves := range previo.Consumidores {
+			if _, nuevo := inv.Consumidores[consumidor]; nuevo {
+				continue
+			}
+			if !mismaRaiz {
+				return ErrMaterialV3PortalExternoInvalido
+			}
+			inv.Consumidores[consumidor] = claves
+		}
 	}
 	if err := os.MkdirAll(filepath.Join(destino, filepath.FromSlash(directorioMaterialV3PortalExterno)), 0o700); err != nil {
 		return ErrMaterialV3PortalExternoInvalido
@@ -207,6 +224,11 @@ func escribirMaterialV3PortalExterno(destino string, publicados map[string][]mat
 	}
 	var semilla []byte
 	for _, consumidor := range consumidoresPortalExternoV3 {
+		// Solo se escriben las claves publicadas ahora; las de consumidores
+		// conservados de una preparación anterior ya están en disco.
+		if _, ahora := publicados[consumidor]; !ahora {
+			continue
+		}
 		for i, clave := range inv.Consumidores[consumidor] {
 			m := publicados[consumidor][i]
 			if semilla == nil {
@@ -225,7 +247,36 @@ func escribirMaterialV3PortalExterno(destino string, publicados map[string][]mat
 	if err != nil {
 		return ErrMaterialV3PortalExternoInvalido
 	}
-	return escribirFicheroPrivado(filepath.Join(destino, filepath.FromSlash(inventarioMaterialV3PortalExterno)), append(contenido, '\n'))
+	if err := escribirFicheroPrivado(filepath.Join(destino, filepath.FromSlash(inventarioMaterialV3PortalExterno)), append(contenido, '\n')); err != nil {
+		return err
+	}
+	return retirarClavesSinReferenciaV3PortalExterno(destino, inv)
+}
+
+// retirarClavesSinReferenciaV3PortalExterno borra las claves derivadas que el
+// inventario ya no menciona, para que no quede material sin uso en disco.
+func retirarClavesSinReferenciaV3PortalExterno(destino string, inv inventarioV3PortalExterno) error {
+	referenciados := map[string]bool{semillaRaizMaterialV3PortalExterno: true}
+	for _, claves := range inv.Consumidores {
+		for _, clave := range claves {
+			referenciados[clave.Archivo] = true
+		}
+	}
+	directorio := filepath.Join(destino, filepath.FromSlash(directorioMaterialV3PortalExterno))
+	entradas, err := os.ReadDir(directorio)
+	if err != nil {
+		return ErrMaterialV3PortalExternoInvalido
+	}
+	for _, e := range entradas {
+		relativa := directorioMaterialV3PortalExterno + "/" + e.Name()
+		if !e.Type().IsRegular() || !strings.HasSuffix(e.Name(), ".bin") || referenciados[relativa] {
+			continue
+		}
+		if os.Remove(filepath.Join(directorio, e.Name())) != nil {
+			return ErrMaterialV3PortalExternoInvalido
+		}
+	}
+	return nil
 }
 
 func escribirFicheroPrivado(ruta string, contenido []byte) error {

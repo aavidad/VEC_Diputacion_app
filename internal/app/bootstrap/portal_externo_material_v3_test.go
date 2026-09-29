@@ -209,13 +209,74 @@ func TestPreparacionPortalExternoSoloDesdeElLadoInterno(t *testing.T) {
 		"sin consumidores":         {cfg, destino, nil},
 		"destino = interno":        {cfg, cfg.DevelopmentMaterialDir, []string{"mi_bolsa"}},
 	} {
-		if _, err := PrepararMaterialPortalExterno(t.Context(), caso.cfg, caso.destino, caso.consumidores, nil); err == nil {
+		if _, err := PrepararMaterialPortalExterno(t.Context(), caso.cfg, OpcionesPreparacionPortalExterno{Destino: caso.destino, Consumidores: caso.consumidores}); err == nil {
 			t.Fatalf("%s: preparacion aceptada", nombre)
 		}
 	}
 	// Destino que no es un material externo separado.
 	sinMarca := directorioExternoPrueba(t)
-	if _, err := PrepararMaterialPortalExterno(t.Context(), cfg, sinMarca, []string{"mi_bolsa"}, nil); err == nil {
+	if _, err := PrepararMaterialPortalExterno(t.Context(), cfg, OpcionesPreparacionPortalExterno{Destino: sinMarca, Consumidores: []string{"mi_bolsa"}}); err == nil {
 		t.Fatal("destino sin marca externa aceptado")
+	}
+}
+
+func TestInventarioExternoConservaConsumidoresYBorraClavesSinUso(t *testing.T) {
+	publicados := materialesPublicadosPrueba(t, "usuarios_preferencias", "portal_candidato")
+	dir := directorioExternoPrueba(t)
+	if err := escribirMaterialV3PortalExterno(dir, map[string][]materialAtestacionContratacionTemporalDesarrollo{
+		"usuarios_preferencias": publicados["usuarios_preferencias"]}); err != nil {
+		t.Fatal(err)
+	}
+	huerfana := filepath.Join(dir, "externo", "v3", "mi_bolsa-1.bin")
+	if err := os.WriteFile(huerfana, bytes.Repeat([]byte{1}, 32), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := escribirMaterialV3PortalExterno(dir, map[string][]materialAtestacionContratacionTemporalDesarrollo{
+		"portal_candidato": publicados["portal_candidato"]}); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := leerInventarioV3PortalExterno(dir)
+	if err != nil || len(inv.Consumidores) != 2 {
+		t.Fatalf("la segunda preparacion debe conservar la primera: %v %+v", err, inv.Consumidores)
+	}
+	if _, err := os.Stat(huerfana); !os.IsNotExist(err) {
+		t.Fatal("una clave sin referencia en el inventario debe borrarse")
+	}
+	// Con otra raíz no se mezclan consumidores de preparaciones distintas.
+	otra := materialesPublicadosPrueba(t, "mi_bolsa")
+	if err := escribirMaterialV3PortalExterno(dir, otra); !errors.Is(err, ErrMaterialV3PortalExternoInvalido) {
+		t.Fatalf("mezcla de raices aceptada: %v", err)
+	}
+}
+
+func TestPreparacionExigeIdempotenciaPropiaDelExterno(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	externo := directorioExternoPrueba(t)
+	copiar := func(origen string) {
+		if err := os.MkdirAll(filepath.Join(externo, "idempotencia"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		entradas, _ := os.ReadDir(filepath.Join(origen, "idempotencia"))
+		for _, e := range entradas {
+			contenido, err := os.ReadFile(filepath.Join(origen, "idempotencia", e.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(externo, "idempotencia", e.Name()), contenido, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	copiar(cfg.DevelopmentMaterialDir)
+	if err := exigirIdempotenciaPropiaPortalExterno(cfg.DevelopmentMaterialDir, externo); err == nil {
+		t.Fatal("un externo con la idempotencia del interno debe rechazarse")
+	}
+	propio, _ := generarMaterialDesarrolloPrueba(t)
+	if err := os.RemoveAll(filepath.Join(externo, "idempotencia")); err != nil {
+		t.Fatal(err)
+	}
+	copiar(propio.DevelopmentMaterialDir)
+	if err := exigirIdempotenciaPropiaPortalExterno(cfg.DevelopmentMaterialDir, externo); err != nil {
+		t.Fatalf("idempotencia propia rechazada: %v", err)
 	}
 }

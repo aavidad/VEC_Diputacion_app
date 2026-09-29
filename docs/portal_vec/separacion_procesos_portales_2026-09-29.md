@@ -151,7 +151,9 @@ Hecho (sin cambiar nada si `VEC_PORTAL_PROCESO` no se configura):
      idempotencia, con un espacio de seudónimos propio
      (`vec.identidad.desarrollo.externo`). Los alias de sus cuentas los calcula
      él (`vec-server exportar-seudonimos-portal-externo`, sin conexiones) y los
-     registra el lado interno (`preparar-portal-externo --seudonimos`).
+     registra el lado interno (`preparar-portal-externo --seudonimos FICHERO
+     --cuentas cta_…`) solo para las cuentas que el operador autoriza, nunca
+     para cuentas privilegiadas ni de la superficie corporativa.
    Recorrido real en un clon propio con los dos procesos a la vez: GET 200 y
    PUT 201 de preferencias en el externo, el interno responde 404 a esa ruta y
    los logins externos no pueden leer ningún esquema interno.
@@ -213,6 +215,11 @@ Pendiente, en este orden:
 
 - Mientras no haya un gestor de claves real, las claves siguen dentro de cada
   proceso. Esto limita el daño a un portal, no lo evita.
+- El proceso externo guarda la semilla de la raíz de atestación V3, la misma
+  que usa el interno (como ya hace vec-interno). No le sirve para actuar sobre
+  datos internos: cada consumo exige además la clave HMAC de su audiencia, que
+  el externo solo tiene para las suyas. Una raíz propia del externo exige que
+  el gobierno V3 admita varias raíces por configuración; queda para después.
 - Ambos procesos usan la misma instancia de PostgreSQL. La separación por
   esquemas por población (opción B) y, si la categorización ENS lo pide, una
   base aparte (opción C) vienen después.

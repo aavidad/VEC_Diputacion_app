@@ -95,21 +95,27 @@ func ejecutarComprobacionSeparacion(args []string, salida io.Writer) error {
 // leerGuionEntorno lee un guion de arranque acotado. Sin ruta no hay nada que
 // comparar y se devuelve vacío.
 func leerGuionEntorno(ruta string) ([]byte, error) {
+	return leerFicheroAcotadoTarea(ruta, subcomandoComprobarSeparacion)
+}
+
+// leerFicheroAcotadoTarea lee un fichero regular pequeño para una tarea de
+// línea de órdenes; el error nombra la tarea, nunca el contenido.
+func leerFicheroAcotadoTarea(ruta, tarea string) ([]byte, error) {
 	if ruta == "" {
 		return nil, nil
 	}
 	info, err := os.Lstat(ruta)
 	if err != nil || !info.Mode().IsRegular() || info.Size() > tamanoMaximoGuionEntorno {
-		return nil, fmt.Errorf("%s: guion de entorno no valido", subcomandoComprobarSeparacion)
+		return nil, fmt.Errorf("%s: fichero no valido", tarea)
 	}
 	fichero, err := os.Open(ruta)
 	if err != nil {
-		return nil, fmt.Errorf("%s: guion de entorno no legible", subcomandoComprobarSeparacion)
+		return nil, fmt.Errorf("%s: fichero no legible", tarea)
 	}
 	defer fichero.Close()
 	contenido, err := io.ReadAll(io.LimitReader(fichero, tamanoMaximoGuionEntorno+1))
 	if err != nil || len(contenido) > tamanoMaximoGuionEntorno {
-		return nil, fmt.Errorf("%s: guion de entorno no valido", subcomandoComprobarSeparacion)
+		return nil, fmt.Errorf("%s: fichero no valido", tarea)
 	}
 	return contenido, nil
 }
@@ -123,21 +129,29 @@ var errArgumentosPreparacion = errors.New("argumentos de preparar-portal-externo
 // pedidas y deja en el material del proceso externo solo sus claves
 // derivadas. Imprime recuentos, nunca claves.
 func ejecutarPreparacionPortalExterno(ctx context.Context, args []string, salida io.Writer, cfg config.Config,
-	preparar func(context.Context, config.Config, string, []string, []byte) (bootstrap.ResumenPreparacionPortalExterno, error),
+	preparar func(context.Context, config.Config, bootstrap.OpcionesPreparacionPortalExterno) (bootstrap.ResumenPreparacionPortalExterno, error),
 ) error {
 	opciones := flag.NewFlagSet(subcomandoPrepararPortalExterno, flag.ContinueOnError)
 	opciones.SetOutput(io.Discard)
 	destino := opciones.String("material-externo", "", "directorio de material del proceso externo")
 	consumidores := opciones.String("consumidores", "", "consumidores separados por comas")
 	rutaSeudonimos := opciones.String("seudonimos", "", "fichero con los alias calculados por el proceso externo")
-	if err := opciones.Parse(args); err != nil || opciones.NArg() != 0 || *destino == "" || *consumidores == "" {
+	cuentas := opciones.String("cuentas", "", "cuentas del Área personal autorizadas para esos alias, separadas por comas")
+	if err := opciones.Parse(args); err != nil || opciones.NArg() != 0 || *destino == "" || *consumidores == "" ||
+		(*rutaSeudonimos != "" && *cuentas == "") {
 		return errArgumentosPreparacion
 	}
-	seudonimos, err := leerGuionEntorno(*rutaSeudonimos)
+	seudonimos, err := leerFicheroAcotadoTarea(*rutaSeudonimos, subcomandoPrepararPortalExterno)
 	if err != nil {
 		return err
 	}
-	resumen, err := preparar(ctx, cfg, *destino, strings.Split(*consumidores, ","), seudonimos)
+	var autorizadas []string
+	if *cuentas != "" {
+		autorizadas = strings.Split(*cuentas, ",")
+	}
+	resumen, err := preparar(ctx, cfg, bootstrap.OpcionesPreparacionPortalExterno{
+		Destino: *destino, Consumidores: strings.Split(*consumidores, ","), Seudonimos: seudonimos, CuentasAutorizadas: autorizadas,
+	})
 	if err != nil {
 		return err
 	}

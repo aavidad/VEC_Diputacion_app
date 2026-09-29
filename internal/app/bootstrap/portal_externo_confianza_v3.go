@@ -147,7 +147,16 @@ func nuevaFuenteConfianzaPortalExterno(pool *pgxpool.Pool, inv inventarioV3Porta
 			actual.configuracionHuella, actual.publicadaEn, actual.expiraEn = vigente.HuellaSHA256, vigente.PublicadaEn, vigente.ExpiraEn
 			actual.configuracion, err = confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(
 				actual.configuracionRef, actual.configuracionOrden, actual.publicadaEn, actual.expiraEn, actual.raiz)
-			return actual, err
+			if err != nil {
+				return materialAtestacionContratacionTemporalDesarrollo{}, err
+			}
+			// La configuración reconstruida con la raíz propia debe tener la
+			// huella que publicó el gobierno.
+			huella, err := actual.configuracion.HuellaSHA256ParaGobierno()
+			if err != nil || huella != vigente.HuellaSHA256 {
+				return materialAtestacionContratacionTemporalDesarrollo{}, ErrMaterialV3PortalExternoInvalido
+			}
+			return actual, nil
 		},
 		// El proceso externo no publica: renovar solo deja paso a la lectura.
 		renovar: func(_ context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, _ time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {

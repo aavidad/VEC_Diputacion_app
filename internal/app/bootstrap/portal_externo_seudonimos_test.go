@@ -121,3 +121,37 @@ func TestExportarSeudonimosSoloEnElProcesoExterno(t *testing.T) {
 		}
 	}
 }
+
+func TestAliasSoloParaCuentasAutorizadasYNoInternas(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	s := seudonimosValidosPrueba()
+	contenido, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuenta := s.Cuentas[0].CuentaRef
+	if _, err := seudonimosAutorizadosPortalExterno(cfg, contenido, []string{cuenta}); err != nil {
+		t.Fatalf("cuenta autorizada rechazada: %v", err)
+	}
+	for nombre, autorizadas := range map[string][]string{
+		"sin lista":       nil,
+		"otra cuenta":     {"cta_otra_0123456789abcdef"},
+		"sin prefijo cta": {strings.TrimPrefix(cuenta, "cta_")},
+	} {
+		if _, err := seudonimosAutorizadosPortalExterno(cfg, contenido, autorizadas); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+			t.Fatalf("%s: alias aceptado: %v", nombre, err)
+		}
+	}
+	// Una cuenta de la superficie corporativa de este proceso nunca recibe un
+	// alias del espacio externo, aunque el operador la incluya por error.
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 2,
+		CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
+	interna := configuracionUsuariosPreferenciasDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa,
+		Superficie: core.SuperficieAutenticacionInternaCorporativaV1, MotivoConsulta: motivo, MotivoActualizacion: motivo,
+		Cuentas: []cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{
+			CertificadoSHA256: strings.Repeat("0", 64), Sujeto: "desarrollo:rrhh", CuentaRef: cuenta, PerfilRef: "prf_interna_0123456789abcdef"}}}}
+	escribirJSONExternoPrueba(t, filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "usuarios-preferencias-interna.json"), interna)
+	if _, err := seudonimosAutorizadosPortalExterno(cfg, contenido, []string{cuenta}); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("alias externo para una cuenta interna aceptado: %v", err)
+	}
+}

@@ -2,12 +2,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/bootstrap"
 	"vec-diputacion-granada/internal/app/separacionportales"
 )
 
@@ -74,5 +78,32 @@ func TestComprobarSeparacionPortalesInformaSinValores(t *testing.T) {
 	}
 	if err := ejecutarComprobacionSeparacion([]string{"--material-interno", interno}, &salida); !errors.Is(err, errArgumentosSeparacion) {
 		t.Fatalf("faltan argumentos: %v", err)
+	}
+}
+
+func TestProcesoExternoSoloAdmiteSuListaPositivaDeTareas(t *testing.T) {
+	if err := comprobarSubcomandoEnPortal([]string{"vec-server", subcomandoExportarSeudonimosPortalExterno}, "externo"); err != nil {
+		t.Fatalf("la exportacion de alias debe admitirse en el externo: %v", err)
+	}
+	for _, tarea := range []string{subcomandoPrepararPortalExterno, subcomandoComprobarSeparacion, "importar-convoca"} {
+		if err := comprobarSubcomandoEnPortal([]string{"vec-server", tarea}, "externo"); err == nil {
+			t.Fatalf("%s no debe ejecutarse en el externo", tarea)
+		}
+	}
+}
+
+func TestPrepararConAliasExigeListaDeCuentas(t *testing.T) {
+	llamada := false
+	preparar := func(context.Context, config.Config, bootstrap.OpcionesPreparacionPortalExterno) (bootstrap.ResumenPreparacionPortalExterno, error) {
+		llamada = true
+		return bootstrap.ResumenPreparacionPortalExterno{}, nil
+	}
+	alias := filepath.Join(t.TempDir(), "alias.json")
+	if err := os.WriteFile(alias, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := ejecutarPreparacionPortalExterno(context.Background(), []string{"--material-externo", "/x", "--consumidores", "mi_bolsa", "--seudonimos", alias}, io.Discard, config.Config{}, preparar)
+	if !errors.Is(err, errArgumentosPreparacion) || llamada {
+		t.Fatalf("alias sin lista de cuentas aceptados: %v", err)
 	}
 }
