@@ -189,7 +189,10 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) consumirInstantaneaP
 		return dominiovec.InstantaneaAutorizacion{}, errPerfilCentroNoConsumible
 	}
 	publicada, encontrada, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, a.pool, plantilla.AsignacionPerfil.PerfilActivoRef)
-	if err != nil || !encontrada {
+	if err != nil {
+		return dominiovec.InstantaneaAutorizacion{}, err
+	}
+	if !encontrada {
 		return dominiovec.InstantaneaAutorizacion{}, errPerfilCentroNoConsumible
 	}
 	consumible, ok := instantaneaConsumible(publicada, plantilla, a.soporte.reloj.Ahora())
@@ -212,7 +215,18 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaConsumidaPublicad
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	consumida, err := consumidor.consumirInstantaneaPublicada(ctx, plantilla)
-	if err != nil || consumida.Validar() != nil {
+	if err == nil {
+		err = consumida.Validar()
+	}
+	if err != nil {
+		// Se deniega. El registro permite distinguir una asignación que
+		// espera provisión de una base no disponible, sin datos personales.
+		causa := "asignacion_no_consumible"
+		if !errors.Is(err, errPerfilCentroNoConsumible) {
+			causa = causaFalloPostgreSQLCTDesarrollo(err)
+		}
+		slog.Warn("lectura del centro denegada: asignación publicada no consumible",
+			"perfil_ref", plantilla.AsignacionPerfil.PerfilActivoRef, "causa", causa)
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	return consumida, true
