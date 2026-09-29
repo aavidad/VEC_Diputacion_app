@@ -87,7 +87,7 @@ func TestGuardPublicadorPostgreSQL18(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	for _, caso := range []string{"activa", "restringida", "revocada", "control_retirado", "carrera_control"} {
+	for _, caso := range []string{"activa", "restringida", "revocada", "control_retirado", "carrera_control", "vencimiento_catalogo"} {
 		t.Run(caso, func(t *testing.T) {
 			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 			var aleatorio [8]byte
@@ -115,6 +115,9 @@ func TestGuardPublicadorPostgreSQL18(t *testing.T) {
 			soporte.instantanea.VersionRol.RolID += "_" + hex.EncodeToString(aleatorio[:])
 			soporte.instantanea.ControlVigenciaVersionRol.VersionRolRef = soporte.instantanea.VersionRol.Referencia()
 			soporte.instantanea.AsignacionPerfil.VersionRolRef = soporte.instantanea.VersionRol.Referencia()
+			if caso == "vencimiento_catalogo" {
+				soporte.instantanea.AsignacionPerfil.VigenteHasta = ahora.Add(3 * time.Second)
+			}
 			if err := soporte.instantanea.Validar(); err != nil {
 				t.Fatal(err)
 			}
@@ -157,6 +160,55 @@ func TestGuardPublicadorPostgreSQL18(t *testing.T) {
 				t.Fatalf("preparación activa: %v", err)
 			}
 			switch caso {
+			case "vencimiento_catalogo":
+				bloqueo, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer bloqueo.Rollback(context.Background())
+				if _, err := bloqueo.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
+					t.Fatal(err)
+				}
+				var revision int64
+				if err := bloqueo.QueryRow(ctx, `SELECT revision FROM vec_autorizacion.control_catalogo_politicas
+					WHERE control_id=true FOR UPDATE`).Scan(&revision); err != nil {
+					t.Fatal(err)
+				}
+				resultado := make(chan error, 1)
+				go func() { resultado <- autoridad.publicarInstantanea(ctx, preparada) }()
+				bloqueada := false
+				for i := 0; i < 100; i++ {
+					var esperando bool
+					err := pool.QueryRow(ctx, `SELECT EXISTS (
+						SELECT 1 FROM pg_catalog.pg_stat_activity
+						WHERE usename=current_user AND pid<>pg_catalog.pg_backend_pid()
+						  AND query LIKE '%FROM vec_autorizacion.control_catalogo_politicas%'
+						  AND wait_event_type='Lock')`).Scan(&esperando)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if esperando {
+						bloqueada = true
+						break
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+				if !bloqueada {
+					t.Fatal("la publicación no alcanzó el bloqueo del catálogo antes de vencer")
+				}
+				if espera := time.Until(inicial.AsignacionPerfil.VigenteHasta.Add(100 * time.Millisecond)); espera > 0 {
+					time.Sleep(espera)
+				}
+				if err := bloqueo.Commit(ctx); err != nil {
+					t.Fatal(err)
+				}
+				if err := <-resultado; err == nil {
+					t.Fatal("el publicador confirmó tras caducar mientras esperaba el catálogo")
+				}
+				if ref, n := contar(); ref != inicial.AsignacionPerfil.Referencia() || n != 1 {
+					t.Fatal("el vencimiento alteró el puntero o añadió historia")
+				}
+				return
 			case "activa":
 				if err := autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, inicial); err != nil {
 					t.Fatalf("publicación activa: %v", err)
