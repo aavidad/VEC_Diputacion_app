@@ -31,6 +31,10 @@ var errAuditoriaFronteraUsuariosNoDisponible = errors.New(
 	"vec http: auditoria de frontera de usuarios no disponible",
 )
 
+var errAuditoriaFronteraBolsaNoDisponible = errors.New(
+	"vec http: auditoria de frontera de bolsa no disponible",
+)
+
 var (
 	errRutaExactaNoEncontrada = errors.New(
 		"vec http: ruta exacta no encontrada",
@@ -47,6 +51,7 @@ var (
 )
 
 type claveActorAuditoriaPreferenciasUsuarios struct{}
+type claveActorAuditoriaBolsa struct{}
 
 // ConActorVerificadoAuditoriaPreferenciasUsuarios recibe solo el contexto ya
 // resuelto por la autoridad de identidad. Conserva la referencia opaca y no
@@ -59,6 +64,18 @@ func ConActorVerificadoAuditoriaPreferenciasUsuarios(
 		return nil, domain.ErrContextoActorInvalido
 	}
 	return context.WithValue(ctx, claveActorAuditoriaPreferenciasUsuarios{}, actor.PersonaRef), nil
+}
+
+// ConActorVerificadoAuditoriaBolsa recibe solo el actor resuelto por la
+// autoridad de identidad exterior. No acepta una referencia de la peticion.
+func ConActorVerificadoAuditoriaBolsa(
+	ctx context.Context,
+	actor domain.ContextoActor,
+) (context.Context, error) {
+	if ctx == nil || actor.Validar() != nil {
+		return nil, domain.ErrContextoActorInvalido
+	}
+	return context.WithValue(ctx, claveActorAuditoriaBolsa{}, actor.PersonaRef), nil
 }
 
 // AutoridadRutasExactas comprueba la capacidad opaca que la frontera
@@ -256,9 +273,13 @@ func (h *Handler) registrarDenegacionRutaExacta(
 	}
 	superficie := superficieAuditoriaFronteraRutaExacta(ruta)
 	usuarios := superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
+	bolsa := superficie == ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	if h == nil || dependenciaRutaExactaNula(h.registradorAuditoriaFronteraRutasExactas) {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
+		}
+		if bolsa {
+			return errAuditoriaFronteraBolsaNoDisponible
 		}
 		return nil
 	}
@@ -272,9 +293,16 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
 		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaPreferenciasUsuarios{}).(string)
 	}
+	if bolsa &&
+		motivo == ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado {
+		orden.ActorRef, _ = ctx.Value(claveActorAuditoriaBolsa{}).(string)
+	}
 	if orden.Validar() != nil {
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
+		}
+		if bolsa {
+			return errAuditoriaFronteraBolsaNoDisponible
 		}
 		return nil
 	}
@@ -294,6 +322,9 @@ func (h *Handler) registrarDenegacionRutaExacta(
 		if usuarios {
 			return errAuditoriaFronteraUsuariosNoDisponible
 		}
+		if bolsa {
+			return errAuditoriaFronteraBolsaNoDisponible
+		}
 	}
 	return nil
 }
@@ -306,6 +337,10 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 		"/api/vec/usuarios/mis-correos", "/api/vec/usuarios/area-personal/mis-correos",
 		"/api/vec/usuarios/mi-imagen", "/api/vec/usuarios/area-personal/mi-imagen":
 		return ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
+	case "/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/mi-bolsa/historial",
+		"/api/vec/bolsa/mi-bolsa/solicitudes", "/api/vec/bolsa/mi-bolsa/respuestas",
+		"/api/vec/bolsa/mi-bolsa/disposiciones", "/api/vec/bolsa/mi-bolsa/contacto":
+		return ports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato
 	default:
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	}
