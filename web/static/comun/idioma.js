@@ -124,9 +124,11 @@ function admitido(codigo, indice) {
 }
 
 /** Idioma de la interfaz entre los del índice. La URL prevalece sobre el navegador. */
-export function seleccionarIdioma(parametro = "", preferencias = [], indice = INDICE_IDIOMAS) {
+export function seleccionarIdioma(parametro = "", preferencias = [], indiceOPreferido = INDICE_IDIOMAS) {
+  const indice = typeof indiceOPreferido === "string" ? INDICE_IDIOMAS : indiceOPreferido;
   const solicitado = String(parametro ?? "").toLowerCase();
   if (admitido(solicitado, indice)) return solicitado;
+  if (typeof indiceOPreferido === "string" && admitido(indiceOPreferido, indice)) return indiceOPreferido;
   if (indice.seguirNavegador) {
     for (const preferencia of preferencias ?? []) {
       const completa = String(preferencia ?? "").toLowerCase();
@@ -150,8 +152,20 @@ function parametroActual(ubicacion) {
   catch { return ""; }
 }
 
+/** Resuelve cada navegación sin guardar el resultado. URL, servidor y navegador. */
+export function resolverIdiomaNavegacion({
+  ubicacion = globalThis.location,
+  idiomaPreferido = "navegador",
+  navegador = globalThis.navigator,
+} = {}) {
+  const solicitado = parametroActual(ubicacion);
+  if (admitido(solicitado, INDICE_IDIOMAS)) return solicitado;
+  if (admitido(idiomaPreferido, INDICE_IDIOMAS)) return idiomaPreferido;
+  return seleccionarIdioma("", navegador?.languages ?? (navegador?.language ? [navegador.language] : []));
+}
+
 const ubicacionActual = globalThis.location;
-export const IDIOMA_ACTUAL = seleccionarIdioma(parametroActual(ubicacionActual), globalThis.navigator?.languages ?? []);
+export const IDIOMA_ACTUAL = resolverIdiomaNavegacion({ ubicacion: ubicacionActual });
 export const LOCALIZACION_ACTUAL = localizacionDe(IDIOMA_ACTUAL);
 
 /** Conserva ruta, parámetros ajenos y ancla al cambiar el idioma. */
@@ -181,10 +195,13 @@ function rellenarOpciones(selector, indice) {
 }
 
 /** Conecta un selector nativo al idioma de la interfaz. */
-export function montarSelectorIdioma(selector, ubicacion = globalThis.location, indice = INDICE_IDIOMAS) {
+export function montarSelectorIdioma(selector, ubicacion = globalThis.location, preferidoOIndice = "navegador") {
   if (!selector?.addEventListener) return false;
+  const indice = typeof preferidoOIndice === "object" ? preferidoOIndice : INDICE_IDIOMAS;
   rellenarOpciones(selector, indice);
-  selector.value = seleccionarIdioma(parametroActual(ubicacion), globalThis.navigator?.languages ?? [], indice);
+  selector.value = typeof preferidoOIndice === "object"
+    ? seleccionarIdioma(parametroActual(ubicacion), globalThis.navigator?.languages ?? [], indice)
+    : resolverIdiomaNavegacion({ ubicacion, idiomaPreferido: preferidoOIndice });
   selector.addEventListener("change", () => { cambiarIdioma(selector.value, ubicacion, indice); });
   return true;
 }

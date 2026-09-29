@@ -1,0 +1,30 @@
+.identidad-cabecera { position: relative; min-width: 0; }
+.menu-identidad { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: min(280px, calc(100vw - 20px)); padding: 6px; border: 1px solid var(--ap-borde); border-radius: var(--ap-radio); background: var(--ap-superficie); box-shadow: var(--ap-sombra); }
+.menu-identidad[hidden] { display: none; }
+.menu-identidad button { display: block; width: 100%; min-height: 44px; padding: 9px 12px; border: 0; border-radius: var(--portal-radio); background: transparent; color: var(--ap-tinta); text-align: left; cursor: pointer; }
+.menu-identidad button:hover, .menu-identidad button:focus-visible { background: var(--ap-superficie-alterna); color: var(--ap-azul-800); }
+.preferencias-panel { max-width: 1050px; margin-inline: auto; }
+.preferencias-panel > header { background: var(--ap-cabecera-panel); }
+.preferencias-panel .panel-contenido { display: grid; gap: 16px; }
+.preferencias-rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
+.preferencias-campo { display: grid; align-content: start; gap: 7px; min-width: 0; }
+.preferencias-campo > label:not(.preferencias-casilla) { font-weight: 600; }
+.preferencias-campo select { min-width: 0; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--ap-muted); border-radius: var(--portal-radio); background: var(--ap-superficie); color: var(--ap-tinta); }
+.preferencias-opciones { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.preferencias-casilla { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 9px 12px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie-alterna); cursor: pointer; }
+.preferencias-casilla input { width: 18px; height: 18px; flex: 0 0 18px; accent-color: var(--ap-azul-700); }
+.preferencias-estado { margin: 0; padding: 12px 14px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie-alterna); }
+.preferencias-error { border-color: var(--ap-rojo); color: var(--ap-rojo); }
+.preferencias-exito { border-color: var(--ap-verde); color: var(--ap-verde); }
+.preferencias-aviso { border-color: var(--ap-ambar); }
+.preferencias-nota { margin: 0; color: var(--ap-muted); }
+.preferencias-ayuda { padding: 12px 16px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie-alterna); }
+.preferencias-ayuda p { margin: 0; }
+.preferencias-panel .boton-ayuda { width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--ap-borde); border-radius: 50%; background: var(--ap-superficie); color: var(--ap-azul-800); font-weight: 700; cursor: pointer; }
+.preferencias-panel :is(button, select, input):focus-visible, .menu-identidad :focus-visible, .identidad-cabecera > button:focus-visible { outline: 3px solid var(--ap-azul-700); outline-offset: 2px; }
+@media (max-width: 680px) {
+  .area-personal-app .sesion-usuario { display: flex; width: 46px; flex: 0 0 46px; }
+  .preferencias-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .preferencias-opciones { grid-column: auto; grid-template-columns: minmax(0, 1fr); }
+  .menu-identidad { right: -2px; }
+}

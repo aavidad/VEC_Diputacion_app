@@ -10,6 +10,8 @@
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #ffffff;
+  /* El logotipo institucional se imprime siempre sobre blanco, también en oscuro. */
+  --portal-fondo-logo: #ffffff;
   --portal-lateral-muted: #b7cde0;
   --portal-tinta: #10213b;
   --portal-muted: #586985;
@@ -68,6 +70,81 @@ html[data-tema="granate"] {
   --portal-superficie-alterna: #fbf4f7;
   --portal-cabecera-panel: #f4e7ee;
   --portal-sombra-color: rgb(69 26 50 / 15%);
+}
+
+/* El modo oscuro cambia solo tokens; la gramática de paneles y controles permanece. */
+body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
+  color-scheme: dark;
+  --portal-azul-950: #9ac6ee;
+  --portal-azul-900: #8ab9e6;
+  --portal-azul-800: #7cafe1;
+  --portal-azul-700: #a4d1ff;
+  --portal-azul-600: #acd6ff;
+  --portal-azul-100: #263d56;
+  --portal-acento: var(--portal-azul-700);
+  --portal-foco: var(--portal-azul-700);
+  --portal-texto-inverso: #10263b;
+  --portal-lateral-muted: #1b354e;
+  --portal-lateral-separador: rgb(16 38 59 / 24%);
+  --portal-lateral-hover: rgb(16 38 59 / 12%);
+  --portal-tinta: #f1f5fb;
+  --portal-muted: #d0dbe9;
+  --portal-borde: #91a5ba;
+  --portal-fondo: #111b29;
+  --portal-superficie: #1d2b3c;
+  --portal-superficie-alterna: #26384d;
+  --portal-cabecera-panel: #30445a;
+  --portal-exito: #89dda2;
+  --portal-exito-suave: #183d2a;
+  --portal-aviso: #ffd080;
+  --portal-aviso-suave: #49351a;
+  --portal-peligro: #ff9ca5;
+  --portal-peligro-suave: #49212b;
+  --portal-violeta: #c4aeff;
+  --portal-violeta-suave: #352b50;
+  --portal-neutro-suave: #34475a;
+  --portal-cian: #8fe0ed;
+  --portal-cian-fuerte: #a1e4ee;
+  --portal-cian-suave: #173d49;
+  --portal-naranja: #ffc099;
+  --portal-naranja-suave: #493126;
+  --portal-oliva: #bfe79d;
+  --portal-turquesa: #8ee5df;
+  --portal-morado: #d3aaff;
+  --portal-sombra-color: rgb(0 0 0 / 45%);
+  --portal-sombra: 0 4px 16px rgb(0 0 0 / 28%);
+  --portal-sombra-sm: 0 1px 4px rgb(0 0 0 / 32%);
+}
+
+html[data-tema="granate"] body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) {
+  --portal-azul-950: #e1b7ca;
+  --portal-azul-900: #d9a9c1;
+  --portal-azul-800: #cf9ab4;
+  --portal-azul-700: #f2bad6;
+  --portal-azul-600: #f5c4de;
+  --portal-azul-100: #523448;
+  --portal-texto-inverso: #301b2b;
+  --portal-lateral-muted: #4c2d40;
+  --portal-lateral-separador: rgb(48 27 43 / 24%);
+  --portal-lateral-hover: rgb(48 27 43 / 12%);
+  --portal-tinta: #fbf1f6;
+  --portal-muted: #e5ccd9;
+  --portal-borde: #b395a7;
+  --portal-fondo: #211720;
+  --portal-superficie: #32232f;
+  --portal-superficie-alterna: #423141;
+  --portal-cabecera-panel: #4e3849;
+  --portal-sombra-color: rgb(0 0 0 / 45%);
+}
+
+/* Escala explícita de Usuarios, por encima del control legado del portal. */
+html[data-tamano-texto="normal"]:root { font-size: 100%; }
+html[data-tamano-texto="grande"]:root { font-size: 125%; }
+html[data-tamano-texto="muy_grande"]:root { font-size: 150%; }
+
+/* En el lateral claro del modo oscuro, el foco usa la tinta oscura del tema. */
+body[data-modo-color="oscuro"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral :focus-visible {
+  outline-color: var(--portal-texto-inverso);
 }
 
 body[data-contraste="true"],

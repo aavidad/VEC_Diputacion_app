@@ -1,0 +1,157 @@
+{
+  "portal": {
+    "preferencias_menu": "My preferences",
+    "preferencias_titulo": "My preferences",
+    "preferencias_miga": "Employee Portal → My preferences",
+    "preferencias_cargando": "Loading your preferences…",
+    "preferencias_error": "Your preferences could not be loaded. No saved settings are shown.",
+    "preferencias_denegado": "Your session is not permitted to view these preferences.",
+    "preferencias_sesion": "Your session has expired. Sign in again to continue.",
+    "preferencias_reintentar": "Try loading again",
+    "preferencias_volver": "Back to home",
+    "preferencias_no_guardadas": "You have not saved any preferences yet; default options are shown.",
+    "preferencias_guardadas": "Your preferences are saved.",
+    "preferencias_visual": "Display and language",
+    "preferencias_navegacion": "Home and lists",
+    "preferencias_avisos": "Email alerts",
+    "preferencias_idioma": "Language",
+    "preferencias_tamano": "Text size",
+    "preferencias_contraste": "High contrast",
+    "preferencias_tema": "Colour theme",
+    "preferencias_inicio": "Home page",
+    "preferencias_filas": "Rows per page",
+    "preferencias_correo_tareas": "Task alerts",
+    "preferencias_correo_plazos": "Deadline alerts",
+    "preferencias_si": "Yes",
+    "preferencias_no": "No",
+    "preferencias_ayuda": "Help for {campo}",
+    "preferencias_ayuda_idioma": "The current URL language takes priority for this visit. Your saved preference follows, then your browser language.",
+    "preferencias_ayuda_tamano": "You can also enlarge the page with browser zoom.",
+    "preferencias_ayuda_contraste": "High contrast takes priority over theme colours.",
+    "preferencias_ayuda_tema": "«Same as device» follows your device's colour setting.",
+    "preferencias_ayuda_inicio": "If you cannot access the selected destination, the safe home page opens with a notice.",
+    "preferencias_ayuda_filas": "This choice applies to supported local tables. Remote queries retain their own limits.",
+    "preferencias_ayuda_correo_tareas": "Saving this choice does not confirm any email delivery.",
+    "preferencias_ayuda_correo_plazos": "Saving this choice does not confirm any email delivery.",
+    "preferencias_guardar": "Save preferences",
+    "preferencias_guardando": "Saving preferences…",
+    "preferencias_exito": "Preferences saved.",
+    "preferencias_idioma_guardado": "Your saved language will apply when you reload the portal without a language in the URL.",
+    "preferencias_conflicto": "Your preferences changed in another session. Load the current version before saving again.",
+    "preferencias_validacion": "One option could not be saved. Reload the page and choose it again.",
+    "preferencias_error_guardar": "Saving could not be confirmed. Load your preferences before retrying; the change may have been applied.",
+    "preferencias_tope": "This list has a limit of {limite} rows although your preference is {preferidas}.",
+    "preferencias_destino_no_disponible": "You cannot access the selected home page. The portal home page has opened.",
+    "preferencias_atajo_texto_activo": "Text size increased for this session.",
+    "preferencias_atajo_texto_inactivo": "Normal text size for this session.",
+    "preferencias_atajo_contraste_activo": "High contrast enabled for this session.",
+    "preferencias_atajo_contraste_inactivo": "High contrast disabled for this session.",
+    "ui": {
+      "usuarios": {
+        "preferencias": {
+          "idioma": {
+            "navegador": "Automatic (browser language)",
+            "es": "Spanish",
+            "en": "English"
+          },
+          "tamano_texto": {
+            "normal": "Normal",
+            "grande": "Large",
+            "muy_grande": "Very large"
+          },
+          "tema": {
+            "sistema": "Same as device",
+            "claro": "Light",
+            "oscuro": "Dark"
+          },
+          "inicio": {
+            "cuadro": "Dashboard",
+            "peticiones": "Temporary staff requests",
+            "bolsas": "Job pools"
+          }
+        }
+      }
+    },
+    "api": {
+      "usuarios": {
+        "preferencias": {
+          "error": {
+            "no_autenticado": "Your session has expired. Sign in again.",
+            "prohibido": "You do not have permission to access these preferences.",
+            "conflicto": "Your preferences changed in another session. Load them again.",
+            "peticion_invalida": "The server rejected an option. Load the catalogue again.",
+            "no_disponible": "The preferences service is unavailable. Try loading it later."
+          }
+        }
+      }
+    }
+  },
+  "areaPersonal": {
+    "preferencias": {
+      "titulo": "My preferences",
+      "sinDatos": "Your preferences could not be retrieved. No value is shown as saved.",
+      "recargar": "Reload",
+      "guardar": "Save preferences",
+      "guardando": "Saving…",
+      "guardado": "Preferences saved.",
+      "incierto": "We could not confirm the save. Select «Retry this operation»; it will not be saved twice.",
+      "reintentarExacto": "Retry this operation",
+      "inicioAjeno": "The selected start page belongs to another area or is not authorised here. The safe Personal Area home page opens. This choice does not grant access.",
+      "ayudaAbrir": "Show help about preferences",
+      "ayuda": "A language in the web address applies to this visit only; otherwise your saved choice is used, then the browser language. High contrast takes priority over the colour theme. The start page does not change your permissions. Email alerts only store your choice; they do not mean that any email has been sent. Rows per page apply to lists that support it.",
+      "campo": {
+        "idioma": "Language",
+        "tamano_texto": "Text size",
+        "alto_contraste": "High contrast",
+        "tema": "Colour theme",
+        "inicio": "Start page",
+        "filas": "Rows per page",
+        "aviso_correo_tareas": "Email alerts for tasks",
+        "aviso_correo_plazos": "Email alerts for deadlines"
+      },
+      "opcion": {
+        "idioma": {
+          "navegador": "Automatic (browser language)",
+          "es": "Spanish",
+          "en": "English"
+        },
+        "tamano_texto": {
+          "normal": "Normal",
+          "grande": "Large",
+          "muy_grande": "Very large"
+        },
+        "tema": {
+          "sistema": "Same as device",
+          "claro": "Light",
+          "oscuro": "Dark"
+        },
+        "inicio": {
+          "cuadro": "Dashboard",
+          "peticiones": "Temporary staff requests",
+          "bolsas": "Job pools"
+        }
+      },
+      "error": {
+        "autenticacion": "Your identification has expired. Identify yourself again to view or save preferences.",
+        "denegado": "You do not have permission to view or save your preferences.",
+        "conflicto": "The preferences or catalogue have changed. Refresh before saving again.",
+        "validacion": "Check the options: the service rejected a value.",
+        "servicio": "The preferences service is unavailable. The outcome of the last attempt cannot be confirmed.",
+        "respuesta": "The service returned an incompatible response. No change is confirmed."
+      },
+      "atajoTexto": "Enlarge or reset the text size for this session",
+      "atajoContraste": "Turn high contrast on or off for this session",
+      "menuIdentidad": "Open identity menu",
+      "textoCorto": "Text ",
+      "contrasteCorto": "Contrast",
+      "identidadServicio": "Identity verified by the Users service",
+      "identidadNoConfirmada": "Identity not confirmed by the preferences service",
+      "atajo": {
+        "textoActivo": "Larger text size for this session.",
+        "textoInactivo": "Normal text size for this session.",
+        "contrasteActivo": "High contrast turned on for this session.",
+        "contrasteInactivo": "High contrast turned off for this session."
+      }
+    }
+  }
+}

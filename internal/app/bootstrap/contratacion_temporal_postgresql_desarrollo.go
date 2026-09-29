@@ -96,34 +96,38 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialHistorialMiBolsa *proveedorMaterialAltaContratacionTemporalDesarrollo
 	// proveedoresMaterialPortal: uno por acción propia del candidato que
 	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
-	proveedoresMaterialPortal                       map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorCrear                  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorConsulta               *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialSituacion                      *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaReincorporacionTitular *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialContacto                       *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaContacto               *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDatosContacto                  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialEmision                        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialPoliticaOfertas                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaPoliticaOfertas        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialAuditoriaCT                    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialAuditoriaBolsa                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialPlantillasCatalogo             *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialPlantillasDocumental           *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDespachoCorreo                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialResultadoCorreo                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialFirmaDocumento                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialDietas                                  materialDietasDesdeCTDesarrollo
-	materialCronos                                  materialCronosDesdeCTDesarrollo
-	materialDocumentos                              *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalFichaPropia                     *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialPersonalB2                              [8]CapacidadPublicadaPersonalB2V3
-	detenerRenovacion                               func()
-	detenerEntregaContratos                         func()
-	detenerEntregaCeses                             func()
-	catalogoMaterial                                catalogoMaterialAutorizacionComunDesarrollo
-	cerrarUnaVez                                    func()
+	proveedoresMaterialPortal                        map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorCrear                   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorConsulta                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialSituacion                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaReincorporacionTitular  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialContacto                        *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaContacto                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDatosContacto                   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialEmision                         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPoliticaOfertas                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaPoliticaOfertas         *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaCT                     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialAuditoriaBolsa                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPlantillasCatalogo              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialPlantillasDocumental            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialFirmaDocumento                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialDietas                                   materialDietasDesdeCTDesarrollo
+	materialCronos                                   materialCronosDesdeCTDesarrollo
+	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
+	detenerRenovacion                                func()
+	detenerEntregaContratos                          func()
+	detenerEntregaCeses                              func()
+	catalogoMaterial                                 catalogoMaterialAutorizacionComunDesarrollo
+	cerrarUnaVez                                     func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -406,6 +410,18 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
 	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
+	usuariosPreferenciasActivas, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
+	if err != nil {
+		return vacias, err
+	}
+	if usuariosPreferenciasActivas {
+		etapa = "preflight_sql_usuarios_preferencias"
+		descriptoresUsuarios, falloPreflight := descriptoresMaterialPreferenciasTrasPreflight(func() error { return preflightSQLPreferenciasUsuariosDesarrollo(cfg, derivador, gobierno) })
+		if falloPreflight != nil {
+			return vacias, falloPreflight
+		}
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresUsuarios...)
+	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -421,6 +437,17 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if usuariosPreferenciasActivas {
+		etapa = "material_usuarios_preferencias"
+		lote, fallo := publicarMaterialPreferenciasUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
+		if fallo != nil {
+			return vacias, fallo
+		}
+		dependencias.materialUsuariosPreferenciasConsultaInterna = lote[0]
+		dependencias.materialUsuariosPreferenciasActualizacionInterna = lote[1]
+		dependencias.materialUsuariosPreferenciasConsultaExterna = lote[2]
+		dependencias.materialUsuariosPreferenciasActualizacionExterna = lote[3]
+	}
 	if seleccion.plantillasCatalogo {
 		etapa = "material_plantillas_catalogo"
 		dependencias.proveedorMaterialPlantillasCatalogo, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(

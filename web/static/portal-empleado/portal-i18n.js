@@ -3,6 +3,7 @@ import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=2026
 import { MENSAJES_TEXTOS_PORTAL_ES } from "./portal-i18n-textos.js?v=20260928-ppt-503-v5";
 import { MENSAJES_RRHH_PLAZOS_ES } from "./modulos/bolsa/rrhh-plazos-i18n.js?v=20260928-rrhh-politica-ofertas-v1";
 import { MENSAJES_POLITICA_CESE_ES } from "./modulos/bolsa/rrhh-politica-cese-i18n.js?v=20260928-rrhh-politica-cese-v1";
+import { PREFERENCIAS_ES, PREFERENCIAS_EN } from "./portal-preferencias-i18n.js?v=20260929-pref-i18n-merge-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 import { mensajesTramitePortal } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
 
@@ -48,6 +49,7 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   ofertas_sae_estado_texto: "Todavía no se registran en esta aplicación las ofertas enviadas al Servicio Andaluz de Empleo (SAE). RRHH tiene que decidir qué datos se guardan de cada oferta. Mientras tanto, siga gestionándolas como hasta ahora.",
   ofertas_sae_volver: "Volver a Inicio",
   txt_ayuda_pantalla: "Ayuda de esta pantalla",
+  ...PREFERENCIAS_ES,
   inicio_rrhh_pestana_expedientes: "Expedientes en trámite",
   inicio_rrhh_pestana_bolsas: "Bolsas de trabajo",
   inicio_rrhh_pestana_sae: "Ofertas al SAE",
@@ -182,6 +184,7 @@ export const MENSAJES_INICIO_RRHH_EN = Object.freeze({
   inicio_rrhh_col_llamamiento: "Being called",
   inicio_rrhh_col_vigente_hasta: "Valid until",
   inicio_rrhh_sin_fin: "No end date",
+  ...PREFERENCIAS_EN,
   auditoria_expediente_accion: "View this case’s audit trail",
   auditoria_expediente_panel: "Case audit trail",
   contratacion_temporal_miga: "Employee Portal → Temporary staff requests",

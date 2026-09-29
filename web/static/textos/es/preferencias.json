@@ -1,0 +1,157 @@
+{
+  "portal": {
+    "preferencias_menu": "Mis preferencias",
+    "preferencias_titulo": "Mis preferencias",
+    "preferencias_miga": "Portal del Empleado → Mis preferencias",
+    "preferencias_cargando": "Consultando sus preferencias…",
+    "preferencias_error": "No se pudieron consultar sus preferencias. No se muestra ninguna configuración guardada.",
+    "preferencias_denegado": "Su sesión no tiene permiso para consultar estas preferencias.",
+    "preferencias_sesion": "La sesión ha caducado. Identifíquese de nuevo para continuar.",
+    "preferencias_reintentar": "Reintentar consulta",
+    "preferencias_volver": "Volver al inicio",
+    "preferencias_no_guardadas": "Aún no ha guardado preferencias; se muestran las opciones por defecto.",
+    "preferencias_guardadas": "Sus preferencias están guardadas.",
+    "preferencias_visual": "Presentación e idioma",
+    "preferencias_navegacion": "Inicio y listados",
+    "preferencias_avisos": "Avisos por correo",
+    "preferencias_idioma": "Idioma",
+    "preferencias_tamano": "Tamaño del texto",
+    "preferencias_contraste": "Alto contraste",
+    "preferencias_tema": "Tema de color",
+    "preferencias_inicio": "Página de inicio",
+    "preferencias_filas": "Filas por página",
+    "preferencias_correo_tareas": "Avisos de tareas",
+    "preferencias_correo_plazos": "Avisos de plazos",
+    "preferencias_si": "Sí",
+    "preferencias_no": "No",
+    "preferencias_ayuda": "Ayuda sobre {campo}",
+    "preferencias_ayuda_idioma": "El idioma de la URL actual tiene prioridad durante esta navegación. Después se usa su preferencia guardada y, por último, el idioma del navegador.",
+    "preferencias_ayuda_tamano": "También puede ampliar la página con el zoom del navegador.",
+    "preferencias_ayuda_contraste": "El alto contraste tiene prioridad sobre los colores del tema.",
+    "preferencias_ayuda_tema": "«Según el dispositivo» sigue la configuración de color de su dispositivo.",
+    "preferencias_ayuda_inicio": "Si no dispone de acceso al destino elegido, se abrirá el inicio seguro y se mostrará un aviso.",
+    "preferencias_ayuda_filas": "Esta elección se aplica a las tablas locales que la admiten. Cada consulta remota conserva su propio límite.",
+    "preferencias_ayuda_correo_tareas": "Guardar esta elección no confirma que se haya enviado ningún correo.",
+    "preferencias_ayuda_correo_plazos": "Guardar esta elección no confirma que se haya enviado ningún correo.",
+    "preferencias_guardar": "Guardar preferencias",
+    "preferencias_guardando": "Guardando preferencias…",
+    "preferencias_exito": "Preferencias guardadas.",
+    "preferencias_idioma_guardado": "El idioma guardado se aplicará al volver a cargar el portal sin un idioma indicado en la URL.",
+    "preferencias_conflicto": "Las preferencias cambiaron en otra sesión. Consulte la versión actual antes de volver a guardar.",
+    "preferencias_validacion": "No se ha podido guardar una de las opciones. Vuelva a cargar la página y elíjala de nuevo.",
+    "preferencias_error_guardar": "No se pudo confirmar el guardado. Consulte de nuevo antes de reintentar; la operación podría haberse aplicado.",
+    "preferencias_tope": "El límite de este listado es {limite} filas aunque su preferencia sea {preferidas}.",
+    "preferencias_destino_no_disponible": "No tiene acceso al inicio elegido. Se ha abierto el inicio del portal.",
+    "preferencias_atajo_texto_activo": "Tamaño de texto ampliado para esta sesión.",
+    "preferencias_atajo_texto_inactivo": "Tamaño de texto normal para esta sesión.",
+    "preferencias_atajo_contraste_activo": "Alto contraste activado para esta sesión.",
+    "preferencias_atajo_contraste_inactivo": "Alto contraste desactivado para esta sesión.",
+    "ui": {
+      "usuarios": {
+        "preferencias": {
+          "idioma": {
+            "navegador": "Automático (idioma del navegador)",
+            "es": "Castellano",
+            "en": "Inglés"
+          },
+          "tamano_texto": {
+            "normal": "Normal",
+            "grande": "Grande",
+            "muy_grande": "Muy grande"
+          },
+          "tema": {
+            "sistema": "Según el dispositivo",
+            "claro": "Claro",
+            "oscuro": "Oscuro"
+          },
+          "inicio": {
+            "cuadro": "Cuadro de mando",
+            "peticiones": "Peticiones de personal temporal",
+            "bolsas": "Bolsas de trabajo"
+          }
+        }
+      }
+    },
+    "api": {
+      "usuarios": {
+        "preferencias": {
+          "error": {
+            "no_autenticado": "La sesión ha caducado. Identifíquese de nuevo.",
+            "prohibido": "No tiene permiso para estas preferencias.",
+            "conflicto": "Las preferencias cambiaron en otra sesión. Consulte de nuevo.",
+            "peticion_invalida": "El servidor rechazó una opción. Consulte de nuevo el catálogo.",
+            "no_disponible": "El servicio de preferencias no está disponible. Consulte de nuevo más tarde."
+          }
+        }
+      }
+    }
+  },
+  "areaPersonal": {
+    "preferencias": {
+      "titulo": "Mis preferencias",
+      "sinDatos": "No se pudieron consultar sus preferencias. No se muestra ningún valor como guardado.",
+      "recargar": "Volver a cargar",
+      "guardar": "Guardar preferencias",
+      "guardando": "Guardando…",
+      "guardado": "Preferencias guardadas.",
+      "incierto": "No sabemos si se guardó. Pulse «Reintentar esta operación»; no se guardará dos veces.",
+      "reintentarExacto": "Reintentar esta operación",
+      "inicioAjeno": "El inicio elegido pertenece a otra superficie o no está autorizado aquí. Se abre el inicio seguro del Área personal. Esta elección no concede acceso.",
+      "ayudaAbrir": "Mostrar ayuda sobre preferencias",
+      "ayuda": "El idioma de la dirección web prevalece solo en esta visita; si no la indica, se usa su elección guardada y después la del navegador. El alto contraste prevalece sobre el tema de color. La página de inicio no cambia sus permisos. Los avisos por correo solo guardan su elección; no significan que se haya enviado ningún correo. Las filas por página se aplican a las listas que lo admiten.",
+      "campo": {
+        "idioma": "Idioma",
+        "tamano_texto": "Tamaño del texto",
+        "alto_contraste": "Alto contraste",
+        "tema": "Tema de color",
+        "inicio": "Página de inicio",
+        "filas": "Filas por página",
+        "aviso_correo_tareas": "Avisos por correo de tareas",
+        "aviso_correo_plazos": "Avisos por correo de plazos"
+      },
+      "opcion": {
+        "idioma": {
+          "navegador": "Automático (idioma del navegador)",
+          "es": "Castellano",
+          "en": "Inglés"
+        },
+        "tamano_texto": {
+          "normal": "Normal",
+          "grande": "Grande",
+          "muy_grande": "Muy grande"
+        },
+        "tema": {
+          "sistema": "Según el dispositivo",
+          "claro": "Claro",
+          "oscuro": "Oscuro"
+        },
+        "inicio": {
+          "cuadro": "Cuadro de mando",
+          "peticiones": "Peticiones de personal temporal",
+          "bolsas": "Bolsas de trabajo"
+        }
+      },
+      "error": {
+        "autenticacion": "La identificación ha caducado. Identifíquese de nuevo para consultar o guardar preferencias.",
+        "denegado": "No dispone de permiso para consultar o guardar sus preferencias.",
+        "conflicto": "Las preferencias o el catálogo han cambiado. Actualice los datos antes de guardar de nuevo.",
+        "validacion": "Revise las opciones: el servicio ha rechazado algún valor.",
+        "servicio": "El servicio de preferencias no está disponible. No se puede confirmar el resultado del último intento.",
+        "respuesta": "El servicio devolvió una respuesta incompatible. No se confirma ningún cambio."
+      },
+      "atajoTexto": "Aumentar o restablecer el tamaño del texto en esta sesión",
+      "atajoContraste": "Activar o desactivar el alto contraste en esta sesión",
+      "menuIdentidad": "Abrir menú de identidad",
+      "textoCorto": "Texto ",
+      "contrasteCorto": "Contraste",
+      "identidadServicio": "Identidad comprobada por el servicio de Usuarios",
+      "identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias",
+      "atajo": {
+        "textoActivo": "Tamaño de texto ampliado para esta sesión.",
+        "textoInactivo": "Tamaño de texto normal para esta sesión.",
+        "contrasteActivo": "Alto contraste activado para esta sesión.",
+        "contrasteInactivo": "Alto contraste desactivado para esta sesión."
+      }
+    }
+  }
+}

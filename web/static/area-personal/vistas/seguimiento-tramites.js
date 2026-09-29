@@ -80,7 +80,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const participaciones = Array.isArray(estado.participaciones) && estado.participaciones.length
     ? estado.participaciones : datos.posicion ? [{ bolsa: datos.posicion.bolsa, categoria: datos.posicion.categoria, orden_inicial: datos.posicion.orden, total_instantanea: datos.posicion.total, version: "—", estado_bolsa: "Sin datos", vigente_desde: datos.posicion.vigente_desde, vigente_hasta: null }] : [];
   const pagina = Math.max(1, Number(estado.paginaParticipaciones || 1));
-  const porPagina = 6;
+  const porPagina = [20, 50, 100].includes(estado.filasPreferidas) ? estado.filasPreferidas : 20;
   const totalPaginas = Math.max(1, Math.ceil(participaciones.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);

@@ -36,12 +36,12 @@ test("seguimiento y trámites informan de ámbitos vacíos sin datos aparentes",
 
 test("mi bolsa muestra tarjetas propias, provisionalidad y paginación", () => {
   const datos = datosPrueba();
-  const participaciones = Array.from({ length: 7 }, (_, indice) => ({ bolsa: `bolsa:prueba:${indice}`, categoria: "Auxiliar", version: 3, orden_inicial: indice + 1, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null }));
+  const participaciones = Array.from({ length: 21 }, (_, indice) => ({ bolsa: `bolsa:prueba:${indice}`, categoria: "Auxiliar", version: 3, orden_inicial: indice + 1, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null }));
   const vista = renderizarLlamamientos(datos, { participaciones, paginaParticipaciones: 1, fuenteBolsa: "ejemplo" });
   assert.doesNotMatch(vista, /Datos de ejemplo|aviso-fuente-ejemplo/u);
   assert.match(vista, /Mi número de orden inicial[\s\S]*1 de 87/u);
   assert.match(vista, /Versión de la bolsa/u);
-  assert.match(vista, /Mostrando 1 a 6 de 7/u);
+  assert.match(vista, /Mostrando 1 a 20 de 21/u);
   assert.doesNotMatch(vista, /Identificarse con certificado no firma documentos|Pendiente de integración/u);
   assert.match(vista, /Histórico de mi bolsa[\s\S]*Cargando histórico autorizado/u);
   assert.doesNotMatch(vista, /Sin información de contratos\./u);

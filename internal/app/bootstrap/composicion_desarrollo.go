@@ -244,6 +244,9 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
+		return nil, nil, err
+	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -396,6 +399,20 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
+	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
+		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna)
+	if err != nil {
+		return nil, nil, err
+	}
+	if usuariosPreferencias != nil {
+		defer func() {
+			if !completa {
+				usuariosPreferencias.cerrar()
+			}
+		}()
+		rutasContratacion = append(rutasContratacion, rutaUsuariosPreferencias(usuariosPreferencias)...)
+	}
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
@@ -403,9 +420,16 @@ func nuevoServidorDesarrollo(
 	if documentos != nil {
 		autoridadExactas = autoridadExactasConDocumentos{delegada: autoridadExactas, documentos: documentos}
 	}
+	if usuariosPreferencias != nil {
+		autoridadExactas = autoridadExactasConUsuariosPreferencias{delegada: autoridadExactas, usuarios: usuariosPreferencias}
+	}
+	registradorFrontera := vecports.RegistradorAuditoriaFronteraRutaExacta(autoridadContratacion.registradorAuditoriaFronteraRutasExactas)
+	if usuariosPreferencias != nil {
+		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador, externa: usuariosPreferencias.externa.registrador}
+	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
-		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, autoridadDietas, coleccionesBolsasRRHH...,
+		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -416,6 +440,9 @@ func nuevoServidorDesarrollo(
 	}
 	if documentos != nil {
 		vecAPI = documentos.proteger(vecAPI)
+	}
+	if usuariosPreferencias != nil {
+		vecAPI = usuariosPreferencias.proteger(vecAPI)
 	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
@@ -449,6 +476,9 @@ func nuevoServidorDesarrollo(
 	}
 	if personalEmpleado != nil {
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
+	}
+	if usuariosPreferencias != nil {
+		servidor.RegisterOnShutdown(usuariosPreferencias.cerrar)
 	}
 	completa = true
 	calendariosCompletos = true

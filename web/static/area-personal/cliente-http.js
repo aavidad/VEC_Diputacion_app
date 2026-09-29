@@ -1,6 +1,8 @@
 import { validarRecibo, validarRespuestaMiBolsa } from "./contrato.js";
 
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
+export const RUTA_MIS_PREFERENCIAS = "/api/vec/usuarios/area-personal/mis-preferencias";
+const CAMPOS_MIS_PREFERENCIAS = Object.freeze(["idioma", "tamano_texto", "alto_contraste", "tema", "inicio", "filas", "aviso_correo_tareas", "aviso_correo_plazos"]);
 const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
 const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
 export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
@@ -33,6 +35,128 @@ export class ErrorClienteAreaPersonal extends Error {
     super(mensaje, causa ? { cause: causa } : undefined);
     this.name = "ErrorClienteAreaPersonal";
     this.codigo = codigo;
+  }
+}
+
+export class ErrorPreferencias extends Error {
+  constructor(codigo, estado = 0) {
+    super(codigo);
+    this.name = "ErrorPreferencias";
+    this.codigo = codigo;
+    this.estado = estado;
+  }
+}
+
+const CODIGOS_PREFERENCIAS = Object.freeze({
+  401: "autenticacion", 403: "denegado", 409: "conflicto",
+  422: "validacion", 503: "servicio",
+});
+
+function validarValoresPreferencias(valores) {
+  return valores && typeof valores === "object" && !Array.isArray(valores)
+    && ["navegador", "es", "en"].includes(valores.idioma)
+    && ["normal", "grande", "muy_grande"].includes(valores.tamano_texto)
+    && typeof valores.alto_contraste === "boolean"
+    && ["sistema", "claro", "oscuro"].includes(valores.tema)
+    && ["cuadro", "peticiones", "bolsas"].includes(valores.inicio)
+    && [20, 50, 100].includes(valores.filas)
+    && typeof valores.aviso_correo_tareas === "boolean"
+    && typeof valores.aviso_correo_plazos === "boolean"
+    && Object.keys(valores).length === CAMPOS_MIS_PREFERENCIAS.length;
+}
+
+function validarEstadoPreferencias(estado) {
+  if (!estado || typeof estado !== "object" || Array.isArray(estado)
+    || typeof estado.persona_ref !== "string" || !estado.persona_ref
+    || !Number.isSafeInteger(estado.version) || estado.version < 0
+    || typeof estado.catalogo_version_ref !== "string" || !estado.catalogo_version_ref
+    || !validarValoresPreferencias(estado.valores)) throw new ErrorPreferencias("respuesta");
+  return estado;
+}
+
+function validarCatalogoPreferencias(catalogo) {
+  if (!catalogo || typeof catalogo !== "object" || Array.isArray(catalogo)
+    || typeof catalogo.version_ref !== "string" || !catalogo.version_ref
+    || !["idiomas", "tamanos_texto", "temas", "inicios"].every((campo) =>
+      Array.isArray(catalogo[campo]) && catalogo[campo].length > 0
+      && catalogo[campo].every((opcion) => typeof opcion?.codigo === "string"
+        && typeof opcion?.nombre_key === "string"))
+    || !Array.isArray(catalogo.filas) || catalogo.filas.some((valor) => ![20, 50, 100].includes(valor))
+    || !validarValoresPreferencias(catalogo.predeterminados)) throw new ErrorPreferencias("respuesta");
+  return catalogo;
+}
+
+export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) {
+  async function solicitar(metodo, cuerpo, { signal } = {}) {
+    if (typeof fetchImpl !== "function") throw new ErrorPreferencias("servicio");
+    let respuesta;
+    try {
+      respuesta = await fetchImpl(RUTA_MIS_PREFERENCIAS, {
+        method: metodo, credentials: "omit", cache: "no-store", redirect: "error",
+        referrerPolicy: "no-referrer", signal,
+        headers: { Accept: "application/json", ...(cuerpo ? { "Content-Type": "application/json" } : {}) },
+        ...(cuerpo ? { body: JSON.stringify(cuerpo) } : {}),
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      throw new ErrorPreferencias("servicio");
+    }
+    if (respuesta?.status !== 200 && !(metodo === "PUT" && respuesta?.status === 201)) {
+      throw new ErrorPreferencias(CODIGOS_PREFERENCIAS[respuesta?.status] || "respuesta", respuesta?.status || 0);
+    }
+    try {
+      const envoltura = await leerJSONAcotado(respuesta);
+      if (!envoltura || typeof envoltura !== "object" || Array.isArray(envoltura)
+        || !envoltura.data || typeof envoltura.data !== "object" || Array.isArray(envoltura.data)) {
+        throw new ErrorPreferencias("respuesta", respuesta.status);
+      }
+      return { valor: envoltura.data, estado: respuesta.status };
+    }
+    catch { throw new ErrorPreferencias("respuesta", 200); }
+  }
+  return Object.freeze({
+    async cargar(opciones) {
+      const { valor: dato } = await solicitar("GET", null, opciones);
+      const catalogo = validarCatalogoPreferencias(dato?.catalogo);
+      const estado = validarEstadoPreferencias(dato?.estado);
+      if (estado.catalogo_version_ref !== catalogo.version_ref) throw new ErrorPreferencias("respuesta", 200);
+      return Object.freeze({ catalogo, estado });
+    },
+    async guardar(cuerpo, opciones) {
+      if (!cuerpo || Object.keys(cuerpo).length !== 4
+        || !Object.keys(cuerpo).every((campo) => ["version_esperada", "catalogo_version_ref", "clave_operacion", "valores"].includes(campo))
+        || !Number.isSafeInteger(cuerpo.version_esperada) || cuerpo.version_esperada < 0
+        || typeof cuerpo.catalogo_version_ref !== "string" || !cuerpo.catalogo_version_ref
+        || typeof cuerpo.clave_operacion !== "string" || !/^[A-Za-z0-9_.:-]{16,128}$/u.test(cuerpo.clave_operacion)
+        || !validarValoresPreferencias(cuerpo.valores)) throw new ErrorPreferencias("validacion");
+      const { valor: resultado, estado } = await solicitar("PUT", cuerpo, opciones);
+      validarEstadoPreferencias(resultado);
+      if (resultado.version !== cuerpo.version_esperada + 1
+        || resultado.catalogo_version_ref !== cuerpo.catalogo_version_ref
+        || typeof resultado.recibo_ref !== "string" || !resultado.recibo_ref
+        || typeof resultado.fecha_utc !== "string" || !resultado.fecha_utc
+        || typeof resultado.replay !== "boolean"
+        || resultado.replay !== (estado === 200)
+        || CAMPOS_MIS_PREFERENCIAS.some((campo) => resultado.valores[campo] !== cuerpo.valores[campo])) throw new ErrorPreferencias("respuesta", estado);
+      return Object.freeze(resultado);
+    },
+  });
+}
+
+// El arranque del área personal continúa aunque esta consulta no responda.
+export async function cargarPreferenciasIniciales(cliente, { tiempoMaximoMs = 8000 } = {}) {
+  const controlador = new AbortController();
+  let temporizador;
+  const limite = new Promise((_, rechazar) => {
+    temporizador = setTimeout(() => {
+      controlador.abort();
+      rechazar(new ErrorPreferencias("servicio"));
+    }, tiempoMaximoMs);
+  });
+  try {
+    return await Promise.race([cliente.cargar({ signal: controlador.signal }), limite]);
+  } finally {
+    clearTimeout(temporizador);
   }
 }
 

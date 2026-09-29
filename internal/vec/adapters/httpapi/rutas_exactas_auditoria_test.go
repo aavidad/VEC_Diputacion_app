@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/internal/vec/ports"
@@ -19,15 +21,24 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 		motivo     ports.MotivoAuditoriaFronteraRutaExacta
 		superficie string
 		auditada   bool
+		conActor   bool
 	}{
-		{"opciones sin autenticacion", http.MethodGet, "/api/vec/auditoria/opciones", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true},
-		{"opciones sin permiso", http.MethodGet, "/api/vec/auditoria/opciones", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true},
-		{"consultas sin autenticacion", http.MethodPost, "/api/vec/auditoria/consultas", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true},
-		{"consultas sin permiso", http.MethodPost, "/api/vec/auditoria/consultas", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true},
-		{"contratacion", http.MethodPost, rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, true},
-		{"prefijo auditoria", http.MethodGet, "/api/vec/auditoria/opciones_extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false},
-		{"otra ruta auditoria", http.MethodGet, "/api/vec/auditoria/otra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false},
-		{"personal", http.MethodGet, "/api/vec/personal/vacantes", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false},
+		{"opciones sin autenticacion", http.MethodGet, "/api/vec/auditoria/opciones", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true, false},
+		{"opciones sin permiso", http.MethodGet, "/api/vec/auditoria/opciones", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true, false},
+		{"consultas sin autenticacion", http.MethodPost, "/api/vec/auditoria/consultas", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true, false},
+		{"consultas sin permiso", http.MethodPost, "/api/vec/auditoria/consultas", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaAuditoria, true, false},
+		{"contratacion", http.MethodPost, rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, true, false},
+		{"usuarios sin autenticacion", http.MethodGet, "/api/vec/usuarios/mis-preferencias", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, false},
+		{"usuarios sin permiso", http.MethodPut, "/api/vec/usuarios/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
+		{"usuarios exterior sin autenticacion", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, false},
+		{"usuarios exterior sin permiso", http.MethodPut, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
+		{"prefijo auditoria", http.MethodGet, "/api/vec/auditoria/opciones_extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"otra ruta auditoria", http.MethodGet, "/api/vec/auditoria/otra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"prefijo usuarios", http.MethodGet, "/api/vec/usuarios/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"otra ruta usuarios", http.MethodGet, "/api/vec/usuarios/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"prefijo usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"otra ruta usuarios exterior", http.MethodGet, "/api/vec/usuarios/area-personal/otras-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
+		{"personal", http.MethodGet, "/api/vec/personal/vacantes", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -42,7 +53,19 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 				t.Fatal(err)
 			}
 			respuesta := httptest.NewRecorder()
-			handler.ServeHTTP(respuesta, httptest.NewRequest(caso.metodo, caso.ruta, nil))
+			peticion := httptest.NewRequest(caso.metodo, caso.ruta, nil)
+			if caso.superficie == ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias {
+				peticion.Host = "otro-portal.invalid"
+				peticion.Header.Set("Referer", "https://otro-portal.invalid/api/vec/contratacion-temporal/")
+			}
+			if caso.conActor {
+				ctx, err := ConActorVerificadoAuditoriaPreferenciasUsuarios(peticion.Context(), actorOrganizacionHistoricaPrueba(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				peticion = peticion.WithContext(ctx)
+			}
+			handler.ServeHTTP(respuesta, peticion)
 			if respuesta.Code != caso.estado {
 				t.Fatalf("estado=%d", respuesta.Code)
 			}
@@ -63,6 +86,87 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 				ordenes[0].Superficie != caso.superficie || ordenes[0].Ruta != caso.ruta ||
 				ordenes[0].Motivo != caso.motivo {
 				t.Fatalf("auditoria=%#v", ordenes)
+			}
+			if caso.conActor && ordenes[0].ActorRef != actorOrganizacionHistoricaPrueba(t).PersonaRef ||
+				!caso.conActor && ordenes[0].ActorRef != "" {
+				t.Fatalf("actor no minimizado: %q", ordenes[0].ActorRef)
+			}
+		})
+	}
+}
+
+func TestRutasExactasUsuariosRechazanDuplicadoYNoInventanActor(t *testing.T) {
+	const ruta = "/api/vec/usuarios/mis-preferencias"
+	const rutaExterior = "/api/vec/usuarios/area-personal/mis-preferencias"
+	manejador := &manejadorExactoPrueba{}
+	autoridad := &autoridadRutasExactasEspia{err: ErrAccesoRutaExactaDenegado}
+	auditoria := &registradorAuditoriaFronteraRutaExactaEspia{}
+	declarada := RutaExacta{Ruta: ruta, Manejador: manejador}
+	if h, err := NewHandlerSoloRutasExactas([]RutaExacta{declarada, declarada}, autoridad, auditoria); h != nil || err != ErrRutaExactaInvalida {
+		t.Fatalf("duplicado aceptado: (%T, %v)", h, err)
+	}
+	exterior := RutaExacta{Ruta: rutaExterior, Manejador: manejador}
+	if h, err := NewHandlerSoloRutasExactas([]RutaExacta{declarada, exterior, exterior}, autoridad, auditoria); h != nil || err != ErrRutaExactaInvalida {
+		t.Fatalf("duplicado exterior aceptado: (%T, %v)", h, err)
+	}
+	h, err := NewHandlerSoloRutasExactas([]RutaExacta{declarada}, autoridad, auditoria)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodPut, ruta, nil))
+	if w.Code != http.StatusServiceUnavailable || len(auditoria.ordenesRegistradas()) != 0 {
+		t.Fatalf("denegacion sin actor verificado no cerro: estado=%d ordenes=%#v", w.Code, auditoria.ordenesRegistradas())
+	}
+}
+
+func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testing.T) {
+	t.Parallel()
+	const ruta = "/api/vec/usuarios/mis-preferencias"
+	const rutaExterior = "/api/vec/usuarios/area-personal/mis-preferencias"
+	for _, caso := range []struct {
+		nombre     string
+		ruta       string
+		denegacion error
+		conActor   bool
+		estado     int
+	}{
+		{"usuarios 401", ruta, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"usuarios 403", ruta, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"usuarios exterior 401", rutaExterior, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
+		{"usuarios exterior 403", rutaExterior, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"contratacion conserva 403", rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, false, http.StatusForbidden},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			manejador := &manejadorExactoPrueba{}
+			autoridad := &autoridadRutasExactasEspia{err: caso.denegacion}
+			auditoria := &registradorAuditoriaFronteraRutaExactaEspia{err: errors.New("detalle privado de PostgreSQL")}
+			h, err := NewHandlerSoloRutasExactas([]RutaExacta{{Ruta: caso.ruta, Manejador: manejador}}, autoridad, auditoria)
+			if err != nil {
+				t.Fatal(err)
+			}
+			peticion := httptest.NewRequest(http.MethodGet, caso.ruta, nil)
+			if caso.conActor {
+				ctx, err := ConActorVerificadoAuditoriaPreferenciasUsuarios(peticion.Context(), actorOrganizacionHistoricaPrueba(t))
+				if err != nil {
+					t.Fatal(err)
+				}
+				peticion = peticion.WithContext(ctx)
+			}
+			respuesta := httptest.NewRecorder()
+			h.ServeHTTP(respuesta, peticion)
+			if respuesta.Code != caso.estado || len(auditoria.ordenesRegistradas()) != 1 {
+				t.Fatalf("estado=%d ordenes=%#v", respuesta.Code, auditoria.ordenesRegistradas())
+			}
+			if llamadas, _, _ := manejador.estado(); llamadas != 0 {
+				t.Fatalf("negocio invocado %d veces", llamadas)
+			}
+			if strings.Contains(respuesta.Body.String(), "detalle privado") || strings.Contains(respuesta.Body.String(), "per_") {
+				t.Fatalf("respuesta revelo detalle privado: %s", respuesta.Body.String())
+			}
+			if caso.estado == http.StatusServiceUnavailable && !strings.Contains(respuesta.Body.String(), `"codigo":"servicio_no_disponible"`) {
+				t.Fatalf("503 sin codigo estable: %s", respuesta.Body.String())
 			}
 		})
 	}

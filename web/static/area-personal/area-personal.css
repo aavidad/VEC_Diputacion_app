@@ -93,7 +93,7 @@ a { color: var(--ap-azul-700); }
   height: auto;
   padding: 5px 9px;
   border-radius: var(--portal-radio);
-  background: var(--ap-superficie);
+  background: var(--portal-fondo-logo);
 }
 .marca-portal > span, .marca-portal strong, .marca-portal small { display: block; }
 .marca-portal > span { margin-top: 9px; }
@@ -446,6 +446,23 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .pie-portal nav { flex-wrap: wrap; }
   .dialogo form > footer { align-items: stretch; flex-direction: column-reverse; }
   .dialogo form > footer button { width: 100%; }
+}
+
+/* Móvil estrecho y zoom alto (el ancho útil puede bajar de 320 px CSS):
+   las acciones pasan junto al menú y el título ocupa su propia fila. */
+@media (max-width: 380px) {
+  html { min-width: 0; }
+  .cabecera-portal {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "menu acciones" "contexto contexto" "busqueda busqueda";
+    gap: 6px;
+    padding-inline: 6px;
+  }
+  .cabecera-portal .boton-menu { grid-area: menu; }
+  .cabecera-portal .contexto-cabecera { grid-area: contexto; }
+  .cabecera-portal .busqueda-global { grid-area: busqueda; }
+  .cabecera-portal .acciones-cabecera { grid-area: acciones; flex-wrap: wrap; justify-content: flex-end; }
+  .cabecera-portal .contexto-cabecera h1 { overflow-wrap: anywhere; }
 }
 
 @media (prefers-reduced-motion: reduce) {

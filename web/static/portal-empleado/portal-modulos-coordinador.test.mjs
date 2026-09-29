@@ -945,6 +945,7 @@ test("el enlace directo CT conserva denegación y cancela la consulta al salir",
     }) },
   });
   await coordinador.cargarInterno();
+  assert.equal(coordinador.altaCTDisponible(), false, "un cuadro consultable sin catálogo de alta no habilita el favorito de peticiones");
   const montaje = coordinador.montarVista("contratacion-temporal", raizFalsa(), { expedienteRef: referencia });
   for (let intento = 0; intento < 20 && !senalDetalle; intento += 1) await new Promise((resolver) => setImmediate(resolver));
   assert.equal(detalle, 1);
@@ -1200,6 +1201,7 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
     "alta", "cuadro", "analisis", "alta", "cuadro", "analisis",
   ]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(coordinador.altaCTDisponible(), true, "el alta compuesta habilita el destino, sujeto a revalidación del caso de uso");
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
   assert.equal(argumentosPresentador.altaDisponible, true);
   assert.deepEqual(argumentosPresentador.capacidades, []);

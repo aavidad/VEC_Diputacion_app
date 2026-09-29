@@ -1,6 +1,8 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
-import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
+import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
+import { alternarVisualSesion, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales,
+  valoresDelFormulario } from "./preferencias.js";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
@@ -24,6 +26,7 @@ const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
+  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias)],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
@@ -78,7 +81,7 @@ export function esOrigenSinteticoODesarrollo(meta = {}) {
 
 // Únicos parámetros que el área personal genera en sus propias URL; cualquier
 // otro (incluido el antiguo `?presentacion=`) detiene el arranque.
-const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id"]));
+const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id", "lang"]));
 
 export function exigirParametrosConocidos(parametros) {
   for (const nombre of parametros.keys()) {
@@ -118,6 +121,8 @@ function formularioAObjeto(formulario) {
 function crearURL(estado, vista, opciones = {}) {
   const url = new URL(window.location.pathname, window.location.origin);
   url.searchParams.set("vista", vista);
+  const idiomaURL = new URLSearchParams(window.location.search).get("lang");
+  if (idiomaURL === "es" || idiomaURL === "en") url.searchParams.set("lang", idiomaURL);
   if (opciones.id) url.searchParams.set("id", opciones.id);
   return `${url.pathname}${url.search}`;
 }
@@ -200,6 +205,23 @@ export function datosMinimosMiBolsa(consulta) {
   });
 }
 
+function datosMinimosPreferencias(identidadConfirmada) {
+  const base = datosMinimosMiBolsa({ consultada_en: "" });
+  return { ...base,
+    meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias" },
+    sesion: { ...base.sesion, metodo: traducir(identidadConfirmada
+      ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada") },
+  };
+}
+
+function asegurarShellPreferencias(estado) {
+  if (estado.vista !== "preferencias" || estado.datos
+    || (!estado.preferencias.estado && !estado.preferencias.error)) return false;
+  estado.datos = datosMinimosPreferencias(Boolean(estado.preferencias.estado));
+  estado.soloPreferencias = true;
+  return true;
+}
+
 function datosDeRespuesta(respuesta) {
   return respuesta?.datos || (respuesta?.consulta ? datosMinimosMiBolsa(respuesta.consulta) : respuesta);
 }
@@ -240,6 +262,12 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.avisoInicio && estado.vista !== "preferencias") {
+    const aviso = document.createElement("p");
+    aviso.className = "preferencias-estado preferencias-aviso";
+    aviso.textContent = traducir("areaPersonal.preferencias.inicioAjeno");
+    porId("espacio-trabajo").prepend(aviso);
+  }
   if (estado.vista === "llamamientos") {
     estado.destruirHistorialMiBolsa = montarHistorialMiBolsa({
       contenedor: porId("historial-mi-bolsa"), fetchImpl: estado.fetchImpl,
@@ -287,11 +315,38 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
 function navegar(estado, vista, opciones = {}) {
   if (!RUTAS[vista]) vista = "inicio";
   estado.vista = vista;
+  estado.avisoInicio = false;
   if (vista === "convocatoria") estado.convocatoriaSeleccionada = opciones.id || estado.convocatoriaSeleccionada;
   if (vista === "seguimiento" && opciones.id) estado.expedienteSeleccionado = opciones.id;
   window.history.pushState({ vista }, "", crearURL(estado, vista, opciones));
   cerrarMenu();
+  cerrarMenuIdentidad();
+  if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
+    estado.datos = null;
+    estado.soloPreferencias = false;
+    void cargar(estado);
+    return;
+  }
+  asegurarShellPreferencias(estado);
   renderizar(estado, { enfocar: true });
+}
+
+function cerrarMenuIdentidad({ restaurarFoco = false } = {}) {
+  const boton = document.querySelector('[data-accion="ver-sesion"]');
+  const menu = porId("menu-identidad");
+  if (menu) menu.hidden = true;
+  boton?.setAttribute("aria-expanded", "false");
+  if (restaurarFoco) boton?.focus({ preventScroll: true });
+}
+
+function alternarMenuIdentidad() {
+  const menu = porId("menu-identidad");
+  const boton = document.querySelector('[data-accion="ver-sesion"]');
+  if (!menu || !boton) return;
+  menu.hidden = !menu.hidden;
+  boton.setAttribute("aria-expanded", String(!menu.hidden));
+  if (!menu.hidden) menu.querySelector("button")?.focus({ preventScroll: true });
+  else boton.focus({ preventScroll: true });
 }
 
 function cerrarMenu({ restaurarFoco = false } = {}) {
@@ -497,22 +552,103 @@ function leerPantalla(estado) {
   if (estado.vista !== "ayuda") navegar(estado, "ayuda");
 }
 
-function alternarPreferencia(accion) {
-  const atributo = accion === "alternar-texto" ? "textoGrande" : "contraste";
-  const destino = accion === "alternar-texto" ? document.documentElement : document.body;
-  const activo = destino.dataset[atributo] !== "true";
-  destino.dataset[atributo] = String(activo);
-  document.querySelectorAll(`[data-accion="${accion}"]`).forEach((control) => control.setAttribute("aria-pressed", String(activo)));
-  anunciar(activo ? "Preferencia visual activada." : "Preferencia visual desactivada.");
+async function recargarPreferencias(estado) {
+  const preferencias = estado.preferencias;
+  preferencias.guardando = true;
+  preferencias.error = null;
+  renderizar(estado);
+  porId("espacio-trabajo")?.querySelector(".preferencias-panel h2")?.focus({ preventScroll: true });
+  try {
+    const lectura = await estado.clientePreferencias.cargar();
+    Object.assign(preferencias, { ...lectura, error: null, recibo: null, pendiente: null, borrador: null });
+    preferencias.avisoInicio = lectura.estado.valores.inicio !== "bolsas";
+    estado.filasPreferidas = lectura.estado.valores.filas;
+    estado.paginaParticipaciones = 1;
+    estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
+    sincronizarAtajosVisuales(lectura.estado.valores);
+    await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, lectura.estado.valores.idioma);
+  } catch (error) {
+    preferencias.error = error;
+    preferencias.catalogo = null;
+    preferencias.estado = null;
+  } finally {
+    preferencias.guardando = false;
+    if (estado.vista === "preferencias") {
+      renderizar(estado);
+      const contenido = porId("espacio-trabajo");
+      (contenido?.querySelector(".preferencias-error") ?? contenido?.querySelector(".preferencias-panel h2"))
+        ?.focus({ preventScroll: true });
+    }
+  }
+}
+
+async function guardarPreferencias(estado, formulario, { reintento = false } = {}) {
+  const preferencias = estado.preferencias;
+  if (!preferencias || preferencias.guardando || !preferencias.estado || !preferencias.catalogo) return;
+  let operacion;
+  try {
+    operacion = reintento ? preferencias.pendiente
+      : crearOperacionPreferencias(preferencias, valoresDelFormulario(formulario));
+    if (!operacion) return;
+  } catch (error) {
+    preferencias.error = { codigo: "servicio" };
+    renderizar(estado);
+    porId("espacio-trabajo")?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
+    return;
+  }
+  preferencias.borrador = operacion.valores;
+  preferencias.guardando = true;
+  preferencias.error = null;
+  renderizar(estado);
+  porId("espacio-trabajo")?.querySelector(".preferencias-panel h2")?.focus({ preventScroll: true });
+  try {
+    const resultado = await estado.clientePreferencias.guardar(operacion);
+    if (resultado.persona_ref !== preferencias.estado.persona_ref) {
+      throw Object.assign(new Error("La respuesta no corresponde a la identidad consultada."), { codigo: "respuesta" });
+    }
+    preferencias.estado = { persona_ref: resultado.persona_ref, version: resultado.version,
+      catalogo_version_ref: resultado.catalogo_version_ref, valores: resultado.valores };
+    preferencias.recibo = resultado;
+    preferencias.pendiente = null;
+    preferencias.borrador = null;
+    preferencias.avisoInicio = resultado.valores.inicio !== "bolsas";
+    estado.filasPreferidas = resultado.valores.filas;
+    estado.paginaParticipaciones = 1;
+    estado.controladorVisual?.aplicarPreferenciasServidor(resultado.valores);
+    sincronizarAtajosVisuales(resultado.valores);
+    await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, resultado.valores.idioma);
+    anunciar(traducir("areaPersonal.preferencias.guardado", { recibo: resultado.recibo_ref }));
+  } catch (error) {
+    preferencias.error = error;
+    preferencias.pendiente = ["servicio", "respuesta"].includes(error?.codigo) ? operacion : null;
+  } finally {
+    preferencias.guardando = false;
+    if (estado.vista === "preferencias") {
+      renderizar(estado);
+      porId("espacio-trabajo")?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
+    }
+  }
 }
 
 function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
-  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion);
+  if (accion === "alternar-texto" || accion === "alternar-contraste") {
+    const activo = alternarVisualSesion(estado.controladorVisual, accion);
+    return anunciar(traducir(`areaPersonal.preferencias.atajo.${accion === "alternar-texto" ? "texto" : "contraste"}${activo ? "Activo" : "Inactivo"}`));
+  }
+  if (accion === "abrir-preferencias") return navegar(estado, "preferencias");
   if (accion === "leer-pantalla") return leerPantalla(estado);
-  if (accion === "ver-sesion") return verSesion(estado);
+  if (accion === "ver-sesion") return alternarMenuIdentidad();
+  if (accion === "ver-contexto-sesion") { cerrarMenuIdentidad(); return verSesion(estado); }
+  if (accion === "recargar-preferencias") return void recargarPreferencias(estado);
+  if (accion === "reintentar-preferencias") return void guardarPreferencias(estado, null, { reintento: true });
+  if (accion === "ayuda-preferencias") {
+    const ayuda = porId("ayuda-preferencias");
+    if (ayuda) { ayuda.hidden = !ayuda.hidden; boton.setAttribute("aria-expanded", String(!ayuda.hidden)); }
+    return;
+  }
   if (accion === "descargar-recibo") return void descargarRecibo(estado);
   if (accion === "reintentar") return cargar(estado);
   if (accion === "pagina-participaciones") {
@@ -582,6 +718,7 @@ function atenderAccion(estado, boton) {
 
 function conectarEventos(estado) {
   document.addEventListener("click", (evento) => {
+    if (!evento.target.closest(".identidad-cabecera") && !porId("menu-identidad")?.hidden) cerrarMenuIdentidad();
     const enlace = evento.target.closest("[data-ruta]");
     if (enlace) {
       evento.preventDefault();
@@ -596,6 +733,10 @@ function conectarEventos(estado) {
     if (!(formulario instanceof HTMLFormElement)) return;
     if (formulario.method === "dialog") return;
     evento.preventDefault();
+    if (formulario.id === "formulario-preferencias") {
+      void guardarPreferencias(estado, formulario);
+      return;
+    }
     if (formulario.dataset.portalMiBolsa) {
       enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
       return;
@@ -699,13 +840,29 @@ function conectarEventos(estado) {
   });
   window.addEventListener("popstate", () => {
     cerrarMenu();
-    estado.vista = rutaDesdeURL();
-    estado.convocatoriaSeleccionada = new URLSearchParams(window.location.search).get("id") || estado.convocatoriaSeleccionada;
+    cerrarMenuIdentidad();
+    const parametros = new URLSearchParams(window.location.search);
+    const inicioAjeno = Boolean(estado.preferencias.estado && estado.preferencias.estado.valores.inicio !== "bolsas");
+    estado.vista = parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos";
+    estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
+    estado.convocatoriaSeleccionada = parametros.get("id") || estado.convocatoriaSeleccionada;
+    if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
+      estado.datos = null;
+      estado.soloPreferencias = false;
+      void cargar(estado);
+      return;
+    }
+    asegurarShellPreferencias(estado);
     renderizar(estado, { enfocar: true });
   });
   window.addEventListener("keydown", (evento) => {
     mantenerFocoEnMenu(evento);
     if (evento.key !== "Escape") return;
+    if (!porId("menu-identidad")?.hidden) {
+      evento.preventDefault();
+      cerrarMenuIdentidad({ restaurarFoco: true });
+      return;
+    }
     window.speechSynthesis?.cancel?.();
     if (document.body.dataset.menuAbierto === "true") {
       evento.preventDefault();
@@ -715,6 +872,10 @@ function conectarEventos(estado) {
 }
 
 async function cargar(estado) {
+  if (asegurarShellPreferencias(estado)) {
+    renderizar(estado);
+    return;
+  }
   estado.destruirHistorialMiBolsa?.();
   estado.destruirHistorialMiBolsa = null;
   const reintento = document.activeElement?.dataset.accion === "reintentar"; porId("estado-carga").hidden = false;
@@ -725,6 +886,7 @@ async function cargar(estado) {
     const respuesta = await estado.cliente.cargar();
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
+    estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];
     estado.camposMiBolsa = respuesta?.consulta?.campos_visibles || null;
     estado.portalMiBolsa = respuesta?.consulta?.portal || null;
@@ -744,17 +906,27 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, fetchImpl = globalThis.fetch } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, fetchImpl = globalThis.fetch,
+  clientePreferencias = null, preferencias = null, errorPreferencias = null, controladorVisual = null } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
   const parametros = new URLSearchParams(window.location.search);
   exigirParametrosConocidos(parametros);
+  const inicioAjeno = Boolean(preferencias && preferencias.estado.valores.inicio !== "bolsas");
   const estado = {
     cliente,
     descargarReciboPDF,
     datos: null,
-    vista: rutaDesdeURL(),
+    vista: parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos",
+    clientePreferencias,
+    preferencias: { catalogo: preferencias?.catalogo || null, estado: preferencias?.estado || null,
+      error: errorPreferencias, recibo: null, pendiente: null, borrador: null,
+      guardando: false, avisoInicio: inicioAjeno },
+    controladorVisual,
+    soloPreferencias: false,
+    avisoInicio: inicioAjeno && !parametros.has("vista"),
+    filasPreferidas: preferencias?.estado.valores.filas || 20,
     filtros: { termino: "", estado: "Todas", categoria: "Todas" },
     consultaAyuda: "",
     pasoSolicitud: 1,
@@ -779,6 +951,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     causaBolsa: "",
   };
   conectarEventos(estado);
+  sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);
   return estado;
 }

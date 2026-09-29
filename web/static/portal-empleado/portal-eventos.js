@@ -5,7 +5,7 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260929-pref-508a-v2";
 import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 
 const NOMBRES_FILTRO = Object.freeze({
@@ -152,6 +152,7 @@ export function crearControladorPortal(dependencias) {
     renderizarContenidoAyuda,
     solicitarPropuestaLlamamiento,
     vistaDesdeHash,
+    alternarPreferenciaVisual,
   } = dependencias;
   const traducir = typeof dependencias.traducir === "function"
     ? dependencias.traducir
@@ -347,6 +348,12 @@ export function crearControladorPortal(dependencias) {
   }
 
   function alternarPreferencia(nombre, boton) {
+    if (typeof alternarPreferenciaVisual === "function") {
+      const activo = alternarPreferenciaVisual(nombre);
+      boton.setAttribute("aria-pressed", String(activo));
+      anunciar(traducir(`preferencias_atajo_${nombre === "texto" ? "texto" : "contraste"}_${activo ? "activo" : "inactivo"}`));
+      return;
+    }
     const atributo = nombre === "texto" ? "textoGrande" : "contraste";
     const activo = document.body.dataset[atributo] !== "true";
     document.body.dataset[atributo] = String(activo);
@@ -359,7 +366,7 @@ export function crearControladorPortal(dependencias) {
 
   function restaurarPreferencias() {
     document.body.dataset.textoGrande = "false";
-    document.documentElement.dataset.textoGrande = "false";
+    delete document.documentElement.dataset.textoGrande;
     document.body.dataset.contraste = "false";
     porId("boton-texto").setAttribute("aria-pressed", "false");
     porId("boton-contraste").setAttribute("aria-pressed", "false");
