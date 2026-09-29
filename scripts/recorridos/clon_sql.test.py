@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -11,17 +12,19 @@ from unittest.mock import patch
 SPEC = importlib.util.spec_from_file_location("clon_sql", Path(__file__).with_name("clon_sql.py"))
 SQL = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SQL)
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(os.environ.get("VEC_CLON_SQL_TEST_REPO", Path(__file__).resolve().parents[2]))
 
 
 class HelperTests(unittest.TestCase):
-    def test_real_plan_pins_all_33_existing_files(self):
+    def test_real_plan_pins_all_34_existing_files_and_preserves_base(self):
         rows = SQL.load_plan(REPO)
-        self.assertEqual(len(rows), 33)
+        self.assertEqual(len(rows), 34)
         self.assertEqual([len([r for r in rows if r["phase"] == phase])
-                          for phase in ("H3", "H4", "MAIN")], [8, 9, 16])
+                          for phase in ("H3", "H4", "MAIN")], [8, 9, 17])
         roles = [r["path"] for r in rows if "/roles" in r["path"]]
         self.assertEqual(len(roles), 4)
+        self.assertEqual(rows[:33], SQL.load_plan(REPO, source_ref=SQL.BASE_REF))
+        self.assertEqual(SQL.plan_hash(rows[:33]), SQL.REF_PLAN_SHA[SQL.BASE_REF])
 
     def test_modified_sql_fails_before_database_access(self):
         with tempfile.TemporaryDirectory() as scratch:
@@ -92,7 +95,7 @@ class HelperTests(unittest.TestCase):
             SQL.DockerDB("clon-ajeno")
 
     def test_refuses_other_main_hash(self):
-        with self.assertRaisesRegex(SQL.Refused, "hash main"):
+        with self.assertRaisesRegex(SQL.Refused, "hashes main"):
             SQL.main(["--repo", str(REPO), "--source-ref", "b" * 40, "--plan"])
 
     def test_database_error_does_not_disclose_detail_or_rows(self):
@@ -127,6 +130,52 @@ class HelperTests(unittest.TestCase):
             SQL.DockerDB("vec-recorridos-local", state).check_owner()
             with self.assertRaisesRegex(SQL.Refused, "label de estado"):
                 SQL.DockerDB("vec-recorridos-local", Path("/other/clon")).check_owner()
+
+    def test_extension_preserves_original_metadata_and_acknowledges_new_ref(self):
+        rows = SQL.load_plan(REPO)
+        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
+                    "plan_sha": SQL.plan_hash(rows[:33])}
+        revision = {"revision": 2, "source_ref": SQL.MAIN_REF,
+                    "plan_sha": SQL.plan_hash(rows), "file_count": 34,
+                    "acknowledged_at": "2026-09-30T01:00:00Z"}
+        answers = ["f", json.dumps([{"position": n, "path": row["path"],
+                    "sha256": row["sha256"]} for n, row in enumerate(rows[:33], 1)]),
+                   "", "t", json.dumps([revision])]
+        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
+            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
+        for key, value in original.items():
+            self.assertEqual(result[key], value)
+        self.assertEqual(result["current_source_ref"], SQL.MAIN_REF)
+        self.assertEqual(result["revisions"], [revision])
+        mutation = queries.call_args_list[2].args[0]
+        self.assertNotIn("UPDATE", mutation)
+        self.assertNotIn("DELETE", mutation)
+        self.assertIn("CREATE TABLE vec_recorridos_clon.plan_revisions", mutation)
+
+    def test_extension_refuses_changed_prefix_or_incomplete_base(self):
+        rows = SQL.load_plan(REPO)
+        meta = {"run_id": "clon1", "source_ref": SQL.BASE_REF, "plan_sha": "a" * 64}
+        with self.assertRaisesRegex(SQL.Refused, "prefijo"):
+            SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, meta)
+        meta["plan_sha"] = SQL.plan_hash(rows[:33])
+        with patch.object(SQL.DockerDB, "query", side_effect=["f", "[]"]):
+            with self.assertRaisesRegex(SQL.Refused, "33 SQL"):
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, meta)
+
+    def test_extension_cannot_downgrade_or_lose_revision_from_journal(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.BASE_REF)
+        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
+                    "plan_sha": SQL.plan_hash(rows)}
+        rev = {"revision": 2, "source_ref": SQL.MAIN_REF,
+               "plan_sha": SQL.REF_PLAN_SHA[SQL.MAIN_REF], "file_count": 34}
+        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps([rev])]):
+            with self.assertRaisesRegex(SQL.Refused, "volver a la base"):
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.BASE_REF, original)
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            SQL.write_journal(state, {**original, "revisions": [rev]}, [])
+            with self.assertRaisesRegex(SQL.Refused, "revisión"):
+                SQL.write_journal(state, {**original, "revisions": []}, [])
 
 
 if __name__ == "__main__":
