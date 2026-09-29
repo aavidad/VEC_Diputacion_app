@@ -2,6 +2,7 @@ package ports
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
@@ -14,11 +15,15 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-func imagenAlmacenV3Prueba(t *testing.T, accion string) (
+func imagenAlmacenV3Prueba(t *testing.T, accion string, superficies ...domain.SuperficieAutenticacionActorV1) (
 	AutorizacionImagenAlmacenV3, VinculosOperacionAlmacen, ImagenAlmacenVinculada, time.Time,
 ) {
 	t.Helper()
 	e := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	superficie := domain.SuperficieAutenticacionInternaCorporativaV1
+	if len(superficies) != 0 {
+		superficie = superficies[0]
+	}
 	_, _, v, _ := autorizacionAlmacenPrueba(t, AccionNegocioPrepararCargaDocumental,
 		[]string{"clasificacion", "contenido", "huella_sha256", "mime", "tamano"}, false)
 	campos := []string{"contenido_png256", "objeto_cuarentena"}
@@ -34,7 +39,7 @@ func imagenAlmacenV3Prueba(t *testing.T, accion string) (
 	i := ImagenAlmacenVinculada{
 		DocumentoRef: "documento:imagen:0001", ActorPersonaRef: e.resultado.Contexto.PersonaRef,
 		TitularPersonaRef: e.resultado.Contexto.PersonaRef,
-		Audiencia:         audienciaImagenPersonal, Finalidad: finalidadImagenPropia,
+		Audiencia:         audienciaImagenInterna, Finalidad: finalidadImagenPropia,
 		HuellaSHA256: strings.Repeat("a", 64), Tamano: 1024,
 		ClaveIdempotencia: "documento:imagen:0001:cuarentena",
 	}
@@ -49,6 +54,10 @@ func imagenAlmacenV3Prueba(t *testing.T, accion string) (
 		i.TitularPersonaRef = "per_titular_0000000001"
 		i.Audiencia = audienciaImagenInterna
 		i.Finalidad = finalidadImagenInterna
+	}
+	if superficie == domain.SuperficieAutenticacionExternaPersonalV1 &&
+		accion != AccionNegocioAbrirImagenAjenaActiva {
+		i.Audiencia = audienciaImagenPersonal
 	}
 	v.CargaRef = i.DocumentoRef
 	a := map[string]string{
@@ -80,6 +89,30 @@ func imagenAlmacenV3Prueba(t *testing.T, accion string) (
 	datos, err := e.solicitud.Datos()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if superficie != domain.SuperficieAutenticacionInternaCorporativaV1 {
+		original, err := datos.VinculoAutenticacionActor.Datos()
+		if err != nil {
+			t.Fatal(err)
+		}
+		autenticacion := original.Autenticacion()
+		autenticacion.Superficie = superficie
+		cuenta := domain.CuentaAutenticadaContextoActor{
+			CuentaRef: e.resultado.Contexto.Instantanea.CuentaRef,
+			Metodo:    e.resultado.Contexto.Principal.AuthMethod,
+			Garantia:  e.resultado.Contexto.Principal.AuthAssurance,
+		}
+		vinculo, err := domain.CrearVinculoAutenticacionActorV2(
+			context.Background(), revalidadorOrdenAutorizacionV3Prueba{autenticacion},
+			domain.SolicitudRevalidacionAutenticacionActorV1{
+				AutenticacionRef: autenticacion.AutenticacionRef, SesionRef: autenticacion.SesionRef,
+			}, resolutorOrdenAutorizacionV3Prueba{e.resultado},
+			domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: e.resultado.Contexto.PerfilActivoRef},
+			relojOrdenAutorizacionV3Prueba{e.ahora})
+		if err != nil {
+			t.Fatal(err)
+		}
+		datos.VinculoAutenticacionActor = vinculo
 	}
 	datos.Accion = accion
 	datos.Finalidad = i.Finalidad
@@ -266,5 +299,23 @@ func TestImagenAlmacenV3DeniegaAudienciaYLecturaAjenaExterior(t *testing.T) {
 	a.Material = ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	if _, err := NuevoContextoAbrirImagenActivaAlmacen(a, v, i, instante); err == nil {
 		t.Fatal("sin material")
+	}
+	externa, vinculosExternos, imagenExterna, ahoraExterno := imagenAlmacenV3Prueba(
+		t, AccionNegocioAbrirImagenAjenaActiva,
+		domain.SuperficieAutenticacionExternaPersonalV1)
+	if _, err := NuevoContextoAbrirImagenActivaAlmacen(
+		externa, vinculosExternos, imagenExterna, ahoraExterno); err == nil {
+		t.Fatal("vinculo exterior aceptado para lectura ajena interna")
+	}
+	propiaExterna, vinculosPropios, imagenPropia, ahoraPropio := imagenAlmacenV3Prueba(
+		t, AccionNegocioAbrirImagenPropiaActiva,
+		domain.SuperficieAutenticacionExternaPersonalV1)
+	if _, err := NuevoContextoAbrirImagenActivaAlmacen(
+		propiaExterna, vinculosPropios, imagenPropia, ahoraPropio); err != nil {
+		t.Fatalf("lectura propia exterior válida: %v", err)
+	}
+	if superficieImagenCoincide(domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, audienciaImagenInterna) ||
+		superficieImagenCoincide(domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, audienciaImagenPersonal) {
+		t.Fatal("administración privilegiada convertida en audiencia de imagen")
 	}
 }

@@ -150,6 +150,7 @@ func nuevoContextoImagenAlmacen(
 		datosSolicitud.Accion != accion || vinculos.CargaRef != imagen.DocumentoRef ||
 		!imagen.validoPara(accion) || errVinculo != nil || errCorrelacion != nil || errHuella != nil ||
 		errDecision != nil || errVentana != nil || !concedida || vinculo.PrincipalID != imagen.ActorPersonaRef ||
+		!superficieImagenCoincide(vinculo.Superficie, imagen.Audiencia) ||
 		resumen.Operacion() != accion || resumen.EfectoRef() != recurso.Referencia ||
 		resumen.EfectoHuellaSHA256() != huellaRecurso || resumen.AudienciaConsumo() != audiencia ||
 		verificadaEn.Before(emitida) || verificadaEn.Before(resumen.EmitidaEn()) ||
@@ -195,6 +196,17 @@ func nuevoContextoImagenAlmacen(
 		return ContextoOperacionAlmacen{}, errorAutorizacionAlmacen()
 	}
 	return c, nil
+}
+
+func superficieImagenCoincide(superficie domain.SuperficieAutenticacionActorV1, audiencia string) bool {
+	switch audiencia {
+	case audienciaImagenPersonal:
+		return superficie == domain.SuperficieAutenticacionExternaPersonalV1
+	case audienciaImagenInterna:
+		return superficie == domain.SuperficieAutenticacionInternaCorporativaV1
+	default:
+		return false
+	}
 }
 
 func NuevoContextoEscribirImagenProcesadaAlmacen(
