@@ -244,7 +244,8 @@ func (h *manejadorFirmaDocumento) responderError(w http.ResponseWriter, r *http.
 		responderErrorFirmaDocumento(w, r, http.StatusConflict, "cadena_rota", "")
 	case errors.Is(err, ports.ErrFirmaDocumentoEnConflicto), errors.Is(err, ports.ErrClaveFirmaDocumentoUsada):
 		responderErrorFirmaDocumento(w, r, http.StatusConflict, "conflicto", "")
-	case errors.Is(err, ports.ErrFirmaDocumentoDenegada), errors.Is(err, ports.ErrAutorizacionDenegada):
+	case errors.Is(err, ports.ErrFirmaDocumentoDenegada), errors.Is(err, ports.ErrAutorizacionDenegada),
+		errors.Is(err, ports.ErrCustodiaFirmadoDenegada):
 		responderErrorFirmaDocumento(w, r, http.StatusForbidden, "acceso_denegado", "")
 	case errors.Is(err, ports.ErrSolicitudFirmaDocumentoInvalida):
 		responderErrorFirmaDocumento(w, r, http.StatusUnprocessableEntity, "contenido_no_valido", "")
