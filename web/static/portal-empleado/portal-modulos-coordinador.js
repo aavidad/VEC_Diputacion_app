@@ -8,16 +8,15 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260928-auditoria-expediente-en-v2";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-auditoria-expediente-en-v2";
+} from "./portal-catalogo-modulos.js?v=20260929-diseno-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-auditoria-expediente-en-v2";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260929-diseno-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -97,9 +96,9 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260928-usab-exp-firma-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260929-diseno-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
-      import("./modulos/auditoria/vista.js?v=20260928-usab-auditoria-v3"),
+      import("./modulos/auditoria/vista.js?v=20260929-diseno-v1"),
       import("./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador, auditoriaVista, auditoriaCliente });
@@ -134,7 +133,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260928-auditoria-expediente-en-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260929-diseno-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
@@ -191,6 +190,7 @@ export function vistaConEntradaPortal(vista) {
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
+  if (vista === "ofertas-sae") return "#ofertas-sae";
   if (vista === VISTA_PLANTILLAS_RRHH) return "#contratacion-temporal/plantillas-rrhh";
   if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return `#${VISTA_DOCUMENTOS_EXPEDIENTE}`;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
@@ -424,17 +424,23 @@ export function crearCoordinadorModulosPortal({
           && typeof recursos.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
           ? Object.freeze({ montar: recursos.auditoriaVista.montarVistaAuditoria,
             fuente: recursos.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null,
-        obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
-        // Número, centro y categoría se presentan al pedirlo, con los catálogos de alta que hayan llegado.
-        obtenerTramitesInicio: () => {
-          if (!listadoCuadro) return null;
+        // Portada: la misma consulta que abre la lista, con centro y categoría
+        // presentados con los catálogos de alta que hayan llegado.
+        obtenerCuadroInicio: () => {
+          if (!listadoCuadro || !Array.isArray(listadoCuadro.expedientes)) return null;
           const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
-          return tramitesParaInicio(listadoCuadro).map((e) => ({
-            ...e,
-            numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
-            centro: etiqueta(alta?.catalogos?.centros, e.centro),
-            categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
-          }));
+          return Object.freeze({
+            expedientes: Object.freeze(listadoCuadro.expedientes.map((e) => Object.freeze({
+              ...e,
+              numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
+              centro: etiqueta(alta?.catalogos?.centros, e.centro),
+              categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
+            }))),
+            parcial: listadoCuadro.hay_mas === true
+              || (typeof listadoCuadro.paginacion?.cursor_siguiente === "string"
+                && listadoCuadro.paginacion.cursor_siguiente !== ""),
+            generadoEn: typeof listadoCuadro.generado_en === "string" ? listadoCuadro.generado_en : "",
+          });
         },
         montar: recursos.vista.montarModuloContratacionTemporal,
         montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
@@ -812,11 +818,9 @@ export function crearCoordinadorModulosPortal({
 
   function renderizarNavegacion(bolsaDisponible = true, moduloActivo = "portal", vistaPermitida = () => true) {
     if (typeof vistaPermitida !== "function") throw new TypeError("filtro de vistas no válido");
-    const catalogoVisible = moduloActivo === "portal"
-      ? catalogoOfrecido
-      : catalogoOfrecido.filter((modulo) => modulo.clave === moduloActivo);
+    // Menú fijo: los mismos módulos en cualquier pantalla; solo cambia el activo.
     return renderizarNavegacionModulos({
-      catalogo: catalogoVisible,
+      catalogo: catalogoOfrecido,
       resolverAcceso: (clave) => {
         const acceso = resolverAcceso(clave, bolsaDisponible);
         if (acceso.disponible !== true) return acceso;
@@ -920,6 +924,7 @@ export function crearCoordinadorModulosPortal({
         : await composicion.contratacionTemporal.montar({
           raiz,
           presentador: presentadorCT,
+          filtroLista: opciones?.filtroLista ?? null,
           locale,
           zonaHoraria: ZONA_HORARIA_PORTAL,
           mensajes: composicion.contratacionTemporal.mensajesExpedientes,
@@ -1154,14 +1159,14 @@ export function crearCoordinadorModulosPortal({
       && composicion?.contratacionTemporal?.alta != null;
   }
 
-  function obtenerMetricasCuadro() {
+  function obtenerCuadroInicio() {
     if (!esPerfilRRHH()) return null;
-    return composicion?.contratacionTemporal?.obtenerMetricas?.() || null;
+    return composicion?.contratacionTemporal?.obtenerCuadroInicio?.() || null;
   }
 
+  /** Expedientes de la portada ya presentados (compatibilidad de lectura). */
   function obtenerTramitesInicio() {
-    if (!esPerfilRRHH()) return null;
-    return composicion?.contratacionTemporal?.obtenerTramitesInicio?.() || null;
+    return obtenerCuadroInicio()?.expedientes ?? null;
   }
 
   return Object.freeze({
@@ -1174,7 +1179,7 @@ export function crearCoordinadorModulosPortal({
     montarVista,
     obtenerTramitesInicio,
     obtenerCatalogo,
-    obtenerMetricasCuadro,
+    obtenerCuadroInicio,
     renderizarNavegacion,
     resolverAcceso,
     retirarVistaMontada,

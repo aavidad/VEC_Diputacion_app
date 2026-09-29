@@ -47,14 +47,10 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
-  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1"];
-  const vigente = "20260928-auditoria-expediente-en-v2";
+  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
+  // Dirección de diseño del 29/09/2026: el catálogo cambió y todo su grafo renueva URL.
+  const vigente = "20260929-diseno-v1";
   const versionesEspeciales = new Map([
-    ["portal.js", "20260929-usab-auditoria-firma-v1"],
-    ["portal-modulos-coordinador.js", "20260929-usab-auditoria-firma-v1"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260928-usab-exp-firma-v1"],
-    ["modulos/auditoria/vista.js", "20260928-usab-auditoria-v3"],
-    ["modulos/auditoria/i18n.js", "20260928-usab-auditoria-v3"],
     ["portal-preferencias-integracion.js", "20260929-usuarios-pref-v1"],
     ["portal-preferencias.js", "20260929-usuarios-pref-v1"],
     ["portal-preferencias-i18n.js", "20260929-usuarios-pref-v1"],

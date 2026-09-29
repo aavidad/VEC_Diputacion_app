@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Peticiones de personal temporal · Portal de Recursos Humanos</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/portal.css">
+<link rel="stylesheet" href="comun/tema-vec.css">
+<link rel="stylesheet" href="css/portal-componentes.css">
+<link rel="stylesheet" href="css/portal-flujos.css">
+<link rel="stylesheet" href="css/prototipo.css">
+</head>
+<body class="portal-empleado-app">
+<a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+<div class="portal-empleado-shell">
+  <aside class="portal-lateral" id="navegacion-lateral" aria-label="Menú principal">
+    <a class="marca-portal" href="index.html" aria-label="Ir al inicio">
+      <img class="logo-institucional" src="img/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+      <div class="marca-portal-contexto"><strong>Recursos Humanos</strong><span>Diputación de Granada</span></div>
+    </a>
+    <nav class="navegacion-modulos" aria-label="Secciones">
+      <a class="enlace-lateral" href="index.html">
+            <span class="indicador-menu" aria-hidden="true">I</span><span>Inicio</span></a>
+<a class="enlace-lateral" href="expedientes.html" aria-current="page">
+            <span class="indicador-menu" aria-hidden="true">P</span><span>Peticiones de personal temporal</span></a>
+<a class="enlace-lateral" href="#">
+            <span class="indicador-menu" aria-hidden="true">B</span><span>Bolsas de trabajo</span></a>
+<a class="enlace-lateral" href="#">
+            <span class="indicador-menu" aria-hidden="true">S</span><span>Ofertas al SAE</span></a>
+    </nav>
+    <div class="pie-lateral"><span>Portal de Recursos Humanos</span></div>
+  </aside>
+  <div class="portal-superficie">
+    <header class="cabecera-portal">
+      <button type="button" class="boton-menu-movil" id="boton-menu" aria-controls="navegacion-lateral" aria-expanded="false"><span aria-hidden="true">☰</span><span class="solo-lectura">Abrir menú</span></button>
+      <div class="contexto-cabecera">
+        <nav class="migas" aria-label="Estás en"><a class="enlace" href="index.html">Inicio</a> → <span aria-current="page">Peticiones de personal temporal</span></nav>
+        <h1>Peticiones de personal temporal</h1>
+      </div>
+      <div class="acciones-cabecera">
+        <button type="button" class="boton-cabecera boton-icono" aria-label="Ayuda de esta pantalla" title="Ayuda">?</button>
+        <button type="button" class="boton-cabecera boton-icono boton-avisos" aria-label="Avisos: 3 sin leer" title="Avisos">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span aria-hidden="true">3</span></button>
+        <div class="sesion-presentacion" role="group" aria-label="Sesión">
+          <span class="avatar" aria-hidden="true">CM</span>
+          <span><strong>Carmen Molina Ortega</strong><small>Sección de Selección</small></span>
+        </div>
+      </div>
+    </header>
+    <main id="contenido-principal" class="contenido-portal" tabindex="-1">
+<div class="pila">
+  <div class="cabeza-pagina">
+    <div><h2>11 peticiones en trámite</h2><p>Ordenadas por plazo: lo más urgente, arriba.</p></div>
+    <a class="boton-primario" href="#">Nueva petición de personal</a>
+  </div>
+  <section class="panel" aria-labelledby="t-lista">
+    <h2 id="t-lista" class="solo-lectura">Peticiones</h2>
+    <form class="filtros" role="search" onsubmit="return false">
+      <label class="campo"><span>Buscar</span><input type="search" placeholder="Número, centro o persona" aria-describedby="pista-buscar"><small id="pista-buscar" class="solo-lectura">Escriba y la lista se actualiza sola</small></label>
+      <details class="mas-filtros" open><summary class="boton-secundario">Más filtros</summary><div class="mas-filtros-cuerpo">
+      <label class="campo"><span>Fase</span><select><option>Todas las fases</option><option>1. Solicitud</option><option>2. Análisis RRHH</option><option>3. Gestión de bolsa</option><option>4. Fiscalización</option><option>5. Obtención del candidato</option><option>6. Nombramiento</option><option>7. Incorporación</option><option>8. Seguimiento</option></select></label>
+      <label class="campo"><span>Centro</span><select><option>Todos los centros</option><option>Servicio de Deportes</option><option>Residencia de Mayores «Sierra Nevada»</option><option>Servicio de Bienestar Social</option></select></label>
+      <label class="campo"><span>Mostrar</span><select><option>En trámite</option><option>Me tocan a mí</option><option>Esperan a otros</option><option>Terminadas</option><option>Todas</option></select></label>
+      </div></details>
+    </form>
+    <div class="filtros-activos" aria-live="polite">
+      <span class="texto-secundario">Filtros:</span>
+      <button type="button" class="chip-quitar">En trámite <span aria-hidden="true">×</span><span class="solo-lectura">Quitar filtro</span></button>
+      <button type="button" class="chip-quitar">Categoría: todas <span aria-hidden="true">×</span><span class="solo-lectura">Quitar filtro</span></button>
+      <a class="enlace" href="expedientes.html">Quitar todos</a>
+    </div>
+    <div class="tabla-contenedor" role="region" aria-label="Peticiones" tabindex="0">
+      <table class="tabla-datos tabla-apilable"><caption>Peticiones de personal temporal en trámite</caption>
+        <thead><tr><th scope="col">Expediente</th><th scope="col">Centro y categoría</th><th scope="col">Fase</th><th scope="col">Siguiente paso</th><th scope="col">Plazo</th></tr></thead>
+        <tbody><tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000016</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Servicio de Bienestar Social<small>Trabajador/a social</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Análisis RRHH<small>Fase 2 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">RRHH: analizar la petición</td>
+  <td data-etiqueta="Plazo"><span class="estado-chip peligro">Vencido</span><small>25/09/2026</small></td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000010</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Servicio de Deportes<small>Técnico/a de administración general</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Fiscalización<small>Fase 4 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">RRHH: subsanar el reparo</td>
+  <td data-etiqueta="Plazo"><span class="estado-chip">Vence hoy</span><small>28/09/2026</small></td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000015</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Residencia de Mayores «Sierra Nevada»<small>Auxiliar de enfermería</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Obtención del candidato<small>Fase 5 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">RRHH: registrar la respuesta de Antonio Reyes Álvarez</td>
+  <td data-etiqueta="Plazo">30/09/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000019</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Residencia de Mayores «Sierra Nevada»<small>Auxiliar de enfermería</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Nombramiento<small>Fase 6 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">RRHH: preparar la resolución</td>
+  <td data-etiqueta="Plazo">01/10/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000021</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Servicio de Bienestar Social<small>Trabajador/a social</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Incorporación<small>Fase 7 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">Centro: confirmar la incorporación</td>
+  <td data-etiqueta="Plazo">01/10/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000013</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Delegación de Recursos Humanos<small>Operario/a de servicios</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Fiscalización<small>Fase 4 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">Intervención: emitir informe</td>
+  <td data-etiqueta="Plazo">02/10/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000012</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Servicio de Transformación Digital<small>Técnico/a especialista</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Fiscalización<small>Fase 4 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">Intervención: emitir informe</td>
+  <td data-etiqueta="Plazo">05/10/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000018</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Delegación de Cultura<small>Auxiliar administrativo/a</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Gestión de bolsa<small>Fase 3 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">Asesoría Jurídica: firmar el informe</td>
+  <td data-etiqueta="Plazo">07/10/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000020</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Servicio de Deportes<small>Técnico/a especialista</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Gestión de bolsa<small>Fase 3 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">RRHH: elegir la bolsa</td>
+  <td data-etiqueta="Plazo">09/10/2026</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000017</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Servicio de Carreteras<small>Operario/a de servicios</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Solicitud<small>Fase 1 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">Centro: completar la memoria</td>
+  <td data-etiqueta="Plazo">—</td>
+</tr>
+<tr>
+  <td class="celda-titulo"><a class="enlace" href="expediente.html">2026/CT-000022</a></td>
+  <td class="envuelve" data-etiqueta="Centro">Delegación de Recursos Humanos<small>Auxiliar administrativo/a</small></td>
+  <td class="envuelve" data-etiqueta="Fase">Seguimiento<small>Fase 8 de 8</small></td>
+  <td class="envuelve" data-etiqueta="Siguiente paso">Nadie: en vigor hasta el 31/03/2027</td>
+  <td data-etiqueta="Plazo">—</td>
+</tr></tbody>
+      </table>
+    </div>
+    <div class="paginacion-marco"><span>Mostrando 1 a 11 de 11</span></div>
+  </section>
+</div>
+    </main>
+    <footer class="pie-portal"><span>© 2026 Diputación de Granada</span><span>Protección de datos · Accesibilidad</span></footer>
+  </div>
+</div>
+<div class="velo-menu" id="velo-menu" hidden></div>
+<script>
+(() => {
+  const b = document.getElementById("boton-menu"), v = document.getElementById("velo-menu");
+  const poner = (abierto) => { if (abierto) document.body.dataset.menuAbierto = "true"; else delete document.body.dataset.menuAbierto;
+    b.setAttribute("aria-expanded", String(abierto)); v.hidden = !abierto; };
+  b.addEventListener("click", () => poner(b.getAttribute("aria-expanded") !== "true"));
+  v.addEventListener("click", () => poner(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") poner(false); });
+  const mf = document.querySelector(".mas-filtros"); if (mf && matchMedia("(max-width: 760px)").matches) mf.open = false;
+})();
+
+</script>
+</body>
+</html>

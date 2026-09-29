@@ -3,10 +3,15 @@
 import "./atajos-incidencia.js";
 import "./fases-expediente.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
-import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
+import { FILTRO_LISTA_INICIAL, filtroListaValido } from "./recuentos-peticiones.js";
+import { renderizarListaPeticiones, renderizarResultadosLista } from "./vista-expedientes-lista.js";
+import {
+  renderizarCabeceraFicha, renderizarDatosPeticion, renderizarDocumentosFicha, renderizarHistorialFicha,
+  renderizarLineaFases, renderizarSiguientePasoFicha,
+} from "./vista-expedientes-ficha.js";
 
 const traductorPorOmision = crearTraductorExpedientesContratacion();
 
@@ -23,11 +28,6 @@ function estadoClave(estado) {
   return `ct-fase-${estado}`;
 }
 
-// Pastilla con fecha y estado en texto; sin fecha («no calculado») solo el estado.
-const plazoBandeja = (e, t) => (!e.plazo_estado ? escaparHTML(e.plazo) : `<span class="ct-exp-chip ct-plazo-${escaparHTML(e.plazo_estado)}">${escaparHTML(e.plazo_estado === "no_calculado" ? e.plazo : t("plazo_fase_bandeja", { fecha: e.plazo, estado: t(`plazo_fase_${e.plazo_estado}`) }))}</span>`);
-function textoEstado(clave, t) {
-  return t(`fase_${clave}`);
-}
 
 export function renderizarEstadoCarga(estado, t) {
   const configuracion = {
@@ -59,9 +59,6 @@ export function renderizarEstadoCarga(estado, t) {
   </section>`;
 }
 
-function opcionFiltro(valor, etiqueta, seleccionado) {
-  return `<option value="${escaparHTML(valor)}"${valor === seleccionado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>`;
-}
 
 function centroVisible(centro) {
   const referencia = String(centro ?? "");
@@ -71,9 +68,6 @@ function centroVisible(centro) {
   return { etiqueta: traductorPorOmision("centro_visible", { ambito: ambito.replaceAll(/[-_]+/g, " "), numero }), referencia };
 }
 
-function esNumeroVisibleLegible(numero) {
-  return /^\d{4}\/CT-\d+$/u.test(String(numero ?? ""));
-}
 
 // Los expedientes dados de alta antes de la numeración anual conservan en su
 // historia el identificador técnico («2026/CT-8c17ba0b…»): figuran sin numerar.
@@ -82,229 +76,18 @@ export function numeroExpedienteVisible(numero, t = traductorPorOmision) {
   return /^\d{4}\/CT-[0-9a-f]{12,}$/iu.test(texto) ? t("numero_expediente_sin_asignar") : texto;
 }
 
-function numeroExpedienteHTML(numero) {
-  return escaparHTML(numeroExpedienteVisible(numero));
-}
-
-// Icono de cada indicador por su clave; si llega otra, se deduce del tono.
-const ICONOS_INDICADOR = Object.freeze({
-  total: "expediente", pendientes: "pendiente", en_curso: "en_curso",
-  tramitacion: "en_curso", incidencias: "alerta", completados: "correcto",
-});
-const ICONOS_TONO = Object.freeze({ exito: "correcto", aviso: "pendiente", peligro: "alerta" });
-const CLASES_TONO_KPI = Object.freeze({
-  exito: " kpi--exito", aviso: " kpi--advertencia", peligro: " kpi--peligro",
+// Número y centro legibles que la lista necesita (evita dependencias circulares).
+const AYUDAS_LISTA = Object.freeze({
+  numeroVisible: (numero) => numeroExpedienteVisible(numero),
+  centroVisible: (centro) => centroVisible(centro),
 });
 
-// Recuadros que equivalen a un estado del filtro de la bandeja: al pulsarlos se
-// aplica ese filtro, como hacen los de Inicio. «Expedientes» quita los filtros.
-const FILTRO_INDICADOR = Object.freeze({
-  total: "", pendientes: "pendiente", en_curso: "en_curso", incidencias: "incidencia",
-});
 
-function renderizarIndicador(indicador, filtros, t) {
-  const nombre = ICONOS_INDICADOR[indicador.clave] ?? ICONOS_TONO[indicador.tono] ?? "expediente";
-  const clase = `tarjeta-kpi${CLASES_TONO_KPI[indicador.tono] ?? ""}`;
-  const contenido = `<span class="icono-kpi">${icono(nombre)}</span>
-      <div><strong class="valor-kpi">${escaparHTML(indicador.valor)}</strong>
-      <span class="etiqueta-kpi">${escaparHTML(indicador.etiqueta)}</span>`;
-  const filtro = Object.hasOwn(FILTRO_INDICADOR, indicador.clave) ? FILTRO_INDICADOR[indicador.clave] : null;
-  if (filtro === null || !t) {
-    return `<article class="${clase}" data-ct-exp-indicador="${escaparHTML(indicador.clave ?? "")}">
-      ${contenido}</div>
-    </article>`;
-  }
-  const activo = (filtros?.estado ?? "") === filtro && !filtros?.fase && !filtros?.texto;
-  const aria = t(filtro ? "indicador_filtrar_aria" : "indicador_todos_aria", {
-    total: indicador.valor, etiqueta: indicador.etiqueta,
-  });
-  return `<button type="button" class="${clase}" data-ct-exp-indicador="${escaparHTML(indicador.clave)}"
-      data-ct-exp-filtro-estado="${escaparHTML(filtro)}" aria-pressed="${activo}" aria-label="${escaparHTML(aria)}">
-      ${contenido}
-      <span class="metrica-enlace" aria-hidden="true">${escaparHTML(t("indicador_ver_lista"))}</span></div>
-    </button>`;
-}
-
-const FASES_BANDEJA = [
-  ["solicitud", "etiqueta_fase_solicitud"],
-  ["analisis_rrhh", "etiqueta_fase_analisis_rrhh"],
-  ["gestion_bolsa", "etiqueta_fase_gestion_bolsa"],
-  ["fiscalizacion", "etiqueta_fase_fiscalizacion"],
-  ["obtencion_candidato", "etiqueta_fase_obtencion_candidato"],
-  ["nombramiento", "etiqueta_fase_nombramiento"],
-  ["incorporacion", "etiqueta_fase_incorporacion"],
-  ["seguimiento", "etiqueta_fase_seguimiento"],
-];
-const FASES_EQUIVALENTES = {
-  solicitud_registrada: "solicitud", analisis: "analisis_rrhh",
-  asignacion: "gestion_bolsa", asignacion_unidad: "gestion_bolsa",
-  informe_juridico: "gestion_bolsa", subsanacion_unidad: "fiscalizacion",
-  llamamiento: "obtencion_candidato",
-};
-
-function faseBandeja(clave) {
-  const normalizada = FASES_EQUIVALENTES[clave] ?? clave;
-  return FASES_BANDEJA.some(([fase]) => fase === normalizada) ? normalizada : "otra";
-}
-
-function fechaBandeja(valor) {
-  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T/u.test(valor)) return "";
-  const fecha = new Date(valor);
-  return Number.isNaN(fecha.valueOf()) ? "" : new Intl.DateTimeFormat("es-ES", {
-    dateStyle: "medium", timeZone: "Europe/Madrid",
-  }).format(fecha);
-}
-
-function renderizarTrabajoOperativo(cuadro, t) {
-  const esDemostracion = cuadro.demostracion === true;
-  // Sin expedientes no hay bandeja ni distribución que mostrar.
-  if (!esDemostracion && cuadro.expedientes.length === 0) return "";
-  const expedientesNoCompletados = cuadro.expedientes
-    .filter(({ estado_clave: estado }) => estado !== "completado")
-    .slice(0, 3);
-  // La clave de fase es la misma que ofrece el desplegable «Fase actual».
-  const distribucion = [...new Set(cuadro.expedientes.map(({ fase_actual: fase }) => fase))]
-    .map((fase) => {
-      const ejemplo = cuadro.expedientes.find(({ fase_actual: actual }) => actual === fase);
-      return {
-        fase,
-        clave: ejemplo.fase_clave ?? String(fase).toLocaleLowerCase("es-ES"),
-        total: cuadro.expedientes.filter(({ fase_actual: actual }) => actual === fase).length,
-      };
-    });
-  const primero = expedientesNoCompletados[0]
-    ?? (esDemostracion ? cuadro.expedientes[0] : undefined);
-  const titulo = esDemostracion ? t("trabajo_titulo") : t("bandeja_titulo");
-  const tituloExpedientes = esDemostracion ? t("mis_tareas") : t("bandeja_expedientes");
-  const tituloDistribucion = esDemostracion
-    ? t("distribucion_fases") : t("bandeja_distribucion_fases");
-  return `<section class="ct-exp-operativo" aria-labelledby="ct-exp-operativo-titulo">
-    <header>
-      <h3 id="ct-exp-operativo-titulo">${escaparHTML(titulo)}</h3>
-    </header>
-    <article class="ct-exp-mis-tareas">
-      <h4>${escaparHTML(tituloExpedientes)}</h4>
-      <ul>${expedientesNoCompletados.map((expediente) => `<li>
-        <span><strong>${numeroExpedienteHTML(expediente.numero_visible)}</strong>
-          <small>${escaparHTML(expediente.categoria)} · ${escaparHTML(expediente.fase_actual)} · ${escaparHTML(expediente.estado)}</small>
-        </span>
-        <button type="button" class="boton-terciario"
-          data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button>
-      </li>`).join("") || `<li class="ct-exp-vacio">${escaparHTML(t("bandeja_sin_expedientes"))}</li>`}</ul>
-    </article>
-    <article class="ct-exp-distribucion">
-      <h4>${escaparHTML(tituloDistribucion)}</h4>
-      <dl>${distribucion.map(({ fase, clave, total }) => `<div>
-        <dt><button type="button" class="enlace-tabla ct-exp-distribucion-enlace"
-          data-ct-exp-filtro-fase="${escaparHTML(clave)}"
-          aria-label="${escaparHTML(t("distribucion_filtrar_aria", { total, fase }))}">${escaparHTML(fase)}</button></dt><dd>${total}</dd>
-      </div>`).join("")}</dl>
-    </article>
-    <aside class="ct-exp-accesos">
-      <h4>${escaparHTML(t("accesos_rapidos"))}</h4>
-      <button type="button" class="boton-primario"
-        data-ct-exp-vista="alta">${escaparHTML(t("crear_peticion"))}</button>
-      ${primero ? `<button type="button" class="boton-secundario"
-        data-ct-exp-abrir="${escaparHTML(primero.expediente_ref)}">${escaparHTML(esDemostracion ? t("continuar_tramitacion") : t("bandeja_abrir_primero"))}</button>` : ""}
-    </aside>
-  </section>`;
-}
-
-// Estados que ofrece el filtro de la bandeja; la pastilla de estado de cada fila
-// solo filtra si su estado es uno de ellos.
-const ESTADOS_FILTRO = new Set(["pendiente", "en_curso", "espera", "completado", "incidencia", "cancelado"]);
-
-export function renderizarCuadro(estado, t) {
+export function renderizarCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) {
   const cuadro = estado.cuadro;
   if (!cuadro) return renderizarEstadoCarga(estado, t);
-  const estados = [
-    ["", t("filtro_todos")],
-    ["pendiente", t("fase_pendiente")],
-    ["en_curso", t("fase_en_curso")],
-    ["espera", t("fase_espera")],
-    ["completado", t("fase_completado")],
-    ["incidencia", t("fase_incidencia")],
-    ["cancelado", t("fase_cancelado")],
-  ];
-  const fases = [...new Map(cuadro.expedientes.map((expediente) => [
-    expediente.fase_clave ?? expediente.fase_actual.toLocaleLowerCase("es-ES"),
-    expediente.fase_actual,
-  ])).entries()].map(([clave, etiqueta]) => ({ clave, etiqueta }))
-    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
-  const indicadores = `<section class="ct-exp-indicadores" aria-label="${escaparHTML(t(cuadro.paginacion ? "indicadores_pagina" : "indicadores"))}">
-    ${cuadro.indicadores.map((indicador) => renderizarIndicador(indicador, estado.filtros, t)).join("")}
-  </section>`;
-  const filtros = `<form class="ct-exp-filtros" data-ct-exp-filtros aria-label="${escaparHTML(t("filtros"))}">
-    <label>
-      <span>${escaparHTML(t("filtro_texto"))}</span>
-      <input type="search" name="texto" value="${escaparHTML(estado.filtros.texto)}"
-        maxlength="80" placeholder="${escaparHTML(t("filtro_texto_placeholder"))}">
-    </label>
-    <label>
-      <span>${escaparHTML(t("filtro_estado"))}</span>
-      <select name="estado">${estados.map(([valor, etiqueta]) => (
-    opcionFiltro(valor, etiqueta, estado.filtros.estado)
-  )).join("")}</select>
-    </label>
-    <label>
-      <span>${escaparHTML(t("filtro_fase"))}</span>
-      <select name="fase">
-        ${opcionFiltro("", t("filtro_todos"), estado.filtros.fase)}
-        ${fases.map(({ clave, etiqueta }) => opcionFiltro(clave, etiqueta, estado.filtros.fase)).join("")}
-      </select>
-    </label>
-    <div class="ct-exp-filtros-acciones">
-      <button type="submit" class="boton-primario">${escaparHTML(t("aplicar_filtros"))}</button>
-      <button type="button" class="boton-secundario" data-ct-exp-accion="limpiar-filtros">${escaparHTML(t("limpiar_filtros"))}</button>
-    </div>
-  </form>`;
-  const filas = [...cuadro.expedientes].sort((izquierda, derecha) => {
-    const prioridad = Number(esNumeroVisibleLegible(derecha.numero_visible)) - Number(esNumeroVisibleLegible(izquierda.numero_visible));
-    return prioridad || String(izquierda.numero_visible).localeCompare(String(derecha.numero_visible), "es");
-  }).map((expediente) => {
-    const centro = centroVisible(expediente.centro);
-    const resumenId = `ct-exp-resumen-${expediente.expediente_ref}`;
-    const controlId = `ct-exp-resumen-control-${expediente.expediente_ref}`;
-    const fase = faseBandeja(expediente.fase_clave);
-    const fechaSolicitud = fechaBandeja(expediente.fecha_solicitud);
-    const modalidadAusente = expediente.modalidad === "—";
-    const progreso = fase === "otra" ? "" : `<div class="ct-exp-progreso-bandeja" aria-label="${escaparHTML(t("flujo_expediente"))}">
-      ${FASES_BANDEJA.map(([clave, etiqueta]) => `<span${clave === fase ? ' aria-current="step"' : ""}>${escaparHTML(t(etiqueta))}</span>`).join("")}
-    </div>`;
-    return `<tr class="ct-exp-fila" data-ct-fase="${escaparHTML(fase)}">
-    <th scope="row"><button type="button" class="enlace-tabla" id="${escaparHTML(controlId)}"
-      data-ct-exp-resumen aria-controls="${escaparHTML(resumenId)}" aria-expanded="false"
-      aria-label="${escaparHTML(t("resumen_fila", { expediente: numeroExpedienteVisible(expediente.numero_visible) }))}">${numeroExpedienteHTML(expediente.numero_visible)}</button></th>
-    <td${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</td>
-    <td>${escaparHTML(expediente.categoria)}</td>
-    <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
-    <td>${ESTADOS_FILTRO.has(expediente.estado_clave) ? `<button type="button" class="ct-exp-chip ${estadoClave(expediente.estado_clave)}"
-      data-ct-exp-filtro-estado="${escaparHTML(expediente.estado_clave)}"
-      aria-label="${escaparHTML(t("columna_estado_filtrar_aria", { estado: expediente.estado }))}">${escaparHTML(expediente.estado)}</button>`
-    : `<span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span>`}</td>
-    <td><button type="button" class="enlace-tabla ct-exp-enlace-fase"
-      data-ct-exp-filtro-fase="${escaparHTML(expediente.fase_clave ?? expediente.fase_actual.toLocaleLowerCase("es-ES"))}"
-      aria-label="${escaparHTML(t("columna_fase_filtrar_aria", { fase: expediente.fase_actual }))}">${escaparHTML(expediente.fase_actual)}</button></td>
-    <td>${plazoBandeja(expediente, t)}${expediente.urgente ? ` <span class="ct-marca-urgente">${escaparHTML(t("marca_urgente"))}</span>` : ""}</td>
-    <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
-  </tr>
-  <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-fase="${escaparHTML(fase)}" data-ct-exp-resumen-fila
-    aria-labelledby="${escaparHTML(controlId)}" hidden>
-    <td colspan="8">
-      <section aria-label="${escaparHTML(t("resumen_fila", { expediente: numeroExpedienteVisible(expediente.numero_visible) }))}">
-        ${progreso}
-        <dl class="ct-exp-resumen-datos">
-          ${fechaSolicitud ? `<div><dt>${escaparHTML(t("resumen_fecha_solicitud"))}</dt><dd>${escaparHTML(fechaSolicitud)}</dd></div>` : ""}
-          ${expediente.version ? `<div><dt>${escaparHTML(t("version"))}</dt><dd>${escaparHTML(expediente.version)}</dd></div>` : ""}
-        </dl>
-        <button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("resumen_abrir_expediente"))}</button>
-      </section>
-    </td>
-  </tr>`;
-  }).join("");
-  // La paginación común del marco reparte las filas de una sola página. La del
-  // servidor solo aparece cuando hay otra página o hay que reiniciar la consulta;
-  // entonces va junto a la tabla y el marco la usa en lugar de la suya.
+  // La paginación del servidor solo aparece cuando hay otra página o hay que
+  // reiniciar la consulta; entonces va junto a la tabla.
   const paginacionRemota = cuadro.paginacion && (cuadro.paginacion.pagina > 1
     || Boolean(cuadro.paginacion.cursor_siguiente)
     || estado.paginacion_requiere_reinicio === true || estado.carga === "error");
@@ -315,31 +98,13 @@ export function renderizarCuadro(estado, t) {
     <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
       ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
   </nav>` : "";
-  const tabla = `<section class="panel ct-exp-listado">
-    <div class="cabecera-panel">
-      <h3>${escaparHTML(t("tabla_expedientes"))}</h3>
-    </div>
-    <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
-      <table class="tabla-datos tabla-datos--prioritaria">
-        <caption>${escaparHTML(t("tabla_expedientes"))}</caption>
-        <thead><tr>
-          <th scope="col" class="ct-exp-numero">${escaparHTML(t("columna_numero"))}</th>
-          <th scope="col">${escaparHTML(t("columna_centro"))}</th>
-          <th scope="col">${escaparHTML(t("columna_categoria"))}</th>
-          <th scope="col">${escaparHTML(t("columna_modalidad"))}</th>
-          <th scope="col">${escaparHTML(t("columna_estado"))}</th>
-          <th scope="col" class="ct-exp-fase">${escaparHTML(t("columna_fase"))}</th>
-          <th scope="col">${escaparHTML(t("columna_plazo"))}</th>
-          <th scope="col">${escaparHTML(t("columna_acciones"))}</th>
-        </tr></thead>
-        <tbody>${filas}</tbody>
-      </table>
-    </div>
-    ${paginacion}
-  </section>`;
-  const trabajoOperativo = renderizarTrabajoOperativo(cuadro, t);
-  return `${indicadores}${filtros}${estado.carga === "vacio"
-    ? renderizarEstadoCarga(estado, t) : tabla}${trabajoOperativo}`;
+  if (estado.carga === "vacio") return renderizarEstadoCarga(estado, t);
+  return renderizarListaPeticiones(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA, paginacion);
+}
+
+/** Solo la parte de resultados, para repintar al escribir sin perder el foco. */
+export function renderizarResultadosCuadro(estado, t, filtroLista = FILTRO_LISTA_INICIAL) {
+  return estado.cuadro ? renderizarResultadosLista(estado, t, filtroListaValido(filtroLista), AYUDAS_LISTA) : "";
 }
 
 // La incidencia se explica con lo que el detalle ya trae: la fase marcada, el
@@ -379,65 +144,8 @@ function renderizarIncidencia(expediente, t, navegacion) {
   </section>`;
 }
 
-function renderizarFases(expediente, t) {
-  if (expediente.fases.length === 0) return "";
-  return `<nav class="ct-exp-progreso" aria-label="${escaparHTML(t("fases_expediente"))}">
-    <ol>${expediente.fases.map((fase) => `<li class="${estadoClave(fase.estado_clave)}"
-      ${fase.estado_clave === "en_curso" ? 'aria-current="step"' : ""}>
-      <button type="button" class="ct-exp-fase-boton" data-ct-exp-fase-ver="${escaparHTML(claveDeFase(fase))}" aria-pressed="false"
-        aria-label="${escaparHTML(t("fase_ver_pantalla", { fase: fase.etiqueta }))}">
-        <span class="ct-exp-numero-fase" aria-hidden="true">${fase.orden}</span>
-        <span>${escaparHTML(fase.etiqueta)}</span>
-        <small>${escaparHTML(textoEstado(fase.estado_clave, t))}</small>
-      </button>
-    </li>`).join("")}</ol>
-  </nav>`;
-}
 
-function renderizarSiguientePaso(expediente, estado, t) {
-  const tarea = expediente.tareas.find(({ estado_clave }) => estado_clave === "en_curso")
-    ?? expediente.tareas.find(({ estado_clave }) => estado_clave === "espera")
-    ?? expediente.tareas.find(({ estado_clave }) => estado_clave === "pendiente");
-  const accion = estado.carga !== "listo" || estado.ocupado || estado.actualizacion_pendiente || estado.resultado_indeterminado
-    ? null : tarea?.acciones?.find(({ tipo, disponible }) => tipo === "efecto" && disponible === true);
-  const actorLegible = (valor) => typeof valor === "string" && valor.trim() !== ""
-    && !/^(—|-|pendiente\b|por asignar\b|por definir\b|sin asignar\b|sin determinar\b|no consta\b)/iu.test(valor.trim())
-    && !/^[a-z_]+:[^ ]+$/iu.test(valor.trim());
-  const actor = actorLegible(tarea?.responsable)
-    ? tarea.responsable : actorLegible(tarea?.unidad)
-      ? tarea.unidad : "";
-  // El contrato de tarea no contiene vencimiento. El plazo de la bandeja es del
-  // expediente y no se atribuye a esta actuación sin una fuente que lo enlace.
-  return `<section class="ct-exp-siguiente-paso panel" aria-labelledby="ct-exp-siguiente-paso-titulo">
-    <header class="cabecera-panel"><h3 id="ct-exp-siguiente-paso-titulo">${escaparHTML(t("siguiente_paso_titulo"))}</h3></header>
-    <div class="ct-exp-siguiente-paso-cuerpo">
-      <p><strong>${escaparHTML(t("siguiente_paso_que"))}</strong> ${escaparHTML(accion?.etiqueta ?? (tarea ? t("siguiente_paso_espera", { tarea: tarea.etiqueta }) : t("siguiente_paso_sin_tarea")))}</p>
-      <p><strong>${escaparHTML(t("siguiente_paso_quien"))}</strong> ${escaparHTML(actor || t("siguiente_paso_quien_desconocido"))}</p>
-      <p><strong>${escaparHTML(t("siguiente_paso_hasta"))}</strong> ${escaparHTML(t("siguiente_paso_plazo_desconocido"))}</p>
-    </div>
-  </section>`;
-}
 
-function renderizarHistorialHitos(expediente, t) {
-  if (!Array.isArray(expediente.historial) || expediente.historial.length === 0) return "";
-  return `<details class="ct-exp-detalle-tecnico ct-exp-historial">
-    <summary>${escaparHTML(t("historial_hitos_titulo"))} (${expediente.historial.length})</summary>
-    <p>${escaparHTML(t("historial_hitos_descripcion"))}</p>
-    <div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escaparHTML(t("historial_hitos_titulo"))}">
-      <table class="tabla-datos ct-exp-tabla-panel">
-        <thead><tr><th scope="col">${escaparHTML(t("historial_hito_secuencia"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_fecha"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_accion"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_fase"))}</th>
-          <th scope="col">${escaparHTML(t("historial_hito_estado"))}</th></tr></thead>
-        <tbody>${expediente.historial.map((hito) => `<tr data-ct-exp-hito-fase="${escaparHTML(hito.fase)}" data-ct-exp-hito-accion="${escaparHTML(hito.accion_clave ?? "")}">
-          <td>${hito.secuencia}</td><td>${escaparHTML(hito.fecha)}</td>
-          <td>${escaparHTML(hito.accion)}</td><td>${escaparHTML(hito.fase)}</td>
-          <td>${escaparHTML(hito.estado)}</td></tr>`).join("")}</tbody>
-      </table>
-    </div>
-  </details>`;
-}
 
 const BORRADORES_FORMALIZACION = Object.freeze([
   ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
@@ -513,22 +221,6 @@ function valorCampoCabecera(campo, t, resolverBolsa) {
   return `<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(campo.valor)}" data-pestana="historico" aria-label="${escaparHTML(t("enlace_bolsa_historico_aria", { bolsa: bolsa.categoria }))}">${escaparHTML(bolsa.categoria)}</button>`;
 }
 
-function renderizarCabecera(expediente, t, informeDisponible = false, resolverBolsa = null) {
-  return `<section class="ct-exp-cabecera-expediente">
-    <div>
-      <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
-      <h3>${numeroExpedienteHTML(expediente.numero_visible)}</h3>
-    </div>
-    <dl>${expediente.cabecera.map((campo) => {
-    const valor = valorCampoCabecera(campo, t, resolverBolsa);
-    return valor === null ? "" : `<div data-ct-exp-campo-fase="${escaparHTML(faseDeCampo(campo.clave))}">
-      <dt>${escaparHTML(campo.etiqueta)}</dt>
-      <dd class="ct-tono-${escaparHTML(campo.tono)}">${valor}</dd>
-    </div>`;
-  }).join("")}</dl>
-    ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
-  </section>`;
-}
 
 function renderizarTareas(expediente, tareaRef, t) {
   return `<nav class="ct-exp-tareas" aria-label="${escaparHTML(t("tareas_expediente"))}">
@@ -767,14 +459,27 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     analisisDisponible,
   )}
     </div>`;
-  return `${renderizarIncidencia(expediente, t, estado.navegacion)}
-    ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null, resolverBolsa)}
-    ${renderizarFases(expediente, t)}
-    ${renderizarSiguientePaso(expediente, estado, t)}
+  // Orden de la ficha: qué toca, en qué fase está y qué hay; los trámites de
+  // la fase se montan después, a partir de la marca «ct-exp-tramite».
+  const informeDisponible = solicitudInformeDefinitivoDesdeEstado(estado) !== null;
+  return `${renderizarCabeceraFicha(expediente, estado, t)}
+    ${renderizarSiguientePasoFicha(expediente, estado, t)}
+    ${renderizarIncidencia(expediente, t, estado.navegacion)}
+    ${renderizarLineaFases(expediente, t)}
+    <div class="rejilla-principal ct-exp-ficha-rejilla">
+      <div class="pila">
+        ${renderizarDocumentosFicha(estado, t)}
+        ${renderizarHistorialFicha(expediente, t, faseDeCampo)}
+        ${renderizarCambiosExpediente(expediente)}
+      </div>
+      <div class="pila">
+        ${renderizarDatosPeticion(expediente, t, { valorCampo: (campo) => valorCampoCabecera(campo, t, resolverBolsa), faseDeCampo })}
+        ${informeDisponible ? renderizarBorradoresFormalizacion(t) : ""}
+      </div>
+    </div>
     ${tramitacion}
-    ${renderizarHistorialHitos(expediente, t)}
-    ${renderizarCambiosExpediente(expediente)}
-    ${renderizarContinuidadDesdeExpediente(estado, t)}`;
+    ${renderizarContinuidadDesdeExpediente(estado, t)}
+    <div class="ct-exp-tramite" id="ct-exp-tramite" tabindex="-1" data-ct-exp-tramite></div>`;
 }
 
 // La versión solo decide si mostrar orientación; el recibo y las consultas
@@ -813,7 +518,7 @@ export function renderizarDocumentos(estado, t) {
   const expediente = estado.expediente;
   const indice = estado.documentos;
   if (!expediente || !indice) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
-  return `${renderizarCabecera(expediente, t)}
+  return `${renderizarCabeceraFicha(expediente, estado, t)}
     ${solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : ""}
     <section class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo">
       <header class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera">
@@ -841,7 +546,7 @@ export function renderizarAuditoria(estado, t) {
   const expediente = estado.expediente;
   const auditoria = estado.auditoria;
   if (!expediente || !auditoria) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
-  return `${renderizarCabecera(expediente, t)}
+  return `${renderizarCabeceraFicha(expediente, estado, t)}
     <header class="ct-exp-subcabecera"><h3>${escaparHTML(t("auditoria_titulo"))}</h3><p>${escaparHTML(t("auditoria_descripcion"))}</p></header>
     <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
       <table class="tabla-datos tabla-datos--prioritaria ct-exp-tabla-auditoria">

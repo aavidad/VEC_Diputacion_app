@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-diseno-v1";
 // Ofertas publicadas de una bolsa (Petición RRHH p. 3; Reglamento de bolsas,
 // art. 8.1): RRHH publica la oferta, consulta quién manifestó disposición y,
 // al vencer el plazo de la regla del catálogo, confirma la propuesta de

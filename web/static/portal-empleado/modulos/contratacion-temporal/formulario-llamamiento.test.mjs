@@ -330,7 +330,8 @@ test("respuesta en inglés conserva campos obligatorios y explica el límite del
   assert.match(raiz.innerHTML, /They accepted/u);
   assert.match(raiz.innerHTML, /They declined/u);
   assert.match(raiz.innerHTML, /Date and time the reply arrived \(Madrid\)/u);
-  assert.match(raiz.innerHTML, /does not store the email or evidence custody/u);
+  assert.match(raiz.innerHTML, /class="opcion-grande"[\s\S]*?You can then prepare the appointment proposal/u);
+  assert.match(raiz.innerHTML, /This is the proof of the reply[\s\S]*its content is not stored/u);
 });
 
 test("respuesta exige comunicación confirmada, archivo, datos y confirmación explícita", async () => {

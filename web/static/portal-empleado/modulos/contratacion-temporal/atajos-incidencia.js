@@ -7,9 +7,12 @@ export function abrirHistorialDesde(boton) {
   const contenido = boton.closest(".ct-exp-contenido") ?? boton.ownerDocument;
   const historial = contenido.querySelector(".ct-exp-historial");
   if (!historial) return false;
+  // El historial legible está a la vista; la tabla de actuaciones, plegada.
   historial.open = true;
-  historial.scrollIntoView({ block: "start" });
-  historial.querySelector("summary")?.focus();
+  const panel = historial.closest(".ct-exp-ficha-historial") ?? historial;
+  panel.scrollIntoView({ block: "start" });
+  (panel.querySelector("h3") ?? historial.querySelector("summary"))?.setAttribute?.("tabindex", "-1");
+  (panel.querySelector("h3") ?? historial.querySelector("summary"))?.focus();
   return true;
 }
 

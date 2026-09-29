@@ -14,8 +14,10 @@ import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=202
 import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
 import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
+import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "es"),
   justificante_registrado: "Justificante registrado",
   justificante_copiar: "Copiar referencia",
   justificante_copiado: "Referencia copiada",
@@ -37,14 +39,6 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   pc_reintentar_consulta: "Reintentar consulta",
   ...MENSAJES_LLAMAMIENTO_ES,
   "contratacion_temporal.flujo.rrhh": "Gestión de expedientes de personal temporal",
-  "contratacion_temporal.fase.solicitud": "Solicitud",
-  "contratacion_temporal.fase.analisis_rrhh": "Análisis RRHH",
-  "contratacion_temporal.fase.gestion_bolsa": "Gestión de bolsa",
-  "contratacion_temporal.fase.fiscalizacion": "Fiscalización",
-  "contratacion_temporal.fase.obtencion_candidato": "Obtención del candidato",
-  "contratacion_temporal.fase.nombramiento": "Nombramiento",
-  "contratacion_temporal.fase.incorporacion": "Incorporación",
-  "contratacion_temporal.fase.seguimiento": "Seguimiento",
   ...MENSAJES_SUBSANACION_REPAROS_ES,
   ...MENSAJES_DOCUMENTACION_FORMALIZACION_ES,
   ...MENSAJES_AVISOS_VIA_COBERTURA_ES,
@@ -511,6 +505,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
 
 /** British English messages for the temporary staff requests module. */
 export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
+  ...rotulosFasesComoMensajes("contratacion_temporal.fase.", "en"),
   justificante_registrado: "Receipt recorded",
   justificante_copiar: "Copy reference",
   justificante_copiado: "Reference copied",
@@ -532,14 +527,6 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   pc_reintentar_consulta: "Retry enquiry",
   ...MENSAJES_LLAMAMIENTO_EN,
   "contratacion_temporal.flujo.rrhh": "Temporary staff case management",
-  "contratacion_temporal.fase.solicitud": "Request",
-  "contratacion_temporal.fase.analisis_rrhh": "HR assessment",
-  "contratacion_temporal.fase.gestion_bolsa": "Recruitment pool management",
-  "contratacion_temporal.fase.fiscalizacion": "Financial review",
-  "contratacion_temporal.fase.obtencion_candidato": "Candidate selection",
-  "contratacion_temporal.fase.nombramiento": "Appointment",
-  "contratacion_temporal.fase.incorporacion": "Start of service",
-  "contratacion_temporal.fase.seguimiento": "Follow-up",
   ...MENSAJES_SUBSANACION_REPAROS_EN,
   ...MENSAJES_DOCUMENTACION_FORMALIZACION_EN,
   ...MENSAJES_AVISOS_VIA_COBERTURA_EN,

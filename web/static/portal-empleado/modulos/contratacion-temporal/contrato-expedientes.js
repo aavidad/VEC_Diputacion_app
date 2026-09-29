@@ -174,6 +174,7 @@ function validarResumen(entrada, nombre) {
   const tieneFaseClave = Object.hasOwn(entrada, "fase_clave");
   const tienePlazoEstado = Object.hasOwn(entrada, "plazo_estado");
   const tieneUrgente = Object.hasOwn(entrada, "urgente");
+  const tieneDiaPlazo = Object.hasOwn(entrada, "plazo_ultimo_dia");
   const campos = [
     "expediente_ref", "numero_visible", "centro", "categoria", "modalidad",
     "estado_clave", "estado", "fase_actual", "fecha_solicitud", "responsable",
@@ -182,9 +183,11 @@ function validarResumen(entrada, nombre) {
   if (tieneFaseClave) campos.push("fase_clave");
   if (tienePlazoEstado) campos.push("plazo_estado");
   if (tieneUrgente) campos.push("urgente");
+  if (tieneDiaPlazo) campos.push("plazo_ultimo_dia");
   exigirCamposExactos(entrada, campos, nombre);
   if (!ESTADOS.has(entrada.estado_clave)
     || (tieneUrgente && entrada.urgente !== true)
+    || (tieneDiaPlazo && !/^\d{4}-\d{2}-\d{2}$/u.test(entrada.plazo_ultimo_dia))
     || (tienePlazoEstado && !ESTADOS_PLAZO.has(entrada.plazo_estado))
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || (tieneFaseClave && !PATRON_CLAVE.test(entrada.fase_clave))
@@ -206,6 +209,7 @@ function validarResumen(entrada, nombre) {
     plazo: cadenaNoVacia(entrada.plazo, `${nombre}.plazo`, 80),
     ...(tienePlazoEstado ? { plazo_estado: entrada.plazo_estado } : {}),
     ...(tieneUrgente ? { urgente: true } : {}),
+    ...(tieneDiaPlazo ? { plazo_ultimo_dia: entrada.plazo_ultimo_dia } : {}),
     version: entrada.version,
   };
 }

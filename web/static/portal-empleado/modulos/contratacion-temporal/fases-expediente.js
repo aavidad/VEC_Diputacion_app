@@ -43,9 +43,10 @@ export function construirPanelFase(
 ) {
   const clave = boton.dataset.ctExpFaseVer;
   const item = boton.closest("li");
-  const etiqueta = item?.querySelector("span:not(.ct-exp-numero-fase)")?.textContent?.trim() ?? clave;
+  const etiqueta = (item?.querySelector(".nombre") ?? item?.querySelector("span:not(.ct-exp-numero-fase)"))
+    ?.textContent?.trim() ?? clave;
   const estado = item?.querySelector("small")?.textContent?.trim() ?? "";
-  const orden = item?.querySelector(".ct-exp-numero-fase")?.textContent?.trim() ?? "";
+  const orden = item?.dataset?.ctExpOrden ?? item?.querySelector(".ct-exp-numero-fase")?.textContent?.trim() ?? "";
   const campos = [...contenido.querySelectorAll(`[data-ct-exp-campo-fase="${clave}"]`)];
   const hitos = [...contenido.querySelectorAll("[data-ct-exp-hito-fase]")]
     .filter((fila) => hitoPerteneceAFase(fila, clave, etiqueta));
@@ -72,13 +73,13 @@ export function mostrarFase(
   navegacion,
 ) {
   const contenido = boton.closest(".ct-exp-contenido") ?? boton.ownerDocument;
-  const rail = boton.closest(".ct-exp-progreso");
+  const rail = boton.closest("[data-ct-exp-rail]") ?? boton.closest(".ct-exp-progreso");
   if (!rail) return false;
   contenido.querySelector(".ct-exp-fase-panel")?.remove();
   for (const otro of rail.querySelectorAll("[data-ct-exp-fase-ver]")) otro.setAttribute("aria-pressed", "false");
   boton.setAttribute("aria-pressed", "true");
   const panel = construirPanelFase(contenido, boton, t, navegacion);
-  rail.insertAdjacentElement("afterend", panel);
+  (rail.closest?.(".ct-exp-fases") ?? rail).insertAdjacentElement("afterend", panel);
   panel.querySelector("h3")?.setAttribute("tabindex", "-1");
   panel.querySelector("h3")?.focus();
   return true;
