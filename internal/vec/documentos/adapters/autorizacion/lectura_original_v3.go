@@ -22,17 +22,26 @@ import (
 // almacén no se consume de forma única: vale dentro de su ventana registrada y
 // solo se pide después de la descarga SQL, que sí se consume.
 
-// AtributoCorrelacionDescarga liga el recurso de lectura del almacén a la
-// autorización de descarga ya consumida en SQL.
-const AtributoCorrelacionDescarga = "documentos_descarga_correlacion_ref"
+// Atributos que ligan el recurso de lectura del almacén a la autorización de
+// descarga ya consumida en SQL: su correlación y la decisión atestada (con su
+// huella) cuyo material consume la transacción de la descarga.
+const (
+	AtributoCorrelacionDescarga    = "documentos_descarga_correlacion_ref"
+	AtributoDecisionDescarga       = "documentos_descarga_decision_ref"
+	AtributoHuellaDecisionDescarga = "documentos_descarga_decision_sha256"
+)
 
 // SolicitudConcesionAlmacenV3 es lo que la fábrica pide al PDP: la acción,
 // la finalidad y el recurso exactos, para el actor de la descarga consumida.
+// Solo viajan la persona, el perfil y la correlación de esa descarga, no su
+// material atestado.
 type SolicitudConcesionAlmacenV3 struct {
-	Autorizacion docports.AutorizacionV3
-	Accion       string
-	Finalidad    string
-	Recurso      vecdomain.RecursoAutorizable
+	PrincipalID     string
+	PerfilActivoRef string
+	CorrelacionRef  string
+	Accion          string
+	Finalidad       string
+	Recurso         vecdomain.RecursoAutorizable
 }
 
 // ConcesionAlmacenV3 es el trío que devuelve el PDP V3 tras registrar la
@@ -45,8 +54,11 @@ type ConcesionAlmacenV3 struct {
 
 // EmisorConcesionAlmacenV3 es la frontera con el PDP V3 y con la
 // seudonimización. La composición debe construir la solicitud con el vínculo
-// del actor de la petición y un motivo del catálogo; nunca concede por
-// ausencia del proveedor.
+// y el resultado de contexto del actor tomados del contexto de la MISMA
+// petición (el que ya autorizó la descarga), denegar si faltan o si su
+// persona o perfil no son los pedidos, usar un motivo del catálogo y obtener
+// decisión y registro del PDP (ExigirSolicitudLigadaV3), sin exportar
+// material consumible. Nunca concede por ausencia del proveedor.
 type EmisorConcesionAlmacenV3 interface {
 	SeudonimosLecturaOriginal(context.Context, docports.AutorizacionV3) (DatosSeudonimosLectura, error)
 	EmitirConcesionAlmacenV3(context.Context, SolicitudConcesionAlmacenV3) (ConcesionAlmacenV3, error)
@@ -104,7 +116,8 @@ func (f *FabricaContextoLecturaOriginalV3) ContextoLecturaOriginal(
 		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
 	}
 	concesion, err := f.emisor.EmitirConcesionAlmacenV3(ctx, SolicitudConcesionAlmacenV3{
-		Autorizacion: a, Accion: vecports.AccionNegocioLeerOriginalDocumentoGenerado,
+		PrincipalID: a.PrincipalID, PerfilActivoRef: a.PerfilActivoRef, CorrelacionRef: a.CorrelacionRef,
+		Accion:    vecports.AccionNegocioLeerOriginalDocumentoGenerado,
 		Finalidad: a.Finalidad, Recurso: recurso,
 	})
 	if err != nil {
@@ -154,6 +167,7 @@ func concesionDelActor(c ConcesionAlmacenV3, a docports.AutorizacionV3, recurso 
 func RecursoLecturaOriginalV3(
 	d domain.Documento, a docports.AutorizacionV3, vinculos vecports.VinculosOperacionAlmacen,
 ) vecdomain.RecursoAutorizable {
+	consumida := a.Material.ResumenCapacidad()
 	recurso := vecdomain.RecursoAutorizable{
 		Referencia: d.ID, ModuloID: "documentos", Tipo: "documento_original",
 		Ambitos: map[string]string{"organizacion_ref": docports.OrganizacionRefV3},
@@ -167,11 +181,16 @@ func RecursoLecturaOriginalV3(
 			vecports.AtributoAlmacenObjetoRef:           d.ObjetoRef,
 			vecports.AtributoAlmacenObjetoVersion:       d.ObjetoVersion,
 			AtributoCorrelacionDescarga:                 a.CorrelacionRef,
+			AtributoDecisionDescarga:                    consumida.DecisionRef(),
+			AtributoHuellaDecisionDescarga:              consumida.DecisionHuellaSHA256(),
 			"documento_expediente_ref":                  d.ExpedienteRef,
 			"documento_modulo_productor":                d.ModuloID,
 			"documento_version":                         strconv.FormatUint(d.Version, 10),
 			"documento_tipo_ref":                        d.TipoRef,
 			"documento_huella_sha256":                   d.HuellaSHA256,
+			"documento_politica_ref":                    d.PoliticaRef,
+			"documento_politica_version":                strconv.FormatUint(d.VersionPolitica, 10),
+			"documento_politica_huella_sha256":          d.HuellaPoliticaSHA256,
 		},
 	}
 	return recurso

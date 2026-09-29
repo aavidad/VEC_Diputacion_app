@@ -50,7 +50,9 @@ func (g generadorCorrelacionV3Prueba) NuevaReferenciaCorrelacionAutorizacionV2(c
 
 // NuevaConcesionV3Prueba evalúa una solicitud V3 real con una instantánea de
 // autorización sintética y, si concede, la registra con un registro de
-// prueba (un segundo después de emitirla). Solo para pruebas automatizadas.
+// prueba (un segundo después de emitirla) que NO persiste nada: sirve para
+// pruebas unitarias de adaptadores y no acredita el registro durable, que se
+// prueba con PostgreSQL real en la composición. Solo para pruebas.
 func NuevaConcesionV3Prueba(d DatosConcesionV3Prueba) (ConcesionV3Prueba, error) {
 	var cero ConcesionV3Prueba
 	instante := d.Instante.UTC().Truncate(time.Microsecond)

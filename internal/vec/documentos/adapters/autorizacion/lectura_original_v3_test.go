@@ -80,7 +80,7 @@ func actorLecturaV3(t *testing.T, ahora time.Time) (string, string) {
 	return datos.PrincipalID, datos.PerfilActivoRef
 }
 
-func materialDescargaPrueba(t *testing.T, d domain.Documento, ahora time.Time) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
+func materialDescargaPrueba(t *testing.T, d domain.Documento, ahora time.Time, vigencia time.Duration) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
 	t.Helper()
 	preimagen, err := (docports.ConsultaDocumento{DocumentoID: d.ID, Version: d.Version}).PreimagenDescargar()
 	if err != nil {
@@ -89,7 +89,7 @@ func materialDescargaPrueba(t *testing.T, d domain.Documento, ahora time.Time) v
 	h := strings.Repeat("a", 64)
 	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:descarga:prueba", h, h,
 		"contexto:prueba", h, docports.AccionDescargar, d.ID, docports.HuellaEfectoV3(preimagen), docports.AudienciaV3,
-		ahora, ahora.Add(5*time.Second))
+		ahora, ahora.Add(vigencia))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func nuevoEscenarioLecturaV3(t *testing.T) escenarioLecturaV3 {
 	d := documentoValidoPrueba(ahora)
 	principal, perfil := actorLecturaV3(t, ahora)
 	a := docports.AutorizacionV3{
-		Material: materialDescargaPrueba(t, d, ahora), Accion: docports.AccionDescargar,
+		Material: materialDescargaPrueba(t, d, ahora, 5*time.Second), Accion: docports.AccionDescargar,
 		Finalidad: "descargar_documento_original", RecursoRef: d.ID, AmbitoRef: d.ExpedienteRef,
 		PrincipalID: principal, PerfilActivoRef: perfil, CorrelacionRef: "correlacion:descarga:0001",
 	}
@@ -157,7 +157,10 @@ func TestLecturaV3AbreSoloElObjetoExactoConConcesionRegistrada(t *testing.T) {
 	if p.Accion != vecports.AccionNegocioLeerOriginalDocumentoGenerado || p.Finalidad != e.a.Finalidad ||
 		p.Recurso.ModuloID != "documentos" || p.Recurso.Tipo != "documento_original" ||
 		p.Recurso.Ambitos["organizacion_ref"] != docports.OrganizacionRefV3 || len(p.Recurso.Ambitos) != 1 ||
-		p.Recurso.Atributos[AtributoCorrelacionDescarga] != e.a.CorrelacionRef {
+		p.Recurso.Atributos[AtributoCorrelacionDescarga] != e.a.CorrelacionRef ||
+		p.Recurso.Atributos[AtributoDecisionDescarga] != "decision:descarga:prueba" ||
+		p.Recurso.Atributos[AtributoHuellaDecisionDescarga] != strings.Repeat("a", 64) ||
+		p.Recurso.Atributos["documento_politica_ref"] != e.d.PoliticaRef {
 		t.Fatalf("petición al PDP inesperada: %+v", p)
 	}
 }
@@ -191,7 +194,21 @@ func TestLecturaV3NoAbreSinConcesionValida(t *testing.T) {
 				d.Recurso = r
 			}
 		},
-		"caducada": func(e *escenarioLecturaV3) {
+		"otro documento": func(e *escenarioLecturaV3) {
+			e.emisor.alterar = func(d *pruebas.DatosConcesionV3Prueba) { d.Recurso.Referencia = "ref:" + strings.Repeat("7", 64) }
+		},
+		"otra correlación de descarga": func(e *escenarioLecturaV3) {
+			e.emisor.alterar = func(d *pruebas.DatosConcesionV3Prueba) {
+				r := d.Recurso
+				r.Atributos = map[string]string{}
+				for k, v := range d.Recurso.Atributos {
+					r.Atributos[k] = v
+				}
+				r.Atributos[AtributoCorrelacionDescarga] = "correlacion:descarga:otra"
+				d.Recurso = r
+			}
+		},
+		"material de descarga caducado": func(e *escenarioLecturaV3) {
 			f, err := NuevaFabricaContextoLecturaOriginalV3(e.emisor, relojFijo{e.ahora.Add(2 * time.Minute)})
 			if err != nil {
 				panic(err)
@@ -242,5 +259,24 @@ func TestLecturaV3NoPideConcesionSinDescargaLigada(t *testing.T) {
 	}
 	if _, err := NuevaFabricaContextoLecturaOriginalV3(nil, relojFijo{e.ahora}); !errors.Is(err, vecports.ErrAutorizacionAlmacenInvalida) {
 		t.Fatalf("sin emisor: %v", err)
+	}
+}
+
+// La concesión de almacén caduca aunque la descarga siga vigente: el PDP se
+// consulta y su concesión (90 s) ya no vale a los 95 s.
+func TestLecturaV3ConcesionCaducadaNoAbre(t *testing.T) {
+	e := nuevoEscenarioLecturaV3(t)
+	// Descarga autorizada a los 93 s (vigente 5 s); la concesión de almacén se
+	// emitió en el instante inicial y caduca a los 90 s.
+	e.a.Material = materialDescargaPrueba(t, e.d, e.ahora.Add(93*time.Second), 5*time.Second)
+	f, err := NuevaFabricaContextoLecturaOriginalV3(e.emisor, relojFijo{e.ahora.Add(95 * time.Second)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.ContextoLecturaOriginal(context.Background(), e.d, e.a); !errors.Is(err, vecports.ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("concesión caducada abrió el almacén: %v", err)
+	}
+	if e.emisor.llamadas != 1 {
+		t.Fatalf("la caducidad debe comprobarse con la concesión emitida: llamadas=%d", e.emisor.llamadas)
 	}
 }
