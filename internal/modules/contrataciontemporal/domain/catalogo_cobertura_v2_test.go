@@ -288,6 +288,52 @@ func TestCatalogoCoberturaRechazaNombresJSONInexactosYDuplicados(t *testing.T) {
 	}
 }
 
+func TestCatalogoCoberturaRechazaHastaNuloEnJSONV1(t *testing.T) {
+	borrador := borradorCatalogoCoberturaValido()
+	borrador.Vigencia.Hasta = time.Time{}
+	catalogo, err := PublicarCatalogoViasCobertura(borrador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := json.Marshal(catalogo.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	alterado := strings.Replace(string(contenido), `"hasta":"0001-01-01T00:00:00Z"`, `"hasta":null`, 1)
+	if alterado == string(contenido) {
+		t.Fatal("el caso no alteró la fecha abierta")
+	}
+	var publicacion PublicacionCatalogoViasCobertura
+	if err := json.Unmarshal([]byte(alterado), &publicacion); err == nil {
+		if _, err := RestaurarCatalogoViasCobertura(publicacion); err == nil {
+			t.Fatal("se aceptó hasta:null como la ausencia temporal sellada")
+		}
+	}
+}
+
+func TestCatalogoCoberturaRechazaObligatoriedadNulaEnJSONV1(t *testing.T) {
+	borrador := borradorCatalogoCoberturaValido()
+	borrador.Vias[0].Comprobaciones[0].Obligatoria = false
+	catalogo, err := PublicarCatalogoViasCobertura(borrador)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := json.Marshal(catalogo.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	alterado := strings.Replace(string(contenido), `"obligatoria":false`, `"obligatoria":null`, 1)
+	if alterado == string(contenido) {
+		t.Fatal("el caso no alteró la obligatoriedad")
+	}
+	var publicacion PublicacionCatalogoViasCobertura
+	if err := json.Unmarshal([]byte(alterado), &publicacion); err == nil {
+		if _, err := RestaurarCatalogoViasCobertura(publicacion); err == nil {
+			t.Fatal("se aceptó obligatoria:null como false sellado")
+		}
+	}
+}
+
 func elementosPreparacionPrueba(cuantos int) []ElementoPreparacionViaCobertura {
 	elementos := make([]ElementoPreparacionViaCobertura, cuantos)
 	for indice := range elementos {

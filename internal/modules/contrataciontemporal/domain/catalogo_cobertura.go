@@ -358,6 +358,9 @@ func validarObjetoJSONCatalogo(datos []byte, nodo nodoJSONCatalogo) error {
 		if hijo.lista != 0 && validarListaJSONCatalogo(valor, hijo.lista) != nil {
 			return ErrDatoInvalido
 		}
+		if hijo.tipo != 0 && !tipoPrimitivoJSONCatalogoValido(valor, hijo.tipo) {
+			return ErrDatoInvalido
+		}
 	}
 	cierre, err := decodificador.Token()
 	if err != nil || cierre != json.Delim('}') {
@@ -373,6 +376,22 @@ func validarObjetoJSONCatalogo(datos []byte, nodo nodoJSONCatalogo) error {
 type hijoJSONCatalogo struct {
 	nodo  nodoJSONCatalogo
 	lista nodoJSONCatalogo
+	tipo  byte
+}
+
+func tipoPrimitivoJSONCatalogoValido(valor []byte, tipo byte) bool {
+	valor = bytes.TrimSpace(valor)
+	if len(valor) == 0 {
+		return false
+	}
+	switch tipo {
+	case 's':
+		return valor[0] == '"'
+	case 'b':
+		return bytes.Equal(valor, []byte("true")) || bytes.Equal(valor, []byte("false"))
+	default:
+		return false
+	}
 }
 
 func camposNodoJSONCatalogo(nodo nodoJSONCatalogo) map[string]hijoJSONCatalogo {
@@ -389,7 +408,7 @@ func camposNodoJSONCatalogo(nodo nodoJSONCatalogo) map[string]hijoJSONCatalogo {
 			"dominio": {}, "version_esquema": {}, "algoritmo": {},
 		}
 	case nodoVigenciaCatalogo:
-		return map[string]hijoJSONCatalogo{"desde": {}, "hasta": {}}
+		return map[string]hijoJSONCatalogo{"desde": {}, "hasta": {tipo: 's'}}
 	case nodoViaCatalogo:
 		return map[string]hijoJSONCatalogo{
 			"clave": {}, "orden": {},
@@ -399,7 +418,7 @@ func camposNodoJSONCatalogo(nodo nodoJSONCatalogo) map[string]hijoJSONCatalogo {
 		}
 	case nodoComprobacionCatalogo:
 		return map[string]hijoJSONCatalogo{
-			"clave": {}, "orden": {}, "obligatoria": {},
+			"clave": {}, "orden": {}, "obligatoria": {tipo: 'b'},
 			"procedencia": {nodo: nodoProcedenciaCatalogo},
 		}
 	case nodoProcedenciaCatalogo:
