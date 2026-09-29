@@ -65,7 +65,7 @@ func nuevasDependenciasCorreosUsuariosDesarrollo(cfg config.Config, kms *emisorK
 	if err != nil || !preferencias {
 		return nil, errComposicionUsuariosCorreos
 	}
-	for _, p := range materiales {
+	for _, p := range materiales.lote {
 		if p == nil {
 			return nil, errComposicionUsuariosCorreos
 		}
@@ -108,7 +108,7 @@ func (d *dependenciasCorreosUsuariosDesarrollo) materialesSuperficie(superficie 
 	default:
 		return r, false
 	}
-	copy(r[:], d.materiales[inicio:inicio+len(r)])
+	copy(r[:], d.materiales.lote[inicio:inicio+len(r)])
 	return r, true
 }
 

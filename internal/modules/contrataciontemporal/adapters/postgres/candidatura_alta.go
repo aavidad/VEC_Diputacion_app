@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,7 +15,7 @@ import (
 
 const (
 	funcionResolverCandidaturaAlta = "vec_contratacion_temporal.resolver_candidatura_alta_tecnica_v1"
-	maximoIntentosCandidaturaAlta  = 3
+	maximoIntentosCandidaturaAlta  = postgresqlcomun.IntentosMaximosCarreraSerializable
 )
 
 var _ ports.ResolutorCandidaturaAlta = (*ResolutorCandidaturaAltaPostgreSQL)(nil)
@@ -106,7 +107,8 @@ func (r *ResolutorCandidaturaAltaPostgreSQL) ResolverCandidaturaAlta(
 		if ctx.Err() != nil {
 			return ports.CandidaturaAlta{}, ctx.Err()
 		}
-		if !errorPostgreSQLReintentable(causa) || intento == maximoIntentosCandidaturaAlta {
+		if !errorPostgreSQLReintentable(causa) || intento == maximoIntentosCandidaturaAlta ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.CandidaturaAlta{}, normalizarErrorCandidatura(causa)
 		}
 	}

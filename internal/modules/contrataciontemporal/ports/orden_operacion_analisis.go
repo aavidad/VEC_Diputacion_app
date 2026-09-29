@@ -314,7 +314,6 @@ func recursoAutorizacionOperacionAnalisisValido(
 	}
 	ambitosEsperados := map[string]string{
 		"organizacion_ref": preparacion.OrganizacionRef,
-		"expediente_ref":   preparacion.ExpedienteRef,
 		"fase_previa":      string(politica.FasePrevia),
 		"estado_previo":    string(politica.EstadoPrevio),
 	}

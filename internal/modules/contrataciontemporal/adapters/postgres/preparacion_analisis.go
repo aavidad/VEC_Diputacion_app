@@ -6,16 +6,21 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
 	funcionPrepararAnalisis  = "vec_contratacion_temporal.preparar_operacion_analisis_v2"
 	funcionConsultarAnalisis = "vec_contratacion_temporal.consultar_operacion_analisis_v1"
 	esquemaPrepararAnalisis  = "vec.contratacion-temporal.preparar-operacion-analisis.v1"
-	maximoIntentosAnalisis   = 3
+	// Una carrera de serialización se repite con la política común de VEC
+	// (espera aleatoria creciente); la transacción revertida no dejó nada.
+	maximoIntentosAnalisis = postgresqlcomun.IntentosMaximosCarreraSerializable
 )
 
 var _ ports.PreparadorOperacionAnalisisIdempotente = (*PreparadorOperacionAnalisisPostgreSQL)(nil)
@@ -72,7 +77,8 @@ func (p *PreparadorOperacionAnalisisPostgreSQL) PrepararOperacionAnalisis(
 			return ports.PreparacionOperacionAnalisis{}, ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosAnalisis {
+			intento == maximoIntentosAnalisis ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.PreparacionOperacionAnalisis{},
 				normalizarErrorPreparacionAnalisis(ctx, err)
 		}
@@ -181,7 +187,8 @@ func (p *PreparadorOperacionAnalisisPostgreSQL) ConsultarOperacionAnalisisConfir
 			return ports.ReciboOperacionAnalisis{}, false, ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosAnalisis {
+			intento == maximoIntentosAnalisis ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.ReciboOperacionAnalisis{}, false,
 				normalizarErrorPreparacionAnalisis(ctx, err)
 		}
@@ -264,6 +271,15 @@ func normalizarErrorPreparacionAnalisis(
 		ports.ErrPreparacionOperacionAnalisisInvalida,
 	) {
 		return causa
+	}
+	// La preparación exige el expediente en la versión esperada (o una
+	// reserva propia de esa versión); si no está (P0002), el expediente ha
+	// cambiado desde que se leyó. Es un conflicto sin efectos, no una caída:
+	// pasa, por ejemplo, al repetir tras un despliegue una operación que ya
+	// se confirmó antes con otro perfil.
+	var postgres *pgconn.PgError
+	if errors.As(causa, &postgres) && postgres.Code == "P0002" {
+		return domain.ErrVersionEnConflicto
 	}
 	return ports.ErrPersistenciaOperacionAnalisisNoDisponible
 }

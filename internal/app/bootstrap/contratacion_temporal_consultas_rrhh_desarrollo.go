@@ -79,7 +79,12 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err = autoridad.configurarProveedorContextoConsultaRRHHDesarrollo(identidad); err != nil {
 			return vacio, err
 		}
-		if err = prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx, soporte); err != nil {
+		if soporte.tecnicoConsultaRRHH {
+			err = prepararInstantaneasInicialesLectorRRHHDesarrollo(ctx, soporte)
+		} else {
+			err = componerPerfilFijoLectorRRHHDesarrollo(ctx, alta.postgresql.gobierno, soporte, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		}
+		if err != nil {
 			return vacio, err
 		}
 		material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, reloj.Ahora())

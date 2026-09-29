@@ -20,6 +20,9 @@ CREATE TABLE vec_autorizacion_atestada_v3.clave_capacidad_version(
  audiencia_consumo text CONSTRAINT clave_capacidad_version_audiencia_consumo_check
  CHECK (audiencia_consumo = ANY (ARRAY['vec_contratacion_temporal.comunicaciones_expediente.consultar.v1'::text])));
 CREATE TABLE vec_autorizacion_atestada_v3.prueba_consumos(nonce text PRIMARY KEY);
+-- Como el núcleo real, conserva la decisión firmada de cada consumo: Usuarios
+-- 000008/000009 deducen de su vínculo el portal de las filas ya existentes.
+CREATE TABLE vec_autorizacion_atestada_v3.atestacion_decision_v3(decision_ref text PRIMARY KEY,decision_canonica bytea NOT NULL);
 CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
  p_perfil_mutacion text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
@@ -61,6 +64,8 @@ BEGIN
     v_huella_capacidad := pg_catalog.encode(sha256(p_capacidad),'hex');
  INSERT INTO vec_autorizacion_atestada_v3.prueba_consumos(nonce)
  VALUES(convert_from(p_payload,'UTF8'));
+ INSERT INTO vec_autorizacion_atestada_v3.atestacion_decision_v3(decision_ref,decision_canonica)
+ VALUES(d->>'decision_ref',p_decision) ON CONFLICT DO NOTHING;
  RETURN QUERY SELECT d->>'decision_ref',c->>'efecto_ref',
   c->>'huella_efecto_sha256',encode(sha256(convert_to(gen_random_uuid()::text,'UTF8')),'hex'),
   'aud_'||replace(gen_random_uuid()::text,'-',''),clock_timestamp(),true;

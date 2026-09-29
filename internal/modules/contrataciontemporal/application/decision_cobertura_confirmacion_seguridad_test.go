@@ -145,3 +145,32 @@ func TestDecidirCoberturaConcurrenteConcedeUnSoloPropietario(
 		)
 	}
 }
+
+// Una carrera de serialización que la base revierte no deja efectos: la
+// orden se repite entera, sin reconciliar, hasta confirmar.
+func TestDecidirCoberturaCarreraRevertidaSeRepiteHastaConfirmar(t *testing.T) {
+	escenario := nuevoEscenarioConfirmacionCobertura(t, false)
+	escenario.transaccion.carreras = 2
+	if _, err := escenario.servicio.Decidir(context.Background(), escenario.solicitud); err != nil ||
+		escenario.transaccion.total() != 3 || escenario.reconciliador.total() != 0 {
+		t.Fatalf("la carrera revertida no se repitió: err=%v intentos=%d reconciliaciones=%d",
+			err, escenario.transaccion.total(), escenario.reconciliador.total())
+	}
+}
+
+// Con carreras continuas se agota el límite (o la ventana de la orden, que
+// es más corta si la máquina va lenta) y responde «no disponible», nunca
+// «pendiente» ni una reconciliación.
+func TestDecidirCoberturaCarrerasAgotadasNoQuedanPendientes(t *testing.T) {
+	escenario := nuevoEscenarioConfirmacionCobertura(t, false)
+	escenario.transaccion.carreras = 1000
+	_, err := escenario.servicio.Decidir(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrConfirmacionDecisionCoberturaNoDisponible) ||
+		errors.Is(err, ErrConfirmacionDecisionCoberturaPendiente) ||
+		escenario.transaccion.total() < 2 ||
+		escenario.transaccion.total() > intentosMaximosCarreraConfirmacionCobertura ||
+		escenario.reconciliador.total() != 0 {
+		t.Fatalf("límite de carreras divergente: err=%v intentos=%d reconciliaciones=%d",
+			err, escenario.transaccion.total(), escenario.reconciliador.total())
+	}
+}
