@@ -1,5 +1,5 @@
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-usuarios-pref-v1";
-import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260929-usuarios-pref-v1";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-pref-508a-v1";
+import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
 import { resolverIdiomaNavegacion } from "../comun/idioma.js";
 
 /** Adapta la autoridad de Usuarios al shell RRHH sin replicar su tema ni guardar datos locales. */

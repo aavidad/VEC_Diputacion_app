@@ -1,4 +1,4 @@
-import * as idiomaComun from "../comun/idioma.js?v=20260929-usuarios-pref-v1";
+import * as idiomaComun from "../comun/idioma.js?v=20260929-pref-508a-v1";
 
 const RUTAS_CATALOGO = Object.freeze({
   es: "/area-personal/locales/es.json",
