@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, filtrar_red, preparar, preparar_evidencias, raices_git
+from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, filtrar_red, guardar_captura, preparar, preparar_evidencias, raices_git
 
 
 class Precondiciones(unittest.TestCase):
@@ -111,6 +111,14 @@ class Precondiciones(unittest.TestCase):
         self.assertEqual(destino.stat().st_mode & 0o777, 0o700)
         with self.assertRaisesRegex(NoEjecutado, "evidencias"):
             preparar_evidencias(destino)
+
+    def test_archivo_de_captura_es_privado_y_no_sobrescribe(self):
+        ruta = self.raiz / "captura.png"
+        guardar_captura(ruta, b"captura sintetica")
+        self.assertEqual(ruta.stat().st_mode & 0o777, 0o600)
+        with self.assertRaises(FileExistsError):
+            guardar_captura(ruta, b"otro contenido")
+        self.assertEqual(ruta.read_bytes(), b"captura sintetica")
 
 
 class Redirecciones(unittest.TestCase):

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -89,6 +90,12 @@ def preparar_evidencias(ruta: Path) -> Path:
     except OSError:
         raise NoEjecutado("evidencias: no se puede crear una carpeta nueva privada") from None
     return ruta.resolve()
+
+
+def guardar_captura(ruta: Path, contenido: bytes) -> None:
+    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "wb") as fichero:
+        fichero.write(contenido)
 
 
 def preparar(origen: str, acta: Path, certificado: Path, clave: Path) -> tuple[str, Path]:
@@ -342,7 +349,7 @@ def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path,
                             pagina.wait_for_timeout(250)
                             if evidencias is not None:
                                 nombre = f"area-personal-{ancho}.png"
-                                pagina.screenshot(path=str(evidencias / nombre), full_page=True)
+                                guardar_captura(evidencias / nombre, pagina.screenshot(full_page=True))
                                 resultado["capturas"].append(nombre)
                             comprobar_pagina(pagina, contexto, errores_js, respuestas_externas, cookies_set)
                             resultado["viewports_comprobados"].append(ancho)
