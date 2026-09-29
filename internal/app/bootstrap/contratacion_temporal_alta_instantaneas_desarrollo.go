@@ -145,7 +145,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
-		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
+		if !s.categoriaBolsaPersistidaEnCatalogo(ctx, ruta, datos.Accion) ||
+			!solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 		if ruta == httpinterno.RutaRegistroComunicacionLlamamiento && accionCorreoLlamamientoDesarrollo(datos.Accion) {

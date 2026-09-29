@@ -319,9 +319,10 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 	// Solo la composición instala el recibo CT confirmado. El servicio Bolsa
 	// construye y comprueba el canon completo antes de pedir este permiso.
 	r := datos.Recurso
-	return r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" &&
+	return categoriaPersistidaLlamamientoDesarrollo(p) != "" &&
+		r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" &&
 		r.Referencia == operacionAceptacionManualDesarrollo(l) &&
-		len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == "categoria:desarrollo:c2" &&
+		len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == categoriaPersistidaLlamamientoDesarrollo(p) &&
 		r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
 		len(r.Atributos) == 2 && r.Atributos["necesidad_ref"] == l.justificante.Seleccion.Necesidad.Referencia &&
 		huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["contenido_sha256"])
@@ -352,7 +353,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContex
 	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento ||
 		ruta == httpinterno.RutaEventoPlazoLlamamiento) && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
-		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
+		if !ok || !s.categoriaBolsaPersistidaEnCatalogo(ctx, ruta, d.Accion) ||
+			!solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
 			return dominiovec.ReferenciaEntradaCatalogo{}, false
 		}
 		return d.ReferenciaMotivo, true
@@ -376,10 +378,11 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 	if err != nil {
 		return err
 	}
+	categorias := alta.soporte.origen.referenciasCategorias()
 	bolsa, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"aceptacion_bolsa_rrhh_desarrollo", "Aceptación RRHH en Bolsa sintética", "aceptacion-bolsa-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
-		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
+		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: categorias},
 			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
 	if err != nil {
 		return err
@@ -387,7 +390,7 @@ func configurarAutoridadResolucionManualDesarrollo(ctx context.Context, alta *de
 	renuncia, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, reloj.Ahora(),
 		"renuncia_bolsa_rrhh_desarrollo", "Renuncia RRHH en Bolsa sintética", "renuncia-bolsa-rrhh-desarrollo",
 		[]dominiovec.ConcesionRol{concesion(puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo, "bolsa", "integracion_llamamientos_bolsa")},
-		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: []string{"categoria:desarrollo:c2"}},
+		[]dominiovec.AmbitoPerfil{{Clave: "categoria_ref", Valores: categorias},
 			{Clave: "unidad_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}})
 	if err != nil {
 		return err
