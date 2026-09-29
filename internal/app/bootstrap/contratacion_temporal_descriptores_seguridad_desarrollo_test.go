@@ -104,6 +104,51 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 	}
 }
 
+func TestDescriptorPreparacionVigenteCoberturaEsGetConPoliticaPropia(t *testing.T) {
+	const perfilCT = "prf_ct_cobertura_prueba"
+	base := descriptoresFronterasContratacionTemporalDesarrollo(perfilCT, []string{perfilCT})
+	for _, frontera := range base {
+		if frontera.Ruta == rutaPreparacionVigenteCoberturaDesarrollo {
+			t.Fatal("GET se montó antes de tener política nominal propia")
+		}
+	}
+	frontera := fronteraPreparacionVigenteCoberturaDesarrollo(perfilCT)
+	if frontera.Metodo != http.MethodGet || frontera.Ruta != rutaPreparacionVigenteCoberturaDesarrollo ||
+		frontera.ClaveCapacidad != accionPreparacionVigenteCoberturaDesarrollo ||
+		!reflect.DeepEqual(frontera.PerfilesActivosRef, []string{perfilCT}) {
+		t.Fatalf("frontera GET no exacta: %+v", frontera)
+	}
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo(append(base, frontera))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, metodo := range []string{http.MethodPost, http.MethodHead} {
+		if _, existe := fronteras.resolver(metodo, rutaPreparacionVigenteCoberturaDesarrollo); existe {
+			t.Fatalf("método %s abrió la consulta", metodo)
+		}
+	}
+	if _, existe := fronteras.resolver(http.MethodGet, rutaPreparacionVigenteCoberturaDesarrollo); !existe {
+		t.Fatal("GET no resolvió su ruta exacta")
+	}
+	politica := politicaDescriptoresCTPrueba(t)
+	descriptores := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politica),
+		descriptorAutorizacionPreparacionVigenteCoberturaDesarrollo(politica))
+	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(fronteras, descriptores)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := catalogo.politicaPara(accionPreparacionVigenteCoberturaDesarrollo,
+		"ct-cobertura-catalogo-vigente-consultar", clavePoliticaContratacionTemporalDesarrollo,
+		accionPreparacionVigenteCoberturaDesarrollo); !ok {
+		t.Fatal("política GET propia no enlazada")
+	}
+	if _, ok := catalogo.politicaPara(accionPropuestaCoberturaDesarrollo,
+		"ct-cobertura-catalogo-vigente-consultar", clavePoliticaContratacionTemporalDesarrollo,
+		accionPropuestaCoberturaDesarrollo); ok {
+		t.Fatal("permiso de propuesta prestado al GET")
+	}
+}
+
 func TestPerfilesConsultaContratacionTemporalSonUnConjuntoOrdenadoYValido(t *testing.T) {
 	lectores := []string{"prf_ct_base", "prf_ct_externo", "prf_ct_externo"}
 	perfiles := perfilesConsultaContratacionTemporalDesarrollo("prf_ct_base", lectores)
