@@ -1,6 +1,7 @@
 package documentos_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +72,8 @@ type repositorioCustodia struct {
 	persistente docports.CustodiaFirmadoPersistente
 	llamadas    int
 	err         error
+	// alterar simula un documento devuelto por SQL que no cuadra.
+	alterar func(*domain.Documento)
 }
 
 func (r *repositorioCustodia) ConfirmarCustodiaFirmado(_ context.Context, c docports.CustodiaFirmadoPersistente) (domain.Documento, error) {
@@ -80,33 +84,68 @@ func (r *repositorioCustodia) ConfirmarCustodiaFirmado(_ context.Context, c docp
 	}
 	p := c.Politica.Politica()
 	s := p.Solicitud()
-	return domain.Documento{
+	d := domain.Documento{
 		ID: c.ID, NumeroVEC: "VEC-2026-1", ModuloID: c.ModuloID, ExpedienteRef: c.ExpedienteRef, TipoRef: c.TipoRef,
 		Version: c.Version, MIME: docports.MIMEDocumentoFirmado, HuellaSHA256: c.HuellaSHA256, Tamano: c.Tamano,
 		ObjetoRef: c.Objeto.Objeto.Objeto.Referencia, ObjetoVersion: c.Objeto.Objeto.Objeto.Version,
 		PoliticaRef: s.PoliticaRef(), VersionPolitica: s.VersionPolitica(), HuellaPoliticaSHA256: hex.EncodeToString(s.HuellaPoliticaSHA256()),
 		ConservacionHasta: p.ConservacionHasta(), Proteccion: string(p.Proteccion()), EstadoPolitica: docports.EstadoPolitica(p),
 		EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: time.Now().UTC(), Custodia: domain.CustodiaVEC,
-	}, nil
+	}
+	if r.alterar != nil {
+		r.alterar(&d)
+	}
+	return d, nil
+}
+
+// autorizadorCustodia hace de PDP: liga la V3 a la preimagen que recibe.
+// Cada llamada usa una decisión nueva, como el emisor real.
+type autorizadorCustodia struct {
+	t                 *testing.T
+	ahora             time.Time
+	sufijo            string
+	principal, perfil string
+	llamadas          int
+	err               error
+	preimagen         []byte
+	alterar           func(*docports.AutorizacionV3)
+	preimagenAjena    []byte
+}
+
+func (a *autorizadorCustodia) AutorizarCustodiaFirmado(_ context.Context, preimagen []byte, documentoID, expedienteRef string) (docports.AutorizacionV3, error) {
+	a.llamadas++
+	a.preimagen = append([]byte(nil), preimagen...)
+	if a.err != nil {
+		return docports.AutorizacionV3{}, a.err
+	}
+	ligada := preimagen
+	if a.preimagenAjena != nil {
+		ligada = a.preimagenAjena
+	}
+	decision := refPrueba("decision-"+strconv.Itoa(a.llamadas), a.sufijo)
+	v := docports.AutorizacionV3{
+		Material: materialCustodia(a.t, documentoID, ligada, a.ahora, decision, a.principal, a.perfil, "correlacion:custodia:0001"),
+		Accion:   docports.AccionCustodiarFirmado, Finalidad: docports.FinalidadCustodiarFirmado,
+		RecursoRef: documentoID, AmbitoRef: expedienteRef,
+		PrincipalID: a.principal, PerfilActivoRef: a.perfil, CorrelacionRef: "correlacion:custodia:0001",
+	}
+	if a.alterar != nil {
+		a.alterar(&v)
+	}
+	return v, nil
 }
 
 type escenarioCustodia struct {
-	ahora    time.Time
-	servicio *docapp.Servicio
-	repo     *repositorioCustodia
-	emisor   *emisorCustodia
-	orden    docports.CustodiaFirmado
-	// preimagen y material permiten pedir otra decisión V3 para la misma orden.
-	preimagen []byte
+	servicio    *docapp.Servicio
+	catalogo    *conservacion.Catalogo
+	repo        *repositorioCustodia
+	emisor      *emisorCustodia
+	autorizador *autorizadorCustodia
+	orden       docports.CustodiaFirmado
 }
 
-// reautorizar sustituye la V3 por otra decisión de la misma orden, como una
-// repetición de la petición tras perder la respuesta.
-func (e *escenarioCustodia) reautorizar(t *testing.T, ahora time.Time, decisionRef string) {
-	t.Helper()
-	a := e.orden.Autorizacion
-	a.Material = materialCustodia(t, e.orden.ID, e.preimagen, ahora, decisionRef, a.PrincipalID, a.PerfilActivoRef, a.CorrelacionRef)
-	e.orden.Autorizacion = a
+func (e escenarioCustodia) custodiar() (domain.Documento, error) {
+	return e.servicio.CustodiarFirmado(context.Background(), e.orden, e.autorizador)
 }
 
 // materialCustodia es la V3 de la custodia ligada a la preimagen exacta que
@@ -161,7 +200,7 @@ func nuevoEscenarioCustodia(t *testing.T) escenarioCustodia {
 }
 
 // nuevoEscenarioCustodiaEn fija el instante de la autorización y un sufijo que
-// distingue identificador, clave, operación de firma y decisión.
+// distingue identificador, clave, operación de firma y decisiones.
 func nuevoEscenarioCustodiaEn(t *testing.T, ahora time.Time, sufijo string) escenarioCustodia {
 	t.Helper()
 	reloj := relojCustodia{ahora.Add(time.Second)}
@@ -188,34 +227,8 @@ func nuevoEscenarioCustodiaEn(t *testing.T, ahora time.Time, sufijo string) esce
 	repo := &repositorioCustodia{}
 	servicio := &docapp.Servicio{Repositorio: nil, Almacen: almacen, Politicas: catalogo, Reloj: reloj,
 		RepositorioCustodia: repo, ContextosCustodia: fabrica}
-	tipo, err := catalogo.TipoDocumentalRef("contratacion_temporal.resolucion_firmada.v1")
-	if err != nil {
-		t.Fatal(err)
-	}
 	expediente := "ref:" + strings.Repeat("e", 64)
-	solicitud, err := catalogo.SolicitudPara("contratacion_temporal.resolucion_firmada.v1", expediente)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pdf := []byte("%PDF-1.7 resolucion firmada de prueba")
-	suma := sha256.Sum256(pdf)
-	orden := docports.CustodiaFirmado{
-		ID: refPrueba("id", sufijo), ClaveIdempotencia: refPrueba("clave", sufijo),
-		ModuloID: "contratacion_temporal", ExpedienteRef: expediente, TipoRef: tipo, Version: 1, Contenido: pdf,
-		HuellaOriginalSHA256: strings.Repeat("0", 63) + "9", FirmaOperacionRef: refPrueba("firma", sufijo),
-		SolicitudPolitica: solicitud,
-	}
-	politica, err := vecports.NuevoResultadoPoliticaConservacionDocumental(politicaDe(t, catalogo, solicitud), solicitud, reloj.Ahora())
-	if err != nil {
-		t.Fatal(err)
-	}
-	preimagen, err := (docports.CustodiaFirmadoPersistente{ID: orden.ID, ClaveIdempotencia: orden.ClaveIdempotencia,
-		ModuloID: orden.ModuloID, ExpedienteRef: orden.ExpedienteRef, TipoRef: orden.TipoRef, Version: orden.Version,
-		HuellaSHA256: hex.EncodeToString(suma[:]), Tamano: int64(len(pdf)), HuellaOriginalSHA256: orden.HuellaOriginalSHA256,
-		FirmaOperacionRef: orden.FirmaOperacionRef, Politica: politica}).PreimagenCustodia()
-	if err != nil {
-		t.Fatal(err)
-	}
+	orden := ordenCustodia(t, catalogo, "contratacion_temporal.resolucion_firmada.v1", expediente, sufijo)
 	_, vinculo, err := pruebas.NuevoContextoRegistradoYVinculoV2(ahora, personaCustodia, perfilCustodia,
 		vecdomain.AuthMethodCertificate, vecdomain.AuthAssuranceHigh)
 	if err != nil {
@@ -225,14 +238,27 @@ func nuevoEscenarioCustodiaEn(t *testing.T, ahora time.Time, sufijo string) esce
 	if err != nil {
 		t.Fatal(err)
 	}
-	orden.Autorizacion = docports.AutorizacionV3{
-		Material: materialCustodia(t, orden.ID, preimagen, ahora, refPrueba("decision", sufijo),
-			datos.PrincipalID, datos.PerfilActivoRef, "correlacion:custodia:0001"),
-		Accion: docports.AccionCustodiarFirmado, Finalidad: docports.FinalidadCustodiarFirmado,
-		RecursoRef: orden.ID, AmbitoRef: expediente,
-		PrincipalID: datos.PrincipalID, PerfilActivoRef: datos.PerfilActivoRef, CorrelacionRef: "correlacion:custodia:0001",
+	autorizador := &autorizadorCustodia{t: t, ahora: ahora, sufijo: sufijo, principal: datos.PrincipalID, perfil: datos.PerfilActivoRef}
+	return escenarioCustodia{servicio: servicio, catalogo: catalogo, repo: repo, emisor: emisor, autorizador: autorizador, orden: orden}
+}
+
+func ordenCustodia(t *testing.T, catalogo *conservacion.Catalogo, tipoDocumental, expediente, sufijo string) docports.CustodiaFirmado {
+	t.Helper()
+	tipo, err := catalogo.TipoDocumentalRef(tipoDocumental)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return escenarioCustodia{ahora: ahora, servicio: servicio, repo: repo, emisor: emisor, orden: orden, preimagen: preimagen}
+	solicitud, err := catalogo.SolicitudPara(tipoDocumental, expediente)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return docports.CustodiaFirmado{
+		ID: refPrueba("id", sufijo), ClaveIdempotencia: refPrueba("clave", sufijo),
+		ModuloID: "contratacion_temporal", ExpedienteRef: expediente, TipoRef: tipo, Version: 1,
+		Contenido:            []byte("%PDF-1.7 resolucion firmada de prueba"),
+		HuellaOriginalSHA256: strings.Repeat("0", 63) + "9", FirmaOperacionRef: refPrueba("firma", sufijo),
+		SolicitudPolitica: solicitud,
+	}
 }
 
 func refPrueba(uso, sufijo string) string {
@@ -251,15 +277,20 @@ func politicaDe(t *testing.T, c *conservacion.Catalogo, s vecports.SolicitudPoli
 
 func TestCustodiaFirmadoEscribeYConfirmaConConcesionRegistrada(t *testing.T) {
 	e := nuevoEscenarioCustodia(t)
-	documento, err := e.servicio.CustodiarFirmado(context.Background(), e.orden)
+	documento, err := e.custodiar()
 	if err != nil {
 		t.Fatalf("custodia: %v", err)
 	}
 	if documento.Custodia != domain.CustodiaVEC || documento.EstadoFirma != domain.EstadoFirmaPendienteProveedor ||
-		e.repo.llamadas != 1 || e.emisor.llamadas != 1 ||
+		e.repo.llamadas != 1 || e.emisor.llamadas != 1 || e.autorizador.llamadas != 1 ||
 		e.repo.persistente.FirmaOperacionRef != e.orden.FirmaOperacionRef ||
 		e.repo.persistente.HuellaOriginalSHA256 != e.orden.HuellaOriginalSHA256 {
 		t.Fatalf("custodia inesperada: %+v", documento)
+	}
+	// La V3 se pidió para la preimagen exacta que confirma SQL.
+	preimagen, err := e.repo.persistente.PreimagenCustodia()
+	if err != nil || !bytes.Equal(preimagen, e.autorizador.preimagen) {
+		t.Fatal("la V3 no se pidió para la preimagen confirmada")
 	}
 	// El objeto escrito es el PDF exacto.
 	if e.repo.persistente.Objeto.Objeto.HuellaSHA256 != documento.HuellaSHA256 || e.repo.persistente.Objeto.Objeto.Tamano != int64(len(e.orden.Contenido)) {
@@ -268,43 +299,93 @@ func TestCustodiaFirmadoEscribeYConfirmaConConcesionRegistrada(t *testing.T) {
 }
 
 func TestCustodiaFirmadoNoEscribeSinConcesionValida(t *testing.T) {
-	casos := map[string]func(*escenarioCustodia){
-		"concesión de almacén denegada": func(e *escenarioCustodia) { e.emisor.accion = docports.AccionListar },
-		"otro actor en la concesión":    func(e *escenarioCustodia) { e.emisor.persona = "per_otro000123456789abcdef" },
-		"autorización de otra acción": func(e *escenarioCustodia) {
-			e.orden.Autorizacion.Accion = docports.AccionAlta
-			e.orden.Autorizacion.Finalidad = "alta_documento_generado"
+	casos := map[string]func(*testing.T, *escenarioCustodia){
+		"concesión de almacén denegada": func(_ *testing.T, e *escenarioCustodia) { e.emisor.accion = docports.AccionListar },
+		"otro actor en la concesión":    func(_ *testing.T, e *escenarioCustodia) { e.emisor.persona = "per_otro000123456789abcdef" },
+		"el autorizador deniega":        func(_ *testing.T, e *escenarioCustodia) { e.autorizador.err = docports.ErrSolicitudInvalida },
+		"autorización de otra acción": func(_ *testing.T, e *escenarioCustodia) {
+			e.autorizador.alterar = func(a *docports.AutorizacionV3) {
+				a.Accion, a.Finalidad = docports.AccionAlta, "alta_documento_generado"
+			}
 		},
-		"autorización de otra preimagen": func(e *escenarioCustodia) { e.orden.HuellaOriginalSHA256 = strings.Repeat("8", 64) },
-		"tipo no reservado": func(e *escenarioCustodia) {
-			e.orden.TipoRef = "ref:" + strings.Repeat("4", 64)
+		"autorización de otra finalidad": func(_ *testing.T, e *escenarioCustodia) {
+			e.autorizador.alterar = func(a *docports.AutorizacionV3) { a.Finalidad = "alta_documento_generado" }
 		},
-		"no es un PDF": func(e *escenarioCustodia) { e.orden.Contenido = []byte("<html>no</html>") },
-		"firmado = original": func(e *escenarioCustodia) {
+		"autorización de otro recurso": func(_ *testing.T, e *escenarioCustodia) {
+			e.autorizador.alterar = func(a *docports.AutorizacionV3) { a.RecursoRef = refPrueba("otro", "1") }
+		},
+		"autorización de otro expediente": func(_ *testing.T, e *escenarioCustodia) {
+			e.autorizador.alterar = func(a *docports.AutorizacionV3) { a.AmbitoRef = refPrueba("otro-expediente", "1") }
+		},
+		"autorización caducada": func(_ *testing.T, e *escenarioCustodia) { e.autorizador.ahora = e.autorizador.ahora.Add(-time.Hour) },
+		"autorización de otra preimagen": func(_ *testing.T, e *escenarioCustodia) {
+			e.autorizador.preimagenAjena = []byte(`{"accion":"documentos.firmado.custodiar"}`)
+		},
+		"tipo sin política": func(_ *testing.T, e *escenarioCustodia) { e.orden.TipoRef = "ref:" + strings.Repeat("4", 64) },
+		"tipo catalogado no reservado": func(t *testing.T, e *escenarioCustodia) {
+			e.orden = ordenCustodia(t, e.catalogo, "contratacion_temporal.borrador.v1", e.orden.ExpedienteRef, "1")
+		},
+		"no es un PDF": func(_ *testing.T, e *escenarioCustodia) { e.orden.Contenido = []byte("<html>no</html>") },
+		"firmado = original": func(_ *testing.T, e *escenarioCustodia) {
 			s := sha256.Sum256(e.orden.Contenido)
 			e.orden.HuellaOriginalSHA256 = hex.EncodeToString(s[:])
 		},
 	}
 	for nombre, alterar := range casos {
 		e := nuevoEscenarioCustodia(t)
-		alterar(&e)
-		if _, err := e.servicio.CustodiarFirmado(context.Background(), e.orden); err == nil || e.repo.llamadas != 0 {
+		alterar(t, &e)
+		if _, err := e.custodiar(); err == nil || e.repo.llamadas != 0 {
 			t.Errorf("%s: se custodió (%v, confirmaciones=%d)", nombre, err, e.repo.llamadas)
 		}
 	}
 }
 
-// Una repetición con otra decisión V3 (respuesta perdida) debe poder
-// escribir: el almacén liga su clave a la concesión, y con la clave del
-// documento rechazaría el reintento para siempre.
+// Un documento devuelto por SQL que no cuadra con la orden no se da por bueno.
+func TestCustodiaFirmadoRechazaUnaConfirmacionQueNoCuadra(t *testing.T) {
+	casos := map[string]func(*domain.Documento){
+		"otra huella":            func(d *domain.Documento) { d.HuellaSHA256 = strings.Repeat("b", 64) },
+		"otro tamaño":            func(d *domain.Documento) { d.Tamano++ },
+		"otro tipo":              func(d *domain.Documento) { d.TipoRef = refPrueba("tipo", "otro") },
+		"otro MIME":              func(d *domain.Documento) { d.MIME = "application/octet-stream" },
+		"otra versión":           func(d *domain.Documento) { d.Version = 2 },
+		"custodia externa":       func(d *domain.Documento) { d.Custodia = domain.CustodiaExterna },
+		"conservación posterior": func(d *domain.Documento) { d.ConservacionHasta = d.ConservacionHasta.Add(time.Hour) },
+		"otro objeto, conservación posterior": func(d *domain.Documento) {
+			d.ObjetoRef, d.ObjetoVersion = "obj_original_anterior", "1"
+			d.ConservacionHasta = d.ConservacionHasta.Add(time.Hour)
+		},
+		"mismo objeto, conservación anterior": func(d *domain.Documento) {
+			d.ConservacionHasta = d.ConservacionHasta.Add(-time.Hour)
+		},
+	}
+	for nombre, alterar := range casos {
+		e := nuevoEscenarioCustodia(t)
+		e.repo.alterar = alterar
+		if _, err := e.custodiar(); !errors.Is(err, docports.ErrCapacidadNoDisponible) {
+			t.Errorf("%s: aceptado (%v)", nombre, err)
+		}
+	}
+	// Otro objeto (el original de un intento anterior) con conservación
+	// anterior sí se acepta: es la recuperación.
+	e := nuevoEscenarioCustodia(t)
+	e.repo.alterar = func(d *domain.Documento) {
+		d.ObjetoRef, d.ObjetoVersion = "obj_original_anterior", "1"
+		d.ConservacionHasta = d.ConservacionHasta.Add(-time.Hour)
+	}
+	if _, err := e.custodiar(); err != nil {
+		t.Fatalf("recuperación del original con otro objeto: %v", err)
+	}
+}
+
+// Cada intento pide una V3 nueva y escribe su propio objeto: repetir tras
+// perder la respuesta no queda bloqueado por la idempotencia del almacén.
 func TestCustodiaFirmadoRecuperaConOtraDecision(t *testing.T) {
 	e := nuevoEscenarioCustodia(t)
-	if _, err := e.servicio.CustodiarFirmado(context.Background(), e.orden); err != nil {
+	if _, err := e.custodiar(); err != nil {
 		t.Fatal(err)
 	}
 	primero := e.repo.persistente.Objeto.Objeto.Objeto
-	e.reautorizar(t, e.ahora, refPrueba("decision-repetida", "1"))
-	if _, err := e.servicio.CustodiarFirmado(context.Background(), e.orden); err != nil || e.repo.llamadas != 2 {
+	if _, err := e.custodiar(); err != nil || e.repo.llamadas != 2 || e.autorizador.llamadas != 2 {
 		t.Fatalf("recuperación con otra decisión: %v (%d)", err, e.repo.llamadas)
 	}
 	if e.repo.persistente.Objeto.Objeto.Objeto == primero {
@@ -315,8 +396,15 @@ func TestCustodiaFirmadoRecuperaConOtraDecision(t *testing.T) {
 func TestCustodiaFirmadoPropagaElFalloDeLaConfirmacion(t *testing.T) {
 	e := nuevoEscenarioCustodia(t)
 	e.repo.err = errors.New("sql caído")
-	if _, err := e.servicio.CustodiarFirmado(context.Background(), e.orden); err == nil {
+	if _, err := e.custodiar(); err == nil {
 		t.Fatal("un fallo de la confirmación no puede darse por custodia")
+	}
+}
+
+func TestCustodiaFirmadoExigeAutorizador(t *testing.T) {
+	e := nuevoEscenarioCustodia(t)
+	if _, err := e.servicio.CustodiarFirmado(context.Background(), e.orden, nil); !errors.Is(err, docports.ErrSolicitudInvalida) {
+		t.Fatalf("sin autorizador: %v", err)
 	}
 }
 
@@ -338,7 +426,7 @@ func (p *politicasEspia) BuscarPoliticasConservacionDocumental(ctx context.Conte
 func escenarioConEspia(t *testing.T) (escenarioCustodia, *politicasEspia) {
 	t.Helper()
 	e := nuevoEscenarioCustodia(t)
-	espia := &politicasEspia{Catalogo: e.servicio.Politicas.(*conservacion.Catalogo)}
+	espia := &politicasEspia{Catalogo: e.catalogo}
 	e.servicio.Politicas = espia
 	e.servicio.Repositorio = repositorioGenericoNoAlcanzable{}
 	return e, espia
@@ -346,9 +434,12 @@ func escenarioConEspia(t *testing.T) (escenarioCustodia, *politicasEspia) {
 
 func TestAltaGenericaRechazaElTipoReservado(t *testing.T) {
 	e, espia := escenarioConEspia(t)
-	autorizacion := e.orden.Autorizacion
+	autorizacion, err := e.autorizador.AutorizarCustodiaFirmado(context.Background(), []byte("{}"), e.orden.ID, e.orden.ExpedienteRef)
+	if err != nil {
+		t.Fatal(err)
+	}
 	autorizacion.Accion, autorizacion.Finalidad = docports.AccionAlta, "alta_documento_generado"
-	_, err := e.servicio.AltaGenerado(context.Background(), docports.AltaGenerado{
+	_, err = e.servicio.AltaGenerado(context.Background(), docports.AltaGenerado{
 		ID: e.orden.ID, ClaveIdempotencia: e.orden.ClaveIdempotencia, ModuloID: e.orden.ModuloID,
 		ExpedienteRef: e.orden.ExpedienteRef, TipoRef: e.orden.TipoRef, Version: 1, MIME: "application/pdf",
 		Contenido: e.orden.Contenido, SolicitudPolitica: e.orden.SolicitudPolitica, Autorizacion: autorizacion,
@@ -358,16 +449,16 @@ func TestAltaGenericaRechazaElTipoReservado(t *testing.T) {
 	}
 }
 
-type autorizadorEspia struct{ llamadas int }
+type autorizadorExternoEspia struct{ llamadas int }
 
-func (a *autorizadorEspia) AutorizarRegistroExterno(context.Context, []byte, string, string) (docports.AutorizacionV3, error) {
+func (a *autorizadorExternoEspia) AutorizarRegistroExterno(context.Context, []byte, string, string) (docports.AutorizacionV3, error) {
 	a.llamadas++
 	return docports.AutorizacionV3{}, errors.New("no debe pedirse")
 }
 
 func TestRegistroExternoRechazaElTipoReservado(t *testing.T) {
 	e, espia := escenarioConEspia(t)
-	autorizador := &autorizadorEspia{}
+	autorizador := &autorizadorExternoEspia{}
 	_, err := e.servicio.RegistrarExternoAutorizado(context.Background(), docports.AltaExterna{
 		ID: e.orden.ID, ClaveIdempotencia: e.orden.ClaveIdempotencia, ModuloID: e.orden.ModuloID,
 		ExpedienteRef: e.orden.ExpedienteRef, TipoRef: e.orden.TipoRef, Version: 1,
@@ -403,14 +494,13 @@ func TestCustodiaFirmadoPG18(t *testing.T) {
 	sufijo := ahora.Format(time.RFC3339Nano)
 	e := nuevoEscenarioCustodiaEn(t, ahora, sufijo)
 	e.servicio.RepositorioCustodia = repo
-	d, err := e.servicio.CustodiarFirmado(ctx, e.orden)
+	d, err := e.servicio.CustodiarFirmado(ctx, e.orden, e.autorizador)
 	if err != nil || d.Custodia != domain.CustodiaVEC || d.ObjetoVersion == "" || !d.Descargable() {
 		t.Fatalf("custodia en PG18: %v %+v", err, d)
 	}
 	// Repetición con otra decisión V3 (respuesta perdida): el almacén escribe
 	// otro objeto con otra clave y SQL devuelve el documento original.
-	e.reautorizar(t, ahora, refPrueba("decision-repetida", sufijo))
-	r, err := e.servicio.CustodiarFirmado(ctx, e.orden)
+	r, err := e.servicio.CustodiarFirmado(ctx, e.orden, e.autorizador)
 	if err != nil || r.ID != d.ID || r.NumeroVEC != d.NumeroVEC || !r.CreadoEn.Equal(d.CreadoEn) ||
 		r.ObjetoRef != d.ObjetoRef || r.ObjetoVersion != d.ObjetoVersion {
 		t.Fatalf("repetición en PG18: %v %+v", err, r)
@@ -418,32 +508,9 @@ func TestCustodiaFirmadoPG18(t *testing.T) {
 	// La misma clave con otro PDF firmado es conflicto y no crea otro documento.
 	otro := nuevoEscenarioCustodiaEn(t, ahora, sufijo)
 	otro.servicio.RepositorioCustodia = repo
+	otro.autorizador.sufijo = sufijo + ":otro"
 	otro.orden.Contenido = append(append([]byte(nil), e.orden.Contenido...), " otra firma"...)
-	suma := sha256.Sum256(otro.orden.Contenido)
-	p := docports.CustodiaFirmadoPersistente{ID: otro.orden.ID, ClaveIdempotencia: otro.orden.ClaveIdempotencia,
-		ModuloID: otro.orden.ModuloID, ExpedienteRef: otro.orden.ExpedienteRef, TipoRef: otro.orden.TipoRef,
-		Version: otro.orden.Version, HuellaSHA256: hex.EncodeToString(suma[:]), Tamano: int64(len(otro.orden.Contenido)),
-		HuellaOriginalSHA256: otro.orden.HuellaOriginalSHA256, FirmaOperacionRef: otro.orden.FirmaOperacionRef,
-		Politica: politicaResuelta(t, otro)}
-	if otro.preimagen, err = p.PreimagenCustodia(); err != nil {
-		t.Fatal(err)
-	}
-	otro.reautorizar(t, ahora, refPrueba("decision-otro", sufijo))
-	if _, err := otro.servicio.CustodiarFirmado(ctx, otro.orden); !errors.Is(err, docports.ErrConflicto) {
+	if _, err := otro.servicio.CustodiarFirmado(ctx, otro.orden, otro.autorizador); !errors.Is(err, docports.ErrConflicto) {
 		t.Fatalf("otro PDF con la misma clave: %v", err)
 	}
-}
-
-func politicaResuelta(t *testing.T, e escenarioCustodia) vecports.ResultadoPoliticaConservacionDocumental {
-	t.Helper()
-	catalogo, ok := e.servicio.Politicas.(*conservacion.Catalogo)
-	if !ok {
-		t.Fatal("catálogo de conservación esperado")
-	}
-	r, err := vecports.NuevoResultadoPoliticaConservacionDocumental(politicaDe(t, catalogo, e.orden.SolicitudPolitica),
-		e.orden.SolicitudPolitica, e.servicio.Reloj.Ahora())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
 }

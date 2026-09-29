@@ -32,8 +32,11 @@ var (
 	dominioReferencias   = "vec.documentos.conservacion.v1"
 	catalogoEsperado     = "vec.documentos.conservacion"
 	versionCatalogoLocal = uint64(1)
-	custodiaFirmado      = "firmado"
 )
+
+// custodiaFirmado es el valor de "custodia" que reserva un tipo a la custodia
+// de documentos firmados.
+const custodiaFirmado = "firmado"
 
 type entradaJSON struct {
 	Tipo          string `json:"tipo"`

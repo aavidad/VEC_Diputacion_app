@@ -16,14 +16,15 @@ import (
 const limiteFirmado = 1 << 20
 
 // CustodiarFirmado custodia el PDF firmado y verificado de un expediente.
-// Orden: política → preimagen ligada a la V3 → concesión de almacén V3
-// ligada a esa decisión → escritura verificada → confirmación SQL, que
-// consume la V3 en la misma transacción que documento, firmado, auditoría y
-// outbox. Si la confirmación falla, el objeto queda huérfano y se reconcilia;
-// nunca se anuncia como documento. Una recuperación tras perder la respuesta
-// devuelve el documento original (Documentos 000009).
-func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmado) (domain.Documento, error) {
+// Orden: política → preimagen → V3 del autorizador ligada a ella → concesión
+// de almacén V3 ligada a esa decisión → escritura verificada → confirmación
+// SQL, que consume la V3 en la misma transacción que documento, firmado,
+// auditoría y outbox. Si la confirmación falla, el objeto queda huérfano y se
+// reconcilia; nunca se anuncia como documento. Una recuperación tras perder la
+// respuesta pide otra V3 y recibe el documento original (Documentos 000009).
+func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmado, autorizador ports.AutorizadorCustodiaFirmado) (domain.Documento, error) {
 	if s == nil || dependenciaNula(s.RepositorioCustodia) || dependenciaNula(s.ContextosCustodia) ||
+		dependenciaNula(autorizador) ||
 		dependenciaNula(s.Almacen) || dependenciaNula(s.Politicas) || dependenciaNula(s.Reloj) ||
 		ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
@@ -35,11 +36,6 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 		in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
 		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
-		return domain.Documento{}, ports.ErrSolicitudInvalida
-	}
-	ahora := s.Reloj.Ahora()
-	if in.Autorizacion.ValidarPara(ports.AccionCustodiarFirmado, ahora) != nil ||
-		in.Autorizacion.RecursoRef != in.ID || in.Autorizacion.AmbitoRef != in.ExpedienteRef {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	suma := sha256.Sum256(in.Contenido)
@@ -56,13 +52,23 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 		ExpedienteRef: in.ExpedienteRef, TipoRef: in.TipoRef, Version: in.Version,
 		HuellaSHA256: huella, Tamano: int64(len(in.Contenido)),
 		HuellaOriginalSHA256: in.HuellaOriginalSHA256, FirmaOperacionRef: in.FirmaOperacionRef,
-		Politica: politica, Autorizacion: in.Autorizacion,
+		Politica: politica,
 	}
 	preimagen, err := persistente.PreimagenCustodia()
-	if !efectoLigado(in.Autorizacion, preimagen, err) ||
-		in.Autorizacion.Material.ResumenCapacidad().Operacion() != ports.AccionCustodiarFirmado {
+	if err != nil {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
+	autorizacion, err := autorizador.AutorizarCustodiaFirmado(ctx, preimagen, in.ID, in.ExpedienteRef)
+	if err != nil {
+		return domain.Documento{}, err
+	}
+	if autorizacion.ValidarPara(ports.AccionCustodiarFirmado, s.Reloj.Ahora()) != nil ||
+		autorizacion.RecursoRef != in.ID || autorizacion.AmbitoRef != in.ExpedienteRef ||
+		!efectoLigado(autorizacion, preimagen, nil) ||
+		autorizacion.Material.ResumenCapacidad().Operacion() != ports.AccionCustodiarFirmado {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	persistente.Autorizacion = autorizacion
 	contexto, err := s.ContextosCustodia.ContextoCustodiaFirmado(ctx, persistente)
 	if err != nil {
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible
@@ -73,7 +79,7 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible
 	}
 	solicitud := vecports.SolicitudEscribirObjeto{
-		Contexto: contexto, ClaveIdempotencia: claveAlmacenCustodia(in),
+		Contexto: contexto, ClaveIdempotencia: claveAlmacenCustodia(in.ClaveIdempotencia, autorizacion),
 		Zona: vecports.ZonaAlmacenAdmitida, MIME: ports.MIMEDocumentoFirmado,
 		Tamano: int64(len(in.Contenido)), HuellaSHA256: huella, Contenido: bytes.NewReader(in.Contenido),
 	}
@@ -89,7 +95,11 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 	if err != nil {
 		return domain.Documento{}, err
 	}
+	// La versión y la referencia del objeto deben poder leerse después como
+	// documento: si no, la fila quedaría confirmada e irrecuperable.
 	if objeto.ValidarEscritura(solicitud, capacidades) != nil ||
+		!domain.ReferenciaValida(objeto.Objeto.Objeto.Referencia) ||
+		!domain.VersionObjetoValida(objeto.Objeto.Objeto.Version) ||
 		!custodiaSatisfacePolitica(objeto, capacidades, politica.Politica()) {
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible
 	}
@@ -124,12 +134,13 @@ func (s *Servicio) CustodiarFirmado(ctx context.Context, in ports.CustodiaFirmad
 // este intento. El almacén asocia su clave a la concesión exacta, y una
 // recuperación tras perder la respuesta llega con otra decisión: con la clave
 // del documento, el almacén la rechazaría y la custodia ya confirmada no se
-// podría recuperar nunca. Así, el mismo intento repetido reutiliza el objeto
-// y otro intento escribe uno nuevo, que queda huérfano si SQL ya tenía el
-// documento (se devuelve el original).
-func claveAlmacenCustodia(in ports.CustodiaFirmado) string {
-	suma := sha256.Sum256([]byte("vec.documentos.custodia_firmado.almacen.v1\x00" + in.ClaveIdempotencia +
-		"\x00" + in.Autorizacion.Material.ResumenCapacidad().DecisionRef()))
+// podría recuperar nunca. Con otra decisión se escribe otro objeto, que queda
+// huérfano si SQL ya tenía el documento (se devuelve el original). Repetir con
+// la misma decisión falla cerrado en el almacén antes de escribir, porque cada
+// intento obtiene una concesión de almacén nueva: toda recuperación pide otra V3.
+func claveAlmacenCustodia(clave string, a ports.AutorizacionV3) string {
+	suma := sha256.Sum256([]byte("vec.documentos.custodia_firmado.almacen.v1\x00" + clave +
+		"\x00" + a.Material.ResumenCapacidad().DecisionRef()))
 	return "ref:" + hex.EncodeToString(suma[:])
 }
 

@@ -25,7 +25,9 @@ const (
 
 // CustodiaFirmado es la orden del módulo productor. FirmaOperacionRef es la
 // referencia opaca de su operación de firma y HuellaOriginalSHA256 la del
-// borrador que se firmó; Documentos no lee tablas del productor.
+// borrador que se firmó; Documentos no lee tablas del productor. No lleva
+// autorización: la preimagen incluye la conservación que resuelve la política
+// en ese instante, así que la V3 se pide después (AutorizadorCustodiaFirmado).
 type CustodiaFirmado struct {
 	ID, ClaveIdempotencia, ModuloID, ExpedienteRef, TipoRef string
 	Version                                                 uint64
@@ -33,7 +35,16 @@ type CustodiaFirmado struct {
 	HuellaOriginalSHA256                                    string
 	FirmaOperacionRef                                       string
 	SolicitudPolitica                                       vecports.SolicitudPoliticaConservacionDocumental
-	Autorizacion                                            AutorizacionV3
+}
+
+// AutorizadorCustodiaFirmado obtiene la V3 de documentos.firmado.custodiar
+// ligada a la preimagen exacta (CustodiaFirmadoPersistente.PreimagenCustodia),
+// al documento y al expediente. La identidad procede del canal autenticado de
+// la petición, nunca de estos argumentos. Cada llamada debe dar una decisión
+// nueva: una recuperación tras un fallo siempre pide otra. Un error envuelto
+// en ErrCapacidadNoDisponible es dependencia caída; cualquier otro, denegación.
+type AutorizadorCustodiaFirmado interface {
+	AutorizarCustodiaFirmado(ctx context.Context, preimagen []byte, documentoID, expedienteRef string) (AutorizacionV3, error)
 }
 
 // CustodiaFirmadoPersistente se confirma tras verificar el recibo del almacén.

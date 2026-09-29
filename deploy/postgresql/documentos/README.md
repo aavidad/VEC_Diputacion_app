@@ -121,19 +121,31 @@ custodias registradas, ninguna de las dos admite `DOWN`.
 - El tipo documental debe estar reservado a esta ruta (`"custodia":
   "firmado"` en el catálogo de conservación). El alta genérica y el registro
   externo rechazan los tipos reservados, en Go y en SQL.
+- El módulo que custodia no aporta la autorización: Documentos resuelve la
+  política, construye la preimagen (que incluye la fecha de conservación de
+  ese instante) y solo entonces pide la V3 al autorizador que le pasa el
+  llamante, ligada a esa preimagen exacta.
 - La escritura en el almacén usa una concesión V3 propia ligada a la decisión
   que consumirá SQL (su referencia y su huella van en los atributos).
-- Recuperación: si se pierde la respuesta, el reintento llega con otra
-  decisión V3. La clave del almacén se deriva de la clave del documento y de
-  esa decisión, así que el reintento escribe otro objeto y SQL devuelve el
-  documento original sin duplicarlo.
+- Recuperación: si se pierde la respuesta, el reintento pide otra decisión
+  V3. La clave del almacén se deriva de la clave del documento y de esa
+  decisión, así que el reintento escribe otro objeto y SQL devuelve el
+  documento original sin duplicarlo. Repetir con la misma decisión no sirve:
+  el almacén lo rechaza antes de escribir, porque cada intento obtiene una
+  concesión de almacén nueva.
 
-**Objetos huérfanos.** Ese objeto del reintento, o el de un intento cuya
-confirmación SQL falló, queda en el almacén sin documento que lo nombre. No se
-anuncia ni se puede descargar, porque la descarga parte siempre de la fila
-`documento`. Falta una tarea de conciliación que liste los objetos del
-conector sin referencia en `vec_documentos.documento` y los retire tras un
-plazo de gracia; hasta entonces ocupan espacio y nada más.
+**Objetos huérfanos.** Quedan en el almacén, sin documento que los nombre, el
+objeto de un reintento cuyo documento ya existía y el de un intento cuya
+confirmación SQL falló. También el de alguien con permiso del PDP para esta
+acción que presente una V3 que SQL rechaza después (no registrada o ya
+consumida): Go solo comprueba la forma de la V3, y la firma y el registro los
+comprueba SQL. Ninguno se anuncia ni se puede descargar, porque la descarga
+parte siempre de la fila `documento`. Pero cada uno es un PDF firmado con
+datos personales que queda fuera de la política de conservación: es un
+problema de minimización de datos, no solo de espacio. Falta la tarea de
+conciliación, que debe listar los objetos del conector sin referencia en
+`vec_documentos.documento` y retirarlos tras un plazo de gracia corto; tiene
+prioridad antes de usar datos reales.
 
 ## Política de conservación provisional
 
