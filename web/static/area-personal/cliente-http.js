@@ -209,7 +209,7 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
     let respuesta;
     try {
       respuesta = await fetchImpl(RUTAS_OPERACIONES_CONTACTO[accion], {
-        method: "POST", credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
+        method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(cuerpo), signal,
       });
@@ -345,7 +345,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
         redirect: "error",
         referrerPolicy: "no-referrer",
         ...opciones,
-        credentials: "omit",
+        credentials: "same-origin",
       });
     } catch (error) {
       throw new ErrorClienteAreaPersonal("servicio_no_disponible", "No se pudo establecer una conexión segura con el servicio.", error);
@@ -385,7 +385,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
   async function cargar() {
     const envelope = await solicitar(RUTA_MI_BOLSA, {
       method: "GET",
-      credentials: "omit",
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
     }, [200]);
     return Object.freeze({ fuente: "real", consulta: validarRespuestaMiBolsa(envelope) });

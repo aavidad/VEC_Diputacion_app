@@ -12,7 +12,7 @@ test("carga inglés por preferencia del navegador sin usar el lang español de r
   assert.equal(idioma, "en");
   assert.equal(documento.documentElement.lang, "en");
   assert.equal(traducir("areaPersonal.rutas.inicio"), "Home and deadlines");
-  assert.deepEqual(llamadas, [["/area-personal/locales/en.json", { credentials: "omit", cache: "no-store" }]]);
+  assert.deepEqual(llamadas, [["/area-personal/locales/en.json", { credentials: "same-origin", cache: "no-store" }]]);
 });
 
 test("la URL explícita prevalece y una preferencia extraña no construye rutas", () => {

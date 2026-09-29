@@ -8,7 +8,7 @@
  * por el mensaje del catálogo del portal. Conserva el bloqueo nativo del envío
  * y respeta los mensajes que un módulo haya fijado con `setCustomValidity`.
  */
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260929-pref-508a-v1";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
 import { montarSelectorIdioma } from "../comun/idioma.js";
 
 export function instalarSelectorIdiomaPortal(documento = globalThis.document) {

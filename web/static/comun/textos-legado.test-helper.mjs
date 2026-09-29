@@ -31,6 +31,8 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "portal-empleado/modulos/contratacion-temporal/formulario-fiscalizacion.js",
   "portal-empleado/modulos/contratacion-temporal/formulario-incorporacion-ejercicio.js",
   "portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js",
+  "portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js",
+  "portal-empleado/modulos/contratacion-temporal/i18n-ficha-lista.js",
   "portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js",
   "portal-empleado/modulos/contratacion-temporal/i18n-borradores-publicados.js",
   "portal-empleado/modulos/contratacion-temporal/i18n-cambios-expediente.js",

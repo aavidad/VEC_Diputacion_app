@@ -47,7 +47,18 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
-  const vigente = "20260929-pref-508a-v1";
+  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
+  // Dirección de diseño del 29/09/2026: el catálogo cambió y todo su grafo renueva URL.
+  const vigente = "20260929-diseno-v1";
+  const versionesEspeciales = new Map([
+    ["portal.js", "20260929-i18n-merge-v1"],
+    ["portal-modulos-coordinador.js", "20260929-i18n-merge-v1"],
+    ["portal-preferencias-integracion.js", "20260929-pref-i18n-merge-v1"],
+    ["portal-preferencias.js", "20260929-pref-i18n-merge-v1"],
+    ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
+    ["modulos/dietas/vista-recorridos.js", "20260929-i18n-merge-v1"],
+    ["modulos/dietas/vista-bandeja-circuito.js", "20260929-i18n-merge-v1"],
+  ]);
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -72,6 +83,14 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
       if (destino) aristas.push({ archivo, destino, version });
     }
   }
+  // La página peticiones-centro tiene su propia entrada; esta prueba fija
+  // las URL del grafo que arranca en index.html del portal RRHH.
+  const alcanzables = new Set(["index.html"]);
+  let alcanceAnterior;
+  do {
+    alcanceAnterior = alcanzables.size;
+    for (const { archivo, destino } of aristas) if (alcanzables.has(archivo)) alcanzables.add(destino);
+  } while (alcanceAnterior !== alcanzables.size);
   const ancestros = new Set(["portal-i18n.js"]);
   let cantidad;
   do {
@@ -81,16 +100,17 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   assert.ok(ancestros.has("index.html"), "el HTML carga el catálogo mediante el grafo real");
   assert.ok(ancestros.has("modulos/contratacion-temporal/vista-expedientes.js"));
   for (const { archivo, destino, version } of aristas) {
-    if (!ancestros.has(destino)) continue;
-    if (destino === "portal-i18n.js") {
-      assert.equal(version, vigente, `${archivo} → ${destino}: URL immutable renovada`);
-    }
+    if (!alcanzables.has(archivo) || !ancestros.has(destino)) continue;
+    assert.equal(version, versionesEspeciales.get(destino) ?? vigente,
+      `${archivo} → ${destino}: URL immutable renovada`);
     const urls = versiones.get(destino) ?? new Set();
     urls.add(version);
     versiones.set(destino, urls);
   }
-  assert.equal(versiones.get("portal-i18n.js")?.size, 1, "portal-i18n.js: una URL en todos sus importadores");
-
+  for (const [destino, urls] of versiones) assert.equal(urls.size, 1, `${destino}: una URL en todos sus importadores`);
+  for (const archivo of ancestros) {
+    for (const anterior of anteriores) assert.ok(!codigo.get(archivo)?.includes(anterior), `${archivo}: ningún import antiguo`);
+  }
 });
 
 test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reintento", () => {

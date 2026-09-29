@@ -1,0 +1,3 @@
+# Orden causal de la numeración anual de expedientes anteriores. Solo preparación; no acredita instalación.
+# Preimagen: CT68, CT103, CT124 y CT126 instaladas. No depende de CT141.
+deploy/postgresql/contratacion_temporal/migraciones/000142_numeracion_anual_expedientes_anteriores.up.sql
