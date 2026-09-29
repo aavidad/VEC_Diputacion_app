@@ -1,5 +1,6 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda2-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { ErrorClienteSaldoCronos, validarConsultaSaldoCronos, validarResultadoSaldoCronos } from "./cliente-saldo-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const PERIODOS = ["hoy", "semana", "mes", "anio", "rango"];
 const ESTADOS = new Set(["disponible", "incompleto", "no_disponible"]);
@@ -53,7 +54,7 @@ function tablaDetalle(datos, t, locale, zonaHoraria) {
 
 /** Render puro: los importes de tiempo proceden exclusivamente de la respuesta validada. */
 export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { periodo: "hoy" }, datos = null,
-  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid", incrustada = false } = {}) {
+  mensajes = MENSAJES_CRONOS, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", incrustada = false } = {}) {
   const t = crearTraductorCronos(mensajes);
   const seleccion = estado === "seleccion" && consulta?.periodo === "rango"
     ? { periodo: "rango", desde: "", hasta: "" } : validarConsultaSaldoCronos(consulta);
@@ -78,8 +79,8 @@ export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { p
 }
 
 /** Montaje aislado; aborta cada consulta anterior y descarta sus respuestas tardías. */
-export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS_ES, anunciar = () => {}, registrarDesmontar,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid", incrustada = false } = {}) {
+export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS, anunciar = () => {}, registrarDesmontar,
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", incrustada = false } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultar !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de saldo Cronos no disponible");
   const contenedor = raiz.ownerDocument.createElement("section");

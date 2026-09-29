@@ -1,29 +1,4 @@
+import { cargarTextos } from "../../../comun/textos.js";
+
 /** Textos del recorrido sin fuente de permisos. No habilita operaciones. */
-export const MENSAJES_CRONOS_PERMISOS_ES = Object.freeze({
-  permisos_pasos: "Pasos de la solicitud",
-  permisos_paso_1: "Tipo y periodo",
-  permisos_paso_2: "Aclaración",
-  permisos_paso_3: "Revisión",
-  permisos_ayuda: "? Ayuda para esta solicitud",
-  permisos_ayuda_contenido: "El recorrido tendrá tipo y fechas, aclaración y revisión. Estos campos solo se habilitarán con catálogo, relación laboral, autorización y servicio conectados.",
-  permisos_desde: "Fecha de inicio",
-  permisos_hasta: "Fecha de fin",
-  permisos_observacion_ayuda: "Evite incluir diagnósticos u otros datos que no sean necesarios.",
-  permisos_justificante: "Referencia del justificante, si procede",
-  permisos_justificante_ayuda: "La exigencia y custodia del justificante dependen del permiso y de la política aprobada.",
-  permisos_resumen: "Estado de la solicitud",
-  permisos_resumen_tipo: "Tipo",
-  permisos_resumen_periodo: "Periodo elegido",
-  permisos_resumen_saldo: "Saldo mostrado",
-  permisos_resumen_vacio: "Sin datos consultados",
-  permisos_no_configurado: "No configurado",
-  permisos_no_configurado_detalle: "Cronos todavía no tiene datos de permisos conectados.",
-  permisos_sin_datos: "Sin datos",
-  permisos_catalogo_ausente: "Catálogo de permisos no disponible.",
-  permisos_ver_pasos: "Ver pasos de solicitud",
-  permisos_siguiente: "Siguiente paso",
-  permisos_anterior: "Paso anterior",
-  permisos_registrar: "Registrar solicitud",
-  permisos_sin_registro: "El registro de solicitudes todavía no está disponible.",
-  permisos_revision_no_configurada: "No hay datos que revisar.",
-});
+export const MENSAJES_CRONOS_PERMISOS = (await cargarTextos("cronos")).seccion("permisos");

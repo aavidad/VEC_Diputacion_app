@@ -1,7 +1,7 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda2-v1";
-import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260925-tanda-v1";
-import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260925-tanda-v1";
-import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260925-tanda-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
+import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260929-i18n-textos-v1";
+import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260929-i18n-textos-v1";
+import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260929-i18n-textos-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -9,7 +9,7 @@ function escaparHTML(valor) {
 }
 
 function crearTraductorRecorridos(mensajes) {
-  return crearTraductorCronos({ ...MENSAJES_CRONOS_ES, ...mensajes });
+  return crearTraductorCronos({ ...MENSAJES_CRONOS, ...mensajes });
 }
 
 function panel(t, titulo, contenido, clase = "") {
@@ -21,7 +21,7 @@ function vacio(t) {
 }
 
 /** Estructura sin datos: las consultas y decisiones requieren servicios y concesiones propios. */
-export function renderizarRecorridosCronos({ mensajes = MENSAJES_CRONOS_ES } = {}) {
+export function renderizarRecorridosCronos({ mensajes = MENSAJES_CRONOS } = {}) {
   const traducir = crearTraductorRecorridos(mensajes);
   const t = (clave) => escaparHTML(traducir(clave));
   const persona = `<section class="cronos-recorrido-etapa" id="cronos-persona" aria-labelledby="cronos-persona-titulo"><header><p class="sobrelinea">${t("recorridos_persona")}</p><h3 id="cronos-persona-titulo">${t("recorridos_persona_titulo")}</h3></header>
@@ -48,7 +48,7 @@ export function renderizarRecorridosCronos({ mensajes = MENSAJES_CRONOS_ES } = {
   return `<section class="cronos-area cronos-recorridos" data-estado-entrega="no_configurado" aria-labelledby="cronos-recorridos-titulo"><header class="cronos-encabezado"><div><p class="sobrelinea">${t("recorridos_sobrelinea")}</p><h2 id="cronos-recorridos-titulo">${t("recorridos_titulo")}</h2></div><span class="cronos-recorrido-pendiente" role="status">${t("recorridos_pendiente")}</span></header><nav class="cronos-recorrido-etapas" role="tablist" aria-label="${t("recorridos_etapas")}"><button type="button" role="tab" data-cronos-rol="cronos-persona" aria-controls="cronos-persona" aria-selected="true" tabindex="0">${t("recorridos_persona")}</button><button type="button" role="tab" data-cronos-rol="cronos-responsable" aria-controls="cronos-responsable" aria-selected="false" tabindex="-1">${t("recorridos_responsable")}</button><button type="button" role="tab" data-cronos-rol="cronos-rrhh" aria-controls="cronos-rrhh" aria-selected="false" tabindex="-1">${t("recorridos_rrhh")}</button></nav>${persona}${responsable}${rrhh}</section>`;
 }
 
-export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_CRONOS_ES } = {}) {
+export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_CRONOS } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de recorridos de Cronos no disponible");
   const documento = raiz.ownerDocument;
   if (!documento?.createElement) throw new TypeError("documento de Cronos no disponible");

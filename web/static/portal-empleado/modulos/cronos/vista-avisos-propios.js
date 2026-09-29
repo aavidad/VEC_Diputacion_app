@@ -1,6 +1,7 @@
 import { crearTraductorResolucionCronos, periodoSolicitudCronos } from "./i18n-resolucion.js";
 import { formatearCantidadCronos } from "./i18n-solicitudes.js";
 import { ErrorClienteResolucionCronos, crearClienteResolucionCronosHTTP } from "./cliente-resolucion-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const FILTROS = Object.freeze(["recibidos", "archivados"]);
 
@@ -27,7 +28,7 @@ function aviso(a, filtro, archivando, t, locale, zonaHoraria) {
 
 /** Avisos de resolución de los permisos propios, recibidos o archivados. */
 export function renderizarAvisosPropiosCronos({ estado = "cargando", filtro = "recibidos", datos = null, mensaje = "", tonoMensaje = "exito", archivando = "",
-  mensajes, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  mensajes, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   const t = crearTraductorResolucionCronos(mensajes);
   if (!FILTROS.includes(filtro)) throw new RangeError("filtro de avisos no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("avisos_titulo") });
@@ -59,7 +60,7 @@ function estadoError(error) {
 }
 
 export function montarAvisosPropiosCronos({ raiz, cliente = crearClienteResolucionCronosHTTP(), mensajes, anunciar = () => {}, registrarDesmontar,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarAvisos !== "function" || typeof cliente?.archivarAviso !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de avisos Cronos no disponible");
   const t = crearTraductorResolucionCronos(mensajes);

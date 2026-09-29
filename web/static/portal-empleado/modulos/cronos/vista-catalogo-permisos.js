@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C6_ES } from "./i18n-c6.js?v=20260925-tanda-v1";
+import { MENSAJES_CRONOS_C6 } from "./i18n-c6.js?v=20260929-i18n-textos-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -6,8 +6,8 @@ function escaparHTML(valor) {
 }
 
 /** El catálogo requiere una fuente versionada; la vista nunca fabrica tipos ni cuantías. */
-export function renderizarCatalogoPermisosCronos({ mensajes = MENSAJES_CRONOS_C6_ES } = {}) {
-  const t = (clave) => escaparHTML(mensajes[clave] ?? MENSAJES_CRONOS_C6_ES[clave]);
+export function renderizarCatalogoPermisosCronos({ mensajes = MENSAJES_CRONOS_C6 } = {}) {
+  const t = (clave) => escaparHTML(mensajes[clave] ?? MENSAJES_CRONOS_C6[clave]);
   return `<section class="panel cronos-c6" aria-labelledby="cronos-c6-titulo" data-cronos-c6-estado="no_configurado">
     <header class="cabecera-panel"><h3 id="cronos-c6-titulo">${t("titulo")}</h3><span class="cronos-c6-estado" role="status">${t("estado")}</span></header>
     <div class="cuerpo-panel"><div class="cronos-c6-tabla"><table><thead><tr>
@@ -19,7 +19,7 @@ export function renderizarCatalogoPermisosCronos({ mensajes = MENSAJES_CRONOS_C6
   </section>`;
 }
 
-export function montarCatalogoPermisosCronos({ raiz, registrarDesmontar, mensajes = MENSAJES_CRONOS_C6_ES } = {}) {
+export function montarCatalogoPermisosCronos({ raiz, registrarDesmontar, mensajes = MENSAJES_CRONOS_C6 } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
     throw new TypeError("contenedor de catálogo de Cronos no disponible");
   }

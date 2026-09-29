@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MENSAJES_PERSONAL_ES, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT } from "./i18n.js";
+import { MENSAJES_PERSONAL, crearTraductorPersonal, formatearFechaEstructuraOrganizativa, formatearRecuentoCategorias, formatearRecuentoRPT } from "./i18n.js";
 
 test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites", () => {
   const t = crearTraductorPersonal();
@@ -17,7 +17,7 @@ test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites"
   assert.match(t("ficha_no_configurado"), /ausencia de datos no equivale a cero/i);
   assert.match(t("ficha_desplazar_tabla"), /horizontalmente/i);
   assert.equal(t("actualizado", { fecha: "20/09/2026" }), "Actualizado: 20/09/2026");
-  assert.ok(Object.isFrozen(MENSAJES_PERSONAL_ES));
+  assert.ok(Object.isFrozen(MENSAJES_PERSONAL));
 });
 
 test("el traductor rechaza catálogos y claves incompletos", () => {

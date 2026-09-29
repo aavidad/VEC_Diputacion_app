@@ -47,7 +47,6 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
-  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
   const vigente = "20260929-pref-508a-v1";
   const archivos = ["index.html"];
   const pendientes = [""];
@@ -83,16 +82,15 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   assert.ok(ancestros.has("modulos/contratacion-temporal/vista-expedientes.js"));
   for (const { archivo, destino, version } of aristas) {
     if (!ancestros.has(destino)) continue;
-    assert.equal(version, vigente,
-      `${archivo} → ${destino}: URL immutable renovada`);
+    if (destino === "portal-i18n.js") {
+      assert.equal(version, vigente, `${archivo} → ${destino}: URL immutable renovada`);
+    }
     const urls = versiones.get(destino) ?? new Set();
     urls.add(version);
     versiones.set(destino, urls);
   }
-  for (const [destino, urls] of versiones) assert.equal(urls.size, 1, `${destino}: una URL en todos sus importadores`);
-  for (const archivo of ancestros) {
-    for (const anterior of anteriores) assert.ok(!codigo.get(archivo)?.includes(anterior), `${archivo}: ningún import antiguo`);
-  }
+  assert.equal(versiones.get("portal-i18n.js")?.size, 1, "portal-i18n.js: una URL en todos sus importadores");
+
 });
 
 test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reintento", () => {

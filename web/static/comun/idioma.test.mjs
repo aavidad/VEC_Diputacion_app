@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cambiarIdioma, montarSelectorIdioma, resolverIdiomaNavegacion, seleccionarIdioma } from "./idioma.js";
 
-test("la elección explícita de interfaz prevalece y solo admite es/en", () => {
+test("la elección explícita de interfaz prevalece sobre el navegador (índice del repositorio)", () => {
   assert.equal(seleccionarIdioma("en", ["es-ES"]), "en");
   assert.equal(seleccionarIdioma("fr", ["en-GB", "es-ES"]), "en");
   assert.equal(seleccionarIdioma("", ["fr-FR"]), "es");

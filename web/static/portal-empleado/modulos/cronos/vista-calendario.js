@@ -1,4 +1,5 @@
-import { crearTraductorCronosC4, MENSAJES_CRONOS_C4_ES } from "./i18n-c4.js?v=20260925-tanda2-v1";
+import { crearTraductorCronosC4, MENSAJES_CRONOS_C4 } from "./i18n-c4.js?v=20260929-i18n-textos-v1";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ANIO_MINIMO = 1900;
 const ANIO_MAXIMO = 2100;
@@ -20,7 +21,7 @@ function fechaValida(fecha) {
 }
 
 function fechaActualMadrid() {
-  const partes = new Intl.DateTimeFormat("en-US", {
+  const partes = new Intl.DateTimeFormat(/* localización técnica */ "en-US", {
     timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date());
   const valor = (tipo) => partes.find((parte) => parte.type === tipo)?.value;
@@ -67,7 +68,7 @@ function mesHTML(anio, mes, seleccionada, locale, t) {
 }
 
 /** Solo calendario gregoriano civil. Nunca atribuye efectos laborales o administrativos. */
-export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, locale = "es-ES", mensajes = MENSAJES_CRONOS_C4_ES } = {}) {
+export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, locale = LOCALIZACION_ACTUAL, mensajes = MENSAJES_CRONOS_C4 } = {}) {
   const seleccionada = fechaSeleccionada ?? fechaActualMadrid();
   if (!fechaValida(seleccionada)) throw new RangeError("fecha civil de Cronos no válida");
   const anioVisible = anio ?? Number(seleccionada.slice(0, 4));
@@ -87,7 +88,7 @@ export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, local
 }
 
 /** Montaje independiente: el integrador registra CSS y lo inserta en Jornada. */
-export function montarCalendarioCivilCronos({ raiz, fechaSeleccionada, locale = "es-ES", mensajes = MENSAJES_CRONOS_C4_ES, anunciar = () => {}, registrarDesmontar } = {}) {
+export function montarCalendarioCivilCronos({ raiz, fechaSeleccionada, locale = LOCALIZACION_ACTUAL, mensajes = MENSAJES_CRONOS_C4, anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof anunciar !== "function"
     || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("raíz de calendario civil de Cronos no válida");
   const contenedor = raiz.ownerDocument.createElement("div");

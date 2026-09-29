@@ -57,6 +57,11 @@ normalizar_manifiesto() {
 						static/area-personal/locales/en.json | \
 						static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json)
 						;;
+					# Catálogos de textos por idioma (datos i18n) y su índice.
+					static/textos/idiomas.json | static/textos/*/*.json)
+						[[ "${ruta}" =~ ^static/textos/(idiomas|[a-z]{2,3}(-[a-z0-9]{2,8})*/[a-z0-9]+(-[a-z0-9]+)*)\.json$ ]] ||
+							fallar "Catalogo de textos no canonico en ${nombre}: ${ruta}"
+						;;
 					*) fallar "JSON no autorizado en ${nombre}: ${ruta}" ;;
 				esac
 				;;

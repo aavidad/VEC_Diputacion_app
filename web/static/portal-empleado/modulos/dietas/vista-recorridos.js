@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5d6-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-d5d6-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260929-pref-508a-v1";
-import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-d5d6-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260929-i18n-dietas-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260929-i18n-dietas-v1";
+import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 
 const ETAPAS_CIRCUITO = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const nodo = (documento, etiqueta, texto = "") => {
@@ -31,7 +31,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   fechaReferenciaPersonal,
   estadoRelaciones = "disponible",
   motivoRelaciones,
-  traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
+  traducir = crearTraductorDietas(MENSAJES_DIETAS),
   anunciar = () => {},
   registrarDesmontar,
 } = {}) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js";
 
 const CLAVES_SALDO = [
   "titulo", "ayuda", "periodos", "hoy", "semana", "mes", "anio", "rango",
@@ -35,7 +35,7 @@ const CLAVES_MOVIMIENTOS = [
 test("el traductor real cubre saldo, movimientos y fichaje remoto en todos sus estados", () => {
   const traducir = crearTraductorCronos();
   for (const clave of [...CLAVES_SALDO, ...CLAVES_MOVIMIENTOS, ...CLAVES_REMOTO]) {
-    if (clave !== "remoto_periodo") assert.equal(traducir(clave), MENSAJES_CRONOS_ES[clave], clave);
+    if (clave !== "remoto_periodo") assert.equal(traducir(clave), MENSAJES_CRONOS[clave], clave);
     assert.ok(traducir(clave).trim(), clave);
   }
   assert.match(traducir("saldo_estado_incompleto"), /incompleto/i);
@@ -54,7 +54,7 @@ test("el traductor real cubre saldo, movimientos y fichaje remoto en todos sus e
 
 test("un catálogo incompleto o una clave no declarada fallan de forma cerrada", () => {
   assert.throws(
-    () => crearTraductorCronos({ ...MENSAJES_CRONOS_ES, saldo_denegado: "" }),
+    () => crearTraductorCronos({ ...MENSAJES_CRONOS, saldo_denegado: "" }),
     /catálogo i18n de Cronos incompleto/,
   );
   assert.throws(() => crearTraductorCronos()("saldo_inventado"), /clave i18n de Cronos desconocida/);
