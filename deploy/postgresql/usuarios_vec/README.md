@@ -56,3 +56,22 @@ Tras las SQL de 5.08a y 5.08b: AD3-108 `consumidor_imagen_usuarios.up.sql` (acci
 - SQLSTATE: `P1409` conflicto (versión, catálogo, clave reutilizada o modo foto sin foto), `22023` petición inválida (foto que no casa con su huella o no es JPEG), `42501` denegación; `40001` obliga a repetir la transacción completa.
 
 La prueba `pruebas_sql/imagen_pg18.sh` levanta PostgreSQL 18.4 efímero con la V3 sintética de forma y comprueba ACL y RLS de Usuarios y Documentos, el vector Go/SQL, elección, repetición, conflicto, subida, conservación, sustitución y retirada de la foto (bytes borrados en Documentos), la lectura desde la otra superficie y la inmutabilidad de las historias.
+
+# Fase 1, paso 3: cada portal con lo suyo
+
+Hasta aquí la misma persona compartía preferencias, correos y foto entre el portal interno (RRHH, superficie `interna_corporativa`) y el Área personal (`externa_personal`). Desde este corte:
+
+- **Preferencias y foto**: la superficie forma parte de la clave de estado, historia y recibos (una fila por persona y superficie). Las políticas de fila exigen que la fila sea de la superficie del contexto V3 consumido, así que una función que olvidara filtrar tampoco vería la otra. Documentos guarda como mucho una foto viva por persona y superficie y no abre, retira ni cuenta la de la otra.
+- **Correos**: viven en dos esquemas, `vec_usuarios_correos_interno` y `vec_usuarios_correos_externo`, cada uno con su propietario. Solo el ejecutor de su portal tiene USAGE y EXECUTE sobre sus seis fachadas; ningún propietario ni ejecutor alcanza el otro esquema, y `vec_usuarios` ya no guarda correos. La lógica, los SQLSTATE y el material son los de 000004.
+- Las firmas, respuestas y audiencias no cambian. El adaptador Go de correos llama al esquema de su superficie y comprueba que su LOGIN no tiene USAGE sobre el otro.
+- Las claves de cifrado de correos siguen siendo comunes: se separan con los procesos y el material por portal (paso 1 del estudio), porque hoy todas se derivan dentro del mismo proceso.
+
+## Orden causal (después del hito 4)
+
+Lista `deploy/principal/lista_sql_trabajo_usuarios_superficie_20260929.txt`, todo como DBA y con la aplicación parada: Documentos 000008 → Usuarios 000008 → `roles_000009_up.sql` → AD3-109 → Usuarios 000009. Después, el binario nuevo. Entre AD3-109 y Usuarios 000009 los correos antiguos quedan denegados; el binario anterior no encuentra las fachadas de correos y se niega a componerlos.
+
+## Lo que ya había
+
+La superficie de cada versión y recibo existente se toma de la decisión V3 firmada que la autorizó (lectura única del DBA en la migración). Cada portal queda con su última versión propia. Si el estado de imagen de un portal apunta a una foto que subió el otro o que ya se retiró, ese portal vuelve a iniciales con su paleta y la historia lo anota con una versión marcada `migracion:usuarios:000008`. Cada dirección de correo va con el portal donde se añadió, con todos sus desafíos, intentos, historia, recibos y envíos; cada población conserva la versión más alta de su propia historia. Las migraciones comprueban fila a fila que nada se pierde ni cambia (salvo la columna nueva) y se detienen con 55000 si falta una decisión.
+
+`pruebas_sql/superficie_pg18.sh` siembra datos de la misma persona desde los dos portales, ensaya cada migración con ROLLBACK (la base queda idéntica, roles incluidos), provoca un fallo a mitad (tampoco deja rastro), migra y comprueba el reparto, que cada portal solo lee y escribe lo suyo, que un LOGIN no alcanza el esquema del otro, que las reaplicaciones y los DOWN se rechazan y que la historia sigue siendo de solo adición.

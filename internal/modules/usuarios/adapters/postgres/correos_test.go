@@ -192,7 +192,41 @@ func pruebaOrdenYV3Correos(t *testing.T, accion string) (ports.OrdenCorreos, por
 }
 
 func pruebaRegistroCorreos(tx *txCorreoPGPrueba) *RegistroCorreosPostgreSQL {
-	return &RegistroCorreosPostgreSQL{iniciar: func(context.Context) (transaccionCorreos, error) { return tx, nil }, descifrador: &descifradorCorreoPGPrueba{}, superficie: vecdomain.SuperficieAutenticacionInternaCorporativaV1}
+	sentencias, _ := sentenciasCorreosSuperficie(vecdomain.SuperficieAutenticacionInternaCorporativaV1)
+	return &RegistroCorreosPostgreSQL{iniciar: func(context.Context) (transaccionCorreos, error) { return tx, nil }, descifrador: &descifradorCorreoPGPrueba{}, superficie: vecdomain.SuperficieAutenticacionInternaCorporativaV1, sql: sentencias}
+}
+
+// Cada superficie llama solo al esquema de su población y la acreditación
+// exige que su LOGIN no alcance el de la otra.
+func TestSentenciasCorreosPorPoblacion(t *testing.T) {
+	interna, ok := sentenciasCorreosSuperficie(vecdomain.SuperficieAutenticacionInternaCorporativaV1)
+	if !ok {
+		t.Fatal("superficie interna rechazada")
+	}
+	externa, ok := sentenciasCorreosSuperficie(vecdomain.SuperficieAutenticacionExternaPersonalV1)
+	if !ok {
+		t.Fatal("superficie externa rechazada")
+	}
+	if _, ok := sentenciasCorreosSuperficie(vecdomain.SuperficieAutenticacionActorV1("otra")); ok {
+		t.Fatal("superficie desconocida admitida")
+	}
+	casos := []struct {
+		s             sentenciasCorreos
+		propio, ajeno string
+	}{{interna, "vec_usuarios_correos_interno.", "vec_usuarios_correos_externo."}, {externa, "vec_usuarios_correos_externo.", "vec_usuarios_correos_interno."}}
+	for _, c := range casos {
+		for _, sql := range []string{c.s.consultar, c.s.recuperar, c.s.aplicar, c.s.preparar, c.s.cerrar, c.s.confirmar} {
+			if !strings.HasPrefix(sql, "SELECT "+c.propio) || strings.Contains(sql, c.ajeno) || strings.Contains(sql, "vec_usuarios.") || strings.Contains(sql, "@") {
+				t.Fatalf("sentencia fuera de su población: %s", sql)
+			}
+		}
+		ajeno := strings.TrimSuffix(c.ajeno, ".")
+		if strings.Contains(c.s.acreditar, "@") || strings.Contains(c.s.acreditar, "vec_usuarios.") ||
+			strings.Count(c.s.acreditar, "'"+c.propio) != 7 ||
+			!strings.Contains(c.s.acreditar, "NOT pg_catalog.has_schema_privilege(session_user,'"+ajeno+"','USAGE')") {
+			t.Fatalf("acreditación incompleta: %s", c.s.acreditar)
+		}
+	}
 }
 
 func fechaPG() string {
@@ -244,7 +278,7 @@ func TestAplicarAltaDevuelveEnvioReservadoYNoFiltraClaros(t *testing.T) {
 		t.Fatalf("alta: %+v %v", resultado, err)
 	}
 	llamada := tx.llamadas[len(tx.llamadas)-1]
-	if llamada.sql != aplicarCorreosSQL {
+	if llamada.sql != pruebaRegistroCorreos(nil).sql.aplicar {
 		t.Fatal("no se llamó a la fachada de aplicar")
 	}
 	for _, arg := range llamada.args {
@@ -305,7 +339,7 @@ func TestVerificarComparaFueraDeSQLYConfirmaIntento(t *testing.T) {
 		t.Fatalf("intento fallido no confirmado: %v commits=%d", err, tx.commits)
 	}
 	cerrar := tx.llamadas[len(tx.llamadas)-1]
-	if cerrar.sql != cerrarVerificacionSQL || cerrar.args[2] != false {
+	if cerrar.sql != pruebaRegistroCorreos(nil).sql.cerrar || cerrar.args[2] != false {
 		t.Fatal("cierre sin resultado de la comparación")
 	}
 	comprobador.valido = true
