@@ -140,6 +140,9 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	}
 	soporte.sesionOperativa = proveedor
 	soporte.mu.Unlock()
+	if err := configurarSesionesPerfilesFijosCTDesarrollo(ctx, soporte, proveedor); err != nil {
+		return nil, nil, fallo
+	}
 	completa = true
 	return proveedor, cerrar, nil
 }
