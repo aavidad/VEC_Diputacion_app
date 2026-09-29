@@ -31,6 +31,10 @@ estado=$(realpath -- "$estado")
 exec 9>"$estado/preparar.lock"
 flock -n 9 || { echo 'El clon tiene otra operación en curso.' >&2; exit 1; }
 marcador="$estado/clon.json"
+if [[ -f "$estado/RETIRADO.json" ]]; then
+  echo 'Este estado conserva un clon retirado. Elija otro directorio para reconstruirlo.' >&2
+  exit 2
+fi
 restauracion_nueva=false
 pgdata=''
 limpiar_restauracion_incompleta() {
@@ -43,6 +47,35 @@ limpiar_restauracion_incompleta() {
   fi
 }
 trap limpiar_restauracion_incompleta EXIT
+
+publicar_ready() {
+python3 - "$estado" <<'PY'
+import hashlib,json,pathlib,subprocess,sys
+s=pathlib.Path(sys.argv[1]); m=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
+cfg=json.loads((s/'runtime-config.json').read_text())
+assert cfg.get('VEC_BOLSA_POLITICA_OFERTAS_ENABLED') == 'true', 'Falta preparar la configuración del hito 5.'
+home=s/'chrome-home'; nss=home/'.pki/nssdb'; nss.mkdir(parents=True,mode=0o700,exist_ok=True); home.chmod(0o700); (home/'.pki').chmod(0o700)
+if not (nss/'cert9.db').exists():
+    subprocess.run(['certutil','-N','--empty-password','-d','sql:'+str(nss)],check=True,stdout=subprocess.DEVNULL)
+subprocess.run(['certutil','-A','-d','sql:'+str(nss),'-n','vec-clon-sintetico','-t','C,,','-i',str(s/'material/ca/ca.crt')],check=True,stdout=subprocess.DEVNULL)
+for f in nss.iterdir():
+    if f.is_file(): f.chmod(0o600)
+binary=pathlib.Path(r['exe']); actual=j.get('current_source_ref',j['source_ref'])
+assert actual == r['source_commit'] == m['target']['source_commit']
+v=dict(tipo='clon_local_h3_h5',clon='local',datos='sinteticos',hitos=['H3','H4','H5'],hitos_verificados=['H3','H4','H5'],clon_sintetico=True,clon_ref=json.loads((s/'clon.json').read_text())['contenedor'],origen='https://127.0.0.1:'+str(r['port']),commit=actual,binario=str(binary),binario_sha256=r['binary_sha256'],pid=r['pid'],sql_instaladas=len(j['installed']),material_sha256=hashlib.sha256((s/'material-manifest.json').read_bytes()).hexdigest(),bloqueos=m.get('blockers',[]),chrome_home=str(home),ca=str(s/'material/ca/ca.crt'))
+p=s/'READY.json'; t=s/'READY.json.nuevo'; t.write_text(json.dumps(v,ensure_ascii=False,indent=2)+'\n'); t.chmod(0o600); t.replace(p)
+PY
+}
+
+finalizar_arranque() {
+  rm -f -- "$estado/READY.json"
+  runtime start
+  if ! publicar_ready; then
+    runtime stop
+    rm -f -- "$estado/READY.json"
+    return 1
+  fi
+}
 
 runtime() {
   local operacion=$1 hash
@@ -70,12 +103,14 @@ propio() {
 }
 
 if [[ "$accion" == estado ]]; then
-  propio
+  registro_propio
+  if docker inspect "$nombre" >/dev/null 2>&1; then propio; fi
   runtime status
   exit
 fi
 if [[ "$accion" == parar || "$accion" == retirar ]]; then
   registro_propio
+  rm -f -- "$estado/READY.json"
   if docker inspect "$nombre" >/dev/null 2>&1; then propio; fi
   runtime stop
   if docker inspect "$nombre" >/dev/null 2>&1; then docker stop "$nombre" >/dev/null; fi
@@ -91,18 +126,19 @@ import subprocess
 subprocess.run(['docker','run','--rm','--network','none','-v',str(p)+':/datos','alpine:3.22','sh','-c','find /datos -mindepth 1 -delete'],check=True,stdout=subprocess.DEVNULL)
 p.rmdir()
 PY
-    rm -f -- "$marcador"
+    mv -- "$marcador" "$estado/RETIRADO.json"
   fi
   exit
 fi
 if [[ "$accion" == reiniciar ]]; then
   propio
+  rm -f -- "$estado/READY.json"
   runtime stop
   # Con --rm no se puede hacer stop/start de PostgreSQL; restart conserva el volumen.
   docker restart "$nombre" >/dev/null
   for ((i=0; i<60; i++)); do docker exec "$nombre" pg_isready -q -U postgres && break; sleep 1; done
   docker exec "$nombre" pg_isready -q -U postgres
-  runtime start
+  finalizar_arranque
   exit
 fi
 
@@ -139,7 +175,12 @@ PY
   fi
   if [[ "$(runtime status | python3 -c 'import json,sys; print(json.load(sys.stdin)["running"])')" == True ]]; then
     [[ "$anterior" == "$commit" ]] || { echo 'Detenga el clon antes de actualizar su fuente.' >&2; exit 1; }
-    echo 'El clon propio ya está en marcha; no se cambió su material.'
+    if ! publicar_ready; then
+      runtime stop
+      rm -f -- "$estado/READY.json"
+      exit 1
+    fi
+    echo 'El clon propio está en marcha y su registro está actualizado.'
     exit
   fi
 else
@@ -200,21 +241,6 @@ estado_material=0
 python3 "$guiones/clon_material.py" --repo "$repo" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --complete-profiles "${opciones_material[@]}" || estado_material=$?
 [[ "$estado_material" == 0 || "$estado_material" == 3 ]] || exit "$estado_material"
 runtime build
-runtime start
-python3 - "$estado" <<'PY'
-import hashlib,json,pathlib,subprocess,sys
-s=pathlib.Path(sys.argv[1]); m=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
-cfg=json.loads((s/'runtime-config.json').read_text())
-assert cfg.get('VEC_BOLSA_POLITICA_OFERTAS_ENABLED') == 'true', 'Falta preparar la configuración del hito 5.'
-home=s/'chrome-home'; nss=home/'.pki/nssdb'; nss.mkdir(parents=True,mode=0o700,exist_ok=True); home.chmod(0o700); (home/'.pki').chmod(0o700)
-if not (nss/'cert9.db').exists():
-    subprocess.run(['certutil','-N','--empty-password','-d','sql:'+str(nss)],check=True,stdout=subprocess.DEVNULL)
-subprocess.run(['certutil','-A','-d','sql:'+str(nss),'-n','vec-clon-sintetico','-t','C,,','-i',str(s/'material/ca/ca.crt')],check=True,stdout=subprocess.DEVNULL)
-for f in nss.iterdir():
-    if f.is_file(): f.chmod(0o600)
-binary=pathlib.Path(r['exe']); actual=j.get('current_source_ref',j['source_ref'])
-assert actual == r['source_commit'] == m['target']['source_commit']
-v=dict(tipo='clon_local_h3_h5',clon='local',datos='sinteticos',hitos=['H3','H4','H5'],hitos_verificados=['H3','H4','H5'],clon_sintetico=True,clon_ref=json.loads((s/'clon.json').read_text())['contenedor'],origen='https://127.0.0.1:'+str(r['port']),commit=actual,binario=str(binary),binario_sha256=r['binary_sha256'],pid=r['pid'],sql_instaladas=len(j['installed']),material_sha256=hashlib.sha256((s/'material-manifest.json').read_bytes()).hexdigest(),bloqueos=m.get('blockers',[]),chrome_home=str(home),ca=str(s/'material/ca/ca.crt'))
-p=s/'READY.json'; p.write_text(json.dumps(v,ensure_ascii=False,indent=2)+'\n'); p.chmod(0o600)
-PY
+finalizar_arranque
+
 echo 'Clon preparado. Consulte el registro privado de estado antes de ejecutar recorridos.'

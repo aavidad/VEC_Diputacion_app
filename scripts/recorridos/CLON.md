@@ -98,6 +98,14 @@ bash scripts/recorridos/preparar_clon.sh retirar
 ```
 
 `parar` conserva el volumen para continuar más tarde; `retirar` elimina el
-volumen propio tras cotejar su registro. No borre capturas o recibos que otra
-persona esté revisando. El clon compartido se conserva solo mientras tenga
-recorridos activos; se reconstruye con el mismo guion cuando haga falta.
+volumen propio tras cotejar su registro y marca ese estado como retirado. Para
+reconstruir después de retirar, elija un directorio privado nuevo, por ejemplo:
+
+```bash
+export VEC_RECORRIDOS_ESTADO="$HOME/.local/state/vec-recorridos-segundo"
+bash scripts/recorridos/preparar_clon.sh preparar
+```
+
+Así se conservan los recibos y las capturas de la copia anterior sin mezclarlos
+con otra base. No borre evidencia que otra persona esté revisando. El clon
+compartido se conserva solo mientras tenga recorridos activos.
