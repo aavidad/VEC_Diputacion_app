@@ -384,6 +384,13 @@ export function crearControladorPortal(dependencias) {
             fase: botonVista.dataset.ctExpFiltroFase ?? "",
           };
         }
+        // Filtros de pantalla de la lista de peticiones (fase de RRHH o «Mostrar»).
+        if (botonVista.dataset.ctExpListaFase || botonVista.dataset.ctExpListaMostrar) {
+          opciones.filtroLista = {
+            fase: botonVista.dataset.ctExpListaFase ?? "",
+            mostrar: botonVista.dataset.ctExpListaMostrar ?? "todas",
+          };
+        }
         navegar(botonVista.dataset.vista, opciones);
         return;
       }

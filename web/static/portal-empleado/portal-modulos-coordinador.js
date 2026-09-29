@@ -924,6 +924,7 @@ export function crearCoordinadorModulosPortal({
         : await composicion.contratacionTemporal.montar({
           raiz,
           presentador: presentadorCT,
+          filtroLista: opciones?.filtroLista ?? null,
           locale,
           zonaHoraria: ZONA_HORARIA_PORTAL,
           mensajes: composicion.contratacionTemporal.mensajesExpedientes,

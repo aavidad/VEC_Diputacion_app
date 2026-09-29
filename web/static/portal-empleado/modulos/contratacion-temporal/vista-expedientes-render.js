@@ -327,6 +327,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   reciboAsignacionConfirmado = null,
   catalogoDisponible = true,
   resolverBolsa = null,
+  filtroLista = undefined,
 } = {}) {
   const t = crearTraductorExpedientesContratacion(mensajes);
   let contenido;
@@ -423,7 +424,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   } else if (estado.vista === "estadisticas") {
     contenido = '<div data-ct-exp-estadisticas></div>';
   } else {
-    contenido = renderizarCuadro(estado, t);
+    contenido = renderizarCuadro(estado, t, filtroLista);
   }
   const mensajeVisible = mensajeEstadoVisible(estado);
   return `<section class="ct-expedientes" data-modulo="contratacion-temporal"

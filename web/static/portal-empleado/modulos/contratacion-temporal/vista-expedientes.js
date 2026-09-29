@@ -8,6 +8,8 @@ import { montarFormularioCierreAdministrativo } from "./formulario-cierre-admini
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
 import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20260926-pulido-portal-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { filtroListaValido } from "./recuentos-peticiones.js";
+import { renderizarResultadosCuadro } from "./componentes-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { cerrarFase, mostrarFase } from "./fases-expediente.js";
 import { prepararComposicionAnalisis } from "./vista-expedientes-analisis.js";
@@ -126,6 +128,8 @@ export async function montarModuloContratacionTemporal({
   zonaHoraria = "Europe/Madrid",
   // Datos de Bolsa que el perfil puede ver (bolsa_ref → { categoria } o null).
   resolverBolsa = null,
+  // Filtros de pantalla de la lista (p. ej. desde un indicador de Inicio).
+  filtroLista: filtroListaInicial = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.querySelector !== "function"
@@ -135,6 +139,8 @@ export async function montarModuloContratacionTemporal({
     throw new TypeError("dependencias del módulo de contratación temporal no válidas");
   }
   const traducirExpedientes = crearTraductorExpedientesContratacion(mensajes);
+  // Filtros de la lista aplicados en pantalla sobre la consulta ya cargada.
+  let filtroLista = filtroListaValido(filtroListaInicial ?? {});
 
   const altaDisponible = alta !== null && typeof alta === "object"
     && typeof alta.ejecutor === "function" && alta.catalogos !== undefined;
@@ -514,7 +520,11 @@ export async function montarModuloContratacionTemporal({
       resolucionFormalizacionDisponible,
       incorporacionEjercicioDisponible,
       resolverBolsa: typeof resolverBolsa === "function" ? resolverBolsa : null,
+      filtroLista,
     });
+    // En móvil los filtros secundarios empiezan plegados si no hay ninguno activo.
+    const masFiltros = raiz.querySelector?.("[data-ct-exp-mas-filtros]:not([data-activos])");
+    if (masFiltros && globalThis.matchMedia?.("(max-width: 760px)")?.matches) masFiltros.open = false;
     gestorTramitacion.montarAltaSiProcede();
     montarEstadisticasSiProcede();
     montarLlamamiento(contextoLlamamientoDesdeEstado(
@@ -633,8 +643,8 @@ export async function montarModuloContratacionTemporal({
       repintar("[data-ct-exp-mensaje]");
       await promesa;
       repintar();
-      enfocar(raiz, raiz.querySelector(".ct-exp-listado .tabla-contenedor")
-        ? ".ct-exp-listado .tabla-contenedor" : "[data-ct-exp-filtros]");
+      enfocar(raiz, raiz.querySelector(".ct-exp-listado .ct-exp-tabla-lista")
+        ? ".ct-exp-listado .ct-exp-tabla-lista" : "[data-ct-exp-filtros-locales] input");
       return;
     }
     const controlVista = evento.target?.closest?.("[data-ct-exp-vista]");
@@ -803,8 +813,49 @@ export async function montarModuloContratacionTemporal({
     }
   }
 
-  raiz.addEventListener("click", manejarClick);
-  raiz.addEventListener("submit", manejarEnvio);
+  // Filtros de la lista: se aplican al escribir o elegir, sin recargar ni
+  // perder el foco; solo se repintan etiquetas, recuento y tabla.
+  function repintarResultadosLista() {
+    const zona = raiz.querySelector("[data-ct-exp-resultados]");
+    if (!zona) return;
+    zona.outerHTML = renderizarResultadosCuadro(presentador.obtenerEstado(), traducirExpedientes, filtroLista);
+  }
+  function manejarFiltroLocal(evento) {
+    const formulario = evento.target?.closest?.("[data-ct-exp-filtros-locales]");
+    if (!formulario || !raiz.contains(formulario)) return;
+    const control = evento.target;
+    if (!control?.name || !Object.hasOwn(filtroLista, control.name)) return;
+    filtroLista = filtroListaValido({ ...filtroLista, [control.name]: String(control.value ?? "") });
+    repintarResultadosLista();
+  }
+  function manejarQuitarFiltro(evento) {
+    const boton = evento.target?.closest?.("[data-ct-exp-quitar-filtro]");
+    if (!boton || !raiz.contains(boton)) return false;
+    evento.preventDefault();
+    const clave = boton.dataset.ctExpQuitarFiltro;
+    const estado = presentador.obtenerEstado();
+    const conServidor = Boolean(estado.filtros?.estado || estado.filtros?.fase || estado.filtros?.texto);
+    if (clave === "todos") filtroLista = filtroListaValido({});
+    else if (Object.hasOwn(filtroLista, clave)) filtroLista = filtroListaValido({ ...filtroLista, [clave]: "" });
+    if ((clave === "servidor" || clave === "todos") && conServidor && !estado.ocupado) {
+      void presentador.cargar({ texto: "", estado: "", fase: "" }).then(() => {
+        repintar("[data-ct-exp-filtros-locales] input");
+      });
+      return true;
+    }
+    repintar("[data-ct-exp-filtros-locales] input");
+    return true;
+  }
+  const manejarClickRaiz = (evento) => (manejarQuitarFiltro(evento) ? undefined : manejarClick(evento));
+  const manejarEnvioRaiz = (evento) => {
+    const formulario = evento.target?.closest?.("[data-ct-exp-filtros-locales]");
+    if (formulario?.hasAttribute?.("data-ct-exp-filtros-locales")) { evento.preventDefault(); return undefined; }
+    return manejarEnvio(evento);
+  };
+  raiz.addEventListener("click", manejarClickRaiz);
+  raiz.addEventListener("input", manejarFiltroLocal);
+  raiz.addEventListener("change", manejarFiltroLocal);
+  raiz.addEventListener("submit", manejarEnvioRaiz);
   repintar();
   if (presentador.obtenerEstado().carga === "inicial") {
     const promesa = presentador.cargar();
@@ -829,8 +880,10 @@ export async function montarModuloContratacionTemporal({
       retirarReincorporacion();
       retirarAuditoriaComun();
       retirarBorradoresPublicados();
-      raiz.removeEventListener("click", manejarClick);
-      raiz.removeEventListener("submit", manejarEnvio);
+      raiz.removeEventListener("click", manejarClickRaiz);
+      raiz.removeEventListener("input", manejarFiltroLocal);
+      raiz.removeEventListener("change", manejarFiltroLocal);
+      raiz.removeEventListener("submit", manejarEnvioRaiz);
       presentador.desmontar?.();
     },
   });

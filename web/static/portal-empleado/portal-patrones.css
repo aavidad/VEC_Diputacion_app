@@ -222,7 +222,7 @@
 /* Filtros quitables: buscador, selectores y etiquetas de los filtros activos. */
 .filtros-quitables {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr));
+  grid-template-columns: minmax(220px, 2fr) minmax(140px, 1fr) minmax(0, 3fr);
   gap: 12px;
   align-items: end;
   padding: 16px 20px;
@@ -232,9 +232,10 @@
 .filtros-quitables label > span { color: var(--portal-tinta); font-size: 0.875rem; font-weight: 600; }
 .filtros-quitables input,
 .filtros-quitables select { width: 100%; min-height: 40px; font-size: 0.9375rem; }
-.filtros-quitables .mas-filtros { display: contents; }
+/* «Más filtros»: siempre a la vista en escritorio; plegable en móvil. */
+.filtros-quitables .mas-filtros { min-width: 0; }
 .filtros-quitables .mas-filtros > summary { display: none; }
-.filtros-quitables .mas-filtros-cuerpo { display: contents; }
+.filtros-quitables .mas-filtros-cuerpo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .filtros-activos {
   display: flex;
   flex-wrap: wrap;
@@ -346,7 +347,8 @@
   .rejilla-principal { grid-template-columns: 1fr; }
   .rejilla-kpi.cuatro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filtros-quitables { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .filtros-quitables > label:first-child { grid-column: 1 / -1; }
+  .filtros-quitables > label:first-child,
+  .filtros-quitables .mas-filtros { grid-column: 1 / -1; }
 }
 
 @media (max-width: 760px) {
@@ -364,10 +366,9 @@
   .linea-fases > li::before { top: -50%; left: 15px; width: 2px; height: 100%; }
   .linea-fases .marca { grid-row: span 2; }
   .filtros-quitables { grid-template-columns: 1fr; padding: 16px; }
-  .filtros-quitables .mas-filtros { display: block; }
   .filtros-quitables .mas-filtros > summary { display: inline-flex; min-height: 32px; align-items: center; color: var(--portal-azul-700); font-weight: 600; cursor: pointer; }
   .filtros-quitables .mas-filtros[open] > summary { margin-bottom: 12px; }
-  .filtros-quitables .mas-filtros-cuerpo { display: grid; gap: 12px; }
+  .filtros-quitables .mas-filtros-cuerpo { grid-template-columns: 1fr; }
   .lista-documentos > li,
   .historial-frases > li { padding-inline: 16px; }
   .lista-documentos > li { grid-template-columns: 28px minmax(0, 1fr); }
@@ -376,18 +377,20 @@
   .revision-datos dd { grid-column: 1; }
   .revision-datos > div > :last-child { grid-column: 2; grid-row: 1 / span 2; }
   .pasos-numerados { grid-template-columns: 1fr; padding: 12px 16px; }
-  .tabla-apilable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .tabla-apilable,
-  .tabla-apilable tbody,
-  .tabla-apilable tr,
-  .tabla-apilable th,
-  .tabla-apilable td { display: block; }
-  .tabla-apilable { min-width: 0; }
-  .tabla-apilable tbody tr { height: auto; padding: 12px 16px; border-bottom: 1px solid var(--portal-borde); }
-  .tabla-apilable th,
-  .tabla-apilable td { min-width: 0; padding: 3px 0; border: 0; white-space: normal; text-align: left; }
-  .tabla-apilable td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--portal-muted); font-size: 0.8125rem; }
-  .tabla-apilable th[scope="row"] { padding-bottom: 6px; font-size: 1rem; }
+  .tabla-datos.tabla-apilable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .tabla-datos.tabla-apilable,
+  .tabla-datos.tabla-apilable tbody,
+  .tabla-datos.tabla-apilable tr,
+  .tabla-datos.tabla-apilable th,
+  .tabla-datos.tabla-apilable td { display: block; }
+  .tabla-datos.tabla-apilable { min-width: 0; }
+  .tabla-datos.tabla-apilable tbody tr { height: auto; padding: 12px 16px; border-bottom: 1px solid var(--portal-borde); }
+  .tabla-datos.tabla-apilable th,
+  .tabla-datos.tabla-apilable td { min-width: 0; min-height: 0; padding: 3px 0; border: 0; white-space: normal; text-align: left; }
+  .tabla-datos.tabla-apilable td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--portal-muted); font-size: 0.8125rem; }
+  .tabla-datos.tabla-apilable td small { display: inline; margin-left: 6px; }
+  .tabla-datos.tabla-apilable td .ct-exp-chip { vertical-align: middle; }
+  .tabla-datos.tabla-apilable th[scope="row"] { padding-bottom: 6px; font-size: 1rem; }
 }
 
 @media (max-width: 520px) {

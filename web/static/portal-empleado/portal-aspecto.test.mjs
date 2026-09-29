@@ -47,10 +47,10 @@ test("los módulos visuales revisados consumen tokens y no fijan hexadecimales",
   }
 });
 
-test("la bandeja conserva el detalle cerrado y explica la modalidad ausente solo en su celda", () => {
-  assert.doesNotMatch(vista, /ct-exp-nota-tabla/u);
-  assert.match(vista, /modalidadAusente \? ` title=/u);
-  assert.match(expedientes, /\.ct-exp-numero,[\s\S]*\.ct-exp-fase,[\s\S]*white-space: nowrap/u);
+test("la lista usa la tabla apilable común de cinco columnas, sin modalidad ni fila de resumen", async () => {
+  const lista = await leer("modulos/contratacion-temporal/vista-expedientes-lista.js");
+  assert.match(lista, /tabla-datos tabla-apilable ct-exp-tabla-peticiones/u);
+  assert.match(lista, /data-etiqueta=/u);
+  assert.doesNotMatch(lista, /modalidad|ct-exp-fila-resumen/u);
   assert.match(pagina, /function esFilaDetalleMarco[\s\S]*fila\.hasAttribute\('data-ct-exp-resumen-fila'\)/u);
-  assert.match(pagina, /detalle\.hidden = fila\.hidden \|\|/u);
 });

@@ -200,6 +200,9 @@ test("la bandeja y el cuadro muestran el expediente cancelado con su estado legi
   const cuadro = await adaptador.listar({ filtros: { texto: "", estado: "", fase: "" } });
   assert.equal(cuadro.expedientes[0].estado_clave, "cancelado");
   assert.equal(cuadro.expedientes[0].estado, "Cancelado");
-  const html = renderizarModuloContratacionTemporal({ vista: "cuadro", carga: "listo", cuadro, filtros: { texto: "", estado: "", fase: "" } }, {});
-  assert.match(html, /Cancelado/u);
+  // «Mostrar: Terminadas o canceladas» lo enseña con su estado; en trámite no cuenta.
+  const html = renderizarModuloContratacionTemporal({ vista: "cuadro", carga: "listo", cuadro, filtros: { texto: "", estado: "", fase: "" } },
+    { filtroLista: { mostrar: "terminadas" } });
+  assert.match(html, /ct-fase-cancelado">Cancelado</u);
+  assert.match(html, /No hay peticiones en trámite/u);
 });

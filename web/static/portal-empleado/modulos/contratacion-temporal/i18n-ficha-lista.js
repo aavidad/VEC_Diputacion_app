@@ -61,6 +61,7 @@ export const MENSAJES_FICHA_LISTA_ES = Object.freeze({
   lista_col_estado: "Estado",
   lista_col_plazo: "Plazo",
   lista_sin_plazo: "Sin plazo",
+  lista_abrir_aria: "Abrir el expediente {expediente}",
   lista_recuento_parcial: "Recuento parcial: hay más peticiones en la página siguiente.",
 });
 
@@ -125,5 +126,6 @@ export const MENSAJES_FICHA_LISTA_EN = Object.freeze({
   lista_col_estado: "Status",
   lista_col_plazo: "Deadline",
   lista_sin_plazo: "No deadline",
+  lista_abrir_aria: "Open case {expediente}",
   lista_recuento_parcial: "Partial count: there are more requests on the next page.",
 });

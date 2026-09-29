@@ -30,3 +30,25 @@
 .ct-exp-ficha-datos .datos-clave dd .enlace-tabla { padding: 0; text-align: left; }
 .ct-exp-tramite:focus { outline: none; }
 .ct-exp-fase-panel { margin: 0 0 20px; }
+
+/* Lista de peticiones. */
+.ct-exp-listado { overflow: hidden; }
+.ct-exp-tabla-lista { overflow-x: auto; }
+.ct-exp-tabla-peticiones { width: 100%; }
+.ct-exp-tabla-peticiones th[scope="row"] .enlace-tabla { font-weight: 600; }
+.ct-exp-tabla-peticiones td .ct-exp-chip + small { margin-top: 4px; }
+.ct-exp-lista-titulo { margin: 0; color: var(--portal-tinta); font-size: 1.125rem; font-weight: 600; }
+.ct-exp-lista-parcial {
+  margin: 0 0 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-tinta);
+  font-size: 0.875rem;
+}
+/* Cinco columnas caben sin el ancho mínimo de la bandeja anterior; en móvil, fichas. */
+.ct-exp-listado .tabla-datos.ct-exp-tabla-peticiones { min-width: 760px; }
+@media (max-width: 760px) {
+  .ct-exp-listado .tabla-datos.ct-exp-tabla-peticiones { min-width: 0; }
+}

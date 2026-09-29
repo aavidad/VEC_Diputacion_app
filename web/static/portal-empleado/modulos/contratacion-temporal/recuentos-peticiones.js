@@ -73,3 +73,52 @@ export function resumirPeticiones({ expedientes = [], parcial = false, generadoE
     porFase: Object.freeze(Object.fromEntries(porFase)),
   });
 }
+
+/** Filtros de la lista que se aplican en pantalla sobre la consulta ya cargada. */
+export const FILTRO_LISTA_INICIAL = Object.freeze({ texto: "", fase: "", centro: "", categoria: "", mostrar: "en_tramite" });
+export const OPCIONES_MOSTRAR = Object.freeze(["en_tramite", "atencion", "vencen_semana", "espera", "terminadas", "todas"]);
+
+/** Normaliza un filtro recibido (de la portada o del formulario) sin aceptar claves ajenas. */
+export function filtroListaValido(entrada = {}) {
+  const filtro = { ...FILTRO_LISTA_INICIAL };
+  for (const clave of Object.keys(filtro)) {
+    const valor = entrada?.[clave];
+    if (typeof valor === "string" && valor.length <= 120) filtro[clave] = valor.trim();
+  }
+  if (filtro.fase && !FASES_RRHH.includes(filtro.fase)) filtro.fase = "";
+  if (!OPCIONES_MOSTRAR.includes(filtro.mostrar)) filtro.mostrar = FILTRO_LISTA_INICIAL.mostrar;
+  return Object.freeze(filtro);
+}
+
+function normalizar(texto) {
+  return String(texto ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es-ES");
+}
+
+function cumpleMostrar(expediente, mostrar, hoy) {
+  if (mostrar === "todas") return true;
+  if (mostrar === "terminadas") return !enTramite(expediente);
+  if (!enTramite(expediente)) return false;
+  if (mostrar === "atencion") return requiereAtencion(expediente);
+  if (mostrar === "espera") return expediente.estado_clave === "espera";
+  if (mostrar === "vencen_semana") {
+    const dia = diaPlazo(expediente);
+    if (!dia || !hoy) return false;
+    const dias = diasEntre(hoy, dia);
+    return dias >= 0 && dias <= 6;
+  }
+  return true;
+}
+
+/** Aplica los filtros de pantalla y ordena por plazo (lo más urgente, arriba). */
+export function filtrarPeticiones(expedientes, filtro = FILTRO_LISTA_INICIAL, generadoEn = "") {
+  const hoy = /^\d{4}-\d{2}-\d{2}/u.exec(String(generadoEn ?? ""))?.[0] ?? "";
+  const texto = normalizar(filtro.texto);
+  return (Array.isArray(expedientes) ? expedientes : []).filter((expediente) => (
+    cumpleMostrar(expediente, filtro.mostrar, hoy)
+    && (!filtro.fase || faseRRHH(expediente.fase_clave)?.clave === filtro.fase)
+    && (!filtro.centro || expediente.centro === filtro.centro)
+    && (!filtro.categoria || expediente.categoria === filtro.categoria)
+    && (!texto || [expediente.numero_visible, expediente.centro, expediente.categoria]
+      .some((valor) => normalizar(valor).includes(texto)))
+  )).sort(compararPorPlazo);
+}
