@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { versionDe } from "../versiones-cache.test-helper.mjs";
+import { exigirRenovado, versionDe } from "../versiones-cache.test-helper.mjs";
 import {
   API_REGLAS, ErrorReglas, crearCliente, detalleRegla, filtrar, idRegla, iniciar, mensajeError, origenRegla, renderizarCatalogo,
   renderizarResumen, validarReglas, valorRegla,
@@ -28,6 +29,8 @@ function respuesta() {
 test("el catálogo i18n está completo y toda clave de la página existe", () => {
   const t = crearTraductorReglas();
   assert.throws(() => crearTraductorReglas({ titulo: "x" }), /incompleto/u);
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS, ayudaResolver: "" }), /incompleto/u);
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS, parteEjemplo: "Sin dato" }), /incompleto/u);
   assert.throws(() => t("desconocida"), /desconocida/u);
   const html = leer("./index.html");
   for (const [, clave] of html.matchAll(/data-i18n(?:-label)?="([^"]+)"/gu)) assert.ok(Object.hasOwn(MENSAJES_REGLAS, clave), clave);
@@ -35,6 +38,20 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
   for (const [, id] of js.matchAll(/\$\("([a-z-]+)"\)/gu)) assert.match(html, new RegExp(`id="${id}"`, "u"), id);
   assert.ok(!/style=|<script>/u.test(html), "sin estilos ni guiones en línea");
   assert.match(html, /id="rg-ayuda-abrir"[^>]*>\?</u, "la ayuda solo se abre con «?»");
+});
+
+test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
+  const html = leer("./index.html");
+  const reglas = leer("./reglas.js");
+  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v1");
+  assert.equal(version, "20260930-reglas-detalle-v2");
+  const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
+  const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
+  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v1"), version);
+  const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
+  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v1"), version);
+  const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), version);
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
@@ -131,6 +148,37 @@ test("cada regla se abre para leerla entera: descripción, origen, norma y duda,
   assert.ok(!abierta.includes(`id="${id}" hidden`));
 });
 
+test("claves válidas distintas conservan identificadores únicos y los datos no se traducen", () => {
+  const claves = ["b04.franja", "b04-franja", "b04_franja", "b04:franja"];
+  const ids = claves.map((clave) => idRegla("bolsa", clave));
+  assert.equal(new Set(ids).size, claves.length);
+  assert.notEqual(idRegla("bolsa-a", "b"), idRegla("bolsa", "a-b"));
+  const html = renderizarCatalogo({ ...validarReglas(respuesta()).catalogos[0], reglas: [
+    regla({ clave: claves[0], ejemplo_parcial: "Solo personal fijo" }),
+    regla({ clave: claves[1], ejemplo_parcial: "Solo temporal" }),
+  ] });
+  for (const id of ids.slice(0, 2)) {
+    assert.match(html, new RegExp(`aria-controls="${id}"`, "u"));
+    assert.match(html, new RegExp(`id="${id}"`, "u"));
+  }
+  assert.match(html, /<small translate="no"><code>b04\.franja<\/code><\/small>/u);
+  assert.match(html, /Parte de ejemplo: <span>Solo personal fijo<\/span>/u);
+});
+
+test("la vista inglesa marca como españoles solo los datos recibidos", () => {
+  const modulo = new URL("./reglas.js", import.meta.url).href;
+  const codigo = `globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };
+    const { renderizarCatalogo } = await import(${JSON.stringify(modulo)});
+    const regla = ${JSON.stringify(regla({ ejemplo_parcial: "Solo personal fijo" }))};
+    process.stdout.write(renderizarCatalogo({ modulo: "bolsa", catalogo_id: "vec.bolsa.reglas",
+      estado: "disponible", paquete_ejemplo: true, reglas: [regla] }));`;
+  const html = execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" });
+  assert.match(html, /<span class="rg-regla-nombre" lang="es">Plazo de respuesta<\/span>/u);
+  assert.match(html, /Example part: <span lang="es">Solo personal fijo<\/span>/u);
+  assert.match(html, /<small translate="no"><code>b05\.plazo_respuesta<\/code><\/small>/u);
+  assert.doesNotMatch(html, /lang="es">Example part:/u);
+});
+
 test("los textos de la pantalla vienen de los catálogos es y en con las mismas claves", () => {
   const es = JSON.parse(readFileSync(new URL("../../textos/es/reglas.json", import.meta.url), "utf8")).general;
   const en = JSON.parse(readFileSync(new URL("../../textos/en/reglas.json", import.meta.url), "utf8")).general;
@@ -204,4 +252,8 @@ test("pulsar el nombre abre y cierra el detalle, lo anota en el ancla y la recar
   const ajena = documentoFalso("#<img src=x>");
   await iniciar(ajena.doc, cliente);
   assert.ok(!ajena.nodos.get("rg-catalogos").innerHTML.includes('aria-expanded="true"'));
+  const malformada = documentoFalso("#%");
+  await iniciar(malformada.doc, cliente);
+  assert.equal(malformada.nodos.get("rg-resultado").hidden, false);
+  assert.match(malformada.nodos.get("rg-catalogos").innerHTML, /aria-expanded="false"/u);
 });

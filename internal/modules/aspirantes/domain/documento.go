@@ -1,7 +1,10 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -24,6 +27,13 @@ func (d DocumentoIdentidad) String() string {
 	return "aspirantes.DocumentoIdentidad{" + string(d.Tipo) + " " + d.Pais + " " + d.Enmascarado() + "}"
 }
 func (d DocumentoIdentidad) GoString() string { return d.String() }
+
+// MarshalJSON y LogValue tampoco sacan el número completo.
+func (d DocumentoIdentidad) MarshalJSON() ([]byte, error) { return json.Marshal(d.String()) }
+func (d DocumentoIdentidad) LogValue() slog.Value         { return slog.StringValue(d.String()) }
+
+// Format redacta también con %d, %x y demás verbos.
+func (d DocumentoIdentidad) Format(f fmt.State, _ rune) { _, _ = f.Write([]byte(d.String())) }
 
 func (t TipoDocumento) Valido() bool {
 	switch t {
