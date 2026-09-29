@@ -1,12 +1,14 @@
 # Clon local para comprobar recorridos
 
 Este guion reconstruye una copia aislada con datos sintéticos. Usa el archivo del
-hito 1, instala únicamente las 33 SQL posteriores de este corte y construye el
+hito 1, instala únicamente las 34 SQL posteriores de este corte y construye el
 binario del mismo commit de `main`. El hito 5 configura la política de ofertas;
 no contiene migraciones. No contacta con la principal.
 
-El corte admitido es `7f1ecea2fd9f8912d255a80e74da84c69e46b978`. Para comprobar
-otro commit hay que revisar la lista y las huellas de `sql_main.txt` primero.
+El corte actual es `ff6493cfccb2da4e83c94fa7c59be24c025cb7c9`. La revisión
+anterior, `7f1ecea2fd9f8912d255a80e74da84c69e46b978`, tenía 33 SQL; la
+actualización añade CT147 y conserva sus recibos. Para comprobar otro commit
+hay que revisar la lista y las huellas de `sql_main.txt` primero.
 Cambiar el binario sin comprobar su esquema no prepara otro clon válido.
 
 Necesita Docker, las imágenes locales `postgres:18.4` y `alpine:3.22`, Python,
@@ -22,13 +24,20 @@ guion conserva los certificados de RRHH e Intervención y las claves que
 protegen la historia. Añade solo las identidades que faltan. No copia material
 de una persona real ni concede permisos a partir de una petición del navegador.
 
+El archivo del hito 1 no incluye las cuentas de Usuarios que indican sus JSON
+privados. La preparación las concilia con la autoridad de identidad del clon,
+manteniendo certificado, sujeto, persona y perfil. La cuenta canónica puede
+tener una referencia nueva; no se presenta como recuperación de una fila que
+el archivo no contiene. Las asignaciones existentes se cotejan y una revocación
+detiene ese perfil.
+
 ## Preparar
 
 Desde un checkout que contenga estos guiones:
 
 ```bash
 git fetch origin
-export VEC_RECORRIDOS_REFERENCIA=7f1ecea2fd9f8912d255a80e74da84c69e46b978
+export VEC_RECORRIDOS_REFERENCIA=ff6493cfccb2da4e83c94fa7c59be24c025cb7c9
 export VEC_RECORRIDOS_ESTADO="$HOME/.local/state/vec-recorridos"
 export VEC_RECORRIDOS_CONTENEDOR=vec-recorridos-local
 export VEC_RECORRIDOS_PUERTO_PG=55531
@@ -45,6 +54,11 @@ El registro de SQL queda en la propia copia, dentro de cada transacción, y en
 `sql-journal.json`. Si se pierde el JSON, se recupera desde ese registro. Repetir
 el guion no reaplica una migración ni ejecuta `DOWN`. Una fuente o una huella
 distinta detienen el montaje.
+
+Para actualizar el clon anterior a este corte, detenga primero la aplicación
+con `parar`, cambie `VEC_RECORRIDOS_REFERENCIA` y vuelva a ejecutar `preparar`.
+La fuente anterior debe ser antecesora de la nueva y el instalador debe conocer
+la ampliación. El volumen, la historia y el material privado se conservan.
 
 ## Comprobar y recuperar
 
@@ -68,6 +82,13 @@ Las capturas y los planes se guardan fuera de cualquier repositorio. Los guiones
 usan Playwright con `/usr/bin/google-chrome`, a 1440 y 390 px. La CA sintética
 debe estar confiada tanto por Chrome como por el transporte de Playwright;
 no se desactiva la comprobación TLS.
+
+`READY.json` solo aparece después de comprobar binario, SQL, material y escucha
+HTTPS. Incluye las condiciones que siguen pendientes. La preparación crea un
+almacén de confianza privado en `chrome-home`, sin modificar el del usuario.
+Al invocar un guion, use ese directorio como `HOME` únicamente para su proceso
+y `NODE_EXTRA_CA_CERTS` con la CA que indica el registro. Los planes siguen
+fuera de Git. Una denegación observada no equivale a un proceso terminado.
 
 ## Retirar lo propio
 

@@ -115,10 +115,16 @@ if [[ "$accion" == plan ]]; then
 fi
 if [[ -e "$marcador" ]]; then
   registro_propio
+  anterior=$(python3 - "$marcador" <<'PY'
+import json,sys
+print(json.load(open(sys.argv[1]))['commit'])
+PY
+)
   python3 - "$marcador" "$commit" "$puerto_pg" "$puerto_web" <<'PY'
 import json,sys
-v=json.load(open(sys.argv[1])); assert (v['commit'],v['puerto_pg'],v['puerto_web']) == (sys.argv[2],int(sys.argv[3]),int(sys.argv[4])), 'Fuente/puertos diferentes: prepare otro estado y otro contenedor.'
+v=json.load(open(sys.argv[1])); assert (v['puerto_pg'],v['puerto_web']) == (int(sys.argv[3]),int(sys.argv[4])), 'Puertos diferentes: prepare otro estado y otro contenedor.'
 PY
+  git -C "$repo" merge-base --is-ancestor "$anterior" "$commit" || { echo 'La fuente nueva no continúa la anterior.' >&2; exit 1; }
   if docker inspect "$nombre" >/dev/null 2>&1; then
     propio
   else
@@ -132,6 +138,7 @@ PY
     docker run -d --rm --name "$nombre" --label vec.recorridos.owner=Codex-M --label "vec.recorridos.state=$estado" -p "127.0.0.1:$puerto_pg:5432" -v "$pgdata:/var/lib/postgresql" postgres:18.4 >/dev/null
   fi
   if [[ "$(runtime status | python3 -c 'import json,sys; print(json.load(sys.stdin)["running"])')" == True ]]; then
+    [[ "$anterior" == "$commit" ]] || { echo 'Detenga el clon antes de actualizar su fuente.' >&2; exit 1; }
     echo 'El clon propio ya está en marcha; no se cambió su material.'
     exit
   fi
@@ -165,8 +172,49 @@ PY
 fi
 for ((i=0; i<60; i++)); do docker exec "$nombre" pg_isready -q -U postgres && break; sleep 1; done
 docker exec "$nombre" pg_isready -q -U postgres
-python3 "$guiones/clon_sql.py" --repo "$estado/fuente" --source-ref "$commit" --container "$nombre" --state-dir "$estado"
-python3 "$guiones/clon_material.py" --repo "$estado/fuente" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg"
+fuente="$estado/fuente-$commit"
+if [[ ! -e "$fuente" ]]; then
+  mkdir -m 700 "$fuente"
+  git -C "$repo" archive "$commit" | tar -x -C "$fuente"
+fi
+python3 "$guiones/clon_sql.py" --repo "$fuente" --source-ref "$commit" --container "$nombre" --state-dir "$estado"
+python3 - "$marcador" "$estado" "$commit" <<'PY'
+import datetime,json,os,pathlib,sys
+p=pathlib.Path(sys.argv[1]); state=pathlib.Path(sys.argv[2]); v=json.loads(p.read_text())
+j=json.loads((state/'sql-journal.json').read_text())
+actual=j.get('current_source_ref', j['source_ref'])
+assert actual == sys.argv[3]
+if v['commit'] != actual:
+    h=state/'actualizaciones.jsonl'
+    fd=os.open(h,os.O_WRONLY|os.O_CREAT|os.O_APPEND|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'a') as f:
+        f.write(json.dumps(dict(anterior=v['commit'],actual=actual,instante=datetime.datetime.now(datetime.timezone.utc).isoformat()))+'\n')
+    v['commit']=actual
+    t=state/'clon.json.nuevo'; t.write_text(json.dumps(v,indent=2)+'\n'); t.chmod(0o600); t.replace(p)
+v.update(sql_instaladas=len(j['installed']),app_lista=False)
+d=state/'DB_READY.json'; d.write_text(json.dumps(v,indent=2)+'\n'); d.chmod(0o600)
+PY
+opciones_material=()
+if [[ -f "$estado/material-manifest.json" ]]; then opciones_material+=(--upgrade-source); fi
+estado_material=0
+python3 "$guiones/clon_material.py" --repo "$repo" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --complete-profiles "${opciones_material[@]}" || estado_material=$?
+[[ "$estado_material" == 0 || "$estado_material" == 3 ]] || exit "$estado_material"
 runtime build
 runtime start
+python3 - "$estado" <<'PY'
+import hashlib,json,pathlib,subprocess,sys
+s=pathlib.Path(sys.argv[1]); m=json.loads((s/'material-manifest.json').read_text()); r=json.loads((s/'runtime-process.json').read_text()); j=json.loads((s/'sql-journal.json').read_text())
+cfg=json.loads((s/'runtime-config.json').read_text())
+assert cfg.get('VEC_BOLSA_POLITICA_OFERTAS_ENABLED') == 'true', 'Falta preparar la configuración del hito 5.'
+home=s/'chrome-home'; nss=home/'.pki/nssdb'; nss.mkdir(parents=True,mode=0o700,exist_ok=True); home.chmod(0o700); (home/'.pki').chmod(0o700)
+if not (nss/'cert9.db').exists():
+    subprocess.run(['certutil','-N','--empty-password','-d','sql:'+str(nss)],check=True,stdout=subprocess.DEVNULL)
+subprocess.run(['certutil','-A','-d','sql:'+str(nss),'-n','vec-clon-sintetico','-t','C,,','-i',str(s/'material/ca/ca.crt')],check=True,stdout=subprocess.DEVNULL)
+for f in nss.iterdir():
+    if f.is_file(): f.chmod(0o600)
+binary=pathlib.Path(r['exe']); actual=j.get('current_source_ref',j['source_ref'])
+assert actual == r['source_commit'] == m['target']['source_commit']
+v=dict(tipo='clon_local_h3_h5',clon='local',datos='sinteticos',hitos=['H3','H4','H5'],hitos_verificados=['H3','H4','H5'],clon_sintetico=True,clon_ref=json.loads((s/'clon.json').read_text())['contenedor'],origen='https://127.0.0.1:'+str(r['port']),commit=actual,binario=str(binary),binario_sha256=r['binary_sha256'],pid=r['pid'],sql_instaladas=len(j['installed']),material_sha256=hashlib.sha256((s/'material-manifest.json').read_bytes()).hexdigest(),bloqueos=m.get('blockers',[]),chrome_home=str(home),ca=str(s/'material/ca/ca.crt'))
+p=s/'READY.json'; p.write_text(json.dumps(v,ensure_ascii=False,indent=2)+'\n'); p.chmod(0o600)
+PY
 echo 'Clon preparado. Consulte el registro privado de estado antes de ejecutar recorridos.'
