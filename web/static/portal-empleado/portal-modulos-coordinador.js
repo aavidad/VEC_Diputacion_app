@@ -108,13 +108,13 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/registro-b2.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/registro-b2.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/cliente-http-ficha-propia.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/cliente-http-ficha-propia.js?v=20260929-i18n-personal-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia });
@@ -125,9 +125,9 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260929-i18n-personal-v1"),
     ]);
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },

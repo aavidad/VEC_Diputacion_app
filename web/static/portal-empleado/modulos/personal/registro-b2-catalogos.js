@@ -1,3 +1,4 @@
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 import { calcularHuellaPublicacionCatalogoB2 } from "./registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1";
 
@@ -6,8 +7,8 @@ const REF = /^[a-z][a-z0-9_:-]{2,159}$/u;
 function nodo(d, etiqueta, texto) { const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; return n; }
 function aviso(d, texto, error = false) { const p = nodo(d, "p", texto); p.className = "personal-registro-b2-estado"; p.setAttribute("role", error ? "alert" : "status"); return p; }
 function fecha(valor) { const d = new Date(`${valor}T12:00:00Z`); return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(valor) && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === valor; }
-function fechaTexto(valor, t) { return fecha(valor) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${valor}T12:00:00Z`)) : t("registro_b2_actual"); }
-function fechaHora(valor) { return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
+function fechaTexto(valor, t) { return fecha(valor) ? new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${valor}T12:00:00Z`)) : t("registro_b2_actual"); }
+function fechaHora(valor) { return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
 
 /** Carga completa de las cuatro opciones publicadas; nunca acepta opciones del shell. */
 export async function cargarOpcionesPublicadasCatalogoB2(cliente, { signal } = {}) {
@@ -77,7 +78,7 @@ export function montarCatalogosRegistroB2({ raiz, cliente, anunciar = () => {}, 
     const body = nodo(d, "tbody");
     for (const e of paginaActual.entradas) {
       const tr = nodo(d, "tr"); const nombre = nodo(d, "td"); nombre.append(nodo(d, "span", e.denominacion));
-      tr.append(nombre, nodo(d, "td", new Intl.NumberFormat("es-ES").format(e.version)), nodo(d, "td", t(e.estado === "publicada" ? "registro_b2_catalogos_publicada" : "registro_b2_catalogos_retirada")), nodo(d, "td", `${fechaTexto(e.vigente_desde, t)} – ${fechaTexto(e.vigente_hasta, t)}`), nodo(d, "td", new Intl.NumberFormat("es-ES").format(e.revision)));
+      tr.append(nombre, nodo(d, "td", new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(e.version)), nodo(d, "td", t(e.estado === "publicada" ? "registro_b2_catalogos_publicada" : "registro_b2_catalogos_retirada")), nodo(d, "td", `${fechaTexto(e.vigente_desde, t)} – ${fechaTexto(e.vigente_hasta, t)}`), nodo(d, "td", new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(e.revision)));
       const celda = nodo(d, "td");
       if (e.estado === "publicada") { const retirar = nodo(d, "button", t("registro_b2_catalogos_retirar")); retirar.type = "button"; retirar.addEventListener("click", () => { formulario = { operacion: "retirar", entrada: e }; pintar(); }); celda.append(retirar); }
       tr.append(celda);
@@ -89,7 +90,7 @@ export function montarCatalogosRegistroB2({ raiz, cliente, anunciar = () => {}, 
     const form = nodo(d, "form"); form.className = "personal-registro-b2-catalogos-formulario"; const campos = new Map();
     const agregar = (clave, etiqueta, tipoCampo, valor = "", requerido = true) => { const control = nodo(d, "input"); control.type = tipoCampo; control.value = valor; control.required = requerido; if (tipoCampo === "number") { control.min = "1"; control.step = "1"; } campos.set(clave, control); form.append(etiquetaCampo(clave, etiqueta, control)); };
     if (formulario.operacion === "publicar") { agregar("ref", "registro_b2_catalogos_ref", "text"); agregar("version", "registro_b2_catalogos_version", "number", "1"); agregar("denominacion", "registro_b2_catalogos_denominacion", "text"); agregar("vigente_desde", "registro_b2_catalogos_desde", "date"); agregar("vigente_hasta", "registro_b2_catalogos_hasta", "date", "", false); }
-    else { const e = formulario.entrada; form.append(aviso(d, `${e.denominacion} · ${e.ref} · ${t("registro_b2_catalogos_version")} ${new Intl.NumberFormat("es-ES").format(e.version)}`)); }
+    else { const e = formulario.entrada; form.append(aviso(d, `${e.denominacion} · ${e.ref} · ${t("registro_b2_catalogos_version")} ${new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(e.version)}`)); }
     const revisar = nodo(d, "button", t("registro_b2_catalogos_revisar")); revisar.type = "submit";
     const cancelar = nodo(d, "button", t("registro_b2_catalogos_cancelar")); cancelar.type = "button"; cancelar.addEventListener("click", () => { formulario = undefined; pintar(); });
     form.append(revisar, cancelar); form.addEventListener("submit", async (evento) => {
@@ -112,7 +113,7 @@ export function montarCatalogosRegistroB2({ raiz, cliente, anunciar = () => {}, 
   function pintarRevision(cuerpo) {
     cuerpo.append(aviso(d, t(pendiente.cuerpo.operacion === "publicar" ? "registro_b2_catalogos_publicar" : "registro_b2_catalogos_retirar")));
     const datos = nodo(d, "dl"); datos.className = "personal-registro-b2-catalogos-revision";
-    for (const [etiqueta, valor] of [["registro_b2_catalogos_tipo", t(TIPOS.find(([v]) => v === tipo)[1])], ["registro_b2_catalogos_ref", pendiente.cuerpo.ref], ["registro_b2_catalogos_version", new Intl.NumberFormat("es-ES").format(pendiente.cuerpo.version)], ["registro_b2_catalogos_denominacion", pendiente.cuerpo.denominacion], ["registro_b2_catalogos_desde", fechaTexto(pendiente.cuerpo.vigente_desde, t)]]) { datos.append(nodo(d, "dt", t(etiqueta)), nodo(d, "dd", valor)); }
+    for (const [etiqueta, valor] of [["registro_b2_catalogos_tipo", t(TIPOS.find(([v]) => v === tipo)[1])], ["registro_b2_catalogos_ref", pendiente.cuerpo.ref], ["registro_b2_catalogos_version", new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(pendiente.cuerpo.version)], ["registro_b2_catalogos_denominacion", pendiente.cuerpo.denominacion], ["registro_b2_catalogos_desde", fechaTexto(pendiente.cuerpo.vigente_desde, t)]]) { datos.append(nodo(d, "dt", t(etiqueta)), nodo(d, "dd", valor)); }
     cuerpo.append(datos);
     const acciones = nodo(d, "div"); acciones.className = "personal-registro-b2-paginacion";
     const cancelar = nodo(d, "button", t("registro_b2_catalogos_cancelar")); cancelar.type = "button"; cancelar.addEventListener("click", () => { pendiente = undefined; estado = "lista"; pintar(); });

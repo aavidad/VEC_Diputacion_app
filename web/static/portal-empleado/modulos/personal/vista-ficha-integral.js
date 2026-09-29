@@ -1,3 +1,4 @@
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
 const PESTANAS = Object.freeze([
@@ -88,17 +89,17 @@ function validarResultado(resultado, bloque) {
   return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items };
 }
 function formatearFecha(iso) {
-  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(iso));
 }
 function mostrarCampo(campo, valor, t) {
   if (!valor) return t("ficha_no_consta");
   if (["desde", "hasta", "fecha"].includes(campo) && /^\d{4}-\d{2}-\d{2}$/u.test(valor)) {
     const fecha = new Date(`${valor}T12:00:00Z`);
-    if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor) return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(fecha);
+    if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor) return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(fecha);
   }
   if (campo === "periodo" && /^\d{4}-\d{2}$/u.test(valor)) {
     const fecha = new Date(`${valor}-15T12:00:00Z`);
-    if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 7) === valor) return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "Europe/Madrid" }).format(fecha);
+    if (Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 7) === valor) return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { month: "long", year: "numeric", timeZone: "Europe/Madrid" }).format(fecha);
   }
   return valor;
 }

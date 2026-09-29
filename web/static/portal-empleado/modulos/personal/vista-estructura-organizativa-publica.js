@@ -1,3 +1,4 @@
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
@@ -147,7 +148,7 @@ function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
   siguiente.dataset.personalEstructuraSiguiente = "";
   siguiente.disabled = pagina >= paginas - 1;
   siguiente.addEventListener("click", () => cambiarPagina(pagina + 1));
-  const numero = new Intl.NumberFormat("es-ES");
+  const numero = new Intl.NumberFormat(LOCALIZACION_ACTUAL);
   const posicion = nodo(documento, "span", `${numero.format(pagina + 1)} / ${numero.format(paginas)}`);
   posicion.setAttribute("aria-live", "polite");
   navegacion.append(anterior, posicion, siguiente);
