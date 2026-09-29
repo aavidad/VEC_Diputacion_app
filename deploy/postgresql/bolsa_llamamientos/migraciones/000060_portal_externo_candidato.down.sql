@@ -5,7 +5,7 @@ BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000059', 0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000060', 0));
 DO $guardia$
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
@@ -13,7 +13,7 @@ BEGIN
     OR EXISTS (SELECT 1 FROM pg_auth_members WHERE roleid='vec_bolsa_llamamientos_portal_externo'::regrole)
     OR position('vec_bolsa_llamamientos_portal_externo' in pg_get_functiondef(
         'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))>0
- THEN RAISE EXCEPTION 'Bolsa 000059: retirada denegada' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Bolsa 000060: retirada denegada' USING ERRCODE='55000'; END IF;
 END $guardia$;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 REVOKE ALL ON FUNCTION

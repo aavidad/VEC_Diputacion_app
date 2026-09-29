@@ -1,12 +1,12 @@
 \set ON_ERROR_STOP on
--- Bolsa 000059: el proceso externo usa una identidad SQL propia. Solo puede
+-- Bolsa 000060: el proceso externo usa una identidad SQL propia. Solo puede
 -- invocar las fachadas personales existentes; cada una consume material V3
 -- del candidato o una marca ligada a ese consumo en la misma transacción.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000059', 0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:000060', 0));
 
 DO $pre$
 DECLARE f regprocedure; nombre text;
@@ -27,7 +27,7 @@ BEGIN
     OR to_regrole('vec_bolsa_llamamientos_portal_externo') IS NOT NULL
     OR to_regrole('vec_bolsa_llamamientos_propietario') IS NULL
     OR to_regrole('vec_bolsa_llamamientos_ejecutor') IS NULL
- THEN RAISE EXCEPTION 'Bolsa 000059: instalación DBA o preimagen incompatibles' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Bolsa 000060: instalación DBA o preimagen incompatibles' USING ERRCODE='55000'; END IF;
  FOREACH nombre IN ARRAY fachadas LOOP
   f := to_regprocedure(nombre);
   IF f IS NULL OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
@@ -36,7 +36,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM pg_proc p,
                 LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
                 WHERE p.oid=f AND a.grantee=0 AND a.privilege_type='EXECUTE')
-  THEN RAISE EXCEPTION 'Bolsa 000059: fachada personal ausente o abierta' USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'Bolsa 000060: fachada personal ausente o abierta' USING ERRCODE='55000'; END IF;
  END LOOP;
 END $pre$;
 
