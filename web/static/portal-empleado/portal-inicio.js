@@ -111,7 +111,7 @@ function renderizarTramitesInicio(tramites, escaparHTML, traducir, idioma) {
           <td>${escaparHTML(e.centro ?? "—")}</td>
           <td>${escaparHTML(e.categoria ?? "—")}</td>
           <td>${escaparHTML(formatearFaseRRHH(e.fase_clave ?? e.fase_actual, idioma) ?? "—")}</td>
-          <td><span class="ct-exp-chip${ESTADOS_INICIO.has(e.estado_clave) ? ` ct-fase-${e.estado_clave}` : ""}">${escaparHTML(nombreEstadoRRHH(e.estado_clave, idioma) ?? e.estado ?? "—")}</span></td>
+          <td><span class="ct-exp-chip${ESTADOS_INICIO.has(e.estado_clave) ? ` ct-fase-${e.estado_clave}` : ""}">${escaparHTML(nombreEstadoRRHH(e.estado_clave, idioma) ?? "—")}</span></td>
         </tr>`).join("")}</tbody>
       </table>
     </div>`;
@@ -135,7 +135,7 @@ function renderizarAsuntosInicio(resumen, tramites, escaparHTML, traducir, numer
         <tbody>${filas.map((e) => `<tr>
           <th scope="row">${escaparHTML(e.numero_visible ?? "—")}</th>
           <td>${escaparHTML(formatearFaseRRHH(e.fase_clave ?? e.fase_actual, idioma) ?? "—")}</td>
-          <td>${escaparHTML(nombreEstadoRRHH(e.estado_clave, idioma) ?? e.estado ?? "—")}</td>
+          <td>${escaparHTML(nombreEstadoRRHH(e.estado_clave, idioma) ?? "—")}</td>
           <td>${e.plazo_estado === "vencido" ? t("inicio_rrhh_plazo_vencido") : e.plazo_estado === "vence_hoy" ? t("inicio_rrhh_plazo_hoy") : "—"}${e.plazo_estado === "vencido" || e.plazo_estado === "vence_hoy" ? ` · ${escaparHTML(e.plazo ?? "—")}` : ""}</td>
           <td><button type="button" class="boton-terciario" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">${t("inicio_rrhh_abrir_expediente")}</button></td>
         </tr>`).join("")}</tbody></table></div>` : ""}

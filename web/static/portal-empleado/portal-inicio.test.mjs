@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { calcularMetricasCuadro, crearVistaInicioPortal, resumirBolsasInicio, tramitesParaInicio } from "./portal-inicio.js";
+import { calcularMetricasCuadro, crearVistaInicioPortal, resumirAsuntosInicio, resumirBolsasInicio, tramitesParaInicio } from "./portal-inicio.js";
 import { crearControladorPortal } from "./portal-eventos.js";
 import { crearTraductorPortal, MENSAJES_INICIO_RRHH_EN, MENSAJES_PORTAL_ES } from "./portal-i18n.js";
 
@@ -247,6 +247,23 @@ test("el cursor real del cuadro impide convertir la página en total", () => {
   }).en_tramitacion, 1);
 });
 
+test("la portada cuenta cada expediente una vez y ordena asuntos por plazo civil real", () => {
+  const expedientes = [
+    { expediente_ref: "sin", estado_clave: "incidencia" },
+    { expediente_ref: "hoy", estado_clave: "en_curso", plazo_estado: "vence_hoy", plazo_ultimo_dia: "2026-09-29" },
+    { expediente_ref: "antiguo", estado_clave: "incidencia", plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-20" },
+    { expediente_ref: "reciente", estado_clave: "en_curso", plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-28" },
+    { expediente_ref: "cerrado", estado_clave: "completado", plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-18" },
+  ];
+  const resumen = resumirAsuntosInicio({ expedientes, paginacion: { pagina: 1, cursor_siguiente: "" } });
+  assert.equal(resumen.total, 4);
+  assert.deepEqual(resumen.expedientes.map(({ expediente_ref }) => expediente_ref),
+    ["antiguo", "reciente", "hoy", "sin"]);
+  assert.equal(resumirAsuntosInicio({ expedientes, paginacion: { pagina: 1, cursor_siguiente: "otro" } }), null);
+  assert.equal(resumirAsuntosInicio({ expedientes, paginacion: { pagina: 2, cursor_siguiente: "" } }), null);
+  assert.equal(calcularMetricasCuadro({ expedientes, paginacion: { pagina: 2, cursor_siguiente: "" } }), null);
+});
+
 test("C17: los totales del servidor prevalecen sobre una página parcial", () => {
   assert.deepEqual(calcularMetricasCuadro({
     hay_mas: true,
@@ -273,7 +290,7 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
   const html = renderizarRRHH();
 
   // Encabezado y sección RRHH, sin textos técnicos ni de ayuda en pantalla.
-  assert.match(html, /Peticiones de personal temporal/);
+  assert.match(html, /Inicio de Recursos Humanos/);
   assert.doesNotMatch(html, /adaptador de backend|Accesos por módulo|fase inicial/u);
   assert.match(html, /class="portal-rrhh-inicio"/);
 
@@ -443,7 +460,7 @@ test("la ayuda de RRHH queda en la cabecera y el vacío indica dónde consultar"
     obtenerMetricasCuadro: () => ({ en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 }),
     obtenerTramitesInicio: () => [],
   })();
-  assert.match(html, /<header><h1>Peticiones de personal temporal<\/h1><button[^>]*data-accion="ayuda"[^>]*>\?<\/button><\/header>/u);
+  assert.match(html, /<header><h1>Inicio de Recursos Humanos<\/h1><button[^>]*data-accion="ayuda"[^>]*>\?<\/button><\/header>/u);
   assert.equal((html.match(/data-accion="ayuda"/gu) || []).length, 1);
   assert.match(html, /No hay expedientes recientes\. Consulte el cuadro para ver todos los trámites\./u);
 });
@@ -458,7 +475,7 @@ test("un fallo del cuadro no se presenta como ausencia de expedientes", () => {
     obtenerTramitesInicio: () => null,
   })();
   assert.match(html, /No se pudo consultar el cuadro de expedientes/u);
-  assert.doesNotMatch(html, /No hay expedientes recientes|portal-rrhh-tramites-seccion/u);
+  assert.doesNotMatch(html, /No hay expedientes recientes|data-ct-exp-abrir-inicio/u);
 });
 
 test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", () => {
@@ -466,7 +483,7 @@ test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", (
   const html = crearVistaInicioPortal({
     encabezadoVista: (_sobrelinea, titulo, _descripcion, acciones) =>
       `<header><h1>${escaparHTML(titulo)}</h1>${acciones}</header>`,
-    escaparHTML, traducir, obtenerCatalogo: () => [],
+    escaparHTML, traducir, idioma: "en", obtenerCatalogo: () => [],
     resolverAcceso: () => ({ disponible: true, vista: "contratacion-temporal" }),
     esPerfilRRHH: () => true,
     obtenerMetricasCuadro: () => ({ en_tramitacion: 2, con_incidencia: 1, en_llamamiento: 0 }),
@@ -478,11 +495,11 @@ test("el cuadro inglés traduce vocabulario controlado y escapa datos libres", (
       { bolsa_ref: "bolsa:1", categoria: "Auxiliar", vigente_desde: "2026-01-01", vigente_hasta: null, llamamientos_en_curso: 2 },
     ] } }),
   })();
-  assert.match(html, /<h1>Temporary staff requests<\/h1>/u);
-  assert.match(html, /Financial review<\/td>/u);
+  assert.match(html, /<h1>Human Resources home<\/h1>/u);
+  assert.match(html, /Phase 4 of 8: Financial review<\/td>/u);
   assert.match(html, /ct-fase-incidencia">Needs attention<\/span>/u);
   assert.match(html, /Centro &lt;libre&gt;|Auxiliar &amp; más/u);
-  assert.match(html, /Fase &lt;libre&gt;|Estado &lt;libre&gt;/u);
+  assert.match(html, /<td>—<\/td>/u);
   assert.doesNotMatch(html, /ct-fase-estado_no_catalogado|<libre>|Con incidencia|Fiscalización/u);
   assert.match(html, /Job pools viewed/u);
   assert.match(html, /SAE offers cannot be viewed yet/u);
