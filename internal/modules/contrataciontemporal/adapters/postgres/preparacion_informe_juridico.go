@@ -10,12 +10,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
-	funcionPrepararInformeJuridico        = "vec_contratacion_temporal.preparar_informe_juridico_v1"
-	esquemaPrepararInformeJuridico        = "vec.contratacion-temporal.preparar-informe-juridico.v1"
-	maximoIntentosPrepararInformeJuridico = 3
+	funcionPrepararInformeJuridico = "vec_contratacion_temporal.preparar_informe_juridico_v1"
+	esquemaPrepararInformeJuridico = "vec.contratacion-temporal.preparar-informe-juridico.v1"
+	// Una carrera de serialización (40001/40P01) revierte la transacción
+	// sin efectos: se repite con la política común de VEC.
+	maximoIntentosPrepararInformeJuridico = postgresqlcomun.IntentosMaximosCarreraSerializable
 	// funcionPrepararInformeJuridicoTrasSubsanacion (CT123) prepara el informe
 	// nuevo tras subsanar un reparo, desde la versión 7.
 	funcionPrepararInformeJuridicoTrasSubsanacion = "vec_contratacion_temporal.preparar_informe_juridico_tras_subsanacion_v1"
@@ -105,7 +108,8 @@ func (p *PreparadorInformeJuridicoPostgreSQL) PrepararInformeJuridico(
 			return ports.PreparacionInformeJuridico{}, ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(causa) ||
-			intento == maximoIntentosPrepararInformeJuridico {
+			intento == maximoIntentosPrepararInformeJuridico ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.PreparacionInformeJuridico{},
 				normalizarErrorPreparacionInformeJuridico(ctx, causa)
 		}

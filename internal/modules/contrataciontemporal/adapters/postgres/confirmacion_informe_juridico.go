@@ -13,13 +13,16 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
-	funcionConfirmarInformeJuridico        = "vec_contratacion_temporal.confirmar_informe_juridico_v1"
-	maximoIntentosConfirmarInformeJuridico = 3
+	funcionConfirmarInformeJuridico = "vec_contratacion_temporal.confirmar_informe_juridico_v1"
+	// Una carrera de serialización (40001/40P01) revierte la transacción
+	// sin efectos: se repite con la política común de VEC.
+	maximoIntentosConfirmarInformeJuridico = postgresqlcomun.IntentosMaximosCarreraSerializable
 	// funcionConfirmarInformeJuridicoTrasSubsanacion (CT123) confirma el
 	// informe nuevo tras subsanar: mismo material, mismo consumidor AD3-9.
 	funcionConfirmarInformeJuridicoTrasSubsanacion = "vec_contratacion_temporal.confirmar_informe_juridico_tras_subsanacion_v1"
@@ -119,7 +122,8 @@ func (t *TransaccionInformesJuridicosPostgreSQL) ConfirmarInformeJuridico(
 			return ports.ReciboInformeJuridico{}, ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(causa) ||
-			intento == maximoIntentosConfirmarInformeJuridico {
+			intento == maximoIntentosConfirmarInformeJuridico ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.ReciboInformeJuridico{},
 				normalizarErrorConfirmacionInformeJuridico(ctx, causa)
 		}
