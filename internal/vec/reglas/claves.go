@@ -65,6 +65,12 @@ const (
 	// (dudas 3 y 18): quién valida, qué contacto abre el plazo y desde qué
 	// situaciones se admite cada solicitud.
 	BolsaPortalCandidato = "b29.portal_candidato"
+	// Ofertas con varias plazas (duda 75): propuesta de ejemplo con la que la
+	// web de RRHH rellena el apartado «plazas» de la política de ofertas de
+	// una bolsa. Rige la versión que RRHH guarda en esa política.
+	BolsaPlazasLlamada        = "b30.plazas_llamada"
+	BolsaPlazasPlazoRespuesta = "b30.plazas_plazo_respuesta"
+	BolsaPlazasTrasRenuncia   = "b30.plazas_tras_renuncia"
 )
 
 // Reglas de Bolsa que se consultan por prefijo: cada entrada es una opción

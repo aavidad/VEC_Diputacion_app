@@ -32,3 +32,17 @@ func TestDatosOfertaValidar(t *testing.T) {
 		t.Fatalf("fin igual al inicio rechazado: %v", err)
 	}
 }
+
+func TestActosYNumeroDePlazas(t *testing.T) {
+	if !NumeroPlazasValido(1) || !NumeroPlazasValido(MaximoPlazasOferta) || NumeroPlazasValido(0) || NumeroPlazasValido(MaximoPlazasOferta+1) {
+		t.Fatal("límites del número de plazas")
+	}
+	for _, tipo := range []string{ActoPlazaAdjudicada, ActoPlazaAceptada, ActoPlazaRenuncia, ActoPlazaSinRespuesta} {
+		if !ActoPlazaValido(tipo, true) || ActoPlazaValido(tipo, false) {
+			t.Fatalf("%s debe llevar persona", tipo)
+		}
+	}
+	if !ActoPlazaValido(ActoPlazaLlamamientoDirecto, false) || ActoPlazaValido(ActoPlazaLlamamientoDirecto, true) || ActoPlazaValido("otro", true) {
+		t.Fatal("llamamiento directo sin persona y actos desconocidos")
+	}
+}

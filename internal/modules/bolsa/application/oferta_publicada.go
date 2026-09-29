@@ -9,12 +9,18 @@ import (
 	"strings"
 	"time"
 
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-const maximoOfertasConsulta = 100
+const (
+	maximoOfertasConsulta = 100
+	// maximaSecuenciaPlaza acota la historia de una plaza (la migración
+	// B58 admite secuencias 1..10000).
+	maximaSecuenciaPlaza = 10000
+)
 
 // ServicioOfertasPublicadas coordina la publicación de ofertas (art. 8.1 del
 // Reglamento), su consulta por RRHH y la confirmación de la propuesta de
@@ -40,7 +46,7 @@ func NuevoServicioOfertasPublicadas(cb puertosbolsa.ResolutorContextoContactoPar
 func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puertosbolsa.SolicitudPublicarOferta) (puertosbolsa.OfertaPublicada, error) {
 	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil ||
 		!referenciaOfertaValida(q.BolsaRef) || !claveOfertaValida(q.ClaveIdempotencia) || q.Datos.Validar() != nil ||
-		q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
+		!dominiobolsa.NumeroPlazasValido(q.NumeroPlazas) || q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
@@ -62,7 +68,7 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaNoDisponible
 	}
 	vence = vence.UTC().Truncate(time.Microsecond)
-	materialHash := huellaMaterialPlazoOferta(q.BolsaRef, ahora, vence, plazo)
+	materialHash := huellaMaterialPlazoOfertaConPlazas(q.BolsaRef, ahora, vence, plazo, q.NumeroPlazas)
 	emision, err := s.materialEmision(ctx, q.Vinculo, q.ResultadoContexto, q.BolsaRef, q.Correlacion, q.MotivoAutorizacion, materialHash)
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err
@@ -71,23 +77,26 @@ func (s *ServicioOfertasPublicadas) PublicarOferta(ctx context.Context, q puerto
 	oferta, err := s.repositorio.Publicar(ctx, puertosbolsa.ComandoPublicarOferta{
 		OfertaRef: "oferta:" + sufijo, ReciboRef: "recibo:oferta:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: emision.ActorRef,
 		UnidadRef: emision.UnidadRef, AmbitoRef: emision.AmbitoRef,
-		ClaveIdempotencia: q.ClaveIdempotencia, Datos: q.Datos, Plazo: plazo, PublicadaEn: ahora,
+		ClaveIdempotencia: q.ClaveIdempotencia, Datos: q.Datos, NumeroPlazas: q.NumeroPlazas, Plazo: plazo, PublicadaEn: ahora,
 		VenceAntesDe: vence, Material: emision.Material,
 	})
 	if err != nil {
 		return puertosbolsa.OfertaPublicada{}, err
 	}
-	if oferta.BolsaRef != q.BolsaRef || oferta.Datos != q.Datos {
+	if oferta.BolsaRef != q.BolsaRef || oferta.Datos != q.Datos || oferta.NumeroPlazas != q.NumeroPlazas {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaConflicto
 	}
 	return oferta, nil
 }
 
-// ResolverOferta confirma la propuesta que el almacén recalcula en ese mismo
-// instante; si difiere de la que RRHH vio, el almacén la rechaza.
+// ResolverOferta registra un acto sobre una plaza. El almacén recalcula en ese
+// mismo instante la propuesta y el estado de la plaza; si difieren de lo que
+// RRHH vio (persona, tipo o secuencia), lo rechaza.
 func (s *ServicioOfertasPublicadas) ResolverOferta(ctx context.Context, q puertosbolsa.SolicitudResolverOferta) (puertosbolsa.OfertaPublicada, error) {
 	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil ||
 		!referenciaOfertaValida(q.BolsaRef) || !strings.HasPrefix(q.OfertaRef, "oferta:") || !referenciaOfertaValida(q.OfertaRef) ||
+		!dominiobolsa.NumeroPlazasValido(q.NumeroDePlaza) || !dominiobolsa.ActoPlazaValido(q.Tipo, q.ParticipacionRef != "") ||
+		q.SecuenciaEsperada < 0 || q.SecuenciaEsperada >= maximaSecuenciaPlaza ||
 		(q.ParticipacionRef != "" && !referenciaOfertaValida(q.ParticipacionRef)) || !claveOfertaValida(q.ClaveIdempotencia) ||
 		q.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(q.MotivoAutorizacion) {
 		return puertosbolsa.OfertaPublicada{}, puertosbolsa.ErrOfertaInvalida
@@ -97,8 +106,9 @@ func (s *ServicioOfertasPublicadas) ResolverOferta(ctx context.Context, q puerto
 		return puertosbolsa.OfertaPublicada{}, err
 	}
 	return s.repositorio.Resolver(ctx, puertosbolsa.ComandoResolverOferta{
-		OfertaRef: q.OfertaRef, ReciboRef: "recibo:resolucion-oferta:" + huellaOferta(q.OfertaRef, q.ClaveIdempotencia),
-		BolsaRef: q.BolsaRef, ParticipacionRef: q.ParticipacionRef, ActorRef: emision.ActorRef,
+		OfertaRef: q.OfertaRef, ReciboRef: "recibo:plaza-oferta:" + huellaOferta(q.OfertaRef, q.ClaveIdempotencia),
+		BolsaRef: q.BolsaRef, NumeroDePlaza: q.NumeroDePlaza, Tipo: q.Tipo, SecuenciaEsperada: q.SecuenciaEsperada,
+		ParticipacionRef: q.ParticipacionRef, ActorRef: emision.ActorRef,
 		ClaveIdempotencia: q.ClaveIdempotencia, Material: emision.Material,
 	})
 }
@@ -151,6 +161,11 @@ const formatoInstanteMaterialOferta = "2006-01-02T15:04:05.000000Z"
 // Esta preimagen no incluye textos personales y tiene los mismos campos y
 // separadores que publicar_oferta_v2 en Bolsa B47.
 func huellaMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta) string {
+	h := sha256.Sum256([]byte(strings.Join(camposMaterialPlazoOferta(bolsa, publicada, vence, p), "\x1f")))
+	return hex.EncodeToString(h[:])
+}
+
+func camposMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta) []string {
 	campos := []string{bolsa, publicada.UTC().Format(formatoInstanteMaterialOferta),
 		vence.UTC().Format(formatoInstanteMaterialOferta), p.ReglaRef, p.HuellaCatalogo,
 		p.Unidad, fmt.Sprint(p.Cantidad), p.Computo, p.MunicipioSede, p.UltimoDia,
@@ -158,6 +173,15 @@ func huellaMaterialPlazoOferta(bolsa string, publicada, vence time.Time, p puert
 	if p.Unidad == "horas_naturales" {
 		campos = append(campos, p.AperturaEn, p.VenceEn)
 	}
+	return campos
+}
+
+// huellaMaterialPlazoOfertaConPlazas añade al final el número de plazas; es la
+// preimagen de publicar_oferta_v3 en Bolsa B58, de modo que la autorización de
+// publicación queda ligada a cuántas plazas se ofrecen.
+func huellaMaterialPlazoOfertaConPlazas(bolsa string, publicada, vence time.Time, p puertosbolsa.PlazoOferta, numeroPlazas int) string {
+	campos := camposMaterialPlazoOferta(bolsa, publicada, vence, p)
+	campos = append(campos, fmt.Sprint(numeroPlazas))
 	h := sha256.Sum256([]byte(strings.Join(campos, "\x1f")))
 	return hex.EncodeToString(h[:])
 }

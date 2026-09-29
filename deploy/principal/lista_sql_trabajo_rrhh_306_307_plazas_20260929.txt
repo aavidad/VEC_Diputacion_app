@@ -1,0 +1,2 @@
+# Rama trabajo/rrhh-306-307-plazas-20260929: ofertas con varias plazas (3.06/3.07).
+deploy/postgresql/bolsa_llamamientos/migraciones/000058_plazas_oferta.up.sql
