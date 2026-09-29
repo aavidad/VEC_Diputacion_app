@@ -21,7 +21,12 @@ from urllib.parse import quote, urlencode
 
 
 SOURCE = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
-AUTHORIZED_SOURCES = {SOURCE, "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"}
+SOURCE_SQL_COUNTS = {
+    SOURCE: 33,
+    "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9": 34,
+    "e78687528d5725efd74e95c858d389f4437099ca": 36,
+}
+AUTHORIZED_SOURCES = frozenset(SOURCE_SQL_COUNTS)
 # Main contracts used by this administrative helper. An unrelated main
 # increment may advance the clone's current source; a changed contract needs
 # a fresh review rather than silent acceptance.
@@ -142,6 +147,32 @@ def _literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
+def _ready_receipts(ready: dict, journal: dict) -> None:
+    current = ready.get("current_source_ref", ready.get("commit"))
+    expected = SOURCE_SQL_COUNTS.get(current)
+    recorded_source = journal.get("current_source_ref", journal.get("source_ref"))
+    if expected is None or recorded_source != current:
+        raise ProvisionError("clone_receipt_source_mismatch")
+    installed = ready.get("sql_instaladas")
+    receipts = journal.get("installed")
+    if (type(installed) is not int or installed != expected
+            or not isinstance(receipts, list) or len(receipts) != expected):
+        raise ProvisionError("clone_receipt_count_mismatch")
+    positions, paths = [], []
+    for receipt in receipts:
+        if not isinstance(receipt, dict):
+            raise ProvisionError("clone_receipt_invalid")
+        position, path, digest = receipt.get("position"), receipt.get("path"), receipt.get("sha256")
+        if (type(position) is not int or not isinstance(path, str) or not path
+                or Path(path).is_absolute() or ".." in Path(path).parts
+                or not isinstance(digest, str) or not re.fullmatch("[a-f0-9]{64}", digest)):
+            raise ProvisionError("clone_receipt_invalid")
+        positions.append(position)
+        paths.append(path)
+    if positions != list(range(1, expected + 1)) or len(set(paths)) != expected:
+        raise ProvisionError("clone_receipt_sequence_mismatch")
+
+
 class Clone:
     def __init__(self, engine: str, container: str, state: Path):
         self.engine, self.container, self.state = engine, container, state
@@ -158,9 +189,7 @@ class Clone:
                 raise ProvisionError("clone_inventory_mismatch")
             if document.get("current_source_ref", document["commit"]) not in AUTHORIZED_SOURCES:
                 raise ProvisionError("clone_current_source_not_authorized")
-        installed = ready.get("sql_instaladas", 0)
-        if (len(installed) if isinstance(installed, list) else installed) < 33:
-            raise ProvisionError("clone_database_not_ready")
+        _ready_receipts(ready, _read_json(self.state / "sql-journal.json"))
         inspected = json.loads(_run([self.engine, "inspect", self.container]))[0]
         labels = inspected.get("Config", {}).get("Labels", {})
         if (labels.get("vec.recorridos.owner") != "Codex-M"

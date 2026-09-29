@@ -48,6 +48,51 @@ class FakeClone:
 
 
 class ProvisionTests(unittest.TestCase):
+    @staticmethod
+    def ready_receipts(source, count):
+        ready = {"commit": source, "sql_instaladas": count}
+        journal = {"source_ref": module.SOURCE, "current_source_ref": source,
+                   "installed": [{"position": i, "path": f"deploy/postgresql/fixture/{i}.sql",
+                                  "sha256": "a" * 64} for i in range(1, count + 1)]}
+        return ready, journal
+
+    def test_each_authorized_source_requires_its_exact_receipt_count(self):
+        for source, count in module.SOURCE_SQL_COUNTS.items():
+            with self.subTest(count=count):
+                ready, journal = self.ready_receipts(source, count)
+                module._ready_receipts(ready, journal)
+                ready["sql_instaladas"] = count + 1
+                with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_count_mismatch"):
+                    module._ready_receipts(ready, journal)
+
+    def test_source_36_rejects_missing_receipts_and_different_current_source(self):
+        source = "e78687528d5725efd74e95c858d389f4437099ca"
+        ready, journal = self.ready_receipts(source, 36)
+        journal["installed"].pop()
+        with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_count_mismatch"):
+            module._ready_receipts(ready, journal)
+        ready, journal = self.ready_receipts(source, 36)
+        journal["current_source_ref"] = module.SOURCE
+        with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_source_mismatch"):
+            module._ready_receipts(ready, journal)
+
+    def test_duplicate_receipt_and_invalid_hash_rejected(self):
+        for failure in ("duplicate", "digest"):
+            with self.subTest(failure=failure):
+                ready, journal = self.ready_receipts(module.SOURCE, 33)
+                if failure == "duplicate":
+                    journal["installed"][-1] = copy.deepcopy(journal["installed"][0])
+                else:
+                    journal["installed"][-1]["sha256"] = "invalid"
+                with self.assertRaises(module.ProvisionError):
+                    module._ready_receipts(ready, journal)
+
+    def test_creation_source_preserved_with_current_source_36(self):
+        source = "e78687528d5725efd74e95c858d389f4437099ca"
+        ready, journal = self.ready_receipts(source, 36)
+        ready["commit"], ready["current_source_ref"] = module.SOURCE, source
+        module._ready_receipts(ready, journal)
+
     def test_other_clone_rejected_before_any_process(self):
         with patch.object(module, "_run") as run:
             result = module.provision(Path("/irrelevant"), "principal", module.STATE,
