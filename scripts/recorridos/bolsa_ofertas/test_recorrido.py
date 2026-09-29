@@ -7,7 +7,9 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from recorrido import NoEjecutado, instalar_filtro_red, validar_configuracion, validar_origen
+from recorrido import (FalloRecorrido, NoEjecutado, cantidad_seleccionada, dentro_de_git,
+                       instante_obligatorio, instalar_filtro_red, referencia_obligatoria,
+                       validar_configuracion, validar_origen, version_obligatoria)
 
 
 class PuertaRecorrido(unittest.TestCase):
@@ -22,17 +24,22 @@ class PuertaRecorrido(unittest.TestCase):
             raiz = Path(temporal)
             binario = raiz / "vec-server"
             binario.write_bytes(b"binario sintetico")
-            cert = raiz / "cert.pem"
-            clave = raiz / "key.pem"
-            cert.write_text("sintetico")
-            clave.write_text("sintetico")
+            cert = raiz / "rrhh.crt"
+            clave = raiz / "rrhh.key"
+            cert_candidato = raiz / "candidato.crt"
+            clave_candidato = raiz / "candidato.key"
+            cert.write_text("certificado rrhh")
+            clave.write_text("clave rrhh")
+            cert_candidato.write_text("certificado candidato")
+            clave_candidato.write_text("clave candidato")
             clave.chmod(0o600)
+            clave_candidato.chmod(0o600)
             datos = {
                 "origen": "https://127.0.0.1:8443", "clon": "aislado_h3_h4_h5",
                 "hitos": ["H3", "H4", "H5"], "binario": str(binario),
                 "binario_sha256": hashlib.sha256(binario.read_bytes()).hexdigest(),
                 "rrhh": {"certificado": str(cert), "clave": str(clave)},
-                "candidato": {"certificado": str(cert), "clave": str(clave)},
+                "candidato": {"certificado": str(cert_candidato), "clave": str(clave_candidato)},
                 "bolsa_ref": "bolsa:sintetica", "bolsa_sintetica_reservada": True,
                 "oferta": {"categoria": "Auxiliar", "centro": "Centro sintético",
                            "fecha_inicio": "2026-10-15", "descripcion": "Ensayo"},
@@ -46,6 +53,53 @@ class PuertaRecorrido(unittest.TestCase):
             self.assertEqual(validar_configuracion(datos, "alta")["bolsa_ref"], "bolsa:sintetica")
             with self.assertRaisesRegex(NoEjecutado, "reinicio"):
                 validar_configuracion(datos, "recuperar")
+
+            misma_ruta = {**datos, "candidato": {"certificado": str(cert), "clave": str(clave_candidato)}}
+            with self.assertRaisesRegex(NoEjecutado, "certificados mTLS distintos"):
+                validar_configuracion(misma_ruta, "alta")
+            cert_duplicado = raiz / "otro-candidato.crt"
+            cert_duplicado.write_bytes(cert.read_bytes())
+            misma_huella = {**datos, "candidato": {"certificado": str(cert_duplicado), "clave": str(clave_candidato)}}
+            with self.assertRaisesRegex(NoEjecutado, "certificados mTLS distintos"):
+                validar_configuracion(misma_huella, "alta")
+            clave_duplicada = raiz / "otra-candidato.key"
+            clave_duplicada.write_bytes(clave.read_bytes())
+            clave_duplicada.chmod(0o600)
+            misma_clave = {**datos, "candidato": {"certificado": str(cert_candidato), "clave": str(clave_duplicada)}}
+            with self.assertRaisesRegex(NoEjecutado, "claves mTLS distintos"):
+                validar_configuracion(misma_clave, "alta")
+
+    def test_material_en_otro_worktree_se_rechaza(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            (raiz / ".git").mkdir()
+            otro = raiz / ".worktrees" / "otro"
+            otro.mkdir(parents=True)
+            secreto = otro / "clave.key"
+            secreto.write_text("sintetico")
+            self.assertTrue(dentro_de_git(secreto))
+            enlace = raiz.parent / (raiz.name + "-enlace")
+            enlace.symlink_to(secreto)
+            try:
+                self.assertTrue(dentro_de_git(enlace))
+            finally:
+                enlace.unlink()
+
+    def test_campos_durables_omitidos_nunca_comparan_none_con_none(self):
+        for comprobar, campo in ((version_obligatoria, "version"),
+                                 (instante_obligatorio, "publicada_en"),
+                                 (instante_obligatorio, "manifestada_en"),
+                                 (referencia_obligatoria, "recibo_ref")):
+            with self.subTest(campo=campo), self.assertRaises(FalloRecorrido):
+                comprobar({}, campo)
+        with self.assertRaises(FalloRecorrido):
+            version_obligatoria({"version": True}, "version")
+        with self.assertRaises(FalloRecorrido):
+            instante_obligatorio({"publicada_en": "2026-02-30T10:00:00Z"}, "publicada_en")
+
+    def test_total_b7_sale_del_estado_global_mas_alla_de_una_pagina(self):
+        self.assertEqual(cantidad_seleccionada("12 seleccionadas de 15 candidaturas que cumplen el filtro."), 12)
+        self.assertEqual(cantidad_seleccionada("100 seleccionadas."), 100)
 
     def test_redirect_a_otro_puerto_no_contacta_destino(self):
         contactos = {"origen": 0, "destino": 0}

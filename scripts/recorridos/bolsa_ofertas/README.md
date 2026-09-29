@@ -10,9 +10,10 @@ y que cada una aparece una sola vez. No repite ningún POST en esa fase.
 La emisión masiva B7 es una operación aparte. Con `emitir_b7: true`, el guion
 elige personas elegibles en el orden visible, exige al menos dos y llega a la
 revisión. Si el botón está bloqueado por segunda revisión, registra ese punto
-de corte. Si puede emitir, captura su recibo del relay de ensayo. Una oferta
-publicada no envía correos. Mailpit y un recibo SMTP tampoco acreditan entrega
-al correo corporativo ni notificación administrativa.
+de corte. Si puede emitir, exige el recibo de la API y registra únicamente que
+VEC aceptó la emisión. El total seleccionado procede del estado global de B7,
+incluidas las páginas no visibles. Una oferta publicada no envía correos.
+Mailpit, el relay y la entrega corporativa quedan sin acreditar por este guion.
 
 ## Preparación por Dirección
 
@@ -24,6 +25,9 @@ JSON privado se conservan fuera de Git. El JSON y ambas claves privadas deben
 tener permisos `0600`; el directorio de evidencia, `0700`. Chrome filtra cada
 petición al origen exacto: rechaza
 orígenes externos, WebSockets y cualquier redirección HTTP sin seguirla.
+Los certificados y claves de RRHH y candidato han de tener rutas y huellas
+distintas. Ni estos materiales, ni el binario, la configuración o la evidencia
+pueden residir en ninguna raíz Git o worktree, aunque se alcance por un enlace.
 Ejemplo de estructura:
 
 ```json

@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -20,6 +21,7 @@ RUTA_DISPOSICIONES = RUTA_MI_BOLSA + "/disposiciones"
 RUTA_AVISOS = "/api/vec/bolsa/avisos"
 RUTA_EMISIONES = "/api/vec/bolsa/llamamientos/emisiones"
 REFERENCIA = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$")
+INSTANTE_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$")
 
 
 class NoEjecutado(Exception):
@@ -36,6 +38,12 @@ def sha256(ruta: Path) -> str:
         for bloque in iter(lambda: origen.read(1024 * 1024), b""):
             suma.update(bloque)
     return suma.hexdigest()
+
+
+def dentro_de_git(ruta: Path) -> bool:
+    """Incluye el checkout principal y cualquier worktree, también por symlink."""
+    destino = ruta.resolve()
+    return any((ancestro / ".git").exists() for ancestro in (destino.parent, *destino.parents))
 
 
 def validar_origen(valor: str) -> str:
@@ -58,20 +66,31 @@ def validar_configuracion(datos: dict, fase: str) -> dict:
     datos["origen"] = validar_origen(datos.get("origen", ""))
     binario = Path(datos.get("binario", ""))
     huella = datos.get("binario_sha256", "")
+    if dentro_de_git(binario):
+        raise NoEjecutado("el binario del clon debe estar fuera de Git y sus worktrees")
     if not binario.is_file() or not re.fullmatch(r"[0-9a-f]{64}", huella) or sha256(binario) != huella:
         raise NoEjecutado("falta el binario VEC exacto del clon")
     chrome = Path(datos.get("chrome", "/usr/bin/google-chrome"))
     if not chrome.is_file() or chrome.resolve().name not in {"chrome", "google-chrome", "chromium"}:
         raise NoEjecutado("falta Chrome del sistema")
     datos["chrome"] = str(chrome)
+    rutas_material = {}
     for rol in ("rrhh", "candidato"):
         material = datos.get(rol, {})
         for campo in ("certificado", "clave"):
             ruta = Path(material.get(campo, ""))
+            if dentro_de_git(ruta):
+                raise NoEjecutado(f"material mTLS de {rol} dentro de Git o un worktree")
             if not ruta.is_file() or ruta.stat().st_size == 0:
                 raise NoEjecutado(f"falta material mTLS sintético de {rol}")
             if campo == "clave" and ruta.stat().st_mode & 0o077:
                 raise NoEjecutado(f"la clave mTLS de {rol} debe tener permisos 0600")
+            rutas_material[(rol, campo)] = ruta.resolve()
+    for campo in ("certificado", "clave"):
+        ruta_rrhh = rutas_material[("rrhh", campo)]
+        ruta_candidato = rutas_material[("candidato", campo)]
+        if ruta_rrhh == ruta_candidato or sha256(ruta_rrhh) == sha256(ruta_candidato):
+            raise NoEjecutado(f"RRHH y candidato deben usar {campo}s mTLS distintos")
     bolsa = datos.get("bolsa_ref", "")
     if not REFERENCIA.fullmatch(bolsa):
         raise NoEjecutado("falta referencia opaca de una bolsa sintética")
@@ -105,6 +124,39 @@ def respuesta_json(respuesta, ruta: str, codigos: set[int]) -> dict:
     if not isinstance(cuerpo, dict) or not isinstance(cuerpo.get("data"), dict):
         raise FalloRecorrido(f"{ruta} devolvió un sobre inesperado")
     return cuerpo["data"]
+
+
+def version_obligatoria(datos: dict, campo: str) -> int:
+    valor = datos.get(campo)
+    if type(valor) is not int or valor < 1:
+        raise FalloRecorrido(f"falta {campo} válida en recibo o recuperación")
+    return valor
+
+
+def referencia_obligatoria(datos: dict, campo: str) -> str:
+    valor = datos.get(campo)
+    if not isinstance(valor, str) or not REFERENCIA.fullmatch(valor):
+        raise FalloRecorrido(f"falta {campo} válida en recibo o recuperación")
+    return valor
+
+
+def instante_obligatorio(datos: dict, campo: str) -> str:
+    valor = datos.get(campo)
+    if not isinstance(valor, str) or not INSTANTE_UTC.fullmatch(valor):
+        raise FalloRecorrido(f"falta {campo} UTC en recibo o recuperación")
+    try:
+        datetime.fromisoformat(valor.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise FalloRecorrido(f"{campo} no es una fecha válida") from error
+    return valor
+
+
+def cantidad_seleccionada(texto: str) -> int:
+    """Lee el total global del estado B7, no los seis checks de la página."""
+    coincidencia = re.match(r"^\s*([\d.,\u00a0]+)\s+seleccionadas\b", texto)
+    if not coincidencia:
+        raise FalloRecorrido("B7 no muestra el total de personas seleccionadas")
+    return int("".join(c for c in coincidencia.group(1) if c.isdigit()))
 
 
 def instalar_filtro_red(contexto_actual, origen: str, fallos: list[str]) -> None:
@@ -182,7 +234,7 @@ def ensayar_envio_b7(pagina, cfg: dict) -> dict:
       const campo = document.querySelector('[data-bolsa-form="b7-paso2"] [data-b7-seleccion-status]');
       return campo && !campo.textContent.includes('Consultando');
     }""", timeout=15000)
-    elegidos = paso2.locator('input[name="participacion"]:checked').count()
+    elegidos = cantidad_seleccionada(paso2.locator('[data-b7-seleccion-status]').inner_text())
     if elegidos < 2:
         return {"estado": "PUNTO_DE_CORTE", "motivo": "menos de dos personas elegibles en la bolsa sintética"}
     paso2.locator('button[type="submit"]').click()
@@ -205,8 +257,9 @@ def ensayar_envio_b7(pagina, cfg: dict) -> dict:
     with pagina.expect_response(lambda r: r.url.split("?")[0] == origen + RUTA_EMISIONES and r.request.method == "POST") as espera:
         paso4.locator('button[type="submit"]').click()
     emision = respuesta_json(espera.value, RUTA_EMISIONES, {200, 201})
+    recibo = referencia_obligatoria(emision, "recibo_ref")
     pagina.locator('[data-b7-recibo]').wait_for(timeout=15000)
-    return {"estado": "EMISION_B7_EN_RELAY_DE_ENSAYO", "recibo": emision.get("recibo_ref", emision.get("recibo")),
+    return {"estado": "EMISION_B7_REGISTRADA_API", "recibo": recibo,
             "destinatarios_seleccionados": elegidos, "entrega_corporativa": "NO ACREDITADA"}
 
 
@@ -233,8 +286,10 @@ def alta(cfg: dict, navegador) -> dict:
         with pagina.expect_response(lambda r: r.url.split("?")[0] == origen + RUTA_POLITICA and r.request.method == "POST") as espera:
             politica.locator('button[type="submit"]').click()
         politica_recibo = respuesta_json(espera.value, RUTA_POLITICA, {200, 201})
-        if politica_recibo.get("bolsa_ref") != bolsa or not politica_recibo.get("recibo_ref"):
+        if politica_recibo.get("bolsa_ref") != bolsa:
             raise FalloRecorrido("la política no devolvió recibo de la bolsa elegida")
+        recibo_politica = referencia_obligatoria(politica_recibo, "recibo_ref")
+        version_politica = version_obligatoria(politica_recibo, "version")
 
         formulario = pagina.locator('[data-ofertas-form="publicar"]')
         for campo in ("categoria", "centro", "fecha_inicio", "descripcion"):
@@ -248,6 +303,7 @@ def alta(cfg: dict, navegador) -> dict:
         referencia = oferta.get("oferta_ref", "")
         if not REFERENCIA.fullmatch(referencia) or oferta.get("bolsa_ref") != bolsa or oferta.get("estado") != "abierta":
             raise FalloRecorrido("la oferta no quedó abierta en la bolsa elegida")
+        publicada_en = instante_obligatorio(oferta, "publicada_en")
         pagina.locator(f'[data-oferta-ref="{referencia}"]').first.wait_for(timeout=15000)
         comprobar_navegador(rrhh, pagina, errores_rrhh)
         pagina.set_viewport_size({"width": 390, "height": 844})
@@ -267,9 +323,8 @@ def alta(cfg: dict, navegador) -> dict:
         with propia.expect_response(lambda r: r.url.split("?")[0] == origen + RUTA_DISPOSICIONES and r.request.method == "POST") as espera:
             ficha.locator('form[data-portal-mi-bolsa="disposicion"] button[type="submit"]').click()
         disposicion = respuesta_json(espera.value, RUTA_DISPOSICIONES, {200, 201})
-        recibo_disposicion = disposicion.get("recibo", "")
-        if not recibo_disposicion:
-            raise FalloRecorrido("la disposición no devolvió recibo")
+        recibo_disposicion = referencia_obligatoria(disposicion, "recibo")
+        disposicion_fecha = instante_obligatorio(disposicion, "manifestada_en")
         comprobar_navegador(candidato, propia, errores_candidato)
         propia.set_viewport_size({"width": 390, "height": 844})
         comprobar_navegador(candidato, propia, errores_candidato)
@@ -281,10 +336,10 @@ def alta(cfg: dict, navegador) -> dict:
             raise FalloRecorrido("la lectura de avisos internos no apareció en el navegador")
         avisos = respuesta_json(avisos_respuestas[-1], RUTA_AVISOS, {200})
         b7 = ensayar_envio_b7(pagina, cfg)
-        return {"estado": "ALTA_ACREDITADA", "politica_recibo": politica_recibo["recibo_ref"],
-                "politica_version": politica_recibo.get("version"), "oferta_ref": referencia,
-                "oferta_publicada_en": oferta.get("publicada_en"), "oferta_estado": oferta["estado"],
-                "disposicion_recibo": recibo_disposicion, "disposicion_fecha": disposicion.get("manifestada_en"),
+        return {"estado": "ALTA_ACREDITADA", "politica_recibo": recibo_politica,
+                "politica_version": version_politica, "oferta_ref": referencia,
+                "oferta_publicada_en": publicada_en, "oferta_estado": oferta["estado"],
+                "disposicion_recibo": recibo_disposicion, "disposicion_fecha": disposicion_fecha,
                 "avisos": "consulta_interna_200", "avisos_total": len(avisos.get("items", [])),
                 "correo_b7": b7, "mailpit": "NO COMPROBADO; relay no equivale a entrega",
                 "entrega_corporativa": "NO ACREDITADA"}
@@ -296,6 +351,11 @@ def alta(cfg: dict, navegador) -> dict:
 def recuperar(cfg: dict, navegador, anterior: dict) -> dict:
     if anterior.get("estado") != "ALTA_ACREDITADA" or not REFERENCIA.fullmatch(anterior.get("oferta_ref", "")):
         raise NoEjecutado("falta evidencia de alta para recuperar")
+    recibo_politica_previo = referencia_obligatoria(anterior, "politica_recibo")
+    version_politica_previa = version_obligatoria(anterior, "politica_version")
+    fecha_oferta_previa = instante_obligatorio(anterior, "oferta_publicada_en")
+    recibo_disposicion_previo = referencia_obligatoria(anterior, "disposicion_recibo")
+    fecha_disposicion_previa = instante_obligatorio(anterior, "disposicion_fecha")
     origen, bolsa, referencia = cfg["origen"], cfg["bolsa_ref"], anterior["oferta_ref"]
     errores_rrhh: list[str] = []
     errores_candidato: list[str] = []
@@ -311,12 +371,12 @@ def recuperar(cfg: dict, navegador, anterior: dict) -> dict:
         if not politicas:
             raise FalloRecorrido("la política no se consultó tras el reinicio")
         politica = respuesta_json(politicas[-1], RUTA_POLITICA, {200})
-        if (politica.get("recibo_ref") != anterior["politica_recibo"]
-                or politica.get("version") != anterior["politica_version"]):
+        if (referencia_obligatoria(politica, "recibo_ref") != recibo_politica_previo
+                or version_obligatoria(politica, "version") != version_politica_previa):
             raise FalloRecorrido("el recibo o la versión de la política cambió tras el reinicio")
         ofertas = respuesta_json(espera.value, RUTA_OFERTAS, {200}).get("ofertas", [])
         coincidentes = [o for o in ofertas if o.get("oferta_ref") == referencia]
-        if (len(coincidentes) != 1 or coincidentes[0].get("publicada_en") != anterior["oferta_publicada_en"]
+        if (len(coincidentes) != 1 or instante_obligatorio(coincidentes[0], "publicada_en") != fecha_oferta_previa
                 or coincidentes[0].get("estado") != anterior["oferta_estado"]):
             raise FalloRecorrido("la oferta cambió o está duplicada tras el reinicio")
         p.locator(f'[data-oferta-ref="{referencia}"]').first.wait_for(timeout=15000)
@@ -326,13 +386,15 @@ def recuperar(cfg: dict, navegador, anterior: dict) -> dict:
             q.goto(origen + "/area-personal/?vista=llamamientos", wait_until="domcontentloaded")
         mi_bolsa = respuesta_json(espera.value, RUTA_MI_BOLSA, {200})
         propias = [o for o in mi_bolsa.get("ofertas", []) if o.get("oferta") == referencia]
-        if (len(propias) != 1 or propias[0].get("disposicion", {}).get("recibo") != anterior["disposicion_recibo"]
-                or propias[0].get("disposicion", {}).get("manifestada_en") != anterior["disposicion_fecha"]):
+        if len(propias) != 1 or not isinstance(propias[0].get("disposicion"), dict):
+            raise FalloRecorrido("la disposición falta o está duplicada tras el reinicio")
+        if (referencia_obligatoria(propias[0]["disposicion"], "recibo") != recibo_disposicion_previo
+                or instante_obligatorio(propias[0]["disposicion"], "manifestada_en") != fecha_disposicion_previa):
             raise FalloRecorrido("la disposición cambió o está duplicada tras el reinicio")
         q.locator(f'[data-oferta-mi-bolsa="{referencia}"]').first.wait_for(timeout=15000)
         comprobar_navegador(candidato, q, errores_candidato)
         return {"estado": "RECUPERACION_ACREDITADA", "oferta_ref": referencia,
-                "disposicion_recibo": anterior["disposicion_recibo"], "post_repetidos": 0,
+                "disposicion_recibo": recibo_disposicion_previo, "post_repetidos": 0,
                 "entrega_corporativa": "NO ACREDITADA"}
     finally:
         rrhh.close()
@@ -346,8 +408,7 @@ def main() -> int:
     parser.add_argument("--evidencia", type=Path, required=True, help="JSON privado fuera de Git")
     args = parser.parse_args()
     try:
-        raiz_git = Path(__file__).resolve().parents[3]
-        if args.config.resolve().is_relative_to(raiz_git) or args.evidencia.resolve().is_relative_to(raiz_git):
+        if dentro_de_git(args.config) or dentro_de_git(args.evidencia):
             raise NoEjecutado("configuración y evidencia privadas deben quedar fuera de Git")
         if not args.evidencia.parent.is_dir() or args.evidencia.parent.stat().st_mode & 0o077:
             raise NoEjecutado("el directorio de evidencia privada debe existir con permisos 0700")
