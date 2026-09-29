@@ -36,16 +36,27 @@ func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 ) error {
 	if ctx == nil || pool == nil || dependenciaEsNulaContratacionTemporalDesarrollo(fuente) || soporte == nil ||
 		soporte.contexto.Resultado.Validar() != nil ||
+		soporte.contextoAltaFijo.Resultado.Validar() != nil ||
 		soporte.contextoCobertura.Resultado.Validar() != nil ||
 		soporte.instantanea.Validar() != nil ||
+		soporte.instantaneaAltaFija.Validar() != nil ||
 		soporte.instantaneaCobertura.Validar() != nil ||
 		soporte.contexto.Resultado.Contexto.PerfilActivoRef != soporte.instantanea.AsignacionPerfil.PerfilActivoRef ||
-		soporte.instantanea.AsignacionPerfil.PrincipalID != soporte.instantaneaCobertura.AsignacionPerfil.PrincipalID ||
+		soporte.contextoAltaFijo.Resultado.Contexto.PerfilActivoRef != soporte.instantaneaAltaFija.AsignacionPerfil.PerfilActivoRef ||
+		soporte.instantanea.AsignacionPerfil.PrincipalID != soporte.instantaneaAltaFija.AsignacionPerfil.PrincipalID ||
+		soporte.instantaneaAltaFija.AsignacionPerfil.PrincipalID != soporte.instantaneaCobertura.AsignacionPerfil.PrincipalID ||
+		soporte.instantanea.AsignacionPerfil.PerfilActivoRef == soporte.instantaneaAltaFija.AsignacionPerfil.PerfilActivoRef ||
 		soporte.instantanea.AsignacionPerfil.PerfilActivoRef == soporte.instantaneaCobertura.AsignacionPerfil.PerfilActivoRef ||
+		soporte.instantaneaAltaFija.AsignacionPerfil.PerfilActivoRef == soporte.instantaneaCobertura.AsignacionPerfil.PerfilActivoRef ||
 		soporte.contextoCobertura.Resultado.Contexto.PerfilActivoRef != soporte.instantaneaCobertura.AsignacionPerfil.PerfilActivoRef {
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if err := publicarContextoPostgreSQLContratacionTemporalDesarrollo(
+		ctx, pool, soporte,
+	); err != nil {
+		return err
+	}
+	if err := publicarContextoAltaFijaPostgreSQLContratacionTemporalDesarrollo(
 		ctx, pool, soporte,
 	); err != nil {
 		return err
@@ -71,6 +82,21 @@ func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	return nil
 }
 
+func publicarContextoAltaFijaPostgreSQLContratacionTemporalDesarrollo(
+	ctx context.Context, pool *pgxpool.Pool, soporte *soporteAltaContratacionTemporalDesarrollo,
+) error {
+	if soporte == nil {
+		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	perfil := soporte.contextoAltaFijo.Resultado.Contexto.PerfilActivoRef
+	operacion := referenciaAltaContratacionTemporalDesarrollo("oca_",
+		soporte.principalID+"\x00"+soporte.certificadoSHA256+"\x00"+
+			perfil+"\x00registro-contexto-alta-fija")
+	return publicarResultadoContextoPostgreSQLDesarrollo(
+		ctx, pool, soporte.contextoAltaFijo.Resultado, operacion,
+	)
+}
+
 func publicarContextoCoberturaPostgreSQLContratacionTemporalDesarrollo(
 	ctx context.Context, pool *pgxpool.Pool, soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
@@ -92,47 +118,66 @@ func consumirAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	if ctx == nil || pool == nil || soporte == nil {
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
-	autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: soporte}
-	alta, cobertura, err := asegurarAutoridadDosPerfilesContratacionTemporalDesarrollo(
-		ctx, fuente, publicadorAutorizacionInicialCT{autoridad},
-		soporte.instantanea, soporte.instantaneaCobertura, soporte.reloj.Ahora(),
+	legado, alta, cobertura, legadoDisponible, err := consumirAutoridadTresPerfilesContratacionTemporalDesarrollo(
+		ctx, fuente, soporte.instantanea, soporte.instantaneaAltaFija,
+		soporte.instantaneaCobertura, soporte.reloj.Ahora(),
 	)
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
 	soporte.mu.Lock()
-	soporte.instantanea = alta
+	soporte.instantanea = legado
+	soporte.instantaneaAltaFija = alta
 	soporte.instantaneaCobertura = cobertura
+	soporte.legadoDisponible = legadoDisponible
 	soporte.mu.Unlock()
 	return nil
 }
 
-func asegurarAutoridadDosPerfilesContratacionTemporalDesarrollo(
+func consumirAutoridadTresPerfilesContratacionTemporalDesarrollo(
 	ctx context.Context, fuente puertosvec.FuenteAutorizacion,
-	publicador publicadorInicialAutorizacionCT,
-	semillaAlta, semillaCobertura dominiovec.InstantaneaAutorizacion, ahora time.Time,
-) (dominiovec.InstantaneaAutorizacion, dominiovec.InstantaneaAutorizacion, error) {
+	semillaLegado, semillaAlta, semillaCobertura dominiovec.InstantaneaAutorizacion, ahora time.Time,
+) (dominiovec.InstantaneaAutorizacion, dominiovec.InstantaneaAutorizacion,
+	dominiovec.InstantaneaAutorizacion, bool, error) {
 	vacia := dominiovec.InstantaneaAutorizacion{}
-	if semillaAlta.Validar() != nil || semillaCobertura.Validar() != nil ||
+	if semillaLegado.Validar() != nil || semillaAlta.Validar() != nil || semillaCobertura.Validar() != nil ||
+		semillaLegado.AsignacionPerfil.PrincipalID != semillaAlta.AsignacionPerfil.PrincipalID ||
 		semillaAlta.AsignacionPerfil.PrincipalID != semillaCobertura.AsignacionPerfil.PrincipalID ||
+		semillaLegado.AsignacionPerfil.PerfilActivoRef == semillaAlta.AsignacionPerfil.PerfilActivoRef ||
+		semillaLegado.AsignacionPerfil.PerfilActivoRef == semillaCobertura.AsignacionPerfil.PerfilActivoRef ||
 		semillaAlta.AsignacionPerfil.PerfilActivoRef == semillaCobertura.AsignacionPerfil.PerfilActivoRef {
-		return vacia, vacia, falloPostgreSQLCTDesarrollo(nil)
+		return vacia, vacia, vacia, false, falloPostgreSQLCTDesarrollo(nil)
 	}
-	// Cobertura requiere provisión expresa. Su ausencia detiene el arranque
-	// antes de intentar siquiera el alta inicial sintética.
+	// Los dos perfiles fijos exigen provisión gobernada previa. El arranque no
+	// prepara ni publica asignaciones, tampoco si alguna está ausente.
+	alta, err := consumirAutorizacionPublicadaContratacionTemporalDesarrollo(
+		ctx, fuente, semillaAlta, ahora,
+	)
+	if err != nil {
+		return vacia, vacia, vacia, false, falloPostgreSQLCTDesarrollo(err)
+	}
 	cobertura, err := consumirAutorizacionPublicadaContratacionTemporalDesarrollo(
 		ctx, fuente, semillaCobertura, ahora,
 	)
 	if err != nil {
-		return vacia, vacia, falloPostgreSQLCTDesarrollo(err)
+		return vacia, vacia, vacia, false, falloPostgreSQLCTDesarrollo(err)
 	}
-	alta, err := asegurarAutorizacionInicialContratacionTemporalDesarrollo(
-		ctx, fuente, publicador, semillaAlta, ahora,
-	)
-	if err != nil {
-		return vacia, vacia, falloPostgreSQLCTDesarrollo(err)
+	// El perfil legado puede tener otro rol o ámbito vigente. Nunca se
+	// regenera a partir de la semilla. Su fallo cierra sólo rutas legadas.
+	legado, err := fuente.ObtenerInstantaneaAutorizacion(ctx,
+		semillaLegado.AsignacionPerfil.PrincipalID, semillaLegado.AsignacionPerfil.PerfilActivoRef)
+	legadoDisponible := err == nil && legado.Validar() == nil &&
+		legado.AsignacionPerfil.Estado == dominiovec.EstadoAsignacionPerfilActiva &&
+		legado.AsignacionPerfil.VigenteEn(ahora) &&
+		legado.VersionRol.Estado == dominiovec.EstadoVersionRolPublicada &&
+		legado.ControlVigenciaVersionRol.Estado == dominiovec.EstadoControlVigenciaVersionRolHabilitada &&
+		legado.AsignacionPerfil.PrincipalID == semillaLegado.AsignacionPerfil.PrincipalID &&
+		legado.AsignacionPerfil.PerfilActivoRef == semillaLegado.AsignacionPerfil.PerfilActivoRef &&
+		len(legado.Politicas) == 0
+	if !legadoDisponible {
+		legado = vacia
 	}
-	return alta, cobertura, nil
+	return legado, alta, cobertura, legadoDisponible, nil
 }
 
 func publicarContextoPostgreSQLContratacionTemporalDesarrollo(
