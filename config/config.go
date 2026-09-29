@@ -125,6 +125,7 @@ type Config struct {
 	ExternoPreflightV3DatabaseURL               string
 	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
 	ExternoBolsaPostgreSQL                      ConfiguracionPostgreSQLExterna
+	ExternoBolsaFronteraPostgreSQL              ConfiguracionPostgreSQLExterna
 	ExternoAutorizacionFuentePostgreSQL         ConfiguracionPostgreSQLExterna
 	ExternoAutorizacionRegistroPostgreSQL       ConfiguracionPostgreSQLExterna
 	ExternoAutorizacionMotivosPostgreSQL        ConfiguracionPostgreSQLExterna
@@ -236,6 +237,7 @@ func Load() Config {
 			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
 		},
 		ExternoBolsaPostgreSQL:                 ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaDatabaseURL)},
+		ExternoBolsaFronteraPostgreSQL:         ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoBolsaFronteraDatabaseURL)},
 		ExternoAutorizacionFuentePostgreSQL:    ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionFuenteDatabaseURL)},
 		ExternoAutorizacionRegistroPostgreSQL:  ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionRegistroDatabaseURL)},
 		ExternoAutorizacionMotivosPostgreSQL:   ConfiguracionPostgreSQLExterna{dsn: os.Getenv(EnvExternoAutorizacionMotivosDatabaseURL)},
@@ -468,6 +470,7 @@ func (c Config) Normalize() Config {
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()
 	c.ExternoBolsaPostgreSQL = c.ExternoBolsaPostgreSQL.normalizar()
+	c.ExternoBolsaFronteraPostgreSQL = c.ExternoBolsaFronteraPostgreSQL.normalizar()
 	c.ExternoAutorizacionFuentePostgreSQL = c.ExternoAutorizacionFuentePostgreSQL.normalizar()
 	c.ExternoAutorizacionRegistroPostgreSQL = c.ExternoAutorizacionRegistroPostgreSQL.normalizar()
 	c.ExternoAutorizacionMotivosPostgreSQL = c.ExternoAutorizacionMotivosPostgreSQL.normalizar()
