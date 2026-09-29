@@ -327,6 +327,69 @@ func estadoContextoConciliadoHito1(ctx context.Context, admin *pgxpool.Pool, r c
 	return suma, nil
 }
 
+// El resolvedor nominal se ejercita en SERIALIZABLE y se revierte: prueba
+// unicidad por (cuenta, perfil) sin añadir un recibo de consulta al clon.
+func resolverContextoConciliadoHito1(ctx context.Context, dsn string, esperado core.ResultadoContextoActorRegistradoV2) error {
+	if esperado.Validar() != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	if _, err := dsnProvisionPreferenciasHito1(dsn); err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	pool, _, err := abrirPoolRutasDietas(ctx, dsn, "vec_contexto_actor_v1_runtime")
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	defer pool.Close()
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SET LOCAL search_path = pg_catalog`); err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	nonce, err := nonceRutasDietas()
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	operacion := referenciaProvisionPreferenciasHito1("oca_", nonce+"\x00resolver-conciliado")
+	registro := referenciaProvisionPreferenciasHito1("rca_", nonce+"\x00resolver-conciliado")
+	solicitadoEn := time.Now().UTC().Truncate(time.Microsecond)
+	var canon, manifiesto []byte
+	var huella, huellaManifiesto, autoridad string
+	err = tx.QueryRow(ctx, `SELECT representacion_canonica,huella_sha256,
+ manifiesto_procedencia_canonico,manifiesto_procedencia_huella_sha256,autoridad_efectiva
+ FROM vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(
+ $1,$2,$3,$4,'certificado','alto',$5,$6::text[])`, operacion, registro,
+		esperado.Contexto.Instantanea.CuentaRef, esperado.Contexto.PerfilActivoRef, solicitadoEn, []string{}).
+		Scan(&canon, &huella, &manifiesto, &huellaManifiesto, &autoridad)
+	if err != nil || !bytes.Equal(manifiesto, esperado.ManifiestoProcedenciaCanonico) ||
+		huellaManifiesto != esperado.ManifiestoProcedenciaHuellaSHA256 ||
+		autoridad != string(core.AutoridadProcedenciaContextoActorMaestraAcreditadaV1) {
+		return errComposicionUsuariosPreferencias
+	}
+	actor, err := core.RehidratarContextoActorVinculadoV2(canon)
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	calculada, err := actor.HuellaSHA256VinculadaV2()
+	if err != nil || calculada != huella || actor.PersonaRef != esperado.Contexto.PersonaRef ||
+		actor.PerfilActivoRef != esperado.Contexto.PerfilActivoRef ||
+		actor.Instantanea.CuentaRef != esperado.Contexto.Instantanea.CuentaRef ||
+		actor.Instantanea.CuentaVersion != esperado.Contexto.Instantanea.CuentaVersion ||
+		actor.Instantanea.PersonaVersion != esperado.Contexto.Instantanea.PersonaVersion ||
+		actor.Instantanea.PerfilVersion != esperado.Contexto.Instantanea.PerfilVersion ||
+		actor.Instantanea.VinculoRef != esperado.Contexto.Instantanea.VinculoRef ||
+		actor.Instantanea.VinculoVersion != esperado.Contexto.Instantanea.VinculoVersion {
+		return errComposicionUsuariosPreferencias
+	}
+	if err = tx.Rollback(ctx); err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	return nil
+}
+
 func escribirResultadoConciliacionHito1(ruta, materialDir string, resultado resultadoConciliacionPreferenciasHito1) error {
 	if !directorioProvisionPreferenciasHito1(materialDir) || !filepath.IsAbs(ruta) ||
 		filepath.Dir(ruta) != filepath.Join(materialDir, "identidad") ||
@@ -436,6 +499,10 @@ func TestProvisionarIdentidadPreferenciasHito1(t *testing.T) {
 		verificarClavesPreferenciasHito1(ctx, gobierno) != nil {
 		t.Fatal("clon o cuatro audiencias V3 no acreditados")
 	}
+	revisionCatalogo, huellaCatalogo, err := catalogoPoliticasProvisionPreferenciasHito1(ctx, gobierno)
+	if err != nil {
+		t.Fatal("catálogo V3 fuera de preimagen HITO1")
+	}
 	material, err := cargarMaterialIdempotenciaDesarrollo(materialDir, filepath.Join(materialDir, "idempotencia", "configuracion.json"))
 	if err != nil {
 		t.Fatal("material HMAC HITO1 no disponible")
@@ -451,6 +518,10 @@ func TestProvisionarIdentidadPreferenciasHito1(t *testing.T) {
 		anteriores[i], err = construirCuentaProvisionPreferenciasHito1(c, ahora)
 		if err != nil {
 			t.Fatal("preimagen Contexto sintético inválida")
+		}
+		anteriores[i].instantanea, err = instantaneaProvisionPreferenciasHito1(anteriores[i], ahora, revisionCatalogo, huellaCatalogo)
+		if err != nil {
+			t.Fatal("preimagen V3 sintética inválida")
 		}
 		var cuenta, estado, alias int
 		err = admin.QueryRow(ctx, `SELECT
@@ -497,7 +568,8 @@ func TestProvisionarIdentidadPreferenciasHito1(t *testing.T) {
 			t.Fatalf("Contexto de superficie %d no publicado o replay divergente", i+1)
 		}
 		posterior, e := estadoContextoConciliadoHito1(ctx, admin, r, operacion)
-		if e != nil || posterior != 5 || cuentaIdentidadActivaHito1(ctx, admin, cuentaNueva) != nil {
+		if e != nil || posterior != 5 || cuentaIdentidadActivaHito1(ctx, admin, cuentaNueva) != nil ||
+			resolverContextoConciliadoHito1(ctx, c.DSNContexto, r) != nil {
 			t.Fatalf("postimagen de superficie %d divergente", i+1)
 		}
 		resultado.Cuentas[i] = identidadConciliadaPreferenciasHito1{Superficie: string(c.Superficie), CuentaNueva: cuentaNueva}
