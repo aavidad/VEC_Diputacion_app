@@ -20,107 +20,114 @@ from urllib.parse import urlsplit
 PERFILES = ("rrhh", "centro", "ratificador", "intervencion", "candidato_area")
 CHROME = Path("/usr/bin/google-chrome")
 RAIZ = Path(__file__).resolve().parents[3]
+IDIOMA = "en" if os.environ.get("LANG", "").startswith("en") else "es"
+MENSAJES = json.loads((Path(__file__).parent / f"mensajes.{IDIOMA}.json").read_text(encoding="utf-8"))
+
+
+def mensaje(clave: str, **datos: object) -> str:
+    return MENSAJES[clave].format(**datos)
 
 
 class PlanInvalido(ValueError):
-    pass
+    def __init__(self, clave: str, **datos: object):
+        super().__init__(mensaje(clave, **datos))
 
 
 def _fichero_privado(valor: object, nombre: str, *, clave: bool = False) -> Path:
     if not isinstance(valor, str) or not valor:
-        raise PlanInvalido(f"falta {nombre}")
+        raise PlanInvalido("falta_fichero", nombre=nombre)
     ruta = Path(valor)
     if not ruta.is_absolute() or not ruta.is_file() or ruta.is_symlink():
-        raise PlanInvalido(f"{nombre} debe ser un fichero regular externo absoluto")
+        raise PlanInvalido("fichero_externo", nombre=nombre)
     if ruta.resolve().is_relative_to(RAIZ):
-        raise PlanInvalido(f"{nombre} no puede estar dentro del repositorio")
+        raise PlanInvalido("fuera_repositorio", nombre=nombre)
     if clave and stat.S_IMODE(ruta.stat().st_mode) & 0o077:
-        raise PlanInvalido(f"{nombre} debe ser privado (modo 0600 o más estricto)")
+        raise PlanInvalido("fichero_privado", nombre=nombre)
     return ruta
 
 
 def validar_plan(ruta_plan: Path) -> dict:
-    _fichero_privado(str(ruta_plan), "plan", clave=True)
+    _fichero_privado(str(ruta_plan), mensaje("nombre_plan"), clave=True)
     try:
         plan = json.loads(ruta_plan.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise PlanInvalido("plan JSON inválido") from exc
+        raise PlanInvalido("plan_invalido") from exc
     if not isinstance(plan, dict):
-        raise PlanInvalido("plan JSON inválido")
+        raise PlanInvalido("plan_invalido")
     origen = plan.get("origen")
     u = urlsplit(origen) if isinstance(origen, str) else None
     try:
         puerto = u.port if u else None
     except ValueError as exc:
-        raise PlanInvalido("puerto local inválido") from exc
+        raise PlanInvalido("puerto_invalido") from exc
     if (u is None or u.scheme != "https" or u.hostname not in {"127.0.0.1", "localhost", "::1"}
             or u.username or u.password or u.path not in {"", "/"} or u.query or u.fragment or not puerto):
-        raise PlanInvalido("origen debe ser HTTPS local con puerto, sin ruta ni credenciales")
+        raise PlanInvalido("origen_invalido")
     if not CHROME.is_file():
-        raise PlanInvalido("falta /usr/bin/google-chrome")
+        raise PlanInvalido("chrome_ausente")
     evidencia = plan.get("evidencia")
     if not isinstance(evidencia, dict) or evidencia.get("clon_h3_h5") is not True or evidencia.get("binario_en_uso") is not True:
-        raise PlanInvalido("falta acreditación privada del clon H3–H5 y binario en uso")
-    binario = _fichero_privado(evidencia.get("binario"), "binario")
+        raise PlanInvalido("clon_ausente")
+    binario = _fichero_privado(evidencia.get("binario"), mensaje("nombre_binario"))
     huella = evidencia.get("sha256_binario")
     if not isinstance(huella, str) or len(huella) != 64 or not all(c in "0123456789abcdef" for c in huella):
-        raise PlanInvalido("falta SHA256 del binario")
+        raise PlanInvalido("sha_ausente")
     digest = hashlib.sha256()
     with binario.open("rb") as entrada:
         for bloque in iter(lambda: entrada.read(1024 * 1024), b""):
             digest.update(bloque)
     if digest.hexdigest() != huella:
-        raise PlanInvalido("SHA256 del binario no coincide")
+        raise PlanInvalido("sha_distinto")
     pid = evidencia.get("pid")
     if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
-        raise PlanInvalido("falta PID del binario local en uso")
+        raise PlanInvalido("pid_ausente")
     try:
         if not os.path.samefile(f"/proc/{pid}/exe", binario):
-            raise PlanInvalido("PID no ejecuta el binario declarado")
+            raise PlanInvalido("pid_distinto")
     except OSError as exc:
-        raise PlanInvalido("PID/binario local no verificable") from exc
+        raise PlanInvalido("pid_no_verificable") from exc
     perfiles = plan.get("perfiles")
     if not isinstance(perfiles, dict) or set(perfiles) != set(PERFILES):
-        raise PlanInvalido("el plan exige los cinco perfiles exactos")
+        raise PlanInvalido("perfiles_exactos")
     huellas_certificados = set()
     for nombre in PERFILES:
         p = perfiles[nombre]
         if not isinstance(p, dict):
-            raise PlanInvalido(f"perfil {nombre} inválido")
-        certificado = _fichero_privado(p.get("certificado"), f"certificado de {nombre}")
+            raise PlanInvalido("perfil_invalido", nombre=nombre)
+        certificado = _fichero_privado(p.get("certificado"), mensaje("nombre_certificado", nombre=nombre))
         huella_certificado = hashlib.sha256(certificado.read_bytes()).digest()
         if huella_certificado in huellas_certificados:
-            raise PlanInvalido("los cinco perfiles deben usar certificados distintos")
+            raise PlanInvalido("certificados_distintos")
         huellas_certificados.add(huella_certificado)
-        _fichero_privado(p.get("clave"), f"clave de {nombre}", clave=True)
+        _fichero_privado(p.get("clave"), mensaje("nombre_clave", nombre=nombre), clave=True)
         pruebas = p.get("pruebas")
         if not isinstance(pruebas, list) or len(pruebas) < 2:
-            raise PlanInvalido(f"{nombre} requiere permiso positivo y denegación")
+            raise PlanInvalido("ambas_pruebas", nombre=nombre)
         clases = set()
         for i, prueba in enumerate(pruebas, 1):
             if not isinstance(prueba, dict):
-                raise PlanInvalido(f"prueba {i} de {nombre} inválida")
+                raise PlanInvalido("prueba_invalida", indice=i, nombre=nombre)
             clase, ruta, metodo, esperado = (prueba.get(k) for k in ("clase", "ruta", "metodo", "estado"))
             if clase not in {"permiso", "denegacion"} or metodo not in {"GET", "POST"}:
-                raise PlanInvalido(f"prueba {i} de {nombre}: clase o método inválido")
+                raise PlanInvalido("clase_metodo", indice=i, nombre=nombre)
             if not isinstance(ruta, str) or not ruta.startswith("/api/vec/") or "//" in ruta or ".." in ruta or "?" in ruta or "#" in ruta:
-                raise PlanInvalido(f"prueba {i} de {nombre}: ruta insegura")
+                raise PlanInvalido("ruta_insegura", indice=i, nombre=nombre)
             if metodo == "POST" and ruta != "/api/vec/contratacion-temporal/cuadro/consultas":
-                raise PlanInvalido("POST solo admite la consulta sin escritura del cuadro CT")
+                raise PlanInvalido("post_lectura")
             if (clase == "permiso" and esperado != 200) or (clase == "denegacion" and esperado not in {401, 403}):
-                raise PlanInvalido(f"prueba {i} de {nombre}: estado esperado inválido")
+                raise PlanInvalido("estado_invalido", indice=i, nombre=nombre)
             if metodo == "POST" and prueba.get("cuerpo") != {"filtros": {"texto": ""}, "paginacion": {"limite": 10}}:
-                raise PlanInvalido("la consulta del cuadro exige el cuerpo fijo sintético")
+                raise PlanInvalido("cuerpo_fijo")
             if clase == "permiso":
                 comprobacion = prueba.get("comprobacion")
                 if (not isinstance(comprobacion, dict) or not isinstance(comprobacion.get("campo"), str)
                         or not re.fullmatch(r"data(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*", comprobacion["campo"])
                         or ("igual" in comprobacion) == ("tipo" in comprobacion)
                         or comprobacion.get("tipo", "objeto") not in {"objeto", "lista", "cadena", "booleano", "numero"}):
-                    raise PlanInvalido(f"prueba {i} de {nombre}: falta comprobación de contenido positivo")
+                    raise PlanInvalido("comprobacion_positiva", indice=i, nombre=nombre)
             clases.add(clase)
         if clases != {"permiso", "denegacion"}:
-            raise PlanInvalido(f"{nombre} requiere ambas clases de prueba")
+            raise PlanInvalido("ambas_pruebas", nombre=nombre)
     return plan
 
 
@@ -149,6 +156,25 @@ def _sonda(pagina, prueba: dict) -> dict:
     }""", prueba)
 
 
+def _interceptar_local(route, origen: str) -> None:
+    """Resuelve una sola respuesta y corta cualquier salto de origen o redirección."""
+    esperado = urlsplit(origen)
+    solicitado = urlsplit(route.request.url)
+    if (solicitado.scheme, solicitado.netloc) != (esperado.scheme, esperado.netloc):
+        route.abort()
+        return
+    try:
+        respuesta = route.fetch(max_redirects=0)
+        final = urlsplit(respuesta.url)
+        if (300 <= respuesta.status < 400
+                or (final.scheme, final.netloc) != (esperado.scheme, esperado.netloc)):
+            route.abort()
+            return
+        route.fulfill(response=respuesta)
+    except Exception:
+        route.abort()
+
+
 def recorrer(plan: dict) -> int:
     from playwright.sync_api import sync_playwright
 
@@ -165,58 +191,57 @@ def recorrer(plan: dict) -> int:
                     service_workers="block",
                 )
                 try:
-                    contexto.route("**/*", lambda route: route.continue_() if
-                                   urlsplit(route.request.url).netloc == urlsplit(origen).netloc
-                                   and urlsplit(route.request.url).scheme == "https" else route.abort())
+                    contexto.route("**/*", lambda route: _interceptar_local(route, origen))
                     # Chrome debe confiar en la CA del origen mediante el almacén
                     # configurado por el operador. No se omite la validación TLS.
                     pagina = contexto.new_page()
                     respuesta = pagina.goto(origen + "/portal-empleado/" if nombre != "candidato_area" else origen + "/area-personal/", wait_until="domcontentloaded", timeout=15000)
                     if (respuesta is None or respuesta.status != 200
                             or urlsplit(respuesta.url).netloc != urlsplit(origen).netloc):
-                        print(f"PRIMER CORTE: {nombre} / entrada HTTP inesperada")
+                        print(mensaje("corte_entrada", nombre=nombre))
                         return 1
                     for indice, prueba in enumerate(perfil["pruebas"], 1):
                         observado = _sonda(pagina, prueba)
                         correcto = (observado["estado"] == prueba["estado"] and observado["json"]
                                     and (observado["comprobado"] if prueba["clase"] == "permiso" else observado["sinDatos"]))
-                        print(f"{nombre} {indice} {prueba['clase']}: {'OK' if correcto else 'FALLO'} HTTP {observado['estado']}")
+                        print(mensaje("resultado", nombre=nombre, indice=indice, clase=prueba["clase"],
+                                      resultado=mensaje("ok" if correcto else "fallo"), estado=observado["estado"]))
                         if not correcto:
-                            print(f"PRIMER CORTE: {nombre} prueba {indice} ({prueba['clase']}); sin respuesta ni datos en la salida")
+                            print(mensaje("corte_prueba", nombre=nombre, indice=indice, clase=prueba["clase"]))
                             return 1
                     if contexto.cookies():
-                        print(f"PRIMER CORTE: {nombre} emitió cookies")
+                        print(mensaje("corte_cookies", nombre=nombre))
                         return 1
                     almacenamiento = pagina.evaluate("() => localStorage.length + sessionStorage.length")
                     if almacenamiento:
-                        print(f"PRIMER CORTE: {nombre} usó almacenamiento web")
+                        print(mensaje("corte_almacenamiento", nombre=nombre))
                         return 1
                 finally:
                     contexto.close()
         finally:
             navegador.close()
-    print("CORTE OBSERVADO: cinco perfiles, permisos y denegaciones configurados; sin operaciones de escritura")
+    print(mensaje("corte_observado"))
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Recorrido local de accesos VEC con certificados por perfil")
-    parser.add_argument("--plan", type=Path, required=True, help="JSON privado externo al repositorio")
-    parser.add_argument("--ejecutar", action="store_true", help="habilita el navegador contra el origen local")
+    parser = argparse.ArgumentParser(description=mensaje("descripcion"))
+    parser.add_argument("--plan", type=Path, required=True, help=mensaje("ayuda_plan"))
+    parser.add_argument("--ejecutar", action="store_true", help=mensaje("ayuda_ejecutar"))
     args = parser.parse_args(argv)
     try:
         plan = validar_plan(args.plan)
     except PlanInvalido as exc:
-        print(f"NO EJECUTADO: {exc}", file=sys.stderr)
+        print(mensaje("no_ejecutado", detalle=exc), file=sys.stderr)
         return 2
     if not args.ejecutar:
-        print("NO EJECUTADO: plan válido; falta --ejecutar para abrir Chrome")
+        print(mensaje("sin_optin"))
         return 2
     try:
         return recorrer(plan)
     except Exception as exc:
         # Evita imprimir URLs, rutas privadas o cuerpos de respuesta del fallo.
-        print(f"PRIMER CORTE: navegador o conexión ({type(exc).__name__}); consulte el entorno privado")
+        print(mensaje("corte_navegador", tipo=type(exc).__name__))
         return 1
 
 

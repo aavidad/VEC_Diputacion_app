@@ -73,6 +73,12 @@ class PlaywrightFalso:
 
 
 class RecorridoTest(unittest.TestCase):
+    def test_catalogos_tienen_mismas_claves(self):
+        carpeta = Path(recorrer.__file__).parent
+        es = json.loads((carpeta / "mensajes.es.json").read_text(encoding="utf-8"))
+        en = json.loads((carpeta / "mensajes.en.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(es), set(en))
+
     def setUp(self):
         self.enterContext(patch.object(recorrer, "CHROME", Path(sys.executable)))
         self.tmp = tempfile.TemporaryDirectory(prefix="vec-accesos-sintetico-")
