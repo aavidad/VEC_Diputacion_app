@@ -35,6 +35,7 @@ const (
 	clavePerfilFijoAnalisisCTDesarrollo     = "analisis"
 	clavePerfilFijoAsignacionCTDesarrollo   = "asignacion"
 	clavePerfilFijoInformeCTDesarrollo      = "informe_juridico"
+	clavePerfilFijoSubsanacionCTDesarrollo  = "subsanacion"
 	// Acto con el que este circuito publica las asignaciones de los perfiles
 	// fijos. Distinto del del perfil dinámico: una provisión solo reconoce como
 	// propia una asignación puesta por él.
@@ -391,6 +392,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaAsignacionContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAsignacionCT)
 			valida = ok && solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case ruta == httpinterno.RutaSubsanacionReparos:
+			valida = s.solicitudAutorizacionSubsanacionReparosValida(datos)
 		case rutaInformeJuridicoContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
 			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase)
