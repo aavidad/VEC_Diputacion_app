@@ -85,6 +85,10 @@ CREATE TABLE vec_bolsa_llamamientos.acto_plaza_oferta(
 );
 CREATE INDEX acto_plaza_oferta_participacion_idx
  ON vec_bolsa_llamamientos.acto_plaza_oferta(oferta_ref,participacion_ref) WHERE participacion_ref IS NOT NULL;
+-- Defensa además del cerrojo: una persona recibe como mucho una adjudicación
+-- en cada oferta.
+CREATE UNIQUE INDEX acto_plaza_oferta_una_adjudicacion_idx
+ ON vec_bolsa_llamamientos.acto_plaza_oferta(oferta_ref,participacion_ref) WHERE tipo='adjudicada';
 
 -- Evento durable de cada acto, escrito en la misma transacción. Solo lleva
 -- referencias opacas; entregada_en lo marca el relé que lo publique.
@@ -390,6 +394,9 @@ BEGIN
      OR v_plaza->>'participacion_ref' IS DISTINCT FROM p_participacion THEN
    RAISE EXCEPTION 'B58: la plaza ha cambiado' USING ERRCODE='VBO04';
   END IF;
+  -- «aceptada» y «renuncia» se admiten también tras el plazo: RRHH puede
+  -- registrar tarde una respuesta que llegó a tiempo. Solo la falta de
+  -- respuesta exige que el plazo haya vencido.
   IF p_tipo='sin_respuesta' AND (v_plaza->>'puede_sin_respuesta')::boolean IS NOT TRUE THEN
    RAISE EXCEPTION 'B58: plazo de respuesta abierto' USING ERRCODE='VBO07';
   END IF;

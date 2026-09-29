@@ -16,6 +16,10 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta_outbox') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.registrar_acto_plaza_oferta_v1(text,text,text,integer,text,text,integer,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    -- Solo revierte los cuerpos que instaló B58, nunca los de una migración posterior.
+    OR position('proyectar_oferta_v2' in pg_get_functiondef('vec_bolsa_llamamientos.listar_ofertas_bolsa_v1(text,timestamptz,integer)'::regprocedure))=0
+    OR position('acto_plaza_oferta' in pg_get_functiondef('vec_bolsa_llamamientos.listar_ofertas_candidato_v1(text,timestamptz)'::regprocedure))=0
+    OR position('plazas' in pg_get_functiondef('vec_bolsa_llamamientos.publicar_politica_ofertas_v1(text,bigint,jsonb,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))=0
  THEN RAISE EXCEPTION 'B58: preimagen incompatible para DOWN' USING ERRCODE='55000'; END IF;
  IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.plazas_oferta)
     OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.acto_plaza_oferta)
@@ -150,4 +154,14 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.publicar_oferta_v2(text,text,te
  TO vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.resolver_oferta_v1(text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
  TO vec_bolsa_llamamientos_ejecutor;
+DO $post$
+BEGIN
+ IF NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.publicar_oferta_v2(text,text,text,text,text,jsonb,jsonb,timestamptz,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,text,text)','EXECUTE')
+    OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.resolver_oferta_v1(text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR to_regclass('vec_bolsa_llamamientos.plazas_oferta') IS NOT NULL
+    OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta') IS NOT NULL
+    OR to_regclass('vec_bolsa_llamamientos.acto_plaza_oferta_outbox') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.proyectar_oferta_v2(text,timestamptz)') IS NOT NULL
+ THEN RAISE EXCEPTION 'B58: DOWN incompleto' USING ERRCODE='55000'; END IF;
+END $post$;
 COMMIT;
