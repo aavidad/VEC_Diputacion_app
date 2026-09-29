@@ -16,11 +16,11 @@ SET SESSION AUTHORIZATION vec_b61_registro_prueba;
 DO $valido$ BEGIN
  IF NOT vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
   'corr_11111111111111111111111111111111','autenticacion_requerida',
-  'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL)
+  'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL)
  THEN RAISE EXCEPTION 'B61: 401 no registrado'; END IF;
  IF NOT vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
   'corr_22222222222222222222222222222222','acceso_denegado',
-  'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa/contacto',
+  'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa/contacto',
   'per_AAAAAAAAAAAAAAAAAAAAAA')
  THEN RAISE EXCEPTION 'B61: 403 no registrado'; END IF;
 END $valido$;
@@ -33,7 +33,7 @@ DO $seis_rutas$ DECLARE ruta text; numero integer:=2; BEGIN
   numero:=numero+1;
   IF NOT vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_'||pg_catalog.lpad(pg_catalog.to_hex(numero),32,'0'),
-   'acceso_denegado','api.bolsa.mi_bolsa.ruta_exacta',ruta,
+   'acceso_denegado','api.bolsa.candidato.ruta_exacta',ruta,
    'per_AAAAAAAAAAAAAAAAAAAAAA')
   THEN RAISE EXCEPTION 'B61: ruta no registrada: %',ruta; END IF;
  END LOOP;
@@ -43,23 +43,23 @@ DO $rechazos$ DECLARE n integer; BEGIN
  BEGIN
   PERFORM vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_11111111111111111111111111111111','autenticacion_requerida',
-   'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL);
+   'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL);
  EXCEPTION WHEN unique_violation THEN n:=n+1; END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_11111111111111111111111111111111','acceso_denegado',
-   'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa/contacto',
+   'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa/contacto',
    'per_AAAAAAAAAAAAAAAAAAAAAA');
  EXCEPTION WHEN unique_violation THEN n:=n+1; END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_33333333333333333333333333333333','autenticacion_requerida',
-   'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa?persona=1',NULL);
+   'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa?persona=1',NULL);
  EXCEPTION WHEN invalid_parameter_value THEN n:=n+1; END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_44444444444444444444444444444444','acceso_denegado',
-   'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa','per_A');
+   'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa','per_A');
  EXCEPTION WHEN invalid_parameter_value THEN n:=n+1; END;
  IF n<>4 THEN RAISE EXCEPTION 'B61: replay o entrada libre aceptados: %',n; END IF;
  IF has_table_privilege(current_user,'vec_bolsa_llamamientos.denegacion_frontera_portal_externo','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
@@ -76,7 +76,7 @@ DO $extra$ BEGIN
  BEGIN
   PERFORM vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_55555555555555555555555555555555','autenticacion_requerida',
-   'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL);
+   'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL);
   RAISE EXCEPTION 'B61: ACL extra aceptada';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $extra$;
@@ -88,7 +88,7 @@ DO $publico$ BEGIN
  BEGIN
   PERFORM vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(
    'corr_66666666666666666666666666666666','autenticacion_requerida',
-   'api.bolsa.mi_bolsa.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL);
+   'api.bolsa.candidato.ruta_exacta','/api/vec/bolsa/mi-bolsa',NULL);
   RAISE EXCEPTION 'B61: EXECUTE de PUBLIC aceptado';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $publico$;
@@ -101,6 +101,8 @@ DO $separacion$ BEGIN
    'vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1(text,text,text,text,text)','EXECUTE')
    OR has_table_privilege('vec_bolsa_llamamientos_portal_externo',
      'vec_bolsa_llamamientos.denegacion_frontera_portal_externo','SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
+   OR has_type_privilege('public','vec_bolsa_llamamientos.denegacion_frontera_portal_externo','USAGE')
+   OR has_type_privilege('vec_bolsa_llamamientos_portal_externo','vec_bolsa_llamamientos.denegacion_frontera_portal_externo','USAGE')
  THEN RAISE EXCEPTION 'B61: ejecutor externo puede acceder a auditoría'; END IF;
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.denegacion_frontera_portal_externo)<>6
  THEN RAISE EXCEPTION 'B61: historia no exacta'; END IF;

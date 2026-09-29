@@ -29,7 +29,7 @@ CREATE TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo (
  evento_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
  correlacion_ref text NOT NULL CHECK(correlacion_ref='corr_no_disponible' OR correlacion_ref ~ '^corr_[0-9a-f]{32}$'),
  motivo text NOT NULL CHECK(motivo IN ('autenticacion_requerida','acceso_denegado')),
- superficie text NOT NULL CHECK(superficie='api.bolsa.mi_bolsa.ruta_exacta'),
+ superficie text NOT NULL CHECK(superficie='api.bolsa.candidato.ruta_exacta'),
  ruta text NOT NULL CHECK(ruta IN (
   '/api/vec/bolsa/mi-bolsa',
   '/api/vec/bolsa/mi-bolsa/historial',
@@ -42,8 +42,8 @@ CREATE TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo (
  CHECK((motivo='autenticacion_requerida' AND actor_ref IS NULL)
     OR (motivo='acceso_denegado' AND actor_ref IS NOT NULL))
 );
--- Una correlación real representa una petición. Reintentar el INSERT con
--- ella nunca añade otro evento; corr_no_disponible no identifica petición.
+-- Una correlación real representa una petición. Su repetición devuelve 23505
+-- y no añade otro evento; corr_no_disponible no identifica una petición.
 CREATE UNIQUE INDEX denegacion_portal_externo_correlacion_unica
  ON vec_bolsa_llamamientos.denegacion_frontera_portal_externo(correlacion_ref)
  WHERE correlacion_ref<>'corr_no_disponible';
@@ -58,13 +58,16 @@ ALTER TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo FORCE ROW 
 CREATE POLICY denegacion_portal_externo_insertar ON vec_bolsa_llamamientos.denegacion_frontera_portal_externo
  FOR INSERT TO vec_bolsa_llamamientos_propietario WITH CHECK (
    pg_catalog.pg_has_role(session_user,'vec_bolsa_llamamientos_registrador_portal_externo','MEMBER')
-   AND superficie='api.bolsa.mi_bolsa.ruta_exacta'
+   AND superficie='api.bolsa.candidato.ruta_exacta'
    AND ((motivo='autenticacion_requerida' AND actor_ref IS NULL)
      OR (motivo='acceso_denegado' AND actor_ref IS NOT NULL)));
 REVOKE ALL ON TABLE vec_bolsa_llamamientos.denegacion_frontera_portal_externo
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo,
  vec_bolsa_llamamientos_registrador_portal_externo;
 REVOKE ALL ON SEQUENCE vec_bolsa_llamamientos.denegacion_frontera_portal_externo_evento_id_seq
+ FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo,
+ vec_bolsa_llamamientos_registrador_portal_externo;
+REVOKE ALL ON TYPE vec_bolsa_llamamientos.denegacion_frontera_portal_externo
  FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo,
  vec_bolsa_llamamientos_registrador_portal_externo;
 
@@ -127,7 +130,7 @@ BEGIN
  THEN RAISE EXCEPTION 'Bolsa: registrador exterior invalido' USING ERRCODE='42501'; END IF;
  IF p_correlacion IS NULL OR (p_correlacion<>'corr_no_disponible' AND p_correlacion !~ '^corr_[0-9a-f]{32}$')
     OR p_motivo IS NULL OR p_motivo NOT IN ('autenticacion_requerida','acceso_denegado')
-    OR p_superficie IS DISTINCT FROM 'api.bolsa.mi_bolsa.ruta_exacta'
+    OR p_superficie IS DISTINCT FROM 'api.bolsa.candidato.ruta_exacta'
     OR p_ruta IS NULL OR p_ruta NOT IN (
       '/api/vec/bolsa/mi-bolsa','/api/vec/bolsa/mi-bolsa/historial',
       '/api/vec/bolsa/mi-bolsa/solicitudes','/api/vec/bolsa/mi-bolsa/respuestas',
