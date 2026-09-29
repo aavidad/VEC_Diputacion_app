@@ -2,7 +2,7 @@
 # roles_000010, AD3-110 y ContextoActor 000011) y #151 (AD3-112).
 # ContextoActor 000014/000015 ya se instalan con la PR base de Mi bolsa.
 # Aplicar con ambos procesos parados. Nunca ejecutar DOWN ni reaplicar.
-# Documentos/Usuarios separan físicamente la imagen externa. El último SQL
+# Documentos/Usuarios separan físicamente la imagen externa. Usuarios 000012
 # conserva los correos antiguos, pero el externo rechaza su arranque si aún
 # llevan claves anteriores. Ese historial requiere reclaveado gobernado.
 deploy/postgresql/documentos/migraciones/000010_imagen_externa_fisica.up.sql
