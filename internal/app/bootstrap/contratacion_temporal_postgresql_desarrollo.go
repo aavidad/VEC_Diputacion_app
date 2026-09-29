@@ -416,7 +416,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if usuariosPreferenciasActivas {
 		etapa = "preflight_sql_usuarios_preferencias"
-		descriptoresUsuarios, falloPreflight := descriptoresMaterialPreferenciasTrasPreflight(func() error { return preflightSQLPreferenciasUsuariosDesarrollo(cfg, derivador) })
+		descriptoresUsuarios, falloPreflight := descriptoresMaterialPreferenciasTrasPreflight(func() error { return preflightSQLPreferenciasUsuariosDesarrollo(cfg, derivador, gobierno) })
 		if falloPreflight != nil {
 			return vacias, falloPreflight
 		}

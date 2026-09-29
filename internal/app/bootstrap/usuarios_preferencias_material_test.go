@@ -158,7 +158,7 @@ func TestRutaPreferenciasNoExisteEnAPIPublicaAnonima(t *testing.T) {
 
 func TestPreflightUsuariosRechazaSQLAusenteAntesDePublicarMaterial(t *testing.T) {
 	cfg := config.Config{DevelopmentMaterialDir: t.TempDir(), ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
-	if err := preflightSQLPreferenciasUsuariosDesarrollo(cfg, nuevoDerivadorIdempotenciaPrueba(t, 2, 1)); err == nil {
+	if err := preflightSQLPreferenciasUsuariosDesarrollo(cfg, nuevoDerivadorIdempotenciaPrueba(t, 2, 1), nil); err == nil {
 		t.Fatal("sin material/SQL Usuarios publicó audiencia V3")
 	}
 }
@@ -198,6 +198,28 @@ func TestMontajeExigeCuentasPerfilesYPoolsSeparados(t *testing.T) {
 	externa.cuentas["cert-e"] = cuentaUsuariosPreferenciasDesarrollo{cuentaRutasDietasDesarrollo: cuentaRutasDietasDesarrollo{CuentaRef: "cta_externa", PerfilRef: "prf_interno"}}
 	if superficiesPreferenciasSeparadas(interna, externa) {
 		t.Fatal("perfil compartido entre superficies")
+	}
+}
+
+func TestTopologiaPreferenciasRechazaBaseYServidorDistintos(t *testing.T) {
+	gobierno := topologiaPostgreSQLPreferenciasUsuarios{base: "vec_hito1", direccion: "127.0.0.1", puerto: 55432, inicio: "1790640000.123456"}
+	if !gobierno.coincide(gobierno) {
+		t.Fatal("servidor y base acreditados rechazados")
+	}
+	otraBase := gobierno
+	otraBase.base = "vec_hito1_copia"
+	if gobierno.coincide(otraBase) {
+		t.Fatal("dos bases del mismo cluster comparten falsamente preferencias")
+	}
+	otroServidor := gobierno
+	otroServidor.direccion = "127.0.0.2"
+	if gobierno.coincide(otroServidor) {
+		t.Fatal("mismo nombre de base en otro servidor aceptado")
+	}
+	otroInicio := gobierno
+	otroInicio.inicio = "1790640001.123456"
+	if gobierno.coincide(otroInicio) {
+		t.Fatal("reinicio o sustitución de postmaster aceptado")
 	}
 }
 

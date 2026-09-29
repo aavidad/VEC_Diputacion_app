@@ -27,6 +27,49 @@ type consultaFuncionAutorizacionPreferencias interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
+type topologiaPostgreSQLPreferenciasUsuarios struct {
+	base, direccion, inicio string
+	puerto                  int
+}
+
+func (t topologiaPostgreSQLPreferenciasUsuarios) coincide(otra topologiaPostgreSQLPreferenciasUsuarios) bool {
+	return t.base != "" && t.direccion != "" && t.puerto > 0 && t.inicio != "" && t == otra
+}
+
+// La sonda toma el destino observado de cada sesión. El inicio del postmaster
+// distingue dos servidores que expongan el mismo nombre de base y dirección.
+// Un socket Unix sin dirección TCP observada se rechaza en este montaje.
+const sondaTopologiaPostgreSQLPreferenciasUsuarios = `SELECT current_database()::text,
+ COALESCE(inet_server_addr()::text,''), COALESCE(inet_server_port(),0),
+ extract(epoch FROM pg_postmaster_start_time())::text`
+
+func acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx context.Context, pool *pgxpool.Pool) (topologiaPostgreSQLPreferenciasUsuarios, error) {
+	vacia := topologiaPostgreSQLPreferenciasUsuarios{}
+	if ctx == nil || pool == nil {
+		return vacia, errComposicionUsuariosPreferencias
+	}
+	configuracion := pool.Config()
+	if configuracion == nil || configuracion.ConnConfig == nil || len(configuracion.ConnConfig.Fallbacks) != 0 {
+		return vacia, errComposicionUsuariosPreferencias
+	}
+	var observada topologiaPostgreSQLPreferenciasUsuarios
+	if err := pool.QueryRow(ctx, sondaTopologiaPostgreSQLPreferenciasUsuarios).Scan(&observada.base, &observada.direccion, &observada.puerto, &observada.inicio); err != nil {
+		return vacia, errComposicionUsuariosPreferencias
+	}
+	if !observada.coincide(observada) {
+		return vacia, errComposicionUsuariosPreferencias
+	}
+	return observada, nil
+}
+
+func cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx context.Context, pool *pgxpool.Pool, esperada topologiaPostgreSQLPreferenciasUsuarios) error {
+	observada, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, pool)
+	if err != nil || !esperada.coincide(observada) {
+		return errComposicionUsuariosPreferencias
+	}
+	return nil
+}
+
 const sondaFuncionAutorizacionPreferenciasSQL = `SELECT session_user=current_user
  AND has_schema_privilege(session_user,'vec_autorizacion','USAGE')
  AND (SELECT count(*)=1 FROM pg_catalog.pg_proc p
@@ -103,8 +146,8 @@ func configuracionesPreferenciasSeparadas(interna, externa configuracionUsuarios
 // Los cuatro roles de Usuarios y las seis identidades de infraestructura por
 // superficie se comprueban antes de publicar cualquiera de las cuatro claves
 // V3. Esta sonda no conserva pools: el montaje vuelve a abrirlos y los posee.
-func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *derivadorIdentidadOperacionDesarrollo) error {
-	if derivador == nil || !derivador.valido() {
+func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *derivadorIdentidadOperacionDesarrollo, gobierno *pgxpool.Pool) error {
+	if derivador == nil || !derivador.valido() || gobierno == nil {
 		return errComposicionUsuariosPreferencias
 	}
 	cInterna, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionInternaCorporativaV1)
@@ -117,6 +160,10 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	topologiaGobierno, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, gobierno)
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
 	var pools []*pgxpool.Pool
 	defer func() {
 		for _, p := range pools {
@@ -190,7 +237,7 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 			}
 		}
 		ejecutor, loginE, err := abrirPoolUsuariosPreferencias(ctx, c.DSNUsuarios, rolEjecutorPreferencias(string(superficie)))
-		if err != nil || loginE == "" || logins[loginE] {
+		if err != nil || loginE == "" || logins[loginE] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, ejecutor, topologiaGobierno) != nil {
 			if ejecutor != nil {
 				ejecutor.Close()
 			}
@@ -199,7 +246,7 @@ func preflightSQLPreferenciasUsuariosDesarrollo(cfg config.Config, derivador *de
 		pools = append(pools, ejecutor)
 		logins[loginE] = true
 		registrador, loginR, err := abrirPoolUsuariosPreferencias(ctx, c.DSNUsuariosFrontera, rolRegistradorPreferencias(string(superficie)))
-		if err != nil || loginR == "" || logins[loginR] {
+		if err != nil || loginR == "" || logins[loginR] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, registrador, topologiaGobierno) != nil {
 			if registrador != nil {
 				registrador.Close()
 			}

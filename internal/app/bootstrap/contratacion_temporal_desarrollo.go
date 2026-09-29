@@ -73,6 +73,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	gobiernoUsuariosPreferencias                     *pgxpool.Pool
 	materialUsuariosPreferenciasConsultaInterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -932,24 +933,25 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		}
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
-		sello:                                       sello,
-		resolvedor:                                  resolvedorDesarrollo,
-		noCompuesta:                                 noCompuesta,
-		llamamientoCompuesto:                        comunicacionReal != nil,
-		consultasRRHHCompuestas:                     consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
-		subsanacionCompuesta:                        subsanacionReal.servicio != nil,
-		fronterasSeguridadComun:                     seguridadBorrador,
-		envolverBorradorLlamamiento:                 envolverBorrador,
-		manejadorSituacionParticipacion:             manejadorSituacion,
-		plazosOfertasBolsa:                          dependencias.plazosOfertasBolsa,
-		personalizacionB7:                           personalizacionB7,
-		coleccionesAdicionales:                      coleccionesBorrador,
-		registradorAuditoriaFronteraRutasExactas:    registradorFrontera,
-		materialDietas:                              alta.postgresql.materialDietas,
-		materialCronos:                              alta.postgresql.materialCronos,
-		materialDocumentos:                          alta.postgresql.materialDocumentos,
-		materialPersonalFichaPropia:                 alta.postgresql.materialPersonalFichaPropia,
-		materialUsuariosPreferenciasConsultaInterna: alta.postgresql.materialUsuariosPreferenciasConsultaInterna,
+		sello:                                            sello,
+		resolvedor:                                       resolvedorDesarrollo,
+		noCompuesta:                                      noCompuesta,
+		llamamientoCompuesto:                             comunicacionReal != nil,
+		consultasRRHHCompuestas:                          consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
+		subsanacionCompuesta:                             subsanacionReal.servicio != nil,
+		fronterasSeguridadComun:                          seguridadBorrador,
+		envolverBorradorLlamamiento:                      envolverBorrador,
+		manejadorSituacionParticipacion:                  manejadorSituacion,
+		plazosOfertasBolsa:                               dependencias.plazosOfertasBolsa,
+		personalizacionB7:                                personalizacionB7,
+		coleccionesAdicionales:                           coleccionesBorrador,
+		registradorAuditoriaFronteraRutasExactas:         registradorFrontera,
+		materialDietas:                                   alta.postgresql.materialDietas,
+		materialCronos:                                   alta.postgresql.materialCronos,
+		materialDocumentos:                               alta.postgresql.materialDocumentos,
+		materialPersonalFichaPropia:                      alta.postgresql.materialPersonalFichaPropia,
+		gobiernoUsuariosPreferencias:                     alta.postgresql.gobierno,
+		materialUsuariosPreferenciasConsultaInterna:      alta.postgresql.materialUsuariosPreferenciasConsultaInterna,
 		materialUsuariosPreferenciasActualizacionInterna: alta.postgresql.materialUsuariosPreferenciasActualizacionInterna,
 		materialUsuariosPreferenciasConsultaExterna:      alta.postgresql.materialUsuariosPreferenciasConsultaExterna,
 		materialUsuariosPreferenciasActualizacionExterna: alta.postgresql.materialUsuariosPreferenciasActualizacionExterna,

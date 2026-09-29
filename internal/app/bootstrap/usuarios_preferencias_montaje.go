@@ -245,7 +245,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarFallo(ctx context.Con
 }
 
 func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
-	derivador *derivadorIdentidadOperacionDesarrollo,
+	derivador *derivadorIdentidadOperacionDesarrollo, gobierno *pgxpool.Pool,
 	incidencias vecports.EmisorIncidenciasTecnicas,
 	consultaInterna, actualizacionInterna, consultaExterna, actualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) (*composicionPreferenciasUsuarios, error) {
@@ -256,14 +256,20 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if !activo {
 		return nil, nil
 	}
-	if incidencias == nil {
+	if incidencias == nil || gobierno == nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	topologiaGobierno, err := acreditarTopologiaPostgreSQLPreferenciasUsuarios(ctx, gobierno)
+	if err != nil {
+		return nil, errComposicionUsuariosPreferencias
+	}
+	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna)
 	if err != nil {
 		return nil, err
 	}
-	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna)
+	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna)
 	if err != nil {
 		interna.cerrar()
 		return nil, err
@@ -313,7 +319,7 @@ func nombreConfiguracionPreferencias(superficie core.SuperficieAutenticacionActo
 }
 
 func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
-	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, superficie core.SuperficieAutenticacionActorV1, ruta string,
+	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, topologiaGobierno topologiaPostgreSQLPreferenciasUsuarios, superficie core.SuperficieAutenticacionActorV1, ruta string,
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
@@ -363,7 +369,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		logins[login] = true
 	}
 	ejecutor, login, err := abrirPoolUsuariosPreferencias(ctx, c.DSNUsuarios, rolEjecutorPreferencias(string(superficie)))
-	if err != nil || logins[login] {
+	if err != nil || logins[login] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, ejecutor, topologiaGobierno) != nil {
 		if ejecutor != nil {
 			ejecutor.Close()
 		}
@@ -372,7 +378,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	pools = append(pools, ejecutor)
 	logins[login] = true
 	registradorPool, login, err := abrirPoolUsuariosPreferencias(ctx, c.DSNUsuariosFrontera, rolRegistradorPreferencias(string(superficie)))
-	if err != nil || logins[login] {
+	if err != nil || logins[login] || cotejarTopologiaPostgreSQLPreferenciasUsuarios(ctx, registradorPool, topologiaGobierno) != nil {
 		if registradorPool != nil {
 			registradorPool.Close()
 		}
