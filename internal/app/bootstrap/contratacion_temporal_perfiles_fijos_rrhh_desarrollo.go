@@ -15,10 +15,10 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-// Perfiles fijos de RRHH (corte 2).
+// Perfiles fijos de RRHH (corte 2; el análisis, corte 3).
 //
 // Las rutas de RRHH cuyo permiso no depende del expediente (alta directa,
-// cobertura y cambios de organización) ya no comparten el perfil dinámico ni
+// cobertura, cambios de organización y análisis) ya no comparten el perfil dinámico ni
 // publican su permiso en cada petición. Cada forma de ámbito tiene un perfil
 // propio de la misma persona (misma cuenta y persona; perfil, vínculo y sesión
 // distintos) que la composición elige por la ruta, nunca el cliente. Su
@@ -31,6 +31,7 @@ const (
 	clavePerfilFijoAltaCTDesarrollo         = "alta"
 	clavePerfilFijoCoberturaCTDesarrollo    = "cobertura"
 	clavePerfilFijoOrganizacionCTDesarrollo = "organizacion"
+	clavePerfilFijoAnalisisCTDesarrollo     = "analisis"
 	// Acto con el que este circuito publica las asignaciones de los perfiles
 	// fijos. Distinto del del perfil dinámico: una provisión solo reconoce como
 	// propia una asignación puesta por él.
@@ -305,18 +306,34 @@ func preimagenPropiaPerfilFijoCTDesarrollo(p *perfilFijoCTDesarrollo, actos ...s
 	}
 }
 
+// lectorAsignacionPublicadaCTDesarrollo lee la asignación vigente de un
+// perfil, sin escribir. En la composición real solo lo implementa la
+// autoridad PostgreSQL; sin él, las rutas de perfil fijo se deniegan.
+type lectorAsignacionPublicadaCTDesarrollo interface {
+	leerAsignacionPublicada(ctx context.Context, perfilRef string) (instantaneaPublicadaDesarrollo, bool, error)
+}
+
+func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) leerAsignacionPublicada(
+	ctx context.Context, perfilRef string,
+) (instantaneaPublicadaDesarrollo, bool, error) {
+	if a == nil || a.pool == nil {
+		return instantaneaPublicadaDesarrollo{}, false, falloPostgreSQLCTDesarrollo(nil)
+	}
+	return leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, a.pool, perfilRef)
+}
+
 // consumirPerfilFijoCTDesarrollo entrega al PDP la plantilla contrastada con
 // la asignación publicada. Nunca prepara ni publica.
 func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrollo(
 	ctx context.Context, p *perfilFijoCTDesarrollo,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
 	s.mu.Lock()
-	autoridad, ok := s.autoridadAsignaciones.(*autoridadPostgreSQLContratacionTemporalDesarrollo)
+	lector, ok := s.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
 	s.mu.Unlock()
-	if !ok || autoridad == nil || autoridad.pool == nil || p == nil {
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) || p == nil {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	publicada, encontrada, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, autoridad.pool, p.perfilRef())
+	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, p.perfilRef())
 	var consumida dominiovec.InstantaneaAutorizacion
 	valida := false
 	if err == nil && encontrada && publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
@@ -365,6 +382,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 			valida = solicitudAutorizacionOrganizacionDesarrolloValida(ctx, datos)
 		case ruta == httpinterno.RutaResultadoCobertura:
 			valida = true
+		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
+			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
+			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
 		case rutaConsultaRRHHContratacionTemporalDesarrollo(ruta):
 			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		}
@@ -433,8 +453,9 @@ func configurarSesionesPerfilesFijosCTDesarrollo(
 }
 
 // componerPerfilesFijosAltaCoberturaCTDesarrollo compone los perfiles fijos
-// del alta directa (organización, centro y categoría) y de la cobertura
-// (organización y unidad ejecutora). El alta anidada de la entrega del centro
+// del alta directa (organización, centro y categoría), de la cobertura
+// (organización y unidad ejecutora) y del análisis (organización y fase y
+// estado previos del catálogo). El alta anidada de la entrega del centro
 // sigue en el perfil dinámico: su reserva y su recibo sellan ese perfil.
 func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	s *soporteAltaContratacionTemporalDesarrollo, principal dominiovec.Principal, ahora time.Time,
@@ -460,10 +481,26 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	if err != nil {
 		return err
 	}
-	if err := s.registrarPerfilFijoCTDesarrollo(alta); err != nil {
+	// Análisis (corte 3): la organización y las fases y el estado previos del
+	// catálogo (c23). El expediente va en la referencia del recurso.
+	faseAnalisis, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
+	if !ok {
+		return errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	analisis, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAnalisisCTDesarrollo,
+		[]string{httpinterno.RutaRegistroAnalisisRRHH, httpinterno.RutaRectificacionAnalisisRRHH},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(principalID, perfilRef, ahora, faseAnalisis)
+		})
+	if err != nil {
 		return err
 	}
-	return s.registrarPerfilFijoCTDesarrollo(cobertura)
+	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis} {
+		if err := s.registrarPerfilFijoCTDesarrollo(p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // asignarPerfilesFijosEnFronterasCTDesarrollo hace que la frontera común de

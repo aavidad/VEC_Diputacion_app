@@ -566,3 +566,26 @@ func TestPreparadorOperacionAnalisisPostgreSQLConsultaClaveReutilizada(
 		})
 	}
 }
+
+// Sin el expediente en la versión esperada (P0002 en la preparación) la
+// respuesta es un conflicto de versión sin efectos, no una indisponibilidad.
+func TestPreparadorOperacionAnalisisPostgreSQLVersionAusenteEsConflicto(t *testing.T) {
+	expediente := expedienteInicialAnalisisPostgreSQLPrueba(t)
+	solicitud := solicitudAnalisisPostgreSQLPrueba(t, expediente)
+	for _, caso := range []struct {
+		codigo    string
+		conflicto bool
+	}{{"P0002", true}, {"42501", false}, {"08006", false}} {
+		tx := &transaccionPreparacionPrueba{fila: filaPreparacionPrueba{err: &pgconn.PgError{Code: caso.codigo}}}
+		preparador, err := nuevoPreparadorOperacionAnalisisPostgreSQL(&iniciadorPreparacionPrueba{tx: tx})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = preparador.PrepararOperacionAnalisis(context.Background(), solicitud)
+		if errors.Is(err, domain.ErrVersionEnConflicto) != caso.conflicto ||
+			errors.Is(err, ports.ErrPersistenciaOperacionAnalisisNoDisponible) == caso.conflicto ||
+			tx.confirmaciones != 0 {
+			t.Fatalf("%s: error %v, commits %d", caso.codigo, err, tx.confirmaciones)
+		}
+	}
+}
