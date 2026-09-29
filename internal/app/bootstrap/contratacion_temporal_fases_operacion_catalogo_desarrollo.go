@@ -26,6 +26,8 @@ const (
 	operacionFaseAnalisisCT         = "analisis"
 	operacionFaseAsignacionCT       = "asignacion"
 	operacionFaseInformeJuridicoCT  = "informe_juridico"
+	operacionFaseFiscalizacionCT    = "fiscalizacion"
+	operacionFaseSubsanacionCT      = "subsanacion"
 	atributoEstadoFaseOperacionCT   = "estado"
 	prefijoAtributoEstadoFaseOperCT = "estado_"
 	maximoFasesOperacionCT          = 20
@@ -101,6 +103,15 @@ func fasesOperacionPredeterminadasCT() map[string]faseOperacionCT {
 		// subsanar un reparo.
 		operacionFaseInformeJuridicoCT: faseOperacionDePares(
 			faseEstadoOperacionCT{"asignacion_unidad", domain.EstadoEnCurso},
+			faseEstadoOperacionCT{domain.FaseSubsanacionUnidad, domain.EstadoIncidencia}),
+		// Intervención fiscaliza tras el informe jurídico, de nuevo tras
+		// subsanar un reparo y tras una modificación posterior al nombramiento.
+		operacionFaseFiscalizacionCT: faseOperacionDePares(
+			faseEstadoOperacionCT{domain.FaseInformeJuridico, domain.EstadoEnCurso},
+			faseEstadoOperacionCT{domain.FaseSubsanacionUnidad, domain.EstadoIncidencia},
+			faseEstadoOperacionCT{domain.FaseFiscalizacion, domain.EstadoEnCurso}),
+		// RRHH subsana un reparo de Intervención.
+		operacionFaseSubsanacionCT: faseOperacionDePares(
 			faseEstadoOperacionCT{domain.FaseSubsanacionUnidad, domain.EstadoIncidencia}),
 	}
 }

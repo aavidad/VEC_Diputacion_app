@@ -403,9 +403,10 @@ func (s *ServicioFiscalizaciones) nuevaSolicitudAutorizacion(
 				Referencia: material.ExpedienteRef,
 				ModuloID:   ports.ModuloContratacion,
 				Tipo:       ports.TipoRecursoFiscalizacion,
+				// El expediente va en la referencia del recurso, no en los
+				// ámbitos (permiso fijo por organización, fase y estado).
 				Ambitos: map[string]string{
 					"organizacion_ref": material.OrganizacionRef,
-					"expediente_ref":   material.ExpedienteRef,
 					"fase_previa":      string(anterior.FaseActual),
 					"estado_previo":    string(anterior.EstadoActual),
 				},
@@ -445,6 +446,11 @@ func clasificarFalloFiscalizacion(ctx context.Context, causa error) error {
 	}
 	if errors.Is(causa, ports.ErrInformeNuevoPendiente) {
 		return ports.ErrInformeNuevoPendiente
+	}
+	// El expediente ya no está en la versión esperada: conflicto sin
+	// efectos, no indisponibilidad.
+	if errors.Is(causa, domain.ErrVersionEnConflicto) {
+		return domain.ErrVersionEnConflicto
 	}
 	if errors.Is(causa, ErrFiscalizacionDenegada) {
 		return ErrFiscalizacionDenegada

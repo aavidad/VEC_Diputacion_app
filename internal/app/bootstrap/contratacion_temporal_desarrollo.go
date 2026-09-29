@@ -413,6 +413,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		&alta,
 		sello,
 		reloj,
+		aprobacionProvisionPerfilesRRHHDesdeConfig(cfg),
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -434,7 +435,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			log.Print("contratacion temporal: subsanacion no disponible; etapa=configuracion")
 		} else {
 			fuente := fuentePoliticaSubsanacionReparosDesarrollo{soporte: alta.soporte, configuracion: politica}
-			if fuente.configurar(&alta) != nil {
+			if fuente.configurar(&alta, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg)) != nil {
 				log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente")
 			} else {
 				var causaDependencias error
