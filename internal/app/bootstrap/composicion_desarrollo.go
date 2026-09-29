@@ -239,7 +239,11 @@ func nuevoServidorDesarrollo(
 	}
 	// Antes de leer material o abrir conexiones: un proceso separado no
 	// arranca con credenciales ni claves del otro portal.
-	portal, err := comprobarSeparacionPortalProceso(cfg, entornoProcesoActual())
+	entorno, err := entornoProcesoActual()
+	if err != nil && portalProcesoSeparado(cfg) {
+		return nil, nil, err
+	}
+	portal, err := comprobarSeparacionPortalProceso(cfg, entorno)
 	if err != nil {
 		return nil, nil, err
 	}

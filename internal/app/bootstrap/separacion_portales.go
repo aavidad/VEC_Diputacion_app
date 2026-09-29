@@ -64,16 +64,20 @@ func comprobarSeparacionPortalProceso(cfg config.Config, entorno separacionporta
 
 // entornoProcesoActual es la instantánea real del proceso: sus variables y el
 // directorio personal en el que pgx busca credenciales por defecto.
-func entornoProcesoActual() separacionportales.Entorno {
-	return separacionportales.Entorno{Variables: os.Environ(), DirectorioPersonal: directorioPersonalPostgreSQL()}
+func entornoProcesoActual() (separacionportales.Entorno, error) {
+	directorio, err := directorioPersonalPostgreSQL()
+	if err != nil {
+		return separacionportales.Entorno{}, err
+	}
+	return separacionportales.Entorno{Variables: os.Environ(), DirectorioPersonal: directorio}, nil
 }
 
 // directorioPersonalPostgreSQL devuelve el mismo directorio en el que pgx
 // busca .pgpass y la clave de cliente: el del usuario del sistema, no $HOME.
-func directorioPersonalPostgreSQL() string {
+func directorioPersonalPostgreSQL() (string, error) {
 	actual, err := user.Current()
-	if err != nil {
-		return ""
+	if err != nil || actual == nil || actual.HomeDir == "" {
+		return "", errors.New("bootstrap: no se puede comprobar el directorio personal de PostgreSQL")
 	}
-	return actual.HomeDir
+	return actual.HomeDir, nil
 }
