@@ -280,3 +280,115 @@
 .ct-circuito-aviso {
   padding: 8px 24px 0;
 }
+
+/* Fase de firma: una fila por documento, con acento de color según su estado. */
+.ct-fase-firma {
+  margin: 16px 24px 0;
+}
+
+.ct-fase-firma h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.ct-fase-firma-resumen,
+.ct-fase-firma-firmadoc {
+  margin: 4px 0 0;
+  color: var(--portal-muted);
+  font-size: 0.85rem;
+}
+
+.ct-fase-firma-aviso {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-tinta);
+  font-size: 0.85rem;
+}
+
+.ct-fase-firma-lista {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-fase-firma-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--ct-tono, var(--portal-muted));
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.ct-fase-firma-fila:nth-child(even) {
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-fase-firma-fila--neutro { --ct-tono: var(--portal-muted); }
+.ct-fase-firma-fila--aviso { --ct-tono: var(--portal-aviso); }
+.ct-fase-firma-fila--info { --ct-tono: var(--portal-azul-700); }
+.ct-fase-firma-fila--exito { --ct-tono: var(--portal-exito); }
+.ct-fase-firma-fila--peligro { --ct-tono: var(--portal-peligro); }
+
+.ct-fase-firma-dato {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.ct-fase-firma-rotulo {
+  color: var(--portal-muted);
+  font-size: 0.75rem;
+}
+
+.ct-fase-firma-estado {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ct-tono-suave, var(--portal-neutro-suave));
+  color: var(--ct-tono, var(--portal-muted));
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ct-fase-firma-estado::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+@media (max-width: 720px) {
+  .ct-fase-firma-fila {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ct-fase-firma-documento {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .ct-fase-firma {
+    margin-inline: 16px;
+  }
+
+  .ct-fase-firma-fila {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 12px;
+  }
+}
