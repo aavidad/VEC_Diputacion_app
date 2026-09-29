@@ -43,7 +43,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ConsultarOperacion(ctx context.C
 	c := ports.ConsultaPeticionCentro{Modo: "operacion", Actor: actor, Referencia: clave}
 	var material *ports.MaterialPeticionCentro
 	err := r.consultar(ctx, c, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &material); err != nil {
+		if err := decodificarJSONLimpio(b, &material); err != nil {
 			return ports.ErrPeticionCentroNoDisponible
 		}
 		if material != nil && (material.Validar() != nil || material.Actor != actor || material.Comando.ClaveIdempotencia != clave) {
@@ -61,7 +61,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ObtenerPeticion(ctx context.Cont
 	c := ports.ConsultaPeticionCentro{Modo: "peticion", Actor: actor, Referencia: referencia}
 	var datos domain.DatosPeticionCentro
 	err := r.consultar(ctx, c, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &datos); err != nil {
+		if err := decodificarJSONLimpio(b, &datos); err != nil {
 			return ports.ErrPeticionCentroNoDisponible
 		}
 		if datos.Referencia != referencia || !peticionCentroVisiblePara(datos, actor) {
@@ -80,7 +80,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ListarPeticiones(ctx context.Con
 	c := ports.ConsultaPeticionCentro{Modo: "bandeja", Actor: actor, Referencia: actor.CentroRef}
 	var datos []domain.DatosPeticionCentro
 	err := r.consultar(ctx, c, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &datos); err != nil || datos == nil || len(datos) > 50 {
+		if err := decodificarJSONLimpio(b, &datos); err != nil || datos == nil || len(datos) > 50 {
 			return ports.ErrPeticionCentroNoDisponible
 		}
 		vistos := make(map[string]bool, len(datos))
@@ -148,7 +148,7 @@ func (r *RepositorioPeticionesCentroPostgreSQL) ConfirmarPeticion(ctx context.Co
 		return recibo, domain.ErrPeticionCentroInvalida
 	}
 	err = r.ejecutar(ctx, "registrar_peticion_centro_v1", b, a, AccionEscrituraPeticionCentro(m), recurso, func(b []byte) error {
-		if err := decodificarJSONEstricto(b, &recibo); err != nil {
+		if err := decodificarJSONLimpio(b, &recibo); err != nil {
 			return ports.ErrReciboPeticionCentroNoConfiable
 		}
 		recibo.RegistradoEn = recibo.RegistradoEn.UTC()

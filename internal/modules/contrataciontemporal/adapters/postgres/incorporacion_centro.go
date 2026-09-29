@@ -51,7 +51,7 @@ func (r *RepositorioIncorporacionCentroPostgreSQL) ListarIncorporacionesCentro(c
 		Expedientes []ports.ExpedienteIncorporacionCentro `json:"expedientes"`
 	}
 	err = r.ejecutar(ctx, "consultar_incorporaciones_centro_v1", contenido, ports.AccionConsultarIncorporacionesCentro, recurso, func(b []byte) error {
-		if decodificarJSONEstricto(b, &salida) != nil || salida.Esquema != esquemaIncorporacionesCentroSQL || salida.Expedientes == nil ||
+		if decodificarJSONLimpio(b, &salida) != nil || salida.Esquema != esquemaIncorporacionesCentroSQL || salida.Expedientes == nil ||
 			len(salida.Expedientes) > ports.LimiteExpedientesIncorporacionCentro() {
 			return ports.ErrIncorporacionCentroNoDisponible
 		}
@@ -110,7 +110,7 @@ func (r *RepositorioIncorporacionCentroPostgreSQL) ConfirmarIncorporacionCentro(
 	}
 	recurso := ports.RecursoIncorporacionCentro(m.ExpedienteRef, m.OrganizacionRef, m.Actor.CentroRef, contenido)
 	err = r.ejecutar(ctx, "confirmar_incorporacion_centro_v1", contenido, ports.AccionConfirmarIncorporacionCentro, recurso, func(b []byte) error {
-		if decodificarJSONEstricto(b, &recibo) != nil {
+		if decodificarJSONLimpio(b, &recibo) != nil {
 			return ports.ErrIncorporacionCentroNoDisponible
 		}
 		recibo.RegistradoEn = recibo.RegistradoEn.UTC()

@@ -42,3 +42,12 @@ func ejecutarConReintentoSerializable(ctx context.Context, intento func() error)
 		}
 	}
 }
+
+// decodificarJSONLimpio vacía el destino antes de decodificar: con el
+// reintento serializable la misma validación puede correr varias veces y no
+// debe arrastrar campos de un intento anterior.
+func decodificarJSONLimpio[T any](b []byte, destino *T) error {
+	var cero T
+	*destino = cero
+	return decodificarJSONEstricto(b, destino)
+}
