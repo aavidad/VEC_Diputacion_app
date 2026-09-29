@@ -15,7 +15,6 @@
     "publicada_antes": "La oferta ya estaba publicada con esta misma solicitud.",
     "cargando": "Cargando ofertas…",
     "vacio": "Esta bolsa no tiene ofertas publicadas.",
-    "col_oferta": "Oferta",
     "col_fechas": "Fechas",
     "col_plazo": "Plazo para ofrecerse",
     "col_disposiciones": "Se ofrecen",
@@ -28,8 +27,14 @@
     "estado_adjudicada": "Cubierta",
     "estado_llamamiento_directo": "Llamamiento directo",
     "estado_cerrada": "Cerrada",
-    "plazas_total": { "one": "{cuenta} plaza", "other": "{cuenta} plazas" },
-    "plazas_cubiertas": { "one": "{cubiertas} de {cuenta} cubierta", "other": "{cubiertas} de {cuenta} cubiertas" },
+    "plazas_total": {
+      "one": "{cuenta} plaza",
+      "other": "{cuenta} plazas"
+    },
+    "plazas_cubiertas": {
+      "one": "{cubiertas} de {cuenta} cubierta",
+      "other": "{cubiertas} de {cuenta} cubiertas"
+    },
     "plazas_lista": "Plazas de la oferta de {categoria}",
     "plaza": "Plaza {numero}",
     "plaza_vacante": "Libre",
@@ -37,7 +42,11 @@
     "plaza_cubierta": "Cubierta",
     "plaza_llamamiento_directo": "Llamamiento directo",
     "orden": "N.º de orden {orden}",
-    "sin_turno": "Sin turno",
+    "ordenes": "N.º de orden {lista}",
+    "sin_turno_cuenta": {
+      "one": "{cuenta} sin turno",
+      "other": "{cuenta} sin turno"
+    },
     "responder_antes": "Responde antes del {fecha}",
     "siguiente": "Siguiente por orden: n.º {orden}",
     "sin_personas": "No quedan personas que se ofrecieran",
@@ -64,7 +73,10 @@
     "hecho_renuncia": "Renuncia registrada en la plaza {plaza}.",
     "hecho_sin_respuesta": "Falta de respuesta registrada en la plaza {plaza}.",
     "hecho_llamamiento_directo": "La plaza {plaza} pasa a llamamiento directo.",
-    "total": { "one": "{cuenta} oferta", "other": "{cuenta} ofertas" },
+    "total": {
+      "one": "{cuenta} oferta",
+      "other": "{cuenta} ofertas"
+    },
     "error_carga": "No se pudieron consultar las ofertas. Pulse Reintentar.",
     "reintentar_carga": "Reintentar",
     "error_403": "Su sesión no permite gestionar las ofertas de esta bolsa.",

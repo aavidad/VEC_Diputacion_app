@@ -138,6 +138,8 @@ export function accionesPlaza(plaza) {
   return [];
 }
 
+const listaFormato = new Intl.ListFormat(LOCALIZACION_PORTAL, { type: "conjunction" });
+
 export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorOfertas(), generarClave = generarClavePorDefecto } = {}) {
   const estado = { bolsa: "", carga: "inactiva", ofertas: [], error: "", enviando: false, claveEnCurso: null, borrador: null, mensaje: "", errorOperacion: "",
     registrando: false, confirmacion: null, clavesActo: new Map() };
@@ -269,19 +271,24 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     return `<ol class="plazas-oferta" aria-label="${escapar(traducir("plazas_lista", { categoria: o.datos.categoria }))}">${elementos}</ol>`;
   }
 
-  function filaOferta(o) {
+  function fichaOferta(o) {
     const d = o.datos;
-    const fechas = `${escapar(fechaDia(d.fecha_inicio))} – ${d.fecha_fin ? escapar(fechaDia(d.fecha_fin)) : escapar(traducir("sin_fin"))}`;
+    const fechas = `${fechaDia(d.fecha_inicio)} – ${d.fecha_fin ? fechaDia(d.fecha_fin) : traducir("sin_fin")}`;
     const cubiertas = o.plazas.filter((p) => p.estado === "cubierta").length;
     const plazas = o.estado === "abierta" ? traducir("plazas_total", { cuenta: o.numero_plazas }) : traducir("plazas_cubiertas", { cuenta: o.numero_plazas, cubiertas });
-    const disposiciones = o.disposiciones.length === 0 ? "" : `<div class="lista-chips">${o.disposiciones.map((x) =>
-      `<span class="estado-chip${Number.isSafeInteger(x.orden_vigente) ? " info" : ""}">${escapar(Number.isSafeInteger(x.orden_vigente) ? traducir("orden", { orden: x.orden_vigente }) : traducir("sin_turno"))}</span>`).join("")}</div>`;
-    const fila = `<tr data-oferta-ref="${escapar(o.oferta_ref)}"><td><strong>${escapar(d.categoria)}</strong><br><span class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</span></td>` +
-      `<td>${fechas}</td><td>${escapar(fechaHora(o.vence_antes_de))}</td>` +
-      `<td class="numero">${escapar(o.disposiciones_total)}${disposiciones}</td><td>${escapar(plazas)}</td>` +
-      `<td><span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></td></tr>`;
-    // Las plazas se muestran cuando ya hay algo que decidir o ver: tras el plazo.
-    return o.estado === "abierta" ? fila : `${fila}<tr class="fila-plazas-oferta"><td colspan="6">${listaPlazas(o)}</td></tr>`;
+    const ordenes = o.disposiciones.filter((x) => Number.isSafeInteger(x.orden_vigente)).map((x) => x.orden_vigente);
+    const sinTurno = o.disposiciones.length - ordenes.length;
+    const detalleOfrecidas = [ordenes.length ? traducir("ordenes", { lista: listaFormato.format(ordenes.map(String)) }) : "",
+      sinTurno ? traducir("sin_turno_cuenta", { cuenta: sinTurno }) : ""].filter(Boolean).join(" · ");
+    const dato = (etiqueta, valor, detalle = "") => `<div><dt>${escapar(traducir(etiqueta))}</dt><dd>${escapar(valor)}${detalle ? `<span class="dato-secundario">${escapar(detalle)}</span>` : ""}</dd></div>`;
+    const idTitulo = `oferta-${escapar(o.oferta_ref.slice(-12))}`;
+    return `<li class="oferta-ficha" data-oferta-ref="${escapar(o.oferta_ref)}" aria-labelledby="${idTitulo}">` +
+      `<div class="oferta-ficha__cabecera"><div><h4 id="${idTitulo}">${escapar(d.categoria)}</h4><p class="dato-secundario">${escapar(d.centro)} · ${escapar(d.descripcion)}</p></div>` +
+      `<span class="estado-chip ${ESTADOS[o.estado]}">${escapar(traducir(`estado_${o.estado}`))}</span></div>` +
+      `<dl class="oferta-ficha__datos">${dato("col_fechas", fechas)}${dato("col_plazo", fechaHora(o.vence_antes_de))}` +
+      `${dato("col_disposiciones", String(o.disposiciones_total), detalleOfrecidas)}${dato("col_plazas", plazas)}</dl>` +
+      // Las plazas se muestran cuando ya hay algo que decidir o ver: tras el plazo.
+      (o.estado === "abierta" ? "" : listaPlazas(o)) + "</li>";
   }
 
   function formulario() {
@@ -307,14 +314,10 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     if (estado.carga === "cargando" || estado.carga === "inactiva") cuerpo = `<p role="status">${escapar(traducir("cargando"))}</p>`;
     else if (estado.carga === "error") cuerpo = `<p class="mensaje-error" role="alert">${escapar(estado.error)} <button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("reintentar_carga"))}</button></p>`;
     else if (estado.ofertas.length === 0) cuerpo = `<p>${escapar(traducir("vacio"))}</p>`;
-    else {
-      const cabeceras = ["col_oferta", "col_fechas", "col_plazo", "col_disposiciones", "col_plazas", "col_estado"]
-        .map((c) => `<th scope="col"${c === "col_disposiciones" ? ' class="numero"' : ""}>${escapar(traducir(c))}</th>`).join("");
-      cuerpo = `<div class="tabla-contenedor" tabindex="0"><table class="tabla-datos tabla-ofertas-bolsa"><thead><tr>${cabeceras}</tr></thead><tbody>${estado.ofertas.map(filaOferta).join("")}</tbody></table></div>`;
-    }
+    else cuerpo = `<ul class="ofertas-lista">${estado.ofertas.map(fichaOferta).join("")}</ul>`;
     const avisos = `<div aria-live="polite">${estado.mensaje ? `<p class="mensaje-exito" role="status">${escapar(estado.mensaje)}</p>` : ""}</div>` +
       `${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escapar(estado.errorOperacion)}</p>` : ""}`;
-    return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${formulario()}${avisos}${cuerpo}</div></section>`;
+    return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${formulario()}</div></section>`;
   }
 
   function manejarSubmit(evento) {

@@ -189,7 +189,7 @@ export function crearSuperficieRRHHPlazos({
     const opciones = (valores, actual, prefijo) => `<option value=""${actual ? "" : " selected"}>${tp("elegir")}</option>` +
       valores.map((valor) => `<option value="${valor}"${actual === valor ? " selected" : ""}>${tp(`${prefijo}_${valor}`)}</option>`).join("");
     const plazas = `<section class="panel"><div class="cabecera-panel"><h3>${tp("titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">` +
-      `<label class="campo"><span>${tp("llamada")}</span><select name="plazas_llamada" required${disabled}>${opciones(LLAMADAS_PLAZAS, p.llamada, "llamada")}</select></label>` +
+      `<label class="campo campo--ancho"><span>${tp("llamada")}</span><select name="plazas_llamada" required${disabled}>${opciones(LLAMADAS_PLAZAS, p.llamada, "llamada")}</select></label>` +
       `<label class="campo"><span>${tp("respuesta_horas")}</span><input name="plazas_respuesta_horas" type="number" min="1" max="${MAXIMO_HORAS_RESPUESTA}" step="1" required value="${escapar(p.respuesta_horas ?? "")}"${disabled}></label>` +
       `<label class="campo campo--ancho"><span>${tp("tras_renuncia")}</span><select name="plazas_tras_renuncia" required${disabled}>${opciones(TRAS_RENUNCIA_PLAZAS, p.tras_renuncia, "tras_renuncia")}</select></label></div></section>`;
     const aviso = `${!configurada ? `<p role="status">${t("vacio")}</p>` : ""}${estado.error ? `<p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>` : ""}${estado.mensaje ? `<p class="rrhh-plazos__resultado" role="status">${escapar(estado.mensaje)}</p>` : ""}`;

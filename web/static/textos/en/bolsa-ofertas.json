@@ -15,7 +15,6 @@
     "publicada_antes": "The offer was already published with this same request.",
     "cargando": "Loading offers…",
     "vacio": "This list has no published offers.",
-    "col_oferta": "Offer",
     "col_fechas": "Dates",
     "col_plazo": "Deadline to put forward",
     "col_disposiciones": "Put forward",
@@ -28,8 +27,14 @@
     "estado_adjudicada": "Filled",
     "estado_llamamiento_directo": "Direct call",
     "estado_cerrada": "Closed",
-    "plazas_total": { "one": "{cuenta} post", "other": "{cuenta} posts" },
-    "plazas_cubiertas": { "one": "{cubiertas} of {cuenta} filled", "other": "{cubiertas} of {cuenta} filled" },
+    "plazas_total": {
+      "one": "{cuenta} post",
+      "other": "{cuenta} posts"
+    },
+    "plazas_cubiertas": {
+      "one": "{cubiertas} of {cuenta} filled",
+      "other": "{cubiertas} of {cuenta} filled"
+    },
     "plazas_lista": "Posts in the {categoria} offer",
     "plaza": "Post {numero}",
     "plaza_vacante": "Free",
@@ -37,7 +42,11 @@
     "plaza_cubierta": "Filled",
     "plaza_llamamiento_directo": "Direct call",
     "orden": "Order no. {orden}",
-    "sin_turno": "Not in turn",
+    "ordenes": "Order no. {lista}",
+    "sin_turno_cuenta": {
+      "one": "{cuenta} not in turn",
+      "other": "{cuenta} not in turn"
+    },
     "responder_antes": "Reply due by {fecha}",
     "siguiente": "Next in order: no. {orden}",
     "sin_personas": "Nobody else put themselves forward",
@@ -64,7 +73,10 @@
     "hecho_renuncia": "Refusal recorded for post {plaza}.",
     "hecho_sin_respuesta": "No reply recorded for post {plaza}.",
     "hecho_llamamiento_directo": "Post {plaza} moves to a direct call.",
-    "total": { "one": "{cuenta} offer", "other": "{cuenta} offers" },
+    "total": {
+      "one": "{cuenta} offer",
+      "other": "{cuenta} offers"
+    },
     "error_carga": "The offers could not be loaded. Press Retry.",
     "reintentar_carga": "Retry",
     "error_403": "Your session cannot manage this list's offers.",
