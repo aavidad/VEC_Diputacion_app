@@ -45,7 +45,7 @@ func TestFuentesAsignacionDesarrolloAceptanSoloDestinoSinteticoInicial(t *testin
 		Destino:      destino,
 		Instante:     instante,
 	}
-	politica, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{}).
+	politica, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]}).
 		ResolverPoliticaAsignacion(context.Background(), solicitudPolitica)
 	if err != nil || politica.ValidarPara(solicitudPolitica, instante) != nil {
 		t.Fatalf("política inicial no disponible: %#v / %v", politica, err)
@@ -60,7 +60,7 @@ func TestFuentesAsignacionDesarrolloAceptanSoloDestinoSinteticoInicial(t *testin
 		t.Fatal("segregación de funciones no aplicada")
 	}
 	solicitudPolitica.Operacion = ports.OperacionRegistrarReasignacion
-	if _, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{}).
+	if _, err := (resolutorPoliticaAsignacionContratacionTemporalDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]}).
 		ResolverPoliticaAsignacion(
 			context.Background(),
 			solicitudPolitica,
@@ -76,6 +76,7 @@ func TestAutoridadAsignacionDesarrolloConcedeSoloSolicitudExacta(t *testing.T) {
 			"persona:tecnica:desarrollo:001",
 			"perfil:tecnico:desarrollo:001",
 			instante,
+			fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT],
 		)
 	if err != nil || instantanea.Validar() != nil ||
 		len(instantanea.VersionRol.Concesiones) != 1 ||
@@ -96,7 +97,6 @@ func TestAutoridadAsignacionDesarrolloConcedeSoloSolicitudExacta(t *testing.T) {
 			Tipo:       ports.TipoRecursoAsignacion,
 			Ambitos: map[string]string{
 				"organizacion_ref":   organizacionAltaContratacionTemporalDesarrollo,
-				"expediente_ref":     expedienteRef,
 				"fase_previa":        "asignacion_unidad",
 				"estado_previo":      string(domain.EstadoEnCurso),
 				"unidad_destino_ref": unidadCoberturaContratacionTemporalDesarrollo,
@@ -120,13 +120,28 @@ func TestAutoridadAsignacionDesarrolloConcedeSoloSolicitudExacta(t *testing.T) {
 	if !solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 		httpinterno.RutaAsignaciones,
 		datos,
+		fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT],
 	) {
 		t.Fatal("solicitud exacta denegada")
+	}
+	// Fuera de la fase del catálogo, o con el expediente en los ámbitos, no.
+	fase := fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]
+	for clave, valor := range map[string]string{"fase_previa": "solicitud", "estado_previo": string(domain.EstadoIncidencia), "expediente_ref": expedienteRef} {
+		alterada := datos
+		alterada.Recurso.Ambitos = map[string]string{}
+		for k, v := range datos.Recurso.Ambitos {
+			alterada.Recurso.Ambitos[k] = v
+		}
+		alterada.Recurso.Ambitos[clave] = valor
+		if solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(httpinterno.RutaAsignaciones, alterada, fase) {
+			t.Fatalf("solicitud con %s=%s aceptada", clave, valor)
+		}
 	}
 	datos.Recurso.Atributos["campo_ajeno"] = "no"
 	if solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 		httpinterno.RutaAsignaciones,
 		datos,
+		fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT],
 	) {
 		t.Fatal("solicitud con atributo ajeno aceptada")
 	}

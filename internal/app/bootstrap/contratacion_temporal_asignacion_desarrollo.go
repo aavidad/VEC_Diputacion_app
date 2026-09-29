@@ -71,9 +71,14 @@ func (resolutorDestinoAsignacionContratacionTemporalDesarrollo) ResolverDestinoA
 	return destino, nil
 }
 
-type resolutorPoliticaAsignacionContratacionTemporalDesarrollo struct{}
+// resolutorPoliticaAsignacionContratacionTemporalDesarrollo admite la
+// asignación en las fases y estados del catálogo (c23), los mismos que cubre
+// su perfil fijo.
+type resolutorPoliticaAsignacionContratacionTemporalDesarrollo struct {
+	fase faseOperacionCT
+}
 
-func (resolutorPoliticaAsignacionContratacionTemporalDesarrollo) ResolverPoliticaAsignacion(
+func (r resolutorPoliticaAsignacionContratacionTemporalDesarrollo) ResolverPoliticaAsignacion(
 	ctx context.Context,
 	solicitud ports.SolicitudResolverPoliticaAsignacion,
 ) (ports.PoliticaAsignacion, error) {
@@ -86,8 +91,7 @@ func (resolutorPoliticaAsignacionContratacionTemporalDesarrollo) ResolverPolitic
 			[]byte(solicitud.Flujo.HuellaSHA256),
 			[]byte(huellaAltaContratacionTemporalDesarrollo("flujo")),
 		) ||
-		solicitud.FasePrevia != domain.ClaveFase("asignacion_unidad") ||
-		solicitud.EstadoPrevio != domain.EstadoEnCurso ||
+		!r.fase.admite(solicitud.FasePrevia, solicitud.EstadoPrevio) ||
 		solicitud.UnidadAnteriorRef != "" ||
 		solicitud.ResponsableAnteriorRef != "" ||
 		solicitud.MotivoReasignacionClave != "" ||
@@ -190,6 +194,10 @@ func nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errAsignacionContratacionTemporalDesarrolloNoDisponible
 	}
+	faseAsignacion, ok := alta.soporte.opcionesCatalogo.faseOperacionVigente(operacionFaseAsignacionCT)
+	if !ok {
+		return nil, errAsignacionContratacionTemporalDesarrolloNoDisponible
+	}
 	servicio, err := application.NuevoServicioAsignacion(
 		alta.soporte,
 		sellos,
@@ -197,7 +205,7 @@ func nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 		consultas,
 		preparaciones,
 		resolutorDestinoAsignacionContratacionTemporalDesarrollo{},
-		resolutorPoliticaAsignacionContratacionTemporalDesarrollo{},
+		resolutorPoliticaAsignacionContratacionTemporalDesarrollo{fase: faseAsignacion},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		reloj,
@@ -209,11 +217,18 @@ func nuevasDependenciasAsignacionContratacionTemporalDesarrollo(
 	return servicio, nil
 }
 
+// nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo es la
+// plantilla del perfil fijo de la asignación: la organización, las fases y
+// estados del catálogo (c23) y la unidad de destino, sin expediente.
 func nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
+	fase faseOperacionCT,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	if !fase.valida() {
+		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
+	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		principalID,
 		perfilRef,
@@ -228,13 +243,8 @@ func nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
 			Finalidades:    []string{finalidadAsignacionContratacionTemporalDesarrollo},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		[]dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "expediente_ref", Valores: []string{expedienteContratacionTemporalDesarrolloRef}},
-			{Clave: "fase_previa", Valores: []string{"asignacion_unidad"}},
-			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso)}},
-			{Clave: "unidad_destino_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}},
-		},
+		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo,
+			dominiovec.AmbitoPerfil{Clave: "unidad_destino_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}}),
 	)
 }
 
@@ -250,9 +260,13 @@ func referenciaMotivoAutorizacionAsignacionDesarrollo() dominiovec.ReferenciaEnt
 	}
 }
 
+// solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida: el
+// expediente va en la referencia del recurso; los ámbitos son la
+// organización, el par fase/estado previo que admite el catálogo y la unidad.
 func solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+	fase faseOperacionCT,
 ) bool {
 	atributos := datos.Recurso.Atributos
 	ambitos := datos.Recurso.Ambitos
@@ -262,11 +276,10 @@ func solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
 		datos.Recurso.ModuloID == ports.ModuloContratacion &&
 		datos.Recurso.Tipo == ports.TipoRecursoAsignacion &&
 		datos.Finalidad == finalidadAsignacionContratacionTemporalDesarrollo &&
-		len(ambitos) == 5 && len(atributos) == 12 &&
+		datos.Recurso.Referencia != "" &&
+		len(ambitos) == 4 && len(atributos) == 12 &&
 		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
-		ambitos["expediente_ref"] == datos.Recurso.Referencia &&
-		ambitos["fase_previa"] == "asignacion_unidad" &&
-		ambitos["estado_previo"] == string(domain.EstadoEnCurso) &&
+		fase.admite(domain.ClaveFase(ambitos["fase_previa"]), domain.EstadoOperativo(ambitos["estado_previo"])) &&
 		ambitos["unidad_destino_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
 		atributos[ports.AtributoOperacionAsignacion] == string(ports.OperacionRegistrarAsignacion) &&
 		atributos[ports.AtributoVersionAsignacion] == "3" &&
