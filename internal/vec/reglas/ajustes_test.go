@@ -254,6 +254,10 @@ func TestVersionDeAjustesIncoherenteNoSeSustituyePorLaBase(t *testing.T) {
 	if _, err := caida.Reglas(t.Context()); !errors.Is(err, ErrAjustesNoDisponibles) {
 		t.Fatalf("almacén caído: %v", err)
 	}
+	conflicto := resolutorCTConAjustes(t, &ajustesMemoria{err: errors.Join(errors.New("PostgreSQL"), ErrAjustesConflicto)}, nil)
+	if _, err := conflicto.Reglas(t.Context()); !errors.Is(err, ErrAjustesConflicto) || errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("conflicto de ajustes colapsado: %v", err)
+	}
 	vacio := resolutorCTConAjustes(t, &ajustesMemoria{}, nil)
 	if regla, err := vacio.Regla(t.Context(), CTPlazoFiscalizacion); err != nil || regla.Cantidad != 10 || regla.Ajuste != nil {
 		t.Fatalf("sin versiones rige la base: %+v %v", regla, err)
