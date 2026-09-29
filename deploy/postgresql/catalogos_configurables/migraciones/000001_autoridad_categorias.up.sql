@@ -164,6 +164,7 @@ DECLARE
     etiqueta text;
     total integer := 0;
     anterior vec_catalogos_configurables.publicacion%ROWTYPE;
+    control_anterior vec_catalogos_configurables.categoria_control%ROWTYPE;
 BEGIN
     IF p_catalogo_id IS NULL OR p_catalogo_id !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR p_version IS NULL OR p_version < 1
@@ -216,26 +217,42 @@ BEGIN
            OR etiqueta IS NULL OR pg_catalog.octet_length(etiqueta) NOT BETWEEN 1 AND 2048 THEN
             RAISE EXCEPTION 'entrada publicada invalida' USING ERRCODE = '22023';
         END IF;
+        SELECT * INTO control_anterior FROM vec_catalogos_configurables.categoria_control
+         WHERE categoria_id = clave FOR UPDATE;
+        IF FOUND THEN
+            IF control_anterior.catalogo_id <> p_catalogo_id
+               OR control_anterior.estado = 'tombstone'
+               OR item->'preimagen_control' IS DISTINCT FROM pg_catalog.jsonb_build_object(
+                    'version', control_anterior.version,
+                    'huella_sha256', control_anterior.huella_sha256,
+                    'revision', control_anterior.revision,
+                    'estado', control_anterior.estado) THEN
+                RAISE EXCEPTION 'preimagen de categoria obsoleta' USING ERRCODE = '40001';
+            END IF;
+        ELSIF item ? 'preimagen_control' THEN
+            RAISE EXCEPTION 'preimagen de categoria inexistente' USING ERRCODE = '22023';
+        END IF;
         INSERT INTO vec_catalogos_configurables.entrada_publicada
             (catalogo_id, version, huella_sha256, categoria_id, etiqueta, definicion)
         VALUES (p_catalogo_id, p_version, p_huella, clave, etiqueta, item);
-        INSERT INTO vec_catalogos_configurables.categoria_control
-            (categoria_id, catalogo_id, version, huella_sha256, revision, estado)
-        VALUES (clave, p_catalogo_id, p_version, p_huella, 1, 'habilitada')
-        ON CONFLICT (categoria_id) DO UPDATE SET
-            catalogo_id = EXCLUDED.catalogo_id,
-            version = EXCLUDED.version,
-            huella_sha256 = EXCLUDED.huella_sha256,
-            revision = vec_catalogos_configurables.categoria_control.revision + 1,
-            estado = 'habilitada',
-            cobertura_verificada = false,
-            cobertura_ref = NULL,
-            total_historico_declarado = NULL,
-            actualizada_en = pg_catalog.clock_timestamp()
-        WHERE vec_catalogos_configurables.categoria_control.catalogo_id = p_catalogo_id
-          AND vec_catalogos_configurables.categoria_control.estado <> 'tombstone';
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'categoria ya retirada o de otra autoridad' USING ERRCODE = '55000';
+        IF control_anterior.categoria_id IS NULL THEN
+            INSERT INTO vec_catalogos_configurables.categoria_control
+                (categoria_id, catalogo_id, version, huella_sha256, revision, estado)
+            VALUES (clave, p_catalogo_id, p_version, p_huella, 1, 'habilitada');
+        ELSE
+            UPDATE vec_catalogos_configurables.categoria_control
+               SET version = p_version, huella_sha256 = p_huella, revision = revision + 1,
+                   cobertura_verificada = false, cobertura_ref = NULL,
+                   total_historico_declarado = NULL,
+                   actualizada_en = pg_catalog.clock_timestamp()
+             WHERE categoria_id = clave AND catalogo_id = p_catalogo_id
+               AND version = control_anterior.version
+               AND huella_sha256 = control_anterior.huella_sha256
+               AND revision = control_anterior.revision
+               AND estado = control_anterior.estado;
+            IF NOT FOUND THEN
+                RAISE EXCEPTION 'CAS de categoria fallido' USING ERRCODE = '40001';
+            END IF;
         END IF;
         INSERT INTO vec_catalogos_configurables.historia
             (categoria_id, accion, revision, recibo_ref, decision_ref, actor_ref)

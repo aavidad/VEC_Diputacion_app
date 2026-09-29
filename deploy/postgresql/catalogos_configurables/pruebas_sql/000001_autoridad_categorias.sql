@@ -10,6 +10,10 @@ DECLARE
     documento text := '{"id":"rpt-demo","version":1,"estado":"publicado","entradas":[{"clave":"cat-demo","etiqueta":"Categoria de prueba"}]}';
     huella text;
     revision bigint;
+    documento_version text;
+    huella_version text;
+    documento_siguiente text;
+    huella_siguiente text;
 BEGIN
     IF pg_catalog.has_table_privilege('vec_autorizacion_atestada_v3_propietario',
          'vec_catalogos_configurables.publicacion', 'SELECT') THEN
@@ -83,6 +87,50 @@ BEGIN
         'cobertura', 'evidencia:historica', 1, 'actor:dos', 'decision:cob-replay', 'recibo:cob') <> 3 THEN
         RAISE EXCEPTION 'replay de proyeccion antigua incorrecto';
     END IF;
+
+    -- Una publicación posterior no rehabilita una categoría deshabilitada.
+    documento_version := pg_catalog.jsonb_build_object('id', 'rpt-version', 'version', 1,
+        'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
+            pg_catalog.jsonb_build_object('clave', 'cat-version', 'etiqueta', 'Categoria versionada')))::text;
+    huella_version := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(documento_version, 'UTF8')), 'hex');
+    PERFORM vec_catalogos_configurables.publicar('rpt-version', 1, huella_version,
+        documento_version, 'aprobacion:version-a', 'aprobacion:version-b',
+        'actor:uno', 'decision:version-1', 'recibo:version-1');
+    revision := vec_catalogos_configurables.cambiar_proyeccion('cat-version', 1,
+        'deshabilitar', NULL, NULL, 'actor:uno', 'decision:version-des', 'recibo:version-des');
+    IF revision <> 2 THEN RAISE EXCEPTION 'deshabilitacion versionada incorrecta'; END IF;
+    documento_siguiente := pg_catalog.jsonb_build_object('id', 'rpt-version', 'version', 2,
+        'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
+            pg_catalog.jsonb_build_object('clave', 'cat-version', 'etiqueta', 'Nueva definicion',
+                'preimagen_control', pg_catalog.jsonb_build_object('version', 1,
+                    'huella_sha256', huella_version, 'revision', 1, 'estado', 'habilitada'))))::text;
+    huella_siguiente := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(documento_siguiente, 'UTF8')), 'hex');
+    BEGIN
+        PERFORM vec_catalogos_configurables.publicar('rpt-version', 2, huella_siguiente,
+            documento_siguiente, 'aprobacion:version-a2', 'aprobacion:version-b2',
+            'actor:uno', 'decision:version-2', 'recibo:version-2');
+        RAISE EXCEPTION 'publicacion admitio preimagen de habilitada obsoleta';
+    EXCEPTION WHEN SQLSTATE '40001' THEN NULL;
+    END;
+    documento_siguiente := pg_catalog.jsonb_build_object('id', 'rpt-version', 'version', 2,
+        'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
+            pg_catalog.jsonb_build_object('clave', 'cat-version', 'etiqueta', 'Nueva definicion',
+                'preimagen_control', pg_catalog.jsonb_build_object('version', 1,
+                    'huella_sha256', huella_version, 'revision', 2, 'estado', 'deshabilitada'))))::text;
+    huella_siguiente := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(documento_siguiente, 'UTF8')), 'hex');
+    PERFORM vec_catalogos_configurables.publicar('rpt-version', 2, huella_siguiente,
+        documento_siguiente, 'aprobacion:version-a2', 'aprobacion:version-b2',
+        'actor:uno', 'decision:version-2', 'recibo:version-2');
+    BEGIN
+        PERFORM vec_catalogos_configurables.reservar('consumidor-demo', 'uso:version',
+            'cat-version', 'rpt-version', 2, huella_siguiente,
+            'actor:uno', 'decision:version-res', 'recibo:version-res');
+        RAISE EXCEPTION 'publicacion rehabilito categoria deshabilitada';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
 END $prueba$;
 RESET ROLE;
 DO $persistencia$
@@ -91,7 +139,10 @@ BEGIN
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
                        WHERE categoria_id = 'cat-demo' AND estado = 'tombstone')
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
-                       WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado') THEN
+                       WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado')
+       OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
+                       WHERE categoria_id = 'cat-version' AND version = 2
+                         AND revision = 3 AND estado = 'deshabilitada') THEN
         RAISE EXCEPTION 'tombstone perdio publicacion o uso';
     END IF;
 END $persistencia$;
