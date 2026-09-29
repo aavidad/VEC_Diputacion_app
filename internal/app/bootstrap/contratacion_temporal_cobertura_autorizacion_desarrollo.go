@@ -18,6 +18,21 @@ var errAutorizacionCoberturaDesarrolloNoDisponible = errors.New(
 	"contratacion temporal: autorizacion de cobertura de desarrollo no disponible",
 )
 
+var camposPreparacionPropuestaCoberturaDesarrollo = []string{
+	"catalogo.referencia",
+	"catalogo.version",
+	"catalogo.huella_sha256",
+	"catalogo.es_ejemplo",
+	"catalogo.vias.clave",
+	"catalogo.vias.orden",
+	"catalogo.vias.documentos.clave",
+	"catalogo.vias.documentos.orden",
+	"catalogo.vias.documentos.clave_i18n",
+	"catalogo.vias.datos.clave",
+	"catalogo.vias.datos.orden",
+	"catalogo.vias.datos.clave_i18n",
+}
+
 type generadorCorrelacionCoberturaDesarrollo interface {
 	NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string, error)
 }
@@ -152,7 +167,7 @@ func (a *autorizadorConsultasCoberturaDesarrollo) AutorizarPresentacionPropuesta
 	if err != nil {
 		return errAutorizacionCoberturaDesarrolloNoDisponible
 	}
-	concedida, err := a.exigir(ctx, solicitud, contexto)
+	concedida, err := a.exigir(ctx, solicitud, contexto, true)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return errContexto
 	}
@@ -200,7 +215,7 @@ func (a *autorizadorConsultasCoberturaDesarrollo) AutorizarLecturaResultadoCober
 		return ports.AutorizacionLecturaResultadoCoberturaDenegada,
 			errAutorizacionCoberturaDesarrolloNoDisponible
 	}
-	concedida, err := a.exigir(ctx, peticion, datos.Contexto)
+	concedida, err := a.exigir(ctx, peticion, datos.Contexto, false)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return ports.AutorizacionLecturaResultadoCoberturaDenegada, errContexto
 	}
@@ -256,7 +271,15 @@ func (a *autorizadorConsultasCoberturaDesarrollo) exigir(
 	ctx context.Context,
 	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
 	contexto ports.ContextoAutorizacionAltaV3,
+	propuesta bool,
 ) (bool, error) {
+	if propuesta {
+		datosSolicitud, err := solicitud.Datos()
+		if err != nil {
+			return false, dominiovec.ErrAutorizacionDenegada
+		}
+		ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datosSolicitud)
+	}
 	decision, confirmacion, err := a.autorizador.ExigirSolicitudLigadaV3(
 		ctx,
 		solicitud,
@@ -269,8 +292,23 @@ func (a *autorizadorConsultasCoberturaDesarrollo) exigir(
 	if err != nil || !concedida || decision.ValidarPara(solicitud) != nil {
 		return false, dominiovec.ErrAutorizacionDenegada
 	}
-	if _, err := confirmacion.Datos(); err != nil {
+	datosConfirmacion, err := confirmacion.Datos()
+	huellaDecision, errHuella := dominiovec.HuellaSHA256DecisionAutorizacionV3(decision)
+	if err != nil || errHuella != nil || datosConfirmacion.DecisionHuellaSHA256 != huellaDecision {
 		return false, dominiovec.ErrAutorizacionDenegada
+	}
+	if propuesta {
+		if err := decision.ExigirProyeccionPara(
+			solicitud, camposPreparacionPropuestaCoberturaDesarrollo,
+			[]string{"registrar_acceso"},
+		); err != nil {
+			return false, dominiovec.ErrAutorizacionDenegada
+		}
+		restricciones, err := decision.RestriccionesProyeccionPara(solicitud)
+		if err != nil || len(restricciones.Obligaciones) != 1 ||
+			restricciones.Obligaciones[0] != "registrar_acceso" {
+			return false, dominiovec.ErrAutorizacionDenegada
+		}
 	}
 	return true, nil
 }

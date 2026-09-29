@@ -25,9 +25,11 @@ type autoridadAsignacionesContratacionTemporalDesarrolloPrueba struct {
 }
 
 type registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba struct {
-	concesiones  int
-	denegaciones int
-	huella       string
+	concesiones   int
+	denegaciones  int
+	huella        string
+	errConcesion  error
+	errDenegacion error
 }
 
 // El doble se instala solo en fixtures: la ruta productiva exige el proveedor
@@ -45,6 +47,9 @@ func (r *registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba) Registr
 	_ context.Context,
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
 ) (time.Time, error) {
+	if r.errConcesion != nil {
+		return time.Time{}, r.errConcesion
+	}
 	datos, err := orden.Datos()
 	if err != nil {
 		return time.Time{}, err
@@ -66,6 +71,9 @@ func (r *registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba) Registr
 	_ context.Context,
 	orden puertosvec.OrdenRegistroDenegacionAutorizacionLigadaV3,
 ) error {
+	if r.errDenegacion != nil {
+		return r.errDenegacion
+	}
 	if _, err := orden.Datos(); err != nil {
 		return err
 	}
@@ -486,7 +494,7 @@ func TestAutorizadorConsultasCoberturaUsaServicioV3Real(t *testing.T) {
 		analisis,
 		soporte.reloj.Ahora(),
 	); err != nil {
-		t.Fatalf("propuesta no autorizada por V3: %v", err)
+		t.Fatalf("propuesta no autorizada por V3: %v, autoridad=%+v, registro=%+v", err, soporte.autoridadAsignaciones, soporte.registroDecisionesAnalisis)
 	}
 
 	ctxResultado := contextoRutaCoberturaDesarrolloPrueba(
@@ -517,8 +525,95 @@ func TestAutorizadorConsultasCoberturaUsaServicioV3Real(t *testing.T) {
 	soporte.mu.Lock()
 	totalConcesiones := len(soporte.concesiones)
 	soporte.mu.Unlock()
-	if totalConcesiones != 2 {
-		t.Fatalf("concesiones confirmadas = %d, se esperaban 2", totalConcesiones)
+	registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+	if totalConcesiones != 1 || registro.concesiones != 1 || registro.huella == "" {
+		t.Fatalf("registro de propuesta no durable: memoria=%d, registro=%+v", totalConcesiones, registro)
+	}
+}
+
+func TestAutorizacionPropuestaCoberturaExigeCamposYRegistroDurable(t *testing.T) {
+	for _, caso := range []struct {
+		nombre   string
+		preparar func(*soporteAltaContratacionTemporalDesarrollo)
+		esperado error
+	}{
+		{"concesion completa", nil, nil},
+		{"campo ausente", func(s *soporteAltaContratacionTemporalDesarrollo) {
+			s.instantaneaCobertura.VersionRol.Concesiones[0].CamposPermitidos =
+				append([]string(nil), camposPreparacionPropuestaCoberturaDesarrollo[:len(camposPreparacionPropuestaCoberturaDesarrollo)-1]...)
+		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		{"campo vacio", func(s *soporteAltaContratacionTemporalDesarrollo) {
+			s.instantaneaCobertura.VersionRol.Concesiones[0].CamposPermitidos = nil
+		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		{"obligacion desconocida", func(s *soporteAltaContratacionTemporalDesarrollo) {
+			s.instantaneaCobertura.VersionRol.Concesiones[0].Obligaciones = []string{"obligacion_futura"}
+		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		{"concesion revocada", func(s *soporteAltaContratacionTemporalDesarrollo) {
+			s.instantaneaCobertura.ControlVigenciaVersionRol.Estado = dominiovec.EstadoControlVigenciaVersionRolRetirada
+			s.instantaneaCobertura.ControlVigenciaVersionRol.Revision++
+			s.instantaneaCobertura.ControlVigenciaVersionRol.ActoRef = "acto:revocacion:desarrollo"
+			s.instantaneaCobertura.ControlVigenciaVersionRol.MotivoCodigo = "revocada"
+		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		{"denegacion sin registro", func(s *soporteAltaContratacionTemporalDesarrollo) {
+			s.instantaneaCobertura.VersionRol.Concesiones = s.instantaneaCobertura.VersionRol.Concesiones[1:]
+			s.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba).
+				errDenegacion = puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+		}, application.ErrPresentacionPropuestaCoberturaNoDisponible},
+		{"registrador caido", func(s *soporteAltaContratacionTemporalDesarrollo) {
+			s.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba).
+				errConcesion = puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible
+		}, application.ErrPresentacionPropuestaCoberturaNoDisponible},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			soporte, autorizador, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			if caso.preparar != nil {
+				caso.preparar(soporte)
+			}
+			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaPropuestaCobertura)
+			vinculo, err := soporte.contexto.Vinculo.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			solicitudContexto := ports.SolicitudResolverContextoAutorizacionAltaV3{
+				AutenticacionRef: vinculo.AutenticacionRef,
+				SesionRef:        vinculo.SesionRef,
+				PerfilRef:        vinculo.PerfilActivoRef,
+			}
+			analisis, err := cobertura.NuevaSolicitudInstantaneaAnalisisDurableO3(
+				organizacionAltaContratacionTemporalDesarrollo,
+				"expediente_temporal_desarrollo_0001", 2,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = autorizador.AutorizarPresentacionPropuestaCobertura(
+				ctx, solicitudContexto, soporte.contexto, analisis, soporte.reloj.Ahora(),
+			)
+			if caso.esperado == nil && err != nil ||
+				caso.esperado != nil && !errors.Is(err, caso.esperado) {
+				t.Fatalf("autorizacion=%v, esperado=%v", err, caso.esperado)
+			}
+			registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+			soporte.mu.Lock()
+			memoria := len(soporte.concesiones)
+			soporte.mu.Unlock()
+			if memoria != 0 || caso.esperado == nil && (registro.concesiones != 1 || registro.huella == "") ||
+				caso.nombre == "concesion revocada" && registro.denegaciones != 1 {
+				t.Fatalf("registro de propuesta: memoria=%d, durable=%+v", memoria, registro)
+			}
+		})
+	}
+}
+
+func TestInstantaneaCoberturaCopiaCamposYObligaciones(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	copia := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(soporte.instantaneaCobertura)
+	copia.VersionRol.Concesiones[0].CamposPermitidos[0] = "alterado"
+	copia.VersionRol.Concesiones[0].Obligaciones[0] = "alterado"
+	original := soporte.instantaneaCobertura.VersionRol.Concesiones[0]
+	if original.CamposPermitidos[0] != camposPreparacionPropuestaCoberturaDesarrollo[0] ||
+		original.Obligaciones[0] != "registrar_acceso" {
+		t.Fatal("la copia altero la concesion original")
 	}
 }
 

@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"strconv"
 	"time"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -17,6 +18,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	instantanea, valida := s.instantaneaParaRuta(ruta)
 	dinamica := ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
+		ruta == httpinterno.RutaPropuestaCobertura ||
 		rutaMutacionDurableContratacionTemporalDesarrollo(ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
@@ -39,7 +41,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 				return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea), true
 			}
 		}
-		if ruta == httpinterno.RutaAltaSolicitudes {
+		if ruta == httpinterno.RutaAltaSolicitudes || ruta == httpinterno.RutaPropuestaCobertura {
 			return instantanea, true
 		}
 		return dominiovec.InstantaneaAutorizacion{}, false
@@ -186,6 +188,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
+	} else if ruta == httpinterno.RutaPropuestaCobertura {
+		if !solicitudAutorizacionPropuestaCoberturaDesarrolloValida(datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
 	} else if !s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
@@ -300,6 +306,22 @@ func solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(
 		datos.Recurso.Atributos[ports.AtributoUnidadPoliticaRef] == unidadCoberturaContratacionTemporalDesarrollo
 }
 
+func solicitudAutorizacionPropuestaCoberturaDesarrolloValida(
+	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+) bool {
+	versionTexto := datos.Recurso.Atributos["version_esperada"]
+	version, err := strconv.ParseUint(versionTexto, 10, 64)
+	return datos.Accion == accionPropuestaCoberturaDesarrollo &&
+		datos.Finalidad == finalidadPropuestaCoberturaDesarrollo &&
+		datos.Recurso.ModuloID == ports.ModuloContratacion &&
+		datos.Recurso.Tipo == ports.TipoRecursoExpediente &&
+		len(datos.Recurso.Ambitos) == 2 &&
+		datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		datos.Recurso.Ambitos["unidad_ejecutora_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+		len(datos.Recurso.Atributos) == 1 && err == nil && version != 0 &&
+		strconv.FormatUint(version, 10) == versionTexto
+}
+
 func solicitudAutorizacionDecisionCoberturaDesarrolloValida(
 	ruta string,
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
@@ -372,7 +394,7 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}
 	}
-	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		principalID,
 		perfilRef,
 		ahora,
@@ -380,7 +402,14 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 		"Tecnico RRHH de cobertura de desarrollo",
 		"asignacion-rrhh-cobertura-desarrollo-no-autoritativa",
 		[]dominiovec.ConcesionRol{
-			concesion(accionPropuestaCoberturaDesarrollo, finalidadPropuestaCoberturaDesarrollo, ports.TipoRecursoExpediente),
+			{
+				Accion: accionPropuestaCoberturaDesarrollo, ModuloID: ports.ModuloContratacion,
+				TipoRecurso:      ports.TipoRecursoExpediente,
+				Finalidades:      []string{finalidadPropuestaCoberturaDesarrollo},
+				GarantiaMinima:   dominiovec.AuthAssuranceHigh,
+				CamposPermitidos: append([]string(nil), camposPreparacionPropuestaCoberturaDesarrollo...),
+				Obligaciones:     []string{"registrar_acceso"},
+			},
 			concesion(string(domain.AccionDecidirCoberturaGobernada), finalidadDecisionCoberturaDesarrollo, tipoRecursoDecisionCoberturaDesarrollo),
 			concesion(string(domain.AccionRectificarCoberturaGobernada), finalidadDecisionCoberturaDesarrollo, tipoRecursoDecisionCoberturaDesarrollo),
 			concesion(
@@ -394,6 +423,17 @@ func nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
 			{Clave: "unidad_ejecutora_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}},
 		},
 	)
+	if err != nil {
+		return dominiovec.InstantaneaAutorizacion{}, err
+	}
+	// La version 1 ya se publico sin campos de preparacion.
+	instantanea.VersionRol.Version = 2
+	instantanea.AsignacionPerfil.VersionRolRef = instantanea.VersionRol.Referencia()
+	instantanea.ControlVigenciaVersionRol.VersionRolRef = instantanea.VersionRol.Referencia()
+	if instantanea.Validar() != nil {
+		return dominiovec.InstantaneaAutorizacion{}, errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	return instantanea, nil
 }
 
 func nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(
@@ -544,6 +584,12 @@ func clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 	for indice := range copia.VersionRol.Concesiones {
 		copia.VersionRol.Concesiones[indice].Finalidades = append(
 			[]string(nil), instantanea.VersionRol.Concesiones[indice].Finalidades...,
+		)
+		copia.VersionRol.Concesiones[indice].CamposPermitidos = append(
+			[]string(nil), instantanea.VersionRol.Concesiones[indice].CamposPermitidos...,
+		)
+		copia.VersionRol.Concesiones[indice].Obligaciones = append(
+			[]string(nil), instantanea.VersionRol.Concesiones[indice].Obligaciones...,
 		)
 	}
 	copia.AsignacionPerfil.Ambitos = append(
