@@ -261,7 +261,7 @@ def verify_existing(output: Path, identity: dict) -> dict:
 
 def query(args: argparse.Namespace, sql: str) -> bytes:
     return run([args.engine, "exec", "-i", args.container, "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
-                "-U", "postgres", "-d", "postgres", "-f", "-"], sql)
+                "-h", "/var/run/postgresql", "-p", "5432", "-U", "postgres", "-d", "postgres", "-f", "-"], sql)
 
 
 def probe_pg_tls(port: int, ca: Path) -> None:
