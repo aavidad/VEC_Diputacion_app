@@ -331,6 +331,33 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 	ahora time.Time,
 	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	return nuevaInstantaneaAutorizacionAltaConRolContratacionTemporalDesarrollo(
+		principalID, perfilRef, ahora,
+		"tecnico_rrhh_desarrollo", "Tecnico RRHH de desarrollo",
+		"asignacion-rrhh-desarrollo-no-autoritativa", origenOpcional...,
+	)
+}
+
+func nuevaInstantaneaAutorizacionAltaFijaContratacionTemporalDesarrollo(
+	principalID string,
+	perfilRef string,
+	ahora time.Time,
+	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	return nuevaInstantaneaAutorizacionAltaConRolContratacionTemporalDesarrollo(
+		principalID, perfilRef, ahora,
+		"tecnico_rrhh_alta_fija_desarrollo", "Tecnico RRHH de desarrollo",
+		"asignacion-rrhh-alta-fija-desarrollo-no-autoritativa", origenOpcional...,
+	)
+}
+
+func nuevaInstantaneaAutorizacionAltaConRolContratacionTemporalDesarrollo(
+	principalID string,
+	perfilRef string,
+	ahora time.Time,
+	rolID, nombreRol, asignacionID string,
+	origenOpcional ...*origenConsultasContratacionTemporalDesarrollo,
+) (dominiovec.InstantaneaAutorizacion, error) {
 	centros := []string{centroAltaContratacionTemporalDesarrollo}
 	categorias := []string{categoriaAltaContratacionTemporalDesarrollo}
 	var o *origenConsultasContratacionTemporalDesarrollo
@@ -345,9 +372,9 @@ func nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		principalID,
 		perfilRef,
 		ahora,
-		"tecnico_rrhh_desarrollo",
-		"Tecnico RRHH de desarrollo",
-		"asignacion-rrhh-desarrollo-no-autoritativa",
+		rolID,
+		nombreRol,
+		asignacionID,
 		[]dominiovec.ConcesionRol{{
 			Accion:         ports.AccionCrearSolicitud,
 			ModuloID:       ports.ModuloContratacion,
