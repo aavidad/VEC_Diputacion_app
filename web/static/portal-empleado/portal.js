@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260929-i18n-shell-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260929-i18n-shell-v2";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260930-reglas-detalle-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260929-i18n-shell-v2";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260929-i18n-shell-v2";

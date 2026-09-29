@@ -26,7 +26,7 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
-import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20260928-ppt-v2";
+import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20260930-reglas-detalle-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260929-i18n-shell-v2";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);

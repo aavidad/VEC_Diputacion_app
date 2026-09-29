@@ -1,4 +1,4 @@
-import { crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260928-ppt-v2";
+import { IDIOMA_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -96,11 +96,11 @@ export function origenRegla(r) {
 }
 
 export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta = "" } = {}) {
-  const q = consulta.trim().toLocaleLowerCase("es-ES");
+  const q = minusculas(consulta.trim());
   return catalogos.filter((c) => !modulo || c.modulo === modulo).map((c) => ({
     ...c,
     reglas: c.reglas.filter((r) => (!origen || r.origen === origen)
-      && (!q || [r.etiqueta, r.descripcion, r.clave, r.duda, r.norma].some((v) => String(v ?? "").toLocaleLowerCase("es-ES").includes(q)))),
+      && (!q || [r.etiqueta, r.descripcion, r.clave, r.duda, r.norma].some((v) => minusculas(v).includes(q)))),
   }));
 }
 
@@ -114,21 +114,45 @@ export function renderizarResumen(catalogos) {
     + kpi("ejemplo", "kpiEjemplo", reglas.filter((r) => r.origen === "ejemplo").length);
 }
 
-function filaRegla(r) {
+/** Identificador de fila estable y seguro para `id` y `aria-controls`. */
+export const idRegla = (modulo, clave) => `rg-regla-${`${modulo}--${clave}`.replace(/[^a-z0-9-]/gu, "-")}`;
+
+/** Valores de una lista, uno por elemento; vacío si la regla no es una lista. */
+const valoresLista = (r) => (r.unidad === "lista" && r.valor ? r.valor.split(",").map((v) => v.trim()).filter(Boolean) : []);
+
+function filaRegla(r, modulo, abiertas) {
   const parcial = r.ejemplo_parcial ? `<br><small>${esc(t("parteEjemplo", { texto: r.ejemplo_parcial }))}</small>` : "";
   const computo = r.computo && existeClaveReglas(`computo_${r.computo}`) ? `<br><small>${esc(t(`computo_${r.computo}`))}</small>` : "";
   const pastilla = r.origen === "reglamento" ? "rg-pastilla--reglamento" : "rg-pastilla--ejemplo";
-  return `<tr class="rg-fila--${esc(r.origen)}">
-    <th scope="row"><span class="rg-regla-nombre">${esc(r.etiqueta)}</span><br><small>${esc(r.clave)}</small></th>
+  const id = idRegla(modulo, r.clave);
+  const abierta = abiertas.has(id);
+  return `<tr class="rg-fila rg-fila--${esc(r.origen)}${abierta ? " rg-fila--abierta" : ""}" data-regla="${id}">
+    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre">${esc(r.etiqueta)}</span></button><br><small>${esc(r.clave)}</small></th>
     <td class="rg-numero">${esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
     <td><span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}</td>
     <td>${esc(r.duda)}</td>
     <td class="rg-numero">${esc(formatearNumero(r.version))}</td>
-  </tr>`;
+  </tr>
+  <tr class="rg-detalle rg-fila--${esc(r.origen)}" id="${id}"${abierta ? "" : " hidden"}><td colspan="6">${detalleRegla(r)}</td></tr>`;
 }
 
-export function renderizarCatalogo(c) {
+/** Texto completo de la regla: lo que la fila no deja leer entero. */
+export function detalleRegla(r) {
+  const bloque = (clave, contenido) => `<div class="rg-detalle-bloque"><dt>${esc(t(clave))}</dt><dd>${contenido}</dd></div>`;
+  const valores = valoresLista(r);
+  const partes = [
+    bloque("detalleQue", esc(r.descripcion || t("detalleSinDescripcion"))),
+    valores.length ? bloque("detalleValores", `<ul class="rg-valores">${valores.map((v) => `<li>${esc(v)}</li>`).join("")}</ul>`) : "",
+    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${esc(t("parteEjemplo", { texto: r.ejemplo_parcial }))}` : "")),
+    bloque("detalleNorma", esc(r.norma)),
+    bloque("detalleDuda", esc(r.duda)),
+    bloque("detalleReferencia", `<code>${esc(r.referencia)}</code>`),
+  ];
+  return `<div class="rg-detalle-cuerpo"><dl>${partes.join("")}</dl></div>`;
+}
+
+export function renderizarCatalogo(c, abiertas = new Set()) {
   const id = `rg-cat-${c.modulo.replace(/[^a-z0-9-]/gu, "-")}`;
   const pastilla = c.paquete_ejemplo ? `<span class="rg-pastilla rg-pastilla--ejemplo">${esc(t("paqueteEjemplo"))}</span>` : "";
   const meta = c.estado === "disponible" && c.version
@@ -142,7 +166,7 @@ export function renderizarCatalogo(c) {
   } else {
     cuerpo = `<div class="rg-tabla" tabindex="0" role="region" aria-labelledby="${id}"><table>
       <thead><tr><th scope="col">${esc(t("colRegla"))}</th><th scope="col" class="rg-numero">${esc(t("colValor"))}</th><th scope="col">${esc(t("colUnidad"))}</th><th scope="col">${esc(t("colOrigen"))}</th><th scope="col">${esc(t("colDuda"))}</th><th scope="col" class="rg-numero">${esc(t("colVersion"))}</th></tr></thead>
-      <tbody>${c.reglas.map(filaRegla).join("")}</tbody></table></div>`;
+      <tbody>${c.reglas.map((r) => filaRegla(r, c.modulo, abiertas)).join("")}</tbody></table></div>`;
   }
   return `<section class="rg-panel" aria-labelledby="${id}">
     <div class="rg-panel-cabecera"><div><h2 id="${id}">${esc(etiquetaModulo(c.modulo))}</h2>${meta}</div>
@@ -157,6 +181,7 @@ export function mensajeError(error) {
 }
 
 function traducirDocumento(doc) {
+  doc.documentElement.lang = IDIOMA_REGLAS;
   doc.title = t("documentTitle");
   doc.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   doc.querySelectorAll("[data-i18n-label]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nLabel)); });
@@ -185,17 +210,40 @@ export async function iniciar(doc, cliente) {
   const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];
   $("rg-modulo").innerHTML = `<option value="">${esc(t("todos"))}</option>` + modulos.map((m) => `<option value="${esc(m)}">${esc(etiquetaModulo(m))}</option>`).join("");
   $("rg-origen").innerHTML = `<option value="">${esc(t("todos"))}</option>` + [...ORIGENES].map((o) => `<option value="${o}">${esc(t(`origen_${o}`))}</option>`).join("");
+  // Reglas abiertas: sobreviven al filtrar y, la última, a recargar (ancla).
+  const abiertas = new Set();
+  const ancla = decodeURIComponent(String(doc.defaultView?.location?.hash ?? "").slice(1));
+  if (/^rg-regla-[a-z0-9-]+$/u.test(ancla)) abiertas.add(ancla);
   const pintar = () => {
     const visibles = filtrar(datos.catalogos, { modulo: $("rg-modulo").value, origen: $("rg-origen").value, texto: $("rg-texto").value });
     $("rg-kpis").innerHTML = renderizarResumen(visibles);
-    $("rg-catalogos").innerHTML = visibles.map(renderizarCatalogo).join("");
+    $("rg-catalogos").innerHTML = visibles.map((c) => renderizarCatalogo(c, abiertas)).join("");
   };
+  const alternar = (fila) => {
+    const id = fila.dataset.regla;
+    const abrir = !abiertas.has(id);
+    if (abrir) abiertas.add(id); else abiertas.delete(id);
+    fila.classList.toggle("rg-fila--abierta", abrir);
+    fila.querySelector(".rg-regla-abrir")?.setAttribute("aria-expanded", String(abrir));
+    const detalle = doc.getElementById(id);
+    if (detalle) detalle.hidden = !abrir;
+    const vista = doc.defaultView;
+    try { vista?.history?.replaceState(null, "", abrir ? `#${id}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
+  };
+  // Se abre con el botón del nombre o pulsando en cualquier punto de la fila.
+  $("rg-catalogos").addEventListener("click", (evento) => {
+    const fila = evento.target.closest?.("tr.rg-fila");
+    if (!fila || (evento.target.closest("a") && !evento.target.closest(".rg-regla-abrir"))) return;
+    if (!evento.target.closest(".rg-regla-abrir") && doc.getSelection?.()?.toString()) return;
+    alternar(fila);
+  });
   $("rg-filtros").addEventListener("submit", (evento) => evento.preventDefault());
   for (const id of ["rg-modulo", "rg-origen"]) $(id).addEventListener("change", pintar);
   $("rg-texto").addEventListener("input", pintar);
   pintar();
   avisar("");
   $("rg-resultado").hidden = false;
+  if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
 }
 
 if (typeof document !== "undefined" && document.getElementById("reglas")) {
