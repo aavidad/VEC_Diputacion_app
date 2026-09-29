@@ -275,3 +275,47 @@ func TestReplayProvisionCTExigeActoSiManifiestoTeniaOtraPreimagen(t *testing.T) 
 		t.Fatal("preimagen ajena tratada como no-op")
 	}
 }
+
+func TestProvisionCTNoEmiteReciboPositivoTrasRevocacionEntrePerfiles(t *testing.T) {
+	publicaciones, comprobaciones := 0, 0
+	resultado, err := publicarYRevalidarPerfilesCT(ResultadoProvisionPerfilesCT{
+		Estado: "confirmada", ManifiestoSHA256: strings.Repeat("a", 64),
+		AprobacionRef: "demo:ct:perfiles:20260929",
+	}, 2,
+		func(i int) (ReciboPerfilProvisionCT, error) {
+			publicaciones++
+			return ReciboPerfilProvisionCT{Clave: []string{"alta", "cobertura"}[i],
+				AsignacionRef: "asignacion:confirmada:v1"}, nil
+		},
+		func() error {
+			comprobaciones++
+			return errors.New("contexto revocado")
+		})
+	if !errors.Is(err, ErrProvisionPerfilesCTIncidenciaContexto) ||
+		resultado.Estado != "incidencia" || len(resultado.Perfiles) != 1 ||
+		publicaciones != 1 || comprobaciones != 1 {
+		t.Fatalf("revocación entregó recibo positivo o publicó segundo perfil: %v/%+v/%d/%d",
+			err, resultado, publicaciones, comprobaciones)
+	}
+}
+
+func TestProvisionCTRevalidaDespuesDeCadaPublicacion(t *testing.T) {
+	publicaciones, comprobaciones := 0, 0
+	resultado, err := publicarYRevalidarPerfilesCT(ResultadoProvisionPerfilesCT{Estado: "confirmada"}, 2,
+		func(i int) (ReciboPerfilProvisionCT, error) {
+			publicaciones++
+			return ReciboPerfilProvisionCT{Clave: []string{"alta", "cobertura"}[i]}, nil
+		},
+		func() error {
+			comprobaciones++
+			if comprobaciones == 2 {
+				return errors.New("contexto cambiado")
+			}
+			return nil
+		})
+	if !errors.Is(err, ErrProvisionPerfilesCTIncidenciaContexto) ||
+		resultado.Estado != "incidencia" || len(resultado.Perfiles) != 2 ||
+		publicaciones != 2 || comprobaciones != 2 {
+		t.Fatalf("segunda revocación no se detectó: %v/%+v/%d/%d", err, resultado, publicaciones, comprobaciones)
+	}
+}
