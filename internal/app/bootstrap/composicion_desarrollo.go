@@ -403,9 +403,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	usuariosImagen, err := nuevasDependenciasImagenUsuariosDesarrollo(cfg, autoridadContratacion.materialUsuariosImagen)
+	if err != nil {
+		return nil, nil, err
+	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
-		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos)
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen)
 	if err != nil {
 		return nil, nil, err
 	}

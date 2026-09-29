@@ -123,6 +123,9 @@ func validarSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo); err != nil {
 		return err
 	}
+	if _, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosImagenDesarrollo); err != nil {
+		return err
+	}
 	_, err := cfg.CTIncorporacionAcreditadaDesarrolloActivo()
 	return err
 }
@@ -200,7 +203,7 @@ func descriptoresMaterialSeleccionadosCTDesarrollo(s seleccionMaterialCTDesarrol
 func validarValorSelectoresDespliegueBolsaCT(cfg config.Config) error {
 	// Estas dos capacidades se seleccionan desde el entorno. Las raíces
 	// públicas no aplican la doble llave, pero sí rechazan valores ilegibles.
-	for _, nombre := range []string{envCTPlantillasGobiernoEnabled, envCTPlantillasDocumentalEnabled, envUsuariosPreferenciasDesarrollo, envUsuariosCorreosDesarrollo} {
+	for _, nombre := range []string{envCTPlantillasGobiernoEnabled, envCTPlantillasDocumentalEnabled, envUsuariosPreferenciasDesarrollo, envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
 		switch strings.TrimSpace(os.Getenv(nombre)) {
 		case "", "false", "true":
 		default:
