@@ -145,6 +145,9 @@ type firmaDocumentoCTDesarrollo struct {
 	// informeTrasSubsanacion es nil salvo que el catálogo exija informe
 	// nuevo tras subsanar: entonces su documento se firma en otra ronda.
 	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
+	// servicio queda al componer las rutas: la custodia en Documentos se le
+	// añade después, cuando Documentos ya está compuesto.
+	servicio *ctapplication.ServicioFirmaDocumento
 }
 
 var (
@@ -444,6 +447,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if f.informeTrasSubsanacion != nil && servicio.AbrirRondaInformeNuevo(f.informeTrasSubsanacion, f.registro) != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	f.servicio = servicio
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
