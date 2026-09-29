@@ -1,0 +1,15 @@
+# B11, proceso externo del candidato. Aplicar en clon con #145 y #151,
+# Bolsa 000059 de correo y los hitos 3/4 ya instalados. Un fichero por
+# transacción, sin DOWN ni repetición. La publicación del perfil/motivos por
+# huella+CAS es una operación posterior, explícita y solo interna.
+deploy/postgresql/identidad_sesiones_v1/roles_externos_up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000007_identidad_externa_v1.up.sql
+deploy/postgresql/identidad_sesiones_v1/migraciones/000008_fachada_autorizacion_externa_v1.up.sql
+deploy/postgresql/contexto_actor_v1/roles_candidato_externo_up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000012_contexto_candidato_externo.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000013_acreditacion_candidato_externo_exacto.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000060_portal_externo_candidato.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000115_consumidor_bolsa_portal_externo.up.sql
+deploy/postgresql/autorizacion/migraciones/000015_candidato_externo.up.sql
+deploy/postgresql/autorizacion/migraciones/000016_asignacion_perfil_candidato_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000116_consumo_candidato_externo.up.sql
