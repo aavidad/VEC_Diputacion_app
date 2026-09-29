@@ -59,6 +59,25 @@ class RecorridoPrueba(unittest.TestCase):
     def test_escenario_valido_solo_prepara(self):
         self.assertIs(comprobar_entrada(self.escenario, self.raiz), self.escenario)
 
+    def test_observacion_no_exige_recibos_futuros_y_conserva_cierre_previo(self):
+        escenario = {k: v for k, v in self.escenario.items()
+                     if k not in {"etapas", "bolsa_ref", "respuesta"}}
+        self.assertIs(comprobar_entrada(escenario, self.raiz, observar=True), escenario)
+        with self.assertRaises(NoEjecutado):
+            comprobar_entrada(escenario, self.raiz)
+        with self.assertRaises(NoEjecutado):
+            comprobar_entrada({**escenario, "binario_sha256": "0" * 64}, self.raiz,
+                              observar=True)
+
+    def test_evidencias_no_sobrescriben_carpeta_ni_entran_en_git(self):
+        from observar import preparar_destino
+        existente = Path(self.temporal.name) / "material"
+        with self.assertRaises(FileExistsError):
+            preparar_destino(existente)
+        (self.raiz / ".git").mkdir()
+        with self.assertRaises(NoEjecutado):
+            preparar_destino(self.raiz / "capturas")
+
     def test_faltan_clon_o_binario_cierra(self):
         for campo, valor in (("clon", "HITO1"), ("binario_sha256", "0" * 64)):
             with self.subTest(campo=campo):

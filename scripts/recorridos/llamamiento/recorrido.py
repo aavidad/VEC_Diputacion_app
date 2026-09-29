@@ -75,7 +75,7 @@ def fichero_externo(ruta: str, raiz: Path) -> Path:
     return valor
 
 
-def comprobar_entrada(escenario: dict, raiz: Path) -> dict:
+def comprobar_entrada(escenario: dict, raiz: Path, *, observar: bool = False) -> dict:
     origen = escenario.get("origen", "")
     if not isinstance(origen, str):
         raise NoEjecutado("falta el origen HTTPS local")
@@ -118,6 +118,9 @@ def comprobar_entrada(escenario: dict, raiz: Path) -> dict:
             raise NoEjecutado("la ruta de una identidad no pertenece a su portal")
     if sha256(certificados[0]) == sha256(certificados[1]):
         raise NoEjecutado("RRHH y candidato usan el mismo certificado")
+    # La apertura inicial no produce recibos: su ausencia no tapa un fallo HTTP.
+    if observar:
+        return escenario
     respuesta = escenario.get("respuesta")
     if respuesta not in {"aceptacion", "renuncia"}:
         raise NoEjecutado("la respuesta debe ser aceptación o renuncia")
@@ -287,10 +290,16 @@ def main() -> int:
     modo.add_argument("--comprobar", action="store_true", help="valida entradas, sin abrir Chrome")
     modo.add_argument("--ejecutar", action="store_true", help="abre Chrome y observa las acciones del operador")
     modo.add_argument("--recuperar", action="store_true", help="tras reinicio: comprueba GET propio y replays RRHH")
+    modo.add_argument("--observar", action="store_true")
+    p.add_argument("--evidencias", type=Path)
     a = p.parse_args()
     raiz = Path(__file__).resolve().parents[3]
     try:
-        escenario = comprobar_entrada(leer_json(fichero_externo(str(a.escenario), raiz)), raiz)
+        escenario = comprobar_entrada(leer_json(fichero_externo(str(a.escenario), raiz)), raiz,
+                                     observar=a.observar)
+        if a.observar:
+            from observar import observar_apertura
+            return observar_apertura(escenario, a.evidencias)
         if a.comprobar:
             print("PREPARADO: entradas locales verificadas; NO EJECUTADO en navegador")
             return 0

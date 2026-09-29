@@ -27,9 +27,18 @@ entrega, plazo legal, firma ni incorporación. Si la respuesta es aceptación,
 el guion termina en la resolución; no abre otro llamamiento. Si es renuncia,
 exige una continuación expresa y un único recibo del siguiente llamamiento.
 
-No hay aún un servidor local con clon H3–H5 y binario acreditados para este
-recorrido. El clon HITO1 de `127.0.0.1:55441` y los servicios de otros trabajos
-quedan fuera. El estado actual del recorrido es **NO EJECUTADO**.
+El recorrido requiere un clon H3–H5 y un binario acreditados por dirección.
+El clon HITO1 de `127.0.0.1:55441` y los servicios de otros trabajos quedan
+fuera. No se da por ejecutado hasta observar las respuestas del clon autorizado.
+
+Para observar el primer corte, use `--observar --evidencias /ruta/privada/nueva`.
+Este modo comprueba el manifiesto, el binario y las dos identidades antes de abrir
+los portales. No exige los recibos de operaciones que todavía no existen, ni
+envía operaciones por su cuenta. Guarda capturas a 1440 y 390 px y un
+`resultado.json` con métodos, rutas y estados HTTP, sin cuerpos ni parámetros de
+consulta. La carpeta debe ser nueva y estar fuera de Git. El código de salida
+`1` indica un corte de aplicación; `0` acredita solo la apertura. En ambos casos,
+selección, respuesta, resolución y continuación quedan **NO EJECUTADAS**.
 
 ## Entradas que prepara dirección fuera de Git
 
@@ -77,6 +86,7 @@ archivos son absolutas y externas al repositorio.
 
 ```sh
 python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json --comprobar
+python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/apertura.json --observar --evidencias /ruta/privada/capturas-nuevas
 python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json --ejecutar
 # Tras reiniciar aplicación y PostgreSQL del clon aislado:
 python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json --recuperar
