@@ -123,7 +123,27 @@ func (a autoridadPostgreSQLDesarrollo) versionActualHabilitada(ctx context.Conte
 	return habilitada, nil
 }
 
+// prepararInstantanea repite la preparación completa cuando pierde una carrera
+// de serialización con otra petición del mismo perfil; cada intento conserva
+// sus guardas.
 func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
+	ctx context.Context,
+	solicitada dominiovec.InstantaneaAutorizacion,
+	permitirInicial bool,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	var preparada dominiovec.InstantaneaAutorizacion
+	err := reintentarSerializacionCTDesarrollo(ctx, func() error {
+		var err error
+		preparada, err = a.prepararInstantaneaUnaVez(ctx, solicitada, permitirInicial)
+		return err
+	})
+	if err != nil {
+		return dominiovec.InstantaneaAutorizacion{}, err
+	}
+	return preparada, nil
+}
+
+func (a autoridadPostgreSQLDesarrollo) prepararInstantaneaUnaVez(
 	ctx context.Context,
 	solicitada dominiovec.InstantaneaAutorizacion,
 	permitirInicial bool,
@@ -175,8 +195,11 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 	} else if preparada.AsignacionPerfil.Version != 1 {
 		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
-	if preparada.Validar() != nil || tx.Commit(ctx) != nil {
+	if preparada.Validar() != nil {
 		return vacia, falloPostgreSQLCTDesarrollo(nil)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	return preparada, nil
 }
@@ -294,7 +317,20 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 	return actual, true, nil
 }
 
+// publicarInstantaneaConPreimagen repite la publicación completa cuando
+// pierde una carrera de serialización con otra petición del mismo perfil; la
+// semántica y la guarda de preimagen son las de cada intento.
 func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
+	ctx context.Context,
+	instantanea dominiovec.InstantaneaAutorizacion,
+	preimagen *dominiovec.InstantaneaAutorizacion,
+) error {
+	return reintentarSerializacionCTDesarrollo(ctx, func() error {
+		return a.publicarInstantaneaConPreimagenUnaVez(ctx, instantanea, preimagen)
+	})
+}
+
+func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 	ctx context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
 	preimagen *dominiovec.InstantaneaAutorizacion,
@@ -633,8 +669,8 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	if err != nil || !coincide {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	if tx.Commit(ctx) != nil {
-		return falloPostgreSQLCTDesarrollo(nil)
+	if err = tx.Commit(ctx); err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }

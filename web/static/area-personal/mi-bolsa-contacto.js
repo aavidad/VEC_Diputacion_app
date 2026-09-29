@@ -4,6 +4,7 @@
 // correo y los teléfonos nunca llegan a esta pantalla.
 import { traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML } from "./vistas/comunes.js";
+import { nombreCategoria } from "./mi-bolsa-campos.js";
 
 export const RUTA_CONTACTO_MI_BOLSA = "/api/vec/bolsa/mi-bolsa/contacto";
 
@@ -55,7 +56,7 @@ function dia(valor) {
 // procede de CONVOCA sin confirmar, el botón para confirmarlo.
 export function renderizarContactoMiBolsa(participaciones, contactos) {
   if (!Array.isArray(contactos) || contactos.length === 0) return "";
-  const categorias = new Map((participaciones || []).map((p) => [p.bolsa, p.categoria]));
+  const categorias = new Map((participaciones || []).map((p) => [p.bolsa, nombreCategoria(p)]));
   const t = textoContacto;
   const bloques = contactos.map((c) => {
     let estado;

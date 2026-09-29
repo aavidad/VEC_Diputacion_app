@@ -4,11 +4,13 @@
  * paso. Mantiene visible la fase oficial aunque el catálogo o el registro no
  * respondan. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver».
  * Una firma de prueba registrada no acredita envío ni firma en Firmadoc.
+ * Encima de todo va la fase de firma de cada documento (fase-firma.js).
  */
 
 import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
 import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
+import { cargarTextosFaseFirma, renderizarFaseFirma } from "./fase-firma.js";
 import { crearTraductorCircuitoFirma, traducirValorCircuitoFirma } from "./i18n-circuito-firma.js";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -156,8 +158,11 @@ function renderizarPaso(paso, t, circuito, documento) {
   </li>`;
 }
 
-/** HTML del bloque; los textos visibles salen del traductor o del catálogo. */
-export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ? "disponible" : "no_disponible") {
+/**
+ * HTML del bloque; los textos visibles salen del traductor o del catálogo.
+ * `fase` ({ catalogo, textos }) añade la fase de firma siempre visible.
+ */
+export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ? "disponible" : "no_disponible", fase = null) {
   const claveFallo = estadoConsulta === "denegado" ? "circuito_firma_consulta_denegada"
     : estadoConsulta === "no_disponible" ? "circuito_firma_consulta_no_disponible"
       : "circuito_firma_portafirmas_estado_no_disponible";
@@ -167,6 +172,10 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       ${circuito?.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
     <p class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
+    ${fase ? renderizarFaseFirma({
+    catalogo: fase.catalogo, real: circuito?.registro ? circuito : null, textos: fase.textos,
+    nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t), aviso: estadoConsulta !== "denegado",
+  }) : ""}
     <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
       <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
       <span class="ct-circuito-estado ct-tono-aviso">${escaparHTML(t("circuito_firma_portafirmas_pendiente"))}</span>
@@ -186,7 +195,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h5>${escaparHTML(etiqueta)}</h5>
       <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
     </article>`;
-  }).join("")}</div></details>` : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
+  }).join("")}</div></details>` : fase && estadoConsulta === "no_disponible" ? "" : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
   </section>`;
 }
 
@@ -197,13 +206,19 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
  */
 export function crearGestorCircuitoFirma({
   raiz, obtenerEstado, cliente = crearClienteHTTPCircuitoFirma(), mensajes = {}, esMontada = () => true,
-  clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {},
+  clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {}, cargarTextos,
   locale = globalThis.document?.documentElement?.lang || "es-ES",
 } = {}) {
   if (typeof obtenerEstado !== "function") throw new TypeError("estado del circuito de firma no disponible");
   const t = crearTraductorCircuitoFirma(mensajes, locale);
   const controlador = new AbortController();
   let consulta = null;
+  const textosFase = cargarTextosFaseFirma(cargarTextos);
+  const fase = async (resultado) => {
+    const textos = await textosFase;
+    const catalogo = resultado?.catalogo ?? resultado?.circuito ?? null;
+    return textos && catalogo ? { catalogo, textos } : null;
+  };
 
   async function obtenerCatalogo() {
     if (typeof cliente?.obtenerCircuitoConEstado === "function") {
@@ -215,37 +230,45 @@ export function crearGestorCircuitoFirma({
     return { estado: circuito ? "disponible" : "no_disponible", circuito };
   }
 
-  // El estado real solo se consulta con un expediente cuyos borradores
-  // existen; sin registro compuesto el bloque sigue siendo informativo.
+  // El estado real se consulta con cualquier expediente real abierto, para
+  // que la fase de firma se vea en todas sus fases; firmar o devolver solo se
+  // ofrece cuando sus borradores se pueden descargar (fase de nombramiento).
+  // Sin registro compuesto el bloque sigue siendo informativo.
   async function conEstadoReal(resultado) {
     const circuito = resultado?.circuito;
-    const solicitud = circuito ? solicitudInformeDefinitivoDesdeEstado(obtenerEstado()) : null;
-    if (!solicitud) return resultado;
+    const estado = obtenerEstado();
+    const solicitud = circuito ? solicitudInformeDefinitivoDesdeEstado(estado) : null;
+    const expedienteRef = solicitud?.expediente_ref
+      ?? (circuito && estado?.vista === "expediente" && estado.expediente?.demostracion === false
+        && typeof estado.expediente.expediente_ref === "string" ? estado.expediente.expediente_ref : null);
+    if (!expedienteRef) return resultado;
     let respuesta;
     if (typeof clienteFirma?.consultarConEstado === "function") {
-      respuesta = await clienteFirma.consultarConEstado(solicitud.expediente_ref, { signal: controlador.signal })
+      respuesta = await clienteFirma.consultarConEstado(expedienteRef, { signal: controlador.signal })
         .catch(() => ({ estado: "no_disponible" }));
     } else if (typeof clienteFirma?.consultar === "function") {
-      const datos = await clienteFirma.consultar(solicitud.expediente_ref, { signal: controlador.signal }).catch(() => null);
+      const datos = await clienteFirma.consultar(expedienteRef, { signal: controlador.signal }).catch(() => null);
       respuesta = { estado: datos ? "disponible" : "no_disponible", datos };
     } else {
       respuesta = { estado: "no_disponible" };
     }
     // El catálogo describe los pasos, pero no acredita su estado. Si CT118 no
     // responde o no coincide, no se muestran estados derivados del ejemplo.
-    const real = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
-    return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real };
+    const fusionado = respuesta?.estado === "disponible" ? fusionarEstadoFirmas(circuito, respuesta.datos) : null;
+    const real = fusionado && !solicitud ? Object.freeze({ ...fusionado, acciones: false }) : fusionado;
+    return { estado: real ? "disponible" : respuesta?.estado === "denegado" ? "denegado" : "no_disponible", circuito: real, catalogo: circuito };
   }
 
   const acciones = crearAccionesFirma({
     obtenerEstado, t, clienteFirma, ...dependenciasAcciones,
     async alCambiar(aviso) {
       const nuevo = await conEstadoReal(await consulta);
+      const datosFase = await fase(nuevo);
       const actual = raiz.querySelector?.("[data-ct-circuito-firma]");
       if (!actual || !esMontada()) return;
       const detallesAbiertos = Boolean(actual.querySelector?.("[data-ct-firma-detalles]")?.open);
       const limiteAbierto = Boolean(actual.querySelector?.(".ct-circuito-limite")?.open);
-      actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado);
+      actual.outerHTML = renderizarCircuitoFirma(nuevo.circuito, t, nuevo.estado, datosFase);
       const repintado = raiz.querySelector?.("[data-ct-circuito-firma]");
       repintado?.addEventListener?.("click", manejar);
       const detalles = repintado?.querySelector?.("[data-ct-firma-detalles]");
@@ -262,13 +285,13 @@ export function crearGestorCircuitoFirma({
   });
   function manejar(evento) { void acciones.manejarClic(evento); }
 
-  function insertar(resultado) {
+  function insertar(resultado, datosFase) {
     if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
     // En la ficha, la firma va con los documentos; sin esa marca, tras el siguiente paso.
     const ancla = raiz.querySelector?.("[data-ct-exp-ancla-firma]")
       ?? raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
     if (typeof ancla?.insertAdjacentHTML !== "function") return;
-    ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado));
+    ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado, datosFase));
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 
@@ -277,9 +300,10 @@ export function crearGestorCircuitoFirma({
       (typeof cliente?.obtenerCircuito !== "function" && typeof cliente?.obtenerCircuitoConEstado !== "function")) return;
     consulta ??= Promise.resolve(obtenerCatalogo()).catch(() => ({ estado: "no_disponible" }));
     const expedienteRef = estado.expediente.expediente_ref;
-    void consulta.then(conEstadoReal).then((resultado) => {
+    void consulta.then(conEstadoReal).then(async (resultado) => {
+      const datosFase = await fase(resultado);
       const actual = obtenerEstado();
-      if (actual?.vista === "expediente" && actual.expediente?.expediente_ref === expedienteRef) insertar(resultado);
+      if (actual?.vista === "expediente" && actual.expediente?.expediente_ref === expedienteRef) insertar(resultado, datosFase);
     });
   }
 

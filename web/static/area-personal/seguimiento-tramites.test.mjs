@@ -40,7 +40,7 @@ test("mi bolsa muestra tarjetas propias, provisionalidad y paginación", () => {
   const vista = renderizarLlamamientos(datos, { participaciones, paginaParticipaciones: 1, fuenteBolsa: "ejemplo" });
   assert.doesNotMatch(vista, /Datos de ejemplo|aviso-fuente-ejemplo/u);
   assert.match(vista, /Mi número de orden inicial[\s\S]*1 de 87/u);
-  assert.match(vista, /Versión de la bolsa/u);
+  assert.doesNotMatch(vista, /Versión de la bolsa/u);
   assert.match(vista, /Mostrando 1 a 20 de 21/u);
   assert.doesNotMatch(vista, /Identificarse con certificado no firma documentos|Pendiente de integración/u);
   assert.match(vista, /Histórico de mi bolsa[\s\S]*Cargando histórico autorizado/u);

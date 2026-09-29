@@ -22,7 +22,8 @@ export function crearTraductorCambiosExpediente(mensajes = {}) {
   return crearTraductorExpedientesContratacion({ ...catalogo, ...mensajes });
 }
 
-const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid" });
+// Con segundos: RRHH pide el instante exacto de cada cambio (petición 4.11).
+const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "short", timeStyle: "medium", timeZone: "Europe/Madrid" });
 
 function fecha(valor) {
   const instante = new Date(valor);

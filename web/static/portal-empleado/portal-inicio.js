@@ -11,7 +11,7 @@
  * los indicadores y el reparto por fase. Cuenta con los mismos criterios que la
  * lista (recuentos-peticiones.js) y no deduce responsables ni tareas.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260929-pref-508a-v2";
+import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20260929-firma-506-v2";
 import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
 import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
@@ -57,6 +57,50 @@ function renderizarPendiente(expediente, escaparHTML, traducir, locale) {
   </li>`;
 }
 
+// Expedientes idénticos a la vista (misma categoría, centro, fase, estado y
+// plazo) se agrupan en una sola fila con contador; los números siguen visibles.
+function claveGrupoPendiente(e) {
+  return JSON.stringify([e.categoria ?? "", e.centro ?? "", e.fase_clave ?? "", e.estado_clave ?? "",
+    e.plazo_estado ?? "", e.plazo_ultimo_dia ?? "", e.plazo ?? ""]);
+}
+
+export function agruparPendientes(atencion) {
+  const grupos = new Map();
+  for (const expediente of atencion) {
+    const clave = claveGrupoPendiente(expediente);
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(expediente);
+  }
+  return [...grupos.values()];
+}
+
+function renderizarGrupoPendiente(grupo, escaparHTML, traducir, locale) {
+  if (grupo.length === 1) return renderizarPendiente(grupo[0], escaparHTML, traducir, locale);
+  const t = (clave, variables) => escaparHTML(traducir(clave, variables));
+  const muestra = grupo[0];
+  const fecha = diaYMes(muestra.plazo_ultimo_dia ?? "", locale);
+  const tono = muestra.plazo_estado === "vencido" ? "vencido"
+    : (muestra.plazo_estado === "vence_hoy" ? "hoy" : (fecha ? "" : "sin-fecha"));
+  const motivos = [
+    faseConOrden(muestra.fase_clave, traducir),
+    muestra.plazo_estado === "vencido" ? traducir("inicio_rrhh_grupo_vencidas", { fecha: muestra.plazo ?? "" }) : "",
+    muestra.plazo_estado === "vence_hoy" ? traducir("inicio_rrhh_plazo_hoy") : "",
+    muestra.estado_clave === "incidencia" ? traducir("tramite_estado_incidencia") : "",
+  ].filter(Boolean);
+  const numeros = grupo.map((e) => e.numero_visible ?? "").filter(Boolean).join(", ");
+  return `<li data-grupo-pendientes="${grupo.length}">
+    <span class="fecha-tarea${tono ? ` ${tono}` : ""}" aria-hidden="true">${fecha
+    ? `<strong>${escaparHTML(fecha.dia)}</strong>${escaparHTML(fecha.mes)}` : "—"}</span>
+    <div>
+      <h3>${t("inicio_rrhh_grupo_peticiones", { total: grupo.length })} · ${escaparHTML(muestra.categoria ?? "—")}</h3>
+      <p>${escaparHTML(muestra.centro ?? "—")} · ${escaparHTML(motivos.join(" · "))}</p>
+      ${numeros ? `<p><small>${t("inicio_rrhh_grupo_numeros", { numeros })}</small></p>` : ""}
+    </div>
+    <button type="button" class="boton-secundario" ${DESTINO_LISTA}
+      aria-label="${t("inicio_rrhh_grupo_ver_aria", { total: grupo.length, categoria: muestra.categoria ?? "", centro: muestra.centro ?? "" })}">${t("inicio_rrhh_grupo_ver")}</button>
+  </li>`;
+}
+
 function renderizarPendientes(resumen, escaparHTML, traducir, locale) {
   const t = (clave, variables) => escaparHTML(traducir(clave, variables));
   const total = resumen.atencion.length;
@@ -67,7 +111,7 @@ function renderizarPendientes(resumen, escaparHTML, traducir, locale) {
       <button type="button" class="boton-terciario" ${DESTINO_LISTA}>${t("inicio_rrhh_ver_peticiones")} →</button></div>
     ${resumen.parcial ? `<p class="portal-rrhh-parcial" role="status">${t("inicio_rrhh_recuento_parcial")}</p>` : ""}
     ${total === 0 ? `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_pendientes_vacio")}</p>`
-    : `<ol class="tareas-pendientes">${resumen.atencion.map((e) => renderizarPendiente(e, escaparHTML, traducir, locale)).join("")}</ol>`}
+    : `<ol class="tareas-pendientes">${agruparPendientes(resumen.atencion).map((g) => renderizarGrupoPendiente(g, escaparHTML, traducir, locale)).join("")}</ol>`}
   </section>`;
 }
 
@@ -131,12 +175,6 @@ export function resumirBolsasInicio(lectura) {
   });
 }
 
-function fechaCivilCorta(dia, locale) {
-  const fecha = new Date(`${dia}T00:00:00Z`);
-  return Number.isFinite(fecha.getTime())
-    ? new Intl.DateTimeFormat(locale, { dateStyle: "short", timeZone: "UTC" }).format(fecha) : "";
-}
-
 function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, locale) {
   const t = (clave) => escaparHTML(traducir(clave));
   let cuerpo;
@@ -153,12 +191,11 @@ function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, 
   } else {
     const filas = resumen.bolsas.slice(0, MAXIMO_BOLSAS_INICIO).map((bolsa) => {
       const disponibles = bolsa?.por_estado?.disponible;
-      const hasta = typeof bolsa.vigente_hasta === "string" ? fechaCivilCorta(bolsa.vigente_hasta, locale) : "";
       return `<tr>
         <th scope="row"><button type="button" class="enlace-tabla" data-vista="resumen">${escaparHTML(bolsa.categoria)}</button></th>
         <td class="numero">${Number.isSafeInteger(disponibles) ? escaparHTML(numero(disponibles)) : "—"}</td>
         <td class="numero">${Number.isSafeInteger(bolsa.llamamientos_en_curso) ? escaparHTML(numero(bolsa.llamamientos_en_curso)) : "—"}</td>
-        <td>${hasta ? escaparHTML(hasta) : t("inicio_rrhh_sin_fin")}</td>
+        <td>${escaparHTML(finVigenciaBolsaPortal(bolsa.vigente_hasta, traducir))}</td>
       </tr>`;
     }).join("");
     cuerpo = `<div class="portal-rrhh-tabla"><table class="tabla-datos">
