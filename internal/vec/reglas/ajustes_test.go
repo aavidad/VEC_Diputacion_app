@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -194,6 +196,37 @@ func TestAjusteFueraDeLoQueAdmiteLaReglaDejaSoloEsaReglaFueraDeUso(t *testing.T)
 	}
 }
 
+func TestCantidadUrgenteNoEditableLimitaElAjusteOrdinario(t *testing.T) {
+	desde := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	atributos := map[string]string{
+		"origen": "ejemplo", "norma": "N", "duda": "D", "unidad": "dias_habiles",
+		"cantidad": "10", AtributoCantidadUrgente: "5", "inicio": "contacto_efectivo", "computo": "administrativo",
+		AtributoEditable: CampoCantidad, AtributoCantidadMinima: "1", AtributoCantidadMaxima: "60",
+	}
+	ajustes := map[string]map[string]string{BolsaPlazoRespuesta: {CampoCantidad: "4"}}
+	huella, err := HuellaAjustes(ajustes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	version := VersionAjustes{CatalogoID: CatalogoAjustesDe(CatalogoBolsa), Version: 1,
+		HuellaSHA256: huella, VigenteDesde: desde, Ajustes: ajustes}
+	resolutor, err := NuevoResolutor(Configuracion{
+		Consulta:   consultaMemoria{[]domain.CatalogoConfigurable{catalogoMemoria(t, 1, desde, atributos)}},
+		CatalogoID: CatalogoBolsa, ModuloID: ModuloBolsa, Reloj: diaPresentacion,
+		Ajustes: consultaAjustesFija{version},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reglas, err := resolutor.Reglas(t.Context())
+	if err != nil || len(reglas) != 1 || !reglas[0].AjusteNoAplicable {
+		t.Fatalf("ajuste ordinario menor que urgencia: %+v, %v", reglas, err)
+	}
+	if _, err := resolutor.Regla(t.Context(), BolsaPlazoRespuesta); !errors.Is(err, ErrAjusteInvalido) {
+		t.Fatalf("regla inválida utilizable: %v", err)
+	}
+}
+
 func TestVersionDeAjustesIncoherenteNoSeSustituyePorLaBase(t *testing.T) {
 	desde := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
 	buena := versionAjustes(t, 1, desde, map[string]map[string]string{CTPlazoFiscalizacion: {CampoCantidad: "7"}})
@@ -243,16 +276,18 @@ func TestDeclaracionDeEdicionIncoherenteInvalidaLaRegla(t *testing.T) {
 		return a
 	}
 	invalidas := map[string]map[string]string{
-		"reglamento":          {"origen": "reglamento", "articulo": "art. 1", "editable": "cantidad", "cantidad_minima": "1", "cantidad_maxima": "9"},
-		"sin límites":         {"editable": "cantidad"},
-		"límites sin campo":   {"cantidad_minima": "1", "cantidad_maxima": "9"},
-		"valor fuera":         {"editable": "cantidad", "cantidad_minima": "6", "cantidad_maxima": "9"},
-		"campo estructural":   {"editable": "fases"},
-		"campo repetido":      {"editable": "cantidad,cantidad", "cantidad_minima": "1", "cantidad_maxima": "9"},
-		"unidad sin opción":   {"editable": "unidad"},
-		"unidad no plazo":     {"editable": "unidad", "opciones_unidad": "dias_habiles,horas"},
-		"unidad actual fuera": {"editable": "unidad", "opciones_unidad": "dias_naturales"},
-		"cómputo inventado":   {"editable": "computo", "opciones_computo": "administrativo,lunar"},
+		"urgente mayor que ordinaria": {AtributoCantidadUrgente: "6"},
+		"urgente no canónica":         {AtributoCantidadUrgente: "05"},
+		"reglamento":                  {"origen": "reglamento", "articulo": "art. 1", "editable": "cantidad", "cantidad_minima": "1", "cantidad_maxima": "9"},
+		"sin límites":                 {"editable": "cantidad"},
+		"límites sin campo":           {"cantidad_minima": "1", "cantidad_maxima": "9"},
+		"valor fuera":                 {"editable": "cantidad", "cantidad_minima": "6", "cantidad_maxima": "9"},
+		"campo estructural":           {"editable": "fases"},
+		"campo repetido":              {"editable": "cantidad,cantidad", "cantidad_minima": "1", "cantidad_maxima": "9"},
+		"unidad sin opción":           {"editable": "unidad"},
+		"unidad no plazo":             {"editable": "unidad", "opciones_unidad": "dias_habiles,horas"},
+		"unidad actual fuera":         {"editable": "unidad", "opciones_unidad": "dias_naturales"},
+		"cómputo inventado":           {"editable": "computo", "opciones_computo": "administrativo,lunar"},
 	}
 	for nombre, extra := range invalidas {
 		t.Run(nombre, func(t *testing.T) {
@@ -281,9 +316,22 @@ func TestCanonicoDeAjustes(t *testing.T) {
 	}
 	for _, malo := range []map[string]map[string]string{
 		{"C03": {"cantidad": "7"}}, {"c03": {}}, {"c03": {"fases": "x"}}, {"c03": {"cantidad": " 7"}},
+		{"c": {CampoCantidad: "7"}}, {"c" + strings.Repeat("a", 80): {CampoCantidad: "7"}},
+		{"c03": {CampoUnidad: "dias-habiles"}}, {"c03": {CampoUnidad: "Dias_habiles"}},
+		{"c03": {CampoUnidad: "días_habiles"}}, {"c03": {CampoUnidad: "dias/habiles"}},
 	} {
 		if _, err := CanonicoAjustes(malo); !errors.Is(err, ErrAjusteInvalido) {
 			t.Errorf("admitido %v", malo)
 		}
+	}
+	demasiadosBytes := make(map[string]map[string]string, maximoReglasAjustadas)
+	for i := 0; i < maximoReglasAjustadas; i++ {
+		demasiadosBytes["c"+strconv.Itoa(i)] = map[string]string{
+			CampoCantidad: strings.Repeat("1", 64), CampoCantidadUrgente: strings.Repeat("2", 64),
+			CampoUnidad: strings.Repeat("a", 64), CampoComputo: strings.Repeat("b", 64),
+		}
+	}
+	if _, err := CanonicoAjustes(demasiadosBytes); !errors.Is(err, ErrAjusteInvalido) {
+		t.Fatalf("admitidos más de 16 KiB de ajustes: %v", err)
 	}
 }
