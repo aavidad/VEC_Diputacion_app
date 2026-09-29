@@ -16,7 +16,6 @@ var ErrRegistroFronteraBolsaExternaNoDisponible = errors.New("bolsa: registro de
 
 const (
 	rolRegistroFronteraBolsaExterna  = "vec_bolsa_llamamientos_registrador_portal_externo"
-	superficieRegistroBolsaExterna   = "api.bolsa.mi_bolsa.ruta_exacta"
 	registrarFronteraBolsaExternaSQL = `SELECT vec_bolsa_llamamientos.registrar_denegacion_portal_externo_v1($1::text,$2::text,$3::text,$4::text,NULLIF($5::text,''))`
 )
 
@@ -107,7 +106,7 @@ func nuevoRegistradorFronteraBolsaExternaPostgreSQL(ctx context.Context, consult
 }
 
 func ordenFronteraBolsaExternaValida(o vecports.OrdenAuditoriaFronteraRutaExacta) bool {
-	if o.Superficie != superficieRegistroBolsaExterna ||
+	if o.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato ||
 		(o.CorrelacionRef != "corr_no_disponible" && !correlacionRegistroBolsaExterna.MatchString(o.CorrelacionRef)) {
 		return false
 	}

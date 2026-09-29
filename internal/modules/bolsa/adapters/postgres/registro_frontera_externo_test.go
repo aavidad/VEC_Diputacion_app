@@ -43,7 +43,7 @@ func ordenRegistroFronteraBolsaPrueba() vecports.OrdenAuditoriaFronteraRutaExact
 	return vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: "corr_" + strings.Repeat("a", 32),
 		Motivo:         vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
-		Superficie:     superficieRegistroBolsaExterna,
+		Superficie:     vecports.SuperficieAuditoriaFronteraRutaExactaBolsaCandidato,
 		Ruta:           "/api/vec/bolsa/mi-bolsa/contacto",
 		ActorRef:       "per_" + strings.Repeat("b", 22),
 	}
