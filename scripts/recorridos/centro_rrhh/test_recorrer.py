@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 from recorrer import (
     NoEjecutado, bloquear_websocket, exigir_tres_actores, huellas_certificados,
-    interceptar_ruta, origen_local, preflight,
+    identidad_rrhh_previa, interceptar_ruta, origen_local, preflight,
     verificar_entrega, verificar_recibo_centro,
 )
 
@@ -38,6 +38,31 @@ class RecorridoCentroTest(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "tres identidades"):
             exigir_tres_actores("persona:sol", "persona:rat", "")
         exigir_tres_actores("persona:sol", "persona:rat", "persona:rrhh")
+
+    def test_preferencia_rrhh_denegada_corta_antes_de_escribir(self):
+        class Peticion:
+            def __init__(self, estado, cuerpo):
+                self.estado = estado
+                self.cuerpo = cuerpo
+                self.consultas = []
+
+            def get(self, url, **opciones):
+                self.consultas.append((url, opciones))
+                return SimpleNamespace(
+                    url=url, status=self.estado, json=lambda: {"data": self.cuerpo})
+
+        origen = "https://127.0.0.1:8443"
+        denegada = Peticion(403, {})
+        with self.assertRaisesRegex(NoEjecutado, "vec.preferencias.consultar.*VEC_USUARIOS_PREFERENCIAS_ENABLED"):
+            identidad_rrhh_previa(SimpleNamespace(request=denegada), origen)
+        self.assertEqual(denegada.consultas[0][1], {"max_redirects": 0})
+
+        incompleta = Peticion(200, {"estado": {}})
+        with self.assertRaises(NoEjecutado):
+            identidad_rrhh_previa(SimpleNamespace(request=incompleta), origen)
+
+        propia = Peticion(200, {"estado": {"persona_ref": "persona:rrhh"}})
+        self.assertEqual(identidad_rrhh_previa(SimpleNamespace(request=propia), origen), "persona:rrhh")
 
     def test_recibos_exigen_identidad_version_y_misma_alta(self):
         centro = {"peticion_ref": "peticion:centro:uno", "version": 2, "estado": "ratificada",

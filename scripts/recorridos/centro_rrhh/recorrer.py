@@ -29,7 +29,7 @@ RUTA_PREFERENCIAS = "/api/vec/usuarios/mis-preferencias"
 
 
 class NoEjecutado(Exception):
-    """Falta una condición previa; no se abrió el navegador ni hubo escrituras."""
+    """Falta una condición previa; no hubo escrituras en el clon."""
 
 
 def origen_local(valor: str) -> str:
@@ -139,6 +139,21 @@ def datos_api(respuesta, ruta: str, metodo: str = "GET") -> dict:
     return cuerpo["data"]
 
 
+def identidad_rrhh_previa(contexto_rrhh, origen: str) -> str:
+    dependencia = ("GET /api/vec/usuarios/mis-preferencias requiere audiencia interna, "
+                   "permiso vec.preferencias.consultar y VEC_USUARIOS_PREFERENCIAS_ENABLED")
+    try:
+        respuesta = contexto_rrhh.request.get(origen + RUTA_PREFERENCIAS, max_redirects=0)
+        vista = datos_api(respuesta, RUTA_PREFERENCIAS)
+        estado = vista.get("estado")
+        actor = estado.get("persona_ref") if isinstance(estado, dict) else None
+        if not isinstance(actor, str) or not actor:
+            raise ValueError("falta persona_ref")
+        return actor
+    except Exception as exc:
+        raise NoEjecutado(f"no se acredita la identidad propia de RRHH; {dependencia}") from exc
+
+
 def mismo_origen(url: str, origen: str) -> bool:
     try:
         destino, permitido = urlparse(url), urlparse(origen)
@@ -227,12 +242,7 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
 
             # La preferencia propia identifica al principal RRHH autenticado.
             # Se consulta antes de cualquier escritura del centro.
-            identidad = contextos["rrhh"].request.get(origen + RUTA_PREFERENCIAS, max_redirects=0)
-            vista_rrhh = datos_api(identidad, RUTA_PREFERENCIAS)
-            estado_rrhh = vista_rrhh.get("estado")
-            actor_rrhh = estado_rrhh.get("persona_ref") if isinstance(estado_rrhh, dict) else None
-            if not actor_rrhh:
-                raise AssertionError("la consulta propia de RRHH no acredita un principal")
+            actor_rrhh = identidad_rrhh_previa(contextos["rrhh"], origen)
 
             sol, _ = actor_y_bandeja(paginas["solicitante"], origen)
             actor_sol = sol.get("actor", {})
@@ -349,6 +359,9 @@ def main() -> int:
         return 2
     try:
         recorrer(args, origen)
+    except NoEjecutado as exc:
+        print(f"NO EJECUTADO: {exc}")
+        return 2
     except Exception as exc:
         print(f"FALLÓ: {type(exc).__name__}; revisar evidencia privada del clon sin repetir una escritura incierta")
         return 1

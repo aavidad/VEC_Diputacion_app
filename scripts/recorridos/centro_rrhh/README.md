@@ -38,6 +38,12 @@ contexto del centro. Las compara con la identidad del solicitante. Si alguna
 lectura falta o una identidad se repite, el recorrido se detiene sin crear la
 petición.
 
+La consulta propia de RRHH requiere el permiso `vec.preferencias.consultar`,
+audiencia interna y `VEC_USUARIOS_PREFERENCIAS_ENABLED` activo en el clon. Si
+falta cualquiera de estas condiciones, el guion muestra `NO EJECUTADO` antes
+de presentar la petición. No sustituya esta lectura por una identidad escrita
+en el JSON de acreditación.
+
 El navegador solo acepta respuestas del origen indicado. Inspecciona cada
 respuesta sin seguir redirecciones y bloquea cualquier 3xx; las consultas y
 replays directos aplican el mismo límite. La prueba focal incluye un 302 hacia
@@ -65,14 +71,16 @@ python3 scripts/recorridos/centro_rrhh/recorrer.py \
 ```
 
 Salida `NO EJECUTADO` y código 2 significan que falta una condición previa:
-no se abre Chrome ni se escribe en la base. Salida `FALLÓ` y código 1 indican
+no se escribe en la base. Chrome solo puede abrirse para consultar la identidad
+propia de RRHH. Salida `FALLÓ` y código 1 indican
 que el recorrido empezó y que su estado requiere inspección del clon antes de
 repetir una escritura incierta. Salida `EJECUTADO` y código 0 exige respuestas
 reales, la ratificación v2 por otra identidad, una sola fila visible de entrega tras
 el reinicio y el mismo recibo completo en ambos replays. El guion no acredita
 firma legal, envío externo ni otro paso completo de Contratación temporal.
 
-Prueba focal de la lógica sin navegador ni base:
+Prueba focal sin VEC ni PostgreSQL; usa Chrome y dos servidores HTTP locales
+para comprobar el bloqueo de redirecciones y WebSocket:
 
 ```sh
 python3 -m unittest discover -s scripts/recorridos/centro_rrhh -p 'test_*.py'
