@@ -99,7 +99,7 @@ test("el índice documental lista el estado autorizado sin inventar una descarga
   assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar|>Descargar<\/button>/u);
 });
 
-test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmados", () => {
+test("siguiente paso precede a las fases y solo anuncia acción y actor confirmados", () => {
   const base = crearExpedienteContratacionTemporalPresentacion();
   const tarea = { ...base.tareas[0], estado_clave: "en_curso", responsable: "Unidad RRHH",
     acciones: [{ tipo: "efecto", disponible: true, etiqueta: "Revisar petición" }] };
@@ -107,8 +107,8 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   const estado = { vista: "expediente", carga: "listo", expediente,
     expediente_ref: expediente.expediente_ref, tarea_ref: tarea.tarea_ref };
   const html = renderizarExpediente(estado, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
-  assert.ok(html.indexOf('class="ct-exp-progreso"') < html.indexOf('class="ct-exp-siguiente-paso panel"'));
-  assert.ok(html.indexOf('class="ct-exp-siguiente-paso panel"') < html.indexOf('class="ct-exp-tramitacion"'));
+  assert.ok(html.indexOf('class="ct-exp-siguiente-paso siguiente-paso panel"') < html.indexOf('class="ct-exp-progreso"'));
+  assert.ok(html.indexOf('class="ct-exp-progreso"') < html.indexOf('class="ct-exp-tramitacion"'));
   assert.match(html, /Qué:<\/strong> Revisar petición/u);
   assert.match(html, /Quién:<\/strong> Unidad RRHH/u);
   assert.match(html, /No consta un plazo autorizado para este paso/u);
@@ -121,6 +121,48 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   assert.match(en, /No person or unit is assigned in the record/u);
   assert.match(en, /No authorised deadline is recorded/u);
   assert.doesNotMatch(en, /What:<\/strong> Firmar/u);
+});
+
+test("la ficha usa ocho datos reales, fases localizadas e índice documental consultado", () => {
+  const base = crearExpedienteContratacionTemporalPresentacion();
+  const expediente = { ...base, historial: [{ secuencia: 1, fecha: "29/09/2026 09:00",
+    fase: "Solicitud", accion: "Petición registrada", estado: "Completado",
+    estado_clave: "completado" }] };
+  const estado = { vista: "expediente", carga: "listo", expediente,
+    expediente_ref: expediente.expediente_ref, tarea_ref: expediente.tareas[0].tarea_ref,
+    navegacion: { documentos: true } };
+  const t = crearTraductorExpedientesContratacion();
+  const sinIndice = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
+  assert.match(sinIndice, /El índice documental aún no se ha consultado/u);
+  assert.match(sinIndice, /data-ct-exp-vista="documentos"/u);
+  assert.doesNotMatch(sinIndice, /<ul class="documentos">/u);
+  assert.equal((sinIndice.match(/class="fila-resumen"/gu) ?? []).length, 8);
+  assert.match(sinIndice, /<ol class="linea-fases">/u);
+  assert.equal((sinIndice.match(/class="ct-exp-fase-boton"/gu) ?? []).length, 8);
+  assert.match(sinIndice, /<ol class="historial">[\s\S]*Petición registrada/u);
+  assert.match(sinIndice, /no incluye quién registró cada actuación/u);
+  assert.doesNotMatch(sinIndice, /Carmen Molina|30\/09\/2026 a las 14:00/u);
+
+  const conIndice = renderizarExpediente({ ...estado, documentos: {
+    expediente_ref: expediente.expediente_ref, version: expediente.version,
+    documentos: [{ titulo: "Informe <jurídico>", estado: "Borrador", firma: "Sin firma" }],
+  } }, t, "es-ES", "Europe/Madrid");
+  assert.match(conIndice, /<ul class="documentos">/u);
+  assert.match(conIndice, /Informe &lt;jurídico&gt;/u);
+  assert.match(conIndice, /Borrador · Sin firma/u);
+  const obsoleto = renderizarExpediente({ ...estado, documentos: {
+    expediente_ref: expediente.expediente_ref, version: expediente.version - 1,
+    documentos: [{ titulo: "Obsoleto", estado: "Firmado", firma: "Firma" }],
+  } }, t, "es-ES", "Europe/Madrid");
+  assert.doesNotMatch(obsoleto, /Obsoleto/u);
+
+  const en = renderizarExpediente(estado,
+    crearTraductorExpedientesContratacion(MENSAJES_EXPEDIENTES_CONTRATACION_EN),
+    "en-GB", "Europe/Madrid");
+  assert.match(en, /Key request details/u);
+  assert.match(en, /Stage deadline|No authorised deadline is recorded/u);
+  assert.match(en, /HR review/u);
+  assert.match(en, /The document index has not been checked yet/u);
 });
 
 
@@ -682,9 +724,9 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(html, /<select[^>]+disabled/);
   const htmlComponente = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
-  // Sin desplegable de referencias internas en la cabecera.
-  assert.doesNotMatch(htmlComponente, /ct-exp-detalle-tecnico/);
-  assert.doesNotMatch(htmlComponente, /<summary>Referencias<\/summary>/);
+  // Las referencias y la huella se consultan solo al abrir el detalle técnico.
+  assert.match(htmlComponente, /<details class="ct-exp-detalle-tecnico tecnico ct-exp-metadatos">/);
+  assert.match(htmlComponente, /<summary>Ver detalle técnico<\/summary>/);
   assert.doesNotMatch(htmlComponente, /Metadatos técnicos/);
 });
 
