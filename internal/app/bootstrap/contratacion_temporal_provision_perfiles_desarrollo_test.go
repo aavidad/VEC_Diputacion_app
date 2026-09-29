@@ -202,3 +202,43 @@ func TestAplicarProvisionPerfilesCTRevalidaContextoCambiado(t *testing.T) {
 		t.Fatalf("contexto revocado aceptado: %v", err)
 	}
 }
+
+func TestPrepararPerfilesCTSigueSoloLecturaSinPublicador(t *testing.T) {
+	_, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	contexto, err := nuevoContextoAltaFijoContratacionTemporalDesarrollo(principal, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	semilla, err := nuevaInstantaneaAutorizacionAltaFijaContratacionTemporalDesarrollo(
+		vinculo.PrincipalID, vinculo.PerfilActivoRef, ahora, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fuente := &fuenteDosPerfilesArranqueCTPrueba{porPerfil: make(map[string]dominiovec.InstantaneaAutorizacion)}
+	conexiones := conexionesProvisionPerfilesCT{almacen: fuente}
+	p := perfilPreparadoProvisionCT{clave: "alta", contexto: contexto, registrado: contexto.Resultado, semilla: semilla}
+	if err := prepararPerfilProvisionCT(context.Background(), conexiones, &p, ahora, true); err != nil ||
+		p.existe || p.replay || p.objetivo.AsignacionPerfil.Referencia() != semilla.AsignacionPerfil.Referencia() {
+		t.Fatalf("ausencia no preparó objetivo v1 sin escritura: %v", err)
+	}
+	fuente.porPerfil[vinculo.PerfilActivoRef] = semilla
+	p = perfilPreparadoProvisionCT{clave: "alta", contexto: contexto, registrado: contexto.Resultado, semilla: semilla}
+	if err := prepararPerfilProvisionCT(context.Background(), conexiones, &p, ahora, true); err != nil || !p.replay {
+		t.Fatalf("publicada exacta no se reutilizó: %v", err)
+	}
+	revocada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+	revocada.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+	revocada.AsignacionPerfil.RevocadaPor = "autoridad:prueba"
+	revocada.AsignacionPerfil.RevocadaEn = ahora
+	revocada.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
+	fuente.porPerfil[vinculo.PerfilActivoRef] = revocada
+	p = perfilPreparadoProvisionCT{clave: "alta", contexto: contexto, registrado: contexto.Resultado, semilla: semilla}
+	if err := prepararPerfilProvisionCT(context.Background(), conexiones, &p, ahora, true); !errors.Is(err, errProvisionPerfilesCTObsoleta) {
+		t.Fatalf("revocada propuesta como alta: %v", err)
+	}
+}
