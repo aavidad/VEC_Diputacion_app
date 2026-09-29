@@ -118,13 +118,8 @@ func (m *ManejadorPreferencias) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 func esJSON(valor string) bool {
 	tipo, parametros, err := mime.ParseMediaType(valor)
-	if err != nil || tipo != "application/json" || len(parametros) > 1 {
-		return false
-	}
-	if len(parametros) == 1 && !strings.EqualFold(parametros["charset"], "utf-8") {
-		return false
-	}
-	return true
+	return err == nil && tipo == "application/json" && len(parametros) <= 1 &&
+		(len(parametros) == 0 || strings.EqualFold(parametros["charset"], "utf-8"))
 }
 
 func camposObligatorios(b []byte) bool {
@@ -159,9 +154,13 @@ func jsonSinClavesDuplicadas(b []byte) bool {
 
 func leerValorJSON(d *json.Decoder) bool {
 	t, err := d.Token()
-	if err != nil {
-		return false
+	if err == nil {
+		return leerValorJSONDesdeToken(d, t)
 	}
+	return false
+}
+
+func leerValorJSONDesdeToken(d *json.Decoder, t json.Token) bool {
 	delim, ok := t.(json.Delim)
 	if !ok {
 		return true
@@ -172,13 +171,14 @@ func leerValorJSON(d *json.Decoder) bool {
 		for d.More() {
 			clave, err := d.Token()
 			texto, ok := clave.(string)
-			if err != nil || !ok || vistas[texto] {
-				return false
+			if err == nil && ok && !vistas[texto] {
+				vistas[texto] = true
+				if !leerValorJSON(d) {
+					return false
+				}
+				continue
 			}
-			vistas[texto] = true
-			if !leerValorJSON(d) {
-				return false
-			}
+			return false
 		}
 		cierre, err := d.Token()
 		return err == nil && cierre == json.Delim('}')

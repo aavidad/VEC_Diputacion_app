@@ -77,23 +77,25 @@ func configuracionesPreferenciasSeparadas(interna, externa configuracionUsuarios
 	perfiles := map[string]bool{}
 	for _, c := range interna.Cuentas {
 		b, err := hex.DecodeString(c.CertificadoSHA256)
-		if err != nil || len(b) != sha256.Size || hex.EncodeToString(b) != c.CertificadoSHA256 || c.Sujeto == "" || c.CuentaRef == "" || c.PerfilRef == "" ||
-			certificados[c.CertificadoSHA256] || cuentas[c.CuentaRef] || perfiles[c.PerfilRef] {
-			return false
+		if err == nil && len(b) == sha256.Size && hex.EncodeToString(b) == c.CertificadoSHA256 && c.Sujeto != "" && c.CuentaRef != "" && c.PerfilRef != "" &&
+			!certificados[c.CertificadoSHA256] && !cuentas[c.CuentaRef] && !perfiles[c.PerfilRef] {
+			certificados[c.CertificadoSHA256] = true
+			cuentas[c.CuentaRef] = true
+			perfiles[c.PerfilRef] = true
+			continue
 		}
-		certificados[c.CertificadoSHA256] = true
-		cuentas[c.CuentaRef] = true
-		perfiles[c.PerfilRef] = true
+		return false
 	}
 	for _, c := range externa.Cuentas {
 		b, err := hex.DecodeString(c.CertificadoSHA256)
-		if err != nil || len(b) != sha256.Size || hex.EncodeToString(b) != c.CertificadoSHA256 || c.Sujeto == "" || c.CuentaRef == "" || c.PerfilRef == "" ||
-			certificados[c.CertificadoSHA256] || cuentas[c.CuentaRef] || perfiles[c.PerfilRef] {
-			return false
+		if err == nil && len(b) == sha256.Size && hex.EncodeToString(b) == c.CertificadoSHA256 && c.Sujeto != "" && c.CuentaRef != "" && c.PerfilRef != "" &&
+			!certificados[c.CertificadoSHA256] && !cuentas[c.CuentaRef] && !perfiles[c.PerfilRef] {
+			certificados[c.CertificadoSHA256] = true
+			cuentas[c.CuentaRef] = true
+			perfiles[c.PerfilRef] = true
+			continue
 		}
-		certificados[c.CertificadoSHA256] = true
-		cuentas[c.CuentaRef] = true
-		perfiles[c.PerfilRef] = true
+		return false
 	}
 	return true
 }

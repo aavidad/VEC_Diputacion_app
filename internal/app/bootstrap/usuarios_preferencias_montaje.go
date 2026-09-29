@@ -69,6 +69,7 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	manejador   http.Handler
 	proveedor   *proveedorPreferenciasUsuarios
 	registrador registradorDenegacionPreferenciasUsuarios
+	incidencias vecports.EmisorIncidenciasTecnicas
 	cerrar      func()
 	ruta        string
 	superficie  core.SuperficieAutenticacionActorV1
@@ -193,7 +194,16 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
 		cert := r.TLS.VerifiedChains[0][0]
 		ahora := a.reloj.Ahora()
-		if err != nil || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
+		if err != nil {
+			if errors.Is(err, ErrMaterialDesarrolloInvalido) {
+				denegarTemprano()
+			} else {
+				a.registrarFallo(r.Context(), err)
+				fallo(503, "no_disponible")
+			}
+			return
+		}
+		if principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
 			denegarTemprano()
 			return
 		}
@@ -210,12 +220,14 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 		}
 		vinculo, resultado, err := a.resolverSesion(r, cuenta, ahora)
 		if err != nil {
+			a.registrarFallo(r.Context(), err)
 			fallo(503, "no_disponible")
 			return
 		}
 		ctx := context.WithValue(r.Context(), claveContextoPreferenciasUsuarios{}, contextoPreferenciasUsuarios{autoridad: a, vinculo: vinculo, resultado: resultado})
 		ctx, err = vechttp.ConActorVerificadoAuditoriaPreferenciasUsuarios(ctx, resultado.Contexto)
 		if err != nil {
+			a.registrarFallo(r.Context(), err)
 			fallo(503, "no_disponible")
 			return
 		}
@@ -223,8 +235,18 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 	})
 }
 
+func (a *autoridadPreferenciasUsuariosDesarrollo) registrarFallo(ctx context.Context, err error) {
+	if a == nil || a.incidencias == nil || err == nil || errors.Is(err, context.Canceled) {
+		return
+	}
+	vecports.EmitirIncidenciaTecnicaEnPeticion(ctx, a.incidencias, core.SolicitudIncidenciaTecnica{
+		Codigo: core.IncidenciaHTTPInternoFallido, Componente: core.ComponenteIncidenciaHTTP, Etapa: core.EtapaIncidenciaPeticion,
+	})
+}
+
 func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo,
+	incidencias vecports.EmisorIncidenciasTecnicas,
 	consultaInterna, actualizacionInterna, consultaExterna, actualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) (*composicionPreferenciasUsuarios, error) {
 	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
@@ -234,11 +256,14 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if !activo {
 		return nil, nil
 	}
-	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna)
+	if incidencias == nil {
+		return nil, errComposicionUsuariosPreferencias
+	}
+	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna)
 	if err != nil {
 		return nil, err
 	}
-	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna)
+	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna)
 	if err != nil {
 		interna.cerrar()
 		return nil, err
@@ -288,7 +313,7 @@ func nombreConfiguracionPreferencias(superficie core.SuperficieAutenticacionActo
 }
 
 func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
-	derivador *derivadorIdentidadOperacionDesarrollo, superficie core.SuperficieAutenticacionActorV1, ruta string,
+	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, superficie core.SuperficieAutenticacionActorV1, ruta string,
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
@@ -412,7 +437,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 		return nil, errComposicionUsuariosPreferencias
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: map[string]cuentaRutasDietasDesarrollo{}, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar, registrador: registrador, ruta: ruta, superficie: superficie, logins: logins}
+	a := &autoridadPreferenciasUsuariosDesarrollo{base: base, cuentas: cuentas, reloj: reloj, cerrar: cerrar, registrador: registrador, incidencias: incidencias, ruta: ruta, superficie: superficie, logins: logins}
 	a.proveedor = &proveedorPreferenciasUsuarios{autoridad: a, consulta: emisorConsulta, actualizacion: emisorActualizacion, motivoConsulta: c.MotivoConsulta, motivoActualizacion: c.MotivoActualizacion}
 	servicio, err := usuariosapp.NuevoServicioPreferencias(repositorio, time.Now)
 	if err != nil {

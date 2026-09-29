@@ -399,7 +399,7 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
-	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
+	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna)
 	if err != nil {

@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -10,6 +11,20 @@ import (
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+type entropiaDenegacionFallida struct{}
+
+func (entropiaDenegacionFallida) Read([]byte) (int, error) { return 0, errors.New("sin entropía") }
+
+func TestCorrelacionDenegacionFallaSinEntropia(t *testing.T) {
+	if ref, err := correlacionDenegacionPreferenciasDesde(entropiaDenegacionFallida{}); err == nil || ref != "" {
+		t.Fatal("se fabricó correlación repetible sin entropía")
+	}
+	ref, err := correlacionDenegacionPreferenciasDesde(bytes.NewReader(bytes.Repeat([]byte{0x5a}, 16)))
+	if err != nil || ref != "corr_5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a" {
+		t.Fatalf("correlación CSPRNG: %q %v", ref, err)
+	}
+}
 
 type registradorDenegacionPreferenciasPrueba struct {
 	ordenes []vecports.OrdenAuditoriaFronteraRutaExacta

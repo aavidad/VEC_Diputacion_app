@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"time"
 
@@ -44,12 +45,19 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 	return seleccionado.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 }
 
-func nuevaCorrelacionDenegacionPreferenciasUsuarios() string {
+func correlacionDenegacionPreferenciasDesde(entropia io.Reader) (string, error) {
 	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "corr_no_disponible"
+	if entropia == nil {
+		return "", errComposicionUsuariosPreferencias
 	}
-	return "corr_" + hex.EncodeToString(b[:])
+	if _, err := io.ReadFull(entropia, b[:]); err != nil {
+		return "", errComposicionUsuariosPreferencias
+	}
+	return "corr_" + hex.EncodeToString(b[:]), nil
+}
+
+func nuevaCorrelacionDenegacionPreferenciasUsuarios() (string, error) {
+	return correlacionDenegacionPreferenciasDesde(rand.Reader)
 }
 
 // Sólo el wrapper registra fallos anteriores al despacho. El handler llama
@@ -65,7 +73,11 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	}
 	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
-	orden := vecports.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: nuevaCorrelacionDenegacionPreferenciasUsuarios(), Motivo: motivo,
+	correlacion, err := nuevaCorrelacionDenegacionPreferenciasUsuarios()
+	if err != nil {
+		return errComposicionUsuariosPreferencias
+	}
+	orden := vecports.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: correlacion, Motivo: motivo,
 		Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, Ruta: a.ruta, ActorRef: actorRef}
 	if orden.Validar() != nil {
 		return errComposicionUsuariosPreferencias
