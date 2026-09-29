@@ -35,9 +35,9 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 	}
 	var seleccionado registradorDenegacionPreferenciasUsuarios
 	switch orden.Ruta {
-	case usuarioshttp.RutaMisPreferencias, usuarioshttp.RutaMisCorreos:
+	case usuarioshttp.RutaMisPreferencias, usuarioshttp.RutaMisCorreos, usuarioshttp.RutaMiImagen:
 		seleccionado = r.interna
-	case usuarioshttp.RutaMisPreferenciasAreaPersonal, usuarioshttp.RutaMisCorreosAreaPersonal:
+	case usuarioshttp.RutaMisPreferenciasAreaPersonal, usuarioshttp.RutaMisCorreosAreaPersonal, usuarioshttp.RutaMiImagenAreaPersonal:
 		seleccionado = r.externa
 	default:
 		return errComposicionUsuariosPreferencias

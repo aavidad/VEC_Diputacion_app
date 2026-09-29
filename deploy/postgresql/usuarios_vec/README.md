@@ -39,3 +39,20 @@ Tras las SQL de 5.08a: AD3-107 `consumidor_correos_usuarios.up.sql` (seis accion
 - SQLSTATE: `P1409` conflicto, `P1410` código caducado o agotado, `P1411` dirección ya registrada, `P1412` máximo de direcciones, `P1413` dirección en uso, `P1429` límite de códigos, `22023` petición inválida, `42501` denegación.
 
 La prueba `pruebas_sql/correos_pg18.sh` levanta PostgreSQL 18.4 efímero con la V3 sintética de forma y comprueba ACL, RLS, vector Go/SQL, alta, replay, conflicto, intentos, activación, retirada, límites, confirmación de envío y la inmutabilidad de la historia.
+
+# Usuarios 5.08c: «Mi imagen»
+
+## Orden causal
+
+Tras las SQL de 5.08a y 5.08b: AD3-108 `consumidor_imagen_usuarios.up.sql` (acciones `vec.imagen.consultar` y `vec.imagen.actualizar`, cuatro audiencias `vec_usuarios.imagen.<accion>.{interna_corporativa|externa_personal}.v1`), después Documentos 000007 `imagen_personal.up.sql`, Usuarios 000006 `imagen_propia.up.sql` y Usuarios 000007 `frontera_imagen.up.sql` (lista `deploy/principal/lista_sql_trabajo_usuarios_508c_20260929.txt`). No hay roles ni cuentas nuevos. Ningún `DOWN` sobre historia.
+
+## Contrato
+
+- Usuarios guarda solo la elección (`iniciales`, `icono` o `foto`, con paleta e icono de un vocabulario cerrado) y, en modo foto, la referencia opaca `docimg_…` y la huella SHA-256 que devuelve Documentos. Nunca los bytes.
+- La aplicación recodifica la foto antes de pedir la autorización: solo admite JPEG, PNG y WebP reconocidos por su contenido, comprueba tamaño (5 MB), ancho y alto (8000 px) y píxeles (16 millones) antes de decodificar, recorta el centro y guarda un JPEG de 256 px sin EXIF, GPS ni ningún otro metadato. La V3 queda ligada a la huella de ese JPEG.
+- `guardar_imagen_propia_v1(material, foto, …V3)` consume la V3 y, en la misma transacción, retira en Documentos la foto anterior (sus bytes se borran), custodia la nueva, aplica el CAS y escribe estado, historia y recibo. Modo foto sin foto nueva conserva la vigente y solo cambia la paleta.
+- `consultar_imagen_propia_v1` devuelve el estado y, en modo foto, los bytes que Documentos entrega a su titular. Nadie más puede leer la foto: no hay acción de lectura ajena.
+- El catálogo (`catalogo_imagen`, publicado por secuencia) puede ofrecer menos paletas o iconos, nunca otros.
+- SQLSTATE: `P1409` conflicto (versión, catálogo, clave reutilizada o modo foto sin foto), `22023` petición inválida (foto que no casa con su huella o no es JPEG), `42501` denegación; `40001` obliga a repetir la transacción completa.
+
+La prueba `pruebas_sql/imagen_pg18.sh` levanta PostgreSQL 18.4 efímero con la V3 sintética de forma y comprueba ACL y RLS de Usuarios y Documentos, el vector Go/SQL, elección, repetición, conflicto, subida, conservación, sustitución y retirada de la foto (bytes borrados en Documentos), la lectura desde la otra superficie y la inmutabilidad de las historias.

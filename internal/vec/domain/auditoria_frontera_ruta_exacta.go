@@ -82,7 +82,9 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return ruta == "/api/vec/usuarios/mis-preferencias" ||
 			ruta == "/api/vec/usuarios/area-personal/mis-preferencias" ||
 			ruta == "/api/vec/usuarios/mis-correos" ||
-			ruta == "/api/vec/usuarios/area-personal/mis-correos"
+			ruta == "/api/vec/usuarios/area-personal/mis-correos" ||
+			ruta == "/api/vec/usuarios/mi-imagen" ||
+			ruta == "/api/vec/usuarios/area-personal/mi-imagen"
 	default:
 		return false
 	}

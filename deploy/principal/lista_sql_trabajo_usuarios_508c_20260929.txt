@@ -1,0 +1,8 @@
+# Orden causal de Usuarios 5.08c («Mi imagen»). Requiere instaladas antes las
+# seis SQL de 5.08a y las tres de 5.08b (listas *_508a_* y *_508b_*).
+# Sin roles ni cuentas de conexión nuevos: usa los ejecutores y registradores
+# de 5.08a y los roles de Documentos ya instalados. No acredita instalación.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000108_consumidor_imagen_usuarios.up.sql
+deploy/postgresql/documentos/migraciones/000007_imagen_personal.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000006_imagen_propia.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000007_frontera_imagen.up.sql

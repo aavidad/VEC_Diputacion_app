@@ -20,6 +20,8 @@ const (
 	rutaAuditoriaPreferenciasExterna = "/api/vec/usuarios/area-personal/mis-preferencias"
 	rutaAuditoriaCorreosInterna      = "/api/vec/usuarios/mis-correos"
 	rutaAuditoriaCorreosExterna      = "/api/vec/usuarios/area-personal/mis-correos"
+	rutaAuditoriaImagenInterna       = "/api/vec/usuarios/mi-imagen"
+	rutaAuditoriaImagenExterna       = "/api/vec/usuarios/area-personal/mi-imagen"
 	registrarDenegacionSQL           = `SELECT vec_usuarios.registrar_denegacion_preferencias_v1($1::text,$2::text,$3::text,$4::text,NULLIF($5::text,''))`
 )
 
@@ -168,8 +170,19 @@ func rutaCorreosMismaSuperficie(rutaPreferencias string) string {
 	return ""
 }
 
+// rutaImagenMismaSuperficie hace lo mismo con «Mi imagen» (000007).
+func rutaImagenMismaSuperficie(rutaPreferencias string) string {
+	switch rutaPreferencias {
+	case rutaAuditoriaPreferenciasInterna:
+		return rutaAuditoriaImagenInterna
+	case rutaAuditoriaPreferenciasExterna:
+		return rutaAuditoriaImagenExterna
+	}
+	return ""
+}
+
 func ordenDenegacionPreferenciasValida(o vecports.OrdenAuditoriaFronteraRutaExacta, ruta string) bool {
-	if o.Superficie != superficieAuditoriaPreferencias || (o.Ruta != ruta && o.Ruta != rutaCorreosMismaSuperficie(ruta)) ||
+	if o.Superficie != superficieAuditoriaPreferencias || (o.Ruta != ruta && o.Ruta != rutaCorreosMismaSuperficie(ruta) && o.Ruta != rutaImagenMismaSuperficie(ruta)) ||
 		(o.CorrelacionRef != "corr_no_disponible" && !correlacionPreferencias.MatchString(o.CorrelacionRef)) {
 		return false
 	}

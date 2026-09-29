@@ -123,6 +123,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
+	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
@@ -429,6 +430,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	descriptoresMaterial = append(descriptoresMaterial, descriptoresCorreos...)
+	etapa = "preflight_sql_usuarios_imagen"
+	usuariosImagenActiva, descriptoresImagen, err := seleccionImagenUsuariosDesarrollo(cfg, usuariosPreferenciasActivas)
+	if err != nil {
+		return vacias, err
+	}
+	descriptoresMaterial = append(descriptoresMaterial, descriptoresImagen...)
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -457,6 +464,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if etapa = "material_usuarios_correos"; usuariosCorreosActivos {
 		if dependencias.materialUsuariosCorreos, err = publicarMaterialCorreosUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
+			return vacias, err
+		}
+	}
+	if etapa = "material_usuarios_imagen"; usuariosImagenActiva {
+		if dependencias.materialUsuariosImagen, err = publicarMaterialImagenUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
 			return vacias, err
 		}
 	}
