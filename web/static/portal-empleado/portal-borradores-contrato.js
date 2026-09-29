@@ -1,3 +1,4 @@
+import { formatearNumeroPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 /**
  * Contrato cerrado de la superficie interna de borradores de convocatorias.
  *
@@ -51,26 +52,26 @@ function esObjeto(valor) {
 }
 
 function exigirCamposExactos(objeto, campos, nombre, opcionales = []) {
-  if (!esObjeto(objeto)) throw new Error(`${nombre} no válido`);
+  if (!esObjeto(objeto)) throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   const permitidos = new Set(campos);
   const opcionalesSet = new Set(opcionales);
   if (Object.keys(objeto).some((campo) => !permitidos.has(campo))
     || campos.some((campo) => !opcionalesSet.has(campo) && !Object.hasOwn(objeto, campo))) {
-    throw new Error(`${nombre} no respeta el contrato cerrado`);
+    throw new Error(traducirPortal("llamamiento_contrato_cerrado", { nombre }));
   }
 }
 
 function exigirCadena(valor, nombre, maximo = 20_000, admiteVacia = false, multilinea = false) {
   if (typeof valor !== "string" || valor !== valor.trim() || valor.normalize("NFC") !== valor
     || (!admiteVacia && valor === "") || [...valor].length > maximo) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   for (const caracter of valor) {
     const codigo = caracter.codePointAt(0);
     const controlPermitido = multilinea && (codigo === 9 || codigo === 10);
     if ((!controlPermitido && (codigo < 32 || (codigo >= 127 && codigo <= 159)))
       || (codigo >= 0xD800 && codigo <= 0xDFFF) || /\p{Cf}/u.test(caracter)) {
-      throw new Error(`${nombre} no válido`);
+      throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
     }
   }
   return valor;
@@ -78,7 +79,7 @@ function exigirCadena(valor, nombre, maximo = 20_000, admiteVacia = false, multi
 
 function exigirClave(valor, nombre) {
   const clave = exigirCadena(valor, nombre, 80);
-  if (!/^[a-z0-9][a-z0-9._-]{0,79}$/.test(clave)) throw new Error(`${nombre} no válida`);
+  if (!/^[a-z0-9][a-z0-9._-]{0,79}$/.test(clave)) throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   return clave;
 }
 
@@ -86,7 +87,7 @@ function exigirReferencia(valor, nombre, maximo = 512) {
   const referencia = exigirCadena(valor, nombre, maximo);
   if (!/^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,511}$/.test(referencia)
     || referencia.length > maximo) {
-    throw new Error(`${nombre} no válida`);
+    throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   }
   return referencia;
 }
@@ -94,16 +95,16 @@ function exigirReferencia(valor, nombre, maximo = 512) {
 export function descomponerReferenciaEstadoBorrador(referencia) {
   const valor = exigirCadena(referencia, "referencia de estado", 180);
   const coincidencia = /^([A-Za-z0-9][A-Za-z0-9._:-]{0,159})#([1-9][0-9]{0,15})$/.exec(valor);
-  if (!coincidencia) throw new Error("referencia de estado no canónica");
+  if (!coincidencia) throw new Error(traducirPortal("bc_referencia_estado"));
   const secuencia = Number(coincidencia[2]);
-  if (!Number.isSafeInteger(secuencia)) throw new Error("secuencia de estado no válida");
+  if (!Number.isSafeInteger(secuencia)) throw new Error(traducirPortal("bc_secuencia_estado"));
   return Object.freeze({ id: coincidencia[1], secuencia });
 }
 
 function exigirIdentificadorPublico(valor) {
   const identificador = exigirCadena(valor, "código público", 80);
   if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(identificador)) {
-    throw new Error("código público no válido");
+    throw new Error(traducirPortal("bc_codigo_publico"));
   }
   return identificador;
 }
@@ -111,35 +112,35 @@ function exigirIdentificadorPublico(valor) {
 function exigirCursor(valor) {
   const cursor = exigirCadena(valor, "cursor", 512);
   if (!/^[A-Za-z0-9][A-Za-z0-9._:@-]{0,511}$/.test(cursor)) {
-    throw new Error("cursor no canónico");
+    throw new Error(traducirPortal("bc_cursor"));
   }
   return cursor;
 }
 
 function exigirHuella(valor, nombre = "huella") {
   if (typeof valor !== "string" || !/^[a-f0-9]{64}$/.test(valor)) {
-    throw new Error(`${nombre} no válida`);
+    throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   }
   return valor;
 }
 
 function exigirEntero(valor, nombre, minimo = 0, maximo = Number.MAX_SAFE_INTEGER) {
   if (!Number.isSafeInteger(valor) || valor < minimo || valor > maximo) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   return valor;
 }
 
 function exigirBooleano(valor, nombre) {
-  if (typeof valor !== "boolean") throw new Error(`${nombre} no válido`);
+  if (typeof valor !== "boolean") throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   return valor;
 }
 
 function exigirInstante(valor, nombre) {
-  if (typeof valor !== "string") throw new Error(`${nombre} no válido`);
+  if (typeof valor !== "string") throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   const coincidencia = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?Z$/.exec(valor);
   if (!coincidencia) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   const [, anoTexto, mesTexto, diaTexto, horaTexto, minutoTexto, segundoTexto, fraccion = ""] = coincidencia;
   const ano = Number(anoTexto);
@@ -150,7 +151,7 @@ function exigirInstante(valor, nombre) {
   const segundo = Number(segundoTexto);
   if (ano < 1 || mes < 1 || mes > 12 || dia < 1 || dia > 31
     || hora > 23 || minuto > 59 || segundo > 59) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   const fecha = new Date(0);
   fecha.setUTCHours(0, 0, 0, 0);
@@ -159,7 +160,7 @@ function exigirInstante(valor, nombre) {
   if (fecha.getUTCFullYear() !== ano || fecha.getUTCMonth() !== mes - 1
     || fecha.getUTCDate() !== dia || fecha.getUTCHours() !== hora
     || fecha.getUTCMinutes() !== minuto || fecha.getUTCSeconds() !== segundo) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   return valor;
 }
@@ -184,7 +185,7 @@ function compararInstantes(primero, segundo) {
  * en el navegador: la huella ya es el SHA-256 acreditado por el servidor.
  */
 export function derivarETagBorrador(referenciaEstado) {
-  if (!esObjeto(referenciaEstado)) throw new Error("referencia de estado no válida para ETag");
+  if (!esObjeto(referenciaEstado)) throw new Error(traducirPortal("bc_referencia_etag"));
   const revision = exigirEntero(referenciaEstado.revision, "revisión de estado para ETag", 1);
   const huella = exigirHuella(
     referenciaEstado.huella_estado_sha256, "huella de estado para ETag",
@@ -195,12 +196,12 @@ export function derivarETagBorrador(referenciaEstado) {
 function exigirETag(valor, referenciaEstado = undefined) {
   if (typeof valor !== "string"
     || !/^"vec-borrador-v1\.r[1-9][0-9]{0,15}\.sha256-[a-f0-9]{64}"$/.test(valor)) {
-    throw new Error("ETag fuerte no válido");
+    throw new Error(traducirPortal("bc_etag_fuerte"));
   }
   const coincidencia = /^"vec-borrador-v1\.r([1-9][0-9]{0,15})\.sha256-([a-f0-9]{64})"$/.exec(valor);
-  if (!Number.isSafeInteger(Number(coincidencia[1]))) throw new Error("ETag fuerte no válido");
+  if (!Number.isSafeInteger(Number(coincidencia[1]))) throw new Error(traducirPortal("bc_etag_fuerte"));
   if (referenciaEstado !== undefined && valor !== derivarETagBorrador(referenciaEstado)) {
-    throw new Error("ETag no corresponde a revisión y huella de estado");
+    throw new Error(traducirPortal("bc_etag_estado"));
   }
   return valor;
 }
@@ -210,7 +211,7 @@ export function validarETagBorrador(valor, referenciaEstado = undefined) {
 }
 
 function exigirLista(valor, nombre, maximo) {
-  if (!Array.isArray(valor) || valor.length > maximo) throw new Error(`${nombre} no válida`);
+  if (!Array.isArray(valor) || valor.length > maximo) throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   return valor;
 }
 
@@ -219,7 +220,7 @@ function exigirListaUnica(valores, nombre, maximo, validarElemento, claveElement
   const vistos = new Set();
   for (const elemento of lista) {
     const clave = claveElemento(elemento);
-    if (vistos.has(clave)) throw new Error(`${nombre} contiene elementos repetidos`);
+    if (vistos.has(clave)) throw new Error(traducirPortal("bc_repetidos", { nombre }));
     vistos.add(clave);
   }
   return lista;
@@ -245,7 +246,7 @@ function exigirHuellaUnicaPorIdentidadCatalogo(elementos, nombre, campoReferenci
     const identidad = `${item[campoReferencia]}\u0000${item.version}`;
     const huellaAnterior = huellasPorIdentidad.get(identidad);
     if (huellaAnterior !== undefined && huellaAnterior !== item.huella_sha256) {
-      throw new Error(`${nombre} contiene huellas contradictorias para catálogo y versión`);
+      throw new Error(traducirPortal("bc_huellas_contradictorias", { nombre }));
     }
     huellasPorIdentidad.set(identidad, item.huella_sha256);
   }
@@ -306,7 +307,7 @@ function validarCapacidadesFila(capacidades) {
 
 export function extraerDatosEnvelopeBorradores(envelope) {
   exigirCamposExactos(envelope, ["data"], "envelope");
-  if (!esObjeto(envelope.data)) throw new Error("la API debe responder con el envelope canónico {data:{...}}");
+  if (!esObjeto(envelope.data)) throw new Error(traducirPortal("bc_envelope"));
   return envelope.data;
 }
 
@@ -325,7 +326,7 @@ export function validarOpcionesBorradores(datos) {
   exigirCamposExactos(datos, [
     "esquema", "categorias", "tipos", "plantillas", "motivos", "limites", "capacidades",
   ], "opciones de borradores");
-  if (datos.esquema !== ESQUEMAS_BORRADORES.opciones) throw new Error("esquema de opciones no compatible");
+  if (datos.esquema !== ESQUEMAS_BORRADORES.opciones) throw new Error(traducirPortal("bc_esquema_opciones"));
   const categorias = exigirListaUnica(
     datos.categorias, "categorias", 10_000,
     (item, indice) => validarOpcionCatalogo(item, indice, "categorias"),
@@ -349,10 +350,10 @@ export function validarOpcionesBorradores(datos) {
     (item) => `${item.motivo_ref}:${item.version}`,
   );
   if (new Set(categorias.map((item) => item.clave)).size !== categorias.length) {
-    throw new Error("categorias contiene claves visibles ambiguas");
+    throw new Error(traducirPortal("bc_categorias_ambiguas"));
   }
   if (new Set(tipos.map((item) => item.clave)).size !== tipos.length) {
-    throw new Error("tipos contiene claves visibles ambiguas");
+    throw new Error(traducirPortal("bc_tipos_ambiguos"));
   }
   return {
     esquema: datos.esquema,
@@ -381,7 +382,7 @@ function validarPlazo(plazo, indice, limites) {
   ], `plazos[${indice}]`);
   const abreEn = exigirInstante(plazo.abre_en, `plazos[${indice}].abre_en`);
   const cierraEn = exigirInstante(plazo.cierra_en, `plazos[${indice}].cierra_en`);
-  if (compararInstantes(abreEn, cierraEn) >= 0) throw new Error(`plazos[${indice}] no tiene un intervalo válido`);
+  if (compararInstantes(abreEn, cierraEn) >= 0) throw new Error(traducirPortal("bc_intervalo", { indice: formatearNumeroPortal(indice) }));
   return {
     referencia: exigirReferencia(plazo.referencia, `plazos[${indice}].referencia`, 160),
     tipo: exigirClave(plazo.tipo, `plazos[${indice}].tipo`),
@@ -424,20 +425,20 @@ export function validarContenidoEditable(contenido, limites) {
     (item, indice) => exigirClave(item, `categorias[${indice}]`),
     (item) => item,
   );
-  if (categorias.length === 0) throw new Error("el contenido requiere al menos una categoría");
+  if (categorias.length === 0) throw new Error(traducirPortal("bc_categoria_requerida"));
   const plazos = exigirListaUnica(
     contenido.plazos, "plazos", limitesValidados.maximo_plazos,
     (item, indice) => validarPlazo(item, indice, limitesValidados),
     (item) => item.referencia,
   );
-  if (plazos.length === 0) throw new Error("el contenido requiere al menos un plazo");
+  if (plazos.length === 0) throw new Error(traducirPortal("bc_plazo_requerido"));
   const requisitos = exigirListaUnica(
     contenido.requisitos, "requisitos", limitesValidados.maximo_requisitos,
     (item, indice) => validarRequisito(item, indice, limitesValidados),
     (item) => item.referencia,
   );
   if (new Set(requisitos.map((item) => item.orden)).size !== requisitos.length) {
-    throw new Error("requisitos contiene órdenes repetidos");
+    throw new Error(traducirPortal("bc_requisitos_ordenes"));
   }
   const ayuda = exigirListaUnica(
     contenido.ayuda, "ayuda", limitesValidados.maximo_ayudas,
@@ -445,7 +446,7 @@ export function validarContenidoEditable(contenido, limites) {
     (item) => item.referencia,
   );
   if (new Set(ayuda.map((item) => item.orden)).size !== ayuda.length) {
-    throw new Error("ayuda contiene órdenes repetidos");
+    throw new Error(traducirPortal("bc_ayuda_ordenes"));
   }
   return {
     tipo: exigirClave(contenido.tipo, "tipo de convocatoria"),
@@ -501,11 +502,11 @@ function validarFilaBorrador(item, indice) {
     (valor, posicion) => exigirClave(valor, `elementos[${indice}].categorias[${posicion}]`),
     (valor) => valor,
   );
-  if (categorias.length === 0) throw new Error(`elementos[${indice}] requiere una categoría`);
+  if (categorias.length === 0) throw new Error(traducirPortal("bc_elemento_categoria", { indice: formatearNumeroPortal(indice) }));
   const creadaEn = exigirInstante(item.creada_en, `elementos[${indice}].creada_en`);
   const actualizadaEn = exigirInstante(item.actualizada_en, `elementos[${indice}].actualizada_en`);
   if (compararInstantes(creadaEn, actualizadaEn) > 0) {
-    throw new Error(`elementos[${indice}] tiene fechas incoherentes`);
+    throw new Error(traducirPortal("bc_elemento_fechas", { indice: formatearNumeroPortal(indice) }));
   }
   const referenciaEstado = validarReferenciaEstado(item.referencia_estado);
   return {
@@ -531,24 +532,24 @@ export function validarListaBorradores(datos) {
   exigirCamposExactos(datos, [
     "esquema", "selector", "paginacion", "capacidades", "elementos",
   ], "lista de borradores");
-  if (datos.esquema !== ESQUEMAS_BORRADORES.lista) throw new Error("esquema de lista no compatible");
+  if (datos.esquema !== ESQUEMAS_BORRADORES.lista) throw new Error(traducirPortal("bc_esquema_lista"));
   const selector = validarSelectorListaBorradores(datos.selector);
   const paginacion = validarPaginacion(datos.paginacion);
-  if (selector.limite !== paginacion.limite) throw new Error("selector y paginación no coinciden");
+  if (selector.limite !== paginacion.limite) throw new Error(traducirPortal("bc_selector_paginacion"));
   const elementos = exigirListaUnica(
     datos.elementos, "elementos", 50, validarFilaBorrador,
     (item) => item.referencia_estado.referencia,
   );
   if (elementos.length > paginacion.total || elementos.length > selector.limite) {
-    throw new Error("número de elementos incoherente");
+    throw new Error(traducirPortal("bc_numero_elementos"));
   }
   if ((paginacion.total === 0) !== (elementos.length === 0)) {
-    throw new Error("paginación y elementos no representan el mismo vacío");
+    throw new Error(traducirPortal("bc_vacio_paginacion"));
   }
   if (Object.hasOwn(paginacion, "siguiente_cursor")
     && (paginacion.total === 0 || elementos.length === 0
       || paginacion.total <= elementos.length)) {
-    throw new Error("paginación con siguiente cursor incoherente");
+    throw new Error(traducirPortal("bc_siguiente_cursor"));
   }
   return {
     esquema: datos.esquema,
@@ -594,7 +595,7 @@ function validarConfiguracionLectura(configuracion, limites) {
     configuracion.documentos, "configuración.documentos", limites.maximo_documentos, validarDocumentoLectura,
     (item) => item.publicacion_ref,
   );
-  if (documentos.length === 0) throw new Error("la configuración requiere documentos gobernados");
+  if (documentos.length === 0) throw new Error(traducirPortal("bc_documentos_requeridos"));
   const identidades = [
     ["documento y versión", (item) => `${item.documento_ref}#${item.version_documento}`],
     ["representación", (item) => item.representacion_ref],
@@ -603,7 +604,7 @@ function validarConfiguracionLectura(configuracion, limites) {
   ];
   for (const [nombre, obtenerClave] of identidades) {
     if (new Set(documentos.map(obtenerClave)).size !== documentos.length) {
-      throw new Error(`configuración.documentos repite ${nombre}`);
+      throw new Error(traducirPortal("bc_documento_repetido", { nombre }));
     }
   }
   return {
@@ -631,7 +632,7 @@ export function validarDetalleBorrador(datos, limites) {
     "esquema", "referencia_estado", "etag", "codigo_version_publica", "identificador_publico",
     "ambito_lectura", "expediente_ref", "contenido_editable", "configuracion_lectura", "capacidades",
   ], "detalle de borrador");
-  if (datos.esquema !== ESQUEMAS_BORRADORES.detalle) throw new Error("esquema de detalle no compatible");
+  if (datos.esquema !== ESQUEMAS_BORRADORES.detalle) throw new Error(traducirPortal("bc_esquema_detalle"));
   const limitesValidados = validarLimites(limites);
   const referenciaEstado = validarReferenciaEstado(datos.referencia_estado);
   const etag = exigirETag(datos.etag, referenciaEstado);
@@ -655,7 +656,7 @@ export function validarSolicitudCrearBorrador(datos, limites) {
     "codigo_version_publica", "identificador_publico", "expediente_ref", "contenido_editable",
     "motivo_ref", "motivo_version", "motivo_huella_sha256",
   ], "solicitud de alta de borrador");
-  if (datos.esquema !== ESQUEMAS_BORRADORES.crear) throw new Error("esquema de alta no compatible");
+  if (datos.esquema !== ESQUEMAS_BORRADORES.crear) throw new Error(traducirPortal("bc_esquema_alta"));
   return {
     esquema: datos.esquema,
     plantilla_ref: exigirReferencia(datos.plantilla_ref, "referencia de plantilla"),
@@ -675,7 +676,7 @@ export function validarSolicitudActualizarBorrador(datos, limites) {
   exigirCamposExactos(datos, [
     "esquema", "contenido_editable", "motivo_ref", "motivo_version", "motivo_huella_sha256",
   ], "solicitud de actualización de borrador");
-  if (datos.esquema !== ESQUEMAS_BORRADORES.actualizar) throw new Error("esquema de actualización no compatible");
+  if (datos.esquema !== ESQUEMAS_BORRADORES.actualizar) throw new Error(traducirPortal("bc_esquema_actualizacion"));
   return {
     esquema: datos.esquema,
     contenido_editable: validarContenidoEditable(datos.contenido_editable, limites),
@@ -690,8 +691,8 @@ export function validarReciboGuardadoBorrador(datos) {
     "esquema", "transaccion_ref", "accion", "referencia_estado", "etag",
     "auditoria_ref", "evento_outbox_ref", "confirmada_en",
   ], "recibo de guardado");
-  if (datos.esquema !== ESQUEMAS_BORRADORES.guardado) throw new Error("esquema de recibo no compatible");
-  if (datos.accion !== "crear" && datos.accion !== "actualizar") throw new Error("acción del recibo no válida");
+  if (datos.esquema !== ESQUEMAS_BORRADORES.guardado) throw new Error(traducirPortal("bc_esquema_recibo"));
+  if (datos.accion !== "crear" && datos.accion !== "actualizar") throw new Error(traducirPortal("bc_accion_recibo"));
   const referenciaEstado = validarReferenciaEstado(datos.referencia_estado);
   const etag = exigirETag(datos.etag, referenciaEstado);
   return {

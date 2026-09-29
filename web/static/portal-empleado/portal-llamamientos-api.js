@@ -12,13 +12,13 @@ const MAXIMO_FRAGMENTOS_RESPUESTA = 256;
 function longitudDeclarada(respuesta) {
   const valor = respuesta.headers?.get?.("Content-Length");
   if (typeof valor !== "string" || !/^(?:0|[1-9][0-9]*)$/.test(valor)) {
-    throw new Error("La respuesta no incluye un Content-Length canónico.");
+    throw new Error(traducirPortal("propuesta_longitud_ausente"));
   }
   const longitud = Number(valor);
   if (!Number.isSafeInteger(longitud) || longitud > MAXIMO_RESPUESTA_BYTES) {
-    throw new Error("La respuesta de propuesta supera el límite de 8 KiB.");
+    throw new Error(traducirPortal("propuesta_limite"));
   }
-  if (longitud === 0) throw new Error("La respuesta JSON está vacía.");
+  if (longitud === 0) throw new Error(traducirPortal("txt_la_respuesta_json_esta_vacia"));
   return longitud;
 }
 
@@ -35,12 +35,12 @@ async function cancelarRespuesta(respuesta, lector = null, motivo = traducirPort
 async function leerTextoExactoAcotado(respuesta) {
   const longitud = longitudDeclarada(respuesta);
   if (!respuesta.body || typeof respuesta.body.getReader !== "function") {
-    throw new Error("La respuesta no permite una lectura incremental acotada.");
+    throw new Error(traducirPortal("txt_la_respuesta_no_permite_una_lectura_incremental"));
   }
   const lector = respuesta.body.getReader();
   if (!lector || typeof lector.read !== "function" || typeof lector.cancel !== "function"
     || typeof lector.releaseLock !== "function") {
-    throw new Error("El lector de respuesta no respeta el contrato Fetch requerido.");
+    throw new Error(traducirPortal("propuesta_lector_invalido"));
   }
 
   const bytes = new Uint8Array(longitud);
@@ -50,30 +50,30 @@ async function leerTextoExactoAcotado(respuesta) {
     while (true) {
       const lectura = await lector.read();
       if (!lectura || typeof lectura.done !== "boolean") {
-        throw new Error("El lector devolvió un estado no válido.");
+        throw new Error(traducirPortal("txt_el_lector_devolvio_un_estado_no_valido"));
       }
       if (lectura.done) break;
       fragmentos += 1;
       if (fragmentos > MAXIMO_FRAGMENTOS_RESPUESTA) {
-        throw new Error("El flujo de respuesta contiene demasiados fragmentos.");
+        throw new Error(traducirPortal("txt_el_flujo_de_respuesta_contiene_demasiados_fragme"));
       }
       if (!(lectura.value instanceof Uint8Array)) {
-        throw new Error("El flujo de respuesta no contiene bytes válidos.");
+        throw new Error(traducirPortal("txt_el_flujo_de_respuesta_no_contiene_bytes_validos"));
       }
       if (total + lectura.value.byteLength > longitud
         || total + lectura.value.byteLength > MAXIMO_RESPUESTA_BYTES) {
-        throw new Error("El cuerpo recibido no coincide con Content-Length.");
+        throw new Error(traducirPortal("propuesta_longitud_distinta"));
       }
       bytes.set(lectura.value, total);
       total += lectura.value.byteLength;
     }
     if (total !== longitud) {
-      throw new Error("El cuerpo recibido no coincide con Content-Length.");
+      throw new Error(traducirPortal("propuesta_longitud_distinta"));
     }
     try {
       return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch (error) {
-      throw new Error("La respuesta no contiene UTF-8 válido.", { cause: error });
+      throw new Error(traducirPortal("txt_la_respuesta_no_contiene_utf_8_valido"), { cause: error });
     }
   } catch (error) {
     await cancelarRespuesta(respuesta, lector, traducirPortal("txt_lectura_rechazada"));
@@ -88,16 +88,16 @@ function analizarJSONExacto(texto) {
   try {
     envelope = JSON.parse(texto);
   } catch (error) {
-    throw new Error("La respuesta contiene JSON no válido.", { cause: error });
+    throw new Error(traducirPortal("propuesta_json_invalido"), { cause: error });
   }
   let recodificado;
   try {
     recodificado = JSON.stringify(envelope);
   } catch (error) {
-    throw new Error("La respuesta contiene JSON no representable.", { cause: error });
+    throw new Error(traducirPortal("propuesta_json_irrepresentable"), { cause: error });
   }
   if (recodificado !== texto) {
-    throw new Error("La respuesta no contiene la representación JSON exacta esperada.");
+    throw new Error(traducirPortal("propuesta_json_no_exacto"));
   }
   return envelope;
 }
@@ -140,22 +140,22 @@ export function crearClientePropuestasLlamamiento({ fetchImpl = globalThis.fetch
         }),
       });
       if (respuesta?.status !== 201) {
-        const estado = Number.isInteger(respuesta?.status) ? ` (HTTP ${respuesta.status})` : "";
-        throw new Error(`No se pudo obtener la confirmación de propuesta${estado}.`);
+        throw new Error(Number.isInteger(respuesta?.status)
+          ? traducirPortal("propuesta_http", { estado: respuesta.status }) : traducirPortal("propuesta_sin_estado"));
       }
       const tipo = respuesta.headers?.get?.("Content-Type") || "";
       if (!/^application\/json(?:;\s*charset=utf-8)?$/i.test(tipo)) {
-        throw new Error("La respuesta de propuesta no es JSON canónico.");
+        throw new Error(traducirPortal("propuesta_tipo_invalido"));
       }
       const etag = respuesta.headers?.get?.("ETag");
       if (typeof etag !== "string" || etag === "") {
-        throw new Error("La respuesta no incluye el ETag obligatorio.");
+        throw new Error(traducirPortal("txt_la_respuesta_no_incluye_el_etag_obligatorio"));
       }
       const texto = await leerTextoExactoAcotado(respuesta);
       const datos = extraerDatosEnvelopeLlamamiento(analizarJSONExacto(texto));
       const confirmacion = validarConfirmacionPropuestaLlamamiento(datos, etag);
       if (confirmacion.necesidad.referencia !== necesidad) {
-        throw new Error("La confirmación no corresponde a la necesidad solicitada.");
+        throw new Error(traducirPortal("propuesta_necesidad_distinta"));
       }
       return { ok: true, confirmacion, etag };
     } catch (error) {

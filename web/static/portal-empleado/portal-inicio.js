@@ -7,6 +7,7 @@
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
 import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -103,7 +104,7 @@ export function crearVistaInicioPortal({
   traducir = traducirPortal,
   esPerfilRRHH = () => false,
   obtenerMetricasCuadro = () => null,
-  numero = (v) => String(v ?? 0),
+  numero = (v) => new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(Number(v ?? 0)),
   obtenerTramitesInicio = () => null,
   catalogoFallido = () => false,
   inicioPendiente = () => false,

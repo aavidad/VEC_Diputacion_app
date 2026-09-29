@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearSuperficieBorradorLlamamiento, crearTraductorBorradorLlamamiento, MENSAJES_BORRADOR_LLAMAMIENTO_ES } from "./portal-borrador-llamamiento-ui.js";
+import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js";
+import { MENSAJES_BORRADORES_EN, MENSAJES_BORRADORES_ES } from "./portal-borradores-i18n.js";
 
 const ref = `borrador-llamamiento:alta:${"b".repeat(64)}`;
 const recibido = { borrador_ref: ref, estado: "borrador_interno", version: "1", resumen: "Preparar cobertura interna", recibo_ref: `recibo:${"b".repeat(64)}`, registrado_en: "2026-09-21T10:30:00Z", reintento_idempotente: false };
@@ -48,14 +49,16 @@ test("un fallo al recuperar no ofrece reintentar el contenido de otra creación"
   assert.doesNotMatch(superficie.renderizar(), /Puede reintentar el mismo contenido/);
 });
 
-test("el catálogo local sustituye título, acciones y error sin alterar los estados", async () => {
-  const traducir = crearTraductorBorradorLlamamiento({ ...MENSAJES_BORRADOR_LLAMAMIENTO_ES, titulo: "Título alternativo", guardar: "Acción alternativa", error_generico: "Error alternativo" });
+test("el catálogo bilingüe conserva las mismas claves y el escape seguro", async () => {
+  assert.deepEqual(Object.keys(MENSAJES_BORRADORES_EN), Object.keys(MENSAJES_BORRADORES_ES));
+  const traducir = (clave, variables = {}) => MENSAJES_BORRADORES_EN[`bl_${clave}`].replace(/\{([a-z_]+)\}/g, (_, nombre) => String(variables[nombre] ?? ""));
   const superficie = crearSuperficieBorradorLlamamiento({ traducir, crearClienteImpl: () => ({ generarClave: () => "blam-12345678", crear: async () => { throw new Error("red"); }, consultar: async () => recibido }) });
-  assert.match(superficie.renderizar(), /Título alternativo/);
-  assert.match(superficie.renderizar(), /Acción alternativa/);
-  await superficie.manejarEnvio({ resumen: "Preparar cobertura interna" });
+  assert.match(superficie.renderizar(), /Prepare an internal draft/);
+  assert.match(superficie.renderizar(), /does not select people or contact anyone/);
+  await superficie.manejarEnvio({ resumen: "<script>" });
   assert.equal(superficie.estado().enviando, false);
-  assert.match(superficie.renderizar(), /Error alternativo/);
+  assert.match(superficie.renderizar(), /The draft could not be prepared/);
+  assert.doesNotMatch(superficie.renderizar(), /<script>/);
 });
 
 test("desmontar aborta, ignora respuesta tardía y el remonte permite una nueva operación", async () => {

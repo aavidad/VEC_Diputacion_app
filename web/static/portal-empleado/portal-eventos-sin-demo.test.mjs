@@ -1,7 +1,26 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearControladorPortal } from "./portal-eventos.js";
+import { crearControladorPortal, renderizarAvisosNavegables } from "./portal-eventos.js";
+import { MENSAJES_MODULOS_PORTAL_EN, MENSAJES_MODULOS_PORTAL_ES } from "./portal-modulos-i18n.js";
+
+test("los avisos usan el catálogo bilingüe y escapan el destino en HTML", () => {
+  assert.deepEqual(Object.keys(MENSAJES_MODULOS_PORTAL_EN).sort(), Object.keys(MENSAJES_MODULOS_PORTAL_ES).sort());
+  const traducir = (catalogo) => (clave, variables = {}) => catalogo[clave]
+    .replace(/\{([a-z_]+)\}/gu, (_texto, variable) => String(variables[variable] ?? ""));
+  const escapar = (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+  const avisos = [{ texto: "Aviso <seguro>", destino: {
+    vista: "elaboracion", etiqueta: 'Borradores <img src=x>', estado: "pendiente",
+  } }];
+  const es = renderizarAvisosNavegables(avisos, escapar, traducir(MENSAJES_MODULOS_PORTAL_ES));
+  const en = renderizarAvisosNavegables(avisos, escapar, traducir(MENSAJES_MODULOS_PORTAL_EN));
+  assert.match(es, /title="Destino pendiente de conexión"/u);
+  assert.match(en, /title="Destination not yet connected"/u);
+  assert.match(en, /Go to Borradores &lt;img src=x&gt;/u);
+  assert.doesNotMatch(en, /<img src=x>/u);
+  assert.match(renderizarAvisosNavegables([], escapar, traducir(MENSAJES_MODULOS_PORTAL_EN)), /There are no accessible notices/u);
+});
 
 function montarControlador({ estado, propuesta, datosPanel = { necesidades_llamamiento: [] } } = {}) {
   const escuchas = new Map();

@@ -1,26 +1,11 @@
 import { ErrorAPIBorradorLlamamiento, crearClienteBorradorLlamamiento } from "./portal-borrador-llamamiento-api.js?v=20260928-rrhh-cache-unificada-v1";
 
-export const MENSAJES_BORRADOR_LLAMAMIENTO_ES = Object.freeze({
-  titulo: "Preparar borrador interno", descripcion: "Registre un resumen para continuar su revisión. No selecciona personas ni realiza contactos.",
-  conectado: "Conectado", pendiente: "Pendiente de conexión", etiqueta_resumen: "Resumen de la preparación",
-  ayuda_resumen: "No incluya datos personales, candidatos, teléfonos ni correos. El resumen admite entre 3 y 2.000 bytes UTF-8.", guardar: "Guardar borrador", guardando: "Guardando…",
-  reintentar: "Reintentar guardado", etiqueta_referencia: "Recuperar borrador por referencia", recuperar: "Recuperar borrador",
-  recuperando: "Recuperando…", recuperado: "Borrador recuperado", registrado: "Borrador interno de llamamiento registrado",
-  error_generico: "No se pudo preparar el borrador.", reintento_ayuda: " Puede reintentar el mismo contenido.",
-  confirmacion: "Borrador registrado: {referencia}{reintento}.", reintento_confirmado: " (reintento confirmado)",
-});
-const CLAVES = Object.freeze(Object.keys(MENSAJES_BORRADOR_LLAMAMIENTO_ES));
+import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+const traducirBorrador = (clave, variables = {}) => traducirPortal(`bl_${clave}`, variables);
 
-export function crearTraductorBorradorLlamamiento(catalogo = MENSAJES_BORRADOR_LLAMAMIENTO_ES) {
-  if (!catalogo || typeof catalogo !== "object" || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new TypeError("catálogo de borrador de llamamiento incompleto");
-  return (clave, variables = {}) => {
-    if (!CLAVES.includes(clave)) throw new Error(`clave i18n de borrador de llamamiento desconocida: ${clave}`);
-    return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_texto, nombre) => String(variables[nombre] ?? ""));
-  };
-}
-
-export function crearSuperficieBorradorLlamamiento({ crearClienteImpl = crearClienteBorradorLlamamiento, alCambiar = () => {}, anunciar = () => {}, traducir = crearTraductorBorradorLlamamiento() } = {}) {
+export function crearSuperficieBorradorLlamamiento({ crearClienteImpl = crearClienteBorradorLlamamiento, alCambiar = () => {}, anunciar = () => {}, traducir = traducirBorrador } = {}) {
   let cliente = null; let controlador = null; let activa = true;
   const estado = { resumen: "", referencia: "", clave: null, enviando: false, error: "", errorOperacion: "", recibo: null, conectado: false };
   const cambiar = () => { if (activa) alCambiar(); };

@@ -1,6 +1,6 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
 import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260928-rrhh-cache-unificada-v1";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { LOCALIZACION_PORTAL, formatearNumeroPortal, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
@@ -93,7 +93,7 @@ export function crearRenderizadorBorradores({
       return `
         <tr aria-selected="${seleccionada}">
           <td><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.identificador_publico)}</small></td>
-          <td><span class="estado-chip ${seleccionada ? "info" : "neutro"}">${textoPortal("txt_rev_n", { revision: item.referencia_estado.revision })}</span></td>
+          <td><span class="estado-chip ${seleccionada ? "info" : "neutro"}">${textoPortal("txt_rev_n", { revision: formatearNumeroPortal(item.referencia_estado.revision) })}</span></td>
           <td><time datetime="${escaparHTML(item.actualizada_en)}">${escaparHTML(instanteVisible(item.actualizada_en))}</time></td>
           <td><button type="button" class="boton-terciario" data-borrador-accion="borradores-abrir" data-id="${escaparHTML(item.referencia_estado.referencia)}" ${estado.guardando ? "disabled" : ""}>${seleccionada ? traducirPortal("txt_abierto") : traducirPortal("txt_abrir")}</button></td>
         </tr>`;
@@ -101,7 +101,7 @@ export function crearRenderizadorBorradores({
     return `
       <section class="panel bandeja-borradores" aria-labelledby="titulo-bandeja-borradores">
         <div class="cabecera-panel">
-          <div><h3 id="titulo-bandeja-borradores">${textoPortal("txt_bandeja_de_borradores")}</h3><p>${textoPortal("txt_n_registros_ambito_autorizado", { total })}</p></div>
+          <div><h3 id="titulo-bandeja-borradores">${textoPortal("txt_bandeja_de_borradores")}</h3><p>${textoPortal(new Intl.PluralRules(LOCALIZACION_PORTAL).select(total) === "one" ? "borradores_registros_uno" : "borradores_registros_otros", { total: formatearNumeroPortal(total) })}</p></div>
           <button type="button" class="boton-primario" data-borrador-accion="borradores-nuevo" ${estado.opciones.capacidades.crear && !estado.guardando ? "" : "disabled"}>${textoPortal("txt_nuevo_borrador")}</button>
         </div>
         ${avisoActualizacion}
@@ -120,7 +120,7 @@ export function crearRenderizadorBorradores({
         </div>
         <nav class="paginacion-borradores" aria-label="${textoPortal("txt_paginacion_de_borradores")}">
           <button type="button" class="boton-terciario" data-borrador-accion="borradores-pagina-anterior" ${estado.pagina === 0 || estado.guardando ? "disabled" : ""}>${textoPortal("txt_anterior_2")}</button>
-          <span>${textoPortal("txt_pagina_visibles", { pagina: estado.pagina + 1, visibles: elementos.length })}</span>
+          <span>${textoPortal("txt_pagina_visibles", { pagina: formatearNumeroPortal(estado.pagina + 1), visibles: formatearNumeroPortal(elementos.length) })}</span>
           <button type="button" class="boton-terciario" data-borrador-accion="borradores-pagina-siguiente" ${estado.lista?.paginacion?.siguiente_cursor && !estado.guardando ? "" : "disabled"}>${textoPortal("txt_siguiente_2")}</button>
         </nav>
       </section>`;
@@ -188,7 +188,7 @@ export function crearRenderizadorBorradores({
     const limites = estado.opciones.limites;
     const filas = estado.editor.contenido_editable.plazos.map((item, indice) => `
       <article class="elemento-editor" aria-labelledby="titulo-plazo-${indice}">
-        <header><h4 id="titulo-plazo-${indice}">${textoPortal("txt_plazo_n", { numero: indice + 1 })}</h4><button type="button" class="boton-terciario peligro" data-borrador-accion="borradores-quitar" data-coleccion="plazos" data-indice="${indice}">${textoPortal("txt_quitar_plazo")}</button></header>
+        <header><h4 id="titulo-plazo-${indice}">${textoPortal("txt_plazo_n", { numero: formatearNumeroPortal(indice + 1) })}</h4><button type="button" class="boton-terciario peligro" data-borrador-accion="borradores-quitar" data-coleccion="plazos" data-indice="${indice}">${textoPortal("txt_quitar_plazo")}</button></header>
         <div class="campos-editor-dos">
           <label class="campo"><span>${textoPortal("txt_referencia")}</span><input required maxlength="160" data-borrador-ruta="contenido_editable.plazos.${indice}.referencia" value="${escaparHTML(item.referencia)}"></label>
           <label class="campo"><span>${textoPortal("txt_tipo_de_plazo")}</span><input required maxlength="80" pattern="[a-z0-9][a-z0-9._-]{0,79}" data-borrador-ruta="contenido_editable.plazos.${indice}.tipo" value="${escaparHTML(item.tipo)}"></label>
@@ -211,7 +211,7 @@ export function crearRenderizadorBorradores({
     const limites = estado.opciones.limites;
     const filas = estado.editor.contenido_editable.requisitos.map((item, indice) => `
       <article class="elemento-editor" aria-labelledby="titulo-requisito-${indice}">
-        <header><h4 id="titulo-requisito-${indice}">${textoPortal("txt_requisito_n", { numero: indice + 1 })}</h4><button type="button" class="boton-terciario peligro" data-borrador-accion="borradores-quitar" data-coleccion="requisitos" data-indice="${indice}">${textoPortal("txt_quitar")}</button></header>
+        <header><h4 id="titulo-requisito-${indice}">${textoPortal("txt_requisito_n", { numero: formatearNumeroPortal(indice + 1) })}</h4><button type="button" class="boton-terciario peligro" data-borrador-accion="borradores-quitar" data-coleccion="requisitos" data-indice="${indice}">${textoPortal("txt_quitar")}</button></header>
         <div class="campos-editor-dos">
           <label class="campo"><span>${textoPortal("txt_referencia")}</span><input required maxlength="160" data-borrador-ruta="contenido_editable.requisitos.${indice}.referencia" value="${escaparHTML(item.referencia)}"></label>
           <label class="campo"><span>${textoPortal("txt_orden")}</span><input required type="number" min="1" step="1" data-borrador-ruta="contenido_editable.requisitos.${indice}.orden" value="${escaparHTML(item.orden)}"></label>
@@ -232,7 +232,7 @@ export function crearRenderizadorBorradores({
     const limites = estado.opciones.limites;
     const filas = estado.editor.contenido_editable.ayuda.map((item, indice) => `
       <article class="elemento-editor" aria-labelledby="titulo-ayuda-${indice}">
-        <header><h4 id="titulo-ayuda-${indice}">${textoPortal("txt_ayuda_n", { numero: indice + 1 })}</h4><button type="button" class="boton-terciario peligro" data-borrador-accion="borradores-quitar" data-coleccion="ayuda" data-indice="${indice}">${textoPortal("txt_quitar")}</button></header>
+        <header><h4 id="titulo-ayuda-${indice}">${textoPortal("txt_ayuda_n", { numero: formatearNumeroPortal(indice + 1) })}</h4><button type="button" class="boton-terciario peligro" data-borrador-accion="borradores-quitar" data-coleccion="ayuda" data-indice="${indice}">${textoPortal("txt_quitar")}</button></header>
         <div class="campos-editor-dos">
           <label class="campo"><span>${textoPortal("txt_referencia")}</span><input required maxlength="160" data-borrador-ruta="contenido_editable.ayuda.${indice}.referencia" value="${escaparHTML(item.referencia)}"></label>
           <label class="campo"><span>${textoPortal("txt_categoria")}</span><input required maxlength="80" pattern="[a-z0-9][a-z0-9._-]{0,79}" data-borrador-ruta="contenido_editable.ayuda.${indice}.categoria" value="${escaparHTML(item.categoria)}"></label>
@@ -296,7 +296,7 @@ export function crearRenderizadorBorradores({
           </tbody>
         </table></div>
         ${puedeReaplicar ? "" : '<p class="ayuda-campo" role="status">' + textoPortal("txt_la_revision_vigente_es_de_solo_lectura_puede_des") + '</p>'}
-        <label class="casilla-editor confirmacion-cas"><input type="checkbox" data-borrador-ruta="confirmar_reaplicacion" ${estado.confirmarReaplicacion ? "checked" : ""}> <span>${textoPortal("txt_confirmar_reaplicacion", { revision: remoto.referencia_estado.revision })}</span></label>
+        <label class="casilla-editor confirmacion-cas"><input type="checkbox" data-borrador-ruta="confirmar_reaplicacion" ${estado.confirmarReaplicacion ? "checked" : ""}> <span>${textoPortal("txt_confirmar_reaplicacion", { revision: formatearNumeroPortal(remoto.referencia_estado.revision) })}</span></label>
         <div class="acciones-vista">
           <button type="button" class="boton-secundario" data-borrador-accion="borradores-descartar-locales">${textoPortal("txt_descartar_locales_y_usar_servidor")}</button>
           <button type="button" class="boton-primario" data-borrador-accion="borradores-reaplicar-vigente" ${estado.confirmarReaplicacion && puedeReaplicar ? "" : "disabled"}>${textoPortal("txt_reaplicar_cambios_locales")}</button>
@@ -318,7 +318,7 @@ export function crearRenderizadorBorradores({
     }
     const documentos = detalle.configuracion_lectura.documentos;
     return `
-      <section class="panel"><div class="cabecera-panel"><h3>${textoPortal("txt_control_de_concurrencia")}</h3><span class="estado-chip info">${textoPortal("txt_revision_n", { revision: detalle.referencia_estado.revision })}</span></div><div class="cuerpo-panel">
+      <section class="panel"><div class="cabecera-panel"><h3>${textoPortal("txt_control_de_concurrencia")}</h3><span class="estado-chip info">${textoPortal("txt_revision_n", { revision: formatearNumeroPortal(detalle.referencia_estado.revision) })}</span></div><div class="cuerpo-panel">
         <dl class="resumen-expediente">
           <div class="fila-resumen"><dt>${textoPortal("txt_actualizar")}</dt><dd>${detalle.capacidades.actualizar ? traducirPortal("txt_capacidad_concedida") : traducirPortal("txt_sin_capacidad")}</dd></div>
         </dl>
@@ -328,7 +328,7 @@ export function crearRenderizadorBorradores({
           ${configuracion(traducirPortal("txt_catalogos"), detalle.configuracion_lectura.catalogos)}
           ${configuracion(traducirPortal("txt_calendario"), detalle.configuracion_lectura.calendario)}
           ${configuracion(traducirPortal("txt_baremacion"), detalle.configuracion_lectura.reglas_baremacion)}
-          <div class="fila-resumen"><dt>${textoPortal("txt_documentos")}</dt><dd>${textoPortal("txt_n_gobernados", { numero: documentos.length })}</dd></div>
+          <div class="fila-resumen"><dt>${textoPortal("txt_documentos")}</dt><dd>${textoPortal(new Intl.PluralRules(LOCALIZACION_PORTAL).select(documentos.length) === "one" ? "borradores_gobernados_uno" : "borradores_gobernados_otros", { numero: formatearNumeroPortal(documentos.length) })}</dd></div>
         </dl>
       </div></section>`;
   }

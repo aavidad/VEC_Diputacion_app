@@ -1,12 +1,13 @@
 /** Consulta S3–S7. No adopta decisiones ni usa datos de presentación. */
 import { traducirBaremacion as t } from "./portal-i18n-baremacion.js?v=20260924-f2-web2";
+import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 export function crearVistasBaremacion(u) {
   const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista, campo } = u;
   const lista = (datos, nombre) => Array.isArray(datos?.[nombre]) ? datos[nombre] : [];
   const valor = (dato, respaldo) => String(dato ?? "").trim() || respaldo;
   const filtro = (estado, nombre, defecto = "") => String(estado?.filtros?.meritos?.[nombre] ?? defecto);
-  const contiene = (dato, busca) => String(dato ?? "").toLocaleLowerCase("es").includes(String(busca).trim().toLocaleLowerCase("es"));
+  const contiene = (dato, busca) => String(dato ?? "").toLocaleLowerCase(LOCALIZACION_ACTUAL).includes(String(busca).trim().toLocaleLowerCase(LOCALIZACION_ACTUAL));
   const filtroCampo = (etiqueta, control) => `<label class="campo"><span>${e(etiqueta)}</span>${control}</label>`;
   function lectura(estado, vista) {
     const resultado = estado?.vistasBaremacion?.[vista];

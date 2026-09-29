@@ -1,3 +1,4 @@
+import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 /**
  * Contratos cerrados del corte web de propuestas de llamamiento.
  *
@@ -25,14 +26,14 @@ function esObjeto(valor) {
 function exigirCamposExactos(objeto, campos, nombre) {
   if (!esObjeto(objeto) || Object.keys(objeto).length !== campos.length
     || campos.some((campo) => !Object.hasOwn(objeto, campo))) {
-    throw new Error(`${nombre} no respeta el contrato cerrado`);
+    throw new Error(traducirPortal("llamamiento_contrato_cerrado", { nombre }));
   }
 }
 
 function exigirCadena(valor, nombre, maximo = 512) {
   if (typeof valor !== "string" || valor === "" || new TextEncoder().encode(valor).length > maximo
     || valor !== valor.trim() || valor.normalize("NFC") !== valor) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   return valor;
 }
@@ -50,44 +51,44 @@ export function validarReferenciaOpacaLlamamiento(valor, nombre = "referencia") 
   const etiquetaPersonal = /(?:^|[._:/#-])(?:dni|nie|nif|pasaporte|passport)(?:[._:/#-]|$)/iu;
   if (referencia.includes("*") || contieneControlOBidi.test(referencia)
     || (!REFERENCIA_PROPIA_SISTEMA.test(referencia) && pareceDocumento.test(referencia)) || etiquetaPersonal.test(referencia)) {
-    throw new Error(`${nombre} no válida`);
+    throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   }
   return referencia;
 }
 
 function exigirReferenciaConfirmacion(valor, nombre) {
   const referencia = validarReferenciaOpacaLlamamiento(valor, nombre);
-  if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]*$/.test(referencia)) throw new Error(`${nombre} no válida`);
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:/#-]*$/.test(referencia)) throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   return referencia;
 }
 
 function exigirHuella(valor, nombre) {
   if (typeof valor !== "string" || !/^[a-f0-9]{64}$/.test(valor)) {
-    throw new Error(`${nombre} no válida`);
+    throw new Error(traducirPortal("llamamiento_valor_invalida", { nombre }));
   }
   return valor;
 }
 
 function exigirDecimal(valor, nombre, { admiteCero = false, maximo = MAXIMO_UINT64 } = {}) {
   if (typeof valor !== "string" || !/^(?:0|[1-9][0-9]*)$/.test(valor)) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   const numero = BigInt(valor);
-  if ((!admiteCero && numero === 0n) || numero > maximo) throw new Error(`${nombre} no válido`);
+  if ((!admiteCero && numero === 0n) || numero > maximo) throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   return valor;
 }
 
 function exigirInstanteUTC(valor, nombre) {
   const cadena = exigirCadena(valor, nombre, 32);
   const partes = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?Z$/.exec(cadena);
-  if (!partes || partes[1] === "0000" || partes[7]?.endsWith("0")) throw new Error(`${nombre} no válido`);
+  if (!partes || partes[1] === "0000" || partes[7]?.endsWith("0")) throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   const [, anio, mes, dia, hora, minuto, segundo] = partes;
   const fecha = new Date(Date.parse(cadena));
   if (!Number.isFinite(fecha.getTime()) || fecha.getUTCFullYear() !== Number(anio)
     || fecha.getUTCMonth() + 1 !== Number(mes) || fecha.getUTCDate() !== Number(dia)
     || fecha.getUTCHours() !== Number(hora) || fecha.getUTCMinutes() !== Number(minuto)
     || fecha.getUTCSeconds() !== Number(segundo)) {
-    throw new Error(`${nombre} no válido`);
+    throw new Error(traducirPortal("llamamiento_valor_invalido", { nombre }));
   }
   return cadena;
 }
@@ -108,20 +109,20 @@ function validarVersionHuella(valor, nombre) {
 
 function exigirETagConfirmacion(valor, huella) {
   const esperado = `"vec-propuesta-llamamiento-v1.sha256-${huella}"`;
-  if (valor !== esperado) throw new Error("ETag de confirmación no válido");
+  if (valor !== esperado) throw new Error(traducirPortal("llamamiento_etag_invalido"));
   return valor;
 }
 
 export function extraerDatosEnvelopeLlamamiento(envelope) {
   exigirCamposExactos(envelope, ["data"], "envelope de confirmación");
-  if (!esObjeto(envelope.data)) throw new Error("datos de confirmación no válidos");
+  if (!esObjeto(envelope.data)) throw new Error(traducirPortal("llamamiento_datos_invalidos"));
   return envelope.data;
 }
 
 export function validarConfirmacionPropuestaLlamamiento(datos, etag) {
   exigirCamposExactos(datos, CAMPOS_CONFIRMACION, "confirmación de propuesta");
   if (datos.esquema !== ESQUEMA_CONFIRMACION) {
-    throw new Error("versión de confirmación de propuesta no compatible");
+    throw new Error(traducirPortal("llamamiento_version_incompatible"));
   }
 
   const huellaPropuesta = exigirHuella(datos.huella_propuesta_sha256, "huella de propuesta");
@@ -152,7 +153,7 @@ export function validarConfirmacionPropuestaLlamamiento(datos, etag) {
     || totalEvaluaciones !== ordenSeleccionado
     || claveOrdenInstanteUTC(instantaneaGeneradaEn) < claveOrdenInstanteUTC(instanteReferencia)
     || claveOrdenInstanteUTC(generadaEn) < claveOrdenInstanteUTC(instantaneaGeneradaEn)) {
-    throw new Error("confirmación de propuesta incoherente");
+    throw new Error(traducirPortal("llamamiento_confirmacion_incoherente"));
   }
   exigirETagConfirmacion(etag, huellaPropuesta);
 
@@ -183,7 +184,7 @@ export function validarEmisionLlamamiento(datos) {
     || !/^recibo:llamamiento:[a-f0-9]{64}$/.test(datos.recibo_ref)
     || !Array.isArray(datos.participaciones) || datos.participaciones.length < 1 || datos.participaciones.length > 100
     || new Set(datos.participaciones).size !== datos.participaciones.length || !esObjeto(datos.configuracion)) {
-    throw new Error("emisión de llamamiento no válida");
+    throw new Error(traducirPortal("llamamiento_emision_invalida"));
   }
   datos.participaciones.forEach((ref) => validarReferenciaOpacaLlamamiento(ref, "participación"));
   ["referencia", "descripcion", "categoria", "centro", "modalidad", "fecha_inicio", "plazo", "plantilla_version", "asunto", "cuerpo"]
@@ -192,14 +193,14 @@ export function validarEmisionLlamamiento(datos) {
   if (datos.contactos !== undefined && (!Array.isArray(datos.contactos)
     || datos.contactos.some((c) => !esObjeto(c) || !["enviado", "no_enviado"].includes(c.resultado)
       || typeof c.recibo_ref !== "string" || typeof c.participacion_ref !== "string"))) {
-    throw new Error("contactos de emisión no válidos");
+    throw new Error(traducirPortal("llamamiento_contactos_invalidos"));
   }
   // Duda 45: avisos a RRHH (contacto de origen CONVOCA vencido o no comprobado).
   if (datos.avisos_contacto !== undefined && (!Array.isArray(datos.avisos_contacto) || datos.avisos_contacto.length > 100
     || datos.avisos_contacto.some((a) => !esObjeto(a) || !datos.participaciones.includes(a.participacion_ref)
       || !["contacto_origen_convoca_no_confirmado", "estado_contacto_no_disponible"].includes(a.aviso)
       || (a.ultimo_dia !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(a.ultimo_dia))))) {
-    throw new Error("avisos de contacto de emisión no válidos");
+    throw new Error(traducirPortal("llamamiento_avisos_invalidos"));
   }
   return datos;
 }

@@ -176,7 +176,7 @@ function errorAborto(signal) {
   if (!(causa instanceof Error)) {
     causa = typeof DOMException === "function"
       ? new DOMException(traducirPortal("txt_la_operacion_fue_cancelada"), "AbortError")
-      : new Error("La operación fue cancelada.");
+      : new Error(traducirPortal("txt_la_operacion_fue_cancelada"));
   }
   return new ErrorAPIBorradores(
     traducirPortal("txt_la_operacion_de_borradores_fue_cancelada"), 0, causa, { codigo: "operacion_abortada" },
@@ -386,7 +386,7 @@ function validarOpcionesCliente(valor, campos, nombre) {
   const opciones = valor === undefined ? {} : valor;
   if (opciones === null || typeof opciones !== "object" || Array.isArray(opciones)
     || Object.keys(opciones).some((campo) => !campos.includes(campo))) {
-    throw new ErrorAPIBorradores(`${nombre} no respeta el contrato del cliente.`);
+    throw new ErrorAPIBorradores(traducirPortal("borradores_opciones_cliente", { nombre }));
   }
   return opciones;
 }
@@ -414,14 +414,14 @@ function comprobarLocationCreacion(respuesta, resultado) {
 export function crearClienteBorradores(configuracion = {}) {
   if (configuracion === null || typeof configuracion !== "object" || Array.isArray(configuracion)
     || Object.keys(configuracion).some((campo) => !["fetchImpl", "HeadersImpl"].includes(campo))) {
-    throw new TypeError("configuración del cliente de borradores no válida");
+    throw new TypeError(traducirPortal("borradores_cliente_configuracion"));
   }
   const {
     fetchImpl = globalThis.fetch,
     HeadersImpl = globalThis.Headers,
   } = configuracion;
-  if (typeof fetchImpl !== "function") throw new TypeError("fetchImpl es obligatorio");
-  if (typeof HeadersImpl !== "function") throw new TypeError("HeadersImpl es obligatorio");
+  if (typeof fetchImpl !== "function") throw new TypeError(traducirPortal("borradores_fetch_obligatorio"));
+  if (typeof HeadersImpl !== "function") throw new TypeError(traducirPortal("borradores_headers_obligatorio"));
 
   async function ejecutar(
     ruta, opciones, estadosEsperados, validar, exigeETag = false, exigeLocationCreacion = false,
@@ -490,7 +490,7 @@ export function crearClienteBorradores(configuracion = {}) {
   }
 
   async function obtenerOpciones(opcionesCliente) {
-    const { signal } = validarOpcionesCliente(opcionesCliente, ["signal"], "Opciones de consulta");
+    const { signal } = validarOpcionesCliente(opcionesCliente, ["signal"], traducirPortal("borradores_opciones_consulta"));
     return ejecutar(RUTAS_API_BORRADORES.opciones, { method: "GET", signal }, [200], validarOpcionesBorradores);
   }
 
@@ -498,7 +498,7 @@ export function crearClienteBorradores(configuracion = {}) {
     const {
       limite = 40, cursor, texto, categoria, signal,
     } = validarOpcionesCliente(
-      opcionesCliente, ["limite", "cursor", "texto", "categoria", "signal"], "Opciones de listado",
+      opcionesCliente, ["limite", "cursor", "texto", "categoria", "signal"], traducirPortal("borradores_opciones_listado"),
     );
     const entradaSelector = { limite };
     if (cursor !== undefined) entradaSelector.cursor = cursor;
@@ -506,7 +506,7 @@ export function crearClienteBorradores(configuracion = {}) {
     if (categoria !== undefined) entradaSelector.categoria = categoria;
     const selectorSolicitado = validarEntrada(
       () => validarSelectorListaBorradores(entradaSelector),
-      "Selector de listado no válido.",
+      traducirPortal("borradores_selector_invalido"),
     );
     const parametros = new URLSearchParams({ limite: String(selectorSolicitado.limite) });
     if (selectorSolicitado.cursor !== undefined) parametros.set("cursor", selectorSolicitado.cursor);
@@ -528,7 +528,7 @@ export function crearClienteBorradores(configuracion = {}) {
   }
 
   async function obtenerDetalle(referencia, limites, opcionesCliente) {
-    const { signal } = validarOpcionesCliente(opcionesCliente, ["signal"], "Opciones de detalle");
+    const { signal } = validarOpcionesCliente(opcionesCliente, ["signal"], traducirPortal("borradores_opciones_detalle"));
     const ruta = rutaVersionBorrador(referencia);
     return ejecutar(
       ruta, { method: "GET", signal }, [200],
@@ -544,15 +544,15 @@ export function crearClienteBorradores(configuracion = {}) {
 
   async function crear(solicitud, limites, opcionesCliente) {
     const { claveIdempotencia, signal } = validarOpcionesCliente(
-      opcionesCliente, ["claveIdempotencia", "signal"], "Opciones de alta",
+      opcionesCliente, ["claveIdempotencia", "signal"], traducirPortal("borradores_opciones_alta"),
     );
     const cuerpo = validarEntrada(
       () => validarSolicitudCrearBorrador(solicitud, limites),
-      "La solicitud de alta no respeta el contrato.",
+      traducirPortal("borradores_alta_invalida"),
     );
     const clave = validarEntrada(
       () => validarClaveIdempotencia(claveIdempotencia),
-      "El alta requiere una clave de idempotencia explícita.",
+      traducirPortal("borradores_alta_clave"),
     );
     return ejecutar(
       RUTAS_API_BORRADORES.lista,
@@ -578,20 +578,20 @@ export function crearClienteBorradores(configuracion = {}) {
 
   async function actualizar(referencia, solicitud, limites, opcionesCliente) {
     const { etag, claveIdempotencia, signal } = validarOpcionesCliente(
-      opcionesCliente, ["etag", "claveIdempotencia", "signal"], "Opciones de actualización",
+      opcionesCliente, ["etag", "claveIdempotencia", "signal"], traducirPortal("borradores_opciones_actualizacion"),
     );
     const ruta = rutaVersionBorrador(referencia);
     const cuerpo = validarEntrada(
       () => validarSolicitudActualizarBorrador(solicitud, limites),
-      "La actualización no respeta el contrato.",
+      traducirPortal("borradores_actualizacion_invalida"),
     );
     const etagValidado = validarEntrada(
       () => validarETagBorrador(etag),
-      "La actualización requiere un ETag canónico.",
+      traducirPortal("borradores_actualizacion_etag"),
     );
     const clave = validarEntrada(
       () => validarClaveIdempotencia(claveIdempotencia),
-      "La actualización requiere una clave de idempotencia explícita.",
+      traducirPortal("borradores_actualizacion_clave"),
     );
     return ejecutar(
       ruta,

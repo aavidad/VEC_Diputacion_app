@@ -4,7 +4,8 @@
  * Las categorías solo ordenan enlaces del router existente. No deciden
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
+import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
@@ -62,8 +63,8 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
   }
   const disponibles = accesos.filter((acceso) => acceso.disponible === true).length;
   if (disponibles === 0) return traducir("resumen_modulos_ninguno");
-  const cantidad = new Intl.NumberFormat(LOCALIZACION_PORTAL).format(disponibles);
-  return traducir(new Intl.PluralRules(LOCALIZACION_PORTAL).select(disponibles) === "one"
+  const cantidad = new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(disponibles);
+  return traducir(new Intl.PluralRules(LOCALIZACION_ACTUAL).select(disponibles) === "one"
     ? "resumen_modulos_uno" : "resumen_modulos_varios", { cantidad });
 }
 

@@ -16,18 +16,9 @@ export class ErrorAPIBorradorLlamamiento extends Error {
   }
 }
 
-export const MENSAJES_BORRADOR_LLAMAMIENTO = Object.freeze({
-  401: "Se requiere autenticación interna para preparar el borrador.",
-  403: "La sesión no dispone de autorización para preparar este borrador.",
-  404: "El borrador no existe o no es visible en el ámbito actual.",
-  409: "La clave de reintento ya corresponde a otro contenido. Revise el resumen antes de volver a intentarlo.",
-  413: "El resumen o la respuesta supera el límite admitido.",
-  500: "El servicio de borradores de llamamiento no está disponible temporalmente.",
-});
-
 function mensajeEstado(estado) {
-  return MENSAJES_BORRADOR_LLAMAMIENTO[estado]
-    || (estado >= 500 ? MENSAJES_BORRADOR_LLAMAMIENTO[500] : traducirPortal("txt_la_solicitud_fue_rechazada_http", { estado: estado }));
+  const clave = [401, 403, 404, 409, 413].includes(estado) ? estado : estado >= 500 ? 500 : null;
+  return clave === null ? traducirPortal("txt_la_solicitud_fue_rechazada_http", { estado }) : traducirPortal(`bl_http_${clave}`);
 }
 
 function validarResumen(resumen) {
@@ -83,7 +74,7 @@ function claveAleatoria(criptografia = globalThis.crypto) {
 }
 
 export function crearClienteBorradorLlamamiento({ fetchImpl = globalThis.fetch, criptografia = globalThis.crypto } = {}) {
-  if (typeof fetchImpl !== "function") throw new TypeError("fetch no está disponible");
+  if (typeof fetchImpl !== "function") throw new TypeError(traducirPortal("bl_fetch_no_disponible"));
   async function ejecutar(ruta, opciones, signal) {
     let respuesta;
     try {

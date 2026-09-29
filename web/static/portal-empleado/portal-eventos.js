@@ -7,6 +7,7 @@
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260928-rrhh-i18n-unificada-v1";
 import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
+import { LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 const NOMBRES_FILTRO = Object.freeze({
   convocatorias: new Set(["texto", "estado", "unidad"]),
@@ -102,20 +103,21 @@ export function restaurarFocoTrasReintentoBorradores(raiz = globalThis.document)
   return true;
 }
 
-export function renderizarAvisosNavegables(avisos, escaparHTML) {
+export function renderizarAvisosNavegables(avisos, escaparHTML, traducir = traducirPortal) {
   const avisosValidados = validarAvisosPortal(avisos);
-  if (avisosValidados.length === 0) return "<p>No hay avisos accesibles.</p>";
+  if (avisosValidados.length === 0) return `<p>${escaparHTML(traducir("avisos_vacio"))}</p>`;
   return `<ul class="lista-avisos-navegables">${avisosValidados.map((aviso, indice) => {
     const destino = aviso.destino;
-    const contexto = `Ir a ${destino.etiqueta}`;
+    if (!destino) return `<li><p>${escaparHTML(aviso.texto)}</p></li>`;
+    const contexto = traducir("avisos_ir_a", { destino: destino.etiqueta });
     if (destino.estado === "pendiente") {
-      return `<li><p>${escaparHTML(aviso.texto)}</p><button type="button" class="boton-secundario" disabled aria-disabled="true" title="Destino pendiente de conexión">${escaparHTML(contexto)} · Pendiente de conexión</button></li>`;
+      return `<li><p>${escaparHTML(aviso.texto)}</p><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(traducir("avisos_destino_pendiente"))}">${escaparHTML(contexto)} · ${escaparHTML(traducir("avisos_pendiente"))}</button></li>`;
     }
     return `<li><p>${escaparHTML(aviso.texto)}</p><button type="button" class="boton-secundario" data-aviso-destino="${indice}" aria-label="${escaparHTML(contexto)}">${escaparHTML(contexto)}</button></li>`;
   }).join("")}</ul>`;
 }
 
-export function instalarDestinosAvisos(contenedor, avisos, { cerrar, navegar, anunciar }) {
+export function instalarDestinosAvisos(contenedor, avisos, { cerrar, navegar, anunciar, traducir = traducirPortal }) {
   const avisosValidados = validarAvisosPortal(avisos);
   const manejarClick = (evento) => {
     const boton = evento.target?.closest?.("[data-aviso-destino]");
@@ -127,7 +129,7 @@ export function instalarDestinosAvisos(contenedor, avisos, { cerrar, navegar, an
     evento.preventDefault?.();
     cerrar();
     navegar(destino.vista, destino.referencia ? { referencia: destino.referencia } : {});
-    anunciar(`Aviso: ${destino.etiqueta}`);
+    anunciar(traducir("avisos_anuncio", { destino: destino.etiqueta }));
   };
   contenedor?.addEventListener?.("click", manejarClick);
   return () => contenedor?.removeEventListener?.("click", manejarClick);
@@ -156,6 +158,9 @@ export function crearControladorPortal(dependencias) {
   const traducir = typeof dependencias.traducir === "function"
     ? dependencias.traducir
     : traducirPortal;
+  const numeroLocal = (valor) => new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(Number(valor) || 0);
+  const porcentajeLocal = (valor) => new Intl.NumberFormat(LOCALIZACION_ACTUAL, { style: "percent", maximumFractionDigits: 1 }).format(porcentajeSeguro(valor) / 100);
+  const htmlTraducido = (clave, variables) => escaparHTML(traducir(clave, variables));
 
   let limpiarDialogo = null;
 
@@ -189,7 +194,7 @@ export function crearControladorPortal(dependencias) {
   }
 
   function detalleLimitacion(titulo) {
-    abrirDialogo(titulo, `<p class="nota-pendiente">${escaparHTML(notaOperacionNoCompuesta())}</p><p>Su activación exige autorización por expediente, validación de estado, persistencia, auditoría y, cuando proceda, firma o recibo verificable del conector.</p>`);
+    abrirDialogo(titulo, `<p class="nota-pendiente">${escaparHTML(notaOperacionNoCompuesta())}</p><p>${htmlTraducido("operacion_requisitos")}</p>`);
   }
 
   function reiniciarLlamamiento(necesidadId) {
@@ -216,7 +221,7 @@ export function crearControladorPortal(dependencias) {
           porId("contenido-principal")?.focus?.({ preventScroll: true });
         }
         cargarFuenteDatos().catch(() => {
-          estado.errorFuente = "No se pudo volver a comprobar la fuente interna.";
+          estado.errorFuente = traducir("fuente_reintento_error");
           renderizar();
         });
         break;
@@ -235,35 +240,35 @@ export function crearControladorPortal(dependencias) {
         navegar("llamamientos");
         break;
       case "nueva-bolsa":
-        abrirDialogo("Nueva bolsa", `<ol><li>Identificación y categoría.</li><li>Bases y documentación.</li><li>Requisitos y baremo versionado.</li><li>Calendario y tribunal.</li><li>Firmas, publicación y transparencia.</li></ol><p class="nota-pendiente">${escaparHTML(notaOperacionNoCompuesta())}</p>`);
+        abrirDialogo(traducir("bolsa_nueva_titulo"), `<ol><li>${htmlTraducido("bolsa_nueva_identificacion")}</li><li>${htmlTraducido("bolsa_nueva_bases")}</li><li>${htmlTraducido("bolsa_nueva_baremo")}</li><li>${htmlTraducido("bolsa_nueva_calendario")}</li><li>${htmlTraducido("bolsa_nueva_firmas")}</li></ol><p class="nota-pendiente">${escaparHTML(notaOperacionNoCompuesta())}</p>`);
         break;
       case "seleccionar-elaboracion":
         estado.elaboracionSeleccionada = id;
         renderizar();
-        anunciar("Expediente seleccionado");
+        anunciar(traducir("elaboracion_seleccionada"));
         break;
       case "configurar-bases":
-        abrirDialogo("Configurar bases y baremo", '<dl class="resumen-expediente"><div class="fila-resumen"><dt>Experiencia</dt><dd>Unidad, ámbito, jornada, topes y redondeo</dd></div><div class="fila-resumen"><dt>Formación</dt><dd>Titulaciones, cursos, horas, relación y límites</dd></div><div class="fila-resumen"><dt>Otros méritos</dt><dd>Tipos definidos por las bases</dd></div><div class="fila-resumen"><dt>Garantía</dt><dd>Versión inmutable, simulación y validación antes de publicar</dd></div></dl><p class="nota-pendiente">Los valores visibles serían ejemplos; no se activará una regla sin bases e informe aplicables.</p>');
+        abrirDialogo(traducir("bases_titulo"), `<dl class="resumen-expediente"><div class="fila-resumen"><dt>${htmlTraducido("bases_experiencia")}</dt><dd>${htmlTraducido("bases_experiencia_detalle")}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bases_formacion")}</dt><dd>${htmlTraducido("bases_formacion_detalle")}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bases_otros")}</dt><dd>${htmlTraducido("bases_otros_detalle")}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bases_garantia")}</dt><dd>${htmlTraducido("bases_garantia_detalle")}</dd></div></dl><p class="nota-pendiente">${htmlTraducido("bases_ejemplos")}</p>`);
         break;
       case "seleccionar-necesidad": {
         if (!datosPanel.necesidades_llamamiento.some((item) => item.id === id)) {
-          anunciar("La necesidad seleccionada no pertenece al ámbito visible");
+          anunciar(traducir("necesidad_fuera_ambito"));
           break;
         }
         reiniciarLlamamiento(id);
         renderizar();
-        anunciar("Necesidad de cobertura seleccionada");
+        anunciar(traducir("necesidad_seleccionada"));
         break;
       }
       case "ver-bolsa": {
         const bolsa = datosPanel.bolsas.find((item) => item.id === id);
-        if (bolsa) abrirDialogo(bolsa.nombre, `<dl class="resumen-expediente"><div class="fila-resumen"><dt>Categoría</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div><div class="fila-resumen"><dt>Integrantes</dt><dd>${numero(bolsa.integrantes)}</dd></div><div class="fila-resumen"><dt>Disponibles</dt><dd>${numero(bolsa.disponibles)}</dd></div><div class="fila-resumen"><dt>Cobertura</dt><dd>${porcentajeSeguro(bolsa.cobertura)}%</dd></div><div class="fila-resumen"><dt>Estado</dt><dd>${escaparHTML(bolsa.estado)}</dd></div></dl><p class="nota-informativa">Fuente: ${escaparHTML(etiquetaFuentePanel())}.</p>`);
+        if (bolsa) abrirDialogo(bolsa.nombre, `<dl class="resumen-expediente"><div class="fila-resumen"><dt>${htmlTraducido("bolsa_categoria")}</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bolsa_integrantes")}</dt><dd>${numeroLocal(bolsa.integrantes)}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bolsa_disponibles")}</dt><dd>${numeroLocal(bolsa.disponibles)}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bolsa_cobertura")}</dt><dd>${porcentajeLocal(bolsa.cobertura)}</dd></div><div class="fila-resumen"><dt>${htmlTraducido("bolsa_estado")}</dt><dd>${escaparHTML(bolsa.estado)}</dd></div></dl><p class="nota-informativa">${htmlTraducido("bolsa_fuente", { fuente: etiquetaFuentePanel() })}</p>`);
         break;
       }
       case "solicitar-propuesta": {
         const resultado = await solicitarPropuestaLlamamiento();
         if (!resultado.ok) {
-          anunciar(resultado.mensaje || "No se pudo obtener la propuesta");
+          anunciar(resultado.mensaje || traducir("propuesta_error"));
           renderizar();
           break;
         }
@@ -271,38 +276,38 @@ export function crearControladorPortal(dependencias) {
         renderizar();
         porId("contenido-principal")?.focus({ preventScroll: true });
         anunciar(resultado.mensaje || (resultado.confirmacion
-          ? "Confirmación de propuesta recibida; detalle no disponible"
-          : "Detalle no disponible. La configuración del llamamiento permanece bloqueada."));
+          ? traducir("propuesta_confirmada_sin_detalle")
+          : traducir("llamamiento_detalle_bloqueado")));
         break;
       }
       case "siguiente-paso":
         estado.pasoLlamamiento = 1;
         renderizar();
-        anunciar("Detalle no disponible. La configuración del llamamiento permanece bloqueada.");
+        anunciar(traducir("llamamiento_detalle_bloqueado"));
         break;
       case "anterior-paso":
         estado.pasoLlamamiento = Math.max(1, estado.pasoLlamamiento - 1);
         renderizar();
-        anunciar(`Paso ${estado.pasoLlamamiento} del llamamiento`);
+        anunciar(traducir("llamamiento_paso", { paso: numeroLocal(estado.pasoLlamamiento) }));
         break;
       case "ir-paso": {
         const paso = Number(boton.dataset.paso);
         if (paso > 2 || (paso === 2 && !estado.confirmacionPropuestaLlamamiento)) {
           estado.pasoLlamamiento = 1;
           renderizar();
-          anunciar("Detalle no disponible. Los pasos posteriores no están conectados.");
+          anunciar(traducir("llamamiento_pasos_no_conectados"));
           break;
         }
         if (paso >= 1 && paso <= 2 && paso <= estado.pasoLlamamiento) {
           estado.pasoLlamamiento = paso;
           renderizar();
         } else if (paso > estado.pasoLlamamiento) {
-          anunciar("Complete primero el paso actual");
+          anunciar(traducir("llamamiento_complete_paso"));
         }
         break;
       }
       case "bloqueo-presentacion":
-        abrirDialogo("Funcionalidad bloqueada", `<p class="nota-pendiente"><strong>No se ejecutará ninguna acción.</strong> ${escaparHTML(boton.dataset.motivo || "La capacidad productiva no está conectada ni autorizada.")}</p>`);
+        abrirDialogo(traducir("bloqueo_titulo"), `<p class="nota-pendiente"><strong>${htmlTraducido("bloqueo_sin_accion")}</strong> ${escaparHTML(boton.dataset.motivo || traducir("bloqueo_capacidad_no_conectada"))}</p>`);
         break;
       case "imprimir":
         window.print();
@@ -310,21 +315,21 @@ export function crearControladorPortal(dependencias) {
       case "ayuda": {
         const ayuda = renderizarContenidoAyuda();
         if (typeof ayuda === "object" && ayuda !== null && "contenido" in ayuda) {
-          abrirDialogo(ayuda.titulo || "Ayuda del Portal del Empleado", ayuda.contenido, ayuda.instalar);
+          abrirDialogo(ayuda.titulo || traducir("ayuda_titulo"), ayuda.contenido, ayuda.instalar);
         } else {
-          abrirDialogo("Ayuda del Portal del Empleado", ayuda);
+          abrirDialogo(traducir("ayuda_titulo"), ayuda);
         }
         break;
       }
       case "avisos":
         try {
-          abrirDialogo("Avisos", renderizarAvisosNavegables(datosPanel.avisos, escaparHTML),
+          abrirDialogo(traducir("avisos_titulo"), renderizarAvisosNavegables(datosPanel.avisos, escaparHTML, traducir),
             ({ contenedor, cerrar, navegar: navegarAviso, anunciar: anunciarAviso }) => instalarDestinosAvisos(
-              contenedor, datosPanel.avisos, { cerrar, navegar: navegarAviso, anunciar: anunciarAviso },
+              contenedor, datosPanel.avisos, { cerrar, navegar: navegarAviso, anunciar: anunciarAviso, traducir },
             ));
         } catch {
-          abrirDialogo("Avisos", '<p class="nota-pendiente">Los avisos no cumplen el contrato de navegación segura.</p>');
-          anunciar("Los avisos se han rechazado de forma segura");
+          abrirDialogo(traducir("avisos_titulo"), `<p class="nota-pendiente">${htmlTraducido("avisos_contrato_invalido")}</p>`);
+          anunciar(traducir("avisos_rechazados"));
         }
         break;
       case "exportar":
@@ -332,7 +337,7 @@ export function crearControladorPortal(dependencias) {
       case "comparar-versiones":
       case "nueva-regla":
       case "detalle-regla":
-        detalleLimitacion(boton.textContent.trim() || "Acción administrativa");
+        detalleLimitacion(boton.textContent.trim() || traducir("accion_administrativa"));
         break;
       default:
         break;
@@ -354,7 +359,7 @@ export function crearControladorPortal(dependencias) {
       document.documentElement.dataset.textoGrande = String(activo);
     }
     boton.setAttribute("aria-pressed", String(activo));
-    anunciar(activo ? `${nombre} activado` : `${nombre} desactivado`);
+    anunciar(traducir(`preferencia_${nombre}_${activo ? "activado" : "desactivado"}`));
   }
 
   function restaurarPreferencias() {
@@ -401,10 +406,10 @@ export function crearControladorPortal(dependencias) {
         renderizar();
         const resultado = document.querySelector(`[data-total-filtro="${tipo}"]`);
         const total = Number(resultado?.dataset.total || 0);
-        anunciar(`${total} resultados tras aplicar los filtros`);
+        anunciar(traducir(total === 1 ? "filtros_resultado_uno" : "filtros_resultado_varios", { total: numeroLocal(total) }));
       } catch {
-        abrirDialogo("Filtros no aplicados", '<p class="nota-pendiente">El formulario de filtros no cumple el contrato cerrado. No se ha modificado la vista.</p>');
-        anunciar("Filtros rechazados de forma segura");
+        abrirDialogo(traducir("filtros_error_titulo"), `<p class="nota-pendiente">${htmlTraducido("filtros_error_detalle")}</p>`);
+        anunciar(traducir("filtros_rechazados"));
       }
     });
     porId("boton-menu").addEventListener("click", () => {
