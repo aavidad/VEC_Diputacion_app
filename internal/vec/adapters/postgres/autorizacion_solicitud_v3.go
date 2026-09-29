@@ -64,7 +64,34 @@ func (a *AlmacenAutorizacion) RegistrarDenegacionAutorizacionLigadaV3(
 	return err
 }
 
+// registrarDecisionContextoActorV3 repite el registro completo cuando la
+// transacción SERIALIZABLE pierde una carrera (40001 o 40P01). Dos peticiones
+// simultáneas del mismo actor escriben la misma cadena de decisiones y
+// PostgreSQL aborta a una de ellas, antes o al confirmar; el aborto garantiza
+// que no quedó nada escrito, así que repetir con la misma orden es seguro. Si
+// se agotan los intentos o vence el contexto se devuelve la misma
+// clasificación de siempre.
 func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
+	ctx context.Context,
+	datos ports.DatosOrdenRegistroAutorizacionLigadaV3,
+	concedidaEsperada bool,
+	errorNoDisponible error,
+) (time.Time, error) {
+	var registradaEn time.Time
+	var err error
+	for intento := 1; ; intento++ {
+		registradaEn, err = a.registrarDecisionContextoActorV3UnaVez(ctx, datos, concedidaEsperada, errorNoDisponible)
+		var carrera carreraSerializacionRegistroV3
+		if !errors.As(err, &carrera) {
+			return registradaEn, err
+		}
+		if intento == intentosRegistroContextoActorV3 || !esperarReintentoRegistroV3(ctx, intento) {
+			return time.Time{}, carrera.traducido
+		}
+	}
+}
+
+func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3UnaVez(
 	ctx context.Context,
 	datos ports.DatosOrdenRegistroAutorizacionLigadaV3,
 	concedidaEsperada bool,
@@ -201,9 +228,9 @@ func errorRegistroAutorizacionLigadaV3(
 ) error {
 	traducido := errorRegistroAutorizacion(ctx, err)
 	if errors.Is(traducido, ports.ErrRegistroDecisionNoDisponible) {
-		return errorNoDisponible
+		traducido = errorNoDisponible
 	}
-	return traducido
+	return marcarCarreraSerializacionRegistroV3(err, traducido)
 }
 
 // No consulta ctx: despues de intentar COMMIT no puede distinguirse una
@@ -213,7 +240,7 @@ func errorCommitRegistroAutorizacionLigadaV3(err, errorNoDisponible error) error
 	if errors.As(err, &errorPG) {
 		switch errorPG.Code {
 		case "40001", "40P01":
-			return ports.ErrInstantaneaAutorizacionObsoleta
+			return marcarCarreraSerializacionRegistroV3(err, ports.ErrInstantaneaAutorizacionObsoleta)
 		}
 	}
 	return errorNoDisponible
