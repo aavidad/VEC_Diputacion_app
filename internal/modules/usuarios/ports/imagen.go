@@ -35,9 +35,11 @@ const (
 
 // Límites de la foto. Se comprueban antes de decodificar: tamaño del fichero,
 // ancho, alto y número de píxeles de la cabecera. La salida es un JPEG
-// cuadrado de LadoFotoImagen px, recodificado y sin metadatos.
+// cuadrado de LadoFotoImagen px, recodificado y sin metadatos. El tamaño
+// cabe, codificado en base64, en el límite común de 2 MB por petición; la
+// interfaz reduce antes las fotos grandes (lado máximo 1024 px).
 const (
-	TamanoMaximoFotoImagen    = 5 << 20
+	TamanoMaximoFotoImagen    = 1400 << 10
 	DimensionMaximaFotoImagen = 8000
 	PixelesMaximosFotoImagen  = 16_000_000
 	LadoFotoImagen            = 256

@@ -17,7 +17,12 @@ const PATRON_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/u;
 const CODIGOS_ERROR = new Set(["no_autenticado", "prohibido", "conflicto", "peticion_invalida", "no_disponible", "foto_grande", "foto_no_admitida"]);
 export const MODOS_IMAGEN = Object.freeze(["iniciales", "icono", "foto"]);
 export const PALETAS_IMAGEN = Object.freeze(["azul", "turquesa", "verde", "naranja", "morado", "gris"]);
-export const TAMANO_MAXIMO_FOTO = 5 * 1024 * 1024;
+// Una foto de hasta 20 MB se reduce en el navegador (lado máximo 1024 px)
+// antes de enviarla: el servidor admite 1,4 MB, que en base64 caben en el
+// límite común de 2 MB por petición, y es quien la recodifica de verdad.
+export const TAMANO_MAXIMO_SELECCION = 20 * 1024 * 1024;
+export const TAMANO_MAXIMO_ENVIO = 1400 * 1024;
+const LADO_ENVIO = 1024;
 export const TIPOS_FOTO = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
 
 // Trazos cerrados de los iconos del avatar (24×24, línea con currentColor).
@@ -125,6 +130,8 @@ export function crearClienteImagen({ ruta, fetchImpl = globalThis.fetch } = {}) 
           const error = (await contenidoJSON(respuesta))?.error;
           if (CODIGOS_ERROR.has(error?.codigo) && error.clave_i18n === `api.usuarios.imagen.error.${error.codigo}`) codigo = error.codigo;
         } catch { /* El estado HTTP basta para responder con seguridad. */ }
+        // El límite común del servidor responde 413 sin cuerpo JSON.
+        if (!codigo && respuesta.status === 413) codigo = "foto_grande";
         throw new ErrorImagen(respuesta.status, codigo);
       }
       return await contenidoJSON(respuesta);
@@ -231,6 +238,38 @@ function base64DeBytes(bytes) {
   return btoa(binario);
 }
 
+/**
+ * Prepara el fichero elegido para enviarlo: si el navegador sabe, lo reduce
+ * (respetando la orientación) y lo pasa a JPEG; si no, lo envía tal cual
+ * cuando cabe. Rechaza por tipo declarado o tamaño con el código de la API.
+ */
+export async function prepararFoto(fichero, entorno = globalThis) {
+  if (!fichero || !TIPOS_FOTO.includes(fichero.type)) throw new ErrorImagen(0, "foto_no_admitida");
+  if (fichero.size > TAMANO_MAXIMO_SELECCION) throw new ErrorImagen(0, "foto_grande");
+  if (typeof entorno.createImageBitmap === "function") {
+    try {
+      const mapa = await entorno.createImageBitmap(fichero, { imageOrientation: "from-image" });
+      const escala = Math.min(1, LADO_ENVIO / Math.max(mapa.width, mapa.height));
+      const ancho = Math.max(1, Math.round(mapa.width * escala));
+      const alto = Math.max(1, Math.round(mapa.height * escala));
+      const lienzo = typeof entorno.OffscreenCanvas === "function" ? new entorno.OffscreenCanvas(ancho, alto)
+        : Object.assign(entorno.document.createElement("canvas"), { width: ancho, height: alto });
+      const pincel = lienzo.getContext("2d");
+      pincel.fillStyle = "white";
+      pincel.fillRect(0, 0, ancho, alto);
+      pincel.drawImage(mapa, 0, 0, ancho, alto);
+      mapa.close?.();
+      const blob = typeof lienzo.convertToBlob === "function" ? await lienzo.convertToBlob({ type: "image/jpeg", quality: 0.9 })
+        : await new Promise((resolver) => lienzo.toBlob(resolver, "image/jpeg", 0.9));
+      if (blob && blob.size > 0 && blob.size <= TAMANO_MAXIMO_ENVIO) {
+        return Object.freeze({ tipo: "image/jpeg", base64: base64DeBytes(new Uint8Array(await blob.arrayBuffer())) });
+      }
+    } catch { /* Sin reducción posible se intenta con el original. */ }
+  }
+  if (fichero.size > TAMANO_MAXIMO_ENVIO) throw new ErrorImagen(0, "foto_grande");
+  return Object.freeze({ tipo: fichero.type, base64: base64DeBytes(new Uint8Array(await fichero.arrayBuffer())) });
+}
+
 const MARCO_PREDETERMINADO = Object.freeze({ panel: "panel", cabecera: "div", claseCabecera: "cabecera-panel", cuerpo: "cuerpo-panel" });
 
 /**
@@ -239,7 +278,7 @@ const MARCO_PREDETERMINADO = Object.freeze({ panel: "panel", cabecera: "div", cl
  * repintar la cabecera; `iniciales` da el texto del modo iniciales.
  */
 export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERMINADO, aleatorio = globalThis.crypto,
-  alCambiar = () => {}, iniciales = () => "", cargaAlMostrar = false } = {}) {
+  alCambiar = () => {}, iniciales = () => "", cargaAlMostrar = false, entorno = globalThis } = {}) {
   if (!cliente || typeof textos?.traducir !== "function") throw new TypeError("superficie de imagen incompleta");
   const t = (clave, variables) => textos.traducir(`imagen.${clave}`, variables);
   let datos = null;
@@ -358,23 +397,18 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
   }
 
   async function elegirArchivo(fichero) {
-    if (!fichero) return;
-    if (!TIPOS_FOTO.includes(fichero.type)) {
+    if (!fichero || ocupado) return;
+    ocupado = true;
+    mensaje = { tipo: "estado", texto: t("preparando") };
+    repintar();
+    try {
+      archivo = await prepararFoto(fichero, entorno);
+      mensaje = { tipo: "estado", texto: t("foto_lista") };
+    } catch (error) {
       archivo = null;
-      mensaje = { tipo: "error", texto: t("error_foto_no_admitida") };
-    } else if (fichero.size > TAMANO_MAXIMO_FOTO) {
-      archivo = null;
-      mensaje = { tipo: "error", texto: t("error_foto_grande") };
-    } else {
-      try {
-        const base64 = base64DeBytes(new Uint8Array(await fichero.arrayBuffer()));
-        archivo = { base64, tipo: fichero.type };
-        mensaje = { tipo: "estado", texto: t("foto_lista") };
-      } catch {
-        archivo = null;
-        mensaje = { tipo: "error", texto: t("error_foto_no_admitida") };
-      }
+      mensaje = { tipo: "error", texto: textoError(error?.codigo ? error : { codigo: "foto_no_admitida" }) };
     }
+    ocupado = false;
     enfocarTras = "[data-imagen-mensaje]";
     repintar();
   }

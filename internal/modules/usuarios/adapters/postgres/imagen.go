@@ -49,7 +49,7 @@ const acreditarEjecutorImagenSQL = `SELECT session_user=current_user
  AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.recuperar_imagen_operacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.guardar_imagen_propia_v1(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND NOT pg_catalog.has_table_privilege(session_user,'vec_usuarios.imagen_actual','SELECT')
- AND NOT pg_catalog.has_function_privilege(session_user,'vec_documentos.abrir_imagen_personal_v1(text,text)','EXECUTE')
+ AND NOT pg_catalog.has_schema_privilege(session_user,'vec_documentos','USAGE')
  FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1::text
  WHERE l.rolname=session_user`
 

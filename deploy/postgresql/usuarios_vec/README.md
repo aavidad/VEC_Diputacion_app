@@ -49,7 +49,7 @@ Tras las SQL de 5.08a y 5.08b: AD3-108 `consumidor_imagen_usuarios.up.sql` (acci
 ## Contrato
 
 - Usuarios guarda solo la elección (`iniciales`, `icono` o `foto`, con paleta e icono de un vocabulario cerrado) y, en modo foto, la referencia opaca `docimg_…` y la huella SHA-256 que devuelve Documentos. Nunca los bytes.
-- La aplicación recodifica la foto antes de pedir la autorización: solo admite JPEG, PNG y WebP reconocidos por su contenido, comprueba tamaño (5 MB), ancho y alto (8000 px) y píxeles (16 millones) antes de decodificar, recorta el centro y guarda un JPEG de 256 px sin EXIF, GPS ni ningún otro metadato. La V3 queda ligada a la huella de ese JPEG.
+- La aplicación recodifica la foto antes de pedir la autorización: solo admite JPEG, PNG y WebP reconocidos por su contenido, comprueba tamaño (1,4 MB tras la reducción que hace la interfaz; cabe en el límite común de 2 MB por petición), ancho y alto (8000 px) y píxeles (16 millones) antes de decodificar, recorta el centro y guarda un JPEG de 256 px sin EXIF, GPS ni ningún otro metadato. La V3 queda ligada a la huella de ese JPEG.
 - `guardar_imagen_propia_v1(material, foto, …V3)` consume la V3 y, en la misma transacción, retira en Documentos la foto anterior (sus bytes se borran), custodia la nueva, aplica el CAS y escribe estado, historia y recibo. Modo foto sin foto nueva conserva la vigente y solo cambia la paleta.
 - `consultar_imagen_propia_v1` devuelve el estado y, en modo foto, los bytes que Documentos entrega a su titular. Nadie más puede leer la foto: no hay acción de lectura ajena.
 - El catálogo (`catalogo_imagen`, publicado por secuencia) puede ofrecer menos paletas o iconos, nunca otros.

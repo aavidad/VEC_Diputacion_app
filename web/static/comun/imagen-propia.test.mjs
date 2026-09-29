@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { cargarTextosImagen, crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, ErrorImagen, ICONOS_IMAGEN,
-  PALETAS_IMAGEN, peticionesEnSerie, pintarAvatar, validarEleccion } from "./imagen-propia.js";
+  PALETAS_IMAGEN, peticionesEnSerie, pintarAvatar, prepararFoto, TAMANO_MAXIMO_ENVIO, TAMANO_MAXIMO_SELECCION, validarEleccion } from "./imagen-propia.js";
 
 const RUTA = "/api/vec/usuarios/mi-imagen";
 const respuesta = (json, status = 200) => new Response(JSON.stringify(json), { status, headers: { "Content-Type": "application/json" } });
@@ -55,6 +55,10 @@ test("POST envía solo los campos de la operación y traduce los errores", async
   await assert.rejects(grande.guardar({ operacion: "subir_foto", version_esperada: 1, catalogo_version_ref: "usuarios-imagen-v1",
     clave_operacion: "web-imagen-1234567890ab", eleccion: { modo: "foto", paleta: "azul", icono: "" }, foto_base64: "AAAA" }),
   (error) => error instanceof ErrorImagen && error.estado === 413 && error.codigo === "foto_grande");
+  const comun = crearClienteImagen({ ruta: RUTA, fetchImpl: async () => new Response("request body too large", { status: 413, headers: { "Content-Type": "text/plain" } }) });
+  await assert.rejects(comun.guardar({ operacion: "subir_foto", version_esperada: 1, catalogo_version_ref: "usuarios-imagen-v1",
+    clave_operacion: "web-imagen-1234567890ab", eleccion: { modo: "foto", paleta: "azul", icono: "" }, foto_base64: "AAAA" }),
+  (error) => error.estado === 413 && error.codigo === "foto_grande");
   assert.throws(() => validarEleccion({ modo: "iniciales", paleta: "azul", icono: "sol" }), TypeError);
 });
 
@@ -174,4 +178,28 @@ test("la hoja de estilo usa solo tokens del tema y cubre todas las paletas", asy
   const css = await readFile(new URL("./imagen-propia.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/iu, "sin colores fijos");
   for (const paleta of PALETAS_IMAGEN) assert.match(css, new RegExp(`\\.avatar-imagen\\.avatar-imagen--${paleta}[^}]*background: var\\(--portal-`, "u"));
+});
+
+test("la foto se reduce en el navegador cuando se puede y se rechaza por tipo o tamaño", async () => {
+  const fichero = (tipo, tamano) => ({ type: tipo, size: tamano, arrayBuffer: async () => new Uint8Array(tamano).buffer });
+  const sinLienzo = {};
+  const pequena = await prepararFoto(fichero("image/png", 30), sinLienzo);
+  assert.equal(pequena.tipo, "image/png");
+  assert.equal(pequena.base64, "A".repeat(40));
+  await assert.rejects(prepararFoto(fichero("image/svg+xml", 30), sinLienzo), (e) => e.codigo === "foto_no_admitida");
+  await assert.rejects(prepararFoto(fichero("image/gif", 30), sinLienzo), (e) => e.codigo === "foto_no_admitida");
+  await assert.rejects(prepararFoto(fichero("image/jpeg", TAMANO_MAXIMO_SELECCION + 1), sinLienzo), (e) => e.codigo === "foto_grande");
+  await assert.rejects(prepararFoto(fichero("image/jpeg", TAMANO_MAXIMO_ENVIO + 1), sinLienzo), (e) => e.codigo === "foto_grande");
+  const dibujos = [];
+  const conLienzo = {
+    createImageBitmap: async (_f, opciones) => ({ width: 4000, height: 3000, opciones, close() {} }),
+    OffscreenCanvas: class { constructor(w, h) { this.w = w; this.h = h; }
+      getContext() { return { fillRect() {}, drawImage: (_m, x, y, w, h) => dibujos.push([w, h]) }; }
+      async convertToBlob(o) { dibujos.push(o); return { size: 3, arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff]).buffer }; } },
+  };
+  const reducida = await prepararFoto(fichero("image/png", 9 * 1024 * 1024), conLienzo);
+  assert.equal(reducida.tipo, "image/jpeg");
+  assert.equal(reducida.base64, "/9j/");
+  assert.deepEqual(dibujos[0], [1024, 768], "lado mayor de 1024 px, sin deformar");
+  assert.deepEqual(dibujos[1], { type: "image/jpeg", quality: 0.9 });
 });

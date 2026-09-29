@@ -9,6 +9,8 @@
 .avatar-imagen.avatar-imagen--naranja, .imagen-muestra.avatar-imagen--naranja { background: var(--portal-naranja); color: var(--portal-texto-inverso); }
 .avatar-imagen.avatar-imagen--morado, .imagen-muestra.avatar-imagen--morado { background: var(--portal-morado); color: var(--portal-texto-inverso); }
 .avatar-imagen.avatar-imagen--gris, .imagen-muestra.avatar-imagen--gris { background: var(--portal-muted); color: var(--portal-texto-inverso); }
+/* Con foto no se ve el color: evita un borde de color en el recorte redondo. */
+.avatar-imagen.avatar-imagen:has(> img) { background: transparent; }
 .avatar-imagen img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .avatar-imagen-icono { width: 60%; height: 60%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .avatar-imagen--grande { display: grid; flex: 0 0 96px; width: 96px; height: 96px; place-items: center; border-radius: 50%; font-size: 2rem; font-weight: 600; }
@@ -31,7 +33,7 @@
 .imagen-aviso { margin: 0; padding: 10px 14px; border: 1px solid var(--portal-borde); border-inline-start: 4px solid var(--portal-aviso); border-radius: var(--portal-radio-lg); background: var(--portal-aviso-suave); color: var(--portal-tinta); }
 .imagen-formulario { display: grid; gap: 16px; }
 .imagen-grupo { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.imagen-grupo legend { margin-block-end: 8px; padding: 0; font-weight: 600; }
+.imagen-panel .imagen-grupo legend { margin-block-end: 8px; padding: 0; color: var(--portal-tinta); font-size: 1rem; font-weight: 600; }
 .imagen-modos, .imagen-rejilla { display: flex; flex-wrap: wrap; gap: 8px; }
 .imagen-opcion { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); cursor: pointer; }
 .imagen-opcion:has(input:checked) { border-color: var(--portal-azul-700); background: var(--portal-azul-100); box-shadow: inset 0 0 0 1px var(--portal-azul-700); }
