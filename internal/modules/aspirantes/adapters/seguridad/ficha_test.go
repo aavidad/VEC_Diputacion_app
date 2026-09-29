@@ -30,7 +30,7 @@ func clave(ref string, b byte) Clave {
 
 func clavesPrueba() ClavesAspirantes {
 	return ClavesAspirantes{
-		CifradoActivo: clave("clave:aspirantes:cifrado:v1", 1), Indice: clave("clave:aspirantes:indice:v1", 2),
+		CifradoActivo: clave("clave:aspirantes:cifrado:v1", 1), DocumentoActivo: clave("clave:aspirantes:documento:v1", 4), Indice: clave("clave:aspirantes:indice:v1", 2),
 		SemanticaActiva: clave("clave:aspirantes:huella:v1", 3),
 	}
 }
@@ -77,17 +77,17 @@ func TestRotacionRetieneYRevoca(t *testing.T) {
 	ctx := context.Background()
 	viejo, _ := a.CifrarDocumento(ctx, aspA, docA, []byte("12345678Z"))
 	rotadas := clavesPrueba()
-	rotadas.CifradoRetenidas = []Clave{rotadas.CifradoActivo}
-	rotadas.CifradoActivo = clave("clave:aspirantes:cifrado:v2", 9)
+	rotadas.DocumentoRetenidas = []Clave{rotadas.DocumentoActivo}
+	rotadas.DocumentoActivo = clave("clave:aspirantes:documento:v2", 9)
 	f.c = rotadas
 	if claro, err := a.DescifrarDocumento(ctx, aspA, docA, viejo); err != nil || string(claro) != "12345678Z" {
 		t.Fatalf("retenida %v", err)
 	}
 	nuevo, _ := a.CifrarDocumento(ctx, aspA, docA, []byte("12345678Z"))
-	if nuevo.ClaveRef != "clave:aspirantes:cifrado:v2" {
+	if nuevo.ClaveRef != "clave:aspirantes:documento:v2" {
 		t.Fatal("cifra con la activa")
 	}
-	rotadas.CifradoRetenidas[0].Revocada = true
+	rotadas.DocumentoRetenidas[0].Revocada = true
 	f.c = rotadas
 	if _, err := a.DescifrarDocumento(ctx, aspA, docA, viejo); err == nil {
 		t.Fatal("una revocada no descifra")
@@ -98,6 +98,8 @@ func TestClavesSeparadasPorFuncion(t *testing.T) {
 	ctx := context.Background()
 	malas := []func(*ClavesAspirantes){
 		func(c *ClavesAspirantes) { c.Indice.Material = c.CifradoActivo.Material },
+		func(c *ClavesAspirantes) { c.DocumentoActivo.Material = c.CifradoActivo.Material },
+		func(c *ClavesAspirantes) { c.DocumentoActivo = Clave{} },
 		func(c *ClavesAspirantes) { c.SemanticaActiva.Ref = c.Indice.Ref },
 		func(c *ClavesAspirantes) { c.CifradoActivo = Clave{} },
 		func(c *ClavesAspirantes) { c.Indice.Revocada = true },
@@ -148,4 +150,14 @@ func TestHuellaConRetenidas(t *testing.T) {
 	}
 	var _ ports.ProtectorFicha = a
 	var _ ports.SelladorHuella = a
+}
+
+func TestDocumentoYContactoConClavesDistintas(t *testing.T) {
+	a, _ := NuevoAdaptador(&fuentePrueba{c: clavesPrueba()})
+	ctx := context.Background()
+	d, _ := a.CifrarDocumento(ctx, aspA, docA, []byte("12345678Z"))
+	v, _ := a.CifrarValor(ctx, aspA, domain.CampoTelefono, 1, []byte("958123456"))
+	if d.ClaveRef == v.ClaveRef || d.ClaveRef != "clave:aspirantes:documento:v1" {
+		t.Fatalf("claves %s %s", d.ClaveRef, v.ClaveRef)
+	}
 }

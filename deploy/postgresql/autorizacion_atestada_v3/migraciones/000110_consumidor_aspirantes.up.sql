@@ -51,7 +51,7 @@ $post$;
 BEGIN
  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
- SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.objsubid,d.deptype),'[]'::jsonb)
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog','lock_timeout=2s']
@@ -66,7 +66,7 @@ BEGIN
   extension:=extension||format(E'           OR (\n p_perfil_mutacion IS NOT DISTINCT FROM %L\n AND c->>''audiencia_consumo'' IS NOT DISTINCT FROM %L\n AND d #>> ''{vinculo_autenticacion_actor,superficie}'' IS NOT DISTINCT FROM ''externa_personal''\n AND c->>''operacion'' IS NOT DISTINCT FROM %L\n AND d->>''accion'' IS NOT DISTINCT FROM c->>''operacion''\n AND d->>''modulo_id'' IS NOT DISTINCT FROM ''aspirantes''\n AND d->>''tipo_recurso'' IS NOT DISTINCT FROM ''ficha_aspirante_propia''\n AND d->>''finalidad'' IS NOT DISTINCT FROM ''finalidad:aspirantes:ficha-propia:v1''\n AND d->>''recurso_ref'' IS NOT DISTINCT FROM c->>''efecto_ref''\n AND d->>''contexto_recurso_huella_sha256'' IS NOT DISTINCT FROM c->>''huella_efecto_sha256''\n AND d->''campos_permitidos'' IS NOT DISTINCT FROM %L::jsonb\n AND d->''obligaciones'' IS NOT DISTINCT FROM ''[]''::jsonb)\n',
    'aspirantes_ficha_'||a,'vec_aspirantes.ficha.'||a||'.externa_personal.v1','vec.aspirantes.ficha.'||a,
    CASE a WHEN 'rectificar' THEN '["codigo_postal","domicilio","movil","telefono","version"]'
-    ELSE '["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]' END);
+    ELSE '["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]' END);
  END LOOP;
  nuevo:=replace(original,excl,excl_nuevo);
  nuevo:=replace(nuevo,guarda,guarda_nueva);
@@ -81,7 +81,7 @@ BEGIN
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
-    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.objsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
  THEN RAISE EXCEPTION 'AD3-110: núcleo alterado fuera de contrato' USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
@@ -118,8 +118,8 @@ BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-110: material inválido' USING ERRCODE='22023'; END;
  SELECT q.segmento,q.campos INTO segmento,campos FROM (VALUES
- ('vec.aspirantes.ficha.consultar','consultar','["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]'::jsonb),
- ('vec.aspirantes.ficha.alta','alta','["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]'::jsonb),
+ ('vec.aspirantes.ficha.consultar','consultar','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
+ ('vec.aspirantes.ficha.alta','alta','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
  ('vec.aspirantes.ficha.rectificar','rectificar','["codigo_postal","domicilio","movil","telefono","version"]'::jsonb)
  ) q(accion,segmento,campos) WHERE q.accion=p_accion;
  IF segmento IS NULL

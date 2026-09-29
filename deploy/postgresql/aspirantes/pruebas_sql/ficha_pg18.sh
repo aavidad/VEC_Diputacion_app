@@ -89,7 +89,7 @@ BEGIN
   RAISE EXCEPTION 'segunda ficha con el mismo documento';
  EXCEPTION WHEN SQLSTATE 'P1411' THEN NULL; END;
  g:=public.probar_ficha('vec.aspirantes.ficha.consultar',0,'','$I1');
- IF g->>'estado'<>'activa' OR g->>'aspirante_ref'<>'$A1' OR (g->>'version')::int<>1 OR jsonb_array_length(g->'valores')<>4
+ IF g->>'estado'<>'activa' OR g->>'aspirante_ref'<>'$A1' OR (g->>'version')::int<>1 OR jsonb_array_length(g->'valores')<>3
     OR g->'documento'->>'tipo'<>'dni' OR g->'documento'->'sobre'->>'cifrado_hex'<>repeat('bb',25)
     OR g->'documento'->'indice'->>'valor'<>'$I1' OR g->>'acceso_ref' !~ '^aspacc_[0-9a-f]{32}$'
  THEN RAISE EXCEPTION 'consulta con ficha %',g; END IF;
@@ -138,7 +138,7 @@ BEGIN
  BEGIN
   PERFORM public.probar_ficha('vec.aspirantes.ficha.alta',0,'alta-karim-00000001','$I2',
    public.ficha_prueba('$A2','$D2','$I2')#-'{valores,1}',false,'','per_ZYXWVUTSRQPONMLKJIHGFE');
-  RAISE EXCEPTION 'alta sin primer apellido';
+  RAISE EXCEPTION 'alta sin apellidos';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  BEGIN
   PERFORM public.probar_ficha('vec.aspirantes.ficha.alta',0,'alta-karim-00000002','$I2',
@@ -147,7 +147,7 @@ BEGIN
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  BEGIN
   PERFORM public.probar_ficha('vec.aspirantes.ficha.alta',0,'alta-karim-00000003','$I2',
-   jsonb_set(public.ficha_prueba('$A2','$D2','$I2'),'{valores,3,campo}','"discapacidad"'),false,'','per_ZYXWVUTSRQPONMLKJIHGFE');
+   jsonb_set(public.ficha_prueba('$A2','$D2','$I2'),'{valores,2,campo}','"discapacidad"'),false,'','per_ZYXWVUTSRQPONMLKJIHGFE');
   RAISE EXCEPTION 'campo de categoría especial admitido';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  BEGIN
@@ -158,7 +158,7 @@ BEGIN
  r:=public.probar_ficha('vec.aspirantes.ficha.alta',0,'alta-karim-00000005','$I2',
    jsonb_set(jsonb_set(public.ficha_prueba('$A2','$D2','$I2'),'{documento,tipo}','"nie"'),'{valores}',(public.ficha_prueba('$A2','$D2','$I2')->'valores')-2),
    false,'','per_ZYXWVUTSRQPONMLKJIHGFE');
- IF (r->>'version')::int<>1 THEN RAISE EXCEPTION 'alta con un solo apellido %',r; END IF;
+ IF (r->>'version')::int<>1 THEN RAISE EXCEPTION 'alta con NIE y sin contacto %',r; END IF;
 END \$prueba\$;
 COMMIT;
 SQL
@@ -169,9 +169,10 @@ DO \$prueba\$ DECLARE n int; BEGIN
  IF (SELECT count(*) FROM vec_aspirantes.ficha)<>2 OR (SELECT count(*) FROM vec_aspirantes.historia)<>5
     OR (SELECT count(*) FROM vec_aspirantes.recibo)<>5 OR (SELECT count(*) FROM vec_aspirantes.evento_salida)<>5
     OR (SELECT count(*) FROM vec_aspirantes.acceso)<>2 OR (SELECT count(*) FROM vec_aspirantes.contexto)<>0
-    OR (SELECT count(*) FROM vec_aspirantes.valor WHERE aspirante_ref='$A1')<>7
+    OR (SELECT clave_indice_ref FROM vec_aspirantes.clave_indice)<>'clave:prueba:indice:v1'
+    OR (SELECT count(*) FROM vec_aspirantes.valor WHERE aspirante_ref='$A1')<>6
     OR (SELECT motivo FROM vec_aspirantes.historia WHERE aspirante_ref='$A1' AND version=3)<>'correccion_de_error'
-    OR (SELECT campos FROM vec_aspirantes.acceso ORDER BY ocurrido_en DESC LIMIT 1)<>ARRAY['documento','nombre','primer_apellido','segundo_apellido','telefono']
+    OR (SELECT campos FROM vec_aspirantes.acceso ORDER BY ocurrido_en DESC LIMIT 1)<>ARRAY['documento','apellidos','nombre','telefono']
  THEN RAISE EXCEPTION 'recuento'; END IF;
  BEGIN UPDATE vec_aspirantes.valor SET estado='retirado',clave_ref=NULL,nonce=NULL,cifrado=NULL WHERE aspirante_ref='$A1' AND campo='telefono' AND version=1;
   RAISE EXCEPTION 'valor modificado'; EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
@@ -183,6 +184,21 @@ DO \$prueba\$ DECLARE n int; BEGIN
 END \$prueba\$;
 SQL
 
+# Preparar sin aplicar no puede confirmarse: el marcador abierto lo impide.
+salida=$(psql_como vec_aspirantes_prueba_externa <<SQL 2>&1 || true
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SELECT public.probar_ficha('vec.aspirantes.ficha.rectificar',4,'rect-lucia-00000010','$I1');
+COMMIT;
+SQL
+)
+grep -q 'operación sin cerrar' <<<"$salida" || { echo "marcador abierto confirmado: $salida"; exit 1; }
+# Otra clave de índice (rotación sin reindexar) cierra consulta y alta.
+salida=$(psql_como vec_aspirantes_prueba_externa <<SQL 2>&1 || true
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SELECT public.probar_ficha('vec.aspirantes.ficha.consultar',0,'','$I1',NULL,false,'','per_ABCDEFGHIJKLMNOPQRSTUV',NULL,'indice-v2');
+SQL
+)
+grep -q 'reindexado pendiente' <<<"$salida" || { echo "clave de índice rotada: $salida"; exit 1; }
 # Un LOGIN con otra membresía vec_ no pasa; tampoco fuera de SERIALIZABLE.
 salida=$(psql_como vec_aspirantes_prueba_cruzada -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_ficha('vec.aspirantes.ficha.consultar',0,'','$I1');" 2>&1 || true)
 grep -q 'denegado' <<<"$salida" || { echo "sesión cruzada: $salida"; exit 1; }

@@ -50,7 +50,7 @@ func TestFichaPropiaPG18DeExtremoAExtremo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	orden := ordenPG(t, "Antonio", "Reyes", "Álvarez", "48123456G")
+	orden := ordenPG(t, "Antonio", "Reyes Álvarez", "48123456G")
 
 	v, err := servicio.Consultar(ctx, orden)
 	if err != nil || v.Estado != application.EstadoSinFicha || v.Identidad.Documento != "***2345**" {
@@ -68,7 +68,7 @@ func TestFichaPropiaPG18DeExtremoAExtremo(t *testing.T) {
 		t.Fatalf("segunda alta: %v", err)
 	}
 	v, err = servicio.Consultar(ctx, orden)
-	if err != nil || v.Estado != application.EstadoActiva || v.Version != 1 || v.Identidad.Nombre != "Antonio" || v.Identidad.SegundoApellido != "Álvarez" ||
+	if err != nil || v.Estado != application.EstadoActiva || v.Version != 1 || v.Identidad.Nombre != "Antonio" || v.Identidad.Apellidos != "Reyes Álvarez" ||
 		v.Contacto["telefono"] != "958123456" || v.Contacto["domicilio"] != "Calle Recogidas, 12, 3.º B" || !v.CatalogoEjemplo {
 		t.Fatalf("consulta %+v %v", v, err)
 	}
@@ -87,7 +87,7 @@ func TestFichaPropiaPG18DeExtremoAExtremo(t *testing.T) {
 		t.Fatalf("consulta final %+v %v", v.Contacto, err)
 	}
 	// Otra persona, con NIE, no ve la ficha de Antonio y crea la suya.
-	otra := ordenPG(t, "Karim", "Benali", "", "X1234567L")
+	otra := ordenPG(t, "Karim", "Benali", "X1234567L")
 	v, err = servicio.Consultar(ctx, otra)
 	if err != nil || v.Estado != application.EstadoSinFicha || v.Identidad.TipoDocumento != "nie" {
 		t.Fatalf("otra persona %+v %v", v, err)
@@ -104,7 +104,7 @@ func (fuenteClavesPG) CargarClavesAspirantes(context.Context) (seguridad.ClavesA
 		}
 		return seguridad.Clave{Ref: ref, Material: m}
 	}
-	return seguridad.ClavesAspirantes{CifradoActivo: clave("clave:prueba:cifrado:v1", 1), Indice: clave("clave:prueba:indice:v1", 2), SemanticaActiva: clave("clave:prueba:huella:v1", 3)}, nil
+	return seguridad.ClavesAspirantes{CifradoActivo: clave("clave:prueba:cifrado:v1", 1), DocumentoActivo: clave("clave:prueba:documento:v1", 4), Indice: clave("clave:prueba:indice:v1", 2), SemanticaActiva: clave("clave:prueba:huella:v1", 3)}, nil
 }
 
 type catalogoPG struct{ e ports.ExigenciasContacto }

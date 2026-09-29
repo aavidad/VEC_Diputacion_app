@@ -56,7 +56,7 @@ CREATE TABLE vec_aspirantes.ficha (
 -- versión. Retirar un dato de contacto añade una fila sin sobre.
 CREATE TABLE vec_aspirantes.valor (
  aspirante_ref text NOT NULL REFERENCES vec_aspirantes.ficha(aspirante_ref),
- campo text NOT NULL CHECK(campo IN ('nombre','primer_apellido','segundo_apellido','telefono','movil','domicilio','codigo_postal')),
+ campo text NOT NULL CHECK(campo IN ('nombre','apellidos','telefono','movil','domicilio','codigo_postal')),
  version bigint NOT NULL CHECK(version>0),
  estado text NOT NULL CHECK(estado IN ('presente','retirado')),
  origen text NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE vec_aspirantes.valor (
  cifrado bytea,
  registrado_en timestamptz(6) NOT NULL,
  PRIMARY KEY(aspirante_ref,campo,version),
- CHECK((campo IN ('nombre','primer_apellido','segundo_apellido') AND origen='certificado' AND estado='presente')
+ CHECK((campo IN ('nombre','apellidos') AND origen='certificado' AND estado='presente')
     OR (campo IN ('telefono','movil','domicilio','codigo_postal') AND origen='titular')),
  CHECK((estado='presente' AND clave_ref ~ '^[A-Za-z0-9:._-]{1,128}$' AND octet_length(nonce)=12 AND octet_length(cifrado) BETWEEN 17 AND 1040)
     OR (estado='retirado' AND clave_ref IS NULL AND nonce IS NULL AND cifrado IS NULL))
@@ -104,8 +104,8 @@ CREATE TABLE vec_aspirantes.historia (
  version bigint NOT NULL CHECK(version>0),
  accion text NOT NULL CHECK(accion IN ('vec.aspirantes.ficha.alta','vec.aspirantes.ficha.rectificar')),
  motivo text NOT NULL CHECK(motivo IN ('alta_titular','dato_nuevo','cambio_de_dato','correccion_de_error')),
- campos text[] NOT NULL CHECK(cardinality(campos) BETWEEN 1 AND 8
-  AND campos <@ ARRAY['documento','nombre','primer_apellido','segundo_apellido','telefono','movil','domicilio','codigo_postal']),
+ campos text[] NOT NULL CHECK(cardinality(campos) BETWEEN 1 AND 7
+  AND campos <@ ARRAY['documento','nombre','apellidos','telefono','movil','domicilio','codigo_postal']),
  catalogo_ref text NOT NULL CHECK(catalogo_ref ~ '^[A-Za-z0-9:._-]{1,128}$'),
  recibo_ref text NOT NULL UNIQUE,
  decision_ref text NOT NULL,
@@ -139,8 +139,8 @@ CREATE TABLE vec_aspirantes.acceso (
  aspirante_ref text NOT NULL REFERENCES vec_aspirantes.ficha(aspirante_ref),
  finalidad text NOT NULL CHECK(finalidad='consulta_propia'),
  actor_tipo text NOT NULL CHECK(actor_tipo='titular'),
- campos text[] NOT NULL CHECK(cardinality(campos) BETWEEN 1 AND 8
-  AND campos <@ ARRAY['documento','nombre','primer_apellido','segundo_apellido','telefono','movil','domicilio','codigo_postal']),
+ campos text[] NOT NULL CHECK(cardinality(campos) BETWEEN 1 AND 7
+  AND campos <@ ARRAY['documento','nombre','apellidos','telefono','movil','domicilio','codigo_postal']),
  resultado text NOT NULL CHECK(resultado='entregado'),
  decision_ref text NOT NULL,
  auditoria_ref text NOT NULL,
@@ -157,6 +157,14 @@ CREATE TABLE vec_aspirantes.evento_salida (
  estado text NOT NULL CHECK(estado='pendiente'),
  creado_en timestamptz(6) NOT NULL,
  UNIQUE(aspirante_ref,version)
+);
+-- Clave del índice ciego en uso. La primera alta la fija; una clave distinta
+-- (rotación sin reindexar) cierra todas las operaciones con 55000: si no,
+-- tras rotar, la misma persona obtendría «sin ficha» y podría crear otra.
+CREATE TABLE vec_aspirantes.clave_indice (
+ unica boolean PRIMARY KEY DEFAULT true CHECK(unica),
+ clave_indice_ref text NOT NULL CHECK(clave_indice_ref ~ '^[A-Za-z0-9:._-]{1,128}$'),
+ fijada_en timestamptz(6) NOT NULL
 );
 -- Marcador de la transacción autorizada. Se crea tras consumir V3 y se
 -- retira antes de devolver; un ROLLBACK lo deshace.
@@ -178,8 +186,20 @@ CREATE TABLE vec_aspirantes.contexto (
  consumo_huella_sha256 text NOT NULL,
  PRIMARY KEY(xid,backend_pid,sesion)
 );
+-- Un marcador nunca sobrevive a su transacción: si al confirmar queda uno
+-- (p. ej. preparar sin aplicar), la confirmación falla y todo se deshace.
+CREATE FUNCTION vec_aspirantes.contexto_cerrado()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+BEGIN
+ IF EXISTS(SELECT 1 FROM vec_aspirantes.contexto c WHERE c.xid=NEW.xid AND c.backend_pid=NEW.backend_pid AND c.sesion=NEW.sesion)
+ THEN RAISE EXCEPTION 'Aspirantes: operación sin cerrar' USING ERRCODE='42501'; END IF;
+ RETURN NULL;
+END $f$;
+REVOKE ALL ON FUNCTION vec_aspirantes.contexto_cerrado() FROM PUBLIC,vec_aspirantes_ejecutor_externo;
+CREATE CONSTRAINT TRIGGER contexto_sin_cerrar AFTER INSERT ON vec_aspirantes.contexto
+ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vec_aspirantes.contexto_cerrado();
 DO $rls$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['ficha','valor','documento','indice_documento','historia','recibo','acceso','evento_salida','contexto'] LOOP
+ FOREACH t IN ARRAY ARRAY['ficha','valor','documento','indice_documento','historia','recibo','acceso','evento_salida','contexto','clave_indice'] LOOP
   EXECUTE format('ALTER TABLE vec_aspirantes.%I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('ALTER TABLE vec_aspirantes.%I FORCE ROW LEVEL SECURITY',t);
   EXECUTE format('REVOKE ALL ON TABLE vec_aspirantes.%I FROM PUBLIC,vec_aspirantes_ejecutor_externo',t);
@@ -189,7 +209,7 @@ GRANT USAGE ON SCHEMA vec_aspirantes TO vec_aspirantes_ejecutor_externo;
 
 -- Filas inmutables: historia, sobres, índices, recibos, accesos y eventos.
 DO $inmutable$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['valor','documento','indice_documento','historia','recibo','acceso','evento_salida'] LOOP
+ FOREACH t IN ARRAY ARRAY['valor','documento','indice_documento','historia','recibo','acceso','evento_salida','clave_indice'] LOOP
   EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE OR DELETE ON vec_aspirantes.%I FOR EACH ROW EXECUTE FUNCTION vec_aspirantes.rechazar_cambio_inmutable()',t||'_inmutable',t);
   EXECUTE format('CREATE TRIGGER %I BEFORE TRUNCATE ON vec_aspirantes.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_aspirantes.rechazar_cambio_inmutable()',t||'_no_truncar',t);
  END LOOP;
@@ -224,8 +244,12 @@ RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalo
 $f$;
 REVOKE ALL ON FUNCTION vec_aspirantes.contexto_permite_indice(text,bytea,text[]) FROM PUBLIC,vec_aspirantes_ejecutor_externo;
 CREATE POLICY contexto_propio ON vec_aspirantes.contexto FOR ALL TO vec_aspirantes_propietario
- USING (backend_pid=pg_backend_pid() AND sesion=session_user)
+ USING (xid=pg_current_xact_id_if_assigned() AND backend_pid=pg_backend_pid() AND sesion=session_user)
  WITH CHECK (xid=pg_current_xact_id_if_assigned() AND backend_pid=pg_backend_pid() AND sesion=session_user AND vec_aspirantes.sesion_valida());
+CREATE POLICY clave_indice_lectura ON vec_aspirantes.clave_indice FOR SELECT TO vec_aspirantes_propietario USING (vec_aspirantes.sesion_valida());
+CREATE POLICY clave_indice_alta ON vec_aspirantes.clave_indice FOR INSERT TO vec_aspirantes_propietario
+ WITH CHECK (vec_aspirantes.sesion_valida() AND EXISTS(SELECT 1 FROM vec_aspirantes.contexto c WHERE c.xid=pg_current_xact_id_if_assigned()
+  AND c.backend_pid=pg_backend_pid() AND c.sesion=session_user AND c.modo='alta' AND c.indice_clave_ref=clave_indice_ref));
 CREATE POLICY indice_lectura ON vec_aspirantes.indice_documento FOR SELECT TO vec_aspirantes_propietario
  USING (vec_aspirantes.contexto_permite_indice(clave_indice_ref,indice,ARRAY['consultar','alta','rectificar']));
 CREATE POLICY indice_alta ON vec_aspirantes.indice_documento FOR INSERT TO vec_aspirantes_propietario
@@ -278,8 +302,8 @@ BEGIN
  SELECT array_agg(x ORDER BY x) INTO k FROM jsonb_object_keys(m) x;
  v_accion:=m->>'accion';
  SELECT q.segmento,q.campos INTO segmento,campos FROM (VALUES
- ('vec.aspirantes.ficha.consultar','consultar','["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]'::jsonb),
- ('vec.aspirantes.ficha.alta','alta','["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]'::jsonb),
+ ('vec.aspirantes.ficha.consultar','consultar','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
+ ('vec.aspirantes.ficha.alta','alta','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
  ('vec.aspirantes.ficha.rectificar','rectificar','["codigo_postal","domicilio","movil","telefono","version"]'::jsonb)
  ) q(accion,segmento,campos) WHERE q.accion=v_accion;
  h:=vec_aspirantes.huella_contexto(p_material);
@@ -367,6 +391,8 @@ BEGIN
     OR x.huella_efecto_sha256 IS DISTINCT FROM vec_aspirantes.huella_contexto(p_material)
     OR x.consumo_huella_sha256 !~ '^[0-9a-f]{64}$' OR x.auditoria_ref IS NULL
  THEN RAISE EXCEPTION 'Aspirantes: consumo divergente' USING ERRCODE='42501'; END IF;
+ IF EXISTS(SELECT 1 FROM vec_aspirantes.clave_indice k WHERE k.clave_indice_ref IS DISTINCT FROM m#>>'{indice_documento,clave_ref}')
+ THEN RAISE EXCEPTION 'Aspirantes: clave del índice distinta de la fijada; reindexado pendiente' USING ERRCODE='55000'; END IF;
  xid_actual:=pg_current_xact_id();
  IF EXISTS(SELECT 1 FROM vec_aspirantes.contexto WHERE xid=xid_actual AND backend_pid=pg_backend_pid() AND sesion=session_user)
  THEN RAISE EXCEPTION 'Aspirantes: contexto ya activo' USING ERRCODE='42501'; END IF;
@@ -460,7 +486,8 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_aspirantes.registrar_recibo(vec_aspirantes.contexto,text,bigint,text,text[],text,text,timestamptz) FROM PUBLIC,vec_aspirantes_ejecutor_externo;
 
 -- Vista de la finalidad «consulta propia»: el titular recibe su ficha y la
--- lectura queda anotada. Sin ficha no se anota nada: no se leyó nada.
+-- lectura queda anotada. «entregado» significa entregado al portal, que
+-- descifra después. Sin ficha no se anota nada: no se leyó nada.
 CREATE FUNCTION vec_aspirantes.consultar_ficha_propia_v1(
  p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
  p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
@@ -512,6 +539,11 @@ DECLARE m jsonb; c vec_aspirantes.contexto; existente text; asp text; r jsonb; d
 BEGIN
  m:=vec_aspirantes.consumir_contexto(p_material,p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz,'alta');
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_aspirantes:clave_indice',0));
+ INSERT INTO vec_aspirantes.clave_indice(unica,clave_indice_ref,fijada_en)
+ VALUES(true,m#>>'{indice_documento,clave_ref}',date_trunc('microseconds',clock_timestamp())) ON CONFLICT (unica) DO NOTHING;
+ IF (SELECT clave_indice_ref FROM vec_aspirantes.clave_indice) IS DISTINCT FROM m#>>'{indice_documento,clave_ref}'
+ THEN RAISE EXCEPTION 'Aspirantes: clave del índice distinta de la fijada' USING ERRCODE='55000'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_aspirantes:indice:'||(m#>>'{indice_documento,clave_ref}')||':'||(m#>>'{indice_documento,valor}'),0));
  existente:=vec_aspirantes.fijar_ficha_por_indice();
  IF existente IS NOT NULL THEN
@@ -536,20 +568,20 @@ BEGIN
          OR (doc->>'tipo'='otro' AND doc->>'pais' ~ '^[A-Z]{2}$' AND doc->>'pais'<>'ES'))
     OR doc->>'clave_ref'=m#>>'{indice_documento,clave_ref}'
     OR jsonb_typeof(p_ficha->'valores') IS DISTINCT FROM 'array'
-    OR jsonb_array_length(p_ficha->'valores') NOT BETWEEN 2 AND 7
+    OR jsonb_array_length(p_ficha->'valores') NOT BETWEEN 2 AND 6
  THEN RAISE EXCEPTION 'Aspirantes: ficha inválida' USING ERRCODE='22023'; END IF;
  FOR v IN SELECT value FROM jsonb_array_elements(p_ficha->'valores') LOOP
   IF jsonb_typeof(v) IS DISTINCT FROM 'object'
      OR (SELECT array_agg(x ORDER BY x) FROM jsonb_object_keys(v) x) IS DISTINCT FROM ARRAY['campo','cifrado_hex','clave_ref','nonce_hex','origen','version']
      OR jsonb_typeof(v->'campo') IS DISTINCT FROM 'string' OR jsonb_typeof(v->'origen') IS DISTINCT FROM 'string'
-     OR NOT ((v->>'campo' IN ('nombre','primer_apellido','segundo_apellido') AND v->>'origen'='certificado')
+     OR NOT ((v->>'campo' IN ('nombre','apellidos') AND v->>'origen'='certificado')
           OR (v->>'campo' IN ('telefono','movil','domicilio','codigo_postal') AND v->>'origen'='titular'))
      OR v->'version' IS DISTINCT FROM '1'::jsonb OR NOT vec_aspirantes.sobre_valido(v,1040)
   THEN RAISE EXCEPTION 'Aspirantes: valor inválido' USING ERRCODE='22023'; END IF;
  END LOOP;
  SELECT array_agg(value->>'campo' ORDER BY value->>'campo') INTO campos FROM jsonb_array_elements(p_ficha->'valores');
  IF (SELECT count(DISTINCT x) FROM unnest(campos) x)<>cardinality(campos)
-    OR NOT campos @> ARRAY['nombre','primer_apellido']
+    OR NOT campos @> ARRAY['nombre','apellidos']
  THEN RAISE EXCEPTION 'Aspirantes: valores incompletos o repetidos' USING ERRCODE='22023'; END IF;
  asp:=p_ficha->>'aspirante_ref';
  UPDATE vec_aspirantes.contexto SET aspirante_ref=asp WHERE xid=pg_current_xact_id_if_assigned()

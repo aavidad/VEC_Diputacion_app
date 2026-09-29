@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -22,6 +23,8 @@ import (
 	"vec-diputacion-granada/internal/modules/aspirantes/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+var patronAcceso = regexp.MustCompile(`^aspacc_[0-9a-f]{32}$`)
 
 // RolEjecutor es el único rol que puede ejecutar las fachadas.
 const RolEjecutor = "vec_aspirantes_ejecutor_externo"
@@ -50,8 +53,8 @@ const acreditarEjecutorSQL = `SELECT session_user=current_user
  AND pg_catalog.has_function_privilege(session_user,'vec_aspirantes.alta_ficha_propia_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND pg_catalog.has_function_privilege(session_user,'vec_aspirantes.preparar_rectificacion_ficha_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  AND pg_catalog.has_function_privilege(session_user,'vec_aspirantes.aplicar_rectificacion_ficha_v1(jsonb)','EXECUTE')
- AND NOT pg_catalog.has_table_privilege(session_user,'vec_aspirantes.valor','SELECT')
- AND NOT pg_catalog.has_table_privilege(session_user,'vec_aspirantes.acceso','SELECT')
+ AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class c WHERE c.relnamespace='vec_aspirantes'::regnamespace AND c.relkind='r'
+   AND pg_catalog.has_table_privilege(session_user,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
  FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname=$1::text
  WHERE l.rolname=session_user`
 
@@ -220,11 +223,14 @@ func (r *RegistroFichasPostgreSQL) ejecutar(ctx context.Context, cuerpo func(tra
 	}
 	defer tx.Rollback(context.Background())
 	if err := cuerpo(tx); err != nil {
-		var pg *pgconn.PgError
-		if errors.As(err, &pg) || errors.Is(err, pgx.ErrNoRows) {
-			return errorSeguro(ctx, err)
+		// Solo salen los errores nominales del módulo; el resto (PostgreSQL,
+		// red, lectura del resultado) se reduce sin detalle.
+		for _, e := range []error{ports.ErrNoAutenticado, ports.ErrProhibido, ports.ErrInvalida, ports.ErrConflicto, ports.ErrFichaExistente, ports.ErrSinFicha, ports.ErrNoDisponible} {
+			if errors.Is(err, e) {
+				return e
+			}
 		}
-		return err
+		return errorSeguro(ctx, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return errorSeguro(ctx, err)
@@ -289,7 +295,8 @@ func (r *RegistroFichasPostgreSQL) ConsultarPropia(ctx context.Context, orden po
 	if f.Estado == "sin_ficha" && f.AspiranteRef == "" && f.Documento == nil && f.Valores == nil {
 		return ports.FichaCifrada{}, false, nil
 	}
-	if f.Estado != "activa" || f.Documento == nil || f.Version == 0 || f.Version > math.MaxInt64 || len(f.Valores) == 0 || len(f.Valores) > 7 {
+	if f.Estado != "activa" || f.Documento == nil || f.Version == 0 || f.Version > math.MaxInt64 || len(f.Valores) == 0 || len(f.Valores) > 6 ||
+		!patronAcceso.MatchString(f.AccesoRef) {
 		return ports.FichaCifrada{}, false, ports.ErrNoDisponible
 	}
 	sobreDoc, err := f.Documento.Sobre.decodificar(46)

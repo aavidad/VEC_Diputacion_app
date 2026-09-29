@@ -37,11 +37,14 @@ type Clave struct {
 	Revocada bool
 }
 
-// ClavesAspirantes separa funciones: cifrar, indexar y sellar peticiones
-// nunca comparten clave. Rotar el índice exige reindexar antes de abrir altas.
+// ClavesAspirantes separa funciones y categorías: el contacto, el número de
+// documento, el índice y las peticiones nunca comparten clave. Rotar el índice
+// exige reindexar: SQL cierra las operaciones con una clave distinta.
 type ClavesAspirantes struct {
 	CifradoActivo      Clave
 	CifradoRetenidas   []Clave
+	DocumentoActivo    Clave
+	DocumentoRetenidas []Clave
 	Indice             Clave
 	SemanticaActiva    Clave
 	SemanticaRetenidas []Clave
@@ -83,13 +86,13 @@ func (a *Adaptador) cargar(ctx context.Context) (ClavesAspirantes, error) {
 		return ClavesAspirantes{}, ErrCriptoNoDisponible
 	}
 	c, err := a.fuente.CargarClavesAspirantes(ctx)
-	if err != nil || !claveUsable(c.CifradoActivo) || !claveUsable(c.Indice) || !claveUsable(c.SemanticaActiva) ||
-		len(c.CifradoRetenidas) > 8 || len(c.SemanticaRetenidas) > 8 {
+	if err != nil || !claveUsable(c.CifradoActivo) || !claveUsable(c.DocumentoActivo) || !claveUsable(c.Indice) || !claveUsable(c.SemanticaActiva) ||
+		len(c.CifradoRetenidas) > 8 || len(c.DocumentoRetenidas) > 8 || len(c.SemanticaRetenidas) > 8 {
 		return ClavesAspirantes{}, ErrCriptoNoDisponible
 	}
 	refs := map[string]bool{}
 	materiales := map[[32]byte]bool{}
-	todas := append(append([]Clave{c.CifradoActivo, c.Indice, c.SemanticaActiva}, c.CifradoRetenidas...), c.SemanticaRetenidas...)
+	todas := append(append(append([]Clave{c.CifradoActivo, c.DocumentoActivo, c.Indice, c.SemanticaActiva}, c.CifradoRetenidas...), c.DocumentoRetenidas...), c.SemanticaRetenidas...)
 	for _, k := range todas {
 		if !refValida(k.Ref) || k.Material == [32]byte{} || refs[k.Ref] || materiales[k.Material] {
 			return ClavesAspirantes{}, ErrCriptoNoDisponible
@@ -126,12 +129,12 @@ func (a *Adaptador) cifrar(k Clave, aad, claro []byte) (ports.SobreCifrado, erro
 	return ports.SobreCifrado{ClaveRef: k.Ref, Nonce: nonce, Cifrado: gcm.Seal(nil, nonce, claro, aad)}, nil
 }
 
-func descifrar(claves ClavesAspirantes, s ports.SobreCifrado, aad func(string) []byte) ([]byte, error) {
+func descifrar(candidatas []Clave, s ports.SobreCifrado, aad func(string) []byte) ([]byte, error) {
 	if len(s.Nonce) != largoNonce || len(s.Cifrado) <= largoEtiqueta || len(s.Cifrado) > MaximoClaro+largoEtiqueta {
 		return nil, ErrCriptoNoDisponible
 	}
 	var k Clave
-	for _, c := range append([]Clave{claves.CifradoActivo}, claves.CifradoRetenidas...) {
+	for _, c := range candidatas {
 		if c.Ref == s.ClaveRef {
 			k = c
 			break
@@ -174,7 +177,7 @@ func (a *Adaptador) DescifrarValor(ctx context.Context, asp string, campo domain
 	if err != nil {
 		return nil, err
 	}
-	return descifrar(c, s, func(ref string) []byte { return aadValor(ref, asp, campo, version) })
+	return descifrar(append([]Clave{c.CifradoActivo}, c.CifradoRetenidas...), s, func(ref string) []byte { return aadValor(ref, asp, campo, version) })
 }
 
 func (a *Adaptador) CifrarDocumento(ctx context.Context, asp, doc string, claro []byte) (ports.SobreCifrado, error) {
@@ -185,7 +188,7 @@ func (a *Adaptador) CifrarDocumento(ctx context.Context, asp, doc string, claro 
 	if err != nil {
 		return ports.SobreCifrado{}, err
 	}
-	return a.cifrar(c.CifradoActivo, aadDocumento(c.CifradoActivo.Ref, asp, doc), claro)
+	return a.cifrar(c.DocumentoActivo, aadDocumento(c.DocumentoActivo.Ref, asp, doc), claro)
 }
 
 func (a *Adaptador) DescifrarDocumento(ctx context.Context, asp, doc string, s ports.SobreCifrado) ([]byte, error) {
@@ -196,7 +199,7 @@ func (a *Adaptador) DescifrarDocumento(ctx context.Context, asp, doc string, s p
 	if err != nil {
 		return nil, err
 	}
-	return descifrar(c, s, func(ref string) []byte { return aadDocumento(ref, asp, doc) })
+	return descifrar(append([]Clave{c.DocumentoActivo}, c.DocumentoRetenidas...), s, func(ref string) []byte { return aadDocumento(ref, asp, doc) })
 }
 
 // IndiceDocumento es HMAC-SHA256 con clave propia sobre tipo, país y número

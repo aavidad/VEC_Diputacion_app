@@ -62,7 +62,7 @@ func sesionPG(t *testing.T, superficie vecdomain.SuperficieAutenticacionActorV1,
 	return actor, v
 }
 
-func ordenPG(t *testing.T, nombre, primer, segundo, dni string) ports.OrdenFicha {
+func ordenPG(t *testing.T, nombre, apellidos, dni string) ports.OrdenFicha {
 	t.Helper()
 	tipo := domain.DocumentoDNI
 	if strings.ContainsAny(dni[:1], "XYZ") {
@@ -72,7 +72,7 @@ func ordenPG(t *testing.T, nombre, primer, segundo, dni string) ports.OrdenFicha
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := domain.NuevaIdentidadAcreditada(nombre, primer, segundo, doc)
+	id, err := domain.NuevaIdentidadAcreditada(nombre, apellidos, doc)
 	if err != nil {
 		t.Fatal(err)
 	}

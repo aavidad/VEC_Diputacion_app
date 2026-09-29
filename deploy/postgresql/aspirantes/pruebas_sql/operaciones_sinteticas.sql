@@ -4,14 +4,14 @@
 -- LOGIN que ejecuta la prueba (SECURITY INVOKER). No acredita COSE ni KMS.
 CREATE FUNCTION public.probar_ficha(p_accion text,p_version bigint,p_clave text,p_indice text,
  p_extra jsonb DEFAULT NULL,p_falsa boolean DEFAULT false,p_semantica text DEFAULT '',
- p_persona text DEFAULT 'per_ABCDEFGHIJKLMNOPQRSTUV',p_audiencia text DEFAULT NULL)
+ p_persona text DEFAULT 'per_ABCDEFGHIJKLMNOPQRSTUV',p_audiencia text DEFAULT NULL,p_clave_indice text DEFAULT 'clave:prueba:indice:v1')
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $f$
 DECLARE perfil constant text:='prf_ABCDEFGHIJKLMNOPQRSTUV';
  segmento text; campos jsonb; m jsonb; material text; h text; c bytea; d bytea; carga bytea; r jsonb;
 BEGIN
  SELECT x.segmento,x.campos INTO segmento,campos FROM (VALUES
- ('vec.aspirantes.ficha.consultar','consultar','["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]'::jsonb),
- ('vec.aspirantes.ficha.alta','alta','["codigo_postal","documento","domicilio","movil","nombre","primer_apellido","segundo_apellido","telefono","version"]'::jsonb),
+ ('vec.aspirantes.ficha.consultar','consultar','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
+ ('vec.aspirantes.ficha.alta','alta','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
  ('vec.aspirantes.ficha.rectificar','rectificar','["codigo_postal","domicilio","movil","telefono","version"]'::jsonb)
  ) x(accion,segmento,campos) WHERE x.accion=p_accion;
  m:=jsonb_build_object('superficie','externa_personal','persona_ref',p_persona,'perfil_ref',perfil,'accion',p_accion,
@@ -21,7 +21,7 @@ BEGIN
    jsonb_build_object('activa',jsonb_build_object('clave_ref','hmac-aspirantes-v1',
     'valor',encode(sha256(convert_to(p_accion||':'||p_clave||':'||p_version||':'||coalesce(p_extra::text,'')||':'||p_semantica,'UTF8')),'hex')),
     'retenidas','[]'::jsonb) END,
-  'indice_documento',jsonb_build_object('clave_ref','indice-v1','valor',p_indice));
+  'indice_documento',jsonb_build_object('clave_ref',p_clave_indice,'valor',p_indice));
  material:=m::text;
  -- Misma huella canónica que Go; el ejecutor no puede llamar a la auxiliar.
  h:=encode(sha256(convert_to('{"ambitos":{"persona_ref":'||to_jsonb(p_persona)::text||'},"atributos":{"material_sha256":"'||
@@ -45,8 +45,8 @@ BEGIN
  IF r ? 'replay' OR p_extra IS NULL THEN RETURN r; END IF;
  RETURN vec_aspirantes.aplicar_rectificacion_ficha_v1(p_extra);
 END $f$;
-REVOKE ALL ON FUNCTION public.probar_ficha(text,bigint,text,text,jsonb,boolean,text,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.probar_ficha(text,bigint,text,text,jsonb,boolean,text,text,text) TO vec_aspirantes_ejecutor_externo;
+REVOKE ALL ON FUNCTION public.probar_ficha(text,bigint,text,text,jsonb,boolean,text,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.probar_ficha(text,bigint,text,text,jsonb,boolean,text,text,text,text) TO vec_aspirantes_ejecutor_externo;
 
 -- Ficha sintética de alta: Lucía Fernández Moreno, con teléfono. Los sobres
 -- son bytes de forma válida; el contenido cifrado no se interpreta en SQL.
@@ -54,11 +54,10 @@ CREATE FUNCTION public.ficha_prueba(p_asp text,p_doc text,p_indice text)
 RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
  SELECT jsonb_build_object('aspirante_ref',p_asp,'catalogo_ref','vec.aspirantes.datos_personales:1',
   'documento',jsonb_build_object('documento_ref',p_doc,'tipo','dni','pais','ES','clave_ref','cifrado-v1',
-   'nonce_hex',repeat('aa',12),'cifrado_hex',repeat('bb',25),'indice',jsonb_build_object('clave_ref','indice-v1','valor',p_indice)),
+   'nonce_hex',repeat('aa',12),'cifrado_hex',repeat('bb',25),'indice',jsonb_build_object('clave_ref','clave:prueba:indice:v1','valor',p_indice)),
   'valores',jsonb_build_array(
    jsonb_build_object('campo','nombre','version',1,'origen','certificado','clave_ref','cifrado-v1','nonce_hex',repeat('01',12),'cifrado_hex',repeat('11',22)),
-   jsonb_build_object('campo','primer_apellido','version',1,'origen','certificado','clave_ref','cifrado-v1','nonce_hex',repeat('02',12),'cifrado_hex',repeat('12',26)),
-   jsonb_build_object('campo','segundo_apellido','version',1,'origen','certificado','clave_ref','cifrado-v1','nonce_hex',repeat('03',12),'cifrado_hex',repeat('13',22)),
+   jsonb_build_object('campo','apellidos','version',1,'origen','certificado','clave_ref','cifrado-v1','nonce_hex',repeat('02',12),'cifrado_hex',repeat('12',32)),
    jsonb_build_object('campo','telefono','version',1,'origen','titular','clave_ref','cifrado-v1','nonce_hex',repeat('04',12),'cifrado_hex',repeat('14',25))))
 $f$;
 GRANT EXECUTE ON FUNCTION public.ficha_prueba(text,text,text) TO vec_aspirantes_ejecutor_externo;
