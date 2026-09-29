@@ -133,6 +133,7 @@ func TestProveedorDocumentalPlantillasCTMismoHolderYFronteraExacta(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	soporte.legadoDisponible = true
 	soporte.contextoEsperadoRegistrado = soporte.contexto.Resultado
 	sesion := &sesionDocumentalPlantillasCTPrueba{contexto: contextoSeguridadComunDesarrollo{
 		Vinculo: soporte.contexto.Vinculo, Resultado: soporte.contexto.Resultado}}
