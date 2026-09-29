@@ -448,6 +448,11 @@ func clasificarFalloAsignacion(ctx context.Context, seguro error) error {
 	if errors.Is(seguro, ports.ErrClaveIdempotenciaUsada) {
 		return ports.ErrClaveIdempotenciaUsada
 	}
+	// El expediente ya no está en la versión esperada: conflicto sin
+	// efectos, no indisponibilidad.
+	if errors.Is(seguro, domain.ErrVersionEnConflicto) {
+		return domain.ErrVersionEnConflicto
+	}
 	if errors.Is(seguro, ErrAsignacionDenegada) {
 		return ErrAsignacionDenegada
 	}

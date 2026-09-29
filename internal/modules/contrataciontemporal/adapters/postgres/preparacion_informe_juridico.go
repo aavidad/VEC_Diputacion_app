@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
@@ -106,6 +107,9 @@ func (p *PreparadorInformeJuridicoPostgreSQL) PrepararInformeJuridico(
 		}
 		if ctx.Err() != nil {
 			return ports.PreparacionInformeJuridico{}, ctx.Err()
+		}
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.PreparacionInformeJuridico{}, domain.ErrVersionEnConflicto
 		}
 		if !errorPostgreSQLReintentable(causa) ||
 			intento == maximoIntentosPrepararInformeJuridico ||

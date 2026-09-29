@@ -388,6 +388,11 @@ func clasificarFalloInformeJuridico(ctx context.Context, causa error) error {
 	if errors.Is(causa, ports.ErrClaveIdempotenciaUsada) {
 		return ports.ErrClaveIdempotenciaUsada
 	}
+	// El expediente ya no está en la versión esperada: conflicto sin
+	// efectos, no indisponibilidad.
+	if errors.Is(causa, domain.ErrVersionEnConflicto) {
+		return domain.ErrVersionEnConflicto
+	}
 	if errors.Is(causa, ports.ErrInformeNuevoNoPrevisto) {
 		return ports.ErrInformeNuevoNoPrevisto
 	}

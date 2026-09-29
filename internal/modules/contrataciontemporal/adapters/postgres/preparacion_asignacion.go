@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
@@ -94,6 +95,9 @@ func (p *PreparadorAsignacionPostgreSQL) PrepararAsignacion(
 		}
 		if ctx.Err() != nil {
 			return ports.PreparacionAsignacion{}, ctx.Err()
+		}
+		if conflictoDeclaradoPorFuncionSQL(err) {
+			return ports.PreparacionAsignacion{}, domain.ErrVersionEnConflicto
 		}
 		if !errorPostgreSQLReintentable(err) ||
 			intento == maximoIntentosPrepararAsignacion ||

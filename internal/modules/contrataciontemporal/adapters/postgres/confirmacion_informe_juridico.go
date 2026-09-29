@@ -121,6 +121,9 @@ func (t *TransaccionInformesJuridicosPostgreSQL) ConfirmarInformeJuridico(
 		if ctx.Err() != nil {
 			return ports.ReciboInformeJuridico{}, ctx.Err()
 		}
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.ReciboInformeJuridico{}, domain.ErrVersionEnConflicto
+		}
 		if !errorPostgreSQLReintentable(causa) ||
 			intento == maximoIntentosConfirmarInformeJuridico ||
 			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {

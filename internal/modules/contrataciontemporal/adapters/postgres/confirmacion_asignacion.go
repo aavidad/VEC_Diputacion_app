@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -105,6 +106,9 @@ func (t *TransaccionAsignacionesPostgreSQL) ConfirmarAsignacion(
 		}
 		if ctx.Err() != nil {
 			return ports.ReciboAsignacion{}, ctx.Err()
+		}
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.ReciboAsignacion{}, domain.ErrVersionEnConflicto
 		}
 		if !errorPostgreSQLReintentable(causa) || intento == maximoIntentosConfirmarAsignacion ||
 			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
