@@ -1,4 +1,5 @@
 # Orden causal del catálogo V2 de requisitos por vía de Contratación temporal.
 # Ensayar sobre clon schema-only HITO1 actualizado antes de integración.
 # No ejecutar sobre cidonia ni reaplicar migraciones con historia.
+# No depende de CT142 (numeración anual) ni al revés: ensayadas en los dos órdenes. Instalar antes del binario nuevo.
 deploy/postgresql/contratacion_temporal/migraciones/000141_requisitos_via_expediente.up.sql

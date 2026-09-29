@@ -65,10 +65,10 @@ test("dos pestañas accesibles: bolsa abierta, SAE cerrada y solo informativa", 
   assert.match(html, /<button type="button" role="tab" id="ct-prueba-pestana-bolsa_vigente"[^>]*aria-selected="true" tabindex="0"[^>]*>Por bolsa de trabajo<\/button>/u);
   assert.match(html, /id="ct-prueba-pestana-oferta_sae"[^>]*aria-selected="false" tabindex="-1"[^>]*>Por oferta al SAE<\/button>/u);
   assert.match(html, /id="ct-prueba-panel-oferta_sae"[^>]*data-ct-preparacion-via="oferta_sae" hidden>/u);
-  assert.match(html, /Lista de ejemplo: RRHH todavía no la ha confirmado \(duda 73\)/u);
+  assert.match(html, /Lista de ejemplo, pendiente de que RRHH la confirme/u);
   assert.match(html, /Ficha de preparación de la cobertura/u);
   assert.match(html, /Nota informativa sobre la oferta al SAE/u);
-  assert.match(html, /desde aquí no se prepara ni se envía la oferta al SAE/u);
+  assert.match(html, /La oferta al SAE no se prepara ni se envía desde aquí/u);
   assert.doesNotMatch(html, /catalogo:ct:|sha256|descripcion_puesto|contratacion_temporal\./u);
   assert.doesNotMatch(html, /<form|type="submit"|data-ct-cobertura-form/u);
   const sae = renderizarViasPreparacion(catalogo, { prefijo: "ct-prueba", seleccionada: "oferta_sae" });
@@ -201,4 +201,37 @@ test("el formulario de la ficha pinta las pestañas, cambia de vía y conserva l
     }
     desmontar();
   }
+});
+
+test("cambiar de pestaña en la ficha no borra el motivo ya elegido", async () => {
+  const MOTIVO = "eleccion_procedimiento_rrhh";
+  const propuesta = propuestaV2();
+  propuesta.motivos_alternativa = [{ clave: MOTIVO, via_clave: "oferta_sae",
+    etiqueta_i18n: "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh" }];
+  let motivoEnPantalla = "";
+  const elemento = { innerHTML: "", eventos: new Map(),
+    addEventListener(tipo, manejador) { this.eventos.set(tipo, manejador); },
+    removeEventListener(tipo) { this.eventos.delete(tipo); },
+    querySelector(selector) {
+      return selector === "[name=motivo_clave]" ? { value: motivoEnPantalla } : { focus() {} };
+    },
+    contains() { return true; },
+    replaceChildren() { this.innerHTML = ""; } };
+  const desmontar = montarFormularioCobertura({
+    raiz: elemento,
+    cliente: { async proponerCobertura() { return propuesta; },
+      async decidirCobertura() { throw new Error("no se decide"); },
+      async consultarResultadoCobertura() { throw new Error("no se consulta"); } },
+    contexto: { expediente_ref: "expediente:ct:prueba:001", version_esperada: 2 },
+    etiquetasVias: async () => new Map(),
+  });
+  await new Promise((resolver) => setImmediate(resolver));
+  const radio = { value: "oferta_sae" };
+  elemento.eventos.get("change")({ target: { closest: (selector) => (selector === "[name=via_elegida]" ? radio : null) } });
+  motivoEnPantalla = MOTIVO;
+  elemento.eventos.get("click")({ type: "click", preventDefault() {},
+    target: { closest: (selector) => (selector === "[data-ct-preparacion-pestana]"
+      ? { dataset: { ctPreparacionPestana: "oferta_sae" } } : null) } });
+  assert.match(elemento.innerHTML, new RegExp(`value="${MOTIVO}" selected`, "u"));
+  desmontar();
 });

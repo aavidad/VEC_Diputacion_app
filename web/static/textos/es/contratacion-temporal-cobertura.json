@@ -1,13 +1,13 @@
 {
   "preparacion": {
-    "titulo": "Qué hay que preparar según la vía",
+    "titulo": "Qué documentos y datos pide cada vía",
     "pestanas": "Vías para cubrir el puesto",
     "via_bolsa": "Por bolsa de trabajo",
     "via_sae": "Por oferta al SAE",
     "documentos": "Documentos",
     "datos": "Datos a rellenar",
-    "ejemplo": "Lista de ejemplo: RRHH todavía no la ha confirmado (duda 73).",
-    "sae_solo_informativa": "Solo para consultar: desde aquí no se prepara ni se envía la oferta al SAE.",
+    "ejemplo": "Lista de ejemplo, pendiente de que RRHH la confirme.",
+    "sae_solo_informativa": "Solo para consultar. La oferta al SAE no se prepara ni se envía desde aquí.",
     "sin_elementos": "No hace falta nada en este apartado.",
     "no_disponible": "Ahora no se puede mostrar qué hay que preparar en cada vía. Vuelva a entrar más tarde y, si sigue igual, avise a Informática.",
     "perfil_sin_datos": "Su perfil no puede ver qué hay que preparar para cubrir este puesto. Pida acceso a la jefatura de RRHH."

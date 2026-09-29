@@ -570,7 +570,11 @@ export function montarFormularioCobertura(configuracion = {}) {
     const via = viaPreparacionDeEvento(evento);
     if (via === null || !montado || !estado?.propuesta?.catalogo) return false;
     evento.preventDefault?.();
-    if (estado.via_preparacion !== via) estado = { ...estado, via_preparacion: via };
+    // Conserva el motivo ya elegido: el repintado no debe hacer repetir datos.
+    const motivoActual = raizActual.querySelector("[name=motivo_clave]")?.value ?? "";
+    const motivo = estado.via_elegida && motivoPerteneceAVia(estado.propuesta, estado.via_elegida, motivoActual)
+      ? motivoActual : estado.motivo_clave;
+    estado = { ...estado, via_preparacion: via, motivo_clave: motivo };
     repintar(selectorPestanaPreparacion(via), false);
     return true;
   }

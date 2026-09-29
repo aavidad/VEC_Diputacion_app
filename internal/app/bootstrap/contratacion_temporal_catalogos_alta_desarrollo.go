@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -99,7 +100,13 @@ func preparacionViasCatalogosAlta(
 	catalogos *catalogosAltaContratacionTemporalDesarrollo,
 ) *preparacionViasCatalogosAltaJSON {
 	catalogo, err := catalogoCoberturaVigenteCT(catalogos.opcionesAnalisis().viasCoberturaVigentes())
-	if err != nil || catalogo.Canon() != domain.CanonHuellaCatalogoCoberturaV2() {
+	if err != nil {
+		// El arranque ya exige vías coherentes; si no lo fueran, el alta sigue
+		// sin la relación y queda constancia sin detalles internos.
+		log.Print("contratacion temporal: relacion de preparacion por via no disponible en catalogos del alta")
+		return nil
+	}
+	if catalogo.Canon() != domain.CanonHuellaCatalogoCoberturaV2() {
 		return nil
 	}
 	publicacion := catalogo.Publicacion()
