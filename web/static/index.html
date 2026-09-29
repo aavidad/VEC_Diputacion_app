@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <title>VEC Diputacion Granada</title>
+    <title data-i18n="titulo">VEC Diputacion Granada</title>
     <link rel="stylesheet" href="/styles.css?v=20260716-catalogo-gobernado">
     <link rel="stylesheet" href="/catalogo-categorias.css?v=20260716-catalogo-gobernado">
     <link rel="stylesheet" href="/modulos/cronos/resumen.css?v=20260716-cronos-modular">
@@ -227,6 +227,28 @@
         align-items: center;
         gap: 10px;
         justify-content: flex-end;
+        flex-wrap: wrap;
+      }
+
+      .language-control {
+        color: var(--workspace-text);
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .language-select {
+        min-height: 40px;
+        padding: 0 9px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: var(--workspace-panel);
+        color: var(--workspace-text);
+        font: inherit;
+      }
+
+      .language-select:focus-visible {
+        outline: 2px solid var(--module-blue);
+        outline-offset: 2px;
       }
 
       .workspace-grid {
@@ -1029,51 +1051,52 @@
         display: none;
       }
     </style>
+    <script type="module" src="/portada-i18n.js?v=20260928-i18n"></script>
     <script type="module" src="/app.js?v=20260716-catalogo-gobernado"></script>
   </head>
   <body>
     <div class="workspace">
-      <aside class="sidebar" aria-label="Modulos VEC">
+      <aside class="sidebar" aria-label="Modulos VEC" data-i18n-aria-label="modulos_vec">
         <div class="sidebar-header">
           <div class="identidad-institucional-vec">
-            <img class="logo-institucional-vec" src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+            <img class="logo-institucional-vec" src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada" data-i18n-alt="institucion">
             <div>
-              <p class="eyebrow">Portal corporativo</p>
-              <h1>VEC · Recursos Humanos</h1>
+              <p class="eyebrow" data-i18n="portal_corporativo">Portal corporativo</p>
+              <h1 data-i18n="recursos_humanos">VEC · Recursos Humanos</h1>
             </div>
           </div>
         </div>
 
-        <nav class="module-group" aria-label="Navegacion principal" hidden>
-          <p class="module-title">Portal empleado</p>
+        <nav class="module-group" aria-label="Navegacion principal" data-i18n-aria-label="navegacion_principal" hidden>
+          <p class="module-title" data-i18n="portal_empleado">Portal empleado</p>
           <button class="module-link" type="button">
-            <span>Personal</span><span class="module-count">6</span>
+            <span data-i18n="personal">Personal</span><span class="module-count">6</span>
           </button>
           <button class="module-link" type="button">
-            <span>Nominas</span><span class="module-count">3</span>
+            <span data-i18n="nominas">Nominas</span><span class="module-count">3</span>
           </button>
           <button class="module-link" type="button">
-            <span>Cronos</span><span class="module-count">12</span>
+            <span data-i18n="cronos">Cronos</span><span class="module-count">12</span>
           </button>
           <button class="module-link" type="button">
-            <span>Dietas</span><span class="module-count">16</span>
+            <span data-i18n="dietas">Dietas</span><span class="module-count">16</span>
           </button>
           <button class="module-link" type="button">
-            <span>Bolsa</span><span class="module-count">5</span>
+            <span data-i18n="bolsa">Bolsa</span><span class="module-count">5</span>
           </button>
 
-          <p class="module-title">Expediente y control</p>
+          <p class="module-title" data-i18n="expediente_control">Expediente y control</p>
           <button class="module-link" type="button">
-            <span>Documentos</span><span class="module-count">18</span>
+            <span data-i18n="documentos">Documentos</span><span class="module-count">18</span>
           </button>
           <button class="module-link" type="button">
-            <span>Aprobaciones</span><span class="module-count">8</span>
+            <span data-i18n="aprobaciones">Aprobaciones</span><span class="module-count">8</span>
           </button>
           <button class="module-link" type="button">
-            <span>Auditoria</span><span class="module-count">44</span>
+            <span data-i18n="auditoria">Auditoria</span><span class="module-count">44</span>
           </button>
           <button class="module-link" type="button">
-            <span>Administracion</span><span class="module-count">3</span>
+            <span data-i18n="administracion">Administracion</span><span class="module-count">3</span>
           </button>
         </nav>
       </aside>
@@ -1081,253 +1104,258 @@
       <div class="workspace-main">
         <header class="topbar">
           <div class="context-block">
-            <p class="eyebrow">Workspace administrativo</p>
-            <h2>Tablero operativo VEC</h2>
-            <span class="small-text">Sesion personal interno - contexto del modulo activo</span>
+            <p class="eyebrow" data-i18n="espacio_administrativo">Workspace administrativo</p>
+            <h2 data-i18n="tablero">Tablero operativo VEC</h2>
+            <span class="small-text" data-i18n="sesion">Sesion personal interno - contexto del modulo activo</span>
           </div>
 
           <form class="search-form" role="search" hidden>
-            <label for="global-search">Buscar expediente, DNI parcial o solicitud</label>
-            <input id="global-search" name="q" type="search" placeholder="Buscar expediente, DNI parcial o solicitud">
-            <button type="submit">Buscar</button>
+            <label for="global-search" data-i18n="buscar_ayuda">Buscar expediente, DNI parcial o solicitud</label>
+            <input id="global-search" name="q" type="search" placeholder="Buscar expediente, DNI parcial o solicitud" data-i18n-placeholder="buscar_ayuda">
+            <button type="submit" data-i18n="buscar">Buscar</button>
           </form>
 
           <div class="operator-tools">
-            <p class="status" id="connection-status" role="status">Preparando demo</p>
-            <button class="quiet-action" type="button" aria-label="Abrir aprobaciones" hidden>Aprobaciones 8</button>
+            <label class="language-control" for="vec-language" data-i18n="idioma">Idioma</label>
+            <select class="language-select" id="vec-language" name="lang" aria-label="Idioma" data-i18n-aria-label="idioma">
+              <option value="es" data-i18n="castellano">Castellano</option>
+              <option value="en" data-i18n="ingles">English</option>
+            </select>
+            <p class="status" id="connection-status" role="status" data-i18n="preparando">Preparando demo</p>
+            <button class="quiet-action" type="button" aria-label="Abrir aprobaciones" data-i18n-aria-label="abrir_aprobaciones" hidden data-i18n="aprobaciones_ocho">Aprobaciones 8</button>
           </div>
         </header>
 
         <main class="workspace-grid">
-          <section aria-label="Bandeja principal">
+          <section aria-label="Bandeja principal" data-i18n-aria-label="bandeja_principal">
             <section class="summary-panel" aria-labelledby="summary-title" hidden>
               <div>
-                <p class="eyebrow">Cola VEC de tramitacion</p>
-                <h2 id="summary-title">Expedientes, modulos y acciones pendientes</h2>
-                <p class="lead">
+                <p class="eyebrow" data-i18n="cola_tramitacion">Cola VEC de tramitacion</p>
+                <h2 id="summary-title" data-i18n="expedientes_modulos">Expedientes, modulos y acciones pendientes</h2>
+                <p class="lead" data-i18n="vista_interna">
                   Vista interna para controlar horarios, fichajes, permisos, vacaciones,
                   dietas, kilometraje provincial y expedientes desde un unico portal.
                 </p>
               </div>
-              <button class="primary-action" id="reload-demo" type="button">Actualizar tablero</button>
+              <button class="primary-action" id="reload-demo" type="button" data-i18n="actualizar">Actualizar tablero</button>
             </section>
 
-            <section class="metrics" aria-label="Resumen operativo" hidden>
+            <section class="metrics" aria-label="Resumen operativo" data-i18n-aria-label="resumen_operativo" hidden>
               <article>
-                <span class="metric-label">Personas activas</span>
+                <span class="metric-label" data-i18n="personas_activas">Personas activas</span>
                 <strong id="call-id">-</strong>
-                <span class="metric-note">Puestos, situaciones y nomina</span>
+                <span class="metric-note" data-i18n="puestos_situaciones">Puestos, situaciones y nomina</span>
               </article>
               <article>
-                <span class="metric-label">Perfiles horarios</span>
+                <span class="metric-label" data-i18n="perfiles_horarios">Perfiles horarios</span>
                 <strong id="call-state">-</strong>
-                <span class="metric-note">Flexibles y turnos fijos</span>
+                <span class="metric-note" data-i18n="flexibles_turnos">Flexibles y turnos fijos</span>
               </article>
               <article>
-                <span class="metric-label">Registros VEC</span>
+                <span class="metric-label" data-i18n="registros_vec">Registros VEC</span>
                 <strong id="request-count">-</strong>
-                <span class="metric-note">Definitivo publicado</span>
+                <span class="metric-note" data-i18n="definitivo">Definitivo publicado</span>
               </article>
               <article>
-                <span class="metric-label">Dietas pendientes</span>
+                <span class="metric-label" data-i18n="dietas_pendientes">Dietas pendientes</span>
                 <strong>12</strong>
-                <span class="metric-note">5 alegaciones - 7 evidencias</span>
+                <span class="metric-note" data-i18n="alegaciones_evidencias">5 alegaciones - 7 evidencias</span>
               </article>
             </section>
 
             <section id="module-portal" class="module-portal" aria-live="polite" hidden></section>
 
-            <form class="filter-bar" aria-label="Filtros de expedientes" hidden>
-              <label>
+            <form class="filter-bar" aria-label="Filtros de expedientes" data-i18n-aria-label="filtros" hidden>
+              <label data-i18n="ambito">
                 Ambito
                 <select name="scope">
-                  <option>Horarios del personal</option>
-                  <option>Expediente de empleado</option>
-                  <option>Nomina e incidencias</option>
-                  <option>Antiguedad y trienios</option>
-                  <option>Servicios prestados</option>
-                  <option>Fichajes e incidencias</option>
-                  <option>Permisos y vacaciones</option>
-                  <option>Comision de servicio</option>
-                  <option>Mapa provincial</option>
-                  <option>Convocatorias abiertas</option>
-                  <option>Expediente candidato</option>
+                  <option data-i18n="horarios">Horarios del personal</option>
+                  <option data-i18n="expediente_empleado">Expediente de empleado</option>
+                  <option data-i18n="nomina_incidencias">Nomina e incidencias</option>
+                  <option data-i18n="antiguedad">Antiguedad y trienios</option>
+                  <option data-i18n="servicios">Servicios prestados</option>
+                  <option data-i18n="fichajes">Fichajes e incidencias</option>
+                  <option data-i18n="permisos">Permisos y vacaciones</option>
+                  <option data-i18n="comision">Comision de servicio</option>
+                  <option data-i18n="mapa">Mapa provincial</option>
+                  <option data-i18n="convocatorias">Convocatorias abiertas</option>
+                  <option data-i18n="expediente_candidato">Expediente candidato</option>
                 </select>
               </label>
-              <label>
+              <label data-i18n="estado">
                 Estado
                 <select name="state">
-                  <option>Pendiente de accion</option>
-                  <option>En revision</option>
-                  <option>Subsanacion requerida</option>
-                  <option>Definitivo publicado</option>
+                  <option data-i18n="pendiente_accion">Pendiente de accion</option>
+                  <option data-i18n="en_revision">En revision</option>
+                  <option data-i18n="subsanacion">Subsanacion requerida</option>
+                  <option data-i18n="definitivo">Definitivo publicado</option>
                 </select>
               </label>
-              <label>
+              <label data-i18n="riesgo_plazo">
                 Riesgo plazo
                 <select name="deadline">
-                  <option>Vence en 72 h</option>
-                  <option>Sin vencimiento critico</option>
-                  <option>Plazo vencido</option>
+                  <option data-i18n="vence_72">Vence en 72 h</option>
+                  <option data-i18n="sin_vencimiento">Sin vencimiento critico</option>
+                  <option data-i18n="plazo_vencido">Plazo vencido</option>
                 </select>
               </label>
-              <label>
+              <label data-i18n="unidad">
                 Unidad
                 <select name="unit">
-                  <option>Personal</option>
-                  <option>Nominas</option>
-                  <option>Cronos</option>
-                  <option>Dietas</option>
-                  <option>Bolsa</option>
-                  <option>Registro y documentos</option>
+                  <option data-i18n="personal">Personal</option>
+                  <option data-i18n="nominas">Nominas</option>
+                  <option data-i18n="cronos">Cronos</option>
+                  <option data-i18n="dietas">Dietas</option>
+                  <option data-i18n="bolsa">Bolsa</option>
+                  <option data-i18n="registro_documentos">Registro y documentos</option>
                 </select>
               </label>
-              <button class="quiet-action" type="button">Aplicar</button>
+              <button class="quiet-action" type="button" data-i18n="aplicar">Aplicar</button>
             </form>
 
             <section class="queue-panel" aria-labelledby="queue-title" hidden>
               <div class="panel-header">
                 <div>
-                  <h2 id="queue-title">Cola de expedientes VEC</h2>
-                  <span class="small-text">Horarios, permisos, dietas y expedientes - orden por riesgo</span>
+                  <h2 id="queue-title" data-i18n="cola_expedientes">Cola de expedientes VEC</h2>
+                  <span class="small-text" data-i18n="orden_riesgo">Horarios, permisos, dietas y expedientes - orden por riesgo</span>
                 </div>
-                <button class="table-action" type="button">Exportar</button>
+                <button class="table-action" type="button" data-i18n="exportar">Exportar</button>
               </div>
 
               <div class="table-wrap">
                 <table>
-                  <caption class="small-text">Registros administrativos con modulo, estado, plazo, magnitud y accion siguiente.</caption>
+                  <caption class="small-text" data-i18n="caption_registros">Registros administrativos con modulo, estado, plazo, magnitud y accion siguiente.</caption>
                   <thead>
                     <tr>
-                      <th scope="col">Expediente</th>
-                      <th scope="col">Estado</th>
-                      <th scope="col">Plazo</th>
-                      <th scope="col">Magnitud</th>
-                      <th scope="col">Justificante</th>
-                      <th scope="col">Accion</th>
+                      <th scope="col" data-i18n="expediente">Expediente</th>
+                      <th scope="col" data-i18n="estado">Estado</th>
+                      <th scope="col" data-i18n="plazo">Plazo</th>
+                      <th scope="col" data-i18n="magnitud">Magnitud</th>
+                      <th scope="col" data-i18n="justificante">Justificante</th>
+                      <th scope="col" data-i18n="accion">Accion</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr aria-selected="true">
                       <td>
                         <span class="candidate-ref">
-                          <strong>SOL-2026-0142</strong>
-                          <span>CAND-0007 - DNI ***4567*</span>
+                          <strong data-i18n-invariant="true">SOL-2026-0142</strong>
+                          <span data-i18n-invariant="true">CAND-0007 - DNI ***4567*</span>
                         </span>
                       </td>
-                      <td><span class="status-chip chip-orange">Subsanacion requerida</span></td>
+                      <td><span class="status-chip chip-orange" data-i18n="subsanacion">Subsanacion requerida</span></td>
                       <td>22/06/2026 14:00</td>
-                      <td>61,4 pt</td>
-                      <td><span class="status-chip chip-red">CSV pendiente</span></td>
-                      <td><button class="table-action" type="button">Revisar</button></td>
+                      <td data-i18n="puntos_61">61,4 pt</td>
+                      <td><span class="status-chip chip-red" data-i18n="csv_pendiente">CSV pendiente</span></td>
+                      <td><button class="table-action" type="button" data-i18n="revisar">Revisar</button></td>
                     </tr>
                     <tr>
                       <td>
                         <span class="candidate-ref">
-                          <strong>SOL-2026-0118</strong>
-                          <span>CAND-0011 - DNI ***2190*</span>
+                          <strong data-i18n-invariant="true">SOL-2026-0118</strong>
+                          <span data-i18n-invariant="true">CAND-0011 - DNI ***2190*</span>
                         </span>
                       </td>
-                      <td><span class="status-chip chip-indigo">Alegacion presentada</span></td>
+                      <td><span class="status-chip chip-indigo" data-i18n="alegacion">Alegacion presentada</span></td>
                       <td>24/06/2026 09:30</td>
-                      <td>58,0 pt</td>
-                      <td><span class="status-chip chip-cyan">3 evidencias</span></td>
-                      <td><button class="table-action" type="button">Resolver</button></td>
+                      <td data-i18n="puntos_58">58,0 pt</td>
+                      <td><span class="status-chip chip-cyan" data-i18n="tres_evidencias">3 evidencias</span></td>
+                      <td><button class="table-action" type="button" data-i18n="resolver">Resolver</button></td>
                     </tr>
                     <tr>
                       <td>
                         <span class="candidate-ref">
-                          <strong>SOL-2026-0094</strong>
-                          <span>CAND-0003 - DNI ***8044*</span>
+                          <strong data-i18n-invariant="true">SOL-2026-0094</strong>
+                          <span data-i18n-invariant="true">CAND-0003 - DNI ***8044*</span>
                         </span>
                       </td>
-                      <td><span class="status-chip chip-teal">Meritos en revision</span></td>
+                      <td><span class="status-chip chip-teal" data-i18n="meritos_revision">Meritos en revision</span></td>
                       <td>25/06/2026 12:00</td>
-                      <td>47,5 pt</td>
-                      <td><span class="status-chip chip-cyan">Metadatos presentes</span></td>
-                      <td><button class="table-action" type="button">Validar</button></td>
+                      <td data-i18n="puntos_47">47,5 pt</td>
+                      <td><span class="status-chip chip-cyan" data-i18n="metadatos">Metadatos presentes</span></td>
+                      <td><button class="table-action" type="button" data-i18n="validar">Validar</button></td>
                     </tr>
                     <tr>
                       <td>
                         <span class="candidate-ref">
-                          <strong>SOL-2026-0081</strong>
-                          <span>CAND-0005 - DNI ***6621*</span>
+                          <strong data-i18n-invariant="true">SOL-2026-0081</strong>
+                          <span data-i18n-invariant="true">CAND-0005 - DNI ***6621*</span>
                         </span>
                       </td>
-                      <td><span class="status-chip chip-blue">Admitida provisional</span></td>
-                      <td>Sin accion</td>
-                      <td>44,2 pt</td>
-                      <td><span class="status-chip chip-slate">Archivado</span></td>
-                      <td><button class="table-action" type="button">Abrir</button></td>
+                      <td><span class="status-chip chip-blue" data-i18n="admitida">Admitida provisional</span></td>
+                      <td data-i18n="sin_accion">Sin accion</td>
+                      <td data-i18n="puntos_44">44,2 pt</td>
+                      <td><span class="status-chip chip-slate" data-i18n="archivado">Archivado</span></td>
+                      <td><button class="table-action" type="button" data-i18n="abrir">Abrir</button></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </section>
 
-            <section class="workspace-row" aria-label="Control Cronos y Dietas" hidden>
+            <section class="workspace-row" aria-label="Control Cronos y Dietas" data-i18n-aria-label="control_cronos_dietas" hidden>
               <article class="listing">
                 <div class="listing-header">
-                  <h2>Cronos: saldo horario y permisos</h2>
-                  <span id="cronos-period">Junio 2026</span>
+                  <h2 data-i18n="cronos_saldo">Cronos: saldo horario y permisos</h2>
+                  <span id="cronos-period" data-i18n="junio">Junio 2026</span>
                 </div>
                 <div id="cronos-panel" class="ranking-list" aria-live="polite"></div>
               </article>
 
               <article class="listing">
                 <div class="listing-header">
-                  <h2>Dietas: mapa provincial de kilometraje</h2>
-                  <span id="dietas-period">Rutas demo</span>
+                  <h2 data-i18n="dietas_mapa">Dietas: mapa provincial de kilometraje</h2>
+                  <span id="dietas-period" data-i18n="rutas_demo">Rutas demo</span>
                 </div>
                 <div id="dietas-panel" class="ranking-list" aria-live="polite"></div>
               </article>
             </section>
           </section>
 
-          <aside class="right-column" aria-label="Detalle del expediente seleccionado" hidden>
+          <aside class="right-column" aria-label="Detalle del expediente seleccionado" data-i18n-aria-label="detalle_seleccionado" hidden>
             <section class="detail-panel" aria-labelledby="detail-title">
               <div class="panel-header">
                 <div>
-                  <h2 id="detail-title">SOL-2026-0142</h2>
-                  <span class="small-text">Seleccion actual - registro VEC</span>
+                  <h2 id="detail-title" data-i18n-invariant="true">SOL-2026-0142</h2>
+                  <span class="small-text" data-i18n="seleccion_actual">Seleccion actual - registro VEC</span>
                 </div>
-                <span class="status-chip chip-orange">Accion requerida</span>
+                <span class="status-chip chip-orange" data-i18n="accion_requerida">Accion requerida</span>
               </div>
               <div class="detail-body">
-                <div class="detail-grid" aria-label="Datos clave">
+                <div class="detail-grid" aria-label="Datos clave" data-i18n-aria-label="datos_clave">
                   <div>
-                    <span>Persona / ref.</span>
-                    <strong>CAND-0007</strong>
+                    <span data-i18n="persona_ref">Persona / ref.</span>
+                    <strong data-i18n-invariant="true">CAND-0007</strong>
                   </div>
                   <div>
-                    <span>Magnitud</span>
-                    <strong>61,4 pt</strong>
+                    <span data-i18n="magnitud">Magnitud</span>
+                    <strong data-i18n="puntos_61">61,4 pt</strong>
                   </div>
                   <div>
-                    <span>Justificante</span>
-                    <strong>CSV-GR-2026-8841</strong>
+                    <span data-i18n="justificante">Justificante</span>
+                    <strong data-i18n-invariant="true">CSV-GR-2026-8841</strong>
                   </div>
                   <div>
-                    <span>Ultimo cambio</span>
+                    <span data-i18n="ultimo_cambio">Ultimo cambio</span>
                     <strong>19/06/2026 09:42</strong>
                   </div>
                 </div>
 
-                <div class="tabs" role="tablist" aria-label="Secciones del expediente">
-                  <button type="button" role="tab" aria-selected="true">Resumen</button>
-                  <button type="button" role="tab" aria-selected="false">Meritos</button>
-                  <button type="button" role="tab" aria-selected="false">Docs</button>
-                  <button type="button" role="tab" aria-selected="false">Auditoria</button>
+                <div class="tabs" role="tablist" aria-label="Secciones del expediente" data-i18n-aria-label="secciones">
+                  <button type="button" role="tab" aria-selected="true" data-i18n="resumen">Resumen</button>
+                  <button type="button" role="tab" aria-selected="false" data-i18n="meritos">Meritos</button>
+                  <button type="button" role="tab" aria-selected="false" data-i18n="docs">Docs</button>
+                  <button type="button" role="tab" aria-selected="false" data-i18n="auditoria">Auditoria</button>
                 </div>
 
-                <ul class="alert-list" aria-label="Alertas del expediente">
+                <ul class="alert-list" aria-label="Alertas del expediente" data-i18n-aria-label="alertas">
                   <li>
-                    <strong>Documento sin CSV verificable</strong>
-                    <span class="small-text">Experiencia misma categoria - requiere subsanacion</span>
+                    <strong data-i18n="sin_csv">Documento sin CSV verificable</strong>
+                    <span class="small-text" data-i18n="experiencia_categoria">Experiencia misma categoria - requiere subsanacion</span>
                   </li>
                   <li>
-                    <strong>Tope de formacion aplicado</strong>
-                    <span class="small-text">30,0 pt computados - 4,5 pt no computan por regla</span>
+                    <strong data-i18n="tope_formacion">Tope de formacion aplicado</strong>
+                    <span class="small-text" data-i18n="puntos_tope">30,0 pt computados - 4,5 pt no computan por regla</span>
                   </li>
                 </ul>
               </div>
@@ -1335,22 +1363,22 @@
 
             <section class="detail-panel" aria-labelledby="docs-title">
               <div class="panel-header">
-                <h3 id="docs-title">Evidencias y documentos</h3>
-                <span class="status-chip chip-cyan">4 items</span>
+                <h3 id="docs-title" data-i18n="evidencias_documentos">Evidencias y documentos</h3>
+                <span class="status-chip chip-cyan" data-i18n="cuatro_items">4 items</span>
               </div>
               <div class="detail-body">
                 <ul class="doc-list">
                   <li>
-                    <strong>Servicios prestados</strong>
-                    <span class="small-text">Pendiente CSV - SHA-256 no confirmado</span>
+                    <strong data-i18n="servicios">Servicios prestados</strong>
+                    <span class="small-text" data-i18n="csv_sha">Pendiente CSV - SHA-256 no confirmado</span>
                   </li>
                   <li>
-                    <strong>Titulo formacion</strong>
-                    <span class="small-text">Metadatos presentes - firma externa pendiente</span>
+                    <strong data-i18n="titulo_formacion">Titulo formacion</strong>
+                    <span class="small-text" data-i18n="metadatos_firma">Metadatos presentes - firma externa pendiente</span>
                   </li>
                   <li>
-                    <strong>Justificante registro</strong>
-                    <span class="small-text">CSV-GR-2026-8841 - descargable</span>
+                    <strong data-i18n="justificante_registro">Justificante registro</strong>
+                    <span class="small-text" data-i18n="csv_descargable">CSV-GR-2026-8841 - descargable</span>
                   </li>
                 </ul>
               </div>
@@ -1358,21 +1386,21 @@
 
             <section class="timeline-panel" aria-labelledby="timeline-title">
               <div class="panel-header">
-                <h3 id="timeline-title">Historial y auditoria</h3>
-                <span class="status-chip chip-slate">Trazado</span>
+                <h3 id="timeline-title" data-i18n="historial">Historial y auditoria</h3>
+                <span class="status-chip chip-slate" data-i18n="trazado">Trazado</span>
               </div>
               <ol class="timeline-list">
                 <li>
-                  <strong>Subsanacion requerida</strong>
-                  <span class="small-text">19/06/2026 09:42 - personal interno - AUD-4421</span>
+                  <strong data-i18n="subsanacion">Subsanacion requerida</strong>
+                  <span class="small-text" data-i18n="personal_interno">19/06/2026 09:42 - personal interno - AUD-4421</span>
                 </li>
                 <li>
-                  <strong>Autobaremo recalculado</strong>
-                  <span class="small-text">18/06/2026 16:10 - reglas v1 - AUD-4388</span>
+                  <strong data-i18n="autobaremo">Autobaremo recalculado</strong>
+                  <span class="small-text" data-i18n="reglas_v1">18/06/2026 16:10 - reglas v1 - AUD-4388</span>
                 </li>
                 <li>
-                  <strong>Solicitud registrada</strong>
-                  <span class="small-text">17/06/2026 11:25 - CSV-GR-2026-8841</span>
+                  <strong data-i18n="solicitud_registrada">Solicitud registrada</strong>
+                  <span class="small-text" data-i18n="solicitud_fecha">17/06/2026 11:25 - CSV-GR-2026-8841</span>
                 </li>
               </ol>
             </section>
@@ -1380,8 +1408,8 @@
         </main>
 
         <footer class="workspace-status" hidden>
-          <span>Ultima sincronizacion local: 19/06/2026 10:15 - adaptador demo en memoria</span>
-          <span>Refs opacas preservadas: worktree-bolsa-diputacion-existing-app - branch-bolsa-profesional-002</span>
+          <span data-i18n="ultima_sincronizacion">Ultima sincronizacion local: 19/06/2026 10:15 - adaptador demo en memoria</span>
+          <span data-i18n="refs_opacas">Refs opacas preservadas: worktree-bolsa-diputacion-existing-app - branch-bolsa-profesional-002</span>
         </footer>
       </div>
     </div>

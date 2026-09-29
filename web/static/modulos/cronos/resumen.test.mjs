@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { renderizarResumenCronos } from "./resumen.js";
+import { renderizarResumenCronos, traducirResumenCronos } from "./resumen.js";
 
 class ElementoPrueba {
   constructor(etiqueta) {
@@ -89,4 +89,26 @@ test("muestra un estado vacio explicito para permisos", () => {
   const celdaVacia = tabla.children[1].children[0].children[0];
   assert.equal(celdaVacia.textContent, "Sin saldos de permisos disponibles.");
   assert.equal(celdaVacia.attributes.get("colspan"), "5");
+});
+
+test("renderiza rótulos, booleanos, números y estados vacíos en inglés británico", () => {
+  const documento = documentoPrueba();
+  renderizarResumenCronos({ workspace: {
+    cronos_daily_summary: { telework: "No", worked: 1234.5 },
+    cronos_permission_balances: [{ name: "Annual leave", request: true, max: 1234.5 }],
+  } }, documento, "en");
+  const [navegacion, resumen, envoltorio] = documento.destino.children;
+  const tabla = envoltorio.children[0];
+  assert.equal(navegacion.attributes.get("aria-label"), "Cronos sections");
+  assert.equal(navegacion.children[0].textContent, "No sections available");
+  assert.deepEqual(resumen.children.map((nodo) => nodo.children[0].textContent),
+    ["Expected hours", "Hours worked", "Remote work", "Monthly surplus / deficit"]);
+  assert.equal(resumen.children[1].children[1].textContent, "1,234.5");
+  assert.equal(resumen.children[2].children[1].textContent, "No");
+  assert.equal(tabla.attributes.get("aria-label"), "Available leave balances");
+  assert.deepEqual(tabla.children[0].children[0].children.map((celda) => celda.textContent),
+    ["Leave type", "Available", "Maximum", "Requested", "Remaining"]);
+  assert.equal(tabla.children[1].children[0].children[1].textContent, "Yes");
+  assert.equal(tabla.children[1].children[0].children[2].textContent, "1,234.5");
+  assert.equal(traducirResumenCronos("sin_saldos", "en"), "No leave balances available.");
 });

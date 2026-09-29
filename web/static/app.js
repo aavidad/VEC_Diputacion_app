@@ -4,6 +4,154 @@ import {
   normalizarPaginaCategoriasProfesionales,
   ofertaPerteneceAlCatalogoActual,
 } from "./catalogo-categorias.js?v=20260716-catalogo-gobernado";
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "./comun/idioma.js";
+
+// Catálogo de la portada. Las claves pertenecen al shell; las reglas y los
+// identificadores de los módulos siguen bajo la autoridad de cada módulo.
+const PORTADA_I18N = Object.freeze({
+  es: Object.freeze({
+    sesion_autenticada: "Sesión autenticada",
+    sesion_no_autenticada: "Sesión no autenticada",
+    sesion_demo: "Sesión demo: {nombre} ({roles})",
+    contexto_portada: "Vista interna para controlar horarios, fichajes, permisos, vacaciones, dietas, kilometraje provincial y expedientes desde un único portal.",
+    grupo_empleado: "Portal empleado",
+    grupo_control: "Expediente y control",
+    perfil_administrador: "Perfil administrador técnico",
+    perfil_rrhh: "Perfil RRHH",
+    perfil_jefatura: "Perfil jefatura",
+    perfil_administrativo: "Perfil administrativo",
+    perfil_empleado: "Perfil empleado",
+    perfil_aspirante: "Perfil aspirante",
+    perfil_sin_acceso: "Sin acceso concedido",
+    todos: "Todos",
+    cargando: "Cargando shell VEC",
+    conectado: "VEC conectado",
+    autenticacion_requerida: "Autenticación requerida en {url}. En desarrollo se usa identidad demo de personal interno; recarga la página o revisa certificado/DNIe cuando se active el modo real.",
+    carga_fallida: "No se pudo cargar {url}.",
+    busqueda_aplicada: "Búsqueda aplicada: {consulta}",
+    busqueda_limpia: "Búsqueda limpia",
+    filtros_aplicados: "Filtros aplicados",
+    exportacion_csv: "Exportación CSV",
+    filas_exportadas: "{cantidad} filas exportadas",
+    exportadas: "Exportadas {cantidad} filas",
+    modulo_sin_acceso: "Acceso no concedido",
+    descripcion_sin_acceso: "No existe un perfil funcional autorizado para esta sesión",
+    modulo_dashboard: "Bandeja VEC unificada",
+    descripcion_dashboard: "Fichajes, permisos, dietas y expedientes en una cola común",
+    modulo_personal: "Módulo Personal",
+    descripcion_personal: "Empleado, puesto, situación administrativa, antigüedad y certificados",
+    modulo_nominas: "Nóminas y retribuciones",
+    descripcion_nominas: "Incidencias retributivas, trienios, reducciones y cierre mensual",
+    modulo_cronos: "Módulo Cronos",
+    descripcion_cronos: "Fichajes, horarios, turnos, permisos, asuntos propios y vacaciones",
+    modulo_horarios: "Horarios del personal",
+    descripcion_horarios: "Flexibilidad, turnos fijos, cobertura obligatoria y reducciones 63/64",
+    modulo_permisos: "Permisos y vacaciones",
+    descripcion_permisos: "Saldos, solapes, ausencias y aprobaciones",
+    modulo_dietas: "Módulo Dietas",
+    descripcion_dietas: "Comisiones de servicio, kilometraje provincial, gastos, medias dietas y dietas completas",
+    modulo_rutas: "Mapa provincial de kilometraje",
+    descripcion_rutas: "Rutas por municipio, kilómetros estimados y política aplicable",
+    modulo_bolsa: "Módulo Bolsa",
+    descripcion_bolsa: "Selección, solicitudes, méritos y listados como módulo VEC",
+    modulo_solicitudes: "Solicitudes Bolsa",
+    descripcion_solicitudes: "Alta, borrador, presentación y seguimiento de candidaturas",
+    modulo_meritos: "Méritos y RUM",
+    descripcion_meritos: "Inventario de títulos, cursos, experiencia y evidencias reutilizables",
+    modulo_autobaremo: "Autobaremación",
+    descripcion_autobaremo: "Simulación de puntos, desglose y recibo de cálculo",
+    modulo_documentos: "Documentos",
+    descripcion_documentos: "Justificantes, CSV, ENI, firmas y evidencias",
+    modulo_alegaciones: "Alegaciones",
+    descripcion_alegaciones: "Reclamaciones, subsanaciones y resoluciones de Bolsa",
+    modulo_notificaciones: "Notificaciones",
+    descripcion_notificaciones: "Avisos legales, plazos y comunicaciones",
+    modulo_listados: "Listados",
+    descripcion_listados: "Provisional, definitivo, clasificación y exportación",
+    modulo_manifiestos: "Manifiestos",
+    descripcion_manifiestos: "Contrato de conexión, capacidades y rutas del módulo",
+    modulo_aprobaciones: "Aprobaciones",
+    descripcion_aprobaciones: "Bandeja de responsables para permisos, dietas y expedientes",
+    modulo_auditoria: "Auditoría",
+    descripcion_auditoria: "Trazabilidad de cambios, actores y recibos",
+    modulo_administracion: "Administración",
+    descripcion_administracion: "Configuración, colas y supervisión",
+  }),
+  en: Object.freeze({
+    sesion_autenticada: "Authenticated session",
+    sesion_no_autenticada: "Unauthenticated session",
+    sesion_demo: "Demo session: {nombre} ({roles})",
+    contexto_portada: "Internal view of working hours, clockings, leave, holidays, expenses, provincial mileage and cases in one portal.",
+    grupo_empleado: "Employee portal",
+    grupo_control: "Cases and oversight",
+    perfil_administrador: "Technical administrator profile",
+    perfil_rrhh: "HR profile",
+    perfil_jefatura: "Manager profile",
+    perfil_administrativo: "Administrative staff profile",
+    perfil_empleado: "Employee profile",
+    perfil_aspirante: "Applicant profile",
+    perfil_sin_acceso: "Access not granted",
+    todos: "All",
+    cargando: "Loading VEC shell",
+    conectado: "VEC connected",
+    autenticacion_requerida: "Authentication required at {url}. This development environment uses a demo staff identity; reload the page or check your certificate/eID when real access is enabled.",
+    carga_fallida: "Could not load {url}.",
+    busqueda_aplicada: "Search applied: {consulta}",
+    busqueda_limpia: "Search cleared",
+    filtros_aplicados: "Filters applied",
+    exportacion_csv: "CSV export",
+    filas_exportadas: "{cantidad} rows exported",
+    exportadas: "Exported {cantidad} rows",
+    modulo_sin_acceso: "Access not granted",
+    descripcion_sin_acceso: "No authorised functional profile exists for this session",
+    modulo_dashboard: "Unified VEC queue",
+    descripcion_dashboard: "Clockings, leave, expenses and cases in one queue",
+    modulo_personal: "Staff module",
+    descripcion_personal: "Employee, post, employment status, length of service and certificates",
+    modulo_nominas: "Payroll and pay",
+    descripcion_nominas: "Pay adjustments, service increments, reductions and monthly close",
+    modulo_cronos: "Time and attendance module",
+    descripcion_cronos: "Clockings, schedules, shifts, leave, personal days and holidays",
+    modulo_horarios: "Staff schedules",
+    descripcion_horarios: "Flexible hours, fixed shifts, mandatory cover and 63/64 reductions",
+    modulo_permisos: "Leave and holidays",
+    descripcion_permisos: "Balances, overlaps, absences and approvals",
+    modulo_dietas: "Expenses module",
+    descripcion_dietas: "Business travel, provincial mileage, costs, half-day and full-day allowances",
+    modulo_rutas: "Provincial mileage map",
+    descripcion_rutas: "Routes by municipality, estimated kilometres and applicable policy",
+    modulo_bolsa: "Recruitment pool module",
+    descripcion_bolsa: "Selection, applications, merits and lists as a VEC module",
+    modulo_solicitudes: "Recruitment applications",
+    descripcion_solicitudes: "Registration, draft, submission and application tracking",
+    modulo_meritos: "Merits and RUM",
+    descripcion_meritos: "Reusable qualifications, courses, experience and evidence",
+    modulo_autobaremo: "Self-assessment",
+    descripcion_autobaremo: "Points simulation, breakdown and calculation receipt",
+    modulo_documentos: "Documents",
+    descripcion_documentos: "Supporting documents, CSV, ENI, signatures and evidence",
+    modulo_alegaciones: "Representations",
+    descripcion_alegaciones: "Claims, corrections and recruitment pool decisions",
+    modulo_notificaciones: "Notifications",
+    descripcion_notificaciones: "Legal notices, deadlines and communications",
+    modulo_listados: "Lists",
+    descripcion_listados: "Provisional and final lists, ranking and export",
+    modulo_manifiestos: "Manifests",
+    descripcion_manifiestos: "Module connection contract, capabilities and routes",
+    modulo_aprobaciones: "Approvals",
+    descripcion_aprobaciones: "Managers' queue for leave, expenses and cases",
+    modulo_auditoria: "Audit",
+    descripcion_auditoria: "Change history, actors and receipts",
+    modulo_administracion: "Administration",
+    descripcion_administracion: "Configuration, queues and oversight",
+  }),
+});
+
+function textoPortada(clave, variables = {}) {
+  const plantilla = PORTADA_I18N[IDIOMA_ACTUAL][clave];
+  if (typeof plantilla !== "string") throw new Error(`Falta texto de portada: ${clave}`);
+  return plantilla.replace(/\{(\w+)\}/g, (_, variable) => String(variables[variable] ?? ""));
+}
 
 const VEC_SHELL_API = "/api/vec";
 const VEC_WORKSPACE_API = "/api/vec/workspace";
@@ -36,8 +184,8 @@ function activeDemoUser() {
   const principal = state.session || {};
   return {
     id: "sesion-servidor",
-    label: "Sesion autenticada",
-    displayName: principal.display_name || "Sesion no autenticada",
+    label: textoPortada("sesion_autenticada"),
+    displayName: principal.display_name || textoPortada("sesion_no_autenticada"),
     roles: Array.isArray(principal.roles) ? [...principal.roles] : [],
     auth: principal.auth_method || "",
     defaultModule: "dashboard",
@@ -78,9 +226,9 @@ function updateDemoUserUI() {
 }
 
 function sessionContextText() {
-  if (!hasExplicitSessionAccess()) return "Sesion no autenticada";
+  if (!hasExplicitSessionAccess()) return textoPortada("sesion_no_autenticada");
   const user = activeDemoUser();
-  return `Sesion demo: ${user.displayName} (${user.roles.join(", ")})`;
+  return textoPortada("sesion_demo", { nombre: user.displayName, roles: user.roles.join(", ") });
 }
 
 function updateTopbarContext() {
@@ -92,7 +240,7 @@ function updateTopbarContext() {
   if (title) title.textContent = copy[1];
   if (context) {
     const lead = state.activeModule === "dashboard"
-      ? "Vista interna para controlar horarios, fichajes, permisos, vacaciones, dietas, kilometraje provincial y expedientes desde un unico portal."
+      ? textoPortada("contexto_portada")
       : moduleLeadText(state.activeModule);
     context.textContent = `${sessionContextText()} · ${lead}`;
   }
@@ -200,44 +348,44 @@ const MODULE_DEFAULT_SCREEN = {
 };
 
 const ROOT_MENU_GROUPS = [
-  ["Portal empleado", ["dashboard", "personal", "nominas", "cronos", "dietas", "bolsa"]],
-  ["Expediente y control", ["documentos", "aprobaciones", "auditoria", "administracion"]],
+  [textoPortada("grupo_empleado"), ["dashboard", "personal", "nominas", "cronos", "dietas", "bolsa"]],
+  [textoPortada("grupo_control"), ["documentos", "aprobaciones", "auditoria", "administracion"]],
 ];
 
 const ROLE_ACCESS_PROFILES = [
   {
     id: "administrador",
-    label: "Perfil administrador tecnico",
+    label: textoPortada("perfil_administrador"),
     roles: ["administrador", "system_admin"],
     modules: ["dashboard", "administracion"],
   },
   {
     id: "tecnico_rrhh",
-    label: "Perfil RRHH",
+    label: textoPortada("perfil_rrhh"),
     roles: ["jefatura_rrhh", "tecnico_rrhh", "validator_l2"],
     modules: ["personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "aprobaciones", "auditoria", "administracion"],
   },
   {
     id: "jefatura",
-    label: "Perfil jefatura",
+    label: textoPortada("perfil_jefatura"),
     roles: ["jefe_seccion", "jefe_servicio"],
     modules: ["cronos", "dietas", "documentos", "aprobaciones", "auditoria"],
   },
   {
     id: "administrativo",
-    label: "Perfil administrativo",
+    label: textoPortada("perfil_administrativo"),
     roles: ["administrativo", "validator_l1"],
     modules: ["personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "aprobaciones"],
   },
   {
     id: "empleado",
-    label: "Perfil empleado",
+    label: textoPortada("perfil_empleado"),
     roles: ["personal_interno"],
     modules: ["personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "notificaciones"],
   },
   {
     id: "ciudadano",
-    label: "Perfil aspirante",
+    label: textoPortada("perfil_aspirante"),
     roles: ["ciudadano", "candidate"],
     modules: ["bolsa", "documentos", "notificaciones"],
   },
@@ -245,7 +393,7 @@ const ROLE_ACCESS_PROFILES = [
 
 const NO_ACCESS_PROFILE = Object.freeze({
   id: "sin_acceso",
-  label: "Sin acceso concedido",
+  label: textoPortada("perfil_sin_acceso"),
   roles: Object.freeze([]),
   modules: Object.freeze([]),
 });
@@ -323,27 +471,12 @@ function moduleIDForSession(moduleID) {
 }
 
 const MODULE_COPY = {
-  sin_acceso: ["Acceso no concedido", "No existe un perfil funcional autorizado para esta sesion"],
-  dashboard: ["Bandeja VEC unificada", "Fichajes, permisos, dietas y expedientes en una cola comun"],
-  personal: ["Modulo Personal", "Empleado, puesto, situacion administrativa, antiguedad y certificados"],
-  nominas: ["Nominas y retribuciones", "Incidencias retributivas, trienios, reducciones y cierre mensual"],
-  cronos: ["Modulo Cronos", "Fichajes, horarios, turnos, permisos, asuntos propios y vacaciones"],
-  horarios: ["Horarios del personal", "Flexibilidad, turnos fijos, cobertura obligatoria y reducciones 63/64"],
-  permisos: ["Permisos y vacaciones", "Saldos, solapes, ausencias y aprobaciones"],
-  dietas: ["Modulo Dietas", "Comisiones de servicio, kilometraje provincial, gastos, medias dietas y dietas completas"],
-  rutas: ["Mapa provincial de kilometraje", "Rutas por municipio, kilometros estimados y politica aplicable"],
-  bolsa: ["Modulo Bolsa", "Seleccion, solicitudes, meritos y listados como modulo VEC"],
-  solicitudes: ["Solicitudes Bolsa", "Alta, borrador, presentacion y seguimiento de candidaturas"],
-  meritos: ["Meritos y RUM", "Inventario de titulos, cursos, experiencia y evidencias reutilizables"],
-  autobaremo: ["Autobaremacion", "Simulacion de puntos, desglose y recibo de calculo"],
-  documentos: ["Documentos", "Justificantes, CSV, ENI, firmas y evidencias"],
-  alegaciones: ["Alegaciones", "Reclamaciones, subsanaciones y resoluciones de Bolsa"],
-  notificaciones: ["Notificaciones", "Avisos legales, plazos y comunicaciones"],
-  listados: ["Listados", "Provisional, definitivo, ranking y exportacion"],
-  manifiestos: ["Manifiestos", "Contrato de enganche, capacidades y rutas del modulo"],
-  aprobaciones: ["Aprobaciones", "Bandeja de responsables para permisos, dietas y expedientes"],
-  auditoria: ["Auditoria", "Trazabilidad de cambios, actores y recibos"],
-  administracion: ["Administracion", "Configuracion, colas y supervision"],
+  ...Object.fromEntries([
+    "sin_acceso", "dashboard", "personal", "nominas", "cronos", "horarios",
+    "permisos", "dietas", "rutas", "bolsa", "solicitudes", "meritos",
+    "autobaremo", "documentos", "alegaciones", "notificaciones", "listados",
+    "manifiestos", "aprobaciones", "auditoria", "administracion",
+  ].map((id) => [id, [textoPortada(`modulo_${id}`), textoPortada(`descripcion_${id}`)]])),
 };
 
 const DEFAULT_SCREEN_FIELDS = ["Referencia", "Estado", "Responsable", "Plazo", "Documento", "Accion"];
@@ -543,11 +676,12 @@ const state = {
 function label(key) {
   if (!key) return "-";
   const id = key.split(".").pop();
+  if (IDIOMA_ACTUAL === "en" && PORTADA_I18N.en[`modulo_${id}`]) return textoPortada(`modulo_${id}`);
   return localeCatalog[key] || TEXT.module[id] || TEXT.action[id] || String(key).replaceAll("_", " ");
 }
 
 function ui(key, fallback) {
-  return localeCatalog[`ui.portal.${key}`] || FLOW_TEXT[key] || fallback || key;
+  return (IDIOMA_ACTUAL === "en" ? FLOW_TEXT_EN[key] : localeCatalog[`ui.portal.${key}`] || FLOW_TEXT[key]) || fallback || key;
 }
 
 function setStatus(message, status = "idle") {
@@ -562,14 +696,14 @@ function setText(selector, value) {
 }
 
 function formatPoints(value) {
-  return new Intl.NumberFormat("es-ES", {
+  return new Intl.NumberFormat(LOCALIZACION_ACTUAL, {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(Number(value || 0));
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat("es-ES", {
+  return new Intl.NumberFormat(LOCALIZACION_ACTUAL, {
     style: "currency",
     currency: "EUR",
   }).format(moneyNumber(value));
@@ -588,7 +722,7 @@ function moneyNumber(value) {
 }
 
 function formatCount(value) {
-  return new Intl.NumberFormat("es-ES").format(Number(value || 0));
+  return new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(Number(value || 0));
 }
 
 function todayISODate() {
@@ -597,8 +731,14 @@ function todayISODate() {
 
 function formatDateForDisplay(value) {
   if (!value) return "-";
-  const parts = String(value).split("-");
-  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  const parts = String(value).split("-").map(Number);
+  if (parts.length === 3 && parts.every(Number.isInteger)) {
+    const [year, month, day] = parts;
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day) {
+      return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(date);
+    }
+  }
   return String(value);
 }
 
@@ -1391,9 +1531,9 @@ async function getData(url, options) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error(`Autenticacion requerida en ${url}. En desarrollo se usa identidad demo de personal interno; recarga la pagina o revisa certificado/DNIe cuando se active el modo real.`);
+      throw new Error(textoPortada("autenticacion_requerida", { url }));
     }
-    throw new Error(payload.error || payload.message || `No se pudo cargar ${url}.`);
+    throw new Error(payload.error || payload.message || textoPortada("carga_fallida", { url }));
   }
   return payload.data || payload;
 }
@@ -1430,7 +1570,7 @@ async function loadAdminCapabilities() {
 
 async function loadLocale() {
   try {
-    localeCatalog = await getData("/locales/es.json", { method: "GET" });
+    localeCatalog = await getData(`/locales/${IDIOMA_ACTUAL}.json`, { method: "GET" });
   } catch (error) {
     localeCatalog = {};
   }
@@ -4163,9 +4303,59 @@ function renderScreenNavigation(target, screens) {
   if (activeButton) {
     window.requestAnimationFrame(() => activeButton.scrollIntoView({ block: "nearest", inline: "center" }));
   }
+  localizeOperationContent(nav);
+}
+
+// Catálogo de la superficie operativa. Las cadenas llegan aquí como texto y se
+// localizan después de construir el DOM; los datos interpolados siguen escapados.
+const OPERACION_TEXTOS_EN = Object.freeze({
+  "Pantallas del modulo": "Module screens", "Filtrar por estado": "Filter by status", "Registros de trabajo": "Work records", "Exportar": "Export",
+  "Sin registros para este estado. Ajusta el filtro de arriba.": "There are no records for this status. Adjust the filter above.",
+  "Servicios prestados y antiguedad": "Service and length of service", "dias computables": "working days", "dias naturales": "calendar days",
+  "Desde": "From", "Hasta": "To", "Unidad": "Unit", "Categoria": "Category", "Puesto": "Post", "Regimen": "Employment type", "Jornada": "Working pattern", "Dias": "Days", "Computables": "Countable",
+  "Certificado de servicios prestados": "Certificate of service", "Crear certificado": "Create certificate", "periodos": "periods", "Directorio de empleados": "Employee directory", "Exportar CSV": "Export CSV",
+  "Buscar empleado, DNI, RPT, unidad o situacion": "Search employee, ID, RPT, unit or status", "Limpiar": "Clear", "Empleado": "Employee", "DNI": "ID", "Grupo": "Group", "Situacion": "Status", "Trienios": "Three-year periods", "Horario": "Working hours", "Accion": "Action", "Editando": "Editing", "Editar": "Edit", "Anterior": "Previous", "Siguiente": "Next", "Cerrar": "Close",
+  "Nombre y apellidos": "Full name", "DNI/NIE": "National ID", "Codigo RPT": "RPT code", "Telefono": "Telephone", "Guardar cambios": "Save changes", "Abrir empleados": "Open employees",
+  "Solicitud diaria de dietas y kilometraje": "Daily expenses and mileage request", "Rutas del dia": "Day routes", "Anadir parada": "Add stop", "Calcular itinerario": "Calculate itinerary", "Politica demo": "Demo policy", "Kilometraje": "Mileage", "Dietas/gastos": "Expenses", "Total": "Total", "Jefe servicio": "Service manager", "Tecnico RRHH": "HR officer", "Enviar a validar": "Send for validation", "Solicitante": "Applicant", "Enviado": "Sent", "Seleccionar localidad": "Select locality", "Quitar": "Remove",
+  "Mapa del recorrido": "Route map", "Abrir OSM completo": "Open full OSM", "Todos": "All", "Croquis local del recorrido": "Local route sketch", "Ruta OSRM interna": "Internal OSRM route", "Croquis local no liquidable": "Non-payable local sketch", "Color por tramo": "Colour by leg", "Rutas disponibles": "Available routes", "Resultado del itinerario": "Itinerary result", "Tramo": "Leg", "Origen": "Origin", "Destino": "Destination", "Ruta": "Route", "Km base": "Base km", "Km comp.": "Comp. km", "Km liquid.": "Payable km", "Validacion": "Validation", "Recomendada": "Recommended",
+  "Fuente, version y criterio de auditoria de la matriz": "Matrix source, version and audit criterion", "Catalogo": "Catalogue", "Motor": "Engine", "Grafo": "Graph", "Version": "Version", "Criterio": "Criterion", "Pendiente": "Pending",
+  "Actualizar puesto RPT": "Update RPT post", "Seleccione un estado": "Select a status", "Vigente": "Current", "Guardar puesto": "Save post", "Borrar puesto": "Delete post", "Solicitar permiso": "Request leave", "Solicitar": "Request", "Ficha de la pantalla (datos, validaciones e integraciones)": "Screen record (data, validations and integrations)", "Portal de modulo": "Module portal", "Detalle": "Details", "Consulta de autoservicio": "Self-service enquiry", "Sin datos": "No data", "No hay registros para esta vista.": "There are no records for this view.",
+});
+
+const OPERACION_I18N = Object.freeze({
+  es: Object.freeze(Object.fromEntries(Object.keys(OPERACION_TEXTOS_EN).map((key) => [key, key]))),
+  en: OPERACION_TEXTOS_EN,
+});
+
+function operationText(value) {
+  const source = String(value ?? "");
+  return OPERACION_I18N[IDIOMA_ACTUAL]?.[source] || OPERACION_I18N.es[source] || source;
+}
+
+function localizeOperationContent(root) {
+  if (IDIOMA_ACTUAL !== "en" || !root) return;
+  const localizeNode = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) node.nodeValue = operationText(node.nodeValue);
+    if (node.nodeType === Node.ELEMENT_NODE) ["aria-label", "title", "placeholder"].forEach((attribute) => {
+      if (node.hasAttribute(attribute)) node.setAttribute(attribute, operationText(node.getAttribute(attribute)));
+    });
+  };
+  localizeNode(root);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) localizeNode(walker.currentNode);
+}
+
+function observeOperationContent(root) {
+  if (IDIOMA_ACTUAL !== "en" || !root || root.dataset.operationI18nObserved === "true") return;
+  root.dataset.operationI18nObserved = "true";
+  new MutationObserver((changes) => changes.forEach((change) => {
+    change.addedNodes.forEach((node) => localizeOperationContent(node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement));
+  })).observe(root, { childList: true, subtree: true });
+  localizeOperationContent(root);
 }
 
 function renderScreenWorkspace(target, screen, view) {
+  observeOperationContent(target);
   if (screen.id === "admin.catalogos") {
     renderCatalogoCategoriasGobernado(target, screen, view);
     return;
@@ -8095,15 +8285,49 @@ function ensureFlowPanel() {
   panel.innerHTML = `
     <div class="panel-header">
       <div>
-        <p class="eyebrow">Portal empleado VEC</p>
-        <h2 id="flow-title">Flujo operativo</h2>
+        <p class="eyebrow"></p>
+        <h2 id="flow-title"></h2>
         <span id="flow-mode" class="small-text"></span>
       </div>
-      <span id="flow-receipt" class="status-chip chip-slate">Sin recibo</span>
+      <span id="flow-receipt" class="status-chip chip-slate"></span>
     </div>
     <div id="flow-body" class="flow-body"></div>`;
   queuePanel?.before(panel);
+  $(".eyebrow", panel).textContent = flujoTexto("portal");
+  $("#flow-title", panel).textContent = flujoTexto("operationalFlow");
+  $("#flow-receipt", panel).textContent = flujoTexto("noReceipt");
   return panel;
+}
+
+const FLUJOS_I18N = Object.freeze({
+  es: Object.freeze({
+    portal: "Portal empleado VEC", operationalFlow: "Flujo operativo", noReceipt: "Sin recibo", processing: "Procesando…", running: "Ejecutando flujo", unable: "No se pudo completar el flujo",
+    flow: "{module}: flujo", transport: "{transport} con módulo Bolsa registrado en VEC.", receipt: "Recibo {count}: {action}", pendingReceipt: "Pendiente de recibo",
+    quickEntry: "Alta rápida: {title}. Se registra con recibo auditable.", register: "Registrar {title}", internalStaff: "Personal interno", pendingAction: "Pendiente de acción", underReview: "En revisión", expired: "Plazo vencido", ordinary: "Seguimiento ordinario", noCritical: "Sin vencimiento crítico",
+    receiptLabel: "Recibo", support: "Soporte", masterData: "Dato maestro", appliedPolicy: "Política aplicada", integration: "Integración", module: "Módulo", noBackendReceipt: "sin recibo de backend", localFlow: "flujo local", noEndpoint: "No existe acción {module}",
+    nextModule: "Siguiente módulo", receipts: "Recibos", vecIntegration: "Integración VEC", actionsTraced: "{count} acciones trazadas", modulesRegistered: "{count} módulos independientes registrados", record: "Registro", state: "Estado", policy: "Política", registerAction: "Registrar acción",
+    currentCall: "Convocatoria vigente", call: "Convocatoria", provisionalVersion: "Versión provisional", definitiveVersion: "Versión definitiva", candidateID: "ID de candidatura", candidate: "Candidato", nationalID: "DNI", name: "Nombre", email: "Correo electrónico", title: "Título", deadline: "Plazo", subject: "Asunto", detail: "Detalle", all: "Todos",
+    loading: "Cargando shell VEC", connected: "VEC conectado", activeModule: "Módulo activo: {module}", activeScreen: "Pantalla activa: {screen}", listedOpened: "Listado abierto: {id}", close: "Cerrar", verified: "Documento verificado por CSV", unknownCSV: "CSV no reconocido", unregisteredCSV: "No existe un documento firmado registrado para el CSV {csv}.",
+  }),
+  en: Object.freeze({
+    portal: "VEC employee portal", operationalFlow: "Operational flow", noReceipt: "No receipt", processing: "Processing…", running: "Running flow", unable: "The flow could not be completed",
+    flow: "{module}: flow", transport: "{transport} with the Bolsa module registered in VEC.", receipt: "Receipt {count}: {action}", pendingReceipt: "Receipt pending",
+    quickEntry: "Quick entry: {title}. It is recorded with an auditable receipt.", register: "Register {title}", internalStaff: "Internal staff", pendingAction: "Action pending", underReview: "Under review", expired: "Deadline expired", ordinary: "Routine follow-up", noCritical: "No critical deadline",
+    receiptLabel: "Receipt", support: "Supporting evidence", masterData: "Master data", appliedPolicy: "Applied policy", integration: "Integration", module: "Module", noBackendReceipt: "no backend receipt", localFlow: "local flow", noEndpoint: "No action exists for {module}",
+    nextModule: "Next module", receipts: "Receipts", vecIntegration: "VEC integration", actionsTraced: "{count} traced actions", modulesRegistered: "{count} registered independent modules", record: "Record", state: "Status", policy: "Policy", registerAction: "Register action",
+    currentCall: "Current call", call: "Call", provisionalVersion: "Provisional version", definitiveVersion: "Final version", candidateID: "Candidate ID", candidate: "Candidate", nationalID: "National ID", name: "Name", email: "Email", title: "Title", deadline: "Deadline", subject: "Subject", detail: "Details", all: "All",
+    loading: "Loading VEC shell", connected: "VEC connected", activeModule: "Active module: {module}", activeScreen: "Active screen: {screen}", listedOpened: "Listing opened: {id}", close: "Close", verified: "Document verified by CSV", unknownCSV: "CSV not recognised", unregisteredCSV: "No signed document is registered for CSV {csv}.",
+  }),
+});
+
+function flujoTexto(key, values = {}) {
+  const template = FLUJOS_I18N[IDIOMA_ACTUAL][key];
+  if (typeof template !== "string") throw new Error(`Falta texto de flujos: ${key}`);
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
+}
+
+function flujoFecha(value = new Date()) {
+  return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "short", timeStyle: "medium" }).format(value);
 }
 
 function flowRow(labelText, control) {
@@ -8147,13 +8371,13 @@ async function runFlowAction(action, button) {
   const previousText = button?.textContent || "";
   if (button) {
     button.disabled = true;
-    button.textContent = "Procesando...";
+    button.textContent = flujoTexto("processing");
   }
-  setStatus("Ejecutando flujo", "loading");
+  setStatus(flujoTexto("running"), "loading");
   try {
     await action();
   } catch (error) {
-    setStatus(error.message || "No se pudo completar el flujo", "error");
+    setStatus(error.message || flujoTexto("unable"), "error");
   } finally {
     if (button) {
       button.disabled = false;
@@ -8170,12 +8394,12 @@ function renderFlowPanel() {
   const body = $("#flow-body", panel);
   const module = MODULES.find((item) => item.id === state.activeModule) || MODULES[0];
   const screen = state.portal ? activeScreen(state.portal) : null;
-  title.textContent = screen ? `${module.label}: ${screen.title}` : `${module.label}: flujo`;
+  title.textContent = screen ? `${module.label}: ${screen.title}` : flujoTexto("flow", { module: module.label });
   receipt.textContent = lastReceiptText();
   receipt.className = `status-chip ${state.actionLog.length ? "chip-green" : "chip-slate"}`;
   body.replaceChildren();
   const transport = moduleTransport(state.activeModule);
-  mode.textContent = `${ui(transport.key)} con modulo Bolsa registrado en VEC.`;
+  mode.textContent = flujoTexto("transport", { transport: ui(transport.key) });
 
   const renderer = flowRenderers[state.activeModule] || renderDashboardFlow;
   renderer(body);
@@ -8183,7 +8407,7 @@ function renderFlowPanel() {
 
 function lastReceiptText() {
   const last = state.actionLog[state.actionLog.length - 1];
-  return last ? `Recibo ${state.actionLog.length}: ${last.action}` : "Sin recibo";
+  return last ? flujoTexto("receipt", { count: state.actionLog.length, action: last.action }) : flujoTexto("noReceipt");
 }
 
 const MODULE_FLOW_CONFIG = {
@@ -9714,6 +9938,40 @@ async function loadPortal() {
   } finally {
     reloadButton.disabled = false;
   }
+}
+
+const NOMINAS_I18N = Object.freeze({
+  es: Object.freeze({ locale: "es-ES", text: Object.freeze({}) }),
+  "en-GB": Object.freeze({
+    locale: "en-GB",
+    text: Object.freeze({
+      "DIPUTACIÓN DE GRANADA • AREA DE RECURSOS HUMANOS": "GRANADA PROVINCIAL COUNCIL • HUMAN RESOURCES DEPARTMENT",
+      "Control integral de Nominas": "Full payroll control", "Gestion operativa de Personal y Nominas": "Operational management of People and Payroll", "Portal del Empleado - Consulta de Nominas": "Employee portal - Payroll enquiries", "Volver": "Back",
+      "Portal del empleado": "Employee portal", "Nomina mensual": "Monthly payslip", "Historico y evolucion": "History and trends", "Certificado retenciones 10T": "10T withholding certificate", "Expediente empleado publico": "Public employee record", "Capitulo I, RPT y plazas": "Chapter I, job catalogue and posts", "Resumen y estadisticas": "Summary and statistics", "Checklist y avisos": "Checklist and alerts", "Contratos y vencimientos": "Contracts and expiry dates", "Incapacidades y ausencias": "Incapacity and absences", "Bajas por areas": "Absences by area", "Cierre mensual y calculo": "Monthly close and calculation", "Inspector de nomina": "Payroll inspector", "Cotizacion RED/SLD": "RED/SLD contributions", "Tablas, valores y conceptos": "Tables, values and concepts", "Retroactividad y revision": "Backdating and review", "Informes y certificados": "Reports and certificates", "Prestamos y fondo social": "Loans and social fund", "Centro de servicio y usuarios": "Service centre and users", "Pagos y contabilidad": "Payments and accounting",
+      "Seleccione el mes a consultar:": "Select the month to view:", "Ver recibo": "View payslip", "Descargar PDF": "Download PDF", "Exportar Excel": "Export to Excel", "Cerrar": "Close", "PDF": "PDF",
+      "RECIBO DE SALARIOS": "PAYSLIP", "DATOS DEL PERCEPTOR": "RECIPIENT DETAILS", "DEVENGOS Y DEDUCCIONES": "EARNINGS AND DEDUCTIONS", "CODIGO": "CODE", "CONCEPTO": "CONCEPT", "DEVENGOS": "EARNINGS", "DEDUCCIONES": "DEDUCTIONS", "Total devengos": "Total earnings", "Total deducciones": "Total deductions", "Liquido a percibir": "Net pay", "Documento firmado electronicamente por la Diputacion Provincial de Granada": "Document electronically signed by Granada Provincial Council", "Verificar documento": "Verify document",
+      "Certificado de Retenciones e Ingresos a Cuenta (I.R.P.F.)": "Withholding and payment-on-account certificate (income tax)", "DIPUTACIÓN PROVINCIAL DE GRANADA": "GRANADA PROVINCIAL COUNCIL", "Área de Recursos Humanos y Régimen Interior": "Human Resources and Internal Affairs Department", "EJERCICIO FISCAL 2025": "TAX YEAR 2025", "RENDIMIENTOS DEL TRABAJO": "EMPLOYMENT INCOME", "CONCEPTO VALORABLE": "ASSESSABLE ITEM", "IMPORTE ANUAL (€)": "ANNUAL AMOUNT (€)", "Descargar certificado firmado": "Download signed certificate", "Documento firmado para pruebas": "Document signed for testing",
+      "Evolucion salarial de los ultimos 12 meses": "Pay trends over the last 12 months", "Devengos 12 meses": "12-month earnings", "Liquido percibido": "Net pay received", "Promedio mensual neto": "Average monthly net pay", "Variacion periodo": "Period change", "Bruto acumulado": "Cumulative gross pay", "Neto acumulado": "Cumulative net pay", "IRPF y Seguridad Social": "Income tax and National Insurance", "Comparativa mensual": "Monthly comparison", "Bruto": "Gross", "Neto": "Net", "Historico de recibos de nomina": "Payslip history", "PERIODO": "PERIOD", "VAR. NETO": "NET CHANGE", "INCIDENCIA": "ITEM", "ACCIONES": "ACTIONS",
+      "Sueldo Base (Grupo A2)": "Basic pay (Group A2)", "Complemento de Destino (Nivel 22)": "Post allowance (Level 22)", "Complemento Específico": "Specific allowance", "Productividad e Incentivos": "Performance pay and incentives", "Dietas y Locomoción (Cruce VEC)": "Subsistence and travel (VEC cross-check)", "Cotización General Seguridad Social (4.7%)": "National Insurance general contribution (4.7%)", "Sin productividad variable": "No variable performance pay", "Nomina ordinaria": "Standard payslip",
+      "Resumen operativo de nominas": "Payroll operations summary", "Crear informe": "Create report", "Exportar": "Export", "Estado": "Status", "Accion": "Action", "Empleado": "Employee", "Puesto": "Post", "Centro": "Centre", "Trienios": "Three-year service increments", "Situacion": "Situation", "Antiguedad": "Length of service", "Jornada": "Working pattern", "Tipo": "Type", "Importe": "Amount", "Pendiente": "Pending", "Disponible": "Available", "Activo": "Active", "Vigente": "Current", "Borrador": "Draft", "Correcto": "Correct", "Revisar": "Review", "Resuelto": "Resolved", "Enviar": "Send", "Gestionar": "Manage", "Actualizar": "Refresh", "Abrir": "Open", "Validar": "Validate", "Generar": "Generate", "Aplicar": "Apply", "Recalcular": "Recalculate", "Firmado": "Signed", "Referencia": "Reference", "Detalle": "Details", "Fecha": "Date", "Periodo": "Period", "Todos los periodos": "All periods",
+    }),
+  }),
+});
+
+function idiomaNominasActual() { return IDIOMA_ACTUAL === "en-GB" ? "en-GB" : "es"; }
+function textoNominas(value) {
+  const text = String(value ?? "");
+  const dictionary = NOMINAS_I18N[idiomaNominasActual()].text;
+  return Object.entries(dictionary).sort(([left], [right]) => right.length - left.length).reduce((translated, [source, target]) => translated.replaceAll(source, target), text);
+}
+function localizacionNominasActual() { return NOMINAS_I18N[idiomaNominasActual()].locale || LOCALIZACION_ACTUAL; }
+function localizarNominasDOM(root) {
+  if (idiomaNominasActual() === "es" || !root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => { if (node.parentElement && !/^(SCRIPT|STYLE)$/i.test(node.parentElement.tagName)) node.nodeValue = textoNominas(node.nodeValue); });
+  root.querySelectorAll("[title], [aria-label], [placeholder]").forEach((element) => ["title", "aria-label", "placeholder"].forEach((attribute) => { if (element.hasAttribute(attribute)) element.setAttribute(attribute, textoNominas(element.getAttribute(attribute))); }));
 }
 
 const PAYROLL_HISTORY_MONTHS = [

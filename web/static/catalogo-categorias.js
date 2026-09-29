@@ -1,3 +1,68 @@
+import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "./comun/idioma.js";
+
+const MENSAJES_CATEGORIAS = Object.freeze({
+  es: Object.freeze({
+    administracion_general: "Administración general", administracion_especial: "Administración especial",
+    no_informada: "No informada", desde: "Desde {fecha}", hasta: "Hasta {fecha}", si: "Sí", no: "No",
+    categorias_recibidas: "Categorías recibidas", version: "Versión", revision: "Revisión", estado_recibido: "Estado recibido",
+    metadatos: "Metadatos recibidos del catálogo", identificador: "Identificador", nombre: "Nombre", estado: "Estado",
+    huella: "Huella SHA-256", catalogo: "Catálogo", revision_fuente: "Revisión de la fuente", actualizada: "Actualizada en",
+    titulo: "Categorías profesionales", descripcion: "Consulta del catálogo común recibido por Personal, Bolsa, RPT y certificados. Esta pantalla no modifica la fuente.",
+    catalogo_recibido: "Catálogo recibido", solo_lectura: "Solo lectura. Las altas, cambios, publicaciones o retiradas deben realizarse mediante el futuro flujo gobernado y auditado.",
+    catalogo_demo: "Catálogo marcado como demostración", fuente_lectura: "Fuente de solo lectura",
+    aviso_demo: "La API ha marcado este contenido como demostración; la interfaz no le atribuye validez administrativa.",
+    aviso_metadatos: "Se muestran exclusivamente los datos y metadatos recibidos; la interfaz no presupone aprobaciones ni vigencias.",
+    aviso_sin_metadatos: "La API no ha aportado metadatos de aprobación, versión o revisión; la interfaz no los presupone.",
+    respuesta_incompleta: "Respuesta incompleta: se han recibido {recibidas} de {total} categorías.",
+    respuesta_incompleta_una: "Respuesta incompleta: se ha recibido {recibidas} de {total} categoría.",
+    buscar: "Buscar por clave o denominación", area: "Área", todas_areas: "Todas las áreas",
+    listado: "Listado de categorías profesionales", caption: "Categorías profesionales recibidas de la API",
+    clave_estable: "Clave estable", denominacion: "Denominación", vigencia: "Vigencia", accion: "Acción",
+    detalle_categoria: "Detalle de categoría", cerrar_detalle: "Cerrar detalle de categoría", cerrar: "Cerrar",
+    sin_denominacion_categoria: "Categoría sin denominación", no_recibida: "No recibida", descripcion_campo: "Descripción",
+    orden: "Orden", vigente_desde: "Vigente desde", vigente_hasta: "Vigente hasta", publicable: "Publicable",
+    suscribible: "Suscribible", semantica: "Semántica", fuente: "Fuente", uso_declarado: "Uso declarado",
+    mostrando: "Mostrando {mostradas} de {total} categorías recibidas", sin_coincidencias: "No hay categorías que coincidan con los filtros activos.",
+    mostrando_una: "Mostrando {mostradas} de {total} categoría recibida",
+    sin_categorias: "La API no ha devuelto categorías profesionales.", sin_clave: "Sin clave recibida", sin_denominacion: "Sin denominación",
+    no_informado: "No informado", ver_detalle: "Ver detalle", ver_detalle_de: "Ver detalle de {categoria}", categoria_sin_identificar: "categoría sin identificar",
+    estado_vigente: "Vigente", estado_activo: "Activo", estado_borrador: "Borrador", estado_retirado: "Retirado", estado_no_vigente: "No vigente",
+  }),
+  en: Object.freeze({
+    administracion_general: "General administration", administracion_especial: "Specialist administration",
+    no_informada: "Not provided", desde: "From {fecha}", hasta: "Until {fecha}", si: "Yes", no: "No",
+    categorias_recibidas: "Categories received", version: "Version", revision: "Revision", estado_recibido: "Status received",
+    metadatos: "Catalogue metadata received", identificador: "Identifier", nombre: "Name", estado: "Status",
+    huella: "SHA-256 digest", catalogo: "Catalogue", revision_fuente: "Source revision", actualizada: "Updated on",
+    titulo: "Job categories", descripcion: "View the shared catalogue received by Personnel, Bolsa, RPT and certificates. This screen does not change the source.",
+    catalogo_recibido: "Catalogue received", solo_lectura: "Read only. New entries, changes, publication and withdrawal require the future governed, audited process.",
+    catalogo_demo: "Catalogue marked as a demonstration", fuente_lectura: "Read-only source",
+    aviso_demo: "The API has marked this content as a demonstration; the interface does not treat it as administratively valid.",
+    aviso_metadatos: "Only received data and metadata are shown; the interface makes no assumptions about approval or validity.",
+    aviso_sin_metadatos: "The API did not provide approval, version or revision metadata; the interface makes no assumptions about them.",
+    respuesta_incompleta: "Incomplete response: {recibidas} of {total} categories received.",
+    respuesta_incompleta_una: "Incomplete response: {recibidas} of {total} category received.",
+    buscar: "Search by key or name", area: "Area", todas_areas: "All areas",
+    listado: "List of job categories", caption: "Job categories received from the API",
+    clave_estable: "Stable key", denominacion: "Name", vigencia: "Validity", accion: "Action",
+    detalle_categoria: "Category details", cerrar_detalle: "Close category details", cerrar: "Close",
+    sin_denominacion_categoria: "Category without a name", no_recibida: "Not received", descripcion_campo: "Description",
+    orden: "Order", vigente_desde: "Valid from", vigente_hasta: "Valid until", publicable: "Publishable",
+    suscribible: "Subscribable", semantica: "Meaning", fuente: "Source", uso_declarado: "Declared use",
+    mostrando: "Showing {mostradas} of {total} categories received", sin_coincidencias: "No categories match the active filters.",
+    mostrando_una: "Showing {mostradas} of {total} category received",
+    sin_categorias: "The API returned no job categories.", sin_clave: "No key received", sin_denominacion: "No name received",
+    no_informado: "Not provided", ver_detalle: "View details", ver_detalle_de: "View details for {categoria}", categoria_sin_identificar: "unidentified category",
+    estado_vigente: "Valid", estado_activo: "Active", estado_borrador: "Draft", estado_retirado: "Withdrawn", estado_no_vigente: "No longer valid",
+  }),
+});
+
+export function traducirCatalogoCategorias(clave, variables = {}, idioma = IDIOMA_ACTUAL) {
+  const plantilla = MENSAJES_CATEGORIAS[idioma]?.[clave] ?? MENSAJES_CATEGORIAS.es[clave];
+  if (plantilla === undefined) throw new Error(`Missing category catalogue key: ${clave}`);
+  return plantilla.replace(/\{(\w+)\}/g, (_, nombre) => String(variables[nombre] ?? ""));
+}
+
 export function normalizarPaginaCategoriasProfesionales(valor) {
   const listaDirecta = Array.isArray(valor) ? valor : null;
   const envoltorio = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {};
@@ -37,8 +102,13 @@ export function ofertaPerteneceAlCatalogoActual(oferta, clavesVigentes, referenc
   );
 }
 
-export function crearHerramientasCatalogoCategorias(dependencias) {
-  const { $, $$, formatCount, stateTone, screenHead, getPersonalCatalog, workTableTextCollator } = dependencias;
+export function crearHerramientasCatalogoCategorias(dependencias, idioma = IDIOMA_ACTUAL) {
+  const { $, $$, stateTone, screenHead, getPersonalCatalog, workTableTextCollator } = dependencias;
+  const localizacion = idioma === IDIOMA_ACTUAL ? LOCALIZACION_ACTUAL : (idioma === "en" ? "en-GB" : "es-ES");
+  const t = (clave, variables) => traducirCatalogoCategorias(clave, variables, idioma);
+  const formatoNumero = new Intl.NumberFormat(localizacion);
+  const numero = (valor) => formatoNumero.format(valor);
+  const collator = idioma === "en" ? new Intl.Collator(localizacion, { sensitivity: "base" }) : workTableTextCollator;
 
   function normalizarTextoBusquedaCatalogo(valor) {
     return String(valor || "")
@@ -79,7 +149,7 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
     const items = getPersonalCatalog(view).categories?.items || [];
     return items
       .map(normalizarCategoriaProfesional)
-      .sort((a, b) => (a.orden ?? a.indice) - (b.orden ?? b.indice) || workTableTextCollator.compare(a.etiqueta, b.etiqueta));
+      .sort((a, b) => (a.orden ?? a.indice) - (b.orden ?? b.indice) || collator.compare(a.etiqueta, b.etiqueta));
   }
 
   function metadatosCatalogoCategorias(view) {
@@ -106,34 +176,39 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
   function etiquetaAreaCategoria(categoria) {
     if (categoria.areaEtiqueta) return categoria.areaEtiqueta;
     const etiquetasConocidas = {
-      administracion_general: "Administración general",
-      administracion_especial: "Administración especial",
+      administracion_general: t("administracion_general"),
+      administracion_especial: t("administracion_especial"),
     };
     return etiquetasConocidas[categoria.area]
       || categoria.area.replaceAll("_", " ").replace(/^./, (letra) => letra.toLocaleUpperCase("es"))
-      || "No informada";
+      || t("no_informada");
   }
 
   function formatearFechaCatalogo(valor) {
     if (!valor) return "";
     const fecha = new Date(valor);
     if (Number.isNaN(fecha.getTime())) return String(valor);
-    return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(fecha);
+    return new Intl.DateTimeFormat(localizacion, { dateStyle: "medium" }).format(fecha);
   }
 
   function vigenciaCategoria(categoria) {
     const desde = formatearFechaCatalogo(categoria.vigenteDesde);
     const hasta = formatearFechaCatalogo(categoria.vigenteHasta);
     if (desde && hasta) return `${desde} - ${hasta}`;
-    if (desde) return `Desde ${desde}`;
-    if (hasta) return `Hasta ${hasta}`;
-    return "No informada";
+    if (desde) return t("desde", { fecha: desde });
+    if (hasta) return t("hasta", { fecha: hasta });
+    return t("no_informada");
   }
 
   function etiquetaBooleanoCatalogo(valor) {
-    if (valor === true || /^(si|sí|true|1)$/i.test(String(valor || ""))) return "Sí";
-    if (valor === false || /^(no|false|0)$/i.test(String(valor || ""))) return "No";
+    if (valor === true || /^(si|sí|true|1)$/i.test(String(valor || ""))) return t("si");
+    if (valor === false || /^(no|false|0)$/i.test(String(valor || ""))) return t("no");
     return String(valor || "").trim();
+  }
+
+  function estadoCategoria(valor) {
+    const clave = `estado_${String(valor || "").toLocaleLowerCase("es").trim().replace(/[\s-]+/g, "_")}`;
+    return MENSAJES_CATEGORIAS.es[clave] ? t(clave) : valor;
   }
 
   function agregarCampoDefinicion(lista, etiqueta, valor) {
@@ -152,20 +227,20 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
     const general = categorias.filter((categoria) => categoria.area === "administracion_general").length;
     const especial = categorias.filter((categoria) => categoria.area === "administracion_especial").length;
     const valores = [
-      ["Categorías recibidas", metadatos.total],
-      ["Administración general", general],
-      ["Administración especial", especial],
+      [t("categorias_recibidas"), metadatos.total],
+      [t("administracion_general"), general],
+      [t("administracion_especial"), especial],
     ];
     const versionCatalogo = catalogo.version ?? catalogo.catalogo_version;
-    if (versionCatalogo != null) valores.push(["Versión", versionCatalogo]);
-    if (catalogo.revision != null) valores.push(["Revisión", catalogo.revision]);
-    if (catalogo.estado || catalogo.state) valores.push(["Estado recibido", catalogo.estado || catalogo.state]);
+    if (versionCatalogo != null) valores.push([t("version"), versionCatalogo]);
+    if (catalogo.revision != null) valores.push([t("revision"), catalogo.revision]);
+    if (catalogo.estado || catalogo.state) valores.push([t("estado_recibido"), estadoCategoria(catalogo.estado || catalogo.state)]);
     valores.forEach(([etiqueta, valor]) => {
       const grupo = document.createElement("div");
       const termino = document.createElement("dt");
       const detalle = document.createElement("dd");
       termino.textContent = etiqueta;
-      detalle.textContent = typeof valor === "number" ? formatCount(valor) : String(valor);
+      detalle.textContent = typeof valor === "number" ? numero(valor) : String(valor);
       grupo.append(termino, detalle);
       panel.append(grupo);
     });
@@ -180,21 +255,21 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
     const details = document.createElement("details");
     details.className = "category-catalog-metadata";
     const summary = document.createElement("summary");
-    summary.textContent = "Metadatos recibidos del catálogo";
+    summary.textContent = t("metadatos");
     const lista = document.createElement("dl");
     if (catalogo && typeof catalogo === "object") {
-      agregarCampoDefinicion(lista, "Identificador", catalogo.id || catalogo.catalogo_id || catalogo.referencia);
-      agregarCampoDefinicion(lista, "Nombre", catalogo.nombre || catalogo.name);
-      agregarCampoDefinicion(lista, "Versión", catalogo.version ?? catalogo.catalogo_version);
-      agregarCampoDefinicion(lista, "Revisión", catalogo.revision);
-      agregarCampoDefinicion(lista, "Estado", catalogo.estado || catalogo.state);
-      agregarCampoDefinicion(lista, "Huella SHA-256", catalogo.huella_sha256 || catalogo.catalogo_huella_sha256 || catalogo.huella);
+      agregarCampoDefinicion(lista, t("identificador"), catalogo.id || catalogo.catalogo_id || catalogo.referencia);
+      agregarCampoDefinicion(lista, t("nombre"), catalogo.nombre || catalogo.name);
+      agregarCampoDefinicion(lista, t("version"), catalogo.version ?? catalogo.catalogo_version);
+      agregarCampoDefinicion(lista, t("revision"), catalogo.revision);
+      agregarCampoDefinicion(lista, t("estado"), estadoCategoria(catalogo.estado || catalogo.state));
+      agregarCampoDefinicion(lista, t("huella"), catalogo.huella_sha256 || catalogo.catalogo_huella_sha256 || catalogo.huella);
     } else {
-      agregarCampoDefinicion(lista, "Catálogo", catalogo);
+      agregarCampoDefinicion(lista, t("catalogo"), catalogo);
     }
     if (hayFuente) {
-      agregarCampoDefinicion(lista, "Revisión de la fuente", fuente.revision);
-      agregarCampoDefinicion(lista, "Actualizada en", fuente.actualizada_en || fuente.updated_at);
+      agregarCampoDefinicion(lista, t("revision_fuente"), fuente.revision);
+      agregarCampoDefinicion(lista, t("actualizada"), formatearFechaCatalogo(fuente.actualizada_en || fuente.updated_at));
     }
     details.append(summary, lista);
     return details;
@@ -203,11 +278,7 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
   function renderCatalogoCategoriasGobernado(target, screen, view) {
     const categorias = obtenerCategoriasProfesionales(view);
     const metadatos = metadatosCatalogoCategorias(view);
-    const cabeceraPantalla = screenHead(
-      "Categorías profesionales",
-      "Consulta del catálogo común recibido por Personal, Bolsa, RPT y certificados. Esta pantalla no modifica la fuente.",
-      [],
-    );
+    const cabeceraPantalla = screenHead(t("titulo"), t("descripcion"), []);
     cabeceraPantalla.classList.add("category-catalog-screen-head");
     target.append(cabeceraPantalla);
 
@@ -218,27 +289,28 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
 
     const encabezado = document.createElement("div");
     encabezado.className = "category-catalog-heading";
-    encabezado.innerHTML = `<div><h3 id="category-catalog-heading">Catálogo recibido</h3><p></p></div>`;
-    $("p", encabezado).textContent = "Solo lectura. Las altas, cambios, publicaciones o retiradas deben realizarse mediante el futuro flujo gobernado y auditado.";
+    encabezado.innerHTML = `<div><h3 id="category-catalog-heading"></h3><p></p></div>`;
+    $("h3", encabezado).textContent = t("catalogo_recibido");
+    $("p", encabezado).textContent = t("solo_lectura");
 
     const aviso = document.createElement("div");
     aviso.className = `category-catalog-notice${metadatos.demostracion ? " is-demo" : ""}`;
     aviso.dataset.categorySourceNotice = "true";
     aviso.setAttribute("role", "status");
     const avisoTitulo = document.createElement("strong");
-    avisoTitulo.textContent = metadatos.demostracion ? "Catálogo marcado como demostración" : "Fuente de solo lectura";
+    avisoTitulo.textContent = metadatos.demostracion ? t("catalogo_demo") : t("fuente_lectura");
     const avisoTexto = document.createElement("span");
     const contieneMetadatos = Boolean(metadatos.catalogo || metadatos.fuente);
     avisoTexto.textContent = metadatos.aviso
       || (metadatos.demostracion
-        ? "La API ha marcado este contenido como demostración; la interfaz no le atribuye validez administrativa."
+        ? t("aviso_demo")
         : (contieneMetadatos
-          ? "Se muestran exclusivamente los datos y metadatos recibidos; la interfaz no presupone aprobaciones ni vigencias."
-          : "La API no ha aportado metadatos de aprobación, versión o revisión; la interfaz no los presupone."));
+          ? t("aviso_metadatos")
+          : t("aviso_sin_metadatos")));
     aviso.append(avisoTitulo, avisoTexto);
     if (metadatos.total > categorias.length) {
       const paginacion = document.createElement("span");
-      paginacion.textContent = `Respuesta incompleta: se han recibido ${formatCount(categorias.length)} de ${formatCount(metadatos.total)} categorías.`;
+      paginacion.textContent = t(metadatos.total === 1 ? "respuesta_incompleta_una" : "respuesta_incompleta", { recibidas: numero(categorias.length), total: numero(metadatos.total) });
       aviso.append(paginacion);
     }
 
@@ -252,12 +324,12 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
     filtros.dataset.categoryFilters = "true";
     filtros.setAttribute("role", "search");
     filtros.innerHTML = `
-      <label for="category-catalog-search">Buscar por clave o denominación
+      <label for="category-catalog-search">${t("buscar")}
         <input id="category-catalog-search" type="search" autocomplete="off" data-category-search>
       </label>
-      <label for="category-catalog-area">Área
+      <label for="category-catalog-area">${t("area")}
         <select id="category-catalog-area" data-category-area>
-          <option value="">Todas las áreas</option>
+          <option value="">${t("todas_areas")}</option>
         </select>
       </label>
       <p data-category-results role="status" aria-live="polite"></p>
@@ -271,7 +343,7 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
       if (categoria.area && !areas.has(categoria.area)) areas.set(categoria.area, etiquetaAreaCategoria(categoria));
     });
     Array.from(areas.entries())
-      .sort((a, b) => workTableTextCollator.compare(a[1], b[1]))
+      .sort((a, b) => collator.compare(a[1], b[1]))
       .forEach(([valor, etiqueta]) => {
         const option = document.createElement("option");
         option.value = valor;
@@ -284,19 +356,19 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
     const tablaRegion = document.createElement("div");
     tablaRegion.className = "category-catalog-table-wrap";
     tablaRegion.setAttribute("role", "region");
-    tablaRegion.setAttribute("aria-label", "Listado de categorías profesionales");
+    tablaRegion.setAttribute("aria-label", t("listado"));
     tablaRegion.tabIndex = 0;
     const tabla = document.createElement("table");
     tabla.dataset.categoryTable = "true";
     tabla.innerHTML = `
-      <caption>Categorías profesionales recibidas de la API</caption>
+      <caption>${t("caption")}</caption>
       <thead><tr>
-        <th scope="col">Clave estable</th>
-        <th scope="col">Denominación</th>
-        <th scope="col">Área</th>
-        <th scope="col">Estado</th>
-        <th scope="col">Vigencia</th>
-        <th scope="col">Acción</th>
+        <th scope="col">${t("clave_estable")}</th>
+        <th scope="col">${t("denominacion")}</th>
+        <th scope="col">${t("area")}</th>
+        <th scope="col">${t("estado")}</th>
+        <th scope="col">${t("vigencia")}</th>
+        <th scope="col">${t("accion")}</th>
       </tr></thead>
       <tbody></tbody>
     `;
@@ -308,8 +380,8 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
     detalle.hidden = true;
     detalle.setAttribute("aria-labelledby", "category-detail-title");
     detalle.innerHTML = `
-      <header><div><span class="eyebrow">Detalle de categoría</span><h3 id="category-detail-title" tabindex="-1"></h3></div>
-        <button type="button" class="quiet-action" data-category-detail-close aria-label="Cerrar detalle de categoría">Cerrar</button>
+      <header><div><span class="eyebrow">${t("detalle_categoria")}</span><h3 id="category-detail-title" tabindex="-1"></h3></div>
+        <button type="button" class="quiet-action" data-category-detail-close aria-label="${t("cerrar_detalle")}">${t("cerrar")}</button>
       </header>
       <dl></dl>
     `;
@@ -327,21 +399,21 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
       ultimoDisparador = boton;
       const titulo = $("#category-detail-title", detalle);
       const lista = $("dl", detalle);
-      titulo.textContent = categoria.etiqueta || "Categoría sin denominación";
+      titulo.textContent = categoria.etiqueta || t("sin_denominacion_categoria");
       lista.replaceChildren();
-      agregarCampoDefinicion(lista, "Clave estable", categoria.clave || "No recibida");
-      agregarCampoDefinicion(lista, "Denominación", categoria.etiqueta || "No recibida");
-      agregarCampoDefinicion(lista, "Descripción", categoria.descripcion);
-      agregarCampoDefinicion(lista, "Área", etiquetaAreaCategoria(categoria));
-      agregarCampoDefinicion(lista, "Orden", categoria.orden);
-      agregarCampoDefinicion(lista, "Estado", categoria.estado);
-      agregarCampoDefinicion(lista, "Vigente desde", formatearFechaCatalogo(categoria.vigenteDesde));
-      agregarCampoDefinicion(lista, "Vigente hasta", formatearFechaCatalogo(categoria.vigenteHasta));
-      agregarCampoDefinicion(lista, "Publicable", etiquetaBooleanoCatalogo(categoria.publicable));
-      agregarCampoDefinicion(lista, "Suscribible", etiquetaBooleanoCatalogo(categoria.suscribible));
-      agregarCampoDefinicion(lista, "Semántica", categoria.semantica);
-      agregarCampoDefinicion(lista, "Fuente", categoria.fuente);
-      agregarCampoDefinicion(lista, "Uso declarado", categoria.uso);
+      agregarCampoDefinicion(lista, t("clave_estable"), categoria.clave || t("no_recibida"));
+      agregarCampoDefinicion(lista, t("denominacion"), categoria.etiqueta || t("no_recibida"));
+      agregarCampoDefinicion(lista, t("descripcion_campo"), categoria.descripcion);
+      agregarCampoDefinicion(lista, t("area"), etiquetaAreaCategoria(categoria));
+      agregarCampoDefinicion(lista, t("orden"), categoria.orden);
+      agregarCampoDefinicion(lista, t("estado"), estadoCategoria(categoria.estado));
+      agregarCampoDefinicion(lista, t("vigente_desde"), formatearFechaCatalogo(categoria.vigenteDesde));
+      agregarCampoDefinicion(lista, t("vigente_hasta"), formatearFechaCatalogo(categoria.vigenteHasta));
+      agregarCampoDefinicion(lista, t("publicable"), etiquetaBooleanoCatalogo(categoria.publicable));
+      agregarCampoDefinicion(lista, t("suscribible"), etiquetaBooleanoCatalogo(categoria.suscribible));
+      agregarCampoDefinicion(lista, t("semantica"), categoria.semantica);
+      agregarCampoDefinicion(lista, t("fuente"), categoria.fuente);
+      agregarCampoDefinicion(lista, t("uso_declarado"), categoria.uso);
       detalle.hidden = false;
       cuerpo.classList.add("has-detail");
       $$(`tr[aria-selected="true"]`, tabla).forEach((actual) => actual.setAttribute("aria-selected", "false"));
@@ -371,7 +443,7 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
         ].join(" "));
         return texto.includes(consulta);
       });
-      resultado.textContent = `Mostrando ${formatCount(filtradas.length)} de ${formatCount(categorias.length)} categorías recibidas`;
+      resultado.textContent = t(categorias.length === 1 ? "mostrando_una" : "mostrando", { mostradas: numero(filtradas.length), total: numero(categorias.length) });
       const tbody = $("tbody", tabla);
       tbody.replaceChildren();
       if (!filtradas.length) {
@@ -380,8 +452,8 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
         celda.colSpan = 6;
         celda.className = "empty-state";
         celda.textContent = categorias.length
-          ? "No hay categorías que coincidan con los filtros activos."
-          : "La API no ha devuelto categorías profesionales.";
+          ? t("sin_coincidencias")
+          : t("sin_categorias");
         fila.append(celda);
         tbody.append(fila);
         return;
@@ -392,9 +464,9 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
         if (categoria.clave) fila.dataset.categoryKey = categoria.clave;
         fila.setAttribute("aria-selected", "false");
         const valores = [
-          ["Clave estable", categoria.clave || "Sin clave recibida"],
-          ["Denominación", categoria.etiqueta || "Sin denominación"],
-          ["Área", etiquetaAreaCategoria(categoria)],
+          [t("clave_estable"), categoria.clave || t("sin_clave")],
+          [t("denominacion"), categoria.etiqueta || t("sin_denominacion")],
+          [t("area"), etiquetaAreaCategoria(categoria)],
         ];
         valores.forEach(([etiqueta, valor]) => {
           const celda = document.createElement("td");
@@ -403,24 +475,24 @@ export function crearHerramientasCatalogoCategorias(dependencias) {
           fila.append(celda);
         });
         const estadoCelda = document.createElement("td");
-        estadoCelda.dataset.label = "Estado";
+        estadoCelda.dataset.label = t("estado");
         const estado = document.createElement("span");
         estado.className = `status-chip ${categoria.estado ? stateTone(categoria.estado) : "chip-slate"}`;
-        estado.textContent = categoria.estado || "No informado";
+        estado.textContent = categoria.estado ? estadoCategoria(categoria.estado) : t("no_informado");
         estadoCelda.append(estado);
         fila.append(estadoCelda);
         const vigenciaCelda = document.createElement("td");
-        vigenciaCelda.dataset.label = "Vigencia";
+        vigenciaCelda.dataset.label = t("vigencia");
         vigenciaCelda.textContent = vigenciaCategoria(categoria);
         fila.append(vigenciaCelda);
         const accionCelda = document.createElement("td");
-        accionCelda.dataset.label = "Acción";
+        accionCelda.dataset.label = t("accion");
         const boton = document.createElement("button");
         boton.type = "button";
         boton.className = "row-action";
         boton.dataset.categoryView = "true";
-        boton.textContent = "Ver detalle";
-        boton.setAttribute("aria-label", `Ver detalle de ${categoria.etiqueta || categoria.clave || "categoría sin identificar"}`);
+        boton.textContent = t("ver_detalle");
+        boton.setAttribute("aria-label", t("ver_detalle_de", { categoria: categoria.etiqueta || categoria.clave || t("categoria_sin_identificar") }));
         boton.addEventListener("click", () => abrirDetalle(categoria, boton, fila));
         accionCelda.append(boton);
         fila.append(accionCelda);

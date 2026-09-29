@@ -5,6 +5,7 @@ import {
   crearHerramientasCatalogoCategorias,
   normalizarPaginaCategoriasProfesionales,
   ofertaPerteneceAlCatalogoActual,
+  traducirCatalogoCategorias,
 } from "./catalogo-categorias.js";
 
 const HUELLA = "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233";
@@ -66,4 +67,13 @@ test("solo reutiliza ofertas vinculadas a la versión y huella vigentes", () => 
   assert.equal(ofertaPerteneceAlCatalogoActual({ ...oferta, categoryCatalogSHA256: "0".repeat(64) }, ["administrativo"], referencia), false);
   assert.equal(ofertaPerteneceAlCatalogoActual({ categoryKey: "administrativo" }, ["administrativo"], referencia), false);
   assert.equal(ofertaPerteneceAlCatalogoActual(oferta, ["otra-categoria"], referencia), false);
+});
+
+test("el catálogo de categorías traduce rótulos, estados y plurales", () => {
+  assert.equal(traducirCatalogoCategorias("titulo", {}, "es"), "Categorías profesionales");
+  assert.equal(traducirCatalogoCategorias("titulo", {}, "en"), "Job categories");
+  assert.equal(traducirCatalogoCategorias("estado_retirado", {}, "en"), "Withdrawn");
+  assert.equal(traducirCatalogoCategorias("mostrando_una", { mostradas: 1, total: 1 }, "en"), "Showing 1 of 1 category received");
+  assert.equal(traducirCatalogoCategorias("ver_detalle_de", { categoria: "<script>" }, "en"), "View details for <script>");
+  assert.throws(() => traducirCatalogoCategorias("clave_inexistente", {}, "en"), /Missing category catalogue key/u);
 });
