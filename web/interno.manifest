@@ -180,6 +180,7 @@ static/portal-empleado/modulos/contratacion-temporal/formulario-anotacion-admini
 static/portal-empleado/modulos/contratacion-temporal/formulario-cierre-administrativo.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js

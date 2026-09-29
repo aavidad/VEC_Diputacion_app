@@ -1,32 +1,32 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260928-auditoria-expediente-en-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260928-auditoria-expediente-en-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260929-diseno-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260929-diseno-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260928-auditoria-expediente-en-v2";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260928-auditoria-expediente-en-v2";
-import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260928-auditoria-expediente-en-v2";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260928-auditoria-expediente-en-v2";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260928-auditoria-expediente-en-v2";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260928-auditoria-expediente-en-v2";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260929-diseno-v1";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260929-diseno-v1";
+import { AYUDA_PORTAL_RRHH, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260929-diseno-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-diseno-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-diseno-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-diseno-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-ppt-v2";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-usab-auditoria-firma-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-diseno-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260928-auditoria-expediente-en-v2";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-diseno-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260928-auditoria-expediente-en-v2";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260928-auditoria-expediente-en-v2";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260929-diseno-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260929-diseno-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
-import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260928-auditoria-expediente-en-v2";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260928-auditoria-expediente-en-v2";
-import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260928-auditoria-expediente-en-v2";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260928-auditoria-expediente-en-v2";
-import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260928-auditoria-expediente-en-v2";
-import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260928-auditoria-expediente-en-v2";
+import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarSelectorIdiomaPortal, instalarValidacionI18n } from "./portal-idioma.js?v=20260929-diseno-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260929-diseno-v1";
+import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260929-diseno-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260929-diseno-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260929-diseno-v1";
+import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260929-diseno-v1";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
-import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260928-usab-auditoria-v3";
+import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260929-diseno-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
-import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260928-auditoria-expediente-en-v2";
+import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260929-diseno-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -103,7 +103,8 @@ const DATOS_VACIOS = Object.freeze({
 const DATOS_PANEL = DATOS_VACIOS;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 const TITULOS = Object.freeze({
-  portal: [traducirPortal("txt_portal_del_empleado"), traducirPortal("txt_portal_del_empleado")],
+  portal: [traducirPortal("menu_inicio"), traducirPortal("menu_inicio")],
+  "ofertas-sae": [traducirPortal("ofertas_sae_miga"), traducirPortal("ofertas_sae_titulo")],
   resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_cuadro_de_mando")],
   elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
   convocatorias: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_convocatorias_bases_y_calendario")],
@@ -588,6 +589,12 @@ function actualizarNavegacionModulos() {
   const moduloActivo = moduloActivoDeVista(estado.vista);
   const disponibilidad = disponibilidadBolsa();
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
+  // Ofertas al SAE es parte del trabajo de RRHH: se ofrece con Peticiones o Bolsas.
+  const enlaceSAE = porId("enlace-ofertas-sae");
+  if (enlaceSAE) {
+    enlaceSAE.hidden = !(coordinadorModulos.vistaDisponible("contratacion-temporal")
+      || resolverAccesoPerfil("bolsa")?.disponible === true);
+  }
   const enlacePlantillas = porId("enlace-plantillas-rrhh");
   if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true;
   aplicarDisponibilidadMenuBolsa(porId("navegacion-bolsa"), capacidadesBolsa())
@@ -783,19 +790,35 @@ function renderizar() {
 
   coordinadorModulos.retirarVistaMontada();
   estado.vistaMontada = "";
-  if (estado.vista !== "portal" && !estado.fuenteLista) {
+  if (estado.vista !== "portal" && estado.vista !== "ofertas-sae" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;
   }
 
   const renderizadores = {
     portal: renderizarPortal,
+    "ofertas-sae": renderizarOfertasSAE,
   };
   contenedor.innerHTML = (renderizadores[estado.vista] || renderizarPortal)();
   contenedor.querySelectorAll('[data-accion="ayuda"]').forEach((control) => {
     control.setAttribute("aria-label", etiquetaAyuda);
   });
   aplicarBarrasDinamicas(contenedor);
+}
+
+// Ofertas al SAE: entrada fija del menú de RRHH. Aún no hay datos que mostrar:
+// la pantalla lo dice en llano, sin cifras ni recuentos inventados.
+function renderizarOfertasSAE() {
+  return `${encabezadoVista("", traducirPortal("ofertas_sae_titulo"), "")}
+    <section class="panel" aria-labelledby="ofertas-sae-estado">
+      <div class="cuerpo-panel vacio-controlado" role="status">
+        <h3 id="ofertas-sae-estado">${escaparHTML(traducirPortal("ofertas_sae_estado_titulo"))}</h3>
+        <p>${escaparHTML(traducirPortal("ofertas_sae_estado_texto"))}</p>
+        <div class="acciones-vista">
+          <button type="button" class="boton-secundario" data-vista="portal">${escaparHTML(traducirPortal("ofertas_sae_volver"))}</button>
+        </div>
+      </div>
+    </section>`;
 }
 
 // Vista pedida por el enlace cuyo módulo aún carga: ni error ni «no disponible».

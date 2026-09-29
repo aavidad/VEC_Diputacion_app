@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
 
 export const ESQUEMA_REINCORPORACIONES_TITULAR = "vec.bolsa.rrhh.reincorporaciones_titular.v1";
 const BASE = "/api/vec/bolsa/bolsas";

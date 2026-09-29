@@ -159,7 +159,7 @@ test("el resumen inicial escapa datos, marca la fase y omite las columnas de la 
   assert.match(html, /data-ct-fase="analisis_rrhh"/u);
   const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
   assert.ok(ficha);
-  assert.match(ficha, /aria-current="step">Análisis de RRHH/u);
+  assert.match(ficha, /aria-current="step">Análisis RRHH/u);
   assert.match(ficha, /Solicitud registrada<\/dt><dd>/u);
   assert.match(ficha, /Versión<\/dt><dd>3<\/dd>/u);
   for (const columna of ["Centro", "Categoría", "Modalidad", "Estado", "Fase actual", "Plazo"]) {

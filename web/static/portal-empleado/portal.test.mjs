@@ -316,9 +316,9 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   // R9 permite elevar el objetivo sin partir un archivo cohesionado. La base
-  // actual tiene 1057 líneas; 1100 deja margen acotado para el cableado de
-  // imports del portal y exige justificar cualquier crecimiento posterior.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1100, "portal.js debe mantenerse en 1100 líneas o menos");
+  // actual tiene 1057 líneas; 1100 dejaba margen para el cableado de imports.
+  // El menú fijo y Ofertas al SAE (29/09/2026) lo congelan en 1120.
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1120, "portal.js debe mantenerse en 1120 líneas o menos");
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
   exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");

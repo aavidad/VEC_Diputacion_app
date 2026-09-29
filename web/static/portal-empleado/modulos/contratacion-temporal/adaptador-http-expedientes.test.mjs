@@ -106,12 +106,12 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
   assert.equal(cuadro.expedientes[0].categoria, "categoria:auxiliar");
   assert.equal(cuadro.expedientes[0].estado_clave, "espera");
   assert.equal(cuadro.expedientes[0].fase_clave, "analisis");
-  assert.equal(cuadro.expedientes[0].fase_actual, "Análisis");
+  assert.equal(cuadro.expedientes[0].fase_actual, "Análisis RRHH");
   assert.equal(cuadro.expedientes[0].modalidad, "Bolsa");
-  assert.equal(cuadro.expedientes[0].estado, "En espera externa");
+  assert.equal(cuadro.expedientes[0].estado, "Esperando a otra unidad");
   assert.equal(detalle.demostracion, false);
   assert.equal(detalle.cabecera.find(({ clave }) => clave === "motivo").valor, "Sustitución");
-  assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, "Análisis");
+  assert.equal(detalle.cabecera.find(({ clave }) => clave === "fase").valor, "Fase 2 de 8: Análisis RRHH");
   assert.equal(
     detalle.analisis_previo.observaciones,
     "Análisis de demostración RRHH C6-05; necesidad temporal verificada.",
@@ -138,7 +138,7 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
       fase: "Análisis",
       accion: "Iniciar analisis",
       estado_clave: "en_curso",
-      estado: "En tramitación",
+      estado: "En trámite",
       accion_clave: "iniciar_analisis",
       version_expediente: 2,
     },
@@ -165,8 +165,8 @@ test("convierte cuadro y detalle del servidor para la pantalla existente", async
 
 test("la proyección autorizada localiza cabeceras, fase, estado y período sin alterar datos de servidor", async () => {
   for (const [locale, mensajes, fase, estado, cabecera] of [
-    ["es-ES", {}, "Llamamiento", "En tramitación", "Período solicitado"],
-    ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Candidate call", "Being processed", "Requested period"],
+    ["es-ES", {}, "Obtención del candidato", "En trámite", "Período solicitado"],
+    ["en-GB", MENSAJES_EXPEDIENTES_CONTRATACION_EN, "Candidate selection", "In progress", "Requested period"],
   ]) {
     const llamadas = [];
     const cliente = clienteFalso(llamadas);
@@ -193,7 +193,7 @@ test("la proyección autorizada localiza cabeceras, fase, estado y período sin 
     ]);
     assert.equal(cuadro.expedientes[0].fase_actual, fase);
     assert.equal(cuadro.expedientes[0].estado, estado);
-    assert.equal(campo("fase").valor, fase);
+    assert.equal(campo("fase").valor, `${locale === "en-GB" ? "Stage 5 of 8" : "Fase 5 de 8"}: ${fase}`);
     assert.equal(campo("estado").valor, estado);
     assert.equal(campo("periodo").etiqueta, cabecera);
     assert.equal(campo("periodo").valor, `${fecha("2026-09-04T00:00:00Z")} — ${fecha("2026-12-31T00:00:00Z")}`);
@@ -260,7 +260,7 @@ test("muestra la fase de asignación de unidad en castellano", async () => {
 
   const cuadro = await adaptador.listar();
 
-  assert.equal(cuadro.expedientes[0].fase_actual, "Asignación de unidad");
+  assert.equal(cuadro.expedientes[0].fase_actual, "Gestión de bolsa");
 });
 test("delega el detalle real al servidor y solo lo concede después de consultarlo", async () => {
   const llamadas = [];

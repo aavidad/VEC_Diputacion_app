@@ -226,6 +226,7 @@ static/portal-empleado/modulos/contratacion-temporal/formulario-cierre-administr
 static/portal-empleado/modulos/contratacion-temporal/formulario-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
