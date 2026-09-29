@@ -31,7 +31,7 @@ func prepararPublicacionPerfilUsuariosExterno(i core.InstantaneaAutorizacion, cu
 	vacia := publicacionPerfilUsuariosExterno{}
 	if cuentaRef == "" || aprobacionRef == "" || i.Validar() != nil ||
 		i.VersionRol.RolID != "candidato_usuarios_propios_desarrollo" ||
-		i.VersionRol.Nombre != "Gestión propia de Usuarios en desarrollo" ||
+		i.VersionRol.Nombre != "areaPersonal.usuarios.rolPropio" ||
 		i.VersionRol.Estado != core.EstadoVersionRolPublicada ||
 		i.AsignacionPerfil.VersionRolRef != i.VersionRol.Referencia() ||
 		i.AsignacionPerfil.Version != versionEsperada+1 ||

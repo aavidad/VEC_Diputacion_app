@@ -65,7 +65,7 @@ DECLARE x jsonb; accion text; tipo text; finalidad text; campos jsonb;
 BEGIN
  IF pg_catalog.jsonb_typeof(d) IS DISTINCT FROM 'object'
     OR d->>'rol_id' IS DISTINCT FROM 'candidato_usuarios_propios_desarrollo'
-    OR d->>'nombre' IS DISTINCT FROM 'Gestión propia de Usuarios en desarrollo'
+    OR d->>'nombre' IS DISTINCT FROM 'areaPersonal.usuarios.rolPropio'
     OR d->>'estado' IS DISTINCT FROM 'publicada'
     OR d->>'publicada_por' IS DISTINCT FROM 'seguridad:desarrollo:no-autoritativa'
     OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(d))<>7
@@ -142,7 +142,7 @@ BEGIN
     OR vec_autorizacion.rol_usuarios_externo_acotado_v1(d) IS NOT TRUE
     OR v IS NULL OR v<1 OR v=9223372036854775807
     OR d->>'estado' IS DISTINCT FROM 'publicada'
-    OR d->>'nombre' IS DISTINCT FROM 'Gestión propia de Usuarios en desarrollo'
+    OR d->>'nombre' IS DISTINCT FROM 'areaPersonal.usuarios.rolPropio'
     OR d->>'publicada_por' IS DISTINCT FROM 'seguridad:desarrollo:no-autoritativa'
     OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(d))<>7
     OR d ?| ARRAY['retirada_por','retirada_en','retirada_ref','motivo_retirada_codigo']

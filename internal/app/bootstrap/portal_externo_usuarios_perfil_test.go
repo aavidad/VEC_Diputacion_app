@@ -26,7 +26,7 @@ func instantaneaPerfilUsuariosExternoPrueba(t *testing.T) core.InstantaneaAutori
 		poner(accion, usuarios.TipoRecursoCorreos, usuarios.FinalidadCorreosPropios, usuarios.CamposPermitidosCorreos(accion))
 	}
 	rol := core.VersionRol{RolID: "candidato_usuarios_propios_desarrollo", Version: 1,
-		Nombre: "Gestión propia de Usuarios en desarrollo", Estado: core.EstadoVersionRolPublicada,
+		Nombre: "areaPersonal.usuarios.rolPropio", Estado: core.EstadoVersionRolPublicada,
 		Concesiones: concesiones, PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: ahora}
 	huella, err := core.HuellaCatalogoPoliticasAutorizacion(nil)
 	if err != nil {
