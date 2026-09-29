@@ -314,6 +314,9 @@ func (s SolicitudPromoverObjeto) Validar() error {
 		!referenciaOpacaAlmacenValida(s.EvidenciaAnalisisRef, 512) {
 		return ErrSolicitudAlmacenInvalida
 	}
+	if err := s.Contexto.validarPromocionImagen(s.ClaveIdempotencia, s.EvidenciaAnalisisRef); err != nil {
+		return err
+	}
 	return nil
 }
 

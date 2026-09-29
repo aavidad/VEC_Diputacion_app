@@ -1,6 +1,10 @@
 package ports
 
 import (
+	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
 	"errors"
 	"strconv"
 	"strings"
@@ -10,180 +14,257 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-func imagenAlmacenPrueba(t *testing.T, accion string, objeto bool) (
-	domain.DecisionAutorizacion, domain.RecursoAutorizable, VinculosOperacionAlmacen,
-	ImagenAlmacenVinculada, time.Time,
+func imagenAlmacenV3Prueba(t *testing.T, accion string) (
+	AutorizacionImagenAlmacenV3, VinculosOperacionAlmacen, ImagenAlmacenVinculada, time.Time,
 ) {
 	t.Helper()
+	e := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	_, _, v, _ := autorizacionAlmacenPrueba(t, AccionNegocioPrepararCargaDocumental,
+		[]string{"clasificacion", "contenido", "huella_sha256", "mime", "tamano"}, false)
 	campos := []string{"contenido_png256", "objeto_cuarentena"}
-	switch accion {
-	case AccionNegocioPromoverImagenProcesada:
+	objeto := false
+	if accion == AccionNegocioPromoverImagenProcesada {
 		campos = []string{"objeto_admitido", "estado"}
-	case AccionNegocioAbrirImagenPropiaActiva, AccionNegocioAbrirImagenAjenaActiva:
-		campos = []string{"contenido_png256"}
+		objeto = true
 	}
-	d, r, v, instante := autorizacionAlmacenPrueba(t, accion, campos, objeto)
+	if accion == AccionNegocioAbrirImagenPropiaActiva || accion == AccionNegocioAbrirImagenAjenaActiva {
+		campos = []string{"contenido_png256"}
+		objeto = true
+	}
 	i := ImagenAlmacenVinculada{
-		DocumentoRef: "documento:imagen:0001", ActorPersonaRef: "per_actor_00000001",
-		TitularPersonaRef: "per_actor_00000001", Audiencia: audienciaImagenPersonal,
-		Finalidad: finalidadImagenPropia, HuellaSHA256: strings.Repeat("a", 64),
-		Tamano: 1024, ClaveIdempotencia: "documento:imagen:0001:cuarentena",
+		DocumentoRef: "documento:imagen:0001", ActorPersonaRef: e.resultado.Contexto.PersonaRef,
+		TitularPersonaRef: e.resultado.Contexto.PersonaRef,
+		Audiencia:         audienciaImagenPersonal, Finalidad: finalidadImagenPropia,
+		HuellaSHA256: strings.Repeat("a", 64), Tamano: 1024,
+		ClaveIdempotencia: "documento:imagen:0001:cuarentena",
 	}
 	if accion == AccionNegocioPromoverImagenProcesada {
 		i.ClaveIdempotencia = "documento:imagen:0001:admitida"
+		i.EvidenciaAnalisisRef = "analisis:limpio:0001"
 	}
 	if accion == AccionNegocioAbrirImagenPropiaActiva || accion == AccionNegocioAbrirImagenAjenaActiva {
 		i.ClaveIdempotencia = ""
 	}
 	if accion == AccionNegocioAbrirImagenAjenaActiva {
-		i.ActorPersonaRef = "per_otra_00000001"
+		i.TitularPersonaRef = "per_titular_0000000001"
 		i.Audiencia = audienciaImagenInterna
 		i.Finalidad = finalidadImagenInterna
 	}
 	v.CargaRef = i.DocumentoRef
-	r.Referencia = i.DocumentoRef
-	r.ModuloID = "documentos"
-	r.Tipo = "imagen_usuario"
-	r.Atributos[AtributoAlmacenCargaRef] = v.CargaRef
-	r.Atributos[AtributoAlmacenImagenDocumentoRef] = i.DocumentoRef
-	r.Atributos[AtributoAlmacenImagenActorPersonaRef] = i.ActorPersonaRef
-	r.Atributos[AtributoAlmacenImagenTitularPersonaRef] = i.TitularPersonaRef
-	r.Atributos[AtributoAlmacenImagenAudiencia] = i.Audiencia
-	r.Atributos[AtributoAlmacenImagenFinalidad] = i.Finalidad
-	r.Atributos[AtributoAlmacenImagenHuellaSHA256] = i.HuellaSHA256
-	r.Atributos[AtributoAlmacenImagenTamano] = strconv.FormatInt(i.Tamano, 10)
-	if i.ClaveIdempotencia != "" {
-		r.Atributos[AtributoAlmacenImagenClaveIdempotencia] = i.ClaveIdempotencia
+	a := map[string]string{
+		AtributoAlmacenOperacionRef:            v.OperacionRef,
+		AtributoAlmacenCargaRef:                v.CargaRef,
+		AtributoAlmacenClasificacion:           v.Clasificacion,
+		AtributoAlmacenSujetoSeudonimoHMAC:     v.SujetoSeudonimoHMAC,
+		AtributoAlmacenHuellaSolicitudHMAC:     v.HuellaSolicitudHMAC,
+		AtributoAlmacenEfectoRef:               v.EfectoRef,
+		AtributoAlmacenImagenDocumentoRef:      i.DocumentoRef,
+		AtributoAlmacenImagenActorPersonaRef:   i.ActorPersonaRef,
+		AtributoAlmacenImagenTitularPersonaRef: i.TitularPersonaRef,
+		AtributoAlmacenImagenAudiencia:         i.Audiencia,
+		AtributoAlmacenImagenFinalidad:         i.Finalidad,
+		AtributoAlmacenImagenHuellaSHA256:      i.HuellaSHA256,
+		AtributoAlmacenImagenTamano:            strconv.FormatInt(i.Tamano, 10),
 	}
-	d.RecursoRef = r.Referencia
-	d.ModuloID = r.ModuloID
-	d.TipoRecurso = r.Tipo
-	d.Finalidad = i.Finalidad
-	d.ContextoRecursoHuellaSHA256, _ = r.HuellaContextoAutorizacionSHA256()
-	return d, r, v, i, instante
+	if i.ClaveIdempotencia != "" {
+		a[AtributoAlmacenImagenClaveIdempotencia] = i.ClaveIdempotencia
+	}
+	if i.EvidenciaAnalisisRef != "" {
+		a[AtributoAlmacenImagenEvidenciaAnalisisRef] = i.EvidenciaAnalisisRef
+	}
+	if objeto {
+		v.ObjetoVinculado = ReferenciaObjetoAlmacen{Referencia: "objeto:imagen:0001", Version: "version:1"}
+		a[AtributoAlmacenObjetoRef] = v.ObjetoVinculado.Referencia
+		a[AtributoAlmacenObjetoVersion] = v.ObjetoVinculado.Version
+	}
+	datos, err := e.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos.Accion = accion
+	datos.Finalidad = i.Finalidad
+	datos.Recurso = domain.RecursoAutorizable{
+		Referencia: i.DocumentoRef, ModuloID: "documentos", Tipo: "imagen_usuario",
+		Ambitos: map[string]string{"unidad": "seleccion"}, Atributos: a,
+	}
+	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(datos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instantanea := e.instantnea
+	instantanea.VersionRol.Concesiones = append([]domain.ConcesionRol(nil), instantanea.VersionRol.Concesiones...)
+	instantanea.VersionRol.Concesiones[0].Accion = accion
+	instantanea.VersionRol.Concesiones[0].ModuloID = "documentos"
+	instantanea.VersionRol.Concesiones[0].TipoRecurso = "imagen_usuario"
+	instantanea.VersionRol.Concesiones[0].Finalidades = []string{i.Finalidad}
+	instantanea.VersionRol.Concesiones[0].CamposPermitidos = campos
+	evidencia, err := domain.NuevaEvidenciaEvaluacionAutorizacionV3(
+		solicitud, instantanea, "dec_0123456789abcdef0123456789abcdef", e.ahora,
+		e.ahora.Add(90*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := domain.NuevaDecisionAutorizacionLigadaV3(solicitud, evidencia)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orden, err := NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(solicitud, decision, e.motivo, e.resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmacion, err := nuevaConfirmacionRegistroConcesionAutorizacionLigadaV3(orden, e.ahora.Add(time.Microsecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmada, err := confirmacion.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaDecision, err := domain.HuellaSHA256DecisionAutorizacionV3(decision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaMotivo, err := domain.HuellaSHA256MotivoAutorizacionV2(e.motivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaRecurso, err := datos.Recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumen, err := NuevoResumenCapacidadAtestacionAutorizacionV3(
+		confirmada.DecisionRef, huellaDecision, huellaMotivo, e.resultado.RegistroContextoRef,
+		e.resultado.HuellaSHA256, accion, i.DocumentoRef, huellaRecurso,
+		audienciaConsumoImagenV3(accion), e.ahora.Add(2*time.Microsecond), e.ahora.Add(4*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decisionCanonica, err := domain.RepresentacionCanonicaDecisionAutorizacionV3(decision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivoCanonico, err := domain.RepresentacionCanonicaMotivoAutorizacionV2(e.motivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publica, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spki, err := x509.MarshalPKIXPublicKey(publica)
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+		bytes.Repeat([]byte("c"), 512), resumen, decisionCanonica, motivoCanonico,
+		e.resultado.RepresentacionCanonica, e.resultado.Contexto.Instantanea.PersonaVersion,
+		e.resultado.Contexto.Instantanea.PerfilVersion, []byte("payload"), []byte("cose"),
+		[]byte("verificacion"), spki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return AutorizacionImagenAlmacenV3{Solicitud: solicitud, Decision: decision,
+		Confirmacion: confirmacion, ContextoActor: e.resultado, Motivo: e.motivo,
+		Material: material}, v, i, e.ahora.Add(3 * time.Microsecond)
 }
 
-func TestImagenProcesadaAlmacenCierraEscrituraPNG256YAccion(t *testing.T) {
-	d, r, v, i, instante := imagenAlmacenPrueba(t, AccionNegocioEscribirImagenProcesada, false)
-	c, err := NuevoContextoEscribirImagenProcesadaAlmacen(d, r, v, i, instante)
+func TestImagenAlmacenV3EscrituraExactaYSinDegradacion(t *testing.T) {
+	a, v, i, instante := imagenAlmacenV3Prueba(t, AccionNegocioEscribirImagenProcesada)
+	c, err := NuevoContextoEscribirImagenProcesadaAlmacen(a, v, i, instante)
 	if err != nil || c.ValidarParaEn(AccionAlmacenEscribir, instante) != nil {
-		t.Fatalf("capacidad de imagen: %v", err)
+		t.Fatalf("V3: %v", err)
+	}
+	if _, err := c.EvidenciaAutorizacion(); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatal("V1 expuesta")
+	}
+	if _, err := c.MaterialAutorizacionImagenV3(); err != nil {
+		t.Fatalf("material V3: %v", err)
 	}
 	s := SolicitudEscribirObjeto{Contexto: c, ClaveIdempotencia: i.ClaveIdempotencia,
 		Zona: ZonaAlmacenCuarentena, MIME: "image/png", Tamano: i.Tamano,
 		HuellaSHA256: i.HuellaSHA256, Contenido: strings.NewReader("png procesado")}
-	if err := s.Validar(); err != nil {
-		t.Fatalf("solicitud exacta: %v", err)
+	if s.Validar() != nil {
+		t.Fatal("escritura exacta denegada")
 	}
-	casos := []struct {
-		nombre string
-		mutar  func(*SolicitudEscribirObjeto)
-	}{
-		{"clave", func(s *SolicitudEscribirObjeto) { s.ClaveIdempotencia = "otra:clave" }},
-		{"zona", func(s *SolicitudEscribirObjeto) { s.Zona = ZonaAlmacenAdmitida }},
-		{"mime", func(s *SolicitudEscribirObjeto) { s.MIME = "image/jpeg" }},
-		{"tamano", func(s *SolicitudEscribirObjeto) { s.Tamano++ }},
-		{"huella", func(s *SolicitudEscribirObjeto) { s.HuellaSHA256 = strings.Repeat("b", 64) }},
+	for _, mutar := range []func(*SolicitudEscribirObjeto){
+		func(s *SolicitudEscribirObjeto) { s.ClaveIdempotencia = "otra:clave" },
+		func(s *SolicitudEscribirObjeto) { s.Zona = ZonaAlmacenAdmitida },
+		func(s *SolicitudEscribirObjeto) { s.MIME = "image/jpeg" },
+		func(s *SolicitudEscribirObjeto) { s.Tamano++ },
+		func(s *SolicitudEscribirObjeto) { s.HuellaSHA256 = strings.Repeat("b", 64) },
+	} {
+		mutada := s
+		mutar(&mutada)
+		if mutada.Validar() == nil {
+			t.Fatal("escritura alterada aceptada")
+		}
 	}
-	for _, caso := range casos {
-		t.Run(caso.nombre, func(t *testing.T) {
-			mutada := s
-			caso.mutar(&mutada)
-			if !errors.Is(mutada.Validar(), ErrAutorizacionAlmacenInvalida) {
-				t.Fatal("metadatos cambiados aceptados")
-			}
-		})
+	if _, err := NuevoContextoEscribirImagenProcesadaAlmacen(AutorizacionImagenAlmacenV3{}, v, i, instante); err == nil {
+		t.Fatal("sin V3")
 	}
-	if _, err := c.DerivarPaso(PasoAlmacenPromoverImagenProcesada); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("escritura derivo promocion")
-	}
-	if c.ValidarParaEn(AccionAlmacenLeer, instante) == nil {
-		t.Fatal("escritura habilito lectura")
-	}
-	cruzada := d
-	cruzada.Accion = AccionNegocioAbrirImagenPropiaActiva
-	if _, err := NuevoContextoEscribirImagenProcesadaAlmacen(cruzada, r, v, i, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("permiso de otra operacion aceptado")
+	if _, err := c.DerivarPaso(PasoAlmacenPromoverImagenProcesada); err == nil {
+		t.Fatal("paso cruzado")
 	}
 }
 
-func TestImagenProcesadaAlmacenDeniegaRefVersionHuellaYAudienciaCruzadas(t *testing.T) {
-	d, r, v, i, instante := imagenAlmacenPrueba(t, AccionNegocioPromoverImagenProcesada, true)
-	c, err := NuevoContextoPromoverImagenProcesadaAlmacen(d, r, v, i, instante)
-	if err != nil || !c.coincideObjeto(v.ObjetoVinculado) {
-		t.Fatalf("promocion exacta: %v", err)
+func TestImagenAlmacenV3PromocionLigaClaveYAnalisis(t *testing.T) {
+	a, v, i, instante := imagenAlmacenV3Prueba(t, AccionNegocioPromoverImagenProcesada)
+	c, err := NuevoContextoPromoverImagenProcesadaAlmacen(a, v, i, instante)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if c.coincideObjeto(ReferenciaObjetoAlmacen{Referencia: v.ObjetoVinculado.Referencia, Version: "version:otra"}) {
-		t.Fatal("version ajena aceptada")
+	s := SolicitudPromoverObjeto{Contexto: c, Origen: v.ObjetoVinculado,
+		ClaveIdempotencia: i.ClaveIdempotencia, EvidenciaAnalisisRef: i.EvidenciaAnalisisRef}
+	if s.Validar() != nil {
+		t.Fatal("promocion exacta denegada")
 	}
-	v2 := v
-	v2.ObjetoVinculado.Version = "version:otra"
-	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(d, r, v2, i, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("promocion con version ajena aceptada")
+	s.ClaveIdempotencia = "otra:clave"
+	if s.Validar() == nil {
+		t.Fatal("clave de destino cambiada")
 	}
-	i2 := i
-	i2.HuellaSHA256 = strings.Repeat("b", 64)
-	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(d, r, v, i2, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("huella ajena aceptada")
+	s.ClaveIdempotencia = i.ClaveIdempotencia
+	s.EvidenciaAnalisisRef = "analisis:otro"
+	if s.Validar() == nil {
+		t.Fatal("evidencia distinta aceptada")
 	}
-	i2 = i
-	i2.DocumentoRef = "documento:imagen:0002"
-	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(d, r, v, i2, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("documento ajeno aceptado")
+	v.ObjetoVinculado.Version = "version:otra"
+	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("version ajena")
 	}
-	r2 := clonarRecursoAlmacenPrueba(r)
-	r2.Atributos[AtributoAlmacenImagenTamano] = "2048"
-	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(d, r2, v, i, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("tamano alterado aceptado")
+	v.ObjetoVinculado.Version = "version:1"
+	i.EvidenciaAnalisisRef = "analisis:otro"
+	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("evidencia del recurso cambiada")
 	}
-	r2 = clonarRecursoAlmacenPrueba(r)
-	r2.Atributos[AtributoAlmacenImagenTitularPersonaRef] = "per_otra_00000001"
-	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(d, r2, v, i, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("titular alterado aceptado")
-	}
-	if _, err := c.DerivarPaso(PasoAlmacenLeerParaAnalisis); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("promocion derivo analisis")
+	i.EvidenciaAnalisisRef = "analisis:limpio:0001"
+	i.HuellaSHA256 = strings.Repeat("b", 64)
+	if _, err := NuevoContextoPromoverImagenProcesadaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("huella del recurso cambiada")
 	}
 }
 
-func TestImagenActivaAlmacenSeparaPropiaAjenaYRetirada(t *testing.T) {
-	d, r, v, i, instante := imagenAlmacenPrueba(t, AccionNegocioAbrirImagenAjenaActiva, true)
-	c, err := NuevoContextoAbrirImagenActivaAlmacen(d, r, v, i, instante)
+func TestImagenAlmacenV3DeniegaAudienciaYLecturaAjenaExterior(t *testing.T) {
+	a, v, i, instante := imagenAlmacenV3Prueba(t, AccionNegocioAbrirImagenAjenaActiva)
+	c, err := NuevoContextoAbrirImagenActivaAlmacen(a, v, i, instante)
 	if err != nil || c.ValidarParaEn(AccionAlmacenLeer, instante) != nil {
-		t.Fatalf("lectura interna nominal: %v", err)
+		t.Fatalf("lectura V3: %v", err)
 	}
-	if !c.coincideObjeto(v.ObjetoVinculado) || c.coincideObjeto(ReferenciaObjetoAlmacen{Referencia: "otro:objeto", Version: v.ObjetoVinculado.Version}) {
-		t.Fatal("objeto ajeno aceptado")
+	i.Audiencia = audienciaImagenPersonal
+	if _, err := NuevoContextoAbrirImagenActivaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("externa ajena")
 	}
-	i2 := i
-	i2.Audiencia = audienciaImagenPersonal
-	if _, err := NuevoContextoAbrirImagenActivaAlmacen(d, r, v, i2, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("audiencia externa aceptada")
+	i.Audiencia = "mi_bolsa_publica"
+	if _, err := NuevoContextoAbrirImagenActivaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("publica")
 	}
-	i2 = i
-	i2.Finalidad = finalidadImagenPropia
-	if _, err := NuevoContextoAbrirImagenActivaAlmacen(d, r, v, i2, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("finalidad propia en lectura ajena aceptada")
+	i.Audiencia = audienciaImagenInterna
+	otra, _, _, _ := imagenAlmacenV3Prueba(t, AccionNegocioAbrirImagenPropiaActiva)
+	a.Material = otra.Material
+	if _, err := NuevoContextoAbrirImagenActivaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("material de audiencia propia aceptado para ajena")
 	}
-	i2 = i
-	i2.Audiencia = "mi_bolsa_publica"
-	if _, err := NuevoContextoAbrirImagenActivaAlmacen(d, r, v, i2, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("audiencia publica aceptada")
-	}
-	desconocida := d
-	desconocida.Accion = "documentos.imagen.almacen.leer_cualquiera"
-	if _, err := NuevoContextoAbrirImagenActivaAlmacen(desconocida, r, v, i, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("operacion no catalogada aceptada")
-	}
-	if c.ValidarEn(d.ValidaHasta) == nil {
-		t.Fatal("decision caducada aceptada")
-	}
-	retirada := d
-	retirada.Concedida = false
-	if _, err := NuevoContextoAbrirImagenActivaAlmacen(retirada, r, v, i, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("lectura denegada aceptada")
-	}
-	if _, err := c.DerivarPaso(PasoAlmacenPromoverImagenProcesada); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
-		t.Fatal("lectura derivo promocion")
+	a.Material = ExportacionMaterialConsumoAutorizacionAtestadaV3{}
+	if _, err := NuevoContextoAbrirImagenActivaAlmacen(a, v, i, instante); err == nil {
+		t.Fatal("sin material")
 	}
 }

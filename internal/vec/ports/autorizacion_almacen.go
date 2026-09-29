@@ -132,6 +132,7 @@ type datosContextoOperacionAlmacen struct {
 	evidencia              EvidenciaUsoDecisionAutorizacion
 	pasos                  []pasoPlanOperacionAlmacen
 	imagen                 *vinculoImagenAlmacen
+	materialImagenV3       *ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
 // ContextoOperacionAlmacen es una capacidad opaca e inmutable. Su valor cero
@@ -256,7 +257,7 @@ func nuevoContextoOperacionAlmacen(
 	verificadaEn time.Time,
 	especificacion especificacionAutorizacionAlmacen,
 ) (ContextoOperacionAlmacen, error) {
-	if !especificacion.valida() || !vinculos.validosPara(especificacion) ||
+	if especificacion.imagen != nil || !especificacion.valida() || !vinculos.validosPara(especificacion) ||
 		decision.ValidarEvidenciaInstantanea() != nil || !decision.Concedida ||
 		decision.Accion != especificacion.accionNegocio || len(decision.Obligaciones) != 0 ||
 		!camposAutorizacionExactos(decision.CamposPermitidos, especificacion.camposExactos) ||
@@ -509,15 +510,24 @@ func (c ContextoOperacionAlmacen) Proyeccion() (ProyeccionContextoOperacionAlmac
 // adaptador duradero debe revalidar y consumir de forma unica en la misma
 // transaccion que DecisionRef -> (EfectoRef, HuellaPlanEfectoSHA256).
 func (c ContextoOperacionAlmacen) EvidenciaAutorizacion() (EvidenciaUsoDecisionAutorizacion, error) {
-	if c.validarEstructura() != nil {
+	if c.validarEstructura() != nil || c.datos.imagen != nil {
 		return EvidenciaUsoDecisionAutorizacion{}, errorAutorizacionAlmacen()
 	}
 	return c.datos.evidencia, nil
 }
 
 func (c ContextoOperacionAlmacen) ValidarEn(instante time.Time) error {
-	if c.validarEstructura() != nil || instante.IsZero() || c.datos.evidencia.ValidarEn(instante) != nil ||
+	if c.validarEstructura() != nil || instante.IsZero() ||
 		!instante.UTC().Before(c.datos.validaHasta) {
+		return errorAutorizacionAlmacen()
+	}
+	if c.datos.imagen != nil {
+		if instante.UTC().Before(c.datos.verificadaEn) {
+			return errorAutorizacionAlmacen()
+		}
+		return nil
+	}
+	if c.datos.evidencia.ValidarEn(instante) != nil {
 		return errorAutorizacionAlmacen()
 	}
 	return nil
@@ -555,6 +565,13 @@ func (c ContextoOperacionAlmacen) DerivarPaso(pasoRef PasoOperacionAlmacen) (Con
 	copia.huellaPasoSHA256 = seleccionado.huellaPasoSHA256
 	copia.pasos = clonarPasosOperacionAlmacen(c.datos.pasos)
 	copia.imagen = clonarVinculoImagen(c.datos.imagen)
+	if c.datos.materialImagenV3 != nil {
+		material, err := clonarMaterialImagenV3(*c.datos.materialImagenV3)
+		if err != nil {
+			return ContextoOperacionAlmacen{}, errorAutorizacionAlmacen()
+		}
+		copia.materialImagenV3 = &material
+	}
 	resultado := ContextoOperacionAlmacen{datos: &copia}
 	if resultado.validarEstructura() != nil {
 		return ContextoOperacionAlmacen{}, errorAutorizacionAlmacen()
@@ -579,7 +596,8 @@ func (c ContextoOperacionAlmacen) validarEstructura() error {
 		return ErrAutorizacionAlmacenInvalida
 	}
 	d := c.datos
-	if d.esquema != EsquemaContextoOperacionAlmacenV1 ||
+	if (d.esquema != EsquemaContextoOperacionAlmacenV1 &&
+		d.esquema != EsquemaContextoImagenAlmacenV3) ||
 		!referenciaOpacaAlmacenValida(d.operacionRef, 512) ||
 		!referenciaOpacaAlmacenValida(d.correlacionRef, 512) ||
 		!referenciaOpacaAlmacenValida(d.autorizacionRef, 512) ||
@@ -618,7 +636,13 @@ func (c ContextoOperacionAlmacen) validarEstructura() error {
 			pasoValido = true
 		}
 	}
-	if !pasoValido || d.evidencia.ValidarEn(d.verificadaEn) != nil {
+	if !pasoValido {
+		return ErrAutorizacionAlmacenInvalida
+	}
+	if d.imagen != nil {
+		return c.validarEstructuraImagenV3()
+	}
+	if d.materialImagenV3 != nil || d.evidencia.ValidarEn(d.verificadaEn) != nil {
 		return ErrAutorizacionAlmacenInvalida
 	}
 	datosEvidencia, err := d.evidencia.Datos()
@@ -714,12 +738,6 @@ func huellaPlanOperacionAlmacen(
 	}
 	if e.huellaManifiestoSHA256 != "" {
 		valores = append(valores, e.huellaManifiestoSHA256)
-	}
-	if e.imagen != nil {
-		valores = append(valores, e.imagen.DocumentoRef, e.imagen.ActorPersonaRef,
-			e.imagen.TitularPersonaRef,
-			e.imagen.Audiencia, e.imagen.Finalidad, e.imagen.HuellaSHA256,
-			strconv.FormatInt(e.imagen.Tamano, 10), e.imagen.ClaveIdempotencia)
 	}
 	for _, paso := range e.pasos {
 		valores = append(valores, string(paso.referencia), paso.accion)
