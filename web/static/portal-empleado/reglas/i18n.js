@@ -14,15 +14,33 @@ export const IDIOMA_REGLAS = IDIOMA_ACTUAL;
 /** Idioma en que el catálogo de reglas escribe sus textos: el idioma por defecto. */
 export const IDIOMA_DATOS_REGLAS = IDIOMA_POR_DEFECTO;
 
+// La forma mínima de la pantalla se comprueba antes de crear el traductor: un
+// JSON válido con una sección parcial tampoco puede dejar la página a medias.
+const CLAVES = Object.freeze(`
+  documentTitle miga titulo volver ayudaAbrir ayudaTitulo ayudaCerrar ayudaQue ayudaOrigen ayudaVersion
+  filtros filtroModulo filtroOrigen filtroTexto todos origen_reglamento origen_ejemplo cargando sinResultados
+  kpiTotal kpiReglamento kpiEjemplo modulo_bolsa modulo_contratacion_temporal catalogoVersion catalogoHuella
+  paqueteEjemplo estado_sin_catalogo estado_no_disponible contadorReglas colRegla colValor colUnidad colOrigen
+  colDuda colVersion origenArticulo origenEjemplo parteEjemplo sinValor computo_administrativo computo_civil
+  unidad_dias_habiles unidad_dias_naturales unidad_meses unidad_anios unidad_horas unidad_minutos_semanales
+  unidad_intentos unidad_procesos unidad_franja_horaria unidad_lista unidad_ninguna error_solicitud_invalida
+  error_servicio_no_disponible error_autenticacion_requerida error_acceso_denegado error_respuesta ayudaDetalle
+  ayudaResolver detalleQue detalleNorma detalleOrigen detalleDuda detalleSinDescripcion
+`.trim().split(/\s+/u));
+
+const catalogoCompleto = (catalogo) => catalogo && typeof catalogo === "object"
+  && CLAVES.every((clave) => typeof catalogo[clave] === "string" && catalogo[clave] !== "")
+  && catalogo.parteEjemplo.includes("{texto}");
+
 export const MENSAJES_REGLAS = await cargarTextos("reglas")
-  .then((textos) => textos.seccion("general"))
+  .then((textos) => {
+    const catalogo = textos.seccion("general");
+    return catalogoCompleto(catalogo) ? catalogo : null;
+  })
   .catch(() => null);
 
-const CLAVES = Object.freeze(Object.keys(MENSAJES_REGLAS ?? {}));
-
 export function crearTraductorReglas(catalogo = MENSAJES_REGLAS) {
-  if (!catalogo || typeof catalogo !== "object" || CLAVES.length === 0
-    || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) {
+  if (!catalogoCompleto(catalogo)) {
     throw new Error("catálogo i18n de reglas incompleto");
   }
   return (clave, variables = {}) => {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { versionDe } from "../versiones-cache.test-helper.mjs";
+import { exigirRenovado, versionDe } from "../versiones-cache.test-helper.mjs";
 import {
   API_REGLAS, ErrorReglas, crearCliente, detalleRegla, filtrar, idRegla, iniciar, mensajeError, origenRegla, renderizarCatalogo,
   renderizarResumen, validarReglas, valorRegla,
@@ -29,6 +29,8 @@ function respuesta() {
 test("el catálogo i18n está completo y toda clave de la página existe", () => {
   const t = crearTraductorReglas();
   assert.throws(() => crearTraductorReglas({ titulo: "x" }), /incompleto/u);
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS, ayudaResolver: "" }), /incompleto/u);
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS, parteEjemplo: "Sin dato" }), /incompleto/u);
   assert.throws(() => t("desconocida"), /desconocida/u);
   const html = leer("./index.html");
   for (const [, clave] of html.matchAll(/data-i18n(?:-label)?="([^"]+)"/gu)) assert.ok(Object.hasOwn(MENSAJES_REGLAS, clave), clave);
@@ -36,6 +38,20 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
   for (const [, id] of js.matchAll(/\$\("([a-z-]+)"\)/gu)) assert.match(html, new RegExp(`id="${id}"`, "u"), id);
   assert.ok(!/style=|<script>/u.test(html), "sin estilos ni guiones en línea");
   assert.match(html, /id="rg-ayuda-abrir"[^>]*>\?</u, "la ayuda solo se abre con «?»");
+});
+
+test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
+  const html = leer("./index.html");
+  const reglas = leer("./reglas.js");
+  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v1");
+  assert.equal(version, "20260930-reglas-detalle-v2");
+  const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
+  const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
+  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v1"), version);
+  const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
+  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v1"), version);
+  const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), version);
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
