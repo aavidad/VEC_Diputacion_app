@@ -7,7 +7,7 @@ import {
   renderizarIntentosContacto,
   rutaContactosCandidato,
 } from "./portal-bolsas-intentos.js";
-import { MENSAJES_INTENTOS_ES, crearTraductorIntentos } from "./portal-i18n-intentos.js";
+import { MENSAJES_INTENTOS, crearTraductorIntentos } from "./portal-i18n-intentos.js";
 
 const candidato = { participacion_ref: "participacion:1", estado_clave: "disponible", ultimo_llamamiento: { llamamiento_ref: "llamamiento:1" } };
 const intentos = {
@@ -26,7 +26,7 @@ test("el catálogo i18n de intentos está completo y rechaza claves ajenas", () 
   const t = crearTraductorIntentos();
   assert.equal(t("registrado"), "Contacto registrado.");
   assert.throws(() => t("inexistente"));
-  assert.throws(() => crearTraductorIntentos({ ...MENSAJES_INTENTOS_ES, titulo: "" }));
+  assert.throws(() => crearTraductorIntentos({ ...MENSAJES_INTENTOS, titulo: "" }));
 });
 
 test("la ficha muestra proceso, avisos y reglas sin rotular su procedencia, escapando textos", () => {

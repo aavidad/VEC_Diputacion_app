@@ -4,7 +4,7 @@ import {
   RUTA_PLANTILLA_CORREO, RUTA_VISTA_PREVIA_CORREO, aplicarPlantillaAlFlujo, consultarPlantillaCorreo, consultarVistaPreviaCorreo,
   crearControladorCorreoLlamamiento, renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo, validarPlantillaCorreo,
 } from "./portal-bolsas-correo.js";
-import { crearTraductorCorreoLlamamiento, MENSAJES_CORREO_LLAMAMIENTO_ES } from "./portal-i18n-correo-llamamiento.js";
+import { crearTraductorCorreoLlamamiento, MENSAJES_CORREO_LLAMAMIENTO } from "./portal-i18n-correo-llamamiento.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 
 const plantillaServidor = { plantilla_version: "bolsa-llamamiento-v2", personalizada: true, limite: 4000, limite_asunto: 250, asunto: "Llamamiento de {bolsa}", cuerpo: "Estimado/a {nombre}:", marcadores: [{ clave: "nombre" }, { clave: "posicion" }] };
@@ -37,10 +37,10 @@ test("la vista previa envía la configuración y traduce los motivos del servido
   assert.deepEqual(Object.keys(cuerpo), ["bolsa_ref", "participacion_ref", "configuracion"]);
   for (const [codigo, clave] of [["correo_excede_limite", "error_correo_excede_limite"], ["datos_incompletos", "error_datos_incompletos"], ["plantilla_invalida", "error_plantilla_invalida"]]) {
     const r = await consultarVistaPreviaCorreo({ bolsa_ref: "b", participacion_ref: "p", configuracion }, { fetchImpl: async () => respuesta(422, { error: { codigo } }) });
-    assert.equal(r.mensaje, MENSAJES_CORREO_LLAMAMIENTO_ES[clave]);
+    assert.equal(r.mensaje, MENSAJES_CORREO_LLAMAMIENTO[clave]);
   }
   const denegada = await consultarVistaPreviaCorreo({ bolsa_ref: "b", participacion_ref: "p", configuracion }, { fetchImpl: async () => respuesta(403, {}) });
-  assert.equal(denegada.mensaje, MENSAJES_CORREO_LLAMAMIENTO_ES.error_acceso_denegado);
+  assert.equal(denegada.mensaje, MENSAJES_CORREO_LLAMAMIENTO.error_acceso_denegado);
 });
 
 test("aplicar la plantilla no pisa lo que RRHH ya escribió", () => {

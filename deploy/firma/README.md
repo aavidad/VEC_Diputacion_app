@@ -1,9 +1,9 @@
 # Validador de firma como servicio aparte
 
 Decisión del operador (25/09/2026): VEC firma en el equipo de la persona por el
-protocolo AutoFirma y **verifica en servidor con el validador de AutofirmaV2**,
+protocolo AutoFirma y **verifica en servidor con el validador de GrxFirma**,
 desplegado como servicio independiente en modo `-rest-solo-verificacion`. VEC
-no importa código de AutofirmaV2: lo consume por HTTP mediante el adaptador
+no importa código de GrxFirma: lo consume por HTTP mediante el adaptador
 `internal/vec/documentos/adapters/validadorautofirma`, que implementa los
 puertos `VerificadorFirma` y `VerificadorFirmaMotivado` de Documentos.
 
@@ -70,7 +70,7 @@ varios firmantes), prevalece el motivo de VEC; cualquier otra discrepancia es
 Un pod `vec-firma` con dos contenedores que comparten loopback, más un
 proceso aparte de refresco de CRL:
 
-1. **validador**: AutofirmaV2 sin interfaz gráfica en modo
+1. **validador**: GrxFirma sin interfaz gráfica en modo
    `-rest-solo-verificacion`, escuchando en `127.0.0.1:63118`. Solo expone
    `GET /health` y `POST /verify`; no carga certificados ni claves de firma,
    no tiene rutas de fichero ni hace **ninguna conexión saliente**. Anclas y
@@ -96,7 +96,7 @@ Esquema de órdenes (orientativo; nombres de imagen, versiones y rutas se fijan
 en la configuración privada del servidor, fuera de Git):
 
 ```sh
-# Imagen del validador: se construye desde el repositorio de AutofirmaV2,
+# Imagen del validador: se construye desde el repositorio de GrxFirma,
 # binario sin la etiqueta fyne_gui. No se construye desde VEC ni se copia su
 # código aquí.
 
