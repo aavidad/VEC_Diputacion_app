@@ -74,6 +74,9 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	ruta        string
 	superficie  core.SuperficieAutenticacionActorV1
 	logins      map[string]bool
+	// «Mis correos» (5.08b): autoridad hermana con su propia ruta exacta.
+	proveedorCorreos *proveedorCorreosUsuarios
+	correos          *autoridadPreferenciasUsuariosDesarrollo
 }
 
 type composicionPreferenciasUsuarios struct {
@@ -97,6 +100,9 @@ func (c *composicionPreferenciasUsuarios) proteger(siguiente http.Handler) http.
 	if c == nil {
 		return siguiente
 	}
+	if c.interna.correos != nil && c.externa.correos != nil {
+		siguiente = c.interna.correos.proteger(c.externa.correos.proteger(siguiente))
+	}
 	return c.interna.proteger(c.externa.proteger(siguiente))
 }
 
@@ -115,7 +121,8 @@ type autoridadExactasConUsuariosPreferencias struct {
 }
 
 func (a autoridadExactasConUsuariosPreferencias) AutorizarRutaExacta(ctx context.Context, ruta string) error {
-	if ruta != usuarioshttp.RutaMisPreferencias && ruta != usuarioshttp.RutaMisPreferenciasAreaPersonal {
+	if ruta != usuarioshttp.RutaMisPreferencias && ruta != usuarioshttp.RutaMisPreferenciasAreaPersonal &&
+		ruta != usuarioshttp.RutaMisCorreos && ruta != usuarioshttp.RutaMisCorreosAreaPersonal {
 		if a.delegada == nil {
 			return vechttp.ErrAutenticacionRutaExactaRequerida
 		}
@@ -125,8 +132,13 @@ func (a autoridadExactasConUsuariosPreferencias) AutorizarRutaExacta(ctx context
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
 	seleccionada := a.usuarios.interna
-	if ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+	switch ruta {
+	case usuarioshttp.RutaMisPreferenciasAreaPersonal:
 		seleccionada = a.usuarios.externa
+	case usuarioshttp.RutaMisCorreos:
+		seleccionada = a.usuarios.interna.correos
+	case usuarioshttp.RutaMisCorreosAreaPersonal:
+		seleccionada = a.usuarios.externa.correos
 	}
 	c, ok := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
 	if !ok || seleccionada == nil || c.autoridad != seleccionada || c.resultado.Validar() != nil {
@@ -158,9 +170,13 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Cache-Control", "private, no-store, max-age=0")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		prefijo, escritura := "api.usuarios.preferencias.error.", http.MethodPut
+		if a != nil && a.proveedorCorreos != nil {
+			prefijo, escritura = "api.usuarios.correos.error.", http.MethodPost
+		}
 		fallo := func(estado int, codigo string) {
 			w.WriteHeader(estado)
-			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"codigo": codigo, "clave_i18n": "api.usuarios.preferencias.error." + codigo}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"codigo": codigo, "clave_i18n": prefijo + codigo}})
 		}
 		if a == nil || a.base == nil || a.manejador == nil {
 			fallo(503, "no_disponible")
@@ -177,8 +193,8 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			fallo(422, "peticion_invalida")
 			return
 		}
-		if r.Method != http.MethodGet && r.Method != http.MethodPut {
-			w.Header().Set("Allow", "GET, PUT")
+		if r.Method != http.MethodGet && r.Method != escritura {
+			w.Header().Set("Allow", "GET, "+escritura)
 			fallo(405, "metodo_no_permitido")
 			return
 		}
@@ -248,6 +264,7 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	derivador *derivadorIdentidadOperacionDesarrollo, gobierno *pgxpool.Pool,
 	incidencias vecports.EmisorIncidenciasTecnicas,
 	consultaInterna, actualizacionInterna, consultaExterna, actualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo,
+	correos *dependenciasCorreosUsuariosDesarrollo,
 ) (*composicionPreferenciasUsuarios, error) {
 	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
@@ -265,11 +282,11 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna)
+	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna, correos)
 	if err != nil {
 		return nil, err
 	}
-	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna)
+	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna, correos)
 	if err != nil {
 		interna.cerrar()
 		return nil, err
@@ -321,6 +338,7 @@ func nombreConfiguracionPreferencias(superficie core.SuperficieAutenticacionActo
 func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, topologiaGobierno topologiaPostgreSQLPreferenciasUsuarios, superficie core.SuperficieAutenticacionActorV1, ruta string,
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
+	correos *dependenciasCorreosUsuariosDesarrollo,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !ok || identidad == nil || derivador == nil || !derivador.valido() || consulta == nil || actualizacion == nil {
@@ -453,6 +471,12 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
+	if correos != nil {
+		a.correos, err = montarCorreosUsuariosSuperficie(ctx, a, ejecutor, autorizador, c, correos)
+		if err != nil {
+			return nil, errComposicionUsuariosPreferencias
+		}
+	}
 	completa = true
 	return a, nil
 }
@@ -461,7 +485,11 @@ func rutaUsuariosPreferencias(a *composicionPreferenciasUsuarios) []vechttp.Ruta
 	if a == nil || a.interna == nil || a.externa == nil || a.interna.manejador == nil || a.externa.manejador == nil {
 		return nil
 	}
-	return []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferencias, Manejador: a.interna.manejador}, {Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: a.externa.manejador}}
+	rutas := []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferencias, Manejador: a.interna.manejador}, {Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: a.externa.manejador}}
+	if a.interna.correos != nil && a.externa.correos != nil && a.interna.correos.manejador != nil && a.externa.correos.manejador != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMisCorreos, Manejador: a.interna.correos.manejador}, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMisCorreosAreaPersonal, Manejador: a.externa.correos.manejador})
+	}
+	return rutas
 }
 
 var _ vecports.Reloj = relojRutasDietas{}

@@ -399,9 +399,13 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
+	usuariosCorreos, err := nuevasDependenciasCorreosUsuariosDesarrollo(cfg, composicion.emisorKMS, autoridadContratacion.materialUsuariosCorreos)
+	if err != nil {
+		return nil, nil, err
+	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
-		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna)
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -18,6 +18,7 @@ function bloque(selector) {
 
 const enlaceTema = /<link rel="stylesheet" href="\/comun\/tema-vec\.css\?v=[A-Za-z0-9-]+">/gu;
 const enlaceOportunidades = /<link rel="stylesheet" href="\/comun\/oportunidades\/oportunidades\.css\?v=[A-Za-z0-9-]+">/gu;
+const enlaceCorreos = /<link rel="stylesheet" href="\/comun\/correos-propios\.css\?v=[A-Za-z0-9-]+">/gu;
 const recursoComunNoAutorizado = /(?:src|href)="\/comun\/|@import[^;]*\/comun\//u;
 
 function comprobarRecursosComunes(htmlActual, cssActual, aplicacionActual) {
@@ -25,7 +26,10 @@ function comprobarRecursosComunes(htmlActual, cssActual, aplicacionActual) {
     "Se admite una sola hoja común de tema versionada.");
   assert.equal((htmlActual.match(enlaceOportunidades) || []).length, 1,
     "Se admite un solo enlace CSS versionado de oportunidades B15.");
-  assert.doesNotMatch(htmlActual.replace(enlaceTema, "").replace(enlaceOportunidades, "") + cssActual + aplicacionActual,
+  // 5.08b: «Mis correos» es un componente común de RRHH y del Área personal.
+  assert.equal((htmlActual.match(enlaceCorreos) || []).length, 1,
+    "Se admite un solo enlace CSS versionado de «Mis correos».");
+  assert.doesNotMatch(htmlActual.replace(enlaceTema, "").replace(enlaceOportunidades, "").replace(enlaceCorreos, "") + cssActual + aplicacionActual,
     recursoComunNoAutorizado, "Ningún otro src, href o @import puede cargar /comun/.");
 }
 

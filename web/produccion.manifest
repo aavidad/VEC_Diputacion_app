@@ -48,6 +48,8 @@ static/comun/tema-vec.css
 static/comun/iconos-vec.js
 static/comun/idioma.js
 static/comun/textos.js
+static/comun/correos-propios.js
+static/comun/correos-propios.css
 static/textos/idiomas.json
 static/textos/es/preferencias.json
 static/textos/en/preferencias.json

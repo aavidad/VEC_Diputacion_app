@@ -122,6 +122,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
@@ -422,6 +423,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresUsuarios...)
 	}
+	etapa = "preflight_sql_usuarios_correos"
+	usuariosCorreosActivos, descriptoresCorreos, err := seleccionCorreosUsuariosDesarrollo(cfg, usuariosPreferenciasActivas)
+	if err != nil {
+		return vacias, err
+	}
+	descriptoresMaterial = append(descriptoresMaterial, descriptoresCorreos...)
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -447,6 +454,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		dependencias.materialUsuariosPreferenciasActualizacionInterna = lote[1]
 		dependencias.materialUsuariosPreferenciasConsultaExterna = lote[2]
 		dependencias.materialUsuariosPreferenciasActualizacionExterna = lote[3]
+	}
+	if etapa = "material_usuarios_correos"; usuariosCorreosActivos {
+		if dependencias.materialUsuariosCorreos, err = publicarMaterialCorreosUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
+			return vacias, err
+		}
 	}
 	if seleccion.plantillasCatalogo {
 		etapa = "material_plantillas_catalogo"
