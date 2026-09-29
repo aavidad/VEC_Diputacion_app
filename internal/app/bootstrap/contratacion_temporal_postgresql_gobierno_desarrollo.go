@@ -248,6 +248,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		usuariosports.AudienciaConsultarCorreosExterna, usuariosports.AudienciaAnadirCorreoExterna,
 		usuariosports.AudienciaReenviarCorreoExterna, usuariosports.AudienciaVerificarCorreoExterna,
 		usuariosports.AudienciaActivarCorreoExterna, usuariosports.AudienciaRetirarCorreoExterna,
+		// Aviso de llamamiento al correo activo de «Mis correos» (AD3-109);
+		// sólo con VEC_BOLSA_AVISOS_MIS_CORREOS_ENABLED.
+		usuariosports.AudienciaCorreoAvisosLlamamientoInterna,
 		// «Mi imagen» (AD3-108); sólo con VEC_USUARIOS_IMAGEN_ENABLED.
 		usuariosports.AudienciaConsultarImagenInterna, usuariosports.AudienciaActualizarImagenInterna,
 		usuariosports.AudienciaConsultarImagenExterna, usuariosports.AudienciaActualizarImagenExterna,

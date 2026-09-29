@@ -201,7 +201,7 @@ Cada dependencia será un puerto con capacidades, versión, salud, reintentos y 
 - almacenamiento de objetos;
 - antivirus, análisis y desarme de contenido;
 - Cl@ve, certificados y Active Directory;
-- AutoFirmaV2, validación, sello institucional y tiempo;
+- GrxFirma, validación, sello institucional y tiempo;
 - registro, notificación y archivo;
 - correo, Telegram, SMS u otros avisos;
 - GINPIX u otra fuente de personal;

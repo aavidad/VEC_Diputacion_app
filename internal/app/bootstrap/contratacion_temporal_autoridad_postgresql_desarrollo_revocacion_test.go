@@ -227,6 +227,9 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				// Una revocación gobernada es otro acto y no pasa por la guarda
+				// de origen operativo del circuito CT130.
+				administrativa.exigirOrigenOperativo = false
 				administrativa.actoAsignacion = "acto:ct130:prueba:revocacion-concurrente"
 				revocada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(ganadora)
 				revocada.AsignacionPerfil.Estado = vecdomain.EstadoAsignacionPerfilRevocada
@@ -266,6 +269,7 @@ func TestCT130PreimagenCentralPostgreSQL(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				administrativa.exigirOrigenOperativo = false
 				administrativa.actoAsignacion = "acto:ct130:prueba:administrativa"
 				otra, err = administrativa.prepararInstantanea(ctxRuta, otra, false)
 				if err != nil {
