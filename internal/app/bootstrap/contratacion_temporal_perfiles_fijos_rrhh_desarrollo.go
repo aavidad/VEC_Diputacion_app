@@ -451,7 +451,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 					solicitudAutorizacionEntregaPeticionValida(ctx, datos)
 			} else if p.metodo == http.MethodPost && datos.Accion == ports.AccionCrearSolicitud {
 				valida = solicitudAutorizacionAltaDePeticionValida(ctx, datos) &&
-					s.centroDeCatalogo(datos.Recurso.Ambitos["centro_ref"]) &&
+					s.centroDeOrganizacionPeticion(datos.Recurso.Ambitos["centro_ref"]) &&
 					s.categoriaDeCatalogo(datos.Recurso.Ambitos["categoria_ref"])
 			} else {
 				valida = p.metodo == http.MethodPost && datos.Accion == ports.AccionEntregarPeticionRRHH &&
@@ -565,6 +565,15 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 		return err
 	}
 	var entrega, lectorEntrega *perfilFijoCTDesarrollo
+	if origen != nil {
+		catalogos, errCatalogo := origen.catalogosAlta()
+		if errCatalogo != nil {
+			return errCatalogo
+		}
+		if len(catalogos.centrosOrganizacion) == 0 {
+			origen = nil
+		}
+	}
 	if origen != nil {
 		entrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoEntregaCTDesarrollo,
 			[]string{rutaEntregaPeticionCentro},

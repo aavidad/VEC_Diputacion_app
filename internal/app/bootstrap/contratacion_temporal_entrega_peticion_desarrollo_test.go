@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	httpinterno "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -98,6 +99,111 @@ func TestEntregaDistingueRevocacionDeFalloLectorEnGETyPOST(t *testing.T) {
 				t.Fatalf("lector de estado no reconsultado: %d", lector.lecturas)
 			}
 		})
+	}
+}
+
+func entregaPreparadaPerfilFijoPrueba(actor, perfil string, ahora time.Time) ports.EntregaPeticionCentro {
+	return ports.EntregaPeticionCentro{EstadoEntrega: "preparada",
+		ClaveAlta:      "c60518b7-f8b4-4fe7-b17e-635c46ac2e11",
+		AmbitoAltaHMAC: "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:" + strings.Repeat("a", 64),
+		ActorRef:       actor, PerfilRef: perfil,
+		Peticion: domain.DatosPeticionCentro{Referencia: "peticion:centro:001", Version: 2,
+			Estado: "ratificada", CreadaEn: ahora, RatificadaEn: ahora.Add(time.Second),
+			MotivoRatificacion: "Revisión sintética",
+			Configuracion: domain.ConfiguracionPeticionCentro{Referencia: "config:001", Version: 1,
+				Solicitante: domain.ActorPeticionCentro{ActorRef: "actor:solicita", PerfilRef: "perfil:centro", CentroRef: "centro-520", PuestoRef: "puesto:001"},
+				Ratificador: domain.ActorPeticionCentro{ActorRef: "actor:ratifica", PerfilRef: "perfil:centro", CentroRef: "centro-520", PuestoRef: "puesto:002"}},
+			Solicitud: domain.SolicitudCentro{CentroRef: "centro-520", ContactoRef: "contacto:001",
+				CategoriaRef: categoriaAltaContratacionTemporalDesarrollo, GrupoSubgrupo: "C2",
+				MotivoClave: "sustitucion", Detalle: "Necesidad sintética",
+				Periodo: domain.PeriodoPrevisto{Inicio: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+					Fin: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)}}}}
+}
+
+func TestEntregaYAltaAnidadaUsanCentroOrganizacionYReservaExacta(t *testing.T) {
+	s, autoridad := escenarioPerfilesFijosPrueba(t)
+	_, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	principal.ID, principal.Attributes["certificate_sha256"] = s.principalID, s.certificadoSHA256
+	fijo := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "POST")
+	lector := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "GET")
+	if fijo == nil || lector == nil {
+		t.Fatal("perfiles GET/POST ausentes")
+	}
+	v, err := fijo.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	e := entregaPreparadaPerfilFijoPrueba(v.PrincipalID, v.PerfilActivoRef, ahora)
+	if e.ValidarReserva() != nil {
+		t.Fatal("reserva de prueba inválida")
+	}
+	autoridad.asignaciones = map[string]instantaneaPublicadaDesarrollo{
+		fijo.perfilRef(): {instantanea: fijo.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}
+	capacidad := capacidadConsultaContratacionTemporalDesarrollo{sello: s.sello, ruta: rutaEntregaPeticionCentro,
+		metodo: "POST", principal: principal}
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	m := ports.MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: v.PrincipalID,
+		PerfilRef: v.PerfilActivoRef, PeticionRef: e.Peticion.Referencia, VersionEsperada: 2,
+		CentroRef: e.Peticion.Solicitud.CentroRef, CategoriaRef: e.Peticion.Solicitud.CategoriaRef,
+		ClaveAltaCandidata: e.ClaveAlta, AmbitoAltaHMAC: e.AmbitoAltaHMAC}
+	rEntrega, err := postgresct.RecursoEntregaPeticionCentro(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dEntrega := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: fijo.contexto.Vinculo,
+		ReferenciaMotivo: motivoEntregaPeticionDesarrollo(), Accion: ports.AccionEntregarPeticionRRHH,
+		Recurso: rEntrega, Finalidad: ports.FinalidadEntregaPeticionCentro}
+	ctxEntrega := context.WithValue(ctx, claveMaterialEntregaPeticionDesarrollo{}, m)
+	ctxEntrega = context.WithValue(ctxEntrega, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, dEntrega)
+	if _, ok := s.instantaneaPerfilFijoParaContexto(ctxEntrega, rutaEntregaPeticionCentro, fijo); !ok {
+		t.Fatal("entrega no consumió asignación publicada")
+	}
+	dAlta := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: fijo.contexto.Vinculo,
+		Accion: ports.AccionCrearSolicitud, Finalidad: ports.FinalidadCrearSolicitud,
+		Recurso: vecdomain.RecursoAutorizable{Referencia: "expediente:001", ModuloID: ports.ModuloContratacion,
+			Tipo: ports.TipoRecursoExpediente,
+			Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+				"centro_ref": "centro-520", "categoria_ref": categoriaAltaContratacionTemporalDesarrollo}}}
+	ctxAlta := context.WithValue(ctx, claveAltaDePeticionDesarrollo{}, e)
+	ctxAlta = context.WithValue(ctxAlta, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, dAlta)
+	if _, ok := s.instantaneaPerfilFijoParaContexto(ctxAlta, rutaEntregaPeticionCentro, fijo); !ok {
+		t.Fatal("alta anidada no consumió el mismo perfil y reserva")
+	}
+	solicitud := ports.SolicitudResolverFlujo{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo,
+		CentroRef: "centro-520", CategoriaRef: categoriaAltaContratacionTemporalDesarrollo,
+		MotivoClave: motivoAltaContratacionTemporalDesarrollo, Instante: ahora}
+	if _, err := s.ResolverFlujoAlta(ctxAlta, solicitud); err != nil {
+		t.Fatalf("alta anidada con centro de organización denegada: %v", err)
+	}
+	solicitud.CentroRef = "centro:rpt:520"
+	if _, err := s.ResolverFlujoAlta(ctxAlta, solicitud); !errors.Is(err, ports.ErrFlujoNoDisponible) {
+		t.Fatalf("alias de alta directa saltó la reserva: %v", err)
+	}
+	solicitud.CentroRef = "centro-520"
+	capacidad.ruta = httpinterno.RutaAltaSolicitudes
+	ctxDirecto := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
+	if _, err := s.ResolverFlujoAlta(ctxDirecto, solicitud); !errors.Is(err, ports.ErrFlujoNoDisponible) {
+		t.Fatalf("alta directa aceptó centro de petición: %v", err)
+	}
+	dAlta.Recurso.Ambitos["centro_ref"] = "centro:rpt:520"
+	ctxAlias := context.WithValue(ctxAlta, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, dAlta)
+	if _, ok := s.instantaneaPerfilFijoParaContexto(ctxAlias, rutaEntregaPeticionCentro, fijo); ok {
+		t.Fatal("alta anidada aceptó alias distinto de la reserva")
+	}
+	dAlta.Recurso.Ambitos["centro_ref"] = "centro-520"
+	dAlta.Recurso.Ambitos["categoria_ref"] = "categoria:ajena"
+	ctxCategoria := context.WithValue(ctxAlta, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, dAlta)
+	if _, ok := s.instantaneaPerfilFijoParaContexto(ctxCategoria, rutaEntregaPeticionCentro, fijo); ok {
+		t.Fatal("alta anidada aceptó categoría ajena")
+	}
+	dAlta.Recurso.Ambitos["categoria_ref"] = categoriaAltaContratacionTemporalDesarrollo
+	ctxSinReserva := context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, dAlta)
+	if _, ok := s.instantaneaPerfilFijoParaContexto(ctxSinReserva, rutaEntregaPeticionCentro, fijo); ok {
+		t.Fatal("alta anidada sin reserva confiable")
+	}
+	if _, ok := s.instantaneaPerfilFijoParaContexto(ctxAlta, rutaEntregaPeticionCentro, lector); ok {
+		t.Fatal("lector GET autorizó alta anidada")
 	}
 }
 

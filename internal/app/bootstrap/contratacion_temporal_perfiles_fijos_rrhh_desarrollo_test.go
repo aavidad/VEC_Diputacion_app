@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 func escenarioPerfilesFijosPrueba(t *testing.T) (*soporteAltaContratacionTemporalDesarrollo, *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) {
 	t.Helper()
 	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
+	origen := origenEntregaPerfilFijoPrueba(t)
+	s.origen = origen
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), origen); err != nil {
 		t.Fatal(err)
 	}
 	autoridad, ok := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
@@ -43,7 +46,8 @@ func TestEntregaSinCatalogoNoComponePermisoFijo(t *testing.T) {
 
 func origenEntregaPerfilFijoPrueba(t *testing.T) *origenConsultasContratacionTemporalDesarrollo {
 	t.Helper()
-	catalogo, err := nuevoCatalogoDesarrollo("", "")
+	catalogo, err := nuevoCatalogoDesarrollo(
+		filepath.Join("..", "..", "..", "data", "catalogos", "estructura-organizativa", "v1.rpt-publica.json"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +75,7 @@ func TestPerfilFijoEntregaSoloSeleccionadoPorMetodoDeCapacidad(t *testing.T) {
 	recursoPOST := vecdomain.RecursoAutorizable{Referencia: "peticion:centro:001",
 		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoEntregaPeticionCentro,
 		Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-			"centro_ref": centroAltaContratacionTemporalDesarrollo, "categoria_ref": categoriaAltaContratacionTemporalDesarrollo}}
+			"centro_ref": "centro-520", "categoria_ref": categoriaAltaContratacionTemporalDesarrollo}}
 	if !lector.plantilla.AsignacionPerfil.Cubre(recursoGET) ||
 		lector.plantilla.AsignacionPerfil.Cubre(recursoPOST) ||
 		!fijo.plantilla.AsignacionPerfil.Cubre(recursoPOST) ||
@@ -109,6 +113,45 @@ func TestPerfilFijoEntregaSoloSeleccionadoPorMetodoDeCapacidad(t *testing.T) {
 	if err != nil || asignadas[0].PerfilesActivosRef[0] != lector.perfilRef() ||
 		asignadas[1].PerfilesActivosRef[0] != fijo.perfilRef() {
 		t.Fatalf("GET/POST cruzaron perfiles: %v, %+v", err, asignadas)
+	}
+}
+
+func TestPerfilEntregaUsaCentroOriginalDeOrganizacion(t *testing.T) {
+	catalogos, err := origenEntregaPerfilFijoPrueba(t).catalogosAlta()
+	if err != nil {
+		t.Fatal(err)
+	}
+	directo, original := false, false
+	for _, centro := range catalogos.Centros {
+		if centro.Referencia == "centro:rpt:520" {
+			directo = true
+		}
+	}
+	for _, centro := range catalogos.centrosOrganizacion {
+		if centro == "centro-520" {
+			original = true
+		}
+	}
+	if !directo || !original {
+		t.Fatal("catálogo de alta y organización perdieron sus referencias distintas")
+	}
+	s, _ := escenarioPerfilesFijosPrueba(t)
+	fijo := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodPost)
+	if fijo == nil {
+		t.Fatal("sin perfil POST")
+	}
+	recurso := vecdomain.RecursoAutorizable{Referencia: "peticion:centro:prueba",
+		ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoEntregaPeticionCentro,
+		Ambitos: map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
+			"centro_ref": "centro-520", "categoria_ref": categoriaAltaContratacionTemporalDesarrollo}}
+	if !fijo.plantilla.AsignacionPerfil.Cubre(recurso) {
+		t.Fatal("centro original de organización no cubierto")
+	}
+	for _, ajeno := range []string{"centro:rpt:520", "centro:ajeno"} {
+		recurso.Ambitos["centro_ref"] = ajeno
+		if fijo.plantilla.AsignacionPerfil.Cubre(recurso) {
+			t.Fatalf("perfil de entrega amplió centro a %s", ajeno)
+		}
 	}
 }
 
