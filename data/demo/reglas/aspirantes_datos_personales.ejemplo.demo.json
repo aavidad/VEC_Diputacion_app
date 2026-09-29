@@ -319,12 +319,12 @@
       {
         "clave": "bolsa.inscripcion.discapacidad_grado",
         "etiqueta": "Bolsa: Discapacidad igual o superior al 33 % (inscripción)",
-        "descripcion": "Solo si la persona opta al cupo de reserva o pide exención de tasa. Se guarda que alcanza el 33 % y la fecha de comprobación; nunca el diagnóstico.",
+        "descripcion": "Solo si la persona opta al cupo de reserva. Se guarda que alcanza el 33 % y la fecha de comprobación; nunca el diagnóstico.",
         "vigente_desde": "2026-09-01T00:00:00Z",
         "atributos": {
           "base_rgpd": "6.1.e,9.2.b",
           "categoria": "especial",
-          "condicion": "si_opta_cupo_reserva_o_exencion",
+          "condicion": "si_opta_cupo_reserva",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "discapacidad",
           "custodia": "aspirantes",
@@ -559,6 +559,29 @@
         "orden": 23
       },
       {
+        "clave": "bolsa.pruebas.dictamen_adaptacion",
+        "etiqueta": "Bolsa: Dictamen técnico sobre la adaptación (antes de las pruebas)",
+        "descripcion": "Solo si el tribunal lo necesita para resolver la adaptación.",
+        "vigente_desde": "2026-09-01T00:00:00Z",
+        "atributos": {
+          "base_rgpd": "6.1.e,9.2.b",
+          "categoria": "especial",
+          "condicion": "si_tribunal_lo_necesita",
+          "custodia": "aspirantes",
+          "dato": "dictamen_adaptacion",
+          "duda": "Pregunta 82 de dudas.md.",
+          "finalidad": "adaptacion_pruebas",
+          "fuente": "persona",
+          "momento": "pruebas",
+          "norma": "Real Decreto 2271/2004, art. 8.",
+          "obligatoriedad": "condicional",
+          "origen": "ejemplo",
+          "pendiente_de": "dpd",
+          "tipo_convocatoria": "bolsa"
+        },
+        "orden": 24
+      },
+      {
         "clave": "bolsa.llamamiento.justificante_renuncia",
         "etiqueta": "Bolsa: Justificante de la causa de renuncia (llamamiento)",
         "descripcion": "Solo si la persona alega una causa justificada al rechazar un llamamiento. Puede revelar un dato de salud: se guarda la causa admitida, no el diagnóstico.",
@@ -579,7 +602,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 24
+        "orden": 25
       },
       {
         "clave": "bolsa.contratacion.domicilio_laboral_fiscal",
@@ -601,7 +624,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 25
+        "orden": 26
       },
       {
         "clave": "bolsa.contratacion.afiliacion_seguridad_social",
@@ -623,7 +646,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 26
+        "orden": 27
       },
       {
         "clave": "bolsa.contratacion.cuenta_bancaria",
@@ -645,7 +668,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 27
+        "orden": 28
       },
       {
         "clave": "bolsa.contratacion.datos_irpf",
@@ -667,7 +690,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 28
+        "orden": 29
       },
       {
         "clave": "bolsa.contratacion.declaracion_compatibilidad",
@@ -689,7 +712,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 29
+        "orden": 30
       },
       {
         "clave": "bolsa.contratacion.aptitud_medica",
@@ -712,7 +735,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 30
+        "orden": 31
       },
       {
         "clave": "bolsa.contratacion.certificado_delitos_sexuales",
@@ -738,7 +761,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 31
+        "orden": 32
       },
       {
         "clave": "bolsa.contratacion.autorizacion_tutor_menor",
@@ -761,7 +784,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "bolsa"
         },
-        "orden": 32
+        "orden": 33
       },
       {
         "clave": "selectivo_libre.inscripcion.nombre_apellidos",
@@ -783,7 +806,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 33
+        "orden": 34
       },
       {
         "clave": "selectivo_libre.inscripcion.documento_identidad",
@@ -806,7 +829,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 34
+        "orden": 35
       },
       {
         "clave": "selectivo_libre.inscripcion.nacionalidad",
@@ -829,7 +852,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 35
+        "orden": 36
       },
       {
         "clave": "selectivo_libre.inscripcion.vinculo_familiar_ue",
@@ -852,7 +875,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 36
+        "orden": 37
       },
       {
         "clave": "selectivo_libre.inscripcion.fecha_nacimiento",
@@ -877,7 +900,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 37
+        "orden": 38
       },
       {
         "clave": "selectivo_libre.inscripcion.sexo",
@@ -899,7 +922,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 38
+        "orden": 39
       },
       {
         "clave": "selectivo_libre.inscripcion.correo",
@@ -921,7 +944,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 39
+        "orden": 40
       },
       {
         "clave": "selectivo_libre.inscripcion.telefono",
@@ -943,7 +966,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 40
+        "orden": 41
       },
       {
         "clave": "selectivo_libre.inscripcion.domicilio_notificacion",
@@ -966,7 +989,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 41
+        "orden": 42
       },
       {
         "clave": "selectivo_libre.inscripcion.titulacion_exigida",
@@ -992,7 +1015,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 42
+        "orden": 43
       },
       {
         "clave": "selectivo_libre.inscripcion.declaracion_no_separacion",
@@ -1015,7 +1038,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 43
+        "orden": 44
       },
       {
         "clave": "selectivo_libre.inscripcion.turno",
@@ -1038,7 +1061,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 44
+        "orden": 45
       },
       {
         "clave": "selectivo_libre.inscripcion.discapacidad_grado",
@@ -1064,7 +1087,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 45
+        "orden": 46
       },
       {
         "clave": "selectivo_libre.inscripcion.discapacidad_intelectual",
@@ -1087,7 +1110,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 46
+        "orden": 47
       },
       {
         "clave": "selectivo_libre.inscripcion.adaptacion_solicitud",
@@ -1110,7 +1133,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 47
+        "orden": 48
       },
       {
         "clave": "selectivo_libre.inscripcion.victima_violencia",
@@ -1133,7 +1156,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 48
+        "orden": 49
       },
       {
         "clave": "selectivo_libre.inscripcion.representante",
@@ -1156,7 +1179,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 49
+        "orden": 50
       },
       {
         "clave": "selectivo_libre.pago_tasa.situacion_desempleo",
@@ -1182,7 +1205,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 50
+        "orden": 51
       },
       {
         "clave": "selectivo_libre.pago_tasa.familia_numerosa",
@@ -1208,7 +1231,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 51
+        "orden": 52
       },
       {
         "clave": "selectivo_libre.pago_tasa.exencion_tasa_otras",
@@ -1231,7 +1254,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 52
+        "orden": 53
       },
       {
         "clave": "selectivo_libre.admision.carne_habilitacion",
@@ -1257,7 +1280,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 53
+        "orden": 54
       },
       {
         "clave": "selectivo_libre.baremacion.servicios_diputacion",
@@ -1280,7 +1303,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 54
+        "orden": 55
       },
       {
         "clave": "selectivo_libre.baremacion.servicios_otras_administraciones",
@@ -1306,7 +1329,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 55
+        "orden": 56
       },
       {
         "clave": "selectivo_libre.baremacion.formacion",
@@ -1329,7 +1352,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 56
+        "orden": 57
       },
       {
         "clave": "selectivo_libre.baremacion.titulaciones_superiores_idiomas",
@@ -1355,7 +1378,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 57
+        "orden": 58
       },
       {
         "clave": "selectivo_libre.pruebas.dictamen_adaptacion",
@@ -1378,7 +1401,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 58
+        "orden": 59
       },
       {
         "clave": "selectivo_libre.contratacion.domicilio_laboral_fiscal",
@@ -1400,7 +1423,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 59
+        "orden": 60
       },
       {
         "clave": "selectivo_libre.contratacion.afiliacion_seguridad_social",
@@ -1422,7 +1445,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 60
+        "orden": 61
       },
       {
         "clave": "selectivo_libre.contratacion.cuenta_bancaria",
@@ -1444,7 +1467,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 61
+        "orden": 62
       },
       {
         "clave": "selectivo_libre.contratacion.datos_irpf",
@@ -1466,7 +1489,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 62
+        "orden": 63
       },
       {
         "clave": "selectivo_libre.contratacion.declaracion_compatibilidad",
@@ -1488,7 +1511,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 63
+        "orden": 64
       },
       {
         "clave": "selectivo_libre.contratacion.aptitud_medica",
@@ -1511,7 +1534,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 64
+        "orden": 65
       },
       {
         "clave": "selectivo_libre.contratacion.certificado_delitos_sexuales",
@@ -1537,7 +1560,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 65
+        "orden": 66
       },
       {
         "clave": "selectivo_libre.contratacion.autorizacion_tutor_menor",
@@ -1560,7 +1583,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "selectivo_libre"
         },
-        "orden": 66
+        "orden": 67
       },
       {
         "clave": "promocion_interna.inscripcion.nombre_apellidos",
@@ -1570,7 +1593,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "nombre_apellidos",
           "duda": "Estudio de datos personales, apartado 4.8.",
           "finalidad": "identificacion",
@@ -1582,7 +1605,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 67
+        "orden": 68
       },
       {
         "clave": "promocion_interna.inscripcion.documento_identidad",
@@ -1592,7 +1615,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "documento_identidad",
           "duda": "Estudio de datos personales, apartado 4.8.",
           "finalidad": "identificacion",
@@ -1604,7 +1627,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 68
+        "orden": 69
       },
       {
         "clave": "promocion_interna.inscripcion.condicion_personal_diputacion",
@@ -1614,7 +1637,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "condicion_personal_diputacion",
           "duda": "Estudio de datos personales, apartados 2.3 y 4.8.",
           "finalidad": "comprobacion_requisitos",
@@ -1626,7 +1649,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 69
+        "orden": 70
       },
       {
         "clave": "promocion_interna.inscripcion.antiguedad_subgrupo_inferior",
@@ -1636,7 +1659,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "antiguedad_subgrupo_inferior",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "comprobacion_requisitos",
@@ -1648,7 +1671,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 70
+        "orden": 71
       },
       {
         "clave": "promocion_interna.inscripcion.correo",
@@ -1658,7 +1681,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "correo",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "avisos_notificacion",
@@ -1670,7 +1693,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 71
+        "orden": 72
       },
       {
         "clave": "promocion_interna.inscripcion.titulacion_exigida",
@@ -1680,22 +1703,21 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "consulta_regimen": "oposicion",
-          "consulta_servicio": "titulos",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "titulacion_exigida",
-          "duda": "Duda 37 y pregunta 81 de dudas.md.",
+          "duda": "Duda 37 y estudio de datos personales, apartado 4.8.",
           "finalidad": "comprobacion_requisitos",
-          "fuente": "consulta_administracion",
+          "fuente": "personal_diputacion",
           "fuente_alternativa": "persona",
           "momento": "inscripcion",
-          "norma": "TREBEP, art. 56.1.e; Ley 39/2015, art. 28.2.",
+          "momento_comprobacion": "admision",
+          "norma": "TREBEP, art. 56.1.e; Ley 39/2015, art. 53.1.d; consta en el expediente de Personal.",
           "obligatoriedad": "obligatorio",
           "origen": "ejemplo",
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 72
+        "orden": 73
       },
       {
         "clave": "promocion_interna.inscripcion.turno",
@@ -1706,7 +1728,7 @@
           "base_rgpd": "6.1.e,9.2.b",
           "categoria": "especial",
           "condicion": "si_convocatoria_con_varios_turnos",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "turno",
           "duda": "Pregunta 83 de dudas.md.",
           "finalidad": "cupo_discapacidad",
@@ -1718,7 +1740,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 73
+        "orden": 74
       },
       {
         "clave": "promocion_interna.inscripcion.discapacidad_grado",
@@ -1731,7 +1753,7 @@
           "condicion": "si_opta_cupo_reserva_o_exencion",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "discapacidad",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "discapacidad_grado",
           "duda": "Preguntas 81 y 82 de dudas.md.",
           "finalidad": "cupo_discapacidad",
@@ -1744,7 +1766,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 74
+        "orden": 75
       },
       {
         "clave": "promocion_interna.inscripcion.adaptacion_solicitud",
@@ -1755,7 +1777,7 @@
           "base_rgpd": "6.1.e,9.2.b",
           "categoria": "especial",
           "condicion": "si_pide_adaptacion",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "adaptacion_solicitud",
           "duda": "Pregunta 82 de dudas.md.",
           "finalidad": "adaptacion_pruebas",
@@ -1767,7 +1789,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 75
+        "orden": 76
       },
       {
         "clave": "promocion_interna.inscripcion.victima_violencia",
@@ -1778,7 +1800,7 @@
           "base_rgpd": "6.1.c",
           "categoria": "protegida",
           "condicion": "si_pide_proteccion",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "victima_violencia",
           "duda": "Pregunta 93 de dudas.md.",
           "finalidad": "proteccion_victimas",
@@ -1790,7 +1812,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 76
+        "orden": 77
       },
       {
         "clave": "promocion_interna.baremacion.servicios_diputacion",
@@ -1801,7 +1823,7 @@
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
           "condicion": "si_puntua",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "servicios_diputacion",
           "duda": "Preguntas 78 y 80 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -1813,7 +1835,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 77
+        "orden": 78
       },
       {
         "clave": "promocion_interna.baremacion.servicios_otras_administraciones",
@@ -1826,7 +1848,7 @@
           "condicion": "si_puntua",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "vida_laboral",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "servicios_otras_administraciones",
           "duda": "Preguntas 80 y 81 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -1839,7 +1861,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 78
+        "orden": 79
       },
       {
         "clave": "promocion_interna.baremacion.formacion",
@@ -1850,7 +1872,7 @@
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
           "condicion": "si_puntua",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "formacion",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -1862,7 +1884,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 79
+        "orden": 80
       },
       {
         "clave": "promocion_interna.baremacion.titulaciones_superiores_idiomas",
@@ -1875,7 +1897,7 @@
           "condicion": "si_puntua",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "titulos",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "titulaciones_superiores_idiomas",
           "duda": "Preguntas 80 y 81 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -1888,7 +1910,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 80
+        "orden": 81
       },
       {
         "clave": "promocion_interna.pruebas.dictamen_adaptacion",
@@ -1899,7 +1921,7 @@
           "base_rgpd": "6.1.e,9.2.b",
           "categoria": "especial",
           "condicion": "si_tribunal_lo_necesita",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "dictamen_adaptacion",
           "duda": "Pregunta 82 de dudas.md.",
           "finalidad": "adaptacion_pruebas",
@@ -1911,7 +1933,7 @@
           "pendiente_de": "dpd",
           "tipo_convocatoria": "promocion_interna"
         },
-        "orden": 81
+        "orden": 82
       },
       {
         "clave": "provision.inscripcion.nombre_apellidos",
@@ -1921,7 +1943,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "nombre_apellidos",
           "duda": "Estudio de datos personales, apartado 4.8.",
           "finalidad": "identificacion",
@@ -1933,7 +1955,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "provision"
         },
-        "orden": 82
+        "orden": 83
       },
       {
         "clave": "provision.inscripcion.documento_identidad",
@@ -1943,7 +1965,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "documento_identidad",
           "duda": "Estudio de datos personales, apartado 4.8.",
           "finalidad": "identificacion",
@@ -1955,7 +1977,7 @@
           "pendiente_de": "rrhh_dpd",
           "tipo_convocatoria": "provision"
         },
-        "orden": 83
+        "orden": 84
       },
       {
         "clave": "provision.inscripcion.condicion_personal_diputacion",
@@ -1965,7 +1987,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "condicion_personal_diputacion",
           "duda": "Estudio de datos personales, apartados 2.3 y 4.8.",
           "finalidad": "comprobacion_requisitos",
@@ -1977,7 +1999,7 @@
           "pendiente_de": "rrhh",
           "tipo_convocatoria": "provision"
         },
-        "orden": 84
+        "orden": 85
       },
       {
         "clave": "provision.inscripcion.correo",
@@ -1987,7 +2009,7 @@
         "atributos": {
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "correo",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "avisos_notificacion",
@@ -1997,32 +2019,6 @@
           "obligatoriedad": "obligatorio",
           "origen": "ejemplo",
           "pendiente_de": "rrhh",
-          "tipo_convocatoria": "provision"
-        },
-        "orden": 85
-      },
-      {
-        "clave": "provision.inscripcion.discapacidad_grado",
-        "etiqueta": "Provisión de puestos: Discapacidad igual o superior al 33 % (inscripción)",
-        "descripcion": "Solo si la persona opta al cupo de reserva o pide exención de tasa. Se guarda que alcanza el 33 % y la fecha de comprobación; nunca el diagnóstico.",
-        "vigente_desde": "2026-09-01T00:00:00Z",
-        "atributos": {
-          "base_rgpd": "6.1.e,9.2.b",
-          "categoria": "especial",
-          "condicion": "si_opta_cupo_reserva_o_exencion",
-          "consulta_regimen": "oposicion",
-          "consulta_servicio": "discapacidad",
-          "custodia": "aspirantes",
-          "dato": "discapacidad_grado",
-          "duda": "Preguntas 81 y 82 de dudas.md.",
-          "finalidad": "cupo_discapacidad",
-          "fuente": "consulta_administracion",
-          "fuente_alternativa": "persona",
-          "momento": "inscripcion",
-          "norma": "TREBEP, art. 59.1; Real Decreto 2271/2004, art. 3; Ley 39/2015, art. 28.2.",
-          "obligatoriedad": "condicional",
-          "origen": "ejemplo",
-          "pendiente_de": "dpd",
           "tipo_convocatoria": "provision"
         },
         "orden": 86
@@ -2036,7 +2032,7 @@
           "base_rgpd": "6.1.e,9.2.b",
           "categoria": "especial",
           "condicion": "si_pide_adaptacion",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "adaptacion_solicitud",
           "duda": "Pregunta 82 de dudas.md.",
           "finalidad": "adaptacion_pruebas",
@@ -2059,7 +2055,7 @@
           "base_rgpd": "6.1.c",
           "categoria": "protegida",
           "condicion": "si_pide_proteccion",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "victima_violencia",
           "duda": "Pregunta 93 de dudas.md.",
           "finalidad": "proteccion_victimas",
@@ -2082,7 +2078,7 @@
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
           "condicion": "si_puntua",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "grado_personal_consolidado",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -2105,7 +2101,7 @@
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
           "condicion": "si_puntua",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "servicios_diputacion",
           "duda": "Preguntas 78 y 80 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -2130,7 +2126,7 @@
           "condicion": "si_puntua",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "vida_laboral",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "servicios_otras_administraciones",
           "duda": "Preguntas 80 y 81 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -2154,7 +2150,7 @@
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
           "condicion": "si_puntua",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "formacion",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -2179,7 +2175,7 @@
           "condicion": "si_puntua",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "titulos",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "titulaciones_superiores_idiomas",
           "duda": "Preguntas 80 y 81 de dudas.md.",
           "finalidad": "baremacion_meritos",
@@ -2203,7 +2199,7 @@
           "base_rgpd": "6.1.e",
           "categoria": "ordinaria",
           "condicion": "si_puntua",
-          "custodia": "aspirantes",
+          "custodia": "procesos_empleado",
           "dato": "conciliacion_familiar",
           "duda": "Pregunta 80 de dudas.md.",
           "finalidad": "baremacion_meritos",

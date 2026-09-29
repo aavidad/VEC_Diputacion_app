@@ -174,13 +174,22 @@ func (c Categoria) valida() bool {
 func (c Categoria) EsSensible() bool { return c != CategoriaOrdinaria }
 
 // Custodia es el módulo que pide y guarda el dato. Los datos del
-// nombramiento o del contrato nunca se guardan en Aspirantes.
+// nombramiento o del contrato nunca se guardan en Aspirantes, y los trámites
+// de empleado (promoción interna y provisión) se hacen desde el portal
+// interno sin pasar por Aspirantes (estudio, apartado 4.8).
 type Custodia string
 
 const (
-	CustodiaAspirantes Custodia = "aspirantes"
-	CustodiaPersonal   Custodia = "personal"
+	CustodiaAspirantes       Custodia = "aspirantes"
+	CustodiaPersonal         Custodia = "personal"
+	CustodiaProcesosEmpleado Custodia = "procesos_empleado"
 )
+
+// EsTramiteEmpleado es cierto para los tipos que solo usa el personal de la
+// Diputación desde el portal interno.
+func (t TipoConvocatoria) EsTramiteEmpleado() bool {
+	return t == TipoPromocionInterna || t == TipoProvision
+}
 
 // Origen distingue el valor provisional de ejemplo del aprobado.
 type Origen string
@@ -213,6 +222,9 @@ var (
 
 // maximoEntradas acota el catálogo vigente antes de construir la lista.
 const maximoEntradas = 512
+
+// maximoCaracteresCita acota norma y duda de cada entrada.
+const maximoCaracteresCita = 512
 
 // DatoRequerido es una entrada resuelta: un dato que un tipo de convocatoria
 // pide en un momento. Los campos de texto son códigos, no textos visibles.
@@ -420,7 +432,7 @@ func contratoValido(d DatoRequerido, baseRGPD string, ejemplo bool) bool {
 	return d.Tipo.Valido() && patronCodigo.MatchString(d.Dato) && d.Momento.Posicion() > 0 &&
 		comprobacionValida(d) && obligatoriedadValida(d) && patronCodigo.MatchString(d.Finalidad) &&
 		patronBaseRGPD.MatchString(baseRGPD) && fuentesValidas(d) && d.Categoria.valida() &&
-		custodiaValida(d) && origenValido(d, ejemplo) && d.Norma != "" && d.Duda != ""
+		custodiaValida(d) && categoriaCoherente(d) && origenValido(d, ejemplo) && citaValida(d.Norma) && citaValida(d.Duda)
 }
 
 // comprobacionValida: la comprobación, si existe, es posterior a la petición.
@@ -462,9 +474,33 @@ func custodiaValida(d DatoRequerido) bool {
 	case CustodiaPersonal:
 		return d.Momento == MomentoContratacion
 	case CustodiaAspirantes:
-		return d.Momento != MomentoContratacion && d.Categoria != CategoriaPenal
+		return !d.Tipo.EsTramiteEmpleado() && d.Momento != MomentoContratacion && d.Categoria != CategoriaPenal
+	case CustodiaProcesosEmpleado:
+		return d.Tipo.EsTramiteEmpleado() && d.Momento != MomentoContratacion && d.Categoria != CategoriaPenal
 	}
 	return false
+}
+
+// categoriaCoherente: un dato sensible que se guarda fuera de Personal nunca
+// es obligatorio, y un dato especial cita una letra del art. 9.2 del RGPD.
+func categoriaCoherente(d DatoRequerido) bool {
+	if d.Categoria.EsSensible() && d.Custodia != CustodiaPersonal && d.Obligatoriedad == Obligatorio {
+		return false
+	}
+	if d.Categoria != CategoriaEspecial {
+		return true
+	}
+	for _, base := range d.BaseRGPD {
+		if strings.HasPrefix(base, "9.2.") {
+			return true
+		}
+	}
+	return false
+}
+
+// citaValida acota las citas de norma y duda, que son datos del catálogo.
+func citaValida(texto string) bool {
+	return texto != "" && len(texto) <= maximoCaracteresCita && texto == strings.TrimSpace(texto)
 }
 
 // origenValido: un paquete de ejemplo solo contiene valores de ejemplo con

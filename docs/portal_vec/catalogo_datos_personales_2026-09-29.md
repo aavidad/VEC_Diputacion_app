@@ -31,7 +31,7 @@ Una entrada es un dato que un tipo de convocatoria pide en un momento. La clave 
 | `consulta_servicio`, `consulta_regimen` | Solo si se consulta a otra Administración. `oposicion` (art. 28.2 de la Ley 39/2015: se consulta salvo que la persona se oponga) o `autorizacion` (datos tributarios) |
 | `fuente_alternativa` | A quién se pide si la persona se opone. En una consulta es siempre `persona` |
 | `categoria` | `ordinaria`, `especial` (art. 9), `penal` (art. 10), `protegida` (víctimas) |
-| `custodia` | `aspirantes`, o `personal` para los datos del nombramiento o contrato |
+| `custodia` | `aspirantes` (bolsa y selectivo libre), `procesos_empleado` (promoción interna y provisión, desde el portal interno) o `personal` (datos del nombramiento o contrato) |
 | `origen`, `pendiente_de` | `ejemplo` con `rrhh`, `dpd` o `rrhh_dpd`; `aprobado` con `aprobacion_ref` |
 | `norma`, `duda` | Cita de la norma y pregunta de `dudas.md` que lo confirma |
 
@@ -39,12 +39,27 @@ Reglas que el código comprueba (una entrada que las incumple invalida todo el
 catálogo):
 
 - Los datos del momento `contratacion` los pide y guarda Personal, y solo esos.
+- Promoción interna y provisión nunca guardan datos en Aspirantes.
 - Un dato penal nunca se guarda en Aspirantes.
+- Un dato especial, penal o protegido solo es obligatorio si lo guarda Personal, y un
+  dato especial cita una letra del art. 9.2 del RGPD.
 - Una consulta a otra Administración nombra servicio y régimen y deja que la
   persona aporte el documento si se opone.
 - Un paquete de ejemplo solo tiene valores de ejemplo, y un valor de ejemplo no
   puede ir en un catálogo aprobado.
 - No se repite un dato en el mismo tipo y momento.
+
+## Entradas que no vienen del apartado 2
+
+Dos entradas del paquete no están en el inventario del estudio y RRHH debe
+confirmarlas con la pregunta 80 de `dudas.md`:
+
+- `bolsa.llamamiento.justificante_renuncia`: justificante de la causa de renuncia a
+  un llamamiento (dudas 2 y 11). Puede revelar un dato de salud, por eso es
+  categoría especial.
+- `provision.baremacion.conciliacion_familiar`: mérito de conciliación, habitual en
+  las bases de los concursos. Revela datos de terceros (hijos o familiares); se
+  guarda el mérito reconocido.
 
 ## Cómo lo lee Aspirantes
 

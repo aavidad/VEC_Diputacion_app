@@ -43,7 +43,8 @@
   },
   "custodia": {
     "aspirantes": "Lo guarda Aspirantes",
-    "personal": "Lo pide y lo guarda Personal"
+    "personal": "Lo pide y lo guarda Personal",
+    "procesos_empleado": "Lo guarda el trámite de empleado del portal interno"
   },
   "pendiente_de": {
     "rrhh": "Pendiente de confirmar por RRHH",
@@ -126,7 +127,8 @@
     "si_pide_proteccion": "Si pide protección de sus datos",
     "si_puesto_contacto_menores": "Si el puesto implica contacto habitual con menores",
     "si_puntua": "Si puntúa según las bases",
-    "si_tribunal_lo_necesita": "Si el tribunal lo necesita para resolver"
+    "si_tribunal_lo_necesita": "Si el tribunal lo necesita para resolver",
+    "si_opta_cupo_reserva": "Si opta al cupo de reserva por discapacidad"
   },
   "consulta_servicio": {
     "verificacion_identidad": "datos de identidad",

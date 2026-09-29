@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,6 +119,11 @@ func TestPaqueteEjemploReflejaElEstudio(t *testing.T) {
 			}
 		}
 	}
+	for _, dato := range catalogo.Datos {
+		if dato.Tipo.EsTramiteEmpleado() != (dato.Custodia == datospersonales.CustodiaProcesosEmpleado) {
+			t.Errorf("%s: los trámites de empleado no pasan por Aspirantes", dato.Clave)
+		}
+	}
 	for _, dato := range catalogo.Para(datospersonales.TipoBolsa, datospersonales.MomentoContratacion) {
 		if dato.Custodia != datospersonales.CustodiaPersonal {
 			t.Errorf("%s: los datos del contrato los guarda Personal", dato.Clave)
@@ -224,6 +230,11 @@ func TestEntradaFueraDeContratoInvalidaElCatalogo(t *testing.T) {
 		"base rgpd mal formada":             func(a map[string]string) { a["base_rgpd"] = "art 6" },
 		"sin norma":                         func(a map[string]string) { delete(a, "norma") },
 		"categoria desconocida":             func(a map[string]string) { a["categoria"] = "sensible" },
+		"empleado guardado en aspirantes":   func(a map[string]string) { a["tipo_convocatoria"] = "provision" },
+		"aspirante en tramite de empleado":  func(a map[string]string) { a["custodia"] = "procesos_empleado" },
+		"especial sin base del art 9":       func(a map[string]string) { a["categoria"] = "especial"; a["obligatoriedad"] = "voluntario" },
+		"sensible obligatorio":              func(a map[string]string) { a["categoria"] = "protegida" },
+		"cita demasiado larga":              func(a map[string]string) { a["norma"] = strings.Repeat("x", 513) },
 		"fuente alternativa igual a fuente": func(a map[string]string) { a["fuente_alternativa"] = a["fuente"] },
 	}
 	for nombre, mutar := range casos {

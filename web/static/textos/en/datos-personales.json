@@ -43,7 +43,8 @@
   },
   "custodia": {
     "aspirantes": "Kept by Applicants",
-    "personal": "Requested and kept by Personnel"
+    "personal": "Requested and kept by Personnel",
+    "procesos_empleado": "Kept by the staff procedure in the internal portal"
   },
   "pendiente_de": {
     "rrhh": "Pending confirmation by HR",
@@ -126,7 +127,8 @@
     "si_pide_proteccion": "If requesting protection of their data",
     "si_puesto_contacto_menores": "If the post involves regular contact with minors",
     "si_puntua": "If it scores under the call",
-    "si_tribunal_lo_necesita": "If the selection board needs it to decide"
+    "si_tribunal_lo_necesita": "If the selection board needs it to decide",
+    "si_opta_cupo_reserva": "If applying for the disability reserved quota"
   },
   "consulta_servicio": {
     "verificacion_identidad": "identity data",
