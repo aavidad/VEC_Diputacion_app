@@ -37,7 +37,7 @@ func (a *AlmacenAutorizacion) RegistrarConcesionCandidataAutorizacionLigadaV3SiI
 	if err != nil {
 		return time.Time{}, err
 	}
-	return a.registrarDecisionContextoActorV3(
+	return a.registrarDecisionContextoActorV3ConReintento(
 		ctx, datos, true, ports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
 	)
 }
@@ -59,20 +59,20 @@ func (a *AlmacenAutorizacion) RegistrarDenegacionAutorizacionLigadaV3(
 	if err != nil {
 		return err
 	}
-	_, err = a.registrarDecisionContextoActorV3(
+	_, err = a.registrarDecisionContextoActorV3ConReintento(
 		ctx, datos, false, ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible,
 	)
 	return err
 }
 
-// registrarDecisionContextoActorV3 repite el registro completo cuando la
+// registrarDecisionContextoActorV3ConReintento repite el registro completo cuando la
 // transacción SERIALIZABLE pierde una carrera (40001 o 40P01). Dos peticiones
 // simultáneas del mismo actor escriben la misma cadena de decisiones y
 // PostgreSQL aborta a una de ellas, antes o al confirmar; el aborto garantiza
 // que no quedó nada escrito, así que repetir con la misma orden es seguro. Si
 // se agotan los intentos o vence el contexto se devuelve la misma
 // clasificación de siempre.
-func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
+func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3ConReintento(
 	ctx context.Context,
 	datos ports.DatosOrdenRegistroAutorizacionLigadaV3,
 	concedidaEsperada bool,
@@ -81,7 +81,7 @@ func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
 	var registradaEn time.Time
 	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
 		var err error
-		registradaEn, err = a.registrarDecisionContextoActorV3UnaVez(ctx, datos, concedidaEsperada, errorNoDisponible)
+		registradaEn, err = a.registrarDecisionContextoActorV3(ctx, datos, concedidaEsperada, errorNoDisponible)
 		return err
 	})
 	var carrera carreraSerializacionRegistroV3
@@ -94,7 +94,7 @@ func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
 	return registradaEn, nil
 }
 
-func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3UnaVez(
+func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
 	ctx context.Context,
 	datos ports.DatosOrdenRegistroAutorizacionLigadaV3,
 	concedidaEsperada bool,
