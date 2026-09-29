@@ -138,13 +138,31 @@ Hecho (sin cambiar nada si `VEC_PORTAL_PROCESO` no se configura):
    pública de convocatorias y categorías, y los ficheros del Área personal.
    No carga identidad de RRHH, clave maestra ni conexiones. Sin persona
    candidata en su material no arranca.
+7. «Mis preferencias» del Área personal funciona en el proceso externo:
+   - el lado interno ejecuta `vec-server preparar-portal-externo`: con el rol
+     de gobierno publica (idempotente) las claves de las audiencias externas y
+     deja en el material externo solo esas claves derivadas y la raíz de
+     atestación (`externo/v3/`), nunca la clave base ni la maestra;
+   - el proceso externo coteja ese material y lee la configuración de
+     confianza vigente con su propio login de solo lectura (AD3-112,
+     `VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL`); nunca publica;
+   - usa los logins de su configuración de Usuarios
+     (`identidad/usuarios-preferencias-externa.json`) y su propia clave de
+     idempotencia, con un espacio de seudónimos propio
+     (`vec.identidad.desarrollo.externo`). Los alias de sus cuentas los calcula
+     él (`vec-server exportar-seudonimos-portal-externo`, sin conexiones) y los
+     registra el lado interno (`preparar-portal-externo --seudonimos`).
+   Recorrido real en un clon propio con los dos procesos a la vez: GET 200 y
+   PUT 201 de preferencias en el externo, el interno responde 404 a esa ruta y
+   los logins externos no pueden leer ningún esquema interno.
 
 Pendiente, en este orden:
 
-1. Capacidades personales en el proceso externo, en este orden: preferencias,
-   correos e imagen de la superficie externa; «Mi bolsa» y el portal del
-   candidato; y la lista pública de bolsas desde la proyección pública
-   (esquema `bolsa_publica`, aún no instalado en la principal). El gobierno
+1. Capacidades personales en el proceso externo que faltan, en este orden:
+   correos e imagen de la superficie externa (necesitan una subclave de
+   cifrado propia); «Mi bolsa» y el portal del candidato; y la lista pública
+   de bolsas desde la proyección pública (esquema `bolsa_publica`, aún no
+   instalado en la principal). El gobierno
    de autorización de esas capacidades (publicar audiencias, perfil y
    motivos) lo hace el lado interno con un paso de preparación; el proceso
    externo solo recibe claves derivadas para sus audiencias y usuarios de

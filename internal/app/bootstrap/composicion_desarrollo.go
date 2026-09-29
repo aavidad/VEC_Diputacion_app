@@ -249,7 +249,7 @@ func nuevoServidorDesarrollo(
 		if len(incorporacion) != 0 || strings.TrimSpace(cfg.IncorporacionV2File) != "" {
 			return nil, nil, ErrActivacionDesarrolloInvalida
 		}
-		servidor, err := nuevoServidorPortalExternoDesarrollo(cfg, registro)
+		servidor, err := nuevoServidorPortalExternoDesarrollo(cfg, registro, emisor)
 		return servidor, nil, err
 	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)

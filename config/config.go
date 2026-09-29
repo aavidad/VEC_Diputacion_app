@@ -122,6 +122,7 @@ type Config struct {
 	DevelopmentGuard                            string
 	DevelopmentMaterialDir                      string
 	PortalProceso                               string
+	ExternoPreflightV3DatabaseURL               string
 	IncorporacionV2File                         string
 	ContratacionTemporalSubsanacionPoliticaFile string
 	CTAnalisisMotivosSourcePath                 string
@@ -220,6 +221,7 @@ func Load() Config {
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
 		CTAnalisisMotivosSourcePath:                 envFirst(EnvCTAnalisisMotivosSourcePath),
+		ExternoPreflightV3DatabaseURL:               os.Getenv(EnvExternoPreflightV3DatabaseURL),
 		ReglasEjemplo:                               cargarConfiguracionReglasEjemplo(),
 		FakeCredentialsPath:                         envFirst(EnvFakeCredentialsPath),
 		TrustedHeaderSubject:                        envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),

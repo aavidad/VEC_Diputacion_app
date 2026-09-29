@@ -225,3 +225,27 @@ func TestProcesoExternoNoArrancaSinPersonaCandidataNiConMaterialAjeno(t *testing
 		t.Fatal("una clave TLS fuera del material del externo no debe aceptarse")
 	}
 }
+
+func TestProcesoExternoConPreferenciasExigeSuMaterialYSuPreflight(t *testing.T) {
+	vaciarConexionesDelEntorno(t)
+	m := generarMaterialPortalExternoPrueba(t)
+	m.cfg.PersonalCatalogPath = "memory"
+	t.Setenv("VEC_USUARIOS_PREFERENCIAS_ENABLED", "true")
+	if _, err := NewHTTPServerWithConfig(m.cfg); !errors.Is(err, ErrUsuariosPortalExternoNoDisponible) {
+		t.Fatalf("preferencias sin preflight ni material deben impedir arrancar: %v", err)
+	}
+	// Con una conexión de preflight con otro LOGIN tampoco: se rechaza antes
+	// de abrirla (la dirección es de documentación, RFC 5737).
+	m.cfg.ExternoPreflightV3DatabaseURL = "postgresql://vec_ct_sintetico@192.0.2.1:1/vec?sslmode=verify-full"
+	if _, err := NewHTTPServerWithConfig(m.cfg); !errors.Is(err, ErrUsuariosPortalExternoNoDisponible) {
+		t.Fatalf("preflight con otro LOGIN debe impedir arrancar: %v", err)
+	}
+	t.Setenv("VEC_USUARIOS_PREFERENCIAS_ENABLED", "")
+	for _, selector := range []string{"VEC_USUARIOS_CORREOS_ENABLED", "VEC_USUARIOS_IMAGEN_ENABLED"} {
+		t.Setenv(selector, "true")
+		if _, err := NewHTTPServerWithConfig(m.cfg); !errors.Is(err, ErrUsuariosPortalExternoNoDisponible) {
+			t.Fatalf("%s aun no se compone en el externo y debe impedir arrancar: %v", selector, err)
+		}
+		t.Setenv(selector, "")
+	}
+}

@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
@@ -14,10 +15,12 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // ErrMaterialPortalExternoInvalido rechaza un material del proceso externo
@@ -166,7 +169,7 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 // ficheros del Área personal. No abre ninguna conexión de RRHH ni carga
 // material interno; las capacidades personales (Mi bolsa, preferencias,
 // correos, imagen) se añaden en sus propias minitareas.
-func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer) (*http.Server, error) {
+func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if registro == nil {
 		return nil, ErrRegistroArranqueDesarrollo
@@ -190,15 +193,80 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer)
 	}
 	api := http.NewServeMux()
 	api.Handle("/api/publico/", publicaBolsaAPI)
+	personal, cerrarPersonal, err := nuevasCapacidadesPersonalesPortalExterno(cfg, material.identidad, emisor)
+	if err != nil {
+		return nil, err
+	}
+	if personal != nil {
+		api.Handle("/api/vec/", personal)
+	}
 	if err := avisarArranquePortalExterno(registro); err != nil {
+		cerrarPersonal()
 		return nil, err
 	}
 	servidor, err := server.NewHTTPServer(cfg, api)
 	if err != nil {
+		cerrarPersonal()
 		return nil, err
 	}
 	servidor.TLSConfig = material.tls.Clone()
+	servidor.RegisterOnShutdown(cerrarPersonal)
 	return servidor, nil
+}
+
+// nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
+// personal que el proceso externo tenga encendidas. Hoy: «Mis preferencias».
+// Correos e imagen aún no se componen aquí: encenderlos en el externo impide
+// arrancar en lugar de ignorarse.
+func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
+	nada := func() {}
+	for _, selector := range []string{envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
+		if activo, err := selectorCapacidadRRHHDesarrollo(cfg, selector); err != nil || activo {
+			return nil, nada, ErrUsuariosPortalExternoNoDisponible
+		}
+	}
+	preferencias, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	if !preferencias {
+		return nil, nada, nil
+	}
+	if emisor == nil {
+		return nil, nada, ErrEmisorIncidenciasRequerido
+	}
+	raiz := cfg.DevelopmentMaterialDir
+	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(raiz, filepath.Join(raiz, config.DevelopmentIdempotencyHMACConfigRelativePath))
+	if err != nil {
+		return nil, nada, ErrUsuariosPortalExternoNoDisponible
+	}
+	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&idempotencia)
+	idempotencia.borrar()
+	if err != nil {
+		return nil, nada, ErrUsuariosPortalExternoNoDisponible
+	}
+	// Los alias de sesión del externo viven en su propio espacio de clave.
+	derivador.espacioSeudonimos = espacioSeudonimosPortalExterno
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	preflight, err := abrirPoolPreflightV3PortalExterno(ctx, cfg.ExternoPreflightV3DatabaseURL)
+	if err != nil {
+		derivador.borrar()
+		return nil, nada, ErrUsuariosPortalExternoNoDisponible
+	}
+	cerrar := func() { preflight.Close(); derivador.borrar() }
+	autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+	if err != nil {
+		cerrar()
+		return nil, nada, err
+	}
+	cerrarTodo := func() { autoridad.cerrar(); cerrar() }
+	manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
+	if err != nil {
+		cerrarTodo()
+		return nil, nada, err
+	}
+	return manejador, cerrarTodo, nil
 }
 
 // avisarArranquePortalExterno deja constancia ruidosa, como el resto de la

@@ -8,3 +8,9 @@ const EnvPortalProceso = "VEC_PORTAL_PROCESO"
 
 // El campo Config.PortalProceso guarda el valor tal cual; lo interpreta y
 // valida internal/app/separacionportales antes de componer nada.
+
+// EnvExternoPreflightV3DatabaseURL es la conexión del proceso externo con la
+// que lee el gobierno de autorización (AD3-112), con el LOGIN nominal
+// vec_externo_preflight_v3_desarrollo. Lleva el prefijo de las variables del
+// portal externo: el proceso interno la rechaza.
+const EnvExternoPreflightV3DatabaseURL = "VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL"
