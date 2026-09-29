@@ -223,6 +223,8 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConsumoModificacionNombramientoV1,
 		ports.AudienciaConsumoReincorporacionTitularV1,
 		ports.AudienciaLecturaReincorporacionTitularV1,
+		// Consulta de comunicaciones del expediente (AD3-105/CT140).
+		postgrescontratacion.AudienciaConsultaComunicacionesExpediente,
 		// Cancelación del expediente (AD3-87); solo con VEC_CT_CANCELACION_ENABLED.
 		ports.AudienciaConsumoCancelacionV1,
 		// Confirmación de GINPIX (AD3-88); solo se publica con
