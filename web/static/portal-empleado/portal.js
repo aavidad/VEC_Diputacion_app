@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-pref-50
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-pref-508a-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-pref-508a-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-ppt-v2";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-pref-508a-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-pref-508a-v2";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-pref-508a-v2";
@@ -106,7 +106,7 @@ const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 const TITULOS = Object.freeze({
   portal: [traducirPortal("menu_inicio"), traducirPortal("menu_inicio")],
   "ofertas-sae": [traducirPortal("ofertas_sae_miga"), traducirPortal("ofertas_sae_titulo")],
-  resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_cuadro_de_mando")],
+  resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_bolsas_de_trabajo")],
   elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
   convocatorias: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_convocatorias_bases_y_calendario")],
   solicitudes: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_solicitudes_y_admision")],
@@ -341,7 +341,8 @@ async function actualizarSesionVisible() {
     return;
   }
   if (!datos.nombre) return;
-  sesion.querySelector(".avatar").textContent = datos.iniciales;
+  // Sin iniciales se conserva el icono de persona de la cabecera.
+  if (datos.iniciales && datos.iniciales !== "—") sesion.querySelector(".avatar").textContent = datos.iniciales;
   sesion.querySelector("strong").textContent = datos.nombre;
   const perfil = sesion.querySelector("small");
   perfil.textContent = datos.perfil;
@@ -606,9 +607,13 @@ function actualizarNavegacionModulos() {
     .forEach((indicador, indice) => { indicador.textContent = String(indice + 1); });
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
-    const accesos = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
-      .filter((clave) => !CLAVES_SIN_ENTRADA_PORTAL.includes(clave))
-      .map((clave) => resolverAccesoPerfil(clave));
+    // El recuento cuadra con lo visible: las entradas de módulo que el menú
+    // muestra, más Ofertas al SAE cuando se ofrece.
+    const accesos = [...contenedor.querySelectorAll("[data-modulo-portal]")].map((boton) => ({
+      disponible: boton.classList.contains("modulo-habilitado"),
+      estado: boton.getAttribute("aria-busy") === "true" ? "cargando" : "",
+    }));
+    if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
       estado.datosBolsas?.carga === "cargando");
   }
