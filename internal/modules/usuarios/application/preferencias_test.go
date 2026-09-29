@@ -282,6 +282,8 @@ func TestSuperficiePerfilYPersonaNoSeSustituyen(t *testing.T) {
 		esperado   error
 	}{
 		{"ruta externa con vinculo interno", actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, ports.ErrProhibido},
+		{"sin vinculo V2", actorInterno, vecdomain.VinculoAutenticacionActorV2{}, vecdomain.SuperficieAutenticacionInternaCorporativaV1, ports.ErrNoAutenticado},
+		{"sin contexto ni perfil", vecdomain.ContextoActor{}, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, ports.ErrNoAutenticado},
 		{"perfil sustituido", actorExterno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, ports.ErrNoAutenticado},
 		{"persona sustituida", actorAjeno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, ports.ErrNoAutenticado},
 		{"administracion ajena", actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionAdministracionPrivilegiadaV1, ports.ErrProhibido},
