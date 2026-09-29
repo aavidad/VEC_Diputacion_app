@@ -1,0 +1,12 @@
+# Orden causal local de Usuarios 5.08a desde el HITO 1 comunicado el 29/09/2026.
+# Las 39 SQL RRHH anteriores ya tienen historia en principal: NO reaplicar.
+# Preparación para clon PostgreSQL 18.4; este archivo no acredita instalación.
+# Aprovisionar fuera de Git los LOGIN/DSN exclusivos interno y exterior de
+# ejecutor y registrador, y comprobar ACL, preimagen y gobierno V3 antes de UP.
+# El binario debe incorporar el gobierno de audiencia CT140 corregido en #102.
+deploy/postgresql/usuarios_vec/roles_up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000106_consumidor_preferencias_propias.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000001_preferencias_base.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000002_operaciones_preferencias.up.sql
+deploy/postgresql/usuarios_vec/roles_000003_up.sql
+deploy/postgresql/usuarios_vec/migraciones/000003_auditoria_frontera_preferencias.up.sql
