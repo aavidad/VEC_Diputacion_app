@@ -437,7 +437,7 @@ func TestCustodiaFirmadoRecorridoPG18(t *testing.T) {
 	}
 
 	// 4. El reintento de la misma firma (respuesta perdida) devuelve el mismo
-	// recibo y el mismo documento, sin registrar ni custodiar otro.
+	// recibo y el mismo documento, sin nuevas filas de firma, enlace ni documento.
 	w = pedir(cthttp.RutaFirmaDocumento, firma)
 	var repetido = recibo
 	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &repetido) != nil || !repetido.Data.YaRegistrada ||
