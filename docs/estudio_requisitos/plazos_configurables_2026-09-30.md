@@ -484,29 +484,20 @@ en las reglas (P1); decisión AD3 ligada a la huella del efecto (P1); y las
 omisiones del inventario, los casos límite, el esquema por módulo y la
 división de los cortes (P2).
 
-## 6. Revisión SQL de AD3-114 y CT-148 (pendiente de aplicar)
+## 6. Revisión SQL de AD3-114 y CT-148
 
-Revisión independiente (revisor-sql-vec) del commit 927e0dee8 de la rama
-`trabajo/plazos-configurables-sql-20260930`: **GO, ENSAYO-OK**. También dio
-ENSAYO-OK y `CT148-PRUEBAS-OK` sobre el WIP 369e3ad3b, cuya lógica no revisó
-a fondo. Pendiente de aplicar antes de abrir la PR:
+La revisión inicial de `927e0dee8` señaló cinco ajustes para el SQL y su
+prueba. La PR #174 (`4e431161af32bc7ea13122f65860796e8ba12185`)
+incorpora las correcciones: `referencia` y `nota` inválidas se rechazan con
+22023 antes del CHECK; `limite` exige un número; la prueba cubre la denegación
+de una decisión AD3 real sobre material de otra operación; el comentario de
+concurrencia atribuye el conflicto a PK o UNIQUE; y el replay conserva la
+petición original con `version_esperada`. La limitación temporal de
+`vigente_desde` y confirmación sigue descrita en el apartado 2.5.
 
-1. Validar en la función, con 22023, la longitud, los espacios y los
-   caracteres de control de `referencia` y `nota`. Hoy salta el CHECK de la
-   tabla con 23514, y Go lo tomaría por un fallo de persistencia.
-2. Carrera entre `vigente_desde` (reloj de la sentencia) y la confirmación:
-   dejarlo escrito o que el consumidor guarde la versión con la que calculó.
-3. Añadir a la prueba un caso con la fachada AD3 real: una decisión de
-   consultar sobre material de ajustar debe dar 42501.
-4. Corregir el comentario de serialización. El conflicto concurrente lo
-   detienen la PK o el UNIQUE con 40001, no la lectura de la cabeza.
-5. En el WIP, `solicitud_h` incluye `version_esperada`: comprobar que el
-   cliente la repite sin recalcularla y cubrir la repetición en la prueba.
-
-Menores: exigir que `limite` sea número; valorar un patrón sin ceros a la
-izquierda para `cantidad`; el relé del outbox necesitará una tabla de
-entregas aparte, como CT-131.
-
-La huella del contexto de AD3-114 coincide con la de Go. Condición: el
-adaptador calcula la huella del material con `$1::jsonb::text` en
-PostgreSQL, como `plantillascatalogo/repositorio.go`.
+Para ese hash hay GO SQL independiente y ensayo 20/20 en PostgreSQL 18.4
+desechable. La PR continúa abierta: el SQL no está instalado en cidonia y el
+ensayo no acredita todavía el caso de uso, la pantalla ni el recorrido real.
+El futuro adaptador Go debe calcular la huella del material normalizado con
+`$1::jsonb::text` en PostgreSQL, como `plantillascatalogo/repositorio.go`.
+El relé del outbox requerirá una tabla de entregas aparte, como CT-131.
