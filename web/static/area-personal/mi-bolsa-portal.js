@@ -232,7 +232,7 @@ export async function enviarPortalMiBolsa(formulario, { fetchImpl = globalThis.f
   mostrar(textoPortal("enviando"));
   try {
     const respuesta = await fetchImpl(peticion.ruta, {
-      method: "POST", credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
+      method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(peticion.cuerpo),
     });
     const datos = await respuesta.json().catch(() => null);

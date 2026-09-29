@@ -236,6 +236,12 @@ static/portal-empleado/modulos/contratacion-temporal/formulario-cierre-administr
 static/portal-empleado/modulos/contratacion-temporal/formulario-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-fases-rrhh.js
+static/portal-empleado/modulos/contratacion-temporal/expedientes-diseno.css
+static/portal-empleado/modulos/contratacion-temporal/i18n-ficha-lista.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-ficha.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-lista.js
+static/portal-empleado/modulos/contratacion-temporal/recuentos-peticiones.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
@@ -309,6 +315,7 @@ static/portal-empleado/portal-borradores-vista.js
 static/portal-empleado/portal-capacidades.css
 static/portal-empleado/portal-catalogo-modulos.js
 static/portal-empleado/portal-componentes.css
+static/portal-empleado/portal-patrones.css
 static/portal-empleado/portal-contratos.css
 static/portal-empleado/portal-contrato.js
 static/portal-empleado/portal-eventos.js

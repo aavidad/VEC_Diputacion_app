@@ -48,7 +48,7 @@ test("con plazo_fase pinta fecha y estado en texto, sin la procedencia de la reg
   const html = renderizarCuadro({
     vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro,
   }, t);
-  assert.match(html, /<span class="ct-exp-chip ct-plazo-vencido">29 sept 2026 · Vencido<\/span>/u);
+  assert.match(html, /<span class="ct-exp-chip ct-plazo-vencido">Vencido<\/span>\s*<small>29 sept 2026<\/small>/u);
   assert.doesNotMatch(html, /c03\.plazo_fiscalizacion|regla/u);
 });
 
@@ -61,7 +61,8 @@ test("un plazo no calculado se dice, sin fecha supuesta", async () => {
   const html = renderizarCuadro({
     vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro,
   }, t);
-  assert.match(html, /<span class="ct-exp-chip ct-plazo-no_calculado">Sin calcular<\/span>/u);
+  assert.match(html, /<span class="texto-secundario">Sin calcular<\/span>/u);
+  assert.doesNotMatch(html, /ct-plazo-no_calculado/u);
 });
 
 test("cada estado del plazo tiene su texto", () => {

@@ -89,17 +89,17 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
 test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
   const estado = estadoReal();
   const html = renderizarModuloContratacionTemporal(estado);
-  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-informe-definitivo"[^]*<\/section>/u);
+  assert.match(html, /class="panel ct-exp-ficha-datos"[^]*data-ct-exp-accion="descargar-informe-definitivo"/u);
   assert.match(html, /Descargar informe · documento preparatorio/u);
-  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-resolucion"[^]*<\/section>/u);
+  assert.match(html, /class="panel ct-exp-ficha-datos"[^]*data-ct-exp-accion="descargar-resolucion"/u);
   assert.match(html, /Descargar resolución · documento preparatorio/u);
-  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-diligencia"[^]*<\/section>/u);
+  assert.match(html, /class="panel ct-exp-ficha-datos"[^]*data-ct-exp-accion="descargar-diligencia"/u);
   assert.match(html, /Descargar diligencia · documento preparatorio/u);
-  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-toma-posesion"[^]*<\/section>/u);
+  assert.match(html, /class="panel ct-exp-ficha-datos"[^]*data-ct-exp-accion="descargar-toma-posesion"/u);
   assert.match(html, /Descargar toma de posesión · documento preparatorio/u);
-  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-notificacion"[^]*<\/section>/u);
+  assert.match(html, /class="panel ct-exp-ficha-datos"[^]*data-ct-exp-accion="descargar-notificacion"/u);
   assert.match(html, /Descargar notificación · documento preparatorio/u);
-  assert.match(html, /<section class="ct-exp-cabecera-expediente">[^]*data-ct-exp-accion="descargar-comunicacion-centro"[^]*<\/section>/u);
+  assert.match(html, /class="panel ct-exp-ficha-datos"[^]*data-ct-exp-accion="descargar-comunicacion-centro"/u);
   assert.match(html, /Descargar comunicación al centro · documento preparatorio/u);
   assert.deepEqual(solicitudInformeDefinitivoDesdeEstado(estado), {
     expediente_ref: estado.expediente_ref, version_observada: 7,

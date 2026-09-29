@@ -7,7 +7,7 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
 import { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } from "../comun/idioma.js";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
@@ -192,7 +192,7 @@ export function renderizarNavegacionModulos({
       const comprobando = acceso?.estado === "cargando";
       return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"
         data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : ' disabled aria-disabled="true"'}${comprobando ? ' aria-busy="true"' : ""}>
-        <span class="indicador-menu" aria-hidden="true">${escaparHTML(modulo.sigla.slice(0, 1))}</span>
+        <span class="indicador-menu" aria-hidden="true">${escaparHTML((modulo.titulo.trim().charAt(0) || modulo.sigla.charAt(0)).toLocaleUpperCase())}</span>
         <span>${escaparHTML(modulo.titulo)}</span>
         <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}</span>
       </button>`;

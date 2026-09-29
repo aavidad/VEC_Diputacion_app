@@ -1,0 +1,73 @@
+/*
+ * Ficha y lista de peticiones con los patrones comunes (portal-patrones.css).
+ * Solo ajustes de colocación propios del módulo; sin colores propios.
+ */
+
+/* El sistema calla cuando todo va bien: los avisos informativos quedan para
+   el lector de pantalla; errores y resultados siguen a la vista. */
+.ct-exp-mensaje.ct-tono-informacion,
+.ct-exp-mensaje.ct-tono-info {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.ct-exp-ficha-cabecera > div { min-width: 0; }
+.ct-exp-ficha-cabecera h3 { margin: 0; overflow-wrap: anywhere; color: var(--portal-tinta); font-size: 1.125rem; font-weight: 600; }
+.ct-exp-ficha-cabecera .estado-linea { color: var(--portal-muted); font-size: 0.875rem; }
+.ct-exp-ficha-cabecera .estado-linea > span:first-child { color: var(--portal-tinta); font-weight: 600; }
+.ct-exp-fases { margin: 0 0 20px; }
+.ct-exp-fases .cabecera-panel p { margin: 0; }
+.ct-exp-ficha-rejilla { margin: 0 0 20px; }
+.ct-exp-ficha-rejilla .pila { display: grid; gap: 20px; min-width: 0; align-content: start; }
+.ct-exp-ficha-rejilla .ct-exp-cambios { margin: 0; }
+.ct-exp-ficha-documentos .cuerpo-panel { display: grid; gap: 12px; justify-items: start; }
+.ct-exp-ficha-documentos .cuerpo-panel p { margin: 0; color: var(--portal-muted); }
+.ct-exp-ficha-historial .historial-frases { max-height: 420px; overflow-y: auto; }
+.ct-exp-ficha-datos .datos-clave dd .enlace-tabla { padding: 0; text-align: left; }
+.ct-exp-tramite:focus { outline: none; }
+.ct-exp-fase-panel { margin: 0 0 20px; }
+
+/* Lista de peticiones. */
+.ct-exp-listado { overflow: hidden; }
+.ct-exp-tabla-lista { overflow-x: auto; }
+.ct-exp-tabla-peticiones { width: 100%; }
+.ct-exp-tabla-peticiones th[scope="row"] .enlace-tabla { font-weight: 600; }
+.ct-exp-tabla-peticiones td .ct-exp-chip + small { margin-top: 4px; }
+.ct-exp-lista-titulo { margin: 0; color: var(--portal-tinta); font-size: 1.125rem; font-weight: 600; }
+.ct-exp-lista-parcial {
+  margin: 0 0 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-tinta);
+  font-size: 0.875rem;
+}
+/* Cinco columnas caben sin el ancho mínimo de la bandeja anterior; en móvil, fichas. */
+.ct-exp-listado .tabla-datos.ct-exp-tabla-peticiones { min-width: 760px; }
+@media (max-width: 760px) {
+  .ct-exp-listado .tabla-datos.ct-exp-tabla-peticiones { min-width: 0; }
+}
+
+/* Respuesta del candidato: dos opciones grandes con lo que pasa después. */
+.ct-llamamiento .ct-respuesta-opciones.opciones-grandes { gap: 16px; }
+.ct-llamamiento .ct-respuesta-opciones.opciones-grandes > label.opcion-grande {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-width: 2px;
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  font-weight: 400;
+}
+.ct-llamamiento .ct-respuesta-opciones.opciones-grandes > label.opcion-grande:has(input:checked) {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
+}
+.ct-llamamiento .opcion-grande input[type="radio"] { width: 20px; height: 20px; margin-top: 2px; }
+.ct-llamamiento .opcion-grande strong { display: block; color: var(--portal-tinta); font-size: 1rem; }
+.ct-llamamiento .opcion-grande span span { color: var(--portal-muted); font-size: 0.875rem; }

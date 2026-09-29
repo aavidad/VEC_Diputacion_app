@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260929-diseno-v1";
 /**
  * Marcas de una participación en el cuadro, la ficha y la selección de un
  * llamamiento (Bolsa 000041): ya presta servicios (b16), en revisión (duda 18)

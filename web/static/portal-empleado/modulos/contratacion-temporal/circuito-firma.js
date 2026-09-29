@@ -264,7 +264,9 @@ export function crearGestorCircuitoFirma({
 
   function insertar(resultado) {
     if (!esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
-    const ancla = raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
+    // En la ficha, la firma va con los documentos; sin esa marca, tras el siguiente paso.
+    const ancla = raiz.querySelector?.("[data-ct-exp-ancla-firma]")
+      ?? raiz.querySelector?.(".ct-exp-siguiente-paso") ?? raiz.querySelector?.(".ct-exp-progreso");
     if (typeof ancla?.insertAdjacentHTML !== "function") return;
     ancla.insertAdjacentHTML("afterend", renderizarCircuitoFirma(resultado.circuito, t, resultado.estado));
     raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);

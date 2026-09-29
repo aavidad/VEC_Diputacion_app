@@ -20,7 +20,7 @@ import {
 
 const t = crearTraductorExpedientesContratacion();
 
-test("orden de lectura en el detalle del expediente: cabecera, borradores, raíl, tramitación e historial", () => {
+test("orden de lectura en la ficha: cabecera, siguiente paso, fases, documentos, historial, datos y trámite", () => {
   const expediente = {
     ...crearExpedienteContratacionTemporalPresentacion(),
     version: 7,
@@ -57,22 +57,26 @@ test("orden de lectura en el detalle del expediente: cabecera, borradores, raíl
 
   const html = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid", false);
 
-  const posCabecera = html.indexOf('class="ct-exp-cabecera-expediente"');
-  const posBorradores = html.indexOf('class="ct-exp-borradores"');
-  const posProgreso = html.indexOf('class="ct-exp-progreso"');
-  const posTramitacion = html.indexOf('class="ct-exp-tramitacion"');
-  const posHistorial = html.indexOf('class="ct-exp-detalle-tecnico ct-exp-historial"');
-
-  assert.ok(posCabecera !== -1, "falta cabecera");
-  assert.ok(posBorradores !== -1, "faltan borradores");
-  assert.ok(posProgreso !== -1, "falta progreso de fases");
-  assert.ok(posTramitacion !== -1, "falta tramitación");
-  assert.ok(posHistorial !== -1, "falta historial");
-
-  assert.ok(posCabecera < posBorradores, "la cabecera debe preceder a los borradores");
-  assert.ok(posBorradores < posProgreso, "los borradores deben preceder al raíl de fases");
-  assert.ok(posProgreso < posTramitacion, "el raíl debe preceder a la tramitación");
-  assert.ok(posTramitacion < posHistorial, "la tramitación debe preceder al historial");
+  const posiciones = [
+    ['class="cabeza-pagina ct-exp-ficha-cabecera"', "cabecera"],
+    ['class="siguiente-paso ct-exp-siguiente-paso', "siguiente paso"],
+    ['class="panel ct-exp-fases"', "fases"],
+    ['class="panel ct-exp-ficha-documentos"', "documentos"],
+    ['class="panel ct-exp-ficha-historial"', "historial"],
+    ['class="panel ct-exp-ficha-datos"', "datos de la petición"],
+    ['class="ct-exp-borradores"', "borradores"],
+    ['class="ct-exp-tramitacion"', "tramitación"],
+    ['data-ct-exp-tramite', "marca de trámite"],
+  ].map(([marca, nombre]) => {
+    const posicion = html.indexOf(marca);
+    assert.ok(posicion !== -1, `falta ${nombre}`);
+    return [posicion, nombre];
+  });
+  for (let i = 1; i < posiciones.length; i += 1) {
+    assert.ok(posiciones[i - 1][0] < posiciones[i][0], `${posiciones[i - 1][1]} debe preceder a ${posiciones[i][1]}`);
+  }
+  // Lo técnico queda plegado: la tabla de actuaciones va dentro del detalle técnico.
+  assert.match(html, /<details class="detalle-tecnico-plegado ct-exp-historial">[\s\S]*?data-ct-exp-hito-fase/u);
 });
 
 test("estilos responsivos a 390px garantizan lectura de arriba abajo sin solapamientos ni cortes", async () => {
@@ -278,9 +282,10 @@ test("un expediente con incidencia explica su origen y ofrece atajos", () => {
   }, t, "es-ES", "Europe/Madrid");
   assert.doesNotMatch(htmlSinConsultas, /data-ct-exp-vista="documentos"/u);
   assert.doesNotMatch(htmlSinConsultas, /data-ct-exp-vista="auditoria"/u);
-  assert.match(html, /<li class="ct-fase-completado"/u);
-  assert.match(html, /<li class="ct-fase-incidencia"/u);
-  assert.match(html, /<li class="ct-fase-pendiente"/u);
+  // Línea de fases: palabra y símbolo, no solo color.
+  assert.match(html, /<li class="hecho" data-ct-exp-orden="1">[\s\S]*?✓[\s\S]*?<small>Hecho<\/small>/u);
+  assert.match(html, /<li class="con-incidencia" data-ct-exp-orden="4" aria-current="step">[\s\S]*?<small>Incidencia<\/small>/u);
+  assert.match(html, /<li class="falta" data-ct-exp-orden="5">[\s\S]*?<small>Falta<\/small>/u);
 });
 
 test("«Nueva petición» no muestra el error de carga del cuadro; la pestaña del cuadro sí", () => {

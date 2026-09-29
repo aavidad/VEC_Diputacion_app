@@ -73,9 +73,8 @@ test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
     expediente_ref: "",
     tarea_ref: "",
   });
-  assert.match(html, /Mis tareas prioritarias/);
-  assert.match(html, /Distribución por fase/);
-  assert.match(html, /Registrar nueva petición/);
+  assert.match(html, /peticiones? en trámite|No hay peticiones en trámite/u);
+  assert.match(html, /Nueva petición de personal/u);
 });
 
 test("la presentación delimita plazos, llamamientos y preparación previa sin inventar efectos", () => {

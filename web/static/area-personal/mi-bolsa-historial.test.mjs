@@ -32,7 +32,7 @@ test("solo pide número de página; denegación y respuesta incompatible no pres
   };
   assert.equal((await cargarHistorialMiBolsa({ fetchImpl })).historial.items.length, 1);
   assert.equal(peticiones[0].url, "/api/vec/bolsa/mi-bolsa/historial?pagina=1");
-  assert.equal(peticiones[0].opciones.credentials, "omit");
+  assert.equal(peticiones[0].opciones.credentials, "same-origin");
   assert.equal(peticiones[0].opciones.cache, "no-store");
   assert.equal(peticiones[0].opciones.method, "GET");
   await assert.rejects(cargarHistorialMiBolsa({ pagina: 10001, fetchImpl }), /Página no válida/u);

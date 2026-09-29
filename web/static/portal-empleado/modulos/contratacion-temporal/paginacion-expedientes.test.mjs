@@ -143,22 +143,18 @@ test("proyecta controles de página sin exponer el cursor", async () => {
   assert.doesNotMatch(html, new RegExp(CURSOR_C, "u"));
 });
 
-test("la bandeja real usa solo la página autorizada y no se presenta como tarea propia", () => {
+test("la lista real usa solo la página autorizada y avisa de que el recuento es parcial", () => {
   const html = renderizarCuadro({
     carga: "listo",
     filtros: { texto: "", estado: "", fase: "" },
     cuadro: cuadro({ pagina: 2, cursor: CURSOR_B, siguiente: CURSOR_C, sufijo: "2" }),
   }, crearTraductorExpedientesContratacion());
-  assert.match(html, /Trabajo pendiente/u);
-  assert.match(html, /Expedientes por tramitar/u);
-  assert.match(html, /Distribución por fase/u);
-  assert.match(html, /Abrir siguiente/u);
-  assert.doesNotMatch(html, /en esta página|proyección autorizada|Espacio de trabajo/u);
+  assert.match(html, /Recuento parcial: hay más peticiones en la página siguiente/u);
+  assert.doesNotMatch(html, /en esta página|proyección autorizada|Espacio de trabajo|Mis tareas prioritarias/u);
   assert.match(html, /data-ct-exp-abrir="expediente:ct:pag-2"/u);
-  assert.doesNotMatch(html, /Mis tareas prioritarias/u);
 });
 
-test("una página completada no ofrece abrir un expediente no completado", () => {
+test("una página completada dice que no hay peticiones en trámite y las esconde por omisión", () => {
   const pagina = cuadro({ pagina: 1, cursor: "", sufijo: "1" });
   const html = renderizarCuadro({
     carga: "listo", filtros: { texto: "", estado: "", fase: "" },
@@ -166,8 +162,9 @@ test("una página completada no ofrece abrir un expediente no completado", () =>
       ...e, estado_clave: "completado", estado: "Completado",
     })) },
   }, crearTraductorExpedientesContratacion());
-  assert.match(html, /No hay expedientes por tramitar/u);
-  assert.doesNotMatch(html, /Abrir siguiente/u);
+  assert.match(html, /No hay peticiones en trámite/u);
+  assert.match(html, /Ninguna petición cumple estos filtros/u);
+  assert.doesNotMatch(html, /data-ct-exp-abrir=/u);
 });
 
 test("un cursor fallido conserva la página anterior y reinicia con cursor vacío", async () => {

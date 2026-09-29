@@ -5,7 +5,7 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
 import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 
 const NOMBRES_FILTRO = Object.freeze({
@@ -382,6 +382,13 @@ export function crearControladorPortal(dependencias) {
             texto: "",
             estado: botonVista.dataset.ctExpFiltroEstado ?? "",
             fase: botonVista.dataset.ctExpFiltroFase ?? "",
+          };
+        }
+        // Filtros de pantalla de la lista de peticiones (fase de RRHH o «Mostrar»).
+        if (botonVista.dataset.ctExpListaFase || botonVista.dataset.ctExpListaMostrar) {
+          opciones.filtroLista = {
+            fase: botonVista.dataset.ctExpListaFase ?? "",
+            mostrar: botonVista.dataset.ctExpListaMostrar ?? "todas",
           };
         }
         navegar(botonVista.dataset.vista, opciones);

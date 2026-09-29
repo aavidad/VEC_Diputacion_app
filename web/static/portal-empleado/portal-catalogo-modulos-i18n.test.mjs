@@ -41,15 +41,16 @@ test("?lang=en renderiza la portada y sus estados con las claves inglesas", () =
     resolverAcceso: (clave) => clave === "bolsa"
       ? { disponible: false, estado: "denegado" } : { disponible: true, vista: "contratacion-temporal" },
     esPerfilRRHH: () => true,
-    obtenerMetricasCuadro: () => ({ en_tramitacion: 0, con_incidencia: 0, en_llamamiento: 0 }),
-    obtenerTramitesInicio: () => [],
+    obtenerCuadroInicio: () => ({ expedientes: [], parcial: false, generadoEn: "2026-09-29T07:00:00Z" }),
+    ahora: () => new Date("2026-09-29T08:00:00Z"),
+    locale: "en-GB",
   })();
-  assert.match(html, /<h1>Temporary staff requests<\/h1>/u);
-  assert.match(html, /data-accion="ayuda" aria-label="Help">\?<\/button>/u);
-  assert.match(html, /No recent cases\. Open the dashboard/u);
+  assert.match(html, /No cases need attention/u);
+  assert.match(html, /No deadline is due today and there are no open issues\./u);
   assert.match(html, /No permission for this profile|Your session does not have permission/u);
-  assert.match(html, /SAE offers cannot be viewed yet/u);
-  assert.doesNotMatch(html, /No hay expedientes recientes|Peticiones de personal temporal|Las ofertas al SAE/u);
+  assert.match(html, /SAE job offers[\s\S]*?To be agreed with HR|To be agreed with HR[\s\S]*?SAE job offers/u);
+  assert.match(html, /New staff request/u);
+  assert.doesNotMatch(html, /expedientes pendientes|Peticiones por fase|Ofertas al SAE|Nueva petición/u);
 });
 
 test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catálogo castellano", async () => {
