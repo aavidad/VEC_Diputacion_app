@@ -338,6 +338,9 @@ func geometriaProvisionPerfilesCT(cfg config.Config, ahora time.Time) ([2]perfil
 		borrarBytes(material.firmaAtestacionKMS)
 		borrarBytes(material.firmaRevalidacionKMS)
 	}()
+	if material.identidad == nil {
+		return vacios, nil, errProvisionPerfilesCTNoDisponible
+	}
 	principal, ok := material.identidad.principalConRolUnico(rolTecnicoRRHHContratacionTemporalDesarrollo)
 	if !ok || !principalContratacionTemporalDesarrolloValido(principal) {
 		return vacios, nil, errProvisionPerfilesCTNoDisponible
