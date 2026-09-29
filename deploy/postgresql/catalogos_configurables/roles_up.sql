@@ -9,15 +9,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = current_user AND rolsuper)
        OR pg_catalog.to_regnamespace('vec_catalogos_configurables') IS NOT NULL
        OR pg_catalog.to_regrole('vec_catalogos_configurables_propietario') IS NOT NULL
-       OR pg_catalog.to_regrole('vec_catalogos_configurables_migrador') IS NOT NULL
-       OR EXISTS (SELECT 1 FROM pg_catalog.pg_database AS d,
-                  LATERAL pg_catalog.aclexplode(COALESCE(d.datacl,
-                    pg_catalog.acldefault('d', d.datdba))) AS a
-                   WHERE d.datname = pg_catalog.current_database() AND a.grantee = 0)
-       OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace AS n,
-                  LATERAL pg_catalog.aclexplode(COALESCE(n.nspacl,
-                    pg_catalog.acldefault('n', n.nspowner))) AS a
-                   WHERE n.nspname = 'public' AND a.grantee = 0 AND a.privilege_type = 'CREATE') THEN
+       OR pg_catalog.to_regrole('vec_catalogos_configurables_migrador') IS NOT NULL THEN
         RAISE EXCEPTION 'provision de catalogos configurables rechazada' USING ERRCODE = '55000';
     END IF;
 END $pre$;
