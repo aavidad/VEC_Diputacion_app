@@ -96,9 +96,10 @@ BEGIN
 
  -- Material inválido: huella, forma, cambio incoherente, versión.
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||jsonb_build_object('ajustes_huella_sha256',repeat('0',64)),'22023','huella');
- -- La huella de ajustes sigue siendo coherente: falta únicamente cambios.
- PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)-'cambios','22023','cambios ausentes');
- PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,cambio1)||'{"cambios":null}','22023','cambios nulos');
+ -- Con ajustes {} y huella coherente, la guarda de coherencia no detecta la
+ -- ausencia: sin esta validación se escribiría una v1 sin fila de cambio.
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,'{}',cambio1)-'cambios','22023','cambios ausentes');
+ PERFORM pg_temp.falla(pg_temp.material(k1,0,'{}',cambio1)||'{"cambios":null}','22023','cambios nulos');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,'{"c03":{"fases":"x"}}','[{"regla_clave":"c03","campo":"fases","anterior":"a","nuevo":"x"}]'),'22023','campo estructural');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,c1,'[{"regla_clave":"c03.plazo_fiscalizacion","campo":"cantidad","anterior":"10","nuevo":"8"}]'),'22023','cambio incoherente');
  PERFORM pg_temp.falla(pg_temp.material(k1,0,'{"c03.plazo_fiscalizacion":{"cantidad":"7"},"c04.plazo_subsanacion":{"cantidad":"5"}}',cambio1),'22023','ajuste sin cambio');
