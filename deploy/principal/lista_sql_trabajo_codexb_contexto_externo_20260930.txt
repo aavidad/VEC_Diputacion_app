@@ -1,0 +1,4 @@
+# ContextoActor externo, después de ContextoActor 000011 de #145.
+# Antes de AUT-15 y de habilitar el portal candidato externo.
+deploy/postgresql/contexto_actor_v1/roles_candidato_externo_up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000012_contexto_candidato_externo.up.sql
