@@ -32,8 +32,8 @@ almacén de confianza del sistema. Nunca copie certificados, claves, DSN o
 datos personales al repositorio.
 
 El preflight calcula SHA256 del contenido de los tres certificados y exige
-tres huellas distintas. Antes de escribir, consulta la identidad propia de
-RRHH en `/api/vec/usuarios/mis-preferencias` y la del ratificador en el
+tres huellas distintas. Antes de registrar la petición, consulta la identidad
+propia de RRHH en `/api/vec/usuarios/mis-preferencias` y la del ratificador en el
 contexto del centro. Las compara con la identidad del solicitante. Si alguna
 lectura falta o una identidad se repite, el recorrido se detiene sin crear la
 petición.
@@ -71,8 +71,9 @@ python3 scripts/recorridos/centro_rrhh/recorrer.py \
 ```
 
 Salida `NO EJECUTADO` y código 2 significan que falta una condición previa:
-no se escribe en la base. Chrome solo puede abrirse para consultar la identidad
-propia de RRHH. Salida `FALLÓ` y código 1 indican
+no se registra la petición ni el alta CT; las consultas previas pueden dejar
+auditoría. Chrome solo puede abrirse para consultar la identidad propia de
+RRHH. Salida `FALLÓ` y código 1 indican
 que el recorrido empezó y que su estado requiere inspección del clon antes de
 repetir una escritura incierta. Salida `EJECUTADO` y código 0 exige respuestas
 reales, la ratificación v2 por otra identidad, una sola fila visible de entrega tras

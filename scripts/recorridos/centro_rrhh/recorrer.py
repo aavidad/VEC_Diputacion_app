@@ -29,7 +29,7 @@ RUTA_PREFERENCIAS = "/api/vec/usuarios/mis-preferencias"
 
 
 class NoEjecutado(Exception):
-    """Falta una condición previa; no hubo escrituras en el clon."""
+    """Falta una condición previa; no hubo efecto de negocio CT."""
 
 
 def origen_local(valor: str) -> str:
