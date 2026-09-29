@@ -17,29 +17,27 @@ Los plazos de fase los calcula el servidor desde el día en que el expediente
 entra en la fase: lo sembrado hoy queda «en plazo» (cinco o diez días hábiles).
 No hay forma legítima de fechar hacia atrás una operación.
 
-Modos:  --plan (sin escribir), --ejecutar --confirmar-entorno-sintetico (escribe),
---resumen (solo lee el cuadro).
-Se ejecuta dentro del contenedor de la aplicación:
-  podman exec -i APP python3 - --ejecutar --confirmar-entorno-sintetico \
-    --casos-b64 "$(base64 -w0 casos.json)" < sembrar_ejemplo_ct.py
+Sin --ejecutar muestra un plan. Con --ejecutar pide teclear el destino en una TTY.
+El kit lo ejecuta dentro del contenedor verificado de clon o principal, con
+--destino, --puerto-interno, --huella-servidor-sha256 y --casos. El kit verifica
+también el marcador CLON-OK del mismo paquete antes de la principal.
 Termina con SEMBRADO-OK (0), SEMBRADO-PARCIAL (1) o SEMBRADO-FALLO (2).
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import collections
 import datetime as dt
 import hashlib
+import hmac
 import http.client
-import ipaddress
 import json
 import os
+import re
 import ssl
 import sys
 import time
-import urllib.parse
 import uuid
 
 API = "/api/vec/contratacion-temporal"
@@ -68,6 +66,8 @@ PLAN = {
 }
 LLAMAMIENTO = {"llamamiento": 2, "respuesta": 3}  # selección, comunicación, respuesta
 UNIDAD, RESPONSABLE = "unidad:desarrollo:rrhh", "persona:responsable-sintetica-001"
+HOST_INTERNO = "localhost"
+MATERIAL = "/vec-material"
 
 
 class ErrorAPI(Exception):
@@ -77,53 +77,49 @@ class ErrorAPI(Exception):
         self.estado, self.codigo = estado, codigo
 
 
-def validar_base(base: str, ejecutar: bool) -> None:
-    """Acepta una raíz HTTPS; la escritura exige una dirección de loopback."""
-    try:
-        u = urllib.parse.urlsplit(base)
-        puerto = u.port
-    except ValueError as e:
-        raise ValueError("--base no es una URL válida") from e
-    if (u.scheme != "https" or not u.hostname or not u.netloc or
-            u.username is not None or u.password is not None or
-            u.path not in ("", "/") or u.query or u.fragment or puerto == 0):
-        raise ValueError("--base debe ser una raíz HTTPS sin credenciales, ruta ni parámetros")
-    if ejecutar:
-        try:
-            local = ipaddress.ip_address(u.hostname).is_loopback
-        except ValueError:
-            local = u.hostname == "localhost"
-        if not local:
-            raise ValueError("--ejecutar solo admite una dirección local de loopback")
+class ErrorDestino(Exception):
+    """Fallo de identidad TLS: no se puede continuar con otro caso."""
 
 
-def exigir_catalogo_de_ejemplo(catalogos: dict) -> None:
-    preparacion = catalogos.get("preparacion_vias")
-    if not isinstance(preparacion, dict) or preparacion.get("es_ejemplo") is not True:
-        raise RuntimeError("el catálogo de vías no acredita datos de ejemplo; se cancela la escritura")
+def validar_huella(huella: str) -> str:
+    if re.fullmatch(r"[0-9a-fA-F]{64}", huella) is None:
+        raise ValueError("la huella SHA256 del servidor debe tener 64 dígitos hexadecimales")
+    return huella.lower()
 
 
 class Cliente:
     """Una conexión mTLS por petición; JSON compacto (algunas rutas exigen su forma canónica)."""
 
-    def __init__(self, base: str, material: str, nombre: str):
+    def __init__(self, puerto: int, nombre: str, huella_servidor: str):
+        material = MATERIAL
         crt, key, ca = (f"{material}/mtls/{nombre}.crt", f"{material}/mtls/{nombre}.key", f"{material}/ca/ca.crt")
         if not (os.path.isfile(crt) and os.path.isfile(key)):
-            raise SystemExit(f"SEMBRADO-FALLO: falta el certificado {nombre} en {material}/mtls")
+            raise ErrorDestino(f"falta el certificado {nombre} en {material}/mtls")
         if not os.path.isfile(ca):
-            raise SystemExit(f"SEMBRADO-FALLO: falta la CA en {material}/ca")
-        ctx = ssl.create_default_context(cafile=ca)
-        ctx.load_cert_chain(crt, key)
-        u = urllib.parse.urlsplit(base)
-        self.host, self.puerto, self.ctx = u.hostname, u.port or 443, ctx
+            raise ErrorDestino(f"falta la CA en {material}/ca")
+        try:
+            ctx = ssl.create_default_context(cafile=ca)
+            ctx.load_cert_chain(crt, key)
+        except (OSError, ssl.SSLError) as e:
+            raise ErrorDestino("no se pudo cargar el material mTLS verificado") from e
+        self.puerto, self.ctx = puerto, ctx
+        self.huella_servidor = validar_huella(huella_servidor)
 
     def pedir(self, metodo: str, ruta: str, cuerpo: dict | None = None) -> tuple[int, object]:
         datos = None if cuerpo is None else json.dumps(cuerpo, ensure_ascii=False, separators=(",", ":")).encode()
         cab = {"Accept": "application/json"}
         if datos is not None:
             cab["Content-Type"] = "application/json"
-        con = http.client.HTTPSConnection(self.host, self.puerto, context=self.ctx, timeout=60)
+        con = http.client.HTTPSConnection(HOST_INTERNO, self.puerto, context=self.ctx, timeout=60)
         try:
+            try:
+                con.connect()
+            except (OSError, ssl.SSLError) as e:
+                raise ErrorDestino("no se pudo establecer el canal TLS verificado") from e
+            certificado = con.sock.getpeercert(binary_form=True)
+            if not certificado or not hmac.compare_digest(hashlib.sha256(certificado).hexdigest(),
+                                                           self.huella_servidor):
+                raise ErrorDestino("la huella TLS del servidor no coincide con el destino autorizado")
             con.request(metodo, ruta, body=datos, headers=cab)
             r = con.getresponse()
             crudo = r.read()
@@ -346,54 +342,58 @@ def resumen(rrhh: Cliente, propios: set[str]) -> None:
         print(f"  {fase:<28} {t:<20} {n}")
 
 
+def confirmar_destino(destino: str) -> bool:
+    if not sys.stdin.isatty():
+        raise ErrorDestino("--ejecutar exige una terminal interactiva")
+    try:
+        return input(f"Para escribir en {destino}, teclee {destino}: ") == destino
+    except EOFError:
+        return False
+
+
 def main() -> int:
     a = argparse.ArgumentParser(description="Siembra expedientes de ejemplo por la API de VEC.")
-    a.add_argument("--base", default="https://localhost:18443")
-    a.add_argument("--material", default="/vec-material")
-    a.add_argument("--rrhh", default="cliente")
-    a.add_argument("--intervencion", default="intervencion")
-    a.add_argument("--casos", help="fichero JSON de casos")
-    a.add_argument("--casos-b64", help="el mismo JSON en base64 (para ejecutar dentro del contenedor)")
-    a.add_argument("--confirmar-entorno-sintetico", action="store_true",
-                   help="confirma que el destino y sus datos son de desarrollo sintético")
-    modo = a.add_mutually_exclusive_group(required=True)
-    modo.add_argument("--plan", action="store_true", help="muestra qué haría, sin escribir")
-    modo.add_argument("--ejecutar", action="store_true", help="crea o completa los expedientes")
-    modo.add_argument("--resumen", action="store_true", help="solo lee el cuadro de RRHH")
+    a.add_argument("--destino", choices=("clon", "principal"), required=True)
+    a.add_argument("--puerto-interno", type=int, required=True)
+    a.add_argument("--huella-servidor-sha256", required=True)
+    a.add_argument("--casos", required=True, help="fichero JSON de casos dentro del contenedor")
+    a.add_argument("--ejecutar", action="store_true", help="crea o completa expedientes tras confirmar el destino")
     o = a.parse_args()
     try:
-        validar_base(o.base, o.ejecutar)
+        if not 1 <= o.puerto_interno <= 65535:
+            raise ValueError("el puerto interno debe estar entre 1 y 65535")
+        huella = validar_huella(o.huella_servidor_sha256)
     except ValueError as e:
         a.error(str(e))
-    if o.ejecutar and not o.confirmar_entorno_sintetico:
-        a.error("--ejecutar exige --confirmar-entorno-sintetico")
-    if o.confirmar_entorno_sintetico and not o.ejecutar:
-        a.error("--confirmar-entorno-sintetico solo se usa con --ejecutar")
-    if not o.resumen and bool(o.casos) == bool(o.casos_b64):
-        a.error("indique --casos o --casos-b64")
-    rrhh = Cliente(o.base, o.material, o.rrhh)
-    if o.resumen:
-        resumen(rrhh, set())
-        return 0
-    datos = json.loads(base64.b64decode(o.casos_b64) if o.casos_b64 else open(o.casos, encoding="utf-8").read())
-    if datos.get("esquema") != "vec.ct.sembrado-ejemplo.v1":
+    if o.ejecutar and not sys.stdin.isatty():
+        a.error("--ejecutar exige una terminal interactiva")
+    try:
+        with open(o.casos, encoding="utf-8") as fichero:
+            datos = json.load(fichero)
+    except (OSError, UnicodeError, ValueError) as e:
+        raise ErrorDestino("no se pudo leer el fichero de casos") from e
+    if not isinstance(datos, dict) or datos.get("esquema") != "vec.ct.sembrado-ejemplo.v1":
         a.error("fichero de casos con otro esquema")
     casos = datos["casos"]
-    s = Sembrador(rrhh, Cliente(o.base, o.material, o.intervencion), datos["espacio_claves"])
+    rrhh = Cliente(o.puerto_interno, "cliente", huella)
+    s = Sembrador(rrhh, Cliente(o.puerto_interno, "intervencion", huella), datos["espacio_claves"])
     try:
-        if o.ejecutar:
-            exigir_catalogo_de_ejemplo(s.catalogos)
         for c in casos:
             PLAN[c["objetivo"]]
         planes = [s.plan(c) for c in casos]
     except (RuntimeError, KeyError, TypeError, ValueError) as e:
         print(f"SEMBRADO-FALLO: no se ha escrito nada: {e}")
         return 2
-    if o.plan:
-        for c, p in zip(casos, planes):
-            print(f"{c['codigo']}  {c['objetivo']:<13} {p['centro'].get('etiqueta', '')[:34]:<34} {p['categoria']:<40} "
-                  f"{' → '.join(PLAN[c['objetivo']]) or 'alta'}")
+    print(f"Destino: {o.destino}. Casos: {len(casos)}")
+    for c, p in zip(casos, planes):
+        print(f"{c['codigo']}  {c['objetivo']:<13} {p['centro'].get('etiqueta', '')[:34]:<34} {p['categoria']:<40} "
+              f"{' → '.join(PLAN[c['objetivo']]) or 'alta'}")
+    if not o.ejecutar:
+        print("SEMBRADO-PLAN: no se ha escrito nada")
         return 0
+    if not confirmar_destino(o.destino):
+        print("SEMBRADO-FALLO: el destino no se confirmó; no se ha escrito nada")
+        return 2
     fallos, propios = 0, set()
     for c in casos:
         try:
@@ -413,4 +413,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except ErrorDestino as e:
+        print(f"SEMBRADO-FALLO: {e}", file=sys.stderr)
+        sys.exit(2)
