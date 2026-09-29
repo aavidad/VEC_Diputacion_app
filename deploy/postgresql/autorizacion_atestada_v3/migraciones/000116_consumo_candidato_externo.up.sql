@@ -2,7 +2,7 @@
 -- AD3-116. La decisión externa vive en AUT-15; AD3 conserva su atestación,
 -- consumo y cadena de auditoría en tablas propias. El núcleo despacha por
 -- LOGIN real y por los dos perfiles de Bolsa del candidato, nunca por datos
--- proporcionados por el cliente. Requiere Contexto-12, AUT-15, B-59 y AD3-115.
+-- proporcionados por el cliente. Requiere Contexto-12, AUT-15, B-60 y AD3-115.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
