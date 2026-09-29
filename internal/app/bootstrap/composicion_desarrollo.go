@@ -440,6 +440,9 @@ func nuevoServidorDesarrollo(
 	if usuariosPreferencias != nil {
 		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador, externa: usuariosPreferencias.externa.registrador}
 	}
+	if err = validarCoberturaRutasCTDesarrollo(rutasContratacion, autoridadContratacion.fronterasSeguridadComun); err != nil {
+		return nil, nil, err
+	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
 		registradorFrontera, autoridadDietas, coleccionesBolsasRRHH...,
