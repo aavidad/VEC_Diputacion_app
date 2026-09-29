@@ -15,6 +15,7 @@ import {
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
+import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260929-aspirantes-v1";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 import {
@@ -255,6 +256,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.desmontarOportunidades?.();
   estado.desmontarOportunidades = null;
   estado.destruirContactoPropio?.();
+  estado.destruirFichaAspirante?.(); estado.destruirFichaAspirante = null;
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
   if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
@@ -304,6 +306,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
       controlador: estado.controladorContactoPropio,
     });
     estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+    estado.destruirFichaAspirante = montarFichaAspirante({ contenedor: porId("ficha-aspirante"), fetchImpl: estado.fetchImpl })?.destruir ?? null;
   }
 
   if (enfocar) {

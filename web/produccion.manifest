@@ -13,6 +13,7 @@ static/area-personal/calculo-autobaremo.js
 static/area-personal/cliente-http.js
 static/area-personal/contacto-propio.js
 static/area-personal/contrato.js
+static/area-personal/ficha-aspirante.js
 static/area-personal/flujo-solicitud.js
 static/area-personal/i18n.js
 static/area-personal/i18n-contacto-propio.js
