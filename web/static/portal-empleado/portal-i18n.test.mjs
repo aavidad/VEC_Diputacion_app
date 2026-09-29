@@ -48,13 +48,7 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
-  // Dirección de diseño del 29/09/2026: el catálogo cambió y todo su grafo renueva URL.
-  const vigente = "20260929-diseno-v1";
-  const versionesEspeciales = new Map([
-    ["portal-preferencias-integracion.js", "20260929-usuarios-pref-v1"],
-    ["portal-preferencias.js", "20260929-usuarios-pref-v1"],
-    ["portal-preferencias-i18n.js", "20260929-usuarios-pref-v1"],
-  ]);
+  const vigente = "20260929-pref-508a-v1";
   const archivos = ["index.html"];
   const pendientes = [""];
   while (pendientes.length) {
@@ -89,7 +83,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   assert.ok(ancestros.has("modulos/contratacion-temporal/vista-expedientes.js"));
   for (const { archivo, destino, version } of aristas) {
     if (!ancestros.has(destino)) continue;
-    assert.equal(version, versionesEspeciales.get(destino) ?? vigente,
+    assert.equal(version, vigente,
       `${archivo} → ${destino}: URL immutable renovada`);
     const urls = versiones.get(destino) ?? new Set();
     urls.add(version);
