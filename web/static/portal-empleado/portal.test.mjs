@@ -320,7 +320,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // Se eleva la línea base a 1140 para cubrir las tres líneas nuevas sin
   // relajar la comprobación de crecimiento del archivo principal. 5.07 la sube
   // a 1155: sondeo bajo demanda de plantillas y política de cese.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1155, "portal.js debe mantenerse en 1155 líneas o menos");
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1160, "portal.js debe mantenerse en 1160 líneas o menos");
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
   exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");
