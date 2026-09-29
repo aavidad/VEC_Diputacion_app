@@ -353,9 +353,10 @@ func (s *ServicioInformesJuridicos) nuevaSolicitudAutorizacion(
 				Referencia: material.ExpedienteRef,
 				ModuloID:   ports.ModuloContratacion,
 				Tipo:       ports.TipoRecursoInformeJuridico,
+				// El expediente va en la referencia del recurso, no en los
+				// ámbitos (permiso fijo por organización, fase y estado).
 				Ambitos: map[string]string{
 					"organizacion_ref": material.OrganizacionRef,
-					"expediente_ref":   material.ExpedienteRef,
 					"fase_previa":      string(preparacion.Expediente.FaseActual),
 					"estado_previo":    string(preparacion.Expediente.EstadoActual),
 				},

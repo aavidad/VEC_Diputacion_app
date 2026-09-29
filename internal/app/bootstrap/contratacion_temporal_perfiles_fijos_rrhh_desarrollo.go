@@ -18,7 +18,8 @@ import (
 // Perfiles fijos de RRHH (corte 2; el análisis, corte 3).
 //
 // Las rutas de RRHH cuyo permiso no depende del expediente (alta directa,
-// cobertura, cambios de organización y análisis) ya no comparten el perfil dinámico ni
+// cobertura, cambios de organización, análisis, asignación e informe
+// jurídico) ya no comparten el perfil dinámico ni
 // publican su permiso en cada petición. Cada forma de ámbito tiene un perfil
 // propio de la misma persona (misma cuenta y persona; perfil, vínculo y sesión
 // distintos) que la composición elige por la ruta, nunca el cliente. Su
@@ -32,6 +33,8 @@ const (
 	clavePerfilFijoCoberturaCTDesarrollo    = "cobertura"
 	clavePerfilFijoOrganizacionCTDesarrollo = "organizacion"
 	clavePerfilFijoAnalisisCTDesarrollo     = "analisis"
+	clavePerfilFijoAsignacionCTDesarrollo   = "asignacion"
+	clavePerfilFijoInformeCTDesarrollo      = "informe_juridico"
 	// Acto con el que este circuito publica las asignaciones de los perfiles
 	// fijos. Distinto del del perfil dinámico: una provisión solo reconoce como
 	// propia una asignación puesta por él.
@@ -385,6 +388,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaPerfilFijoParaCon
 		case rutaAnalisisContratacionTemporalDesarrollo(ruta):
 			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
 			valida = ok && solicitudAutorizacionAnalisisContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case rutaAsignacionContratacionTemporalDesarrollo(ruta):
+			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseAsignacionCT)
+			valida = ok && solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(ruta, datos, fase)
+		case rutaInformeJuridicoContratacionTemporalDesarrollo(ruta):
+			fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseInformeJuridicoCT)
+			valida = ok && solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(ruta, datos, fase)
 		case rutaConsultaRRHHContratacionTemporalDesarrollo(ruta):
 			valida = s.lectorConsultasRRHH && s.solicitudAutorizacionConsultaRRHHDesarrolloValida(ruta, datos)
 		}
@@ -495,7 +504,27 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	if err != nil {
 		return err
 	}
-	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis} {
+	// Asignación a unidad e informe jurídico (corte 3): cada uno con su perfil,
+	// también sin expediente en el permiso.
+	asignacion, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAsignacionCTDesarrollo,
+		[]string{httpinterno.RutaAsignaciones},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+				faseDeOperacionCTDesarrollo(s.opcionesCatalogo, operacionFaseAsignacionCT))
+		})
+	if err != nil {
+		return err
+	}
+	informe, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoInformeCTDesarrollo,
+		[]string{httpinterno.RutaPreparacionesInformeJuridico},
+		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+			return nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+				faseDeOperacionCTDesarrollo(s.opcionesCatalogo, operacionFaseInformeJuridicoCT))
+		})
+	if err != nil {
+		return err
+	}
+	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis, asignacion, informe} {
 		if err := s.registrarPerfilFijoCTDesarrollo(p); err != nil {
 			return err
 		}

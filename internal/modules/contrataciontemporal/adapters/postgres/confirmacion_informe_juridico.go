@@ -348,9 +348,8 @@ func validarAutorizacionInformeJuridico(
 		recurso.Referencia != material.ExpedienteRef ||
 		recurso.ModuloID != ports.ModuloContratacion ||
 		recurso.Tipo != ports.TipoRecursoInformeJuridico ||
-		len(recurso.Ambitos) != 4 || len(recurso.Atributos) != 10 ||
+		len(recurso.Ambitos) != 3 || len(recurso.Atributos) != 10 ||
 		recurso.Ambitos["organizacion_ref"] != material.OrganizacionRef ||
-		recurso.Ambitos["expediente_ref"] != material.ExpedienteRef ||
 		recurso.Ambitos["fase_previa"] != string(orden.Preparacion.Expediente.FaseActual) ||
 		recurso.Ambitos["estado_previo"] != string(orden.Preparacion.Expediente.EstadoActual) ||
 		recurso.Atributos["version_expediente"] != strconv.FormatUint(material.VersionExpediente, 10) ||

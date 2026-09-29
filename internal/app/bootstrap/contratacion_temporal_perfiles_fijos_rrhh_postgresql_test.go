@@ -44,7 +44,7 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 			t.Fatalf("la ruta %s no usa el perfil de cobertura", ruta)
 		}
 	}
-	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) != nil || s.perfilFijoParaRuta(httpinterno.RutaAsignaciones) != nil {
+	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) != nil || s.perfilFijoParaRuta(httpinterno.RutaSubsanacionReparos) != nil {
 		t.Fatal("una ruta dinámica quedó en un perfil fijo")
 	}
 	if err := asegurarPerfilesFijosCTDesarrollo(ctx, pool, s, aprobacionProvisionPerfilesRRHHDesarrollo{}, s.perfilesFijosRegistrados()...); err != nil {
@@ -61,7 +61,11 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 		analisis == alta || analisis == cobertura {
 		t.Fatal("el análisis no tiene su propio perfil fijo")
 	}
-	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis} {
+	asignacion, informe := s.perfilFijoParaRuta(httpinterno.RutaAsignaciones), s.perfilFijoParaRuta(httpinterno.RutaPreparacionesInformeJuridico)
+	if asignacion == nil || informe == nil || asignacion == informe {
+		t.Fatal("la asignación y el informe no tienen su perfil fijo")
+	}
+	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis, asignacion, informe} {
 		h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, p.perfilRef())
 		if h.versiones != 1 || h.acto != actoAsignacionPerfilFijoCTDesarrollo {
 			t.Fatalf("perfil %s: inicial no única o con otro acto: %+v", p.clave, h)
@@ -78,6 +82,8 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	// 30 consumos simultáneos de cada perfil: todos concedidos, cero escrituras.
 	antesAlta, antesCobertura := historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()), historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef())
 	antesAnalisis := historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef())
+	antesAsignacion := historiaPerfilPostgreSQLPrueba(t, ctx, admin, asignacion.perfilRef())
+	antesInforme := historiaPerfilPostgreSQLPrueba(t, ctx, admin, informe.perfilRef())
 	var espera sync.WaitGroup
 	var mu sync.Mutex
 	fallos := 0
@@ -91,7 +97,7 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 				fallos++
 				mu.Unlock()
 			}
-		}([]*perfilFijoCTDesarrollo{alta, cobertura, analisis}[i%3])
+		}([]*perfilFijoCTDesarrollo{alta, cobertura, analisis, asignacion, informe}[i%5])
 	}
 	espera.Wait()
 	if fallos != 0 {
@@ -99,7 +105,9 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	}
 	if historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()) != antesAlta ||
 		historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef()) != antesCobertura ||
-		historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef()) != antesAnalisis {
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef()) != antesAnalisis ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, asignacion.perfilRef()) != antesAsignacion ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, informe.perfilRef()) != antesInforme {
 		t.Fatal("los consumos escribieron en los perfiles fijos")
 	}
 	// Las rutas del perfil dinámico no tocan los perfiles fijos.
@@ -143,7 +151,7 @@ func TestPerfilesFijosRRHHRevocadoNoRevivePostgreSQL(t *testing.T) {
 	for _, estrechar := range []bool{false, true} {
 		s, alta, cobertura := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
 		analisis := s.perfilFijoParaRuta(httpinterno.RutaRegistroAnalisisRRHH)
-		for _, cerrado := range []*perfilFijoCTDesarrollo{alta, analisis} {
+		for _, cerrado := range []*perfilFijoCTDesarrollo{alta, analisis, s.perfilFijoParaRuta(httpinterno.RutaPreparacionesInformeJuridico)} {
 			revocarPerfilFijoPrueba(t, ctx, gobierno, cerrado, estrechar)
 			historia := historiaPerfilPostgreSQLPrueba(t, ctx, admin, cerrado.perfilRef())
 			huella := huellaVigentePrueba(t, ctx, gobierno, cerrado)
