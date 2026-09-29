@@ -84,7 +84,7 @@ En las tablas, **M** significa código presente en el corte exacto de `origin/ma
 | 4.12 Antes, después y motivo | M parcial: vista minimiza datos protegidos. | Motivos CT antiguos no constan y RRHH debe decidir exposición (duda 67). |
 | 4.13 Documento o expediente relacionado | M parcial: relación y recibo cuando existen. | Falta lectura positiva autorizada y recuperación tras reinicio. |
 | 4.14 IP o equipo | M: decisión explícita de omitirlos por minimización. | La fotografía los pide solo si la política lo permite (duda 36). |
-| 4.15 Historia sin alteración invisible | M parcial: historia y lectura segregada. PR #177@88512e9956 fija el 409 sin efectos de subsanaciones anteriores al perfil fijo, apilada sobre #166. | Falta contrastar cada acción del recorrido CT/Bolsa con auditoría tras reinicio (E06; duda 67). El recibo histórico interno de subsanación no se vuelve a mostrar. |
+| 4.15 Historia sin alteración invisible | M parcial: historia y lectura segregada. PR #177@88512e9956 comprueba y documenta el 409 sin efectos de subsanaciones anteriores al perfil fijo, producido por CT92/#166. | Falta contrastar cada acción del recorrido CT/Bolsa con auditoría tras reinicio (E06; duda 67). El recibo histórico interno de subsanación no se vuelve a mostrar. |
 
 ## Seguimiento del Departamento: puntos 5.01–5.08
 
