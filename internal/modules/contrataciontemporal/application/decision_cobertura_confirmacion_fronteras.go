@@ -201,11 +201,23 @@ func (s *ServicioConfirmacionDecisionCobertura) confirmarOrden(
 	ctx context.Context,
 	orden cobertura.OrdenOperacionDecisionCobertura,
 ) (cobertura.ReciboOperacionDecisionCobertura, error) {
-	intento, err := cobertura.IntentarConfirmacionOperacionDecisionCobertura(
-		ctx,
-		s.transaccion,
-		orden,
-	)
+	// Una carrera de serialización revertida por la base no dejó efectos:
+	// se repite la orden entera, con espera aleatoria creciente. Cualquier
+	// otro resultado se trata como siempre (recibo, fallo o reconciliación).
+	var intento cobertura.ResultadoIntentoConfirmacionOperacionDecisionCobertura
+	var err error
+	for n := 1; ; n++ {
+		intento, err = cobertura.IntentarConfirmacionOperacionDecisionCobertura(
+			ctx,
+			s.transaccion,
+			orden,
+		)
+		if !intento.CarreraSerializablePara(orden) ||
+			n >= intentosMaximosCarreraConfirmacionCobertura ||
+			!esperarReintentoCarreraConfirmacionCobertura(ctx, n) {
+			break
+		}
+	}
 	if confirmacion, valida := intento.ConfirmacionPara(orden); valida {
 		recibo, errRecibo := confirmacion.ReciboPara(orden)
 		if errRecibo == nil {

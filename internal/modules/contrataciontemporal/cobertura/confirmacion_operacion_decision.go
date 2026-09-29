@@ -24,6 +24,18 @@ var (
 	errFalloAntesCommitOperacionDecisionCobertura = errors.New(
 		"fallo interno anterior al commit de decision de cobertura",
 	)
+	// ErrCarreraSerializableSesionTCBOperacionDecisionCobertura lo devuelve
+	// el ejecutor homologado, y solo él, cuando la base aborta la transacción
+	// por una carrera de serialización (40001/40P01) al confirmar o al hacer
+	// COMMIT: la transacción quedó revertida y sin efectos, así que la orden
+	// se puede repetir entera. Cualquier otro fallo tras Confirmar sigue
+	// siendo ambiguo y se reconcilia.
+	ErrCarreraSerializableSesionTCBOperacionDecisionCobertura = errors.New(
+		"contratacion temporal: la base revirtió la confirmación de decisión de cobertura por una carrera de serialización",
+	)
+	errCarreraAntesCommitOperacionDecisionCobertura = errors.New(
+		"carrera de serialización revertida antes de confirmar la decision de cobertura",
+	)
 )
 
 const esquemaHuellaConfirmacionOperacionDecisionCobertura = "" +
@@ -55,7 +67,8 @@ func ConfirmarOperacionDecisionCobertura(
 	}
 	resultado, err :=
 		transaccion.confirmarOperacionDecisionCobertura(ctx, orden)
-	if err == errFalloAntesCommitOperacionDecisionCobertura {
+	if err == errFalloAntesCommitOperacionDecisionCobertura ||
+		err == errCarreraAntesCommitOperacionDecisionCobertura {
 		return ResultadoConfirmacionOperacionDecisionCobertura{},
 			ErrResultadoConfirmacionOperacionDecisionCoberturaNoDisponible
 	}
@@ -244,6 +257,9 @@ type ResultadoIntentoConfirmacionOperacionDecisionCobertura struct {
 
 type pruebaFalloAntesCommitOperacionDecisionCobertura struct {
 	huellaOrdenSHA256 string
+	// carreraSerializable: la base revirtió la transacción por una carrera;
+	// es la única rama que se puede repetir.
+	carreraSerializable bool
 }
 
 // ConfirmacionPara devuelve el resultado únicamente en la rama confirmada.
@@ -289,6 +305,15 @@ func (r ResultadoIntentoConfirmacionOperacionDecisionCobertura) FalloAntesCommit
 		)
 }
 
+// CarreraSerializablePara indica, solo para la orden que lo originó, que el
+// intento falló antes de COMMIT porque la base lo revirtió por una carrera de
+// serialización: repetir la orden entera es seguro.
+func (r ResultadoIntentoConfirmacionOperacionDecisionCobertura) CarreraSerializablePara(
+	orden OrdenOperacionDecisionCobertura,
+) bool {
+	return r.FalloAntesCommitPara(orden) && r.falloAntesCommit.carreraSerializable
+}
+
 // IntentarConfirmacionOperacionDecisionCobertura invoca exactamente una vez
 // la transacción. Un recibo válido prevalece sobre un error o una cancelación
 // observada después del COMMIT. Un fallo acreditado antes de COMMIT termina
@@ -321,7 +346,8 @@ func IntentarConfirmacionOperacionDecisionCobertura(
 			confirmacion: &copia,
 		}, nil
 	}
-	if errConfirmacion == errFalloAntesCommitOperacionDecisionCobertura {
+	if errConfirmacion == errFalloAntesCommitOperacionDecisionCobertura ||
+		errConfirmacion == errCarreraAntesCommitOperacionDecisionCobertura {
 		huellaOrden, errHuella :=
 			huellaConfirmacionOperacionDecisionCobertura(orden)
 		if errHuella != nil {
@@ -330,7 +356,8 @@ func IntentarConfirmacionOperacionDecisionCobertura(
 		}
 		return ResultadoIntentoConfirmacionOperacionDecisionCobertura{
 				falloAntesCommit: &pruebaFalloAntesCommitOperacionDecisionCobertura{
-					huellaOrdenSHA256: huellaOrden,
+					huellaOrdenSHA256:   huellaOrden,
+					carreraSerializable: errConfirmacion == errCarreraAntesCommitOperacionDecisionCobertura,
 				},
 			},
 			ErrResultadoConfirmacionOperacionDecisionCoberturaNoDisponible

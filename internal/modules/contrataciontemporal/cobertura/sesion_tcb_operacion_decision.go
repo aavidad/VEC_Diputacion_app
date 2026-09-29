@@ -675,6 +675,12 @@ func (t *transaccionOperacionDecisionCoberturaTCB) confirmarOperacionDecisionCob
 		return ResultadoConfirmacionOperacionDecisionCobertura{},
 			ErrEjecucionSesionTCBOperacionDecisionCoberturaNoDisponible
 	}
+	// El ejecutor homologado acredita que la base revirtió la transacción
+	// por una carrera de serialización: no hubo COMMIT y se puede repetir.
+	if errors.Is(errEjecucion, ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) {
+		return ResultadoConfirmacionOperacionDecisionCobertura{},
+			errCarreraAntesCommitOperacionDecisionCobertura
+	}
 	if ejecucionPotencialmenteEfectiva &&
 		(errEjecucion != nil || !invocacionPublicable) {
 		return ResultadoConfirmacionOperacionDecisionCobertura{},
