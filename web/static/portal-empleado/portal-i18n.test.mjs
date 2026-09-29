@@ -54,9 +54,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const vigente = "20260929-i18n-shell-v2";
   const versionesEspeciales = new Map([
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
-    ["portal.js", "20260929-firma-506-v4"],
-    ["portal-modulos-coordinador.js", "20260929-firma-506-v4"],
-    ["modulos/contratacion-temporal/vista-expedientes.js", "20260929-firma-506-v4"],
+    ["portal.js", "20260930-ct-lista-plazos-v1"],
+    ["portal-inicio.js", "20260930-ct-lista-plazos-v1"],
+    ["portal-modulos-coordinador.js", "20260930-ct-lista-plazos-v1"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-ct-lista-plazos-v1"],
     ["modulos/contratacion-temporal/circuito-firma.js", "20260929-firma-506-v4"],
   ]);
   const archivos = ["index.html"];
