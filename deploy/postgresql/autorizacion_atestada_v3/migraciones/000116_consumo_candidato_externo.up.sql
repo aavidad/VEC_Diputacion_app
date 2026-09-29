@@ -114,6 +114,14 @@ DECLARE f regprocedure := 'vec_autorizacion_atestada_v3.consumir_decision_mutaci
           WHERE m.member=session_user::regrole
             AND m.roleid='vec_bolsa_llamamientos_portal_externo'::regrole
             AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
+       OR EXISTS (WITH RECURSIVE roles(rol_id) AS (
+            SELECT m.roleid FROM pg_catalog.pg_auth_members m
+             WHERE m.member=session_user::regrole
+            UNION
+            SELECT m.roleid FROM pg_catalog.pg_auth_members m
+             JOIN roles r ON r.rol_id=m.member)
+           SELECT 1 FROM roles
+            WHERE rol_id<>'vec_bolsa_llamamientos_portal_externo'::regrole)
     THEN
         RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='consumo externo VEC-AD-3 rechazado';
     END IF;
