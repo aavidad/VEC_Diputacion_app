@@ -143,7 +143,22 @@ async function leerCuerpoLimitado(respuesta) {
   return new TextDecoder().decode(bytes);
 }
 
-export async function pedir(ruta, { method = "GET", cuerpo, signal } = {}) {
+// Una lectura que choca con otra simultánea en el servidor puede devolver 503
+// transitorio: se repite dos veces con una espera breve. Solo lecturas (GET),
+// que no tienen efectos; las escrituras nunca se repiten solas.
+export async function pedir(ruta, opciones = {}) {
+  const esLectura = (opciones.method ?? "GET") === "GET";
+  for (let intento = 0; ; intento += 1) {
+    try {
+      return await pedirUnaVez(ruta, opciones);
+    } catch (error) {
+      if (!esLectura || error?.status !== 503 || intento >= 2 || opciones.signal?.aborted) throw error;
+      await new Promise((resolver) => setTimeout(resolver, 300 * (intento + 1)));
+    }
+  }
+}
+
+async function pedirUnaVez(ruta, { method = "GET", cuerpo, signal } = {}) {
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort("timeout"), TIMEOUT_MS);
   const abortar = () => controlador.abort(signal?.reason || "cancelado");
