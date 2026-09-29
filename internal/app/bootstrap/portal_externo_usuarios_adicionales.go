@@ -9,6 +9,7 @@ import (
 	"vec-diputacion-granada/config"
 	usuariosimagen "vec-diputacion-granada/internal/modules/usuarios/adapters/imagen"
 	usuariosseguridad "vec-diputacion-granada/internal/modules/usuarios/adapters/seguridad"
+	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	"vec-diputacion-granada/internal/shared/i18n"
 )
 
@@ -101,16 +102,14 @@ func materialesImagenPortalExterno(proveedores map[string]*proveedorMaterialAlta
 	if len(proveedores) != len(audiencias) {
 		return materiales, false
 	}
-	for i, audiencia := range audiencias {
-		p := proveedores[audiencia]
-		if p == nil {
+	for _, audiencia := range audiencias {
+		if proveedores[audiencia] == nil {
 			return proveedoresMaterialImagenUsuarios{}, false
 		}
-		indice := len(accionesImagenUsuarios) + i
-		if indice >= len(materiales) {
-			return proveedoresMaterialImagenUsuarios{}, false
-		}
-		materiales[indice] = p
 	}
+	// Los dos slots externos son los de las acciones nominales de imagen.
+	// No hay desplazamientos calculados a partir de una entrada del proveedor.
+	materiales[len(accionesImagenUsuarios)] = proveedores[usuariosports.AudienciaConsultarImagenExterna]
+	materiales[len(accionesImagenUsuarios)+1] = proveedores[usuariosports.AudienciaActualizarImagenExterna]
 	return materiales, true
 }
