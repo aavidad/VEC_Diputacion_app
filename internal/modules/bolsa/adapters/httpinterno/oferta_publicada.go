@@ -18,8 +18,9 @@ const (
 	// RutaOfertasPublicadas: GET consulta las ofertas de una bolsa y POST
 	// publica una nueva (Idempotency-Key obligatoria).
 	RutaOfertasPublicadas = "/api/vec/bolsa/ofertas"
-	// RutaResolucionesOferta: POST confirma la propuesta de adjudicación o el
-	// paso a llamamiento directo de una oferta vencida.
+	// RutaResolucionesOferta: POST registra un acto sobre una plaza de una
+	// oferta vencida: confirmar la propuesta (adjudicada o llamamiento
+	// directo) o la respuesta de quien la ocupa.
 	RutaResolucionesOferta = "/api/vec/bolsa/ofertas/resoluciones"
 
 	maximoCuerpoOferta     = 16384
@@ -30,11 +31,14 @@ const (
 type EntradaPublicarOferta struct {
 	BolsaRef          string
 	Datos             dominiobolsa.DatosOferta
+	NumeroPlazas      int
 	ClaveIdempotencia string
 }
 
 type EntradaResolverOferta struct {
 	BolsaRef, OfertaRef, ParticipacionRef, ClaveIdempotencia string
+	Tipo                                                     string
+	NumeroDePlaza, SecuenciaEsperada                         int
 }
 
 // PreparadorOfertasPublicadas liga la entrada mínima a la sesión revalidada;
@@ -128,14 +132,15 @@ func (h *HandlerOfertasPublicadas) publicar(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var cuerpo struct {
-		BolsaRef string                   `json:"bolsa_ref"`
-		Datos    dominiobolsa.DatosOferta `json:"datos"`
+		BolsaRef     string                   `json:"bolsa_ref"`
+		Datos        dominiobolsa.DatosOferta `json:"datos"`
+		NumeroPlazas *int                     `json:"numero_plazas"`
 	}
-	if !decodificarCuerpoOferta(r, &cuerpo) {
+	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroPlazas == nil {
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
-	q, err := h.preparador.PrepararSolicitudPublicarOferta(r.Context(), EntradaPublicarOferta{BolsaRef: cuerpo.BolsaRef, Datos: cuerpo.Datos, ClaveIdempotencia: clave})
+	q, err := h.preparador.PrepararSolicitudPublicarOferta(r.Context(), EntradaPublicarOferta{BolsaRef: cuerpo.BolsaRef, Datos: cuerpo.Datos, NumeroPlazas: *cuerpo.NumeroPlazas, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOferta(w, err)
 		return
@@ -155,11 +160,14 @@ func (h *HandlerOfertasPublicadas) resolver(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var cuerpo struct {
-		BolsaRef         string  `json:"bolsa_ref"`
-		OfertaRef        string  `json:"oferta_ref"`
-		ParticipacionRef *string `json:"participacion_ref"`
+		BolsaRef          string  `json:"bolsa_ref"`
+		OfertaRef         string  `json:"oferta_ref"`
+		NumeroDePlaza     *int    `json:"numero_de_plaza"`
+		Tipo              string  `json:"tipo"`
+		SecuenciaEsperada *int    `json:"secuencia_esperada"`
+		ParticipacionRef  *string `json:"participacion_ref"`
 	}
-	if !decodificarCuerpoOferta(r, &cuerpo) {
+	if !decodificarCuerpoOferta(r, &cuerpo) || cuerpo.NumeroDePlaza == nil || cuerpo.SecuenciaEsperada == nil || cuerpo.Tipo == "" {
 		responderOferta(w, http.StatusBadRequest, "solicitud_invalida", nil)
 		return
 	}
@@ -171,7 +179,9 @@ func (h *HandlerOfertasPublicadas) resolver(w http.ResponseWriter, r *http.Reque
 		}
 		participacion = *cuerpo.ParticipacionRef
 	}
-	q, err := h.preparador.PrepararSolicitudResolverOferta(r.Context(), EntradaResolverOferta{BolsaRef: cuerpo.BolsaRef, OfertaRef: cuerpo.OfertaRef, ParticipacionRef: participacion, ClaveIdempotencia: clave})
+	q, err := h.preparador.PrepararSolicitudResolverOferta(r.Context(), EntradaResolverOferta{BolsaRef: cuerpo.BolsaRef, OfertaRef: cuerpo.OfertaRef,
+		NumeroDePlaza: *cuerpo.NumeroDePlaza, Tipo: cuerpo.Tipo, SecuenciaEsperada: *cuerpo.SecuenciaEsperada,
+		ParticipacionRef: participacion, ClaveIdempotencia: clave})
 	if err != nil {
 		responderErrorOferta(w, err)
 		return
@@ -221,6 +231,10 @@ func responderErrorOferta(w http.ResponseWriter, err error) {
 		responderOferta(w, http.StatusConflict, "plazo_abierto", nil)
 	case errors.Is(err, ports.ErrOfertaPropuestaCambiada):
 		responderOferta(w, http.StatusConflict, "propuesta_cambiada", nil)
+	case errors.Is(err, ports.ErrOfertaRespuestaAbierta):
+		responderOferta(w, http.StatusConflict, "respuesta_abierta", nil)
+	case errors.Is(err, ports.ErrOfertaPoliticaSinPlazas):
+		responderOferta(w, http.StatusConflict, "politica_sin_plazas", nil)
 	case errors.Is(err, ports.ErrOfertaInvalida), errors.Is(err, dominiobolsa.ErrDatosOfertaInvalidos):
 		responderOferta(w, http.StatusUnprocessableEntity, "oferta_invalida", nil)
 	case errors.Is(err, ports.ErrPlazoOfertaNoConfigurado):
