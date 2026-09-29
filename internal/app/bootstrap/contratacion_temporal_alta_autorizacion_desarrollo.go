@@ -315,7 +315,16 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	}
 	var instantanea dominiovec.InstantaneaAutorizacion
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
-	if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
+	if s.soloConsumePublicada {
+		// Sin publicación: el registro V3 comprueba bajo bloqueo que la
+		// instantánea de la decisión sigue siendo la asignación vigente.
+		s.mu.Lock()
+		registroAnalisis = s.registroDecisionesAnalisis
+		s.mu.Unlock()
+		if !rutaPeticionCentroDesarrollo(capacidad.ruta) || registroAnalisis == nil {
+			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+		}
+	} else if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
 		capacidad.ruta == httpinterno.RutaPropuestaCobertura ||
 		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
@@ -376,6 +385,15 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 	esperada, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+	}
+	if s.soloConsumePublicada {
+		s.mu.Lock()
+		registro := s.registroDecisionesAnalisis
+		s.mu.Unlock()
+		if !rutaPeticionCentroDesarrollo(capacidad.ruta) || registro == nil {
+			return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+		}
+		return registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
 	}
 	if capacidad.ruta == httpinterno.RutaPropuestaCobertura ||
 		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||

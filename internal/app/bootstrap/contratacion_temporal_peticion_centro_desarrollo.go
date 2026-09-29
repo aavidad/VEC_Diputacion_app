@@ -6,6 +6,8 @@ import (
 	"maps"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/config"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -42,6 +44,68 @@ type identidadPeticionCentroDesarrollo struct {
 	actor       domain.ActorPeticionCentro
 	adscripcion adscripcionCentroDesarrollo
 	principal   vecdomain.Principal
+	// cancelacion es el perfil propio con el que esta persona cancela
+	// expedientes; nulo si la regla c20 no le da la cancelación.
+	cancelacion *perfilCentroDesarrollo
+}
+
+// perfilCentroDesarrollo es un perfil V3 de una persona del centro: su
+// soporte (fuente de instantánea y registro), su autorizador y el actor que
+// lo usa, con la referencia de ese perfil.
+type perfilCentroDesarrollo struct {
+	soporte     *soporteAltaContratacionTemporalDesarrollo
+	autorizador autorizadorLigadoContratacionTemporalDesarrollo
+	actor       domain.ActorPeticionCentro
+}
+
+func perfilGeneralCentroDesarrollo(id *identidadPeticionCentroDesarrollo) perfilCentroDesarrollo {
+	if id == nil {
+		return perfilCentroDesarrollo{}
+	}
+	return perfilCentroDesarrollo{soporte: id.soporte, autorizador: id.autorizador, actor: id.actor}
+}
+
+// nuevaIdentidadPeticionCentroDesarrollo compone los perfiles V3 de una
+// persona del centro. El general solo consume la asignación publicada; el de
+// cancelación, si la regla se la da, es propio y dinámico con guarda.
+func nuevaIdentidadPeticionCentroDesarrollo(
+	sello *selloConsultasContratacionTemporalDesarrollo, registro registroDecisionesAnalisisContratacionTemporalDesarrollo,
+	pool *pgxpool.Pool, principal vecdomain.Principal, adscripcion adscripcionCentroDesarrollo,
+	concesiones, concesionCancelar []vecdomain.ConcesionRol, reloj relojContratacionTemporalDesarrollo,
+) (*identidadPeticionCentroDesarrollo, error) {
+	contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, reloj.Ahora())
+	if err != nil {
+		return nil, err
+	}
+	v, err := contexto.Vinculo.Datos()
+	if err != nil {
+		return nil, err
+	}
+	actor := domain.ActorPeticionCentro{ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, CentroRef: adscripcion.CentroRef, PuestoRef: adscripcion.PuestoRef}
+	if actor.Validar() != nil {
+		return nil, domain.ErrPeticionCentroInvalida
+	}
+	s := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: principal.ID, certificadoSHA256: principal.Attributes["certificate_sha256"], contexto: contexto, reloj: reloj,
+		peticionesCentro: true, soloConsumePublicada: true, motivo: motivoPeticionCentroDesarrollo(), registroDecisionesAnalisis: registro,
+		instantaneasPorSolicitud: make(map[string]vecdomain.InstantaneaAutorizacion), concesiones: make(map[string]struct{})}
+	// Comparte el pool, no la identidad de RRHH a la que se liga cada slot.
+	s.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: pool, soporte: s}
+	s.instantanea, err = nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(actor.ActorRef, actor.PerfilRef, reloj.Ahora(), principal.Roles[0], "Petición de centro de desarrollo", "peticion-centro-desarrollo-"+principal.ID, concesiones,
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}, {Clave: "centro_ref", Valores: []string{actor.CentroRef}}})
+	if err != nil {
+		return nil, err
+	}
+	base, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(s, s, s, s, reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
+	if err != nil {
+		return nil, err
+	}
+	id := &identidadPeticionCentroDesarrollo{soporte: s, autorizador: base, actor: actor, adscripcion: adscripcion, principal: principal}
+	if len(concesionCancelar) != 0 {
+		if id.cancelacion, err = nuevoPerfilCancelacionCentroDesarrollo(s, principal, actor, concesionCancelar, reloj); err != nil {
+			return nil, err
+		}
+	}
+	return id, nil
 }
 
 type proveedorPeticionCentroDesarrollo struct {
@@ -96,23 +160,6 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		if !ok {
 			return nil, ports.ErrPeticionCentroNoDisponible
 		}
-		contexto, err := nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, reloj.Ahora())
-		if err != nil {
-			return nil, err
-		}
-		v, err := contexto.Vinculo.Datos()
-		if err != nil {
-			return nil, err
-		}
-		actor := domain.ActorPeticionCentro{ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, CentroRef: adscripcion.CentroRef, PuestoRef: adscripcion.PuestoRef}
-		if actor.Validar() != nil {
-			return nil, domain.ErrPeticionCentroInvalida
-		}
-		s := &soporteAltaContratacionTemporalDesarrollo{sello: alta.soporte.sello, principalID: principal.ID, certificadoSHA256: principal.Attributes["certificate_sha256"], contexto: contexto, reloj: reloj,
-			peticionesCentro: true, motivo: motivoPeticionCentroDesarrollo(), registroDecisionesAnalisis: alta.soporte.registroDecisionesAnalisis,
-			instantaneasPorSolicitud: make(map[string]vecdomain.InstantaneaAutorizacion), concesiones: make(map[string]struct{})}
-		// Comparte el pool, no la identidad de RRHH a la que se liga cada slot.
-		s.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: s}
 		acciones := []string{ports.AccionConsultarPeticionCentro}
 		if principal.Roles[0] == "solicitante_centro" {
 			acciones = append(acciones, ports.AccionPresentarPeticionCentro)
@@ -124,17 +171,18 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 			concesiones = append(concesiones, vecdomain.ConcesionRol{Accion: accion, ModuloID: "contratacion_temporal", TipoRecurso: ports.TipoRecursoPeticionCentro, Finalidades: []string{finalidadPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh})
 		}
 		concesiones = append(concesiones, incorporacion.concesiones(principal.Roles[0])...)
+		// El rol general conserva exactamente las concesiones de siempre para
+		// que su asignación publicada siga siendo la misma. La de cancelar es
+		// inerte en él: sus ámbitos (organización y centro) nunca cubren el
+		// recurso de cancelación, que exige además expediente, fase y estado;
+		// la cancelación se ejecuta con el perfil propio.
 		concesiones = append(concesiones, cancelacion.concesiones(principal.Roles[0])...)
-		s.instantanea, err = nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(actor.ActorRef, actor.PerfilRef, reloj.Ahora(), principal.Roles[0], "Petición de centro de desarrollo", "peticion-centro-desarrollo-"+principal.ID, concesiones,
-			[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}, {Clave: "centro_ref", Valores: []string{actor.CentroRef}}})
+		id, err := nuevaIdentidadPeticionCentroDesarrollo(alta.soporte.sello, alta.soporte.registroDecisionesAnalisis, alta.postgresql.gobierno,
+			principal, adscripcion, concesiones, cancelacion.concesionCancelar(principal.Roles[0]), reloj)
 		if err != nil {
 			return nil, err
 		}
-		base, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(s, s, s, s, reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
-		if err != nil {
-			return nil, err
-		}
-		p.actores[principal.ID] = &identidadPeticionCentroDesarrollo{soporte: s, autorizador: base, actor: actor, adscripcion: adscripcion, principal: principal}
+		p.actores[principal.ID] = id
 	}
 	for _, a := range p.actores {
 		if _, err := p.catalogoParaActor(ctx, a.actor); err != nil {
@@ -149,8 +197,18 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		if err := publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, a.soporte); err != nil {
 			return nil, err
 		}
-		if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, a.soporte); err != nil {
+		// Arranque sin republicar: inicial solo si falta, provisión solo con
+		// aprobación expresa del operador y nunca sobre lo revocado.
+		if _, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, alta.postgresql.gobierno, a.soporte, cfg.CTProvisionPerfilesCentroAprobacionRef()); err != nil {
 			return nil, err
+		}
+		if a.cancelacion != nil {
+			if err := publicarContextoCancelacionCentroDesarrollo(ctx, alta.postgresql.gobierno, a.cancelacion.soporte); err != nil {
+				return nil, err
+			}
+			if err := asegurarPerfilCancelacionCentroDesarrollo(ctx, alta.postgresql.gobierno, a.cancelacion.soporte); err != nil {
+				return nil, err
+			}
 		}
 	}
 	desde, _, _ := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
