@@ -618,9 +618,9 @@ Y un evento estandar `tramite.firmado` en la tabla de eventos. El gate
 pase por el puerto de firma + sello de tiempo, nunca por logica propia del
 modulo.
 
-### Decision: usar AutofirmaV2 (Dipgra) como motor de firma y de auth por certificado
+### Decision: usar GrxFirma (Dipgra) como motor de firma y de auth por certificado
 
-Tenemos software propio: **AutofirmaV2** (Go, hexagonal, GPLv3, Oficina de
+Tenemos software propio: **GrxFirma** (Go, hexagonal, GPLv3, Oficina de
 Software Libre de la Diputacion de Granada), corriendo como cliente local del
 empleado en loopback (`127.0.0.1:8080`). Expone REST con, entre otros:
 
@@ -632,7 +632,7 @@ empleado en loopback (`127.0.0.1:8080`). Expone REST con, entre otros:
 
 Decision: **el VEC no reimplementa firma ni identidad por certificado.**
 `vec-core` define los puertos (`VECSignaturePort`, `VECCertAuthPort`) y el shell
-los satisface con un adaptador delgado que invoca AutofirmaV2 local. AutofirmaV2
+los satisface con un adaptador delgado que invoca GrxFirma local. GrxFirma
 es un adaptador externo intercambiable; el dominio del VEC no lo conoce.
 
 Asi, las dos decisiones de identidad y firma se cubren con software propio ya
@@ -643,12 +643,12 @@ probado:
 - Firma de actos administrativos via `/sign` (y `/sign-batch` para resoluciones
   masivas), verificacion via `/verify`.
 
-Salvedad arquitectonica importante: AutofirmaV2 vive en el **puesto del
+Salvedad arquitectonica importante: GrxFirma vive en el **puesto del
 empleado** (loopback), no es un servicio central. La clave privada nunca sale del
-puesto. Por tanto el flujo es **frontend del shell -> AutofirmaV2 del puesto**
+puesto. Por tanto el flujo es **frontend del shell -> GrxFirma del puesto**
 (patron tipo `afirma://`, como la AGE con AutoFirma), no servidor-a-servidor. El
 adaptador de firma del VEC es principalmente de **frontend**: el shell orquesta
-la llamada al AutofirmaV2 local y recibe el resultado firmado + justificante,
+la llamada al GrxFirma local y recibe el resultado firmado + justificante,
 que luego el backend registra y audita. El backend nunca firma por su cuenta.
 
 ## 3. Registro electronico / asiento registral (ALTO)

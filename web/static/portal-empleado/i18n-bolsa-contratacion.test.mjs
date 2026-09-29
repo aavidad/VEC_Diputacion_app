@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
-import { MENSAJES_PORTAL_ES } from "./portal-i18n.js";
+import { MENSAJES_PORTAL } from "./portal-i18n.js";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES, MENSAJES_CONTRATACION_TEMPORAL_EN, crearTraductorContratacionTemporal } from "./modulos/contratacion-temporal/i18n.js";
 import { aplicarIdiomaDocumento, aplicarTextosPortal, instalarValidacionI18n, mensajeValidacionPortal } from "./portal-idioma.js";
 import { cadenasHumanas, hallazgosHTML, hallazgosTextosLiterales } from "./textos-literales.test-helper.mjs";
@@ -108,7 +108,7 @@ test("toda clave usada en las vistas existe en su catálogo", async () => {
   const rutas = [...await ficherosAuditados(), ...PAGINAS];
   for (const ruta of rutas) {
     const fuente = await readFile(new URL(ruta, raiz), "utf8");
-    for (const [, clave] of fuente.matchAll(/"(txt_[a-z0-9_]+)"/gu)) if (!Object.hasOwn(MENSAJES_PORTAL_ES, clave)) faltan.push(`${ruta}: ${clave}`);
+    for (const [, clave] of fuente.matchAll(/"(txt_[a-z0-9_]+)"/gu)) if (!Object.hasOwn(MENSAJES_PORTAL, clave)) faltan.push(`${ruta}: ${clave}`);
     for (const [, clave] of fuente.matchAll(/"(ct_txt_[a-z0-9_]+)"/gu)) if (!Object.hasOwn(MENSAJES_CONTRATACION_TEMPORAL_ES, clave)) faltan.push(`${ruta}: ${clave}`);
   }
   assert.deepEqual(faltan, []);

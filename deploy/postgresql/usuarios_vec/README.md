@@ -56,3 +56,39 @@ Tras las SQL de 5.08a y 5.08b: AD3-108 `consumidor_imagen_usuarios.up.sql` (acci
 - SQLSTATE: `P1409` conflicto (versión, catálogo, clave reutilizada o modo foto sin foto), `22023` petición inválida (foto que no casa con su huella o no es JPEG), `42501` denegación; `40001` obliga a repetir la transacción completa.
 
 La prueba `pruebas_sql/imagen_pg18.sh` levanta PostgreSQL 18.4 efímero con la V3 sintética de forma y comprueba ACL y RLS de Usuarios y Documentos, el vector Go/SQL, elección, repetición, conflicto, subida, conservación, sustitución y retirada de la foto (bytes borrados en Documentos), la lectura desde la otra superficie y la inmutabilidad de las historias.
+
+# B59: el aviso de llamamiento al correo activo de «Mis correos»
+
+## Orden causal
+
+Tras las SQL de 5.08a, 5.08b y 5.08c: AD3-109 `consumidor_correo_avisos_llamamiento.up.sql`, ContextoActor 000010 `persona_candidato_avisos.up.sql`, Bolsa 000059 `fuente_correo_llamamiento.up.sql` y Usuarios 000008 `correo_avisos_llamamiento.up.sql` (lista `deploy/principal/lista_sql_trabajo_avisos_mis_correos_20260929.txt`). Sin roles ni LOGIN nuevos. Ningún `DOWN` sobre historia.
+
+## Contrato
+
+- Cuando RRHH emite un llamamiento, Bolsa pregunta a Usuarios, por cada persona candidata, si tiene un correo activo. Usuarios responde con una sola lectura, `correo_activo_avisos_llamamiento_v1`, que sólo ejecuta el LOGIN ejecutor interno.
+- La lectura consume una V3 fresca antes de mirar ninguna fila. El permiso es el mismo que el de emitir el llamamiento (acción `llamamiento.emitir.v1` sobre la bolsa constituida, finalidad `gestion_llamamientos_bolsa`), pero con audiencia propia (`vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1`) y perfil de consumo propio en el núcleo (AD3-109): la capacidad de emisión no abre esta lectura ni al revés. La huella del recurso fija el material exacto (bolsa, unidad, ámbito, llamamiento y referencia de candidato) y queda auditada con el consumo. Que la candidata sea de ese llamamiento lo comprueba Bolsa antes de preguntar (`candidato_participacion_avisos_v1`); Usuarios no puede comprobarlo sin leer tablas de Bolsa.
+- La persona se obtiene de la referencia de candidato con la fachada de ContextoActor `persona_candidato_avisos_v1`, que sólo devuelve persona si hay exactamente un vínculo de candidato activo y vigente. Usuarios no lee tablas de identidad ni de Bolsa, y Bolsa no lee tablas de Usuarios.
+- Sólo se entrega el sobre cifrado del correo ACTIVO y VERIFICADO que la persona añadió y confirmó desde el área personal externa: a una persona candidata sólo se le escribe al correo que dio en la superficie externa. Nada de la lista ni de otras direcciones. La dirección se descifra en Go y sólo existe durante el envío.
+- Si no hay tal correo, o Usuarios no responde (presupuesto de 10 s por emisión y 2 s por consulta), el aviso sale al correo del alta en la bolsa, como antes, y el llamamiento no se bloquea. Bolsa guarda la fuente y el motivo (000059).
+- SQLSTATE: `42501` denegación, `22023` material inválido; cualquier otro fallo se trata como «no disponible».
+
+La prueba `pruebas_sql/correo_avisos_clon.sh <contenedor>` se ejecuta sobre un clon de la principal ya migrado, dentro de una transacción que termina en `ROLLBACK`, con un doble de la fachada AD3-109: comprueba material, huella, elección del correo, superficies, RLS, ACL y el registro de la fuente en Bolsa. No acredita COSE ni el núcleo V3.
+# Fase 1, paso 3: cada portal con lo suyo
+
+Hasta aquí la misma persona compartía preferencias, correos y foto entre el portal interno (RRHH, superficie `interna_corporativa`) y el Área personal (`externa_personal`). Desde este corte:
+
+- **Preferencias y foto**: la superficie forma parte de la clave de estado, historia y recibos (una fila por persona y superficie). Las políticas de fila exigen que la fila sea de la superficie del contexto V3 consumido, así que una función que olvidara filtrar tampoco vería la otra. Documentos guarda como mucho una foto viva por persona y superficie y no abre, retira ni cuenta la de la otra.
+- **Correos**: viven en dos esquemas, `vec_usuarios_correos_interno` y `vec_usuarios_correos_externo`, cada uno con su propietario. Solo el ejecutor de su portal tiene USAGE y EXECUTE sobre sus seis fachadas; ningún propietario ni ejecutor alcanza el otro esquema, y `vec_usuarios` ya no guarda correos. La lógica, los SQLSTATE y el material son los de 000004.
+- Las firmas, respuestas y audiencias no cambian. El adaptador Go de correos llama al esquema de su superficie y comprueba que su LOGIN no tiene USAGE sobre el otro.
+- La lectura de avisos de llamamiento de B59 (RRHH pregunta por el correo activo que la persona candidata dio en el Área personal) pasa a `vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1`, un esquema de una sola función del propietario externo. El ejecutor interno solo alcanza esa función: no tiene USAGE sobre el esquema de datos externo. Mismo material, V3, respuesta y SQLSTATE. AD3-110 y ContextoActor 000011 pasan sus dos dependencias (consumo V3 de avisos y `persona_candidato_avisos_v1`) al propietario externo. Como en ese esquema solo hay direcciones añadidas y confirmadas en el Área personal, basta con la activa y verificada.
+- Las claves de cifrado de correos siguen siendo comunes: se separan con los procesos y el material por portal (paso 1 del estudio), porque hoy todas se derivan dentro del mismo proceso.
+
+## Orden causal (después del hito 4)
+
+Lista `deploy/principal/lista_sql_trabajo_usuarios_superficie_20260929.txt`, todo como DBA y con la aplicación parada: Documentos 000008 → Usuarios 000009 → `roles_000010_up.sql` → AD3-110 → ContextoActor 000011 → Usuarios 000010. Va después de la lista de B59 (Usuarios 000008). Después, el binario nuevo, en la misma ventana. Entre AD3-110 y Usuarios 000010 los correos antiguos quedan denegados; el binario anterior no encuentra las fachadas de correos y se niega a componerlos.
+
+## Lo que ya había
+
+La superficie de cada versión y recibo existente se toma de la decisión V3 firmada que la autorizó (lectura única del DBA en la migración). Cada portal queda con su última versión propia. Si el estado de imagen de un portal apunta a una foto que subió el otro o que ya se retiró, ese portal vuelve a iniciales con su paleta y la historia lo anota con una versión marcada `migracion:usuarios:000009`. Cada dirección de correo va con el portal donde se añadió, con todos sus desafíos, intentos, historia, recibos y envíos; cada población conserva la versión más alta de su propia historia. Si alguna acción sobre una dirección se hizo desde el otro portal, 000010 se para (55000) para revisarlo a mano. Si una población queda con direcciones verificadas y ninguna activa, se activa la primera verificada con una versión marcada `migracion:usuarios:000010`. En el Área personal esa dirección, que la persona confirmó allí pero no eligió como activa, pasa a ser la que usan los avisos de llamamiento (antes se habría usado el correo del alta); en la principal no hay correos todavía, así que no ocurre. Las versiones marcadas por 000009 y 000010 no tienen decisión V3 ni recibo: las hizo la migración. Los límites de direcciones y de códigos pasan a contarse por portal. Al final, los propietarios por población pierden CREATE sobre la base. Las migraciones comprueban fila a fila que nada se pierde ni cambia (salvo la columna nueva) y se detienen con 55000 si falta una decisión.
+
+`pruebas_sql/superficie_pg18.sh` siembra datos de la misma persona desde los dos portales, ensaya cada migración con ROLLBACK (la base queda idéntica, roles incluidos), provoca un fallo a mitad (tampoco deja rastro), migra y comprueba el reparto, que cada portal solo lee y escribe lo suyo, que un LOGIN no alcanza el esquema del otro, que las reaplicaciones y los DOWN se rechazan y que la historia sigue siendo de solo adición.

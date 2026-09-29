@@ -214,7 +214,8 @@ func TestConfirmacionAltaReintenta40001Y40P01EnTransaccionNueva(t *testing.T) {
 	}
 }
 
-func TestConfirmacionAltaLimitaReintentosTransitoriosATres(t *testing.T) {
+// El límite es el de la política común de carreras serializables.
+func TestConfirmacionAltaLimitaReintentosTransitoriosAlMaximo(t *testing.T) {
 	evidencia, _ := evidenciaConfirmacionPostgreSQLPrueba(t)
 	transacciones := make([]pgx.Tx, maximoIntentosConfirmarAlta+1)
 	pruebas := make([]*transaccionAltaCandidataPrueba, len(transacciones))
@@ -230,14 +231,15 @@ func TestConfirmacionAltaLimitaReintentosTransitoriosATres(t *testing.T) {
 	recibo, err := (&TransaccionAltasPostgreSQLCandidata{pool: iniciador}).confirmarConEntradas(
 		context.Background(), evidencia, entradasConfirmarAlta{},
 	)
+	commitsCorrectos := pruebas[maximoIntentosConfirmarAlta].commits == 0
+	for indice := 0; indice < maximoIntentosConfirmarAlta; indice++ {
+		commitsCorrectos = commitsCorrectos && pruebas[indice].commits == 1
+	}
 	if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
 		recibo != (ports.ReciboAlta{}) || base.inicios != maximoIntentosConfirmarAlta ||
-		iniciador.reconciliaciones != 0 ||
-		pruebas[0].commits != 1 || pruebas[1].commits != 1 || pruebas[2].commits != 1 ||
-		pruebas[3].commits != 0 {
-		t.Fatalf("limite de reintentos divergente: recibo=%+v err=%v inicios=%d reconciliaciones=%d commits=%d/%d/%d/%d",
-			recibo, err, base.inicios, iniciador.reconciliaciones, pruebas[0].commits, pruebas[1].commits,
-			pruebas[2].commits, pruebas[3].commits)
+		iniciador.reconciliaciones != 0 || !commitsCorrectos || maximoIntentosConfirmarAlta < 3 {
+		t.Fatalf("limite de reintentos divergente: recibo=%+v err=%v inicios=%d reconciliaciones=%d",
+			recibo, err, base.inicios, iniciador.reconciliaciones)
 	}
 }
 

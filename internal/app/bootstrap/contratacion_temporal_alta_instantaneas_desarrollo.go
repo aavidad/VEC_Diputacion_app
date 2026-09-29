@@ -15,6 +15,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 	ctx context.Context,
 	ruta string,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
+	// Las rutas con perfil fijo nunca preparan ni publican: consumen.
+	if fijo := s.perfilFijoParaRuta(ruta); fijo != nil {
+		return s.instantaneaPerfilFijoParaContexto(ctx, ruta, fijo)
+	}
 	instantanea, valida := s.instantaneaParaRuta(ruta)
 	dinamica := ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
@@ -258,6 +262,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) publicarInstantaneaDecisionC
 	instantanea, valida := s.instantaneaParaContexto(ctx, ruta)
 	if !valida || instantanea.Validar() != nil {
 		return errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	// Con perfil fijo basta con que la asignación publicada sea consumible:
+	// la confirmación la vuelve a comprobar bajo bloqueo; no se publica nada.
+	if s.perfilFijoParaRuta(ruta) != nil {
+		return nil
 	}
 	s.mu.Lock()
 	autoridad := s.autoridadAsignaciones

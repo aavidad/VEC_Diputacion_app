@@ -191,7 +191,7 @@ login ajeno, RLS/ACL y la persistencia tras reiniciar. Tampoco acredita COSE:
 la base no tiene clave publicada para `vec_documentos.operacion.v1`.
 
 `estado_firma` permanece `pendiente_proveedor` e inmutable. La integración con
-AutoFirmaV2 requiere recibo verificable del verificador y otro consumidor V3
+GrxFirma requiere recibo verificable del verificador y otro consumidor V3
 nominal; la referencia del objeto firmado o un resultado booleano no habilitan
 la transición. La preparación de notificación no declara envío ni entrega.
 
