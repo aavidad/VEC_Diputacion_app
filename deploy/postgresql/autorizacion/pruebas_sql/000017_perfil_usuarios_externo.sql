@@ -23,7 +23,7 @@ BEGIN
    'finalidades',pg_catalog.jsonb_build_array(x.finalidad),'campos_permitidos',x.campos,'garantia_minima','alto'));
  END LOOP;
  d:=pg_catalog.jsonb_build_object('rol_id','candidato_usuarios_propios_desarrollo','version',1,
-  'nombre','Gestión propia de Usuarios en desarrollo','estado','publicada',
+  'nombre','areaPersonal.usuarios.rolPropio','estado','publicada',
   'concesiones',concesiones,'publicada_por','seguridad:desarrollo:no-autoritativa',
   'publicada_en','2026-09-30T00:00:00Z');
  IF vec_autorizacion.rol_usuarios_externo_acotado_v1(d) IS NOT TRUE
