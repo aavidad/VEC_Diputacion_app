@@ -376,6 +376,12 @@ def prepare(args: argparse.Namespace) -> dict:
     if requested != "HEAD" and not re.fullmatch(r"[0-9a-f]{40}", requested):
         fail("source commit must be a full SHA")
     head = run(["git", "-C", str(repo), "rev-parse", requested + "^{commit}"]).decode().strip()
+    run(["git", "-C", str(repo), "merge-base", "--is-ancestor", head, "origin/main"])
+    ready = json.loads(private_read(output / "DB_READY.json"))
+    expected = {"commit": head, "contenedor": args.container, "propietario": OWNER,
+                "puerto_pg": args.pg_port, "puerto_web": args.port}
+    if any(ready.get(key) != value for key, value in expected.items()):
+        fail("database readiness marker belongs to another source or target")
     if not re.fullmatch(r"vec-[a-z0-9_-]+", args.container):
         fail("invalid clone container name")
     info = json.loads(run([args.engine, "inspect", args.container]))[0]

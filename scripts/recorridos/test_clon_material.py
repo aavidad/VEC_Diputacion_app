@@ -128,6 +128,9 @@ class MaterialTests(unittest.TestCase):
                         "perfil_ref": "prf_dummy_" + surface}],
                         "dsn_usuarios": "postgresql://dummy@127.0.0.1:55441/postgres?sslmode=verify-full&sslrootcert=%2Fdummy"}
                 material.json_write(base / f"identidad/usuarios-preferencias-{surface}.json", data)
+            output.mkdir(mode=0o700)
+            material.json_write(output / "DB_READY.json", {"commit": "a" * 40, "contenedor": "vec-owned",
+                "propietario": "Codex-M", "puerto_pg": 55531, "puerto_web": 18531})
             env = root / "source.env"
             material.private_write(env, "".join(k + "='postgresql://dummy@127.0.0.1:55441/postgres?sslmode=verify-full&sslrootcert=%2Fdummy'\n" for k in material.DSN_KEYS))
             args = argparse.Namespace(repo=repo, base_material=base, output=output, source_env=env,
