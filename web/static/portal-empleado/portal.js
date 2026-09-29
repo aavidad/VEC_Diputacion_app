@@ -24,7 +24,7 @@ import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-aviso
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260929-pref-508a-v2";
 import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260929-pref-508a-v2";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
-import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260929-pref-508a-v2";
+import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260929-auditoria-legible-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260929-pref-508a-v2";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20260929-pref-508a-v2";

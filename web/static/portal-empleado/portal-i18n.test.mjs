@@ -52,6 +52,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const vigente = "20260929-pref-508a-v2";
   const versionesEspeciales = new Map([
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
+    // Auditoría legible (4.11–4.13): la vista renueva su URL por separado.
+    ["modulos/auditoria/vista.js", "20260929-auditoria-legible-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
