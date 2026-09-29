@@ -133,3 +133,23 @@ canal de avisos entre procesos también es una pieza posterior: el proceso
 interno debe pedir el envío mediante referencias opacas y nunca recibir la
 dirección o la clave externa. Este montaje no acredita todavía ese canal ni
 la recuperación de correos históricos.
+
+La herramienta `vec-provision-usuarios-externo` divide la provisión en dos fases:
+primero `-fase contexto` y después `-fase autorizacion`. En cada fase se revisa
+el plan privado y su huella antes de añadir `-publicar`,
+`-huella-aprobada <huella>` y `-aprobacion-ref <referencia>`.
+
+Para el contexto se indica `-plan <ruta-absoluta>` y
+`-dsn-archivo <ruta-absoluta>` con la credencial de provisión de ContextoActor.
+Su plan contiene el snapshot de Usuarios y la versión y huella previas. Para
+la autorización, `-plan <ruta-absoluta>` contiene la instantánea del perfil fijo
+y ambas preimágenes; la conexión se toma de
+`VEC_USUARIOS_EXTERNO_PROVISION_DATABASE_URL` y solo sirve para el publicador
+nominal AUT-17. Estas credenciales se conservan fuera del material del servidor
+y fuera de Git. Los fallos no muestran el DSN ni el documento privado.
+
+La autorización publica el rol y la asignación juntos en una transacción
+SERIALIZABLE. Si el COMMIT devuelve un error, el resultado queda sin confirmar:
+se comprueba el estado por la fuente nominal antes de preparar otro plan.
+Repetir un plan que ya se confirmó no sustituye las preimágenes ni crea una
+nueva versión automáticamente.
