@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 )
@@ -292,6 +293,7 @@ func (s *sesionDecisionCoberturaO404E) Confirmar(
 		contenido,
 	).Scan(&reciboJSON)
 	if err != nil {
+		s.carreraSerializable = postgresqlcomun.EsCarreraSerializable(err)
 		s.limpiar()
 		return cobertura.DatosReciboSesionTCBOperacionDecisionCobertura{}, err
 	}

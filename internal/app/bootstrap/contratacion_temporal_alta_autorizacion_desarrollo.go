@@ -315,7 +315,16 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	}
 	var instantanea dominiovec.InstantaneaAutorizacion
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
-	if s.soloConsumePublicada {
+	if s.perfilFijoParaRuta(capacidad.ruta) != nil {
+		// Perfil fijo: sin publicación. El registro V3 comprueba bajo bloqueo
+		// que la asignación de la decisión sigue siendo la vigente.
+		s.mu.Lock()
+		registroAnalisis = s.registroDecisionesAnalisis
+		s.mu.Unlock()
+		if registroAnalisis == nil {
+			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+		}
+	} else if s.soloConsumePublicada {
 		// Sin publicación: el registro V3 comprueba bajo bloqueo que la
 		// instantánea de la decisión sigue siendo la asignación vigente.
 		s.mu.Lock()
@@ -385,6 +394,15 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 	esperada, motivoValido := s.motivoAutorizacionParaContexto(ctx, capacidad.ruta)
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+	}
+	if s.perfilFijoParaRuta(capacidad.ruta) != nil {
+		s.mu.Lock()
+		registro := s.registroDecisionesAnalisis
+		s.mu.Unlock()
+		if registro == nil {
+			return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+		}
+		return registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
 	}
 	if s.soloConsumePublicada {
 		s.mu.Lock()

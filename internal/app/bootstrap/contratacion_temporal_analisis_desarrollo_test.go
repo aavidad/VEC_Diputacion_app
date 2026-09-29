@@ -371,6 +371,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 	instante := time.Now().UTC().Truncate(time.Microsecond)
 	catalogo := catalogoMotivosRectificacionAnalisisPrueba(t)
 	resolutor := resolutorPoliticaOperacionAnalisisDesarrollo{
+		fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT],
 		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
 				Catalogos: []vecdomain.CatalogoConfigurable{catalogo},
@@ -462,6 +463,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 		[]vecdomain.EntradaCatalogoConfigurable(nil), catalogo.Entradas...,
 	)
 	resolutorSustitucionProgramada := resolutorPoliticaOperacionAnalisisDesarrollo{
+		fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT],
 		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
 				Catalogos: []vecdomain.CatalogoConfigurable{catalogo, siguientePublicacion},
@@ -482,6 +484,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 		t.Fatal(err)
 	}
 	resolutorRetiradaProgramada := resolutorPoliticaOperacionAnalisisDesarrollo{
+		fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT],
 		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
 				Catalogos: []vecdomain.CatalogoConfigurable{retiradaProgramada},
@@ -500,6 +503,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 	)
 	catalogoOtraPublicacion.Entradas[0].Etiqueta = "Ajuste de coste revisado"
 	resolutorOtraPublicacion := resolutorPoliticaOperacionAnalisisDesarrollo{
+		fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT],
 		motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 			consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
 				Catalogos: []vecdomain.CatalogoConfigurable{catalogoOtraPublicacion},
@@ -542,7 +546,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 		},
 		{
 			nombre: "consulta truncada",
-			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT], motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 				consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{Truncado: true}},
 				catalogo.ID, catalogo.ModuloID,
 				relojFijoAltaContratacionTemporalDesarrollo{ahora: catalogo.PublicadoEn},
@@ -551,7 +555,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 		},
 		{
 			nombre: "entrada no vigente",
-			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT], motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 				consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
 					Catalogos: []vecdomain.CatalogoConfigurable{catalogoNoVigente},
 				}},
@@ -562,7 +566,7 @@ func TestPoliticaAnalisisDesarrolloResuelveRegistroYRectificacionGobernada(t *te
 		},
 		{
 			nombre: "i18n incongruente",
-			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
+			resolutor: resolutorPoliticaOperacionAnalisisDesarrollo{fase: fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT], motivos: nuevaFuenteMotivosRectificacionAnalisisDesarrollo(
 				consultaCatalogoRectificacionAnalisisPrueba{resultado: vecports.ResultadoConsultaCatalogosAcotada{
 					Catalogos: []vecdomain.CatalogoConfigurable{catalogoIncongruente},
 				}},

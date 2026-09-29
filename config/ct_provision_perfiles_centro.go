@@ -28,27 +28,57 @@ var (
 	huellaPreimagenProvisionPerfilesCentro      = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
+// EnvCTProvisionPerfilesRRHHAprobacion y EnvCTProvisionPerfilesRRHHPreimagenes
+// son el mismo par para los perfiles fijos de RRHH (alta directa, cobertura,
+// organización y lectores de consulta), que solo se consumen: la provisión
+// sustituye una asignación vigente exacta, aprobada por su huella, por la
+// plantilla del perfil. Nunca actúa sobre una revocada, restringida o retirada.
+const (
+	EnvCTProvisionPerfilesRRHHAprobacion  = "VEC_CT_PROVISION_PERFILES_RRHH_APROBACION"
+	EnvCTProvisionPerfilesRRHHPreimagenes = "VEC_CT_PROVISION_PERFILES_RRHH_PREIMAGENES"
+)
+
 // CTProvisionPerfilesCentroAprobacionRef devuelve la referencia de
 // aprobación solo en el perfil de desarrollo, si tiene forma válida y si hay
 // al menos una preimagen aprobada bien formada; en otro caso, vacía (el
 // arranque solo lee).
 func (c Config) CTProvisionPerfilesCentroAprobacionRef() string {
 	c = c.Normalize()
-	if !c.DevelopmentEnabledByDoubleKey() || !referenciaAprobacionProvisionPerfilesCentro.MatchString(c.CTAprobacionPerfilesCentro) ||
-		len(c.CTProvisionPerfilesCentroPreimagenes()) == 0 {
+	return aprobacionProvisionPerfiles(c, c.CTAprobacionPerfilesCentro, c.CTPreimagenesPerfilesCentro)
+}
+
+// CTProvisionPerfilesRRHHAprobacionRef y CTProvisionPerfilesRRHHPreimagenes
+// aplican a los perfiles fijos de RRHH las mismas reglas que al centro.
+func (c Config) CTProvisionPerfilesRRHHAprobacionRef() string {
+	c = c.Normalize()
+	return aprobacionProvisionPerfiles(c, c.CTAprobacionPerfilesRRHH, c.CTPreimagenesPerfilesRRHH)
+}
+
+func (c Config) CTProvisionPerfilesRRHHPreimagenes() map[string]bool {
+	c = c.Normalize()
+	return preimagenesProvisionPerfiles(c, c.CTPreimagenesPerfilesRRHH)
+}
+
+func aprobacionProvisionPerfiles(c Config, referencia, preimagenes string) string {
+	if !c.DevelopmentEnabledByDoubleKey() || !referenciaAprobacionProvisionPerfilesCentro.MatchString(referencia) ||
+		len(preimagenesProvisionPerfiles(c, preimagenes)) == 0 {
 		return ""
 	}
-	return c.CTAprobacionPerfilesCentro
+	return referencia
 }
 
 // CTProvisionPerfilesCentroPreimagenes devuelve las huellas aprobadas. Una
 // sola entrada mal formada invalida la lista entera.
 func (c Config) CTProvisionPerfilesCentroPreimagenes() map[string]bool {
 	c = c.Normalize()
-	if !c.DevelopmentEnabledByDoubleKey() || c.CTPreimagenesPerfilesCentro == "" {
+	return preimagenesProvisionPerfiles(c, c.CTPreimagenesPerfilesCentro)
+}
+
+func preimagenesProvisionPerfiles(c Config, lista string) map[string]bool {
+	if !c.DevelopmentEnabledByDoubleKey() || lista == "" {
 		return nil
 	}
-	partes := strings.Split(c.CTPreimagenesPerfilesCentro, ",")
+	partes := strings.Split(lista, ",")
 	if len(partes) > maximoPreimagenesProvisionPerfilesCentro {
 		return nil
 	}

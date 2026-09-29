@@ -65,7 +65,10 @@ func soporteRRHHPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *pgxpoo
 	if soporte.instantanea, err = nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
 		t.Fatal(err)
 	}
-	if soporte.instantaneaAnalisis, err = nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
+	if soporte.instantaneaAnalisis, err = nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT]); err != nil {
+		t.Fatal(err)
+	}
+	if soporte.instantaneaAsignacion, err = nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]); err != nil {
 		t.Fatal(err)
 	}
 	if soporte.instantaneaCobertura, err = nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
@@ -78,15 +81,18 @@ func soporteRRHHPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *pgxpoo
 	return soporte
 }
 
-// analisisDeExpedientePrueba es el rol de análisis con los ámbitos que la
-// composición le da por petición (organización, expediente, fase y estado).
-func analisisDeExpedientePrueba(s *soporteAltaContratacionTemporalDesarrollo, expediente string) vecdomain.InstantaneaAutorizacion {
-	i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAnalisis)
+// rolDeExpedientePrueba simula la publicación por petición que aún hacen las
+// rutas dinámicas: un rol con el expediente concreto en sus ámbitos, preparado
+// y publicado en el perfil dinámico (se toma el rol de la asignación solo como
+// forma; la asignación ya tiene perfil fijo).
+func rolDeExpedientePrueba(s *soporteAltaContratacionTemporalDesarrollo, expediente string) vecdomain.InstantaneaAutorizacion {
+	i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAsignacion)
 	i.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{
 		{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
 		{Clave: "expediente_ref", Valores: []string{expediente}},
-		{Clave: "fase_previa", Valores: []string{"solicitud"}},
+		{Clave: "fase_previa", Valores: []string{"asignacion_unidad"}},
 		{Clave: "estado_previo", Valores: []string{"en_curso"}},
+		{Clave: "unidad_destino_ref", Valores: []string{unidadCoberturaContratacionTemporalDesarrollo}},
 	}
 	return i
 }
@@ -174,7 +180,7 @@ func TestPerfilDinamicoRRHHArranqueSoloLeePostgreSQL(t *testing.T) {
 		t.Fatalf("la publicación inicial no quedó única y con el acto del circuito: %+v", h)
 	}
 	// Una ruta de análisis ajusta el perfil a su expediente (sigue siendo dinámica).
-	if err := peticionRRHHPrueba(ctx, s, analisisDeExpedientePrueba(s, "expediente:rrhh:uno")); err != nil {
+	if err := peticionRRHHPrueba(ctx, s, rolDeExpedientePrueba(s, "expediente:rrhh:uno")); err != nil {
 		t.Fatalf("la ruta de análisis no se sirve: %v", err)
 	}
 	tras := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil)
@@ -194,7 +200,7 @@ func TestPerfilDinamicoRRHHArranqueSoloLeePostgreSQL(t *testing.T) {
 		}
 	}
 	// Las demás rutas siguen alternando encima de lo operativo.
-	for _, i := range []vecdomain.InstantaneaAutorizacion{s.instantanea, s.instantaneaCobertura, analisisDeExpedientePrueba(s, "expediente:rrhh:dos")} {
+	for _, i := range []vecdomain.InstantaneaAutorizacion{s.instantanea, s.instantaneaCobertura, rolDeExpedientePrueba(s, "expediente:rrhh:dos")} {
 		if err := peticionRRHHPrueba(ctx, s, i); err != nil {
 			t.Fatalf("ruta %s: %v", i.VersionRol.RolID, err)
 		}
@@ -210,7 +216,7 @@ func TestPerfilDinamicoRRHHNoReactivaRevocadoRestringidoNiRetiradoPostgreSQL(t *
 			if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno, s); err != nil {
 				t.Fatal(err)
 			}
-			if err := peticionRRHHPrueba(ctx, s, analisisDeExpedientePrueba(s, "expediente:rrhh:previo")); err != nil {
+			if err := peticionRRHHPrueba(ctx, s, rolDeExpedientePrueba(s, "expediente:rrhh:previo")); err != nil {
 				t.Fatal(err)
 			}
 			// Un candidato preparado antes del cierre no puede usarse después.
@@ -236,7 +242,7 @@ func TestPerfilDinamicoRRHHNoReactivaRevocadoRestringidoNiRetiradoPostgreSQL(t *
 			comprobar := func(momento string) {
 				t.Helper()
 				for _, i := range []vecdomain.InstantaneaAutorizacion{s.instantanea, s.instantaneaCobertura,
-					analisisDeExpedientePrueba(s, "expediente:rrhh:previo"), analisisDeExpedientePrueba(s, "expediente:rrhh:otro")} {
+					rolDeExpedientePrueba(s, "expediente:rrhh:previo"), rolDeExpedientePrueba(s, "expediente:rrhh:otro")} {
 					if err := peticionRRHHPrueba(ctx, s, i); err == nil {
 						t.Fatalf("%s: la ruta %s reactivó el perfil %s", momento, i.VersionRol.RolID, caso)
 					}
@@ -292,7 +298,7 @@ func TestPerfilDinamicoRRHHConcurrenciaSinFallosNiReactivacionPostgreSQL(t *test
 	// 30 operaciones simultáneas de la misma ruta y expediente: ninguna falla
 	// y, como mucho, una versión nueva.
 	antes := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil)
-	if fallos := lanzar(30, analisisDeExpedientePrueba(s, "expediente:rrhh:concurrente")); fallos != 0 {
+	if fallos := lanzar(30, rolDeExpedientePrueba(s, "expediente:rrhh:concurrente")); fallos != 0 {
 		t.Fatalf("%d de 30 operaciones simultáneas fallaron", fallos)
 	}
 	if h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil); h.versiones != antes.versiones+1 {
@@ -301,7 +307,7 @@ func TestPerfilDinamicoRRHHConcurrenciaSinFallosNiReactivacionPostgreSQL(t *test
 	// Tras revocar, 30 simultáneas se deniegan todas y no escriben.
 	revocarPorOtroActoPrueba(t, ctx, s, gobierno, false)
 	cerrada := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil)
-	if fallos := lanzar(30, analisisDeExpedientePrueba(s, "expediente:rrhh:tras-revocar")); fallos != 30 {
+	if fallos := lanzar(30, rolDeExpedientePrueba(s, "expediente:rrhh:tras-revocar")); fallos != 30 {
 		t.Fatalf("%d de 30 operaciones pasaron sobre el perfil revocado", 30-fallos)
 	}
 	if h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil); h != cerrada {

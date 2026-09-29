@@ -288,6 +288,9 @@ type transaccionConfirmacionPrueba struct {
 	errorRetorno     error
 	cancelar         context.CancelFunc
 	llamadas         int
+	// carreras: intentos iniciales que la base revierte por una carrera de
+	// serialización tras el callback (40001 en COMMIT).
+	carreras int
 }
 
 type reconciliadorConfirmacionPrueba struct {

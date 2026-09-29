@@ -150,6 +150,11 @@ const (
 	// CTPrefijoViaCobertura agrupa las vías de cobertura: cada entrada es una
 	// vía con sus comprobaciones (duda 7). Sin ninguna rigen las de siempre.
 	CTPrefijoViaCobertura = "c17.via_cobertura."
+	// CTPrefijoFaseOperacion agrupa las fases en que RRHH puede hacer cada
+	// operación: la entrada «c23.fase_operacion.<operación>» es una lista de
+	// fases previas con el estado previo en el atributo «estado». Es lo que
+	// cubre el permiso fijo de esa operación (no un expediente concreto).
+	CTPrefijoFaseOperacion = "c23.fase_operacion."
 )
 
 // Atributos de las reglas de Contratación temporal.

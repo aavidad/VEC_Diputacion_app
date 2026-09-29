@@ -514,6 +514,83 @@
           "segunda_persona": "si"
         },
         "orden": 31
+      },
+      {
+        "clave": "c23.fase_operacion.analisis",
+        "etiqueta": "Fase en que RRHH analiza la solicitud",
+        "descripcion": "RRHH registra o rectifica el análisis de una solicitud mientras el expediente está en alguna de estas fases y en el estado indicado. Es lo que cubre el permiso de análisis de RRHH para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7.",
+          "unidad": "lista",
+          "valor": "solicitud",
+          "estado": "en_curso"
+        },
+        "orden": 32
+      },
+      {
+        "clave": "c23.fase_operacion.asignacion",
+        "etiqueta": "Fase en que RRHH asigna la unidad",
+        "descripcion": "RRHH asigna el expediente a una unidad mientras está en esta fase y en el estado indicado. Es lo que cubre el permiso de asignación de RRHH para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7.",
+          "unidad": "lista",
+          "valor": "asignacion_unidad",
+          "estado": "en_curso"
+        },
+        "orden": 33
+      },
+      {
+        "clave": "c23.fase_operacion.informe_juridico",
+        "etiqueta": "Fases en que RRHH emite el informe jurídico",
+        "descripcion": "RRHH emite el informe jurídico tras asignar la unidad (expediente en curso) y emite uno nuevo tras subsanar un reparo de Intervención (expediente con incidencia). Es lo que cubre el permiso del informe para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 7.",
+          "unidad": "lista",
+          "valor": "asignacion_unidad,subsanacion_unidad",
+          "estado": "en_curso",
+          "estado_subsanacion_unidad": "incidencia"
+        },
+        "orden": 34
+      },
+      {
+        "clave": "c23.fase_operacion.fiscalizacion",
+        "etiqueta": "Fases en que Intervención fiscaliza",
+        "descripcion": "Intervención fiscaliza el expediente tras el informe jurídico (en curso), de nuevo tras la subsanación de un reparo (con incidencia) y tras una modificación posterior al nombramiento (en fiscalización, en curso). Es lo que cubre el permiso de Intervención para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 5.",
+          "unidad": "lista",
+          "valor": "informe_juridico,subsanacion_unidad,fiscalizacion",
+          "estado": "en_curso",
+          "estado_subsanacion_unidad": "incidencia"
+        },
+        "orden": 35
+      },
+      {
+        "clave": "c23.fase_operacion.subsanacion",
+        "etiqueta": "Fase en que RRHH subsana un reparo",
+        "descripcion": "RRHH registra la subsanación de un reparo de Intervención mientras el expediente está en subsanación de unidad, con incidencia. Es lo que cubre el permiso de subsanación de RRHH para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 5.",
+          "unidad": "lista",
+          "valor": "subsanacion_unidad",
+          "estado": "incidencia"
+        },
+        "orden": 36
       }
     ],
     "estado": "publicado",
