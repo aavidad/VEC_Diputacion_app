@@ -244,7 +244,10 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	if portal == separacionportales.PortalExterno {
-		return nil, nil, ErrComposicionPortalExternoPendiente
+		// El proceso externo tiene su propia composición: no pasa por la
+		// seguridad ni por las conexiones de RRHH.
+		servidor, err := nuevoServidorPortalExternoDesarrollo(cfg, registro)
+		return servidor, nil, err
 	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {

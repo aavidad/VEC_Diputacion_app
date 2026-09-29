@@ -85,28 +85,6 @@ func TestProcesoExternoNoArrancaConConexionInterna(t *testing.T) {
 	}
 }
 
-func TestProcesoExternoConMaterialPropioQuedaPendienteDeComposicion(t *testing.T) {
-	vaciarConexionesDelEntorno(t)
-	if directorio := directorioPersonalPostgreSQL(); directorio != "" {
-		for _, relativa := range []string{".pgpass", ".pg_service.conf", ".postgresql/postgresql.key"} {
-			if _, err := os.Lstat(filepath.Join(directorio, relativa)); err == nil {
-				t.Skip("el usuario de la prueba tiene credenciales de PostgreSQL en su directorio personal")
-			}
-		}
-	}
-	cfg, _ := generarMaterialDesarrolloPrueba(t)
-	separarMaterial(t, cfg.DevelopmentMaterialDir, separacionportales.PortalExterno)
-	for _, relativa := range []string{"identidad/identidad.json", "identidad/intervencion.json", "mtls/cliente.crt", "mtls/intervencion.crt"} {
-		if err := os.Remove(filepath.Join(cfg.DevelopmentMaterialDir, filepath.FromSlash(relativa))); err != nil {
-			t.Fatal(err)
-		}
-	}
-	cfg.PortalProceso = "externo"
-	if _, err := NewHTTPServerWithConfig(cfg); !errors.Is(err, ErrComposicionPortalExternoPendiente) {
-		t.Fatalf("el externo con material propio debe pararse en la composicion pendiente: %v", err)
-	}
-}
-
 func TestProcesoInternoNoArrancaConConexionOMaterialExternos(t *testing.T) {
 	vaciarConexionesDelEntorno(t)
 	cfg, _ := generarMaterialDesarrolloPrueba(t)

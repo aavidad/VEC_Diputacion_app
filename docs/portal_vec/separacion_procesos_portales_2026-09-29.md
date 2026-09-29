@@ -133,14 +133,22 @@ Hecho (sin cambiar nada si `VEC_PORTAL_PROCESO` no se configura):
    ninguna tarea (importar CONVOCA, constituir bolsa…), solo el servidor.
 5. El proceso interno ya puede arrancar solo: pasa la separación y sigue la
    composición de siempre.
+6. El proceso externo arranca con su propia composición (primer corte): mTLS
+   con la identidad de la persona candidata como única identidad, consulta
+   pública de convocatorias y categorías, y los ficheros del Área personal.
+   No carga identidad de RRHH, clave maestra ni conexiones. Sin persona
+   candidata en su material no arranca.
 
 Pendiente, en este orden:
 
-1. Composición propia del proceso externo (Área personal, «Mi bolsa», portal
-   del candidato y consulta pública) sin la identidad de RRHH ni las
-   conexiones de Contratación temporal. Hoy el modo `externo` pasa las
-   comprobaciones y se detiene con un error claro
-   (`ErrComposicionPortalExternoPendiente`).
+1. Capacidades personales en el proceso externo, en este orden: preferencias,
+   correos e imagen de la superficie externa; «Mi bolsa» y el portal del
+   candidato; y la lista pública de bolsas desde la proyección pública
+   (esquema `bolsa_publica`, aún no instalado en la principal). El gobierno
+   de autorización de esas capacidades (publicar audiencias, perfil y
+   motivos) lo hace el lado interno con un paso de preparación; el proceso
+   externo solo recibe claves derivadas para sus audiencias y usuarios de
+   PostgreSQL propios, nunca el rol de gobierno ni la clave maestra.
 2. Usuarios de PostgreSQL propios del externo para lo que hoy comparte con
    RRHH: identidad, contexto de actor y autorización del candidato, y lectura
    de «Mi bolsa». Es SQL: revisión SQL y ensayo en el clon.

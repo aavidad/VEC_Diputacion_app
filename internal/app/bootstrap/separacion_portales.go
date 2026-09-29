@@ -13,11 +13,6 @@ var (
 	// ErrPortalSeparadoFueraDesarrollo: la separación de procesos solo se
 	// admite en la composición que hoy arranca (doble llave de desarrollo).
 	ErrPortalSeparadoFueraDesarrollo = errors.New("bootstrap: la separacion de portales solo se admite en la composicion de desarrollo")
-	// ErrComposicionPortalExternoPendiente: el proceso externo ya tiene sus
-	// comprobaciones, pero su composición propia (Área personal sin el
-	// material de RRHH) es la siguiente minitarea. Hasta entonces no arranca
-	// en lugar de componer rutas internas.
-	ErrComposicionPortalExternoPendiente = errors.New("bootstrap: la composicion propia del portal externo aun no existe")
 )
 
 // portalProcesoConfigurado interpreta VEC_PORTAL_PROCESO sin tocar nada más.
