@@ -9,13 +9,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
-	funcionConfirmarAsignacion        = "vec_contratacion_temporal.confirmar_asignacion_v1"
-	maximoIntentosConfirmarAsignacion = 3
+	funcionConfirmarAsignacion = "vec_contratacion_temporal.confirmar_asignacion_v1"
+	// Una carrera de serialización (40001/40P01) revierte la transacción
+	// sin efectos: se repite con la política común de VEC.
+	maximoIntentosConfirmarAsignacion = postgresqlcomun.IntentosMaximosCarreraSerializable
 	// La clave VEC-AD-3 publicada pertenece al consumidor transaccional de CT.
 	// El nombre histórico conserva "alta", pero el efecto y la operación quedan
 	// ligados de forma independiente por la capacidad y por esta transacción.
@@ -103,7 +107,11 @@ func (t *TransaccionAsignacionesPostgreSQL) ConfirmarAsignacion(
 		if ctx.Err() != nil {
 			return ports.ReciboAsignacion{}, ctx.Err()
 		}
-		if !errorPostgreSQLReintentable(causa) || intento == maximoIntentosConfirmarAsignacion {
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.ReciboAsignacion{}, domain.ErrVersionEnConflicto
+		}
+		if !errorPostgreSQLReintentable(causa) || intento == maximoIntentosConfirmarAsignacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.ReciboAsignacion{}, normalizarErrorConfirmacionAsignacion(ctx, causa)
 		}
 	}

@@ -13,13 +13,16 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
-	funcionConfirmarInformeJuridico        = "vec_contratacion_temporal.confirmar_informe_juridico_v1"
-	maximoIntentosConfirmarInformeJuridico = 3
+	funcionConfirmarInformeJuridico = "vec_contratacion_temporal.confirmar_informe_juridico_v1"
+	// Una carrera de serialización (40001/40P01) revierte la transacción
+	// sin efectos: se repite con la política común de VEC.
+	maximoIntentosConfirmarInformeJuridico = postgresqlcomun.IntentosMaximosCarreraSerializable
 	// funcionConfirmarInformeJuridicoTrasSubsanacion (CT123) confirma el
 	// informe nuevo tras subsanar: mismo material, mismo consumidor AD3-9.
 	funcionConfirmarInformeJuridicoTrasSubsanacion = "vec_contratacion_temporal.confirmar_informe_juridico_tras_subsanacion_v1"
@@ -118,8 +121,12 @@ func (t *TransaccionInformesJuridicosPostgreSQL) ConfirmarInformeJuridico(
 		if ctx.Err() != nil {
 			return ports.ReciboInformeJuridico{}, ctx.Err()
 		}
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.ReciboInformeJuridico{}, domain.ErrVersionEnConflicto
+		}
 		if !errorPostgreSQLReintentable(causa) ||
-			intento == maximoIntentosConfirmarInformeJuridico {
+			intento == maximoIntentosConfirmarInformeJuridico ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.ReciboInformeJuridico{},
 				normalizarErrorConfirmacionInformeJuridico(ctx, causa)
 		}
@@ -348,9 +355,8 @@ func validarAutorizacionInformeJuridico(
 		recurso.Referencia != material.ExpedienteRef ||
 		recurso.ModuloID != ports.ModuloContratacion ||
 		recurso.Tipo != ports.TipoRecursoInformeJuridico ||
-		len(recurso.Ambitos) != 4 || len(recurso.Atributos) != 10 ||
+		len(recurso.Ambitos) != 3 || len(recurso.Atributos) != 10 ||
 		recurso.Ambitos["organizacion_ref"] != material.OrganizacionRef ||
-		recurso.Ambitos["expediente_ref"] != material.ExpedienteRef ||
 		recurso.Ambitos["fase_previa"] != string(orden.Preparacion.Expediente.FaseActual) ||
 		recurso.Ambitos["estado_previo"] != string(orden.Preparacion.Expediente.EstadoActual) ||
 		recurso.Atributos["version_expediente"] != strconv.FormatUint(material.VersionExpediente, 10) ||
