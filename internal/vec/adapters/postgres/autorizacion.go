@@ -29,7 +29,8 @@ import (
 // debe crear una instancia y un pool distintos para fuente y registro; ninguna
 // identidad de ejecucion hereda ambos grupos.
 type AlmacenAutorizacion struct {
-	pool iniciadorTransacciones
+	pool    iniciadorTransacciones
+	externo bool
 }
 
 type iniciadorTransacciones interface {
@@ -41,6 +42,17 @@ type iniciadorTransacciones interface {
 // el pool con su gestor de secretos y conserva su ciclo de vida.
 func NuevoAlmacenAutorizacion(pool *pgxpool.Pool) (*AlmacenAutorizacion, error) {
 	return nuevoAlmacenAutorizacion(pool)
+}
+
+// NuevoAlmacenAutorizacionExterna usa las fachadas nominales del candidato.
+// El pool debe autenticarse con el login propio de fuente o registro.
+func NuevoAlmacenAutorizacionExterna(pool *pgxpool.Pool) (*AlmacenAutorizacion, error) {
+	a, err := nuevoAlmacenAutorizacion(pool)
+	if err != nil {
+		return nil, err
+	}
+	a.externo = true
+	return a, nil
 }
 
 func nuevoAlmacenAutorizacion(pool iniciadorTransacciones) (*AlmacenAutorizacion, error) {
@@ -67,9 +79,13 @@ func (a *AlmacenAutorizacion) ObtenerInstantaneaAutorizacion(
 		return domain.InstantaneaAutorizacion{}, ports.ErrAsignacionPerfilNoEncontrada
 	}
 
-	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
-	})
+	opciones := pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
+	if a.externo {
+		// ContextoActor comprueba la provisión positiva bajo la misma barrera
+		// SERIALIZABLE de escritura que usa el registro V3.
+		opciones = pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite}
+	}
+	tx, err := a.pool.BeginTx(ctx, opciones)
 	if err != nil {
 		return domain.InstantaneaAutorizacion{}, errorFuenteAutorizacion(ctx)
 	}
@@ -80,10 +96,16 @@ func (a *AlmacenAutorizacion) ObtenerInstantaneaAutorizacion(
 
 	var documentoAsignacion, documentoRol, documentoControl, documentosPoliticas []byte
 	var revisionCatalogoTexto, huellaCatalogo string
-	err = tx.QueryRow(ctx, `
+	consulta := `
 		SELECT documento_asignacion, documento_rol, documento_control_rol,
 		       revision_catalogo, huella_catalogo, documentos_politicas
-		FROM vec_autorizacion.obtener_instantanea($1, $2)`,
+		FROM vec_autorizacion.obtener_instantanea($1, $2)`
+	if a.externo {
+		consulta = `SELECT documento_asignacion, documento_rol, documento_control_rol,
+		       revision_catalogo, huella_catalogo, documentos_politicas
+		FROM vec_autorizacion.obtener_instantanea_candidato_externo_v1($1, $2)`
+	}
+	err = tx.QueryRow(ctx, consulta,
 		principalID, perfilActivoRef,
 	).Scan(
 		&documentoAsignacion, &documentoRol, &documentoControl,
