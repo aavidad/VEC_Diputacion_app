@@ -76,6 +76,27 @@ class ContratoCapturas(unittest.TestCase):
             {"accion": "rellenar", "selector": "#asunto", "valor": "Ejemplo sintético"},
             {"accion": "seleccionar", "selector": "#tipo", "valor": "temporal"}]
         self.assertEqual(capturador.validar_escenario(escenario), escenario)
+        escenario["pantallas"][0]["ruta"] = "/portal-empleado/?vista=rrhh"
+        escenario["pantallas"][0]["ruta_final"] = (
+            "/portal-empleado/?vista=rrhh#contratacion-temporal")
+        self.assertEqual(capturador.validar_escenario(escenario), escenario)
+        self.assertTrue(capturador._vista_final_valida(
+            "http://127.0.0.1:8000/portal-empleado/?vista=rrhh#contratacion-temporal",
+            "http://127.0.0.1:8000", escenario["pantallas"][0]["ruta_final"]))
+        self.assertFalse(capturador._vista_final_valida(
+            "http://127.0.0.1:8000/portal-empleado/?vista=rrhh#otra",
+            "http://127.0.0.1:8000", escenario["pantallas"][0]["ruta_final"]))
+        self.assertFalse(capturador._vista_final_valida(
+            "http://127.0.0.1:8000/portal-empleado/?vista=otra#contratacion-temporal",
+            "http://127.0.0.1:8000", escenario["pantallas"][0]["ruta_final"]))
+        for ruta in ("/portal-empleado/?token=secreto", "/portal-empleado/?vista=",
+                     "/portal-empleado/?vista=rrhh&vista=otra",
+                     "/portal-empleado/?vista=rrhh#A", "/portal-empleado/?",
+                     "/portal-empleado/#"):
+            copia = json.loads(json.dumps(escenario))
+            copia["pantallas"][0]["ruta_final"] = ruta
+            with self.subTest(ruta=ruta), self.assertRaises(ValueError):
+                capturador.validar_escenario(copia)
 
     def test_ensayo_captura_dos_tamanos_y_manifiesto_sin_url(self):
         with tempfile.TemporaryDirectory() as temporal:
@@ -149,7 +170,8 @@ class ContratoCapturas(unittest.TestCase):
                 visitas.append(self.path)
                 self.send_response(200)
                 if self.path.startswith("/app.js"):
-                    contenido = b'document.querySelector("main").innerHTML = "<h1 id=exito>Listo</h1>";'
+                    contenido = (b'document.querySelector("main").innerHTML = "<h1 id=exito>Listo</h1>";'
+                                 b'location.hash = "contratacion-temporal";')
                     self.send_header("Content-Type", "text/javascript")
                 else:
                     contenido = b'<main></main><script src="/app.js?v=1"></script>'
@@ -164,7 +186,8 @@ class ContratoCapturas(unittest.TestCase):
         servidor = ThreadingHTTPServer(("127.0.0.1", 0), PaginaVersionada)
         hilo = Thread(target=servidor.serve_forever, daemon=True)
         hilo.start()
-        escenario = {"pantallas": [{"clave": "versionada", "ruta": "/", "pasos": [],
+        escenario = {"pantallas": [{"clave": "versionada", "ruta": "/?vista=rrhh",
+                                     "ruta_final": "/?vista=rrhh#contratacion-temporal", "pasos": [],
                                      "exito": "#exito", "marcas": [
                                          {"numero": 1, "selector": "#exito",
                                           "texto": "Estado final", "tipo": "recuadro"}], "ocultar": []}]}
@@ -173,6 +196,7 @@ class ContratoCapturas(unittest.TestCase):
                 capturador.capturar(f"http://127.0.0.1:{servidor.server_port}", escenario,
                                    Path(temporal), confirmar_sinteticos=True)
             self.assertEqual(visitas.count("/app.js?v=1"), 2)
+            self.assertEqual(visitas.count("/?vista=rrhh"), 2)
         finally:
             servidor.shutdown()
             servidor.server_close()
@@ -200,6 +224,34 @@ class ContratoCapturas(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as temporal:
                 with self.assertRaisesRegex(ValueError, "no visible"):
+                    capturador.capturar(f"http://127.0.0.1:{servidor.server_port}", escenario,
+                                       Path(temporal), confirmar_sinteticos=True)
+        finally:
+            servidor.shutdown()
+            servidor.server_close()
+            hilo.join(timeout=2)
+
+    def test_rechaza_marca_sobre_campo_que_se_enmascara(self):
+        class PaginaConCampo(BaseHTTPRequestHandler):
+            def do_GET(self):
+                html = b'<main><input id="campo" value="dato sintetico"></main>'
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(html)
+
+            def log_message(self, *_args):
+                pass
+
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), PaginaConCampo)
+        hilo = Thread(target=servidor.serve_forever, daemon=True)
+        hilo.start()
+        escenario = {"pantallas": [{"clave": "campo", "ruta": "/", "pasos": [],
+                                     "marcas": [{"numero": 1, "selector": "#campo",
+                                                 "texto": "Campo", "tipo": "recuadro"}], "ocultar": []}]}
+        try:
+            with tempfile.TemporaryDirectory() as temporal:
+                with self.assertRaisesRegex(ValueError, "marca intersecta"):
                     capturador.capturar(f"http://127.0.0.1:{servidor.server_port}", escenario,
                                        Path(temporal), confirmar_sinteticos=True)
         finally:

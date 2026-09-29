@@ -7,11 +7,12 @@
 Desde la raíz del repositorio:
 
 ```bash
-python3 scripts/manuales/capturar_y_anotar.py --ensayo --salida /tmp/vec-capturas-ensayo
+SALIDA_ENSAYO=$(mktemp -d /dev/shm/vec-capturas-ensayo-XXXXXX)
+python3 scripts/manuales/capturar_y_anotar.py --ensayo --salida "$SALIDA_ENSAYO"
 python3 -m unittest scripts/tests/test_manual_capturas.py
 ```
 
-El ensayo levanta una página local mínima y genera dos PNG. Lleva la etiqueta `ensayo-sintetico`: sus imágenes no son capturas de VEC y no deben incluirse en un manual. Necesita Python Playwright, Pillow y `/usr/bin/google-chrome`.
+El ensayo levanta una página local mínima y genera dos PNG. Lleva la etiqueta `ensayo-sintetico`: sus imágenes no son capturas de VEC y no deben incluirse en un manual. Los tests eliminan su directorio temporal; el directorio creado en `SALIDA_ENSAYO` queda para inspección y puede retirarlo después. Necesita Python Playwright, Pillow y `/usr/bin/google-chrome`.
 
 ## Capturar un recorrido local
 
@@ -43,15 +44,16 @@ Ejemplo de `escenario.json`:
 ```
 
 ```bash
+SALIDA_MANUAL=$(mktemp -d /dev/shm/vec-capturas-manual-XXXXXX)
 python3 scripts/manuales/capturar_y_anotar.py \
   --base-url http://127.0.0.1:8081 \
   --escenario escenario.json \
-  --salida /tmp/vec-capturas-manual \
+  --salida "$SALIDA_MANUAL" \
   --datos-sinteticos-confirmados
 ```
 
-`ruta` debe empezar por `/` y no admite parámetros. Si el recorrido cambia de ruta, declare `ruta_final` con la ruta exacta esperada. `exito` señala un elemento propio del estado final; úselo cuando una consulta AJAX actualice la vista. El guion comprueba que la URL final coincida con la ruta prevista y que `exito`, si se declara, esté visible. Los pasos admiten `clic`, `esperar`, `rellenar` y `seleccionar`; los dos últimos requieren `valor` sintético. `seleccionar` usa el valor de una opción HTML. Los selectores son de Playwright. Cada marca admite `recuadro` o `flecha`. Los mismos pasos y selectores se ejecutan en **ambos tamaños**; los elementos marcados deben quedar visibles y destapados en los dos.
+`ruta` y `ruta_final` deben empezar por `/`. Admiten solo los parámetros `vista`, `presentacion` y `perfil`, con valores breves de tipo slug, y un fragmento slug como `#contratacion-temporal`. No admiten claves de credenciales, parámetros duplicados ni consultas vacías. Si el recorrido cambia de URL, declare `ruta_final` con la ruta y los parámetros exactos que espera tras la acción. `exito` señala un elemento propio del estado final; úselo cuando una consulta AJAX actualice la vista. El guion compara ruta, consulta y fragmento y exige que `exito`, si se declara, esté visible. Los pasos admiten `clic`, `esperar`, `rellenar` y `seleccionar`; los dos últimos requieren `valor` sintético. `seleccionar` usa el valor de una opción HTML. Los selectores son de Playwright. Cada marca admite `recuadro` o `flecha`. Los mismos pasos y selectores se ejecutan en **ambos tamaños**; los elementos marcados deben quedar visibles, destapados y fuera de las zonas enmascaradas.
 
 Si el servidor local exige certificado de cliente, añada `--mtls-certificado /ruta/externa/cliente.crt --mtls-clave /ruta/externa/cliente.key`. Los archivos deben estar fuera de todos los worktrees Git. Si la clave tiene frase, expóngala en una variable del proceso y pase solo su nombre mediante `--mtls-frase-env NOMBRE_VARIABLE`. El guion no copia esos archivos ni guarda sus rutas o la frase en el manifiesto. Los recursos internos con `?v=` se cargan sin registrar sus parámetros.
 
-La navegación se limita al mismo origen de loopback. El guion corta las redirecciones HTTP y los WebSocket. Chrome usa un contexto nuevo por captura, sin perfil ni almacenamiento persistente. La salida debe estar fuera de todos los worktrees Git, en un directorio vacío y privado (0700); los PNG y el manifiesto se crean con permiso 0600. Un clic o un formulario pueden activar una escritura: use una instancia sintética y configure solo las acciones necesarias para el recorrido. Compruebe en la aplicación el resultado real de cada paso antes de describirlo en el manual; una captura por sí sola no acredita una operación ni su persistencia.
+Las solicitudes HTTP(S) se limitan al mismo origen de loopback; el guion corta las redirecciones HTTP y los WebSocket. Esta barrera de Playwright no aísla WebRTC: para páginas que no sean de confianza hace falta aislamiento de red del sistema operativo. Chrome usa un contexto nuevo por captura, sin perfil ni almacenamiento persistente. La salida debe estar fuera de todos los worktrees Git, en un directorio vacío y privado (0700); los PNG y el manifiesto se crean con permiso 0600. Un clic o un formulario pueden activar una escritura: use una instancia sintética y configure solo las acciones necesarias para el recorrido. Compruebe en la aplicación el resultado real de cada paso antes de describirlo en el manual; una captura por sí sola no acredita una operación ni su persistencia.

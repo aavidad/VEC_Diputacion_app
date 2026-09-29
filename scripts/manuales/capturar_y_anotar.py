@@ -25,6 +25,7 @@ CHROME = Path("/usr/bin/google-chrome")
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[2]
 TAMANOS = (("escritorio", 1440, 900), ("movil", 390, 844))
 CLAVE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+PARAMETROS_RUTA = frozenset({"vista", "presentacion", "perfil"})
 SENSIBLE = re.compile(
     r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b|"
     r"\b\d{8}[A-Za-z]\b|"
@@ -77,15 +78,9 @@ def validar_escenario(datos: object) -> dict:
         if not isinstance(clave, str) or not CLAVE.fullmatch(clave) or clave in claves:
             raise ValueError("clave de pantalla inválida o repetida")
         claves.add(clave)
-        if (not isinstance(ruta, str) or not ruta.startswith("/") or
-                ruta.startswith("//") or "?" in ruta or "#" in ruta or "\\" in ruta or
-                SENSIBLE.search(ruta)):
-            raise ValueError("la ruta debe ser relativa, sin parámetros ni datos sensibles")
+        _validar_ruta_escenario(ruta)
         ruta_final = pantalla.get("ruta_final", ruta)
-        if (not isinstance(ruta_final, str) or not ruta_final.startswith("/") or
-                ruta_final.startswith("//") or "?" in ruta_final or "#" in ruta_final or
-                "\\" in ruta_final or SENSIBLE.search(ruta_final)):
-            raise ValueError("ruta_final debe ser relativa y sin parámetros")
+        _validar_ruta_escenario(ruta_final)
         if "exito" in pantalla:
             _validar_selector(pantalla["exito"])
         if not isinstance(pantalla["pasos"], list):
@@ -124,6 +119,34 @@ def validar_escenario(datos: object) -> dict:
             if not isinstance(texto, str) or not texto.strip() or len(texto) > 180 or SENSIBLE.search(texto):
                 raise ValueError("texto de marca vacío, extenso o sensible")
     return datos
+
+
+def _validar_ruta_escenario(valor: object) -> None:
+    if (not isinstance(valor, str) or not valor.startswith("/") or
+            valor.startswith("//") or "\\" in valor or
+            any(c.isspace() for c in valor) or SENSIBLE.search(valor)):
+        raise ValueError("ruta relativa inválida")
+    ruta = urlsplit(valor)
+    if ruta.scheme or ruta.netloc or not ruta.path.startswith("/"):
+        raise ValueError("ruta fuera del origen local")
+    if "?" in valor and not ruta.query:
+        raise ValueError("consulta vacía en la ruta")
+    if "#" in valor and not ruta.fragment:
+        raise ValueError("fragmento vacío en la ruta")
+    if ruta.query:
+        if "%" in ruta.query:
+            raise ValueError("la consulta no admite codificación ambigua")
+        try:
+            parametros = parse_qsl(ruta.query, keep_blank_values=True, strict_parsing=True)
+        except ValueError as exc:
+            raise ValueError("consulta inválida en la ruta") from exc
+        nombres = [nombre for nombre, _ in parametros]
+        if (len(nombres) != len(set(nombres)) or
+                any(nombre not in PARAMETROS_RUTA or not CLAVE.fullmatch(valor_parametro)
+                    or len(valor_parametro) > 32 for nombre, valor_parametro in parametros)):
+            raise ValueError("la consulta contiene parámetros no admitidos")
+    if ruta.fragment and (not CLAVE.fullmatch(ruta.fragment) or len(ruta.fragment) > 64):
+        raise ValueError("el fragmento debe ser un slug")
 
 
 def _validar_selector(valor: object) -> None:
@@ -200,9 +223,12 @@ def _vista_final_valida(url: str, base_url: str, ruta_esperada: str) -> bool:
     try:
         destino = urlsplit(url)
         origen = urlsplit(base_url)
+        esperado = urlsplit(ruta_esperada)
         return (destino.scheme, destino.hostname, destino.port) == (
-            origen.scheme, origen.hostname, origen.port) and (
-            destino.path == ruta_esperada and not destino.query and not destino.fragment)
+            origen.scheme, origen.hostname, origen.port) and not (
+            destino.username or destino.password) and (
+            destino.path, destino.query, destino.fragment) == (
+            esperado.path, esperado.query, esperado.fragment)
     except ValueError:
         return False
 
@@ -215,6 +241,23 @@ def _marca_destapada(pagina, selector: str) -> bool:
       const superior = document.elementFromPoint(x, y);
       return Boolean(superior && (elemento === superior || elemento.contains(superior)));
     }"""))
+
+
+def _cajas_intersecan(primera: dict, segunda: dict) -> bool:
+    return (primera["x"] < segunda["x"] + segunda["width"] and
+            segunda["x"] < primera["x"] + primera["width"] and
+            primera["y"] < segunda["y"] + segunda["height"] and
+            segunda["y"] < primera["y"] + primera["height"])
+
+
+def _comprobar_marcas_sin_mascara(pagina, cajas: list[dict], ocultar: list[str]) -> None:
+    for selector in (OCULTAR_BASE, *ocultar):
+        for elemento in pagina.locator(selector).all():
+            if not elemento.is_visible():
+                continue
+            caja_mascara = elemento.bounding_box()
+            if caja_mascara and any(_cajas_intersecan(caja, caja_mascara) for caja in cajas):
+                raise ValueError("una marca intersecta una zona que se ocultará en la captura")
 
 
 def _anotar(png: bytes, marcas: list[dict], cajas: list[dict]) -> bytes:
@@ -313,6 +356,7 @@ def capturar(base_url: str, escenario: dict, salida: Path, *, ensayo: bool = Fal
                                     pagina, marca["selector"]):
                                 raise ValueError(f"selector de marca no visible: {marca['numero']}")
                             cajas.append(caja)
+                        _comprobar_marcas_sin_mascara(pagina, cajas, pantalla["ocultar"])
                         png = pagina.screenshot(full_page=False, animations="disabled",
                                                 mask=mascaras, mask_color="#273746")
                         anotado = _anotar(png, pantalla["marcas"], cajas)
