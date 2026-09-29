@@ -1,12 +1,12 @@
 import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-pref-508a-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { crearClientePreferencias } from "./cliente-http.js?v=20260929-pref-508a-v1";
+import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20260929-pref-508a-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
 
 const clientePreferencias = crearClientePreferencias();
 let preferencias = null;
 let errorPreferencias = null;
-try { preferencias = await clientePreferencias.cargar(); }
+try { preferencias = await cargarPreferenciasIniciales(clientePreferencias); }
 catch (error) { errorPreferencias = error; }
 await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, preferencias?.estado.valores.idioma);
 const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVisuales === "function"

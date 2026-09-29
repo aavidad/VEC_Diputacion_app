@@ -143,6 +143,23 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
   });
 }
 
+// El arranque del área personal continúa aunque esta consulta no responda.
+export async function cargarPreferenciasIniciales(cliente, { tiempoMaximoMs = 8000 } = {}) {
+  const controlador = new AbortController();
+  let temporizador;
+  const limite = new Promise((_, rechazar) => {
+    temporizador = setTimeout(() => {
+      controlador.abort();
+      rechazar(new ErrorPreferencias("servicio"));
+    }, tiempoMaximoMs);
+  });
+  try {
+    return await Promise.race([cliente.cargar({ signal: controlador.signal }), limite]);
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
 export class ErrorOperacionContacto extends Error {
   constructor(codigo, estado = 0, operacionRef = "") {
     super(codigo);

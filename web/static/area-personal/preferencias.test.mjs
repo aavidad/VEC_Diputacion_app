@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { crearClientePreferencias, ErrorPreferencias, RUTA_MIS_PREFERENCIAS } from "./cliente-http.js";
+import { cargarPreferenciasIniciales, crearClientePreferencias, ErrorPreferencias, RUTA_MIS_PREFERENCIAS } from "./cliente-http.js";
 import { crearOperacionPreferencias, renderizarPreferencias } from "./preferencias.js";
 import { idiomaAreaPersonal, iniciarI18nAreaPersonal } from "./i18n.js";
 import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
@@ -12,6 +12,17 @@ const valores = Object.freeze({ idioma: "en", tamano_texto: "grande", alto_contr
 test("el área personal usa su ruta exacta exterior, separada de RRHH", () => {
   assert.equal(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/area-personal/mis-preferencias");
   assert.notEqual(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/mis-preferencias");
+});
+
+test("el arranque continúa con error de servicio si preferencias no responde", async () => {
+  let peticionAbortada = false;
+  const cliente = crearClientePreferencias({ fetchImpl: async (_ruta, opciones) => {
+    opciones.signal.addEventListener("abort", () => { peticionAbortada = true; });
+    return new Promise(() => {});
+  } });
+  await assert.rejects(cargarPreferenciasIniciales(cliente, { tiempoMaximoMs: 10 }),
+    (error) => error instanceof ErrorPreferencias && error.codigo === "servicio");
+  assert.equal(peticionAbortada, true);
 });
 const catalogo = Object.freeze({ version_ref: "usuarios-preferencias-v1",
   idiomas: ["navegador", "es", "en"].map((codigo) => ({ codigo, nombre_key: codigo })),
