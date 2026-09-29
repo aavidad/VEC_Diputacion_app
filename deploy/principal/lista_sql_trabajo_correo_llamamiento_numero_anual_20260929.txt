@@ -1,0 +1,3 @@
+# Número visible vigente en el correo de llamamiento. Preimagen: CT95 y CT142 instaladas.
+# Requiere antes lista_sql_trabajo_ct_numerar_legado_20260929.txt (CT142) si aún no está instalada.
+deploy/postgresql/contratacion_temporal/migraciones/000143_numero_visible_aviso_llamamiento.up.sql
