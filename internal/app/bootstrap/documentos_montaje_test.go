@@ -55,7 +55,7 @@ func manifiestoIncluido(manifiestos []core.ModuleManifest, id string) bool {
 
 func TestDocumentosApagadoPorDefectoNoCambiaNada(t *testing.T) {
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
-	a, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, io.Discard)
+	a, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, io.Discard, nil)
 	if err != nil || a != nil {
 		t.Fatal("con el selector apagado no debe componerse nada", err)
 	}
@@ -75,7 +75,7 @@ func TestDocumentosApagadoPorDefectoNoCambiaNada(t *testing.T) {
 func TestDocumentosActivadoFallaCerradoSinMaterial(t *testing.T) {
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
 	cfg.DocumentosEnabled = "si"
-	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, io.Discard); !errors.Is(err, config.ErrConfiguracionDocumentosSelector) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, io.Discard, nil); !errors.Is(err, config.ErrConfiguracionDocumentosSelector) {
 		t.Fatal("selector no canónico aceptado", err)
 	}
 	cfg.DocumentosEnabled = "true"
@@ -83,11 +83,11 @@ func TestDocumentosActivadoFallaCerradoSinMaterial(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, nil, io.Discard); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, nil, io.Discard, composicion.seudonimosAlmacen); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
 		t.Fatal("arranca sin material V3 de Documentos", err)
 	}
 	proveedor := &proveedorMaterialAltaContratacionTemporalDesarrollo{}
-	if _, err := nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, proveedor, io.Discard); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, proveedor, io.Discard, composicion.seudonimosAlmacen); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
 		t.Fatal("arranca sin configuración privada de Documentos", err)
 	}
 	// Material presente pero con DSN inservibles: tampoco arranca y el error
@@ -97,12 +97,12 @@ func TestDocumentosActivadoFallaCerradoSinMaterial(t *testing.T) {
 	if err := os.WriteFile(ruta, []byte(material), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, proveedor, io.Discard)
+	_, err = nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, proveedor, io.Discard, composicion.seudonimosAlmacen)
 	if !errors.Is(err, ErrComposicionDocumentosNoDisponible) || strings.Contains(err.Error(), cfg.DevelopmentMaterialDir) {
 		t.Fatal("material incompleto aceptado o error con ruta privada", err)
 	}
 	cfg.DevelopmentGuard = ""
-	if _, err := nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, proveedor, io.Discard); !errors.Is(err, config.ErrConfiguracionDocumentosActivacion) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, proveedor, io.Discard, composicion.seudonimosAlmacen); !errors.Is(err, config.ErrConfiguracionDocumentosActivacion) {
 		t.Fatal("arranca fuera de la doble llave", err)
 	}
 }

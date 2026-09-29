@@ -537,6 +537,7 @@ func admitirCatalogoConservacion(cfg config.Config, provisional bool, tipo strin
 // activado, cualquier pieza ausente o incoherente impide arrancar.
 func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo,
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo, registroIncidencias io.Writer,
+	seudonimosAlmacen *seudonimizadorAlmacenDesarrollo,
 ) (*autoridadDocumentosDesarrollo, error) {
 	// Documentos se valida primero: con la firma encendida y un selector de
 	// Documentos invalido, el error visible es el de Documentos.
@@ -718,14 +719,19 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	})
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registroSesiones, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadDocumentosDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, incidencias: incidencias, cerrar: cerrar}
-	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj, VerificadorFirma: verificadorFirma}
+	// La descarga exige una concesión de almacén propia para leer el
+	// original: sin seudonimizador de almacén no se compone ni se publica.
+	lectura, err := nuevaFabricaLecturaDocumentosDesarrollo(a, autorizador, c.Motivos.Listar, seudonimosAlmacen)
+	if err != nil {
+		return nil, errDocumentosEn()
+	}
+	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj,
+		ContextosLectura: lectura, VerificadorFirma: verificadorFirma}
 	consulta := autoridadConsultaDocumentos{autoridad: a, emisor: emisor, motivo: c.Motivos.Listar}
 	rutas, err := dochttp.NuevasRutas(dochttp.Configuracion{
-		Servicio:  servicioLecturaVigilado{servicio: servicio, incidencias: incidencias},
-		Autoridad: consulta,
-		// La descarga exige una decisión de almacén propia para leer el
-		// original; su autoridad aún no está compuesta en la raíz.
-		Incidencias: incidencias, Tipos: politicas, DescargaDisponible: false,
+		Servicio:    servicioLecturaVigilado{servicio: servicio, incidencias: incidencias},
+		Autoridad:   consulta,
+		Incidencias: incidencias, Tipos: politicas, DescargaDisponible: lectura != nil,
 	})
 	if err != nil {
 		return nil, errDocumentosEn()

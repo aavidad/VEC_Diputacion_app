@@ -33,7 +33,7 @@ func TestFirmaVerificacionApagadaNoAlteraDocumentos(t *testing.T) {
 	if err != nil || verificador != nil || !reflect.DeepEqual(antes, manifiestosShellVEC(cfg)) {
 		t.Fatalf("apagada: verificador=%v, error=%v, manifiestos alterados=%v", verificador != nil, err, !reflect.DeepEqual(antes, manifiestosShellVEC(cfg)))
 	}
-	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil); err != nil {
+	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("montaje apagado: %v", err)
 	}
 }
@@ -162,7 +162,7 @@ func TestFirmaVerificacionRechazaCredencialesLegiblesYParIncompleto(t *testing.T
 				strings.Contains(err.Error(), directorio) {
 				t.Fatalf("credencial expuesta aceptada: verificador=%v error=%v", v != nil, err)
 			}
-			if _, err := nuevosDocumentosDesarrollo(caso, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
+			if _, err := nuevosDocumentosDesarrollo(caso, nil, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
 				t.Fatalf("montaje de Documentos no cerrado: %v", err)
 			}
 		})
@@ -215,11 +215,11 @@ func TestFirmaVerificacionNombreServidorTLSConfigurable(t *testing.T) {
 
 func TestFirmaEncendidaNoOcultaErrorDeDocumentos(t *testing.T) {
 	cfg := config.Config{FirmaVerificacionEnabled: "true", DocumentosEnabled: "si"}
-	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil); !errors.Is(err, config.ErrConfiguracionDocumentosSelector) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil, nil); !errors.Is(err, config.ErrConfiguracionDocumentosSelector) {
 		t.Fatalf("selector de Documentos invalido oculto: %v", err)
 	}
 	cfg.DocumentosEnabled = "false"
-	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
+	if _, err := nuevosDocumentosDesarrollo(cfg, nil, nil, nil, nil, nil); !errors.Is(err, ErrComposicionFirmaVerificacionNoDisponible) {
 		t.Fatalf("firma encendida sin Documentos ignorada: %v", err)
 	}
 }
