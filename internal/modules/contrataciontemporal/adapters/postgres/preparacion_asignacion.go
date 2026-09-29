@@ -9,13 +9,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
-	funcionPrepararAsignacion        = "vec_contratacion_temporal.preparar_asignacion_v1"
-	esquemaPrepararAsignacion        = "vec.contratacion-temporal.preparar-asignacion.v1"
-	maximoIntentosPrepararAsignacion = 3
+	funcionPrepararAsignacion = "vec_contratacion_temporal.preparar_asignacion_v1"
+	esquemaPrepararAsignacion = "vec.contratacion-temporal.preparar-asignacion.v1"
+	// Una carrera de serialización (40001/40P01) revierte la transacción
+	// sin efectos: se repite con la política común de VEC.
+	maximoIntentosPrepararAsignacion = postgresqlcomun.IntentosMaximosCarreraSerializable
 )
 
 var _ ports.PreparadorAsignacionIdempotente = (*PreparadorAsignacionPostgreSQL)(nil)
@@ -92,8 +96,12 @@ func (p *PreparadorAsignacionPostgreSQL) PrepararAsignacion(
 		if ctx.Err() != nil {
 			return ports.PreparacionAsignacion{}, ctx.Err()
 		}
+		if conflictoDeclaradoPorFuncionSQL(err) {
+			return ports.PreparacionAsignacion{}, domain.ErrVersionEnConflicto
+		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosPrepararAsignacion {
+			intento == maximoIntentosPrepararAsignacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.PreparacionAsignacion{},
 				normalizarErrorPreparacionAsignacion(ctx, err)
 		}
