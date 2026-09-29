@@ -220,15 +220,36 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, falloPostgreSQLCTDesarrollo(nil)
 	}
 	etapa = "publicar_autoridad_alta"
+	poolFuente, err := abrirPoolAutorizacionRRHHDesarrollo(
+		ctx, os.Getenv(config.EnvAutorizacionFuenteDatabaseURL),
+		config.RolAutorizacionFuenteRRHH, "vec-ct-desarrollo-arranque-fuente",
+	)
+	if err != nil {
+		gobierno.Close()
+		return vacias, falloPostgreSQLCTDesarrollo(err)
+	}
+	if poolFuente.Config().ConnConfig.User == gobierno.Config().ConnConfig.User {
+		poolFuente.Close()
+		gobierno.Close()
+		return vacias, falloPostgreSQLCTDesarrollo(nil)
+	}
+	fuente, err := postgresvec.NuevoAlmacenAutorizacion(poolFuente)
+	if err != nil {
+		poolFuente.Close()
+		gobierno.Close()
+		return vacias, falloPostgreSQLCTDesarrollo(err)
+	}
 	if err := publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
-		ctx, gobierno, soporte,
+		ctx, gobierno, fuente, soporte,
 	); err != nil {
+		poolFuente.Close()
 		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 			"publicar_autoridad_alta", "autoridad_no_disponible",
 		)
 		gobierno.Close()
 		return vacias, err
 	}
+	poolFuente.Close()
 	soporte.mu.Lock()
 	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{
 		pool: gobierno, soporte: soporte,

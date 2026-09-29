@@ -3,14 +3,20 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -25,9 +31,10 @@ const (
 func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	ctx context.Context,
 	pool *pgxpool.Pool,
+	fuente puertosvec.FuenteAutorizacion,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
-	if ctx == nil || pool == nil || soporte == nil ||
+	if ctx == nil || pool == nil || dependenciaEsNulaContratacionTemporalDesarrollo(fuente) || soporte == nil ||
 		soporte.contexto.Resultado.Validar() != nil ||
 		soporte.instantanea.Validar() != nil {
 		return falloPostgreSQLCTDesarrollo(nil)
@@ -37,8 +44,8 @@ func publicarAutoridadPostgreSQLContratacionTemporalDesarrollo(
 	); err != nil {
 		return err
 	}
-	if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
-		ctx, pool, soporte,
+	if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrolloConFuente(
+		ctx, pool, fuente, soporte,
 	); err != nil {
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
@@ -307,22 +314,122 @@ func publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
 	pool *pgxpool.Pool,
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 ) error {
-	autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{
-		pool: pool, soporte: soporte,
+	if ctx == nil || pool == nil || soporte == nil {
+		return falloPostgreSQLCTDesarrollo(nil)
 	}
-	instantanea, err := autoridad.prepararInstantanea(
-		ctx, soporte.instantanea, true,
+	poolFuente, err := abrirPoolAutorizacionRRHHDesarrollo(
+		ctx, os.Getenv(config.EnvAutorizacionFuenteDatabaseURL),
+		config.RolAutorizacionFuenteRRHH, "vec-ct-desarrollo-publicacion-fuente",
 	)
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	if err := autoridad.publicarInstantanea(ctx, instantanea); err != nil {
+	defer poolFuente.Close()
+	if poolFuente.Config().ConnConfig.User == pool.Config().ConnConfig.User {
+		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	fuente, err := postgresvec.NuevoAlmacenAutorizacion(poolFuente)
+	if err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
+	}
+	return publicarAutorizacionPostgreSQLContratacionTemporalDesarrolloConFuente(ctx, pool, fuente, soporte)
+}
+
+func publicarAutorizacionPostgreSQLContratacionTemporalDesarrolloConFuente(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	fuente puertosvec.FuenteAutorizacion,
+	soporte *soporteAltaContratacionTemporalDesarrollo,
+) error {
+	if ctx == nil || pool == nil || soporte == nil {
+		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{
+		pool: pool, soporte: soporte,
+	}
+	instantanea, err := asegurarAutorizacionInicialContratacionTemporalDesarrollo(
+		ctx, fuente, publicadorAutorizacionInicialCT{autoridad}, soporte.instantanea,
+		soporte.reloj.Ahora(),
+	)
+	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
 	soporte.mu.Lock()
 	soporte.instantanea = instantanea
 	soporte.mu.Unlock()
 	return nil
+}
+
+type publicadorAutorizacionInicialCT struct {
+	autoridad *autoridadPostgreSQLContratacionTemporalDesarrollo
+}
+
+func (p publicadorAutorizacionInicialCT) PublicarInicial(
+	ctx context.Context, semilla dominiovec.InstantaneaAutorizacion,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	vacia := dominiovec.InstantaneaAutorizacion{}
+	if p.autoridad == nil || semilla.Validar() != nil {
+		return vacia, falloPostgreSQLCTDesarrollo(nil)
+	}
+	comun := p.autoridad.autoridadComun()
+	comun.soloInicial = true
+	preparada, err := comun.prepararInstantanea(ctx, semilla, true)
+	if err != nil || preparada.Validar() != nil || preparada.AsignacionPerfil.Version != 1 ||
+		preparada.AsignacionPerfil.PrincipalID != semilla.AsignacionPerfil.PrincipalID ||
+		preparada.AsignacionPerfil.PerfilActivoRef != semilla.AsignacionPerfil.PerfilActivoRef ||
+		preparada.AsignacionPerfil.AsignacionID != semilla.AsignacionPerfil.AsignacionID ||
+		preparada.VersionRol.RolID != semilla.VersionRol.RolID ||
+		!reflect.DeepEqual(preparada.AsignacionPerfil.Ambitos, semilla.AsignacionPerfil.Ambitos) ||
+		!reflect.DeepEqual(preparada.VersionRol.Concesiones, semilla.VersionRol.Concesiones) {
+		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
+	// soloInicial comprueba de nuevo la ausencia bajo el bloqueo transaccional.
+	if err = comun.publicarInstantanea(ctx, preparada); err != nil {
+		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
+	return preparada, nil
+}
+
+type publicadorInicialAutorizacionCT interface {
+	PublicarInicial(context.Context, dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error)
+}
+
+func asegurarAutorizacionInicialContratacionTemporalDesarrollo(
+	ctx context.Context, fuente puertosvec.FuenteAutorizacion,
+	publicador publicadorInicialAutorizacionCT,
+	semilla dominiovec.InstantaneaAutorizacion, ahora time.Time,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	vacia := dominiovec.InstantaneaAutorizacion{}
+	if ctx == nil || ctx.Err() != nil ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(fuente) ||
+		dependenciaEsNulaContratacionTemporalDesarrollo(publicador) ||
+		semilla.Validar() != nil {
+		return vacia, falloPostgreSQLCTDesarrollo(nil)
+	}
+	actual, err := fuente.ObtenerInstantaneaAutorizacion(ctx,
+		semilla.AsignacionPerfil.PrincipalID, semilla.AsignacionPerfil.PerfilActivoRef)
+	if err == nil {
+		if actual.Validar() != nil ||
+			actual.AsignacionPerfil.Estado != dominiovec.EstadoAsignacionPerfilActiva ||
+			!actual.AsignacionPerfil.VigenteEn(ahora) ||
+			actual.VersionRol.Estado != dominiovec.EstadoVersionRolPublicada ||
+			actual.ControlVigenciaVersionRol.Estado != dominiovec.EstadoControlVigenciaVersionRolHabilitada ||
+			actual.AsignacionPerfil.PrincipalID != semilla.AsignacionPerfil.PrincipalID ||
+			actual.AsignacionPerfil.PerfilActivoRef != semilla.AsignacionPerfil.PerfilActivoRef ||
+			actual.AsignacionPerfil.AsignacionID != semilla.AsignacionPerfil.AsignacionID ||
+			actual.VersionRol.RolID != semilla.VersionRol.RolID ||
+			!reflect.DeepEqual(actual.AsignacionPerfil.Ambitos, semilla.AsignacionPerfil.Ambitos) ||
+			len(actual.Politicas) != 0 {
+			return vacia, falloPostgreSQLCTDesarrollo(nil)
+		}
+		// Una versión de rol anterior puede estar vigente. Sólo una provisión
+		// gobernada expresa podrá ampliar sus concesiones mediante preimagen/CAS.
+		return actual, nil
+	}
+	if !errors.Is(err, puertosvec.ErrAsignacionPerfilNoEncontrada) {
+		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
+	return publicador.PublicarInicial(ctx, semilla)
 }
 
 type autoridadPostgreSQLContratacionTemporalDesarrollo struct {
