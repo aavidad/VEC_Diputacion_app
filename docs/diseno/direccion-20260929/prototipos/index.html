@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Inicio · Portal de Recursos Humanos</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/portal.css">
+<link rel="stylesheet" href="comun/tema-vec.css">
+<link rel="stylesheet" href="css/portal-componentes.css">
+<link rel="stylesheet" href="css/portal-flujos.css">
+<link rel="stylesheet" href="css/prototipo.css">
+</head>
+<body class="portal-empleado-app">
+<a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+<div class="portal-empleado-shell">
+  <aside class="portal-lateral" id="navegacion-lateral" aria-label="Menú principal">
+    <a class="marca-portal" href="index.html" aria-label="Ir al inicio">
+      <img class="logo-institucional" src="img/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+      <div class="marca-portal-contexto"><strong>Recursos Humanos</strong><span>Diputación de Granada</span></div>
+    </a>
+    <nav class="navegacion-modulos" aria-label="Secciones">
+      <a class="enlace-lateral" href="index.html" aria-current="page">
+            <span class="indicador-menu" aria-hidden="true">I</span><span>Inicio</span></a>
+<a class="enlace-lateral" href="expedientes.html">
+            <span class="indicador-menu" aria-hidden="true">P</span><span>Peticiones de personal temporal</span></a>
+<a class="enlace-lateral" href="#">
+            <span class="indicador-menu" aria-hidden="true">B</span><span>Bolsas de trabajo</span></a>
+<a class="enlace-lateral" href="#">
+            <span class="indicador-menu" aria-hidden="true">S</span><span>Ofertas al SAE</span></a>
+    </nav>
+    <div class="pie-lateral"><span>Portal de Recursos Humanos</span></div>
+  </aside>
+  <div class="portal-superficie">
+    <header class="cabecera-portal">
+      <button type="button" class="boton-menu-movil" id="boton-menu" aria-controls="navegacion-lateral" aria-expanded="false"><span aria-hidden="true">☰</span><span class="solo-lectura">Abrir menú</span></button>
+      <div class="contexto-cabecera">
+        <nav class="migas" aria-label="Estás en"><span aria-current="page">Inicio</span></nav>
+        <h1>Inicio</h1>
+      </div>
+      <div class="acciones-cabecera">
+        <button type="button" class="boton-cabecera boton-icono" aria-label="Ayuda de esta pantalla" title="Ayuda">?</button>
+        <button type="button" class="boton-cabecera boton-icono boton-avisos" aria-label="Avisos: 3 sin leer" title="Avisos">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span aria-hidden="true">3</span></button>
+        <div class="sesion-presentacion" role="group" aria-label="Sesión">
+          <span class="avatar" aria-hidden="true">CM</span>
+          <span><strong>Carmen Molina Ortega</strong><small>Sección de Selección</small></span>
+        </div>
+      </div>
+    </header>
+    <main id="contenido-principal" class="contenido-portal" tabindex="-1">
+<div class="pila">
+  <div class="cabeza-pagina">
+    <div><h2>Buenos días, Carmen</h2><p>Lunes, 28 de septiembre de 2026</p></div>
+    <a class="boton-primario" href="#">Nueva petición de personal</a>
+  </div>
+
+  <section class="panel" aria-labelledby="t-pendiente">
+    <div class="cabecera-panel"><h2 id="t-pendiente">Tiene 4 tareas pendientes</h2><a class="enlace" href="expedientes.html">Ver todas las peticiones →</a></div>
+    <ul class="tareas"><li class="tarea">
+  <span class="fecha-proximo vencido"><strong>25</strong>SEP</span>
+  <div><h3>Analizar la petición del Servicio de Bienestar Social</h3><p>2026/CT-000016 · Trabajador/a social · Plazo vencido hace 3 días</p></div>
+  <a class="boton-secundario" href="expediente.html">Analizar<span class="solo-lectura">: Analizar la petición del Servicio de Bienestar Social</span></a>
+</li>
+<li class="tarea">
+  <span class="fecha-proximo hoy"><strong>28</strong>SEP</span>
+  <div><h3>Subsanar el reparo de Intervención</h3><p>2026/CT-000010 · Técnico/a de administración general · Vence hoy a las 14:00</p></div>
+  <a class="boton-secundario" href="expediente.html">Subsanar<span class="solo-lectura">: Subsanar el reparo de Intervención</span></a>
+</li>
+<li class="tarea">
+  <span class="fecha-proximo "><strong>30</strong>SEP</span>
+  <div><h3>Registrar la respuesta de Antonio Reyes Álvarez</h3><p>2026/CT-000015 · Auxiliar de enfermería · Llamado el 24/09 por correo</p></div>
+  <a class="boton-secundario" href="respuesta.html">Registrar respuesta<span class="solo-lectura">: Registrar la respuesta de Antonio Reyes Álvarez</span></a>
+</li>
+<li class="tarea">
+  <span class="fecha-proximo "><strong>01</strong>OCT</span>
+  <div><h3>Preparar la resolución de nombramiento de Lucía Navarro Gil</h3><p>2026/CT-000019 · Auxiliar de enfermería · Aceptó el 26/09</p></div>
+  <a class="boton-secundario" href="expediente.html">Preparar<span class="solo-lectura">: Preparar la resolución de nombramiento de Lucía Navarro Gil</span></a>
+</li></ul>
+  </section>
+
+  <section aria-labelledby="t-resumen">
+    <h2 id="t-resumen" class="solo-lectura">Resumen</h2>
+    <div class="rejilla-kpi cuatro">
+      <a class="tarjeta-kpi" href="expedientes.html">
+  <span class="icono-kpi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+  <div><strong class="valor-kpi">11</strong><span class="etiqueta-kpi">Peticiones en trámite</span></div></a>
+      <a class="tarjeta-kpi kpi--advertencia" href="expedientes.html">
+  <span class="icono-kpi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+  <div><strong class="valor-kpi">4</strong><span class="etiqueta-kpi">Plazos que vencen esta semana</span></div></a>
+      <a class="tarjeta-kpi kpi--exito" href="#">
+  <span class="icono-kpi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.4 3.5 5.2"/></svg></span>
+  <div><strong class="valor-kpi">450</strong><span class="etiqueta-kpi">Personas disponibles en 4 bolsas</span></div></a>
+      <a class="tarjeta-kpi" href="#">
+  <span class="icono-kpi"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 12h18"/></svg></span>
+  <div><strong class="valor-kpi">2</strong><span class="etiqueta-kpi">Ofertas al SAE abiertas</span></div></a>
+    </div>
+  </section>
+
+  <div class="rejilla-dos">
+    <section class="panel" aria-labelledby="t-fases">
+      <div class="cabecera-panel"><h2 id="t-fases">Peticiones por fase</h2></div>
+      <div class="tabla-contenedor"><table class="tabla-datos"><caption>Peticiones en trámite por fase</caption>
+        <thead><tr><th scope="col">Fase</th><th scope="col" class="columna-numero">Peticiones</th></tr></thead>
+        <tbody><tr><td><a class="enlace" href="expedientes.html">1. Solicitud</a></td><td class="columna-numero">1</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">2. Análisis RRHH</a></td><td class="columna-numero">1</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">3. Gestión de bolsa</a></td><td class="columna-numero">2</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">4. Fiscalización</a></td><td class="columna-numero">3</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">5. Obtención del candidato</a></td><td class="columna-numero">1</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">6. Nombramiento</a></td><td class="columna-numero">1</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">7. Incorporación</a></td><td class="columna-numero">1</td></tr>
+<tr><td><a class="enlace" href="expedientes.html">8. Seguimiento</a></td><td class="columna-numero">1</td></tr></tbody></table></div>
+      <div class="pie-panel"><a class="enlace" href="expedientes.html">Ver las 11 peticiones →</a></div>
+    </section>
+    <div class="pila">
+      <section class="panel" aria-labelledby="t-bolsas">
+        <div class="cabecera-panel"><h2 id="t-bolsas">Bolsas de trabajo</h2></div>
+        <div class="tabla-contenedor"><table class="tabla-datos"><caption>Bolsas de trabajo vigentes</caption>
+          <thead><tr><th scope="col">Bolsa</th><th scope="col" class="columna-numero">Disponibles</th><th scope="col" class="columna-numero">En llamamiento</th><th scope="col">Vigente hasta</th></tr></thead>
+          <tbody><tr><td><a class="enlace" href="#">Auxiliar de enfermería</a></td><td class="columna-numero">180</td><td class="columna-numero">1</td><td>14/01/2028</td></tr>
+<tr><td><a class="enlace" href="#">Operario/a de servicios</a></td><td class="columna-numero">150</td><td class="columna-numero">1</td><td>14/01/2028</td></tr>
+<tr><td><a class="enlace" href="#">Auxiliar administrativo/a</a></td><td class="columna-numero">98</td><td class="columna-numero">2</td><td>14/01/2028</td></tr>
+<tr><td><a class="enlace" href="#">Trabajador/a social</a></td><td class="columna-numero">22</td><td class="columna-numero">0</td><td>30/06/2027</td></tr></tbody></table></div>
+        <div class="pie-panel"><a class="enlace" href="#">Ver todas las bolsas →</a></div>
+      </section>
+      <section class="panel" aria-labelledby="t-sae">
+        <div class="cabecera-panel"><h2 id="t-sae">Ofertas al SAE</h2></div>
+        <ul class="tareas">
+          <li class="tarea"><span class="fecha-proximo"><strong>05</strong>OCT</span><div><h3>Peón de carreteras · Oferta 2026/045</h3><p>6 candidatos recibidos · Entrevistas el 5 de octubre</p></div><a class="boton-secundario" href="#">Abrir</a></li>
+          <li class="tarea"><span class="fecha-proximo"><strong>09</strong>OCT</span><div><h3>Monitor/a deportivo/a · Oferta 2026/047</h3><p>Esperando candidatos del SAE</p></div><a class="boton-secundario" href="#">Abrir</a></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+    </main>
+    <footer class="pie-portal"><span>© 2026 Diputación de Granada</span><span>Protección de datos · Accesibilidad</span></footer>
+  </div>
+</div>
+<div class="velo-menu" id="velo-menu" hidden></div>
+<script>
+(() => {
+  const b = document.getElementById("boton-menu"), v = document.getElementById("velo-menu");
+  const poner = (abierto) => { if (abierto) document.body.dataset.menuAbierto = "true"; else delete document.body.dataset.menuAbierto;
+    b.setAttribute("aria-expanded", String(abierto)); v.hidden = !abierto; };
+  b.addEventListener("click", () => poner(b.getAttribute("aria-expanded") !== "true"));
+  v.addEventListener("click", () => poner(false));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") poner(false); });
+  const mf = document.querySelector(".mas-filtros"); if (mf && matchMedia("(max-width: 760px)").matches) mf.open = false;
+})();
+
+</script>
+</body>
+</html>
