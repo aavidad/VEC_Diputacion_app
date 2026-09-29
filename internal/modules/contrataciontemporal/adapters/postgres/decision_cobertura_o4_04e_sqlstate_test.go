@@ -33,8 +33,14 @@ func TestConfirmacionDecisionCoberturaO404ENoReintentaSQLStateTransaccional(
 	t *testing.T,
 ) {
 	t.Parallel()
-	for _, codigo := range []string{"40001", "40P01"} {
-		codigo := codigo
+	// Solo 40001/40P01 en la propia sentencia acreditan carrera; la
+	// cancelación (57014) o la caída de la conexión (08006) siguen siendo
+	// fallos sin esa señal.
+	for _, caso := range []struct {
+		codigo  string
+		carrera bool
+	}{{"40001", true}, {"40P01", true}, {"57014", false}, {"08006", false}} {
+		codigo, carrera := caso.codigo, caso.carrera
 		t.Run(codigo, func(t *testing.T) {
 			t.Parallel()
 			errorSQL := &pgconn.PgError{
@@ -81,6 +87,11 @@ func TestConfirmacionDecisionCoberturaO404ENoReintentaSQLStateTransaccional(
 			var recibido *pgconn.PgError
 			if !errors.As(err, &recibido) || recibido.Code != codigo {
 				t.Fatalf("SQLSTATE %s no se conservó: %v", codigo, err)
+			}
+			// El ejecutor no repite, pero acredita al núcleo que la base
+			// revirtió la transacción para que repita la orden entera.
+			if errors.Is(err, cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) != carrera {
+				t.Fatalf("SQLSTATE %s: acreditación de carrera %v inesperada: %v", codigo, !carrera, err)
 			}
 			if iniciador.inicios != 1 || tx.consultas != 1 ||
 				tx.confirmaciones != 0 || tx.reversiones != 1 {
@@ -132,5 +143,56 @@ func prepararSesionDenegadaSQLStateDecisionCoberturaO404EPrueba(
 			RecursoHuellaSHA256: huellaRecurso,
 		},
 		ConsumosC1: []consumoC1DecisionCoberturaO404E{},
+	}
+}
+
+// Un 40001/40P01 al COMMIT también es una reversión segura y se acredita; un
+// fallo de COMMIT de otro tipo sigue siendo ambiguo y se devuelve tal cual.
+func TestEjecutorDecisionCoberturaO404EAcreditaCarreraEnCommit(t *testing.T) {
+	t.Parallel()
+	for _, caso := range []struct {
+		err     error
+		carrera bool
+	}{
+		{&pgconn.PgError{Code: "40001", Message: "serializacion"}, true},
+		{&pgconn.PgError{Code: "40P01", Message: "interbloqueo"}, true},
+		{&pgconn.PgError{Code: "08006", Message: "conexion"}, false},
+		{errors.New("respuesta COMMIT perdida"), false},
+	} {
+		tx := &transaccionPreparacionPrueba{errConfirmar: caso.err}
+		iniciador := &iniciadorPreparacionPrueba{transacciones: []pgx.Tx{tx}}
+		ejecutor, err := nuevoEjecutorSesionTCBOperacionDecisionCoberturaPostgreSQL(iniciador)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = ejecutor.EjecutarSesionTCB(context.Background(),
+			func(puerto cobertura.SesionTCBOperacionDecisionCobertura) error {
+				sesion := puerto.(*sesionDecisionCoberturaO404E)
+				sesion.mu.Lock()
+				sesion.estado = estadoSesionDecisionCoberturaConsumida
+				sesion.confirmada = true
+				sesion.mu.Unlock()
+				return nil
+			})
+		if !errors.Is(err, caso.err) || errors.Is(err, cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) != caso.carrera ||
+			iniciador.inicios != 1 || tx.confirmaciones != 1 {
+			t.Fatalf("COMMIT %v: err=%v begin=%d commit=%d", caso.err, err, iniciador.inicios, tx.confirmaciones)
+		}
+	}
+}
+
+// Un error del callback sin carrera en Confirmar no se acredita como carrera.
+func TestEjecutorDecisionCoberturaO404ENoAcreditaCarreraSinSQLState(t *testing.T) {
+	t.Parallel()
+	errCallback := errors.New("núcleo rechaza recibo")
+	tx := &transaccionPreparacionPrueba{}
+	ejecutor, err := nuevoEjecutorSesionTCBOperacionDecisionCoberturaPostgreSQL(&iniciadorPreparacionPrueba{tx: tx})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ejecutor.EjecutarSesionTCB(context.Background(),
+		func(cobertura.SesionTCBOperacionDecisionCobertura) error { return errCallback })
+	if !errors.Is(err, errCallback) || errors.Is(err, cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) {
+		t.Fatalf("error inesperado: %v", err)
 	}
 }

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 )
@@ -20,6 +21,11 @@ func (t *transaccionConfirmacionPrueba) EjecutarSesionTCB(
 	sesion := &sesionTCBConfirmacionAplicacionPrueba{transaccion: t}
 	if err := callback(sesion); err != nil {
 		return err
+	}
+	if t.carreras > 0 {
+		t.carreras--
+		return fmt.Errorf("%w: COMMIT 40001",
+			cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura)
 	}
 	if t.cancelar != nil {
 		t.cancelar()

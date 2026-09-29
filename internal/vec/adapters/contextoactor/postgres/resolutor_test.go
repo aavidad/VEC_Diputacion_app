@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -259,21 +260,40 @@ func TestResolutorContextoActorPostgreSQLReintentaMismaOperacionTrasAusencia(t *
 	}
 }
 
-func TestResolutorContextoActorPostgreSQLNoHaceSegundoReintento(t *testing.T) {
+// Las carreras se repiten con la política común y con un límite: agotado,
+// el registro no está disponible (nunca un éxito ni una denegación).
+func TestResolutorContextoActorPostgreSQLLimitaReintentosAlMaximo(t *testing.T) {
 	solicitud, _ := solicitudYFilaContextoActorV2(t)
 	conflicto := func() *txContextoActorDoble {
 		return &txContextoActorDoble{filas: []pgx.Row{filaContextoActorDoble{
 			err: &pgconn.PgError{Code: "40001", Message: "serializacion"},
 		}}}
 	}
-	pool := &poolContextoActorDoble{transacciones: []*txContextoActorDoble{
-		conflicto(), conflicto(), conflicto(),
-	}}
+	transacciones := make([]*txContextoActorDoble, postgresqlcomun.IntentosMaximosCarreraSerializable+1)
+	for i := range transacciones {
+		transacciones[i] = conflicto()
+	}
+	pool := &poolContextoActorDoble{transacciones: transacciones}
 	adaptador, _ := nuevoResolutorRegistroContextoActorPostgreSQLV2(
 		pool, bytes.NewReader(bytes.Repeat([]byte{0x55}, bytesAleatoriosReferenciaContextoActorV2)),
 	)
-	if _, err := adaptador.ResolverYRegistrarContextoActorV2(context.Background(), solicitud); !errors.Is(err, ports.ErrResolutorRegistroContextoActorNoDisponible) || pool.llamadas != 2 {
+	if _, err := adaptador.ResolverYRegistrarContextoActorV2(context.Background(), solicitud); !errors.Is(err, ports.ErrResolutorRegistroContextoActorNoDisponible) ||
+		pool.llamadas != postgresqlcomun.IntentosMaximosCarreraSerializable {
 		t.Fatalf("numero de intentos inesperado: llamadas=%d err=%v", pool.llamadas, err)
+	}
+}
+
+// Un 40001 al confirmar es un aborto seguro: se repite sin reconciliar.
+func TestResolutorContextoActorPostgreSQLRepiteCarreraAlConfirmar(t *testing.T) {
+	solicitud, fila := solicitudYFilaContextoActorV2(t)
+	perdida := &txContextoActorDoble{filas: []pgx.Row{fila}, errCommit: &pgconn.PgError{Code: "40001", Message: "serializacion"}}
+	buena := &txContextoActorDoble{filas: []pgx.Row{fila}}
+	pool := &poolContextoActorDoble{transacciones: []*txContextoActorDoble{perdida, buena}}
+	adaptador, _ := nuevoResolutorRegistroContextoActorPostgreSQLV2(
+		pool, bytes.NewReader(bytes.Repeat([]byte{0x55}, bytesAleatoriosReferenciaContextoActorV2)),
+	)
+	if _, err := adaptador.ResolverYRegistrarContextoActorV2(context.Background(), solicitud); err != nil || pool.llamadas != 2 {
+		t.Fatalf("la carrera al confirmar no se repitió: llamadas=%d err=%v", pool.llamadas, err)
 	}
 }
 

@@ -1,0 +1,3 @@
+# Perfil fijo del análisis (corte 3, familia análisis): la huella de contexto
+# del análisis sin «expediente_ref» en los ámbitos. Preimagen: CT14 y CT99.
+deploy/postgresql/contratacion_temporal/migraciones/000144_huella_analisis_sin_expediente_en_ambitos.up.sql
