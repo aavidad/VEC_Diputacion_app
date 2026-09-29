@@ -1,4 +1,4 @@
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-imagen-508c-v2";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-grxfirma-rename";
 import { crearClientePreferencias } from "./portal-preferencias-api.js";
 import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
 import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";

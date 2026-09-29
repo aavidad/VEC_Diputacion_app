@@ -1,5 +1,5 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260929-firma-506-v2";
-import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-firma-506-v2";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260929-grxfirma-rename";
+import { textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-grxfirma-rename";
 
 export const FASE_INICIAL = "inicial";
 export const FASE_CARGANDO = "cargando";

@@ -1,5 +1,5 @@
 // Package servidorprueba imita, solo para pruebas, el contrato REST
-// `POST /verify` del validador de AutofirmaV2 en modo
+// `POST /verify` del validador de GrxFirma en modo
 // `-rest-solo-verificacion`. No verifica firmas: devuelve dictamenes
 // sinteticos elegidos por la prueba. No debe conectarse en ninguna
 // composicion real de VEC.
@@ -50,7 +50,7 @@ const (
 	RevocacionNoComprobada Escenario = "revocacion_no_comprobada"
 	// VinculoNoAcreditado: la firma no cubre el original aportado.
 	VinculoNoAcreditado Escenario = "vinculo_no_acreditado"
-	// VinculoNoAportado: AutofirmaV2 no recibio original y dictamina valida;
+	// VinculoNoAportado: GrxFirma no recibio original y dictamina valida;
 	// VEC siempre lo envia, asi que no le basta.
 	VinculoNoAportado Escenario = "vinculo_no_aportado"
 	// ContratoDesconocido: dictamen con otro contrato.
@@ -76,7 +76,7 @@ const (
 	NegativaIncoherente Escenario = "negativa_incoherente"
 	// EstadoDesconocido: aspecto con un estado fuera del catalogo.
 	EstadoDesconocido Escenario = "estado_desconocido"
-	// FormatoNoDetectado: AutofirmaV2 responde 400 con texto libre.
+	// FormatoNoDetectado: GrxFirma responde 400 con texto libre.
 	FormatoNoDetectado Escenario = "formato_no_detectado"
 	// ErrorInterno: 500 con texto que no debe propagarse.
 	ErrorInterno Escenario = "error_interno"
@@ -363,7 +363,7 @@ func aplicar(esc Escenario, d *Dictamen) {
 }
 
 // recomponer agrega los aspectos por el peor estado y deriva el veredicto
-// con la misma precedencia que AutofirmaV2.
+// con la misma precedencia que GrxFirma.
 func (d *Dictamen) recomponer() {
 	peor := func(orden []string, valor func(Firmante) Aspecto) Aspecto {
 		mejor, rango := Aspecto{}, len(orden)+1

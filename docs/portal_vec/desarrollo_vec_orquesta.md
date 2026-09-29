@@ -44,7 +44,7 @@ aceptacion y el plan de tareas. Complementa, no sustituye, a
    superficie minima ejecutable + puertos preparados. **No** levantar Kubernetes,
    colas, MinIO, Redis, MCP-IA, HA multi-servidor ni microservicios en esta fase.
 5. **Software libre.** EUPL v1.2 (recomendado) o GPLv3. Coherente con reutilizar
-   AutofirmaV2 (GPL-3.0) y con el art. 157 de la Ley 40/2015.
+   GrxFirma (GPL-3.0) y con el art. 157 de la Ley 40/2015.
 
 ---
 
@@ -95,7 +95,7 @@ relaciona con empleado, comision y auditoria.
   medias dietas/dietas completas, justificantes y aprobaciones.
 - Adaptador PostgreSQL para lo que persista el shell (sesiones de auditoria,
   registro de modulos instalados, eventos).
-- Adaptador de firma/identidad que invoca **AutofirmaV2** local.
+- Adaptador de firma/identidad que invoca **GrxFirma** local.
 - Puertos de interoperabilidad AAPP **definidos** + adaptadores `stub`.
 
 **Esta primera entrega NO incluye (se deja como puerto stub para el futuro):**
@@ -119,7 +119,7 @@ vec-shell/                     (adaptadores inbound/outbound + bootstrap)
   adapters/inbound/http/       handlers REST finos (transporte + DTO + i18n)
   adapters/outbound/postgres/  PRIMER adaptador de persistencia (intercambiable)
   adapters/outbound/memory/    adaptador en memoria para tests
-  adapters/outbound/autofirma/ adaptador de firma/identidad -> AutofirmaV2 local
+  adapters/outbound/autofirma/ adaptador de firma/identidad -> GrxFirma local
   adapters/outbound/interop/   adaptadores a protocolos AAPP (la mayoria STUB)
   bootstrap/                   composicion: cablea puertos con adaptadores
 
@@ -174,10 +174,10 @@ Reglas:
 
 ---
 
-## 4. Identidad y firma: AutofirmaV2 (decision tomada)
+## 4. Identidad y firma: GrxFirma (decision tomada)
 
 Identidad **por certificado** como metodo preferente (decision del responsable).
-Reutilizamos software propio: **AutofirmaV2** (`AutofirmaV2`,
+Reutilizamos software propio: **GrxFirma** (`GrxFirma`,
 Go, hexagonal, GPL-3.0, Oficina de Software Libre Dipgra), cliente local del
 empleado en loopback. Endpoints relevantes ya existentes:
 
@@ -201,10 +201,10 @@ type SignaturePort interface {
 }
 ```
 
-Adaptador: `adapters/outbound/autofirma/` que habla con AutofirmaV2 local por
-REST. **Salvedad arquitectonica:** AutofirmaV2 vive en el puesto del empleado
+Adaptador: `adapters/outbound/autofirma/` que habla con GrxFirma local por
+REST. **Salvedad arquitectonica:** GrxFirma vive en el puesto del empleado
 (la clave nunca sale del puesto). El flujo de firma es **frontend del shell ->
-AutofirmaV2 local del puesto** (patron tipo `afirma://`), no servidor-a-servidor.
+GrxFirma local del puesto** (patron tipo `afirma://`), no servidor-a-servidor.
 El backend NO firma por su cuenta: orquesta, recibe el resultado firmado +
 justificante, y entonces registra y audita.
 
@@ -255,7 +255,7 @@ Reglas para estos puertos:
 - `bootstrap` decide por config que adaptador usar (`stub` por defecto).
 
 De esta tabla, **lo unico que se implementa de verdad ahora** es lo que ya
-tenemos en casa (AutofirmaV2, seccion 4). Todo lo demas: puerto + stub + test.
+tenemos en casa (GrxFirma, seccion 4). Todo lo demas: puerto + stub + test.
 
 ---
 
@@ -263,7 +263,7 @@ tenemos en casa (AutofirmaV2, seccion 4). Todo lo demas: puerto + stub + test.
 
 | Capacidad | Implementacion ahora |
 | --- | --- |
-| Identidad | Certificado via AutofirmaV2 (real). SSO/Cl@ve: puerto + stub. |
+| Identidad | Certificado via GrxFirma (real). SSO/Cl@ve: puerto + stub. |
 | Sesion | Real, en PostgreSQL. |
 | Registro de modulos | Real (manifiesto -> validacion -> menu). |
 | Menu segun permisos | Real. |
@@ -271,7 +271,7 @@ tenemos en casa (AutofirmaV2, seccion 4). Todo lo demas: puerto + stub + test.
 | Auditoria | Real, en PostgreSQL, con encadenamiento de hash (`prev_signature`, `seq`). |
 | Eventos | Bus in-memory real (interfaz lista para adaptador persistente). |
 | i18n | Claves de catalogo, sin texto hardcodeado en handlers. |
-| Firma | Real via AutofirmaV2. |
+| Firma | Real via GrxFirma. |
 | Notificaciones/Registro/Documento ENI | Puerto + stub. |
 
 ---
@@ -280,14 +280,14 @@ tenemos en casa (AutofirmaV2, seccion 4). Todo lo demas: puerto + stub + test.
 
 Un entregable solo se acepta si pasa TODOS:
 
-- `gate-hexagonal`: dominio y application no importan HTTP, SQL, red, AutofirmaV2,
+- `gate-hexagonal`: dominio y application no importan HTTP, SQL, red, GrxFirma,
   protocolos externos ni UI. (Verificable: grep de imports prohibidos en
   `domain/` y `application/`.)
 - `gate-db-intercambiable`: los tests de casos de uso pasan con el adaptador
   `memory` Y con `postgres`. Si solo pasan con uno, falla.
 - `gate-postgres`: migraciones aplican limpio sobre PostgreSQL vacio y los tests
   de integracion del adaptador pasan.
-- `gate-identidad`: autenticacion por certificado contra AutofirmaV2 funciona;
+- `gate-identidad`: autenticacion por certificado contra GrxFirma funciona;
   `Principal` lleva `AuthMethod` y `AuthAssurance`.
 - `gate-firma`: una accion que genera acto administrativo pasa por `SignaturePort`
   y produce justificante; el backend no firma por su cuenta.
@@ -336,8 +336,8 @@ Orden con dependencias. Cada tarea es hexagonal y termina con tests.
 6. **adapter-postgres**: adaptador PostgreSQL (`pgx`), migraciones, tests de
    integracion. Mismos tests de contrato que `memory`.
    *Dep:* 4.
-7. **adapter-autofirma**: adaptador a AutofirmaV2 local para `CertAuthPort` y
-   `SignaturePort`. Test contra un AutofirmaV2 simulado (no requiere el binario en
+7. **adapter-autofirma**: adaptador a GrxFirma local para `CertAuthPort` y
+   `SignaturePort`. Test contra un GrxFirma simulado (no requiere el binario en
    CI; si hay binario, smoke opcional).
    *Dep:* 4.
 8. **adapter-interop-stubs**: stubs + tests de contrato para cada puerto de la
@@ -399,6 +399,6 @@ opcion de menu real puede convertirse en modulo con el mismo contrato.
   `https://www.boe.es/buscar/act.php?id=BOE-A-2010-1331`
 - Arquitectura de referencia Microfrontend (Junta de Andalucia):
   `https://desarrollo.juntadeandalucia.es/recursos/reglas-pautas/arquitectura-referencia-microfrontend`
-- AutofirmaV2 (software propio): `AutofirmaV2`
+- GrxFirma (software propio): `GrxFirma`
 - Estudio extenso de Bolsa (referencia de dominio, NO de alcance):
   `Bolsa_Diputacion/estudio_arquitectura_bolsa.md`
