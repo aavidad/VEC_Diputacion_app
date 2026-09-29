@@ -2,6 +2,8 @@
 import argparse
 import hashlib
 import importlib.util
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -56,6 +58,22 @@ class MaterialTests(unittest.TestCase):
             with self.assertRaises(material.MaterialError):
                 material.private_read(path)
 
+    def test_module_failure_cli_reports_class_and_private_log_without_trace_or_credentials(self):
+        class UsersError(RuntimeError):
+            pass
+        error = material.ModuleProvisionError("clon_usuarios", UsersError("postgresql://dummy:private-value@localhost/db"))
+        stderr = io.StringIO()
+        argv = ["clon_material.py", "--repo", "/fixture", "--container", "vec-owned",
+                "--output", "/fixture-state", "--port", "18531", "--pg-port", "55531"]
+        with patch.object(material.sys, "argv", argv), patch.object(material, "prepare", side_effect=error), contextlib.redirect_stderr(stderr):
+            self.assertEqual(material.main(), 1)
+        diagnostic = json.loads(stderr.getvalue())
+        self.assertEqual(diagnostic["module"], "clon_usuarios")
+        self.assertEqual(diagnostic["code"], "UsersError")
+        self.assertEqual(diagnostic["detail_log"], "material-provision-private.log")
+        self.assertNotIn("private-value", stderr.getvalue())
+        self.assertNotIn("Traceback", stderr.getvalue())
+
     def test_env_is_parsed_without_executing_shell_and_rejects_duplicates(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "runtime.env"
@@ -108,6 +126,10 @@ class MaterialTests(unittest.TestCase):
             root = Path(directory)
             args = SimpleNamespace(repo=root, container="vec-fixture", pg_port=55531, engine="docker")
             material.private_write(root / "material/identity", "preserved")
+            for surface in ("interna", "externa"):
+                material.json_write(root / f"material/identidad/usuarios-preferencias-{surface}.json", {"cuentas": [{
+                    "sujeto": "synthetic-" + surface, "certificado_sha256": "c" * 64,
+                    "cuenta_ref": "cta_old_" + surface, "perfil_ref": "prf_preserved_" + surface}]})
             material.json_write(root / "runtime-config.json", {"VEC_AUTH_MODE": "desarrollo"})
             material.private_write(root / "runtime.env", "VEC_AUTH_MODE=desarrollo\n")
             material.json_write(root / "perfiles.json", {"profiles": {}, "blockers": []})
@@ -117,22 +139,51 @@ class MaterialTests(unittest.TestCase):
             called = []
             def first(**kwargs):
                 called.append("users")
-                return {"profiles": {"users": {"status": "prepared"}}}
+                for surface in ("interna", "externa"):
+                    path = root / f"material/identidad/usuarios-preferencias-{surface}.json"
+                    config = json.loads(material.private_read(path))
+                    config["cuentas"][0]["cuenta_ref"] = "cta_new_" + surface
+                    material.replace_private(path, config)
+                return {"profiles": {"users": {"status": "prepared"}}, "blockers": [{"code": "concesiones_correos_imagen_pendientes"}]}
             with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), material.MaterialError("missing")]):
                 with self.assertRaises(material.MaterialError):
                     material.complete_profiles(args, root, manifest)
             self.assertEqual(called, [])
             def later(**kwargs):
                 raise material.MaterialError("later dependency blocked")
-            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=later), SimpleNamespace(provision=later)]):
+            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=later), SimpleNamespace(provision=later), SimpleNamespace(provision=later)]):
                 with self.assertRaises(material.MaterialError):
                     material.complete_profiles(args, root, manifest)
             current = material.verify_existing(root, {})
             self.assertEqual(current["status"], "partial_blocked")
             self.assertFalse(current["profiles_provisioned"])
             self.assertTrue(current["profiles_provisioning_attempted"])
-            self.assertNotIn("concesiones_correos_imagen_pendientes", [b["code"] for b in current["blockers"]])
+            self.assertIn("concesiones_correos_imagen_pendientes", [b["code"] for b in current["blockers"]])
+            self.assertEqual([b["code"] for b in current["blockers"]].count("concesiones_correos_imagen_pendientes"), 1)
+            current_profiles = json.loads(material.private_read(root / "perfiles.json"))
+            self.assertEqual(current_profiles["users"]["interna"][0]["cuenta_ref"], "cta_new_interna")
+            self.assertEqual(current_profiles["users"]["externa"][0]["cuenta_ref"], "cta_new_externa")
+            self.assertEqual((root / "material-provision-private.log").stat().st_mode & 0o777, 0o600)
+            self.assertIn("later dependency blocked", (root / "material-provision-private.log").read_text())
             self.assertEqual((root / "material/identity").read_text(), "preserved")
+            def h4(**kwargs):
+                sealed = material.verify_existing(root, {})
+                self.assertIn("concesiones_correos_imagen_pendientes", [b["code"] for b in sealed["blockers"]])
+                self.assertEqual(json.loads(material.private_read(root / "perfiles.json"))["users"]["interna"][0]["cuenta_ref"], "cta_new_interna")
+                called.append("h4")
+                return {"env": {"VEC_USUARIOS_PREFERENCIAS_ENABLED": "true"}, "blockers": []}
+            def bolsa(**kwargs):
+                called.append("bolsa")
+                return {"blockers": []}
+            def candidato(**kwargs):
+                called.append("candidato")
+                return {"blockers": [{"profile": "candidato", "code": "contexto_externo_provision_autoridad_ausente_main"}]}
+            called.clear()
+            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=h4), SimpleNamespace(provision=bolsa), SimpleNamespace(provision=candidato)]):
+                final = material.complete_profiles(args, root, current)
+            self.assertEqual(called, ["users", "h4", "bolsa", "candidato"])
+            self.assertNotIn("concesiones_correos_imagen_pendientes", [b["code"] for b in final["blockers"]])
+            self.assertEqual(json.loads(material.private_read(root / "runtime-config.json"))["VEC_USUARIOS_PREFERENCIAS_ENABLED"], "true")
 
     def test_full_preparation_preserves_existing_actors_and_never_claims_candidate_account(self):
         with tempfile.TemporaryDirectory() as directory:

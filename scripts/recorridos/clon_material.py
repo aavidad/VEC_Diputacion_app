@@ -23,6 +23,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import traceback
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 OWNER = "Codex-M"
@@ -55,6 +56,14 @@ ROLES = {
 
 class MaterialError(RuntimeError):
     pass
+
+
+class ModuleProvisionError(MaterialError):
+    def __init__(self, module: str, cause: Exception):
+        self.module = module
+        name = type(cause).__name__
+        self.cause_type = name if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,80}", name) else "module_error"
+        super().__init__(module + ":" + self.cause_type)
 
 
 def fail(reason: str) -> None:
@@ -150,26 +159,63 @@ def seal_state(output: Path, manifest: dict, env: dict, profiles: dict, blockers
     return manifest
 
 
+def log_module_failure(output: Path, name: str, error: Exception) -> None:
+    path = output / "material-provision-private.log"
+    canonical(path)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as log:
+        info = os.fstat(log.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            fail("unsafe private diagnostic file")
+        log.write("\nmodule=" + name + "\n")
+        log.write("".join(traceback.format_exception(error))[:65536])
+        log.flush()
+        os.fsync(log.fileno())
+
+
+def current_users(material: Path) -> dict:
+    users = {}
+    for surface in ("interna", "externa"):
+        config = json.loads(private_read(material / "identidad" / f"usuarios-preferencias-{surface}.json"))
+        users[surface] = [{field: account[field] for field in ("sujeto", "certificado_sha256", "cuenta_ref", "perfil_ref")}
+                          for account in config["cuentas"]]
+    return users
+
+
 def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) -> dict:
     env = json.loads(private_read(output / "runtime-config.json"))
     profiles = json.loads(private_read(output / "perfiles.json"))
     modules = (
-        ("clon_usuarios", {"concesiones_correos_imagen_pendientes"}),
+        ("clon_usuarios", set()),
+        ("clon_usuarios_h4", {"concesiones_correos_imagen_pendientes"}),
         ("clon_bolsa_material", {"bback_politica_ofertas_pendiente"}),
-        ("clon_candidato_material", {"cuenta_contexto_candidato_pendiente"}),
+        ("clon_candidato_material", {"cuenta_contexto_candidato_pendiente", "contexto_externo_provision_autoridad_ausente_main"}),
     )
     # Preflight every dependency before permitting any side effect.
-    loaded = [(load_profile_module(name), codes) for name, codes in modules]
+    loaded = [(name, load_profile_module(name), codes) for name, codes in modules]
     blockers = [b for b in manifest["blockers"] if b["code"] != "lector_adicional_pendiente"]
-    for module, owned_codes in loaded:
-        result = module.provision(repo=args.repo, container=args.container, state=output,
-                                  material=output / "material", pg_port=args.pg_port, engine=args.engine)
+    for name, module, owned_codes in loaded:
+        try:
+            result = module.provision(repo=args.repo, container=args.container, state=output,
+                                      material=output / "material", pg_port=args.pg_port, engine=args.engine)
+        except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+            log_module_failure(output, name, error)
+            raise ModuleProvisionError(name, error) from None
         if not isinstance(result, dict) or not isinstance(result.get("env", {}), dict) or not isinstance(result.get("profiles", {}), dict) or not isinstance(result.get("blockers", []), list):
             fail("invalid profile provisioning result")
         env.update(result.get("env", {}))
         profiles["profiles"].update(result.get("profiles", {}))
         blockers = [b for b in blockers if b["code"] not in owned_codes]
         blockers.extend(result.get("blockers", []))
+        unique = {}
+        for blocker in blockers:
+            if not isinstance(blocker, dict) or not isinstance(blocker.get("code"), str):
+                fail("invalid profile provisioning blocker")
+            unique[(blocker.get("profile", ""), blocker["code"])] = blocker
+        blockers = list(unique.values())
+        if name in ("clon_usuarios", "clon_usuarios_h4"):
+            # The JSON files are the actual CAS postimage, not the H1 source account.
+            profiles["users"] = current_users(output / "material")
         # Seal every completed module before moving to the next dependency.
         # A later blocker preserves all already completed material and receipts.
         manifest = seal_state(output, manifest, env, profiles, blockers)
@@ -560,6 +606,10 @@ def main() -> int:
         manifest = prepare(args)
         print(json.dumps({"status": manifest["status"], "blockers": [b["code"] for b in manifest["blockers"]]}))
         return 3 if manifest["blockers"] else 0
+    except ModuleProvisionError as error:
+        print(json.dumps({"status": "failed", "module": error.module, "code": error.cause_type,
+                          "detail_log": "material-provision-private.log"}), file=sys.stderr)
+        return 1
     except (MaterialError, OSError, ValueError, KeyError, subprocess.TimeoutExpired):
         print("Private material preparation failed; no automatic repair.", file=sys.stderr)
         return 1
