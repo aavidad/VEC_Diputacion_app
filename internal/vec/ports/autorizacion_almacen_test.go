@@ -253,7 +253,9 @@ func TestCustodiaDocumentoFirmadoExpedienteSoloEscribeConSuDecision(t *testing.T
 		proyeccion.RecursoRef != recurso.Referencia {
 		t.Fatalf("proyección inesperada: %+v %v", proyeccion, err)
 	}
-	for _, accion := range []string{AccionAlmacenLeer, AccionAlmacenAplicarRetencion, AccionAlmacenPromover} {
+	for _, accion := range []string{AccionAlmacenLeer, AccionAlmacenPrepararCargaDirecta, AccionAlmacenConfirmarCargaDirecta,
+		AccionAlmacenAbandonarCargaDirecta, AccionAlmacenPromover, AccionAlmacenAplicarRetencion, AccionAlmacenInmovilizar,
+		AccionAlmacenLevantarInmovilizacion, AccionAlmacenEliminar, AccionAlmacenAnalizarContenido} {
 		if contexto.ValidarParaEn(accion, instante) == nil {
 			t.Fatalf("la custodia no debe habilitar %s", accion)
 		}
@@ -278,7 +280,33 @@ func TestCustodiaDocumentoFirmadoExpedienteSoloEscribeConSuDecision(t *testing.T
 		t.Fatalf("decisión de expediente aceptada por Bolsa: %v", err)
 	}
 
+	// Tampoco sirve una decisión de otra acción de Documentos.
+	decisionLectura, recursoLectura, vinculosLectura, instanteLectura := autorizacionAlmacenPrueba(
+		t, AccionNegocioLeerOriginalDocumentoGenerado, []string{"contenido", "documento"}, true)
+	vinculosLectura.ObjetoVinculado = ReferenciaObjetoAlmacen{}
+	if _, err := NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen(
+		decisionLectura, recursoLectura, vinculosLectura, instanteLectura); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("decisión de descarga aceptada como custodia: %v", err)
+	}
+
+	conAtributo := func(clave, valor string) func(*domain.DecisionAutorizacion, *domain.RecursoAutorizable, *VinculosOperacionAlmacen) {
+		return func(d *domain.DecisionAutorizacion, r *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
+			r.Atributos = map[string]string{}
+			for k, v := range recurso.Atributos {
+				r.Atributos[k] = v
+			}
+			r.Atributos[clave] = valor
+			// La decisión se re-emite para ese recurso: el rechazo es del plan, no de la huella.
+			d.ContextoRecursoHuellaSHA256, _ = r.HuellaContextoAutorizacionSHA256()
+		}
+	}
 	casos := map[string]func(*domain.DecisionAutorizacion, *domain.RecursoAutorizable, *VinculosOperacionAlmacen){
+		"campos de menos": func(d *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
+			d.CamposPermitidos = d.CamposPermitidos[:1]
+		},
+		"recurso con objeto":     conAtributo(AtributoAlmacenObjetoRef, "objeto:almacen:001"),
+		"recurso con versión":    conAtributo(AtributoAlmacenObjetoVersion, "version:1"),
+		"recurso con manifiesto": conAtributo(AtributoAlmacenHuellaManifiestoSHA256, strings.Repeat("f", 64)),
 		"denegada": func(d *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
 			d.Concedida = false
 		},
