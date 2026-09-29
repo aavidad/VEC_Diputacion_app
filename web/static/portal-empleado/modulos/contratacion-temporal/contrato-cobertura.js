@@ -35,6 +35,7 @@ const ESQUEMA_RESULTADO_CONSULTA_COBERTURA =
   "vec.contratacion-temporal.resultado-consulta-cobertura.v1";
 const ESQUEMA_PROPUESTA_V1 = "vec.contratacion-temporal.propuesta-cobertura.v1";
 const ESQUEMA_PROPUESTA_V2 = "vec.contratacion-temporal.propuesta-cobertura.v2";
+const ESQUEMA_PREPARACION_VIGENTE = "vec.contratacion-temporal.preparacion-cobertura.v1";
 const MAXIMOS_ELEMENTOS_PREPARACION = 512;
 const MAXIMOS_ELEMENTOS_POR_VIA = 32;
 
@@ -265,7 +266,7 @@ function validarElementosPreparacion(elementos, nombre) {
   }).sort((a, b) => a.orden - b.orden);
 }
 
-function validarCatalogoPreparacion(catalogo, evaluaciones) {
+export function validarCatalogoPreparacion(catalogo, evaluaciones = null) {
   exigirCamposExactos(catalogo,
     ["referencia", "version", "huella_sha256", "es_ejemplo", "vias"],
     "catálogo de preparación");
@@ -273,16 +274,19 @@ function validarCatalogoPreparacion(catalogo, evaluaciones) {
     || !huellaValida(catalogo.huella_sha256)
     || typeof catalogo.es_ejemplo !== "boolean"
     || !esListaPlana(catalogo.vias, MAXIMAS_VIAS)
-    || catalogo.vias.length !== evaluaciones.length) {
+    || catalogo.vias.length === 0
+    || evaluaciones !== null && catalogo.vias.length !== evaluaciones.length) {
     throw new TypeError("catálogo de preparación no válido");
   }
-  const esperadas = new Set(evaluaciones.map(({ via_clave }) => via_clave));
+  const esperadas = evaluaciones === null ? null
+    : new Set(evaluaciones.map(({ via_clave }) => via_clave));
   const claves = new Set();
   const ordenes = new Set();
   let total = 0;
   const vias = catalogo.vias.map((via, indice) => {
     exigirCamposExactos(via, ["clave", "orden", "documentos", "datos"], `vía de preparación[${indice}]`);
-    if (!claveValida(via.clave) || !esperadas.has(via.clave) || claves.has(via.clave)
+    if (!claveValida(via.clave) || esperadas !== null && !esperadas.has(via.clave)
+      || claves.has(via.clave)
       || !Number.isSafeInteger(via.orden) || via.orden < 1
       || via.orden > MAXIMA_PRIORIDAD || ordenes.has(via.orden)) {
       throw new TypeError("vía de preparación no válida");
@@ -298,8 +302,17 @@ function validarCatalogoPreparacion(catalogo, evaluaciones) {
     || !claves.has("bolsa_vigente") || !claves.has("oferta_sae")) {
     throw new TypeError("catálogo de preparación no válido");
   }
-  return { referencia: catalogo.referencia, version: catalogo.version,
-    huella_sha256: catalogo.huella_sha256, es_ejemplo: catalogo.es_ejemplo, vias };
+  return clonarYCongelar({ referencia: catalogo.referencia, version: catalogo.version,
+    huella_sha256: catalogo.huella_sha256, es_ejemplo: catalogo.es_ejemplo, vias });
+}
+
+export function validarPreparacionCoberturaVigente(respuesta) {
+  exigirCamposExactos(respuesta, ["esquema", "catalogo"], "preparación de cobertura vigente");
+  if (respuesta.esquema !== ESQUEMA_PREPARACION_VIGENTE) {
+    throw new TypeError("preparación de cobertura vigente no válida");
+  }
+  return clonarYCongelar({ esquema: respuesta.esquema,
+    catalogo: validarCatalogoPreparacion(respuesta.catalogo) });
 }
 
 export function validarSolicitudPropuestaCobertura(solicitud) {

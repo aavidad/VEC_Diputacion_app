@@ -1,4 +1,5 @@
 import { crearAltaClienteHTTP, RUTAS_ALTA_CONTRATACION_TEMPORAL } from "./cliente-http-alta.js";
+import { crearPreparacionCoberturaClienteHTTP, RUTA_PREPARACION_COBERTURA_VIGENTE } from "./cliente-http-preparacion-cobertura.js";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
@@ -51,6 +52,7 @@ import {
 export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
   alta: RUTAS_ALTA_CONTRATACION_TEMPORAL.alta,
   propuestaCobertura: "/api/vec/contratacion-temporal/cobertura/propuesta",
+  preparacionCoberturaVigente: RUTA_PREPARACION_COBERTURA_VIGENTE,
   decisionCobertura: "/api/vec/contratacion-temporal/cobertura/decisiones",
   rectificacionCobertura: "/api/vec/contratacion-temporal/cobertura/rectificaciones",
   resultadoCobertura: "/api/vec/contratacion-temporal/cobertura/resultados",
@@ -581,6 +583,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
   return Object.freeze({
     modo: "http",
     ...crearAltaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
+    ...crearPreparacionCoberturaClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearConsultasRRHHClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearAsignacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),

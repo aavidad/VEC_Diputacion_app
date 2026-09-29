@@ -453,11 +453,16 @@ test("el inventario expone las rutas compuestas y los cinco flujos previos sigue
   );
   assert.deepEqual(
     llamadas.map(({ ruta }) => ruta),
-    Object.values(RUTAS_HTTP_CONTRATACION_TEMPORAL).slice(0, 5),
+    [RUTAS_HTTP_CONTRATACION_TEMPORAL.alta,
+      RUTAS_HTTP_CONTRATACION_TEMPORAL.propuestaCobertura,
+      RUTAS_HTTP_CONTRATACION_TEMPORAL.decisionCobertura,
+      RUTAS_HTTP_CONTRATACION_TEMPORAL.rectificacionCobertura,
+      RUTAS_HTTP_CONTRATACION_TEMPORAL.resultadoCobertura],
   );
   assert.deepEqual(Object.values(RUTAS_HTTP_CONTRATACION_TEMPORAL), [
     "/api/vec/contratacion-temporal/solicitudes",
     "/api/vec/contratacion-temporal/cobertura/propuesta",
+    "/api/vec/contratacion-temporal/cobertura/preparacion-vigente",
     "/api/vec/contratacion-temporal/cobertura/decisiones",
     "/api/vec/contratacion-temporal/cobertura/rectificaciones",
     "/api/vec/contratacion-temporal/cobertura/resultados",
