@@ -82,6 +82,27 @@ class MaterialTests(unittest.TestCase):
             with self.assertRaises(material.MaterialError):
                 material.verify_existing(root, identity)
 
+    def test_source_upgrade_preserves_material_and_rejects_destination_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old = {"source_commit": "a" * 40, "container_id": "clone", "pg_port": 55531, "app_port": 18531}
+            material.private_write(root / "material/cert", "preserved certificate")
+            sha = hashlib.sha256((root / "material/cert").read_bytes()).hexdigest()
+            material.json_write(root / "material-manifest.json", {"target": old, "files": {"material/cert": sha}, "blockers": []})
+            args = SimpleNamespace(repo=root, pg_port=55531)
+            changed = dict(old, source_commit="b" * 40)
+            material.json_write(root / "DB_READY.json", {"commit": "b" * 40, "sql_instaladas": 34})
+            material.json_write(root / "sql-journal.json", {"source_ref": "b" * 40, "installed": [
+                {"position": n, "path": "deploy/postgresql/fixture/" + str(n) + ".sql", "sha256": hashlib.sha256(b"").hexdigest()}
+                for n in range(1, 35)]})
+            with patch.object(material, "run", return_value=b""), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError):
+                with self.assertRaises(material.MaterialError):
+                    material.update_source(args, root, dict(changed, container_id="different"))
+                upgraded = material.update_source(args, root, changed)
+            self.assertEqual(upgraded["source_updated_from"], old["source_commit"])
+            self.assertEqual(material.verify_existing(root, changed)["files"], {"material/cert": sha})
+            self.assertEqual((root / "material/cert").read_text(), "preserved certificate")
+
     def test_completion_missing_module_has_no_side_effect_and_seals_each_completed_dependency(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

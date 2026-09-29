@@ -164,7 +164,7 @@ def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) ->
     for module, owned_codes in loaded:
         result = module.provision(repo=args.repo, container=args.container, state=output,
                                   material=output / "material", pg_port=args.pg_port, engine=args.engine)
-        if not isinstance(result, dict) or set(result) - {"env", "profiles", "blockers"}:
+        if not isinstance(result, dict) or not isinstance(result.get("env", {}), dict) or not isinstance(result.get("profiles", {}), dict) or not isinstance(result.get("blockers", []), list):
             fail("invalid profile provisioning result")
         env.update(result.get("env", {}))
         profiles["profiles"].update(result.get("profiles", {}))
@@ -357,6 +357,40 @@ def center_bindings(catalog: dict) -> tuple[str, str, str] | None:
     return None
 
 
+def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dict:
+    previous = json.loads(private_read(output / "material-manifest.json"))
+    old = previous.get("target", {})
+    if {k: v for k, v in old.items() if k != "source_commit"} != {k: v for k, v in identity.items() if k != "source_commit"}:
+        fail("source update cannot move material to another clone or port")
+    manifest = verify_existing(output, old)
+    if old.get("source_commit") != identity["source_commit"]:
+        run(["git", "-C", str(args.repo), "merge-base", "--is-ancestor", old["source_commit"], identity["source_commit"]])
+        try:
+            with socket.create_connection(("127.0.0.1", identity["app_port"]), timeout=0.2):
+                fail("application must be stopped before source upgrade")
+        except OSError:
+            pass
+        ready = json.loads(private_read(output / "DB_READY.json"))
+        journal_bytes = private_read(output / "sql-journal.json")
+        journal = json.loads(journal_bytes)
+        installed = journal.get("installed", [])
+        if ready.get("commit") != identity["source_commit"] or ready.get("sql_instaladas") != 34 or journal.get("source_ref") != identity["source_commit"] or len(installed) != 34:
+            fail("source upgrade requires the reviewed 34 SQL receipts")
+        for position, receipt in enumerate(installed, 1):
+            path = receipt.get("path", "")
+            if receipt.get("position") != position or not isinstance(path, str) or not path.startswith("deploy/postgresql/") or not path.endswith(".sql") or ".." in Path(path).parts:
+                fail("invalid source SQL receipt")
+            sql = run(["git", "-C", str(args.repo), "show", identity["source_commit"] + ":" + path])
+            if hashlib.sha256(sql).hexdigest() != receipt.get("sha256"):
+                fail("source SQL receipt does not match the reviewed revision")
+        probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
+        manifest["source_sql_receipts_sha256"] = hashlib.sha256(journal_bytes).hexdigest()
+        manifest["source_updated_from"] = old["source_commit"]
+        manifest["target"] = identity
+        replace_private(output / "material-manifest.json", manifest)
+    return manifest
+
+
 def prepare(args: argparse.Namespace) -> dict:
     os.umask(0o077)
     repo, output, base = map(canonical, (args.repo, args.output, args.base_material))
@@ -388,7 +422,7 @@ def prepare(args: argparse.Namespace) -> dict:
     validate_container(info, args.pg_port, output)
     identity = {"source_commit": head, "container_id": info["Id"], "pg_port": args.pg_port, "app_port": args.port}
     if (output / "material-manifest.json").exists():
-        manifest = verify_existing(output, identity)
+        manifest = update_source(args, output, identity) if getattr(args, "update_source", False) else verify_existing(output, identity)
         probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
         if getattr(args, "complete_profiles", False):
             return complete_profiles(args, output, manifest)
@@ -516,6 +550,7 @@ def main() -> int:
     parser.add_argument("--pg-port", type=int, required=True)
     parser.add_argument("--base-material", type=Path, default=BASE)
     parser.add_argument("--source-env", type=Path)
+    parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")
     args = parser.parse_args()
