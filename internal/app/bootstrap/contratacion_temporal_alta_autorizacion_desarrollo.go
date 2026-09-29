@@ -223,6 +223,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) centroDeCatalogo(ref string)
 	return s.origen.centroDeCatalogo(ref)
 }
 
+func (s *soporteAltaContratacionTemporalDesarrollo) centroDeOrganizacionPeticion(ref string) bool {
+	return s != nil && s.origen != nil && s.origen.centroDeOrganizacionPeticion(ref)
+}
+
 func (s *soporteAltaContratacionTemporalDesarrollo) categoriaDeCatalogo(ref string) bool {
 	if s == nil || s.origen == nil {
 		return ref == categoriaAltaContratacionTemporalDesarrollo
@@ -236,7 +240,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverFlujoAlta(
 ) (ports.ConfiguracionAltaFlujo, error) {
 	centroValido := s.centroDeCatalogo(solicitud.CentroRef)
 	if e, ok := altaDePeticionConfiable(ctx); ok {
-		centroValido = solicitud.CentroRef == e.Peticion.Solicitud.CentroRef && centroValido
+		centroValido = solicitud.CentroRef == e.Peticion.Solicitud.CentroRef &&
+			s.centroDeOrganizacionPeticion(solicitud.CentroRef)
 	}
 	if !s.capacidadAltaValida(ctx) || solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||

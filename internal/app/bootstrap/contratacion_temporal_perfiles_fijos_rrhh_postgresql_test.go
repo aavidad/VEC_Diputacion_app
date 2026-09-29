@@ -47,7 +47,7 @@ func TestEntregaGETyPOSTConsumenAsignacionesSinPublicarPostgreSQL(t *testing.T) 
 		}
 		m := ports.MaterialEntregaPeticionCentro{Modo: caso.modo, ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef}
 		if caso.modo == "preparar" {
-			m.PeticionRef, m.CentroRef, m.CategoriaRef = "peticion:centro:prueba", centroAltaContratacionTemporalDesarrollo, categoriaAltaContratacionTemporalDesarrollo
+			m.PeticionRef, m.CentroRef, m.CategoriaRef = "peticion:centro:prueba", "centro-520", categoriaAltaContratacionTemporalDesarrollo
 			m.VersionEsperada, m.ClaveAltaCandidata = 2, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 			m.AmbitoAltaHMAC = "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:" + strings.Repeat("a", 64)
 		}

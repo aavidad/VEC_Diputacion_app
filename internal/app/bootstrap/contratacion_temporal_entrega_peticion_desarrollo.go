@@ -82,14 +82,11 @@ func nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
 		return vecdomain.InstantaneaAutorizacion{}, ports.ErrPeticionCentroNoDisponible
 	}
 	catalogos, err := origen.catalogosAlta()
-	if err != nil || len(catalogos.Centros) == 0 || len(catalogos.Categorias) == 0 {
+	if err != nil || len(catalogos.centrosOrganizacion) == 0 || len(catalogos.Categorias) == 0 {
 		return vecdomain.InstantaneaAutorizacion{}, ports.ErrPeticionCentroNoDisponible
 	}
-	centros := make([]string, 0, len(catalogos.Centros))
+	centros := append([]string(nil), catalogos.centrosOrganizacion...)
 	categorias := make([]string, 0, len(catalogos.Categorias))
-	for _, centro := range catalogos.Centros {
-		centros = append(centros, centro.Referencia)
-	}
 	for _, categoria := range catalogos.Categorias {
 		categorias = append(categorias, categoria.Referencia)
 	}
