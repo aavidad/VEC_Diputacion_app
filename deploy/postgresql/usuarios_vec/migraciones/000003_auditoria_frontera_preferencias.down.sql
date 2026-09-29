@@ -7,12 +7,14 @@ SET LOCAL lock_timeout='5s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_usuarios:migracion:000003',0));
 LOCK TABLE vec_usuarios.denegacion_frontera_preferencias IN ACCESS EXCLUSIVE MODE;
 DO $guard$ BEGIN
- IF EXISTS (SELECT 1 FROM vec_usuarios.denegacion_frontera_preferencias)
+ IF NOT pg_catalog.pg_has_role(session_user,'vec_usuarios_migrador','MEMBER')
+    OR EXISTS (SELECT 1 FROM vec_usuarios.denegacion_frontera_preferencias)
  THEN RAISE EXCEPTION 'Usuarios: historia impide retirar frontera' USING ERRCODE='55000'; END IF;
 END $guard$;
 REVOKE EXECUTE ON FUNCTION vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text)
- FROM vec_usuarios_registrador_frontera;
-REVOKE USAGE ON SCHEMA vec_usuarios FROM vec_usuarios_registrador_frontera;
+ FROM vec_usuarios_registrador_frontera_interno,vec_usuarios_registrador_frontera_externo;
+REVOKE USAGE ON SCHEMA vec_usuarios FROM vec_usuarios_registrador_frontera_interno,
+ vec_usuarios_registrador_frontera_externo;
 DROP FUNCTION vec_usuarios.registrar_denegacion_preferencias_v1(text,text,text,text,text);
 DROP TABLE vec_usuarios.denegacion_frontera_preferencias;
 COMMIT;
