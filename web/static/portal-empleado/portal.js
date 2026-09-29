@@ -365,7 +365,8 @@ function alCambiarModulos(clave) {
   if (clave === "catalogo") {
     void controladorBolsas.cargarBolsas();
   }
-  if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")) {
+  if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
+    && (destinoPlantillasInicial || plantillasConfirmadas)) {
     void comprobarAccesoPlantillas();
   }
   // Una vista de un módulo sin entrada (URL directa) arranca su carga diferida
@@ -465,15 +466,23 @@ async function cargarFuenteDatos() {
   if (intento !== secuenciaFuente) return;
   actualizarNavegacionModulos();
   renderizarTrasCarga();
-  if (coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
+  if (politicaCeseConfirmada && coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
     void comprobarAccesoPoliticaCese();
   }
 }
 
+// Plantillas de documentos (CT) y política de cese (Bolsa) son capacidades
+// opcionales: la composición de la principal puede no montarlas y entonces su
+// API responde 404. Igual que los borradores de convocatorias, NO se sondean al
+// cargar el portal: solo cuando la persona abre su vista (enlace directo o
+// navegación) o cuando ya constaron disponibles en esta sesión y hay que
+// revalidarlas tras recargar el catálogo o la identidad.
 let consultaAccesoPlantillas = null;
 let destinoPlantillasInicial = false;
+let plantillasConfirmadas = false;
 let consultaAccesoPoliticaCese = null;
 let destinoPoliticaCeseInicial = false;
+let politicaCeseConfirmada = false;
 
 async function comprobarAccesoPoliticaCese() {
   if (estado.politicaCeseComprobada || consultaAccesoPoliticaCese) return;
@@ -484,6 +493,7 @@ async function comprobarAccesoPoliticaCese() {
     if (consultaAccesoPoliticaCese !== controlador || controlador.signal.aborted) return;
     estado.politicaCese = politica;
     estado.politicaCeseComprobada = true;
+    politicaCeseConfirmada = true;
     if (destinoPoliticaCeseInicial && estado.vista === "portal") {
       destinoPoliticaCeseInicial = false;
       navegar("reglas");
@@ -503,6 +513,18 @@ async function comprobarAccesoPoliticaCese() {
     }
   }
 }
+// Abrir una vista opcional aún sin comprobar lanza su sondeo y espera en Inicio;
+// al confirmarse la disponibilidad se navega a ella y, si no, se queda en Inicio.
+function sondearCapacidadAlAbrir(vista) {
+  const plantillas = vista === VISTA_PLANTILLAS_RRHH && estado.plantillasAutorizadas !== true
+    && consultaAccesoPlantillas === null && coordinadorModulos.vistaDisponible("contratacion-temporal");
+  const politica = vista === "reglas" && !estado.politicaCeseComprobada;
+  if (!plantillas && !politica) return false;
+  navegar("portal");
+  if (plantillas) { destinoPlantillasInicial = true; void comprobarAccesoPlantillas(); }
+  else { destinoPoliticaCeseInicial = true; void comprobarAccesoPoliticaCese(); }
+  return true;
+}
 async function comprobarAccesoPlantillas() {
   consultaAccesoPlantillas?.abort();
   const controlador = new AbortController();
@@ -511,6 +533,7 @@ async function comprobarAccesoPlantillas() {
     await crearClientePlantillasRRHH().consultar({ signal: controlador.signal });
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
     estado.plantillasAutorizadas = true;
+    plantillasConfirmadas = true;
     if (destinoPlantillasInicial && estado.vista === "portal") {
       destinoPlantillasInicial = false;
       navegar(VISTA_PLANTILLAS_RRHH);
@@ -624,6 +647,7 @@ function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
   if (vista !== "reglas") destinoPoliticaCeseInicial = false;
+  if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);
