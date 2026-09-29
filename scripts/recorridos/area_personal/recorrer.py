@@ -81,6 +81,16 @@ def sha256_archivo(ruta: Path) -> str:
     return resumen.hexdigest()
 
 
+def preparar_evidencias(ruta: Path) -> Path:
+    if dentro_git(ruta, raices_git()):
+        raise NoEjecutado("evidencias: se exige una carpeta nueva fuera de Git")
+    try:
+        ruta.mkdir(mode=0o700, parents=True, exist_ok=False)
+    except OSError:
+        raise NoEjecutado("evidencias: no se puede crear una carpeta nueva privada") from None
+    return ruta.resolve()
+
+
 def preparar(origen: str, acta: Path, certificado: Path, clave: Path) -> tuple[str, Path]:
     try:
         url = urlparse(origen)
@@ -209,10 +219,11 @@ def comprobar_pagina(pagina, contexto, errores_js: list[str], respuestas_externa
         raise Corte("controles", "desbordamiento, almacenamiento, cookies, JS o red externa")
 
 
-def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path) -> dict:
+def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path,
+             evidencias: Path | None = None) -> dict:
     from playwright.sync_api import sync_playwright
 
-    resultado = {"estado": "CORTE", "pasos": [], "primer_corte": None}
+    resultado = {"estado": "CORTE", "pasos": [], "primer_corte": None, "http": []}
     with sync_playwright() as playwright:
         navegador = playwright.chromium.launch(executable_path=str(chrome), headless=True)
         try:
@@ -233,6 +244,11 @@ def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path) -> dict:
                           if not mismo_origen(peticion.url, origen) else None)
                 pagina.on("response", lambda respuesta: cookies_set.append("set-cookie")
                           if "set-cookie" in respuesta.headers else None)
+                pagina.on("response", lambda respuesta: resultado["http"].append({
+                    "metodo": respuesta.request.method,
+                    "ruta": urlparse(respuesta.url).path,
+                    "estado": respuesta.status,
+                }) if urlparse(respuesta.url).path in RUTAS.values() else None)
                 paso_actual = "preferencias"
                 try:
                     # 1. Preferencias: un valor diferente, recibo y recuperación por GET.
@@ -317,16 +333,23 @@ def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path) -> dict:
                 except Exception:
                     resultado["primer_corte"] = {"paso": paso_actual, "motivo": "interacción o tiempo de espera fallido"}
                 finally:
-                    try:
-                        comprobar_pagina(pagina, contexto, errores_js, respuestas_externas, cookies_set)
-                        resultado["viewports_comprobados"] = [1440]
-                        pagina.set_viewport_size({"width": 390, "height": 844})
-                        comprobar_pagina(pagina, contexto, errores_js, respuestas_externas, cookies_set)
-                        resultado["viewports_comprobados"].append(390)
-                    except Exception:
-                        if resultado["primer_corte"] is None:
-                            resultado["primer_corte"] = {"paso": "controles", "motivo": "controles de navegador fallidos"}
-                            resultado["estado"] = "CORTE"
+                    resultado["viewports_comprobados"] = []
+                    resultado["capturas"] = []
+                    for ancho, alto in ((1440, 900), (390, 844)):
+                        try:
+                            pagina.set_viewport_size({"width": ancho, "height": alto})
+                            # Las vistas estabilizan su distribución antes de capturar.
+                            pagina.wait_for_timeout(250)
+                            if evidencias is not None:
+                                nombre = f"area-personal-{ancho}.png"
+                                pagina.screenshot(path=str(evidencias / nombre), full_page=True)
+                                resultado["capturas"].append(nombre)
+                            comprobar_pagina(pagina, contexto, errores_js, respuestas_externas, cookies_set)
+                            resultado["viewports_comprobados"].append(ancho)
+                        except Exception:
+                            if resultado["primer_corte"] is None:
+                                resultado["primer_corte"] = {"paso": "controles", "motivo": "controles de navegador fallidos"}
+                                resultado["estado"] = "CORTE"
             finally:
                 contexto.close()
         finally:
@@ -340,14 +363,17 @@ def main() -> int:
     parser.add_argument("--acta", required=True, type=Path)
     parser.add_argument("--certificado", required=True, type=Path)
     parser.add_argument("--clave", required=True, type=Path)
+    parser.add_argument("--evidencias", type=Path,
+                        help="Carpeta nueva externa a Git para capturas sintéticas")
     args = parser.parse_args()
     try:
         origen, chrome = preparar(args.origen, args.acta, args.certificado, args.clave)
+        evidencias = preparar_evidencias(args.evidencias) if args.evidencias is not None else None
     except NoEjecutado as error:
         print(json.dumps({"estado": "NO EJECUTADO", "motivo": str(error)}, ensure_ascii=False))
         return 2
     try:
-        resultado = ejecutar(origen, chrome, args.certificado, args.clave)
+        resultado = ejecutar(origen, chrome, args.certificado, args.clave, evidencias)
         print(json.dumps(resultado, ensure_ascii=False, sort_keys=True))
         return 0 if resultado["estado"] == "COMPLETO_CON_LIMITES" else 1
     except Exception:

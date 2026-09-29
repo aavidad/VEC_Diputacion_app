@@ -26,7 +26,8 @@ python3 scripts/recorridos/area_personal/recorrer.py \
   --origen https://127.0.0.1:PUERTO \
   --acta /ruta/externa/acta.json \
   --certificado /ruta/externa/certificado.pem \
-  --clave /ruta/externa/clave.pem
+  --clave /ruta/externa/clave.pem \
+  --evidencias /ruta/externa/capturas-nuevas
 ```
 
 ## Evidencia y límites
@@ -35,9 +36,11 @@ El guion fija el castellano, cambia el número de filas de preferencias y elige 
 
 La recuperación aquí es **recarga de navegador**. No acredita recuperación tras reiniciar aplicación o PostgreSQL, auditoría completa, entrega de correo, ni funciones administrativas de Aspirantes. Esas afirmaciones requieren un recorrido adicional en el clon, con inspección de historia y recibos. El guion comprueba ausencia de cookies, almacenamiento web, errores JavaScript, peticiones externas y desbordamiento horizontal en la vista final alcanzada. Intercepta cada respuesta sin seguir redirecciones y corta cualquier 3xx; la prueba focal demuestra que un 302 local hacia otro puerto no llega al destino. También intercepta WebSocket antes de conectar al servidor y descarta sus mensajes; una prueba comprueba que no hubo handshake en otro puerto.
 
+`--evidencias` crea una carpeta privada nueva fuera de Git, sin sobrescribir capturas anteriores. Guarda la vista final alcanzada a 1440 y 390 px, también cuando el recorrido se corta. La salida incluye método, ruta pública y estado HTTP de los endpoints del guion; omite parámetros, cuerpos y cabeceras. Las capturas contienen solo los datos sintéticos del clon y permanecen fuera de Git.
+
 La ruta `?vista=llamamientos` presenta el título «Disponibilidad y llamamientos», según el catálogo castellano de este corte. El guion usa ese título y la sección propia de histórico para identificar Mi Bolsa.
 
-En `origin/main` de partida (`3b910a1`), «Mi ficha Aspirantes» de #160 seguía abierta. Si todas las etapas anteriores llegan a ella, el primer corte esperado es `mi_ficha_aspirantes`; **no se atribuye #160 a main**. Hoy falta además el runtime H3–H5 con binario acreditado para este ensayo, por lo que el estado real de esta rama es `NO EJECUTADO`.
+En `origin/main` de partida (`3b910a1`), «Mi ficha Aspirantes» de #160 seguía abierta. Si todas las etapas anteriores llegan a ella, el primer corte esperado es `mi_ficha_aspirantes`; **no se atribuye #160 a main**. Cada ejecución debe usar el corte y el acta del clon autorizado por Dirección; ningún resultado de una rama pendiente acredita su integración en main.
 
 Prueba focal sin servicios:
 

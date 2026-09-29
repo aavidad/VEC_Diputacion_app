@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, filtrar_red, preparar, raices_git
+from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, filtrar_red, preparar, preparar_evidencias, raices_git
 
 
 class Precondiciones(unittest.TestCase):
@@ -102,6 +102,15 @@ class Precondiciones(unittest.TestCase):
     def test_titulo_de_bolsa_coincide_con_catalogo(self):
         catalogo = json.loads((RAIZ_REPO / "web/static/area-personal/locales/es.json").read_text())
         self.assertEqual(catalogo["areaPersonal.rutas.llamamientos"], "Disponibilidad y llamamientos")
+
+    def test_capturas_privadas_no_sobrescriben_evidencia_ni_entran_en_git(self):
+        with self.assertRaisesRegex(NoEjecutado, "evidencias"):
+            preparar_evidencias(RAIZ_REPO / "capturas-prueba")
+        destino = self.raiz / "capturas"
+        self.assertEqual(preparar_evidencias(destino), destino.resolve())
+        self.assertEqual(destino.stat().st_mode & 0o777, 0o700)
+        with self.assertRaisesRegex(NoEjecutado, "evidencias"):
+            preparar_evidencias(destino)
 
 
 class Redirecciones(unittest.TestCase):
