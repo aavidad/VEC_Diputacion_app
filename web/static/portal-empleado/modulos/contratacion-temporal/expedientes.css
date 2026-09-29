@@ -1171,3 +1171,24 @@ button.ct-exp-chip:focus-visible {
   color: var(--portal-muted);
   font-size: 0.8125rem;
 }
+
+/* «Siguiente paso»: el botón y el texto solo hablan de un trámite si hay uno
+   montado en la ficha (formularios tras la marca o en la tramitación). */
+.ct-exp-que-con-tramite {
+  display: none;
+}
+
+:has(> [data-ct-exp-tramite] ~ * :is(form, button), > .ct-exp-tramitacion :is(form, button))
+  > .ct-exp-siguiente-paso .ct-exp-que-con-tramite {
+  display: inline;
+}
+
+:has(> [data-ct-exp-tramite] ~ * :is(form, button), > .ct-exp-tramitacion :is(form, button))
+  > .ct-exp-siguiente-paso .ct-exp-que-sin-tramite {
+  display: none;
+}
+
+:has(> [data-ct-exp-tramite]):not(:has(> [data-ct-exp-tramite] ~ * :is(form, button), > .ct-exp-tramitacion :is(form, button)))
+  > .ct-exp-siguiente-paso [data-ct-exp-accion="ir-tramite"] {
+  display: none;
+}
