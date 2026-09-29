@@ -10,6 +10,7 @@ import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260928-ppt-v2";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
+import { renderizarViasPreparacion, traduccionesPreparacionDisponibles } from "./vias-preparacion-presentacion.js";
 
 // Mensajes que describen la carga del cuadro de mando. Pertenecen a la pestaña
 // del cuadro: en «Nueva petición» el formulario no depende de esa carga y no
@@ -92,7 +93,9 @@ export function renderizarAlta(
       </div>
     </section>`;
   }
-  return `<div data-ct-exp-alta></div>
+  const entradas = traduccionesPreparacionDisponibles(null, t)
+    ? renderizarViasPreparacion(null, t, { antesAlta: true }) : "";
+  return `${entradas}<div data-ct-exp-alta></div>
     ${analisisDisponible ? '<div data-ct-exp-analisis></div>' : ""}
     ${coberturaDisponible ? '<div data-ct-exp-cobertura></div>' : ""}
     ${asignacionDisponible ? '<div data-ct-exp-asignacion></div>' : ""}

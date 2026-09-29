@@ -10,6 +10,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260928-ppt-v2";
+import { renderizarViasPreparacion, traduccionesPreparacionDisponibles } from "./vias-preparacion-presentacion.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -133,11 +134,13 @@ function renderizarPropuesta(propuesta, estado, t) {
 
 function renderizarContenido(estado, contexto, t, formateador, formateadorFechas) {
   if (estado.recibo) return renderizarRecibo(estado.recibo, contexto, t, formateador);
+  const preparacion = estado.propuesta?.catalogo
+    ? renderizarViasPreparacion(estado.propuesta, t) : "";
   const avisos = estado.indeterminado ? "" : renderizarAvisosViaCobertura(
     estado.propuesta?.avisos_via, t,
     { formateadorFechas, ayudaAbierta: estado.ayuda_avisos_abierta === true },
   );
-  return avisos + renderizarContenidoPropuesta(estado, t);
+  return preparacion + avisos + renderizarContenidoPropuesta(estado, t);
 }
 
 function renderizarContenidoPropuesta(estado, t) {
@@ -303,6 +306,9 @@ export function montarFormularioCobertura(configuracion = {}) {
           solicitud,
           Object.freeze({ signal: controlador.signal }),
         ));
+        if (propuesta.catalogo && !traduccionesPreparacionDisponibles(propuesta, t)) {
+          throw new TypeError("traducción de preparación no disponible");
+        }
         if (!montado) return null;
         estado = {
           ...estado,
@@ -313,8 +319,16 @@ export function montarFormularioCobertura(configuracion = {}) {
           tipo_mensaje: propuesta.estado === "viable" ? "exito" : "aviso",
         };
         return propuesta;
-      } catch {
-        if (montado) fijarError("cobertura_estado_error_propuesta");
+      } catch (error) {
+        if (montado) {
+          let clave = "cobertura_estado_error_propuesta";
+          if (error?.estado === 403 && error?.codigo === "datos_no_disponibles_perfil"
+            && error?.envelopeValido === true) {
+            try { t("cobertura_preparacion_perfil_sin_datos");
+              clave = "cobertura_preparacion_perfil_sin_datos"; } catch { /* Texto genérico seguro. */ }
+          }
+          fijarError(clave);
+        }
         return null;
       } finally {
         controlador = null;
