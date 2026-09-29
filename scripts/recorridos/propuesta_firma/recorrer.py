@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -57,6 +59,13 @@ def argumentos(argv=None):
 
 
 def validar_entrada(a):
+    for ruta in (a.salida, a.captura_movil, a.captura_escritorio):
+        if ruta:
+            try:
+                descriptor = abrir_directorio_privado(ruta)
+                os.close(descriptor)
+            except OSError:
+                raise Corte("precondiciones", "la salida requiere un directorio propio 0700, externo a Git y sin enlaces") from None
     if not a.entorno or not a.entorno.is_file():
         raise Corte("precondiciones", "falta acreditación externa del clon H3-H5 y binario")
     try:
@@ -239,10 +248,54 @@ def limitar_websocket(route, permitir_autofirma):
         route.close()
 
 
+def abrir_directorio_privado(ruta):
+    """Abre el padre sin seguir enlaces ni aceptar repositorios o worktrees."""
+    ruta = Path(ruta)
+    if ".." in ruta.parts or not ruta.name:
+        raise OSError(errno.EPERM, "ruta privada no válida")
+    absoluta = ruta if ruta.is_absolute() else Path.cwd() / ruta
+    descriptor = os.open(absoluta.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for componente in (*absoluta.parent.parts[1:], None):
+            try:
+                os.stat(".git", dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise OSError(errno.EPERM, "no se guardan artefactos dentro de Git")
+            try:
+                cabecera = os.stat("HEAD", dir_fd=descriptor, follow_symlinks=False)
+                objetos = os.stat("objects", dir_fd=descriptor, follow_symlinks=False)
+                configuracion = os.stat("config", dir_fd=descriptor, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                if stat.S_ISREG(cabecera.st_mode) and stat.S_ISDIR(objetos.st_mode) \
+                        and stat.S_ISREG(configuracion.st_mode):
+                    raise OSError(errno.EPERM, "no se guardan artefactos dentro de Git bare")
+            if componente is not None:
+                siguiente = os.open(componente, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                    dir_fd=descriptor)
+                os.close(descriptor)
+                descriptor = siguiente
+        padre = os.fstat(descriptor)
+        if padre.st_uid != os.getuid() or stat.S_IMODE(padre.st_mode) != 0o700:
+            raise OSError(errno.EPERM, "el directorio de salida debe ser propio y 0700")
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def guardar_privado(ruta, contenido):
-    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(descriptor, "wb") as fichero:
-        fichero.write(contenido)
+    directorio = abrir_directorio_privado(ruta)
+    try:
+        descriptor = os.open(Path(ruta).name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=directorio)
+        with os.fdopen(descriptor, "wb") as fichero:
+            fichero.write(contenido)
+    finally:
+        os.close(directorio)
 
 
 def capturar_corte(page, a, informe):

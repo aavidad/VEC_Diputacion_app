@@ -8,6 +8,43 @@ import recorrer
 
 
 class RecorridoFirmaTest(unittest.TestCase):
+    def test_salida_rechaza_git_worktree_permisos_y_enlaces(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            privado = raiz / "privado"
+            privado.mkdir(mode=0o700)
+            recorrer.guardar_privado(privado / "valido.json", b"sintetico")
+            self.assertEqual((privado / "valido.json").read_bytes(), b"sintetico")
+            for marcador in ("directorio", "fichero"):
+                repo = raiz / marcador
+                repo.mkdir(mode=0o700)
+                if marcador == "directorio":
+                    (repo / ".git").mkdir()
+                else:
+                    (repo / ".git").write_text("gitdir: otro", encoding="utf-8")
+                hijo = repo / "capturas"
+                hijo.mkdir(mode=0o700)
+                with self.assertRaises(OSError):
+                    recorrer.guardar_privado(hijo / "rechazada.png", b"sintetico")
+                self.assertFalse((hijo / "rechazada.png").exists())
+            bare = raiz / "bare"
+            bare.mkdir(mode=0o700)
+            (bare / "HEAD").write_text("ref: refs/heads/main", encoding="utf-8")
+            (bare / "config").write_text("[core]\nbare = true", encoding="utf-8")
+            (bare / "objects").mkdir()
+            with self.assertRaises(OSError):
+                recorrer.guardar_privado(bare / "rechazada.png", b"sintetico")
+            compartido = raiz / "compartido"
+            compartido.mkdir(mode=0o755)
+            with self.assertRaises(OSError):
+                recorrer.guardar_privado(compartido / "rechazada.png", b"sintetico")
+            enlace = raiz / "enlace"
+            enlace.symlink_to(privado, target_is_directory=True)
+            with self.assertRaises(OSError):
+                recorrer.guardar_privado(enlace / "rechazada.png", b"sintetico")
+            with self.assertRaises(OSError):
+                recorrer.guardar_privado(privado / ".." / "rechazada.png", b"sintetico")
+
     def test_capturas_del_primer_corte_son_privadas_y_no_sobrescriben(self):
         class Pagina:
             def set_viewport_size(self, dimensiones):
