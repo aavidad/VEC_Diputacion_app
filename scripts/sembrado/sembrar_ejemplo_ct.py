@@ -17,9 +17,11 @@ Los plazos de fase los calcula el servidor desde el día en que el expediente
 entra en la fase: lo sembrado hoy queda «en plazo» (cinco o diez días hábiles).
 No hay forma legítima de fechar hacia atrás una operación.
 
-Modos:  --plan (sin escribir), --ejecutar (escribe), --resumen (solo lee el cuadro).
+Modos:  --plan (sin escribir), --ejecutar --confirmar-entorno-sintetico (escribe),
+--resumen (solo lee el cuadro).
 Se ejecuta dentro del contenedor de la aplicación:
-  podman exec -i APP python3 - --ejecutar --casos-b64 "$(base64 -w0 casos.json)" < sembrar_ejemplo_ct.py
+  podman exec -i APP python3 - --ejecutar --confirmar-entorno-sintetico \
+    --casos-b64 "$(base64 -w0 casos.json)" < sembrar_ejemplo_ct.py
 Termina con SEMBRADO-OK (0), SEMBRADO-PARCIAL (1) o SEMBRADO-FALLO (2).
 """
 
@@ -31,6 +33,7 @@ import collections
 import datetime as dt
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 import ssl
@@ -74,6 +77,32 @@ class ErrorAPI(Exception):
         self.estado, self.codigo = estado, codigo
 
 
+def validar_base(base: str, ejecutar: bool) -> None:
+    """Acepta una raíz HTTPS; la escritura exige una dirección de loopback."""
+    try:
+        u = urllib.parse.urlsplit(base)
+        puerto = u.port
+    except ValueError as e:
+        raise ValueError("--base no es una URL válida") from e
+    if (u.scheme != "https" or not u.hostname or not u.netloc or
+            u.username is not None or u.password is not None or
+            u.path not in ("", "/") or u.query or u.fragment or puerto == 0):
+        raise ValueError("--base debe ser una raíz HTTPS sin credenciales, ruta ni parámetros")
+    if ejecutar:
+        try:
+            local = ipaddress.ip_address(u.hostname).is_loopback
+        except ValueError:
+            local = u.hostname == "localhost"
+        if not local:
+            raise ValueError("--ejecutar solo admite una dirección local de loopback")
+
+
+def exigir_catalogo_de_ejemplo(catalogos: dict) -> None:
+    preparacion = catalogos.get("preparacion_vias")
+    if not isinstance(preparacion, dict) or preparacion.get("es_ejemplo") is not True:
+        raise RuntimeError("el catálogo de vías no acredita datos de ejemplo; se cancela la escritura")
+
+
 class Cliente:
     """Una conexión mTLS por petición; JSON compacto (algunas rutas exigen su forma canónica)."""
 
@@ -81,10 +110,9 @@ class Cliente:
         crt, key, ca = (f"{material}/mtls/{nombre}.crt", f"{material}/mtls/{nombre}.key", f"{material}/ca/ca.crt")
         if not (os.path.isfile(crt) and os.path.isfile(key)):
             raise SystemExit(f"SEMBRADO-FALLO: falta el certificado {nombre} en {material}/mtls")
-        ctx = ssl.create_default_context(cafile=ca) if os.path.isfile(ca) else ssl.create_default_context()
-        ctx.check_hostname = False
         if not os.path.isfile(ca):
-            ctx.verify_mode = ssl.CERT_NONE
+            raise SystemExit(f"SEMBRADO-FALLO: falta la CA en {material}/ca")
+        ctx = ssl.create_default_context(cafile=ca)
         ctx.load_cert_chain(crt, key)
         u = urllib.parse.urlsplit(base)
         self.host, self.puerto, self.ctx = u.hostname, u.port or 443, ctx
@@ -132,18 +160,18 @@ class Sembrador:
 
     # ---------------------------------------------------------------- preparación
     def centro(self, codigo: str) -> dict:
-        centros = [c for c in self.catalogos.get("centros") or [] if c.get("contactos")]
-        if not centros:
-            raise RuntimeError("el catálogo del alta no tiene centros con contacto")
-        return next((c for c in centros if c["referencia"].rsplit(":", 1)[-1] == codigo),
-                    centros[int(hashlib.sha256(codigo.encode()).hexdigest(), 16) % len(centros)])
+        centros = [c for c in self.catalogos.get("centros") or []
+                   if c.get("referencia", "").rsplit(":", 1)[-1] == codigo]
+        if len(centros) != 1 or len(centros[0].get("contactos") or []) != 1:
+            raise RuntimeError(f"centro {codigo}: se necesita una coincidencia exacta con un contacto")
+        return centros[0]
 
     def categoria(self, nombre: str) -> tuple[str, str]:
-        cats = [c for c in self.catalogos.get("categorias") or [] if c.get("grupos_subgrupos")]
-        if not cats:
-            raise RuntimeError("el catálogo del alta no tiene categorías")
-        c = next((c for c in cats if c["referencia"].rsplit(":", 1)[-1] == nombre),
-                 cats[int(hashlib.sha256(nombre.encode()).hexdigest(), 16) % len(cats)])
+        cats = [c for c in self.catalogos.get("categorias") or []
+                if c.get("referencia", "").rsplit(":", 1)[-1] == nombre]
+        if len(cats) != 1 or len(cats[0].get("grupos_subgrupos") or []) != 1:
+            raise RuntimeError(f"categoría {nombre}: se necesita una coincidencia exacta con un grupo")
+        c = cats[0]
         return c["referencia"], c["grupos_subgrupos"][0]["clave"]
 
     def plan(self, caso: dict) -> dict:
@@ -151,10 +179,13 @@ class Sembrador:
         categoria, grupo = self.categoria(caso["categoria"])
         motivos = [m["clave"] for m in self.catalogos.get("motivos") or []]
         modalidades = [m["clave"] for m in self.configuracion.get("modalidades") or []]
+        if "sustitucion" not in motivos:
+            raise RuntimeError("el catálogo del alta no ofrece el motivo sustitución")
+        if caso["modalidad"] not in modalidades:
+            raise RuntimeError(f"modalidad {caso['modalidad']}: no figura en la configuración")
         return {
             "centro": centro, "categoria": categoria, "grupo": grupo,
-            "motivo": "sustitucion" if "sustitucion" in motivos or not motivos else motivos[0],
-            "modalidad": caso["modalidad"] if caso["modalidad"] in modalidades else modalidades[0],
+            "motivo": "sustitucion", "modalidad": caso["modalidad"],
             "periodo": {"inicio": instante(caso["inicio"]), "fin": instante(caso["fin"])},
         }
 
@@ -323,25 +354,43 @@ def main() -> int:
     a.add_argument("--intervencion", default="intervencion")
     a.add_argument("--casos", help="fichero JSON de casos")
     a.add_argument("--casos-b64", help="el mismo JSON en base64 (para ejecutar dentro del contenedor)")
+    a.add_argument("--confirmar-entorno-sintetico", action="store_true",
+                   help="confirma que el destino y sus datos son de desarrollo sintético")
     modo = a.add_mutually_exclusive_group(required=True)
     modo.add_argument("--plan", action="store_true", help="muestra qué haría, sin escribir")
     modo.add_argument("--ejecutar", action="store_true", help="crea o completa los expedientes")
     modo.add_argument("--resumen", action="store_true", help="solo lee el cuadro de RRHH")
     o = a.parse_args()
+    try:
+        validar_base(o.base, o.ejecutar)
+    except ValueError as e:
+        a.error(str(e))
+    if o.ejecutar and not o.confirmar_entorno_sintetico:
+        a.error("--ejecutar exige --confirmar-entorno-sintetico")
+    if o.confirmar_entorno_sintetico and not o.ejecutar:
+        a.error("--confirmar-entorno-sintetico solo se usa con --ejecutar")
+    if not o.resumen and bool(o.casos) == bool(o.casos_b64):
+        a.error("indique --casos o --casos-b64")
     rrhh = Cliente(o.base, o.material, o.rrhh)
     if o.resumen:
         resumen(rrhh, set())
         return 0
-    if bool(o.casos) == bool(o.casos_b64):
-        a.error("indique --casos o --casos-b64")
     datos = json.loads(base64.b64decode(o.casos_b64) if o.casos_b64 else open(o.casos, encoding="utf-8").read())
     if datos.get("esquema") != "vec.ct.sembrado-ejemplo.v1":
         a.error("fichero de casos con otro esquema")
     casos = datos["casos"]
     s = Sembrador(rrhh, Cliente(o.base, o.material, o.intervencion), datos["espacio_claves"])
-    if o.plan:
+    try:
+        if o.ejecutar:
+            exigir_catalogo_de_ejemplo(s.catalogos)
         for c in casos:
-            p = s.plan(c)
+            PLAN[c["objetivo"]]
+        planes = [s.plan(c) for c in casos]
+    except (RuntimeError, KeyError, TypeError, ValueError) as e:
+        print(f"SEMBRADO-FALLO: no se ha escrito nada: {e}")
+        return 2
+    if o.plan:
+        for c, p in zip(casos, planes):
             print(f"{c['codigo']}  {c['objetivo']:<13} {p['centro'].get('etiqueta', '')[:34]:<34} {p['categoria']:<40} "
                   f"{' → '.join(PLAN[c['objetivo']]) or 'alta'}")
         return 0
