@@ -5,7 +5,6 @@ package postgres
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -199,17 +198,20 @@ func (r *RegistroCorreosPostgreSQL) validarOrdenCorreos(orden ports.OrdenCorreos
 	if err != nil {
 		return ports.ErrCorreosProhibido
 	}
-	canon, err := ports.SerializarMaterialCorreos(m)
+	recurso, err := ports.RecursoCorreos(m)
 	if err != nil {
 		return ports.ErrCorreosInvalidos
 	}
-	huella := sha256.Sum256(canon)
+	huella, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		return ports.ErrCorreosInvalidos
+	}
 	if m.PersonaRef != actor.PersonaRef || m.PerfilRef != actor.PerfilActivoRef || m.Accion != accion ||
 		m.Superficie != superficie || superficie != r.superficie || m.VersionEsperada >= math.MaxInt64 ||
 		m.FinalidadRef != ports.FinalidadCorreosPropios || v3.ValidarEstructura() != nil ||
 		v3.PersonaVersion() != actor.Instantanea.PersonaVersion || v3.PerfilVersion() != actor.Instantanea.PerfilVersion ||
 		v3.ResumenCapacidad().Operacion() != accion || v3.ResumenCapacidad().AudienciaConsumo() != audiencia ||
-		v3.ResumenCapacidad().EfectoRef() != m.PersonaRef || v3.ResumenCapacidad().EfectoHuellaSHA256() != hex.EncodeToString(huella[:]) {
+		v3.ResumenCapacidad().EfectoRef() != m.PersonaRef || v3.ResumenCapacidad().EfectoHuellaSHA256() != huella {
 		return ports.ErrCorreosProhibido
 	}
 	return nil
@@ -415,6 +417,7 @@ type sobreAplicarJSON struct {
 	CorreoRef         string `json:"correo_ref"`
 	Version           uint64 `json:"version"`
 	ClaveRef          string `json:"clave_ref"`
+	ClaveIgualdadRef  string `json:"clave_igualdad_ref"`
 	NonceHex          string `json:"nonce_hex"`
 	CifradoHex        string `json:"cifrado_hex"`
 	HuellaIgualdadHex string `json:"huella_igualdad_hex"`
@@ -437,10 +440,10 @@ func parametrosMutacionCorreos(p ports.PeticionCorreo, m ports.MaterialCorreos, 
 	switch m.Accion {
 	case ports.AccionAnadirCorreo:
 		if m.CorreoRef != "" || p.CorreoRef == "" || sobre.CorreoRef != p.CorreoRef || sobre.Version != m.VersionEsperada+1 ||
-			sobre.ClaveRef == "" || len(sobre.Nonce) < 12 || len(sobre.Nonce) > 32 || len(sobre.Cifrado) < 16 || len(sobre.Cifrado) > 4096 || len(sobre.HuellaIgualdad) != 32 {
+			sobre.ClaveRef == "" || sobre.ClaveIgualdadRef == "" || sobre.ClaveIgualdadRef == sobre.ClaveRef || len(sobre.Nonce) < 12 || len(sobre.Nonce) > 32 || len(sobre.Cifrado) < 16 || len(sobre.Cifrado) > 4096 || len(sobre.HuellaIgualdad) != 32 {
 			return nil, nil, ports.ErrCorreosInvalidos
 		}
-		sj = sobreAplicarJSON{p.CorreoRef, sobre.Version, sobre.ClaveRef, hex.EncodeToString(sobre.Nonce), hex.EncodeToString(sobre.Cifrado), hex.EncodeToString(sobre.HuellaIgualdad)}
+		sj = sobreAplicarJSON{p.CorreoRef, sobre.Version, sobre.ClaveRef, sobre.ClaveIgualdadRef, hex.EncodeToString(sobre.Nonce), hex.EncodeToString(sobre.Cifrado), hex.EncodeToString(sobre.HuellaIgualdad)}
 		fallthrough
 	case ports.AccionReenviarCorreo:
 		_, offset := reserva.VenceUTC.Zone()

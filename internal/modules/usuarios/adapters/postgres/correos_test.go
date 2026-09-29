@@ -149,11 +149,14 @@ func pruebaOrdenYV3Correos(t *testing.T, accion string) (ports.OrdenCorreos, por
 	if accion == ports.AccionAnadirCorreo {
 		m.CorreoRef = ""
 	}
-	material, err := ports.SerializarMaterialCorreos(m)
+	recurso, err := ports.RecursoCorreos(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	huella := sha256.Sum256(material)
+	huella, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
 	orden, err := ports.NuevaOrdenCorreos(actor, vinculo, superficie, &proveedorCorreoPGPrueba{})
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +166,7 @@ func pruebaOrdenYV3Correos(t *testing.T, accion string) (ports.OrdenCorreos, por
 		t.Fatal(err)
 	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), accion, actor.PersonaRef, hex.EncodeToString(huella[:]), audiencia, ahora, ahora.Add(time.Second))
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), accion, actor.PersonaRef, huella, audiencia, ahora, ahora.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +273,7 @@ func TestAltaEnviaSoloSobreYReservaConJSONCerrado(t *testing.T) {
 	m.CorreoRef = ""
 	ref := "correo:1234567890123456"
 	p := ports.PeticionCorreo{VersionEsperada: m.VersionEsperada, ClaveOperacion: m.ClaveOperacion, CorreoRef: ref}
-	sobre := ports.SobreDireccionCorreo{CorreoRef: ref, Version: 2, ClaveRef: "clave:sobre", Nonce: bytes.Repeat([]byte{1}, 12), Cifrado: bytes.Repeat([]byte{2}, 32), HuellaIgualdad: bytes.Repeat([]byte{3}, 32)}
+	sobre := ports.SobreDireccionCorreo{CorreoRef: ref, Version: 2, ClaveRef: "clave:sobre", ClaveIgualdadRef: "clave:igualdad", Nonce: bytes.Repeat([]byte{1}, 12), Cifrado: bytes.Repeat([]byte{2}, 32), HuellaIgualdad: bytes.Repeat([]byte{3}, 32)}
 	reserva := ports.ReservaDesafio{DesafioRef: "desafio:1234567890123456", Desafio: bytes.Repeat([]byte{4}, 16), HuellaCodigo: bytes.Repeat([]byte{5}, 32), ClaveRef: "clave:desafio", VenceUTC: time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)}
 	recibo := reciboPGPrueba(m, false)
 	var j map[string]any
@@ -295,13 +298,28 @@ func TestAltaEnviaSoloSobreYReservaConJSONCerrado(t *testing.T) {
 	if json.Unmarshal(llamada.args[1].([]byte), &sj) != nil || json.Unmarshal(llamada.args[2].([]byte), &rj) != nil {
 		t.Fatal("sobre/reserva no son JSON")
 	}
-	if len(sj) != 6 || len(rj) != 5 || sj["correo_ref"] != ref || rj["huella_codigo_hex"] != hex.EncodeToString(reserva.HuellaCodigo) {
+	if len(sj) != 7 || len(rj) != 5 || sj["correo_ref"] != ref || sj["clave_igualdad_ref"] != sobre.ClaveIgualdadRef || rj["huella_codigo_hex"] != hex.EncodeToString(reserva.HuellaCodigo) {
 		t.Fatal("campos de sobre/reserva incorrectos")
 	}
 	for _, arg := range llamada.args {
 		if s, ok := arg.(string); ok && strings.Contains(s, "example.org") {
 			t.Fatal("dirección clara enviada a SQL")
 		}
+	}
+}
+
+func TestAltaRechazaClaveIgualdadAusenteOIgualAEAD(t *testing.T) {
+	_, m, _ := pruebaOrdenYV3Correos(t, ports.AccionAnadirCorreo)
+	ref := "correo:1234567890123456"
+	p := ports.PeticionCorreo{VersionEsperada: m.VersionEsperada, ClaveOperacion: m.ClaveOperacion, CorreoRef: ref}
+	sobre := ports.SobreDireccionCorreo{CorreoRef: ref, Version: m.VersionEsperada + 1, ClaveRef: "clave:aead", Nonce: bytes.Repeat([]byte{1}, 12), Cifrado: bytes.Repeat([]byte{2}, 32), HuellaIgualdad: bytes.Repeat([]byte{3}, 32)}
+	reserva := ports.ReservaDesafio{DesafioRef: "desafio:1234567890123456", Desafio: bytes.Repeat([]byte{4}, 16), HuellaCodigo: bytes.Repeat([]byte{5}, 32), ClaveRef: "clave:desafio", VenceUTC: time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)}
+	if _, _, err := parametrosMutacionCorreos(p, m, sobre, reserva); !errors.Is(err, ports.ErrCorreosInvalidos) {
+		t.Fatalf("sin clave igualdad: %v", err)
+	}
+	sobre.ClaveIgualdadRef = sobre.ClaveRef
+	if _, _, err := parametrosMutacionCorreos(p, m, sobre, reserva); !errors.Is(err, ports.ErrCorreosInvalidos) {
+		t.Fatalf("misma clave AEAD/igualdad: %v", err)
 	}
 }
 
@@ -313,6 +331,37 @@ func TestActorAjenoSeRechazaAntesDeAbrirConexion(t *testing.T) {
 	_, _, err := r.RecuperarOperacion(context.Background(), o, m, v3)
 	if !errors.Is(err, ports.ErrCorreosProhibido) || abierto {
 		t.Fatalf("actor ajeno alcanzó DB: %v", err)
+	}
+}
+
+func TestPreflightRechazaSHADeMaterialSinRecursoCanonico(t *testing.T) {
+	o, m, _ := pruebaOrdenYV3Correos(t, ports.AccionReenviarCorreo)
+	actor, err := o.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := ports.SerializarMaterialCorreos(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	directa := sha256.Sum256(material)
+	audiencia, _ := ports.AudienciaCorreos(m.Accion, m.Superficie)
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_directa", strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_directa", strings.Repeat("c", 64), m.Accion, m.PersonaRef, hex.EncodeToString(directa[:]), audiencia, ahora, ahora.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raiz, _ := hex.DecodeString("302a300506032b65700321002152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
+	canon, _ := actor.RepresentacionCanonicaVinculadaV2()
+	v3, err := vecports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(bytes.Repeat([]byte("x"), 512), resumen, []byte("decision"), []byte("motivo"), canon, 1, 1, []byte("payload"), []byte("sobre"), []byte("evidencia"), raiz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	abierto := false
+	r := &RegistroCorreosPostgreSQL{iniciar: func(context.Context) (transaccionCorreos, error) { abierto = true; return nil, nil }, descifrador: &descifradorCorreoPGPrueba{}, superficie: m.Superficie}
+	_, _, err = r.RecuperarOperacion(context.Background(), o, m, v3)
+	if !errors.Is(err, ports.ErrCorreosProhibido) || abierto {
+		t.Fatalf("SHA material directo aceptado: %v", err)
 	}
 }
 
