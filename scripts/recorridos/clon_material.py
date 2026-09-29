@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,7 @@ import struct
 import stat
 import subprocess
 import sys
+import tempfile
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 OWNER = "Codex-M"
@@ -99,6 +101,79 @@ def private_write(path: Path, data: bytes | str) -> None:
 
 def json_write(path: Path, value: object) -> None:
     private_write(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+
+
+def replace_private(path: Path, value: object, *, plain: bool = False) -> None:
+    # Controlled refresh after the previous manifest has been verified.
+    private_read(path)
+    fd, temp = tempfile.mkstemp(prefix=".material-refresh-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(value if plain else json.dumps(value, ensure_ascii=False, indent=2) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp, path)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
+
+
+def load_profile_module(name: str):
+    path = Path(__file__).with_name(name + ".py")
+    if not path.is_file() or path.is_symlink():
+        fail("missing profile provisioning module: " + name)
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    if not callable(getattr(module, "provision", None)):
+        fail("invalid profile provisioning module: " + name)
+    return module
+
+
+def seal_state(output: Path, manifest: dict, env: dict, profiles: dict, blockers: list) -> dict:
+    env.pop("VEC_HTTP_ALLOWED_CIDRS", None)  # runtime enforces exact loopback
+    profiles["blockers"] = blockers
+    replace_private(output / "perfiles.json", profiles)
+    replace_private(output / "runtime-config.json", env)
+    replace_private(output / "runtime.env", "".join(k + "=" + shlex.quote(v) + "\n" for k, v in sorted(env.items())), plain=True)
+    files = {}
+    for path in sorted((output / "material").rglob("*")):
+        if path.is_file():
+            files[str(path.relative_to(output))] = hashlib.sha256(private_read(path)).hexdigest()
+    for name in ("perfiles.json", "runtime.env", "runtime-config.json"):
+        files[name] = hashlib.sha256(private_read(output / name)).hexdigest()
+    manifest.update(files=files, blockers=blockers, status="partial_blocked" if blockers else "prepared",
+                    profiles_provisioned=True)
+    replace_private(output / "material-manifest.json", manifest)
+    return manifest
+
+
+def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) -> dict:
+    env = json.loads(private_read(output / "runtime-config.json"))
+    profiles = json.loads(private_read(output / "perfiles.json"))
+    modules = (
+        ("clon_usuarios", {"concesiones_correos_imagen_pendientes"}),
+        ("clon_bolsa_material", {"bback_politica_ofertas_pendiente"}),
+        ("clon_candidato_material", {"cuenta_contexto_candidato_pendiente"}),
+    )
+    # Preflight every dependency before permitting any side effect.
+    loaded = [(load_profile_module(name), codes) for name, codes in modules]
+    blockers = [b for b in manifest["blockers"] if b["code"] != "lector_adicional_pendiente"]
+    for module, owned_codes in loaded:
+        result = module.provision(repo=args.repo, container=args.container, state=output,
+                                  material=output / "material", pg_port=args.pg_port, engine=args.engine)
+        if not isinstance(result, dict) or set(result) - {"env", "profiles", "blockers"}:
+            fail("invalid profile provisioning result")
+        env.update(result.get("env", {}))
+        profiles["profiles"].update(result.get("profiles", {}))
+        blockers = [b for b in blockers if b["code"] not in owned_codes]
+        blockers.extend(result.get("blockers", []))
+        # Seal every completed module before moving to the next dependency.
+        # A later blocker preserves all already completed material and receipts.
+        manifest = seal_state(output, manifest, env, profiles, blockers)
+    return manifest
 
 
 def load_env(path: Path) -> dict[str, str]:
@@ -307,7 +382,11 @@ def prepare(args: argparse.Namespace) -> dict:
     validate_container(info, args.pg_port, output)
     identity = {"source_commit": head, "container_id": info["Id"], "pg_port": args.pg_port, "app_port": args.port}
     if (output / "material-manifest.json").exists():
-        return verify_existing(output, identity)
+        manifest = verify_existing(output, identity)
+        probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
+        if getattr(args, "complete_profiles", False):
+            return complete_profiles(args, output, manifest)
+        return manifest
     output.mkdir(mode=0o700, parents=True, exist_ok=True)
     if output.stat().st_uid != os.getuid() or output.stat().st_mode & 0o077:
         fail("output must be owned and private")
@@ -416,6 +495,8 @@ def prepare(args: argparse.Namespace) -> dict:
     manifest = {"version": 1, "owner": OWNER, "target": identity, "status": "partial_blocked",
                 "files": files, "blockers": blockers, "application_started": False, "sql_applied": False, "pg_tls_configured": True}
     json_write(output / "material-manifest.json", manifest)
+    if getattr(args, "complete_profiles", False):
+        return complete_profiles(args, output, manifest)
     return manifest
 
 
@@ -429,6 +510,7 @@ def main() -> int:
     parser.add_argument("--pg-port", type=int, required=True)
     parser.add_argument("--base-material", type=Path, default=BASE)
     parser.add_argument("--source-env", type=Path)
+    parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")
     args = parser.parse_args()
     if not (1024 <= args.port <= 65535 and 1024 <= args.pg_port <= 65535) or args.port == args.pg_port:

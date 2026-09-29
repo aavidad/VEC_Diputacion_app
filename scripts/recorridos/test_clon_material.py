@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -81,6 +82,35 @@ class MaterialTests(unittest.TestCase):
             with self.assertRaises(material.MaterialError):
                 material.verify_existing(root, identity)
 
+    def test_completion_missing_module_has_no_side_effect_and_seals_each_completed_dependency(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = SimpleNamespace(repo=root, container="vec-fixture", pg_port=55531, engine="docker")
+            material.private_write(root / "material/identity", "preserved")
+            material.json_write(root / "runtime-config.json", {"VEC_AUTH_MODE": "desarrollo"})
+            material.private_write(root / "runtime.env", "VEC_AUTH_MODE=desarrollo\n")
+            material.json_write(root / "perfiles.json", {"profiles": {}, "blockers": []})
+            blockers = [{"code": code} for code in ("concesiones_correos_imagen_pendientes", "bback_politica_ofertas_pendiente", "cuenta_contexto_candidato_pendiente")]
+            manifest = {"target": {}, "files": {}, "blockers": blockers}
+            material.json_write(root / "material-manifest.json", manifest)
+            called = []
+            def first(**kwargs):
+                called.append("users")
+                return {"profiles": {"users": {"status": "prepared"}}}
+            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), material.MaterialError("missing")]):
+                with self.assertRaises(material.MaterialError):
+                    material.complete_profiles(args, root, manifest)
+            self.assertEqual(called, [])
+            def later(**kwargs):
+                raise material.MaterialError("later dependency blocked")
+            with patch.object(material, "load_profile_module", side_effect=[SimpleNamespace(provision=first), SimpleNamespace(provision=later), SimpleNamespace(provision=later)]):
+                with self.assertRaises(material.MaterialError):
+                    material.complete_profiles(args, root, manifest)
+            current = material.verify_existing(root, {})
+            self.assertEqual(current["status"], "partial_blocked")
+            self.assertNotIn("concesiones_correos_imagen_pendientes", [b["code"] for b in current["blockers"]])
+            self.assertEqual((root / "material/identity").read_text(), "preserved")
+
     def test_full_preparation_preserves_existing_actors_and_never_claims_candidate_account(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -122,7 +152,7 @@ class MaterialTests(unittest.TestCase):
                 manifest = material.prepare(args)
                 second = material.prepare(args)
             self.assertEqual(manifest, second)
-            probe.assert_called_once()
+            self.assertEqual(probe.call_count, 2)
             self.assertFalse(manifest["sql_applied"])
             self.assertEqual(manifest["status"], "partial_blocked")
             for relative in (*material.HISTORY_FILES, "identidad/identidad.json", "mtls/cliente.crt", "ca/ca.crt"):
