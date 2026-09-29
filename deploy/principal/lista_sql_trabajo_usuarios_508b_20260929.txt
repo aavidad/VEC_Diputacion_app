@@ -1,0 +1,7 @@
+# Orden causal de Usuarios 5.08b («Mis correos»). Requiere instaladas antes las
+# seis SQL de 5.08a (lista_sql_trabajo_codexg_usuarios_508a_20260929.txt).
+# Sin roles nuevos: usa los ejecutores y registradores de frontera de 5.08a.
+# Ensayada sobre el clon HITO1 junto con la lista de 5.08a; no acredita instalación.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000107_consumidor_correos_usuarios.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000004_correos_propios.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000005_frontera_correos.up.sql

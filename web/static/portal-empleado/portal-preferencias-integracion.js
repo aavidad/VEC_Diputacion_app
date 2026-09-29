@@ -1,6 +1,11 @@
 import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-i18n-shell-v2";
+import { crearClientePreferencias } from "./portal-preferencias-api.js";
+import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
+import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
 import { IDIOMAS_DISPONIBLES, resolverIdiomaNavegacion } from "../comun/idioma.js";
+
+const textosCorreos = await cargarTextosCorreos();
 
 /** Adapta la autoridad de Usuarios al shell RRHH sin replicar su tema ni guardar datos locales. */
 export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, estado, renderizar,
@@ -41,7 +46,19 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     url.searchParams.set("lang", idioma);
     ventana.location.replace(url.href);
   }
+  // Preferencias, imagen y correos comparten una cola: la identidad de
+  // desarrollo no admite dos altas de sesión simultáneas de la misma cuenta.
+  const enSerie = peticionesEnSerie(globalThis.fetch.bind(globalThis));
+  const marco = { panel: "panel pref-panel", cabecera: "div", claseCabecera: "cabecera-panel", cuerpo: "cuerpo-panel" };
+  const correos = crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/mis-correos", fetchImpl: enSerie }),
+    textos: textosCorreos, marco });
+  const avatar = crearAvatarCabecera(porId("sesion-visible")?.querySelector(".avatar"));
+  let iniciales = "";
+  const imagen = crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/mi-imagen", fetchImpl: enSerie }),
+    textos: textosCorreos, marco, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => iniciales });
   const superficie = crearSuperficiePreferenciasPortal({
+    cliente: crearClientePreferencias({ fetchImpl: enSerie }),
+    correos, imagen,
     actualizar: () => { if (estado.vista === "mis-preferencias") renderizar(); },
     alCargar: ({ estado: actual }) => {
       aplicarVisual(actual.valores);
@@ -96,5 +113,6 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     aviso.hidden = false;
     anunciar(aviso.textContent);
   }
-  return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil });
+  function fijarIniciales(texto) { iniciales = String(texto ?? ""); avatar.fijarIniciales(iniciales); }
+  return Object.freeze({ superficie, instalarMenu, aplicarInicio, alternarVisualVolatil, fijarIniciales });
 }

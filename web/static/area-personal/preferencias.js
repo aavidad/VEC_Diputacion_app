@@ -1,6 +1,8 @@
 import { escaparHTML } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
+import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
+import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";
 
 const textosPorIdioma = new Map(await Promise.all(IDIOMAS_DISPONIBLES.map(async ({ codigo }) =>
   [codigo, await cargarTextos("preferencias", { idioma: codigo })])));
@@ -95,4 +97,35 @@ export function sincronizarAtajosVisuales(valores, documento = globalThis.docume
     .forEach((control) => control.setAttribute("aria-pressed", String(activo)));
   if (typeof valores.tamano_texto === "string") marcar("alternar-texto", valores.tamano_texto !== "normal");
   if (typeof valores.alto_contraste === "boolean") marcar("alternar-contraste", valores.alto_contraste);
+}
+
+const MARCO_AREA_PERSONAL = Object.freeze({ panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" });
+
+/**
+ * «Mi imagen» y «Mis correos» del Área personal. Comparten una cola de
+ * peticiones (la identidad de desarrollo no admite dos altas de sesión
+ * simultáneas de la misma cuenta). La imagen se consulta al arrancar para
+ * pintar la cabecera; los correos, al abrir Mis preferencias. Si los textos
+ * no cargan, la vista sigue sin ellos.
+ */
+export async function montarUsuariosAreaPersonal(estado, fetchImpl = globalThis.fetch, contenedor = null, documento = globalThis.document) {
+  let textos;
+  try { textos = await cargarTextosCorreos(); } catch { return; }
+  const enSerie = peticionesEnSerie(fetchImpl);
+  const avatar = crearAvatarCabecera(documento?.getElementById?.("avatar-sesion"));
+  estado.avatar = avatar;
+  try {
+    estado.imagen = crearSuperficieImagen({ cliente: crearClienteImagen({ ruta: "/api/vec/usuarios/area-personal/mi-imagen", fetchImpl: enSerie }),
+      textos, marco: MARCO_AREA_PERSONAL, alCambiar: (vista) => avatar.fijarImagen(vista), iniciales: () => estado.datos?.sesion?.iniciales ?? "" });
+    estado.correos = crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/area-personal/mis-correos", fetchImpl: enSerie }),
+      textos, marco: MARCO_AREA_PERSONAL, cargaAlMostrar: true });
+  } catch { return; }
+  if (contenedor) { estado.imagen.instalar(contenedor); estado.correos.instalar(contenedor); }
+  void estado.imagen.cargar();
+}
+
+/** Pone las iniciales de la sesión en el avatar sin pisar la imagen elegida. */
+export function pintarInicialesSesion(estado, elemento, iniciales) {
+  if (estado?.avatar) estado.avatar.fijarIniciales(iniciales);
+  else if (elemento) elemento.textContent = iniciales;
 }

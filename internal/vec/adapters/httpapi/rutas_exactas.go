@@ -302,7 +302,9 @@ func superficieAuditoriaFronteraRutaExacta(ruta string) string {
 	switch ruta {
 	case "/api/vec/auditoria/opciones", "/api/vec/auditoria/consultas":
 		return ports.SuperficieAuditoriaFronteraRutaExactaAuditoria
-	case "/api/vec/usuarios/mis-preferencias", "/api/vec/usuarios/area-personal/mis-preferencias":
+	case "/api/vec/usuarios/mis-preferencias", "/api/vec/usuarios/area-personal/mis-preferencias",
+		"/api/vec/usuarios/mis-correos", "/api/vec/usuarios/area-personal/mis-correos",
+		"/api/vec/usuarios/mi-imagen", "/api/vec/usuarios/area-personal/mi-imagen":
 		return ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
 	default:
 		return ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal

@@ -170,5 +170,9 @@
   "module.bolsa.claim.presented": "Representation submitted through the Employment Pool module API",
   "module.bolsa.notification.created": "Notice created through the Employment Pool module API",
   "module.bolsa.notification.sent": "Notice marked as sent through the Employment Pool module API",
-  "module.bolsa.notification.read": "Notice marked as read through the Employment Pool module API"
+  "module.bolsa.notification.read": "Notice marked as read through the Employment Pool module API",
+  "usuarios.correos.verificacion.asunto": "Code to confirm your email address",
+  "usuarios.correos.verificacion.cuerpo": "To confirm this email address, enter this code in “My preferences”:\n\n{codigo}\n\nThe code is valid for {minutos} minutes and can only be used once.\n\nIf you did not ask for this code, you do not need to do anything: without it, nobody can use this address to get our notifications.\n\nHuman Resources. Diputación de Granada",
+  "usuarios.correos.aviso_cambio.asunto": "Your email address for notifications has changed",
+  "usuarios.correos.aviso_cambio.cuerpo": "From now on we will send your notifications to another address that you confirmed in “My preferences”. This address stays on your list but will no longer receive notifications.\n\nIf you did not make this change, please tell Human Resources as soon as possible.\n\nHuman Resources. Diputación de Granada"
 }

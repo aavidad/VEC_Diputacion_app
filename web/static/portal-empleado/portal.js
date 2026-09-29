@@ -342,7 +342,7 @@ async function actualizarSesionVisible() {
   }
   if (!datos.nombre) return;
   // Sin iniciales se conserva el icono de persona de la cabecera.
-  if (datos.iniciales && datos.iniciales !== "—") sesion.querySelector(".avatar").textContent = datos.iniciales;
+  if (datos.iniciales && datos.iniciales !== "—") integracionPreferencias.fijarIniciales(datos.iniciales);
   sesion.querySelector("strong").textContent = datos.nombre;
   const perfil = sesion.querySelector("small");
   perfil.textContent = datos.perfil;

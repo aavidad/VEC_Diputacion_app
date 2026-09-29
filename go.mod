@@ -17,8 +17,8 @@ require (
 	github.com/miekg/pkcs11 v1.1.2
 	github.com/nkiri/xls v0.0.4
 	github.com/veraison/go-cose v1.3.0
-	golang.org/x/image v0.44.0
-	golang.org/x/text v0.40.0
+	golang.org/x/image v0.45.0
+	golang.org/x/text v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

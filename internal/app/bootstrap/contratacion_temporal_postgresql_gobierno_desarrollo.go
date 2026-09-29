@@ -16,6 +16,7 @@ import (
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/auditoria"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
@@ -240,6 +241,16 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		audienciaActualizacionPreferenciasUsuariosInterna,
 		audienciaConsultaPreferenciasUsuariosExterna,
 		audienciaActualizacionPreferenciasUsuariosExterna,
+		// «Mis correos» (AD3-107); sólo con VEC_USUARIOS_CORREOS_ENABLED.
+		usuariosports.AudienciaConsultarCorreosInterna, usuariosports.AudienciaAnadirCorreoInterna,
+		usuariosports.AudienciaReenviarCorreoInterna, usuariosports.AudienciaVerificarCorreoInterna,
+		usuariosports.AudienciaActivarCorreoInterna, usuariosports.AudienciaRetirarCorreoInterna,
+		usuariosports.AudienciaConsultarCorreosExterna, usuariosports.AudienciaAnadirCorreoExterna,
+		usuariosports.AudienciaReenviarCorreoExterna, usuariosports.AudienciaVerificarCorreoExterna,
+		usuariosports.AudienciaActivarCorreoExterna, usuariosports.AudienciaRetirarCorreoExterna,
+		// «Mi imagen» (AD3-108); sólo con VEC_USUARIOS_IMAGEN_ENABLED.
+		usuariosports.AudienciaConsultarImagenInterna, usuariosports.AudienciaActualizarImagenInterna,
+		usuariosports.AudienciaConsultarImagenExterna, usuariosports.AudienciaActualizarImagenExterna,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
 		ports.AudienciaFirmaDocumentoV3,

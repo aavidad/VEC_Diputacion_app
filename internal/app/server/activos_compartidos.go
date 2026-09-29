@@ -17,5 +17,11 @@ func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/comun/iconos-vec.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/idioma.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/textos.js", soloLecturaHTTP(estaticos))
+	// «Mis correos» (5.08b), común a RRHH y al Área personal.
+	mux.Handle("/comun/correos-propios.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/correos-propios.css", soloLecturaHTTP(estaticos))
+	// «Mi imagen» (5.08c), común a RRHH y al Área personal.
+	mux.Handle("/comun/imagen-propia.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/imagen-propia.css", soloLecturaHTTP(estaticos))
 	mux.Handle("/textos/", soloLecturaHTTP(estaticos))
 }
