@@ -127,6 +127,22 @@ el inicio común antes de implementar 5.03.
 | 5.06 | Enviar a Firmadoc y demás firmas y mostrar siempre la fase de firma en el expediente; AutoFirma para la firma del órgano. | Expediente CT, documentos y fase de firma. | **PARCIAL**: se generan borradores y el flujo prevé formalización/firma, pero falta un circuito acreditado de envío, estados, recepción, verificación y documento firmado. Definir adaptador Firmadoc apagado por defecto hasta conocer su API (duda en `dudas.md`); separar autenticación, borrador, firma del órgano con AutoFirma y eficacia del acto. |
 | 5.07 | Comprobar y corregir el error «No se pudo cargar el cuadro. Reintente o contacte con soporte.» que aparece en «Nueva petición». | CT, pestaña «Nueva petición». | **PENDIENTE**: la captura acredita el fallo y `main` conserva el mensaje de error; no hay prueba de que la causa ya esté resuelta. Reproducir con la aplicación, API, autorización y base compatibles; corregir la causa y comprobar carga, reintento y ausencia de error en navegador. |
 
+**Dependencia de autorización CT aparcada (29/09/2026).** La rama
+`trabajo/codexg-ct-revocacion-previa-20260929` queda como WIP y no debe
+integrarse. Se han separado el alta directa y la cobertura del perfil dinámico
+legado. Las pruebas de Go para arranque y subcomando pasan; la guarda contra
+revocación del perfil legado pasó seis casos en PostgreSQL 18 aislado. Falta
+demostrar la provisión de los dos perfiles en un clúster independiente y la
+carrera entre revocar Contexto y publicar Autorización. El subcomando puede
+devolver una incidencia con recibos parciales, pero no hay acto aprobado para
+retirar automáticamente una asignación que quede latente. El guion de base
+auxiliar recibió NO-GO SQL: abría la copia antes de cerrar sus permisos y
+reutilizaba cuentas con acceso al origen. No se ejecutó ese guion ni se aplicó
+la provisión; `cidonia` permanece intacta. Para reanudar hacen falta un clon
+aislado, prueba de carrera y ausencia de acceso efectivo, dos revisiones del
+hash final y la puerta completa de calidad verde. La fachada transaccional
+entre Contexto y Autorización queda como deuda técnica separada.
+
 ## Bloqueos que no deben presentarse como funciones terminadas
 
 1. Reglas temporales y adjudicación: el cálculo de ejemplo ya funciona por catálogo, pero sus parámetros y efectos definitivos requieren RRHH (dudas 1–3, 13–14).
