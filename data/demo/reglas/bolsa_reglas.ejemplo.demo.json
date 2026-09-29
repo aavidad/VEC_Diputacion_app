@@ -13,7 +13,7 @@
     "revision": 1,
     "modulo_id": "bolsa",
     "nombre": "Reglas de Bolsa — ejemplo",
-    "descripcion": "Reglas de llamamiento y gestión de las bolsas. Las de origen «reglamento» citan el Reglamento publicado en el BOP de Granada n.º 9 de 16/01/2026 (CVE BOP-GRA-2026-009002), modificado en el BOP n.º 91 de 14/05/2026 (CVE BOP-GRA-2026-091001); origen_sha256 es la huella del PDF publicado. Las de origen «ejemplo» no están aprobadas.",
+    "descripcion": "Reglas de llamamiento y gestión de las bolsas. Las basadas en el Reglamento citan su publicación en el BOP de Granada n.º 9 de 16/01/2026 (CVE BOP-GRA-2026-009002) y su modificación en el n.º 91 de 14/05/2026 (CVE BOP-GRA-2026-091001). Se conserva la huella digital del texto publicado. Las reglas de ejemplo no están aprobadas.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
     "entradas": [
@@ -462,7 +462,7 @@
       {
         "clave": "b24.consecuencias",
         "etiqueta": "Consecuencias y recurso",
-        "descripcion": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
+        "descripcion": "Las consecuencias previstas se recogen en las reglas de sanciones de esta lista. RRHH elige la causa correspondiente al dar una baja definitiva, según el artículo 11. Contra la resolución cabe recurso de reposición durante un mes desde su notificación.",
         "vigente_desde": "2026-02-07T00:00:00+01:00",
         "atributos": {
           "origen": "reglamento",
@@ -509,7 +509,7 @@
           "unidad": "ninguna",
           "articulo": "arts. 3.3 y 7.c",
           "umbral_disponibles": "0",
-          "ejemplo_parcial": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
+          "ejemplo_parcial": "Es un circuito de ejemplo que VEC proponga «agotada provisionalmente» una bolsa sin personas disponibles y RRHH lo confirme. El agotamiento exige una resolución expresa.",
           "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
         },
         "orden": 29
@@ -522,7 +522,7 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo; Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 11.",
-          "duda": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+          "duda": "Duda 62. VEC publica al arrancar los cambios de situación permitidos y aplica la lista publicada.",
           "unidad": "lista",
           "valor": "no_disponible,pendiente_incorporacion,renuncia,excluido,disponible_desde"
         },
@@ -536,7 +536,7 @@
         "atributos": {
           "origen": "reglamento",
           "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+          "duda": "Duda 62. VEC publica al arrancar los cambios permitidos tras una renuncia y aplica la lista publicada.",
           "unidad": "lista",
           "valor": "no_disponible,excluido",
           "articulo": "arts. 10 y 11.1",
@@ -727,7 +727,7 @@
       {
         "clave": "b30.plazas_llamada",
         "etiqueta": "Ofertas con varias plazas: cómo se llama",
-        "descripcion": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. Valores posibles: «simultanea» o «sucesiva» (de una en una).",
+        "descripcion": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. También puede configurarse el llamamiento de una en una.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
@@ -755,7 +755,7 @@
       {
         "clave": "b30.plazas_tras_renuncia",
         "etiqueta": "Ofertas con varias plazas: tras una renuncia o falta de respuesta",
-        "descripcion": "Se llama a la siguiente persona que se ofreció para esa misma plaza; si no queda nadie, la plaza pasa a llamamiento directo. Valores posibles: «siguiente_en_orden» o «llamamiento_directo».",
+        "descripcion": "Se llama a la siguiente persona que se ofreció para esa misma plaza. También puede configurarse el llamamiento directo; si no queda nadie en el primer caso, la plaza pasa a llamamiento directo.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
