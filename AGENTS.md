@@ -790,6 +790,19 @@ La matriz vigente del módulo es
 - Accesibilidad desde diseño: teclado, foco, contraste, zoom, lector de
   pantalla, estados alternativos y documentos descargables accesibles.
 
+## Herramientas obligatorias en VEC (orden de Alberto, 29/09/2026)
+
+Todo agente (Claude, subagente o Codex) usa SIEMPRE las skills, agentes y plugins instalados en el momento que les toca, y los nombra en cada encargo que delega:
+- Pantallas, textos visibles o flujos: skills `usabilidad-vec`, `aspecto-vec`, `disenar-sistema-visual-vec` e `impeccable` (su `VEC-PRIORIDAD.md`) antes de programar; revisión de usabilidad independiente antes de fusionar.
+- Textos que lee una persona (RRHH, Alberto, ayudas, documentos, `dudas.md`, correos): skill `humanizer` (su `VEC-USO.md`) antes de entregarlos.
+- SQL: skill `revisar-sql-vec` / `ensayar-sql` y revisión SQL independiente antes de fusionar, con ensayo en el clon de la principal.
+- Cambios y PR: `revisar-cambios-vec`, `documentar-entregar-vec`, `pr-vec`; backend con `programar-backend-vec` y `persistir-autorizar-vec`; interfaz con `programar-interfaz-vec`; recorridos con `probar-recorridos-vec`.
+- Buscar código: primero el índice (codebase-memory-mcp); grep solo para texto y configuración.
+- Navegador y capturas: Playwright con el Chrome del sistema.
+- i18n puro: ningún texto ni idioma dentro del código; textos en catálogos de datos por idioma.
+- Modelo: el más barato que baste (Sonnet para lo mecánico; Opus para diseño, SQL, seguridad y revisiones).
+Las skills viven en `.agents/skills/` del repositorio VEC (y en `~/.claude/skills/`).
+
 ## Calidad
 
 ### Validación eficiente — orden del operador, 24 de septiembre de 2026
