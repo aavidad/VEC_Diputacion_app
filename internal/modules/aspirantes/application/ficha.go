@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"time"
@@ -103,6 +104,12 @@ func (PeticionFicha) String() string      { return "aspirantes.PeticionFicha{red
 func (PeticionFicha) GoString() string    { return "aspirantes.PeticionFicha{redactada}" }
 func (VistaFichaPropia) String() string   { return "aspirantes.VistaFichaPropia{redactada}" }
 func (VistaFichaPropia) GoString() string { return "aspirantes.VistaFichaPropia{redactada}" }
+func (PeticionFicha) Format(f fmt.State, _ rune) {
+	_, _ = f.Write([]byte("aspirantes.PeticionFicha{redactada}"))
+}
+func (VistaFichaPropia) Format(f fmt.State, _ rune) {
+	_, _ = f.Write([]byte("aspirantes.VistaFichaPropia{redactada}"))
+}
 
 func (s *ServicioFichaPropia) actor(ctx context.Context, orden ports.OrdenFicha) (vecdomain.ContextoActor, error) {
 	if s == nil || s.d.Registro == nil || ctx == nil || ctx.Err() != nil {
