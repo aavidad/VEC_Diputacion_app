@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -17,13 +18,19 @@ import (
 
 type ProveedorEntregaPeticionCentro interface {
 	ActorEntregaPeticionCentro(context.Context) (string, string, error)
+	ComprobarPerfilEntregaPeticionCentro(context.Context) error
+	RegistrarDenegacionEntregaPreV3(context.Context) error
 	NuevaClaveAltaDePeticion(context.Context) (string, string, error)
 	AutorizarEntregaPeticionCentro(context.Context, ports.MaterialEntregaPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
+type lectorAmbitosEntregaPeticionCentro interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 type RepositorioEntregasPeticionCentroPostgreSQL struct {
 	pool      iniciadorTransacciones
-	lector    *pgxpool.Pool
+	lector    lectorAmbitosEntregaPeticionCentro
 	proveedor ProveedorEntregaPeticionCentro
 }
 
@@ -47,12 +54,30 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) material(ctx context.Conte
 		if c.Validar() != nil {
 			return ports.MaterialEntregaPeticionCentro{}, domain.ErrPeticionCentroInvalida
 		}
+		// Antes de proyectar centro/categoría de una referencia, exigir la
+		// asignación publicada del perfil de POST. La existencia de la petición
+		// no se consulta para un perfil revocado o ausente.
+		if err := r.proveedor.ComprobarPerfilEntregaPeticionCentro(ctx); err != nil {
+			if errors.Is(err, ports.ErrPeticionCentroNoDisponible) {
+				return ports.MaterialEntregaPeticionCentro{}, ports.ErrPeticionCentroNoDisponible
+			}
+			return ports.MaterialEntregaPeticionCentro{}, ports.ErrAutorizacionDenegada
+		}
 		// La función gobernada entrega exclusivamente los ámbitos de la revisión
 		// ratificada. La transacción del efecto los vuelve a cotejar antes del
 		// consumo V3: esta lectura nunca concede por sí sola el permiso.
 		if err := r.lector.QueryRow(ctx,
 			"SELECT centro_ref,categoria_ref FROM vec_contratacion_temporal.ambitos_entrega_peticion_centro_v1($1)",
 			c.PeticionRef).Scan(&m.CentroRef, &m.CategoriaRef); err != nil {
+			var pg *pgconn.PgError
+			if errors.As(err, &pg) && pg.Code == "P0681" {
+				if r.proveedor.RegistrarDenegacionEntregaPreV3(ctx) != nil {
+					return ports.MaterialEntregaPeticionCentro{}, ports.ErrPeticionCentroNoDisponible
+				}
+				// La proyección no revela si una referencia existe. Solo el efecto
+				// autorizado puede producir el 409 de estado/versionado.
+				return ports.MaterialEntregaPeticionCentro{}, ports.ErrAutorizacionDenegada
+			}
 			return ports.MaterialEntregaPeticionCentro{}, errorEntregaPeticionSQL(ctx, err)
 		}
 	}

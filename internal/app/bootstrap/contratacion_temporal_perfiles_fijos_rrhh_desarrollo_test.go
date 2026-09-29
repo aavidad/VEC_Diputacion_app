@@ -14,7 +14,7 @@ import (
 func escenarioPerfilesFijosPrueba(t *testing.T) (*soporteAltaContratacionTemporalDesarrollo, *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) {
 	t.Helper()
 	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
 		t.Fatal(err)
 	}
 	autoridad, ok := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
@@ -22,6 +22,32 @@ func escenarioPerfilesFijosPrueba(t *testing.T) (*soporteAltaContratacionTempora
 		t.Fatal("escenario sin autoridad de prueba")
 	}
 	return s, autoridad
+}
+
+func TestEntregaSinCatalogoNoComponePermisoFijo(t *testing.T) {
+	s, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal,
+		time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+		t.Fatal(err)
+	}
+	if s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodPost) != nil ||
+		s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, http.MethodGet) != nil {
+		t.Fatal("sin fuente de catálogo se perfilaron permisos de entrega")
+	}
+	if _, err := nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
+		s.principalID, s.contexto.Resultado.Contexto.PerfilActivoRef,
+		time.Now().UTC().Truncate(time.Microsecond), nil); err == nil {
+		t.Fatal("la plantilla de entrega aceptó el fallback sintético")
+	}
+}
+
+func origenEntregaPerfilFijoPrueba(t *testing.T) *origenConsultasContratacionTemporalDesarrollo {
+	t.Helper()
+	catalogo, err := nuevoCatalogoDesarrollo("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return nuevoOrigenConsultasConCatalogoDesarrollo(catalogo)
 }
 
 func TestPerfilFijoEntregaSoloSeleccionadoPorMetodoDeCapacidad(t *testing.T) {

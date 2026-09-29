@@ -84,7 +84,7 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 	if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, pool, s); err != nil {
 		t.Fatal(err)
 	}
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principalDeSoportePrueba(s), time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principalDeSoportePrueba(s), time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
 		t.Fatal(err)
 	}
 	alta, cobertura := s.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes), s.perfilFijoParaRuta(httpinterno.RutaDecisionCobertura)

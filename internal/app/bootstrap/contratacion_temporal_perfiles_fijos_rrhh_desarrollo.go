@@ -542,24 +542,27 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	if err != nil {
 		return err
 	}
-	entrega, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoEntregaCTDesarrollo,
-		[]string{rutaEntregaPeticionCentro},
-		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(principalID, perfilRef, ahora, origen)
-		})
-	if err != nil {
-		return err
+	var entrega, lectorEntrega *perfilFijoCTDesarrollo
+	if origen != nil {
+		entrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoEntregaCTDesarrollo,
+			[]string{rutaEntregaPeticionCentro},
+			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+				return nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(principalID, perfilRef, ahora, origen)
+			})
+		if err != nil {
+			return err
+		}
+		entrega.metodo = http.MethodPost
+		lectorEntrega, err = nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoLectorEntregaCTDesarrollo,
+			[]string{rutaEntregaPeticionCentro},
+			func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
+				return nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(principalID, perfilRef, ahora)
+			})
+		if err != nil {
+			return err
+		}
+		lectorEntrega.metodo = http.MethodGet
 	}
-	entrega.metodo = http.MethodPost
-	lectorEntrega, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoLectorEntregaCTDesarrollo,
-		[]string{rutaEntregaPeticionCentro},
-		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
-			return nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(principalID, perfilRef, ahora)
-		})
-	if err != nil {
-		return err
-	}
-	lectorEntrega.metodo = http.MethodGet
 	cobertura, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoCoberturaCTDesarrollo,
 		[]string{httpinterno.RutaPropuestaCobertura, httpinterno.RutaDecisionCobertura,
 			httpinterno.RutaRectificacionCobertura, httpinterno.RutaResultadoCobertura},
@@ -604,6 +607,9 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 		return err
 	}
 	for _, p := range []*perfilFijoCTDesarrollo{alta, entrega, lectorEntrega, cobertura, analisis, asignacion, informe} {
+		if p == nil {
+			continue
+		}
 		if err := s.registrarPerfilFijoCTDesarrollo(p); err != nil {
 			return err
 		}
