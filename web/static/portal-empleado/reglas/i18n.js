@@ -2,9 +2,8 @@
  * Textos de la pantalla de reglas vigentes. Viven en los catálogos
  * `textos/<idioma>/reglas.json`; aquí solo se leen.
  *
- * `enlace.js` (y con él este fichero) entra en el grafo estático del portal:
- * los lectores comunes se cargan con `import()` para no añadirlos a la
- * precarga de `index.html`, como en Documentos.
+ * Este catálogo pertenece únicamente a la pantalla de reglas. El enlace del
+ * portal usa el catálogo común y no depende de esta carga opcional.
  */
 const { cargarTextos } = await import("../../comun/textos.js");
 const { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, LOCALIZACION_ACTUAL } = await import("../../comun/idioma.js");
@@ -15,12 +14,14 @@ export const IDIOMA_REGLAS = IDIOMA_ACTUAL;
 /** Idioma en que el catálogo de reglas escribe sus textos: el idioma por defecto. */
 export const IDIOMA_DATOS_REGLAS = IDIOMA_POR_DEFECTO;
 
-export const MENSAJES_REGLAS = (await cargarTextos("reglas")).seccion("general");
+export const MENSAJES_REGLAS = await cargarTextos("reglas")
+  .then((textos) => textos.seccion("general"))
+  .catch(() => null);
 
-const CLAVES = Object.freeze(Object.keys(MENSAJES_REGLAS));
+const CLAVES = Object.freeze(Object.keys(MENSAJES_REGLAS ?? {}));
 
 export function crearTraductorReglas(catalogo = MENSAJES_REGLAS) {
-  if (!catalogo || typeof catalogo !== "object"
+  if (!catalogo || typeof catalogo !== "object" || CLAVES.length === 0
     || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) {
     throw new Error("catálogo i18n de reglas incompleto");
   }
@@ -31,7 +32,7 @@ export function crearTraductorReglas(catalogo = MENSAJES_REGLAS) {
 }
 
 /** ¿Existe la clave? Para textos que dependen de un valor del servidor. */
-export const existeClaveReglas = (clave) => Object.hasOwn(MENSAJES_REGLAS, clave);
+export const existeClaveReglas = (clave) => MENSAJES_REGLAS !== null && Object.hasOwn(MENSAJES_REGLAS, clave);
 
 export function formatearNumero(n) {
   return new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(n);
