@@ -32,12 +32,19 @@ function panel(titulo, subtitulo, campos) {
   return `<section class="panel pref-panel"><div class="cabecera-panel"><div><h3>${escapar(t(titulo))}</h3><p>${escapar(t(subtitulo))}</p></div></div><div class="cuerpo-panel pref-campos">${campos}</div></section>`;
 }
 function mensajeError(error, alGuardar = false) {
-  if (error instanceof ErrorPreferencias && error.clave_i18n) return t(error.clave_i18n);
   if (error?.estado === 401) return t("preferencias_sesion");
   if (error?.estado === 403) return t("preferencias_denegado");
   if (error?.estado === 409) return t("preferencias_conflicto");
   if (error?.estado === 422) return t("preferencias_validacion");
+  if (alGuardar && error?.estado === 503) return t("preferencias_error_guardar");
+  if (error instanceof ErrorPreferencias && error.clave_i18n) return t(error.clave_i18n);
   return t(alGuardar ? "preferencias_error_guardar" : "preferencias_error");
+}
+function valoresFormulario(formulario, campos) {
+  const elegidos = new FormData(formulario);
+  return Object.fromEntries(Object.keys(campos).map((campo) => [campo,
+    ["alto_contraste", "aviso_correo_tareas", "aviso_correo_plazos"].includes(campo) ? elegidos.get(campo) === "true"
+      : campo === "filas" ? Number(elegidos.get(campo)) : elegidos.get(campo)]));
 }
 
 export function crearSuperficiePreferenciasPortal({ cliente = crearClientePreferencias(), actualizar = () => {}, alCargar = () => {}, alGuardar = () => {} } = {}) {
@@ -45,8 +52,14 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
   let estado = "sin_cargar";
   let error = null;
   let recibo = null;
+  let borrador = null;
   let controlador = null;
   let generacion = 0;
+  let contenedorInstalado = null;
+
+  function enfocarResultado() {
+    contenedorInstalado?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
+  }
 
   async function cargar() {
     controlador?.abort();
@@ -59,22 +72,20 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
       datos = nuevos; estado = "lista"; actualizar(); alCargar(nuevos);
     } catch (fallo) {
       if (actual !== generacion || controlador.signal.aborted) return;
-      datos = null; estado = "error"; error = fallo; actualizar();
+      datos = null; estado = "error"; error = fallo; actualizar(); enfocarResultado();
     }
   }
   function desmontarPeticion() { controlador?.abort(); ++generacion; }
   async function guardar(formulario) {
     if (estado !== "lista" || !datos) return;
-    const campos = new FormData(formulario);
-    const valores = Object.fromEntries(Object.keys(datos.estado.valores).map((campo) => [campo,
-      ["alto_contraste", "aviso_correo_tareas", "aviso_correo_plazos"].includes(campo) ? campos.get(campo) === "true"
-        : campo === "filas" ? Number(campos.get(campo)) : campos.get(campo)]));
+    const valores = valoresFormulario(formulario, datos.estado.valores);
     for (const [campo, nombre] of Object.entries(CAMPOS_SELECT)) {
       const opciones = datos.catalogo[nombre].map((opcion) => campo === "filas" ? opcion : opcion.codigo);
       if (!opciones.includes(valores[campo])) return;
     }
+    borrador = valores;
     const clave = globalThis.crypto?.randomUUID?.();
-    if (!clave) { error = new ErrorPreferencias(0); actualizar(); return; }
+    if (!clave) { error = new ErrorPreferencias(0); actualizar(); enfocarResultado(); return; }
     controlador?.abort(); controlador = new AbortController();
     const actual = ++generacion;
     estado = "guardando"; error = null; recibo = null; actualizar();
@@ -84,41 +95,46 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
       if (actual !== generacion) return;
       recibo = nuevoRecibo;
       datos = { ...datos, estado: { version: recibo.version, valores: recibo.valores } };
-      estado = "lista"; actualizar(); alGuardar(nuevoRecibo);
+      borrador = null; estado = "lista"; actualizar(); enfocarResultado(); alGuardar(nuevoRecibo);
     } catch (fallo) {
       if (actual !== generacion || controlador.signal.aborted) return;
       error = fallo;
       if (fallo?.estado === 401 || fallo?.estado === 403) {
         datos = null; estado = "error";
       } else estado = "guardado_incierto";
-      actualizar();
+      actualizar(); enfocarResultado();
     }
   }
   function renderizar() {
     const encabezado = `<div class="pref-encabezado"><p>${escapar(t("preferencias_intro"))}</p></div>`;
     if (estado === "sin_cargar" || estado === "cargando") return `${encabezado}<section class="panel pref-panel" role="status" aria-busy="true"><div class="cuerpo-panel">${escapar(t("preferencias_cargando"))}</div></section>`;
-    if (!datos) return `${encabezado}<section class="panel pref-panel" role="alert"><div class="cuerpo-panel"><p>${escapar(mensajeError(error))}</p><button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></div></section>`;
-    const v = datos.estado.valores;
+    if (!datos) return `${encabezado}<section class="panel pref-panel" role="alert"><div class="cuerpo-panel"><p tabindex="-1" data-pref-resultado>${escapar(mensajeError(error))}</p><button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></div></section>`;
+    const v = borrador ?? datos.estado.valores;
     const estadoTexto = datos.estado.version === 0 ? t("preferencias_no_guardadas") : t("preferencias_guardadas", { version: datos.estado.version });
-    const aviso = error ? `<p class="pref-aviso pref-aviso--error" role="alert">${escapar(mensajeError(error, true))} <button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></p>` : "";
-    const confirmado = recibo ? `<p class="pref-aviso pref-aviso--exito" role="status">${escapar(t("preferencias_exito", { recibo: recibo.recibo_ref }))} ${escapar(t("preferencias_idioma_guardado"))}</p>` : "";
+    const aviso = error ? `<p class="pref-aviso pref-aviso--error" role="alert" tabindex="-1" data-pref-resultado>${escapar(mensajeError(error, true))} <button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></p>` : "";
+    const confirmado = recibo ? `<p class="pref-aviso pref-aviso--exito" role="status" tabindex="-1" data-pref-resultado>${escapar(t("preferencias_exito", { recibo: recibo.recibo_ref }))} ${escapar(t("preferencias_idioma_guardado"))}</p>` : "";
     return `${encabezado}<p class="pref-estado" role="status">${escapar(estadoTexto)}</p>${aviso}${confirmado}<form id="formulario-preferencias" class="pref-formulario">${panel("preferencias_visual", "preferencias_visual_sub", campoSelect("idioma", datos.catalogo, v.idioma) + campoSelect("tamano_texto", datos.catalogo, v.tamano_texto) + campoBooleano("alto_contraste", v.alto_contraste) + campoSelect("tema", datos.catalogo, v.tema))}${panel("preferencias_navegacion", "preferencias_navegacion_sub", campoSelect("inicio", datos.catalogo, v.inicio) + campoSelect("filas", datos.catalogo, v.filas))}${panel("preferencias_avisos", "preferencias_avisos_sub", campoBooleano("aviso_correo_tareas", v.aviso_correo_tareas) + campoBooleano("aviso_correo_plazos", v.aviso_correo_plazos))}<div class="pref-acciones"><button class="boton-primario" type="submit"${estado !== "lista" ? " disabled" : ""}>${escapar(t(estado === "guardando" ? "preferencias_guardando" : "preferencias_guardar"))}</button></div></form>`;
   }
   function instalar(contenedor) {
+    contenedorInstalado = contenedor;
     const clic = (evento) => {
       const ayudaBoton = evento.target.closest?.("[data-pref-ayuda]");
       if (ayudaBoton && contenedor.contains(ayudaBoton)) {
         const texto = contenedor.querySelector(`#pref-ayuda-${ayudaBoton.dataset.prefAyuda}`);
         if (texto) { texto.hidden = !texto.hidden; ayudaBoton.setAttribute("aria-expanded", String(!texto.hidden)); }
       }
-      if (evento.target.closest?.("[data-pref-reintentar]")) void cargar();
+      if (evento.target.closest?.("[data-pref-reintentar]")) {
+        const formulario = contenedor.querySelector("#formulario-preferencias");
+        if (formulario && borrador) borrador = valoresFormulario(formulario, borrador);
+        void cargar();
+      }
     };
     const enviar = (evento) => {
       if (evento.target?.id !== "formulario-preferencias") return;
       evento.preventDefault(); void guardar(evento.target);
     };
     contenedor.addEventListener("click", clic); contenedor.addEventListener("submit", enviar);
-    return () => { contenedor.removeEventListener("click", clic); contenedor.removeEventListener("submit", enviar); desmontarPeticion(); };
+    return () => { contenedor.removeEventListener("click", clic); contenedor.removeEventListener("submit", enviar); contenedorInstalado = null; desmontarPeticion(); };
   }
   return Object.freeze({ cargar, renderizar, instalar, desmontarPeticion, leer: () => datos, leerCarga: () => estado });
 }
