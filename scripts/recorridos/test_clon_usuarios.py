@@ -45,6 +45,13 @@ class UsersTests(unittest.TestCase):
         with self.assertRaises(users.UsersError):
             users.selected_go_functions(source, ['unknown'])
 
+    def test_successor_does_not_send_the_historical_H1_install_again(self):
+        source = Path(__file__).with_name('clon_usuarios.py').read_text()
+        successor = source[source.index('if (state / "usuarios-h4-result.json").exists():'):source.index('    env = json.loads(private(state / "runtime-config.json"))')]
+        self.assertIn('h4.provision(', successor)
+        self.assertIn('h4_ready=True', successor)
+        self.assertNotIn('PublicarInstantanea', successor)
+
     def test_technical_logins_match_only_the_private_H1_contract(self):
         configs = {}
         statements = ['BEGIN;']

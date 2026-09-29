@@ -482,6 +482,18 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
     source = state / ("source-" + marker["commit"])
     if not source.is_dir():
         fail("The pinned application source is not available.")
+    # H4 is a legitimate successor of H1. Revalidate that exact successor by
+    # its own authority instead of attempting to publish the historical H1
+    # assignment again. Revoked or divergent H4 states remain errors.
+    if (state / "usuarios-h4-result.json").exists():
+        result = json.loads(private(state / "usuarios-result.json"))
+        h4_path = Path(__file__).with_name("clon_usuarios_h4.py")
+        if not h4_path.is_file():
+            fail("The installed H4 successor requires its exact verification helper.")
+        spec = importlib.util.spec_from_file_location("users_successor_h4", h4_path)
+        h4 = importlib.util.module_from_spec(spec); spec.loader.exec_module(h4)
+        h4.provision(repo, container, state, material, pg_port, engine)
+        return completed_result(result, material, h4_ready=True)
     env = json.loads(private(state / "runtime-config.json"))
     runtime_path = Path(__file__).with_name("clon_runtime.py")
     spec = importlib.util.spec_from_file_location("runtime_contract", runtime_path)
@@ -564,6 +576,10 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
     for path, updated in updates:
         atomic(path, updated)
     atomic(state / "usuarios-result.json", json.dumps(result).encode())
+    return completed_result(result, material, h4_ready=False)
+
+
+def completed_result(result, material, h4_ready):
     users = {}
     for surface in ("interna", "externa"):
         config = json.loads(private(material / "identidad" / ("usuarios-preferencias-" + surface + ".json")))
@@ -571,7 +587,7 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
                           for account in config["cuentas"]]
     blocker = {"profile": "usuarios", "code": "concesiones_correos_imagen_pendientes",
                "detail": "Falta preparar las concesiones propias de correo e imagen con el material H4."}
-    return {"env": {}, "profiles": {"usuarios": result}, "users": users, "blockers": [blocker]}
+    return {"env": {}, "profiles": {"usuarios": result}, "users": users, "blockers": [] if h4_ready else [blocker]}
 
 
 def main():
