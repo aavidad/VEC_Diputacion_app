@@ -17,6 +17,8 @@ const (
 	PermissionCorreosVerificar       = "vec.correos.verificar"
 	PermissionCorreosActivar         = "vec.correos.activar"
 	PermissionCorreosRetirar         = "vec.correos.retirar"
+	PermissionImagenConsultar        = "vec.imagen.consultar"
+	PermissionImagenActualizar       = "vec.imagen.actualizar"
 )
 
 func Manifest() domain.ModuleManifest {
@@ -39,6 +41,8 @@ func Manifest() domain.ModuleManifest {
 			{Key: PermissionCorreosVerificar, LabelKey: "ui.permission.usuarios.correos_verificar"},
 			{Key: PermissionCorreosActivar, LabelKey: "ui.permission.usuarios.correos_activar"},
 			{Key: PermissionCorreosRetirar, LabelKey: "ui.permission.usuarios.correos_retirar"},
+			{Key: PermissionImagenConsultar, LabelKey: "ui.permission.usuarios.imagen_consultar"},
+			{Key: PermissionImagenActualizar, LabelKey: "ui.permission.usuarios.imagen_actualizar"},
 		},
 	}
 }

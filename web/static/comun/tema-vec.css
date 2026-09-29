@@ -52,6 +52,15 @@
   --portal-lateral: 280px;
   --portal-lateral-separador: rgb(255 255 255 / 7%);
   --portal-lateral-hover: rgb(255 255 255 / 7%);
+  /* Fondos del avatar («Mi imagen»): fijos, para que el nombre del color no
+     cambie con la paleta de marca. Todos con texto blanco y contraste AA. */
+  --avatar-azul: #073b6c;
+  --avatar-turquesa: #006f77;
+  --avatar-verde: #4e7838;
+  --avatar-naranja: #b34705;
+  --avatar-morado: #7451cf;
+  --avatar-gris: #586985;
+  --avatar-texto: #ffffff;
 }
 
 html[data-tema="granate"] {
@@ -180,4 +189,10 @@ body.alto-contraste {
   --portal-sombra-color: rgb(0 0 0 / 35%);
   --portal-sombra: 0 0 0 1px var(--portal-borde);
   --portal-sombra-sm: 0 0 0 1px var(--portal-borde);
+  --avatar-azul: #002a54;
+  --avatar-turquesa: #004d52;
+  --avatar-verde: #345523;
+  --avatar-naranja: #823600;
+  --avatar-morado: #483082;
+  --avatar-gris: #26303d;
 }
