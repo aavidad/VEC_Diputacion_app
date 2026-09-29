@@ -22,6 +22,9 @@ func falloPostgreSQLCTDesarrollo(causa error) error {
 	registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 		etapaLlamadorPostgreSQLCTDesarrollo(2), causaFalloPostgreSQLCTDesarrollo(causa),
 	)
+	if causaSerializacionPostgreSQLCTDesarrollo(causa) {
+		return falloSerializacionPostgreSQLCTDesarrollo{}
+	}
 	return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 }
 

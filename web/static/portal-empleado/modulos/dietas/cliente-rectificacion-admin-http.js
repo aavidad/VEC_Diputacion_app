@@ -106,7 +106,7 @@ function codigoError(cuerpo, estado) {
 }
 async function ejecutar(fetchImpl, ruta, opciones, signal, escritura) {
   let respuesta;
-  try { respuesta = await fetchImpl(ruta, { ...opciones, credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); }
+  try { respuesta = await fetchImpl(ruta, { ...opciones, credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); }
   catch { throw fallo(signal?.aborted ? "operacion_abortada" : "red_no_disponible", 0, escritura && !signal?.aborted); }
   if (!respuesta || respuesta.redirected) { await cancelar(respuesta); throw fallo("respuesta_rechazada", respuesta?.status || 0, escritura); }
   const estado = respuesta.status || 0; let cuerpo;

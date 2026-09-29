@@ -54,7 +54,7 @@ test("B3 envía GET autorizado sin organismo ni almacenamiento y conserva los do
   assert.equal(url.searchParams.get("unidad_clave"), "centro_1");
   assert.equal(url.searchParams.get("version_rpt_ref"), "rpt_2024");
   assert.equal(url.searchParams.has("organismo_ref"), false);
-  assert.equal(llamada.options.credentials, "omit");
+  assert.equal(llamada.options.credentials, "same-origin");
   assert.equal(llamada.options.cache, "no-store");
   assert.equal(llamada.options.redirect, "error");
   await assert.rejects(cliente.consultar({ ...filtros, organismo_ref: "inventado" }), /no permitido/);
@@ -182,7 +182,7 @@ test("B3 reintenta POST incierto con los mismos bytes y clave; valida recibo y 4
     [RUTAS_IMPORTACION.preparar, cuerpo, identificadorOperacion, "application/json"],
     [RUTAS_IMPORTACION.preparar, cuerpo, identificadorOperacion, "application/json"],
   ]);
-  assert.ok(llamadas.every((l) => l.credentials === "omit"));
+  assert.ok(llamadas.every((l) => l.credentials === "same-origin"));
   await assert.rejects(crearClienteImportacion(async () => ({ ok: false, status: 409 })).enviar(operacion), (e) => e.conflicto === true);
 });
 

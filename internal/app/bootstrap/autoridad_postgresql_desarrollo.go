@@ -294,7 +294,20 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 	return actual, true, nil
 }
 
+// publicarInstantaneaConPreimagen repite la publicación completa cuando
+// pierde una carrera de serialización con otra petición del mismo perfil; la
+// semántica y la guarda de preimagen son las de cada intento.
 func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
+	ctx context.Context,
+	instantanea dominiovec.InstantaneaAutorizacion,
+	preimagen *dominiovec.InstantaneaAutorizacion,
+) error {
+	return reintentarSerializacionCTDesarrollo(ctx, func() error {
+		return a.publicarInstantaneaConPreimagenUnaVez(ctx, instantanea, preimagen)
+	})
+}
+
+func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 	ctx context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
 	preimagen *dominiovec.InstantaneaAutorizacion,
@@ -633,8 +646,8 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	if err != nil || !coincide {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
-	if tx.Commit(ctx) != nil {
-		return falloPostgreSQLCTDesarrollo(nil)
+	if err = tx.Commit(ctx); err != nil {
+		return falloPostgreSQLCTDesarrollo(err)
 	}
 	return nil
 }
