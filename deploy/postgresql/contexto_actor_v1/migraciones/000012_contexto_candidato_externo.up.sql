@@ -136,7 +136,7 @@ REVOKE ALL ON FUNCTION vec_contexto_actor_v1.provision_candidato_externo_vigente
 -- Publicación gobernada por huella de fuente y CAS. Solo el propietario puede
 -- invocarla; ninguna petición HTTP obtiene permiso de provisión.
 CREATE FUNCTION vec_contexto_actor_v1.publicar_provision_candidato_externo_v1(
- p_provision_ref text,p_version_esperada numeric,p_huella_esperada text,
+ p_provision_ref text,p_version_esperada numeric,p_huella_esperada text,p_huella_aprobada text,
  p_cuenta_ref text,p_cuenta_version numeric,p_perfil_ref text,p_perfil_version numeric,
  p_persona_ref text,p_persona_version numeric,p_contexto_ref text,p_contexto_version numeric,
  p_vinculo_candidato_ref text,p_vinculo_candidato_version numeric,p_candidato_ref text,
@@ -151,7 +151,8 @@ BEGIN
     OR vec_contexto_actor_v1.referencia_valida(p_provision_ref,'pce_') IS NOT TRUE
     OR p_version_esperada IS NULL OR p_version_esperada<0 OR p_version_esperada<>trunc(p_version_esperada)
     OR p_estado NOT IN ('activo','revocado') OR p_desde IS NULL OR p_hasta<=p_desde
-    OR p_fuente_huella_sha256 !~ '^[0-9a-f]{64}$' THEN
+    OR p_fuente_huella_sha256 !~ '^[0-9a-f]{64}$'
+    OR p_huella_aprobada !~ '^[0-9a-f]{64}$' THEN
   RAISE EXCEPTION 'provisión candidata inválida' USING ERRCODE='22023';
  END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
@@ -167,6 +168,9 @@ BEGIN
   p_provision_ref,nueva_version,p_cuenta_ref,p_cuenta_version,p_perfil_ref,p_perfil_version,
   p_persona_ref,p_persona_version,p_contexto_ref,p_contexto_version,p_vinculo_candidato_ref,
   p_vinculo_candidato_version,p_candidato_ref,p_estado,p_desde,p_hasta,p_fuente_huella_sha256)::text,'UTF8')),'hex');
+ IF nueva_huella IS DISTINCT FROM p_huella_aprobada THEN
+  RAISE EXCEPTION 'provisión candidata: huella aprobada divergente' USING ERRCODE='42501';
+ END IF;
  INSERT INTO vec_contexto_actor_v1.candidato_externo_versiones VALUES(
   p_provision_ref,nueva_version,p_cuenta_ref,p_cuenta_version,p_perfil_ref,p_perfil_version,
   p_persona_ref,p_persona_version,p_contexto_ref,p_contexto_version,p_vinculo_candidato_ref,
@@ -181,7 +185,7 @@ BEGIN
  END IF;
  RETURN nueva_huella;
 END $f$;
-REVOKE ALL ON FUNCTION vec_contexto_actor_v1.publicar_provision_candidato_externo_v1(text,numeric,text,text,numeric,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.publicar_provision_candidato_externo_v1(text,numeric,text,text,text,numeric,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz,text) FROM PUBLIC;
 
 -- AUT solo consulta si el par persona/perfil tiene una provisión externa
 -- inequívoca; nunca devuelve una cuenta de otro perfil.
@@ -239,6 +243,11 @@ BEGIN
       WHERE d.defaclrole IN(l.oid,g.oid) OR a.grantee IN(l.oid,g.oid) OR a.grantor IN(l.oid,g.oid))
    OR EXISTS(SELECT 1 FROM pg_catalog.pg_policy p WHERE l.oid=ANY(p.polroles) OR g.oid=ANY(p.polroles))
    OR EXISTS(SELECT 1 FROM pg_catalog.pg_shdepend d WHERE d.refclassid='pg_catalog.pg_authid'::regclass AND d.refobjid=l.oid)
+   OR NOT coalesce((SELECT count(*)=5 AND bool_and(d.deptype='a' AND d.objsubid=0 AND (
+       (d.classid='pg_catalog.pg_database'::regclass AND d.objid=base) OR
+       (d.classid='pg_catalog.pg_namespace'::regclass AND d.objid=esquema) OR
+       (d.classid='pg_catalog.pg_proc'::regclass AND d.objid=ANY(funciones))))
+      FROM pg_catalog.pg_shdepend d WHERE d.refclassid='pg_catalog.pg_authid'::regclass AND d.refobjid=g.oid),false)
    OR NOT coalesce((SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable)
       FROM pg_catalog.pg_database d CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(d.datacl,pg_catalog.acldefault('d',d.datdba))) a
       WHERE d.oid=base AND a.grantee=g.oid),false)
