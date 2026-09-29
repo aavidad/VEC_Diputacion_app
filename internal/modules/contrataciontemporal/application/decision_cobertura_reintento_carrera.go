@@ -2,7 +2,8 @@ package application
 
 import (
 	"context"
-	"math/rand/v2"
+	"crypto/rand"
+	"encoding/binary"
 	"time"
 )
 
@@ -28,7 +29,13 @@ func esperarReintentoCarreraConfirmacionCobertura(ctx context.Context, n int) bo
 			tope = exponencial
 		}
 	}
-	t := time.NewTimer(time.Millisecond + rand.N(tope))
+	// La aleatoriedad solo reparte los reintentos; si falla, se espera el tope.
+	espera := tope
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err == nil {
+		espera = time.Duration(binary.LittleEndian.Uint64(b[:]) % uint64(tope))
+	}
+	t := time.NewTimer(time.Millisecond + espera)
 	defer t.Stop()
 	select {
 	case <-ctx.Done():
