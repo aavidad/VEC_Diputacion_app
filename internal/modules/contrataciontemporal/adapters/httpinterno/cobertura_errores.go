@@ -32,6 +32,7 @@ var (
 	errorContenidoCoberturaInvalido         = nuevoErrorCobertura(http.StatusUnprocessableEntity, "contenido_no_valido")
 	errorAutenticacionCoberturaRequerida    = nuevoErrorCobertura(http.StatusUnauthorized, "autenticacion_requerida")
 	errorAccesoCoberturaDenegado            = nuevoErrorCobertura(http.StatusForbidden, "acceso_denegado")
+	errorDatosCoberturaNoDisponiblesPerfil  = nuevoErrorCobertura(http.StatusForbidden, "datos_no_disponibles_perfil")
 	errorConflictoCobertura                 = nuevoErrorCobertura(http.StatusConflict, "conflicto")
 	errorConflictoEstadoCobertura           = nuevoErrorCobertura(http.StatusConflict, "conflicto_estado")
 	errorResultadoCoberturaNoConfiable      = nuevoErrorCobertura(http.StatusBadGateway, "resultado_no_confiable")
@@ -70,6 +71,8 @@ func clasificarErrorCobertura(err error) errorPublicoCobertura {
 		return errorAccesoCoberturaDenegado
 	case errors.Is(err, ErrContextoCanalNoDisponible):
 		return errorServicioCoberturaNoDisponible
+	case errors.Is(err, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil):
+		return errorDatosCoberturaNoDisponiblesPerfil
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, application.ErrPresentacionPropuestaCoberturaDenegada), errors.Is(err, application.ErrConfirmacionDecisionCoberturaDenegada):
 		return errorAccesoCoberturaDenegado
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEstadoNoAdmite):

@@ -90,3 +90,27 @@ func TestPropuestaCoberturaV1NoExponePreparacionV2(t *testing.T) {
 		t.Fatal("la publicación V1 aparentó tener preparación V2")
 	}
 }
+
+func TestPropuestaCoberturaV2SubconjuntoInsuficienteNoEntregaVistaParcial(t *testing.T) {
+	vias := viasPresentacionCoberturaPrueba(2)
+	vias[0].Documentos = []domain.ElementoPreparacionViaCobertura{{
+		Clave: "documento_bolsa", Orden: 1, ClaveI18n: "ct.cobertura.documento_bolsa",
+	}}
+	escenario := nuevoEscenarioPresentacionCobertura(t, vias)
+	if escenario.gobierno.catalogo.Canon() != domain.CanonHuellaCatalogoCoberturaV2() {
+		t.Fatal("la prueba necesita publicación V2")
+	}
+	escenario.accesos.errores = map[int]error{
+		2: ErrPreparacionCatalogoCoberturaNoDisponiblePerfil,
+	}
+	presentacion, err := escenario.servicio.Proponer(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrPreparacionCatalogoCoberturaNoDisponiblePerfil) ||
+		!presentacionCoberturaVacia(presentacion) {
+		t.Fatalf("subconjunto insuficiente devolvió vista parcial: %+v, %v", presentacion, err)
+	}
+	if escenario.accesos.total() != 2 || escenario.analisis.total() != 1 ||
+		escenario.gobierno.total() != 1 || escenario.global.generador.llamadas() != 2 {
+		t.Fatal("la prueba no llegó a la autorización final después de preparar la propuesta")
+	}
+	exigirCeroConsumoPreparacionGlobal(t, escenario.global)
+}

@@ -2,6 +2,7 @@ package httpinterno
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,45 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+func TestPropuestaCoberturaSubconjuntoInsuficienteRespondeClaveNeutraSinCatalogo(t *testing.T) {
+	servicio := &servicioCoberturaPrueba{err: errors.Join(
+		application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil,
+		errors.New("catalogo:privado:documento_sae"),
+	)}
+	manejador, err := NuevoManejadorCobertura(
+		autoridadCoberturaPrueba{contexto: contextoCoberturaValidoPrueba()},
+		servicio, servicio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura,
+		`{"expediente_ref":"expediente:ct:0001","version_esperada":1}`))
+	if respuesta.Code != http.StatusForbidden || servicio.proponerLlamadas != 1 {
+		t.Fatalf("estado o caso de uso: %d/%d", respuesta.Code, servicio.proponerLlamadas)
+	}
+	var raiz map[string]any
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &raiz); err != nil {
+		t.Fatal(err)
+	}
+	exigirClavesCoberturaV2(t, raiz, "error")
+	problema := raiz["error"].(map[string]any)
+	exigirClavesCoberturaV2(t, problema, "codigo", "clave_i18n", "correlacion_ref")
+	if problema["codigo"] != "datos_no_disponibles_perfil" ||
+		problema["clave_i18n"] != "api.contratacion_temporal.cobertura.error.datos_no_disponibles_perfil" {
+		t.Fatalf("código contextual no traducible: %v", problema)
+	}
+	for _, prohibido := range []string{"catalogo:privado", "documento_sae", "evaluaciones", "es_ejemplo", "vias"} {
+		if strings.Contains(respuesta.Body.String(), prohibido) {
+			t.Fatalf("error filtró %q", prohibido)
+		}
+	}
+	if clasificarErrorCobertura(application.ErrPresentacionPropuestaCoberturaDenegada).codigo != "acceso_denegado" {
+		t.Fatal("la denegación general perdió su código")
+	}
+}
 
 func TestProyeccionPreparacionCoberturaV2SoloCamposConcedidos(t *testing.T) {
 	catalogo := proyectarPreparacionCatalogoCobertura(&application.PreparacionCatalogoPropuestaCobertura{

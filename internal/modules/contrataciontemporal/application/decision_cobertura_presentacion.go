@@ -28,7 +28,10 @@ var (
 	ErrPresentacionPropuestaCoberturaDenegada = errors.New(
 		"contratacion temporal: presentacion de propuesta de cobertura denegada",
 	)
-	ErrPresentacionPropuestaCoberturaNoDisponible = errors.New(
+	// El marcador contextual conserva la denegación general como causa sin
+	// incorporar un mensaje visible ni detalles del PDP.
+	ErrPreparacionCatalogoCoberturaNoDisponiblePerfil = fmt.Errorf("%w", ErrPresentacionPropuestaCoberturaDenegada)
+	ErrPresentacionPropuestaCoberturaNoDisponible     = errors.New(
 		"contratacion temporal: presentacion de propuesta de cobertura no disponible",
 	)
 	ErrPresentacionPropuestaCoberturaEstadoNoAdmite = errors.New(
@@ -627,6 +630,9 @@ func (s *ServicioPresentacionPropuestaCobertura) autorizar(
 	)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return errContexto
+	}
+	if errors.Is(err, ErrPreparacionCatalogoCoberturaNoDisponiblePerfil) {
+		return ErrPreparacionCatalogoCoberturaNoDisponiblePerfil
 	}
 	if errors.Is(err, ErrPresentacionPropuestaCoberturaDenegada) {
 		return ErrPresentacionPropuestaCoberturaDenegada
