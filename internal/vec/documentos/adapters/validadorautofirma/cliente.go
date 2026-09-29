@@ -1,8 +1,8 @@
 // Package validadorautofirma traduce el puerto de verificacion de firma de
-// Documentos al validador de AutofirmaV2 desplegado como servicio aparte en
+// Documentos al validador de GrxFirma desplegado como servicio aparte en
 // modo `-rest-solo-verificacion`.
 //
-// VEC no importa codigo de AutofirmaV2: este adaptador solo habla su API REST
+// VEC no importa codigo de GrxFirma: este adaptador solo habla su API REST
 // `POST /verify` (JSON con `content_base64` y `original_content_base64`) e
 // interpreta exclusivamente el `dictamen` con contrato
 // `autofirmav2.dictamen-verificacion.v1`. Los campos heredados (`valid`,
@@ -41,14 +41,14 @@ import (
 )
 
 const (
-	// RutaVerificacion es la ruta REST del validador de AutofirmaV2.
+	// RutaVerificacion es la ruta REST del validador de GrxFirma.
 	RutaVerificacion = "/verify"
 	// ContratoDictamen es el unico contrato de dictamen que se interpreta.
 	ContratoDictamen = "autofirmav2.dictamen-verificacion.v1"
 
 	tiempoPredeterminado = 20 * time.Second
 	tiempoMaximo         = 60 * time.Second
-	// La respuesta de AutofirmaV2 incluye detalles textuales que VEC descarta;
+	// La respuesta de GrxFirma incluye detalles textuales que VEC descarta;
 	// se acota antes de decodificar para no reservar memoria sin limite.
 	maximaRespuesta = 256 << 10
 	minimoToken     = 32
@@ -74,9 +74,9 @@ var (
 // CAPEM es la CA que emite el certificado del servidor (la CA local del
 // validador o la del proxy que lo publique). NombreServidorTLS permite fijar
 // el nombre verificado cuando difiere del host de la URL (por ejemplo
-// `localhost`, que es el unico nombre del certificado local de AutofirmaV2).
+// `localhost`, que es el unico nombre del certificado local de GrxFirma).
 // Debe existir al menos una credencial: Token (Bearer admitido por
-// AutofirmaV2) o certificado cliente para mTLS (exigido por el proxy).
+// GrxFirma) o certificado cliente para mTLS (exigido por el proxy).
 type Configuracion struct {
 	URL                   string
 	CAPEM                 []byte
@@ -174,7 +174,7 @@ func tokenValido(token string) bool {
 }
 
 // peticionAutofirma reproduce solo los campos necesarios de la API de
-// AutofirmaV2. El nombre es fijo: no se envia el nombre real del fichero.
+// GrxFirma. El nombre es fijo: no se envia el nombre real del fichero.
 type peticionAutofirma struct {
 	Name           string `json:"name"`
 	ContentBase64  string `json:"content_base64"`
@@ -295,7 +295,7 @@ func (c *Cliente) VerificarMotivado(ctx context.Context, s ports.SolicitudVerifi
 		SelloTiempoEstado:   estadoNoInformado,
 		RevocacionEstado:    estadoNoInformado,
 	}
-	// El original se envia siempre, tambien en PAdES: AutofirmaV2 acredita el
+	// El original se envia siempre, tambien en PAdES: GrxFirma acredita el
 	// vinculo cuando el original es prefijo exacto del PDF firmado y una firma
 	// cubre todos sus bytes. Sin original no hay vinculo que acreditar.
 	peticion := peticionAutofirma{

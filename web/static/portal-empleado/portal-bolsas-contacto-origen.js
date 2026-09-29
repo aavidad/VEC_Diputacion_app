@@ -4,16 +4,16 @@
  * llamamiento por correo muestra los avisos de contactos vencidos sin
  * confirmar. Solo se lee la forma enmascarada: el claro nunca se pide aquí.
  */
-import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260929-firma-506-v2";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260929-firma-506-v2";
-import { MENSAJES_CONTACTO_ORIGEN_ES } from "./portal-i18n-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
+import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260929-i18n-shell-v2";
+import { MENSAJES_CONTACTO_ORIGEN } from "./portal-i18n-contacto-origen.js?v=20260929-i18n-shell-v2";
 
 const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const ESTADOS = Object.freeze(["vigente", "vencido"]);
 
 export function traducirContactoOrigen(clave, variables = {}) {
-  const plantilla = MENSAJES_CONTACTO_ORIGEN_ES[clave] ?? clave;
+  const plantilla = MENSAJES_CONTACTO_ORIGEN[clave] ?? clave;
   return plantilla.replace(/\{(\w+)\}/g, (_, nombre) => String(variables[nombre] ?? ""));
 }
 
