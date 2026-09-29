@@ -196,7 +196,7 @@ func (a *autorizadorAnalisisContratacionTemporalDesarrollo) PrepararRegistroComp
 			claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
 			datos,
 		)
-		if err := a.soporte.publicarInstantaneaDecisionCobertura(
+		if err := a.soporte.validarInstantaneaDecisionCobertura(
 			ctx,
 			ruta,
 		); err != nil {

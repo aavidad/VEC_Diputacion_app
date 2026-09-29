@@ -315,7 +315,17 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	}
 	var instantanea dominiovec.InstantaneaAutorizacion
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
-	if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
+	if rutaCoberturaContratacionTemporalDesarrollo(capacidad.ruta) {
+		// Cobertura registra también en V3 central: su CAS coteja la
+		// asignación actual y rechaza una revocación concurrente.
+		instantanea, valida = s.instantaneaParaRuta(capacidad.ruta)
+		s.mu.Lock()
+		registroAnalisis = s.registroDecisionesAnalisis
+		s.mu.Unlock()
+		if !valida || registroAnalisis == nil {
+			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+		}
+	} else if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
 		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
@@ -392,6 +402,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 		if err := registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden); err != nil {
 			return err
 		}
+	} else if rutaCoberturaContratacionTemporalDesarrollo(capacidad.ruta) {
+		s.mu.Lock()
+		registro := s.registroDecisionesAnalisis
+		s.mu.Unlock()
+		if registro == nil {
+			return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
+		}
+		return registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
 	}
 	return nil
 }
@@ -497,7 +515,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea), true
 	}
 	if rutaCoberturaContratacionTemporalDesarrollo(ruta) {
-		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaCobertura), true
+		i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaCobertura)
+		ahora := s.reloj.Ahora()
+		return i, i.Validar() == nil &&
+			i.AsignacionPerfil.Estado == dominiovec.EstadoAsignacionPerfilActiva &&
+			i.ControlVigenciaVersionRol.Estado == dominiovec.EstadoControlVigenciaVersionRolHabilitada &&
+			!ahora.Before(i.AsignacionPerfil.VigenteDesde) && ahora.Before(i.AsignacionPerfil.VigenteHasta)
 	}
 	if rutaAnalisisContratacionTemporalDesarrollo(ruta) {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAnalisis), true

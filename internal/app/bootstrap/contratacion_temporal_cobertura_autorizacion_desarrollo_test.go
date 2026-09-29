@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ type registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba struct {
 	concesiones  int
 	denegaciones int
 	huella       string
+	revocada     bool
 }
 
 // El doble se instala solo en fixtures: la ruta productiva exige el proveedor
@@ -45,6 +47,9 @@ func (r *registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba) Registr
 	_ context.Context,
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
 ) (time.Time, error) {
+	if r.revocada {
+		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
+	}
 	datos, err := orden.Datos()
 	if err != nil {
 		return time.Time{}, err
@@ -162,7 +167,7 @@ func TestAutorizacionCoberturaDesarrolloSeparaRutasYAmbitos(t *testing.T) {
 	}
 }
 
-func TestPreparacionDecisionCoberturaPublicaLaAsignacionQueReferencia(t *testing.T) {
+func TestPreparacionDecisionCoberturaUsaAsignacionYaPublicada(t *testing.T) {
 	soporte, consultas, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	delegado, ok := consultas.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
 	if !ok {
@@ -219,8 +224,178 @@ func TestPreparacionDecisionCoberturaPublicaLaAsignacionQueReferencia(t *testing
 	if !ok {
 		t.Fatal("autoridad de asignaciones de prueba inesperada")
 	}
-	if autoridad.preparadas != 1 || autoridad.publicadas != 1 {
-		t.Fatalf("asignacion de cobertura no publicada antes de la candidata: %+v", autoridad)
+	if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+		t.Fatalf("la peticion altero la asignacion de cobertura: %+v", autoridad)
+	}
+	concedida, orden, _, err := candidata.Resultado()
+	if err != nil || !concedida {
+		t.Fatalf("candidata vigente no concedida: %v", err)
+	}
+	if _, err := soporte.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden); err != nil {
+		t.Fatalf("CAS central vigente: %v", err)
+	}
+	registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+	if registro.concesiones != 1 || len(soporte.concesiones) != 0 {
+		t.Fatalf("concesión fuera del registro central: central=%d efímeras=%d", registro.concesiones, len(soporte.concesiones))
+	}
+	registro.revocada = true
+	if _, err := soporte.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden); !errors.Is(err, puertosvec.ErrInstantaneaAutorizacionObsoleta) {
+		t.Fatalf("replay tras revocación: %v", err)
+	}
+	if registro.concesiones != 1 || autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+		t.Fatalf("replay modificó historia o asignación: central=%d autoridad=%+v", registro.concesiones, autoridad)
+	}
+}
+
+func TestRutasCoberturaNoReprovisionanAsignacion(t *testing.T) {
+	rutas := []string{
+		httpinterno.RutaPropuestaCobertura,
+		httpinterno.RutaDecisionCobertura,
+		httpinterno.RutaRectificacionCobertura,
+		httpinterno.RutaResultadoCobertura,
+	}
+	for _, ruta := range rutas {
+		t.Run(ruta, func(t *testing.T) {
+			soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta)
+			if ruta == httpinterno.RutaDecisionCobertura || ruta == httpinterno.RutaRectificacionCobertura {
+				accion := string(domain.AccionDecidirCoberturaGobernada)
+				if ruta == httpinterno.RutaRectificacionCobertura {
+					accion = string(domain.AccionRectificarCoberturaGobernada)
+				}
+				ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
+					dominiovec.DatosSolicitudAutorizacionLigadaV3{
+						Accion: accion, Finalidad: finalidadDecisionCoberturaDesarrollo,
+						Recurso: dominiovec.RecursoAutorizable{
+							ModuloID: ports.ModuloContratacion, Tipo: tipoRecursoDecisionCoberturaDesarrollo,
+							Ambitos: map[string]string{
+								"organizacion_ref":     organizacionAltaContratacionTemporalDesarrollo,
+								"unidad_ejecutora_ref": unidadCoberturaContratacionTemporalDesarrollo,
+							},
+						},
+					})
+			}
+			vinculo, err := soporte.contexto.Vinculo.Datos()
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Una provisión vigente permite a las cuatro rutas consultar el mismo perfil.
+			if _, err := soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef); err != nil {
+				t.Fatalf("instantánea vigente: %v", err)
+			}
+			var wg sync.WaitGroup
+			for range 16 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					_, _ = soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef)
+				}()
+			}
+			wg.Wait()
+			autoridad := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+			if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+				t.Fatalf("provisión por petición concurrente: %+v", autoridad)
+			}
+			original := soporte.instantaneaCobertura
+			for _, caso := range []struct {
+				nombre string
+				i      dominiovec.InstantaneaAutorizacion
+			}{
+				{"ausente", dominiovec.InstantaneaAutorizacion{}},
+				{"obsoleta", func() dominiovec.InstantaneaAutorizacion {
+					i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(original)
+					i.AsignacionPerfil.VigenteHasta = soporte.reloj.Ahora().Add(-time.Second)
+					return i
+				}()},
+				{"revocada", func() dominiovec.InstantaneaAutorizacion {
+					i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(original)
+					i.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+					return i
+				}()},
+			} {
+				t.Run(caso.nombre, func(t *testing.T) {
+					soporte.mu.Lock()
+					soporte.instantaneaCobertura = caso.i
+					soporte.mu.Unlock()
+					if _, err := soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef); !errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+						t.Fatalf("instantánea %s aceptada: %v", caso.nombre, err)
+					}
+					if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+						t.Fatalf("la denegación alteró la asignación: %+v", autoridad)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestRevocacionCentralDeniegaCuatroRutasCoberturaSinRepublicar(t *testing.T) {
+	casos := []struct {
+		ruta, accion, finalidad, tipo, motivo string
+	}{
+		{httpinterno.RutaPropuestaCobertura, accionPropuestaCoberturaDesarrollo, finalidadPropuestaCoberturaDesarrollo, ports.TipoRecursoExpediente, "propuesta"},
+		{httpinterno.RutaDecisionCobertura, string(domain.AccionDecidirCoberturaGobernada), finalidadDecisionCoberturaDesarrollo, tipoRecursoDecisionCoberturaDesarrollo, "decision"},
+		{httpinterno.RutaRectificacionCobertura, string(domain.AccionRectificarCoberturaGobernada), finalidadDecisionCoberturaDesarrollo, tipoRecursoDecisionCoberturaDesarrollo, "rectificacion"},
+		{httpinterno.RutaResultadoCobertura, string(ports.AccionConsultarResultadoCobertura), string(ports.FinalidadRecuperarResultadoCobertura), ports.TipoRecursoExpediente, "resultado"},
+	}
+	for _, caso := range casos {
+		t.Run(caso.ruta, func(t *testing.T) {
+			soporte, consultas, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, caso.ruta)
+			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
+				VinculoAutenticacionActor: soporte.contexto.Vinculo,
+				ReferenciaMotivo:          referenciaMotivoAutorizacionCoberturaDesarrollo(caso.motivo),
+				Accion:                    caso.accion,
+				Recurso: dominiovec.RecursoAutorizable{
+					Referencia: "expediente:ct:cobertura:prueba:001",
+					ModuloID:   ports.ModuloContratacion,
+					Tipo:       caso.tipo,
+					Ambitos: map[string]string{
+						"organizacion_ref":     organizacionAltaContratacionTemporalDesarrollo,
+						"unidad_ejecutora_ref": unidadCoberturaContratacionTemporalDesarrollo,
+					},
+					Atributos: map[string]string{},
+				},
+				Finalidad:   caso.finalidad,
+				Correlacion: correlacion,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if caso.ruta == httpinterno.RutaDecisionCobertura || caso.ruta == httpinterno.RutaRectificacionCobertura {
+				datos, err := solicitud.Datos()
+				if err != nil {
+					t.Fatal(err)
+				}
+				ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+			}
+			_, _, err = consultas.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, soporte.contexto.Resultado)
+			if err != nil || registro.concesiones != 1 {
+				t.Fatalf("concesión vigente v2: error=%v registros=%d", err, registro.concesiones)
+			}
+			registro.revocada = true // Simula revocación que gana el CAS central.
+			_, _, err = consultas.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, soporte.contexto.Resultado)
+			if err == nil {
+				t.Fatal("revocación central concedió la petición")
+			}
+			autoridad := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+			if registro.concesiones != 1 || len(soporte.concesiones) != 0 || autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+				t.Fatalf("revocación alteró historia o asignación: central=%d efímeras=%d autoridad=%+v", registro.concesiones, len(soporte.concesiones), autoridad)
+			}
+			registro.revocada = false
+			soporte.mu.Lock()
+			soporte.instantaneaCobertura.AsignacionPerfil.Ambitos[1].Valores = []string{"unidad:ct:otra"}
+			soporte.mu.Unlock()
+			_, _, _ = consultas.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, soporte.contexto.Resultado)
+			if registro.denegaciones != 1 || registro.concesiones != 1 || autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+				t.Fatalf("ámbito restringido no denegó por el registro central: concesiones=%d denegaciones=%d autoridad=%+v", registro.concesiones, registro.denegaciones, autoridad)
+			}
+		})
 	}
 }
 
@@ -517,8 +692,9 @@ func TestAutorizadorConsultasCoberturaUsaServicioV3Real(t *testing.T) {
 	soporte.mu.Lock()
 	totalConcesiones := len(soporte.concesiones)
 	soporte.mu.Unlock()
-	if totalConcesiones != 2 {
-		t.Fatalf("concesiones confirmadas = %d, se esperaban 2", totalConcesiones)
+	registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
+	if totalConcesiones != 0 || registro.concesiones != 2 {
+		t.Fatalf("concesiones de cobertura: efímeras=%d central=%d; se esperaban 0 y 2", totalConcesiones, registro.concesiones)
 	}
 }
 

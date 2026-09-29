@@ -186,6 +186,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		if !solicitudAutorizacionDecisionCoberturaDesarrolloValida(ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
+		// La instantánea de cobertura se provisiona antes de servir peticiones.
+		// Una decisión no puede crear otra asignación tras una revocación.
+		return instantanea, instantanea.Validar() == nil
 	} else if !s.solicitudAutorizacionAltaContratacionTemporalDesarrolloValida(ruta, datos) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
@@ -230,7 +233,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		preparada.Validar() == nil
 }
 
-func (s *soporteAltaContratacionTemporalDesarrollo) publicarInstantaneaDecisionCobertura(
+func (s *soporteAltaContratacionTemporalDesarrollo) validarInstantaneaDecisionCobertura(
 	ctx context.Context,
 	ruta string,
 ) error {
@@ -242,12 +245,6 @@ func (s *soporteAltaContratacionTemporalDesarrollo) publicarInstantaneaDecisionC
 	}
 	instantanea, valida := s.instantaneaParaContexto(ctx, ruta)
 	if !valida || instantanea.Validar() != nil {
-		return errAltaContratacionTemporalDesarrolloNoDisponible
-	}
-	s.mu.Lock()
-	autoridad := s.autoridadAsignaciones
-	s.mu.Unlock()
-	if autoridad == nil || autoridad.PublicarInstantanea(ctx, instantanea) != nil {
 		return errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	return nil
