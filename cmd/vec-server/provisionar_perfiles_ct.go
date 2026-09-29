@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -43,6 +44,23 @@ func ejecutarProvisionPerfilesCT(ctx context.Context, args []string, salida, err
 	}
 	resultado, err := ejecutar(ctx, cfg, solicitud)
 	if err != nil {
+		if errors.Is(err, bootstrap.ErrProvisionPerfilesCTIncidenciaContexto) {
+			incidencia := struct {
+				Error            string                              `json:"error"`
+				Estado           string                              `json:"estado"`
+				ManifiestoSHA256 string                              `json:"manifiesto_sha256"`
+				AprobacionRef    string                              `json:"aprobacion_ref"`
+				Perfiles         []bootstrap.ReciboPerfilProvisionCT `json:"perfiles,omitempty"`
+			}{
+				Error:            "incidencia_contexto_tras_publicacion",
+				Estado:           "incidencia",
+				ManifiestoSHA256: solicitud.ManifiestoSHA256,
+				AprobacionRef:    solicitud.AprobacionRef,
+				Perfiles:         recibosSegurosProvisionPerfilesCT(resultado.Perfiles),
+			}
+			_ = json.NewEncoder(errores).Encode(incidencia)
+			return 1
+		}
 		fmt.Fprintln(errores, `{"error":"provision_rechazada"}`)
 		return 1
 	}
@@ -51,6 +69,23 @@ func ejecutarProvisionPerfilesCT(ctx context.Context, args []string, salida, err
 		return 1
 	}
 	return 0
+}
+
+func recibosSegurosProvisionPerfilesCT(recibos []bootstrap.ReciboPerfilProvisionCT) []bootstrap.ReciboPerfilProvisionCT {
+	seguros := make([]bootstrap.ReciboPerfilProvisionCT, 0, 2)
+	for _, recibo := range recibos {
+		if len(seguros) == 2 {
+			break
+		}
+		if (recibo.Clave != "alta" && recibo.Clave != "cobertura") ||
+			!referenciaPerfilesCT.MatchString(recibo.PerfilRef) ||
+			!referenciaPerfilesCT.MatchString(recibo.AsignacionRef) ||
+			recibo.Version < 1 || !huellaPerfilesCT.MatchString(recibo.HuellaSHA256) {
+			continue
+		}
+		seguros = append(seguros, recibo)
+	}
+	return seguros
 }
 
 func leerArgumentosProvisionPerfilesCT(args []string) (bootstrap.SolicitudProvisionPerfilesCT, error) {
