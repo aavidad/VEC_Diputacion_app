@@ -192,15 +192,61 @@ def contexto(navegador, origen: str, rol: dict, fallos: list[str]):
     return creado
 
 
-def observar_pagina(pagina, fallos: list[str]) -> None:
+def observar_pagina(pagina, fallos: list[str], cfg: dict | None = None) -> None:
     pagina.on("pageerror", lambda error: fallos.append(type(error).__name__))
+    if cfg is not None:
+        def registrar(respuesta):
+            url = urlsplit(respuesta.url)
+            if url.path.startswith("/api/vec/"):
+                cfg.setdefault("_http", []).append({"metodo": respuesta.request.method,
+                    "ruta": url.path, "estado": respuesta.status,
+                    "set_cookie": "set-cookie" in respuesta.headers})
+        pagina.on("response", registrar)
+
+
+def registrar_paso(cfg: dict, nombre: str, datos: dict) -> None:
+    """Conserva cada recibo antes de avanzar; no autoriza repetir un alta parcial."""
+    cfg.setdefault("_pasos", []).append({"paso": nombre, **datos})
+    if cfg.get("_evidencia"):
+        Path(cfg["_evidencia"]).write_text(json.dumps({"estado": "INICIADO",
+            "pasos": cfg["_pasos"], "http": cfg.get("_http", [])},
+            ensure_ascii=False, indent=2) + "\n")
+
+
+def capturar(cfg: dict, pagina, nombre: str, comprobar=None) -> None:
+    if not cfg.get("_capturas"):
+        if comprobar:
+            comprobar()
+        return
+    for ancho, alto in ((1440, 900), (390, 844)):
+        pagina.set_viewport_size({"width": ancho, "height": alto})
+        pagina.wait_for_timeout(250)
+        pagina.screenshot(path=str(Path(cfg["_capturas"]) / f"{nombre}-{ancho}.png"), full_page=True)
+        estado = pagina.evaluate("""async () => ({ ancho: document.documentElement.clientWidth,
+            contenido: document.documentElement.scrollWidth, local: localStorage.length,
+            sesion: sessionStorage.length,
+            indexeddb: (await indexedDB.databases()).length })""")
+        cfg.setdefault("_navegador", []).append({"pantalla": nombre, "viewport": ancho, **estado})
+        if comprobar:
+            comprobar()
+    pagina.set_viewport_size({"width": 1440, "height": 900})
+
+
+def capturar_corte(cfg: dict, contextos: dict) -> None:
+    for rol, actual in contextos.items():
+        for indice, pagina in enumerate(actual.pages):
+            try:
+                capturar(cfg, pagina, f"corte-{rol}-{indice}")
+            except Exception:
+                pass
 
 
 def comprobar_navegador(contexto_actual, pagina, fallos: list[str]) -> None:
-    estado = pagina.evaluate("""() => ({ ancho: document.documentElement.clientWidth,
+    estado = pagina.evaluate("""async () => ({ ancho: document.documentElement.clientWidth,
         contenido: document.documentElement.scrollWidth, local: localStorage.length,
-        sesion: sessionStorage.length })""")
-    if fallos or contexto_actual.cookies() or estado["local"] or estado["sesion"] or estado["contenido"] > estado["ancho"]:
+        sesion: sessionStorage.length, indexeddb: (await indexedDB.databases()).length })""")
+    if (fallos or contexto_actual.cookies() or estado["local"] or estado["sesion"]
+            or estado["indexeddb"] or estado["contenido"] > estado["ancho"]):
         raise FalloRecorrido("errores JS, cookies, almacenamiento web o desbordamiento horizontal")
 
 
@@ -271,7 +317,7 @@ def alta(cfg: dict, navegador) -> dict:
     candidato = contexto(navegador, origen, cfg["candidato"], errores_candidato)
     try:
         pagina = rrhh.new_page()
-        observar_pagina(pagina, errores_rrhh)
+        observar_pagina(pagina, errores_rrhh, cfg)
         avisos_respuestas = []
         pagina.on("response", lambda r: avisos_respuestas.append(r)
                   if r.url.split("?")[0] == origen + RUTA_AVISOS and r.request.method == "GET" else None)
@@ -290,6 +336,7 @@ def alta(cfg: dict, navegador) -> dict:
             raise FalloRecorrido("la política no devolvió recibo de la bolsa elegida")
         recibo_politica = referencia_obligatoria(politica_recibo, "recibo_ref")
         version_politica = version_obligatoria(politica_recibo, "version")
+        registrar_paso(cfg, "politica", politica_recibo)
 
         formulario = pagina.locator('[data-ofertas-form="publicar"]')
         for campo in ("categoria", "centro", "fecha_inicio", "descripcion"):
@@ -304,14 +351,12 @@ def alta(cfg: dict, navegador) -> dict:
         if not REFERENCIA.fullmatch(referencia) or oferta.get("bolsa_ref") != bolsa or oferta.get("estado") != "abierta":
             raise FalloRecorrido("la oferta no quedó abierta en la bolsa elegida")
         publicada_en = instante_obligatorio(oferta, "publicada_en")
+        registrar_paso(cfg, "oferta", oferta)
         pagina.locator(f'[data-oferta-ref="{referencia}"]').first.wait_for(timeout=15000)
-        comprobar_navegador(rrhh, pagina, errores_rrhh)
-        pagina.set_viewport_size({"width": 390, "height": 844})
-        comprobar_navegador(rrhh, pagina, errores_rrhh)
-        pagina.set_viewport_size({"width": 1440, "height": 900})
+        capturar(cfg, pagina, "rrhh-oferta", lambda: comprobar_navegador(rrhh, pagina, errores_rrhh))
 
         propia = candidato.new_page()
-        observar_pagina(propia, errores_candidato)
+        observar_pagina(propia, errores_candidato, cfg)
         with propia.expect_response(lambda r: r.url.split("?")[0] == origen + RUTA_MI_BOLSA and r.request.method == "GET") as espera:
             propia.goto(origen + "/area-personal/?vista=llamamientos", wait_until="domcontentloaded")
         datos_mi_bolsa = respuesta_json(espera.value, RUTA_MI_BOLSA, {200})
@@ -325,9 +370,8 @@ def alta(cfg: dict, navegador) -> dict:
         disposicion = respuesta_json(espera.value, RUTA_DISPOSICIONES, {200, 201})
         recibo_disposicion = referencia_obligatoria(disposicion, "recibo")
         disposicion_fecha = instante_obligatorio(disposicion, "manifestada_en")
-        comprobar_navegador(candidato, propia, errores_candidato)
-        propia.set_viewport_size({"width": 390, "height": 844})
-        comprobar_navegador(candidato, propia, errores_candidato)
+        registrar_paso(cfg, "disposicion", disposicion)
+        capturar(cfg, propia, "candidato-disposicion", lambda: comprobar_navegador(candidato, propia, errores_candidato))
 
         # Los avisos son internos. El correo B7 se comprueba por separado: una
         # oferta publicada y su disposición no acreditan SMTP ni entrega.
@@ -343,6 +387,9 @@ def alta(cfg: dict, navegador) -> dict:
                 "avisos": "consulta_interna_200", "avisos_total": len(avisos.get("items", [])),
                 "correo_b7": b7, "mailpit": "NO COMPROBADO; relay no equivale a entrega",
                 "entrega_corporativa": "NO ACREDITADA"}
+    except Exception:
+        capturar_corte(cfg, {"rrhh": rrhh, "candidato": candidato})
+        raise
     finally:
         rrhh.close()
         candidato.close()
@@ -363,6 +410,7 @@ def recuperar(cfg: dict, navegador, anterior: dict) -> dict:
     candidato = contexto(navegador, origen, cfg["candidato"], errores_candidato)
     try:
         p = rrhh.new_page()
+        observar_pagina(p, errores_rrhh, cfg)
         politicas = []
         p.on("response", lambda r: politicas.append(r)
              if r.url.split("?")[0] == origen + RUTA_POLITICA and r.request.method == "GET" else None)
@@ -380,8 +428,9 @@ def recuperar(cfg: dict, navegador, anterior: dict) -> dict:
                 or coincidentes[0].get("estado") != anterior["oferta_estado"]):
             raise FalloRecorrido("la oferta cambió o está duplicada tras el reinicio")
         p.locator(f'[data-oferta-ref="{referencia}"]').first.wait_for(timeout=15000)
-        comprobar_navegador(rrhh, p, errores_rrhh)
+        capturar(cfg, p, "recuperacion-rrhh", lambda: comprobar_navegador(rrhh, p, errores_rrhh))
         q = candidato.new_page()
+        observar_pagina(q, errores_candidato, cfg)
         with q.expect_response(lambda r: r.url.split("?")[0] == origen + RUTA_MI_BOLSA and r.request.method == "GET") as espera:
             q.goto(origen + "/area-personal/?vista=llamamientos", wait_until="domcontentloaded")
         mi_bolsa = respuesta_json(espera.value, RUTA_MI_BOLSA, {200})
@@ -392,10 +441,13 @@ def recuperar(cfg: dict, navegador, anterior: dict) -> dict:
                 or instante_obligatorio(propias[0]["disposicion"], "manifestada_en") != fecha_disposicion_previa):
             raise FalloRecorrido("la disposición cambió o está duplicada tras el reinicio")
         q.locator(f'[data-oferta-mi-bolsa="{referencia}"]').first.wait_for(timeout=15000)
-        comprobar_navegador(candidato, q, errores_candidato)
+        capturar(cfg, q, "recuperacion-candidato", lambda: comprobar_navegador(candidato, q, errores_candidato))
         return {"estado": "RECUPERACION_ACREDITADA", "oferta_ref": referencia,
                 "disposicion_recibo": recibo_disposicion_previo, "post_repetidos": 0,
                 "entrega_corporativa": "NO ACREDITADA"}
+    except Exception:
+        capturar_corte(cfg, {"rrhh": rrhh, "candidato": candidato})
+        raise
     finally:
         rrhh.close()
         candidato.close()
@@ -425,6 +477,12 @@ def main() -> int:
             descriptor = os.open(args.evidencia, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(descriptor, "w", encoding="utf-8") as salida:
                 salida.write('{"estado":"INICIADO","nota":"No repetir escrituras si falla; reconciliar el clon"}\n')
+        capturas = args.evidencia.parent / (args.evidencia.stem + "-capturas")
+        capturas.mkdir(mode=0o700, exist_ok=True)
+        if dentro_de_git(capturas) or capturas.stat().st_mode & 0o077:
+            raise NoEjecutado("las capturas deben quedar en un directorio privado fuera de Git")
+        cfg["_capturas"] = str(capturas)
+        cfg["_evidencia"] = str(args.evidencia) if args.fase == "alta" else None
         from playwright.sync_api import sync_playwright
         with sync_playwright() as playwright:
             navegador = playwright.chromium.launch(headless=True, executable_path=cfg["chrome"],
@@ -434,6 +492,10 @@ def main() -> int:
                 resultado = alta(cfg, navegador) if args.fase == "alta" else recuperar(cfg, navegador, json.loads(args.evidencia.read_text()))
             finally:
                 navegador.close()
+        resultado["http"] = cfg.get("_http", [])
+        resultado["pasos"] = cfg.get("_pasos", [])
+        resultado["navegador"] = cfg.get("_navegador", [])
+        resultado["capturas"] = sorted(p.name for p in capturas.glob("*.png"))
         if args.fase == "alta":
             args.evidencia.write_text(json.dumps(resultado, ensure_ascii=False, indent=2) + "\n")
         print(json.dumps(resultado, ensure_ascii=False))
@@ -444,7 +506,16 @@ def main() -> int:
     except Exception as error:
         # El error se reduce al tipo: Playwright puede incluir URL o datos personales.
         mensaje = str(error) if isinstance(error, FalloRecorrido) else type(error).__name__
-        print(json.dumps({"estado": "FALLÓ", "motivo": mensaje}, ensure_ascii=False))
+        resultado = {"estado": "FALLÓ", "motivo": mensaje}
+        if "cfg" in locals():
+            resultado["pasos"] = cfg.get("_pasos", [])
+            resultado["http"] = cfg.get("_http", [])
+            resultado["navegador"] = cfg.get("_navegador", [])
+            if "capturas" in locals():
+                resultado["capturas"] = sorted(p.name for p in capturas.glob("*.png"))
+            if args.fase == "alta" and cfg.get("_evidencia"):
+                args.evidencia.write_text(json.dumps(resultado, ensure_ascii=False, indent=2) + "\n")
+        print(json.dumps(resultado, ensure_ascii=False))
         return 1
 
 
