@@ -39,7 +39,10 @@ func (s *ServicioCustodiaImagen) autorizar(ctx context.Context, op ports.Operaci
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenProhibida
 	}
 	switch op.Accion {
-	case ports.AccionImagenReservar, ports.AccionImagenRecuperar, ports.AccionImagenConfirmar, ports.AccionImagenDisponible, ports.AccionImagenAbrirPropia, ports.AccionImagenAbrirAjena:
+	case ports.AccionImagenReservar, ports.AccionImagenRecuperar,
+		ports.AccionImagenRegistrarCuarentena, ports.AccionImagenAdmitir,
+		ports.AccionImagenConfirmar, ports.AccionImagenDisponible,
+		ports.AccionImagenAbrirPropia, ports.AccionImagenAbrirAjena:
 	default:
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenProhibida
 	}
@@ -56,11 +59,24 @@ func (s *ServicioCustodiaImagen) autorizar(ctx context.Context, op ports.Operaci
 	if op.Accion == ports.AccionImagenAbrirPropia && op.Actor.PersonaRef != op.TitularPersonaRef {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenProhibida
 	}
+	if op.Accion == ports.AccionImagenReservar || op.Accion == ports.AccionImagenRecuperar {
+		if op.DocumentoRef != "" || op.ClaveOperacion == "" {
+			return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenInvalida
+		}
+	} else if op.DocumentoRef == "" {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenInvalida
+	}
 	material, err := s.Autoridad.AutorizarImagen(ctx, op)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenProhibida
 	}
 	if material.ValidarEstructura() != nil {
+		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenNoDisponible
+	}
+	resumen := material.ResumenCapacidad()
+	ahora := s.AhoraUTC().UTC()
+	if resumen.Operacion() != op.Accion || ahora.Before(resumen.EmitidaEn()) || !ahora.Before(resumen.ExpiraEn()) ||
+		(op.DocumentoRef != "" && resumen.EfectoRef() != op.DocumentoRef) {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrImagenNoDisponible
 	}
 	return material, nil
@@ -69,6 +85,11 @@ func (s *ServicioCustodiaImagen) permisoEfecto(ctx context.Context, op ports.Ope
 	// Cada transición durable obtiene material nuevo. Una autorización consumida
 	// al recuperar la reserva no puede repetirse para reservar o admitir.
 	return s.autorizar(ctx, op)
+}
+func operacionImagenFase(op ports.OperacionImagen, r ports.ReservaImagen, accion string) ports.OperacionImagen {
+	op.Accion = accion
+	op.DocumentoRef = r.Identidad.DocumentoRef
+	return op
 }
 func bytesPNG256(contenido []byte) bool {
 	if len(contenido) == 0 || len(contenido) > maxBytesImagen {
@@ -87,6 +108,32 @@ func objetoExacto(o vecports.ObjetoAlmacenado, id domain.IdentidadCustodiaImagen
 }
 func reservaExacta(r ports.ReservaImagen, id domain.IdentidadCustodiaImagen) bool {
 	return r.Identidad.Validar() == nil && r.Identidad.DocumentoRef != "" && r.Identidad.MismaPeticion(id) && r.Estado.Valido()
+}
+func admisionImagenExacta(r ports.ReservaImagen) bool {
+	return (r.Estado == domain.EstadoImagenAdmitida || r.Estado == domain.EstadoImagenConfirmada) &&
+		r.EvidenciaAnalisisRef != "" && r.EvidenciaAnalisisRef != r.ObjetoAdmitido.EvidenciaCreacionRef &&
+		objetoExacto(r.ObjetoAdmitido, r.Identidad, vecports.ZonaAlmacenAdmitida, r.ObjetoAdmitido.Tamano)
+}
+func (s *ServicioCustodiaImagen) registrarAdmision(ctx context.Context, op ports.OperacionImagen, r ports.ReservaImagen, evidencia string, objeto vecports.ObjetoAlmacenado) (ports.ReservaImagen, error) {
+	if evidencia == "" || evidencia == objeto.EvidenciaCreacionRef || objeto.Objeto.Validar() != nil {
+		return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
+	}
+	fase := operacionImagenFase(op, r, ports.AccionImagenAdmitir)
+	permiso, err := s.permisoEfecto(ctx, fase)
+	if err != nil {
+		return ports.ReservaImagen{}, err
+	}
+	actual, err := s.Registro.AdmitirImagen(ctx, fase, permiso, r, evidencia, objeto)
+	if err != nil {
+		return ports.ReservaImagen{}, err
+	}
+	if (actual.Estado != domain.EstadoImagenAdmitida && actual.Estado != domain.EstadoImagenConfirmada) ||
+		actual.Identidad != r.Identidad || actual.EvidenciaAnalisisRef != evidencia ||
+		actual.ObjetoAdmitido.Objeto != objeto.Objeto || actual.ObjetoAdmitido.HuellaSHA256 != objeto.HuellaSHA256 ||
+		actual.ObjetoAdmitido.Tamano != objeto.Tamano {
+		return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
+	}
+	return actual, nil
 }
 
 // Reservar reclama primero una fila durable. Reintentos recuperan esa fila y
@@ -125,15 +172,16 @@ func (s *ServicioCustodiaImagen) Reservar(ctx context.Context, op ports.Operacio
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
 	}
-	return s.reconciliarObjetos(ctx, op, permiso, r, contenido)
+	return s.reconciliarObjetos(ctx, op, r, contenido)
 }
-func (s *ServicioCustodiaImagen) reconciliarObjetos(ctx context.Context, op ports.OperacionImagen, permiso vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, r ports.ReservaImagen, contenido []byte) (ports.ReservaImagen, error) {
+func (s *ServicioCustodiaImagen) reconciliarObjetos(ctx context.Context, op ports.OperacionImagen, r ports.ReservaImagen, contenido []byte) (ports.ReservaImagen, error) {
 	caps, err := s.Almacen.Capacidades(ctx)
 	if err != nil || !caps.EscrituraEnFlujo || !caps.IntegridadSHA256 || !caps.ReferenciasOpacas || !caps.PromocionAtomica || !caps.PreservaObjetoOriginal || caps.TamanoMaximoObjeto < int64(len(contenido)) {
 		return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 	}
 	if r.Estado == domain.EstadoImagenReservada {
-		contexto, err := s.Contextos.EscribirCuarentena(ctx, op, r.Identidad, int64(len(contenido)))
+		fase := operacionImagenFase(op, r, ports.AccionImagenRegistrarCuarentena)
+		contexto, err := s.Contextos.EscribirCuarentena(ctx, fase, r.Identidad, int64(len(contenido)))
 		if err != nil {
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
@@ -148,16 +196,17 @@ func (s *ServicioCustodiaImagen) reconciliarObjetos(ctx context.Context, op port
 		if escrito.ValidarEscritura(req, caps) != nil || !objetoExacto(escrito.Objeto, r.Identidad, vecports.ZonaAlmacenCuarentena, int64(len(contenido))) {
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
-		permiso, err = s.permisoEfecto(ctx, op)
+		permiso, err := s.permisoEfecto(ctx, fase)
 		if err != nil {
 			return ports.ReservaImagen{}, err
 		}
-		r, err = s.Registro.RegistrarObjetoImagen(ctx, op, permiso, r, escrito.Objeto)
+		r, err = s.Registro.RegistrarObjetoImagen(ctx, fase, permiso, r, escrito.Objeto)
 		if err != nil {
 			return ports.ReservaImagen{}, err
 		}
 	}
 	if r.Estado == domain.EstadoImagenCuarentena {
+		fase := operacionImagenFase(op, r, ports.AccionImagenAdmitir)
 		if !objetoExacto(r.ObjetoCuarentena, r.Identidad, vecports.ZonaAlmacenCuarentena, int64(len(contenido))) {
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
@@ -165,7 +214,7 @@ func (s *ServicioCustodiaImagen) reconciliarObjetos(ctx context.Context, op port
 		if err != nil || evidencia == "" {
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
-		contexto, err := s.Contextos.PromoverAdmitida(ctx, op, r)
+		contexto, err := s.Contextos.PromoverAdmitida(ctx, fase, r, evidencia)
 		if err != nil {
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
@@ -177,22 +226,16 @@ func (s *ServicioCustodiaImagen) reconciliarObjetos(ctx context.Context, op port
 		if err != nil {
 			return ports.ReservaImagen{}, err
 		}
-		if admitido.ValidarPromocion(req, r.ObjetoCuarentena, caps) != nil || !objetoExacto(admitido.Objeto, r.Identidad, vecports.ZonaAlmacenAdmitida, int64(len(contenido))) {
+		if admitido.ValidarPromocion(req, r.ObjetoCuarentena, caps) != nil || !objetoExacto(admitido.Objeto, r.Identidad, vecports.ZonaAlmacenAdmitida, int64(len(contenido))) ||
+			evidencia == admitido.Objeto.EvidenciaCreacionRef {
 			return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 		}
-		permiso, err = s.permisoEfecto(ctx, op)
-		if err != nil {
-			return ports.ReservaImagen{}, err
-		}
-		r, err = s.Registro.AdmitirImagen(ctx, op, permiso, r, admitido.Objeto)
+		r, err = s.registrarAdmision(ctx, op, r, evidencia, admitido.Objeto)
 		if err != nil {
 			return ports.ReservaImagen{}, err
 		}
 	}
-	if r.Estado != domain.EstadoImagenAdmitida && r.Estado != domain.EstadoImagenConfirmada {
-		return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
-	}
-	if !objetoExacto(r.ObjetoAdmitido, r.Identidad, vecports.ZonaAlmacenAdmitida, int64(len(contenido))) {
+	if !admisionImagenExacta(r) || r.ObjetoAdmitido.Tamano != int64(len(contenido)) {
 		return ports.ReservaImagen{}, ports.ErrImagenNoDisponible
 	}
 	return r, nil
@@ -216,6 +259,9 @@ func (s *ServicioCustodiaImagen) Recuperar(ctx context.Context, op ports.Operaci
 		r.Identidad.DocumentoRef == "" || !r.Estado.Valido()) {
 		return ports.ReservaImagen{}, false, ports.ErrImagenNoDisponible
 	}
+	if ok && (r.Estado == domain.EstadoImagenAdmitida || r.Estado == domain.EstadoImagenConfirmada) && !admisionImagenExacta(r) {
+		return ports.ReservaImagen{}, false, ports.ErrImagenNoDisponible
+	}
 	// Una reserva incompleta sigue siendo recuperable para reanudar Reservar
 	// con los mismos bytes. El consumidor sin bytes solo puede consumar cuando
 	// Estado es admitida o confirmada.
@@ -232,7 +278,7 @@ func (s *ServicioCustodiaImagen) referenciaActiva(ctx context.Context, op ports.
 	return nil
 }
 func (s *ServicioCustodiaImagen) Confirmar(ctx context.Context, op ports.OperacionImagen, r ports.ReservaImagen) error {
-	if op.Accion != ports.AccionImagenConfirmar || op.Actor.PersonaRef != op.TitularPersonaRef || r.Estado != domain.EstadoImagenAdmitida && r.Estado != domain.EstadoImagenConfirmada || op.DocumentoRef != r.Identidad.DocumentoRef || !objetoExacto(r.ObjetoAdmitido, r.Identidad, vecports.ZonaAlmacenAdmitida, r.ObjetoAdmitido.Tamano) {
+	if op.Accion != ports.AccionImagenConfirmar || op.Actor.PersonaRef != op.TitularPersonaRef || op.DocumentoRef != r.Identidad.DocumentoRef || !admisionImagenExacta(r) {
 		return ports.ErrImagenInvalida
 	}
 	permiso, err := s.autorizar(ctx, op)
@@ -263,7 +309,7 @@ func (s *ServicioCustodiaImagen) Disponible(ctx context.Context, op ports.Operac
 	if err != nil {
 		return false, err
 	}
-	if !ok || r.Estado != domain.EstadoImagenConfirmada || r.Identidad.PersonaRef != op.TitularPersonaRef || r.Identidad.DocumentoRef != op.DocumentoRef || !objetoExacto(r.ObjetoAdmitido, r.Identidad, vecports.ZonaAlmacenAdmitida, r.ObjetoAdmitido.Tamano) {
+	if !ok || r.Estado != domain.EstadoImagenConfirmada || r.Identidad.PersonaRef != op.TitularPersonaRef || r.Identidad.DocumentoRef != op.DocumentoRef || !admisionImagenExacta(r) {
 		return false, nil
 	}
 	return true, nil
@@ -285,7 +331,7 @@ func (s *ServicioCustodiaImagen) revalidarDocumentoTrasLectura(ctx context.Conte
 		actual.ObjetoAdmitido.Objeto != anterior.ObjetoAdmitido.Objeto ||
 		actual.ObjetoAdmitido.HuellaSHA256 != anterior.ObjetoAdmitido.HuellaSHA256 ||
 		actual.ObjetoAdmitido.Tamano != anterior.ObjetoAdmitido.Tamano ||
-		!objetoExacto(actual.ObjetoAdmitido, actual.Identidad, vecports.ZonaAlmacenAdmitida, anterior.ObjetoAdmitido.Tamano) {
+		!admisionImagenExacta(actual) || actual.EvidenciaAnalisisRef != anterior.EvidenciaAnalisisRef {
 		return ports.ErrImagenNoDisponible
 	}
 	return nil
@@ -320,7 +366,7 @@ func (s *ServicioCustodiaImagen) Abrir(ctx context.Context, op ports.OperacionIm
 	if err != nil {
 		return nil, err
 	}
-	if !ok || r.Estado != domain.EstadoImagenConfirmada || r.Identidad.PersonaRef != op.TitularPersonaRef || r.Identidad.DocumentoRef != op.DocumentoRef || !objetoExacto(r.ObjetoAdmitido, r.Identidad, vecports.ZonaAlmacenAdmitida, r.ObjetoAdmitido.Tamano) {
+	if !ok || r.Estado != domain.EstadoImagenConfirmada || r.Identidad.PersonaRef != op.TitularPersonaRef || r.Identidad.DocumentoRef != op.DocumentoRef || !admisionImagenExacta(r) {
 		return nil, ports.ErrImagenNoDisponible
 	}
 	if err := s.referenciaActiva(ctx, op); err != nil {

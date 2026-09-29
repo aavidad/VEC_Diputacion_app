@@ -116,18 +116,28 @@ func TestCustodiaImagenRevocacionDocumentosDuranteLectura(t *testing.T) {
 }
 
 func TestCustodiaImagenLecturaParcialYHuellaLimpianBytes(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
+	img.Set(0, 0, color.RGBA{R: 8, A: 255})
+	var pngValido bytes.Buffer
+	if err := png.Encode(&pngValido, img); err != nil {
+		t.Fatal(err)
+	}
+	contenidoValido := pngValido.Bytes()
+	if !bytesPNG256(contenidoValido) {
+		t.Fatal("fixture PNG 256 inválido")
+	}
 	for _, tc := range []struct {
 		nombre string
 		err    error
 		sha    string
 		tamano int64
 	}{
-		{"lectura parcial", errors.New("corte de S3"), strings.Repeat("a", 64), 5},
-		{"huella incorrecta", nil, strings.Repeat("a", 64), 5},
-		{"tamano incorrecto", nil, huella([]byte("cinco")), 4},
+		{"lectura parcial", errors.New("corte de S3"), huella(contenidoValido), int64(len(contenidoValido))},
+		{"huella incorrecta", nil, strings.Repeat("a", 64), int64(len(contenidoValido))},
+		{"tamano incorrecto", nil, huella(contenidoValido), int64(len(contenidoValido) - 1)},
 	} {
 		t.Run(tc.nombre, func(t *testing.T) {
-			buffer := []byte("cinco")
+			buffer := bytes.Clone(contenidoValido)
 			got, err := validarContenidoLeidoImagen(buffer, tc.err, tc.sha, tc.tamano)
 			if !errors.Is(err, ports.ErrImagenNoDisponible) || got != nil {
 				t.Fatalf("se expusieron bytes: %v %q", err, got)
@@ -157,10 +167,10 @@ type registroRecuperacionImagen struct {
 func (r *registroRecuperacionImagen) RecuperarImagen(context.Context, ports.OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReservaImagen, bool, error) {
 	return r.reserva, true, nil
 }
-func materialImagenPrueba(t *testing.T, actor vecdomain.ContextoActor, ahora time.Time) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
+func materialImagenPrueba(t *testing.T, actor vecdomain.ContextoActor, ahora time.Time, accion, efecto string) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
 	t.Helper()
 	h := strings.Repeat("a", 64)
-	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", h, h, "ctx_prueba", h, ports.AccionImagenRecuperar, actor.PersonaRef, h, "vec_documentos.imagen.v1", ahora, ahora.Add(3*time.Second))
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", h, h, "ctx_prueba", h, accion, efecto, h, "vec_documentos.imagen.v1", ahora, ahora.Add(3*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,13 +196,79 @@ func TestCustodiaImagenRecuperaReservaIncompletaTrasCaida(t *testing.T) {
 		t.Fatal(err)
 	}
 	registro := &registroRecuperacionImagen{}
-	s := ServicioCustodiaImagen{Registro: registro, Autoridad: autoridadMaterialImagen{materialImagenPrueba(t, actor, ahora)}, Contextos: &contextosImagenNoUsados{}, Almacen: &almacenImagenNoUsado{}, Admisor: &admisorImagenNoUsado{}, Usuarios: &referenciaImagenPrueba{activa: true}, AhoraUTC: func() time.Time { return ahora }}
+	s := ServicioCustodiaImagen{Registro: registro, Autoridad: autoridadMaterialImagen{materialImagenPrueba(t, actor, ahora, ports.AccionImagenRecuperar, actor.PersonaRef)}, Contextos: &contextosImagenNoUsados{}, Almacen: &almacenImagenNoUsado{}, Admisor: &admisorImagenNoUsado{}, Usuarios: &referenciaImagenPrueba{activa: true}, AhoraUTC: func() time.Time { return ahora }}
 	op := ports.OperacionImagen{Actor: actor, TitularPersonaRef: actor.PersonaRef, Audiencia: ports.AudienciaImagenPersonal, Finalidad: ports.FinalidadImagenPropia, Accion: ports.AccionImagenRecuperar, ClaveOperacion: id.ClaveOperacion}
-	for _, estado := range []docdomain.EstadoCustodiaImagen{docdomain.EstadoImagenReservada, docdomain.EstadoImagenCuarentena, docdomain.EstadoImagenAdmitida} {
+	for _, estado := range []docdomain.EstadoCustodiaImagen{docdomain.EstadoImagenReservada, docdomain.EstadoImagenCuarentena} {
 		registro.reserva = ports.ReservaImagen{Identidad: id, Estado: estado}
 		recuperada, existe, err := s.Recuperar(context.Background(), op)
 		if err != nil || !existe || recuperada.Estado != estado || recuperada.Identidad != id {
 			t.Fatalf("caída en %s no recuperable: existe=%v err=%v", estado, existe, err)
 		}
+	}
+}
+
+type autoridadFaseImagen struct {
+	material vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	vista    ports.OperacionImagen
+}
+
+func (a *autoridadFaseImagen) AutorizarImagen(_ context.Context, op ports.OperacionImagen) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	a.vista = op
+	return a.material, nil
+}
+
+type registroAdmisionImagen struct {
+	ports.RegistroImagen
+	vista     ports.OperacionImagen
+	evidencia string
+}
+
+func (r *registroAdmisionImagen) AdmitirImagen(_ context.Context, op ports.OperacionImagen, _ vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, anterior ports.ReservaImagen, evidencia string, objeto vecports.ObjetoAlmacenado) (ports.ReservaImagen, error) {
+	r.vista = op
+	r.evidencia = evidencia
+	anterior.Estado = docdomain.EstadoImagenAdmitida
+	anterior.EvidenciaAnalisisRef = evidencia
+	anterior.ObjetoAdmitido = objeto
+	return anterior, nil
+}
+func TestCustodiaImagenAdmisionUsaAccionDocumentoYEvidenciaExacta(t *testing.T) {
+	ahora := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	actor := actorImagenPrueba(t, ahora)
+	id := docdomain.IdentidadCustodiaImagen{PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Audiencia: ports.AudienciaImagenPersonal, Finalidad: ports.FinalidadImagenPropia, CatalogoVersionRef: "usuarios-imagen-v1", Paleta: "azul", ClaveOperacion: "operacion.1234567890", HuellaPeticion: strings.Repeat("a", 64), OriginalSHA256: strings.Repeat("b", 64), ContenidoSHA256: strings.Repeat("c", 64), DocumentoRef: "docimg:12345678-1234-1234-1234-123456789abc"}
+	if err := id.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	r := ports.ReservaImagen{Identidad: id, Estado: docdomain.EstadoImagenCuarentena}
+	objeto := vecports.ObjetoAlmacenado{Objeto: vecports.ReferenciaObjetoAlmacen{Referencia: "obj_1234567890123456", Version: "ver_1234567890123456"}, ConectorID: "s3_1234567890123456", Zona: vecports.ZonaAlmacenAdmitida, MIME: "image/png", Tamano: 123, HuellaSHA256: id.ContenidoSHA256, EvidenciaCreacionRef: "evi_promocion_123456", AlmacenadoEn: ahora}
+	if err := objeto.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	autoridad := &autoridadFaseImagen{material: materialImagenPrueba(t, actor, ahora, ports.AccionImagenAdmitir, id.DocumentoRef)}
+	registro := &registroAdmisionImagen{}
+	s := ServicioCustodiaImagen{Registro: registro, Autoridad: autoridad, Contextos: &contextosImagenNoUsados{}, Almacen: &almacenImagenNoUsado{}, Admisor: &admisorImagenNoUsado{}, Usuarios: &referenciaImagenPrueba{activa: true}, AhoraUTC: func() time.Time { return ahora }}
+	op := ports.OperacionImagen{Actor: actor, TitularPersonaRef: actor.PersonaRef, Audiencia: ports.AudienciaImagenPersonal, Finalidad: ports.FinalidadImagenPropia, Accion: ports.AccionImagenReservar, ClaveOperacion: id.ClaveOperacion, HuellaPeticion: id.HuellaPeticion}
+	evidencia := "evi_analisis_12345678"
+	got, err := s.registrarAdmision(context.Background(), op, r, evidencia, objeto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if autoridad.vista.Accion != ports.AccionImagenAdmitir || autoridad.vista.DocumentoRef != id.DocumentoRef ||
+		registro.vista.Accion != autoridad.vista.Accion || registro.vista.DocumentoRef != autoridad.vista.DocumentoRef ||
+		registro.evidencia != evidencia || got.EvidenciaAnalisisRef != evidencia {
+		t.Fatal("la admisión perdió acción, documento o evidencia exactos")
+	}
+	if op.DocumentoRef != "" || op.Accion != ports.AccionImagenReservar {
+		t.Fatal("la operación base fue mutada")
+	}
+	if _, err := s.registrarAdmision(context.Background(), op, r, objeto.EvidenciaCreacionRef, objeto); !errors.Is(err, ports.ErrImagenNoDisponible) {
+		t.Fatalf("análisis y promoción no pueden compartir evidencia: %v", err)
+	}
+	autoridad.material = materialImagenPrueba(t, actor, ahora, ports.AccionImagenReservar, actor.PersonaRef)
+	if _, err := s.registrarAdmision(context.Background(), op, r, evidencia, objeto); !errors.Is(err, ports.ErrImagenNoDisponible) {
+		t.Fatalf("material de reservar no autoriza admitir: %v", err)
+	}
+	fase := operacionImagenFase(op, r, ports.AccionImagenRegistrarCuarentena)
+	if fase.Accion != ports.AccionImagenRegistrarCuarentena || fase.DocumentoRef != id.DocumentoRef {
+		t.Fatal("cuarentena carece de acción/recurso exacto")
 	}
 }

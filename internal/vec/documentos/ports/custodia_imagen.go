@@ -17,16 +17,18 @@ var (
 )
 
 const (
-	AccionImagenReservar    = "documentos.imagen.reservar"
-	AccionImagenRecuperar   = "documentos.imagen.recuperar"
-	AccionImagenConfirmar   = "documentos.imagen.confirmar"
-	AccionImagenDisponible  = "documentos.imagen.disponible"
-	AccionImagenAbrirPropia = "documentos.imagen.abrir_propia"
-	AccionImagenAbrirAjena  = "documentos.imagen.abrir_ajena"
-	AudienciaImagenPersonal = "portal_personal_autenticado"
-	AudienciaImagenInterna  = "portal_interno_autenticado"
-	FinalidadImagenPropia   = "finalidad:usuarios:imagen-propia:v1"
-	FinalidadImagenInterna  = "finalidad:usuarios:imagen-directorio-interno:v1"
+	AccionImagenReservar            = "documentos.imagen.reservar"
+	AccionImagenRecuperar           = "documentos.imagen.recuperar"
+	AccionImagenRegistrarCuarentena = "documentos.imagen.registrar_cuarentena"
+	AccionImagenAdmitir             = "documentos.imagen.admitir"
+	AccionImagenConfirmar           = "documentos.imagen.confirmar"
+	AccionImagenDisponible          = "documentos.imagen.disponible"
+	AccionImagenAbrirPropia         = "documentos.imagen.abrir_propia"
+	AccionImagenAbrirAjena          = "documentos.imagen.abrir_ajena"
+	AudienciaImagenPersonal         = "portal_personal_autenticado"
+	AudienciaImagenInterna          = "portal_interno_autenticado"
+	FinalidadImagenPropia           = "finalidad:usuarios:imagen-propia:v1"
+	FinalidadImagenInterna          = "finalidad:usuarios:imagen-directorio-interno:v1"
 )
 
 type OperacionImagen struct {
@@ -57,7 +59,7 @@ type RegistroImagen interface {
 	RecuperarImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReservaImagen, bool, error)
 	ReservarImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, domain.IdentidadCustodiaImagen) (ReservaImagen, error)
 	RegistrarObjetoImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, ReservaImagen, vecports.ObjetoAlmacenado) (ReservaImagen, error)
-	AdmitirImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, ReservaImagen, vecports.ObjetoAlmacenado) (ReservaImagen, error)
+	AdmitirImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, ReservaImagen, string, vecports.ObjetoAlmacenado) (ReservaImagen, error)
 	ConfirmarImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, ReservaImagen) (ReservaImagen, error)
 	LeerImagen(context.Context, OperacionImagen, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ReservaImagen, bool, error)
 }
@@ -67,6 +69,8 @@ type ReservaImagen struct {
 	Estado           domain.EstadoCustodiaImagen
 	ObjetoCuarentena vecports.ObjetoAlmacenado
 	ObjetoAdmitido   vecports.ObjetoAlmacenado
+	// La evidencia limpia queda ligada a la promoción y persiste para replay.
+	EvidenciaAnalisisRef string
 }
 
 // Reservada y cuarentena son estados recuperables: el llamante con bytes
@@ -74,6 +78,8 @@ type ReservaImagen struct {
 // consumarse sin volver a aportar el original; no se inventan bytes perdidos.
 
 // La política de análisis debe comprobar la versión exacta en cuarentena.
+// Debe devolver la MISMA referencia durable para reintentos sobre el mismo
+// objeto: una caída entre promover y registrar no puede cambiar el fundamento.
 // Solo evidencia limpia habilita promoción; ausencia o fallo deniegan.
 type AdmisorImagen interface {
 	EvidenciaLimpia(context.Context, vecports.ObjetoAlmacenado) (string, error)
@@ -84,7 +90,7 @@ type AdmisorImagen interface {
 // fachada de bytes: la aplicación usa directamente AlmacenObjetos.
 type ContextosAlmacenImagen interface {
 	EscribirCuarentena(context.Context, OperacionImagen, domain.IdentidadCustodiaImagen, int64) (vecports.ContextoOperacionAlmacen, error)
-	PromoverAdmitida(context.Context, OperacionImagen, ReservaImagen) (vecports.ContextoOperacionAlmacen, error)
+	PromoverAdmitida(context.Context, OperacionImagen, ReservaImagen, string) (vecports.ContextoOperacionAlmacen, error)
 	AbrirAdmitida(context.Context, OperacionImagen, ReservaImagen) (vecports.ContextoOperacionAlmacen, error)
 }
 

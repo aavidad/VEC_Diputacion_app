@@ -39,7 +39,7 @@ func (i IdentidadCustodiaImagen) Validar() error {
 		(i.Audiencia != "portal_personal_autenticado" && i.Audiencia != "portal_interno_autenticado") ||
 		i.Finalidad != "finalidad:usuarios:imagen-propia:v1" || i.VersionEsperada >= math.MaxInt64 ||
 		!codigoImagen(i.CatalogoVersionRef, 96) || !codigoImagen(i.Paleta, 96) ||
-		!referenciaImagen(i.ClaveOperacion, "", 128) || len(i.ClaveOperacion) < 16 ||
+		!claveImagen(i.ClaveOperacion) ||
 		!sha256Imagen(i.HuellaPeticion) || !sha256Imagen(i.OriginalSHA256) || !sha256Imagen(i.ContenidoSHA256) ||
 		(i.DocumentoRef != "" && !referenciaImagen(i.DocumentoRef, "", 128)) {
 		return ErrCustodiaImagenInvalida
@@ -103,9 +103,12 @@ func codigoImagen(s string, max int) bool {
 		return false
 	}
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == ':' || c == '.') {
 			return false
 		}
 	}
 	return true
+}
+func claveImagen(s string) bool {
+	return len(s) >= 16 && len(s) <= 128 && codigoImagen(s, 128)
 }

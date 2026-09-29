@@ -48,6 +48,17 @@ func TestCustodiaImagenEstadosTrasCaida(t *testing.T) {
 		}
 	}
 }
+func TestCustodiaImagenClaveYCatalogoCompatiblesConUsuarios(t *testing.T) {
+	id := IdentidadCustodiaImagen{PersonaRef: "per_1234567890123456", PerfilRef: "prf_1234567890123456", Audiencia: "portal_personal_autenticado", Finalidad: "finalidad:usuarios:imagen-propia:v1", CatalogoVersionRef: "usuarios:imagen.v1", Paleta: "azul", ClaveOperacion: "operacion.1234567890", HuellaPeticion: hexPrueba('a'), OriginalSHA256: hexPrueba('b'), ContenidoSHA256: hexPrueba('c')}
+	if err := id.Validar(); err != nil {
+		t.Fatalf("Usuarios acepta clave/catalogo con ./: %v", err)
+	}
+	id.DocumentoRef = "doc_1234567890123456"
+	id.DocumentoRef += ".ajena"
+	if id.Validar() == nil {
+		t.Fatal("ampliar claves no debe ampliar referencias opacas")
+	}
+}
 func hexPrueba(r rune) string {
 	b := make([]rune, 64)
 	for i := range b {
