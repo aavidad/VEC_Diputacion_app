@@ -47,7 +47,8 @@ class CLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporal:
             ruta = Path(temporal) / "casos.json"
             ruta.write_text(json.dumps({"esquema": "vec.ct.sembrado-ejemplo.v1", "espacio_claves": "prueba",
-                                        "casos": [{"codigo": "S01", "objetivo": "solicitud"}]}), encoding="utf-8")
+                                        "casos": [{"codigo": "S01", "objetivo": "solicitud",
+                                                   "motivo": "sustitucion"}]}), encoding="utf-8")
             argumentos = ["sembrar", "--destino=clon", "--puerto-interno=8443",
                           f"--huella-servidor-sha256={HUELLA}", f"--casos={ruta}"]
             falso = mock.Mock()
@@ -81,8 +82,10 @@ class CLI(unittest.TestCase):
 
     def test_preflight_completo_impide_escritura(self):
         casos = [{"codigo": "S01", "objetivo": "solicitud", "centro": "210", "categoria": "c2",
+                  "motivo": "sustitucion",
                   "modalidad": "sustitucion", "inicio": "2026-10-01", "fin": "2026-10-02"},
                  {"codigo": "S02", "objetivo": "solicitud", "centro": "sin-centro", "categoria": "c2",
+                  "motivo": "sustitucion",
                   "modalidad": "sustitucion", "inicio": "2026-10-01", "fin": "2026-10-02"}]
         with tempfile.TemporaryDirectory() as temporal:
             ruta = Path(temporal) / "casos.json"
@@ -183,6 +186,72 @@ class Seleccion(unittest.TestCase):
             self.sembrador.centro("210")
         with self.assertRaises(RuntimeError):
             self.sembrador.categoria("auxiliar")
+
+
+class LoteCatalogo(unittest.TestCase):
+    def test_nueve_ejecutables_y_once_pendientes_con_relato_conservado(self):
+        ruta = Path(__file__).with_name("casos_ejemplo_ct.json")
+        datos = json.loads(ruta.read_text(encoding="utf-8"))
+        ejecutables, pendientes = datos["casos"], datos["casos_pendientes"]
+        self.assertEqual(len(ejecutables), 9)
+        self.assertEqual(len(pendientes), 11)
+        self.assertEqual({c["codigo"] for c in pendientes},
+                         {"S03", "A01", "B01", "B03", "B04", "B06", "F02", "F03", "L02", "R01", "R02"})
+        self.assertEqual(len({c["codigo"] for c in ejecutables + pendientes}), 20)
+        self.assertTrue(all(c["motivo"] == "sustitucion" and c["modalidad"] == "sustitucion"
+                            for c in ejecutables))
+        self.assertTrue(all(c["motivo"] is None and c["modalidad"] != "sustitucion"
+                            for c in pendientes))
+
+    def test_preflight_exige_motivo_de_alta_explicito_y_catalogado(self):
+        sembrador = object.__new__(sembrado.Sembrador)
+        sembrador.catalogos = {
+            "centros": [{"referencia": "centro:210", "contactos": [{"referencia": "contacto:1"}]}],
+            "categorias": [{"referencia": "categoria:auxiliar", "grupos_subgrupos": [{"clave": "C2"}]}],
+            "motivos": [{"clave": "sustitucion"}],
+        }
+        sembrador.configuracion = {"modalidades": [{"clave": "sustitucion"}]}
+        caso = {"centro": "210", "categoria": "auxiliar", "motivo": "sustitucion",
+                "modalidad": "sustitucion", "inicio": "2026-10-19", "fin": "2027-01-18"}
+        self.assertEqual(sembrador.plan(caso)["motivo"], "sustitucion")
+        for motivo in (None, "programa", "vacante", "acumulacion_tareas"):
+            with self.subTest(motivo=motivo), self.assertRaisesRegex(RuntimeError, "no figura"):
+                sembrador.plan({**caso, "motivo": motivo})
+        with self.assertRaises(KeyError):
+            sembrador.plan({k: v for k, v in caso.items() if k != "motivo"})
+
+    def test_lanzador_no_envia_pendientes(self):
+        ruta = Path(__file__).with_name("casos_ejemplo_ct.json")
+        argumentos = ["sembrar", "--destino=clon", "--puerto-interno=8443",
+                      f"--huella-servidor-sha256={HUELLA}", f"--casos={ruta}", "--ejecutar"]
+        falso = mock.Mock()
+        falso.plan.return_value = {"centro": {"etiqueta": "Centro"}, "categoria": "categoria:c2"}
+        falso.sembrar.side_effect = lambda caso: {"expediente_ref": f"expediente:{caso['codigo']}",
+                                                  "numero": caso["codigo"], "objetivo": caso["objetivo"],
+                                                  "ya_estaba": 0, "hechos": ["alta"]}
+        with mock.patch.object(sys, "argv", argumentos), mock.patch.object(sys.stdin, "isatty", return_value=True), \
+             mock.patch("builtins.input", return_value="clon"), mock.patch.object(sembrado, "Cliente"), \
+             mock.patch.object(sembrado, "Sembrador", return_value=falso), \
+             mock.patch.object(sembrado, "resumen"), mock.patch("builtins.print"):
+            self.assertEqual(sembrado.main(), 0)
+        self.assertEqual(falso.sembrar.call_count, 9)
+        self.assertEqual({c.args[0]["codigo"] for c in falso.sembrar.call_args_list},
+                         {"S01", "S02", "S04", "A02", "B02", "B05", "F01", "L01", "L03"})
+
+    def test_caso_pendiente_trasladado_por_error_falla_antes_de_la_api(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            ruta = Path(temporal) / "casos.json"
+            ruta.write_text(json.dumps({"esquema": "vec.ct.sembrado-ejemplo.v1", "espacio_claves": "ensayo",
+                                        "casos": [{"codigo": "S03", "motivo": None}],
+                                        "casos_pendientes": []}), encoding="utf-8")
+            argumentos = ["sembrar", "--destino=clon", "--puerto-interno=8443",
+                          f"--huella-servidor-sha256={HUELLA}", f"--casos={ruta}"]
+            with mock.patch.object(sys, "argv", argumentos), mock.patch.object(sembrado, "Cliente") as cliente, \
+                 mock.patch("sys.stderr"):
+                with self.assertRaises(SystemExit) as salida:
+                    sembrado.main()
+            self.assertEqual(salida.exception.code, 2)
+            cliente.assert_not_called()
 
 
 class ReanudacionLlamamiento(unittest.TestCase):

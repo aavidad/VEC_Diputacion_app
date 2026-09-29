@@ -176,13 +176,14 @@ class Sembrador:
         categoria, grupo = self.categoria(caso["categoria"])
         motivos = [m["clave"] for m in self.catalogos.get("motivos") or []]
         modalidades = [m["clave"] for m in self.configuracion.get("modalidades") or []]
-        if "sustitucion" not in motivos:
-            raise RuntimeError("el catálogo del alta no ofrece el motivo sustitución")
+        motivo = caso["motivo"]
+        if not isinstance(motivo, str) or motivo not in motivos:
+            raise RuntimeError(f"motivo de alta {motivo}: no figura en el catálogo")
         if caso["modalidad"] not in modalidades:
             raise RuntimeError(f"modalidad {caso['modalidad']}: no figura en la configuración")
         return {
             "centro": centro, "categoria": categoria, "grupo": grupo,
-            "motivo": "sustitucion", "modalidad": caso["modalidad"],
+            "motivo": motivo, "modalidad": caso["modalidad"],
             "periodo": {"inicio": instante(caso["inicio"]), "fin": instante(caso["fin"])},
         }
 
@@ -407,7 +408,14 @@ def main() -> int:
         raise ErrorDestino("no se pudo leer el fichero de casos") from e
     if not isinstance(datos, dict) or datos.get("esquema") != "vec.ct.sembrado-ejemplo.v1":
         a.error("fichero de casos con otro esquema")
-    casos = datos["casos"]
+    casos, pendientes = datos.get("casos"), datos.get("casos_pendientes", [])
+    if (not isinstance(casos, list) or not casos or not isinstance(pendientes, list) or
+            any(not isinstance(c, dict) or not isinstance(c.get("codigo"), str) or
+                not c["codigo"] or not isinstance(c.get("motivo"), str) for c in casos) or
+            any(not isinstance(c, dict) or not isinstance(c.get("codigo"), str) or
+                not c["codigo"] or c.get("motivo") is not None for c in pendientes) or
+            len({c["codigo"] for c in casos + pendientes}) != len(casos) + len(pendientes)):
+        a.error("casos ejecutables o pendientes inválidos; no se ha escrito nada")
     rrhh = Cliente(o.puerto_interno, "cliente", huella)
     s = Sembrador(rrhh, Cliente(o.puerto_interno, "intervencion", huella), datos["espacio_claves"])
     try:
@@ -417,7 +425,9 @@ def main() -> int:
     except (RuntimeError, KeyError, TypeError, ValueError) as e:
         print(f"SEMBRADO-FALLO: no se ha escrito nada: {e}")
         return 2
-    print(f"Destino: {o.destino}. Casos: {len(casos)}")
+    print(f"Destino: {o.destino}. Casos ejecutables: {len(casos)}; pendientes: {len(pendientes)}")
+    if pendientes:
+        print("Pendientes sin causa de alta compatible: " + ", ".join(c["codigo"] for c in pendientes))
     for c, p in zip(casos, planes):
         print(f"{c['codigo']}  {c['objetivo']:<13} {p['centro'].get('etiqueta', '')[:34]:<34} {p['categoria']:<40} "
               f"{' → '.join(PLAN[c['objetivo']]) or 'alta'}")

@@ -1,6 +1,6 @@
 # Sembrado de ejemplo de Peticiones de personal temporal
 
-`sembrar_ejemplo_ct.py` crea o completa los expedientes de `casos_ejemplo_ct.json` usando solo la
+`sembrar_ejemplo_ct.py` crea o completa los casos ejecutables de `casos_ejemplo_ct.json` usando solo la
 API de VEC con los certificados mTLS de RRHH e Intervención. Exige la CA local, comprueba el
 nombre del servidor y compara la huella SHA256 del certificado en cada conexión. No escribe
 en tablas.
@@ -8,6 +8,13 @@ Es idempotente: claves derivadas de `espacio_claves` y del código de cada caso,
 reanudación a partir de los hitos del expediente.
 Si se corta después de registrar una comunicación, el reintento consulta su fecha y versión
 por la API y comprueba que coinciden el llamamiento y el recibo antes de registrar la respuesta.
+
+El fichero conserva 20 relatos sintéticos. Nueve sustituciones están en `casos` y pueden llegar
+a la API. Otros once siguen en `casos_pendientes`: sus relatos de programa, vacante o acumulación
+de tareas no tienen hoy una causa compatible en el catálogo de alta. No se planifican ni se
+escriben, y no cuentan como expedientes sembrados. Cada caso ejecutable declara su `motivo`;
+el guion exige una coincidencia exacta con el catálogo antes de escribir. Tras ampliar ese
+catálogo habrá que revisar cada caso pendiente antes de habilitarlo.
 
 Alberto lo lanza desde el kit del hito 6. El kit verifica el nombre y el ID del contenedor,
 obtiene del fichero preparado por Alberto la huella correspondiente a `clon` o `principal`,
