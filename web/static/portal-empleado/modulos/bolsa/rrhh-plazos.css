@@ -30,7 +30,8 @@
   gap: 16px;
 }
 
-.rrhh-plazos__rejilla > .panel:first-child {
+.rrhh-plazos__rejilla > .panel:first-child,
+.rrhh-plazos__rejilla > .panel:last-child {
   grid-column: 1 / -1;
 }
 
@@ -94,5 +95,133 @@
   .rrhh-plazos__rejilla > .panel:first-child,
   .rrhh-plazos__campos .campo--ancho {
     grid-column: auto;
+  }
+}
+
+.ofertas-bolsa__aviso {
+  margin: 0 0 16px;
+  border-left: 4px solid var(--portal-exito);
+  padding: 12px 16px;
+  background: var(--portal-exito-suave);
+  color: var(--portal-tinta);
+}
+
+/* «Ofertas publicadas»: una ficha por oferta con sus datos clave y, tras el
+   plazo, una fila por plaza con su estado, el dato que ayuda a decidir y sus
+   acciones. */
+.ofertas-lista {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.oferta-ficha {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  min-width: 0;
+}
+
+.oferta-ficha__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.oferta-ficha__cabecera h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.oferta-ficha__cabecera p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.oferta-ficha__datos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.oferta-ficha__datos dt {
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+}
+
+.oferta-ficha__datos dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.oferta-ficha__datos dd .dato-secundario {
+  display: block;
+  font-weight: 400;
+}
+
+.plazas-oferta {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plaza-oferta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-superficie-alterna);
+}
+
+.plaza-oferta__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.plaza-oferta > .dato-secundario {
+  grid-column: 1;
+  margin: 0;
+}
+
+.plaza-oferta > .acciones-fila {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .oferta-ficha {
+    padding: 16px;
+  }
+
+  .oferta-ficha__datos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plaza-oferta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plaza-oferta > .acciones-fila {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
   }
 }

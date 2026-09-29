@@ -42,7 +42,7 @@ func (r *repositorioOfertasPrueba) Publicar(_ context.Context, c puertosbolsa.Co
 	if r.devolver != nil {
 		return *r.devolver, nil
 	}
-	return puertosbolsa.OfertaPublicada{OfertaRef: c.OfertaRef, BolsaRef: c.BolsaRef, Datos: c.Datos, Plazo: c.Plazo, PublicadaEn: c.PublicadaEn, VenceAntesDe: c.VenceAntesDe, Estado: dominiobolsa.EstadoOfertaAbierta}, nil
+	return puertosbolsa.OfertaPublicada{OfertaRef: c.OfertaRef, BolsaRef: c.BolsaRef, Datos: c.Datos, NumeroPlazas: c.NumeroPlazas, Plazo: c.Plazo, PublicadaEn: c.PublicadaEn, VenceAntesDe: c.VenceAntesDe, Estado: dominiobolsa.EstadoOfertaAbierta}, nil
 }
 
 func (r *repositorioOfertasPrueba) Resolver(_ context.Context, c puertosbolsa.ComandoResolverOferta) (puertosbolsa.OfertaPublicada, error) {
@@ -68,7 +68,7 @@ func solicitudPublicarOfertaPrueba(t *testing.T, ahora time.Time) puertosbolsa.S
 	if err != nil {
 		t.Fatal(err)
 	}
-	return puertosbolsa.SolicitudPublicarOferta{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:of", Datos: datosOfertaPrueba(), ClaveIdempotencia: "oferta-clave-0001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
+	return puertosbolsa.SolicitudPublicarOferta{Vinculo: vinculo, ResultadoContexto: resultado, BolsaRef: "bolsa:of", Datos: datosOfertaPrueba(), NumeroPlazas: 3, ClaveIdempotencia: "oferta-clave-0001", Correlacion: correlacionBorradorPrueba(t), MotivoAutorizacion: motivoBorradorPrueba()}
 }
 
 func TestPublicarOfertaFijaPlazoDeLaReglaYConsumeLaAutorizacionDeEmision(t *testing.T) {
@@ -85,7 +85,8 @@ func TestPublicarOfertaFijaPlazoDeLaReglaYConsumeLaAutorizacionDeEmision(t *test
 	}
 	c := repo.publicado
 	if !strings.HasPrefix(c.OfertaRef, "oferta:") || strings.TrimPrefix(c.OfertaRef, "oferta:") != strings.TrimPrefix(c.ReciboRef, "recibo:oferta:") ||
-		!c.VenceAntesDe.Equal(ahora.Add(72*time.Hour)) || c.Plazo.ReglaRef == "" || c.Material.ValidarEstructura() != nil || c.ActorRef != "per_0123456789abcdefghijkl" {
+		!c.VenceAntesDe.Equal(ahora.Add(72*time.Hour)) || c.Plazo.ReglaRef == "" || c.Material.ValidarEstructura() != nil || c.ActorRef != "per_0123456789abcdefghijkl" ||
+		c.NumeroPlazas != 3 {
 		t.Fatalf("comando incorrecto: %+v", c)
 	}
 }
@@ -109,6 +110,8 @@ func TestPublicarOfertaRechazaDatosInvalidosAntesDeAutorizar(t *testing.T) {
 		"centro vacío":  func(s *puertosbolsa.SolicitudPublicarOferta) { s.Datos.Centro = "" },
 		"clave corta":   func(s *puertosbolsa.SolicitudPublicarOferta) { s.ClaveIdempotencia = "corta" },
 		"bolsa espacio": func(s *puertosbolsa.SolicitudPublicarOferta) { s.BolsaRef = " bolsa" },
+		"sin plazas":    func(s *puertosbolsa.SolicitudPublicarOferta) { s.NumeroPlazas = 0 },
+		"101 plazas":    func(s *puertosbolsa.SolicitudPublicarOferta) { s.NumeroPlazas = 101 },
 	} {
 		s := solicitudPublicarOfertaPrueba(t, ahora)
 		mutar(&s)
@@ -125,10 +128,15 @@ func TestPublicarOfertaDetectaReplayConOtroContenido(t *testing.T) {
 	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
 	otra := datosOfertaPrueba()
 	otra.Centro = "Otro centro"
-	repo := &repositorioOfertasPrueba{devolver: &puertosbolsa.OfertaPublicada{OfertaRef: "oferta:x", BolsaRef: "bolsa:of", Datos: otra, Estado: "abierta", Reutilizada: true}}
+	repo := &repositorioOfertasPrueba{devolver: &puertosbolsa.OfertaPublicada{OfertaRef: "oferta:x", BolsaRef: "bolsa:of", Datos: otra, NumeroPlazas: 3, Estado: "abierta", Reutilizada: true}}
 	servicio, _ := NuevoServicioOfertasPublicadas(contextoContactoPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repo, &plazoOfertaPrueba{}, func() time.Time { return ahora })
 	if _, err := servicio.PublicarOferta(context.Background(), solicitudPublicarOfertaPrueba(t, ahora)); !errors.Is(err, puertosbolsa.ErrOfertaConflicto) {
 		t.Fatalf("err=%v", err)
+	}
+	// La misma oferta con otro número de plazas tampoco se da por buena.
+	repo.devolver = &puertosbolsa.OfertaPublicada{OfertaRef: "oferta:x", BolsaRef: "bolsa:of", Datos: datosOfertaPrueba(), NumeroPlazas: 2, Estado: "abierta", Reutilizada: true}
+	if _, err := servicio.PublicarOferta(context.Background(), solicitudPublicarOfertaPrueba(t, ahora)); !errors.Is(err, puertosbolsa.ErrOfertaConflicto) {
+		t.Fatalf("plazas distintas: err=%v", err)
 	}
 }
 
@@ -142,21 +150,40 @@ func TestPublicarOfertaConservaDenegacionDeAmbito(t *testing.T) {
 	}
 }
 
-func TestResolverOfertaPasaLaPropuestaYElReciboDeterminista(t *testing.T) {
+func TestResolverOfertaPasaElActoDeLaPlazaYElReciboDeterminista(t *testing.T) {
 	ahora := time.Date(2026, 9, 29, 10, 0, 0, 0, time.UTC)
 	repo := &repositorioOfertasPrueba{}
 	servicio, _ := NuevoServicioOfertasPublicadas(contextoContactoPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repo, &plazoOfertaPrueba{}, func() time.Time { return ahora })
 	base := solicitudPublicarOfertaPrueba(t, ahora)
-	q := puertosbolsa.SolicitudResolverOferta{Vinculo: base.Vinculo, ResultadoContexto: base.ResultadoContexto, BolsaRef: "bolsa:of", OfertaRef: "oferta:" + strings.Repeat("a", 64), ParticipacionRef: "participacion:3", ClaveIdempotencia: "resolucion-0001", Correlacion: base.Correlacion, MotivoAutorizacion: base.MotivoAutorizacion}
+	q := puertosbolsa.SolicitudResolverOferta{Vinculo: base.Vinculo, ResultadoContexto: base.ResultadoContexto, BolsaRef: "bolsa:of", OfertaRef: "oferta:" + strings.Repeat("a", 64),
+		NumeroDePlaza: 2, Tipo: dominiobolsa.ActoPlazaRenuncia, SecuenciaEsperada: 1,
+		ParticipacionRef: "participacion:3", ClaveIdempotencia: "resolucion-0001", Correlacion: base.Correlacion, MotivoAutorizacion: base.MotivoAutorizacion}
 	if _, err := servicio.ResolverOferta(context.Background(), q); err != nil || repo.resuelto == nil {
 		t.Fatalf("err=%v", err)
 	}
-	if repo.resuelto.ParticipacionRef != "participacion:3" || !strings.HasPrefix(repo.resuelto.ReciboRef, "recibo:resolucion-oferta:") || repo.resuelto.Material.ValidarEstructura() != nil {
-		t.Fatalf("comando=%+v", repo.resuelto)
+	c := repo.resuelto
+	if c.ParticipacionRef != "participacion:3" || c.NumeroDePlaza != 2 || c.Tipo != dominiobolsa.ActoPlazaRenuncia || c.SecuenciaEsperada != 1 ||
+		c.ReciboRef != "recibo:plaza-oferta:"+huellaOferta(q.OfertaRef, q.ClaveIdempotencia) || c.Material.ValidarEstructura() != nil {
+		t.Fatalf("comando=%+v", c)
 	}
-	q.OfertaRef = "llamamiento:x"
-	if _, err := servicio.ResolverOferta(context.Background(), q); !errors.Is(err, puertosbolsa.ErrOfertaInvalida) {
-		t.Fatalf("referencia ajena aceptada: %v", err)
+	for nombre, mutar := range map[string]func(*puertosbolsa.SolicitudResolverOferta){
+		"referencia ajena":    func(s *puertosbolsa.SolicitudResolverOferta) { s.OfertaRef = "llamamiento:x" },
+		"plaza cero":          func(s *puertosbolsa.SolicitudResolverOferta) { s.NumeroDePlaza = 0 },
+		"plaza 101":           func(s *puertosbolsa.SolicitudResolverOferta) { s.NumeroDePlaza = 101 },
+		"acto desconocido":    func(s *puertosbolsa.SolicitudResolverOferta) { s.Tipo = "ignorada" },
+		"secuencia negativa":  func(s *puertosbolsa.SolicitudResolverOferta) { s.SecuenciaEsperada = -1 },
+		"secuencia excesiva":  func(s *puertosbolsa.SolicitudResolverOferta) { s.SecuenciaEsperada = maximaSecuenciaPlaza },
+		"directo con persona": func(s *puertosbolsa.SolicitudResolverOferta) { s.Tipo = dominiobolsa.ActoPlazaLlamamientoDirecto },
+		"adjudicación sin persona": func(s *puertosbolsa.SolicitudResolverOferta) {
+			s.Tipo, s.ParticipacionRef = dominiobolsa.ActoPlazaAdjudicada, ""
+		},
+	} {
+		r := q
+		mutar(&r)
+		repo.resuelto = nil
+		if _, err := servicio.ResolverOferta(context.Background(), r); !errors.Is(err, puertosbolsa.ErrOfertaInvalida) || repo.resuelto != nil {
+			t.Fatalf("%s aceptado: %v", nombre, err)
+		}
 	}
 }
 

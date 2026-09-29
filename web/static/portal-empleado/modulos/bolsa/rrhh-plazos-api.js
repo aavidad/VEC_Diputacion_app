@@ -6,6 +6,41 @@ const REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,255}$/u;
 const MUNICIPIO = /^[0-9]{5}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const UNIDADES_DIAS = new Set(["dias_habiles", "dias_naturales"]);
+// Apartado «plazas» (duda 75): solo los valores que ejecuta Bolsa.
+export const LLAMADAS_PLAZAS = Object.freeze(["simultanea", "sucesiva"]);
+export const TRAS_RENUNCIA_PLAZAS = Object.freeze(["siguiente_en_orden", "llamamiento_directo"]);
+export const MAXIMO_HORAS_RESPUESTA = 720;
+// Entradas del paquete de reglas de ejemplo con las que se rellena el
+// apartado cuando la política de la bolsa aún no lo tiene.
+const REGLAS_EJEMPLO_PLAZAS = Object.freeze({ llamada: "b30.plazas_llamada", respuesta: "b30.plazas_plazo_respuesta", tras: "b30.plazas_tras_renuncia" });
+
+/** Apartado de plazas completo y con valores admitidos. */
+export function plazasCompletas(plazas) {
+  return Boolean(plazas) && Object.keys(plazas).length === 3 && LLAMADAS_PLAZAS.includes(plazas.llamada)
+    && Number.isSafeInteger(plazas.respuesta_horas) && plazas.respuesta_horas >= 1 && plazas.respuesta_horas <= MAXIMO_HORAS_RESPUESTA
+    && TRAS_RENUNCIA_PLAZAS.includes(plazas.tras_renuncia);
+}
+
+/**
+ * Propuesta de ejemplo para el apartado de plazas, leída de las reglas
+ * vigentes (paquete retirable). Sin paquete o con valores ajenos devuelve null
+ * y el formulario queda sin rellenar.
+ */
+export async function cargarEjemploPlazas({ cliente } = {}) {
+  try {
+    // Carga diferida: el cliente de reglas no entra en la precarga del portal.
+    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260928-ppt-v2")).crearCliente();
+    const datos = await lector.reglas();
+    const reglas = new Map(datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
+      .flatMap((c) => c.reglas).map((r) => [r.clave, r]));
+    const ejemplo = { llamada: reglas.get(REGLAS_EJEMPLO_PLAZAS.llamada)?.valor,
+      respuesta_horas: reglas.get(REGLAS_EJEMPLO_PLAZAS.respuesta)?.cantidad,
+      tras_renuncia: reglas.get(REGLAS_EJEMPLO_PLAZAS.tras)?.valor };
+    return plazasCompletas(ejemplo) ? ejemplo : null;
+  } catch {
+    return null;
+  }
+}
 
 export function validarPoliticaEditable(politica) {
   const plazo = politica?.plazo;
@@ -17,10 +52,13 @@ export function validarPoliticaEditable(politica) {
     || politica?.adjudicacion?.criterio !== "orden_vigente"
     || politica.adjudicacion.elegibilidad !== "disposicion_en_plazo"
     || politica?.no_cubierta?.accion !== "llamamiento_directo"
-    || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles") {
+    || politica.no_cubierta.condicion !== "sin_disposiciones_elegibles"
+    || (politica.plazas !== undefined && politica.plazas !== null && !plazasCompletas(politica.plazas))) {
     throw new TypeError("política de ofertas no válida");
   }
-  return structuredClone(politica);
+  const copia = structuredClone(politica);
+  if (copia.plazas === null) delete copia.plazas;
+  return copia;
 }
 
 export function validarPoliticaRecibida(sobre) {

@@ -52,6 +52,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const vigente = "20260929-firma-506-v2";
   const versionesEspeciales = new Map([
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
+    // 3.06/3.07: ofertas con varias plazas renuevan su grafo.
+    ["portal.js", "20260929-plazas-306-v1"],
+    ["portal-bolsas-ofertas.js", "20260929-plazas-306-v1"],
+    ["modulos/bolsa/rrhh-plazos-ui.js", "20260929-plazas-306-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

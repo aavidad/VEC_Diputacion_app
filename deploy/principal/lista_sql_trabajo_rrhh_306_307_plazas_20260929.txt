@@ -1,0 +1,4 @@
+# Despliegue en una sola ventana: esta SQL quita al ejecutor publicar_oferta_v2 y resolver_oferta_v1,
+# que usa el binario anterior; subir binario y SQL a la vez, tras ensayar el binario sobre el clon.
+# Rama trabajo/rrhh-306-307-plazas-20260929: ofertas con varias plazas (3.06/3.07).
+deploy/postgresql/bolsa_llamamientos/migraciones/000058_plazas_oferta.up.sql

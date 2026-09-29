@@ -1,5 +1,11 @@
 import { traducirPortal } from "../../portal-i18n.js?v=20260929-firma-506-v2";
-import { crearClientePoliticaOfertas, validarPoliticaEditable } from "./rrhh-plazos-api.js";
+import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, plazasCompletas,
+  LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js";
+
+// Los textos del apartado «Plazas» viven en textos/<idioma>/bolsa-ofertas.json.
+const { cargarTextos } = await import("../../../comun/textos.js");
+const TEXTOS_PLAZAS = (await cargarTextos("bolsa-ofertas")).seccion("politica_plazas");
+const PLAZAS_VACIAS = Object.freeze({ llamada: "", respuesta_horas: null, tras_renuncia: "" });
 
 const EJEMPLO_VACIO = Object.freeze({
   plazo: { unidad: "horas_naturales", cantidad: 48, computo: "continuo_utc", municipio_sede: "" },
@@ -22,11 +28,13 @@ function claveNueva() {
 export function crearSuperficieRRHHPlazos({
   cliente = crearClientePoliticaOfertas(), traducir = traducirPortal,
   alCambiar = () => {}, anunciar = () => {},
-  generarClave = claveNueva,
+  generarClave = claveNueva, cargarEjemplo = cargarEjemploPlazas, textosPlazas = TEXTOS_PLAZAS,
 } = {}) {
-  const estado = { bolsaRef: "", carga: "inactiva", vigente: null, borrador: copia(EJEMPLO_VACIO),
+  const estado = { bolsaRef: "", carga: "inactiva", vigente: null, borrador: { ...copia(EJEMPLO_VACIO), plazas: copia(PLAZAS_VACIAS) },
     error: "", mensaje: "", guardando: false, conflicto: false, clave: "", cargaId: 0,
-    puedePublicar: false, capacidadCargando: false, capacidadError: false, ayudaAbierta: false };
+    puedePublicar: false, capacidadCargando: false, capacidadError: false, ayudaAbierta: false,
+    ejemploPlazas: null, plazasTocadas: false };
+  let ejemploPedido = false;
   let lectura = null;
   let capacidad = null;
   let escritura = null;
@@ -34,6 +42,23 @@ export function crearSuperficieRRHHPlazos({
   const repintar = () => alCambiar();
   const puedeEditar = () => estado.carga === "lista" && estado.puedePublicar === true;
   const t = (clave, variables) => escapar(traducir(`rrhh_plazos_${clave}`, variables));
+  const tp = (clave) => escapar(textosPlazas[clave] ?? clave);
+
+  // Un borrador sin apartado de plazas lo recibe vacío o con la propuesta del
+  // paquete de ejemplo, si existe y la persona aún no lo ha tocado.
+  function conPlazas(borrador) {
+    if (!plazasCompletas(borrador.plazas)) borrador.plazas = copia(estado.ejemploPlazas ?? PLAZAS_VACIAS);
+    return borrador;
+  }
+
+  async function pedirEjemploPlazas() {
+    if (ejemploPedido) return;
+    ejemploPedido = true;
+    const ejemplo = await cargarEjemplo();
+    if (!ejemplo) return;
+    estado.ejemploPlazas = ejemplo;
+    if (!estado.plazasTocadas && !plazasCompletas(estado.borrador.plazas)) { estado.borrador.plazas = copia(ejemplo); repintar(); }
+  }
 
   async function cargarCapacidad(bolsa, id) {
     capacidad?.abort();
@@ -77,7 +102,8 @@ export function crearSuperficieRRHHPlazos({
       } else {
         estado.vigente = resultado.politica;
         if (!conservarBorrador) {
-          estado.borrador = copia(resultado.politica.configurada ? resultado.politica.politica : EJEMPLO_VACIO);
+          estado.borrador = conPlazas(copia(resultado.politica.configurada ? resultado.politica.politica : EJEMPLO_VACIO));
+          estado.plazasTocadas = false;
           estado.clave = "";
         }
         estado.carga = "lista"; estado.conflicto = false;
@@ -110,7 +136,7 @@ export function crearSuperficieRRHHPlazos({
       if (resultado.ok) {
         estado.vigente = resultado.politica;
         estado.puedePublicar = false;
-        estado.borrador = copia(resultado.politica.politica);
+        estado.borrador = conPlazas(copia(resultado.politica.politica));
         estado.clave = "";
         estado.mensaje = traducir("rrhh_plazos_guardada", { version: resultado.politica.version,
           recibo: resultado.politica.recibo_ref });
@@ -159,17 +185,31 @@ export function crearSuperficieRRHHPlazos({
     const plazo = `<section class="panel"><div class="cabecera-panel"><h3>${t("plazo_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos"><label class="campo"><span>${t("cantidad")}</span><input name="cantidad" type="number" min="1" max="${horas ? 720 : 30}" step="1" required value="${escapar(v.plazo.cantidad)}"${disabled}></label><label class="campo"><span>${t("unidad")}</span><select name="unidad"${disabled}><option value="horas_naturales"${horas ? " selected" : ""}>${t("horas_naturales")}</option><option value="dias_habiles"${v.plazo.unidad === "dias_habiles" ? " selected" : ""}>${t("dias_habiles")}</option><option value="dias_naturales"${v.plazo.unidad === "dias_naturales" ? " selected" : ""}>${t("dias_naturales")}</option></select></label><label class="campo"><span>${t("municipio_sede")}</span><input name="municipio_sede" inputmode="numeric" pattern="[0-9]{5}" minlength="5" maxlength="5" required value="${escapar(v.plazo.municipio_sede)}"${disabled}></label>${dato("computo", t(horas ? "continuo_utc" : "administrativo"))}${dato("calendario_fuente", calendario)}</div></section>`;
     const orden = `<section class="panel"><div class="cabecera-panel"><h3>${t("orden_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("criterio", t("orden_vigente"))}${dato("elegibilidad", t("disposicion_en_plazo"))}<p class="campo--ancho dato-secundario">${t("confirmacion")}</p></div></section>`;
     const noCubierta = `<section class="panel"><div class="cabecera-panel"><h3>${t("no_cubierta_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("condicion", t("sin_elegibles"))}${dato("accion", t("llamamiento_directo"))}</div></section>`;
+    const p = v.plazas ?? PLAZAS_VACIAS;
+    const opciones = (valores, actual, prefijo) => `<option value=""${actual ? "" : " selected"}>${tp("elegir")}</option>` +
+      valores.map((valor) => `<option value="${valor}"${actual === valor ? " selected" : ""}>${tp(`${prefijo}_${valor}`)}</option>`).join("");
+    const plazas = `<section class="panel"><div class="cabecera-panel"><h3>${tp("titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">` +
+      `<label class="campo campo--ancho"><span>${tp("llamada")}</span><select name="plazas_llamada" required${disabled}>${opciones(LLAMADAS_PLAZAS, p.llamada, "llamada")}</select></label>` +
+      `<label class="campo"><span>${tp("respuesta_horas")}</span><input name="plazas_respuesta_horas" type="number" min="1" max="${MAXIMO_HORAS_RESPUESTA}" step="1" required value="${escapar(p.respuesta_horas ?? "")}"${disabled}></label>` +
+      `<label class="campo campo--ancho"><span>${tp("tras_renuncia")}</span><select name="plazas_tras_renuncia" required${disabled}>${opciones(TRAS_RENUNCIA_PLAZAS, p.tras_renuncia, "tras_renuncia")}</select></label></div></section>`;
     const aviso = `${!configurada ? `<p role="status">${t("vacio")}</p>` : ""}${estado.error ? `<p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>` : ""}${estado.mensaje ? `<p class="rrhh-plazos__resultado" role="status">${escapar(estado.mensaje)}</p>` : ""}`;
     const boton = puedeEditar() ? `<div class="rrhh-plazos__acciones">${estado.conflicto ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="revisar">${t("revisar")}</button>` : ""}<button type="submit" class="boton-primario"${disabled}>${t(estado.guardando ? "guardando" : estado.clave ? "reintentar_guardado" : "guardar")}</button></div>`
       : estado.capacidadCargando ? `<p class="dato-secundario" role="status">${t("comprobando_edicion")}</p>`
         : estado.capacidadError ? `<div class="rrhh-plazos__acciones"><p class="rrhh-plazos__error" role="alert">${t("error_capacidad")}</p><button type="button" class="boton-secundario" data-rrhh-plazos-accion="capacidad">${t("reintentar")}</button></div>`
           : `<p class="dato-secundario">${t("sin_edicion")}</p>`;
-    return `<section class="rrhh-plazos" aria-label="${t("titulo")}"><div class="panel">${cabecera}${aviso ? `<div class="cuerpo-panel">${aviso}</div>` : ""}</div><form data-rrhh-plazos-form="politica" novalidate><div class="rrhh-plazos__rejilla">${plazo}${orden}${noCubierta}</div>${boton}</form></section>`;
+    return `<section class="rrhh-plazos" aria-label="${t("titulo")}"><div class="panel">${cabecera}${aviso ? `<div class="cuerpo-panel">${aviso}</div>` : ""}</div><form data-rrhh-plazos-form="politica" novalidate><div class="rrhh-plazos__rejilla">${plazo}${orden}${noCubierta}${plazas}</div>${boton}</form></section>`;
   }
 
   function manejarCambio(evento) {
     const control = evento.target;
     if (!control?.closest?.('[data-rrhh-plazos-form="politica"]') || !puedeEditar()) return false;
+    const campoPlazas = { plazas_llamada: "llamada", plazas_respuesta_horas: "respuesta_horas", plazas_tras_renuncia: "tras_renuncia" }[control.name];
+    if (campoPlazas) {
+      const valor = campoPlazas === "respuesta_horas" ? (control.value === "" ? null : Number(control.value)) : control.value;
+      estado.borrador.plazas = { ...(estado.borrador.plazas ?? PLAZAS_VACIAS), [campoPlazas]: valor };
+      estado.plazasTocadas = true; estado.clave = ""; estado.mensaje = ""; estado.error = "";
+      return true;
+    }
     const campo = { cantidad: "cantidad", unidad: "unidad", municipio_sede: "municipio_sede" }[control.name];
     if (!campo) return false;
     const valor = campo === "cantidad" ? Number(control.value) : campo === "municipio_sede" ? control.value.trim() : control.value;
@@ -213,10 +253,11 @@ export function crearSuperficieRRHHPlazos({
     activar(bolsaRef) {
       if (!bolsaRef || bolsaRef === estado.bolsaRef) return;
       lectura?.abort(); capacidad?.abort(); escritura?.abort(); estado.cargaId++;
-      Object.assign(estado, { bolsaRef, carga: "inactiva", vigente: null, borrador: copia(EJEMPLO_VACIO),
+      Object.assign(estado, { bolsaRef, carga: "inactiva", vigente: null, borrador: conPlazas(copia(EJEMPLO_VACIO)),
         error: "", mensaje: "", guardando: false, conflicto: false, clave: "", puedePublicar: false,
         capacidadCargando: false, capacidadError: false,
-        ayudaAbierta: false });
+        ayudaAbierta: false, plazasTocadas: false });
+      void pedirEjemploPlazas();
       void cargar();
     },
     desmontar() {
