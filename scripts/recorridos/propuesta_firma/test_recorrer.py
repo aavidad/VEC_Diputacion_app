@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+import hashlib
 from pathlib import Path
 
 import recorrer
@@ -11,6 +12,29 @@ class RecorridoFirmaTest(unittest.TestCase):
         with self.assertRaises(recorrer.Corte) as error:
             recorrer.validar_entrada(recorrer.argumentos([]))
         self.assertEqual(error.exception.paso, "precondiciones")
+
+    def test_binario_que_no_coincide_con_inventario_corta_antes_de_chrome(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            binario = carpeta / "vec-server"
+            binario.write_bytes(b"binario sintetico")
+            binario.chmod(0o700)
+            certificado = carpeta / "cliente.crt"
+            clave = carpeta / "cliente.key"
+            certificado.write_bytes(b"certificado sintetico")
+            clave.write_bytes(b"clave sintetica")
+            inventario = carpeta / "inventario.json"
+            inventario.write_text(json.dumps({"clon": "local", "datos": "sinteticos",
+                "hitos": ["H3", "H4", "H5"], "origen": "https://localhost:8443",
+                "binario_sha256": hashlib.sha256(b"otro binario").hexdigest()}), encoding="utf-8")
+            a = recorrer.argumentos(["--entorno", str(inventario), "--binario", str(binario),
+                "--origen", "https://localhost:8443", "--certificado", str(certificado),
+                "--clave", str(clave), "--expediente-ref", "expediente:sintetico",
+                "--version-propuesta", "7"])
+            with self.assertRaises(recorrer.Corte) as error:
+                recorrer.validar_entrada(a)
+            self.assertEqual(error.exception.paso, "precondiciones")
+            self.assertIn("huella", error.exception.motivo)
 
     def test_solo_acepta_propuesta_en_version_indicada(self):
         expediente = {"resumen": {"expediente_ref": "expediente:sintetico", "version": 8,
@@ -27,6 +51,7 @@ class RecorridoFirmaTest(unittest.TestCase):
     def test_recibo_de_firma_exige_verificacion_y_no_eficacia(self):
         recibo = {"expediente_ref": "expediente:sintetico", "documento": "informe_definitivo",
                   "resultado": "firmado", "firma_eficaz": False, "firma_verificada": True,
+                  "registrada_en": "2026-09-29T20:00:00Z", "paso_orden": 1,
                   "recibo_ref": "recibo:prueba", "verificacion": {"estado": "valida", "motivo": "verificada",
                   "firmado_sha256": "a" * 64}}
         self.assertEqual(recorrer.resumen_firma(recibo, "expediente:sintetico", "informe_definitivo")["recibo_ref"], "recibo:prueba")
@@ -47,17 +72,29 @@ class RecorridoFirmaTest(unittest.TestCase):
                                                "expediente:sintetico", 7)
 
     def test_recuperacion_exige_huellas_y_recibo_iguales(self):
+        firma = {"recibo_ref": "recibo:prueba", "registrada_en": "2026-09-29T20:00:00Z",
+                 "estado": "firmado", "paso_orden": 1, "firma_ref": "firma:origen", "firmado_sha256": "b" * 64}
+        recuperada = {"recibo_ref": "recibo:prueba", "registrada_en": "2026-09-29T20:00:00Z",
+                      "estado": "firmado", "paso_orden": 1}
         previo = {"expediente_ref": "expediente:sintetico", "propuesta": {"version_propuesta": 7},
                   "pdf": {"informe-definitivo": {"sha256": "a" * 64}},
-                  "firma": {"recibo_ref": "recibo:prueba"}}
+                  "firma": firma}
+        actual = {**previo, "firma": None, "firma_recuperada": recuperada}
         with tempfile.TemporaryDirectory() as tmp:
             ruta = Path(tmp) / "anterior.json"
             ruta.write_text(json.dumps(previo), encoding="utf-8")
-            self.assertTrue(recorrer.comparar_recuperacion(previo, ruta))
+            self.assertTrue(recorrer.comparar_recuperacion(actual, ruta))
             with self.assertRaises(recorrer.Corte):
-                recorrer.comparar_recuperacion({**previo, "pdf": {}}, ruta)
+                recorrer.comparar_recuperacion({**actual, "pdf": {}}, ruta)
             with self.assertRaises(recorrer.Corte):
-                recorrer.comparar_recuperacion({**previo, "firma": None}, ruta)
+                recorrer.comparar_recuperacion({**actual, "firma_recuperada": None}, ruta)
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comparar_recuperacion({**actual, "firma_recuperada": {
+                    **recuperada, "registrada_en": "2026-09-29T20:00:01Z"}}, ruta)
+            self.assertEqual(recorrer.firma_recuperada({"firma_eficaz": False, "documentos": [
+                {"documento": "informe_definitivo", "pasos": [{"orden": 1, "estado": "firmado",
+                "recibo_ref": "recibo:prueba", "registrada_en": "2026-09-29T20:00:00Z"}]}]},
+                "recibo:prueba"), recuperada)
 
     def test_redireccion_local_a_otro_puerto_se_corta(self):
         class Respuesta:

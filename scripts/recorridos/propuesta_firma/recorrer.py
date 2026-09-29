@@ -29,6 +29,7 @@ RUTA_CIRCUITO = "/api/vec/contratacion-temporal/circuito-firma"
 RUTA_SEGUIMIENTO = "/api/vec/contratacion-temporal/seguimiento-cese"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 REFERENCIA = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}\Z")
+INSTANTE_UTC = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z\Z")
 
 
 class Corte(RuntimeError):
@@ -41,6 +42,7 @@ class Corte(RuntimeError):
 def argumentos(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--entorno", type=Path, help="JSON externo de precondiciones del clon")
+    p.add_argument("--binario", type=Path, help="binario externo instalado en el clon")
     p.add_argument("--origen", help="origen HTTPS local del clon")
     p.add_argument("--certificado", type=Path, help="certificado mTLS sintético externo")
     p.add_argument("--clave", type=Path, help="clave mTLS sintética externa")
@@ -49,6 +51,7 @@ def argumentos(argv=None):
     p.add_argument("--firmar", action="store_true", help="abre AutoFirma del puesto con intervención humana")
     p.add_argument("--comparar", type=Path, help="informe anterior, para comprobar recuperación tras reinicio externo")
     p.add_argument("--salida", type=Path, help="informe JSON sin documentos ni secretos")
+    p.add_argument("--captura-movil", type=Path, help="PNG sintético de 390 px, en ruta privada externa")
     return p.parse_args(argv)
 
 
@@ -77,6 +80,17 @@ def validar_entrada(a):
         raise Corte("precondiciones", "falta expediente sintético con versión de propuesta válida")
     if not a.certificado or not a.clave or any(not x.is_file() or x.stat().st_size == 0 for x in (a.certificado, a.clave)):
         raise Corte("precondiciones", "falta material mTLS sintético externo")
+    if not a.binario or not a.binario.is_file() or not os.access(a.binario, os.X_OK):
+        raise Corte("precondiciones", "falta binario externo ejecutable del clon")
+    try:
+        huella = hashlib.sha256()
+        with a.binario.open("rb") as fichero:
+            for bloque in iter(lambda: fichero.read(1024 * 1024), b""):
+                huella.update(bloque)
+    except OSError:
+        raise Corte("precondiciones", "no se puede cotejar el binario externo") from None
+    if huella.hexdigest() != entorno["binario_sha256"]:
+        raise Corte("precondiciones", "la huella del binario externo no coincide con el inventario")
     if a.firmar and a.comparar:
         raise Corte("precondiciones", "la recuperación es de solo lectura; no se puede pedir otra firma")
     chrome = next((ruta for ruta in ("/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser")
@@ -142,11 +156,44 @@ def resumen_firma(data, ref, documento):
             or verificacion.get("motivo") != "verificada" \
             or not SHA256.fullmatch(str(verificacion.get("firmado_sha256", ""))):
         raise Corte("verificacion", "el recibo no acredita verificación positiva de GrxFirma")
-    if not REFERENCIA.fullmatch(str(data.get("recibo_ref", ""))):
-        raise Corte("verificacion", "falta referencia de recibo")
+    if not REFERENCIA.fullmatch(str(data.get("recibo_ref", ""))) \
+            or not INSTANTE_UTC.fullmatch(str(data.get("registrada_en", ""))) \
+            or not isinstance(data.get("paso_orden"), int) or data["paso_orden"] < 1:
+        raise Corte("verificacion", "faltan recibo, fecha u orden de la firma")
     return {"recibo_ref": data["recibo_ref"], "firma_ref": data.get("firma_ref"),
-            "firmado_sha256": verificacion["firmado_sha256"], "registrada_en": data.get("registrada_en"),
-            "firma_eficaz": False}
+            "firmado_sha256": verificacion["firmado_sha256"], "registrada_en": data["registrada_en"],
+            "estado": "firmado", "paso_orden": data["paso_orden"], "firma_eficaz": False}
+
+
+def firma_recuperada(estado, recibo_ref):
+    """Extrae solo los campos que devuelve la consulta CT118; no revalida firma_ref ni SHA."""
+    if estado.get("firma_eficaz") is not False or not REFERENCIA.fullmatch(str(recibo_ref or "")):
+        raise Corte("recuperacion", "estado de firma no comparable")
+    documentos = estado.get("documentos")
+    if not isinstance(documentos, list):
+        raise Corte("recuperacion", "consulta de firmas sin documentos")
+    encontrados = [(p, p.get("orden")) for d in documentos if isinstance(d, dict)
+                   and d.get("documento") == "informe_definitivo" for p in d.get("pasos", [])
+                   if isinstance(p, dict) and p.get("recibo_ref") == recibo_ref]
+    if len(encontrados) != 1:
+        raise Corte("recuperacion", "el recibo no figura una sola vez en el informe")
+    paso, orden = encontrados[0]
+    if paso.get("estado") != "firmado" or not INSTANTE_UTC.fullmatch(str(paso.get("registrada_en", ""))) \
+            or not isinstance(orden, int) or orden < 1:
+        raise Corte("recuperacion", "el paso recuperado no conserva firma, fecha u orden")
+    return {"recibo_ref": recibo_ref, "registrada_en": paso["registrada_en"],
+            "estado": paso["estado"], "paso_orden": orden}
+
+
+def comparar_campos_firma(original, recuperada):
+    if not isinstance(original, dict) or not isinstance(recuperada, dict) \
+            or not REFERENCIA.fullmatch(str(original.get("recibo_ref", ""))) \
+            or not INSTANTE_UTC.fullmatch(str(original.get("registrada_en", ""))) \
+            or original.get("estado") != "firmado" \
+            or not isinstance(original.get("paso_orden"), int) or original["paso_orden"] < 1 \
+            or any(original.get(campo) != recuperada.get(campo)
+                   for campo in ("recibo_ref", "registrada_en", "estado", "paso_orden")):
+        raise Corte("recuperacion", "recibo, fecha, estado u orden de firma cambiaron")
 
 
 def comparar_recuperacion(informe, ruta):
@@ -158,18 +205,9 @@ def comparar_recuperacion(informe, ruta):
             or previo.get("propuesta") != informe.get("propuesta") \
             or previo.get("pdf") != informe.get("pdf"):
         raise Corte("recuperacion", "propuesta o huellas PDF cambiaron tras el reinicio")
-    if previo.get("firma") and previo["firma"] != informe.get("firma"):
-        raise Corte("recuperacion", "el recibo de firma cambió tras el reinicio")
+    if previo.get("firma"):
+        comparar_campos_firma(previo["firma"], informe.get("firma_recuperada"))
     return True
-
-
-def recibo_en_estado(estado, recibo_ref):
-    documentos = estado.get("documentos")
-    if not isinstance(documentos, list):
-        return False
-    return sum(p.get("recibo_ref") == recibo_ref for d in documentos if isinstance(d, dict)
-               and d.get("documento") == "informe_definitivo" for p in d.get("pasos", [])
-               if isinstance(p, dict)) == 1
 
 
 def limitar_origen(route, origen):
@@ -198,6 +236,48 @@ def limitar_websocket(route, permitir_autofirma):
         route.connect_to_server()
     else:
         route.close()
+
+
+def guardar_privado(ruta, contenido):
+    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "wb") as fichero:
+        fichero.write(contenido)
+
+
+def comprobar_movil(page, a, pdf_escritorio):
+    """Repite solo lecturas y descargas a 390 px; no firma ni registra efectos."""
+    page.set_viewport_size({"width": 390, "height": 844})
+    try:
+        for accion, nombre in DOCUMENTOS:
+            boton = page.locator(f'[data-ct-exp-accion="descargar-{accion}"]').first
+            if not boton.is_visible() or not boton.is_enabled():
+                raise Corte("movil_390", f"no se puede descargar {accion} a 390 px")
+            with page.expect_download(timeout=30_000) as espera_descarga:
+                with page.expect_response(lambda r: urlsplit(r.url).path == RUTA_DETALLE and r.request.method == "POST", timeout=30_000) as espera_pdf:
+                    boton.click()
+            respuesta = espera_pdf.value
+            descarga = espera_descarga.value
+            if respuesta.status != 200 or descarga.suggested_filename != nombre:
+                raise Corte("movil_390", f"{accion}: respuesta o descarga móvil distinta")
+            bytes_pdf = Path(descarga.path()).read_bytes()
+            if len(bytes_pdf) != pdf_escritorio[accion]["bytes"] \
+                    or hashlib.sha256(bytes_pdf).hexdigest() != pdf_escritorio[accion]["sha256"]:
+                raise Corte("movil_390", f"{accion}: bytes distintos del escritorio")
+        dimensiones = page.evaluate("""() => ({ancho: document.documentElement.clientWidth,
+          contenido: document.documentElement.scrollWidth})""")
+        if dimensiones["ancho"] != 390 or dimensiones["contenido"] > dimensiones["ancho"]:
+            raise Corte("movil_390", "la página desborda horizontalmente a 390 px")
+        captura = page.screenshot(full_page=True)
+        if a.captura_movil:
+            try:
+                guardar_privado(a.captura_movil, captura)
+            except OSError:
+                raise Corte("movil_390", "no se pudo crear la captura privada") from None
+        return {"ancho": 390, "pdf_identicos": len(DOCUMENTOS),
+                "sin_desbordamiento": True, "captura_sha256": hashlib.sha256(captura).hexdigest(),
+                "captura_guardada": bool(a.captura_movil)}
+    finally:
+        page.set_viewport_size({"width": 1440, "height": 900})
 
 
 def recorrer(a, chrome, entorno):
@@ -270,6 +350,7 @@ def recorrer(a, chrome, entorno):
                     raise Corte("borradores", f"{accion} no es un PDF acotado")
                 informe["pdf"][accion] = {"nombre": nombre, "bytes": len(bytes_pdf),
                                            "sha256": hashlib.sha256(bytes_pdf).hexdigest(), "http": 200}
+            informe["movil_390"] = comprobar_movil(page, a, informe["pdf"])
             # El circuito se monta al abrir la ficha; se vuelve a abrir sin repetir la propuesta.
             page.reload(wait_until="domcontentloaded")
             abrir.wait_for(timeout=20_000)
@@ -294,9 +375,10 @@ def recorrer(a, chrome, entorno):
                     with page.expect_response(lambda x: urlsplit(x.url).path == RUTA_CONSULTA_FIRMAS and x.request.method == "POST", timeout=20_000) as espera_consulta:
                         abrir.click()
                     consulta = espera_consulta.value
-                    if consulta.status != 200 or not recibo_en_estado(datos_respuesta(consulta), firma_anterior.get("recibo_ref")):
-                        raise Corte("recuperacion", "el recibo previo no figura en la consulta de firmas")
-                    informe["firma"] = firma_anterior
+                    if consulta.status != 200:
+                        raise Corte("recuperacion", f"consulta de firmas: HTTP {consulta.status}")
+                    informe["firma_recuperada"] = firma_recuperada(datos_respuesta(consulta), firma_anterior.get("recibo_ref"))
+                    informe["campos_firma_no_revalidados"] = ["firma_ref", "firmado_sha256"]
                 informe["comparacion_con_informe_anterior"] = comparar_recuperacion(informe, a.comparar)
                 if not firma_anterior:
                     raise Corte("firma_admitida", "PDF y propuesta recuperados; todavía falta firma admitida")
@@ -326,8 +408,9 @@ def recorrer(a, chrome, entorno):
             consulta = espera_consulta.value
             if consulta.status != 200:
                 raise Corte("recuperacion", f"consulta de firmas: HTTP {consulta.status}")
-            if not recibo_en_estado(datos_respuesta(consulta), informe["firma"]["recibo_ref"]):
-                raise Corte("recuperacion", "la consulta no conserva el mismo recibo")
+            informe["firma_recuperada"] = firma_recuperada(datos_respuesta(consulta), informe["firma"]["recibo_ref"])
+            comparar_campos_firma(informe["firma"], informe["firma_recuperada"])
+            informe["campos_firma_no_revalidados"] = ["firma_ref", "firmado_sha256"]
             # CT118 conserva huellas y recibo. No hay recibo de custodia del original y firmado.
             raise Corte("custodia", "falta recibo verificable de custodia del original y el firmado")
         except Corte as e:
@@ -375,9 +458,7 @@ def main(argv=None):
     salida = json.dumps(informe, ensure_ascii=False, sort_keys=True)
     if a.salida:
         try:
-            descriptor = os.open(a.salida, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as fichero:
-                fichero.write(salida + "\n")
+            guardar_privado(a.salida, (salida + "\n").encode("utf-8"))
         except OSError:
             print("No se pudo crear el informe privado sin sobrescribir un archivo", file=sys.stderr)
             return 2

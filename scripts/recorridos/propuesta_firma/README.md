@@ -18,22 +18,26 @@ Dirección debe aportar fuera de Git un clon local con H3, H4 y H5 ensayados, el
 }
 ```
 
-El inventario es una puerta de entrada explícita, no prueba por sí solo que el clon esté instalado. Quien lo prepare debe cotejar sus hitos y la huella con la instancia aislada antes de ejecutar el guion. El certificado y la clave se pasan por rutas externas; el informe nunca copia esos ficheros.
+El inventario es una puerta de entrada explícita, no prueba por sí solo que el clon esté instalado. Quien lo prepare debe cotejar los hitos con la instancia aislada antes de ejecutar el guion. El guion calcula la huella del binario externo ejecutable y la compara con el inventario antes de abrir Chrome. El certificado y la clave se pasan por rutas externas; el informe nunca copia esos ficheros.
 
 ```sh
 python3 scripts/recorridos/propuesta_firma/recorrer.py \
   --entorno /ruta/privada/inventario-clon.json \
+  --binario /ruta/privada/vec-server-instalado \
   --origen https://localhost:PUERTO \
   --certificado /ruta/privada/cliente.crt \
   --clave /ruta/privada/cliente.key \
   --expediente-ref expediente:SINTETICO \
   --version-propuesta 7 \
+  --captura-movil /ruta/privada/recorrido-390.png \
   --salida /ruta/privada/recorrido-antes.json
 ```
 
-Sin `--firmar` solo se comprueban la propuesta, los seis borradores y el catálogo de firma. El corte esperado es `firma_admitida`. Con `--firmar`, Chrome abre con ventana y pulsa una sola vez «Firmar» para el informe definitivo. Una persona debe completar o cancelar AutoFirma en el puesto. El guion espera hasta tres minutos el único `POST` de registro; no reintenta una firma ni sustituye el firmante. Si VEC devuelve un recibo con `verificacion.estado=valida`, `motivo=verificada` y `firma_eficaz=false`, consulta de nuevo el mismo recibo. El corte final sigue siendo `custodia` mientras no exista evidencia de custodia.
+El guion descarga los seis PDF en escritorio y los vuelve a descargar a 390 px sin repetir ninguna escritura; exige los mismos bytes y que la página no desborde. Calcula la huella de una captura móvil. Con `--captura-movil` guarda ese PNG fuera de Git, con permiso `0600`, para revisión visual humana. La comprobación automática no sustituye esa revisión.
 
-Tras reiniciar externamente la aplicación y PostgreSQL **del clon**, usar `--comparar /ruta/privada/recorrido-antes.json` con las demás opciones y otra salida. Ese modo solo lee: vuelve a descargar los seis PDF, compara sus huellas y la propuesta y, si el informe anterior conserva una firma, recupera su recibo por consulta sin repetir el `POST` de firma. No se puede combinar `--comparar` con `--firmar`.
+Sin `--firmar` se comprueban la propuesta, los seis borradores en ambos anchos y el catálogo de firma. El corte esperado es `firma_admitida`. Con `--firmar`, Chrome abre con ventana y pulsa una sola vez «Firmar» para el informe definitivo. Una persona debe completar o cancelar AutoFirma en el puesto. El guion espera hasta tres minutos el único `POST` de registro; no reintenta una firma ni sustituye el firmante. Si VEC devuelve un recibo con `verificacion.estado=valida`, `motivo=verificada` y `firma_eficaz=false`, consulta de nuevo el mismo recibo. El corte final sigue siendo `custodia` mientras no exista evidencia de custodia.
+
+Tras reiniciar externamente la aplicación y PostgreSQL **del clon**, usar `--comparar /ruta/privada/recorrido-antes.json` con las demás opciones y otra salida. Si se guarda otra captura móvil, debe tener un nombre nuevo. Ese modo solo lee: vuelve a descargar los seis PDF, compara sus huellas y la propuesta y, si el informe anterior conserva una firma, consulta el recibo, fecha, estado y orden del paso sin repetir el `POST` de firma. La consulta CT118 no devuelve `firma_ref` ni la huella del PDF firmado; el informe las conserva solo como historia del recibo original y las señala como no revalidadas. No se puede combinar `--comparar` con `--firmar`.
 
 El guion exige HTTPS local, Chrome del sistema, Playwright de Python, mTLS sintético y certificado confiable por el sistema. Bloquea solicitudes HTTP a otros orígenes y las redirecciones. Solo al usar `--firmar` admite el WebSocket de AutoFirma en `wss://127.0.0.1:63117`. Informa estados HTTP, tamaño y SHA-256 de cada PDF; no guarda los PDF ni el contenido firmado en el informe. No incluye credenciales, documentos, nombres de personas ni respuestas completas de API.
 
