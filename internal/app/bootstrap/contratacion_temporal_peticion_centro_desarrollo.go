@@ -184,6 +184,8 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		}
 		p.actores[principal.ID] = id
 	}
+	aprobacion := aprobacionProvisionCentroDesarrollo{referencia: cfg.CTProvisionPerfilesCentroAprobacionRef(),
+		preimagenes: cfg.CTProvisionPerfilesCentroPreimagenes()}
 	for _, a := range p.actores {
 		if _, err := p.catalogoParaActor(ctx, a.actor); err != nil {
 			return nil, err
@@ -199,10 +201,14 @@ func nuevasRutasPeticionCentroDesarrollo(cfg config.Config, resolvedor *resolved
 		}
 		// Arranque sin republicar: inicial solo si falta, provisión solo con
 		// aprobación expresa del operador y nunca sobre lo revocado.
-		if _, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, alta.postgresql.gobierno, a.soporte, cfg.CTProvisionPerfilesCentroAprobacionRef()); err != nil {
+		estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, alta.postgresql.gobierno, a.soporte, aprobacion)
+		if err != nil {
 			return nil, err
 		}
-		if a.cancelacion != nil {
+		// El perfil de cancelación depende del general: nunca se crea para
+		// una persona cuyo perfil general no es consumible (revocado,
+		// restringido o pendiente de provisión).
+		if a.cancelacion != nil && estado.perfilCentroOperativo() {
 			if err := publicarContextoCancelacionCentroDesarrollo(ctx, alta.postgresql.gobierno, a.cancelacion.soporte); err != nil {
 				return nil, err
 			}

@@ -331,6 +331,15 @@ func (a *autoridadCancelacionCentroDesarrollo) AutorizarOperacionSeguimiento(ctx
 		sol.Motivo != motivoPeticionCentroDesarrollo() || sol.Recurso.Ambitos["centro_ref"] != p.actor.CentroRef {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
+	// Cancelar exige también que el perfil general de la persona siga
+	// consumible: revocarlo o restringirlo retira además la cancelación.
+	id, err := a.identidad(ctx)
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	if _, consumible := id.soporte.instantaneaConsumidaPublicada(ctx); !consumible {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
 	s, d, c, err := a.exigir(ctx, p, string(sol.Accion), sol.Finalidad, sol.Recurso)
 	if err != nil {
 		return vacio, err

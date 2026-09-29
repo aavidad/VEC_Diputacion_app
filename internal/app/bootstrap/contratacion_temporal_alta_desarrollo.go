@@ -84,6 +84,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	// perfilCancelacionCentro: perfil propio de la cancelación por el
 	// centro, dinámico y con guarda de origen operativo.
 	perfilCancelacionCentro           bool
+	avisoNoConsumibleEn               time.Time
 	candidatoBolsa                    bool
 	mu                                sync.Mutex
 	sello                             *selloConsultasContratacionTemporalDesarrollo

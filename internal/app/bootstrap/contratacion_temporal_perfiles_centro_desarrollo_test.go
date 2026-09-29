@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -478,11 +479,12 @@ func TestAsignacionActualOperativaDeLaGuarda(t *testing.T) {
 }
 
 func TestAprobacionProvisionPerfilesCentroSoloEnDesarrolloYConForma(t *testing.T) {
-	if (config.Config{CTAprobacionPerfilesCentro: "aprobacion:ct:centro:20260929"}).CTProvisionPerfilesCentroAprobacionRef() != "" {
+	huella := strings.Repeat("a", 64)
+	if (config.Config{CTAprobacionPerfilesCentro: "aprobacion:ct:centro:20260929", CTPreimagenesPerfilesCentro: huella}).CTProvisionPerfilesCentroAprobacionRef() != "" {
 		t.Fatal("fuera de desarrollo no hay provisión")
 	}
 	desarrollo := config.Config{ExecutionProfile: config.ExecutionProfileDevelopment, AuthMode: config.AuthModeDevelopment,
-		DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
+		DevelopmentGuard: config.DevelopmentGuardAcknowledgement, CTPreimagenesPerfilesCentro: huella}
 	for valor, esperado := range map[string]string{
 		"aprobacion:ct:centro:20260929": "aprobacion:ct:centro:20260929",
 		"corta":                         "",
@@ -493,6 +495,79 @@ func TestAprobacionProvisionPerfilesCentroSoloEnDesarrolloYConForma(t *testing.T
 		desarrollo.CTAprobacionPerfilesCentro = valor
 		if got := desarrollo.CTProvisionPerfilesCentroAprobacionRef(); got != esperado {
 			t.Fatalf("%q: %q", valor, got)
+		}
+	}
+	desarrollo.CTAprobacionPerfilesCentro = "aprobacion:ct:centro:20260929"
+	for lista, validas := range map[string]int{
+		huella + ", " + strings.Repeat("b", 64): 2,
+		huella + ",no-es-huella":                0,
+		strings.ToUpper(huella):                 0,
+		"":                                      0,
+	} {
+		desarrollo.CTPreimagenesPerfilesCentro = lista
+		if got := len(desarrollo.CTProvisionPerfilesCentroPreimagenes()); got != validas {
+			t.Fatalf("%q: %d preimágenes", lista, got)
+		}
+		if (desarrollo.CTProvisionPerfilesCentroAprobacionRef() != "") != (validas != 0) {
+			t.Fatalf("%q: aprobación sin preimágenes válidas", lista)
+		}
+	}
+}
+
+// catalogoCentroPrueba contiene el centro y el puesto de la persona.
+type catalogoCentroPrueba struct{}
+
+func (catalogoCentroPrueba) ObtenerCatalogo(context.Context, string, int) (vecdomain.CatalogoConfigurable, error) {
+	return vecdomain.CatalogoConfigurable{Revision: 1, Entradas: []vecdomain.EntradaCatalogoConfigurable{
+		{Clave: "centro-520", Atributos: map[string]string{"tipo": "centro"}},
+		{Clave: "rpt-520-735", Atributos: map[string]string{"tipo": "puesto_responsabilidad", "adscripcion_clave": "centro-520"}},
+	}}, nil
+}
+
+func (catalogoCentroPrueba) ListarVersionesCatalogo(context.Context, string) ([]vecdomain.CatalogoConfigurable, error) {
+	return nil, nil
+}
+
+func TestCancelarExigeElPerfilGeneralConsumible(t *testing.T) {
+	id, registro := escenarioIdentidadCentroPrueba(t, "general-revocado")
+	id.soporte.autoridadAsignaciones = &autoridadCentroPrueba{publicada: func(vecdomain.InstantaneaAutorizacion) (vecdomain.InstantaneaAutorizacion, error) {
+		return vecdomain.InstantaneaAutorizacion{}, errPerfilCentroNoConsumible
+	}}
+	propia := &autoridadCentroPrueba{}
+	id.cancelacion.soporte.autoridadAsignaciones = propia
+	a := &autoridadCancelacionCentroDesarrollo{roles: []string{"solicitante_centro"},
+		piezas:    &piezasCancelacionCTDesarrollo{proveedor: &proveedorMaterialAltaContratacionTemporalDesarrollo{}},
+		proveedor: &proveedorPeticionCentroDesarrollo{actores: map[string]*identidadPeticionCentroDesarrollo{id.principal.ID: id}, catalogos: catalogoCentroPrueba{}, reloj: id.soporte.reloj}}
+	ctx := contextoRutaCentroPrueba(id, rutaCancelacionesCentro)
+	_, err := a.AutorizarOperacionSeguimiento(ctx, ports.SolicitudAutorizarOperacionSeguimiento{Accion: domain.AccionCancelarExpediente,
+		Finalidad: ports.FinalidadCancelarExpediente, Audiencia: ports.AudienciaConsumoCancelacionV1, Motivo: motivoPeticionCentroDesarrollo(),
+		Recurso: recursoCancelarCentroPrueba(id.actor.CentroRef)})
+	if err == nil {
+		t.Fatal("se canceló con el perfil general revocado")
+	}
+	if propia.preparadas != 0 || propia.publicadas != 0 || registro.concesiones != 0 {
+		t.Fatalf("la denegación tocó el perfil de cancelación: %d/%d/%d", propia.preparadas, propia.publicadas, registro.concesiones)
+	}
+	// Con el perfil general consumible, la misma solicitud llega a la
+	// decisión con el perfil de cancelación (el material queda fuera).
+	id.soporte.autoridadAsignaciones = &autoridadCentroPrueba{publicada: func(p vecdomain.InstantaneaAutorizacion) (vecdomain.InstantaneaAutorizacion, error) {
+		return instantaneaPublicadaPrueba(p, 2), nil
+	}}
+	_, _ = a.AutorizarOperacionSeguimiento(ctx, ports.SolicitudAutorizarOperacionSeguimiento{Accion: domain.AccionCancelarExpediente,
+		Finalidad: ports.FinalidadCancelarExpediente, Audiencia: ports.AudienciaConsumoCancelacionV1, Motivo: motivoPeticionCentroDesarrollo(),
+		Recurso: recursoCancelarCentroPrueba(id.actor.CentroRef)})
+	if propia.preparadas != 1 || propia.publicadas != 1 || registro.concesiones != 1 {
+		t.Fatalf("con el perfil general consumible no se decidió la cancelación: %d/%d/%d", propia.preparadas, propia.publicadas, registro.concesiones)
+	}
+}
+
+func TestEstadoPerfilCentroOperativo(t *testing.T) {
+	for estado, operativo := range map[estadoPerfilCentroDesarrollo]bool{
+		perfilCentroPublicadoInicial: true, perfilCentroVigente: true, perfilCentroProvisionado: true,
+		perfilCentroPendienteProvision: false, "": false,
+	} {
+		if estado.perfilCentroOperativo() != operativo {
+			t.Fatalf("%q", estado)
 		}
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -106,6 +107,24 @@ func estrecharComoBinarioAnteriorPrueba(t *testing.T, ctx context.Context, s *so
 	}
 }
 
+// aprobacionVigentePrueba aprueba, como haría el operador tras leer el aviso,
+// exactamente la asignación vigente del perfil.
+func aprobacionVigentePrueba(t *testing.T, ctx context.Context, pool *pgxpool.Pool, s *soporteAltaContratacionTemporalDesarrollo, referencia string) aprobacionProvisionCentroDesarrollo {
+	t.Helper()
+	if referencia == "" {
+		return aprobacionProvisionCentroDesarrollo{}
+	}
+	publicada, encontrada, err := leerInstantaneaPublicadaPostgreSQLDesarrollo(ctx, pool, s.instantanea.AsignacionPerfil.PerfilActivoRef)
+	if err != nil || !encontrada {
+		return aprobacionProvisionCentroDesarrollo{referencia: referencia}
+	}
+	huella, err := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return aprobacionProvisionCentroDesarrollo{referencia: referencia, preimagenes: map[string]bool{huella: true}}
+}
+
 func TestPerfilGeneralCentroArrancaYConsumeSinRepublicarPostgreSQL(t *testing.T) {
 	ctx, gobierno, admin := poolesPerfilesCentroPostgreSQLPrueba(t)
 	id := identidadCentroPostgreSQLPrueba(t, gobierno)
@@ -114,9 +133,9 @@ func TestPerfilGeneralCentroArrancaYConsumeSinRepublicarPostgreSQL(t *testing.T)
 	if err := publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno, s); err != nil {
 		t.Fatal(err)
 	}
-	asegurar := func(aprobacion string, esperado estadoPerfilCentroDesarrollo) {
+	asegurar := func(referencia string, esperado estadoPerfilCentroDesarrollo) {
 		t.Helper()
-		estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacion)
+		estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacionVigentePrueba(t, ctx, gobierno, s, referencia))
 		if err != nil || estado != esperado {
 			t.Fatalf("arranque: %q %v; se esperaba %q", estado, err, esperado)
 		}
@@ -279,19 +298,50 @@ func TestPerfilGeneralCentroCambioDeRolExigeAprobacionPostgreSQL(t *testing.T) {
 	reducida := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(completa)
 	reducida.VersionRol.Concesiones = reducida.VersionRol.Concesiones[:1]
 	s.instantanea = reducida
-	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, ""); err != nil || estado != perfilCentroPublicadoInicial {
+	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacionProvisionCentroDesarrollo{}); err != nil || estado != perfilCentroPublicadoInicial {
 		t.Fatalf("inicial: %q %v", estado, err)
 	}
 	antes := historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil)
 	s.instantanea = completa
-	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, ""); err != nil || estado != perfilCentroPendienteProvision ||
+	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacionProvisionCentroDesarrollo{}); err != nil || estado != perfilCentroPendienteProvision ||
 		historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil) != antes {
 		t.Fatalf("un rol con concesiones nuevas se publicó sin aprobación: %q %v", estado, err)
 	}
-	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, "aprobacion:prueba:centro:2"); err != nil || estado != perfilCentroProvisionado {
+	// Una aprobación de otra preimagen no sirve.
+	otra := aprobacionProvisionCentroDesarrollo{referencia: "aprobacion:prueba:centro:2", preimagenes: map[string]bool{strings.Repeat("0", 64): true}}
+	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, otra); err != nil || estado != perfilCentroPendienteProvision ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, perfil) != antes {
+		t.Fatalf("una aprobación de otra asignación provisionó: %q %v", estado, err)
+	}
+	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacionVigentePrueba(t, ctx, gobierno, s, "aprobacion:prueba:centro:2")); err != nil || estado != perfilCentroProvisionado {
 		t.Fatalf("provisión aprobada del rol nuevo: %q %v", estado, err)
 	}
 	if _, err := s.autoridadAsignaciones.(consumidorInstantaneaPublicadaDesarrollo).consumirInstantaneaPublicada(ctx, s.instantanea); err != nil {
 		t.Fatalf("el rol provisionado no se consume: %v", err)
+	}
+}
+
+// Con el perfil general revocado, el arranque no crea el perfil de
+// cancelación: la composición solo lo asegura si el general es operativo.
+func TestPerfilCancelacionCentroNoSeCreaSinPerfilGeneralPostgreSQL(t *testing.T) {
+	ctx, gobierno, admin := poolesPerfilesCentroPostgreSQLPrueba(t)
+	id := identidadCentroPostgreSQLPrueba(t, gobierno)
+	s := id.soporte
+	if err := publicarContextoPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno, s); err != nil {
+		t.Fatal(err)
+	}
+	if estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacionProvisionCentroDesarrollo{}); err != nil || estado != perfilCentroPublicadoInicial {
+		t.Fatalf("inicial: %q %v", estado, err)
+	}
+	revocarPorOtroActoPrueba(t, ctx, s, gobierno, false)
+	estado, err := asegurarPerfilCentroConsumibleDesarrollo(ctx, gobierno, s, aprobacionVigentePrueba(t, ctx, gobierno, s, "aprobacion:prueba:centro:3"))
+	if err != nil || estado.perfilCentroOperativo() {
+		t.Fatalf("un perfil general revocado se considera operativo: %q %v", estado, err)
+	}
+	if _, err := s.autoridadAsignaciones.(consumidorInstantaneaPublicadaDesarrollo).consumirInstantaneaPublicada(ctx, s.instantanea); err == nil {
+		t.Fatal("se consume un perfil general revocado")
+	}
+	if h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, id.cancelacion.soporte.instantanea.AsignacionPerfil.PerfilActivoRef); h.versiones != 0 {
+		t.Fatalf("existe perfil de cancelación: %+v", h)
 	}
 }

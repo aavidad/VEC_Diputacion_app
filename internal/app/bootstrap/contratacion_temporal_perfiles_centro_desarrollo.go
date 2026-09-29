@@ -225,11 +225,38 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaConsumidaPublicad
 		if !errors.Is(err, errPerfilCentroNoConsumible) {
 			causa = causaFalloPostgreSQLCTDesarrollo(err)
 		}
-		slog.Warn("lectura del centro denegada: asignación publicada no consumible",
-			"perfil_ref", plantilla.AsignacionPerfil.PerfilActivoRef, "causa", causa)
+		// Como mucho un aviso por minuto y perfil: la denegación es constante
+		// mientras el perfil espera la provisión.
+		ahora := time.Now()
+		s.mu.Lock()
+		avisar := s.avisoNoConsumibleEn.IsZero() || ahora.Sub(s.avisoNoConsumibleEn) >= time.Minute
+		if avisar {
+			s.avisoNoConsumibleEn = ahora
+		}
+		s.mu.Unlock()
+		if avisar {
+			slog.Warn("lectura del centro denegada: asignación publicada no consumible",
+				"perfil_ref", plantilla.AsignacionPerfil.PerfilActivoRef, "causa", causa)
+		}
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	return consumida, true
+}
+
+// aprobacionProvisionCentroDesarrollo liga la aprobación del operador a las
+// asignaciones vigentes exactas que autoriza sustituir.
+type aprobacionProvisionCentroDesarrollo struct {
+	referencia  string
+	preimagenes map[string]bool
+}
+
+func (a aprobacionProvisionCentroDesarrollo) valida() bool {
+	return a.referencia != "" && len(a.preimagenes) != 0
+}
+
+// perfilCentroOperativo: el arranque dejó el perfil general consumible.
+func (e estadoPerfilCentroDesarrollo) perfilCentroOperativo() bool {
+	return e == perfilCentroPublicadoInicial || e == perfilCentroVigente || e == perfilCentroProvisionado
 }
 
 // estadoPerfilCentroDesarrollo resume, sin datos personales, qué ha hecho el
@@ -247,14 +274,15 @@ const (
 // arranque del perfil general del centro. Solo publica si el perfil no tiene
 // asignación (publicación inicial transaccional). Con una asignación exacta no
 // escribe nada. En cualquier otro caso tampoco escribe, salvo que el operador
-// haya aprobado expresamente la provisión (aprobacionRef) y la asignación
-// vigente sea el estrechamiento por petición que dejaba el binario anterior:
+// haya aprobado expresamente la provisión de esa asignación exacta (referencia
+// de aprobación y huella de la asignación vigente, que el aviso muestra) y
+// sea el estrechamiento por petición que dejaba el binario anterior:
 // activa, en vigor, con su rol habilitado, publicada por este mismo circuito,
 // del mismo rol y con los ámbitos de la plantilla. Entonces se publica la
 // plantilla contra esa preimagen exacta (CAS bajo bloqueo). Una asignación
 // revocada, restringida o retirada nunca se toca: las lecturas se deniegan.
 func asegurarPerfilCentroConsumibleDesarrollo(
-	ctx context.Context, pool *pgxpool.Pool, soporte *soporteAltaContratacionTemporalDesarrollo, aprobacionRef string,
+	ctx context.Context, pool *pgxpool.Pool, soporte *soporteAltaContratacionTemporalDesarrollo, aprobacion aprobacionProvisionCentroDesarrollo,
 ) (estadoPerfilCentroDesarrollo, error) {
 	if ctx == nil || pool == nil || soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(soporte.reloj) || soporte.instantanea.Validar() != nil {
 		return "", falloPostgreSQLCTDesarrollo(nil)
@@ -283,9 +311,12 @@ func asegurarPerfilCentroConsumibleDesarrollo(
 			return perfilCentroVigente, nil
 		}
 	}
-	if aprobacionRef == "" || err != nil || !preimagenAutoproducidaCentroDesarrollo(publicada, plantilla, ahora) {
+	huellaVigente, errHuella := publicada.instantanea.AsignacionPerfil.HuellaSHA256()
+	if err != nil || errHuella != nil || !aprobacion.valida() || !aprobacion.preimagenes[huellaVigente] ||
+		!preimagenAutoproducidaCentroDesarrollo(publicada, plantilla, ahora) {
 		slog.Warn("perfil del centro sin asignación consumible: sus peticiones se deniegan hasta la provisión",
-			"perfil_ref", plantilla.AsignacionPerfil.PerfilActivoRef, "estado", string(perfilCentroPendienteProvision))
+			"perfil_ref", plantilla.AsignacionPerfil.PerfilActivoRef, "asignacion_vigente_huella_sha256", huellaVigente,
+			"estado", string(perfilCentroPendienteProvision))
 		return perfilCentroPendienteProvision, nil
 	}
 	comun := autoridad.autoridadComun()
@@ -298,7 +329,8 @@ func asegurarPerfilCentroConsumibleDesarrollo(
 	}
 	huella, _ := preparada.AsignacionPerfil.HuellaSHA256()
 	slog.Info("provisión del perfil del centro aplicada",
-		"perfil_ref", preparada.AsignacionPerfil.PerfilActivoRef, "aprobacion_ref", aprobacionRef,
+		"perfil_ref", preparada.AsignacionPerfil.PerfilActivoRef, "aprobacion_ref", aprobacion.referencia,
+		"preimagen_huella_sha256", huellaVigente,
 		"version_previa", publicada.instantanea.AsignacionPerfil.Version, "version", preparada.AsignacionPerfil.Version,
 		"asignacion_huella_sha256", huella, "estado", string(perfilCentroProvisionado))
 	return perfilCentroProvisionado, nil
