@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { crearControladorContactoPropio, capturarCorreoEnviado, montarContactoPropio } from "./contacto-propio.js";
-import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260925-sin-demo-v1";
+import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260929-credenciales-proxy-v1";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
 import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";
@@ -64,7 +64,7 @@ test("prepara 201 y confirma 201 solo por acción explícita, conserva recibo or
   assert.equal(s.peticiones.length, 1);
   assert.deepEqual(s.peticiones[0].cuerpo, { correo: "uno@ejemplo.test", version_esperada: 7 });
   assert.equal(s.peticiones[0].ruta, RUTAS_OPERACIONES_CONTACTO.preparar);
-  assert.equal(s.peticiones[0].opciones.credentials, "omit");
+  assert.equal(s.peticiones[0].opciones.credentials, "same-origin");
   await c.confirmar("uno@ejemplo.test");
   assert.deepEqual(s.peticiones[1].cuerpo, { operacion_ref: REF, correo: "uno@ejemplo.test", version_esperada: 7 });
   assert.equal(s.peticiones[1].ruta, RUTAS_OPERACIONES_CONTACTO.confirmar);
@@ -192,7 +192,7 @@ test("401/403/404 vacíos o HTML purgan lista, detalle, recibo y capacidad antes
         llamadas += 1;
         if (llamadas === 1) return respuesta(200, { operaciones: [confirmado()] });
         if (llamadas === 2) return respuesta(200, confirmado());
-        assert.equal(opciones.credentials, "omit");
+        assert.equal(opciones.credentials, "same-origin");
         return { status, headers: { get: () => cuerpo ? "text/html" : null }, text: async () => { cuerpoLeido = true; return cuerpo; } };
       };
       const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl, alDenegar: () => { denegaciones += 1; } });
