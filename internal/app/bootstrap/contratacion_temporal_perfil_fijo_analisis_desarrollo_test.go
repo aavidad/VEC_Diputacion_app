@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -121,8 +122,8 @@ func TestAnalisisPerfilFijoConcedeSinExpedienteNiPublicar(t *testing.T) {
 			solicitud := solicitudAnalisisPerfilFijoPrueba(t, ctx, fijo, caso.accion, caso.motivo, caso.ambitos)
 			decision, _, err := autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, fijo.contexto.Resultado)
 			if !caso.concedida {
-				if err == nil {
-					t.Fatal("concedida fuera del permiso fijo del análisis")
+				if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+					t.Fatalf("no denegada fuera del permiso fijo del análisis: %v", err)
 				}
 				return
 			}
@@ -137,6 +138,11 @@ func TestAnalisisPerfilFijoConcedeSinExpedienteNiPublicar(t *testing.T) {
 	if concedidas != 3 || registro.concesiones != 3 {
 		t.Fatalf("concesiones: %d concedidas, %d registradas", concedidas, registro.concesiones)
 	}
+	// Estas peticiones se deniegan antes de llegar al PDP (la solicitud no
+	// casa con el permiso fijo): no hay decisión que registrar.
+	if registro.denegaciones != 0 {
+		t.Fatalf("%d denegaciones registradas sin decisión del PDP", registro.denegaciones)
+	}
 	if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
 		t.Fatalf("el análisis preparó %d y publicó %d", autoridad.preparadas, autoridad.publicadas)
 	}
@@ -144,6 +150,10 @@ func TestAnalisisPerfilFijoConcedeSinExpedienteNiPublicar(t *testing.T) {
 	canal, err := s.ResolverContextoCanalAnalisisRRHH(contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaRectificacionAnalisisRRHH))
 	if err != nil || canal.PerfilRef != fijo.perfilRef() {
 		t.Fatalf("el canal del análisis no usa su perfil fijo: %+v %v", canal, err)
+	}
+	// Otra ruta no obtiene el canal del análisis.
+	if _, err := s.ResolverContextoCanalAnalisisRRHH(contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaAltaSolicitudes)); !errors.Is(err, ports.ErrAutorizacionDenegada) {
+		t.Fatalf("el alta obtuvo el canal del análisis: %v", err)
 	}
 }
 
