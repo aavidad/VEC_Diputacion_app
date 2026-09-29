@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,9 +17,15 @@ import (
 	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
+	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
 var huellaBolsaHistorica = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// ErrRellenoVinculosPendientesRevision indica que el acta tiene filas cuya
+// identidad enmascarada coincide con la de otra fila: el relleno no las funde
+// y se detiene hasta que RRHH las revise.
+var ErrRellenoVinculosPendientesRevision = errors.New("relleno de vinculos detenido: filas con identidad ambigua pendientes de revision")
 
 type ResultadoRellenoVinculos struct {
 	Nuevos     int `json:"nuevos"`
@@ -64,9 +73,14 @@ func EjecutarRellenoVinculosBolsa(ctx context.Context, cfg config.Config, huella
 	if !existe {
 		return vacio, constitucion.ErrActaNoEncontrada
 	}
-	filas, err := constitucion.DerivarFilasVinculo(lote, derivador)
+	filas, pendientes, err := constitucion.DerivarFilasVinculo(lote, derivador)
 	if err != nil {
 		return vacio, err
+	}
+	if len(pendientes) > 0 {
+		// El relleno SQL exige todas las filas del acta; con filas que no se
+		// distinguen entre sí se detiene antes de escribir nada, sin fundirlas.
+		return vacio, fmt.Errorf("%w: filas %s", ErrRellenoVinculosPendientesRevision, describirFilasPendientes(pendientes))
 	}
 	contenido, err := json.Marshal(filas)
 	if err != nil {
@@ -112,6 +126,14 @@ func EjecutarRellenoVinculosBolsa(ctx context.Context, cfg config.Config, huella
 		}
 	}
 	return resultado, nil
+}
+
+func describirFilasPendientes(pendientes []ports.FilaPendienteRevision) string {
+	partes := make([]string, len(pendientes))
+	for i, p := range pendientes {
+		partes[i] = strconv.Itoa(p.FilaNumero) + ":" + p.Motivo
+	}
+	return strings.Join(partes, ",")
 }
 
 func abrirPoolRecuperacionConvocaRelleno(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {

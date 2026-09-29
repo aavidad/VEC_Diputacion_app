@@ -50,7 +50,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("bolsa=%s version=%d instantanea=%s acta=%s reutilizada=%t confirmada_en=%s vinculos_nuevos=%d vinculos_existentes=%d sustituye_a=%s", r.BolsaRef, r.VersionBolsa, r.InstantaneaRef, r.ActaRef, r.Reutilizada, r.ConfirmadaEn.Format("2006-01-02T15:04:05Z07:00"), r.Vinculos.Nuevos, r.Vinculos.Existentes, describirSustituidas(r.SustituyeA))
+		log.Printf("bolsa=%s version=%d instantanea=%s acta=%s reutilizada=%t confirmada_en=%s vinculos_nuevos=%d vinculos_existentes=%d sustituye_a=%s pendientes_revision=%s", r.BolsaRef, r.VersionBolsa, r.InstantaneaRef, r.ActaRef, r.Reutilizada, r.ConfirmadaEn.Format("2006-01-02T15:04:05Z07:00"), r.Vinculos.Nuevos, r.Vinculos.Existentes, describirSustituidas(r.SustituyeA), describirPendientesRevision(r.PendientesRevision))
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "importar-convoca" {

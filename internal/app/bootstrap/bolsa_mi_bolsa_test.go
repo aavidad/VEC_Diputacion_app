@@ -239,14 +239,6 @@ func (a *autoridadMiBolsaCASPrueba) prepararInstantanea(_ context.Context, semil
 	return preparada, nil
 }
 
-func (a *autoridadMiBolsaCASPrueba) publicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error {
-	return errMiBolsaNoDisponible
-}
-
-func (a *autoridadMiBolsaCASPrueba) versionActualHabilitada(context.Context, string) (bool, error) {
-	return false, nil
-}
-
 func (a *autoridadMiBolsaCASPrueba) publicarInstantaneaDesdePreimagen(_ context.Context, preparada, preimagen dominiovec.InstantaneaAutorizacion) error {
 	if a.antesPublicar != nil {
 		a.antesPublicar(a)
@@ -320,5 +312,22 @@ func TestMiBolsaPublicacionExigePreimagenActivaExacta(t *testing.T) {
 				t.Fatalf("resultado: error=%v, versión=%d, publicaciones=%d", err, obtenida.AsignacionPerfil.Version, a.publicaciones)
 			}
 		})
+	}
+}
+
+// Con «pendiente_provision» la política de Mi Bolsa se compone sin
+// instantánea: no entrega autoridad ni admite motivos.
+func TestMiBolsaPendienteProvisionDeniega(t *testing.T) {
+	p := &politicaMiBolsaDesarrollo{motivo: motivoMiBolsaDesarrollo(), motivoHistorial: motivoHistorialMiBolsaDesarrollo()}
+	if _, err := p.ObtenerInstantaneaAutorizacion(context.Background(), "", ""); err == nil {
+		t.Fatal("instantánea entregada sin permiso consumible")
+	}
+	if p.ValidarReferenciaMotivoAutorizacionV2(context.Background(), motivoMiBolsaDesarrollo(), time.Now()) == nil {
+		t.Fatal("motivo admitido sin permiso consumible")
+	}
+	if (aprobacionProvisionMiBolsaDesarrollo{preimagen: "x"}).aprueba("x") ||
+		(aprobacionProvisionMiBolsaDesarrollo{referencia: "r", preimagen: "x"}).aprueba("y") ||
+		!(aprobacionProvisionMiBolsaDesarrollo{referencia: "r", preimagen: "x"}).aprueba("x") {
+		t.Fatal("la aprobación no queda ligada a la huella exacta")
 	}
 }
