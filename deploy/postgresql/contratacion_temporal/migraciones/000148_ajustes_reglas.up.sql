@@ -167,8 +167,8 @@ SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' SET lock_tim
 AS $funcion$
 DECLARE
  operacion text; d jsonb; consumo record; previa record; anterior record;
- material_h text; actor text; clave uuid; esperada bigint; nueva bigint;
- ajustes jsonb; canonico text; huella text; previos jsonb; cambio jsonb; r record; c record;
+ actor text; clave uuid; esperada bigint; nueva bigint;
+ ajustes jsonb; canonico text; huella text; previos jsonb; cambio jsonb; r record; c record; solicitud_h text;
  limite integer; antes_de bigint; historial jsonb; hay_mas boolean; vigente jsonb;
  ahora timestamptz(6); recibo text; n integer;
 BEGIN
@@ -198,8 +198,7 @@ BEGIN
     OR d->>'accion' IS DISTINCT FROM (CASE WHEN operacion='consultar'
          THEN 'contratacion_temporal.reglas.consultar_ajustes' ELSE 'contratacion_temporal.reglas.ajustar' END)
  THEN RAISE EXCEPTION 'CT-148: decisión divergente' USING ERRCODE='42501'; END IF;
- material_h:=encode(sha256(convert_to(p_material::text,'UTF8')),'hex');
- -- AD3-114 recalcula la huella del contexto desde este mismo material.
+ -- AD3-114 calcula la huella del contexto desde este mismo material.
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_ajustes_reglas_ct_v3_atestada(
   p_material,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  IF consumo.consumo_nuevo IS NOT TRUE OR consumo.efecto_ref IS DISTINCT FROM 'vec.contratacion_temporal.reglas'
@@ -262,11 +261,26 @@ BEGIN
  IF NOT vec_contratacion_temporal.ajustes_reglas_forma_valida_v1(ajustes)
  THEN RAISE EXCEPTION 'CT-148: forma de ajustes inválida' USING ERRCODE='22023'; END IF;
 
+ IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_material->'cambios') e
+             WHERE jsonb_typeof(e)<>'object' OR (e-ARRAY['regla_clave','campo','anterior','nuevo'])<>'{}'::jsonb
+                OR jsonb_typeof(e->'regla_clave')<>'string' OR jsonb_typeof(e->'campo')<>'string'
+                OR jsonb_typeof(e->'anterior')<>'string' OR jsonb_typeof(e->'nuevo')<>'string')
+ THEN RAISE EXCEPTION 'CT-148: cambio mal formado' USING ERRCODE='22023'; END IF;
+ -- La repetición se reconoce por lo que pidió el cliente (clave, versión
+ -- esperada, valores nuevos y motivo), no por el material entero: el valor
+ -- anterior y la instantánea se recalculan sobre la cabeza, que puede haber
+ -- avanzado precisamente por la primera ejecución de esta misma petición.
+ solicitud_h:=encode(sha256(convert_to(jsonb_build_object(
+   'organizacion_ref',p_material->>'organizacion_ref','clave_idempotencia',clave::text,'version_esperada',esperada,
+   'cambios',(SELECT jsonb_agg(jsonb_build_object('regla_clave',e->>'regla_clave','campo',e->>'campo','nuevo',e->>'nuevo')
+               ORDER BY e->>'regla_clave',e->>'campo') FROM jsonb_array_elements(p_material->'cambios') e),
+   'motivo_clave',p_material->>'motivo_clave','referencia',p_material->>'referencia','nota',p_material->>'nota')::text,'UTF8')),'hex');
+
  -- Serializa clave, control de versión y lectura de la cabeza.
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:ajustes_reglas',0));
  SELECT * INTO previa FROM vec_contratacion_temporal.regla_ajuste_version_v1 v WHERE v.clave_idempotencia=clave;
  IF FOUND THEN
-  IF previa.solicitud_huella_sha256 IS DISTINCT FROM material_h OR previa.actor_ref IS DISTINCT FROM actor
+  IF previa.solicitud_huella_sha256 IS DISTINCT FROM solicitud_h OR previa.actor_ref IS DISTINCT FROM actor
   THEN RAISE EXCEPTION 'CT-148: clave reutilizada con otra solicitud' USING ERRCODE='23505'; END IF;
   RETURN jsonb_build_object('ajustes',previa.ajustes,'replay',true,'recibo',jsonb_build_object(
    'recibo_ref',previa.recibo_ref,'clave_idempotencia',clave,'version',previa.version,
@@ -285,10 +299,7 @@ BEGIN
  -- ajustado, el anterior coincide con la versión previa.
  n:=0;
  FOR cambio IN SELECT e FROM jsonb_array_elements(p_material->'cambios') e LOOP
-  IF jsonb_typeof(cambio)<>'object' OR (cambio-ARRAY['regla_clave','campo','anterior','nuevo'])<>'{}'::jsonb
-     OR jsonb_typeof(cambio->'regla_clave')<>'string' OR jsonb_typeof(cambio->'campo')<>'string'
-     OR jsonb_typeof(cambio->'anterior')<>'string' OR jsonb_typeof(cambio->'nuevo')<>'string'
-     OR cambio->>'anterior'=cambio->>'nuevo'
+  IF cambio->>'anterior'=cambio->>'nuevo'
      OR ajustes #>> ARRAY[cambio->>'regla_clave',cambio->>'campo'] IS DISTINCT FROM cambio->>'nuevo'
      OR (previos #>> ARRAY[cambio->>'regla_clave',cambio->>'campo'] IS NOT NULL
          AND previos #>> ARRAY[cambio->>'regla_clave',cambio->>'campo'] IS DISTINCT FROM cambio->>'anterior')
@@ -321,7 +332,7 @@ BEGIN
  VALUES(p_material->>'catalogo_id',nueva,esperada,p_material->>'organizacion_ref',ajustes,canonico,huella,
   (p_material->>'base_version')::bigint,p_material->>'base_huella_sha256',actor,p_material->>'motivo_clave',
   p_material->>'referencia',p_material->>'nota',ahora,
-  clave,material_h,recibo,consumo.decision_ref,consumo.consumo_huella_sha256,consumo.auditoria_ref);
+  clave,solicitud_h,recibo,consumo.decision_ref,consumo.consumo_huella_sha256,consumo.auditoria_ref);
  INSERT INTO vec_contratacion_temporal.regla_ajuste_cambio_v1(catalogo_id,version,regla_clave,campo,anterior,nuevo)
  SELECT p_material->>'catalogo_id',nueva,e->>'regla_clave',e->>'campo',e->>'anterior',e->>'nuevo'
    FROM jsonb_array_elements(p_material->'cambios') e;
