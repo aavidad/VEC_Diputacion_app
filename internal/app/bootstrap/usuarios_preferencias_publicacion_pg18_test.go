@@ -95,6 +95,31 @@ func TestPreferenciasLoteGobiernoPostgreSQL18(t *testing.T) {
 	if err = admin.QueryRow(ctx, contarUsuarios).Scan(&confirmadas); err != nil || confirmadas != 4 {
 		t.Fatalf("COMMIT confirmó %d claves Usuarios: %v", confirmadas, err)
 	}
+	filas, err := admin.Query(ctx, `SELECT audiencia_consumo,count(*) FROM vec_autorizacion_atestada_v3.clave_capacidad_version
+ WHERE audiencia_consumo LIKE 'vec_usuarios.preferencias.%' GROUP BY audiencia_consumo`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observadas := map[string]int64{}
+	for filas.Next() {
+		var audiencia string
+		var n int64
+		if err = filas.Scan(&audiencia, &n); err != nil {
+			filas.Close()
+			t.Fatal(err)
+		}
+		observadas[audiencia] = n
+	}
+	err = filas.Err()
+	filas.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range descriptoresMaterialPreferenciasUsuariosDesarrollo() {
+		if observadas[d.Audiencia] != 1 {
+			t.Fatalf("audiencia %s publicada %d veces", d.Audiencia, observadas[d.Audiencia])
+		}
+	}
 	if err = admin.QueryRow(ctx, huellaFunciones).Scan(&funcionesDespues); err != nil || funcionesDespues != funcionesAntes {
 		t.Fatalf("éxito alteró funciones previas: %v", err)
 	}
