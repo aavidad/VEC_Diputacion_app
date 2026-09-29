@@ -4,7 +4,7 @@ Este guion prepara un recorrido con Chrome del sistema y datos sintéticos: **Mi
 
 ## Antes de ejecutarlo
 
-Dirección debe montar un clon aislado con H3, H4 y H5, arrancar el binario de ese mismo corte y disponer de una identidad sintética con concesiones propias. El acta de preparación, binario, certificado y clave mTLS se guardan **fuera del repositorio**. No se conecta a servicios de otros agentes ni a cidonia.
+Dirección debe montar un clon aislado con H3, H4 y H5, arrancar el binario de ese mismo corte y disponer de una identidad sintética con concesiones propias. El acta de preparación, binario, certificado y clave mTLS se guardan **fuera de la raíz Git compartida y de todos sus worktrees registrados**, incluidos los externos. No se conecta a servicios de otros agentes ni a cidonia.
 
 El acta JSON contiene solo metadatos de preparación, sin DSN, claves ni datos personales:
 
@@ -33,7 +33,9 @@ python3 scripts/recorridos/area_personal/recorrer.py \
 
 El guion fija el castellano, cambia el número de filas de preferencias y elige otra paleta de imagen del catálogo. Comprueba sus recibos y la recuperación mediante un nuevo GET tras recargar. «Mis correos» exige un correo **ya verificado** por su circuito propio: no intercepta correo, no inventa código y no interpreta un aviso de envío como entrega. «Mi bolsa» exige sus dos GET autorizados; la ficha requiere un acceso propio visible. El resultado solo imprime la huella SHA256 de cada referencia de recibo, versión y estados de paso. No imprime correos, identidad, cuerpos HTTP, certificados, claves ni URL con datos.
 
-La recuperación aquí es **recarga de navegador**. No acredita recuperación tras reiniciar aplicación o PostgreSQL, auditoría completa, entrega de correo, ni funciones administrativas de Aspirantes. Esas afirmaciones requieren un recorrido adicional en el clon, con inspección de historia y recibos. El guion comprueba ausencia de cookies, almacenamiento web, errores JavaScript, peticiones externas y desbordamiento horizontal en la vista final alcanzada. Intercepta cada respuesta sin seguir redirecciones y corta cualquier 3xx; la prueba focal demuestra que un 302 local hacia otro puerto no llega al destino.
+La recuperación aquí es **recarga de navegador**. No acredita recuperación tras reiniciar aplicación o PostgreSQL, auditoría completa, entrega de correo, ni funciones administrativas de Aspirantes. Esas afirmaciones requieren un recorrido adicional en el clon, con inspección de historia y recibos. El guion comprueba ausencia de cookies, almacenamiento web, errores JavaScript, peticiones externas y desbordamiento horizontal en la vista final alcanzada. Intercepta cada respuesta sin seguir redirecciones y corta cualquier 3xx; la prueba focal demuestra que un 302 local hacia otro puerto no llega al destino. También intercepta WebSocket antes de conectar al servidor y descarta sus mensajes; una prueba comprueba que no hubo handshake en otro puerto.
+
+La ruta `?vista=llamamientos` presenta el título «Disponibilidad y llamamientos», según el catálogo castellano de este corte. El guion usa ese título y la sección propia de histórico para identificar Mi Bolsa.
 
 En `origin/main` de partida (`3b910a1`), «Mi ficha Aspirantes» de #160 seguía abierta. Si todas las etapas anteriores llegan a ella, el primer corte esperado es `mi_ficha_aspirantes`; **no se atribuye #160 a main**. Hoy falta además el runtime H3–H5 con binario acreditado para este ensayo, por lo que el estado real de esta rama es `NO EJECUTADO`.
 

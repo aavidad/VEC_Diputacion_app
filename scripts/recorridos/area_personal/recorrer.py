@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -38,8 +39,38 @@ class Corte(Exception):
         self.motivo = motivo
 
 
-def dentro_repo(ruta: Path) -> bool:
-    return ruta.resolve().is_relative_to(RAIZ_REPO)
+def raices_git() -> tuple[Path, ...]:
+    try:
+        comun = subprocess.run(
+            ["git", "-C", str(RAIZ_REPO), "rev-parse", "--git-common-dir"],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        lista = subprocess.run(
+            ["git", "-C", str(RAIZ_REPO), "worktree", "list", "--porcelain"],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        ruta_comun = Path(comun)
+        if not ruta_comun.is_absolute():
+            ruta_comun = RAIZ_REPO / ruta_comun
+        compartida = ruta_comun.resolve().parent
+        raices = set()
+        for linea in lista.splitlines():
+            if linea.startswith("worktree "):
+                ruta = Path(linea[9:])
+                raices.add((ruta if ruta.is_absolute() else RAIZ_REPO / ruta).resolve())
+        if not comun or RAIZ_REPO not in raices or compartida not in raices:
+            raise ValueError("inventario incompleto")
+        return tuple(sorted(raices | {compartida}))
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        raise NoEjecutado("Git: no se puede comprobar la raíz compartida y todos los worktrees") from None
+
+
+def dentro_git(ruta: Path, raices: tuple[Path, ...]) -> bool:
+    try:
+        destino = ruta.resolve()
+        return any(destino.is_relative_to(raiz) for raiz in raices)
+    except OSError:
+        raise NoEjecutado("material: no se puede comprobar su ubicación") from None
 
 
 def sha256_archivo(ruta: Path) -> str:
@@ -60,7 +91,8 @@ def preparar(origen: str, acta: Path, certificado: Path, clave: Path) -> tuple[s
             or not puerto or url.username or url.password or url.path not in {"", "/"}
             or url.query or url.fragment):
         raise NoEjecutado("origen: se exige HTTPS loopback sin credenciales ni ruta")
-    if not acta.is_file() or dentro_repo(acta):
+    raices = raices_git()
+    if not acta.is_file() or dentro_git(acta, raices):
         raise NoEjecutado("acta: falta un acta externa al repositorio")
     try:
         datos = json.loads(acta.read_text(encoding="utf-8"))
@@ -78,7 +110,7 @@ def preparar(origen: str, acta: Path, certificado: Path, clave: Path) -> tuple[s
     binario = Path(datos["binario"])
     huella = datos.get("binario_sha256")
     try:
-        binario_valido = (binario.is_file() and not dentro_repo(binario)
+        binario_valido = (binario.is_file() and not dentro_git(binario, raices)
                           and isinstance(huella, str) and len(huella) == 64
                           and sha256_archivo(binario) == huella.lower())
     except OSError:
@@ -87,7 +119,7 @@ def preparar(origen: str, acta: Path, certificado: Path, clave: Path) -> tuple[s
         raise NoEjecutado("binario: falta o no coincide con el acta")
     for nombre, ruta in (("certificado", certificado), ("clave", clave)):
         try:
-            valido = ruta.is_file() and ruta.stat().st_size > 0 and not dentro_repo(ruta)
+            valido = ruta.is_file() and ruta.stat().st_size > 0 and not dentro_git(ruta, raices)
         except OSError:
             valido = False
         if not valido:
@@ -157,6 +189,13 @@ def filtrar_red(ruta, origen: str, incidencias: list[str]) -> None:
         ruta.abort()
 
 
+def bloquear_websocket(ruta, incidencias: list[str]) -> None:
+    incidencias.append("websocket_bloqueado")
+    # Sin connect_to_server Playwright crea un socket simulado y no abre red.
+    # Se descartan los mensajes para que tampoco se simule una respuesta.
+    ruta.on_message(lambda _mensaje: None)
+
+
 def comprobar_pagina(pagina, contexto, errores_js: list[str], respuestas_externas: list[str], cookies_set: list[str]) -> None:
     estado = pagina.evaluate("""async () => ({
       ancho: document.documentElement.clientWidth,
@@ -187,6 +226,7 @@ def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path) -> dict:
                 respuestas_externas = []
                 cookies_set = []
                 contexto.route("**/*", lambda ruta: filtrar_red(ruta, origen, respuestas_externas))
+                contexto.route_web_socket("**/*", lambda ruta: bloquear_websocket(ruta, respuestas_externas))
                 pagina = contexto.new_page()
                 pagina.on("pageerror", lambda error: errores_js.append(type(error).__name__))
                 pagina.on("request", lambda peticion: respuestas_externas.append("externa")
@@ -255,8 +295,8 @@ def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path) -> dict:
                                              lambda: pagina.goto(origen + "/area-personal/?vista=llamamientos", wait_until="domcontentloaded"))
                     esperar_respuesta(pagina, RUTAS["historial"], "GET", pagina.reload)
                     pagina.locator("#historial-mi-bolsa").wait_for()
-                    pagina.wait_for_function("document.querySelector('#titulo-vista')?.textContent.trim() === 'Mi bolsa'")
-                    if not bolsa or pagina.locator("#titulo-vista").inner_text().strip() != "Mi bolsa":
+                    pagina.wait_for_function("document.querySelector('#titulo-vista')?.textContent.trim() === 'Disponibilidad y llamamientos'")
+                    if not bolsa or pagina.locator("#titulo-vista").inner_text().strip() != "Disponibilidad y llamamientos":
                         raise Corte("mi_bolsa", "consulta o vista propia incompleta")
                     resultado["pasos"].append({"paso": "mi_bolsa", "estado": "CONSULTADO"})
 

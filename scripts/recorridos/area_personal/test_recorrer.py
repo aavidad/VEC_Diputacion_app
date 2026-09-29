@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -12,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from recorrer import NoEjecutado, filtrar_red, preparar
+from recorrer import NoEjecutado, RAIZ_REPO, bloquear_websocket, dentro_git, filtrar_red, preparar, raices_git
 
 
 class Precondiciones(unittest.TestCase):
@@ -83,6 +84,25 @@ class Precondiciones(unittest.TestCase):
         self.assertEqual(origen, self.origen)
         self.assertEqual(chrome, Path("/usr/bin/google-chrome"))
 
+    def test_material_privado_fuera_de_todas_las_raices_git(self):
+        raices = raices_git()
+        self.assertIn(RAIZ_REPO, raices)
+        comun = subprocess.run(["git", "-C", str(RAIZ_REPO), "rev-parse", "--git-common-dir"],
+                               check=True, capture_output=True, text=True).stdout.strip()
+        compartida = Path(comun).resolve().parent
+        self.assertIn(compartida, raices)
+        self.assertTrue(dentro_git(compartida / "acta.json", raices))
+        self.assertTrue(dentro_git(RAIZ_REPO / "clave.pem", raices))
+        self.assertTrue(dentro_git(Path("/dev/shm/vec-otra-rama/clave.pem"),
+                                   (Path("/dev/shm/vec-otra-rama"),)))
+        self.assertFalse(dentro_git(self.acta, raices))
+        with self.assertRaisesRegex(NoEjecutado, "acta"):
+            preparar(self.origen, compartida / "AGENTS.md", self.certificado, self.clave)
+
+    def test_titulo_de_bolsa_coincide_con_catalogo(self):
+        catalogo = json.loads((RAIZ_REPO / "web/static/area-personal/locales/es.json").read_text())
+        self.assertEqual(catalogo["areaPersonal.rutas.llamamientos"], "Disponibilidad y llamamientos")
+
 
 class Redirecciones(unittest.TestCase):
     @unittest.skipUnless(shutil.which("google-chrome"), "falta Chrome del sistema")
@@ -142,6 +162,45 @@ class Redirecciones(unittest.TestCase):
                     pagina.goto(origen + "/salir", timeout=5000)
                 self.assertEqual(alcanzadas, [])
                 self.assertIn("redireccion_bloqueada", incidencias)
+                contexto.close()
+            finally:
+                navegador.close()
+
+    @unittest.skipUnless(shutil.which("google-chrome"), "falta Chrome del sistema")
+    def test_websocket_no_abre_handshake_externo(self):
+        from playwright.sync_api import sync_playwright
+
+        alcanzadas = []
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                alcanzadas.append(self.path)
+                self.send_response(400)
+                self.end_headers()
+
+            def log_message(self, *_):
+                pass
+
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+        hilo = threading.Thread(target=servidor.serve_forever, daemon=True)
+        hilo.start()
+        self.addCleanup(hilo.join, 2)
+        self.addCleanup(servidor.server_close)
+        self.addCleanup(servidor.shutdown)
+
+        incidencias = []
+        with sync_playwright() as playwright:
+            navegador = playwright.chromium.launch(executable_path=shutil.which("google-chrome"), headless=True)
+            try:
+                contexto = navegador.new_context(service_workers="block")
+                contexto.route_web_socket("**/*", lambda ruta: bloquear_websocket(ruta, incidencias))
+                pagina = contexto.new_page()
+                pagina.goto("about:blank")
+                pagina.evaluate("url => { new WebSocket(url); return true; }",
+                                f"ws://127.0.0.1:{servidor.server_port}/socket")
+                pagina.wait_for_timeout(150)
+                self.assertEqual(alcanzadas, [])
+                self.assertIn("websocket_bloqueado", incidencias)
                 contexto.close()
             finally:
                 navegador.close()
