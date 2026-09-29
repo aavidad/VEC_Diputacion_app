@@ -17,9 +17,10 @@
 }
 
 .campo > span,
+.campo > label,
 .grupo-campo legend {
   color: var(--portal-tinta);
-  font-size: 0.7rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -28,13 +29,13 @@
 .campo textarea,
 .control-formulario {
   width: 100%;
-  min-height: 37px;
-  padding: 7px 9px;
+  min-height: 40px;
+  padding: 8px 12px;
   border: 1px solid var(--portal-borde);
   border-radius: 6px;
   background: var(--portal-superficie);
   color: var(--portal-tinta);
-  font-size: 0.76rem;
+  font-size: 0.875rem;
 }
 
 .campo textarea {
@@ -65,7 +66,7 @@
   gap: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--portal-borde);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 
 .fila-resumen:last-child {
@@ -93,7 +94,7 @@
   padding: 8px 8px 8px 28px;
   border-bottom: 1px solid var(--portal-borde);
   color: var(--portal-muted);
-  font-size: 0.74rem;
+  font-size: 0.875rem;
 }
 
 .lista-comprobacion li::before {
@@ -135,7 +136,7 @@
   border: 0;
   background: transparent;
   color: var(--portal-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   text-align: left;
 }
 
@@ -672,3 +673,44 @@
   .panel,
   .tarjeta-kpi { break-inside: avoid; box-shadow: none; }
 }
+
+/* Controles compartidos de trámites breves y revisión antes de confirmar. */
+.campo .pista { margin: 0; color: var(--portal-muted); font-size: 0.8125rem; }
+.campo .opcional { color: var(--portal-muted); font-weight: 400; }
+.pasos.tres { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 16px 20px; border-bottom: 1px solid var(--portal-borde); }
+.pasos.tres .paso { font-size: 0.875rem; }
+.opciones-grandes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; border: 0; }
+.opciones-grandes legend { margin-bottom: 12px; color: var(--portal-tinta); font-size: 1rem; font-weight: 600; }
+.opcion-grande { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; min-height: 64px; padding: 18px 20px; border: 2px solid var(--portal-muted); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); cursor: pointer; }
+.opcion-grande:has(input:checked) { border-color: var(--portal-azul-700); background: var(--portal-azul-100); }
+.opcion-grande:has(input:focus-visible) { outline: 3px solid var(--portal-foco); outline-offset: 2px; }
+.opcion-grande input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--portal-azul-700); }
+.opcion-grande strong { display: block; color: var(--portal-tinta); font-size: 1rem; }
+.opcion-grande span { color: var(--portal-muted); font-size: 0.875rem; }
+.resumen-errores { margin-bottom: 20px; padding: 16px 20px; border: 2px solid var(--portal-peligro); border-radius: var(--portal-radio-lg); background: var(--portal-peligro-suave); }
+.resumen-errores h2 { margin: 0 0 8px; color: var(--portal-peligro); font-size: 1rem; }
+.resumen-errores a { color: var(--portal-peligro); font-weight: 600; }
+.campo.con-error input, .campo.con-error select, .campo.con-error textarea { border: 2px solid var(--portal-peligro); }
+.mensaje-error { margin: 0; color: var(--portal-peligro); font-size: 0.875rem; font-weight: 600; }
+.revision { margin: 0; }
+.revision > div { display: grid; grid-template-columns: minmax(130px, 200px) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--portal-borde); font-size: 0.875rem; }
+.revision > div:last-child { border-bottom: 0; }
+.revision dt { color: var(--portal-muted); }
+.revision dd { min-width: 0; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.confirmacion { padding: 24px; border: 1px solid var(--portal-borde); border-left: 4px solid var(--portal-exito); border-radius: var(--portal-radio-lg); background: var(--portal-exito-suave); }
+.confirmacion h2 { margin: 0 0 8px; color: var(--portal-exito); font-size: 1.125rem; }
+.acciones-paso { flex-wrap: wrap; }
+
+@media (max-width: 760px) {
+  .opciones-grandes { grid-template-columns: 1fr; }
+  .pasos.tres { grid-template-columns: 1fr; gap: 8px; padding: 12px 16px; }
+  .pasos.tres .paso::after { display: none; }
+  .revision > div { grid-template-columns: minmax(0, 1fr) auto; }
+  .revision dd { grid-column: 1; }
+  .revision > div > :last-child:not(dd) { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+body[data-contraste="true"] .opcion-grande,
+body.alto-contraste .opcion-grande,
+body[data-contraste="true"] .confirmacion,
+body.alto-contraste .confirmacion { border-width: 2px; }
