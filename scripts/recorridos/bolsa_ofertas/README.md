@@ -70,7 +70,8 @@ Si falta clon, binario o material mTLS, devuelve `NO EJECUTADO` (código 2)
 sin abrir Chrome. En `alta` crea primero una marca privada `INICIADO` y conserva cada recibo
 a medida que avanza. Registra método, ruta y estado HTTP sin copiar consultas
 ni cuerpos de peticiones. Guarda capturas a 1440 y 390 px en un directorio
-privado junto a la evidencia; si falla, captura la última pantalla alcanzada.
+privado junto a la evidencia, con PNG de permisos `0600`, creados sin seguir
+enlaces ni sobrescribir archivos. Si falla, captura la última pantalla alcanzada.
 Si falla después de alguna escritura, no se debe repetir el guion sobre el mismo
 clon: Dirección reconcilia sus recibos o prepara otro clon limpio. `FALLÓ`
 (código 1) indica un fallo real del recorrido. La configuración, la evidencia,

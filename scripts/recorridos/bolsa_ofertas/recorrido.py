@@ -213,6 +213,13 @@ def registrar_paso(cfg: dict, nombre: str, datos: dict) -> None:
             ensure_ascii=False, indent=2) + "\n")
 
 
+def guardar_captura(ruta: Path, datos: bytes) -> None:
+    """El PNG se crea privado, sin seguir enlaces ni sobrescribir otro archivo."""
+    descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "wb") as salida:
+        salida.write(datos)
+
+
 def capturar(cfg: dict, pagina, nombre: str, comprobar=None) -> None:
     if not cfg.get("_capturas"):
         if comprobar:
@@ -221,7 +228,8 @@ def capturar(cfg: dict, pagina, nombre: str, comprobar=None) -> None:
     for ancho, alto in ((1440, 900), (390, 844)):
         pagina.set_viewport_size({"width": ancho, "height": alto})
         pagina.wait_for_timeout(250)
-        pagina.screenshot(path=str(Path(cfg["_capturas"]) / f"{nombre}-{ancho}.png"), full_page=True)
+        guardar_captura(Path(cfg["_capturas"]) / f"{nombre}-{ancho}.png",
+                        pagina.screenshot(full_page=True))
         estado = pagina.evaluate("""async () => ({ ancho: document.documentElement.clientWidth,
             contenido: document.documentElement.scrollWidth, local: localStorage.length,
             sesion: sessionStorage.length,

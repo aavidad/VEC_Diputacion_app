@@ -1,6 +1,8 @@
 """Puerta sintética del guion: nunca toca servicios ni inicia Chrome."""
 
 import hashlib
+import os
+import stat
 import tempfile
 import threading
 import unittest
@@ -8,11 +10,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from recorrido import (FalloRecorrido, NoEjecutado, cantidad_seleccionada, dentro_de_git,
-                       instante_obligatorio, instalar_filtro_red, referencia_obligatoria,
+                       guardar_captura, instante_obligatorio, instalar_filtro_red, referencia_obligatoria,
                        validar_configuracion, validar_origen, version_obligatoria)
 
 
 class PuertaRecorrido(unittest.TestCase):
+    def test_captura_privada_exclusiva_sin_seguir_enlaces(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            destino = raiz / "captura.png"
+            mascara = os.umask(0)
+            try:
+                guardar_captura(destino, b"png sintetico")
+            finally:
+                os.umask(mascara)
+            self.assertEqual(stat.S_IMODE(destino.stat().st_mode), 0o600)
+            self.assertEqual(destino.read_bytes(), b"png sintetico")
+            with self.assertRaises(FileExistsError):
+                guardar_captura(destino, b"otra captura")
+            enlace = raiz / "enlace.png"
+            enlace.symlink_to(destino)
+            with self.assertRaises(FileExistsError):
+                guardar_captura(enlace, b"sobrescritura")
+            self.assertEqual(destino.read_bytes(), b"png sintetico")
+
     def test_rechaza_destinos_remotos_y_credenciales_en_url(self):
         for origen in ("https://vec.cidonia.cloud:443", "http://127.0.0.1:8443",
                        "https://usuario:clave@127.0.0.1:8443", "https://127.0.0.1:8443/api"):
