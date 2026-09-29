@@ -362,6 +362,14 @@ type lectorAsignacionPublicadaCTDesarrollo interface {
 	leerAsignacionPublicada(ctx context.Context, perfilRef string) (instantaneaPublicadaDesarrollo, bool, error)
 }
 
+type estadoConsumoPerfilFijoCTDesarrollo uint8
+
+const (
+	perfilFijoConsumoVigente estadoConsumoPerfilFijoCTDesarrollo = iota + 1
+	perfilFijoConsumoDenegado
+	perfilFijoConsumoFuenteNoDisponible
+)
+
 func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) leerAsignacionPublicada(
 	ctx context.Context, perfilRef string,
 ) (instantaneaPublicadaDesarrollo, bool, error) {
@@ -376,20 +384,34 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) leerAsignacionPublic
 func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrollo(
 	ctx context.Context, p *perfilFijoCTDesarrollo,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
+	instantanea, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, p)
+	return instantanea, estado == perfilFijoConsumoVigente
+}
+
+// El estado distingue una asignación legible pero no consumible de un fallo
+// del lector. Entrega GET/POST lo usa para responder 403 o 503 sin revelar
+// referencias ni preparar otra asignación.
+func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrolloConEstado(
+	ctx context.Context, p *perfilFijoCTDesarrollo,
+) (dominiovec.InstantaneaAutorizacion, estadoConsumoPerfilFijoCTDesarrollo) {
+	if s == nil {
+		return dominiovec.InstantaneaAutorizacion{}, perfilFijoConsumoFuenteNoDisponible
+	}
 	s.mu.Lock()
 	lector, ok := s.autoridadAsignaciones.(lectorAsignacionPublicadaCTDesarrollo)
 	s.mu.Unlock()
 	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) || p == nil {
-		return dominiovec.InstantaneaAutorizacion{}, false
+		return dominiovec.InstantaneaAutorizacion{}, perfilFijoConsumoFuenteNoDisponible
 	}
 	publicada, encontrada, err := lector.leerAsignacionPublicada(ctx, p.perfilRef())
-	var consumida dominiovec.InstantaneaAutorizacion
-	valida := false
-	if err == nil && encontrada && publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
-		consumida, valida = instantaneaConsumible(publicada, p.plantilla, s.reloj.Ahora())
-	}
-	if valida && consumida.Validar() == nil {
-		return consumida, true
+	estado := perfilFijoConsumoDenegado
+	if err != nil || publicada.instantanea.Validar() != nil && encontrada {
+		estado = perfilFijoConsumoFuenteNoDisponible
+	} else if encontrada && publicada.actoAsignacion == actoAsignacionPerfilFijoCTDesarrollo {
+		consumida, valida := instantaneaConsumible(publicada, p.plantilla, s.reloj.Ahora())
+		if valida && consumida.Validar() == nil {
+			return consumida, perfilFijoConsumoVigente
+		}
 	}
 	causa := "asignacion_no_consumible"
 	if err != nil {
@@ -406,7 +428,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) consumirPerfilFijoCTDesarrol
 		slog.Warn("petición de RRHH denegada: asignación publicada del perfil fijo no consumible",
 			"perfil", p.clave, "perfil_ref", p.perfilRef(), "causa", causa)
 	}
-	return dominiovec.InstantaneaAutorizacion{}, false
+	return dominiovec.InstantaneaAutorizacion{}, estado
 }
 
 // instantaneaPerfilFijoParaContexto valida la solicitud de la ruta como
