@@ -161,11 +161,14 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}> ${e(t("llamamiento_" + nombre))}</label></div>`;
     }
     const numero = nombre === "version_esperada" || nombre === "version_comunicacion_esperada";
-    if (nombre === "respuesta" && esRespuesta(operacion)) return `<fieldset class="ct-campo ct-respuesta-opciones">
+    // Dos opciones grandes, cada una con lo que pasará después (patrón común).
+    if (nombre === "respuesta" && esRespuesta(operacion)) return `<fieldset class="ct-campo ct-respuesta-opciones opciones-grandes">
       <legend>${e(t("llamamiento_respuesta_declarada"))} *</legend>
-      ${RESPUESTAS_RESOLUCION.map((opcion) => `<label for="${id}-${opcion}"><input id="${id}-${opcion}"
-        type="radio" name="respuesta" value="${opcion}"${valor === opcion ? " checked" : ""}${bloqueado ? " disabled" : ""} required>
-        ${e(t("llamamiento_opcion_" + opcion))}</label>`).join("")}</fieldset>`;
+      ${RESPUESTAS_RESOLUCION.map((opcion) => `<label class="opcion-grande" for="${id}-${opcion}"><input id="${id}-${opcion}"
+        type="radio" name="respuesta" value="${opcion}"${valor === opcion ? " checked" : ""}${bloqueado ? " disabled" : ""} required
+        aria-describedby="${id}-${opcion}-despues">
+        <span><strong>${e(t("llamamiento_opcion_" + opcion))}</strong>
+        <span id="${id}-${opcion}-despues">${e(t("llamamiento_opcion_" + opcion + "_despues"))}</span></span></label>`).join("")}</fieldset>`;
     if (nombre === "respuesta") return `<div class="ct-campo">
       <label for="${id}">${e(t(esResolucion(operacion)
         ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"))} *</label>

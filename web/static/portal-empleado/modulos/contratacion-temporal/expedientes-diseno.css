@@ -52,3 +52,22 @@
 @media (max-width: 760px) {
   .ct-exp-listado .tabla-datos.ct-exp-tabla-peticiones { min-width: 0; }
 }
+
+/* Respuesta del candidato: dos opciones grandes con lo que pasa después. */
+.ct-llamamiento .ct-respuesta-opciones.opciones-grandes { gap: 16px; }
+.ct-llamamiento .ct-respuesta-opciones.opciones-grandes > label.opcion-grande {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-width: 2px;
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  font-weight: 400;
+}
+.ct-llamamiento .ct-respuesta-opciones.opciones-grandes > label.opcion-grande:has(input:checked) {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
+}
+.ct-llamamiento .opcion-grande input[type="radio"] { width: 20px; height: 20px; margin-top: 2px; }
+.ct-llamamiento .opcion-grande strong { display: block; color: var(--portal-tinta); font-size: 1rem; }
+.ct-llamamiento .opcion-grande span span { color: var(--portal-muted); font-size: 0.875rem; }
