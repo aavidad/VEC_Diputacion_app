@@ -19,9 +19,21 @@ var catalogosPublicosExterno = map[string]struct{}{
 	"VEC_BOLSA_CATEGORIES_SOURCE_PATH": {},
 }
 
-// esVariableRuta reconoce por el nombre las variables de VEC que apuntan a un
+// rutasSinPrefijo son rutas que el proceso lee aunque no empiecen por VEC_:
+// las heredadas de Bolsa y las de confianza TLS que leen pgx y Go por su
+// cuenta. En el externo también deben quedar dentro de su material.
+var rutasSinPrefijo = map[string]struct{}{
+	"BOLSA_DATA_DIR": {}, "BOLSA_DATA_PATH": {},
+	"PGSSLROOTCERT": {}, "PGSSLCRL": {}, "PGSSLCRLDIR": {},
+	"SSL_CERT_FILE": {}, "SSL_CERT_DIR": {},
+}
+
+// esVariableRuta reconoce por el nombre las variables que apuntan a un
 // fichero o a un directorio.
 func esVariableRuta(nombre string) bool {
+	if _, ok := rutasSinPrefijo[nombre]; ok {
+		return true
+	}
 	if !strings.HasPrefix(nombre, "VEC_") {
 		return false
 	}
@@ -72,6 +84,9 @@ func comprobarCatalogoPublico(nombre, valor string) error {
 	}
 	if err != nil {
 		return rechazo("no se puede comprobar el catalogo publico", nombre)
+	}
+	if info, errInfo := os.Stat(absoluta); errInfo != nil || !info.Mode().IsRegular() {
+		return rechazo("catalogo publico que no es un fichero normal", nombre)
 	}
 	for directorio := filepath.Dir(absoluta); ; directorio = filepath.Dir(directorio) {
 		_, err := os.Lstat(filepath.Join(directorio, FicheroMarcaPortal))
