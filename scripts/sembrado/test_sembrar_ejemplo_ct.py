@@ -185,5 +185,77 @@ class Seleccion(unittest.TestCase):
             self.sembrador.categoria("auxiliar")
 
 
+class ReanudacionLlamamiento(unittest.TestCase):
+    def test_caida_tras_comunicacion_recupera_fecha_version_y_recibo(self):
+        sel = {"organizacion_ref": "organizacion:prueba", "llamamiento_ref": "llamamiento:prueba",
+               "version_llamamiento": 1, "recibo_ref": "recibo:seleccion"}
+        com = {"comunicacion_ref": "comunicacion:prueba", "recibo_ref": "recibo:comunicacion"}
+        fila = {"organizacion_ref": sel["organizacion_ref"], "expediente_ref": "expediente:prueba",
+                "llamamiento_ref": sel["llamamiento_ref"], "comunicacion_ref": com["comunicacion_ref"],
+                "recibo_comunicacion_ref": com["recibo_ref"], "version": 2,
+                "estado": "registrada_localmente", "estado_respuesta": "sin_respuesta",
+                "registrada_en": "2026-09-29T10:00:00Z"}
+        operaciones, consultas = [], 0
+        comunicaciones_persistidas, respuestas_persistidas = {}, {}
+
+        def exigir(paso, metodo, ruta, cuerpo=None):
+            nonlocal consultas
+            operaciones.append((metodo, ruta, cuerpo))
+            if ruta.endswith("/llamamientos/seleccion"):
+                return sel
+            if ruta.endswith("/llamamientos/comunicaciones"):
+                # El contrato confirmado, también en replay, no publica registrada_en.
+                comunicaciones_persistidas.setdefault(cuerpo["clave_idempotencia"], com["recibo_ref"])
+                return {**com, "estado_local": "confirmado", "respuesta_hasta": "2026-09-30T10:00:00Z",
+                        "version_resultante": 8}
+            if "/expedientes/comunicaciones?" in ruta:
+                consultas += 1
+                if consultas == 1:
+                    raise sembrado.ErrorAPI(paso, 503, {})
+                return {"expediente_ref": "expediente:prueba", "comunicaciones": [fila]}
+            if ruta.endswith("/llamamientos/respuestas/registro"):
+                respuestas_persistidas.setdefault(cuerpo["clave_idempotencia"], "recibo:respuesta")
+                return {"recibo_ref": respuestas_persistidas[cuerpo["clave_idempotencia"]]}
+            raise AssertionError(ruta)
+
+        sembrador = object.__new__(sembrado.Sembrador)
+        sembrador.rrhh = mock.Mock()
+        sembrador.rrhh.exigir.side_effect = exigir
+        sembrador.espacio = "ensayo"
+        caso = {"codigo": "L03"}
+        with self.assertRaises(sembrado.ErrorAPI):
+            sembrador.llamamiento(caso, "expediente:prueba", 7, 3)
+        self.assertFalse(any(ruta.endswith("/llamamientos/respuestas/registro") for _, ruta, _ in operaciones))
+
+        hechos = sembrador.llamamiento(caso, "expediente:prueba", 7, 3)
+        self.assertEqual(hechos, ["selección", "comunicación", "respuesta de aceptación recibida"])
+        comunicaciones = [cuerpo for _, ruta, cuerpo in operaciones if ruta.endswith("/llamamientos/comunicaciones")]
+        self.assertEqual(len(comunicaciones), 2)
+        self.assertEqual(comunicaciones[0], comunicaciones[1])
+        respuestas = [cuerpo for _, ruta, cuerpo in operaciones if ruta.endswith("/llamamientos/respuestas/registro")]
+        self.assertEqual(len(respuestas), 1)
+        self.assertEqual(respuestas[0]["version_comunicacion_esperada"], 2)
+        self.assertEqual(respuestas[0]["recibida_en"], "2026-09-29T10:00:01Z")
+        self.assertEqual(respuestas[0]["comunicacion_ref"], com["comunicacion_ref"])
+        self.assertEqual(respuestas[0]["clave_idempotencia"], sembrado.clave("ensayo", "L03", "respuesta"))
+        self.assertEqual(sembrador.llamamiento(caso, "expediente:prueba", 7, 3), hechos)
+        self.assertEqual(len(comunicaciones_persistidas), 1)
+        self.assertEqual(list(comunicaciones_persistidas.values()), [com["recibo_ref"]])
+        self.assertEqual(len(respuestas_persistidas), 1)
+        self.assertEqual(list(respuestas_persistidas.values()), ["recibo:respuesta"])
+
+    def test_consulta_no_acepta_otro_recibo(self):
+        sembrador = object.__new__(sembrado.Sembrador)
+        sembrador.rrhh = mock.Mock()
+        sembrador.rrhh.exigir.return_value = {"comunicaciones": [{
+            "comunicacion_ref": "comunicacion:prueba", "recibo_comunicacion_ref": "recibo:ajeno"}]}
+        with self.assertRaisesRegex(RuntimeError, "no coincide"):
+            sembrador.consultar_comunicacion("expediente:prueba",
+                                              {"organizacion_ref": "organizacion:prueba",
+                                               "llamamiento_ref": "llamamiento:prueba"},
+                                              {"comunicacion_ref": "comunicacion:prueba",
+                                               "recibo_ref": "recibo:comunicacion"})
+
+
 if __name__ == "__main__":
     unittest.main()

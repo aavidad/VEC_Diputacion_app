@@ -6,6 +6,8 @@ nombre del servidor y compara la huella SHA256 del certificado en cada conexión
 en tablas.
 Es idempotente: claves derivadas de `espacio_claves` y del código de cada caso, fechas fijas, y
 reanudación a partir de los hitos del expediente.
+Si se corta después de registrar una comunicación, el reintento consulta su fecha y versión
+por la API y comprueba que coinciden el llamamiento y el recibo antes de registrar la respuesta.
 
 Alberto lo lanza desde el kit del hito 6. El kit verifica el nombre y el ID del contenedor,
 obtiene del fichero preparado por Alberto la huella correspondiente a `clon` o `principal`,

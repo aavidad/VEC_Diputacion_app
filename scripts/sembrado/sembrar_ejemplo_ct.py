@@ -38,6 +38,7 @@ import re
 import ssl
 import sys
 import time
+import urllib.parse
 import uuid
 
 API = "/api/vec/contratacion-temporal"
@@ -253,9 +254,12 @@ class Sembrador:
         hechos.append("comunicación")
         if pasos < 3:
             return hechos
-        # La respuesta llega un segundo después de registrar la comunicación: mismo
-        # instante en cada repetición (la comunicación devuelve su fecha original).
-        registrada = dt.datetime.fromisoformat(com["registrada_en"].replace("Z", "+00:00"))
+        # El POST confirmado y su replay omiten registrada_en. La consulta autorizada
+        # conserva la fecha y la versión de la comunicación original.
+        comunicacion = self.consultar_comunicacion(exp, sel, com)
+        registrada = dt.datetime.fromisoformat(comunicacion["registrada_en"].replace("Z", "+00:00"))
+        if registrada.utcoffset() != dt.timedelta(0):
+            raise RuntimeError("la fecha de comunicación no está en UTC")
         recibida = (registrada + dt.timedelta(seconds=1)).replace(microsecond=0)
         espera = (recibida - dt.datetime.now(dt.timezone.utc)).total_seconds()
         if espera > 0:
@@ -263,12 +267,41 @@ class Sembrador:
         self.rrhh.exigir("respuesta recibida", "POST", f"{API}/llamamientos/respuestas/registro", {
             "clave_idempotencia": k("respuesta"), "organizacion_ref": sel["organizacion_ref"], "expediente_ref": exp,
             "llamamiento_ref": sel["llamamiento_ref"], "comunicacion_ref": com["comunicacion_ref"],
-            "version_comunicacion_esperada": com["version_resultante"], "respuesta": "aceptacion",
+            "version_comunicacion_esperada": comunicacion["version"], "respuesta": "aceptacion",
             "correo_ref": "correo:respuesta:" + k("correo"),
             "correo_sha256": hashlib.sha256(f"{self.espacio}:{caso['codigo']}:correo".encode()).hexdigest(),
             "recibida_en": recibida.strftime("%Y-%m-%dT%H:%M:%SZ")})
         hechos.append("respuesta de aceptación recibida")
         return hechos
+
+    def consultar_comunicacion(self, exp: str, sel: dict, com: dict) -> dict:
+        cursor = ""
+        for _ in range(100):
+            parametros = {"expediente_ref": exp, "limite": 20}
+            if cursor:
+                parametros["cursor"] = cursor
+            ruta = f"{API}/expedientes/comunicaciones?{urllib.parse.urlencode(parametros)}"
+            pagina = self.rrhh.exigir("consulta de comunicación", "GET", ruta)
+            for fila in pagina.get("comunicaciones") or []:
+                if fila.get("comunicacion_ref") != com["comunicacion_ref"]:
+                    continue
+                if (fila.get("expediente_ref") != exp or
+                        fila.get("organizacion_ref") != sel["organizacion_ref"] or
+                        fila.get("llamamiento_ref") != sel["llamamiento_ref"] or
+                        fila.get("recibo_comunicacion_ref") != com["recibo_ref"] or
+                        fila.get("version") != 2 or
+                        fila.get("estado") != "registrada_localmente" or
+                        fila.get("estado_respuesta") not in ("sin_respuesta", "registrada") or
+                        not isinstance(fila.get("registrada_en"), str)):
+                    raise RuntimeError("la comunicación consultada no coincide con el recibo")
+                return fila
+            siguiente = pagina.get("siguiente_cursor") or ""
+            if not siguiente:
+                break
+            if siguiente == cursor:
+                raise RuntimeError("la consulta de comunicaciones repitió el cursor")
+            cursor = siguiente
+        raise RuntimeError("la comunicación no aparece en la consulta autorizada")
 
     # ---------------------------------------------------------------- caso completo
     def sembrar(self, caso: dict) -> dict:
