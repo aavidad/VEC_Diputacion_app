@@ -42,6 +42,7 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 // que comparten contexto autenticado y PDP. Las escrituras y las lecturas de
 // cobertura usan sólo el perfil base; cuadro y detalle usan exclusivamente los perfiles
 // de consulta recibidos. Cada una conserva la acción nominal como capacidad.
+// La lista de peticiones de los centros para RRHH va la última y es GET.
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
@@ -64,7 +65,19 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
-	return fronteras
+	return append(fronteras, fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
+}
+
+// fronteraPeticionesCentroRRHHDesarrollo declara la lista de «Peticiones de
+// los centros» que consulta RRHH (GET). Con Bolsa compuesta, el autorizador
+// CT delega en el PDP común; sin esta frontera, la consulta se denegaba antes
+// de decidir y la ruta respondía siempre 503. Solo el perfil CT base la usa;
+// la entrega (POST) no se declara aquí: su alta interna exige otra frontera.
+func fronteraPeticionesCentroRRHHDesarrollo(perfilCT string) descriptorFronteraComunDesarrollo {
+	f := fronteraContratacionTemporalDesarrollo("ct-peticiones-centro-rrhh-consultar",
+		ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro, []string{perfilCT})
+	f.Metodo = http.MethodGet
+	return f
 }
 
 // CT131 añade únicamente sus tres fronteras con un perfil derivado distinto.
