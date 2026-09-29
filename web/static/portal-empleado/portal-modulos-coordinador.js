@@ -10,7 +10,7 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260928-auditoria-expediente-en-v2";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260928-auditoria-expediente-en-v2";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260928-auditoria-expediente-en-v2";
+import { calcularMetricasCuadro, resumirAsuntosInicio, tramitesParaInicio } from "./portal-inicio.js?v=20260928-auditoria-expediente-en-v2";
 import {
   componerCronosInterno,
   componerDietasInternas,
@@ -424,12 +424,18 @@ export function crearCoordinadorModulosPortal({
           && typeof recursos.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
           ? Object.freeze({ montar: recursos.auditoriaVista.montarVistaAuditoria,
             fuente: recursos.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null,
-        obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
+        obtenerMetricas: () => {
+          if (!listadoCuadro) return null;
+          const metricas = calcularMetricasCuadro(listadoCuadro);
+          return metricas ? { ...metricas, asuntos: resumirAsuntosInicio(listadoCuadro) } : null;
+        },
         // Número, centro y categoría se presentan al pedirlo, con los catálogos de alta que hayan llegado.
         obtenerTramitesInicio: () => {
           if (!listadoCuadro) return null;
           const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
-          return tramitesParaInicio(listadoCuadro).map((e) => ({
+          // Inicio necesita la página autorizada completa para contar avisos.
+          // La vista limita a ocho solo la tabla visible; nunca cuenta esa muestra.
+          return tramitesParaInicio(listadoCuadro, Infinity).map((e) => ({
             ...e,
             numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
             centro: etiqueta(alta?.catalogos?.centros, e.centro),
