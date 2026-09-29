@@ -24,19 +24,24 @@ import (
 // Vías de cobertura gobernadas por el catálogo de reglas (entradas
 // «c17.via_cobertura.<clave>», duda 7). Cada entrada es una vía: su valor es la
 // lista ordenada de comprobaciones, «procedencia» dice qué fuente las responde
-// y «prioridad» ordena las vías. Sin ninguna entrada rigen las tres de siempre.
+// y «prioridad» ordena las vías. «documentos» y «datos» son listas opcionales
+// de preparación de la vía (duda 73). Sin ninguna entrada rigen las tres de siempre.
 const (
-	prefijoViaCoberturaCT        = reglas.CTPrefijoViaCobertura
-	atributoPrioridadViaCT       = "prioridad"
-	atributoProcedenciaViaCT     = "procedencia"
-	maximoViasCoberturaCT        = 64
-	maximoComprobacionesViaCT    = 32
-	maximaPrioridadViaCT         = 65535
-	versionGobiernoCatalogoCT    = 3
-	maximoSondeosSecuenciaCT     = 4096
-	maximoReintentosSerieCT      = 3
-	expedienteSondeoGobiernoCT   = "expediente:ct:desarrollo:gobierno-cobertura"
-	dominioEventoGobiernoCatalog = "vec.ct.desarrollo.gobierno-cobertura.evento.v1"
+	prefijoViaCoberturaCT                = reglas.CTPrefijoViaCobertura
+	atributoPrioridadViaCT               = "prioridad"
+	atributoProcedenciaViaCT             = "procedencia"
+	atributoDocumentosViaCT              = "documentos"
+	atributoDatosViaCT                   = "datos"
+	maximoViasCoberturaCT                = 64
+	maximoComprobacionesViaCT            = 32
+	maximoElementosPreparacionViaCT      = 32
+	maximoElementosPreparacionCatalogoCT = 512
+	maximaPrioridadViaCT                 = 65535
+	versionGobiernoCatalogoCT            = 3
+	maximoSondeosSecuenciaCT             = 4096
+	maximoReintentosSerieCT              = 3
+	expedienteSondeoGobiernoCT           = "expediente:ct:desarrollo:gobierno-cobertura"
+	dominioEventoGobiernoCatalog         = "vec.ct.desarrollo.gobierno-cobertura.evento.v1"
 )
 
 var (
@@ -52,10 +57,13 @@ var (
 // orden y una sola procedencia por vía. La etiqueta no forma parte del
 // gobierno publicado ni de su huella.
 type viaCoberturaCT struct {
-	Clave          domain.ClaveCatalogo   `json:"clave"`
-	Procedencia    domain.ClaveCatalogo   `json:"procedencia"`
-	Comprobaciones []domain.ClaveCatalogo `json:"comprobaciones"`
-	Etiqueta       string                 `json:"-"`
+	Clave          domain.ClaveCatalogo                     `json:"clave"`
+	Procedencia    domain.ClaveCatalogo                     `json:"procedencia"`
+	Comprobaciones []domain.ClaveCatalogo                   `json:"comprobaciones"`
+	Documentos     []domain.ElementoPreparacionViaCobertura `json:"documentos,omitempty"`
+	Datos          []domain.ElementoPreparacionViaCobertura `json:"datos,omitempty"`
+	Ejemplo        bool                                     `json:"-"`
+	Etiqueta       string                                   `json:"-"`
 }
 
 // viasCoberturaPredeterminadasCT son las vías anteriores al catálogo, las de
@@ -94,9 +102,16 @@ func viasCoberturaDesdeReglasCT(vigentes []reglas.Regla) ([]viaCoberturaCT, erro
 			prioridad > maximaPrioridadViaCT || !procedencia.Valida() {
 			return nil, errViasCoberturaNoValidas
 		}
-		via := viaCoberturaCT{Clave: clave, Procedencia: procedencia, Etiqueta: regla.Etiqueta}
+		via := viaCoberturaCT{Clave: clave, Procedencia: procedencia, Etiqueta: regla.Etiqueta,
+			Ejemplo: regla.PaqueteEjemplo || regla.EsEjemplo()}
 		for _, elemento := range regla.Elementos() {
 			via.Comprobaciones = append(via.Comprobaciones, domain.ClaveCatalogo(elemento))
+		}
+		if via.Documentos, err = elementosPreparacionDesdeAtributoViaCT(regla.Atributos, atributoDocumentosViaCT); err != nil {
+			return nil, errViasCoberturaNoValidas
+		}
+		if via.Datos, err = elementosPreparacionDesdeAtributoViaCT(regla.Atributos, atributoDatosViaCT); err != nil {
+			return nil, errViasCoberturaNoValidas
 		}
 		ordenadas = append(ordenadas, viaOrdenada{via: via, prioridad: prioridad})
 	}
@@ -111,10 +126,47 @@ func viasCoberturaDesdeReglasCT(vigentes []reglas.Regla) ([]viaCoberturaCT, erro
 		}
 		vias = append(vias, ordenada.via)
 	}
+	// Una publicación no mezcla procedencia de ejemplo y procedencia aprobada.
+	// La bandera que viajará con su huella procede de las reglas resueltas,
+	// nunca del texto de una referencia opaca.
+	for _, via := range vias[1:] {
+		if via.Ejemplo != vias[0].Ejemplo {
+			return nil, errViasCoberturaNoValidas
+		}
+	}
 	if !viasCoberturaCoherentesCT(vias) {
 		return nil, errViasCoberturaNoValidas
 	}
 	return vias, nil
+}
+
+// La ausencia conserva el catálogo V1. Cada par clave:clave_i18n declarado
+// debe ser canónico y acotado; el orden se fija por su posición, desde uno.
+func elementosPreparacionDesdeAtributoViaCT(atributos map[string]string, nombre string) ([]domain.ElementoPreparacionViaCobertura, error) {
+	texto, presente := atributos[nombre]
+	if !presente {
+		return nil, nil
+	}
+	claves := strings.Split(texto, ",")
+	if texto == "" || len(claves) > maximoElementosPreparacionViaCT {
+		return nil, errViasCoberturaNoValidas
+	}
+	elementos := make([]domain.ElementoPreparacionViaCobertura, 0, len(claves))
+	vistas := make(map[domain.ClaveCatalogo]bool, len(claves))
+	for indice, par := range claves {
+		textoClave, textoI18n, separado := strings.Cut(par, ":")
+		clave := domain.ClaveCatalogo(textoClave)
+		claveI18n := domain.ClaveCatalogo(textoI18n)
+		if !separado || !clave.Valida() || !claveI18n.Valida() ||
+			!strings.Contains(textoI18n, ".") || vistas[clave] {
+			return nil, errViasCoberturaNoValidas
+		}
+		vistas[clave] = true
+		elementos = append(elementos, domain.ElementoPreparacionViaCobertura{
+			Clave: clave, Orden: uint16(indice + 1), ClaveI18n: claveI18n,
+		})
+	}
+	return elementos, nil
 }
 
 // viasCoberturaCoherentesCT comprueba lo que exige la publicación durable:
@@ -126,9 +178,20 @@ func viasCoberturaCoherentesCT(vias []viaCoberturaCT) bool {
 	}
 	vistas := make(map[domain.ClaveCatalogo]bool, len(vias))
 	procedencias := make(map[domain.ClaveCatalogo]domain.ClaveCatalogo)
+	elementosPreparacion := 0
 	for _, via := range vias {
 		if !via.Clave.Valida() || vistas[via.Clave] || !via.Procedencia.Valida() ||
 			len(via.Comprobaciones) == 0 || len(via.Comprobaciones) > maximoComprobacionesViaCT {
+			return false
+		}
+		if via.Ejemplo != vias[0].Ejemplo {
+			return false
+		}
+		if !elementosPreparacionCoherentesViaCT(via.Documentos) || !elementosPreparacionCoherentesViaCT(via.Datos) {
+			return false
+		}
+		elementosPreparacion += len(via.Documentos) + len(via.Datos)
+		if elementosPreparacion > maximoElementosPreparacionCatalogoCT {
 			return false
 		}
 		vistas[via.Clave] = true
@@ -145,10 +208,34 @@ func viasCoberturaCoherentesCT(vias []viaCoberturaCT) bool {
 	return true
 }
 
+func elementosPreparacionCoherentesViaCT(elementos []domain.ElementoPreparacionViaCobertura) bool {
+	if len(elementos) > maximoElementosPreparacionViaCT {
+		return false
+	}
+	vistas := make(map[domain.ClaveCatalogo]bool, len(elementos))
+	for indice, elemento := range elementos {
+		if !elemento.Clave.Valida() || !elemento.ClaveI18n.Valida() ||
+			!strings.Contains(string(elemento.ClaveI18n), ".") ||
+			vistas[elemento.Clave] || elemento.Orden != uint16(indice+1) {
+			return false
+		}
+		vistas[elemento.Clave] = true
+	}
+	return true
+}
+
 // huellaViasCoberturaCT resume el contenido gobernado (claves, orden,
 // procedencias y comprobaciones); la etiqueta no cuenta.
 func huellaViasCoberturaCT(vias []viaCoberturaCT) string {
 	material, _ := json.Marshal(vias)
+	if len(vias) > 0 && tienePreparacionViasCoberturaCT(vias) {
+		// La condición de ejemplo también pertenece a la identidad V2. Si RRHH
+		// reemplaza la fuente con iguales claves, no colisiona con su muestra.
+		material, _ = json.Marshal(struct {
+			Vias      []viaCoberturaCT `json:"vias"`
+			EsEjemplo bool             `json:"es_ejemplo"`
+		}{Vias: vias, EsEjemplo: vias[0].Ejemplo})
+	}
 	suma := sha256.Sum256(append([]byte("vec.ct.vias-cobertura.v1\n"), material...))
 	return hex.EncodeToString(suma[:])
 }
@@ -208,8 +295,10 @@ func nuevoGobiernoCoberturaParaViasCT(
 	}
 	definiciones := make([]domain.DefinicionViaCobertura, 0, len(vias))
 	reglasVias := make([]domain.ReglaViaDecisionCobertura, 0, len(vias))
+	esEjemplo := vias[0].Ejemplo && tienePreparacionViasCoberturaCT(vias)
 	for indice, via := range vias {
-		definicion := domain.DefinicionViaCobertura{Clave: via.Clave, Orden: uint16(indice + 1)}
+		definicion := domain.DefinicionViaCobertura{Clave: via.Clave, Orden: uint16(indice + 1),
+			Documentos: slices.Clone(via.Documentos), Datos: slices.Clone(via.Datos)}
 		regla := domain.ReglaViaDecisionCobertura{ViaClave: via.Clave, Prioridad: uint16(indice + 1)}
 		for orden, clave := range via.Comprobaciones {
 			definicion.Comprobaciones = append(definicion.Comprobaciones, domain.ComprobacionExigibleCobertura{
@@ -231,6 +320,7 @@ func nuevoGobiernoCoberturaParaViasCT(
 		Referencia: "catalogo:ct:desarrollo:cobertura:" + sufijo, Version: version,
 		PublicadoEn: publicadaEn, Vigencia: vigencia,
 		ProcedenciaRef: "procedencia:ct:desarrollo:cobertura:" + sufijo,
+		EsEjemplo:      esEjemplo,
 		Vias:           definiciones,
 	})
 	if err != nil {
@@ -273,6 +363,15 @@ func nuevoGobiernoCoberturaParaViasCT(
 		deseado.actuaciones = append(deseado.actuaciones, actuacion)
 	}
 	return deseado, nil
+}
+
+func tienePreparacionViasCoberturaCT(vias []viaCoberturaCT) bool {
+	for _, via := range vias {
+		if len(via.Documentos) > 0 || len(via.Datos) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // gobiernoCoberturaDeseadoParaCatalogoCT es la v2 de siempre si las vías

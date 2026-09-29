@@ -52,17 +52,25 @@ func reglaViaCoberturaPrueba(clave, valor, procedencia, prioridad string) reglas
 	}
 }
 
-func TestViasCoberturaDelPaqueteDeEjemploSonLasDeSiempre(t *testing.T) {
+func TestViasCoberturaDelPaqueteDeEjemploPublicanPreparacionPropia(t *testing.T) {
 	opciones, err := nuevasOpcionesAnalisisCT(t.Context(), resolutorReglasCTPrueba(t, rutaReglasCTEjemploPrueba))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(opciones.viasCobertura) != 3 ||
-		huellaViasCoberturaCT(opciones.viasCobertura) != huellaViasCoberturaCT(viasCoberturaPredeterminadasCT()) {
-		t.Fatalf("vías del ejemplo distintas de las de siempre: %+v", opciones.viasCobertura)
+		huellaViasCoberturaCT(opciones.viasCobertura) == huellaViasCoberturaCT(viasCoberturaPredeterminadasCT()) {
+		t.Fatalf("el ejemplo no define tres vías con preparación propia: %+v", opciones.viasCobertura)
 	}
-	if opciones.viasCobertura[1].Etiqueta != "Oferta SAE" {
-		t.Fatalf("etiqueta perdida: %+v", opciones.viasCobertura[1])
+	if opciones.viasCobertura[1].Etiqueta != "Oferta SAE" ||
+		len(opciones.viasCobertura[1].Documentos) != 2 || len(opciones.viasCobertura[1].Datos) != 4 ||
+		opciones.viasCobertura[1].Documentos[1].Clave != "nota_informativa_sae" ||
+		opciones.viasCobertura[1].Documentos[1].ClaveI18n != "contratacion_temporal.cobertura.doc.nota_informativa_sae" {
+		t.Fatalf("preparación informativa SAE perdida: %+v", opciones.viasCobertura[1])
+	}
+	for _, via := range opciones.viasCobertura {
+		if !via.Ejemplo || len(via.Documentos) == 0 || len(via.Datos) == 0 {
+			t.Fatalf("vía sin marca de ejemplo o metadatos: %+v", via)
+		}
 	}
 	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	deseado, err := gobiernoCoberturaDeseadoParaCatalogoCT(soporte, opciones.viasCoberturaVigentes())
@@ -73,11 +81,16 @@ func TestViasCoberturaDelPaqueteDeEjemploSonLasDeSiempre(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Mismo contenido que la v2: se reutiliza, no se publica otra versión.
+	// Las reglas de ejemplo cambian el contenido gobernado, sin tocar la v2 fija.
 	for indice, actuacion := range deseado.actuaciones {
-		if actuacion.HuellaSHA256 != fijas[indice+2].Actuacion.HuellaSHA256 {
-			t.Fatalf("el catálogo de ejemplo no reutiliza la v2 (acción %d)", indice)
+		if actuacion.HuellaSHA256 == fijas[indice+2].Actuacion.HuellaSHA256 {
+			t.Fatalf("el ejemplo reutilizó indebidamente la v2 (acción %d)", indice)
 		}
+	}
+	if deseado.catalogo.Version != versionGobiernoCatalogoCT || !deseado.catalogo.EsEjemplo ||
+		len(deseado.catalogo.Vias[0].Documentos) != 2 ||
+		deseado.catalogo.Vias[0].Documentos[0].Orden != 1 || deseado.catalogo.Vias[0].Datos[2].Orden != 3 {
+		t.Fatalf("orden y contenido de preparación no llegaron a la publicación: %+v", deseado.catalogo)
 	}
 	if sin, err := nuevasOpcionesAnalisisCT(t.Context(), nil); err != nil || sin.viasCobertura != nil {
 		t.Fatalf("sin catálogo no hay vías propias: %+v %v", sin, err)
@@ -94,7 +107,8 @@ func TestViasCoberturaNuevasPublicanVersionPropiaDeterminista(t *testing.T) {
 		t.Fatal(err)
 	}
 	if vias[0].Clave != "bolsa_vigente" || vias[2].Clave != "bolsa_otra_categoria" ||
-		len(vias[2].Comprobaciones) != 2 {
+		len(vias[2].Comprobaciones) != 2 ||
+		vias[0].Documentos != nil || vias[0].Datos != nil {
 		t.Fatalf("orden por prioridad no respetado: %+v", vias)
 	}
 	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
@@ -132,6 +146,52 @@ func TestViasCoberturaNuevasPublicanVersionPropiaDeterminista(t *testing.T) {
 	}
 }
 
+func TestPreparacionViaCambiaVersionSinAfectarV1(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	vias := viasCoberturaPredeterminadasCT()
+	antes, err := gobiernoCoberturaDeseadoParaCatalogoCT(soporte, vias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vias[0].Documentos = []domain.ElementoPreparacionViaCobertura{{
+		Clave: "ficha_preparacion_cobertura", Orden: 1,
+		ClaveI18n: "contratacion_temporal.cobertura.doc.ficha_preparacion_cobertura",
+	}}
+	despues, err := gobiernoCoberturaDeseadoParaCatalogoCT(soporte, vias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if antes.catalogo.EsEjemplo || despues.catalogo.EsEjemplo {
+		t.Fatal("se inventó procedencia de ejemplo para vías sin fuente acreditada")
+	}
+	if antes.catalogo.Version != 2 || despues.catalogo.Version != versionGobiernoCatalogoCT ||
+		antes.catalogo.Referencia == despues.catalogo.Referencia ||
+		antes.catalogo.HuellaSHA256 == despues.catalogo.HuellaSHA256 ||
+		antes.actuaciones[0].HuellaSHA256 == despues.actuaciones[0].HuellaSHA256 {
+		t.Fatal("cambiar documentos no creó identidad y versión nuevas")
+	}
+	vias[0].Documentos[0].Clave = "otra_ficha"
+	otra, err := gobiernoCoberturaDeseadoParaCatalogoCT(soporte, vias)
+	if err != nil || otra.catalogo.Referencia == despues.catalogo.Referencia {
+		t.Fatalf("otro documento reutilizó la misma referencia: %v", err)
+	}
+	vias[0].Documentos[0].ClaveI18n = "contratacion_temporal.cobertura.doc.otra_ficha"
+	otraEtiqueta, err := gobiernoCoberturaDeseadoParaCatalogoCT(soporte, vias)
+	if err != nil || otraEtiqueta.catalogo.Referencia == otra.catalogo.Referencia {
+		t.Fatalf("otra traducción reutilizó la misma referencia: %v", err)
+	}
+	for indice := range vias {
+		vias[indice].Ejemplo = true
+	}
+	if huellaViasCoberturaCT(vias) == huellaViasCoberturaCT(viasCoberturaPredeterminadasCT()) {
+		t.Fatal("el ejemplo reutilizó la huella V1")
+	}
+	ejemplo, err := gobiernoCoberturaDeseadoParaCatalogoCT(soporte, vias)
+	if err != nil || !ejemplo.catalogo.EsEjemplo || ejemplo.catalogo.Referencia == otraEtiqueta.catalogo.Referencia {
+		t.Fatalf("la fuente de ejemplo no creó otra identidad: %v", err)
+	}
+}
+
 func TestViasCoberturaRechazanCatalogoRoto(t *testing.T) {
 	casos := map[string][]reglas.Regla{
 		"prioridad repetida": {
@@ -146,10 +206,37 @@ func TestViasCoberturaRechazanCatalogoRoto(t *testing.T) {
 		"clave de vía inválida":   {reglaViaCoberturaPrueba("Bolsa", "existe_bolsa_vigente", "bolsa", "1")},
 		"procedencia incoherente": {reglaViaCoberturaPrueba("bolsa_vigente", "existe_bolsa_vigente", "bolsa", "1"), reglaViaCoberturaPrueba("oferta_sae", "existe_bolsa_vigente", "sae", "2")},
 	}
+	for nombre, atributo := range map[string]string{
+		"documentos vacíos": "", "documento vacío": "ficha:ct.doc.ficha,", "documento duplicado": "ficha:ct.doc.ficha,ficha:ct.doc.ficha",
+		"documento no canónico": "Ficha:ct.doc.ficha", "documento sin i18n": "ficha",
+		"documento i18n inválido": "ficha:ct_ficha", "demasiados documentos": strings.Repeat("a:ct.doc.a,", maximoElementosPreparacionViaCT) + "b:ct.doc.b",
+	} {
+		via := reglaViaCoberturaPrueba("bolsa_vigente", "existe_bolsa_vigente", "bolsa", "1")
+		via.Atributos[atributoDocumentosViaCT] = atributo
+		casos[nombre] = []reglas.Regla{via}
+	}
+	for nombre, atributo := range map[string]string{
+		"datos vacíos": "", "dato vacío": "categoria:ct.dato.categoria,", "dato duplicado": "categoria:ct.dato.categoria,categoria:ct.dato.categoria",
+		"dato no canónico": "categoría:ct.dato.categoria", "dato sin i18n": "categoria",
+		"dato i18n inválido": "categoria:ct_categoria", "demasiados datos": strings.Repeat("a:ct.dato.a,", maximoElementosPreparacionViaCT) + "b:ct.dato.b",
+	} {
+		via := reglaViaCoberturaPrueba("bolsa_vigente", "existe_bolsa_vigente", "bolsa", "1")
+		via.Atributos[atributoDatosViaCT] = atributo
+		casos[nombre] = []reglas.Regla{via}
+	}
 	for nombre, entradas := range casos {
 		if _, err := viasCoberturaDesdeReglasCT(entradas); !errors.Is(err, errViasCoberturaNoValidas) {
 			t.Fatalf("%s: se aceptó un catálogo roto (%v)", nombre, err)
 		}
+	}
+	mezcla := []reglas.Regla{
+		reglaViaCoberturaPrueba("bolsa_vigente", "existe_bolsa_vigente", "bolsa", "1"),
+		reglaViaCoberturaPrueba("oferta_sae", "oferta_sae_disponible", "sae", "2"),
+	}
+	mezcla[0].PaqueteEjemplo = true
+	mezcla[0].Atributos[atributoDatosViaCT] = "categoria"
+	if _, err := viasCoberturaDesdeReglasCT(mezcla); !errors.Is(err, errViasCoberturaNoValidas) {
+		t.Fatal("se admitió mezcla de ejemplo con reglas no acreditadas como ejemplo")
 	}
 	sinUnidad := reglaViaCoberturaPrueba("bolsa_vigente", "existe_bolsa_vigente", "bolsa", "1")
 	sinUnidad.Unidad = reglas.UnidadNinguna
