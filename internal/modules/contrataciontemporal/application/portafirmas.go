@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -9,17 +10,23 @@ import (
 
 // EstadoPortafirmas consulta el conector y falla cerrado: sin conector, con
 // error o con una respuesta incoherente, el portafirmas cuenta como no
-// conectado. La indisponibilidad nunca se presenta como envío ni firma.
-func EstadoPortafirmas(ctx context.Context, conector ports.ConectorPortafirmas) ports.EstadoConexionPortafirmas {
+// conectado. La indisponibilidad nunca se presenta como envío ni firma. El
+// estado devuelto siempre es válido; el error, si lo hay, explica por qué se
+// declaró no conectado y el llamante lo registra (sin conector no es error:
+// es la composición sin portafirmas).
+func EstadoPortafirmas(ctx context.Context, conector ports.ConectorPortafirmas) (ports.EstadoConexionPortafirmas, error) {
 	noConectado := ports.EstadoConexionPortafirmas{Motivo: ports.MotivoPortafirmasConexionPendiente}
 	if ctx == nil || nula(conector) {
-		return noConectado
+		return noConectado, nil
 	}
 	estado, err := conector.EstadoConexion(ctx)
-	if err != nil || estado.Validar() != nil {
-		return noConectado
+	if err != nil {
+		return noConectado, fmt.Errorf("%w: %w", ports.ErrPortafirmasNoDisponible, err)
 	}
-	return estado
+	if estado.Validar() != nil {
+		return noConectado, ports.ErrPortafirmasNoDisponible
+	}
+	return estado, nil
 }
 
 // EnviarAPortafirmas pide el envío del borrador exacto. Solo devuelve un
@@ -33,7 +40,7 @@ func EnviarAPortafirmas(ctx context.Context, conector ports.ConectorPortafirmas,
 		!ports.ClaveIdempotenciaFirmaValida(sol.ClaveIdempotencia) {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
 	}
-	if !EstadoPortafirmas(ctx, conector).Conectado {
+	if estado, _ := EstadoPortafirmas(ctx, conector); !estado.Conectado {
 		return cero, ports.ErrPortafirmasNoDisponible
 	}
 	recibo, err := conector.Enviar(ctx, sol)

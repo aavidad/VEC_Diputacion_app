@@ -52,7 +52,6 @@ test("valida el contrato exacto y rechaza desviaciones", () => {
     (c) => { c.documentos = []; },
     (c) => { c.huella_sha256 = "x"; },
     // Firmadoc: el servidor solo dice si está conectado; nada más se admite.
-    (c) => { delete c.portafirmas; },
     (c) => { c.portafirmas = { conectado: false }; },
     (c) => { c.portafirmas = { conectado: false, motivo: "Conexión" }; },
     (c) => { c.portafirmas = { conectado: true, motivo: "conexion_pendiente" }; },
@@ -381,4 +380,13 @@ test("la fase de firma se ve en cualquier fase del expediente real, sin botones 
   assert.match(insertados[0], /Cargo &lt;2&gt; \(paso 2 de 2\)/u);
   assert.doesNotMatch(insertados[0], /data-ct-firma-accion/u, "firmar solo cuando se pueden descargar los borradores");
   gestor.retirar();
+});
+
+test("sin el campo portafirmas el circuito vale y Firmadoc cuenta como no conectado", () => {
+  const datos = circuito();
+  delete datos.portafirmas;
+  const valido = validarCircuitoFirma(datos);
+  assert.ok(valido);
+  assert.deepEqual({ ...valido.portafirmas }, { conectado: false, motivo: "conexion_pendiente" });
+  assert.equal(validarCircuitoFirma(circuito()).portafirmas.conectado, false);
 });

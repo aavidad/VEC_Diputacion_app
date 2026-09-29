@@ -32,7 +32,8 @@ const VOCABULARIO = Object.freeze({
 const TONO_ESTADO = Object.freeze({
   pendiente_firma: "aviso", en_espera: "neutro", firmado: "exito", devuelto: "peligro",
 });
-const CAMPOS_CIRCUITO = ["esquema", "catalogo_ref", "huella_sha256", "ejemplo", "firma_eficaz", "documentos", "portafirmas"];
+const CAMPOS_CIRCUITO = ["esquema", "catalogo_ref", "huella_sha256", "ejemplo", "firma_eficaz", "documentos"];
+const NO_CONECTADO = Object.freeze({ conectado: false, motivo: "conexion_pendiente" });
 const MOTIVO_PORTAFIRMAS = /^[a-z][a-z0-9_]{2,63}$/u;
 const CAMPOS_DOCUMENTO = ["documento", "etiqueta", "pasos"];
 const CAMPOS_PASO = ["orden", "cargo", "perfil_ref", "accion", "condicion", "habilita", "devolucion", "sustitucion", "estado", "referencia"];
@@ -66,12 +67,16 @@ function validarPortafirmas(valor) {
   return Object.freeze({ ...valor });
 }
 
-/** Valida la respuesta completa; cualquier desviación la invalida entera. */
+/**
+ * Valida la respuesta completa; cualquier desviación la invalida entera.
+ * `portafirmas` es opcional: si falta, Firmadoc cuenta como no conectado.
+ */
 export function validarCircuitoFirma(datos) {
-  if (!camposExactos(datos, CAMPOS_CIRCUITO) || datos.esquema !== ESQUEMA
+  const conPortafirmas = datos !== null && typeof datos === "object" && Object.hasOwn(datos, "portafirmas");
+  if (!camposExactos(datos, conPortafirmas ? [...CAMPOS_CIRCUITO, "portafirmas"] : CAMPOS_CIRCUITO) || datos.esquema !== ESQUEMA
     || !textoAcotado(datos.catalogo_ref) || !HUELLA.test(datos.huella_sha256)
     || typeof datos.ejemplo !== "boolean" || datos.firma_eficaz !== false
-    || !validarPortafirmas(datos.portafirmas)
+    || (conPortafirmas && !validarPortafirmas(datos.portafirmas))
     || !Array.isArray(datos.documentos) || datos.documentos.length < 1
     || datos.documentos.length > MAXIMO_DOCUMENTOS) return null;
   const documentos = [];
@@ -85,7 +90,7 @@ export function validarCircuitoFirma(datos) {
   }
   return Object.freeze({
     catalogo_ref: datos.catalogo_ref, huella_sha256: datos.huella_sha256,
-    ejemplo: datos.ejemplo, documentos: Object.freeze(documentos), portafirmas: validarPortafirmas(datos.portafirmas),
+    ejemplo: datos.ejemplo, documentos: Object.freeze(documentos), portafirmas: conPortafirmas ? validarPortafirmas(datos.portafirmas) : NO_CONECTADO,
   });
 }
 

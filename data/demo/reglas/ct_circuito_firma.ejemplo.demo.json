@@ -13,7 +13,7 @@
     "revision": 2,
     "modulo_id": "contratacion_temporal",
     "nombre": "Circuito de firma de Contratación temporal — ejemplo",
-    "descripcion": "Pasos de firma de ejemplo del expediente. Por decisión de Dirección solo firma el órgano la resolución; el informe definitivo se mantiene porque su firma es la que permite remitir el expediente a Intervención. Cada entrada es un paso; ninguno está aprobado por RRHH.",
+    "descripcion": "Pasos de firma de ejemplo del expediente. Por decisión de Dirección, el órgano solo firma la resolución. El informe definitivo se mantiene porque su firma es la que permite remitir el expediente a Intervención. Cada entrada es un paso; ninguno está aprobado por RRHH.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Circuito de ejemplo para la presentación a RRHH; se retira antes de producción.",
     "entradas": [
@@ -138,7 +138,7 @@
     "creado_en": "2026-09-25T00:00:00Z",
     "ultima_modificacion_por": "direccion:vec",
     "ultima_modificacion_en": "2026-09-29T00:00:00Z",
-    "motivo_modificacion": "Pregunta 74: firma del órgano solo en la resolución. Se mantiene el informe definitivo porque su firma permite remitir a Intervención.",
+    "motivo_modificacion": "Dirección decide que el órgano solo firme la resolución (duda 74 de dudas.md). Se mantiene el informe definitivo porque su firma permite remitir a Intervención.",
     "publicado_por": "revision_catalogo_ejemplo_vec",
     "publicado_en": "2026-09-25T00:00:00Z",
     "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",

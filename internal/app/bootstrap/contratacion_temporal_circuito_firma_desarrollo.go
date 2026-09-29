@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -94,7 +95,11 @@ func (m manejadorCircuitoFirmaContratacionTemporalDesarrollo) ServeHTTP(w http.R
 		return
 	}
 	vista := vistaCircuitoFirmaDesarrollo(circuito)
-	estado := ctapp.EstadoPortafirmas(r.Context(), m.portafirmas)
+	estado, err := ctapp.EstadoPortafirmas(r.Context(), m.portafirmas)
+	if err != nil {
+		// Firmadoc se declara no conectado; el fallo del conector queda anotado.
+		slog.Warn("contratacion temporal: estado de Firmadoc no disponible", "causa", err.Error())
+	}
 	vista.Portafirmas = portafirmasCircuitoFirmaDesarrollo{Conectado: estado.Conectado, Motivo: estado.Motivo}
 	contenido, err := json.Marshal(map[string]circuitoFirmaDesarrollo{"data": vista})
 	if err != nil {

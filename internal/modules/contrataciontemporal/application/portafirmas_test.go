@@ -45,11 +45,17 @@ func TestEstadoPortafirmasFallaCerrado(t *testing.T) {
 		"no conectado": &conectorPortafirmasDoble{estado: ports.EstadoConexionPortafirmas{Motivo: ports.MotivoPortafirmasConexionPendiente}},
 	}
 	for nombre, conector := range casos {
-		if e := EstadoPortafirmas(ctx, conector); e.Conectado || e.Motivo != ports.MotivoPortafirmasConexionPendiente {
+		if e, _ := EstadoPortafirmas(ctx, conector); e.Conectado || e.Motivo != ports.MotivoPortafirmasConexionPendiente {
 			t.Errorf("%s: %+v", nombre, e)
 		}
 	}
-	if e := EstadoPortafirmas(ctx, &conectorPortafirmasDoble{estado: ports.EstadoConexionPortafirmas{Conectado: true}}); !e.Conectado {
+	if _, err := EstadoPortafirmas(ctx, &conectorPortafirmasDoble{errEstado: errors.New("caído")}); !errors.Is(err, ports.ErrPortafirmasNoDisponible) {
+		t.Errorf("el fallo del conector se devuelve para registrarlo: %v", err)
+	}
+	if _, err := EstadoPortafirmas(ctx, nil); err != nil {
+		t.Errorf("sin conector no hay fallo que registrar: %v", err)
+	}
+	if e, err := EstadoPortafirmas(ctx, &conectorPortafirmasDoble{estado: ports.EstadoConexionPortafirmas{Conectado: true}}); err != nil || !e.Conectado {
 		t.Errorf("un conector coherente y conectado se respeta: %+v", e)
 	}
 }
