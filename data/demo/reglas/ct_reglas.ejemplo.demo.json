@@ -464,7 +464,7 @@
       {
         "clave": "c20.cancelacion_expediente",
         "etiqueta": "Cancelación del expediente",
-        "descripcion": "El centro solicitante o RRHH pueden cancelar el expediente por uno de los motivos admitidos durante la solicitud, la asignación de unidad o el informe jurídico. Tras la fiscalización ya no se cancela. En este ejemplo, el centro permite cancelar a quien solicitó o ratificó la petición; sin perfiles designados, no puede hacerlo.",
+        "descripcion": "El centro solicitante o RRHH pueden cancelar el expediente por uno de los motivos admitidos durante la solicitud, la asignación de unidad o el informe jurídico. Tras la fiscalización ya no se cancela. En este ejemplo pueden hacerlo los perfiles de solicitud y ratificación del centro; sin perfiles designados, el centro no puede cancelar.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
