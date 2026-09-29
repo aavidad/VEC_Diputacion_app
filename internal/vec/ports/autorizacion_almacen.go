@@ -534,8 +534,8 @@ func (c ContextoOperacionAlmacen) Proyeccion() (ProyeccionContextoOperacionAlmac
 // adaptador duradero debe revalidar y consumir de forma unica en la misma
 // transaccion que DecisionRef -> (EfectoRef, HuellaPlanEfectoSHA256).
 func (c ContextoOperacionAlmacen) EvidenciaAutorizacion() (EvidenciaUsoDecisionAutorizacion, error) {
-	// Un contexto V3 no tiene evidencia V1: su concesión la consume el
-	// adaptador autoritativo con su propio material atestado.
+	// Un contexto V3 no tiene evidencia V1 (ver autorizacion_almacen_v3.go:
+	// su consumo durable exige un consumidor SQL propio de la operación).
 	if c.validarEstructura() != nil || c.datos.decisionV3 != nil {
 		return EvidenciaUsoDecisionAutorizacion{}, errorAutorizacionAlmacen()
 	}

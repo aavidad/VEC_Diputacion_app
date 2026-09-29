@@ -26,9 +26,15 @@ import (
 // operaciones que la composición necesita: custodiar el documento firmado de
 // un expediente y leer el original de un documento generado.
 //
-// La capacidad V3 no expone EvidenciaAutorizacion (esa evidencia es V1): el
-// consumo durable de la concesión V3 lo hace el adaptador autoritativo con su
-// propio material atestado, en la transacción del efecto.
+// La capacidad V3 no expone EvidenciaAutorizacion (esa evidencia es V1) y la
+// concesión V3 de almacén NO se consume de forma única por sí misma: vale
+// dentro de su ventana registrada. Por eso:
+//   - la lectura del original depende además de la descarga SQL de Documentos,
+//     que consume en su transacción la concesión documentos.original.descargar;
+//   - la custodia del firmado es un efecto y no puede componerse hasta que
+//     exista un consumidor durable propio de documentos.firmado.custodiar
+//     (migración AD3 nueva) que consuma la concesión en la misma transacción
+//     que registra el documento. Sin él, la composición no debe publicarla.
 
 // marcaPlanDecisionV3 separa las huellas de plan de contextos V3 de las V1.
 const marcaPlanDecisionV3 = "decision:v3"

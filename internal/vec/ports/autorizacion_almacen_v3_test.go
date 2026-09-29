@@ -2,7 +2,9 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -327,3 +329,44 @@ func TestAlmacenV3ContextoAlteradoNoValida(t *testing.T) {
 		t.Fatal("la huella del plan V3 no está separada de la V1")
 	}
 }
+
+// El contexto V3 es opaco: no se serializa ni se imprime su contenido.
+func TestAlmacenV3ContextoEsOpaco(t *testing.T) {
+	e := custodiaV3Prueba(t)
+	contexto, err := e.custodiar(e.ahora.Add(2 * time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := json.Marshal(contexto); err == nil {
+		t.Fatal("el contexto V3 se serializa en JSON")
+	}
+	for _, formato := range []string{"%v", "%+v", "%#v", "%s"} {
+		if texto := fmt.Sprintf(formato, contexto); texto != "[CONTEXTO-OPERACION-ALMACEN-OPACO]" ||
+			strings.Contains(texto, "documento:v3") || strings.Contains(texto, "dec_") {
+			t.Fatalf("%s revela el contexto: %q", formato, texto)
+		}
+	}
+}
+
+// Fija la huella de plan V1 de unas entradas conocidas: la refactorización
+// que admite la marca V3 no puede cambiar la identidad de los planes V1.
+func TestHuellaPlanV1NoCambia(t *testing.T) {
+	vinculos := VinculosOperacionAlmacen{
+		OperacionRef: "operacion:1", CargaRef: "carga:1", Clasificacion: "clase",
+		SujetoSeudonimoHMAC: "hmac-sha256:s_v1:" + strings.Repeat("a", 64),
+		HuellaSolicitudHMAC: "hmac-sha256:h_v1:" + strings.Repeat("b", 64), EfectoRef: "efecto:1",
+	}
+	e := especificacionCustodiarDocumentoFirmado()
+	v1 := huellaPlanOperacionAlmacenCampos("", "decision:1", strings.Repeat("c", 64), e.accionNegocio,
+		"recurso:1", strings.Repeat("d", 64), "finalidad", "correlacion:1", vinculos, e)
+	if v1 != huellaPlanV1Fijada {
+		t.Fatalf("la huella de plan V1 cambió: %s", v1)
+	}
+	if v3 := huellaPlanOperacionAlmacenCampos(marcaPlanDecisionV3, "decision:1", strings.Repeat("c", 64), e.accionNegocio,
+		"recurso:1", strings.Repeat("d", 64), "finalidad", "correlacion:1", vinculos, e); v3 == v1 {
+		t.Fatal("la marca V3 no separa la huella")
+	}
+}
+
+// huellaPlanV1Fijada se calculó con la función anterior a la refactorización.
+const huellaPlanV1Fijada = "a086ceebcbd20684feb201728933dd4f3ff32851509374073c03990307c3c509"
