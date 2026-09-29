@@ -94,6 +94,11 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog 
       AND NOT r.rolcreaterole AND NOT r.rolreplication AND NOT r.rolbypassrls)
     AND (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members m
       WHERE m.member=session_user::regrole)=1
+    AND (WITH RECURSIVE roles(rol_id) AS (
+      SELECT m.roleid FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::regrole
+      UNION
+      SELECT m.roleid FROM pg_catalog.pg_auth_members m JOIN roles r ON r.rol_id=m.member)
+      SELECT pg_catalog.count(*)=1 AND pg_catalog.bool_and(rol_id=pg_catalog.to_regrole(p_grupo)) FROM roles)
     AND EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
       JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
       WHERE m.member=session_user::regrole AND g.rolname=p_grupo
