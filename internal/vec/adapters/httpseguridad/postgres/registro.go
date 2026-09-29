@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"strconv"
 	"time"
-	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 

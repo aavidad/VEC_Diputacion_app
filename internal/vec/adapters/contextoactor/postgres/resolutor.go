@@ -10,12 +10,12 @@ import (
 	"io"
 	"reflect"
 	"time"
-	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -133,9 +133,12 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ResolverYRegistrarContextoA
 	// un COMMIT fallido, con la política común de espera. Con peticiones
 	// simultáneas del mismo actor dos intentos inmediatos no bastaban y la
 	// pérdida acababa en denegación.
+	// Tras un COMMIT incierto que la reconciliación da por ausente solo se
+	// repite una vez, como antes.
+	repetidoTrasIncierto := false
 	for intento := 1; intento <= postgresqlcomun.IntentosMaximosCarreraSerializable; intento++ {
 		if intento > 1 && !postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento-1) {
-			break
+			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
 		}
 		respuesta, estado, denegacion := r.ejecutar(ctx, consultaResolver, argumentos)
 		if estado == estadoContextoActorConfirmado {
@@ -160,6 +163,10 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ResolverYRegistrarContextoA
 			}
 			return confirmarRespuestaContextoActor(solicitud, reconciliada)
 		case estadoContextoActorAusente:
+			if repetidoTrasIncierto {
+				return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
+			}
+			repetidoTrasIncierto = true
 			continue
 		default:
 			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
