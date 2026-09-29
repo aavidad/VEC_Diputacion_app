@@ -85,7 +85,8 @@ type relojLecturaAlmacenPrueba struct{ t time.Time }
 func (r relojLecturaAlmacenPrueba) Ahora() time.Time { return r.t }
 
 func TestEmisorConcesionAlmacenUsaElVinculoDeLaMismaPeticion(t *testing.T) {
-	autoridad := &autoridadDocumentosDesarrollo{reloj: relojLecturaAlmacenPrueba{time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)}}
+	incidencias := &incidenciasDocumentosPrueba{}
+	autoridad := &autoridadDocumentosDesarrollo{reloj: relojLecturaAlmacenPrueba{time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)}, incidencias: incidencias}
 	ctx, vinculo := contextoPeticionDocumentosPrueba(t, autoridad)
 	datos, err := vinculo.Datos()
 	if err != nil {
@@ -110,6 +111,11 @@ func TestEmisorConcesionAlmacenUsaElVinculoDeLaMismaPeticion(t *testing.T) {
 		!s.VinculoAutenticacionActor.CoincideExactamenteCon(vinculo) || s.ReferenciaMotivo != motivo {
 		t.Fatalf("solicitud al PDP inesperada: %+v %v", s, err)
 	}
+	peticion := ctx.Value(claveContextoDocumentos{}).(contextoDocumentos)
+	if autorizador.resultado.HuellaSHA256 != peticion.seguridad.Resultado.HuellaSHA256 ||
+		autorizador.resultado.RegistroContextoRef != peticion.seguridad.Resultado.RegistroContextoRef {
+		t.Fatal("el PDP debe evaluar con el resultado de contexto de la misma petición")
+	}
 
 	// Sin contexto de la petición, de otra autoridad o de otra persona o
 	// perfil, ni siquiera se consulta al PDP.
@@ -126,6 +132,19 @@ func TestEmisorConcesionAlmacenUsaElVinculoDeLaMismaPeticion(t *testing.T) {
 			p.PrincipalID = "per_otra"
 			return ctx, p
 		},
+		"vínculo caducado": func() (context.Context, docautorizacion.SolicitudConcesionAlmacenV3) {
+			tarde := &autoridadDocumentosDesarrollo{reloj: relojLecturaAlmacenPrueba{autoridad.reloj.Ahora().Add(time.Hour)}}
+			c, _ := contextoPeticionDocumentosPrueba(t, autoridad)
+			valor := c.Value(claveContextoDocumentos{}).(contextoDocumentos)
+			valor.autoridad = tarde
+			e.autoridad = tarde
+			return context.WithValue(context.Background(), claveContextoDocumentos{}, valor), pedida
+		},
+		"contexto cancelado": func() (context.Context, docautorizacion.SolicitudConcesionAlmacenV3) {
+			c, cancelar := context.WithCancel(ctx)
+			cancelar()
+			return c, pedida
+		},
 		"otro perfil": func() (context.Context, docautorizacion.SolicitudConcesionAlmacenV3) {
 			p := pedida
 			p.PerfilActivoRef = "prf_otro"
@@ -138,13 +157,19 @@ func TestEmisorConcesionAlmacenUsaElVinculoDeLaMismaPeticion(t *testing.T) {
 		if _, err := e.EmitirConcesionAlmacenV3(c, p); !errors.Is(err, errLecturaAlmacenDocumentosDenegada) {
 			t.Errorf("%s: %v", nombre, err)
 		}
+		e.autoridad = autoridad
 	}
 	if autorizador.llamadas != antes {
 		t.Fatal("se consultó al PDP sin el vínculo de la misma petición")
 	}
+	autorizador.err = core.ErrAutorizacionDenegada
+	if _, err := e.EmitirConcesionAlmacenV3(ctx, pedida); !errors.Is(err, errLecturaAlmacenDocumentosDenegada) || len(incidencias.emitidas) != 0 {
+		t.Fatalf("una denegación del PDP deniega sin incidencia: %v %d", err, len(incidencias.emitidas))
+	}
 	autorizador.err = errors.New("pdp caído")
-	if _, err := e.EmitirConcesionAlmacenV3(ctx, pedida); !errors.Is(err, errLecturaAlmacenDocumentosDenegada) {
-		t.Fatalf("un fallo del PDP debe denegar: %v", err)
+	if _, err := e.EmitirConcesionAlmacenV3(ctx, pedida); !errors.Is(err, errLecturaAlmacenDocumentosDenegada) ||
+		len(incidencias.emitidas) != 1 || incidencias.emitidas[0].Codigo != core.IncidenciaGobiernoV3NoDisponible {
+		t.Fatalf("un fallo del PDP deniega y declara la incidencia: %v %+v", err, incidencias.emitidas)
 	}
 }
 
@@ -164,5 +189,13 @@ func TestSinSeudonimizadorNoSeComponeLaLectura(t *testing.T) {
 	}
 	if f, err := nuevaFabricaLecturaDocumentosDesarrollo(autoridad, &autorizadorAlmacenPrueba{}, motivo, s); f == nil || err != nil {
 		t.Fatalf("con todo compuesto debe haber fábrica: %v", err)
+	}
+}
+
+func TestSeudonimizadorAlmacenSeBorraAlCerrar(t *testing.T) {
+	s := nuevoSeudonimizadorAlmacenDesarrollo([sha256.Size]byte{7})
+	s.borrar()
+	if s.valido() {
+		t.Fatal("la clave derivada debe quedar a cero al cerrar")
 	}
 }

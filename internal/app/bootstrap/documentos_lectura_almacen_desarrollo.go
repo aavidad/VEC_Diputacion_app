@@ -41,6 +41,13 @@ func nuevoSeudonimizadorAlmacenDesarrollo(claveMaestra [sha256.Size]byte) *seudo
 	return &seudonimizadorAlmacenDesarrollo{clave: derivarClaveDesarrollo(claveMaestra, dominioSeudonimosAlmacenDesarrollo)}
 }
 
+// borrar pone a cero la clave derivada al cerrar la composición.
+func (s *seudonimizadorAlmacenDesarrollo) borrar() {
+	if s != nil {
+		s.clave = [sha256.Size]byte{}
+	}
+}
+
 func (s *seudonimizadorAlmacenDesarrollo) valido() bool {
 	return s != nil && s.clave != [sha256.Size]byte{}
 }
@@ -119,6 +126,11 @@ func (e *emisorConcesionAlmacenDocumentosDesarrollo) EmitirConcesionAlmacenV3(
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return vacia, err
+		}
+		// Una denegación es una respuesta del PDP; cualquier otro fallo es
+		// indisponibilidad del gobierno V3 y queda declarada como incidencia.
+		if !errors.Is(err, core.ErrAutorizacionDenegada) {
+			e.autoridad.incidencia(core.IncidenciaGobiernoV3NoDisponible, core.ComponenteIncidenciaGobiernoV3, core.EtapaIncidenciaConsulta)
 		}
 		return vacia, errors.Join(errLecturaAlmacenDocumentosDenegada, err)
 	}

@@ -298,8 +298,9 @@ func (a autoridadConsultaDocumentos) ResolverConsultaExpediente(ctx context.Cont
 	return a.autorizar(ctx, docports.AccionListar, finalidadListarDocumentos, c.ExpedienteRef, c.ExpedienteRef, preimagen)
 }
 
-// ResolverDescargaOriginal existe por contrato, pero la composición no
-// publica la descarga mientras no haya autoridad de lectura del almacén.
+// ResolverDescargaOriginal autoriza la consulta SQL de la descarga. La ruta
+// solo se publica si existe la fábrica de lectura del almacén
+// (nuevaFabricaLecturaDocumentosDesarrollo).
 func (a autoridadConsultaDocumentos) ResolverDescargaOriginal(ctx context.Context, c docports.ConsultaDocumento, expediente string) (docports.AutorizacionV3, error) {
 	preimagen, err := c.PreimagenDescargar()
 	if err != nil {
@@ -658,6 +659,9 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return nil, fmt.Errorf("%w: %w", errDocumentosEn(), err)
 	}
 	cierres = append(cierres, cerrarAlmacen)
+	if seudonimosAlmacen != nil {
+		cierres = append(cierres, seudonimosAlmacen.borrar)
+	}
 	if err := admitirCatalogoConservacion(cfg, politicas.Provisional(), c.Almacen.Tipo, almacen); err != nil {
 		return nil, err
 	}

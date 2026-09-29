@@ -315,3 +315,28 @@ func directorioAlmacenPrueba(t *testing.T) string {
 	}
 	return dir
 }
+
+// Con la descarga publicada, la frontera la protege igual que la consulta:
+// sin mTLS 401 sin escritura; con TLS sin identidad, 401 auditado con su ruta.
+func TestFronteraDocumentosProtegeLaDescargaPublicada(t *testing.T) {
+	registrador := &registradorDocumentosPrueba{}
+	a := &autoridadDocumentosDesarrollo{base: &autoridadRutasDietasDesarrollo{}, reloj: relojRutasDietas{}, registrador: registrador,
+		incidencias: &incidenciasDocumentosPrueba{},
+		publicadas:  map[string]bool{docpg.RutaFronteraConsulta: true, docpg.RutaFronteraDescarga: true}}
+	h := a.proteger(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionDocumentos(docpg.RutaFronteraDescarga, false))
+	if w.Code != http.StatusUnauthorized || len(registrador.ordenes) != 0 {
+		t.Fatalf("descarga sin mTLS: %d %d", w.Code, len(registrador.ordenes))
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionDocumentos(docpg.RutaFronteraDescarga, true))
+	if w.Code != http.StatusUnauthorized || len(registrador.ordenes) != 1 || registrador.ordenes[0].Ruta != docpg.RutaFronteraDescarga {
+		t.Fatalf("descarga con TLS sin identidad: %d %+v", w.Code, registrador.ordenes)
+	}
+	cadena := autoridadExactasConDocumentos{documentos: a}
+	ctx := context.WithValue(context.Background(), claveContextoDocumentos{}, contextoDocumentos{autoridad: a, ruta: docpg.RutaFronteraDescarga})
+	if err := cadena.AutorizarRutaExacta(ctx, docpg.RutaFronteraConsulta); !errors.Is(err, vechttp.ErrAccesoRutaExactaDenegado) {
+		t.Fatalf("el contexto de la descarga no autoriza la consulta: %v", err)
+	}
+}
