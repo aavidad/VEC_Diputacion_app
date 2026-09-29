@@ -1,4 +1,4 @@
 # Perfiles fijos de asignación e informe jurídico (corte 3): el contexto
 # canónico del informe sin «expediente_ref» en los ámbitos. Preimagen: CT51 y
 # CT123 instaladas; requiere antes CT-000144 (perfil fijo del análisis).
-deploy/postgresql/contratacion_temporal/migraciones/000145_informe_juridico_sin_expediente_en_ambitos.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000146_informe_juridico_sin_expediente_en_ambitos.up.sql
