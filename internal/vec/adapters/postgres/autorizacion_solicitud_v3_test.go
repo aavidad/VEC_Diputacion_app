@@ -256,6 +256,33 @@ func TestRegistroConcesionContextoActorV3PostgreSQLUsaContratoExactoYCommit(t *t
 	}
 }
 
+func TestRegistroCandidatoExternoUsaSoloFachadaNominal(t *testing.T) {
+	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, true)
+	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
+		escenario.solicitud, escenario.decision, escenario.motivo, escenario.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella, _ := domain.HuellaSHA256DecisionAutorizacionV3(escenario.decision)
+	registrada := escenario.ahora.Add(time.Microsecond)
+	tx := &transaccionRegistroContextoActorV3PostgreSQLPrueba{filas: &filasRegistroContextoActorV3PostgreSQLPrueba{resultados: []resultadoRegistroContextoActorV3PostgreSQLPrueba{{
+		concedida: punteroRegistroContextoActorV3Prueba(true), codigo: punteroRegistroContextoActorV3Prueba("concedida"),
+		huella: punteroRegistroContextoActorV3Prueba(huella), registrada: &registrada,
+	}}}}
+	a, err := nuevoAlmacenAutorizacion(&iniciadorRegistroContextoActorV3PostgreSQLPrueba{tx: tx})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.externo = true
+	if _, err = a.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(context.Background(), orden); err != nil {
+		t.Fatal(err)
+	}
+	if tx.consulta != consultaRegistrarDecisionCandidatoExternoV3 || !tx.commitInvocado {
+		t.Fatalf("frontera externa: consulta=%q commit=%v", tx.consulta, tx.commitInvocado)
+	}
+}
+
 func TestRegistroDenegacionContextoActorV3PostgreSQLUsaMismaFronteraSinConfirmar(t *testing.T) {
 	escenario := nuevoEscenarioRegistroContextoActorV3PostgreSQLPrueba(t, false)
 	orden, err := ports.NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(

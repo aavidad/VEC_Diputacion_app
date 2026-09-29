@@ -20,6 +20,12 @@ const consultaRegistrarDecisionContextoActorV3 = `
 		$1::bytea, $2::bytea, $3::numeric, $4::numeric
 	)`
 
+const consultaRegistrarDecisionCandidatoExternoV3 = `
+	SELECT concedida, codigo, decision_huella_sha256, registrada_en
+	FROM vec_autorizacion.registrar_decision_candidato_externo_v3(
+		$1::bytea, $2::bytea, $3::numeric, $4::numeric
+	)`
+
 // RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente registra
 // exclusivamente una concesion V3. La confirmacion nominal se construye en el
 // puerto, despues de que este metodo haya confirmado la transaccion durable.
@@ -123,8 +129,12 @@ func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
 		return time.Time{}, errorRegistroAutorizacionLigadaV3(ctx, err, errorNoDisponible)
 	}
 
+	consulta := consultaRegistrarDecisionContextoActorV3
+	if a.externo {
+		consulta = consultaRegistrarDecisionCandidatoExternoV3
+	}
 	filas, err := tx.Query(
-		ctx, consultaRegistrarDecisionContextoActorV3,
+		ctx, consulta,
 		decisionCanonica, motivoCanonico, personaVersion, perfilVersion,
 	)
 	if err != nil {

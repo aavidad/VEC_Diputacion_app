@@ -1,0 +1,3 @@
+# Requiere Identidad externa 000007/000008 y ContextoActor 000012 instalados antes.
+# Esta lista contiene solo AUT-15; AD3-116 y B59/AD3-115 tienen listas propias.
+deploy/postgresql/autorizacion/migraciones/000015_candidato_externo.up.sql
