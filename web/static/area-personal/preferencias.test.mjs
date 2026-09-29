@@ -83,7 +83,8 @@ test("la vista distingue error de lectura y confirmación con recibo; URL preval
   assert.match(renderizarPreferencias({ error: { codigo: "servicio" } }), /No se pudieron consultar sus preferencias/);
   assert.doesNotMatch(renderizarPreferencias({ error: { codigo: "servicio" } }), /<form/u);
   const html = renderizarPreferencias({ catalogo, estado, recibo: { recibo_ref: "recibo:propio" } });
-  assert.match(html, /recibo:propio/u);
+  assert.match(html, /preferencias-exito[^>]*>Preferencias guardadas\./u);
+  assert.doesNotMatch(html, /recibo:propio/u);
   assert.match(html, /name="filas"/u);
   assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/?lang=es" }, "en"), "es");
   assert.equal(idiomaAreaPersonal(["es-ES"], { href: "https://vec.example/area-personal/" }, "en"), "en");

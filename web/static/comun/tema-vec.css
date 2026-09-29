@@ -10,6 +10,8 @@
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #ffffff;
+  /* El logotipo institucional se imprime siempre sobre blanco, también en oscuro. */
+  --portal-fondo-logo: #ffffff;
   --portal-lateral-muted: #b7cde0;
   --portal-tinta: #10213b;
   --portal-muted: #586985;

@@ -7,8 +7,6 @@
 .menu-identidad { position: absolute; z-index: 40; inset-block-start: calc(100% + 8px); inset-inline-end: 0; width: max-content; min-width: 190px; max-width: min(90vw, 280px); padding: 6px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
 .menu-identidad button { width: 100%; padding: 10px 12px; border: 0; border-radius: var(--portal-radio-lg); background: transparent; color: var(--portal-tinta); text-align: left; cursor: pointer; }
 .menu-identidad button:hover, .menu-identidad button:focus-visible { background: var(--portal-superficie-alterna); }
-.pref-encabezado { margin-block: 0 12px; color: var(--portal-muted); }
-.pref-encabezado p { margin: 0; }
 .pref-formulario { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .pref-formulario .pref-panel:first-child { grid-row: span 2; }
 .pref-panel .cabecera-panel { background: var(--portal-superficie-alterna); }

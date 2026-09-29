@@ -51,8 +51,6 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   // Mis preferencias (5.08a) cambió el catálogo del portal: todo su grafo renueva URL.
   const vigente = "20260929-pref-508a-v2";
   const versionesEspeciales = new Map([
-    ["portal-preferencias-integracion.js", "20260929-pref-i18n-merge-v1"],
-    ["portal-preferencias.js", "20260929-pref-i18n-merge-v1"],
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
   ]);
   const archivos = ["index.html"];

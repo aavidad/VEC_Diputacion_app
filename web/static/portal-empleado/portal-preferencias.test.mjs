@@ -119,7 +119,8 @@ test("un PUT 503 conserva el borrador, exige nueva consulta y enfoca el resultad
     await new Promise((resolver) => setImmediate(resolver));
     assert.equal(escrituras, 2);
     assert.equal(versionEnviada, 1);
-    assert.match(html, /recibo:confirmado/u);
+    assert.match(html, /pref-aviso--exito[^>]*>Preferencias guardadas\./u);
+    assert.doesNotMatch(html, /recibo:confirmado/u);
     assert.equal(focos, 6);
     desmontar();
   } finally { globalThis.FormData = originalFormData; }
@@ -130,7 +131,7 @@ test("los errores de sesión, permiso, conflicto y validación mantienen avisos 
   globalThis.FormData = class { get(campo) { return String(valores[campo]); } };
   try {
     for (const [estado, frase] of [[401, "sesión ha caducado"], [403, "no tiene permiso"],
-      [409, "cambiaron en otra sesión"], [422, "rechazó una opción"]]) {
+      [409, "cambiaron en otra sesión"], [422, "guardar una de las opciones"]]) {
       let html = "";
       let enviar;
       const contenedor = { addEventListener: (nombre, funcion) => { if (nombre === "submit") enviar = funcion; },

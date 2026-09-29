@@ -21,8 +21,8 @@ function campoSelect(campo, catalogo, valor) {
 function campoBooleano(campo, valor) {
   return `<div class="pref-campo"><div class="pref-etiqueta"><label for="pref-${campo}">${escapar(t(`preferencias_${ETIQUETAS[campo]}`))}</label>${ayuda(campo)}</div><select id="pref-${campo}" name="${campo}"><option value="true"${valor ? " selected" : ""}>${escapar(t("preferencias_si"))}</option><option value="false"${!valor ? " selected" : ""}>${escapar(t("preferencias_no"))}</option></select></div>`;
 }
-function panel(titulo, subtitulo, campos) {
-  return `<section class="panel pref-panel"><div class="cabecera-panel"><div><h3>${escapar(t(titulo))}</h3><p>${escapar(t(subtitulo))}</p></div></div><div class="cuerpo-panel pref-campos">${campos}</div></section>`;
+function panel(titulo, campos) {
+  return `<section class="panel pref-panel"><div class="cabecera-panel"><h2>${escapar(t(titulo))}</h2></div><div class="cuerpo-panel pref-campos">${campos}</div></section>`;
 }
 function mensajeError(error, alGuardar = false) {
   if (error?.estado === 401) return t("preferencias_sesion");
@@ -103,15 +103,15 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     }
   }
   function renderizar() {
-    const encabezado = `<div class="pref-encabezado"><p>${escapar(t("preferencias_intro"))}</p></div>`;
+    const encabezado = "";
     if (estado === "sin_cargar" || estado === "cargando") return `${encabezado}<section class="panel pref-panel" role="status" aria-busy="true" tabindex="-1" data-pref-resultado><div class="cuerpo-panel">${escapar(t("preferencias_cargando"))}</div></section>`;
     if (!datos) return `${encabezado}<section class="panel pref-panel" role="alert"><div class="cuerpo-panel"><p tabindex="-1" data-pref-resultado>${escapar(mensajeError(error))}</p><button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></div></section>`;
     const v = borrador ?? datos.estado.valores;
     const estadoTexto = estado === "guardando" ? t("preferencias_guardando")
-      : datos.estado.version === 0 ? t("preferencias_no_guardadas") : t("preferencias_guardadas", { version: datos.estado.version });
+      : datos.estado.version === 0 ? t("preferencias_no_guardadas") : t("preferencias_guardadas");
     const aviso = error ? `<p class="pref-aviso pref-aviso--error" role="alert" tabindex="-1" data-pref-resultado>${escapar(mensajeError(error, true))} <button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></p>` : "";
-    const confirmado = recibo ? `<p class="pref-aviso pref-aviso--exito" role="status" tabindex="-1" data-pref-resultado>${escapar(t("preferencias_exito", { recibo: recibo.recibo_ref }))} ${escapar(t("preferencias_idioma_guardado"))}</p>` : "";
-    return `${encabezado}<p class="pref-estado" role="status" tabindex="-1"${!aviso && !confirmado ? " data-pref-resultado" : ""}>${escapar(estadoTexto)}</p>${aviso}${confirmado}<form id="formulario-preferencias" class="pref-formulario">${panel("preferencias_visual", "preferencias_visual_sub", campoSelect("idioma", datos.catalogo, v.idioma) + campoSelect("tamano_texto", datos.catalogo, v.tamano_texto) + campoBooleano("alto_contraste", v.alto_contraste) + campoSelect("tema", datos.catalogo, v.tema))}${panel("preferencias_navegacion", "preferencias_navegacion_sub", campoSelect("inicio", datos.catalogo, v.inicio) + campoSelect("filas", datos.catalogo, v.filas))}${panel("preferencias_avisos", "preferencias_avisos_sub", campoBooleano("aviso_correo_tareas", v.aviso_correo_tareas) + campoBooleano("aviso_correo_plazos", v.aviso_correo_plazos))}<div class="pref-acciones"><button class="boton-primario" type="submit"${estado !== "lista" ? " disabled" : ""}>${escapar(t(estado === "guardando" ? "preferencias_guardando" : "preferencias_guardar"))}</button></div></form>`;
+    const confirmado = recibo ? `<p class="pref-aviso pref-aviso--exito" role="status" tabindex="-1" data-pref-resultado>${escapar(t("preferencias_exito"))} ${escapar(t("preferencias_idioma_guardado"))}</p>` : "";
+    return `${encabezado}<p class="pref-estado" role="status" tabindex="-1"${!aviso && !confirmado ? " data-pref-resultado" : ""}>${escapar(estadoTexto)}</p>${aviso}${confirmado}<form id="formulario-preferencias" class="pref-formulario">${panel("preferencias_visual", campoSelect("idioma", datos.catalogo, v.idioma) + campoSelect("tamano_texto", datos.catalogo, v.tamano_texto) + campoBooleano("alto_contraste", v.alto_contraste) + campoSelect("tema", datos.catalogo, v.tema))}${panel("preferencias_navegacion", campoSelect("inicio", datos.catalogo, v.inicio) + campoSelect("filas", datos.catalogo, v.filas))}${panel("preferencias_avisos", campoBooleano("aviso_correo_tareas", v.aviso_correo_tareas) + campoBooleano("aviso_correo_plazos", v.aviso_correo_plazos))}<div class="pref-acciones"><button class="boton-primario" type="submit"${estado !== "lista" ? " disabled" : ""}>${escapar(t(estado === "guardando" ? "preferencias_guardando" : "preferencias_guardar"))}</button></div></form>`;
   }
   function instalar(contenedor) {
     contenedorInstalado = contenedor;
