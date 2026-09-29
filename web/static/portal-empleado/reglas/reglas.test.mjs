@@ -111,7 +111,7 @@ test("el cliente pide solo lectura, sin identidad propia, y traduce los errores"
   await assert.rejects(caido.reglas(), (e) => e.codigo === "error_servicio_no_disponible");
 });
 
-test("cada regla se abre para leerla entera: descripción, norma, valores, duda y referencia", () => {
+test("cada regla se abre para leerla entera: descripción, origen, norma y duda, sin códigos internos", () => {
   const d = validarReglas(respuesta());
   const larga = "Pregunta larga de RRHH ".repeat(30).trim();
   const lista = regla({ clave: "b30.documentos", unidad: "lista", cantidad: undefined, valor: "dni, titulo <x>,carnet", duda: larga });
@@ -121,11 +121,10 @@ test("cada regla se abre para leerla entera: descripción, norma, valores, duda 
   assert.match(html, new RegExp(`<button type="button" class="rg-regla-abrir" aria-expanded="false" aria-controls="${id}">`, "u"));
   assert.match(html, new RegExp(`<tr class="rg-detalle rg-fila--ejemplo" id="${id}" hidden>`, "u"));
   const detalle = detalleRegla(lista);
-  for (const texto of ["Qué establece", "Un día hábil.", "Norma en que se basa", "Supuesto de trabajo.", "Valores que admite", larga, "vec.bolsa.reglas:1:b05.plazo_respuesta"]) {
+  for (const texto of ["Qué establece", "Un día hábil.", "Norma en que se basa", "Supuesto de trabajo.", "Duda de RRHH", larga]) {
     assert.ok(detalle.includes(texto), texto);
   }
-  assert.match(detalle, /<li>dni<\/li><li>titulo &lt;x&gt;<\/li><li>carnet<\/li>/u);
-  assert.ok(!/Valores que admite/u.test(detalleRegla(regla())), "sin lista no hay bloque de valores");
+  for (const codigo of ["vec.bolsa.reglas:1", "b30.documentos", "dni", "carnet"]) assert.ok(!detalle.includes(codigo), `sin código interno: ${codigo}`);
   assert.match(detalleRegla(regla({ descripcion: "" })), /El catálogo no describe esta regla/u);
   const abierta = renderizarCatalogo({ ...d.catalogos[0], reglas: [lista] }, new Set([id]));
   assert.match(abierta, /aria-expanded="true"/u);

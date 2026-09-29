@@ -7,10 +7,13 @@
  * precarga de `index.html`, como en Documentos.
  */
 const { cargarTextos } = await import("../../comun/textos.js");
-const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = await import("../../comun/idioma.js");
+const { IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO, LOCALIZACION_ACTUAL } = await import("../../comun/idioma.js");
 
 /** Idioma de la interfaz, para el atributo `lang` de la página. */
 export const IDIOMA_REGLAS = IDIOMA_ACTUAL;
+
+/** Idioma en que el catálogo de reglas escribe sus textos: el idioma por defecto. */
+export const IDIOMA_DATOS_REGLAS = IDIOMA_POR_DEFECTO;
 
 export const MENSAJES_REGLAS = (await cargarTextos("reglas")).seccion("general");
 

@@ -59,13 +59,11 @@
     "error_acceso_denegado": "Su perfil no permite consultar las reglas.",
     "error_respuesta": "La respuesta del servidor no es válida.",
     "ayudaDetalle": "Pulse el nombre de una regla para leerla entera: qué establece, en qué norma se basa, qué valores admite y qué duda de RRHH queda por contestar. Vuelva a pulsarlo para cerrarla.",
-    "ayudaResolver": "En esta pantalla no se cambian reglas. Una duda se resuelve cuando RRHH la contesta en la lista de dudas; después se publica una versión nueva del catálogo con el valor aprobado, y esa versión es la que aparece aquí.",
+    "ayudaResolver": "En esta pantalla no se cambian reglas. Las dudas las contesta el Departamento de RRHH fuera de VEC. Cuando se aprueba un valor, se publica una versión nueva del catálogo y esa versión es la que aparece aquí.",
     "detalleQue": "Qué establece",
-    "detalleValores": "Valores que admite",
     "detalleNorma": "Norma en que se basa",
     "detalleOrigen": "Origen",
     "detalleDuda": "Duda de RRHH",
-    "detalleReferencia": "Referencia en el catálogo",
     "detalleSinDescripcion": "El catálogo no describe esta regla."
   }
 }

@@ -43,12 +43,12 @@ body.rg-app { margin: 0; background: var(--portal-fondo); color: var(--portal-ti
 .rg-tabla tbody tr.rg-fila { cursor: pointer; }
 .rg-tabla tbody tr.rg-fila:hover { background: var(--portal-azul-100); }
 .rg-tabla tbody th { border-left: 4px solid transparent; }
-.rg-fila--reglamento th { border-left-color: var(--portal-exito); }
-.rg-fila--ejemplo th { border-left-color: var(--portal-aviso); }
+.rg-tabla tbody tr.rg-fila--reglamento > th { border-left-color: var(--portal-exito); }
+.rg-tabla tbody tr.rg-fila--ejemplo > th { border-left-color: var(--portal-aviso); }
 .rg-regla-nombre { font-weight: 600; color: var(--portal-azul-700); }
 .rg-regla-abrir { display: inline-flex; align-items: flex-start; gap: 6px; min-height: 24px; margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
 .rg-regla-abrir::after { content: ""; flex: none; width: 7px; height: 7px; margin-top: 5px; border-right: 2px solid var(--portal-azul-700); border-bottom: 2px solid var(--portal-azul-700); transform: rotate(45deg); transition: transform 120ms ease-out; }
-.rg-regla-abrir[aria-expanded="true"]::after { transform: rotate(-135deg); margin-top: 9px; }
+.rg-regla-abrir[aria-expanded="true"]::after { transform: rotate(-135deg); }
 .rg-regla-abrir:hover .rg-regla-nombre { text-decoration: underline; }
 .rg-regla-abrir:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 2px; border-radius: 4px; }
 .rg-tabla tbody tr.rg-fila--abierta, .rg-tabla tbody tr.rg-fila--abierta:hover { background: var(--portal-azul-100); }
@@ -62,8 +62,6 @@ body.rg-app { margin: 0; background: var(--portal-fondo); color: var(--portal-ti
 .rg-detalle-cuerpo dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px 24px; margin: 0; }
 .rg-detalle-bloque dt { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--portal-muted); }
 .rg-detalle-bloque dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; white-space: normal; }
-.rg-detalle-bloque code { font-size: 13px; }
-.rg-valores { margin: 0; padding-left: 18px; }
 .rg-tabla small { color: var(--portal-muted); overflow-wrap: anywhere; }
 .rg-tabla td:nth-child(3) { min-width: 150px; }
 .rg-tabla td:nth-child(5) { max-width: 340px; }

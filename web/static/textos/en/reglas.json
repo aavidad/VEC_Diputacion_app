@@ -59,13 +59,11 @@
     "error_acceso_denegado": "Your profile cannot see the rules.",
     "error_respuesta": "The server response is not valid.",
     "ayudaDetalle": "Press the name of a rule to read it in full: what it sets, the rule it is based on, the values it accepts and the HR question still open. Press it again to close it.",
-    "ayudaResolver": "Rules are not changed on this page. A question is settled when HR answers it in the list of questions; a new catalogue version with the approved value is then published, and that version is the one shown here.",
+    "ayudaResolver": "Rules cannot be changed on this page. The HR Department answers the open questions outside VEC. Once a value is approved, a new catalogue version is published and that is the version shown here.",
     "detalleQue": "What it sets",
-    "detalleValores": "Values it accepts",
     "detalleNorma": "Based on",
     "detalleOrigen": "Source",
     "detalleDuda": "HR question",
-    "detalleReferencia": "Catalogue reference",
     "detalleSinDescripcion": "The catalogue does not describe this rule."
   }
 }

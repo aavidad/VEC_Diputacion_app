@@ -1,4 +1,4 @@
-import { IDIOMA_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v1";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -117,8 +117,9 @@ export function renderizarResumen(catalogos) {
 /** Identificador de fila estable y seguro para `id` y `aria-controls`. */
 export const idRegla = (modulo, clave) => `rg-regla-${`${modulo}--${clave}`.replace(/[^a-z0-9-]/gu, "-")}`;
 
-/** Valores de una lista, uno por elemento; vacío si la regla no es una lista. */
-const valoresLista = (r) => (r.unidad === "lista" && r.valor ? r.valor.split(",").map((v) => v.trim()).filter(Boolean) : []);
+/** Los textos de cada regla llegan del catálogo en su idioma: se marcan si la interfaz usa otro. */
+const LANG_DATOS = IDIOMA_REGLAS === IDIOMA_DATOS_REGLAS ? "" : ` lang="${esc(IDIOMA_DATOS_REGLAS)}"`;
+const datos = (texto) => `<span${LANG_DATOS}>${esc(texto)}</span>`;
 
 function filaRegla(r, modulo, abiertas) {
   const parcial = r.ejemplo_parcial ? `<br><small>${esc(t("parteEjemplo", { texto: r.ejemplo_parcial }))}</small>` : "";
@@ -127,27 +128,24 @@ function filaRegla(r, modulo, abiertas) {
   const id = idRegla(modulo, r.clave);
   const abierta = abiertas.has(id);
   return `<tr class="rg-fila rg-fila--${esc(r.origen)}${abierta ? " rg-fila--abierta" : ""}" data-regla="${id}">
-    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre">${esc(r.etiqueta)}</span></button><br><small>${esc(r.clave)}</small></th>
+    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre"${LANG_DATOS}>${esc(r.etiqueta)}</span></button><br><small>${esc(r.clave)}</small></th>
     <td class="rg-numero">${esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
     <td><span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}</td>
-    <td>${esc(r.duda)}</td>
+    <td>${datos(r.duda)}</td>
     <td class="rg-numero">${esc(formatearNumero(r.version))}</td>
   </tr>
   <tr class="rg-detalle rg-fila--${esc(r.origen)}" id="${id}"${abierta ? "" : " hidden"}><td colspan="6">${detalleRegla(r)}</td></tr>`;
 }
 
-/** Texto completo de la regla: lo que la fila no deja leer entero. */
+/** Texto completo de la regla, sin códigos internos: lo que la fila no deja leer entero. */
 export function detalleRegla(r) {
   const bloque = (clave, contenido) => `<div class="rg-detalle-bloque"><dt>${esc(t(clave))}</dt><dd>${contenido}</dd></div>`;
-  const valores = valoresLista(r);
   const partes = [
-    bloque("detalleQue", esc(r.descripcion || t("detalleSinDescripcion"))),
-    valores.length ? bloque("detalleValores", `<ul class="rg-valores">${valores.map((v) => `<li>${esc(v)}</li>`).join("")}</ul>`) : "",
-    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${esc(t("parteEjemplo", { texto: r.ejemplo_parcial }))}` : "")),
-    bloque("detalleNorma", esc(r.norma)),
-    bloque("detalleDuda", esc(r.duda)),
-    bloque("detalleReferencia", `<code>${esc(r.referencia)}</code>`),
+    bloque("detalleQue", r.descripcion ? datos(r.descripcion) : esc(t("detalleSinDescripcion"))),
+    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${datos(t("parteEjemplo", { texto: r.ejemplo_parcial }))}` : "")),
+    bloque("detalleNorma", datos(r.norma)),
+    bloque("detalleDuda", datos(r.duda)),
   ];
   return `<div class="rg-detalle-cuerpo"><dl>${partes.join("")}</dl></div>`;
 }
@@ -228,7 +226,9 @@ export async function iniciar(doc, cliente) {
     const detalle = doc.getElementById(id);
     if (detalle) detalle.hidden = !abrir;
     const vista = doc.defaultView;
-    try { vista?.history?.replaceState(null, "", abrir ? `#${id}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
+    // El ancla guarda la última regla abierta que sigue abierta, para recargar sin perderla.
+    const ultima = abrir ? id : [...abiertas].at(-1);
+    try { vista?.history?.replaceState(null, "", ultima ? `#${ultima}` : `${vista.location.pathname}${vista.location.search}`); } catch { /* sin historial */ }
   };
   // Se abre con el botón del nombre o pulsando en cualquier punto de la fila.
   $("rg-catalogos").addEventListener("click", (evento) => {
