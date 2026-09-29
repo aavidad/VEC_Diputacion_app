@@ -4,8 +4,9 @@
 H1 se restaura antes; H5 solo configura la aplicación. No instala SQL de ramas
 pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
 El journal privado se reconstruye desde recibos transaccionales del clon.
-Admite la base main@7f1ecea2f (33 SQL) y su extensión main@ff6493cfc
-(CT147, posición 34). La extensión conserva los recibos y metadatos originales
+Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
+(CT147, posición 34) y main@e78687528 (AD3-114 y CT148, posiciones 35/36).
+Cada extensión conserva los recibos y metadatos originales
 y añade una revisión del plan en el esquema del clon. Otros hashes exigen revisar
 de nuevo la lista causal y sus huellas, aunque el SQL parezca igual.
 """
@@ -23,11 +24,14 @@ import tempfile
 import uuid
 
 BASE_REF = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
-MAIN_REF = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
-REF_COUNTS = {BASE_REF: 33, MAIN_REF: 34}
+PREVIOUS_REF = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
+MAIN_REF = "e78687528d5725efd74e95c858d389f4437099ca"
+REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, MAIN_REF: 36}
+REF_ORDER = tuple(REF_COUNTS)
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
-    MAIN_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
+    PREVIOUS_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
+    MAIN_REF: "ad57f371c901f7418af156f4e651c7a36c2bda125f7bad380653272c2b320e14",
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
@@ -180,25 +184,49 @@ def acknowledge_plan(db, rows, source_ref, meta):
         revisions = json.loads(db.query(f"""SELECT coalesce(json_agg(x ORDER BY revision), '[]'::json)
           FROM (SELECT revision,source_ref,plan_sha,file_count,acknowledged_at
                 FROM {SCHEMA}.plan_revisions) x;"""))
-        if len(revisions) != 1 or revisions[0]["revision"] != 2 or (
-                revisions[0]["source_ref"] != MAIN_REF or len(rows) != 34
-                or revisions[0]["plan_sha"] != plan_hash(rows)
-                or revisions[0]["file_count"] != 34 or meta["source_ref"] != BASE_REF):
+        original_index = REF_ORDER.index(meta["source_ref"])
+        expected_refs = REF_ORDER[original_index + 1:original_index + 1 + len(revisions)]
+        if not revisions or len(expected_refs) != len(revisions):
             raise Refused("revisiones de plan incompatibles; no instalar ni volver a la base")
-    if meta["source_ref"] != source_ref and not revisions:
-        if meta["source_ref"] != BASE_REF or source_ref != MAIN_REF or len(rows) != 34:
-            raise Refused("extensión de plan no autorizada")
-        if len(receipts(db, rows)) != original_count:
-            raise Refused("la extensión requiere las 33 SQL originales completas")
+        for revision, ref in zip(revisions, expected_refs):
+            count = REF_COUNTS[ref]
+            if (revision["revision"] != REF_ORDER.index(ref) + 1
+                    or revision["source_ref"] != ref or count > len(rows)
+                    or revision["plan_sha"] != plan_hash(rows[:count])
+                    or revision["file_count"] != count):
+                raise Refused("revisiones de plan incompatibles; no instalar ni volver a la base")
+    recognized_ref = revisions[-1]["source_ref"] if revisions else meta["source_ref"]
+    if recognized_ref != source_ref:
+        index = REF_ORDER.index(recognized_ref)
+        if index + 1 >= len(REF_ORDER) or REF_ORDER[index + 1] != source_ref:
+            raise Refused("extensión no autorizada: completar primero la revisión intermedia")
+        required = REF_COUNTS[recognized_ref]
+        if len(receipts(db, rows)) != required:
+            raise Refused(f"la extensión requiere las {required} SQL anteriores completas")
+        revision = REF_ORDER.index(source_ref) + 1
+        count = REF_COUNTS[source_ref]
+        if exists == "t":
+            # V2 restringía esta infraestructura a la revisión 2 y 34 ficheros.
+            # Ampliar solo sus CHECK; no actualizar filas ni recibos originales.
+            ddl = f"""ALTER TABLE {SCHEMA}.plan_revisions
+              DROP CONSTRAINT IF EXISTS plan_revisions_revision_check,
+              DROP CONSTRAINT IF EXISTS plan_revisions_file_count_check,
+              DROP CONSTRAINT IF EXISTS plan_revisions_supported,
+              ADD CONSTRAINT plan_revisions_supported CHECK (
+                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36));"""
+        else:
+            ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
+              revision integer PRIMARY KEY, source_ref text NOT NULL,
+              plan_sha text NOT NULL, file_count integer NOT NULL,
+              acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+              CONSTRAINT plan_revisions_supported CHECK (
+                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)));
+              REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
         db.query(f"""BEGIN;
           SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
-          CREATE TABLE {SCHEMA}.plan_revisions (
-            revision integer PRIMARY KEY CHECK (revision=2), source_ref text NOT NULL,
-            plan_sha text NOT NULL, file_count integer NOT NULL CHECK (file_count=34),
-            acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp());
-          REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;
+          {ddl}
           INSERT INTO {SCHEMA}.plan_revisions(revision,source_ref,plan_sha,file_count)
-            VALUES (2,'{source_ref}','{plan_hash(rows)}',34);
+            VALUES ({revision},'{source_ref}','{plan_hash(rows)}',{count});
           COMMIT;""")
         return acknowledge_plan(db, rows, source_ref, meta)
     # current_* acredita el plan reconocido; solo los recibos acreditan instalación.
