@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -11,6 +12,7 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 
 OWNER = "Codex-M"
 SUBJECT = "desarrollo:clon-recorridos:candidato"
@@ -151,19 +153,55 @@ ROLLBACK;
 """
 
 
-def write_result(path: Path, result: dict) -> None:
+def validate_result_update(old: dict, result: dict, repo: Path) -> None:
+    old_target, new_target = old.get("target", {}), result.get("target", {})
+    if not isinstance(old_target, dict) or not isinstance(new_target, dict):
+        fail("candidate_result_preimage_mismatch")
+    immutable_old = {key: value for key, value in old.items() if key not in ("target", "inventory")}
+    immutable_new = {key: value for key, value in result.items() if key not in ("target", "inventory")}
+    if immutable_old != immutable_new or (
+        {key: value for key, value in old_target.items() if key != "source_commit"} !=
+        {key: value for key, value in new_target.items() if key != "source_commit"}
+    ):
+        fail("candidate_result_preimage_mismatch")
+    old_source, new_source = old_target.get("source_commit", ""), new_target.get("source_commit", "")
+    if not all(isinstance(source, str) and re.fullmatch(r"[0-9a-f]{40}", source)
+               for source in (old_source, new_source)):
+        fail("candidate_result_source_invalid")
+    if old_source != new_source:
+        run(["git", "-C", str(repo), "merge-base", "--is-ancestor", old_source, new_source])
+
+
+def write_result(path: Path, result: dict, repo: Path) -> None:
     path = canonical(path)
     private_dir(path.parent)
     encoded = (json.dumps(result, sort_keys=True, indent=2) + "\n").encode()
-    if path.exists():
-        old = read_json(path)
-        # Reinspect safely, but never switch the preserved target or leaf identity.
-        if old.get("target") != result.get("target") or old.get("profiles") != result.get("profiles"):
-            fail("candidate_result_preimage_mismatch")
-        return
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "wb") as stream:
-        stream.write(encoded)
+    lock = path.parent / "result.lock"
+    canonical(lock)
+    fd = os.open(lock, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            fail("candidate_result_lock_invalid")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if path.exists():
+            old = read_json(path)
+            # Only source ancestry and the read-only inventory may advance.
+            validate_result_update(old, result, repo)
+            if old == result:
+                return
+        temporary_fd, temporary_name = tempfile.mkstemp(prefix=".result-", dir=path.parent)
+        try:
+            with os.fdopen(temporary_fd, "wb") as stream:
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary_name, path)
+        finally:
+            if os.path.exists(temporary_name):
+                os.unlink(temporary_name)
+    finally:
+        os.close(fd)
 
 
 def provision(repo: Path, container: str, state: Path, material: Path,
@@ -206,7 +244,7 @@ def provision(repo: Path, container: str, state: Path, material: Path,
                           "CANAL_CLAUDE_CODEX.md:2026-09-30T00:29:NO-GO-178"]}],
               "inventory": inventory, "status": "blocked", "sql_written": False,
               "runtime_activated": False, "candidate_ref_assigned": False}
-    write_result(output / "result.json", result)
+    write_result(output / "result.json", result, repo)
     return result
 
 

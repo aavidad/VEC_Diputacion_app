@@ -128,6 +128,49 @@ class CandidateMaterialTests(unittest.TestCase):
         with self.assertRaisesRegex(candidate.CandidateMaterialError, "preimage_mismatch"):
             self.provision()
 
+    def test_source_descendant_updates_only_metadata_atomically(self):
+        first = self.provision()
+        path = self.state / "candidato-material/result.json"
+        before = path.stat().st_ino
+        ready = candidate.read_json(self.state / "DB_READY.json")
+        ready["commit"] = "b" * 40
+        self.write(self.state / "DB_READY.json", ready)
+        second = self.provision()
+        self.assertEqual(second["target"]["source_commit"], "b" * 40)
+        self.assertEqual(second["profiles"], first["profiles"])
+        self.assertEqual(second["env"], {})
+        self.assertEqual(candidate.read_json(path), second)
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertNotEqual(path.stat().st_ino, before)
+        ancestry = [argv for argv, _ in self.calls if "merge-base" in argv]
+        self.assertEqual(ancestry, [["git", "-C", str(self.repo), "merge-base", "--is-ancestor", "a" * 40, "b" * 40]])
+        self.assertFalse(list(path.parent.glob(".result-*")))
+
+    def test_unrelated_source_preserves_previous_result(self):
+        self.provision()
+        path = self.state / "candidato-material/result.json"
+        original = path.read_bytes()
+        proposed = candidate.read_json(path)
+        proposed["target"]["source_commit"] = "c" * 40
+        with patch.object(candidate, "run", side_effect=candidate.CandidateMaterialError("subprocess_failed")):
+            with self.assertRaisesRegex(candidate.CandidateMaterialError, "subprocess_failed"):
+                candidate.write_result(path, proposed, self.repo)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_changed_clone_refused_even_when_source_advances(self):
+        self.provision()
+        path = self.state / "candidato-material/result.json"
+        original = path.read_bytes()
+        proposed = candidate.read_json(path)
+        proposed["target"]["source_commit"] = "b" * 40
+        for field, value in (("owner", "other"), ("container_id", "other"), ("pg_port", 55532)):
+            changed = json.loads(json.dumps(proposed))
+            changed["target"][field] = value
+            with patch.object(candidate, "run", side_effect=self.fake_run):
+                with self.assertRaisesRegex(candidate.CandidateMaterialError, "preimage_mismatch"):
+                    candidate.write_result(path, changed, self.repo)
+        self.assertEqual(path.read_bytes(), original)
+
 
 if __name__ == "__main__":
     unittest.main()
