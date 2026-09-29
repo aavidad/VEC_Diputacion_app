@@ -1,0 +1,8 @@
+# Orden causal de B59 («Mis correos» en los avisos de llamamiento). Requiere
+# instaladas antes las SQL de 5.08a, 5.08b y 5.08c (listas *_508a_*, *_508b_*
+# y *_508c_*). Sin roles ni LOGIN nuevos. Ninguna tiene DOWN sobre historia.
+# Ensayada sobre el clon HITO1 junto con esas listas; no acredita instalación.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000109_consumidor_correo_avisos_llamamiento.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000010_persona_candidato_avisos.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000059_fuente_correo_llamamiento.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000008_correo_avisos_llamamiento.up.sql

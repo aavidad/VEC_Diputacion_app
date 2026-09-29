@@ -123,12 +123,12 @@ func TestDescriptoresCorreosUnicosYOrdenados(t *testing.T) {
 		}
 	}
 	dep := &dependenciasCorreosUsuariosDesarrollo{}
-	for i := range dep.materiales {
-		dep.materiales[i] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	for i := range dep.materiales.lote {
+		dep.materiales.lote[i] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
 	}
 	interna, ok := dep.materialesSuperficie(core.SuperficieAutenticacionInternaCorporativaV1)
 	externa, ok2 := dep.materialesSuperficie(core.SuperficieAutenticacionExternaPersonalV1)
-	if !ok || !ok2 || interna[0] != dep.materiales[0] || externa[0] != dep.materiales[6] {
+	if !ok || !ok2 || interna[0] != dep.materiales.lote[0] || externa[0] != dep.materiales.lote[6] {
 		t.Fatal("materiales por superficie mal repartidos")
 	}
 	if _, ok := dep.materialesSuperficie(core.SuperficieAutenticacionAdministracionPrivilegiadaV1); ok {
