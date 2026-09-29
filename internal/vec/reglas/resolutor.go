@@ -2,6 +2,7 @@ package reglas
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -199,6 +200,9 @@ func (r *Resolutor) ajustesEn(ctx context.Context, instante time.Time) (VersionA
 	if err != nil {
 		if ctx.Err() != nil {
 			return VersionAjustes{}, false, ctx.Err()
+		}
+		if errors.Is(err, ErrAjustesConflicto) {
+			return VersionAjustes{}, false, ErrAjustesConflicto
 		}
 		return VersionAjustes{}, false, ErrAjustesNoDisponibles
 	}

@@ -54,6 +54,9 @@ var (
 	// ErrAjustesNoDisponibles: la versión de ajustes no se pudo leer o no es
 	// coherente. Nunca se sustituye por los valores base.
 	ErrAjustesNoDisponibles = errors.New("reglas: ajustes de reglas no disponibles")
+	// ErrAjustesConflicto: otra transacción conserva el bloqueo o cambió la
+	// versión. El llamador puede distinguirlo de una caída del almacén.
+	ErrAjustesConflicto = errors.New("reglas: conflicto de ajustes de reglas")
 	// ErrAjusteInvalido: el ajuste toca un campo no editable, sale de las
 	// opciones o límites de la regla o produce una regla no válida.
 	ErrAjusteInvalido = errors.New("reglas: ajuste de regla no valido")

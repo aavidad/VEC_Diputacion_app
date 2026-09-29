@@ -496,7 +496,7 @@ petición original con `version_esperada`. La limitación temporal de
 `vigente_desde` y confirmación sigue descrita en el apartado 2.5.
 
 Para ese hash hay GO SQL independiente y ensayo 20/20 en PostgreSQL 18.4
-desechable. La PR continúa abierta: el SQL no está instalado en cidonia y el
+desechable. La PR #174 se integró en `main@383c19af9`; el SQL no está instalado en cidonia y el
 ensayo no acredita todavía el caso de uso, la pantalla ni el recorrido real.
 El futuro adaptador Go debe calcular la huella del material normalizado con
 `$1::jsonb::text` en PostgreSQL, como `plantillascatalogo/repositorio.go`.
