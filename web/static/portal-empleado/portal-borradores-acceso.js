@@ -1,5 +1,5 @@
-import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260929-firma-506-v2";
-import { traducirPortal } from "./portal-i18n.js?v=20260929-firma-506-v2";
+import { ErrorAPIBorradores } from "./portal-borradores-api.js?v=20260929-firma-506-v3";
+import { traducirPortal } from "./portal-i18n.js?v=20260929-firma-506-v3";
 
 const FASE_INICIAL = "inicial";
 const FASE_COMPROBANDO = "comprobando";
