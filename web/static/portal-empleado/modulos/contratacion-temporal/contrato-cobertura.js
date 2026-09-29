@@ -33,6 +33,10 @@ const ESTADOS_EVALUACION = new Set([
 ]);
 const ESQUEMA_RESULTADO_CONSULTA_COBERTURA =
   "vec.contratacion-temporal.resultado-consulta-cobertura.v1";
+const ESQUEMA_PROPUESTA_V1 = "vec.contratacion-temporal.propuesta-cobertura.v1";
+const ESQUEMA_PROPUESTA_V2 = "vec.contratacion-temporal.propuesta-cobertura.v2";
+const MAXIMOS_ELEMENTOS_PREPARACION = 512;
+const MAXIMOS_ELEMENTOS_POR_VIA = 32;
 
 function esRegistro(valor) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
@@ -240,6 +244,64 @@ function validarMotivoAlternativa(motivo, indice) {
   };
 }
 
+function validarElementosPreparacion(elementos, nombre) {
+  if (!esListaPlana(elementos, MAXIMOS_ELEMENTOS_POR_VIA)) {
+    throw new TypeError(`${nombre} no válido`);
+  }
+  const claves = new Set();
+  const ordenes = new Set();
+  return elementos.map((elemento, indice) => {
+    exigirCamposExactos(elemento, ["clave", "orden", "clave_i18n"], `${nombre}[${indice}]`);
+    if (!claveValida(elemento.clave) || !claveValida(elemento.clave_i18n)
+      || !elemento.clave_i18n.includes(".")
+      || !Number.isSafeInteger(elemento.orden) || elemento.orden < 1
+      || elemento.orden > MAXIMA_PRIORIDAD
+      || claves.has(elemento.clave) || ordenes.has(elemento.orden)) {
+      throw new TypeError(`${nombre} no válido`);
+    }
+    claves.add(elemento.clave);
+    ordenes.add(elemento.orden);
+    return { clave: elemento.clave, orden: elemento.orden, clave_i18n: elemento.clave_i18n };
+  }).sort((a, b) => a.orden - b.orden);
+}
+
+function validarCatalogoPreparacion(catalogo, evaluaciones) {
+  exigirCamposExactos(catalogo,
+    ["referencia", "version", "huella_sha256", "es_ejemplo", "vias"],
+    "catálogo de preparación");
+  if (!referenciaValida(catalogo.referencia) || !versionValida(catalogo.version, true)
+    || !huellaValida(catalogo.huella_sha256)
+    || typeof catalogo.es_ejemplo !== "boolean"
+    || !esListaPlana(catalogo.vias, MAXIMAS_VIAS)
+    || catalogo.vias.length !== evaluaciones.length) {
+    throw new TypeError("catálogo de preparación no válido");
+  }
+  const esperadas = new Set(evaluaciones.map(({ via_clave }) => via_clave));
+  const claves = new Set();
+  const ordenes = new Set();
+  let total = 0;
+  const vias = catalogo.vias.map((via, indice) => {
+    exigirCamposExactos(via, ["clave", "orden", "documentos", "datos"], `vía de preparación[${indice}]`);
+    if (!claveValida(via.clave) || !esperadas.has(via.clave) || claves.has(via.clave)
+      || !Number.isSafeInteger(via.orden) || via.orden < 1
+      || via.orden > MAXIMA_PRIORIDAD || ordenes.has(via.orden)) {
+      throw new TypeError("vía de preparación no válida");
+    }
+    claves.add(via.clave);
+    ordenes.add(via.orden);
+    const documentos = validarElementosPreparacion(via.documentos, `vía[${indice}].documentos`);
+    const datos = validarElementosPreparacion(via.datos, `vía[${indice}].datos`);
+    total += documentos.length + datos.length;
+    return { clave: via.clave, orden: via.orden, documentos, datos };
+  }).sort((a, b) => a.orden - b.orden);
+  if (total > MAXIMOS_ELEMENTOS_PREPARACION
+    || !claves.has("bolsa_vigente") || !claves.has("oferta_sae")) {
+    throw new TypeError("catálogo de preparación no válido");
+  }
+  return { referencia: catalogo.referencia, version: catalogo.version,
+    huella_sha256: catalogo.huella_sha256, es_ejemplo: catalogo.es_ejemplo, vias };
+}
+
 export function validarSolicitudPropuestaCobertura(solicitud) {
   exigirCamposExactos(
     solicitud,
@@ -332,10 +394,11 @@ export function validarPropuestaCobertura(propuesta) {
     ...camposV1,
     ...["motivos_alternativa", "avisos_via"]
       .filter((campo) => Object.hasOwn(propuesta ?? {}, campo)),
+    ...["catalogo"].filter((campo) => Object.hasOwn(propuesta ?? {}, campo)),
   ];
   exigirCamposExactos(propuesta, campos, "propuesta de cobertura");
-  if (propuesta.esquema
-      !== "vec.contratacion-temporal.propuesta-cobertura.v1"
+  if (![ESQUEMA_PROPUESTA_V1, ESQUEMA_PROPUESTA_V2].includes(propuesta.esquema)
+    || (propuesta.esquema === ESQUEMA_PROPUESTA_V2) !== Object.hasOwn(propuesta, "catalogo")
     || !ESTADOS_PROPUESTA.has(propuesta.estado)
     || !esListaPlana(propuesta.evaluaciones, MAXIMAS_VIAS)
     || propuesta.evaluaciones.length === 0
@@ -382,6 +445,9 @@ export function validarPropuestaCobertura(propuesta) {
   }
   if (Object.hasOwn(propuesta, "avisos_via")) {
     salida.avisos_via = validarAvisosViaCobertura(propuesta.avisos_via);
+  }
+  if (propuesta.esquema === ESQUEMA_PROPUESTA_V2) {
+    salida.catalogo = validarCatalogoPreparacion(propuesta.catalogo, evaluaciones);
   }
   return clonarYCongelar(salida);
 }
