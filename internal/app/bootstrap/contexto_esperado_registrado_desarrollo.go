@@ -118,6 +118,13 @@ func nuevaSesionReincorporacionTitularDesarrollo(
 	base *proveedorSesionConsultaRRHHDesarrollo,
 	esperado dominiovec.ResultadoContextoActorRegistradoV2,
 ) (proveedorSesionOperativaCTDesarrollo, error) {
+	return nuevaSesionPerfilAdicionalCTDesarrollo(base, esperado)
+}
+
+func nuevaSesionPerfilAdicionalCTDesarrollo(
+	base *proveedorSesionConsultaRRHHDesarrollo,
+	esperado dominiovec.ResultadoContextoActorRegistradoV2,
+) (proveedorSesionOperativaCTDesarrollo, error) {
 	if base == nil || base.soporte == nil || esperado.Validar() != nil ||
 		esperado.Contexto.PerfilActivoRef == base.base.Contexto.PerfilActivoRef ||
 		esperado.Contexto.Principal.ID != base.base.Contexto.Principal.ID ||
@@ -166,6 +173,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 	s.mu.Lock()
 	esperado := s.contextoEsperadoRegistrado
 	sesion := s.sesionOperativa
+	if rutaPerfilCoberturaCTDesarrollo(capacidad.ruta) {
+		esperado = s.contextoEsperadoRegistradoCobertura
+		sesion = s.sesionOperativaCobertura
+	}
 	if rutaReincorporacionTitularDesarrollo(capacidad.ruta) {
 		if s.reincorporacionTitular == nil {
 			s.mu.Unlock()

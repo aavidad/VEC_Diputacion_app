@@ -518,6 +518,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	alta.soporte.mu.Lock()
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	perfilCoberturaCatalogo := alta.soporte.contextoCobertura.Resultado.Contexto.PerfilActivoRef
 	alta.soporte.mu.Unlock()
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil || (auditoriaActiva && (!cfg.BolsaBorradoresEnabled || !cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas())) {
@@ -548,6 +549,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	declaracionesFrontera, err := descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
 		perfilCTCatalogo, perfilesConsulta, false, plantillasActivas, perfilPlantillas)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	declaracionesFrontera, err = asignarPerfilCoberturaCTDesarrollo(
+		declaracionesFrontera, perfilCTCatalogo, perfilCoberturaCatalogo)
 	if err != nil {
 		return nil, nil, nil, err
 	}

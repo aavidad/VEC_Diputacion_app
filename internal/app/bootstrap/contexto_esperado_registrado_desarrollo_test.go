@@ -278,6 +278,41 @@ func TestContextoOperativoReincorporacionSeleccionaPerfilYSesionDedicados(t *tes
 	}
 }
 
+func TestContextoOperativoCoberturaSeleccionaPerfilFijoYSesionDedicada(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	alta := soporte.contexto
+	cobertura, err := nuevoContextoCoberturaContratacionTemporalDesarrollo(principal, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	soporte.contextoCobertura = cobertura
+	altaVinculo, _ := alta.Vinculo.Datos()
+	coberturaVinculo, _ := cobertura.Vinculo.Datos()
+	if altaVinculo.PerfilActivoRef == coberturaVinculo.PerfilActivoRef ||
+		altaVinculo.SesionRef == coberturaVinculo.SesionRef ||
+		alta.Resultado.Contexto.Instantanea.CuentaRef != cobertura.Resultado.Contexto.Instantanea.CuentaRef ||
+		alta.Resultado.Contexto.PersonaRef != cobertura.Resultado.Contexto.PersonaRef {
+		t.Fatal("cobertura no conserva identidad con perfil y sesión separados")
+	}
+	soporte.contextoEsperadoRegistradoCobertura = cobertura.Resultado
+	soporte.sesionOperativaCobertura = proveedorSesionOperativaCTPrueba{contexto: cobertura}
+	for _, ruta := range []string{
+		httpinterno.RutaPropuestaCobertura,
+		httpinterno.RutaDecisionCobertura,
+		httpinterno.RutaRectificacionCobertura,
+		httpinterno.RutaResultadoCobertura,
+	} {
+		operativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, ruta))
+		if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != coberturaVinculo.PerfilActivoRef {
+			t.Fatalf("ruta %s no seleccionó el perfil de cobertura: %v", ruta, err)
+		}
+	}
+	soporte.sesionOperativaCobertura = proveedorSesionOperativaCTPrueba{contexto: alta}
+	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaPropuestaCobertura)); err == nil {
+		t.Fatal("la sesión de alta fue aceptada para cobertura")
+	}
+}
+
 func TestSesionReincorporacionTitularRevalidaMTLSConPerfilPropio(t *testing.T) {
 	e := nuevaSesionConsultaPrueba(t)
 	basePerfil := e.soporte.contexto.Resultado.Contexto.PerfilActivoRef

@@ -875,6 +875,9 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		principalID:       principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
 		contexto:          contexto,
+		// Los casos legados ejercitan el PDP con un solo perfil; la selección
+		// de dos perfiles reales se comprueba en la prueba de composición.
+		contextoCobertura: contexto,
 		motivo: dominiovec.ReferenciaEntradaCatalogo{
 			CatalogoID:           "motivos_autorizacion",
 			CatalogoVersion:      1,
@@ -901,6 +904,8 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 	}
 	soporte.contextoEsperadoRegistrado = contexto.Resultado
 	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: contexto}
+	soporte.contextoEsperadoRegistradoCobertura = contexto.Resultado
+	soporte.sesionOperativaCobertura = proveedorSesionOperativaCTPrueba{contexto: contexto}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
 		soporte,

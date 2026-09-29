@@ -133,12 +133,28 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
+	esperadoCobertura, err := contextoEsperadoRegistradoParaSemillaDesarrollo(
+		ctx, autoridadContexto, soporte, soporte.contextoCobertura.Resultado)
+	if err != nil || esperadoCobertura.Contexto.PerfilActivoRef == esperado.Contexto.PerfilActivoRef ||
+		esperadoCobertura.Contexto.Principal.ID != esperado.Contexto.Principal.ID ||
+		esperadoCobertura.Contexto.Instantanea.CuentaRef != esperado.Contexto.Instantanea.CuentaRef ||
+		esperadoCobertura.Contexto.PersonaRef != esperado.Contexto.PersonaRef {
+		return nil, nil, fallo
+	}
+	sesionCobertura, err := nuevaSesionPerfilAdicionalCTDesarrollo(proveedor, esperadoCobertura)
+	if err != nil {
+		return nil, nil, fallo
+	}
 	soporte.mu.Lock()
-	if soporte.sesionOperativa != nil {
+	if soporte.sesionOperativa != nil || soporte.sesionOperativaCobertura != nil ||
+		(soporte.contextoEsperadoRegistradoCobertura.Validar() == nil &&
+			!mismoContextoEsperadoRegistradoDesarrollo(soporte.contextoEsperadoRegistradoCobertura, esperadoCobertura)) {
 		soporte.mu.Unlock()
 		return nil, nil, fallo
 	}
 	soporte.sesionOperativa = proveedor
+	soporte.contextoEsperadoRegistradoCobertura = esperadoCobertura
+	soporte.sesionOperativaCobertura = sesionCobertura
 	soporte.mu.Unlock()
 	completa = true
 	return proveedor, cerrar, nil
