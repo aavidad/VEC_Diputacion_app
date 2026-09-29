@@ -335,5 +335,10 @@
     "causa_detalle": "Details",
     "causa_incompleta": "Choose a reason; with “Other reason”, write the reason (up to 1000 characters).",
     "motivo_causa": "{causa} ({procedencia})"
+  },
+  "areaPersonal": {
+    "miBolsa": {
+      "rolPortal": "My pool and call-ups"
+    }
   }
 }
