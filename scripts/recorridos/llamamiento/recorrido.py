@@ -30,6 +30,11 @@ FECHA_ETAPA = {
     "candidato_respuesta": "registrada_en", "declaracion_rrhh": "registrada_en",
     "resolucion_rrhh": "resuelta_en", "siguiente": "confirmada_en",
 }
+ESTADO_HTTP_INICIAL = {
+    "seleccion": 200,  # Selección responde 200 tanto al abrir como al recuperar.
+    "comunicacion": 201, "candidato_respuesta": 201,
+    "declaracion_rrhh": 201, "resolucion_rrhh": 201, "siguiente": 201,
+}
 
 
 class NoEjecutado(ValueError):
@@ -142,6 +147,10 @@ def comprobar_recibo(cuerpo: dict, esperados: dict) -> None:
             raise FalloRecorrido("el recibo no coincide con la evidencia local esperada")
 
 
+def estado_http_esperado(nombre: str, recuperar: bool) -> int:
+    return 200 if recuperar else ESTADO_HTTP_INICIAL[nombre]
+
+
 def comprobar_navegador(contexto, pagina) -> None:
     estado = pagina.evaluate("""() => ({
         cliente: document.documentElement.clientWidth,
@@ -252,7 +261,7 @@ def ejecutar(escenario: dict, recuperar: bool = False) -> None:
                 input()
                 coincidentes = [r for r in observadas[actor] if
                                 r.request.method == "POST" and urlsplit(r.url).path == ruta]
-                esperado_http = 200 if recuperar else 201
+                esperado_http = estado_http_esperado(nombre, recuperar)
                 if len(coincidentes) != 1 or coincidentes[0].status != esperado_http:
                     raise FalloRecorrido("la etapa no produjo un único POST con el estado esperado")
                 comprobar_recibo(coincidentes[0].json(), etapa["campos_recibo"])
@@ -274,17 +283,19 @@ def ejecutar(escenario: dict, recuperar: bool = False) -> None:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--escenario", required=True, type=Path, help="JSON absoluto, fuera de Git")
-    p.add_argument("--ejecutar", action="store_true", help="abre Chrome y observa las acciones del operador")
-    p.add_argument("--recuperar", action="store_true", help="tras reinicio: comprueba GET propio y replays RRHH")
+    modo = p.add_mutually_exclusive_group()
+    modo.add_argument("--comprobar", action="store_true", help="valida entradas, sin abrir Chrome")
+    modo.add_argument("--ejecutar", action="store_true", help="abre Chrome y observa las acciones del operador")
+    modo.add_argument("--recuperar", action="store_true", help="tras reinicio: comprueba GET propio y replays RRHH")
     a = p.parse_args()
     raiz = Path(__file__).resolve().parents[3]
     try:
         escenario = comprobar_entrada(leer_json(fichero_externo(str(a.escenario), raiz)), raiz)
-        if a.ejecutar and a.recuperar:
-            raise NoEjecutado("elija primera ejecución o recuperación")
-        if not a.ejecutar and not a.recuperar:
+        if a.comprobar:
             print("PREPARADO: entradas locales verificadas; NO EJECUTADO en navegador")
             return 0
+        if not a.ejecutar and not a.recuperar:
+            raise NoEjecutado("indique --comprobar, --ejecutar o --recuperar")
         ejecutar(escenario, recuperar=a.recuperar)
         return 0
     except NoEjecutado as error:

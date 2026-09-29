@@ -4,6 +4,8 @@ import hashlib
 import json
 import shutil
 import stat
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -11,7 +13,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from recorrido import (FECHA_ETAPA, FalloRecorrido, NoEjecutado, comprobar_entrada,
-                       comprobar_recibo, fichero_externo, mismo_origen, servir_solo_origen)
+                       comprobar_recibo, estado_http_esperado, fichero_externo,
+                       mismo_origen, servir_solo_origen)
 
 
 class RecorridoPrueba(unittest.TestCase):
@@ -77,6 +80,25 @@ class RecorridoPrueba(unittest.TestCase):
                         {"recibo_ref": "recibo:1", "version_resultante": 3})
         with self.assertRaises(FalloRecorrido):
             comprobar_recibo({"data": {"recibo_ref": "recibo:2"}}, {"recibo_ref": "recibo:1"})
+
+    def test_seleccion_inicial_y_replay_responden_200(self):
+        self.assertEqual(estado_http_esperado("seleccion", False), 200)
+        self.assertEqual(estado_http_esperado("seleccion", True), 200)
+        self.assertEqual(estado_http_esperado("comunicacion", False), 201)
+        self.assertEqual(estado_http_esperado("comunicacion", True), 200)
+
+    def test_cli_sin_modo_no_declara_exito(self):
+        escenario = Path(self.temporal.name) / "material" / "escenario.json"
+        escenario.write_text(json.dumps(self.escenario), encoding="utf-8")
+        comando = [sys.executable, str(Path(__file__).with_name("recorrido.py")),
+                   "--escenario", str(escenario)]
+        sin_modo = subprocess.run(comando, capture_output=True, text=True, check=False, timeout=5)
+        self.assertEqual(sin_modo.returncode, 3)
+        self.assertIn("NO EJECUTADO", sin_modo.stderr)
+        comprobar = subprocess.run(comando + ["--comprobar"], capture_output=True,
+                                  text=True, check=False, timeout=5)
+        self.assertEqual(comprobar.returncode, 0)
+        self.assertIn("PREPARADO", comprobar.stdout)
 
     def test_material_en_raiz_compartida_no_se_acepta(self):
         worktree = self.raiz / ".worktrees" / "otro"

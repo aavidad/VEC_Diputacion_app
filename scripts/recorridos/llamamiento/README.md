@@ -5,6 +5,8 @@ dos contextos mTLS separados: RRHH en el portal interno y la persona candidata
 en Mi bolsa. El operador realiza las acciones en las pantallas; el programa
 comprueba un solo POST por etapa, su estado y los campos estables del recibo.
 No crea peticiones de efecto por API.
+La selección devuelve `200` incluso al abrir el llamamiento; las demás
+operaciones nuevas devuelven `201` y sus recuperaciones `200`.
 
 El contexto Playwright intercepta cada petición de Chrome. Solo obtiene recursos
 del origen HTTPS loopback configurado. Usa `route.fetch(max_redirects=0)`, comprueba
@@ -74,7 +76,7 @@ archivos son absolutas y externas al repositorio.
 ## Ejecución
 
 ```sh
-python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json
+python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json --comprobar
 python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json --ejecutar
 # Tras reiniciar aplicación y PostgreSQL del clon aislado:
 python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/escenario.json --recuperar
@@ -82,7 +84,9 @@ python3 scripts/recorridos/llamamiento/recorrido.py --escenario /ruta/privada/es
 
 La primera orden solo comprueba entradas. Sin H3–H5, binario, certificados o
 recibos esperados, termina con código `3` y **NO EJECUTADO**, antes de abrir
-Chrome. No apunta por defecto a ningún servicio. La segunda abre las dos
+Chrome. Invocar sin elegir modo también devuelve `3`; `--comprobar` devuelve
+`0` solo cuando las entradas están preparadas, sin afirmar recorrido.
+No apunta por defecto a ningún servicio. La segunda abre las dos
 pestañas: complete cada paso una sola vez y pulse Intro después de ver el
 recibo. Un resultado incierto detiene el guion; investigue y recupere con la
 misma clave, sin crear otra operación. El programa nunca pulsa Enviar por usted.
