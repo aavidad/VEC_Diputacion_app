@@ -85,6 +85,16 @@ BEGIN
    '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea)
    FROM ensayo_externa.material m WHERE m.caso='f8';
  END $d$$s$,'42501','tipo reservado a la custodia de documentos firmados');
+
+ -- 6. Ni por el registro de custodia externa entra el tipo reservado.
+ PERFORM ensayo_firmado.denegado($s$DO $d$ BEGIN
+  PERFORM ensayo_externa.preparar('f9','documentos.externo.registrar','doc:00000000-0000-4000-8000-0000000000f9','exp:00000000-0000-4000-8000-000000000001',
+   'registrar_documento_externo','documento_externo','["documento","recibo"]',
+   convert_to(replace(convert_from(ensayo_externa.preimagen_externa('doc:00000000-0000-4000-8000-0000000000f9','idem:00000000-0000-4000-8000-0000000000f9','justificante:reservado:0001'),'UTF8'),
+    '"tipo_ref":"tipo:00000000-0000-4000-8000-000000000002"','"tipo_ref":"ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c"'),'UTF8'),
+   'decision:00000000-0000-4000-8000-0000000009f9');
+  PERFORM ensayo_externa.invocar('f9');
+ END $d$$s$,'42501','tipo reservado a la custodia de documentos firmados');
 END $f$;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ensayo_firmado TO vec_documentos_ensayo;
 COMMIT;

@@ -26,6 +26,7 @@ BEGIN
     OR to_regprocedure('vec_documentos.custodiar_firmado_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR to_regclass('vec_documentos.documento_firmado') IS NOT NULL
     OR to_regclass('vec_documentos.tipo_reservado_firmado') IS NOT NULL
+    OR to_regclass('vec_documentos.referencia_externa') IS NULL
     OR f IS NULL OR strpos(pg_get_functiondef(f),'documentos.firmado.custodiar')=0
  THEN RAISE EXCEPTION 'Documentos-9: requiere Documentos 000002 y AD3-113, y no estar ya instalada' USING ERRCODE='55000'; END IF;
 END $pre$;
@@ -119,6 +120,19 @@ REVOKE ALL ON FUNCTION vec_documentos.exigir_documento_firmado_v1() FROM PUBLIC;
 CREATE CONSTRAINT TRIGGER exigir_documento_firmado AFTER INSERT ON vec_documentos.documento
  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vec_documentos.exigir_documento_firmado_v1();
 
+-- Un tipo reservado tampoco puede anotarse como referencia de custodia externa.
+CREATE FUNCTION vec_documentos.rechazar_externa_reservada_v1() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+BEGIN
+ IF EXISTS (SELECT 1 FROM vec_documentos.tipo_reservado_firmado t WHERE t.tipo_ref=NEW.tipo_ref) THEN
+  RAISE EXCEPTION 'documentos: tipo reservado a la custodia de documentos firmados' USING ERRCODE='42501';
+ END IF;
+ RETURN NEW;
+END $f$;
+REVOKE ALL ON FUNCTION vec_documentos.rechazar_externa_reservada_v1() FROM PUBLIC;
+CREATE TRIGGER rechazar_tipo_reservado BEFORE INSERT ON vec_documentos.referencia_externa
+ FOR EACH ROW EXECUTE FUNCTION vec_documentos.rechazar_externa_reservada_v1();
+
 -- Preimagen canónica (claves exactas) que liga la autorización V3 al efecto.
 CREATE FUNCTION vec_documentos.custodiar_firmado_v1(
  p_preimagen bytea,p_objeto jsonb,p_auth jsonb,
@@ -182,6 +196,8 @@ BEGIN
      OR d.conector_ref IS DISTINCT FROM p_objeto->>'conector_ref'
      OR d.objeto_ref IS DISTINCT FROM p_objeto->>'objeto_ref'
      OR d.objeto_version IS DISTINCT FROM p_objeto->>'objeto_version'
+     OR d.objeto_retenido_hasta IS DISTINCT FROM (p_objeto->>'retenido_hasta')::timestamptz
+     OR d.objeto_inmovilizado IS DISTINCT FROM (p_objeto->>'inmovilizado')::boolean
      OR fi.firma_operacion_ref IS DISTINCT FROM m->>'firma_operacion_ref'
   THEN RAISE EXCEPTION 'documentos: clave idempotente reutilizada' USING ERRCODE='23505'; END IF;
  ELSE

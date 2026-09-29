@@ -33,6 +33,8 @@ ALTER TABLE vec_documentos.auditoria_operacion FORCE ROW LEVEL SECURITY;
 ALTER TABLE vec_documentos.outbox FORCE ROW LEVEL SECURITY;
 DROP FUNCTION vec_documentos.custodiar_firmado_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP TRIGGER exigir_documento_firmado ON vec_documentos.documento;
+DROP TRIGGER rechazar_tipo_reservado ON vec_documentos.referencia_externa;
+DROP FUNCTION vec_documentos.rechazar_externa_reservada_v1();
 DROP FUNCTION vec_documentos.exigir_documento_firmado_v1();
 DROP TABLE vec_documentos.documento_firmado;
 DROP TABLE vec_documentos.tipo_reservado_firmado;
