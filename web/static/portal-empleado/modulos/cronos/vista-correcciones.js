@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260925-tanda-v1";
+import { MENSAJES_CRONOS_C5 } from "./i18n-c5.js?v=20260929-i18n-textos-v1";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "disponible", "error", "denegado"]);
 
@@ -8,7 +8,7 @@ function escaparHTML(valor) {
 }
 
 function traducir(clave, mensajes) {
-  const valor = mensajes?.[clave] ?? MENSAJES_CRONOS_C5_ES[clave];
+  const valor = mensajes?.[clave] ?? MENSAJES_CRONOS_C5[clave];
   if (typeof valor !== "string" || !valor) throw new TypeError(`texto C5 no válido: ${clave}`);
   return escaparHTML(valor);
 }

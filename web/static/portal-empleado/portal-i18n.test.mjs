@@ -51,6 +51,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   // Dirección de diseño del 29/09/2026: el catálogo cambió y todo su grafo renueva URL.
   const vigente = "20260929-diseno-v1";
   const versionesEspeciales = new Map([
+    ["portal.js", "20260929-i18n-merge-v1"],
+    ["portal-modulos-coordinador.js", "20260929-i18n-merge-v1"],
+    ["modulos/dietas/vista-recorridos.js", "20260929-i18n-merge-v1"],
+    ["modulos/dietas/vista-bandeja-circuito.js", "20260929-i18n-merge-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

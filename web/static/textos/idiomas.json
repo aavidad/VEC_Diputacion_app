@@ -1,0 +1,8 @@
+{
+  "por_defecto": "es",
+  "seguir_navegador": true,
+  "idiomas": [
+    { "codigo": "es", "nombre": "Español", "localizacion": "es-ES" },
+    { "codigo": "en", "nombre": "English", "localizacion": "en-GB" }
+  ]
+}

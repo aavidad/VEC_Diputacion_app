@@ -1,3 +1,4 @@
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
 
@@ -19,9 +20,9 @@ export function accionesRegistroB2Disponibles({ cliente, catalogos, personaRef =
     (PERSONA.test(personaRef) || EMPLEADO.test(empleadoRef));
 }
 function estado(d, texto, alerta = false) { const n = nodo(d, "p", texto); n.className = "personal-registro-b2-estado"; n.setAttribute("role", alerta ? "alert" : "status"); return n; }
-function formatoInstante(valor) { return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
+function formatoInstante(valor) { return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
 function fechaCivil(valor) { const fecha = new Date(`${valor}T12:00:00Z`); return /^\d{4}-\d{2}-\d{2}$/u.test(valor) && Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor; }
-function formatoFecha(valor) { return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${valor}T12:00:00Z`)); }
+function formatoFecha(valor) { return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${valor}T12:00:00Z`)); }
 
 /** Formularios RRHH con opciones ya autorizadas por sus fuentes propietarias. */
 export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "", empleadoRef = "", ficha = null, anunciar = () => {}, alRegistrar = () => {} } = {}) {
@@ -142,7 +143,7 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
     const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel personal-registro-b2-revision";
     for (const [clave, control] of campos) {
       if (!control.value) continue;
-      const texto = control.tagName === "select" ? [...control.children].find((o) => o.value === control.value)?.textContent || control.value : control.type === "date" ? formatoFecha(control.value) : control.type === "number" ? new Intl.NumberFormat("es-ES").format(Number(control.value)) : control.value;
+      const texto = control.tagName === "select" ? [...control.children].find((o) => o.value === control.value)?.textContent || control.value : control.type === "date" ? formatoFecha(control.value) : control.type === "number" ? new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(Number(control.value)) : control.value;
       const linea = nodo(d, "div"); linea.append(nodo(d, "span", etiquetas.get(clave)), nodo(d, "strong", texto)); cuerpo.append(linea);
     }
     const acciones = nodo(d, "div"); acciones.className = "personal-registro-b2-acciones";

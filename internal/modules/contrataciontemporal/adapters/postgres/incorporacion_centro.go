@@ -51,7 +51,7 @@ func (r *RepositorioIncorporacionCentroPostgreSQL) ListarIncorporacionesCentro(c
 		Expedientes []ports.ExpedienteIncorporacionCentro `json:"expedientes"`
 	}
 	err = r.ejecutar(ctx, "consultar_incorporaciones_centro_v1", contenido, ports.AccionConsultarIncorporacionesCentro, recurso, func(b []byte) error {
-		if decodificarJSONEstricto(b, &salida) != nil || salida.Esquema != esquemaIncorporacionesCentroSQL || salida.Expedientes == nil ||
+		if decodificarJSONLimpio(b, &salida) != nil || salida.Esquema != esquemaIncorporacionesCentroSQL || salida.Expedientes == nil ||
 			len(salida.Expedientes) > ports.LimiteExpedientesIncorporacionCentro() {
 			return ports.ErrIncorporacionCentroNoDisponible
 		}
@@ -110,7 +110,7 @@ func (r *RepositorioIncorporacionCentroPostgreSQL) ConfirmarIncorporacionCentro(
 	}
 	recurso := ports.RecursoIncorporacionCentro(m.ExpedienteRef, m.OrganizacionRef, m.Actor.CentroRef, contenido)
 	err = r.ejecutar(ctx, "confirmar_incorporacion_centro_v1", contenido, ports.AccionConfirmarIncorporacionCentro, recurso, func(b []byte) error {
-		if decodificarJSONEstricto(b, &recibo) != nil {
+		if decodificarJSONLimpio(b, &recibo) != nil {
 			return ports.ErrIncorporacionCentroNoDisponible
 		}
 		recibo.RegistradoEn = recibo.RegistradoEn.UTC()
@@ -140,35 +140,41 @@ func (r *RepositorioIncorporacionCentroPostgreSQL) ejecutar(ctx context.Context,
 		resumen.EfectoHuellaSHA256() != h || resumen.AudienciaConsumo() != audienciaPeticionCentro {
 		return ports.ErrIncorporacionCentroDenegada
 	}
-	tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
-	if err != nil {
-		return errorIncorporacionCentroSQL(ctx, err)
-	}
-	defer revertirTransaccion(tx)
 	secretos := [][]byte{a.CapacidadCanonica(), a.DecisionCanonica(), a.MotivoCanonico(), a.ContextoActorCanonico(), a.PayloadVECAD3(), a.SobreCOSESign1(), a.EvidenciaVerificacion(), a.RaizPublicaSPKI()}
 	defer func() {
 		for _, b := range secretos {
 			clear(b)
 		}
 	}()
-	var salida []byte
-	err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido),
-		secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()),
-		secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
-	if err != nil {
+	// Una carrera serializable con otra consulta simultánea repite la
+	// transacción entera; el material no quedó consumido por el aborto.
+	var errValidacion error
+	err = ejecutarConReintentoSerializable(ctx, func() error {
+		tx, err := iniciarTransaccionAltaCandidata(ctx, r.pool)
+		if err != nil {
+			return err
+		}
+		defer revertirTransaccion(tx)
+		var salida []byte
+		err = tx.QueryRow(ctx, "SELECT vec_contratacion_temporal."+funcion+"($1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text", string(contenido),
+			secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()),
+			secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&salida)
+		if err != nil {
+			return err
+		}
+		defer clear(salida)
+		if len(salida) == 0 || len(salida) > 2*1024*1024 {
+			return ports.ErrIncorporacionCentroNoDisponible
+		}
+		if errValidacion = validar(salida); errValidacion != nil {
+			return errValidacion
+		}
+		return tx.Commit(ctx)
+	})
+	if err != nil && err != errValidacion { //nolint:errorlint // identidad exacta del error de validación
 		return errorIncorporacionCentroSQL(ctx, err)
 	}
-	defer clear(salida)
-	if len(salida) == 0 || len(salida) > 2*1024*1024 {
-		return ports.ErrIncorporacionCentroNoDisponible
-	}
-	if err := validar(salida); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return errorIncorporacionCentroSQL(ctx, err)
-	}
-	return nil
+	return err
 }
 
 func errorIncorporacionCentroSQL(ctx context.Context, err error) error {

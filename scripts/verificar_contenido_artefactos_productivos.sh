@@ -260,6 +260,10 @@ transportes_mtls_revisados=(
 	# rechaza segmentos . y .. antes de formar la ruta, same-origin, no-store,
 	# redirect error y no-referrer; sin DNI ni datos de contacto.
 	static/portal-empleado/portal-bolsas-reincorporaciones.js
+	# i18n (29/09): índice de idiomas y catálogos de textos JSON estáticos del
+	# propio origen (textos/...), sin datos personales; GET same-origin,
+	# redirect error y no-referrer, rechaza otro origen y limita el tamaño.
+	static/comun/idioma.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

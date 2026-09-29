@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearTraductorCronosC4, MENSAJES_CRONOS_C4_ES } from "./i18n-c4.js";
+import { crearTraductorCronosC4, MENSAJES_CRONOS_C4 } from "./i18n-c4.js";
 import { montarCalendarioCivilCronos, renderizarCalendarioCivilCronos } from "./vista-calendario.js";
 
 test("año civil completo, bisiesto y sin festivos ni jornada inferidos", () => {
@@ -23,7 +23,7 @@ test("fecha y año inválidos se rechazan y los textos C4 siguen el catálogo", 
   assert.throws(() => renderizarCalendarioCivilCronos({ anio: 2024, fechaSeleccionada: "2025-01-01" }), RangeError);
   assert.throws(() => renderizarCalendarioCivilCronos({ fechaSeleccionada: "2101-01-01" }), RangeError);
   assert.throws(() => crearTraductorCronosC4({ calendario_estado: "Pendiente" }), /incompleto/u);
-  const mensajes = { ...MENSAJES_CRONOS_C4_ES, calendario_estado: '<img src=x onerror="x">' };
+  const mensajes = { ...MENSAJES_CRONOS_C4, calendario_estado: '<img src=x onerror="x">' };
   const html = renderizarCalendarioCivilCronos({ fechaSeleccionada: "2025-01-01", mensajes });
   assert.doesNotMatch(html, /<img/u);
   assert.match(html, /&lt;img src=x onerror=&quot;x&quot;&gt;/u);

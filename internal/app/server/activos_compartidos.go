@@ -6,6 +6,8 @@ import "net/http"
 // identidad institucional y el tema común. No abre directorios completos:
 // únicamente registra los recursos fijados; staticHandler también exige su
 // inclusión en el manifiesto productivo de la superficie correspondiente.
+// `/textos/` agrupa los catálogos de textos por idioma (datos i18n): cada
+// fichero servido debe figurar también en ese manifiesto.
 func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
 	mux.Handle("/favicon.svg", soloLecturaHTTP(estaticos))
@@ -14,4 +16,6 @@ func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/comun/tema-vec.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/iconos-vec.js", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/idioma.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/textos.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/textos/", soloLecturaHTTP(estaticos))
 }

@@ -5,7 +5,7 @@ import { API_ORGANIZACION_HISTORICA, RUTAS_IMPORTACION, crearClienteHistorico, c
   filtrosHistoricos, validarPaginaHistorica, validarPaqueteImportacion, validarDecisionesImportacion,
   renderizarResumenImportacion, formatearRecuentoImportacion, formatearFechaReciboImportacion,
   formatearConocidoEn, instanteDesdeHoraMadrid } from "./historico.js";
-import { MENSAJES_PERSONAL_ES, crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { MENSAJES_PERSONAL, crearTraductorPersonal } from "../modulos/personal/i18n.js";
 
 const respuesta = () => ({
   data: {
@@ -67,7 +67,7 @@ test("B3 rechaza fechas imposibles, denegación y catálogo i18n incompleto", as
   const t = crearTraductorPersonal();
   assert.match(t("organizacion_historyNoSource"), /Sin datos/);
   assert.match(t("organizacion_historyDenied"), /permiso/);
-  assert.ok(Object.hasOwn(MENSAJES_PERSONAL_ES, "organizacion_historyReceipt"));
+  assert.ok(Object.hasOwn(MENSAJES_PERSONAL, "organizacion_historyReceipt"));
 });
 
 test("la ayuda extensa queda detrás de ? y todas las etiquetas usan i18n común", () => {
@@ -79,7 +79,7 @@ test("la ayuda extensa queda detrás de ? y todas las etiquetas usan i18n común
     assert.equal((html.match(new RegExp(`data-i18n="${clave}"`, "g")) ?? []).length, 1);
   }
   for (const [, clave] of html.matchAll(/data-i18n(?:-label|-placeholder)?="([A-Za-z]+)"/g)) {
-    assert.equal(typeof MENSAJES_PERSONAL_ES[`organizacion_${clave}`], "string", clave);
+    assert.equal(typeof MENSAJES_PERSONAL[`organizacion_${clave}`], "string", clave);
   }
 });
 

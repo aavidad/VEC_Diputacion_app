@@ -97,7 +97,7 @@ export function validarHistorialMiBolsa(entrada, paginaSolicitada) {
 export async function cargarHistorialMiBolsa({ pagina = 1, fetchImpl = globalThis.fetch, signal } = {}) {
   if (!Number.isSafeInteger(pagina) || pagina < 1 || pagina > 10000 || typeof fetchImpl !== "function") throw new TypeError("Página no válida.");
   const respuesta = await fetchImpl(`${RUTA_HISTORIAL_MI_BOLSA}?pagina=${pagina}`, {
-    method: "GET", credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
+    method: "GET", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
     headers: { Accept: "application/json" }, signal,
   });
   if (respuesta?.status !== 200) {

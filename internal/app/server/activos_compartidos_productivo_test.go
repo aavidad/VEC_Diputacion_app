@@ -17,6 +17,10 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 		"/comun/tema-vec.js",
 		"/comun/iconos-vec.js",
 		"/comun/idioma.js",
+		"/comun/textos.js",
+		"/textos/idiomas.json",
+		"/textos/es/cronos.json",
+		"/textos/en/cronos.json",
 		"/comun/oportunidades/vista.js",
 		"/comun/oportunidades/i18n.js",
 		"/comun/oportunidades/oportunidades.css",
@@ -47,7 +51,8 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 				}
 				tipo, _, err := mime.ParseMediaType(rec.Header().Get("Content-Type"))
 				if err != nil || (strings.HasSuffix(ruta, ".css") && tipo != "text/css") ||
-					(strings.HasSuffix(ruta, ".js") && tipo != "text/javascript" && tipo != "application/javascript") {
+					(strings.HasSuffix(ruta, ".js") && tipo != "text/javascript" && tipo != "application/javascript") ||
+					(strings.HasSuffix(ruta, ".json") && tipo != "application/json") {
 					t.Fatalf("%s %s Content-Type = %q", metodo, ruta, rec.Header().Get("Content-Type"))
 				}
 				if largo := rec.Header().Get("Content-Length"); largo != strconv.Itoa(len(esperado)) {

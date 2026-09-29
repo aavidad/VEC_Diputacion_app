@@ -5,6 +5,7 @@ import {
   ErrorClienteNotificacionesCronos, MAXIMO_TEXTO_NOTIFICACION_CRONOS, adjuntoNotificacionValido, calcularHuellaDocumentoCronos,
   crearClienteNotificacionesCronosHTTP, textoNotificacionValido,
 } from "./cliente-notificaciones-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES_ENVIO = new Map([
   ["peticion_invalida", "error_datos"], ["tipo_no_vigente", "error_tipo_no_vigente"], ["conflicto", "error_conflicto_notificacion"],
@@ -18,7 +19,7 @@ function claveNueva() { return globalThis.crypto.randomUUID(); }
 
 /** Fecha civil de hoy en la zona de la persona (AAAA-MM-DD). */
 export function hoyCivilCronos(ahora = new Date(), zonaHoraria = "Europe/Madrid") {
-  const partes = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: zonaHoraria, year: "numeric", month: "2-digit", day: "2-digit" })
+  const partes = Object.fromEntries(new Intl.DateTimeFormat(/* localización técnica */ "en-CA", { timeZone: zonaHoraria, year: "numeric", month: "2-digit", day: "2-digit" })
     .formatToParts(ahora).map((p) => [p.type, p.value]));
   return `${partes.year}-${partes.month}-${partes.day}`;
 }
@@ -69,7 +70,7 @@ function filaNotificacion(n, t, locale, zonaHoraria) {
 
 /** Notificaciones propias a RRHH: formulario de envío y lista con su estado. */
 export function renderizarNotificacionesPropiasCronos({ estado = "cargando", datos = null, formulario = null, envio = null, mensaje = "", tonoMensaje = "exito",
-  mensajes, locale = "es-ES", zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(new Date(), zonaHoraria) } = {}) {
+  mensajes, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(new Date(), zonaHoraria) } = {}) {
   const t = crearTraductorNotificacionesCronos(mensajes);
   const ayuda = t("abrir_ayuda", { asunto: t("notificaciones_titulo") });
   const cabecera = `<header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-notificaciones-propias-titulo">${escaparHTML(t("notificaciones_titulo"))}</h2></div>
@@ -102,7 +103,7 @@ function estadoError(error) {
 }
 
 export function montarNotificacionesPropiasCronos({ raiz, cliente = crearClienteNotificacionesCronosHTTP(), mensajes, anunciar = () => {}, registrarDesmontar,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid", cripto = globalThis.crypto, ahora = () => new Date() } = {}) {
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", cripto = globalThis.crypto, ahora = () => new Date() } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarPropias !== "function" || typeof cliente?.enviar !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || typeof ahora !== "function") {
     throw new TypeError("montaje de las notificaciones de Cronos no disponible");
