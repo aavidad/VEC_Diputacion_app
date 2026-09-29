@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-pref-50
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-pref-508a-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-pref-508a-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-ppt-v2";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-pref-508a-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-auditoria-legible-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-pref-508a-v2";
@@ -24,7 +24,7 @@ import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-aviso
 import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260929-pref-508a-v2";
 import { crearSuperficieRRHHPlazos } from "./modulos/bolsa/rrhh-plazos-ui.js?v=20260929-pref-508a-v2";
 import { crearFuenteAuditoriaHTTP } from "./modulos/auditoria/cliente-http.js?v=20260928-usab-auditoria-v2";
-import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260929-pref-508a-v2";
+import { montarVistaAuditoria } from "./modulos/auditoria/vista.js?v=20260929-auditoria-legible-v1";
 import { crearClientePoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-api.js?v=20260928-rrhh-politica-cese-v1";
 import { montarVistaPoliticaCeseRRHH } from "./modulos/bolsa/rrhh-politica-cese-vista.js?v=20260929-pref-508a-v2";
 import { crearIntegracionPreferenciasPortal } from "./portal-preferencias-integracion.js?v=20260929-pref-508a-v2";
