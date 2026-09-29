@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timezone
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 H1_PROVISION = "f9c081fc89909239d236466d6bb52cbe6272cdd7"
 H1_IDENTITY = "d0487b4f18f18ddf7e0493e8548b27c3da295d41"
@@ -87,6 +87,20 @@ def historical(repo, commit, path):
 def make_harness(repo):
     first = historical(repo, H1_PROVISION, "internal/app/bootstrap/usuarios_preferencias_hito1_provision_test.go")
     second = historical(repo, H1_IDENTITY, "internal/app/bootstrap/usuarios_preferencias_hito1_identidad_test.go")
+    # Reconstruct historical DTOs without creating or validating the H1
+    # authentication/session, whose one-day window must never gate replay.
+    constructor = selected_go_functions(first, ["construirCuentaProvisionPreferenciasHito1"])
+    legacy_constructor = constructor.replace("func construirCuentaProvisionPreferenciasHito1(", "func codexMLegacyConstructorExpired(", 1).replace("relojRutasDietas{}", "codexMExpiredClock{}")
+    marker = "\tautenticacion := core.AutenticacionRevalidadaV1{"
+    if constructor.count(marker) != 1:
+        fail("The historical DTO constructor changed.")
+    dto_constructor = constructor.split(marker, 1)[0] + "\treturn cuentaProvisionPreferenciasHito1{configuracion:c, cuenta:cuentaConfig, personaRef:personaRef, contexto:resultado, operacionRef:referenciaProvisionPreferenciasHito1(\"oca_\",base+\"\\x00publicar-contexto\")}, nil\n}\n"
+    first = first.replace(constructor, dto_constructor, 1)
+    identity_source = historical(repo, "7f1ecea2fd9f8912d255a80e74da84c69e46b978", "internal/vec/adapters/httpseguridad/postgres/capacidades.go")
+    identity_query = re.search(r"const consultaAcreditarCapacidad = `(.+?)`", identity_source, re.DOTALL)
+    if not identity_query:
+        fail("Identity capability preflight contract is missing.")
+    diagnostic = "\nconst codexMDiagnosticIdentitySQL = `" + identity_query.group(1) + "`\n"
     first_names = ["referenciaProvisionPreferenciasHito1", "huellaProvisionPreferenciasHito1",
                    "construirCuentaProvisionPreferenciasHito1", "instantaneaProvisionPreferenciasHito1",
                    "leerCertificadoProvisionPreferenciasHito1", "catalogoPoliticasProvisionPreferenciasHito1"]
@@ -97,7 +111,7 @@ def make_harness(repo):
     struct = re.search(r"type cuentaProvisionPreferenciasHito1 struct {.*?^}", first, re.MULTILINE | re.DOTALL)
     if not struct:
         fail("Missing pinned H1 account contract.")
-    return GO_IMPORTS + 'const loginProvisionadorHito1 = "vec_hito1_pref_provisionador"\n' + struct.group(0) + "\n" + selected_go_functions(first, first_names) + "\n" + selected_go_functions(second, second_names) + GO_DRIVER
+    return GO_IMPORTS + 'const loginProvisionadorHito1 = "vec_hito1_pref_provisionador"\n' + struct.group(0) + "\n" + selected_go_functions(first, first_names) + "\n" + selected_go_functions(second, second_names) + diagnostic + legacy_constructor + GO_DRIVER
 
 
 GO_IMPORTS = r'''package bootstrap
@@ -130,6 +144,19 @@ import (
 
 GO_DRIVER = r'''
 
+type codexMExpiredClock struct{}
+func (codexMExpiredClock) Ahora()time.Time{value,_:=time.Parse(time.RFC3339,"2026-09-30T05:00:00Z");return value}
+func TestCodexMHistoricalUsersDTOAfterSessionExpiry(t *testing.T){
+ historic,_:=time.Parse(time.RFC3339,"2026-09-29T04:00:00Z")
+ c:=configuracionUsuariosPreferenciasDesarrollo{Superficie:core.SuperficieAutenticacionInternaCorporativaV1,
+ Cuentas:[]cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo:cuentaRutasDietasDesarrollo{
+ CuentaRef:"cta_0123456789abcdefghijklmnop",PerfilRef:"prf_0123456789abcdefghijklmnop",CertificadoSHA256:"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}}}
+ if _,err:=codexMLegacyConstructorExpired(c,historic);err==nil{t.Fatal("old H1 session unexpectedly valid after its 24h deadline")}
+ account,err:=construirCuentaProvisionPreferenciasHito1(c,historic)
+ if err!=nil||account.contexto.Validar()!=nil||account.personaRef==""||account.contexto.Contexto.PerfilActivoRef!=c.Cuentas[0].PerfilRef{t.Fatal("historical DTO depends on expired H1 authentication")}
+ if !account.contexto.Contexto.Instantanea.VigenteHasta.Equal(historic.Add(14*24*time.Hour)){t.Fatal("historical person validity was renewed")}
+}
+
 func codexMConfiguration(path string) (configuracionUsuariosPreferenciasDesarrollo,error) {
  var value configuracionUsuariosPreferenciasDesarrollo
  data,err:=leerFicheroMaterialSeguro(path,128<<10)
@@ -160,22 +187,58 @@ func codexMLookup(ctx context.Context,admin *pgxpool.Pool,derivador *derivadorId
  return found,nil
 }
 
+func codexMIdentityFlags(ctx context.Context,pool *pgxpool.Pool,group string,functions []string)string{
+ var login,current string;var flags [7]bool
+ err:=pool.QueryRow(ctx,codexMDiagnosticIdentitySQL,group,functions).Scan(&login,&current,&flags[0],&flags[1],&flags[2],&flags[3],&flags[4],&flags[5],&flags[6])
+ if err!=nil{return fmt.Sprintf("query (%T)",err)}
+ return fmt.Sprintf("login=%t group=%t direct=%t closure=%t functions=%t login_no_authority=%t exact_group_acl=%t",flags[0],flags[1],flags[2],flags[3],flags[4],flags[5],flags[6])
+}
+
+func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool)(int,error){
+ tx,err:=admin.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable});if err!=nil{return 0,err};defer tx.Rollback(ctx)
+ if _,err=tx.Exec(ctx,`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:codexm:usuarios:identity-connect',0))`);err!=nil{return 0,err}
+ var pending []string
+ for _,group:=range []string{"vec_identidad_sesiones_v1_registrador","vec_identidad_sesiones_v1_revalidador"}{
+  var safe bool;var aclCount int
+  if tx.QueryRow(ctx,`SELECT current_database()='postgres' AND NOT(r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolinherit OR r.rolreplication OR r.rolbypassrls)
+ AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=r.oid),
+ (SELECT count(*) FROM pg_catalog.pg_database b CROSS JOIN LATERAL pg_catalog.aclexplode(b.datacl) a WHERE b.datname=current_database() AND a.grantee=r.oid)
+ FROM pg_catalog.pg_roles r WHERE r.rolname=$1`,group).Scan(&safe,&aclCount)!=nil||!safe{return 0,fmt.Errorf("identity group preimage")}
+  if aclCount==0{
+   expectedFunctions:=[]string{"vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)","vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)"}
+   if group=="vec_identidad_sesiones_v1_revalidador"{expectedFunctions=[]string{"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)","vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)","vec_identidad_sesiones_v1.coincide_politica_certificado_desarrollo_v1(text,text,timestamptz)"}}
+   var exactDependencies bool
+   if tx.QueryRow(ctx,`SELECT count(*)=1+cardinality($2::text[]) AND bool_and(d.deptype='a' AND d.objsubid=0 AND d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database()) AND
+ ((d.classid='pg_catalog.pg_namespace'::regclass AND d.objid='vec_identidad_sesiones_v1'::regnamespace) OR
+ (d.classid='pg_catalog.pg_proc'::regclass AND d.objid IN (SELECT pg_catalog.to_regprocedure(f) FROM unnest($2::text[]) f))))
+ FROM pg_catalog.pg_shdepend d WHERE d.refclassid='pg_catalog.pg_authid'::regclass AND d.refobjid=$1::regrole`,group,expectedFunctions).Scan(&exactDependencies)!=nil||!exactDependencies{return 0,fmt.Errorf("identity group has additional authority")}
+   pending=append(pending,group);continue
+  }
+  var exact bool
+  if tx.QueryRow(ctx,`SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable) FROM pg_catalog.pg_database b CROSS JOIN LATERAL pg_catalog.aclexplode(b.datacl) a WHERE b.datname=current_database() AND a.grantee=$1::regrole`,group).Scan(&exact)!=nil||!exact{return 0,fmt.Errorf("identity group database ACL differs")}
+ }
+ for _,group:=range pending{if _,err=tx.Exec(ctx,`GRANT CONNECT ON DATABASE postgres TO `+pgx.Identifier{group}.Sanitize());err!=nil{return 0,err}}
+ if tx.Commit(ctx)!=nil{return 0,fmt.Errorf("identity CONNECT commit")};return len(pending),nil
+}
+
 func codexMSession(ctx context.Context,c configuracionUsuariosPreferenciasDesarrollo,derivador *derivadorIdentidadOperacionDesarrollo,certificate *x509.Certificate,chain []*x509.Certificate)(core.VinculoAutenticacionActorV2,error){
  var empty core.VinculoAutenticacionActorV2
- reg,_,err:=abrirPoolRutasDietas(ctx,c.DSNRegistroIdentidad,"vec_identidad_sesiones_v1_registrador");if err!=nil{return empty,err};defer reg.Close()
- rev,_,err:=abrirPoolRutasDietas(ctx,c.DSNRevalidacionIdentidad,"vec_identidad_sesiones_v1_revalidador");if err!=nil{return empty,err};defer rev.Close()
- contexts,_,err:=abrirPoolRutasDietas(ctx,c.DSNContexto,"vec_contexto_actor_v1_runtime");if err!=nil{return empty,err};defer contexts.Close()
- registro,err:=postgresidentidad.NuevoRegistroSesionesPostgreSQL(ctx,reg,rev,&seudonimizadorSesionDesarrollo{derivador:derivador},espacioIdentidadSesionDesarrollo,dominioIdentidadSesionDesarrollo);if err!=nil{return empty,err}
- revalidador,err:=postgresidentidad.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx,rev);if err!=nil{return empty,err}
- resolutor,err:=contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx,contexts);if err!=nil{return empty,err}
- servicio,err:=vecapp.NuevoServicioContextoActorProductivoV2(resolutor,contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(),relojRutasDietas{});if err!=nil{return empty,err}
- autoridad,err:=vecapp.NuevaAutoridadContextoActorRegistradoV2(servicio);if err!=nil{return empty,err}
- instance,err:=nonceRutasDietas();if err!=nil{return empty,err}
+ reg,_,err:=abrirPoolRutasDietas(ctx,c.DSNRegistroIdentidad,"vec_identidad_sesiones_v1_registrador");if err!=nil{return empty,fmt.Errorf("open-registro (%T)",err)};defer reg.Close()
+ rev,_,err:=abrirPoolRutasDietas(ctx,c.DSNRevalidacionIdentidad,"vec_identidad_sesiones_v1_revalidador");if err!=nil{return empty,fmt.Errorf("open-revalidacion (%T)",err)};defer rev.Close()
+ contexts,_,err:=abrirPoolRutasDietas(ctx,c.DSNContexto,"vec_contexto_actor_v1_runtime");if err!=nil{return empty,fmt.Errorf("open-contexto (%T)",err)};defer contexts.Close()
+ registro,err:=postgresidentidad.NuevoRegistroSesionesPostgreSQL(ctx,reg,rev,&seudonimizadorSesionDesarrollo{derivador:derivador},espacioIdentidadSesionDesarrollo,dominioIdentidadSesionDesarrollo);if err!=nil{return empty,fmt.Errorf("construct-registro: reg{%s} rev{%s}",
+ codexMIdentityFlags(ctx,reg,"vec_identidad_sesiones_v1_registrador",[]string{"vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)","vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)"}),
+ codexMIdentityFlags(ctx,rev,"vec_identidad_sesiones_v1_revalidador",[]string{"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)","vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)","vec_identidad_sesiones_v1.coincide_politica_certificado_desarrollo_v1(text,text,timestamptz)"}))}
+ revalidador,err:=postgresidentidad.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx,rev);if err!=nil{return empty,fmt.Errorf("construct-revalidador (%T)",err)}
+ resolutor,err:=contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx,contexts);if err!=nil{return empty,fmt.Errorf("construct-resolutor (%T)",err)}
+ servicio,err:=vecapp.NuevoServicioContextoActorProductivoV2(resolutor,contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(),relojRutasDietas{});if err!=nil{return empty,fmt.Errorf("construct-servicio (%T)",err)}
+ autoridad,err:=vecapp.NuevaAutoridadContextoActorRegistradoV2(servicio);if err!=nil{return empty,fmt.Errorf("construct-autoridad (%T)",err)}
+ instance,err:=nonceRutasDietas();if err!=nil{return empty,fmt.Errorf("nonce (%T)",err)}
  base:=&autoridadRutasDietasDesarrollo{registro:registro,revalidador:revalidador,contextos:autoridad,reloj:relojRutasDietas{},instancia:instance}
  users:=&autoridadPreferenciasUsuariosDesarrollo{base:base,reloj:relojRutasDietas{},superficie:c.Superficie}
  request:=httptest.NewRequest("GET","https://localhost/instalacion-privada-usuarios",nil)
  request.TLS=&tls.ConnectionState{VerifiedChains:[][]*x509.Certificate{chain},PeerCertificates:[]*x509.Certificate{certificate}}
- vinculo,_,err:=users.resolverSesion(request,c.Cuentas[0],time.Now().UTC().Truncate(time.Microsecond));return vinculo,err
+ vinculo,_,err:=users.resolverSesion(request,c.Cuentas[0],time.Now().UTC().Truncate(time.Microsecond));if err!=nil{return empty,fmt.Errorf("resolve-session (%T)",err)};return vinculo,nil
 }
 
 func codexMModuleHistory(ctx context.Context,admin *pgxpool.Pool)(string,error){
@@ -199,7 +262,7 @@ func TestCodexMInstallUsers(t *testing.T){
  if os.Getenv("VEC_CODEXM_USUARIOS_INSTALAR")!="CLON_PRIVADO_REVISADO"{t.Fatal("installation guard")}
  root:=os.Getenv("VEC_CODEXM_STATE");material:=filepath.Join(root,"material")
  planBytes,err:=os.ReadFile(filepath.Join(root,"usuarios-plan.json"));if err!=nil{t.Fatal("installation plan")}
- var plan struct{InstallAt string `json:"install_at"`;SystemID string `json:"system_id"`;PGPort uint16 `json:"pg_port"`}
+ var plan struct{InstallAt string `json:"install_at"`;SystemID string `json:"system_id"`;PGPort uint16 `json:"pg_port"`;Logins []struct{Name string `json:"name"`;Group string `json:"group"`} `json:"logins"`}
  if json.Unmarshal(planBytes,&plan)!=nil{t.Fatal("installation plan contract")}
  _,err=time.Parse(time.RFC3339Nano,plan.InstallAt);if err!=nil{t.Fatal("installation time")}
  historic,err:=time.Parse(time.RFC3339,"2026-09-29T04:00:00Z");if err!=nil{t.Fatal("historic time")}
@@ -213,6 +276,22 @@ func TestCodexMInstallUsers(t *testing.T){
  revision,catalogue,err:=catalogoPoliticasProvisionPreferenciasHito1(ctx,gobierno);if err!=nil{t.Fatal("policy catalogue")}
  ca,err:=leerCertificadoProvisionPreferenciasHito1(filepath.Join(material,"ca/ca.crt"));if err!=nil{t.Fatal("CA")};roots:=x509.NewCertPool();roots.AddCert(ca)
  moduleBefore,err:=codexMModuleHistory(ctx,admin);if err!=nil{t.Fatal("module history preimage")}
+ // The technical identities are H1 inputs, installed only when absent. All
+ // existing identities must have the exact one-group, non-administrative ACL.
+ if len(plan.Logins)!=16{t.Fatal("technical Users role plan")}
+ txRoles,err:=admin.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable});if err!=nil{t.Fatal("technical role transaction")};defer txRoles.Rollback(ctx)
+ if _,err=txRoles.Exec(ctx,`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:codexm:usuarios:logins',0))`);err!=nil{t.Fatal("technical role lock")}
+ var missing []int
+ for i,entry:=range plan.Logins{
+  var exists bool;if txRoles.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=$1)`,entry.Name).Scan(&exists)!=nil{t.Fatal("technical role preimage")}
+  if !exists{missing=append(missing,i);continue}
+  var valid bool
+  if txRoles.QueryRow(ctx,`SELECT r.rolcanlogin AND r.rolinherit AND NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+ AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
+ WHERE m.member=r.oid AND g.rolname=$2 AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+ FROM pg_catalog.pg_roles r WHERE r.rolname=$1`,entry.Name,entry.Group).Scan(&valid)!=nil||!valid{t.Fatal("existing technical role privileges diverged")}
+ }
  var originals,currents []configuracionUsuariosPreferenciasDesarrollo
  var prior []cuentaProvisionPreferenciasHito1
  var instances []core.InstantaneaAutorizacion
@@ -246,6 +325,8 @@ func TestCodexMInstallUsers(t *testing.T){
  (SELECT count(*) FROM vec_contexto_actor_v1.perfil_actual WHERE perfil_ref=$2)`,old.personaRef,current.Cuentas[0].PerfilRef).Scan(&personVersions,&personCurrent,&profileVersions,&profileCurrent)!=nil{t.Fatal("context preimage")}
   if (personVersions!=0||personCurrent!=0||profileVersions!=0||profileCurrent!=0)&&(personVersions!=1||personCurrent!=1||profileVersions!=1||profileCurrent!=1){t.Fatal("partial historic person/profile")}
   if account==""&&personVersions>0{t.Fatal("person/profile exist without demonstrable canonical identity")}
+  accountCount:=0;if account!=""{accountCount=1}
+  t.Logf("preimage surface=%s account=%d person_versions=%d person_current=%d profile_versions=%d profile_current=%d",surface,accountCount,personVersions,personCurrent,profileVersions,profileCurrent)
   roleHash,_:=instant.VersionRol.HuellaSHA256();controlHash,_:=instant.ControlVigenciaVersionRol.HuellaSHA256()
   roleDocument,_:=json.Marshal(instant.VersionRol);controlDocument,_:=json.Marshal(instant.ControlVigenciaVersionRol)
   var roleN,controlN,controlCurrentN int
@@ -273,6 +354,12 @@ func TestCodexMInstallUsers(t *testing.T){
  }
  // Both surfaces were checked before the first authority call. All IDs and
  // installation time are stable, so a partial failure is recovered by replay.
+ for _,index:=range missing{entry:=plan.Logins[index]
+  if _,err=txRoles.Exec(ctx,`CREATE ROLE `+pgx.Identifier{entry.Name}.Sanitize()+` LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`);err!=nil{t.Fatal("create absent technical role")}
+  if _,err=txRoles.Exec(ctx,`GRANT `+pgx.Identifier{entry.Group}.Sanitize()+` TO `+pgx.Identifier{entry.Name}.Sanitize()+` WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`);err!=nil{t.Fatal("grant one technical capability")}
+ }
+ if txRoles.Commit(ctx)!=nil{t.Fatal("technical role commit")}
+ connectRestored,err:=codexMRestoreIdentityConnect(ctx,admin);if err!=nil{t.Fatal("identity CONNECT preimage")};t.Logf("identity CONNECT restored=%d",connectRestored)
  if crearOComprobarLoginProvisionadorHito1(ctx,admin)!=nil{t.Fatal("identity provisioner authority")}
  provisionCfg:=adminCfg.Copy();provisionCfg.ConnConfig.User=loginProvisionadorHito1;provisionCfg.ConnConfig.Password=""
  provisioner,err:=pgxpool.NewWithConfig(ctx,provisionCfg);if err!=nil{t.Fatal("identity provisioner pool")};defer provisioner.Close()
@@ -284,19 +371,45 @@ func TestCodexMInstallUsers(t *testing.T){
   contextResult:=prior[i].contexto;operation:=prior[i].operacionRef
   if canonical[i]!=prior[i].cuenta.CuentaRef{contextResult,operation,err=nuevoResultadoCuentaConciliadaHito1(prior[i],canonical[i]);if err!=nil{t.Fatal("canonical context")}}
   if err=publicarResultadoContextoPostgreSQLDesarrollo(ctx,gobierno,contextResult,operation);err!=nil{t.Fatal("context publication exact replay")}
-  vinculo,err:=codexMSession(ctx,current,derivador,certificates[i],chains[i]);if err!=nil{t.Fatal("real 120s session")}
+  vinculo,err:=codexMSession(ctx,current,derivador,certificates[i],chains[i]);if err!=nil{t.Fatalf("real 120s session: %s",err.Error())}
   authority:=autoridadPostgreSQLDesarrollo{pool:gobierno,vinculo:vinculo,prefijoBloqueo:"vec:hito1:usuarios:preferencias:",actoControlRol:"acto:hito1:usuarios:preferencias:control:"+string(current.Superficie),actoAsignacion:"acto:hito1:usuarios:preferencias:asignacion:"+string(current.Superficie),actoSesion:"acto:codexm:usuarios:instalacion:"+string(current.Superficie),exigirOrigenOperativo:true}
   if err=authority.PublicarInstantanea(ctx,instances[i]);err!=nil{t.Fatal("authorization publication exact replay")}
   if cuentaIdentidadActivaHito1(ctx,admin,canonical[i])!=nil{t.Fatal("canonical account validity")}
  }
  moduleAfter,err:=codexMModuleHistory(ctx,admin);if err!=nil||moduleAfter!=moduleBefore{t.Fatal("module history changed")}
- result:=map[string]any{"module_history_before":moduleBefore,"module_history_after":moduleAfter,"version":1,"install_at":plan.InstallAt,"accounts":canonical,"persons":[]string{prior[0].personaRef,prior[1].personaRef},"profiles":[]string{currents[0].Cuentas[0].PerfilRef,currents[1].Cuentas[0].PerfilRef},"references_preserved":true}
+ result:=map[string]any{"module_history_before":moduleBefore,"module_history_after":moduleAfter,"version":1,"install_at":plan.InstallAt,"accounts":canonical,"persons":[]string{prior[0].personaRef,prior[1].personaRef},"profiles":[]string{currents[0].Cuentas[0].PerfilRef,currents[1].Cuentas[0].PerfilRef},"references_preserved":true,"technical_logins_checked":len(plan.Logins),"technical_logins_created":len(missing),"identity_connect_restored":connectRestored}
  encoded,err:=json.Marshal(result);if err!=nil{t.Fatal("result")}
  if err=os.WriteFile(filepath.Join(root,"usuarios-authority-result.json"),encoded,0600);err!=nil{t.Fatal("private result")}
  _=config.Config{}
  t.Log("two synthetic canonical Users identities installed by existing authorities")
 }
 '''
+
+
+def login_plan(source, configs):
+    text = source.decode()
+    expression = re.compile(r"CREATE ROLE ([a-z][a-z0-9_]*) LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\s*GRANT ([a-z][a-z0-9_]*) TO \1 WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;")
+    pairs = expression.findall(text)
+    remainder = expression.sub("", text)
+    if len(pairs) != 16 or re.sub(r"\s+", "", remainder) != "BEGIN;COMMIT;" or len(dict(pairs)) != 16:
+        fail("The private H1 technical roles contract changed.")
+    configured = {}
+    base = {"dsn_registro_identidad": "vec_identidad_sesiones_v1_registrador",
+            "dsn_revalidacion_identidad": "vec_identidad_sesiones_v1_revalidador",
+            "dsn_contexto": "vec_contexto_actor_v1_runtime", "dsn_fuente_autorizacion": "vec_autorizacion_fuente",
+            "dsn_registro_autorizacion": "vec_autorizacion_registro", "dsn_motivos": "vec_autorizacion_motivos_evaluador"}
+    for surface, config in configs.items():
+        role_surface = "interno" if surface == "interna" else "externo"
+        expected = dict(base, dsn_usuarios="vec_usuarios_ejecutor_" + role_surface,
+                        dsn_usuarios_frontera="vec_usuarios_registrador_frontera_" + role_surface)
+        for field, group in expected.items():
+            name = urlsplit(config[field]).username
+            if not name or name in configured:
+                fail("Technical Users accounts are not separated.")
+            configured[name] = group
+    if configured != dict(pairs):
+        fail("Configured Users DSN do not match the preserved technical roles contract.")
+    return [{"name": name, "group": group} for name, group in pairs]
 
 
 def provision(repo, container, state, material, pg_port, engine="docker"):
@@ -337,6 +450,10 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
         if not path.exists():
             atomic(path, original)
         preimages.append((current_path, current))
+    configurations = {surface: json.loads(private(material / "identidad" / ("usuarios-preferencias-" + surface + ".json")))
+                      for surface in ("interna", "externa")}
+    roles_input = private(Path.home() / ".local/state/vec-clon/roles-usuarios-hito1.sql")
+    roles = login_plan(roles_input, configurations)
     system_id = material_module.run([engine, "exec", "--user", "postgres", container, "psql", "-XAt", "-d", "postgres", "-c", "SELECT system_identifier::text FROM pg_catalog.pg_control_system()"])
     plan_path = state / "usuarios-plan.json"
     if not plan_path.exists():
@@ -347,8 +464,13 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
     plan = json.loads(private(plan_path))
     if plan["system_id"] != system_id.decode().strip() or plan["pg_port"] != pg_port:
         fail("Users installation plan belongs to a different clone.")
-    # Admin credentials come from private H1 input and are retargeted only to
-    # this owned loopback clone, never inherited from the shell environment.
+    if "logins" in plan and plan["logins"] != roles:
+        fail("The technical role preimage changed after planning the installation.")
+    plan["logins"] = roles
+    plan["technical_roles_source_sha256"] = sha(roles_input)
+    atomic(plan_path, json.dumps(plan).encode())
+    # The administrative session uses only the owned clone's loopback trust
+    # rule and verified TLS; it never inherits a password or remote endpoint.
     admin = "postgres://postgres@127.0.0.1:" + str(pg_port) + "/postgres?" + urlencode({"sslmode": "verify-full", "sslrootcert": str(material / "pg/ca.crt")})
     installation = state / "usuarios-source"
     if installation.exists():
@@ -365,7 +487,7 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
                      "VEC_CODEXM_ADMIN_DSN": admin, "VEC_CT_GOBIERNO_DATABASE_URL": env["VEC_CT_GOBIERNO_DATABASE_URL"]}
         descriptor = os.open(state / "usuarios-install.log", os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
         with os.fdopen(descriptor, "wb") as log:
-            result = subprocess.run([str(go), "test", "-p", "32", "./internal/app/bootstrap", "-run", "^TestCodexMInstallUsers$", "-count=1", "-v"],
+            result = subprocess.run([str(go), "test", "-p", "32", "./internal/app/bootstrap", "-run", "^TestCodexM(InstallUsers|HistoricalUsersDTOAfterSessionExpiry)$", "-count=1", "-v"],
                                     cwd=installation, env=execution, stdout=log, stderr=subprocess.STDOUT, timeout=240)
         if result.returncode:
             fail("Users authority installation failed; inspect the private usuarios-install.log.")

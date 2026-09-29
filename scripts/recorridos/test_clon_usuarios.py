@@ -45,6 +45,33 @@ class UsersTests(unittest.TestCase):
         with self.assertRaises(users.UsersError):
             users.selected_go_functions(source, ['unknown'])
 
+    def test_technical_logins_match_only_the_private_H1_contract(self):
+        configs = {}
+        statements = ['BEGIN;']
+        base = {'dsn_registro_identidad': 'vec_identidad_sesiones_v1_registrador',
+                'dsn_revalidacion_identidad': 'vec_identidad_sesiones_v1_revalidador',
+                'dsn_contexto': 'vec_contexto_actor_v1_runtime', 'dsn_fuente_autorizacion': 'vec_autorizacion_fuente',
+                'dsn_registro_autorizacion': 'vec_autorizacion_registro', 'dsn_motivos': 'vec_autorizacion_motivos_evaluador'}
+        for surface in ['interna', 'externa']:
+            suffix = 'interno' if surface == 'interna' else 'externo'
+            groups = dict(base, dsn_usuarios='vec_usuarios_ejecutor_' + suffix,
+                          dsn_usuarios_frontera='vec_usuarios_registrador_frontera_' + suffix)
+            config = {}
+            for index, (field, group) in enumerate(groups.items()):
+                name = 'fixture_' + surface + '_' + str(index)
+                config[field] = 'postgres://' + name + '@127.0.0.1:55531/postgres?sslmode=verify-full'
+                statements.append('CREATE ROLE ' + name + ' LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;')
+                statements.append('GRANT ' + group + ' TO ' + name + ' WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;')
+            configs[surface] = config
+        statements.append('COMMIT;')
+        source = '\n'.join(statements).encode()
+        self.assertEqual(len(users.login_plan(source, configs)), 16)
+        with self.assertRaises(users.UsersError):
+            users.login_plan(source + b'ALTER ROLE fixture_interna_0 SUPERUSER;', configs)
+        configs['externa']['dsn_contexto'] = configs['interna']['dsn_contexto']
+        with self.assertRaises(users.UsersError):
+            users.login_plan(source, configs)
+
     def test_harness_preserves_original_person_and_emits_fresh_short_session(self):
         generated = users.make_harness(Path(__file__).parents[2])
         self.assertIn('original,historic', generated)
@@ -52,6 +79,9 @@ class UsersTests(unittest.TestCase):
         self.assertIn('certificate trust', generated)
         self.assertNotIn('func TestProvisionarIdentidadPreferenciasHito1', generated)
         self.assertNotIn('INSERT INTO', generated)
+        dto = users.selected_go_functions(generated, ['construirCuentaProvisionPreferenciasHito1'])
+        self.assertNotIn('CrearVinculoAutenticacionActorV2ConResultado', dto)
+        self.assertNotIn('SesionValidaHasta', dto)
 
 
 if __name__ == '__main__':
