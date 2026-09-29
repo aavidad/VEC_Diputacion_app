@@ -156,3 +156,53 @@ func TestReglasVigentesConfiguracionYCancelacion(t *testing.T) {
 		t.Fatalf("petición cancelada: %d", w.Code)
 	}
 }
+
+type ajustesFijos struct{ v reglas.VersionAjustes }
+
+func (a ajustesFijos) AjustesVigentesEn(context.Context, string, time.Time) (reglas.VersionAjustes, bool, error) {
+	return a.v, true, nil
+}
+
+// Una regla ajustada no rompe la identidad del catálogo: se muestra con la
+// versión y la huella de la base y cita su ajuste.
+func TestReglasVigentesConReglaAjustada(t *testing.T) {
+	consulta, err := fichero.NuevaConsultaCatalogos("../../../../data/demo/reglas/ct_reglas.ejemplo.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ajustes := map[string]map[string]string{reglas.CTPlazoFiscalizacion: {reglas.CampoCantidad: "7"}}
+	huella, err := reglas.HuellaAjustes(ajustes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := reglas.NuevoResolutor(reglas.Configuracion{
+		Consulta: consulta, Metadatos: consulta, CatalogoID: reglas.CatalogoContratacionTemporal,
+		ModuloID: reglas.ModuloContratacionTemporal, Reloj: relojFijo(time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)),
+		Ajustes: ajustesFijos{reglas.VersionAjustes{
+			CatalogoID: reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal), Version: 2, HuellaSHA256: huella,
+			VigenteDesde: time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC), Ajustes: ajustes,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := NuevoManejador(Fuente{Modulo: reglas.ModuloContratacionTemporal, CatalogoID: reglas.CatalogoContratacionTemporal, Consulta: r})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var respuesta Respuesta
+	if err := json.Unmarshal(pedir(t, m, http.MethodGet, RutaReglasVigentes, nil).Body.Bytes(), &respuesta); err != nil {
+		t.Fatal(err)
+	}
+	c := respuesta.Data.Catalogos[0]
+	if c.Estado != EstadoDisponible || c.Version != 1 || len(c.HuellaSHA256) != 64 {
+		t.Fatalf("catálogo: %+v", c)
+	}
+	for _, regla := range c.Reglas {
+		if regla.Clave == reglas.CTPlazoFiscalizacion && (regla.Cantidad != 7 || regla.Version != 1 ||
+			regla.Origen != string(reglas.OrigenEjemplo) ||
+			regla.Referencia != "vec.contratacion_temporal.reglas.ajustes:2:c03.plazo_fiscalizacion") {
+			t.Fatalf("regla ajustada: %+v", regla)
+		}
+	}
+}

@@ -29,7 +29,11 @@
           "unidad": "dias_habiles",
           "cantidad": "5",
           "inicio": "solicitud",
-          "computo": "administrativo"
+          "computo": "administrativo",
+          "editable": "cantidad,unidad",
+          "opciones_unidad": "dias_habiles,dias_naturales",
+          "cantidad_minima": "1",
+          "cantidad_maxima": "60"
         },
         "orden": 1
       },
@@ -46,7 +50,11 @@
           "cantidad": "10",
           "inicio": "peticion_informe",
           "computo": "administrativo",
-          "fases": "asignacion_unidad,informe_juridico"
+          "fases": "asignacion_unidad,informe_juridico",
+          "editable": "cantidad,unidad",
+          "opciones_unidad": "dias_habiles,dias_naturales",
+          "cantidad_minima": "1",
+          "cantidad_maxima": "60"
         },
         "orden": 2
       },
@@ -64,7 +72,11 @@
           "inicio": "recepcion_expediente",
           "computo": "administrativo",
           "fases": "fiscalizacion",
-          "cantidad_urgente": "5"
+          "cantidad_urgente": "5",
+          "editable": "cantidad,cantidad_urgente,unidad",
+          "opciones_unidad": "dias_habiles,dias_naturales",
+          "cantidad_minima": "1",
+          "cantidad_maxima": "60"
         },
         "orden": 3
       },
@@ -81,7 +93,11 @@
           "cantidad": "10",
           "inicio": "requerimiento",
           "computo": "administrativo",
-          "fases": "subsanacion_unidad"
+          "fases": "subsanacion_unidad",
+          "editable": "cantidad,unidad",
+          "opciones_unidad": "dias_habiles,dias_naturales",
+          "cantidad_minima": "1",
+          "cantidad_maxima": "60"
         },
         "orden": 4
       },
