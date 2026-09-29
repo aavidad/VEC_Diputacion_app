@@ -3,3 +3,4 @@
 # de la rama base #166. CT68 está instalada y conserva historia; no ejecutar
 # DOWN ni reaplicar CT68. Instalar CT150 una sola vez tras esas dependencias.
 deploy/postgresql/contratacion_temporal/migraciones/000150_entrega_peticion_perfil_fijo.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000151_entrega_estado_http.up.sql
