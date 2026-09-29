@@ -181,8 +181,9 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
   for (const ruta of await archivosEn(RAIZ)) {
     if (![".js", ".mjs", ".css", ".html"].includes(extname(ruta))) continue;
     const lineas = (await readFile(ruta, "utf8")).split("\n").length;
-    // 5.08a añade el coordinador de preferencias; su formulario vive en un módulo aparte.
-    const tope = relative(RAIZ, ruta) === "aplicacion.js" ? 950 : 800;
+    // 5.08a añade preferencias y devuelve el foco tras consultas y guardados;
+    // su formulario permanece en un módulo aparte.
+    const tope = relative(RAIZ, ruta) === "aplicacion.js" ? 960 : 800;
     assert.ok(lineas < tope, `${relative(RAIZ, ruta)} tiene ${lineas} líneas`);
   }
   const css = await readFile(join(RAIZ, "area-personal.css"), "utf8");
