@@ -92,6 +92,9 @@
     "error_503_plazo_no_configurado": "This list's offer policy has no deadline. Set the \"Deadline\" section and publish again.",
     "error_generico": "The operation could not be completed. Check the offers before trying again."
   },
+  "politica_plazo": {
+    "ayuda": "The form shows the deadline in the current policy. If there is no policy yet, it suggests the value from the Bolsa catalogue. Review and save the policy before publishing. Email does not start a legal deadline."
+  },
   "politica_plazas": {
     "titulo": "Posts",
     "llamada": "How people are contacted",

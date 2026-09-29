@@ -2,13 +2,16 @@ import { traducirPortal } from "../../portal-i18n.js?v=20260929-i18n-shell-v2";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, plazasCompletas,
   LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js";
 
-// Los textos del apartado «Plazas» viven en textos/<idioma>/bolsa-ofertas.json.
+// Los textos de plazos y plazas viven en textos/<idioma>/bolsa-ofertas.json.
 const { cargarTextos } = await import("../../../comun/textos.js");
-const TEXTOS_PLAZAS = (await cargarTextos("bolsa-ofertas")).seccion("politica_plazas");
+const CATALOGO_TEXTOS = await cargarTextos("bolsa-ofertas");
+const TEXTOS_PLAZAS = CATALOGO_TEXTOS.seccion("politica_plazas");
+const TEXTOS_PLAZO = CATALOGO_TEXTOS.seccion("politica_plazo");
 const PLAZAS_VACIAS = Object.freeze({ llamada: "", respuesta_horas: null, tras_renuncia: "" });
+const CLAVE_PLAZO_CATALOGO = "b10.plazo_publicacion";
 
 const EJEMPLO_VACIO = Object.freeze({
-  plazo: { unidad: "horas_naturales", cantidad: 48, computo: "continuo_utc", municipio_sede: "" },
+  plazo: { unidad: "", cantidad: null, computo: "", municipio_sede: "" },
   adjudicacion: { criterio: "orden_vigente", elegibilidad: "disposicion_en_plazo" },
   no_cubierta: { accion: "llamamiento_directo", condicion: "sin_disposiciones_elegibles" },
 });
@@ -24,17 +27,37 @@ function claveNueva() {
   return globalThis.crypto?.randomUUID?.() ?? `politica-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+/** Propuesta del catálogo de Bolsa; sin regla no se propone una cifra. */
+export async function cargarPlazoCatalogo({ cliente } = {}) {
+  try {
+    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260928-ppt-v2")).crearCliente();
+    const datos = await lector.reglas();
+    const reglas = datos.catalogos.filter((catalogo) => catalogo.modulo === "bolsa" && catalogo.estado === "disponible")
+      .flatMap((catalogo) => catalogo.reglas).filter((regla) => regla.clave === CLAVE_PLAZO_CATALOGO);
+    if (reglas.length !== 1) return null;
+    const regla = reglas[0];
+    if (regla.origen !== "reglamento" || regla.unidad !== "dias_habiles" || regla.computo !== "administrativo"
+      || regla.inicio !== "publicacion" || !Number.isSafeInteger(regla.cantidad)
+      || regla.cantidad < 1 || regla.cantidad > 30) return null;
+    return { unidad: "dias_habiles", cantidad: regla.cantidad, computo: "administrativo", municipio_sede: "" };
+  } catch {
+    return null;
+  }
+}
+
 /** La capacidad se consulta aparte; el POST de publicación vuelve a autorizar. */
 export function crearSuperficieRRHHPlazos({
   cliente = crearClientePoliticaOfertas(), traducir = traducirPortal,
   alCambiar = () => {}, anunciar = () => {},
-  generarClave = claveNueva, cargarEjemplo = cargarEjemploPlazas, textosPlazas = TEXTOS_PLAZAS,
+  generarClave = claveNueva, cargarEjemplo = cargarEjemploPlazas, cargarPlazo = cargarPlazoCatalogo,
+  textosPlazas = TEXTOS_PLAZAS, textosPlazo = TEXTOS_PLAZO,
 } = {}) {
   const estado = { bolsaRef: "", carga: "inactiva", vigente: null, borrador: { ...copia(EJEMPLO_VACIO), plazas: copia(PLAZAS_VACIAS) },
     error: "", mensaje: "", guardando: false, conflicto: false, clave: "", cargaId: 0,
     puedePublicar: false, capacidadCargando: false, capacidadError: false, ayudaAbierta: false,
-    ejemploPlazas: null, plazasTocadas: false };
+    ejemploPlazas: null, plazasTocadas: false, plazoCatalogo: null, plazoTocado: false };
   let ejemploPedido = false;
+  let plazoPedido = false;
   let lectura = null;
   let capacidad = null;
   let escritura = null;
@@ -49,6 +72,26 @@ export function crearSuperficieRRHHPlazos({
   function conPlazas(borrador) {
     if (!plazasCompletas(borrador.plazas)) borrador.plazas = copia(estado.ejemploPlazas ?? PLAZAS_VACIAS);
     return borrador;
+  }
+
+  function conPlazo(borrador) {
+    if (borrador.plazo.cantidad === null && estado.plazoCatalogo) borrador.plazo = copia(estado.plazoCatalogo);
+    return borrador;
+  }
+
+  async function pedirPlazoCatalogo() {
+    if (plazoPedido) return;
+    plazoPedido = true;
+    let ejemplo;
+    try { ejemplo = await cargarPlazo(); }
+    catch { plazoPedido = false; return; }
+    if (!ejemplo) { plazoPedido = false; return; }
+    estado.plazoCatalogo = ejemplo;
+    if (estado.bolsaRef && !estado.vigente?.configurada && !estado.plazoTocado
+      && estado.borrador.plazo.cantidad === null) {
+      estado.borrador.plazo = copia(ejemplo);
+      repintar();
+    }
   }
 
   async function pedirEjemploPlazas() {
@@ -84,6 +127,7 @@ export function crearSuperficieRRHHPlazos({
 
   async function cargar({ conservarBorrador = false } = {}) {
     if (!estado.bolsaRef) return;
+    if (!estado.plazoCatalogo) void pedirPlazoCatalogo();
     lectura?.abort();
     capacidad?.abort();
     lectura = new AbortController();
@@ -102,8 +146,9 @@ export function crearSuperficieRRHHPlazos({
       } else {
         estado.vigente = resultado.politica;
         if (!conservarBorrador) {
-          estado.borrador = conPlazas(copia(resultado.politica.configurada ? resultado.politica.politica : EJEMPLO_VACIO));
+          estado.borrador = conPlazas(conPlazo(copia(resultado.politica.configurada ? resultado.politica.politica : EJEMPLO_VACIO)));
           estado.plazasTocadas = false;
+          estado.plazoTocado = false;
           estado.clave = "";
         }
         estado.carga = "lista"; estado.conflicto = false;
@@ -172,7 +217,7 @@ export function crearSuperficieRRHHPlazos({
     const deshabilitado = !puedeEditar() || estado.guardando || estado.conflicto;
     const disabled = deshabilitado ? " disabled" : "";
     const cabecera = `<div class="cabecera-panel"><div><h3>${t("titulo")}</h3><p>${t("subtitulo")}</p></div><div class="rrhh-plazos__cabecera-estado"><span class="estado-chip advertencia">${t("ejemplo")}</span>${configurada ? `<span class="estado-chip info">${t("version", { version: estado.vigente.version })}</span>` : ""}<button type="button" class="rrhh-plazos__ayuda" data-rrhh-plazos-accion="ayuda" aria-label="${t("ayuda")}" aria-expanded="${estado.ayudaAbierta}" aria-controls="rrhh-plazos-ayuda">?</button></div></div>
-      <p id="rrhh-plazos-ayuda" class="rrhh-plazos__ayuda-texto" ${estado.ayudaAbierta ? "" : "hidden"}>${t("ayuda_contenido")}</p>`;
+      <p id="rrhh-plazos-ayuda" class="rrhh-plazos__ayuda-texto" ${estado.ayudaAbierta ? "" : "hidden"}>${escapar(textosPlazo.ayuda)}</p>`;
     if (estado.carga === "inactiva" || estado.carga === "cargando") {
       return `<section class="panel rrhh-plazos" aria-busy="true">${cabecera}<div class="cuerpo-panel" role="status">${t("cargando")}</div></section>`;
     }
@@ -180,9 +225,9 @@ export function crearSuperficieRRHHPlazos({
       return `<section class="panel rrhh-plazos">${cabecera}<div class="cuerpo-panel"><p class="rrhh-plazos__error" role="alert">${escapar(estado.error)}</p>${estado.carga === "error" ? `<button type="button" class="boton-secundario" data-rrhh-plazos-accion="recargar">${t("reintentar")}</button>` : ""}</div></section>`;
     }
     const horas = v.plazo.unidad === "horas_naturales";
-    const calendario = horas ? t("calendario_continuo_utc") : /^[0-9]{5}$/u.test(v.plazo.municipio_sede)
+    const calendario = !v.plazo.unidad ? t("desconocido") : horas ? t("calendario_continuo_utc") : /^[0-9]{5}$/u.test(v.plazo.municipio_sede)
       ? t("calendario_municipio", { municipio: v.plazo.municipio_sede }) : t("calendario_pendiente");
-    const plazo = `<section class="panel"><div class="cabecera-panel"><h3>${t("plazo_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos"><label class="campo"><span>${t("cantidad")}</span><input name="cantidad" type="number" min="1" max="${horas ? 720 : 30}" step="1" required value="${escapar(v.plazo.cantidad)}"${disabled}></label><label class="campo"><span>${t("unidad")}</span><select name="unidad"${disabled}><option value="horas_naturales"${horas ? " selected" : ""}>${t("horas_naturales")}</option><option value="dias_habiles"${v.plazo.unidad === "dias_habiles" ? " selected" : ""}>${t("dias_habiles")}</option><option value="dias_naturales"${v.plazo.unidad === "dias_naturales" ? " selected" : ""}>${t("dias_naturales")}</option></select></label><label class="campo"><span>${t("municipio_sede")}</span><input name="municipio_sede" inputmode="numeric" pattern="[0-9]{5}" minlength="5" maxlength="5" required value="${escapar(v.plazo.municipio_sede)}"${disabled}></label>${dato("computo", t(horas ? "continuo_utc" : "administrativo"))}${dato("calendario_fuente", calendario)}</div></section>`;
+    const plazo = `<section class="panel"><div class="cabecera-panel"><h3>${t("plazo_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos"><label class="campo"><span>${t("cantidad")}</span><input name="cantidad" type="number" min="1" max="${horas ? 720 : 30}" step="1" required value="${escapar(v.plazo.cantidad)}"${disabled}></label><label class="campo"><span>${t("unidad")}</span><select name="unidad" required${disabled}><option value=""${v.plazo.unidad ? "" : " selected"}>${tp("elegir")}</option><option value="horas_naturales"${horas ? " selected" : ""}>${t("horas_naturales")}</option><option value="dias_habiles"${v.plazo.unidad === "dias_habiles" ? " selected" : ""}>${t("dias_habiles")}</option><option value="dias_naturales"${v.plazo.unidad === "dias_naturales" ? " selected" : ""}>${t("dias_naturales")}</option></select></label><label class="campo"><span>${t("municipio_sede")}</span><input name="municipio_sede" inputmode="numeric" pattern="[0-9]{5}" minlength="5" maxlength="5" required value="${escapar(v.plazo.municipio_sede)}"${disabled}></label>${dato("computo", t(v.plazo.computo || "desconocido"))}${dato("calendario_fuente", calendario)}</div></section>`;
     const orden = `<section class="panel"><div class="cabecera-panel"><h3>${t("orden_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("criterio", t("orden_vigente"))}${dato("elegibilidad", t("disposicion_en_plazo"))}<p class="campo--ancho dato-secundario">${t("confirmacion")}</p></div></section>`;
     const noCubierta = `<section class="panel"><div class="cabecera-panel"><h3>${t("no_cubierta_titulo")}</h3></div><div class="cuerpo-panel rrhh-plazos__campos">${dato("condicion", t("sin_elegibles"))}${dato("accion", t("llamamiento_directo"))}</div></section>`;
     const p = v.plazas ?? PLAZAS_VACIAS;
@@ -219,9 +264,13 @@ export function crearSuperficieRRHHPlazos({
       estado.borrador.plazo.unidad = valor;
       const horas = valor === "horas_naturales";
       estado.borrador.plazo.computo = horas ? "continuo_utc" : "administrativo";
-      if ((anterior === "horas_naturales") !== horas) estado.borrador.plazo.cantidad = horas ? 48 : 1;
+      if (anterior !== valor) {
+        const referencia = estado.vigente?.configurada ? estado.vigente.politica.plazo : estado.plazoCatalogo;
+        estado.borrador.plazo.cantidad = referencia?.unidad === valor ? referencia.cantidad : null;
+      }
       repintar();
     } else estado.borrador.plazo[campo] = valor;
+    estado.plazoTocado = true;
     estado.clave = ""; estado.mensaje = ""; estado.error = "";
     return true;
   }
@@ -253,11 +302,12 @@ export function crearSuperficieRRHHPlazos({
     activar(bolsaRef) {
       if (!bolsaRef || bolsaRef === estado.bolsaRef) return;
       lectura?.abort(); capacidad?.abort(); escritura?.abort(); estado.cargaId++;
-      Object.assign(estado, { bolsaRef, carga: "inactiva", vigente: null, borrador: conPlazas(copia(EJEMPLO_VACIO)),
+      Object.assign(estado, { bolsaRef, carga: "inactiva", vigente: null, borrador: conPlazas(conPlazo(copia(EJEMPLO_VACIO))),
         error: "", mensaje: "", guardando: false, conflicto: false, clave: "", puedePublicar: false,
         capacidadCargando: false, capacidadError: false,
-        ayudaAbierta: false, plazasTocadas: false });
+        ayudaAbierta: false, plazasTocadas: false, plazoTocado: false });
       void pedirEjemploPlazas();
+      void pedirPlazoCatalogo();
       void cargar();
     },
     desmontar() {
