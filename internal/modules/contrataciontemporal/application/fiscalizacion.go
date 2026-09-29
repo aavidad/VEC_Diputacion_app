@@ -447,6 +447,11 @@ func clasificarFalloFiscalizacion(ctx context.Context, causa error) error {
 	if errors.Is(causa, ports.ErrInformeNuevoPendiente) {
 		return ports.ErrInformeNuevoPendiente
 	}
+	// El expediente ya no está en la versión esperada: conflicto sin
+	// efectos, no indisponibilidad.
+	if errors.Is(causa, domain.ErrVersionEnConflicto) {
+		return domain.ErrVersionEnConflicto
+	}
 	if errors.Is(causa, ErrFiscalizacionDenegada) {
 		return ErrFiscalizacionDenegada
 	}

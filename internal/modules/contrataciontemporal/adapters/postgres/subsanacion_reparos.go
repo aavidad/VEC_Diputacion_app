@@ -16,6 +16,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -142,7 +143,8 @@ func (p *PreparadorSubsanacionReparosPostgreSQL) PrepararSubsanacionReparo(ctx c
 		if causa == nil {
 			return preparada, nil
 		}
-		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosPrepararFiscalizacion {
+		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosPrepararFiscalizacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento+1) {
 			return ports.PreparacionSubsanacionReparo{}, normalizarErrorSubsanacionSQL(ctx, causa)
 		}
 	}
@@ -262,7 +264,8 @@ func (t *TransaccionSubsanacionReparosPostgreSQL) ConfirmarSubsanacionReparo(ctx
 		if causa == nil {
 			return recibo, nil
 		}
-		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosConfirmarFiscalizacion {
+		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosConfirmarFiscalizacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento+1) {
 			return ports.ReciboSubsanacionReparo{}, normalizarErrorSubsanacionSQL(ctx, causa)
 		}
 	}

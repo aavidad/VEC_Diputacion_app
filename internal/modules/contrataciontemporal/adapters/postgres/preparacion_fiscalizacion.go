@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
@@ -19,9 +20,10 @@ const (
 	// funcionPrepararFiscalizacionV2 (CT120) elige, por la forma del
 	// expediente, entre la refiscalización tras subsanación (CT93) y la
 	// fiscalización de un expediente modificado tras el nombramiento.
-	funcionPrepararFiscalizacionV2      = "vec_contratacion_temporal.preparar_fiscalizacion_v2"
-	esquemaPrepararFiscalizacion        = "vec.contratacion-temporal.preparar-fiscalizacion.v1"
-	maximoIntentosPrepararFiscalizacion = 3
+	funcionPrepararFiscalizacionV2 = "vec_contratacion_temporal.preparar_fiscalizacion_v2"
+	esquemaPrepararFiscalizacion   = "vec.contratacion-temporal.preparar-fiscalizacion.v1"
+	// Una carrera de serialización se repite con la política común de VEC.
+	maximoIntentosPrepararFiscalizacion = postgresqlcomun.IntentosMaximosCarreraSerializable
 )
 
 // funcionPrepararFiscalizacionParaVersion conserva la función original para
@@ -163,8 +165,14 @@ func (p *PreparadorFiscalizacionPostgreSQL) PrepararFiscalizacion(
 		if ctx.Err() != nil {
 			return ports.PreparacionFiscalizacion{}, ctx.Err()
 		}
+		// La función declara «expediente no disponible» (el expediente ya no
+		// está en la versión esperada): conflicto sin efectos, no se repite.
+		if conflictoDeclaradoPorFuncionSQL(causa) {
+			return ports.PreparacionFiscalizacion{}, domain.ErrVersionEnConflicto
+		}
 		if !errorPostgreSQLReintentable(causa) ||
-			intento == maximoIntentosPrepararFiscalizacion {
+			intento == maximoIntentosPrepararFiscalizacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.PreparacionFiscalizacion{},
 				normalizarErrorPreparacionFiscalizacion(ctx, causa)
 		}
