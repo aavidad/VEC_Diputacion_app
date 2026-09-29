@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/separacionportales"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
@@ -337,12 +338,26 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	return &composicionPreferenciasUsuarios{interna: interna, externa: externa}, nil
 }
 
-// superficieExternaUsuariosEnProceso indica si esta composición atiende
-// también el Área personal: sí en el proceso combinado, no en el interno
-// separado. Un valor de portal no válido no llega aquí (se rechaza antes).
+// superficieExternaUsuariosEnProceso indica si esta composición (la del
+// portal de RRHH) atiende también el Área personal. Solo el proceso
+// combinado lo hace: el interno separado compone solo la corporativa y el
+// externo tiene su propia composición (portal_externo*.go), así que aquí
+// cualquier otro valor, incluido uno no válido, responde que no.
 func superficieExternaUsuariosEnProceso(cfg config.Config) bool {
 	portal, err := portalProcesoConfigurado(cfg)
-	return err == nil && !portal.Separado()
+	return err == nil && portal == separacionportales.PortalCombinado
+}
+
+// superficiesUsuariosEnProceso devuelve las superficies que esta composición
+// comprueba y monta: la corporativa siempre y el Área personal solo en el
+// proceso combinado. Las comprobaciones previas de correos e imagen la usan
+// para que el interno separado nunca lea la configuración del Área personal
+// ni abra conexiones con sus credenciales.
+func superficiesUsuariosEnProceso(cfg config.Config) []core.SuperficieAutenticacionActorV1 {
+	if superficieExternaUsuariosEnProceso(cfg) {
+		return []core.SuperficieAutenticacionActorV1{core.SuperficieAutenticacionInternaCorporativaV1, core.SuperficieAutenticacionExternaPersonalV1}
+	}
+	return []core.SuperficieAutenticacionActorV1{core.SuperficieAutenticacionInternaCorporativaV1}
 }
 
 func superficiesPreferenciasSeparadas(interna, externa *autoridadPreferenciasUsuariosDesarrollo) bool {

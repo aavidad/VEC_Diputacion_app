@@ -10,12 +10,23 @@ import (
 	"vec-diputacion-granada/config"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
+	core "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestProcesoInternoSeparadoSoloComponeLaSuperficieCorporativa(t *testing.T) {
-	for portal, externa := range map[string]bool{"": true, "interno": false} {
-		if got := superficieExternaUsuariosEnProceso(config.Config{PortalProceso: portal}); got != externa {
+	// Solo el combinado compone aquí el Área personal; el externo tiene su
+	// propia composición y un valor no válido nunca la activa.
+	for portal, externa := range map[string]bool{"": true, "interno": false, "externo": false, "otro": false} {
+		cfg := config.Config{PortalProceso: portal}
+		if got := superficieExternaUsuariosEnProceso(cfg); got != externa {
 			t.Fatalf("portal %q: superficie externa %t, se esperaba %t", portal, got, externa)
+		}
+		// Las comprobaciones previas de preferencias, correos e imagen solo
+		// recorren estas superficies: en el interno nunca la del Área personal.
+		superficies := superficiesUsuariosEnProceso(cfg)
+		if superficies[0] != core.SuperficieAutenticacionInternaCorporativaV1 || (len(superficies) == 2) != externa ||
+			(externa && superficies[1] != core.SuperficieAutenticacionExternaPersonalV1) {
+			t.Fatalf("portal %q: superficies %v", portal, superficies)
 		}
 	}
 }
@@ -53,6 +64,15 @@ func TestComposicionUsuariosSinSuperficieExterna(t *testing.T) {
 	siguiente.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/vec/otra", nil))
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("el envoltorio altero una ruta ajena: %d", w.Code)
+	}
+	// Una ruta del Área personal tampoco toca la superficie ausente: pasa al
+	// enrutador, que no la tiene registrada en este proceso.
+	for _, ruta := range []string{usuarioshttp.RutaMisPreferenciasAreaPersonal, usuarioshttp.RutaMisCorreosAreaPersonal, usuarioshttp.RutaMiImagenAreaPersonal} {
+		w = httptest.NewRecorder()
+		siguiente.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("%s interceptada por la superficie corporativa: %d", ruta, w.Code)
+		}
 	}
 	c.cerrar()
 }
