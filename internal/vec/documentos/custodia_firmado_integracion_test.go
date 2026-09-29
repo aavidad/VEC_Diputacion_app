@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -136,12 +137,14 @@ func (a *autorizadorCustodia) AutorizarCustodiaFirmado(_ context.Context, preima
 }
 
 type escenarioCustodia struct {
-	servicio    *docapp.Servicio
-	catalogo    *conservacion.Catalogo
-	repo        *repositorioCustodia
-	emisor      *emisorCustodia
-	autorizador *autorizadorCustodia
-	orden       docports.CustodiaFirmado
+	directorio        string
+	ficherosIniciales int
+	servicio          *docapp.Servicio
+	catalogo          *conservacion.Catalogo
+	repo              *repositorioCustodia
+	emisor            *emisorCustodia
+	autorizador       *autorizadorCustodia
+	orden             docports.CustodiaFirmado
 }
 
 func (e escenarioCustodia) custodiar() (domain.Documento, error) {
@@ -239,7 +242,7 @@ func nuevoEscenarioCustodiaEn(t *testing.T, ahora time.Time, sufijo string) esce
 		t.Fatal(err)
 	}
 	autorizador := &autorizadorCustodia{t: t, ahora: ahora, sufijo: sufijo, principal: datos.PrincipalID, perfil: datos.PerfilActivoRef}
-	return escenarioCustodia{servicio: servicio, catalogo: catalogo, repo: repo, emisor: emisor, autorizador: autorizador, orden: orden}
+	return escenarioCustodia{directorio: directorio, ficherosIniciales: ficherosEn(t, directorio), servicio: servicio, catalogo: catalogo, repo: repo, emisor: emisor, autorizador: autorizador, orden: orden}
 }
 
 func ordenCustodia(t *testing.T, catalogo *conservacion.Catalogo, tipoDocumental, expediente, sufijo string) docports.CustodiaFirmado {
@@ -292,6 +295,9 @@ func TestCustodiaFirmadoEscribeYConfirmaConConcesionRegistrada(t *testing.T) {
 	if err != nil || !bytes.Equal(preimagen, e.autorizador.preimagen) {
 		t.Fatal("la V3 no se pidió para la preimagen confirmada")
 	}
+	if objetosEscritos(t, e) == 0 {
+		t.Fatal("el recuento de objetos del almacén no ve la escritura")
+	}
 	// El objeto escrito es el PDF exacto.
 	if e.repo.persistente.Objeto.Objeto.HuellaSHA256 != documento.HuellaSHA256 || e.repo.persistente.Objeto.Objeto.Tamano != int64(len(e.orden.Contenido)) {
 		t.Fatal("el objeto escrito no es el PDF firmado")
@@ -331,12 +337,62 @@ func TestCustodiaFirmadoNoEscribeSinConcesionValida(t *testing.T) {
 			e.orden.HuellaOriginalSHA256 = hex.EncodeToString(s[:])
 		},
 	}
+	// Solo estos dos casos llegan a pedir la concesión de almacén (y se les
+	// deniega); en el resto nada se pide ni se escribe.
+	conConcesion := map[string]bool{"concesión de almacén denegada": true, "otro actor en la concesión": true}
 	for nombre, alterar := range casos {
 		e := nuevoEscenarioCustodia(t)
 		alterar(t, &e)
 		if _, err := e.custodiar(); err == nil || e.repo.llamadas != 0 {
 			t.Errorf("%s: se custodió (%v, confirmaciones=%d)", nombre, err, e.repo.llamadas)
 		}
+		if !conConcesion[nombre] && e.emisor.llamadas != 0 {
+			t.Errorf("%s: se pidió la concesión de almacén", nombre)
+		}
+		if n := objetosEscritos(t, e); n != 0 {
+			t.Errorf("%s: se escribieron %d objetos", nombre, n)
+		}
+	}
+}
+
+// objetosEscritos cuenta los ficheros que el almacén tiene de más desde que
+// se abrió (al abrirse ya crea su cerrojo).
+func objetosEscritos(t *testing.T, e escenarioCustodia) int {
+	t.Helper()
+	return ficherosEn(t, e.directorio) - e.ficherosIniciales
+}
+
+func ficherosEn(t *testing.T, directorio string) int {
+	t.Helper()
+	n := 0
+	err := filepath.WalkDir(directorio, func(_ string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			n++
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// almacenVersionIlegible devuelve una versión que el almacén admite pero que
+// no se podría leer después como documento.
+type almacenVersionIlegible struct{ vecports.AlmacenObjetos }
+
+func (a almacenVersionIlegible) Escribir(ctx context.Context, s vecports.SolicitudEscribirObjeto) (vecports.ResultadoOperacionObjeto, error) {
+	r, err := a.AlmacenObjetos.Escribir(ctx, s)
+	r.Objeto.Objeto.Version = "v%1"
+	r.Evidencia.Objeto.Version = "v%1"
+	return r, err
+}
+
+func TestCustodiaFirmadoNoConfirmaUnObjetoIlegible(t *testing.T) {
+	e := nuevoEscenarioCustodia(t)
+	e.servicio.Almacen = almacenVersionIlegible{e.servicio.Almacen}
+	if _, err := e.custodiar(); err == nil || e.repo.llamadas != 0 {
+		t.Fatalf("un objeto con versión ilegible no puede confirmarse (%v, %d)", err, e.repo.llamadas)
 	}
 }
 
