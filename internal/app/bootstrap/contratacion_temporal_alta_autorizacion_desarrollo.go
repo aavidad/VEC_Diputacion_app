@@ -513,7 +513,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaDetalleRRHH), s.instantaneaDetalleRRHH.Validar() == nil
 	}
 	if ruta == httpinterno.RutaAltaSolicitudes {
-		i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea)
+		i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAltaFija)
 		return i, instantaneaPerfilVigenteCTDesarrollo(i, s.reloj.Ahora())
 	}
 	if rutaCoberturaContratacionTemporalDesarrollo(ruta) {

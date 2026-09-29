@@ -89,14 +89,19 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	claseAmbitoConsultaRRHH             ports.ClaseAmbitoConsultaRRHH
 	ambitoConsultaRRHH                  string
 	contexto                            ports.ContextoAutorizacionAltaV3
+	contextoAltaFijo                    ports.ContextoAutorizacionAltaV3
 	contextoCobertura                   ports.ContextoAutorizacionAltaV3
 	contextoEsperadoRegistrado          dominiovec.ResultadoContextoActorRegistradoV2
+	contextoEsperadoRegistradoAltaFijo  dominiovec.ResultadoContextoActorRegistradoV2
 	contextoEsperadoRegistradoCobertura dominiovec.ResultadoContextoActorRegistradoV2
 	sesionOperativa                     proveedorSesionOperativaCTDesarrollo
+	sesionOperativaAltaFijo             proveedorSesionOperativaCTDesarrollo
 	sesionOperativaCobertura            proveedorSesionOperativaCTDesarrollo
+	legadoDisponible                    bool
 	flujo                               ports.ConfiguracionAltaFlujo
 	motivo                              dominiovec.ReferenciaEntradaCatalogo
 	instantanea                         dominiovec.InstantaneaAutorizacion
+	instantaneaAltaFija                 dominiovec.InstantaneaAutorizacion
 	instantaneaAnalisis                 dominiovec.InstantaneaAutorizacion
 	motivoRegistroAnalisis              dominiovec.ReferenciaEntradaCatalogo
 	motivoRectificacionAnalisis         dominiovec.ReferenciaEntradaCatalogo
@@ -211,6 +216,12 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	contextoAltaFijo, err := nuevoContextoAltaFijoContratacionTemporalDesarrollo(
+		principal, ahora,
+	)
+	if err != nil {
+		return vacias, err
+	}
 	contextoCobertura, err := nuevoContextoCoberturaContratacionTemporalDesarrollo(
 		principal, ahora,
 	)
@@ -221,10 +232,25 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	datosVinculoAltaFijo, err := contextoAltaFijo.Vinculo.Datos()
+	if err != nil {
+		return vacias, err
+	}
 	datosVinculoCobertura, err := contextoCobertura.Vinculo.Datos()
-	if err != nil || datosVinculo.PrincipalID != datosVinculoCobertura.PrincipalID ||
+	if err != nil || datosVinculo.PrincipalID != datosVinculoAltaFijo.PrincipalID ||
+		datosVinculo.PrincipalID != datosVinculoCobertura.PrincipalID ||
+		datosVinculo.PerfilActivoRef == datosVinculoAltaFijo.PerfilActivoRef ||
 		datosVinculo.PerfilActivoRef == datosVinculoCobertura.PerfilActivoRef ||
+		datosVinculoAltaFijo.PerfilActivoRef == datosVinculoCobertura.PerfilActivoRef ||
+		datosVinculo.SesionRef == datosVinculoAltaFijo.SesionRef ||
+		datosVinculo.SesionRef == datosVinculoCobertura.SesionRef ||
+		datosVinculoAltaFijo.SesionRef == datosVinculoCobertura.SesionRef ||
+		contexto.Resultado.RegistroContextoRef == contextoAltaFijo.Resultado.RegistroContextoRef ||
+		contexto.Resultado.RegistroContextoRef == contextoCobertura.Resultado.RegistroContextoRef ||
+		contextoAltaFijo.Resultado.RegistroContextoRef == contextoCobertura.Resultado.RegistroContextoRef ||
+		contexto.Resultado.Contexto.Instantanea.CuentaRef != contextoAltaFijo.Resultado.Contexto.Instantanea.CuentaRef ||
 		contexto.Resultado.Contexto.Instantanea.CuentaRef != contextoCobertura.Resultado.Contexto.Instantanea.CuentaRef ||
+		contexto.Resultado.Contexto.PersonaRef != contextoAltaFijo.Resultado.Contexto.PersonaRef ||
 		contexto.Resultado.Contexto.PersonaRef != contextoCobertura.Resultado.Contexto.PersonaRef {
 		return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
@@ -254,6 +280,9 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	}
 	instantanea, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
 		datosVinculo.PrincipalID, datosVinculo.PerfilActivoRef, ahora, origen,
+	)
+	instantaneaAltaFija, errAltaFija := nuevaInstantaneaAutorizacionAltaFijaContratacionTemporalDesarrollo(
+		datosVinculoAltaFijo.PrincipalID, datosVinculoAltaFijo.PerfilActivoRef, ahora, origen,
 	)
 	instantaneaCobertura, errCobertura :=
 		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
@@ -287,7 +316,7 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	motivoRectificacionAnalisis := referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion")
 	motivoAsignacion := referenciaMotivoAutorizacionAsignacionDesarrollo()
 	motivoInformeJuridico := referenciaMotivoAutorizacionInformeJuridicoDesarrollo()
-	if err != nil || errCobertura != nil || errAnalisis != nil ||
+	if err != nil || errAltaFija != nil || errCobertura != nil || errAnalisis != nil ||
 		errAsignacion != nil || errInformeJuridico != nil || flujo.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
@@ -310,8 +339,9 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		origen: origen, opcionesCatalogo: dependenciasCT.opcionesCatalogoCT,
 		sello: sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
-		contexto:          contexto, contextoCobertura: contextoCobertura,
+		contexto:          contexto, contextoAltaFijo: contextoAltaFijo, contextoCobertura: contextoCobertura,
 		flujo: flujo, motivo: motivo, instantanea: instantanea,
+		instantaneaAltaFija:          instantaneaAltaFija,
 		instantaneaAnalisis:          instantaneaAnalisis,
 		instantaneaAsignacion:        instantaneaAsignacion,
 		instantaneaInformeJuridico:   instantaneaInformeJuridico,

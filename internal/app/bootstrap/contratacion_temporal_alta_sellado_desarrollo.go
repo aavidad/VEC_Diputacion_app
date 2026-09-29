@@ -124,6 +124,30 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 	return nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, ahora)
 }
 
+// El alta directa usa un perfil propio. El alta anidada de la entrega del
+// centro conserva el perfil legado porque su reserva y recibo sellan ese perfil.
+func nuevoContextoAltaFijoContratacionTemporalDesarrollo(
+	principal dominiovec.Principal,
+	ahora time.Time,
+) (ports.ContextoAutorizacionAltaV3, error) {
+	if !principalContratacionTemporalDesarrolloValido(principal) {
+		return ports.ContextoAutorizacionAltaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	discriminador := discriminadorContextoSinteticoContratacionTemporalDesarrollo()
+	discriminador.perfil = "perfil-alta-fija"
+	discriminador.vinculo = "vinculo-alta-fija"
+	discriminador.registro = "registro-contexto-alta-fija"
+	discriminador.autenticacion = "autenticacion-alta-fija"
+	discriminador.asercion = "asercion-alta-fija"
+	discriminador.sesion = "sesion-alta-fija"
+	discriminador.controlSesion = "control-sesion-alta-fija"
+	discriminador.politicaGarantia = "politica-garantia-alta-fija"
+	return nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
+		principal, ahora, discriminador,
+	)
+}
+
 // Cobertura conserva la misma cuenta, persona y procedencia que alta. Su
 // perfil, vínculo, registro y sesión son propios; ningún dato del cliente
 // selecciona estas referencias ni convierte un perfil en el otro.
