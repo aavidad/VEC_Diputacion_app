@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -139,15 +141,12 @@ func leerSeudonimosPortalExterno(contenido []byte) (seudonimosPortalExterno, err
 		sujeto, errS := hex.DecodeString(c.SujetoHMAC)
 		if !strings.HasPrefix(c.CuentaRef, "cta_") || c.Esquema != postgresidentidad.EsquemaHMACSHA256V1 ||
 			c.DominioRef != dominioIdentidadSesionDesarrollo || !strings.HasPrefix(c.ClaveID, espacioSeudonimosPortalExterno+".g") ||
-			c.ClaveVersion < 1 || errC != nil || errS != nil || len(cuenta) != 32 || len(sujeto) != 32 || bytes.Equal(cuenta, sujeto) {
+			c.ClaveVersion < 1 || c.ClaveVersion > math.MaxInt64 || errC != nil || errS != nil || len(cuenta) != 32 || len(sujeto) != 32 || bytes.Equal(cuenta, sujeto) {
 			return seudonimosPortalExterno{}, ErrSeudonimosPortalExternoInvalidos
 		}
 	}
 	return s, nil
 }
-
-const registrarAliasPortalExternoSQL = `SELECT vec_identidad_sesiones_v1.registrar_alias_hmac_cuenta_v1(
-    $1::text, $2::text, $3::text, $4::text, $5::text, $6::bigint, $7::bytea, $8::bytea)`
 
 // cuentaPrivilegiadaOVinculadaSQL es verdadero si la cuenta es privilegiada
 // o si es la cuenta ordinaria de una persona que además tiene una
@@ -187,7 +186,7 @@ func comprobarSeudonimosProvisionadosPortalExterno(ctx context.Context, gobierno
 		 WHERE c.cuenta_ref=$1 AND a.esquema_hmac=$2 AND a.dominio_hmac_ref=$3
 		 AND a.clave_hmac_id=$4 AND a.clave_hmac_version=$5
 		 AND a.cuenta_id_hmac=$6 AND a.sujeto_id_hmac=$7 AND s.estado='activa')`,
-			c.CuentaRef, c.Esquema, c.DominioRef, c.ClaveID, int64(c.ClaveVersion), cuenta, sujeto).Scan(&valida)
+			c.CuentaRef, c.Esquema, c.DominioRef, c.ClaveID, strconv.FormatUint(c.ClaveVersion, 10), cuenta, sujeto).Scan(&valida)
 		if err != nil || !valida {
 			return ErrSeudonimosPortalExternoInvalidos
 		}
@@ -198,9 +197,9 @@ func comprobarSeudonimosProvisionadosPortalExterno(ctx context.Context, gobierno
 	return nil
 }
 
-// registrarSeudonimosPortalExterno registra, con el rol de gobierno y de
-// forma idempotente, los alias que calculó el proceso externo. La cuenta
-// debe existir y estar activa; si no, no se registra nada.
+// registrarSeudonimosPortalExterno conserva la compatibilidad del montaje
+// combinado únicamente cuando el alias ya existe. Nunca registra material
+// personal externo nuevo en las tablas históricas compartidas.
 func registrarSeudonimosPortalExterno(ctx context.Context, gobierno *pgxpool.Pool, s seudonimosPortalExterno) error {
 	if ctx == nil || gobierno == nil {
 		return ErrSeudonimosPortalExternoInvalidos
@@ -221,11 +220,15 @@ func registrarSeudonimosPortalExterno(ctx context.Context, gobierno *pgxpool.Poo
 		}
 		cuenta, _ := hex.DecodeString(c.CuentaHMAC)
 		sujeto, _ := hex.DecodeString(c.SujetoHMAC)
-		operacion := referenciaAltaContratacionTemporalDesarrollo("opr_externo_alias_",
-			c.CuentaRef+"\x00"+c.ClaveID+"\x00"+c.CuentaHMAC+"\x00"+c.SujetoHMAC)
-		var registrada *string
-		if err := tx.QueryRow(ctx, registrarAliasPortalExternoSQL, operacion, c.CuentaRef, c.Esquema, c.DominioRef,
-			c.ClaveID, int64(c.ClaveVersion), cuenta, sujeto).Scan(&registrada); err != nil || registrada == nil || *registrada != c.CuentaRef {
+		var existente bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1
+		 FROM vec_identidad_sesiones_v1.alias_hmac_cuenta a
+		 JOIN vec_identidad_sesiones_v1.estado_cuenta_actual actual USING(cuenta_ref)
+		 JOIN vec_identidad_sesiones_v1.estado_cuenta estado ON estado.cuenta_ref=actual.cuenta_ref AND estado.revision=actual.revision
+		 WHERE a.cuenta_ref=$1 AND a.esquema_hmac=$2 AND a.dominio_hmac_ref=$3
+		 AND a.clave_hmac_id=$4 AND a.clave_hmac_version=$5
+		 AND a.cuenta_id_hmac=$6 AND a.sujeto_id_hmac=$7 AND estado.estado='activa')`,
+			c.CuentaRef, c.Esquema, c.DominioRef, c.ClaveID, strconv.FormatUint(c.ClaveVersion, 10), cuenta, sujeto).Scan(&existente); err != nil || !existente {
 			return ErrSeudonimosPortalExternoInvalidos
 		}
 	}
