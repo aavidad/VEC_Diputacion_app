@@ -91,7 +91,7 @@ func TestEntregaPeticionDesarrolloRechazaSelloDeOtraClaveAntesDeAutorizar(t *tes
 	}
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	hmac := &selladorEntregaPeticionPrueba{}
-	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: p.ID, certificadoSHA256: p.Attributes["certificate_sha256"], contexto: c, ambitos: hmac}
+	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: p.ID, certificadoSHA256: p.Attributes["certificate_sha256"], contexto: c, ambitos: hmac, legadoDisponible: true}
 	soporte.contextoEsperadoRegistrado = c.Resultado
 	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: c}
 	proveedor := &proveedorEntregaPeticionDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte}}

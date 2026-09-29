@@ -361,6 +361,7 @@ func TestPlantillasCatalogoCTIndicadorSoloDesdeGETAutenticado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	soporte.legadoDisponible = true
 	soporte.contextoEsperadoRegistrado = soporte.contexto.Resultado
 	soporte.sesionOperativa = sesionPlantillasCTPrueba{contextoSeguridadComunDesarrollo{
 		Vinculo: soporte.contexto.Vinculo, Resultado: soporte.contexto.Resultado}}
