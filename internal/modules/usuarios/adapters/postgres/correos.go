@@ -288,6 +288,9 @@ func (r *RegistroCorreosPostgreSQL) recuperarTrasSerializacion(ctx context.Conte
 		return vacio, ports.ErrCorreosNoDisponible
 	}
 	recibo, existe, err := r.RecuperarOperacion(ctx, orden, m, v3)
+	if errors.Is(err, ports.ErrCorreosInvalidos) {
+		return vacio, ports.ErrCorreosInvalidos
+	}
 	if err != nil || !existe || !recibo.Replay {
 		return vacio, ports.ErrCorreosNoDisponible
 	}
@@ -402,6 +405,28 @@ func (r *RegistroCorreosPostgreSQL) RecuperarOperacion(ctx context.Context, orde
 			return vacio, false, errorCorreosSeguro(ctx, err)
 		}
 		return vacio, false, nil
+	}
+	var campos map[string]json.RawMessage
+	if len(bruto) > maxRespuestaCorreos || json.Unmarshal(bruto, &campos) != nil || campos == nil {
+		return vacio, false, ports.ErrCorreosNoDisponible
+	}
+	if _, negativo := campos["resultado"]; negativo {
+		var centinela struct {
+			Resultado  string `json:"resultado"`
+			PersonaRef string `json:"persona_ref"`
+			CorreoRef  string `json:"correo_ref"`
+			Replay     bool   `json:"replay"`
+		}
+		if m.Accion != ports.AccionVerificarCorreo || len(campos) != 4 ||
+			decodificarCorreosEstricto(bruto, &centinela) != nil ||
+			centinela.Resultado != "codigo_invalido" || centinela.PersonaRef != m.PersonaRef ||
+			centinela.CorreoRef != m.CorreoRef || !centinela.Replay {
+			return vacio, false, ports.ErrCorreosNoDisponible
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return vacio, false, errorCorreosSeguro(ctx, err)
+		}
+		return vacio, false, ports.ErrCorreosInvalidos
 	}
 	recibo, err := reciboCorreosDesdeSQL(bruto, m)
 	if err != nil || !recibo.Replay {

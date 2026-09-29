@@ -268,6 +268,80 @@ func TestReplayConservaReciboOriginalYConflictoSerializableFalla(t *testing.T) {
 	}
 }
 
+func TestReplayCodigoInvalidoConfirmaLecturaSinReciboPositivo(t *testing.T) {
+	o, m, v3 := pruebaOrdenYV3Correos(t, ports.AccionVerificarCorreo)
+	centinela, _ := json.Marshal(map[string]any{"resultado": "codigo_invalido", "persona_ref": m.PersonaRef, "correo_ref": m.CorreoRef, "replay": true})
+	tx := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {valor: centinela}}}
+	r := pruebaRegistroCorreos(tx)
+	recibo, existe, err := r.RecuperarOperacion(context.Background(), o, m, v3)
+	if !errors.Is(err, ports.ErrCorreosInvalidos) || existe || recibo.ReciboRef != "" || tx.commits != 1 {
+		t.Fatalf("replay negativo sin commit o con recibo: %v", err)
+	}
+	if tx.llamadas[len(tx.llamadas)-1].sql != recuperarCorreosSQL {
+		t.Fatal("replay negativo no pasó por recuperación autorizada")
+	}
+}
+
+func TestCentinelaAjenoOIncompletoRevierte(t *testing.T) {
+	o, m, v3 := pruebaOrdenYV3Correos(t, ports.AccionVerificarCorreo)
+	for _, bruto := range [][]byte{
+		[]byte(`{"resultado":"codigo_invalido","persona_ref":"per_otra_persona_0123456789abcd","correo_ref":"` + m.CorreoRef + `","replay":true}`),
+		[]byte(`{"resultado":"codigo_invalido","persona_ref":"` + m.PersonaRef + `","correo_ref":"` + m.CorreoRef + `"}`),
+		[]byte(`{"resultado":"codigo_invalido","persona_ref":"` + m.PersonaRef + `","correo_ref":"` + m.CorreoRef + `","replay":true,"recibo_ref":"falso"}`),
+	} {
+		tx := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {valor: bruto}}}
+		r := pruebaRegistroCorreos(tx)
+		_, existe, err := r.RecuperarOperacion(context.Background(), o, m, v3)
+		if !errors.Is(err, ports.ErrCorreosNoDisponible) || existe || tx.commits != 0 {
+			t.Fatalf("centinela inseguro confirmado: %v", err)
+		}
+	}
+}
+
+func Test40001RecuperaCodigoInvalidoSinOtroIntento(t *testing.T) {
+	o, m, v3 := pruebaOrdenYV3Correos(t, ports.AccionVerificarCorreo)
+	actor, err := o.ContextoActor()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := o.Vinculo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proveedor := &proveedorCorreoPGPrueba{v3: v3}
+	o, err = ports.NuevaOrdenCorreos(actor, vinculo, m.Superficie, proveedor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primera := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {err: &pgconn.PgError{Code: "40001"}}}}
+	centinela, _ := json.Marshal(map[string]any{"resultado": "codigo_invalido", "persona_ref": m.PersonaRef, "correo_ref": m.CorreoRef, "replay": true})
+	segunda := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {valor: centinela}}}
+	veces := 0
+	r := &RegistroCorreosPostgreSQL{descifrador: &descifradorCorreoPGPrueba{}, superficie: m.Superficie, iniciar: func(context.Context) (transaccionCorreos, error) {
+		veces++
+		if veces == 1 {
+			return primera, nil
+		}
+		return segunda, nil
+	}}
+	comprobador := &comprobadorCorreoPGPrueba{valido: true}
+	p := ports.PeticionCorreo{VersionEsperada: m.VersionEsperada, ClaveOperacion: m.ClaveOperacion, CorreoRef: m.CorreoRef}
+	recibo, err := r.Aplicar(context.Background(), o, p, m, v3, ports.SobreDireccionCorreo{}, ports.ReservaDesafio{}, comprobador)
+	if !errors.Is(err, ports.ErrCorreosInvalidos) || recibo.ReciboRef != "" || comprobador.llamado || proveedor.llamadas != 1 || primera.commits != 0 || segunda.commits != 1 || veces != 2 {
+		t.Fatalf("40001 repitió intento o creó recibo: %v", err)
+	}
+}
+
+func TestClaveDivergenteEnReplayNegativoEsConflicto(t *testing.T) {
+	o, m, v3 := pruebaOrdenYV3Correos(t, ports.AccionVerificarCorreo)
+	tx := &txCorreoPGPrueba{respuestas: []filaCorreoPGPrueba{{valor: true}, {err: &pgconn.PgError{Code: "P1409", Message: "contenido privado"}}}}
+	r := pruebaRegistroCorreos(tx)
+	_, existe, err := r.RecuperarOperacion(context.Background(), o, m, v3)
+	if !errors.Is(err, ports.ErrCorreosConflicto) || existe || tx.commits != 0 || strings.Contains(err.Error(), "contenido privado") {
+		t.Fatalf("clave divergente: %v", err)
+	}
+}
+
 func TestAltaEnviaSoloSobreYReservaConJSONCerrado(t *testing.T) {
 	o, m, v3 := pruebaOrdenYV3Correos(t, ports.AccionAnadirCorreo)
 	m.CorreoRef = ""
