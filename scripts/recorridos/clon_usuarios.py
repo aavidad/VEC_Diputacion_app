@@ -391,7 +391,7 @@ def main():
     parser.add_argument("--pg-port", required=True, type=int)
     args = parser.parse_args()
     result = provision(args.repo, args.container, args.state, args.state / "material", args.pg_port)
-    print(json.dumps({"status": "installed", "blockers": result["blockers"]}))
+    print(json.dumps({"status": "installed_material_seal_pending", "blockers": result["blockers"]}))
 
 
 if __name__ == "__main__":
