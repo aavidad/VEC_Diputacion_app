@@ -110,7 +110,8 @@ BEGIN
         RAISE EXCEPTION 'FALLO versión máxima: %', r;
     END IF;
     IF (SELECT count(*) FROM jsonb_array_elements(vec_contratacion_temporal.consultar_firmas_documento_v2(org,exp)) f
-         WHERE f->>'DocumentoCustodiaRef' = 'ref:'||repeat('d',64) AND (f->>'DocumentoCustodiaVersion')::int = 1) <> 1
+         WHERE f->>'DocumentoCustodiaRef' = 'ref:'||repeat('d',64) AND (f->>'DocumentoCustodiaVersion')::int = 1
+           AND f->>'ClaveIdempotencia' = 'clave-ct145-00000001') <> 1
        OR EXISTS (SELECT 1 FROM jsonb_array_elements(vec_contratacion_temporal.consultar_firmas_documento_v2(org,exp)) f
                    WHERE f ?| ARRAY['FirmanteRef','CertificadoHuella','ActorRef','PerfilRef','MotivoDevolucion']) THEN
         RAISE EXCEPTION 'FALLO consulta v2';

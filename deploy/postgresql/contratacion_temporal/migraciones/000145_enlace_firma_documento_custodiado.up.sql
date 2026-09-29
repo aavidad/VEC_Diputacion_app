@@ -270,7 +270,9 @@ END
 $funcion$;
 
 
--- consultar v2: la de v1 más la referencia y versión del documento custodiado.
+-- consultar v2: la de v1 más la referencia y versión del documento custodiado
+-- y la clave de idempotencia (opaca, la genera el cliente), con la que la
+-- aplicación reconoce el reintento de una firma ya registrada.
 CREATE FUNCTION vec_contratacion_temporal.consultar_firmas_documento_v2(
     p_organizacion_ref text, p_expediente_ref text
 ) RETURNS jsonb
@@ -303,7 +305,7 @@ BEGIN
         'PasoRef',f.paso_ref,'PasoOrden',f.paso_orden,'Resultado',f.resultado,'ConMotivoDevolucion',f.motivo_devolucion IS NOT NULL,
         'OriginalHuella',f.original_huella_sha256,'FirmadoHuella',f.firmado_huella_sha256,
         'SelloTiempoEstado',f.sello_tiempo_estado,
-        'RegistradaEn',f.registrada_en,
+        'RegistradaEn',f.registrada_en,'ClaveIdempotencia',f.clave_idempotencia,
         'DocumentoCustodiaRef',c.documento_ref,'DocumentoCustodiaVersion',c.documento_version) ORDER BY f.documento,f.secuencia)
       FROM (SELECT * FROM vec_contratacion_temporal.firma_documento_v1
              WHERE organizacion_ref=p_organizacion_ref AND expediente_ref=p_expediente_ref
