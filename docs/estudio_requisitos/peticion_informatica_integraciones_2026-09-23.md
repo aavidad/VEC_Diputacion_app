@@ -26,8 +26,9 @@ pruebas con datos ficticios y el procedimiento para dar de alta a VEC como aplic
 2. **Pasarela de pago de tasas.** Interfaz para iniciar el pago de la tasa de examen, confirmación
    del cobro (síncrona o por aviso), referencia y justificante, devoluciones, exenciones y
    conciliación. ¿Qué sistema es la fuente de verdad del pago?
-3. **Portafirmas.** Interfaz para enviar documentos a firma, orden de firmantes, estados, devolución
-   y obtención del documento firmado con su evidencia.
+3. **Portafirmas (Firmadoc).** Interfaz para enviar documentos a firma, orden de firmantes, estados,
+   devolución y obtención del documento firmado con su evidencia. Las preguntas concretas están en
+   el anexo «Firmadoc» de más abajo.
 4. **GINPIX.** Interfaz para comunicar altas, variaciones y ceses de personal temporal y la
    respuesta que confirma la recepción.
 5. **Correo corporativo (SMTP).** Servidor, puerto, TLS, cuenta remitente y límites de envío para
@@ -41,6 +42,41 @@ pruebas con datos ficticios y el procedimiento para dar de alta a VEC como aplic
    los servicios OCSP/CRL. Una cuenta o certificado válido por sí solo no concede permisos VEC.
 
 Gracias. Podemos concertar una reunión breve por sistema.
+
+## Anexo Firmadoc: lo que necesitamos para conectar VEC
+
+29/09/2026, petición 5.06 de RRHH. En la ficha del expediente, VEC ya enseña en qué fase de firma
+está cada documento. Por ahora solo se firma la resolución, que el órgano firma con AutoFirma
+desde el navegador y VEC comprueba con su validador. El botón «Enviar a Firmadoc» está
+desactivado hasta tener estas respuestas. Mientras siga así, VEC no envía nada y ningún documento
+cuenta como firmado. Qué documentos van a Firmadoc y en qué orden es la pregunta 74 de
+`dudas.md`, dirigida a RRHH. Aquí solo va lo técnico:
+
+1. **Interfaz y entorno.** ¿Qué interfaz ofrece Firmadoc a otras aplicaciones (servicio web, REST,
+   cola de mensajes) y en qué versión? ¿Hay entorno de pruebas con firmantes y certificados
+   ficticios?
+2. **Alta de VEC como aplicación.** ¿Cómo se identifica la aplicación que envía (certificado de
+   aplicación, mTLS, usuario de servicio) y quién la da de alta? ¿Se envía en nombre de una
+   persona concreta o de la unidad?
+3. **Envío.** ¿Qué formatos admite (PDF/A, PAdES), qué tamaño máximo tiene y qué metadatos pide
+   (asunto, expediente, firmantes, orden, plazo)? ¿Cómo se expresan los firmantes: persona,
+   cargo o puesto? ¿Admite firmas en paralelo y en cascada?
+4. **Referencia e idempotencia.** ¿Qué identificador devuelve el envío? Si repetimos el mismo
+   envío tras un corte de red, ¿se detecta el duplicado o se crea otra petición de firma?
+5. **Estados.** ¿Qué estados tiene una petición (pendiente, en firma, firmada, devuelta,
+   rechazada, caducada, anulada) y cómo se entera VEC de cada cambio: aviso a una dirección de
+   VEC o consulta periódica? Si hay avisos, ¿cómo se autentican?
+6. **Devolución y rechazo.** ¿Se devuelve con motivo? ¿Quién puede anular una petición ya
+   enviada?
+7. **Documento firmado.** ¿Cómo se descarga el documento firmado y qué evidencia lo acompaña
+   (CSV, sello de tiempo, informe de firma)? ¿El CSV permite cotejarlo en la sede? ¿Quién
+   custodia el original firmado: Firmadoc, el gestor documental o la aplicación que lo envió?
+8. **Firma del órgano.** ¿La firma del órgano en Firmadoc sustituye a la que ahora se hace con
+   AutoFirma desde VEC, o conviven? Si conviven, ¿cómo se identifica cada una en el documento?
+
+**Resultado solicitado:** documentación de la interfaz, entorno de pruebas con datos ficticios,
+responsable técnico y procedimiento de alta. Con eso VEC podrá activar el envío
+sin cambiar las pantallas.
 
 ## Anexo técnico para cerrar la primera composición interna
 
