@@ -145,7 +145,7 @@ def seal_state(output: Path, manifest: dict, env: dict, profiles: dict, blockers
     for name in ("perfiles.json", "runtime.env", "runtime-config.json"):
         files[name] = hashlib.sha256(private_read(output / name)).hexdigest()
     manifest.update(files=files, blockers=blockers, status="partial_blocked" if blockers else "prepared",
-                    profiles_provisioned=True)
+                    profiles_provisioned=not blockers, profiles_provisioning_attempted=True)
     replace_private(output / "material-manifest.json", manifest)
     return manifest
 

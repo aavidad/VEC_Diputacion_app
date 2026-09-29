@@ -129,6 +129,8 @@ class MaterialTests(unittest.TestCase):
                     material.complete_profiles(args, root, manifest)
             current = material.verify_existing(root, {})
             self.assertEqual(current["status"], "partial_blocked")
+            self.assertFalse(current["profiles_provisioned"])
+            self.assertTrue(current["profiles_provisioning_attempted"])
             self.assertNotIn("concesiones_correos_imagen_pendientes", [b["code"] for b in current["blockers"]])
             self.assertEqual((root / "material/identity").read_text(), "preserved")
 
