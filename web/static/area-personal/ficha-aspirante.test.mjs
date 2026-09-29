@@ -148,6 +148,25 @@ test("un dato que ya no se pide se puede quitar", async () => {
   assert.deepEqual(s.peticiones[1].cuerpo, { operacion: "rectificar", clave_operacion: claveOperacion(azar), version_esperada: 3, motivo: "cambio_de_dato", campos: { domicilio: "" } });
 });
 
+test("quitar un dato sobrante conserva la edición telefónica pendiente", async () => {
+  const soloTelefono = { ...activa({ telefono: "958123456", domicilio: "Calle Recogidas, 12" }), exigencias: [exigencias[0]] };
+  const sinDomicilio = { ...soloTelefono, version: 4, contacto: { telefono: "958123456" } };
+  const s = servidor([[200, { data: soloTelefono }], [201, { data: recibo(4) }], [200, { data: sinDomicilio }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar });
+  await esperar();
+  rellenar(c, { telefono: "612345678" });
+  c.querySelector("[data-quitar]").handlers.click();
+  assert.equal(c.querySelector("form[data-ficha]").elements.namedItem("telefono").value, "612345678");
+  c.querySelector("[data-cancelar-quitar]").handlers.click();
+  assert.equal(c.querySelector("form[data-ficha]").elements.namedItem("telefono").value, "612345678");
+  c.querySelector("[data-quitar]").handlers.click();
+  c.querySelector("[data-confirmar-quitar]").handlers.click();
+  await esperar(); await esperar();
+  assert.deepEqual(s.peticiones[1].cuerpo.campos, { domicilio: "" }, "el teléfono pendiente no se envía con la retirada");
+  assert.equal(c.querySelector("form[data-ficha]").elements.namedItem("telefono").value, "612345678");
+});
+
 test("catálogo caído: no se ofrece crear ni guardar", async () => {
   const s = servidor([[200, { data: { ...sinFicha, exigencias: [], catalogo_disponible: false } }]]);
   const c = montar();
@@ -189,6 +208,65 @@ test("si el guardado falla, lo escrito sigue en el formulario y el foco va al av
   assert.equal(c.ownerDocument.activeElement, alerta);
   assert.equal(c.querySelector("form[data-ficha]").elements.namedItem("movil").value, "699111222");
   assert.equal(c.querySelector("[data-accion-ficha='reintentar']"), null, "reintentar solo al cargar");
+});
+
+test("un reintento incierto conserva la clave y el cuerpo exactos", async () => {
+  let generadas = 0;
+  const azarContado = { randomUUID: () => `00000000-0000-4000-8000-${String(++generadas).padStart(12, "0")}` };
+  const s = servidor([[200, { data: sinFicha }], [503, "<html>proxy</html>", { get: () => "text/html" }],
+    [201, { data: { ...recibo(1), replay: true } }], [200, { data: activa() }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar: azarContado });
+  await esperar();
+  await enviar(rellenar(c, { telefono: "958123456" }));
+  await enviar(c.querySelector("form[data-ficha]"));
+  assert.deepEqual(s.peticiones[2].cuerpo, s.peticiones[1].cuerpo);
+  assert.equal(generadas, 1);
+  assert.match(c.querySelector("[data-aviso-ficha]").textContent, /Ficha creada el 29 de septiembre/u);
+});
+
+test("editar la petición tras un 503 crea una clave diferente", async () => {
+  let generadas = 0;
+  const azarContado = { randomUUID: () => `00000000-0000-4000-8000-${String(++generadas).padStart(12, "0")}` };
+  const s = servidor([[200, { data: sinFicha }], [503, "<html>proxy</html>", { get: () => "text/html" }],
+    [503, "<html>proxy</html>", { get: () => "text/html" }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar: azarContado });
+  await esperar();
+  await enviar(rellenar(c, { telefono: "958123456" }));
+  await enviar(rellenar(c, { telefono: "612345678" }));
+  assert.notEqual(s.peticiones[2].cuerpo.clave_operacion, s.peticiones[1].cuerpo.clave_operacion);
+  assert.equal(generadas, 2);
+});
+
+test("un POST 201 sin recibo válido no confirma ni consulta la ficha", async () => {
+  const s = servidor([[200, { data: sinFicha }], [201, { data: {} }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar });
+  await esperar();
+  await enviar(rellenar(c, { telefono: "958123456" }));
+  assert.equal(s.peticiones.length, 2);
+  assert.equal(c.querySelector("[data-aviso-ficha]"), null);
+  assert.ok(c.querySelector("[data-error-guardar]"));
+  assert.doesNotMatch(c.texto, /Ficha creada el \.|Ficha creada el/u);
+});
+
+test("un GET aún sin ficha tras el recibo no muestra creación y permite replay exacto", async () => {
+  let generadas = 0;
+  const azarContado = { randomUUID: () => `00000000-0000-4000-8000-${String(++generadas).padStart(12, "0")}` };
+  const s = servidor([[200, { data: sinFicha }], [201, { data: recibo(1) }], [200, { data: sinFicha }],
+    [201, { data: { ...recibo(1), replay: true } }], [200, { data: activa() }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar: azarContado });
+  await esperar();
+  await enviar(rellenar(c, { telefono: "958123456" }));
+  assert.equal(c.querySelector("[data-aviso-ficha]"), null);
+  assert.ok(c.querySelector("[data-error-guardar]"));
+  assert.equal(c.querySelector("form[data-ficha]").elements.namedItem("telefono").value, "958123456");
+  await enviar(c.querySelector("form[data-ficha]"));
+  assert.deepEqual(s.peticiones[3].cuerpo, s.peticiones[1].cuerpo);
+  assert.equal(generadas, 1);
+  assert.match(c.querySelector("[data-aviso-ficha]").textContent, /Ficha creada el 29 de septiembre/u);
 });
 
 test("valida teléfono y código postal antes de enviar", async () => {
@@ -237,4 +315,8 @@ test("los textos están en los dos catálogos y no en el código", async () => {
   }
   assert.ok(claves.size > 5);
   assert.doesNotMatch(codigo, /"(Teléfono|Guardar|Crear mi ficha|Domicilio)"/u);
+  const codigoI18n = await readFile(new URL("./i18n.js", import.meta.url), "utf8");
+  assert.doesNotMatch(codigoI18n, /"areaPersonal\.contacto\.titulo": "Correo electrónico"/u);
+  assert.equal(es["areaPersonal.contacto.titulo"], "Correo electrónico");
+  assert.equal(en["areaPersonal.contacto.titulo"], "Email address");
 });

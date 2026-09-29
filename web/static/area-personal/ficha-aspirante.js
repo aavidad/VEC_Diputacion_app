@@ -3,7 +3,7 @@
 // se muestra. El teléfono, el móvil, el domicilio y el código postal solo se
 // piden si el catálogo de datos personales los pide. Los textos viven en
 // locales/<idioma>.json (claves areaPersonal.ficha.*).
-import { traducir } from "./i18n.js";
+import { idiomaAreaPersonal, traducir } from "./i18n.js";
 
 export const RUTA_MI_FICHA = "/api/vec/aspirantes/area-personal/mi-ficha";
 export const CAMPOS_CONTACTO = Object.freeze(["telefono", "movil", "domicilio", "codigo_postal"]);
@@ -44,6 +44,17 @@ export function validarVista(v) {
   return v;
 }
 
+function validarRecibo(v, versionEsperada) {
+  if (!v || typeof v !== "object" || Array.isArray(v)
+    || !/^asprec_[0-9a-f]{32}$/u.test(v.recibo_ref)
+    || !Number.isSafeInteger(v.version) || v.version !== versionEsperada + 1
+    || typeof v.fecha_utc !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(v.fecha_utc)
+    || Number.isNaN(Date.parse(v.fecha_utc)) || typeof v.replay !== "boolean") {
+    throw new ErrorFicha("no_disponible");
+  }
+  return v;
+}
+
 export function crearClienteFicha({ fetchImpl = globalThis.fetch } = {}) {
   async function solicitar(metodo, cuerpo, signal) {
     let respuesta;
@@ -69,7 +80,7 @@ export function crearClienteFicha({ fetchImpl = globalThis.fetch } = {}) {
     }
     if (respuesta.status === 200 || respuesta.status === 201) {
       if (!envoltura?.data || typeof envoltura.data !== "object") throw new ErrorFicha("no_disponible", respuesta.status);
-      return envoltura.data;
+      return metodo === "POST" ? validarRecibo(envoltura.data, cuerpo.version_esperada) : envoltura.data;
     }
     throw new ErrorFicha(envoltura?.error?.codigo ?? CODIGOS[respuesta.status], respuesta.status);
   }
@@ -116,7 +127,7 @@ export function errorDeCampo(campo, valor, obligatorio) {
 function fechaLegible(fecha) {
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return "";
-  const idioma = globalThis.document?.documentElement?.lang || "es";
+  const idioma = globalThis.document?.documentElement?.lang || idiomaAreaPersonal();
   return new Intl.DateTimeFormat(idioma, { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Madrid" }).format(d);
 }
 
@@ -155,6 +166,7 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
   let errorMotivo = false;
   let confirmandoQuitar = null;
   let ocupado = false;
+  let operacionPendiente = null;
   let activo = true;
   let aborto = null;
 
@@ -179,6 +191,7 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     contenedor.querySelectorAll?.("[data-quitar]").forEach((b) => b.addEventListener("click", () => pedirQuitar(b.getAttribute("data-quitar"))));
     contenedor.querySelector?.("[data-confirmar-quitar]")?.addEventListener("click", () => quitar(confirmandoQuitar));
     contenedor.querySelector?.("[data-cancelar-quitar]")?.addEventListener("click", () => {
+      conservarBorradorFormulario();
       const campo = confirmandoQuitar;
       confirmandoQuitar = null;
       pintar();
@@ -272,6 +285,21 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     return valores;
   }
 
+  function conservarBorradorFormulario() {
+    const formulario = contenedor.querySelector?.("form[data-ficha]");
+    if (formulario) borrador = {
+      ...valoresDe(formulario),
+      motivo: formulario.querySelector?.("input[name='motivo']:checked")?.value ?? "",
+    };
+  }
+
+  function peticionConClave(operacion, version_esperada, campos, motivo) {
+    const peticion = { operacion, version_esperada, campos, ...(motivo ? { motivo } : {}) };
+    const firma = JSON.stringify(peticion);
+    if (operacionPendiente?.firma !== firma) operacionPendiente = { firma, clave: claveOperacion(azar) };
+    return { clave_operacion: operacionPendiente.clave, version_esperada, campos, ...(motivo ? { motivo } : {}) };
+  }
+
   function actualizarMotivo(formulario) {
     const grupo = formulario.querySelector?.("[data-motivo]");
     if (!grupo) return;
@@ -296,7 +324,7 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
 
   // operar no repinta al empezar: lo escrito sigue en el formulario hasta que
   // el servicio confirma. Un error de guardado conserva el borrador.
-  async function operar(fn, textoExito) {
+  async function operar(fn, textoExito, { conservarBorrador = false } = {}) {
     errorGuardar = null;
     aviso = null;
     marcarOcupado(true);
@@ -306,23 +334,33 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     try {
       const recibo = await fn(propio.signal);
       if (!activo) return;
-      borrador = null;
       confirmandoQuitar = null;
       ocupado = false;
-      aviso = { tipo: "exito", texto: t(textoExito, { fecha: fechaLegible(recibo?.fecha_utc) }) };
-      await cargar({ conservarAviso: true });
-      enfocar("[data-aviso-ficha]");
+      await cargar();
+      if (activo && !errorCarga && vista?.estado === "activa" && vista.version >= recibo.version) {
+        if (!conservarBorrador) borrador = null;
+        operacionPendiente = null;
+        aviso = { tipo: "exito", texto: t(textoExito, { fecha: fechaLegible(recibo.fecha_utc) }) };
+        pintar();
+        enfocar("[data-aviso-ficha]");
+      } else if (activo && !errorCarga) {
+        errorGuardar = "guardar";
+        pintar();
+        enfocar("[data-error-guardar]");
+      }
     } catch (e) {
       if (!activo || propio.signal.aborted) return;
       ocupado = false;
       const codigo = e?.codigo ?? "no_disponible";
       if (codigo === "conflicto" || codigo === "ficha_existente") {
+        operacionPendiente = null;
         borrador = null;
         aviso = { tipo: "aviso", texto: t(`error.${codigo}`) };
         await cargar({ conservarAviso: true });
         enfocar("[data-aviso-ficha]");
         return;
       }
+      if (codigo !== "no_disponible") operacionPendiente = null;
       errorGuardar = codigo === "no_disponible" ? "guardar" : codigo;
       pintar();
       enfocar("[data-error-guardar]");
@@ -352,7 +390,8 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     if (vista.estado === "sin_ficha") {
       const campos = {};
       for (const [c, v] of Object.entries(valores)) if (String(v).trim() !== "") campos[c] = String(v).trim();
-      void operar((signal) => api.alta({ clave_operacion: claveOperacion(azar), version_esperada: 0, campos }, signal), "creada");
+      const peticion = peticionConClave("alta", 0, campos);
+      void operar((signal) => api.alta(peticion, signal), "creada");
       return;
     }
     const { cambios, habiaValor } = cambiosDeContacto(valores, vista.contacto);
@@ -372,11 +411,13 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
         return;
       }
     }
-    void operar((signal) => api.rectificar({ clave_operacion: claveOperacion(azar), version_esperada: vista.version, motivo, campos: cambios }, signal), "guardado");
+    const peticion = peticionConClave("rectificar", vista.version, cambios, motivo);
+    void operar((signal) => api.rectificar(peticion, signal), "guardado");
   }
 
   function pedirQuitar(campo) {
     if (ocupado || !CAMPOS_CONTACTO.includes(campo)) return;
+    conservarBorradorFormulario();
     confirmandoQuitar = campo;
     pintar();
     enfocar("[data-pregunta-quitar]");
@@ -384,7 +425,9 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
 
   function quitar(campo) {
     if (ocupado || !vista || !CAMPOS_CONTACTO.includes(campo)) return;
-    void operar((signal) => api.rectificar({ clave_operacion: claveOperacion(azar), version_esperada: vista.version, motivo: "cambio_de_dato", campos: { [campo]: "" } }, signal), "guardado");
+    conservarBorradorFormulario();
+    const peticion = peticionConClave("rectificar", vista.version, { [campo]: "" }, "cambio_de_dato");
+    void operar((signal) => api.rectificar(peticion, signal), "guardado", { conservarBorrador: true });
   }
 
   async function cargar({ conservarAviso = false } = {}) {
