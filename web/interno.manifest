@@ -4,6 +4,8 @@ static/assets/logo-diputacion-granada.svg
 static/comun/tema-vec.css
 static/comun/iconos-vec.js
 static/comun/idioma.js
+static/comun/textos.js
+static/textos/idiomas.json
 static/comun/tema-vec.js
 static/favicon.svg
 static/portal-empleado/ayuda-contenido.js
