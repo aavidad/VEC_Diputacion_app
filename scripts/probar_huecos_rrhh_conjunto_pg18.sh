@@ -208,17 +208,24 @@ grep -q '^--- PASS: TestArranqueSeguimientoCeseIncorporacionAcreditadaPostgreSQL
 ok 'seguimiento de cese e incorporación acreditada arrancan sobre el catálogo ya publicado'
 
 echo '== Arranque doble del rol del centro (prueba Go)'
-# Reproduce el fallo T3 del clon del 26/09: el binario anterior publicó el rol
-# del perfil del centro con dos concesiones y el nuevo, con la incorporación
-# acreditada y la cancelación encendidas, le añade otras. Publica primero como
-# el binario anterior y después como el nuevo, su rearranque y la vuelta atrás.
+# El LOGIN fuente del ensayo sólo hereda vec_autorizacion_fuente. La prueba
+# conserva v1 al reiniciar, provisiona v2 explícitamente con preimagen/CAS y
+# verifica que restricción y revocación sobreviven a los siguientes reinicios.
+[[ $(escalar "SELECT to_regrole('vec_arranque_t3_fuente') IS NULL") == t ]] \
+  || { echo 'FALLO: LOGIN fuente T3 ya existe en el clon' >&2; exit 1; }
+run <<'SQL'
+CREATE ROLE vec_arranque_t3_fuente LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT vec_autorizacion_fuente TO vec_arranque_t3_fuente WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT CONNECT ON DATABASE postgres TO vec_arranque_t3_fuente;
+SQL
 salida=$(cd "$repo" && VEC_ARRANQUE_T3_PG_DESECHABLE=1 \
   VEC_ARRANQUE_T3_PG_DSN_GOBIERNO="host=$socket user=vec_ad3_o207_gobierno dbname=postgres sslmode=disable" \
   VEC_ARRANQUE_T3_PG_DSN_ADMIN="host=$socket user=postgres dbname=postgres sslmode=disable" \
+  VEC_AUTORIZACION_FUENTE_DATABASE_URL="host=$socket user=vec_arranque_t3_fuente dbname=postgres sslmode=disable" \
   go test -count=1 -run '^TestArranqueDobleRolPeticionCentroPostgreSQL$' -v ./internal/app/bootstrap/ 2>&1) || true
 grep -q '^--- PASS: TestArranqueDobleRolPeticionCentroPostgreSQL' <<<"$salida" \
   || { printf '%s\n' "$salida" | tail -20 >&2; echo 'FALLO: arranque doble del rol del centro' >&2; exit 1; }
-ok 'el rol del centro publicado por el binario anterior no detiene el arranque nuevo'
+ok 'el arranque consume la autorización vigente sin revivir restricción ni revocación'
 
 echo '== DOWN con historia o con dependientes instalados se niega'
 for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88 $([[ $recorrido != incorporacion ]] && echo bolsa_42) $([[ $recorrido == sucesor ]] && echo ct_128); do
