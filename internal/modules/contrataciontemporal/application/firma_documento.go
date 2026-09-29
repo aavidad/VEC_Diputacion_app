@@ -416,8 +416,10 @@ func (s *ServicioFirmaDocumento) custodiarFirmado(ctx context.Context, sol Solic
 		if ctx.Err() != nil {
 			return cero, ctx.Err()
 		}
-		if errors.Is(err, ports.ErrCustodiaFirmadoNoDisponible) {
-			return cero, ports.ErrCustodiaFirmadoNoDisponible
+		for _, centinela := range []error{ports.ErrCustodiaFirmadoNoDisponible, ports.ErrCustodiaFirmadoInvalida, ports.ErrCustodiaFirmadoEnConflicto} {
+			if errors.Is(err, centinela) {
+				return cero, centinela
+			}
 		}
 		return cero, ports.ErrCustodiaFirmadoDenegada
 	}

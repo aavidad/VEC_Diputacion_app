@@ -18,6 +18,11 @@ var (
 	ErrCustodiaFirmadoNoDisponible = errors.New("contratacion temporal: custodia del documento firmado no disponible")
 	// ErrCustodiaFirmadoDenegada: Documentos o su autorización la rechazan.
 	ErrCustodiaFirmadoDenegada = errors.New("contratacion temporal: custodia del documento firmado denegada")
+	// ErrCustodiaFirmadoInvalida: Documentos no admite el contenido o el tipo
+	// (por ejemplo, no es un PDF o el tipo no está reservado).
+	ErrCustodiaFirmadoInvalida = errors.New("contratacion temporal: documento firmado no admitido para custodia")
+	// ErrCustodiaFirmadoEnConflicto: la misma operación ya custodió otro PDF.
+	ErrCustodiaFirmadoEnConflicto = errors.New("contratacion temporal: custodia del documento firmado en conflicto")
 )
 
 // VersionDocumentoCustodiado es fija: cada operación de firma custodia un
@@ -48,7 +53,9 @@ type DocumentoCustodiado struct {
 }
 
 // CustodioDocumentoFirmado guarda el PDF firmado en Documentos. Un error
-// envuelto en ErrCustodiaFirmadoNoDisponible es dependencia caída; cualquier
+// envuelto en ErrCustodiaFirmadoNoDisponible es dependencia caída; en
+// ErrCustodiaFirmadoInvalida, contenido no admitido; en
+// ErrCustodiaFirmadoEnConflicto, la misma operación con otro PDF; cualquier
 // otro, denegación. Repetir la misma orden tras perder la respuesta devuelve
 // el documento ya custodiado.
 type CustodioDocumentoFirmado interface {
