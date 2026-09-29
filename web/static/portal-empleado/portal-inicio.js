@@ -1,94 +1,109 @@
 /**
- * Catálogo del Portal del Empleado.
+ * Catálogo del Portal del Empleado y portada de RRHH.
  *
  * Esta vista no conoce adaptadores ni datos de negocio. La composición decide
  * qué módulos están disponibles para el ContextoActor activo. Solo se ofrecen
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
+ *
+ * La portada de RRHH es un cuadro de mandos: primero los expedientes que
+ * piden atención (plazo de fase vencido o que vence hoy, o incidencia), después
+ * los indicadores y el reparto por fase. Cuenta con los mismos criterios que la
+ * lista (recuentos-peticiones.js) y no deduce responsables ni tareas.
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
+import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
+import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js";
+import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
-// Sólo estas claves de estado y fase pertenecen a un vocabulario controlado.
-// Los nombres de centro, categoría y cualquier texto libre se muestran tal como
-// los devuelve la consulta autorizada, siempre escapados.
-const FASES_INICIO = new Set([
-  "solicitud", "analisis", "cobertura", "asignacion_unidad", "informe",
-  "informe_juridico", "fiscalizacion", "subsanacion_unidad", "llamamiento",
-  "nombramiento", "seguimiento", "cierre",
-]);
-const ESTADOS_INICIO = new Set(["pendiente", "en_curso", "incidencia", "completado", "cerrado"]);
+const DESTINO_LISTA = 'data-vista="contratacion-temporal" data-ct-exp-vista="cuadro"';
 
-function etiquetaControlada(prefijo, clave, valor, admitidas, traducir) {
-  return admitidas.has(clave) ? traducir(`${prefijo}${clave}`) : (valor ?? "—");
+function faseConOrden(claveOrigen, traducir) {
+  const fase = faseRRHH(claveOrigen);
+  return fase ? traducir("tramite_fase_de_nombre", {
+    orden: fase.orden, total: fase.total, fase: traducir(`tramite_fase_${fase.clave}`),
+  }) : "";
 }
 
-export function calcularMetricasCuadro(cuadro) {
-	const totales = cuadro?.totales;
-	if (totales && Number.isSafeInteger(totales.en_tramitacion) &&
-		Number.isSafeInteger(totales.con_incidencia) && Number.isSafeInteger(totales.en_llamamiento)) {
-		return totales;
-	}
-  // Una página parcial no permite contar: hasta que el cuadro traiga totales
-  // del servidor, el inicio no muestra cifras que serían falsas.
-  if (cuadro?.hay_mas === true || (typeof cuadro?.paginacion?.cursor_siguiente === "string"
-    && cuadro.paginacion.cursor_siguiente !== "")) return null;
-  const expedientes = Array.isArray(cuadro?.expedientes) ? cuadro.expedientes : [];
-  let enTramitacion = 0;
-  let conIncidencia = 0;
-  let enLlamamiento = 0;
-
-  for (const exp of expedientes) {
-    const estadoClave = String(exp.estado_clave || "").toLowerCase();
-    const estado = String(exp.estado || "").toLowerCase();
-    const faseClave = String(exp.fase_clave || "").toLowerCase();
-    const faseActual = String(exp.fase_actual || "").toLowerCase();
-
-    if (estadoClave === "en_curso" || estado.includes("tramitación") || estado.includes("en curso")) {
-      enTramitacion++;
-    }
-    if (estadoClave === "incidencia" || estado.includes("incidencia")) {
-      conIncidencia++;
-    }
-    if (faseClave.includes("llamamiento") || faseActual.includes("llamamiento")) {
-      enLlamamiento++;
-    }
-  }
-
-  return {
-    en_tramitacion: enTramitacion,
-    con_incidencia: conIncidencia,
-    en_llamamiento: enLlamamiento,
-  };
+function diaYMes(dia, locale) {
+  const fecha = new Date(`${dia}T00:00:00Z`);
+  if (!Number.isFinite(fecha.getTime())) return null;
+  const partes = (opciones) => new Intl.DateTimeFormat(locale, { ...opciones, timeZone: "UTC" }).format(fecha);
+  return { dia: partes({ day: "2-digit" }), mes: partes({ month: "short" }).replace(".", "") };
 }
 
-// Trámites que RRHH debe ver nada más entrar: primero los que tienen
-// incidencia, después los más recientes; cada fila abre su expediente.
-const MAXIMO_TRAMITES_INICIO = 8;
-
-export function tramitesParaInicio(cuadro, maximo = MAXIMO_TRAMITES_INICIO) {
-  const expedientes = Array.isArray(cuadro?.expedientes) ? cuadro.expedientes : [];
-  const orden = (e) => (String(e.estado_clave || "") === "incidencia" ? 0 : 1);
-  return [...expedientes].sort((a, b) => orden(a) - orden(b)).slice(0, maximo);
+// Un expediente que pide atención: fecha del plazo, número, categoría, fase y
+// motivo (vencido, vence hoy o incidencia), con un único botón para abrirlo.
+function renderizarPendiente(expediente, escaparHTML, traducir, locale) {
+  const t = (clave, variables) => escaparHTML(traducir(clave, variables));
+  const fecha = diaYMes(expediente.plazo_ultimo_dia ?? "", locale);
+  const tono = expediente.plazo_estado === "vencido" ? "vencido"
+    : (expediente.plazo_estado === "vence_hoy" ? "hoy" : (fecha ? "" : "sin-fecha"));
+  const motivos = [
+    faseConOrden(expediente.fase_clave, traducir),
+    expediente.plazo_estado === "vencido" ? traducir("inicio_rrhh_plazo_vencido", { fecha: expediente.plazo ?? "" }) : "",
+    expediente.plazo_estado === "vence_hoy" ? traducir("inicio_rrhh_plazo_hoy") : "",
+    expediente.estado_clave === "incidencia" ? traducir("tramite_estado_incidencia") : "",
+  ].filter(Boolean);
+  return `<li>
+    <span class="fecha-tarea${tono ? ` ${tono}` : ""}" aria-hidden="true">${fecha
+    ? `<strong>${escaparHTML(fecha.dia)}</strong>${escaparHTML(fecha.mes)}` : "—"}</span>
+    <div>
+      <h3>${escaparHTML(expediente.numero_visible ?? "")} · ${escaparHTML(expediente.categoria ?? "—")}</h3>
+      <p>${escaparHTML(expediente.centro ?? "—")} · ${escaparHTML(motivos.join(" · "))}</p>
+    </div>
+    <button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(expediente.expediente_ref ?? "")}"
+      aria-label="${t("inicio_rrhh_abrir_expediente_aria", { numero: expediente.numero_visible ?? "" })}">${t("inicio_rrhh_abrir_expediente")}</button>
+  </li>`;
 }
 
-function renderizarTramitesInicio(tramites, escaparHTML, traducir) {
-  const t = (clave) => escaparHTML(traducir(clave));
-  if (!Array.isArray(tramites) || tramites.length === 0) {
-    return `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_tramites_vacio")}</p>`;
-  }
-  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("txt_tramites_recientes")}">
-      <table class="tabla-datos portal-rrhh-tramites">
-        <thead><tr><th scope="col">${t("txt_expediente")}</th><th scope="col">${t("txt_centro")}</th><th scope="col">${t("txt_categoria")}</th><th scope="col">${t("txt_fase")}</th><th scope="col">${t("txt_estado")}</th></tr></thead>
-        <tbody>${tramites.map((e) => `<tr>
-          <th scope="row"><button type="button" class="boton-terciario portal-rrhh-abrir" data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="${escaparHTML(e.expediente_ref ?? "")}">${escaparHTML(e.numero_visible ?? "")}</button></th>
-          <td>${escaparHTML(e.centro ?? "—")}</td>
-          <td>${escaparHTML(e.categoria ?? "—")}</td>
-          <td>${escaparHTML(etiquetaControlada("inicio_rrhh_fase_", e.fase_clave, e.fase_actual, FASES_INICIO, traducir))}</td>
-          <td><span class="ct-exp-chip${ESTADOS_INICIO.has(e.estado_clave) ? ` ct-fase-${e.estado_clave}` : ""}">${escaparHTML(etiquetaControlada("inicio_rrhh_estado_", e.estado_clave, e.estado, ESTADOS_INICIO, traducir))}</span></td>
-        </tr>`).join("")}</tbody>
-      </table>
-    </div>`;
+function renderizarPendientes(resumen, escaparHTML, traducir, locale) {
+  const t = (clave, variables) => escaparHTML(traducir(clave, variables));
+  const total = resumen.atencion.length;
+  const titulo = total === 0 ? t("inicio_rrhh_pendientes_ninguno")
+    : (total === 1 ? t("inicio_rrhh_pendientes_uno") : t("inicio_rrhh_pendientes_varios", { total }));
+  return `<section class="panel portal-rrhh-pendientes" aria-labelledby="inicio-rrhh-pendientes-titulo">
+    <div class="cabecera-panel"><h3 id="inicio-rrhh-pendientes-titulo">${titulo}</h3>
+      <button type="button" class="boton-terciario" ${DESTINO_LISTA}>${t("inicio_rrhh_ver_peticiones")} →</button></div>
+    ${resumen.parcial ? `<p class="portal-rrhh-parcial" role="status">${t("inicio_rrhh_recuento_parcial")}</p>` : ""}
+    ${total === 0 ? `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_pendientes_vacio")}</p>`
+    : `<ol class="tareas-pendientes">${resumen.atencion.map((e) => renderizarPendiente(e, escaparHTML, traducir, locale)).join("")}</ol>`}
+  </section>`;
 }
+
+// Indicador que lleva a una lista: icono, valor y rótulo. Sin dato: «—».
+function renderizarIndicador({ clave, iconoNombre, tono, valor, etiqueta, destino, escaparHTML, traducir }) {
+  const contenido = `<span class="icono-kpi">${icono(iconoNombre)}</span>
+    <div><strong class="valor-kpi">${valor === null ? "—" : escaparHTML(valor)}</strong>
+    <span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span>
+    ${destino && valor !== null ? `<span class="metrica-enlace" aria-hidden="true">${escaparHTML(traducir("inicio_rrhh_kpi_ver"))} →</span>` : ""}</div>`;
+  const clase = `tarjeta-kpi${tono ? ` kpi--${tono}` : ""}`;
+  return destino && valor !== null
+    ? `<button type="button" class="${clase}" data-metrica="${clave}" ${destino}>${contenido}</button>`
+    : `<div class="${clase}" data-metrica="${clave}">${contenido}</div>`;
+}
+
+function renderizarPorFase(resumen, escaparHTML, traducir, numero) {
+  const t = (clave, variables) => escaparHTML(traducir(clave, variables));
+  const filas = FASES_RRHH.map((fase, indice) => {
+    const nombre = traducir(`tramite_fase_${fase}`);
+    const total = resumen.porFase[fase] ?? 0;
+    return `<tr>
+      <th scope="row"><button type="button" class="enlace-tabla" ${DESTINO_LISTA} data-ct-exp-lista-fase="${fase}"
+        aria-label="${t("inicio_rrhh_por_fase_aria", { total, fase: nombre })}">${indice + 1}. ${escaparHTML(nombre)}</button></th>
+      <td class="numero">${escaparHTML(numero(total))}</td>
+    </tr>`;
+  }).join("");
+  return `<section class="panel" aria-labelledby="inicio-rrhh-por-fase">
+    <div class="cabecera-panel"><h3 id="inicio-rrhh-por-fase">${t("inicio_rrhh_por_fase")}</h3></div>
+    <div class="portal-rrhh-tabla"><table class="tabla-datos">
+      <thead><tr><th scope="col">${t("inicio_rrhh_col_fase")}</th><th scope="col" class="numero">${t("inicio_rrhh_col_peticiones")}</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table></div>
+  </section>`;
+}
+
+const MAXIMO_BOLSAS_INICIO = 8;
 
 function vigenciaBolsaEn(bolsa, generadoEn) {
   const instante = Date.parse(generadoEn);
@@ -116,56 +131,46 @@ export function resumirBolsasInicio(lectura) {
   });
 }
 
-function renderizarTarjetaInicio({ clave, etiqueta, valor, destino, accion, escaparHTML, traducir }) {
-  const t = (id) => escaparHTML(traducir(id));
-  const contenido = `<span class="metrica-etiqueta">${t(etiqueta)}</span>
-    <strong class="metrica-valor">${valor === null ? "—" : escaparHTML(valor)}</strong>
-    ${valor === null ? `<span class="metrica-enlace">${t("inicio_rrhh_recuento_no_disponible")}</span>`
-      : (destino ? `<span class="metrica-enlace">${t(accion)}</span>` : "")}`;
-  return destino && valor !== null
-    ? `<button type="button" class="tarjeta-metrica-rrhh" data-metrica="${clave}" ${destino}>${contenido}</button>`
-    : `<div class="tarjeta-metrica-rrhh" data-metrica="${clave}">${contenido}</div>`;
+function fechaCivilCorta(dia, locale) {
+  const fecha = new Date(`${dia}T00:00:00Z`);
+  return Number.isFinite(fecha.getTime())
+    ? new Intl.DateTimeFormat(locale, { dateStyle: "short", timeZone: "UTC" }).format(fecha) : "";
 }
 
-function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero) {
+function renderizarBolsasInicio(resumen, acceso, escaparHTML, traducir, numero, locale) {
   const t = (clave) => escaparHTML(traducir(clave));
-  if (acceso?.disponible !== true) {
-    if (acceso?.estado === "cargando") return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
-    return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
+  let cuerpo;
+  if (acceso?.disponible !== true || resumen.estado === "denegado") {
+    cuerpo = acceso?.estado === "cargando"
+      ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`
+      : `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
+  } else if (resumen.estado === "cargando") {
+    cuerpo = `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
+  } else if (resumen.estado !== "listo") {
+    cuerpo = `<p role="alert" class="portal-rrhh-resumen-vacio">${t("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</p>`;
+  } else if (resumen.bolsas.length === 0) {
+    cuerpo = `<p class="portal-rrhh-resumen-vacio">${t("txt_el_servicio_no_ha_devuelto_bolsas_de_trabajo_reg")}</p>`;
+  } else {
+    const filas = resumen.bolsas.slice(0, MAXIMO_BOLSAS_INICIO).map((bolsa) => {
+      const disponibles = bolsa?.por_estado?.disponible;
+      const hasta = typeof bolsa.vigente_hasta === "string" ? fechaCivilCorta(bolsa.vigente_hasta, locale) : "";
+      return `<tr>
+        <th scope="row"><button type="button" class="enlace-tabla" data-vista="resumen">${escaparHTML(bolsa.categoria)}</button></th>
+        <td class="numero">${Number.isSafeInteger(disponibles) ? escaparHTML(numero(disponibles)) : "—"}</td>
+        <td class="numero">${Number.isSafeInteger(bolsa.llamamientos_en_curso) ? escaparHTML(numero(bolsa.llamamientos_en_curso)) : "—"}</td>
+        <td>${hasta ? escaparHTML(hasta) : t("inicio_rrhh_sin_fin")}</td>
+      </tr>`;
+    }).join("");
+    cuerpo = `<div class="portal-rrhh-tabla"><table class="tabla-datos">
+      <thead><tr><th scope="col">${t("inicio_rrhh_col_bolsa")}</th><th scope="col" class="numero">${t("inicio_rrhh_col_disponibles")}</th>
+        <th scope="col" class="numero">${t("inicio_rrhh_col_llamamiento")}</th><th scope="col">${t("inicio_rrhh_col_vigente_hasta")}</th></tr></thead>
+      <tbody>${filas}</tbody></table></div>
+      <div class="pie-panel"><button type="button" class="boton-terciario" data-vista="resumen">${t("inicio_rrhh_ver_bolsas")} →</button></div>`;
   }
-  if (resumen.estado === "cargando") return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_cargando_bolsas_de_trabajo")}</p>`;
-  if (resumen.estado === "denegado") return `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_la_sesion_actual_no_dispone_de_permisos_suficien")}</p>`;
-  if (resumen.estado !== "listo") return `<p role="alert" class="portal-rrhh-resumen-vacio">${t("txt_no_se_pudieron_cargar_las_bolsas_de_trabajo")}</p>`;
-  // La portada de Bolsa puede ofrecer Elaboración por su capacidad propia;
-  // el cuadro se abre si además llegó la lista autorizada que vemos aquí.
-  const destino = 'data-vista="resumen"';
-  const tarjetas = [
-    ["bolsas", "inicio_rrhh_tramites_bolsa", resumen.total],
-    ["vigentes", "txt_vigentes", resumen.vigentes],
-    ["llamamientos", "inicio_rrhh_llamamientos_curso", resumen.llamamientos],
-  ].map(([clave, etiqueta, valor]) => renderizarTarjetaInicio({
-    clave, etiqueta, valor: valor === null ? null : numero(valor), destino,
-    accion: "inicio_rrhh_ver_bolsas", escaparHTML, traducir,
-  })).join("");
-  const filas = resumen.bolsas.slice(0, MAXIMO_TRAMITES_INICIO).map((bolsa) => {
-    const vigente = vigenciaBolsaEn(bolsa, resumen.generadoEn);
-    const estado = vigente === true ? "txt_vigente"
-      : vigente === false ? "inicio_rrhh_no_vigente" : "inicio_rrhh_vigencia_no_disponible";
-    const clase = vigente === true ? "ct-fase-en_curso" : "ct-fase-completado";
-    return `<tr>
-    <th scope="row">${escaparHTML(bolsa.categoria)}</th>
-    <td>${t("inicio_rrhh_sin_fase_bolsa")}</td>
-    <td><span class="ct-exp-chip ${clase}">${t(estado)}</span></td>
-  </tr>`;
-  }).join("");
-  return `<div class="rejilla-metricas-rrhh">${tarjetas}</div>
-    <section class="portal-rrhh-tramites-seccion" aria-label="${t("inicio_rrhh_pestana_bolsas")}">
-      <div class="cabecera-panel"><h3>${t("inicio_rrhh_tramites_bolsa")}</h3>
-        ${destino ? `<button type="button" class="boton-terciario" ${destino}>${t("txt_ver_todos")}</button>` : ""}</div>
-      ${filas ? `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${t("inicio_rrhh_tramites_bolsa")}">
-        <table class="tabla-datos portal-rrhh-tramites"><thead><tr><th scope="col">${t("txt_categoria")}</th><th scope="col">${t("txt_fase")}</th><th scope="col">${t("txt_estado")}</th></tr></thead><tbody>${filas}</tbody></table></div>`
-        : `<p class="portal-rrhh-resumen-vacio">${t("txt_el_servicio_no_ha_devuelto_bolsas_de_trabajo_reg")}</p>`}
-    </section>`;
+  return `<section class="panel" aria-labelledby="inicio-rrhh-bolsas">
+    <div class="cabecera-panel"><h3 id="inicio-rrhh-bolsas">${t("inicio_rrhh_pestana_bolsas")}</h3></div>
+    ${cuerpo}
+  </section>`;
 }
 
 // Tarjeta ofrecida: módulo disponible o todavía comprobándose.
@@ -196,10 +201,11 @@ export function crearVistaInicioPortal({
   resolverAcceso,
   traducir = traducirPortal,
   esPerfilRRHH = () => false,
-  obtenerMetricasCuadro = () => null,
   numero = (v) => String(v ?? 0),
-  obtenerTramitesInicio = () => null,
+  obtenerCuadroInicio = () => null,
   obtenerBolsasInicio = () => null,
+  locale = "es-ES",
+  ahora = () => new Date(),
   catalogoFallido = () => false,
   inicioPendiente = () => false,
 }) {
@@ -208,6 +214,55 @@ export function crearVistaInicioPortal({
     || typeof traducir !== "function" || typeof catalogoFallido !== "function"
     || typeof inicioPendiente !== "function") {
     throw new TypeError("la vista inicial requiere sus dependencias");
+  }
+
+  // Portada de RRHH: lo pendiente primero, después indicadores y reparto.
+  function renderizarInicioRRHH(avisoCatalogo) {
+    const t = (clave, variables) => escaparHTML(traducir(clave, variables));
+    const accesoCT = resolverAcceso("contratacion_temporal");
+    const disponibleCT = accesoCT?.disponible === true;
+    const cuadro = disponibleCT ? obtenerCuadroInicio?.() ?? null : null;
+    const resumen = cuadro ? resumirPeticiones(cuadro) : null;
+    const accesoBolsa = resolverAcceso("bolsa");
+    const bolsas = accesoBolsa?.disponible === true
+      ? resumirBolsasInicio(obtenerBolsasInicio?.())
+      : { estado: accesoBolsa?.estado || "denegado", bolsas: null };
+    const disponiblesBolsa = bolsas.estado === "listo" && bolsas.bolsas.every((b) => Number.isSafeInteger(b?.por_estado?.disponible))
+      ? bolsas.bolsas.reduce((suma, b) => suma + b.por_estado.disponible, 0) : null;
+    const estadoCT = accesoCT?.estado === "denegado"
+      ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("permiso_perfil_denegado")}</p>`
+      : accesoCT?.estado === "cargando"
+        ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("inicio_comprobando_accesos")}</p>`
+        : (disponibleCT && !resumen ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>` : "");
+    const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone: "Europe/Madrid" }).format(ahora());
+    const indicadores = [
+      { clave: "en_tramite", iconoNombre: "expediente", tono: "", valor: resumen ? numero(resumen.enTramite) : null,
+        etiqueta: traducir("inicio_rrhh_kpi_en_tramite"), destino: disponibleCT ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="en_tramite"` : "" },
+      { clave: "vencen_semana", iconoNombre: "reloj", tono: "advertencia", valor: resumen?.vencenSemana == null ? null : numero(resumen.vencenSemana),
+        etiqueta: traducir("inicio_rrhh_kpi_vencen_semana"), destino: disponibleCT ? `${DESTINO_LISTA} data-ct-exp-lista-mostrar="vencen_semana"` : "" },
+      { clave: "disponibles", iconoNombre: "personas", tono: "exito", valor: disponiblesBolsa === null ? null : numero(disponiblesBolsa),
+        etiqueta: traducir("inicio_rrhh_kpi_disponibles", { total: bolsas.bolsas?.length ?? 0 }), destino: disponiblesBolsa === null ? "" : 'data-vista="resumen"' },
+    ].map((indicador) => renderizarIndicador({ ...indicador, escaparHTML, traducir })).join("");
+    // Ofertas al SAE: sin fuente todavía; se dice en llano y sin cifra.
+    const sae = `<button type="button" class="tarjeta-kpi portal-rrhh-sae" data-metrica="sae" data-vista="ofertas-sae">
+      <span class="icono-kpi">${icono("contrato")}</span>
+      <div><strong class="valor-kpi portal-rrhh-sae-valor">${t("inicio_rrhh_kpi_sae_valor")}</strong>
+      <span class="etiqueta-kpi">${t("inicio_rrhh_kpi_sae")}</span></div></button>`;
+    return `
+      ${avisoCatalogo}
+      <section class="portal-rrhh-inicio" aria-label="${t("menu_inicio")}">
+        <header class="cabeza-pagina">
+          <div><h2 class="portal-rrhh-fecha">${escaparHTML(fecha.charAt(0).toLocaleUpperCase(locale) + fecha.slice(1))}</h2></div>
+          ${disponibleCT ? `<button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("inicio_rrhh_nueva_peticion")}</button>` : ""}
+        </header>
+        ${estadoCT}
+        ${resumen ? renderizarPendientes(resumen, escaparHTML, traducir, locale) : ""}
+        <div class="rejilla-kpi cuatro">${indicadores}${sae}</div>
+        <div class="rejilla-dos">
+          ${resumen ? renderizarPorFase(resumen, escaparHTML, traducir, numero) : ""}
+          ${renderizarBolsasInicio(bolsas, accesoBolsa, escaparHTML, traducir, numero, locale)}
+        </div>
+      </section>`;
   }
 
   return function renderizarInicioPortal() {
@@ -226,74 +281,7 @@ export function crearVistaInicioPortal({
     }
     const avisoCatalogo = catalogoFallido() ? renderizarErrorCatalogo(escaparHTML, traducir) : "";
     if (typeof esPerfilRRHH === "function" && esPerfilRRHH()) {
-      const catalogo = obtenerCatalogo();
-      if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
-      const t = (clave) => escaparHTML(traducir(clave));
-      const accesoCT = resolverAcceso("contratacion_temporal");
-      const metricas = accesoCT?.disponible === true ? obtenerMetricasCuadro?.() || null : null;
-      const tramites = accesoCT?.disponible === true ? obtenerTramitesInicio?.() : null;
-      const destinoCT = accesoCT?.disponible === true ? 'data-vista="contratacion-temporal" data-ct-exp-vista="cuadro"' : "";
-      const tarjetasCT = [
-        ["en_tramitacion", "txt_en_tramitacion", 'data-ct-exp-filtro-estado="en_curso"'],
-        ["con_incidencia", "txt_con_incidencia", 'data-ct-exp-filtro-estado="incidencia"'],
-        ["en_llamamiento", "txt_en_llamamiento", 'data-ct-exp-filtro-fase="llamamiento"'],
-      ].map(([clave, etiqueta, filtro]) => renderizarTarjetaInicio({
-        clave, etiqueta, valor: metricas ? numero(metricas[clave]) : null,
-        destino: destinoCT ? `${destinoCT} ${filtro}` : "", accion: "txt_ver_tramites", escaparHTML, traducir,
-      })).join("");
-      const accesoBolsa = resolverAcceso("bolsa");
-      const resumenBolsas = accesoBolsa?.disponible === true
-        ? resumirBolsasInicio(obtenerBolsasInicio?.())
-        : { estado: accesoBolsa?.estado || "denegado", bolsas: null };
-      const estadoCT = accesoCT?.estado === "denegado"
-        ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("permiso_perfil_denegado")}</p>`
-        : accesoCT?.estado === "cargando"
-          ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("inicio_comprobando_accesos")}</p>`
-        : (!metricas && tramites === null
-          ? `<p role="alert" class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_cuadro_no_disponible")}</p>`
-          : (!metricas ? `<p role="status" class="portal-rrhh-resumen-vacio">${t("txt_los_totales_se_consultan_en_el_cuadro_de_mando")}</p>` : ""));
-      return `
-        ${encabezadoVista("", traducir("contratacion_temporal_encabezado"), "", `<button type="button" class="boton-secundario portal-rrhh-ayuda" data-accion="ayuda" aria-label="${t("txt_ayuda")}">?</button>`)}
-        ${avisoCatalogo}
-        <section class="portal-rrhh-inicio" aria-label="${t("txt_resumen_del_cuadro_de_mando")}">
-          <div class="portal-rrhh-accesos" aria-label="${t("txt_accesos_directos")}">
-            ${destinoCT ? `<button type="button" class="boton-primario" ${destinoCT}>${t("txt_cuadro_de_mando")}</button>
-              <button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("txt_nueva_peticion")}</button>` : ""}
-          </div>
-          <section class="portal-rrhh-cuadro panel" aria-label="${t("txt_resumen_del_cuadro_de_mando")}">
-            <div class="cabecera-panel"><h3>${t("txt_resumen_del_cuadro_de_mando")}</h3></div>
-            <div class="portal-rrhh-cuadro-cuerpo">
-              <input class="portal-rrhh-tab-radio" type="radio" name="portal-rrhh-tab" id="portal-rrhh-tab-expedientes" checked>
-              <label class="portal-rrhh-tab" for="portal-rrhh-tab-expedientes">${t("inicio_rrhh_pestana_expedientes")}</label>
-              <input class="portal-rrhh-tab-radio" type="radio" name="portal-rrhh-tab" id="portal-rrhh-tab-bolsas">
-              <label class="portal-rrhh-tab" for="portal-rrhh-tab-bolsas">${t("inicio_rrhh_pestana_bolsas")}</label>
-              <input class="portal-rrhh-tab-radio" type="radio" name="portal-rrhh-tab" id="portal-rrhh-tab-sae">
-              <label class="portal-rrhh-tab" for="portal-rrhh-tab-sae">${t("inicio_rrhh_pestana_sae")}</label>
-              <section class="portal-rrhh-panel portal-rrhh-panel-expedientes" aria-label="${t("inicio_rrhh_pestana_expedientes")}">
-                ${estadoCT}
-                <div class="rejilla-metricas-rrhh">${tarjetasCT}</div>
-                ${accesoCT?.disponible === true && Array.isArray(tramites) ? `<section class="portal-rrhh-tramites-seccion" aria-label="${t("txt_tramites_recientes")}">
-                  <div class="cabecera-panel"><h3>${t("txt_tramites_recientes")}</h3>
-                    ${destinoCT ? `<button type="button" class="boton-terciario" ${destinoCT}>${t("txt_ver_todos")}</button>` : ""}</div>
-                  ${renderizarTramitesInicio(tramites, escaparHTML, traducir)}
-                </section>` : ""}
-              </section>
-              <section class="portal-rrhh-panel portal-rrhh-panel-bolsas" aria-label="${t("inicio_rrhh_pestana_bolsas")}">
-                ${renderizarBolsasInicio(resumenBolsas, accesoBolsa, escaparHTML, traducir, numero)}
-              </section>
-              <section class="portal-rrhh-panel portal-rrhh-panel-sae" aria-label="${t("inicio_rrhh_pestana_sae")}">
-                <p role="status">${t("inicio_rrhh_sae_pendiente")}</p>
-                <button type="button" class="boton-secundario" disabled>${t("txt_ver_tramites")}</button>
-              </section>
-            </div>
-          </section>
-        </section>
-        <details class="portal-rrhh-todos-modulos panel">
-          <summary class="cabecera-panel" id="portal-rrhh-todos-modulos-titulo">${t("txt_todos_los_modulos_de_recursos_humanos")}</summary>
-          <div class="rejilla-modulos" aria-label="${t("txt_todos_los_modulos_de_recursos_humanos")}">
-            ${renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir)}
-          </div>
-        </details>`;
+      return renderizarInicioRRHH(avisoCatalogo);
     }
 
     const catalogo = obtenerCatalogo();

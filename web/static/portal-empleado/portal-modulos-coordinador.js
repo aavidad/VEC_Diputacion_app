@@ -10,7 +10,6 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260929-diseno-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260929-diseno-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260929-diseno-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
@@ -425,17 +424,23 @@ export function crearCoordinadorModulosPortal({
           && typeof recursos.auditoriaCliente?.crearFuenteAuditoriaHTTP === "function"
           ? Object.freeze({ montar: recursos.auditoriaVista.montarVistaAuditoria,
             fuente: recursos.auditoriaCliente.crearFuenteAuditoriaHTTP({ fetchImpl: fetchDelEntorno() ?? globalThis.fetch }) }) : null,
-        obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
-        // Número, centro y categoría se presentan al pedirlo, con los catálogos de alta que hayan llegado.
-        obtenerTramitesInicio: () => {
-          if (!listadoCuadro) return null;
+        // Portada: la misma consulta que abre la lista, con centro y categoría
+        // presentados con los catálogos de alta que hayan llegado.
+        obtenerCuadroInicio: () => {
+          if (!listadoCuadro || !Array.isArray(listadoCuadro.expedientes)) return null;
           const { etiquetaCatalogo: etiqueta } = recursos.adaptador;
-          return tramitesParaInicio(listadoCuadro).map((e) => ({
-            ...e,
-            numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
-            centro: etiqueta(alta?.catalogos?.centros, e.centro),
-            categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
-          }));
+          return Object.freeze({
+            expedientes: Object.freeze(listadoCuadro.expedientes.map((e) => Object.freeze({
+              ...e,
+              numero_visible: (recursos.vista.numeroExpedienteVisible ?? String)(e.numero_visible),
+              centro: etiqueta(alta?.catalogos?.centros, e.centro),
+              categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
+            }))),
+            parcial: listadoCuadro.hay_mas === true
+              || (typeof listadoCuadro.paginacion?.cursor_siguiente === "string"
+                && listadoCuadro.paginacion.cursor_siguiente !== ""),
+            generadoEn: typeof listadoCuadro.generado_en === "string" ? listadoCuadro.generado_en : "",
+          });
         },
         montar: recursos.vista.montarModuloContratacionTemporal,
         montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
@@ -1146,14 +1151,14 @@ export function crearCoordinadorModulosPortal({
     return composicion?.contratacionTemporal?.fiscalizacion === null;
   }
 
-  function obtenerMetricasCuadro() {
+  function obtenerCuadroInicio() {
     if (!esPerfilRRHH()) return null;
-    return composicion?.contratacionTemporal?.obtenerMetricas?.() || null;
+    return composicion?.contratacionTemporal?.obtenerCuadroInicio?.() || null;
   }
 
+  /** Expedientes de la portada ya presentados (compatibilidad de lectura). */
   function obtenerTramitesInicio() {
-    if (!esPerfilRRHH()) return null;
-    return composicion?.contratacionTemporal?.obtenerTramitesInicio?.() || null;
+    return obtenerCuadroInicio()?.expedientes ?? null;
   }
 
   return Object.freeze({
@@ -1165,7 +1170,7 @@ export function crearCoordinadorModulosPortal({
     montarVista,
     obtenerTramitesInicio,
     obtenerCatalogo,
-    obtenerMetricasCuadro,
+    obtenerCuadroInicio,
     renderizarNavegacion,
     resolverAcceso,
     retirarVistaMontada,

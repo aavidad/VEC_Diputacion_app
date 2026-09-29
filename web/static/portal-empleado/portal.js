@@ -241,9 +241,9 @@ const renderizarPortal = crearVistaInicioPortal({
   obtenerCatalogo: coordinadorModulos.obtenerCatalogo,
   resolverAcceso: resolverAccesoPerfil,
   esPerfilRRHH,
-  obtenerMetricasCuadro: () => coordinadorModulos.obtenerMetricasCuadro?.() || null,
-  obtenerTramitesInicio: () => coordinadorModulos.obtenerTramitesInicio?.() || null,
+  obtenerCuadroInicio: () => coordinadorModulos.obtenerCuadroInicio?.() || null,
   obtenerBolsasInicio: () => estado.datosBolsas,
+  locale: LOCALIZACION_PORTAL,
   catalogoFallido: () => estado.errorFuente !== "",
   inicioPendiente: () => coordinadorModulos.inicioPendiente?.() === true,
 });

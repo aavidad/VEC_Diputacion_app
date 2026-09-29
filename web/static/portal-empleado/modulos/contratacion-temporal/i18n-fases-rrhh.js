@@ -147,3 +147,9 @@ export function mensajesTramite(idioma = IDIOMA_ACTUAL) {
     linea_fase_incidencia: rotuloTramite("linea_incidencia", {}, idioma),
   });
 }
+
+/** Las mismas claves para el catálogo del portal (portada), con prefijo propio. */
+export function mensajesTramitePortal(idioma = IDIOMA_ACTUAL) {
+  const catalogo = ROTULOS[idioma] ?? ROTULOS.es;
+  return Object.freeze(Object.fromEntries(Object.entries(catalogo).map(([clave, texto]) => [`tramite_${clave}`, texto])));
+}

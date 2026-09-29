@@ -187,7 +187,8 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["index.html", ["portal.js"]],
     ["portal.js", ["portal-modulos-coordinador.js", "portal-inicio.js", "portal-eventos.js",
       "portal-borradores-ui.js", "portal-i18n.js"]],
-    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-inicio.js", "portal-i18n.js",
+    // Desde el 29/09/2026 el coordinador ya no importa la portada: le entrega el cuadro.
+    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-i18n.js",
       "modulos/cronos/vista-saldo-conectado.js", "modulos/dietas/vista-recorridos.js", "modulos/personal/vista.js",
       "modulos/personal/cliente-http-categorias.js"]],
     ["portal-catalogo-modulos.js", ["portal-i18n.js"]],

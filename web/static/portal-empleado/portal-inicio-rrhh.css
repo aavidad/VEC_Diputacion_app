@@ -1,153 +1,36 @@
+/*
+ * Portada de RRHH. La estructura (tareas pendientes, indicadores, dos
+ * columnas) es común y vive en portal-patrones.css; aquí solo los ajustes
+ * propios de la portada.
+ */
 .portal-rrhh-inicio {
-  min-width: 0;
-}
-
-.portal-rrhh-inicio .portal-rrhh-accesos {
-  margin: 0 0 16px;
-}
-
-.portal-rrhh-ayuda {
-  min-width: 44px;
-  font-weight: 750;
-}
-
-.portal-rrhh-cuadro {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.portal-rrhh-cuadro-cuerpo {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 8px;
-  padding: 12px 16px 16px;
+  gap: 20px;
+  min-width: 0;
 }
 
-.portal-rrhh-tab-radio {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
+.portal-rrhh-inicio > .cabeza-pagina { margin: 0; }
+.portal-rrhh-inicio .rejilla-kpi { margin: 0; }
+.portal-rrhh-fecha { font-size: 1.125rem; }
 
-.portal-rrhh-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--portal-borde);
-  border-radius: var(--portal-radio);
-  background: var(--portal-superficie-alterna);
+.portal-rrhh-parcial {
+  margin: 0;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-aviso-suave);
   color: var(--portal-tinta);
-  text-align: center;
-  font-weight: 650;
-  cursor: pointer;
+  font-size: 0.875rem;
 }
 
-.portal-rrhh-tab-radio:checked + .portal-rrhh-tab {
-  border-color: var(--portal-azul-700);
-  background: var(--portal-azul-100);
-  color: var(--portal-azul-700);
+.portal-rrhh-resumen-vacio {
+  margin: 0;
+  padding: 16px 20px;
+  color: var(--portal-muted);
 }
 
-.portal-rrhh-tab-radio:focus-visible + .portal-rrhh-tab {
-  outline: 3px solid var(--portal-azul-700);
-  outline-offset: 2px;
-}
-
-.portal-rrhh-panel {
-  display: none;
-  grid-column: 1 / -1;
-  min-width: 0;
-  max-height: calc(100dvh - 340px);
-  overflow: auto;
-  padding-top: 16px;
-}
-
-#portal-rrhh-tab-expedientes:checked ~ .portal-rrhh-panel-expedientes,
-#portal-rrhh-tab-bolsas:checked ~ .portal-rrhh-panel-bolsas,
-#portal-rrhh-tab-sae:checked ~ .portal-rrhh-panel-sae {
-  display: block;
-}
-
-.portal-rrhh-panel .rejilla-metricas-rrhh {
-  margin-top: 0;
-}
-
-.portal-rrhh-panel .tarjeta-metrica-rrhh {
-  min-width: 0;
-}
-
-.portal-rrhh-panel .portal-rrhh-tramites-seccion {
-  border: 1px solid var(--portal-borde);
-  border-radius: var(--portal-radio-lg);
-  background: var(--portal-superficie);
-  box-shadow: var(--portal-sombra-sm);
-  overflow: hidden;
-}
-
-.portal-rrhh-panel .portal-rrhh-tramites-seccion > .portal-rrhh-resumen-vacio {
-  padding: 16px;
-}
-
-.portal-rrhh-panel-sae {
-  min-height: 160px;
-  padding: 24px;
-  border: 1px solid var(--portal-borde);
-  border-radius: var(--portal-radio-lg);
-  background: var(--portal-superficie-alterna);
-}
-
-.portal-rrhh-panel-sae p {
-  margin: 0 0 16px;
-}
-
-.portal-rrhh-todos-modulos {
-  margin-top: 16px;
-}
-
-.portal-rrhh-todos-modulos > summary {
-  cursor: pointer;
-  font-weight: 650;
-}
-
-.portal-rrhh-todos-modulos > .rejilla-modulos {
-  padding: 16px;
-}
-
-@media (max-width: 720px) {
-  .portal-rrhh-cuadro-cuerpo {
-    grid-template-columns: 1fr;
-  }
-
-  .portal-rrhh-panel .rejilla-metricas-rrhh {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .portal-rrhh-panel .tarjeta-metrica-rrhh:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .portal-rrhh-tab {
-    justify-content: flex-start;
-    margin-bottom: 6px;
-    text-align: left;
-  }
-
-  .portal-rrhh-panel {
-    max-height: none;
-    overflow: visible;
-  }
-
-  .portal-rrhh-panel .tabla-contenedor {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-}
-
-@media (forced-colors: active) {
-  .portal-rrhh-tab-radio:checked + .portal-rrhh-tab {
-    outline: 2px solid Highlight;
-  }
-}
+.portal-rrhh-inicio .tabla-datos .numero { text-align: right; font-variant-numeric: tabular-nums; }
+.portal-rrhh-sae .portal-rrhh-sae-valor { font-size: 1rem; line-height: 1.3; color: var(--portal-muted); }
+.portal-rrhh-inicio .tarjeta-kpi .metrica-enlace { display: block; margin-top: 4px; color: var(--portal-azul-700); font-size: 0.8125rem; font-weight: 600; }
+/* Tablas cortas de la portada: sin paginar y con desplazamiento propio. */
+.portal-rrhh-tabla { overflow-x: auto; }
+.portal-rrhh-inicio .tabla-datos th { white-space: normal; }
