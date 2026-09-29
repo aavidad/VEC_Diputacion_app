@@ -352,6 +352,7 @@ func TestProponerCoberturaRevalidaDespuesDeResolverMotivo(t *testing.T) {
 func presentacionCoberturaVacia(resultado PresentacionPropuestaCobertura) bool {
 	return resultado.Estado == "" && resultado.ViaRecomendada == "" &&
 		len(resultado.Evaluaciones) == 0 && len(resultado.MotivosAlternativa) == 0 &&
+		resultado.PreparacionCatalogo == nil &&
 		resultado.IdentidadSemantica ==
 			(domain.IdentidadSemanticaPropuestaDecisionCobertura{})
 }
@@ -489,6 +490,8 @@ func exigirVistaPresentacionMinimizada(t *testing.T) {
 		"Estado": true, "ViaRecomendada": true,
 		"Evaluaciones": true, "MotivosAlternativa": true,
 		"IdentidadSemantica": true,
+		// Solo listas de preparación gobernadas V2, sin valores aportados.
+		"PreparacionCatalogo": true,
 		// Recuentos y fechas de la bolsa, sin personas.
 		"AvisosVia": true,
 	}

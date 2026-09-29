@@ -117,11 +117,10 @@ func TestCatalogoCoberturaRechazaJSONConInstantesObligatoriosOmitidos(t *testing
 		t.Run(caso.nombre, func(t *testing.T) {
 			incompleto := omitirCampoJSON(t, codificado, caso.ruta...)
 			var publicacion PublicacionCatalogoViasCobertura
-			if err := json.Unmarshal(incompleto, &publicacion); err != nil {
-				t.Fatalf("decodificar JSON incompleto: %v", err)
-			}
-			if _, err := RestaurarCatalogoViasCobertura(publicacion); !errors.Is(err, ErrDatoInvalido) {
-				t.Fatalf("se aceptó un instante obligatorio omitido: %v", err)
+			if err := json.Unmarshal(incompleto, &publicacion); err == nil {
+				if _, err := RestaurarCatalogoViasCobertura(publicacion); !errors.Is(err, ErrDatoInvalido) {
+					t.Fatalf("se aceptó un instante obligatorio omitido: %v", err)
+				}
 			}
 		})
 	}

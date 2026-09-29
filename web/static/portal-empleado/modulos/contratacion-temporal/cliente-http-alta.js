@@ -6,7 +6,10 @@ import {
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
 const MAXIMO_RESPUESTA_ALTA_BYTES = 16 * 1024;
-const MAXIMO_RESPUESTA_CATALOGOS_BYTES = 64 * 1024;
+// Los catálogos del alta traen, además de centros y categorías de la RPT
+// (unos 30 KiB), la relación de documentos y datos por vía de cobertura, que el
+// catálogo de vías limita a 512 elementos (menos de 64 KiB).
+export const MAXIMO_RESPUESTA_CATALOGOS_BYTES = 128 * 1024;
 
 export const RUTAS_ALTA_CONTRATACION_TEMPORAL = Object.freeze({
   alta: "/api/vec/contratacion-temporal/solicitudes",

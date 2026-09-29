@@ -391,48 +391,54 @@
       {
         "clave": "c17.via_cobertura.bolsa_vigente",
         "etiqueta": "Bolsa vigente",
-        "descripcion": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles.",
+        "descripcion": "Vía preferente de cobertura: exige que exista una bolsa vigente de la categoría y que tenga candidaturas disponibles. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 7: vías de cobertura, sus comprobaciones y el criterio de bolsa agotada provisionalmente.",
+          "duda": "Duda 7: vías y comprobaciones. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
           "unidad": "lista",
           "valor": "existe_bolsa_vigente,hay_candidaturas_disponibles",
           "procedencia": "bolsa",
-          "prioridad": "1"
+          "prioridad": "1",
+          "documentos": "ficha_preparacion_cobertura:contratacion_temporal.cobertura.doc.ficha_preparacion_cobertura,resumen_consulta_bolsa:contratacion_temporal.cobertura.doc.resumen_consulta_bolsa",
+          "datos": "categoria:contratacion_temporal.cobertura.dato.categoria,bolsa_ref:contratacion_temporal.cobertura.dato.bolsa_ref,candidaturas_disponibles:contratacion_temporal.cobertura.dato.candidaturas_disponibles"
         },
         "orden": 25
       },
       {
         "clave": "c17.via_cobertura.oferta_sae",
         "etiqueta": "Oferta SAE",
-        "descripcion": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo.",
+        "descripcion": "Vía alternativa: oferta al Servicio Andaluz de Empleo cuando está disponible. Elegirla antes que la preferente exige motivo. Esta lista es solo informativa: no abre, tramita ni envía ofertas al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 7: cuándo procede la oferta al SAE.",
+          "duda": "Duda 7: cuándo procede la oferta al SAE. Documentos y datos: ejemplo pendiente de RRHH — duda 73; canal y trámite de SAE pendientes de la duda 72.",
           "unidad": "lista",
           "valor": "oferta_sae_disponible",
           "procedencia": "sae",
-          "prioridad": "2"
+          "prioridad": "2",
+          "documentos": "ficha_preparacion_cobertura:contratacion_temporal.cobertura.doc.ficha_preparacion_cobertura,nota_informativa_sae:contratacion_temporal.cobertura.doc.nota_informativa_sae",
+          "datos": "categoria:contratacion_temporal.cobertura.dato.categoria,descripcion_puesto:contratacion_temporal.cobertura.dato.descripcion_puesto,jornada:contratacion_temporal.cobertura.dato.jornada,duracion_prevista:contratacion_temporal.cobertura.dato.duracion_prevista"
         },
         "orden": 26
       },
       {
         "clave": "c17.via_cobertura.nueva_convocatoria_bolsa",
         "etiqueta": "Nueva convocatoria de Bolsa",
-        "descripcion": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo.",
+        "descripcion": "Vía alternativa: convocar una bolsa nueva de la categoría. Elegirla antes que la preferente exige motivo. Documentos y datos de preparación: ejemplo pendiente de RRHH — duda 73; no son requisitos aprobados.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "ejemplo",
           "norma": "Supuesto de trabajo.",
-          "duda": "Duda 7: cuándo procede una nueva convocatoria.",
+          "duda": "Duda 7: cuándo procede una nueva convocatoria. Documentos y datos: ejemplo pendiente de RRHH — duda 73.",
           "unidad": "lista",
           "valor": "requiere_nueva_convocatoria",
           "procedencia": "bolsa",
-          "prioridad": "3"
+          "prioridad": "3",
+          "documentos": "ficha_preparacion_cobertura:contratacion_temporal.cobertura.doc.ficha_preparacion_cobertura,nota_informativa_convocatoria:contratacion_temporal.cobertura.doc.nota_informativa_convocatoria",
+          "datos": "categoria:contratacion_temporal.cobertura.dato.categoria,motivo_propuesta:contratacion_temporal.cobertura.dato.motivo_propuesta"
         },
         "orden": 27
       },

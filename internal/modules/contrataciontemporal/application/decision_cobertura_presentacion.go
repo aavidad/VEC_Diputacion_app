@@ -28,7 +28,10 @@ var (
 	ErrPresentacionPropuestaCoberturaDenegada = errors.New(
 		"contratacion temporal: presentacion de propuesta de cobertura denegada",
 	)
-	ErrPresentacionPropuestaCoberturaNoDisponible = errors.New(
+	// El marcador contextual conserva la denegación general como causa sin
+	// incorporar un mensaje visible ni detalles del PDP.
+	ErrPreparacionCatalogoCoberturaNoDisponiblePerfil = fmt.Errorf("%w", ErrPresentacionPropuestaCoberturaDenegada)
+	ErrPresentacionPropuestaCoberturaNoDisponible     = errors.New(
 		"contratacion temporal: presentacion de propuesta de cobertura no disponible",
 	)
 	ErrPresentacionPropuestaCoberturaEstadoNoAdmite = errors.New(
@@ -141,9 +144,64 @@ type PresentacionPropuestaCobertura struct {
 	Evaluaciones       []domain.EvaluacionViaPropuestaCobertura
 	MotivosAlternativa []MotivoAlternativaPropuestaCobertura
 	IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura
+	// PreparacionCatalogo solo existe para publicaciones V2. Es una vista
+	// informativa de la misma publicación usada para calcular la propuesta.
+	PreparacionCatalogo *PreparacionCatalogoPropuestaCobertura
 	// AvisosVia son las comprobaciones automáticas orientativas; nulo si no
 	// hay catálogo de reglas. No forman parte de la identidad semántica.
 	AvisosVia *ResultadoAvisosViaCobertura
+}
+
+// PreparacionCatalogoPropuestaCobertura excluye comprobaciones, fuentes y
+// valores aportados: solo enumera lo que pide cada vía publicada.
+type PreparacionCatalogoPropuestaCobertura struct {
+	Identidad domain.IdentidadCatalogoViasCobertura
+	Canon     domain.CanonHuellaCatalogoCobertura
+	EsEjemplo bool
+	Vias      []PreparacionViaPropuestaCobertura
+}
+
+type PreparacionViaPropuestaCobertura struct {
+	Clave      domain.ClaveCatalogo
+	Orden      uint16
+	Documentos []domain.ElementoPreparacionViaCobertura
+	Datos      []domain.ElementoPreparacionViaCobertura
+}
+
+func proyectarPreparacionCatalogoPropuestaCobertura(
+	catalogo domain.CatalogoViasCobertura,
+	propuesta domain.PropuestaDecisionCobertura,
+) (*PreparacionCatalogoPropuestaCobertura, error) {
+	if !catalogo.Identidad().CoincideExactamente(propuesta.Publicacion().Catalogo) {
+		return nil, ErrPresentacionPropuestaCoberturaNoConfiable
+	}
+	if catalogo.Canon() != domain.CanonHuellaCatalogoCoberturaV2() {
+		return nil, nil
+	}
+	publicacion := catalogo.Publicacion()
+	salida := &PreparacionCatalogoPropuestaCobertura{
+		Identidad: catalogo.Identidad(), Canon: catalogo.Canon(),
+		EsEjemplo: publicacion.EsEjemplo,
+	}
+	evaluaciones := propuesta.Evaluaciones()
+	if len(publicacion.Vias) != len(evaluaciones) {
+		return nil, ErrPresentacionPropuestaCoberturaNoConfiable
+	}
+	porClave := make(map[domain.ClaveCatalogo]struct{}, len(evaluaciones))
+	for _, evaluacion := range evaluaciones {
+		porClave[evaluacion.ViaClave] = struct{}{}
+	}
+	for _, via := range publicacion.Vias {
+		if _, existe := porClave[via.Clave]; !existe {
+			return nil, ErrPresentacionPropuestaCoberturaNoConfiable
+		}
+		salida.Vias = append(salida.Vias, PreparacionViaPropuestaCobertura{
+			Clave: via.Clave, Orden: via.Orden,
+			Documentos: append([]domain.ElementoPreparacionViaCobertura(nil), via.Documentos...),
+			Datos:      append([]domain.ElementoPreparacionViaCobertura(nil), via.Datos...),
+		})
+	}
+	return salida, nil
 }
 
 // MotivoAlternativaPropuestaCobertura es la única vista transportable del
@@ -391,13 +449,18 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 		return PresentacionPropuestaCobertura{},
 			ErrPresentacionPropuestaCoberturaNoConfiable
 	}
+	preparacionCatalogo, err := proyectarPreparacionCatalogoPropuestaCobertura(datosGobierno.Catalogo, propuesta)
+	if err != nil {
+		return PresentacionPropuestaCobertura{}, err
+	}
 	return PresentacionPropuestaCobertura{
-		Estado:             propuesta.Estado(),
-		ViaRecomendada:     propuesta.ViaPropuesta(),
-		Evaluaciones:       propuesta.Evaluaciones(),
-		MotivosAlternativa: motivosAlternativa,
-		IdentidadSemantica: identidad,
-		AvisosVia:          s.evaluarAvisosVia(operacion, expediente.Analisis),
+		Estado:              propuesta.Estado(),
+		ViaRecomendada:      propuesta.ViaPropuesta(),
+		Evaluaciones:        propuesta.Evaluaciones(),
+		MotivosAlternativa:  motivosAlternativa,
+		IdentidadSemantica:  identidad,
+		PreparacionCatalogo: preparacionCatalogo,
+		AvisosVia:           s.evaluarAvisosVia(operacion, expediente.Analisis),
 	}, nil
 }
 
@@ -567,6 +630,9 @@ func (s *ServicioPresentacionPropuestaCobertura) autorizar(
 	)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return errContexto
+	}
+	if errors.Is(err, ErrPreparacionCatalogoCoberturaNoDisponiblePerfil) {
+		return ErrPreparacionCatalogoCoberturaNoDisponiblePerfil
 	}
 	if errors.Is(err, ErrPresentacionPropuestaCoberturaDenegada) {
 		return ErrPresentacionPropuestaCoberturaDenegada

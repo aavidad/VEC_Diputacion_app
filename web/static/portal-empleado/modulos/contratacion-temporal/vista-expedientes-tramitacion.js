@@ -18,6 +18,7 @@ import {
   contextoRectificacionAnalisisDesdeEstado, contextoSubsanacionDesdeEstado,
 } from "./vista-expedientes-render.js";
 import { montarAltaContratacionTemporal } from "./vista.js";
+import { montarPestanasPreparacion } from "./vias-preparacion-cobertura.js";
 
 function enfocarElemento(raiz, selector) {
   const elemento = raiz.querySelector(selector);
@@ -51,6 +52,7 @@ export function crearGestorTramitacion({
 } = {}) {
   const tExpedientes = crearTraductorExpedientesContratacion(mensajes);
   let desmontarAlta = null;
+  let desmontarPreparacionAlta = null;
   let desmontarAnalisis = null;
   let desmontarCobertura = null;
   let desmontarAsignacion = null;
@@ -196,6 +198,8 @@ export function crearGestorTramitacion({
   }
 
   function retirarAlta() {
+    desmontarPreparacionAlta?.();
+    desmontarPreparacionAlta = null;
     if (typeof desmontarAlta === "function") desmontarAlta();
     desmontarAlta = null;
   }
@@ -628,6 +632,11 @@ export function crearGestorTramitacion({
       contenedor.innerHTML = `<section class="ct-exp-estado-global ct-tono-peligro" role="alert" tabindex="-1"><h3>${escaparHTML(tExpedientes("catalogo_no_disponible_titulo"))}</h3><p>${escaparHTML(tExpedientes("catalogo_no_disponible_detalle"))}</p><div class="ct-exp-acciones-estado"><button type="button" class="boton-secundario" data-ct-exp-accion="reintentar">${escaparHTML(tExpedientes("reintentar"))}</button><button type="button" class="boton-secundario" data-ct-exp-vista="cuadro">${escaparHTML(tExpedientes("volver_cuadro"))}</button></div></section>`;
       return;
     }
+    // Qué hay que preparar en cada vía, antes de rellenar la petición.
+    desmontarPreparacionAlta?.();
+    const zonaPreparacion = raiz.querySelector("[data-ct-exp-preparacion]");
+    desmontarPreparacionAlta = zonaPreparacion && alta.catalogos.preparacion_vias
+      ? montarPestanasPreparacion(zonaPreparacion, alta.catalogos.preparacion_vias, "ct-preparacion-alta") : null;
     try {
       const presentadorAlta = crearPresentadorAltaContratacionTemporal({
         catalogos: alta.catalogos,

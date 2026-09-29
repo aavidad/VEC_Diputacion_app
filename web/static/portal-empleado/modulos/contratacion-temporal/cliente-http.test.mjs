@@ -839,7 +839,7 @@ test("redirección y respuesta excesiva fallan cerradas", async () => {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Length": String(300 * 1024),
+        "Content-Length": String(400 * 1024),
       },
     }),
   });
@@ -850,6 +850,23 @@ test("redirección y respuesta excesiva fallan cerradas", async () => {
     }),
     (error) => error.codigo === "respuesta_excesiva",
   );
+});
+
+test("403 de perfil sin datos se admite solo en la propuesta y no expone catálogo", async () => {
+  const cliente = crearClienteHTTPContratacionTemporal({
+    fetchImpl: async () => respuestaJSON({ error: {
+      codigo: "datos_no_disponibles_perfil",
+      clave_i18n: "api.contratacion_temporal.cobertura.error.datos_no_disponibles_perfil",
+      correlacion_ref: "corr_0123456789abcdef0123456789abcdef",
+    } }, 403),
+  });
+  await assert.rejects(cliente.proponerCobertura({
+    expediente_ref: "expediente:ct:0001", version_esperada: 1,
+  }), (error) => error.codigo === "datos_no_disponibles_perfil"
+    && error.estado === 403 && error.envelopeValido === true
+    && !Object.hasOwn(error, "catalogo"));
+  await assert.rejects(cliente.decidirCobertura(decision()),
+    (error) => error.codigo === "respuesta_error_no_valida");
 });
 
 test("AbortSignal preabortada no toca la red", async () => {

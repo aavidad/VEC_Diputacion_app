@@ -32,6 +32,7 @@ var (
 	errorContenidoCoberturaInvalido         = nuevoErrorCobertura(http.StatusUnprocessableEntity, "contenido_no_valido")
 	errorAutenticacionCoberturaRequerida    = nuevoErrorCobertura(http.StatusUnauthorized, "autenticacion_requerida")
 	errorAccesoCoberturaDenegado            = nuevoErrorCobertura(http.StatusForbidden, "acceso_denegado")
+	errorDatosCoberturaNoDisponiblesPerfil  = nuevoErrorCobertura(http.StatusForbidden, "datos_no_disponibles_perfil")
 	errorConflictoCobertura                 = nuevoErrorCobertura(http.StatusConflict, "conflicto")
 	errorConflictoEstadoCobertura           = nuevoErrorCobertura(http.StatusConflict, "conflicto_estado")
 	errorResultadoCoberturaNoConfiable      = nuevoErrorCobertura(http.StatusBadGateway, "resultado_no_confiable")
@@ -70,6 +71,8 @@ func clasificarErrorCobertura(err error) errorPublicoCobertura {
 		return errorAccesoCoberturaDenegado
 	case errors.Is(err, ErrContextoCanalNoDisponible):
 		return errorServicioCoberturaNoDisponible
+	case errors.Is(err, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil):
+		return errorDatosCoberturaNoDisponiblesPerfil
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, application.ErrPresentacionPropuestaCoberturaDenegada), errors.Is(err, application.ErrConfirmacionDecisionCoberturaDenegada):
 		return errorAccesoCoberturaDenegado
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEstadoNoAdmite):
@@ -103,7 +106,7 @@ func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estad
 		causa = causas[0]
 	}
 	contenido, err := json.Marshal(valor)
-	if err != nil || len(contenido) > MaximoRespuestaCoberturaBytes {
+	if err != nil || len(contenido) > limiteRespuestaCobertura(peticion, estado, valor) {
 		estado = http.StatusInternalServerError
 		causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSerializacion, Causa: err}
 		valor = envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: errorInternoCobertura.codigo, ClaveI18n: errorInternoCobertura.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}}
@@ -117,6 +120,19 @@ func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estad
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.WriteHeader(estado)
 	_, _ = w.Write(contenido)
+}
+
+func limiteRespuestaCobertura(peticion *http.Request, estado int, valor any) int {
+	if peticion == nil || peticion.URL == nil ||
+		peticion.URL.Path != RutaPropuestaCobertura || estado != http.StatusOK {
+		return MaximoRespuestaCoberturaBytes
+	}
+	propuesta, ok := valor.(envoltorioPropuestaCobertura)
+	if !ok || propuesta.Data.Esquema != "vec.contratacion-temporal.propuesta-cobertura.v2" ||
+		propuesta.Data.Catalogo == nil {
+		return MaximoRespuestaCoberturaBytes
+	}
+	return MaximoRespuestaPropuestaCoberturaV2Bytes
 }
 func codigoErrorCobertura(valor any) string {
 	if envoltorio, ok := valor.(envoltorioErrorCobertura); ok {

@@ -18,11 +18,14 @@ import (
 
 const (
 	MaximoCuerpoCoberturaBytes = 64 * 1024
-	// 64 vías × 32 claves por vía × 80 bytes, más JSON y metadatos. El margen
-	// evita que una proyección gobernada máxima se degrade a un 500.
+	// Límite ordinario de cobertura, incluidas decisiones, rectificaciones,
+	// recibos, errores y propuestas históricas V1.
 	MaximoRespuestaCoberturaBytes = 256 * 1024
-	maximasViasCoberturaHTTP      = 64
-	maximasClavesPorViaHTTP       = 32
+	// V2 añade hasta 512 documentos/datos al máximo anterior de evaluaciones.
+	// Solo se aplica al 200 de propuesta V2 validada por aplicación.
+	MaximoRespuestaPropuestaCoberturaV2Bytes = 384 * 1024
+	maximasViasCoberturaHTTP                 = 64
+	maximasClavesPorViaHTTP                  = 32
 )
 
 var (
@@ -191,13 +194,32 @@ type envoltorioPropuestaCobertura struct {
 	Data propuestaCoberturaSalidaJSON `json:"data"`
 }
 type propuestaCoberturaSalidaJSON struct {
-	Esquema            string                           `json:"esquema"`
-	Estado             string                           `json:"estado"`
-	ViaRecomendada     string                           `json:"via_recomendada"`
-	Evaluaciones       []evaluacionCoberturaJSON        `json:"evaluaciones"`
-	MotivosAlternativa []motivoAlternativaCoberturaJSON `json:"motivos_alternativa,omitempty"`
-	IdentidadSemantica identidadSemanticaCoberturaJSON  `json:"identidad_semantica"`
-	AvisosVia          *avisosViaCoberturaJSON          `json:"avisos_via,omitempty"`
+	Esquema            string                            `json:"esquema"`
+	Estado             string                            `json:"estado"`
+	ViaRecomendada     string                            `json:"via_recomendada"`
+	Evaluaciones       []evaluacionCoberturaJSON         `json:"evaluaciones"`
+	MotivosAlternativa []motivoAlternativaCoberturaJSON  `json:"motivos_alternativa,omitempty"`
+	IdentidadSemantica identidadSemanticaCoberturaJSON   `json:"identidad_semantica"`
+	Catalogo           *catalogoPreparacionCoberturaJSON `json:"catalogo,omitempty"`
+	AvisosVia          *avisosViaCoberturaJSON           `json:"avisos_via,omitempty"`
+}
+type catalogoPreparacionCoberturaJSON struct {
+	Referencia   string                        `json:"referencia"`
+	Version      uint64                        `json:"version"`
+	HuellaSHA256 string                        `json:"huella_sha256"`
+	EsEjemplo    bool                          `json:"es_ejemplo"`
+	Vias         []viaPreparacionCoberturaJSON `json:"vias"`
+}
+type viaPreparacionCoberturaJSON struct {
+	Clave      string                             `json:"clave"`
+	Orden      uint16                             `json:"orden"`
+	Documentos []elementoPreparacionCoberturaJSON `json:"documentos"`
+	Datos      []elementoPreparacionCoberturaJSON `json:"datos"`
+}
+type elementoPreparacionCoberturaJSON struct {
+	Clave     string `json:"clave"`
+	Orden     uint16 `json:"orden"`
+	ClaveI18n string `json:"clave_i18n"`
 }
 type motivoAlternativaCoberturaJSON struct {
 	Clave        string `json:"clave"`
@@ -231,6 +253,10 @@ func proyectarPropuestaCobertura(entrada application.ResultadoPropuestaCobertura
 		return propuestaCoberturaSalidaJSON{}, false
 	}
 	salida := propuestaCoberturaSalidaJSON{Esquema: "vec.contratacion-temporal.propuesta-cobertura.v1", Estado: string(datos.Estado), ViaRecomendada: string(datos.ViaRecomendada), IdentidadSemantica: identidadSemanticaCoberturaJSON{Referencia: datos.IdentidadSemantica.Referencia, HuellaSHA256: datos.IdentidadSemantica.HuellaSHA256, Canon: dominioCanonCoberturaJSON{Dominio: datos.IdentidadSemantica.Canon.Dominio, VersionEsquema: datos.IdentidadSemantica.Canon.VersionEsquema, Algoritmo: datos.IdentidadSemantica.Canon.Algoritmo}}}
+	if datos.PreparacionCatalogo != nil {
+		salida.Esquema = "vec.contratacion-temporal.propuesta-cobertura.v2"
+		salida.Catalogo = proyectarPreparacionCatalogoCobertura(datos.PreparacionCatalogo)
+	}
 	for _, evaluacion := range datos.Evaluaciones {
 		resultadosOmitidos := clavesCobertura(evaluacion.ResultadosOmitidos)
 		ausenciasBloqueantes := clavesCobertura(evaluacion.AusenciasBloqueantes)
@@ -246,6 +272,38 @@ func proyectarPropuestaCobertura(entrada application.ResultadoPropuestaCobertura
 	}
 	salida.AvisosVia = proyectarAvisosViaCobertura(datos.AvisosVia)
 	return salida, true
+}
+
+func proyectarPreparacionCatalogoCobertura(catalogo *application.PreparacionCatalogoPropuestaCobertura) *catalogoPreparacionCoberturaJSON {
+	if catalogo == nil {
+		return nil
+	}
+	salida := &catalogoPreparacionCoberturaJSON{
+		Referencia:   catalogo.Identidad.Referencia,
+		Version:      catalogo.Identidad.Version,
+		HuellaSHA256: catalogo.Identidad.HuellaSHA256,
+		EsEjemplo:    catalogo.EsEjemplo,
+		Vias:         make([]viaPreparacionCoberturaJSON, 0, len(catalogo.Vias)),
+	}
+	for _, via := range catalogo.Vias {
+		salida.Vias = append(salida.Vias, viaPreparacionCoberturaJSON{
+			Clave: string(via.Clave), Orden: via.Orden,
+			Documentos: proyectarElementosPreparacionCobertura(via.Documentos),
+			Datos:      proyectarElementosPreparacionCobertura(via.Datos),
+		})
+	}
+	return salida
+}
+
+func proyectarElementosPreparacionCobertura(entrada []domain.ElementoPreparacionViaCobertura) []elementoPreparacionCoberturaJSON {
+	salida := make([]elementoPreparacionCoberturaJSON, 0, len(entrada))
+	for _, elemento := range entrada {
+		salida = append(salida, elementoPreparacionCoberturaJSON{
+			Clave: string(elemento.Clave), Orden: elemento.Orden,
+			ClaveI18n: string(elemento.ClaveI18n),
+		})
+	}
+	return salida
 }
 
 func clavesCobertura(entrada []domain.ClaveCatalogo) []string {

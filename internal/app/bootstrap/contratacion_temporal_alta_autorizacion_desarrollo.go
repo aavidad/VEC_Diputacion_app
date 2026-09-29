@@ -316,6 +316,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 	var instantanea dominiovec.InstantaneaAutorizacion
 	var registroAnalisis registroDecisionesAnalisisContratacionTemporalDesarrollo
 	if capacidad.ruta == httpinterno.RutaAltaSolicitudes ||
+		capacidad.ruta == httpinterno.RutaPropuestaCobertura ||
 		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
@@ -324,7 +325,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 		s.mu.Lock()
 		instantanea, valida = s.instantaneasPorSolicitud[clave]
 		autoridad := s.autoridadAsignaciones
-		if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+		if capacidad.ruta == httpinterno.RutaPropuestaCobertura ||
+			rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
 			rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 			registroAnalisis = s.registroDecisionesAnalisis
 		}
@@ -334,7 +336,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarConcesionCandidataA
 			publicarInstantaneaAsignacionCTSegunRuta(ctx, capacidad.ruta, autoridad, instantanea) != nil {
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 		}
-		if (rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+		if (capacidad.ruta == httpinterno.RutaPropuestaCobertura ||
+			rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
 			rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta)) &&
 			registroAnalisis == nil {
 			return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
@@ -374,7 +377,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) RegistrarDenegacionAutorizac
 	if err != nil || !motivoValido || datos.ReferenciaMotivo != esperada {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
-	if rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
+	if capacidad.ruta == httpinterno.RutaPropuestaCobertura ||
+		rutaMutacionDurableContratacionTemporalDesarrollo(capacidad.ruta) ||
 		rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 		clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(
 			datos.Solicitud,

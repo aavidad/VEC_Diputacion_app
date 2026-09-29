@@ -10,12 +10,18 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { cargarEtiquetasViasCobertura } from "./etiquetas-vias-cobertura.js?v=20260928-ppt-v2";
+import {
+  renderizarViasPreparacion, selectorPestanaPreparacion, textoPreparacion, viaPreparacionDeEvento,
+} from "./vias-preparacion-cobertura.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
   "confirmarOperacion", "alConfirmar", "mensajes", "locale", "zonaHoraria", "anunciar", "etiquetasVias",
 ]);
 const PATRON_REFERENCIA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
+// Estado propio de la relación por vía: su texto vive en el catálogo de textos
+// de cobertura, no en el diccionario del módulo.
+const ESTADO_PERFIL_SIN_PREPARACION = "cobertura_preparacion_perfil_sin_datos";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -133,11 +139,16 @@ function renderizarPropuesta(propuesta, estado, t) {
 
 function renderizarContenido(estado, contexto, t, formateador, formateadorFechas) {
   if (estado.recibo) return renderizarRecibo(estado.recibo, contexto, t, formateador);
+  const preparacion = estado.propuesta?.catalogo
+    ? renderizarViasPreparacion(estado.propuesta.catalogo, {
+      prefijo: "ct-preparacion-ficha",
+      seleccionada: estado.via_preparacion ?? estado.propuesta.via_recomendada,
+    }) : "";
   const avisos = estado.indeterminado ? "" : renderizarAvisosViaCobertura(
     estado.propuesta?.avisos_via, t,
     { formateadorFechas, ayudaAbierta: estado.ayuda_avisos_abierta === true },
   );
-  return avisos + renderizarContenidoPropuesta(estado, t);
+  return preparacion + avisos + renderizarContenidoPropuesta(estado, t);
 }
 
 function renderizarContenidoPropuesta(estado, t) {
@@ -263,6 +274,11 @@ export function montarFormularioCobertura(configuracion = {}) {
     };
   }
 
+  function textoEstado(claveMensaje) {
+    return claveMensaje === ESTADO_PERFIL_SIN_PREPARACION
+      ? textoPreparacion("perfil_sin_datos") : t(claveMensaje);
+  }
+
   function repintar(selectorFoco = "", anunciarEstado = true) {
     if (!montado) return;
     raizActual.innerHTML = `<section class="ct-alta" data-ct-cobertura
@@ -272,12 +288,12 @@ export function montarFormularioCobertura(configuracion = {}) {
       </div></header>
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
         data-ct-cobertura-estado role="status" aria-live="polite"
-        aria-atomic="true" tabindex="-1"><strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>
+        aria-atomic="true" tabindex="-1"><strong>${escaparHTML(textoEstado(estado.mensaje_clave))}</strong></div>
       ${renderizarContenido(estado, contexto, t, formateador, formateadorFechas)}
     </section>`;
     if (selectorFoco) enfocar(selectorFoco);
     if (anunciarEstado) {
-      try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {
+      try { anunciarActual(textoEstado(estado.mensaje_clave), estado.tipo_mensaje); } catch {
         // La región viva sigue siendo la fuente visible y accesible del estado.
       }
     }
@@ -313,8 +329,12 @@ export function montarFormularioCobertura(configuracion = {}) {
           tipo_mensaje: propuesta.estado === "viable" ? "exito" : "aviso",
         };
         return propuesta;
-      } catch {
-        if (montado) fijarError("cobertura_estado_error_propuesta");
+      } catch (error) {
+        if (montado) {
+          const perfilSinPreparacion = error?.estado === 403
+            && error?.codigo === "datos_no_disponibles_perfil" && error?.envelopeValido === true;
+          fijarError(perfilSinPreparacion ? ESTADO_PERFIL_SIN_PREPARACION : "cobertura_estado_error_propuesta");
+        }
         return null;
       } finally {
         controlador = null;
@@ -544,7 +564,23 @@ export function montarFormularioCobertura(configuracion = {}) {
     repintar("[name=via_elegida]:checked", false);
   }
 
+  // Pestañas «Por bolsa de trabajo» / «Por oferta al SAE»: solo cambian qué
+  // relación se ve; no tocan la vía elegida para la decisión.
+  function alCambiarPestanaPreparacion(evento) {
+    const via = viaPreparacionDeEvento(evento);
+    if (via === null || !montado || !estado?.propuesta?.catalogo) return false;
+    evento.preventDefault?.();
+    // Conserva el motivo ya elegido: el repintado no debe hacer repetir datos.
+    const motivoActual = raizActual.querySelector("[name=motivo_clave]")?.value ?? "";
+    const motivo = estado.via_elegida && motivoPerteneceAVia(estado.propuesta, estado.via_elegida, motivoActual)
+      ? motivoActual : estado.motivo_clave;
+    estado = { ...estado, via_preparacion: via, motivo_clave: motivo };
+    repintar(selectorPestanaPreparacion(via), false);
+    return true;
+  }
+
   function alPulsar(evento) {
+    if (alCambiarPestanaPreparacion(evento)) return undefined;
     const control = evento.target?.closest?.("[data-ct-cobertura-accion]");
     if (!control || !raizActual.contains(control)) return undefined;
     evento.preventDefault();
@@ -568,6 +604,7 @@ export function montarFormularioCobertura(configuracion = {}) {
   }
 
   function alTeclear(evento) {
+    if (alCambiarPestanaPreparacion(evento)) return;
     if (evento.key !== "Escape" || !estado?.ayuda_avisos_abierta) return;
     evento.preventDefault?.();
     alternarAyudaAvisos(false);

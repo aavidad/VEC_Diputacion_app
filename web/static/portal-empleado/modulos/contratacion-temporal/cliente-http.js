@@ -82,6 +82,7 @@ export const MAXIMO_SOLICITUD_ANALISIS_BYTES = 64 * 1024;
 export const MAXIMO_RESPUESTA_ANALISIS_BYTES = 16 * 1024;
 export const MAXIMO_RESPUESTA_CONFIGURACION_ANALISIS_BYTES = 64 * 1024;
 export const MAXIMO_RESPUESTA_COBERTURA_BYTES = 256 * 1024;
+export const MAXIMO_RESPUESTA_PROPUESTA_COBERTURA_V2_BYTES = 384 * 1024;
 const PATRON_REFERENCIA_OPACA = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const PATRON_CLAVE_CATALOGO = /^[a-z][a-z0-9._-]{1,79}$/u;
 const PATRON_INSTANTE_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
@@ -393,8 +394,18 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       signal,
       estadoEsperado: 200,
       maximoSolicitud: MAXIMO_SOLICITUD_COBERTURA_BYTES,
-      maximoRespuesta: MAXIMO_RESPUESTA_COBERTURA_BYTES,
-      validarRespuesta: validarPropuestaCobertura,
+      maximoRespuesta: MAXIMO_RESPUESTA_PROPUESTA_COBERTURA_V2_BYTES,
+      validarRespuesta: (respuesta) => {
+        const propuesta = validarPropuestaCobertura(respuesta);
+        // El sobre es canónico: esta comprobación conserva el límite V1
+        // aunque la misma ruta admita la proyección V2 más extensa.
+        if (propuesta.esquema === "vec.contratacion-temporal.propuesta-cobertura.v1"
+          && new TextEncoder().encode(JSON.stringify({ data: respuesta })).byteLength
+            > MAXIMO_RESPUESTA_COBERTURA_BYTES) {
+          throw new TypeError("propuesta V1 excesiva");
+        }
+        return propuesta;
+      },
       efecto: false,
     });
   }
