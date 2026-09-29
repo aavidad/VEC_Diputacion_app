@@ -156,6 +156,48 @@ const cuentaPrivilegiadaOVinculadaSQL = `SELECT c.cuenta_privilegiada OR EXISTS(
  SELECT 1 FROM vec_identidad_sesiones_v1.cuenta p WHERE p.cuenta_ordinaria_ref=c.cuenta_ref)
  FROM vec_identidad_sesiones_v1.cuenta c WHERE c.cuenta_ref=$1::text`
 
+// El proceso separado solo coteja alias ya provisionados por ID7. No inserta
+// una cuenta, alias, sesión ni dato del candidato en la población compartida.
+func comprobarSeudonimosProvisionadosPortalExterno(ctx context.Context, gobierno *pgxpool.Pool,
+	s seudonimosPortalExterno,
+) error {
+	if ctx == nil || gobierno == nil || len(s.Cuentas) == 0 {
+		return ErrSeudonimosPortalExternoInvalidos
+	}
+	tx, err := gobierno.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return ErrSeudonimosPortalExternoInvalidos
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if _, err := tx.Exec(ctx, configurarCuentaNominalDesarrolloSQL); err != nil {
+		return ErrSeudonimosPortalExternoInvalidos
+	}
+	for _, c := range s.Cuentas {
+		cuenta, e1 := hex.DecodeString(c.CuentaHMAC)
+		sujeto, e2 := hex.DecodeString(c.SujetoHMAC)
+		if e1 != nil || e2 != nil {
+			return ErrSeudonimosPortalExternoInvalidos
+		}
+		var valida bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1
+		 FROM vec_identidad_externa_v1.cuenta c
+		 JOIN vec_identidad_externa_v1.alias_cuenta a USING(cuenta_ref)
+		 JOIN vec_identidad_externa_v1.estado_actual e USING(cuenta_ref)
+		 JOIN vec_identidad_externa_v1.estado_cuenta s ON s.revision=e.revision AND s.cuenta_ref=e.cuenta_ref
+		 WHERE c.cuenta_ref=$1 AND a.esquema_hmac=$2 AND a.dominio_hmac_ref=$3
+		 AND a.clave_hmac_id=$4 AND a.clave_hmac_version=$5
+		 AND a.cuenta_id_hmac=$6 AND a.sujeto_id_hmac=$7 AND s.estado='activa')`,
+			c.CuentaRef, c.Esquema, c.DominioRef, c.ClaveID, int64(c.ClaveVersion), cuenta, sujeto).Scan(&valida)
+		if err != nil || !valida {
+			return ErrSeudonimosPortalExternoInvalidos
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return ErrSeudonimosPortalExternoInvalidos
+	}
+	return nil
+}
+
 // registrarSeudonimosPortalExterno registra, con el rol de gobierno y de
 // forma idempotente, los alias que calculó el proceso externo. La cuenta
 // debe existir y estar activa; si no, no se registra nada.

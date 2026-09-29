@@ -155,7 +155,19 @@ func nuevaMiBolsaPortalExterno(ctx context.Context, cfg config.Config,
 		if comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa) != nil {
 			return nil, nada, errMiBolsaNoDisponible
 		}
-		reglas, err := nuevasReglasEjemploDesarrollo(cfg, nil, relojCalendariosDesarrollo{})
+		dsnCalendarios, err := cfg.ExternoCalendariosPostgreSQL.DSN()
+		if err != nil {
+			return nil, nada, errMiBolsaNoDisponible
+		}
+		calendarioPool, calendarios, err := nuevaConsultaCalendariosMiBolsaPortalExterno(ctx, dsnCalendarios, topologia)
+		if err != nil {
+			return nil, nada, errMiBolsaNoDisponible
+		}
+		pools = append(pools, calendarioPool)
+		if logins[calendarioPool.Config().ConnConfig.User] {
+			return nil, nada, errMiBolsaNoDisponible
+		}
+		reglas, err := nuevasReglasEjemploDesarrollo(cfg, calendarios, relojCalendariosDesarrollo{})
 		if err != nil || reglas.bolsa == nil {
 			return nil, nada, errMiBolsaNoDisponible
 		}
