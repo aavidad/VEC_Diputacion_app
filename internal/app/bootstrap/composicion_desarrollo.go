@@ -15,6 +15,7 @@ import (
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -331,7 +332,7 @@ func nuevoServidorDesarrollo(
 	if err = componerIntentosContactoBolsaDesarrollo(reglasEjemplo.bolsa, consultaCalendarios, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
 		return nil, nil, err
 	}
-	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT))
+	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT, portafirmasapagado.Conector{}))
 	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
 	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo)
 	if err != nil {

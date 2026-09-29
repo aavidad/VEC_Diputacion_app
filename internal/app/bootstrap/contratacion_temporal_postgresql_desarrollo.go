@@ -235,6 +235,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		gobierno.Close()
 		return vacias, err
 	}
+	etapa = "asegurar_perfiles_fijos_rrhh"
+	if err := asegurarPerfilesFijosCTDesarrollo(ctx, gobierno, soporte, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg),
+		soporte.perfilesFijosRegistrados()...); err != nil {
+		gobierno.Close()
+		return vacias, err
+	}
 	soporte.mu.Lock()
 	soporte.autoridadAsignaciones = &autoridadPostgreSQLContratacionTemporalDesarrollo{
 		pool: gobierno, soporte: soporte,

@@ -25,6 +25,8 @@ type ServicioEmisionLlamamiento struct {
 	correo        CorreoPersonalizadoLlamamiento
 	// origenes es opcional: sin él no se avisa del contacto no confirmado.
 	origenes puertosbolsa.FuenteOrigenContactoParticipacion
+	// avisador decide el correo de cada aviso (B59 opcional) y lo envía.
+	avisador *AvisadorLlamamiento
 }
 
 // CorreoPersonalizadoLlamamiento agrupa el catálogo del correo, la fuente de
@@ -39,7 +41,11 @@ func NuevoServicioEmisionLlamamiento(cb puertosbolsa.ResolutorContextoContactoPa
 	if cb == nil || a == nil || r == nil || f == nil || e == nil || reloj == nil || !correo.Catalogo.Valido() || correo.Personalizacion == nil || correo.Huellas == nil {
 		return nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
-	return &ServicioEmisionLlamamiento{contextoBolsa: cb, autorizador: a, repositorio: r, correos: f, emisor: e, reloj: reloj, correo: correo}, nil
+	avisador, err := NuevoAvisadorLlamamiento(f, e)
+	if err != nil {
+		return nil, err
+	}
+	return &ServicioEmisionLlamamiento{contextoBolsa: cb, autorizador: a, repositorio: r, correos: f, emisor: e, reloj: reloj, correo: correo, avisador: avisador}, nil
 }
 
 // EstablecerAvisoContactoNoConfirmado habilita el aviso a RRHH cuando el
@@ -108,15 +114,17 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 		return puertosbolsa.EmisionLlamamiento{}, err
 	}
 	contactos := make([]puertosbolsa.ResultadoContactoEmision, 0, len(q.Participaciones))
+	presupuesto, cancelarAvisos := s.avisador.Presupuesto(ctx)
+	defer cancelarAvisos()
 	for i, participacion := range q.Participaciones {
-		resultado := "no_enviado"
-		correo, correoErr := s.correos.CorreoParticipacion(ctx, participacion)
-		messageID := fmt.Sprintf("<%s-%d@vec.dipgra.local>", sufijo, i+1)
-		if correoErr == nil && s.emisor.EnviarCorreo(ctx, correo, correos[i].Asunto, correos[i].Cuerpo, messageID, ahora) {
-			resultado = "enviado"
-		}
+		resultado, fuente := s.avisador.Avisar(ctx, presupuesto, AvisoLlamamiento{
+			Vinculo: q.Vinculo, ResultadoContexto: q.ResultadoContexto, MotivoAutorizacion: q.MotivoAutorizacion,
+			BolsaRef: q.BolsaRef, UnidadRef: resuelto.UnidadRef, AmbitoRef: resuelto.AmbitoRef,
+			LlamamientoRef: reservada.LlamamientoRef, ParticipacionRef: participacion,
+			Asunto: correos[i].Asunto, Cuerpo: correos[i].Cuerpo, MessageID: fmt.Sprintf("<%s-%d@vec.dipgra.local>", sufijo, i+1), Instante: ahora,
+		})
 		reciboContacto := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia + "\x1f" + participacion))
-		contactos = append(contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: "recibo:contacto:" + hex.EncodeToString(reciboContacto[:])})
+		contactos = append(contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: "recibo:contacto:" + hex.EncodeToString(reciboContacto[:]), FuenteCorreo: fuente})
 	}
 	emitido, err := s.repositorio.RegistrarContactos(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, tokenFinalizacion, contactos)
 	if err != nil {

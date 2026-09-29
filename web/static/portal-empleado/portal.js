@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-i18n-sh
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-i18n-shell-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-i18n-shell-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260929-i18n-shell-v2";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-i18n-shell-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-firma-506-v4";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-i18n-shell-v2";

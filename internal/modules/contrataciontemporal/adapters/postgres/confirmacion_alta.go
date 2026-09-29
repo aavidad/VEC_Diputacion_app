@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"errors"
 	"time"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,8 +16,11 @@ import (
 )
 
 const (
-	funcionConfirmarAltaV3      = "vec_contratacion_temporal.confirmar_alta_atestada_v3"
-	maximoIntentosConfirmarAlta = 3
+	funcionConfirmarAltaV3 = "vec_contratacion_temporal.confirmar_alta_atestada_v3"
+	// La confirmación consume la decisión V3 y avanza la cadena de auditoría,
+	// que es una sola fila: con altas simultáneas se pierden carreras 40001.
+	// Se aplica la política común (reintentos con espera aleatoria creciente).
+	maximoIntentosConfirmarAlta = postgresqlcomun.IntentosMaximosCarreraSerializable
 	limiteReconciliacionAlta    = 5 * time.Second
 )
 
@@ -108,7 +112,8 @@ func (t *TransaccionAltasPostgreSQLCandidata) confirmarConEntradas(
 		if causa == nil {
 			return recibo, nil
 		}
-		if errorPostgreSQLReintentable(causa) && intento < maximoIntentosConfirmarAlta {
+		if errorPostgreSQLReintentable(causa) && intento < maximoIntentosConfirmarAlta &&
+			postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			continue
 		}
 		if errorConfirmacionAmbiguo(causa) {
