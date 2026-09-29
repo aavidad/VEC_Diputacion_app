@@ -73,6 +73,7 @@ type firmaSQL118 struct {
 	FirmadoHuella     *string   `json:"FirmadoHuella"`
 	SelloTiempoEstado *string   `json:"SelloTiempoEstado"`
 	RegistradaEn      time.Time `json:"RegistradaEn"`
+	ClaveIdempotencia string    `json:"ClaveIdempotencia"`
 	DocumentoCustodia *string   `json:"DocumentoCustodiaRef"`
 	VersionCustodia   *uint64   `json:"DocumentoCustodiaVersion"`
 }
@@ -302,7 +303,7 @@ func (r *RegistroFirmasDocumentoPostgreSQL) ConsultarFirmas(ctx context.Context,
 			Secuencia: f.Secuencia, ExpedienteVersion: f.ExpedienteVersion, CatalogoRef: f.CatalogoRef, CatalogoHuella: f.CatalogoHuella,
 			PasoRef: f.PasoRef, PasoOrden: f.PasoOrden, Resultado: domain.ResultadoFirmaDocumento(f.Resultado),
 			ConMotivoDevolucion: f.ConMotivo, OriginalHuella: textoFirma118(f.OriginalHuella), FirmadoHuella: textoFirma118(f.FirmadoHuella),
-			SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado), RegistradaEn: f.RegistradaEn.UTC(),
+			SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado), RegistradaEn: f.RegistradaEn.UTC(), ClaveIdempotencia: f.ClaveIdempotencia,
 			DocumentoCustodiaRef: textoFirma118(f.DocumentoCustodia), DocumentoCustodiaVersion: versionFirma118(f.VersionCustodia)})
 	}
 	return firmas, nil
