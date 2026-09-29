@@ -30,6 +30,20 @@ func TestBolsasPublicasPortalExternoFallaCerradoConConfiguracionParcial(t *testi
 	}
 }
 
+func TestBolsasPublicasPortalExternoExigeLoginPropio(t *testing.T) {
+	huella := huellaBolsasPublicasPrueba()
+	cfg := config.Config{
+		BolsaCategoriesCatalogID: "rpt", BolsaCategoriesVersion: 1,
+		BolsaCategoriesSHA256: huella, BolsaCategoriesPublicProjectionSHA256: huella,
+		BolsaPublicaManifiestoSHA256: huella,
+	}
+	h, cerrar, err := nuevasBolsasPublicasPortalExterno(context.Background(), cfg,
+		"postgres://vec_publico_login@localhost/publica?sslmode=verify-full")
+	if !errors.Is(err, ErrBolsasPublicasPortalExternoNoDisponibles) || h != nil || cerrar == nil {
+		t.Fatalf("login publico interno aceptado: manejador=%v cerrar=%v error=%v", h, cerrar != nil, err)
+	}
+}
+
 func huellaBolsasPublicasPrueba() string {
 	return "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }

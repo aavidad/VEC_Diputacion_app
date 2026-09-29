@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"vec-diputacion-granada/config"
 	bolsapostgrespublico "vec-diputacion-granada/internal/modules/bolsa/adapters/postgrespublico"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
@@ -15,6 +17,8 @@ import (
 // ErrBolsasPublicasPortalExternoNoDisponibles no expone la conexión ni el
 // manifiesto de la proyección pública en los errores de arranque.
 var ErrBolsasPublicasPortalExternoNoDisponibles = errors.New("bootstrap: bolsas publicas del portal externo no disponibles")
+
+const loginBolsasPublicasPortalExterno = "vec_externo_bolsa_publica_consulta"
 
 // nuevasBolsasPublicasPortalExterno monta B10 exclusivamente desde la base de
 // proyección pública de Bolsa. El llamante aporta el DSN del LOGIN externo
@@ -37,6 +41,10 @@ func nuevasBolsasPublicasPortalExterno(ctx context.Context, cfg config.Config, d
 		config.ValidarHuellaManifiestoPublico(cfg.BolsaPublicaManifiestoSHA256) != nil ||
 		cfg.BolsaCategoriesCatalogID == "" || cfg.BolsaCategoriesVersion < 1 ||
 		cfg.BolsaCategoriesSHA256 == "" || cfg.BolsaCategoriesPublicProjectionSHA256 == "" {
+		return nil, nada, ErrBolsasPublicasPortalExternoNoDisponibles
+	}
+	conexion, err := pgxpool.ParseConfig(dsnExterno)
+	if err != nil || conexion == nil || conexion.ConnConfig == nil || conexion.ConnConfig.User != loginBolsasPublicasPortalExterno {
 		return nil, nada, ErrBolsasPublicasPortalExternoNoDisponibles
 	}
 	fuente, err := bolsapostgrespublico.Abrir(ctx, dsnExterno,
