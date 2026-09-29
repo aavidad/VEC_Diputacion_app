@@ -1,0 +1,32 @@
+{
+  "preparacion_cobertura": {
+    "contratacion_temporal.cobertura.doc.ficha_preparacion_cobertura": "Ficha de preparación de la cobertura",
+    "contratacion_temporal.cobertura.doc.resumen_consulta_bolsa": "Resumen de la consulta de la bolsa",
+    "contratacion_temporal.cobertura.doc.nota_informativa_sae": "Nota informativa sobre la oferta al SAE",
+    "contratacion_temporal.cobertura.doc.nota_informativa_convocatoria": "Nota informativa sobre la nueva convocatoria de bolsa",
+    "contratacion_temporal.cobertura.dato.categoria": "Categoría",
+    "contratacion_temporal.cobertura.dato.bolsa_ref": "Bolsa de trabajo",
+    "contratacion_temporal.cobertura.dato.candidaturas_disponibles": "Candidaturas disponibles",
+    "contratacion_temporal.cobertura.dato.descripcion_puesto": "Descripción del puesto",
+    "contratacion_temporal.cobertura.dato.jornada": "Jornada",
+    "contratacion_temporal.cobertura.dato.duracion_prevista": "Duración prevista",
+    "contratacion_temporal.cobertura.dato.motivo_propuesta": "Motivo de la propuesta",
+    "cobertura_preparacion_titulo": "Preparación de la vía de cobertura",
+    "cobertura_preparacion_bolsa": "Por bolsa de trabajo",
+    "cobertura_preparacion_sae": "Por oferta al SAE",
+    "cobertura_preparacion_documentos": "Documentos",
+    "cobertura_preparacion_datos": "Datos",
+    "cobertura_preparacion_ejemplo": "Ejemplo pendiente de RRHH — duda 73. Estas listas aún no son requisitos aprobados.",
+    "cobertura_preparacion_no_disponible": "No se puede mostrar la relación de documentos y datos. Vuelva a consultar más tarde.",
+    "cobertura_preparacion_sae_solo_lista": "Esta lista es informativa. Desde aquí no se inicia, tramita ni envía una oferta al SAE.",
+    "cobertura_preparacion_sin_elementos": "No se han indicado elementos para este apartado.",
+    "cobertura_preparacion_perfil_sin_datos": "Los datos de preparación no están disponibles para su perfil. Consulte con RRHH antes de continuar.",
+    "cobertura_preparacion_cargando": "Consultando los documentos y datos de preparación…",
+    "cobertura_preparacion_error": "No se pudieron consultar los documentos y datos. Reintente la consulta.",
+    "cobertura_preparacion_denegado": "No tiene permiso para consultar los documentos y datos de preparación. Solicite acceso a RRHH.",
+    "cobertura_preparacion_reintentar": "Reintentar consulta"
+  },
+  "api": {
+    "api.contratacion_temporal.cobertura.error.datos_no_disponibles_perfil": "Los datos de preparación no están disponibles para este perfil. Consulte con RRHH antes de continuar."
+  }
+}
