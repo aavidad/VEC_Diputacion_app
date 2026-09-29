@@ -16,6 +16,9 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "provisionar-perfiles-ct" {
+		os.Exit(ejecutarProvisionPerfilesCT(context.Background(), os.Args[2:], os.Stdout, os.Stderr, config.Load(), bootstrap.EjecutarProvisionPerfilesCT))
+	}
 	if len(os.Args) > 1 && os.Args[1] == "rellenar-vinculos-bolsa" {
 		opciones := flag.NewFlagSet("rellenar-vinculos-bolsa", flag.ExitOnError)
 		huella := opciones.String("huella", "", "SHA-256 del fichero importado")
