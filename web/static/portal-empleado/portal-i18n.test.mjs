@@ -48,16 +48,12 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
-  // Dirección de diseño del 29/09/2026: el catálogo cambió y todo su grafo renueva URL.
-  const vigente = "20260929-diseno-v1";
+  // Mis preferencias (5.08a) cambió el catálogo del portal: todo su grafo renueva URL.
+  const vigente = "20260929-pref-508a-v2";
   const versionesEspeciales = new Map([
-    ["portal.js", "20260929-i18n-merge-v1"],
-    ["portal-modulos-coordinador.js", "20260929-i18n-merge-v1"],
     ["portal-preferencias-integracion.js", "20260929-pref-i18n-merge-v1"],
     ["portal-preferencias.js", "20260929-pref-i18n-merge-v1"],
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
-    ["modulos/dietas/vista-recorridos.js", "20260929-i18n-merge-v1"],
-    ["modulos/dietas/vista-bandeja-circuito.js", "20260929-i18n-merge-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

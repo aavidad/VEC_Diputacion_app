@@ -75,6 +75,19 @@
           }
         }
       }
+    },
+    "api": {
+      "usuarios": {
+        "preferencias": {
+          "error": {
+            "no_autenticado": "La sesión ha caducado. Identifíquese de nuevo.",
+            "prohibido": "No tiene permiso para estas preferencias.",
+            "conflicto": "Las preferencias cambiaron en otra sesión. Consulte de nuevo.",
+            "peticion_invalida": "El servidor rechazó una opción. Consulte de nuevo el catálogo.",
+            "no_disponible": "El servicio de preferencias no está disponible. Consulte de nuevo más tarde."
+          }
+        }
+      }
     }
   },
   "areaPersonal": {
@@ -132,13 +145,19 @@
         "servicio": "El servicio de preferencias no está disponible. No se puede confirmar el resultado del último intento.",
         "respuesta": "El servicio devolvió una respuesta incompatible. No se confirma ningún cambio."
       },
-      "abrirTexto": "Abrir preferencias de tamaño del texto",
-      "abrirContraste": "Abrir preferencias de contraste",
+      "atajoTexto": "Aumentar o restablecer el tamaño del texto en esta sesión",
+      "atajoContraste": "Activar o desactivar el alto contraste en esta sesión",
       "menuIdentidad": "Abrir menú de identidad",
       "textoCorto": "Texto ",
       "contrasteCorto": "Contraste",
       "identidadServicio": "Identidad comprobada por el servicio de Usuarios",
-      "identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias"
+      "identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias",
+      "atajo": {
+        "textoActivo": "Tamaño de texto ampliado para esta sesión.",
+        "textoInactivo": "Tamaño de texto normal para esta sesión.",
+        "contrasteActivo": "Alto contraste activado para esta sesión.",
+        "contrasteInactivo": "Alto contraste desactivado para esta sesión."
+      }
     }
   }
 }

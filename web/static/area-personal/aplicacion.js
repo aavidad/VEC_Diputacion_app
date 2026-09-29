@@ -1,7 +1,8 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
-import { crearOperacionPreferencias, renderizarPreferencias, valoresDelFormulario } from "./preferencias.js";
+import { alternarVisualSesion, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales,
+  valoresDelFormulario } from "./preferencias.js";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
@@ -564,6 +565,7 @@ async function recargarPreferencias(estado) {
     estado.filasPreferidas = lectura.estado.valores.filas;
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
+    sincronizarAtajosVisuales(lectura.estado.valores);
     await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, lectura.estado.valores.idioma);
   } catch (error) {
     preferencias.error = error;
@@ -613,6 +615,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
     estado.filasPreferidas = resultado.valores.filas;
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(resultado.valores);
+    sincronizarAtajosVisuales(resultado.valores);
     await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, resultado.valores.idioma);
     anunciar(traducir("areaPersonal.preferencias.guardado", { recibo: resultado.recibo_ref }));
   } catch (error) {
@@ -631,7 +634,11 @@ function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
-  if (accion === "alternar-texto" || accion === "alternar-contraste" || accion === "abrir-preferencias") return navegar(estado, "preferencias");
+  if (accion === "alternar-texto" || accion === "alternar-contraste") {
+    const activo = alternarVisualSesion(estado.controladorVisual, accion);
+    return anunciar(traducir(`areaPersonal.preferencias.atajo.${accion === "alternar-texto" ? "texto" : "contraste"}${activo ? "Activo" : "Inactivo"}`));
+  }
+  if (accion === "abrir-preferencias") return navegar(estado, "preferencias");
   if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return alternarMenuIdentidad();
   if (accion === "ver-contexto-sesion") { cerrarMenuIdentidad(); return verSesion(estado); }
@@ -944,6 +951,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     causaBolsa: "",
   };
   conectarEventos(estado);
+  sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);
   return estado;
 }

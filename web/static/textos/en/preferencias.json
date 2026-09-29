@@ -75,6 +75,19 @@
           }
         }
       }
+    },
+    "api": {
+      "usuarios": {
+        "preferencias": {
+          "error": {
+            "no_autenticado": "Your session has expired. Sign in again.",
+            "prohibido": "You do not have permission to access these preferences.",
+            "conflicto": "Your preferences changed in another session. Load them again.",
+            "peticion_invalida": "The server rejected an option. Load the catalogue again.",
+            "no_disponible": "The preferences service is unavailable. Try loading it later."
+          }
+        }
+      }
     }
   },
   "areaPersonal": {
@@ -132,13 +145,19 @@
         "servicio": "The preferences service is unavailable. The outcome of the last attempt cannot be confirmed.",
         "respuesta": "The service returned an incompatible response. No change is confirmed."
       },
-      "abrirTexto": "Open text size preferences",
-      "abrirContraste": "Open contrast preferences",
+      "atajoTexto": "Enlarge or reset the text size for this session",
+      "atajoContraste": "Turn high contrast on or off for this session",
       "menuIdentidad": "Open identity menu",
       "textoCorto": "Text ",
       "contrasteCorto": "Contrast",
       "identidadServicio": "Identity verified by the Users service",
-      "identidadNoConfirmada": "Identity not confirmed by the preferences service"
+      "identidadNoConfirmada": "Identity not confirmed by the preferences service",
+      "atajo": {
+        "textoActivo": "Larger text size for this session.",
+        "textoInactivo": "Normal text size for this session.",
+        "contrasteActivo": "High contrast turned on for this session.",
+        "contrasteInactivo": "High contrast turned off for this session."
+      }
     }
   }
 }

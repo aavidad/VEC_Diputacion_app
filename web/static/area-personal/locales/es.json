@@ -215,11 +215,15 @@
   "areaPersonal.preferencias.error.validacion": "Revise las opciones: el servicio ha rechazado algún valor.",
   "areaPersonal.preferencias.error.servicio": "El servicio de preferencias no está disponible. No se puede confirmar el resultado del último intento.",
   "areaPersonal.preferencias.error.respuesta": "El servicio devolvió una respuesta incompatible. No se confirma ningún cambio.",
-  "areaPersonal.preferencias.abrirTexto": "Abrir preferencias de tamaño del texto",
-  "areaPersonal.preferencias.abrirContraste": "Abrir preferencias de contraste",
+  "areaPersonal.preferencias.atajoTexto": "Aumentar o restablecer el tamaño del texto en esta sesión",
+  "areaPersonal.preferencias.atajoContraste": "Activar o desactivar el alto contraste en esta sesión",
   "areaPersonal.preferencias.menuIdentidad": "Abrir menú de identidad",
   "areaPersonal.preferencias.textoCorto": "Texto ",
   "areaPersonal.preferencias.contrasteCorto": "Contraste",
   "areaPersonal.preferencias.identidadServicio": "Identidad comprobada por el servicio de Usuarios",
-  "areaPersonal.preferencias.identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias"
+  "areaPersonal.preferencias.identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias",
+  "areaPersonal.preferencias.atajo.textoActivo": "Tamaño de texto ampliado para esta sesión.",
+  "areaPersonal.preferencias.atajo.textoInactivo": "Tamaño de texto normal para esta sesión.",
+  "areaPersonal.preferencias.atajo.contrasteActivo": "Alto contraste activado para esta sesión.",
+  "areaPersonal.preferencias.atajo.contrasteInactivo": "Alto contraste desactivado para esta sesión."
 }

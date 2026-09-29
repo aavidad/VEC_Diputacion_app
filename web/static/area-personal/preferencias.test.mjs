@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { cargarPreferenciasIniciales, crearClientePreferencias, ErrorPreferencias, RUTA_MIS_PREFERENCIAS } from "./cliente-http.js";
-import { crearOperacionPreferencias, renderizarPreferencias } from "./preferencias.js";
+import { alternarVisualSesion, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales } from "./preferencias.js";
 import { idiomaAreaPersonal, iniciarI18nAreaPersonal } from "./i18n.js";
 import { renderizarLlamamientos } from "./vistas/seguimiento-tramites.js";
 
@@ -95,4 +95,25 @@ test("la lista local respeta 20, 50 o 100 filas sin cambiar el transporte remoto
   const programa = await readFile(new URL("./aplicacion.js", import.meta.url), "utf8");
   assert.match(programa, /estado\.paginaParticipaciones = 1;/u);
   assert.equal(typeof renderizarLlamamientos, "function");
+});
+
+test("los atajos de cabecera cambian texto y contraste solo en la sesión y reflejan aria-pressed", () => {
+  const controles = { "alternar-texto": [], "alternar-contraste": [] };
+  for (const accion of Object.keys(controles)) controles[accion].push({ atributos: {}, setAttribute(n, v) { this.atributos[n] = v; } });
+  const documento = { querySelectorAll: (selector) => controles[selector.match(/"(.+)"/u)[1]] ?? [] };
+  const aplicadas = [];
+  let servidor = { tema: "claro", alto_contraste: false, tamano_texto: "normal" };
+  const controlador = { leerEstado: () => ({ preferencias_servidor: servidor }),
+    aplicarPreferenciasServidor(p) { aplicadas.push(p); servidor = p; } };
+  assert.equal(alternarVisualSesion(controlador, "alternar-texto", documento), true);
+  assert.deepEqual(servidor, { tema: "claro", alto_contraste: false, tamano_texto: "grande" });
+  assert.equal(controles["alternar-texto"][0].atributos["aria-pressed"], "true");
+  assert.equal(alternarVisualSesion(controlador, "alternar-contraste", documento), true);
+  assert.equal(servidor.tamano_texto, "grande");
+  assert.equal(controles["alternar-contraste"][0].atributos["aria-pressed"], "true");
+  assert.equal(alternarVisualSesion(controlador, "alternar-texto", documento), false);
+  assert.equal(aplicadas.length, 3);
+  sincronizarAtajosVisuales({ tamano_texto: "muy_grande", alto_contraste: false }, documento);
+  assert.equal(controles["alternar-texto"][0].atributos["aria-pressed"], "true");
+  assert.equal(controles["alternar-contraste"][0].atributos["aria-pressed"], "false");
 });

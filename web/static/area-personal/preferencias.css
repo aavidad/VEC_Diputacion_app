@@ -9,7 +9,7 @@
 .preferencias-rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
 .preferencias-campo { display: grid; align-content: start; gap: 7px; min-width: 0; }
 .preferencias-campo > label:not(.preferencias-casilla) { font-weight: 600; }
-.preferencias-campo select { min-width: 0; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie); color: var(--ap-tinta); }
+.preferencias-campo select { min-width: 0; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--ap-muted); border-radius: var(--portal-radio); background: var(--ap-superficie); color: var(--ap-tinta); }
 .preferencias-opciones { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .preferencias-casilla { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 9px 12px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie-alterna); cursor: pointer; }
 .preferencias-casilla input { width: 18px; height: 18px; flex: 0 0 18px; accent-color: var(--ap-azul-700); }

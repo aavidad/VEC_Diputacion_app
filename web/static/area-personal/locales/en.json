@@ -215,11 +215,15 @@
   "areaPersonal.preferencias.error.validacion": "Check the options: the service rejected a value.",
   "areaPersonal.preferencias.error.servicio": "The preferences service is unavailable. The outcome of the last attempt cannot be confirmed.",
   "areaPersonal.preferencias.error.respuesta": "The service returned an incompatible response. No change is confirmed.",
-  "areaPersonal.preferencias.abrirTexto": "Open text size preferences",
-  "areaPersonal.preferencias.abrirContraste": "Open contrast preferences",
+  "areaPersonal.preferencias.atajoTexto": "Enlarge or reset the text size for this session",
+  "areaPersonal.preferencias.atajoContraste": "Turn high contrast on or off for this session",
   "areaPersonal.preferencias.menuIdentidad": "Open identity menu",
   "areaPersonal.preferencias.textoCorto": "Text ",
   "areaPersonal.preferencias.contrasteCorto": "Contrast",
   "areaPersonal.preferencias.identidadServicio": "Identity verified by the Users service",
-  "areaPersonal.preferencias.identidadNoConfirmada": "Identity not confirmed by the preferences service"
+  "areaPersonal.preferencias.identidadNoConfirmada": "Identity not confirmed by the preferences service",
+  "areaPersonal.preferencias.atajo.textoActivo": "Larger text size for this session.",
+  "areaPersonal.preferencias.atajo.textoInactivo": "Normal text size for this session.",
+  "areaPersonal.preferencias.atajo.contrasteActivo": "High contrast turned on for this session.",
+  "areaPersonal.preferencias.atajo.contrasteInactivo": "High contrast turned off for this session."
 }

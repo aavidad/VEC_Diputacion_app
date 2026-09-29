@@ -448,6 +448,23 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .dialogo form > footer button { width: 100%; }
 }
 
+/* Móvil estrecho y zoom alto (el ancho útil puede bajar de 320 px CSS):
+   las acciones pasan junto al menú y el título ocupa su propia fila. */
+@media (max-width: 380px) {
+  html { min-width: 0; }
+  .cabecera-portal {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "menu acciones" "contexto contexto" "busqueda busqueda";
+    gap: 6px;
+    padding-inline: 6px;
+  }
+  .cabecera-portal .boton-menu { grid-area: menu; }
+  .cabecera-portal .contexto-cabecera { grid-area: contexto; }
+  .cabecera-portal .busqueda-global { grid-area: busqueda; }
+  .cabecera-portal .acciones-cabecera { grid-area: acciones; flex-wrap: wrap; justify-content: flex-end; }
+  .cabecera-portal .contexto-cabecera h1 { overflow-wrap: anywhere; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }

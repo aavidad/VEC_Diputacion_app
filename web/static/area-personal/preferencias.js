@@ -65,3 +65,34 @@ export function crearOperacionPreferencias(preferencias, valores, cryptoImpl = g
     catalogo_version_ref: preferencias.catalogo.version_ref,
     clave_operacion: `web-pref-${cryptoImpl.randomUUID()}`, valores });
 }
+
+/** Atajo de sesión de la cabecera: cambia texto o contraste sin guardar la preferencia. */
+export function alternarVisualSesion(controlador, accion, documento = globalThis.document) {
+  const texto = accion === "alternar-texto";
+  let activo;
+  if (controlador) {
+    const actual = controlador.leerEstado().preferencias_servidor
+      || { tema: "sistema", alto_contraste: false, tamano_texto: "normal" };
+    const nuevos = texto
+      ? { ...actual, tamano_texto: actual.tamano_texto === "normal" ? "grande" : "normal" }
+      : { ...actual, alto_contraste: !actual.alto_contraste };
+    controlador.aplicarPreferenciasServidor(nuevos);
+    activo = texto ? nuevos.tamano_texto !== "normal" : nuevos.alto_contraste;
+  } else {
+    const destino = texto ? documento.documentElement : documento.body;
+    const atributo = texto ? "textoGrande" : "contraste";
+    activo = destino.dataset[atributo] !== "true";
+    destino.dataset[atributo] = String(activo);
+  }
+  sincronizarAtajosVisuales(texto ? { tamano_texto: activo ? "grande" : "normal" } : { alto_contraste: activo }, documento);
+  return activo;
+}
+
+/** Refleja en aria-pressed de los atajos el estado visual aplicado. */
+export function sincronizarAtajosVisuales(valores, documento = globalThis.document) {
+  if (!valores || !documento?.querySelectorAll) return;
+  const marcar = (accion, activo) => documento.querySelectorAll(`[data-accion="${accion}"]`)
+    .forEach((control) => control.setAttribute("aria-pressed", String(activo)));
+  if (typeof valores.tamano_texto === "string") marcar("alternar-texto", valores.tamano_texto !== "normal");
+  if (typeof valores.alto_contraste === "boolean") marcar("alternar-contraste", valores.alto_contraste);
+}
