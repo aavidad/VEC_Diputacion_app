@@ -74,6 +74,8 @@ static/portal-empleado/modulos/cronos/cliente-notificaciones-http.js
 static/portal-empleado/modulos/cronos/vista-notificaciones-propias.js
 static/portal-empleado/modulos/cronos/vista-bandeja-notificaciones.js
 static/portal-empleado/modulos/cronos/vista-notificaciones-rrhh.css
+static/textos/es/dietas.json
+static/textos/en/dietas.json
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 static/portal-empleado/modulos/dietas/cliente-asignacion-http.js
