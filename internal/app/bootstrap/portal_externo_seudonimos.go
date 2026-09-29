@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -71,26 +72,47 @@ func ExportarSeudonimosPortalExterno(cfg config.Config) ([]byte, error) {
 	defer derivador.borrar()
 	derivador.espacioSeudonimos = espacioSeudonimosPortalExterno
 	seudonimizador := &seudonimizadorSesionDesarrollo{derivador: derivador}
-	var cuentas []cuentaUsuariosPreferenciasDesarrollo
-	if c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1); err == nil {
-		cuentas = append(cuentas, c.Cuentas...)
-	}
-	if len(cuentas) == 0 {
+	material, err := cargarMaterialPortalExterno(cfg)
+	if err != nil || material.identidad == nil || material.identidad.candidatoBolsa == nil {
 		return nil, ErrSeudonimosPortalExternoInvalidos
 	}
+	cuentas := []struct{ ref, sujeto string }{{
+		ref:    material.identidad.candidatoBolsa.cuentaRef,
+		sujeto: material.identidad.candidatoBolsa.identidad.principal.ID,
+	}}
+	rutaPreferencias := filepath.Join(raiz, "identidad", nombreConfiguracionPreferencias(core.SuperficieAutenticacionExternaPersonalV1))
+	if _, errFichero := os.Lstat(rutaPreferencias); errFichero == nil {
+		c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionExternaPersonalV1)
+		if err != nil {
+			return nil, ErrSeudonimosPortalExternoInvalidos
+		}
+		for _, cuenta := range c.Cuentas {
+			cuentas = append(cuentas, struct{ ref, sujeto string }{cuenta.CuentaRef, cuenta.Sujeto})
+		}
+	} else if !errors.Is(errFichero, os.ErrNotExist) {
+		return nil, ErrSeudonimosPortalExternoInvalidos
+	}
+	vistas := map[string]string{}
 	resultado := seudonimosPortalExterno{Version: 1}
 	for _, cuenta := range cuentas {
+		if sujeto, repetida := vistas[cuenta.ref]; repetida {
+			if sujeto != cuenta.sujeto {
+				return nil, ErrSeudonimosPortalExternoInvalidos
+			}
+			continue
+		}
+		vistas[cuenta.ref] = cuenta.sujeto
 		// Los mismos identificadores que usa resolverSesion en cada petición.
 		s, err := seudonimizador.SeudonimizarAlta(context.Background(), postgresidentidad.IdentificadoresAlta{
 			EspacioIdentidad: espacioIdentidadSesionDesarrollo,
 			AsercionID:       "preparacion-cuenta", SesionID: "preparacion-alias",
-			CuentaID: "desarrollo:" + cuenta.CuentaRef, SujetoID: cuenta.Sujeto,
+			CuentaID: "desarrollo:" + cuenta.ref, SujetoID: cuenta.sujeto,
 		})
 		if err != nil {
 			return nil, ErrSeudonimosPortalExternoInvalidos
 		}
 		resultado.Cuentas = append(resultado.Cuentas, seudonimoCuentaPortalExterno{
-			CuentaRef: cuenta.CuentaRef, Esquema: s.Esquema, DominioRef: s.DominioRef,
+			CuentaRef: cuenta.ref, Esquema: s.Esquema, DominioRef: s.DominioRef,
 			ClaveID: s.ClaveID, ClaveVersion: s.ClaveVersion,
 			CuentaHMAC: hex.EncodeToString(s.CuentaIDHMAC[:]), SujetoHMAC: hex.EncodeToString(s.SujetoIDHMAC[:]),
 		})
