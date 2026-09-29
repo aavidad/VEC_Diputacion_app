@@ -9,7 +9,7 @@ import {
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
-import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
+import { MENSAJES_PORTAL, traducirPortal } from "./portal-i18n.js";
 import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
@@ -19,7 +19,7 @@ const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n,
   readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
   readFile(new URL("portal-modulos-coordinador.js", directorio), "utf8"),
-  readFile(new URL("portal-i18n.js", directorio), "utf8"),
+  readFile(new URL("../textos/es/portal.json", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
   readFile(new URL("portal-contrato.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-contrato.js", directorio), "utf8"),
@@ -200,7 +200,7 @@ test("la API de borradores no se sondea al cargar el portal", async () => {
 test("la cabecera de sesión es un grupo i18n y no quedan restos del contexto interno", () => {
   assert.doesNotMatch(panelInterno, /actualizarContextoSesion/u);
   assert.doesNotMatch(catalogoI18n, /contexto_portal_|contratos_consulta_estado/u);
-  assert.equal(Object.keys(MENSAJES_PORTAL_ES).some((clave) => clave.startsWith("contexto_portal_")), false);
+  assert.equal(Object.keys(MENSAJES_PORTAL).some((clave) => clave.startsWith("contexto_portal_")), false);
   assert.match(html, /id="sesion-visible" role="group" aria-label="Sesión" data-i18n-portal-aria-label="sesion_etiqueta"/u);
   assert.equal(traducirPortal("sesion_etiqueta"), "Sesión");
 });
@@ -385,7 +385,7 @@ test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de B
     "accion_volver_portal",
   ]) {
     assert.match(vistaCerrada, new RegExp(`traducirPortal\\("${clave}"\\)`));
-    assert.match(catalogoI18n, new RegExp(`\\b${clave}:`));
+    assert.match(catalogoI18n, new RegExp(`"${clave}":`));
   }
   assert.match(javascript, /traducirPortal\("contratacion_temporal_miga"\)/);
   assert.match(javascript, /traducirPortal\("contratacion_temporal_titulo"\)/);
@@ -399,7 +399,7 @@ test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de B
     "contratacion_temporal_aviso_no_disponible",
     "accion_volver_portal",
   ]) {
-    const literal = MENSAJES_PORTAL_ES[clave];
+    const literal = MENSAJES_PORTAL[clave];
     assert.equal(`${javascript}\n${coordinadorModulos}`.includes(literal), false,
       `el literal visible de CT debe residir solo en el catálogo i18n: ${literal}`);
     assert.equal(catalogoI18n.includes(literal), true);
@@ -417,7 +417,7 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
   assert.match(flujoLlamamientos, /traducirPortal\("txt_confirmacion_recibida_detalle_no_disponi[a-z_]*"\)/);
-  assert.match(Object.values(MENSAJES_PORTAL_ES).join("\n"), /Detalle no disponible/);
+  assert.match(Object.values(MENSAJES_PORTAL).join("\n"), /Detalle no disponible/);
   assert.doesNotMatch(javascript, /portal-llamamientos-vista\.js/);
   assert.doesNotMatch(eventos, /ejecutarOperacionPresentacion/);
   // Ninguna clave de puntuación fabricada para candidatos; el nombre de la columna

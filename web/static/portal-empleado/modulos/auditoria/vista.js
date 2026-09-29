@@ -1,6 +1,6 @@
 import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260929-pref-508a-v2";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260929-i18n-shell-v1";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");

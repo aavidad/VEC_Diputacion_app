@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { traducirPortal } from "./portal-i18n.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { traducirAvisoPanelInterno } from "./portal-panel-interno-i18n.js";
@@ -53,7 +54,7 @@ test("B7 traduce los cuatro pasos y distingue registro, recibo y entrega", () =>
   assert.doesNotMatch(confirmacion, /relay|PostgreSQL|Recorrido real B7/);
 });
 
-test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar expediente", () => {
+test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar expediente", async () => {
   const bolsa = { bolsa_ref: "bolsa:01", categoria: "Auxiliar", tipo_lista: "ordinaria",
     vigente_desde: "2026-09-01", vigente_hasta: null, total: 1, por_estado: { disponible: 1 },
     politica_orden: { tipo_lista: "ordinaria", reposicion: "misma_posicion", version: 1, vigente_desde: "2026-09-01" } };
@@ -97,7 +98,9 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   const sinPermiso = presentador.renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(sinPermiso, /Registrar resultado|bolsa-resultado-sin-expediente|data-bolsa-accion="abrir-ficha"/);
 
-  assert.match(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "en"), /This pool does not identify the case/);
-  assert.match(traducirAvisoPanelInterno("panel_contacto_no_respuesta", "en-GB"), /If the person accepts or withdraws/);
-  assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente", "es"), /\bHTTP\b|B3|CT[0-9]/);
+  // En Node la interfaz está en el idioma por defecto; el inglés se comprueba en su catálogo de datos.
+  assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente"), /\bHTTP\b|B3|CT[0-9]/);
+  const ingles = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8")).panel_interno;
+  assert.match(ingles.panel_resultado_sin_expediente, /This pool does not identify the case/);
+  assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or withdraws/);
 });

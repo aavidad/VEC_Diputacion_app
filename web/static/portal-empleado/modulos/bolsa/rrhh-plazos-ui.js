@@ -1,4 +1,4 @@
-import { traducirPortal } from "../../portal-i18n.js?v=20260929-pref-508a-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20260929-i18n-shell-v1";
 import { crearClientePoliticaOfertas, validarPoliticaEditable } from "./rrhh-plazos-api.js";
 
 const EJEMPLO_VACIO = Object.freeze({

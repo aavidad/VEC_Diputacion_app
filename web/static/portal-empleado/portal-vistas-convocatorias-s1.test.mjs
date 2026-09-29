@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { crearSuperficieConvocatoriasS1 } from "./portal-vistas-convocatorias.js";
-import { crearTraductorConvocatoriasS1, MENSAJES_CONVOCATORIAS_S1_ES } from "./portal-i18n-convocatorias.js";
+import { crearTraductorConvocatoriasS1, MENSAJES_CONVOCATORIAS_S1 } from "./portal-i18n-convocatorias.js";
 
 test("la vista resuelve el catálogo S1 con la versión de caché F2", async () => {
   const codigo = readFileSync(new URL("./portal-vistas-convocatorias.js", import.meta.url), "utf8");
-  assert.match(codigo, /from "\.\/portal-i18n-convocatorias\.js\?v=20260924-f2-web2"/);
-  const catalogo = await import("./portal-i18n-convocatorias.js?v=20260924-f2-web2");
+  assert.match(codigo, /from "\.\/portal-i18n-convocatorias\.js\?v=20260929-i18n-shell-v1"/);
+  const catalogo = await import("./portal-i18n-convocatorias.js?v=20260929-i18n-shell-v1");
   assert.equal(catalogo.traducirConvocatoriasS1("titulo"), "Convocatorias, bases y calendario");
 });
 
@@ -154,7 +154,7 @@ test("escapa datos de la fuente y conserva i18n y CSS R10", async () => {
   assert.doesNotMatch(contenedor.innerHTML, /<script>|<img src=x/);
   assert.match(contenedor.innerHTML, /&lt;script&gt;/);
   assert.match(contenedor.innerHTML, /&lt;img src=x/);
-  assert.equal(typeof crearTraductorConvocatoriasS1(MENSAJES_CONVOCATORIAS_S1_ES)("titulo"), "string");
+  assert.equal(typeof crearTraductorConvocatoriasS1(MENSAJES_CONVOCATORIAS_S1)("titulo"), "string");
   const css = readFileSync(new URL("./portal-convocatorias.css", import.meta.url), "utf8");
   assert.match(css, /@media \(min-width: 1024px\)[\s\S]*max-height:[^;]+; overflow: auto/);
   assert.match(css, /@media \(max-width: 480px\)/);

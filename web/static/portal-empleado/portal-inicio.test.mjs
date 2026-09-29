@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { crearVistaInicioPortal, resumirBolsasInicio } from "./portal-inicio.js";
 import { crearControladorPortal } from "./portal-eventos.js";
-import { crearTraductorPortal, MENSAJES_INICIO_RRHH_EN, MENSAJES_PORTAL_ES } from "./portal-i18n.js";
+import { cargarMensajesPortal, crearTraductorPortal, MENSAJES_PORTAL } from "./portal-i18n.js";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -291,11 +291,12 @@ test("la vigencia de Bolsa usa la fecha de la lectura y no inventa el recuento s
   assert.match(html, /data-metrica="disponibles">[\s\S]*?<strong class="valor-kpi">—<\/strong>/u);
 });
 
-test("las claves de la portada se traducen con el traductor común", () => {
-  const traducirEN = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+test("las claves de la portada se traducen con el traductor común", async () => {
+  const ingles = await cargarMensajesPortal("en");
+  const traducirEN = crearTraductorPortal(ingles);
   const variables = { actual: "2", total: "3", contexto: "Cases" };
-  for (const clave of Object.keys(MENSAJES_INICIO_RRHH_EN)) {
-    const esperado = MENSAJES_INICIO_RRHH_EN[clave].replace(/\{([a-z_]+)\}/gu,
+  for (const clave of Object.keys(MENSAJES_PORTAL).filter((nombre) => nombre.startsWith("inicio_rrhh_"))) {
+    const esperado = ingles[clave].replace(/\{([a-z_]+)\}/gu,
       (_coincidencia, variable) => variables[variable] ?? "");
     assert.equal(traducirEN(clave, variables), esperado);
   }

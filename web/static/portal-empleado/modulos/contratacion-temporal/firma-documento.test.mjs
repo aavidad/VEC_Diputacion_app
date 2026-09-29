@@ -206,7 +206,7 @@ test("acciones: la verificación apagada y el rechazo del validador se explican"
 });
 
 test("la ayuda y los textos dicen que la firma no tiene eficacia administrativa", async () => {
-  const ayuda = await readFile(new URL("../../portal-i18n-ayuda.js", import.meta.url), "utf8");
-  assert.match(ayuda, /ayuda_contenido_421: ".*AutoFirma.*sin eficacia administrativa.*portafirmas corporativo/u);
+  const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
+  assert.match(ayuda, /"ayuda_contenido_421": ".*AutoFirma.*sin eficacia administrativa.*portafirmas corporativo/u);
   assert.match(t("circuito_firma_registrada", { recibo: "r" }), /No tiene eficacia administrativa hasta el portafirmas corporativo/u);
 });

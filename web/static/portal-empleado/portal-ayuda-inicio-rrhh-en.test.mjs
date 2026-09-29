@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=en" };
 const { IDIOMA_ACTUAL } = await import("../comun/idioma.js");
-const { MENSAJES_AYUDA_INICIO_RRHH_EN } = await import("./portal-i18n-ayuda.js");
+const MENSAJES_AYUDA_EN = JSON.parse(await readFile(new URL("../textos/en/portal-ayuda.json", import.meta.url), "utf8")).ayuda;
 const { traducirPortal } = await import("./portal-i18n.js");
 const { AYUDA_PORTAL_RRHH } = await import("./ayuda-contenido.js");
 
 test("?lang=en presenta toda la ayuda contextual RRHH en inglés con el traductor común", () => {
   assert.equal(IDIOMA_ACTUAL, "en");
-  for (const [clave, esperado] of Object.entries(MENSAJES_AYUDA_INICIO_RRHH_EN)) {
+  for (const [clave, esperado] of Object.entries(MENSAJES_AYUDA_EN)) {
     if (esperado.includes("{")) continue;
     assert.equal(traducirPortal(clave), esperado, clave);
   }
