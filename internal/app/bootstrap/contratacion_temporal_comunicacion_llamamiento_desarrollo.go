@@ -359,18 +359,36 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) despacharCorreoSintetico(ctx
 		return
 	}
 	expediente := preparacion.expediente.Fiscalizado
+	numero := e.numeroVisibleCorreo(ctx, solicitud, expediente.NumeroVisible)
 	sumaDestinatario := sha256.Sum256([]byte(solicitud.LlamamientoRef))
 	sumaMensaje := sha256.Sum256([]byte(recibo.IntencionEnvioRef))
 	mensaje := smtp.Mensaje{
 		Destino:     fmt.Sprintf("candidatura-%x@sintetico.invalid", sumaDestinatario[:6]),
-		Asunto:      fmt.Sprintf("Llamamiento de contratación temporal: expediente %s", expediente.NumeroVisible),
-		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nPerfil de desarrollo con datos sintéticos: este correo no acredita entrega ni produce efectos administrativos.", expediente.NumeroVisible, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
+		Asunto:      fmt.Sprintf("Llamamiento de contratación temporal: expediente %s", numero),
+		Cuerpo:      fmt.Sprintf("Diputación de Granada — Recursos Humanos.\nLlamamiento de contratación temporal.\n\nExpediente: %s\nCategoría: %s\nCentro: %s\nPlazo de respuesta: pendiente de definición por RRHH; este mensaje no abre plazo.\n\nPerfil de desarrollo con datos sintéticos: este correo no acredita entrega ni produce efectos administrativos.", numero, expediente.Solicitud.CategoriaRef, expediente.Solicitud.CentroRef),
 		MessageID:   fmt.Sprintf("<llamamiento-%x@sintetico.invalid>", sumaMensaje[:12]),
 		FechaOrigen: recibo.RegistradaEn,
 	}
 	if resultado := e.correo.Enviar(ctx, mensaje); resultado.Estado != smtp.AceptadoPorRelay {
 		slog.Error("correo de llamamiento no disponible", "centinela", "correo_no_disponible", "motivo", "relay_no_acepta")
 	}
+}
+
+// numeroVisibleCorreo devuelve el número que RRHH ve hoy en el expediente: el
+// anual asignado a los expedientes anteriores (CT-000142) o, si no lo tienen,
+// el del alta. El snapshot fiscalizado y los recibos conservan el original.
+// Si la lectura falla, el correo sale con el número del snapshot.
+func (e *ejecutorComunicacionLlamamientoDesarrollo) numeroVisibleCorreo(ctx context.Context, s ports.SolicitudRegistrarComunicacionLlamamiento, original string) string {
+	lector, ok := e.lector.(ports.LectorNumeroVisibleAvisoLlamamiento)
+	if !ok || dependenciaEsNulaContratacionTemporalDesarrollo(lector) {
+		return original
+	}
+	numero, err := lector.LeerNumeroVisibleVigenteAviso(ctx, s.OrganizacionRef, s.ExpedienteRef, s.LlamamientoRef)
+	if err != nil || !domain.NumeroVisibleValido(numero) {
+		slog.Warn("número visible vigente no disponible para el correo", "centinela", "numero_visible_no_disponible")
+		return original
+	}
+	return numero
 }
 
 type avisoComunicacionDesarrollo struct {
