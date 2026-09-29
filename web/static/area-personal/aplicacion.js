@@ -1,8 +1,8 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
-import { alternarVisualSesion, crearCorreosAreaPersonal, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales,
-  valoresDelFormulario } from "./preferencias.js?v=20260929-correos-508b-v1";
+import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20260929-imagen-508c-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
@@ -26,7 +26,7 @@ const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
-  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.correos?.renderizar() ?? "")],
+  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.imagen?.renderizar() ?? "") + (estado.correos?.renderizar() ?? "")],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
@@ -232,7 +232,7 @@ function actualizarShell(estado) {
   document.title = `${titulo} · Mi área personal`;
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? "Mi área personal" : `Mi área personal → ${titulo}`;
-  porId("avatar-sesion").textContent = datos.sesion.iniciales;
+  pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
   porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
   porId("perfil-sesion").textContent = datos.sesion.metodo;
   document.querySelectorAll("[data-ruta]").forEach((enlace) => {
@@ -951,7 +951,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     fuenteBolsa: "real",
     causaBolsa: "",
   };
-  (estado.correos = await crearCorreosAreaPersonal(fetchImpl))?.instalar(porId("espacio-trabajo"));
+  await montarUsuariosAreaPersonal(estado, fetchImpl, porId("espacio-trabajo"));
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);

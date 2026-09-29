@@ -20,6 +20,8 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 		"/comun/textos.js",
 		"/comun/correos-propios.js",
 		"/comun/correos-propios.css",
+		"/comun/imagen-propia.js",
+		"/comun/imagen-propia.css",
 		"/textos/idiomas.json",
 		"/textos/es/cronos.json",
 		"/textos/en/cronos.json",

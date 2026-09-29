@@ -7,6 +7,8 @@ static/comun/idioma.js
 static/comun/textos.js
 static/comun/correos-propios.js
 static/comun/correos-propios.css
+static/comun/imagen-propia.js
+static/comun/imagen-propia.css
 static/textos/idiomas.json
 static/textos/es/preferencias.json
 static/textos/en/preferencias.json

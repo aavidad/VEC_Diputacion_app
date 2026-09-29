@@ -55,11 +55,13 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
     // Auditoría legible (4.11–4.13): la vista renueva su URL por separado.
     ["modulos/auditoria/vista.js", "20260929-auditoria-legible-v1"],
     // 5.07: portal.js deja de sondear al cargar las capacidades opcionales.
-    ["portal.js", "20260929-correos-508b-v2"],
+    // «Mi imagen» (5.08c) pinta el avatar desde portal.js y la integración.
+    ["portal.js", "20260929-imagen-508c-v1"],
     ["portal-modulos-coordinador.js", "20260929-auditoria-legible-v1"],
-    // «Mis correos» (5.08b) cambia la vista de preferencias y quienes la importan.
-    ["portal-preferencias-integracion.js", "20260929-correos-508b-v1"],
-    ["portal-preferencias.js", "20260929-correos-508b-v1"],
+    // «Mis correos» (5.08b) y «Mi imagen» (5.08c) cambian la vista de
+    // preferencias y quienes la importan.
+    ["portal-preferencias-integracion.js", "20260929-imagen-508c-v1"],
+    ["portal-preferencias.js", "20260929-imagen-508c-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

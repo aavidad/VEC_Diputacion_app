@@ -40,7 +40,7 @@ function valoresFormulario(formulario, campos) {
       : campo === "filas" ? Number(elegidos.get(campo)) : elegidos.get(campo)]));
 }
 
-export function crearSuperficiePreferenciasPortal({ cliente = crearClientePreferencias(), actualizar = () => {}, alCargar = () => {}, alGuardar = () => {}, correos = null } = {}) {
+export function crearSuperficiePreferenciasPortal({ cliente = crearClientePreferencias(), actualizar = () => {}, alCargar = () => {}, alGuardar = () => {}, correos = null, imagen = null } = {}) {
   let datos = null;
   let estado = "sin_cargar";
   let error = null;
@@ -54,9 +54,11 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     contenedorInstalado?.querySelector("[data-pref-resultado]")?.focus({ preventScroll: true });
   }
 
-  // Los correos se piden al terminar las preferencias, nunca a la vez: la
-  // frontera de identidad no admite dos altas simultáneas de la misma cuenta.
+  // Imagen y correos se piden al terminar las preferencias, nunca a la vez:
+  // la frontera de identidad no admite dos altas simultáneas de la misma
+  // cuenta. La imagen va primero porque pinta la cabecera.
   function cargarCorreos() {
+    if (imagen && ["sin_cargar", "error"].includes(imagen.leerCarga())) void imagen.cargar();
     if (correos && ["sin_cargar", "error"].includes(correos.leerCarga())) void correos.cargar();
   }
   async function cargar({ enfocar = false } = {}) {
@@ -110,7 +112,7 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     }
   }
   function renderizar() {
-    return renderizarPreferencias() + (correos ? correos.renderizar() : "");
+    return renderizarPreferencias() + (imagen ? imagen.renderizar() : "") + (correos ? correos.renderizar() : "");
   }
   function renderizarPreferencias() {
     const encabezado = "";
@@ -143,7 +145,8 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     };
     contenedor.addEventListener("click", clic); contenedor.addEventListener("submit", enviar);
     const retirarCorreos = correos ? correos.instalar(contenedor) : () => {};
-    return () => { contenedor.removeEventListener("click", clic); contenedor.removeEventListener("submit", enviar); retirarCorreos(); contenedorInstalado = null; desmontarPeticion(); };
+    const retirarImagen = imagen ? imagen.instalar(contenedor) : () => {};
+    return () => { contenedor.removeEventListener("click", clic); contenedor.removeEventListener("submit", enviar); retirarCorreos(); retirarImagen(); contenedorInstalado = null; desmontarPeticion(); };
   }
   return Object.freeze({ cargar, renderizar, instalar, desmontarPeticion, leer: () => datos, leerCarga: () => estado });
 }
