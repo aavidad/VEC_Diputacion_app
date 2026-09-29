@@ -154,6 +154,33 @@ def comprobar_navegador(contexto, pagina) -> None:
         raise FalloRecorrido("hay desbordamiento horizontal")
 
 
+def mismo_origen(url: str, origen: str) -> bool:
+    """Exige esquema, host y puerto exactos, sin usuario ni contraseña."""
+    try:
+        destino, autorizado = urlsplit(url), urlsplit(origen)
+        return (destino.scheme, destino.hostname, destino.port) == (
+            autorizado.scheme, autorizado.hostname, autorizado.port
+        ) and not destino.username and not destino.password
+    except ValueError:
+        return False
+
+
+def servir_solo_origen(route, origen: str) -> None:
+    """Cierra la red antes del efecto, incluidos saltos HTTP del servidor local."""
+    if not mismo_origen(route.request.url, origen):
+        route.abort("blockedbyclient")
+        return
+    try:
+        respuesta = route.fetch(max_redirects=0)
+    except Exception:
+        route.abort("failed")
+        return
+    if not mismo_origen(respuesta.url, origen) or 300 <= respuesta.status < 400:
+        route.abort("blockedbyclient")
+        return
+    route.fulfill(response=respuesta)
+
+
 def ejecutar(escenario: dict, recuperar: bool = False) -> None:
     try:
         from playwright.sync_api import sync_playwright
@@ -176,6 +203,8 @@ def ejecutar(escenario: dict, recuperar: bool = False) -> None:
                     ignore_https_errors=False, service_workers="block", locale="es-ES",
                     timezone_id="Europe/Madrid", viewport={"width": 1440, "height": 900},
                 )
+                contexto.route("**/*", lambda route: servir_solo_origen(route, origen))
+                contexto.route_web_socket("**/*", lambda websocket: websocket.close())
                 pagina = contexto.new_page()
                 pagina.on("pageerror", lambda error, actor=actor: errores[actor].append(str(error)))
                 pagina.on("request", lambda r, actor=actor: externas[actor].append(1)

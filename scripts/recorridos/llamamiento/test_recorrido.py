@@ -2,13 +2,16 @@
 
 import hashlib
 import json
+import shutil
 import stat
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from recorrido import (FECHA_ETAPA, FalloRecorrido, NoEjecutado, comprobar_entrada,
-                       comprobar_recibo, fichero_externo)
+                       comprobar_recibo, fichero_externo, mismo_origen, servir_solo_origen)
 
 
 class RecorridoPrueba(unittest.TestCase):
@@ -82,6 +85,70 @@ class RecorridoPrueba(unittest.TestCase):
         material.write_bytes(b"sintetico")
         with self.assertRaises(NoEjecutado):
             fichero_externo(str(material), worktree)
+
+    def test_url_de_otro_puerto_se_denegaria(self):
+        self.assertTrue(mismo_origen("https://127.0.0.1:18443/ruta", "https://127.0.0.1:18443"))
+        self.assertFalse(mismo_origen("https://127.0.0.1:18444/ruta", "https://127.0.0.1:18443"))
+        self.assertFalse(mismo_origen("http://127.0.0.1:18443/ruta", "https://127.0.0.1:18443"))
+
+    def test_chrome_no_contacta_destino_de_302_en_otro_puerto(self):
+        if not shutil.which("google-chrome"):
+            self.skipTest("Chrome del sistema no disponible")
+        try:
+            from playwright.sync_api import Error, sync_playwright
+        except ImportError:
+            self.skipTest("Playwright Python no disponible")
+
+        contactos = []
+        peticiones_origen = []
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                contactos.append(self.path)
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *_):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+
+        class Origen(BaseHTTPRequestHandler):
+            def do_GET(self):
+                peticiones_origen.append(self.path)
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{destino.server_port}/fuera")
+                self.end_headers()
+
+            def log_message(self, *_):
+                pass
+
+        origen = ThreadingHTTPServer(("127.0.0.1", 0), Origen)
+        hilos = [threading.Thread(target=servidor.serve_forever, daemon=True)
+                 for servidor in (origen, destino)]
+        for hilo in hilos:
+            hilo.start()
+        try:
+            with sync_playwright() as playwright:
+                navegador = playwright.chromium.launch(headless=True,
+                                                       executable_path=shutil.which("google-chrome"))
+                try:
+                    contexto = navegador.new_context()
+                    url_origen = f"http://127.0.0.1:{origen.server_port}"
+                    contexto.route("**/*", lambda route: servir_solo_origen(route, url_origen))
+                    with self.assertRaises(Error):
+                        contexto.new_page().goto(url_origen + "/salto", timeout=5000)
+                    self.assertIn("/salto", peticiones_origen, "el origen no sirvió el 302")
+                    self.assertEqual(contactos, [], "Chrome alcanzó el puerto de destino")
+                finally:
+                    navegador.close()
+        finally:
+            origen.shutdown()
+            destino.shutdown()
+            origen.server_close()
+            destino.server_close()
+            for hilo in hilos:
+                hilo.join(timeout=1)
 
 
 if __name__ == "__main__":

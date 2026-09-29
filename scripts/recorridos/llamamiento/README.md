@@ -6,6 +6,14 @@ en Mi bolsa. El operador realiza las acciones en las pantallas; el programa
 comprueba un solo POST por etapa, su estado y los campos estables del recibo.
 No crea peticiones de efecto por API.
 
+El contexto Playwright intercepta cada petición de Chrome. Solo obtiene recursos
+del origen HTTPS loopback configurado. Usa `route.fetch(max_redirects=0)`, comprueba
+la URL de la respuesta y bloquea los estados 3xx antes de que Chrome pueda
+seguirlos. Una prueba con Chrome real verifica que un `302` hacia otro puerto
+local llega al origen y deja el destino sin peticiones. El observador de tráfico
+externo permanece como comprobación adicional. El contexto cierra conexiones
+WebSocket antes de establecerlas; el recorrido no depende de ese canal.
+
 ## Punto de corte
 
 En `origin/main` `3b910a170`, el formulario de Contratación ofrece selección,
