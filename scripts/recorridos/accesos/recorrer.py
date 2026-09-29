@@ -163,7 +163,7 @@ async def _sonda(pagina, prueba: dict) -> dict:
     }""", prueba)
 
 
-async def _interceptar_local(route, origen: str) -> None:
+async def _interceptar_local(route, origen: str) -> int | None:
     """Resuelve una sola respuesta y corta cualquier salto de origen o redirección."""
     esperado = urlsplit(origen)
     solicitado = urlsplit(route.request.url)
@@ -176,8 +176,9 @@ async def _interceptar_local(route, origen: str) -> None:
         if (300 <= respuesta.status < 400
                 or (final.scheme, final.netloc) != (esperado.scheme, esperado.netloc)):
             await route.abort()
-            return
+            return respuesta.status
         await route.fulfill(response=respuesta)
+        return respuesta.status
     except Exception:
         await route.abort()
 
@@ -187,34 +188,78 @@ async def _cerrar_websocket(route) -> None:
     await route.close()
 
 
-async def _recorrer(plan: dict) -> int:
+def preparar_salida(ruta: Path) -> Path:
+    if not ruta.is_absolute() or ruta.exists() or ruta.is_symlink():
+        raise PlanInvalido("salida_nueva")
+    if any(p.is_symlink() for p in ruta.parents) or _dentro_de_git(ruta):
+        raise PlanInvalido("salida_externa")
+    ruta.mkdir(mode=0o700)
+    return ruta
+
+
+async def _guardar_evidencia(pagina, salida: Path, nombre: str, ancho: int, datos: dict) -> None:
+    # Solo conserva contadores y estados; la captura queda en la carpeta privada.
+    if pagina is not None:
+        try:
+            datos["vista"] = await pagina.evaluate("""() => ({
+              ancho:innerWidth, desbordamiento:document.documentElement.scrollWidth>innerWidth,
+              almacenamiento:localStorage.length+sessionStorage.length
+            })""")
+            captura = await pagina.screenshot(full_page=True)
+            with (salida / f"{nombre}-{ancho}.png").open("xb") as fichero:
+                os.fchmod(fichero.fileno(), 0o600)
+                fichero.write(captura)
+        except Exception as exc:
+            datos["captura_error"] = type(exc).__name__
+    with (salida / f"{nombre}-{ancho}.json").open("x", encoding="utf-8") as fichero:
+        os.fchmod(fichero.fileno(), 0o600)
+        json.dump(datos, fichero, ensure_ascii=False, indent=2)
+
+
+async def _recorrer(plan: dict, *, perfil: str | None = None, ancho: int = 1440,
+                    salida: Path | None = None) -> int:
     from playwright.async_api import async_playwright
 
     origen = plan["origen"].rstrip("/")
     async with async_playwright() as pw:
         navegador = await pw.chromium.launch(executable_path=str(CHROME), headless=True)
         try:
-            for nombre in PERFILES:
-                perfil = plan["perfiles"][nombre]
+            for nombre in ((perfil,) if perfil else PERFILES):
+                identidad = plan["perfiles"][nombre]
                 contexto = await navegador.new_context(
-                    client_certificates=[{"origin": origen, "certPath": perfil["certificado"], "keyPath": perfil["clave"]}],
+                    client_certificates=[{"origin": origen, "certPath": identidad["certificado"], "keyPath": identidad["clave"]}],
                     ignore_https_errors=False,
-                    viewport={"width": 1440, "height": 900},
+                    viewport={"width": ancho, "height": 900},
                     service_workers="block",
                 )
+                pagina = None
+                datos = {"perfil": nombre, "ancho": ancho, "pruebas": [], "errores_js": 0,
+                         "peticiones_externas": 0, "respuestas_http": [], "estado": "entrada"}
+                async def interceptar(route):
+                    u = urlsplit(route.request.url)
+                    esperado = urlsplit(origen)
+                    if (u.scheme, u.netloc) != (esperado.scheme, esperado.netloc):
+                        datos["peticiones_externas"] += 1
+                    estado = await _interceptar_local(route, origen)
+                    datos["respuestas_http"].append({"ruta": u.path, "estado": estado})
                 try:
-                    await contexto.route("**/*", lambda route: _interceptar_local(route, origen))
+                    await contexto.route("**/*", interceptar)
                     await contexto.route_web_socket("**/*", _cerrar_websocket)
                     # Chrome debe confiar en la CA del origen mediante el almacén
                     # configurado por el operador. No se omite la validación TLS.
                     pagina = await contexto.new_page()
+                    pagina.on("pageerror", lambda _error: datos.update(errores_js=datos["errores_js"] + 1))
                     respuesta = await pagina.goto(origen + "/portal-empleado/" if nombre != "candidato_area" else origen + "/area-personal/", wait_until="domcontentloaded", timeout=15000)
+                    datos["entrada_http"] = respuesta.status if respuesta is not None else None
                     if (respuesta is None or respuesta.status != 200
                             or urlsplit(respuesta.url).netloc != urlsplit(origen).netloc):
-                        print(mensaje("corte_entrada", nombre=nombre))
+                        print(mensaje("corte_entrada", nombre=nombre, estado=datos["entrada_http"]))
                         return 1
-                    for indice, prueba in enumerate(perfil["pruebas"], 1):
+                    for indice, prueba in enumerate(identidad["pruebas"], 1):
                         observado = await _sonda(pagina, prueba)
+                        datos["pruebas"].append({"indice": indice, "clase": prueba["clase"],
+                                                  "ruta": prueba["ruta"], **observado})
+                        datos["estado"] = "prueba"
                         correcto = (observado["estado"] == prueba["estado"] and observado["json"]
                                     and (observado["comprobado"] if prueba["clase"] == "permiso" else observado["sinDatos"]))
                         print(mensaje("resultado", nombre=nombre, indice=indice, clase=prueba["clase"],
@@ -222,29 +267,45 @@ async def _recorrer(plan: dict) -> int:
                         if not correcto:
                             print(mensaje("corte_prueba", nombre=nombre, indice=indice, clase=prueba["clase"]))
                             return 1
-                    if await contexto.cookies():
+                    datos["cookies"] = len(await contexto.cookies())
+                    if datos["cookies"]:
+                        datos["estado"] = "cookies"
                         print(mensaje("corte_cookies", nombre=nombre))
                         return 1
                     almacenamiento = await pagina.evaluate("() => localStorage.length + sessionStorage.length")
+                    datos["almacenamiento"] = almacenamiento
                     if almacenamiento:
+                        datos["estado"] = "almacenamiento"
                         print(mensaje("corte_almacenamiento", nombre=nombre))
                         return 1
+                    datos["estado"] = "comprobado"
+                except Exception as exc:
+                    datos["estado"] = "navegador"
+                    datos["error_tipo"] = type(exc).__name__
+                    raise
                 finally:
+                    if salida is not None:
+                        datos["cookies"] = len(await contexto.cookies())
+                        await _guardar_evidencia(pagina, salida, nombre, ancho, datos)
                     await contexto.close()
         finally:
             await navegador.close()
-    print(mensaje("corte_observado"))
+    print(mensaje("corte_observado", cantidad=1 if perfil else len(PERFILES), ancho=ancho))
     return 0
 
 
-def recorrer(plan: dict) -> int:
-    return asyncio.run(_recorrer(plan))
+def recorrer(plan: dict, *, perfil: str | None = None, ancho: int = 1440,
+             salida: Path | None = None) -> int:
+    return asyncio.run(_recorrer(plan, perfil=perfil, ancho=ancho, salida=salida))
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=mensaje("descripcion"))
     parser.add_argument("--plan", type=Path, required=True, help=mensaje("ayuda_plan"))
     parser.add_argument("--ejecutar", action="store_true", help=mensaje("ayuda_ejecutar"))
+    parser.add_argument("--perfil", choices=PERFILES, help=mensaje("ayuda_perfil"))
+    parser.add_argument("--ancho", type=int, choices=(1440, 390), default=1440, help=mensaje("ayuda_ancho"))
+    parser.add_argument("--salida", type=Path, help=mensaje("ayuda_salida"))
     args = parser.parse_args(argv)
     try:
         plan = validar_plan(args.plan)
@@ -255,7 +316,13 @@ def main(argv: list[str] | None = None) -> int:
         print(mensaje("sin_optin"))
         return 2
     try:
-        return recorrer(plan)
+        salida = preparar_salida(args.salida) if args.salida else None
+    except (PlanInvalido, OSError) as exc:
+        detalle = exc if isinstance(exc, PlanInvalido) else mensaje("salida_error")
+        print(mensaje("no_ejecutado", detalle=detalle), file=sys.stderr)
+        return 2
+    try:
+        return recorrer(plan, perfil=args.perfil, ancho=args.ancho, salida=salida)
     except Exception as exc:
         # Evita imprimir URLs, rutas privadas o cuerpos de respuesta del fallo.
         print(mensaje("corte_navegador", tipo=type(exc).__name__))

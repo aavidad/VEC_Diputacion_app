@@ -19,6 +19,12 @@ class PaginaFalsa:
     def __init__(self, fallar=False):
         self.fallar = fallar
 
+    def on(self, *_args):
+        pass
+
+    async def screenshot(self, **_kwargs):
+        return b"captura sintetica"
+
     async def goto(self, *_args, **_kwargs):
         return types.SimpleNamespace(status=200, url="https://127.0.0.1:18443/portal-empleado/")
 
@@ -150,6 +156,39 @@ class RecorridoTest(unittest.TestCase):
         self.escribir()
         with self.assertRaises(recorrer.PlanInvalido):
             recorrer.validar_plan(self.ruta)
+
+    def test_perfil_movil_conserva_primer_corte_en_salida_privada(self):
+        salida = recorrer.preparar_salida(Path(self.tmp.name) / "evidencia")
+        modulo = types.ModuleType("playwright.async_api")
+        navegador = NavegadorFalso(PaginaFalsa(fallar=True))
+        modulo.async_playwright = lambda: PlaywrightFalso(navegador)
+        with patch.dict("sys.modules", {"playwright.async_api": modulo}), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(recorrer.recorrer(self.plan, perfil="centro", ancho=390, salida=salida), 1)
+        self.assertEqual(navegador.contextos, 1)
+        datos = json.loads((salida / "centro-390.json").read_text())
+        self.assertEqual(datos["perfil"], "centro")
+        self.assertEqual(datos["ancho"], 390)
+        self.assertEqual(datos["entrada_http"], 200)
+        self.assertEqual(len(datos["pruebas"]), 1)
+        self.assertEqual(datos["pruebas"][0]["estado"], 403)
+        self.assertEqual(datos["estado"], "prueba")
+        for fichero in salida.iterdir():
+            self.assertEqual(fichero.stat().st_mode & 0o077, 0)
+        self.assertNotIn("certificado", (salida / "centro-390.json").read_text())
+
+    def test_salida_rechaza_git_reutilizacion_y_enlaces(self):
+        git = Path(self.tmp.name) / "git"
+        git.mkdir()
+        (git / ".git").mkdir()
+        with self.assertRaises(recorrer.PlanInvalido):
+            recorrer.preparar_salida(git / "evidencia")
+        salida = recorrer.preparar_salida(Path(self.tmp.name) / "salida")
+        with self.assertRaises(recorrer.PlanInvalido):
+            recorrer.preparar_salida(salida)
+        enlace = Path(self.tmp.name) / "enlace"
+        enlace.symlink_to(salida, target_is_directory=True)
+        with self.assertRaises(recorrer.PlanInvalido):
+            recorrer.preparar_salida(enlace / "evidencia")
 
     def test_recorrido_sintetico_cinco_perfiles_y_primer_corte(self):
         modulo = types.ModuleType("playwright.async_api")

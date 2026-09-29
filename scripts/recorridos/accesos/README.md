@@ -1,6 +1,6 @@
 # Recorrido de accesos por perfil
 
-Este guion comprueba, con Chrome y certificados distintos, una autorización positiva y una denegación por cada perfil: RRHH, centro solicitante, ratificador, Intervención y candidato/Área personal. Se detiene en el primer fallo. Solo admite lecturas `GET` y la consulta `POST` sin escritura del cuadro de Contratación.
+Este guion comprueba, con Chrome y certificados distintos, una autorización positiva y una denegación por cada perfil: RRHH, centro solicitante, ratificador, Intervención y candidato/Área personal. Se detiene en el primer fallo de los perfiles seleccionados. Solo admite lecturas `GET` y la consulta `POST` sin escritura del cuadro de Contratación.
 
 ## Condición para ejecutarlo
 
@@ -13,6 +13,19 @@ python3 scripts/recorridos/accesos/recorrer.py --plan /ruta/privada/accesos.json
 ```
 
 Sin `--ejecutar`, o si falta cualquier condición, devuelve `NO EJECUTADO` y código 2. Un fallo real devuelve `PRIMER CORTE` y código 1. El código 0 confirma solo las sondas configuradas: no acredita un recorrido completo de RRHH, una firma, un efecto de escritura, persistencia ni publicación.
+
+Para registrar por separado el primer corte de cada perfil, repetir la ejecución con
+`--perfil rrhh` (o el perfil correspondiente) y `--ancho 1440` o `--ancho 390`.
+La opción `--salida /ruta/privada/nueva` conserva una captura y un JSON con estados
+HTTP y contadores. La carpeta debe ser nueva, externa a Git y sin enlaces
+simbólicos; se crea con modo `0700`, y sus archivos con `0600`. El JSON no conserva
+cuerpos de respuesta, certificados ni claves. La captura puede mostrar datos
+sintéticos de la pantalla y se mantiene privada. Estas opciones validan igualmente
+las cinco identidades del plan antes de ejecutar el perfil elegido. Si la entrada
+falla antes de mostrar una pantalla, la captura puede no estar disponible; el JSON
+conserva el tipo del fallo. El ancho indicado y el desbordamiento se registran
+cuando se puede evaluar la página. Los contadores no acreditan accesibilidad
+completa ni recuperación tras reinicio.
 
 ## Plan privado
 
