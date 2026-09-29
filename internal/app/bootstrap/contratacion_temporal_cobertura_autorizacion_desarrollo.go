@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -43,6 +44,7 @@ type autorizadorConsultasCoberturaDesarrollo struct {
 	generador          generadorCorrelacionCoberturaDesarrollo
 	motivoPropuesta    dominiovec.ReferenciaEntradaCatalogo
 	motivoRecuperacion dominiovec.ReferenciaEntradaCatalogo
+	incidencias        *slog.Logger
 }
 
 var (
@@ -72,6 +74,7 @@ func nuevoAutorizadorConsultasCoberturaDesarrollo(
 		generador:          generador,
 		motivoPropuesta:    soporte.motivoPropuestaCobertura,
 		motivoRecuperacion: soporte.motivoResultadoCobertura,
+		incidencias:        slog.Default(),
 	}, nil
 }
 
@@ -173,6 +176,9 @@ func (a *autorizadorConsultasCoberturaDesarrollo) AutorizarPresentacionPropuesta
 	}
 	if falloInfraestructuraAutorizacionCoberturaDesarrollo(err) {
 		return application.ErrPresentacionPropuestaCoberturaNoDisponible
+	}
+	if errors.Is(err, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil) {
+		return application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil
 	}
 	if err != nil || !concedida {
 		return application.ErrPresentacionPropuestaCoberturaDenegada
@@ -302,15 +308,30 @@ func (a *autorizadorConsultasCoberturaDesarrollo) exigir(
 			solicitud, camposPreparacionPropuestaCoberturaDesarrollo,
 			[]string{"registrar_acceso"},
 		); err != nil {
-			return false, dominiovec.ErrAutorizacionDenegada
+			a.registrarIncidenciaProyeccionCobertura()
+			return false, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil
 		}
 		restricciones, err := decision.RestriccionesProyeccionPara(solicitud)
 		if err != nil || len(restricciones.Obligaciones) != 1 ||
 			restricciones.Obligaciones[0] != "registrar_acceso" {
-			return false, dominiovec.ErrAutorizacionDenegada
+			a.registrarIncidenciaProyeccionCobertura()
+			return false, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil
 		}
 	}
 	return true, nil
+}
+
+func (a *autorizadorConsultasCoberturaDesarrollo) registrarIncidenciaProyeccionCobertura() {
+	registrador := a.incidencias
+	if registrador == nil {
+		registrador = slog.Default()
+	}
+	registrador.Warn(
+		"contratacion temporal: datos de preparacion no disponibles para el perfil",
+		"evento", "proyeccion_cobertura_restringida",
+		"accion", accionPropuestaCoberturaDesarrollo,
+		"resultado", "sin_datos",
+	)
 }
 
 func falloInfraestructuraAutorizacionCoberturaDesarrollo(err error) bool {

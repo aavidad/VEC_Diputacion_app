@@ -1,8 +1,10 @@
 package bootstrap
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -541,13 +543,13 @@ func TestAutorizacionPropuestaCoberturaExigeCamposYRegistroDurable(t *testing.T)
 		{"campo ausente", func(s *soporteAltaContratacionTemporalDesarrollo) {
 			s.instantaneaCobertura.VersionRol.Concesiones[0].CamposPermitidos =
 				append([]string(nil), camposPreparacionPropuestaCoberturaDesarrollo[:len(camposPreparacionPropuestaCoberturaDesarrollo)-1]...)
-		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		}, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil},
 		{"campo vacio", func(s *soporteAltaContratacionTemporalDesarrollo) {
 			s.instantaneaCobertura.VersionRol.Concesiones[0].CamposPermitidos = nil
-		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		}, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil},
 		{"obligacion desconocida", func(s *soporteAltaContratacionTemporalDesarrollo) {
 			s.instantaneaCobertura.VersionRol.Concesiones[0].Obligaciones = []string{"obligacion_futura"}
-		}, application.ErrPresentacionPropuestaCoberturaDenegada},
+		}, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil},
 		{"concesion revocada", func(s *soporteAltaContratacionTemporalDesarrollo) {
 			s.instantaneaCobertura.ControlVigenciaVersionRol.Estado = dominiovec.EstadoControlVigenciaVersionRolRetirada
 			s.instantaneaCobertura.ControlVigenciaVersionRol.Revision++
@@ -566,6 +568,8 @@ func TestAutorizacionPropuestaCoberturaExigeCamposYRegistroDurable(t *testing.T)
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			soporte, autorizador, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			var bitacora bytes.Buffer
+			autorizador.incidencias = slog.New(slog.NewJSONHandler(&bitacora, nil))
 			if caso.preparar != nil {
 				caso.preparar(soporte)
 			}
@@ -600,6 +604,18 @@ func TestAutorizacionPropuestaCoberturaExigeCamposYRegistroDurable(t *testing.T)
 			if memoria != 0 || caso.esperado == nil && (registro.concesiones != 1 || registro.huella == "") ||
 				caso.nombre == "concesion revocada" && registro.denegaciones != 1 {
 				t.Fatalf("registro de propuesta: memoria=%d, durable=%+v", memoria, registro)
+			}
+			if errors.Is(caso.esperado, application.ErrPreparacionCatalogoCoberturaNoDisponiblePerfil) {
+				registroTexto := bitacora.String()
+				if registro.concesiones != 1 || registro.denegaciones != 0 ||
+					!strings.Contains(registroTexto, `"evento":"proyeccion_cobertura_restringida"`) ||
+					!strings.Contains(registroTexto, `"resultado":"sin_datos"`) ||
+					strings.Contains(registroTexto, principal.ID) ||
+					strings.Contains(registroTexto, principal.Attributes["certificate_sha256"]) ||
+					strings.Contains(registroTexto, "expediente_temporal_desarrollo_0001") ||
+					strings.Contains(registroTexto, organizacionAltaContratacionTemporalDesarrollo) {
+					t.Fatalf("restriccion sin cierre o con datos privados: concesiones=%d denegaciones=%d registro=%q", registro.concesiones, registro.denegaciones, registroTexto)
+				}
 			}
 		})
 	}
