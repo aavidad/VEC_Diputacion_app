@@ -140,7 +140,7 @@ func (r *RegistroCorreosPostgreSQL) abrir(ctx context.Context) (transaccionCorre
 		"SET LOCAL TIME ZONE 'UTC'",
 		"SET LOCAL lock_timeout = '3s'",
 		"SET LOCAL statement_timeout = '15s'",
-		"SET LOCAL idle_in_transaction_session_timeout = '30s'",
+		"SET LOCAL idle_in_transaction_session_timeout = '20s'", // AD3 exige ≤ 20 s.
 	} {
 		if _, err := tx.Exec(ctx, ajuste); err != nil {
 			return fallar(err)
@@ -417,7 +417,8 @@ func (r *RegistroCorreosPostgreSQL) ConsultarPropios(ctx context.Context, orden 
 // repetido con la misma clave vuelve a responder «código incorrecto».
 func replayCorreos(bruto []byte, m ports.MaterialCorreos) (ports.ReciboCorreos, bool, error) {
 	var vacio ports.ReciboCorreos
-	if bytes.Equal(bytes.TrimSpace(bruto), []byte("null")) {
+	// SQL devuelve NULL cuando la clave no tiene operación registrada.
+	if bruto == nil || bytes.Equal(bytes.TrimSpace(bruto), []byte("null")) {
 		return vacio, false, nil
 	}
 	var campos map[string]json.RawMessage

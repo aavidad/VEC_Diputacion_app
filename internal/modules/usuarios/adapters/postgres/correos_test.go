@@ -58,6 +58,10 @@ func (f filaCorreoPGPrueba) Scan(dest ...any) error {
 	case *bool:
 		*p = f.valor.(bool)
 	case *[]byte:
+		if f.valor == nil {
+			*p = nil
+			return nil
+		}
 		*p = append([]byte(nil), f.valor.([]byte)...)
 	}
 	return nil
@@ -361,5 +365,22 @@ func TestConfirmarEnvioExigeReservaYSuperficie(t *testing.T) {
 	envio.ReservaRef = "reserva:" + strings.Repeat("3", 32)
 	if err := externo.ConfirmarEnvio(context.Background(), orden, envio, true); !errors.Is(err, ports.ErrCorreosInvalidos) {
 		t.Fatalf("confirmación desde otra superficie: %v", err)
+	}
+}
+
+func TestRecuperarSinOperacionYLimitesDeTransaccion(t *testing.T) {
+	orden, m, v3 := pruebaOrdenYV3Correos(t, ports.AccionActivarCorreo)
+	tx := &txCorreoPGPrueba{respuestas: respuestasApertura(filaCorreoPGPrueba{valor: nil})}
+	recibo, existe, err := pruebaRegistroCorreos(tx).RecuperarOperacion(context.Background(), orden, m, v3)
+	if err != nil || existe || recibo.ReciboRef != "" || tx.commits != 1 {
+		t.Fatalf("NULL de SQL no se trató como operación ausente: %v %v", existe, err)
+	}
+	// El núcleo AD3 rechaza transacciones con más de 20 s de inactividad.
+	var ajustes []string
+	for _, l := range tx.llamadas {
+		ajustes = append(ajustes, l.sql)
+	}
+	if !strings.Contains(strings.Join(ajustes, "\n"), "idle_in_transaction_session_timeout = '20s'") {
+		t.Fatalf("límite de inactividad incompatible con AD3: %v", ajustes)
 	}
 }
