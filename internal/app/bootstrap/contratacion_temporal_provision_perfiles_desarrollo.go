@@ -32,11 +32,15 @@ const (
 )
 
 var (
-	errProvisionPerfilesCTEntrada       = errors.New("ct_perfiles_entrada_invalida")
-	errProvisionPerfilesCTNoDisponible  = errors.New("ct_perfiles_no_disponible")
-	errProvisionPerfilesCTObsoleta      = errors.New("ct_perfiles_preimagen_obsoleta")
-	huellaProvisionPerfilesCTValida     = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	aprobacionProvisionPerfilesCTValida = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,128}$`)
+	errProvisionPerfilesCTEntrada      = errors.New("ct_perfiles_entrada_invalida")
+	errProvisionPerfilesCTNoDisponible = errors.New("ct_perfiles_no_disponible")
+	errProvisionPerfilesCTObsoleta     = errors.New("ct_perfiles_preimagen_obsoleta")
+	// ErrProvisionPerfilesCTIncidenciaContexto identifica una publicación
+	// parcial cuyo contexto dejó de estar vigente antes de entregar el recibo.
+	// Exige inspección gobernada y nunca equivale a éxito.
+	ErrProvisionPerfilesCTIncidenciaContexto = errors.New("ct_perfiles_incidencia_contexto_post_publicacion")
+	huellaProvisionPerfilesCTValida          = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	aprobacionProvisionPerfilesCTValida      = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,128}$`)
 )
 
 // SolicitudProvisionPerfilesCT sólo acepta datos de gobierno, nunca identidad,
@@ -242,13 +246,18 @@ func ejecutarProvisionPerfilesCTPostgreSQL(ctx context.Context, cfg config.Confi
 		AprobacionRef: aprobado.AprobacionRef,
 		Perfiles:      make([]ReciboPerfilProvisionCT, 0, len(perfiles)),
 	}
-	for i := range perfiles {
-		recibo, err := aplicarPerfilProvisionCT(ctx, conexiones, perfiles[i],
-			aprobado.Perfiles[i], huellaAprobada)
-		if err != nil {
-			return vacio, err
-		}
-		resultado.Perfiles = append(resultado.Perfiles, recibo)
+	resultado, err = publicarYRevalidarPerfilesCT(resultado, len(perfiles),
+		func(i int) (ReciboPerfilProvisionCT, error) {
+			return aplicarPerfilProvisionCT(ctx, conexiones, perfiles[i],
+				aprobado.Perfiles[i], huellaAprobada)
+		},
+		func() error {
+			return revalidarContextosActualesProvisionCT(ctx, conexiones.contextoRuntime,
+				soporte, &perfiles)
+		},
+	)
+	if err != nil {
+		return resultado, err
 	}
 	// Las dos publicaciones son transacciones separadas. El resultado solo se
 	// entrega si ambas siguen siendo las postimágenes exactas tras completar el
@@ -262,6 +271,29 @@ func ejecutarProvisionPerfilesCTPostgreSQL(ctx context.Context, cfg config.Confi
 			post.AsignacionPerfil.Referencia() != aprobado.Perfiles[i].ObjetivoAsignacionRef ||
 			validarPreimagenProvisionPerfilCT(post, perfiles[i].semilla, time.Now().UTC().Truncate(time.Microsecond)) != nil {
 			return vacio, errProvisionPerfilesCTObsoleta
+		}
+	}
+	return resultado, nil
+}
+
+func publicarYRevalidarPerfilesCT(resultado ResultadoProvisionPerfilesCT, cantidad int,
+	publicar func(int) (ReciboPerfilProvisionCT, error), revalidar func() error,
+) (ResultadoProvisionPerfilesCT, error) {
+	if cantidad != 2 || publicar == nil || revalidar == nil {
+		return ResultadoProvisionPerfilesCT{}, errProvisionPerfilesCTEntrada
+	}
+	for i := 0; i < cantidad; i++ {
+		recibo, err := publicar(i)
+		if err != nil {
+			return ResultadoProvisionPerfilesCT{}, err
+		}
+		resultado.Perfiles = append(resultado.Perfiles, recibo)
+		// Contexto y Autorización usan transacciones separadas. Una
+		// revocación ganadora después de este COMMIT impide el recibo positivo
+		// y deja una incidencia explícita con la postimagen ya confirmada.
+		if err := revalidar(); err != nil {
+			resultado.Estado = "incidencia"
+			return resultado, ErrProvisionPerfilesCTIncidenciaContexto
 		}
 	}
 	return resultado, nil
