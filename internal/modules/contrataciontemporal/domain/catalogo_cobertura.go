@@ -1,8 +1,12 @@
 package domain
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -10,6 +14,8 @@ const (
 	maximoViasCobertura                 = 64
 	maximoComprobacionesPorViaCobertura = 32
 	maximoComprobacionesCatalogo        = 512
+	maximoElementosPreparacionPorVia    = 32
+	maximoElementosPreparacionCatalogo  = 512
 	maximoEnteroSeguroCatalogoCobertura = uint64(1<<53 - 1)
 )
 
@@ -82,10 +88,51 @@ func (c ComprobacionExigibleCobertura) Validar() error {
 
 // DefinicionViaCobertura es una opción funcional gobernada. Su clave no está
 // limitada a una lista compilada: cada publicación decide qué vías existen.
+// ElementoPreparacionViaCobertura identifica un documento o dato informativo
+// de una vía. La clave no contiene su valor ni acredita que se haya aportado.
+type ElementoPreparacionViaCobertura struct {
+	Clave     ClaveCatalogo `json:"clave"`
+	Orden     uint16        `json:"orden"`
+	ClaveI18n ClaveCatalogo `json:"clave_i18n"`
+}
+
+func (e ElementoPreparacionViaCobertura) Validar() error {
+	if !e.Clave.Valida() || e.Orden == 0 || !e.ClaveI18n.Valida() ||
+		!strings.ContainsRune(string(e.ClaveI18n), '.') {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
 type DefinicionViaCobertura struct {
-	Clave          ClaveCatalogo                   `json:"clave"`
-	Orden          uint16                          `json:"orden"`
-	Comprobaciones []ComprobacionExigibleCobertura `json:"comprobaciones"`
+	Clave                ClaveCatalogo                     `json:"clave"`
+	Orden                uint16                            `json:"orden"`
+	Comprobaciones       []ComprobacionExigibleCobertura   `json:"comprobaciones"`
+	Documentos           []ElementoPreparacionViaCobertura `json:"documentos,omitempty"`
+	Datos                []ElementoPreparacionViaCobertura `json:"datos,omitempty"`
+	documentosDeclarados bool
+	datosDeclarados      bool
+}
+
+// UnmarshalJSON recuerda la presencia de campos opcionales para rechazar
+// null y arrays vacíos, que de otro modo desaparecerían al reserializar.
+func (d *DefinicionViaCobertura) UnmarshalJSON(datos []byte) error {
+	if d == nil {
+		return ErrDatoInvalido
+	}
+	type sinMetodo DefinicionViaCobertura
+	var decodificada sinMetodo
+	if err := decodificarCatalogoJSONEstricto(datos, &decodificada); err != nil {
+		return err
+	}
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(datos, &campos); err != nil || campos == nil {
+		return ErrDatoInvalido
+	}
+	_, decodificada.documentosDeclarados = campos["documentos"]
+	_, decodificada.datosDeclarados = campos["datos"]
+	*d = DefinicionViaCobertura(decodificada)
+	return nil
 }
 
 func (d DefinicionViaCobertura) Validar() error {
@@ -108,7 +155,36 @@ func (d DefinicionViaCobertura) Validar() error {
 		claves[comprobacion.Clave] = struct{}{}
 		ordenes[comprobacion.Orden] = struct{}{}
 	}
+	if (d.documentosDeclarados && len(d.Documentos) == 0) ||
+		(d.datosDeclarados && len(d.Datos) == 0) ||
+		!elementosPreparacionValidos(d.Documentos) ||
+		!elementosPreparacionValidos(d.Datos) {
+		return ErrDatoInvalido
+	}
 	return nil
+}
+
+func elementosPreparacionValidos(elementos []ElementoPreparacionViaCobertura) bool {
+	if len(elementos) > maximoElementosPreparacionPorVia ||
+		(elementos != nil && len(elementos) == 0) {
+		return false
+	}
+	claves := make(map[ClaveCatalogo]struct{}, len(elementos))
+	ordenes := make(map[uint16]struct{}, len(elementos))
+	for _, elemento := range elementos {
+		if elemento.Validar() != nil {
+			return false
+		}
+		if _, existe := claves[elemento.Clave]; existe {
+			return false
+		}
+		if _, existe := ordenes[elemento.Orden]; existe {
+			return false
+		}
+		claves[elemento.Clave] = struct{}{}
+		ordenes[elemento.Orden] = struct{}{}
+	}
+	return true
 }
 
 func (d DefinicionViaCobertura) clonar() DefinicionViaCobertura {
@@ -116,6 +192,8 @@ func (d DefinicionViaCobertura) clonar() DefinicionViaCobertura {
 		[]ComprobacionExigibleCobertura(nil),
 		d.Comprobaciones...,
 	)
+	d.Documentos = append([]ElementoPreparacionViaCobertura(nil), d.Documentos...)
+	d.Datos = append([]ElementoPreparacionViaCobertura(nil), d.Datos...)
 	return d
 }
 
@@ -182,20 +260,54 @@ type BorradorCatalogoViasCobertura struct {
 	PublicadoEn    time.Time                 `json:"publicado_en"`
 	Vigencia       VigenciaCatalogoCobertura `json:"vigencia"`
 	ProcedenciaRef string                    `json:"procedencia_ref"`
+	EsEjemplo      bool                      `json:"es_ejemplo,omitempty"`
 	Vias           []DefinicionViaCobertura  `json:"vias"`
 }
 
 // PublicacionCatalogoViasCobertura es el estado transportable de una
 // publicación. Restaurarlo vuelve a calcular la huella antes de aceptarlo.
 type PublicacionCatalogoViasCobertura struct {
-	Referencia     string                       `json:"referencia"`
-	Version        uint64                       `json:"version"`
-	HuellaSHA256   string                       `json:"huella_sha256"`
-	Canon          CanonHuellaCatalogoCobertura `json:"canon"`
-	PublicadoEn    time.Time                    `json:"publicado_en"`
-	Vigencia       VigenciaCatalogoCobertura    `json:"vigencia"`
-	ProcedenciaRef string                       `json:"procedencia_ref"`
-	Vias           []DefinicionViaCobertura     `json:"vias"`
+	Referencia         string                       `json:"referencia"`
+	Version            uint64                       `json:"version"`
+	HuellaSHA256       string                       `json:"huella_sha256"`
+	Canon              CanonHuellaCatalogoCobertura `json:"canon"`
+	PublicadoEn        time.Time                    `json:"publicado_en"`
+	Vigencia           VigenciaCatalogoCobertura    `json:"vigencia"`
+	ProcedenciaRef     string                       `json:"procedencia_ref"`
+	EsEjemplo          bool                         `json:"es_ejemplo,omitempty"`
+	Vias               []DefinicionViaCobertura     `json:"vias"`
+	esEjemploDeclarado bool
+}
+
+func (p *PublicacionCatalogoViasCobertura) UnmarshalJSON(datos []byte) error {
+	if p == nil {
+		return ErrDatoInvalido
+	}
+	type sinMetodo PublicacionCatalogoViasCobertura
+	var decodificada sinMetodo
+	if err := decodificarCatalogoJSONEstricto(datos, &decodificada); err != nil {
+		return err
+	}
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(datos, &campos); err != nil || campos == nil {
+		return ErrDatoInvalido
+	}
+	_, decodificada.esEjemploDeclarado = campos["es_ejemplo"]
+	*p = PublicacionCatalogoViasCobertura(decodificada)
+	return nil
+}
+
+func decodificarCatalogoJSONEstricto(datos []byte, destino any) error {
+	decodificador := json.NewDecoder(bytes.NewReader(datos))
+	decodificador.DisallowUnknownFields()
+	if err := decodificador.Decode(destino); err != nil {
+		return err
+	}
+	var sobrante any
+	if err := decodificador.Decode(&sobrante); !errors.Is(err, io.EOF) {
+		return ErrDatoInvalido
+	}
+	return nil
 }
 
 // CatalogoViasCobertura conserva una publicación inmutable dentro del proceso.
@@ -216,9 +328,10 @@ func PublicarCatalogoViasCobertura(
 	}
 	publicacion := PublicacionCatalogoViasCobertura{
 		Referencia: normalizado.Referencia, Version: normalizado.Version,
-		Canon:       CanonHuellaCatalogoCoberturaV1(),
+		Canon:       canonParaViasCobertura(normalizado.Vias),
 		PublicadoEn: normalizado.PublicadoEn, Vigencia: normalizado.Vigencia,
-		ProcedenciaRef: normalizado.ProcedenciaRef, Vias: normalizado.Vias,
+		ProcedenciaRef: normalizado.ProcedenciaRef, EsEjemplo: normalizado.EsEjemplo,
+		Vias: normalizado.Vias,
 	}
 	publicacion.HuellaSHA256, err = calcularHuellaCatalogo(publicacion)
 	if err != nil || !huellaCatalogoValida(publicacion.HuellaSHA256) {
@@ -235,13 +348,19 @@ func RestaurarCatalogoViasCobertura(
 		!huellaCatalogoValida(publicacion.HuellaSHA256) {
 		return CatalogoViasCobertura{}, ErrDatoInvalido
 	}
+	if (publicacion.Canon == CanonHuellaCatalogoCoberturaV1() && publicacion.esEjemploDeclarado) ||
+		(publicacion.Canon == CanonHuellaCatalogoCoberturaV2() &&
+			publicacion.esEjemploDeclarado && !publicacion.EsEjemplo) {
+		return CatalogoViasCobertura{}, ErrDatoInvalido
+	}
 	borrador := BorradorCatalogoViasCobertura{
 		Referencia: publicacion.Referencia, Version: publicacion.Version,
 		PublicadoEn: publicacion.PublicadoEn, Vigencia: publicacion.Vigencia,
-		ProcedenciaRef: publicacion.ProcedenciaRef, Vias: publicacion.Vias,
+		ProcedenciaRef: publicacion.ProcedenciaRef,
+		EsEjemplo:      publicacion.EsEjemplo, Vias: publicacion.Vias,
 	}
 	restaurado, err := PublicarCatalogoViasCobertura(borrador)
-	if err != nil ||
+	if err != nil || restaurado.Canon() != publicacion.Canon ||
 		!restaurado.Identidad().CoincideExactamente(IdentidadCatalogoViasCobertura{
 			Referencia: publicacion.Referencia, Version: publicacion.Version,
 			HuellaSHA256: publicacion.HuellaSHA256,
@@ -330,12 +449,23 @@ func normalizarBorradorCatalogo(
 		len(borrador.Vias) == 0 || len(borrador.Vias) > maximoViasCobertura {
 		return BorradorCatalogoViasCobertura{}, ErrDatoInvalido
 	}
+	if borrador.EsEjemplo && canonParaViasCobertura(borrador.Vias) != CanonHuellaCatalogoCoberturaV2() {
+		return BorradorCatalogoViasCobertura{}, ErrDatoInvalido
+	}
+	// Validar antes del clon conserva la distinción entre ausencia y un array
+	// explícitamente vacío, que el JSON canónico de V2 no permite.
+	for _, via := range borrador.Vias {
+		if via.Validar() != nil {
+			return BorradorCatalogoViasCobertura{}, ErrDatoInvalido
+		}
+	}
 	normalizado := borrador
 	normalizado.Vias = clonarViasCobertura(borrador.Vias)
 	claves := make(map[ClaveCatalogo]struct{}, len(normalizado.Vias))
 	ordenes := make(map[uint16]struct{}, len(normalizado.Vias))
 	procedencias := make(map[ClaveCatalogo]ProcedenciaComprobacionCobertura)
 	totalComprobaciones := 0
+	totalElementosPreparacion := 0
 	for indice := range normalizado.Vias {
 		via := &normalizado.Vias[indice]
 		if via.Validar() != nil {
@@ -350,6 +480,7 @@ func normalizarBorradorCatalogo(
 		claves[via.Clave] = struct{}{}
 		ordenes[via.Orden] = struct{}{}
 		totalComprobaciones += len(via.Comprobaciones)
+		totalElementosPreparacion += len(via.Documentos) + len(via.Datos)
 		for _, comprobacion := range via.Comprobaciones {
 			anterior, reutilizada := procedencias[comprobacion.Clave]
 			if reutilizada && anterior != comprobacion.Procedencia {
@@ -360,8 +491,15 @@ func normalizarBorradorCatalogo(
 		sort.Slice(via.Comprobaciones, func(i, j int) bool {
 			return via.Comprobaciones[i].Orden < via.Comprobaciones[j].Orden
 		})
+		sort.Slice(via.Documentos, func(i, j int) bool {
+			return via.Documentos[i].Orden < via.Documentos[j].Orden
+		})
+		sort.Slice(via.Datos, func(i, j int) bool {
+			return via.Datos[i].Orden < via.Datos[j].Orden
+		})
 	}
-	if totalComprobaciones > maximoComprobacionesCatalogo {
+	if totalComprobaciones > maximoComprobacionesCatalogo ||
+		totalElementosPreparacion > maximoElementosPreparacionCatalogo {
 		return BorradorCatalogoViasCobertura{}, ErrDatoInvalido
 	}
 	sort.Slice(normalizado.Vias, func(i, j int) bool {

@@ -12,11 +12,13 @@ import (
 const (
 	dominioCanonCatalogoCoberturaV1   = "vec.dipgra.contratacion-temporal.catalogo-vias-cobertura"
 	versionCanonCatalogoCoberturaV1   = uint16(1)
+	versionCanonCatalogoCoberturaV2   = uint16(2)
 	algoritmoCanonCatalogoCoberturaV1 = "sha-256"
 )
 
 // CanonHuellaCatalogoCobertura identifica el dominio de separación, la versión
-// de esquema y el algoritmo del resumen. Solo V1 está admitido en este corte.
+// de esquema y el algoritmo del resumen. V1 conserva su material histórico;
+// V2 añade documentos y datos por vía al mismo catálogo.
 type CanonHuellaCatalogoCobertura struct {
 	Dominio        string `json:"dominio"`
 	VersionEsquema uint16 `json:"version_esquema"`
@@ -31,8 +33,26 @@ func CanonHuellaCatalogoCoberturaV1() CanonHuellaCatalogoCobertura {
 	}
 }
 
+func CanonHuellaCatalogoCoberturaV2() CanonHuellaCatalogoCobertura {
+	return CanonHuellaCatalogoCobertura{
+		Dominio:        dominioCanonCatalogoCoberturaV1,
+		VersionEsquema: versionCanonCatalogoCoberturaV2,
+		Algoritmo:      algoritmoCanonCatalogoCoberturaV1,
+	}
+}
+
 func (c CanonHuellaCatalogoCobertura) Valido() bool {
-	return c == CanonHuellaCatalogoCoberturaV1()
+	return c == CanonHuellaCatalogoCoberturaV1() ||
+		c == CanonHuellaCatalogoCoberturaV2()
+}
+
+func canonParaViasCobertura(vias []DefinicionViaCobertura) CanonHuellaCatalogoCobertura {
+	for _, via := range vias {
+		if len(via.Documentos) != 0 || len(via.Datos) != 0 {
+			return CanonHuellaCatalogoCoberturaV2()
+		}
+	}
+	return CanonHuellaCatalogoCoberturaV1()
 }
 
 func calcularHuellaCatalogo(
@@ -41,7 +61,16 @@ func calcularHuellaCatalogo(
 	if !publicacion.Canon.Valido() {
 		return "", ErrDatoInvalido
 	}
-	material, err := materialCanonicoCatalogoCoberturaV1(publicacion)
+	var material []byte
+	var err error
+	switch publicacion.Canon {
+	case CanonHuellaCatalogoCoberturaV1():
+		material, err = materialCanonicoCatalogoCoberturaV1(publicacion)
+	case CanonHuellaCatalogoCoberturaV2():
+		material, err = materialCanonicoCatalogoCoberturaV2(publicacion)
+	default:
+		return "", ErrDatoInvalido
+	}
 	if err != nil {
 		return "", ErrDatoInvalido
 	}
@@ -64,6 +93,37 @@ func huellaCatalogoValida(valor string) bool {
 func materialCanonicoCatalogoCoberturaV1(
 	publicacion PublicacionCatalogoViasCobertura,
 ) ([]byte, error) {
+	if publicacion.Canon != CanonHuellaCatalogoCoberturaV1() {
+		return nil, ErrDatoInvalido
+	}
+	for _, via := range publicacion.Vias {
+		if via.Documentos != nil || via.Datos != nil || publicacion.EsEjemplo {
+			return nil, ErrDatoInvalido
+		}
+	}
+	return materialCanonicoCatalogoCobertura(publicacion, false)
+}
+
+// V2 conserva la preimagen V1 hasta cada lista de comprobaciones. Tras ella
+// añade documentos y datos, cada lista con count uint32 y pares de clave
+// (longitud uint32 seguida de UTF-8), orden uint16 y clave i18n (misma
+// codificación de cadena). La versión del prefijo es 2. Una lista ausente tiene
+// count cero; las listas explícitamente vacías son
+// inválidas para mantener una única representación JSON.
+func materialCanonicoCatalogoCoberturaV2(
+	publicacion PublicacionCatalogoViasCobertura,
+) ([]byte, error) {
+	if publicacion.Canon != CanonHuellaCatalogoCoberturaV2() ||
+		canonParaViasCobertura(publicacion.Vias) != CanonHuellaCatalogoCoberturaV2() {
+		return nil, ErrDatoInvalido
+	}
+	return materialCanonicoCatalogoCobertura(publicacion, true)
+}
+
+func materialCanonicoCatalogoCobertura(
+	publicacion PublicacionCatalogoViasCobertura,
+	conPreparacion bool,
+) ([]byte, error) {
 	if !publicacion.Canon.Valido() ||
 		!instanteCatalogoCoberturaValido(publicacion.PublicadoEn) ||
 		publicacion.Vigencia.Validar() != nil {
@@ -80,6 +140,9 @@ func materialCanonicoCatalogoCoberturaV1(
 	escritor.instante(publicacion.Vigencia.Desde)
 	escritor.instanteOpcional(publicacion.Vigencia.Hasta)
 	escritor.cadena(publicacion.ProcedenciaRef)
+	if conPreparacion {
+		escritor.booleano(publicacion.EsEjemplo)
+	}
 	escritor.entero32(uint32(len(publicacion.Vias)))
 	for _, via := range publicacion.Vias {
 		escritor.cadena(string(via.Clave))
@@ -92,11 +155,26 @@ func materialCanonicoCatalogoCoberturaV1(
 			escritor.cadena(string(comprobacion.Procedencia.Clave))
 			escritor.cadena(comprobacion.Procedencia.DefinicionFuenteRef)
 		}
+		if conPreparacion {
+			escritor.elementosPreparacion(via.Documentos)
+			escritor.elementosPreparacion(via.Datos)
+		}
 	}
 	if escritor.err != nil {
 		return nil, ErrDatoInvalido
 	}
 	return material.Bytes(), nil
+}
+
+func (e *escritorCanonCatalogo) elementosPreparacion(
+	elementos []ElementoPreparacionViaCobertura,
+) {
+	e.entero32(uint32(len(elementos)))
+	for _, elemento := range elementos {
+		e.cadena(string(elemento.Clave))
+		e.entero16(elemento.Orden)
+		e.cadena(string(elemento.ClaveI18n))
+	}
 }
 
 type escritorCanonCatalogo struct {
