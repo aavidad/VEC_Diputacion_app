@@ -14,6 +14,9 @@ DECLARE
     huella_version text;
     documento_siguiente text;
     huella_siguiente text;
+    preimagenes jsonb;
+    huella_preimagenes text;
+    huella_vacias text := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}', 'UTF8')), 'hex');
 BEGIN
     IF pg_catalog.has_table_privilege('vec_autorizacion_atestada_v3_propietario',
          'vec_catalogos_configurables.publicacion', 'SELECT') THEN
@@ -21,8 +24,10 @@ BEGIN
     END IF;
     huella := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(documento, 'UTF8')), 'hex');
     PERFORM vec_catalogos_configurables.publicar('rpt-demo', 1, huella, documento,
+        '{}'::jsonb, huella_vacias,
         'aprobacion:a', 'aprobacion:b', 'actor:uno', 'decision:pub', 'recibo:pub-demo');
     IF vec_catalogos_configurables.publicar('rpt-demo', 1, huella, documento,
+        '{}'::jsonb, huella_vacias,
         'aprobacion:a', 'aprobacion:b', 'actor:dos', 'decision:pub-replay', 'recibo:pub-demo')
         <> 'recibo:pub-demo' THEN
         RAISE EXCEPTION 'replay de publicacion incorrecto';
@@ -95,34 +100,44 @@ BEGIN
     huella_version := pg_catalog.encode(pg_catalog.sha256(
         pg_catalog.convert_to(documento_version, 'UTF8')), 'hex');
     PERFORM vec_catalogos_configurables.publicar('rpt-version', 1, huella_version,
-        documento_version, 'aprobacion:version-a', 'aprobacion:version-b',
+        documento_version, '{}'::jsonb, huella_vacias,
+        'aprobacion:version-a', 'aprobacion:version-b',
         'actor:uno', 'decision:version-1', 'recibo:version-1');
     revision := vec_catalogos_configurables.cambiar_proyeccion('cat-version', 1,
         'deshabilitar', NULL, NULL, 'actor:uno', 'decision:version-des', 'recibo:version-des');
     IF revision <> 2 THEN RAISE EXCEPTION 'deshabilitacion versionada incorrecta'; END IF;
     documento_siguiente := pg_catalog.jsonb_build_object('id', 'rpt-version', 'version', 2,
         'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
-            pg_catalog.jsonb_build_object('clave', 'cat-version', 'etiqueta', 'Nueva definicion',
-                'preimagen_control', pg_catalog.jsonb_build_object('version', 1,
-                    'huella_sha256', huella_version, 'revision', 1, 'estado', 'habilitada'))))::text;
+            pg_catalog.jsonb_build_object('clave', 'cat-version', 'etiqueta', 'Nueva definicion')))::text;
     huella_siguiente := pg_catalog.encode(pg_catalog.sha256(
         pg_catalog.convert_to(documento_siguiente, 'UTF8')), 'hex');
+    preimagenes := pg_catalog.jsonb_build_object('cat-version', pg_catalog.jsonb_build_object(
+        'version', 1, 'huella_sha256', huella_version, 'revision', 1, 'estado', 'habilitada'));
+    huella_preimagenes := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(preimagenes::text, 'UTF8')), 'hex');
     BEGIN
         PERFORM vec_catalogos_configurables.publicar('rpt-version', 2, huella_siguiente,
-            documento_siguiente, 'aprobacion:version-a2', 'aprobacion:version-b2',
+            documento_siguiente, preimagenes, huella_preimagenes,
+            'aprobacion:version-a2', 'aprobacion:version-b2',
             'actor:uno', 'decision:version-2', 'recibo:version-2');
         RAISE EXCEPTION 'publicacion admitio preimagen de habilitada obsoleta';
     EXCEPTION WHEN SQLSTATE '40001' THEN NULL;
     END;
-    documento_siguiente := pg_catalog.jsonb_build_object('id', 'rpt-version', 'version', 2,
-        'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
-            pg_catalog.jsonb_build_object('clave', 'cat-version', 'etiqueta', 'Nueva definicion',
-                'preimagen_control', pg_catalog.jsonb_build_object('version', 1,
-                    'huella_sha256', huella_version, 'revision', 2, 'estado', 'deshabilitada'))))::text;
-    huella_siguiente := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(documento_siguiente, 'UTF8')), 'hex');
+    preimagenes := pg_catalog.jsonb_build_object('cat-version', pg_catalog.jsonb_build_object(
+        'version', 1, 'huella_sha256', huella_version, 'revision', 2, 'estado', 'deshabilitada'));
+    huella_preimagenes := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(preimagenes::text, 'UTF8')), 'hex');
+    BEGIN
+        PERFORM vec_catalogos_configurables.publicar('rpt-version', 2, huella_siguiente,
+            documento_siguiente, preimagenes, huella_vacias,
+            'aprobacion:version-a2', 'aprobacion:version-b2',
+            'actor:uno', 'decision:version-2', 'recibo:version-2');
+        RAISE EXCEPTION 'publicacion admitio huella de preimagen distinta';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
     PERFORM vec_catalogos_configurables.publicar('rpt-version', 2, huella_siguiente,
-        documento_siguiente, 'aprobacion:version-a2', 'aprobacion:version-b2',
+        documento_siguiente, preimagenes, huella_preimagenes,
+        'aprobacion:version-a2', 'aprobacion:version-b2',
         'actor:uno', 'decision:version-2', 'recibo:version-2');
     BEGIN
         PERFORM vec_catalogos_configurables.reservar('consumidor-demo', 'uso:version',
@@ -142,7 +157,9 @@ BEGIN
                        WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado')
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
                        WHERE categoria_id = 'cat-version' AND version = 2
-                         AND revision = 3 AND estado = 'deshabilitada') THEN
+                         AND revision = 3 AND estado = 'deshabilitada')
+       OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.entrada_publicada
+                   WHERE categoria_id = 'cat-version' AND definicion ? 'preimagen_control') THEN
         RAISE EXCEPTION 'tombstone perdio publicacion o uso';
     END IF;
 END $persistencia$;

@@ -22,7 +22,7 @@ BEGIN
         RAISE EXCEPTION 'DOWN de catalogos rechazado: hay historia o preimagen incompatible' USING ERRCODE = '55000';
     END IF;
 END $pre$;
-REVOKE EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,text,text,text,text,text),
+REVOKE EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text),
     vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text),
     vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text),
     vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text)
@@ -31,7 +31,7 @@ REVOKE USAGE ON SCHEMA vec_catalogos_configurables FROM vec_autorizacion_atestad
 DROP FUNCTION vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text);
 DROP FUNCTION vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text);
 DROP FUNCTION vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text);
-DROP FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,text,text,text,text,text);
+DROP FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text);
 DROP TABLE vec_catalogos_configurables.historia;
 DROP TABLE vec_catalogos_configurables.uso;
 DROP TABLE vec_catalogos_configurables.categoria_control;

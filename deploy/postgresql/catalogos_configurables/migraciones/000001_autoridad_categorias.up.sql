@@ -34,6 +34,8 @@ CREATE TABLE vec_catalogos_configurables.publicacion (
     version integer NOT NULL CHECK (version > 0),
     huella_sha256 text NOT NULL CHECK (huella_sha256 ~ '^[0-9a-f]{64}$'),
     documento_canonico text NOT NULL CHECK (pg_catalog.octet_length(documento_canonico) BETWEEN 2 AND 16777216),
+    preimagenes_control jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(preimagenes_control) = 'object'),
+    preimagenes_huella_sha256 text NOT NULL CHECK (preimagenes_huella_sha256 ~ '^[0-9a-f]{64}$'),
     aprobacion_a_ref text NOT NULL CHECK (pg_catalog.octet_length(aprobacion_a_ref) BETWEEN 3 AND 160),
     aprobacion_b_ref text NOT NULL CHECK (pg_catalog.octet_length(aprobacion_b_ref) BETWEEN 3 AND 160),
     actor_ref text NOT NULL CHECK (pg_catalog.octet_length(actor_ref) BETWEEN 3 AND 160),
@@ -43,7 +45,8 @@ CREATE TABLE vec_catalogos_configurables.publicacion (
     PRIMARY KEY (catalogo_id, version),
     UNIQUE (catalogo_id, version, huella_sha256),
     CHECK (aprobacion_a_ref <> aprobacion_b_ref),
-    CHECK (pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(documento_canonico, 'UTF8')), 'hex') = huella_sha256)
+    CHECK (pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(documento_canonico, 'UTF8')), 'hex') = huella_sha256),
+    CHECK (pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(preimagenes_control::text, 'UTF8')), 'hex') = preimagenes_huella_sha256)
 );
 CREATE TABLE vec_catalogos_configurables.entrada_publicada (
     catalogo_id text NOT NULL,
@@ -154,6 +157,7 @@ CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_catalogos_confi
 -- y se coteja su SHA-256. Nunca se reserializa JSONB para reconstruir la huella.
 CREATE FUNCTION vec_catalogos_configurables.publicar(
     p_catalogo_id text, p_version integer, p_huella text, p_documento text,
+    p_preimagenes jsonb, p_preimagenes_huella text,
     p_aprobacion_a text, p_aprobacion_b text, p_actor text, p_decision text, p_recibo text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
@@ -165,12 +169,17 @@ DECLARE
     total integer := 0;
     anterior vec_catalogos_configurables.publicacion%ROWTYPE;
     control_anterior vec_catalogos_configurables.categoria_control%ROWTYPE;
+    preimagenes_restantes jsonb;
 BEGIN
     IF p_catalogo_id IS NULL OR p_catalogo_id !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR p_version IS NULL OR p_version < 1
        OR p_huella IS NULL OR p_huella !~ '^[0-9a-f]{64}$'
        OR p_documento IS NULL OR pg_catalog.octet_length(p_documento) > 16777216
        OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_documento, 'UTF8')), 'hex') <> p_huella
+       OR p_preimagenes IS NULL OR pg_catalog.jsonb_typeof(p_preimagenes) <> 'object'
+       OR pg_catalog.octet_length(p_preimagenes::text) > 1048576
+       OR p_preimagenes_huella IS NULL OR p_preimagenes_huella !~ '^[0-9a-f]{64}$'
+       OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_preimagenes::text, 'UTF8')), 'hex') <> p_preimagenes_huella
        OR p_aprobacion_a IS NULL OR pg_catalog.octet_length(p_aprobacion_a) NOT BETWEEN 3 AND 160
        OR p_aprobacion_b IS NULL OR pg_catalog.octet_length(p_aprobacion_b) NOT BETWEEN 3 AND 160
        OR p_aprobacion_a = p_aprobacion_b
@@ -188,11 +197,14 @@ BEGIN
        OR pg_catalog.jsonb_array_length(contenido->'entradas') NOT BETWEEN 1 AND 10000 THEN
         RAISE EXCEPTION 'documento de publicacion incompatible' USING ERRCODE = '22023';
     END IF;
+    preimagenes_restantes := p_preimagenes;
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:' || p_catalogo_id, 0));
     SELECT * INTO anterior FROM vec_catalogos_configurables.publicacion
      WHERE catalogo_id = p_catalogo_id AND version = p_version;
     IF FOUND THEN
         IF anterior.huella_sha256 = p_huella AND anterior.documento_canonico = p_documento
+           AND anterior.preimagenes_control = p_preimagenes
+           AND anterior.preimagenes_huella_sha256 = p_preimagenes_huella
            AND anterior.aprobacion_a_ref = p_aprobacion_a AND anterior.aprobacion_b_ref = p_aprobacion_b
            AND anterior.recibo_ref = p_recibo THEN
             RETURN p_recibo;
@@ -205,9 +217,11 @@ BEGIN
         RAISE EXCEPTION 'version de publicacion en conflicto' USING ERRCODE = '23505';
     END IF;
     INSERT INTO vec_catalogos_configurables.publicacion
-        (catalogo_id, version, huella_sha256, documento_canonico, aprobacion_a_ref,
+        (catalogo_id, version, huella_sha256, documento_canonico,
+         preimagenes_control, preimagenes_huella_sha256, aprobacion_a_ref,
          aprobacion_b_ref, actor_ref, decision_ref, recibo_ref)
-    VALUES (p_catalogo_id, p_version, p_huella, p_documento, p_aprobacion_a,
+    VALUES (p_catalogo_id, p_version, p_huella, p_documento,
+            p_preimagenes, p_preimagenes_huella, p_aprobacion_a,
             p_aprobacion_b, p_actor, p_decision, p_recibo);
     FOR item IN SELECT value FROM pg_catalog.jsonb_array_elements(contenido->'entradas') LOOP
         clave := item->>'clave';
@@ -222,14 +236,15 @@ BEGIN
         IF FOUND THEN
             IF control_anterior.catalogo_id <> p_catalogo_id
                OR control_anterior.estado = 'tombstone'
-               OR item->'preimagen_control' IS DISTINCT FROM pg_catalog.jsonb_build_object(
+               OR p_preimagenes->clave IS DISTINCT FROM pg_catalog.jsonb_build_object(
                     'version', control_anterior.version,
                     'huella_sha256', control_anterior.huella_sha256,
                     'revision', control_anterior.revision,
                     'estado', control_anterior.estado) THEN
                 RAISE EXCEPTION 'preimagen de categoria obsoleta' USING ERRCODE = '40001';
             END IF;
-        ELSIF item ? 'preimagen_control' THEN
+            preimagenes_restantes := preimagenes_restantes - clave;
+        ELSIF p_preimagenes ? clave THEN
             RAISE EXCEPTION 'preimagen de categoria inexistente' USING ERRCODE = '22023';
         END IF;
         INSERT INTO vec_catalogos_configurables.entrada_publicada
@@ -262,6 +277,9 @@ BEGIN
     END LOOP;
     IF total <> pg_catalog.jsonb_array_length(contenido->'entradas') THEN
         RAISE EXCEPTION 'publicacion incompleta' USING ERRCODE = '55000';
+    END IF;
+    IF preimagenes_restantes <> '{}'::jsonb THEN
+        RAISE EXCEPTION 'preimagen sin categoria publicada' USING ERRCODE = '22023';
     END IF;
     RETURN p_recibo;
 END $f$;
@@ -432,7 +450,7 @@ REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_catalogos_configurables FROM PUBLIC;
 -- Solo el propietario NOLOGIN de AD3 podrá llamar al core desde sus wrappers
 -- SECURITY DEFINER, después de consumir la decisión V3 en la misma transacción.
 GRANT USAGE ON SCHEMA vec_catalogos_configurables TO vec_autorizacion_atestada_v3_propietario;
-GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,text,text,text,text,text),
+GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text),
     vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text),
     vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text),
     vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text)
