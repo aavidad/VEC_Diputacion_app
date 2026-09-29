@@ -1,23 +1,24 @@
 {
   "fase": {
-    "titulo": "Signature stage",
-    "resumen": "Where the signing of each document in this case stands.",
+    "titulo": "Signing stage",
     "lista": "Signature status of the documents",
     "documento": "Document",
     "estado": "Status",
     "quien": "Who must sign",
     "desde": "Since",
-    "paso": "step {actual} of {total}",
-    "nadie": "No one: signing is complete",
-    "sin_fecha": "No signatures yet",
+    "paso": "{cargo} (step {actual} of {total})",
+    "nadie": "No one: test workflow complete",
+    "sin_fecha": "Not started",
     "fecha_desconocida": "Date not available",
-    "estado_no_disponible_aviso": "The status of each signature cannot be checked right now. The first signer in the workflow is shown. Please try again later."
+    "estado_no_disponible_aviso": "The status of each signature cannot be checked right now. The first signer in the workflow is shown. Please try again later.",
+    "devuelto_por": "Returned by",
+    "devuelto_motivo": "{cargo}: {motivo}"
   },
   "estado": {
     "borrador": "Unsigned draft",
     "pendiente_firma": "Awaiting signature",
     "enviado_portafirmas": "Sent to Firmadoc",
-    "firmado": "Signed",
+    "firmado": "Signed (test)",
     "devuelto": "Returned",
     "no_disponible": "Status not available"
   }

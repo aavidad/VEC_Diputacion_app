@@ -174,7 +174,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
     <p class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
     ${fase ? renderizarFaseFirma({
     catalogo: fase.catalogo, real: circuito?.registro ? circuito : null, textos: fase.textos,
-    nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t),
+    nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t), aviso: estadoConsulta !== "denegado",
   }) : ""}
     <section class="ct-circuito-portafirmas" aria-labelledby="ct-circuito-portafirmas-titulo">
       <h4 id="ct-circuito-portafirmas-titulo">${escaparHTML(t("circuito_firma_portafirmas_titulo"))}</h4>
@@ -195,7 +195,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h5>${escaparHTML(etiqueta)}</h5>
       <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
     </article>`;
-  }).join("")}</div></details>` : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
+  }).join("")}</div></details>` : fase && estadoConsulta === "no_disponible" ? "" : `<p class="ct-circuito-indisponible" role="${estadoConsulta === "denegado" ? "alert" : "status"}">${escaparHTML(t(claveFallo))}</p>`}
   </section>`;
 }
 

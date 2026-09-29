@@ -65,9 +65,9 @@ test("sin estado real se avisa y se muestra el primer firmante", () => {
 test("en inglés, sin texto en castellano, y sin catálogo no pinta nada", () => {
   const real = { documentos: [documento(["firmado", "firmado"], 0, ["2026-09-28T08:30:00Z", "2026-09-29T09:15:00Z"])] };
   const html = renderizarFaseFirma({ catalogo: real, real, textos: en, nombrar: (tipo, valor) => `${tipo}:${valor}` });
-  assert.match(html, /Signature stage/u);
-  assert.match(html, />Signed</u);
-  assert.match(html, /No one: signing is complete/u);
+  assert.match(html, /Signing stage/u);
+  assert.match(html, />Signed \(test\)</u);
+  assert.match(html, /No one: test workflow complete/u);
   assert.match(html, /documento:Resolución &lt;x&gt;/u);
   assert.doesNotMatch(html, /Fase de firma|>Firmado<|Quién debe/u);
   assert.equal(renderizarFaseFirma({ catalogo: null, real: null, textos: es }), "");
@@ -90,4 +90,26 @@ test("un documento de un solo paso no repite «paso 1 de 1»", () => {
   const html = renderizarFaseFirma({ catalogo: real, real, textos: es });
   assert.match(html, /<span>Cargo 1<\/span>/u);
   assert.doesNotMatch(html, /paso 1 de 1/u);
+});
+
+test("una devolución dice quién la hizo y el motivo, y la firma completa se declara de prueba", () => {
+  const devuelto = documento(["pendiente_firma", "devuelto"], 1, ["", "2026-09-29T07:20:00Z"]);
+  devuelto.pasos[1].motivo_devolucion = "Falta <fecha>";
+  const html = renderizarFaseFirma({ catalogo: { documentos: [devuelto] }, real: { documentos: [devuelto] }, textos: es });
+  assert.match(html, /Devuelto por<\/span>\s*<span>Cargo 2: Falta &lt;fecha&gt;<\/span>/u);
+  assert.doesNotMatch(html, /Quién debe firmar/u);
+  const sinMotivo = documento(["devuelto"], 1, ["2026-09-29T07:20:00Z"]);
+  assert.match(renderizarFaseFirma({ catalogo: { documentos: [sinMotivo] }, real: { documentos: [sinMotivo] }, textos: es }),
+    /Devuelto por<\/span>\s*<span>Cargo 1<\/span>/u);
+  const firmado = documento(["firmado"], 0, ["2026-09-29T07:20:00Z"]);
+  const completo = renderizarFaseFirma({ catalogo: { documentos: [firmado] }, real: { documentos: [firmado] }, textos: es });
+  assert.match(completo, />Firmado en prueba</u);
+  assert.match(completo, /Nadie: circuito de prueba completo/u);
+  const pendiente = documento(["pendiente_firma"], 1);
+  assert.match(renderizarFaseFirma({ catalogo: { documentos: [pendiente] }, real: { documentos: [pendiente] }, textos: es }), /Sin empezar/u);
+});
+
+test("con permiso denegado la fase no añade su propio aviso", () => {
+  const catalogo = { documentos: [documento(["pendiente_firma"], 1)] };
+  assert.doesNotMatch(renderizarFaseFirma({ catalogo, real: null, textos: es, aviso: false }), /ct-fase-firma-aviso/u);
 });

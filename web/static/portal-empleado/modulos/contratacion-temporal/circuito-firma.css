@@ -292,12 +292,6 @@
   font-weight: 600;
 }
 
-.ct-fase-firma-resumen {
-  margin: 4px 0 0;
-  color: var(--portal-muted);
-  font-size: 0.85rem;
-}
-
 .ct-fase-firma-aviso {
   margin: 8px 0 0;
   padding: 8px 12px;
@@ -347,7 +341,7 @@
 
 .ct-fase-firma-rotulo {
   color: var(--portal-muted);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .ct-fase-firma-estado {

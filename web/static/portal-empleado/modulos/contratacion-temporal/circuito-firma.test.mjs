@@ -243,7 +243,7 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
     expediente: { expediente_ref: ref, version: 7, demostracion: false },
     cuadro: { demostracion: false, expedientes: [{ expediente_ref: ref, version: 7,
       fase_clave: "nombramiento", estado_clave: "en_curso" }] } };
-  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "no está disponible"]]) {
+  for (const [resultado, texto] of [["denegado", "No dispone de permiso"], ["no_disponible", "Ahora no se puede saber en qué estado"]]) {
     const insertados = [];
     const fases = { insertAdjacentHTML: (_, html) => insertados.push(html) };
     const raiz = { querySelector: (selector) => (selector === ".ct-exp-progreso" ? fases : null) };
@@ -261,6 +261,8 @@ test("el gestor distingue denegación 403 de indisponibilidad 503 de CT118", asy
     assert.doesNotMatch(insertados[0], /data-ct-firma-accion|ct-circuito-paso/u);
     // La fase de firma sigue visible con el primer firmante y sin estado.
     assert.match(insertados[0], /data-ct-fase-firma-estado="no_disponible"/u);
+    // Un solo aviso: o el de permiso (sin el de la fase) o el de la fase.
+    assert.equal((insertados[0].match(/ct-fase-firma-aviso|ct-circuito-indisponible/gu) ?? []).length, 1);
     gestor.retirar();
   }
 });
