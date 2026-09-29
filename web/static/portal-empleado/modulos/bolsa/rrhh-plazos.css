@@ -30,7 +30,8 @@
   gap: 16px;
 }
 
-.rrhh-plazos__rejilla > .panel:first-child {
+.rrhh-plazos__rejilla > .panel:first-child,
+.rrhh-plazos__rejilla > .panel:last-child {
   grid-column: 1 / -1;
 }
 
@@ -95,6 +96,14 @@
   .rrhh-plazos__campos .campo--ancho {
     grid-column: auto;
   }
+}
+
+.ofertas-bolsa__aviso {
+  margin: 0 0 16px;
+  border-left: 4px solid var(--portal-exito);
+  padding: 12px 16px;
+  background: var(--portal-exito-suave);
+  color: var(--portal-tinta);
 }
 
 /* «Ofertas publicadas»: una ficha por oferta con sus datos clave y, tras el

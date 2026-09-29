@@ -262,7 +262,7 @@ test("la superficie rellena las plazas con el ejemplo, respeta lo que cambia RRH
   superficie.activar("bolsa:1"); await turno();
   const html = superficie.renderizar();
   assert.match(html, /<h3>Plazas<\/h3>/u);
-  assert.match(html, /<option value="simultanea" selected>A la vez, tantas personas como plazas libres<\/option>/u);
+  assert.match(html, /<option value="simultanea" selected>A la vez: una persona por plaza libre<\/option>/u);
   assert.match(html, /name="plazas_respuesta_horas"[^>]*value="24"/u);
   superficie.manejarCambio({ target: { name: "plazas_tras_renuncia", value: "llamamiento_directo", closest: () => ({}) } });
   superficie.manejarCambio({ target: { name: "plazas_respuesta_horas", value: "6", closest: () => ({}) } });

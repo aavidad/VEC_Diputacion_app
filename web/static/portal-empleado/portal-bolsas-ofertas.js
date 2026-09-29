@@ -191,7 +191,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
   function cancelarConfirmacion() {
     const acto = estado.confirmacion;
     estado.confirmacion = null; cambiar();
-    if (acto) enfocar(`[data-ofertas-plaza="${acto.ofertaRef}|${acto.plaza}"] [data-ofertas-accion="preparar"]`);
+    if (acto) enfocar(`[data-ofertas-plaza="${acto.ofertaRef}|${acto.plaza}"] [data-ofertas-accion="preparar"][data-tipo="${acto.tipo}"]`);
   }
 
   async function confirmar() {
@@ -209,6 +209,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
         estado.clavesActo.delete(firma); estado.confirmacion = null;
         estado.mensaje = traducir(`hecho_${acto.tipo}`, { plaza: acto.plaza, orden: acto.orden ?? "" });
         anunciar(estado.mensaje); void cargar();
+        enfocar('[data-ofertas-aviso="exito"]');
       } else {
         estado.errorOperacion = mensajeError(traducir, resultado);
         // Con la plaza cambiada, la clave queda ligada al acto anterior.
@@ -222,6 +223,8 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     const partes = [];
     if (Number.isSafeInteger(plaza.orden_vigente) && (plaza.estado === "pendiente_respuesta" || plaza.estado === "cubierta")) partes.push(traducir("orden", { orden: plaza.orden_vigente }));
     if (plaza.estado === "pendiente_respuesta" && plaza.responder_antes_de) partes.push(traducir("responder_antes", { fecha: fechaHora(plaza.responder_antes_de) }));
+    if (plaza.estado === "pendiente_respuesta" && !plaza.puede_sin_respuesta) partes.push(traducir("sin_respuesta_cuando"));
+    if (plaza.estado === "llamamiento_directo") partes.push(traducir("directo_siguiente"));
     if (plaza.estado === "vacante" && plaza.propuesta?.tipo === "adjudicar") partes.push(traducir("siguiente", { orden: plaza.propuesta.orden_vigente }));
     if (plaza.estado === "vacante" && plaza.propuesta?.tipo === "llamamiento_directo") {
       const ultimo = plaza.historial.at(-1)?.tipo;
@@ -315,7 +318,7 @@ export function crearSuperficieOfertasBolsa({ cliente = crearClienteOfertas(), a
     else if (estado.carga === "error") cuerpo = `<p class="mensaje-error" role="alert">${escapar(estado.error)} <button type="button" class="boton-secundario" data-ofertas-accion="recargar">${escapar(traducir("reintentar_carga"))}</button></p>`;
     else if (estado.ofertas.length === 0) cuerpo = `<p>${escapar(traducir("vacio"))}</p>`;
     else cuerpo = `<ul class="ofertas-lista">${estado.ofertas.map(fichaOferta).join("")}</ul>`;
-    const avisos = `<div aria-live="polite">${estado.mensaje ? `<p class="mensaje-exito" role="status">${escapar(estado.mensaje)}</p>` : ""}</div>` +
+    const avisos = `<div aria-live="polite">${estado.mensaje ? `<p class="mensaje-exito ofertas-bolsa__aviso" data-ofertas-aviso="exito" tabindex="-1" role="status">${escapar(estado.mensaje)}</p>` : ""}</div>` +
       `${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escapar(estado.errorOperacion)}</p>` : ""}`;
     return `<section class="panel panel-separado ofertas-bolsa" aria-labelledby="titulo-ofertas-bolsa"><div class="cabecera-panel"><h3 id="titulo-ofertas-bolsa">${escapar(traducir("titulo"))}</h3>${total}</div><div class="cuerpo-panel">${avisos}${cuerpo}${formulario()}</div></section>`;
   }

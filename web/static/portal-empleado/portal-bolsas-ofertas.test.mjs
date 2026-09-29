@@ -155,7 +155,8 @@ test("tras el plazo muestra cada plaza, pide confirmación y registra el acto co
   // Primer clic: solo pide confirmación.
   s.manejarClick(boton({ ofertasAccion: "preparar", ofertaRef: "oferta:2", plaza: "2", tipo: "adjudicada", secuencia: "2", participacionRef: "p:5", orden: "5" }));
   assert.equal(actos.length, 0);
-  assert.match(s.renderizar(), /¿Adjudicar la plaza 2 al n\.º de orden 5\?/);
+  assert.match(s.renderizar(), /¿Adjudicar la plaza 2 al n\.º de orden 5\? Tendrá que responder/);
+  assert.match(html, /Podrá marcar «No respondió» cuando venza el plazo/);
   s.manejarClick(boton({ ofertasAccion: "cancelar" }));
   assert.doesNotMatch(s.renderizar(), /¿Adjudicar/);
   s.manejarClick(boton({ ofertasAccion: "preparar", ofertaRef: "oferta:2", plaza: "2", tipo: "adjudicada", secuencia: "2", participacionRef: "p:5", orden: "5" }));
@@ -167,7 +168,7 @@ test("tras el plazo muestra cada plaza, pide confirmación y registra el acto co
   await turno();
   assert.deepEqual(actos.map(([a, c]) => [a.numero_de_plaza, a.tipo, a.participacion_ref, a.secuencia_esperada, c]),
     [[2, "adjudicada", "p:5", 2, "clave-acto-1"], [2, "adjudicada", "p:5", 2, "clave-acto-1"]]);
-  assert.deepEqual(anuncios, ["Plaza 2 adjudicada al n.º de orden 5."]);
+  assert.deepEqual(anuncios, ["Plaza 2 adjudicada al n.º de orden 5. Registre su respuesta cuando llegue."]);
   s.manejarClick(boton({ ofertasAccion: "preparar", ofertaRef: "oferta:2", plaza: "3", tipo: "llamamiento_directo", secuencia: "0" }));
   s.manejarClick(boton({ ofertasAccion: "confirmar" }));
   await turno();
