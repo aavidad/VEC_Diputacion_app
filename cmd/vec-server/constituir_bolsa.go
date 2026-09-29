@@ -41,3 +41,17 @@ func describirSustituidas(sustituidas []ports.BolsaSustituida) string {
 	}
 	return strings.Join(partes, ",")
 }
+
+// describirPendientesRevision resume las filas del acta que conservan su
+// puesto pero quedan sin vínculo con la persona hasta que RRHH las revise.
+// Solo números de fila y códigos de motivo: nunca datos personales.
+func describirPendientesRevision(pendientes []ports.FilaPendienteRevision) string {
+	if len(pendientes) == 0 {
+		return "ninguna"
+	}
+	partes := make([]string, 0, len(pendientes))
+	for _, p := range pendientes {
+		partes = append(partes, fmt.Sprintf("fila:%d:%s", p.FilaNumero, p.Motivo))
+	}
+	return strings.Join(partes, ",")
+}
