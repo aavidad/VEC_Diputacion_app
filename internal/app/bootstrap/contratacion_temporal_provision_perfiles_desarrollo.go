@@ -385,7 +385,7 @@ func geometriaProvisionPerfilesCT(cfg config.Config, ahora time.Time) ([2]perfil
 
 func completarContextosProvisionPerfilesCT(ctx context.Context, conexiones conexionesProvisionPerfilesCT,
 	soporte *soporteAltaContratacionTemporalDesarrollo, perfiles *[2]perfilPreparadoProvisionCT) error {
-	if ctx == nil || conexiones.lector == nil || conexiones.contextoRuntime == nil || soporte == nil || perfiles == nil {
+	if ctx == nil || conexiones.lector == nil || soporte == nil || perfiles == nil {
 		return errProvisionPerfilesCTNoDisponible
 	}
 	for i := range perfiles {
@@ -402,17 +402,6 @@ func completarContextosProvisionPerfilesCT(ctx context.Context, conexiones conex
 			registrado.Contexto.Instantanea.CuentaRef != semilla.Contexto.Instantanea.CuentaRef ||
 			registrado.Contexto.PersonaRef != semilla.Contexto.PersonaRef ||
 			registrado.Contexto.Instantanea.VinculoRef != semilla.Contexto.Instantanea.VinculoRef {
-			return errProvisionPerfilesCTNoDisponible
-		}
-		var vigente bool
-		err = conexiones.contextoRuntime.QueryRow(ctx, `SELECT vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1($1,$2,$3,$4,$5::numeric)`,
-			registrado.Contexto.Instantanea.CuentaRef,
-			registrado.Contexto.PerfilActivoRef,
-			registrado.Contexto.PersonaRef,
-			registrado.Contexto.Instantanea.VinculoRef,
-			registrado.Contexto.Instantanea.VinculoVersion,
-		).Scan(&vigente)
-		if err != nil || !vigente {
 			return errProvisionPerfilesCTNoDisponible
 		}
 		perfiles[i].registrado = registrado
