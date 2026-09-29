@@ -7,10 +7,13 @@ GRANT vec_autorizacion_publicador_candidato_externo TO aut16_ensayo_publicador
  WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 GRANT EXECUTE ON FUNCTION vec_autorizacion.publicador_candidato_externo_interno_valido_v1()
  TO aut16_ensayo_publicador;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.rol_candidato_externo_acotado_v1(jsonb)
+ TO aut16_ensayo_publicador;
 SET SESSION AUTHORIZATION aut16_ensayo_publicador;
 
 DO $ensayo$
-DECLARE d jsonb; c jsonb; a jsonb; b_rol bytea; b_control bytea; b_asignacion bytea;
+DECLARE d jsonb; c jsonb; a jsonb; portal jsonb; control_portal jsonb;
+        b_rol bytea; b_control bytea; b_asignacion bytea; b_portal bytea; b_control_portal bytea;
         h_rol text; h_control text; h_control_previo text; h_asignacion text; h_asignacion_previa text;
         desde text; hasta text; publicado record;
 BEGIN
@@ -35,6 +38,32 @@ BEGIN
  IF publicado.version_rol_ref IS DISTINCT FROM 'rol:candidato_bolsa_historial_propio_desarrollo:v1'
     OR publicado.huella_rol IS DISTINCT FROM h_rol OR publicado.huella_control IS DISTINCT FROM h_control
  THEN RAISE EXCEPTION 'AUT-16: publicación positiva incorrecta'; END IF;
+ -- La semilla Go exterior usa la clave i18n del rol portal, nunca su texto.
+ portal:=jsonb_set(jsonb_set(d,'{rol_id}','"candidato_bolsa_portal_historial_propio_desarrollo"'::jsonb),
+   '{nombre}','"areaPersonal.miBolsa.rolPortal"'::jsonb);
+ portal:=jsonb_set(portal,'{concesiones}',(portal->'concesiones')||(
+  SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+   'accion',accion,'modulo_id','bolsa',
+   'tipo_recurso',CASE WHEN accion='bolsa.participaciones_propias.manifestar_disposicion'
+      THEN 'oferta_bolsa' ELSE 'participaciones_candidato' END,
+   'finalidades',pg_catalog.jsonb_build_array('gestion_participaciones_propias'),
+   'campos_permitidos','[]'::jsonb,'garantia_minima','alto'))
+  FROM pg_catalog.unnest(ARRAY[
+   'bolsa.participaciones_propias.solicitar_pausa',
+   'bolsa.participaciones_propias.solicitar_reactivacion',
+   'bolsa.participaciones_propias.responder_llamamiento',
+   'bolsa.participaciones_propias.manifestar_disposicion',
+   'bolsa.participaciones_propias.confirmar_contacto']) accion));
+ IF vec_autorizacion.rol_candidato_externo_acotado_v1(portal) IS NOT TRUE
+ THEN RAISE EXCEPTION 'AUT-16: semilla i18n del rol portal rechazada'; END IF;
+ control_portal:=jsonb_set(c,'{version_rol_ref}',
+   '"rol:candidato_bolsa_portal_historial_propio_desarrollo:v1"'::jsonb);
+ b_portal:=pg_catalog.convert_to(portal::text,'UTF8');
+ b_control_portal:=pg_catalog.convert_to(control_portal::text,'UTF8');
+ PERFORM vec_autorizacion.publicar_rol_candidato_externo_v1(
+  b_portal,pg_catalog.encode(pg_catalog.sha256(b_portal),'hex'),
+  b_control_portal,pg_catalog.encode(pg_catalog.sha256(b_control_portal),'hex'),
+  0,NULL,'seguridad:desarrollo:no-autoritativa','acto:aut16:portal:i18n');
  h_control_previo:=h_control;
  c:=jsonb_set(jsonb_set(c,'{revision}','2'::jsonb),'{actualizado_en}',
   '"2026-09-29T00:00:01Z"'::jsonb);

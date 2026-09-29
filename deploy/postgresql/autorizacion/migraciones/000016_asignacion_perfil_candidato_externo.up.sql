@@ -219,7 +219,7 @@ BEGIN
     OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(d))<>7
     OR NOT d ?& ARRAY['rol_id','version','nombre','estado','concesiones','publicada_por','publicada_en']
     OR d->>'nombre' IS DISTINCT FROM (CASE WHEN id='candidato_bolsa_portal_historial_propio_desarrollo'
-       THEN 'Consulta y acciones propias de bolsa en desarrollo' ELSE 'Consulta propia de bolsa en desarrollo' END)
+       THEN 'areaPersonal.miBolsa.rolPortal' ELSE 'Consulta propia de bolsa en desarrollo' END)
     OR d->>'estado' IS DISTINCT FROM 'publicada'
     OR d->>'publicada_por' IS DISTINCT FROM 'seguridad:desarrollo:no-autoritativa'
     OR pg_catalog.jsonb_typeof(d->'concesiones') IS DISTINCT FROM 'array'
@@ -297,7 +297,7 @@ BEGIN
     OR v IS NULL OR v<1 OR v=9223372036854775807
     OR d->>'estado' IS DISTINCT FROM 'publicada'
     OR d->>'nombre' IS DISTINCT FROM (CASE WHEN id='candidato_bolsa_portal_historial_propio_desarrollo'
-       THEN 'Consulta y acciones propias de bolsa en desarrollo' ELSE 'Consulta propia de bolsa en desarrollo' END)
+       THEN 'areaPersonal.miBolsa.rolPortal' ELSE 'Consulta propia de bolsa en desarrollo' END)
     OR d->>'publicada_por' IS DISTINCT FROM 'seguridad:desarrollo:no-autoritativa'
     OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(d))<>7
     OR d ?| ARRAY['retirada_por','retirada_en','retirada_ref','motivo_retirada_codigo']
