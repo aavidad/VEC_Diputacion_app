@@ -107,6 +107,14 @@ class HelperTests(unittest.TestCase):
         self.assertIn("42501", str(error.exception))
         self.assertNotIn("privado", str(error.exception))
 
+    def test_database_command_pins_local_socket_and_port(self):
+        result = subprocess.CompletedProcess([], 0, "1\n", "")
+        with patch.object(SQL.subprocess, "run", return_value=result) as run:
+            self.assertEqual(SQL.DockerDB("vec-test").query("SELECT 1;"), "1")
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("-h") + 1], "/var/run/postgresql")
+        self.assertEqual(command[command.index("-p") + 1], "5432")
+
     def test_clon_exposed_outside_loopback_is_refused(self):
         obj = {"Config": {"Image": "postgres:18.4", "Labels": {SQL.OWNER_LABEL: SQL.OWNER}},
                "State": {"Running": True},

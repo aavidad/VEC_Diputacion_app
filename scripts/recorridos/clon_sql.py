@@ -118,7 +118,8 @@ class DockerDB:
     def query(self, text):
         # No shell, DSN ni entorno de autenticación. La salida SQL nunca se imprime.
         result = subprocess.run(
-            ["docker", "exec", "-i", self.container, "psql", "-U", "postgres", "-d",
+            ["docker", "exec", "-i", self.container, "psql", "-h", "/var/run/postgresql",
+             "-p", "5432", "-U", "postgres", "-d",
              "postgres", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1",
              "-v", "VERBOSITY=verbose"],
             input=text, capture_output=True, text=True, timeout=180)
