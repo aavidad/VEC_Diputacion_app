@@ -462,7 +462,7 @@
       {
         "clave": "b24.consecuencias",
         "etiqueta": "Consecuencias y recurso",
-        "descripcion": "Las consecuencias previstas se recogen en las reglas de sanciones de esta lista. RRHH elige la causa correspondiente al dar una baja definitiva, según el artículo 11. Contra la resolución cabe recurso de reposición durante un mes desde su notificación.",
+        "descripcion": "Las consecuencias previstas se recogen en las reglas de sanciones de esta lista. Solo las que excluyen a la persona de la bolsa son causas de baja definitiva, según el artículo 11; RRHH elige la que corresponda. Contra la resolución cabe recurso de reposición durante un mes desde su notificación.",
         "vigente_desde": "2026-02-07T00:00:00+01:00",
         "atributos": {
           "origen": "reglamento",
