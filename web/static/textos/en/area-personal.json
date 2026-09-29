@@ -60,6 +60,7 @@
   },
   "miBolsa": {
     "avisoDesarrollo": "This is a test run. Your responses are saved in the test environment and have no official effect.",
+    "rolPortal": "Candidate portal user",
     "situacion": {
       "titulo": "Latest recorded status of my participation",
       "sinDato": "The current status of this participation is not yet available in My employment pool.",

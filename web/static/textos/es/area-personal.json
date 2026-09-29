@@ -1,6 +1,7 @@
 {
   "miBolsa": {
     "avisoDesarrollo": "Esta es una prueba de funcionamiento. Las respuestas se guardan en el entorno de prueba y no producen efectos oficiales.",
+    "rolPortal": "Candidato del portal",
     "historial": {
       "titulo": "Histórico de mi bolsa",
       "subtitulo": "Actuaciones de mis participaciones registradas en VEC",
