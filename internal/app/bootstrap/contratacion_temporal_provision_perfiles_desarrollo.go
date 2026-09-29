@@ -214,7 +214,7 @@ func ejecutarProvisionPerfilesCTPostgreSQL(ctx context.Context, cfg config.Confi
 		return vacio, errProvisionPerfilesCTNoDisponible
 	}
 	for i := range perfiles {
-		if err = prepararPerfilProvisionCT(ctx, conexiones, &perfiles[i], ahora); err != nil {
+		if err = prepararPerfilProvisionCT(ctx, conexiones, &perfiles[i], ahora, s.Preparar); err != nil {
 			return vacio, err
 		}
 	}
@@ -457,7 +457,7 @@ func concesionesContenidasProvisionCT(actuales, objetivo []dominiovec.ConcesionR
 }
 
 func prepararPerfilProvisionCT(ctx context.Context, conexiones conexionesProvisionPerfilesCT,
-	p *perfilPreparadoProvisionCT, ahora time.Time) error {
+	p *perfilPreparadoProvisionCT, ahora time.Time, soloLectura bool) error {
 	if p == nil || p.semilla.Validar() != nil || p.registrado.Validar() != nil {
 		return errProvisionPerfilesCTNoDisponible
 	}
@@ -473,10 +473,20 @@ func prepararPerfilProvisionCT(ctx context.Context, conexiones conexionesProvisi
 			p.objetivo, p.replay = actual, true
 			return nil
 		}
+		// El corte v1 sólo provisiona las dos semillas fijas y recupera su
+		// postimagen exacta. Una ampliación de concesiones tendrá un manifiesto
+		// y planificador propio; aquí nunca se infiere desde un binario nuevo.
+		return errProvisionPerfilesCTObsoleta
 	case errors.Is(err, puertosvec.ErrAsignacionPerfilNoEncontrada):
 		p.existe = false
 	default:
 		return errProvisionPerfilesCTNoDisponible
+	}
+	if soloLectura {
+		// La ausencia de asignación se acredita con la fuente nominal. El
+		// objetivo puro es v1; aplicar volverá a comprobar bajo lock/CAS.
+		p.objetivo = p.semilla
+		return nil
 	}
 	a := autoridadProvisionPerfilCT(conexiones.provisionador, *p, "acto:ct:perfiles-demo:preparacion")
 	objetivo, err := a.prepararInstantanea(ctx, p.semilla, !p.existe)
