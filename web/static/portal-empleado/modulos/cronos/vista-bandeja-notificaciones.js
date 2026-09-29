@@ -2,6 +2,7 @@ import {
   crearTraductorNotificacionesCronos, documentoNotificacionCronos, fechaCivilVisibleCronos, instanteVisibleCronos,
 } from "./i18n-notificaciones.js";
 import { ErrorClienteNotificacionesCronos, crearClienteNotificacionesCronosHTTP } from "./cliente-notificaciones-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const FILTROS = Object.freeze(["pendientes", "atendidas"]);
 const ERRORES = new Map([["no_competente", "error_no_competente_notificacion"]]);
@@ -24,7 +25,7 @@ function fila(n, filtro, atendiendo, t, locale, zonaHoraria) {
 
 /** Bandeja de RRHH: notificaciones de las personas de su circuito, pendientes o atendidas. */
 export function renderizarBandejaNotificacionesCronos({ estado = "cargando", filtro = "pendientes", datos = null, atendiendo = "", mensaje = "", tonoMensaje = "exito",
-  mensajes, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  mensajes, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   const t = crearTraductorNotificacionesCronos(mensajes);
   if (!FILTROS.includes(filtro)) throw new RangeError("filtro de notificaciones no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("bandeja_notificaciones_titulo") });
@@ -61,7 +62,7 @@ function estadoError(error) {
 }
 
 export function montarBandejaNotificacionesCronos({ raiz, cliente = crearClienteNotificacionesCronosHTTP(), mensajes, anunciar = () => {}, registrarDesmontar,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarBandeja !== "function" || typeof cliente?.atender !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
     throw new TypeError("montaje de la bandeja de notificaciones de Cronos no disponible");

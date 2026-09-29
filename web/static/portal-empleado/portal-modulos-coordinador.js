@@ -69,21 +69,21 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
       bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
       notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20260925-tanda2-v1"),
-      import("./modulos/cronos/vista-remoto.js?v=20260925-tanda2-v1"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20260925-tanda2-v1"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20260925-tanda2-v1"),
-      import("./modulos/cronos/vista-permisos-propios.js?v=20260925-cronos-notif-e10-v1"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-remoto.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
-      import("./modulos/cronos/i18n.js?v=20260925-tanda2-v1"),
-      import("./modulos/cronos/vista-bandeja-permisos.js?v=20260925-cronos-notif-e10-v1"),
-      import("./modulos/cronos/vista-avisos-propios.js?v=20260925-cronos-notif-e10-v1"),
+      import("./modulos/cronos/i18n.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-bandeja-permisos.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-avisos-propios.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/cliente-resolucion-http.js"),
       import("./modulos/cronos/i18n-resolucion.js"),
-      import("./modulos/cronos/vista-notificaciones-propias.js?v=20260925-cronos-notif-e10-v1"),
-      import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20260925-cronos-notif-e10-v1"),
+      import("./modulos/cronos/vista-notificaciones-propias.js?v=20260929-i18n-textos-v1"),
+      import("./modulos/cronos/vista-bandeja-notificaciones.js?v=20260929-i18n-textos-v1"),
       import("./modulos/cronos/cliente-notificaciones-http.js"),
       import("./modulos/cronos/i18n-notificaciones.js"),
     ]);
@@ -107,13 +107,13 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/registro-b2.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/vista.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260929-i18n-personal-v1"),
+      import("./modulos/personal/registro-b2.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
       import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/cliente-http-ficha-propia.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/cliente-http-ficha-propia.js?v=20260929-i18n-personal-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia });
@@ -124,20 +124,20 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal_catalogos_publicos: async () => {
     const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20260929-i18n-personal-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-personal-e10-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260929-i18n-personal-v1"),
     ]);
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260929-diseno-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260929-i18n-merge-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260926-pulido-portal-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260929-i18n-dietas-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20260925-d5d6-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
@@ -146,7 +146,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
-      import("./modulos/documentos/vista.js?v=20260928-ppt-v2"),
+      import("./modulos/documentos/vista.js?v=20260929-i18n-documentos-v1"),
       import("./modulos/documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1"),
     ]);
     return Object.freeze({ vista, cliente });

@@ -1,4 +1,4 @@
-import { rotuloTipoOtroGasto } from "./i18n-otros-gastos.js?v=20260925-d5d6-v1";
+import { rotuloTipoOtroGasto } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
 
 /**
  * Líneas de otros medios de transporte y otros gastos (D5) del formulario de

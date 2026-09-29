@@ -1,10 +1,10 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5d6-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
 
-import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-d5d6-v1";
-export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-d5d6-v1";
+import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
+export { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260929-diseno-v1";
-import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5d6-v1";
-import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5d6-v1";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
+import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
 import { recortarBordes } from "./texto-dietas.js?v=20260925-d5d6-v1";
 
 const ETAPAS = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
@@ -18,9 +18,9 @@ const euros = (centimos) => new Intl.NumberFormat(LOCALIZACION_PORTAL, { style: 
 const kilometros = (valor) => new Intl.NumberFormat(LOCALIZACION_PORTAL, { maximumFractionDigits: 1 }).format(Number(valor) || 0);
 function crearTraductorCircuito(traducir) {
   return (clave, variables = {}) => {
-    if (Object.hasOwn(MENSAJES_CIRCUITO_DIETAS_ES, clave)) {
+    if (Object.hasOwn(MENSAJES_CIRCUITO_DIETAS, clave)) {
       try { const resultado = traducir(clave, variables); if (typeof resultado === "string" && resultado !== clave) return resultado; } catch { /* El montaje puede recibir un catálogo anterior al circuito. */ }
-      return MENSAJES_CIRCUITO_DIETAS_ES[clave].replace(/\{([a-z_]+)\}/gu, (_todo, nombre) => String(variables[nombre] ?? ""));
+      return MENSAJES_CIRCUITO_DIETAS[clave].replace(/\{([a-z_]+)\}/gu, (_todo, nombre) => String(variables[nombre] ?? ""));
     }
     return traducir(clave, variables);
   };
@@ -58,7 +58,7 @@ function describirLinea(linea, t) {
  */
 export function montarVistaBandejaCircuitoDietas(contenedor, {
   cliente,
-  traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
+  traducir = crearTraductorDietas(MENSAJES_DIETAS),
   anunciar = () => {},
   generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
   registrarDesmontar,

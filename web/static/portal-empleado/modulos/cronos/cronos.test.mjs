@@ -7,7 +7,7 @@ import {
   validarDatosCronos,
 } from "./contrato.js";
 import { renderizarJornadaCronos, validarSeleccionPeriodoCronos } from "./vista.js";
-import { MENSAJES_CRONOS_ES } from "./i18n.js";
+import { MENSAJES_CRONOS } from "./i18n.js";
 import { ESQUEMA_CONTEXTO_ACTOR_FRONTEND, validarYCongelarContextoActor } from "../../identidad/contexto-actor.js";
 
 function contexto() {
@@ -69,7 +69,7 @@ test("la consulta propia exige actor y capacidad explícita", () => {
   assert.doesNotMatch(html, /cronos-boton-ayuda-texto/);
   for (const clave of ["jornada_descripcion", "jornada_periodo_descripcion",
     "jornada_movimientos_detalle", "horario_descripcion", "jornada_calendario_fuente"]) {
-    assert.equal(html.includes(MENSAJES_CRONOS_ES[clave]), false, clave);
+    assert.equal(html.includes(MENSAJES_CRONOS[clave]), false, clave);
   }
   assert.match(renderizarJornadaCronos({ estado: "disponible", contextoActor: actor,
     capacidades: [], datos: proyeccion }), /data-estado="denegado"/);
@@ -88,6 +88,6 @@ test("la selección civil rechaza fechas imposibles y no finge un saldo", () => 
   const html = renderizarJornadaCronos({ estado: "disponible", contextoActor: actor,
     capacidades: [CAPACIDAD_CONSULTAR_HORARIO], datos: datos(actor), seleccion });
   assert.match(html, /Semana del 21\/09\/2026 al 27\/09\/2026/);
-  assert.match(html, new RegExp(MENSAJES_CRONOS_ES.jornada_periodo_sin_proyeccion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, new RegExp(MENSAJES_CRONOS.jornada_periodo_sin_proyeccion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(html, /tabla-cronos-jornada/);
 });

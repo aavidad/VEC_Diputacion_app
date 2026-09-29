@@ -1,5 +1,6 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5d6-v1";
-import { MENSAJES_RECTIFICACION_ADMIN_ES } from "./i18n-rectificacion-admin.js?v=20260925-tanda-v1";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_RECTIFICACION_ADMIN } from "./i18n-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
 
 const nodo = (d, etiqueta, valor = "") => { const n = d.createElement(etiqueta); n.textContent = valor; return n; };
 const refSolicitud = (valor) => typeof valor === "string" && /^srd_[0-9a-f]{32}$/u.test(valor);
@@ -9,13 +10,13 @@ const claveValida = (valor) => typeof valor === "string" && /^[A-Za-z0-9:_-]{16,
 const refPersona = (valor) => typeof valor === "string" && /^per_[A-Za-z0-9_-]{22,128}$/u.test(valor);
 const textoCatalogo = (valor, maximo = 160) => typeof valor === "string" && valor.length > 0 && valor.length <= maximo &&
   valor.trim() === valor && !/[\x00-\x1f\x7f]/u.test(valor);
-const instante = (valor) => { const d = new Date(valor); return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(d) : ""; };
-const civil = (valor) => fechaCivil(valor) ? new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${valor}T00:00:00Z`)) : "";
+const instante = (valor) => { const d = new Date(valor); return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(d) : ""; };
+const civil = (valor) => fechaCivil(valor) ? new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${valor}T00:00:00Z`)) : "";
 function traductor(traducir) {
   return (clave, variables = {}) => {
-    if (!Object.hasOwn(MENSAJES_RECTIFICACION_ADMIN_ES, clave)) return traducir(clave, variables);
+    if (!Object.hasOwn(MENSAJES_RECTIFICACION_ADMIN, clave)) return traducir(clave, variables);
     try { const r = traducir(clave, variables); if (typeof r === "string" && r !== clave) return r; } catch { /* Catálogo común todavía sin esta extensión. */ }
-    return MENSAJES_RECTIFICACION_ADMIN_ES[clave].replace(/\{([a-z_]+)\}/gu, (_m, k) => String(variables[k] ?? ""));
+    return MENSAJES_RECTIFICACION_ADMIN[clave].replace(/\{([a-z_]+)\}/gu, (_m, k) => String(variables[k] ?? ""));
   };
 }
 function errorTexto(error, t, ficha = false) {
@@ -64,7 +65,7 @@ function selectCatalogo(d, t, clave, lista, claveRef, actual) {
 export function montarVistaRectificacionAdminDietas(contenedor, {
   cliente,
   clienteCatalogoCompetente,
-  traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
+  traducir = crearTraductorDietas(MENSAJES_DIETAS),
   anunciar = () => {},
   registrarDesmontar,
   generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),

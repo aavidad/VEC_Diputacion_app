@@ -1,7 +1,8 @@
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-personal-e10-v1";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-personal-e10-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260929-i18n-personal-v1";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260929-i18n-personal-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -32,8 +33,8 @@ function nodo(d, etiqueta, texto) { const n = d.createElement(etiqueta); if (tex
 function textoSeguro(valor, maximo = 256) { return typeof valor === "string" && valor.length <= maximo && !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u.test(valor) ? valor : ""; }
 function fechaValida(valor) { if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return false; const fecha = new Date(`${valor}T12:00:00Z`); return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor; }
 function instanteValido(valor) { return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(valor) && Number.isFinite(Date.parse(valor)); }
-function formatoFecha(valor, t) { if (!fechaValida(valor)) return t("registro_b2_sin_valor"); return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${valor}T12:00:00Z`)); }
-function formatoInstante(valor, t) { if (!instanteValido(valor)) return t("registro_b2_sin_valor"); return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
+function formatoFecha(valor, t) { if (!fechaValida(valor)) return t("registro_b2_sin_valor"); return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(`${valor}T12:00:00Z`)); }
+function formatoInstante(valor, t) { if (!instanteValido(valor)) return t("registro_b2_sin_valor"); return new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
 function periodo(traza, t) { return `${formatoFecha(traza?.desde, t)} – ${traza?.hasta ? formatoFecha(traza.hasta, t) : t("registro_b2_actual")}`; }
 function etiquetaEstado(valor, t) { return Object.hasOwn(ESTADOS, valor) ? t(ESTADOS[valor]) : t("registro_b2_estado_desconocido"); }
 /** Una referencia es un código interno: nunca se pinta. Solo indica si consta o no el dato sin denominación. */
@@ -44,7 +45,7 @@ function presentar(item, campo, t) {
     case "estado": return etiquetaEstado(item.estado, t);
     case "periodo": return periodo(item.traza, t);
     case "periodo_servicio": return `${formatoFecha(item.periodo_desde, t)} – ${formatoFecha(item.periodo_hasta, t)}`;
-    case "dias": return Number.isSafeInteger(item.dias_reconocidos) && item.dias_reconocidos >= 0 ? new Intl.NumberFormat("es-ES").format(item.dias_reconocidos) : t("registro_b2_sin_valor");
+    case "dias": return Number.isSafeInteger(item.dias_reconocidos) && item.dias_reconocidos >= 0 ? new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(item.dias_reconocidos) : t("registro_b2_sin_valor");
     case "clase": return Object.hasOwn(CLASES, item.clase) ? t(CLASES[item.clase]) : t("registro_b2_estado_desconocido");
     case "unidad": return nombreOReferencia(item, "unidad_denominacion", "unidad_ref", t);
     case "puesto": return nombreOReferencia(item, "puesto_denominacion", "puesto_ref", t);
@@ -101,7 +102,7 @@ function validarPaginaEmpleados(respuesta) {
   return p;
 }
 function hoyMadrid(reloj) {
-  const partes = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(reloj());
+  const partes = new Intl.DateTimeFormat(/* localización técnica */ "en-GB", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(reloj());
   const dato = (tipo) => partes.find((parte) => parte.type === tipo)?.value;
   return `${dato("year")}-${dato("month")}-${dato("day")}`;
 }
@@ -142,7 +143,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     const relacionesUnicas = [...ultimas.values()];
     const resumen = nodo(d, "div"); resumen.className = "panel";
     const cuerpoResumen = nodo(d, "div"); cuerpoResumen.className = "cuerpo-panel personal-registro-b2-resumen";
-    cuerpoResumen.append(nodo(d, "h3", t("registro_b2_ficha")), nodo(d, "p", t("registro_b2_version", { version: new Intl.NumberFormat("es-ES").format(ficha.version) })));
+    cuerpoResumen.append(nodo(d, "h3", t("registro_b2_ficha")), nodo(d, "p", t("registro_b2_version", { version: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(ficha.version) })));
     resumen.append(cuerpoResumen); contenido.append(resumen);
     if (relacionesUnicas.length > 1) {
       const form = nodo(d, "div"); form.className = "personal-registro-b2-toolbar";
@@ -202,7 +203,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
           unidad.append(nodo(d, "span", textoSeguro(r.unidad_denominacion, 300) || sinDenominacion(r.unidad_ref, t)));
           if (empleado.relaciones.length > 1) {
             const mas = empleado.relaciones.length - 1;
-            const extra = nodo(d, "small", mas === 1 ? t("registro_b2_mas_relaciones_uno") : t("registro_b2_mas_relaciones_otro", { total: new Intl.NumberFormat("es-ES").format(mas) }));
+            const extra = nodo(d, "small", mas === 1 ? t("registro_b2_mas_relaciones_uno") : t("registro_b2_mas_relaciones_otro", { total: new Intl.NumberFormat(LOCALIZACION_ACTUAL).format(mas) }));
             extra.className = "personal-registro-b2-secundario"; unidad.append(extra);
           }
         } else unidad.textContent = t("registro_b2_sin_relacion_vigente");

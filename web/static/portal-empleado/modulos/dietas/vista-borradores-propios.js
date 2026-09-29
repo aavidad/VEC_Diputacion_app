@@ -1,9 +1,10 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5d6-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-d5d6-v1";
-import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5d6-v1";
-import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5d6-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-d5d6-v1";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js?v=20260929-i18n-dietas-v1";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260929-i18n-dietas-v1";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260929-i18n-dietas-v1";
+import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260929-i18n-dietas-v1";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260929-i18n-dietas-v1";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260929-i18n-dietas-v1";
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
 const todos = (raiz, selector) => Array.from(raiz?.querySelectorAll(selector) || []);
@@ -51,7 +52,7 @@ const MOTIVOS_RELACIONES = new Set(["empleado_no_disponible", "empleado_ambiguo"
 // La persona titular corrige su borrador o el documento que le devolvieron.
 function comisionCorregible(item) { return ["borrador", "devuelta"].includes(item?.comision?.estado); }
 function enCorreccion(item) { return item?.comision?.estado === "devuelta" || Boolean(item?.comision?.devolucion); }
-function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
+function euros(centimos) { return new Intl.NumberFormat(LOCALIZACION_ACTUAL, { style: "currency", currency: "EUR" }).format(centimos / 100); }
 function rutaLegible(codigos, traducir, nombres = new Map()) {
   return codigos.length
     ? codigos.map((codigo) => nombres.get(codigo) || codigo).join(" → ")
@@ -81,7 +82,7 @@ function fechaLegible(valor, conHora = false) {
   const fecha = new Date(conHora ? valor : `${valor}T00:00:00Z`);
   return Number.isFinite(fecha.getTime())
     ? new Intl.DateTimeFormat(
-        "es-ES",
+        LOCALIZACION_ACTUAL,
         conHora
           ? {
               dateStyle: "medium",
@@ -126,7 +127,7 @@ export function montarVistaBorradoresPropios(
     catalogoProyectado = [],
     // Tipos de otros medios y gastos cuando no hay calculador que los sirva.
     catalogoOtrosGastos = null,
-    traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
+    traducir = crearTraductorDietas(MENSAJES_DIETAS),
     anunciar = () => {},
     confirmarOperacion = (texto) => globalThis.confirm?.(texto) === true,
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
@@ -1107,7 +1108,7 @@ export function montarVistaBorradoresPropios(
       resumen.append(cabeceraCalculo);
     } else resumen.append(tituloCalculo);
     const cifras=nodo(documento,"div"); cifras.className="dietas-comision-cifras";
-    [[traducir("borradores_propios_km"),`${Number(calculo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`],
+    [[traducir("borradores_propios_km"),`${Number(calculo.kilometros).toLocaleString(LOCALIZACION_ACTUAL,{maximumFractionDigits:1})} km`],
       [traducir("borradores_propios_importe_km"),euros(calculo.importe_kilometraje_centimos)]].forEach(([titulo,valor])=>{
         const tarjeta=nodo(documento,"article"); tarjeta.className="tarjeta-kpi";
         tarjeta.append(nodo(documento,"small",titulo),nodo(documento,"strong",valor)); cifras.append(tarjeta);
@@ -1118,7 +1119,7 @@ export function montarVistaBorradoresPropios(
     if (calculo.rutas?.length) {
       calculo.rutas.forEach((rutaCalculada, indice) => ruta.append(nodo(documento, "li",
         `${tBorradores("comision_ruta_numero", { numero: indice + 1 })}: ${rutaLegible(rutaCalculada.codigos_ruta, tBorradores, nombresRuta)} · ${tBorradores("comision_km_base")} ${rutaCalculada.kilometros_base} km · ${tBorradores("comision_km_ajuste")} ${rutaCalculada.ajuste_kilometros} km · ${tBorradores("comision_km_final")} ${rutaCalculada.kilometros_finales} km · ${euros(rutaCalculada.importe_centimos)}`)));
-    } else calculo.tramos_ruta.forEach((tramo)=>ruta.append(nodo(documento,"li",`${nombresRuta.get(tramo.origen_codigo)||tramo.origen_codigo} → ${nombresRuta.get(tramo.destino_codigo)||tramo.destino_codigo} · ${Number(tramo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`)));
+    } else calculo.tramos_ruta.forEach((tramo)=>ruta.append(nodo(documento,"li",`${nombresRuta.get(tramo.origen_codigo)||tramo.origen_codigo} → ${nombresRuta.get(tramo.destino_codigo)||tramo.destino_codigo} · ${Number(tramo.kilometros).toLocaleString(LOCALIZACION_ACTUAL,{maximumFractionDigits:1})} km`)));
     if (nivelDetalle !== "bajo") resumen.append(nodo(documento,"h5",traducir("borradores_propios_tramos_ruta")),ruta);
     if (!asignacionVerificada() && !documentoComision) {
       const aviso=nodo(documento,"p",traducir("borradores_propios_grupo_pendiente")); aviso.className="estado-chip aviso"; resumen.append(aviso);

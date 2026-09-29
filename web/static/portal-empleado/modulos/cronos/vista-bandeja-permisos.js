@@ -3,6 +3,7 @@ import { formatearCantidadCronos } from "./i18n-solicitudes.js";
 import {
   ErrorClienteResolucionCronos, MAXIMO_MOTIVO_RESOLUCION_CRONOS, PASOS_RESOLUCION_CRONOS, crearClienteResolucionCronosHTTP, motivoResolucionValido,
 } from "./cliente-resolucion-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 // El motivo se comprueba antes de enviar; un 400 del servidor es genérico.
 const ERRORES = new Map([
@@ -50,7 +51,7 @@ function accionFila(s, t) {
 
 /** Bandeja de un paso: solicitudes pendientes de quien resuelve y el formulario de resolución. */
 export function renderizarBandejaPermisosCronos({ estado = "cargando", paso = "responsable", datos = null, resolucion = null, mensaje = "", tonoMensaje = "exito",
-  mensajes, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  mensajes, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   const t = crearTraductorResolucionCronos(mensajes);
   if (!PASOS_RESOLUCION_CRONOS.includes(paso)) throw new RangeError("paso de resolución no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("bandeja_titulo") });
@@ -88,7 +89,7 @@ function estadoError(error) {
 }
 
 export function montarBandejaPermisosCronos({ raiz, cliente = crearClienteResolucionCronosHTTP(), mensajes, anunciar = () => {}, registrarDesmontar,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid", paso = "responsable" } = {}) {
+  locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", paso = "responsable" } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarBandeja !== "function" || typeof cliente?.resolver !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")
     || !PASOS_RESOLUCION_CRONOS.includes(paso)) throw new TypeError("montaje de la bandeja de permisos Cronos no disponible");

@@ -1,4 +1,4 @@
-import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-tanda-v1";
+import { MENSAJES_RECTIFICACION_DIETAS } from "./i18n-rectificacion-dietas.js?v=20260929-i18n-dietas-v1";
 
 const CAMPOS = [
   ["centro_ref", "rectificacion_centro"], ["unidad_ref", "rectificacion_unidad"],
@@ -25,7 +25,7 @@ function validarAsignacion(asignacion) {
 }
 
 /** Monta el bloque opcional D7c dentro del panel ya existente de la asignación D7. */
-export function montarVistaRectificacionDietas(contenedor, { cliente, asignacion, mensajes = MENSAJES_RECTIFICACION_DIETAS_ES, alConfirmar = () => {}, generarClaveIdempotencia = () => crypto.randomUUID().replaceAll("-", "") } = {}) {
+export function montarVistaRectificacionDietas(contenedor, { cliente, asignacion, mensajes = MENSAJES_RECTIFICACION_DIETAS, alConfirmar = () => {}, generarClaveIdempotencia = () => crypto.randomUUID().replaceAll("-", "") } = {}) {
   if (!contenedor?.ownerDocument || !cliente?.consultar || !cliente?.solicitar) throw new TypeError("vista de rectificación no disponible");
   const actual = validarAsignacion(asignacion); const documento = contenedor.ownerDocument;
   const raiz = crear(documento, "section"); raiz.dataset.dietasRectificacion = ""; raiz.className = "panel";

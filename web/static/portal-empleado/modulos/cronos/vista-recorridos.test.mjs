@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { MENSAJES_CRONOS_ES } from "./i18n.js";
+import { MENSAJES_CRONOS } from "./i18n.js";
 import { montarVistaRecorridosCronos, renderizarRecorridosCronos } from "./vista-recorridos.js";
 
 const directorio = new URL("./", import.meta.url);
@@ -75,7 +75,7 @@ test("el montaje no accede a red, ubicación ni almacenamiento", async () => {
 });
 
 test("los textos inyectables se escapan", () => {
-  const html = renderizarRecorridosCronos({ mensajes: { ...MENSAJES_CRONOS_ES, recorridos_titulo: '<img src=x onerror="alert(1)">' } });
+  const html = renderizarRecorridosCronos({ mensajes: { ...MENSAJES_CRONOS, recorridos_titulo: '<img src=x onerror="alert(1)">' } });
   assert.doesNotMatch(html, /<img/u);
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
 });

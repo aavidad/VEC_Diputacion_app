@@ -8,7 +8,7 @@ import {
   actualizarHuellaOtroGasto, calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto,
   leerOtrosGastos, numerarLineasOtroGasto,
 } from "./formulario-otros-gastos.js";
-import { crearTraductorOtrosGastosDietas, MENSAJES_OTROS_GASTOS_ES, rotuloTipoOtroGasto } from "./i18n-otros-gastos.js";
+import { crearTraductorOtrosGastosDietas, MENSAJES_OTROS_GASTOS, rotuloTipoOtroGasto } from "./i18n-otros-gastos.js";
 import { crearTraductorDietas } from "./i18n.js";
 
 const CATALOGO = Object.freeze({ version: "provisional:otros-gastos:20260925", rotulo: "PROVISIONAL · pendiente de confirmación por RRHH",
@@ -106,14 +106,14 @@ test("todo tipo del catálogo publicado tiene rótulo y la extensión se monta e
   const go = await readFile(new URL("../../../../../internal/modules/dietas/domain/otros_gastos.go", import.meta.url), "utf8");
   const codigos = [...go.matchAll(/\{"([a-z_]+)", ClaseOtro(?:Medio|Gasto)\}/gu)].map(([, codigo]) => codigo);
   assert.ok(codigos.length >= 2);
-  for (const codigo of codigos) assert.ok(Object.hasOwn(MENSAJES_OTROS_GASTOS_ES, `otros_gastos_tipo_${codigo}`), codigo);
+  for (const codigo of codigos) assert.ok(Object.hasOwn(MENSAJES_OTROS_GASTOS, `otros_gastos_tipo_${codigo}`), codigo);
   const [vista, bandeja] = await Promise.all(["./vista-borradores-propios.js", "./vista-bandeja-circuito.js"]
     .map((ruta) => readFile(new URL(ruta, import.meta.url), "utf8")));
   for (const fuente of [vista, bandeja]) {
     assert.match(fuente, /i18n-otros-gastos\.js\?v=/u);
     assert.match(fuente, /formulario-otros-gastos\.js\?v=/u);
   }
-  for (const texto of Object.values(MENSAJES_OTROS_GASTOS_ES))
+  for (const texto of Object.values(MENSAJES_OTROS_GASTOS))
     assert.doesNotMatch(texto, /\bD5\b|provisional:|otro_medio|otro_gasto|catalogo_version/u);
 });
 
@@ -133,7 +133,7 @@ test("una línea guardada antes de pedir tipo, fecha y justificante se marca y e
   assert.equal(completa.querySelector("[data-dietas-otro-anterior]"), null);
   assert.equal(nueva.querySelector("[data-dietas-otro-anterior]"), null);
   const aviso = anterior.querySelector("[data-dietas-otro-anterior]");
-  assert.equal(aviso.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_linea_anterior);
+  assert.equal(aviso.textContent, MENSAJES_OTROS_GASTOS.otros_gastos_linea_anterior);
   assert.ok(Object.hasOwn(anterior.dataset, "dietasOtroIncompleta"));
   const error = (() => { try { leerOtrosGastos(form, catalogo, FECHAS); } catch (fallo) { return fallo; } return null; })();
   assert.ok(error instanceof TypeError);
@@ -178,7 +178,7 @@ test("la huella anuncia su resultado, descarta un fichero anterior y avisa de lo
   entrada.files = [new Blob(["nuevo"])];
   await actualizarHuellaOtroGasto(entrada, { traducir: t });
   assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
-  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_huella_calculada);
+  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS.otros_gastos_huella_calculada);
   soltarPrimero();
   await primeraLlamada;
   assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
@@ -187,11 +187,11 @@ test("la huella anuncia su resultado, descarta un fichero anterior y avisa de lo
   entrada.files = [{ size: 25 * 1024 * 1024 + 1, arrayBuffer: async () => { leido = true; return new ArrayBuffer(1); } }];
   await actualizarHuellaOtroGasto(entrada, { traducir: t });
   assert.equal(leido, false);
-  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_huella_grande);
+  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS.otros_gastos_huella_grande);
   assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
   entrada.files = [new Blob([])];
   await actualizarHuellaOtroGasto(entrada, { traducir: t });
-  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_huella_error);
+  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS.otros_gastos_huella_error);
   // Con la vista desmontada no se escribe nada.
   estado.textContent = "";
   entrada.files = [new Blob(["otro"])];

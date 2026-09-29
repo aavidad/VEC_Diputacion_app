@@ -1,5 +1,6 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda2-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { validarDisponibilidadRemota, validarReciboMarcajeRemoto } from "./cliente-remoto-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const MOVIMIENTOS = Object.freeze(["entrada", "inicio_pausa", "fin_pausa", "salida"]);
 const MENSAJE_MOTIVO = Object.freeze({
@@ -19,7 +20,7 @@ function traducir(t, clave, variables) { return escapar(t(clave, variables)); }
 
 /** Modelo de presentación. No concede permisos: sólo representa el GET validado. */
 export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "consultando", recibo = null,
-  pendiente = null, avisoSecuencia = false, t = crearTraductorCronos(), locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  pendiente = null, avisoSecuencia = false, t = crearTraductorCronos(), locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   let disponible = null; let continuidadAusente = false; let secuenciaAusente = false;
   if (disponibilidad) {
     try { disponible = validarDisponibilidadRemota(disponibilidad); }
@@ -96,8 +97,8 @@ function nuevaClave(cryptoImpl) {
 }
 
 /** Montaje explícito del bloque remoto; el shell decide cuándo mostrarlo. */
-export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS_ES,
-  cryptoImpl = globalThis.crypto, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS,
+  cryptoImpl = globalThis.crypto, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid" } = {}) {
   if (!raiz?.ownerDocument?.createElement || typeof raiz.append !== "function"
     || typeof cliente?.disponibilidad !== "function" || typeof cliente?.registrar !== "function") {
     throw new TypeError("montaje remoto de Cronos incompleto");

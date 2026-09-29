@@ -9,7 +9,7 @@ const fecha = (v) => typeof v === "string" && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?
 const digest = (v) => v == null || v === "" || typeof v === "string" && /^[a-f0-9]{64}$/iu.test(v);
 const formatoFecha = new Intl.DateTimeFormat(LOCALIZACION_ACTUAL, { dateStyle: "medium", timeStyle: "medium", timeZone: ZONA_HORARIA_PORTAL });
 const formatoNumero = new Intl.NumberFormat(LOCALIZACION_ACTUAL);
-const formatoPartesMadrid = new Intl.DateTimeFormat("en-GB", { timeZone: ZONA_HORARIA_PORTAL,
+const formatoPartesMadrid = new Intl.DateTimeFormat(/* localización técnica */ "en-GB", { timeZone: ZONA_HORARIA_PORTAL,
   year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const DIA_MS = 86400000;
 

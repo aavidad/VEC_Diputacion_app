@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearTraductorDietas, MENSAJES_DIETAS } from "./i18n.js";
 import { crearTraductorBorradoresDietas } from "./i18n-borradores.js";
-import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js";
+import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js";
 
 test("el catálogo común traduce Dietas, el documento y el circuito con el mismo traductor", () => {
   for (const clave of ["borradores_propios_titulo_registrados", "comision_bloque_kilometraje", "comision_total_provisional", "circuito_etapa_fiscalizacion"])
-    assert.equal(crearTraductorDietas()(clave), MENSAJES_DIETAS_ES[clave]);
-  assert.equal(MENSAJES_DIETAS_ES.circuito_recibo, MENSAJES_CIRCUITO_DIETAS_ES.circuito_recibo);
+    assert.equal(crearTraductorDietas()(clave), MENSAJES_DIETAS[clave]);
+  assert.equal(MENSAJES_DIETAS.circuito_recibo, MENSAJES_CIRCUITO_DIETAS.circuito_recibo);
   const traducir = (clave) => clave === "comision_bloque_dietas" ? "Allowances" : clave;
   assert.equal(crearTraductorBorradoresDietas(traducir)("comision_bloque_dietas"), "Allowances");
   assert.equal(crearTraductorDietas()("circuito_periodo_valor", { inicio: "1 sep", fin: "2 sep" }), "1 sep a 2 sep");

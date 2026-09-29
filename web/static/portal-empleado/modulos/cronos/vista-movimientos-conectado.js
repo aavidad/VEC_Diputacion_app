@@ -1,5 +1,6 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda2-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
 import { crearClienteSaldoCronosHTTP, ErrorClienteSaldoCronos, validarConsultaSaldoCronos, validarResultadoSaldoCronos } from "./cliente-saldo-http.js";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const PERIODOS = ["hoy", "semana", "mes", "anio", "rango"];
 const MOVIMIENTOS = new Set(["entrada", "salida", "inicio_pausa", "fin_pausa"]);
@@ -46,7 +47,7 @@ function filasMovimientos(detalle, t, locale, zonaHoraria) {
 
 /** Solo muestra hechos y estados recibidos del saldo propio; no infiere ausencias ni olvidos. */
 export function renderizarVistaMovimientosCronos({ estado = "cargando", consulta = { periodo: "hoy" }, datos = null,
-  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid", correccionDisponible = false, incrustada = false } = {}) {
+  mensajes = MENSAJES_CRONOS, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", correccionDisponible = false, incrustada = false } = {}) {
   const t = crearTraductorCronos(mensajes);
   const seleccion = estado === "seleccion" && consulta?.periodo === "rango"
     ? { periodo: "rango", desde: "", hasta: "" } : validarConsultaSaldoCronos(consulta);
@@ -80,8 +81,8 @@ export function renderizarVistaMovimientosCronos({ estado = "cargando", consulta
  * con `abrirCorreccion` se ofrece «olvido de marcaje», que abre la solicitud
  * de corrección; el marcaje registrado nunca se edita desde aquí.
  */
-export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldoCronosHTTP(), mensajes = MENSAJES_CRONOS_ES,
-  anunciar = () => {}, registrarDesmontar, locale = "es-ES", zonaHoraria = "Europe/Madrid", abrirCorreccion, incrustada = false } = {}) {
+export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldoCronosHTTP(), mensajes = MENSAJES_CRONOS,
+  anunciar = () => {}, registrarDesmontar, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", abrirCorreccion, incrustada = false } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultar !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")
     || (abrirCorreccion !== undefined && typeof abrirCorreccion !== "function")) throw new TypeError("montaje de movimientos Cronos no disponible");

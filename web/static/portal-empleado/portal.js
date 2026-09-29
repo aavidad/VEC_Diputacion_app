@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-diseno-
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-diseno-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-diseno-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-ppt-v2";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-diseno-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-i18n-merge-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-diseno-v1";
@@ -1099,4 +1099,10 @@ async function inicializar() {
   await cargarFuenteDatos();
 }
 
-document.addEventListener("DOMContentLoaded", inicializar, { once: true });
+// El índice de idiomas se carga con await de nivel superior en comun/idioma.js,
+// así que este módulo puede evaluarse después de DOMContentLoaded.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", inicializar, { once: true });
+} else {
+  inicializar();
+}

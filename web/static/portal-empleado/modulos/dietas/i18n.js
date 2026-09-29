@@ -1,126 +1,25 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-d5d6-v1";
-import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260925-tanda-v1";
-import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-d5d6-v1";
-import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-tanda-v1";
-import { MENSAJES_RECTIFICACION_ADMIN_ES } from "./i18n-rectificacion-admin.js?v=20260925-tanda-v1";
+import { cargarTextos } from "../../../comun/textos.js";
+import { MENSAJES_BORRADORES } from "./i18n-borradores.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_REVISION_DIETAS } from "./i18n-revision.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_CIRCUITO_DIETAS } from "./i18n-circuito.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_RECTIFICACION_DIETAS } from "./i18n-rectificacion-dietas.js?v=20260929-i18n-dietas-v1";
+import { MENSAJES_RECTIFICACION_ADMIN } from "./i18n-rectificacion-admin.js?v=20260929-i18n-dietas-v1";
+
+const TEXTOS_DIETAS = await cargarTextos("dietas");
 
 /** Catálogo completo de textos propios de la superficie Dietas. */
-export const MENSAJES_DIETAS_ES = Object.freeze({
-  estado_borrador: "Borrador",
-  expediente_seleccionado: "Expediente seleccionado",
-  fecha: "Fecha",
-  fecha_inicio: "Fecha de inicio",
-  hora_inicio: "Hora de inicio",
-  fecha_fin: "Fecha de fin",
-  hora_fin: "Hora de fin",
-  motivo: "Motivo",
-  ruta: "Ruta",
-  distancia: "Distancia",
-  justificantes: "Justificantes",
-  kilometraje: "Kilometraje",
-  vehiculo: "Medio de transporte",
-  vehiculo_propio: "Vehículo propio",
-  manutencion: "Manutención",
-  alojamiento: "Alojamiento",
-  total: "Total",
-  recibo_referencia: "Recibo {referencia}",
-  descargar_recibo: "Descargar recibo PDF",
-  cab_fecha: "Fecha",
-  cab_estado: "Estado",
-  sin_resultados: "No hay comisiones que coincidan con los filtros.",
-  nueva_comision: "Nueva comisión de servicio",
-  origen: "Origen",
-  destino: "Destino",
-  ruta_del_dia: "Ruta del día",
-  ruta_pendiente_calculo: "Seleccione la ruta y calcúlela antes de guardar el borrador.",
-  ruta_puerto_no_disponible: "La herramienta de rutas no está conectada para esta sesión.",
-  ruta_calcular_antes_guardar: "Calcule la ruta antes de guardar.",
-  ruta_calculo_completado: "Ruta calculada por el puerto interno. Revise tramos, alternativa y ajustes.",
-  ruta_error_servicio: "No se ha podido calcular la ruta porque el servicio cartográfico interno no está disponible. Inténtelo de nuevo más tarde.",
-  guardar_borrador: "Guardar borrador",
-  sobrelinea: "Portal del Empleado → Dietas",
-  titulo: "Mis dietas y comisiones de servicio",
-  descripcion: "Comisiones de servicio, kilometraje y gastos con recibos de actuación.",
-  indicador_pendientes: "Pendientes",
-  recibo_estado: "Recibo {referencia} · {actor}{efectos}",
-  buscar: "Buscar",
-  buscar_placeholder: "Expediente, motivo o ruta",
-  aplicar_filtros: "Aplicar filtros",
-  operacion_en_curso: "Hay una operación de Dietas en curso.",
-  mapa_titulo: "Mapa del recorrido seleccionado",
-  recorridos_abrir_ayuda: "? Ayuda",
-  mapa_region_accesible: "Mapa interactivo del recorrido",
-  mapa_cargando_interno: "Cargando el mapa OpenStreetMap interno…",
-  mapa_nota_no_disponible: "El mapa interno no está disponible. No se muestra ninguna simulación cartográfica.",
-  mapa_nota_osm_interno: "OpenStreetMap cargado desde teselas servidas en la red interna. Fuente cartográfica histórica; aún no se ha acreditado la cobertura completa de la provincia y su franja de 15 km.",
-  mapa_zoom_acercar: "Acercar el mapa",
-  mapa_zoom_alejar: "Alejar el mapa",
-  borradores_propios_titulo: "Mis borradores de comisión",
-  borradores_propios_nuevo: "Nuevo borrador",
-  borradores_propios_fecha_inicio: "Fecha de inicio",
-  borradores_propios_fecha_fin: "Fecha de fin",
-  borradores_propios_motivo: "Motivo de la comisión",
-  borradores_propios_ruta: "Ruta",
-  borradores_propios_ruta_ayuda: "La distancia y el importe provisional se calculan con el cálculo por carretera interno al guardar el borrador.",
-  borradores_propios_hora_inicio: "Hora de salida",
-  borradores_propios_hora_fin: "Hora de regreso",
-  borradores_propios_origen: "Origen",
-  borradores_propios_destino: "Destino",
-  borradores_propios_elegir_localidad: "Seleccione una localidad",
-  borradores_propios_calculo: "Cálculo orientativo guardado",
-  borradores_propios_km: "Distancia por carretera",
-  borradores_propios_importe_km: "Importe por km",
-  borradores_propios_tramos_ruta: "Tramos de la ruta",
-  borradores_propios_grupo_pendiente: "Grupo personal pendiente de acreditar: se muestran los tres importes provisionales, sin elegir uno para usted.",
-  borradores_propios_grupo: "Grupo",
-  borradores_propios_manutencion: "Manutención",
-  borradores_propios_alojamiento_tope: "Alojamiento máximo pendiente de justificante",
-  borradores_propios_guardar: "Crear borrador",
-  borradores_propios_cargando: "Cargando sus borradores…",
-  borradores_propios_vacio: "Todavía no hay borradores propios.",
-  borradores_propios_listado: "Borradores propios registrados",
-  borradores_propios_pagina_anterior: "Anterior",
-  borradores_propios_pagina_siguiente: "Siguiente",
-  borradores_propios_mostrando: "Mostrando {inicio} a {fin}",
-  borradores_propios_detalle: "Detalle del borrador",
-  borradores_propios_seleccionar: "Ver detalle",
-  borradores_propios_recibo_titulo: "Borrador registrado",
-  borradores_propios_recibo_referencia: "Recibo",
-  borradores_propios_recibo_version: "Versión",
-  borradores_propios_recibo_fecha: "Registrado",
-  borradores_propios_recibo_instante_exacto: "Fecha exacta del recibo",
-  borradores_propios_repeticion: "La solicitud anterior se ha recuperado sin crear otro borrador.",
-  borradores_propios_creado: "El borrador se ha registrado.",
-  borradores_propios_creado_listado_no_actualizado: "Borrador registrado; no se ha podido actualizar la bandeja. Consulte de nuevo la lista, sin volver a crear el borrador.",
-  borradores_propios_enviando: "Registrando el borrador…",
-  borradores_propios_error: "No se ha podido completar la operación. Revise los datos e inténtelo de nuevo.",
-  borradores_propios_error_relacion: "No se puede determinar una relación disponible para esta comisión. No se ha creado el borrador.",
-  borradores_propios_error_conflicto: "La clave de esta operación ya se usó con datos distintos. Cree una nueva intención para continuar.",
-  borradores_propios_error_incierto: "No se ha podido confirmar el resultado. Puede reintentar exactamente la misma operación.",
-  borradores_propios_referencia: "Referencia",
-  borradores_propios_pendiente_conexion: "La creación y consulta de borradores está pendiente de conexión con el servicio autorizado.",
-  recorridos_titulo: "Recorrido de Dietas",
-  recorridos_solicitante: "Solicitante",
-  recorridos_sin_datos: "Sin datos conectados",
-  recorridos_descripcion: "Descripción",
-  recorridos_bandeja: "Bandeja de jefatura",
-  recorridos_persona: "Persona",
-  recorridos_resumen: "Resumen de la etapa",
-  recorridos_nivel_detalle: "Nivel de detalle",
-  recorridos_nivel_bajo: "Bajo",
-  recorridos_nivel_medio: "Medio",
-  recorridos_nivel_alto: "Alto",
-  recorridos_roles: "Recorridos por perfil",
-  ...MENSAJES_BORRADORES_ES,
-  ...MENSAJES_REVISION_DIETAS_ES,
-  ...MENSAJES_CIRCUITO_DIETAS_ES,
-  ...MENSAJES_RECTIFICACION_DIETAS_ES,
-  ...MENSAJES_RECTIFICACION_ADMIN_ES,
+export const MENSAJES_DIETAS = Object.freeze({
+  ...TEXTOS_DIETAS.seccion("general"),
+  ...MENSAJES_BORRADORES,
+  ...MENSAJES_REVISION_DIETAS,
+  ...MENSAJES_CIRCUITO_DIETAS,
+  ...MENSAJES_RECTIFICACION_DIETAS,
+  ...MENSAJES_RECTIFICACION_ADMIN,
 });
 
-const CLAVES = Object.freeze(Object.keys(MENSAJES_DIETAS_ES));
+const CLAVES = Object.freeze(Object.keys(MENSAJES_DIETAS));
 
-export function crearTraductorDietas(catalogo = MENSAJES_DIETAS_ES) {
+export function crearTraductorDietas(catalogo = MENSAJES_DIETAS) {
   if (!catalogo || typeof catalogo !== "object"
     || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) {
     throw new Error("catálogo i18n de Dietas incompleto");
