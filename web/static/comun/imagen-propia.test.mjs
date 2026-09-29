@@ -164,9 +164,12 @@ test("sin foto elegida no se envía el modo foto y los textos existen en los dos
   s.instalar(c);
   await s.cargar();
   c.manejadores.change({ target: { name: "imagen-modo", value: "foto" } });
+  assert.match(c.raiz.innerHTML, /Todavía no ha elegido ninguna foto/u);
   c.manejadores.submit({ target: { matches: () => true }, preventDefault() {} });
   assert.equal(enviados.length, 0);
-  assert.match(c.raiz.innerHTML, /Elija una foto antes de guardar/u);
+  assert.match(c.raiz.innerHTML, /id="imagen-foto-error"/u);
+  assert.match(c.raiz.innerHTML, /aria-describedby="imagen-foto-estado imagen-foto-limites imagen-foto-error"/u);
+  assert.match(c.raiz.innerHTML, /aria-invalid="true"/u);
   const [es, en] = await Promise.all(["es", "en"].map(async (idioma) => JSON.parse(await readFile(new URL(`../textos/${idioma}/preferencias.json`, import.meta.url), "utf8")).imagen));
   assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
   for (const codigo of [...PALETAS_IMAGEN.map((p) => `paleta_${p}`), ...ICONOS_IMAGEN.map((i) => `icono_${i}`), "modo_iniciales", "modo_icono", "modo_foto"]) {
@@ -177,7 +180,12 @@ test("sin foto elegida no se envía el modo foto y los textos existen en los dos
 test("la hoja de estilo usa solo tokens del tema y cubre todas las paletas", async () => {
   const css = await readFile(new URL("./imagen-propia.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/iu, "sin colores fijos");
-  for (const paleta of PALETAS_IMAGEN) assert.match(css, new RegExp(`\\.avatar-imagen\\.avatar-imagen--${paleta}[^}]*background: var\\(--portal-`, "u"));
+  for (const paleta of PALETAS_IMAGEN) assert.match(css, new RegExp(`\\.avatar-imagen\\.avatar-imagen--${paleta}[^}]*background: var\\(--avatar-${paleta}\\)`, "u"));
+  const tema = await readFile(new URL("./tema-vec.css", import.meta.url), "utf8");
+  for (const paleta of PALETAS_IMAGEN) {
+    assert.equal((tema.match(new RegExp(`--avatar-${paleta}:`, "gu")) || []).length, 2, `--avatar-${paleta} en claro y en alto contraste`);
+  }
+  assert.doesNotMatch(tema.slice(tema.indexOf('html[data-tema="granate"]'), tema.indexOf("body[data-modo-color")), /--avatar-/u, "la marca no cambia los colores del avatar");
 });
 
 test("la foto se reduce en el navegador cuando se puede y se rechaza por tipo o tamaño", async () => {
@@ -197,6 +205,9 @@ test("la foto se reduce en el navegador cuando se puede y se rechaza por tipo o 
       getContext() { return { fillRect() {}, drawImage: (_m, x, y, w, h) => dibujos.push([w, h]) }; }
       async convertToBlob(o) { dibujos.push(o); return { size: 3, arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff]).buffer }; } },
   };
+  const ilegible = { createImageBitmap: async () => { throw new Error("no es una imagen"); } };
+  await assert.rejects(prepararFoto(fichero("image/jpeg", 3 * 1024 * 1024), ilegible), (e) => e.codigo === "foto_no_admitida",
+    "un archivo que el navegador no sabe leer no es «demasiado grande»");
   const reducida = await prepararFoto(fichero("image/png", 9 * 1024 * 1024), conLienzo);
   assert.equal(reducida.tipo, "image/jpeg");
   assert.equal(reducida.base64, "/9j/");

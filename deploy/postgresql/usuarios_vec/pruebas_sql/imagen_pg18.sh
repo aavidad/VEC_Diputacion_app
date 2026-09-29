@@ -150,23 +150,34 @@ DO $prueba$ DECLARE g jsonb; BEGIN
 END $prueba$;
 COMMIT;
 SQL
+# Dos primeras fotos a la vez para la misma persona: la segunda espera el
+# candado y termina en 40001 (nunca 23505); queda una sola foto activa.
+psql_interna -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_imagen('guardar',5,'imagen-concurrente-a001','{\"modo\":\"foto\",\"paleta\":\"azul\",\"icono\":\"\"}',decode('$F1','hex')); SELECT pg_sleep(2); COMMIT;" >/dev/null 2>&1 &
+concurrente=$!
+sleep 0.7
+salida_b=$(psql_interna -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_imagen('guardar',5,'imagen-concurrente-b001','{\"modo\":\"foto\",\"paleta\":\"gris\",\"icono\":\"\"}',decode('$F2','hex')); COMMIT;" 2>&1 || true)
+wait "$concurrente"
+if ! grep -q 'could not serialize\|no se pudo serializar' <<<"$salida_b" || grep -q '23505\|duplicate key\|llave duplicada' <<<"$salida_b"; then
+ echo "concurrencia inesperada: $salida_b" >&2; exit 1
+fi
+psql_pg -At -c "SELECT (SELECT count(*) FROM vec_documentos.imagen_personal WHERE estado='activa')=1 AND (SELECT count(*) FROM vec_usuarios.imagen_recibo)=6" | grep -qx t
 # Fuera de SERIALIZABLE no hay operación.
 { psql_interna -At -c "SELECT public.probar_imagen('consultar',0,'',NULL)" 2>&1 || true; } | grep -q 'material imagen denegado'
 psql_pg <<'SQL' >/dev/null
 DO $prueba$ BEGIN
  IF (SELECT count(*) FROM vec_usuarios.imagen_contexto)<>0 THEN RAISE EXCEPTION 'contexto residual'; END IF;
- IF (SELECT count(*) FROM vec_usuarios.imagen_historia)<>5 OR (SELECT count(*) FROM vec_usuarios.imagen_recibo)<>5
+ IF (SELECT count(*) FROM vec_usuarios.imagen_historia)<>6 OR (SELECT count(*) FROM vec_usuarios.imagen_recibo)<>6
     OR (SELECT count(*) FROM vec_usuarios.imagen_historia WHERE foto_retirada_ref IS NOT NULL)<>2
  THEN RAISE EXCEPTION 'historia o recibos de Usuarios inesperados'; END IF;
- -- Documentos: dos fotos custodiadas y retiradas, sin bytes; ninguna viva.
- IF (SELECT count(*) FROM vec_documentos.imagen_personal)<>2
+ -- Documentos: dos fotos retiradas sin bytes y la de la prueba concurrente viva.
+ IF (SELECT count(*) FROM vec_documentos.imagen_personal)<>3
     OR (SELECT count(*) FROM vec_documentos.imagen_personal WHERE estado='retirada' AND contenido IS NULL)<>2
-    OR (SELECT count(*) FROM vec_documentos.imagen_personal_historia)<>4
+    OR (SELECT count(*) FROM vec_documentos.imagen_personal_historia)<>5
     OR (SELECT count(*) FROM vec_documentos.imagen_personal_historia WHERE operacion_ref !~ '^img_[0-9a-f]{32}$')<>0
  THEN RAISE EXCEPTION 'custodia documental inesperada'; END IF;
  -- Cada retirada queda enlazada al recibo de Usuarios que la provocó.
  IF (SELECT count(*) FROM vec_documentos.imagen_personal_historia h JOIN vec_usuarios.imagen_recibo r
-      ON r.recibo_ref=h.operacion_ref)<>4
+      ON r.recibo_ref=h.operacion_ref)<>5
  THEN RAISE EXCEPTION 'historia documental sin su operación de Usuarios'; END IF;
 END $prueba$;
 SQL

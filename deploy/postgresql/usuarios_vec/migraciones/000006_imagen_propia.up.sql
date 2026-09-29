@@ -45,7 +45,8 @@ CREATE TABLE vec_usuarios.catalogo_imagen (
  definicion jsonb NOT NULL CHECK(jsonb_typeof(definicion)='object'),
  huella_sha256 text NOT NULL CHECK(huella_sha256 ~ '^[0-9a-f]{64}$'),
  publicado_en timestamptz(6) NOT NULL,
- CHECK(vec_usuarios.eleccion_imagen_valida(definicion->'predeterminada') AND definicion#>>'{predeterminada,modo}'<>'foto')
+ CHECK(coalesce(vec_usuarios.eleccion_imagen_valida(definicion->'predeterminada'),false)
+   AND coalesce(definicion#>>'{predeterminada,modo}'<>'foto',false))
 );
 CREATE TABLE vec_usuarios.catalogo_imagen_publicacion (
  secuencia bigint PRIMARY KEY CHECK(secuencia>0),
@@ -96,6 +97,8 @@ CREATE TABLE vec_usuarios.imagen_recibo (
  PRIMARY KEY(persona_ref,clave_operacion),
  FOREIGN KEY(persona_ref,version) REFERENCES vec_usuarios.imagen_historia(persona_ref,version) DEFERRABLE INITIALLY DEFERRED
 );
+-- imagen_historia no tiene política de lectura a propósito: solo un DBA la
+-- consulta (auditoría o ejercicio de derechos).
 -- Marcador privado y transitorio, como en correos: se crea tras un consumo
 -- V3 nuevo en esta transacción y se retira antes de devolver.
 CREATE TABLE vec_usuarios.imagen_contexto (

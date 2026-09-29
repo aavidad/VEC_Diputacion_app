@@ -7,8 +7,10 @@
 -- una referencia opaca. Usuarios no ve estas tablas: solo llama a las tres
 -- funciones de abajo, y únicamente desde sus propias funciones SECURITY
 -- DEFINER, después de consumir una autorización V3 fresca del titular en la
--- misma transacción. Al retirar o sustituir una foto sus bytes se borran en
--- el acto y queda solo la historia (referencia, huella, fechas y operación).
+-- misma transacción. Al retirar o sustituir una foto su contenido pasa a NULL
+-- en la misma transacción y queda solo la historia (referencia, huella, fechas
+-- y operación). El borrado físico de la tupla antigua y sus trozos TOAST llega
+-- con el VACUUM; WAL, réplicas y copias siguen sus propios plazos (README).
 --
 -- Solo añade objetos; no depende de las tablas de 000001–000006. Aplicar con
 -- el migrador documental, después de AD3-108 y antes de Usuarios 000006.
@@ -70,9 +72,10 @@ CREATE FUNCTION vec_documentos.imagen_personal_transicion_v1()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
 BEGIN
  IF TG_OP<>'UPDATE' THEN RAISE EXCEPTION 'documentos: imagen inmutable' USING ERRCODE='55000'; END IF;
+ -- Columnas fijas comparadas una a una: no se serializa el contenido.
  IF OLD.estado<>'activa' OR NEW.estado<>'retirada' OR NEW.contenido IS NOT NULL
-    OR (to_jsonb(NEW)-'estado'-'contenido'-'retirada_en'-'operacion_retirada_ref')
-       IS DISTINCT FROM (to_jsonb(OLD)-'estado'-'contenido'-'retirada_en'-'operacion_retirada_ref')
+    OR (NEW.imagen_ref,NEW.persona_ref,NEW.mime,NEW.tamano,NEW.huella_sha256,NEW.operacion_alta_ref,NEW.custodiada_en)
+       IS DISTINCT FROM (OLD.imagen_ref,OLD.persona_ref,OLD.mime,OLD.tamano,OLD.huella_sha256,OLD.operacion_alta_ref,OLD.custodiada_en)
  THEN RAISE EXCEPTION 'documentos: transición de imagen inválida' USING ERRCODE='55000'; END IF;
  RETURN NEW;
 END $f$;
@@ -97,9 +100,11 @@ ALTER TABLE vec_documentos.imagen_personal_historia FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE vec_documentos.imagen_personal, vec_documentos.imagen_personal_historia FROM PUBLIC;
 -- Solo las funciones de esta migración (propietario) tocan las filas, y solo
 -- cuando las invoca una fachada de Usuarios: el LOGIN de la sesión debe ser
--- un ejecutor técnico de Usuarios.
+-- un ejecutor técnico de Usuarios. SECURITY INVOKER, para que current_user
+-- sea el de quien evalúa la política o la función. Las historias no tienen
+-- política de lectura a propósito: solo un DBA las consulta (auditoría o DPD).
 CREATE FUNCTION vec_documentos.sesion_usuarios_imagen_v1()
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog AS $f$
  SELECT current_user='vec_documentos_propietario' AND session_user<>current_user
   AND (pg_has_role(session_user,'vec_usuarios_ejecutor_interno','MEMBER')
     OR pg_has_role(session_user,'vec_usuarios_ejecutor_externo','MEMBER'))

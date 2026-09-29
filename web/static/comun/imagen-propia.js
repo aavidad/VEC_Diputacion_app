@@ -247,8 +247,11 @@ export async function prepararFoto(fichero, entorno = globalThis) {
   if (!fichero || !TIPOS_FOTO.includes(fichero.type)) throw new ErrorImagen(0, "foto_no_admitida");
   if (fichero.size > TAMANO_MAXIMO_SELECCION) throw new ErrorImagen(0, "foto_grande");
   if (typeof entorno.createImageBitmap === "function") {
+    // Si el navegador sabe leer fotos y no puede con esta, no es una foto válida.
+    let mapa;
+    try { mapa = await entorno.createImageBitmap(fichero, { imageOrientation: "from-image" }); }
+    catch { throw new ErrorImagen(0, "foto_no_admitida"); }
     try {
-      const mapa = await entorno.createImageBitmap(fichero, { imageOrientation: "from-image" });
       const escala = Math.min(1, LADO_ENVIO / Math.max(mapa.width, mapa.height));
       const ancho = Math.max(1, Math.round(mapa.width * escala));
       const alto = Math.max(1, Math.round(mapa.height * escala));
@@ -262,12 +265,17 @@ export async function prepararFoto(fichero, entorno = globalThis) {
       const blob = typeof lienzo.convertToBlob === "function" ? await lienzo.convertToBlob({ type: "image/jpeg", quality: 0.9 })
         : await new Promise((resolver) => lienzo.toBlob(resolver, "image/jpeg", 0.9));
       if (blob && blob.size > 0 && blob.size <= TAMANO_MAXIMO_ENVIO) {
-        return Object.freeze({ tipo: "image/jpeg", base64: base64DeBytes(new Uint8Array(await blob.arrayBuffer())) });
+        return Object.freeze({ tipo: "image/jpeg", base64: base64DeBytes(new Uint8Array(await blob.arrayBuffer())), nombre: nombreFichero(fichero) });
       }
-    } catch { /* Sin reducción posible se intenta con el original. */ }
+    } catch { /* Sin lienzo disponible se intenta con el original. */ }
   }
   if (fichero.size > TAMANO_MAXIMO_ENVIO) throw new ErrorImagen(0, "foto_grande");
-  return Object.freeze({ tipo: fichero.type, base64: base64DeBytes(new Uint8Array(await fichero.arrayBuffer())) });
+  return Object.freeze({ tipo: fichero.type, base64: base64DeBytes(new Uint8Array(await fichero.arrayBuffer())), nombre: nombreFichero(fichero) });
+}
+
+function nombreFichero(fichero) {
+  const nombre = String(fichero?.name ?? "").replace(/[\p{Cc}\p{Cf}]/gu, "").trim();
+  return nombre.length > 60 ? `${nombre.slice(0, 57)}…` : nombre;
 }
 
 const MARCO_PREDETERMINADO = Object.freeze({ panel: "panel", cabecera: "div", claseCabecera: "cabecera-panel", cuerpo: "cuerpo-panel" });
@@ -290,6 +298,7 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
   let ayudaVisible = false;
   let borrador = null;
   let archivo = null;
+  let errorFoto = false;
   let enfocarTras = "";
   let controlador = null;
   let generacion = 0;
@@ -367,6 +376,8 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
       if (actual !== generacion || controlador.signal.aborted) return;
       ocupado = false;
       if (!error?.codigo || error.codigo === "no_disponible") pendiente = cuerpo;
+      // Una foto rechazada no se queda como vista previa.
+      if (["foto_no_admitida", "foto_grande"].includes(error?.codigo)) archivo = null;
       mensaje = { tipo: "error", texto: textoError(error) };
       enfocarTras = "[data-imagen-mensaje]";
       if (error?.codigo === "conflicto") await cargar({ conservarMensaje: true });
@@ -379,6 +390,7 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
     if (!datos || !eleccion || ocupado) return;
     if (eleccion.modo === "foto" && !archivo && !datos.foto) {
       mensaje = { tipo: "error", texto: t("error_sin_foto") };
+      errorFoto = true;
       enfocarTras = "#imagen-archivo";
       repintar();
       return;
@@ -399,6 +411,7 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
   async function elegirArchivo(fichero) {
     if (!fichero || ocupado) return;
     ocupado = true;
+    errorFoto = false;
     mensaje = { tipo: "estado", texto: t("preparando") };
     repintar();
     try {
@@ -421,7 +434,10 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
       contenido = `<img alt="" src="${escapar(fuente)}">`;
     } else if (eleccion.modo === "icono") contenido = iconoHTML(eleccion.icono);
     else if (!contenido) contenido = iconoHTML("persona");
-    return `<div class="imagen-vista"><span class="${clase}" data-imagen-modo="${escapar(eleccion.modo)}" aria-hidden="true">${contenido}</span><p class="imagen-vista-texto">${escapar(t(archivo ? "vista_nueva" : "vista"))}</p></div>`;
+    const color = t(`paleta_${eleccion.paleta}`).toLocaleLowerCase();
+    const descripcion = eleccion.modo === "icono" ? t("vista_accesible_icono", { icono: t(`icono_${eleccion.icono}`).toLocaleLowerCase(), color })
+      : eleccion.modo === "foto" && (archivo || datos?.foto) ? t("vista_accesible_foto") : t("vista_accesible_iniciales", { color });
+    return `<div class="imagen-vista"><span class="${clase}" data-imagen-modo="${escapar(eleccion.modo)}" aria-hidden="true">${contenido}</span><p class="imagen-vista-texto"><span class="imagen-solo-lectura">${escapar(descripcion)} </span>${escapar(t(archivo || borrador ? "vista_nueva" : "vista"))}</p></div>`;
   }
 
   function radio(nombre, valor, marcado, etiqueta, extra = "") {
@@ -436,8 +452,10 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
     if (e.modo === "icono") {
       detalle = `<fieldset class="imagen-grupo imagen-grupo--iconos"><legend>${escapar(t("icono_titulo"))}</legend><div class="imagen-rejilla">${datos.catalogo.iconos.map((i) => radio("icono", i, e.icono === i, t(`icono_${i}`), `<span class="avatar-imagen avatar-imagen--muestra avatar-imagen--${escapar(e.paleta)}" aria-hidden="true">${iconoHTML(i)}</span>`)).join("")}</div></fieldset>`;
     } else if (e.modo === "foto") {
-      const actual = datos.foto && !archivo ? `<p class="imagen-nota">${escapar(t("foto_actual"))}</p>` : "";
-      detalle = `<div class="imagen-foto"><label for="imagen-archivo">${escapar(t(datos.foto ? "foto_cambiar" : "foto_elegir"))}</label><input type="file" id="imagen-archivo" name="foto" accept="${TIPOS_FOTO.join(",")}" aria-describedby="imagen-foto-limites"${ocupado ? " disabled" : ""}><p id="imagen-foto-limites" class="imagen-nota">${escapar(t("foto_limites"))}</p>${actual}</div>`;
+      const estadoFoto = archivo ? t("foto_elegida", { nombre: archivo.nombre || "—" }) : datos.foto ? t("foto_actual") : t("foto_ninguna");
+      const error = errorFoto ? `<p id="imagen-foto-error" class="imagen-error-campo">${escapar(t("error_sin_foto"))}</p>` : "";
+      const descrita = `imagen-foto-estado imagen-foto-limites${errorFoto ? " imagen-foto-error" : ""}`;
+      detalle = `<div class="imagen-foto"><input type="file" id="imagen-archivo" class="imagen-archivo-oculto" name="foto" accept="${TIPOS_FOTO.join(",")}" aria-describedby="${descrita}"${errorFoto ? ' aria-invalid="true"' : ""}${ocupado ? " disabled" : ""}><label for="imagen-archivo" class="boton-secundario imagen-archivo-boton">${escapar(t(datos.foto ? "foto_cambiar" : "foto_elegir"))}</label><p id="imagen-foto-estado" class="imagen-nota">${escapar(estadoFoto)}</p><p id="imagen-foto-limites" class="imagen-nota">${escapar(t("foto_limites"))}</p>${error}</div>`;
     }
     const paletas = datos.catalogo.paletas.map((p) => radio("paleta", p, e.paleta === p, t(`paleta_${p}`), `<span class="imagen-muestra avatar-imagen--${escapar(p)}" aria-hidden="true"></span>`)).join("");
     const borrara = datos.foto && e.modo !== "foto" ? `<p class="imagen-aviso" role="note">${escapar(t("aviso_borrar_foto"))}</p>` : "";
@@ -501,6 +519,7 @@ export function crearSuperficieImagen({ cliente, textos, marco = MARCO_PREDETERM
       enfocarTras = `#imagen-icono-${campo.value}`;
     } else return;
     borrador = validarEleccion(e);
+    errorFoto = false;
     mensaje = null;
     repintar();
   }

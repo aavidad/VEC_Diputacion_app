@@ -1,14 +1,13 @@
 /* «Mi imagen»: avatar de la cabecera y panel de Mis preferencias, común a RRHH
-   y al Área personal. Solo tokens del tema; cada paleta usa un color fuerte del
-   tema con el texto inverso, que conserva el contraste AA en claro, oscuro y
-   alto contraste. */
+   y al Área personal. Solo tokens del tema: los fondos --avatar-* no cambian
+   con la paleta de marca y tienen su variante de alto contraste. */
 .avatar-imagen { overflow: hidden; }
-.avatar-imagen.avatar-imagen--azul, .imagen-muestra.avatar-imagen--azul { background: var(--portal-azul-900); color: var(--portal-texto-inverso); }
-.avatar-imagen.avatar-imagen--turquesa, .imagen-muestra.avatar-imagen--turquesa { background: var(--portal-turquesa); color: var(--portal-texto-inverso); }
-.avatar-imagen.avatar-imagen--verde, .imagen-muestra.avatar-imagen--verde { background: var(--portal-oliva); color: var(--portal-texto-inverso); }
-.avatar-imagen.avatar-imagen--naranja, .imagen-muestra.avatar-imagen--naranja { background: var(--portal-naranja); color: var(--portal-texto-inverso); }
-.avatar-imagen.avatar-imagen--morado, .imagen-muestra.avatar-imagen--morado { background: var(--portal-morado); color: var(--portal-texto-inverso); }
-.avatar-imagen.avatar-imagen--gris, .imagen-muestra.avatar-imagen--gris { background: var(--portal-muted); color: var(--portal-texto-inverso); }
+.avatar-imagen.avatar-imagen--azul, .imagen-muestra.avatar-imagen--azul { background: var(--avatar-azul); color: var(--avatar-texto); }
+.avatar-imagen.avatar-imagen--turquesa, .imagen-muestra.avatar-imagen--turquesa { background: var(--avatar-turquesa); color: var(--avatar-texto); }
+.avatar-imagen.avatar-imagen--verde, .imagen-muestra.avatar-imagen--verde { background: var(--avatar-verde); color: var(--avatar-texto); }
+.avatar-imagen.avatar-imagen--naranja, .imagen-muestra.avatar-imagen--naranja { background: var(--avatar-naranja); color: var(--avatar-texto); }
+.avatar-imagen.avatar-imagen--morado, .imagen-muestra.avatar-imagen--morado { background: var(--avatar-morado); color: var(--avatar-texto); }
+.avatar-imagen.avatar-imagen--gris, .imagen-muestra.avatar-imagen--gris { background: var(--avatar-gris); color: var(--avatar-texto); }
 /* Con foto no se ve el color: evita un borde de color en el recorte redondo. */
 .avatar-imagen.avatar-imagen:has(> img) { background: transparent; }
 .avatar-imagen img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
@@ -51,3 +50,8 @@
   .imagen-opcion { flex: 1 1 calc(50% - 8px); }
   .imagen-acciones > button { width: 100%; }
 }
+.imagen-archivo-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.imagen-archivo-boton { display: inline-flex; align-items: center; justify-self: start; min-height: 40px; padding: 8px 16px; cursor: pointer; }
+.imagen-archivo-oculto:focus-visible + .imagen-archivo-boton { outline: 3px solid var(--portal-foco, var(--portal-azul-700)); outline-offset: 2px; }
+.imagen-error-campo { margin: 0; color: var(--portal-peligro); font-weight: 600; }
+.imagen-solo-lectura { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
