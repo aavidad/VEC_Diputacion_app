@@ -11,6 +11,12 @@ const (
 	PermissionContactoConsultar      = "vec.contacto_usuario.consultar"
 	PermissionPreferenciasConsultar  = "vec.preferencias.consultar"
 	PermissionPreferenciasActualizar = "vec.preferencias.actualizar"
+	PermissionCorreosConsultar       = "vec.correos.consultar"
+	PermissionCorreosAnadir          = "vec.correos.anadir"
+	PermissionCorreosReenviar        = "vec.correos.reenviar"
+	PermissionCorreosVerificar       = "vec.correos.verificar"
+	PermissionCorreosActivar         = "vec.correos.activar"
+	PermissionCorreosRetirar         = "vec.correos.retirar"
 )
 
 func Manifest() domain.ModuleManifest {
@@ -27,6 +33,12 @@ func Manifest() domain.ModuleManifest {
 			{Key: PermissionContactoConsultar, LabelKey: "ui.permission.usuarios.contacto_consultar"},
 			{Key: PermissionPreferenciasConsultar, LabelKey: "ui.permission.usuarios.preferencias_consultar"},
 			{Key: PermissionPreferenciasActualizar, LabelKey: "ui.permission.usuarios.preferencias_actualizar"},
+			{Key: PermissionCorreosConsultar, LabelKey: "ui.permission.usuarios.correos_consultar"},
+			{Key: PermissionCorreosAnadir, LabelKey: "ui.permission.usuarios.correos_anadir"},
+			{Key: PermissionCorreosReenviar, LabelKey: "ui.permission.usuarios.correos_reenviar"},
+			{Key: PermissionCorreosVerificar, LabelKey: "ui.permission.usuarios.correos_verificar"},
+			{Key: PermissionCorreosActivar, LabelKey: "ui.permission.usuarios.correos_activar"},
+			{Key: PermissionCorreosRetirar, LabelKey: "ui.permission.usuarios.correos_retirar"},
 		},
 	}
 }

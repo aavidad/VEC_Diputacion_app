@@ -122,6 +122,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosPreferenciasActualizacionInterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasConsultaExterna      *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
@@ -422,6 +423,21 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresUsuarios...)
 	}
+	usuariosCorreosActivos, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo)
+	if err != nil {
+		return vacias, err
+	}
+	if usuariosCorreosActivos {
+		// «Mis correos» exige preferencias: comparte su identidad y sus pools.
+		if !usuariosPreferenciasActivas {
+			return vacias, errComposicionUsuariosCorreos
+		}
+		etapa = "preflight_sql_usuarios_correos"
+		if err := preflightSQLCorreosUsuariosDesarrollo(cfg); err != nil {
+			return vacias, err
+		}
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCorreosUsuariosDesarrollo()...)
+	}
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -447,6 +463,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		dependencias.materialUsuariosPreferenciasActualizacionInterna = lote[1]
 		dependencias.materialUsuariosPreferenciasConsultaExterna = lote[2]
 		dependencias.materialUsuariosPreferenciasActualizacionExterna = lote[3]
+	}
+	if usuariosCorreosActivos {
+		etapa = "material_usuarios_correos"
+		dependencias.materialUsuariosCorreos, err = publicarMaterialCorreosUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
+		if err != nil {
+			return vacias, err
+		}
 	}
 	if seleccion.plantillasCatalogo {
 		etapa = "material_plantillas_catalogo"

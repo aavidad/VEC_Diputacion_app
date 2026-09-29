@@ -170,5 +170,9 @@
   "module.bolsa.claim.presented": "Alegacion presentada por API del modulo Bolsa",
   "module.bolsa.notification.created": "Aviso creado por API del modulo Bolsa",
   "module.bolsa.notification.sent": "Aviso marcado como enviado por API del modulo Bolsa",
-  "module.bolsa.notification.read": "Aviso marcado como leido por API del modulo Bolsa"
+  "module.bolsa.notification.read": "Aviso marcado como leido por API del modulo Bolsa",
+  "usuarios.correos.verificacion.asunto": "Código para confirmar su correo en VEC",
+  "usuarios.correos.verificacion.cuerpo": "Para confirmar esta dirección de correo en VEC, escriba este código en «Mis preferencias»:\n\n{codigo}\n\nEl código vale durante {minutos} minutos y solo se puede usar una vez.\n\nSi no ha pedido este código, no tiene que hacer nada: sin él, nadie puede usar esta dirección en VEC.\n\nRecursos Humanos. Diputación de Granada",
+  "usuarios.correos.aviso_cambio.asunto": "Ha cambiado su correo para avisos de VEC",
+  "usuarios.correos.aviso_cambio.cuerpo": "Desde ahora, VEC enviará sus avisos a otra dirección que usted ha confirmado en «Mis preferencias». Esta dirección sigue en su lista, pero ya no recibirá avisos.\n\nSi no ha hecho usted este cambio, avise cuanto antes a Recursos Humanos.\n\nRecursos Humanos. Diputación de Granada"
 }

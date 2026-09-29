@@ -1,0 +1,113 @@
+package bootstrap
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
+)
+
+// VEC_USUARIOS_CORREOS_ENABLED añade «Mis correos» (5.08b) a la composición
+// de preferencias. Exige preferencias activas, SMTP configurado y AD3-107.
+const envUsuariosCorreosDesarrollo = "VEC_USUARIOS_CORREOS_ENABLED"
+
+// accionesCorreosUsuarios fija el orden de los doce proveedores: seis
+// acciones por superficie, primero la interna y después la externa.
+var accionesCorreosUsuarios = [6]struct{ accion, segmento string }{
+	{usuariosports.AccionConsultarCorreos, "consultar"},
+	{usuariosports.AccionAnadirCorreo, "anadir"},
+	{usuariosports.AccionReenviarCorreo, "reenviar"},
+	{usuariosports.AccionVerificarCorreo, "verificar"},
+	{usuariosports.AccionActivarCorreo, "activar"},
+	{usuariosports.AccionRetirarCorreo, "retirar"},
+}
+
+// audienciasCorreosUsuariosDesarrollo devuelve las doce audiencias nominales
+// que AD3-107 añade a clave_capacidad_version.
+func audienciasCorreosUsuariosDesarrollo() []string {
+	return []string{
+		usuariosports.AudienciaConsultarCorreosInterna, usuariosports.AudienciaAnadirCorreoInterna,
+		usuariosports.AudienciaReenviarCorreoInterna, usuariosports.AudienciaVerificarCorreoInterna,
+		usuariosports.AudienciaActivarCorreoInterna, usuariosports.AudienciaRetirarCorreoInterna,
+		usuariosports.AudienciaConsultarCorreosExterna, usuariosports.AudienciaAnadirCorreoExterna,
+		usuariosports.AudienciaReenviarCorreoExterna, usuariosports.AudienciaVerificarCorreoExterna,
+		usuariosports.AudienciaActivarCorreoExterna, usuariosports.AudienciaRetirarCorreoExterna,
+	}
+}
+
+// Cada efecto conserva su audiencia y clave HMAC derivada del gobierno V3
+// común, igual que las cuatro de preferencias.
+func descriptoresMaterialCorreosUsuariosDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
+	audiencias := audienciasCorreosUsuariosDesarrollo()
+	d := make([]descriptorMaterialConsumidorV3Desarrollo, 0, len(audiencias))
+	for i, audiencia := range audiencias {
+		superficie := "interna"
+		if i >= len(accionesCorreosUsuarios) {
+			superficie = "externa"
+		}
+		segmento := accionesCorreosUsuarios[i%len(accionesCorreosUsuarios)].segmento
+		d = append(d, descriptorMaterialConsumidorV3Desarrollo{
+			Audiencia:        audiencia,
+			Dominio:          "vec.usuarios.correos." + segmento + "." + superficie + ".desarrollo.capacidad-v3",
+			Prefijo:          "clave:capacidad:usuarios-correos-" + segmento + "-" + superficie + ":",
+			ProveedorNominal: "proveedor-material-usuarios-correos-" + segmento + "-" + superficie,
+		})
+	}
+	return d
+}
+
+type proveedoresMaterialCorreosUsuarios [12]*proveedorMaterialAltaContratacionTemporalDesarrollo
+
+// Las doce audiencias forman un único corte: si una publicación falla, la
+// transacción de gobierno revierte todas.
+func publicarMaterialCorreosUsuariosEnLote(ctx context.Context, gobierno *pgxpool.Pool, base materialAtestacionContratacionTemporalDesarrollo,
+	reloj relojContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo,
+) (proveedoresMaterialCorreosUsuarios, error) {
+	vacios := proveedoresMaterialCorreosUsuarios{}
+	if ctx == nil || gobierno == nil {
+		return vacios, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	descriptores := descriptoresMaterialCorreosUsuariosDesarrollo()
+	if len(descriptores) != len(vacios) {
+		return vacios, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	var preparados [12]materialAtestacionContratacionTemporalDesarrollo
+	defer func() {
+		for i := range preparados {
+			borrarBytes(preparados[i].claveHMAC)
+		}
+	}()
+	for i, d := range descriptores {
+		declarado, ok := catalogo.descriptorPara(d.Audiencia)
+		if !ok || declarado != d {
+			return vacios, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		derivado, err := derivarMaterialConsumidorV3Desarrollo(base, d)
+		if err != nil {
+			return vacios, err
+		}
+		preparados[i] = derivado
+	}
+	err := ejecutarTransaccionGobiernoCTDesarrollo(ctx, gobierno, func(tx pgx.Tx) error {
+		for i := range preparados {
+			if err := publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, &preparados[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return vacios, err
+	}
+	var resultado proveedoresMaterialCorreosUsuarios
+	for i := range preparados {
+		p, err := nuevoProveedorMaterialAutorizacionBaseDesarrollo(preparados[i], reloj)
+		if err != nil {
+			return vacios, err
+		}
+		resultado[i] = p
+	}
+	return resultado, nil
+}

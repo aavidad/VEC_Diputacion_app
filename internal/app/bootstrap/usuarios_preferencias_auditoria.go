@@ -33,10 +33,13 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 		}
 		return r.delegado.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 	}
-	seleccionado := r.interna
-	if orden.Ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+	var seleccionado registradorDenegacionPreferenciasUsuarios
+	switch orden.Ruta {
+	case usuarioshttp.RutaMisPreferencias, usuarioshttp.RutaMisCorreos:
+		seleccionado = r.interna
+	case usuarioshttp.RutaMisPreferenciasAreaPersonal, usuarioshttp.RutaMisCorreosAreaPersonal:
 		seleccionado = r.externa
-	} else if orden.Ruta != usuarioshttp.RutaMisPreferencias {
+	default:
 		return errComposicionUsuariosPreferencias
 	}
 	if seleccionado == nil {
