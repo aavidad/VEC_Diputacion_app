@@ -1745,12 +1745,12 @@
       {
         "clave": "promocion_interna.inscripcion.discapacidad_grado",
         "etiqueta": "Promoción interna: Discapacidad igual o superior al 33 % (inscripción)",
-        "descripcion": "Solo si la persona opta al cupo de reserva o pide exención de tasa. Se guarda que alcanza el 33 % y la fecha de comprobación; nunca el diagnóstico.",
+        "descripcion": "Solo si la persona opta al cupo de reserva. Se guarda que alcanza el 33 % y la fecha de comprobación; nunca el diagnóstico.",
         "vigente_desde": "2026-09-01T00:00:00Z",
         "atributos": {
           "base_rgpd": "6.1.e,9.2.b",
           "categoria": "especial",
-          "condicion": "si_opta_cupo_reserva_o_exencion",
+          "condicion": "si_opta_cupo_reserva",
           "consulta_regimen": "oposicion",
           "consulta_servicio": "discapacidad",
           "custodia": "procesos_empleado",
