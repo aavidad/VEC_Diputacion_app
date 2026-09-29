@@ -197,19 +197,36 @@ BEGIN
  END IF;
  IF FOUND THEN
   SELECT * INTO fi FROM vec_documentos.documento_firmado WHERE documento_id=d.id;
-  IF NOT FOUND
-     OR (v.consumo_nuevo IS FALSE AND (d.decision_ref IS DISTINCT FROM v.decision_ref OR d.auditoria_ad3_ref IS DISTINCT FROM v.auditoria_ref))
-     OR d.principal_ref IS DISTINCT FROM p_auth->>'principal_id'
-     OR d.huella_preimagen_sha256 IS DISTINCT FROM h OR d.id IS DISTINCT FROM m->>'id'
-     OR d.recibo_objeto_ref IS DISTINCT FROM p_objeto->>'recibo_objeto_ref'
-     OR d.recibo_objeto_huella_sha256 IS DISTINCT FROM p_objeto->>'recibo_objeto_huella_sha256'
-     OR d.conector_ref IS DISTINCT FROM p_objeto->>'conector_ref'
-     OR d.objeto_ref IS DISTINCT FROM p_objeto->>'objeto_ref'
-     OR d.objeto_version IS DISTINCT FROM p_objeto->>'objeto_version'
-     OR d.objeto_retenido_hasta IS DISTINCT FROM (p_objeto->>'retenido_hasta')::timestamptz
-     OR d.objeto_inmovilizado IS DISTINCT FROM (p_objeto->>'inmovilizado')::boolean
+  IF NOT FOUND OR d.principal_ref IS DISTINCT FROM p_auth->>'principal_id'
      OR fi.firma_operacion_ref IS DISTINCT FROM m->>'firma_operacion_ref'
   THEN RAISE EXCEPTION 'documentos: clave idempotente reutilizada' USING ERRCODE='23505'; END IF;
+  IF v.consumo_nuevo IS FALSE THEN
+   -- Repetición de la MISMA concesión: todo idéntico, también el objeto.
+   IF d.decision_ref IS DISTINCT FROM v.decision_ref OR d.auditoria_ad3_ref IS DISTINCT FROM v.auditoria_ref
+      OR d.huella_preimagen_sha256 IS DISTINCT FROM h
+      OR d.recibo_objeto_ref IS DISTINCT FROM p_objeto->>'recibo_objeto_ref'
+      OR d.recibo_objeto_huella_sha256 IS DISTINCT FROM p_objeto->>'recibo_objeto_huella_sha256'
+      OR d.conector_ref IS DISTINCT FROM p_objeto->>'conector_ref'
+      OR d.objeto_ref IS DISTINCT FROM p_objeto->>'objeto_ref'
+      OR d.objeto_version IS DISTINCT FROM p_objeto->>'objeto_version'
+      OR d.objeto_retenido_hasta IS DISTINCT FROM (p_objeto->>'retenido_hasta')::timestamptz
+      OR d.objeto_inmovilizado IS DISTINCT FROM (p_objeto->>'inmovilizado')::boolean
+   THEN RAISE EXCEPTION 'documentos: clave idempotente reutilizada' USING ERRCODE='23505'; END IF;
+  ELSIF NOT coalesce(
+      d.id=m->>'id' AND d.modulo_id=m->>'modulo_id' AND d.expediente_ref=m->>'expediente_ref'
+      AND d.tipo_ref=m->>'tipo_ref' AND d.version::text=m->>'version' AND d.mime=m->>'mime'
+      AND d.tamano::text=m->>'tamano' AND d.huella_sha256=m->>'huella_sha256'
+      AND fi.huella_original_sha256=m->>'huella_original_sha256'
+      AND d.politica_ref=m->>'politica_ref' AND d.version_politica::text=m->>'version_politica'
+      AND d.huella_politica_sha256=m->>'huella_politica_sha256'
+      AND d.proteccion=m->>'proteccion' AND d.estado_politica=m->>'estado_politica'
+      AND (m->>'conservacion_hasta')::timestamptz>=d.conservacion_hasta,false) THEN
+   -- Recuperación con concesión nueva (respuesta perdida): el mismo efecto
+   -- con la conservación resuelta más tarde devuelve el documento original.
+   -- Un objeto escrito de nuevo por el reintento queda huérfano y se
+   -- reconcilia; el documento sigue apuntando al objeto confirmado.
+   RAISE EXCEPTION 'documentos: clave idempotente reutilizada' USING ERRCODE='23505';
+  END IF;
  ELSE
   INSERT INTO vec_documentos.documento(
     id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,mime,

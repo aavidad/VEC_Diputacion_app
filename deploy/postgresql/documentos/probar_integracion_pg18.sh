@@ -475,7 +475,7 @@ SQL
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento_firmado)=1
   AND (SELECT count(*) FROM vec_documentos.documento WHERE expediente_ref='exp:00000000-0000-4000-8000-0000000000f1')=1
   AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_firmado_custodiado')=1
-  AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE accion='documentos.firmado.custodiar')=ARRAY['creado','repetido']")" = t
+  AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE accion='documentos.firmado.custodiar')=ARRAY['creado','repetido','repetido']")" = t
 # Custodia y, en la misma transacción, otro expediente en la sesión: el
 # disparador diferido lee el expediente de cada fila y el COMMIT real pasa.
 docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'

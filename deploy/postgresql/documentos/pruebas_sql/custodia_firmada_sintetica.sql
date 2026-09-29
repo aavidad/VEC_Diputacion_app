@@ -10,9 +10,9 @@ GRANT USAGE ON SCHEMA ensayo_firmado TO vec_documentos_ensayo;
 
 -- tipo_ref es el reservado de la resolución firmada de Contratación temporal.
 CREATE FUNCTION ensayo_firmado.preimagen(p_id text,p_clave text,p_tipo text,p_original text,p_firma text,
- p_expediente text DEFAULT 'exp:00000000-0000-4000-8000-0000000000f1') RETURNS bytea
+ p_expediente text DEFAULT 'exp:00000000-0000-4000-8000-0000000000f1',p_conservacion text DEFAULT '2036-01-01T00:00:00Z') RETURNS bytea
 LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
- SELECT convert_to('{"accion":"documentos.firmado.custodiar","id":"'||p_id||'","clave_idempotencia":"'||p_clave||'","modulo_id":"contratacion_temporal","expediente_ref":"'||p_expediente||'","tipo_ref":"'||p_tipo||'","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"'||repeat('a',64)||'","huella_original_sha256":"'||p_original||'","firma_operacion_ref":"'||p_firma||'","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"'||repeat('c',64)||'","proteccion":"conservacion","conservacion_hasta":"2036-01-01T00:00:00Z","estado_politica":"provisional"}','UTF8')
+ SELECT convert_to('{"accion":"documentos.firmado.custodiar","id":"'||p_id||'","clave_idempotencia":"'||p_clave||'","modulo_id":"contratacion_temporal","expediente_ref":"'||p_expediente||'","tipo_ref":"'||p_tipo||'","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"'||repeat('a',64)||'","huella_original_sha256":"'||p_original||'","firma_operacion_ref":"'||p_firma||'","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"'||repeat('c',64)||'","proteccion":"conservacion","conservacion_hasta":"'||p_conservacion||'","estado_politica":"provisional"}','UTF8')
 $f$;
 
 CREATE FUNCTION ensayo_firmado.objeto(p_objeto text) RETURNS jsonb
@@ -69,8 +69,19 @@ BEGIN
  r2:=ensayo_firmado.custodiar('f1b',ensayo_firmado.preimagen(id,clave,reservado,original,firma),
   ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000f1'),'decision:00000000-0000-4000-8000-0000000009f2');
  IF r2->>'id'<>id OR r2->>'numero_vec'<>r->>'numero_vec' THEN RAISE EXCEPTION 'FALLO: recuperación distinta %',r2; END IF;
- -- 3. Misma clave con otro objeto: conflicto.
- PERFORM ensayo_firmado.denegado(format($s$SELECT ensayo_firmado.custodiar('f3',ensayo_firmado.preimagen(%L,%L,%L,%L,%L),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000f3'),'decision:00000000-0000-4000-8000-0000000009f3')$s$,
+ -- 2b. Recuperación con concesión nueva, conservación posterior y objeto
+ -- reescrito: devuelve el documento original. Con la conservación anterior
+ -- o con otra huella original, conflicto.
+ r2:=ensayo_firmado.custodiar('f1c',ensayo_firmado.preimagen(id,clave,reservado,original,firma,'exp:00000000-0000-4000-8000-0000000000f1','2036-06-01T00:00:00Z'),
+  ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000fc'),'decision:00000000-0000-4000-8000-0000000009fc');
+ IF r2->>'id'<>id OR r2->>'numero_vec'<>r->>'numero_vec' OR r2->>'objeto_ref' IS DISTINCT FROM r->>'objeto_ref'
+ THEN RAISE EXCEPTION 'FALLO: recuperación con conservación posterior %',r2; END IF;
+ PERFORM ensayo_firmado.denegado(format($s$SELECT ensayo_firmado.custodiar('fd',ensayo_firmado.preimagen(%L,%L,%L,%L,%L,'exp:00000000-0000-4000-8000-0000000000f1','2035-01-01T00:00:00Z'),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000fd'),'decision:00000000-0000-4000-8000-0000000009fd')$s$,
+  id,clave,reservado,original,firma),'23505');
+ PERFORM ensayo_firmado.denegado(format($s$SELECT ensayo_firmado.custodiar('fe',ensayo_firmado.preimagen(%L,%L,%L,%L,%L),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000fe'),'decision:00000000-0000-4000-8000-0000000009fe')$s$,
+  id,clave,reservado,repeat('c',64),firma),'23505');
+ -- 3. Misma clave con otro objeto y la misma concesión: conflicto.
+ PERFORM ensayo_firmado.denegado(format($s$SELECT ensayo_firmado.custodiar('f3',ensayo_firmado.preimagen(%L,%L,%L,%L,%L),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000f3'),'decision:00000000-0000-4000-8000-0000000009f1')$s$,
   id,clave,reservado,original,firma),'23505');
  -- 4. Tipo no reservado, huellas iguales, material de otra acción, otra finalidad: denegados.
  PERFORM ensayo_firmado.denegado(format($s$SELECT ensayo_firmado.custodiar('f4',ensayo_firmado.preimagen('doc:00000000-0000-4000-8000-0000000000f4','idem:00000000-0000-4000-8000-0000000000f4','tipo:00000000-0000-4000-8000-000000000001',%L,'firmact:00000000-0000-4000-8000-0000000000f4'),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000f4'),'decision:00000000-0000-4000-8000-0000000009f4')$s$,original),'42501');
