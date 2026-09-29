@@ -91,6 +91,7 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/modules/personal/ports" | \
 			"${modulo}/internal/shared/i18n" | \
 			"${modulo}/internal/shared/limiteshttp" | \
+			"${modulo}/internal/shared/postgresql" | \
 			"${modulo}/internal/vec/adapters/contextoactor/postgres" | \
 			"${modulo}/internal/vec/adapters/httpapi" | \
 			"${modulo}/internal/vec/adapters/httpseguridad" | \

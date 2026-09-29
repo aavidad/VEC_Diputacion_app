@@ -44,3 +44,12 @@ test("con el catálogo reducido solo se pintan los datos visibles", () => {
   assert.match(html, /Fecha de disponibilidad indicada/u);
   assert.doesNotMatch(html, /12 de 87|Estado de la bolsa|Último resultado de correo|>Contratos</u);
 });
+
+test("la categoría se muestra con un nombre legible y nunca con el código", async () => {
+  const { nombreCategoria } = await import("./mi-bolsa-campos.js");
+  assert.equal(nombreCategoria({ categoria: "categoria:rpt:administrativo" }), "Administrativo");
+  assert.equal(nombreCategoria({ categoria: "categoria:rpt:auxiliar_de_enfermeria" }), "Auxiliar de enfermeria");
+  assert.equal(nombreCategoria({ categoria: "categoria:rpt:x", categoria_nombre: "Técnico" }), "Técnico");
+  assert.equal(nombreCategoria({ categoria: "Auxiliar" }), "Auxiliar");
+  assert.notEqual(nombreCategoria({ categoria: "" }), "");
+});

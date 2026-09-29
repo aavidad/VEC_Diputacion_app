@@ -4,6 +4,7 @@
 // recoge la oferta elegida y se muestra el recibo.
 import { traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
+import { nombreCategoria } from "./mi-bolsa-campos.js";
 
 export const RUTA_DISPOSICION_MI_BOLSA = "/api/vec/bolsa/mi-bolsa/disposiciones";
 
@@ -102,7 +103,7 @@ export function renderizarOfertasMiBolsa(ofertas) {
         <p class="nota" role="status" aria-live="polite" data-portal-resultado></p></form>`;
     }
     return `<article class="portal-mi-bolsa__bolsa" data-oferta-mi-bolsa="${escaparAtributo(o.oferta)}">
-      <h4>${escaparHTML(o.categoria)} <span class="estado-chip ${claseEstado(o.estado)}">${escaparHTML(t(`estado.${o.estado}`))}</span></h4>
+      <h4>${escaparHTML(nombreCategoria(o))} <span class="estado-chip ${claseEstado(o.estado)}">${escaparHTML(t(`estado.${o.estado}`))}</span></h4>
       ${datos}${accion}</article>`;
   }).join("");
   return `<div class="portal-mi-bolsa">${tarjetas}</div>`;

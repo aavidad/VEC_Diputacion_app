@@ -39,7 +39,7 @@ export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, re
   }
   function contenidoInicial(t) {
     const alta = soloImportar ? "" : `<form data-ct-subsanacion-form novalidate><label class="ct-campo" for="ct-subsanacion-observaciones"><span>${escapar(t("subsanacion_observaciones"))}</span><textarea id="ct-subsanacion-observaciones" name="observaciones" rows="5" maxlength="2000" required ${estado.ocupado ? "disabled" : ""}>${escapar(estado.observaciones)}</textarea></label><button class="boton-primario" type="submit" ${estado.ocupado ? "disabled" : ""}>${escapar(t("subsanacion_confirmar"))}</button></form>`;
-    return `${alta}<section class="ct-alcance" data-ct-subsanacion-importacion aria-labelledby="ct-subsanacion-importacion-titulo"><h3 id="ct-subsanacion-importacion-titulo">${escapar(t("subsanacion_importacion_titulo"))}</h3><label for="ct-subsanacion-archivo">${escapar(t("subsanacion_archivo"))}</label><input id="ct-subsanacion-archivo" data-ct-subsanacion-archivo type="file" accept="application/json,.json" ${estado.ocupado ? "disabled" : ""}></section>`;
+    return `${alta}<details class="ct-alcance" data-ct-subsanacion-importacion${soloImportar ? " open" : ""}><summary><span id="ct-subsanacion-importacion-titulo">${escapar(t("subsanacion_importacion_titulo"))}</span></summary><label for="ct-subsanacion-archivo">${escapar(t("subsanacion_archivo"))}</label><input id="ct-subsanacion-archivo" data-ct-subsanacion-archivo type="file" accept="application/json,.json" ${estado.ocupado ? "disabled" : ""}></details>`;
   }
   function pintar() {
     if (!montado) return;

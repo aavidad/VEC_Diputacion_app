@@ -179,3 +179,20 @@ test("la ayuda «?» explica que el certificado no firma y es accesible", async 
   assert.equal(dialogo.abierto, false);
   assert.equal(boton.enfocado, 1);
 });
+
+test("la portada del centro no enseña referencias ni códigos y solo abre el detalle al elegir", () => {
+  const ratificada = { ...structuredClone(peticion), estado: "ratificada", version: 2, solicitud: { ...peticion.solicitud, centro_ref: "centro-520", periodo: {} } };
+  const ctx = { ...contexto, actor: { ...contexto.actor, centro: "Residencia sintética" } };
+  const html = renderizarPeticionCentro({ contexto: ctx, peticiones: [ratificada] });
+  assert.doesNotMatch(html.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
+  assert.match(html, /Petición del 6 sept 2026/u);
+  assert.match(html, /Residencia sintética/u);
+  assert.match(html, />Ratificada</u);
+  assert.match(html, /Sin fechas indicadas/u);
+  assert.doesNotMatch(html, /pc-detalle|No hay detalle seleccionado/u);
+  const sinUnidad = renderizarPeticionCentro({ contexto: { ...ctx, actor: { ...ctx.actor, centro: "" } }, peticiones: [ratificada], peticion: ratificada });
+  assert.match(sinUnidad, /Su centro/u);
+  assert.match(sinUnidad, /class="pc-panel pc-detalle"/u);
+  assert.match(sinUnidad, /data-accion="cerrar-detalle"/u);
+  assert.doesNotMatch(sinUnidad.replaceAll(/data-seleccionar="[^"]*"/gu, ""), /peticion:centro|centro-520/u);
+});

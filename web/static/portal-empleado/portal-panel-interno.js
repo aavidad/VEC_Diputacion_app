@@ -7,7 +7,7 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-pref-508a-v2";
+import { finVigenciaBolsaPortal, LOCALIZACION_PORTAL, textoPortal, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-pref-508a-v2";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260929-pref-508a-v2";
 import { renderizarChipsMarcas, renderizarMarcasFicha, seleccionableEnLlamamiento, traducirMarcasBolsa } from "./portal-bolsas-marcas.js?v=20260929-pref-508a-v2";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260929-pref-508a-v2";
@@ -26,7 +26,7 @@ import { tieneTextoReferencia, traducirReferencia } from "./portal-referencias-i
 
 
 const REPOSICIONES_CONOCIDAS = new Set(["misma_posicion", "fin_lista", "no_disponible_hasta_fecha"]);
-import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260928-ppt-v2";
+import { RUTA_PANTALLA_REGLAS } from "./reglas/enlace.js?v=20260928-ppt-v2";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
@@ -290,7 +290,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_abrir_candidatos_bolsa", { categoria: b.categoria })}"><strong>${escaparHTML(b.categoria)}</strong></button></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
-        <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
+        <td>${escaparHTML(finVigenciaBolsaPortal(b.vigente_hasta))}</td>
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="${textoPortal("txt_aria_ver_candidatos_bolsa", { total: numero(b.total), categoria: b.categoria })}"><strong>${numero(b.total)}</strong></button></td>
         <td><button type="button" class="estado-chip info" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-pestana="historico" aria-label="${escaparHTML(traducirEnlacesBolsa("llamamientos_curso_aria", { total: numero(b.llamamientos_en_curso), bolsa: b.categoria }))}">${numero(b.llamamientos_en_curso)}</button></td>
         <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
@@ -319,7 +319,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               <tr>
                 <th scope="col">${textoPortal("txt_bolsa_categoria")}</th>
                 <th scope="col">${textoPortal("txt_tipo_de_lista")}</th>
-                <th scope="col">${textoPortal("txt_vigencia")}</th>
+                <th scope="col">${textoPortal("inicio_rrhh_col_vigente_hasta")}</th>
                 <th scope="col">${textoPortal("txt_total")}</th>
                 <th scope="col">${textoPortal("txt_llamamientos_en_curso")}</th>
                 <th scope="col">${textoPortal("txt_disponibles")}</th>
@@ -347,7 +347,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ["alerta", i.incidencias_abiertas, traducirPortal("txt_incidencias_abiertas")],
     ];
     return `
-      ${encabezadoVista("", traducirPortal("txt_cuadro_de_mando"), "", `${enlaceReglasVigentes()}<button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
+      ${encabezadoVista("", traducirPortal("txt_bolsas_de_trabajo"), "", `<a class="boton-secundario" href="${RUTA_PANTALLA_REGLAS}" target="_blank" rel="noopener">${textoPortal("txt_reglas_vigentes")}</a><button type="button" class="boton-secundario" data-accion="imprimir">${textoPortal("txt_imprimir_resumen")}</button>`)}
       <div class="rejilla-kpi" aria-label="${textoPortal("txt_indicadores_operativos_de_bolsa")}">
         ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>

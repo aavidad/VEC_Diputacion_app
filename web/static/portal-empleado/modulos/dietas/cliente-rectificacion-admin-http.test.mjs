@@ -22,11 +22,11 @@ const recibo = { solicitud_ref: solicitudRef, recibo_ref: reciboRef, estado: "co
   consumo_huella_sha256: "0".repeat(64), auditoria_ad3_ref: "auditoria" };
 const json = (cuerpo, estado = 200) => new Response(JSON.stringify(cuerpo), { status: estado, headers: { "Content-Type": "application/json; charset=utf-8" } });
 
-test("GET competente no aporta ámbito ni solicitud y omite cookies", async () => {
+test("GET competente no aporta ámbito ni solicitud y usa credenciales de mismo origen", async () => {
   const llamadas = []; const cliente = crearClienteRectificacionAdminDietasHTTP({ fetchImpl: async (...args) => { llamadas.push(args); return json(lista); } });
   const r = await cliente.listar();
   assert.equal(llamadas[0][0], "/api/vec/personal/solicitudes-rectificacion-dietas/competentes");
-  assert.equal(llamadas[0][1].method, "GET"); assert.equal(llamadas[0][1].credentials, "omit");
+  assert.equal(llamadas[0][1].method, "GET"); assert.equal(llamadas[0][1].credentials, "same-origin");
   assert.equal(Object.hasOwn(llamadas[0][1], "body"), false);
   assert.deepEqual(Object.keys(llamadas[0][1].headers), ["Accept"]);
   assert.equal(r.solicitudes[0].asignacion_actual.centro_ref, "centro-servidor");
@@ -45,7 +45,7 @@ test("PUT confirma con contrato exacto y conserva recibo validado", async () => 
   const llamadas = []; const cliente = crearClienteRectificacionAdminDietasHTTP({ fetchImpl: async (...args) => { llamadas.push(args); return json(recibo); } });
   const r = await cliente.decidir(solicitudRef, entrada);
   assert.equal(llamadas[0][0], `/api/vec/personal/solicitudes-rectificacion-dietas/${solicitudRef}`);
-  assert.equal(llamadas[0][1].method, "PUT"); assert.equal(llamadas[0][1].credentials, "omit");
+  assert.equal(llamadas[0][1].method, "PUT"); assert.equal(llamadas[0][1].credentials, "same-origin");
   assert.deepEqual(JSON.parse(llamadas[0][1].body), entrada);
   assert.equal(r.recibo_ref, reciboRef);
 });

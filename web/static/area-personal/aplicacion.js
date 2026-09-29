@@ -561,7 +561,7 @@ async function recargarPreferencias(estado) {
   try {
     const lectura = await estado.clientePreferencias.cargar();
     Object.assign(preferencias, { ...lectura, error: null, recibo: null, pendiente: null, borrador: null });
-    preferencias.avisoInicio = lectura.estado.valores.inicio !== "bolsas";
+    preferencias.avisoInicio = inicioAjenoElegido(lectura.estado);
     estado.filasPreferidas = lectura.estado.valores.filas;
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(lectura.estado.valores);
@@ -611,7 +611,7 @@ async function guardarPreferencias(estado, formulario, { reintento = false } = {
     preferencias.recibo = resultado;
     preferencias.pendiente = null;
     preferencias.borrador = null;
-    preferencias.avisoInicio = resultado.valores.inicio !== "bolsas";
+    preferencias.avisoInicio = inicioAjenoElegido(resultado);
     estado.filasPreferidas = resultado.valores.filas;
     estado.paginaParticipaciones = 1;
     estado.controladorVisual?.aplicarPreferenciasServidor(resultado.valores);
@@ -842,7 +842,7 @@ function conectarEventos(estado) {
     cerrarMenu();
     cerrarMenuIdentidad();
     const parametros = new URLSearchParams(window.location.search);
-    const inicioAjeno = Boolean(estado.preferencias.estado && estado.preferencias.estado.valores.inicio !== "bolsas");
+    const inicioAjeno = inicioAjenoElegido(estado.preferencias.estado);
     estado.vista = parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
     estado.convocatoriaSeleccionada = parametros.get("id") || estado.convocatoriaSeleccionada;
@@ -871,6 +871,7 @@ function conectarEventos(estado) {
   });
 }
 
+const inicioAjenoElegido = (e) => Boolean(e && e.version > 0 && e.valores?.inicio !== "bolsas"); // solo elección guardada (versión > 0)
 async function cargar(estado) {
   if (asegurarShellPreferencias(estado)) {
     renderizar(estado);
@@ -913,7 +914,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
   }
   const parametros = new URLSearchParams(window.location.search);
   exigirParametrosConocidos(parametros);
-  const inicioAjeno = Boolean(preferencias && preferencias.estado.valores.inicio !== "bolsas");
+  const inicioAjeno = inicioAjenoElegido(preferencias?.estado);
   const estado = {
     cliente,
     descargarReciboPDF,
