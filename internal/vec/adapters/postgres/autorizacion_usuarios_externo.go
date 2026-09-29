@@ -42,13 +42,34 @@ func (a *AlmacenAutorizacionUsuariosExterno) ObtenerInstantaneaAutorizacion(ctx 
 	if !identificadorPostgreSQLSeguro(principalID, 512) || !identificadorPostgreSQLSeguro(perfilActivoRef, 512) {
 		return domain.InstantaneaAutorizacion{}, ports.ErrAsignacionPerfilNoEncontrada
 	}
-	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
-	if err != nil || valorNuloPostgreSQL(tx) {
+	var instantanea domain.InstantaneaAutorizacion
+	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		var intento error
+		instantanea, intento = a.obtenerInstantaneaEnTransaccion(ctx, principalID, perfilActivoRef)
+		return intento
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.InstantaneaAutorizacion{}, ports.ErrAsignacionPerfilNoEncontrada
+	}
+	if err != nil {
 		return domain.InstantaneaAutorizacion{}, errorFuenteAutorizacion(ctx)
 	}
+	return instantanea, nil
+}
+
+func (a *AlmacenAutorizacionUsuariosExterno) obtenerInstantaneaEnTransaccion(ctx context.Context, principalID, perfilActivoRef string) (domain.InstantaneaAutorizacion, error) {
+	// CTX-14 comprueba este nivel y modo también durante una consulta. Cada
+	// carrera 40001/40P01 reinicia la transacción completa.
+	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return domain.InstantaneaAutorizacion{}, err
+	}
+	if valorNuloPostgreSQL(tx) {
+		return domain.InstantaneaAutorizacion{}, ports.ErrFuenteAutorizacionNoDisponible
+	}
 	defer revertirTransaccionPostgreSQL(tx)
-	if configurarTransaccionAutorizacion(ctx, tx) != nil {
-		return domain.InstantaneaAutorizacion{}, errorFuenteAutorizacion(ctx)
+	if err = configurarTransaccionAutorizacion(ctx, tx); err != nil {
+		return domain.InstantaneaAutorizacion{}, err
 	}
 	var asignacionJSON, rolJSON, controlJSON, politicasJSON []byte
 	var revisionTexto, huella string
@@ -56,11 +77,8 @@ func (a *AlmacenAutorizacionUsuariosExterno) ObtenerInstantaneaAutorizacion(ctx 
 		revision_catalogo, huella_catalogo, documentos_politicas
 		FROM vec_autorizacion.obtener_instantanea_usuarios_externo_v1($1,$2)`, principalID, perfilActivoRef).
 		Scan(&asignacionJSON, &rolJSON, &controlJSON, &revisionTexto, &huella, &politicasJSON)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.InstantaneaAutorizacion{}, ports.ErrAsignacionPerfilNoEncontrada
-	}
 	if err != nil {
-		return domain.InstantaneaAutorizacion{}, errorFuenteAutorizacion(ctx)
+		return domain.InstantaneaAutorizacion{}, err
 	}
 	var asignacion domain.AsignacionPerfil
 	var rol domain.VersionRol
@@ -80,8 +98,11 @@ func (a *AlmacenAutorizacionUsuariosExterno) ObtenerInstantaneaAutorizacion(ctx 
 	instantanea := domain.InstantaneaAutorizacion{AsignacionPerfil: asignacion, VersionRol: rol,
 		ControlVigenciaVersionRol: control, Politicas: politicas,
 		RevisionCatalogoPoliticas: revision, CatalogoPoliticasHuellaSHA256: huella}
-	if instantanea.Validar() != nil || tx.Commit(ctx) != nil {
+	if instantanea.Validar() != nil {
 		return domain.InstantaneaAutorizacion{}, ports.ErrFuenteAutorizacionNoDisponible
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.InstantaneaAutorizacion{}, err
 	}
 	return instantanea, nil
 }
