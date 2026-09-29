@@ -49,10 +49,10 @@ BEGIN
      OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(c))<>n-1
      OR vec_contexto_actor_v1.referencia_valida(c->>'referencia',prefijo) IS NOT TRUE
      OR pg_catalog.jsonb_typeof(c->'version') IS DISTINCT FROM 'number'
-     OR (c->>'version')::numeric<>pg_catalog.trunc((c->>'version')::numeric)
+     OR pg_catalog.scale((c->>'version')::numeric)<>0
      OR (c->>'version')::numeric NOT BETWEEN 1 AND 18446744073709551615::numeric
      OR pg_catalog.jsonb_typeof(c->'procedencia_version') IS DISTINCT FROM 'number'
-     OR (c->>'procedencia_version')::numeric<>pg_catalog.trunc((c->>'procedencia_version')::numeric)
+     OR pg_catalog.scale((c->>'procedencia_version')::numeric)<>0
      OR vec_contexto_actor_v1.procedencia_valida(c->>'procedencia_ref',(c->>'procedencia_version')::numeric,c->>'procedencia_huella_sha256',c->>'procedencia_autoridad') IS NOT TRUE
      OR c->>'procedencia_autoridad' IS DISTINCT FROM 'autoridad_maestra_acreditada'
      OR c->>'estado' IS DISTINCT FROM p->>'estado'
@@ -136,7 +136,7 @@ DECLARE anterior record; v numeric; h text; k text; c jsonb; ahora timestamptz;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
     OR vec_contexto_actor_v1.snapshot_contexto_externo_valido_v1(p_snapshot) IS NOT TRUE
-    OR p_version_esperada IS NULL OR p_version_esperada<>trunc(p_version_esperada)
+    OR p_version_esperada IS NULL OR pg_catalog.scale(p_version_esperada)<>0
     OR p_version_esperada NOT BETWEEN 0 AND 18446744073709551614::numeric
     OR p_huella_aprobada IS NULL OR p_huella_aprobada !~ '^[0-9a-f]{64}$' THEN
   RAISE EXCEPTION 'snapshot externo inválido' USING ERRCODE='22023'; END IF;
