@@ -19,10 +19,10 @@ class PaginaFalsa:
     def __init__(self, fallar=False):
         self.fallar = fallar
 
-    def goto(self, *_args, **_kwargs):
+    async def goto(self, *_args, **_kwargs):
         return types.SimpleNamespace(status=200, url="https://127.0.0.1:18443/portal-empleado/")
 
-    def evaluate(self, _script, prueba=None):
+    async def evaluate(self, _script, prueba=None):
         if prueba is None:
             return 0
         if self.fallar:
@@ -35,16 +35,19 @@ class ContextoFalso:
     def __init__(self, pagina):
         self.pagina = pagina
 
-    def new_page(self):
+    async def new_page(self):
         return self.pagina
 
-    def route(self, *_args):
+    async def route(self, *_args):
         pass
 
-    def cookies(self):
+    async def route_web_socket(self, *_args):
+        pass
+
+    async def cookies(self):
         return []
 
-    def close(self):
+    async def close(self):
         pass
 
 
@@ -53,22 +56,24 @@ class NavegadorFalso:
         self.pagina = pagina
         self.contextos = 0
 
-    def new_context(self, **_kwargs):
+    async def new_context(self, **_kwargs):
         self.contextos += 1
         return ContextoFalso(self.pagina)
 
-    def close(self):
+    async def close(self):
         pass
 
 
 class PlaywrightFalso:
     def __init__(self, navegador):
-        self.chromium = types.SimpleNamespace(launch=lambda **_kwargs: navegador)
+        async def launch(**_kwargs):
+            return navegador
+        self.chromium = types.SimpleNamespace(launch=launch)
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *_args):
+    async def __aexit__(self, *_args):
         pass
 
 
@@ -121,16 +126,41 @@ class RecorridoTest(unittest.TestCase):
         with self.assertRaises(recorrer.PlanInvalido):
             recorrer.validar_plan(self.ruta)
 
+    def test_rechaza_plan_y_material_en_otro_git(self):
+        otro = Path(self.tmp.name) / "otro-trabajo"
+        otro.mkdir()
+        (otro / ".git").write_text("gitdir: /otro/lugar", encoding="utf-8")
+        plan_git = otro / "plan.json"
+        plan_git.write_text(json.dumps(self.plan), encoding="utf-8")
+        plan_git.chmod(0o600)
+        with self.assertRaises(recorrer.PlanInvalido):
+            recorrer.validar_plan(plan_git)
+        certificado_git = otro / "certificado"
+        certificado_git.write_bytes(b"certificado de otro worktree")
+        certificado_original = self.plan["perfiles"]["rrhh"]["certificado"]
+        self.plan["perfiles"]["rrhh"]["certificado"] = str(certificado_git)
+        self.escribir()
+        with self.assertRaises(recorrer.PlanInvalido):
+            recorrer.validar_plan(self.ruta)
+        clave_git = otro / "clave"
+        clave_git.write_bytes(b"clave de otro worktree")
+        clave_git.chmod(0o600)
+        self.plan["perfiles"]["rrhh"]["certificado"] = certificado_original
+        self.plan["perfiles"]["rrhh"]["clave"] = str(clave_git)
+        self.escribir()
+        with self.assertRaises(recorrer.PlanInvalido):
+            recorrer.validar_plan(self.ruta)
+
     def test_recorrido_sintetico_cinco_perfiles_y_primer_corte(self):
-        modulo = types.ModuleType("playwright.sync_api")
+        modulo = types.ModuleType("playwright.async_api")
         navegador = NavegadorFalso(PaginaFalsa())
-        modulo.sync_playwright = lambda: PlaywrightFalso(navegador)
-        with patch.dict("sys.modules", {"playwright.sync_api": modulo}), contextlib.redirect_stdout(io.StringIO()):
+        modulo.async_playwright = lambda: PlaywrightFalso(navegador)
+        with patch.dict("sys.modules", {"playwright.async_api": modulo}), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(recorrer.recorrer(self.plan), 0)
         self.assertEqual(navegador.contextos, 5)
         navegador = NavegadorFalso(PaginaFalsa(fallar=True))
-        modulo.sync_playwright = lambda: PlaywrightFalso(navegador)
-        with patch.dict("sys.modules", {"playwright.sync_api": modulo}), contextlib.redirect_stdout(io.StringIO()):
+        modulo.async_playwright = lambda: PlaywrightFalso(navegador)
+        with patch.dict("sys.modules", {"playwright.async_api": modulo}), contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(recorrer.recorrer(self.plan), 1)
         self.assertEqual(navegador.contextos, 1)
 

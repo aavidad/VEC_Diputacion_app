@@ -6,7 +6,7 @@ Este guion comprueba, con Chrome y certificados distintos, una autorización pos
 
 Preparar fuera de Git un clon local **H3–H5** con datos sintéticos, el binario correspondiente arrancado y un origen HTTPS loopback que sirva la interfaz y la API. La declaración de «clon H3–H5» corresponde al responsable del entorno; el guion verifica la huella SHA256 del binario y que el PID lo ejecuta, pero no instala ni certifica las migraciones. Se necesitan cinco identidades sintéticas con concesiones positivas exactas, cinco certificados y claves privados, y la CA del servidor confiada por Chrome. Cada comprobación positiva y negativa debe corresponder a una concesión publicada del clon y a un recurso sintético del ámbito del perfil. No usar el servidor de presentación ni la base principal.
 
-El plan JSON se guarda con modo `0600` **fuera del repositorio**. El guion rechaza rutas privadas situadas dentro de Git. No imprime certificados, claves, cuerpos de respuesta ni datos de la persona. No desactiva la verificación TLS. El navegador solo solicita recursos del origen local declarado y corta cualquier respuesta de redirección antes de seguirla. Los mensajes de terminal están en `mensajes.es.json` y `mensajes.en.json`. Ejecución:
+El plan JSON se guarda con modo `0600` **fuera de cualquier repositorio Git**. El guion rechaza también certificados, claves y binario situados en otros worktrees o repositorios. No imprime certificados, claves, cuerpos de respuesta ni datos de la persona. No desactiva la verificación TLS. El navegador solo solicita recursos HTTP(S) del origen local declarado, corta cualquier respuesta de redirección antes de seguirla y cierra todos los WebSocket sin conectarlos al servidor. Los mensajes de terminal están en `mensajes.es.json` y `mensajes.en.json`. Ejecución:
 
 ```bash
 python3 scripts/recorridos/accesos/recorrer.py --plan /ruta/privada/accesos.json --ejecutar
@@ -42,4 +42,4 @@ La tabla es una guía para configurar expectativas **después de comprobar las c
 python3 -m unittest discover -s scripts/recorridos/accesos -p 'test_*.py'
 ```
 
-Usa respuestas y ficheros temporales sintéticos. Comprueba la puerta sin ejecución, la matriz completa y la parada en el primer fallo. Una prueba adicional abre Chrome contra dos servidores loopback desechables: el primero devuelve `302` al segundo y verifica que el segundo no recibe ninguna solicitud. No contacta con VEC.
+Usa respuestas y ficheros temporales sintéticos. Comprueba la puerta sin ejecución, la matriz completa, el rechazo de material dentro de otro Git y la parada en el primer fallo. Dos pruebas abren Chrome contra servidores loopback desechables: un `302` no llega al segundo puerto y un WebSocket hacia otro puerto se cierra sin abrir conexión allí. No contacta con VEC.

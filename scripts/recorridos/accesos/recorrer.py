@@ -7,6 +7,7 @@ El plan, las claves y las respuestas de VEC permanecen fuera del repositorio.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import os
@@ -33,13 +34,19 @@ class PlanInvalido(ValueError):
         super().__init__(mensaje(clave, **datos))
 
 
+def _dentro_de_git(ruta: Path) -> bool:
+    resuelta = ruta.resolve()
+    return any((directorio / ".git").exists() or (directorio / ".git").is_symlink()
+               for directorio in resuelta.parents)
+
+
 def _fichero_privado(valor: object, nombre: str, *, clave: bool = False) -> Path:
     if not isinstance(valor, str) or not valor:
         raise PlanInvalido("falta_fichero", nombre=nombre)
     ruta = Path(valor)
     if not ruta.is_absolute() or not ruta.is_file() or ruta.is_symlink():
         raise PlanInvalido("fichero_externo", nombre=nombre)
-    if ruta.resolve().is_relative_to(RAIZ):
+    if ruta.resolve().is_relative_to(RAIZ) or _dentro_de_git(ruta):
         raise PlanInvalido("fuera_repositorio", nombre=nombre)
     if clave and stat.S_IMODE(ruta.stat().st_mode) & 0o077:
         raise PlanInvalido("fichero_privado", nombre=nombre)
@@ -131,9 +138,9 @@ def validar_plan(ruta_plan: Path) -> dict:
     return plan
 
 
-def _sonda(pagina, prueba: dict) -> dict:
+async def _sonda(pagina, prueba: dict) -> dict:
     # Evalúa el contenido dentro de Chrome: no devuelve datos personales a Python.
-    return pagina.evaluate("""async p => {
+    return await pagina.evaluate("""async p => {
       const opciones = {method:p.metodo, cache:'no-store', credentials:'same-origin',
         redirect:'error', headers:{Accept:'application/json'}};
       if (p.metodo === 'POST') {
@@ -156,52 +163,58 @@ def _sonda(pagina, prueba: dict) -> dict:
     }""", prueba)
 
 
-def _interceptar_local(route, origen: str) -> None:
+async def _interceptar_local(route, origen: str) -> None:
     """Resuelve una sola respuesta y corta cualquier salto de origen o redirección."""
     esperado = urlsplit(origen)
     solicitado = urlsplit(route.request.url)
     if (solicitado.scheme, solicitado.netloc) != (esperado.scheme, esperado.netloc):
-        route.abort()
+        await route.abort()
         return
     try:
-        respuesta = route.fetch(max_redirects=0)
+        respuesta = await route.fetch(max_redirects=0)
         final = urlsplit(respuesta.url)
         if (300 <= respuesta.status < 400
                 or (final.scheme, final.netloc) != (esperado.scheme, esperado.netloc)):
-            route.abort()
+            await route.abort()
             return
-        route.fulfill(response=respuesta)
+        await route.fulfill(response=respuesta)
     except Exception:
-        route.abort()
+        await route.abort()
 
 
-def recorrer(plan: dict) -> int:
-    from playwright.sync_api import sync_playwright
+async def _cerrar_websocket(route) -> None:
+    """El recorrido de lectura no necesita canales WebSocket."""
+    await route.close()
+
+
+async def _recorrer(plan: dict) -> int:
+    from playwright.async_api import async_playwright
 
     origen = plan["origen"].rstrip("/")
-    with sync_playwright() as pw:
-        navegador = pw.chromium.launch(executable_path=str(CHROME), headless=True)
+    async with async_playwright() as pw:
+        navegador = await pw.chromium.launch(executable_path=str(CHROME), headless=True)
         try:
             for nombre in PERFILES:
                 perfil = plan["perfiles"][nombre]
-                contexto = navegador.new_context(
+                contexto = await navegador.new_context(
                     client_certificates=[{"origin": origen, "certPath": perfil["certificado"], "keyPath": perfil["clave"]}],
                     ignore_https_errors=False,
                     viewport={"width": 1440, "height": 900},
                     service_workers="block",
                 )
                 try:
-                    contexto.route("**/*", lambda route: _interceptar_local(route, origen))
+                    await contexto.route("**/*", lambda route: _interceptar_local(route, origen))
+                    await contexto.route_web_socket("**/*", _cerrar_websocket)
                     # Chrome debe confiar en la CA del origen mediante el almacén
                     # configurado por el operador. No se omite la validación TLS.
-                    pagina = contexto.new_page()
-                    respuesta = pagina.goto(origen + "/portal-empleado/" if nombre != "candidato_area" else origen + "/area-personal/", wait_until="domcontentloaded", timeout=15000)
+                    pagina = await contexto.new_page()
+                    respuesta = await pagina.goto(origen + "/portal-empleado/" if nombre != "candidato_area" else origen + "/area-personal/", wait_until="domcontentloaded", timeout=15000)
                     if (respuesta is None or respuesta.status != 200
                             or urlsplit(respuesta.url).netloc != urlsplit(origen).netloc):
                         print(mensaje("corte_entrada", nombre=nombre))
                         return 1
                     for indice, prueba in enumerate(perfil["pruebas"], 1):
-                        observado = _sonda(pagina, prueba)
+                        observado = await _sonda(pagina, prueba)
                         correcto = (observado["estado"] == prueba["estado"] and observado["json"]
                                     and (observado["comprobado"] if prueba["clase"] == "permiso" else observado["sinDatos"]))
                         print(mensaje("resultado", nombre=nombre, indice=indice, clase=prueba["clase"],
@@ -209,19 +222,23 @@ def recorrer(plan: dict) -> int:
                         if not correcto:
                             print(mensaje("corte_prueba", nombre=nombre, indice=indice, clase=prueba["clase"]))
                             return 1
-                    if contexto.cookies():
+                    if await contexto.cookies():
                         print(mensaje("corte_cookies", nombre=nombre))
                         return 1
-                    almacenamiento = pagina.evaluate("() => localStorage.length + sessionStorage.length")
+                    almacenamiento = await pagina.evaluate("() => localStorage.length + sessionStorage.length")
                     if almacenamiento:
                         print(mensaje("corte_almacenamiento", nombre=nombre))
                         return 1
                 finally:
-                    contexto.close()
+                    await contexto.close()
         finally:
-            navegador.close()
+            await navegador.close()
     print(mensaje("corte_observado"))
     return 0
+
+
+def recorrer(plan: dict) -> int:
+    return asyncio.run(_recorrer(plan))
 
 
 def main(argv: list[str] | None = None) -> int:
