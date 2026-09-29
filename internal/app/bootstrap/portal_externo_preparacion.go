@@ -184,11 +184,20 @@ func seudonimosAutorizadosPortalExterno(cfg config.Config, contenido []byte, aut
 			permitidas[c] = true
 		}
 	}
+	// Sin configuración corporativa no hay nada que excluir; si existe pero no
+	// se puede leer, se falla en lugar de omitir la exclusión en silencio.
 	internas := map[string]bool{}
-	if c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionInternaCorporativaV1); err == nil {
+	rutaInterna := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", nombreConfiguracionPreferencias(core.SuperficieAutenticacionInternaCorporativaV1))
+	if _, errFichero := os.Lstat(rutaInterna); errFichero == nil {
+		c, err := leerConfiguracionUsuariosPreferenciasDesarrollo(cfg, core.SuperficieAutenticacionInternaCorporativaV1)
+		if err != nil {
+			return seudonimosPortalExterno{}, ErrSeudonimosPortalExternoInvalidos
+		}
 		for _, cuenta := range c.Cuentas {
 			internas[cuenta.CuentaRef] = true
 		}
+	} else if !errors.Is(errFichero, os.ErrNotExist) {
+		return seudonimosPortalExterno{}, ErrSeudonimosPortalExternoInvalidos
 	}
 	for _, c := range s.Cuentas {
 		if !permitidas[c.CuentaRef] || internas[c.CuentaRef] {

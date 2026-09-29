@@ -154,4 +154,12 @@ func TestAliasSoloParaCuentasAutorizadasYNoInternas(t *testing.T) {
 	if _, err := seudonimosAutorizadosPortalExterno(cfg, contenido, []string{cuenta}); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
 		t.Fatalf("alias externo para una cuenta interna aceptado: %v", err)
 	}
+	// Si la configuración corporativa existe pero no se puede leer, no se
+	// omite la exclusión: se rechaza todo.
+	if err := os.WriteFile(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "usuarios-preferencias-interna.json"), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seudonimosAutorizadosPortalExterno(cfg, contenido, []string{cuenta}); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("configuracion corporativa ilegible ignorada: %v", err)
+	}
 }

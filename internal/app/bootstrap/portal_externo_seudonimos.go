@@ -126,6 +126,13 @@ func leerSeudonimosPortalExterno(contenido []byte) (seudonimosPortalExterno, err
 const registrarAliasPortalExternoSQL = `SELECT vec_identidad_sesiones_v1.registrar_alias_hmac_cuenta_v1(
     $1::text, $2::text, $3::text, $4::text, $5::text, $6::bigint, $7::bytea, $8::bytea)`
 
+// cuentaPrivilegiadaOVinculadaSQL es verdadero si la cuenta es privilegiada
+// o si es la cuenta ordinaria de una persona que además tiene una
+// privilegiada. Si la cuenta no existe no devuelve fila y se rechaza.
+const cuentaPrivilegiadaOVinculadaSQL = `SELECT c.cuenta_privilegiada OR EXISTS(
+ SELECT 1 FROM vec_identidad_sesiones_v1.cuenta p WHERE p.cuenta_ordinaria_ref=c.cuenta_ref)
+ FROM vec_identidad_sesiones_v1.cuenta c WHERE c.cuenta_ref=$1::text`
+
 // registrarSeudonimosPortalExterno registra, con el rol de gobierno y de
 // forma idempotente, los alias que calculó el proceso externo. La cuenta
 // debe existir y estar activa; si no, no se registra nada.
@@ -144,8 +151,7 @@ func registrarSeudonimosPortalExterno(ctx context.Context, gobierno *pgxpool.Poo
 	for _, c := range s.Cuentas {
 		// Nunca una cuenta privilegiada, aunque figure en la lista positiva.
 		var privilegiada bool
-		if err := tx.QueryRow(ctx, `SELECT cuenta_privilegiada OR cuenta_ordinaria_ref IS NOT NULL
- FROM vec_identidad_sesiones_v1.cuenta WHERE cuenta_ref=$1::text`, c.CuentaRef).Scan(&privilegiada); err != nil || privilegiada {
+		if err := tx.QueryRow(ctx, cuentaPrivilegiadaOVinculadaSQL, c.CuentaRef).Scan(&privilegiada); err != nil || privilegiada {
 			return ErrSeudonimosPortalExternoInvalidos
 		}
 		cuenta, _ := hex.DecodeString(c.CuentaHMAC)
