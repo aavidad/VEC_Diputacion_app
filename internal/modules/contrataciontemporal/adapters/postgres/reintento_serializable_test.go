@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 func TestReintentoSerializableRepiteSoloCarreras(t *testing.T) {
@@ -35,7 +37,7 @@ func TestReintentoSerializableRepiteSoloCarreras(t *testing.T) {
 		t.Fatalf("un error no reintentable se repitió: err=%v intentos=%d", err, n)
 	}
 	n = 0
-	if err := ejecutarConReintentoSerializable(ctx, func() error { n++; return &pgconn.PgError{Code: "40001"} }); err == nil || n != intentosTransaccionSerializable {
+	if err := ejecutarConReintentoSerializable(ctx, func() error { n++; return &pgconn.PgError{Code: "40001"} }); err == nil || n != postgresqlcomun.IntentosMaximosCarreraSerializable {
 		t.Fatalf("el límite de intentos no se respeta: err=%v intentos=%d", err, n)
 	}
 }

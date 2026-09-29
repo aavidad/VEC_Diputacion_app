@@ -267,6 +267,12 @@ transportes_mtls_revisados=(
 	# propio origen (textos/...), sin datos personales; GET same-origin,
 	# redirect error y no-referrer, rechaza otro origen y limita el tamaño.
 	static/comun/idioma.js
+	# Proxy de pruebas (29/09): con omit el navegador no enviaba la autenticación
+	# del proxy. Consulta de seguimiento, rectificación de Dietas e histórico de
+	# organización pasan a same-origin; rutas internas fijas, redirect error.
+	static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js
+	static/portal-empleado/modulos/dietas/cliente-rectificacion-admin-http.js
+	static/portal-empleado/organizacion/historico.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
