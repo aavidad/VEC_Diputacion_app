@@ -106,7 +106,8 @@ class RuntimeTests(unittest.TestCase):
         bootstrap.mkdir(parents=True)
         (bootstrap / 'users.go').write_text('const envUsers = "VEC_USUARIOS_PREFERENCIAS_ENABLED"\n'
                                            'const unused = "VEC_UNUSED_SELECTOR"\n'
-                                           'os.Getenv(envUsers)')
+                                           'func selectorCapacidadRRHHDesarrollo(cfg config.Config, nombre string) {os.Getenv(nombre)}\n'
+                                           'selectorCapacidadRRHHDesarrollo(cfg, envUsers)')
         self.values['VEC_USUARIOS_PREFERENCIAS_ENABLED'] = 'true'
         self.save()
         env, _ = runtime.runtime_environment(self.source, self.root, 18531, 55531)

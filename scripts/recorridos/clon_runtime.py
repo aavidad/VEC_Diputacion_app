@@ -205,6 +205,9 @@ def runtime_environment(source, state, port, pg_port):
                           if not p.name.endswith('_test.go'))
     constants = dict(re.findall(r'\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"(VEC_[A-Z0-9_]+)"', bootstrap))
     reads = re.findall(r'\b(?:os\.Getenv|getenv|envFirst)\(\s*(?:"(VEC_[A-Z0-9_]+)"|([A-Za-z_][A-Za-z0-9_]*))', bootstrap)
+    # This selector reads os.Getenv(nombre); its nominal second argument is a name.
+    if re.search(r'func selectorCapacidadRRHHDesarrollo\(cfg config\.Config, nombre string\)', bootstrap) and 'os.Getenv(nombre)' in bootstrap:
+        reads.extend(re.findall(r'\bselectorCapacidadRRHHDesarrollo\(\s*[^,]+,\s*(?:"(VEC_[A-Z0-9_]+)"|([A-Za-z_][A-Za-z0-9_]*))', bootstrap))
     for literal, constant in reads:
         if literal:
             declared.add(literal)
