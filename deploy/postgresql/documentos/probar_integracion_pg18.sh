@@ -476,6 +476,19 @@ test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT cou
   AND (SELECT count(*) FROM vec_documentos.documento WHERE expediente_ref='exp:00000000-0000-4000-8000-0000000000f1')=1
   AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_firmado_custodiado')=1
   AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE accion='documentos.firmado.custodiar')=ARRAY['creado','repetido']")" = t
+# Custodia y, en la misma transacción, otro expediente en la sesión: el
+# disparador diferido lee el expediente de cada fila y el COMMIT real pasa.
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+SELECT ensayo_firmado.custodiar('fa',ensayo_firmado.preimagen('doc:00000000-0000-4000-8000-0000000000fa','idem:00000000-0000-4000-8000-0000000000fa',
+ 'ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c',repeat('b',64),'firmact:00000000-0000-4000-8000-0000000000fa',
+ 'exp:00000000-0000-4000-8000-0000000000fa'),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000fa'),'decision:00000000-0000-4000-8000-0000000009fa');
+SELECT set_config('vec.documentos.expediente_ref','exp:00000000-0000-4000-8000-000000000001',true);
+COMMIT;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento_firmado)=2")" = t
 # Con historia, ni Documentos 000009 ni AD3-113 se pueden retirar.
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos9.down.sql >/dev/null 2>&1; then echo 'FALLO: DOWN de 000009 con custodias' >&2; exit 1; fi
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/000113.down.sql >/dev/null 2>&1; then echo 'FALLO: DOWN de AD3-113 con custodias' >&2; exit 1; fi

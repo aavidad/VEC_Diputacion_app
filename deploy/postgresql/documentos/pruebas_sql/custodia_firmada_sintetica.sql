@@ -9,9 +9,10 @@ CREATE SCHEMA ensayo_firmado AUTHORIZATION postgres;
 GRANT USAGE ON SCHEMA ensayo_firmado TO vec_documentos_ensayo;
 
 -- tipo_ref es el reservado de la resolución firmada de Contratación temporal.
-CREATE FUNCTION ensayo_firmado.preimagen(p_id text,p_clave text,p_tipo text,p_original text,p_firma text) RETURNS bytea
+CREATE FUNCTION ensayo_firmado.preimagen(p_id text,p_clave text,p_tipo text,p_original text,p_firma text,
+ p_expediente text DEFAULT 'exp:00000000-0000-4000-8000-0000000000f1') RETURNS bytea
 LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
- SELECT convert_to('{"accion":"documentos.firmado.custodiar","id":"'||p_id||'","clave_idempotencia":"'||p_clave||'","modulo_id":"contratacion_temporal","expediente_ref":"exp:00000000-0000-4000-8000-0000000000f1","tipo_ref":"'||p_tipo||'","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"'||repeat('a',64)||'","huella_original_sha256":"'||p_original||'","firma_operacion_ref":"'||p_firma||'","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"'||repeat('c',64)||'","proteccion":"conservacion","conservacion_hasta":"2036-01-01T00:00:00Z","estado_politica":"provisional"}','UTF8')
+ SELECT convert_to('{"accion":"documentos.firmado.custodiar","id":"'||p_id||'","clave_idempotencia":"'||p_clave||'","modulo_id":"contratacion_temporal","expediente_ref":"'||p_expediente||'","tipo_ref":"'||p_tipo||'","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"'||repeat('a',64)||'","huella_original_sha256":"'||p_original||'","firma_operacion_ref":"'||p_firma||'","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"'||repeat('c',64)||'","proteccion":"conservacion","conservacion_hasta":"2036-01-01T00:00:00Z","estado_politica":"provisional"}','UTF8')
 $f$;
 
 CREATE FUNCTION ensayo_firmado.objeto(p_objeto text) RETURNS jsonb
@@ -25,8 +26,9 @@ CREATE FUNCTION ensayo_firmado.custodiar(p_caso text,p_preimagen bytea,p_objeto 
  p_accion text DEFAULT 'documentos.firmado.custodiar',p_finalidad text DEFAULT 'custodiar_documento_firmado') RETURNS jsonb
 LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
 DECLARE m ensayo_externa.material; r jsonb; id text:=convert_from(p_preimagen,'UTF8')::jsonb->>'id';
+ expediente text:=convert_from(p_preimagen,'UTF8')::jsonb->>'expediente_ref';
 BEGIN
- PERFORM ensayo_externa.preparar(p_caso,p_accion,id,'exp:00000000-0000-4000-8000-0000000000f1',
+ PERFORM ensayo_externa.preparar(p_caso,p_accion,id,expediente,
   p_finalidad,CASE WHEN p_accion='documentos.firmado.custodiar' THEN 'documento_firmado' ELSE 'documento_generado' END,
   CASE WHEN p_accion='documentos.firmado.custodiar' THEN '["documento_firmado.custodia","evidencia_custodia"]'::jsonb ELSE '["documento","recibo"]'::jsonb END,
   p_preimagen,p_decision);

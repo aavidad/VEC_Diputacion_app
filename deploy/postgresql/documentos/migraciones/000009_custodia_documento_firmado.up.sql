@@ -105,13 +105,22 @@ CREATE POLICY alcance_alta ON vec_documentos.documento_firmado FOR INSERT TO vec
 
 -- Un documento de tipo reservado sin su fila de firmado no llega a confirmarse:
 -- ni el alta genérica ni un INSERT directo pueden custodiarlo como firmado.
+-- La comprobación es diferida: custodiar_firmado_v1 inserta primero el
+-- documento y después su fila de firmado, así que una sesión que haga
+-- SET CONSTRAINTS ALL IMMEDIATE antes de custodiar se rechaza a sí misma.
+-- Cada fila fija su propio expediente para leer bajo RLS y devuelve después
+-- el valor que tenía la transacción: puede tocar varios expedientes sin
+-- rechazos falsos.
 CREATE FUNCTION vec_documentos.exigir_documento_firmado_v1() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+DECLARE anterior text:=current_setting('vec.documentos.expediente_ref',true); firmado boolean;
 BEGIN
- IF EXISTS (SELECT 1 FROM vec_documentos.tipo_reservado_firmado t WHERE t.tipo_ref=NEW.tipo_ref)
-    AND NOT EXISTS (SELECT 1 FROM vec_documentos.documento_firmado f
-                     WHERE f.documento_id=NEW.id AND f.tipo_ref=NEW.tipo_ref AND f.huella_firmado_sha256=NEW.huella_sha256
-                       AND f.expediente_ref=NEW.expediente_ref AND f.modulo_id=NEW.modulo_id) THEN
+ PERFORM set_config('vec.documentos.expediente_ref',NEW.expediente_ref,true);
+ firmado:=EXISTS (SELECT 1 FROM vec_documentos.documento_firmado f
+                   WHERE f.documento_id=NEW.id AND f.tipo_ref=NEW.tipo_ref AND f.huella_firmado_sha256=NEW.huella_sha256
+                     AND f.expediente_ref=NEW.expediente_ref AND f.modulo_id=NEW.modulo_id);
+ PERFORM set_config('vec.documentos.expediente_ref',coalesce(anterior,''),true);
+ IF EXISTS (SELECT 1 FROM vec_documentos.tipo_reservado_firmado t WHERE t.tipo_ref=NEW.tipo_ref) AND NOT firmado THEN
   RAISE EXCEPTION 'documentos: tipo reservado a la custodia de documentos firmados' USING ERRCODE='42501';
  END IF;
  RETURN NULL;
@@ -190,6 +199,7 @@ BEGIN
   SELECT * INTO fi FROM vec_documentos.documento_firmado WHERE documento_id=d.id;
   IF NOT FOUND
      OR (v.consumo_nuevo IS FALSE AND (d.decision_ref IS DISTINCT FROM v.decision_ref OR d.auditoria_ad3_ref IS DISTINCT FROM v.auditoria_ref))
+     OR d.principal_ref IS DISTINCT FROM p_auth->>'principal_id'
      OR d.huella_preimagen_sha256 IS DISTINCT FROM h OR d.id IS DISTINCT FROM m->>'id'
      OR d.recibo_objeto_ref IS DISTINCT FROM p_objeto->>'recibo_objeto_ref'
      OR d.recibo_objeto_huella_sha256 IS DISTINCT FROM p_objeto->>'recibo_objeto_huella_sha256'
