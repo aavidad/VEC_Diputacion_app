@@ -14,3 +14,8 @@ const EnvPortalProceso = "VEC_PORTAL_PROCESO"
 // vec_externo_preflight_v3_desarrollo. Lleva el prefijo de las variables del
 // portal externo: el proceso interno la rechaza.
 const EnvExternoPreflightV3DatabaseURL = "VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL"
+
+// EnvExternoBolsaPublicaDatabaseURL usa un LOGIN de solo lectura propio del
+// proceso externo para la proyección pública B10. La conexión interna no se
+// comparte aunque ambas lean la misma base pública gobernada.
+const EnvExternoBolsaPublicaDatabaseURL = "VEC_EXTERNO_BOLSA_PUBLICA_DATABASE_URL"

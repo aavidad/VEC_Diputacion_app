@@ -123,6 +123,7 @@ type Config struct {
 	DevelopmentMaterialDir                      string
 	PortalProceso                               string
 	ExternoPreflightV3DatabaseURL               string
+	ExternoBolsaPublicaPostgreSQL               ConfiguracionPostgreSQLPublica
 	IncorporacionV2File                         string
 	ContratacionTemporalSubsanacionPoliticaFile string
 	CTAnalisisMotivosSourcePath                 string
@@ -222,29 +223,32 @@ func Load() Config {
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
 		CTAnalisisMotivosSourcePath:                 envFirst(EnvCTAnalisisMotivosSourcePath),
 		ExternoPreflightV3DatabaseURL:               os.Getenv(EnvExternoPreflightV3DatabaseURL),
-		ReglasEjemplo:                               cargarConfiguracionReglasEjemplo(),
-		FakeCredentialsPath:                         envFirst(EnvFakeCredentialsPath),
-		TrustedHeaderSubject:                        envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
-		TrustedHeaderRoles:                          envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
-		TrustedHeaderMechanism:                      envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
-		TrustedProxyCIDRs:                           splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
-		HTTPAllowedCIDRs:                            splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
-		TLSCertFile:                                 envFirst(EnvTLSCertFile),
-		TLSKeyFile:                                  envFirst(EnvTLSKeyFile),
-		PersonalCatalogPath:                         envFirst(EnvPersonalCatalogPath),
-		PersonalOrganizacionSourcePath:              envFirst(EnvPersonalOrganizacionSourcePath),
-		RPTCatalogoPath:                             envFirst(EnvRPTCatalogoPath),
-		PersonalOrganizacionVersion:                 envPositiveInt(EnvPersonalOrganizacionVersion),
-		PersonalOrganizacionPostgreSQL:              envBool(EnvPersonalOrganizacionPostgreSQL),
-		BolsaPublicSourcePath:                       envFirst(EnvBolsaPublicSourcePath),
-		BolsaCategoriesSourcePath:                   envFirst(EnvBolsaCategoriesSourcePath),
-		BolsaCategoriesCatalogID:                    envFirst(EnvBolsaCategoriesCatalogID),
-		BolsaCategoriesVersion:                      envPositiveInt(EnvBolsaCategoriesVersion),
-		BolsaCategoriesSHA256:                       envFirst(EnvBolsaCategoriesSHA256),
-		BolsaCategoriesPublicProjectionSHA256:       envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
-		BolsaImportacionConvocaCustodiaDir:          envFirst(EnvBolsaImportacionConvocaCustodiaDir),
-		BolsaAprobacionProvisionMiBolsa:             envFirst(EnvBolsaProvisionMiBolsaAprobacion),
-		BolsaPreimagenProvisionMiBolsa:              envFirst(EnvBolsaProvisionMiBolsaPreimagen),
+		ExternoBolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
+			dsn: os.Getenv(EnvExternoBolsaPublicaDatabaseURL),
+		},
+		ReglasEjemplo:                         cargarConfiguracionReglasEjemplo(),
+		FakeCredentialsPath:                   envFirst(EnvFakeCredentialsPath),
+		TrustedHeaderSubject:                  envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
+		TrustedHeaderRoles:                    envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
+		TrustedHeaderMechanism:                envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
+		TrustedProxyCIDRs:                     splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
+		HTTPAllowedCIDRs:                      splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
+		TLSCertFile:                           envFirst(EnvTLSCertFile),
+		TLSKeyFile:                            envFirst(EnvTLSKeyFile),
+		PersonalCatalogPath:                   envFirst(EnvPersonalCatalogPath),
+		PersonalOrganizacionSourcePath:        envFirst(EnvPersonalOrganizacionSourcePath),
+		RPTCatalogoPath:                       envFirst(EnvRPTCatalogoPath),
+		PersonalOrganizacionVersion:           envPositiveInt(EnvPersonalOrganizacionVersion),
+		PersonalOrganizacionPostgreSQL:        envBool(EnvPersonalOrganizacionPostgreSQL),
+		BolsaPublicSourcePath:                 envFirst(EnvBolsaPublicSourcePath),
+		BolsaCategoriesSourcePath:             envFirst(EnvBolsaCategoriesSourcePath),
+		BolsaCategoriesCatalogID:              envFirst(EnvBolsaCategoriesCatalogID),
+		BolsaCategoriesVersion:                envPositiveInt(EnvBolsaCategoriesVersion),
+		BolsaCategoriesSHA256:                 envFirst(EnvBolsaCategoriesSHA256),
+		BolsaCategoriesPublicProjectionSHA256: envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
+		BolsaImportacionConvocaCustodiaDir:    envFirst(EnvBolsaImportacionConvocaCustodiaDir),
+		BolsaAprobacionProvisionMiBolsa:       envFirst(EnvBolsaProvisionMiBolsaAprobacion),
+		BolsaPreimagenProvisionMiBolsa:        envFirst(EnvBolsaProvisionMiBolsaPreimagen),
 		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
 		},
@@ -442,6 +446,7 @@ func (c Config) Normalize() Config {
 	c.BolsaRelevoCesePostgreSQL = c.BolsaRelevoCesePostgreSQL.normalizar()
 	c.BolsaPoliticaOfertasCalculadorPostgreSQL = c.BolsaPoliticaOfertasCalculadorPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
+	c.ExternoBolsaPublicaPostgreSQL = c.ExternoBolsaPublicaPostgreSQL.normalizar()
 	c.ContratacionTemporalPostgreSQL = c.ContratacionTemporalPostgreSQL.normalizar()
 	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)
 	return c
