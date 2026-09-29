@@ -22,6 +22,17 @@ import (
 // al acreditar a la persona (enmascara el NIF del certificado y normaliza el
 // nombre), de modo que el vínculo `can_* → participación` no exige guardar
 // el documento en ningún sitio. La clave HMAC vive en el material KMS.
+//
+// Límites conocidos (modelo en estudio de protección de datos):
+//   - la entrada procede de listas públicas; quien obtenga la clave puede
+//     recalcular la referencia de cualquier persona publicada, así que la
+//     clave es tan sensible como el propio vínculo;
+//   - la clave no lleva versión: cambiarla cambia todas las referencias y
+//     deja huérfanos los vínculos ya registrados;
+//   - dos personas con los mismos cuatro dígitos y el mismo nombre derivan
+//     la misma referencia. Dentro de un acta se detecta y esas filas quedan
+//     pendientes de revisión; entre actas distintas no se puede distinguir de
+//     la misma persona inscrita en dos bolsas.
 
 var (
 	ErrClaveCandidatoRequerida    = errors.New("bolsa constitucion: clave de derivacion de candidato requerida")
@@ -85,10 +96,18 @@ func ClaveIdentidadCandidato(identidad importacion.IdentidadEnmascarada) (string
 	return strings.Join([]string{documento, apellido1, apellido2, nombre}, "|"), nil
 }
 
-// EnmascararDocumento devuelve la forma publicada `***NNNN**` con los cuatro
-// dígitos centrales: posiciones 4–7 del NIF (12345678X → ***4567**) y, en el
-// NIE, las posiciones 4–7 de su número (X1234567L → ***4567**), siguiendo la
-// orientación de la AEPD sobre publicación de documentos identificativos.
+// EnmascararDocumento devuelve la forma canónica `***NNNN**`, que es la que
+// usan las exportaciones de Convoca tanto para DNI como para NIE. Conserva
+// los mismos cuatro dígitos que publica la orientación de la AEPD: en el DNI,
+// las posiciones 4–7 (12345678X → ***4567**, igual que la AEPD); en el NIE,
+// las posiciones 5–8 del documento completo, que la AEPD publica como
+// `****4567*` (X1234567L) y aquí se normalizan a `***4567**`. La forma
+// `****NNNN*` de la AEPD no se acepta como entrada: la importación de Convoca
+// solo admite `***NNNN**`.
+//
+// Cuatro dígitos más el nombre no identifican de forma única a una persona:
+// la constitución detecta las filas que coinciden y no las vincula (ver
+// referenciasCandidato).
 func EnmascararDocumento(documento string) (string, error) {
 	limpio := strings.ToUpper(strings.Join(strings.Fields(strings.ReplaceAll(documento, "-", "")), ""))
 	if patronDocumentoEnmascarado.MatchString(limpio) {
