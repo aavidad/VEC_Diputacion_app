@@ -5,12 +5,13 @@ import "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 // DatosPropuestaCoberturaParaAdaptador es una copia de la vista cuyo origen
 // queda cerrado en application. El adaptador solo puede leerla y traducirla.
 type DatosPropuestaCoberturaParaAdaptador struct {
-	Estado             domain.EstadoPropuestaDecisionCobertura
-	ViaRecomendada     domain.ClaveCatalogo
-	Evaluaciones       []domain.EvaluacionViaPropuestaCobertura
-	MotivosAlternativa []MotivoAlternativaPropuestaCobertura
-	IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura
-	AvisosVia          *ResultadoAvisosViaCobertura
+	Estado              domain.EstadoPropuestaDecisionCobertura
+	ViaRecomendada      domain.ClaveCatalogo
+	Evaluaciones        []domain.EvaluacionViaPropuestaCobertura
+	MotivosAlternativa  []MotivoAlternativaPropuestaCobertura
+	IdentidadSemantica  domain.IdentidadSemanticaPropuestaDecisionCobertura
+	PreparacionCatalogo *PreparacionCatalogoPropuestaCobertura
+	AvisosVia           *ResultadoAvisosViaCobertura
 }
 
 // ResultadoPropuestaCoberturaParaAdaptador evita que campos públicos de una
@@ -25,10 +26,11 @@ func nuevaResultadoPropuestaCoberturaParaAdaptador(
 ) (ResultadoPropuestaCoberturaParaAdaptador, error) {
 	datos := DatosPropuestaCoberturaParaAdaptador{
 		Estado: p.Estado, ViaRecomendada: p.ViaRecomendada,
-		Evaluaciones:       copiarEvaluacionesCobertura(p.Evaluaciones),
-		MotivosAlternativa: copiarMotivosAlternativaCobertura(p.MotivosAlternativa),
-		IdentidadSemantica: p.IdentidadSemantica,
-		AvisosVia:          copiarAvisosViaCobertura(p.AvisosVia),
+		Evaluaciones:        copiarEvaluacionesCobertura(p.Evaluaciones),
+		MotivosAlternativa:  copiarMotivosAlternativaCobertura(p.MotivosAlternativa),
+		IdentidadSemantica:  p.IdentidadSemantica,
+		PreparacionCatalogo: copiarPreparacionCatalogoCobertura(p.PreparacionCatalogo),
+		AvisosVia:           copiarAvisosViaCobertura(p.AvisosVia),
 	}
 	if !datosPropuestaCoberturaAdaptadorValidos(datos) {
 		return ResultadoPropuestaCoberturaParaAdaptador{}, ErrPresentacionPropuestaCoberturaNoConfiable
@@ -42,6 +44,7 @@ func (r ResultadoPropuestaCoberturaParaAdaptador) DatosParaAdaptador() (DatosPro
 	}
 	r.datos.Evaluaciones = copiarEvaluacionesCobertura(r.datos.Evaluaciones)
 	r.datos.MotivosAlternativa = copiarMotivosAlternativaCobertura(r.datos.MotivosAlternativa)
+	r.datos.PreparacionCatalogo = copiarPreparacionCatalogoCobertura(r.datos.PreparacionCatalogo)
 	r.datos.AvisosVia = copiarAvisosViaCobertura(r.datos.AvisosVia)
 	return r.datos, true
 }
@@ -83,6 +86,39 @@ func datosPropuestaCoberturaAdaptadorValidos(p DatosPropuestaCoberturaParaAdapta
 			return false
 		}
 	}
+	if p.PreparacionCatalogo != nil {
+		catalogo := p.PreparacionCatalogo
+		if catalogo.Identidad.Validar() != nil ||
+			catalogo.Canon != domain.CanonHuellaCatalogoCoberturaV2() ||
+			len(catalogo.Vias) != len(p.Evaluaciones) {
+			return false
+		}
+		ordenes := make(map[uint16]struct{}, len(catalogo.Vias))
+		vistas := make(map[domain.ClaveCatalogo]struct{}, len(catalogo.Vias))
+		totalElementos := 0
+		for _, via := range catalogo.Vias {
+			if _, existe := vias[via.Clave]; !existe || via.Orden == 0 ||
+				len(via.Documentos) > 32 || len(via.Datos) > 32 {
+				return false
+			}
+			if _, repetida := vistas[via.Clave]; repetida {
+				return false
+			}
+			vistas[via.Clave] = struct{}{}
+			if _, repetido := ordenes[via.Orden]; repetido {
+				return false
+			}
+			ordenes[via.Orden] = struct{}{}
+			totalElementos += len(via.Documentos) + len(via.Datos)
+			if totalElementos > 512 || !elementosPreparacionAdaptadorValidos(via.Documentos) ||
+				!elementosPreparacionAdaptadorValidos(via.Datos) {
+				return false
+			}
+		}
+		if totalElementos == 0 {
+			return false
+		}
+	}
 	if len(p.MotivosAlternativa) > 64 {
 		return false
 	}
@@ -101,6 +137,39 @@ func datosPropuestaCoberturaAdaptadorValidos(p DatosPropuestaCoberturaParaAdapta
 		motivosPorVia[motivo.ViaClave] = struct{}{}
 	}
 	return true
+}
+
+func elementosPreparacionAdaptadorValidos(elementos []domain.ElementoPreparacionViaCobertura) bool {
+	claves := make(map[domain.ClaveCatalogo]struct{}, len(elementos))
+	ordenes := make(map[uint16]struct{}, len(elementos))
+	for _, elemento := range elementos {
+		if elemento.Validar() != nil {
+			return false
+		}
+		if _, repetida := claves[elemento.Clave]; repetida {
+			return false
+		}
+		if _, repetido := ordenes[elemento.Orden]; repetido {
+			return false
+		}
+		claves[elemento.Clave] = struct{}{}
+		ordenes[elemento.Orden] = struct{}{}
+	}
+	return true
+}
+
+func copiarPreparacionCatalogoCobertura(entrada *PreparacionCatalogoPropuestaCobertura) *PreparacionCatalogoPropuestaCobertura {
+	if entrada == nil {
+		return nil
+	}
+	salida := *entrada
+	salida.Vias = make([]PreparacionViaPropuestaCobertura, len(entrada.Vias))
+	for indice, via := range entrada.Vias {
+		salida.Vias[indice] = via
+		salida.Vias[indice].Documentos = append([]domain.ElementoPreparacionViaCobertura(nil), via.Documentos...)
+		salida.Vias[indice].Datos = append([]domain.ElementoPreparacionViaCobertura(nil), via.Datos...)
+	}
+	return &salida
 }
 
 func copiarMotivosAlternativaCobertura(

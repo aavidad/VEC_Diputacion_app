@@ -103,7 +103,7 @@ func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estad
 		causa = causas[0]
 	}
 	contenido, err := json.Marshal(valor)
-	if err != nil || len(contenido) > MaximoRespuestaCoberturaBytes {
+	if err != nil || len(contenido) > limiteRespuestaCobertura(peticion, estado, valor) {
 		estado = http.StatusInternalServerError
 		causa = &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSerializacion, Causa: err}
 		valor = envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: errorInternoCobertura.codigo, ClaveI18n: errorInternoCobertura.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}}
@@ -117,6 +117,19 @@ func responderJSONCobertura(w http.ResponseWriter, peticion *http.Request, estad
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.WriteHeader(estado)
 	_, _ = w.Write(contenido)
+}
+
+func limiteRespuestaCobertura(peticion *http.Request, estado int, valor any) int {
+	if peticion == nil || peticion.URL == nil ||
+		peticion.URL.Path != RutaPropuestaCobertura || estado != http.StatusOK {
+		return MaximoRespuestaCoberturaBytes
+	}
+	propuesta, ok := valor.(envoltorioPropuestaCobertura)
+	if !ok || propuesta.Data.Esquema != "vec.contratacion-temporal.propuesta-cobertura.v2" ||
+		propuesta.Data.Catalogo == nil {
+		return MaximoRespuestaCoberturaBytes
+	}
+	return MaximoRespuestaPropuestaCoberturaV2Bytes
 }
 func codigoErrorCobertura(valor any) string {
 	if envoltorio, ok := valor.(envoltorioErrorCobertura); ok {
