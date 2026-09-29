@@ -255,7 +255,7 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		// «Mi imagen» (AD3-108); sólo con VEC_USUARIOS_IMAGEN_ENABLED.
 		usuariosports.AudienciaConsultarImagenInterna, usuariosports.AudienciaActualizarImagenInterna,
 		usuariosports.AudienciaConsultarImagenExterna, usuariosports.AudienciaActualizarImagenExterna,
-		// Ficha propia de Aspirantes (AD3-110); sólo con VEC_ASPIRANTES_ENABLED.
+		// Ficha propia de Aspirantes (AD3-111); sólo con VEC_ASPIRANTES_ENABLED.
 		aspirantesports.AudienciaConsultar, aspirantesports.AudienciaAlta, aspirantesports.AudienciaRectificar,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se
 		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.

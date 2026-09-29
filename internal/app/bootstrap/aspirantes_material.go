@@ -24,7 +24,7 @@ import (
 var errComposicionAspirantes = errors.New("bootstrap: Aspirantes no disponible")
 
 // VEC_ASPIRANTES_ENABLED añade la ficha propia de Aspirantes al área
-// personal. Exige preferencias externas activas (misma frontera), AD3-110 y
+// personal. Exige preferencias externas activas (misma frontera), AD3-111 y
 // Aspirantes 000001/000002 instalados, y su configuración privada.
 const envAspirantesDesarrollo = "VEC_ASPIRANTES_ENABLED"
 
