@@ -579,3 +579,37 @@ func TestConfirmacionOrdenDecisionEsConcurrenteYNoComparteEstado(
 		t.Fatal("una mutación concurrente alcanzó el resultado compartido")
 	}
 }
+
+// Solo el ejecutor acredita una carrera revertida por la base; entonces el
+// intento no es ambiguo: falla antes de COMMIT, se puede repetir y no pide
+// reconciliación. Tampoco se repite dentro del intento.
+func TestIntentoConfirmacionOrdenDecisionCarreraRevertidaEsRepetible(t *testing.T) {
+	e := nuevoEscenarioConfirmacionOrdenC3(t)
+	tx, ejecutor := nuevaTransaccionTCBConfirmacionOrdenC3(t, e.reciboDenegado,
+		func(e *ejecutorSesionTCBOperacionDecisionPrueba) {
+			e.errorDespues = fmt.Errorf("%w: COMMIT 40001",
+				cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura)
+		})
+	intento, err := cobertura.IntentarConfirmacionOperacionDecisionCobertura(context.Background(), tx, e.ordenDenegada)
+	if !errors.Is(err, cobertura.ErrResultadoConfirmacionOperacionDecisionCoberturaNoDisponible) ||
+		errors.Is(err, cobertura.ErrResultadoConfirmacionOperacionDecisionCoberturaAmbiguo) ||
+		ejecutor.llamadas.Load() != 1 {
+		t.Fatalf("carrera revertida mal clasificada: %v", err)
+	}
+	if !intento.CarreraSerializablePara(e.ordenDenegada) || !intento.FalloAntesCommitPara(e.ordenDenegada) {
+		t.Fatal("la carrera revertida no quedó como repetible")
+	}
+	if _, requiere := intento.ReconciliacionPara(e.ordenDenegada); requiere {
+		t.Fatal("la carrera revertida pidió reconciliación")
+	}
+	if intento.CarreraSerializablePara(e.ordenConcedida) {
+		t.Fatal("la señal de carrera vale para otra orden")
+	}
+	// Un fallo ambiguo cualquiera nunca es repetible.
+	tx, _ = nuevaTransaccionTCBConfirmacionOrdenC3(t, e.reciboDenegado,
+		func(e *ejecutorSesionTCBOperacionDecisionPrueba) { e.errorDespues = errTransporteConfirmacionOrdenC3 })
+	intento, _ = cobertura.IntentarConfirmacionOperacionDecisionCobertura(context.Background(), tx, e.ordenDenegada)
+	if intento.CarreraSerializablePara(e.ordenDenegada) {
+		t.Fatal("un fallo ambiguo quedó como repetible")
+	}
+}

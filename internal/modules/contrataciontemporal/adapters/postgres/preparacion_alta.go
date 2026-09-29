@@ -10,6 +10,7 @@ import (
 	"errors"
 	"reflect"
 	"time"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,7 +24,7 @@ import (
 const (
 	funcionPrepararAltaV2      = "vec_contratacion_temporal.preparar_alta_v2"
 	esquemaPrepararAltaV2      = "vec.contratacion-temporal.preparar-alta.v2"
-	maximoIntentosPrepararAlta = 3
+	maximoIntentosPrepararAlta = postgresqlcomun.IntentosMaximosCarreraSerializable
 )
 
 var _ ports.PreparadorAltaIdempotente = (*PreparadorAltaPostgreSQL)(nil)
@@ -254,7 +255,8 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 			return ports.PreparacionAlta{}, ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosPrepararAlta {
+			intento == maximoIntentosPrepararAlta ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.PreparacionAlta{}, normalizarErrorPreparacion(ctx, err)
 		}
 	}

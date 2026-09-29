@@ -10,11 +10,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
-	funcionConfirmarAnalisis        = "vec_contratacion_temporal.confirmar_operacion_analisis_v3"
-	maximoIntentosConfirmarAnalisis = 3
+	funcionConfirmarAnalisis = "vec_contratacion_temporal.confirmar_operacion_analisis_v3"
+	// La confirmación es una sola transacción SERIALIZABLE: si la base la
+	// revierte por una carrera (40001/40P01) no queda nada y se repite con la
+	// política común de VEC.
+	maximoIntentosConfirmarAnalisis = postgresqlcomun.IntentosMaximosCarreraSerializable
 	// funcionRegistrarUrgenciaAnalisis (CT-000125) guarda la urgencia
 	// declarada en la misma transacción que confirma el análisis.
 	funcionRegistrarUrgenciaAnalisis = "vec_contratacion_temporal.registrar_urgencia_analisis_v1"
@@ -68,7 +72,8 @@ func (t *TransaccionOperacionesAnalisisPostgreSQL) ConfirmarOperacionAnalisis(
 			return ports.ReciboOperacionAnalisis{}, ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosConfirmarAnalisis {
+			intento == maximoIntentosConfirmarAnalisis ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.ReciboOperacionAnalisis{},
 				normalizarErrorConfirmacionAnalisis(ctx, err)
 		}

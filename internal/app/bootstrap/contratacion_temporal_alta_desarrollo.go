@@ -83,8 +83,11 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	soloConsumePublicada bool
 	// perfilCancelacionCentro: perfil propio de la cancelación por el
 	// centro, dinámico y con guarda de origen operativo.
-	perfilCancelacionCentro           bool
-	avisoNoConsumibleEn               time.Time
+	perfilCancelacionCentro bool
+	avisoNoConsumibleEn     time.Time
+	// perfilesFijos: perfiles de la misma persona reservados a rutas cuyo
+	// permiso no depende del expediente; solo se consumen (corte 2).
+	perfilesFijos                     []*perfilFijoCTDesarrollo
 	candidatoBolsa                    bool
 	mu                                sync.Mutex
 	sello                             *selloConsultasContratacionTemporalDesarrollo
@@ -257,18 +260,21 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
+			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseAnalisisCT),
 		)
 	instantaneaAsignacion, errAsignacion :=
 		nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
+			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseAsignacionCT),
 		)
 	instantaneaInformeJuridico, errInformeJuridico :=
 		nuevaInstantaneaAutorizacionInformeJuridicoContratacionTemporalDesarrollo(
 			datosVinculo.PrincipalID,
 			datosVinculo.PerfilActivoRef,
 			ahora,
+			faseDeOperacionCTDesarrollo(dependenciasCT.opcionesCatalogoCT, operacionFaseInformeJuridicoCT),
 		)
 	motivoPropuesta := referenciaMotivoAutorizacionCoberturaDesarrollo("propuesta")
 	motivoDecision := referenciaMotivoAutorizacionCoberturaDesarrollo("decision")
@@ -317,6 +323,9 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		ambitos:                      ambitos, reloj: reloj,
 		concesiones:              make(map[string]struct{}),
 		instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion),
+	}
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen); err != nil {
+		return vacias, err
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	autorizadorBase, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 
@@ -187,26 +188,61 @@ type respuestaAlta struct {
 	revalidadaEn, validaHasta                            time.Time
 }
 
+// ejecutarAlta registra la sesión. Con peticiones simultáneas del mismo
+// actor la transacción SERIALIZABLE puede perder una carrera (40001/40P01),
+// en la consulta o al confirmar: el aborto no deja nada escrito (ni consume
+// la aserción), así que se repite entera con la política común. Antes esa
+// pérdida acababa en una denegación (403) sin motivo.
 func (r *RegistroSesionesPostgreSQL) ejecutarAlta(
 	ctx context.Context,
 	consulta string,
 	argumentos []any,
 ) (respuestaAlta, error) {
+	for intento := 1; ; intento++ {
+		respuesta, carrera, err := r.ejecutarAltaUnaVez(ctx, consulta, argumentos)
+		if !carrera || intento >= postgresqlcomun.IntentosMaximosCarreraSerializable ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
+			if carrera {
+				return respuestaAlta{}, errorSesionSaneado(ctx)
+			}
+			return respuesta, err
+		}
+	}
+}
+
+func (r *RegistroSesionesPostgreSQL) ejecutarAltaUnaVez(
+	ctx context.Context,
+	consulta string,
+	argumentos []any,
+) (respuestaAlta, bool, error) {
 	tx, err := r.registro.BeginTx(ctx, opcionesTransaccion())
 	if err != nil {
-		return respuestaAlta{}, errorSesionSaneado(ctx)
+		return respuestaAlta{}, false, errorSesionSaneado(ctx)
 	}
 	defer revertir(tx)
 	if err = prepararTransaccion(ctx, tx); err != nil {
-		return respuestaAlta{}, errorSesionSaneado(ctx)
+		return respuestaAlta{}, false, errorSesionSaneado(ctx)
 	}
 	respuesta, err := consultarRespuestaAlta(ctx, tx, consulta, argumentos)
 	if err != nil {
-		return respuestaAlta{}, errorSesionSaneado(ctx)
+		return respuestaAlta{}, postgresqlcomun.EsCarreraSerializable(err), errorSesionSaneado(ctx)
 	}
 	if err = tx.Commit(ctx); err == nil {
-		return respuesta, nil
+		return respuesta, false, nil
 	}
+	// Un 40001/40P01 al confirmar es un aborto seguro: nada quedó escrito.
+	if postgresqlcomun.EsCarreraSerializable(err) {
+		return respuestaAlta{}, true, errorSesionSaneado(ctx)
+	}
+	reconciliada, err := r.reconciliarAlta(ctx, argumentos, respuesta)
+	return reconciliada, false, err
+}
+
+func (r *RegistroSesionesPostgreSQL) reconciliarAlta(
+	ctx context.Context,
+	argumentos []any,
+	respuesta respuestaAlta,
+) (respuestaAlta, error) {
 	// Un COMMIT incierto no se reintenta. Se consulta exclusivamente la
 	// operacion CSPRNG de esta invocacion y se cotejan todos sus campos.
 	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

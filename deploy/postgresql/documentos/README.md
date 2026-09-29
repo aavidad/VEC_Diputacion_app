@@ -258,9 +258,19 @@ documento se deriva de expediente y clave, de modo que un reintento no
 duplica. La respuesta no devuelve la referencia ni el custodio. Anotar no
 acredita firma, registro ni entrega. Sin `registro_externo` la ruta no existe;
 sin concesión V3 responde 403.
-La descarga de originales no se publica todavía: leer el original exige una
-decisión de almacén propia (`NuevoContextoLeerDocumentoGeneradoAlmacen`) que
-la raíz no puede obtener del PDP V3; la lista marca `descargable:false`.
+Descarga de originales (5.06): se publica `POST /api/vec/documentos/originales/descargas`
+cuando la composición tiene la autoridad de lectura del almacén (seudónimos con
+clave propia derivada del KMS de desarrollo y concesión V3 registrada). Cada
+descarga pide dos decisiones V3 del mismo perfil, ambas de
+`documentos.original.descargar` (tipo `documento_original`, finalidad
+`descargar_documento_original`, campos `["contenido","documento"]`, ámbito
+`organizacion_ref`, motivo `motivos.listar`): la de la consulta SQL, que se
+consume en su transacción, y la de lectura del almacén, ligada al objeto y
+versión exactos y a la decisión consumida. Solo se ofrecen para descargar los
+originales con custodia VEC; los de custodia externa no. Sin esa concesión en
+los datos de autorización la ruta responde 403 y audita la denegación. Al
+desplegar no hay que configurar nada nuevo; la concesión solo hace falta
+cuando existan originales custodiados por VEC.
 
 ## Documentos-7: foto de la persona (Usuarios 5.08c)
 

@@ -1,0 +1,15 @@
+# Orden causal de Fase 1, paso 3 (Usuarios por superficie y correos por
+# población). Va DESPUÉS del hito 4 y de B59: requiere instaladas las listas
+# de 5.08a, 5.08b, 5.08c (lista_sql_trabajo_*usuarios_508{a,b,c}_*.txt) y
+# lista_sql_trabajo_avisos_mis_correos_20260929.txt. Todas se ejecutan como
+# DBA (superusuario): leen la decisión V3 firmada de cada fila para saber de
+# qué portal es. Una transacción por fichero; ningún DOWN.
+# Con la aplicación parada; el binario nuevo sube en la misma ventana (el
+# anterior ya no encuentra las fachadas de correos ni la lectura de avisos).
+# No acredita instalación.
+deploy/postgresql/documentos/migraciones/000008_imagen_personal_superficie.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000009_superficie_preferencias_imagen.up.sql
+deploy/postgresql/usuarios_vec/roles_000010_up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000110_correos_por_poblacion.up.sql
+deploy/postgresql/contexto_actor_v1/migraciones/000011_persona_candidato_avisos_poblacion.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
