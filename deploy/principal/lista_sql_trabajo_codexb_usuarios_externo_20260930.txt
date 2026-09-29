@@ -1,0 +1,9 @@
+# B4 y área personal: después de #145 (Documentos 000008, Usuarios 000009/000010,
+# roles_000010, AD3-110 y ContextoActor 000011) y #151 (AD3-112).
+# Aplicar con ambos procesos parados. Nunca ejecutar DOWN ni reaplicar.
+# Documentos/Usuarios separan físicamente la imagen externa. El último SQL
+# conserva los correos antiguos, pero el externo rechaza su arranque si aún
+# llevan claves anteriores. Ese historial requiere reclaveado gobernado.
+deploy/postgresql/documentos/migraciones/000010_imagen_externa_fisica.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000011_imagen_externa_fisica.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000012_preflight_claves_correos_externos.up.sql
