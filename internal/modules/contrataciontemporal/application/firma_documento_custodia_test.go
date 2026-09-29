@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -149,5 +150,34 @@ func TestComponerCustodiaUnaSolaVezYConDatosValidos(t *testing.T) {
 	}
 	if nuevo.ComponerCustodia(nil, map[string]string{"resolucion": tipoCustodiaPrueba}) == nil {
 		t.Error("custodio nulo admitido")
+	}
+}
+
+// Referencia fija del JSON canónico con enlace: es el texto cuya huella ata la
+// V3 y que CT145 recibe tal cual.
+func TestMaterialFirmaDocumentoCanonicoConEnlace(t *testing.T) {
+	h := func(c string) string { return strings.Repeat(c, 64) }
+	m := ports.MaterialFirmaDocumento{OrganizacionRef: "organizacion:desarrollo:dipgra", ExpedienteRef: "expediente:ct:001", VersionExpediente: 7,
+		Documento: "resolucion", CatalogoRef: "vec.contratacion_temporal.circuito_firma:1", CatalogoHuella: h("c"),
+		PasoRef: "circuito:1:p1", PasoOrden: 1, Secuencia: 1, Resultado: domain.ResultadoFirmaFirmado,
+		OriginalHuella: h("a"), FirmadoHuella: h("1"), CertificadoHuella: h("e"), FirmanteRef: "ref:" + h("f"),
+		PoliticaVerificacion: ports.PoliticaVerificacionFirma, RevocacionEstado: "vigente", SelloTiempoEstado: "no_presente",
+		ClaveIdempotencia: "clave-firma-000000001", DocumentoCustodiaRef: "ref:" + h("d"), DocumentoCustodiaVersion: 1}
+	c, err := m.Canonico()
+	want := `{"OrganizacionRef":"organizacion:desarrollo:dipgra","ExpedienteRef":"expediente:ct:001","VersionExpediente":7,"Documento":"resolucion","CatalogoRef":"vec.contratacion_temporal.circuito_firma:1","CatalogoHuella":"` + h("c") + `","PasoRef":"circuito:1:p1","PasoOrden":1,"Secuencia":1,"Resultado":"firmado","MotivoDevolucion":null,"OriginalHuella":"` + h("a") + `","FirmadoHuella":"` + h("1") + `","CertificadoHuella":"` + h("e") + `","FirmanteRef":"ref:` + h("f") + `","PoliticaVerificacion":"politica:vec:firma:verificacion-autonoma:v1","RevocacionEstado":"vigente","SelloTiempoEstado":"no_presente","ClaveIdempotencia":"clave-firma-000000001","DocumentoCustodiaRef":"ref:` + h("d") + `","DocumentoCustodiaVersion":1}`
+	if err != nil || string(c) != want {
+		t.Fatalf("canónico con enlace:\n%s\n%v", c, err)
+	}
+	for nombre, alterar := range map[string]func(*ports.MaterialFirmaDocumento){
+		"referencia sin versión":       func(m *ports.MaterialFirmaDocumento) { m.DocumentoCustodiaVersion = 0 },
+		"versión sin referencia":       func(m *ports.MaterialFirmaDocumento) { m.DocumentoCustodiaRef = "" },
+		"versión por encima de 2^53-1": func(m *ports.MaterialFirmaDocumento) { m.DocumentoCustodiaVersion = 1 << 53 },
+		"referencia con espacio":       func(m *ports.MaterialFirmaDocumento) { m.DocumentoCustodiaRef = "ref con espacio" },
+	} {
+		x := m
+		alterar(&x)
+		if x.Validar() == nil {
+			t.Errorf("%s: admitido", nombre)
+		}
 	}
 }
