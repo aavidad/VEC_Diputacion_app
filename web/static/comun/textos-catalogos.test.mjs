@@ -54,7 +54,7 @@ test("hay al menos un catálogo en el idioma por defecto y un directorio por idi
 for (const { codigo } of indice.idiomas) {
   test(`textos/${codigo}: mismos módulos y mismas claves que el idioma por defecto (${porDefecto})`, async () => {
     const propios = (await readdir(new URL(`${codigo}/`, RAIZ_TEXTOS))).filter((n) => n.endsWith(".json")).sort();
-    assert.deepEqual(propios, modulos.map((m) => `${m}.json`), `textos/${codigo}/ debe tener exactamente los módulos de ${porDefecto}`);
+    assert.deepEqual(propios, modulos.map((m) => `${m}.json`).sort(), `textos/${codigo}/ debe tener exactamente los módulos de ${porDefecto}`);
     for (const modulo of modulos) {
       const base = hojas(await leerJSON(new URL(`${porDefecto}/${modulo}.json`, RAIZ_TEXTOS)));
       const traducido = hojas(await leerJSON(new URL(`${codigo}/${modulo}.json`, RAIZ_TEXTOS)));

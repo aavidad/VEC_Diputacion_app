@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { PREFERENCIAS_ES, PREFERENCIAS_EN } from "./portal-preferencias-i18n.js";
+import { cargarMensajesPortal } from "./portal-i18n.js";
 import { renderizarPreferencias } from "../area-personal/preferencias.js";
 
 const catalogo = async (idioma) => JSON.parse(await readFile(
@@ -18,10 +18,12 @@ function hojas(seccion, prefijo = "", resultado = {}) {
 
 test("RRHH consume los textos ES y EN exactos de los JSON comunes", async () => {
   const [es, en] = await Promise.all([catalogo("es"), catalogo("en")]);
-  assert.deepEqual(PREFERENCIAS_ES, hojas(es.portal));
-  assert.deepEqual(PREFERENCIAS_EN, hojas(en.portal));
-  const fuente = await readFile(new URL("./portal-preferencias-i18n.js", import.meta.url), "utf8");
-  assert.match(fuente, /cargarTextos\("preferencias"/u);
+  const [portalES, portalEN] = await Promise.all([cargarMensajesPortal("es"), cargarMensajesPortal("en")]);
+  for (const [catalogoPortal, esperado] of [[portalES, hojas(es.portal)], [portalEN, hojas(en.portal)]]) {
+    for (const [clave, texto] of Object.entries(esperado)) assert.equal(catalogoPortal[clave], texto, clave);
+  }
+  const fuente = await readFile(new URL("./portal-i18n.js", import.meta.url), "utf8");
+  assert.match(fuente, /"preferencias"/u);
   for (const mensaje of [...Object.values(hojas(es.portal)), ...Object.values(hojas(en.portal))]) {
     if (mensaje.length >= 20) assert.ok(!fuente.includes(mensaje), "mensaje visible incrustado en JavaScript");
   }

@@ -37,7 +37,7 @@ aparte.
 - **PR #72** — la prueba del callback tardío de cobertura es determinista (fallaba de forma
   intermitente sin defecto en el código de producción).
 
-**Verificación de firma.** El validador AutofirmaV2 (solo verificación, no firma) corre en el
+**Verificación de firma.** El validador GrxFirma (solo verificación, no firma) corre en el
 pod de la principal. Firma válida: aceptada; firma alterada o con certificado revocado:
 rechazada; validador parado: nunca acepta. Es una firma de prueba con una autoridad de
 certificación de desarrollo, **sin validez legal**: la firma real se hará con el portafirmas
@@ -100,7 +100,7 @@ Ninguna de las tres autoriza producción ni datos reales.
 | Dietas | 0/9 | 3/9 (D2, D4, D5) | 0/9 (inactiva) | `ficha_dietas_2026-09-23.md`, «Estado al 25 de septiembre» |
 | Personal / «mis datos» (B2) | 0/5 | 4/5 | 0/5 (inactivo; falta Personal 000022) | `fichas_base_B1_B5_2026-09-25.md`, B2; PR #41, #42 y #48 |
 | Documentos (B5 sin firma) | 0/5 | 1/5 (B5.1) | 0/5 (ninguna migración instalada) | `fichas_base_B1_B5_2026-09-25.md`, B5; PR #50 |
-| Firma (B5.3 y B5.4) | 0/2 | 1/2 (verificación con AutofirmaV2, sin componer) | 0/2 | PR #52; `fichas_base_B1_B5_2026-09-25.md`, B5 |
+| Firma (B5.3 y B5.4) | 0/2 | 1/2 (verificación con GrxFirma, sin componer) | 0/2 | PR #52; `fichas_base_B1_B5_2026-09-25.md`, B5 |
 | Calendarios (B4) | 0/4 | 2/4 | 0 oficial (activo, sin barrido documentado). Referencia servida: 2/4 | `fichas_base_B1_B5_2026-09-25.md`, B4; PR #40 |
 | Identidad y composición (B1) | 0/6 | 4/6 | 1/6 (V3, ejercida en el barrido de Bolsa del 23/09); el certificado solo en camino positivo, sin barrido de los negativos | `fichas_base_B1_B5_2026-09-25.md`, B1 |
 | Organización (B3) | 0/5 | 2/5 | 0/5 | `fichas_base_B1_B5_2026-09-25.md`, B3 |
@@ -163,7 +163,7 @@ En `main` y no desplegado (`git log --first-parent 35d1cd17..origin/main`):
 - PR #49: Dietas D5/D6, otros gastos, corregir y reenviar (Dietas 000009–000011, AD3-75).
 - PR #50: Documentos v2, documentos comunes, custodia externa y almacén (Documentos
   000001–000004, AD3-60/62).
-- PR #52: verificación de firma con el validador de AutofirmaV2 como servicio aparte, **sin
+- PR #52: verificación de firma con el validador de GrxFirma como servicio aparte, **sin
   componer**.
 
 Abiertos, no fusionados: PR #53 (M2a supervisión) y PR #54 (F4b, ACL de Dietas y AD3-81).

@@ -175,6 +175,12 @@ static/portal-empleado/modulos/personal/registro-b2-catalogos-cliente.js
 static/portal-empleado/modulos/personal/vista.js
 static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
+static/textos/es/portal.json
+static/textos/en/portal.json
+static/textos/es/portal-ayuda.json
+static/textos/en/portal-ayuda.json
+static/textos/es/portal-bolsa.json
+static/textos/en/portal-bolsa.json
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js
@@ -337,9 +343,7 @@ static/portal-empleado/portal-contrato.js
 static/portal-empleado/portal-eventos.js
 static/portal-empleado/portal-flujos.css
 static/portal-empleado/portal-i18n.js
-static/portal-empleado/portal-i18n-textos.js
 static/portal-empleado/portal-idioma.js
-static/portal-empleado/portal-i18n-ayuda.js
 static/portal-empleado/portal-i18n-contacto-origen.js
 static/portal-empleado/portal-enlaces-i18n.js
 static/portal-empleado/portal-panel-interno-i18n.js
@@ -363,7 +367,6 @@ static/portal-empleado/portal-composicion-empleado.js
 static/portal-empleado/portal-modulos.css
 static/portal-empleado/portal-panel-interno.js
 static/portal-empleado/portal-preferencias-api.js
-static/portal-empleado/portal-preferencias-i18n.js
 static/portal-empleado/portal-preferencias-integracion.js
 static/portal-empleado/portal-preferencias.js
 static/portal-empleado/portal-preferencias.css
