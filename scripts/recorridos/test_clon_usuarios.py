@@ -63,7 +63,7 @@ class UsersTests(unittest.TestCase):
                 path = material / 'identidad' / ('usuarios-preferencias-' + surface + '.json')
                 path.write_text(json.dumps({'cuentas': [{'sujeto': 'synthetic', 'certificado_sha256': 'dummy', 'cuenta_ref': 'cta_' + surface, 'perfil_ref': 'prf_' + surface}]}))
                 path.chmod(0o600)
-            (state / 'clon_material.py').write_text('def run(args): return b"[{}]"\ndef validate_container(info, port): pass\n')
+            (state / 'clon_material.py').write_text('def run(args): return b"[{}]"\ndef validate_container(info, port, state): pass\n')
             (state / 'clon_usuarios_h4.py').write_text('def provision(repo, container, state, material, pg_port, engine):\n (state / "h4-checked").write_text("checked")\n return {"blockers":[]}\n')
             with patch.object(users, '__file__', str(state / 'clon_usuarios.py')), patch.object(users.subprocess, 'run', side_effect=AssertionError('H1 must not execute')):
                 result = users.provision(state, 'fixture', state, material, 55531)

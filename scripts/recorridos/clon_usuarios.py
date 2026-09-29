@@ -473,7 +473,7 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
     material_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(material_module)
     inspect = json.loads(material_module.run([engine, "inspect", container]))[0]
-    material_module.validate_container(inspect, pg_port)
+    material_module.validate_container(inspect, pg_port, state)
     marker = json.loads(private(state / "DB_READY.json"))
     if marker.get("propietario") != "Codex-M" or marker.get("contenedor") != container or marker.get("puerto_pg") != pg_port:
         fail("Clone readiness marker does not match the owned destination.")
