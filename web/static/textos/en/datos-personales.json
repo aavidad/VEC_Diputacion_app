@@ -1,0 +1,141 @@
+{
+  "tipo_convocatoria": {
+    "bolsa": "Job pool",
+    "selectivo_libre": "Open selection process",
+    "promocion_interna": "Internal promotion",
+    "provision": "Post filling"
+  },
+  "momento": {
+    "inscripcion": "Application",
+    "pago_tasa": "Fee payment",
+    "admision": "Admission",
+    "baremacion": "Merit assessment",
+    "pruebas": "Before the tests",
+    "llamamiento": "Job offer call",
+    "contratacion": "Appointment or contract"
+  },
+  "obligatoriedad": {
+    "obligatorio": "Required",
+    "condicional": "Only in some cases",
+    "voluntario": "Optional"
+  },
+  "fuente": {
+    "identificacion_electronica": "Taken from your electronic ID",
+    "persona": "Provided by the person",
+    "consulta_administracion": "Checked with another public administration",
+    "personal_diputacion": "Already held by Personnel",
+    "vigilancia_salud": "Reported by Occupational Health (fit or unfit)"
+  },
+  "consulta_regimen": {
+    "oposicion": "Checked unless the person objects",
+    "autorizacion": "Checked only if the person authorises it"
+  },
+  "casilla_consulta": {
+    "oposicion": "I object to the check of: {servicio}",
+    "autorizacion": "I authorise the check of: {servicio}",
+    "aportar_documento": "If you object, you will have to provide the document."
+  },
+  "categoria": {
+    "ordinaria": "Ordinary data",
+    "especial": "Specially protected data (health or disability)",
+    "penal": "Criminal record data",
+    "protegida": "Data with reinforced protection"
+  },
+  "custodia": {
+    "aspirantes": "Kept by Applicants",
+    "personal": "Requested and kept by Personnel"
+  },
+  "pendiente_de": {
+    "rrhh": "Pending confirmation by HR",
+    "dpd": "Pending confirmation by the DPO",
+    "rrhh_dpd": "Pending confirmation by HR and the DPO"
+  },
+  "aviso": {
+    "paquete_ejemplo": "Example pending HR and DPO review: no value is approved."
+  },
+  "dato": {
+    "nombre_apellidos": "Full name",
+    "documento_identidad": "Identity document",
+    "nacionalidad": "Nationality",
+    "vinculo_familiar_ue": "Family link with a European Union national",
+    "fecha_nacimiento": "Date of birth",
+    "sexo": "Sex",
+    "correo": "Email",
+    "telefono": "Telephone",
+    "telefono_secundario": "Second telephone",
+    "domicilio_notificacion": "Address for paper notifications",
+    "titulacion_exigida": "Required qualification",
+    "declaracion_no_separacion": "Declaration of not having been dismissed or disqualified",
+    "turno": "Access route",
+    "discapacidad_grado": "Disability of 33 % or more",
+    "discapacidad_intelectual": "Intellectual disability",
+    "adaptacion_solicitud": "Request for adapted time or means",
+    "dictamen_adaptacion": "Technical report on the adaptation",
+    "victima_violencia": "Victim of gender-based or sexual violence",
+    "representante": "Representative",
+    "situacion_desempleo": "Unemployment status",
+    "familia_numerosa": "Large family",
+    "exencion_tasa_otras": "Other fee exemptions",
+    "carne_habilitacion": "Driving licence or other qualification",
+    "servicios_diputacion": "Service with the Provincial Council",
+    "servicios_otras_administraciones": "Service with other administrations or companies",
+    "formacion": "Training received or given",
+    "titulaciones_superiores_idiomas": "Other qualifications or languages",
+    "justificante_renuncia": "Proof of the reason for declining",
+    "domicilio_laboral_fiscal": "Address for employment and tax purposes",
+    "afiliacion_seguridad_social": "Social Security number",
+    "cuenta_bancaria": "Bank account for payroll",
+    "datos_irpf": "Income tax withholding data",
+    "declaracion_compatibilidad": "Declaration of compatibility",
+    "aptitud_medica": "Medical fitness for the post",
+    "certificado_delitos_sexuales": "Certificate of no sexual offence record",
+    "autorizacion_tutor_menor": "Authorisation from parent or guardian",
+    "condicion_personal_diputacion": "Being Provincial Council staff",
+    "antiguedad_subgrupo_inferior": "Seniority in the lower subgroup",
+    "grado_personal_consolidado": "Personal grade and current post",
+    "conciliacion_familiar": "Work-life balance"
+  },
+  "finalidad": {
+    "identificacion": "Identify the person",
+    "comprobacion_requisitos": "Check the access requirements",
+    "avisos_notificacion": "Send notices and notifications",
+    "llamamiento": "Make and record job pool offers",
+    "estadistica_igualdad": "Equality statistics",
+    "cupo_discapacidad": "Disability quota",
+    "adaptacion_pruebas": "Adapt the tests",
+    "proteccion_victimas": "Protect the data of victims of violence",
+    "representacion": "Act through a representative",
+    "exencion_tasa": "Fee exemption or reduction",
+    "baremacion_meritos": "Assess merits",
+    "alta_personal": "Register the appointment or contract",
+    "proteccion_menores": "Protect minors in posts with regular contact"
+  },
+  "condicion": {
+    "si_accede_como_familiar_ue": "If applying as a family member of a European Union national",
+    "si_actua_representante": "If acting through a representative",
+    "si_alega_causa_justificada": "If giving a justified reason for declining",
+    "si_bases_lo_exigen": "If the call requires it for the category",
+    "si_bases_preven_reconocimiento": "If the call requires a prior medical examination",
+    "si_convocatoria_con_varios_turnos": "If the call has several access routes",
+    "si_elige_notificacion_papel": "If choosing paper notifications",
+    "si_menor_de_edad": "If the person is 16 or 17 years old",
+    "si_opta_cupo_intelectual": "If applying for the intellectual disability quota",
+    "si_opta_cupo_reserva_o_exencion": "If applying for the reserved quota or a fee exemption",
+    "si_pide_adaptacion": "If requesting adapted time or means",
+    "si_pide_exencion_tasa": "If requesting a fee exemption or reduction",
+    "si_pide_proteccion": "If requesting protection of their data",
+    "si_puesto_contacto_menores": "If the post involves regular contact with minors",
+    "si_puntua": "If it scores under the call",
+    "si_tribunal_lo_necesita": "If the selection board needs it to decide"
+  },
+  "consulta_servicio": {
+    "verificacion_identidad": "identity data",
+    "titulos": "academic qualifications",
+    "discapacidad": "disability grade",
+    "desempleo": "registration as a job seeker",
+    "vida_laboral": "employment history",
+    "familia_numerosa": "large family certificate",
+    "permisos_conducir": "driving licences",
+    "delitos_sexuales": "sexual offence record"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "tipo_convocatoria": {
+    "bolsa": "Bolsa de trabajo",
+    "selectivo_libre": "Proceso selectivo libre",
+    "promocion_interna": "Promoción interna",
+    "provision": "Provisión de puestos"
+  },
+  "momento": {
+    "inscripcion": "Inscripción",
+    "pago_tasa": "Pago de la tasa",
+    "admision": "Admisión",
+    "baremacion": "Baremación",
+    "pruebas": "Antes de las pruebas",
+    "llamamiento": "Llamamiento",
+    "contratacion": "Nombramiento o contrato"
+  },
+  "obligatoriedad": {
+    "obligatorio": "Obligatorio",
+    "condicional": "Solo en algunos casos",
+    "voluntario": "Voluntario"
+  },
+  "fuente": {
+    "identificacion_electronica": "Se toma de su identificación electrónica",
+    "persona": "Lo aporta la persona",
+    "consulta_administracion": "Se consulta a otra Administración",
+    "personal_diputacion": "Ya consta en Personal",
+    "vigilancia_salud": "Lo comunica Vigilancia de la salud (apto o no apto)"
+  },
+  "consulta_regimen": {
+    "oposicion": "Se consulta salvo que la persona se oponga",
+    "autorizacion": "Solo se consulta si la persona lo autoriza"
+  },
+  "casilla_consulta": {
+    "oposicion": "Me opongo a la consulta de: {servicio}",
+    "autorizacion": "Autorizo la consulta de: {servicio}",
+    "aportar_documento": "Si se opone, tendrá que aportar el documento."
+  },
+  "categoria": {
+    "ordinaria": "Dato ordinario",
+    "especial": "Dato especialmente protegido (salud o discapacidad)",
+    "penal": "Dato de antecedentes penales",
+    "protegida": "Dato con protección reforzada"
+  },
+  "custodia": {
+    "aspirantes": "Lo guarda Aspirantes",
+    "personal": "Lo pide y lo guarda Personal"
+  },
+  "pendiente_de": {
+    "rrhh": "Pendiente de confirmar por RRHH",
+    "dpd": "Pendiente de confirmar por el DPD",
+    "rrhh_dpd": "Pendiente de confirmar por RRHH y el DPD"
+  },
+  "aviso": {
+    "paquete_ejemplo": "Ejemplo pendiente de RRHH y del DPD: ningún valor está aprobado."
+  },
+  "dato": {
+    "nombre_apellidos": "Nombre y apellidos",
+    "documento_identidad": "Documento de identidad",
+    "nacionalidad": "Nacionalidad",
+    "vinculo_familiar_ue": "Vínculo familiar con una persona de la Unión Europea",
+    "fecha_nacimiento": "Fecha de nacimiento",
+    "sexo": "Sexo",
+    "correo": "Correo electrónico",
+    "telefono": "Teléfono",
+    "telefono_secundario": "Segundo teléfono",
+    "domicilio_notificacion": "Domicilio para notificaciones en papel",
+    "titulacion_exigida": "Titulación exigida",
+    "declaracion_no_separacion": "Declaración de no haber sido separado ni inhabilitado",
+    "turno": "Turno de acceso",
+    "discapacidad_grado": "Discapacidad igual o superior al 33 %",
+    "discapacidad_intelectual": "Discapacidad intelectual",
+    "adaptacion_solicitud": "Solicitud de adaptación de tiempos o medios",
+    "dictamen_adaptacion": "Dictamen técnico sobre la adaptación",
+    "victima_violencia": "Víctima de violencia de género o sexual",
+    "representante": "Persona que le representa",
+    "situacion_desempleo": "Situación de desempleo",
+    "familia_numerosa": "Familia numerosa",
+    "exencion_tasa_otras": "Otras exenciones de la tasa",
+    "carne_habilitacion": "Carné de conducir u otra habilitación",
+    "servicios_diputacion": "Servicios prestados en la Diputación",
+    "servicios_otras_administraciones": "Servicios en otras Administraciones o empresas",
+    "formacion": "Formación recibida o impartida",
+    "titulaciones_superiores_idiomas": "Otras titulaciones o idiomas",
+    "justificante_renuncia": "Justificante de la causa de renuncia",
+    "domicilio_laboral_fiscal": "Domicilio a efectos laborales y fiscales",
+    "afiliacion_seguridad_social": "Número de afiliación a la Seguridad Social",
+    "cuenta_bancaria": "Cuenta bancaria para la nómina",
+    "datos_irpf": "Datos para la retención del IRPF",
+    "declaracion_compatibilidad": "Declaración de compatibilidad",
+    "aptitud_medica": "Aptitud médica para el puesto",
+    "certificado_delitos_sexuales": "Certificado de no tener antecedentes por delitos sexuales",
+    "autorizacion_tutor_menor": "Autorización del padre, madre o tutor",
+    "condicion_personal_diputacion": "Ser personal de la Diputación",
+    "antiguedad_subgrupo_inferior": "Antigüedad en el subgrupo inferior",
+    "grado_personal_consolidado": "Grado personal y puesto actual",
+    "conciliacion_familiar": "Conciliación de la vida familiar"
+  },
+  "finalidad": {
+    "identificacion": "Identificar a la persona",
+    "comprobacion_requisitos": "Comprobar los requisitos de acceso",
+    "avisos_notificacion": "Avisar y notificar",
+    "llamamiento": "Hacer y registrar los llamamientos de la bolsa",
+    "estadistica_igualdad": "Estadística de igualdad",
+    "cupo_discapacidad": "Cupo de reserva por discapacidad",
+    "adaptacion_pruebas": "Adaptar las pruebas",
+    "proteccion_victimas": "Proteger los datos de víctimas de violencia",
+    "representacion": "Actuar mediante representante",
+    "exencion_tasa": "Exención o reducción de la tasa",
+    "baremacion_meritos": "Valorar los méritos",
+    "alta_personal": "Dar de alta al nombrar o contratar",
+    "proteccion_menores": "Proteger a menores en puestos con contacto habitual"
+  },
+  "condicion": {
+    "si_accede_como_familiar_ue": "Si accede como familiar de una persona de la Unión Europea",
+    "si_actua_representante": "Si actúa mediante representante",
+    "si_alega_causa_justificada": "Si alega una causa justificada para no aceptar",
+    "si_bases_lo_exigen": "Si las bases lo exigen para la categoría",
+    "si_bases_preven_reconocimiento": "Si las bases prevén reconocimiento médico previo",
+    "si_convocatoria_con_varios_turnos": "Si la convocatoria tiene varios turnos",
+    "si_elige_notificacion_papel": "Si elige recibir las notificaciones en papel",
+    "si_menor_de_edad": "Si la persona tiene 16 o 17 años",
+    "si_opta_cupo_intelectual": "Si opta al cupo de discapacidad intelectual",
+    "si_opta_cupo_reserva_o_exencion": "Si opta al cupo de reserva o pide exención de la tasa",
+    "si_pide_adaptacion": "Si pide adaptación de tiempos o medios",
+    "si_pide_exencion_tasa": "Si pide exención o reducción de la tasa",
+    "si_pide_proteccion": "Si pide protección de sus datos",
+    "si_puesto_contacto_menores": "Si el puesto implica contacto habitual con menores",
+    "si_puntua": "Si puntúa según las bases",
+    "si_tribunal_lo_necesita": "Si el tribunal lo necesita para resolver"
+  },
+  "consulta_servicio": {
+    "verificacion_identidad": "datos de identidad",
+    "titulos": "títulos académicos",
+    "discapacidad": "grado de discapacidad",
+    "desempleo": "inscripción como demandante de empleo",
+    "vida_laboral": "vida laboral",
+    "familia_numerosa": "título de familia numerosa",
+    "permisos_conducir": "permisos de conducir",
+    "delitos_sexuales": "antecedentes por delitos sexuales"
+  }
+}
