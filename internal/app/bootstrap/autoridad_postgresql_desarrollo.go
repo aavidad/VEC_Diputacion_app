@@ -91,38 +91,6 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantanea(ctx context.Context, 
 	return a.publicarInstantaneaConPreimagen(ctx, instantanea, nil)
 }
 
-// versionActualHabilitada indica si la asignación vigente del perfil apunta a
-// una versión de rol cuyo control actual está habilitado (no retirado).
-func (a autoridadPostgreSQLDesarrollo) versionActualHabilitada(ctx context.Context, perfilRef string) (bool, error) {
-	if !a.validaConfiguracion() || ctx == nil || ctx.Err() != nil || perfilRef == "" {
-		return false, falloPostgreSQLCTDesarrollo(nil)
-	}
-	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadOnly})
-	if err != nil {
-		return false, falloPostgreSQLCTDesarrollo(err)
-	}
-	defer tx.Rollback(context.Background())
-	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
-		return false, falloPostgreSQLCTDesarrollo(err)
-	}
-	var habilitada bool
-	err = tx.QueryRow(ctx, `
-		SELECT control.estado='habilitada'
-		  FROM vec_autorizacion.asignacion_perfil_actual AS vigente
-		  JOIN vec_autorizacion.asignacion_perfil AS asignacion
-		    ON asignacion.perfil_activo_ref=vigente.perfil_activo_ref
-		   AND asignacion.asignacion_ref=vigente.asignacion_ref
-		  JOIN vec_autorizacion.control_vigencia_version_rol_actual AS actual
-		    ON actual.version_rol_ref=asignacion.version_rol_ref
-		  JOIN vec_autorizacion.control_vigencia_version_rol AS control
-		    ON control.version_rol_ref=actual.version_rol_ref AND control.revision=actual.revision
-		 WHERE vigente.perfil_activo_ref=$1`, perfilRef).Scan(&habilitada)
-	if err != nil {
-		return false, falloPostgreSQLCTDesarrollo(err)
-	}
-	return habilitada, nil
-}
-
 // prepararInstantanea repite la preparación completa cuando pierde una carrera
 // de serialización con otra petición del mismo perfil; cada intento conserva
 // sus guardas.

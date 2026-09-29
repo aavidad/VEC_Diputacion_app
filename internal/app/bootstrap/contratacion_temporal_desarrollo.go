@@ -904,6 +904,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
 			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal,
+			aprobacionProvisionMiBolsaDesdeConfig(cfg),
 		)
 		if err != nil {
 			return nil, nil, nil, err
