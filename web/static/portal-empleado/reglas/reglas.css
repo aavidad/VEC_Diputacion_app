@@ -38,12 +38,30 @@ body.rg-app { margin: 0; background: var(--portal-fondo); color: var(--portal-ti
 .rg-tabla table { width: 100%; min-width: 880px; border-collapse: collapse; }
 .rg-tabla thead th { text-align: left; font-size: 13px; font-weight: 600; color: var(--portal-muted); padding: 10px 12px; background: var(--portal-superficie-alterna); border-bottom: 1px solid var(--portal-borde); }
 .rg-tabla tbody th, .rg-tabla td { padding: 12px; border-bottom: 1px solid var(--portal-borde); vertical-align: top; text-align: left; font-weight: 400; }
-.rg-tabla tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
-.rg-tabla tbody tr:hover { background: var(--portal-azul-100); }
+/* Cada regla ocupa dos filas (la suya y su detalle): la cebra va de regla en regla. */
+.rg-tabla tbody tr.rg-fila:nth-child(4n+3) { background: var(--portal-superficie-alterna); }
+.rg-tabla tbody tr.rg-fila { cursor: pointer; }
+.rg-tabla tbody tr.rg-fila:hover { background: var(--portal-azul-100); }
 .rg-tabla tbody th { border-left: 4px solid transparent; }
-.rg-fila--reglamento th { border-left-color: var(--portal-exito); }
-.rg-fila--ejemplo th { border-left-color: var(--portal-aviso); }
+.rg-tabla tbody tr.rg-fila--reglamento > th { border-left-color: var(--portal-exito); }
+.rg-tabla tbody tr.rg-fila--ejemplo > th { border-left-color: var(--portal-aviso); }
 .rg-regla-nombre { font-weight: 600; color: var(--portal-azul-700); }
+.rg-regla-abrir { display: inline-flex; align-items: flex-start; gap: 6px; min-height: 24px; margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.rg-regla-abrir::after { content: ""; flex: none; width: 7px; height: 7px; margin-top: 5px; border-right: 2px solid var(--portal-azul-700); border-bottom: 2px solid var(--portal-azul-700); transform: rotate(45deg); transition: transform 120ms ease-out; }
+.rg-regla-abrir[aria-expanded="true"]::after { transform: rotate(-135deg); }
+.rg-regla-abrir:hover .rg-regla-nombre { text-decoration: underline; }
+.rg-regla-abrir:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 2px; border-radius: 4px; }
+.rg-tabla tbody tr.rg-fila--abierta, .rg-tabla tbody tr.rg-fila--abierta:hover { background: var(--portal-azul-100); }
+.rg-tabla tbody tr.rg-fila--abierta > * { border-bottom-color: transparent; }
+.rg-tabla tbody tr.rg-detalle { background: var(--portal-azul-100); }
+.rg-tabla tbody tr.rg-detalle > td { padding: 0 12px 16px; border-left: 4px solid transparent; }
+.rg-tabla tbody tr.rg-detalle.rg-fila--reglamento > td { border-left-color: var(--portal-exito); }
+.rg-tabla tbody tr.rg-detalle.rg-fila--ejemplo > td { border-left-color: var(--portal-aviso); }
+/* El detalle se queda en la parte visible aunque la tabla se desplace de lado. */
+.rg-detalle-cuerpo { position: sticky; left: 12px; box-sizing: border-box; max-width: calc(100vw - 2 * clamp(16px, 4vw, 40px) - 26px); padding: 16px; background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: 8px; }
+.rg-detalle-cuerpo dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px 24px; margin: 0; }
+.rg-detalle-bloque dt { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--portal-muted); }
+.rg-detalle-bloque dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; white-space: normal; }
 .rg-tabla small { color: var(--portal-muted); overflow-wrap: anywhere; }
 .rg-tabla td:nth-child(3) { min-width: 150px; }
 .rg-tabla td:nth-child(5) { max-width: 340px; }
