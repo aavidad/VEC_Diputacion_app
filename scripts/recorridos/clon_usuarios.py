@@ -238,6 +238,14 @@ func TestCodexMInstallUsers(t *testing.T){
   definition,err:=construirCuentaProvisionPreferenciasHito1(original,historic);if err!=nil{t.Fatal("original role context")}
   instant,err:=instantaneaProvisionPreferenciasHito1(definition,historic,revision,catalogue);if err!=nil||!instant.AsignacionPerfil.VigenteEn(time.Now().UTC()){t.Fatal("historic role validity")}
   account,err:=codexMLookup(ctx,admin,derivador,original,current);if err!=nil{t.Fatal("identity aliases diverged")}
+  var personVersions,personCurrent,profileVersions,profileCurrent int
+  if admin.QueryRow(ctx,`SELECT
+ (SELECT count(*) FROM vec_contexto_actor_v1.persona_versiones WHERE persona_ref=$1),
+ (SELECT count(*) FROM vec_contexto_actor_v1.persona_actual WHERE persona_ref=$1),
+ (SELECT count(*) FROM vec_contexto_actor_v1.perfil_versiones WHERE perfil_ref=$2),
+ (SELECT count(*) FROM vec_contexto_actor_v1.perfil_actual WHERE perfil_ref=$2)`,old.personaRef,current.Cuentas[0].PerfilRef).Scan(&personVersions,&personCurrent,&profileVersions,&profileCurrent)!=nil{t.Fatal("context preimage")}
+  if (personVersions!=0||personCurrent!=0||profileVersions!=0||profileCurrent!=0)&&(personVersions!=1||personCurrent!=1||profileVersions!=1||profileCurrent!=1){t.Fatal("partial historic person/profile")}
+  if account==""&&personVersions>0{t.Fatal("person/profile exist without demonstrable canonical identity")}
   roleHash,_:=instant.VersionRol.HuellaSHA256();controlHash,_:=instant.ControlVigenciaVersionRol.HuellaSHA256()
   roleDocument,_:=json.Marshal(instant.VersionRol);controlDocument,_:=json.Marshal(instant.ControlVigenciaVersionRol)
   var roleN,controlN,controlCurrentN int
