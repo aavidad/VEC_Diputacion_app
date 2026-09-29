@@ -341,7 +341,8 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 // superficieExternaUsuariosEnProceso indica si esta composición (la del
 // portal de RRHH) atiende también el Área personal. Solo el proceso
 // combinado lo hace: el interno separado compone solo la corporativa y el
-// externo tiene su propia composición (portal_externo*.go), así que aquí
+// externo nunca llega a esta composición (se detiene antes, con
+// ErrComposicionPortalExternoPendiente, hasta tener la suya), así que aquí
 // cualquier otro valor, incluido uno no válido, responde que no.
 func superficieExternaUsuariosEnProceso(cfg config.Config) bool {
 	portal, err := portalProcesoConfigurado(cfg)
