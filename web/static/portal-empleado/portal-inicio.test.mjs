@@ -307,3 +307,15 @@ test("las claves de la portada se traducen con el traductor común", () => {
   assert.match(html, /Tuesday, 29 September 2026/u);
   assert.doesNotMatch(html, /expedientes pendientes|Análisis RRHH|Peticiones por fase/u);
 });
+
+test("la portada agrupa en una fila los expedientes pendientes idénticos y conserva sus números", async () => {
+  const { agruparPendientes } = await import("./portal-inicio.js");
+  const base = { categoria: "Auxiliar de enfermería", centro: "Residencia", fase_clave: "solicitud", plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-18", plazo: "18/9/26" };
+  const grupos = agruparPendientes([
+    ...Array.from({ length: 15 }, (_, i) => ({ ...base, numero_visible: `CT-${i}` })),
+    { ...base, centro: "Otro centro", numero_visible: "CT-99" },
+  ]);
+  assert.equal(grupos.length, 2);
+  assert.equal(grupos[0].length, 15);
+  assert.equal(grupos[1][0].numero_visible, "CT-99");
+});

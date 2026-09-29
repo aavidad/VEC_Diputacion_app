@@ -271,7 +271,8 @@ func normalizarErrorSeguimiento(ctx context.Context, err error) error {
 	return ports.ErrOperacionSeguimientoNoDisponible
 }
 
-// ejecutar repite la transacción ante conflictos de serialización.
+// ejecutar repite la transacción entera ante conflictos de serialización
+// (cancelaciones del centro y demás operaciones de seguimiento).
 func (r *RepositorioOperacionSeguimientoPostgreSQL) ejecutar(ctx context.Context, lectura bool, f func(pgx.Tx) error) error {
 	if ctx == nil || r == nil || dependenciaNula(r.pool) {
 		return ports.ErrOperacionSeguimientoNoDisponible
@@ -280,26 +281,20 @@ func (r *RepositorioOperacionSeguimientoPostgreSQL) ejecutar(ctx context.Context
 	if lectura {
 		acceso = pgx.ReadOnly
 	}
-	var err error
-	for intento := 0; intento < maximoIntentosSeguimiento; intento++ {
-		err = func() error {
-			tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: acceso})
-			if err != nil {
-				return err
-			}
-			defer revertirTransaccion(tx)
-			if err := configurarTransaccionSeguimiento(ctx, tx); err != nil {
-				return err
-			}
-			if err := f(tx); err != nil {
-				return err
-			}
-			return tx.Commit(ctx)
-		}()
-		if err == nil || ctx.Err() != nil || !errorPostgreSQLReintentable(err) {
-			break
+	err := ejecutarConReintentoSerializable(ctx, func() error {
+		tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: acceso})
+		if err != nil {
+			return err
 		}
-	}
+		defer revertirTransaccion(tx)
+		if err := configurarTransaccionSeguimiento(ctx, tx); err != nil {
+			return err
+		}
+		if err := f(tx); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	})
 	if err != nil {
 		return normalizarErrorSeguimiento(ctx, err)
 	}

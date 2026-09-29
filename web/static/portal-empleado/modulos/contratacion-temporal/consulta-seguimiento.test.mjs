@@ -41,7 +41,7 @@ function documentoPrueba() {
   };
 }
 
-test("consulta interna omite credenciales web y no lee cookies ni almacenamiento", async () => {
+test("consulta interna va con credenciales de mismo origen y no lee cookies ni almacenamiento", async () => {
   const ui = documentoPrueba();
   Object.defineProperty(ui.documento, "cookie", { get() { throw new Error("cookie leída"); } });
   const anteriores = new Map();
@@ -53,7 +53,7 @@ test("consulta interna omite credenciales web y no lee cookies ni almacenamiento
   try {
     const cliente = crearClienteConsultaSeguimientoInterno(async (ruta, opciones) => {
       efectivas.push({ ruta, opciones });
-      if (opciones.credentials !== "omit" || opciones.headers.has("cookie")
+      if (opciones.credentials !== "same-origin" || opciones.headers.has("cookie")
         || opciones.headers.has("authorization")) throw new Error("credencial web enviada");
       return new Response(JSON.stringify({ data: vista() }), {
         headers: { "content-type": "application/json; charset=utf-8" },

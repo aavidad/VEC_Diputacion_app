@@ -84,5 +84,6 @@ test("el ayudante de trámites y el resumen de accesos no ofrecen los módulos o
   }
   const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
   assert.match(portal, /TRAMITES_AYUDANTE_PORTAL\.filter\(\(tramite\) => vistaConEntradaPortal\(tramite\.vista\)\)/u);
-  assert.match(portal, /\.filter\(\(clave\) => !CLAVES_SIN_ENTRADA_PORTAL\.includes\(clave\)\)/u);
+  // El resumen cuenta las entradas que el menú muestra, que ya excluyen los ocultos.
+  assert.match(portal, /contenedor\.querySelectorAll\("\[data-modulo-portal\]"\)/u);
 });

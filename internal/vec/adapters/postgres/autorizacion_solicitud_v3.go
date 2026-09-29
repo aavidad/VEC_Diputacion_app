@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -36,7 +37,7 @@ func (a *AlmacenAutorizacion) RegistrarConcesionCandidataAutorizacionLigadaV3SiI
 	if err != nil {
 		return time.Time{}, err
 	}
-	return a.registrarDecisionContextoActorV3(
+	return a.registrarDecisionContextoActorV3ConReintento(
 		ctx, datos, true, ports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible,
 	)
 }
@@ -58,10 +59,39 @@ func (a *AlmacenAutorizacion) RegistrarDenegacionAutorizacionLigadaV3(
 	if err != nil {
 		return err
 	}
-	_, err = a.registrarDecisionContextoActorV3(
+	_, err = a.registrarDecisionContextoActorV3ConReintento(
 		ctx, datos, false, ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible,
 	)
 	return err
+}
+
+// registrarDecisionContextoActorV3ConReintento repite el registro completo cuando la
+// transacción SERIALIZABLE pierde una carrera (40001 o 40P01). Dos peticiones
+// simultáneas del mismo actor escriben la misma cadena de decisiones y
+// PostgreSQL aborta a una de ellas, antes o al confirmar; el aborto garantiza
+// que no quedó nada escrito, así que repetir con la misma orden es seguro. Si
+// se agotan los intentos o vence el contexto se devuelve la misma
+// clasificación de siempre.
+func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3ConReintento(
+	ctx context.Context,
+	datos ports.DatosOrdenRegistroAutorizacionLigadaV3,
+	concedidaEsperada bool,
+	errorNoDisponible error,
+) (time.Time, error) {
+	var registradaEn time.Time
+	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		registradaEn, err = a.registrarDecisionContextoActorV3(ctx, datos, concedidaEsperada, errorNoDisponible)
+		return err
+	})
+	var carrera carreraSerializacionRegistroV3
+	if errors.As(err, &carrera) {
+		return time.Time{}, carrera.traducido
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return registradaEn, nil
 }
 
 func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
@@ -201,9 +231,9 @@ func errorRegistroAutorizacionLigadaV3(
 ) error {
 	traducido := errorRegistroAutorizacion(ctx, err)
 	if errors.Is(traducido, ports.ErrRegistroDecisionNoDisponible) {
-		return errorNoDisponible
+		traducido = errorNoDisponible
 	}
-	return traducido
+	return marcarCarreraSerializacionRegistroV3(err, traducido)
 }
 
 // No consulta ctx: despues de intentar COMMIT no puede distinguirse una
@@ -213,7 +243,7 @@ func errorCommitRegistroAutorizacionLigadaV3(err, errorNoDisponible error) error
 	if errors.As(err, &errorPG) {
 		switch errorPG.Code {
 		case "40001", "40P01":
-			return ports.ErrInstantaneaAutorizacionObsoleta
+			return marcarCarreraSerializacionRegistroV3(err, ports.ErrInstantaneaAutorizacionObsoleta)
 		}
 	}
 	return errorNoDisponible

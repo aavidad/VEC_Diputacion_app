@@ -2,7 +2,8 @@ package postgres
 
 import (
 	"context"
-	"time"
+
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 // Las funciones de consumo V3 serializan toda la cadena de auditoría con
@@ -13,34 +14,12 @@ import (
 // 40001 porque la fila cambió después de su instantánea. Esa pérdida de
 // carrera no es un fallo del servicio: se repite la transacción entera con
 // el mismo material, que no llegó a consumirse porque el aborto lo revierte.
-const (
-	intentosTransaccionSerializable = 6
-	esperaBaseReintentoSerializable = 25 * time.Millisecond
-)
-
 // ejecutarConReintentoSerializable repite intento mientras pierda una carrera
-// de serialización o un interbloqueo (40001, 40P01). Cada intento abre y
-// cierra su propia transacción. La espera crece con el número de intento y
-// lleva una parte aleatoria para que las peticiones no vuelvan a coincidir.
-// El contexto de la petición manda: si vence o se cancela se deja de esperar
-// y se devuelve el último error. Nunca repite otro tipo de error.
+// de serialización o un interbloqueo (40001, 40P01), con la política única de
+// internal/shared/postgresql. Cada intento abre y cierra su propia
+// transacción; el contexto de la petición manda y nunca se repite otro error.
 func ejecutarConReintentoSerializable(ctx context.Context, intento func() error) error {
-	var err error
-	for n := 1; ; n++ {
-		err = intento()
-		if err == nil || !errorPostgreSQLReintentable(err) || n == intentosTransaccionSerializable || ctx.Err() != nil {
-			return err
-		}
-		espera := time.Duration(n)*esperaBaseReintentoSerializable +
-			time.Duration(time.Now().UnixNano())%esperaBaseReintentoSerializable
-		t := time.NewTimer(espera)
-		select {
-		case <-ctx.Done():
-			t.Stop()
-			return err
-		case <-t.C:
-		}
-	}
+	return postgresqlcomun.RepetirTrasCarreraSerializable(ctx, intento)
 }
 
 // decodificarJSONLimpio vacía el destino antes de decodificar: con el

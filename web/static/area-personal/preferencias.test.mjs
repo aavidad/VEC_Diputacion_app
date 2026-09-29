@@ -35,7 +35,7 @@ const estado = Object.freeze({ persona_ref: "persona:propia", version: 0,
 const json = (data, status = 200) => ({ status, headers: { get: (nombre) => nombre === "Content-Type" ? "application/json" : null },
   text: async () => JSON.stringify({ data }) });
 
-test("GET y PUT usan el contrato único, omiten credenciales y conservan recibo real", async () => {
+test("GET y PUT usan el contrato único, usan credenciales de mismo origen y conservan recibo real", async () => {
   assert.equal(RUTA_MIS_PREFERENCIAS, "/api/vec/usuarios/area-personal/mis-preferencias");
   const codigoCliente = await readFile(new URL("./cliente-http.js", import.meta.url), "utf8");
   assert.doesNotMatch(codigoCliente, /["']\/api\/vec\/usuarios\/mis-preferencias["']/u);
@@ -49,7 +49,7 @@ test("GET y PUT usan el contrato único, omiten credenciales y conservan recibo 
   const operacion = crearOperacionPreferencias({ catalogo, estado }, valores, { randomUUID: () => "clave-1" });
   assert.deepEqual(await cliente.guardar(operacion), recibo);
   assert.equal(llamadas.length, 2);
-  assert.ok(llamadas.every(({ ruta, opciones }) => ruta === RUTA_MIS_PREFERENCIAS && opciones.credentials === "omit"));
+  assert.ok(llamadas.every(({ ruta, opciones }) => ruta === RUTA_MIS_PREFERENCIAS && opciones.credentials === "same-origin"));
   assert.deepEqual(JSON.parse(llamadas[1].opciones.body), operacion);
   assert.equal(llamadas[1].opciones.headers["X-Idempotency-Key"], undefined);
 });

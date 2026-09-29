@@ -459,7 +459,9 @@ func publicarGobiernoAtestacionContratacionTemporalDesarrollo(
 		) {
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
-	return ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
+	// Publicación de arranque: prepara la rotación sobre material y no se
+	// repite automáticamente; un fallo detiene el arranque como siempre.
+	return ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx, pool, func(tx pgx.Tx) error {
 		return publicarGobiernoAtestacionCTEnTxDesarrollo(ctx, tx, material)
 	})
 }
@@ -589,7 +591,17 @@ func publicarGobiernoAtestacionCTEnTxDesarrollo(ctx context.Context, tx pgx.Tx, 
 }
 
 // Serializa con el publicador existente antes de tomar el snapshot SERIALIZABLE.
+// ejecutarTransaccionGobiernoCTDesarrollo repite la transacción de gobierno
+// entera (cerrojo consultivo incluido) cuando pierde una carrera de
+// serialización; operar debe ser repetible, como la lectura y la renovación
+// idempotente de la configuración de confianza.
 func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, operar func(pgx.Tx) error) error {
+	return reintentarSerializacionCTDesarrollo(ctx, func() error {
+		return ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx, pool, operar)
+	})
+}
+
+func ejecutarTransaccionGobiernoCTDesarrolloUnaVez(ctx context.Context, pool *pgxpool.Pool, operar func(pgx.Tx) error) error {
 	conexion, err := pool.Acquire(ctx)
 	if err != nil {
 		return falloPostgreSQLCTDesarrollo(err)

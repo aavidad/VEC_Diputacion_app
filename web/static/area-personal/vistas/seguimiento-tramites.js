@@ -3,7 +3,7 @@ import {
   formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
 import { traducir } from "../i18n.js";
-import { campoVisibleMiBolsa } from "../mi-bolsa-campos.js";
+import { campoVisibleMiBolsa, nombreCategoria } from "../mi-bolsa-campos.js";
 import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js";
 import { renderizarOfertasMiBolsa, textoOfertas } from "../mi-bolsa-ofertas.js";
 import { renderizarContactoMiBolsa, textoContacto } from "../mi-bolsa-contacto.js";
@@ -85,10 +85,10 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
   const ver = (campo) => campoVisibleMiBolsa(estado.camposMiBolsa, campo);
-  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([
+  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", nombreCategoria(item), `${listaDatos([
     ...(ver("estado") ? [["Estado de la bolsa", chip(item.estado_bolsa)]] : []),
     ...(ver("posicion") ? [[traducir("areaPersonal.miBolsa.ordenInicial"), `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`]] : []),
-    ["Versión de la bolsa", escaparHTML(String(item.version))], [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`],
+    [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`],
     ...(!ver("estado") && ver("fecha_disponible") && item.situacion_actual?.fecha_disponible ? [[traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(item.situacion_actual.fecha_disponible))]] : []),
   ])}${ver("estado") ? `<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}` : ""}`, { estado: ver("estado") ? item.estado_bolsa : "", clase: "participacion-propia" })).join("");
   const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="Paginación de participaciones"><span>Mostrando ${(paginaActual - 1) * porPagina + 1} a ${Math.min(paginaActual * porPagina, participaciones.length)} de ${participaciones.length}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente</button></nav>` : "";
@@ -99,7 +99,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const resultado = ultimo?.ultimo_llamamiento.resultado;
   const detalle = ultimo ? `${listaDatos([
     [traducir("areaPersonal.miBolsa.llamamiento.bolsa"), escaparHTML(ultimo.bolsa)],
-    [traducir("areaPersonal.miBolsa.llamamiento.categoria"), escaparHTML(ultimo.categoria)],
+    [traducir("areaPersonal.miBolsa.llamamiento.categoria"), escaparHTML(nombreCategoria(ultimo))],
     [traducir("areaPersonal.miBolsa.llamamiento.fecha"), escaparHTML(fechaSituacion(ultimo.ultimo_llamamiento.emitido_en))],
     [traducir("areaPersonal.miBolsa.llamamiento.canal"), escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.correo"))],
     [traducir("areaPersonal.miBolsa.llamamiento.resultado"), `<span class="estado-chip ${resultado === "enviado" ? "info" : "aviso"}">${escaparHTML(traducir(`areaPersonal.miBolsa.llamamiento.${resultado}`))}</span>`],

@@ -1,6 +1,8 @@
 import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260929-pref-508a-v2";
+// Fases y estados de las peticiones: un solo catálogo para todas las pantallas.
+import { nombreEstado, nombreFaseRRHH } from "../contratacion-temporal/i18n-fases-rrhh.js";
 
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -16,18 +18,78 @@ const DIA_MS = 86400000;
 /** Etiquetas exclusivas de la muestra ficticia; nunca se infieren nombres reales de referencias. */
 const PERSONAS_EJEMPLO = Object.freeze({ per_1: "Carmen Molina" });
 const EXPEDIENTES_EJEMPLO = Object.freeze({ exp_1: "EXP-2026-001" });
+// Código de acción de cada fuente (origen de la versión en peticiones,
+// operación en Bolsa) → clave del catálogo de Auditoría.
 const ACCIONES = Object.freeze({ "relacion.actualizada": "accion_relacion_actualizada",
-  "bolsa.participacion.cambiar": "accion_participacion_cambiada" });
+  "bolsa.participacion.cambiar": "accion_participacion_cambiada",
+  alta_o2: "accion_ct_alta", analisis_o3: "accion_ct_analisis", cobertura_o4: "accion_ct_cobertura",
+  asignacion_o5: "accion_ct_asignacion", informe_juridico_o5: "accion_ct_informe_juridico",
+  fiscalizacion_o5: "accion_ct_fiscalizacion", subsanacion_reparos_v1: "accion_ct_subsanacion",
+  propuesta_formalizacion_o6: "accion_ct_propuesta", resolucion_formalizacion_o6: "accion_ct_resolucion",
+  anotacion_administrativa_ct86: "accion_ct_anotacion",
+  pausar: "accion_bolsa_pausar", reactivar: "accion_bolsa_reactivar", excluir: "accion_bolsa_excluir" });
 const RESULTADOS = Object.freeze({ confirmado: "resultado_confirmado", denegado: "resultado_denegado", ok: "resultado_confirmado" });
+// Motivos que la fuente publica tal cual (Bolsa B56); el resto queda en el detalle técnico.
+const MOTIVOS = Object.freeze({ "Constitución de bolsa": "motivo_constitucion_bolsa",
+  "Motivo reservado en Bolsa": "motivo_reservado" });
+const CAMPOS = Object.freeze({ fase: "campo_fase", estado: "campo_estado", situacion: "campo_situacion",
+  fecha_disponible: "campo_fecha_disponible", datos_contacto: "campo_datos_contacto", correo: "campo_correo",
+  telefono_1: "campo_telefono", telefono_2: "campo_telefono" });
+const SITUACIONES = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion",
+  "renuncia", "excluido", "disponible_desde"]);
+const PROTEGIDOS = new Set(["datos_contacto", "correo", "telefono_1", "telefono_2"]);
 
-function presentarRegistroAuditoria(registro, t, ejemplo) {
+function claveAccion(accion) {
+  if (Object.hasOwn(ACCIONES, accion)) return ACCIONES[accion];
+  if (accion.startsWith("situacion:")) return "accion_bolsa_situacion";
+  if (accion.startsWith("valor:")) return "accion_bolsa_dato";
+  return "accion_otra";
+}
+
+/** Valor legible de un campo conocido; «» si no hay forma segura de mostrarlo. */
+function valorCampo(campo, valor, t) {
+  if (campo === "fase") return nombreFaseRRHH(valor);
+  if (campo === "estado") return nombreEstado(valor);
+  if (campo === "situacion") return SITUACIONES.includes(valor) ? t(`situacion_${valor}`) : "";
+  if (campo === "fecha_disponible") return fecha(valor) ? formatoFecha.format(new Date(valor)) : "";
+  return "";
+}
+
+/** «Fase: Solicitud → Análisis RRHH» por cada dato que cambia; sin códigos. */
+function resumenCambio(r, t) {
+  if (!r.datos_disponibles) return t("sin_valores");
+  const partes = [];
+  for (const campo of new Set([...Object.keys(r.antes), ...Object.keys(r.despues)])) {
+    const antes = r.antes[campo], despues = r.despues[campo];
+    if (antes === despues) continue;
+    if (!Object.hasOwn(CAMPOS, campo)) { partes.push(t("cambio_otro_dato")); continue; }
+    if (PROTEGIDOS.has(campo)) { partes.push(t("cambio_protegido", { campo: t(CAMPOS[campo]) })); continue; }
+    const anterior = antes === undefined ? "" : valorCampo(campo, antes, t) || t("sin_dato");
+    const nuevo = despues === undefined ? t("sin_valor") : valorCampo(campo, despues, t) || t("sin_dato");
+    // Dos fases del servidor pueden tener el mismo nombre para RRHH.
+    if (anterior === nuevo) continue;
+    partes.push(anterior ? t("cambio_de_a", { campo: t(CAMPOS[campo]), antes: anterior, despues: nuevo })
+      : t("cambio_valor", { campo: t(CAMPOS[campo]), valor: nuevo }));
+  }
+  return partes.length ? [...new Set(partes)].join("; ") : t("sin_cambios_visibles");
+}
+
+function presentarRegistroAuditoria(registro, t, ejemplo, contexto = {}) {
   const actor = ejemplo && Object.hasOwn(PERSONAS_EJEMPLO, registro.actor_ref)
-    ? `${PERSONAS_EJEMPLO[registro.actor_ref]} (${t("dato_ficticio")})` : t("persona_no_disponible");
-  const expediente = ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, registro.expediente_ref)
-    ? `${EXPEDIENTES_EJEMPLO[registro.expediente_ref]} (${t("dato_ficticio")})` : t("numero_no_disponible");
-  const accion = Object.hasOwn(ACCIONES, registro.accion) ? ACCIONES[registro.accion] : null;
+    ? `${PERSONAS_EJEMPLO[registro.actor_ref]} (${t("dato_ficticio")})`
+    : registro.actor_ref.startsWith("sistema:") ? t("persona_sistema") : t("persona_no_disponible");
+  let expediente = t("numero_no_disponible");
+  if (ejemplo && Object.hasOwn(EXPEDIENTES_EJEMPLO, registro.expediente_ref)) {
+    expediente = `${EXPEDIENTES_EJEMPLO[registro.expediente_ref]} (${t("dato_ficticio")})`;
+  } else if (contexto.expedienteRef && registro.expediente_ref === contexto.expedienteRef) {
+    expediente = t(contexto.fuenteContexto === "bolsa" ? "relacion_participacion_actual" : "relacion_expediente_actual");
+  }
+  const relacionado = registro.recibo_ref ? t("relacion_con_justificante", { relacion: expediente }) : expediente;
   const resultado = Object.hasOwn(RESULTADOS, registro.resultado) ? RESULTADOS[registro.resultado] : null;
-  return Object.freeze({ actor, expediente, accion: t(accion || "accion_otra"), resultado: t(resultado || "resultado_otro") });
+  const motivo = !registro.motivo ? t("sin_dato")
+    : Object.hasOwn(MOTIVOS, registro.motivo) ? t(MOTIVOS[registro.motivo]) : t("motivo_en_detalle");
+  return Object.freeze({ actor, expediente: relacionado, accion: t(claveAccion(registro.accion)),
+    resultado: t(resultado || "resultado_otro"), motivo, cambio: resumenCambio(registro, t) });
 }
 
 function presentarExpedienteAuditoria(ref, t, ejemplo) {
@@ -83,12 +145,14 @@ function bloqueValores(t, clave, valores, huella) {
     ${huella ? `<p class="auditoria-huella">${escapar(t("huella"))} <code>${escapar(huella)}</code></p>` : ""}</section>`;
 }
 
-function fila(t, r, ejemplo) {
-  const visible = presentarRegistroAuditoria(r, t, ejemplo);
+function fila(t, r, ejemplo, contexto) {
+  const visible = presentarRegistroAuditoria(r, t, ejemplo, contexto);
   return `<tr><td><time datetime="${escapar(r.ocurrido_en)}">${escapar(formatoFecha.format(new Date(r.ocurrido_en)))}</time></td>
-    <td>${escapar(visible.actor)}</td><td>${escapar(visible.accion)}</td><td>${escapar(visible.expediente)}</td><td><span class="auditoria-resultado">${escapar(visible.resultado)}</span></td>
+    <td>${escapar(visible.actor)}</td><td>${escapar(visible.accion)}</td><td>${escapar(visible.cambio)}</td>
+    <td>${escapar(visible.motivo)}</td><td>${escapar(visible.expediente)}</td>
     <td><details><summary>${escapar(t("ver_cambio"))}</summary><div class="auditoria-detalle">
       <h4>${escapar(t("detalle_tecnico"))}</h4>
+      <p><span class="auditoria-resultado">${escapar(t("resultado"))}: ${escapar(visible.resultado)}</span></p>
       <dl class="auditoria-metadatos">
         ${[["campo_registro_ref", r.id], ["campo_actor_ref", r.actor_ref], ["campo_accion_ref", r.accion],
           ["campo_resultado_ref", r.resultado], ["campo_expediente_ref", r.expediente_ref],
@@ -130,8 +194,8 @@ export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbier
       <div class="cuerpo-panel"><p class="auditoria-estado-texto" role="status" aria-live="polite">${escapar(mensaje)}</p>
       ${estado === "error" && expedienteRef ? `<button type="button" class="boton-secundario auditoria-reintentar" data-auditoria-reintentar>${escapar(t("reintentar"))}</button>` : ""}
       ${estado === "disponible" ? `<div class="auditoria-tabla" role="region" tabindex="0" aria-label="${escapar(t("tabla_aria"))}">
-        <table><thead><tr>${["fecha", "actor", "accion", "numero", "resultado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
-        <tbody>${registros.map((r) => fila(t, r, ejemplo)).join("")}</tbody></table></div>` : ""}
+        <table><thead><tr>${["fecha", "actor", "accion", "cambio", "motivo", "relacionado", "detalle"].map((k) => `<th scope="col">${escapar(t(k))}</th>`).join("")}</tr></thead>
+        <tbody>${registros.map((r) => fila(t, r, ejemplo, { expedienteRef, fuenteContexto })).join("")}</tbody></table></div>` : ""}
       ${["disponible", "vacio"].includes(estado) ? `<nav class="auditoria-paginacion" aria-label="${escapar(t("paginacion"))}">
         <button type="button" class="boton-secundario" data-auditoria-anterior ${puedeAnterior ? "" : "disabled"}>${escapar(t("anterior"))}</button>
         <span>${escapar(t("pagina", { numero: formatoNumero.format(pagina) }))}</span>

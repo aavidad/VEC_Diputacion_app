@@ -775,10 +775,16 @@ export async function montarModuloContratacionTemporal({
       repintar(".ct-exp-contenido");
     } else if (accion.dataset.ctExpAccion === "ir-tramite") {
       // Lleva al primer trámite montado de la fase (formularios bajo la ficha).
+      // Busca un destino visible con contenido; si no hay ninguno, no se mueve.
+      const visible = (nodo) => Boolean(nodo?.textContent?.trim())
+        && (typeof nodo.getClientRects !== "function" || nodo.getClientRects().length > 0);
       const marca = raiz.querySelector("[data-ct-exp-tramite]");
       let destino = marca?.nextElementSibling;
-      while (destino && !destino.textContent.trim()) destino = destino.nextElementSibling;
-      destino = destino ?? raiz.querySelector("[data-ct-exp-llamamiento]") ?? marca;
+      while (destino && !visible(destino)) destino = destino.nextElementSibling;
+      destino = destino ?? [...(raiz.querySelectorAll?.(
+        ".ct-exp-tramitacion form, [data-ct-exp-llamamiento], .ct-exp-tramitacion section, .ct-exp-tramitacion",
+      ) ?? [])].find(visible) ?? null;
+      if (!destino) return;
       destino?.scrollIntoView?.({ block: "start" });
       (destino?.querySelector?.("h2, h3, h4, legend") ?? destino)?.setAttribute?.("tabindex", "-1");
       (destino?.querySelector?.("h2, h3, h4, legend") ?? destino)?.focus?.({ preventScroll: true });

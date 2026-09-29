@@ -92,7 +92,7 @@ export function crearClientePreferencias({ fetchImpl = globalThis.fetch } = {}) 
     let respuesta;
     try {
       respuesta = await fetchImpl(RUTA_MIS_PREFERENCIAS, {
-        method: metodo, credentials: "omit", cache: "no-store", redirect: "error",
+        method: metodo, credentials: "same-origin", cache: "no-store", redirect: "error",
         referrerPolicy: "no-referrer", signal,
         headers: { Accept: "application/json", ...(cuerpo ? { "Content-Type": "application/json" } : {}) },
         ...(cuerpo ? { body: JSON.stringify(cuerpo) } : {}),
