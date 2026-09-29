@@ -6,6 +6,7 @@
  * incluyen siempre. El servidor productivo sustituirá esta proyección por el
  * motor de reglas versionado, pero mantendrá el mismo contrato de resultado.
  */
+import { traducir } from "./i18n.js";
 
 function referenciasUnicas(valor) {
   const lista = Array.isArray(valor) ? valor : [];
@@ -18,7 +19,7 @@ function criterioPendiente(merito) {
     id: `criterio-${merito.id}`,
     merito_id: merito.id,
     nombre: merito.titulo,
-    detalle: `${merito.tipo} · pendiente de regla aplicable`,
+    detalle: traducir("areaPersonal.autobaremo.pendienteRegla", { tipo: merito.tipo }),
     estado: merito.estado,
     puntos,
     maximo: Math.max(1, puntos),

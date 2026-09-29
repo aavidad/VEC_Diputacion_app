@@ -10,6 +10,7 @@ import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInici
 import { renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud } from "./vistas/perfil-meritos-solicitud.js";
 import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 const RAIZ = dirname(fileURLToPath(import.meta.url));
 
@@ -57,14 +58,14 @@ function datosPrueba() {
 }
 
 test("el diálogo de sesión usa el catálogo común para la autoridad del servidor", async () => {
-  const catalogo = JSON.parse(await readFile(join(RAIZ, "locales/es.json"), "utf8"));
+  const catalogo = await catalogoPlano("es");
   const claves = ["titulo", "persona", "referencia", "metodo", "origen", "autoridadServidor"];
   const copia = await import("./i18n.js?respaldo-dialogo-sesion");
   for (const nombre of claves) {
     const clave = `areaPersonal.sesion.${nombre}`;
     assert.equal(copia.traducir(clave), catalogo[clave], clave);
   }
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async () => ({ ok: true, json: async () => catalogo }));
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   for (const nombre of claves) assert.equal(traducir(`areaPersonal.sesion.${nombre}`), catalogo[`areaPersonal.sesion.${nombre}`]);
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /escaparHTML\(traducir\(`\$\{prefijoTraduccion\}autoridadServidor`\)\)/);
@@ -216,7 +217,8 @@ test("la lectura de expedientes remite a la guía textual sin sintetizar datos p
   const fin = aplicacion.indexOf("async function recargarPreferencias", inicio);
   const funcion = aplicacion.slice(inicio, fin);
   assert.ok(inicio >= 0 && fin > inicio, "debe existir la lectura gobernada");
-  assert.match(funcion, /conector y una política aprobados[\s\S]*guía textual de Ayuda/u);
+  assert.match(funcion, /notificar\(t\("lectura\.aviso"\)\)[\s\S]*anunciar\(t\("lectura\.anuncio"\)\)/u);
+  assert.match(traducir("areaPersonal.app.lectura.aviso"), /conector y una política aprobados[\s\S]*guía textual de Ayuda/u);
   assert.doesNotMatch(funcion, /innerText|speechSynthesis|SpeechSynthesisUtterance/u);
   const ayuda = renderizarAyuda({ meta: { presentacion: false }, ayuda: [] });
   assert.match(ayuda, /Esta guía explica el área personal de Bolsa/u);
@@ -243,8 +245,8 @@ test("la composición limita enlaces al área y bloquea capacidades antes del di
   assert.doesNotMatch(aplicacion, /\/presentacion\/|presentacionSolicitada/u);
   assert.match(aplicacion, /inicioInstitucional\.dataset\.ruta = "inicio"[\s\S]*crearURL\(estado, "inicio"\)/u);
   assert.match(aplicacion, /function aplicarCapacidadesVisibles\(estado\)[\s\S]*estado\.datos\.capacidades\[operacion\] === true/u);
-  assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*Operación no disponible/u);
-  assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);
+  assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*areaPersonal\.capacidad\.operacionNoDisponible/u);
+  assert.match(aplicacion, /\[t\("recibo\.objetivo"\), escaparHTML\(recibo\.objetivo\)\]/u);
 });
 
 test("la ficha propia muestra la participación sin convertirla en una decisión de RRHH", () => {

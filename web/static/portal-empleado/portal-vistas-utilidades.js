@@ -1,4 +1,4 @@
-import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
+import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260929-i18n-area-bolsa-v1";
 
 /**
  * Componentes HTML puros compartidos por las vistas de consulta.

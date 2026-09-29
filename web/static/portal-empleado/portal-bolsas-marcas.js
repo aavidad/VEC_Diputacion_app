@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
+import { LOCALIZACION_PORTAL } from "./portal-i18n.js?v=20260929-i18n-area-bolsa-v1";
 /**
  * Marcas de una participación en el cuadro, la ficha y la selección de un
  * llamamiento (Bolsa 000041): ya presta servicios (b16), en revisión (duda 18)

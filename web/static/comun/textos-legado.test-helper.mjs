@@ -6,14 +6,6 @@
  */
 export const LEGADO_CON_DICCIONARIO = new Set([
   "app.js",
-  "area-personal/aplicacion.js",
-  "area-personal/i18n.js",
-  "area-personal/mi-bolsa-contacto.js",
-  "area-personal/mi-bolsa-historial.js",
-  "area-personal/mi-bolsa-ofertas.js",
-  "area-personal/mi-bolsa-portal.js",
-  "area-personal/vistas/inicio-convocatorias.js",
-  "area-personal/vistas/perfil-meritos-solicitud.js",
   "bolsa/i18n-publica.js",
   "comun/iconos-vec.js",
   "comun/oportunidades/i18n.js",
@@ -22,8 +14,6 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "portal-empleado/datos-presentacion.js",
   "portal-empleado/datos-sinteticos-rrhh.js",
   "portal-empleado/modulos/aprobaciones/i18n.js",
-  "portal-empleado/modulos/bolsa/rrhh-plazos-i18n.js",
-  "portal-empleado/modulos/bolsa/rrhh-politica-cese-i18n.js",
   "portal-empleado/modulos/comunicaciones/i18n.js",
   "portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js",
   "portal-empleado/modulos/contratacion-temporal/datos-presentacion.js",

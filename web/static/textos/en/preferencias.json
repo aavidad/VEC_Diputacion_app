@@ -67,7 +67,7 @@
           "inicio": {
             "cuadro": "Dashboard",
             "peticiones": "Temporary staff requests",
-            "bolsas": "Job pools"
+            "bolsas": "Employment pools"
           }
         }
       }
@@ -128,7 +128,7 @@
         "inicio": {
           "cuadro": "Dashboard",
           "peticiones": "Temporary staff requests",
-          "bolsas": "Job pools"
+          "bolsas": "Employment pools"
         }
       },
       "error": {
