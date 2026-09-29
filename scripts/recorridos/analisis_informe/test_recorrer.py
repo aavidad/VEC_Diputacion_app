@@ -6,9 +6,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from recorrer import (Corte, NoEjecutado, comprobar_precondiciones, comprobar_recibo,
-                      instalar_filtro_red, origen_local, solicitud_permitida)
+from recorrer import (Corte, NoEjecutado, RUTAS, abrir_expediente, comprobar_detalle,
+                      comprobar_precondiciones, comprobar_recibo, instalar_filtro_red,
+                      instalar_filtro_websocket, origen_local, solicitud_permitida)
 
 
 class PuertasRecorrido(unittest.TestCase):
@@ -55,6 +57,100 @@ class PuertasRecorrido(unittest.TestCase):
         self.assertEqual(ruta.llamadas[0], ("fetch", {"max_redirects": 0, "timeout": 20_000}))
         self.assertEqual(ruta.llamadas[1:], [("abort", None)])
         self.assertEqual(len(fallos), 1)
+
+    def test_websocket_a_otro_puerto_se_cierra_antes_de_conectar(self):
+        class Contexto:
+            def route_web_socket(self, patron, funcion):
+                self.patron = patron
+                self.filtrar = funcion
+
+        class Ruta:
+            url = "wss://127.0.0.1:8444/socket"
+            cierres = []
+
+            def close(self, **opciones):
+                self.cierres.append(opciones)
+
+            def connect_to_server(self):
+                raise AssertionError("el WS no debe conectarse")
+
+        contexto = Contexto()
+        fallos = []
+        instalar_filtro_websocket(contexto, fallos)
+        ruta = Ruta()
+        self.assertTrue(contexto.patron(ruta.url))
+        contexto.filtrar(ruta)
+        self.assertEqual(ruta.cierres, [{"code": 1008, "reason": "WebSocket no admitido"}])
+        self.assertEqual(fallos, ["red: WebSocket no admitido en el recorrido"])
+
+    def test_reabre_desde_ficha_tras_analisis_y_muestra_cobertura(self):
+        referencia = "expediente:uno"
+
+        class Localizador:
+            def __init__(self, pagina, selector):
+                self.pagina = pagina
+                self.selector = selector
+
+            def count(self):
+                if "data-modulo" in self.selector:
+                    return 1 if self.pagina.modulo else 0
+                if "data-ct-exp-vista='cuadro'" in self.selector:
+                    return 1
+                if "data-ct-cobertura-form" in self.selector:
+                    return 1 if self.pagina.version == 2 and not self.pagina.lista else 0
+                return 1 if self.pagina.lista else 0
+
+            def is_visible(self):
+                return self.count() == 1
+
+            def wait_for(self, **_opciones):
+                if self.count() != 1:
+                    raise AssertionError("elemento aún oculto")
+
+            def click(self):
+                if "data-ct-exp-vista='cuadro'" in self.selector:
+                    self.pagina.lista = True
+                    self.pagina.acciones.append("volver al cuadro")
+                else:
+                    self.pagina.lista = False
+                    self.pagina.acciones.append("abrir expediente")
+
+        class Pagina:
+            modulo = False
+            lista = False
+            version = 1
+
+            def __init__(self):
+                self.acciones = []
+
+            def goto(self, _url, **_opciones):
+                self.modulo = True
+                self.lista = True
+                self.acciones.append("abrir portal")
+                return type("Respuesta", (), {"status": 200})()
+
+            def locator(self, selector):
+                return Localizador(self, selector)
+
+        pagina = Pagina()
+
+        def observar_falso(_pagina, ruta, accion):
+            self.assertEqual(ruta, RUTAS["detalle"])
+            accion()
+            return {"resumen": {"expediente_ref": referencia, "version": pagina.version,
+                                "fase_clave": "analisis" if pagina.version == 1 else "cobertura"},
+                    "hitos": [{}] * pagina.version}
+
+        with patch("recorrer.observar", side_effect=observar_falso):
+            inicial = abrir_expediente(pagina, "https://127.0.0.1:8443", referencia)
+            self.assertEqual(comprobar_detalle(inicial, referencia)["version"], 1)
+            # El POST de análisis deja visible la ficha y oculta la lista.
+            pagina.version = 2
+            actualizado = abrir_expediente(pagina, "https://127.0.0.1:8443", referencia)
+            self.assertEqual(comprobar_detalle(actualizado, referencia, 2)["version"], 2)
+            self.assertEqual(pagina.locator("[data-ct-cobertura-form]").count(), 1)
+        self.assertEqual(pagina.acciones, ["abrir portal", "abrir expediente",
+                                          "volver al cuadro", "abrir expediente"])
 
     def test_sin_clon_h3_h5_no_abre_navegador(self):
         with tempfile.TemporaryDirectory() as temporal:

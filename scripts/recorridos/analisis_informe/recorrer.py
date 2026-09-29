@@ -83,6 +83,15 @@ def instalar_filtro_red(contexto, origen: str, fallos: list[str]) -> None:
     contexto.route("**/*", filtrar)
 
 
+def instalar_filtro_websocket(contexto, fallos: list[str]) -> None:
+    """El recorrido no necesita WS; cerrar antes de conectar al servidor."""
+    def cerrar(ruta) -> None:
+        fallos.append("red: WebSocket no admitido en el recorrido")
+        ruta.close(code=1008, reason="WebSocket no admitido")
+
+    contexto.route_web_socket(lambda _url: True, cerrar)
+
+
 def leer_json(ruta: Path) -> dict:
     try:
         dato = json.loads(ruta.read_text(encoding="utf-8"))
@@ -161,17 +170,29 @@ def observar(pagina, ruta: str, accion, estados=(200,)) -> dict:
 
 
 def abrir_expediente(pagina, origen: str, expediente_ref: str) -> dict:
-    respuesta = pagina.goto(origen + "/portal-empleado/#contratacion-temporal",
-                            wait_until="domcontentloaded", timeout=20_000)
-    if respuesta is None or respuesta.status != 200:
-        raise Corte("portal: no respondió HTTP 200")
+    modulo = pagina.locator("[data-modulo='contratacion-temporal']")
+    if modulo.count() == 0:
+        respuesta = pagina.goto(origen + "/portal-empleado/#contratacion-temporal",
+                                wait_until="domcontentloaded", timeout=20_000)
+        if respuesta is None or respuesta.status != 200:
+            raise Corte("portal: no respondió HTTP 200")
     # El cuadro puede paginar. Filtrar por la referencia opaca en el servidor
     # no está admitido; el operador debe aportar un expediente visible en la lista.
-    pagina.locator("[data-modulo='contratacion-temporal']").wait_for(timeout=15_000)
+    modulo.wait_for(timeout=15_000)
     selector = f'[data-ct-exp-abrir="{expediente_ref}"]'
-    if pagina.locator(selector).count() != 1:
-        raise Corte("cuadro: expediente no visible en la página autorizada; no se crea otro")
-    return observar(pagina, RUTAS["detalle"], lambda: pagina.locator(selector).click())
+    fila = pagina.locator(selector)
+    if not fila.is_visible():
+        # Después de un POST la vista expediente sustituye a la lista. La
+        # navegación propia vuelve al cuadro antes de seleccionar la fila.
+        volver = pagina.locator("nav.ct-exp-navegacion [data-ct-exp-vista='cuadro']")
+        if volver.count() != 1:
+            raise Corte("cuadro: no existe navegación autorizada desde la ficha")
+        volver.click()
+    try:
+        fila.wait_for(state="visible", timeout=15_000)
+    except Exception as error:
+        raise Corte("cuadro: expediente no visible en la página autorizada; no se crea otro") from error
+    return observar(pagina, RUTAS["detalle"], lambda: fila.click())
 
 
 def comprobar_denegacion(navegador, cfg: argparse.Namespace, origen: str) -> None:
@@ -183,6 +204,7 @@ def comprobar_denegacion(navegador, cfg: argparse.Namespace, origen: str) -> Non
     try:
         fallos: list[str] = []
         instalar_filtro_red(contexto, origen, fallos)
+        instalar_filtro_websocket(contexto, fallos)
         pagina = contexto.new_page()
         respuesta = pagina.goto(origen + "/portal-empleado/#contratacion-temporal",
                                 wait_until="domcontentloaded", timeout=20_000)
@@ -254,7 +276,15 @@ def formulario(pagina, etapa: str, ruta: str, completar) -> dict:
     if pagina.locator(selector).count() != 1:
         raise Corte(f"{etapa}: formulario no disponible; comprobar fase, versión y concesión")
     completar(pagina.locator(selector))
-    return observar(pagina, ruta, lambda: pagina.locator(selector).locator("button[type='submit']").click(), (201,))
+    recibo = observar(pagina, ruta, lambda: pagina.locator(selector).locator("button[type='submit']").click(), (201,))
+    try:
+        # La respuesta HTTP puede llegar antes de que el módulo consuma el
+        # recibo. Esperar el cierre del formulario evita bloquear el retorno
+        # al cuadro mientras la operación sigue marcada como ocupada.
+        pagina.locator(selector).wait_for(state="detached", timeout=15_000)
+    except Exception as error:
+        raise Corte(f"{etapa}: la pantalla no confirmó el recibo recibido") from error
+    return recibo
 
 
 def completar_analisis(form, datos: dict) -> None:
@@ -297,6 +327,7 @@ def ejecutar(cfg: argparse.Namespace) -> dict:
                 try:
                     fallos_red: list[str] = []
                     instalar_filtro_red(contexto, origen, fallos_red)
+                    instalar_filtro_websocket(contexto, fallos_red)
                     pagina = contexto.new_page()
                     errores: list[str] = []
                     pagina.on("pageerror", lambda error: errores.append(str(error)))
@@ -368,8 +399,10 @@ def ejecutar(cfg: argparse.Namespace) -> dict:
                     contexto.close()
         finally:
             navegador.close()
-    resultado["estado"] = "RECORRIDO" if cfg.modo == "registrar" else "LECTURA RECUPERADA"
-    resultado["corte"] = "informe jurídico de desarrollo; firma, envío y fiscalización sin acreditar"
+    resultado["estado"] = "RECORRIDO" if cfg.modo == "registrar" else "ESTADO RECUPERADO"
+    resultado["corte"] = ("informe jurídico de desarrollo; firma, envío y fiscalización sin acreditar"
+                          if cfg.modo == "registrar" else
+                          "versión e hitos recuperados; recibos originales no reconsultados")
     return resultado
 
 

@@ -2,12 +2,13 @@
 
 Este guion recorre en Chrome el expediente sintético existente de RRHH. Abre el
 cuadro y el detalle autorizados, registra las operaciones que aún procedan y
-comprueba sus recibos y la versión e historia recuperadas. La decisión de vía
+comprueba sus recibos al registrarlas. Tras reiniciar, compara la versión y el
+número de hitos que muestra el detalle; no reconsulta esos recibos. La decisión de vía
 de cobertura es un paso necesario entre análisis y asignación. Si falta el
 formulario, la concesión o una fuente gobernada, se detiene en esa puerta.
 Todas las peticiones quedan en el origen HTTPS local declarado; el filtro de
 Playwright inspecciona cada respuesta sin seguir redirecciones y corta también
-un salto a otro puerto local.
+un salto a otro puerto local. Los WebSocket se cierran antes de conectar.
 
 ## Preparación externa
 
