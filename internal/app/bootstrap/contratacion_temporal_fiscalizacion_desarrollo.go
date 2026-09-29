@@ -41,6 +41,7 @@ func nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	sello *selloConsultasContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
 ) (dependenciasFiscalizacionContratacionTemporalDesarrollo, error) {
 	vacias := dependenciasFiscalizacionContratacionTemporalDesarrollo{}
 	if derivador == nil || !derivador.valido() || alta == nil ||
@@ -52,6 +53,7 @@ func nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
 		alta,
 		sello,
 		reloj,
+		aprobacion,
 	)
 	if err != nil {
 		return vacias, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
@@ -123,17 +125,23 @@ func nuevasDependenciasFiscalizacionContratacionTemporalDesarrollo(
 // autoridad sintetica de Intervencion. No delega en soporteAlta porque este
 // ultimo debe seguir rechazando cualquier principal que no sea tecnico_rrhh.
 type soporteFiscalizacionContratacionTemporalDesarrollo struct {
-	mu                    sync.Mutex
-	sello                 *selloConsultasContratacionTemporalDesarrollo
-	principalID           string
-	certificadoSHA256     string
-	contexto              ports.ContextoAutorizacionAltaV3
-	instantanea           dominiovec.InstantaneaAutorizacion
-	motivo                dominiovec.ReferenciaEntradaCatalogo
-	reloj                 relojContratacionTemporalDesarrollo
-	autoridadAsignaciones autoridadAsignacionesContratacionTemporalDesarrollo
-	registroDecisiones    registroDecisionesAnalisisContratacionTemporalDesarrollo
-	instantaneas          map[string]dominiovec.InstantaneaAutorizacion
+	mu                 sync.Mutex
+	sello              *selloConsultasContratacionTemporalDesarrollo
+	principalID        string
+	certificadoSHA256  string
+	contexto           ports.ContextoAutorizacionAltaV3
+	instantanea        dominiovec.InstantaneaAutorizacion
+	motivo             dominiovec.ReferenciaEntradaCatalogo
+	reloj              relojContratacionTemporalDesarrollo
+	registroDecisiones registroDecisionesAnalisisContratacionTemporalDesarrollo
+	// fijo es el perfil fijo de Intervención (su propio perfil): se publica
+	// una vez y después solo se consume, a través de puente, que lleva la
+	// autoridad PostgreSQL de lectura y el reloj.
+	fijo   *perfilFijoCTDesarrollo
+	puente *soporteAltaContratacionTemporalDesarrollo
+	// fase son los pares fase/estado del catálogo (c23) en que Intervención
+	// fiscaliza; los mismos que cubre su perfil fijo.
+	fase faseOperacionCT
 }
 
 var _ httpinterno.AutoridadContextoCanalFiscalizacion = (*soporteFiscalizacionContratacionTemporalDesarrollo)(nil)
@@ -154,7 +162,7 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ResolverPoliticaFis
 	vinculo, err := contexto.Vinculo.Datos()
 	if err != nil || solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
 		!origenFiscalizacionContratacionTemporalDesarrolloValido(
-			solicitud.VersionExpediente, solicitud.FaseActual, solicitud.EstadoActual,
+			s.fase, solicitud.VersionExpediente, solicitud.FaseActual, solicitud.EstadoActual,
 		) ||
 		solicitud.UnidadAsignadaRef != unidadCoberturaContratacionTemporalDesarrollo ||
 		solicitud.ResponsableAsignadoRef != responsableAsignacionContratacionTemporalDesarrollo ||
@@ -187,20 +195,26 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ResolverPoliticaFis
 	return politica, nil
 }
 
-// La primera fiscalización sólo parte del hito inicial v5. Una
-// refiscalización no se autoriza por una comparación de versión: su fase y
-// estado proceden de la preimagen persistida, que el preparador valida contra
-// la fiscalización desfavorable y su subsanación ligada al mismo retorno.
+// origenFiscalizacionContratacionTemporalDesarrolloValido admite la
+// fiscalización solo en los pares fase/estado del catálogo (c23) y, dentro de
+// ellos, conserva la coherencia de cada origen con la versión: la primera
+// parte del hito del informe (v5); una refiscalización no se autoriza por una
+// comparación de versión (su fase y estado proceden de la preimagen
+// persistida, que el preparador valida contra la fiscalización desfavorable y
+// su subsanación); la modificación tras el nombramiento (CT120) exige una
+// versión posterior y la comprueba el preparador contra la modificación.
 func origenFiscalizacionContratacionTemporalDesarrolloValido(
+	fase faseOperacionCT,
 	version uint64,
-	fase domain.ClaveFase,
+	faseActual domain.ClaveFase,
 	estado domain.EstadoOperativo,
 ) bool {
-	return version == 5 && fase == domain.FaseInformeJuridico && estado == domain.EstadoEnCurso ||
-		fase == domain.FaseSubsanacionUnidad && estado == domain.EstadoIncidencia ||
-		// Modificación tras el nombramiento (CT120): el preparador comprueba
-		// la modificación durable que dejó el expediente en fiscalización.
-		version >= 7 && fase == domain.FaseFiscalizacion && estado == domain.EstadoEnCurso
+	if !fase.admite(faseActual, estado) {
+		return false
+	}
+	return version == 5 && faseActual == domain.FaseInformeJuridico && estado == domain.EstadoEnCurso ||
+		faseActual == domain.FaseSubsanacionUnidad && estado == domain.EstadoIncidencia ||
+		version >= 7 && faseActual == domain.FaseFiscalizacion && estado == domain.EstadoEnCurso
 }
 
 type autorizadorFiscalizacionContratacionTemporalDesarrollo struct {
@@ -224,7 +238,7 @@ func (a *autorizadorFiscalizacionContratacionTemporalDesarrollo) ExigirSolicitud
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos) {
+	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos, a.soporte.fase) {
 		return dominiovec.DecisionAutorizacionLigadaV3{},
 			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
@@ -254,7 +268,7 @@ func (a *autorizadorFiscalizacionContratacionTemporalDesarrollo) PrepararRegistr
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	datos, err := solicitud.Datos()
-	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos) {
+	if err != nil || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos, a.soporte.fase) {
 		return dominiovec.DecisionAutorizacionLigadaV3{},
 			puertosvec.CandidataRegistroDecisionAutorizacionLigadaV3{},
 			errFiscalizacionContratacionTemporalDesarrolloNoDisponible
@@ -277,6 +291,7 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	sello *selloConsultasContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
 ) (
 	*soporteFiscalizacionContratacionTemporalDesarrollo,
 	autorizadorLigadoContratacionTemporalDesarrollo,
@@ -301,13 +316,15 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
+	fase, faseValida := alta.soporte.opcionesCatalogo.faseOperacionVigente(operacionFaseFiscalizacionCT)
 	instantanea, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
 		datosVinculo.PrincipalID,
 		datosVinculo.PerfilActivoRef,
 		ahora,
+		fase,
 	)
 	motivo := referenciaMotivoAutorizacionFiscalizacionDesarrollo()
-	if err != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
+	if err != nil || !faseValida || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 
@@ -318,17 +335,30 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 		instantanea:       instantanea,
 		reloj:             reloj,
 	}
+	lector := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: puente}
+	puente.autoridadAsignaciones = lector
+	// Intervención usa su propio perfil como perfil fijo: la organización y
+	// los pares fase/estado del catálogo, sin expediente. Se publica una vez
+	// si falta; si lo vigente es el permiso por expediente de antes, la ruta
+	// se deniega hasta que el operador apruebe esa huella (provisión).
+	fijo := &perfilFijoCTDesarrollo{clave: operacionFaseFiscalizacionCT, contexto: contexto, plantilla: instantanea,
+		rutas: map[string]struct{}{httpinterno.RutaResultadosFiscalizacion: {}}, actoSesion: "acto:ct:desarrollo:sesion:v1",
+		propioDelSoporte: true}
+	rolIntervencion := instantanea.VersionRol.RolID
+	admitida := func(publicada instantaneaPublicadaDesarrollo, instante time.Time) bool {
+		return preimagenPropiaPerfilFijoCTDesarrollo(fijo, actoAsignacionPerfilFijoCTDesarrollo, actoAsignacionCTDesarrollo)(publicada, instante) &&
+			publicada.instantanea.VersionRol.RolID == rolIntervencion
+	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
 	if publicarContextoPostgreSQLContratacionTemporalDesarrollo(
 		ctx,
 		alta.postgresql.gobierno,
 		puente,
-	) != nil || publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(
-		ctx,
-		alta.postgresql.gobierno,
-		puente,
 	) != nil {
+		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
+	}
+	if _, err := asegurarPerfilFijoCTDesarrollo(ctx, alta.postgresql.gobierno, puente, fijo, aprobacion, admitida); err != nil {
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
@@ -348,16 +378,17 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	soporte := &soporteFiscalizacionContratacionTemporalDesarrollo{
-		sello:                 sello,
-		principalID:           principal.ID,
-		certificadoSHA256:     principal.Attributes["certificate_sha256"],
-		contexto:              contexto,
-		instantanea:           puente.instantanea,
-		motivo:                motivo,
-		reloj:                 reloj,
-		autoridadAsignaciones: &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: puente},
-		registroDecisiones:    registro,
-		instantaneas:          make(map[string]dominiovec.InstantaneaAutorizacion),
+		sello:              sello,
+		principalID:        principal.ID,
+		certificadoSHA256:  principal.Attributes["certificate_sha256"],
+		contexto:           contexto,
+		instantanea:        puente.instantanea,
+		motivo:             motivo,
+		reloj:              reloj,
+		registroDecisiones: registro,
+		fijo:               fijo,
+		puente:             puente,
+		fase:               fase,
 	}
 	autorizadorBase, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
 		soporte,
@@ -463,6 +494,9 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) ValidarReferenciaMo
 	return nil
 }
 
+// RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente no
+// publica nada: el registro V3 comprueba bajo bloqueo que la asignación de la
+// decisión sigue siendo la vigente del perfil fijo.
 func (s *soporteFiscalizacionContratacionTemporalDesarrollo) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
 	ctx context.Context,
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
@@ -471,16 +505,11 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) RegistrarConcesionC
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 	}
 	datos, err := orden.Datos()
-	clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(datos.Solicitud)
 	s.mu.Lock()
-	instantanea, existe := s.instantaneas[clave]
-	autoridad := s.autoridadAsignaciones
 	registro := s.registroDecisiones
 	s.mu.Unlock()
-	if err != nil || !claveValida || !existe || autoridad == nil || registro == nil ||
-		datos.ReferenciaMotivo != s.motivo || datos.ResultadoContexto.Validar() != nil ||
-		datos.Decision.ValidarPara(datos.Solicitud) != nil || instantanea.Validar() != nil ||
-		autoridad.PublicarInstantanea(ctx, instantanea) != nil {
+	if err != nil || registro == nil || datos.ReferenciaMotivo != s.motivo || datos.ResultadoContexto.Validar() != nil ||
+		datos.Decision.ValidarPara(datos.Solicitud) != nil {
 		return time.Time{}, puertosvec.ErrInstantaneaAutorizacionObsoleta
 	}
 	return registro.RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx, orden)
@@ -494,74 +523,44 @@ func (s *soporteFiscalizacionContratacionTemporalDesarrollo) RegistrarDenegacion
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
 	datos, err := orden.Datos()
-	clave, claveValida := claveInstantaneaContratacionTemporalDesarrollo(datos.Solicitud)
 	s.mu.Lock()
-	instantanea, existe := s.instantaneas[clave]
-	autoridad := s.autoridadAsignaciones
 	registro := s.registroDecisiones
 	s.mu.Unlock()
-	if err != nil || !claveValida || !existe || autoridad == nil || registro == nil ||
-		datos.ReferenciaMotivo != s.motivo || instantanea.Validar() != nil ||
-		autoridad.PublicarInstantanea(ctx, instantanea) != nil {
+	if err != nil || registro == nil || datos.ReferenciaMotivo != s.motivo {
 		return puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible
 	}
 	return registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden)
 }
 
+// instantaneaParaContexto valida la solicitud y consume la asignación
+// publicada del perfil fijo de Intervención. Nunca prepara ni publica.
 func (s *soporteFiscalizacionContratacionTemporalDesarrollo) instantaneaParaContexto(
 	ctx context.Context,
 ) (dominiovec.InstantaneaAutorizacion, bool) {
-	if s == nil || ctx == nil {
+	if s == nil || ctx == nil || s.fijo == nil || s.puente == nil {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
 	datos, existe := ctx.Value(
 		claveSolicitudAutorizacionContratacionTemporalDesarrollo{},
 	).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
-	if !existe || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos) {
+	if !existe || !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(datos, s.fase) {
 		return dominiovec.InstantaneaAutorizacion{}, false
 	}
-	clave, valida := claveInstantaneaContratacionTemporalDesarrolloDesdeDatos(datos)
-	if !valida {
-		return dominiovec.InstantaneaAutorizacion{}, false
-	}
-	s.mu.Lock()
-	preparada, yaExiste := s.instantaneas[clave]
-	autoridad := s.autoridadAsignaciones
-	s.mu.Unlock()
-	if yaExiste {
-		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada),
-			preparada.Validar() == nil
-	}
-	if autoridad == nil {
-		return dominiovec.InstantaneaAutorizacion{}, false
-	}
-	preparada = clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantanea)
-	preparada.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-		{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-		{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-		{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-		{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-	}
-	preparada, err := autoridad.PrepararInstantanea(ctx, preparada)
-	if err != nil || preparada.Validar() != nil {
-		return dominiovec.InstantaneaAutorizacion{}, false
-	}
-	s.mu.Lock()
-	if existente, encontrada := s.instantaneas[clave]; encontrada {
-		preparada = existente
-	} else {
-		s.instantaneas[clave] = preparada
-	}
-	s.mu.Unlock()
-	return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(preparada),
-		preparada.Validar() == nil
+	return s.puente.consumirPerfilFijoCTDesarrollo(ctx, s.fijo)
 }
 
+// nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo es
+// la plantilla del perfil fijo de Intervención: la organización y los pares
+// fase/estado del catálogo (c23), sin expediente.
 func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
 	principalID string,
 	perfilRef string,
 	ahora time.Time,
+	fase faseOperacionCT,
 ) (dominiovec.InstantaneaAutorizacion, error) {
+	if !fase.valida() {
+		return dominiovec.InstantaneaAutorizacion{}, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
+	}
 	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
 		principalID,
 		perfilRef,
@@ -576,12 +575,7 @@ func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
 			Finalidades:    []string{finalidadFiscalizacionContratacionTemporalDesarrollo},
 			GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
-		[]dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
-			{Clave: "expediente_ref", Valores: []string{expedienteContratacionTemporalDesarrolloRef}},
-			{Clave: "fase_previa", Valores: []string{string(domain.FaseInformeJuridico), string(domain.FaseSubsanacionUnidad), string(domain.FaseFiscalizacion)}},
-			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso), string(domain.EstadoIncidencia)}},
-		},
+		fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo),
 	)
 }
 
@@ -597,10 +591,18 @@ func referenciaMotivoAutorizacionFiscalizacionDesarrollo() dominiovec.Referencia
 	}
 }
 
+// solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida: el
+// expediente va en la referencia del recurso; los ámbitos son la organización
+// y un par fase/estado que admite el catálogo, con los atributos coherentes
+// con el origen (inicial, refiscalización o modificación).
 func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 	datos dominiovec.DatosSolicitudAutorizacionLigadaV3,
+	fase faseOperacionCT,
 ) bool {
 	ambitos := datos.Recurso.Ambitos
+	if !fase.admite(domain.ClaveFase(ambitos["fase_previa"]), domain.EstadoOperativo(ambitos["estado_previo"])) {
+		return false
+	}
 	origenInicial := ambitos["fase_previa"] == string(domain.FaseInformeJuridico) &&
 		ambitos["estado_previo"] == string(domain.EstadoEnCurso)
 	origenRefiscalizacion := ambitos["fase_previa"] == string(domain.FaseSubsanacionUnidad) &&
@@ -615,9 +617,9 @@ func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 		datos.ReferenciaMotivo == referenciaMotivoAutorizacionFiscalizacionDesarrollo() &&
 		datos.Recurso.ModuloID == ports.ModuloContratacion &&
 		datos.Recurso.Tipo == tipoRecursoFiscalizacionContratacionTemporalDesarrollo &&
-		datos.Recurso.Referencia == ambitos["expediente_ref"] &&
+		datos.Recurso.Referencia != "" &&
 		datos.Finalidad == finalidadFiscalizacionContratacionTemporalDesarrollo &&
-		len(ambitos) == 4 &&
+		len(ambitos) == 3 &&
 		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
 		((origenInicial && datos.Recurso.Atributos["retorno_previo_ref"] == "" &&
 			datos.Recurso.Atributos["subsanacion_recibo_ref"] == "" && datos.Recurso.Atributos["modificacion_recibo_ref"] == "") ||

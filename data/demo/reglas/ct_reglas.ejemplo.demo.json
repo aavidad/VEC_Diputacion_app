@@ -560,6 +560,37 @@
           "estado_subsanacion_unidad": "incidencia"
         },
         "orden": 34
+      },
+      {
+        "clave": "c23.fase_operacion.fiscalizacion",
+        "etiqueta": "Fases en que Intervención fiscaliza",
+        "descripcion": "Intervención fiscaliza el expediente tras el informe jurídico (en curso), de nuevo tras la subsanación de un reparo (con incidencia) y tras una modificación posterior al nombramiento (en fiscalización, en curso). Es lo que cubre el permiso de Intervención para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 5.",
+          "unidad": "lista",
+          "valor": "informe_juridico,subsanacion_unidad,fiscalizacion",
+          "estado": "en_curso",
+          "estado_subsanacion_unidad": "incidencia"
+        },
+        "orden": 35
+      },
+      {
+        "clave": "c23.fase_operacion.subsanacion",
+        "etiqueta": "Fase en que RRHH subsana un reparo",
+        "descripcion": "RRHH registra la subsanación de un reparo de Intervención mientras el expediente está en subsanación de unidad, con incidencia. Es lo que cubre el permiso de subsanación de RRHH para toda la organización, sin atarlo a un expediente concreto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 5.",
+          "unidad": "lista",
+          "valor": "subsanacion_unidad",
+          "estado": "incidencia"
+        },
+        "orden": 36
       }
     ],
     "estado": "publicado",

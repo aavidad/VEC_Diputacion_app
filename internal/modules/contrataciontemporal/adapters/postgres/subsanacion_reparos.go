@@ -396,7 +396,8 @@ func validarAutorizacionSubsanacionSQL(o ports.OrdenConfirmarSubsanacionReparo, 
 	}
 	p := o.Preparacion
 	huella := sha256.Sum256([]byte(o.Material.Observaciones))
-	ambitos := map[string]string{"organizacion_ref": o.OrganizacionRef, "expediente_ref": o.Material.ExpedienteRef, "fase_previa": string(p.Expediente.FaseActual), "estado_previo": string(p.Expediente.EstadoActual)}
+	// Sin expediente en los ámbitos: va en la referencia del recurso.
+	ambitos := map[string]string{"organizacion_ref": o.OrganizacionRef, "fase_previa": string(p.Expediente.FaseActual), "estado_previo": string(p.Expediente.EstadoActual)}
 	atributos := map[string]string{"version_expediente": strconv.FormatUint(o.VersionAnterior, 10), "retorno_ref": p.RetornoRef, "observaciones_huella_sha256": hex.EncodeToString(huella[:]), "unidad_asignada_ref": p.Expediente.Asignacion.UnidadRef, "responsable_asignado_ref": p.Expediente.Asignacion.ResponsableRef, "politica_ref": o.Politica.DefinicionRef, "politica_version": strconv.FormatUint(o.Politica.DefinicionVersion, 10), "politica_huella_sha256": o.Politica.DefinicionHuellaSHA256, "ambito_idempotencia_hmac": p.AmbitoIdempotenciaHMAC, "huella_peticion_hmac": p.HuellaPeticionHMAC}
 	if !reflect.DeepEqual(s.Recurso.Ambitos, ambitos) || !reflect.DeepEqual(s.Recurso.Atributos, atributos) {
 		return ports.ErrAutorizacionDenegada

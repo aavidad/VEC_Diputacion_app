@@ -107,15 +107,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		instantanea.AsignacionPerfil.Ambitos = ambitos
 	} else if ruta == httpinterno.RutaSubsanacionReparos {
-		if !s.solicitudAutorizacionSubsanacionReparosValida(datos) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-		}
+		// La subsanación solo se autoriza con su perfil fijo (arriba).
+		return dominiovec.InstantaneaAutorizacion{}, false
 	} else if ruta == httpinterno.RutaFirmaDocumento {
 		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false

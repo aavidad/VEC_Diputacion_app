@@ -475,9 +475,8 @@ func validarAutorizacionFiscalizacion(
 		recurso.Referencia != material.ExpedienteRef ||
 		recurso.ModuloID != ports.ModuloContratacion ||
 		recurso.Tipo != ports.TipoRecursoFiscalizacion ||
-		len(recurso.Ambitos) != 4 || len(recurso.Atributos) != numeroAtributos ||
+		len(recurso.Ambitos) != 3 || len(recurso.Atributos) != numeroAtributos ||
 		recurso.Ambitos["organizacion_ref"] != material.OrganizacionRef ||
-		recurso.Ambitos["expediente_ref"] != material.ExpedienteRef ||
 		recurso.Ambitos["fase_previa"] != string(anterior.FaseActual) ||
 		recurso.Ambitos["estado_previo"] != string(anterior.EstadoActual) ||
 		recurso.Atributos["version_expediente"] != strconv.FormatUint(anterior.Version, 10) ||
