@@ -453,6 +453,92 @@ func omitirClaveCatalogoJSONPrueba(t *testing.T, contenido []byte, ruta ...strin
 	return alterado
 }
 
+func TestCatalogoCoberturaRechazaGrafiasTemporalesEquivalentes(t *testing.T) {
+	segundos := borradorCatalogoCoberturaValido()
+	fracciones := borradorCatalogoCoberturaValido()
+	fracciones.PublicadoEn = fracciones.PublicadoEn.Add(120 * time.Millisecond)
+	fracciones.Vigencia.Desde = fracciones.Vigencia.Desde.Add(120 * time.Millisecond)
+	fracciones.Vigencia.Hasta = fracciones.Vigencia.Hasta.Add(120 * time.Millisecond)
+	hastaAbierto := borradorCatalogoCoberturaValido()
+	hastaAbierto.Vigencia.Hasta = time.Time{}
+	v2 := borradorCatalogoCoberturaConPreparacion()
+	casos := []struct {
+		nombre    string
+		borrador  BorradorCatalogoViasCobertura
+		variantes func(string) []string
+		campos    []string
+	}{
+		{"V1 segundos", segundos, variantesSegundosCatalogoPrueba,
+			[]string{"publicado_en", "desde", "hasta"}},
+		{"V1 fracciones", fracciones, variantesFraccionCatalogoPrueba,
+			[]string{"publicado_en", "desde", "hasta"}},
+		{"V1 hasta cero", hastaAbierto, variantesSegundosCatalogoPrueba,
+			[]string{"hasta"}},
+		{"V2 segundos", v2, variantesSegundosCatalogoPrueba,
+			[]string{"publicado_en", "desde", "hasta"}},
+	}
+	for _, caso := range casos {
+		catalogo, err := PublicarCatalogoViasCobertura(caso.borrador)
+		if err != nil {
+			t.Fatalf("publicar %s: %v", caso.nombre, err)
+		}
+		base, err := json.Marshal(catalogo.Publicacion())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, campo := range caso.campos {
+			var objeto map[string]any
+			if err := json.Unmarshal(base, &objeto); err != nil {
+				t.Fatal(err)
+			}
+			var original string
+			if campo == "publicado_en" {
+				original = objeto[campo].(string)
+			} else {
+				original = objeto["vigencia"].(map[string]any)[campo].(string)
+			}
+			for indice, alternativa := range caso.variantes(original) {
+				nombre := caso.nombre + "/" + campo + "/" + strconv.Itoa(indice)
+				t.Run(nombre, func(t *testing.T) {
+					if alternativa == original {
+						t.Fatal("la variante no cambió la grafía")
+					}
+					var copia map[string]any
+					if err := json.Unmarshal(base, &copia); err != nil {
+						t.Fatal(err)
+					}
+					if campo == "publicado_en" {
+						copia[campo] = alternativa
+					} else {
+						copia["vigencia"].(map[string]any)[campo] = alternativa
+					}
+					alterado, err := json.Marshal(copia)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var publicacion PublicacionCatalogoViasCobertura
+					if err := json.Unmarshal(alterado, &publicacion); err == nil {
+						t.Fatalf("se aceptó fecha equivalente no canónica %s", alternativa)
+					}
+				})
+			}
+		}
+	}
+}
+
+func variantesSegundosCatalogoPrueba(canonica string) []string {
+	base := strings.TrimSuffix(canonica, "Z")
+	return []string{base + "+00:00", base + ".000Z", base + ",000Z"}
+}
+
+func variantesFraccionCatalogoPrueba(canonica string) []string {
+	return []string{
+		strings.Replace(canonica, ".12Z", ".120Z", 1),
+		strings.Replace(canonica, ".12Z", ",12Z", 1),
+		strings.TrimSuffix(canonica, "Z") + "+00:00",
+	}
+}
+
 func elementosPreparacionPrueba(cuantos int) []ElementoPreparacionViaCobertura {
 	elementos := make([]ElementoPreparacionViaCobertura, cuantos)
 	for indice := range elementos {

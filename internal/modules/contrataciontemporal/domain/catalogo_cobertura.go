@@ -419,6 +419,13 @@ func tipoPrimitivoJSONCatalogoValido(valor []byte, tipo byte) bool {
 		return bytes.Equal(valor, []byte("true")) || bytes.Equal(valor, []byte("false"))
 	case 't':
 		return bytes.Equal(valor, []byte("true"))
+	case 'd':
+		var instante time.Time
+		if json.Unmarshal(valor, &instante) != nil {
+			return false
+		}
+		canonico, err := instante.UTC().MarshalJSON()
+		return err == nil && bytes.Equal(valor, canonico)
 	default:
 		return false
 	}
@@ -429,7 +436,7 @@ func camposNodoJSONCatalogo(nodo nodoJSONCatalogo, version uint16) map[string]hi
 	case nodoPublicacionCatalogo:
 		campos := map[string]hijoJSONCatalogo{
 			"referencia": {}, "version": {}, "huella_sha256": {},
-			"canon": {nodo: nodoCanonCatalogo}, "publicado_en": {},
+			"canon": {nodo: nodoCanonCatalogo}, "publicado_en": {tipo: 'd'},
 			"vigencia": {nodo: nodoVigenciaCatalogo}, "procedencia_ref": {},
 			"vias": {lista: nodoViaCatalogo},
 		}
@@ -442,7 +449,7 @@ func camposNodoJSONCatalogo(nodo nodoJSONCatalogo, version uint16) map[string]hi
 			"dominio": {}, "version_esquema": {}, "algoritmo": {},
 		}
 	case nodoVigenciaCatalogo:
-		return map[string]hijoJSONCatalogo{"desde": {}, "hasta": {tipo: 's'}}
+		return map[string]hijoJSONCatalogo{"desde": {tipo: 'd'}, "hasta": {tipo: 'd'}}
 	case nodoViaCatalogo:
 		campos := map[string]hijoJSONCatalogo{
 			"clave": {}, "orden": {},
