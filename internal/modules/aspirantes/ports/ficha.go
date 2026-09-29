@@ -205,16 +205,21 @@ type SelladorHuella interface {
 	SellarHuella(context.Context, []byte) (HuellasSemanticas, error)
 }
 
-// ExigenciasContacto dice qué datos de contacto pide el catálogo de campos y
-// qué versión del catálogo lo justifica. Sin campos no se pide ninguno.
+// ExigenciasContacto dice qué datos de contacto pide el catálogo de datos
+// personales y qué versión lo justifica (CatalogoRef queda en la historia).
+// Sin campos no se pide ninguno. Ejemplo es cierto si sale de un paquete de
+// ejemplo pendiente de RRHH y del DPD.
 type ExigenciasContacto struct {
 	CatalogoRef string
 	Campos      []domain.ExigenciaCampo
+	Ejemplo     bool
 }
 
-// CatalogoExigenciasFicha es el contrato de lectura con el catálogo de campos
-// (F1.2). La composición decide qué finalidades cuentan para la persona:
-// mientras Bolsa no use `asp_`, las que se configuren para el área personal.
+// CatalogoExigenciasFicha es el contrato de lectura con el catálogo de datos
+// personales (F1.2, `internal/vec/datospersonales`). El adaptador resuelve
+// los tipos de convocatoria que cuentan para la persona en el momento de la
+// inscripción: mientras Bolsa no use `asp_`, los que se configuren para el
+// área personal. Un error significa «no se puede pedir nada», nunca «todo».
 type CatalogoExigenciasFicha interface {
 	ExigenciasContactoFichaPropia(context.Context) (ExigenciasContacto, error)
 }

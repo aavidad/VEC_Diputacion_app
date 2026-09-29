@@ -134,7 +134,7 @@ func TestNormalizarValoresDeContacto(t *testing.T) {
 		campo CampoFicha
 		valor string
 	}{
-		{CampoMovil, "958123456"}, {CampoTelefono, "12345"}, {CampoTelefono, "958a23456"}, {CampoTelefono, "+0123456789"},
+		{CampoMovil, "958123456"}, {CampoTelefono, "12345"}, {CampoTelefono, "+34 12345678"}, {CampoTelefono, "+34 6123456789"}, {CampoTelefono, "958a23456"}, {CampoTelefono, "+0123456789"},
 		{CampoCodigoPostal, "53000"}, {CampoCodigoPostal, "00100"}, {CampoCodigoPostal, "1800"}, {CampoCodigoPostal, "18001-2"},
 		{CampoDomicilio, "C/ 1"}, {CampoDomicilio, "Calle\x00 Mayor 1"}, {CampoDomicilio, strings.Repeat("a", 201)},
 		{CampoNombre, "R2D2"}, {CampoNombre, "   "}, {CampoNombre, "--"}, {"discapacidad", "33 %"},
@@ -239,5 +239,23 @@ func TestIdentidadAcreditadaRedactadaYValidada(t *testing.T) {
 	}
 	if (IdentidadAcreditada{}).Validar() == nil {
 		t.Fatal("identidad vacía")
+	}
+}
+
+func TestDocumentoNoSeImprimeEnClaro(t *testing.T) {
+	d, _ := NuevoDocumentoIdentidad(DocumentoDNI, "ES", dniSintetico)
+	for _, texto := range []string{fmt.Sprint(d), fmt.Sprintf("%v", d), fmt.Sprintf("%+v", d), fmt.Sprintf("%#v", d), fmt.Sprint(struct{ D DocumentoIdentidad }{d})} {
+		if strings.Contains(texto, dniSintetico) || !strings.Contains(texto, "***4567**") {
+			t.Fatalf("fuga en %q", texto)
+		}
+	}
+}
+
+func TestCondicionDeExigencia(t *testing.T) {
+	if ValidarExigencias([]ExigenciaCampo{{Campo: CampoDomicilio, Condicion: "si_elige_notificacion_papel"}}) != nil {
+		t.Fatal("condición válida rechazada")
+	}
+	if ValidarExigencias([]ExigenciaCampo{{Campo: CampoDomicilio, Condicion: "<script>"}}) == nil {
+		t.Fatal("condición con caracteres fuera del código admitida")
 	}
 }

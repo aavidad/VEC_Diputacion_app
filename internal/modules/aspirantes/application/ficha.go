@@ -17,7 +17,8 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-// Dependencias agrupa los puertos del servicio. Ninguno es opcional.
+// Dependencias agrupa los puertos del servicio. Ninguno es opcional. Azar
+// debe ser un generador criptográfico (crypto/rand.Reader en la composición).
 type Dependencias struct {
 	Registro  ports.RegistroFichas
 	Protector ports.ProtectorFicha
@@ -63,9 +64,13 @@ type VistaIdentidad struct {
 	Documento       string `json:"documento"`
 }
 
+// VistaExigencia lleva códigos, no textos: la pantalla los traduce. La
+// condición (p. ej. «si elige notificación en papel») explica un campo que
+// solo se pide en ese caso.
 type VistaExigencia struct {
 	Campo       string `json:"campo"`
 	Obligatorio bool   `json:"obligatorio"`
+	Condicion   string `json:"condicion,omitempty"`
 }
 
 const (
@@ -80,6 +85,9 @@ type VistaFichaPropia struct {
 	Contacto           map[string]string `json:"contacto"`
 	Exigencias         []VistaExigencia  `json:"exigencias"`
 	CatalogoDisponible bool              `json:"catalogo_disponible"`
+	// CatalogoEjemplo avisa de que lo que se pide sale de un paquete de
+	// ejemplo pendiente de RRHH y del DPD.
+	CatalogoEjemplo bool `json:"catalogo_ejemplo"`
 }
 
 // PeticionFicha es lo único que aporta el navegador. La persona, el perfil,
@@ -90,6 +98,12 @@ type PeticionFicha struct {
 	Motivo          string
 	Campos          map[string]string
 }
+
+// String nunca muestra valores en claro en registros ni errores.
+func (PeticionFicha) String() string      { return "aspirantes.PeticionFicha{redactada}" }
+func (PeticionFicha) GoString() string    { return "aspirantes.PeticionFicha{redactada}" }
+func (VistaFichaPropia) String() string   { return "aspirantes.VistaFichaPropia{redactada}" }
+func (VistaFichaPropia) GoString() string { return "aspirantes.VistaFichaPropia{redactada}" }
 
 func (s *ServicioFichaPropia) actor(ctx context.Context, orden ports.OrdenFicha) (vecdomain.ContextoActor, error) {
 	if s == nil || s.d.Registro == nil || ctx == nil || ctx.Err() != nil {
@@ -151,8 +165,12 @@ func autorizar(ctx context.Context, orden ports.OrdenFicha, m ports.MaterialFich
 	}
 	v3, err := orden.Proveedor.ProveerMaterialFicha(ctx, vinculo, m)
 	if err != nil {
-		if errors.Is(err, ports.ErrNoAutenticado) || errors.Is(err, ports.ErrProhibido) {
-			return vacia, err
+		// Solo el error nominal: el texto del adaptador no sale de aquí.
+		switch {
+		case errors.Is(err, ports.ErrNoAutenticado):
+			return vacia, ports.ErrNoAutenticado
+		case errors.Is(err, ports.ErrProhibido):
+			return vacia, ports.ErrProhibido
 		}
 		return vacia, ports.ErrNoDisponible
 	}
@@ -200,7 +218,7 @@ func catalogoRefValida(s string) bool {
 func vistaExigencias(e []domain.ExigenciaCampo) []VistaExigencia {
 	r := make([]VistaExigencia, 0, len(e))
 	for _, x := range e {
-		r = append(r, VistaExigencia{Campo: string(x.Campo), Obligatorio: x.Obligatorio})
+		r = append(r, VistaExigencia{Campo: string(x.Campo), Obligatorio: x.Obligatorio, Condicion: x.Condicion})
 	}
 	return r
 }
@@ -240,7 +258,7 @@ func (s *ServicioFichaPropia) Consultar(ctx context.Context, orden ports.OrdenFi
 	}
 	vista := VistaFichaPropia{Contacto: map[string]string{}, Exigencias: []VistaExigencia{}}
 	if e, err := s.exigencias(ctx); err == nil {
-		vista.Exigencias, vista.CatalogoDisponible = vistaExigencias(e.Campos), true
+		vista.Exigencias, vista.CatalogoDisponible, vista.CatalogoEjemplo = vistaExigencias(e.Campos), true, e.Ejemplo
 	}
 	if !existe {
 		vista.Estado = EstadoSinFicha

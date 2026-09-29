@@ -44,6 +44,18 @@ func (c CampoFicha) EsContacto() bool {
 
 func (c CampoFicha) Valido() bool { return c.EsIdentidad() || c.EsContacto() }
 
+func condicionValida(s string) bool {
+	if len(s) > 64 {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '_' {
+			return false
+		}
+	}
+	return true
+}
+
 // OrigenValor dice de dónde procede un valor guardado.
 type OrigenValor string
 
@@ -123,7 +135,11 @@ func normalizarTelefono(valor string, soloMovil bool) (string, error) {
 	if strings.HasPrefix(v, "00") {
 		v = "+" + v[2:]
 	}
-	if strings.HasPrefix(v, "+34") && len(v) == 12 {
+	if strings.HasPrefix(v, "+34") {
+		// Un número español siempre tiene 9 cifras tras el prefijo.
+		if len(v) != 12 {
+			return "", ErrCampoInvalido
+		}
 		v = v[3:]
 	}
 	if strings.HasPrefix(v, "+") {
@@ -188,17 +204,19 @@ func (m MotivoCambio) ValidoParaRectificar() bool {
 }
 
 // ExigenciaCampo dice que el catálogo pide un dato de contacto y si es
-// obligatorio para las finalidades vigentes de la persona.
+// obligatorio para las finalidades vigentes de la persona. Condicion es el
+// código del catálogo que explica cuándo se pide (vacío si siempre).
 type ExigenciaCampo struct {
 	Campo       CampoFicha
 	Obligatorio bool
+	Condicion   string
 }
 
 // ValidarExigencias rechaza campos repetidos o que no sean de contacto.
 func ValidarExigencias(exigencias []ExigenciaCampo) error {
 	vistos := map[CampoFicha]bool{}
 	for _, e := range exigencias {
-		if !e.Campo.EsContacto() || vistos[e.Campo] {
+		if !e.Campo.EsContacto() || vistos[e.Campo] || !condicionValida(e.Condicion) {
 			return ErrCampoInvalido
 		}
 		vistos[e.Campo] = true
@@ -258,8 +276,10 @@ func ContactoPedido(campos map[CampoFicha]string, exigencias []ExigenciaCampo, a
 
 // ValidarMotivo comprueba que el motivo encaja con lo que había. Si ninguno
 // de los campos cambiados tenía valor, el motivo es «dato nuevo»; si alguno
-// lo tenía, la persona dice si ha cambiado o estaba mal. Retirar un dato que
-// no existe no es un cambio.
+// lo tenía, la persona dice si ha cambiado o estaba mal, y ese motivo vale
+// para toda la petición (la pantalla envía un cambio por formulario). Retirar
+// un dato que no existe no es un cambio. Reescribir el mismo valor no se
+// detecta: compararlo exigiría descifrar dentro de la transacción.
 func ValidarMotivo(motivo MotivoCambio, cambios map[CampoFicha]string, presentes []CampoFicha) error {
 	if !motivo.ValidoParaRectificar() || len(cambios) == 0 {
 		return ErrCambioInvalido

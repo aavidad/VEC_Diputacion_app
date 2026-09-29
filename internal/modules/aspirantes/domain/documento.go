@@ -18,6 +18,13 @@ const (
 	DocumentoOtro      TipoDocumento = "otro"
 )
 
+// String y GoString nunca muestran el número: un %v en un registro o en un
+// error solo enseña el tipo, el país y la forma enmascarada.
+func (d DocumentoIdentidad) String() string {
+	return "aspirantes.DocumentoIdentidad{" + string(d.Tipo) + " " + d.Pais + " " + d.Enmascarado() + "}"
+}
+func (d DocumentoIdentidad) GoString() string { return d.String() }
+
 func (t TipoDocumento) Valido() bool {
 	switch t {
 	case DocumentoDNI, DocumentoNIE, DocumentoPasaporte, DocumentoOtro:
@@ -84,6 +91,9 @@ func (d DocumentoIdentidad) Validar() error {
 	return nil
 }
 
+// paisValido comprueba la forma ISO 3166-1 alfa-2. La lista cerrada de
+// países llegará con su catálogo; hoy no se usa para decidir nada más que
+// DNI/NIE (ES) frente a documentos de otros Estados.
 func paisValido(p string) bool {
 	return len(p) == 2 && p[0] >= 'A' && p[0] <= 'Z' && p[1] >= 'A' && p[1] <= 'Z'
 }

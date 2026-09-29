@@ -195,29 +195,46 @@ La persona, el perfil y la superficie salen del contexto de actor y del vínculo
 certificado; la identidad acreditada sale del mismo certificado verificado de la
 sesión. El JSON del navegador solo aporta operación, clave, versión, motivo y valores.
 
-## Catálogo de campos (contrato con F1.2)
+## Catálogo de datos personales (contrato con F1.2)
 
-Aspirantes pregunta por un puerto propio y no lee tablas del catálogo:
+El catálogo está en `internal/vec/datospersonales` (PR #140) y su paquete de ejemplo
+en `data/demo/reglas/aspirantes_datos_personales.ejemplo.demo.json`. Aspirantes no
+lo lee directamente desde la aplicación: pregunta por un puerto propio.
 
 ```go
 type ExigenciaCampo struct {
     Campo       domain.CampoFicha // telefono, movil, domicilio o codigo_postal
     Obligatorio bool
+    Condicion   string            // código del catálogo; vacío si siempre
 }
 type ExigenciasContacto struct {
-    CatalogoRef string           // versión del catálogo que justifica la petición
+    CatalogoRef string           // catálogo, versión y huella; queda en la historia
     Campos      []ExigenciaCampo // vacío: no se pide ningún dato de contacto
+    Ejemplo     bool             // paquete de ejemplo pendiente de RRHH y DPD
 }
 type CatalogoExigenciasFicha interface {
-    ExigenciasContactoPropias(ctx context.Context, aspiranteRef string) (ExigenciasContacto, error)
+    ExigenciasContactoFichaPropia(ctx context.Context) (ExigenciasContacto, error)
 }
 ```
 
-`aspiranteRef` vacío significa «todavía sin ficha». El adaptador de composición
-combina las finalidades vigentes de la persona (hoy, inscripción en bolsa; después,
-las inscripciones que lleven `asp_`) con el catálogo de F1.2 por finalidad y momento.
-Si el catálogo no responde, no se pide ningún dato y la pantalla lo dice: nunca se
-piden todos por defecto. `CatalogoRef` queda en la historia de cada cambio.
+El adaptador (corte 3) llama a `Resolutor.Para(ctx, tipo, MomentoInscripcion)` para
+cada tipo de convocatoria configurado para el área personal. Mientras las
+inscripciones no lleven `asp_` (paso 8 del plan), la lista de tipos es configuración
+(por defecto, `bolsa`). Solo cuentan las entradas con custodia `aspirantes` y
+categoría `ordinaria`. Correspondencia de datos:
+
+| Dato del catálogo | Campo de la ficha |
+| --- | --- |
+| `telefono` | `telefono` |
+| `telefono_secundario` | `movil` |
+| `domicilio_notificacion` | `domicilio` y `codigo_postal` |
+
+`obligatorio` en algún tipo hace obligatorio el campo; `condicional` y `voluntario`
+lo dejan opcional y la condición viaja como código para que la pantalla la explique.
+El correo sigue en Usuarios en este corte.
+
+Si el catálogo falla, consultar sigue funcionando pero no se ofrece ningún dato de
+contacto; el alta y la rectificación devuelven 503. Nunca se piden todos por defecto.
 
 ## API
 
@@ -248,8 +265,19 @@ tiene ficha fuera de la propia.
   y en HTTP (rutas exactas, cuerpo exacto).
 - El proceso externo es la frontera de confianza del documento: toma nombre, apellidos
   y documento del certificado verificado de la misma sesión TLS. Quien comprometa ese
-  proceso puede consultar fichas por índice; es el límite que el estudio (4.2 y 9)
-  asume hasta tener gestor de claves y procesos separados.
+  proceso puede consultar fichas por índice o dar de alta una ficha con un documento
+  ajeno; es el límite que el estudio (4.2 y 9) asume hasta tener gestor de claves y
+  procesos separados.
+- Regla de composición (corte 3): `IdentidadAcreditada` solo se construye en
+  `adapters/certificado`, a partir de la hoja verificada de la misma conexión TLS que
+  crea el vínculo V2 de la petición. Nunca desde cabeceras, JSON ni configuración. El
+  vínculo V2 no lleva datos del certificado con los que cotejarla, así que no hay
+  una segunda comprobación en la aplicación.
+- La huella de un alta no incluye nombre ni apellidos: si el certificado cambia de
+  nombre y se repite la misma clave de operación, se devuelve el recibo original.
+- Reescribir el mismo valor de contacto con un motivo de cambio no se detecta (habría
+  que descifrar dentro de la transacción). El motivo vale para toda la petición; la
+  pantalla envía un cambio por formulario.
 - Ningún dato en claro en errores, registros, historia, eventos ni auditoría.
 
 ## Pruebas previstas

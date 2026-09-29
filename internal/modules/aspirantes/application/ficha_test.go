@@ -24,6 +24,7 @@ import (
 const dniPrueba = "12345678Z"
 
 type proveedorPrueba struct {
+	errorDetallado   error
 	denegar          bool
 	audienciaForzada string
 	materiales       []ports.MaterialFicha
@@ -37,6 +38,9 @@ func (p *proveedorPrueba) ProveerMaterialFicha(_ context.Context, vinculo vecdom
 		return vacia, ports.ErrProhibido
 	}
 	p.materiales = append(p.materiales, m)
+	if p.errorDetallado != nil {
+		return vacia, p.errorDetallado
+	}
 	if p.denegar {
 		return vacia, ports.ErrProhibido
 	}
@@ -536,5 +540,30 @@ func TestServicioExigeDependencias(t *testing.T) {
 	var s *ServicioFichaPropia
 	if _, err := s.Consultar(context.Background(), ports.OrdenFicha{}); !errors.Is(err, ports.ErrNoDisponible) {
 		t.Fatal(err)
+	}
+}
+
+func TestErrorDelProveedorNoFiltraDetalle(t *testing.T) {
+	e := nuevoEntorno(t, catalogoPrueba{e: exigenciasBolsa})
+	e.proveedor.errorDetallado = fmt.Errorf("perfil prf_secreto sin rol en tabla vec_autorizacion.asignacion: %w", ports.ErrProhibido)
+	_, err := e.servicio.Consultar(context.Background(), e.orden)
+	if err != ports.ErrProhibido {
+		t.Fatalf("se esperaba el error nominal exacto: %v", err)
+	}
+	e.proveedor.errorDetallado = errors.New("dial tcp 10.0.0.5:5432: conexión rechazada")
+	if _, err := e.servicio.Consultar(context.Background(), e.orden); err != ports.ErrNoDisponible {
+		t.Fatalf("error interno: %v", err)
+	}
+}
+
+func TestVistaRotulaCatalogoDeEjemploYCondicion(t *testing.T) {
+	e := nuevoEntorno(t, catalogoPrueba{e: ports.ExigenciasContacto{CatalogoRef: "vec.aspirantes.datos_personales:1", Ejemplo: true,
+		Campos: []domain.ExigenciaCampo{{Campo: domain.CampoDomicilio, Condicion: "si_elige_notificacion_papel"}}}})
+	v, err := e.servicio.Consultar(context.Background(), e.orden)
+	if err != nil || !v.CatalogoEjemplo || v.Exigencias[0].Condicion != "si_elige_notificacion_papel" {
+		t.Fatalf("vista %+v %v", v.Exigencias, err)
+	}
+	if strings.Contains(fmt.Sprint(v), "Lucía") || strings.Contains(fmt.Sprint(PeticionFicha{Campos: map[string]string{"telefono": "958123456"}}), "958") {
+		t.Fatal("vista o petición impresas en claro")
 	}
 }
