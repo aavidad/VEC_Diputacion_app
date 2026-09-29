@@ -94,7 +94,7 @@ func (m *manejadorEntregaPeticionDesarrollo) ServeHTTP(w http.ResponseWriter, r 
 	// La clave de alta y el dueño de la reserva no salen al navegador. El
 	// recibo sí conserva la trazabilidad original y permite retomar el análisis.
 	e.ClaveAlta, e.AmbitoAltaHMAC, e.ActorRef, e.PerfilRef = "", "", "", ""
-	if e.ConfirmadaAhora {
+	if e.ReservaCreadaAhora && e.ConfirmadaAhora {
 		w.WriteHeader(http.StatusCreated)
 	}
 	responder(e)

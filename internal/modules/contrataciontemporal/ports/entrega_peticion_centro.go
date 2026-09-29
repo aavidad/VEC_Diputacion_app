@@ -38,15 +38,18 @@ type EntregaPeticionCentro struct {
 	ActorRef       string                     `json:"actor_ref,omitempty"`
 	PerfilRef      string                     `json:"perfil_ref,omitempty"`
 	ReciboAlta     *ReciboAlta                `json:"recibo_alta,omitempty"`
-	// ConfirmadaAhora es resultado de esta operación, nunca parte del recibo.
-	ConfirmadaAhora bool `json:"-"`
+	// Estas señales describen las inserciones de esta solicitud HTTP. No forman
+	// parte de la petición, la reserva ni el recibo conservado.
+	ReservaCreadaAhora bool `json:"-"`
+	ConfirmadaAhora    bool `json:"-"`
 }
 
 func (e EntregaPeticionCentro) Validar() error {
 	if _, err := domain.RehidratarPeticionCentro(e.Peticion); err != nil || e.Peticion.Version != 2 || e.Peticion.Estado != "ratificada" {
 		return domain.ErrPeticionCentroInvalida
 	}
-	if e.ConfirmadaAhora && e.EstadoEntrega != "confirmada" {
+	if (e.ConfirmadaAhora && e.EstadoEntrega != "confirmada") ||
+		(e.ReservaCreadaAhora && e.EstadoEntrega == "pendiente") {
 		return ErrReciboPeticionCentroNoConfiable
 	}
 	switch e.EstadoEntrega {

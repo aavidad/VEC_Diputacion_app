@@ -130,11 +130,40 @@ func (r *RepositorioEntregasPeticionCentroPostgreSQL) ConfirmarEntrega(ctx conte
 	return r.entrega(ctx, m)
 }
 
+// Las dos señales proceden de la transacción SQL que decide cada inserción.
+// Su ausencia no se interpreta como un replay: impide servir código antiguo
+// junto a una migración incompleta o una respuesta no confiable.
+type resultadoEntregaPeticionCentroSQL struct {
+	ports.EntregaPeticionCentro
+	ReservaCreadaAhora      *bool `json:"reserva_creada_ahora"`
+	ConfirmacionCreadaAhora *bool `json:"confirmacion_creada_ahora"`
+}
+
+func (s resultadoEntregaPeticionCentroSQL) entregaPara(modo string) (ports.EntregaPeticionCentro, error) {
+	if s.ReservaCreadaAhora == nil || s.ConfirmacionCreadaAhora == nil ||
+		(*s.ReservaCreadaAhora && *s.ConfirmacionCreadaAhora) ||
+		(*s.ReservaCreadaAhora && (modo != "preparar" || s.EstadoEntrega != "preparada")) ||
+		(*s.ConfirmacionCreadaAhora && s.EstadoEntrega != "confirmada") ||
+		(modo == "confirmar" && s.EstadoEntrega != "confirmada") {
+		return ports.EntregaPeticionCentro{}, ports.ErrReciboPeticionCentroNoConfiable
+	}
+	e := s.EntregaPeticionCentro
+	e.ReservaCreadaAhora = *s.ReservaCreadaAhora
+	e.ConfirmadaAhora = *s.ConfirmacionCreadaAhora
+	return e, nil
+}
+
 func (r *RepositorioEntregasPeticionCentroPostgreSQL) entrega(ctx context.Context, m ports.MaterialEntregaPeticionCentro) (ports.EntregaPeticionCentro, error) {
 	var e ports.EntregaPeticionCentro
 	err := r.ejecutar(ctx, m, func(b []byte) error {
-		if decodificarJSONEstricto(b, &e) != nil {
+		var resultado resultadoEntregaPeticionCentroSQL
+		if decodificarJSONEstricto(b, &resultado) != nil {
 			return ports.ErrReciboPeticionCentroNoConfiable
+		}
+		var err error
+		e, err = resultado.entregaPara(m.Modo)
+		if err != nil {
+			return err
 		}
 		// CT150 puede devolver una confirmación histórica cuyo perfil reservado
 		// precede al perfil fijo. Solo preparar admite ese replay: la función SQL

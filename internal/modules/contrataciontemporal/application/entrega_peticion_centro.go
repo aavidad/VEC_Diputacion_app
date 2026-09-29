@@ -67,6 +67,9 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 		confirmada.AmbitoAltaHMAC != e.AmbitoAltaHMAC || !reflect.DeepEqual(*confirmada.ReciboAlta, alta.Recibo) {
 		return vacia, ports.ErrReciboPeticionCentroNoConfiable
 	}
-	confirmada.ConfirmadaAhora = true
+	// El adaptador SQL indica si esta transacción insertó la confirmación. La
+	// procedencia de la reserva se conserva desde PrepararEntrega: un reintento
+	// que solo enlace un alta anterior responde 200, no una creación nueva.
+	confirmada.ReservaCreadaAhora = e.ReservaCreadaAhora
 	return confirmada, nil
 }
