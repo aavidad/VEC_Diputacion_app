@@ -192,7 +192,7 @@ export function renderizarNavegacionModulos({
       const comprobando = acceso?.estado === "cargando";
       return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"
         data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : ' disabled aria-disabled="true"'}${comprobando ? ' aria-busy="true"' : ""}>
-        <span class="indicador-menu" aria-hidden="true">${escaparHTML(modulo.sigla.slice(0, 1))}</span>
+        <span class="indicador-menu" aria-hidden="true">${escaparHTML((modulo.titulo.trim().charAt(0) || modulo.sigla.charAt(0)).toLocaleUpperCase())}</span>
         <span>${escaparHTML(modulo.titulo)}</span>
         <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}</span>
       </button>`;
