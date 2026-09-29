@@ -7,7 +7,11 @@ import "regexp"
 // dejar el permiso del candidato en la forma que compone este binario. Solo
 // sirve cuando el permiso vigente es uno que puso el propio arranque de Mi
 // Bolsa con otra forma de rol (por ejemplo, otro binario con otras acciones
-// del portal); nunca actúa sobre un permiso revocado, restringido o retirado.
+// del portal); nunca actúa sobre un permiso revocado, con los ámbitos o la
+// vigencia recortados, con el rol retirado o puesto por otro acto. Un rol de
+// Mi Bolsa con menos acciones puesto con los actos de este mismo circuito no
+// se distingue de «otra forma»: por eso la aprobación va ligada a la huella
+// exacta que el operador ha revisado.
 // Vacía, el arranque solo publica el permiso inicial o comprueba el vigente.
 const EnvBolsaProvisionMiBolsaAprobacion = "VEC_BOLSA_PROVISION_MI_BOLSA_APROBACION"
 

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -118,6 +119,53 @@ func (e escenarioArranqueMiBolsaPrueba) huellaVigente(t *testing.T) string {
 	return vigente.huella
 }
 
+// retirarRolVigente retira, como lo haría seguridad con su propio acto, el
+// control de la versión de rol de la asignación vigente.
+func (e escenarioArranqueMiBolsaPrueba) retirarRolVigente(t *testing.T) {
+	t.Helper()
+	vigente, encontrada, err := leerInstantaneaVigenteMiBolsaDesarrollo(e.ctx, e.pool, e.identidad.perfilRef)
+	if err != nil || !encontrada {
+		t.Fatalf("sin asignación vigente: %v", err)
+	}
+	control := vigente.instantanea.ControlVigenciaVersionRol
+	previa := control.Revision
+	control.Revision++
+	control.Estado = dominiovec.EstadoControlVigenciaVersionRolRetirada
+	control.ActualizadoEn = e.ahora.Add(time.Second)
+	control.ActualizadoPor = "seguridad:prueba"
+	control.ActoRef = "acto:mi-bolsa:retirada-arranque"
+	control.MotivoCodigo = "baja"
+	huella, err := control.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	documento, err := json.Marshal(control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := e.pool.BeginTx(e.ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(e.ctx, `SET LOCAL ROLE `+rolPropietarioAutorizacionPostgreSQLDesarrollo); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(e.ctx, `INSERT INTO vec_autorizacion.control_vigencia_version_rol
+		(version_rol_ref,revision,estado,huella_sha256,actualizado_en,documento)
+		VALUES ($1,$2,$3,$4,$5,$6::jsonb)`, control.VersionRolRef, control.Revision,
+		string(control.Estado), huella, control.ActualizadoEn, documento); err != nil {
+		t.Fatal(err)
+	}
+	actualizada, err := tx.Exec(e.ctx, `UPDATE vec_autorizacion.control_vigencia_version_rol_actual
+		SET revision=$2, actualizada_en=$3, actualizada_por=$4, acto_ref=$5
+		WHERE version_rol_ref=$1 AND revision=$6`, control.VersionRolRef, control.Revision,
+		control.ActualizadoEn, control.ActualizadoPor, control.ActoRef, previa)
+	if err != nil || actualizada.RowsAffected() != 1 || tx.Commit(e.ctx) != nil {
+		t.Fatalf("control no retirado: %v", err)
+	}
+}
+
 func TestArranqueMiBolsaNoReactivaPostgreSQL18(t *testing.T) {
 	if os.Getenv("VEC_MI_BOLSA_PG18_DESECHABLE") != "1" {
 		t.Skip("requiere PostgreSQL 18 desechable")
@@ -210,6 +258,45 @@ func TestArranqueMiBolsaNoReactivaPostgreSQL18(t *testing.T) {
 			}
 			if r, f := e.historia(t); r != ref || f != filas {
 				t.Fatalf("el arranque tocó una asignación %s", caso)
+			}
+		})
+	}
+
+	// Con la aprobación exacta puesta, un rol retirado o un puntero movido
+	// por otro acto siguen sin restaurarse aunque por lo demás lo fueran.
+	for _, caso := range []string{"rol_retirado", "otro_acto"} {
+		t.Run(caso+"_no_se_restaura_con_aprobacion", func(t *testing.T) {
+			e := nuevoEscenarioArranqueMiBolsaPrueba(t, ctx, pool, fuente)
+			primera, _, err := e.arrancar(false, sin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			anterior, err := nuevaInstantaneaMiBolsaDesarrollo(e.identidad, e.ahora, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Versión propia del rol del portal (otro nombre y una acción
+			// menos): retirarla no afecta a otros perfiles.
+			anterior.VersionRol.Concesiones = anterior.VersionRol.Concesiones[:len(anterior.VersionRol.Concesiones)-1]
+			anterior.VersionRol.Nombre += " " + caso
+			anterior.AsignacionPerfil.AsignacionID = primera.AsignacionPerfil.AsignacionID
+			anterior.AsignacionPerfil.VersionRolRef = anterior.VersionRol.Referencia()
+			anterior.ControlVigenciaVersionRol.VersionRolRef = anterior.VersionRol.Referencia()
+			if caso == "otro_acto" {
+				otra := e
+				otra.autoridad.actoAsignacion = "acto:seguridad:prueba:otro"
+				otra.publicarAjena(t, primera, anterior)
+			} else {
+				e.publicarAjena(t, primera, anterior)
+				e.retirarRolVigente(t)
+			}
+			ref, filas := e.historia(t)
+			aprobacion := aprobacionProvisionMiBolsaDesarrollo{referencia: "aprobacion:bolsa:prueba", preimagen: e.huellaVigente(t)}
+			if _, estado, err := e.arrancar(true, aprobacion); err != nil || estado != perfilMiBolsaPendienteProvision {
+				t.Fatalf("%s con aprobación: %v %s", caso, err, estado)
+			}
+			if r, f := e.historia(t); r != ref || f != filas {
+				t.Fatalf("%s restaurado con aprobación", caso)
 			}
 		})
 	}

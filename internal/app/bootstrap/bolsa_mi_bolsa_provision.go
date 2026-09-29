@@ -254,11 +254,20 @@ func asegurarPerfilMiBolsaDesarrollo(
 		// soloInicial rechaza en vez de sobrescribir.
 		inicial := *autoridad
 		inicial.soloInicial = true
-		preparada, err := publicarPerfilMiBolsaDesarrollo(ctx, &inicial, identidad, ahora, portal)
-		if err != nil {
+		preparada, errAlta := publicarPerfilMiBolsaDesarrollo(ctx, &inicial, identidad, ahora, portal)
+		if errAlta == nil {
+			return preparada, perfilMiBolsaPublicado, nil
+		}
+		// Otro arranque pudo crearla a la vez (o el rol compartido está
+		// retirado): se vuelve a leer y se sigue como con un permiso existente,
+		// sin escribir. Solo sin permiso ni base se detiene el arranque.
+		vigente, encontrada, err = leerInstantaneaVigenteMiBolsaDesarrollo(ctx, autoridad.pool, perfilRef)
+		if !encontrada {
+			if err == nil {
+				err = errAlta
+			}
 			return vacia, "", err
 		}
-		return preparada, perfilMiBolsaPublicado, nil
 	}
 	if err == nil {
 		if exacta, ok := miBolsaVigenteExacta(vigente, semilla, autoridad, ahora); ok {
