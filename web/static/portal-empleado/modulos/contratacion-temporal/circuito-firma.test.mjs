@@ -448,3 +448,22 @@ test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en leng
   assert.doesNotMatch(aviso.textContent, /503|consulta_fallida/u);
   gestor.retirar();
 });
+
+test("los importadores locales de la vista y el circuito evitan las URLs immutable anteriores", async () => {
+  const [vista, pruebas] = await Promise.all([
+    readFile(new URL("./vista-expedientes.js", import.meta.url), "utf8"),
+    readFile(new URL("./formulario-llamamiento-pruebas.js", import.meta.url), "utf8"),
+  ]);
+  const version = "20260930-custodia-506-e3-v2";
+  const anterior = "20260929-custodia-506-v1";
+  const importadores = [
+    [vista, "circuito-firma.js"],
+    [pruebas, "vista-expedientes.js"],
+  ];
+  for (const [codigo, modulo] of importadores) {
+    const rutas = [...codigo.matchAll(new RegExp(`\\./${modulo.replace(".", "\\.")}\\?v=([^"']+)`, "gu"))];
+    assert.equal(rutas.length, 1, modulo);
+    assert.equal(rutas[0][1], version, modulo);
+    assert.notEqual(`${modulo}?v=${rutas[0][1]}`, `${modulo}?v=${anterior}`);
+  }
+});
