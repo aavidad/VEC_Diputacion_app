@@ -347,9 +347,9 @@ test("un rechazo del verificador no muestra sus códigos internos", async () => 
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
-  const ayuda = await readFile(new URL("../../portal-i18n-ayuda.js", import.meta.url), "utf8");
-  assert.match(ayuda, /ayuda_contenido_421: "El «Circuito de firma»/u);
-  assert.match(ayuda, /ayuda_contenido_422: ".*no tiene eficacia administrativa.*portafirmas corporativo/u);
+  const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
+  assert.match(ayuda, /"ayuda_contenido_421": "El «Circuito de firma»/u);
+  assert.match(ayuda, /"ayuda_contenido_422": ".*no tiene eficacia administrativa.*portafirmas corporativo/u);
 });
 
 test("la fase de firma se ve en cualquier fase del expediente real, sin botones fuera de nombramiento", async () => {

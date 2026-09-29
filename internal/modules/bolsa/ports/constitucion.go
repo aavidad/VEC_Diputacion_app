@@ -55,6 +55,23 @@ type ReciboConstitucion struct {
 	// SustituyeA son las bolsas de la misma categoría que esta constitución
 	// deja extinguidas (B9); vacío si es la primera de su categoría.
 	SustituyeA []BolsaSustituida
+	// PendientesRevision son las filas del acta que conservan su puesto en la
+	// bolsa pero cuyo vínculo con la persona no se registra hasta que RRHH las
+	// revise (por ejemplo, dos filas que derivan la misma referencia `can_*`).
+	// Se recalcula de forma determinista desde el acta en cada llamada.
+	PendientesRevision []FilaPendienteRevision
+}
+
+// MotivoRevisionIdentidadAmbigua marca las filas que, con el documento
+// enmascarado y el nombre publicados, no se distinguen de otra fila del mismo
+// acta. Es un código estable (clave de catálogo), no un texto visible.
+const MotivoRevisionIdentidadAmbigua = "identidad_ambigua"
+
+// FilaPendienteRevision identifica una fila del acta por su número de staging
+// y el código del motivo; nunca lleva datos personales.
+type FilaPendienteRevision struct {
+	FilaNumero int
+	Motivo     string
 }
 
 // BolsaSustituida identifica una bolsa extinguida por una constitución posterior.

@@ -1,6 +1,6 @@
 import { crearTraductorAuditoria } from "./i18n.js?v=20260928-usab-auditoria-v3";
 import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
-import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260929-firma-506-v3";
+import { ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260929-i18n-shell-v2";
 // Fases y estados de las peticiones: un solo catálogo para todas las pantallas.
 import { nombreEstado, nombreFaseRRHH } from "../contratacion-temporal/i18n-fases-rrhh.js";
 

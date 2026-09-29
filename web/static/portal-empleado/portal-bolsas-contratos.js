@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-firma-506-v3";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 /**
  * B13 · Histórico de contratos de la participación (Petición RRHH p. 2).
  * Solo lectura: los contratos proceden de Contratación temporal por evento
@@ -10,7 +10,7 @@ const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 const CLAVE = /^[a-z][a-z0-9._-]{1,79}$/;
 const POR_PAGINA = 6;
 
-export const MENSAJES_CONTRATOS_ES = Object.freeze({
+export const MENSAJES_CONTRATOS = Object.freeze({
   titulo: "Histórico de contratos",
   descripcion: "Contratos registrados en Peticiones de personal temporal a partir de un llamamiento de esta bolsa.",
   tabla: "Contratos de la participación",
@@ -40,7 +40,7 @@ export const MENSAJES_CONTRATOS_ES = Object.freeze({
 });
 
 /** Traductor estricto: una clave inexistente es un error de programación. */
-export function traducirContratos(clave, variables = {}, catalogo = MENSAJES_CONTRATOS_ES) {
+export function traducirContratos(clave, variables = {}, catalogo = MENSAJES_CONTRATOS) {
   const plantilla = catalogo[clave];
   if (typeof plantilla !== "string") throw new Error(`Clave i18n de contratos inexistente: ${clave}`);
   return plantilla.replace(/\{(\w+)\}/g, (_, nombre) => String(variables[nombre] ?? ""));
@@ -125,7 +125,7 @@ function rotuloClave(clave) {
 }
 
 function rotuloTipo(tipo) {
-  return Object.hasOwn(MENSAJES_CONTRATOS_ES, `tipo_${tipo}`) ? traducirContratos(`tipo_${tipo}`) : rotuloClave(tipo);
+  return Object.hasOwn(MENSAJES_CONTRATOS, `tipo_${tipo}`) ? traducirContratos(`tipo_${tipo}`) : rotuloClave(tipo);
 }
 
 function periodo(item) {

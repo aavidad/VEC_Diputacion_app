@@ -1,4 +1,4 @@
-import { traducirPortal } from "../../portal-i18n.js?v=20260929-firma-506-v3";
+import { traducirPortal } from "../../portal-i18n.js?v=20260929-i18n-shell-v2";
 import { crearClientePoliticaOfertas, validarPoliticaEditable, cargarEjemploPlazas, plazasCompletas,
   LLAMADAS_PLAZAS, TRAS_RENUNCIA_PLAZAS, MAXIMO_HORAS_RESPUESTA } from "./rrhh-plazos-api.js";
 

@@ -6,7 +6,8 @@ import test from "node:test";
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=en" };
 const { IDIOMA_ACTUAL, LOCALIZACION_ACTUAL } = await import("../comun/idioma.js");
 const { cambiarIdioma, montarSelectorIdioma } = await import("../comun/idioma.js");
-const { crearTraductorPortal, MENSAJES_PORTAL_ES, traducirPortal, formatearNumeroPortal } = await import("./portal-i18n.js");
+const { cargarMensajesPortal, crearTraductorPortal, traducirPortal, formatearNumeroPortal } = await import("./portal-i18n.js");
+const MENSAJES_PORTAL_CASTELLANO = await cargarMensajesPortal("es");
 const { aplicarIdiomaDocumento, aplicarTextosPortal } = await import("./portal-idioma.js");
 const { cargarCatalogoModulosInterno, presentarSesionPortal } = await import("./portal-catalogo-modulos.js");
 const { crearVistaInicioPortal } = await import("./portal-inicio.js");
@@ -98,14 +99,14 @@ test("?lang=en traduce marca y selector; volver a es conserva la ruta y el catá
   alCambiar();
   assert.equal(destino, "https://vec.example/portal-empleado/?lang=es&vista=ct#expedientes");
   assert.equal(cambiarIdioma("invalido", ubicacion), false);
-  const es = crearTraductorPortal(MENSAJES_PORTAL_ES);
+  const es = crearTraductorPortal(MENSAJES_PORTAL_CASTELLANO);
   assert.equal(es("auditoria_expediente_panel"), "Auditoría del expediente");
   assert.equal(es("auditoria_expediente_accion"), "Consultar auditoría de este expediente");
   assert.equal(es("contratacion_temporal_titulo"), "Gestión de peticiones de personal temporal");
   assert.equal(es("plantillas_rrhh_nav"), "Plantillas de documentos");
   assert.equal(es("txt_modulos"), "Módulos");
   assert.equal(es("txt_proteccion_de_datos_accesibilidad_ayuda"), "Protección de datos · Accesibilidad · Ayuda");
-  aplicarTextosPortal(documento, crearTraductorPortal(MENSAJES_PORTAL_ES));
+  aplicarTextosPortal(documento, crearTraductorPortal(MENSAJES_PORTAL_CASTELLANO));
   assert.deepEqual(claves.map((clave) => nodos.get(clave).textContent),
     ["Gestión de Recursos Humanos", "Idioma de la interfaz", "Español", "Inglés"]);
 });
