@@ -5,14 +5,16 @@ import (
 	"net/http"
 	"strconv"
 
+	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 // La consulta del circuito de firma devuelve, por documento, los pasos del
-// catálogo de ejemplo con su estado. Aún no existe registro de firmas, de modo
-// que el estado es siempre el de un documento sin firmas: el primer paso
-// pendiente y el resto en espera. No firma, no autoriza y no escribe nada.
+// catálogo de ejemplo con su estado de un documento sin firmas (el estado real
+// lo da el registro de firmas), y si el portafirmas corporativo (Firmadoc)
+// está conectado. No firma, no autoriza, no envía y no escribe nada.
 const (
 	rutaCircuitoFirmaContratacionTemporalDesarrollo    = "/api/vec/contratacion-temporal/circuito-firma"
 	esquemaCircuitoFirmaContratacionTemporalDesarrollo = "vec.contratacion_temporal.circuito_firma.v1"
@@ -37,6 +39,13 @@ type documentoCircuitoFirmaDesarrollo struct {
 	Pasos     []pasoCircuitoFirmaDesarrollo `json:"pasos"`
 }
 
+// portafirmasCircuitoFirmaDesarrollo dice si se puede enviar a Firmadoc y,
+// si no, el motivo cerrado. Nunca informa de envíos ni de firmas.
+type portafirmasCircuitoFirmaDesarrollo struct {
+	Conectado bool   `json:"conectado"`
+	Motivo    string `json:"motivo,omitempty"`
+}
+
 type circuitoFirmaDesarrollo struct {
 	Esquema      string                             `json:"esquema"`
 	CatalogoRef  string                             `json:"catalogo_ref"`
@@ -44,19 +53,22 @@ type circuitoFirmaDesarrollo struct {
 	Ejemplo      bool                               `json:"ejemplo"`
 	FirmaEficaz  bool                               `json:"firma_eficaz"`
 	Documentos   []documentoCircuitoFirmaDesarrollo `json:"documentos"`
+	Portafirmas  portafirmasCircuitoFirmaDesarrollo `json:"portafirmas"`
 }
 
 // nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo compone la consulta.
 // Sin catálogo la ruta existe y responde 503: el portal oculta el bloque.
-func nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(resolutor *reglas.Resolutor) vechttp.RutaExacta {
+// Sin conector de portafirmas, Firmadoc cuenta como no conectado.
+func nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(resolutor *reglas.Resolutor, portafirmas ctports.ConectorPortafirmas) vechttp.RutaExacta {
 	return vechttp.RutaExacta{
 		Ruta:      rutaCircuitoFirmaContratacionTemporalDesarrollo,
-		Manejador: manejadorCircuitoFirmaContratacionTemporalDesarrollo{resolutor: resolutor},
+		Manejador: manejadorCircuitoFirmaContratacionTemporalDesarrollo{resolutor: resolutor, portafirmas: portafirmas},
 	}
 }
 
 type manejadorCircuitoFirmaContratacionTemporalDesarrollo struct {
-	resolutor *reglas.Resolutor
+	resolutor   *reglas.Resolutor
+	portafirmas ctports.ConectorPortafirmas
 }
 
 func (m manejadorCircuitoFirmaContratacionTemporalDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +93,10 @@ func (m manejadorCircuitoFirmaContratacionTemporalDesarrollo) ServeHTTP(w http.R
 		responderErrorCircuitoFirmaDesarrollo(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
-	contenido, err := json.Marshal(map[string]circuitoFirmaDesarrollo{"data": vistaCircuitoFirmaDesarrollo(circuito)})
+	vista := vistaCircuitoFirmaDesarrollo(circuito)
+	estado := ctapp.EstadoPortafirmas(r.Context(), m.portafirmas)
+	vista.Portafirmas = portafirmasCircuitoFirmaDesarrollo{Conectado: estado.Conectado, Motivo: estado.Motivo}
+	contenido, err := json.Marshal(map[string]circuitoFirmaDesarrollo{"data": vista})
 	if err != nil {
 		responderErrorCircuitoFirmaDesarrollo(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return

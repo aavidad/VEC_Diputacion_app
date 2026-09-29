@@ -2,7 +2,7 @@
  * Cliente del protocolo AutoFirma (afirma://) para firmar un PDF en el equipo
  * de la persona. Lanza la aplicación con «afirma://websocket», se conecta por
  * WSS a 127.0.0.1 y pide una firma PAdES del PDF. Vale para AutoFirma oficial
- * y para AutofirmaV2. No verifica nada: la firma la verifica el servidor, y
+ * y para GrxFirma (antes AutofirmaV2). No verifica nada: la firma la verifica el servidor, y
  * una firma hecha así no tiene eficacia administrativa hasta el portafirmas
  * corporativo.
  */

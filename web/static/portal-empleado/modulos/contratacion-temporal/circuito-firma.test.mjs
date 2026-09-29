@@ -31,6 +31,7 @@ function circuito() {
     esquema: "vec.contratacion_temporal.circuito_firma.v1",
     catalogo_ref: "vec.contratacion_temporal.circuito_firma:1",
     huella_sha256: "a".repeat(64), ejemplo: true, firma_eficaz: false,
+    portafirmas: { conectado: false, motivo: "conexion_pendiente" },
     documentos: [{ documento: "informe_definitivo", etiqueta: "Informe definitivo", pasos: [paso(1, 2), paso(2, 2)] }],
   };
 }
@@ -50,6 +51,13 @@ test("valida el contrato exacto y rechaza desviaciones", () => {
     (c) => { c.documentos[0].pasos[0].habilita = "cierre_circuito"; },
     (c) => { c.documentos = []; },
     (c) => { c.huella_sha256 = "x"; },
+    // Firmadoc: el servidor solo dice si está conectado; nada más se admite.
+    (c) => { delete c.portafirmas; },
+    (c) => { c.portafirmas = { conectado: false }; },
+    (c) => { c.portafirmas = { conectado: false, motivo: "Conexión" }; },
+    (c) => { c.portafirmas = { conectado: true, motivo: "conexion_pendiente" }; },
+    (c) => { c.portafirmas = { conectado: false, motivo: "conexion_pendiente", estado: "firmado" }; },
+    (c) => { c.portafirmas = { conectado: "no", motivo: "conexion_pendiente" }; },
   ];
   for (const alterar of casos) {
     const copia = circuito();
