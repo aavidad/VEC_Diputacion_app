@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
-	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -21,10 +20,6 @@ func (r relojFijo) Ahora() time.Time { return time.Time(r) }
 type consultaFallida struct{ err error }
 
 func (c consultaFallida) Reglas(context.Context) ([]reglas.Regla, error) { return nil, c.err }
-
-type consultaFija struct{ reglas []reglas.Regla }
-
-func (c consultaFija) Reglas(context.Context) ([]reglas.Regla, error) { return c.reglas, nil }
 
 func resolutorEjemplo(t *testing.T, ruta, catalogo, modulo string) *reglas.Resolutor {
 	t.Helper()
@@ -213,27 +208,29 @@ func TestReglasVigentesConReglaAjustada(t *testing.T) {
 }
 
 func TestReglasVigentesConAjusteNoAplicableConservaCatalogoYOtraRegla(t *testing.T) {
-	base := domain.ReferenciaEntradaCatalogo{
-		CatalogoID: reglas.CatalogoContratacionTemporal, CatalogoVersion: 3,
-		CatalogoHuellaSHA256: strings.Repeat("a", 64),
+	consulta, err := fichero.NuevaConsultaCatalogos("../../../../data/demo/reglas/ct_reglas.ejemplo.demo.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	incompatible := reglas.Regla{
-		Clave: reglas.CTPlazoFiscalizacion, Etiqueta: "Fiscalizacion", Descripcion: "Plazo de fiscalizacion",
-		Unidad: reglas.UnidadDiasHabiles, Cantidad: 10, Valor: "valor base",
-		Origen: reglas.OrigenEjemplo, Norma: "norma", Duda: "pendiente",
-		Referencia:        "vec.contratacion_temporal.reglas:3:c03.plazo_fiscalizacion",
-		ReferenciaEntrada: base, AjusteNoAplicable: true,
+	ajustes := map[string]map[string]string{reglas.CTPlazoFiscalizacion: {reglas.CampoCantidad: "61"}}
+	huella, err := reglas.HuellaAjustes(ajustes)
+	if err != nil {
+		t.Fatal(err)
 	}
-	sana := reglas.Regla{
-		Clave: reglas.CTPlazoSubsanacion, Etiqueta: "Subsanacion", Descripcion: "Plazo de subsanacion",
-		Unidad: reglas.UnidadDiasHabiles, Cantidad: 5,
-		Origen: reglas.OrigenEjemplo, Norma: "norma", Duda: "pendiente",
-		Referencia:        "vec.contratacion_temporal.reglas:3:c04.plazo_subsanacion",
-		ReferenciaEntrada: base,
+	r, err := reglas.NuevoResolutor(reglas.Configuracion{
+		Consulta: consulta, Metadatos: consulta, CatalogoID: reglas.CatalogoContratacionTemporal,
+		ModuloID: reglas.ModuloContratacionTemporal, Reloj: relojFijo(time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)),
+		Ajustes: ajustesFijos{reglas.VersionAjustes{
+			CatalogoID: reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal), Version: 2, HuellaSHA256: huella,
+			VigenteDesde: time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC), Ajustes: ajustes,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	m, err := NuevoManejador(Fuente{
 		Modulo: reglas.ModuloContratacionTemporal, CatalogoID: reglas.CatalogoContratacionTemporal,
-		Consulta: consultaFija{reglas: []reglas.Regla{incompatible, sana}},
+		Consulta: r,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -242,8 +239,46 @@ func TestReglasVigentesConAjusteNoAplicableConservaCatalogoYOtraRegla(t *testing
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET: %d %s", w.Code, w.Body.String())
 	}
-	esperado := `{"data":{"esquema":"vec.reglas.vigentes.v1","catalogos":[{"modulo":"contratacion_temporal","catalogo_id":"vec.contratacion_temporal.reglas","estado":"disponible","version":3,"huella_sha256":"` + strings.Repeat("a", 64) + `","paquete_ejemplo":false,"reglas":[{"clave":"c03.plazo_fiscalizacion","etiqueta":"Fiscalizacion","descripcion":"Plazo de fiscalizacion","unidad":"dias_habiles","ajuste_no_aplicable":true,"origen":"ejemplo","norma":"norma","duda":"pendiente","version":3,"referencia":"vec.contratacion_temporal.reglas:3:c03.plazo_fiscalizacion","paquete_ejemplo":false},{"clave":"c04.plazo_subsanacion","etiqueta":"Subsanacion","descripcion":"Plazo de subsanacion","unidad":"dias_habiles","cantidad":5,"origen":"ejemplo","norma":"norma","duda":"pendiente","version":3,"referencia":"vec.contratacion_temporal.reglas:3:c04.plazo_subsanacion","paquete_ejemplo":false}]}]}}`
-	if got := w.Body.String(); got != esperado {
-		t.Fatalf("JSON inesperado\nobtenido: %s\nesperado: %s", got, esperado)
+	var respuesta Respuesta
+	if err := json.Unmarshal(w.Body.Bytes(), &respuesta); err != nil {
+		t.Fatal(err)
+	}
+	c := respuesta.Data.Catalogos[0]
+	if c.Estado != EstadoDisponible || c.Version != 1 || len(c.HuellaSHA256) != 64 {
+		t.Fatalf("catálogo base: %+v", c)
+	}
+	var incompatible, sana *ReglaVista
+	for i := range c.Reglas {
+		switch c.Reglas[i].Clave {
+		case reglas.CTPlazoFiscalizacion:
+			incompatible = &c.Reglas[i]
+		case reglas.CTPlazoSubsanacion:
+			sana = &c.Reglas[i]
+		}
+	}
+	if incompatible == nil || !incompatible.AjusteNoAplicable || incompatible.Cantidad != 0 || incompatible.Valor != "" ||
+		incompatible.Version != c.Version || incompatible.Referencia != "vec.contratacion_temporal.reglas:1:c03.plazo_fiscalizacion" {
+		t.Fatalf("regla incompatible: %+v", incompatible)
+	}
+	if sana == nil || sana.AjusteNoAplicable || sana.Cantidad != 10 {
+		t.Fatalf("otra regla: %+v", sana)
+	}
+	var cruda struct {
+		Data struct {
+			Catalogos []struct {
+				Reglas []map[string]any `json:"reglas"`
+			} `json:"catalogos"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &cruda); err != nil {
+		t.Fatal(err)
+	}
+	for _, regla := range cruda.Data.Catalogos[0].Reglas {
+		if regla["clave"] != reglas.CTPlazoFiscalizacion {
+			continue
+		}
+		if regla["ajuste_no_aplicable"] != true || regla["cantidad"] != nil || regla["valor"] != nil {
+			t.Fatalf("JSON expuso un valor base incompatible: %+v", regla)
+		}
 	}
 }
