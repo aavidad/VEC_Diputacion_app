@@ -18,7 +18,8 @@ type registradorDenegacionPreferenciasUsuarios = vecports.RegistradorAuditoriaFr
 // wrapper o el handler; las otras superficies siguen en su autoridad previa.
 type registradorFronterasConUsuariosPreferencias struct {
 	delegado vecports.RegistradorAuditoriaFronteraRutaExacta
-	usuarios registradorDenegacionPreferenciasUsuarios
+	interna  registradorDenegacionPreferenciasUsuarios
+	externa  registradorDenegacionPreferenciasUsuarios
 }
 
 func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
@@ -31,10 +32,16 @@ func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraR
 		}
 		return r.delegado.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 	}
-	if r.usuarios == nil {
+	seleccionado := r.interna
+	if orden.Ruta == usuarioshttp.RutaMisPreferenciasAreaPersonal {
+		seleccionado = r.externa
+	} else if orden.Ruta != usuarioshttp.RutaMisPreferencias {
 		return errComposicionUsuariosPreferencias
 	}
-	return r.usuarios.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
+	if seleccionado == nil {
+		return errComposicionUsuariosPreferencias
+	}
+	return seleccionado.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 }
 
 func nuevaCorrelacionDenegacionPreferenciasUsuarios() string {
@@ -59,7 +66,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 	ctxAuditoria, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancel()
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: nuevaCorrelacionDenegacionPreferenciasUsuarios(), Motivo: motivo,
-		Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, Ruta: usuarioshttp.RutaMisPreferencias, ActorRef: actorRef}
+		Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, Ruta: a.ruta, ActorRef: actorRef}
 	if orden.Validar() != nil {
 		return errComposicionUsuariosPreferencias
 	}

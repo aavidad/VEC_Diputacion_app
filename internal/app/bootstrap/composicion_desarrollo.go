@@ -244,6 +244,9 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = validarIdentidadesPreferenciasAntesDeCT(cfg, resolvedor); err != nil {
+		return nil, nil, err
+	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -397,7 +400,8 @@ func nuevoServidorDesarrollo(
 		}()
 	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia,
-		autoridadContratacion.materialUsuariosPreferenciasConsulta, autoridadContratacion.materialUsuariosPreferenciasActualizacion)
+		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -421,7 +425,7 @@ func nuevoServidorDesarrollo(
 	}
 	registradorFrontera := vecports.RegistradorAuditoriaFronteraRutaExacta(autoridadContratacion.registradorAuditoriaFronteraRutasExactas)
 	if usuariosPreferencias != nil {
-		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, usuarios: usuariosPreferencias.registrador}
+		registradorFrontera = registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador, externa: usuariosPreferencias.externa.registrador}
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,

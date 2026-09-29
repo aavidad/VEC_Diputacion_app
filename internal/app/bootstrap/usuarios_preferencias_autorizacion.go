@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
 
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -40,22 +41,29 @@ func recursoPreferenciasUsuarios(m usuariosports.MaterialPreferencias) (core.Rec
 	return recurso, nil
 }
 
-func (p *proveedorPreferenciasUsuarios) ProveerMaterialPreferencias(ctx context.Context, m usuariosports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+func (p *proveedorPreferenciasUsuarios) ProveerMaterialPreferencias(ctx context.Context, vinculo core.VinculoAutenticacionActorV2, m usuariosports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	vacia := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
 	if p == nil || p.autoridad == nil || ctx == nil || ctx.Err() != nil {
 		return vacia, usuariosports.ErrNoDisponible
 	}
 	c, ok := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
+	datosEntrada, errEntrada := vinculo.Datos()
+	datosContexto, errContexto := c.vinculo.Datos()
 	if !ok || c.autoridad != p.autoridad || c.resultado.Validar() != nil || c.vinculo.ValidarPara(c.resultado) != nil ||
 		!c.vinculo.VigenteEn(p.autoridad.reloj.Ahora(), c.resultado) || c.resultado.Contexto.PersonaRef != m.PersonaRef ||
-		c.resultado.Contexto.PerfilActivoRef != m.PerfilRef || m.FinalidadRef != usuariosports.FinalidadPreferenciasPropias {
+		c.resultado.Contexto.PerfilActivoRef != m.PerfilRef || m.FinalidadRef != usuariosports.FinalidadPreferenciasPropias ||
+		m.Superficie != p.autoridad.superficie || errEntrada != nil || errContexto != nil || !reflect.DeepEqual(datosEntrada, datosContexto) {
 		return vacia, usuariosports.ErrProhibido
 	}
-	emisor, motivo, audiencia := p.consulta, p.motivoConsulta, audienciaConsultaPreferenciasUsuarios
+	emisor, motivo := p.consulta, p.motivoConsulta
 	if m.Accion == usuariosports.AccionActualizarPreferencias {
-		emisor, motivo, audiencia = p.actualizacion, p.motivoActualizacion, audienciaActualizacionPreferenciasUsuarios
+		emisor, motivo = p.actualizacion, p.motivoActualizacion
 	} else if m.Accion != usuariosports.AccionConsultarPreferencias {
 		return vacia, usuariosports.ErrPeticionInvalida
+	}
+	audiencia, err := usuariosports.AudienciaPreferencias(m.Accion, p.autoridad.superficie)
+	if err != nil {
+		return vacia, usuariosports.ErrProhibido
 	}
 	if emisor == nil || !core.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return vacia, usuariosports.ErrNoDisponible

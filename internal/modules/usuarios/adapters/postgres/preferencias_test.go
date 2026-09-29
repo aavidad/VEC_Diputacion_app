@@ -67,35 +67,75 @@ func (t *txPrueba) QueryRow(_ context.Context, sql string, args ...any) filaPref
 func (t *txPrueba) Commit(context.Context) error   { t.commits++; return t.errCommit }
 func (t *txPrueba) Rollback(context.Context) error { t.rollbacks++; return nil }
 
-func repositorioPrueba(tx *txPrueba) *RegistroPreferenciasPostgreSQL {
-	return &RegistroPreferenciasPostgreSQL{iniciar: func(context.Context) (transaccionPreferencias, error) { return tx, nil }}
+func repositorioPrueba(tx *txPrueba, superficie vecdomain.SuperficieAutenticacionActorV1) *RegistroPreferenciasPostgreSQL {
+	return &RegistroPreferenciasPostgreSQL{superficie: superficie, rol: rolEjecutorPreferencias(superficie), iniciar: func(context.Context) (transaccionPreferencias, error) { return tx, nil }}
 }
 
 type proveedorPrueba struct{}
 
-func (proveedorPrueba) ProveerMaterialPreferencias(context.Context, ports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+func (proveedorPrueba) ProveerMaterialPreferencias(context.Context, vecdomain.VinculoAutenticacionActorV2, ports.MaterialPreferencias) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, nil
 }
 
-func materialPrueba(t *testing.T, accion string) (ports.OrdenPreferencias, ports.MaterialPreferencias, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
+type revalidadorPrefPGPrueba struct {
+	a vecdomain.AutenticacionRevalidadaV1
+}
+
+func (r revalidadorPrefPGPrueba) RevalidarAutenticacionActorV1(context.Context, vecdomain.SolicitudRevalidacionAutenticacionActorV1) (vecdomain.AutenticacionRevalidadaV1, error) {
+	return r.a, nil
+}
+
+type resolutorPrefPGPrueba struct {
+	r vecdomain.ResultadoContextoActorRegistradoV2
+}
+
+func (r resolutorPrefPGPrueba) ResolverContextoActorRegistradoV2(context.Context, vecdomain.SolicitudContextoActor) (vecdomain.ResultadoContextoActorRegistradoV2, error) {
+	return r.r, nil
+}
+
+type relojPrefPGPrueba struct{ ahora time.Time }
+
+func (r relojPrefPGPrueba) Ahora() time.Time { return r.ahora }
+
+func materialPrueba(t *testing.T, accion string, superficie vecdomain.SuperficieAutenticacionActorV1) (ports.OrdenPreferencias, ports.MaterialPreferencias, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
 	t.Helper()
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	cuenta := vecdomain.CuentaAutenticadaContextoActor{CuentaRef: "cta_0123456789abcdefghijkl", Metodo: vecdomain.AuthMethodCertificate, Garantia: vecdomain.AuthAssuranceHigh}
-	snap := vecdomain.InstantaneaContextoActor{VinculoRef: "vca_0123456789abcdefghijkl", VinculoVersion: 1, CuentaRef: cuenta.CuentaRef, CuentaVersion: 1, PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 1, PerfilActivoRef: "prf_0123456789abcdefghijkl", PerfilVersion: 1, Estado: vecdomain.EstadoVinculoContextoActorActivo, VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour)}
+	z := strings.Repeat("a", 24)
+	cuenta := vecdomain.CuentaAutenticadaContextoActor{CuentaRef: "cta_" + z, Metodo: vecdomain.AuthMethodCertificate, Garantia: vecdomain.AuthAssuranceHigh}
+	snap := vecdomain.InstantaneaContextoActor{VinculoRef: "vca_" + z, VinculoVersion: 1, CuentaRef: cuenta.CuentaRef, CuentaVersion: 1, PersonaRef: "per_" + strings.Repeat("r", 24), PersonaVersion: 1, PerfilActivoRef: "prf_" + strings.Repeat("p", 24), PerfilVersion: 1, Estado: vecdomain.EstadoVinculoContextoActorActivo, VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour)}
 	actor, err := vecdomain.NuevoContextoActor(cuenta, snap, ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
-	orden, err := ports.NuevaOrdenPreferencias(actor, proveedorPrueba{})
+	canon, _ := actor.RepresentacionCanonicaVinculadaV2()
+	huella, _ := actor.HuellaSHA256VinculadaV2()
+	ac := vecdomain.AcreditacionProcedenciaComponenteContextoActorV1{ProcedenciaRef: "prc_" + z, ProcedenciaVersion: 1, ProcedenciaHuellaSHA256: strings.Repeat("a", 64), ProcedenciaAutoridad: vecdomain.AutoridadProcedenciaContextoActorMaestraAcreditadaV1}
+	man := vecdomain.ManifiestoProcedenciaContextoActorV1{Esquema: vecdomain.EsquemaManifiestoProcedenciaContextoActorV1, AutoridadEfectiva: vecdomain.AutoridadProcedenciaContextoActorMaestraAcreditadaV1, Cuenta: vecdomain.ProcedenciaCuentaContextoActorV1{CuentaRef: cuenta.CuentaRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Persona: vecdomain.ProcedenciaPersonaContextoActorV1{PersonaRef: actor.PersonaRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Perfil: vecdomain.ProcedenciaPerfilContextoActorV1{PerfilRef: actor.PerfilActivoRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Contexto: vecdomain.ProcedenciaVinculoContextoActorV1{VinculoRef: snap.VinculoRef, Version: 1, AcreditacionProcedenciaComponenteContextoActorV1: ac}, Vinculos: []vecdomain.ProcedenciaVinculoReferenciaContextoActorV1{}}
+	bm, _ := man.RepresentacionCanonicaV1()
+	hm, _ := vecdomain.HuellaSHA256ManifiestoProcedenciaContextoActorV1(bm)
+	res := vecdomain.ResultadoContextoActorRegistradoV2{RegistroContextoRef: "rca_" + z, Contexto: actor, RepresentacionCanonica: canon, HuellaSHA256: huella, ManifiestoProcedenciaCanonico: bm, ManifiestoProcedenciaHuellaSHA256: hm, AutoridadEfectiva: vecdomain.AutoridadProcedenciaContextoActorMaestraAcreditadaV1, ResueltoEnAutoritativo: ahora}
+	if err := res.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	auth := vecdomain.AutenticacionRevalidadaV1{AutenticacionRef: "aut_" + z, AutenticacionHuellaSHA256: strings.Repeat("a", 64), AsercionRef: "ase_" + z, SesionRef: "ses_" + z, ControlSesionRef: "cse_" + z, ControlSesionRevision: 1, ControlSesionHuellaSHA256: strings.Repeat("b", 64), CuentaRef: cuenta.CuentaRef, CuentaOrdinariaRef: cuenta.CuentaRef, Superficie: superficie, MetodoObservado: vecdomain.AuthMethodCertificate, GarantiaObservada: vecdomain.AuthAssuranceHigh, PoliticaGarantiaRef: "pga_" + z, PoliticaGarantiaHuellaSHA256: strings.Repeat("c", 64), AutenticacionVerificadaEn: ahora.Add(-time.Minute), SesionEmitidaEn: ahora.Add(-time.Minute), SesionRevalidadaEn: ahora.Add(-time.Second), SesionValidaHasta: ahora.Add(time.Minute)}
+	if err := auth.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := vecdomain.CrearVinculoAutenticacionActorV2(context.Background(), revalidadorPrefPGPrueba{auth}, vecdomain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: auth.AutenticacionRef, SesionRef: auth.SesionRef}, resolutorPrefPGPrueba{res}, vecdomain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: actor.PerfilActivoRef}, relojPrefPGPrueba{ahora})
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := ports.MaterialPreferencias{PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Accion: accion, FinalidadRef: ports.FinalidadPreferenciasPropias, CatalogoVersionRef: domain.CatalogoBasePreferencias().VersionRef, Valores: domain.CatalogoBasePreferencias().Predeterminados}
+	orden, err := ports.NuevaOrdenPreferencias(actor, vinculo, superficie, proveedorPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := ports.MaterialPreferencias{Superficie: superficie, PersonaRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, Accion: accion, FinalidadRef: ports.FinalidadPreferenciasPropias, CatalogoVersionRef: domain.CatalogoBasePreferencias().VersionRef, Valores: domain.CatalogoBasePreferencias().Predeterminados}
 	if accion == ports.AccionActualizarPreferencias {
 		m.ClaveOperacion = "operacion-1234567890"
 		m.HuellaPeticion = strings.Repeat("a", 64)
 	}
-	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), accion, actor.PersonaRef, strings.Repeat("d", 64), "usuarios_preferencias", ahora, ahora.Add(3*time.Second))
+	audiencia, _ := ports.AudienciaPreferencias(accion, superficie)
+	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3("dec_prueba", strings.Repeat("a", 64), strings.Repeat("b", 64), "ctx_prueba", strings.Repeat("c", 64), accion, actor.PersonaRef, strings.Repeat("d", 64), audiencia, ahora, ahora.Add(3*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,6 +151,8 @@ func materialPrueba(t *testing.T, accion string) (ports.OrdenPreferencias, ports
 }
 
 func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
+	superficie := vecdomain.SuperficieAutenticacionInternaCorporativaV1
+	orden, _, _ := materialPrueba(t, ports.AccionConsultarPreferencias, superficie)
 	base := domain.CatalogoBasePreferencias()
 	// El catálogo publicado en SQL usa el JSON canónico del núcleo.
 	datos, err := json.Marshal(base)
@@ -121,15 +163,15 @@ func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
 		t.Fatal("nombre de catálogo ajeno al contrato Go")
 	}
 	tx := &txPrueba{valido: true, respuesta: datos}
-	c, err := repositorioPrueba(tx).CatalogoVigente(context.Background())
+	c, err := repositorioPrueba(tx, superficie).CatalogoVigente(context.Background(), orden)
 	if err != nil || !reflect.DeepEqual(c, base) || tx.commits != 1 || len(tx.ajustes) != 6 {
 		t.Fatalf("catalogo/tx: %v %#v", err, c)
 	}
-	if len(tx.consultas) != 2 || tx.consultas[1].sql != consultarCatalogoSQL {
+	if len(tx.consultas) != 2 || tx.consultas[0].args[0] != rolEjecutorPreferencias(superficie) || tx.consultas[1].sql != consultarCatalogoSQL || tx.consultas[1].args[0] != string(superficie) {
 		t.Fatal("rol o funcion nominal no consultados")
 	}
 	tx = &txPrueba{valido: false, respuesta: datos}
-	if _, err := repositorioPrueba(tx).CatalogoVigente(context.Background()); !errors.Is(err, ports.ErrNoDisponible) || len(tx.consultas) != 1 || tx.commits != 0 {
+	if _, err := repositorioPrueba(tx, superficie).CatalogoVigente(context.Background(), orden); !errors.Is(err, ports.ErrNoDisponible) || len(tx.consultas) != 1 || tx.commits != 0 {
 		t.Fatal("login no exclusivo paso la sonda")
 	}
 	conClaveAjena := bytes.Replace(datos, []byte(`"tamanos_texto"`), []byte(`"tamano_textos"`), 1)
@@ -139,14 +181,15 @@ func TestCatalogoSQLDecodificaClavesYNoAmpliaVocabulario(t *testing.T) {
 }
 
 func TestConsultaEnviaMaterialLiteralYDiezPiezas(t *testing.T) {
-	orden, m, v3 := materialPrueba(t, ports.AccionConsultarPreferencias)
+	superficie := vecdomain.SuperficieAutenticacionInternaCorporativaV1
+	orden, m, v3 := materialPrueba(t, ports.AccionConsultarPreferencias, superficie)
 	estado := ports.EstadoPreferencias{PersonaRef: m.PersonaRef, Version: 0, CatalogoVersionRef: m.CatalogoVersionRef, Valores: m.Valores}
 	datos, _ := json.Marshal(struct {
 		Existe bool `json:"existe"`
 		ports.EstadoPreferencias
 	}{false, estado})
 	tx := &txPrueba{valido: true, respuesta: datos}
-	obtenido, existe, err := repositorioPrueba(tx).ConsultarPropias(context.Background(), orden, m, v3)
+	obtenido, existe, err := repositorioPrueba(tx, superficie).ConsultarPropias(context.Background(), orden, m, v3)
 	if err != nil || existe || obtenido != estado || tx.commits != 1 {
 		t.Fatalf("consulta: %v, existe=%t", err, existe)
 	}
@@ -160,8 +203,43 @@ func TestConsultaEnviaMaterialLiteralYDiezPiezas(t *testing.T) {
 	}
 }
 
-func TestMaterialLiteralCoincideConVectorSQLV3(t *testing.T) {
+func TestRegistroRechazaCruceDeSuperficieYRol(t *testing.T) {
+	interna := vecdomain.SuperficieAutenticacionInternaCorporativaV1
+	externa := vecdomain.SuperficieAutenticacionExternaPersonalV1
+	ordenExterna, materialExterno, v3Externo := materialPrueba(t, ports.AccionConsultarPreferencias, externa)
+	base := domain.CatalogoBasePreferencias()
+	datos, _ := json.Marshal(base)
+	tx := &txPrueba{valido: true, respuesta: datos}
+	rInterno := repositorioPrueba(tx, interna)
+	if _, err := rInterno.CatalogoVigente(context.Background(), ordenExterna); !errors.Is(err, ports.ErrProhibido) || len(tx.consultas) != 0 {
+		t.Fatal("catálogo exterior leído con pool interno")
+	}
+	if _, _, err := rInterno.ConsultarPropias(context.Background(), ordenExterna, materialExterno, v3Externo); !errors.Is(err, ports.ErrProhibido) || len(tx.consultas) != 0 {
+		t.Fatal("material exterior consumido con pool interno")
+	}
+	rExterno := repositorioPrueba(tx, externa)
+	if _, err := rExterno.CatalogoVigente(context.Background(), ordenExterna); err != nil || tx.consultas[0].args[0] != "vec_usuarios_ejecutor_externo" || tx.consultas[1].args[0] != string(externa) {
+		t.Fatalf("catálogo exterior/rol: %v", err)
+	}
+	ordenInterna, materialInterno, v3Interno := materialPrueba(t, ports.AccionActualizarPreferencias, interna)
+	txCruce := &txPrueba{valido: true}
+	rCruce := repositorioPrueba(txCruce, externa)
+	if _, _, err := rCruce.RecuperarOperacion(context.Background(), ordenInterna, materialInterno, v3Interno); !errors.Is(err, ports.ErrProhibido) || len(txCruce.consultas) != 0 {
+		t.Fatal("recuperación interna cruzó pool exterior")
+	}
+	peticion := ports.PeticionGuardarPreferencias{VersionEsperada: materialInterno.VersionEsperada, CatalogoVersionRef: materialInterno.CatalogoVersionRef, ClaveOperacion: materialInterno.ClaveOperacion, Valores: materialInterno.Valores}
+	if _, err := rCruce.Guardar(context.Background(), ordenInterna, peticion, materialInterno, v3Interno); !errors.Is(err, ports.ErrProhibido) || len(txCruce.consultas) != 0 {
+		t.Fatal("guardado interno cruzó pool exterior")
+	}
+	materialExterno.Superficie = interna
+	if _, _, err := rExterno.ConsultarPropias(context.Background(), ordenExterna, materialExterno, v3Externo); !errors.Is(err, ports.ErrProhibido) {
+		t.Fatal("material de superficie mutada aceptado")
+	}
+}
+
+func TestMaterialLiteralIncluyeSuperficieSinTransformacion(t *testing.T) {
 	m := ports.MaterialPreferencias{
+		Superficie: vecdomain.SuperficieAutenticacionInternaCorporativaV1,
 		PersonaRef: "per_0123456789abcdefghijkl", PerfilRef: "prf_0123456789abcdefghijkl",
 		Accion: ports.AccionActualizarPreferencias, FinalidadRef: ports.FinalidadPreferenciasPropias,
 		CatalogoVersionRef: "usuarios-preferencias-v1", VersionEsperada: 0,
@@ -177,32 +255,47 @@ func TestMaterialLiteralCoincideConVectorSQLV3(t *testing.T) {
 	if !ok {
 		t.Fatal("material no transmitido como texto")
 	}
-	huella := sha256.Sum256([]byte(literal))
-	if got := hex.EncodeToString(huella[:]); got != "aa8e47b6de7519c4c2ca35179a88959263d553235f46e1b5a96dbd5b5cb67780" {
-		t.Fatalf("vector SQL/V3 divergente: %s", got)
+	canon, _ := json.Marshal(m)
+	if literal != string(canon) || !strings.Contains(literal, `"superficie":"interna_corporativa"`) {
+		t.Fatal("superficie perdida o material SQL transformado")
 	}
+	compararVector := func(material ports.MaterialPreferencias, esperado string) {
+		t.Helper()
+		args, err := argumentosV3(material, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		huella := sha256.Sum256([]byte(args[0].(string)))
+		if got := hex.EncodeToString(huella[:]); got != esperado {
+			t.Fatalf("vector Go/SQL divergente: %s", got)
+		}
+	}
+	compararVector(m, "93e51bfaf653b06d10b6033cd348af16ae15796e4c36d99fe7ae19fa6ccda517")
+	m.Superficie = vecdomain.SuperficieAutenticacionExternaPersonalV1
+	compararVector(m, "e22d42d7a997fdbdd9a71ff10e7b805767bc5b7d28bb61870b4097f78cd4e723")
 }
 
 func TestReplayConservaReciboYGuardarRespetaCAS(t *testing.T) {
-	orden, m, v3 := materialPrueba(t, ports.AccionActualizarPreferencias)
+	superficie := vecdomain.SuperficieAutenticacionInternaCorporativaV1
+	orden, m, v3 := materialPrueba(t, ports.AccionActualizarPreferencias, superficie)
 	fecha := time.Date(2026, 9, 29, 7, 45, 0, 123000, time.UTC)
 	recibo := ports.ReciboPreferencias{ReciboRef: "recibo:original", PersonaRef: m.PersonaRef, Version: 1, CatalogoVersionRef: m.CatalogoVersionRef, Valores: m.Valores, FechaUTC: fecha}
 	datosGuardar, _ := json.Marshal(recibo)
 	recibo.Replay = true
 	datosReplay, _ := json.Marshal(recibo)
 	tx := &txPrueba{valido: true, respuesta: datosReplay}
-	recuperado, existe, err := repositorioPrueba(tx).RecuperarOperacion(context.Background(), orden, m, v3)
+	recuperado, existe, err := repositorioPrueba(tx, superficie).RecuperarOperacion(context.Background(), orden, m, v3)
 	if err != nil || !existe || !recuperado.Replay || recuperado.ReciboRef != recibo.ReciboRef || !recuperado.FechaUTC.Equal(fecha) || tx.commits != 1 || tx.consultas[1].sql != recuperarSQL {
 		t.Fatalf("replay: %v, %#v", err, recuperado)
 	}
 	tx = &txPrueba{valido: true, respuesta: []byte("null")}
-	_, existe, err = repositorioPrueba(tx).RecuperarOperacion(context.Background(), orden, m, v3)
+	_, existe, err = repositorioPrueba(tx, superficie).RecuperarOperacion(context.Background(), orden, m, v3)
 	if err != nil || existe || tx.commits != 1 {
 		t.Fatal("ausencia de replay incorrecta")
 	}
 	peticion := ports.PeticionGuardarPreferencias{VersionEsperada: m.VersionEsperada, CatalogoVersionRef: m.CatalogoVersionRef, ClaveOperacion: m.ClaveOperacion, Valores: m.Valores}
 	tx = &txPrueba{valido: true, respuesta: datosGuardar}
-	guardado, err := repositorioPrueba(tx).Guardar(context.Background(), orden, peticion, m, v3)
+	guardado, err := repositorioPrueba(tx, superficie).Guardar(context.Background(), orden, peticion, m, v3)
 	if err != nil || guardado.Replay || tx.commits != 1 || tx.consultas[1].sql != guardarSQL || len(tx.consultas[1].args) != 12 {
 		t.Fatalf("guardar: %v", err)
 	}
@@ -210,7 +303,7 @@ func TestReplayConservaReciboYGuardarRespetaCAS(t *testing.T) {
 		t.Fatal("valores SQL distintos del material")
 	}
 	peticion.ClaveOperacion = "otra-clave-123456789"
-	if _, err := repositorioPrueba(&txPrueba{valido: true}).Guardar(context.Background(), orden, peticion, m, v3); !errors.Is(err, ports.ErrPeticionInvalida) {
+	if _, err := repositorioPrueba(&txPrueba{valido: true}, superficie).Guardar(context.Background(), orden, peticion, m, v3); !errors.Is(err, ports.ErrPeticionInvalida) {
 		t.Fatal("material de PUT no ligado a peticion")
 	}
 }
