@@ -248,7 +248,7 @@ BEGIN
     OR coalesce(p_material->>'base_huella_sha256','') !~ '^[0-9a-f]{64}$'
     OR jsonb_typeof(p_material->'ajustes_canonico')<>'string'
     OR coalesce(p_material->>'ajustes_huella_sha256','') !~ '^[0-9a-f]{64}$'
-    OR jsonb_typeof(p_material->'cambios')<>'array'
+    OR jsonb_typeof(p_material->'cambios') IS DISTINCT FROM 'array'
     OR jsonb_array_length(p_material->'cambios') NOT BETWEEN 1 AND 256
     OR coalesce(p_material->>'motivo_clave','') !~ '^[a-z][a-z0-9_]{2,63}$'
     OR (p_material ? 'referencia' AND jsonb_typeof(p_material->'referencia')<>'string')
