@@ -36,8 +36,8 @@
     <link rel="stylesheet" href="/portal-empleado/modulos/personal/ficha-integral.css?v=20260924-f2-shell-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/personal/registro-b2.css?v=20260925-b2-selector-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/documentos/documentos.css?v=20260925-documentos-web-v3">
-    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css?v=20260925-aspecto-v1">
-    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes.css?v=20260928-usab-exp-firma-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css?v=20260929-demo-ficha-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes.css?v=20260929-demo-ficha-v2">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css?v=20260926-pulido-portal-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/circuito-firma.css?v=20260928-usab-exp-firma-v1">
     <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/expedientes-incidencia.css?v=20260925-aspecto-v1">
@@ -140,7 +140,7 @@
     <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js">
     <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1">
-    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-textos-vistas.js?v=20260928-ppt-v2">
+    <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-textos-vistas.js?v=20260929-demo-ficha-v1">
     <link rel="modulepreload" href="/portal-empleado/modulos/contratacion-temporal/i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1">
     <link rel="modulepreload" href="/portal-empleado/portal-borradores-estado.js?v=20260721-acceso-real-v2">
     <link rel="modulepreload" href="/portal-empleado/portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1">
@@ -148,7 +148,7 @@
     <link rel="modulepreload" href="/portal-empleado/portal-bolsas-contrato.js?v=20260929-pref-508a-v2">
     <!-- Carga clásica y síncrona: globalThis.L existe antes de evaluar cualquier módulo. -->
     <script src="/portal-empleado/vendor/leaflet-1.9.4/leaflet.js?v=1.9.4" integrity="sha384-tM1WyRnQZLXgeuR/dXHqqQcD5jN9+bgKmZW55OJtM9Bv7zCG4VFwmgdJudAtzIni"></script>
-    <script type="module" src="/portal-empleado/portal.js?v=20260929-pref-508a-v2"></script>
+    <script type="module" src="/portal-empleado/portal.js?v=20260929-sondeo-opcional-507"></script>
   </head>
   <body class="portal-empleado-app">
     <a class="salto-contenido" href="#contenido-principal" data-i18n-portal="txt_saltar_al_contenido_principal">Saltar al contenido principal</a>
@@ -272,11 +272,11 @@
             <button type="button" class="boton-cabecera boton-icono" id="boton-contraste" aria-label="Activar o desactivar el alto contraste" aria-pressed="false" title="Alto contraste" data-i18n-portal-aria-label="txt_activar_o_desactivar_el_alto_contraste" data-i18n-portal-title="txt_alto_contraste"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
             <button type="button" class="boton-cabecera boton-ayuda-cabecera" data-accion="ayuda" aria-label="?" title="Ayuda de esta pantalla" data-i18n-portal-aria-label="ayuda_abrir_inicial" data-i18n-portal-title="txt_ayuda_pantalla" aria-haspopup="dialog">?</button>
             <button type="button" class="boton-cabecera boton-icono boton-avisos" data-accion="avisos" title="Avisos" data-i18n-portal-title="txt_avisos">
-              <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span aria-label="Avisos pendientes sin resolver" data-i18n-portal-aria-label="txt_avisos_pendientes_sin_resolver">—</span><b class="solo-lectura" data-i18n-portal="txt_avisos">Avisos</b>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span aria-label="Avisos pendientes sin resolver" data-i18n-portal-aria-label="txt_avisos_pendientes_sin_resolver"></span><b class="solo-lectura" data-i18n-portal="txt_avisos">Avisos</b>
             </button>
             <div class="sesion-presentacion" id="sesion-visible" role="group" aria-label="Sesión" data-i18n-portal-aria-label="sesion_etiqueta">
               <button type="button" id="boton-identidad" class="sesion-identidad" aria-haspopup="menu" aria-controls="menu-identidad" aria-expanded="false" disabled>
-                <span class="avatar" aria-hidden="true">—</span>
+                <span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" focusable="false"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
                 <span data-sesion-texto hidden><strong></strong><small></small></span>
                 <span aria-hidden="true">⌄</span>
               </button>

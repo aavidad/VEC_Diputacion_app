@@ -5,6 +5,7 @@
 import { traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { cuerpoDisposicion, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
+import { nombreCategoria } from "./mi-bolsa-campos.js";
 import { cuerpoConfirmacionContacto, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
@@ -170,7 +171,7 @@ export function renderizarPortalMiBolsa(participaciones, portal, acciones) {
       const r = estado.ultima_respuesta;
       partes.push(listaDatos([[textoPortal("ultimaRespuesta"), `${escaparHTML(textoPortal(`respuesta.${r.respuesta}`))} · ${escaparHTML(fecha(r.respondida_en))} · ${escaparHTML(textoPortal(`modo.${r.modo}`))} · ${escaparHTML(textoPortal("recibo"))} ${escaparHTML(r.recibo)}`]]));
     }
-    return `<article class="portal-mi-bolsa__bolsa"><h4>${escaparHTML(p.categoria)}</h4>${partes.join("")}</article>`;
+    return `<article class="portal-mi-bolsa__bolsa"><h4>${escaparHTML(nombreCategoria(p))}</h4>${partes.join("")}</article>`;
   }).join("");
   return `<div class="portal-mi-bolsa">${bloques}</div>`;
 }

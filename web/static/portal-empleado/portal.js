@@ -8,7 +8,7 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-pref-50
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-pref-508a-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-pref-508a-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260928-ppt-v2";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-pref-508a-v2";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-pref-508a-v2";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-pref-508a-v2";
@@ -106,7 +106,7 @@ const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 const TITULOS = Object.freeze({
   portal: [traducirPortal("menu_inicio"), traducirPortal("menu_inicio")],
   "ofertas-sae": [traducirPortal("ofertas_sae_miga"), traducirPortal("ofertas_sae_titulo")],
-  resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_cuadro_de_mando")],
+  resumen: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_bolsas_de_trabajo")],
   elaboracion: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_borradores_de_convocatorias")],
   convocatorias: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_convocatorias_bases_y_calendario")],
   solicitudes: [traducirPortal("txt_portal_del_empleado_bolsas_de_trabajo"), traducirPortal("txt_solicitudes_y_admision")],
@@ -341,7 +341,8 @@ async function actualizarSesionVisible() {
     return;
   }
   if (!datos.nombre) return;
-  sesion.querySelector(".avatar").textContent = datos.iniciales;
+  // Sin iniciales se conserva el icono de persona de la cabecera.
+  if (datos.iniciales && datos.iniciales !== "—") sesion.querySelector(".avatar").textContent = datos.iniciales;
   sesion.querySelector("strong").textContent = datos.nombre;
   const perfil = sesion.querySelector("small");
   perfil.textContent = datos.perfil;
@@ -365,7 +366,8 @@ function alCambiarModulos(clave) {
   if (clave === "catalogo") {
     void controladorBolsas.cargarBolsas();
   }
-  if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")) {
+  if (clave === "contratacion_temporal" && coordinadorModulos.vistaDisponible("contratacion-temporal")
+    && (destinoPlantillasInicial || plantillasConfirmadas)) {
     void comprobarAccesoPlantillas();
   }
   // Una vista de un módulo sin entrada (URL directa) arranca su carga diferida
@@ -465,15 +467,23 @@ async function cargarFuenteDatos() {
   if (intento !== secuenciaFuente) return;
   actualizarNavegacionModulos();
   renderizarTrasCarga();
-  if (coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
+  if (politicaCeseConfirmada && coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) {
     void comprobarAccesoPoliticaCese();
   }
 }
 
+// Plantillas de documentos (CT) y política de cese (Bolsa) son capacidades
+// opcionales: la composición de la principal puede no montarlas y entonces su
+// API responde 404. Igual que los borradores de convocatorias, NO se sondean al
+// cargar el portal: solo cuando la persona abre su vista (enlace directo o
+// navegación) o cuando ya constaron disponibles en esta sesión y hay que
+// revalidarlas tras recargar el catálogo o la identidad.
 let consultaAccesoPlantillas = null;
 let destinoPlantillasInicial = false;
+let plantillasConfirmadas = false;
 let consultaAccesoPoliticaCese = null;
 let destinoPoliticaCeseInicial = false;
+let politicaCeseConfirmada = false;
 
 async function comprobarAccesoPoliticaCese() {
   if (estado.politicaCeseComprobada || consultaAccesoPoliticaCese) return;
@@ -484,6 +494,7 @@ async function comprobarAccesoPoliticaCese() {
     if (consultaAccesoPoliticaCese !== controlador || controlador.signal.aborted) return;
     estado.politicaCese = politica;
     estado.politicaCeseComprobada = true;
+    politicaCeseConfirmada = true;
     if (destinoPoliticaCeseInicial && estado.vista === "portal") {
       destinoPoliticaCeseInicial = false;
       navegar("reglas");
@@ -503,6 +514,18 @@ async function comprobarAccesoPoliticaCese() {
     }
   }
 }
+// Abrir una vista opcional aún sin comprobar lanza su sondeo y espera en Inicio;
+// al confirmarse la disponibilidad se navega a ella y, si no, se queda en Inicio.
+function sondearCapacidadAlAbrir(vista) {
+  const plantillas = vista === VISTA_PLANTILLAS_RRHH && estado.plantillasAutorizadas !== true
+    && consultaAccesoPlantillas === null && coordinadorModulos.vistaDisponible("contratacion-temporal");
+  const politica = vista === "reglas" && !estado.politicaCeseComprobada;
+  if (!plantillas && !politica) return false;
+  navegar("portal");
+  if (plantillas) { destinoPlantillasInicial = true; void comprobarAccesoPlantillas(); }
+  else { destinoPoliticaCeseInicial = true; void comprobarAccesoPoliticaCese(); }
+  return true;
+}
 async function comprobarAccesoPlantillas() {
   consultaAccesoPlantillas?.abort();
   const controlador = new AbortController();
@@ -511,6 +534,7 @@ async function comprobarAccesoPlantillas() {
     await crearClientePlantillasRRHH().consultar({ signal: controlador.signal });
     if (consultaAccesoPlantillas !== controlador || controlador.signal.aborted) return;
     estado.plantillasAutorizadas = true;
+    plantillasConfirmadas = true;
     if (destinoPlantillasInicial && estado.vista === "portal") {
       destinoPlantillasInicial = false;
       navegar(VISTA_PLANTILLAS_RRHH);
@@ -606,9 +630,13 @@ function actualizarNavegacionModulos() {
     .forEach((indicador, indice) => { indicador.textContent = String(indice + 1); });
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
-    const accesos = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
-      .filter((clave) => !CLAVES_SIN_ENTRADA_PORTAL.includes(clave))
-      .map((clave) => resolverAccesoPerfil(clave));
+    // El recuento cuadra con lo visible: las entradas de módulo que el menú
+    // muestra, más Ofertas al SAE cuando se ofrece.
+    const accesos = [...contenedor.querySelectorAll("[data-modulo-portal]")].map((boton) => ({
+      disponible: boton.classList.contains("modulo-habilitado"),
+      estado: boton.getAttribute("aria-busy") === "true" ? "cargando" : "",
+    }));
+    if (enlaceSAE && !enlaceSAE.hidden) accesos.push({ disponible: true, estado: "" });
     fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
       estado.datosBolsas?.carga === "cargando");
   }
@@ -624,6 +652,7 @@ function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (vista !== VISTA_PLANTILLAS_RRHH) destinoPlantillasInicial = false;
   if (vista !== "reglas") destinoPoliticaCeseInicial = false;
+  if (sondearCapacidadAlAbrir(vista)) return;
   if (!vistaPermitida(vista)) {
     const vistaSegura = "portal";
     const hashSeguro = rutaDeVista(vistaSegura);

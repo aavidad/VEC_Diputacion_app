@@ -52,6 +52,8 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const vigente = "20260929-pref-508a-v2";
   const versionesEspeciales = new Map([
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
+    // 5.07: portal.js deja de sondear al cargar las capacidades opcionales.
+    ["portal.js", "20260929-sondeo-opcional-507"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
