@@ -76,37 +76,40 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	// opcionesCatalogo son las opciones del catálogo de reglas que se
 	// publican al abrir PostgreSQL (vías de cobertura y numeración); nulo
 	// significa las de siempre.
-	opcionesCatalogo                  *opcionesAnalisisCTDesarrollo
-	peticionesCentro                  bool
-	candidatoBolsa                    bool
-	mu                                sync.Mutex
-	sello                             *selloConsultasContratacionTemporalDesarrollo
-	principalID                       string
-	certificadoSHA256                 string
-	lectorConsultasRRHH               bool
-	tecnicoConsultaRRHH               bool
-	organizacionConsultaRRHH          string
-	claseAmbitoConsultaRRHH           ports.ClaseAmbitoConsultaRRHH
-	ambitoConsultaRRHH                string
-	contexto                          ports.ContextoAutorizacionAltaV3
-	contextoEsperadoRegistrado        dominiovec.ResultadoContextoActorRegistradoV2
-	sesionOperativa                   proveedorSesionOperativaCTDesarrollo
-	flujo                             ports.ConfiguracionAltaFlujo
-	motivo                            dominiovec.ReferenciaEntradaCatalogo
-	instantanea                       dominiovec.InstantaneaAutorizacion
-	instantaneaAnalisis               dominiovec.InstantaneaAutorizacion
-	motivoRegistroAnalisis            dominiovec.ReferenciaEntradaCatalogo
-	motivoRectificacionAnalisis       dominiovec.ReferenciaEntradaCatalogo
-	instantaneaCobertura              dominiovec.InstantaneaAutorizacion
-	instantaneaAsignacion             dominiovec.InstantaneaAutorizacion
-	instantaneaInformeJuridico        dominiovec.InstantaneaAutorizacion
-	instantaneaLlamamiento            dominiovec.InstantaneaAutorizacion
-	instantaneaReanudacionLlamamiento dominiovec.InstantaneaAutorizacion
-	instantaneaComunicacion           dominiovec.InstantaneaAutorizacion
-	instantaneaCorreo                 dominiovec.InstantaneaAutorizacion
-	instantaneaRespuestaRecibida      dominiovec.InstantaneaAutorizacion
-	instantaneaConsultaJustificante   dominiovec.InstantaneaAutorizacion
-	instantaneaResolucionManual       dominiovec.InstantaneaAutorizacion
+	opcionesCatalogo                    *opcionesAnalisisCTDesarrollo
+	peticionesCentro                    bool
+	candidatoBolsa                      bool
+	mu                                  sync.Mutex
+	sello                               *selloConsultasContratacionTemporalDesarrollo
+	principalID                         string
+	certificadoSHA256                   string
+	lectorConsultasRRHH                 bool
+	tecnicoConsultaRRHH                 bool
+	organizacionConsultaRRHH            string
+	claseAmbitoConsultaRRHH             ports.ClaseAmbitoConsultaRRHH
+	ambitoConsultaRRHH                  string
+	contexto                            ports.ContextoAutorizacionAltaV3
+	contextoCobertura                   ports.ContextoAutorizacionAltaV3
+	contextoEsperadoRegistrado          dominiovec.ResultadoContextoActorRegistradoV2
+	contextoEsperadoRegistradoCobertura dominiovec.ResultadoContextoActorRegistradoV2
+	sesionOperativa                     proveedorSesionOperativaCTDesarrollo
+	sesionOperativaCobertura            proveedorSesionOperativaCTDesarrollo
+	flujo                               ports.ConfiguracionAltaFlujo
+	motivo                              dominiovec.ReferenciaEntradaCatalogo
+	instantanea                         dominiovec.InstantaneaAutorizacion
+	instantaneaAnalisis                 dominiovec.InstantaneaAutorizacion
+	motivoRegistroAnalisis              dominiovec.ReferenciaEntradaCatalogo
+	motivoRectificacionAnalisis         dominiovec.ReferenciaEntradaCatalogo
+	instantaneaCobertura                dominiovec.InstantaneaAutorizacion
+	instantaneaAsignacion               dominiovec.InstantaneaAutorizacion
+	instantaneaInformeJuridico          dominiovec.InstantaneaAutorizacion
+	instantaneaLlamamiento              dominiovec.InstantaneaAutorizacion
+	instantaneaReanudacionLlamamiento   dominiovec.InstantaneaAutorizacion
+	instantaneaComunicacion             dominiovec.InstantaneaAutorizacion
+	instantaneaCorreo                   dominiovec.InstantaneaAutorizacion
+	instantaneaRespuestaRecibida        dominiovec.InstantaneaAutorizacion
+	instantaneaConsultaJustificante     dominiovec.InstantaneaAutorizacion
+	instantaneaResolucionManual         dominiovec.InstantaneaAutorizacion
 	// reglasPlazo se fija al componer, antes de servir, y no cambia después.
 	reglasPlazo                        ports.ReglasPlazoRespuestaLlamamiento
 	instantaneaAceptacionBolsa         dominiovec.InstantaneaAutorizacion
@@ -208,9 +211,22 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	contextoCobertura, err := nuevoContextoCoberturaContratacionTemporalDesarrollo(
+		principal, ahora,
+	)
+	if err != nil {
+		return vacias, err
+	}
 	datosVinculo, err := contexto.Vinculo.Datos()
 	if err != nil {
 		return vacias, err
+	}
+	datosVinculoCobertura, err := contextoCobertura.Vinculo.Datos()
+	if err != nil || datosVinculo.PrincipalID != datosVinculoCobertura.PrincipalID ||
+		datosVinculo.PerfilActivoRef == datosVinculoCobertura.PerfilActivoRef ||
+		contexto.Resultado.Contexto.Instantanea.CuentaRef != contextoCobertura.Resultado.Contexto.Instantanea.CuentaRef ||
+		contexto.Resultado.Contexto.PersonaRef != contextoCobertura.Resultado.Contexto.PersonaRef {
+		return vacias, errAltaContratacionTemporalDesarrolloNoDisponible
 	}
 	huellas, ambitos, err := nuevasCapacidadesHMACAltaContratacionTemporalDesarrollo(
 		derivador,
@@ -241,8 +257,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 	)
 	instantaneaCobertura, errCobertura :=
 		nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
-			datosVinculo.PrincipalID,
-			datosVinculo.PerfilActivoRef,
+			datosVinculoCobertura.PrincipalID,
+			datosVinculoCobertura.PerfilActivoRef,
 			ahora,
 		)
 	instantaneaAnalisis, errAnalisis :=
@@ -294,7 +310,8 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		origen: origen, opcionesCatalogo: dependenciasCT.opcionesCatalogoCT,
 		sello: sello, principalID: principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
-		contexto:          contexto, flujo: flujo, motivo: motivo, instantanea: instantanea,
+		contexto:          contexto, contextoCobertura: contextoCobertura,
+		flujo: flujo, motivo: motivo, instantanea: instantanea,
 		instantaneaAnalisis:          instantaneaAnalisis,
 		instantaneaAsignacion:        instantaneaAsignacion,
 		instantaneaInformeJuridico:   instantaneaInformeJuridico,

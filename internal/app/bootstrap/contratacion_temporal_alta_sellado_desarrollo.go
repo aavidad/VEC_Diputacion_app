@@ -124,6 +124,31 @@ func nuevoContextoAltaContratacionTemporalDesarrollo(
 	return nuevoContextoSinteticoContratacionTemporalDesarrollo(principal, ahora)
 }
 
+// Cobertura conserva la misma cuenta, persona y procedencia que alta. Su
+// perfil, vínculo, registro y sesión son propios; ningún dato del cliente
+// selecciona estas referencias ni convierte un perfil en el otro.
+func nuevoContextoCoberturaContratacionTemporalDesarrollo(
+	principal dominiovec.Principal,
+	ahora time.Time,
+) (ports.ContextoAutorizacionAltaV3, error) {
+	if !principalContratacionTemporalDesarrolloValido(principal) {
+		return ports.ContextoAutorizacionAltaV3{},
+			errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	discriminador := discriminadorContextoSinteticoContratacionTemporalDesarrollo()
+	discriminador.perfil = "perfil-cobertura"
+	discriminador.vinculo = "vinculo-cobertura"
+	discriminador.registro = "registro-contexto-cobertura"
+	discriminador.autenticacion = "autenticacion-cobertura"
+	discriminador.asercion = "asercion-cobertura"
+	discriminador.sesion = "sesion-cobertura"
+	discriminador.controlSesion = "control-sesion-cobertura"
+	discriminador.politicaGarantia = "politica-garantia-cobertura"
+	return nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
+		principal, ahora, discriminador,
+	)
+}
+
 func nuevoContextoSinteticoContratacionTemporalDesarrollo(
 	principal dominiovec.Principal,
 	ahora time.Time,
