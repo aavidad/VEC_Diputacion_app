@@ -778,6 +778,12 @@ La matriz vigente del módulo es
 - No mezclar castellano e inglés en el mismo vocabulario.
 - Todo texto visible, mensaje de validación, estado, ayuda, documento y
   notificación usa claves i18n.
+- i18n puro (orden del operador del 29 de septiembre de 2026): los textos
+  viven en catálogos de datos por idioma (`locales/<idioma>/<módulo>.json`),
+  nunca en diccionarios dentro de ficheros `.js` o `.go`. El código no nombra
+  idiomas concretos: los idiomas disponibles y el de respaldo salen de un
+  índice de datos. Añadir un idioma es copiar una carpeta y traducirla, sin
+  tocar código.
 - Fechas, números, moneda, zonas horarias y plurales se formatean por
   localización.
 - El tema común es la autoridad visual; ningún módulo duplica CSS estructural.
