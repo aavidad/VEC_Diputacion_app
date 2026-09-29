@@ -4,6 +4,8 @@ Este primer corte prepara dos expedientes distintos para el paso de RRHH de fisc
 
 El guion no crea expedientes, instala migraciones, inicia servicios ni reinicia contenedores. Necesita dos expedientes sintéticos preparados en la fase de informe jurídico, sus versiones exactas, el clon local con H3–H5 instalados, un binario VEC identificado por SHA256 y dos identidades mTLS sintéticas distintas. La configuración y la evidencia se guardan fuera del árbol Git. El origen solo admite HTTPS loopback; el contexto del navegador bloquea peticiones de páginas y ventanas emergentes a otros orígenes, redirecciones y canales WebSocket.
 
+El modo `registrar` conserva capturas de cada resultado y del primer fallo a 1440 y 390 px. Las imágenes quedan junto a la evidencia, en una carpeta privada con permiso `0700`; cada PNG tiene permiso `0600` y huella SHA256. Registra método, ruta y estado HTTP de las respuestas API, sin parámetros, cuerpos ni cabeceras. También recoge geometría, cookies, almacenamiento web e IndexedDB. Las capturas se generan al cambiar el ancho de la misma página, sin repetir escrituras. Un fallo parcial conserva la intención pendiente y no acredita el resto del recorrido.
+
 Ejemplo de configuración **sin valores operativos**:
 
 ```json
@@ -37,3 +39,5 @@ python3 scripts/recorridos/intervencion/recorrer.py recuperar --reinicio-acredit
 La recuperación exige que las tres peticiones iniciales hayan respondido `201`. Antes de cada POST se conserva la petición exacta en `intencion_pendiente`; si el navegador pierde la respuesta, la evidencia parcial queda cerrada para el guion. Dirección debe resolver esa intención con la misma clave antes de continuar. El guion nunca improvisa una nueva operación para superar un fallo.
 
 El corte se basa en `origin/main` `3b910a170` y sus rutas visibles. La PR #166 seguía abierta al crear esta rama: ninguna capacidad de esa PR se atribuye aquí a `main`. La ejecución H3–H5 y la recuperación tras reinicio están pendientes; este README y el test local no las acreditan.
+
+Para el ensayo del 30/09 se usará exclusivamente el clon de `main` identificado por dirección. La fiscalización de `main@7f1ecea2f` responde `201` también al reintento; el modo `recuperar` todavía exige `200` y no está validado para ese contrato. No debe ejecutarse sin coordinar el reinicio y revisar antes esa diferencia. La preparación del guion no demuestra registro, firma ni recuperación.

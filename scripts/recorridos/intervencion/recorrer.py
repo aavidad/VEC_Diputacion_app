@@ -245,13 +245,56 @@ def abrir(pagina, datos: dict, expediente: str | None = None):
         raise FalloRecorrido("el portal no respondió 200")
 
 
-def comprobar_pagina(contexto_actor, pagina):
-    estado = pagina.evaluate("""() => ({ancho: document.documentElement.clientWidth,
+def medir_pagina(contexto_actor, pagina):
+    estado = pagina.evaluate("""async () => ({ancho: document.documentElement.clientWidth,
       contenido: document.documentElement.scrollWidth,
-      local: localStorage.length, sesion: sessionStorage.length})""")
+      local: localStorage.length, sesion: sessionStorage.length,
+      indexeddb: (await indexedDB.databases()).length})""")
+    estado["cookies"] = len(contexto_actor.cookies())
+    return estado
+
+
+def comprobar_pagina(contexto_actor, pagina):
+    estado = medir_pagina(contexto_actor, pagina)
     if (estado["contenido"] > estado["ancho"] or estado["local"] or estado["sesion"]
-            or contexto_actor.cookies()):
+            or estado["indexeddb"] or estado["cookies"]):
         raise FalloRecorrido("desbordamiento, almacenamiento web o cookies")
+    return estado
+
+
+def capturar_pagina(contexto_actor, pagina, salida: Path, nombre: str) -> list[dict]:
+    """Captura los dos anchos sin enviar otra operación ni guardar certificados."""
+    if not re.fullmatch(r"[a-z_]+", nombre):
+        raise ValueError("nombre de captura no válido")
+    carpeta = salida.parent / (salida.stem + "-capturas")
+    carpeta.mkdir(mode=0o700, exist_ok=True)
+    if carpeta.is_symlink():
+        raise NoEjecutado("la carpeta de capturas no puede ser un enlace")
+    os.chmod(carpeta, 0o700)
+    capturas = []
+    try:
+        for ancho, alto in ((1440, 900), (390, 844)):
+            pagina.set_viewport_size({"width": ancho, "height": alto})
+            pagina.wait_for_timeout(250)
+            ruta = carpeta / f"{nombre}-{ancho}.png"
+            descriptor = os.open(ruta, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb") as archivo:
+                imagen = pagina.screenshot(full_page=True, animations="disabled")
+                archivo.write(imagen)
+            estado = medir_pagina(contexto_actor, pagina)
+            capturas.append({"archivo": ruta.name, "sha256": hashlib.sha256(imagen).hexdigest(),
+                             "viewport": {"width": ancho, "height": alto}, "estado": estado})
+    finally:
+        pagina.set_viewport_size({"width": 1440, "height": 900})
+    return capturas
+
+
+def observar_http(respuesta, evidencia: dict):
+    """Guarda ruta y estado; excluye cuerpos, cabeceras y parámetros."""
+    ruta = urlsplit(respuesta.url).path
+    if ruta.startswith("/api/"):
+        evidencia.setdefault("http_observado", []).append({
+            "metodo": respuesta.request.method, "ruta": ruta, "estado": respuesta.status})
 
 
 def registrar_fiscalizacion(pagina, datos: dict, caso: dict, resultado: str,
@@ -265,7 +308,6 @@ def registrar_fiscalizacion(pagina, datos: dict, caso: dict, resultado: str,
     form.locator(f'[name=resultado][value="{resultado}"]').check()
     if resultado == "desfavorable":
         form.locator("[name=observaciones]").fill("Reparo sintético para subsanación de unidad.")
-    pagina.on("dialog", lambda dialogo: dialogo.accept())
     etiqueta = "favorable" if resultado == "favorable" else "reparo"
     interceptador = ligar_peticion(pagina, RUTA_FISCAL, caso["expediente_ref"],
                                    evidencia, salida, etiqueta, estado_ejecucion)
@@ -293,7 +335,6 @@ def registrar_subsanacion(pagina, datos: dict, fiscal: dict,
     form.locator("button[type=submit]").click()
     with pagina.expect_download(timeout=10_000):
         pagina.locator("[data-ct-subsanacion-guardar]").click()
-    pagina.on("dialog", lambda dialogo: dialogo.accept())
     interceptador = ligar_peticion(pagina, RUTA_SUBSANACION, expediente,
                                    evidencia, salida, "subsanacion", estado_ejecucion)
     with pagina.expect_response(lambda r: urlsplit(r.url).path == RUTA_SUBSANACION
@@ -353,6 +394,8 @@ def ejecutar(fase: str, datos: dict, salida: Path, estado_ejecucion: dict) -> di
                     persistir(salida, evidencia, nuevo=True)
                     pagina_int = intervencion.new_page()
                     pagina_rrhh = rrhh.new_page()
+                    pagina_int.on("dialog", lambda dialogo: dialogo.accept())
+                    pagina_rrhh.on("dialog", lambda dialogo: dialogo.accept())
                     js = []
                     cookies_respuesta = []
                     pagina_int.on("pageerror", lambda error: js.append(str(error)))
@@ -361,21 +404,44 @@ def ejecutar(fase: str, datos: dict, salida: Path, estado_ejecucion: dict) -> di
                                   if "set-cookie" in r.headers else None)
                     pagina_rrhh.on("response", lambda r: cookies_respuesta.append(urlsplit(r.url).path)
                                    if "set-cookie" in r.headers else None)
-                    favorable = registrar_fiscalizacion(pagina_int, datos, datos["favorable"],
+                    pagina_int.on("response", lambda r: observar_http(r, evidencia))
+                    pagina_rrhh.on("response", lambda r: observar_http(r, evidencia))
+                    try:
+                        favorable = registrar_fiscalizacion(pagina_int, datos, datos["favorable"],
                                                          "favorable", evidencia, salida, estado_ejecucion)
-                    evidencia["favorable"] = favorable
-                    evidencia.pop("intencion_pendiente", None)
-                    persistir(salida, evidencia)
-                    reparo = registrar_fiscalizacion(pagina_int, datos, datos["reparo"],
+                        evidencia["favorable"] = favorable
+                        evidencia.pop("intencion_pendiente", None)
+                        evidencia["capturas_favorable"] = capturar_pagina(intervencion, pagina_int,
+                                                                          salida, "favorable")
+                        persistir(salida, evidencia)
+                        reparo = registrar_fiscalizacion(pagina_int, datos, datos["reparo"],
                                                       "desfavorable", evidencia, salida, estado_ejecucion)
-                    evidencia["reparo"] = reparo
-                    evidencia.pop("intencion_pendiente", None)
-                    persistir(salida, evidencia)
-                    subsanacion = registrar_subsanacion(pagina_rrhh, datos, reparo,
+                        evidencia["reparo"] = reparo
+                        evidencia.pop("intencion_pendiente", None)
+                        evidencia["capturas_reparo"] = capturar_pagina(intervencion, pagina_int,
+                                                                       salida, "reparo")
+                        persistir(salida, evidencia)
+                        subsanacion = registrar_subsanacion(pagina_rrhh, datos, reparo,
                                                         evidencia, salida, estado_ejecucion)
-                    evidencia["subsanacion"] = subsanacion
-                    evidencia.pop("intencion_pendiente", None)
-                    persistir(salida, evidencia)
+                        evidencia["subsanacion"] = subsanacion
+                        evidencia.pop("intencion_pendiente", None)
+                        evidencia["capturas_subsanacion"] = capturar_pagina(rrhh, pagina_rrhh,
+                                                                            salida, "subsanacion")
+                    except Exception:
+                        evidencia["corte"] = "primer_fallo"
+                        try:
+                            evidencia["capturas_corte"] = capturar_pagina(intervencion, pagina_int,
+                                                                          salida, "corte_intervencion")
+                            if pagina_rrhh.url != "about:blank":
+                                evidencia["capturas_corte_rrhh"] = capturar_pagina(rrhh, pagina_rrhh,
+                                                                               salida, "corte_rrhh")
+                        except Exception:
+                            evidencia["captura_corte_incompleta"] = True
+                        raise
+                    finally:
+                        evidencia["errores_js"] = len(js)
+                        evidencia["set_cookie"] = len(cookies_respuesta)
+                        persistir(salida, evidencia)
                     if (favorable["recibo"]["actor_ref"] != reparo["recibo"]["actor_ref"]
                             or favorable["recibo"]["actor_ref"] == subsanacion["recibo"]["actor_ref"]):
                         raise FalloRecorrido("los recibos no conservan separación Intervención y RRHH")

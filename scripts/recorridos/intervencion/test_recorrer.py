@@ -20,6 +20,49 @@ from recorrer import (FalloRecorrido, NoEjecutado, responder_sin_redireccion,
 
 
 class RecorridoSinteticoTest(unittest.TestCase):
+    def test_http_excluye_query_cabeceras_y_respuesta(self):
+        respuesta = SimpleNamespace(
+            url="https://127.0.0.1:18531/api/vec/recurso?secreto=no_guardar",
+            status=503, request=SimpleNamespace(method="POST"),
+            headers={"Authorization": "no_guardar"})
+        evidencia = {}
+        recorrer.observar_http(respuesta, evidencia)
+        self.assertEqual(evidencia, {"http_observado": [
+            {"metodo": "POST", "ruta": "/api/vec/recurso", "estado": 503}]})
+
+    def test_capturas_privadas_conservan_geometria_aun_si_desborda(self):
+        class Pagina:
+            viewport = None
+
+            def set_viewport_size(self, viewport):
+                self.viewport = viewport
+
+            def wait_for_timeout(self, _milisegundos):
+                pass
+
+            def screenshot(self, **_opciones):
+                return b"imagen-sintetica"
+
+            def evaluate(self, _expresion):
+                return {"ancho": self.viewport["width"],
+                        "contenido": self.viewport["width"] + 1,
+                        "local": 0, "sesion": 0, "indexeddb": 0}
+
+        with tempfile.TemporaryDirectory() as temporal:
+            salida = Path(temporal) / "evidencia.json"
+            pagina = Pagina()
+            contexto = SimpleNamespace(cookies=lambda: [])
+            capturas = recorrer.capturar_pagina(contexto, pagina, salida, "corte_intervencion")
+            carpeta = salida.parent / "evidencia-capturas"
+            self.assertEqual(carpeta.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(len(capturas), 2)
+            for captura in capturas:
+                self.assertEqual((carpeta / captura["archivo"]).stat().st_mode & 0o777, 0o600)
+                self.assertEqual(captura["estado"]["contenido"], captura["estado"]["ancho"] + 1)
+            self.assertEqual(pagina.viewport, {"width": 1440, "height": 900})
+            with self.assertRaises(FileExistsError):
+                recorrer.capturar_pagina(contexto, pagina, salida, "corte_intervencion")
+
     def test_raiz_externa_tras_integrar_y_en_worktree(self):
         principal = Path("/home/alberto/Trabajo/VEC_Diputacion_app")
         worktree = principal / ".worktrees" / "codexm-rec-intervencion-20260930"
