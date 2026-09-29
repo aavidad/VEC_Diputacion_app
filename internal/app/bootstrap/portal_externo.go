@@ -20,6 +20,7 @@ import (
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
+	bolsapublicahttp "vec-diputacion-granada/internal/modules/bolsa/publico/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -193,8 +194,17 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 	}
 	api := http.NewServeMux()
 	api.Handle("/api/publico/", publicaBolsaAPI)
+	dsnPublico, _ := cfg.ExternoBolsaPublicaPostgreSQL.DSN()
+	ctxPublico, cancelarPublico := context.WithTimeout(context.Background(), 30*time.Second)
+	bolsasPublicas, cerrarBolsasPublicas, err := nuevasBolsasPublicasPortalExterno(ctxPublico, cfg, dsnPublico)
+	cancelarPublico()
+	if err != nil {
+		return nil, err
+	}
+	bolsapublicahttp.RegistrarRutasBolsasPublicas(api, bolsasPublicas)
 	personal, cerrarPersonal, err := nuevasCapacidadesPersonalesPortalExterno(cfg, material.identidad, emisor)
 	if err != nil {
+		cerrarBolsasPublicas()
 		return nil, err
 	}
 	if personal != nil {
@@ -202,15 +212,18 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 	}
 	if err := avisarArranquePortalExterno(registro); err != nil {
 		cerrarPersonal()
+		cerrarBolsasPublicas()
 		return nil, err
 	}
 	servidor, err := server.NewHTTPServer(cfg, api)
 	if err != nil {
 		cerrarPersonal()
+		cerrarBolsasPublicas()
 		return nil, err
 	}
 	servidor.TLSConfig = material.tls.Clone()
 	servidor.RegisterOnShutdown(cerrarPersonal)
+	servidor.RegisterOnShutdown(cerrarBolsasPublicas)
 	return servidor, nil
 }
 
