@@ -168,8 +168,8 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 // nuevoServidorPortalExternoDesarrollo compone el proceso del portal externo:
 // mTLS con la identidad de la persona candidata, consulta pública y los
 // ficheros del Área personal. No abre ninguna conexión de RRHH ni carga
-// material interno; las capacidades personales (Mi bolsa, preferencias,
-// correos, imagen) se añaden en sus propias minitareas.
+// material interno; cada capacidad personal solo lee sus claves y conexiones
+// nominales del proceso externo.
 func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if registro == nil {
@@ -228,19 +228,24 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 }
 
 // nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
-// personal que el proceso externo tenga encendidas. Hoy: «Mis preferencias».
-// Correos e imagen aún no se componen aquí: encenderlos en el externo impide
-// arrancar en lugar de ignorarse.
+// personal que el proceso externo tenga encendidas. Correos necesita una
+// clave propia y la acreditación durable de que no quedan cifrados antiguos.
 func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
 	nada := func() {}
-	for _, selector := range []string{envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
-		if activo, err := selectorCapacidadRRHHDesarrollo(cfg, selector); err != nil || activo {
-			return nil, nada, ErrUsuariosPortalExternoNoDisponible
-		}
-	}
 	preferencias, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
 		return nil, nada, err
+	}
+	correos, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	imagen, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosImagenDesarrollo)
+	if err != nil {
+		return nil, nada, err
+	}
+	if (correos || imagen) && !preferencias {
+		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	if !preferencias {
 		return nil, nada, nil
@@ -268,12 +273,31 @@ func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *reso
 		return nil, nada, ErrUsuariosPortalExternoNoDisponible
 	}
 	cerrar := func() { preflight.Close(); derivador.borrar() }
-	autoridad, err := nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
-	if err != nil {
+	var fuenteCorreos *fuenteClavesCorreosPortalExterno
+	if correos {
+		fuenteCorreos, err = nuevaFuenteClavesCorreosPortalExterno(ctx, cfg, preflight)
+		if err != nil {
+			cerrar()
+			return nil, nada, ErrUsuariosPortalExternoNoDisponible
+		}
+	}
+	cerrarConClaves := func() {
+		if fuenteCorreos != nil {
+			fuenteCorreos.borrar()
+		}
 		cerrar()
+	}
+	var autoridad *autoridadPreferenciasUsuariosDesarrollo
+	if fuenteCorreos != nil {
+		autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight, fuenteCorreos)
+	} else {
+		autoridad, err = nuevasPreferenciasPortalExterno(ctx, cfg, identidad, derivador, emisor, preflight)
+	}
+	if err != nil {
+		cerrarConClaves()
 		return nil, nada, err
 	}
-	cerrarTodo := func() { autoridad.cerrar(); cerrar() }
+	cerrarTodo := func() { autoridad.cerrar(); cerrarConClaves() }
 	manejador, err := nuevaAPIPersonalPortalExterno(identidad, emisor, autoridad)
 	if err != nil {
 		cerrarTodo()
