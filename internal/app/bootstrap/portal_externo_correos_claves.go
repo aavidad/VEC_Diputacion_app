@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,11 +38,17 @@ func acreditarPoblacionCorreosPortalExternoSinClavesAjenas(ctx context.Context, 
 // claves retenidas del proceso combinado: cualquier referencia anterior
 // deniega el arranque hasta una operación de reclaveado separada y auditada.
 type fuenteClavesCorreosPortalExterno struct {
+	mu     sync.RWMutex
 	claves usuariosseguridad.ClavesCorreos
 }
 
 func (f *fuenteClavesCorreosPortalExterno) CargarClavesCorreos(ctx context.Context) (usuariosseguridad.ClavesCorreos, error) {
-	if f == nil || ctx == nil || ctx.Err() != nil || f.claves.CifradoActivo.Material == ([sha256.Size]byte{}) {
+	if f == nil || ctx == nil || ctx.Err() != nil {
+		return usuariosseguridad.ClavesCorreos{}, ErrClavesCorreosPortalExternoNoDisponibles
+	}
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if f.claves.CifradoActivo.Material == ([sha256.Size]byte{}) {
 		return usuariosseguridad.ClavesCorreos{}, ErrClavesCorreosPortalExternoNoDisponibles
 	}
 	return f.claves, nil
@@ -49,6 +56,8 @@ func (f *fuenteClavesCorreosPortalExterno) CargarClavesCorreos(ctx context.Conte
 
 func (f *fuenteClavesCorreosPortalExterno) borrar() {
 	if f != nil {
+		f.mu.Lock()
+		defer f.mu.Unlock()
 		clear(f.claves.CifradoActivo.Material[:])
 		clear(f.claves.Igualdad.Material[:])
 		clear(f.claves.SemanticaActiva.Material[:])

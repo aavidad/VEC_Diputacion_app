@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -96,5 +97,34 @@ func TestClavesCorreosExternosDeniegaPoblacionAnteriorOConsultaFallida(t *testin
 	cfg.PortalProceso = "interno"
 	if fuente, err := nuevaFuenteClavesCorreosPortalExternoConConsulta(t.Context(), cfg, &consultaPoblacionCorreosPrueba{fila: filaPoblacionCorreosPrueba{vacia: true}}); fuente != nil || err == nil {
 		t.Fatal("material externo usado desde el portal interno")
+	}
+}
+
+func TestClavesCorreosExternosCierreConcurrenteNoEntregaClaveParcial(t *testing.T) {
+	cfg := materialCorreosExternoPrueba(t, 0x54)
+	fuente, err := nuevaFuenteClavesCorreosPortalExternoConConsulta(t.Context(), cfg,
+		&consultaPoblacionCorreosPrueba{fila: filaPoblacionCorreosPrueba{vacia: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var grupo sync.WaitGroup
+	errores := make(chan error, 64)
+	for i := 0; i < cap(errores); i++ {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			claves, err := fuente.CargarClavesCorreos(context.Background())
+			if err == nil && claves.CifradoActivo.Material == ([32]byte{}) {
+				errores <- errors.New("clave parcialmente borrada")
+			} else if err != nil && !errors.Is(err, ErrClavesCorreosPortalExternoNoDisponibles) {
+				errores <- err
+			}
+		}()
+	}
+	fuente.borrar()
+	grupo.Wait()
+	close(errores)
+	for err := range errores {
+		t.Fatal(err)
 	}
 }
