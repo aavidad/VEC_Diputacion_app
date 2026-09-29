@@ -26,10 +26,11 @@ test("la paginación de marco calcula límites estables con tamaño fijo", () =>
 });
 
 test("la paginación distingue tablas locales de cursores remotos", () => {
-  assert.match(javascript, /TAMANO_PAGINA_MARCO = 6/u);
+  assert.match(javascript, /let tamanoPaginaMarco = 6/u);
   assert.match(javascript, /navegadorRemotoDeTabla/u);
   assert.match(javascript, /ct-exp-paginacion[\s\S]*paginacion-bolsa/u);
-  assert.match(javascript, /filas\.length <= TAMANO_PAGINA_MARCO/u);
+  assert.match(javascript, /filas\.length <= tamanoPaginaMarco/u);
+  assert.match(javascript, /\[20, 50, 100\]\.includes\(filas\)/u);
   assert.match(javascript, /new MutationObserver\(actualizarPaginacionesMarco\)/u);
 });
 
