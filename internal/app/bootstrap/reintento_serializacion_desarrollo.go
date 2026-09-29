@@ -3,24 +3,21 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
-// La composición de desarrollo publica la instantánea de autorización en
-// cada petición. Dos peticiones simultáneas del mismo perfil (por ejemplo, la
-// bandeja y las incorporaciones que la página del centro pide a la vez) se
-// ordenan en el bloqueo consultivo del perfil; la segunda tomó su instantánea
-// SERIALIZABLE antes de esperar y, al leer con FOR UPDATE la asignación que la
-// primera acaba de confirmar, PostgreSQL la aborta con 40001. Esa pérdida de
-// carrera no es un fallo del servicio: se repite la publicación completa, que
-// el aborto dejó sin efecto. Misma política que la transacción de consulta de
-// contratación temporal (adapters/postgres/reintento_serializable.go).
-const (
-	intentosPublicacionSerializableCTDesarrollo   = 6
-	esperaBasePublicacionSerializableCTDesarrollo = 25 * time.Millisecond
-)
+// La composición de desarrollo prepara y publica la instantánea de
+// autorización en cada petición, y lee la configuración de confianza V3 en
+// una transacción de gobierno. Varias peticiones simultáneas del mismo perfil
+// (la página del centro pide a la vez contexto, bandeja e incorporaciones) se
+// ordenan en el bloqueo consultivo del perfil; en SERIALIZABLE la instantánea
+// se tomó antes de esperar y PostgreSQL aborta a las que llegan tarde con
+// 40001. Esas transacciones se repiten enteras con la política única de
+// internal/shared/postgresql; el aborto las dejó sin efecto.
+const intentosPublicacionSerializableCTDesarrollo = postgresqlcomun.IntentosMaximosCarreraSerializable
 
 // falloSerializacionPostgreSQLCTDesarrollo es el centinela de siempre marcado
 // como pérdida de carrera (40001 o 40P01). errors.Is con el centinela sigue
@@ -35,37 +32,21 @@ func (falloSerializacionPostgreSQLCTDesarrollo) Unwrap() error {
 	return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 }
 
+// CarreraSerializable marca el fallo como repetible para la política común.
+func (falloSerializacionPostgreSQLCTDesarrollo) CarreraSerializable() bool { return true }
+
 func causaSerializacionPostgreSQLCTDesarrollo(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && (pg.Code == "40001" || pg.Code == "40P01")
 }
 
 func falloReintentableSerializacionCTDesarrollo(err error) bool {
-	var marca falloSerializacionPostgreSQLCTDesarrollo
-	return errors.As(err, &marca) || causaSerializacionPostgreSQLCTDesarrollo(err)
+	return postgresqlcomun.EsCarreraSerializable(err)
 }
 
 // reintentarSerializacionCTDesarrollo repite intento mientras pierda una
 // carrera de serialización o un interbloqueo. Cada intento abre y cierra su
-// propia transacción. La espera crece con el intento y lleva una parte
-// aleatoria; si el contexto vence o se cancela, deja de esperar y devuelve el
-// último error. Cualquier otro error se devuelve sin repetir.
+// propia transacción. Cualquier otro error se devuelve sin repetir.
 func reintentarSerializacionCTDesarrollo(ctx context.Context, intento func() error) error {
-	var err error
-	for n := 1; ; n++ {
-		err = intento()
-		if err == nil || !falloReintentableSerializacionCTDesarrollo(err) ||
-			n == intentosPublicacionSerializableCTDesarrollo || ctx == nil || ctx.Err() != nil {
-			return err
-		}
-		espera := time.Duration(n)*esperaBasePublicacionSerializableCTDesarrollo +
-			time.Duration(time.Now().UnixNano())%esperaBasePublicacionSerializableCTDesarrollo
-		t := time.NewTimer(espera)
-		select {
-		case <-ctx.Done():
-			t.Stop()
-			return err
-		case <-t.C:
-		}
-	}
+	return postgresqlcomun.RepetirTrasCarreraSerializable(ctx, intento)
 }

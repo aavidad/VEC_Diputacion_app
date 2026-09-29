@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -78,17 +79,19 @@ func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3(
 	errorNoDisponible error,
 ) (time.Time, error) {
 	var registradaEn time.Time
-	var err error
-	for intento := 1; ; intento++ {
+	err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
 		registradaEn, err = a.registrarDecisionContextoActorV3UnaVez(ctx, datos, concedidaEsperada, errorNoDisponible)
-		var carrera carreraSerializacionRegistroV3
-		if !errors.As(err, &carrera) {
-			return registradaEn, err
-		}
-		if intento == intentosRegistroContextoActorV3 || !esperarReintentoRegistroV3(ctx, intento) {
-			return time.Time{}, carrera.traducido
-		}
+		return err
+	})
+	var carrera carreraSerializacionRegistroV3
+	if errors.As(err, &carrera) {
+		return time.Time{}, carrera.traducido
 	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return registradaEn, nil
 }
 
 func (a *AlmacenAutorizacion) registrarDecisionContextoActorV3UnaVez(

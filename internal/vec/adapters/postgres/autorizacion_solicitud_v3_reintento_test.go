@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
@@ -40,7 +41,7 @@ func TestRegistroContextoActorV3PostgreSQLRepiteCarreraSerializable(t *testing.T
 		{"40001 al insertar se recupera", 2, carrera, 0, nil, nil, 3},
 		{"40P01 al insertar se recupera", 1, &pgconn.PgError{Code: "40P01"}, 0, nil, nil, 2},
 		{"40001 al confirmar se recupera", 0, nil, 1, carrera, nil, 2},
-		{"carrera persistente agota los intentos", -1, carrera, 0, nil, ports.ErrInstantaneaAutorizacionObsoleta, intentosRegistroContextoActorV3},
+		{"carrera persistente agota los intentos", -1, carrera, 0, nil, ports.ErrInstantaneaAutorizacionObsoleta, postgresqlcomun.IntentosMaximosCarreraSerializable},
 		{"55P03 no se repite", -1, &pgconn.PgError{Code: "55P03"}, 0, nil, ports.ErrInstantaneaAutorizacionObsoleta, 1},
 		{"otro error no se repite", -1, &pgconn.PgError{Code: "XX000"}, 0, nil, ports.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible, 1},
 	}
