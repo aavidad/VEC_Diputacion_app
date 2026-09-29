@@ -168,9 +168,8 @@ func validarManifiestoPortalExterno(ruta string, ca, servidor *x509.Certificate)
 
 // nuevoServidorPortalExternoDesarrollo compone el proceso del portal externo:
 // mTLS con la identidad de la persona candidata, consulta pública y los
-// ficheros del Área personal. No abre ninguna conexión de RRHH ni carga
-// material interno; las capacidades personales (Mi bolsa, preferencias,
-// correos, imagen) se añaden en sus propias minitareas.
+// ficheros del Área personal. Las capacidades personales usan conexiones
+// nominales externas; no abre conexiones de RRHH ni carga material interno.
 func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if registro == nil {
@@ -229,9 +228,9 @@ func nuevoServidorPortalExternoDesarrollo(cfg config.Config, registro io.Writer,
 }
 
 // nuevasCapacidadesPersonalesPortalExterno compone las capacidades del Área
-// personal que el proceso externo tenga encendidas. Hoy: «Mis preferencias».
-// Correos e imagen aún no se componen aquí: encenderlos en el externo impide
-// arrancar en lugar de ignorarse.
+// personal que el proceso externo tenga encendidas: preferencias, consulta de
+// Mi bolsa y, con el selector, acciones del candidato. Una capacidad activa
+// sin infraestructura completa impide arrancar.
 func nuevasCapacidadesPersonalesPortalExterno(cfg config.Config, identidad *resolvedorIdentidadDesarrollo, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, func(), error) {
 	nada := func() {}
 	for _, selector := range []string{envUsuariosCorreosDesarrollo, envUsuariosImagenDesarrollo} {
