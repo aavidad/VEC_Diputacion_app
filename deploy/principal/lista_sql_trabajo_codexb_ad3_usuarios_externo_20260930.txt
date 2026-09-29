@@ -1,0 +1,2 @@
+# Aplicar después de Contexto-14, AUT-17 y AD3-116, sobre el mismo clon causal.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000118_consumo_usuarios_externo.up.sql
