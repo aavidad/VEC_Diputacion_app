@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 globalThis.location = { href: "https://vec.example/portal-empleado/?lang=es" };
 const { IDIOMA_ACTUAL } = await import("../comun/idioma.js");
 const { AYUDA_PORTAL_BOLSA, AYUDA_PORTAL_RRHH } = await import("./ayuda-contenido.js");
-const { MENSAJES_AYUDA_INICIO_RRHH_EN, MENSAJES_AYUDA_PORTAL_ES } = await import("./portal-i18n-ayuda.js");
-const { crearTraductorPortal, MENSAJES_PORTAL_ES } = await import("./portal-i18n.js");
+const ayudaDe = async (idioma) => JSON.parse(await readFile(new URL(`../textos/${idioma}/portal-ayuda.json`, import.meta.url), "utf8")).ayuda;
+const [MENSAJES_AYUDA_PORTAL, MENSAJES_AYUDA_EN] = await Promise.all([ayudaDe("es"), ayudaDe("en")]);
+const { crearTraductorPortal, MENSAJES_PORTAL } = await import("./portal-i18n.js");
 
-const CLAVES_INICIO = Object.keys(MENSAJES_AYUDA_INICIO_RRHH_EN)
+const CLAVES_INICIO = Object.keys(MENSAJES_AYUDA_PORTAL)
   .filter((clave) => clave.startsWith("ayuda_rrhh_portada_"));
 
 test("la ayuda española de Inicio RRHH orienta sobre las tres áreas sin describir un llamamiento", () => {
   assert.equal(IDIOMA_ACTUAL, "es");
-  const traducir = crearTraductorPortal(MENSAJES_PORTAL_ES);
+  const traducir = crearTraductorPortal(MENSAJES_PORTAL);
   assert.equal(AYUDA_PORTAL_RRHH.esquema, "vec.portal.ayuda.v1");
   assert.equal(AYUDA_PORTAL_RRHH.titulo, traducir("ayuda_rrhh_portada_titulo"));
   assert.equal(AYUDA_PORTAL_RRHH.introduccion, traducir("ayuda_rrhh_portada_introduccion"));
@@ -32,10 +34,10 @@ test("la ayuda española de Inicio RRHH orienta sobre las tres áreas sin descri
 
 test("las claves de ayuda RRHH tienen pareja inglesa y conservan los parámetros", () => {
   assert.equal(CLAVES_INICIO.length, 13);
-  for (const clave of Object.keys(MENSAJES_AYUDA_INICIO_RRHH_EN)) {
-    assert.ok(typeof MENSAJES_AYUDA_PORTAL_ES[clave] === "string" && MENSAJES_AYUDA_PORTAL_ES[clave]);
-    assert.ok(MENSAJES_AYUDA_INICIO_RRHH_EN[clave]);
+  for (const clave of Object.keys(MENSAJES_AYUDA_PORTAL)) {
+    assert.ok(typeof MENSAJES_AYUDA_PORTAL[clave] === "string" && MENSAJES_AYUDA_PORTAL[clave]);
+    assert.ok(MENSAJES_AYUDA_EN[clave], clave);
     const variables = (texto) => [...texto.matchAll(/\{([a-z_]+)\}/gu)].map((coincidencia) => coincidencia[1]).sort();
-    assert.deepEqual(variables(MENSAJES_AYUDA_PORTAL_ES[clave]), variables(MENSAJES_AYUDA_INICIO_RRHH_EN[clave]), clave);
+    assert.deepEqual(variables(MENSAJES_AYUDA_PORTAL[clave]), variables(MENSAJES_AYUDA_EN[clave]), clave);
   }
 });

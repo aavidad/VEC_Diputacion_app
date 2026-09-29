@@ -4,12 +4,13 @@ import test from "node:test";
 
 import { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js";
 import { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } from "./ayudante-tramites.js";
-import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js";
-import { MENSAJES_PORTAL_ES, crearTraductorPortal, traducirPortal } from "./portal-i18n.js";
+import { MENSAJES_PORTAL, crearTraductorPortal, traducirPortal } from "./portal-i18n.js";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
+const MENSAJES_AYUDA_PORTAL = JSON.parse(await readFile(new URL("../textos/es/portal-ayuda.json", import.meta.url), "utf8")).ayuda;
+
 test("todo texto de la ayuda y del ayudante procede del catálogo común", () => {
-  const valores = new Set(Object.values(MENSAJES_AYUDA_PORTAL_ES));
+  const valores = new Set(Object.values(MENSAJES_AYUDA_PORTAL));
   const comprobar = (valor) => assert.ok(valores.has(valor), `fuera del catálogo: ${valor}`);
   [AYUDA_PORTAL_BOLSA.titulo, AYUDA_PORTAL_BOLSA.introduccion, AYUDA_PORTAL_BOLSA.transcripcion,
     ...AYUDA_PORTAL_BOLSA.pasos, ...AYUDA_PORTAL_BOLSA.preguntas.flatMap(({ pregunta, respuesta }) => [pregunta, respuesta])]
@@ -25,7 +26,7 @@ test("todo texto de la ayuda y del ayudante procede del catálogo común", () =>
     }
   }
   Object.values(MENSAJES_AYUDANTE_TRAMITES_ES).forEach(comprobar);
-  const traducirPersonalizado = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ayuda_pasos: "Etapas" });
+  const traducirPersonalizado = crearTraductorPortal({ ...MENSAJES_PORTAL, ayuda_pasos: "Etapas" });
   assert.equal(traducirPersonalizado("ayuda_pasos"), "Etapas");
   assert.equal(traducirPortal("ayuda_abrir_contextual", { contexto: "Dietas" }), "Abrir ayuda de Dietas");
 });
@@ -41,13 +42,13 @@ test("el botón ? abre la ayuda contextual sin cargar una grabación obsoleta", 
   assert.doesNotMatch(portal, /<audio controls/u);
   assert.doesNotMatch(ayuda, /ayuda-llamamiento-bolsa\.mp3/u);
   assert.match(ayudante, /\[data-ayudante-detalle\]/u);
-  assert.match(i18n, /MENSAJES_AYUDA_PORTAL_ES/u);
+  assert.match(i18n, /"portal-ayuda"/u);
   assert.ok(crearAyudanteTramites().contenido.includes("data-ayudante-tramite"));
 });
 
 test("la cadena de módulos renueva caché hasta el HTML", async () => {
-  const [html, portal, ayuda, ayudante, i18n] = await Promise.all([
-    "index.html", "portal.js", "ayuda-contenido.js", "ayudante-tramites.js", "portal-i18n.js",
+  const [html, portal, ayuda, ayudante, panel] = await Promise.all([
+    "index.html", "portal.js", "ayuda-contenido.js", "ayudante-tramites.js", "portal-panel-interno.js",
   ].map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
   // Versión publicada de la cadena antes de su último cambio: cada eslabón
   // cambiado pide una URL nueva, única entre todos sus importadores.
@@ -56,6 +57,7 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   exigirRenovado(portal, "./ayudante-tramites.js", anterior);
   exigirRenovado([portal, ayudante], "./ayuda-contenido.js", anterior);
   exigirRenovado([portal, ayuda, ayudante], "./portal-i18n.js", anterior);
-  exigirRenovado(i18n, "./portal-i18n-ayuda.js", "20260924-ayuda-i18n-v1");
-  exigirRenovado(i18n, "./portal-panel-interno-i18n.js", "20260924-ayuda-panel-i18n-v4");
+  // Los textos de la ayuda son datos (`textos/<idioma>/portal-ayuda.json`,
+  // servidos sin caché); el aviso del panel sigue siendo un módulo versionado.
+  exigirRenovado(panel, "./portal-panel-interno-i18n.js", "20260924-ayuda-panel-i18n-v4");
 });

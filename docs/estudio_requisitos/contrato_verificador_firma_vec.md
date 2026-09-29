@@ -1,7 +1,7 @@
 # Contrato VEC → verificador de firma (v1)
 
 Este contrato define un servicio verificador **separado** de VEC. El adaptador
-`internal/vec/documentos/adapters/verificadorhttp` lo consume. AutofirmaV2
+`internal/vec/documentos/adapters/verificadorhttp` lo consume. GrxFirma
 aporta contexto de formatos y validación, pero su servicio local y sus canales
 web legacy no son este destino ni acreditan la integración.
 

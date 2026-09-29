@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import {
+  cargarMensajesPortal,
   crearTraductorPortal,
-  MENSAJES_INICIO_RRHH_EN,
-  MENSAJES_PORTAL_ES,
+  MENSAJES_PORTAL,
 } from "./portal-i18n.js";
+
+const MENSAJES_PORTAL_INGLES = await cargarMensajesPortal("en");
 
 test("la auditoría del expediente tiene textos simétricos ES y EN", async () => {
   const es = crearTraductorPortal();
-  const en = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const en = crearTraductorPortal(MENSAJES_PORTAL_INGLES);
   assert.equal(es("auditoria_expediente_panel"), "Auditoría del expediente");
   assert.equal(es("auditoria_expediente_accion"), "Consultar auditoría de este expediente");
   assert.equal(en("auditoria_expediente_panel"), "Case audit trail");
@@ -22,7 +24,7 @@ test("la auditoría del expediente tiene textos simétricos ES y EN", async () =
 
 test("miga, título, navegación y pie de CT usan el catálogo común en ambos idiomas", async () => {
   const es = crearTraductorPortal();
-  const en = crearTraductorPortal({ ...MENSAJES_PORTAL_ES, ...MENSAJES_INICIO_RRHH_EN });
+  const en = crearTraductorPortal(MENSAJES_PORTAL_INGLES);
   const textos = [
     ["contratacion_temporal_miga", "Portal del Empleado → Peticiones de personal temporal", "Employee Portal → Temporary staff requests"],
     ["contratacion_temporal_titulo", "Gestión de peticiones de personal temporal", "Manage temporary staff requests"],
@@ -47,19 +49,15 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
-  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507"];
-  // Fase de firma (5.06) integrada con la auditoría legible y 5.07: todo el grafo renueva URL.
-  const vigente = "20260929-firma-506-v2";
+  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
+  // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
+  const vigente = "20260929-i18n-shell-v2";
   const versionesEspeciales = new Map([
-    ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
-    // 3.06/3.07: ofertas con varias plazas renuevan su grafo.
-    ["portal.js", "20260929-imagen-508c-v2"],
-    ["portal-bolsas-ofertas.js", "20260929-plazas-306-v1"],
-    ["modulos/bolsa/rrhh-plazos-ui.js", "20260929-plazas-306-v1"],
-    // «Mis correos» (5.08b) y «Mi imagen» (5.08c) cambian la vista de
-    // preferencias y quienes la importan.
-    ["portal-preferencias-integracion.js", "20260929-imagen-508c-v2"],
-    ["portal-preferencias.js", "20260929-imagen-508c-v2"],
+    // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
+    ["portal.js", "20260929-firma-506-v4"],
+    ["portal-modulos-coordinador.js", "20260929-firma-506-v4"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20260929-firma-506-v4"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20260929-firma-506-v4"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];
@@ -117,7 +115,7 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
 
 test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reintento", () => {
   const traducir = crearTraductorPortal();
-  for (const clave of Object.keys(MENSAJES_PORTAL_ES)) {
+  for (const clave of Object.keys(MENSAJES_PORTAL)) {
     assert.equal(typeof traducir(clave), "string");
     assert.notEqual(traducir(clave), "");
   }
@@ -150,12 +148,12 @@ test("Cronos toma migas y títulos de Jornada y Permisos del catálogo común", 
 test("Bolsa interna usa catálogo común y formatos es-ES para textos y valores", async () => {
   const {
     crearTraductorBolsaInterna,
-    MENSAJES_BOLSA_INTERNA_ES,
+    MENSAJES_BOLSA_INTERNA,
     formatearFechaPortal,
     formatearNumeroPortal,
   } = await import("./portal-i18n.js");
   const traducir = crearTraductorBolsaInterna();
-  for (const clave of Object.keys(MENSAJES_BOLSA_INTERNA_ES)) {
+  for (const clave of Object.keys(MENSAJES_BOLSA_INTERNA)) {
     assert.notEqual(traducir(clave), "");
   }
   assert.equal(traducir("numero_convocatorias", { numero: "3" }), "3 convocatorias encontradas.");
@@ -165,12 +163,12 @@ test("Bolsa interna usa catálogo común y formatos es-ES para textos y valores"
 });
 
 test("B24 traduce desde el catálogo común los eventos del recurso", async () => {
-  const { traducirBolsaInterna, MENSAJES_BOLSA_INTERNA_ES } = await import("./portal-i18n.js");
+  const { traducirBolsaInterna, MENSAJES_BOLSA_INTERNA } = await import("./portal-i18n.js");
   assert.equal(traducirBolsaInterna("b24_recurso_historial", { total: 2 }), "Historial del recurso (2)");
   assert.equal(traducirBolsaInterna("b24_recurso_evento", { estado: "Interpuesto", fecha: "24 sept 2026", actor: "persona:registro" }),
     "Interpuesto · 24 sept 2026 · Anotado por persona:registro");
   assert.equal(traducirBolsaInterna("b24_recurso_documento", { referencia: "registro:1" }), "Escrito: registro:1");
   for (const clave of ["b24_recurso_historial", "b24_recurso_evento", "b24_recurso_documento"]) {
-    assert.equal(typeof MENSAJES_BOLSA_INTERNA_ES[clave], "string");
+    assert.equal(typeof MENSAJES_BOLSA_INTERNA[clave], "string");
   }
 });

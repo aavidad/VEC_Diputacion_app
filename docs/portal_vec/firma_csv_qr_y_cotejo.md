@@ -23,7 +23,7 @@ medio de acceso. La evidencia la forman los bytes exactos almacenados, su
 huella, el CSV vinculado a esa version, las firmas o sellos electronicos, los
 sellos de tiempo, la validacion y la auditoria.
 
-## Estado de AutofirmaV2
+## Estado de GrxFirma
 
 La implementacion local ya aporta una base reutilizable:
 
@@ -66,7 +66,7 @@ portal quien conserva de forma cifrada cada entrada, salida y evidencia.
 
 ## Cambios necesarios en AutofirmaV3
 
-El fork puede mantener AutofirmaV2 intacta y cerrar estas capacidades mediante
+El fork puede mantener GrxFirma intacta y cerrar estas capacidades mediante
 un contrato versionado:
 
 1. Operacion de firma de una unica revision preparada que reciba identificador
@@ -371,7 +371,7 @@ probatoria entrega los bytes exactos autorizados.
 
 ## Componentes abiertos que se reutilizan
 
-- **AutofirmaV2/AutofirmaV3**: firma en cliente, seleccion del certificado y
+- **GrxFirma/AutofirmaV3**: firma en cliente, seleccion del certificado y
   apariencia QR ya disponible.
 - **DSS de la Comision Europea**: servicio aislado detras del puerto de firma y
   validacion para PAdES, firmas multiples, aumento T/LT/LTA, OCSP/CRL, listas de

@@ -31,6 +31,7 @@ function circuito() {
     esquema: "vec.contratacion_temporal.circuito_firma.v1",
     catalogo_ref: "vec.contratacion_temporal.circuito_firma:1",
     huella_sha256: "a".repeat(64), ejemplo: true, firma_eficaz: false,
+    portafirmas: { conectado: false, motivo: "conexion_pendiente" },
     documentos: [{ documento: "informe_definitivo", etiqueta: "Informe definitivo", pasos: [paso(1, 2), paso(2, 2)] }],
   };
 }
@@ -50,6 +51,12 @@ test("valida el contrato exacto y rechaza desviaciones", () => {
     (c) => { c.documentos[0].pasos[0].habilita = "cierre_circuito"; },
     (c) => { c.documentos = []; },
     (c) => { c.huella_sha256 = "x"; },
+    // Firmadoc: el servidor solo dice si está conectado; nada más se admite.
+    (c) => { c.portafirmas = { conectado: false }; },
+    (c) => { c.portafirmas = { conectado: false, motivo: "Conexión" }; },
+    (c) => { c.portafirmas = { conectado: true, motivo: "conexion_pendiente" }; },
+    (c) => { c.portafirmas = { conectado: false, motivo: "conexion_pendiente", estado: "firmado" }; },
+    (c) => { c.portafirmas = { conectado: "no", motivo: "conexion_pendiente" }; },
   ];
   for (const alterar of casos) {
     const copia = circuito();
@@ -340,9 +347,9 @@ test("un rechazo del verificador no muestra sus códigos internos", async () => 
 });
 
 test("la ayuda explica el circuito de ejemplo y la falta de eficacia sin portafirmas", async () => {
-  const ayuda = await readFile(new URL("../../portal-i18n-ayuda.js", import.meta.url), "utf8");
-  assert.match(ayuda, /ayuda_contenido_421: "El «Circuito de firma»/u);
-  assert.match(ayuda, /ayuda_contenido_422: ".*no tiene eficacia administrativa.*portafirmas corporativo/u);
+  const ayuda = await readFile(new URL("../../../textos/es/portal-ayuda.json", import.meta.url), "utf8");
+  assert.match(ayuda, /"ayuda_contenido_421": "El «Circuito de firma»/u);
+  assert.match(ayuda, /"ayuda_contenido_422": ".*no tiene eficacia administrativa.*portafirmas corporativo/u);
 });
 
 test("la fase de firma se ve en cualquier fase del expediente real, sin botones fuera de nombramiento", async () => {
@@ -373,4 +380,13 @@ test("la fase de firma se ve en cualquier fase del expediente real, sin botones 
   assert.match(insertados[0], /Cargo &lt;2&gt; \(paso 2 de 2\)/u);
   assert.doesNotMatch(insertados[0], /data-ct-firma-accion/u, "firmar solo cuando se pueden descargar los borradores");
   gestor.retirar();
+});
+
+test("sin el campo portafirmas el circuito vale y Firmadoc cuenta como no conectado", () => {
+  const datos = circuito();
+  delete datos.portafirmas;
+  const valido = validarCircuitoFirma(datos);
+  assert.ok(valido);
+  assert.deepEqual({ ...valido.portafirmas }, { conectado: false, motivo: "conexion_pendiente" });
+  assert.equal(validarCircuitoFirma(circuito()).portafirmas.conectado, false);
 });

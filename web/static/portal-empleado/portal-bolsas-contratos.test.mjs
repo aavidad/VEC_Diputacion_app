@@ -5,7 +5,7 @@ import {
   consultarContratosParticipacion,
   ESQUEMA_CONTRATOS,
   manejarClickContratos,
-  MENSAJES_CONTRATOS_ES,
+  MENSAJES_CONTRATOS,
   renderizarContratosParticipacion,
   rutaContratosParticipacion,
   traducirContratos,
@@ -57,17 +57,17 @@ test("B13 rechaza respuestas que no respetan el contrato", async () => {
   ]) {
     const res = await consultarContratosParticipacion("b", "p", { fetchImpl: async () => respuesta(200, cuerpo) });
     assert.equal(res.ok, false, JSON.stringify(cuerpo));
-    assert.equal(res.mensaje, MENSAJES_CONTRATOS_ES.error_contrato);
+    assert.equal(res.mensaje, MENSAJES_CONTRATOS.error_contrato);
   }
 });
 
 test("B13 traduce los errores HTTP y de red sin detalles internos", async () => {
   for (const [status, clave] of [[403, "error_403"], [404, "error_404"], [503, "error_503"]]) {
     const res = await consultarContratosParticipacion("b", "p", { fetchImpl: async () => respuesta(status, { error: { codigo: "x" } }) });
-    assert.equal(res.mensaje, MENSAJES_CONTRATOS_ES[clave]);
+    assert.equal(res.mensaje, MENSAJES_CONTRATOS[clave]);
   }
   const red = await consultarContratosParticipacion("b", "p", { fetchImpl: async () => { throw new TypeError("fallo"); } });
-  assert.equal(red.mensaje, MENSAJES_CONTRATOS_ES.error_red);
+  assert.equal(red.mensaje, MENSAJES_CONTRATOS.error_red);
   assert.equal((await consultarContratosParticipacion("b", "p", { fetchImpl: async () => respuesta(500, {}) })).mensaje,
     traducirContratos("error_http", { estado: 500 }));
 });
@@ -79,7 +79,7 @@ test("B13 el traductor es estricto con las claves", () => {
 
 test("B13 renderiza estados, tabla accesible, fechas locales y escapa datos", () => {
   assert.match(renderizarContratosParticipacion({ estado: {}, escaparHTML }), /aria-busy="true"/);
-  assert.match(renderizarContratosParticipacion({ estado: { carga: "listo", items: [] }, escaparHTML }), new RegExp(MENSAJES_CONTRATOS_ES.vacio));
+  assert.match(renderizarContratosParticipacion({ estado: { carga: "listo", items: [] }, escaparHTML }), new RegExp(MENSAJES_CONTRATOS.vacio));
   const error = renderizarContratosParticipacion({ estado: { carga: "error", error: "<b>x</b>" }, escaparHTML });
   assert.match(error, /role="alert"/);
   assert.match(error, /&lt;b&gt;x&lt;\/b&gt;/);
