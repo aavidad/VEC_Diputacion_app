@@ -24,7 +24,14 @@ RUTA_SUBSANACION = "/api/vec/contratacion-temporal/subsanacion-reparos"
 RUTA_DETALLE = "/api/vec/contratacion-temporal/expedientes/consultas"
 REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$")
 REPO = Path(__file__).resolve().parents[3]
-ARBOL_COMPARTIDO = REPO.parent.parent
+
+
+def raiz_git_estable(repo: Path) -> Path:
+    """Un worktree anidado y la raíz integrada comparten el mismo árbol Git."""
+    return repo.parent.parent if repo.parent.name == ".worktrees" else repo
+
+
+ARBOL_COMPARTIDO = raiz_git_estable(REPO)
 
 
 class NoEjecutado(Exception):
@@ -183,7 +190,7 @@ def responder_sin_redireccion(interceptada, origen: str):
 
 
 def ligar_peticion(pagina, ruta: str, expediente: str, evidencia: dict,
-                   salida: Path, nombre: str):
+                   salida: Path, nombre: str, estado_ejecucion: dict):
     """Conserva la clave antes de permitir el POST del navegador."""
     def guardar_y_continuar(interceptada):
         solicitud = interceptada.request.post_data_json
@@ -198,13 +205,14 @@ def ligar_peticion(pagina, ruta: str, expediente: str, evidencia: dict,
         except Exception:
             interceptada.abort()
             return
+        estado_ejecucion["post_posible"] = True
         responder_sin_redireccion(interceptada, evidencia["origen"])
     pagina.route("**" + ruta, guardar_y_continuar)
     return guardar_y_continuar
 
 
 def contexto(navegador, datos: dict, actor: str):
-    return navegador.new_context(
+    actor_contexto = navegador.new_context(
         client_certificates=[{"origin": datos["origen"],
                               "certPath": datos[f"{actor}_cert"],
                               "keyPath": datos[f"{actor}_key"]}],
@@ -212,16 +220,19 @@ def contexto(navegador, datos: dict, actor: str):
         timezone_id="Europe/Madrid", viewport={"width": 1440, "height": 900},
         accept_downloads=True,
     )
+    cerrar_destinos_externos(actor_contexto, datos["origen"])
+    actor_contexto.route_web_socket("**/*", lambda canal: canal.close(code=1008))
+    return actor_contexto
 
 
-def cerrar_destinos_externos(pagina, origen: str):
+def cerrar_destinos_externos(actor_contexto, origen: str):
     def filtrar(ruta):
         destino = urlsplit(ruta.request.url)
         if destino.scheme == "https" and f"{destino.scheme}://{destino.netloc}" == origen:
             responder_sin_redireccion(ruta, origen)
         else:
             ruta.abort()
-    pagina.route("**/*", filtrar)
+    actor_contexto.route("**/*", filtrar)
 
 
 def abrir(pagina, datos: dict, expediente: str | None = None):
@@ -244,7 +255,7 @@ def comprobar_pagina(contexto_actor, pagina):
 
 
 def registrar_fiscalizacion(pagina, datos: dict, caso: dict, resultado: str,
-                            evidencia: dict, salida: Path):
+                            evidencia: dict, salida: Path, estado_ejecucion: dict):
     abrir(pagina, datos)
     pagina.locator("[data-ct-fiscalizacion-acceso] [name=expediente_ref]").fill(caso["expediente_ref"])
     pagina.locator("[data-ct-fiscalizacion-acceso] [name=version_esperada]").fill(str(caso["version_esperada"]))
@@ -257,7 +268,7 @@ def registrar_fiscalizacion(pagina, datos: dict, caso: dict, resultado: str,
     pagina.on("dialog", lambda dialogo: dialogo.accept())
     etiqueta = "favorable" if resultado == "favorable" else "reparo"
     interceptador = ligar_peticion(pagina, RUTA_FISCAL, caso["expediente_ref"],
-                                   evidencia, salida, etiqueta)
+                                   evidencia, salida, etiqueta, estado_ejecucion)
     with pagina.expect_response(lambda r: urlsplit(r.url).path == RUTA_FISCAL
                                 and r.request.method == "POST", timeout=30_000) as observado:
         form.locator("button[type=submit]").click()
@@ -273,7 +284,7 @@ def registrar_fiscalizacion(pagina, datos: dict, caso: dict, resultado: str,
 
 
 def registrar_subsanacion(pagina, datos: dict, fiscal: dict,
-                          evidencia: dict, salida: Path):
+                          evidencia: dict, salida: Path, estado_ejecucion: dict):
     expediente = fiscal["recibo"]["expediente_ref"]
     abrir(pagina, datos, expediente)
     form = pagina.locator("[data-ct-subsanacion-form]")
@@ -284,7 +295,7 @@ def registrar_subsanacion(pagina, datos: dict, fiscal: dict,
         pagina.locator("[data-ct-subsanacion-guardar]").click()
     pagina.on("dialog", lambda dialogo: dialogo.accept())
     interceptador = ligar_peticion(pagina, RUTA_SUBSANACION, expediente,
-                                   evidencia, salida, "subsanacion")
+                                   evidencia, salida, "subsanacion", estado_ejecucion)
     with pagina.expect_response(lambda r: urlsplit(r.url).path == RUTA_SUBSANACION
                                 and r.request.method == "POST", timeout=30_000) as observado:
         pagina.locator("[data-ct-subsanacion-enviar]").click()
@@ -299,7 +310,8 @@ def registrar_subsanacion(pagina, datos: dict, fiscal: dict,
     return {"solicitud": solicitud, "recibo": resumen, "http_inicial": 201}
 
 
-def repetir(contexto_actor, datos: dict, ruta: str, registro: dict):
+def repetir(contexto_actor, datos: dict, ruta: str, registro: dict, estado_ejecucion: dict):
+    estado_ejecucion["post_posible"] = True
     respuesta = contexto_actor.request.post(datos["origen"] + ruta,
                                             data=registro["solicitud"], timeout=30_000,
                                             max_redirects=0)
@@ -326,10 +338,11 @@ def consultar_detalle(contexto_actor, datos: dict, expediente: str, version: int
         raise FalloRecorrido("detalle o historia cambiaron tras el reinicio")
 
 
-def ejecutar(fase: str, datos: dict, salida: Path) -> dict:
+def ejecutar(fase: str, datos: dict, salida: Path, estado_ejecucion: dict) -> dict:
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         navegador = p.chromium.launch(executable_path=datos["chrome"], headless=True)
+        estado_ejecucion["navegador"] = True
         try:
             intervencion = contexto(navegador, datos, "intervencion")
             rrhh = contexto(navegador, datos, "rrhh")
@@ -340,8 +353,6 @@ def ejecutar(fase: str, datos: dict, salida: Path) -> dict:
                     persistir(salida, evidencia, nuevo=True)
                     pagina_int = intervencion.new_page()
                     pagina_rrhh = rrhh.new_page()
-                    cerrar_destinos_externos(pagina_int, datos["origen"])
-                    cerrar_destinos_externos(pagina_rrhh, datos["origen"])
                     js = []
                     cookies_respuesta = []
                     pagina_int.on("pageerror", lambda error: js.append(str(error)))
@@ -351,17 +362,17 @@ def ejecutar(fase: str, datos: dict, salida: Path) -> dict:
                     pagina_rrhh.on("response", lambda r: cookies_respuesta.append(urlsplit(r.url).path)
                                    if "set-cookie" in r.headers else None)
                     favorable = registrar_fiscalizacion(pagina_int, datos, datos["favorable"],
-                                                         "favorable", evidencia, salida)
+                                                         "favorable", evidencia, salida, estado_ejecucion)
                     evidencia["favorable"] = favorable
                     evidencia.pop("intencion_pendiente", None)
                     persistir(salida, evidencia)
                     reparo = registrar_fiscalizacion(pagina_int, datos, datos["reparo"],
-                                                      "desfavorable", evidencia, salida)
+                                                      "desfavorable", evidencia, salida, estado_ejecucion)
                     evidencia["reparo"] = reparo
                     evidencia.pop("intencion_pendiente", None)
                     persistir(salida, evidencia)
                     subsanacion = registrar_subsanacion(pagina_rrhh, datos, reparo,
-                                                        evidencia, salida)
+                                                        evidencia, salida, estado_ejecucion)
                     evidencia["subsanacion"] = subsanacion
                     evidencia.pop("intencion_pendiente", None)
                     persistir(salida, evidencia)
@@ -389,9 +400,10 @@ def ejecutar(fase: str, datos: dict, salida: Path) -> dict:
                     raise NoEjecutado("evidencia y entorno no corresponden al registro")
                 resultados = {}
                 for nombre in ("favorable", "reparo"):
-                    resultados[nombre] = repetir(intervencion, datos, RUTA_FISCAL, evidencia[nombre])
+                    resultados[nombre] = repetir(intervencion, datos, RUTA_FISCAL,
+                                                 evidencia[nombre], estado_ejecucion)
                 resultados["subsanacion"] = repetir(rrhh, datos, RUTA_SUBSANACION,
-                                                     evidencia["subsanacion"])
+                                                     evidencia["subsanacion"], estado_ejecucion)
                 consultar_detalle(rrhh, datos, evidencia["favorable"]["recibo"]["expediente_ref"],
                                   evidencia["favorable"]["recibo"]["version_resultante"],
                                   ["contratacion_temporal.fiscalizacion.registrar"])
@@ -415,6 +427,7 @@ def main() -> int:
     parser.add_argument("--evidencia", required=True, type=Path)
     parser.add_argument("--reinicio-acreditado", action="store_true")
     args = parser.parse_args()
+    estado_ejecucion = {"navegador": False, "post_posible": False}
     try:
         if args.fase == "recuperar" and not args.reinicio_acreditado:
             raise NoEjecutado("dirección debe acreditar el reinicio de aplicación y PostgreSQL")
@@ -423,21 +436,24 @@ def main() -> int:
         if args.fase == "preparar":
             print(json.dumps({"estado": "PREPARADO", "ejecutado": False}, ensure_ascii=False))
         else:
-            print(json.dumps(ejecutar(args.fase, datos, args.evidencia), ensure_ascii=False))
+            print(json.dumps(ejecutar(args.fase, datos, args.evidencia, estado_ejecucion),
+                             ensure_ascii=False))
         return 0
-    except (NoEjecutado, FileNotFoundError, OSError, ValueError, ImportError) as error:
-        motivo = str(error) if isinstance(error, NoEjecutado) else "entrada local no disponible"
-        print(json.dumps({"estado": "NO EJECUTADO", "motivo": motivo}, ensure_ascii=False),
-              file=sys.stderr)
-        return 2
-    except FalloRecorrido as error:
-        print(json.dumps({"estado": "FALLO", "motivo": str(error)}, ensure_ascii=False),
-              file=sys.stderr)
-        return 1
     except Exception as error:
-        print(json.dumps({"estado": "FALLO", "motivo": type(error).__name__},
-                         ensure_ascii=False), file=sys.stderr)
-        return 1
+        if estado_ejecucion["post_posible"]:
+            estado = "FALLO_CON_EFECTO_POSIBLE"
+        elif estado_ejecucion["navegador"] or isinstance(error, FalloRecorrido):
+            estado = "FALLO"
+        elif isinstance(error, (NoEjecutado, FileNotFoundError, OSError,
+                                ValueError, ImportError)):
+            estado = "NO EJECUTADO"
+        else:
+            estado = "FALLO"
+        motivo = (str(error) if isinstance(error, (NoEjecutado, FalloRecorrido))
+                  else "fallo local; conserve la evidencia y revise el entorno")
+        print(json.dumps({"estado": estado, "motivo": motivo}, ensure_ascii=False),
+              file=sys.stderr)
+        return 2 if estado == "NO EJECUTADO" else 1
 
 
 if __name__ == "__main__":

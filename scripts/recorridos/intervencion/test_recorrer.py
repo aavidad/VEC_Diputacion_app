@@ -4,19 +4,96 @@ from __future__ import annotations
 
 import hashlib
 import http.server
+import io
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+import recorrer
 from recorrer import (FalloRecorrido, NoEjecutado, responder_sin_redireccion,
-                      validar_configuracion, validar_recibo)
+                      validar_configuracion, validar_recibo, raiz_git_estable)
 
 
 class RecorridoSinteticoTest(unittest.TestCase):
+    def test_raiz_externa_tras_integrar_y_en_worktree(self):
+        principal = Path("/home/alberto/Trabajo/VEC_Diputacion_app")
+        worktree = principal / ".worktrees" / "codexm-rec-intervencion-20260930"
+        self.assertEqual(raiz_git_estable(principal), principal)
+        self.assertEqual(raiz_git_estable(worktree), principal)
+
+    def test_contexto_intercepta_primer_pedido_popup_y_cierra_websocket(self):
+        class Ruta:
+            request = SimpleNamespace(url="https://127.0.0.1:9444/fuera")
+
+            def __init__(self):
+                self.abortada = False
+
+            def abort(self):
+                self.abortada = True
+
+        class Canal:
+            def __init__(self):
+                self.codigo = None
+
+            def close(self, *, code):
+                self.codigo = code
+
+        class Contexto:
+            def __init__(self):
+                self.rutas = None
+                self.websockets = None
+
+            def route(self, patron, manejador):
+                self.rutas = manejador
+
+            def route_web_socket(self, patron, manejador):
+                self.websockets = manejador
+
+            def abrir_popup(self):
+                pedido_inicial = Ruta()
+                self.rutas(pedido_inicial)
+                return pedido_inicial
+
+        class Navegador:
+            def __init__(self):
+                self.creado = Contexto()
+
+            def new_context(self, **opciones):
+                return self.creado
+
+        datos = {"origen": "https://127.0.0.1:8443", "rrhh_cert": "/externo/rrhh.crt",
+                 "rrhh_key": "/externo/rrhh.key"}
+        ctx = recorrer.contexto(Navegador(), datos, "rrhh")
+        self.assertTrue(ctx.abrir_popup().abortada)
+        canal = Canal()
+        ctx.websockets(canal)
+        self.assertEqual(canal.codigo, 1008)
+
+    def test_error_tras_post_nunca_declara_no_ejecutado(self):
+        for error in (OSError("fallo de escritura"), ValueError("respuesta incorrecta")):
+            with self.subTest(tipo=type(error).__name__):
+                salida = io.StringIO()
+
+                def fallar(_fase, _datos, _ruta, estado):
+                    estado["navegador"] = True
+                    estado["post_posible"] = True
+                    raise error
+
+                with patch.object(recorrer, "cargar_json", return_value={}), \
+                     patch.object(recorrer, "validar_configuracion", return_value={}), \
+                     patch.object(recorrer, "ejecutar", side_effect=fallar), \
+                     patch("sys.argv", ["recorrer.py", "registrar", "--config", "/externo/config.json",
+                                        "--evidencia", "/externo/evidencia.json"]), \
+                     patch("sys.stderr", salida):
+                    self.assertEqual(recorrer.main(), 1)
+                self.assertIn('"estado": "FALLO_CON_EFECTO_POSIBLE"', salida.getvalue())
+                self.assertNotIn(str(error), salida.getvalue())
+
     def test_redireccion_a_otro_puerto_no_llega_al_destino(self):
         impactos = {"origen": 0, "destino": 0}
 

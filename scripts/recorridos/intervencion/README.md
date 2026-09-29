@@ -2,7 +2,7 @@
 
 Este primer corte prepara dos expedientes distintos para el paso de RRHH de fiscalización. Intervención registra un resultado favorable en el primero y un reparo en el segundo. RRHH registra la subsanación del reparo. El guion observa los tres POST del navegador, sus estados `201`, las versiones y los recibos. Comprueba ambos perfiles a 1440 y 390 px, sin desbordamiento, cookies, almacenamiento web ni errores JavaScript. Después de reiniciar aplicación y PostgreSQL, repite cada petición con su clave original; exige `200` y los mismos recibos, fechas y referencias de auditoría y evento. Consulta también la versión y la secuencia de actuaciones de ambos expedientes.
 
-El guion no crea expedientes, instala migraciones, inicia servicios ni reinicia contenedores. Necesita dos expedientes sintéticos preparados en la fase de informe jurídico, sus versiones exactas, el clon local con H3–H5 instalados, un binario VEC identificado por SHA256 y dos identidades mTLS sintéticas distintas. La configuración y la evidencia se guardan fuera del árbol Git. El origen solo admite HTTPS loopback y el navegador bloquea peticiones a otros orígenes.
+El guion no crea expedientes, instala migraciones, inicia servicios ni reinicia contenedores. Necesita dos expedientes sintéticos preparados en la fase de informe jurídico, sus versiones exactas, el clon local con H3–H5 instalados, un binario VEC identificado por SHA256 y dos identidades mTLS sintéticas distintas. La configuración y la evidencia se guardan fuera del árbol Git. El origen solo admite HTTPS loopback; el contexto del navegador bloquea peticiones de páginas y ventanas emergentes a otros orígenes, redirecciones y canales WebSocket.
 
 Ejemplo de configuración **sin valores operativos**:
 
@@ -32,7 +32,7 @@ python3 scripts/recorridos/intervencion/recorrer.py registrar --config /RUTA/PRI
 python3 scripts/recorridos/intervencion/recorrer.py recuperar --reinicio-acreditado --config /RUTA/PRIVADA/config.json --evidencia /RUTA/PRIVADA/intervencion-evidencia.json
 ```
 
-`preparar` solo valida entradas; devuelve `PREPARADO` con `ejecutado: false`. Ante una precondición ausente, el guion devuelve `NO EJECUTADO` y código 2. Un contrato HTTP, recibo, historia o estado visible incorrecto devuelve `FALLO` y código 1. `--reinicio-acreditado` declara una comprobación externa de dirección; el guion no puede probar por sí solo que ambos servicios se reiniciaron. La evidencia puede contener referencias y observaciones sintéticas; se crea con permisos `0600` y no debe subirse a Git.
+`preparar` solo valida entradas; devuelve `PREPARADO` con `ejecutado: false`. Ante una precondición ausente antes de abrir el navegador, el guion devuelve `NO EJECUTADO` y código 2. Un fallo tras abrirlo devuelve `FALLO`; si ya se permitió un POST, devuelve `FALLO_CON_EFECTO_POSIBLE`, ambos con código 1. `--reinicio-acreditado` declara una comprobación externa de dirección; el guion no puede probar por sí solo que ambos servicios se reiniciaron. La evidencia puede contener referencias y observaciones sintéticas; se crea con permisos `0600` y no debe subirse a Git.
 
 La recuperación exige que las tres peticiones iniciales hayan respondido `201`. Antes de cada POST se conserva la petición exacta en `intencion_pendiente`; si el navegador pierde la respuesta, la evidencia parcial queda cerrada para el guion. Dirección debe resolver esa intención con la misma clave antes de continuar. El guion nunca improvisa una nueva operación para superar un fallo.
 
