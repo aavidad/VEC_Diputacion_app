@@ -551,6 +551,12 @@ func preimagenCompatibleProvisionCT(p perfilPreparadoProvisionCT, e entradaProvi
 		e.PreimagenSHA256 == h
 }
 
+func replaySinCambioProvisionCT(p perfilPreparadoProvisionCT, e entradaProvisionPerfilCT) bool {
+	return p.replay && preimagenCompatibleProvisionCT(p, e) &&
+		e.PreimagenAsignacionRef == e.ObjetivoAsignacionRef &&
+		e.PreimagenSHA256 == e.ObjetivoSHA256
+}
+
 func actoAsignacionProvisionCT(huellaManifest, clave string) string {
 	h := sha256.Sum256([]byte(huellaManifest + "\x00" + clave))
 	return "acto:ct:perfiles-demo:" + hex.EncodeToString(h[:])
@@ -583,7 +589,7 @@ func aplicarPerfilProvisionCT(ctx context.Context, conexiones conexionesProvisio
 		validarPreimagenProvisionPerfilCT(post, p.semilla, time.Now().UTC().Truncate(time.Microsecond)) != nil {
 		return vacio, errProvisionPerfilesCTObsoleta
 	}
-	if !p.replay {
+	if !p.replay || !replaySinCambioProvisionCT(p, e) {
 		actoActual, err := leerActoAsignacionActualProvisionCT(ctx, conexiones.provisionador,
 			post.AsignacionPerfil.PerfilActivoRef, post.AsignacionPerfil.Referencia())
 		if err != nil || actoActual != acto {

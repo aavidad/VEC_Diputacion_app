@@ -242,3 +242,36 @@ func TestPrepararPerfilesCTSigueSoloLecturaSinPublicador(t *testing.T) {
 		t.Fatalf("revocada propuesta como alta: %v", err)
 	}
 }
+
+func TestReplayProvisionCTExigeActoSiManifiestoTeniaOtraPreimagen(t *testing.T) {
+	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	actual := soporte.instantaneaCobertura
+	p := perfilPreparadoProvisionCT{
+		clave: "cobertura", contexto: soporte.contextoCobertura,
+		registrado: soporte.contextoCobertura.Resultado,
+		semilla:    actual, preimagen: actual, existe: true,
+		objetivo: actual, replay: true,
+	}
+	// El fixture principal de cobertura puede omitir el segundo contexto;
+	// sólo la comparación de referencias/huellas participa aquí.
+	h, err := huellaJSONProvisionPerfilesCT(actual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := entradaProvisionPerfilCT{
+		PreimagenAsignacionRef: actual.AsignacionPerfil.Referencia(), PreimagenSHA256: h,
+		ObjetivoAsignacionRef: actual.AsignacionPerfil.Referencia(), ObjetivoSHA256: h,
+	}
+	if !replaySinCambioProvisionCT(p, e) {
+		t.Fatal("no-op exacto denegado")
+	}
+	e.PreimagenAsignacionRef, e.PreimagenSHA256 = "", ""
+	if replaySinCambioProvisionCT(p, e) {
+		t.Fatal("recuperación de provisión parcial tratada como no-op")
+	}
+	e.PreimagenAsignacionRef = "asignacion:anterior:v1"
+	e.PreimagenSHA256 = strings.Repeat("b", 64)
+	if replaySinCambioProvisionCT(p, e) {
+		t.Fatal("preimagen ajena tratada como no-op")
+	}
+}
