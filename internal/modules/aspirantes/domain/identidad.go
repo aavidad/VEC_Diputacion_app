@@ -16,35 +16,26 @@ var (
 // sesión: nombre, apellidos y documento. La persona no la escribe; la toma la
 // frontera del portal externo del mismo certificado verificado de la sesión.
 type IdentidadAcreditada struct {
-	nombre, primerApellido, segundoApellido string
-	documento                               DocumentoIdentidad
+	nombre, apellidos string
+	documento         DocumentoIdentidad
 }
 
-// NuevaIdentidadAcreditada normaliza y valida. El segundo apellido puede
-// faltar (personas con un solo apellido).
-func NuevaIdentidadAcreditada(nombre, primerApellido, segundoApellido string, documento DocumentoIdentidad) (IdentidadAcreditada, error) {
+// NuevaIdentidadAcreditada normaliza y valida. Los apellidos van juntos, tal
+// como los acredita el certificado.
+func NuevaIdentidadAcreditada(nombre, apellidos string, documento DocumentoIdentidad) (IdentidadAcreditada, error) {
 	n, err := NormalizarValor(CampoNombre, nombre)
 	if err != nil {
 		return IdentidadAcreditada{}, ErrIdentidadInvalida
 	}
-	p, err := NormalizarValor(CampoPrimerApellido, primerApellido)
-	if err != nil {
+	a, err := NormalizarValor(CampoApellidos, apellidos)
+	if err != nil || documento.Validar() != nil {
 		return IdentidadAcreditada{}, ErrIdentidadInvalida
 	}
-	s := ""
-	if colapsarEspacios(segundoApellido) != "" {
-		if s, err = NormalizarValor(CampoSegundoApellido, segundoApellido); err != nil {
-			return IdentidadAcreditada{}, ErrIdentidadInvalida
-		}
-	}
-	if documento.Validar() != nil {
-		return IdentidadAcreditada{}, ErrIdentidadInvalida
-	}
-	return IdentidadAcreditada{nombre: n, primerApellido: p, segundoApellido: s, documento: documento}, nil
+	return IdentidadAcreditada{nombre: n, apellidos: a, documento: documento}, nil
 }
 
 func (i IdentidadAcreditada) Validar() error {
-	if _, err := NuevaIdentidadAcreditada(i.nombre, i.primerApellido, i.segundoApellido, i.documento); err != nil {
+	if _, err := NuevaIdentidadAcreditada(i.nombre, i.apellidos, i.documento); err != nil {
 		return ErrIdentidadInvalida
 	}
 	return nil
@@ -52,13 +43,9 @@ func (i IdentidadAcreditada) Validar() error {
 
 func (i IdentidadAcreditada) Documento() DocumentoIdentidad { return i.documento }
 
-// Valores devuelve los campos de identidad presentes, listos para cifrar.
+// Valores devuelve los campos de identidad, listos para cifrar.
 func (i IdentidadAcreditada) Valores() map[CampoFicha]string {
-	v := map[CampoFicha]string{CampoNombre: i.nombre, CampoPrimerApellido: i.primerApellido}
-	if i.segundoApellido != "" {
-		v[CampoSegundoApellido] = i.segundoApellido
-	}
-	return v
+	return map[CampoFicha]string{CampoNombre: i.nombre, CampoApellidos: i.apellidos}
 }
 
 // String nunca muestra datos personales en registros ni errores.

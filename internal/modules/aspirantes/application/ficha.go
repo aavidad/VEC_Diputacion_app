@@ -56,12 +56,11 @@ func NuevaOrdenFicha(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAut
 // Vistas que devuelve el servicio. Nunca incluyen `asp_`, `per_` ni el
 // número de documento completo.
 type VistaIdentidad struct {
-	Nombre          string `json:"nombre"`
-	PrimerApellido  string `json:"primer_apellido"`
-	SegundoApellido string `json:"segundo_apellido"`
-	TipoDocumento   string `json:"tipo_documento"`
-	PaisDocumento   string `json:"pais_documento"`
-	Documento       string `json:"documento"`
+	Nombre        string `json:"nombre"`
+	Apellidos     string `json:"apellidos"`
+	TipoDocumento string `json:"tipo_documento"`
+	PaisDocumento string `json:"pais_documento"`
+	Documento     string `json:"documento"`
 }
 
 // VistaExigencia lleva códigos, no textos: la pantalla los traduce. La
@@ -225,7 +224,7 @@ func vistaExigencias(e []domain.ExigenciaCampo) []VistaExigencia {
 
 func vistaIdentidad(valores map[domain.CampoFicha]string, doc domain.DocumentoIdentidad) VistaIdentidad {
 	return VistaIdentidad{
-		Nombre: valores[domain.CampoNombre], PrimerApellido: valores[domain.CampoPrimerApellido], SegundoApellido: valores[domain.CampoSegundoApellido],
+		Nombre: valores[domain.CampoNombre], Apellidos: valores[domain.CampoApellidos],
 		TipoDocumento: string(doc.Tipo), PaisDocumento: doc.Pais, Documento: doc.Enmascarado(),
 	}
 }
@@ -318,7 +317,7 @@ func (s *ServicioFichaPropia) descifrarFicha(ctx context.Context, f ports.FichaC
 		}
 		valores[v.Campo] = texto
 	}
-	if valores[domain.CampoNombre] == "" || valores[domain.CampoPrimerApellido] == "" {
+	if valores[domain.CampoNombre] == "" || valores[domain.CampoApellidos] == "" {
 		return nil, vacio, ports.ErrNoDisponible
 	}
 	return valores, doc, nil

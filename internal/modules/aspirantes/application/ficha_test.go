@@ -256,7 +256,7 @@ func identidadPrueba(t *testing.T) domain.IdentidadAcreditada {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := domain.NuevaIdentidadAcreditada("Lucía", "Fernández", "Moreno", doc)
+	id, err := domain.NuevaIdentidadAcreditada("Lucía", "Fernández Moreno", doc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,7 +342,7 @@ func TestAltaCifraTodoYConsultarLoDevuelve(t *testing.T) {
 		t.Fatalf("recibo %+v", r)
 	}
 	f := e.registro.ficha
-	if !domain.ReferenciaAspiranteValida(f.AspiranteRef) || !domain.ReferenciaDocumentoValida(f.Documento.DocumentoRef) || f.CatalogoRef != exigenciasBolsa.CatalogoRef || len(f.Valores) != 6 {
+	if !domain.ReferenciaAspiranteValida(f.AspiranteRef) || !domain.ReferenciaDocumentoValida(f.Documento.DocumentoRef) || f.CatalogoRef != exigenciasBolsa.CatalogoRef || len(f.Valores) != 5 {
 		t.Fatalf("ficha %+v", f)
 	}
 	for _, v := range f.Valores {
@@ -366,7 +366,7 @@ func TestAltaCifraTodoYConsultarLoDevuelve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Estado != EstadoActiva || v.Version != 1 || v.Identidad.SegundoApellido != "Moreno" || v.Contacto["telefono"] != "958123456" || v.Contacto["codigo_postal"] != "18002" || len(v.Contacto) != 3 {
+	if v.Estado != EstadoActiva || v.Version != 1 || v.Identidad.Apellidos != "Fernández Moreno" || v.Contacto["telefono"] != "958123456" || v.Contacto["codigo_postal"] != "18002" || len(v.Contacto) != 3 {
 		t.Fatalf("vista %+v", v)
 	}
 }
@@ -490,7 +490,7 @@ func TestRectificarRechazosAntesDeV3(t *testing.T) {
 		{ClaveOperacion: "rect-lucia-0000000004", VersionEsperada: 1, Motivo: "alta_titular", Campos: map[string]string{"movil": "612345678"}},
 		{ClaveOperacion: "rect-lucia-0000000004", VersionEsperada: 0, Motivo: "dato_nuevo", Campos: map[string]string{"movil": "612345678"}},
 		{ClaveOperacion: "rect-lucia-0000000004", VersionEsperada: 1, Motivo: "dato_nuevo"},
-		{ClaveOperacion: "rect-lucia-0000000004", VersionEsperada: 1, Motivo: "cambio_de_dato", Campos: map[string]string{"primer_apellido": "Otro"}},
+		{ClaveOperacion: "rect-lucia-0000000004", VersionEsperada: 1, Motivo: "cambio_de_dato", Campos: map[string]string{"apellidos": "Otro"}},
 		{ClaveOperacion: "rect lucia", VersionEsperada: 1, Motivo: "dato_nuevo", Campos: map[string]string{"movil": "612345678"}},
 	}
 	for i, p := range casos {

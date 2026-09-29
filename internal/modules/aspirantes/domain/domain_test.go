@@ -116,7 +116,7 @@ func TestNormalizarValoresDeContacto(t *testing.T) {
 		{CampoCodigoPostal, " 01000 ", "01000"},
 		{CampoDomicilio, "  Calle   Recogidas, 12,  3.º B ", "Calle Recogidas, 12, 3.º B"},
 		{CampoNombre, "María  José", "María José"},
-		{CampoPrimerApellido, "O'Connor-Ruiz", "O'Connor-Ruiz"},
+		{CampoApellidos, "O'Connor-Ruiz  de la Torre", "O'Connor-Ruiz de la Torre"},
 	}
 	for _, c := range bien {
 		got, err := NormalizarValor(c.campo, c.entrada)
@@ -218,7 +218,7 @@ func TestMotivoSegunLoQueHabia(t *testing.T) {
 
 func TestIdentidadAcreditadaRedactadaYValidada(t *testing.T) {
 	doc, _ := NuevoDocumentoIdentidad(DocumentoNIE, "ES", nieSintetico)
-	id, err := NuevaIdentidadAcreditada(" Karim ", "Benali", "", doc)
+	id, err := NuevaIdentidadAcreditada(" Karim ", "Benali", doc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,10 +231,10 @@ func TestIdentidadAcreditadaRedactadaYValidada(t *testing.T) {
 			t.Fatalf("fuga en %q", s)
 		}
 	}
-	if _, err := NuevaIdentidadAcreditada("Antonio", "Reyes", "Álvarez", DocumentoIdentidad{}); err == nil {
+	if _, err := NuevaIdentidadAcreditada("Antonio", "Reyes Álvarez", DocumentoIdentidad{}); err == nil {
 		t.Fatal("sin documento")
 	}
-	if _, err := NuevaIdentidadAcreditada("", "Reyes", "Álvarez", doc); err == nil {
+	if _, err := NuevaIdentidadAcreditada("", "Reyes Álvarez", doc); err == nil {
 		t.Fatal("sin nombre")
 	}
 	if (IdentidadAcreditada{}).Validar() == nil {

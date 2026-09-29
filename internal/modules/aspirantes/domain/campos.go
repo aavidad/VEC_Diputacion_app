@@ -19,23 +19,24 @@ var (
 type CampoFicha string
 
 const (
-	CampoNombre          CampoFicha = "nombre"
-	CampoPrimerApellido  CampoFicha = "primer_apellido"
-	CampoSegundoApellido CampoFicha = "segundo_apellido"
-	CampoTelefono        CampoFicha = "telefono"
-	CampoMovil           CampoFicha = "movil"
-	CampoDomicilio       CampoFicha = "domicilio"
-	CampoCodigoPostal    CampoFicha = "codigo_postal"
+	CampoNombre CampoFicha = "nombre"
+	// Apellidos va en un solo dato: los certificados de la FNMT traen los dos
+	// apellidos juntos y separarlos sería adivinar.
+	CampoApellidos    CampoFicha = "apellidos"
+	CampoTelefono     CampoFicha = "telefono"
+	CampoMovil        CampoFicha = "movil"
+	CampoDomicilio    CampoFicha = "domicilio"
+	CampoCodigoPostal CampoFicha = "codigo_postal"
 )
 
 // CamposIdentidad salen del certificado; la persona no los escribe.
-var CamposIdentidad = []CampoFicha{CampoNombre, CampoPrimerApellido, CampoSegundoApellido}
+var CamposIdentidad = []CampoFicha{CampoNombre, CampoApellidos}
 
 // CamposContacto los declara la persona y solo si el catálogo los pide.
 var CamposContacto = []CampoFicha{CampoTelefono, CampoMovil, CampoDomicilio, CampoCodigoPostal}
 
 func (c CampoFicha) EsIdentidad() bool {
-	return c == CampoNombre || c == CampoPrimerApellido || c == CampoSegundoApellido
+	return c == CampoNombre || c == CampoApellidos
 }
 
 func (c CampoFicha) EsContacto() bool {
@@ -78,8 +79,10 @@ func (c CampoFicha) OrigenEsperado() OrigenValor {
 // no es un valor: retirar un dato se expresa aparte.
 func NormalizarValor(campo CampoFicha, valor string) (string, error) {
 	switch campo {
-	case CampoNombre, CampoPrimerApellido, CampoSegundoApellido:
-		return normalizarNombre(valor)
+	case CampoNombre:
+		return normalizarNombre(valor, 100)
+	case CampoApellidos:
+		return normalizarNombre(valor, 200)
 	case CampoTelefono:
 		return normalizarTelefono(valor, false)
 	case CampoMovil:
@@ -94,9 +97,9 @@ func NormalizarValor(campo CampoFicha, valor string) (string, error) {
 
 func colapsarEspacios(s string) string { return strings.Join(strings.Fields(s), " ") }
 
-func normalizarNombre(valor string) (string, error) {
+func normalizarNombre(valor string, maximo int) (string, error) {
 	v := colapsarEspacios(valor)
-	if v == "" || utf8.RuneCountInString(v) > 100 || !utf8.ValidString(v) {
+	if v == "" || utf8.RuneCountInString(v) > maximo || !utf8.ValidString(v) {
 		return "", ErrCampoInvalido
 	}
 	letras := 0

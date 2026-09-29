@@ -42,7 +42,7 @@ const (
 func CamposPermitidos(accion string) []string {
 	switch accion {
 	case AccionConsultar, AccionAlta:
-		return []string{"codigo_postal", "documento", "domicilio", "movil", "nombre", "primer_apellido", "segundo_apellido", "telefono", "version"}
+		return []string{"apellidos", "codigo_postal", "documento", "domicilio", "movil", "nombre", "telefono", "version"}
 	case AccionRectificar:
 		return []string{"codigo_postal", "domicilio", "movil", "telefono", "version"}
 	}

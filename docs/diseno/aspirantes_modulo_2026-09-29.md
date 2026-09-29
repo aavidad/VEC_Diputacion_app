@@ -70,11 +70,17 @@ Vocabulario cerrado. Añadir un campo exige otra migración.
 
 | Campo | Grupo | Origen | Validación |
 | --- | --- | --- | --- |
-| `nombre`, `primer_apellido`, `segundo_apellido` | identidad | certificado | letras, espacios, apóstrofo, guion y punto; 1 a 100 caracteres (segundo apellido puede faltar) |
+| `nombre`, `apellidos` | identidad | certificado | letras, espacios, apóstrofo, guion y punto; hasta 100 caracteres el nombre y 200 los apellidos |
 | `telefono` | contacto | titular | 9 cifras nacionales (6, 7, 8 o 9 al inicio) o internacional `+` y 8 a 15 cifras; se guarda normalizado |
 | `movil` | contacto | titular | como el teléfono, pero nacional solo con 6 o 7 al inicio |
 | `domicilio` | contacto | titular | 5 a 200 caracteres imprimibles; espacios normalizados |
 | `codigo_postal` | contacto | titular | código postal español `01000`–`52999` |
+
+El certificado de la FNMT trae los dos apellidos juntos (atributo `surname`) y el
+DNIe solo el primero, con los dos en el nombre común. Separarlos sería adivinar, así
+que la ficha guarda un solo dato `apellidos` tal como lo acredita el certificado. Si
+un día hace falta el primer apellido por separado (por ejemplo, al cargar CONVOCA), se
+añadirá como campo nuevo con su fuente.
 
 El código postal solo admite el formato español. Un domicilio extranjero necesitará
 un campo de país: queda anotado para cuando el catálogo lo pida.
@@ -114,12 +120,12 @@ actúa.
 
 | Acción | Perfil V3 | Audiencia | Campos permitidos |
 | --- | --- | --- | --- |
-| `vec.aspirantes.ficha.consultar` | `aspirantes_ficha_consultar` | `vec_aspirantes.ficha.consultar.externa_personal.v1` | los nueve campos de la ficha |
-| `vec.aspirantes.ficha.alta` | `aspirantes_ficha_alta` | `vec_aspirantes.ficha.alta.externa_personal.v1` | los nueve campos de la ficha |
+| `vec.aspirantes.ficha.consultar` | `aspirantes_ficha_consultar` | `vec_aspirantes.ficha.consultar.externa_personal.v1` | los ocho campos de la ficha |
+| `vec.aspirantes.ficha.alta` | `aspirantes_ficha_alta` | `vec_aspirantes.ficha.alta.externa_personal.v1` | los ocho campos de la ficha |
 | `vec.aspirantes.ficha.rectificar` | `aspirantes_ficha_rectificar` | `vec_aspirantes.ficha.rectificar.externa_personal.v1` | `codigo_postal`, `domicilio`, `movil`, `telefono`, `version` |
 
-Los nueve campos: `codigo_postal`, `documento`, `domicilio`, `movil`, `nombre`,
-`primer_apellido`, `segundo_apellido`, `telefono`, `version`.
+Los ocho campos: `apellidos`, `codigo_postal`, `documento`, `domicilio`, `movil`,
+`nombre`, `telefono`, `version`.
 
 - Módulo `aspirantes`, tipo de recurso `ficha_aspirante_propia`, finalidad
   `finalidad:aspirantes:ficha-propia:v1`, `recurso_ref` = persona que actúa.
