@@ -33,8 +33,14 @@ func TestConfirmacionDecisionCoberturaO404ENoReintentaSQLStateTransaccional(
 	t *testing.T,
 ) {
 	t.Parallel()
-	for _, codigo := range []string{"40001", "40P01"} {
-		codigo := codigo
+	// Solo 40001/40P01 en la propia sentencia acreditan carrera; la
+	// cancelación (57014) o la caída de la conexión (08006) siguen siendo
+	// fallos sin esa señal.
+	for _, caso := range []struct {
+		codigo  string
+		carrera bool
+	}{{"40001", true}, {"40P01", true}, {"57014", false}, {"08006", false}} {
+		codigo, carrera := caso.codigo, caso.carrera
 		t.Run(codigo, func(t *testing.T) {
 			t.Parallel()
 			errorSQL := &pgconn.PgError{
@@ -84,8 +90,8 @@ func TestConfirmacionDecisionCoberturaO404ENoReintentaSQLStateTransaccional(
 			}
 			// El ejecutor no repite, pero acredita al núcleo que la base
 			// revirtió la transacción para que repita la orden entera.
-			if !errors.Is(err, cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) {
-				t.Fatalf("SQLSTATE %s no se acreditó como carrera revertida: %v", codigo, err)
+			if errors.Is(err, cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) != carrera {
+				t.Fatalf("SQLSTATE %s: acreditación de carrera %v inesperada: %v", codigo, !carrera, err)
 			}
 			if iniciador.inicios != 1 || tx.consultas != 1 ||
 				tx.confirmaciones != 0 || tx.reversiones != 1 {

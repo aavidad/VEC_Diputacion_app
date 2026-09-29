@@ -15,12 +15,20 @@ const (
 	intentosMaximosCarreraConfirmacionCobertura = 30
 	esperaInicialCarreraConfirmacionCobertura   = 4 * time.Millisecond
 	esperaMaximaCarreraConfirmacionCobertura    = 200 * time.Millisecond
+	// margenPlazoCarreraConfirmacionCobertura: si al plazo le queda menos,
+	// no se lanza otro intento. Así el plazo no vence a mitad de sentencia
+	// (cancelación ambigua, «pendiente») y se responde «no disponible».
+	margenPlazoCarreraConfirmacionCobertura = time.Second
 )
 
 // esperarReintentoCarreraConfirmacionCobertura espera antes del intento n+1 y
 // devuelve false si el contexto vence o se cancela mientras tanto.
 func esperarReintentoCarreraConfirmacionCobertura(ctx context.Context, n int) bool {
 	if ctx == nil || ctx.Err() != nil {
+		return false
+	}
+	if limite, conPlazo := ctx.Deadline(); conPlazo &&
+		time.Until(limite) < margenPlazoCarreraConfirmacionCobertura+esperaMaximaCarreraConfirmacionCobertura {
 		return false
 	}
 	tope := esperaMaximaCarreraConfirmacionCobertura
