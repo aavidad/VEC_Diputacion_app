@@ -417,7 +417,8 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             print("EJECUTADO: petición v1, ratificación v2, alta RRHH, replay y recuperación idénticos")
             print("LÍMITE: circuito sintético; no acredita firma, entrega externa ni cierre CT")
         except Exception as exc:
-            evidencia.registro.update(resultado="fallo", excepcion=type(exc).__name__)
+            evidencia.registro.update(resultado="no_ejecutado" if isinstance(exc, NoEjecutado) else "fallo",
+                                       excepcion=type(exc).__name__)
             if isinstance(exc, (AssertionError, NoEjecutado)):
                 evidencia.registro["motivo"] = str(exc)
             for rol, pagina in paginas.items():
