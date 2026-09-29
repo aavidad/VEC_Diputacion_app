@@ -6,7 +6,9 @@ import { iniciarI18nAreaPersonal } from "./i18n.js";
 
 // Los textos se cargan del catálogo en castellano, como en el arranque.
 const catalogoES = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
-await iniciarI18nAreaPersonal(null, async () => ({ ok: true, json: async () => catalogoES }), ["es"], { href: "https://vec.test/area-personal/" });
+const documentoIdioma = { documentElement: { lang: "" } };
+await iniciarI18nAreaPersonal(documentoIdioma, async () => ({ ok: true, json: async () => catalogoES }), ["es"], { href: "https://vec.test/area-personal/" });
+globalThis.document = documentoIdioma;
 
 // DOM mínimo: lo justo para montar, pulsar y enviar el formulario.
 class Nodo {
