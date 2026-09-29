@@ -115,6 +115,19 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(SQL.Refused, "loopback"):
                 SQL.DockerDB("vec-codexm-test").check_owner()
 
+    def test_generic_vec_name_is_accepted_and_state_label_is_checked(self):
+        state = Path("/private/clon")
+        obj = {"Config": {"Image": "postgres:18.4", "Labels": {
+                   SQL.OWNER_LABEL: SQL.OWNER, "vec.recorridos.state": str(state)}},
+               "State": {"Running": True},
+               "Mounts": [{"Type": "bind", "Destination": "/var/lib/postgresql",
+                           "Source": "/dev/shm/clon"}]}
+        result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
+        with patch.object(SQL.subprocess, "run", return_value=result):
+            SQL.DockerDB("vec-recorridos-local", state).check_owner()
+            with self.assertRaisesRegex(SQL.Refused, "label de estado"):
+                SQL.DockerDB("vec-recorridos-local", Path("/other/clon")).check_owner()
+
 
 if __name__ == "__main__":
     unittest.main()

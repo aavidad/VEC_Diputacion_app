@@ -4,6 +4,8 @@
 H1 se restaura antes; H5 solo configura la aplicación. No instala SQL de ramas
 pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
 El journal privado se reconstruye desde recibos transaccionales del clon.
+Este corte admite exclusivamente main@7f1ecea2f. Antes de usar otro hash hay
+que revisar de nuevo la lista causal y sus huellas, aunque el SQL parezca igual.
 """
 
 import argparse
@@ -73,10 +75,11 @@ def plan_hash(rows):
 
 
 class DockerDB:
-    def __init__(self, container):
-        if not re.fullmatch(r"vec-codexm-[a-z0-9-]+", container):
-            raise Refused("el nombre debe identificar un clon vec-codexm- propio")
+    def __init__(self, container, state=None):
+        if not re.fullmatch(r"vec-[a-z0-9-]+", container):
+            raise Refused("el nombre debe identificar un clon vec- propio")
         self.container = container
+        self.state = state
 
     def check_owner(self):
         result = subprocess.run(["docker", "inspect", self.container],
@@ -85,6 +88,8 @@ class DockerDB:
         labels = obj["Config"].get("Labels") or {}
         if labels.get(OWNER_LABEL) != OWNER or not obj["State"]["Running"]:
             raise Refused("el contenedor no es un clon activo propiedad de Codex-M")
+        if self.state is not None and labels.get("vec.recorridos.state") != str(self.state):
+            raise Refused("la label de estado del clon no corresponde al directorio privado")
         mounts = obj.get("Mounts", [])
         if not any(m["Type"] == "bind" and m["Destination"] == "/var/lib/postgresql"
                    and m["Source"].startswith("/dev/shm/") for m in mounts):
@@ -259,7 +264,7 @@ def main(argv=None):
     descriptor = os.open(state / "sql.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        apply(DockerDB(args.container), rows, state)
+        apply(DockerDB(args.container, state), rows, state)
     finally:
         os.close(descriptor)
 
