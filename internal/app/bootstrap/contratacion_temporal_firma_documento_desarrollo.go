@@ -85,6 +85,9 @@ type firmaDocumentoCTDesarrollo struct {
 	// informeTrasSubsanacion es nil salvo que el catálogo exija informe
 	// nuevo tras subsanar: entonces su documento se firma en otra ronda.
 	informeTrasSubsanacion ports.FuenteInformeTrasSubsanacion
+	// servicio queda al componer las rutas: la custodia en Documentos se le
+	// añade después, cuando Documentos ya está compuesto.
+	servicio *ctapplication.ServicioFirmaDocumento
 }
 
 var (
@@ -111,11 +114,7 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(),
-		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
-		[]dominiovec.ConcesionRol{{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
-			Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh}},
-		[]dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+	instantanea, err := instantaneaFirmaDocumentoCTDesarrollo(v, reloj.Ahora(), false)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
@@ -132,6 +131,39 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	alta.soporte.motivoFirmaDocumento = motivoFirmaDocumentoCTDesarrollo()
 	alta.soporte.mu.Unlock()
 	return &firmaDocumentoCTDesarrollo{alta: alta, registro: registro, reloj: reloj, fiscalizacion: fiscalizacion}, nil
+}
+
+// instantaneaFirmaDocumentoCTDesarrollo es el rol nominal del perfil de firma
+// de CT. Con custodia, el mismo rol puede custodiar en Documentos el PDF
+// firmado (solo esa acción, y el predicado la ata al documento exacto).
+func instantaneaFirmaDocumentoCTDesarrollo(v dominiovec.DatosVinculoAutenticacionActorV2, ahora time.Time, custodia bool) (dominiovec.InstantaneaAutorizacion, error) {
+	concesiones := []dominiovec.ConcesionRol{{Accion: ports.AccionFirmarDocumento, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoFirmaDocumento,
+		Finalidades: []string{ports.FinalidadFirmaDocumento}, GarantiaMinima: dominiovec.AuthAssuranceHigh}}
+	if custodia {
+		concesiones = append(concesiones, concesionCustodiaFirmadoCTDesarrollo())
+	}
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora,
+		"firma_documento_ct_desarrollo", "Firma de prueba de borradores CT de desarrollo", "asignacion-firma-documento-ct-desarrollo-no-autoritativa",
+		concesiones, []dominiovec.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+}
+
+// habilitarCustodia añade al rol de firma la custodia en Documentos.
+func (f *firmaDocumentoCTDesarrollo) habilitarCustodia() error {
+	if f == nil || f.alta == nil || f.alta.soporte == nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	v, err := f.alta.soporte.contexto.Vinculo.Datos()
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	instantanea, err := instantaneaFirmaDocumentoCTDesarrollo(v, f.reloj.Ahora(), true)
+	if err != nil {
+		return errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	f.alta.soporte.mu.Lock()
+	f.alta.soporte.instantaneaFirmaDocumento = instantanea
+	f.alta.soporte.mu.Unlock()
+	return nil
 }
 
 // ResolverOrganizacionFirmaDocumento solo responde dentro de la frontera mTLS
@@ -256,6 +288,7 @@ func (f *firmaDocumentoCTDesarrollo) rutas(cfg config.Config, circuito *reglas.R
 	if f.informeTrasSubsanacion != nil && servicio.AbrirRondaInformeNuevo(f.informeTrasSubsanacion, f.registro) != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
 	}
+	f.servicio = servicio
 	h, err := httpinterno.NuevoManejadorFirmaDocumento(f, servicio)
 	if err != nil {
 		return nil, errFirmaDocumentoCTDesarrolloNoDisponible

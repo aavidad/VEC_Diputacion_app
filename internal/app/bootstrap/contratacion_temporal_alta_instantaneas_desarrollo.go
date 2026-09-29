@@ -8,6 +8,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -143,7 +144,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 		}
 	} else if ruta == httpinterno.RutaFirmaDocumento {
-		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
+		// En la ruta de firma, además de firmar, el mismo perfil custodia en
+		// Documentos el PDF firmado exacto (solo si la custodia se compuso: sin
+		// ella la instantánea no lleva esa concesión).
+		if datos.Accion == docports.AccionCustodiarFirmado {
+			if !solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx, datos) {
+				return dominiovec.InstantaneaAutorizacion{}, false
+			}
+		} else if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
