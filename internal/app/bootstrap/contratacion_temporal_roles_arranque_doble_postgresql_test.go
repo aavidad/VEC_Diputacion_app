@@ -107,6 +107,18 @@ func TestArranqueDobleRolPeticionCentroPostgreSQL(t *testing.T) {
 		}
 		return ref
 	}
+	// Desde que el arranque solo lee, el rol del perfil dinámico lo cambia la
+	// publicación por petición (con la guarda de origen operativo): la
+	// resolución de la versión de rol inmutable se ejerce en ese camino. El
+	// arranque publica solo la inicial y, después, nunca escribe.
+	vigenteAsignacion := func() string {
+		t.Helper()
+		var ref string
+		if err := administracion.QueryRow(ctx, `SELECT asignacion_ref FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref=$1`, v.PerfilActivoRef).Scan(&ref); err != nil {
+			t.Fatal(err)
+		}
+		return ref
+	}
 	arrancar := func(nombre string, concesiones []vecdomain.ConcesionRol, versionEsperada int, versionesEsperadas []int) {
 		t.Helper()
 		instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, time.Now(), rolID,
@@ -118,14 +130,26 @@ func TestArranqueDobleRolPeticionCentroPostgreSQL(t *testing.T) {
 		soporte.mu.Lock()
 		soporte.instantanea = instantanea
 		soporte.mu.Unlock()
-		if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno, soporte); err != nil {
-			t.Fatalf("%s: el arranque no publica el rol del centro: %v", nombre, err)
+		antesVersiones, antesVigente := versiones(), ""
+		if len(antesVersiones) != 0 {
+			antesVigente = vigenteAsignacion()
 		}
-		soporte.mu.Lock()
-		publicada := soporte.instantanea
-		soporte.mu.Unlock()
-		if publicada.VersionRol.Version != versionEsperada || rolVigente() != publicada.VersionRol.Referencia() {
-			t.Fatalf("%s: rol v%d vigente %s; se esperaba v%d", nombre, publicada.VersionRol.Version, rolVigente(), versionEsperada)
+		if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno, soporte); err != nil {
+			t.Fatalf("%s: el arranque falló: %v", nombre, err)
+		}
+		if len(antesVersiones) != 0 && (!slices.Equal(versiones(), antesVersiones) || vigenteAsignacion() != antesVigente) {
+			t.Fatalf("%s: el arranque escribió sobre una asignación existente", nombre)
+		}
+		autoridad := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: gobierno, soporte: soporte}
+		preparada, err := autoridad.PrepararInstantanea(ctx, instantanea)
+		if err != nil {
+			t.Fatalf("%s: la petición no prepara el rol: %v", nombre, err)
+		}
+		if err := autoridad.PublicarInstantanea(ctx, preparada); err != nil {
+			t.Fatalf("%s: la petición no publica el rol: %v", nombre, err)
+		}
+		if preparada.VersionRol.Version != versionEsperada || rolVigente() != preparada.VersionRol.Referencia() {
+			t.Fatalf("%s: rol v%d vigente %s; se esperaba v%d", nombre, preparada.VersionRol.Version, rolVigente(), versionEsperada)
 		}
 		if got := versiones(); !slices.Equal(got, versionesEsperadas) {
 			t.Fatalf("%s: versiones del rol %v; se esperaban %v", nombre, got, versionesEsperadas)
