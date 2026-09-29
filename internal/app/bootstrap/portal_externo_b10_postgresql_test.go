@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,6 +38,29 @@ func TestProcesoExternoB10ActivadoDesdePostgreSQLPublico(t *testing.T) {
 	fuente.Cerrar()
 	if err != nil {
 		t.Fatalf("manifiesto publico de prueba: %v", err)
+	}
+
+	// Este segundo login es un lector válido de la misma fuente. Su rechazo
+	// prueba la comprobación nominal; no basta con una conexión que ya falle.
+	dsnAlternativo := os.Getenv("VEC_B10_LECTOR_ALTERNATIVO_DATABASE_URL")
+	if dsnAlternativo == "" {
+		t.Fatal("falta el login lector alternativo de prueba")
+	}
+	fuenteAlternativa, err := pgpublico.Abrir(ctx, dsnAlternativo, publica.BolsaCategoriesCatalogID, publica.BolsaCategoriesVersion, publica.BolsaCategoriesSHA256, publica.BolsaCategoriesPublicProjectionSHA256, publica.BolsaPublicaManifiestoSHA256)
+	if err != nil {
+		t.Fatalf("lector alternativo de prueba: %v", err)
+	}
+	err = fuenteAlternativa.ValidarConfiguracionPublica(ctx, time.Now().UTC())
+	fuenteAlternativa.Cerrar()
+	if err != nil {
+		t.Fatalf("manifiesto del lector alternativo: %v", err)
+	}
+	manejadorAjeno, cerrarAjeno, err := nuevasBolsasPublicasPortalExterno(ctx, publica, dsnAlternativo)
+	if cerrarAjeno != nil {
+		cerrarAjeno()
+	}
+	if !errors.Is(err, ErrBolsasPublicasPortalExternoNoDisponibles) || manejadorAjeno != nil || cerrarAjeno == nil {
+		t.Fatal("el externo acepto otro login lector publico")
 	}
 	vaciarConexionesDelEntorno(t)
 	m := generarMaterialPortalExternoPrueba(t)
