@@ -49,6 +49,15 @@ test("mi bolsa muestra tarjetas propias, provisionalidad y paginación", () => {
   assert.doesNotMatch(vista, /Ensayar pausa|Ensayar reactivación/u);
 });
 
+test("mi bolsa distingue el aviso de la prueba de las respuestas ordinarias", () => {
+  const datos = datosPrueba();
+  const normal = renderizarLlamamientos(datos, { participaciones: [] });
+  assert.doesNotMatch(normal, /prueba de funcionamiento|role="status" aria-live="polite"/u);
+  const prueba = renderizarLlamamientos(datos, { participaciones: [], avisoDesarrolloMiBolsa: true });
+  assert.match(prueba, /role="status" aria-live="polite"/u);
+  assert.match(prueba, /Las respuestas se guardan en el entorno de prueba y no producen efectos oficiales/u);
+});
+
 test("mi bolsa distingue estado vigente de la participación y vigencia de la bolsa", () => {
   const datos = datosPrueba();
   const participaciones = [{ bolsa: "bolsa:prueba", categoria: "Auxiliar", version: 3, orden_inicial: 2, total_instantanea: 40, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,

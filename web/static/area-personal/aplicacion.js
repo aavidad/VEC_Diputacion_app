@@ -13,7 +13,7 @@ import {
 } from "./vistas/perfil-meritos-solicitud.js";
 import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
-} from "./vistas/seguimiento-tramites.js";
+} from "./vistas/seguimiento-tramites.js?v=20260930-mi-bolsa-aviso-v1";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
@@ -884,6 +884,7 @@ async function cargar(estado) {
     estado.soloPreferencias = false;
     estado.participaciones = respuesta?.consulta?.participaciones || [];
     estado.camposMiBolsa = respuesta?.consulta?.campos_visibles || null;
+    estado.avisoDesarrolloMiBolsa = respuesta?.consulta?.aviso_desarrollo_clave_i18n === "areaPersonal.miBolsa.avisoDesarrollo";
     estado.portalMiBolsa = respuesta?.consulta?.portal || null;
     estado.accionesPortal = respuesta?.consulta?.acciones_portal || null;
     estado.ofertasMiBolsa = respuesta?.consulta?.ofertas || null;
@@ -941,6 +942,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],
+    avisoDesarrolloMiBolsa: false,
     paginaParticipaciones: 1,
     fuenteBolsa: "real",
     causaBolsa: "",

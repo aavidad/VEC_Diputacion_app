@@ -59,6 +59,7 @@
     "noDisponible": "The requested document is unavailable within the current scope."
   },
   "miBolsa": {
+    "avisoDesarrollo": "This is a test run. Your responses are saved in the test environment and have no official effect.",
     "situacion": {
       "titulo": "Latest recorded status of my participation",
       "sinDato": "The current status of this participation is not yet available in My employment pool.",

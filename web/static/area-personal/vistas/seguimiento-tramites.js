@@ -101,7 +101,10 @@ export function renderizarLlamamientos(datos, estado = {}) {
     : `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.sinDato"))}</p>`;
   const llamamientos = panel(traducir("areaPersonal.miBolsa.llamamiento.titulo"), traducir("areaPersonal.miBolsa.llamamiento.subtitulo"), detalle);
 
+  const avisoDesarrollo = estado.avisoDesarrolloMiBolsa
+    ? `<p class="nota aviso" role="status" aria-live="polite">${h(traducir("areaPersonal.miBolsa.avisoDesarrollo"))}</p>` : "";
   return `${encabezadoVista(b("titulo"), "")}
+    ${avisoDesarrollo}
     ${fichaParticipaciones}
     <div id="historial-mi-bolsa" aria-live="polite">${renderizarHistorialMiBolsa()}</div>
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}${estado.ofertasMiBolsa?.length ? panel(textoOfertas("titulo"), textoOfertas("subtitulo"), renderizarOfertasMiBolsa(estado.ofertasMiBolsa)) : ""}</div><aside>
