@@ -28,7 +28,7 @@ import (
 // ruta se deniega hasta una provisión aprobada por el operador (huella de la
 // asignación vigente, CAS bajo bloqueo).
 const (
-	claveperfilFijoAltaCTDesarrollo         = "alta"
+	clavePerfilFijoAltaCTDesarrollo         = "alta"
 	clavePerfilFijoCoberturaCTDesarrollo    = "cobertura"
 	clavePerfilFijoOrganizacionCTDesarrollo = "organizacion"
 	// Acto con el que este circuito publica las asignaciones de los perfiles
@@ -443,7 +443,7 @@ func componerPerfilesFijosAltaCoberturaCTDesarrollo(
 	if s == nil {
 		return errAltaContratacionTemporalDesarrolloNoDisponible
 	}
-	alta, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, claveperfilFijoAltaCTDesarrollo,
+	alta, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoAltaCTDesarrollo,
 		[]string{httpinterno.RutaAltaSolicitudes},
 		func(principalID, perfilRef string) (dominiovec.InstantaneaAutorizacion, error) {
 			return nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(principalID, perfilRef, ahora, origen)

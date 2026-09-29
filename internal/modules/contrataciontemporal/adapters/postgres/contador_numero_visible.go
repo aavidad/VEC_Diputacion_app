@@ -27,6 +27,9 @@ func (c *ContadorNumeroVisiblePostgreSQL) SiguienteNumeroVisible(ctx context.Con
 		return c.pool.QueryRow(ctx, "SELECT vec_contratacion_temporal.siguiente_numero_visible_v1($1)", anio).Scan(&numero)
 	})
 	if err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		return "", ports.ErrPersistenciaNoDisponible
 	}
 	return numero, nil

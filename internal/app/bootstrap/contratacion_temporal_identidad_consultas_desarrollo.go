@@ -140,8 +140,9 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	}
 	soporte.sesionOperativa = proveedor
 	soporte.mu.Unlock()
+	// El error ya está saneado (sin datos de la base); se propaga tal cual.
 	if err := configurarSesionesPerfilesFijosCTDesarrollo(ctx, soporte, proveedor); err != nil {
-		return nil, nil, fallo
+		return nil, nil, err
 	}
 	completa = true
 	return proveedor, cerrar, nil
