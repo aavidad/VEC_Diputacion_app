@@ -44,10 +44,10 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 			t.Fatalf("la ruta %s no usa el perfil de cobertura", ruta)
 		}
 	}
-	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) != nil || s.perfilFijoParaRuta(httpinterno.RutaRegistroAnalisisRRHH) != nil {
+	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) != nil || s.perfilFijoParaRuta(httpinterno.RutaAsignaciones) != nil {
 		t.Fatal("una ruta dinámica quedó en un perfil fijo")
 	}
-	if err := asegurarPerfilesFijosCTDesarrollo(ctx, pool, s, aprobacionProvisionPerfilesRRHHDesarrollo{}, alta, cobertura); err != nil {
+	if err := asegurarPerfilesFijosCTDesarrollo(ctx, pool, s, aprobacionProvisionPerfilesRRHHDesarrollo{}, s.perfilesFijosRegistrados()...); err != nil {
 		t.Fatalf("arranque de los perfiles fijos: %v", err)
 	}
 	return s, alta, cobertura
@@ -56,7 +56,12 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	ctx, gobierno, admin := poolesPerfilDinamicoRRHHPostgreSQLPrueba(t)
 	s, alta, cobertura := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
-	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura} {
+	analisis := s.perfilFijoParaRuta(httpinterno.RutaRectificacionAnalisisRRHH)
+	if analisis == nil || analisis != s.perfilFijoParaRuta(httpinterno.RutaRegistroAnalisisRRHH) ||
+		analisis == alta || analisis == cobertura {
+		t.Fatal("el análisis no tiene su propio perfil fijo")
+	}
+	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis} {
 		h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, p.perfilRef())
 		if h.versiones != 1 || h.acto != actoAsignacionPerfilFijoCTDesarrollo {
 			t.Fatalf("perfil %s: inicial no única o con otro acto: %+v", p.clave, h)
@@ -72,6 +77,7 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	}
 	// 30 consumos simultáneos de cada perfil: todos concedidos, cero escrituras.
 	antesAlta, antesCobertura := historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()), historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef())
+	antesAnalisis := historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef())
 	var espera sync.WaitGroup
 	var mu sync.Mutex
 	fallos := 0
@@ -85,18 +91,19 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 				fallos++
 				mu.Unlock()
 			}
-		}([]*perfilFijoCTDesarrollo{alta, cobertura}[i%2])
+		}([]*perfilFijoCTDesarrollo{alta, cobertura, analisis}[i%3])
 	}
 	espera.Wait()
 	if fallos != 0 {
 		t.Fatalf("%d de 30 consumos simultáneos fallaron", fallos)
 	}
 	if historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()) != antesAlta ||
-		historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef()) != antesCobertura {
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef()) != antesCobertura ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef()) != antesAnalisis {
 		t.Fatal("los consumos escribieron en los perfiles fijos")
 	}
 	// Las rutas del perfil dinámico no tocan los perfiles fijos.
-	if err := peticionRRHHPrueba(ctx, s, analisisDeExpedientePrueba(s, "expediente:fijos:uno")); err != nil {
+	if err := peticionRRHHPrueba(ctx, s, rolDeExpedientePrueba(s, "expediente:fijos:uno")); err != nil {
 		t.Fatalf("la ruta dinámica dejó de servirse: %v", err)
 	}
 	if historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()) != antesAlta {
@@ -135,26 +142,29 @@ func TestPerfilesFijosRRHHRevocadoNoRevivePostgreSQL(t *testing.T) {
 	ctx, gobierno, admin := poolesPerfilDinamicoRRHHPostgreSQLPrueba(t)
 	for _, estrechar := range []bool{false, true} {
 		s, alta, cobertura := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
-		revocarPerfilFijoPrueba(t, ctx, gobierno, alta, estrechar)
-		cerrada := historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef())
-		huella := huellaVigentePrueba(t, ctx, gobierno, alta)
-		// Ni con la aprobación y la huella exacta del estado revocado.
-		aprobacion := aprobacionProvisionPerfilesRRHHDesarrollo{referencia: "aprobacion:prueba:rrhh", preimagenes: map[string]bool{huella: true}}
-		for i := 0; i < 2; i++ {
-			if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, alta); ok {
-				t.Fatalf("restringido=%v: el alta consumió un perfil cerrado", estrechar)
-			}
-			if estado, err := asegurarPerfilFijoCTDesarrollo(ctx, gobierno, s, alta, aprobacion,
-				preimagenPropiaPerfilFijoCTDesarrollo(alta, actoAsignacionPerfilFijoCTDesarrollo)); err != nil || estado != perfilFijoPendienteProvision {
-				t.Fatalf("restringido=%v: rearranque %s %v", estrechar, estado, err)
-			}
-			if historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()) != cerrada {
-				t.Fatalf("restringido=%v: se escribió sobre el perfil cerrado", estrechar)
+		analisis := s.perfilFijoParaRuta(httpinterno.RutaRegistroAnalisisRRHH)
+		for _, cerrado := range []*perfilFijoCTDesarrollo{alta, analisis} {
+			revocarPerfilFijoPrueba(t, ctx, gobierno, cerrado, estrechar)
+			historia := historiaPerfilPostgreSQLPrueba(t, ctx, admin, cerrado.perfilRef())
+			huella := huellaVigentePrueba(t, ctx, gobierno, cerrado)
+			// Ni con la aprobación y la huella exacta del estado revocado.
+			aprobacion := aprobacionProvisionPerfilesRRHHDesarrollo{referencia: "aprobacion:prueba:rrhh", preimagenes: map[string]bool{huella: true}}
+			for i := 0; i < 2; i++ {
+				if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, cerrado); ok {
+					t.Fatalf("%s restringido=%v: consumió un perfil cerrado", cerrado.clave, estrechar)
+				}
+				if estado, err := asegurarPerfilFijoCTDesarrollo(ctx, gobierno, s, cerrado, aprobacion,
+					preimagenPropiaPerfilFijoCTDesarrollo(cerrado, actoAsignacionPerfilFijoCTDesarrollo)); err != nil || estado != perfilFijoPendienteProvision {
+					t.Fatalf("%s restringido=%v: rearranque %s %v", cerrado.clave, estrechar, estado, err)
+				}
+				if historiaPerfilPostgreSQLPrueba(t, ctx, admin, cerrado.perfilRef()) != historia {
+					t.Fatalf("%s restringido=%v: se escribió sobre el perfil cerrado", cerrado.clave, estrechar)
+				}
 			}
 		}
-		// Cerrar el alta no cierra la cobertura (perfiles independientes).
+		// Cerrar el alta y el análisis no cierra la cobertura (perfiles independientes).
 		if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, cobertura); !ok {
-			t.Fatal("la cobertura quedó cerrada por revocar el alta")
+			t.Fatal("la cobertura quedó cerrada por revocar otros perfiles")
 		}
 	}
 }

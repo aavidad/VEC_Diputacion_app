@@ -319,6 +319,10 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
+	faseAnalisis, ok := alta.soporte.opcionesCatalogo.faseOperacionVigente(operacionFaseAnalisisCT)
+	if !ok {
+		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
+	}
 	sellador, err := nuevoSelladorHMACOperacionAnalisisDesarrollo(derivador)
 	if err != nil {
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
@@ -342,7 +346,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		artefactos,
 		sellador,
 		preparaciones,
-		resolutorPoliticaOperacionAnalisisDesarrollo{motivos: motivos},
+		resolutorPoliticaOperacionAnalisisDesarrollo{motivos: motivos, fase: faseAnalisis},
 		seguridadvec.GeneradorReferenciasCriptograficas{},
 		alta.autorizador,
 		reloj,
@@ -356,6 +360,9 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 
 type resolutorPoliticaOperacionAnalisisDesarrollo struct {
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo
+	// fase son las fases y el estado previos en que se admite el análisis
+	// (catálogo c23); son también los que cubre su perfil fijo.
+	fase faseOperacionCT
 }
 
 func (r resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionAnalisis(
@@ -371,8 +378,7 @@ func (r resolutorPoliticaOperacionAnalisisDesarrollo) ResolverPoliticaOperacionA
 			[]byte(solicitud.Flujo.HuellaSHA256),
 			[]byte(huellaAltaContratacionTemporalDesarrollo("flujo")),
 		) ||
-		solicitud.FasePrevia != domain.ClaveFase("solicitud") ||
-		solicitud.EstadoPrevio != domain.EstadoEnCurso {
+		!r.fase.admite(solicitud.FasePrevia, solicitud.EstadoPrevio) {
 		return ports.PoliticaOperacionAnalisis{},
 			ports.ErrPoliticaOperacionAnalisisNoDisponible
 	}

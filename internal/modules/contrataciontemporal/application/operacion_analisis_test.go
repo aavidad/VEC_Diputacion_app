@@ -112,7 +112,9 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 			recibo.ArtefactoHuellaSHA256 ||
 		datosV3.Recurso.Atributos[ports.AtributoAnalisisDerivadoHuella] !=
 			huellaAnalisis ||
-		len(datosV3.Recurso.Ambitos) != 4 ||
+		len(datosV3.Recurso.Ambitos) != 3 ||
+		datosV3.Recurso.Ambitos["expediente_ref"] != "" ||
+		datosV3.Recurso.Referencia != recibo.ExpedienteRef ||
 		len(datosV3.Recurso.Atributos) != 13 {
 		t.Fatalf("recurso VEC V3 incompleto: %#v", datosV3.Recurso)
 	}
