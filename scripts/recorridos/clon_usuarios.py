@@ -197,6 +197,10 @@ func codexMIdentityFlags(ctx context.Context,pool *pgxpool.Pool,group string,fun
 func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool,logins []struct{Name string `json:"name"`;Group string `json:"group"`})(int,error){
  tx,err:=admin.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable});if err!=nil{return 0,err};defer tx.Rollback(ctx)
  if _,err=tx.Exec(ctx,`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:codexm:usuarios:identity-connect',0))`);err!=nil{return 0,err}
+ var publicCount int;var publicExact,publicTemporary bool
+ if tx.QueryRow(ctx,`SELECT count(*)::int,coalesce(bool_and(a.privilege_type IN ('CONNECT','TEMPORARY') AND NOT a.is_grantable),false),coalesce(bool_or(a.privilege_type='TEMPORARY'),false)
+ FROM pg_catalog.pg_database b CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(b.datacl,pg_catalog.acldefault('d',b.datdba))) a WHERE b.datname='postgres' AND a.grantee=0`).Scan(&publicCount,&publicExact,&publicTemporary)!=nil||!publicExact||(publicCount!=1&&publicCount!=2){return 0,fmt.Errorf("PUBLIC database privilege preimage differs")}
+ if publicTemporary{if _,err=tx.Exec(ctx,`REVOKE TEMPORARY ON DATABASE postgres FROM PUBLIC`);err!=nil{return 0,fmt.Errorf("PUBLIC temporary recovery")}}
  var pending []string
  groups:=map[string]bool{};for _,login:=range logins{groups[login.Group]=true}
  for group:=range groups{
