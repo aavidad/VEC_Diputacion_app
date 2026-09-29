@@ -337,7 +337,10 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	}
 	// El PDF firmado se custodia antes de pedir la autorización de la firma,
 	// que es breve: si la custodia falla no se registra nada; si falla después
-	// el registro, el reintento recupera el mismo documento en Documentos.
+	// el registro, el reintento recupera el mismo documento en Documentos. Si
+	// el registro falla de forma definitiva (autorización denegada, conflicto),
+	// el documento queda custodiado sin firma que lo enlace: la conciliación
+	// de Documentos debe tenerlo en cuenta.
 	if material.DocumentoCustodiaRef != "" {
 		custodiado, err = s.custodiarFirmado(ctx, sol, material, tipo)
 		if err != nil {
