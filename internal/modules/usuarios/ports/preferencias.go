@@ -73,42 +73,49 @@ type OrdenPreferencias struct {
 	proveedor  ProveedorMaterialPreferencias
 }
 
-func cotejarIdentidadVinculo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2) (vecdomain.DatosVinculoAutenticacionActorV2, bool) {
+func cotejarIdentidadVinculo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2) (vecdomain.DatosVinculoAutenticacionActorV2, error) {
 	if actor.Validar() != nil || !metodoCertificado(actor.Principal.AuthMethod) || actor.Instantanea.CuentaVersion == 0 {
-		return vecdomain.DatosVinculoAutenticacionActorV2{}, false
+		return vecdomain.DatosVinculoAutenticacionActorV2{}, ErrNoAutenticado
 	}
 	datos, err := vinculo.Datos()
-	//vec:silencio-justificado PREDICADO_VALIDACION un vínculo V2 sin datos acreditados no identifica al actor
 	if err != nil {
-		return vecdomain.DatosVinculoAutenticacionActorV2{}, false
+		return vecdomain.DatosVinculoAutenticacionActorV2{}, ErrNoAutenticado
 	}
 	if datos.CuentaPrivilegiada {
-		return vecdomain.DatosVinculoAutenticacionActorV2{}, false
+		return vecdomain.DatosVinculoAutenticacionActorV2{}, ErrNoAutenticado
 	}
 	huella, err := actor.HuellaSHA256VinculadaV2()
-	//vec:silencio-justificado PREDICADO_VALIDACION una huella de contexto no obtenible invalida la identidad ligada
 	if err != nil {
-		return vecdomain.DatosVinculoAutenticacionActorV2{}, false
+		return vecdomain.DatosVinculoAutenticacionActorV2{}, ErrNoAutenticado
 	}
 	coincide := datos.PrincipalID == actor.PersonaRef && datos.PerfilActivoRef == actor.PerfilActivoRef &&
 		datos.CuentaRef == actor.Instantanea.CuentaRef && datos.CuentaOrdinariaRef == actor.Instantanea.CuentaRef &&
 		datos.MetodoObservado == actor.Principal.AuthMethod && datos.GarantiaObservada == actor.Principal.AuthAssurance &&
 		datos.ContextoActorRef == actor.Instantanea.VinculoRef && datos.ContextoActorVersion == actor.Instantanea.VinculoVersion &&
 		datos.ContextoActorCuentaVersion == actor.Instantanea.CuentaVersion && datos.ContextoActorHuellaSHA256 == huella
-	return datos, coincide
+	if !coincide {
+		return vecdomain.DatosVinculoAutenticacionActorV2{}, ErrNoAutenticado
+	}
+	return datos, nil
 }
-func cotejarVinculo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1) bool {
-	datos, ok := cotejarIdentidadVinculo(actor, vinculo)
-	return ok && (superficieRuta == vecdomain.SuperficieAutenticacionInternaCorporativaV1 || superficieRuta == vecdomain.SuperficieAutenticacionExternaPersonalV1) && datos.Superficie == superficieRuta
+func cotejarVinculo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1) error {
+	datos, err := cotejarIdentidadVinculo(actor, vinculo)
+	if err != nil {
+		return err
+	}
+	if (superficieRuta != vecdomain.SuperficieAutenticacionInternaCorporativaV1 && superficieRuta != vecdomain.SuperficieAutenticacionExternaPersonalV1) || datos.Superficie != superficieRuta {
+		return ErrProhibido
+	}
+	return nil
 }
 
 func NuevaOrdenPreferencias(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1, proveedor ProveedorMaterialPreferencias) (OrdenPreferencias, error) {
-	datos, identidadValida := cotejarIdentidadVinculo(actor, vinculo)
-	if proveedor == nil || !identidadValida {
+	_, err := cotejarIdentidadVinculo(actor, vinculo)
+	if proveedor == nil || err != nil {
 		return OrdenPreferencias{}, ErrNoAutenticado
 	}
-	if (superficieRuta != vecdomain.SuperficieAutenticacionInternaCorporativaV1 && superficieRuta != vecdomain.SuperficieAutenticacionExternaPersonalV1) || datos.Superficie != superficieRuta {
-		return OrdenPreferencias{}, ErrProhibido
+	if err := cotejarVinculo(actor, vinculo, superficieRuta); err != nil {
+		return OrdenPreferencias{}, err
 	}
 	copia, err := actor.Clonar()
 	if err != nil {
@@ -117,20 +124,29 @@ func NuevaOrdenPreferencias(actor vecdomain.ContextoActor, vinculo vecdomain.Vin
 	return OrdenPreferencias{actor: copia, vinculo: vinculo, superficie: superficieRuta, proveedor: proveedor}, nil
 }
 func (o OrdenPreferencias) ContextoActor() (vecdomain.ContextoActor, error) {
-	if o.proveedor == nil || !cotejarVinculo(o.actor, o.vinculo, o.superficie) {
+	if o.proveedor == nil {
 		return vecdomain.ContextoActor{}, ErrNoAutenticado
+	}
+	if err := cotejarVinculo(o.actor, o.vinculo, o.superficie); err != nil {
+		return vecdomain.ContextoActor{}, err
 	}
 	return o.actor.Clonar()
 }
 func (o OrdenPreferencias) Vinculo() (vecdomain.VinculoAutenticacionActorV2, error) {
-	if o.proveedor == nil || !cotejarVinculo(o.actor, o.vinculo, o.superficie) {
+	if o.proveedor == nil {
 		return vecdomain.VinculoAutenticacionActorV2{}, ErrNoAutenticado
+	}
+	if err := cotejarVinculo(o.actor, o.vinculo, o.superficie); err != nil {
+		return vecdomain.VinculoAutenticacionActorV2{}, err
 	}
 	return o.vinculo, nil
 }
 func (o OrdenPreferencias) Superficie() (vecdomain.SuperficieAutenticacionActorV1, error) {
-	if o.proveedor == nil || !cotejarVinculo(o.actor, o.vinculo, o.superficie) {
+	if o.proveedor == nil {
 		return "", ErrNoAutenticado
+	}
+	if err := cotejarVinculo(o.actor, o.vinculo, o.superficie); err != nil {
+		return "", err
 	}
 	return o.superficie, nil
 }
