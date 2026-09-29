@@ -152,25 +152,23 @@
           </div>
         </a>
 
-        <div class="fase-portal" id="estado-modulos-portal">
-          <span class="punto-estado" aria-hidden="true"></span>
-          <span id="texto-estado-modulos-portal" data-i18n-portal="txt_comprobando_modulos">Comprobando módulos</span>
-        </div>
-
         <nav class="navegacion-modulos" aria-label="Módulos del portal" data-i18n-portal-aria-label="txt_modulos_del_portal">
-          <p class="titulo-navegacion" data-i18n-portal="txt_portal">Portal</p>
           <button type="button" class="enlace-lateral enlace-portal" data-vista="portal">
-            <span class="indicador-menu" aria-hidden="true">P</span>
-            <span data-i18n-portal="txt_inicio_del_portal">Inicio del portal</span>
+            <span class="indicador-menu" aria-hidden="true">1</span>
+            <span data-i18n-portal="inicio_titulo_neutro">Inicio</span>
           </button>
-
-          <p class="titulo-navegacion" id="titulo-modulos-portal" data-i18n-portal="txt_modulos">Módulos</p>
+          <p class="solo-lectura" id="titulo-modulos-portal" data-i18n-portal="txt_modulos">Módulos</p>
           <div id="navegacion-modulos-dinamica" aria-labelledby="titulo-modulos-portal"></div>
           <button type="button" id="enlace-plantillas-rrhh" class="enlace-lateral enlace-submenu" data-vista="plantillas-rrhh" hidden><span data-i18n-portal="plantillas_rrhh_nav">Plantillas de documentos</span></button>
+          <button type="button" class="enlace-lateral" id="enlace-ofertas-sae" disabled aria-disabled="true" aria-describedby="motivo-ofertas-sae">
+            <span class="indicador-menu" aria-hidden="true">4</span>
+            <span data-i18n-portal="inicio_rrhh_pestana_sae">Ofertas al SAE</span>
+          </button>
+          <span class="solo-lectura" id="motivo-ofertas-sae" data-i18n-portal="inicio_rrhh_sae_pendiente">Las ofertas al SAE no se pueden consultar todavía: falta una fuente autorizada.</span>
         </nav>
 
-        <nav class="navegacion-bolsa" id="navegacion-bolsa" aria-label="Gestión de Bolsas" hidden data-i18n-portal-aria-label="txt_gestion_de_bolsas">
-          <p class="titulo-navegacion" data-i18n-portal="txt_gestion_de_bolsas">Gestión de Bolsas</p>
+        <nav class="navegacion-bolsa" id="navegacion-bolsa" aria-label="Opciones de bolsas de trabajo" hidden data-i18n-portal-aria-label="menu_opciones_bolsa">
+          <p class="titulo-navegacion" data-i18n-portal="menu_opciones_bolsa">Opciones de bolsas de trabajo</p>
 
           <div class="grupo-menu-bolsa">
             <button type="button" class="enlace-lateral categoria-menu-bolsa" data-categoria-bolsa="bolsas-candidatos" data-grupo-bolsa="bolsas-candidatos" aria-expanded="false" aria-controls="submenu-bolsas-candidatos">
@@ -235,13 +233,7 @@
             </div>
           </div>
         </nav>
-
-        <div class="pie-lateral">
-          <button type="button" class="enlace-lateral" data-accion="ayuda" data-i18n-portal-aria-label="ayuda_abrir_inicial" aria-label="?" aria-haspopup="dialog">
-            <span class="indicador-menu" aria-hidden="true">?</span>
-          </button>
-          <span data-i18n-portal="txt_portal_de_recursos_humanos">Portal de Recursos Humanos</span>
-        </div>
+        <div class="pie-lateral"><span data-i18n-portal="txt_portal_de_recursos_humanos">Portal de Recursos Humanos</span></div>
       </aside>
 
       <div class="portal-superficie">
@@ -259,6 +251,7 @@
             </label>
             <button type="button" class="boton-cabecera" id="boton-texto" aria-label="Aumentar o restablecer el tamaño del texto" aria-pressed="false" title="Aumentar tamaño del texto" data-i18n-portal-aria-label="txt_aumentar_o_restablecer_el_tamano_del_texto" data-i18n-portal-title="txt_aumentar_tamano_del_texto">A+</button>
             <button type="button" class="boton-cabecera boton-icono" id="boton-contraste" aria-label="Activar o desactivar el alto contraste" aria-pressed="false" title="Alto contraste" data-i18n-portal-aria-label="txt_activar_o_desactivar_el_alto_contraste" data-i18n-portal-title="txt_alto_contraste"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+            <button type="button" class="boton-cabecera boton-icono" data-accion="ayuda" data-i18n-portal-aria-label="ayuda_abrir_inicial" aria-label="Abrir ayuda" aria-haspopup="dialog"><span aria-hidden="true">?</span></button>
             <button type="button" class="boton-cabecera boton-icono boton-avisos" data-accion="avisos" title="Avisos" data-i18n-portal-title="txt_avisos">
               <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span aria-label="Avisos pendientes sin resolver" data-i18n-portal-aria-label="txt_avisos_pendientes_sin_resolver">—</span><b class="solo-lectura" data-i18n-portal="txt_avisos">Avisos</b>
             </button>

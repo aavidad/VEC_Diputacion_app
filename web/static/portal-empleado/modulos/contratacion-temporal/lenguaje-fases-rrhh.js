@@ -20,14 +20,20 @@ export const FASES_RRHH = Object.freeze(FASES.map(([clave, es, en], indice) =>
 const ALIAS_FASE = Object.freeze({
   solicitud_registrada: "solicitud",
   analisis: "analisis_rrhh",
+  analisis_de_rrhh: "analisis_rrhh",
   cobertura: "gestion_bolsa",
+  gestion_de_bolsa: "gestion_bolsa",
   asignacion: "gestion_bolsa",
   asignacion_unidad: "gestion_bolsa",
+  asignacion_a_unidad: "gestion_bolsa",
   informe: "gestion_bolsa",
   informe_juridico: "gestion_bolsa",
   subsanacion_unidad: "fiscalizacion",
   llamamiento: "obtencion_candidato",
+  obtencion_de_candidato: "obtencion_candidato",
+  obtencion_del_candidato: "obtencion_candidato",
   cierre: "seguimiento",
+  seguimiento_y_cierre: "seguimiento",
 });
 
 function claveNormalizada(valor) {

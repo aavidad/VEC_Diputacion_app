@@ -587,9 +587,31 @@ function actualizarNavegacionModulos() {
   if (!contenedor) return;
   const moduloActivo = moduloActivoDeVista(estado.vista);
   const disponibilidad = disponibilidadBolsa();
-  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
+  // La navegación principal conserva sus entradas entre módulos. El catálogo
+  // y la comprobación positiva de acceso siguen decidiendo cuáles se ofrecen.
+  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, "portal", vistaPermitida);
+  const etiquetas = {
+    contratacion_temporal: ["contratacion_temporal_encabezado", "2"],
+    bolsa: ["inicio_rrhh_pestana_bolsas", "3"],
+  };
+  const entradas = [...contenedor.querySelectorAll(":scope > [data-modulo-portal]")];
+  entradas.sort((a, b) => {
+    const orden = { contratacion_temporal: 0, bolsa: 1 };
+    return (orden[a.dataset.moduloPortal] ?? 2) - (orden[b.dataset.moduloPortal] ?? 2);
+  });
+  contenedor.replaceChildren(...entradas);
+  entradas.forEach((entrada) => {
+    const [clave, numero] = etiquetas[entrada.dataset.moduloPortal] || [];
+    if (!clave) return;
+    const indicador = entrada.querySelector(":scope > .indicador-menu");
+    const rotulo = entrada.querySelector(":scope > span:not(.indicador-menu):not(.etiqueta-menu)");
+    if (indicador) indicador.textContent = numero;
+    if (rotulo) rotulo.textContent = traducirPortal(clave);
+    if (!entrada.disabled) entrada.querySelector(":scope > .etiqueta-menu")?.remove();
+  });
   const enlacePlantillas = porId("enlace-plantillas-rrhh");
-  if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true;
+  if (enlacePlantillas) enlacePlantillas.hidden = estado.plantillasAutorizadas !== true
+    || moduloActivo !== "contratacion_temporal";
   aplicarDisponibilidadMenuBolsa(porId("navegacion-bolsa"), capacidadesBolsa())
     .forEach((indicador, indice) => { indicador.textContent = String(indice + 1); });
   const fase = porId("texto-estado-modulos-portal");
@@ -736,8 +758,6 @@ function renderizar() {
   document.querySelectorAll('[data-accion="ayuda"]').forEach((control) => {
     control.setAttribute("aria-label", etiquetaAyuda);
   });
-  const ayudaLateral = document.querySelector('.enlace-lateral[data-accion="ayuda"]');
-  if (ayudaLateral) ayudaLateral.hidden = estado.vista === "portal" && esPerfilRRHH();
   porId("navegacion-bolsa").hidden = moduloActivo !== "bolsa";
   actualizarNavegacionModulos();
 
