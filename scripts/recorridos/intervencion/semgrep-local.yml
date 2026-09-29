@@ -1,0 +1,27 @@
+rules:
+  - id: vec-recorrido-sin-verificacion-tls
+    languages: [python]
+    severity: ERROR
+    message: El recorrido debe verificar TLS.
+    patterns:
+      - pattern-either:
+          - pattern: requests.$METODO(..., verify=False, ...)
+          - pattern: httpx.$METODO(..., verify=False, ...)
+          - pattern: $CLIENTE.new_context(..., ignore_https_errors=True, ...)
+  - id: vec-recorrido-comando-shell
+    languages: [python]
+    severity: ERROR
+    message: El recorrido no debe ejecutar órdenes mediante shell.
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$METODO(..., shell=True, ...)
+          - pattern: os.system(...)
+  - id: vec-recorrido-serializacion-insegura
+    languages: [python]
+    severity: ERROR
+    message: La evidencia externa no debe deserializar objetos ejecutables.
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads(...)
+          - pattern: pickle.load(...)
+          - pattern: yaml.load(...)
