@@ -107,6 +107,16 @@ func (c *cancelacionCentroDesarrollo) concesiones(rol string) []vecdomain.Conces
 	}
 }
 
+// concesionCancelar es la única concesión del perfil propio de cancelación.
+func (c *cancelacionCentroDesarrollo) concesionCancelar(rol string) []vecdomain.ConcesionRol {
+	for _, concesion := range c.concesiones(rol) {
+		if concesion.Accion == string(domain.AccionCancelarExpediente) {
+			return []vecdomain.ConcesionRol{concesion}
+		}
+	}
+	return nil
+}
+
 func (c *cancelacionCentroDesarrollo) rutas(p *proveedorPeticionCentroDesarrollo) ([]vechttp.RutaExacta, error) {
 	if !c.activa() {
 		return nil, nil
@@ -162,17 +172,22 @@ func (r *recursoCancelacionCentroDesarrollo) validaPara(principal, perfil string
 	if r == nil || r.actor.ActorRef != principal || r.actor.PerfilRef != perfil || d.Accion != r.accion || d.Finalidad != r.finalidad ||
 		d.Recurso.Referencia != r.recurso.Referencia || d.Recurso.ModuloID != ports.ModuloContratacion || d.Recurso.Tipo != ports.TipoRecursoCancelacion ||
 		r.recurso.Tipo != ports.TipoRecursoCancelacion || !maps.Equal(d.Recurso.Ambitos, r.recurso.Ambitos) || !maps.Equal(d.Recurso.Atributos, r.recurso.Atributos) ||
-		d.Recurso.Ambitos["centro_ref"] != r.actor.CentroRef || d.Recurso.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo ||
-		d.Recurso.Ambitos["expediente_ref"] != d.Recurso.Referencia {
+		d.Recurso.Ambitos["centro_ref"] != r.actor.CentroRef || d.Recurso.Ambitos["organizacion_ref"] != organizacionAltaContratacionTemporalDesarrollo {
 		return false
 	}
 	switch r.accion {
 	case string(domain.AccionCancelarExpediente):
 		return r.finalidad == ports.FinalidadCancelarExpediente && len(d.Recurso.Ambitos) == 5 &&
+			d.Recurso.Ambitos["expediente_ref"] == d.Recurso.Referencia &&
 			domain.ClaveFase(d.Recurso.Ambitos["fase_previa"]).Valida() && d.Recurso.Ambitos["estado_previo"] == string(domain.EstadoEnCurso) &&
 			d.Recurso.Atributos["canal"] == string(domain.CanalCancelacionCentro)
 	case accionConsultarCancelacionCTDesarrollo:
-		return r.finalidad == finalidadPeticionCentro && len(d.Recurso.Ambitos) == 3
+		// La consulta de opciones usa los ámbitos del perfil general (la
+		// pertenencia del expediente al centro ya se ha comprobado): así se
+		// consume la asignación publicada sin estrecharla por expediente.
+		return r.finalidad == finalidadPeticionCentro && len(d.Recurso.Ambitos) == 2 &&
+			len(d.Recurso.Atributos) == 2 && d.Recurso.Atributos["expediente_ref"] == d.Recurso.Referencia &&
+			d.Recurso.Atributos["lectura"] == "cancelacion_opciones"
 	}
 	return false
 }
@@ -213,12 +228,36 @@ func (a *autoridadCancelacionCentroDesarrollo) identidad(ctx context.Context) (*
 	return id, nil
 }
 
-func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoCanalSeguimiento(ctx context.Context) (application.ContextoCanalSeguimiento, error) {
+// perfilPara elige, por la ruta que sirve el manejador (nunca por algo que
+// envíe el cliente), el perfil V3 de la persona: la cancelación usa su perfil
+// propio y la consulta de opciones, el perfil general del centro.
+func (a *autoridadCancelacionCentroDesarrollo) perfilPara(ctx context.Context) (perfilCentroDesarrollo, error) {
 	id, err := a.identidad(ctx)
+	if err != nil {
+		return perfilCentroDesarrollo{}, err
+	}
+	c, _ := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+	return perfilCentroPorRutaDesarrollo(id, c.ruta)
+}
+
+func perfilCentroPorRutaDesarrollo(id *identidadPeticionCentroDesarrollo, ruta string) (perfilCentroDesarrollo, error) {
+	switch {
+	case id == nil || !rutaCancelacionCentroDesarrollo(ruta):
+		return perfilCentroDesarrollo{}, ports.ErrAutorizacionDenegada
+	case ruta != rutaCancelacionesCentro:
+		return perfilGeneralCentroDesarrollo(id), nil
+	case id.cancelacion == nil || id.cancelacion.soporte == nil || id.cancelacion.autorizador == nil:
+		return perfilCentroDesarrollo{}, ports.ErrAutorizacionDenegada
+	}
+	return *id.cancelacion, nil
+}
+
+func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoCanalSeguimiento(ctx context.Context) (application.ContextoCanalSeguimiento, error) {
+	p, err := a.perfilPara(ctx)
 	if err != nil {
 		return application.ContextoCanalSeguimiento{}, err
 	}
-	v, err := id.soporte.contexto.Vinculo.Datos()
+	v, err := p.soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return application.ContextoCanalSeguimiento{}, ports.ErrAutorizacionDenegada
 	}
@@ -229,15 +268,15 @@ func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoCanalSeguimiento(
 // ResolverContextoAutorizacionAltaV3 devuelve el contexto nominal del actor
 // del centro si la solicitud es exactamente la suya.
 func (a *autoridadCancelacionCentroDesarrollo) ResolverContextoAutorizacionAltaV3(ctx context.Context, sol ports.SolicitudResolverContextoAutorizacionAltaV3) (ports.ContextoAutorizacionAltaV3, error) {
-	id, err := a.identidad(ctx)
+	p, err := a.perfilPara(ctx)
 	if err != nil || sol.Validar() != nil {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
-	v, err := id.soporte.contexto.Vinculo.Datos()
+	v, err := p.soporte.contexto.Vinculo.Datos()
 	if err != nil || sol.AutenticacionRef != v.AutenticacionRef || sol.SesionRef != v.SesionRef || sol.PerfilRef != v.PerfilActivoRef {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
-	return id.soporte.contexto, nil
+	return p.soporte.contexto, nil
 }
 
 // pertenece comprueba con la consulta dedicada de CT124 que el expediente
@@ -254,7 +293,7 @@ func (a *autoridadCancelacionCentroDesarrollo) pertenece(ctx context.Context, id
 	return nil
 }
 
-func (a *autoridadCancelacionCentroDesarrollo) exigir(ctx context.Context, id *identidadPeticionCentroDesarrollo, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
+func (a *autoridadCancelacionCentroDesarrollo) exigir(ctx context.Context, p perfilCentroDesarrollo, accion, finalidad string, recurso vecdomain.RecursoAutorizable) (vecdomain.SolicitudAutorizacionLigadaV3, vecdomain.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, error) {
 	var (
 		s vecdomain.SolicitudAutorizacionLigadaV3
 		d vecdomain.DecisionAutorizacionLigadaV3
@@ -264,10 +303,13 @@ func (a *autoridadCancelacionCentroDesarrollo) exigir(ctx context.Context, id *i
 	if err != nil {
 		return s, d, c, err
 	}
-	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: id.soporte.contexto.Vinculo, ReferenciaMotivo: motivoPeticionCentroDesarrollo(),
+	if p.soporte == nil || p.autorizador == nil {
+		return s, d, c, ports.ErrAutorizacionDenegada
+	}
+	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: p.soporte.contexto.Vinculo, ReferenciaMotivo: motivoPeticionCentroDesarrollo(),
 		Accion: accion, Recurso: recurso, Finalidad: finalidad, Correlacion: correlacion}
 	ctx = context.WithValue(ctx, claveMaterialPeticionCentroDesarrollo{}, materialAutorizacionPeticionCentroDesarrollo{
-		cancelacion: &recursoCancelacionCentroDesarrollo{accion: accion, finalidad: finalidad, recurso: recurso, actor: id.actor}})
+		cancelacion: &recursoCancelacionCentroDesarrollo{accion: accion, finalidad: finalidad, recurso: recurso, actor: p.actor}})
 	if !solicitudAutorizacionPeticionCentroDesarrolloValida(ctx, datos) {
 		return s, d, c, ports.ErrAutorizacionDenegada
 	}
@@ -276,23 +318,33 @@ func (a *autoridadCancelacionCentroDesarrollo) exigir(ctx context.Context, id *i
 		return s, d, c, err
 	}
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
-	d, c, err = id.autorizador.ExigirSolicitudLigadaV3(ctx, s, id.soporte.contexto.Resultado)
+	d, c, err = p.autorizador.ExigirSolicitudLigadaV3(ctx, s, p.soporte.contexto.Resultado)
 	return s, d, c, err
 }
 
 func (a *autoridadCancelacionCentroDesarrollo) AutorizarOperacionSeguimiento(ctx context.Context, sol ports.SolicitudAutorizarOperacionSeguimiento) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	vacio := vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
-	id, err := a.identidad(ctx)
-	if err != nil || a.piezas == nil || a.piezas.proveedor == nil || sol.Audiencia != ports.AudienciaConsumoCancelacionV1 ||
+	p, err := a.perfilPara(ctx)
+	if err != nil || p.soporte == nil || !p.soporte.perfilCancelacionCentro || a.piezas == nil || a.piezas.proveedor == nil ||
+		sol.Audiencia != ports.AudienciaConsumoCancelacionV1 ||
 		sol.Accion != domain.AccionCancelarExpediente || sol.Finalidad != ports.FinalidadCancelarExpediente ||
-		sol.Motivo != motivoPeticionCentroDesarrollo() || sol.Recurso.Ambitos["centro_ref"] != id.actor.CentroRef {
+		sol.Motivo != motivoPeticionCentroDesarrollo() || sol.Recurso.Ambitos["centro_ref"] != p.actor.CentroRef {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
-	s, d, c, err := a.exigir(ctx, id, string(sol.Accion), sol.Finalidad, sol.Recurso)
+	// Cancelar exige también que el perfil general de la persona siga
+	// consumible: revocarlo o restringirlo retira además la cancelación.
+	id, err := a.identidad(ctx)
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	if _, consumible := id.soporte.instantaneaConsumidaPublicada(ctx); !consumible {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	s, d, c, err := a.exigir(ctx, p, string(sol.Accion), sol.Finalidad, sol.Recurso)
 	if err != nil {
 		return vacio, err
 	}
-	return a.piezas.proveedor.proveerMaterialConfirmacion(ctx, s, d, c, motivoPeticionCentroDesarrollo(), id.soporte.contexto.Resultado)
+	return a.piezas.proveedor.proveerMaterialConfirmacion(ctx, s, d, c, motivoPeticionCentroDesarrollo(), p.soporte.contexto.Resultado)
 }
 
 // AutorizarLecturaSeguimiento exige que el expediente sea de una petición del
@@ -305,10 +357,10 @@ func (a *autoridadCancelacionCentroDesarrollo) AutorizarLecturaSeguimiento(ctx c
 	if err := a.pertenece(ctx, id, expedienteRef); err != nil {
 		return err
 	}
-	_, _, _, err = a.exigir(ctx, id, accionConsultarCancelacionCTDesarrollo, finalidadPeticionCentro, vecdomain.RecursoAutorizable{
+	_, _, _, err = a.exigir(ctx, perfilGeneralCentroDesarrollo(id), accionConsultarCancelacionCTDesarrollo, finalidadPeticionCentro, vecdomain.RecursoAutorizable{
 		Referencia: expedienteRef, ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoCancelacion,
-		Ambitos:   map[string]string{"organizacion_ref": organizacionRef, "centro_ref": id.actor.CentroRef, "expediente_ref": expedienteRef},
-		Atributos: map[string]string{"lectura": "cancelacion_opciones"}})
+		Ambitos:   map[string]string{"organizacion_ref": organizacionRef, "centro_ref": id.actor.CentroRef},
+		Atributos: map[string]string{"lectura": "cancelacion_opciones", "expediente_ref": expedienteRef}})
 	return err
 }
 

@@ -172,6 +172,8 @@ type Config struct {
 	CTSeguimientoCeseEnabled                    string
 	CTCancelacionEnabled                        string
 	CTIncorporacionAcreditadaEnabled            string
+	CTAprobacionPerfilesCentro                  string
+	CTPreimagenesPerfilesCentro                 string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
 	FirmaVerificacionEnabled                    string
@@ -268,6 +270,8 @@ func Load() Config {
 		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
 		CTCancelacionEnabled:               envFirst(EnvCTCancelacionEnabled),
 		CTIncorporacionAcreditadaEnabled:   envFirst(EnvCTIncorporacionAcreditadaEnabled),
+		CTAprobacionPerfilesCentro:         envFirst(EnvCTProvisionPerfilesCentroAprobacion),
+		CTPreimagenesPerfilesCentro:        envFirst(EnvCTProvisionPerfilesCentroPreimagenes),
 		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
@@ -408,6 +412,8 @@ func (c Config) Normalize() Config {
 	c.CTSeguimientoCeseEnabled = strings.TrimSpace(c.CTSeguimientoCeseEnabled)
 	c.CTCancelacionEnabled = strings.TrimSpace(c.CTCancelacionEnabled)
 	c.CTIncorporacionAcreditadaEnabled = strings.TrimSpace(c.CTIncorporacionAcreditadaEnabled)
+	c.CTAprobacionPerfilesCentro = strings.TrimSpace(c.CTAprobacionPerfilesCentro)
+	c.CTPreimagenesPerfilesCentro = strings.TrimSpace(c.CTPreimagenesPerfilesCentro)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)

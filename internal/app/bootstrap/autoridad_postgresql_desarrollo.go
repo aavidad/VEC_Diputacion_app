@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,6 +25,11 @@ type autoridadPostgreSQLDesarrollo struct {
 	actoSesion     string
 	// La provisión inicial dedicada no modifica una asignación concurrente.
 	soloInicial bool
+	// exigirOrigenOperativo impide preparar o publicar encima de una
+	// asignación revocada, caducada, con su versión de rol retirada o cuyo
+	// puntero haya movido otro acto (una restricción o revocación
+	// gobernada). Así un perfil dinámico nunca reactiva lo revocado.
+	exigirOrigenOperativo bool
 }
 
 func (a autoridadPostgreSQLDesarrollo) validaConfiguracion() bool {
@@ -60,13 +66,16 @@ func clonarInstantaneaAutorizacionPostgreSQLDesarrollo(
 }
 
 type asignacionActualPostgreSQLDesarrollo struct {
-	referencia    string
-	identificador string
-	version       int64
-	perfilRef     string
-	principalID   string
-	versionRolRef string
-	huella        string
+	referencia     string
+	identificador  string
+	version        int64
+	perfilRef      string
+	principalID    string
+	versionRolRef  string
+	huella         string
+	documento      []byte
+	actoRef        string
+	actualizadaPor string
 }
 
 func (a *autoridadPostgreSQLDesarrollo) PrepararInstantanea(
@@ -174,6 +183,11 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantaneaUnaVez(
 	)
 	if err != nil || (!encontrada && !permitirInicial) {
 		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
+	if encontrada && a.exigirOrigenOperativo {
+		if err := a.comprobarOrigenOperativo(ctx, tx, actual); err != nil {
+			return vacia, falloPostgreSQLCTDesarrollo(err)
+		}
 	}
 	preparada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(solicitada)
 	if err := resolverVersionRolPostgreSQLDesarrollo(ctx, tx, &preparada); err != nil {
@@ -297,7 +311,8 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 		SELECT asignacion.asignacion_ref, asignacion.asignacion_id,
 		       asignacion.version, asignacion.perfil_activo_ref,
 		       asignacion.principal_id, asignacion.version_rol_ref,
-		       asignacion.huella_sha256
+		       asignacion.huella_sha256, asignacion.documento,
+		       vigente.acto_ref, vigente.actualizada_por
 		  FROM vec_autorizacion.asignacion_perfil_actual AS vigente
 		  JOIN vec_autorizacion.asignacion_perfil AS asignacion
 		    ON asignacion.perfil_activo_ref=vigente.perfil_activo_ref
@@ -306,7 +321,7 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 		 FOR UPDATE OF vigente`, perfilRef).Scan(
 		&actual.referencia, &actual.identificador, &actual.version,
 		&actual.perfilRef, &actual.principalID, &actual.versionRolRef,
-		&actual.huella,
+		&actual.huella, &actual.documento, &actual.actoRef, &actual.actualizadaPor,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return asignacionActualPostgreSQLDesarrollo{}, false, nil
@@ -315,6 +330,55 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 		return asignacionActualPostgreSQLDesarrollo{}, false, err
 	}
 	return actual, true, nil
+}
+
+// comprobarOrigenOperativo exige, con el puntero de asignación ya bloqueado
+// por el llamante, que la asignación vigente siga activa y en vigor, que el
+// control actual de su versión de rol esté habilitado y que el puntero lo
+// haya movido este mismo circuito. Bloquea también el control para que una
+// retirada concurrente no se cuele entre la comprobación y el COMMIT.
+func (a autoridadPostgreSQLDesarrollo) comprobarOrigenOperativo(
+	ctx context.Context, tx pgx.Tx, actual asignacionActualPostgreSQLDesarrollo,
+) error {
+	if actual.actoRef != a.actoAsignacion {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	var estadoControl string
+	var ahora time.Time
+	err := tx.QueryRow(ctx, `
+		SELECT control.estado, pg_catalog.clock_timestamp()
+		  FROM vec_autorizacion.control_vigencia_version_rol_actual AS vigente
+		  JOIN vec_autorizacion.control_vigencia_version_rol AS control
+		    ON control.version_rol_ref=vigente.version_rol_ref
+		   AND control.revision=vigente.revision
+		 WHERE vigente.version_rol_ref=$1
+		 FOR SHARE OF vigente`, actual.versionRolRef).Scan(&estadoControl, &ahora)
+	if err != nil {
+		return err
+	}
+	if !asignacionActualOperativaPostgreSQLDesarrollo(actual, estadoControl, ahora) {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	return nil
+}
+
+func asignacionActualOperativaPostgreSQLDesarrollo(
+	actual asignacionActualPostgreSQLDesarrollo, estadoControl string, ahora time.Time,
+) bool {
+	if estadoControl != string(dominiovec.EstadoControlVigenciaVersionRolHabilitada) {
+		return false
+	}
+	var asignacion dominiovec.AsignacionPerfil
+	if json.Unmarshal(actual.documento, &asignacion) != nil || asignacion.Validar() != nil ||
+		asignacion.Estado != dominiovec.EstadoAsignacionPerfilActiva || !asignacion.VigenteEn(ahora) ||
+		asignacion.Referencia() != actual.referencia ||
+		asignacion.AsignacionID != actual.identificador || int64(asignacion.Version) != actual.version ||
+		asignacion.PerfilActivoRef != actual.perfilRef || asignacion.PrincipalID != actual.principalID ||
+		asignacion.VersionRolRef != actual.versionRolRef || asignacion.EmitidaPor != actual.actualizadaPor {
+		return false
+	}
+	huella, err := asignacion.HuellaSHA256()
+	return err == nil && huella == actual.huella
 }
 
 // publicarInstantaneaConPreimagen repite la publicación completa cuando
@@ -425,6 +489,11 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 	}
 	if a.soloInicial && encontrada {
 		return falloPostgreSQLCTDesarrollo(nil)
+	}
+	if encontrada && a.exigirOrigenOperativo {
+		if err := a.comprobarOrigenOperativo(ctx, tx, actual); err != nil {
+			return falloPostgreSQLCTDesarrollo(err)
+		}
 	}
 	if encontrada {
 		yaPublicada := actual.referencia == asignacionRef && actual.huella == huellaAsignacion
@@ -668,6 +737,13 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagenUnaVez(
 	).Scan(&coincide)
 	if err != nil || !coincide {
 		return falloPostgreSQLCTDesarrollo(err)
+	}
+	// Las inserciones pueden haber esperado a otras transacciones: la
+	// asignación de origen se revalida como última operación antes del COMMIT.
+	if encontrada && a.exigirOrigenOperativo {
+		if err := a.comprobarOrigenOperativo(ctx, tx, actual); err != nil {
+			return falloPostgreSQLCTDesarrollo(err)
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return falloPostgreSQLCTDesarrollo(err)
