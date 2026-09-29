@@ -259,7 +259,12 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
       ocupado = null;
       if (!error?.codigo || error.codigo === "no_disponible") pendiente = cuerpo;
       mensaje = { tipo: "error", texto: textoError(error, cuerpo.operacion) };
-      if (error?.codigo === "peticion_invalida" && cuerpo.operacion === "anadir") campoConError = "direccion";
+      enfocarTras = "[data-correos-mensaje]";
+      if (error?.codigo === "peticion_invalida" && cuerpo.operacion === "anadir") {
+        campoConError = "direccion";
+        mensaje.texto = t("revise_direccion");
+        enfocarTras = "#correos-nueva";
+      }
       if (["codigo_incorrecto", "peticion_invalida"].includes(error?.codigo) && cuerpo.operacion === "verificar") {
         campoConError = `codigo-${cuerpo.correo_ref}`;
         borradores.codigos.set(cuerpo.correo_ref, "");
@@ -267,7 +272,10 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
       if (["conflicto", "codigo_incorrecto", "codigo_caducado", "en_uso", "ya_registrado", "maximo"].includes(error?.codigo)) {
         await cargar({ conservarMensaje: true });
       }
-      enfocarTras = "[data-correos-mensaje]";
+      // Tras un código rechazado, el foco vuelve a su casilla (ya vacía).
+      if (campoConError === `codigo-${cuerpo.correo_ref}` && datos?.correos.some((c) => c.correo_ref === cuerpo.correo_ref && c.estado === "pendiente")) {
+        enfocarTras = `#correos-codigo-${cuerpo.correo_ref.slice(7)}`;
+      }
     }
     repintar();
   }
@@ -306,7 +314,7 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
       const nota = correo.codigo
         ? t(correo.codigo.intentos_restantes < 5 ? "codigo_vence_intentos" : "codigo_vence", { hora: hora(correo.codigo.vence_utc), cuenta: correo.codigo.intentos_restantes })
         : t("codigo_sin_vigencia");
-      cuerpo = `<form class="correos-verificar" data-correos-verificar="${escapar(correo.correo_ref)}" novalidate><div class="correos-campo"><label for="correos-codigo-${id}">${escapar(t("codigo_etiqueta"))}</label><input id="correos-codigo-${id}" name="codigo" data-correos-ref="${escapar(correo.correo_ref)}" inputmode="numeric" autocomplete="one-time-code" maxlength="11" size="11" spellcheck="false" value="${escapar(borradores.codigos.get(correo.correo_ref) ?? "")}" aria-describedby="correos-nota-${id}"${errorCodigo ? ' aria-invalid="true"' : ""}${ocupado ? " disabled" : ""}></div><button type="submit" class="boton-primario"${ocupado ? " disabled" : ""}>${escapar(t("confirmar"))}</button></form><p id="correos-nota-${id}" class="correos-nota">${escapar(nota)}</p><div class="correos-acciones">${botonAccion("reenviar", correo.correo_ref, t("reenviar"), "boton-secundario", t("reenviar_a", { direccion: correo.direccion }))}${botonAccion("pedir-quitar", correo.correo_ref, t("quitar"), "boton-secundario", t("quitar_a", { direccion: correo.direccion }))}</div>`;
+      cuerpo = `<form class="correos-verificar" data-correos-verificar="${escapar(correo.correo_ref)}" novalidate><div class="correos-campo"><label for="correos-codigo-${id}">${escapar(t("codigo_etiqueta"))}</label><input id="correos-codigo-${id}" name="codigo" data-correos-ref="${escapar(correo.correo_ref)}" inputmode="numeric" autocomplete="one-time-code" maxlength="11" size="11" spellcheck="false" value="${escapar(borradores.codigos.get(correo.correo_ref) ?? "")}" aria-describedby="correos-nota-${id}${errorCodigo ? " correos-mensaje" : ""}"${errorCodigo ? ' aria-invalid="true"' : ""}${ocupado ? " disabled" : ""}></div><button type="submit" class="boton-primario"${ocupado ? " disabled" : ""}>${escapar(t("confirmar"))}</button></form><p id="correos-nota-${id}" class="correos-nota">${escapar(nota)}</p><div class="correos-acciones">${botonAccion("reenviar", correo.correo_ref, t("reenviar"), "boton-secundario", t("reenviar_a", { direccion: correo.direccion }))}${botonAccion("pedir-quitar", correo.correo_ref, t("quitar"), "boton-secundario", t("quitar_a", { direccion: correo.direccion }))}</div>`;
     } else if (!correo.activo) {
       cuerpo = `<div class="correos-acciones">${botonAccion("activar", correo.correo_ref, t("usar_avisos"), "boton-secundario", t("usar_avisos_a", { direccion: correo.direccion }))}${botonAccion("pedir-quitar", correo.correo_ref, t("quitar"), "boton-secundario", t("quitar_a", { direccion: correo.direccion }))}</div>`;
     }
@@ -317,7 +325,7 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
     if (!mensaje) return `<p class="correos-mensaje" data-correos-mensaje tabindex="-1" role="status" hidden></p>`;
     const rol = mensaje.tipo === "error" ? "alert" : "status";
     const reintentar = pendiente ? ` <button type="button" class="boton-secundario" data-correos-accion="reintentar"${ocupado ? " disabled" : ""}>${escapar(t("reintentar"))}</button>` : "";
-    return `<p class="correos-mensaje correos-mensaje--${mensaje.tipo}" data-correos-mensaje tabindex="-1" role="${rol}">${escapar(mensaje.texto)}${reintentar}</p>`;
+    return `<p id="correos-mensaje" class="correos-mensaje correos-mensaje--${mensaje.tipo}" data-correos-mensaje tabindex="-1" role="${rol}">${escapar(mensaje.texto)}${reintentar}</p>`;
   }
 
   function renderizarAlta() {
@@ -363,7 +371,7 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
     if (!boton || !raiz()?.contains(boton)) return;
     const ref = boton.dataset.correosRef ?? "";
     switch (boton.dataset.correosAccion) {
-      case "ayuda": ayudaVisible = !ayudaVisible; enfocarTras = ""; repintar(); break;
+      case "ayuda": ayudaVisible = !ayudaVisible; enfocarTras = "[data-correos-accion=ayuda]"; repintar(); break;
       case "recargar": void cargar(); break;
       case "reintentar": if (pendiente) void enviar(pendiente); break;
       case "reenviar": if (PATRON_REF.test(ref)) operar("reenviar", { correo_ref: ref }); break;
@@ -371,7 +379,11 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
       case "pedir-quitar":
         if (PATRON_REF.test(ref)) { confirmarQuitar = ref; mensaje = null; enfocarTras = `#correos-quitar-${ref.slice(7)} + .correos-acciones button:last-child`; repintar(); }
         break;
-      case "cancelar-quitar": confirmarQuitar = ""; enfocarTras = ""; repintar(); break;
+      case "cancelar-quitar":
+        confirmarQuitar = "";
+        enfocarTras = PATRON_REF.test(ref) ? `[data-correos-accion="pedir-quitar"][data-correos-ref="${ref}"]` : "";
+        repintar();
+        break;
       case "retirar": if (PATRON_REF.test(ref) && confirmarQuitar === ref) operar("retirar", { correo_ref: ref }); break;
       default: break;
     }
@@ -386,7 +398,7 @@ export function crearSuperficieCorreos({ cliente, textos, marco = MARCO_PREDETER
       borradores.direccion = direccion;
       if (!direccionCorreoAdmisible(direccion)) {
         campoConError = "direccion";
-        mensaje = { tipo: "error", texto: t("error_direccion") };
+        mensaje = { tipo: "error", texto: t("revise_direccion") };
         enfocarTras = "#correos-nueva";
         repintar();
         return;

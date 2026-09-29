@@ -58,10 +58,10 @@ SQL
 
 A=correo:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 B=correo:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-psql_interna -At <<SQL >/dev/null
+salida=$(psql_interna -At <<SQL 2>&1 >/dev/null
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 DO \$prueba\$
-DECLARE r jsonb; g jsonb; alta jsonb;
+DECLARE r jsonb; g jsonb; alta jsonb; i int;
 BEGIN
  g:=public.probar_correos('vec.correos.consultar',0,'','');
  IF (g->>'version')::int<>0 OR g->'correos'<>'[]'::jsonb THEN RAISE EXCEPTION 'GET inicial'; END IF;
@@ -150,9 +150,24 @@ BEGIN
   PERFORM public.probar_correos('vec.correos.anadir',9,'correo-prueba-rotacion-01','correo:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee','aplicar',NULL,false,'interna_corporativa','igualdad-v2');
   RAISE EXCEPTION 'rotación de igualdad sin reindexado';
  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
+ -- Cinco intentos fallidos agotan el código: el sexto, aun correcto, es P1410.
+ FOR i IN 1..5 LOOP
+  r:=public.probar_correos('vec.correos.verificar',9,'correo-prueba-agota-000'||i,'correo:cccccccccccccccccccccccccccccccc','aplicar',false);
+  IF (r->>'intentos_restantes')::int<>5-i THEN RAISE EXCEPTION 'intentos %',r; END IF;
+ END LOOP;
+ BEGIN
+  PERFORM public.probar_correos('vec.correos.verificar',9,'correo-prueba-agota-0006','correo:cccccccccccccccccccccccccccccccc','aplicar',true);
+  RAISE EXCEPTION 'código agotado admitido';
+ EXCEPTION WHEN SQLSTATE 'P1410' THEN NULL; END;
+ g:=public.probar_correos('vec.correos.consultar',0,'','');
+ IF (SELECT count(*) FROM jsonb_array_elements(g->'correos') x WHERE x->>'correo_ref'='correo:cccccccccccccccccccccccccccccccc' AND x->'codigo'='null'::jsonb)<>1
+ THEN RAISE EXCEPTION 'código agotado presentado como vigente %',g; END IF;
+ RAISE NOTICE 'ENVIO % %', alta->'envios'->0->>'envio_ref', alta->'envios'->0->>'reserva_ref';
 END \$prueba\$;
 COMMIT;
 SQL
+)
+echo "$salida" | grep -o 'ENVIO correo_envio:[0-9a-f]* reserva:[0-9a-f]*' | cut -d' ' -f2- > /dev/shm/.vec-508b-envio-$$
 # La otra superficie ve el mismo conjunto de la persona con su propio LOGIN;
 # material de una superficie con el LOGIN de la otra se deniega.
 psql_externa -At <<'SQL' >/dev/null
@@ -168,7 +183,8 @@ END $prueba$;
 COMMIT;
 SQL
 # El superusuario de prueba no está sujeto a RLS: sólo lee la reserva.
-read -r envio reserva < <(psql_pg -At -c "SELECT envio_ref||' '||reserva_ref FROM vec_usuarios.correos_envio WHERE tipo='verificacion' ORDER BY creado_en,envio_ref LIMIT 1")
+# La reserva en claro solo la conoce quien ejecutó el alta: se toma de su recibo.
+read -r envio reserva < /dev/shm/.vec-508b-envio-$$; rm -f /dev/shm/.vec-508b-envio-$$
 [[ $envio =~ ^correo_envio:[0-9a-f]{32}$ && $reserva =~ ^reserva:[0-9a-f]{32}$ ]]
 # Otra superficie no puede anotar el envío; la propia sólo una vez.
 confirmar() { # $1 función psql, $2 reserva, $3 aceptado
@@ -186,7 +202,7 @@ DO $prueba$ BEGIN
  THEN RAISE EXCEPTION 'contexto residual'; END IF;
  IF (SELECT count(*) FROM vec_usuarios.correos_historia)<>9
     OR (SELECT count(*) FROM vec_usuarios.correos_recibo)<>9
-    OR (SELECT count(*) FROM vec_usuarios.correos_intento_fallido)<>1
+    OR (SELECT count(*) FROM vec_usuarios.correos_intento_fallido)<>6
     OR (SELECT count(*) FROM vec_usuarios.correos_envio)<>6
     OR (SELECT count(*) FROM vec_usuarios.correos_envio WHERE estado='aceptado')<>1
     OR (SELECT count(*) FROM vec_usuarios.correos_direccion WHERE activo)<>1

@@ -299,8 +299,9 @@ func serializacionCorreos(err error) bool {
 }
 
 // Una carrera SERIALIZABLE sólo se resuelve si una transacción nueva con V3
-// fresco recupera el recibo ya confirmado. Una ausencia o fallo sigue siendo
-// error; 40001 por sí solo jamás acredita el efecto ni se reintenta la mutación.
+// fresco recupera el recibo ya confirmado. Sin recibo propio, la carrera la
+// ganó otra operación y se responde conflicto; 40001 jamás acredita el efecto
+// ni se reintenta la mutación.
 func (r *RegistroCorreosPostgreSQL) recuperarTrasSerializacion(ctx context.Context, orden ports.OrdenCorreos, m ports.MaterialCorreos) (ports.ResultadoCorreos, error) {
 	var vacio ports.ResultadoCorreos
 	if ctx == nil || ctx.Err() != nil || orden.Proveedor == nil {
@@ -318,8 +319,12 @@ func (r *RegistroCorreosPostgreSQL) recuperarTrasSerializacion(ctx context.Conte
 	if errors.Is(err, ports.ErrCorreosCodigoIncorrecto) {
 		return vacio, err
 	}
-	if err != nil || !existe || !recibo.Replay {
+	if err != nil {
 		return vacio, ports.ErrCorreosNoDisponible
+	}
+	if !existe || !recibo.Replay {
+		// Otra operación de la misma persona terminó antes: la lista cambió.
+		return vacio, ports.ErrCorreosConflicto
 	}
 	return ports.ResultadoCorreos{Recibo: recibo}, nil
 }

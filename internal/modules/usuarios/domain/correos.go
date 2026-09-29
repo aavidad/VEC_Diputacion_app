@@ -51,12 +51,23 @@ func DireccionCorreoValida(direccion string) bool {
 	if len(direccion) < 6 || len(direccion) > 254 || strings.TrimSpace(direccion) != direccion || strings.ContainsAny(direccion, "\r\n\x00\" <>()[],;:\\") {
 		return false
 	}
-	a, err := mail.ParseAddress(direccion)
-	if err != nil || a.Address != direccion || a.Name != "" || strings.Count(direccion, "@") != 1 {
+	if analizarDireccion(direccion) != nil {
 		return false
 	}
 	local, dominio, _ := strings.Cut(direccion, "@")
 	return localValido(local) && dominioValido(dominio)
+}
+
+// analizarDireccion exige que net/mail lea la dirección exacta, sin nombre.
+func analizarDireccion(direccion string) error {
+	a, err := mail.ParseAddress(direccion)
+	if err != nil {
+		return err
+	}
+	if a.Address != direccion || a.Name != "" || strings.Count(direccion, "@") != 1 {
+		return ErrCorreosInvalidos
+	}
+	return nil
 }
 
 func localValido(local string) bool {

@@ -54,11 +54,22 @@ func HuellasSemanticasValidas(h ports.HuellasSemanticasCorreo) bool {
 	}
 	vistas := make(map[string]bool, len(h.Retenidas)+1)
 	for _, sello := range append([]ports.HuellaSemanticaCorreo{h.Activa}, h.Retenidas...) {
-		valor, err := hex.DecodeString(sello.Valor)
-		if sello.ClaveRef == "" || vistas[sello.ClaveRef] || err != nil || len(valor) != 32 {
+		if sello.ClaveRef == "" || vistas[sello.ClaveRef] || !hexadecimalMinuscula(sello.Valor, 64) {
 			return false
 		}
 		vistas[sello.ClaveRef] = true
+	}
+	return true
+}
+
+func hexadecimalMinuscula(s string, largo int) bool {
+	if len(s) != largo {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return false
+		}
 	}
 	return true
 }

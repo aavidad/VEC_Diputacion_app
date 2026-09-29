@@ -122,7 +122,7 @@ test("alta: envía la dirección, recarga y anuncia el código sin repetir la op
   assert.equal(operaciones.length, 1);
   assert.deepEqual(operaciones[0], { operacion: "anadir", version_esperada: 0, clave_operacion: "web-correo-123e4567-e89b-12d3-a456-426614174000", direccion: "ana.reyes@example.org" });
   assert.match(contenedor.raiz.innerHTML, /Le hemos enviado un código a ana\.reyes@example\.org/u);
-  assert.match(contenedor.raiz.innerHTML, /Código recibido/u);
+  assert.match(contenedor.raiz.innerHTML, /Código de 8 números/u);
 });
 
 test("código incorrecto, dirección en uso y fallo incierto dan mensajes útiles", async () => {

@@ -128,9 +128,9 @@ CREATE TABLE vec_usuarios.correos_recibo (
   DEFERRABLE INITIALLY DEFERRED
 );
 -- Salida de correo. Se crea ya reservada en la misma transacción que el
--- efecto; la reserva (128 bits aleatorios) sólo vuelve al proceso que la
--- creó y es la única llave para anotar una vez la respuesta del relay SMTP.
--- Ni la dirección ni el código figuran aquí.
+-- efecto; la reserva (UUID v4, 122 bits aleatorios) sólo vuelve al proceso
+-- que la creó y es la única llave para anotar una vez la respuesta del relay
+-- SMTP. Aquí solo se guarda su SHA-256. Ni la dirección ni el código figuran.
 CREATE TABLE vec_usuarios.correos_envio (
  envio_ref text PRIMARY KEY CHECK(envio_ref ~ '^correo_envio:[0-9a-f]{32}$'),
  persona_ref text NOT NULL,
@@ -139,7 +139,7 @@ CREATE TABLE vec_usuarios.correos_envio (
  tipo text NOT NULL CHECK(tipo IN ('verificacion','aviso_cambio')),
  desafio_ref text,
  recibo_ref text NOT NULL,
- reserva_ref text NOT NULL UNIQUE CHECK(reserva_ref ~ '^reserva:[0-9a-f]{32}$'),
+ reserva_sha256 text NOT NULL UNIQUE CHECK(reserva_sha256 ~ '^[0-9a-f]{64}$'),
  estado text NOT NULL CHECK(estado IN ('reservado','aceptado','no_aceptado')),
  creado_en timestamptz(6) NOT NULL,
  resuelto_en timestamptz(6),
@@ -517,8 +517,8 @@ BEGIN
  SELECT * INTO STRICT d FROM vec_usuarios.correos_direccion WHERE persona_ref=p_persona AND correo_ref=p_correo;
  envio:='correo_envio:'||replace(gen_random_uuid()::text,'-','');
  reserva:='reserva:'||replace(gen_random_uuid()::text,'-','');
- INSERT INTO vec_usuarios.correos_envio(envio_ref,persona_ref,correo_ref,superficie,tipo,desafio_ref,recibo_ref,reserva_ref,estado,creado_en)
- VALUES(envio,p_persona,p_correo,p_superficie,p_tipo,p_desafio,p_recibo,reserva,'reservado',p_fecha);
+ INSERT INTO vec_usuarios.correos_envio(envio_ref,persona_ref,correo_ref,superficie,tipo,desafio_ref,recibo_ref,reserva_sha256,estado,creado_en)
+ VALUES(envio,p_persona,p_correo,p_superficie,p_tipo,p_desafio,p_recibo,encode(sha256(convert_to(reserva,'UTF8')),'hex'),'reservado',p_fecha);
  RETURN jsonb_build_object('envio_ref',envio,'reserva_ref',reserva,'tipo',p_tipo,'correo_ref',p_correo,
   'desafio_ref',p_desafio,'sobre',vec_usuarios.sobre_correo_json(d));
 END $f$;
@@ -771,7 +771,7 @@ BEGIN
  VALUES(xid_actual,pg_backend_pid(),session_user,v_superficie,p_persona,'envio','vec.correos.envio',p_envio,p_envio,huella);
  UPDATE vec_usuarios.correos_envio SET estado=CASE WHEN p_aceptado THEN 'aceptado' ELSE 'no_aceptado' END,
   resuelto_en=date_trunc('microseconds',clock_timestamp())
- WHERE envio_ref=p_envio AND persona_ref=p_persona AND reserva_ref=p_reserva
+ WHERE envio_ref=p_envio AND persona_ref=p_persona AND reserva_sha256=encode(sha256(convert_to(p_reserva,'UTF8')),'hex')
   AND superficie=v_superficie AND estado='reservado';
  GET DIAGNOSTICS n=ROW_COUNT;
  PERFORM vec_usuarios.retirar_contexto_correos(p_persona,'envio');

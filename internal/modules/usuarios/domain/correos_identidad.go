@@ -17,24 +17,32 @@ type IdentidadCorreos struct {
 	superficie vecdomain.SuperficieAutenticacionActorV1
 }
 
-func cotejarIdentidadCorreos(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2) bool {
+// cotejarIdentidadCorreos exige que el vínculo V2 certificado corresponda
+// exactamente al contexto del actor; cualquier discrepancia es un error.
+func cotejarIdentidadCorreos(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2) error {
 	if actor.Validar() != nil || (actor.Principal.AuthMethod != vecdomain.AuthMethodCertificate && actor.Principal.AuthMethod != vecdomain.AuthMethodDNIe) || actor.Instantanea.CuentaVersion == 0 {
-		return false
+		return ErrIdentidadCorreosInvalida
 	}
 	datos, err := vinculo.Datos()
-	if err != nil || datos.CuentaPrivilegiada {
-		return false
+	if err != nil {
+		return err
 	}
 	huella, err := actor.HuellaSHA256VinculadaV2()
-	return err == nil && datos.PrincipalID == actor.PersonaRef && datos.PerfilActivoRef == actor.PerfilActivoRef &&
-		datos.CuentaRef == actor.Instantanea.CuentaRef && datos.CuentaOrdinariaRef == actor.Instantanea.CuentaRef &&
-		datos.MetodoObservado == actor.Principal.AuthMethod && datos.GarantiaObservada == actor.Principal.AuthAssurance &&
-		datos.ContextoActorRef == actor.Instantanea.VinculoRef && datos.ContextoActorVersion == actor.Instantanea.VinculoVersion &&
-		datos.ContextoActorCuentaVersion == actor.Instantanea.CuentaVersion && datos.ContextoActorHuellaSHA256 == huella
+	if err != nil {
+		return err
+	}
+	if datos.CuentaPrivilegiada || datos.PrincipalID != actor.PersonaRef || datos.PerfilActivoRef != actor.PerfilActivoRef ||
+		datos.CuentaRef != actor.Instantanea.CuentaRef || datos.CuentaOrdinariaRef != actor.Instantanea.CuentaRef ||
+		datos.MetodoObservado != actor.Principal.AuthMethod || datos.GarantiaObservada != actor.Principal.AuthAssurance ||
+		datos.ContextoActorRef != actor.Instantanea.VinculoRef || datos.ContextoActorVersion != actor.Instantanea.VinculoVersion ||
+		datos.ContextoActorCuentaVersion != actor.Instantanea.CuentaVersion || datos.ContextoActorHuellaSHA256 != huella {
+		return ErrIdentidadCorreosInvalida
+	}
+	return nil
 }
 
 func NuevaIdentidadCorreos(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1) (IdentidadCorreos, error) {
-	if !cotejarIdentidadCorreos(actor, vinculo) {
+	if cotejarIdentidadCorreos(actor, vinculo) != nil {
 		return IdentidadCorreos{}, ErrIdentidadCorreosInvalida
 	}
 	datos, _ := vinculo.Datos()
@@ -49,7 +57,7 @@ func NuevaIdentidadCorreos(actor vecdomain.ContextoActor, vinculo vecdomain.Vinc
 }
 
 func (i IdentidadCorreos) Datos() (vecdomain.ContextoActor, vecdomain.VinculoAutenticacionActorV2, vecdomain.SuperficieAutenticacionActorV1, error) {
-	if !cotejarIdentidadCorreos(i.actor, i.vinculo) {
+	if cotejarIdentidadCorreos(i.actor, i.vinculo) != nil {
 		return vecdomain.ContextoActor{}, vecdomain.VinculoAutenticacionActorV2{}, "", ErrIdentidadCorreosInvalida
 	}
 	datos, _ := i.vinculo.Datos()
