@@ -45,6 +45,7 @@ test("con plazo_fase pinta fecha y estado en texto, sin la procedencia de la reg
   const cuadro = await adaptador.listar(filtros);
   assert.equal(cuadro.expedientes[0].plazo, "29 sept 2026");
   assert.equal(cuadro.expedientes[0].plazo_estado, "vencido");
+  assert.equal(cuadro.expedientes[0].plazo_ultimo_dia, "2026-09-29");
   const html = renderizarCuadro({
     vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro,
   }, t);
@@ -58,6 +59,7 @@ test("un plazo no calculado se dice, sin fecha supuesta", async () => {
   });
   const cuadro = await adaptador.listar(filtros);
   assert.equal(cuadro.expedientes[0].plazo, "Sin calcular");
+  assert.equal(Object.hasOwn(cuadro.expedientes[0], "plazo_ultimo_dia"), false);
   const html = renderizarCuadro({
     vista: "cuadro", carga: "listo", filtros: { texto: "", estado: "", fase: "" }, cuadro,
   }, t);
@@ -93,4 +95,17 @@ test("un plazo_fase mal formado o un estado desconocido se rechazan", async () =
   });
   assert.equal(validarCuadroContratacionTemporal(cuadro("vencido")).expedientes[0].plazo_estado, "vencido");
   assert.throws(() => validarCuadroContratacionTemporal(cuadro("casi")), TypeError);
+  assert.equal(validarCuadroContratacionTemporal({
+    ...cuadro("vencido"),
+    expedientes: [{ ...base, plazo_estado: "vencido", plazo_ultimo_dia: "2026-09-29" }],
+  }).expedientes[0].plazo_ultimo_dia, "2026-09-29");
+  for (const ultimoDia of ["2026-02-30", "29/09/2026", "2026-09-29T00:00:00Z"]) {
+    assert.throws(() => validarCuadroContratacionTemporal({
+      ...cuadro("vencido"), expedientes: [{ ...base, plazo_estado: "vencido", plazo_ultimo_dia: ultimoDia }],
+    }), TypeError);
+  }
+  assert.throws(() => validarCuadroContratacionTemporal({
+    ...cuadro("no_calculado"),
+    expedientes: [{ ...base, plazo_estado: "no_calculado", plazo_ultimo_dia: "2026-09-29" }],
+  }), TypeError);
 });

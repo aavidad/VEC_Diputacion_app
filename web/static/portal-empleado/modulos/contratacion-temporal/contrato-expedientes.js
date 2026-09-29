@@ -170,9 +170,16 @@ function validarIndicador(entrada, nombre) {
 // Estado del plazo de la fase actual, calculado por el servidor.
 const ESTADOS_PLAZO = new Set(["en_plazo", "vence_hoy", "vencido", "no_calculado"]);
 
+function fechaCivilISO(valor) {
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return false;
+  const fecha = new Date(`${valor}T00:00:00Z`);
+  return Number.isFinite(fecha.valueOf()) && fecha.toISOString().slice(0, 10) === valor;
+}
+
 function validarResumen(entrada, nombre) {
   const tieneFaseClave = Object.hasOwn(entrada, "fase_clave");
   const tienePlazoEstado = Object.hasOwn(entrada, "plazo_estado");
+  const tienePlazoUltimoDia = Object.hasOwn(entrada, "plazo_ultimo_dia");
   const tieneUrgente = Object.hasOwn(entrada, "urgente");
   const campos = [
     "expediente_ref", "numero_visible", "centro", "categoria", "modalidad",
@@ -181,11 +188,14 @@ function validarResumen(entrada, nombre) {
   ];
   if (tieneFaseClave) campos.push("fase_clave");
   if (tienePlazoEstado) campos.push("plazo_estado");
+  if (tienePlazoUltimoDia) campos.push("plazo_ultimo_dia");
   if (tieneUrgente) campos.push("urgente");
   exigirCamposExactos(entrada, campos, nombre);
   if (!ESTADOS.has(entrada.estado_clave)
     || (tieneUrgente && entrada.urgente !== true)
     || (tienePlazoEstado && !ESTADOS_PLAZO.has(entrada.plazo_estado))
+    || (tienePlazoUltimoDia && (!tienePlazoEstado || entrada.plazo_estado === "no_calculado"
+      || !fechaCivilISO(entrada.plazo_ultimo_dia)))
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || (tieneFaseClave && !PATRON_CLAVE.test(entrada.fase_clave))
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1) {
@@ -205,6 +215,7 @@ function validarResumen(entrada, nombre) {
     responsable: cadenaNoVacia(entrada.responsable, `${nombre}.responsable`),
     plazo: cadenaNoVacia(entrada.plazo, `${nombre}.plazo`, 80),
     ...(tienePlazoEstado ? { plazo_estado: entrada.plazo_estado } : {}),
+    ...(tienePlazoUltimoDia ? { plazo_ultimo_dia: entrada.plazo_ultimo_dia } : {}),
     ...(tieneUrgente ? { urgente: true } : {}),
     version: entrada.version,
   };

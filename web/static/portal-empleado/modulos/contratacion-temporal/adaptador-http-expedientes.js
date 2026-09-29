@@ -165,7 +165,11 @@ function plazoVisual(entrada, locale, t) {
   const plazo = entrada.plazo_fase;
   if (!plazo) return { plazo: "—" };
   if (plazo.estado === "no_calculado") return { plazo: t("plazo_fase_sin_calcular"), plazo_estado: plazo.estado };
-  return { plazo: fechaCivil(`${plazo.ultimo_dia}T00:00:00Z`, locale), plazo_estado: plazo.estado };
+  return {
+    plazo: fechaCivil(`${plazo.ultimo_dia}T00:00:00Z`, locale),
+    plazo_estado: plazo.estado,
+    plazo_ultimo_dia: plazo.ultimo_dia,
+  };
 }
 
 function resumenVisual(entrada, catalogos, t, locale) {
