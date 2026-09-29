@@ -35,15 +35,19 @@ export function fusionarEstadoFirmas(circuito, estado) {
       paso_pendiente: real.paso_pendiente,
       pasos: Object.freeze(documento.pasos.map((paso, i) => Object.freeze({
         ...paso, estado: real.pasos[i].estado, motivo_devolucion: real.pasos[i].motivo_devolucion ?? "",
+        registrada_en: real.pasos[i].registrada_en ?? "",
       }))),
     }));
   }
   return Object.freeze({ ...circuito, documentos: Object.freeze(documentos), registro: Object.freeze({ verificacion: estado.verificacion_disponible }) });
 }
 
-/** Controles del paso pendiente; solo si el registro está compuesto. */
+/**
+ * Controles del paso pendiente; solo si el registro está compuesto y los
+ * borradores del expediente se pueden descargar (`acciones` no es false).
+ */
 export function renderizarAccionesPaso(circuito, documento, paso, t) {
-  if (!circuito.registro || documento.paso_pendiente !== paso.orden || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
+  if (!circuito.registro || circuito.acciones === false || documento.paso_pendiente !== paso.orden || !Object.hasOwn(PERFILES_BORRADOR_RRHH, documento.documento)) return "";
   const id = `ct-firma-motivo-${documento.documento}-${paso.orden}`;
   const datos = `data-ct-firma-documento="${escaparHTML(documento.documento)}" data-ct-firma-orden="${paso.orden}"`;
   return `<div class="ct-circuito-acciones" ${datos}>
