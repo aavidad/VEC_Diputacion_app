@@ -3,5 +3,5 @@
 # fuera de Git como miembro exclusivo de vec_aspirantes_ejecutor_externo.
 # No depende de Usuarios (AD3-106/107/108). No acredita instalación.
 deploy/postgresql/aspirantes/roles_up.sql
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000110_consumidor_aspirantes.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000111_consumidor_aspirantes.up.sql
 deploy/postgresql/aspirantes/migraciones/000001_ficha_propia.up.sql

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Aspirantes 000001 y AD3-110 en PostgreSQL 18.4 efímero, sin red, con los
+# Aspirantes 000001 y AD3-111 en PostgreSQL 18.4 efímero, sin red, con los
 # datos en /dev/shm y una V3 sintética de forma. No acredita COSE ni KMS.
 set -Eeuo pipefail
 raiz=$(git rev-parse --show-toplevel)
@@ -32,12 +32,12 @@ ad3="$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones"
 psql_pg -c "REVOKE CREATE ON DATABASE postgres FROM PUBLIC" >/dev/null
 psql_pg < "$sql/roles_up.sql" >/dev/null
 psql_pg < "$sql/pruebas_sql/preimagen_ad3_sintetica.sql" >/dev/null
-psql_pg < "$ad3/000110_consumidor_aspirantes.up.sql" >/dev/null
+psql_pg < "$ad3/000111_consumidor_aspirantes.up.sql" >/dev/null
 psql_pg < "$sql/migraciones/000001_ficha_propia.up.sql" >/dev/null
 psql_pg < "$sql/pruebas_sql/vector_material.sql" >/dev/null
 psql_pg < "$sql/pruebas_sql/operaciones_sinteticas.sql" >/dev/null
 # Una segunda instalación no se admite: la preimagen ya no coincide.
-if psql_pg < "$ad3/000110_consumidor_aspirantes.up.sql" >/dev/null 2>&1; then echo "AD3-110 reinstalada"; exit 1; fi
+if psql_pg < "$ad3/000111_consumidor_aspirantes.up.sql" >/dev/null 2>&1; then echo "AD3-111 reinstalada"; exit 1; fi
 if psql_pg < "$sql/migraciones/000001_ficha_propia.down.sql" >/dev/null 2>&1; then echo "DOWN admitido"; exit 1; fi
 
 psql_pg <<'SQL' >/dev/null
@@ -209,7 +209,7 @@ grep -q 'denegado' <<<"$salida" || { echo "superusuario: $salida"; exit 1; }
 # Contratación no alcanza el parseo del núcleo con un perfil de Aspirantes.
 salida=$(psql_como vec_ct_prueba -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT * FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna('aspirantes_ficha_consultar','{}','{}','x','x',1,1,convert_to('sonda_ct','UTF8'),'x','x','x');" 2>&1 || true)
 grep -q 'sesión denegada' <<<"$salida" || { echo "guarda de sesión: $salida"; exit 1; }
-echo "Aspirantes 000001 y AD3-110: PG18 OK"
+echo "Aspirantes 000001 y AD3-111: PG18 OK"
 if [[ ${1:-} == --go ]]; then
  psql_pg -c "CREATE ROLE vec_aspirantes_prueba_go LOGIN INHERIT NOBYPASSRLS; GRANT vec_aspirantes_ejecutor_externo TO vec_aspirantes_prueba_go WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;" >/dev/null
  puerto=$(docker port "$contenedor" 5432/tcp | head -1 | sed 's/.*://')

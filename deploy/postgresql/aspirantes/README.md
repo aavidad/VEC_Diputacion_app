@@ -10,7 +10,7 @@ Lista: `deploy/principal/lista_sql_trabajo_aspirantes_sql_20260929.txt`.
    `vec_aspirantes_migrador` y `vec_aspirantes_ejecutor_externo`. El LOGIN técnico
    del portal externo se crea fuera de Git como miembro directo y exclusivo del
    ejecutor (`INHERIT TRUE`, `SET FALSE`, `ADMIN FALSE`). No hay ejecutor interno.
-2. `autorizacion_atestada_v3/migraciones/000110_consumidor_aspirantes.up.sql`: tres
+2. `autorizacion_atestada_v3/migraciones/000111_consumidor_aspirantes.up.sql`: tres
    perfiles y tres audiencias `vec_aspirantes.ficha.{consultar,alta,rectificar}.externa_personal.v1`.
    No depende de Usuarios: se ha ensayado antes y después de AD3-106/107/108.
 3. `migraciones/000001_ficha_propia.up.sql`: esquema, políticas y cuatro fachadas.

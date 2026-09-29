@@ -136,7 +136,7 @@ Los ocho campos: `apellidos`, `codigo_postal`, `documento`, `domicilio`, `movil`
   acción, finalidad, versión esperada, clave de operación, huellas semánticas y el
   índice ciego del documento de la sesión. La decisión V3 queda ligada a ese índice
   por la huella del material. SQL lo recalcula todo y lo coteja.
-- Migración `autorizacion_atestada_v3/000110_consumidor_aspirantes.up.sql`: añade
+- Migración `autorizacion_atestada_v3/000111_consumidor_aspirantes.up.sql`: añade
   los tres perfiles al núcleo con anclajes que no dependen de Usuarios (la principal
   no tiene AD3-106/107/108), exige que la sesión sea miembro exclusivo de
   `vec_aspirantes_ejecutor_externo` y registra las tres audiencias. El número 109 se

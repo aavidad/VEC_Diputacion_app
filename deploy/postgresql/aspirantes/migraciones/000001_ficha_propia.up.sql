@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- Aspirantes 000001: ficha propia de la persona aspirante (portal externo).
--- Requiere roles_up.sql y AD3-110. Cada llamada usa una transacción
+-- Requiere roles_up.sql y AD3-111. Cada llamada usa una transacción
 -- SERIALIZABLE READ WRITE con el LOGIN técnico del portal externo.
 -- Los datos llegan ya cifrados (AES-GCM en Go); aquí solo hay sobres,
 -- índices ciegos (HMAC) y referencias opacas. Nada guarda `per_`.

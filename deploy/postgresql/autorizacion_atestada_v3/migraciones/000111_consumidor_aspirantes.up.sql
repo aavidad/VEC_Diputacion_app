@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- AD3-110: tres operaciones nominales de la ficha propia de Aspirantes, solo
+-- AD3-111: tres operaciones nominales de la ficha propia de Aspirantes, solo
 -- en la superficie externa. Orden: roles Aspirantes, esta migración y
 -- después Aspirantes 000001. No depende de Usuarios (AD3-106/107/108): sus
 -- anclajes existen una sola vez en el núcleo con o sin ellas, y las
@@ -11,7 +11,7 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000110',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000111',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $pre$ BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
@@ -19,7 +19,7 @@ DO $pre$ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_aspirantes_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_aspirantes_propietario' AND NOT rolcanlogin AND NOT rolbypassrls)
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_aspirantes_ejecutor_externo' AND NOT rolcanlogin AND NOT rolbypassrls)
- THEN RAISE EXCEPTION 'AD3-110: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-111: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- Parche acotado del núcleo en cuatro puntos: exclusión del camino genérico
@@ -60,7 +60,7 @@ BEGIN
     OR length(original)-length(replace(original,guarda,''))<>length(guarda)
     OR length(original)-length(replace(original,post_marca,''))<>length(post_marca)
     OR strpos(original,'aspirantes_ficha_')<>0
- THEN RAISE EXCEPTION 'AD3-110: núcleo incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-111: núcleo incompatible' USING ERRCODE='55000'; END IF;
  FOR i IN 1..3 LOOP
   a:=(ARRAY['consultar','alta','rectificar'])[i];
   extension:=extension||format(E'           OR (\n p_perfil_mutacion IS NOT DISTINCT FROM %L\n AND c->>''audiencia_consumo'' IS NOT DISTINCT FROM %L\n AND d #>> ''{vinculo_autenticacion_actor,superficie}'' IS NOT DISTINCT FROM ''externa_personal''\n AND c->>''operacion'' IS NOT DISTINCT FROM %L\n AND d->>''accion'' IS NOT DISTINCT FROM c->>''operacion''\n AND d->>''modulo_id'' IS NOT DISTINCT FROM ''aspirantes''\n AND d->>''tipo_recurso'' IS NOT DISTINCT FROM ''ficha_aspirante_propia''\n AND d->>''finalidad'' IS NOT DISTINCT FROM ''finalidad:aspirantes:ficha-propia:v1''\n AND d->>''recurso_ref'' IS NOT DISTINCT FROM c->>''efecto_ref''\n AND d->>''contexto_recurso_huella_sha256'' IS NOT DISTINCT FROM c->>''huella_efecto_sha256''\n AND d->''campos_permitidos'' IS NOT DISTINCT FROM %L::jsonb\n AND d->''obligaciones'' IS NOT DISTINCT FROM ''[]''::jsonb)\n',
@@ -82,7 +82,7 @@ BEGIN
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
     OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
- THEN RAISE EXCEPTION 'AD3-110: núcleo alterado fuera de contrato' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-111: núcleo alterado fuera de contrato' USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
@@ -93,13 +93,13 @@ BEGIN
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
  AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c' AND c.convalidated;
  IF strpos(d,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(d,3)<>']))'
- THEN RAISE EXCEPTION 'AD3-110: audiencias incompatibles' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-111: audiencias incompatibles' USING ERRCODE='55000'; END IF;
  nueva:=left(d,length(d)-3);
  FOREACH a IN ARRAY ARRAY[
   'vec_aspirantes.ficha.consultar.externa_personal.v1',
   'vec_aspirantes.ficha.alta.externa_personal.v1',
   'vec_aspirantes.ficha.rectificar.externa_personal.v1'] LOOP
-  IF strpos(d,quote_literal(a))<>0 THEN RAISE EXCEPTION 'AD3-110: audiencia ya registrada' USING ERRCODE='55000'; END IF;
+  IF strpos(d,quote_literal(a))<>0 THEN RAISE EXCEPTION 'AD3-111: audiencia ya registrada' USING ERRCODE='55000'; END IF;
   nueva:=nueva||', '||quote_literal(a)||'::text';
  END LOOP;
  ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
@@ -116,7 +116,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_t
 DECLARE c jsonb; d jsonb; x record; segmento text; campos jsonb;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
- EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-110: material inválido' USING ERRCODE='22023'; END;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-111: material inválido' USING ERRCODE='22023'; END;
  SELECT q.segmento,q.campos INTO segmento,campos FROM (VALUES
  ('vec.aspirantes.ficha.consultar','consultar','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
  ('vec.aspirantes.ficha.alta','alta','["apellidos","codigo_postal","documento","domicilio","movil","nombre","telefono","version"]'::jsonb),
@@ -131,10 +131,10 @@ BEGIN
     OR d->>'finalidad' IS DISTINCT FROM 'finalidad:aspirantes:ficha-propia:v1' OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
     OR d->'campos_permitidos' IS DISTINCT FROM campos OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
- THEN RAISE EXCEPTION 'AD3-110: ficha denegada' USING ERRCODE='42501'; END IF;
+ THEN RAISE EXCEPTION 'AD3-111: ficha denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'aspirantes_ficha_'||segmento,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- IF x.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'AD3-110: requiere consumo nuevo' USING ERRCODE='42501'; END IF;
+ IF x.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'AD3-111: requiere consumo nuevo' USING ERRCODE='42501'; END IF;
  RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true;
 END $f$;
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.consumir_aspirantes_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
@@ -151,6 +151,6 @@ BEGIN
     OR has_schema_privilege('vec_aspirantes_ejecutor_externo','vec_autorizacion_atestada_v3','USAGE')
     OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
       WHERE p.oid=f AND (a.grantee=0 OR a.grantee NOT IN (p.proowner,'vec_aspirantes_propietario'::regrole)))
- THEN RAISE EXCEPTION 'AD3-110: ACL incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'AD3-111: ACL incompatible' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;
