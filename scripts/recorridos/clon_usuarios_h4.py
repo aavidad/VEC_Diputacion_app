@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Advance preserved H1 Users grants for mail and image in the owned clone."""
 import ast
+import base64
 from datetime import datetime, timezone
+import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -57,6 +60,59 @@ def identity_preimage(result):
     return {key: result[key] for key in ("accounts", "persons", "profiles", "install_at", "references_preserved")}
 
 
+def closed_json(data):
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise H4Error("Repeated private JSON field.")
+            result[key] = value
+        return result
+    return json.loads(data, object_pairs_hook=unique)
+
+
+def validate_identity_input(configuration, identity, certificate, role):
+    """Pin the PEM DER bytes and nominal subject before invoking Go or SQL."""
+    allowed = {"version", "autoridad", "certificate_sha256", "subject", "display_name", "roles"}
+    if set(identity) != allowed or identity["version"] != 1 or identity["roles"] != [role]:
+        raise H4Error("Private certificate identity contract changed.")
+    match = re.fullmatch(rb"\s*-----BEGIN CERTIFICATE-----\s*([A-Za-z0-9+/=\r\n]+)\s*-----END CERTIFICATE-----\s*", certificate)
+    if not match:
+        raise H4Error("Expected exactly one private certificate.")
+    try:
+        der = base64.b64decode(re.sub(rb"\s", b"", match.group(1)), validate=True)
+    except ValueError as error:
+        raise H4Error("Invalid private certificate encoding.") from error
+    if not der:
+        raise H4Error("Empty private certificate encoding.")
+    fingerprint = hashlib.sha256(der).hexdigest()
+    accounts = configuration.get("cuentas", [])
+    if len(accounts) != 1 or not isinstance(accounts[0], dict):
+        raise H4Error("Ambiguous private Users identity.")
+    account = accounts[0]
+    if (not account.get("sujeto") or identity["subject"] != account["sujeto"]
+            or fingerprint != identity["certificate_sha256"] or fingerprint != account.get("certificado_sha256")):
+        raise H4Error("Private Users certificate or subject does not match its declared identity.")
+
+
+def validate_users_inputs(material, state, pg_port, users, runtime):
+    expected_dsns = {"dsn_contexto", "dsn_fuente_autorizacion", "dsn_motivos", "dsn_registro_autorizacion",
+                     "dsn_registro_identidad", "dsn_revalidacion_identidad", "dsn_usuarios", "dsn_usuarios_frontera"}
+    configurations = []
+    for surface, certificate, identity, role in [("interna", "cliente", "identidad", "tecnico_rrhh"),
+                                                  ("externa", "intervencion", "intervencion", "intervencion")]:
+        configuration = closed_json(users.private(material / "identidad" / ("usuarios-preferencias-" + surface + ".json")))
+        dsns = {key for key in configuration if key.startswith("dsn_")}
+        if dsns != expected_dsns:
+            raise H4Error("Private Users DSN contract changed.")
+        for key in sorted(dsns):
+            runtime.validate_dsn(configuration[key], pg_port, state)
+        declared = closed_json(users.private(material / "identidad" / (identity + ".json")))
+        validate_identity_input(configuration, declared, users.private(material / "mtls" / (certificate + ".crt")), role)
+        configurations.append(configuration)
+    return configurations
+
+
 def preflight(repo, container, state, material, pg_port, engine="docker"):
     repo, state, material = Path(repo), Path(state), Path(material)
     if engine != "docker" or container != "vec-codexm-recorridos-20260930" or pg_port != 55531:
@@ -67,8 +123,9 @@ def preflight(repo, container, state, material, pg_port, engine="docker"):
     runtime.validate_state(repo.resolve(), state)
     if material.resolve() != state / "material" or material.is_symlink():
         raise H4Error("H4 material destination changed.")
+    validate_users_inputs(material, state, pg_port, users, runtime)
     inspect = json.loads(material_helper.run([engine, "inspect", container]))[0]
-    material_helper.validate_container(inspect, pg_port)
+    material_helper.validate_container(inspect, pg_port, state)
     marker = json.loads(users.private(state / "DB_READY.json"))
     if marker.get("propietario") != "Codex-M" or marker.get("contenedor") != container or marker.get("puerto_pg") != pg_port:
         raise H4Error("H4 clone readiness marker changed.")
@@ -127,7 +184,7 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
                      "VEC_CODEXM_ADMIN_DSN": admin, "VEC_CT_GOBIERNO_DATABASE_URL": env["VEC_CT_GOBIERNO_DATABASE_URL"]}
         descriptor = os.open(state / "usuarios-h4-install.log", os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
         with os.fdopen(descriptor, "wb") as log:
-            result = subprocess.run([str(go), "test", "-p", "32", "./internal/app/bootstrap", "-run", "^TestCodexMH4(Contract|Install)$", "-count=1", "-v"],
+            result = subprocess.run([str(go), "test", "-p", "32", "./internal/app/bootstrap", "-run", "^TestCodexMH4(Contract|IdentityPreflight|Install)$", "-count=1", "-v"],
                                     cwd=installation, env=execution, stdout=log, stderr=subprocess.STDOUT, timeout=240)
         if result.returncode:
             raise H4Error("H4 authority installation failed; inspect the private H4 log.")
@@ -176,6 +233,47 @@ func codexMH4Exact(ctx context.Context,pool *pgxpool.Pool,snapshot core.Instanta
  return true,nil
 }
 
+func codexMH4TrustedInputs(root string)([]configuracionUsuariosPreferenciasDesarrollo,[]configuracionUsuariosPreferenciasDesarrollo,[]*x509.Certificate,[][]*x509.Certificate,error){
+ material:=filepath.Join(root,"material")
+ ca,err:=leerCertificadoProvisionPreferenciasHito1(filepath.Join(material,"ca/ca.crt"));if err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 CA")};roots:=x509.NewCertPool();roots.AddCert(ca)
+ var originals,configs []configuracionUsuariosPreferenciasDesarrollo;var certificates []*x509.Certificate;var chains [][]*x509.Certificate;var identities []identidadCertificadoDesarrollo
+ for index,surface:=range []string{"interna","externa"}{
+  original,err:=codexMConfiguration(filepath.Join(root,"usuarios-before",surface+"-original.json"));if err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 original configuration")}
+  current,err:=codexMConfiguration(filepath.Join(material,"identidad","usuarios-preferencias-"+surface+".json"));if err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 current configuration")}
+  if original.Superficie!=current.Superficie||original.Cuentas[0].Sujeto!=current.Cuentas[0].Sujeto||original.Cuentas[0].PerfilRef!=current.Cuentas[0].PerfilRef||original.Cuentas[0].CertificadoSHA256!=current.Cuentas[0].CertificadoSHA256{return nil,nil,nil,nil,fmt.Errorf("H4 declared identity changed")}
+  certificateFile,identityFile,role:="cliente","identidad","tecnico_rrhh";if index==1{certificateFile,identityFile,role="intervencion","intervencion","intervencion"}
+  certificate,err:=leerCertificadoProvisionPreferenciasHito1(filepath.Join(material,"mtls",certificateFile+".crt"));if err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 certificate")}
+  verified,err:=certificate.Verify(x509.VerifyOptions{Roots:roots,KeyUsages:[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}});if err!=nil||len(verified)!=1{return nil,nil,nil,nil,fmt.Errorf("H4 certificate trust")}
+  identity,err:=cargarIdentidadDesarrollo(filepath.Join(material,"identidad",identityFile+".json"),certificate,role);if err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 certificate identity")}
+  originals=append(originals,original);configs=append(configs,current);certificates=append(certificates,certificate);chains=append(chains,verified[0]);identities=append(identities,identity)
+ }
+ resolver,err:=nuevoResolvedorIdentidadDesarrollo(identities...);if err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 identity resolver")}
+ for _,configuration:=range configs{if _,err=cuentasPreferenciasAcreditadas(resolver,configuration);err!=nil{return nil,nil,nil,nil,fmt.Errorf("H4 certificate or subject does not match declared account")}}
+ return originals,configs,certificates,chains,nil
+}
+
+func TestCodexMH4IdentityPreflight(t *testing.T){
+ source:=os.Getenv("VEC_CODEXM_STATE");if source==""{t.Skip("private public-certificate fixture is required")}
+ root:=t.TempDir();for _,directory:=range []string{"material/ca","material/mtls","material/identidad","usuarios-before"}{if os.MkdirAll(filepath.Join(root,directory),0700)!=nil{t.Fatal("fixture directory")}}
+ for _,path:=range []string{"ca/ca.crt","mtls/cliente.crt","mtls/intervencion.crt","identidad/identidad.json","identidad/intervencion.json"}{data,err:=os.ReadFile(filepath.Join(source,"material",path));if err!=nil||os.WriteFile(filepath.Join(root,"material",path),data,0600)!=nil{t.Fatal("public synthetic identity fixture")}}
+ var configs []configuracionUsuariosPreferenciasDesarrollo
+ for index,identityFile:=range []string{"identidad","intervencion"}{
+  data,_:=os.ReadFile(filepath.Join(root,"material/identidad",identityFile+".json"));var identity archivoIdentidadDesarrollo;if json.Unmarshal(data,&identity)!=nil{t.Fatal("identity fixture contract")}
+  surface:=core.SuperficieAutenticacionInternaCorporativaV1;if index==1{surface=core.SuperficieAutenticacionExternaPersonalV1}
+  configs=append(configs,configuracionUsuariosPreferenciasDesarrollo{Superficie:surface,Cuentas:[]cuentaUsuariosPreferenciasDesarrollo{{cuentaRutasDietasDesarrollo:cuentaRutasDietasDesarrollo{CuentaRef:"cta_fixture_0123456789abcdefghijklmnop",PerfilRef:"prf_fixture_0123456789abcdefghijklmnop",Sujeto:identity.Subject,CertificadoSHA256:identity.CertificateSHA256}}}})
+ }
+ write:=func(){for i,surface:=range []string{"interna","externa"}{data,_:=json.Marshal(configs[i]);for _,path:=range []string{filepath.Join(root,"usuarios-before",surface+"-original.json"),filepath.Join(root,"material/identidad","usuarios-preferencias-"+surface+".json")}{if os.WriteFile(path,data,0600)!=nil{t.Fatal("configuration fixture")}}}}
+ write();if _,_,_,_,err:=codexMH4TrustedInputs(root);err!=nil{t.Fatal("valid isolated identity fixture rejected")}
+ for index:=range configs{
+  saved:=configs[index].Cuentas[0]
+  configs[index].Cuentas[0].Sujeto="other:synthetic:subject";write();if _,_,_,_,err:=codexMH4TrustedInputs(root);err==nil{t.Fatal("wrong declared subject accepted before pools")}
+  configs[index].Cuentas[0]=saved;configs[index].Cuentas[0].CertificadoSHA256="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";write();if _,_,_,_,err:=codexMH4TrustedInputs(root);err==nil{t.Fatal("wrong declared certificate accepted before pools")}
+  configs[index].Cuentas[0]=saved
+ }
+ write()
+ certificatePath:=filepath.Join(root,"material/mtls/cliente.crt");other,_:=os.ReadFile(filepath.Join(root,"material/mtls/intervencion.crt"));if os.WriteFile(certificatePath,other,0600)!=nil{t.Fatal("wrong trusted leaf fixture")};if _,_,_,_,err:=codexMH4TrustedInputs(root);err==nil{t.Fatal("other trusted leaf accepted as declared identity")}
+}
+
 func TestCodexMH4Install(t *testing.T){
  if os.Getenv("VEC_CODEXM_H4_INSTALL")!="CLON_PRIVADO_REVISADO"{t.Fatal("H4 installation guard")}
  root:=os.Getenv("VEC_CODEXM_STATE");material:=filepath.Join(root,"material")
@@ -183,6 +281,10 @@ func TestCodexMH4Install(t *testing.T){
  data,err:=os.ReadFile(filepath.Join(root,"usuarios-h4-plan.json"));if err!=nil||json.Unmarshal(data,&plan)!=nil||len(plan.H1.Accounts)!=2||len(plan.H1.Persons)!=2||len(plan.H1.Profiles)!=2||len(plan.Contract)!=10{t.Fatal("H4 plan")}
  emitted,err:=time.Parse(time.RFC3339Nano,plan.EmitAt);if err!=nil||emitted.After(time.Now().UTC()){t.Fatal("H4 stable emission")}
  historic,_:=time.Parse(time.RFC3339,"2026-09-29T04:00:00Z")
+ // Decode and pin both nominal certificate identities before ANY pool is
+ // constructed. The authority's own identity revalidation still runs later.
+ originals,configs,certificates,chains,err:=codexMH4TrustedInputs(root);if err!=nil{t.Fatal("H4 closed certificate/subject preflight")}
+ for i,current:=range configs{if current.Cuentas[0].CuentaRef!=plan.H1.Accounts[i]||current.Cuentas[0].PerfilRef!=plan.H1.Profiles[i]{t.Fatal("H4 current identity differs from H1 result")}}
  ctx,cancel:=context.WithTimeout(context.Background(),120*time.Second);defer cancel()
  adminCfg,err:=pgxpool.ParseConfig(os.Getenv("VEC_CODEXM_ADMIN_DSN"));if err!=nil||adminCfg.ConnConfig.Host!="127.0.0.1"||adminCfg.ConnConfig.Port!=plan.PGPort||plan.PGPort!=55531||len(adminCfg.ConnConfig.Fallbacks)!=0||validarTLSPostgreSQLBorradores(&adminCfg.ConnConfig.Config,false)!=nil{t.Fatal("H4 admin TLS destination")}
  admin,err:=pgxpool.NewWithConfig(ctx,adminCfg);if err!=nil{t.Fatal("H4 admin pool")};defer admin.Close()
@@ -192,12 +294,10 @@ func TestCodexMH4Install(t *testing.T){
  revision,catalogue,err:=catalogoPoliticasProvisionPreferenciasHito1(ctx,gobierno);if err!=nil{t.Fatal("H4 policy catalogue")}
  hmacMaterial,err:=cargarMaterialIdempotenciaDesarrollo(material,filepath.Join(material,"idempotencia/configuracion.json"));if err!=nil{t.Fatal("H4 HMAC material")}
  derivador,err:=nuevoDerivadorIdentidadOperacionDesarrollo(&hmacMaterial);if err!=nil{t.Fatal("H4 HMAC derivation")};defer derivador.borrar()
- ca,err:=leerCertificadoProvisionPreferenciasHito1(filepath.Join(material,"ca/ca.crt"));if err!=nil{t.Fatal("H4 CA")};roots:=x509.NewCertPool();roots.AddCert(ca)
  historyBefore,err:=codexMModuleHistory(ctx,admin);if err!=nil{t.Fatal("H4 module history before")}
- var before,after []core.InstantaneaAutorizacion;var configs []configuracionUsuariosPreferenciasDesarrollo;var certificates []*x509.Certificate;var chains [][]*x509.Certificate;var authorities []autoridadPostgreSQLDesarrollo
- for index,surface:=range []string{"interna","externa"}{
-  original,err:=codexMConfiguration(filepath.Join(root,"usuarios-before",surface+"-original.json"));if err!=nil{t.Fatal("H4 original H1 configuration")}
-  current,err:=codexMConfiguration(filepath.Join(material,"identidad","usuarios-preferencias-"+surface+".json"));if err!=nil{t.Fatal("H4 current configuration")}
+ var before,after []core.InstantaneaAutorizacion;var authorities []autoridadPostgreSQLDesarrollo
+ for index,current:=range configs{
+  original:=originals[index]
   if original.Superficie!=current.Superficie||original.Cuentas[0].Sujeto!=current.Cuentas[0].Sujeto||original.Cuentas[0].PerfilRef!=current.Cuentas[0].PerfilRef||original.Cuentas[0].CertificadoSHA256!=current.Cuentas[0].CertificadoSHA256||current.Cuentas[0].CuentaRef!=plan.H1.Accounts[index]||current.Cuentas[0].PerfilRef!=plan.H1.Profiles[index]{t.Fatal("H4 identity preimage changed")}
   account,err:=construirCuentaProvisionPreferenciasHito1(original,historic);if err!=nil||account.personaRef!=plan.H1.Persons[index]{t.Fatal("H4 historical person changed")}
   prior,err:=instantaneaProvisionPreferenciasHito1(account,historic,revision,catalogue);if err!=nil||!prior.AsignacionPerfil.VigenteEn(time.Now().UTC()){t.Fatal("H4 expired H1 assignment")}
@@ -207,10 +307,7 @@ func TestCodexMH4Install(t *testing.T){
   exactPrior,err:=codexMH4Exact(ctx,gobierno,prior,authority);if err!=nil{t.Fatal("H4 historical preimage revoked or divergent")}
   exactNext,err:=codexMH4Exact(ctx,gobierno,next,authority);if err!=nil{t.Fatal("H4 postimage revoked or divergent")}
   if !exactPrior&&!exactNext{t.Fatal("H4 CAS preimage differs")}
-  certificateFile:="cliente";if index==1{certificateFile="intervencion"}
-  certificate,err:=leerCertificadoProvisionPreferenciasHito1(filepath.Join(material,"mtls",certificateFile+".crt"));if err!=nil{t.Fatal("H4 certificate")}
-  verified,err:=certificate.Verify(x509.VerifyOptions{Roots:roots,KeyUsages:[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}});if err!=nil||len(verified)!=1{t.Fatal("H4 certificate trust")}
-  configs=append(configs,current);certificates=append(certificates,certificate);chains=append(chains,verified[0]);before=append(before,prior);after=append(after,next);authorities=append(authorities,authority)
+  before=append(before,prior);after=append(after,next);authorities=append(authorities,authority)
  }
  // Both surfaces have exact H1 or H4 postimages before the first effect.
  // The existing authority repeats CAS and anti-revocation inside its own
