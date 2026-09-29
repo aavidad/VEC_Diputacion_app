@@ -86,7 +86,11 @@ func materialesCorreosPortalExterno(proveedores map[string]*proveedorMaterialAlt
 		if p == nil {
 			return proveedoresMaterialCorreosUsuarios{}, false
 		}
-		materiales.lote[len(accionesCorreosUsuarios)+i] = p
+		indice := len(accionesCorreosUsuarios) + i
+		if indice >= len(materiales.lote) {
+			return proveedoresMaterialCorreosUsuarios{}, false
+		}
+		materiales.lote[indice] = p
 	}
 	return materiales, true
 }
@@ -102,7 +106,11 @@ func materialesImagenPortalExterno(proveedores map[string]*proveedorMaterialAlta
 		if p == nil {
 			return proveedoresMaterialImagenUsuarios{}, false
 		}
-		materiales[len(accionesImagenUsuarios)+i] = p
+		indice := len(accionesImagenUsuarios) + i
+		if indice >= len(materiales) {
+			return proveedoresMaterialImagenUsuarios{}, false
+		}
+		materiales[indice] = p
 	}
 	return materiales, true
 }
