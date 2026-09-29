@@ -146,6 +146,8 @@ type Config struct {
 	BolsaCategoriesSHA256                       string
 	BolsaCategoriesPublicProjectionSHA256       string
 	BolsaImportacionConvocaCustodiaDir          string
+	BolsaAprobacionProvisionMiBolsa             string
+	BolsaPreimagenProvisionMiBolsa              string
 	BolsaPublicaPostgreSQL                      ConfiguracionPostgreSQLPublica
 	BolsaPublicaManifiestoSHA256                string
 	OSRMBaseURL                                 string
@@ -239,6 +241,8 @@ func Load() Config {
 		BolsaCategoriesSHA256:                       envFirst(EnvBolsaCategoriesSHA256),
 		BolsaCategoriesPublicProjectionSHA256:       envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
 		BolsaImportacionConvocaCustodiaDir:          envFirst(EnvBolsaImportacionConvocaCustodiaDir),
+		BolsaAprobacionProvisionMiBolsa:             envFirst(EnvBolsaProvisionMiBolsaAprobacion),
+		BolsaPreimagenProvisionMiBolsa:              envFirst(EnvBolsaProvisionMiBolsaPreimagen),
 		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
 		},
@@ -397,6 +401,8 @@ func (c Config) Normalize() Config {
 	}
 	c.BolsaCategoriesSHA256 = defaultString(c.BolsaCategoriesSHA256, DefaultBolsaCategoriesSHA256)
 	c.BolsaImportacionConvocaCustodiaDir = strings.TrimSpace(c.BolsaImportacionConvocaCustodiaDir)
+	c.BolsaAprobacionProvisionMiBolsa = strings.TrimSpace(c.BolsaAprobacionProvisionMiBolsa)
+	c.BolsaPreimagenProvisionMiBolsa = strings.TrimSpace(c.BolsaPreimagenProvisionMiBolsa)
 	c.OSRMBaseURL = strings.TrimRight(strings.TrimSpace(c.OSRMBaseURL), "/")
 	c.OSRMScopeName = strings.TrimSpace(c.OSRMScopeName)
 	c.OSRMScopeBounds = strings.TrimSpace(c.OSRMScopeBounds)
