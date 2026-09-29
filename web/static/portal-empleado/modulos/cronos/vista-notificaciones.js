@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260925-tanda-v1";
+import { MENSAJES_CRONOS_C9 } from "./i18n-c9.js?v=20260929-i18n-textos-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -6,8 +6,8 @@ function escaparHTML(valor) {
 }
 
 /** Sin transporte ni consulta autorizada no se prepara un borrador ni se inventan mensajes. */
-export function renderizarVistaNotificacionesCronos({ mensajes = MENSAJES_CRONOS_C9_ES } = {}) {
-  const t = (clave) => escaparHTML(mensajes[clave] ?? MENSAJES_CRONOS_C9_ES[clave]);
+export function renderizarVistaNotificacionesCronos({ mensajes = MENSAJES_CRONOS_C9 } = {}) {
+  const t = (clave) => escaparHTML(mensajes[clave] ?? MENSAJES_CRONOS_C9[clave]);
   return `<section class="cronos-notificaciones" aria-labelledby="cronos-notificaciones-titulo" data-estado-entrega="no_configurado">
     <article class="panel cronos-notificaciones-panel">
       <header class="cabecera-panel"><h3 id="cronos-notificaciones-titulo">${t("notificaciones_titulo")}</h3><span class="estado-chip neutro" role="status">${t("notificaciones_estado")}</span></header>

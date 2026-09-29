@@ -6,8 +6,9 @@ import {
   validarCapacidadesCronos,
   validarDatosCronos,
 } from "./contrato.js?v=20260925-tanda-v1";
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda2-v1";
-import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260925-tanda2-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS } from "./i18n.js?v=20260929-i18n-textos-v1";
+import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260929-i18n-textos-v1";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -159,7 +160,7 @@ function resolverEstadoJornada(estado, contextoActor, capacidades, datos, selecc
  */
 export function renderizarJornadaCronos({
   estado = "no_configurado", contextoActor, capacidades = [], datos, seleccion,
-  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid",
+  mensajes = MENSAJES_CRONOS, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid",
 } = {}) {
   if (!ESTADOS_JORNADA.has(estado)) throw new Error("estado de jornada de Cronos no válido");
   if (seleccion) seleccion = validarSeleccionPeriodoCronos(seleccion);
@@ -261,7 +262,7 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
       proyeccion.estado ?? "no_configurado", proyeccion.contextoActor,
       proyeccion.capacidades ?? [], proyeccion.datos, seleccion,
     ).estado !== "denegado") {
-      anunciar(etiquetaSeleccionPeriodo(seleccion, t, proyeccion.locale || "es-ES"));
+      anunciar(etiquetaSeleccionPeriodo(seleccion, t, proyeccion.locale || LOCALIZACION_ACTUAL));
     }
   };
   contenedor.addEventListener?.("change", cambiarEscala);

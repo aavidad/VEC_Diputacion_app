@@ -229,7 +229,7 @@ test("Jornada: una parte que falla deja su aviso accesible y, sin calendario, no
     assert.equal(parte(nombre).dataset.cronosParteEstado, "error", nombre);
     const [aviso] = parte(nombre).children;
     assert.equal(aviso.atributos.role, "alert");
-    assert.equal(aviso.textContent, i18nCronos.MENSAJES_CRONOS_ES.jornada_parte_error);
+    assert.equal(aviso.textContent, i18nCronos.MENSAJES_CRONOS.jornada_parte_error);
     assert.doesNotMatch(aviso.textContent, /interno|api/u);
   }
   assert.equal(Object.hasOwn(recibidas.movimientos, "abrirCorreccion"), false, "sin calendario no hay olvido que abrir");

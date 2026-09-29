@@ -1,6 +1,7 @@
-import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES_ES } from "./i18n-solicitudes.js";
+import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20260925-tanda2-v1";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20260929-i18n-textos-v1";
+import { LOCALIZACION_ACTUAL } from "../../../comun/idioma.js";
 
 const ERRORES = new Map([
   ["peticion_invalida", "error_peticion_invalida"], ["conflicto", "error_conflicto"],
@@ -86,7 +87,7 @@ function formularioSolicitud(f, permiso, t) {
 }
 
 /** Listado anual del catálogo versionado, solicitud y pendientes de conceder y de justificar. */
-export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, datos = null, solicitud = null, mensajes = MENSAJES_CRONOS_SOLICITUDES_ES, locale = "es-ES", hoy = null } = {}) {
+export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, datos = null, solicitud = null, mensajes = MENSAJES_CRONOS_SOLICITUDES, locale = LOCALIZACION_ACTUAL, hoy = null } = {}) {
   const t = crearTraductorSolicitudesCronos(mensajes);
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) throw new RangeError("año de Cronos no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("permisos_titulo") });
@@ -133,8 +134,8 @@ function estadoError(error) {
   return "error";
 }
 
-export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolicitudesCronosHTTP(), mensajes = MENSAJES_CRONOS_SOLICITUDES_ES,
-  anunciar = () => {}, registrarDesmontar, locale = "es-ES", zonaHoraria = "Europe/Madrid", anio } = {}) {
+export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolicitudesCronosHTTP(), mensajes = MENSAJES_CRONOS_SOLICITUDES,
+  anunciar = () => {}, registrarDesmontar, locale = LOCALIZACION_ACTUAL, zonaHoraria = "Europe/Madrid", anio } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarPermisos !== "function" || typeof cliente?.solicitarPermiso !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de permisos propios Cronos no disponible");
   const t = crearTraductorSolicitudesCronos(mensajes);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MENSAJES_CRONOS_ES } from "./i18n.js";
+import { MENSAJES_CRONOS } from "./i18n.js";
 import { ErrorClienteSaldoCronos } from "./cliente-saldo-http.js";
 import { montarVistaSaldoCronos, renderizarVistaSaldoCronos } from "./vista-saldo-conectado.js";
 
@@ -30,7 +30,7 @@ test("saldo conectado muestra minutos reales, nulidad y detalle sin revelar cód
   assert.doesNotMatch(html, /datos sintéticos|DEMO/i);
   const remoto = datos(); remoto.detalle[0].marcajes[0].origen = "remoto";
   assert.match(renderizarVistaSaldoCronos({ estado: "listo", datos: remoto }), /Remoto/);
-  const malicioso = renderizarVistaSaldoCronos({ estado: "cargando", mensajes: { ...MENSAJES_CRONOS_ES, saldo_titulo: '<img src=x onerror="x()">' } });
+  const malicioso = renderizarVistaSaldoCronos({ estado: "cargando", mensajes: { ...MENSAJES_CRONOS, saldo_titulo: '<img src=x onerror="x()">' } });
   assert.match(malicioso, /&lt;img/);
   assert.doesNotMatch(malicioso, /<img/);
 });
