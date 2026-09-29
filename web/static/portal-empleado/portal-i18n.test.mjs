@@ -47,9 +47,9 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
-  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
-  // Mis preferencias (5.08a) cambió el catálogo del portal: todo su grafo renueva URL.
-  const vigente = "20260929-pref-508a-v2";
+  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507"];
+  // Fase de firma (5.06) integrada con la auditoría legible y 5.07: todo el grafo renueva URL.
+  const vigente = "20260929-firma-506-v2";
   const versionesEspeciales = new Map([
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
   ]);

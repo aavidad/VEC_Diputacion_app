@@ -60,7 +60,7 @@ export function crearClienteHistorico(fetchImpl = globalThis.fetch, timeoutMs = 
       const timer = setTimeout(abortar, timeoutMs);
       try {
         const response = await fetchImpl(`${API_ORGANIZACION_HISTORICA}?${params}`, {
-          credentials: "omit", redirect: "error", cache: "no-store", signal: controller.signal,
+          credentials: "same-origin", redirect: "error", cache: "no-store", signal: controller.signal,
         });
         if (!response.ok) throw Object.assign(new Error(`HTTP ${response.status}`), { status: response.status });
         return validarPaginaHistorica(await response.json());
@@ -397,7 +397,7 @@ export function crearClienteImportacion(fetchImpl = globalThis.fetch, timeoutMs 
       let respuesta;
       try {
         respuesta = await fetchImpl(RUTAS_IMPORTACION[operacion.fase], {
-          method: "POST", credentials: "omit", redirect: "error", cache: "no-store",
+          method: "POST", credentials: "same-origin", redirect: "error", cache: "no-store",
           headers: { "Content-Type": "application/json", "Idempotency-Key": operacion.clave },
           body: operacion.cuerpo, signal: controller.signal,
         });

@@ -20,7 +20,7 @@ import {
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260929-diseno-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260929-firma-506-v2";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
@@ -28,7 +28,7 @@ import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-503-v5";
-import { traducirPortal } from "../../portal-i18n.js?v=20260929-pref-508a-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20260929-firma-506-v2";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -775,10 +775,16 @@ export async function montarModuloContratacionTemporal({
       repintar(".ct-exp-contenido");
     } else if (accion.dataset.ctExpAccion === "ir-tramite") {
       // Lleva al primer trámite montado de la fase (formularios bajo la ficha).
+      // Busca un destino visible con contenido; si no hay ninguno, no se mueve.
+      const visible = (nodo) => Boolean(nodo?.textContent?.trim())
+        && (typeof nodo.getClientRects !== "function" || nodo.getClientRects().length > 0);
       const marca = raiz.querySelector("[data-ct-exp-tramite]");
       let destino = marca?.nextElementSibling;
-      while (destino && !destino.textContent.trim()) destino = destino.nextElementSibling;
-      destino = destino ?? raiz.querySelector("[data-ct-exp-llamamiento]") ?? marca;
+      while (destino && !visible(destino)) destino = destino.nextElementSibling;
+      destino = destino ?? [...(raiz.querySelectorAll?.(
+        ".ct-exp-tramitacion form, [data-ct-exp-llamamiento], .ct-exp-tramitacion section, .ct-exp-tramitacion",
+      ) ?? [])].find(visible) ?? null;
+      if (!destino) return;
       destino?.scrollIntoView?.({ block: "start" });
       (destino?.querySelector?.("h2, h3, h4, legend") ?? destino)?.setAttribute?.("tabindex", "-1");
       (destino?.querySelector?.("h2, h3, h4, legend") ?? destino)?.focus?.({ preventScroll: true });

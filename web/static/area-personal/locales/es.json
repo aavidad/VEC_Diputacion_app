@@ -59,7 +59,7 @@
   "areaPersonal.miBolsa.llamamiento.resultado": "Resultado",
   "areaPersonal.miBolsa.llamamiento.enviado": "Enviado",
   "areaPersonal.miBolsa.llamamiento.no_enviado": "No enviado",
-  "areaPersonal.miBolsa.llamamiento.limite": "El resultado de envío no acredita recepción, respuesta ni plazo aprobado.",
+  "areaPersonal.miBolsa.llamamiento.limite": "Que el correo se enviara no significa que haya llegado ni que ya tenga respuesta.",
   "areaPersonal.miBolsa.llamamiento.sinDato": "No constan llamamientos por correo para estas participaciones.",
   "areaPersonal.miBolsa.llamamiento.bolsa": "Bolsa",
   "areaPersonal.contacto.titulo": "Datos de contacto",
@@ -135,10 +135,10 @@
   "areaPersonal.miBolsa.historial.cargando": "Cargando histórico autorizado…",
   "areaPersonal.miBolsa.historial.vacio": "No constan actuaciones en el histórico de VEC.",
   "areaPersonal.miBolsa.historial.sinCampos": "El servicio no ha habilitado datos del histórico para esta identidad.",
-  "areaPersonal.miBolsa.historial.error": "No se pudo cargar el histórico. Los datos de esta página no se muestran.",
+  "areaPersonal.miBolsa.historial.error": "El histórico todavía no está disponible. Puede volver a consultarlo más tarde.",
   "areaPersonal.miBolsa.historial.autenticacion": "Identifíquese de nuevo para consultar su histórico.",
   "areaPersonal.miBolsa.historial.denegado": "No tiene permiso para consultar este histórico.",
-  "areaPersonal.miBolsa.historial.reintentar": "Reintentar consulta",
+  "areaPersonal.miBolsa.historial.reintentar": "Volver a consultar",
   "areaPersonal.miBolsa.historial.anterior": "Anterior",
   "areaPersonal.miBolsa.historial.siguiente": "Siguiente",
   "areaPersonal.miBolsa.historial.pagina": "Página {pagina}",
@@ -163,7 +163,7 @@
   "areaPersonal.miBolsa.historial.modo": "Tratamiento",
   "areaPersonal.miBolsa.historial.firme": "Registro directo en Bolsa",
   "areaPersonal.miBolsa.historial.propuesta_rrhh": "Pendiente de confirmación de RRHH",
-  "areaPersonal.miBolsa.historial.limite": "Solo se muestran actuaciones de VEC. Un correo enviado no acredita recepción; una renuncia registrada no acredita su resolución en Contratación; una incorporación comunicada no acredita contrato firmado ni historia laboral anterior a VEC.",
+  "areaPersonal.miBolsa.historial.limite": "Aquí solo aparece lo registrado en VEC. Que se enviara un correo no significa que llegara, y una renuncia o incorporación anotada aún puede estar pendiente de que RRHH la resuelva.",
   "areaPersonal.rutas.oportunidades": "Oportunidades para ti",
   "areaPersonal.estado.error.autenticacion.titulo": "Identifíquese para consultar su bolsa",
   "areaPersonal.estado.error.autenticacion.detalle": "Use su DNIe o certificado para continuar.",
@@ -223,5 +223,6 @@
   "areaPersonal.preferencias.atajo.textoActivo": "Tamaño de texto ampliado para esta sesión.",
   "areaPersonal.preferencias.atajo.textoInactivo": "Tamaño de texto normal para esta sesión.",
   "areaPersonal.preferencias.atajo.contrasteActivo": "Alto contraste activado para esta sesión.",
-  "areaPersonal.preferencias.atajo.contrasteInactivo": "Alto contraste desactivado para esta sesión."
+  "areaPersonal.preferencias.atajo.contrasteInactivo": "Alto contraste desactivado para esta sesión.",
+  "areaPersonal.miBolsa.categoriaSinNombre": "Categoría sin nombre"
 }
