@@ -116,7 +116,7 @@ export function renderizarLineaFases(expediente, t) {
     const actual = paso === "ahora" || paso === "con-incidencia";
     return `<li class="${paso}" data-ct-exp-orden="${fase.orden}"${actual ? ' aria-current="step"' : ""}>
       <button type="button" data-ct-exp-fase-ver="${escapar(clave)}" aria-pressed="false"
-        aria-label="${escapar(t("fase_ver_pantalla", { fase: fase.etiqueta }))}">
+        aria-label="${escapar(`${t("fase_ver_pantalla", { fase: fase.etiqueta })}: ${t(texto[paso])}`)}">
         <span class="marca" aria-hidden="true">${paso === "hecho" ? "✓" : escapar(fase.orden)}</span>
         <span class="nombre">${escapar(fase.etiqueta)}</span>
         <small>${escapar(t(texto[paso]))}</small>
