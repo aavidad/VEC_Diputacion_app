@@ -162,6 +162,12 @@ transportes_mtls_revisados=(
 	# Usuarios 5.08a: GET/PUT a ruta interna fija, mTLS del mismo origen,
 	# no-store, redirect error, sin referente ni cookies accesibles en JS.
 	static/portal-empleado/portal-preferencias-api.js
+	# Usuarios 5.08b («Mis correos»): dos rutas internas fijas (RRHH y área personal),
+	# same-origin, no-store, redirect error y no-referrer (revisado 29/09).
+	static/comun/correos-propios.js
+	# Usuarios 5.08c («Mi imagen»): dos rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; la cola en serie solo reenvía esas opciones (revisado 29/09).
+	static/comun/imagen-propia.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
 	# Descarga de los borradores PDF/Word: POST a ruta interna fija, same-origin,

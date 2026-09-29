@@ -61,6 +61,27 @@ func TestHuellaMaterialPlazoOfertaCoincideConContextoV3(t *testing.T) {
 	}
 }
 
+// El vector se repite en deploy/postgresql/bolsa_llamamientos/pruebas_sql/
+// plazas_oferta/pruebas.sql: la preimagen de publicar_oferta_v3 (B58) añade el
+// número de plazas al final del material B54.
+func TestHuellaMaterialConPlazasCoincideConB58(t *testing.T) {
+	publicada := time.Date(2026, 9, 25, 10, 0, 0, 123456000, time.UTC)
+	vence := time.Date(2026, 9, 29, 22, 0, 0, 0, time.UTC)
+	plazo := ports.PlazoOferta{
+		ReglaRef: "politica-ofertas:bolsa:of:1:1", HuellaCatalogo: strings.Repeat("a", 64),
+		Unidad: "dias_habiles", Cantidad: 2, Computo: "administrativo", MunicipioSede: "18087",
+		UltimoDia: "2026-09-29", PoliticaVersion: 1, Calendarios: []string{"cal:1", "cal:2"},
+	}
+	h := huellaMaterialPlazoOfertaConPlazas("bolsa:of:1", publicada, vence, plazo, 3)
+	if h != "f6aa0fb741632ea4c51c73603ddde739c5c89e8498ff40be5be7f850fff4de34" {
+		t.Fatalf("vector Go/SQL B58 divergente: %s", h)
+	}
+	if huellaMaterialPlazoOfertaConPlazas("bolsa:of:1", publicada, vence, plazo, 2) == h ||
+		huellaMaterialPlazoOferta("bolsa:of:1", publicada, vence, plazo) == h {
+		t.Fatal("la huella no liga el número de plazas")
+	}
+}
+
 func TestHuellaMaterialHorasIncluyeAperturaYVencimiento(t *testing.T) {
 	apertura := time.Date(2026, 3, 28, 12, 17, 13, 123456000, time.UTC)
 	vence := apertura.Add(48 * time.Hour)

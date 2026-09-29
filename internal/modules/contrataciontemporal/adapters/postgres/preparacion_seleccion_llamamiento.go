@@ -17,6 +17,7 @@ type LectorExpedienteSeleccionLlamamientoPostgreSQL struct {
 
 var _ ports.LectorExpedienteSeleccionLlamamiento = (*LectorExpedienteSeleccionLlamamientoPostgreSQL)(nil)
 var _ ports.LectorExpedienteAvisoLlamamiento = (*LectorExpedienteSeleccionLlamamientoPostgreSQL)(nil)
+var _ ports.LectorNumeroVisibleAvisoLlamamiento = (*LectorExpedienteSeleccionLlamamientoPostgreSQL)(nil)
 
 func NuevoLectorExpedienteSeleccionLlamamientoPostgreSQL(pool *pgxpool.Pool) (*LectorExpedienteSeleccionLlamamientoPostgreSQL, error) {
 	if dependenciaNula(pool) {
@@ -105,6 +106,35 @@ func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerExpedienteParaAviso
 		return vacio, errorLecturaSeleccion(ctx)
 	}
 	return ports.ExpedienteParaSeleccion{Fiscalizado: expediente, VersionActual: uint64(actual)}, nil
+}
+
+// LeerNumeroVisibleVigenteAviso lee el número visible vigente (CT-000143) del
+// mismo expediente y llamamiento que acredita LeerExpedienteParaAvisoConfirmado.
+func (l *LectorExpedienteSeleccionLlamamientoPostgreSQL) LeerNumeroVisibleVigenteAviso(
+	ctx context.Context, organizacion, referencia, llamamiento string,
+) (string, error) {
+	if ctx == nil || l == nil || dependenciaNula(l.pool) ||
+		!domain.ReferenciaOpacaValida(organizacion) || !domain.ReferenciaOpacaValida(referencia) ||
+		!domain.ReferenciaOpacaValida(llamamiento) {
+		return "", ports.ErrPeticionIntegracionBolsaInvalida
+	}
+	ctx, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelar()
+	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return "", errorLecturaSeleccion(ctx)
+	}
+	defer revertirTransaccion(tx)
+	var numero string
+	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.numero_visible_aviso_confirmado_v1($1,$2,$3)`,
+		organizacion, referencia, llamamiento).Scan(&numero)
+	if err != nil || !domain.NumeroVisibleValido(numero) {
+		return "", errorLecturaSeleccion(ctx)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", errorLecturaSeleccion(ctx)
+	}
+	return numero, nil
 }
 
 func errorLecturaSeleccion(ctx context.Context) error {

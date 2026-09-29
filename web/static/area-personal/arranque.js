@@ -1,4 +1,4 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-imagen-508c-v1";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-imagen-508c-v2";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20260929-credenciales-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260929-pref-508a-v1";

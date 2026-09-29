@@ -12,6 +12,38 @@ type PoliticaOfertas struct {
 	Plazo        PlazoPoliticaOfertas        `json:"plazo"`
 	Adjudicacion AdjudicacionPoliticaOfertas `json:"adjudicacion"`
 	NoCubierta   NoCubiertaPoliticaOfertas   `json:"no_cubierta"`
+	// Plazas es opcional (duda 75). Sin él, cada oferta tiene una sola plaza y
+	// la adjudicación confirmada la cubre, como en las versiones anteriores.
+	Plazas *PlazasPoliticaOfertas `json:"plazas,omitempty"`
+}
+
+// PlazasPoliticaOfertas gobierna las ofertas con varias plazas: si se llama a
+// la vez a tantas personas como plazas libres o de una en una, cuántas horas
+// tiene cada persona para responder y qué se hace con la plaza tras una
+// renuncia o una falta de respuesta. Bolsa ejecuta exactamente estos valores.
+type PlazasPoliticaOfertas struct {
+	Llamada        string `json:"llamada"`
+	RespuestaHoras int    `json:"respuesta_horas"`
+	TrasRenuncia   string `json:"tras_renuncia"`
+}
+
+// Valores admitidos del apartado de plazas.
+const (
+	LlamadaPlazasSimultanea         = "simultanea"
+	LlamadaPlazasSucesiva           = "sucesiva"
+	TrasRenunciaSiguienteEnOrden    = "siguiente_en_orden"
+	TrasRenunciaLlamamientoDirecto  = "llamamiento_directo"
+	MaximoHorasRespuestaPlazaOferta = 720
+)
+
+// Validar admite solo valores que ejecuta la proyección de plazas de Bolsa.
+func (p PlazasPoliticaOfertas) Validar() error {
+	if (p.Llamada != LlamadaPlazasSimultanea && p.Llamada != LlamadaPlazasSucesiva) ||
+		p.RespuestaHoras < 1 || p.RespuestaHoras > MaximoHorasRespuestaPlazaOferta ||
+		(p.TrasRenuncia != TrasRenunciaSiguienteEnOrden && p.TrasRenuncia != TrasRenunciaLlamamientoDirecto) {
+		return ErrPoliticaOfertasInvalida
+	}
+	return nil
 }
 
 type PlazoPoliticaOfertas struct {
@@ -47,6 +79,9 @@ func (p PoliticaOfertas) Validar() error {
 		p.Adjudicacion.Criterio != "orden_vigente" || p.Adjudicacion.Elegibilidad != "disposicion_en_plazo" ||
 		p.NoCubierta.Accion != "llamamiento_directo" || p.NoCubierta.Condicion != "sin_disposiciones_elegibles" {
 		return ErrPoliticaOfertasInvalida
+	}
+	if p.Plazas != nil {
+		return p.Plazas.Validar()
 	}
 	return nil
 }

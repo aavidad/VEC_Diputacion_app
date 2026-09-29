@@ -49,3 +49,38 @@ func TestPoliticaOfertasHorasNaturalesConfigurables(t *testing.T) {
 		t.Fatal("horas con calendario administrativo aceptadas")
 	}
 }
+
+func TestPoliticaOfertasApartadoDePlazas(t *testing.T) {
+	base := PoliticaOfertas{Plazo: PlazoPoliticaOfertas{Unidad: "horas_naturales", Cantidad: 48, Computo: "continuo_utc", MunicipioSede: "18087"},
+		Adjudicacion: AdjudicacionPoliticaOfertas{Criterio: "orden_vigente", Elegibilidad: "disposicion_en_plazo"},
+		NoCubierta:   NoCubiertaPoliticaOfertas{Accion: "llamamiento_directo", Condicion: "sin_disposiciones_elegibles"}}
+	if base.Validar() != nil {
+		t.Fatal("una política sin apartado de plazas sigue siendo válida")
+	}
+	validas := []PlazasPoliticaOfertas{
+		{Llamada: LlamadaPlazasSimultanea, RespuestaHoras: 24, TrasRenuncia: TrasRenunciaSiguienteEnOrden},
+		{Llamada: LlamadaPlazasSucesiva, RespuestaHoras: 1, TrasRenuncia: TrasRenunciaLlamamientoDirecto},
+		{Llamada: LlamadaPlazasSimultanea, RespuestaHoras: MaximoHorasRespuestaPlazaOferta, TrasRenuncia: TrasRenunciaSiguienteEnOrden},
+	}
+	for _, plazas := range validas {
+		p := base
+		p.Plazas = &plazas
+		if err := p.Validar(); err != nil {
+			t.Fatalf("%+v rechazada: %v", plazas, err)
+		}
+	}
+	invalidas := []PlazasPoliticaOfertas{
+		{Llamada: "al_azar", RespuestaHoras: 24, TrasRenuncia: TrasRenunciaSiguienteEnOrden},
+		{Llamada: LlamadaPlazasSimultanea, RespuestaHoras: 0, TrasRenuncia: TrasRenunciaSiguienteEnOrden},
+		{Llamada: LlamadaPlazasSimultanea, RespuestaHoras: MaximoHorasRespuestaPlazaOferta + 1, TrasRenuncia: TrasRenunciaSiguienteEnOrden},
+		{Llamada: LlamadaPlazasSimultanea, RespuestaHoras: 24, TrasRenuncia: "baja"},
+		{},
+	}
+	for _, plazas := range invalidas {
+		p := base
+		p.Plazas = &plazas
+		if p.Validar() == nil {
+			t.Fatalf("%+v aceptada", plazas)
+		}
+	}
+}

@@ -1,0 +1,25 @@
+{
+  "fase": {
+    "titulo": "Fase de firma",
+    "lista": "Estado de firma de los documentos",
+    "documento": "Documento",
+    "estado": "Estado",
+    "quien": "Quién debe firmar",
+    "desde": "Desde",
+    "paso": "{cargo} (paso {actual} de {total})",
+    "nadie": "Nadie: circuito de prueba completo",
+    "sin_fecha": "Sin empezar",
+    "fecha_desconocida": "Fecha no disponible",
+    "estado_no_disponible_aviso": "Ahora no se puede saber en qué estado está cada firma. Se muestra quién firma primero según el circuito. Vuelva a entrar más tarde.",
+    "devuelto_por": "Devuelto por",
+    "devuelto_motivo": "{cargo}: {motivo}"
+  },
+  "estado": {
+    "borrador": "Borrador sin firmar",
+    "pendiente_firma": "Pendiente de firma",
+    "enviado_portafirmas": "Enviado a Firmadoc",
+    "firmado": "Firmado en prueba",
+    "devuelto": "Devuelto",
+    "no_disponible": "Estado no disponible"
+  }
+}

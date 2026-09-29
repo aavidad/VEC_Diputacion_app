@@ -723,6 +723,48 @@
           "motivo": "Readmisión por recurso de reposición estimado"
         },
         "orden": 47
+      },
+      {
+        "clave": "b30.plazas_llamada",
+        "etiqueta": "Ofertas con varias plazas: cómo se llama",
+        "descripcion": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. Valores posibles: «simultanea» o «sucesiva» (de una en una).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 75. Es la propuesta que VEC rellena al configurar la política de ofertas de una bolsa; lo que rige es la versión que RRHH guarda en esa política.",
+          "unidad": "lista",
+          "valor": "simultanea"
+        },
+        "orden": 48
+      },
+      {
+        "clave": "b30.plazas_plazo_respuesta",
+        "etiqueta": "Ofertas con varias plazas: plazo para responder",
+        "descripcion": "Horas que tiene la persona adjudicada para aceptar o renunciar antes de que RRHH pueda registrar que no respondió.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 75. Es la propuesta que VEC rellena al configurar la política de ofertas de una bolsa; lo que rige es la versión que RRHH guarda en esa política.",
+          "unidad": "horas",
+          "cantidad": "24"
+        },
+        "orden": 49
+      },
+      {
+        "clave": "b30.plazas_tras_renuncia",
+        "etiqueta": "Ofertas con varias plazas: tras una renuncia o falta de respuesta",
+        "descripcion": "Se llama a la siguiente persona que se ofreció para esa misma plaza; si no queda nadie, la plaza pasa a llamamiento directo. Valores posibles: «siguiente_en_orden» o «llamamiento_directo».",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 75. Es la propuesta que VEC rellena al configurar la política de ofertas de una bolsa; lo que rige es la versión que RRHH guarda en esa política.",
+          "unidad": "lista",
+          "valor": "siguiente_en_orden"
+        },
+        "orden": 50
       }
     ],
     "estado": "publicado",

@@ -21,6 +21,11 @@ var (
 	ErrOfertaYaResuelta        = errors.New("bolsa: la oferta ya esta resuelta")
 	ErrOfertaPlazoAbierto      = errors.New("bolsa: el plazo de disposicion sigue abierto")
 	ErrOfertaPropuestaCambiada = errors.New("bolsa: la propuesta de adjudicacion ha cambiado")
+	// ErrOfertaRespuestaAbierta: la persona aún está en plazo para responder.
+	ErrOfertaRespuestaAbierta = errors.New("bolsa: el plazo de respuesta de la plaza sigue abierto")
+	// ErrOfertaPoliticaSinPlazas: la versión de política no tiene el apartado
+	// de plazas y la oferta pide más de una.
+	ErrOfertaPoliticaSinPlazas = errors.New("bolsa: la politica de la bolsa no admite varias plazas")
 	// ErrPlazoOfertaNoConfigurado: sin catálogo de reglas no hay plazo b10 y
 	// no se publica; nunca se inventa un plazo por defecto.
 	ErrPlazoOfertaNoConfigurado = errors.New("bolsa: plazo de disposicion sin regla configurada")
@@ -71,6 +76,30 @@ type PropuestaOferta struct {
 	OrdenVigente     *int64 `json:"orden_vigente,omitempty"`
 }
 
+// ActoPlazaOferta es un paso de la historia de una plaza, sin actor.
+type ActoPlazaOferta struct {
+	Secuencia    int       `json:"secuencia"`
+	Tipo         string    `json:"tipo"`
+	OrdenVigente *int64    `json:"orden_vigente"`
+	RegistradoEn time.Time `json:"registrado_en"`
+	ReciboRef    string    `json:"recibo_ref"`
+}
+
+// PlazaOferta es el estado de una plaza en un instante: quién la ocupa, hasta
+// cuándo puede responder, qué propone VEC y su historia. Secuencia es la
+// versión que debe confirmar el siguiente acto.
+type PlazaOferta struct {
+	NumeroDePlaza     int               `json:"numero_de_plaza"`
+	Estado            string            `json:"estado"`
+	Secuencia         int               `json:"secuencia"`
+	ParticipacionRef  *string           `json:"participacion_ref"`
+	OrdenVigente      *int64            `json:"orden_vigente"`
+	ResponderAntesDe  *time.Time        `json:"responder_antes_de"`
+	PuedeSinRespuesta bool              `json:"puede_sin_respuesta"`
+	Propuesta         *PropuestaOferta  `json:"propuesta"`
+	Historial         []ActoPlazaOferta `json:"historial"`
+}
+
 type ResolucionOferta struct {
 	ReciboRef          string    `json:"recibo_ref"`
 	Tipo               string    `json:"tipo"`
@@ -94,7 +123,12 @@ type OfertaPublicada struct {
 	DisposicionesTotal int                      `json:"disposiciones_total"`
 	Propuesta          *PropuestaOferta         `json:"propuesta"`
 	Resolucion         *ResolucionOferta        `json:"resolucion"`
-	Reutilizada        bool                     `json:"reutilizada"`
+	// NumeroPlazas, la política de plazas aplicada (nula si la versión no la
+	// tiene) y el estado de cada plaza.
+	NumeroPlazas   int                                 `json:"numero_plazas"`
+	PoliticaPlazas *dominiobolsa.PlazasPoliticaOfertas `json:"politica_plazas"`
+	Plazas         []PlazaOferta                       `json:"plazas"`
+	Reutilizada    bool                                `json:"reutilizada"`
 }
 
 type SolicitudPublicarOferta struct {
@@ -102,6 +136,7 @@ type SolicitudPublicarOferta struct {
 	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef           string
 	Datos              dominiobolsa.DatosOferta
+	NumeroPlazas       int
 	ClaveIdempotencia  string
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
@@ -113,13 +148,19 @@ type SolicitudConsultarOfertas struct {
 	Limite        int
 }
 
-// SolicitudResolverOferta confirma la propuesta vigente: ParticipacionRef
-// vacía significa pasar a llamamiento directo.
+// SolicitudResolverOferta registra un acto sobre una plaza: confirmar la
+// propuesta (adjudicada o llamamiento_directo) o la respuesta de quien la
+// ocupa (aceptada, renuncia o sin_respuesta). ParticipacionRef va vacía solo
+// en el llamamiento directo. SecuenciaEsperada es la versión de la plaza que
+// vio RRHH.
 type SolicitudResolverOferta struct {
 	Vinculo            dominiovec.VinculoAutenticacionActorV2
 	ResultadoContexto  dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef           string
 	OfertaRef          string
+	NumeroDePlaza      int
+	Tipo               string
+	SecuenciaEsperada  int
 	ParticipacionRef   string
 	ClaveIdempotencia  string
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
@@ -130,6 +171,7 @@ type ComandoPublicarOferta struct {
 	OfertaRef, ReciboRef, BolsaRef, ActorRef, ClaveIdempotencia string
 	UnidadRef, AmbitoRef                                        string
 	Datos                                                       dominiobolsa.DatosOferta
+	NumeroPlazas                                                int
 	Plazo                                                       PlazoOferta
 	PublicadaEn, VenceAntesDe                                   time.Time
 	Material                                                    puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
@@ -137,6 +179,8 @@ type ComandoPublicarOferta struct {
 
 type ComandoResolverOferta struct {
 	OfertaRef, ReciboRef, BolsaRef, ParticipacionRef, ActorRef, ClaveIdempotencia string
+	Tipo                                                                          string
+	NumeroDePlaza, SecuenciaEsperada                                              int
 	Material                                                                      puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 

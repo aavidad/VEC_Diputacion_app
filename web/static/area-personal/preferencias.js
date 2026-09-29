@@ -2,7 +2,7 @@ import { escaparHTML } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
 import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
-import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v1";
+import { crearAvatarCabecera, crearClienteImagen, crearSuperficieImagen, peticionesEnSerie } from "../comun/imagen-propia.js?v=20260929-imagen-508c-v2";
 
 const textosPorIdioma = new Map(await Promise.all(IDIOMAS_DISPONIBLES.map(async ({ codigo }) =>
   [codigo, await cargarTextos("preferencias", { idioma: codigo })])));

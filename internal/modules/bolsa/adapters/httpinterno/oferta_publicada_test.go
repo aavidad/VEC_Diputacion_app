@@ -21,11 +21,11 @@ type preparadorOfertasPrueba struct {
 
 func (p *preparadorOfertasPrueba) PrepararSolicitudPublicarOferta(_ context.Context, e EntradaPublicarOferta) (ports.SolicitudPublicarOferta, error) {
 	p.publicar = &e
-	return ports.SolicitudPublicarOferta{BolsaRef: e.BolsaRef, Datos: e.Datos, ClaveIdempotencia: e.ClaveIdempotencia}, nil
+	return ports.SolicitudPublicarOferta{BolsaRef: e.BolsaRef, Datos: e.Datos, NumeroPlazas: e.NumeroPlazas, ClaveIdempotencia: e.ClaveIdempotencia}, nil
 }
 func (p *preparadorOfertasPrueba) PrepararSolicitudResolverOferta(_ context.Context, e EntradaResolverOferta) (ports.SolicitudResolverOferta, error) {
 	p.resolver = &e
-	return ports.SolicitudResolverOferta{BolsaRef: e.BolsaRef, OfertaRef: e.OfertaRef, ParticipacionRef: e.ParticipacionRef}, nil
+	return ports.SolicitudResolverOferta{BolsaRef: e.BolsaRef, OfertaRef: e.OfertaRef, NumeroDePlaza: e.NumeroDePlaza, Tipo: e.Tipo, SecuenciaEsperada: e.SecuenciaEsperada, ParticipacionRef: e.ParticipacionRef}, nil
 }
 func (p *preparadorOfertasPrueba) PrepararSolicitudConsultarOfertas(_ context.Context, bolsa string, limite int) (ports.SolicitudConsultarOfertas, error) {
 	p.consultar, p.limite = bolsa, limite
@@ -68,7 +68,10 @@ func codigoOferta(t *testing.T, w *httptest.ResponseRecorder) string {
 	return sobre.Error.Codigo
 }
 
-const cuerpoOfertaPrueba = `{"bolsa_ref":"bolsa:1","datos":{"categoria":"Auxiliar","centro":"Residencia","fecha_inicio":"2026-10-01","descripcion":"Sustitución"}}`
+const cuerpoOfertaPrueba = `{"bolsa_ref":"bolsa:1","numero_plazas":2,"datos":{"categoria":"Auxiliar","centro":"Residencia","fecha_inicio":"2026-10-01","descripcion":"Sustitución"}}`
+
+// cuerpoActoPlazaPrueba registra un acto sobre la plaza 2 de una oferta.
+const cuerpoActoPlazaPrueba = `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":2,"tipo":"adjudicada","secuencia_esperada":3,"participacion_ref":"p:1"}`
 
 func TestHandlerOfertasPublicaYDistingueReplay(t *testing.T) {
 	for _, caso := range []struct {
@@ -79,7 +82,7 @@ func TestHandlerOfertasPublicaYDistingueReplay(t *testing.T) {
 		h, _ := NuevoHandlerOfertasPublicadas(p, operadorOfertasPrueba{reutilizada: caso.reutilizada})
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba, "clave-oferta-1"))
-		if w.Code != caso.estado || p.publicar == nil || p.publicar.ClaveIdempotencia != "clave-oferta-1" || p.publicar.Datos.Centro != "Residencia" {
+		if w.Code != caso.estado || p.publicar == nil || p.publicar.ClaveIdempotencia != "clave-oferta-1" || p.publicar.Datos.Centro != "Residencia" || p.publicar.NumeroPlazas != 2 {
 			t.Fatalf("estado=%d cuerpo=%s", w.Code, w.Body.String())
 		}
 	}
@@ -90,7 +93,11 @@ func TestHandlerOfertasRechazaEntradasSinLlegarAlPreparador(t *testing.T) {
 		"sin clave":          peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba, ""),
 		"campo ajeno":        peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"b","actor":"x","datos":{}}`, "clave-oferta-1"),
 		"dos documentos":     peticionOferta(http.MethodPost, RutaOfertasPublicadas, cuerpoOfertaPrueba+cuerpoOfertaPrueba, "clave-oferta-1"),
-		"participación ''":   peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","participacion_ref":""}`, "clave-resol-1"),
+		"participación ''":   peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":1,"tipo":"adjudicada","secuencia_esperada":0,"participacion_ref":""}`, "clave-resol-1"),
+		"sin plazas":         peticionOferta(http.MethodPost, RutaOfertasPublicadas, `{"bolsa_ref":"bolsa:1","datos":{"categoria":"Auxiliar","centro":"Residencia","fecha_inicio":"2026-10-01","descripcion":"Sustitución"}}`, "clave-oferta-1"),
+		"acto sin plaza":     peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","tipo":"adjudicada","secuencia_esperada":0,"participacion_ref":"p:1"}`, "clave-resol-1"),
+		"acto sin secuencia": peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":1,"tipo":"adjudicada","participacion_ref":"p:1"}`, "clave-resol-1"),
+		"acto sin tipo":      peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":1,"secuencia_esperada":0,"participacion_ref":"p:1"}`, "clave-resol-1"),
 		"consulta sin bolsa": peticionOferta(http.MethodGet, RutaOfertasPublicadas, "", ""),
 		"parámetro ajeno":    peticionOferta(http.MethodGet, RutaOfertasPublicadas+"?bolsa_ref=b&actor=x", "", ""),
 		"límite excesivo":    peticionOferta(http.MethodGet, RutaOfertasPublicadas+"?bolsa_ref=b&limite=101", "", ""),
@@ -110,8 +117,9 @@ func TestHandlerOfertasResuelveLlamamientoDirectoConParticipacionNula(t *testing
 	p := &preparadorOfertasPrueba{}
 	h, _ := NuevoHandlerOfertasPublicadas(p, operadorOfertasPrueba{})
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","participacion_ref":null}`, "clave-resol-1"))
-	if w.Code != http.StatusCreated || p.resolver == nil || p.resolver.ParticipacionRef != "" {
+	h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","numero_de_plaza":3,"tipo":"llamamiento_directo","secuencia_esperada":2,"participacion_ref":null}`, "clave-resol-1"))
+	if w.Code != http.StatusCreated || p.resolver == nil || p.resolver.ParticipacionRef != "" || p.resolver.NumeroDePlaza != 3 ||
+		p.resolver.Tipo != "llamamiento_directo" || p.resolver.SecuenciaEsperada != 2 {
 		t.Fatalf("estado=%d", w.Code)
 	}
 	w = httptest.NewRecorder()
@@ -132,6 +140,8 @@ func TestHandlerOfertasTraduceErrores(t *testing.T) {
 		{ports.ErrOfertaYaResuelta, http.StatusConflict, "oferta_ya_resuelta"},
 		{ports.ErrOfertaPlazoAbierto, http.StatusConflict, "plazo_abierto"},
 		{ports.ErrOfertaPropuestaCambiada, http.StatusConflict, "propuesta_cambiada"},
+		{ports.ErrOfertaRespuestaAbierta, http.StatusConflict, "respuesta_abierta"},
+		{ports.ErrOfertaPoliticaSinPlazas, http.StatusConflict, "politica_sin_plazas"},
 		{ports.ErrOfertaInvalida, http.StatusUnprocessableEntity, "oferta_invalida"},
 		{ports.ErrPlazoOfertaNoConfigurado, http.StatusServiceUnavailable, "plazo_no_configurado"},
 		{context.DeadlineExceeded, http.StatusServiceUnavailable, "servicio_no_disponible"},
@@ -139,7 +149,7 @@ func TestHandlerOfertasTraduceErrores(t *testing.T) {
 	for _, caso := range casos {
 		h, _ := NuevoHandlerOfertasPublicadas(&preparadorOfertasPrueba{}, operadorOfertasPrueba{err: caso.err})
 		w := httptest.NewRecorder()
-		h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaResolucionesOferta, `{"bolsa_ref":"b","oferta_ref":"oferta:1","participacion_ref":"p:1"}`, "clave-resol-1"))
+		h.ServeHTTP(w, peticionOferta(http.MethodPost, RutaResolucionesOferta, cuerpoActoPlazaPrueba, "clave-resol-1"))
 		if w.Code != caso.estado || codigoOferta(t, w) != caso.codigo {
 			t.Errorf("%v: estado=%d cuerpo=%s", caso.err, w.Code, w.Body.String())
 		}

@@ -257,7 +257,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudPublicarOfert
 	if err != nil {
 		return puertosbolsa.SolicitudPublicarOferta{}, err
 	}
-	return puertosbolsa.SolicitudPublicarOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Datos: entrada.Datos, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudPublicarOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Datos: entrada.Datos, NumeroPlazas: entrada.NumeroPlazas, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudResolverOferta(ctx context.Context, entrada bolsahttp.EntradaResolverOferta) (puertosbolsa.SolicitudResolverOferta, error) {
@@ -269,7 +269,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudResolverOfert
 	if err != nil {
 		return puertosbolsa.SolicitudResolverOferta{}, err
 	}
-	return puertosbolsa.SolicitudResolverOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef, ParticipacionRef: entrada.ParticipacionRef, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudResolverOferta{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, OfertaRef: entrada.OfertaRef, NumeroDePlaza: entrada.NumeroDePlaza, Tipo: entrada.Tipo, SecuenciaEsperada: entrada.SecuenciaEsperada, ParticipacionRef: entrada.ParticipacionRef, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarOfertas(ctx context.Context, bolsaRef string, limite int) (puertosbolsa.SolicitudConsultarOfertas, error) {
