@@ -139,11 +139,13 @@ def datos_api(respuesta, ruta: str, metodo: str = "GET") -> dict:
     return cuerpo["data"]
 
 
-def identidad_rrhh_previa(contexto_rrhh, origen: str) -> str:
+def identidad_rrhh_previa(contexto_rrhh, origen: str, evidencia=None) -> str:
     dependencia = ("GET /api/vec/usuarios/mis-preferencias requiere audiencia interna, "
                    "permiso vec.preferencias.consultar y VEC_USUARIOS_PREFERENCIAS_ENABLED")
     try:
         respuesta = contexto_rrhh.request.get(origen + RUTA_PREFERENCIAS, max_redirects=0)
+        if evidencia:
+            evidencia.http(respuesta, "rrhh", "GET")
         vista = datos_api(respuesta, RUTA_PREFERENCIAS)
         estado = vista.get("estado")
         actor = estado.get("persona_ref") if isinstance(estado, dict) else None
@@ -226,9 +228,57 @@ def primer_valor(page, nombre: str):
     page.locator(f'[name="{nombre}"]').select_option(opciones[0])
 
 
+class Evidencia:
+    """Estados HTTP y recibos sintéticos en una carpeta privada externa a Git."""
+
+    def __init__(self, carpeta: str | None):
+        self.carpeta = Path(carpeta).resolve() if carpeta else None
+        self.registro = {"http": [], "recibos": {}, "pantallas": [], "resultado": "iniciado"}
+        if self.carpeta:
+            repositorio = Path(__file__).resolve().parents[3]
+            if (self.carpeta == repositorio or repositorio in self.carpeta.parents
+                    or any((p / ".git").exists() for p in (self.carpeta, *self.carpeta.parents))):
+                raise NoEjecutado("--evidencias debe estar fuera del repositorio")
+            self.carpeta.mkdir(mode=0o700, parents=True, exist_ok=False)
+
+    def guardar(self):
+        if self.carpeta:
+            archivo = self.carpeta / "resultado.json"
+            archivo.write_text(json.dumps(self.registro, ensure_ascii=False, indent=2), encoding="utf-8")
+            archivo.chmod(0o600)
+
+    def http(self, respuesta, rol: str, metodo: str | None = None):
+        ruta = urlparse(respuesta.url).path
+        if ruta.startswith("/api/"):
+            self.registro["http"].append({"rol": rol, "metodo": metodo or respuesta.request.method,
+                                         "ruta": ruta, "estado": respuesta.status})
+            self.guardar()
+
+    def recibo(self, nombre: str, valor: dict):
+        self.registro["recibos"][nombre] = valor
+        self.guardar()
+
+    def pantalla(self, page, nombre: str):
+        if not self.carpeta:
+            return
+        for ancho in (1440, 390):
+            page.set_viewport_size({"width": ancho, "height": 900})
+            page.wait_for_timeout(250)
+            desborde = page.evaluate("() => document.documentElement.scrollWidth > innerWidth")
+            self.registro["pantallas"].append({"nombre": nombre, "ancho": ancho,
+                                               "desbordamiento": desborde})
+            page.screenshot(path=str(self.carpeta / f"{nombre}-{ancho}.png"), full_page=True)
+            (self.carpeta / f"{nombre}-{ancho}.png").chmod(0o600)
+        page.set_viewport_size({"width": 1440, "height": 900})
+        self.guardar()
+        if any(x["desbordamiento"] for x in self.registro["pantallas"]):
+            raise AssertionError("desbordamiento horizontal en una pantalla del recorrido")
+
+
 def recorrer(args: argparse.Namespace, origen: str) -> None:
     from playwright.sync_api import sync_playwright
 
+    evidencia = Evidencia(getattr(args, "evidencias", None))
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
         try:
@@ -239,36 +289,43 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             errores_js = []
             for pagina in paginas.values():
                 pagina.on("pageerror", lambda err: errores_js.append(type(err).__name__))
+            for rol, pagina in paginas.items():
+                pagina.on("response", lambda r, rol=rol: evidencia.http(r, rol))
 
             # La preferencia propia identifica al principal RRHH autenticado.
             # Se consulta antes de cualquier escritura del centro.
-            actor_rrhh = identidad_rrhh_previa(contextos["rrhh"], origen)
+            actor_rrhh = identidad_rrhh_previa(contextos["rrhh"], origen, evidencia)
 
             sol, _ = actor_y_bandeja(paginas["solicitante"], origen)
             actor_sol = sol.get("actor", {})
             if actor_sol.get("puede_presentar") is not True or actor_sol.get("puede_ratificar") is not False:
                 raise AssertionError("certificado solicitante sin perfil exclusivo")
             previo_rat = contextos["ratificador"].request.get(origen + RUTA_CONTEXTO, max_redirects=0)
+            evidencia.http(previo_rat, "ratificador", "GET")
             actor_rat_previo = datos_api(previo_rat, RUTA_CONTEXTO).get("actor", {})
             if actor_rat_previo.get("puede_ratificar") is not True or actor_rat_previo.get("puede_presentar") is not False:
                 raise AssertionError("certificado ratificador sin perfil exclusivo")
             exigir_tres_actores(actor_sol["referencia"], actor_rat_previo.get("referencia"), actor_rrhh)
+            evidencia.registro["tres_actores_distintos"] = True
             p = paginas["solicitante"]
             p.locator('[data-accion="nueva"]').click()
             for campo in ("contacto_ref", "categoria_ref", "grupo_subgrupo", "motivo_clave"):
                 primer_valor(p, campo)
-            p.locator('[name="detalle"]').fill("Necesidad sintética para comprobar el puente centro a RRHH.")
+            p.locator('[name="detalle"]').fill(
+                "Refuerzo temporal para mantener la atención del centro durante las vacaciones del equipo.")
             inicio = date.today() + timedelta(days=30)
             p.locator('[name="inicio"]').fill(inicio.isoformat())
             p.locator('[name="fin"]').fill((inicio + timedelta(days=30)).isoformat())
             p.locator('[name="rc_existe"][value="no"]').check()
             p.locator('[data-ct-form] button[type="submit"]').click()
             p.locator('[data-ct-accion="confirmar"]').wait_for()
+            evidencia.pantalla(p, "01-revision-centro")
             r = respuesta_de(p, RUTA_OPERACIONES, "POST", lambda: p.locator('[data-ct-accion="confirmar"]').click())
             comando_sol = r.request.post_data_json
             alta_centro = datos(r, RUTA_OPERACIONES, "POST")
             peticion = alta_centro.get("peticion_ref")
             recibo_sol = verificar_recibo_centro(alta_centro, peticion, 1, "pendiente_ratificacion", actor_sol["referencia"])
+            evidencia.recibo("solicitud", alta_centro)
             if not peticion or not peticion.startswith("peticion:centro:"):
                 raise AssertionError("referencia de petición inválida")
 
@@ -282,12 +339,15 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             p = paginas["ratificador"]
             p.locator(f'[data-seleccionar="{peticion}"]').click()
             p.locator('[data-accion="abrir-ratificacion"]').click()
-            p.locator('[name="motivo_ratificacion"]').fill("Ratificación sintética tras revisar la necesidad.")
+            p.locator('[name="motivo_ratificacion"]').fill(
+                "Revisada la necesidad del centro y las fechas del refuerzo, ratifico la petición.")
             p.locator('[name="confirmacion_ratificacion"]').check()
             r = respuesta_de(p, RUTA_OPERACIONES, "POST", lambda: p.locator('[data-accion="confirmar-ratificar"]').click())
             comando_rat = r.request.post_data_json
             ratificacion = datos(r, RUTA_OPERACIONES, "POST")
             recibo_rat = verificar_recibo_centro(ratificacion, peticion, 2, "ratificada", actor_rat["referencia"])
+            evidencia.recibo("ratificacion", ratificacion)
+            evidencia.pantalla(p, "02-ratificacion")
 
             p = paginas["rrhh"]
             r = respuesta_de(p, RUTA_RRHH, "GET", lambda: p.goto(origen + RUTA_CENTRO + "?vista=rrhh", wait_until="domcontentloaded"))
@@ -298,35 +358,49 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             p.locator(f'[data-seleccionar-rrhh="{peticion}"]').click()
             p.locator('[data-accion="abrir-alta-rrhh"]').click()
             p.locator('[name="confirmacion-alta-rrhh"]').check()
+            evidencia.pantalla(p, "03-revision-rrhh")
             r = respuesta_de(p, RUTA_RRHH, "POST", lambda: p.locator('[data-accion="confirmar-alta-rrhh"]').click())
             if r.status == 503:
                 p.locator('[data-accion="reintentar-alta-rrhh"]').wait_for()
                 r = respuesta_de(p, RUTA_RRHH, "POST", lambda: p.locator('[data-accion="reintentar-alta-rrhh"]').click())
             alta_rrhh = datos(r, RUTA_RRHH, "POST")
             recibo_inicial = verificar_entrega(alta_rrhh, peticion)
+            evidencia.recibo("alta_rrhh", alta_rrhh)
+            evidencia.pantalla(p, "04-alta-rrhh")
             cuerpo_replay = {"peticion_ref": peticion, "version_esperada": 2}
             replay = contextos["rrhh"].request.post(origen + RUTA_RRHH, data=cuerpo_replay, max_redirects=0)
-            recibo_replay = verificar_entrega(datos_api(replay, RUTA_RRHH, "POST"), peticion)
+            evidencia.http(replay, "rrhh", "POST")
+            entrega_replay = datos_api(replay, RUTA_RRHH, "POST")
+            recibo_replay = verificar_entrega(entrega_replay, peticion)
+            evidencia.recibo("replay_previo", entrega_replay)
             if recibo_replay != recibo_inicial:
                 raise AssertionError("replay con recibo distinto o expediente duplicado")
 
             # El hook es externo y solo debe reiniciar los dos procesos del clon.
+            evidencia.registro["resultado"] = "espera_reinicio_coordinado"
+            evidencia.guardar()
             subprocess.run([args.reinicio], check=True, timeout=120,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             lectura = contextos["rrhh"].request.get(origen + RUTA_RRHH, max_redirects=0)
+            evidencia.http(lectura, "rrhh", "GET")
             filas = datos_api(lectura, RUTA_RRHH)["peticiones"]
             coincidencias = [x for x in filas if x.get("peticion", {}).get("referencia") == peticion]
             if len(coincidencias) != 1 or verificar_entrega(coincidencias[0], peticion) != recibo_inicial:
                 raise AssertionError("la recuperación tras reinicio no conserva una entrega y su recibo")
             replay = contextos["rrhh"].request.post(origen + RUTA_RRHH, data=cuerpo_replay, max_redirects=0)
-            if verificar_entrega(datos_api(replay, RUTA_RRHH, "POST"), peticion) != recibo_inicial:
+            evidencia.http(replay, "rrhh", "POST")
+            entrega_replay = datos_api(replay, RUTA_RRHH, "POST")
+            evidencia.recibo("replay_tras_reinicio", entrega_replay)
+            if verificar_entrega(entrega_replay, peticion) != recibo_inicial:
                 raise AssertionError("replay tras reinicio distinto del recibo original")
             for rol, comando, esperado, version, estado, actor in (
                 ("solicitante", comando_sol, recibo_sol, 1, "pendiente_ratificacion", actor_sol["referencia"]),
                 ("ratificador", comando_rat, recibo_rat, 2, "ratificada", actor_rat["referencia"]),
             ):
                 respuesta = contextos[rol].request.post(origen + RUTA_OPERACIONES, data=comando, max_redirects=0)
+                evidencia.http(respuesta, rol, "POST")
                 recibido = datos_api(respuesta, RUTA_OPERACIONES, "POST")
+                evidencia.recibo(f"replay_{rol}_tras_reinicio", recibido)
                 if (verificar_recibo_centro(recibido, peticion, version, estado, actor) != esperado
                         or recibido.get("estado_local") != "replay_confirmado"):
                     raise AssertionError("replay de centro tras reinicio no conserva el recibo original")
@@ -338,8 +412,22 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
                 raise AssertionError("el navegador escribió almacenamiento web")
             if any(p.evaluate("async () => (await indexedDB.databases()).length") for p in paginas.values()):
                 raise AssertionError("el navegador creó bases IndexedDB")
+            evidencia.registro.update(resultado="ejecutado", errores_js=0, cookies=0, almacenamiento_web=0)
+            evidencia.guardar()
             print("EJECUTADO: petición v1, ratificación v2, alta RRHH, replay y recuperación idénticos")
             print("LÍMITE: circuito sintético; no acredita firma, entrega externa ni cierre CT")
+        except Exception as exc:
+            evidencia.registro.update(resultado="fallo", excepcion=type(exc).__name__)
+            if isinstance(exc, (AssertionError, NoEjecutado)):
+                evidencia.registro["motivo"] = str(exc)
+            for rol, pagina in paginas.items():
+                if mismo_origen(pagina.url, origen):
+                    try:
+                        evidencia.pantalla(pagina, f"99-fallo-{rol}")
+                    except Exception:
+                        pass
+            evidencia.guardar()
+            raise
         finally:
             browser.close()
 
@@ -348,6 +436,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for nombre in ("origen", "acreditacion", "binario", "reinicio"):
         parser.add_argument(f"--{nombre}")
+    parser.add_argument("--evidencias", help="carpeta nueva y privada fuera de Git para recibos y capturas")
     for rol in ("solicitante", "ratificador", "rrhh"):
         parser.add_argument(f"--cert-{rol}", dest=f"cert_{rol}")
         parser.add_argument(f"--clave-{rol}", dest=f"clave_{rol}")

@@ -1,5 +1,6 @@
 """Pruebas con datos sintéticos; no acceden a VEC ni crean peticiones."""
 
+import json
 import threading
 import tempfile
 import unittest
@@ -8,13 +9,32 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from recorrer import (
-    NoEjecutado, bloquear_websocket, exigir_tres_actores, huellas_certificados,
+    Evidencia, NoEjecutado, bloquear_websocket, exigir_tres_actores, huellas_certificados,
     identidad_rrhh_previa, interceptar_ruta, origen_local, preflight,
     verificar_entrega, verificar_recibo_centro,
 )
 
 
 class RecorridoCentroTest(unittest.TestCase):
+    def test_evidencia_privada_sin_cabeceras_url_ni_credenciales(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            carpeta = Path(temporal) / "evidencia"
+            evidencia = Evidencia(str(carpeta))
+            evidencia.http(SimpleNamespace(
+                url="https://127.0.0.1:8443/api/vec/prueba?token=secreto",
+                status=403, headers={"authorization": "secreto"}), "rrhh", "GET")
+            archivo = carpeta / "resultado.json"
+            registro = json.loads(archivo.read_text())
+            self.assertEqual(registro["http"], [{"rol": "rrhh", "metodo": "GET",
+                                                "ruta": "/api/vec/prueba", "estado": 403}])
+            self.assertNotIn("secreto", archivo.read_text())
+            self.assertEqual(archivo.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(carpeta.stat().st_mode & 0o777, 0o700)
+            with self.assertRaises(FileExistsError):
+                Evidencia(str(carpeta))
+        with self.assertRaises(NoEjecutado):
+            Evidencia(str(Path(__file__).parent / "evidencia"))
+
     def test_origen_solo_loopback_https(self):
         self.assertEqual(origen_local("https://127.0.0.1:8443/"), "https://127.0.0.1:8443")
         for valor in ("http://127.0.0.1:8443", "https://cidonia.cloud",

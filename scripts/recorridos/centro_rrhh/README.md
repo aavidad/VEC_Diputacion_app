@@ -70,6 +70,17 @@ python3 scripts/recorridos/centro_rrhh/recorrer.py \
   --clave-rrhh /ruta/privada/rrhh.key
 ```
 
+Para conservar evidencia, añada `--evidencias /ruta/privada/caso-centro`.
+La carpeta debe ser nueva y estar fuera del repositorio. Contiene estados HTTP
+sin cabeceras ni credenciales, los recibos sintéticos y capturas a 1440 y 390 px.
+`resultado.json` se actualiza durante el recorrido, también si falla. El guion
+comprueba que ninguna de esas pantallas desborda horizontalmente.
+
+El responsable del clon debe coordinar el ejecutable `--reinicio` con los demás
+recorridos. Antes de invocarlo, el registro privado indica
+`espera_reinicio_coordinado`. El guion no decide cuándo interrumpir servicios
+que estén usando otros agentes.
+
 Salida `NO EJECUTADO` y código 2 significan que falta una condición previa:
 no se registra la petición ni el alta CT; las consultas previas pueden dejar
 auditoría. Chrome solo puede abrirse para consultar la identidad propia de
