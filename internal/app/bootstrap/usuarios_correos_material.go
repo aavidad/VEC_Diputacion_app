@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
 )
 
@@ -56,6 +57,23 @@ func descriptoresMaterialCorreosUsuariosDesarrollo() []descriptorMaterialConsumi
 		})
 	}
 	return d
+}
+
+// seleccionCorreosUsuariosDesarrollo decide si se publican las doce
+// audiencias. «Mis correos» exige preferencias, con cuya identidad y pools
+// se compone, y comprueba su SQL antes de publicar ninguna clave.
+func seleccionCorreosUsuariosDesarrollo(cfg config.Config, preferenciasActivas bool) (bool, []descriptorMaterialConsumidorV3Desarrollo, error) {
+	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo)
+	if err != nil || !activo {
+		return false, nil, err
+	}
+	if !preferenciasActivas {
+		return false, nil, errComposicionUsuariosCorreos
+	}
+	if err := preflightSQLCorreosUsuariosDesarrollo(cfg); err != nil {
+		return false, nil, err
+	}
+	return true, descriptoresMaterialCorreosUsuariosDesarrollo(), nil
 }
 
 type proveedoresMaterialCorreosUsuarios [12]*proveedorMaterialAltaContratacionTemporalDesarrollo

@@ -1,8 +1,8 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
-import { alternarVisualSesion, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales,
-  valoresDelFormulario } from "./preferencias.js";
+import { alternarVisualSesion, crearCorreosAreaPersonal, crearOperacionPreferencias, renderizarPreferencias, sincronizarAtajosVisuales,
+  valoresDelFormulario } from "./preferencias.js?v=20260929-correos-508b-v1";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
@@ -26,7 +26,7 @@ const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
-  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias)],
+  preferencias: ["areaPersonal.preferencias.titulo", (_, estado) => renderizarPreferencias(estado.preferencias) + (estado.correos?.renderizar() ?? "")],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
   oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
@@ -950,6 +950,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     fuenteBolsa: "real",
     causaBolsa: "",
   };
+  (estado.correos = await crearCorreosAreaPersonal(fetchImpl))?.instalar(porId("espacio-trabajo"));
   conectarEventos(estado);
   sincronizarAtajosVisuales(preferencias?.estado?.valores);
   await cargar(estado);

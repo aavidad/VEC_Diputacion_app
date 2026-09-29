@@ -22,7 +22,6 @@ DO $pre$ BEGIN
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_usuarios_ejecutor_externo' AND NOT rolcanlogin AND NOT rolbypassrls)
  THEN RAISE EXCEPTION 'Usuarios 000004: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
-
 CREATE TABLE vec_usuarios.correos_conjunto (
  persona_ref text PRIMARY KEY CHECK(persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
  version bigint NOT NULL CHECK(version>0),
@@ -167,7 +166,6 @@ CREATE TABLE vec_usuarios.correos_contexto (
  consumo_huella_sha256 text NOT NULL,
  PRIMARY KEY(xid,backend_pid,sesion)
 );
-
 DO $rls$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['correos_conjunto','correos_direccion','correos_desafio','correos_intento_fallido','correos_historia','correos_recibo','correos_envio','correos_contexto'] LOOP
   EXECUTE format('ALTER TABLE vec_usuarios.%I ENABLE ROW LEVEL SECURITY',t);
@@ -176,7 +174,6 @@ DO $rls$ DECLARE t text; BEGIN
  END LOOP;
 END $rls$;
 GRANT USAGE ON SCHEMA vec_usuarios TO vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
-
 -- Superficie del LOGIN técnico: una sola membresía INHERIT en el ejecutor.
 CREATE FUNCTION vec_usuarios.superficie_sesion_correos()
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -198,7 +195,6 @@ BEGIN
  RETURN superficie;
 END $f$;
 REVOKE ALL ON FUNCTION vec_usuarios.superficie_sesion_correos() FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
-
 CREATE FUNCTION vec_usuarios.contexto_autorizado_correos(p_persona text,p_modos text[])
 RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
  SELECT EXISTS(SELECT 1 FROM vec_usuarios.correos_contexto c
@@ -240,7 +236,6 @@ CREATE TRIGGER correos_intento_fallido_no_truncar BEFORE TRUNCATE ON vec_usuario
 CREATE TRIGGER correos_envio_no_truncar BEFORE TRUNCATE ON vec_usuarios.correos_envio FOR EACH STATEMENT EXECUTE FUNCTION vec_usuarios.rechazar_cambio_inmutable();
 CREATE TRIGGER correos_desafio_no_truncar BEFORE TRUNCATE ON vec_usuarios.correos_desafio FOR EACH STATEMENT EXECUTE FUNCTION vec_usuarios.rechazar_cambio_inmutable();
 CREATE TRIGGER correos_direccion_no_truncar BEFORE TRUNCATE ON vec_usuarios.correos_direccion FOR EACH STATEMENT EXECUTE FUNCTION vec_usuarios.rechazar_cambio_inmutable();
-
 -- Filas vivas: dirección, desafío y envío sólo admiten las transiciones
 -- nominales y nunca se borran. El resto de columnas queda congelado.
 CREATE FUNCTION vec_usuarios.correos_transicion_valida()
@@ -268,7 +263,6 @@ REVOKE ALL ON FUNCTION vec_usuarios.correos_transicion_valida() FROM PUBLIC;
 CREATE TRIGGER correos_direccion_transicion BEFORE UPDATE OR DELETE ON vec_usuarios.correos_direccion FOR EACH ROW EXECUTE FUNCTION vec_usuarios.correos_transicion_valida();
 CREATE TRIGGER correos_desafio_transicion BEFORE UPDATE OR DELETE ON vec_usuarios.correos_desafio FOR EACH ROW EXECUTE FUNCTION vec_usuarios.correos_transicion_valida();
 CREATE TRIGGER correos_envio_transicion BEFORE UPDATE OR DELETE ON vec_usuarios.correos_envio FOR EACH ROW EXECUTE FUNCTION vec_usuarios.correos_transicion_valida();
-
 CREATE FUNCTION vec_usuarios.huella_contexto_correos(p_material text)
 RETURNS text LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $f$
 DECLARE persona text; canon text;

@@ -423,21 +423,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresUsuarios...)
 	}
-	usuariosCorreosActivos, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosCorreosDesarrollo)
+	etapa = "preflight_sql_usuarios_correos"
+	usuariosCorreosActivos, descriptoresCorreos, err := seleccionCorreosUsuariosDesarrollo(cfg, usuariosPreferenciasActivas)
 	if err != nil {
 		return vacias, err
 	}
-	if usuariosCorreosActivos {
-		// «Mis correos» exige preferencias: comparte su identidad y sus pools.
-		if !usuariosPreferenciasActivas {
-			return vacias, errComposicionUsuariosCorreos
-		}
-		etapa = "preflight_sql_usuarios_correos"
-		if err := preflightSQLCorreosUsuariosDesarrollo(cfg); err != nil {
-			return vacias, err
-		}
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCorreosUsuariosDesarrollo()...)
-	}
+	descriptoresMaterial = append(descriptoresMaterial, descriptoresCorreos...)
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -464,10 +455,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		dependencias.materialUsuariosPreferenciasConsultaExterna = lote[2]
 		dependencias.materialUsuariosPreferenciasActualizacionExterna = lote[3]
 	}
-	if usuariosCorreosActivos {
-		etapa = "material_usuarios_correos"
-		dependencias.materialUsuariosCorreos, err = publicarMaterialCorreosUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial)
-		if err != nil {
+	if etapa = "material_usuarios_correos"; usuariosCorreosActivos {
+		if dependencias.materialUsuariosCorreos, err = publicarMaterialCorreosUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
 			return vacias, err
 		}
 	}

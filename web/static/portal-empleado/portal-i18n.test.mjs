@@ -52,6 +52,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const vigente = "20260929-pref-508a-v2";
   const versionesEspeciales = new Map([
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
+    // «Mis correos» (5.08b) cambia la vista de preferencias y quienes la importan.
+    ["portal.js", "20260929-correos-508b-v1"],
+    ["portal-preferencias-integracion.js", "20260929-correos-508b-v1"],
+    ["portal-preferencias.js", "20260929-correos-508b-v1"],
   ]);
   const archivos = ["index.html"];
   const pendientes = [""];

@@ -40,7 +40,7 @@ function valoresFormulario(formulario, campos) {
       : campo === "filas" ? Number(elegidos.get(campo)) : elegidos.get(campo)]));
 }
 
-export function crearSuperficiePreferenciasPortal({ cliente = crearClientePreferencias(), actualizar = () => {}, alCargar = () => {}, alGuardar = () => {} } = {}) {
+export function crearSuperficiePreferenciasPortal({ cliente = crearClientePreferencias(), actualizar = () => {}, alCargar = () => {}, alGuardar = () => {}, correos = null } = {}) {
   let datos = null;
   let estado = "sin_cargar";
   let error = null;
@@ -55,6 +55,7 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
   }
 
   async function cargar({ enfocar = false } = {}) {
+    if (correos && ["sin_cargar", "error"].includes(correos.leerCarga())) void correos.cargar();
     controlador?.abort();
     controlador = new AbortController();
     const actual = ++generacion;
@@ -103,6 +104,9 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
     }
   }
   function renderizar() {
+    return renderizarPreferencias() + (correos ? correos.renderizar() : "");
+  }
+  function renderizarPreferencias() {
     const encabezado = "";
     if (estado === "sin_cargar" || estado === "cargando") return `${encabezado}<section class="panel pref-panel" role="status" aria-busy="true" tabindex="-1" data-pref-resultado><div class="cuerpo-panel">${escapar(t("preferencias_cargando"))}</div></section>`;
     if (!datos) return `${encabezado}<section class="panel pref-panel" role="alert"><div class="cuerpo-panel"><p tabindex="-1" data-pref-resultado>${escapar(mensajeError(error))}</p><button type="button" class="boton-secundario" data-pref-reintentar>${escapar(t("preferencias_reintentar"))}</button></div></section>`;
@@ -132,7 +136,8 @@ export function crearSuperficiePreferenciasPortal({ cliente = crearClientePrefer
       evento.preventDefault(); void guardar(evento.target);
     };
     contenedor.addEventListener("click", clic); contenedor.addEventListener("submit", enviar);
-    return () => { contenedor.removeEventListener("click", clic); contenedor.removeEventListener("submit", enviar); contenedorInstalado = null; desmontarPeticion(); };
+    const retirarCorreos = correos ? correos.instalar(contenedor) : () => {};
+    return () => { contenedor.removeEventListener("click", clic); contenedor.removeEventListener("submit", enviar); retirarCorreos(); contenedorInstalado = null; desmontarPeticion(); };
   }
   return Object.freeze({ cargar, renderizar, instalar, desmontarPeticion, leer: () => datos, leerCarga: () => estado });
 }

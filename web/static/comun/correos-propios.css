@@ -1,0 +1,45 @@
+/* «Mis correos»: tarjeta común a RRHH y Área personal. Solo tokens del tema. */
+.correos-panel { margin-block-start: 20px; }
+.correos-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.correos-cabecera h2 { margin: 0; font-size: 1.125rem; font-weight: 600; }
+.correos-ayuda-boton { flex: 0 0 auto; width: 32px; height: 32px; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie); color: var(--portal-azul-800); font-weight: 600; cursor: pointer; }
+.correos-cuerpo { display: grid; gap: 16px; }
+.correos-ayuda { padding: 12px 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.correos-ayuda p { margin: 0; }
+.correos-mensaje { margin: 0; padding: 12px 14px; border: 1px solid var(--portal-borde); border-inline-start-width: 4px; border-radius: var(--portal-radio-lg); background: var(--portal-superficie); }
+.correos-mensaje--exito { border-inline-start-color: var(--portal-exito); }
+.correos-mensaje--error { border-inline-start-color: var(--portal-peligro); }
+.correos-mensaje--aviso { border-inline-start-color: var(--portal-aviso); }
+.correos-mensaje--estado { border-inline-start-color: var(--portal-azul-700); }
+.correos-mensaje .boton-secundario { margin-inline-start: 8px; }
+.correos-vacio, .correos-nota { margin: 0; color: var(--portal-muted); }
+.correos-lista { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); }
+.correos-item { display: grid; gap: 10px; padding: 14px 16px; }
+.correos-item + .correos-item { border-block-start: 1px solid var(--portal-borde); }
+.correos-cabecera-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-width: 0; }
+.correos-direccion { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.correos-estado { display: inline-flex; align-items: center; gap: 6px; font-size: .8125rem; color: var(--portal-tinta); }
+.correos-estado::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--portal-muted); }
+.correos-estado--activo::before { background: var(--portal-exito); }
+.correos-estado--confirmado::before { background: var(--portal-azul-700); }
+.correos-estado--pendiente::before { background: var(--portal-aviso); }
+.correos-verificar, .correos-alta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.correos-campo { display: grid; gap: 6px; min-width: 0; }
+.correos-campo label { font-weight: 600; }
+.correos-campo input { min-height: 40px; min-width: 0; padding: 7px 10px; border: 1px solid var(--portal-muted); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
+.correos-verificar input { width: 12ch; letter-spacing: .08em; }
+.correos-alta .correos-campo { flex: 1 1 280px; }
+.correos-alta input { width: 100%; }
+.correos-campo input[aria-invalid="true"] { border-color: var(--portal-peligro); }
+.correos-error-campo { margin: 0; color: var(--portal-peligro); font-size: .875rem; }
+.correos-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.correos-confirmar { display: grid; gap: 8px; }
+.correos-confirmar p { margin: 0; }
+.correos-panel :is(button, input):focus-visible { outline: 3px solid var(--portal-foco, var(--portal-azul-700)); outline-offset: 2px; }
+.correos-panel button { min-height: 40px; }
+.correos-panel button.correos-ayuda-boton { min-height: 32px; }
+@media (max-width: 520px) {
+  .correos-verificar, .correos-alta { align-items: stretch; flex-direction: column; }
+  .correos-verificar input { width: 100%; }
+  .correos-acciones > button, .correos-verificar > button, .correos-alta > button { width: 100%; }
+}
