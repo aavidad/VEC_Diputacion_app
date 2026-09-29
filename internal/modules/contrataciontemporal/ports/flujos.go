@@ -602,11 +602,9 @@ func recursoAutorizacionAsignacionValido(
 	return recurso.Referencia == datos.Material.ExpedienteRef &&
 		recurso.ModuloID == ModuloContratacion &&
 		recurso.Tipo == TipoRecursoAsignacion &&
-		len(recurso.Ambitos) == 5 && len(recurso.Atributos) == 12 &&
+		len(recurso.Ambitos) == 4 && len(recurso.Atributos) == 12 &&
 		recurso.Ambitos["organizacion_ref"] ==
 			datos.Material.OrganizacionRef &&
-		recurso.Ambitos["expediente_ref"] ==
-			datos.Material.ExpedienteRef &&
 		recurso.Ambitos["fase_previa"] ==
 			string(datos.SolicitudPolitica.FasePrevia) &&
 		recurso.Ambitos["estado_previo"] ==

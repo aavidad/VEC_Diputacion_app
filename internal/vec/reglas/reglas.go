@@ -203,6 +203,12 @@ func validarUnidadRegla(regla *Regla, a map[string]string) error {
 	default:
 		return ErrReglaInvalida
 	}
+	if textoUrgente, ok := a[AtributoCantidadUrgente]; ok {
+		urgente, err := enteroCanonico(textoUrgente)
+		if err != nil || !regla.Unidad.EsPlazo() || urgente > regla.Cantidad {
+			return ErrReglaInvalida
+		}
+	}
 	if (regla.Unidad == UnidadFranjaHoraria || regla.Unidad == UnidadLista) && regla.Valor == "" {
 		return ErrReglaInvalida
 	}

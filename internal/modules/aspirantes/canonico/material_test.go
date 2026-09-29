@@ -30,6 +30,11 @@ func TestVectorMaterialConsultar(t *testing.T) {
 	if err != nil || r.Referencia != "per_"+strings.Repeat("l", 24) || r.ModuloID != "aspirantes" || r.Tipo != ports.TipoRecursoFicha || len(r.Atributos["material_sha256"]) != 64 {
 		t.Fatalf("recurso %+v %v", r, err)
 	}
+	// La misma huella la recalcula vec_aspirantes.huella_contexto en SQL
+	// (pruebas_sql/vector_material.sql).
+	if h, err := r.HuellaContextoAutorizacionSHA256(); err != nil || h != "d299e353358b306d5aa4df30b6da94df308d312f71500e205df8670422e0b1a4" {
+		t.Fatalf("huella del recurso %s %v", h, err)
+	}
 }
 
 func TestMaterialReglasPorAccion(t *testing.T) {

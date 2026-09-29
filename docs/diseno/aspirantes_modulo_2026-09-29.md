@@ -105,11 +105,14 @@ un campo de país: queda anotado para cuando el catálogo lo pida.
 - Cada sobre guarda la referencia de su clave. Las claves retenidas permiten leer lo
   cifrado antes de una rotación.
 - Índice ciego: HMAC-SHA256 con clave propia sobre
-  `vec.aspirantes.documento.indice.v1`, tipo, país y número normalizado. Rotar esta
-  clave exige reindexar; mientras tanto el alta se cierra (igual que en «Mis correos»).
+  `vec.aspirantes.documento.indice.v1`, tipo, país y número normalizado. La primera alta
+  fija en SQL la referencia de esa clave; con otra referencia, todas las operaciones
+  devuelven 55000 hasta que una migración reindexe. Así una rotación no permite una
+  segunda ficha con el mismo documento.
 - Huella semántica de cada petición (para la repetición idempotente): HMAC con otra
   clave, nunca SHA-256 de datos adivinables.
-- Las cuatro claves (cifrado, índice, huella y sus retenidas) llegan por el puerto
+- El número de documento y los datos de contacto usan claves de cifrado distintas.
+- Las claves (contacto, documento, índice, huella y sus retenidas) llegan por el puerto
   `FuenteClavesAspirantes`, que la composición conecta con el material del portal
   externo (F1.1). El portal interno no las tiene.
 
@@ -133,7 +136,7 @@ Los ocho campos: `apellidos`, `codigo_postal`, `documento`, `domicilio`, `movil`
   acción, finalidad, versión esperada, clave de operación, huellas semánticas y el
   índice ciego del documento de la sesión. La decisión V3 queda ligada a ese índice
   por la huella del material. SQL lo recalcula todo y lo coteja.
-- Migración `autorizacion_atestada_v3/000110_consumidor_aspirantes.up.sql`: añade
+- Migración `autorizacion_atestada_v3/000111_consumidor_aspirantes.up.sql`: añade
   los tres perfiles al núcleo con anclajes que no dependen de Usuarios (la principal
   no tiene AD3-106/107/108), exige que la sesión sea miembro exclusivo de
   `vec_aspirantes_ejecutor_externo` y registra las tres audiencias. El número 109 se
@@ -155,7 +158,8 @@ Tablas, todas con RLS forzada y sin permisos directos para el ejecutor:
 | `indice_documento` | clave del índice, índice → ficha y documento; clave primaria única | solo adición |
 | `historia` | ficha, versión, acción, motivo, campos cambiados, catálogo usado, recibo, decisión y auditoría V3 | solo adición |
 | `recibo` | ficha y clave de operación, huella semántica, recibo, versión, decisión, auditoría y consumo V3 | solo adición |
-| `acceso` | `aspacc_`, ficha, finalidad, tipo de actor, campos entregados, resultado, decisión y auditoría V3 | solo adición |
+| `acceso` | `aspacc_`, ficha, finalidad, tipo de actor, campos entregados al portal, resultado, decisión y auditoría V3 | solo adición |
+| `clave_indice` | referencia de la clave del índice ciego fijada por la primera alta | solo adición |
 | `evento_salida` | `aspevt_`, ficha, tipo (`ficha.alta`, `ficha.contacto_rectificado`), versión, estado `pendiente` | solo adición |
 | `contexto` | marcador de transacción tras consumir V3 (patrón de Usuarios) | se crea y se retira en la misma transacción |
 
@@ -285,6 +289,13 @@ tiene ficha fuera de la propia.
   que descifrar dentro de la transacción). El motivo vale para toda la petición; la
   pantalla envía un cambio por formulario.
 - Ningún dato en claro en errores, registros, historia, eventos ni auditoría.
+- El marcador de la transacción no puede sobrevivir a ella: un disparador diferido
+  hace fallar la confirmación si queda alguno (por ejemplo, preparar sin aplicar).
+- La auditoría común de V3 guarda `per_` junto a la operación `aspirantes_ficha_*`: esa
+  tabla revela que la persona es aspirante. Quién puede leerla debe limitarse igual que
+  el registro de accesos (a revisar con Seguridad, estudio §4.1).
+- La guarda de superficie del núcleo V3 solo se recorre con una V3 real: antes de
+  desplegar en cidonia hace falta un recorrido completo (alta, consulta y rectificación).
 
 ## Pruebas previstas
 

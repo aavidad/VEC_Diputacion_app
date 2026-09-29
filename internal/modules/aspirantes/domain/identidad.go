@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
@@ -51,6 +52,9 @@ func (i IdentidadAcreditada) Valores() map[CampoFicha]string {
 // String nunca muestra datos personales en registros ni errores.
 func (IdentidadAcreditada) String() string   { return "aspirantes.IdentidadAcreditada{redactada}" }
 func (IdentidadAcreditada) GoString() string { return "aspirantes.IdentidadAcreditada{redactada}" }
+func (IdentidadAcreditada) Format(f fmt.State, _ rune) {
+	_, _ = f.Write([]byte("aspirantes.IdentidadAcreditada{redactada}"))
+}
 
 // SesionAspirante liga la persona canónica y el vínculo V2 certificado a la
 // superficie del portal externo. Aspirantes no admite la superficie interna:

@@ -87,37 +87,13 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 		// El ámbito de organización es fijo; nunca se amplía desde la petición.
-	} else if rutaAnalisisContratacionTemporalDesarrollo(ruta) {
-		// El análisis solo se autoriza con su perfil fijo (arriba); nunca
-		// se prepara ni se publica su permiso por petición.
+	} else if rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
+		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
+		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) {
+		// El análisis, la asignación y el informe jurídico solo se autorizan
+		// con su perfil fijo (arriba); nunca se prepara ni se publica su
+		// permiso por petición.
 		return dominiovec.InstantaneaAutorizacion{}, false
-	} else if rutaAsignacionContratacionTemporalDesarrollo(ruta) {
-		if !solicitudAutorizacionAsignacionContratacionTemporalDesarrolloValida(
-			ruta,
-			datos,
-		) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-			{Clave: "unidad_destino_ref", Valores: []string{datos.Recurso.Ambitos["unidad_destino_ref"]}},
-		}
-	} else if rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) {
-		if !solicitudAutorizacionInformeJuridicoContratacionTemporalDesarrolloValida(
-			ruta,
-			datos,
-		) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-		}
 	} else if rutaSeguimientoCeseDesarrollo(ruta) {
 		ambitos, valida := s.ambitosSeguimientoCese(ruta, datos)
 		if !valida {
@@ -131,15 +107,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		}
 		instantanea.AsignacionPerfil.Ambitos = ambitos
 	} else if ruta == httpinterno.RutaSubsanacionReparos {
-		if !s.solicitudAutorizacionSubsanacionReparosValida(datos) {
-			return dominiovec.InstantaneaAutorizacion{}, false
-		}
-		instantanea.AsignacionPerfil.Ambitos = []dominiovec.AmbitoPerfil{
-			{Clave: "organizacion_ref", Valores: []string{datos.Recurso.Ambitos["organizacion_ref"]}},
-			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
-			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
-			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
-		}
+		// La subsanación solo se autoriza con su perfil fijo (arriba).
+		return dominiovec.InstantaneaAutorizacion{}, false
 	} else if ruta == httpinterno.RutaFirmaDocumento {
 		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false

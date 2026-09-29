@@ -45,7 +45,10 @@ const (
 	CampoComputo         = "computo"
 )
 
-const maximoReglasAjustadas = 64
+const (
+	maximoReglasAjustadas = 64
+	maximoBytesAjustes    = 16 * 1024
+)
 
 var (
 	// ErrAjustesNoDisponibles: la versión de ajustes no se pudo leer o no es
@@ -126,16 +129,54 @@ func CanonicoAjustes(ajustes map[string]map[string]string) ([]byte, error) {
 		return nil, ErrAjusteInvalido
 	}
 	for clave, campos := range ajustes {
-		if !claveCanonica(clave) || len(campos) == 0 || len(campos) > 4 {
+		if !claveAjusteCanonica(clave) || len(campos) == 0 || len(campos) > 4 {
 			return nil, ErrAjusteInvalido
 		}
 		for campo, valor := range campos {
-			if !campoAjustable(campo) || valor == "" || len(valor) > 64 || valor != strings.TrimSpace(valor) {
+			if !campoAjustable(campo) || !valorAjusteCanonico(valor) {
 				return nil, ErrAjusteInvalido
 			}
 		}
 	}
-	return json.Marshal(ajustes)
+	canonico, err := json.Marshal(ajustes)
+	if err != nil || len(canonico) > maximoBytesAjustes {
+		return nil, ErrAjusteInvalido
+	}
+	return canonico, nil
+}
+
+// claveAjusteCanonica coincide con el máximo de CT148. La clave también debe
+// pertenecer al alfabeto de las entradas del catálogo base.
+func claveAjusteCanonica(clave string) bool {
+	if len(clave) < 2 || len(clave) > 80 || !claveCanonica(clave) {
+		return false
+	}
+	for i := 0; i < len(clave); i++ {
+		c := clave[i]
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '.' && c != '_' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// valorAjusteCanonico comparte el alfabeto acotado de la persistencia: las
+// cantidades, unidades y cómputos son claves, nunca texto libre.
+func valorAjusteCanonico(valor string) bool {
+	if valor == "" || len(valor) > 64 {
+		return false
+	}
+	for i := 0; i < len(valor); i++ {
+		c := valor[i]
+		if c < 'a' || c > 'z' {
+			if c < '0' || c > '9' {
+				if c != '_' {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func campoAjustable(campo string) bool {

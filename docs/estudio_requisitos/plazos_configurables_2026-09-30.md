@@ -213,6 +213,10 @@ Reglas:
 - el `Resolutor` valida la regla ajustada con las mismas comprobaciones que la
   base (unidad, cómputo, cantidad urgente no mayor que la ordinaria) y dentro
   de las opciones y límites que ella misma declara;
+- la cantidad urgente nunca puede superar la ordinaria, aunque RRHH solo
+  pueda ajustar esta última. Los valores de ajuste son claves ASCII de 1 a
+  64 caracteres (`a-z`, `0-9` y `_`), sin texto libre; las claves de regla
+  ocupan de 2 a 80 bytes y siguen el alfabeto de CT-148;
 - **no se ajustan** los atributos estructurales: `fases`, `inicio`, listas,
   catálogos enlazados ni `c23.fase_operacion.*`. Cambiar `fases` altera qué
   perfil fijo de RRHH se necesita (PR #154) y exige la provisión aprobada por
@@ -238,6 +242,12 @@ plazo sale como «no calculado» y la pantalla pide revisar el ajuste. El resto
 del catálogo y el arranque siguen funcionando. Nunca se vuelve en silencio al
 valor base. El ensayo sobre el clon de la principal comprueba los ajustes
 guardados contra la base nueva antes de desplegar.
+
+Una versión de ajustes sin huella íntegra o una consulta del almacén fallida
+deja la lectura completa sin respuesta. El aislamiento por regla se aplica
+cuando una versión íntegra contiene un ajuste que ya no encaja con su regla
+base. La base se lee en su versión vigente al consultar; su historia todavía
+no está disponible en la aplicación.
 
 ### 2.3 Qué queda registrado
 
@@ -289,11 +299,14 @@ referencia opaca.
   consume. **No se publica un permiso por petición.**
 - Acción `contratacion_temporal.reglas.ajustar`, tipo de recurso
   `catalogo_reglas`, recurso `vec.contratacion_temporal.reglas`, finalidad
-  `gobierno_reglas_contratacion_temporal`, sin campos ni obligaciones.
-- La decisión queda ligada al contenido exacto:
-  `contexto_recurso_huella_sha256` es la huella del efecto, SHA-256 de
-  (catálogo, `version_esperada`, `base_huella`, ajustes canónicos, motivo,
-  referencia y nota). La función SQL recalcula esa huella y la compara.
+  `gobierno_reglas_contratacion_temporal`. La consulta exige exactamente los
+  campos `historial` y `vigente`; la escritura, `ajustes` y `recibo`, sin
+  obligaciones adicionales.
+- La decisión queda ligada al material JSON completo que recibe CT-148:
+  AD3-114 calcula la huella del contexto desde `p_material::text`, con la
+  organización exacta. El adaptador Go debe calcularla con la misma forma
+  normalizada por PostgreSQL (`$1::jsonb::text`), sin recomponer una lista
+  parcial de campos.
 - Como en B47, la autorización se consume antes de mirar la idempotencia: cada
   repetición necesita una decisión nueva, que emite el caso de uso.
 - Consumidor AD3 nuevo (AD3-114), con la guarda de sesión del ejecutor de

@@ -16,6 +16,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	vd "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -142,7 +143,8 @@ func (p *PreparadorSubsanacionReparosPostgreSQL) PrepararSubsanacionReparo(ctx c
 		if causa == nil {
 			return preparada, nil
 		}
-		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosPrepararFiscalizacion {
+		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosPrepararFiscalizacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento+1) {
 			return ports.PreparacionSubsanacionReparo{}, normalizarErrorSubsanacionSQL(ctx, causa)
 		}
 	}
@@ -262,7 +264,8 @@ func (t *TransaccionSubsanacionReparosPostgreSQL) ConfirmarSubsanacionReparo(ctx
 		if causa == nil {
 			return recibo, nil
 		}
-		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosConfirmarFiscalizacion {
+		if ctx.Err() != nil || !errorPostgreSQLReintentable(causa) || intento+1 == maximoIntentosConfirmarFiscalizacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento+1) {
 			return ports.ReciboSubsanacionReparo{}, normalizarErrorSubsanacionSQL(ctx, causa)
 		}
 	}
@@ -396,7 +399,8 @@ func validarAutorizacionSubsanacionSQL(o ports.OrdenConfirmarSubsanacionReparo, 
 	}
 	p := o.Preparacion
 	huella := sha256.Sum256([]byte(o.Material.Observaciones))
-	ambitos := map[string]string{"organizacion_ref": o.OrganizacionRef, "expediente_ref": o.Material.ExpedienteRef, "fase_previa": string(p.Expediente.FaseActual), "estado_previo": string(p.Expediente.EstadoActual)}
+	// Sin expediente en los ámbitos: va en la referencia del recurso.
+	ambitos := map[string]string{"organizacion_ref": o.OrganizacionRef, "fase_previa": string(p.Expediente.FaseActual), "estado_previo": string(p.Expediente.EstadoActual)}
 	atributos := map[string]string{"version_expediente": strconv.FormatUint(o.VersionAnterior, 10), "retorno_ref": p.RetornoRef, "observaciones_huella_sha256": hex.EncodeToString(huella[:]), "unidad_asignada_ref": p.Expediente.Asignacion.UnidadRef, "responsable_asignado_ref": p.Expediente.Asignacion.ResponsableRef, "politica_ref": o.Politica.DefinicionRef, "politica_version": strconv.FormatUint(o.Politica.DefinicionVersion, 10), "politica_huella_sha256": o.Politica.DefinicionHuellaSHA256, "ambito_idempotencia_hmac": p.AmbitoIdempotenciaHMAC, "huella_peticion_hmac": p.HuellaPeticionHMAC}
 	if !reflect.DeepEqual(s.Recurso.Ambitos, ambitos) || !reflect.DeepEqual(s.Recurso.Atributos, atributos) {
 		return ports.ErrAutorizacionDenegada
