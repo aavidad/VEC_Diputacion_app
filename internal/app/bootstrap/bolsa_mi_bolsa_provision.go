@@ -258,9 +258,10 @@ func asegurarPerfilMiBolsaDesarrollo(
 		if errAlta == nil {
 			return preparada, perfilMiBolsaPublicado, nil
 		}
-		// Otro arranque pudo crearla a la vez (o el rol compartido está
-		// retirado): se vuelve a leer y se sigue como con un permiso existente,
-		// sin escribir. Solo sin permiso ni base se detiene el arranque.
+		// Otro arranque pudo crearla a la vez: se vuelve a leer y se sigue
+		// como con un permiso existente, sin escribir. Si sigue sin haber
+		// permiso (por ejemplo, el rol compartido está retirado), el alta no
+		// se hizo y el arranque se detiene como antes.
 		vigente, encontrada, err = leerInstantaneaVigenteMiBolsaDesarrollo(ctx, autoridad.pool, perfilRef)
 		if !encontrada {
 			if err == nil {
