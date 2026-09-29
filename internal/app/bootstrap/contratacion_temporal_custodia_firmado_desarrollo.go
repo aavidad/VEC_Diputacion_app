@@ -101,11 +101,19 @@ func concesionCustodiaFirmadoCTDesarrollo() dominiovec.ConcesionRol {
 		Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh}
 }
 
+// pdpCustodiaCTDesarrollo es lo que la custodia necesita del PDP de CT: la
+// decisión registrada para la identidad de la petición de firma y el material
+// V3 de la audiencia de Documentos. Lo implementa firmaDocumentoCTDesarrollo.
+type pdpCustodiaCTDesarrollo interface {
+	solicitarCustodiaV3(context.Context, dominiovec.RecursoAutorizable) (solicitudCustodiaCTDesarrollo, error)
+	materialCustodiaV3(context.Context, solicitudCustodiaCTDesarrollo) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
 // custodiaFirmadoCTDesarrollo implementa el puerto de CT hacia Documentos y,
 // para Documentos, el autorizador de la V3 y el emisor de la concesión del
 // almacén, ambos con la identidad de la petición de firma de CT.
 type custodiaFirmadoCTDesarrollo struct {
-	firma      *firmaDocumentoCTDesarrollo
+	pdp        pdpCustodiaCTDesarrollo
 	documentos *custodiaDocumentosDesarrollo
 	servicio   *docapp.Servicio
 }
@@ -162,7 +170,7 @@ func (c *custodiaFirmadoCTDesarrollo) CustodiarFirmado(ctx context.Context, o po
 func (c *custodiaFirmadoCTDesarrollo) AutorizarCustodiaFirmado(ctx context.Context, preimagen []byte, documentoID, expedienteRef string) (docports.AutorizacionV3, error) {
 	vacia := docports.AutorizacionV3{}
 	e, ok := esperadoCustodiaDe(ctx)
-	if c == nil || c.firma == nil || c.firma.alta == nil || c.firma.alta.postgresql.materialDocumentos == nil || !ok ||
+	if c == nil || dependenciaEsNulaContratacionTemporalDesarrollo(c.pdp) || !ok ||
 		documentoID != e.documentoRef || expedienteRef != e.expedienteRef || !preimagenCustodiaEsperada(preimagen, e) {
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
@@ -172,15 +180,13 @@ func (c *custodiaFirmadoCTDesarrollo) AutorizarCustodiaFirmado(ctx context.Conte
 	}
 	suma := sha256.Sum256(preimagen)
 	e.fijar(hex.EncodeToString(suma[:]), "")
-	pedida, err := c.firma.solicitarCustodiaV3(ctx, recurso)
+	pedida, err := c.pdp.solicitarCustodiaV3(ctx, recurso)
 	if err != nil {
 		return vacia, err
 	}
-	material, err := c.firma.alta.postgresql.materialDocumentos.proveerMaterialConfirmacion(ctx, pedida.solicitud, pedida.decision,
-		pedida.confirmacion, motivoFirmaDocumentoCTDesarrollo(), pedida.operativo.Resultado)
-	if err != nil || !puertosvec.MaterialAtestadoLigadoV3(pedida.solicitud, pedida.decision, pedida.confirmacion,
-		pedida.operativo.Resultado, motivoFirmaDocumentoCTDesarrollo(), material, docports.AudienciaV3) {
-		return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
+	material, err := c.pdp.materialCustodiaV3(ctx, pedida)
+	if err != nil {
+		return vacia, err
 	}
 	e.fijar("", material.ResumenCapacidad().DecisionRef())
 	return docports.AutorizacionV3{Material: material, Accion: docports.AccionCustodiarFirmado, Finalidad: docports.FinalidadCustodiarFirmado,
@@ -267,10 +273,26 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 		operativo: operativo, actor: actor, correlacion: correlacionRef}, nil
 }
 
+// materialCustodiaV3 exporta el material V3 de la audiencia de Documentos
+// para una decisión del PDP de CT y comprueba que queda ligado a ella.
+func (f *firmaDocumentoCTDesarrollo) materialCustodiaV3(ctx context.Context, p solicitudCustodiaCTDesarrollo) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	vacio := puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}
+	if f == nil || f.alta == nil || f.alta.postgresql.materialDocumentos == nil {
+		return vacio, docports.ErrCapacidadNoDisponible
+	}
+	material, err := f.alta.postgresql.materialDocumentos.proveerMaterialConfirmacion(ctx, p.solicitud, p.decision,
+		p.confirmacion, motivoFirmaDocumentoCTDesarrollo(), p.operativo.Resultado)
+	if err != nil || !puertosvec.MaterialAtestadoLigadoV3(p.solicitud, p.decision, p.confirmacion,
+		p.operativo.Resultado, motivoFirmaDocumentoCTDesarrollo(), material, docports.AudienciaV3) {
+		return vacio, errors.Join(docports.ErrCapacidadNoDisponible, err)
+	}
+	return material, nil
+}
+
 // emisorConcesionCustodiaCTDesarrollo da a la fábrica de Documentos la
 // concesión del almacén para custodiar, con la identidad de la petición.
 type emisorConcesionCustodiaCTDesarrollo struct {
-	firma          *firmaDocumentoCTDesarrollo
+	pdp            pdpCustodiaCTDesarrollo
 	seudonimizador *seudonimizadorAlmacenDesarrollo
 }
 
@@ -286,10 +308,10 @@ func (e emisorConcesionCustodiaCTDesarrollo) SeudonimosLecturaOriginal(ctx conte
 
 func (e emisorConcesionCustodiaCTDesarrollo) EmitirConcesionAlmacenV3(ctx context.Context, s docautorizacion.SolicitudConcesionAlmacenV3) (docautorizacion.ConcesionAlmacenV3, error) {
 	var vacia docautorizacion.ConcesionAlmacenV3
-	if s.Accion != docports.AccionCustodiarFirmado || s.Finalidad != docports.FinalidadCustodiarFirmado {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(e.pdp) || s.Accion != docports.AccionCustodiarFirmado || s.Finalidad != docports.FinalidadCustodiarFirmado {
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
-	pedida, err := e.firma.solicitarCustodiaV3(ctx, s.Recurso)
+	pedida, err := e.pdp.solicitarCustodiaV3(ctx, s.Recurso)
 	if err != nil {
 		return vacia, err
 	}
@@ -305,17 +327,29 @@ func (f *firmaDocumentoCTDesarrollo) componerCustodia(d *autoridadDocumentosDesa
 	if f == nil || d == nil || d.custodia == nil {
 		return nil
 	}
-	if f.servicio == nil || !d.custodia.seudonimizador.valido() {
+	if f.servicio == nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	fabrica, err := docautorizacion.NuevaFabricaContextoCustodiaFirmadoV3(
-		emisorConcesionCustodiaCTDesarrollo{firma: f, seudonimizador: d.custodia.seudonimizador}, d.reloj)
+	custodia, err := nuevaCustodiaFirmadoCTDesarrollo(f, d.custodia, d.reloj)
 	if err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
-	custodia := &custodiaFirmadoCTDesarrollo{firma: f, documentos: d.custodia, servicio: d.custodia.servicio(fabrica)}
 	if err := f.servicio.ComponerCustodia(custodia, d.custodia.documentos); err != nil {
 		return errFirmaDocumentoCTDesarrolloNoDisponible
 	}
 	return f.habilitarCustodia()
+}
+
+// nuevaCustodiaFirmadoCTDesarrollo une el PDP de CT con el servicio de
+// custodia de Documentos (fábrica de concesiones con el mismo PDP).
+func nuevaCustodiaFirmadoCTDesarrollo(pdp pdpCustodiaCTDesarrollo, d *custodiaDocumentosDesarrollo, reloj puertosvec.Reloj) (*custodiaFirmadoCTDesarrollo, error) {
+	if dependenciaEsNulaContratacionTemporalDesarrollo(pdp) || d == nil || !d.seudonimizador.valido() {
+		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	fabrica, err := docautorizacion.NuevaFabricaContextoCustodiaFirmadoV3(
+		emisorConcesionCustodiaCTDesarrollo{pdp: pdp, seudonimizador: d.seudonimizador}, reloj)
+	if err != nil {
+		return nil, errFirmaDocumentoCTDesarrolloNoDisponible
+	}
+	return &custodiaFirmadoCTDesarrollo{pdp: pdp, documentos: d, servicio: d.servicio(fabrica)}, nil
 }
