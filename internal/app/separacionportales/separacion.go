@@ -85,6 +85,14 @@ func ComprobarSeparacion(interno, externo Proceso) (InformeSeparacion, error) {
 	if err != nil {
 		return informe, err
 	}
+	// Sin usuario explícito, pgx usa el del sistema o PGUSER: no se puede
+	// asegurar que sea distinto del otro proceso.
+	if _, ok := usuariosInterno[usuarioSistemaAnonimo]; ok {
+		return informe, rechazo("conexion sin usuario explicito en el proceso interno", "")
+	}
+	if _, ok := usuariosExterno[usuarioSistemaAnonimo]; ok {
+		return informe, rechazo("conexion sin usuario explicito en el proceso externo", "")
+	}
 	informe.UsuariosInterno, informe.UsuariosExterno = len(usuariosInterno), len(usuariosExterno)
 	for usuario := range usuariosInterno {
 		if _, ok := usuariosExterno[usuario]; ok {
@@ -129,7 +137,8 @@ func esSecreto(relativa string) bool {
 	switch {
 	case strings.HasPrefix(relativa, "kms/"):
 		return strings.HasSuffix(relativa, ".bin") || strings.HasSuffix(relativa, ".key")
-	case strings.HasPrefix(relativa, "tsa/"), strings.HasPrefix(relativa, "idempotencia/"):
+	case strings.HasPrefix(relativa, "tsa/"), strings.HasPrefix(relativa, "idempotencia/"),
+		strings.HasPrefix(relativa, "externo/"):
 		return strings.HasSuffix(relativa, ".bin")
 	case strings.HasPrefix(relativa, "tls/"):
 		return strings.HasSuffix(relativa, ".key")

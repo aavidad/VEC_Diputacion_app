@@ -60,10 +60,11 @@ var directoriosComunes = []string{"tls/", "kms/", "tsa/", "idempotencia/"}
 // en ninguna lista es interno: el portal externo trabaja con lista positiva.
 func clasificar(relativa string) pertenencia {
 	switch {
-	case relativa == "ca/ca.key" || relativa == "ca/serie":
+	case strings.HasPrefix(relativa, "ca/") && relativa != "ca/ca.crt":
 		return pertenenciaProhibida
-	case strings.HasPrefix(relativa, "mtls/") && (strings.HasSuffix(relativa, ".key") ||
-		strings.HasSuffix(relativa, ".p12") || strings.HasSuffix(relativa, ".password")):
+	case strings.HasSuffix(relativa, ".p12") || strings.HasSuffix(relativa, ".password"):
+		return pertenenciaProhibida
+	case strings.HasSuffix(relativa, ".key") && !strings.HasPrefix(relativa, "tls/") && !strings.HasPrefix(relativa, "kms/"):
 		return pertenenciaProhibida
 	}
 	if _, ok := ficherosExternos[relativa]; ok || strings.HasPrefix(relativa, "externo/") {

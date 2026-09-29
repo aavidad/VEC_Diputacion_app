@@ -24,9 +24,10 @@ type Entorno struct {
 
 // variablesCredencialPostgreSQL son las que el controlador pgx lee por su
 // cuenta del entorno. Con ellas un proceso podría abrir una conexión con
-// credenciales que no figuran en su configuración.
+// credenciales que no figuran en su configuración. PGUSER también: una
+// conexión sin usuario explícito tomaría el de otro portal.
 var variablesCredencialPostgreSQL = map[string]struct{}{
-	"PGPASSWORD": {}, "PGPASSFILE": {}, "PGSERVICE": {}, "PGSERVICEFILE": {},
+	"PGPASSWORD": {}, "PGPASSFILE": {}, "PGSERVICE": {}, "PGSERVICEFILE": {}, "PGUSER": {},
 	"PGSSLKEY": {}, "PGSSLCERT": {}, "PGSSLPASSWORD": {},
 }
 

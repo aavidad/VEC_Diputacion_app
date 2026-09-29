@@ -27,21 +27,23 @@ var subcomandosSoloInterno = map[string]struct{}{
 	"importar-convoca":            {},
 }
 
-// comprobarSubcomandoEnPortal impide ejecutar tareas internas desde el
-// proceso externo. Un valor de portal no válido también lo impide.
+// comprobarSubcomandoEnPortal: el proceso externo no ejecuta ninguna tarea,
+// solo el servidor (lista positiva vacía), así que una tarea nueva tampoco
+// corre allí por descuido. Un valor de portal no válido impide las tareas
+// internas.
 func comprobarSubcomandoEnPortal(args []string, valorPortal string) error {
 	if len(args) < 2 {
 		return nil
 	}
-	if _, interno := subcomandosSoloInterno[args[1]]; !interno {
-		return nil
-	}
 	portal, err := separacionportales.Parsear(valorPortal)
 	if err != nil {
-		return err
+		if _, interno := subcomandosSoloInterno[args[1]]; interno {
+			return err
+		}
+		return nil
 	}
 	if portal == separacionportales.PortalExterno {
-		return fmt.Errorf("%s: tarea del portal interno en un proceso externo", args[1])
+		return errors.New("el proceso externo no ejecuta tareas; solo el servidor")
 	}
 	return nil
 }

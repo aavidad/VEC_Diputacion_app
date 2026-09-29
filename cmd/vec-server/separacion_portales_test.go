@@ -28,6 +28,9 @@ func TestTareasInternasNoSeEjecutanEnElProcesoExterno(t *testing.T) {
 	if err := comprobarSubcomandoEnPortal([]string{"vec-server"}, "externo"); err != nil {
 		t.Fatalf("el servidor externo debe poder arrancar: %v", err)
 	}
+	if err := comprobarSubcomandoEnPortal([]string{"vec-server", "tarea-nueva"}, "externo"); err == nil {
+		t.Fatal("una tarea no admitida no debe ejecutarse en el proceso externo")
+	}
 }
 
 func materialPrueba(t *testing.T, portal, clave string) string {

@@ -67,11 +67,14 @@ la misma composición externa.
 ### Qué recibe cada proceso
 
 - Conexiones: las del externo llevan siempre el prefijo `VEC_EXTERNO_` y
-  usuarios de PostgreSQL propios. El proceso externo rechaza cualquier otra
-  conexión, aunque tenga un nombre raro (también reconoce una cadena de
-  conexión por su valor). El interno rechaza cualquier `VEC_EXTERNO_*`.
+  usuarios de PostgreSQL propios. En su entorno, el proceso externo rechaza
+  cualquier otra conexión, aunque tenga un nombre raro (también reconoce una
+  cadena de conexión por su valor). El interno rechaza cualquier
+  `VEC_EXTERNO_*`. Las conexiones escritas dentro de los JSON del material no
+  las puede juzgar cada proceso solo: las compara la comprobación de
+  despliegue, que además exige usuario explícito en todas.
 - Ninguno de los dos admite credenciales que pgx lee por su cuenta
-  (`PGPASSWORD`, `PGPASSFILE`, `PGSERVICE`, `PGSSLKEY`… ni `~/.pgpass` o
+  (`PGPASSWORD`, `PGUSER`, `PGPASSFILE`, `PGSERVICE`, `PGSSLKEY`… ni `~/.pgpass` o
   `~/.postgresql/postgresql.key`).
 - Material: cada proceso tiene su propio directorio con un fichero
   `portal-proceso.json` (`{"version":1,"portal":"interno"}` o `"externo"`).
@@ -80,8 +83,8 @@ la misma composición externa.
   `usuarios-preferencias-externa.json`, `mtls/candidato.crt`, `externo/…`,
   más TLS, KMS, TSA, idempotencia, `ca/ca.crt`, manifiesto y
   `desarrollo.env`). El interno rechaza esos ficheros del externo. Ninguno
-  admite `ca/ca.key`, `ca/serie`, `mtls/*.key`, `*.p12` ni `*.password`, ni
-  enlaces simbólicos.
+  admite nada bajo `ca/` salvo `ca/ca.crt`, ningún `*.p12` ni `*.password`,
+  ningún `*.key` fuera de `tls/` y `kms/`, ni enlaces simbólicos.
 - El proceso externo tampoco admite secretos ni custodias del interno aunque
   no sean conexiones: la custodia de CONVOCA, el token del validador de firma,
   el fichero de incorporación de CT o cualquier variable `VEC_*` con aspecto
@@ -111,10 +114,11 @@ vec-server comprobar-separacion-portales \
   [--entorno-interno GUION] [--entorno-externo GUION]
 ```
 
-Falla si algún secreto (KMS, sellado, idempotencia, clave TLS) tiene el mismo
-contenido en los dos directorios, o si un mismo usuario de PostgreSQL aparece
-en las conexiones de ambos (variables del guion y cadenas dentro de los JSON
-del material). Solo imprime recuentos y el nombre del elemento repetido.
+Falla si algún secreto (KMS, sellado, idempotencia, clave TLS, `externo/*.bin`)
+tiene el mismo contenido en los dos directorios, si un mismo usuario de
+PostgreSQL aparece en las conexiones de ambos (variables del guion y cadenas
+dentro de los JSON del material) o si alguna conexión no lleva usuario
+explícito. Solo imprime recuentos y el nombre del elemento repetido.
 
 ## Qué hace este corte y qué falta
 
@@ -125,8 +129,8 @@ Hecho (sin cambiar nada si `VEC_PORTAL_PROCESO` no se configura):
 2. Arranque: la comprobación va antes de leer material o abrir conexiones. En
    modo separado ya no se exigen las claves privadas de la CA ni de clientes.
 3. Rutas: filtro por portal en la superficie integrada.
-4. `vec-server comprobar-separacion-portales` y bloqueo de las tareas internas
-   (importar CONVOCA, constituir bolsa…) en el proceso externo.
+4. `vec-server comprobar-separacion-portales`. El proceso externo no ejecuta
+   ninguna tarea (importar CONVOCA, constituir bolsa…), solo el servidor.
 5. El proceso interno ya puede arrancar solo: pasa la separación y sigue la
    composición de siempre.
 
@@ -144,7 +148,11 @@ Pendiente, en este orden:
    proceso. Hoy la composición exige las dos, así que el proceso interno no
    arranca con `VEC_USUARIOS_PREFERENCIAS_ENABLED=true` sin el fichero del
    externo. Coordinar con F1.3.
-4. Datos cifrados que leen los dos lados (el contacto de la participación en
+4. Con la composición externa: que toda variable de ruta (`*_PATH`, `*_DIR`,
+   `*_FILE`) del proceso externo apunte dentro de su material o esté en una
+   lista admitida. Hoy el externo no compone nada y en cidonia irá en su
+   propio contenedor, pero la comprobación debe existir antes de encenderlo.
+5. Datos cifrados que leen los dos lados (el contacto de la participación en
    Bolsa): con claves distintas, el proceso externo pedirá esos datos por un
    puerto autorizado del módulo dueño. Encaja con el módulo Aspirantes (F1.5).
 

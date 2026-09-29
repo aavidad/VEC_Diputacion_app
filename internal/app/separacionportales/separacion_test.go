@@ -161,8 +161,10 @@ func TestProcesoInternoNoPuedeRecibirConexionesNiCapacidadesExternas(t *testing.
 
 func TestProcesoSeparadoRechazaCredencialesImplicitasDePostgreSQL(t *testing.T) {
 	for _, p := range []Portal{PortalInterno, PortalExterno} {
-		if got := motivo(t, ComprobarEntorno(p, Entorno{Variables: []string{"PGPASSWORD=sintetica"}})); got != "PGPASSWORD" {
-			t.Fatalf("%s: se esperaba rechazar PGPASSWORD, llego %s", p, got)
+		for _, variable := range []string{"PGPASSWORD", "PGUSER"} {
+			if got := motivo(t, ComprobarEntorno(p, Entorno{Variables: []string{variable + "=sintetica"}})); got != variable {
+				t.Fatalf("%s: se esperaba rechazar %s, llego %s", p, variable, got)
+			}
 		}
 		personal := t.TempDir()
 		escribir(t, personal, ".pgpass", "127.0.0.1:5432:*:vec:x")
@@ -223,7 +225,7 @@ func TestProcesoInternoNoPuedeAbrirMaterialExterno(t *testing.T) {
 
 func TestProcesoSeparadoRechazaClavesDeEmision(t *testing.T) {
 	for _, p := range []Portal{PortalInterno, PortalExterno} {
-		for _, relativa := range []string{"ca/ca.key", "ca/serie", "mtls/cliente.key", "mtls/candidato.p12", "mtls/cliente.p12.password"} {
+		for _, relativa := range []string{"ca/ca.key", "ca/serie", "ca/intermedia.key", "ca/ca.key.bak", "mtls/cliente.key", "mtls/candidato.p12", "mtls/cliente.p12.password", "externo/y.key", "externo/x.p12", "identidad/otra.key"} {
 			material := materialSintetico(t, p)
 			escribir(t, material, relativa, "sintetico")
 			if got := motivo(t, ComprobarMaterial(p, material)); got != relativa {
@@ -356,5 +358,26 @@ func TestUsuarioConexion(t *testing.T) {
 		if got := usuarioConexion(dsn); got != esperado {
 			t.Fatalf("%s: esperado %s, llego %s", dsn, esperado, got)
 		}
+	}
+}
+
+func TestComprobarSeparacionDetectaClaveCopiadaEnExterno(t *testing.T) {
+	interno := materialSintetico(t, PortalInterno)
+	externo := materialSintetico(t, PortalExterno)
+	escribir(t, externo, "externo/clave.bin", "kms interno")
+	if _, err := ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo}); err == nil {
+		t.Fatal("una clave interna copiada bajo externo/ debe rechazarse")
+	}
+}
+
+func TestComprobarSeparacionExigeUsuarioExplicito(t *testing.T) {
+	interno := materialSintetico(t, PortalInterno)
+	externo := materialSintetico(t, PortalExterno)
+	_, err := ComprobarSeparacion(
+		Proceso{Material: interno},
+		Proceso{Material: externo, Entorno: []byte("VEC_EXTERNO_X_DATABASE_URL=\"host=127.0.0.1 password=x dbname=vec\"\n")},
+	)
+	if !errors.Is(err, ErrSeparacionPortales) {
+		t.Fatalf("una conexion sin usuario explicito debe rechazarse: %v", err)
 	}
 }
