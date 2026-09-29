@@ -54,7 +54,7 @@ test("errores 401/403/409/422/503 no exponen valores ni admiten envoltura altern
 test("la vista usa únicamente opciones del catálogo y no finge datos si GET falla", async () => {
   const sinAcceso = crearSuperficiePreferenciasPortal({ cliente: { consultar: async () => { throw new ErrorPreferencias(403, "prohibido"); } } });
   await sinAcceso.cargar();
-  assert.match(sinAcceso.renderizar(), /No tiene permiso/u);
+  assert.match(sinAcceso.renderizar(), /no tiene permiso/u);
   assert.doesNotMatch(sinAcceso.renderizar(), /formulario-preferencias|Filas por página/u);
   const recortado = { ...catalogo, filas: [20], inicios: catalogo.inicios.slice(0, 1) };
   const vista = crearSuperficiePreferenciasPortal({ cliente: { consultar: async () => ({ catalogo: recortado, estado: get.data.estado }) } });
@@ -64,4 +64,86 @@ test("la vista usa únicamente opciones del catálogo y no finge datos si GET fa
   assert.match(html, /value="20"/u);
   assert.doesNotMatch(html, /value="50"|value="peticiones"/u);
   assert.match(html, /data-pref-ayuda="filas"[^>]*aria-expanded="false"/u);
+});
+
+test("un PUT 503 conserva el borrador, exige nueva consulta y enfoca el resultado", async () => {
+  const formulario = { id: "formulario-preferencias", valores: { ...valores, tema: "oscuro" } };
+  const eventos = {};
+  let html = "";
+  let focos = 0;
+  let consultas = 0;
+  let escrituras = 0;
+  let versionEnviada = -1;
+  const contenedor = {
+    addEventListener: (nombre, funcion) => { eventos[nombre] = funcion; },
+    removeEventListener: () => {},
+    querySelector: (selector) => selector === "[data-pref-resultado]" && html.includes("data-pref-resultado")
+      ? { focus: () => { focos++; } } : null,
+  };
+  const cliente = {
+    consultar: async () => {
+      consultas++;
+      return { catalogo, estado: { ...get.data.estado, version: consultas === 1 ? 0 : 1 } };
+    },
+    guardar: async ({ version, valores: elegidos }) => {
+      escrituras++;
+      versionEnviada = version;
+      assert.equal(elegidos.tema, "oscuro");
+      if (escrituras === 1) throw new ErrorPreferencias(503, "no_disponible");
+      return { recibo_ref: "recibo:confirmado", version: 2, valores: elegidos };
+    },
+  };
+  const originalFormData = globalThis.FormData;
+  globalThis.FormData = class { constructor(form) { this.form = form; } get(campo) { return String(this.form.valores[campo]); } };
+  try {
+    const superficie = crearSuperficiePreferenciasPortal({ cliente, actualizar: () => { html = superficie.renderizar(); } });
+    const desmontar = superficie.instalar(contenedor);
+    await superficie.cargar();
+    const enviar = () => eventos.submit({ target: formulario, preventDefault() {} });
+    enviar();
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(escrituras, 1);
+    assert.equal(superficie.leerCarga(), "guardado_incierto");
+    assert.match(html, /No se pudo confirmar el guardado.*operación podría haberse aplicado/u);
+    assert.match(html, /id="pref-tema"[^>]*>[\s\S]*?<option value="oscuro" selected/u);
+    assert.match(html, /type="submit" disabled/u);
+    assert.equal(focos, 1);
+    enviar();
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(escrituras, 1);
+    await superficie.cargar();
+    assert.equal(consultas, 2);
+    assert.match(html, /id="pref-tema"[^>]*>[\s\S]*?<option value="oscuro" selected/u);
+    enviar();
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(escrituras, 2);
+    assert.equal(versionEnviada, 1);
+    assert.match(html, /recibo:confirmado/u);
+    assert.equal(focos, 2);
+    desmontar();
+  } finally { globalThis.FormData = originalFormData; }
+});
+
+test("los errores de sesión, permiso, conflicto y validación mantienen avisos específicos", async () => {
+  const originalFormData = globalThis.FormData;
+  globalThis.FormData = class { get(campo) { return String(valores[campo]); } };
+  try {
+    for (const [estado, frase] of [[401, "sesión ha caducado"], [403, "no tiene permiso"],
+      [409, "cambiaron en otra sesión"], [422, "rechazó una opción"]]) {
+      let html = "";
+      let enviar;
+      const contenedor = { addEventListener: (nombre, funcion) => { if (nombre === "submit") enviar = funcion; },
+        removeEventListener: () => {}, querySelector: () => null };
+      const superficie = crearSuperficiePreferenciasPortal({
+        cliente: { consultar: async () => get.data, guardar: async () => { throw new ErrorPreferencias(estado, "no_disponible"); } },
+        actualizar: () => { html = superficie.renderizar(); },
+      });
+      superficie.instalar(contenedor);
+      await superficie.cargar();
+      enviar({ target: { id: "formulario-preferencias" }, preventDefault() {} });
+      await new Promise((resolver) => setImmediate(resolver));
+      assert.match(html, new RegExp(frase, "u"));
+      assert.doesNotMatch(html, /No se pudo confirmar el guardado/u);
+    }
+  } finally { globalThis.FormData = originalFormData; }
 });

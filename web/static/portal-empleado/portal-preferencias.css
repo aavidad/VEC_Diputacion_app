@@ -23,6 +23,15 @@
 .pref-aviso { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); }
 .pref-aviso--error { border-inline-start: 4px solid var(--portal-peligro); }
 .pref-aviso--exito { border-inline-start: 4px solid var(--portal-exito); }
+.pref-aviso:focus { outline: 2px solid var(--portal-azul-700); outline-offset: 2px; }
 .pref-acciones { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 @media (max-width: 900px) { .pref-formulario { grid-template-columns: 1fr; } .pref-formulario .pref-panel:first-child { grid-row: auto; } }
-@media (max-width: 520px) { .pref-campos { grid-template-columns: 1fr; } .sesion-identidad { max-width: 56px; } .sesion-identidad > [data-sesion-texto], .sesion-identidad > span:last-child { display: none; } .pref-acciones > button { width: 100%; } }
+@media (max-width: 520px) {
+  .pref-campos { grid-template-columns: 1fr; }
+  .cabecera-portal .acciones-cabecera { gap: 0; min-width: 0; }
+  .cabecera-portal .selector-idioma { padding-inline: 2px; }
+  .cabecera-portal .sesion-presentacion { margin-left: 2px; padding-left: 2px; }
+  .sesion-identidad { max-width: 40px; gap: 0; }
+  .sesion-identidad > [data-sesion-texto], .sesion-identidad > span:last-child { display: none; }
+  .pref-acciones > button { width: 100%; }
+}
