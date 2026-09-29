@@ -99,7 +99,7 @@ test("el índice documental lista el estado autorizado sin inventar una descarga
   assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar|>Descargar<\/button>/u);
 });
 
-test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmados", () => {
+test("el siguiente paso va arriba y solo anuncia acción y actor confirmados", () => {
   const base = crearExpedienteContratacionTemporalPresentacion();
   const tarea = { ...base.tareas[0], estado_clave: "en_curso", responsable: "Unidad RRHH",
     acciones: [{ tipo: "efecto", disponible: true, etiqueta: "Revisar petición" }] };
@@ -107,10 +107,11 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   const estado = { vista: "expediente", carga: "listo", expediente,
     expediente_ref: expediente.expediente_ref, tarea_ref: tarea.tarea_ref };
   const html = renderizarExpediente(estado, crearTraductorExpedientesContratacion(), "es-ES", "Europe/Madrid");
-  assert.ok(html.indexOf('class="ct-exp-progreso"') < html.indexOf('class="ct-exp-siguiente-paso panel"'));
-  assert.ok(html.indexOf('class="ct-exp-siguiente-paso panel"') < html.indexOf('class="ct-exp-tramitacion"'));
-  assert.match(html, /Qué:<\/strong> Revisar petición/u);
-  assert.match(html, /Quién:<\/strong> Unidad RRHH/u);
+  assert.ok(html.indexOf('ct-exp-ficha-cabecera') < html.indexOf('class="siguiente-paso ct-exp-siguiente-paso'));
+  assert.ok(html.indexOf('class="siguiente-paso ct-exp-siguiente-paso') < html.indexOf('data-ct-exp-rail'));
+  assert.ok(html.indexOf('class="siguiente-paso ct-exp-siguiente-paso') < html.indexOf('class="ct-exp-tramitacion"'));
+  assert.match(html, /Qué:<\/dt><dd>Revisar petición/u);
+  assert.match(html, /Quién:<\/dt><dd>Unidad RRHH/u);
   assert.match(html, /No consta un plazo autorizado para este paso/u);
 
   const bloqueada = { ...tarea, responsable: "Pendiente de definición por RRHH", unidad: "—",
@@ -120,11 +121,11 @@ test("siguiente paso sigue a las fases y solo anuncia acción y actor confirmado
   assert.match(en, /Next step/u);
   assert.match(en, /No person or unit is assigned in the record/u);
   assert.match(en, /No authorised deadline is recorded/u);
-  assert.doesNotMatch(en, /What:<\/strong> Firmar/u);
+  assert.doesNotMatch(en, /What:<\/dt><dd>Firmar/u);
 });
 
 
-test("el resumen inicial escapa datos, marca la fase y omite las columnas de la fila", () => {
+test("la lista escapa datos, dice «Fase N de 8» y abre el expediente desde su número", () => {
   const t = crearTraductorExpedientesContratacion();
   const html = renderizarCuadro({
     vista: "cuadro",
@@ -143,41 +144,33 @@ test("el resumen inicial escapa datos, marca la fase y omite las columnas de la 
         fase_clave: "analisis_rrhh",
         fase_actual: "Análisis <seguro>",
         plazo: "Hoy <seguro>",
+        plazo_estado: "vence_hoy",
+        plazo_ultimo_dia: "2026-09-29",
         fecha_solicitud: "2026-09-21T10:00:00Z",
         version: 3,
       }],
     },
     filtros: { texto: "", estado: "", fase: "" },
   }, t);
-
-  assert.match(html, /aria-label="Resumen del expediente CT-&lt;1&gt;"/u);
-  assert.match(html, /Centro &lt;seguro&gt;/u);
-  // La pastilla de estado y la fase filtran la lista por su valor.
-  assert.match(html, /<button type="button" class="ct-exp-chip ct-fase-en_curso"\s+data-ct-exp-filtro-estado="en_curso"[^>]*>En curso &lt;seguro&gt;<\/button>/u);
-  assert.match(html, /data-ct-exp-filtro-fase="analisis_rrhh"[^>]*>Análisis &lt;seguro&gt;<\/button>/u);
-  assert.match(html, /data-ct-exp-abrir="expediente:ct:resumen:&amp;lt;script&amp;gt;"/u);
+  assert.match(html, /data-ct-exp-abrir="expediente:ct:resumen:&amp;lt;script&amp;gt;"[^>]*aria-label="Abrir el expediente CT-&lt;1&gt;">CT-&lt;1&gt;<\/button>/u);
+  assert.match(html, /Centro &lt;seguro&gt;<small>Categoría &lt;segura&gt;<\/small>/u);
+  assert.match(html, /Análisis &lt;seguro&gt;<small>Fase 2 de 8<\/small>/u);
+  assert.match(html, /ct-plazo-vence_hoy">Vence hoy<\/span>\s*<small>Hoy &lt;seguro&gt;<\/small>/u);
   assert.match(html, /data-ct-fase="analisis_rrhh"/u);
-  const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
-  assert.ok(ficha);
-  assert.match(ficha, /aria-current="step">Análisis de RRHH/u);
-  assert.match(ficha, /Solicitud registrada<\/dt><dd>/u);
-  assert.match(ficha, /Versión<\/dt><dd>3<\/dd>/u);
-  for (const columna of ["Centro", "Categoría", "Modalidad", "Estado", "Fase actual", "Plazo"]) {
-    assert.doesNotMatch(ficha, new RegExp(`<dt>${columna}</dt>`, "u"));
-  }
+  assert.doesNotMatch(html, /Modalidad &lt;segura&gt;|ct-exp-fila-resumen/u);
   assert.doesNotMatch(html, /<script>/u);
 });
 
-test("la bandeja presenta una referencia de centro legible y deja la técnica en title", () => {
+test("la lista presenta una referencia de centro legible y deja la técnica en title", () => {
   const t = crearTraductorExpedientesContratacion();
   const html = renderizarCuadro({ vista: "cuadro", carga: "listo", cuadro: {
     demostracion: false, indicadores: [], expedientes: [{ expediente_ref: "expediente:ct:centro", numero_visible: "2026/CT-000042", centro: "centro:desarrollo:001", categoria: "Auxiliar", modalidad: "Sustitución", estado_clave: "en_curso", estado: "En curso", fase_actual: "Solicitud", plazo: "Sin plazo" }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
-  assert.match(html, /title="centro:desarrollo:001">Centro desarrollo · 001/u);
-  assert.match(html, />Sustitución<\/td>/u);
+  assert.match(html, /title="centro:desarrollo:001">Centro desarrollo · 001<small>Auxiliar<\/small>/u);
+  assert.match(html, /<option value="centro:desarrollo:001">Centro desarrollo · 001<\/option>/u);
 });
 
-test("la modalidad ausente se rotula con precisión y los metadatos ausentes se omiten", () => {
+test("sin plazo calculado la lista lo dice sin inventar fecha", () => {
   const t = crearTraductorExpedientesContratacion();
   const html = renderizarCuadro({ vista: "cuadro", carga: "listo", cuadro: {
     demostracion: false, indicadores: [], expedientes: [{
@@ -186,11 +179,8 @@ test("la modalidad ausente se rotula con precisión y los metadatos ausentes se 
       estado: "En curso", fase_clave: "solicitud", fase_actual: "Solicitud", plazo: "—",
     }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
-  assert.match(html, /title="La consulta de la bandeja no devuelve la modalidad de este expediente\.">—<\/td>/u);
-  assert.doesNotMatch(html, /ct-exp-nota-tabla|en Modalidad: la consulta/u);
-  const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
-  assert.ok(ficha);
-  assert.doesNotMatch(ficha, /ct-exp-resumen-datos[\s\S]*?<div>/u);
+  assert.match(html, /data-etiqueta="Plazo"><span class="texto-secundario">Sin plazo<\/span>/u);
+  assert.doesNotMatch(html, /ct-exp-nota-tabla|Modalidad/u);
 });
 
 
@@ -700,9 +690,11 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   const estado = estadoVista(expediente, "");
   const html = renderizarModuloContratacionTemporal(estado);
   // El identificador técnico anterior a la numeración no se muestra: figura sin numerar.
-  assert.ok(html.includes("<h3>Sin numerar</h3>"));
+  assert.ok(html.includes(">Expediente Sin numerar</h2>"));
   assert.ok(!html.includes(expediente.numero_visible));
-  assert.match(html, /ct-exp-cabecera-expediente/u);
+  assert.match(html, /ct-exp-ficha-cabecera/u);
+  const diseno = await readFile(new URL("./expedientes-diseno.css", import.meta.url), "utf8");
+  assert.match(diseno, /\.ct-exp-ficha-cabecera h3 \{[^}]*overflow-wrap: anywhere;/u);
   assert.doesNotMatch(html, /class="ct-exp-(?:progreso|tareas|tramitacion)"/u);
   const auditoria = validarAuditoriaContratacionTemporal(
     crearAuditoriaContratacionTemporalPresentacion(),

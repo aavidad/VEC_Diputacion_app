@@ -815,8 +815,8 @@ test("Inicio y Cuadro abren el mismo detalle CT tras la consulta, una vez y en E
   );
 
   for (const [idioma, texto, navegacion, cabecera] of [
-    ["es-ES", "Expediente cargado.", "Cuadro de mando", "Fecha de registro"],
-    ["en-GB", "Case file loaded.", "Dashboard", "Date recorded"],
+    ["es-ES", "Expediente cargado.", "Lista de peticiones", "Fecha de registro"],
+    ["en-GB", "Case file loaded.", "Request list", "Date recorded"],
   ]) {
     const llamadas = [];
     let presentador;

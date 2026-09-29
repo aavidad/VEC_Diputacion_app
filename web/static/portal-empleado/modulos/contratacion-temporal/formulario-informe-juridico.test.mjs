@@ -165,7 +165,7 @@ test("el historial del informe reutiliza etiquetas legibles y traducciones", () 
   assert.equal(etiquetas.accion, "Análisis revisado");
   assert.equal(etiquetas.faseOrigen, "—");
   assert.equal(etiquetas.faseDestino, "Solicitud");
-  assert.equal(etiquetas.estadoDestino, "En tramitación");
+  assert.equal(etiquetas.estadoDestino, "En trámite");
 });
 
 test("presenta el historial autorizado tras confirmar y conserva traducciones", async () => {

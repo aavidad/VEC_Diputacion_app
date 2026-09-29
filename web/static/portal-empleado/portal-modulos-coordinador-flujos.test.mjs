@@ -470,7 +470,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   exigirRenovado(portal, "./portal-bolsas-api.js", versionModuloBolsa);
   exigirRenovado([portal, coordinador], "./portal-i18n.js", [versionEntradaAyuda, versionCronosPermisos]);
   exigirRenovado(portal, "./portal-eventos.js", versionEntradaAyuda);
-  exigirRenovado([portal, coordinador], "./portal-inicio.js", versionCronosPermisos);
+  exigirRenovado([portal], "./portal-inicio.js", versionCronosPermisos);
   exigirRenovado(portal, "./portal-borradores-ui.js", versionCronosPermisos);
   exigirRenovado(coordinador, "./portal-catalogo-modulos.js", versionCatalogo);
   // El cliente del catálogo pasó a presentar el certificado mTLS: URL renovada.

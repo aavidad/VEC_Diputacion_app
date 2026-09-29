@@ -23,14 +23,11 @@ const estadoCuadro = (paginacion, extra = {}) => ({
   ...extra,
 });
 
-test("los indicadores usan iconos comunes y rótulos cortos sin «en esta página»", () => {
+test("la lista empieza por «N peticiones en trámite» y la acción principal, sin indicadores repetidos", () => {
   const html = renderizarCuadro(estadoCuadro({ pagina: 1, cursor_siguiente: "" }), t);
-  // Los cuatro llevan a la lista con su filtro (recuadros pulsables, como en Inicio).
-  assert.equal((html.match(/<button type="button" class="tarjeta-kpi/gu) || []).length, 4);
-  assert.equal((html.match(/<span class="icono-kpi"><svg aria-hidden="true"/gu) || []).length, 4);
-  assert.match(html, /tarjeta-kpi kpi--peligro" data-ct-exp-indicador="incidencias"/u);
-  assert.match(html, /<span class="etiqueta-kpi">Expedientes<\/span>/u);
-  assert.doesNotMatch(html, /en esta página|▣|ct-exp-nota-tabla|estado-chip info/u);
+  assert.match(html, /<h3 class="ct-exp-lista-titulo">2 peticiones en trámite<\/h3>/u);
+  assert.match(html, /class="boton-primario" data-ct-exp-vista="alta">Nueva petición de personal/u);
+  assert.doesNotMatch(html, /tarjeta-kpi|Distribución por fase|Trabajo pendiente|en esta página|ct-exp-nota-tabla/u);
 });
 
 test("una sola página deja la paginación al marco común; con más páginas va junto a la tabla", () => {
@@ -38,6 +35,7 @@ test("una sola página deja la paginación al marco común; con más páginas va
   assert.doesNotMatch(unica, /ct-exp-paginacion|data-ct-exp-pagina/u);
   const varias = renderizarCuadro(estadoCuadro({ pagina: 1, cursor_siguiente: "cursor-b" }), t);
   assert.match(varias, /<\/div>\s*<nav class="ct-exp-paginacion"[\s\S]*<\/nav>\s*<\/section>/u);
+  assert.match(varias, /Recuento parcial/u);
   const reinicio = renderizarCuadro(estadoCuadro(
     { pagina: 1, cursor_siguiente: "" }, { paginacion_requiere_reinicio: true },
   ), t);

@@ -7,6 +7,7 @@ import { minutosJornadaCompletaValidos } from "./contrato-analisis.js";
 import { validarCatalogosAlta } from "./contrato.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
+import { faseRRHH } from "./i18n-fases-rrhh.js";
 
 const ESTADOS_SERVIDOR_A_VISUAL = new Map([
   ["pendiente", "pendiente"],
@@ -165,7 +166,26 @@ function plazoVisual(entrada, locale, t) {
   const plazo = entrada.plazo_fase;
   if (!plazo) return { plazo: "—" };
   if (plazo.estado === "no_calculado") return { plazo: t("plazo_fase_sin_calcular"), plazo_estado: plazo.estado };
-  return { plazo: fechaCivil(`${plazo.ultimo_dia}T00:00:00Z`, locale), plazo_estado: plazo.estado };
+  // El día civil se conserva para ordenar por plazo en portada y lista.
+  return {
+    plazo: fechaCivil(`${plazo.ultimo_dia}T00:00:00Z`, locale),
+    plazo_estado: plazo.estado,
+    plazo_ultimo_dia: plazo.ultimo_dia,
+  };
+}
+
+// Una sola forma de nombrar la fase en lista, portada y ficha: las ocho fases
+// de RRHH. Una fase ajena al procedimiento conserva su propio rótulo.
+function faseVisible(clave, t) {
+  const fase = faseRRHH(clave);
+  return fase ? t(`etiqueta_fase_${fase.clave}`) : etiqueta(clave, t);
+}
+
+function faseConOrden(clave, t) {
+  const fase = faseRRHH(clave);
+  return fase ? t("fase_rrhh_orden_nombre", {
+    orden: fase.orden, total: fase.total, fase: t(`etiqueta_fase_${fase.clave}`),
+  }) : etiqueta(clave, t);
 }
 
 function resumenVisual(entrada, catalogos, t, locale) {
@@ -179,7 +199,7 @@ function resumenVisual(entrada, catalogos, t, locale) {
     estado_clave: estadoClave,
     estado: etiqueta(entrada.estado_clave, t),
     fase_clave: entrada.fase_clave,
-    fase_actual: etiqueta(entrada.fase_clave, t),
+    fase_actual: faseVisible(entrada.fase_clave, t),
     fecha_solicitud: entrada.creado_en,
     responsable: "—",
     ...plazoVisual(entrada, locale, t),
@@ -289,7 +309,7 @@ function historialDesdeHitos(hitos, locale, t) {
   return hitos.map((hito) => ({
     secuencia: hito.secuencia,
     fecha: fechaCivil(hito.realizada_en, locale, true),
-    fase: etiqueta(hito.fase_destino, t),
+    fase: faseVisible(hito.fase_destino, t),
     accion: etiquetaAccionHito(hito.accion_clave, t),
     estado_clave: estadoVisual(hito.estado_destino),
     estado: etiqueta(hito.estado_destino, t),
@@ -314,7 +334,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
     campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
     campo("categoria", t("cabecera_categoria"), referenciaVisible(catalogos, "categorias", resumen.categoria_ref)),
     campo("modalidad", t("cabecera_modalidad"), etiquetaModalidad(resumen.modalidad_clave, catalogos, t)),
-    campo("fase", t("cabecera_fase_actual"), etiqueta(resumen.fase_clave, t)),
+    campo("fase", t("cabecera_fase_actual"), faseConOrden(resumen.fase_clave, t)),
     campo("estado", t("cabecera_estado"), etiqueta(resumen.estado_clave, t)),
     campo("grupo_subgrupo", t("cabecera_grupo_subgrupo"), solicitud.grupo_subgrupo),
     campo("motivo", t("cabecera_motivo"), etiqueta(solicitud.motivo_clave, t)),
