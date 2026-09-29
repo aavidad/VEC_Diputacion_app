@@ -374,7 +374,7 @@ def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dic
         journal_bytes = private_read(output / "sql-journal.json")
         journal = json.loads(journal_bytes)
         installed = journal.get("installed", [])
-        if ready.get("commit") != identity["source_commit"] or ready.get("sql_instaladas") != 34 or journal.get("source_ref") != identity["source_commit"] or len(installed) != 34:
+        if ready.get("commit") != identity["source_commit"] or ready.get("sql_instaladas") != 34 or journal.get("current_source_ref", journal.get("source_ref")) != identity["source_commit"] or len(installed) != 34:
             fail("source upgrade requires the reviewed 34 SQL receipts")
         for position, receipt in enumerate(installed, 1):
             path = receipt.get("path", "")
