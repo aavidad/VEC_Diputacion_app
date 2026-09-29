@@ -201,6 +201,7 @@ func TestContextoEsperadoRegistradoF1ConvivenciaYDeriva(t *testing.T) {
 
 func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) {
 	e := nuevaSesionConsultaPrueba(t)
+	e.soporte.legadoDisponible = true
 	registrado := resultadoConVinculoEmpleadoF1(t, e.soporte.contexto.Resultado)
 	e.soporte.contextoEsperadoRegistrado = registrado
 	e.resolutor.base = registrado
@@ -210,7 +211,7 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 	}
 	e.soporte.sesionOperativa = proveedor
 	contexto := func() context.Context {
-		ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaAltaSolicitudes)
+		ctx := contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaRegistroAnalisisRRHH)
 		capacidad := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
 		capacidad.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
 		capacidad.certificadoValidoHasta = e.reloj.Ahora().Add(5 * time.Minute)
@@ -218,7 +219,7 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 		return context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidad)
 	}
 	ctx := contexto()
-	canal, err := e.soporte.ResolverContextoCanalAlta(ctx)
+	canal, err := e.soporte.ResolverContextoCanalAnalisisRRHH(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +235,7 @@ func TestContextoOperativoF1EscrituraUsaUnReciboFrescoPorPeticion(t *testing.T) 
 	// Otra petición resuelve de nuevo. Si la autoridad ya no devuelve el
 	// esperado, el holder no acepta ni la semilla ni el recibo anterior.
 	e.resolutor.base = e.soporte.contexto.Resultado
-	if _, err := e.soporte.ResolverContextoCanalAlta(contexto()); err == nil || e.resolutor.llamadas != 2 {
+	if _, err := e.soporte.ResolverContextoCanalAnalisisRRHH(contexto()); err == nil || e.resolutor.llamadas != 2 {
 		t.Fatal("se aceptó deriva de vínculos en una petición nueva")
 	}
 	if len(e.soporte.contexto.Resultado.Contexto.Instantanea.Vinculos) != 0 {
@@ -262,7 +263,7 @@ func TestContextoOperativoReincorporacionSeleccionaPerfilYSesionDedicados(t *tes
 		contexto: reincorporacion, contextoEsperadoRegistrado: reincorporacion.Resultado,
 		sesionOperativa: proveedorSesionOperativaCTPrueba{contexto: reincorporacion},
 	}
-	baseOperativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes))
+	baseOperativo, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaRegistroAnalisisRRHH))
 	if err != nil || baseOperativo.Resultado.Contexto.PerfilActivoRef != baseVinculo.PerfilActivoRef {
 		t.Fatalf("perfil CT base alterado: %v", err)
 	}
@@ -310,6 +311,39 @@ func TestContextoOperativoCoberturaSeleccionaPerfilFijoYSesionDedicada(t *testin
 	soporte.sesionOperativaCobertura = proveedorSesionOperativaCTPrueba{contexto: alta}
 	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaPropuestaCobertura)); err == nil {
 		t.Fatal("la sesión de alta fue aceptada para cobertura")
+	}
+}
+
+func TestContextoOperativoAltaDirectaNoCambiaPerfilLegado(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	altaFijo, err := nuevoContextoAltaFijoContratacionTemporalDesarrollo(principal, soporte.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	soporte.contextoAltaFijo = altaFijo
+	soporte.contextoEsperadoRegistradoAltaFijo = altaFijo.Resultado
+	soporte.sesionOperativaAltaFijo = proveedorSesionOperativaCTPrueba{contexto: altaFijo}
+	legadoPerfil := soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	perfilFijo := altaFijo.Resultado.Contexto.PerfilActivoRef
+	if legadoPerfil == perfilFijo {
+		t.Fatal("alta directa comparte el perfil dinámico legado")
+	}
+	ctxAlta := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes)
+	operativo, err := soporte.contextoOperativoDesarrollo(ctxAlta)
+	if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != perfilFijo {
+		t.Fatalf("alta directa no usa perfil fijo: %v", err)
+	}
+	ctxLegado := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaRegistroAnalisisRRHH)
+	operativo, err = soporte.contextoOperativoDesarrollo(ctxLegado)
+	if err != nil || operativo.Resultado.Contexto.PerfilActivoRef != legadoPerfil {
+		t.Fatalf("análisis no conserva perfil legado: %v", err)
+	}
+	soporte.legadoDisponible = false
+	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaRegistroAnalisisRRHH)); err == nil {
+		t.Fatal("legado sin asignación fue aceptado")
+	}
+	if _, err := soporte.contextoOperativoDesarrollo(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes)); err != nil {
+		t.Fatalf("legado caído interrumpió alta fija: %v", err)
 	}
 }
 

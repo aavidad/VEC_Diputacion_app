@@ -518,6 +518,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
 	alta.soporte.mu.Lock()
 	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	perfilAltaFijoCatalogo := alta.soporte.contextoAltaFijo.Resultado.Contexto.PerfilActivoRef
 	perfilCoberturaCatalogo := alta.soporte.contextoCobertura.Resultado.Contexto.PerfilActivoRef
 	alta.soporte.mu.Unlock()
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
@@ -552,8 +553,8 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	declaracionesFrontera, err = asignarPerfilCoberturaCTDesarrollo(
-		declaracionesFrontera, perfilCTCatalogo, perfilCoberturaCatalogo)
+	declaracionesFrontera, err = asignarPerfilesFijosCTDesarrollo(
+		declaracionesFrontera, perfilCTCatalogo, perfilAltaFijoCatalogo, perfilCoberturaCatalogo)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -100,10 +100,14 @@ func TestAutorizacionCoberturaDesarrolloSeparaRutasYAmbitos(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	vinculoAlta, err := soporte.contextoAltaFijo.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
 	alta, err := soporte.ObtenerInstantaneaAutorizacion(
 		contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes),
-		vinculo.PrincipalID,
-		vinculo.PerfilActivoRef,
+		vinculoAlta.PrincipalID,
+		vinculoAlta.PerfilActivoRef,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -332,7 +336,7 @@ func TestRutasCoberturaNoReprovisionanAsignacion(t *testing.T) {
 func TestAltaNoReprovisionaAsignacionAusenteORevocada(t *testing.T) {
 	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaAltaSolicitudes)
-	vinculo, err := soporte.contexto.Vinculo.Datos()
+	vinculo, err := soporte.contextoAltaFijo.Vinculo.Datos()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +356,7 @@ func TestAltaNoReprovisionaAsignacionAusenteORevocada(t *testing.T) {
 	if autoridad.preparadas != 0 || autoridad.publicadas != 0 {
 		t.Fatalf("alta publicó por consulta concurrente: %+v", autoridad)
 	}
-	original := soporte.instantanea
+	original := soporte.instantaneaAltaFija
 	for _, caso := range []struct {
 		nombre string
 		i      dominiovec.InstantaneaAutorizacion
@@ -371,7 +375,7 @@ func TestAltaNoReprovisionaAsignacionAusenteORevocada(t *testing.T) {
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			soporte.mu.Lock()
-			soporte.instantanea = caso.i
+			soporte.instantaneaAltaFija = caso.i
 			soporte.mu.Unlock()
 			if _, err := soporte.ObtenerInstantaneaAutorizacion(ctx, vinculo.PrincipalID, vinculo.PerfilActivoRef); !errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
 				t.Fatalf("alta con instantánea %s admitida: %v", caso.nombre, err)
@@ -547,7 +551,7 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 	}
 	solicitudAlta, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
 		dominiovec.DatosSolicitudAutorizacionLigadaV3{
-			VinculoAutenticacionActor: soporte.contexto.Vinculo,
+			VinculoAutenticacionActor: soporte.contextoAltaFijo.Vinculo,
 			ReferenciaMotivo:          soporte.motivo,
 			Accion:                    ports.AccionCrearSolicitud,
 			Recurso: dominiovec.RecursoAutorizable{
@@ -570,7 +574,7 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 	decisionAlta, _, err := autorizador.ExigirSolicitudLigadaV3(
 		ctxAlta,
 		solicitudAlta,
-		soporte.contexto.Resultado,
+		soporte.contextoAltaFijo.Resultado,
 	)
 	concedidaAlta, _, errResultadoAlta := decisionAlta.Resultado()
 	if err != nil || errResultadoAlta != nil || !concedidaAlta {
@@ -587,7 +591,7 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 		t.Fatalf("alta posterior no usó CAS central: efímeras=%d centrales=%d", totalConcesionesEfimeras, registro.concesiones)
 	}
 	registro.revocada = true
-	_, _, err = autorizador.ExigirSolicitudLigadaV3(ctxAlta, solicitudAlta, soporte.contexto.Resultado)
+	_, _, err = autorizador.ExigirSolicitudLigadaV3(ctxAlta, solicitudAlta, soporte.contextoAltaFijo.Resultado)
 	if err == nil || registro.concesiones != 2 || autoridad.preparadas != 1 || autoridad.publicadas != 1 {
 		t.Fatalf("replay de alta tras revocación: error=%v central=%d autoridad=%+v", err, registro.concesiones, autoridad)
 	}
@@ -661,12 +665,12 @@ func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
 	if autoridad.preparadas != 2 || autoridad.publicadas != 2 {
 		t.Fatalf("asignacion de la denegacion no publicada: %+v", autoridad)
 	}
-	altaSinPermiso := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(soporte.instantanea)
+	altaSinPermiso := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(soporte.instantaneaAltaFija)
 	altaSinPermiso.VersionRol.Concesiones[0].Accion = ports.AccionRegistrarAnalisis
 	soporte.mu.Lock()
-	soporte.instantanea = altaSinPermiso
+	soporte.instantaneaAltaFija = altaSinPermiso
 	soporte.mu.Unlock()
-	_, _, err = autorizador.ExigirSolicitudLigadaV3(ctxAlta, solicitudAlta, soporte.contexto.Resultado)
+	_, _, err = autorizador.ExigirSolicitudLigadaV3(ctxAlta, solicitudAlta, soporte.contextoAltaFijo.Resultado)
 	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) ||
 		registro.denegaciones != 2 || registro.concesiones != 2 ||
 		autoridad.preparadas != 2 || autoridad.publicadas != 2 {
@@ -840,7 +844,20 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
+	contextoAltaFijo, err := nuevoContextoAltaFijoContratacionTemporalDesarrollo(principal, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
 	vinculo, err := contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculoAltaFijo, err := contextoAltaFijo.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	altaFijo, err := nuevaInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
+		vinculoAltaFijo.PrincipalID, vinculoAltaFijo.PerfilActivoRef, ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -874,7 +891,9 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		sello:             &selloConsultasContratacionTemporalDesarrollo{},
 		principalID:       principal.ID,
 		certificadoSHA256: principal.Attributes["certificate_sha256"],
+		legadoDisponible:  true,
 		contexto:          contexto,
+		contextoAltaFijo:  contextoAltaFijo,
 		// Los casos legados ejercitan el PDP con un solo perfil; la selección
 		// de dos perfiles reales se comprueba en la prueba de composición.
 		contextoCobertura: contexto,
@@ -888,6 +907,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 			),
 		},
 		instantanea:                  alta,
+		instantaneaAltaFija:          altaFijo,
 		instantaneaAnalisis:          analisisVEC,
 		motivoRegistroAnalisis:       referenciaMotivoAutorizacionAnalisisDesarrollo("registro"),
 		motivoRectificacionAnalisis:  referenciaMotivoAutorizacionAnalisisDesarrollo("rectificacion"),
@@ -904,6 +924,8 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 	}
 	soporte.contextoEsperadoRegistrado = contexto.Resultado
 	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: contexto}
+	soporte.contextoEsperadoRegistradoAltaFijo = contextoAltaFijo.Resultado
+	soporte.sesionOperativaAltaFijo = proveedorSesionOperativaCTPrueba{contexto: contextoAltaFijo}
 	soporte.contextoEsperadoRegistradoCobertura = contexto.Resultado
 	soporte.sesionOperativaCobertura = proveedorSesionOperativaCTPrueba{contexto: contexto}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}

@@ -15,9 +15,54 @@ var accionesPerfilCoberturaCTDesarrollo = map[string]string{
 	cthttp.RutaResultadoCobertura:     string(ctports.AccionConsultarResultadoCobertura),
 }
 
+var accionesPerfilAltaFijaCTDesarrollo = map[string]string{
+	cthttp.RutaAltaSolicitudes: ctports.AccionCrearSolicitud,
+}
+
 func rutaPerfilCoberturaCTDesarrollo(ruta string) bool {
 	_, existe := accionesPerfilCoberturaCTDesarrollo[ruta]
 	return existe
+}
+
+func rutaPerfilAltaFijaCTDesarrollo(ruta string) bool {
+	_, existe := accionesPerfilAltaFijaCTDesarrollo[ruta]
+	return existe
+}
+
+func asignarPerfilesFijosCTDesarrollo(
+	declaraciones []descriptorFronteraComunDesarrollo, perfilLegado, perfilAlta, perfilCobertura string,
+) ([]descriptorFronteraComunDesarrollo, error) {
+	if !perfilActivoSeguridadComunValido(perfilLegado) ||
+		!perfilActivoSeguridadComunValido(perfilAlta) ||
+		!perfilActivoSeguridadComunValido(perfilCobertura) ||
+		perfilLegado == perfilAlta || perfilLegado == perfilCobertura || perfilAlta == perfilCobertura {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
+	resultado, err := asignarPerfilCoberturaCTDesarrollo(declaraciones, perfilLegado, perfilCobertura)
+	if err != nil {
+		return nil, err
+	}
+	vistas := make(map[string]struct{}, len(accionesPerfilAltaFijaCTDesarrollo))
+	for i := range resultado {
+		descriptor := &resultado[i]
+		accion, esAlta := accionesPerfilAltaFijaCTDesarrollo[descriptor.Ruta]
+		if !esAlta {
+			continue
+		}
+		if descriptor.ClaveCapacidad != accion || len(descriptor.PerfilesActivosRef) != 1 ||
+			descriptor.PerfilesActivosRef[0] != perfilLegado {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+		if _, repetida := vistas[descriptor.Ruta]; repetida {
+			return nil, ErrActivacionDesarrolloInvalida
+		}
+		vistas[descriptor.Ruta] = struct{}{}
+		descriptor.PerfilesActivosRef = []string{perfilAlta}
+	}
+	if len(vistas) != len(accionesPerfilAltaFijaCTDesarrollo) {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
+	return resultado, nil
 }
 
 func asignarPerfilCoberturaCTDesarrollo(

@@ -173,17 +173,22 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 	s.mu.Lock()
 	esperado := s.contextoEsperadoRegistrado
 	sesion := s.sesionOperativa
-	if rutaPerfilCoberturaCTDesarrollo(capacidad.ruta) {
+	if rutaPerfilAltaFijaCTDesarrollo(capacidad.ruta) {
+		esperado = s.contextoEsperadoRegistradoAltaFijo
+		sesion = s.sesionOperativaAltaFijo
+	} else if rutaPerfilCoberturaCTDesarrollo(capacidad.ruta) {
 		esperado = s.contextoEsperadoRegistradoCobertura
 		sesion = s.sesionOperativaCobertura
-	}
-	if rutaReincorporacionTitularDesarrollo(capacidad.ruta) {
+	} else if rutaReincorporacionTitularDesarrollo(capacidad.ruta) {
 		if s.reincorporacionTitular == nil {
 			s.mu.Unlock()
 			return vacio, ports.ErrAutorizacionDenegada
 		}
 		esperado = s.reincorporacionTitular.contextoEsperadoRegistrado
 		sesion = s.reincorporacionTitular.sesionOperativa
+	} else if !s.legadoDisponible {
+		s.mu.Unlock()
+		return vacio, ports.ErrAutorizacionDenegada
 	}
 	s.mu.Unlock()
 	if esperado.Validar() != nil || sesion == nil {

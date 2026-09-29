@@ -133,9 +133,22 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
+	esperadoAltaFijo, err := contextoEsperadoRegistradoParaSemillaDesarrollo(
+		ctx, autoridadContexto, soporte, soporte.contextoAltaFijo.Resultado)
+	if err != nil || esperadoAltaFijo.Contexto.PerfilActivoRef == esperado.Contexto.PerfilActivoRef ||
+		esperadoAltaFijo.Contexto.Principal.ID != esperado.Contexto.Principal.ID ||
+		esperadoAltaFijo.Contexto.Instantanea.CuentaRef != esperado.Contexto.Instantanea.CuentaRef ||
+		esperadoAltaFijo.Contexto.PersonaRef != esperado.Contexto.PersonaRef {
+		return nil, nil, fallo
+	}
+	sesionAltaFijo, err := nuevaSesionPerfilAdicionalCTDesarrollo(proveedor, esperadoAltaFijo)
+	if err != nil {
+		return nil, nil, fallo
+	}
 	esperadoCobertura, err := contextoEsperadoRegistradoParaSemillaDesarrollo(
 		ctx, autoridadContexto, soporte, soporte.contextoCobertura.Resultado)
 	if err != nil || esperadoCobertura.Contexto.PerfilActivoRef == esperado.Contexto.PerfilActivoRef ||
+		esperadoCobertura.Contexto.PerfilActivoRef == esperadoAltaFijo.Contexto.PerfilActivoRef ||
 		esperadoCobertura.Contexto.Principal.ID != esperado.Contexto.Principal.ID ||
 		esperadoCobertura.Contexto.Instantanea.CuentaRef != esperado.Contexto.Instantanea.CuentaRef ||
 		esperadoCobertura.Contexto.PersonaRef != esperado.Contexto.PersonaRef {
@@ -146,13 +159,17 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 		return nil, nil, fallo
 	}
 	soporte.mu.Lock()
-	if soporte.sesionOperativa != nil || soporte.sesionOperativaCobertura != nil ||
+	if soporte.sesionOperativa != nil || soporte.sesionOperativaAltaFijo != nil || soporte.sesionOperativaCobertura != nil ||
+		(soporte.contextoEsperadoRegistradoAltaFijo.Validar() == nil &&
+			!mismoContextoEsperadoRegistradoDesarrollo(soporte.contextoEsperadoRegistradoAltaFijo, esperadoAltaFijo)) ||
 		(soporte.contextoEsperadoRegistradoCobertura.Validar() == nil &&
 			!mismoContextoEsperadoRegistradoDesarrollo(soporte.contextoEsperadoRegistradoCobertura, esperadoCobertura)) {
 		soporte.mu.Unlock()
 		return nil, nil, fallo
 	}
 	soporte.sesionOperativa = proveedor
+	soporte.contextoEsperadoRegistradoAltaFijo = esperadoAltaFijo
+	soporte.sesionOperativaAltaFijo = sesionAltaFijo
 	soporte.contextoEsperadoRegistradoCobertura = esperadoCobertura
 	soporte.sesionOperativaCobertura = sesionCobertura
 	soporte.mu.Unlock()
