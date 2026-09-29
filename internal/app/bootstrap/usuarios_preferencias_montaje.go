@@ -15,12 +15,8 @@ import (
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
-	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
-	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
-	"vec-diputacion-granada/internal/vec/adapters/seguridad"
-	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -357,6 +353,18 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
 	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
+	return nuevaRutaUsuariosPreferenciasConFrontera(cfg, resolvedor, derivador, incidencias, topologiaGobierno, superficie, ruta, consulta, actualizacion, correos, imagen, fronteraPreferenciasUsuariosCombinada())
+}
+
+func nuevaRutaUsuariosPreferenciasConFrontera(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, topologiaGobierno topologiaPostgreSQLPreferenciasUsuarios, superficie core.SuperficieAutenticacionActorV1, ruta string,
+	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
+	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo,
+	frontera fronteraPreferenciasUsuarios,
+) (*autoridadPreferenciasUsuariosDesarrollo, error) {
+	if frontera.abrirPool == nil || frontera.contextos == nil || frontera.autorizador == nil {
+		return nil, errComposicionUsuariosPreferencias
+	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !ok || identidad == nil || derivador == nil || !derivador.valido() || consulta == nil || actualizacion == nil {
 		return nil, errComposicionUsuariosPreferencias
@@ -372,9 +380,9 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{
-		{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"},
-		{c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"},
-		{c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"},
+		{c.DSNRegistroIdentidad, frontera.roles[0]}, {c.DSNRevalidacionIdentidad, frontera.roles[1]},
+		{c.DSNContexto, frontera.roles[2]}, {c.DSNFuenteAutorizacion, frontera.roles[3]},
+		{c.DSNRegistroAutorizacion, frontera.roles[4]}, {c.DSNMotivos, frontera.roles[5]},
 	}
 	var pools []*pgxpool.Pool
 	var unaVez sync.Once
@@ -393,7 +401,7 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	}()
 	logins := map[string]bool{}
 	for _, entrada := range entradas {
-		pool, login, e := abrirPoolRutasDietas(ctx, entrada.dsn, entrada.rol)
+		pool, login, e := frontera.abrirPool(ctx, entrada.dsn, entrada.rol)
 		if e != nil || logins[login] {
 			if pool != nil {
 				pool.Close()
@@ -436,32 +444,12 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, pools[2])
+	contextos, err := frontera.contextos(ctx, pools[2])
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
 	reloj := relojRutasDietas{}
-	servicioContexto, err := vecapp.NuevoServicioContextoActorProductivoV2(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
-	if err != nil {
-		return nil, errComposicionUsuariosPreferencias
-	}
-	contextos, err := vecapp.NuevaAutoridadContextoActorRegistradoV2(servicioContexto)
-	if err != nil {
-		return nil, errComposicionUsuariosPreferencias
-	}
-	fuente, err := vecpg.NuevoAlmacenAutorizacion(pools[3])
-	if err != nil {
-		return nil, errComposicionUsuariosPreferencias
-	}
-	registroAutorizacion, err := vecpg.NuevoAlmacenAutorizacion(pools[4])
-	if err != nil {
-		return nil, errComposicionUsuariosPreferencias
-	}
-	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(pools[5], c.MotivoConsulta.CatalogoID)
-	if err != nil {
-		return nil, errComposicionUsuariosPreferencias
-	}
-	autorizador, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registroAutorizacion, registroAutorizacion, motivos, reloj, seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second})
+	autorizador, err := frontera.autorizador(ctx, pools[3], pools[4], pools[5], c.MotivoConsulta.CatalogoID)
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}

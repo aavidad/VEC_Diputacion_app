@@ -87,6 +87,9 @@
     }
   },
   "areaPersonal": {
+    "usuarios": {
+      "rolPropio": "Mis datos y preferencias"
+    },
     "preferencias": {
       "titulo": "Mis preferencias",
       "sinDatos": "No se pudieron consultar sus preferencias. No se muestra ningún valor como guardado.",

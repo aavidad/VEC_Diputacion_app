@@ -87,6 +87,9 @@
     }
   },
   "areaPersonal": {
+    "usuarios": {
+      "rolPropio": "My details and preferences"
+    },
     "preferencias": {
       "titulo": "My preferences",
       "sinDatos": "Your preferences could not be retrieved. No value is shown as saved.",

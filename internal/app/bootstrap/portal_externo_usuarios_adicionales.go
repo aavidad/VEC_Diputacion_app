@@ -86,7 +86,7 @@ func materialesCorreosPortalExterno(proveedores map[string]*proveedorMaterialAlt
 		if p == nil {
 			return proveedoresMaterialCorreosUsuarios{}, false
 		}
-		materiales[len(accionesCorreosUsuarios)+i] = p
+		materiales.lote[len(accionesCorreosUsuarios)+i] = p
 	}
 	return materiales, true
 }

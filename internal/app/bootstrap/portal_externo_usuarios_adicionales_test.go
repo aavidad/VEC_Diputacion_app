@@ -14,7 +14,7 @@ func TestPortalExternoAdicionalesExigeMaterialCompletoDeSuSuperficie(t *testing.
 		correos[audiencia] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
 	}
 	materialCorreo, ok := materialesCorreosPortalExterno(correos)
-	if !ok || materialCorreo[0] != nil || materialCorreo[5] != nil || materialCorreo[6] == nil || materialCorreo[11] == nil {
+	if !ok || materialCorreo.avisos != nil || materialCorreo.lote[0] != nil || materialCorreo.lote[5] != nil || materialCorreo.lote[6] == nil || materialCorreo.lote[11] == nil {
 		t.Fatal("material de correos internos incluido o material externo perdido")
 	}
 	delete(correos, audienciasCorreosUsuariosDesarrollo()[6])

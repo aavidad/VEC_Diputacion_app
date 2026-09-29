@@ -92,3 +92,41 @@ Lista `deploy/principal/lista_sql_trabajo_usuarios_superficie_20260929.txt`, tod
 La superficie de cada versión y recibo existente se toma de la decisión V3 firmada que la autorizó (lectura única del DBA en la migración). Cada portal queda con su última versión propia. Si el estado de imagen de un portal apunta a una foto que subió el otro o que ya se retiró, ese portal vuelve a iniciales con su paleta y la historia lo anota con una versión marcada `migracion:usuarios:000009`. Cada dirección de correo va con el portal donde se añadió, con todos sus desafíos, intentos, historia, recibos y envíos; cada población conserva la versión más alta de su propia historia. Si alguna acción sobre una dirección se hizo desde el otro portal, 000010 se para (55000) para revisarlo a mano. Si una población queda con direcciones verificadas y ninguna activa, se activa la primera verificada con una versión marcada `migracion:usuarios:000010`. En el Área personal esa dirección, que la persona confirmó allí pero no eligió como activa, pasa a ser la que usan los avisos de llamamiento (antes se habría usado el correo del alta); en la principal no hay correos todavía, así que no ocurre. Las versiones marcadas por 000009 y 000010 no tienen decisión V3 ni recibo: las hizo la migración. Los límites de direcciones y de códigos pasan a contarse por portal. Al final, los propietarios por población pierden CREATE sobre la base. Las migraciones comprueban fila a fila que nada se pierde ni cambia (salvo la columna nueva) y se detienen con 55000 si falta una decisión.
 
 `pruebas_sql/superficie_pg18.sh` siembra datos de la misma persona desde los dos portales, ensaya cada migración con ROLLBACK (la base queda idéntica, roles incluidos), provoca un fallo a mitad (tampoco deja rastro), migra y comprueba el reparto, que cada portal solo lee y escribe lo suyo, que un LOGIN no alcanza el esquema del otro, que las reaplicaciones y los DOWN se rechazan y que la historia sigue siendo de solo adición.
+
+## Correos e imagen del proceso externo
+
+El proceso externo monta las mismas operaciones propias con sus autoridades de
+ContextoActor y Autorización. El fichero privado
+`identidad/usuarios-preferencias-externa.json` conserva los campos de conexión,
+pero sus conexiones de autorización usan estos LOGIN y grupos exclusivos:
+
+| Campo | LOGIN | Grupo |
+| --- | --- | --- |
+| `dsn_fuente_autorizacion` | `vec_externo_usuarios_v3_fuente_autorizacion_desarrollo` | `vec_autorizacion_fuente_usuarios_externa` |
+| `dsn_registro_autorizacion` | `vec_externo_usuarios_v3_registro_autorizacion_desarrollo` | `vec_autorizacion_registro_usuarios_externo` |
+| `dsn_motivos` | `vec_externo_usuarios_v3_motivos_autorizacion_desarrollo` | `vec_autorizacion_motivos_usuarios_externos` |
+
+Cada LOGIN hereda únicamente su grupo, con `INHERIT TRUE`, `SET FALSE` y
+`ADMIN FALSE`. Todas las conexiones se cotejan con la instancia observada por
+el preflight externo. `dsn_contexto` usa el grupo
+`vec_contexto_actor_v1_usuarios_externo`, que resuelve y registra únicamente el
+perfil propio de Usuarios en el almacén externo. El perfil de Bolsa es distinto.
+
+El arranque y las peticiones no publican permisos. La provisión del contexto
+externo y la del perfil fijo de Usuarios son operaciones explícitas con huella
+del plan aprobado y preimagen CAS. Un contexto o perfil sin provisión vigente
+deniega la operación. Reiniciar el proceso no restablece una concesión revocada.
+
+La lista causal de esta pieza es
+`deploy/principal/lista_sql_trabajo_codexb_usuarios_externo_20260930.txt`, después
+de la separación por superficie y las dependencias de ContextoActor del portal
+externo. Las migraciones ya instaladas no se repiten ni se revierten.
+
+Los correos nuevos se cifran exclusivamente con el material del proceso
+externo. Si quedan referencias a claves compartidas, el preflight rechaza el
+arranque de la capacidad; el proceso no carga la clave anterior ni descifra ese
+historial. Su conversión requiere una herramienta de operación aparte. El
+canal de avisos entre procesos también es una pieza posterior: el proceso
+interno debe pedir el envío mediante referencias opacas y nunca recibir la
+dirección o la clave externa. Este montaje no acredita todavía ese canal ni
+la recuperación de correos históricos.
