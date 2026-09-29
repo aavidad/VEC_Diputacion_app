@@ -36,6 +36,7 @@ export function fusionarEstadoFirmas(circuito, estado) {
       pasos: Object.freeze(documento.pasos.map((paso, i) => Object.freeze({
         ...paso, estado: real.pasos[i].estado, motivo_devolucion: real.pasos[i].motivo_devolucion ?? "",
         registrada_en: real.pasos[i].registrada_en ?? "",
+        documento_custodiado: real.pasos[i].documento_custodiado ?? null,
       }))),
     }));
   }

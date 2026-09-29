@@ -357,6 +357,14 @@
   font-weight: 600;
 }
 
+.ct-fase-firma-firmado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  grid-column: 1 / -1;
+}
+
 .ct-fase-firma-estado::before {
   width: 8px;
   height: 8px;

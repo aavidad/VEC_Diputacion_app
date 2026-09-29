@@ -390,3 +390,58 @@ test("sin el campo portafirmas el circuito vale y Firmadoc cuenta como no conect
   assert.deepEqual({ ...valido.portafirmas }, { conectado: false, motivo: "conexion_pendiente" });
   assert.equal(validarCircuitoFirma(circuito()).portafirmas.conectado, false);
 });
+
+test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en lenguaje llano", async () => {
+  const ref = "expediente:ct:001";
+  const estado = { vista: "expediente", carga: "listo", expediente_ref: ref,
+    expediente: { expediente_ref: ref, version: 7, demostracion: false }, cuadro: { demostracion: false, expedientes: [] } };
+  const aviso = { textContent: "" };
+  let bloque = null;
+  let manejar = null;
+  const fases = { insertAdjacentHTML: () => {
+    bloque = { querySelector: (s) => s === "[data-ct-firma-aviso]" ? aviso : null,
+      addEventListener: (tipo, f) => { if (tipo === "click") manejar = f; } };
+  } };
+  const raiz = { querySelector: (s) => s === ".ct-exp-progreso" ? fases : s === "[data-ct-circuito-firma]" ? bloque : null };
+  const pedidas = [];
+  let fallo = null;
+  const crearDocumentos = ({ expedienteRef }) => ({
+    async descargar(documento, { version, mime, huella }) {
+      pedidas.push({ expedienteRef, documento, version, mime, huella });
+      if (fallo) throw fallo;
+      return { contenido: new Uint8Array([37, 80, 68, 70]), nombre: "documento-ref.pdf", tipo: "application/pdf" };
+    },
+  });
+  const enlaces = [];
+  const entornoDescarga = {
+    Blob, URL: { createObjectURL: () => "blob:x", revokeObjectURL() {} },
+    document: { body: { append(e) { enlaces.push(e); } }, createElement: () => ({ click() { this.pulsado = true; }, remove() {} }) },
+  };
+  const gestor = crearGestorCircuitoFirma({ cargarTextos: cargarTextosPrueba, raiz, obtenerEstado: () => estado,
+    cliente: { obtenerCircuitoConEstado: async () => ({ estado: "no_disponible" }) }, crearDocumentos, entornoDescarga });
+  gestor.montarSiProcede(estado);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(typeof manejar, "function");
+  const boton = {
+    disabled: false,
+    dataset: { ctDescargarFirmado: "", ctFirmadoExpediente: `ref:${"e".repeat(64)}`, ctFirmadoDocumento: `ref:${"d".repeat(64)}`,
+      ctFirmadoVersion: "1", ctFirmadoHuella: "1".repeat(64) },
+    closest: (s) => s === "[data-ct-descargar-firmado]" ? boton : s === "[data-ct-circuito-firma]" ? bloque : null,
+  };
+  const pulsar = async () => { manejar({ target: boton }); for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); };
+  await pulsar();
+  assert.deepEqual(pedidas[0], { expedienteRef: `ref:${"e".repeat(64)}`, documento: `ref:${"d".repeat(64)}`, version: 1,
+    mime: "application/pdf", huella: "1".repeat(64) });
+  assert.equal(enlaces[0]?.download, "documento-ref.pdf");
+  assert.equal(enlaces[0]?.pulsado, true);
+  assert.match(aviso.textContent, /PDF firmado descargado: documento-ref\.pdf/u);
+  assert.equal(boton.disabled, false);
+  fallo = Object.assign(new Error("denegado"), { codigo: "denegado", estado: 403 });
+  await pulsar();
+  assert.match(aviso.textContent, /No tiene permiso/u);
+  fallo = Object.assign(new Error("consulta_fallida"), { codigo: "consulta_fallida", estado: 503 });
+  await pulsar();
+  assert.match(aviso.textContent, /No se ha podido descargar el PDF firmado/u);
+  assert.doesNotMatch(aviso.textContent, /503|consulta_fallida/u);
+  gestor.retirar();
+});
