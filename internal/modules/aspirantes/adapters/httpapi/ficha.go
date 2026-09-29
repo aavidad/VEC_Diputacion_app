@@ -100,50 +100,75 @@ func esJSON(valor string) bool {
 		(len(parametros) == 0 || strings.EqualFold(parametros["charset"], "utf-8"))
 }
 
+var errJSONNoAdmitido = errors.New("aspirantes: json no admitido")
+
 // sinClavesDuplicadas rechaza `{"a":1,"a":2}`, que Go aceptaría quedándose
-// con el último valor.
+// con el último valor, y anidamientos de más de cuatro niveles.
 func sinClavesDuplicadas(b []byte) bool {
-	d := json.NewDecoder(bytes.NewReader(b))
-	var leer func(profundidad int) bool
-	leer = func(profundidad int) bool {
-		if profundidad > 4 {
-			return false
-		}
-		t, err := d.Token()
-		if err != nil {
-			return false
-		}
-		delim, ok := t.(json.Delim)
-		if !ok {
-			return true
-		}
-		switch delim {
-		case '{':
-			vistas := map[string]bool{}
-			for d.More() {
-				clave, err := d.Token()
-				texto, esTexto := clave.(string)
-				if err != nil || !esTexto || vistas[texto] {
-					return false
-				}
-				vistas[texto] = true
-				if !leer(profundidad + 1) {
-					return false
-				}
-			}
-		case '[':
-			for d.More() {
-				if !leer(profundidad + 1) {
-					return false
-				}
-			}
-		default:
-			return false
-		}
-		cierre, err := d.Token()
-		return err == nil && (cierre == json.Delim('}') || cierre == json.Delim(']'))
+	return validarJSONSinDuplicados(json.NewDecoder(bytes.NewReader(b))) == nil
+}
+
+// validarJSONSinDuplicados exige un único valor JSON sin claves repetidas.
+func validarJSONSinDuplicados(d *json.Decoder) error {
+	if err := leerValorJSON(d, 0); err != nil {
+		return err
 	}
-	return leer(0) && func() bool { _, err := d.Token(); return err == io.EOF }()
+	_, err := d.Token()
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return errJSONNoAdmitido
+}
+
+func leerValorJSON(d *json.Decoder, profundidad int) error {
+	if profundidad > 4 {
+		return errJSONNoAdmitido
+	}
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+	delim, ok := t.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delim {
+	case '{':
+		vistas := map[string]bool{}
+		for d.More() {
+			clave, err := d.Token()
+			if err != nil {
+				return err
+			}
+			texto, esTexto := clave.(string)
+			if !esTexto || vistas[texto] {
+				return errJSONNoAdmitido
+			}
+			vistas[texto] = true
+			if err := leerValorJSON(d, profundidad+1); err != nil {
+				return err
+			}
+		}
+	case '[':
+		for d.More() {
+			if err := leerValorJSON(d, profundidad+1); err != nil {
+				return err
+			}
+		}
+	default:
+		return errJSONNoAdmitido
+	}
+	cierre, err := d.Token()
+	if err != nil {
+		return err
+	}
+	if cierre != json.Delim('}') && cierre != json.Delim(']') {
+		return errJSONNoAdmitido
+	}
+	return nil
 }
 
 func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
