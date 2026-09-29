@@ -59,7 +59,7 @@
   "areaPersonal.miBolsa.llamamiento.resultado": "Outcome",
   "areaPersonal.miBolsa.llamamiento.enviado": "Sent",
   "areaPersonal.miBolsa.llamamiento.no_enviado": "Not sent",
-  "areaPersonal.miBolsa.llamamiento.limite": "The sending outcome does not establish receipt, a response or an approved deadline.",
+  "areaPersonal.miBolsa.llamamiento.limite": "An email being sent does not mean it has arrived or that there is a reply yet.",
   "areaPersonal.miBolsa.llamamiento.sinDato": "No email call-ups are recorded for these participations.",
   "areaPersonal.miBolsa.llamamiento.bolsa": "Pool",
   "areaPersonal.contacto.titulo": "Contact details",
@@ -135,10 +135,10 @@
   "areaPersonal.miBolsa.historial.cargando": "Loading authorised history…",
   "areaPersonal.miBolsa.historial.vacio": "No actions are recorded in your VEC history.",
   "areaPersonal.miBolsa.historial.sinCampos": "The service has not enabled history details for this identity.",
-  "areaPersonal.miBolsa.historial.error": "The history could not be loaded. No data is shown on this page.",
+  "areaPersonal.miBolsa.historial.error": "Your history is not available yet. You can check again later.",
   "areaPersonal.miBolsa.historial.autenticacion": "Identify yourself again to view your history.",
   "areaPersonal.miBolsa.historial.denegado": "You do not have permission to view this history.",
-  "areaPersonal.miBolsa.historial.reintentar": "Retry",
+  "areaPersonal.miBolsa.historial.reintentar": "Check again",
   "areaPersonal.miBolsa.historial.anterior": "Previous",
   "areaPersonal.miBolsa.historial.siguiente": "Next",
   "areaPersonal.miBolsa.historial.pagina": "Page {pagina}",
@@ -163,7 +163,7 @@
   "areaPersonal.miBolsa.historial.modo": "Handling",
   "areaPersonal.miBolsa.historial.firme": "Recorded directly in the pool",
   "areaPersonal.miBolsa.historial.propuesta_rrhh": "Awaiting Human Resources confirmation",
-  "areaPersonal.miBolsa.historial.limite": "Only VEC actions are shown. A sent email does not establish receipt; a recorded decision to decline does not establish a resolution in Temporary Recruitment; a reported start of employment does not establish a signed contract or any employment history from before VEC.",
+  "areaPersonal.miBolsa.historial.limite": "Only what is recorded in VEC appears here. A sent email may not have arrived, and a recorded decline or start of work may still be waiting for HR to resolve it.",
   "areaPersonal.rutas.oportunidades": "Opportunities for you",
   "areaPersonal.estado.error.autenticacion.titulo": "Identify yourself to view your pool",
   "areaPersonal.estado.error.autenticacion.detalle": "Use your electronic identity card or digital certificate to continue.",
@@ -223,5 +223,6 @@
   "areaPersonal.preferencias.atajo.textoActivo": "Larger text size for this session.",
   "areaPersonal.preferencias.atajo.textoInactivo": "Normal text size for this session.",
   "areaPersonal.preferencias.atajo.contrasteActivo": "High contrast turned on for this session.",
-  "areaPersonal.preferencias.atajo.contrasteInactivo": "High contrast turned off for this session."
+  "areaPersonal.preferencias.atajo.contrasteInactivo": "High contrast turned off for this session.",
+  "areaPersonal.miBolsa.categoriaSinNombre": "Unnamed category"
 }
