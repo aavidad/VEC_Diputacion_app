@@ -87,8 +87,8 @@ export const MENSAJES_TEXTOS_VISTAS_ES = Object.freeze({
   ct_txt_si: "Sí",
   ct_txt_sin_retencion_de_credito_aportada: "Sin retención de crédito aportada",
   ct_txt_totales: "TOTALES",
-  ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum: "Últimas 50 peticiones visibles para Recursos Humanos.",
-  ct_txt_ultimas_50_peticiones_visibles_para_su_identidad: "Últimas 50 peticiones visibles para su identidad.",
+  ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum: "Se muestran las 50 peticiones más recientes.",
+  ct_txt_ultimas_50_peticiones_visibles_para_su_identidad: "Se muestran sus 50 peticiones más recientes.",
   ct_txt_validacion_manual: "Validación manual",
 });
 
@@ -180,7 +180,7 @@ export const MENSAJES_TEXTOS_VISTAS_EN = Object.freeze({
   ct_txt_si: "Yes",
   ct_txt_sin_retencion_de_credito_aportada: "No reservation of budgetary credit provided",
   ct_txt_totales: "TOTALS",
-  ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum: "Latest 50 requests visible to Human Resources.",
-  ct_txt_ultimas_50_peticiones_visibles_para_su_identidad: "Latest 50 requests visible to your identity.",
+  ct_txt_ultimas_50_peticiones_visibles_para_recursos_hum: "Showing the 50 most recent requests.",
+  ct_txt_ultimas_50_peticiones_visibles_para_su_identidad: "Showing your 50 most recent requests.",
   ct_txt_validacion_manual: "Manual validation",
 });

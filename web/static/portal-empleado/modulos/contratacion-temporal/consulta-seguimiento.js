@@ -4,8 +4,9 @@ import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-i
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
 
-// Este listener usa certificado TLS personal. El navegador presenta el
-// certificado aunque fetch omita las credenciales web de ambiente.
+// Este listener usa certificado TLS personal. La petición va con credenciales
+// de mismo origen para que el proxy de pruebas con usuario y contraseña la deje
+// pasar; el servidor sigue sin aceptar credenciales de navegador.
 export function crearClienteConsultaSeguimientoInterno(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new TypeError("transporte de consulta no disponible");
   const fetchSinCredencialesWeb = (ruta, opciones) => {
@@ -17,7 +18,7 @@ export function crearClienteConsultaSeguimientoInterno(fetchImpl = globalThis.fe
     if ([...cabeceras.keys()].some((nombre) => nombre !== "accept")) {
       throw new TypeError("cabeceras de consulta interna no permitidas");
     }
-    return fetchImpl(ruta, { ...opciones, credentials: "omit" });
+    return fetchImpl(ruta, { ...opciones, credentials: "same-origin" });
   };
   return crearClienteHTTPContratacionTemporal({ fetchImpl: fetchSinCredencialesWeb }).seguimientoIncorporacion;
 }

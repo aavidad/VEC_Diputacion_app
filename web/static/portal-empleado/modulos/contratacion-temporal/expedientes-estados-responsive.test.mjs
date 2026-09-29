@@ -271,7 +271,7 @@ test("un expediente con incidencia explica su origen y ofrece atajos", () => {
   assert.match(html, /<blockquote class="ct-exp-incidencia-reparo">Falta justificar el coste\.<\/blockquote>/u);
   assert.match(html, /Subsanación de la unidad:<\/strong> Justificación aportada\./u);
   assert.match(html, /Incidencia en «Fiscalización»/u);
-  assert.match(html, /Origen: Fiscalización registrada, 17 sept 2026 \(actuación 6\)/u);
+  assert.match(html, /Origen: Fiscalización registrada, 17 sept 2026\./u);
   assert.match(html, /registró la subsanación \(17 sept 2026\)/u);
   assert.match(html, /data-ct-exp-accion="abrir-historial"/u);
   assert.match(html, /data-ct-exp-vista="documentos"/u);

@@ -52,7 +52,7 @@ test("la vista distingue carga, vacío, campos ocultos, error y página; escapa 
   assert.match(html, /Propuesta pendiente de RRHH/u);
   assert.match(html, /Auxiliar &lt;sanitario&gt;/u);
   assert.doesNotMatch(html, /Auxiliar <sanitario>|bolsa:prueba:1|candidato_ref|Firmado/u);
-  assert.match(html, /no acredita contrato firmado ni historia laboral anterior a VEC/u);
+  assert.match(html, /pendiente de que RRHH la resuelva/u);
 });
 
 test("al salir cancela la lectura y una respuesta tardía no cambia otra vista", async () => {
