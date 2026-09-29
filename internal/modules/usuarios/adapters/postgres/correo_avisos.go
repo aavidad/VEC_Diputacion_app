@@ -12,10 +12,13 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-const leerCorreoAvisosSQL = `SELECT vec_usuarios.correo_activo_avisos_llamamiento_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+// La lectura vive en una fachada propia del esquema de correos del Área
+// personal (Usuarios 000010): el LOGIN interno solo alcanza esa función.
+const leerCorreoAvisosSQL = `SELECT vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
 // El pool de avisos usa el LOGIN ejecutor interno de Usuarios: sólo hereda ese
-// grupo, puede ejecutar la lectura de avisos y no puede leer las tablas.
+// grupo, puede ejecutar la lectura de avisos y no alcanza ni las tablas ni el
+// esquema de correos del Área personal.
 const acreditarEjecutorCorreoAvisosSQL = `SELECT session_user=current_user
  AND l.rolcanlogin AND l.rolinherit AND NOT l.rolsuper AND NOT l.rolcreatedb
  AND NOT l.rolcreaterole AND NOT l.rolreplication AND NOT l.rolbypassrls
@@ -25,8 +28,9 @@ const acreditarEjecutorCorreoAvisosSQL = `SELECT session_user=current_user
    AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)
  AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=l.oid)=1
  AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m WHERE m.member=g.oid)
- AND pg_catalog.has_function_privilege(session_user,'vec_usuarios.correo_activo_avisos_llamamiento_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- AND NOT pg_catalog.has_table_privilege(session_user,'vec_usuarios.correos_direccion','SELECT')
+ AND pg_catalog.has_function_privilege(session_user,'vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ AND NOT pg_catalog.has_table_privilege(session_user,'vec_usuarios_correos_externo.correos_direccion','SELECT')
+ AND NOT pg_catalog.has_schema_privilege(session_user,'vec_usuarios_correos_externo','USAGE')
  FROM pg_catalog.pg_roles l JOIN pg_catalog.pg_roles g ON g.rolname='vec_usuarios_ejecutor_interno'
  WHERE l.rolname=session_user`
 
