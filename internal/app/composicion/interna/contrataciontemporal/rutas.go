@@ -29,6 +29,7 @@ type DependenciasRutas struct {
 	Presentador                     httpinterno.PresentadorPropuestaCobertura
 	Decisor                         httpinterno.EjecutorDecisionCobertura
 	ConsultorResultado              httpinterno.ConsultorResultadoCobertura
+	ConsultorPreparacionVigente     httpinterno.ConsultorPreparacionCoberturaVigente
 	ConsultorCuadroRRHH             httpinterno.ConsultorCuadroRRHH
 	ConsultorDetalleRRHH            httpinterno.ConsultorDetalleRRHH
 	ConsultorOriginalPropuestaRRHH  httpinterno.ConsultorDetalleRRHH
@@ -77,6 +78,15 @@ func NuevasRutas(
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
+	}
+	var preparacionVigente http.Handler
+	if dependencias.ConsultorPreparacionVigente != nil {
+		preparacionVigente, err = httpinterno.NuevoManejadorPreparacionCoberturaVigente(
+			dependencias.AutoridadCobertura, dependencias.ConsultorPreparacionVigente,
+		)
+		if err != nil {
+			return nil, ErrRutasContratacionTemporalInvalidas
+		}
 	}
 	analisis, err := httpinterno.NuevoManejadorAnalisisRRHH(
 		dependencias.AutoridadAnalisis,
@@ -252,6 +262,11 @@ func NuevasRutas(
 			Ruta:      httpinterno.RutaReasignaciones,
 			Manejador: asignacion,
 		},
+	}
+	if preparacionVigente != nil {
+		rutas = append(rutas, httpapi.RutaExacta{
+			Ruta: httpinterno.RutaPreparacionCoberturaVigente, Manejador: preparacionVigente,
+		})
 	}
 	if subsanacion != nil {
 		rutas = append(rutas, httpapi.RutaExacta{

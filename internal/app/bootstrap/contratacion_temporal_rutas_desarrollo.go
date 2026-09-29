@@ -34,6 +34,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		bolsapersonal.EsRutaPortal(r.URL.Path) ||
 		r.URL.Path == httpinterno.RutaAltaSolicitudes ||
 		r.URL.Path == httpinterno.RutaPropuestaCobertura ||
+		r.URL.Path == httpinterno.RutaPreparacionCoberturaVigente ||
 		r.URL.Path == httpinterno.RutaDecisionCobertura ||
 		r.URL.Path == httpinterno.RutaRectificacionCobertura ||
 		r.URL.Path == httpinterno.RutaResultadoCobertura ||
