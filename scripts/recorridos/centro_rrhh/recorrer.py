@@ -281,6 +281,7 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
     evidencia = Evidencia(getattr(args, "evidencias", None))
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+        paginas = {}
         try:
             contextos = {rol: contexto(browser, origen, getattr(args, f"cert_{rol}"),
                                       getattr(args, f"clave_{rol}"))
