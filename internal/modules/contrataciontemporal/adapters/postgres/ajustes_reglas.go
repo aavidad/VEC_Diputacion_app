@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/reglas"
@@ -73,7 +74,10 @@ func (c *ConsultaAjustesReglasPostgreSQL) AjustesVigentesEn(ctx context.Context,
 	if errors.Is(err, pgx.ErrNoRows) {
 		return vacio, false, nil
 	}
-	if err != nil || version < 1 || version > maximoVersionAjustesCT || desde.IsZero() || desde.After(instante) ||
+	if err != nil {
+		return vacio, false, normalizarErrorConsultaAjustesReglasCT(err)
+	}
+	if version < 1 || version > maximoVersionAjustesCT || desde.IsZero() || desde.After(instante) ||
 		len(canonico) == 0 || len(canonico) > maximoCanonicoAjustesCT || len(huella) != 64 {
 		return vacio, false, reglas.ErrAjustesNoDisponibles
 	}
@@ -99,4 +103,12 @@ func (c *ConsultaAjustesReglasPostgreSQL) AjustesVigentesEn(ctx context.Context,
 		VigenteDesde: desde,
 		Ajustes:      ajustes,
 	}, true, nil
+}
+
+func normalizarErrorConsultaAjustesReglasCT(err error) error {
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) && (pg.Code == "55P03" || pg.Code == "40001") {
+		return reglas.ErrAjustesConflicto
+	}
+	return reglas.ErrAjustesNoDisponibles
 }

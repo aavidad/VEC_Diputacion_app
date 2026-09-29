@@ -3,11 +3,13 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -18,9 +20,13 @@ type filaAjustesReglasPrueba struct {
 	canonico string
 	desde    time.Time
 	err      error
+	cancelar context.CancelFunc
 }
 
 func (f filaAjustesReglasPrueba) Scan(dest ...any) error {
+	if f.cancelar != nil {
+		f.cancelar()
+	}
 	if f.err != nil {
 		return f.err
 	}
@@ -29,6 +35,44 @@ func (f filaAjustesReglasPrueba) Scan(dest ...any) error {
 	*dest[2].(*string) = f.canonico
 	*dest[3].(*time.Time) = f.desde
 	return nil
+}
+
+func TestConsultaAjustesReglasCTConflictosSQLNominales(t *testing.T) {
+	instante := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	for _, codigo := range []string{"55P03", "40001"} {
+		t.Run(codigo, func(t *testing.T) {
+			causa := fmt.Errorf("dsn-prueba: %w", &pgconn.PgError{Code: codigo, Message: "detalle privado"})
+			proveedor := &consultadorAjustesReglasPrueba{t: t, instante: instante, fila: filaAjustesReglasPrueba{err: causa}}
+			consulta, err := nuevaConsultaAjustesReglasPostgreSQL(proveedor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			version, encontrada, err := consulta.AjustesVigentesEn(t.Context(), catalogoAjustesCT, instante)
+			if encontrada || version.CatalogoID != "" || version.Version != 0 || version.HuellaSHA256 != "" ||
+				!version.VigenteDesde.IsZero() || version.Ajustes != nil || proveedor.consultas != 1 ||
+				!errors.Is(err, reglas.ErrAjustesConflicto) || errors.Is(err, reglas.ErrAjustesNoDisponibles) ||
+				strings.Contains(err.Error(), "dsn-prueba") || strings.Contains(err.Error(), "detalle privado") {
+				t.Fatalf("conflicto SQL expuesto o mal clasificado: %+v, encontrada=%v, err=%v", version, encontrada, err)
+			}
+		})
+	}
+}
+
+func TestConsultaAjustesReglasCTCancelacionPrecedeConflictoSQL(t *testing.T) {
+	instante := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	ctx, cancelar := context.WithCancel(t.Context())
+	defer cancelar()
+	proveedor := &consultadorAjustesReglasPrueba{t: t, instante: instante, fila: filaAjustesReglasPrueba{
+		err: &pgconn.PgError{Code: "55P03"}, cancelar: cancelar,
+	}}
+	consulta, err := nuevaConsultaAjustesReglasPostgreSQL(proveedor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, encontrada, err := consulta.AjustesVigentesEn(ctx, catalogoAjustesCT, instante)
+	if encontrada || !errors.Is(err, context.Canceled) || errors.Is(err, reglas.ErrAjustesConflicto) {
+		t.Fatalf("cancelación perdió precedencia: %v", err)
+	}
 }
 
 type consultadorAjustesReglasPrueba struct {
