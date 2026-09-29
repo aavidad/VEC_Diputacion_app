@@ -5,8 +5,8 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
 
 // Este listener usa certificado TLS personal. La petición va con credenciales
-// de mismo origen para que un proxy de pruebas con usuario y contraseña la deje
-// pasar; el servidor sigue rechazando Cookie y el proxy retira Authorization.
+// de mismo origen para que el proxy de pruebas con usuario y contraseña la deje
+// pasar; el servidor sigue sin aceptar credenciales de navegador.
 export function crearClienteConsultaSeguimientoInterno(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new TypeError("transporte de consulta no disponible");
   const fetchSinCredencialesWeb = (ruta, opciones) => {
