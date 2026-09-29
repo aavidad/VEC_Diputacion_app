@@ -31,6 +31,11 @@ ratificador y RRHH. Chrome debe confiar en la CA del servidor mediante el
 almacén de confianza del sistema. Nunca copie certificados, claves, DSN o
 datos personales al repositorio.
 
+El navegador solo acepta respuestas del origen indicado. Inspecciona cada
+respuesta sin seguir redirecciones y bloquea cualquier 3xx; las consultas y
+replays directos aplican el mismo límite. La prueba focal incluye un 302 hacia
+otro puerto local y exige que el servidor de destino reciba cero peticiones.
+
 El ejecutable indicado en `--reinicio` reinicia **solo** la aplicación y
 PostgreSQL de ese clon. Debe terminar cuando ambos vuelvan a estar disponibles.
 Su salida se descarta para evitar datos privados en el registro. El guion lo

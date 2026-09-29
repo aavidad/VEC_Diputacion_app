@@ -124,6 +124,29 @@ def datos_api(respuesta, ruta: str, metodo: str = "GET") -> dict:
     return cuerpo["data"]
 
 
+def mismo_origen(url: str, origen: str) -> bool:
+    try:
+        destino, permitido = urlparse(url), urlparse(origen)
+        return (destino.scheme == permitido.scheme and destino.hostname == permitido.hostname
+                and destino.port == permitido.port and not destino.username and not destino.password)
+    except ValueError:
+        return False
+
+
+def interceptar_ruta(ruta, origen: str) -> None:
+    if not mismo_origen(ruta.request.url, origen):
+        ruta.abort()
+        return
+    try:
+        respuesta = ruta.fetch(max_redirects=0)
+        if not mismo_origen(respuesta.url, origen) or 300 <= respuesta.status < 400:
+            ruta.abort()
+            return
+        ruta.fulfill(response=respuesta)
+    except Exception:
+        ruta.abort()
+
+
 def contexto(browser, origen: str, cert: str, clave: str):
     # Playwright usa Chrome del sistema. El certificado se limita al origen local.
     ctx = browser.new_context(
@@ -133,8 +156,7 @@ def contexto(browser, origen: str, cert: str, clave: str):
         ignore_https_errors=False,
         service_workers="block",
     )
-    ctx.route("**/*", lambda ruta: ruta.continue_() if ruta.request.url.startswith(origen + "/")
-              else ruta.abort())
+    ctx.route("**/*", lambda ruta: interceptar_ruta(ruta, origen))
     return ctx
 
 
@@ -237,7 +259,7 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             alta_rrhh = datos(r, RUTA_RRHH, "POST")
             recibo_inicial = verificar_entrega(alta_rrhh, peticion)
             cuerpo_replay = {"peticion_ref": peticion, "version_esperada": 2}
-            replay = contextos["rrhh"].request.post(origen + RUTA_RRHH, data=cuerpo_replay)
+            replay = contextos["rrhh"].request.post(origen + RUTA_RRHH, data=cuerpo_replay, max_redirects=0)
             recibo_replay = verificar_entrega(datos_api(replay, RUTA_RRHH, "POST"), peticion)
             if recibo_replay != recibo_inicial:
                 raise AssertionError("replay con recibo distinto o expediente duplicado")
@@ -245,19 +267,19 @@ def recorrer(args: argparse.Namespace, origen: str) -> None:
             # El hook es externo y solo debe reiniciar los dos procesos del clon.
             subprocess.run([args.reinicio], check=True, timeout=120,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            lectura = contextos["rrhh"].request.get(origen + RUTA_RRHH)
+            lectura = contextos["rrhh"].request.get(origen + RUTA_RRHH, max_redirects=0)
             filas = datos_api(lectura, RUTA_RRHH)["peticiones"]
             coincidencias = [x for x in filas if x.get("peticion", {}).get("referencia") == peticion]
             if len(coincidencias) != 1 or verificar_entrega(coincidencias[0], peticion) != recibo_inicial:
                 raise AssertionError("la recuperación tras reinicio no conserva una entrega y su recibo")
-            replay = contextos["rrhh"].request.post(origen + RUTA_RRHH, data=cuerpo_replay)
+            replay = contextos["rrhh"].request.post(origen + RUTA_RRHH, data=cuerpo_replay, max_redirects=0)
             if verificar_entrega(datos_api(replay, RUTA_RRHH, "POST"), peticion) != recibo_inicial:
                 raise AssertionError("replay tras reinicio distinto del recibo original")
             for rol, comando, esperado, version, estado, actor in (
                 ("solicitante", comando_sol, recibo_sol, 1, "pendiente_ratificacion", actor_sol["referencia"]),
                 ("ratificador", comando_rat, recibo_rat, 2, "ratificada", actor_rat["referencia"]),
             ):
-                respuesta = contextos[rol].request.post(origen + RUTA_OPERACIONES, data=comando)
+                respuesta = contextos[rol].request.post(origen + RUTA_OPERACIONES, data=comando, max_redirects=0)
                 recibido = datos_api(respuesta, RUTA_OPERACIONES, "POST")
                 if (verificar_recibo_centro(recibido, peticion, version, estado, actor) != esperado
                         or recibido.get("estado_local") != "replay_confirmado"):

@@ -1,9 +1,15 @@
-"""Prueba focal sin navegador ni servicios; nunca crea una petición."""
+"""Pruebas con datos sintéticos; no acceden a VEC ni crean peticiones."""
 
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 
-from recorrer import NoEjecutado, origen_local, preflight, verificar_entrega, verificar_recibo_centro
+from recorrer import (
+    NoEjecutado, interceptar_ruta, origen_local, preflight,
+    verificar_entrega, verificar_recibo_centro,
+)
 
 
 class RecorridoCentroTest(unittest.TestCase):
@@ -34,6 +40,57 @@ class RecorridoCentroTest(unittest.TestCase):
         self.assertEqual(original, verificar_entrega(entrega, "peticion:centro:uno"))
         entrega["recibo_alta"]["expediente_ref"] = "expediente:dos"
         self.assertNotEqual(original, verificar_entrega(entrega, "peticion:centro:uno"))
+
+    @unittest.skipUnless(Path("/usr/bin/google-chrome").is_file(), "falta Chrome del sistema")
+    def test_302_a_otro_puerto_no_llega_al_destino(self):
+        from playwright.sync_api import Error, sync_playwright
+
+        contador = {"destino": 0}
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                contador["destino"] += 1
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"destino")
+
+            def log_message(self, *_args):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+        puerto_destino = destino.server_port
+
+        class Origen(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{puerto_destino}/contador")
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        origen = ThreadingHTTPServer(("127.0.0.1", 0), Origen)
+        hilos = [threading.Thread(target=s.serve_forever, daemon=True) for s in (destino, origen)]
+        for hilo in hilos:
+            hilo.start()
+        try:
+            permitido = f"http://127.0.0.1:{origen.server_port}"
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+                try:
+                    contexto = browser.new_context(service_workers="block")
+                    contexto.route("**/*", lambda ruta: interceptar_ruta(ruta, permitido))
+                    with self.assertRaises(Error):
+                        contexto.new_page().goto(permitido + "/salto", wait_until="domcontentloaded")
+                    self.assertEqual(contador["destino"], 0)
+                finally:
+                    browser.close()
+        finally:
+            for servidor in (origen, destino):
+                servidor.shutdown()
+                servidor.server_close()
+            for hilo in hilos:
+                hilo.join(timeout=2)
 
 
 if __name__ == "__main__":
