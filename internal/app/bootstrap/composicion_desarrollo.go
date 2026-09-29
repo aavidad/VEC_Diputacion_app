@@ -13,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
+	"vec-diputacion-granada/internal/app/separacionportales"
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -235,6 +236,15 @@ func nuevoServidorDesarrollo(
 	cfg = cfg.Normalize()
 	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
 		return nil, nil, err
+	}
+	// Antes de leer material o abrir conexiones: un proceso separado no
+	// arranca con credenciales ni claves del otro portal.
+	portal, err := comprobarSeparacionPortalProceso(cfg, entornoProcesoActual())
+	if err != nil {
+		return nil, nil, err
+	}
+	if portal == separacionportales.PortalExterno {
+		return nil, nil, ErrComposicionPortalExternoPendiente
 	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {

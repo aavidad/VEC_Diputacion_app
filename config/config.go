@@ -121,6 +121,7 @@ type Config struct {
 	ExecutionProfile                            string
 	DevelopmentGuard                            string
 	DevelopmentMaterialDir                      string
+	PortalProceso                               string
 	IncorporacionV2File                         string
 	ContratacionTemporalSubsanacionPoliticaFile string
 	CTAnalisisMotivosSourcePath                 string
@@ -215,6 +216,7 @@ func Load() Config {
 		ExecutionProfile:       envFirst(EnvExecutionProfile),
 		DevelopmentGuard:       envFirst(EnvDevelopmentGuard),
 		DevelopmentMaterialDir: envFirst(EnvDevelopmentMaterialDir),
+		PortalProceso:          os.Getenv(EnvPortalProceso),
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
 		CTAnalisisMotivosSourcePath:                 envFirst(EnvCTAnalisisMotivosSourcePath),
