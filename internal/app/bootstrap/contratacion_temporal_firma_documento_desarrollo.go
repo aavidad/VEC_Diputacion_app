@@ -134,14 +134,15 @@ func nuevaFirmaDocumentoCTDesarrollo(cfg config.Config, alta *dependenciasAltaCo
 	return &firmaDocumentoCTDesarrollo{alta: alta, registro: registro, reloj: reloj, fiscalizacion: fiscalizacion}, nil
 }
 
-// ResolverOrganizacionFirmaDocumento solo responde dentro de la frontera mTLS
-// de CT y para las dos rutas de firma.
+// ResolverOrganizacionFirmaDocumento solo habilita el registro dentro de la
+// frontera mTLS de CT. La consulta permanece cerrada hasta disponer de una
+// autorización nominal de lectura por expediente y auditoría de acceso.
 func (f *firmaDocumentoCTDesarrollo) ResolverOrganizacionFirmaDocumento(ctx context.Context) (string, error) {
 	if f == nil || f.alta == nil || f.alta.soporte == nil || ctx == nil {
 		return "", ports.ErrAutorizacionDenegada
 	}
 	capacidad, valida := f.alta.soporte.capacidadValida(ctx)
-	if !valida || !rutaFirmaDocumentoCTDesarrollo(capacidad.ruta) {
+	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento {
 		return "", ports.ErrAutorizacionDenegada
 	}
 	return organizacionAltaContratacionTemporalDesarrollo, nil

@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -90,5 +92,41 @@ func TestFirmaDocumentoCTRutasYConsumidor(t *testing.T) {
 	}
 	if dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivoFirmaDocumentoCTDesarrollo()) == false {
 		t.Fatal("motivo de firma inválido")
+	}
+}
+
+type servicioFirmaConsultaCerradaPrueba struct{ consultas int }
+
+func (*servicioFirmaConsultaCerradaPrueba) Firmar(context.Context, ctapplication.SolicitudFirmaDocumento) (ctapplication.ResultadoFirmaDocumento, error) {
+	return ctapplication.ResultadoFirmaDocumento{}, ports.ErrFirmaDocumentoDenegada
+}
+
+func (s *servicioFirmaConsultaCerradaPrueba) Consultar(context.Context, string, string) (ctapplication.EstadoFirmasExpediente, error) {
+	s.consultas++
+	return ctapplication.EstadoFirmasExpediente{}, nil
+}
+
+func (*servicioFirmaConsultaCerradaPrueba) VerificacionDisponible() bool { return false }
+
+func TestFirmaDocumentoCTConsultaCerradaAntesDeLeerRegistro(t *testing.T) {
+	soporte, _, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	firma := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte}}
+	registro := &servicioFirmaConsultaCerradaPrueba{}
+	h, err := httpinterno.NuevoManejadorFirmaDocumento(firma, registro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peticion := httptest.NewRequest(http.MethodPost, httpinterno.RutaConsultaFirmaDocumento,
+		strings.NewReader(`{"expediente_ref":"expediente:ct:001"}`))
+	peticion.Header.Set("Content-Type", "application/json")
+	peticion = peticion.WithContext(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaConsultaFirmaDocumento))
+	respuesta := httptest.NewRecorder()
+	h.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusForbidden || !strings.Contains(respuesta.Body.String(), `"codigo":"acceso_denegado"`) || registro.consultas != 0 {
+		t.Fatalf("consulta sin autoridad nominal: estado=%d cuerpo=%s lecturas=%d", respuesta.Code, respuesta.Body, registro.consultas)
+	}
+	organizacion, err := firma.ResolverOrganizacionFirmaDocumento(contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaFirmaDocumento))
+	if err != nil || organizacion != organizacionAltaContratacionTemporalDesarrollo {
+		t.Fatalf("registro de firma nominal cerrado por error: organizacion=%q error=%v", organizacion, err)
 	}
 }
