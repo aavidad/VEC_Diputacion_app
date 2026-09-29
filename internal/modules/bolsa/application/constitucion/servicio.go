@@ -72,34 +72,75 @@ type FilaVinculoCandidato struct {
 
 // DerivarFilasVinculo reutiliza el derivador vigente sin recrear la
 // constitución ni leer datos de otro módulo. El lote procede del recuperador
-// que descifra y verifica la atestación del staging de CONVOCA.
-func DerivarFilasVinculo(lote importacion.LoteValidado, derivador DerivadorCandidato) ([]FilaVinculoCandidato, error) {
+// que descifra y verifica la atestación del staging de CONVOCA. Las filas que
+// comparten referencia con otra fila del acta no se devuelven para vincular:
+// salen como pendientes de revisión, porque fundirlas uniría a dos personas.
+func DerivarFilasVinculo(lote importacion.LoteValidado, derivador DerivadorCandidato) ([]FilaVinculoCandidato, []ports.FilaPendienteRevision, error) {
 	if derivador == nil || lote.Validar() != nil || lote.Acta.Esquema != importacion.EsquemaResumenPersona {
-		return nil, ports.ErrConstitucionBolsaInvalida
+		return nil, nil, ports.ErrConstitucionBolsaInvalida
 	}
-	filas := make([]FilaVinculoCandidato, 0, len(lote.Aceptadas))
+	if len(lote.Aceptadas) == 0 {
+		return nil, nil, ErrActaSinFilasAceptadas
+	}
 	for _, fila := range lote.Aceptadas {
 		if fila.Resumen == nil || fila.Numero <= 0 {
-			return nil, ports.ErrConstitucionBolsaInvalida
+			return nil, nil, ports.ErrConstitucionBolsaInvalida
+		}
+	}
+	referencias, pendientes, err := referenciasCandidato(lote.Aceptadas, derivador)
+	if err != nil {
+		return nil, nil, err
+	}
+	filas := make([]FilaVinculoCandidato, 0, len(referencias))
+	for _, fila := range lote.Aceptadas {
+		if ref, vinculable := referencias[fila.Numero]; vinculable {
+			filas = append(filas, FilaVinculoCandidato{FilaNumero: fila.Numero, CandidatoRef: ref})
+		}
+	}
+	return filas, pendientes, nil
+}
+
+// referenciasCandidato deriva la referencia `can_*` de cada fila y aparta las
+// que coinciden con la de otra fila del mismo acta. Esas filas no se vinculan
+// a nadie: con cuatro dígitos del documento y el nombre no se puede saber si
+// son dos personas o la misma, y el vínculo no admite inventar la respuesta.
+// Devuelve las referencias vinculables por número de fila y las pendientes
+// ordenadas por número de fila.
+func referenciasCandidato(filas []importacion.FilaAceptada, derivador DerivadorCandidato) (map[int]string, []ports.FilaPendienteRevision, error) {
+	referencias := make(map[int]string, len(filas))
+	filasPorReferencia := make(map[string][]int, len(filas))
+	for _, fila := range filas {
+		if _, repetida := referencias[fila.Numero]; repetida {
+			return nil, nil, ports.ErrConstitucionBolsaInvalida
 		}
 		ref, err := derivador.CandidatoRef(fila.Identidad)
 		if err != nil {
-			return nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+			return nil, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
 		}
-		filas = append(filas, FilaVinculoCandidato{FilaNumero: fila.Numero, CandidatoRef: ref})
+		referencias[fila.Numero] = ref
+		filasPorReferencia[ref] = append(filasPorReferencia[ref], fila.Numero)
 	}
-	if len(filas) == 0 {
-		return nil, ErrActaSinFilasAceptadas
+	pendientes := make([]ports.FilaPendienteRevision, 0)
+	for _, numeros := range filasPorReferencia {
+		if len(numeros) < 2 {
+			continue
+		}
+		for _, numero := range numeros {
+			delete(referencias, numero)
+			pendientes = append(pendientes, ports.FilaPendienteRevision{FilaNumero: numero, Motivo: ports.MotivoRevisionIdentidadAmbigua})
+		}
 	}
-	return filas, nil
+	sort.Slice(pendientes, func(i, j int) bool { return pendientes[i].FilaNumero < pendientes[j].FilaNumero })
+	return referencias, pendientes, nil
 }
 
 // Constituir construye la bolsa y su instantánea desde las filas aceptadas del
 // acta (orden: Total descendente, empate por apellidos y nombre), la persiste
-// y registra el vínculo `can_* → participación` de cada fila. Como la
-// constitución es idempotente por acta y las referencias de participación son
-// deterministas, una nueva llamada sobre un acta ya constituida completa los
-// vínculos que falten.
+// y registra el vínculo `can_* → participación` de cada fila que no esté
+// pendiente de revisión. Todas las filas conservan su puesto; el recibo lista
+// las pendientes. Como la constitución es idempotente por acta y las
+// referencias de participación son deterministas, una nueva llamada sobre un
+// acta ya constituida completa los vínculos que falten.
 func (s *Servicio) Constituir(ctx context.Context, solicitud Solicitud) (ports.ReciboConstitucion, error) {
 	if ctx == nil || s == nil {
 		return ports.ReciboConstitucion{}, ErrDependenciasRequeridas
@@ -115,7 +156,7 @@ func (s *Servicio) Constituir(ctx context.Context, solicitud Solicitud) (ports.R
 		return ports.ReciboConstitucion{}, ErrActaNoEncontrada
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
-	constitucion, vinculos, err := construirConstitucion(lote, solicitud.ActorRef, ahora, s.derivador)
+	constitucion, vinculos, pendientes, err := construirConstitucion(lote, solicitud.ActorRef, ahora, s.derivador)
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
@@ -123,17 +164,20 @@ func (s *Servicio) Constituir(ctx context.Context, solicitud Solicitud) (ports.R
 	if err != nil {
 		return ports.ReciboConstitucion{}, err
 	}
-	recibo.Vinculos, err = s.repositorio.RegistrarVinculos(ctx, recibo.ActaRef, vinculos, ahora)
-	if err != nil {
-		return ports.ReciboConstitucion{}, err
+	if len(vinculos) > 0 {
+		recibo.Vinculos, err = s.repositorio.RegistrarVinculos(ctx, recibo.ActaRef, vinculos, ahora)
+		if err != nil {
+			return ports.ReciboConstitucion{}, err
+		}
 	}
+	recibo.PendientesRevision = pendientes
 	return recibo, nil
 }
 
-func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora time.Time, derivador DerivadorCandidato) (ports.Constitucion, []ports.VinculoCandidato, error) {
+func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora time.Time, derivador DerivadorCandidato) (ports.Constitucion, []ports.VinculoCandidato, []ports.FilaPendienteRevision, error) {
 	acta := lote.Acta
 	if acta.Esquema != importacion.EsquemaResumenPersona {
-		return ports.Constitucion{}, nil, ErrActaNoEsResumen
+		return ports.Constitucion{}, nil, nil, ErrActaNoEsResumen
 	}
 	filas := make([]importacion.FilaAceptada, 0, len(lote.Aceptadas))
 	for _, fila := range lote.Aceptadas {
@@ -142,8 +186,13 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		}
 	}
 	if len(filas) == 0 {
-		return ports.Constitucion{}, nil, ErrActaSinFilasAceptadas
+		return ports.Constitucion{}, nil, nil, ErrActaSinFilasAceptadas
 	}
+	referencias, pendientes, err := referenciasCandidato(filas, derivador)
+	if err != nil {
+		return ports.Constitucion{}, nil, nil, err
+	}
+	sujetos := semillasSujeto(filas)
 	sort.SliceStable(filas, func(i, j int) bool {
 		a, b := filas[i], filas[j]
 		ta, tb := puntuacion(a.Resumen.Total), puntuacion(b.Resumen.Total)
@@ -182,7 +231,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		VigenteDesde:              ahora,
 	}
 	if err := bolsa.Validar(); err != nil {
-		return ports.Constitucion{}, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+		return ports.Constitucion{}, nil, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
 	}
 	entradas := make([]dominio.EntradaOrdenBolsa, 0, len(filas))
 	vinculos := make([]ports.EntradaConstitucion, 0, len(filas))
@@ -192,7 +241,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 	for indice, fila := range filas {
 		orden := uint64(indice + 1)
 		participacionRef := "participacion:" + sufijoOpaco(bolsaRef+"|"+fila.Identidad.Documento+"|"+strconv.FormatUint(orden, 10))
-		sujetoRef := "sujeto:convoca:" + sufijoOpaco(fila.Identidad.Documento+"|"+fila.Identidad.PrimerApellido+"|"+fila.Identidad.SegundoApellido+"|"+fila.Identidad.Nombre)
+		sujetoRef := "sujeto:convoca:" + sufijoOpaco(sujetos[fila.Numero])
 		decisionRef := resolucionRef + ":" + strconv.FormatUint(orden, 10)
 		participacion := dominio.ParticipacionBolsa{
 			ParticipacionRef: participacionRef,
@@ -213,13 +262,11 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 				Desde:                ahora,
 			}},
 		}
-		candidatoRef, err := derivador.CandidatoRef(fila.Identidad)
-		if err != nil {
-			return ports.Constitucion{}, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
-		}
 		entradas = append(entradas, dominio.EntradaOrdenBolsa{Orden: orden, Participacion: participacion})
 		vinculos = append(vinculos, ports.EntradaConstitucion{Orden: orden, ParticipacionRef: participacionRef, FilaNumero: fila.Numero})
-		candidatos = append(candidatos, ports.VinculoCandidato{CandidatoRef: candidatoRef, ParticipacionRef: participacionRef})
+		if candidatoRef, vinculable := referencias[fila.Numero]; vinculable {
+			candidatos = append(candidatos, ports.VinculoCandidato{CandidatoRef: candidatoRef, ParticipacionRef: participacionRef})
+		}
 	}
 	instantanea, err := dominio.NuevaInstantaneaOrdenBolsa(dominio.AltaInstantaneaOrdenBolsa{
 		InstantaneaRef: "instantanea:constitucion:" + sufijoActa,
@@ -230,7 +277,7 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		Entradas:       entradas,
 	})
 	if err != nil {
-		return ports.Constitucion{}, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+		return ports.Constitucion{}, nil, nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
 	}
 	return ports.Constitucion{
 		ActaRef:      acta.ActaRef,
@@ -240,7 +287,30 @@ func construirConstitucion(lote importacion.LoteValidado, actorRef string, ahora
 		Instantanea:  instantanea,
 		Entradas:     vinculos,
 		ConfirmadaEn: ahora,
-	}, candidatos, nil
+	}, candidatos, pendientes, nil
+}
+
+// semillasSujeto devuelve la semilla de la referencia de sujeto de cada fila:
+// documento y nombre tal como vienen en el acta. Si dos filas traen
+// exactamente el mismo texto, esa semilla lleva además el número de fila, de
+// modo que cada puesto de la lista conserve una entrada propia en la
+// instantánea sin afirmar quién es cada persona (sus vínculos quedan
+// pendientes de revisión). Las filas sin repetición conservan la semilla
+// histórica y, con ella, las referencias ya emitidas.
+func semillasSujeto(filas []importacion.FilaAceptada) map[int]string {
+	semillas := make(map[int]string, len(filas))
+	repeticiones := make(map[string]int, len(filas))
+	for _, fila := range filas {
+		semilla := fila.Identidad.Documento + "|" + fila.Identidad.PrimerApellido + "|" + fila.Identidad.SegundoApellido + "|" + fila.Identidad.Nombre
+		semillas[fila.Numero] = semilla
+		repeticiones[semilla]++
+	}
+	for numero, semilla := range semillas {
+		if repeticiones[semilla] > 1 {
+			semillas[numero] = semilla + "|fila:" + strconv.Itoa(numero)
+		}
+	}
+	return semillas
 }
 
 // puntuacion interpreta el Total del resumen (decimal con punto) para ordenar;
