@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('clon_usuarios', Path(__file__).with_name('clon_usuarios.py'))
 users = importlib.util.module_from_spec(spec)
@@ -45,12 +46,30 @@ class UsersTests(unittest.TestCase):
         with self.assertRaises(users.UsersError):
             users.selected_go_functions(source, ['unknown'])
 
-    def test_successor_does_not_send_the_historical_H1_install_again(self):
-        source = Path(__file__).with_name('clon_usuarios.py').read_text()
-        successor = source[source.index('if (state / "usuarios-h4-result.json").exists():'):source.index('    env = json.loads(private(state / "runtime-config.json"))')]
-        self.assertIn('h4.provision(', successor)
-        self.assertIn('h4_ready=True', successor)
-        self.assertNotIn('PublicarInstantanea', successor)
+    def test_successor_revalidates_H4_without_running_H1_install(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            state.chmod(0o700)
+            (state / ('source-' + 'a' * 40)).mkdir()
+            identity = {'references_preserved': True, 'accounts': ['cta_internal', 'cta_external']}
+            for name, data in [('DB_READY.json', {'propietario': 'Codex-M', 'contenedor': 'fixture', 'puerto_pg': 55531, 'commit': 'a' * 40}),
+                               ('usuarios-result.json', identity), ('usuarios-h4-result.json', {'version': 1})]:
+                path = state / name
+                path.write_text(json.dumps(data))
+                path.chmod(0o600)
+            material = state / 'material'
+            (material / 'identidad').mkdir(parents=True)
+            for surface in ['interna', 'externa']:
+                path = material / 'identidad' / ('usuarios-preferencias-' + surface + '.json')
+                path.write_text(json.dumps({'cuentas': [{'sujeto': 'synthetic', 'certificado_sha256': 'dummy', 'cuenta_ref': 'cta_' + surface, 'perfil_ref': 'prf_' + surface}]}))
+                path.chmod(0o600)
+            (state / 'clon_material.py').write_text('def run(args): return b"[{}]"\ndef validate_container(info, port): pass\n')
+            (state / 'clon_usuarios_h4.py').write_text('def provision(repo, container, state, material, pg_port, engine):\n (state / "h4-checked").write_text("checked")\n return {"blockers":[]}\n')
+            with patch.object(users, '__file__', str(state / 'clon_usuarios.py')), patch.object(users.subprocess, 'run', side_effect=AssertionError('H1 must not execute')):
+                result = users.provision(state, 'fixture', state, material, 55531)
+            self.assertEqual((state / 'h4-checked').read_text(), 'checked')
+            self.assertEqual(result['blockers'], [])
+            self.assertEqual(result['profiles']['usuarios'], identity)
 
     def test_technical_logins_match_only_the_private_H1_contract(self):
         configs = {}
