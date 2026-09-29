@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	contrataciontemporal "vec-diputacion-granada/internal/modules/contrataciontemporal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -337,18 +339,6 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	}
 	lector := &autoridadPostgreSQLContratacionTemporalDesarrollo{pool: alta.postgresql.gobierno, soporte: puente}
 	puente.autoridadAsignaciones = lector
-	// Intervención usa su propio perfil como perfil fijo: la organización y
-	// los pares fase/estado del catálogo, sin expediente. Se publica una vez
-	// si falta; si lo vigente es el permiso por expediente de antes, la ruta
-	// se deniega hasta que el operador apruebe esa huella (provisión).
-	fijo := &perfilFijoCTDesarrollo{clave: operacionFaseFiscalizacionCT, contexto: contexto, plantilla: instantanea,
-		rutas: map[string]struct{}{httpinterno.RutaResultadosFiscalizacion: {}}, actoSesion: "acto:ct:desarrollo:sesion:v1",
-		propioDelSoporte: true}
-	rolIntervencion := instantanea.VersionRol.RolID
-	admitida := func(publicada instantaneaPublicadaDesarrollo, instante time.Time) bool {
-		return preimagenPropiaPerfilFijoCTDesarrollo(fijo, actoAsignacionPerfilFijoCTDesarrollo, actoAsignacionCTDesarrollo)(publicada, instante) &&
-			publicada.instantanea.VersionRol.RolID == rolIntervencion
-	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelar()
 	if publicarContextoPostgreSQLContratacionTemporalDesarrollo(
@@ -358,7 +348,8 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 	) != nil {
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
-	if _, err := asegurarPerfilFijoCTDesarrollo(ctx, alta.postgresql.gobierno, puente, fijo, aprobacion, admitida); err != nil {
+	fijo, err := componerPerfilFijoIntervencionCTDesarrollo(ctx, alta.postgresql.gobierno, puente, instantanea, aprobacion)
+	if err != nil {
 		return nil, nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
 	}
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
@@ -407,6 +398,37 @@ func nuevoSoporteFiscalizacionContratacionTemporalDesarrollo(
 		soporte:  soporte,
 	}
 	return soporte, autorizador, nil
+}
+
+// componerPerfilFijoIntervencionCTDesarrollo convierte el propio perfil de
+// Intervención en perfil fijo: la plantilla (organización y pares fase/estado
+// del catálogo, sin expediente) se publica una vez si falta. Si lo vigente es
+// el permiso por expediente de antes, la ruta se deniega hasta que el
+// operador apruebe esa huella exacta; entonces se sustituye por CAS. Una
+// asignación revocada, restringida por otro acto o con otro rol nunca se
+// toca.
+func componerPerfilFijoIntervencionCTDesarrollo(
+	ctx context.Context, pool *pgxpool.Pool, puente *soporteAltaContratacionTemporalDesarrollo,
+	plantilla dominiovec.InstantaneaAutorizacion, aprobacion aprobacionProvisionPerfilesRRHHDesarrollo,
+) (*perfilFijoCTDesarrollo, error) {
+	if puente == nil || pool == nil || plantilla.Validar() != nil {
+		return nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
+	}
+	fijo := &perfilFijoCTDesarrollo{clave: operacionFaseFiscalizacionCT, contexto: puente.contexto, plantilla: plantilla,
+		rutas: map[string]struct{}{httpinterno.RutaResultadosFiscalizacion: {}}, actoSesion: "acto:ct:desarrollo:sesion:v1",
+		propioDelSoporte: true}
+	if fijo.perfilRef() != puente.contexto.Resultado.Contexto.PerfilActivoRef {
+		return nil, errFiscalizacionContratacionTemporalDesarrolloNoDisponible
+	}
+	rolIntervencion := plantilla.VersionRol.RolID
+	admitida := func(publicada instantaneaPublicadaDesarrollo, instante time.Time) bool {
+		return preimagenPropiaPerfilFijoCTDesarrollo(fijo, actoAsignacionPerfilFijoCTDesarrollo, actoAsignacionCTDesarrollo)(publicada, instante) &&
+			publicada.instantanea.VersionRol.RolID == rolIntervencion
+	}
+	if _, err := asegurarPerfilFijoCTDesarrollo(ctx, pool, puente, fijo, aprobacion, admitida); err != nil {
+		return nil, err
+	}
+	return fijo, nil
 }
 
 func (s *soporteFiscalizacionContratacionTemporalDesarrollo) capacidadValida(

@@ -292,3 +292,78 @@ func TestLectorRRHHPasaAPerfilFijoConProvisionPostgreSQL(t *testing.T) {
 		t.Fatal("se consumió un lector revocado")
 	}
 }
+
+// Intervención pasa a perfil fijo: con el permiso por expediente del binario
+// anterior vigente, el arranque no escribe y la ruta se deniega; con la
+// aprobación de esa huella exacta se sustituye por CAS; y revocado, ni con
+// aprobación vuelve.
+func TestIntervencionPasaAPerfilFijoConProvisionPostgreSQL(t *testing.T) {
+	ctx, gobierno, admin := poolesPerfilDinamicoRRHHPostgreSQLPrueba(t)
+	s := soporteRRHHPostgreSQLPrueba(t, ctx, gobierno)
+	v, err := s.contexto.Vinculo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fase := fasesOperacionPredeterminadasCT()[operacionFaseFiscalizacionCT]
+	plantilla, err := nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef,
+		time.Now().UTC().Truncate(time.Microsecond), fase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Estado del binario anterior: el rol de Intervención con el expediente.
+	anterior := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(plantilla)
+	anterior.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{
+		{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+		{Clave: "expediente_ref", Valores: []string{"expediente:intervencion:previo"}},
+		{Clave: "fase_previa", Valores: []string{"informe_juridico"}},
+		{Clave: "estado_previo", Valores: []string{"en_curso"}},
+	}
+	s.instantanea = anterior
+	if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, gobierno, s); err != nil {
+		t.Fatal(err)
+	}
+	antes := historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef)
+	if antes.versiones != 1 || antes.acto != actoAsignacionCTDesarrollo {
+		t.Fatalf("estado anterior inesperado: %+v", antes)
+	}
+	fijo, err := componerPerfilFijoIntervencionCTDesarrollo(ctx, gobierno, s, plantilla, aprobacionProvisionPerfilesRRHHDesarrollo{})
+	if err != nil {
+		t.Fatalf("sin aprobación el arranque se detuvo: %v", err)
+	}
+	if historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef) != antes {
+		t.Fatal("sin aprobación se escribió")
+	}
+	if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, fijo); ok {
+		t.Fatal("se consumió el permiso por expediente")
+	}
+	aprobacion := aprobacionProvisionPerfilesRRHHDesarrollo{referencia: "aprobacion:prueba:intervencion",
+		preimagenes: map[string]bool{huellaVigentePrueba(t, ctx, gobierno, fijo): true}}
+	if fijo, err = componerPerfilFijoIntervencionCTDesarrollo(ctx, gobierno, s, plantilla, aprobacion); err != nil {
+		t.Fatal(err)
+	}
+	if h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef); h.versiones != antes.versiones+1 || h.acto != actoAsignacionPerfilFijoCTDesarrollo {
+		t.Fatalf("la provisión de Intervención no se aplicó: %+v", h)
+	}
+	if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, fijo); !ok {
+		t.Fatal("Intervención no consume su perfil fijo")
+	}
+	// Rearrancar con la misma aprobación no escribe.
+	provisionada := historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef)
+	if _, err := componerPerfilFijoIntervencionCTDesarrollo(ctx, gobierno, s, plantilla, aprobacion); err != nil ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef) != provisionada {
+		t.Fatalf("el rearranque escribió: %v", err)
+	}
+	revocarPerfilFijoPrueba(t, ctx, gobierno, fijo, false)
+	cerrada := historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef)
+	revocada := aprobacionProvisionPerfilesRRHHDesarrollo{referencia: "aprobacion:prueba:intervencion",
+		preimagenes: map[string]bool{huellaVigentePrueba(t, ctx, gobierno, fijo): true}}
+	if _, err := componerPerfilFijoIntervencionCTDesarrollo(ctx, gobierno, s, plantilla, revocada); err != nil {
+		t.Fatal(err)
+	}
+	if historiaPerfilPostgreSQLPrueba(t, ctx, admin, v.PerfilActivoRef) != cerrada {
+		t.Fatal("la provisión reactivó una Intervención revocada")
+	}
+	if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, fijo); ok {
+		t.Fatal("se consumió una Intervención revocada")
+	}
+}
