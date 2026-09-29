@@ -80,6 +80,8 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "portal-empleado/portal-i18n-intentos.js",
   "portal-empleado/portal-i18n-textos.js",
   "portal-empleado/portal-i18n.js",
+  // Exporta nombres heredados *_ES/EN para portal-i18n.js; los mensajes se leen de JSON.
+  "portal-empleado/portal-preferencias-i18n.js",
   "portal-empleado/portal-modulos-coordinador.js",
   "portal-empleado/portal-panel-interno-i18n.js",
   "portal-empleado/portal-referencias-i18n.js",

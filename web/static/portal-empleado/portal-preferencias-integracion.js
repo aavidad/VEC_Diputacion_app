@@ -1,6 +1,6 @@
 import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-pref-508a-v1";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
-import { resolverIdiomaNavegacion } from "../comun/idioma.js";
+import { IDIOMAS_DISPONIBLES, resolverIdiomaNavegacion } from "../comun/idioma.js";
 
 /** Adapta la autoridad de Usuarios al shell RRHH sin replicar su tema ni guardar datos locales. */
 export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, estado, renderizar,
@@ -31,7 +31,7 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     sinIdioma.searchParams.delete("lang");
     const idioma = resolverIdiomaNavegacion({ ubicacion: sinIdioma,
       idiomaPreferido: valores.idioma, navegador: ventana.navigator });
-    if (solicitado === "es" || solicitado === "en") {
+    if (IDIOMAS_DISPONIBLES.some(({ codigo }) => codigo === solicitado)) {
       // La URL se usa en esta carga; si coincide con la preferencia resuelta,
       // retirarla evita que bloquee un cambio guardado en una carga futura.
       if (solicitado === idioma) ventana.history.replaceState(null, "", sinIdioma.href);

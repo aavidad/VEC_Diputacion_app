@@ -50,65 +50,95 @@
     "preferencias_atajo_texto_inactivo": "Normal text size for this session.",
     "preferencias_atajo_contraste_activo": "High contrast enabled for this session.",
     "preferencias_atajo_contraste_inactivo": "High contrast disabled for this session.",
-    "ui.usuarios.preferencias.idioma.navegador": "Browser",
-    "ui.usuarios.preferencias.idioma.es": "Spanish",
-    "ui.usuarios.preferencias.idioma.en": "English",
-    "ui.usuarios.preferencias.tamano_texto.normal": "Normal",
-    "ui.usuarios.preferencias.tamano_texto.grande": "Large",
-    "ui.usuarios.preferencias.tamano_texto.muy_grande": "Very large",
-    "ui.usuarios.preferencias.tema.sistema": "System",
-    "ui.usuarios.preferencias.tema.claro": "Light",
-    "ui.usuarios.preferencias.tema.oscuro": "Dark",
-    "ui.usuarios.preferencias.inicio.cuadro": "Dashboard",
-    "ui.usuarios.preferencias.inicio.peticiones": "Temporary staff requests",
-    "ui.usuarios.preferencias.inicio.bolsas": "Job pools"
+    "ui": {
+      "usuarios": {
+        "preferencias": {
+          "idioma": {
+            "navegador": "Browser",
+            "es": "Spanish",
+            "en": "English"
+          },
+          "tamano_texto": {
+            "normal": "Normal",
+            "grande": "Large",
+            "muy_grande": "Very large"
+          },
+          "tema": {
+            "sistema": "System",
+            "claro": "Light",
+            "oscuro": "Dark"
+          },
+          "inicio": {
+            "cuadro": "Dashboard",
+            "peticiones": "Temporary staff requests",
+            "bolsas": "Job pools"
+          }
+        }
+      }
+    }
   },
   "areaPersonal": {
-    "areaPersonal.preferencias.titulo": "My preferences",
-    "areaPersonal.preferencias.subtitulo": "Personal options stored by the authorised service",
-    "areaPersonal.preferencias.sinDatos": "Your preferences could not be retrieved. No value is shown as saved.",
-    "areaPersonal.preferencias.recargar": "Refresh from service",
-    "areaPersonal.preferencias.guardar": "Save preferences",
-    "areaPersonal.preferencias.guardando": "Saving…",
-    "areaPersonal.preferencias.guardado": "Preferences saved. Receipt: {recibo}.",
-    "areaPersonal.preferencias.incierto": "The outcome could not be confirmed. You may repeat this exact operation with the same key; no different request will be sent.",
-    "areaPersonal.preferencias.reintentarExacto": "Retry this operation",
-    "areaPersonal.preferencias.inicioAjeno": "The selected start page belongs to another area or is not authorised here. The safe Personal Area home page opens. This choice does not grant access.",
-    "areaPersonal.preferencias.avisosLimite": "Email alerts are preferences stored here; they do not establish that an email was sent or delivered. Row count applies only to compatible local lists.",
-    "areaPersonal.preferencias.ayudaAbrir": "Show help about preferences",
-    "areaPersonal.preferencias.ayuda": "A language in the URL takes priority for this visit only. Otherwise your saved choice is used, then the browser language. High contrast takes priority over the colour theme. The start page does not change your permissions. A receipt confirms saving these options, not sending alerts.",
-    "areaPersonal.preferencias.campo.idioma": "Language",
-    "areaPersonal.preferencias.campo.tamano_texto": "Text size",
-    "areaPersonal.preferencias.campo.alto_contraste": "High contrast",
-    "areaPersonal.preferencias.campo.tema": "Colour theme",
-    "areaPersonal.preferencias.campo.inicio": "Preferred start page",
-    "areaPersonal.preferencias.campo.filas": "Rows per page",
-    "areaPersonal.preferencias.campo.aviso_correo_tareas": "Email alerts for tasks",
-    "areaPersonal.preferencias.campo.aviso_correo_plazos": "Email alerts for deadlines",
-    "areaPersonal.preferencias.opcion.idioma.navegador": "Browser language",
-    "areaPersonal.preferencias.opcion.idioma.es": "Spanish",
-    "areaPersonal.preferencias.opcion.idioma.en": "English",
-    "areaPersonal.preferencias.opcion.tamano_texto.normal": "Normal",
-    "areaPersonal.preferencias.opcion.tamano_texto.grande": "Large",
-    "areaPersonal.preferencias.opcion.tamano_texto.muy_grande": "Very large",
-    "areaPersonal.preferencias.opcion.tema.sistema": "Use system setting",
-    "areaPersonal.preferencias.opcion.tema.claro": "Light",
-    "areaPersonal.preferencias.opcion.tema.oscuro": "Dark",
-    "areaPersonal.preferencias.opcion.inicio.cuadro": "Dashboard",
-    "areaPersonal.preferencias.opcion.inicio.peticiones": "Requests",
-    "areaPersonal.preferencias.opcion.inicio.bolsas": "Pools",
-    "areaPersonal.preferencias.error.autenticacion": "Your identification has expired. Identify yourself again to view or save preferences.",
-    "areaPersonal.preferencias.error.denegado": "You do not have permission to view or save your preferences.",
-    "areaPersonal.preferencias.error.conflicto": "The preferences or catalogue have changed. Refresh before saving again.",
-    "areaPersonal.preferencias.error.validacion": "Check the options: the service rejected a value.",
-    "areaPersonal.preferencias.error.servicio": "The preferences service is unavailable. The outcome of the last attempt cannot be confirmed.",
-    "areaPersonal.preferencias.error.respuesta": "The service returned an incompatible response. No change is confirmed.",
-    "areaPersonal.preferencias.abrirTexto": "Open text size preferences",
-    "areaPersonal.preferencias.abrirContraste": "Open contrast preferences",
-    "areaPersonal.preferencias.menuIdentidad": "Open identity menu",
-    "areaPersonal.preferencias.textoCorto": "Text ",
-    "areaPersonal.preferencias.contrasteCorto": "Contrast",
-    "areaPersonal.preferencias.identidadServicio": "Identity verified by the Users service",
-    "areaPersonal.preferencias.identidadNoConfirmada": "Identity not confirmed by the preferences service"
+    "preferencias": {
+      "titulo": "My preferences",
+      "subtitulo": "Personal options stored by the authorised service",
+      "sinDatos": "Your preferences could not be retrieved. No value is shown as saved.",
+      "recargar": "Refresh from service",
+      "guardar": "Save preferences",
+      "guardando": "Saving…",
+      "guardado": "Preferences saved. Receipt: {recibo}.",
+      "incierto": "The outcome could not be confirmed. You may repeat this exact operation with the same key; no different request will be sent.",
+      "reintentarExacto": "Retry this operation",
+      "inicioAjeno": "The selected start page belongs to another area or is not authorised here. The safe Personal Area home page opens. This choice does not grant access.",
+      "avisosLimite": "Email alerts are preferences stored here; they do not establish that an email was sent or delivered. Row count applies only to compatible local lists.",
+      "ayudaAbrir": "Show help about preferences",
+      "ayuda": "A language in the URL takes priority for this visit only. Otherwise your saved choice is used, then the browser language. High contrast takes priority over the colour theme. The start page does not change your permissions. A receipt confirms saving these options, not sending alerts.",
+      "campo": {
+        "idioma": "Language",
+        "tamano_texto": "Text size",
+        "alto_contraste": "High contrast",
+        "tema": "Colour theme",
+        "inicio": "Preferred start page",
+        "filas": "Rows per page",
+        "aviso_correo_tareas": "Email alerts for tasks",
+        "aviso_correo_plazos": "Email alerts for deadlines"
+      },
+      "opcion": {
+        "idioma": {
+          "navegador": "Browser language",
+          "es": "Spanish",
+          "en": "English"
+        },
+        "tamano_texto": {
+          "normal": "Normal",
+          "grande": "Large",
+          "muy_grande": "Very large"
+        },
+        "tema": {
+          "sistema": "Use system setting",
+          "claro": "Light",
+          "oscuro": "Dark"
+        },
+        "inicio": {
+          "cuadro": "Dashboard",
+          "peticiones": "Requests",
+          "bolsas": "Pools"
+        }
+      },
+      "error": {
+        "autenticacion": "Your identification has expired. Identify yourself again to view or save preferences.",
+        "denegado": "You do not have permission to view or save your preferences.",
+        "conflicto": "The preferences or catalogue have changed. Refresh before saving again.",
+        "validacion": "Check the options: the service rejected a value.",
+        "servicio": "The preferences service is unavailable. The outcome of the last attempt cannot be confirmed.",
+        "respuesta": "The service returned an incompatible response. No change is confirmed."
+      },
+      "abrirTexto": "Open text size preferences",
+      "abrirContraste": "Open contrast preferences",
+      "menuIdentidad": "Open identity menu",
+      "textoCorto": "Text ",
+      "contrasteCorto": "Contrast",
+      "identidadServicio": "Identity verified by the Users service",
+      "identidadNoConfirmada": "Identity not confirmed by the preferences service"
+    }
   }
 }

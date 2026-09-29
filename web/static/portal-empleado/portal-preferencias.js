@@ -4,12 +4,6 @@ import { traducirPortal } from "./portal-i18n.js?v=20260929-pref-508a-v1";
 const CAMPOS_SELECT = Object.freeze({ idioma: "idiomas", tamano_texto: "tamanos_texto", tema: "temas", inicio: "inicios", filas: "filas" });
 const AYUDAS = Object.freeze({ idioma: "idioma", tamano_texto: "tamano", alto_contraste: "contraste", tema: "tema", inicio: "inicio", filas: "filas", aviso_correo_tareas: "correo_tareas", aviso_correo_plazos: "correo_plazos" });
 const ETIQUETAS = Object.freeze({ idioma: "idioma", tamano_texto: "tamano", alto_contraste: "contraste", tema: "tema", inicio: "inicio", filas: "filas", aviso_correo_tareas: "correo_tareas", aviso_correo_plazos: "correo_plazos" });
-const ETIQUETAS_CATALOGO = Object.freeze({
-  idioma: Object.freeze({ navegador: "ui.usuarios.preferencias.idioma.navegador", es: "ui.usuarios.preferencias.idioma.es", en: "ui.usuarios.preferencias.idioma.en" }),
-  tamano_texto: Object.freeze({ normal: "ui.usuarios.preferencias.tamano_texto.normal", grande: "ui.usuarios.preferencias.tamano_texto.grande", muy_grande: "ui.usuarios.preferencias.tamano_texto.muy_grande" }),
-  tema: Object.freeze({ sistema: "ui.usuarios.preferencias.tema.sistema", claro: "ui.usuarios.preferencias.tema.claro", oscuro: "ui.usuarios.preferencias.tema.oscuro" }),
-  inicio: Object.freeze({ cuadro: "ui.usuarios.preferencias.inicio.cuadro", peticiones: "ui.usuarios.preferencias.inicio.peticiones", bolsas: "ui.usuarios.preferencias.inicio.bolsas" }),
-});
 function escapar(valor) { return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function t(clave, variables) { return traducirPortal(clave, variables); }
 function ayuda(campo) {
@@ -20,8 +14,7 @@ function campoSelect(campo, catalogo, valor) {
   const opciones = catalogo[CAMPOS_SELECT[campo]];
   return `<div class="pref-campo"><div class="pref-etiqueta"><label for="pref-${campo}">${escapar(t(`preferencias_${ETIQUETAS[campo]}`))}</label>${ayuda(campo)}</div><select id="pref-${campo}" name="${campo}" required>${opciones.map((opcion) => {
     const codigo = campo === "filas" ? opcion : opcion.codigo;
-    const clave = ETIQUETAS_CATALOGO[campo]?.[codigo];
-    const texto = campo === "filas" ? String(codigo) : clave ? t(clave) : String(codigo);
+    const texto = campo === "filas" ? String(codigo) : t(`ui.usuarios.preferencias.${campo}.${codigo}`);
     return `<option value="${escapar(codigo)}"${codigo === valor ? " selected" : ""}>${escapar(texto)}</option>`;
   }).join("")}</select></div>`;
 }

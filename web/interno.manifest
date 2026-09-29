@@ -6,6 +6,8 @@ static/comun/iconos-vec.js
 static/comun/idioma.js
 static/comun/textos.js
 static/textos/idiomas.json
+static/textos/es/preferencias.json
+static/textos/en/preferencias.json
 static/textos/es/cronos.json
 static/textos/en/cronos.json
 static/comun/tema-vec.js

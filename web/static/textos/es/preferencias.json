@@ -50,65 +50,95 @@
     "preferencias_atajo_texto_inactivo": "Tamaño de texto normal para esta sesión.",
     "preferencias_atajo_contraste_activo": "Alto contraste activado para esta sesión.",
     "preferencias_atajo_contraste_inactivo": "Alto contraste desactivado para esta sesión.",
-    "ui.usuarios.preferencias.idioma.navegador": "Navegador",
-    "ui.usuarios.preferencias.idioma.es": "Español",
-    "ui.usuarios.preferencias.idioma.en": "Inglés",
-    "ui.usuarios.preferencias.tamano_texto.normal": "Normal",
-    "ui.usuarios.preferencias.tamano_texto.grande": "Grande",
-    "ui.usuarios.preferencias.tamano_texto.muy_grande": "Muy grande",
-    "ui.usuarios.preferencias.tema.sistema": "Sistema",
-    "ui.usuarios.preferencias.tema.claro": "Claro",
-    "ui.usuarios.preferencias.tema.oscuro": "Oscuro",
-    "ui.usuarios.preferencias.inicio.cuadro": "Cuadro de mando",
-    "ui.usuarios.preferencias.inicio.peticiones": "Peticiones de personal temporal",
-    "ui.usuarios.preferencias.inicio.bolsas": "Bolsas de trabajo"
+    "ui": {
+      "usuarios": {
+        "preferencias": {
+          "idioma": {
+            "navegador": "Navegador",
+            "es": "Español",
+            "en": "Inglés"
+          },
+          "tamano_texto": {
+            "normal": "Normal",
+            "grande": "Grande",
+            "muy_grande": "Muy grande"
+          },
+          "tema": {
+            "sistema": "Sistema",
+            "claro": "Claro",
+            "oscuro": "Oscuro"
+          },
+          "inicio": {
+            "cuadro": "Cuadro de mando",
+            "peticiones": "Peticiones de personal temporal",
+            "bolsas": "Bolsas de trabajo"
+          }
+        }
+      }
+    }
   },
   "areaPersonal": {
-    "areaPersonal.preferencias.titulo": "Mis preferencias",
-    "areaPersonal.preferencias.subtitulo": "Opciones personales guardadas por el servicio autorizado",
-    "areaPersonal.preferencias.sinDatos": "No se pudieron consultar sus preferencias. No se muestra ningún valor como guardado.",
-    "areaPersonal.preferencias.recargar": "Actualizar desde el servicio",
-    "areaPersonal.preferencias.guardar": "Guardar preferencias",
-    "areaPersonal.preferencias.guardando": "Guardando…",
-    "areaPersonal.preferencias.guardado": "Preferencias guardadas. Recibo: {recibo}.",
-    "areaPersonal.preferencias.incierto": "No se pudo confirmar el resultado. Puede repetir exactamente esta operación con la misma clave; no se enviará otra distinta.",
-    "areaPersonal.preferencias.reintentarExacto": "Reintentar esta operación",
-    "areaPersonal.preferencias.inicioAjeno": "El inicio elegido pertenece a otra superficie o no está autorizado aquí. Se abre el inicio seguro del Área personal. Esta elección no concede acceso.",
-    "areaPersonal.preferencias.avisosLimite": "Las elecciones de avisos se guardan aquí; no acreditan que se haya enviado ni entregado correo. El número de filas solo se aplica a listas locales compatibles.",
-    "areaPersonal.preferencias.ayudaAbrir": "Mostrar ayuda sobre preferencias",
-    "areaPersonal.preferencias.ayuda": "El idioma de la URL prevalece solo en esta navegación. Sin idioma en la URL se usa su elección guardada y después el navegador. El alto contraste prevalece sobre el tema. El inicio no cambia sus permisos. Un recibo confirma el guardado de estas opciones, no el envío de avisos.",
-    "areaPersonal.preferencias.campo.idioma": "Idioma",
-    "areaPersonal.preferencias.campo.tamano_texto": "Tamaño del texto",
-    "areaPersonal.preferencias.campo.alto_contraste": "Alto contraste",
-    "areaPersonal.preferencias.campo.tema": "Tema de color",
-    "areaPersonal.preferencias.campo.inicio": "Inicio preferido",
-    "areaPersonal.preferencias.campo.filas": "Filas por página",
-    "areaPersonal.preferencias.campo.aviso_correo_tareas": "Avisos por correo de tareas",
-    "areaPersonal.preferencias.campo.aviso_correo_plazos": "Avisos por correo de plazos",
-    "areaPersonal.preferencias.opcion.idioma.navegador": "Idioma del navegador",
-    "areaPersonal.preferencias.opcion.idioma.es": "Castellano",
-    "areaPersonal.preferencias.opcion.idioma.en": "Inglés",
-    "areaPersonal.preferencias.opcion.tamano_texto.normal": "Normal",
-    "areaPersonal.preferencias.opcion.tamano_texto.grande": "Grande",
-    "areaPersonal.preferencias.opcion.tamano_texto.muy_grande": "Muy grande",
-    "areaPersonal.preferencias.opcion.tema.sistema": "Según el sistema",
-    "areaPersonal.preferencias.opcion.tema.claro": "Claro",
-    "areaPersonal.preferencias.opcion.tema.oscuro": "Oscuro",
-    "areaPersonal.preferencias.opcion.inicio.cuadro": "Cuadro de inicio",
-    "areaPersonal.preferencias.opcion.inicio.peticiones": "Peticiones",
-    "areaPersonal.preferencias.opcion.inicio.bolsas": "Bolsas",
-    "areaPersonal.preferencias.error.autenticacion": "La identificación ha caducado. Identifíquese de nuevo para consultar o guardar preferencias.",
-    "areaPersonal.preferencias.error.denegado": "No dispone de permiso para consultar o guardar sus preferencias.",
-    "areaPersonal.preferencias.error.conflicto": "Las preferencias o el catálogo han cambiado. Actualice los datos antes de guardar de nuevo.",
-    "areaPersonal.preferencias.error.validacion": "Revise las opciones: el servicio ha rechazado algún valor.",
-    "areaPersonal.preferencias.error.servicio": "El servicio de preferencias no está disponible. No se puede confirmar el resultado del último intento.",
-    "areaPersonal.preferencias.error.respuesta": "El servicio devolvió una respuesta incompatible. No se confirma ningún cambio.",
-    "areaPersonal.preferencias.abrirTexto": "Abrir preferencias de tamaño del texto",
-    "areaPersonal.preferencias.abrirContraste": "Abrir preferencias de contraste",
-    "areaPersonal.preferencias.menuIdentidad": "Abrir menú de identidad",
-    "areaPersonal.preferencias.textoCorto": "Texto ",
-    "areaPersonal.preferencias.contrasteCorto": "Contraste",
-    "areaPersonal.preferencias.identidadServicio": "Identidad comprobada por el servicio de Usuarios",
-    "areaPersonal.preferencias.identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias"
+    "preferencias": {
+      "titulo": "Mis preferencias",
+      "subtitulo": "Opciones personales guardadas por el servicio autorizado",
+      "sinDatos": "No se pudieron consultar sus preferencias. No se muestra ningún valor como guardado.",
+      "recargar": "Actualizar desde el servicio",
+      "guardar": "Guardar preferencias",
+      "guardando": "Guardando…",
+      "guardado": "Preferencias guardadas. Recibo: {recibo}.",
+      "incierto": "No se pudo confirmar el resultado. Puede repetir exactamente esta operación con la misma clave; no se enviará otra distinta.",
+      "reintentarExacto": "Reintentar esta operación",
+      "inicioAjeno": "El inicio elegido pertenece a otra superficie o no está autorizado aquí. Se abre el inicio seguro del Área personal. Esta elección no concede acceso.",
+      "avisosLimite": "Las elecciones de avisos se guardan aquí; no acreditan que se haya enviado ni entregado correo. El número de filas solo se aplica a listas locales compatibles.",
+      "ayudaAbrir": "Mostrar ayuda sobre preferencias",
+      "ayuda": "El idioma de la URL prevalece solo en esta navegación. Sin idioma en la URL se usa su elección guardada y después el navegador. El alto contraste prevalece sobre el tema. El inicio no cambia sus permisos. Un recibo confirma el guardado de estas opciones, no el envío de avisos.",
+      "campo": {
+        "idioma": "Idioma",
+        "tamano_texto": "Tamaño del texto",
+        "alto_contraste": "Alto contraste",
+        "tema": "Tema de color",
+        "inicio": "Inicio preferido",
+        "filas": "Filas por página",
+        "aviso_correo_tareas": "Avisos por correo de tareas",
+        "aviso_correo_plazos": "Avisos por correo de plazos"
+      },
+      "opcion": {
+        "idioma": {
+          "navegador": "Idioma del navegador",
+          "es": "Castellano",
+          "en": "Inglés"
+        },
+        "tamano_texto": {
+          "normal": "Normal",
+          "grande": "Grande",
+          "muy_grande": "Muy grande"
+        },
+        "tema": {
+          "sistema": "Según el sistema",
+          "claro": "Claro",
+          "oscuro": "Oscuro"
+        },
+        "inicio": {
+          "cuadro": "Cuadro de inicio",
+          "peticiones": "Peticiones",
+          "bolsas": "Bolsas"
+        }
+      },
+      "error": {
+        "autenticacion": "La identificación ha caducado. Identifíquese de nuevo para consultar o guardar preferencias.",
+        "denegado": "No dispone de permiso para consultar o guardar sus preferencias.",
+        "conflicto": "Las preferencias o el catálogo han cambiado. Actualice los datos antes de guardar de nuevo.",
+        "validacion": "Revise las opciones: el servicio ha rechazado algún valor.",
+        "servicio": "El servicio de preferencias no está disponible. No se puede confirmar el resultado del último intento.",
+        "respuesta": "El servicio devolvió una respuesta incompatible. No se confirma ningún cambio."
+      },
+      "abrirTexto": "Abrir preferencias de tamaño del texto",
+      "abrirContraste": "Abrir preferencias de contraste",
+      "menuIdentidad": "Abrir menú de identidad",
+      "textoCorto": "Texto ",
+      "contrasteCorto": "Contraste",
+      "identidadServicio": "Identidad comprobada por el servicio de Usuarios",
+      "identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias"
+    }
   }
 }

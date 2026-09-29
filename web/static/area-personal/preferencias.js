@@ -1,13 +1,20 @@
 import { escaparHTML } from "./vistas/comunes.js";
-import { traducir } from "./i18n.js";
+import { IDIOMAS_DISPONIBLES, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../comun/idioma.js";
+import { cargarTextos } from "../comun/textos.js";
 
-const P = (clave, variables) => traducir(`areaPersonal.preferencias.${clave}`, variables);
+const textosPorIdioma = new Map(await Promise.all(IDIOMAS_DISPONIBLES.map(async ({ codigo }) =>
+  [codigo, await cargarTextos("preferencias", { idioma: codigo })])));
+const P = (clave, variables = {}) => {
+  const idioma = globalThis.document?.documentElement?.lang ?? IDIOMA_ACTUAL;
+  const textos = textosPorIdioma.get(idioma) ?? textosPorIdioma.get(IDIOMA_POR_DEFECTO);
+  return textos.traducir(`areaPersonal.preferencias.${clave}`, variables);
+};
 const CAMPOS = Object.freeze([
   ["idioma", "idiomas"], ["tamano_texto", "tamanos_texto"],
   ["tema", "temas"], ["inicio", "inicios"], ["filas", "filas"],
 ]);
 const OPCIONES = Object.freeze({
-  idioma: ["navegador", "es", "en"], tamano_texto: ["normal", "grande", "muy_grande"],
+  idioma: ["navegador", ...IDIOMAS_DISPONIBLES.map(({ codigo }) => codigo)], tamano_texto: ["normal", "grande", "muy_grande"],
   tema: ["sistema", "claro", "oscuro"], inicio: ["cuadro", "peticiones", "bolsas"],
 });
 
@@ -52,7 +59,7 @@ export function valoresDelFormulario(formulario) {
 
 export function crearOperacionPreferencias(preferencias, valores, cryptoImpl = globalThis.crypto) {
   if (!preferencias?.estado || !preferencias.catalogo || typeof cryptoImpl?.randomUUID !== "function") {
-    throw new Error("No se puede crear una operación segura de preferencias.");
+    throw new Error("preferencias_operacion_invalida");
   }
   return Object.freeze({ version_esperada: preferencias.estado.version,
     catalogo_version_ref: preferencias.catalogo.version_ref,
