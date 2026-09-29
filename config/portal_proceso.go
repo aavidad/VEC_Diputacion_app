@@ -24,3 +24,15 @@ const EnvExternoPreflightV3DatabaseURL = "VEC_EXTERNO_PREFLIGHT_V3_DATABASE_URL"
 // proceso externo para la proyección pública B10. La conexión interna no se
 // comparte aunque ambas lean la misma base pública gobernada.
 const EnvExternoBolsaPublicaDatabaseURL = "VEC_EXTERNO_BOLSA_PUBLICA_DATABASE_URL"
+
+// B11: conexiones nominales del candidato. Cada LOGIN hereda solo su rol de
+// consumo externo; la provisión y el gobierno permanecen en el proceso interno.
+const (
+	EnvExternoBolsaDatabaseURL                 = "VEC_EXTERNO_BOLSA_DATABASE_URL"
+	EnvExternoAutorizacionFuenteDatabaseURL    = "VEC_EXTERNO_AUTORIZACION_FUENTE_DATABASE_URL"
+	EnvExternoAutorizacionRegistroDatabaseURL  = "VEC_EXTERNO_AUTORIZACION_REGISTRO_DATABASE_URL"
+	EnvExternoAutorizacionMotivosDatabaseURL   = "VEC_EXTERNO_AUTORIZACION_MOTIVOS_DATABASE_URL"
+	EnvExternoIdentidadRegistroDatabaseURL     = "VEC_EXTERNO_IDENTIDAD_REGISTRO_DATABASE_URL"
+	EnvExternoIdentidadRevalidacionDatabaseURL = "VEC_EXTERNO_IDENTIDAD_REVALIDACION_DATABASE_URL"
+	EnvExternoContextoDatabaseURL              = "VEC_EXTERNO_CONTEXTO_DATABASE_URL"
+)
