@@ -60,7 +60,10 @@ func (r RamaSesionTCBOperacionDecisionCobertura) valida() bool {
 // síncrona, y retornar nil exclusivamente después de COMMIT confirmado.
 //
 // El callback no puede conservarse ni ejecutarse fuera de este método. Un
-// error después de haber intentado COMMIT es ambiguo y nunca autoriza retry.
+// error después de haber intentado COMMIT es ambiguo y nunca autoriza retry,
+// salvo que envuelva ErrCarreraSerializableSesionTCBOperacionDecisionCobertura:
+// esa señal solo la pone el adaptador cuando la propia base declaró la
+// transacción revertida por una carrera de serialización, sin efectos.
 type EjecutorSesionTCBOperacionDecisionCobertura interface {
 	EjecutarSesionTCB(
 		context.Context,
@@ -674,6 +677,12 @@ func (t *transaccionOperacionDecisionCoberturaTCB) confirmarOperacionDecisionCob
 	if callbackPendiente {
 		return ResultadoConfirmacionOperacionDecisionCobertura{},
 			ErrEjecucionSesionTCBOperacionDecisionCoberturaNoDisponible
+	}
+	// El ejecutor homologado acredita que la base revirtió la transacción
+	// por una carrera de serialización: no hubo COMMIT y se puede repetir.
+	if errors.Is(errEjecucion, ErrCarreraSerializableSesionTCBOperacionDecisionCobertura) {
+		return ResultadoConfirmacionOperacionDecisionCobertura{},
+			errCarreraAntesCommitOperacionDecisionCobertura
 	}
 	if ejecucionPotencialmenteEfectiva &&
 		(errEjecucion != nil || !invocacionPublicable) {
