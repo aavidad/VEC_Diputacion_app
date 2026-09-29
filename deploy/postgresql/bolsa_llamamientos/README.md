@@ -163,6 +163,14 @@ autorización tiene sus propias pruebas):
   y «ya presta servicios» (b16); la versión 1 reproduce `000020`, que queda
   intacta. Con esas reglas en el catálogo, una base sin `000041` impide
   arrancar. Instalada: `SELECT to_regclass('vec_bolsa_llamamientos.politica_avisos_bolsa') IS NOT NULL`.
+- `000059` (B59, fuente del correo de cada aviso): la emisión B7 guarda, en
+  `contacto_fuente_correo` y por recibo de contacto, si el aviso fue al correo
+  activo de «Mis correos» (con la referencia opaca del correo en Usuarios) o al
+  del alta, y por qué. Nunca la dirección. `registrar_contactos_llamamiento_v2`
+  hace lo mismo que la v1 más la fuente, en la misma transacción;
+  `candidato_participacion_avisos_v1` da la referencia de candidato que
+  Usuarios necesita. Sólo se usa con `VEC_BOLSA_AVISOS_MIS_CORREOS_ENABLED=true`.
+  Prueba: `deploy/postgresql/usuarios_vec/pruebas_sql/correo_avisos_clon.sh`.
 
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma

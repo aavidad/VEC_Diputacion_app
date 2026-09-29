@@ -558,6 +558,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	declaracionesFrontera, err = asignarPerfilesFijosEnFronterasCTDesarrollo(alta.soporte, perfilCTCatalogo, declaracionesFrontera)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if documentalActiva {
 		declaracionesFrontera, err = anexarFronterasPlantillasDocumentalCTDesarrollo(
 			declaracionesFrontera, perfilCTCatalogo, perfilPlantillas, perfilDocumental, perfilesConsulta)
