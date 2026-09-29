@@ -15,7 +15,7 @@ import {
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
-import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260929-aspirantes-v1";
+import { montarFichaAspirante } from "./ficha-aspirante.js?v=20260929-aspirantes-v2";
 import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import { montarHistorialMiBolsa } from "./mi-bolsa-historial.js";
 import {
