@@ -52,6 +52,7 @@ def argumentos(argv=None):
     p.add_argument("--comparar", type=Path, help="informe anterior, para comprobar recuperación tras reinicio externo")
     p.add_argument("--salida", type=Path, help="informe JSON sin documentos ni secretos")
     p.add_argument("--captura-movil", type=Path, help="PNG sintético de 390 px, en ruta privada externa")
+    p.add_argument("--captura-escritorio", type=Path, help="PNG sintético de 1440 px, en ruta privada externa")
     return p.parse_args(argv)
 
 
@@ -244,6 +245,28 @@ def guardar_privado(ruta, contenido):
         fichero.write(contenido)
 
 
+def capturar_corte(page, a, informe):
+    """Conserva la pantalla alcanzada, también si falta una propuesta o un PDF."""
+    for nombre, ancho, alto, ruta in (
+        ("escritorio_1440", 1440, 900, a.captura_escritorio),
+        ("movil_390", 390, 844, a.captura_movil),
+    ):
+        if not ruta or (nombre == "movil_390" and informe.get(nombre, {}).get("captura_guardada")):
+            continue
+        try:
+            page.set_viewport_size({"width": ancho, "height": alto})
+            captura = page.screenshot(full_page=True)
+            guardar_privado(ruta, captura)
+            dimensiones = page.evaluate("""() => ({ancho: document.documentElement.clientWidth,
+              contenido: document.documentElement.scrollWidth})""")
+            informe[nombre] = {"ancho": ancho, "captura_guardada": True,
+                               "captura_sha256": hashlib.sha256(captura).hexdigest(),
+                               "sin_desbordamiento": dimensiones["contenido"] <= dimensiones["ancho"]}
+        except Exception as e:
+            informe[nombre] = {"ancho": ancho, "captura_guardada": False,
+                               "error": type(e).__name__}
+
+
 def comprobar_movil(page, a, pdf_escritorio):
     """Repite solo lecturas y descargas a 390 px; no firma ni registra efectos."""
     page.set_viewport_size({"width": 390, "height": 844})
@@ -286,7 +309,7 @@ def recorrer(a, chrome, entorno):
     except ImportError:
         raise Corte("precondiciones", "Playwright de Python no está instalado") from None
     informe = {"estado": "CORTE", "entorno": "clon_local_h3_h5", "binario_sha256": entorno["binario_sha256"],
-               "expediente_ref": a.expediente_ref, "pdf": {}, "firma": None}
+               "expediente_ref": a.expediente_ref, "pdf": {}, "firma": None, "http": []}
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chrome, headless=not a.firmar)
         context = browser.new_context(
@@ -299,6 +322,13 @@ def recorrer(a, chrome, entorno):
         cookies_http = []
         page.on("pageerror", lambda e: errores_js.append(type(e).__name__))
         page.on("response", lambda r: cookies_http.append(urlsplit(r.url).path) if "set-cookie" in r.headers else None)
+        rutas_observadas = {"/portal-empleado/", RUTA_DETALLE, RUTA_FIRMAS,
+                            RUTA_CONSULTA_FIRMAS, RUTA_CIRCUITO, RUTA_SEGUIMIENTO,
+                            "/api/vec/contratacion-temporal/cuadro/consultas",
+                            "/api/vec/contratacion-temporal/catalogos-alta"}
+        page.on("response", lambda r: informe["http"].append({"metodo": r.request.method,
+                "ruta": urlsplit(r.url).path, "estado": r.status})
+                if urlsplit(r.url).path in rutas_observadas else None)
         try:
             # Nunca se navega al servicio GrxFirma desde el navegador: VEC lo invoca en servidor.
             context.route("**/*", lambda route: limitar_origen(route, a.origen))
@@ -424,6 +454,7 @@ def recorrer(a, chrome, entorno):
             informe["motivo"] = type(e).__name__
             return informe
         finally:
+            capturar_corte(page, a, informe)
             informe["sin_errores_js"] = not errores_js
             informe["sin_cookies_http"] = not cookies_http and not context.cookies()
             try:

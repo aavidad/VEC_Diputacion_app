@@ -29,11 +29,14 @@ python3 scripts/recorridos/propuesta_firma/recorrer.py \
   --clave /ruta/privada/cliente.key \
   --expediente-ref expediente:SINTETICO \
   --version-propuesta 7 \
+  --captura-escritorio /ruta/privada/recorrido-1440.png \
   --captura-movil /ruta/privada/recorrido-390.png \
   --salida /ruta/privada/recorrido-antes.json
 ```
 
 El guion descarga los seis PDF en escritorio y los vuelve a descargar a 390 px sin repetir ninguna escritura; exige los mismos bytes y que la página no desborde. Calcula la huella de una captura móvil. Con `--captura-movil` guarda ese PNG fuera de Git, con permiso `0600`, para revisión visual humana. La comprobación automática no sustituye esa revisión.
+
+Con `--captura-escritorio` también guarda la pantalla a 1440 × 900. Si el recorrido se detiene antes de los PDF, ambas opciones conservan la pantalla alcanzada, con su huella y medida de desbordamiento. El informe recoge método, ruta y estado HTTP del portal y las consultas del recorrido, sin parámetros, cabeceras ni respuestas completas. Un fallo al guardar una captura queda indicado; no se sobrescriben archivos existentes.
 
 Sin `--firmar` se comprueban la propuesta, los seis borradores en ambos anchos y el catálogo de firma. El corte esperado es `firma_admitida`. Con `--firmar`, Chrome abre con ventana y pulsa una sola vez «Firmar» para el informe definitivo. Una persona debe completar o cancelar AutoFirma en el puesto. El guion espera hasta tres minutos el único `POST` de registro; no reintenta una firma ni sustituye el firmante. Si VEC devuelve un recibo con `verificacion.estado=valida`, `motivo=verificada` y `firma_eficaz=false`, consulta de nuevo el mismo recibo. El corte final sigue siendo `custodia` mientras no exista evidencia de custodia.
 

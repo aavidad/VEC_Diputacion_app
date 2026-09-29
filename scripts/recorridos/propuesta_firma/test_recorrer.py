@@ -8,6 +8,36 @@ import recorrer
 
 
 class RecorridoFirmaTest(unittest.TestCase):
+    def test_capturas_del_primer_corte_son_privadas_y_no_sobrescriben(self):
+        class Pagina:
+            def set_viewport_size(self, dimensiones):
+                self.ancho = dimensiones["width"]
+
+            def screenshot(self, *, full_page):
+                return b"captura sintetica"
+
+            def evaluate(self, codigo):
+                return {"ancho": self.ancho, "contenido": self.ancho}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            escritorio = carpeta / "1440.png"
+            movil = carpeta / "390.png"
+            args = recorrer.argumentos(["--captura-escritorio", str(escritorio),
+                                       "--captura-movil", str(movil)])
+            informe = {"corte": "propuesta"}
+            recorrer.capturar_corte(Pagina(), args, informe)
+            for ruta in (escritorio, movil):
+                self.assertEqual(ruta.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(ruta.read_bytes(), b"captura sintetica")
+            self.assertTrue(informe["escritorio_1440"]["captura_guardada"])
+            self.assertTrue(informe["movil_390"]["sin_desbordamiento"])
+            segundo = {"corte": "propuesta"}
+            recorrer.capturar_corte(Pagina(), args, segundo)
+            self.assertFalse(segundo["escritorio_1440"]["captura_guardada"])
+            self.assertEqual(segundo["escritorio_1440"]["error"], "FileExistsError")
+            self.assertEqual(escritorio.read_bytes(), b"captura sintetica")
+
     def test_sin_clon_no_ejecuta_navegador(self):
         with self.assertRaises(recorrer.Corte) as error:
             recorrer.validar_entrada(recorrer.argumentos([]))
