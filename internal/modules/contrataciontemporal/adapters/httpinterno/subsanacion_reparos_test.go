@@ -58,7 +58,7 @@ func TestManejadorSubsanacionReparosRegistraYPublicaRecibo(t *testing.T) {
 // aparte que el conflicto se produce antes de confirmar otro efecto.
 func TestManejadorSubsanacionHistoricaConPerfilNuevoDevuelve409SinRecibo(t *testing.T) {
 	const perfilFijo = "prf_cccccccccccccccccccccccc"
-	e := &ejecutorSubsanacionReparosPrueba{err: ports.ErrClaveIdempotenciaUsada}
+	e := &ejecutorSubsanacionReparosPrueba{err: domain.ErrVersionEnConflicto}
 	h, err := NuevoManejadorSubsanacionReparos(autoridadSubsanacionReparosPrueba{
 		ContextoCanalSubsanacionReparos{"aut_aaaaaaaaaaaaaaaaaaaaaaaa", "ses_bbbbbbbbbbbbbbbbbbbbbbbb", perfilFijo, "organizacion:subsanacion:http:001"},
 	}, e)

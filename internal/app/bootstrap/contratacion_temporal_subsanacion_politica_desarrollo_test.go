@@ -12,6 +12,7 @@ import (
 	"vec-diputacion-granada/config"
 	seguridadcontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/seguridad"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -115,7 +116,7 @@ func (p *preparadorSubsanacionHistoricaPrueba) PrepararSubsanacionReparo(_ conte
 		s.HuellasPeticionHMAC, ports.DominioHuellaPeticionSubsanacionReparo, p.ambitoAnterior, p.huellaAnterior) {
 		return ports.PreparacionSubsanacionReparo{}, errors.New("la petición nueva conservó los sellos históricos")
 	}
-	return ports.PreparacionSubsanacionReparo{}, ports.ErrClaveIdempotenciaUsada
+	return ports.PreparacionSubsanacionReparo{}, domain.ErrVersionEnConflicto
 }
 
 type confirmadorSubsanacionHistoricaPrueba struct{ llamadas int }
@@ -125,8 +126,9 @@ func (c *confirmadorSubsanacionHistoricaPrueba) ConfirmarSubsanacionReparo(conte
 	return ports.ReciboSubsanacionReparo{}, errors.New("segunda escritura prohibida")
 }
 
-// El servicio corta antes de confirmar al recibir el conflicto del preparador
-// de solo lectura. La clasificación real de PostgreSQL exige ensayo separado.
+// CT92 busca una reserva por el ámbito nuevo y, al no encontrar la histórica,
+// detecta la versión antigua. El servicio corta antes de confirmar; la
+// clasificación real de PostgreSQL exige ensayo separado.
 func TestSubsanacionHistoricaEnConflictoNoLlamaConfirmador(t *testing.T) {
 	soporte, autorizador, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	vinculo, err := soporte.contexto.Vinculo.Datos()
@@ -177,7 +179,7 @@ func TestSubsanacionHistoricaEnConflictoNoLlamaConfirmador(t *testing.T) {
 		t.Fatal(err)
 	}
 	recibo, err := servicio.RegistrarSubsanacionReparo(context.Background(), solicitud)
-	if !errors.Is(err, ports.ErrClaveIdempotenciaUsada) || recibo != (ports.ReciboSubsanacionReparo{}) ||
+	if !errors.Is(err, domain.ErrVersionEnConflicto) || recibo != (ports.ReciboSubsanacionReparo{}) ||
 		preparador.llamadas != 1 || confirmador.llamadas != 0 {
 		t.Fatalf("conflicto generó efecto o recibo: err=%v recibo=%#v preparación=%d confirmación=%d",
 			err, recibo, preparador.llamadas, confirmador.llamadas)
