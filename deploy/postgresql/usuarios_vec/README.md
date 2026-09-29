@@ -56,3 +56,20 @@ Tras las SQL de 5.08a y 5.08b: AD3-108 `consumidor_imagen_usuarios.up.sql` (acci
 - SQLSTATE: `P1409` conflicto (versión, catálogo, clave reutilizada o modo foto sin foto), `22023` petición inválida (foto que no casa con su huella o no es JPEG), `42501` denegación; `40001` obliga a repetir la transacción completa.
 
 La prueba `pruebas_sql/imagen_pg18.sh` levanta PostgreSQL 18.4 efímero con la V3 sintética de forma y comprueba ACL y RLS de Usuarios y Documentos, el vector Go/SQL, elección, repetición, conflicto, subida, conservación, sustitución y retirada de la foto (bytes borrados en Documentos), la lectura desde la otra superficie y la inmutabilidad de las historias.
+
+# B59: el aviso de llamamiento al correo activo de «Mis correos»
+
+## Orden causal
+
+Tras las SQL de 5.08a, 5.08b y 5.08c: AD3-109 `consumidor_correo_avisos_llamamiento.up.sql`, ContextoActor 000010 `persona_candidato_avisos.up.sql`, Bolsa 000059 `fuente_correo_llamamiento.up.sql` y Usuarios 000008 `correo_avisos_llamamiento.up.sql` (lista `deploy/principal/lista_sql_trabajo_avisos_mis_correos_20260929.txt`). Sin roles ni LOGIN nuevos. Ningún `DOWN` sobre historia.
+
+## Contrato
+
+- Cuando RRHH emite un llamamiento, Bolsa pregunta a Usuarios, por cada persona candidata, si tiene un correo activo. Usuarios responde con una sola lectura, `correo_activo_avisos_llamamiento_v1`, que sólo ejecuta el LOGIN ejecutor interno.
+- La lectura consume una V3 fresca antes de mirar ninguna fila. El permiso es el mismo que el de emitir el llamamiento (acción `llamamiento.emitir.v1` sobre la bolsa constituida, finalidad `gestion_llamamientos_bolsa`), pero con audiencia propia (`vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1`) y perfil de consumo propio en el núcleo (AD3-109): la capacidad de emisión no abre esta lectura ni al revés. El recurso liga por huella el material exacto: bolsa, unidad, ámbito, llamamiento y referencia de candidato.
+- La persona se obtiene de la referencia de candidato con la fachada de ContextoActor `persona_candidato_avisos_v1`, que sólo devuelve persona si hay exactamente un vínculo de candidato activo y vigente. Usuarios no lee tablas de identidad ni de Bolsa, y Bolsa no lee tablas de Usuarios.
+- Sólo se entrega el sobre cifrado del correo ACTIVO y VERIFICADO que la persona añadió y confirmó desde el área personal externa: a una persona candidata sólo se le escribe al correo que dio en la superficie externa. Nada de la lista ni de otras direcciones. La dirección se descifra en Go y sólo existe durante el envío.
+- Si no hay tal correo, o Usuarios no responde (presupuesto de 10 s por emisión y 2 s por consulta), el aviso sale al correo del alta en la bolsa, como antes, y el llamamiento no se bloquea. Bolsa guarda la fuente y el motivo (000059).
+- SQLSTATE: `42501` denegación, `22023` material inválido; cualquier otro fallo se trata como «no disponible».
+
+La prueba `pruebas_sql/correo_avisos_clon.sh <contenedor>` se ejecuta sobre un clon de la principal ya migrado, dentro de una transacción que termina en `ROLLBACK`, con un doble de la fachada AD3-109: comprueba material, huella, elección del correo, superficies, RLS, ACL y el registro de la fuente en Bolsa. No acredita COSE ni el núcleo V3.
