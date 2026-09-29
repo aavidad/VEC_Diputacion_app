@@ -96,6 +96,19 @@ type ElementoPreparacionViaCobertura struct {
 	ClaveI18n ClaveCatalogo `json:"clave_i18n"`
 }
 
+func (e *ElementoPreparacionViaCobertura) UnmarshalJSON(datos []byte) error {
+	if e == nil || validarObjetoJSONCatalogo(datos, nodoElementoCatalogo) != nil {
+		return ErrDatoInvalido
+	}
+	type sinMetodo ElementoPreparacionViaCobertura
+	var decodificado sinMetodo
+	if err := decodificarCatalogoJSONEstricto(datos, &decodificado); err != nil {
+		return err
+	}
+	*e = ElementoPreparacionViaCobertura(decodificado)
+	return nil
+}
+
 func (e ElementoPreparacionViaCobertura) Validar() error {
 	if !e.Clave.Valida() || e.Orden == 0 || !e.ClaveI18n.Valida() ||
 		!strings.ContainsRune(string(e.ClaveI18n), '.') {
@@ -117,7 +130,7 @@ type DefinicionViaCobertura struct {
 // UnmarshalJSON recuerda la presencia de campos opcionales para rechazar
 // null y arrays vacíos, que de otro modo desaparecerían al reserializar.
 func (d *DefinicionViaCobertura) UnmarshalJSON(datos []byte) error {
-	if d == nil {
+	if d == nil || validarObjetoJSONCatalogo(datos, nodoViaCatalogo) != nil {
 		return ErrDatoInvalido
 	}
 	type sinMetodo DefinicionViaCobertura
@@ -280,7 +293,7 @@ type PublicacionCatalogoViasCobertura struct {
 }
 
 func (p *PublicacionCatalogoViasCobertura) UnmarshalJSON(datos []byte) error {
-	if p == nil {
+	if p == nil || validarObjetoJSONCatalogo(datos, nodoPublicacionCatalogo) != nil {
 		return ErrDatoInvalido
 	}
 	type sinMetodo PublicacionCatalogoViasCobertura
@@ -294,6 +307,128 @@ func (p *PublicacionCatalogoViasCobertura) UnmarshalJSON(datos []byte) error {
 	}
 	_, decodificada.esEjemploDeclarado = campos["es_ejemplo"]
 	*p = PublicacionCatalogoViasCobertura(decodificada)
+	return nil
+}
+
+type nodoJSONCatalogo uint8
+
+const (
+	nodoPublicacionCatalogo nodoJSONCatalogo = iota + 1
+	nodoCanonCatalogo
+	nodoVigenciaCatalogo
+	nodoViaCatalogo
+	nodoComprobacionCatalogo
+	nodoProcedenciaCatalogo
+	nodoElementoCatalogo
+)
+
+// validarObjetoJSONCatalogo comprueba nombres exactos antes de decodificar a
+// structs. encoding/json acepta variantes de mayúsculas y sobrescribe claves
+// repetidas; PostgreSQL distingue esos nombres en jsonb. Esta frontera debe
+// rechazar ambas representaciones para que Go y SQL restauren lo mismo.
+func validarObjetoJSONCatalogo(datos []byte, nodo nodoJSONCatalogo) error {
+	decodificador := json.NewDecoder(bytes.NewReader(datos))
+	apertura, err := decodificador.Token()
+	if err != nil || apertura != json.Delim('{') {
+		return ErrDatoInvalido
+	}
+	permitidos := camposNodoJSONCatalogo(nodo)
+	if permitidos == nil {
+		return ErrDatoInvalido
+	}
+	vistos := make(map[string]struct{}, len(permitidos))
+	for decodificador.More() {
+		token, err := decodificador.Token()
+		clave, ok := token.(string)
+		if err != nil || !ok {
+			return ErrDatoInvalido
+		}
+		hijo, permitido := permitidos[clave]
+		if _, repetido := vistos[clave]; !permitido || repetido {
+			return ErrDatoInvalido
+		}
+		vistos[clave] = struct{}{}
+		var valor json.RawMessage
+		if err := decodificador.Decode(&valor); err != nil {
+			return ErrDatoInvalido
+		}
+		if hijo.nodo != 0 && validarObjetoJSONCatalogo(valor, hijo.nodo) != nil {
+			return ErrDatoInvalido
+		}
+		if hijo.lista != 0 && validarListaJSONCatalogo(valor, hijo.lista) != nil {
+			return ErrDatoInvalido
+		}
+	}
+	cierre, err := decodificador.Token()
+	if err != nil || cierre != json.Delim('}') {
+		return ErrDatoInvalido
+	}
+	var sobrante any
+	if err := decodificador.Decode(&sobrante); !errors.Is(err, io.EOF) {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
+type hijoJSONCatalogo struct {
+	nodo  nodoJSONCatalogo
+	lista nodoJSONCatalogo
+}
+
+func camposNodoJSONCatalogo(nodo nodoJSONCatalogo) map[string]hijoJSONCatalogo {
+	switch nodo {
+	case nodoPublicacionCatalogo:
+		return map[string]hijoJSONCatalogo{
+			"referencia": {}, "version": {}, "huella_sha256": {},
+			"canon": {nodo: nodoCanonCatalogo}, "publicado_en": {},
+			"vigencia": {nodo: nodoVigenciaCatalogo}, "procedencia_ref": {},
+			"es_ejemplo": {}, "vias": {lista: nodoViaCatalogo},
+		}
+	case nodoCanonCatalogo:
+		return map[string]hijoJSONCatalogo{
+			"dominio": {}, "version_esquema": {}, "algoritmo": {},
+		}
+	case nodoVigenciaCatalogo:
+		return map[string]hijoJSONCatalogo{"desde": {}, "hasta": {}}
+	case nodoViaCatalogo:
+		return map[string]hijoJSONCatalogo{
+			"clave": {}, "orden": {},
+			"comprobaciones": {lista: nodoComprobacionCatalogo},
+			"documentos":     {lista: nodoElementoCatalogo},
+			"datos":          {lista: nodoElementoCatalogo},
+		}
+	case nodoComprobacionCatalogo:
+		return map[string]hijoJSONCatalogo{
+			"clave": {}, "orden": {}, "obligatoria": {},
+			"procedencia": {nodo: nodoProcedenciaCatalogo},
+		}
+	case nodoProcedenciaCatalogo:
+		return map[string]hijoJSONCatalogo{
+			"clave": {}, "definicion_fuente_ref": {},
+		}
+	case nodoElementoCatalogo:
+		return map[string]hijoJSONCatalogo{
+			"clave": {}, "orden": {}, "clave_i18n": {},
+		}
+	default:
+		return nil
+	}
+}
+
+func validarListaJSONCatalogo(datos []byte, nodo nodoJSONCatalogo) error {
+	if longitud := len(bytes.TrimSpace(datos)); longitud < 2 ||
+		bytes.TrimSpace(datos)[0] != '[' {
+		return ErrDatoInvalido
+	}
+	var elementos []json.RawMessage
+	if err := json.Unmarshal(datos, &elementos); err != nil {
+		return ErrDatoInvalido
+	}
+	for _, elemento := range elementos {
+		if validarObjetoJSONCatalogo(elemento, nodo) != nil {
+			return ErrDatoInvalido
+		}
+	}
 	return nil
 }
 

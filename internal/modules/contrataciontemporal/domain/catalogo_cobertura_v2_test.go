@@ -63,11 +63,10 @@ func TestCatalogoCoberturaV1ConservaJSONYRechazaPreparacion(t *testing.T) {
 		t.Fatalf("V1 aceptó es_ejemplo presente: %v", err)
 	}
 	conDocumentoNulo := strings.Replace(string(datos), `"comprobaciones":`, `"documentos":null,"comprobaciones":`, 1)
-	if err := json.Unmarshal([]byte(conDocumentoNulo), &explicita); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := RestaurarCatalogoViasCobertura(explicita); !errors.Is(err, ErrDatoInvalido) {
-		t.Fatalf("V1 aceptó documentos:null: %v", err)
+	if err := json.Unmarshal([]byte(conDocumentoNulo), &explicita); err == nil {
+		if _, err := RestaurarCatalogoViasCobertura(explicita); !errors.Is(err, ErrDatoInvalido) {
+			t.Fatalf("V1 aceptó documentos:null: %v", err)
+		}
 	}
 }
 
@@ -241,6 +240,51 @@ func TestCatalogoCoberturaV2AcotaElementosTotales(t *testing.T) {
 	})
 	if _, err := PublicarCatalogoViasCobertura(borrador); !errors.Is(err, ErrDatoInvalido) {
 		t.Fatalf("se aceptaron más de 512 elementos: %v", err)
+	}
+}
+
+func TestCatalogoCoberturaRechazaNombresJSONInexactosYDuplicados(t *testing.T) {
+	v1, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaValido())
+	if err != nil {
+		t.Fatal(err)
+	}
+	v2, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaConPreparacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonV1, err := json.Marshal(v1.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonV2, err := json.Marshal(v2.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre, original, anterior, nuevo string
+	}{
+		{"V1 DOCUMENTOS null", string(jsonV1), `"comprobaciones":`, `"DOCUMENTOS":null,"comprobaciones":`},
+		{"V1 DATOS vacío", string(jsonV1), `"comprobaciones":`, `"DATOS":[],"comprobaciones":`},
+		{"V1 ES_EJEMPLO", string(jsonV1), `"vias":`, `"ES_EJEMPLO":true,"vias":`},
+		{"V2 CLAVE_I18N", string(jsonV2), `"clave_i18n":`, `"CLAVE_I18N":`},
+		{"V2 Documentos mixto", string(jsonV2), `"documentos":`, `"Documentos":`},
+		{"V2 es_ejemplo mixto", string(jsonV2), `"es_ejemplo":`, `"Es_Ejemplo":`},
+		{"V2 procedencia anidada", string(jsonV2), `"procedencia":`, `"Procedencia":`},
+		{"duplicado exacto raíz", string(jsonV1), `"referencia":`, `"referencia":"otra","referencia":`},
+		{"duplicado exacto vía", string(jsonV2), `"documentos":`, `"documentos":null,"documentos":`},
+		{"duplicado exacto elemento", string(jsonV2), `"clave_i18n":`, `"clave_i18n":"otra.clave","clave_i18n":`},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			alterado := strings.Replace(caso.original, caso.anterior, caso.nuevo, 1)
+			if alterado == caso.original {
+				t.Fatal("el caso no alteró el JSON")
+			}
+			var publicacion PublicacionCatalogoViasCobertura
+			if err := json.Unmarshal([]byte(alterado), &publicacion); err == nil {
+				t.Fatal("se aceptaron nombres inexactos o duplicados")
+			}
+		})
 	}
 }
 
