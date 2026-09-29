@@ -46,6 +46,7 @@ type claveCapacidadConsultasContratacionTemporalDesarrollo struct{}
 type capacidadConsultaContratacionTemporalDesarrollo struct {
 	sello                   *selloConsultasContratacionTemporalDesarrollo
 	ruta                    string
+	metodo                  string
 	principal               vecdomain.Principal
 	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
 	contextoOperacion       *contextoOperacionCTDesarrollo

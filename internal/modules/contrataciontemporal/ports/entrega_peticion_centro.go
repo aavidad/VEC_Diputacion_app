@@ -75,6 +75,8 @@ type MaterialEntregaPeticionCentro struct {
 	ActorRef           string      `json:"actor_ref"`
 	PerfilRef          string      `json:"perfil_ref"`
 	PeticionRef        string      `json:"peticion_ref,omitempty"`
+	CentroRef          string      `json:"centro_ref,omitempty"`
+	CategoriaRef       string      `json:"categoria_ref,omitempty"`
 	VersionEsperada    uint64      `json:"version_esperada,omitempty"`
 	ReciboAlta         *ReciboAlta `json:"recibo_alta,omitempty"`
 	AmbitoAltaHMAC     string      `json:"ambito_alta_hmac,omitempty"`
@@ -85,12 +87,15 @@ func (m MaterialEntregaPeticionCentro) Validar() error {
 		return ErrAutorizacionDenegada
 	}
 	if m.Modo == "bandeja" {
-		if m.PeticionRef != "" || m.VersionEsperada != 0 || m.ReciboAlta != nil || m.AmbitoAltaHMAC != "" || m.ClaveAltaCandidata != "" {
+		if m.PeticionRef != "" || m.CentroRef != "" || m.CategoriaRef != "" || m.VersionEsperada != 0 || m.ReciboAlta != nil || m.AmbitoAltaHMAC != "" || m.ClaveAltaCandidata != "" {
 			return domain.ErrPeticionCentroInvalida
 		}
 		return nil
 	}
 	if (ComandoEntregarPeticionCentro{m.PeticionRef, m.VersionEsperada}).Validar() != nil {
+		return domain.ErrPeticionCentroInvalida
+	}
+	if !domain.ReferenciaOpacaValida(m.CentroRef) || !domain.ReferenciaOpacaValida(m.CategoriaRef) {
 		return domain.ErrPeticionCentroInvalida
 	}
 	if m.Modo == "preparar" && m.ReciboAlta == nil && ClaveIdempotenciaValida(m.ClaveAltaCandidata) && SelloHMACSHA256Valido(m.AmbitoAltaHMAC) {

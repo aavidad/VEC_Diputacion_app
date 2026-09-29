@@ -126,7 +126,6 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaPropuestaFormalizacion  dominiovec.InstantaneaAutorizacion
 	instantaneaResolucionFormalizacion dominiovec.InstantaneaAutorizacion
 	instantaneaOrganizacion            dominiovec.InstantaneaAutorizacion
-	instantaneaEntregaPeticion         dominiovec.InstantaneaAutorizacion
 	instantaneaCuadroRRHH              dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaSubsanacion             dominiovec.InstantaneaAutorizacion
