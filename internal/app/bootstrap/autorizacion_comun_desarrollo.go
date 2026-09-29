@@ -43,7 +43,7 @@ type descriptorAutorizacionComunDesarrollo struct {
 	Politica       politicaAutorizacionSolicitudLigadaV3Desarrollo
 }
 type catalogoAutorizacionComunDesarrollo struct {
-	porAccion          map[string]descriptorAutorizacionComunDesarrollo
+	porAccion          map[string]map[string]descriptorAutorizacionComunDesarrollo
 	fronteras          map[string]struct{}
 	identidadFronteras *identidadCatalogoFronterasComunDesarrollo
 }
@@ -52,7 +52,7 @@ func nuevoCatalogoAutorizacionComunDesarrollo(fronteras catalogoFronterasComunDe
 	if fronteras.identidad == nil {
 		return catalogoAutorizacionComunDesarrollo{}, errAutorizacionComunDesarrolloNoDisponible
 	}
-	c := catalogoAutorizacionComunDesarrollo{porAccion: make(map[string]descriptorAutorizacionComunDesarrollo, len(descriptores)), fronteras: make(map[string]struct{}, len(fronteras.porClave)), identidadFronteras: fronteras.identidad}
+	c := catalogoAutorizacionComunDesarrollo{porAccion: make(map[string]map[string]descriptorAutorizacionComunDesarrollo, len(descriptores)), fronteras: make(map[string]struct{}, len(fronteras.porClave)), identidadFronteras: fronteras.identidad}
 	for k := range fronteras.porClave {
 		c.fronteras[k] = struct{}{}
 	}
@@ -62,8 +62,8 @@ func nuevoCatalogoAutorizacionComunDesarrollo(fronteras catalogoFronterasComunDe
 			!d.Politica.valida() || len(d.Fronteras) == 0 {
 			return catalogoAutorizacionComunDesarrollo{}, errAutorizacionComunDesarrolloNoDisponible
 		}
-		if _, ok := c.porAccion[d.Accion]; ok {
-			return catalogoAutorizacionComunDesarrollo{}, errAutorizacionComunDesarrolloNoDisponible
+		if c.porAccion[d.Accion] == nil {
+			c.porAccion[d.Accion] = make(map[string]descriptorAutorizacionComunDesarrollo, len(d.Fronteras))
 		}
 		copia := append([]string(nil), d.Fronteras...)
 		vistos := map[string]struct{}{}
@@ -75,24 +75,24 @@ func nuevoCatalogoAutorizacionComunDesarrollo(fronteras catalogoFronterasComunDe
 			if _, ok := vistos[f]; ok {
 				return catalogoAutorizacionComunDesarrollo{}, errAutorizacionComunDesarrolloNoDisponible
 			}
+			if _, ok := c.porAccion[d.Accion][f]; ok {
+				return catalogoAutorizacionComunDesarrollo{}, errAutorizacionComunDesarrolloNoDisponible
+			}
 			vistos[f] = struct{}{}
 		}
 		d.Fronteras = copia
-		c.porAccion[d.Accion] = d
+		for _, f := range copia {
+			c.porAccion[d.Accion][f] = d
+		}
 	}
 	return c, nil
 }
 func (c catalogoAutorizacionComunDesarrollo) politicaPara(accion, frontera, clavePolitica, claveCapacidad string) (politicaAutorizacionSolicitudLigadaV3Desarrollo, bool) {
-	d, ok := c.porAccion[accion]
+	d, ok := c.porAccion[accion][frontera]
 	if !ok || d.ClavePolitica != clavePolitica || d.ClaveCapacidad != claveCapacidad {
 		return politicaAutorizacionSolicitudLigadaV3Desarrollo{}, false
 	}
-	for _, f := range d.Fronteras {
-		if f == frontera {
-			return d.Politica, true
-		}
-	}
-	return politicaAutorizacionSolicitudLigadaV3Desarrollo{}, false
+	return d.Politica, true
 }
 
 func (c catalogoAutorizacionComunDesarrollo) aceptaCatalogoFronteras(fronteras catalogoFronterasComunDesarrollo) bool {
