@@ -95,12 +95,12 @@ func TestEntregaPeticionDesarrolloRechazaSelloDeOtraClaveAntesDeAutorizar(t *tes
 	soporte.contextoEsperadoRegistrado = c.Resultado
 	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: c}
 	proveedor := &proveedorEntregaPeticionDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte}}
-	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: rutaEntregaPeticionCentro, principal: p, certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour), contextoOperacion: &contextoOperacionCTDesarrollo{}})
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: rutaEntregaPeticionCentro, metodo: "POST", principal: p, certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour), contextoOperacion: &contextoOperacionCTDesarrollo{}})
 	clave, selloCorrecto, err := proveedor.NuevaClaveAltaDePeticion(ctx)
 	if err != nil || !ports.ClaveIdempotenciaValida(clave) || hmac.clave != clave {
 		t.Fatal("clave y sello no ligados", err)
 	}
-	m := ports.MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, PeticionRef: "peticion:001", VersionEsperada: 2, ClaveAltaCandidata: clave, AmbitoAltaHMAC: strings.Replace(selloCorrecto, strings.Repeat("a", 64), strings.Repeat("b", 64), 1)}
+	m := ports.MaterialEntregaPeticionCentro{Modo: "preparar", ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef, PeticionRef: "peticion:001", CentroRef: centroAltaContratacionTemporalDesarrollo, CategoriaRef: categoriaAltaContratacionTemporalDesarrollo, VersionEsperada: 2, ClaveAltaCandidata: clave, AmbitoAltaHMAC: strings.Replace(selloCorrecto, strings.Repeat("a", 64), strings.Repeat("b", 64), 1)}
 	if _, err := proveedor.AutorizarEntregaPeticionCentro(ctx, m); err != ports.ErrAutorizacionDenegada {
 		t.Fatal("sello cruzado alcanzó autorización", err)
 	}

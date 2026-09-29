@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"maps"
+	"net/http"
 	"time"
 
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -33,19 +34,6 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 	if alta == nil || alta.soporte == nil || alta.postgresql.gobierno == nil || alta.postgresql.ejecucion == nil {
 		return vacia, ports.ErrPeticionCentroNoDisponible
 	}
-	v, err := alta.soporte.contexto.Vinculo.Datos()
-	if err != nil {
-		return vacia, err
-	}
-	var concesiones []vecdomain.ConcesionRol
-	for _, accion := range []string{ports.AccionConsultarPeticionesRRHH, ports.AccionEntregarPeticionRRHH} {
-		concesiones = append(concesiones, vecdomain.ConcesionRol{Accion: accion, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoEntregaPeticionCentro, Finalidades: []string{ports.FinalidadEntregaPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh})
-	}
-	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, reloj.Ahora(), "entrega-peticion-rrhh", "Recepción de peticiones por RRHH", "entrega-peticion-rrhh-desarrollo", concesiones, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
-	if err != nil {
-		return vacia, err
-	}
-	alta.soporte.instantaneaEntregaPeticion = instantanea
 	ctx, cancelar := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelar()
 	desde, _, _ := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
@@ -63,12 +51,51 @@ func nuevaRutaEntregaPeticionDesarrollo(alta *dependenciasAltaContratacionTempor
 	return vechttp.RutaExacta{Ruta: rutaEntregaPeticionCentro, Manejador: &manejadorEntregaPeticionDesarrollo{p, repo, s}}, nil
 }
 
+func nuevaInstantaneaAutorizacionLectorEntregaPeticionDesarrollo(
+	principalID, perfilRef string, ahora time.Time,
+) (vecdomain.InstantaneaAutorizacion, error) {
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, ahora,
+		"entrega-peticion-rrhh-lector", "Consulta de peticiones por RRHH",
+		"entrega-peticion-rrhh-lector-desarrollo",
+		[]vecdomain.ConcesionRol{{Accion: ports.AccionConsultarPeticionesRRHH, ModuloID: ports.ModuloContratacion,
+			TipoRecurso: ports.TipoRecursoEntregaPeticionCentro,
+			Finalidades: []string{ports.FinalidadEntregaPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh}},
+		[]vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
+}
+
+// El POST y su alta anidada usan el mismo perfil y las mismas tres
+// dimensiones, obtenidas del catálogo de centros/categorías y organización.
+func nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
+	principalID, perfilRef string, ahora time.Time, origen *origenConsultasContratacionTemporalDesarrollo,
+) (vecdomain.InstantaneaAutorizacion, error) {
+	centros := []string{centroAltaContratacionTemporalDesarrollo}
+	categorias := []string{categoriaAltaContratacionTemporalDesarrollo}
+	if origen != nil {
+		centros = origen.referenciasCentros()
+		categorias = origen.referenciasCategorias()
+	}
+	return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		principalID, perfilRef, ahora, "entrega-peticion-rrhh-fijo", "Entrega de peticiones por RRHH",
+		"entrega-peticion-rrhh-fijo-desarrollo",
+		[]vecdomain.ConcesionRol{
+			{Accion: ports.AccionEntregarPeticionRRHH, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoEntregaPeticionCentro, Finalidades: []string{ports.FinalidadEntregaPeticionCentro}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+			{Accion: ports.AccionCrearSolicitud, ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoExpediente, Finalidades: []string{ports.FinalidadCrearSolicitud}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+		},
+		[]vecdomain.AmbitoPerfil{
+			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
+			{Clave: "centro_ref", Valores: centros},
+			{Clave: "categoria_ref", Valores: categorias},
+		},
+	)
+}
+
 func (p *proveedorEntregaPeticionDesarrollo) ActorEntregaPeticionCentro(ctx context.Context) (string, string, error) {
 	if p == nil || p.alta == nil || p.alta.soporte == nil || ctx == nil || ctx.Err() != nil {
 		return "", "", ports.ErrAutorizacionDenegada
 	}
 	c, ok := p.alta.soporte.capacidadValida(ctx)
-	if !ok || c.ruta != rutaEntregaPeticionCentro || c.certificadoVerificadoEn.IsZero() || !p.reloj.Ahora().Before(c.certificadoValidoHasta) {
+	if !ok || c.ruta != rutaEntregaPeticionCentro || (c.metodo != http.MethodGet && c.metodo != http.MethodPost) ||
+		c.certificadoVerificadoEn.IsZero() || !p.reloj.Ahora().Before(c.certificadoValidoHasta) {
 		return "", "", ports.ErrAutorizacionDenegada
 	}
 	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
@@ -86,6 +113,10 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	var vacio vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	a, perfil, err := p.ActorEntregaPeticionCentro(ctx)
 	if err != nil || m.ActorRef != a || m.PerfilRef != perfil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	capacidad, _ := p.alta.soporte.capacidadValida(ctx)
+	if (m.Modo == "bandeja") != (capacidad.metodo == http.MethodGet) {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	if m.Modo == "preparar" {
