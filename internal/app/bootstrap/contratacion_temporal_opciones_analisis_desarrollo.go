@@ -75,6 +75,9 @@ type opcionesAnalisisCTDesarrollo struct {
 	// publican en PostgreSQL al arrancar. Nulos: los de siempre.
 	viasCobertura []viaCoberturaCT
 	numeracion    *numeracionExpedientesCT
+	// fasesOperacion (c23): fases y estado previos que cubre el permiso fijo
+	// de cada operación de RRHH. Nulo: las de siempre.
+	fasesOperacion map[string]faseOperacionCT
 }
 
 // opcionesAnalisisPredeterminadas son los valores anteriores al catálogo:
@@ -161,6 +164,9 @@ func nuevasOpcionesAnalisisCT(ctx context.Context, resolutor *reglas.Resolutor) 
 		return nil, err
 	}
 	if opciones.numeracion, err = numeracionDesdeReglasCT(porClave); err != nil {
+		return nil, err
+	}
+	if opciones.fasesOperacion, err = fasesOperacionDesdeReglasCT(vigentes); err != nil {
 		return nil, err
 	}
 	return opciones, nil

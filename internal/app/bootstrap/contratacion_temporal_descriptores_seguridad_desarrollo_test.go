@@ -72,6 +72,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-no-incorporacion-registrar", string(ctdomain.AccionRegistrarNoIncorporacion), cthttp.RutaNoIncorporaciones},
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
+		{"ct-peticiones-centro-rrhh-consultar", ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro},
 	}
 	lectores := []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo("prf_ct_prueba", lectores)
@@ -85,7 +86,11 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		if indice == 8 || indice == 9 {
 			perfilesEsperados = []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 		}
-		if frontera.Clave != par.clave || frontera.Metodo != http.MethodPost || frontera.Ruta != par.ruta || frontera.ClaveCapacidad != par.accion || !reflect.DeepEqual(frontera.PerfilesActivosRef, perfilesEsperados) {
+		metodo := http.MethodPost
+		if par.clave == "ct-peticiones-centro-rrhh-consultar" {
+			metodo = http.MethodGet
+		}
+		if frontera.Clave != par.clave || frontera.Metodo != metodo || frontera.Ruta != par.ruta || frontera.ClaveCapacidad != par.accion || !reflect.DeepEqual(frontera.PerfilesActivosRef, perfilesEsperados) {
 			t.Fatalf("par %d = %#v", indice, frontera)
 		}
 		if frontera.Metodo == http.MethodHead {

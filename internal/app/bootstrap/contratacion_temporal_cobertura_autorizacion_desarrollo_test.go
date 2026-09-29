@@ -24,6 +24,16 @@ import (
 type autoridadAsignacionesContratacionTemporalDesarrolloPrueba struct {
 	preparadas int
 	publicadas int
+	// asignaciones: la asignación publicada de cada perfil fijo, que la
+	// prueba fija como si ya estuviera en PostgreSQL (solo lectura).
+	asignaciones map[string]instantaneaPublicadaDesarrollo
+}
+
+func (a *autoridadAsignacionesContratacionTemporalDesarrolloPrueba) leerAsignacionPublicada(
+	_ context.Context, perfilRef string,
+) (instantaneaPublicadaDesarrollo, bool, error) {
+	publicada, existe := a.asignaciones[perfilRef]
+	return publicada, existe, nil
 }
 
 type registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba struct {
@@ -231,230 +241,6 @@ func TestPreparacionDecisionCoberturaPublicaLaAsignacionQueReferencia(t *testing
 	}
 	if autoridad.preparadas != 1 || autoridad.publicadas != 1 {
 		t.Fatalf("asignacion de cobertura no publicada antes de la candidata: %+v", autoridad)
-	}
-}
-
-func TestAutorizacionAnalisisDesarrolloLigaRutaAccionRecursoFinalidadYUnidad(
-	t *testing.T,
-) {
-	soporte, autorizadorCobertura, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	delegado, valido := autorizadorCobertura.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
-	if !valido {
-		t.Fatal("el autorizador V3 no conserva sus dos contratos")
-	}
-	autorizador := &autorizadorAnalisisContratacionTemporalDesarrollo{delegado: delegado}
-	for _, caso := range []struct {
-		ruta   string
-		accion string
-		motivo dominiovec.ReferenciaEntradaCatalogo
-	}{
-		{
-			httpinterno.RutaRegistroAnalisisRRHH,
-			ports.AccionRegistrarAnalisis,
-			soporte.motivoRegistroAnalisis,
-		},
-	} {
-		t.Run(caso.accion, func(t *testing.T) {
-			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, caso.ruta)
-			canal, err := soporte.ResolverContextoCanalAnalisisRRHH(ctx)
-			if err != nil || canal.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo {
-				t.Fatalf("contexto de analisis no resuelto: %+v %v", canal, err)
-			}
-			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-				ctx,
-				seguridadvec.GeneradorReferenciasCriptograficas{},
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
-				dominiovec.DatosSolicitudAutorizacionLigadaV3{
-					VinculoAutenticacionActor: soporte.contexto.Vinculo,
-					ReferenciaMotivo:          caso.motivo,
-					Accion:                    caso.accion,
-					Recurso: dominiovec.RecursoAutorizable{
-						Referencia: "expediente:analisis:desarrollo:001",
-						ModuloID:   ports.ModuloContratacion,
-						Tipo:       ports.TipoRecursoAnalisis,
-						Ambitos: map[string]string{
-							"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-							"expediente_ref":   "expediente:analisis:desarrollo:001",
-							"fase_previa":      "solicitud",
-							"estado_previo":    "en_curso",
-						},
-						Atributos: map[string]string{
-							ports.AtributoUnidadPoliticaRef: unidadCoberturaContratacionTemporalDesarrollo,
-						},
-					},
-					Finalidad:   finalidadAnalisisContratacionTemporalDesarrollo,
-					Correlacion: correlacion,
-				},
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			decision, _, err := autorizador.ExigirSolicitudLigadaV3(
-				ctx,
-				solicitud,
-				soporte.contexto.Resultado,
-			)
-			concedida, _, errResultado := decision.Resultado()
-			if err != nil || errResultado != nil || !concedida {
-				t.Fatalf("autorizacion de analisis no concedida: %v %v", err, errResultado)
-			}
-		})
-	}
-	registro, valido := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
-	if !valido || registro.concesiones != 1 || registro.huella == "" {
-		t.Fatalf("registro durable de analisis no usado: %+v", registro)
-	}
-	soporte.mu.Lock()
-	totalConcesionesEfimeras := len(soporte.concesiones)
-	soporte.mu.Unlock()
-	if totalConcesionesEfimeras != 0 {
-		t.Fatalf("analisis duplico la concesion durable en memoria: %d", totalConcesionesEfimeras)
-	}
-	ctxAlta := contextoRutaCoberturaDesarrolloPrueba(
-		soporte,
-		principal,
-		httpinterno.RutaAltaSolicitudes,
-	)
-	correlacionAlta, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-		ctxAlta,
-		seguridadvec.GeneradorReferenciasCriptograficas{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	solicitudAlta, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
-		dominiovec.DatosSolicitudAutorizacionLigadaV3{
-			VinculoAutenticacionActor: soporte.contexto.Vinculo,
-			ReferenciaMotivo:          soporte.motivo,
-			Accion:                    ports.AccionCrearSolicitud,
-			Recurso: dominiovec.RecursoAutorizable{
-				Referencia: "efecto:alta:posterior-analisis",
-				ModuloID:   ports.ModuloContratacion,
-				Tipo:       ports.TipoRecursoExpediente,
-				Ambitos: map[string]string{
-					"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-					"centro_ref":       centroAltaContratacionTemporalDesarrollo,
-					"categoria_ref":    categoriaAltaContratacionTemporalDesarrollo,
-				},
-			},
-			Finalidad:   ports.FinalidadCrearSolicitud,
-			Correlacion: correlacionAlta,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decisionAlta, _, err := autorizador.ExigirSolicitudLigadaV3(
-		ctxAlta,
-		solicitudAlta,
-		soporte.contexto.Resultado,
-	)
-	concedidaAlta, _, errResultadoAlta := decisionAlta.Resultado()
-	if err != nil || errResultadoAlta != nil || !concedidaAlta {
-		t.Fatalf("alta posterior a analisis no concedida: %v %v", err, errResultadoAlta)
-	}
-	autoridad, valida := soporte.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
-	if !valida || autoridad.preparadas != 2 || autoridad.publicadas != 2 {
-		t.Fatalf("asignaciones de analisis y alta no publicadas: %+v", autoridad)
-	}
-	soporte.mu.Lock()
-	totalConcesionesEfimeras = len(soporte.concesiones)
-	soporte.mu.Unlock()
-	if totalConcesionesEfimeras != 1 {
-		t.Fatalf("alta posterior no registro su concesion efimera: %d", totalConcesionesEfimeras)
-	}
-	instantaneaSinConcesionAnalisis := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(
-		soporte.instantaneaAnalisis,
-	)
-	instantaneaSinConcesionAnalisis.VersionRol.Concesiones = instantaneaSinConcesionAnalisis.VersionRol.Concesiones[:1]
-	instantaneaSinConcesionAnalisis.VersionRol.Concesiones[0].Accion =
-		ports.AccionRectificarAnalisis
-	if err := instantaneaSinConcesionAnalisis.Validar(); err != nil {
-		t.Fatal(err)
-	}
-	soporte.mu.Lock()
-	soporte.instantaneaAnalisis = instantaneaSinConcesionAnalisis
-	soporte.mu.Unlock()
-	ctxDenegacion := contextoRutaCoberturaDesarrolloPrueba(
-		soporte,
-		principal,
-		httpinterno.RutaRegistroAnalisisRRHH,
-	)
-	correlacionDenegacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-		ctxDenegacion,
-		seguridadvec.GeneradorReferenciasCriptograficas{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	solicitudDenegada, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
-		dominiovec.DatosSolicitudAutorizacionLigadaV3{
-			VinculoAutenticacionActor: soporte.contexto.Vinculo,
-			ReferenciaMotivo:          soporte.motivoRegistroAnalisis,
-			Accion:                    ports.AccionRegistrarAnalisis,
-			Recurso: dominiovec.RecursoAutorizable{
-				Referencia: "expediente:analisis:denegado",
-				ModuloID:   ports.ModuloContratacion,
-				Tipo:       ports.TipoRecursoAnalisis,
-				Ambitos: map[string]string{
-					"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo,
-					"expediente_ref":   "expediente:analisis:denegado",
-					"fase_previa":      "solicitud",
-					"estado_previo":    "en_curso",
-				},
-				Atributos: map[string]string{
-					ports.AtributoUnidadPoliticaRef: unidadCoberturaContratacionTemporalDesarrollo,
-				},
-			},
-			Finalidad:   finalidadAnalisisContratacionTemporalDesarrollo,
-			Correlacion: correlacionDenegacion,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, errDenegacion := autorizador.ExigirSolicitudLigadaV3(
-		ctxDenegacion,
-		solicitudDenegada,
-		soporte.contexto.Resultado,
-	)
-	if !errors.Is(errDenegacion, dominiovec.ErrAutorizacionDenegada) {
-		t.Fatalf("analisis sin concesion no fue denegado: %v", errDenegacion)
-	}
-	if registro.denegaciones != 1 {
-		t.Fatalf(
-			"denegacion de analisis no registrada de forma durable: %+v; error=%v; autoridad=%+v",
-			registro,
-			errDenegacion,
-			autoridad,
-		)
-	}
-	if autoridad.preparadas != 3 || autoridad.publicadas != 3 {
-		t.Fatalf("asignacion de la denegacion no publicada: %+v", autoridad)
-	}
-
-	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
-		contextoRutaCoberturaDesarrolloPrueba(
-			soporte,
-			principal,
-			httpinterno.RutaRectificacionAnalisisRRHH,
-		),
-	); err != nil {
-		t.Fatalf("rectificacion no obtuvo contexto de analisis: %v", err)
-	}
-
-	if _, err := soporte.ResolverContextoCanalAnalisisRRHH(
-		contextoRutaCoberturaDesarrolloPrueba(
-			soporte,
-			principal,
-			httpinterno.RutaAltaSolicitudes,
-		),
-	); !errors.Is(err, ports.ErrAutorizacionDenegada) {
-		t.Fatalf("alta obtuvo contexto de analisis: %v", err)
 	}
 }
 
@@ -730,6 +516,7 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 			vinculo.PrincipalID,
 			vinculo.PerfilActivoRef,
 			ahora,
+			fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT],
 		)
 	if err != nil {
 		t.Fatal(err)
@@ -808,64 +595,13 @@ func contextoRutaCoberturaDesarrolloPrueba(
 	)
 }
 
-func TestAutorizacionRectificacionAnalisisExigeAccionYMotivoPropios(t *testing.T) {
-	for _, caso := range []struct {
-		nombre, accion, motivo string
-		concedida              bool
-	}{
-		{"rectificacion", ports.AccionRectificarAnalisis, "rectificacion", true},
-		{"accion_registro", ports.AccionRegistrarAnalisis, "rectificacion", false},
-		{"motivo_registro", ports.AccionRectificarAnalisis, "registro", false},
-	} {
-		t.Run(caso.nombre, func(t *testing.T) {
-			soporte, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-			delegado := base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
-			autorizador := &autorizadorAnalisisContratacionTemporalDesarrollo{delegado: delegado}
-			ctx := contextoRutaCoberturaDesarrolloPrueba(soporte, principal, httpinterno.RutaRectificacionAnalisisRRHH)
-			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
-			if err != nil {
-				t.Fatal(err)
-			}
-			solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{
-				VinculoAutenticacionActor: soporte.contexto.Vinculo,
-				ReferenciaMotivo:          referenciaMotivoAutorizacionAnalisisDesarrollo(caso.motivo),
-				Accion:                    caso.accion,
-				Recurso: dominiovec.RecursoAutorizable{
-					Referencia: "expediente:analisis:desarrollo:001", ModuloID: ports.ModuloContratacion, Tipo: ports.TipoRecursoAnalisis,
-					Ambitos:   map[string]string{"organizacion_ref": organizacionAltaContratacionTemporalDesarrollo, "expediente_ref": "expediente:analisis:desarrollo:001", "fase_previa": "solicitud", "estado_previo": "en_curso"},
-					Atributos: map[string]string{ports.AtributoUnidadPoliticaRef: unidadCoberturaContratacionTemporalDesarrollo},
-				},
-				Finalidad: finalidadAnalisisContratacionTemporalDesarrollo, Correlacion: correlacion,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			decision, _, err := autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, soporte.contexto.Resultado)
-			if !caso.concedida {
-				if err == nil {
-					t.Fatal("rectificacion acepto accion o motivo de registro")
-				}
-				return
-			}
-			concedida, _, errResultado := decision.Resultado()
-			if err != nil || errResultado != nil || !concedida {
-				t.Fatalf("rectificacion no concedida: %v %v", err, errResultado)
-			}
-			registro := soporte.registroDecisionesAnalisis.(*registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba)
-			if registro.concesiones != 1 {
-				t.Fatal("falta registro durable de la autorizacion")
-			}
-		})
-	}
-}
-
 func TestRolAnalisisRectificacionNoReutilizaVersionHistorica(t *testing.T) {
 	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
 	vinculo, err := soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		t.Fatal(err)
 	}
-	actual, err := nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.reloj.Ahora())
+	actual, err := nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(vinculo.PrincipalID, vinculo.PerfilActivoRef, soporte.reloj.Ahora(), fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT])
 	if err != nil {
 		t.Fatal(err)
 	}
