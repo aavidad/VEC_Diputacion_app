@@ -244,16 +244,20 @@ test("el historial de una petición dice quién, qué cambió, por qué y con qu
   const analisis = { ...base, id: "ct:v:2", accion: "analisis_o3", actor_ref: "sistema:contratacion_temporal",
     resultado: "en_curso", recibo_ref: "", motivo: "motivo.catalogado",
     antes: { fase: "solicitud", estado: "en_curso" }, despues: { fase: "fiscalizacion", estado: "en_curso" } };
-  const respuesta = validarRespuestaAuditoria({ registros: [analisis, alta], siguiente_cursor: "" });
+  const asignacion = { ...base, id: "ct:v:3", accion: "informe_juridico_o5", resultado: "en_curso",
+    antes: { fase: "asignacion_unidad", estado: "en_curso" }, despues: { fase: "informe_juridico", estado: "en_curso" } };
+  const respuesta = validarRespuestaAuditoria({ registros: [asignacion, analisis, alta], siguiente_cursor: "" });
   const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, registros: respuesta.registros,
     expedienteRef: "expediente:ct:1", fuenteContexto: "ct" });
   const visible = html.replaceAll(/<details>[\s\S]*?<\/details>/gu, "").replaceAll(/>\s+</gu, "><");
   assert.match(visible, /Qué cambió<\/th><th scope="col">Motivo<\/th><th scope="col">Relacionado con/u);
   assert.match(visible, /Proceso automático<\/td><td>Registró el análisis de RRHH<\/td><td>Fase: Solicitud → Fiscalización<\/td>/u);
-  assert.match(visible, /<td>Consta en el detalle técnico<\/td><td>Este expediente<\/td>/u);
+  assert.match(visible, /<td>Motivo registrado \(no se muestra aquí\)<\/td><td>Este expediente<\/td>/u);
   assert.match(visible, /Nombre no disponible<\/td><td>Registró la petición<\/td><td>Fase: Solicitud; Estado: En trámite<\/td>/u);
   assert.match(visible, /<td>No consta<\/td><td>Este expediente, con justificante<\/td>/u);
-  assert.doesNotMatch(visible, /persona:rrhh|sistema:|alta_o2|analisis_o3|en_curso|motivo\.catalogado|recibo:1/u);
+  // Mismo nombre de fase para RRHH: no se presenta como cambio.
+  assert.match(visible, /Registró el informe jurídico<\/td><td>Sin cambios en fase ni estado<\/td>/u);
+  assert.doesNotMatch(visible, /Gestión de bolsa → Gestión de bolsa|persona:rrhh|sistema:|alta_o2|analisis_o3|en_curso|motivo\.catalogado|recibo:1/u);
   // Las referencias técnicas siguen disponibles para quien audita.
   assert.match(html, /<details>[\s\S]*persona:rrhh:1[\s\S]*recibo:1/u);
 });

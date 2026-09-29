@@ -66,6 +66,8 @@ function resumenCambio(r, t) {
     if (PROTEGIDOS.has(campo)) { partes.push(t("cambio_protegido", { campo: t(CAMPOS[campo]) })); continue; }
     const anterior = antes === undefined ? "" : valorCampo(campo, antes, t) || t("sin_dato");
     const nuevo = despues === undefined ? t("sin_valor") : valorCampo(campo, despues, t) || t("sin_dato");
+    // Dos fases del servidor pueden tener el mismo nombre para RRHH.
+    if (anterior === nuevo) continue;
     partes.push(anterior ? t("cambio_de_a", { campo: t(CAMPOS[campo]), antes: anterior, despues: nuevo })
       : t("cambio_valor", { campo: t(CAMPOS[campo]), valor: nuevo }));
   }
