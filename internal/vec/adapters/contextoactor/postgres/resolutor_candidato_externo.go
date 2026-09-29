@@ -34,7 +34,8 @@ const (
 // ResolutorRegistroContextoActorExternoPostgreSQLV1 usa exclusivamente las
 // funciones SQL del candidato externo. Su LOGIN se acredita al construirlo.
 type ResolutorRegistroContextoActorExternoPostgreSQLV1 struct {
-	base *ResolutorRegistroContextoActorPostgreSQLV2
+	base     *ResolutorRegistroContextoActorPostgreSQLV2
+	usuarios bool
 }
 
 func NuevoResolutorRegistroContextoActorExternoPostgreSQLV1(
@@ -92,10 +93,20 @@ func (r *ResolutorRegistroContextoActorExternoPostgreSQLV1) ResolverYRegistrarCo
 		solicitud.OperacionRef, reciboRef, solicitud.Contexto.Cuenta.CuentaRef,
 		solicitud.Contexto.PerfilActivoRef, solicitud.SolicitadoEn,
 	}
+	resolver, reconciliar := consultaResolverContextoCandidatoExternoV1, consultaReconciliarContextoCandidatoExternoV1
+	if r.usuarios {
+		resolver, reconciliar = consultaResolverContextoUsuariosExternoV1, consultaReconciliarContextoUsuariosExternoV1
+	}
+	confirmar := func(respuesta respuestaContextoActorPostgreSQL) (ports.ConfirmacionRegistroContextoActorV2, error) {
+		if r.usuarios {
+			return confirmarRespuestaUsuariosExterno(solicitud, respuesta)
+		}
+		return confirmarRespuestaCandidatoExterno(solicitud, respuesta)
+	}
 	for intento := 0; intento < 2; intento++ {
-		respuesta, estado, denegacion := r.base.ejecutar(ctx, consultaResolverContextoCandidatoExternoV1, argumentos)
+		respuesta, estado, denegacion := r.base.ejecutar(ctx, resolver, argumentos)
 		if estado == estadoContextoActorConfirmado {
-			return confirmarRespuestaCandidatoExterno(solicitud, respuesta)
+			return confirmar(respuesta)
 		}
 		if estado == estadoContextoActorDenegado {
 			return ports.ConfirmacionRegistroContextoActorV2{}, errors.Join(
@@ -108,13 +119,13 @@ func (r *ResolutorRegistroContextoActorExternoPostgreSQLV1) ResolverYRegistrarCo
 		if estado != estadoContextoActorCommitIncierto {
 			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
 		}
-		reconciliada, estadoReconciliacion := r.base.reconciliar(ctx, consultaReconciliarContextoCandidatoExternoV1, argumentos)
+		reconciliada, estadoReconciliacion := r.base.reconciliar(ctx, reconciliar, argumentos)
 		switch estadoReconciliacion {
 		case estadoContextoActorConfirmado:
 			if !respuestasContextoActorIguales(respuesta, reconciliada) {
 				return ports.ConfirmacionRegistroContextoActorV2{}, ports.ErrResolutorRegistroContextoActorNoDisponible
 			}
-			return confirmarRespuestaCandidatoExterno(solicitud, reconciliada)
+			return confirmar(reconciliada)
 		case estadoContextoActorAusente:
 			continue
 		default:
