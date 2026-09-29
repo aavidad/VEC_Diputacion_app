@@ -88,11 +88,11 @@ export function renderizarSiguientePasoFicha(expediente, estado, t) {
       <h3 id="ct-exp-siguiente-paso-titulo">${escapar(titulo)}</h3>
       <dl>
         <div><dt>${escapar(t("siguiente_paso_que"))}</dt><dd>${escapar(que)}</dd></div>
-        <div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>
+        ${tarea ? `<div><dt>${escapar(t("siguiente_paso_quien"))}</dt><dd>${escapar(actor || t("siguiente_paso_quien_desconocido"))}</dd></div>` : ""}
         <div><dt>${escapar(t("siguiente_paso_hasta"))}</dt><dd>${escapar(plazo)}</dd></div>
       </dl>
     </div>
-    ${terminado || espera ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite">${escapar(t("ficha_ir_tramite"))}</button>`}
+    ${terminado || espera || !tarea ? "" : `<button type="button" class="boton-primario" data-ct-exp-accion="ir-tramite">${escapar(t("ficha_ir_tramite"))}</button>`}
   </section>`;
 }
 

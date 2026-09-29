@@ -4,14 +4,14 @@ import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
 import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
 import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js";
@@ -50,7 +50,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   progreso_datos: "Datos",
   progreso_revision: "Revisión",
   progreso_recibo: "Recibo",
-  estado_disponible: "Servicio preparado para revisar y registrar la solicitud",
+  estado_disponible: "Puede revisar y registrar la solicitud",
   estado_no_disponible: "Servicio no disponible",
   estado_no_disponible_detalle:
     "La capacidad, los catálogos y el ejecutor real deben estar conectados antes de registrar.",
@@ -281,7 +281,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_responsable_nombre: "Responsable de peticiones de personal temporal",
   asignacion_confirmacion:
     "He comprobado el expediente, la unidad y la referencia responsable.",
-  asignacion_resumen: "Versión actual del expediente: {version}.",
+  asignacion_resumen: "Se guardará sobre los datos que ve ahora; si alguien cambia el expediente antes, se le avisará.",
   asignacion_confirmar: "Confirmar asignación",
   asignacion_confirmacion_advertencia:
     "Esta acción registrará la unidad y la persona responsable referenciada en una nueva versión.",
@@ -538,7 +538,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   progreso_datos: "Details",
   progreso_revision: "Review",
   progreso_recibo: "Receipt",
-  estado_disponible: "Service ready to review and record the request",
+  estado_disponible: "You can review and record the request",
   estado_no_disponible: "Service unavailable",
   estado_no_disponible_detalle: "The capability, catalogues and live processor must be connected before a request can be recorded.",
   estado_enviando: "Recording the request. Do not close this page.",
@@ -738,7 +738,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   asignacion_unidad_nombre: "Human Resources",
   asignacion_responsable_nombre: "Temporary Staff Requests Manager",
   asignacion_confirmacion: "I have checked the case, unit and responsible person's reference.",
-  asignacion_resumen: "Current case version: {version}.",
+  asignacion_resumen: "It will be saved against the data you see now; if someone changes the case first, you will be warned.",
   asignacion_confirmar: "Confirm assignment",
   asignacion_confirmacion_advertencia: "This action will record the unit and the referenced responsible person in a new version.",
   asignacion_indeterminada_titulo: "Result awaiting recovery",
