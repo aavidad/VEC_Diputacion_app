@@ -448,6 +448,22 @@ details p { margin: 0 0 12px; color: var(--ap-muted); }
   .dialogo form > footer button { width: 100%; }
 }
 
+/* Reflujo a zoom alto: el ancho útil puede ser menor de 320 px CSS. */
+@media (max-width: 320px) {
+  html { min-width: 0; }
+  .cabecera-portal {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "menu . acciones" "contexto contexto contexto" "busqueda busqueda busqueda";
+    gap: 6px;
+    padding-inline: 6px;
+  }
+  .cabecera-portal .boton-menu { grid-area: menu; }
+  .cabecera-portal .contexto-cabecera { grid-area: contexto; }
+  .cabecera-portal .busqueda-global { grid-area: busqueda; grid-column: auto; grid-row: auto; }
+  .cabecera-portal .acciones-cabecera { grid-area: acciones; }
+  .cabecera-portal .contexto-cabecera h1 { overflow-wrap: anywhere; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }

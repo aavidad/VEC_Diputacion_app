@@ -16,7 +16,7 @@
 .pref-campo { min-width: 0; }
 .pref-etiqueta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .pref-etiqueta label { font-weight: 600; }
-.pref-campo select { width: 100%; min-width: 0; min-height: 40px; padding: 7px 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); }
+.pref-campo select { width: 100%; min-width: 0; min-height: 40px; padding: 7px 10px; border: 1px solid var(--portal-muted); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-tinta); }
 .pref-ayuda { flex: 0 0 auto; width: 28px; height: 28px; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie-alterna); color: var(--portal-tinta); font-weight: 700; cursor: pointer; }
 .pref-ayuda-texto { margin: 4px 0 8px; color: var(--portal-muted); font-size: .875rem; }
 .pref-estado { margin: 0 0 12px; color: var(--portal-muted); }

@@ -9,7 +9,7 @@
 .preferencias-rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
 .preferencias-campo { display: grid; align-content: start; gap: 7px; min-width: 0; }
 .preferencias-campo > label:not(.preferencias-casilla) { font-weight: 600; }
-.preferencias-campo select { min-width: 0; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie); color: var(--ap-tinta); }
+.preferencias-campo select { min-width: 0; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--ap-muted); border-radius: var(--portal-radio); background: var(--ap-superficie); color: var(--ap-tinta); }
 .preferencias-opciones { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .preferencias-casilla { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 9px 12px; border: 1px solid var(--ap-borde); border-radius: var(--portal-radio); background: var(--ap-superficie-alterna); cursor: pointer; }
 .preferencias-casilla input { width: 18px; height: 18px; flex: 0 0 18px; accent-color: var(--ap-azul-700); }
@@ -22,9 +22,15 @@
 .preferencias-ayuda p { margin: 0; }
 .preferencias-panel .boton-ayuda { width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--ap-borde); border-radius: 50%; background: var(--ap-superficie); color: var(--ap-azul-800); font-weight: 700; cursor: pointer; }
 .preferencias-panel :is(button, select, input):focus-visible, .menu-identidad :focus-visible, .identidad-cabecera > button:focus-visible { outline: 3px solid var(--ap-azul-700); outline-offset: 2px; }
+@media (max-width: 1480px) {
+  .area-personal-app .sesion-usuario { display: flex; width: 44px; min-width: 44px; flex: 0 0 44px; justify-content: center; gap: 0; padding: 4px; }
+}
 @media (max-width: 680px) {
-  .area-personal-app .sesion-usuario { display: flex; width: 46px; flex: 0 0 46px; }
   .preferencias-rejilla { grid-template-columns: minmax(0, 1fr); }
   .preferencias-opciones { grid-column: auto; grid-template-columns: minmax(0, 1fr); }
   .menu-identidad { right: -2px; }
+}
+@media (max-width: 240px) {
+  /* El menú de identidad conserva el acceso a estas mismas preferencias. */
+  .area-personal-app .acciones-cabecera .boton-utilidad[data-accion="abrir-preferencias"] { display: none; }
 }

@@ -701,6 +701,16 @@ a:focus-visible,
   .estadisticas-resumen { grid-template-columns: 1fr; }
 }
 
+/* Reflujo a zoom alto: el ancho útil puede ser menor de 320 px CSS. */
+@media (max-width: 320px) {
+  html { min-width: 0; }
+  body.portal-empleado-app .cabecera-portal { grid-template-columns: minmax(0, 1fr); gap: 6px; padding-inline: 6px; }
+  .cabecera-portal .boton-menu-movil { grid-column: 1; grid-row: 1; }
+  .cabecera-portal .contexto-cabecera { grid-column: 1; grid-row: 2; }
+  .cabecera-portal .contexto-cabecera h1 { overflow-wrap: anywhere; }
+  .cabecera-portal .acciones-cabecera { grid-column: 1; grid-row: 3; justify-self: stretch; flex-wrap: wrap; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .boton-primario,
   .boton-secundario {
