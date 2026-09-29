@@ -53,7 +53,10 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const versionesEspeciales = new Map([
     ["portal-preferencias-i18n.js", "20260929-pref-i18n-merge-v1"],
     // 3.06/3.07: ofertas con varias plazas renuevan su grafo.
-    ["portal.js", "20260929-imagen-508c-v2"],
+    ["portal.js", "20260930-custodia-506-e3-v2"],
+    ["portal-modulos-coordinador.js", "20260930-custodia-506-e3-v2"],
+    ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-custodia-506-e3-v2"],
+    ["modulos/contratacion-temporal/circuito-firma.js", "20260930-custodia-506-e3-v2"],
     ["portal-bolsas-ofertas.js", "20260929-plazas-306-v1"],
     ["modulos/bolsa/rrhh-plazos-ui.js", "20260929-plazas-306-v1"],
     // «Mis correos» (5.08b) y «Mi imagen» (5.08c) cambian la vista de
