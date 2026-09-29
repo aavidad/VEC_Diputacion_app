@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from recorrer import NoEjecutado, preparar
+from recorrer import NoEjecutado, filtrar_red, preparar
 
 
 class Precondiciones(unittest.TestCase):
@@ -79,6 +82,69 @@ class Precondiciones(unittest.TestCase):
             origen, chrome = preparar(self.origen, self.acta, self.certificado, self.clave)
         self.assertEqual(origen, self.origen)
         self.assertEqual(chrome, Path("/usr/bin/google-chrome"))
+
+
+class Redirecciones(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("google-chrome"), "falta Chrome del sistema")
+    def test_302_local_a_otro_puerto_no_alcanza_destino(self):
+        from playwright.sync_api import Error, sync_playwright
+
+        alcanzadas = []
+
+        class Destino(BaseHTTPRequestHandler):
+            def do_GET(self):
+                alcanzadas.append(self.path)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"destino")
+
+            def log_message(self, *_):
+                pass
+
+        destino = ThreadingHTTPServer(("127.0.0.1", 0), Destino)
+        hilo_destino = threading.Thread(target=destino.serve_forever, daemon=True)
+        hilo_destino.start()
+        self.addCleanup(hilo_destino.join, 2)
+        self.addCleanup(destino.server_close)
+        self.addCleanup(destino.shutdown)
+
+        class Origen(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/salir":
+                    self.send_response(302)
+                    self.send_header("Location", f"http://127.0.0.1:{destino.server_port}/destino")
+                    self.end_headers()
+                else:
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"origen")
+
+            def log_message(self, *_):
+                pass
+
+        servidor = ThreadingHTTPServer(("127.0.0.1", 0), Origen)
+        hilo_origen = threading.Thread(target=servidor.serve_forever, daemon=True)
+        hilo_origen.start()
+        self.addCleanup(hilo_origen.join, 2)
+        self.addCleanup(servidor.server_close)
+        self.addCleanup(servidor.shutdown)
+
+        origen = f"http://127.0.0.1:{servidor.server_port}"
+        incidencias = []
+        with sync_playwright() as playwright:
+            navegador = playwright.chromium.launch(executable_path=shutil.which("google-chrome"), headless=True)
+            try:
+                contexto = navegador.new_context(service_workers="block")
+                contexto.route("**/*", lambda ruta: filtrar_red(ruta, origen, incidencias))
+                pagina = contexto.new_page()
+                self.assertEqual(pagina.goto(origen + "/bien").status, 200)
+                with self.assertRaises(Error):
+                    pagina.goto(origen + "/salir", timeout=5000)
+                self.assertEqual(alcanzadas, [])
+                self.assertIn("redireccion_bloqueada", incidencias)
+                contexto.close()
+            finally:
+                navegador.close()
 
 
 if __name__ == "__main__":

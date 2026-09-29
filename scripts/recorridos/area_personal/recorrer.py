@@ -130,6 +130,33 @@ def huella_recibo(datos: dict, paso: str) -> dict:
     return {"recibo_sha256": hashlib.sha256(ref.encode()).hexdigest(), "version": version}
 
 
+def mismo_origen(url: str, origen: str) -> bool:
+    try:
+        destino = urlparse(url)
+        esperado = urlparse(origen)
+        return (destino.scheme, destino.hostname, destino.port) == (
+            esperado.scheme, esperado.hostname, esperado.port)
+    except ValueError:
+        return False
+
+
+def filtrar_red(ruta, origen: str, incidencias: list[str]) -> None:
+    if not mismo_origen(ruta.request.url, origen):
+        incidencias.append("origen_bloqueado")
+        ruta.abort()
+        return
+    try:
+        respuesta = ruta.fetch(max_redirects=0)
+        if 300 <= respuesta.status < 400 or not mismo_origen(respuesta.url, origen):
+            incidencias.append("redireccion_bloqueada")
+            ruta.abort()
+            return
+        ruta.fulfill(response=respuesta)
+    except Exception:
+        incidencias.append("red_no_disponible")
+        ruta.abort()
+
+
 def comprobar_pagina(pagina, contexto, errores_js: list[str], respuestas_externas: list[str], cookies_set: list[str]) -> None:
     estado = pagina.evaluate("""async () => ({
       ancho: document.documentElement.clientWidth,
@@ -159,18 +186,11 @@ def ejecutar(origen: str, chrome: Path, certificado: Path, clave: Path) -> dict:
                 errores_js = []
                 respuestas_externas = []
                 cookies_set = []
-                def filtrar_red(ruta):
-                    if urlparse(ruta.request.url).netloc == urlparse(origen).netloc:
-                        ruta.continue_()
-                    else:
-                        respuestas_externas.append("externa_bloqueada")
-                        ruta.abort()
-
-                contexto.route("**/*", filtrar_red)
+                contexto.route("**/*", lambda ruta: filtrar_red(ruta, origen, respuestas_externas))
                 pagina = contexto.new_page()
                 pagina.on("pageerror", lambda error: errores_js.append(type(error).__name__))
                 pagina.on("request", lambda peticion: respuestas_externas.append("externa")
-                          if urlparse(peticion.url).netloc != urlparse(origen).netloc else None)
+                          if not mismo_origen(peticion.url, origen) else None)
                 pagina.on("response", lambda respuesta: cookies_set.append("set-cookie")
                           if "set-cookie" in respuesta.headers else None)
                 paso_actual = "preferencias"
