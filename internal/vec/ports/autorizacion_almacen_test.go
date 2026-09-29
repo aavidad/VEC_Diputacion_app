@@ -236,3 +236,80 @@ func clonarRecursoAlmacenPrueba(recurso domain.RecursoAutorizable) domain.Recurs
 	}
 	return resultado
 }
+
+// La custodia del documento firmado de un expediente solo escribe, con la
+// decisión de su propia acción: ni la de Bolsa ni otra sirven, y el contexto
+// no deriva lectura ni retención.
+func TestCustodiaDocumentoFirmadoExpedienteSoloEscribeConSuDecision(t *testing.T) {
+	campos := []string{"documento_firmado.custodia", "evidencia_custodia"}
+	decision, recurso, vinculos, instante := autorizacionAlmacenPrueba(
+		t, AccionNegocioCustodiarDocumentoFirmadoExpediente, campos, false)
+	contexto, err := NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen(decision, recurso, vinculos, instante)
+	if err != nil || contexto.ValidarParaEn(AccionAlmacenEscribir, instante) != nil {
+		t.Fatalf("custodia autorizada: %v", err)
+	}
+	proyeccion, err := contexto.Proyeccion()
+	if err != nil || proyeccion.AccionNegocio != AccionNegocioCustodiarDocumentoFirmadoExpediente ||
+		proyeccion.RecursoRef != recurso.Referencia {
+		t.Fatalf("proyección inesperada: %+v %v", proyeccion, err)
+	}
+	for _, accion := range []string{AccionAlmacenLeer, AccionAlmacenAplicarRetencion, AccionAlmacenPromover} {
+		if contexto.ValidarParaEn(accion, instante) == nil {
+			t.Fatalf("la custodia no debe habilitar %s", accion)
+		}
+	}
+	for _, paso := range []PasoOperacionAlmacen{PasoAlmacenLeerOriginalDocumento, PasoAlmacenRetenerFirmado} {
+		if _, err := contexto.DerivarPaso(paso); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+			t.Fatalf("la custodia deriva %s: %v", paso, err)
+		}
+	}
+	if contexto.ValidarParaEn(AccionAlmacenEscribir, decision.ValidaHasta) == nil {
+		t.Fatal("la custodia no vale fuera de la vigencia de la decisión")
+	}
+
+	// Una decisión de custodia de Bolsa no autoriza esta operación, ni esta la de Bolsa.
+	decisionBolsa, recursoBolsa, vinculosBolsa, instanteBolsa := autorizacionAlmacenPrueba(
+		t, AccionNegocioCustodiarDocumentoFirmado, campos, false)
+	if _, err := NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen(
+		decisionBolsa, recursoBolsa, vinculosBolsa, instanteBolsa); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("decisión de Bolsa aceptada: %v", err)
+	}
+	if _, err := NuevoContextoCustodiarDocumentoFirmadoAlmacen(decision, recurso, vinculos, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("decisión de expediente aceptada por Bolsa: %v", err)
+	}
+
+	casos := map[string]func(*domain.DecisionAutorizacion, *domain.RecursoAutorizable, *VinculosOperacionAlmacen){
+		"denegada": func(d *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
+			d.Concedida = false
+		},
+		"campos de más": func(d *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
+			d.CamposPermitidos = append(d.CamposPermitidos, "contenido")
+		},
+		"con obligación": func(d *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
+			d.Obligaciones = []string{"revisar"}
+		},
+		"otro efecto": func(_ *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, v *VinculosOperacionAlmacen) {
+			v.EfectoRef = "efecto:almacen:otro"
+		},
+		"otro sujeto": func(_ *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, v *VinculosOperacionAlmacen) {
+			v.SujetoSeudonimoHMAC = "hmac-sha256:sujeto_v1:" + strings.Repeat("c", 64)
+		},
+		"objeto indebido": func(_ *domain.DecisionAutorizacion, _ *domain.RecursoAutorizable, v *VinculosOperacionAlmacen) {
+			v.ObjetoVinculado = ReferenciaObjetoAlmacen{Referencia: "objeto:x", Version: "v1"}
+		},
+		"recurso alterado": func(_ *domain.DecisionAutorizacion, r *domain.RecursoAutorizable, _ *VinculosOperacionAlmacen) {
+			r.Atributos = map[string]string{}
+			for k, v := range recurso.Atributos {
+				r.Atributos[k] = v
+			}
+			r.Atributos[AtributoAlmacenCargaRef] = "carga:documental:otra"
+		},
+	}
+	for nombre, alterar := range casos {
+		d, r, v := clonarDecisionAutorizacionCanonica(decision), recurso, vinculos
+		alterar(&d, &r, &v)
+		if _, err := NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen(d, r, v, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+			t.Errorf("%s: se aceptó la custodia: %v", nombre, err)
+		}
+	}
+}

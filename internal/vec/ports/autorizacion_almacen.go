@@ -40,6 +40,11 @@ const (
 	AccionNegocioCustodiarDocumentoFirmado     = "bolsa.decision.firma.documento.custodiar"
 	AccionNegocioRetenerDocumentoFirmado       = "bolsa.decision.firma.documento.retener"
 	AccionNegocioLeerOriginalDocumentoGenerado = "documentos.original.descargar"
+	// AccionNegocioCustodiarDocumentoFirmadoExpediente escribe en el almacén
+	// de Documentos el documento firmado de un expediente de otro módulo
+	// (p. ej. la resolución firmada de Contratación temporal) tras verificar
+	// su firma. Solo escribe: no retiene, no lee ni elimina.
+	AccionNegocioCustodiarDocumentoFirmadoExpediente = "documentos.firmado.custodiar"
 
 	// Atributos que deben formar parte del RecursoAutorizable evaluado por el
 	// PDP. Asi una decision no puede emplearse para acuñar capacidades sobre
@@ -201,6 +206,20 @@ func NuevoContextoCustodiarDocumentoFirmadoAlmacen(
 ) (ContextoOperacionAlmacen, error) {
 	return nuevoContextoOperacionAlmacen(decision, recurso, vinculos, verificadaEn,
 		especificacionCustodiarDocumentoFirmado())
+}
+
+// NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen deriva solo la
+// escritura del documento firmado de un expediente, con la decisión del PDP
+// para esa acción exacta. Una decisión de custodia de Bolsa no sirve aquí ni
+// al revés, y el contexto no habilita lectura, retención ni eliminación.
+func NuevoContextoCustodiarDocumentoFirmadoExpedienteAlmacen(
+	decision domain.DecisionAutorizacion,
+	recurso domain.RecursoAutorizable,
+	vinculos VinculosOperacionAlmacen,
+	verificadaEn time.Time,
+) (ContextoOperacionAlmacen, error) {
+	return nuevoContextoOperacionAlmacen(decision, recurso, vinculos, verificadaEn,
+		especificacionCustodiarDocumentoFirmadoExpediente())
 }
 
 func NuevoContextoRetenerDocumentoFirmadoAlmacen(
@@ -368,6 +387,16 @@ func especificacionCustodiarDecisionBaremacion() especificacionAutorizacionAlmac
 func especificacionCustodiarDocumentoFirmado() especificacionAutorizacionAlmacen {
 	return especificacionAutorizacionAlmacen{
 		accionNegocio: AccionNegocioCustodiarDocumentoFirmado,
+		camposExactos: []string{"documento_firmado.custodia", "evidencia_custodia"},
+		pasos: []pasoPlanOperacionAlmacen{{
+			referencia: PasoAlmacenCustodiarFirmado, accion: AccionAlmacenEscribir,
+		}},
+	}
+}
+
+func especificacionCustodiarDocumentoFirmadoExpediente() especificacionAutorizacionAlmacen {
+	return especificacionAutorizacionAlmacen{
+		accionNegocio: AccionNegocioCustodiarDocumentoFirmadoExpediente,
 		camposExactos: []string{"documento_firmado.custodia", "evidencia_custodia"},
 		pasos: []pasoPlanOperacionAlmacen{{
 			referencia: PasoAlmacenCustodiarFirmado, accion: AccionAlmacenEscribir,
