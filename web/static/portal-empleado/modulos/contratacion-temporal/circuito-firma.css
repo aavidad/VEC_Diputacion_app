@@ -279,6 +279,11 @@
 
 .ct-circuito-aviso {
   padding: 8px 24px 0;
+  overflow-wrap: anywhere;
+}
+
+.ct-fase-firma-firmado .boton-secundario[aria-disabled="true"] {
+  cursor: wait;
 }
 
 /* Fase de firma: una fila por documento, con acento de color según su estado. */

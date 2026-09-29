@@ -18,7 +18,8 @@
     "firmado_prueba": "Firma de prueba, sin validez oficial hasta Firmadoc.",
     "firmado_paso": "Firma del paso {actual} de {total}.",
     "descargando": "Descargando el PDF firmado…",
-    "descargado": "PDF firmado descargado: {nombre}.",
+    "descargado": "PDF firmado descargado: {documento}.",
+    "descargado_sin_nombre": "PDF firmado descargado.",
     "descarga_denegada": "No tiene permiso para descargar este PDF firmado. Si lo necesita, pídalo a quien gestiona el expediente.",
     "descarga_error": "No se ha podido descargar el PDF firmado. Vuelva a intentarlo; si sigue igual, avise a Informática."
   },

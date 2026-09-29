@@ -18,7 +18,8 @@
     "firmado_prueba": "Test signature, not officially valid until Firmadoc.",
     "firmado_paso": "Signature for step {actual} of {total}.",
     "descargando": "Downloading the signed PDF…",
-    "descargado": "Signed PDF downloaded: {nombre}.",
+    "descargado": "Signed PDF downloaded: {documento}.",
+    "descargado_sin_nombre": "Signed PDF downloaded.",
     "descarga_denegada": "You are not allowed to download this signed PDF. If you need it, ask whoever manages the case.",
     "descarga_error": "The signed PDF could not be downloaded. Try again; if it keeps failing, contact IT."
   },

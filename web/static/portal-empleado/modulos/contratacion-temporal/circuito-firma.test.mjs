@@ -405,9 +405,11 @@ test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en leng
   const raiz = { querySelector: (s) => s === ".ct-exp-progreso" ? fases : s === "[data-ct-circuito-firma]" ? bloque : null };
   const pedidas = [];
   let fallo = null;
+  let esperarDescarga = null;
   const crearDocumentos = ({ expedienteRef }) => ({
     async descargar(documento, { version, mime, huella }) {
       pedidas.push({ expedienteRef, documento, version, mime, huella });
+      if (esperarDescarga) await esperarDescarga;
       if (fallo) throw fallo;
       return { contenido: new Uint8Array([37, 80, 68, 70]), nombre: "documento-ref.pdf", tipo: "application/pdf" };
     },
@@ -422,20 +424,37 @@ test("descargar el PDF firmado pide a Documentos la terna exacta y avisa en leng
   gestor.montarSiProcede(estado);
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(typeof manejar, "function");
+  const atributos = new Map();
+  const fila = { querySelector: (s) => s === ".ct-fase-firma-documento strong" ? { textContent: "Resolución de nombramiento" } : null };
   const boton = {
     disabled: false,
+    setAttribute: (nombre, valor) => atributos.set(nombre, valor),
+    removeAttribute: (nombre) => atributos.delete(nombre),
     dataset: { ctDescargarFirmado: "", ctFirmadoExpediente: `ref:${"e".repeat(64)}`, ctFirmadoDocumento: `ref:${"d".repeat(64)}`,
       ctFirmadoVersion: "1", ctFirmadoHuella: "1".repeat(64) },
-    closest: (s) => s === "[data-ct-descargar-firmado]" ? boton : s === "[data-ct-circuito-firma]" ? bloque : null,
+    closest: (s) => s === "[data-ct-descargar-firmado]" ? boton : s === "[data-ct-circuito-firma]" ? bloque
+      : s === ".ct-fase-firma-fila" ? fila : null,
   };
   const pulsar = async () => { manejar({ target: boton }); for (let i = 0; i < 3; i += 1) await new Promise((r) => setTimeout(r, 0)); };
+  let terminarDescarga;
+  esperarDescarga = new Promise((resolver) => { terminarDescarga = resolver; });
   await pulsar();
+  assert.equal(atributos.get("aria-disabled"), "true", "la descarga en curso conserva el botón en el orden de foco");
+  assert.equal(atributos.get("aria-describedby"), "ct-firma-aviso");
+  assert.equal(boton.disabled, false);
+  await pulsar();
+  assert.equal(pedidas.length, 1, "un segundo clic durante la descarga no inicia otra petición");
+  terminarDescarga();
+  esperarDescarga = null;
+  await new Promise((r) => setTimeout(r, 0));
   assert.deepEqual(pedidas[0], { expedienteRef: `ref:${"e".repeat(64)}`, documento: `ref:${"d".repeat(64)}`, version: 1,
     mime: "application/pdf", huella: "1".repeat(64) });
   assert.equal(enlaces[0]?.download, "documento-ref.pdf");
   assert.equal(enlaces[0]?.pulsado, true);
-  assert.match(aviso.textContent, /PDF firmado descargado: documento-ref\.pdf/u);
+  assert.match(aviso.textContent, /PDF firmado descargado: Resolución de nombramiento/u);
+  assert.doesNotMatch(aviso.textContent, /documento-ref\.pdf/u);
   assert.equal(boton.disabled, false);
+  assert.equal(atributos.has("aria-disabled"), false);
   fallo = Object.assign(new Error("denegado"), { codigo: "denegado", estado: 403 });
   await pulsar();
   assert.match(aviso.textContent, /No tiene permiso/u);

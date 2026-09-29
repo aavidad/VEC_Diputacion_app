@@ -190,7 +190,7 @@ export function renderizarCircuitoFirma(circuito, t, estadoConsulta = circuito ?
       <h3 id="ct-circuito-firma-titulo">${escaparHTML(t("circuito_firma_titulo"))}</h3>
       ${circuito?.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
-    <p class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
+    <p id="ct-firma-aviso" class="ct-circuito-aviso" role="status" aria-live="polite" tabindex="-1" data-ct-firma-aviso></p>
     ${fase ? renderizarFaseFirma({
     catalogo: fase.catalogo, real: circuito?.registro ? circuito : null, textos: fase.textos,
     nombrar: (tipo, valor) => traducirValorCircuitoFirma(tipo, valor, t), aviso: estadoConsulta !== "denegado",
@@ -309,11 +309,13 @@ export function crearGestorCircuitoFirma({
   let descargando = false;
   async function descargarFirmado(boton) {
     if (descargando) return;
+    descargando = true;
+    boton.setAttribute("aria-disabled", "true");
+    boton.setAttribute("aria-describedby", "ct-firma-aviso");
     const textos = await textosFase;
     const aviso = boton.closest?.("[data-ct-circuito-firma]")?.querySelector?.("[data-ct-firma-aviso]");
     const decir = (clave, valores) => { if (aviso && textos) aviso.textContent = textos.traducir(clave, valores); };
-    descargando = true;
-    boton.disabled = true;
+    const documento = boton.closest?.(".ct-fase-firma-fila")?.querySelector?.(".ct-fase-firma-documento strong")?.textContent?.trim();
     decir("fase.descargando");
     let url = "";
     try {
@@ -322,23 +324,23 @@ export function crearGestorCircuitoFirma({
       const archivo = await fuente.descargar(d.ctFirmadoDocumento, {
         version: Number(d.ctFirmadoVersion), mime: "application/pdf", huella: d.ctFirmadoHuella, signal: controlador.signal,
       });
-      const documento = entornoDescarga.document;
-      if (!documento?.body || typeof entornoDescarga.URL?.createObjectURL !== "function" || typeof entornoDescarga.Blob !== "function") {
+      const pagina = entornoDescarga.document;
+      if (!pagina?.body || typeof entornoDescarga.URL?.createObjectURL !== "function" || typeof entornoDescarga.Blob !== "function") {
         throw new TypeError("descarga no disponible");
       }
       url = entornoDescarga.URL.createObjectURL(new entornoDescarga.Blob([archivo.contenido], { type: archivo.tipo }));
-      const enlace = documento.createElement("a");
+      const enlace = pagina.createElement("a");
       try {
         enlace.href = url; enlace.download = archivo.nombre; enlace.hidden = true;
-        documento.body.append(enlace); enlace.click();
+        pagina.body.append(enlace); enlace.click();
       } finally { enlace.remove(); }
-      decir("fase.descargado", { nombre: archivo.nombre });
+      decir(documento ? "fase.descargado" : "fase.descargado_sin_nombre", { documento });
     } catch (error) {
       if (controlador.signal.aborted) return;
       decir(error?.codigo === "denegado" ? "fase.descarga_denegada" : "fase.descarga_error");
     } finally {
       if (url) setTimeout(() => entornoDescarga.URL.revokeObjectURL?.(url), 0);
-      boton.disabled = false;
+      boton.removeAttribute("aria-disabled");
       descargando = false;
     }
   }
