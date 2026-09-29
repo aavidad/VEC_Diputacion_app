@@ -59,7 +59,7 @@ func nuevasRutasOrganizacionContratacionTemporalDesarrollo(cfg config.Config, al
 	if _, err := consulta.Obtener(ctx); err != nil {
 		return nil, err
 	}
-	if err := configurarAutoridadOrganizacionDesarrollo(ctx, alta, reloj); err != nil {
+	if err := configurarAutoridadOrganizacionDesarrollo(ctx, alta, reloj, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg)); err != nil {
 		return nil, err
 	}
 	editor.proveedor, editor.repositorio, editor.version = proveedor, repositorio, cfg.PersonalOrganizacionVersion
@@ -154,7 +154,8 @@ func solicitudAutorizacionOrganizacionDesarrolloValida(ctx context.Context, d ve
 		maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
 }
 
-func configurarAutoridadOrganizacionDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo) error {
+func configurarAutoridadOrganizacionDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo,
+	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo) error {
 	v, err := alta.soporte.contexto.Vinculo.Datos()
 	if err != nil {
 		return err
@@ -177,7 +178,28 @@ func configurarAutoridadOrganizacionDesarrollo(ctx context.Context, alta *depend
 	alta.soporte.mu.Lock()
 	alta.soporte.instantaneaOrganizacion = instantanea
 	alta.soporte.mu.Unlock()
-	return nil
+	// La edición de la organización usa su perfil fijo (solo organización):
+	// se publica una vez si falta y después solo se consume.
+	principal := vecdomain.Principal{ID: alta.soporte.principalID, Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": alta.soporte.certificadoSHA256}}
+	fijo, err := nuevoPerfilFijoCTDesarrollo(principal, alta.soporte.contexto, reloj.Ahora(), clavePerfilFijoOrganizacionCTDesarrollo,
+		[]string{rutaCambiosOrganizacionContratacionTemporalDesarrollo},
+		func(principalID, perfilRef string) (vecdomain.InstantaneaAutorizacion, error) {
+			i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(instantanea)
+			i.AsignacionPerfil.PrincipalID, i.AsignacionPerfil.PerfilActivoRef = principalID, perfilRef
+			i.AsignacionPerfil.AsignacionID = referenciaAltaContratacionTemporalDesarrollo("asg_",
+				principalID+"\x00"+perfilRef+"\x00organizacion-preparacion-desarrollo")
+			return i, i.Validar()
+		})
+	if err != nil {
+		return err
+	}
+	if err := alta.soporte.registrarPerfilFijoCTDesarrollo(fijo); err != nil {
+		return err
+	}
+	return asegurarPerfilesFijosCTDesarrollo(ctx, alta.postgresql.gobierno, alta.soporte, aprobacion, fijo)
 }
 
 type manejadorEdicionOrganizacionDesarrollo struct {

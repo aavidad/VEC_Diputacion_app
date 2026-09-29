@@ -83,8 +83,11 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	soloConsumePublicada bool
 	// perfilCancelacionCentro: perfil propio de la cancelación por el
 	// centro, dinámico y con guarda de origen operativo.
-	perfilCancelacionCentro           bool
-	avisoNoConsumibleEn               time.Time
+	perfilCancelacionCentro bool
+	avisoNoConsumibleEn     time.Time
+	// perfilesFijos: perfiles de la misma persona reservados a rutas cuyo
+	// permiso no depende del expediente; solo se consumen (corte 2).
+	perfilesFijos                     []*perfilFijoCTDesarrollo
 	candidatoBolsa                    bool
 	mu                                sync.Mutex
 	sello                             *selloConsultasContratacionTemporalDesarrollo
@@ -317,6 +320,9 @@ func nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		ambitos:                      ambitos, reloj: reloj,
 		concesiones:              make(map[string]struct{}),
 		instantaneasPorSolicitud: make(map[string]dominiovec.InstantaneaAutorizacion),
+	}
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(soporte, principal, ahora, origen); err != nil {
+		return vacias, err
 	}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	autorizadorBase, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
