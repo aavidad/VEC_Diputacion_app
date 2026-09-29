@@ -4,14 +4,14 @@ import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_ES } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
+import { MENSAJES_TEXTOS_VISTAS_ES } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
 import { MENSAJES_BORRADORES_PUBLICADOS_ES } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { MENSAJES_LLAMAMIENTO_EN } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_EN } from "./i18n-subsanacion-reparos.js";
 import { MENSAJES_DOCUMENTACION_FORMALIZACION_EN } from "./i18n-documentacion-formalizacion.js?v=20260926-pulido-tecnico-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_EN } from "./i18n-avisos-via-cobertura.js";
 import { MENSAJES_ANALISIS_CATALOGO_EN } from "./i18n-analisis-catalogo.js?v=20260926-huecos-rrhh-v1";
-import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260928-ppt-v2";
+import { MENSAJES_TEXTOS_VISTAS_EN } from "./i18n-textos-vistas.js?v=20260929-demo-ficha-v1";
 import { MENSAJES_BORRADORES_PUBLICADOS_EN } from "./i18n-borradores-publicados.js?v=20260928-rrhh-borradores-publicados-v1";
 import { IDIOMA_ACTUAL } from "../../../comun/idioma.js";
 import { rotulosFasesComoMensajes } from "./i18n-fases-rrhh.js";
@@ -26,7 +26,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   clave_recuperacion_copiada: "Clave copiada",
   pc_expediente_enlace: "Expediente {numero}",
   pc_expediente_enlace_rrhh_aria: "Petición {peticion}: abrir su expediente {numero} en Peticiones de personal temporal",
-  pc_expediente_enlace_centro_aria: "Petición {peticion}: ver su expediente {numero} en las incorporaciones del centro",
+  pc_expediente_enlace_centro_aria: "{peticion}: ver su expediente {numero} en las incorporaciones del centro",
   pc_abrir_expediente: "Abrir el expediente",
   pc_acceso_denegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
   pc_lectura_fallida: "No se pudo verificar el acceso por un fallo temporal. Se han retirado los datos de esta vista. Reintente la consulta antes de continuar.",
@@ -37,6 +37,30 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   pc_titulo_incierto: "Resultado pendiente de comprobación",
   pc_titulo_sin_consulta: "Consulta no disponible",
   pc_reintentar_consulta: "Reintentar consulta",
+  pc_sobrelinea: "Personal temporal",
+  pc_titulo: "Peticiones de personal de su centro",
+  pc_descripcion: "Pida aquí el personal temporal que necesita su centro. Cuando la petición esté ratificada, pasa a Recursos Humanos.",
+  pc_col_peticion: "Petición",
+  pc_peticion_del: "Petición del {fecha}",
+  pc_peticion_sin_fecha: "Petición sin fecha",
+  pc_su_centro: "Su centro",
+  pc_estado_ratificada: "Ratificada",
+  pc_estado_pendiente: "Pendiente de ratificar",
+  pc_sin_fechas: "Sin fechas indicadas",
+  pc_periodo_desde_hasta: "Del {inicio} al {fin}",
+  pc_periodo_desde: "Desde el {inicio}",
+  pc_periodo_hasta: "Hasta el {fin}",
+  pc_detalle_titulo: "Datos de la petición",
+  pc_cerrar_detalle: "Cerrar",
+  pc_ver: "Ver",
+  pc_sin_peticiones: "Todavía no hay peticiones de su centro.",
+  pc_ultimas: "Se muestran las 50 peticiones más recientes.",
+  pc_lista_centro: "Peticiones de su centro",
+  pc_lista_ratificar: "Peticiones para ratificar",
+  pc_nueva: "Nueva petición",
+  pc_actualizar: "Actualizar",
+  pc_volver: "Volver a Personal temporal",
+  pc_recibo_nota: "Recursos Humanos recibirá la petición cuando esté ratificada. No hace falta enviarla otra vez.",
   ...MENSAJES_LLAMAMIENTO_ES,
   "contratacion_temporal.flujo.rrhh": "Gestión de expedientes de personal temporal",
   ...MENSAJES_SUBSANACION_REPAROS_ES,
@@ -50,7 +74,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   progreso_datos: "Datos",
   progreso_revision: "Revisión",
   progreso_recibo: "Recibo",
-  estado_disponible: "Servicio preparado para revisar y registrar la solicitud",
+  estado_disponible: "Puede revisar y registrar la solicitud",
   estado_no_disponible: "Servicio no disponible",
   estado_no_disponible_detalle:
     "La capacidad, los catálogos y el ejecutor real deben estar conectados antes de registrar.",
@@ -281,7 +305,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_responsable_nombre: "Responsable de peticiones de personal temporal",
   asignacion_confirmacion:
     "He comprobado el expediente, la unidad y la referencia responsable.",
-  asignacion_resumen: "Versión actual del expediente: {version}.",
+  asignacion_resumen: "Se guardará sobre los datos que ve ahora; si alguien cambia el expediente antes, se le avisará.",
   asignacion_confirmar: "Confirmar asignación",
   asignacion_confirmacion_advertencia:
     "Esta acción registrará la unidad y la persona responsable referenciada en una nueva versión.",
@@ -514,7 +538,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   clave_recuperacion_copiada: "Key copied",
   pc_expediente_enlace: "Case {numero}",
   pc_expediente_enlace_rrhh_aria: "Request {peticion}: open case {numero} in Temporary Staff Requests",
-  pc_expediente_enlace_centro_aria: "Request {peticion}: view case {numero} in the centre's appointments",
+  pc_expediente_enlace_centro_aria: "{peticion}: view case {numero} in the centre's appointments",
   pc_abrir_expediente: "Open case",
   pc_acceso_denegado: "Access denied. Data has been removed from this view; actions already recorded remain on the server.",
   pc_lectura_fallida: "Access could not be verified because of a temporary fault. Data has been removed from this view. Retry the enquiry before continuing.",
@@ -525,6 +549,30 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   pc_titulo_incierto: "Result awaiting verification",
   pc_titulo_sin_consulta: "Enquiry unavailable",
   pc_reintentar_consulta: "Retry enquiry",
+  pc_sobrelinea: "Temporary staff",
+  pc_titulo: "Staff requests from your centre",
+  pc_descripcion: "Request the temporary staff your centre needs here. Once the request is ratified, it goes to Human Resources.",
+  pc_col_peticion: "Request",
+  pc_peticion_del: "Request of {fecha}",
+  pc_peticion_sin_fecha: "Undated request",
+  pc_su_centro: "Your centre",
+  pc_estado_ratificada: "Ratified",
+  pc_estado_pendiente: "Awaiting ratification",
+  pc_sin_fechas: "No dates given",
+  pc_periodo_desde_hasta: "From {inicio} to {fin}",
+  pc_periodo_desde: "From {inicio}",
+  pc_periodo_hasta: "Until {fin}",
+  pc_detalle_titulo: "Request details",
+  pc_cerrar_detalle: "Close",
+  pc_ver: "View",
+  pc_sin_peticiones: "Your centre has no requests yet.",
+  pc_ultimas: "Showing the 50 most recent requests.",
+  pc_lista_centro: "Requests from your centre",
+  pc_lista_ratificar: "Requests to ratify",
+  pc_nueva: "New request",
+  pc_actualizar: "Refresh",
+  pc_volver: "Back to Temporary staff",
+  pc_recibo_nota: "Human Resources will receive the request once it is ratified. There is no need to send it again.",
   ...MENSAJES_LLAMAMIENTO_EN,
   "contratacion_temporal.flujo.rrhh": "Temporary staff case management",
   ...MENSAJES_SUBSANACION_REPAROS_EN,
@@ -538,7 +586,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   progreso_datos: "Details",
   progreso_revision: "Review",
   progreso_recibo: "Receipt",
-  estado_disponible: "Service ready to review and record the request",
+  estado_disponible: "You can review and record the request",
   estado_no_disponible: "Service unavailable",
   estado_no_disponible_detalle: "The capability, catalogues and live processor must be connected before a request can be recorded.",
   estado_enviando: "Recording the request. Do not close this page.",
@@ -738,7 +786,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_EN = Object.freeze({
   asignacion_unidad_nombre: "Human Resources",
   asignacion_responsable_nombre: "Temporary Staff Requests Manager",
   asignacion_confirmacion: "I have checked the case, unit and responsible person's reference.",
-  asignacion_resumen: "Current case version: {version}.",
+  asignacion_resumen: "It will be saved against the data you see now; if someone changes the case first, you will be warned.",
   asignacion_confirmar: "Confirm assignment",
   asignacion_confirmacion_advertencia: "This action will record the unit and the referenced responsible person in a new version.",
   asignacion_indeterminada_titulo: "Result awaiting recovery",

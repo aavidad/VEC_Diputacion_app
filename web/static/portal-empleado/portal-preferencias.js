@@ -1,5 +1,5 @@
 import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260929-i18n-shell-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 
 const CAMPOS_SELECT = Object.freeze({ idioma: "idiomas", tamano_texto: "tamanos_texto", tema: "temas", inicio: "inicios", filas: "filas" });
 const AYUDAS = Object.freeze({ idioma: "idioma", tamano_texto: "tamano", alto_contraste: "contraste", tema: "tema", inicio: "inicio", filas: "filas", aviso_correo_tareas: "correo_tareas", aviso_correo_plazos: "correo_plazos" });

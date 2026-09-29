@@ -104,3 +104,15 @@ export function formatearFechaPortal(valor) {
   if (!Number.isFinite(fecha.getTime())) return texto;
   return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, hora ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }).format(fecha);
 }
+
+// Fin de vigencia de una bolsa, igual en la portada y en el cuadro de bolsas:
+// solo la fecha (sin hora) o «Sin fecha de fin» cuando no consta el fin.
+export function finVigenciaBolsaPortal(valor, traducir = traducirPortal) {
+  const texto = typeof valor === "string" ? valor.trim() : "";
+  const civil = texto.match(/^\d{4}-\d{2}-\d{2}$/);
+  const fecha = new Date(civil ? `${texto}T00:00:00Z` : texto);
+  if (texto === "" || !Number.isFinite(fecha.getTime())) return traducir("inicio_rrhh_sin_fin");
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, {
+    dateStyle: "short", timeZone: civil ? "UTC" : ZONA_HORARIA_PORTAL,
+  }).format(fecha);
+}

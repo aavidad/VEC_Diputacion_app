@@ -2,6 +2,7 @@
 // de la sesión; el navegador solo elige un número de página.
 import { traducir } from "./i18n.js";
 import { escaparHTML, listaDatos, panel } from "./vistas/comunes.js";
+import { nombreCategoria } from "./mi-bolsa-campos.js";
 
 export const RUTA_HISTORIAL_MI_BOLSA = "/api/vec/bolsa/mi-bolsa/historial";
 export const ESQUEMA_HISTORIAL_MI_BOLSA = "vec.bolsa.mi-bolsa.historial.v1";
@@ -15,10 +16,10 @@ const RESPALDO = Object.freeze({
   titulo: "Histórico de mi bolsa", subtitulo: "Actuaciones de mis participaciones registradas en VEC",
   cargando: "Cargando histórico autorizado…", vacio: "No constan actuaciones en el histórico de VEC.",
   sinCampos: "El servicio no ha habilitado datos del histórico para esta identidad.",
-  error: "No se pudo cargar el histórico. Los datos de esta página no se muestran.",
+  error: "El histórico todavía no está disponible. Puede volver a consultarlo más tarde.",
   autenticacion: "Identifíquese de nuevo para consultar su histórico.",
   denegado: "No tiene permiso para consultar este histórico.",
-  reintentar: "Reintentar consulta", anterior: "Anterior", siguiente: "Siguiente", pagina: "Página {pagina}",
+  reintentar: "Volver a consultar", anterior: "Anterior", siguiente: "Siguiente", pagina: "Página {pagina}",
   contrato: "Contrato comunicado a Bolsa", incorporacion: "Incorporación comunicada a Bolsa",
   llamamiento: "Correo de llamamiento", renuncia: "Respuesta de renuncia",
   categoria: "Categoría", fecha: "Fecha registrada", inicio: "Inicio comunicado", fin: "Fin previsto comunicado",
@@ -26,7 +27,7 @@ const RESPALDO = Object.freeze({
   respuesta: "Respuesta", renuncia_simple: "Renuncia", renuncia_justificada: "Renuncia con causa justificada",
   estado: "Estado", respuesta_registrada: "Respuesta registrada", propuesta_pendiente_rrhh: "Propuesta pendiente de RRHH",
   modo: "Tratamiento", firme: "Registro directo en Bolsa", propuesta_rrhh: "Pendiente de confirmación de RRHH",
-  limite: "Solo se muestran actuaciones de VEC. Un correo enviado no acredita recepción; una renuncia registrada no acredita su resolución en Peticiones de personal temporal; una incorporación comunicada no acredita contrato firmado ni historia laboral anterior a VEC.",
+  limite: "Aquí solo aparece lo registrado en VEC. Que se enviara un correo no significa que llegara, y una renuncia o incorporación anotada aún puede estar pendiente de que RRHH la resuelva.",
 });
 
 function t(clave, variables = {}) {
@@ -116,7 +117,7 @@ function fecha(valor) {
 
 function tarjeta(item) {
   const nombre = item.clase === "contrato_bolsa" ? t(item.tipo === "incorporacion" ? "incorporacion" : "contrato") : t(item.clase);
-  const pares = [[t("categoria"), escaparHTML(item.categoria)], [t("fecha"), escaparHTML(fecha(item.ocurrido_en))]];
+  const pares = [[t("categoria"), escaparHTML(nombreCategoria(item))], [t("fecha"), escaparHTML(fecha(item.ocurrido_en))]];
   if (item.clase === "contrato_bolsa") {
     pares.push([t("inicio"), escaparHTML(item.inicio ? fecha(item.inicio) : t("sinFecha"))]);
     pares.push([t("fin"), escaparHTML(item.fin_previsto ? fecha(item.fin_previsto) : t("sinFecha"))]);
@@ -135,7 +136,9 @@ export function renderizarHistorialMiBolsa(datos = null, { pagina = 1, estado = 
   if (estado === "cargando") contenido = `<p role="status">${escaparHTML(t("cargando"))}</p>`;
   else if (estado !== "correcto") {
     const clave = Object.hasOwn(RESPALDO, estado) ? estado : "error";
-    contenido = `<div class="estado-error" role="alert"><p>${escaparHTML(t(clave))}</p><button type="button" class="boton-secundario" data-historial-accion="reintentar">${escaparHTML(t("reintentar"))}</button></div>`;
+    // Si el servicio no responde no es culpa de la persona: estado neutro, sin alarma.
+    const identidad = clave === "autenticacion" || clave === "denegado";
+    contenido = `<div class="${identidad ? "estado-error" : "estado-vacio"}" role="${identidad ? "alert" : "status"}"><p>${escaparHTML(t(clave))}</p><button type="button" class="boton-secundario" data-historial-accion="reintentar">${escaparHTML(t("reintentar"))}</button></div>`;
   } else if (datos.campos_visibles.length === 0) contenido = `<p class="nota aviso">${escaparHTML(t("sinCampos"))}</p>`;
   else if (datos.historial.items.length === 0) contenido = `<p class="estado-vacio">${escaparHTML(t("vacio"))}</p>`;
   else contenido = `<ol class="linea-tiempo">${datos.historial.items.map(tarjeta).join("")}</ol>`;

@@ -101,6 +101,6 @@ test("Bolsa distingue anotaciones de contacto y respuesta formal sin inventar ex
   // En Node la interfaz está en el idioma por defecto; el inglés se comprueba en su catálogo de datos.
   assert.doesNotMatch(traducirAvisoPanelInterno("panel_resultado_sin_expediente"), /\bHTTP\b|B3|CT[0-9]/);
   const ingles = JSON.parse(await readFile(new URL("../textos/en/portal.json", import.meta.url), "utf8")).panel_interno;
-  assert.match(ingles.panel_resultado_sin_expediente, /This pool does not identify the case/);
+  assert.match(ingles.panel_resultado_sin_expediente, /This employment pool does not identify the case/);
   assert.match(ingles.panel_contacto_no_respuesta, /If the person accepts or withdraws/);
 });

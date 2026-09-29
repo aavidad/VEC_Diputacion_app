@@ -188,6 +188,8 @@ static/portal-empleado/modulos/documentos/i18n.js
 static/portal-empleado/modulos/documentos/vista.js
 static/textos/es/contratacion-temporal-cobertura.json
 static/textos/en/contratacion-temporal-cobertura.json
+static/textos/es/contratacion-temporal-firma.json
+static/textos/en/contratacion-temporal-firma.json
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
@@ -283,6 +285,7 @@ static/portal-empleado/modulos/contratacion-temporal/vista-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-borrador.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma.js
+static/portal-empleado/modulos/contratacion-temporal/fase-firma.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma-acciones.js
 static/portal-empleado/modulos/contratacion-temporal/firma-autofirma.js
 static/portal-empleado/modulos/contratacion-temporal/firma-documento-cliente.js
@@ -302,6 +305,8 @@ static/portal-empleado/modulos/contratacion-temporal/vista.js
 static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-avisos.js
 static/portal-empleado/portal-bolsas-marcas.js
+static/textos/es/bolsa-ofertas.json
+static/textos/en/bolsa-ofertas.json
 static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
 static/portal-empleado/portal-bolsas-correo.js

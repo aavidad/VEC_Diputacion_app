@@ -27,6 +27,13 @@ type LectorExpedienteAvisoLlamamiento interface {
 	LeerExpedienteParaAvisoConfirmado(context.Context, string, string, string) (ExpedienteParaSeleccion, error)
 }
 
+// LectorNumeroVisibleAvisoLlamamiento devuelve el número que se muestra hoy
+// del expediente ligado a un llamamiento confirmado: el anual asignado después
+// del alta si existe; si no, el original. No altera el snapshot ni los recibos.
+type LectorNumeroVisibleAvisoLlamamiento interface {
+	LeerNumeroVisibleVigenteAviso(context.Context, string, string, string) (string, error)
+}
+
 // LectorExpedienteLlamamiento reúne las dos lecturas internas que necesita la
 // composición del llamamiento. Mantiene separado el contrato de selección
 // inicial del que deriva el snapshot de un aviso ya confirmado.

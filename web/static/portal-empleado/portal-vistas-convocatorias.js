@@ -1,5 +1,5 @@
-import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260929-i18n-shell-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-i18n-shell-v1";
+import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260929-i18n-shell-v2";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 
 /**
  * Consulta S1 de solo lectura. El montaje aporta funciones autorizadas; esta

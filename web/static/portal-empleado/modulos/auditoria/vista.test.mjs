@@ -235,3 +235,48 @@ test("cambiar fecha cancela respuesta tardía y limpia el resultado", async () =
     vista.desmontar();
   } finally { globalThis.FormData = original; }
 });
+
+test("el historial de una petición dice quién, qué cambió, por qué y con qué se relaciona, sin códigos", () => {
+  const base = { ...registro, modulo_id: "contratacion_temporal", fuente: "ct", expediente_ref: "expediente:ct:1",
+    recibo_ref: "recibo:1", motivo: "" };
+  const alta = { ...base, id: "ct:v:1", accion: "alta_o2", actor_ref: "persona:rrhh:1", resultado: "en_curso",
+    antes: {}, despues: { fase: "solicitud", estado: "en_curso" } };
+  const analisis = { ...base, id: "ct:v:2", accion: "analisis_o3", actor_ref: "sistema:contratacion_temporal",
+    resultado: "en_curso", recibo_ref: "", motivo: "motivo.catalogado",
+    antes: { fase: "solicitud", estado: "en_curso" }, despues: { fase: "fiscalizacion", estado: "en_curso" } };
+  const asignacion = { ...base, id: "ct:v:3", accion: "informe_juridico_o5", resultado: "en_curso",
+    antes: { fase: "asignacion_unidad", estado: "en_curso" }, despues: { fase: "informe_juridico", estado: "en_curso" } };
+  const respuesta = validarRespuestaAuditoria({ registros: [asignacion, analisis, alta], siguiente_cursor: "" });
+  const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, registros: respuesta.registros,
+    expedienteRef: "expediente:ct:1", fuenteContexto: "ct" });
+  const visible = html.replaceAll(/<details>[\s\S]*?<\/details>/gu, "").replaceAll(/>\s+</gu, "><");
+  assert.match(visible, /Qué cambió<\/th><th scope="col">Motivo<\/th><th scope="col">Relacionado con/u);
+  assert.match(visible, /Proceso automático<\/td><td>Registró el análisis de RRHH<\/td><td>Fase: Solicitud → Fiscalización<\/td>/u);
+  assert.match(visible, /<td>Motivo registrado \(no se muestra aquí\)<\/td><td>Este expediente<\/td>/u);
+  assert.match(visible, /Nombre no disponible<\/td><td>Registró la petición<\/td><td>Fase: Solicitud; Estado: En trámite<\/td>/u);
+  assert.match(visible, /<td>No consta<\/td><td>Este expediente, con justificante<\/td>/u);
+  // Mismo nombre de fase para RRHH: no se presenta como cambio.
+  assert.match(visible, /Registró el informe jurídico<\/td><td>Sin cambios en fase ni estado<\/td>/u);
+  assert.doesNotMatch(visible, /Gestión de bolsa → Gestión de bolsa|persona:rrhh|sistema:|alta_o2|analisis_o3|en_curso|motivo\.catalogado|recibo:1/u);
+  // Las referencias técnicas siguen disponibles para quien audita.
+  assert.match(html, /<details>[\s\S]*persona:rrhh:1[\s\S]*recibo:1/u);
+});
+
+test("Bolsa muestra situación, motivo publicable y datos de contacto protegidos", () => {
+  const base = { ...registro, modulo_id: "bolsa", fuente: "bolsa", expediente_ref: "participacion:1",
+    recibo_ref: "recibo:b:1", actor_ref: "persona:rrhh:2", resultado: "confirmado", antes_sha256: "", despues_sha256: "" };
+  const registros = validarRespuestaAuditoria({ registros: [
+    { ...base, id: "cambio:1:situacion", accion: "pausar", motivo: "Motivo reservado en Bolsa",
+      antes: { situacion: "disponible" }, despues: { situacion: "no_disponible" } },
+    { ...base, id: "cambio:2:correo", accion: "valor:correo", motivo: "Motivo reservado en Bolsa",
+      antes: { correo: "v1:cifrado" }, despues: { correo: "v2:cifrado" } },
+    { ...base, id: "situacion:3", accion: "situacion:disponible", motivo: "Constitución de bolsa",
+      datos_disponibles: false, antes: {}, despues: {} },
+  ], siguiente_cursor: "" }).registros;
+  const html = renderizarVistaAuditoria({ estado: "disponible", habilitada: true, registros,
+    expedienteRef: "participacion:1", fuenteContexto: "bolsa" }).replaceAll(/<details>[\s\S]*?<\/details>/gu, "").replaceAll(/>\s+</gu, "><");
+  assert.match(html, /Pausó la participación<\/td><td>Situación: Disponible → No disponible<\/td><td>Reservado: puede contener datos personales<\/td><td>Esta participación, con justificante/u);
+  assert.match(html, /Cambió un dato de la participación<\/td><td>Correo electrónico: cambiado \(dato protegido\)<\/td>/u);
+  assert.match(html, /Cambió la situación en la bolsa<\/td><td>Sin valores visibles<\/td><td>Constitución de la bolsa<\/td>/u);
+  assert.doesNotMatch(html, /cifrado|no_disponible|valor:correo/u);
+});

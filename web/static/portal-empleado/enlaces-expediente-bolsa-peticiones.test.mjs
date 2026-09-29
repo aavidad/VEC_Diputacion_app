@@ -39,7 +39,7 @@ test("el centro enlaza cada petición entregada con la fila de su expediente en 
   const contexto = { actor: { referencia: "actor:1", puede_presentar: true, puede_ratificar: false, nombre: "Antonio Reyes Álvarez", cargo: "Dirección", centro: "Centro" } };
   const html = renderizarPeticionCentro({ contexto, peticiones: [peticion],
     expedientes: new Map([[peticion.referencia, { peticion_ref: peticion.referencia, numero_visible: "2026/CT-00001", destino }]]) });
-  assert.match(html, /<a class="pc-enlace-expediente" href="#ic-exp-expediente-sintetico-1" data-pc-ir-expediente="ic-exp-expediente-sintetico-1" aria-label="Petición peticion:centro:sintetica-1: ver su expediente 2026\/CT-00001 en las incorporaciones del centro">Expediente 2026\/CT-00001<\/a>/u);
+  assert.match(html, /<a class="pc-enlace-expediente" href="#ic-exp-expediente-sintetico-1" data-pc-ir-expediente="ic-exp-expediente-sintetico-1" aria-label="Petición del [^"]+: ver su expediente 2026\/CT-00001 en las incorporaciones del centro">Expediente 2026\/CT-00001<\/a>/u);
   assert.doesNotMatch(renderizarPeticionCentro({ contexto, peticiones: [peticion] }), /pc-enlace-expediente/u);
 });
 

@@ -1,4 +1,4 @@
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-i18n-shell-v1";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-i18n-shell-v2";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
 import { IDIOMAS_DISPONIBLES, resolverIdiomaNavegacion } from "../comun/idioma.js";
 

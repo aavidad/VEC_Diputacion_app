@@ -825,7 +825,13 @@
     "txt_vista_abierta": "Vista {vista} abierta",
     "txt_vistas_de_la_bolsa": "Vistas de la bolsa",
     "txt_volver_al_cuadro": "Volver al cuadro",
-    "txt_volver_al_cuadro_de_mando": "Volver al cuadro de mando"
+    "txt_volver_al_cuadro_de_mando": "Volver al cuadro de mando",
+    "inicio_rrhh_grupo_peticiones": "{total} peticiones",
+    "inicio_rrhh_grupo_vencidas": "vencidas el {fecha}",
+    "inicio_rrhh_grupo_ver": "Ver peticiones",
+    "inicio_rrhh_grupo_ver_aria": "Ver las {total} peticiones de {categoria} en {centro}",
+    "inicio_rrhh_grupo_numeros": "Números: {numeros}",
+    "txt_reglas_vigentes": "Reglas vigentes"
   },
   "panel_interno": {
     "panel_resultado_sin_expediente": "La aceptación o renuncia se registra en el expediente de Peticiones de personal temporal. Bolsa no identifica aquí el expediente de cada llamamiento; búsquelo en el cuadro de peticiones.",

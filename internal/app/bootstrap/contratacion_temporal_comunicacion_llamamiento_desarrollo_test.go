@@ -541,3 +541,61 @@ func TestNuevoEnviadorCorreoLlamamientoDesarrolloSinHostNoComponeSMTP(t *testing
 		t.Fatalf("smtp sin host: enviador=%v err=%v", enviador, err)
 	}
 }
+
+type lectorNumeroVigenteCorreoPrueba struct {
+	lectorComunicacionLlamamientoDesarrolloPrueba
+	numero string
+	err    error
+	pedido [3]string
+}
+
+func (l *lectorNumeroVigenteCorreoPrueba) LeerNumeroVisibleVigenteAviso(_ context.Context, organizacion, expediente, llamamiento string) (string, error) {
+	l.pedido = [3]string{organizacion, expediente, llamamiento}
+	return l.numero, l.err
+}
+
+// Tras CT-000142 el correo muestra el número anual vigente; el recibo y el
+// snapshot conservan el técnico. Si la lectura falla, sale el del snapshot.
+func TestComunicacionLlamamientoDesarrolloCorreoUsaNumeroVisibleVigente(t *testing.T) {
+	ctx, p, _ := escenarioComunicacionLlamamientoDesarrolloPrueba(t)
+	tecnico := "2026/CT-0123456789abcdef"
+	preparacion := preparacionLlamamientoDesarrollo{expediente: ports.ExpedienteParaSeleccion{Fiscalizado: domain.Expediente{
+		NumeroVisible: tecnico,
+		Solicitud:     domain.SolicitudCentro{CentroRef: "centro:sintetico:granada", CategoriaRef: "categoria:sintetica:auxiliar"},
+	}}}
+	ctxCorreo := context.WithValue(ctx, clavePreparacionLlamamientoDesarrollo{}, preparacion)
+	casos := []struct {
+		nombre, numero, esperado string
+		err                      error
+	}{
+		{"vigente", "2026/0042", "2026/0042", nil},
+		{"fallo", "", tecnico, errors.New("no disponible")},
+		{"forma invalida", "0042", tecnico, nil},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			r := reciboAvisoComunicacionDesarrolloPrueba(t, ctx, p, "")
+			lector := &lectorNumeroVigenteCorreoPrueba{numero: caso.numero, err: caso.err}
+			correo := &enviadorCorreoLlamamientoDesarrolloPrueba{resultado: smtp.Resultado{Estado: smtp.AceptadoPorRelay}}
+			base := t.TempDir()
+			if err := os.Chmod(base, 0700); err != nil {
+				t.Fatal(err)
+			}
+			e := &ejecutorComunicacionLlamamientoDesarrollo{lector: lector, servicio: &ejecutorComunicacionDesarrolloPrueba{recibo: &r},
+				correo: correo, directorioComunicaciones: filepath.Join(base, "comunicaciones")}
+			resultado, err := e.registrarConAviso(ctxCorreo, r.Solicitud)
+			if err != nil || resultado != r || len(correo.mensajes) != 1 {
+				t.Fatalf("registro=%+v err=%v mensajes=%d", resultado, err, len(correo.mensajes))
+			}
+			m := correo.mensajes[0]
+			if !strings.HasSuffix(m.Asunto, "expediente "+caso.esperado) ||
+				!strings.Contains(m.Cuerpo, "Expediente: "+caso.esperado+"\n") ||
+				(caso.esperado != tecnico && strings.Contains(m.Asunto+m.Cuerpo, tecnico)) {
+				t.Fatalf("número del correo: asunto=%q cuerpo=%q", m.Asunto, m.Cuerpo)
+			}
+			if lector.pedido != [3]string{r.Solicitud.OrganizacionRef, r.Solicitud.ExpedienteRef, r.Solicitud.LlamamientoRef} {
+				t.Fatalf("lectura ligada a otro llamamiento: %v", lector.pedido)
+			}
+		})
+	}
+}

@@ -49,9 +49,9 @@ test("miga, título, navegación y pie de CT usan el catálogo común en ambos i
 
 test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", async () => {
   const raiz = new URL("./", import.meta.url);
-  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2"];
-  // El shell pasó sus textos a `textos/<idioma>/portal*.json`: todo su grafo renueva URL.
-  const vigente = "20260929-i18n-shell-v1";
+  const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
+  // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
+  const vigente = "20260929-i18n-shell-v2";
   const versionesEspeciales = new Map();
   const archivos = ["index.html"];
   const pendientes = [""];

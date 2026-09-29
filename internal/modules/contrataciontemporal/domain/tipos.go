@@ -112,6 +112,12 @@ func referenciaValida(valor string) bool {
 	return patronReferencia.MatchString(valor)
 }
 
+// NumeroVisibleValido aplica la forma «AAAA/<número>» a un número visible
+// leído fuera del agregado, por ejemplo el número anual vigente.
+func NumeroVisibleValido(valor string) bool {
+	return patronNumero.MatchString(valor)
+}
+
 func grupoValido(valor string) bool {
 	return patronGrupo.MatchString(valor)
 }

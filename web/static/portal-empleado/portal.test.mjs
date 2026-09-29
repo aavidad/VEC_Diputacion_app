@@ -318,8 +318,9 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // R9 permite elevar el objetivo sin partir un archivo cohesionado. La base
   // El menú fijo, Ofertas al SAE y Preferencias añaden cableado de entrada.
   // Se eleva la línea base a 1140 para cubrir las tres líneas nuevas sin
-  // relajar la comprobación de crecimiento del archivo principal.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1140, "portal.js debe mantenerse en 1140 líneas o menos");
+  // relajar la comprobación de crecimiento del archivo principal. 5.07 la sube
+  // a 1155: sondeo bajo demanda de plantillas y política de cese.
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 1160, "portal.js debe mantenerse en 1160 líneas o menos");
   // Entrada y coordinador cambiaron después de estas versiones publicadas:
   // piden una URL nueva, única en cada importador.
   exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");
@@ -575,4 +576,24 @@ test("la sesión se consulta sin referente, con tiempo límite y abortable", asy
 
   // El shell anula la promesa compartida en error o tiempo agotado.
   assert.match(javascript, /promesaSesion \?\?= consultarSesionPortal\(\)\.catch\(\(error\) => \{ promesaSesion = null; throw error; \}\);/u);
+});
+
+test("5.07: las capacidades opcionales no se sondean al cargar el portal", () => {
+  // Plantillas (CT) y política de cese (Bolsa) pueden no estar montadas en la
+  // principal: pedirlas en cada carga producía dos 404 en la portada.
+  const cuerpo = (nombre) => {
+    const inicio = javascript.indexOf(`function ${nombre}(`);
+    assert.ok(inicio >= 0, `falta ${nombre}`);
+    return javascript.slice(inicio, javascript.indexOf("\n}\n", inicio));
+  };
+  const alCambiar = cuerpo("alCambiarModulos");
+  assert.match(alCambiar, /\(destinoPlantillasInicial \|\| plantillasConfirmadas\)\) \{\s*void comprobarAccesoPlantillas\(\);/);
+  const carga = cuerpo("cargarFuenteDatos");
+  assert.equal(carga.match(/comprobarAccesoPoliticaCese\(\)/g)?.length, 2);
+  assert.match(carga, /if \(destinoPoliticaCeseInicial\) void comprobarAccesoPoliticaCese\(\);/);
+  assert.match(carga, /if \(politicaCeseConfirmada && coordinadorModulos/);
+  // Abrir la vista sí lanza el sondeo y espera en Inicio a la respuesta.
+  const alAbrir = cuerpo("sondearCapacidadAlAbrir");
+  assert.match(alAbrir, /navegar\("portal"\);/);
+  assert.match(cuerpo("navegar"), /if \(sondearCapacidadAlAbrir\(vista\)\) return;/);
 });

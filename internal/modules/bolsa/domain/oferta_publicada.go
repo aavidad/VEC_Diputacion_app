@@ -12,15 +12,49 @@ import (
 // posición del orden vigente entre ellas o se pasa a llamamiento directo.
 
 // Estados deducidos de una oferta. No se almacenan: salen del instante de la
-// consulta, del vencimiento y de la resolución confirmada.
+// consulta, del vencimiento y de los actos confirmados sobre sus plazas.
 const (
 	EstadoOfertaAbierta               = "abierta"
 	EstadoOfertaPendienteResolucion   = "pendiente_resolucion"
+	EstadoOfertaEnCurso               = "en_curso"
 	EstadoOfertaAdjudicada            = "adjudicada"
 	EstadoOfertaLlamamientoDirecto    = "llamamiento_directo"
+	EstadoOfertaCerrada               = "cerrada"
 	PropuestaOfertaAdjudicar          = "adjudicar"
 	PropuestaOfertaLlamamientoDirecto = "llamamiento_directo"
 )
+
+// Una oferta cubre de 1 a MaximoPlazasOferta plazas (duda 75). Cada plaza se
+// resuelve con actos de solo adición; el último fija su estado.
+const (
+	MaximoPlazasOferta = 100
+
+	ActoPlazaAdjudicada         = "adjudicada"
+	ActoPlazaAceptada           = "aceptada"
+	ActoPlazaRenuncia           = "renuncia"
+	ActoPlazaSinRespuesta       = "sin_respuesta"
+	ActoPlazaLlamamientoDirecto = "llamamiento_directo"
+
+	EstadoPlazaVacante            = "vacante"
+	EstadoPlazaPendienteRespuesta = "pendiente_respuesta"
+	EstadoPlazaCubierta           = "cubierta"
+	EstadoPlazaLlamamientoDirecto = "llamamiento_directo"
+)
+
+// NumeroPlazasValido acota el número de plazas de una oferta.
+func NumeroPlazasValido(n int) bool { return n >= 1 && n <= MaximoPlazasOferta }
+
+// ActoPlazaValido exige persona en todos los actos salvo el paso a
+// llamamiento directo, que no la lleva.
+func ActoPlazaValido(tipo string, conPersona bool) bool {
+	switch tipo {
+	case ActoPlazaAdjudicada, ActoPlazaAceptada, ActoPlazaRenuncia, ActoPlazaSinRespuesta:
+		return conPersona
+	case ActoPlazaLlamamientoDirecto:
+		return !conPersona
+	}
+	return false
+}
 
 const (
 	minimoTextoOferta = 2
