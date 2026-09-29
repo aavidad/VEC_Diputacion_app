@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,13 +61,16 @@ func clonarInstantaneaAutorizacionPostgreSQLDesarrollo(
 }
 
 type asignacionActualPostgreSQLDesarrollo struct {
-	referencia    string
-	identificador string
-	version       int64
-	perfilRef     string
-	principalID   string
-	versionRolRef string
-	huella        string
+	referencia     string
+	identificador  string
+	version        int64
+	perfilRef      string
+	principalID    string
+	versionRolRef  string
+	huella         string
+	documento      []byte
+	actoRef        string
+	actualizadaPor string
 }
 
 func (a *autoridadPostgreSQLDesarrollo) PrepararInstantanea(
@@ -154,6 +158,11 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 	)
 	if err != nil || (!encontrada && !permitirInicial) {
 		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
+	if encontrada {
+		if err := comprobarAsignacionActualOperativaPostgreSQLDesarrollo(ctx, tx, actual); err != nil {
+			return vacia, falloPostgreSQLCTDesarrollo(err)
+		}
 	}
 	preparada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(solicitada)
 	if err := resolverVersionRolPostgreSQLDesarrollo(ctx, tx, &preparada); err != nil {
@@ -274,7 +283,8 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 		SELECT asignacion.asignacion_ref, asignacion.asignacion_id,
 		       asignacion.version, asignacion.perfil_activo_ref,
 		       asignacion.principal_id, asignacion.version_rol_ref,
-		       asignacion.huella_sha256
+		       asignacion.huella_sha256, asignacion.documento,
+		       vigente.acto_ref, vigente.actualizada_por
 		  FROM vec_autorizacion.asignacion_perfil_actual AS vigente
 		  JOIN vec_autorizacion.asignacion_perfil AS asignacion
 		    ON asignacion.perfil_activo_ref=vigente.perfil_activo_ref
@@ -283,7 +293,7 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 		 FOR UPDATE OF vigente`, perfilRef).Scan(
 		&actual.referencia, &actual.identificador, &actual.version,
 		&actual.perfilRef, &actual.principalID, &actual.versionRolRef,
-		&actual.huella,
+		&actual.huella, &actual.documento, &actual.actoRef, &actual.actualizadaPor,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return asignacionActualPostgreSQLDesarrollo{}, false, nil
@@ -292,6 +302,52 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 		return asignacionActualPostgreSQLDesarrollo{}, false, err
 	}
 	return actual, true, nil
+}
+
+// El puntero de asignación ya está bloqueado por el llamante. Bloquear también
+// el control actual evita publicar con un control retirado durante la carrera.
+func comprobarAsignacionActualOperativaPostgreSQLDesarrollo(
+	ctx context.Context, tx pgx.Tx, actual asignacionActualPostgreSQLDesarrollo,
+) error {
+	var estadoControl string
+	err := tx.QueryRow(ctx, `
+		SELECT control.estado
+		  FROM vec_autorizacion.control_vigencia_version_rol_actual AS vigente
+		  JOIN vec_autorizacion.control_vigencia_version_rol AS control
+		    ON control.version_rol_ref=vigente.version_rol_ref
+		   AND control.revision=vigente.revision
+		 WHERE vigente.version_rol_ref=$1
+		 FOR SHARE OF vigente`, actual.versionRolRef).Scan(&estadoControl)
+	if err != nil {
+		return err
+	}
+	var ahora time.Time
+	if err := tx.QueryRow(ctx, `SELECT pg_catalog.clock_timestamp()`).Scan(&ahora); err != nil {
+		return err
+	}
+	if !asignacionActualOperativaPostgreSQLDesarrollo(actual, estadoControl, ahora) {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	return nil
+}
+
+func asignacionActualOperativaPostgreSQLDesarrollo(
+	actual asignacionActualPostgreSQLDesarrollo, estadoControl string, ahora time.Time,
+) bool {
+	if estadoControl != string(dominiovec.EstadoControlVigenciaVersionRolHabilitada) {
+		return false
+	}
+	var asignacion dominiovec.AsignacionPerfil
+	if json.Unmarshal(actual.documento, &asignacion) != nil || asignacion.Validar() != nil ||
+		!asignacion.VigenteEn(ahora) || asignacion.Referencia() != actual.referencia ||
+		asignacion.AsignacionID != actual.identificador || int64(asignacion.Version) != actual.version ||
+		asignacion.PerfilActivoRef != actual.perfilRef || asignacion.PrincipalID != actual.principalID ||
+		asignacion.VersionRolRef != actual.versionRolRef ||
+		asignacion.EmitidaPor != actual.actualizadaPor {
+		return false
+	}
+	huella, err := asignacion.HuellaSHA256()
+	return err == nil && huella == actual.huella
 }
 
 func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
@@ -391,6 +447,15 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 		return falloPostgreSQLCTDesarrollo(nil)
 	}
 	if encontrada {
+		if err := comprobarAsignacionActualOperativaPostgreSQLDesarrollo(ctx, tx, actual); err != nil {
+			return falloPostgreSQLCTDesarrollo(err)
+		}
+		// Sin preimagen explícita solo se continúa una asignación publicada
+		// por este mismo circuito. Una restricción administrativa conserva
+		// estado activo, pero cambia la procedencia del puntero.
+		if preimagen == nil && actual.actoRef != a.actoAsignacion {
+			return falloPostgreSQLCTDesarrollo(nil)
+		}
 		yaPublicada := actual.referencia == asignacionRef && actual.huella == huellaAsignacion
 		if yaPublicada {
 			// El replay también consume el control actual de la versión de rol.
