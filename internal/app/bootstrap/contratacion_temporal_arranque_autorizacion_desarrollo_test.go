@@ -139,32 +139,43 @@ func TestArranqueAutorizacionCTSoloInicialAnteAusenciaInequivoca(t *testing.T) {
 	}
 }
 
-func TestArranqueCTDosPerfilesNoProvisionaCoberturaNiReviveRevocacion(t *testing.T) {
+func TestArranqueCTTresPerfilesNoReviveRevocadosNiFuerzaLegado(t *testing.T) {
 	soporte, _, _ := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	alta := soporte.instantanea
-	cobertura, err := nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
-		alta.AsignacionPerfil.PrincipalID,
-		"prf_cccccccccccccccccccccccccccccccc",
-		alta.AsignacionPerfil.VigenteDesde,
+	legado := soporte.instantanea
+	alta, err := nuevaInstantaneaAutorizacionAltaFijaContratacionTemporalDesarrollo(
+		legado.AsignacionPerfil.PrincipalID,
+		"prf_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		legado.AsignacionPerfil.VigenteDesde,
+		nil,
 	)
-	if err != nil || alta.AsignacionPerfil.PerfilActivoRef == cobertura.AsignacionPerfil.PerfilActivoRef {
+	if err != nil {
+		t.Fatal(err)
+	}
+	cobertura, err := nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(
+		legado.AsignacionPerfil.PrincipalID,
+		"prf_cccccccccccccccccccccccccccccccc",
+		legado.AsignacionPerfil.VigenteDesde,
+	)
+	if err != nil || legado.AsignacionPerfil.PerfilActivoRef == alta.AsignacionPerfil.PerfilActivoRef ||
+		alta.AsignacionPerfil.PerfilActivoRef == cobertura.AsignacionPerfil.PerfilActivoRef {
 		t.Fatalf("perfiles de ensayo no separados: %v", err)
 	}
-	ahora := alta.AsignacionPerfil.VigenteDesde.Add(time.Minute)
+	ahora := legado.AsignacionPerfil.VigenteDesde.Add(time.Minute)
+	perfilLegado := legado.AsignacionPerfil.PerfilActivoRef
 	perfilAlta, perfilCobertura := alta.AsignacionPerfil.PerfilActivoRef, cobertura.AsignacionPerfil.PerfilActivoRef
 	casos := []struct {
-		nombre  string
-		mutar   func(*fuenteDosPerfilesArranqueCTPrueba)
-		publica int
-		acierta bool
+		nombre           string
+		mutar            func(*fuenteDosPerfilesArranqueCTPrueba)
+		acierta          bool
+		legadoDisponible bool
 	}{
-		{"ambos_vigentes", nil, 0, true},
-		{"cobertura_ausente", func(f *fuenteDosPerfilesArranqueCTPrueba) { delete(f.porPerfil, perfilCobertura) }, 0, false},
+		{"tres_vigentes", nil, true, true},
+		{"cobertura_ausente", func(f *fuenteDosPerfilesArranqueCTPrueba) { delete(f.porPerfil, perfilCobertura) }, false, false},
 		{"cobertura_restringida", func(f *fuenteDosPerfilesArranqueCTPrueba) {
 			i := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(f.porPerfil[perfilCobertura])
 			i.AsignacionPerfil.Ambitos[0].Valores = []string{"organizacion:restringida"}
 			f.porPerfil[perfilCobertura] = i
-		}, 0, false},
+		}, false, false},
 		{"cobertura_revocada", func(f *fuenteDosPerfilesArranqueCTPrueba) {
 			i := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(f.porPerfil[perfilCobertura])
 			i.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
@@ -172,7 +183,7 @@ func TestArranqueCTDosPerfilesNoProvisionaCoberturaNiReviveRevocacion(t *testing
 			i.AsignacionPerfil.RevocadaEn = ahora
 			i.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
 			f.porPerfil[perfilCobertura] = i
-		}, 0, false},
+		}, false, false},
 		{"alta_revocada", func(f *fuenteDosPerfilesArranqueCTPrueba) {
 			i := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(f.porPerfil[perfilAlta])
 			i.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
@@ -180,34 +191,51 @@ func TestArranqueCTDosPerfilesNoProvisionaCoberturaNiReviveRevocacion(t *testing
 			i.AsignacionPerfil.RevocadaEn = ahora
 			i.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
 			f.porPerfil[perfilAlta] = i
-		}, 0, false},
+		}, false, false},
 		{"fuente_ilegible", func(f *fuenteDosPerfilesArranqueCTPrueba) {
 			f.errores[perfilCobertura] = puertosvec.ErrFuenteAutorizacionNoDisponible
-		}, 0, false},
-		{"alta_ausente", func(f *fuenteDosPerfilesArranqueCTPrueba) { delete(f.porPerfil, perfilAlta) }, 1, true},
+		}, false, false},
+		{"alta_ausente", func(f *fuenteDosPerfilesArranqueCTPrueba) { delete(f.porPerfil, perfilAlta) }, false, false},
+		{"legado_ausente", func(f *fuenteDosPerfilesArranqueCTPrueba) { delete(f.porPerfil, perfilLegado) }, true, false},
+		{"legado_revocado", func(f *fuenteDosPerfilesArranqueCTPrueba) {
+			i := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(f.porPerfil[perfilLegado])
+			i.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+			i.AsignacionPerfil.RevocadaPor = "autoridad:prueba"
+			i.AsignacionPerfil.RevocadaEn = ahora
+			i.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
+			f.porPerfil[perfilLegado] = i
+		}, true, false},
+		{"legado_ilegible", func(f *fuenteDosPerfilesArranqueCTPrueba) {
+			f.errores[perfilLegado] = puertosvec.ErrFuenteAutorizacionNoDisponible
+		}, true, false},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			fuente := &fuenteDosPerfilesArranqueCTPrueba{
-				porPerfil: map[string]dominiovec.InstantaneaAutorizacion{perfilAlta: alta, perfilCobertura: cobertura},
-				errores:   make(map[string]error),
+				porPerfil: map[string]dominiovec.InstantaneaAutorizacion{
+					perfilLegado: legado, perfilAlta: alta, perfilCobertura: cobertura,
+				},
+				errores: make(map[string]error),
 			}
 			if caso.mutar != nil {
 				caso.mutar(fuente)
 			}
-			publicador := &publicadorArranqueAutorizacionCTPrueba{}
-			obtenidaAlta, obtenidaCobertura, err := asegurarAutoridadDosPerfilesContratacionTemporalDesarrollo(
-				context.Background(), fuente, publicador, alta, cobertura, ahora)
-			if (err == nil) != caso.acierta || publicador.publicaciones != caso.publica {
-				t.Fatalf("resultado=%v publicaciones=%d", err, publicador.publicaciones)
+			obtenidoLegado, obtenidaAlta, obtenidaCobertura, disponible, err :=
+				consumirAutoridadTresPerfilesContratacionTemporalDesarrollo(
+					context.Background(), fuente, legado, alta, cobertura, ahora)
+			if (err == nil) != caso.acierta || disponible != caso.legadoDisponible {
+				t.Fatalf("resultado=%v legado=%t", err, disponible)
 			}
 			if caso.acierta && (obtenidaAlta.Validar() != nil || obtenidaCobertura.Validar() != nil ||
 				obtenidaAlta.AsignacionPerfil.PerfilActivoRef != perfilAlta ||
 				obtenidaCobertura.AsignacionPerfil.PerfilActivoRef != perfilCobertura) {
-				t.Fatal("se perdieron los dos perfiles publicados")
+				t.Fatal("se perdieron los dos perfiles fijos publicados")
 			}
-			if len(fuente.lecturas) == 0 || fuente.lecturas[0] != perfilCobertura {
-				t.Fatalf("cobertura no se comprobó antes de alta: %v", fuente.lecturas)
+			if caso.acierta && (obtenidoLegado.Validar() == nil) != disponible {
+				t.Fatal("legado no cerró según su lectura")
+			}
+			if len(fuente.lecturas) == 0 || fuente.lecturas[0] != perfilAlta {
+				t.Fatalf("perfiles fijos no se comprobaron antes de legado: %v", fuente.lecturas)
 			}
 		})
 	}
