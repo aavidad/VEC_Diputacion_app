@@ -40,7 +40,7 @@ func TestCircuitoFirmaEjemploSeConsultaConEstadoSinFirmas(t *testing.T) {
 	datos := cuerpo.Data
 	if datos.Esquema != esquemaCircuitoFirmaContratacionTemporalDesarrollo || !datos.Ejemplo || datos.FirmaEficaz ||
 		datos.CatalogoRef != "vec.contratacion_temporal.circuito_firma:1" || len(datos.HuellaSHA256) != 64 ||
-		len(datos.Documentos) != 6 {
+		len(datos.Documentos) != 2 {
 		t.Fatalf("circuito inesperado: %+v", datos)
 	}
 	// Firmadoc apagado: no conectado, con motivo, y nada que parezca envío.

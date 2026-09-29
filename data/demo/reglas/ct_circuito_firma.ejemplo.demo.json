@@ -1,8 +1,8 @@
 {
   "version_esquema": 1,
   "fuente": {
-    "revision": "circuito-firma-ct-ejemplo-v1",
-    "actualizada_en": "2026-09-25T00:00:00Z",
+    "revision": "circuito-firma-ct-ejemplo-v2",
+    "actualizada_en": "2026-09-29T00:00:00Z",
     "demostracion": true,
     "aviso": "DEMOSTRACIÓN: circuito de firma de ejemplo para desarrollo y presentación a RRHH, a la espera de la duda 4. Se borra al pasar a producción, como los datos de ejemplo. Ningún paso está aprobado por RRHH ni da eficacia administrativa a una firma: esa eficacia la aporta el portafirmas corporativo.",
     "origen_sha256": "7155cbb790ffea9a8e28391c134e1b1b7f6b47cbbe5840ef964a5de3ecec6e8a"
@@ -10,10 +10,10 @@
   "catalogo": {
     "id": "vec.contratacion_temporal.circuito_firma",
     "version": 1,
-    "revision": 1,
+    "revision": 2,
     "modulo_id": "contratacion_temporal",
     "nombre": "Circuito de firma de Contratación temporal — ejemplo",
-    "descripcion": "Pasos de firma de ejemplo de los seis borradores del expediente: quién firma, en qué orden, qué habilita cada firma y qué ocurre ante una devolución o una sustitución. Cada entrada es un paso; ninguno está aprobado por RRHH.",
+    "descripcion": "Pasos de firma de ejemplo del expediente. Por decisión de Dirección solo firma el órgano la resolución; el informe definitivo se mantiene porque su firma es la que permite remitir el expediente a Intervención. Cada entrada es un paso; ninguno está aprobado por RRHH.",
     "fuente_ref": "paquete:ejemplo:vec:v1",
     "motivo_creacion": "Circuito de ejemplo para la presentación a RRHH; se retira antes de producción.",
     "entradas": [
@@ -131,149 +131,14 @@
           "sustitucion": "suplente_designado"
         },
         "orden": 5
-      },
-      {
-        "clave": "diligencia.p1",
-        "etiqueta": "Diligencia: paso 1",
-        "descripcion": "Firma de Secretaría General (fe pública).",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "ejemplo",
-          "norma": "Supuesto de trabajo. Ley 39/2015, art. 26; Ley 40/2015, art. 43 (firma electrónica del personal).",
-          "duda": "Duda 4 de RRHH: documentos, cargos, orden, firma que permite pasar a Intervención, devolución y sustitución pendientes de definir.",
-          "unidad": "ninguna",
-          "documento": "diligencia",
-          "documento_etiqueta": "Diligencia",
-          "paso": "1",
-          "cargo": "Secretaría General (fe pública)",
-          "perfil_ref": "perfil:ct:secretaria_general",
-          "accion": "firma",
-          "condicion": "borrador_generado",
-          "habilita": "cierre_circuito",
-          "devolucion": "vuelve_a_redaccion",
-          "sustitucion": "suplente_designado"
-        },
-        "orden": 6
-      },
-      {
-        "clave": "toma_posesion.p1",
-        "etiqueta": "Toma de posesión: paso 1",
-        "descripcion": "Firma de Persona nombrada.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "ejemplo",
-          "norma": "Supuesto de trabajo. Ley 39/2015, art. 26; Ley 40/2015, art. 43 (firma electrónica del personal).",
-          "duda": "Duda 4 de RRHH: documentos, cargos, orden, firma que permite pasar a Intervención, devolución y sustitución pendientes de definir.",
-          "unidad": "ninguna",
-          "documento": "toma_posesion",
-          "documento_etiqueta": "Toma de posesión",
-          "paso": "1",
-          "cargo": "Persona nombrada",
-          "perfil_ref": "perfil:ct:persona_nombrada",
-          "accion": "firma",
-          "condicion": "borrador_generado",
-          "habilita": "siguiente_paso",
-          "devolucion": "vuelve_a_redaccion",
-          "sustitucion": "no_admitida"
-        },
-        "orden": 7
-      },
-      {
-        "clave": "toma_posesion.p2",
-        "etiqueta": "Toma de posesión: paso 2",
-        "descripcion": "Firma de Jefatura del Servicio de RRHH.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "ejemplo",
-          "norma": "Supuesto de trabajo. Ley 39/2015, art. 26; Ley 40/2015, art. 43 (firma electrónica del personal).",
-          "duda": "Duda 4 de RRHH: documentos, cargos, orden, firma que permite pasar a Intervención, devolución y sustitución pendientes de definir.",
-          "unidad": "ninguna",
-          "documento": "toma_posesion",
-          "documento_etiqueta": "Toma de posesión",
-          "paso": "2",
-          "cargo": "Jefatura del Servicio de RRHH",
-          "perfil_ref": "perfil:ct:jefatura_servicio_rrhh",
-          "accion": "firma",
-          "condicion": "firma_paso_anterior",
-          "habilita": "siguiente_paso",
-          "devolucion": "vuelve_paso_anterior",
-          "sustitucion": "suplente_designado"
-        },
-        "orden": 8
-      },
-      {
-        "clave": "toma_posesion.p3",
-        "etiqueta": "Toma de posesión: paso 3",
-        "descripcion": "Firma de Secretaría General (fe pública).",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "ejemplo",
-          "norma": "Supuesto de trabajo. Ley 39/2015, art. 26; Ley 40/2015, art. 43 (firma electrónica del personal).",
-          "duda": "Duda 4 de RRHH: documentos, cargos, orden, firma que permite pasar a Intervención, devolución y sustitución pendientes de definir.",
-          "unidad": "ninguna",
-          "documento": "toma_posesion",
-          "documento_etiqueta": "Toma de posesión",
-          "paso": "3",
-          "cargo": "Secretaría General (fe pública)",
-          "perfil_ref": "perfil:ct:secretaria_general",
-          "accion": "firma",
-          "condicion": "firma_paso_anterior",
-          "habilita": "cierre_circuito",
-          "devolucion": "vuelve_paso_anterior",
-          "sustitucion": "suplente_designado"
-        },
-        "orden": 9
-      },
-      {
-        "clave": "notificacion.p1",
-        "etiqueta": "Notificación: paso 1",
-        "descripcion": "Firma de Jefatura del Servicio de RRHH.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "ejemplo",
-          "norma": "Supuesto de trabajo. Ley 39/2015, art. 26; Ley 40/2015, art. 43 (firma electrónica del personal).",
-          "duda": "Duda 4 de RRHH: documentos, cargos, orden, firma que permite pasar a Intervención, devolución y sustitución pendientes de definir.",
-          "unidad": "ninguna",
-          "documento": "notificacion",
-          "documento_etiqueta": "Notificación",
-          "paso": "1",
-          "cargo": "Jefatura del Servicio de RRHH",
-          "perfil_ref": "perfil:ct:jefatura_servicio_rrhh",
-          "accion": "firma",
-          "condicion": "borrador_generado",
-          "habilita": "envio_notificacion",
-          "devolucion": "vuelve_a_redaccion",
-          "sustitucion": "suplente_designado"
-        },
-        "orden": 10
-      },
-      {
-        "clave": "comunicacion_centro.p1",
-        "etiqueta": "Comunicación al centro: paso 1",
-        "descripcion": "Firma de Jefatura del Servicio de RRHH.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "ejemplo",
-          "norma": "Supuesto de trabajo. Ley 39/2015, art. 26; Ley 40/2015, art. 43 (firma electrónica del personal).",
-          "duda": "Duda 4 de RRHH: documentos, cargos, orden, firma que permite pasar a Intervención, devolución y sustitución pendientes de definir.",
-          "unidad": "ninguna",
-          "documento": "comunicacion_centro",
-          "documento_etiqueta": "Comunicación al centro",
-          "paso": "1",
-          "cargo": "Jefatura del Servicio de RRHH",
-          "perfil_ref": "perfil:ct:jefatura_servicio_rrhh",
-          "accion": "firma",
-          "condicion": "borrador_generado",
-          "habilita": "envio_comunicacion",
-          "devolucion": "vuelve_a_redaccion",
-          "sustitucion": "suplente_designado"
-        },
-        "orden": 11
       }
     ],
     "estado": "publicado",
     "creado_por": "catalogo_ejemplo_vec",
     "creado_en": "2026-09-25T00:00:00Z",
+    "ultima_modificacion_por": "direccion:vec",
+    "ultima_modificacion_en": "2026-09-29T00:00:00Z",
+    "motivo_modificacion": "Pregunta 74: firma del órgano solo en la resolución. Se mantiene el informe definitivo porque su firma permite remitir a Intervención.",
     "publicado_por": "revision_catalogo_ejemplo_vec",
     "publicado_en": "2026-09-25T00:00:00Z",
     "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
