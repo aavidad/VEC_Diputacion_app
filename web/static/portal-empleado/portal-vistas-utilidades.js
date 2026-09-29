@@ -1,4 +1,4 @@
-import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260929-grxfirma-rename";
+import { formatearFechaPortal, traducirBolsaInterna } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 
 /**
  * Componentes HTML puros compartidos por las vistas de consulta.

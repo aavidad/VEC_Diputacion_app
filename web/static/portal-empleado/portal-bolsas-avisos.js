@@ -1,7 +1,7 @@
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260929-grxfirma-rename";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-grxfirma-rename";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260929-i18n-shell-v2";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";

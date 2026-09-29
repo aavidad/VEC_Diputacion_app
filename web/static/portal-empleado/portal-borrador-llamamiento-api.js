@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260929-grxfirma-rename";
+import { traducirPortal } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 export const RUTA_BORRADORES_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/borradores";
 
 const MAXIMO_RESPUESTA_BYTES = 16 * 1024;

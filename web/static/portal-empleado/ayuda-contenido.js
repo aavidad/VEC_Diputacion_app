@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260929-grxfirma-rename";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

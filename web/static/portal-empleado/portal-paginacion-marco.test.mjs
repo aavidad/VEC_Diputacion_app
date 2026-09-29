@@ -8,7 +8,7 @@ const [javascript, estilos, componentes, catalogo] = await Promise.all([
   readFile(new URL("portal.js", directorio), "utf8"),
   readFile(new URL("portal.css", directorio), "utf8"),
   readFile(new URL("portal-componentes.css", directorio), "utf8"),
-  readFile(new URL("portal-i18n.js", directorio), "utf8"),
+  readFile(new URL("../textos/es/portal.json", directorio), "utf8"),
 ]);
 
 function cargarCalculo() {
@@ -47,7 +47,7 @@ test("la paginación larga conserva primera, vecinas, puntos y última sin dibuj
 
 test("los textos visibles proceden del catálogo común", () => {
   for (const clave of ["paginacion_marco_etiqueta", "paginacion_marco_recuento", "paginacion_marco_primera", "paginacion_marco_anterior", "paginacion_marco_siguiente"]) {
-    assert.match(catalogo, new RegExp(`${clave}:`));
+    assert.match(catalogo, new RegExp(`"${clave}":`));
     assert.match(javascript, new RegExp(`traducirPortal\\([\\"\\']${clave}[\\"\\']`));
   }
 });
