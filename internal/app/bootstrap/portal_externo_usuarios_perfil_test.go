@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +44,38 @@ func instantaneaPerfilUsuariosExternoPrueba(t *testing.T) core.InstantaneaAutori
 			Ambitos:      []core.AmbitoPerfil{{Clave: "persona_ref", Valores: []string{"per_usuarios_sintetica"}}},
 			VigenteDesde: ahora, VigenteHasta: ahora.Add(time.Hour), EmitidaPor: "identidad:desarrollo:no-autoritativa", EmitidaEn: ahora},
 		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: huella,
+	}
+}
+
+func TestPerfilUsuariosExternoRechazaEstadosYCASNoCanonicos(t *testing.T) {
+	i := instantaneaPerfilUsuariosExternoPrueba(t)
+	for _, caso := range []string{"revocada", "retirado", "emisor ajeno", "cas negativo", "cas desbordado", "huella invalida", "revision desbordada"} {
+		t.Run(caso, func(t *testing.T) {
+			alterada := i
+			version, revision := 0, uint64(0)
+			ha, hc := "", ""
+			switch caso {
+			case "revocada":
+				alterada.AsignacionPerfil.Estado = core.EstadoAsignacionPerfilRevocada
+			case "retirado":
+				alterada.ControlVigenciaVersionRol.Estado = core.EstadoControlVigenciaVersionRolRetirada
+			case "emisor ajeno":
+				alterada.VersionRol.PublicadaPor = "seguridad:ajena"
+			case "cas negativo":
+				version = -1
+			case "cas desbordado":
+				version = math.MaxInt
+			case "revision desbordada":
+				revision = math.MaxUint64
+			case "huella invalida":
+				version = 1
+				ha = strings.Repeat("A", 64)
+				alterada.AsignacionPerfil.Version = 2
+			}
+			if _, err := prepararPublicacionPerfilUsuariosExterno(alterada, "cta_usuarios_sintetica", "aprobacion:sintetica", revision, hc, version, ha); err == nil {
+				t.Fatal("publicación inválida preparada")
+			}
+		})
 	}
 }
 

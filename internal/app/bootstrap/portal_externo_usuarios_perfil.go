@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"reflect"
+	"regexp"
 
 	usuarios "vec-diputacion-granada/internal/modules/usuarios/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
@@ -29,7 +31,16 @@ func prepararPublicacionPerfilUsuariosExterno(i core.InstantaneaAutorizacion, cu
 	revisionEsperada uint64, huellaControlEsperada string, versionEsperada int, huellaAsignacionEsperada string,
 ) (publicacionPerfilUsuariosExterno, error) {
 	vacia := publicacionPerfilUsuariosExterno{}
-	if cuentaRef == "" || aprobacionRef == "" || i.Validar() != nil ||
+	if !referenciaPerfilUsuariosValida(cuentaRef, "cta_") || !textoProvisionUsuariosValido(aprobacionRef) || i.Validar() != nil ||
+		versionEsperada < 0 || versionEsperada == math.MaxInt || revisionEsperada == math.MaxUint64 ||
+		(huellaControlEsperada != "" && !huellaProvisionUsuariosValida(huellaControlEsperada)) ||
+		(huellaAsignacionEsperada != "" && !huellaProvisionUsuariosValida(huellaAsignacionEsperada)) ||
+		!referenciaPerfilUsuariosValida(i.AsignacionPerfil.PrincipalID, "per_") ||
+		!referenciaPerfilUsuariosValida(i.AsignacionPerfil.PerfilActivoRef, "prf_") ||
+		i.VersionRol.Version == math.MaxInt ||
+		i.VersionRol.PublicadaPor != "seguridad:desarrollo:no-autoritativa" ||
+		i.AsignacionPerfil.Estado != core.EstadoAsignacionPerfilActiva ||
+		i.ControlVigenciaVersionRol.Estado != core.EstadoControlVigenciaVersionRolHabilitada ||
 		i.VersionRol.RolID != "candidato_usuarios_propios_desarrollo" ||
 		i.VersionRol.Nombre != "areaPersonal.usuarios.rolPropio" ||
 		i.VersionRol.Estado != core.EstadoVersionRolPublicada ||
@@ -86,4 +97,17 @@ func concesionesPerfilUsuariosExternoExactas(recibidas []core.ConcesionRol) bool
 		delete(esperadas, c.Accion)
 	}
 	return len(esperadas) == 0
+}
+
+var patronHuellaProvisionUsuarios = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var patronReferenciaProvisionUsuarios = regexp.MustCompile(`^[A-Za-z0-9_:-]+$`)
+
+func huellaProvisionUsuariosValida(h string) bool {
+	return patronHuellaProvisionUsuarios.MatchString(h)
+}
+func textoProvisionUsuariosValido(s string) bool {
+	return len(s) > 0 && len(s) <= 512 && patronReferenciaProvisionUsuarios.MatchString(s)
+}
+func referenciaPerfilUsuariosValida(s, prefijo string) bool {
+	return len(s) > len(prefijo) && len(s) <= 128 && s[:len(prefijo)] == prefijo && patronReferenciaProvisionUsuarios.MatchString(s)
 }
