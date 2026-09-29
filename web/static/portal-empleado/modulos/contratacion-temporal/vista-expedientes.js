@@ -20,7 +20,7 @@ import {
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
-import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260929-diseno-v1";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260929-firma-506-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js?v=20260926-huecos-rrhh-v1";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 import { crearGestorInformeTrasSubsanacion } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
@@ -28,7 +28,7 @@ import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "
 import { montarCancelacionSiProcede } from "./vista-expedientes-cancelacion.js?v=20260926-huecos-rrhh-v1";
 import { montarFormularioReincorporacionRRHH } from "./rrhh-reincorporacion-formulario.js?v=20260928-rrhh-reincorporacion-v1";
 import { montarBorradoresPublicados } from "./vista-borradores-publicados.js?v=20260928-ppt-503-v5";
-import { traducirPortal } from "../../portal-i18n.js?v=20260929-pref-508a-v2";
+import { traducirPortal } from "../../portal-i18n.js?v=20260929-firma-506-v1";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
