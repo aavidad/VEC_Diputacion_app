@@ -88,6 +88,7 @@ func TestConsultaAjustesReglasCTSinFilasYCierreAnteDatosInvalidos(t *testing.T) 
 		{nombre: "sin versiones", fila: filaAjustesReglasPrueba{err: pgx.ErrNoRows}, sinFilas: true},
 		{nombre: "error SQL", fila: filaAjustesReglasPrueba{err: errors.New("detalle de base")}},
 		{nombre: "version cero", fila: filaAjustesReglasPrueba{canonico: `{}`, huella: huellaVacia, desde: instante}},
+		{nombre: "version fuera de CT-148", fila: filaAjustesReglasPrueba{version: maximoVersionAjustesCT + 1, canonico: `{}`, huella: huellaVacia, desde: instante}},
 		{nombre: "vigencia futura", fila: filaAjustesReglasPrueba{version: 1, canonico: `{}`, huella: huellaVacia, desde: instante.Add(time.Second)}},
 		{nombre: "huella ajena", fila: filaAjustesReglasPrueba{version: 1, canonico: `{}`, huella: strings.Repeat("a", 64), desde: instante}},
 		{nombre: "JSON no canónico", fila: filaAjustesReglasPrueba{version: 1, canonico: `{ }`, huella: huellaVacia, desde: instante}},

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -23,6 +22,7 @@ const (
 	catalogoAjustesCT       = reglas.CatalogoContratacionTemporal + reglas.SufijoCatalogoAjustes
 	limiteConsultaAjustesCT = 5 * time.Second
 	maximoCanonicoAjustesCT = 16 * 1024
+	maximoVersionAjustesCT  = 9999999 // CT-148: regla_ajuste_version_v1.version
 )
 
 type consultadorAjustesReglasCT interface {
@@ -73,7 +73,7 @@ func (c *ConsultaAjustesReglasPostgreSQL) AjustesVigentesEn(ctx context.Context,
 	if errors.Is(err, pgx.ErrNoRows) {
 		return vacio, false, nil
 	}
-	if err != nil || version < 1 || version > math.MaxInt || desde.IsZero() || desde.After(instante) ||
+	if err != nil || version < 1 || version > maximoVersionAjustesCT || desde.IsZero() || desde.After(instante) ||
 		len(canonico) == 0 || len(canonico) > maximoCanonicoAjustesCT || len(huella) != 64 {
 		return vacio, false, reglas.ErrAjustesNoDisponibles
 	}
