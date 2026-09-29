@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -56,11 +57,10 @@ func TestCatalogoCoberturaV1ConservaJSONYRechazaPreparacion(t *testing.T) {
 	}
 	var explicita PublicacionCatalogoViasCobertura
 	conMarca := strings.Replace(string(datos), `"vias":`, `"es_ejemplo":false,"vias":`, 1)
-	if err := json.Unmarshal([]byte(conMarca), &explicita); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := RestaurarCatalogoViasCobertura(explicita); !errors.Is(err, ErrDatoInvalido) {
-		t.Fatalf("V1 aceptó es_ejemplo presente: %v", err)
+	if err := json.Unmarshal([]byte(conMarca), &explicita); err == nil {
+		if _, err := RestaurarCatalogoViasCobertura(explicita); !errors.Is(err, ErrDatoInvalido) {
+			t.Fatalf("V1 aceptó es_ejemplo presente: %v", err)
+		}
 	}
 	conDocumentoNulo := strings.Replace(string(datos), `"comprobaciones":`, `"documentos":null,"comprobaciones":`, 1)
 	if err := json.Unmarshal([]byte(conDocumentoNulo), &explicita); err == nil {
@@ -128,11 +128,10 @@ func TestCatalogoCoberturaV2SellaYRestauraPreparacionOrdenada(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal(alteradoJSON, &recuperada); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := RestaurarCatalogoViasCobertura(recuperada); !errors.Is(err, ErrDatoInvalido) {
-		t.Fatalf("V2 aceptó un documento sin clave i18n: %v", err)
+	if err := json.Unmarshal(alteradoJSON, &recuperada); err == nil {
+		if _, err := RestaurarCatalogoViasCobertura(recuperada); !errors.Is(err, ErrDatoInvalido) {
+			t.Fatalf("V2 aceptó un documento sin clave i18n: %v", err)
+		}
 	}
 }
 
@@ -332,6 +331,126 @@ func TestCatalogoCoberturaRechazaObligatoriedadNulaEnJSONV1(t *testing.T) {
 			t.Fatal("se aceptó obligatoria:null como false sellado")
 		}
 	}
+}
+
+func TestCatalogoCoberturaExigeClavesObligatoriasPorObjetoJSON(t *testing.T) {
+	borradorV1 := borradorCatalogoCoberturaValido()
+	borradorV1.Vigencia.Hasta = time.Time{}
+	borradorV1.Vias[0].Comprobaciones[0].Obligatoria = false
+	v1, err := PublicarCatalogoViasCobertura(borradorV1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v2, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaConPreparacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonV1, err := json.Marshal(v1.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonV2, err := json.Marshal(v2.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre string
+		base   []byte
+		ruta   []string
+	}{
+		{"raíz", jsonV1, []string{"version"}},
+		{"canon", jsonV1, []string{"canon", "version_esquema"}},
+		{"vigencia hasta cero", jsonV1, []string{"vigencia", "hasta"}},
+		{"vía", jsonV1, []string{"vias", "0", "orden"}},
+		{"comprobación false", jsonV1, []string{"vias", "0", "comprobaciones", "0", "obligatoria"}},
+		{"procedencia", jsonV1, []string{"vias", "0", "comprobaciones", "0", "procedencia", "clave"}},
+		{"elemento V2", jsonV2, []string{"vias", "0", "documentos", "0", "clave_i18n"}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			alterado := omitirClaveCatalogoJSONPrueba(t, caso.base, caso.ruta...)
+			var publicacion PublicacionCatalogoViasCobertura
+			if err := json.Unmarshal(alterado, &publicacion); err == nil {
+				t.Fatal("la decodificación aceptó una clave obligatoria omitida")
+			}
+		})
+	}
+}
+
+func TestCatalogoCoberturaDistingueCamposOpcionalesV1V2EnJSON(t *testing.T) {
+	v1, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaValido())
+	if err != nil {
+		t.Fatal(err)
+	}
+	v2, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaConPreparacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonV1, err := json.Marshal(v1.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonV2, err := json.Marshal(v2.Publicacion())
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre, original, anterior, nuevo string
+	}{
+		{"V1 es_ejemplo", string(jsonV1), `"vias":`, `"es_ejemplo":true,"vias":`},
+		{"V1 documentos", string(jsonV1), `"comprobaciones":`, `"documentos":[{"clave":"documento_x","orden":1,"clave_i18n":"ct.documento_x"}],"comprobaciones":`},
+		{"V1 datos", string(jsonV1), `"comprobaciones":`, `"datos":[{"clave":"dato_x","orden":1,"clave_i18n":"ct.dato_x"}],"comprobaciones":`},
+		{"V2 false explícito", string(jsonV2), `"es_ejemplo":true`, `"es_ejemplo":false`},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			alterado := strings.Replace(caso.original, caso.anterior, caso.nuevo, 1)
+			if alterado == caso.original {
+				t.Fatal("el caso no alteró el JSON")
+			}
+			var publicacion PublicacionCatalogoViasCobertura
+			if err := json.Unmarshal([]byte(alterado), &publicacion); err == nil {
+				t.Fatal("se aceptó un campo opcional fuera de su canon")
+			}
+		})
+	}
+}
+
+func omitirClaveCatalogoJSONPrueba(t *testing.T, contenido []byte, ruta ...string) []byte {
+	t.Helper()
+	var objeto any
+	if err := json.Unmarshal(contenido, &objeto); err != nil {
+		t.Fatal(err)
+	}
+	actual := objeto
+	for _, paso := range ruta[:len(ruta)-1] {
+		switch valor := actual.(type) {
+		case map[string]any:
+			actual = valor[paso]
+		case []any:
+			indice, err := strconv.Atoi(paso)
+			if err != nil || indice < 0 || indice >= len(valor) {
+				t.Fatalf("índice inválido en ruta JSON: %q", paso)
+			}
+			actual = valor[indice]
+		default:
+			t.Fatalf("ruta JSON inválida antes de %q", paso)
+		}
+	}
+	campo := ruta[len(ruta)-1]
+	destino, ok := actual.(map[string]any)
+	if !ok {
+		t.Fatalf("ruta JSON no acaba en objeto: %v", ruta)
+	}
+	if _, existe := destino[campo]; !existe {
+		t.Fatalf("campo a omitir ausente: %q", campo)
+	}
+	delete(destino, campo)
+	alterado, err := json.Marshal(objeto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return alterado
 }
 
 func elementosPreparacionPrueba(cuantos int) []ElementoPreparacionViaCobertura {
