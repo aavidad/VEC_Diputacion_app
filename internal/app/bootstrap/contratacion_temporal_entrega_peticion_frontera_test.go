@@ -134,15 +134,17 @@ func TestFalloEntregaPeticionSeparaDenegacionDeIndisponibilidad(t *testing.T) {
 		{errors.Join(vecdomain.ErrAutorizacionDenegada, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible), 503, "servicio_no_disponible", "registro_decision_no_disponible"},
 		{errors.Join(vecdomain.ErrAutorizacionDenegada, context.Canceled), 503, "servicio_no_disponible", "peticion_cancelada_o_vencida"},
 	}
-	for _, c := range casos {
-		registro.Reset()
-		estado, codigo := falloEntregaPeticionDesarrollo(http.MethodGet, c.err)
-		linea := registro.String()
-		if estado != c.estado || codigo != c.codigo || !strings.Contains(linea, `"causa":"`+c.causa+`"`) || !strings.Contains(linea, rutaEntregaPeticionCentro) {
-			t.Fatalf("%v: %d %s, registro %q", c.err, estado, codigo, linea)
-		}
-		if strings.Contains(linea, secreto) {
-			t.Fatalf("el registro copia el texto del error: %q", linea)
+	for _, metodo := range []string{http.MethodGet, http.MethodPost} {
+		for _, c := range casos {
+			registro.Reset()
+			estado, codigo := falloEntregaPeticionDesarrollo(metodo, c.err)
+			linea := registro.String()
+			if estado != c.estado || codigo != c.codigo || !strings.Contains(linea, `"causa":"`+c.causa+`"`) || !strings.Contains(linea, rutaEntregaPeticionCentro) || !strings.Contains(linea, `"metodo":"`+metodo+`"`) {
+				t.Fatalf("%s %v: %d %s, registro %q", metodo, c.err, estado, codigo, linea)
+			}
+			if strings.Contains(linea, secreto) {
+				t.Fatalf("el registro copia el texto del error: %q", linea)
+			}
 		}
 	}
 }
