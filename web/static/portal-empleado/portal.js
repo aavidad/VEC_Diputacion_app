@@ -8,12 +8,12 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260929-i18n-sh
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260929-i18n-shell-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260929-i18n-shell-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260929-i18n-shell-v2";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260929-firma-506-v4";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTA_PLANTILLAS_RRHH, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260930-ct-lista-plazos-v1";
 import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh-plantillas-cliente.js";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260929-i18n-shell-v2";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260929-i18n-shell-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260930-ct-lista-plazos-v1";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260929-i18n-shell-v2";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
