@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,6 +80,32 @@ func TestLadoInternoSoloRegistraAliasDelEspacioExterno(t *testing.T) {
 	}
 	if _, err := leerSeudonimosPortalExterno([]byte(`{"version":1,"cuentas":[],"extra":1}`)); err == nil {
 		t.Fatal("campo desconocido aceptado")
+	}
+}
+
+func TestAliasExternoAdmiteBolsaMasSesentaYCuatroPreferencias(t *testing.T) {
+	s := seudonimosValidosPrueba()
+	for i := 1; i < 65; i++ {
+		cuenta := s.Cuentas[0]
+		cuenta.CuentaRef = fmt.Sprintf("cta_sintetica_%032x", i)
+		cuenta.CuentaHMAC = fmt.Sprintf("%064x", i+1)
+		cuenta.SujetoHMAC = fmt.Sprintf("%064x", i+1000)
+		s.Cuentas = append(s.Cuentas, cuenta)
+	}
+	contenido, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerSeudonimosPortalExterno(contenido); err != nil {
+		t.Fatalf("65 alias válidos rechazados: %v", err)
+	}
+	s.Cuentas = append(s.Cuentas, s.Cuentas[1])
+	contenido, err = json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := leerSeudonimosPortalExterno(contenido); !errors.Is(err, ErrSeudonimosPortalExternoInvalidos) {
+		t.Fatalf("66 alias aceptados: %v", err)
 	}
 }
 

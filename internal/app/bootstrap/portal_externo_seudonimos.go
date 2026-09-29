@@ -130,7 +130,8 @@ func leerSeudonimosPortalExterno(contenido []byte) (seudonimosPortalExterno, err
 	d := json.NewDecoder(bytes.NewReader(contenido))
 	d.DisallowUnknownFields()
 	var sobra any
-	if d.Decode(&s) != nil || !errors.Is(d.Decode(&sobra), io.EOF) || s.Version != 1 || len(s.Cuentas) == 0 || len(s.Cuentas) > 64 {
+	// El material admite hasta 64 preferencias y una cuenta Bolsa distinta.
+	if d.Decode(&s) != nil || !errors.Is(d.Decode(&sobra), io.EOF) || s.Version != 1 || len(s.Cuentas) == 0 || len(s.Cuentas) > 65 {
 		return seudonimosPortalExterno{}, ErrSeudonimosPortalExternoInvalidos
 	}
 	for _, c := range s.Cuentas {
