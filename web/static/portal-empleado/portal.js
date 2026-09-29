@@ -1076,4 +1076,10 @@ async function inicializar() {
   await cargarFuenteDatos();
 }
 
-document.addEventListener("DOMContentLoaded", inicializar, { once: true });
+// El índice de idiomas se carga con await de nivel superior en comun/idioma.js,
+// así que este módulo puede evaluarse después de DOMContentLoaded.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", inicializar, { once: true });
+} else {
+  inicializar();
+}
