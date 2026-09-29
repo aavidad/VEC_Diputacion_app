@@ -1,7 +1,9 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -23,14 +25,19 @@ func TestEntregaPeticionCentroAltaUnaVezYReplayNoVuelveAAlta(t *testing.T) {
 	if registro.llamadas != 1 || repo.confirmaciones != 1 {
 		t.Fatalf("seam invocado con cardinalidad incorrecta: alta=%d confirmación=%d", registro.llamadas, repo.confirmaciones)
 	}
-	if primera.EstadoEntrega != "confirmada" || primera.ClaveAlta != preparado.ClaveAlta {
+	if primera.EstadoEntrega != "confirmada" || primera.ClaveAlta != preparado.ClaveAlta || !primera.ConfirmadaAhora {
 		t.Fatalf("entrega no confirmada: %#v", primera)
 	}
 
 	repo.preparada.EstadoEntrega = "confirmada"
 	repo.preparada.ReciboAlta = primera.ReciboAlta
 	segunda, err := servicio.Entregar(context.Background(), comando)
-	if err != nil || !reflect.DeepEqual(segunda, primera) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	primeraJSON, errPrimera := json.Marshal(primera)
+	segundaJSON, errSegunda := json.Marshal(segunda)
+	if errPrimera != nil || errSegunda != nil || segunda.ConfirmadaAhora || !bytes.Equal(segundaJSON, primeraJSON) {
 		t.Fatalf("replay no devuelve la confirmación original: entrega=%#v error=%v", segunda, err)
 	}
 	if registro.llamadas != 1 || repo.confirmaciones != 1 {

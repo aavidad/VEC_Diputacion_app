@@ -67,5 +67,6 @@ func (s *ServicioEntregaPeticionCentro) Entregar(ctx context.Context, c ports.Co
 		confirmada.AmbitoAltaHMAC != e.AmbitoAltaHMAC || !reflect.DeepEqual(*confirmada.ReciboAlta, alta.Recibo) {
 		return vacia, ports.ErrReciboPeticionCentroNoConfiable
 	}
+	confirmada.ConfirmadaAhora = true
 	return confirmada, nil
 }
