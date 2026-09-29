@@ -1,41 +1,12 @@
-export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
-  error_vista: "Documentos no disponible",
-  miga: "Portal del Empleado → Documentos",
-  titulo: "Documentos del expediente",
-  ayuda_etiqueta: "Ayuda sobre documentos",
-  aclaracion_firma: "Pendiente de firma indica que aún no existe una firma acreditada. El número VEC es interno. Preparar una notificación no acredita su entrega. Un documento con custodia externa lo guarda otro sistema: VEC conserva su huella, no su contenido.",
-  cargar_mas: "Cargar más",
-  sin_expediente: "Abra los documentos desde un expediente.",
-  no_configurado: "Consulta documental no disponible.",
-  cargando: "Consultando documentos…",
-  disponible: "Documentos disponibles",
-  vacio: "No hay documentos en este expediente.",
-  denegado: "Acceso denegado.",
-  error: "No se pudieron consultar los documentos.",
-  descargando: "Recuperando el original…",
-  descarga_iniciada: "Descarga iniciada.",
-  descarga_error: "No se pudo descargar el original.",
-  tabla_documentos: "Documentos del expediente",
-  col_documento: "Número VEC",
-  col_tipo: "Tipo",
-  col_version: "Versión",
-  col_firma: "Firma",
-  col_accion: "Acción",
-  firma_borrador: "Borrador",
-  firma_pendiente_firma: "Pendiente de firma",
-  firma_sin_acreditar: "Firma sin acreditar",
-  tipo_comision: "Comisión de servicio",
-  tipo_justificante: "Justificante de comisión",
-  tipo_contratacion: "Documento de petición de personal temporal",
-  tipo_generico: "Documento",
-  descargar: "Descargar original",
-  descargar_de: "Descargar original del documento {numero}",
-  custodia_externa: "Custodia externa",
-  conservacion_provisional: "Conservación provisional",
-  huella_abreviada: "Huella {huella}",
-});
+// `portal.js` importa este fichero de forma estática (fuera del grafo
+// perezoso de módulos): la carga de `cargarTextos` se hace con `import()`
+// para no incorporar `comun/textos.js` a su precarga estática, que es de
+// `index.html` y no se toca en esta migración.
+const { cargarTextos } = await import("../../../comun/textos.js");
 
-export function crearTraductorDocumentos(mensajes = MENSAJES_DOCUMENTOS_ES) {
+export const MENSAJES_DOCUMENTOS = (await cargarTextos("documentos")).seccion("general");
+
+export function crearTraductorDocumentos(mensajes = MENSAJES_DOCUMENTOS) {
   return (clave, variables = {}) => {
     const texto = mensajes[clave];
     if (typeof texto !== "string") return clave;

@@ -53,7 +53,6 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "portal-empleado/modulos/contratacion-temporal/rrhh-plantillas-vista.js",
   "portal-empleado/modulos/contratacion-temporal/rrhh-reincorporacion-i18n.js",
   "portal-empleado/modulos/contratacion-temporal/vista-expedientes-cambios.js",
-  "portal-empleado/modulos/documentos/i18n.js",
   "portal-empleado/modulos/meritos/datos-presentacion.js",
   "portal-empleado/modulos/meritos/i18n.js",
   "portal-empleado/modulos/nominas/i18n.js",

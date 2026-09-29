@@ -147,7 +147,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
-      import("./modulos/documentos/vista.js?v=20260928-ppt-v2"),
+      import("./modulos/documentos/vista.js?v=20260929-i18n-documentos-v1"),
       import("./modulos/documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1"),
     ]);
     return Object.freeze({ vista, cliente });

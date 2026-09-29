@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { crearTraductorDocumentos, MENSAJES_DOCUMENTOS_ES } from "./i18n.js";
+import { crearTraductorDocumentos, MENSAJES_DOCUMENTOS } from "./i18n.js";
 import { montarVistaDocumentos, validarArchivoDescarga, validarRespuestaDocumentos } from "./vista.js";
 import { crearFuenteDocumentosHTTP } from "./cliente-http.js";
 
@@ -28,7 +28,7 @@ test("la conservación provisional se declara y un estado fuera de catálogo se 
   assert.equal(provisional.conservacion, "provisional");
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ conservacion: "definitiva" })] }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ conservacion: undefined })] }));
-  assert.equal(crearTraductorDocumentos()("conservacion_provisional"), MENSAJES_DOCUMENTOS_ES.conservacion_provisional);
+  assert.equal(crearTraductorDocumentos()("conservacion_provisional"), MENSAJES_DOCUMENTOS.conservacion_provisional);
 });
 
 test("la custodia externa se lista sin descarga aunque el servidor la declare", () => {
@@ -39,7 +39,7 @@ test("la custodia externa se lista sin descarga aunque el servidor la declare", 
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ custodia: "otra" })] }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ custodia: undefined })] }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ mime: "" })] }));
-  assert.equal(crearTraductorDocumentos()("custodia_externa"), MENSAJES_DOCUMENTOS_ES.custodia_externa);
+  assert.equal(crearTraductorDocumentos()("custodia_externa"), MENSAJES_DOCUMENTOS.custodia_externa);
 });
 
 test("el original requiere bytes, nombre seguro y extensión coherente", () => {
@@ -121,7 +121,7 @@ test("sin expediente recibido por navegación no hay campo ni consulta", async (
   const nodos = todos(doc.body);
   assert.equal(nodos.some((n) => ["INPUT", "FORM"].includes(n.tagName)), false);
   assert.equal(fuente.seleccionados.length, 0);
-  assert.equal(nodos.find((n) => n.getAttribute("role") === "status").textContent, MENSAJES_DOCUMENTOS_ES.sin_expediente);
+  assert.equal(nodos.find((n) => n.getAttribute("role") === "status").textContent, MENSAJES_DOCUMENTOS.sin_expediente);
   const conBasura = crearDocumentoFalso();
   montarVistaDocumentos({ raiz: conBasura.body, fuente, expedienteRef: "../ajeno" });
   await esperar();
@@ -142,7 +142,7 @@ test("solo se pinta la descarga de lo descargable y la huella externa queda visi
   assert.deepEqual(fuente.seleccionados, [expediente]);
   const nodos = todos(doc.body);
   assert.equal(nodos.some((n) => n.tagName === "INPUT"), false);
-  const botones = nodos.filter((n) => n.tagName === "BUTTON" && n.textContent === MENSAJES_DOCUMENTOS_ES.descargar);
+  const botones = nodos.filter((n) => n.tagName === "BUTTON" && n.textContent === MENSAJES_DOCUMENTOS.descargar);
   assert.equal(botones.length, 1);
   assert.equal(botones[0].getAttribute("aria-label"), "Descargar original del documento VEC-2026-1");
   const filas = nodos.filter((n) => n.tagName === "TR");
@@ -162,5 +162,5 @@ test("i18n y vista solo muestran ayuda tras el signo de interrogación", async (
   assert.match(vista, /"summary", "\?"/u);
   assert.doesNotMatch(vista, /localStorage|sessionStorage|document\.cookie|datos-sinteticos|datos-presentacion/iu);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/iu);
-  for (const clave of ["no_configurado", "cargando", "disponible", "vacio", "denegado", "error", "tipo_comision"]) assert.equal(typeof MENSAJES_DOCUMENTOS_ES[clave], "string");
+  for (const clave of ["no_configurado", "cargando", "disponible", "vacio", "denegado", "error", "tipo_comision"]) assert.equal(typeof MENSAJES_DOCUMENTOS[clave], "string");
 });
