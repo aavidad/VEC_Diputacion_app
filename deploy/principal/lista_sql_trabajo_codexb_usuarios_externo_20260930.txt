@@ -9,3 +9,4 @@ deploy/postgresql/usuarios_vec/migraciones/000011_imagen_externa_fisica.up.sql
 deploy/postgresql/usuarios_vec/migraciones/000012_preflight_claves_correos_externos.up.sql
 deploy/postgresql/contexto_actor_v1/migraciones/000014_perfil_usuarios_externo.up.sql
 deploy/postgresql/autorizacion/migraciones/000017_perfil_usuarios_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000118_consumo_usuarios_externo.up.sql
