@@ -10,6 +10,62 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type destinoEnsayoPreferenciasPG18 struct {
+	base, direccion, inicio string
+	puerto, version         int
+}
+
+func (d destinoEnsayoPreferenciasPG18) valido() bool {
+	return strings.HasPrefix(d.base, "vec_pref_lote_") && d.direccion != "" && d.inicio != "" && d.puerto > 0 && d.version/10000 == 18
+}
+
+func mismoDestinoEnsayoPreferenciasPG18(adminDSN, gobiernoDSN string, admin, gobierno destinoEnsayoPreferenciasPG18) bool {
+	adminConfig, errA := pgxpool.ParseConfig(adminDSN)
+	gobiernoConfig, errG := pgxpool.ParseConfig(gobiernoDSN)
+	if errA != nil || errG != nil || adminConfig == nil || gobiernoConfig == nil || adminConfig.ConnConfig == nil || gobiernoConfig.ConnConfig == nil {
+		return false
+	}
+	a, g := adminConfig.ConnConfig, gobiernoConfig.ConnConfig
+	return a.Host != "" && a.Host == g.Host && a.Port != 0 && a.Port == g.Port &&
+		a.Database == admin.base && g.Database == gobierno.base && a.Database == g.Database &&
+		len(a.Fallbacks) == 0 && len(g.Fallbacks) == 0 && admin.valido() && gobierno.valido() && admin == gobierno
+}
+
+func destinoObservadoEnsayoPreferenciasPG18(ctx context.Context, pool *pgxpool.Pool) (destinoEnsayoPreferenciasPG18, error) {
+	var destino destinoEnsayoPreferenciasPG18
+	if pool == nil {
+		return destino, errComposicionUsuariosPreferencias
+	}
+	err := pool.QueryRow(ctx, `SELECT current_database()::text, COALESCE(inet_server_addr()::text,''),
+ COALESCE(inet_server_port(),0), current_setting('server_version_num')::int,
+	extract(epoch FROM pg_postmaster_start_time())::text`).Scan(&destino.base, &destino.direccion, &destino.puerto, &destino.version, &destino.inicio)
+	return destino, err
+}
+
+func TestEnsayoPG18RechazaDestinosDistintosAntesDePublicar(t *testing.T) {
+	comun := destinoEnsayoPreferenciasPG18{base: "vec_pref_lote_prueba", direccion: "127.0.0.1", puerto: 55432, version: 180004, inicio: "2026-09-29 00:00:00+00"}
+	admin := "postgres://administrador@127.0.0.1:55432/vec_pref_lote_prueba?sslmode=require"
+	gobierno := "postgres://gobierno@127.0.0.1:55432/vec_pref_lote_prueba?sslmode=require"
+	if !mismoDestinoEnsayoPreferenciasPG18(admin, gobierno, comun, comun) {
+		t.Fatal("dos LOGIN de una misma base efímera rechazados")
+	}
+	for _, caso := range []struct {
+		nombre, dsn string
+		observado   destinoEnsayoPreferenciasPG18
+	}{
+		{"otra_base_mismo_cluster", "postgres://gobierno@127.0.0.1:55432/vec_pref_lote_otra?sslmode=require", destinoEnsayoPreferenciasPG18{base: "vec_pref_lote_otra", direccion: comun.direccion, puerto: comun.puerto, version: comun.version, inicio: comun.inicio}},
+		{"mismo_nombre_otro_servidor", gobierno, destinoEnsayoPreferenciasPG18{base: comun.base, direccion: "127.0.0.2", puerto: comun.puerto, version: comun.version, inicio: comun.inicio}},
+		{"otro_host_configurado", "postgres://gobierno@127.0.0.2:55432/vec_pref_lote_prueba?sslmode=require", comun},
+		{"base_no_efimera", "postgres://gobierno@127.0.0.1:55432/vec_principal?sslmode=require", destinoEnsayoPreferenciasPG18{base: "vec_principal", direccion: comun.direccion, puerto: comun.puerto, version: comun.version, inicio: comun.inicio}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if mismoDestinoEnsayoPreferenciasPG18(admin, caso.dsn, comun, caso.observado) {
+				t.Fatal("destino no acreditado aceptado")
+			}
+		})
+	}
+}
+
 // Exige una base PostgreSQL 18 efímera llamada vec_pref_lote_* con la
 // preimagen canónica AD3 y AD3-106 ya instaladas. No utiliza el clon privado
 // conservado ni crea roles o migraciones. El runner externo aporta dos LOGIN:
@@ -20,21 +76,34 @@ func TestPreferenciasLoteGobiernoPostgreSQL18(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	admin, err := pgxpool.New(ctx, os.Getenv("VEC_PREF_LOTE_ADMIN_DSN"))
+	adminDSN, gobiernoDSN := os.Getenv("VEC_PREF_LOTE_ADMIN_DSN"), os.Getenv("VEC_PREF_LOTE_GOBIERNO_DSN")
+	adminConfig, err := pgxpool.ParseConfig(adminDSN)
+	gobiernoConfig, errGobierno := pgxpool.ParseConfig(gobiernoDSN)
+	if err != nil || errGobierno != nil || adminConfig == nil || gobiernoConfig == nil || adminConfig.ConnConfig == nil || gobiernoConfig.ConnConfig == nil ||
+		adminConfig.ConnConfig.Host == "" || adminConfig.ConnConfig.Host != gobiernoConfig.ConnConfig.Host ||
+		adminConfig.ConnConfig.Port == 0 || adminConfig.ConnConfig.Port != gobiernoConfig.ConnConfig.Port ||
+		!strings.HasPrefix(adminConfig.ConnConfig.Database, "vec_pref_lote_") || adminConfig.ConnConfig.Database != gobiernoConfig.ConnConfig.Database ||
+		len(adminConfig.ConnConfig.Fallbacks) != 0 || len(gobiernoConfig.ConnConfig.Fallbacks) != 0 {
+		t.Fatal("DSN de ensayo no apuntan a un mismo destino efímero")
+	}
+	admin, err := pgxpool.NewWithConfig(ctx, adminConfig)
 	if err != nil {
 		t.Fatal("DBA efímero no disponible")
 	}
 	defer admin.Close()
-	var version int
-	var base string
-	if err = admin.QueryRow(ctx, `SELECT current_setting('server_version_num')::int,current_database()`).Scan(&version, &base); err != nil || version/10000 != 18 || !strings.HasPrefix(base, "vec_pref_lote_") {
-		t.Fatalf("base no desechable PostgreSQL18: %d %q %v", version, base, err)
+	adminObservado, err := destinoObservadoEnsayoPreferenciasPG18(ctx, admin)
+	if err != nil || !adminObservado.valido() || adminObservado.base != adminConfig.ConnConfig.Database {
+		t.Fatal("base DBA no acreditada como efímera PostgreSQL18")
 	}
-	gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, os.Getenv("VEC_PREF_LOTE_GOBIERNO_DSN"), "vec-pref-lote-pg18", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
+	gobierno, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, gobiernoDSN, "vec-pref-lote-pg18", rolGobiernoPostgreSQLContratacionTemporalDesarrollo)
 	if err != nil {
 		t.Fatal("LOGIN de gobierno nominal no acreditado")
 	}
 	defer gobierno.Close()
+	gobiernoObservado, err := destinoObservadoEnsayoPreferenciasPG18(ctx, gobierno)
+	if err != nil || !mismoDestinoEnsayoPreferenciasPG18(adminDSN, gobiernoDSN, adminObservado, gobiernoObservado) {
+		t.Fatal("gobierno no conecta al servidor y base efímeros acreditados")
+	}
 	const contarUsuarios = `SELECT count(*) FROM vec_autorizacion_atestada_v3.clave_capacidad_version WHERE audiencia_consumo LIKE 'vec_usuarios.preferencias.%'`
 	var antes int
 	if err = admin.QueryRow(ctx, contarUsuarios).Scan(&antes); err != nil || antes != 0 {
