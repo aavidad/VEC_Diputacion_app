@@ -536,6 +536,13 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 		huellaCatalogo != instantanea.CatalogoPoliticasHuellaSHA256 {
 		return falloPostgreSQLCTDesarrollo(err)
 	}
+	// El bloqueo del catálogo puede haber esperado hasta después de la
+	// caducidad de la preimagen. Revalidar antes de cualquier escritura.
+	if encontrada {
+		if err := comprobarAsignacionActualOperativaPostgreSQLDesarrollo(ctx, tx, actual); err != nil {
+			return falloPostgreSQLCTDesarrollo(err)
+		}
+	}
 	consultas := []struct {
 		sql  string
 		args []any
@@ -697,6 +704,14 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	).Scan(&coincide)
 	if err != nil || !coincide {
 		return falloPostgreSQLCTDesarrollo(err)
+	}
+	// Las inserciones también pueden esperar por otras transacciones. Esta
+	// comprobación es la última operación antes del COMMIT y revierte todo si
+	// la asignación de origen ha vencido durante esa espera.
+	if encontrada {
+		if err := comprobarAsignacionActualOperativaPostgreSQLDesarrollo(ctx, tx, actual); err != nil {
+			return falloPostgreSQLCTDesarrollo(err)
+		}
 	}
 	if tx.Commit(ctx) != nil {
 		return falloPostgreSQLCTDesarrollo(nil)
