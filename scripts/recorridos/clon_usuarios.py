@@ -564,7 +564,14 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
     for path, updated in updates:
         atomic(path, updated)
     atomic(state / "usuarios-result.json", json.dumps(result).encode())
-    return {"env": {}, "profiles": {"usuarios": result}, "blockers": []}
+    users = {}
+    for surface in ("interna", "externa"):
+        config = json.loads(private(material / "identidad" / ("usuarios-preferencias-" + surface + ".json")))
+        users[surface] = [{field: account[field] for field in ("sujeto", "certificado_sha256", "cuenta_ref", "perfil_ref")}
+                          for account in config["cuentas"]]
+    blocker = {"profile": "usuarios", "code": "concesiones_correos_imagen_pendientes",
+               "detail": "Falta preparar las concesiones propias de correo e imagen con el material H4."}
+    return {"env": {}, "profiles": {"usuarios": result}, "users": users, "blockers": [blocker]}
 
 
 def main():
