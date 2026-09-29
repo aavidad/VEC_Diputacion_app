@@ -73,12 +73,30 @@ func seleccionCorreosUsuariosDesarrollo(cfg config.Config, preferenciasActivas b
 	if err := preflightSQLCorreosUsuariosDesarrollo(cfg); err != nil {
 		return false, nil, err
 	}
-	return true, descriptoresMaterialCorreosUsuariosDesarrollo(), nil
+	descriptores := descriptoresMaterialCorreosUsuariosDesarrollo()
+	avisos, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaAvisosMisCorreosDesarrollo)
+	if err != nil {
+		return false, nil, err
+	}
+	if avisos {
+		// B59 publica una audiencia más en el mismo lote; su SQL se comprueba
+		// antes de publicar nada, igual que la de «Mis correos».
+		if err := preflightSQLCorreoAvisosDesarrollo(cfg); err != nil {
+			return false, nil, err
+		}
+		descriptores = append(descriptores, descriptorMaterialCorreoAvisosDesarrollo())
+	}
+	return true, descriptores, nil
 }
 
-type proveedoresMaterialCorreosUsuarios [12]*proveedorMaterialAltaContratacionTemporalDesarrollo
+// proveedoresMaterialCorreosUsuarios lleva los doce proveedores de «Mis
+// correos» y, sólo si B59 está activo, el de la lectura para avisos.
+type proveedoresMaterialCorreosUsuarios struct {
+	lote   [12]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	avisos *proveedorMaterialAltaContratacionTemporalDesarrollo
+}
 
-// Las doce audiencias forman un único corte: si una publicación falla, la
+// Las doce audiencias (trece con B59) forman un único corte: si una publicación falla, la
 // transacción de gobierno revierte todas.
 func publicarMaterialCorreosUsuariosEnLote(ctx context.Context, gobierno *pgxpool.Pool, base materialAtestacionContratacionTemporalDesarrollo,
 	reloj relojContratacionTemporalDesarrollo, catalogo catalogoMaterialAutorizacionComunDesarrollo,
@@ -88,10 +106,18 @@ func publicarMaterialCorreosUsuariosEnLote(ctx context.Context, gobierno *pgxpoo
 		return vacios, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	descriptores := descriptoresMaterialCorreosUsuariosDesarrollo()
-	if len(descriptores) != len(vacios) {
+	if len(descriptores) != len(vacios.lote) {
 		return vacios, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
-	var preparados [12]materialAtestacionContratacionTemporalDesarrollo
+	// La audiencia de avisos (B59) se publica si el catálogo la declara, es
+	// decir, si la selección la pidió y su SQL pasó el preflight.
+	if avisos, ok := catalogo.descriptorPara(usuariosports.AudienciaCorreoAvisosLlamamientoInterna); ok {
+		if avisos != descriptorMaterialCorreoAvisosDesarrollo() {
+			return vacios, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+		}
+		descriptores = append(descriptores, avisos)
+	}
+	preparados := make([]materialAtestacionContratacionTemporalDesarrollo, len(descriptores))
 	defer func() {
 		for i := range preparados {
 			borrarBytes(preparados[i].claveHMAC)
@@ -125,7 +151,11 @@ func publicarMaterialCorreosUsuariosEnLote(ctx context.Context, gobierno *pgxpoo
 		if err != nil {
 			return vacios, err
 		}
-		resultado[i] = p
+		if i < len(resultado.lote) {
+			resultado.lote[i] = p
+		} else {
+			resultado.avisos = p
+		}
 	}
 	return resultado, nil
 }

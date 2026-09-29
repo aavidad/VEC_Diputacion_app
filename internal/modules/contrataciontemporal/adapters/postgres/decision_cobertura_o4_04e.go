@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,7 +32,11 @@ var _ cobertura.EjecutorSesionTCBOperacionDecisionCobertura = (*EjecutorSesionTC
 // EjecutorSesionTCBOperacionDecisionCoberturaPostgreSQL aporta la única
 // transacción física O4-04E. No conoce la orden funcional y nunca reintenta:
 // cualquier fallo tras alcanzar Confirmar puede representar un COMMIT
-// efectivo y corresponde al núcleo reconciliarlo contra el primario.
+// efectivo y corresponde al núcleo reconciliarlo contra el primario. La única
+// excepción es una carrera de serialización (40001/40P01) al confirmar o al
+// hacer COMMIT: PostgreSQL revierte entonces la transacción, y el ejecutor lo
+// acredita al núcleo con ErrCarreraSerializableSesionTCBOperacionDecisionCobertura
+// para que repita la orden entera.
 type EjecutorSesionTCBOperacionDecisionCoberturaPostgreSQL struct {
 	pool iniciadorTransacciones
 }
@@ -91,14 +97,26 @@ func (e *EjecutorSesionTCBOperacionDecisionCoberturaPostgreSQL) EjecutarSesionTC
 	confirmada := sesion.cerrar()
 	cerrada = true
 	if errCallback != nil {
+		if sesion.perdioCarreraSerializable() {
+			return fmt.Errorf("%w: %w",
+				cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura, errCallback)
+		}
 		return errCallback
 	}
 	if violacion || !confirmada {
 		return errSesionDecisionCoberturaO404EInvalida
 	}
-	// Un solo intento. En particular, no se repite ante 40001, 40P01,
-	// cancelación ni pérdida de la respuesta del servidor.
-	return tx.Commit(ctx)
+	// Un solo intento: no se repite aquí ante cancelación ni pérdida de la
+	// respuesta del servidor. Un 40001/40P01 en COMMIT es una reversión
+	// segura y se acredita al núcleo para que repita la orden entera.
+	if err := tx.Commit(ctx); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return fmt.Errorf("%w: %w",
+				cobertura.ErrCarreraSerializableSesionTCBOperacionDecisionCobertura, err)
+		}
+		return err
+	}
+	return nil
 }
 
 func configurarSesionDecisionCoberturaO404E(
@@ -156,6 +174,18 @@ type sesionDecisionCoberturaO404E struct {
 	respuestasC1   map[claveRespuestaC1DecisionCoberturaO404E]struct{}
 	bytesCanonicos int
 	confirmada     bool
+	// carreraSerializable: la función de confirmación falló con 40001/40P01,
+	// lo que deja la transacción abortada y sin efectos.
+	carreraSerializable bool
+}
+
+func (s *sesionDecisionCoberturaO404E) perdioCarreraSerializable() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.carreraSerializable
 }
 
 type claveRespuestaC1DecisionCoberturaO404E struct {

@@ -15,6 +15,7 @@ import (
 	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/portafirmasapagado"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -50,6 +51,9 @@ type ComposicionSeguridadDesarrollo struct {
 	verificadorFirmasKMS  *verificadorFirmasKMSDesarrollo
 	tsa                   vecports.TimestampPort
 	derivadorIdempotencia *derivadorIdentidadOperacionDesarrollo
+	// seudonimosAlmacen guarda solo la clave derivada para seudonimizar
+	// operaciones de almacén de Documentos; la maestra se borra al componer.
+	seudonimosAlmacen *seudonimizadorAlmacenDesarrollo
 }
 
 func NuevaComposicionSeguridadDesarrollo(
@@ -120,6 +124,7 @@ func NuevaComposicionSeguridadDesarrollo(
 		verificadorFirmasKMS:  verificadorFirmasKMS,
 		tsa:                   selladorTSA,
 		derivadorIdempotencia: derivadorIdempotencia,
+		seudonimosAlmacen:     nuevoSeudonimizadorAlmacenDesarrollo(material.claveKMS),
 	}
 	derivadorEntregado = true
 	return resultado, nil
@@ -331,7 +336,7 @@ func nuevoServidorDesarrollo(
 	if err = componerIntentosContactoBolsaDesarrollo(reglasEjemplo.bolsa, consultaCalendarios, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
 		return nil, nil, err
 	}
-	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT))
+	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT, portafirmasapagado.Conector{}))
 	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
 	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo)
 	if err != nil {
@@ -376,7 +381,7 @@ func nuevoServidorDesarrollo(
 			}
 		}()
 	}
-	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro)
+	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro, composicion.seudonimosAlmacen)
 	if err != nil {
 		return nil, nil, err
 	}

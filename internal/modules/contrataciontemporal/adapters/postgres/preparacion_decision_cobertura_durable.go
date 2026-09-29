@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 )
 
 const (
@@ -18,7 +19,9 @@ const (
 	funcionConsultarDecisionCoberturaDurable = "" +
 		"vec_contratacion_temporal." +
 		"consultar_operacion_decision_cobertura_confirmada_v1"
-	maximoIntentosPreparacionDecisionCoberturaDurable = 3
+	// Consulta y reserva siguen la política común de carreras serializables:
+	// con decisiones simultáneas tres intentos inmediatos no bastaban.
+	maximoIntentosPreparacionDecisionCoberturaDurable = postgresqlcomun.IntentosMaximosCarreraSerializable
 )
 
 var (
@@ -83,7 +86,8 @@ func (p *PreparadorOperacionDecisionCoberturaDurablePostgreSQL) ConsultarOperaci
 				ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosPreparacionDecisionCoberturaDurable {
+			intento == maximoIntentosPreparacionDecisionCoberturaDurable ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return cobertura.PreparacionOperacionDecisionCobertura{}, false,
 				normalizarErrorDecisionCoberturaDurable(ctx, err)
 		}
@@ -179,7 +183,8 @@ func (p *PreparadorOperacionDecisionCoberturaDurablePostgreSQL) ReservarOReaprop
 				ctx.Err()
 		}
 		if !errorPostgreSQLReintentable(err) ||
-			intento == maximoIntentosPreparacionDecisionCoberturaDurable {
+			intento == maximoIntentosPreparacionDecisionCoberturaDurable ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return cobertura.PreparacionOperacionDecisionCobertura{},
 				normalizarErrorDecisionCoberturaDurable(ctx, err)
 		}
