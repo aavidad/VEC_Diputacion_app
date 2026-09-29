@@ -220,5 +220,6 @@
   "areaPersonal.preferencias.menuIdentidad": "Open identity menu",
   "areaPersonal.preferencias.textoCorto": "Text ",
   "areaPersonal.preferencias.contrasteCorto": "Contrast",
-  "areaPersonal.preferencias.identidadServicio": "Identity verified by the Users service"
+  "areaPersonal.preferencias.identidadServicio": "Identity verified by the Users service",
+  "areaPersonal.preferencias.identidadNoConfirmada": "Identity not confirmed by the preferences service"
 }

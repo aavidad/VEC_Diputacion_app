@@ -220,5 +220,6 @@
   "areaPersonal.preferencias.menuIdentidad": "Abrir menú de identidad",
   "areaPersonal.preferencias.textoCorto": "Texto ",
   "areaPersonal.preferencias.contrasteCorto": "Contraste",
-  "areaPersonal.preferencias.identidadServicio": "Identidad comprobada por el servicio de Usuarios"
+  "areaPersonal.preferencias.identidadServicio": "Identidad comprobada por el servicio de Usuarios",
+  "areaPersonal.preferencias.identidadNoConfirmada": "Identidad no confirmada por el servicio de preferencias"
 }

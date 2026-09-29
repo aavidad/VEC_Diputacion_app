@@ -204,12 +204,21 @@ export function datosMinimosMiBolsa(consulta) {
   });
 }
 
-function datosMinimosPreferencias() {
+function datosMinimosPreferencias(identidadConfirmada) {
   const base = datosMinimosMiBolsa({ consultada_en: "" });
   return { ...base,
     meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias" },
-    sesion: { ...base.sesion, metodo: traducir("areaPersonal.preferencias.identidadServicio") },
+    sesion: { ...base.sesion, metodo: traducir(identidadConfirmada
+      ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada") },
   };
+}
+
+function asegurarShellPreferencias(estado) {
+  if (estado.vista !== "preferencias" || estado.datos
+    || (!estado.preferencias.estado && !estado.preferencias.error)) return false;
+  estado.datos = datosMinimosPreferencias(Boolean(estado.preferencias.estado));
+  estado.soloPreferencias = true;
+  return true;
 }
 
 function datosDeRespuesta(respuesta) {
@@ -311,10 +320,13 @@ function navegar(estado, vista, opciones = {}) {
   window.history.pushState({ vista }, "", crearURL(estado, vista, opciones));
   cerrarMenu();
   cerrarMenuIdentidad();
-  if (estado.soloPreferencias && vista !== "preferencias") {
+  if (vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
+    estado.datos = null;
+    estado.soloPreferencias = false;
     void cargar(estado);
     return;
   }
+  asegurarShellPreferencias(estado);
   renderizar(estado, { enfocar: true });
 }
 
@@ -816,7 +828,13 @@ function conectarEventos(estado) {
     estado.vista = parametros.has("vista") ? rutaDesdeURL() : inicioAjeno ? "inicio" : "llamamientos";
     estado.avisoInicio = !parametros.has("vista") && inicioAjeno;
     estado.convocatoriaSeleccionada = parametros.get("id") || estado.convocatoriaSeleccionada;
-    if (estado.soloPreferencias && estado.vista !== "preferencias") { void cargar(estado); return; }
+    if (estado.vista !== "preferencias" && (estado.soloPreferencias || !estado.datos)) {
+      estado.datos = null;
+      estado.soloPreferencias = false;
+      void cargar(estado);
+      return;
+    }
+    asegurarShellPreferencias(estado);
     renderizar(estado, { enfocar: true });
   });
   window.addEventListener("keydown", (evento) => {
@@ -836,9 +854,7 @@ function conectarEventos(estado) {
 }
 
 async function cargar(estado) {
-  if (estado.vista === "preferencias" && estado.preferencias.estado && !estado.datos) {
-    estado.datos = datosMinimosPreferencias();
-    estado.soloPreferencias = true;
+  if (asegurarShellPreferencias(estado)) {
     renderizar(estado);
     return;
   }

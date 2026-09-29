@@ -1,4 +1,4 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-usuarios-pref-v2";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-usuarios-pref-v3";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { crearClientePreferencias } from "./cliente-http.js?v=20260929-usuarios-pref-v2";
 import * as temaComun from "../comun/tema-vec.js?v=20260929-usuarios-pref-v1";
