@@ -61,6 +61,55 @@ type documentoAsignacionMiBolsaPortalExterno struct {
 	HuellaEsperada  *string
 }
 
+// documentosRolMiBolsaPortalExterno prepara los dos documentos que AUT16
+// publicará bajo la autorización interna del operador. V1 se conserva si ya
+// existe exacta; cualquier contenido distinto requiere una versión explícita.
+type documentosRolMiBolsaPortalExterno struct {
+	RolDocumento          []byte
+	RolHuellaSHA256       string
+	ControlDocumento      []byte
+	ControlHuellaSHA256   string
+	RevisionEsperada      int64
+	ControlHuellaEsperada *string
+}
+
+func (documentosRolMiBolsaPortalExterno) String() string   { return "[ROL PRIVADO BOLSA]" }
+func (documentosRolMiBolsaPortalExterno) GoString() string { return "[ROL PRIVADO BOLSA]" }
+
+func prepararRolMiBolsaPortalExterno(semilla dominiovec.InstantaneaAutorizacion,
+	revisionEsperada int64, huellaControlEsperada string,
+) (documentosRolMiBolsaPortalExterno, error) {
+	vacio := documentosRolMiBolsaPortalExterno{}
+	if semilla.Validar() != nil || semilla.VersionRol.RolID != rolPortalMiBolsaDesarrollo ||
+		revisionEsperada < 0 || revisionEsperada >= 1<<31 ||
+		(revisionEsperada == 0 && huellaControlEsperada != "") ||
+		(revisionEsperada > 0 && !huellaPreimagenMiBolsaPortalExterno.MatchString(huellaControlEsperada)) {
+		return vacio, errMiBolsaNoDisponible
+	}
+	control := semilla.ControlVigenciaVersionRol
+	control.Revision = uint64(revisionEsperada + 1)
+	if control.Validar() != nil || control.VersionRolRef != semilla.VersionRol.Referencia() {
+		return vacio, errMiBolsaNoDisponible
+	}
+	rolDocumento, err := json.Marshal(semilla.VersionRol)
+	if err != nil {
+		return vacio, errMiBolsaNoDisponible
+	}
+	controlDocumento, err := json.Marshal(control)
+	if err != nil {
+		return vacio, errMiBolsaNoDisponible
+	}
+	huellaRol := sha256.Sum256(rolDocumento)
+	huellaControl := sha256.Sum256(controlDocumento)
+	resultado := documentosRolMiBolsaPortalExterno{RolDocumento: rolDocumento,
+		RolHuellaSHA256: hex.EncodeToString(huellaRol[:]), ControlDocumento: controlDocumento,
+		ControlHuellaSHA256: hex.EncodeToString(huellaControl[:]), RevisionEsperada: revisionEsperada}
+	if revisionEsperada > 0 {
+		resultado.ControlHuellaEsperada = &huellaControlEsperada
+	}
+	return resultado, nil
+}
+
 func (documentoAsignacionMiBolsaPortalExterno) String() string   { return "[ASIGNACION PRIVADA BOLSA]" }
 func (documentoAsignacionMiBolsaPortalExterno) GoString() string { return "[ASIGNACION PRIVADA BOLSA]" }
 

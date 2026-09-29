@@ -28,6 +28,17 @@ func TestPreparacionPerfilExteriorExigeRolPropioYPreimagenCAS(t *testing.T) {
 	if err != nil || semilla.Validar() != nil || semilla.VersionRol.RolID != rolPortalMiBolsaDesarrollo {
 		t.Fatalf("semilla portal exterior: %v", err)
 	}
+	rol, err := prepararRolMiBolsaPortalExterno(semilla, 0, "")
+	if err != nil || rol.RevisionEsperada != 0 || rol.ControlHuellaEsperada != nil {
+		t.Fatalf("rol inicial sin preimagen: %v", err)
+	}
+	var publicado dominiovec.VersionRol
+	if json.Unmarshal(rol.RolDocumento, &publicado) != nil || publicado.Referencia() != semilla.VersionRol.Referencia() {
+		t.Fatal("el documento de rol no conserva la referencia fija")
+	}
+	if _, err := prepararRolMiBolsaPortalExterno(semilla, 1, ""); err == nil {
+		t.Fatal("aceptó control revisado sin huella de preimagen")
+	}
 	documento, err := prepararAsignacionMiBolsaPortalExterno(semilla, semilla.VersionRol, 0, "")
 	if err != nil || documento.VersionEsperada != 0 || documento.HuellaEsperada != nil {
 		t.Fatalf("alta sin preimagen: %v", err)
