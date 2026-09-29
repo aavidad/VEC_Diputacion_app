@@ -122,8 +122,9 @@ func rutaCatalogoDatosPersonalesAspirantes() string {
 	return rutaCatalogoDatosPersonalesEjemplo
 }
 
-// abrirPoolAspirantes exige TLS y que el LOGIN sea miembro exclusivo del
-// ejecutor externo; el adaptador lo vuelve a acreditar en cada transacción.
+// abrirPoolAspirantes exige TLS salvo por socket local o loopback, como el
+// resto de VEC; el LOGIN debe ser miembro exclusivo del ejecutor externo y el
+// adaptador lo vuelve a acreditar en cada transacción.
 func abrirPoolAspirantes(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if dsn == "" {
 		return nil, errComposicionAspirantes

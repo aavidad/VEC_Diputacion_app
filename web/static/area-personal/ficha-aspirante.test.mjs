@@ -45,7 +45,8 @@ function montar() {
 }
 const esperar = () => new Promise((r) => setTimeout(r, 0));
 
-function respuesta(status, cuerpo) { return { status, text: async () => JSON.stringify(cuerpo) }; }
+const cabecerasJSON = { get: (k) => (k === "Content-Type" ? "application/json; charset=utf-8" : null) };
+function respuesta(status, cuerpo, cabeceras = cabecerasJSON) { return { status, headers: cabeceras, text: async () => (typeof cuerpo === "string" ? cuerpo : JSON.stringify(cuerpo)) }; }
 function servidor(secuencia) {
   const peticiones = [];
   return { peticiones, fetchImpl: async (ruta, opciones) => {
@@ -102,8 +103,14 @@ test("cambiar un dato que ya había pide el motivo antes de enviar", async () =>
   assert.equal(c.querySelector("[data-motivo]").hidden, false);
   await enviar(formulario);
   assert.equal(s.peticiones.length, 1, "sin motivo no se envía");
-  c.querySelectorAll("input[name='motivo']").find((r) => r.attrs.value === "correccion_de_error").checked = true;
-  await enviar(formulario);
+  const error = c.querySelector("p[id='ficha-motivo-error']");
+  assert.equal(error.attrs.role, "alert");
+  assert.match(error.textContent, /Elija por qué cambia los datos/u);
+  assert.equal(c.ownerDocument.activeElement.attrs.name, "motivo", "el foco va a la pregunta");
+  const repintado = c.querySelector("form[data-ficha]");
+  assert.equal(repintado.elements.namedItem("telefono").value, "612345678", "lo escrito se conserva");
+  repintado.querySelectorAll("input[name='motivo']").find((r) => r.attrs.value === "correccion_de_error").checked = true;
+  await enviar(repintado);
   assert.deepEqual(s.peticiones[1].cuerpo, { operacion: "rectificar", clave_operacion: claveOperacion(azar), version_esperada: 3, motivo: "correccion_de_error", campos: { telefono: "612345678" } });
 });
 
@@ -114,7 +121,7 @@ test("un dato nuevo no pregunta motivo y sin cambios no se envía nada", async (
   await esperar();
   await enviar(rellenar(c, {}));
   assert.equal(s.peticiones.length, 1);
-  assert.ok(c.querySelector("[data-aviso-ficha]"));
+  assert.equal(c.querySelector("[data-aviso-ficha]").className, "nota aviso");
   const formulario = rellenar(c, { movil: "699111222" });
   assert.equal(c.querySelector("[data-motivo]").hidden, true);
   await enviar(formulario);
@@ -129,6 +136,13 @@ test("un dato que ya no se pide se puede quitar", async () => {
   montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar });
   await esperar();
   c.querySelector("[data-quitar]").handlers.click();
+  assert.equal(s.peticiones.length, 1, "quitar pide confirmación antes");
+  assert.match(c.querySelector("[data-pregunta-quitar]").textContent, /¿Quitar «Domicilio» de su ficha\?/u);
+  assert.equal(c.ownerDocument.activeElement, c.querySelector("[data-pregunta-quitar]"));
+  c.querySelector("[data-cancelar-quitar]").handlers.click();
+  assert.equal(c.querySelector("[data-pregunta-quitar]"), null);
+  c.querySelector("[data-quitar]").handlers.click();
+  c.querySelector("[data-confirmar-quitar]").handlers.click();
   await esperar(); await esperar();
   assert.deepEqual(s.peticiones[1].cuerpo, { operacion: "rectificar", clave_operacion: claveOperacion(azar), version_esperada: 3, motivo: "cambio_de_dato", campos: { domicilio: "" } });
 });
@@ -154,13 +168,59 @@ test("errores en lenguaje llano, reintento y conflicto que recarga", async () =>
   await esperar();
   await enviar(rellenar(c, { movil: "699111222" }));
   assert.equal(s.peticiones.length, 4, "el conflicto vuelve a cargar la ficha");
-  assert.ok(c.querySelector("[data-aviso-ficha]"));
+  assert.equal(c.querySelector("[data-aviso-ficha]").className, "nota aviso");
+});
+
+test("si el guardado falla, lo escrito sigue en el formulario y el foco va al aviso", async () => {
+  const s = servidor([[200, { data: activa() }], [503, "<html>proxy</html>", { get: () => "text/html" }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar });
+  await esperar();
+  const formulario = rellenar(c, { movil: "699111222" });
+  const boton = formulario.querySelector("button[type='submit']");
+  formulario.handlers.submit({ preventDefault() {}, currentTarget: formulario });
+  assert.equal(c.querySelector("form[data-ficha]"), formulario, "no se repinta al empezar a guardar");
+  assert.equal(boton.attrs["aria-busy"], "true");
+  await esperar(); await esperar();
+  const alerta = c.querySelector("[data-error-guardar]");
+  assert.equal(alerta.attrs.role, "alert");
+  assert.match(alerta.textContent, /Sus cambios siguen en el formulario/u);
+  assert.equal(c.ownerDocument.activeElement, alerta);
+  assert.equal(c.querySelector("form[data-ficha]").elements.namedItem("movil").value, "699111222");
+  assert.equal(c.querySelector("[data-accion-ficha='reintentar']"), null, "reintentar solo al cargar");
+});
+
+test("valida teléfono y código postal antes de enviar", async () => {
+  const s = servidor([[200, { data: sinFicha }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar });
+  await esperar();
+  assert.equal(c.querySelector("form[data-ficha]").attrs.novalidate, "");
+  await enviar(rellenar(c, { telefono: "958 12 34 56", codigo_postal: "180" }));
+  assert.equal(s.peticiones.length, 1, "con errores no se envía");
+  const cp = c.querySelector("form[data-ficha]").elements.namedItem("codigo_postal");
+  assert.equal(cp.attrs["aria-invalid"], "true");
+  assert.equal(cp.value, "180");
+  assert.equal(c.ownerDocument.activeElement, cp);
+  assert.match(c.texto, /Escriba los 5 números del código postal, por ejemplo 18002/u);
+  await enviar(rellenar(c, { telefono: "teléfono", codigo_postal: "18002" }));
+  assert.match(c.texto, /Revise el teléfono: escriba solo números/u);
+});
+
+test("una respuesta que no es JSON se trata como no disponible", async () => {
+  const s = servidor([[200, "<html></html>", { get: () => "text/html" }]]);
+  const c = montar();
+  montarFichaAspirante({ contenedor: c, fetchImpl: s.fetchImpl, azar });
+  await esperar();
+  assert.ok(c.querySelector("[data-accion-ficha='reintentar']"));
+  assert.match(c.texto, /No se han podido cargar sus datos/u);
 });
 
 test("validarVista y cambiosDeContacto", () => {
   assert.throws(() => validarVista({ ...sinFicha, contacto: { discapacidad: "33" } }));
   assert.throws(() => validarVista({ ...sinFicha, version: 2 }));
   assert.throws(() => validarVista({ ...sinFicha, extra: undefined, identidad: { ...identidad, tipo_documento: "cedula" } }));
+  assert.throws(() => validarVista({ ...sinFicha, exigencias: [{ campo: "telefono", obligatorio: true, condicion: "../x" }] }));
   assert.deepEqual(cambiosDeContacto({ telefono: " 958123456 ", movil: "6" }, { telefono: "958123456" }), { cambios: { movil: "6" }, habiaValor: false });
 });
 
@@ -170,7 +230,8 @@ test("los textos están en los dos catálogos y no en el código", async () => {
   const es = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
   const en = JSON.parse(await readFile(new URL("./locales/en.json", import.meta.url), "utf8"));
   for (const sufijo of ["cargando", "identidad.titulo", "contacto.titulo", "accion.crear", "accion.guardar", "motivo.pregunta", "sinCambios",
-    "error.no_disponible", "error.prohibido", "error.conflicto", "condicion.si_elige_notificacion_papel", "campo.codigo_postal", "panel.titulo"]) {
+    "error.no_disponible", "error.prohibido", "error.conflicto", "error.guardar", "error.motivo", "quitar.pregunta", "resumen",
+    "validacion.telefono", "validacion.movil", "validacion.codigo_postal", "validacion.domicilio", "validacion.vacio.telefono", "condicion.si_elige_notificacion_papel", "campo.codigo_postal", "panel.titulo"]) {
     assert.ok(es[`areaPersonal.ficha.${sufijo}`] && en[`areaPersonal.ficha.${sufijo}`], sufijo);
   }
   assert.ok(claves.size > 5);

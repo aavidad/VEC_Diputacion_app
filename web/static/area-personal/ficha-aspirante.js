@@ -11,6 +11,7 @@ const MAXIMO_RESPUESTA = 64 * 1024;
 const CODIGOS = Object.freeze({ 401: "no_autenticado", 403: "prohibido", 404: "sin_ficha", 409: "conflicto", 422: "peticion_invalida", 503: "no_disponible" });
 const CODIGOS_CONOCIDOS = new Set(["no_autenticado", "prohibido", "sin_ficha", "ficha_existente", "conflicto", "peticion_invalida", "no_disponible"]);
 const TIPOS_DOCUMENTO = new Set(["dni", "nie", "pasaporte", "otro"]);
+const CONDICION = /^[a-z0-9_]{1,64}$/u;
 
 const t = (clave, valores) => traducir(`areaPersonal.ficha.${clave}`, valores);
 
@@ -33,7 +34,8 @@ export function validarVista(v) {
     || !TIPOS_DOCUMENTO.has(v.identidad.tipo_documento) || !texto(v.identidad.documento, 40)
     || !v.contacto || typeof v.contacto !== "object" || Array.isArray(v.contacto)
     || Object.entries(v.contacto).some(([campo, valor]) => !CAMPOS_CONTACTO.includes(campo) || !texto(valor, 400))
-    || !Array.isArray(v.exigencias) || v.exigencias.some((e) => !e || !CAMPOS_CONTACTO.includes(e.campo) || typeof e.obligatorio !== "boolean")
+    || !Array.isArray(v.exigencias) || v.exigencias.some((e) => !e || !CAMPOS_CONTACTO.includes(e.campo) || typeof e.obligatorio !== "boolean"
+      || (e.condicion !== undefined && !CONDICION.test(e.condicion)))
     || typeof v.catalogo_disponible !== "boolean" || typeof v.catalogo_ejemplo !== "boolean") {
     throw new ErrorFicha("no_disponible");
   }
@@ -53,11 +55,16 @@ export function crearClienteFicha({ fetchImpl = globalThis.fetch } = {}) {
       if (signal?.aborted) throw error;
       throw new ErrorFicha("no_disponible");
     }
+    // Solo se lee JSON acotado: un proxy que devuelva otra cosa es «no disponible».
+    const tipo = String(respuesta.headers?.get?.("Content-Type") ?? "");
+    const largo = Number(respuesta.headers?.get?.("Content-Length") ?? 0);
     let envoltura = null;
-    try {
-      const bruto = await respuesta.text();
-      if (bruto.length <= MAXIMO_RESPUESTA) envoltura = JSON.parse(bruto);
-    } catch { envoltura = null; }
+    if (tipo.startsWith("application/json") && largo <= MAXIMO_RESPUESTA) {
+      try {
+        const bruto = await respuesta.text();
+        if (bruto.length <= MAXIMO_RESPUESTA) envoltura = JSON.parse(bruto);
+      } catch { envoltura = null; }
+    }
     if (respuesta.status === 200 || respuesta.status === 201) {
       if (!envoltura?.data || typeof envoltura.data !== "object") throw new ErrorFicha("no_disponible", respuesta.status);
       return envoltura.data;
@@ -91,6 +98,19 @@ export function cambiosDeContacto(valoresFormulario, guardados) {
   return { cambios, habiaValor };
 }
 
+// errorDeCampo es una comprobación previa y amable; el servidor decide.
+export function errorDeCampo(campo, valor, obligatorio) {
+  const v = String(valor ?? "").trim();
+  if (v === "") return obligatorio ? `validacion.vacio.${campo}` : "";
+  if (campo === "telefono" || campo === "movil") {
+    const cifras = v.replace(/\D/gu, "").length;
+    return /^\+?[0-9 ().-]+$/u.test(v) && cifras >= 9 && cifras <= 15 ? "" : `validacion.${campo}`;
+  }
+  if (campo === "codigo_postal") return /^[0-9]{5}$/u.test(v) ? "" : "validacion.codigo_postal";
+  if (campo === "domicilio") return v.length >= 5 && v.length <= 200 ? "" : "validacion.domicilio";
+  return "";
+}
+
 function fechaLegible(fecha) {
   const d = new Date(fecha);
   if (Number.isNaN(d.getTime())) return "";
@@ -110,9 +130,12 @@ function nodo(documento, etiqueta, atributos = {}, ...hijos) {
   return n;
 }
 
+// Patrón del atributo HTML (se compila con la bandera v): cifras, espacios,
+// guion, punto, paréntesis y un + inicial, como acepta el servidor.
+const PATRON_TELEFONO = String.raw`\+?[0-9 \-\.\(\)]{9,20}`;
 const TIPOS_CAMPO = Object.freeze({
-  telefono: { type: "tel", autocomplete: "tel", inputmode: "tel", maxlength: "20" },
-  movil: { type: "tel", autocomplete: "tel", inputmode: "tel", maxlength: "20" },
+  telefono: { type: "tel", autocomplete: "tel", inputmode: "tel", maxlength: "20", pattern: PATRON_TELEFONO },
+  movil: { type: "tel", autocomplete: "tel", inputmode: "tel", maxlength: "20", pattern: PATRON_TELEFONO },
   domicilio: { type: "text", autocomplete: "street-address", maxlength: "200" },
   codigo_postal: { type: "text", autocomplete: "postal-code", inputmode: "numeric", maxlength: "5", pattern: "[0-9]{5}" },
 });
@@ -122,8 +145,13 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
   const documento = contenedor.ownerDocument ?? globalThis.document;
   const api = cliente ?? crearClienteFicha({ fetchImpl });
   let vista = null;
-  let error = null;
+  let errorCarga = null;
+  let errorGuardar = null;
   let aviso = null;
+  let borrador = null;
+  let erroresCampo = {};
+  let errorMotivo = false;
+  let confirmandoQuitar = null;
   let ocupado = false;
   let activo = true;
   let aborto = null;
@@ -131,10 +159,10 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
   function pintar() {
     if (!activo) return;
     const hijos = [];
-    if (aviso) hijos.push(nodo(documento, "p", { clase: "nota exito", role: "status", tabindex: "-1", "data-aviso-ficha": true, texto: aviso }));
-    if (error) {
-      hijos.push(nodo(documento, "div", { clase: "nota error", role: "alert" },
-        nodo(documento, "p", { texto: t(`error.${error}`) }),
+    if (aviso) hijos.push(nodo(documento, "p", { clase: `nota ${aviso.tipo}`, role: "status", tabindex: "-1", "data-aviso-ficha": true, texto: aviso.texto }));
+    if (errorCarga) {
+      hijos.push(nodo(documento, "div", { clase: "nota error", role: "alert", tabindex: "-1", "data-error-ficha": true },
+        nodo(documento, "p", { texto: t(`error.${errorCarga}`) }),
         nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-accion-ficha": "reintentar", texto: t("accion.reintentar") })));
     } else if (!vista) {
       hijos.push(nodo(documento, "p", { role: "status", texto: t("cargando") }));
@@ -142,12 +170,13 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
       hijos.push(bloqueIdentidad(), bloqueContacto());
     }
     contenedor.replaceChildren(...hijos);
-    const botonReintentar = contenedor.querySelector?.("[data-accion-ficha='reintentar']");
-    botonReintentar?.addEventListener("click", () => cargar());
+    contenedor.querySelector?.("[data-accion-ficha='reintentar']")?.addEventListener("click", () => cargar());
     const formulario = contenedor.querySelector?.("form[data-ficha]");
     formulario?.addEventListener("submit", enviar);
     formulario?.addEventListener("input", () => actualizarMotivo(formulario));
-    contenedor.querySelectorAll?.("[data-quitar]").forEach((b) => b.addEventListener("click", () => quitar(b.getAttribute("data-quitar"))));
+    contenedor.querySelectorAll?.("[data-quitar]").forEach((b) => b.addEventListener("click", () => pedirQuitar(b.getAttribute("data-quitar"))));
+    contenedor.querySelector?.("[data-confirmar-quitar]")?.addEventListener("click", () => quitar(confirmandoQuitar));
+    contenedor.querySelector?.("[data-cancelar-quitar]")?.addEventListener("click", () => { confirmandoQuitar = null; pintar(); });
   }
 
   function bloqueIdentidad() {
@@ -159,6 +188,20 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
       nodo(documento, "h4", { id: "ficha-identidad-titulo", texto: t("identidad.titulo") }), lista);
   }
 
+  function campoFormulario(e) {
+    const id = `ficha-${e.campo}`;
+    const errorClave = erroresCampo[e.campo];
+    const valor = borrador && Object.hasOwn(borrador, e.campo) ? borrador[e.campo] : (vista.contacto[e.campo] ?? "");
+    const pista = e.condicion ? nodo(documento, "small", { id: `${id}-pista`, texto: t(`condicion.${e.condicion}`) }) : null;
+    const error = errorClave ? nodo(documento, "p", { id: `${id}-error`, clase: "error-campo", texto: t(errorClave) }) : null;
+    const descrito = [pista && `${id}-pista`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
+    return nodo(documento, "div", { clase: e.campo === "domicilio" ? "campo ancho-completo" : "campo" },
+      nodo(documento, "label", { for: id, texto: e.obligatorio ? t(`campo.${e.campo}`) : `${t(`campo.${e.campo}`)} ${t("opcional")}` }),
+      nodo(documento, "input", { id, name: e.campo, ...TIPOS_CAMPO[e.campo], value: valor, required: e.obligatorio,
+        "aria-invalid": errorClave ? "true" : undefined, "aria-describedby": descrito }),
+      pista, error);
+  }
+
   function bloqueContacto() {
     const seccion = nodo(documento, "section", { clase: "ficha-contacto", "aria-labelledby": "ficha-contacto-titulo" },
       nodo(documento, "h4", { id: "ficha-contacto-titulo", texto: t("contacto.titulo") }));
@@ -166,40 +209,47 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     if (!vista.catalogo_disponible) {
       seccion.append(nodo(documento, "p", { clase: "nota aviso", texto: t("contacto.sinCatalogo") }));
       if (sinFicha) return seccion;
+    } else if (vista.exigencias.length === 0) {
+      seccion.append(nodo(documento, "p", { texto: t("contacto.nadaPedido") }));
     }
-    const pedidos = new Set(vista.exigencias.map((e) => e.campo));
-    const formulario = nodo(documento, "form", { "data-ficha": vista.estado, novalidate: false });
-    if (vista.catalogo_disponible && vista.exigencias.length === 0) seccion.append(nodo(documento, "p", { texto: t("contacto.nadaPedido") }));
-    const rejilla = nodo(documento, "div", { clase: "formulario-rejilla" });
-    for (const e of vista.exigencias) {
-      const id = `ficha-${e.campo}`;
-      const pista = e.condicion ? nodo(documento, "small", { id: `${id}-pista`, texto: t(`condicion.${e.condicion}`) }) : null;
-      rejilla.append(nodo(documento, "div", { clase: e.campo === "domicilio" ? "campo ancho-completo" : "campo" },
-        nodo(documento, "label", { for: id, texto: e.obligatorio ? t(`campo.${e.campo}`) : `${t(`campo.${e.campo}`)} ${t("opcional")}` }),
-        nodo(documento, "input", { id, name: e.campo, ...TIPOS_CAMPO[e.campo], value: vista.contacto[e.campo] ?? "", required: e.obligatorio,
-          "aria-describedby": pista ? `${id}-pista` : undefined }),
-        pista));
+    const formulario = nodo(documento, "form", { "data-ficha": vista.estado, novalidate: true });
+    if (errorGuardar) {
+      formulario.append(nodo(documento, "p", { clase: "nota error", role: "alert", tabindex: "-1", "data-error-guardar": true, texto: t(`error.${errorGuardar}`) }));
+    } else if (Object.keys(erroresCampo).length) {
+      formulario.append(nodo(documento, "p", { clase: "nota error", role: "alert", tabindex: "-1", "data-error-guardar": true, texto: t("resumen") }));
     }
-    if (vista.exigencias.length) formulario.append(rejilla);
+    if (vista.exigencias.length) formulario.append(nodo(documento, "div", { clase: "formulario-rejilla" }, ...vista.exigencias.map(campoFormulario)));
     if (!sinFicha) {
-      formulario.append(nodo(documento, "fieldset", { clase: "ficha-motivo", hidden: true, "data-motivo": true },
-        nodo(documento, "legend", { texto: t("motivo.pregunta") }),
-        ...["cambio_de_dato", "correccion_de_error"].map((m) => nodo(documento, "label", { clase: "opcion-check" },
-          nodo(documento, "input", { type: "radio", name: "motivo", value: m }), nodo(documento, "span", { texto: t(`motivo.${m}`) })))));
+      const habiaValor = borrador ? cambiosDeContacto(borrador, vista.contacto).habiaValor : false;
+      const grupo = nodo(documento, "fieldset", { clase: "ficha-motivo", hidden: !habiaValor && !errorMotivo, "data-motivo": true,
+        "aria-describedby": errorMotivo ? "ficha-motivo-error" : undefined },
+      nodo(documento, "legend", { texto: t("motivo.pregunta") }),
+      errorMotivo ? nodo(documento, "p", { id: "ficha-motivo-error", clase: "error-campo", role: "alert", texto: t("error.motivo") }) : null,
+      ...["cambio_de_dato", "correccion_de_error"].map((m, i) => nodo(documento, "label", { clase: "opcion-check" },
+        nodo(documento, "input", { type: "radio", name: "motivo", value: m, required: i === 0, checked: borrador?.motivo === m }),
+        nodo(documento, "span", { texto: t(`motivo.${m}`) }))));
+      formulario.append(grupo);
     }
     if (vista.catalogo_ejemplo && vista.exigencias.length) formulario.append(nodo(documento, "p", { clase: "nota", texto: t("ejemplo") }));
     formulario.append(nodo(documento, "div", { clase: "fila-acciones" },
-      nodo(documento, "button", { type: "submit", clase: "boton-primario", disabled: ocupado, texto: t(sinFicha ? "accion.crear" : "accion.guardar") })));
+      nodo(documento, "button", { type: "submit", clase: "boton-primario", disabled: ocupado, "aria-busy": ocupado ? "true" : undefined,
+        texto: t(sinFicha ? "accion.crear" : "accion.guardar") })));
     // Sin campos pedidos solo queda el botón de crear la ficha.
     if (vista.exigencias.length || sinFicha) seccion.append(formulario);
-    // Datos que ya no pide ninguna convocatoria: se pueden quitar.
+    // Datos que ya no pide ninguna convocatoria: se pueden quitar, tras confirmar.
+    const pedidos = new Set(vista.exigencias.map((e) => e.campo));
     const sobrantes = CAMPOS_CONTACTO.filter((c) => !pedidos.has(c) && vista.contacto[c]);
     if (!sinFicha && sobrantes.length) {
       const lista = nodo(documento, "dl", { clase: "dato-lista" });
       for (const c of sobrantes) {
+        const acciones = confirmandoQuitar === c
+          ? nodo(documento, "div", { clase: "nota aviso", role: "group", "aria-labelledby": `ficha-quitar-${c}` },
+            nodo(documento, "p", { id: `ficha-quitar-${c}`, tabindex: "-1", "data-pregunta-quitar": true, texto: t("quitar.pregunta", { campo: t(`campo.${c}`) }) }),
+            nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-confirmar-quitar": true, disabled: ocupado, texto: t("accion.confirmarQuitar") }), " ",
+            nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-cancelar-quitar": true, texto: t("accion.cancelar") }))
+          : nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-quitar": c, disabled: ocupado, texto: t("accion.quitar") });
         lista.append(nodo(documento, "dt", { texto: t(`campo.${c}`) }), nodo(documento, "dd", {},
-          nodo(documento, "span", { texto: vista.contacto[c] }), " ",
-          nodo(documento, "button", { type: "button", clase: "boton-secundario", "data-quitar": c, disabled: ocupado, texto: t("accion.quitar") })));
+          nodo(documento, "span", { texto: vista.contacto[c] }), " ", acciones));
       }
       seccion.append(nodo(documento, "h5", { texto: t("sobrantes.titulo") }), lista);
     }
@@ -218,45 +268,80 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
   function actualizarMotivo(formulario) {
     const grupo = formulario.querySelector?.("[data-motivo]");
     if (!grupo) return;
-    grupo.hidden = !cambiosDeContacto(valoresDe(formulario), vista.contacto).habiaValor;
+    grupo.hidden = !errorMotivo && !cambiosDeContacto(valoresDe(formulario), vista.contacto).habiaValor;
   }
 
+  // enfocar lleva el foco al primer elemento que coincida, tras pintar.
+  function enfocar(...selectores) {
+    for (const s of selectores) {
+      const n = contenedor.querySelector?.(s);
+      if (n) { n.focus?.(); return; }
+    }
+  }
+
+  function marcarOcupado(valor) {
+    ocupado = valor;
+    const boton = contenedor.querySelector?.("form[data-ficha]")?.querySelector?.("button[type='submit']");
+    if (!boton) return;
+    if (valor) { boton.setAttribute("disabled", ""); boton.setAttribute("aria-busy", "true"); }
+    else { boton.removeAttribute?.("disabled"); boton.removeAttribute?.("aria-busy"); }
+  }
+
+  // operar no repinta al empezar: lo escrito sigue en el formulario hasta que
+  // el servicio confirma. Un error de guardado conserva el borrador.
   async function operar(fn, textoExito) {
-    ocupado = true;
-    error = null;
+    errorGuardar = null;
     aviso = null;
-    pintar();
+    marcarOcupado(true);
     aborto?.abort();
     aborto = new AbortController();
+    const propio = aborto;
     try {
-      const recibo = await fn(aborto.signal);
+      const recibo = await fn(propio.signal);
       if (!activo) return;
-      aviso = t(textoExito, { fecha: fechaLegible(recibo?.fecha_utc) });
+      borrador = null;
+      confirmandoQuitar = null;
       ocupado = false;
+      aviso = { tipo: "exito", texto: t(textoExito, { fecha: fechaLegible(recibo?.fecha_utc) }) };
       await cargar({ conservarAviso: true });
-      contenedor.querySelector?.("[data-aviso-ficha]")?.focus?.();
+      enfocar("[data-aviso-ficha]");
     } catch (e) {
-      if (!activo || aborto?.signal.aborted) return;
+      if (!activo || propio.signal.aborted) return;
       ocupado = false;
       const codigo = e?.codigo ?? "no_disponible";
       if (codigo === "conflicto" || codigo === "ficha_existente") {
-        aviso = t(`error.${codigo}`);
+        borrador = null;
+        aviso = { tipo: "aviso", texto: t(`error.${codigo}`) };
         await cargar({ conservarAviso: true });
+        enfocar("[data-aviso-ficha]");
         return;
       }
-      error = codigo;
+      errorGuardar = codigo === "no_disponible" ? "guardar" : codigo;
       pintar();
+      enfocar("[data-error-guardar]");
     }
   }
 
   function enviar(evento) {
     evento.preventDefault();
     const formulario = evento.currentTarget ?? evento.target;
-    if (ocupado || !vista || formulario?.checkValidity?.() === false) {
-      formulario?.reportValidity?.();
+    if (ocupado || !vista) return;
+    const valores = valoresDe(formulario);
+    const motivoElegido = formulario.querySelector?.("input[name='motivo']:checked")?.value ?? "";
+    borrador = { ...valores, motivo: motivoElegido };
+    errorGuardar = null;
+    errorMotivo = false;
+    erroresCampo = {};
+    for (const e of vista.exigencias) {
+      const clave = errorDeCampo(e.campo, valores[e.campo], e.obligatorio);
+      if (clave) erroresCampo[e.campo] = clave;
+    }
+    const primero = vista.exigencias.find((e) => erroresCampo[e.campo]);
+    if (primero) {
+      pintar();
+      enfocar(`input[id='ficha-${primero.campo}']`);
       return;
     }
-    const valores = valoresDe(formulario);
     if (vista.estado === "sin_ficha") {
       const campos = {};
       for (const [c, v] of Object.entries(valores)) if (String(v).trim() !== "") campos[c] = String(v).trim();
@@ -265,21 +350,29 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
     }
     const { cambios, habiaValor } = cambiosDeContacto(valores, vista.contacto);
     if (Object.keys(cambios).length === 0) {
-      aviso = t("sinCambios");
+      aviso = { tipo: "aviso", texto: t("sinCambios") };
       pintar();
+      enfocar("[data-aviso-ficha]");
       return;
     }
     let motivo = "dato_nuevo";
     if (habiaValor) {
-      motivo = formulario.querySelector?.("input[name='motivo']:checked")?.value ?? "";
+      motivo = motivoElegido;
       if (!motivo) {
-        const grupo = formulario.querySelector?.("[data-motivo]");
-        if (grupo) grupo.hidden = false;
-        formulario.querySelector?.("input[name='motivo']")?.focus?.();
+        errorMotivo = true;
+        pintar();
+        enfocar("input[name='motivo']");
         return;
       }
     }
     void operar((signal) => api.rectificar({ clave_operacion: claveOperacion(azar), version_esperada: vista.version, motivo, campos: cambios }, signal), "guardado");
+  }
+
+  function pedirQuitar(campo) {
+    if (ocupado || !CAMPOS_CONTACTO.includes(campo)) return;
+    confirmandoQuitar = campo;
+    pintar();
+    enfocar("[data-pregunta-quitar]");
   }
 
   function quitar(campo) {
@@ -289,7 +382,10 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
 
   async function cargar({ conservarAviso = false } = {}) {
     if (!conservarAviso) aviso = null;
-    error = null;
+    errorCarga = null;
+    errorGuardar = null;
+    erroresCampo = {};
+    errorMotivo = false;
     vista = null;
     pintar();
     const controlador = new AbortController();
@@ -299,9 +395,10 @@ export function montarFichaAspirante({ contenedor, fetchImpl = globalThis.fetch,
       vista = await api.consultar(controlador.signal);
     } catch (e) {
       if (!activo || controlador.signal.aborted) return;
-      error = e?.codigo ?? "no_disponible";
+      errorCarga = e?.codigo ?? "no_disponible";
     }
     pintar();
+    if (errorCarga) enfocar("[data-error-ficha]");
   }
 
   void cargar();

@@ -328,8 +328,7 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 		return nil, err
 	}
 	if !superficiesPreferenciasSeparadas(interna, externa) {
-		interna.cerrar()
-		externa.cerrar()
+		(&composicionPreferenciasUsuarios{interna: interna, externa: externa}).cerrar()
 		return nil, errComposicionUsuariosPreferencias
 	}
 	return &composicionPreferenciasUsuarios{interna: interna, externa: externa}, nil

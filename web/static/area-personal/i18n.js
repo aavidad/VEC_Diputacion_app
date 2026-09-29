@@ -52,7 +52,7 @@ const respaldo = Object.freeze({
   "areaPersonal.miBolsa.llamamiento.limite": "El resultado de envío no acredita recepción, respuesta ni plazo aprobado.",
   "areaPersonal.miBolsa.contratos.sinDato": "Sin información de contratos.",
   "areaPersonal.miBolsa.llamamiento.sinDato": "No constan llamamientos por correo para estas participaciones.",
-  "areaPersonal.contacto.titulo": "Datos de contacto",
+  "areaPersonal.contacto.titulo": "Correo electrónico",
   "areaPersonal.contacto.subtitulo": "Prepare y confirme el correo de forma independiente",
   "areaPersonal.contacto.tituloOtrosDatos": "Teléfono y domicilio",
   "areaPersonal.contacto.subtituloOtrosDatos": "Otros datos de contacto, con su propio guardado",
