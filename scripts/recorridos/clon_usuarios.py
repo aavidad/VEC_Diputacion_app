@@ -101,6 +101,14 @@ def make_harness(repo):
     if not identity_query:
         fail("Identity capability preflight contract is missing.")
     diagnostic = "\nconst codexMDiagnosticIdentitySQL = `" + identity_query.group(1) + "`\n"
+    for path, variable, generated_name in [
+        ("internal/modules/usuarios/adapters/postgres/preferencias.go", "acreditarEjecutorSQL", "codexMUsersExecutorSQL"),
+        ("internal/modules/usuarios/adapters/postgres/auditoria_frontera_preferencias.go", "preflightDenegacionSQL", "codexMUsersFrontierSQL")]:
+        source = historical(repo, "7f1ecea2fd9f8912d255a80e74da84c69e46b978", path)
+        query = re.search(r"const " + variable + r" = `(.+?)`", source, re.DOTALL)
+        if not query:
+            fail("The pinned Users capability preflight changed.")
+        diagnostic += "\nconst " + generated_name + " = `" + query.group(1) + "`\n"
     first_names = ["referenciaProvisionPreferenciasHito1", "huellaProvisionPreferenciasHito1",
                    "construirCuentaProvisionPreferenciasHito1", "instantaneaProvisionPreferenciasHito1",
                    "leerCertificadoProvisionPreferenciasHito1", "catalogoPoliticasProvisionPreferenciasHito1"]
@@ -133,6 +141,7 @@ import (
  "encoding/hex"
  "github.com/jackc/pgx/v5"
  "github.com/jackc/pgx/v5/pgxpool"
+ "github.com/jackc/pgx/v5/pgconn"
  "vec-diputacion-granada/config"
  usuariosports "vec-diputacion-granada/internal/modules/usuarios/ports"
  postgresidentidad "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -194,13 +203,20 @@ func codexMIdentityFlags(ctx context.Context,pool *pgxpool.Pool,group string,fun
  return fmt.Sprintf("login=%t group=%t direct=%t closure=%t functions=%t login_no_authority=%t exact_group_acl=%t",flags[0],flags[1],flags[2],flags[3],flags[4],flags[5],flags[6])
 }
 
-func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool,logins []struct{Name string `json:"name"`;Group string `json:"group"`})(int,error){
+func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool,logins []struct{Name string `json:"name"`;Group string `json:"group"`},rowTypes []string)(int,error){
  tx,err:=admin.BeginTx(ctx,pgx.TxOptions{IsoLevel:pgx.Serializable});if err!=nil{return 0,err};defer tx.Rollback(ctx)
  if _,err=tx.Exec(ctx,`SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec:codexm:usuarios:identity-connect',0))`);err!=nil{return 0,err}
  var publicCount int;var publicExact,publicTemporary bool
  if tx.QueryRow(ctx,`SELECT count(*)::int,coalesce(bool_and(a.privilege_type IN ('CONNECT','TEMPORARY') AND NOT a.is_grantable),false),coalesce(bool_or(a.privilege_type='TEMPORARY'),false)
  FROM pg_catalog.pg_database b CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(b.datacl,pg_catalog.acldefault('d',b.datdba))) a WHERE b.datname='postgres' AND a.grantee=0`).Scan(&publicCount,&publicExact,&publicTemporary)!=nil||!publicExact||(publicCount!=1&&publicCount!=2){return 0,fmt.Errorf("PUBLIC database privilege preimage differs")}
  if publicTemporary{if _,err=tx.Exec(ctx,`REVOKE TEMPORARY ON DATABASE postgres FROM PUBLIC`);err!=nil{return 0,fmt.Errorf("PUBLIC temporary recovery")}}
+ if len(rowTypes)!=17{return 0,fmt.Errorf("Contexto row type restoration plan")}
+ for _,name:=range rowTypes{
+  var ownerExact,implicit bool
+  if tx.QueryRow(ctx,`SELECT t.typtype='c' AND t.typowner=n.nspowner AND n.nspowner='vec_contexto_actor_v1_propietario'::regrole AND t.typrelid<>0,t.typacl IS NULL
+ FROM pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='vec_contexto_actor_v1' AND t.typname=$1`,name).Scan(&ownerExact,&implicit)!=nil||!ownerExact{return 0,fmt.Errorf("Contexto row type owner preimage")}
+  if implicit{if _,err=tx.Exec(ctx,`REVOKE USAGE ON TYPE `+pgx.Identifier{"vec_contexto_actor_v1",name}.Sanitize()+` FROM PUBLIC`);err!=nil{return 0,fmt.Errorf("Contexto row type ACL restoration")}}
+ }
  var pending []string
  groups:=map[string]bool{};for _,login:=range logins{groups[login.Group]=true}
  for group:=range groups{
@@ -238,8 +254,17 @@ func codexMRestoreIdentityConnect(ctx context.Context,admin *pgxpool.Pool,logins
   case "vec_autorizacion_fuente","vec_autorizacion_registro","vec_autorizacion_motivos_evaluador":
    function:="obtener_instantanea";if login.Group=="vec_autorizacion_registro"{function="registrar_decision_contexto_actor_v3"};if login.Group=="vec_autorizacion_motivos_evaluador"{function="resolver_motivo_autorizacion_v2_historico"}
    if tx.QueryRow(ctx,sondaFuncionAutorizacionPreferenciasSQL,function).Scan(&valid)!=nil{return 0,fmt.Errorf("authorization role preflight")}
+  case "vec_usuarios_ejecutor_interno","vec_usuarios_ejecutor_externo":
+   if tx.QueryRow(ctx,codexMUsersExecutorSQL,login.Group).Scan(&valid)!=nil{return 0,fmt.Errorf("Users executor preflight")}
+  case "vec_usuarios_registrador_frontera_interno","vec_usuarios_registrador_frontera_externo":
+   if tx.QueryRow(ctx,codexMUsersFrontierSQL,login.Group).Scan(&valid)!=nil{return 0,fmt.Errorf("Users frontier preflight")}
   default:
-   valid=true // Identity and Users constructors provide their exact checks before effect below.
+   // Identity's same seven-condition constructor probe runs on the actor LOGIN.
+   functions:=[]string{"vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)","vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)"}
+   if login.Group=="vec_identidad_sesiones_v1_revalidador"{functions=[]string{"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)","vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)","vec_identidad_sesiones_v1.coincide_politica_certificado_desarrollo_v1(text,text,timestamptz)"}}
+   var session,current string;var flags [7]bool
+   if tx.QueryRow(ctx,codexMDiagnosticIdentitySQL,login.Group,functions).Scan(&session,&current,&flags[0],&flags[1],&flags[2],&flags[3],&flags[4],&flags[5],&flags[6])!=nil{return 0,fmt.Errorf("Identity source preflight")}
+   valid=session==login.Name&&current==login.Name;for _,flag:=range flags{valid=valid&&flag}
   }
   if !valid{return 0,fmt.Errorf("technical role source contract differs")}
   if _,err=tx.Exec(ctx,`SET LOCAL SESSION AUTHORIZATION DEFAULT`);err!=nil{return 0,fmt.Errorf("restore installer identity")}
@@ -288,7 +313,7 @@ func TestCodexMInstallUsers(t *testing.T){
  if os.Getenv("VEC_CODEXM_USUARIOS_INSTALAR")!="CLON_PRIVADO_REVISADO"{t.Fatal("installation guard")}
  root:=os.Getenv("VEC_CODEXM_STATE");material:=filepath.Join(root,"material")
  planBytes,err:=os.ReadFile(filepath.Join(root,"usuarios-plan.json"));if err!=nil{t.Fatal("installation plan")}
- var plan struct{InstallAt string `json:"install_at"`;SystemID string `json:"system_id"`;PGPort uint16 `json:"pg_port"`;Logins []struct{Name string `json:"name"`;Group string `json:"group"`} `json:"logins"`}
+ var plan struct{InstallAt string `json:"install_at"`;SystemID string `json:"system_id"`;PGPort uint16 `json:"pg_port"`;RowTypes []string `json:"row_types"`;Logins []struct{Name string `json:"name"`;Group string `json:"group"`} `json:"logins"`}
  if json.Unmarshal(planBytes,&plan)!=nil{t.Fatal("installation plan contract")}
  _,err=time.Parse(time.RFC3339Nano,plan.InstallAt);if err!=nil{t.Fatal("installation time")}
  historic,err:=time.Parse(time.RFC3339,"2026-09-29T04:00:00Z");if err!=nil{t.Fatal("historic time")}
@@ -385,7 +410,7 @@ func TestCodexMInstallUsers(t *testing.T){
   if _,err=txRoles.Exec(ctx,`GRANT `+pgx.Identifier{entry.Group}.Sanitize()+` TO `+pgx.Identifier{entry.Name}.Sanitize()+` WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`);err!=nil{t.Fatal("grant one technical capability")}
  }
  if txRoles.Commit(ctx)!=nil{t.Fatal("technical role commit")}
- connectRestored,err:=codexMRestoreIdentityConnect(ctx,admin,plan.Logins);if err!=nil{t.Fatalf("technical CONNECT preimage: %s",err.Error())};t.Logf("identity CONNECT restored=%d",connectRestored)
+ connectRestored,err:=codexMRestoreIdentityConnect(ctx,admin,plan.Logins,plan.RowTypes);if err!=nil{t.Fatalf("technical CONNECT preimage: %s",err.Error())};t.Logf("identity CONNECT restored=%d",connectRestored)
  if crearOComprobarLoginProvisionadorHito1(ctx,admin)!=nil{t.Fatal("identity provisioner authority")}
  provisionCfg:=adminCfg.Copy();provisionCfg.ConnConfig.User=loginProvisionadorHito1;provisionCfg.ConnConfig.Password=""
  provisioner,err:=pgxpool.NewWithConfig(ctx,provisionCfg);if err!=nil{t.Fatal("identity provisioner pool")};defer provisioner.Close()
@@ -398,8 +423,11 @@ func TestCodexMInstallUsers(t *testing.T){
   if canonical[i]!=prior[i].cuenta.CuentaRef{contextResult,operation,err=nuevoResultadoCuentaConciliadaHito1(prior[i],canonical[i]);if err!=nil{t.Fatal("canonical context")}}
   if err=publicarResultadoContextoPostgreSQLDesarrollo(ctx,gobierno,contextResult,operation);err!=nil{t.Fatal("context publication exact replay")}
   vinculo,err:=codexMSession(ctx,current,derivador,certificates[i],chains[i]);if err!=nil{t.Fatalf("real 120s session: %s",err.Error())}
-  authority:=autoridadPostgreSQLDesarrollo{pool:gobierno,vinculo:vinculo,prefijoBloqueo:"vec:hito1:usuarios:preferencias:",actoControlRol:"acto:hito1:usuarios:preferencias:control:"+string(current.Superficie),actoAsignacion:"acto:hito1:usuarios:preferencias:asignacion:"+string(current.Superficie),actoSesion:"acto:codexm:usuarios:instalacion:"+string(current.Superficie),exigirOrigenOperativo:true}
-  if err=authority.PublicarInstantanea(ctx,instances[i]);err!=nil{t.Fatal("authorization publication exact replay")}
+  sessionData,err:=vinculo.Datos();if err!=nil{t.Fatal("fresh session binding")}
+  var actualSessionAct string
+  if admin.QueryRow(ctx,`SELECT acto_ref FROM vec_autorizacion.control_sesion_actual_v1 WHERE sesion_ref=$1 AND control_sesion_ref=$2 AND revision=$3 AND actualizada_en=$4`,sessionData.SesionRef,sessionData.ControlSesionRef,sessionData.ControlSesionRevision,sessionData.SesionRevalidadaEn).Scan(&actualSessionAct)!=nil||actualSessionAct==""{t.Fatal("authoritative fresh session act")}
+  authority:=autoridadPostgreSQLDesarrollo{pool:gobierno,vinculo:vinculo,prefijoBloqueo:"vec:hito1:usuarios:preferencias:",actoControlRol:"acto:hito1:usuarios:preferencias:control:"+string(current.Superficie),actoAsignacion:"acto:hito1:usuarios:preferencias:asignacion:"+string(current.Superficie),actoSesion:actualSessionAct,exigirOrigenOperativo:true}
+  if err=authority.PublicarInstantanea(ctx,instances[i]);err!=nil{var sqlError *pgconn.PgError;if errors.As(err,&sqlError){t.Fatalf("authorization publication SQLSTATE=%s constraint=%s",sqlError.Code,sqlError.ConstraintName)};t.Fatalf("authorization publication class=%T",err)}
   if cuentaIdentidadActivaHito1(ctx,admin,canonical[i])!=nil{t.Fatal("canonical account validity")}
  }
  moduleAfter,err:=codexMModuleHistory(ctx,admin);if err!=nil||moduleAfter!=moduleBefore{t.Fatal("module history changed")}
@@ -494,6 +522,14 @@ def provision(repo, container, state, material, pg_port, engine="docker"):
         fail("The technical role preimage changed after planning the installation.")
     plan["logins"] = roles
     plan["technical_roles_source_sha256"] = sha(roles_input)
+    restoration = private(Path.home() / ".local/state/vec-clon/material-hito1/restaurar-acl-hito1.sql")
+    row_types = re.findall(r'REVOKE ALL ON TYPE "vec_contexto_actor_v1"\."([a-z0-9_]+)" FROM PUBLIC;', restoration.decode())
+    if len(row_types) != 17 or len(set(row_types)) != 17:
+        fail("The explicit Contexto row type ACL restoration source changed.")
+    if "row_types" in plan and plan["row_types"] != row_types:
+        fail("The Contexto type restoration preimage changed after planning.")
+    plan["row_types"] = row_types
+    plan["type_restoration_source_sha256"] = sha(restoration)
     atomic(plan_path, json.dumps(plan).encode())
     # The administrative session uses only the owned clone's loopback trust
     # rule and verified TLS; it never inherits a password or remote endpoint.
