@@ -1,6 +1,7 @@
 import { escaparHTML } from "./vistas/comunes.js";
 import { IDIOMAS_DISPONIBLES, IDIOMA_ACTUAL, IDIOMA_POR_DEFECTO } from "../comun/idioma.js";
 import { cargarTextos } from "../comun/textos.js";
+import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
 
 const textosPorIdioma = new Map(await Promise.all(IDIOMAS_DISPONIBLES.map(async ({ codigo }) =>
   [codigo, await cargarTextos("preferencias", { idioma: codigo })])));
@@ -95,4 +96,12 @@ export function sincronizarAtajosVisuales(valores, documento = globalThis.docume
     .forEach((control) => control.setAttribute("aria-pressed", String(activo)));
   if (typeof valores.tamano_texto === "string") marcar("alternar-texto", valores.tamano_texto !== "normal");
   if (typeof valores.alto_contraste === "boolean") marcar("alternar-contraste", valores.alto_contraste);
+}
+
+/** «Mis correos» del Área personal; si sus textos no cargan, la vista sigue sin él. */
+export async function crearCorreosAreaPersonal(fetchImpl = globalThis.fetch) {
+  try {
+    return crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/area-personal/mis-correos", fetchImpl }),
+      textos: await cargarTextosCorreos(), marco: { panel: "panel preferencias-panel", cabecera: "header", claseCabecera: "", cuerpo: "panel-contenido" }, cargaAlMostrar: true });
+  } catch { return null; }
 }

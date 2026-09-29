@@ -18,6 +18,8 @@ const (
 	superficieAuditoriaPreferencias  = "api.usuarios.preferencias.ruta_exacta"
 	rutaAuditoriaPreferenciasInterna = "/api/vec/usuarios/mis-preferencias"
 	rutaAuditoriaPreferenciasExterna = "/api/vec/usuarios/area-personal/mis-preferencias"
+	rutaAuditoriaCorreosInterna      = "/api/vec/usuarios/mis-correos"
+	rutaAuditoriaCorreosExterna      = "/api/vec/usuarios/area-personal/mis-correos"
 	registrarDenegacionSQL           = `SELECT vec_usuarios.registrar_denegacion_preferencias_v1($1::text,$2::text,$3::text,$4::text,NULLIF($5::text,''))`
 )
 
@@ -154,8 +156,20 @@ func (r *RegistradorDenegacionPreferenciasPostgreSQL) RegistrarAuditoriaFrontera
 	return nil
 }
 
+// rutaCorreosMismaSuperficie admite la ruta de «Mis correos» (000005) del
+// mismo ingreso que la de preferencias; nunca la de la otra superficie.
+func rutaCorreosMismaSuperficie(rutaPreferencias string) string {
+	switch rutaPreferencias {
+	case rutaAuditoriaPreferenciasInterna:
+		return rutaAuditoriaCorreosInterna
+	case rutaAuditoriaPreferenciasExterna:
+		return rutaAuditoriaCorreosExterna
+	}
+	return ""
+}
+
 func ordenDenegacionPreferenciasValida(o vecports.OrdenAuditoriaFronteraRutaExacta, ruta string) bool {
-	if o.Superficie != superficieAuditoriaPreferencias || o.Ruta != ruta ||
+	if o.Superficie != superficieAuditoriaPreferencias || (o.Ruta != ruta && o.Ruta != rutaCorreosMismaSuperficie(ruta)) ||
 		(o.CorrelacionRef != "corr_no_disponible" && !correlacionPreferencias.MatchString(o.CorrelacionRef)) {
 		return false
 	}

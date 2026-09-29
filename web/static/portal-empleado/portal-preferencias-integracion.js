@@ -1,6 +1,9 @@
-import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-firma-506-v2";
+import { crearSuperficiePreferenciasPortal } from "./portal-preferencias.js?v=20260929-correos-508b-v1";
+import { cargarTextosCorreos, crearClienteCorreos, crearSuperficieCorreos } from "../comun/correos-propios.js?v=20260929-correos-508b-v1";
 import { aplicarPreferenciasVisuales } from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
 import { IDIOMAS_DISPONIBLES, resolverIdiomaNavegacion } from "../comun/idioma.js";
+
+const textosCorreos = await cargarTextosCorreos();
 
 /** Adapta la autoridad de Usuarios al shell RRHH sin replicar su tema ni guardar datos locales. */
 export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, estado, renderizar,
@@ -41,7 +44,10 @@ export function crearIntegracionPreferenciasPortal({ documento, ventana, porId, 
     url.searchParams.set("lang", idioma);
     ventana.location.replace(url.href);
   }
+  const correos = crearSuperficieCorreos({ cliente: crearClienteCorreos({ ruta: "/api/vec/usuarios/mis-correos" }),
+    textos: textosCorreos, marco: { panel: "panel pref-panel", cabecera: "div", claseCabecera: "cabecera-panel", cuerpo: "cuerpo-panel" } });
   const superficie = crearSuperficiePreferenciasPortal({
+    correos,
     actualizar: () => { if (estado.vista === "mis-preferencias") renderizar(); },
     alCargar: ({ estado: actual }) => {
       aplicarVisual(actual.valores);
