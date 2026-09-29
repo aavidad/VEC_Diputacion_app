@@ -100,6 +100,51 @@ class MaterialTests(unittest.TestCase):
             with self.assertRaises(material.MaterialError):
                 material.verify_existing(root, identity)
 
+    def test_reviewed_source_receipts_require_exact_count_unique_paths_and_all_hashes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_source = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
+            source = "e78687528d5725efd74e95c858d389f4437099ca"
+            old = {"source_commit": old_source, "container_id": "clone", "pg_port": 55531, "app_port": 18531}
+            target = dict(old, source_commit=source)
+            manifest = {"target": old, "files": {}, "blockers": []}
+            material.json_write(root / "material-manifest.json", manifest)
+            material.json_write(root / "DB_READY.json", {"commit": source, "sql_instaladas": 36})
+            journal = {"current_source_ref": source, "installed": [{"position": n, "path": f"deploy/postgresql/fixture/{n}.sql",
+                        "sha256": hashlib.sha256(b"SQL").hexdigest()} for n in range(1, 37)]}
+            material.json_write(root / "sql-journal.json", journal)
+            args = SimpleNamespace(repo=root, pg_port=55531)
+            with patch.object(material, "run", return_value=b"SQL") as command, patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError):
+                upgraded = material.update_source(args, root, target)
+            self.assertEqual(upgraded["target"], target)
+            self.assertEqual(sum("show" in call.args[0] for call in command.call_args_list), 36)
+            for invalid in ("count", "hash", "duplicate", "position", "source"):
+                material.replace_private(root / "material-manifest.json", manifest)
+                ready = {"commit": source, "sql_instaladas": 36}
+                changed = json.loads(json.dumps(journal))
+                if invalid == "count": ready["sql_instaladas"] = 35
+                if invalid == "hash": changed["installed"][0]["sha256"] = "f" * 64
+                if invalid == "duplicate": changed["installed"][1]["path"] = changed["installed"][0]["path"]
+                if invalid == "position": changed["installed"][1]["position"] = 9
+                if invalid == "source": changed["current_source_ref"] = old_source
+                material.replace_private(root / "DB_READY.json", ready)
+                material.replace_private(root / "sql-journal.json", changed)
+                with self.subTest(invalid=invalid), patch.object(material, "run", return_value=b"SQL"), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError), self.assertRaises(material.MaterialError):
+                    material.update_source(args, root, target)
+
+    def test_coverage_accreditation_denies_any_extra_failure_and_does_not_infer_socket_tls(self):
+        value = {"f" + str(n): True for n in range(4, 21)}
+        value.update(f1="17852", f2="vec_ct_o207_lector", f3="vec_ct_o207_lector")
+        self.assertTrue(material.coverage_metadata_valid(value, physical_login="vec_ct_o207_lector"))
+        missing = dict(value, f11=False)
+        self.assertTrue(material.coverage_metadata_valid(missing, physical_login="vec_ct_o207_lector", missing_connect=True))
+        for key in ("f4", "f5", "f10", "f12", "f19", "f20"):
+            self.assertFalse(material.coverage_metadata_valid(dict(missing, **{key: False}), physical_login="vec_ct_o207_lector", missing_connect=True))
+        socket_metadata = dict(value, f2="postgres", f3="postgres", f4=False)
+        self.assertTrue(material.coverage_metadata_valid(socket_metadata))
+        self.assertFalse(material.coverage_metadata_valid(socket_metadata, physical_login="vec_ct_o207_lector"))
+        self.assertFalse(material.coverage_metadata_valid(dict(value, f1="0")))
+
     def test_source_upgrade_preserves_material_and_rejects_destination_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -113,7 +158,7 @@ class MaterialTests(unittest.TestCase):
             material.json_write(root / "sql-journal.json", {"source_ref": "b" * 40, "installed": [
                 {"position": n, "path": "deploy/postgresql/fixture/" + str(n) + ".sql", "sha256": hashlib.sha256(b"").hexdigest()}
                 for n in range(1, 35)]})
-            with patch.object(material, "run", return_value=b""), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError):
+            with patch.object(material, "run", return_value=b""), patch.object(material, "probe_pg_tls"), patch.object(material.socket, "create_connection", side_effect=OSError), patch.object(material, "REVIEWED_SQL_COUNTS", {"b" * 40: 34}):
                 with self.assertRaises(material.MaterialError):
                     material.update_source(args, root, dict(changed, container_id="different"))
                 upgraded = material.update_source(args, root, changed)

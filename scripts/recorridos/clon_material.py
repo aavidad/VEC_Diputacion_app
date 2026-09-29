@@ -8,6 +8,7 @@ candidate/Users account provisioning is recorded as a blocker, not success.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -28,6 +29,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 OWNER = "Codex-M"
 GUARD = "ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO"
+REVIEWED_SQL_COUNTS = {
+    "7f1ecea2fd9f8912d255a80e74da84c69e46b978": 33,
+    "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9": 34,
+    "e78687528d5725efd74e95c858d389f4437099ca": 36,
+}
 BASE = Path.home() / ".local/state/vec-clon/material-hito1"
 DSN_KEYS = (
     "VEC_CT_DATABASE_URL", "VEC_CT_GOBIERNO_DATABASE_URL",
@@ -403,6 +409,124 @@ def center_bindings(catalog: dict) -> tuple[str, str, str] | None:
     return None
 
 
+COVERAGE_GROUP = "vec_contratacion_temporal_lector_resultado_cobertura"
+COVERAGE_SOURCE = "internal/modules/contrataciontemporal/adapters/postgres/acreditacion_pool_recuperacion_cobertura_o4_05.go"
+COVERAGE_SOURCE_SHA = "1c07d19cec869c80cbef20ab160e4ad9507c11c1fc35c5bdb7489abf1abf5d58"
+
+
+def coverage_accreditation_sql(repo: Path, source: str, login: str, *, missing_connect: bool = False) -> str:
+    data = run(["git", "-C", str(repo), "show", source + ":" + COVERAGE_SOURCE])
+    if hashlib.sha256(data).hexdigest() != COVERAGE_SOURCE_SHA:
+        fail("coverage reader source contract changed")
+    match = re.findall(r"const consultaAcreditacionPoolRecuperacionCoberturaO405 = `(.*?)`", data.decode(), re.S)
+    if len(match) != 1 or not re.fullmatch(r"[a-z0-9_]{3,63}", login):
+        fail("invalid coverage reader contract or LOGIN")
+    sql = match[0].strip().rstrip(";")
+    values = {
+        1: "'vec_contratacion_temporal.recuperar_resultado_propio_decision_cobertura_o405_v1(jsonb)'",
+        2: "'" + COVERAGE_GROUP + "'", 3: "'vec_contratacion_temporal'",
+        4: "'recuperar_resultado_propio_decision_cobertura_o405_v1'", 5: "'vec_contratacion_temporal_propietario'",
+        6: "ARRAY['TimeZone=UTC','lock_timeout=2s','row_security=on','search_path=pg_catalog']",
+        7: "'p_consulta jsonb'", 8: "'TABLE(resultado_json jsonb)'", 9: "'plpgsql'",
+        10: "'379f7913cb05cf1a393d2104a3ad588f6e5945b5bbcb15e2358c739967020c7a'",
+        11: "'a721175e1548fc1c98bc3fffaadb69f1e0657bd3e2f53169594121c3f64a6e53'",
+    }
+    sql = re.sub(r"\$(\d+)", lambda item: values[int(item[1])], sql)
+    # Metadata as postgres explicitly selects the nominal LOGIN. Native session/TLS
+    # columns remain native and are never represented as an actual LOGIN TLS probe.
+    sql = sql.replace("WHERE login.rolname=session_user", "WHERE login.rolname='" + login + "'")
+    if missing_connect:
+        if sql.count("SELECT count(*)=3") != 1:
+            fail("coverage dependency preimage marker changed")
+        sql = sql.replace("SELECT count(*)=3", "SELECT count(*)=2")
+        sql, count = re.subn(r"SELECT count\(\*\)=1\s+AND bool_and\(acl.privilege_type='CONNECT'\)\s+AND bool_and\(NOT acl.is_grantable\)",
+                            "SELECT count(*)=0", sql)
+        if count != 1:
+            fail("coverage CONNECT preimage marker changed")
+    return "SELECT row_to_json(ROW(coverage_metadata.*)) FROM (" + sql + ") AS coverage_metadata"
+
+
+def coverage_metadata_valid(value: dict, *, physical_login: str | None = None, missing_connect: bool = False) -> bool:
+    oid = str(value.get("f1", ""))
+    if len(value) != 20 or not re.fullmatch(r"[1-9][0-9]{0,9}", oid) or int(oid) > 4294967295:
+        return False
+    if physical_login is not None and (value.get("f2") != physical_login or value.get("f3") != physical_login or value.get("f4") is not True):
+        return False
+    return all(value.get("f" + str(index)) is (False if missing_connect and index == 11 else True) for index in range(5, 21))
+
+
+def coverage_snapshot_sql(login: str) -> str:
+    return """SELECT jsonb_build_object(
+ 'database_acl',(SELECT datacl::text FROM pg_catalog.pg_database WHERE datname='postgres'),
+ 'schema_acl',(SELECT nspacl::text FROM pg_catalog.pg_namespace WHERE nspname='vec_contratacion_temporal'),
+ 'function_acl',(SELECT proacl::text FROM pg_catalog.pg_proc WHERE oid='vec_contratacion_temporal.recuperar_resultado_propio_decision_cobertura_o405_v1(jsonb)'::regprocedure),
+ 'login',(SELECT row_to_json(r) FROM pg_catalog.pg_roles r WHERE rolname='""" + login + """'),
+ 'group',(SELECT row_to_json(r) FROM pg_catalog.pg_roles r WHERE rolname='""" + COVERAGE_GROUP + """'),
+ 'memberships',(SELECT jsonb_agg(row_to_json(m) ORDER BY roleid,member) FROM pg_catalog.pg_auth_members m WHERE member IN(SELECT oid FROM pg_catalog.pg_roles WHERE rolname IN('""" + login + "','" + COVERAGE_GROUP + "'))))"
+
+
+def repair_coverage_connect(args: argparse.Namespace, output: Path, source: str) -> None:
+    if source not in REVIEWED_SQL_COUNTS:
+        fail("coverage repair source is not reviewed")
+    try:
+        with socket.create_connection(("127.0.0.1", args.port), timeout=0.2):
+            fail("application must be stopped before coverage repair")
+    except OSError:
+        pass
+    env = json.loads(private_read(output / "runtime-config.json"))
+    dsn = urlsplit(env["VEC_CT_LECTOR_RESULTADO_DATABASE_URL"])
+    if dsn.hostname != "127.0.0.1" or dsn.port != args.pg_port or dsn.path != "/postgres" or dsn.username != "vec_ct_o207_lector":
+        fail("coverage reader LOGIN is outside the declared clone")
+    login = dsn.username
+    original = coverage_accreditation_sql(args.repo, source, login)
+    missing = coverage_accreditation_sql(args.repo, source, login, missing_connect=True)
+    snapshot = coverage_snapshot_sql(login)
+    lock_path = output / "sql.lock"
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            fail("unsafe coverage SQL lock")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # Source accreditation via the existing real LOGIN over verified TLS.
+        ca = query(args, "SHOW ssl_ca_file;\n").decode().strip()
+        if not re.fullmatch(r"/var/lib/postgresql/(?:data|18/docker)/vec-recorridos-ca.crt", ca):
+            fail("coverage TLS CA path changed")
+        def physical() -> dict:
+            return json.loads(run([args.engine, "exec", "-i", "-e", "PGSSLMODE=verify-full", "-e", "PGSSLROOTCERT=" + ca,
+                                  args.container, "psql", "-XqAt", "-h", "localhost", "-p", "5432", "-U", login,
+                                  "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-f", "-"], "BEGIN READ ONLY;\n" + original + ";\nROLLBACK;\n"))
+        before = physical()
+        if coverage_metadata_valid(before, physical_login=login):
+            return
+        if not coverage_metadata_valid(before, physical_login=login, missing_connect=True):
+            fail("coverage reader has another failed precondition")
+        image = json.loads(query(args, snapshot + ";\n"))
+        image_literal = "'" + json.dumps(image, sort_keys=True).replace("'", "''") + "'::jsonb"
+        fields = " AND ".join("(accredited->>'f" + str(index) + "')::boolean" for index in range(5, 21))
+        statement = "BEGIN; SET LOCAL search_path=pg_catalog; SET LOCAL lock_timeout='3s'; SET LOCAL statement_timeout='8s';\n"
+        statement += "SELECT pg_advisory_xact_lock(hashtextextended('Codex-M:coverage-reader-connect:v1',0));\nSELECT datacl FROM pg_catalog.pg_database WHERE datname='postgres' FOR UPDATE;\n"
+        statement += "DO $coverage$ DECLARE actual jsonb; accredited jsonb; BEGIN " + snapshot + " INTO actual; IF actual<>" + image_literal + " THEN RAISE EXCEPTION 'coverage reader preimage changed'; END IF; "
+        statement += missing + " INTO accredited; IF (" + fields + ") IS NOT TRUE THEN RAISE EXCEPTION 'coverage missing CONNECT precondition failed'; END IF; END $coverage$;\n"
+        statement += "GRANT CONNECT ON DATABASE postgres TO " + COVERAGE_GROUP + ";\n"
+        statement += "DO $coverage$ DECLARE accredited jsonb; after_image jsonb; BEGIN " + original + " INTO accredited; IF (" + fields + ") IS NOT TRUE THEN RAISE EXCEPTION 'coverage reader complete accreditation failed'; END IF; "
+        statement += snapshot + " INTO after_image; IF (after_image-'database_acl')<>(" + image_literal + "-'database_acl') THEN RAISE EXCEPTION 'coverage reader immutable privilege changed'; END IF; END $coverage$;\n"
+        query(args, statement + "ROLLBACK;\n")
+        if json.loads(query(args, snapshot + ";\n")) != image:
+            fail("coverage CONNECT rollback changed preimage")
+        query(args, statement + "COMMIT;\n")
+        if not coverage_metadata_valid(physical(), physical_login=login):
+            fail("coverage reader physical postimage failed")
+        receipt = {"version": 1, "source_commit": source, "group": COVERAGE_GROUP, "login": login,
+                   "only_change": "database_CONNECT", "rollback_preimage_verified": True, "physical_TLS_before_after": True,
+                   "preimage_sha256": hashlib.sha256(json.dumps(image, sort_keys=True).encode()).hexdigest()}
+        path = output / "coverage-connect-receipt.json"
+        if not path.exists():
+            json_write(path, receipt)
+    finally:
+        os.close(fd)
+
+
 def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dict:
     previous = json.loads(private_read(output / "material-manifest.json"))
     old = previous.get("target", {})
@@ -420,12 +544,17 @@ def update_source(args: argparse.Namespace, output: Path, identity: dict) -> dic
         journal_bytes = private_read(output / "sql-journal.json")
         journal = json.loads(journal_bytes)
         installed = journal.get("installed", [])
-        if ready.get("commit") != identity["source_commit"] or ready.get("sql_instaladas") != 34 or journal.get("current_source_ref", journal.get("source_ref")) != identity["source_commit"] or len(installed) != 34:
-            fail("source upgrade requires the reviewed 34 SQL receipts")
+        count = REVIEWED_SQL_COUNTS.get(identity["source_commit"])
+        if count is None or ready.get("commit") != identity["source_commit"] or ready.get("sql_instaladas") != count or journal.get("current_source_ref", journal.get("source_ref")) != identity["source_commit"] or len(installed) != count:
+            fail("source upgrade requires the exact reviewed SQL receipt plan")
+        seen = set()
         for position, receipt in enumerate(installed, 1):
             path = receipt.get("path", "")
             if receipt.get("position") != position or not isinstance(path, str) or not path.startswith("deploy/postgresql/") or not path.endswith(".sql") or ".." in Path(path).parts:
                 fail("invalid source SQL receipt")
+            if path in seen:
+                fail("repeated source SQL receipt")
+            seen.add(path)
             sql = run(["git", "-C", str(args.repo), "show", identity["source_commit"] + ":" + path])
             if hashlib.sha256(sql).hexdigest() != receipt.get("sha256"):
                 fail("source SQL receipt does not match the reviewed revision")
@@ -470,6 +599,8 @@ def prepare(args: argparse.Namespace) -> dict:
     if (output / "material-manifest.json").exists():
         manifest = update_source(args, output, identity) if getattr(args, "update_source", False) else verify_existing(output, identity)
         probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
+        if getattr(args, "repair_coverage_connect", False):
+            repair_coverage_connect(args, output, head)
         if getattr(args, "complete_profiles", False):
             return complete_profiles(args, output, manifest)
         return manifest
@@ -581,6 +712,8 @@ def prepare(args: argparse.Namespace) -> dict:
     manifest = {"version": 1, "owner": OWNER, "target": identity, "status": "partial_blocked",
                 "files": files, "blockers": blockers, "application_started": False, "sql_applied": False, "pg_tls_configured": True}
     json_write(output / "material-manifest.json", manifest)
+    if getattr(args, "repair_coverage_connect", False):
+        repair_coverage_connect(args, output, head)
     if getattr(args, "complete_profiles", False):
         return complete_profiles(args, output, manifest)
     return manifest
@@ -596,6 +729,7 @@ def main() -> int:
     parser.add_argument("--pg-port", type=int, required=True)
     parser.add_argument("--base-material", type=Path, default=BASE)
     parser.add_argument("--source-env", type=Path)
+    parser.add_argument("--repair-coverage-connect", action="store_true", help="accredit and grant only the missing coverage reader group CONNECT on the owned clone")
     parser.add_argument("--upgrade-source", "--update-source", dest="update_source", action="store_true", help="bind preserved material to a descendant main revision after matching DB_READY")
     parser.add_argument("--complete-profiles", action="store_true", help="run reviewed Users/Bolsa/candidate provisioning modules on existing material")
     parser.add_argument("--engine", choices=("docker", "podman"), default="docker")
