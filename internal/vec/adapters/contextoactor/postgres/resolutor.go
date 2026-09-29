@@ -10,6 +10,7 @@ import (
 	"io"
 	"reflect"
 	"time"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -126,9 +127,16 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ResolverYRegistrarContextoA
 		consultaResolver, consultaReconciliar = consultaResolverContextoActorV2Alcance, consultaReconciliarContextoActorV2Alcance
 	}
 
-	// La unica repeticion permitida conserva operacion_ref y rca_. Se usa cuando
-	// la reconciliacion confirma ausencia tras un COMMIT fallido.
-	for intento := 0; intento < 2; intento++ {
+	// Cada repetición conserva operacion_ref y rca_. Se repite cuando la
+	// transacción pierde una carrera (40001/40P01, también al confirmar, que
+	// es un aborto seguro) o cuando la reconciliación confirma ausencia tras
+	// un COMMIT fallido, con la política común de espera. Con peticiones
+	// simultáneas del mismo actor dos intentos inmediatos no bastaban y la
+	// pérdida acababa en denegación.
+	for intento := 1; intento <= postgresqlcomun.IntentosMaximosCarreraSerializable; intento++ {
+		if intento > 1 && !postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento-1) {
+			break
+		}
 		respuesta, estado, denegacion := r.ejecutar(ctx, consultaResolver, argumentos)
 		if estado == estadoContextoActorConfirmado {
 			return confirmarRespuestaContextoActor(solicitud, respuesta)
@@ -205,6 +213,9 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutar(
 		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
 	}
 	if err = tx.Commit(ctx); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return respuestaContextoActorPostgreSQL{}, estadoContextoActorReintentable, nil
+		}
 		return respuesta, estadoContextoActorCommitIncierto, nil
 	}
 	return respuesta, estadoContextoActorConfirmado, nil

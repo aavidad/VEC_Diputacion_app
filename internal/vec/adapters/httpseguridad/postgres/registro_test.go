@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -34,13 +35,14 @@ func (i *iniciadorDoble) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx
 
 type transaccionDoble struct {
 	pgx.Tx
-	filas      [][]any
-	consultas  []string
-	argumentos [][]any
-	errExec    error
-	errCommit  error
-	commits    int
-	rollbacks  int
+	filas       [][]any
+	consultas   []string
+	argumentos  [][]any
+	errExec     error
+	errConsulta error
+	errCommit   error
+	commits     int
+	rollbacks   int
 }
 
 func (t *transaccionDoble) Exec(
@@ -54,6 +56,9 @@ func (t *transaccionDoble) Exec(
 func (t *transaccionDoble) QueryRow(_ context.Context, sql string, argumentos ...any) pgx.Row {
 	t.consultas = append(t.consultas, sql)
 	t.argumentos = append(t.argumentos, append([]any(nil), argumentos...))
+	if t.errConsulta != nil {
+		return filaDoble{err: t.errConsulta}
+	}
 	if len(t.filas) == 0 {
 		return filaDoble{err: errors.New("detalle interno de consulta")}
 	}
@@ -172,6 +177,40 @@ func TestRegistroPostgreSQLReconciliaCommitAmbiguoPorMismaOperacion(t *testing.T
 	}
 	if !strings.Contains(txReconciliacion.consultas[0], "reconciliar_registro_sesion_v1") {
 		t.Fatal("se reintento el consumo en lugar de reconciliarlo")
+	}
+}
+
+// Una carrera serializable perdida (en la consulta o al confirmar) se
+// repite entera con la misma operación; no se reconcilia ni se deniega.
+func TestRegistroPostgreSQLRepiteCarrerasSerializables(t *testing.T) {
+	alta := altaValida()
+	fila := filaAltaValida(alta)
+	carrera := &pgconn.PgError{Code: "40001", Message: "serializacion"}
+	enConsulta := &transaccionDoble{errConsulta: carrera}
+	alConfirmar := &transaccionDoble{filas: [][]any{fila}, errCommit: carrera}
+	buena := &transaccionDoble{filas: [][]any{fila}}
+	registro := &iniciadorDoble{transacciones: []*transaccionDoble{enConsulta, alConfirmar, buena}}
+	adaptador := nuevoAdaptadorPrueba(t, registro, &iniciadorDoble{}, &seudonimizadorDoble{resultado: seudonimosValidos(false)})
+	confirmacion, err := adaptador.ConsumirAsercionYRegistrar(context.Background(), alta)
+	if err != nil || confirmacion.ValidarPara(alta) != nil || registro.llamadas != 3 {
+		t.Fatalf("las carreras no se repitieron: llamadas=%d err=%v", registro.llamadas, err)
+	}
+	for _, tx := range []*transaccionDoble{enConsulta, alConfirmar, buena} {
+		if len(tx.consultas) != 1 || strings.Contains(tx.consultas[0], "reconciliar") ||
+			tx.argumentos[0][0] != enConsulta.argumentos[0][0] {
+			t.Fatal("un reintento reconcilió o cambió la operación")
+		}
+	}
+	// Agotados los intentos no hay éxito: error saneado.
+	transacciones := make([]*transaccionDoble, postgresqlcomun.IntentosMaximosCarreraSerializable+1)
+	for i := range transacciones {
+		transacciones[i] = &transaccionDoble{errConsulta: carrera}
+	}
+	registro = &iniciadorDoble{transacciones: transacciones}
+	adaptador = nuevoAdaptadorPrueba(t, registro, &iniciadorDoble{}, &seudonimizadorDoble{resultado: seudonimosValidos(false)})
+	if _, err := adaptador.ConsumirAsercionYRegistrar(context.Background(), alta); err == nil ||
+		registro.llamadas != postgresqlcomun.IntentosMaximosCarreraSerializable {
+		t.Fatalf("límite de reintentos divergente: llamadas=%d err=%v", registro.llamadas, err)
 	}
 }
 
