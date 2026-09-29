@@ -28,7 +28,7 @@ import (
 const maxRespuestaCorreos = 64 << 10
 
 // Las fachadas de «Mis correos» viven en un esquema por población (Usuarios
-// 000009): el personal en vec_usuarios_correos_interno y el Área personal en
+// 000010): el personal en vec_usuarios_correos_interno y el Área personal en
 // vec_usuarios_correos_externo. @ESQ@ se sustituye por el esquema de la
 // superficie del registro, tomado de una tabla cerrada y nunca de la petición.
 const (

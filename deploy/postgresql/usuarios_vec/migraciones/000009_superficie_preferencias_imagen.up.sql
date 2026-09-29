@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Usuarios 000008 (Fase 1, paso 3 del estudio de datos personales):
+-- Usuarios 000009 (Fase 1, paso 3 del estudio de datos personales):
 -- «Mis preferencias» (5.08a) y «Mi imagen» (5.08c) dejan de compartirse entre
 -- el portal interno (RRHH, superficie interna_corporativa) y el Área personal
 -- (superficie externa_personal). La superficie entra en la clave de estado,
@@ -19,7 +19,7 @@
 -- (se comprueba). Si el estado de imagen de una superficie apunta a una foto
 -- que subió la otra o que ya se retiró, esa superficie vuelve a iniciales con
 -- su misma paleta y la historia lo anota con una versión nueva marcada
--- «migracion:usuarios:000008».
+-- «migracion:usuarios:000009».
 --
 -- Una sola transacción: cualquier fallo la revierte entera. Aplicar como DBA
 -- después de Documentos 000008. Firmas, ACL y respuestas no cambian.
@@ -28,7 +28,7 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_usuarios:migracion:000008',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_usuarios:migracion:000009',0));
 DO $pre$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
     OR to_regclass('vec_usuarios.preferencias_recibo') IS NULL
@@ -48,18 +48,18 @@ DO $pre$ BEGIN
       'preferencias_recibo_pkey','preferencias_recibo_persona_ref_version_fkey',
       'imagen_actual_pkey','imagen_historia_pkey','imagen_historia_persona_ref_fkey',
       'imagen_recibo_pkey','imagen_recibo_persona_ref_version_fkey'))<>10
- THEN RAISE EXCEPTION 'Usuarios 000008: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000009: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 LOCK TABLE vec_usuarios.preferencias_actual,vec_usuarios.preferencias_historia,vec_usuarios.preferencias_recibo,
  vec_usuarios.contexto_transaccion,vec_usuarios.imagen_actual,vec_usuarios.imagen_historia,vec_usuarios.imagen_recibo,
  vec_usuarios.imagen_contexto IN ACCESS EXCLUSIVE MODE;
 DO $vivo$ BEGIN
  IF EXISTS (SELECT 1 FROM vec_usuarios.contexto_transaccion) OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_contexto)
- THEN RAISE EXCEPTION 'Usuarios 000008: hay contextos abiertos' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000009: hay contextos abiertos' USING ERRCODE='55000'; END IF;
 END $vivo$;
 
 -- 1. Superficie de cada decisión según su vínculo V3 firmado.
-CREATE TEMP TABLE u8_decision ON COMMIT DROP AS
+CREATE TEMP TABLE u9s_decision ON COMMIT DROP AS
 SELECT a.decision_ref,(convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' AS superficie
 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3 a
 WHERE a.decision_ref IN (SELECT decision_ref FROM vec_usuarios.preferencias_historia
@@ -67,17 +67,17 @@ WHERE a.decision_ref IN (SELECT decision_ref FROM vec_usuarios.preferencias_hist
  UNION SELECT decision_ref FROM vec_usuarios.imagen_historia
  UNION SELECT decision_ref FROM vec_usuarios.imagen_recibo);
 DO $mapa$ BEGIN
- IF EXISTS (SELECT 1 FROM u8_decision WHERE superficie IS NULL OR superficie NOT IN ('interna_corporativa','externa_personal'))
+ IF EXISTS (SELECT 1 FROM u9s_decision WHERE superficie IS NULL OR superficie NOT IN ('interna_corporativa','externa_personal'))
     OR EXISTS (SELECT 1 FROM (SELECT decision_ref FROM vec_usuarios.preferencias_historia
       UNION SELECT decision_ref FROM vec_usuarios.preferencias_recibo
       UNION SELECT decision_ref FROM vec_usuarios.imagen_historia
       UNION SELECT decision_ref FROM vec_usuarios.imagen_recibo) q
-     WHERE NOT EXISTS (SELECT 1 FROM u8_decision d WHERE d.decision_ref=q.decision_ref))
- THEN RAISE EXCEPTION 'Usuarios 000008: decisión sin superficie deducible; revisar antes de migrar' USING ERRCODE='55000'; END IF;
+     WHERE NOT EXISTS (SELECT 1 FROM u9s_decision d WHERE d.decision_ref=q.decision_ref))
+ THEN RAISE EXCEPTION 'Usuarios 000009: decisión sin superficie deducible; revisar antes de migrar' USING ERRCODE='55000'; END IF;
 END $mapa$;
 
 -- 2. Copias de control de historia, recibos y estado.
-CREATE TEMP TABLE u8_antes ON COMMIT DROP AS
+CREATE TEMP TABLE u9s_antes ON COMMIT DROP AS
 SELECT 'preferencias_historia'::text AS tabla,persona_ref||'|'||version AS clave,to_jsonb(t) AS fila FROM vec_usuarios.preferencias_historia t
 UNION ALL SELECT 'preferencias_recibo',persona_ref||'|'||clave_operacion,to_jsonb(t) FROM vec_usuarios.preferencias_recibo t
 UNION ALL SELECT 'preferencias_actual',persona_ref,to_jsonb(t) FROM vec_usuarios.preferencias_actual t
@@ -109,10 +109,10 @@ ALTER TABLE vec_usuarios.preferencias_historia DISABLE TRIGGER historia_inmutabl
 ALTER TABLE vec_usuarios.preferencias_recibo DISABLE TRIGGER recibo_inmutable;
 ALTER TABLE vec_usuarios.imagen_historia DISABLE TRIGGER imagen_historia_inmutable;
 ALTER TABLE vec_usuarios.imagen_recibo DISABLE TRIGGER imagen_recibo_inmutable;
-UPDATE vec_usuarios.preferencias_historia t SET superficie=d.superficie FROM u8_decision d WHERE d.decision_ref=t.decision_ref;
-UPDATE vec_usuarios.preferencias_recibo t SET superficie=d.superficie FROM u8_decision d WHERE d.decision_ref=t.decision_ref;
-UPDATE vec_usuarios.imagen_historia t SET superficie=d.superficie FROM u8_decision d WHERE d.decision_ref=t.decision_ref;
-UPDATE vec_usuarios.imagen_recibo t SET superficie=d.superficie FROM u8_decision d WHERE d.decision_ref=t.decision_ref;
+UPDATE vec_usuarios.preferencias_historia t SET superficie=d.superficie FROM u9s_decision d WHERE d.decision_ref=t.decision_ref;
+UPDATE vec_usuarios.preferencias_recibo t SET superficie=d.superficie FROM u9s_decision d WHERE d.decision_ref=t.decision_ref;
+UPDATE vec_usuarios.imagen_historia t SET superficie=d.superficie FROM u9s_decision d WHERE d.decision_ref=t.decision_ref;
+UPDATE vec_usuarios.imagen_recibo t SET superficie=d.superficie FROM u9s_decision d WHERE d.decision_ref=t.decision_ref;
 ALTER TABLE vec_usuarios.preferencias_historia ENABLE TRIGGER historia_inmutable;
 ALTER TABLE vec_usuarios.preferencias_recibo ENABLE TRIGGER recibo_inmutable;
 ALTER TABLE vec_usuarios.imagen_historia ENABLE TRIGGER imagen_historia_inmutable;
@@ -123,7 +123,7 @@ DO $coherencia$ BEGIN
      ON h.persona_ref=r.persona_ref AND h.version=r.version WHERE h.superficie IS DISTINCT FROM r.superficie)
     OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_recibo r JOIN vec_usuarios.imagen_historia h
      ON h.persona_ref=r.persona_ref AND h.version=r.version WHERE h.superficie IS DISTINCT FROM r.superficie)
- THEN RAISE EXCEPTION 'Usuarios 000008: recibo y versión con superficies distintas' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000009: recibo y versión con superficies distintas' USING ERRCODE='55000'; END IF;
 END $coherencia$;
 
 -- 5. Estado vigente: la última versión propia de cada superficie. No hay
@@ -139,23 +139,23 @@ FROM vec_usuarios.imagen_historia ORDER BY persona_ref,superficie,version DESC;
 
 -- 6. Foto ajena o ya retirada: la superficie vuelve a iniciales y se anota.
 -- La foto es de la superficie que la subió (primera versión que la cita).
-CREATE TEMP TABLE u8_foto_duena ON COMMIT DROP AS
+CREATE TEMP TABLE u9s_foto_duena ON COMMIT DROP AS
 SELECT DISTINCT ON (foto_ref) foto_ref,superficie FROM vec_usuarios.imagen_historia
 WHERE foto_ref IS NOT NULL ORDER BY foto_ref,version;
-CREATE TEMP TABLE u8_foto_rehecha ON COMMIT DROP AS
+CREATE TEMP TABLE u9s_foto_rehecha ON COMMIT DROP AS
 SELECT a.persona_ref,a.superficie,a.version+1 AS version,a.catalogo_version_ref,
  jsonb_build_object('modo','iniciales','paleta',a.eleccion->>'paleta','icono','') AS eleccion,
  'img_'||replace(gen_random_uuid()::text,'-','') AS recibo_ref
-FROM vec_usuarios.imagen_actual a JOIN u8_foto_duena f ON f.foto_ref=a.foto_ref
+FROM vec_usuarios.imagen_actual a JOIN u9s_foto_duena f ON f.foto_ref=a.foto_ref
 WHERE f.superficie<>a.superficie
    OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_historia h WHERE h.persona_ref=a.persona_ref AND h.foto_retirada_ref=a.foto_ref);
 INSERT INTO vec_usuarios.imagen_historia(persona_ref,superficie,version,catalogo_version_ref,eleccion,foto_ref,foto_sha256,foto_retirada_ref,recibo_ref,decision_ref,auditoria_ref,registrada_en)
 SELECT persona_ref,superficie,version,catalogo_version_ref,eleccion,NULL,NULL,NULL,recibo_ref,
- 'migracion:usuarios:000008','migracion:usuarios:000008',date_trunc('microseconds',clock_timestamp())
-FROM u8_foto_rehecha;
+ 'migracion:usuarios:000009','migracion:usuarios:000009',date_trunc('microseconds',clock_timestamp())
+FROM u9s_foto_rehecha;
 UPDATE vec_usuarios.imagen_actual a SET version=r.version,eleccion=r.eleccion,foto_ref=NULL,foto_sha256=NULL,
  recibo_ref=r.recibo_ref,actualizado_en=h.registrada_en
-FROM u8_foto_rehecha r JOIN vec_usuarios.imagen_historia h ON h.recibo_ref=r.recibo_ref
+FROM u9s_foto_rehecha r JOIN vec_usuarios.imagen_historia h ON h.recibo_ref=r.recibo_ref
 WHERE a.persona_ref=r.persona_ref AND a.superficie=r.superficie;
 
 -- 7. Claves nuevas: persona y superficie.
@@ -191,21 +191,21 @@ ALTER TABLE vec_usuarios.imagen_recibo ADD CONSTRAINT imagen_recibo_persona_ref_
 -- estado anterior de cada persona sigue vigente en la superficie que lo guardó.
 DO $control$ BEGIN
  IF EXISTS (SELECT 1 FROM (SELECT persona_ref||'|'||version AS clave,to_jsonb(t)-'superficie' AS fila FROM vec_usuarios.preferencias_historia t) n
-     FULL JOIN (SELECT clave,fila FROM u8_antes WHERE tabla='preferencias_historia') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
+     FULL JOIN (SELECT clave,fila FROM u9s_antes WHERE tabla='preferencias_historia') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
     OR EXISTS (SELECT 1 FROM (SELECT persona_ref||'|'||clave_operacion AS clave,to_jsonb(t)-'superficie' AS fila FROM vec_usuarios.preferencias_recibo t) n
-     FULL JOIN (SELECT clave,fila FROM u8_antes WHERE tabla='preferencias_recibo') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
+     FULL JOIN (SELECT clave,fila FROM u9s_antes WHERE tabla='preferencias_recibo') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
     OR EXISTS (SELECT 1 FROM (SELECT persona_ref||'|'||version AS clave,to_jsonb(t)-'superficie' AS fila FROM vec_usuarios.imagen_historia t
-       WHERE decision_ref<>'migracion:usuarios:000008') n
-     FULL JOIN (SELECT clave,fila FROM u8_antes WHERE tabla='imagen_historia') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
+       WHERE decision_ref<>'migracion:usuarios:000009') n
+     FULL JOIN (SELECT clave,fila FROM u9s_antes WHERE tabla='imagen_historia') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
     OR EXISTS (SELECT 1 FROM (SELECT persona_ref||'|'||clave_operacion AS clave,to_jsonb(t)-'superficie' AS fila FROM vec_usuarios.imagen_recibo t) n
-     FULL JOIN (SELECT clave,fila FROM u8_antes WHERE tabla='imagen_recibo') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
-    OR EXISTS (SELECT 1 FROM u8_antes a WHERE a.tabla='preferencias_actual' AND NOT EXISTS (
+     FULL JOIN (SELECT clave,fila FROM u9s_antes WHERE tabla='imagen_recibo') a USING(clave) WHERE n.fila IS DISTINCT FROM a.fila)
+    OR EXISTS (SELECT 1 FROM u9s_antes a WHERE a.tabla='preferencias_actual' AND NOT EXISTS (
       SELECT 1 FROM vec_usuarios.preferencias_actual n WHERE n.persona_ref=a.clave AND (to_jsonb(n)-'superficie')=a.fila))
-    OR EXISTS (SELECT 1 FROM u8_antes a WHERE a.tabla='imagen_actual' AND NOT EXISTS (
+    OR EXISTS (SELECT 1 FROM u9s_antes a WHERE a.tabla='imagen_actual' AND NOT EXISTS (
       SELECT 1 FROM vec_usuarios.imagen_actual n WHERE n.persona_ref=a.clave
-       AND ((to_jsonb(n)-'superficie')=a.fila OR n.recibo_ref IN (SELECT recibo_ref FROM u8_foto_rehecha))))
-    OR (SELECT count(DISTINCT persona_ref) FROM vec_usuarios.preferencias_actual)<>(SELECT count(*) FROM u8_antes WHERE tabla='preferencias_actual')
-    OR (SELECT count(DISTINCT persona_ref) FROM vec_usuarios.imagen_actual)<>(SELECT count(*) FROM u8_antes WHERE tabla='imagen_actual')
+       AND ((to_jsonb(n)-'superficie')=a.fila OR n.recibo_ref IN (SELECT recibo_ref FROM u9s_foto_rehecha))))
+    OR (SELECT count(DISTINCT persona_ref) FROM vec_usuarios.preferencias_actual)<>(SELECT count(*) FROM u9s_antes WHERE tabla='preferencias_actual')
+    OR (SELECT count(DISTINCT persona_ref) FROM vec_usuarios.imagen_actual)<>(SELECT count(*) FROM u9s_antes WHERE tabla='imagen_actual')
     OR EXISTS (SELECT 1 FROM vec_usuarios.preferencias_actual a WHERE a.version<>(SELECT max(version) FROM vec_usuarios.preferencias_historia h
       WHERE h.persona_ref=a.persona_ref AND h.superficie=a.superficie))
     OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_actual a WHERE a.version<>(SELECT max(version) FROM vec_usuarios.imagen_historia h
@@ -215,7 +215,7 @@ DO $control$ BEGIN
     OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_actual a WHERE a.foto_ref IS NOT NULL AND NOT EXISTS (
       SELECT 1 FROM vec_documentos.imagen_personal d WHERE d.imagen_ref=a.foto_ref AND d.persona_ref=a.persona_ref
        AND d.superficie=a.superficie AND d.estado='activa' AND d.huella_sha256=a.foto_sha256))
- THEN RAISE EXCEPTION 'Usuarios 000008: la migración alteraría la historia o el estado' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000009: la migración alteraría la historia o el estado' USING ERRCODE='55000'; END IF;
 END $control$;
 
 SET LOCAL ROLE vec_usuarios_propietario;
@@ -533,6 +533,6 @@ DO $acl$ BEGIN
     OR NOT has_function_privilege('vec_usuarios_ejecutor_interno','vec_usuarios.guardar_preferencias_propias_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR NOT has_function_privilege('vec_usuarios_ejecutor_externo','vec_usuarios.guardar_imagen_propia_v1(text,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR has_function_privilege('vec_usuarios_ejecutor_interno','vec_usuarios.consultar_preferencias_propias_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') IS NOT TRUE
- THEN RAISE EXCEPTION 'Usuarios 000008: ACL incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000009: ACL incompatible' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;

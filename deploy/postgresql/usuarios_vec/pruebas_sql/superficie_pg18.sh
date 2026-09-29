@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fase 1, paso 3: Documentos 000008, Usuarios 000008, roles_000009, AD3-109 y
-# Usuarios 000009 en PostgreSQL 18.4 efímero, sin red y con la V3 sintética
+# Fase 1, paso 3: Documentos 000008, Usuarios 000009, roles_000010, AD3-110 y
+# Usuarios 000010 en PostgreSQL 18.4 efímero, sin red y con la V3 sintética
 # de forma. Siembra datos de la MISMA persona desde los dos portales (el caso
 # que antes se compartía), ensaya cada migración con ROLLBACK (la base queda
 # idéntica), provoca un fallo a mitad (tampoco deja rastro), migra y comprueba:
@@ -43,6 +43,7 @@ for f in "$sql/roles_up.sql" "$sql/pruebas_sql/preimagen_ad3_sintetica.sql" "$ad
  "$sql/migraciones/000005_frontera_correos.up.sql" "$ad3/000108_consumidor_imagen_usuarios.up.sql" \
  "$doc/roles_up.sql" "$doc/migraciones/000007_imagen_personal.up.sql" \
  "$sql/migraciones/000006_imagen_propia.up.sql" "$sql/migraciones/000007_frontera_imagen.up.sql" \
+ "$sql/pruebas_sql/preimagen_avisos_sintetica.sql" "$sql/migraciones/000008_correo_avisos_llamamiento.up.sql" \
  "$sql/pruebas_sql/operaciones_sinteticas.sql" "$sql/pruebas_sql/imagen_operaciones_sinteticas.sql" \
  "$sql/pruebas_sql/correos_operaciones_sinteticas.sql"; do
  psql_pg < "$f" >/dev/null
@@ -65,6 +66,16 @@ psql_externa -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_co
 psql_externa -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_correos('vec.correos.verificar',2,'correo-ext-000002','$B','aplicar',true,false,'externa_personal'); COMMIT;" >/dev/null
 psql_interna -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_correos('vec.correos.verificar',3,'correo-int-000002','$A','aplicar',false); COMMIT;" >/dev/null
 psql_interna -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_correos('vec.correos.verificar',3,'correo-int-000003','$A','aplicar',true); COMMIT;" >/dev/null
+# B59 antes de migrar: RRHH obtiene el correo que la persona confirmó en el
+# Área personal (B), no el interno (A).
+psql_interna -At <<'SQL' >/dev/null
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+DO $prueba$ DECLARE r jsonb; BEGIN
+ r:=public.probar_avisos('vec_usuarios');
+ IF r->>'encontrado'<>'true' OR r->>'correo_ref'<>'correo:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' THEN RAISE EXCEPTION 'avisos antes %',r; END IF;
+END $prueba$;
+COMMIT;
+SQL
 # Antes de migrar, el fallo que se corrige: el portal externo ve lo interno.
 psql_externa -At <<'SQL' >/dev/null
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
@@ -86,10 +97,11 @@ docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_usuarios_prueb
 # 2. Cada migración en ROLLBACK deja la base idéntica; después se aplica.
 lista=(
  "$doc/migraciones/000008_imagen_personal_superficie.up.sql"
- "$sql/migraciones/000008_superficie_preferencias_imagen.up.sql"
- "$sql/roles_000009_up.sql"
- "$ad3/000109_correos_por_poblacion.up.sql"
- "$sql/migraciones/000009_correos_por_poblacion.up.sql"
+ "$sql/migraciones/000009_superficie_preferencias_imagen.up.sql"
+ "$sql/roles_000010_up.sql"
+ "$ad3/000110_correos_por_poblacion.up.sql"
+ "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000011_persona_candidato_avisos_poblacion.up.sql"
+ "$sql/migraciones/000010_correos_por_poblacion.up.sql"
 )
 for f in "${lista[@]}"; do
  antes=$(huella_base)
@@ -110,8 +122,8 @@ for f in "${lista[@]}"; do
  if psql_pg < "$f" >/dev/null 2>&1; then echo "reaplicación admitida: $f" >&2; exit 1; fi
 done
 [[ "$(huella_base)" == "$antes" ]]
-for f in "$sql/migraciones/000008_superficie_preferencias_imagen.down.sql" "$sql/migraciones/000009_correos_por_poblacion.down.sql" \
- "$ad3/000109_correos_por_poblacion.down.sql"; do
+for f in "$sql/migraciones/000009_superficie_preferencias_imagen.down.sql" "$sql/migraciones/000010_correos_por_poblacion.down.sql" \
+ "$ad3/000110_correos_por_poblacion.down.sql"; do
  if psql_pg < "$f" >/dev/null 2>&1; then echo "DOWN admitido: $f" >&2; exit 1; fi
 done
 psql_pg < "$sql/pruebas_sql/correos_poblacion_operaciones_sinteticas.sql" >/dev/null
@@ -130,7 +142,7 @@ DO \$prueba\$ BEGIN
  IF (SELECT count(*) FROM vec_usuarios.imagen_historia)<>4 OR (SELECT count(*) FROM vec_usuarios.imagen_recibo)<>3
     OR (SELECT string_agg(superficie||':'||version||':'||(eleccion->>'modo')||':'||(eleccion->>'paleta')||':'||(foto_ref IS NOT NULL),',' ORDER BY superficie)
         FROM vec_usuarios.imagen_actual)<>'externa_personal:3:iniciales:verde:false,interna_corporativa:3:foto:gris:true'
-    OR (SELECT count(*) FROM vec_usuarios.imagen_historia WHERE decision_ref='migracion:usuarios:000008' AND superficie='externa_personal' AND version=3)<>1
+    OR (SELECT count(*) FROM vec_usuarios.imagen_historia WHERE decision_ref='migracion:usuarios:000009' AND superficie='externa_personal' AND version=3)<>1
     OR (SELECT string_agg(superficie||':'||estado,',') FROM vec_documentos.imagen_personal)<>'interna_corporativa:activa'
  THEN RAISE EXCEPTION 'reparto de imagen'; END IF;
  -- Cada dirección va con el portal donde se añadió, con toda su historia.
@@ -139,7 +151,7 @@ DO \$prueba\$ BEGIN
     OR (SELECT string_agg(version::text,',' ORDER BY version) FROM vec_usuarios_correos_interno.correos_historia)<>'1,4,5'
     OR (SELECT string_agg(version::text,',' ORDER BY version) FROM vec_usuarios_correos_externo.correos_historia)<>'2,3'
     OR (SELECT version FROM vec_usuarios_correos_interno.correos_conjunto)<>5
-    OR (SELECT count(*) FROM vec_usuarios_correos_interno.correos_historia WHERE decision_ref='migracion:usuarios:000009' AND version=5 AND activo_resultante)<>1
+    OR (SELECT count(*) FROM vec_usuarios_correos_interno.correos_historia WHERE decision_ref='migracion:usuarios:000010' AND version=5 AND activo_resultante)<>1
     OR (SELECT version FROM vec_usuarios_correos_externo.correos_conjunto)<>3
     OR (SELECT count(*) FROM vec_usuarios_correos_interno.correos_intento_fallido)<>1
     OR (SELECT count(*) FROM vec_usuarios_correos_externo.correos_intento_fallido)<>0
@@ -212,6 +224,23 @@ DO \$prueba\$ DECLARE g jsonb; a jsonb; BEGIN
 END \$prueba\$;
 COMMIT;
 SQL
+# B59 después: la lectura de avisos sigue devolviendo el correo del Área
+# personal desde su fachada nueva; la antigua ya no existe; el LOGIN externo
+# no puede usarla y el interno no alcanza los datos externos.
+psql_interna -At <<'SQL' >/dev/null
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+DO $prueba$ DECLARE r jsonb; BEGIN
+ r:=public.probar_avisos('vec_usuarios_correos_avisos');
+ IF r->>'encontrado'<>'true' OR r->>'correo_ref'<>'correo:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' OR r#>>'{sobre,cifrado_hex}' IS NULL
+ THEN RAISE EXCEPTION 'avisos después %',r; END IF;
+ BEGIN PERFORM public.probar_avisos('vec_usuarios'); RAISE EXCEPTION 'fachada antigua viva';
+ EXCEPTION WHEN undefined_function THEN NULL; END;
+END $prueba$;
+COMMIT;
+SQL
+{ psql_interna -At -c "SELECT count(*) FROM vec_usuarios_correos_externo.correos_direccion" 2>&1 || true; } | grep -qi 'permission denied\|permiso denegado'
+{ psql_externa -At -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_avisos('vec_usuarios_correos_avisos'); COMMIT;" 2>&1 || true; } | grep -q '42501\|denegado\|denied'
+psql_pg -At -c "SELECT count(*) FROM vec_usuarios_correos_externo.correos_contexto" | grep -qx 0
 # La sustitución interna retiró F1 y no tocó la foto externa.
 psql_pg -At -c "SELECT string_agg(superficie||':'||estado||':'||encode(contenido,'hex'),',' ORDER BY superficie,estado) FROM vec_documentos.imagen_personal WHERE estado='activa'" \
  | grep -qx "externa_personal:activa:$F2,interna_corporativa:activa:$F3"
@@ -243,11 +272,12 @@ SQL
 # 6. Con una acción desde el otro portal, 000009 se para sin dejar rastro.
 psql_cruce() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d vec_cruce "$@"; }
 psql_cruce < "$doc/migraciones/000008_imagen_personal_superficie.up.sql" >/dev/null
-psql_cruce < "$sql/migraciones/000008_superficie_preferencias_imagen.up.sql" >/dev/null
+psql_cruce < "$sql/migraciones/000009_superficie_preferencias_imagen.up.sql" >/dev/null
 psql_cruce -c "GRANT CREATE ON DATABASE vec_cruce TO vec_usuarios_correos_interno_propietario,vec_usuarios_correos_externo_propietario" >/dev/null
-psql_cruce < "$ad3/000109_correos_por_poblacion.up.sql" >/dev/null
+psql_cruce < "$ad3/000110_correos_por_poblacion.up.sql" >/dev/null
+psql_cruce < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000011_persona_candidato_avisos_poblacion.up.sql" >/dev/null
 antes_cruce=$(docker exec "$contenedor" pg_dump -U postgres -d vec_cruce | grep -v '^\\\(un\)\?restrict ' | sha256sum)
-salida=$(psql_cruce < "$sql/migraciones/000009_correos_por_poblacion.up.sql" 2>&1 >/dev/null || true)
+salida=$(psql_cruce < "$sql/migraciones/000010_correos_por_poblacion.up.sql" 2>&1 >/dev/null || true)
 grep -q 'desde el otro portal' <<<"$salida" || { echo "acción cruzada no detenida: $salida" >&2; exit 1; }
 [[ "$(docker exec "$contenedor" pg_dump -U postgres -d vec_cruce | grep -v '^\\\(un\)\?restrict ' | sha256sum)" == "$antes_cruce" ]]
 psql_pg -c "DROP DATABASE vec_cruce" >/dev/null

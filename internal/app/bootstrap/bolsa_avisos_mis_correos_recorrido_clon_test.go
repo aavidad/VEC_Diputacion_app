@@ -115,15 +115,15 @@ $f$`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	exec(`INSERT INTO vec_usuarios.correos_conjunto VALUES($1,1,$2,clock_timestamp()) ON CONFLICT (persona_ref) DO NOTHING`, persona, sobre.ClaveIgualdadRef)
-	exec(`UPDATE vec_usuarios.correos_direccion SET activo=false WHERE persona_ref=$1 AND activo`, persona)
-	exec(`INSERT INTO vec_usuarios.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,clave_igualdad_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en,verificado_en)
- SELECT $1,$2,1,$3,c.clave_igualdad_ref,$4,$5,$6,'verificado',true,clock_timestamp(),clock_timestamp() FROM vec_usuarios.correos_conjunto c WHERE c.persona_ref=$1`,
+	exec(`INSERT INTO vec_usuarios_correos_externo.correos_conjunto VALUES($1,1,$2,clock_timestamp()) ON CONFLICT (persona_ref) DO NOTHING`, persona, sobre.ClaveIgualdadRef)
+	exec(`UPDATE vec_usuarios_correos_externo.correos_direccion SET activo=false WHERE persona_ref=$1 AND activo`, persona)
+	exec(`INSERT INTO vec_usuarios_correos_externo.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,clave_igualdad_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en,verificado_en)
+ SELECT $1,$2,1,$3,c.clave_igualdad_ref,$4,$5,$6,'verificado',true,clock_timestamp(),clock_timestamp() FROM vec_usuarios_correos_externo.correos_conjunto c WHERE c.persona_ref=$1`,
 		persona, correoRef, sobre.ClaveRef, sobre.Nonce, sobre.Cifrado, sobre.HuellaIgualdad)
 	desafio, envio := "desafio:"+hex.EncodeToString(sufijo), "correo_envio:"+hex.EncodeToString(sufijo)
-	exec(`INSERT INTO vec_usuarios.correos_desafio(persona_ref,correo_ref,desafio_ref,huella_codigo,clave_ref,vence_en,estado,intentos,creado_en)
+	exec(`INSERT INTO vec_usuarios_correos_externo.correos_desafio(persona_ref,correo_ref,desafio_ref,huella_codigo,clave_ref,vence_en,estado,intentos,creado_en)
  VALUES($1,$2,$3,sha256(convert_to($3,'UTF8')),'clave:codigo:recorrido',clock_timestamp()+interval '1 hour','usado',0,clock_timestamp())`, persona, correoRef, desafio)
-	exec(`INSERT INTO vec_usuarios.correos_envio(envio_ref,persona_ref,correo_ref,superficie,tipo,desafio_ref,recibo_ref,reserva_sha256,estado,creado_en,resuelto_en)
+	exec(`INSERT INTO vec_usuarios_correos_externo.correos_envio(envio_ref,persona_ref,correo_ref,superficie,tipo,desafio_ref,recibo_ref,reserva_sha256,estado,creado_en,resuelto_en)
  VALUES($1,$2,$3,'externa_personal','verificacion',$4,'correo_recibo:'||substr($1,14),encode(sha256(convert_to($1,'UTF8')),'hex'),'aceptado',clock_timestamp(),clock_timestamp())`, envio, persona, correoRef, desafio)
 
 	// 4) Piezas reales: pools con los LOGIN de prueba, adaptadores y SMTP.
@@ -222,12 +222,12 @@ $f$`)
 	if c := uno[pSinVinculo]; c.Resultado != "enviado" || c.FuenteCorreo.Motivo != puertosbolsa.MotivoFuenteSinPersonaVinculada {
 		t.Fatalf("sin vínculo: %+v %+v", c, c.FuenteCorreo)
 	}
-	exec(`UPDATE vec_usuarios.correos_direccion SET activo=false WHERE persona_ref=$1 AND correo_ref=$2`, persona, correoRef)
+	exec(`UPDATE vec_usuarios_correos_externo.correos_direccion SET activo=false WHERE persona_ref=$1 AND correo_ref=$2`, persona, correoRef)
 	dos := emitir("sinactivo")
 	if c := dos[pCandidata]; c.Resultado != "enviado" || c.FuenteCorreo.Fuente != puertosbolsa.FuenteCorreoAltaBolsa || c.FuenteCorreo.Motivo != puertosbolsa.MotivoFuenteSinCorreoActivo {
 		t.Fatalf("sin correo activo: %+v %+v", c, c.FuenteCorreo)
 	}
-	exec(`UPDATE vec_usuarios.correos_direccion SET activo=true WHERE persona_ref=$1 AND correo_ref=$2`, persona, correoRef)
+	exec(`UPDATE vec_usuarios_correos_externo.correos_direccion SET activo=true WHERE persona_ref=$1 AND correo_ref=$2`, persona, correoRef)
 	poolUsuarios.Close()
 	tres := emitir("caido")
 	if c := tres[pCandidata]; c.Resultado != "enviado" || c.FuenteCorreo.Motivo != puertosbolsa.MotivoFuenteMisCorreosNoDisponible {

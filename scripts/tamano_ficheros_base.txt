@@ -120,4 +120,4 @@
 926 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
-1031 deploy/postgresql/usuarios_vec/migraciones/000009_correos_por_poblacion.up.sql
+1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql

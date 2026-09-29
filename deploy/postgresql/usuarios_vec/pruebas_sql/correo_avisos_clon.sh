@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Usuarios 000008 + ContextoActor 000010 + Bolsa 000059 sobre un clon de la
-# principal ya migrado con la lista de B59. Todo ocurre en UNA transacción
+# principal ya migrado con la lista de B59 y con la de la Fase 1, paso 3
+# (correos por portal: la lectura vive en vec_usuarios_correos_avisos y lee
+# el esquema de correos del Área personal). Todo ocurre en UNA transacción
 # que termina en ROLLBACK: no deja roles, datos ni funciones cambiadas.
 #
 # La fachada AD3-109 se sustituye, sólo dentro de la transacción, por un doble
@@ -78,67 +80,70 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeo
   convert_from(p_capacidad,'UTF8')::jsonb->>'huella_efecto_sha256', encode(sha256(p_decision),'hex'), 'aud_b59_prueba', clock_timestamp(), true
 $f$;
 
--- Persona de la candidata: un correo activo verificado desde el área externa
--- y otro verificado desde la interna (no activo).
+-- Persona de la candidata: un correo activo verificado en el Área personal
+-- (esquema externo) y otro activo en el portal interno (esquema interno).
 DO $datos$
 DECLARE p text:=vec_contexto_actor_v1.persona_candidato_avisos_v1(current_setting('prueba.cand'));
  ahora timestamptz:=date_trunc('microseconds',clock_timestamp());
 BEGIN
  IF p IS NULL THEN RAISE EXCEPTION 'sin persona'; END IF;
- IF EXISTS(SELECT 1 FROM vec_usuarios.correos_conjunto WHERE persona_ref=p) THEN RAISE EXCEPTION 'la persona ya tiene correos en el clon'; END IF;
- INSERT INTO vec_usuarios.correos_conjunto VALUES(p,3,'clave:igualdad:b59',ahora);
- INSERT INTO vec_usuarios.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,clave_igualdad_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en,verificado_en)
- VALUES(p,'correo:'||repeat('e',32),1,'clave:sobre:b59','clave:igualdad:b59',decode(repeat('01',12),'hex'),decode(repeat('02',24),'hex'),decode(repeat('03',32),'hex'),'verificado',true,ahora,ahora),
-       (p,'correo:'||repeat('f',32),1,'clave:sobre:b59','clave:igualdad:b59',decode(repeat('01',12),'hex'),decode(repeat('04',24),'hex'),decode(repeat('05',32),'hex'),'verificado',false,ahora,ahora);
- INSERT INTO vec_usuarios.correos_desafio(persona_ref,correo_ref,desafio_ref,huella_codigo,clave_ref,vence_en,estado,intentos,creado_en)
- VALUES(p,'correo:'||repeat('e',32),'desafio:'||repeat('e',32),decode(repeat('06',32),'hex'),'clave:codigo:b59',ahora+interval '1 hour','usado',0,ahora),
-       (p,'correo:'||repeat('f',32),'desafio:'||repeat('f',32),decode(repeat('07',32),'hex'),'clave:codigo:b59',ahora+interval '1 hour','usado',0,ahora);
- INSERT INTO vec_usuarios.correos_envio(envio_ref,persona_ref,correo_ref,superficie,tipo,desafio_ref,recibo_ref,reserva_sha256,estado,creado_en,resuelto_en)
- VALUES('correo_envio:'||repeat('e',32),p,'correo:'||repeat('e',32),'externa_personal','verificacion','desafio:'||repeat('e',32),'correo_recibo:'||repeat('e',32),repeat('e',64),'aceptado',ahora,ahora),
-       ('correo_envio:'||repeat('f',32),p,'correo:'||repeat('f',32),'interna_corporativa','verificacion','desafio:'||repeat('f',32),'correo_recibo:'||repeat('f',32),repeat('f',64),'aceptado',ahora,ahora);
+ IF EXISTS(SELECT 1 FROM vec_usuarios_correos_externo.correos_conjunto WHERE persona_ref=p)
+    OR EXISTS(SELECT 1 FROM vec_usuarios_correos_interno.correos_conjunto WHERE persona_ref=p)
+ THEN RAISE EXCEPTION 'la persona ya tiene correos en el clon'; END IF;
+ INSERT INTO vec_usuarios_correos_externo.correos_conjunto VALUES(p,3,'clave:igualdad:b59',ahora);
+ INSERT INTO vec_usuarios_correos_externo.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,clave_igualdad_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en,verificado_en)
+ VALUES(p,'correo:'||repeat('e',32),1,'clave:sobre:b59','clave:igualdad:b59',decode(repeat('01',12),'hex'),decode(repeat('02',24),'hex'),decode(repeat('03',32),'hex'),'verificado',true,ahora,ahora);
+ INSERT INTO vec_usuarios_correos_externo.correos_desafio(persona_ref,correo_ref,desafio_ref,huella_codigo,clave_ref,vence_en,estado,intentos,creado_en)
+ VALUES(p,'correo:'||repeat('e',32),'desafio:'||repeat('e',32),decode(repeat('06',32),'hex'),'clave:codigo:b59',ahora+interval '1 hour','usado',0,ahora);
+ INSERT INTO vec_usuarios_correos_externo.correos_envio(envio_ref,persona_ref,correo_ref,superficie,tipo,desafio_ref,recibo_ref,reserva_sha256,estado,creado_en,resuelto_en)
+ VALUES('correo_envio:'||repeat('e',32),p,'correo:'||repeat('e',32),'externa_personal','verificacion','desafio:'||repeat('e',32),'correo_recibo:'||repeat('e',32),repeat('e',64),'aceptado',ahora,ahora);
+ INSERT INTO vec_usuarios_correos_interno.correos_conjunto VALUES(p,3,'clave:igualdad:b59',ahora);
+ INSERT INTO vec_usuarios_correos_interno.correos_direccion(persona_ref,correo_ref,version_sobre,clave_sobre_ref,clave_igualdad_ref,nonce,cifrado,huella_igualdad,estado,activo,creado_en,verificado_en)
+ VALUES(p,'correo:'||repeat('f',32),1,'clave:sobre:b59','clave:igualdad:b59',decode(repeat('01',12),'hex'),decode(repeat('04',24),'hex'),decode(repeat('05',32),'hex'),'verificado',true,ahora,ahora);
 END $datos$;
 
 SET SESSION AUTHORIZATION vec_b59_prueba_interna;
 -- 1) Correo activo verificado desde el área externa: se entrega su sobre.
 DO $p1$ DECLARE r jsonb; BEGIN
- r:=vec_usuarios.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c1'),'UTF8'),convert_to(current_setting('prueba.d1'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ r:=vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c1'),'UTF8'),convert_to(current_setting('prueba.d1'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  IF r->>'encontrado'<>'true' OR r->>'correo_ref'<>'correo:'||repeat('e',32) OR r->>'auditoria_ref'<>'aud_b59_prueba'
     OR r->'sobre'->>'cifrado_hex'<>repeat('02',24) OR (SELECT count(*) FROM jsonb_object_keys(r))<>5
  THEN RAISE EXCEPTION 'caso 1: %', r; END IF;
 END $p1$;
 -- 2) Huella del recurso que no casa con el material: 42501.
 DO $p2$ BEGIN
- PERFORM vec_usuarios.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c2'),'UTF8'),convert_to(current_setting('prueba.d2'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ PERFORM vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c2'),'UTF8'),convert_to(current_setting('prueba.d2'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  RAISE EXCEPTION 'caso 2 admitido';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $p2$;
 -- 3) Material de superficie externa: 42501.
 DO $p3$ BEGIN
- PERFORM vec_usuarios.correo_activo_avisos_llamamiento_v1(current_setting('prueba.mext'),convert_to(current_setting('prueba.c3'),'UTF8'),convert_to(current_setting('prueba.d3'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ PERFORM vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(current_setting('prueba.mext'),convert_to(current_setting('prueba.c3'),'UTF8'),convert_to(current_setting('prueba.d3'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  RAISE EXCEPTION 'caso 3 admitido';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $p3$;
 -- 4) Capacidad de otra audiencia («Mis correos» propio): 42501.
 DO $p4$ BEGIN
- PERFORM vec_usuarios.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c4'),'UTF8'),convert_to(current_setting('prueba.d4'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ PERFORM vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c4'),'UTF8'),convert_to(current_setting('prueba.d4'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  RAISE EXCEPTION 'caso 4 admitido';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $p4$;
 -- 5) El ejecutor no lee tablas ni la fachada de identidad.
 DO $p5$ BEGIN
- BEGIN PERFORM 1 FROM vec_usuarios.correos_direccion; RAISE EXCEPTION 'caso 5a admitido'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM 1 FROM vec_usuarios_correos_externo.correos_direccion; RAISE EXCEPTION 'caso 5a admitido'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN PERFORM 1 FROM vec_usuarios_correos_interno.correos_direccion; RAISE EXCEPTION 'caso 5a2 admitido'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN PERFORM vec_contexto_actor_v1.persona_candidato_avisos_v1(current_setting('prueba.cand')); RAISE EXCEPTION 'caso 5b admitido'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN PERFORM vec_autorizacion_atestada_v3.consumir_correo_avisos_llamamiento_v3_atestada('\x00','\x00','\x00','\x00',1,1,'\x00','\x00','\x00','\x00'); RAISE EXCEPTION 'caso 5c admitido'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $p5$;
 RESET SESSION AUTHORIZATION;
 -- El contexto de lectura se retira antes de devolver.
 DO $p1b$ BEGIN
- IF EXISTS(SELECT 1 FROM vec_usuarios.correos_contexto WHERE modo='avisos') THEN RAISE EXCEPTION 'caso 1: contexto residual'; END IF;
+ IF EXISTS(SELECT 1 FROM vec_usuarios_correos_externo.correos_contexto WHERE modo='avisos') THEN RAISE EXCEPTION 'caso 1: contexto residual'; END IF;
 END $p1b$;
 
--- 6) Si el activo pasa a ser el verificado desde la interna, no se entrega nada.
-UPDATE vec_usuarios.correos_direccion SET activo=false WHERE correo_ref='correo:'||repeat('e',32);
-UPDATE vec_usuarios.correos_direccion SET activo=true WHERE correo_ref='correo:'||repeat('f',32);
+-- 6) Sin correo activo en el Área personal no se entrega nada, aunque la
+-- persona tenga uno activo en el portal interno.
+UPDATE vec_usuarios_correos_externo.correos_direccion SET activo=false WHERE correo_ref='correo:'||repeat('e',32);
 SET SESSION AUTHORIZATION vec_b59_prueba_interna;
 DO $p6$ DECLARE r jsonb; BEGIN
- r:=vec_usuarios.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c1'),'UTF8'),convert_to(replace(current_setting('prueba.d1'),'dec_b59_1','dec_b59_6'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ r:=vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),convert_to(current_setting('prueba.c1'),'UTF8'),convert_to(replace(current_setting('prueba.d1'),'dec_b59_1','dec_b59_6'),'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  IF r IS DISTINCT FROM '{"encontrado":false,"auditoria_ref":"aud_b59_prueba"}'::jsonb THEN RAISE EXCEPTION 'caso 6: %', r; END IF;
 END $p6$;
 RESET SESSION AUTHORIZATION;
@@ -146,7 +151,7 @@ RESET SESSION AUTHORIZATION;
 -- 7) El ejecutor externo no puede ejecutar la lectura.
 SET SESSION AUTHORIZATION vec_b59_prueba_externa;
 DO $p7$ BEGIN
- PERFORM vec_usuarios.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),'\x00','\x00','\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ PERFORM vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(current_setting('prueba.m1'),'\x00','\x00','\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  RAISE EXCEPTION 'caso 7 admitido';
 EXCEPTION WHEN insufficient_privilege THEN NULL; END $p7$;
 RESET SESSION AUTHORIZATION;

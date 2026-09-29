@@ -1,17 +1,17 @@
 \set ON_ERROR_STOP on
--- Usuarios 000009 (Fase 1, paso 3 del estudio de datos personales): «Mis
+-- Usuarios 000010 (Fase 1, paso 3 del estudio de datos personales): «Mis
 -- correos» (5.08b) se separa por población. Los correos del personal (portal
 -- interno, superficie interna_corporativa) viven en vec_usuarios_correos_interno
 -- y los de quien entra por el Área personal (externa_personal) en
 -- vec_usuarios_correos_externo. Cada esquema tiene su propio propietario
--- (roles_000009) y solo el ejecutor de su portal tiene USAGE y EXECUTE sobre
+-- (roles_000010) y solo el ejecutor de su portal tiene USAGE y EXECUTE sobre
 -- sus seis fachadas. Ningún propietario ni ejecutor tiene permisos sobre el
 -- otro esquema, y vec_usuarios deja de guardar correos.
 --
 -- Las fachadas, la lógica, los SQLSTATE y el material son los de Usuarios
 -- 000004 (misma plantilla para los dos esquemas); cambia el esquema, el
 -- propietario y que la superficie de cada esquema es fija. El consumo V3 lo
--- concede AD3-109 a los dos propietarios.
+-- concede AD3-110 a los dos propietarios.
 --
 -- Filas existentes: cada dirección pertenece al portal donde se añadió (la
 -- decisión V3 firmada de su alta, vínculo de autenticación), y con ella se
@@ -21,18 +21,27 @@
 -- tiene alta o alguna acción sobre ella se hizo desde el otro portal, la
 -- migración se detiene (55000). Si una población queda con direcciones
 -- verificadas y ninguna activa, se activa la primera verificada con una
--- versión marcada «migracion:usuarios:000009». Tras copiar, se comprueba fila
+-- versión marcada «migracion:usuarios:000010». Tras copiar, se comprueba fila
 -- a fila que no se pierde ni se altera nada y se retiran las tablas y
 -- funciones de correos de vec_usuarios (vec_usuarios.superficie_sesion_correos
--- se conserva: la usan las políticas de imagen). Una sola transacción:
+-- se conserva: la usan las políticas de imagen).
+--
+-- La lectura de avisos de llamamiento de Usuarios 000008 (RRHH pregunta por
+-- el correo activo que la persona candidata dio en el Área personal) es la
+-- única lectura de dentro hacia fuera. Pasa a una fachada propia,
+-- vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1, del
+-- propietario externo: el ejecutor interno solo tiene USAGE sobre ese esquema
+-- de una función, nunca sobre el de datos externos. Mismo material, V3,
+-- respuesta y SQLSTATE; AD3-110 y ContextoActor 000011 pasan sus dos
+-- dependencias al propietario externo. Una sola transacción:
 -- cualquier fallo la revierte entera. Aplicar como DBA después de
--- roles_000009 y AD3-109.
+-- roles_000010 y AD3-110.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_usuarios:migracion:000009',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_usuarios:migracion:000010',0));
 DO $pre$ DECLARE f regprocedure:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_correos_v3_atestada(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
@@ -46,18 +55,23 @@ BEGIN
     OR NOT has_function_privilege('vec_usuarios_correos_externo_propietario',f,'EXECUTE')
     OR has_function_privilege('vec_usuarios_propietario',f,'EXECUTE')
     OR NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='vec_usuarios.imagen_actual'::regclass AND attname='superficie' AND NOT attisdropped)
- THEN RAISE EXCEPTION 'Usuarios 000009: preimagen incompatible' USING ERRCODE='55000'; END IF;
+    OR to_regprocedure('vec_usuarios.correo_activo_avisos_llamamiento_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regnamespace('vec_usuarios_correos_avisos') IS NOT NULL
+    OR NOT has_function_privilege('vec_usuarios_correos_externo_propietario','vec_autorizacion_atestada_v3.consumir_correo_avisos_llamamiento_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR NOT has_function_privilege('vec_usuarios_correos_externo_propietario','vec_contexto_actor_v1.persona_candidato_avisos_v1(text)','EXECUTE')
+    OR has_function_privilege('vec_usuarios_propietario','vec_autorizacion_atestada_v3.consumir_correo_avisos_llamamiento_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+ THEN RAISE EXCEPTION 'Usuarios 000010: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 LOCK TABLE vec_usuarios.correos_conjunto,vec_usuarios.correos_direccion,vec_usuarios.correos_desafio,
  vec_usuarios.correos_intento_fallido,vec_usuarios.correos_historia,vec_usuarios.correos_recibo,
  vec_usuarios.correos_envio,vec_usuarios.correos_contexto IN ACCESS EXCLUSIVE MODE;
 DO $vivo$ BEGIN
  IF EXISTS (SELECT 1 FROM vec_usuarios.correos_contexto)
- THEN RAISE EXCEPTION 'Usuarios 000009: hay contextos de correo abiertos' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000010: hay contextos de correo abiertos' USING ERRCODE='55000'; END IF;
 END $vivo$;
 
 -- 1. Población de cada dirección: la superficie de la decisión V3 de su alta.
-CREATE TEMP TABLE u9_correo ON COMMIT DROP AS
+CREATE TEMP TABLE u10_correo ON COMMIT DROP AS
 SELECT d.persona_ref,d.correo_ref,
  (SELECT (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}'
   FROM vec_usuarios.correos_historia h JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a USING(decision_ref)
@@ -66,24 +80,24 @@ SELECT d.persona_ref,d.correo_ref,
   WHERE h.persona_ref=d.persona_ref AND h.correo_ref=d.correo_ref AND h.accion='vec.correos.anadir') AS altas
 FROM vec_usuarios.correos_direccion d;
 DO $mapa$ BEGIN
- IF EXISTS (SELECT 1 FROM u9_correo WHERE altas<>1 OR superficie IS NULL OR superficie NOT IN ('interna_corporativa','externa_personal'))
- THEN RAISE EXCEPTION 'Usuarios 000009: dirección sin portal de alta deducible; revisar antes de migrar' USING ERRCODE='55000'; END IF;
+ IF EXISTS (SELECT 1 FROM u10_correo WHERE altas<>1 OR superficie IS NULL OR superficie NOT IN ('interna_corporativa','externa_personal'))
+ THEN RAISE EXCEPTION 'Usuarios 000010: dirección sin portal de alta deducible; revisar antes de migrar' USING ERRCODE='55000'; END IF;
  -- Toda acción sobre una dirección (historia, recibo, intento, envío) tuvo
  -- que hacerse desde su mismo portal; si no, el estado de cada población no
  -- se explicaría con su propia historia. Se para para revisarlo a mano.
- IF EXISTS (SELECT 1 FROM vec_usuarios.correos_historia h JOIN u9_correo m USING(persona_ref,correo_ref)
+ IF EXISTS (SELECT 1 FROM vec_usuarios.correos_historia h JOIN u10_correo m USING(persona_ref,correo_ref)
       LEFT JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a ON a.decision_ref=h.decision_ref
       WHERE (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM m.superficie)
-    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_recibo r JOIN u9_correo m USING(persona_ref,correo_ref)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_recibo r JOIN u10_correo m USING(persona_ref,correo_ref)
       LEFT JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a ON a.decision_ref=r.decision_ref
       WHERE (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM m.superficie)
-    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_intento_fallido i JOIN u9_correo m USING(persona_ref,correo_ref)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_intento_fallido i JOIN u10_correo m USING(persona_ref,correo_ref)
       LEFT JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a ON a.decision_ref=i.decision_ref
       WHERE (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM m.superficie)
-    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_envio e JOIN u9_correo m USING(persona_ref,correo_ref) WHERE e.superficie<>m.superficie)
-    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_historia h JOIN u9_correo m ON m.persona_ref=h.persona_ref AND m.correo_ref=h.anterior_activo_ref
-      JOIN u9_correo n ON n.persona_ref=h.persona_ref AND n.correo_ref=h.correo_ref WHERE m.superficie<>n.superficie)
- THEN RAISE EXCEPTION 'Usuarios 000009: acción sobre una dirección desde el otro portal; revisar antes de migrar' USING ERRCODE='55000'; END IF;
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_envio e JOIN u10_correo m USING(persona_ref,correo_ref) WHERE e.superficie<>m.superficie)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_historia h JOIN u10_correo m ON m.persona_ref=h.persona_ref AND m.correo_ref=h.anterior_activo_ref
+      JOIN u10_correo n ON n.persona_ref=h.persona_ref AND n.correo_ref=h.correo_ref WHERE m.superficie<>n.superficie)
+ THEN RAISE EXCEPTION 'Usuarios 000010: acción sobre una dirección desde el otro portal; revisar antes de migrar' USING ERRCODE='55000'; END IF;
 END $mapa$;
 
 -- 2. Esquemas por población, creados por su propio propietario.
@@ -878,20 +892,20 @@ BEGIN
   EXECUTE format($q$INSERT INTO %I.correos_conjunto(persona_ref,version,clave_igualdad_ref,actualizado_en)
    SELECT c.persona_ref,max(h.version),c.clave_igualdad_ref,max(h.registrada_en)
    FROM vec_usuarios.correos_conjunto c JOIN vec_usuarios.correos_historia h ON h.persona_ref=c.persona_ref
-   JOIN u9_correo m ON m.persona_ref=h.persona_ref AND m.correo_ref=h.correo_ref AND m.superficie=%L
+   JOIN u10_correo m ON m.persona_ref=h.persona_ref AND m.correo_ref=h.correo_ref AND m.superficie=%L
    GROUP BY c.persona_ref,c.clave_igualdad_ref$q$,p.esquema,p.superficie);
   EXECUTE format($q$INSERT INTO %I.correos_direccion SELECT d.* FROM vec_usuarios.correos_direccion d
-   JOIN u9_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
+   JOIN u10_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
   EXECUTE format($q$INSERT INTO %I.correos_desafio SELECT d.* FROM vec_usuarios.correos_desafio d
-   JOIN u9_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
+   JOIN u10_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
   EXECUTE format($q$INSERT INTO %I.correos_intento_fallido SELECT d.* FROM vec_usuarios.correos_intento_fallido d
-   JOIN u9_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
+   JOIN u10_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
   EXECUTE format($q$INSERT INTO %I.correos_historia SELECT d.* FROM vec_usuarios.correos_historia d
-   JOIN u9_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
+   JOIN u10_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
   EXECUTE format($q$INSERT INTO %I.correos_recibo SELECT d.* FROM vec_usuarios.correos_recibo d
-   JOIN u9_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
+   JOIN u10_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
   EXECUTE format($q$INSERT INTO %I.correos_envio SELECT d.* FROM vec_usuarios.correos_envio d
-   JOIN u9_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
+   JOIN u10_correo m USING(persona_ref,correo_ref) WHERE m.superficie=%L$q$,p.esquema,p.superficie);
  END LOOP;
 END $traslado$;
 SET CONSTRAINTS ALL IMMEDIATE;
@@ -908,7 +922,7 @@ BEGIN
     UNION ALL
     ((SELECT to_jsonb(x) FROM vec_usuarios_correos_interno.%1$I x UNION ALL SELECT to_jsonb(x) FROM vec_usuarios_correos_externo.%1$I x)
      EXCEPT ALL SELECT to_jsonb(x) FROM vec_usuarios.%1$I x)) q$q$,t) INTO n;
-  IF n<>0 THEN RAISE EXCEPTION 'Usuarios 000009: traslado incompleto en %',t USING ERRCODE='55000'; END IF;
+  IF n<>0 THEN RAISE EXCEPTION 'Usuarios 000010: traslado incompleto en %',t USING ERRCODE='55000'; END IF;
  END LOOP;
  -- Todo conjunto antiguo queda en alguna población y ninguno aparece de la nada.
  IF EXISTS (SELECT 1 FROM vec_usuarios.correos_conjunto c WHERE NOT EXISTS (
@@ -917,13 +931,13 @@ BEGIN
     OR EXISTS (SELECT 1 FROM (SELECT persona_ref,version FROM vec_usuarios_correos_interno.correos_conjunto
       UNION ALL SELECT persona_ref,version FROM vec_usuarios_correos_externo.correos_conjunto) n
      WHERE NOT EXISTS (SELECT 1 FROM vec_usuarios.correos_conjunto c WHERE c.persona_ref=n.persona_ref AND n.version<=c.version))
- THEN RAISE EXCEPTION 'Usuarios 000009: conjuntos incoherentes' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000010: conjuntos incoherentes' USING ERRCODE='55000'; END IF;
 END $control$;
 
 -- 4b. Antes, sin dirección activa, la primera verificada pasaba a activa en
 -- el conjunto común. Si una población queda con direcciones verificadas y
 -- ninguna activa (la activa era del otro portal), activa la primera
--- verificada y lo anota con una versión marcada «migracion:usuarios:000009».
+-- verificada y lo anota con una versión marcada «migracion:usuarios:000010».
 DO $activa$
 DECLARE p record; r record; ahora timestamptz(6):=date_trunc('microseconds',clock_timestamp()); n integer;
 BEGIN
@@ -935,26 +949,144 @@ BEGIN
    EXECUTE format('UPDATE %I.correos_direccion SET activo=true WHERE persona_ref=$1 AND correo_ref=$2 AND estado=''verificado'' AND NOT activo',p.esquema)
     USING r.persona_ref,r.correo_ref;
    GET DIAGNOSTICS n=ROW_COUNT;
-   IF n<>1 THEN RAISE EXCEPTION 'Usuarios 000009: activación de reparto divergente' USING ERRCODE='55000'; END IF;
+   IF n<>1 THEN RAISE EXCEPTION 'Usuarios 000010: activación de reparto divergente' USING ERRCODE='55000'; END IF;
    EXECUTE format('UPDATE %I.correos_conjunto SET version=version+1,actualizado_en=$2 WHERE persona_ref=$1 AND version=$3',p.esquema)
     USING r.persona_ref,ahora,r.version;
    GET DIAGNOSTICS n=ROW_COUNT;
-   IF n<>1 THEN RAISE EXCEPTION 'Usuarios 000009: versión de reparto divergente' USING ERRCODE='55000'; END IF;
+   IF n<>1 THEN RAISE EXCEPTION 'Usuarios 000010: versión de reparto divergente' USING ERRCODE='55000'; END IF;
    EXECUTE format($q$INSERT INTO %I.correos_historia(persona_ref,version,accion,correo_ref,estado_resultante,activo_resultante,
      anterior_activo_ref,recibo_ref,decision_ref,auditoria_ref,registrada_en)
     VALUES($1,$2,'vec.correos.activar',$3,'verificado',true,NULL,'correo_recibo:'||replace(gen_random_uuid()::text,'-',''),
-     'migracion:usuarios:000009','migracion:usuarios:000009',$4)$q$,p.esquema) USING r.persona_ref,r.version+1,r.correo_ref,ahora;
+     'migracion:usuarios:000010','migracion:usuarios:000010',$4)$q$,p.esquema) USING r.persona_ref,r.version+1,r.correo_ref,ahora;
   END LOOP;
   EXECUTE format($q$SELECT count(*) FROM %1$I.correos_conjunto c WHERE
     EXISTS (SELECT 1 FROM %1$I.correos_direccion d WHERE d.persona_ref=c.persona_ref AND d.estado='verificado')
     AND NOT EXISTS (SELECT 1 FROM %1$I.correos_direccion d WHERE d.persona_ref=c.persona_ref AND d.activo)$q$,p.esquema) INTO n;
-  IF n<>0 THEN RAISE EXCEPTION 'Usuarios 000009: población sin dirección activa' USING ERRCODE='55000'; END IF;
+  IF n<>0 THEN RAISE EXCEPTION 'Usuarios 000010: población sin dirección activa' USING ERRCODE='55000'; END IF;
  END LOOP;
 END $activa$;
 SET CONSTRAINTS ALL IMMEDIATE;
 
+-- 4c. Lectura de avisos de llamamiento, de dentro hacia fuera (Usuarios
+-- 000008). La fachada vive en un esquema propio del propietario externo con
+-- una sola función; el ejecutor interno solo alcanza esa función.
+SET LOCAL ROLE vec_usuarios_correos_externo_propietario;
+ALTER TABLE vec_usuarios_correos_externo.correos_contexto DROP CONSTRAINT correos_contexto_modo_check;
+ALTER TABLE vec_usuarios_correos_externo.correos_contexto ADD CONSTRAINT correos_contexto_modo_check
+ CHECK(modo IN ('consultar','recuperar','actualizar','verificar','envio','avisos'));
+-- Sesión del LOGIN técnico de RRHH: única membresía, el ejecutor interno.
+CREATE FUNCTION vec_usuarios_correos_externo.sesion_avisos_interna()
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+BEGIN
+ RETURN current_user='vec_usuarios_correos_externo_propietario' AND session_user<>current_user
+  AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user
+      AND (NOT rolcanlogin OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication))
+  AND (SELECT count(*) FROM pg_auth_members WHERE member=session_user::regrole)=1
+  AND EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=session_user::regrole
+      AND m.roleid='vec_usuarios_ejecutor_interno'::regrole AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option)
+  AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member='vec_usuarios_ejecutor_interno'::regrole);
+END $f$;
+REVOKE ALL ON FUNCTION vec_usuarios_correos_externo.sesion_avisos_interna() FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+CREATE FUNCTION vec_usuarios_correos_externo.contexto_avisos_autorizado(p_persona text)
+RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $f$
+ SELECT EXISTS(SELECT 1 FROM vec_usuarios_correos_externo.correos_contexto c
+  WHERE c.xid=pg_current_xact_id_if_assigned() AND c.backend_pid=pg_backend_pid() AND c.sesion=session_user
+    AND c.superficie='interna_corporativa' AND c.modo='avisos' AND c.persona_ref=p_persona
+    AND vec_usuarios_correos_externo.sesion_avisos_interna())
+$f$;
+REVOKE ALL ON FUNCTION vec_usuarios_correos_externo.contexto_avisos_autorizado(text) FROM PUBLIC,vec_usuarios_ejecutor_interno,vec_usuarios_ejecutor_externo;
+CREATE POLICY correos_contexto_avisos_lectura ON vec_usuarios_correos_externo.correos_contexto FOR SELECT TO vec_usuarios_correos_externo_propietario
+ USING (modo='avisos' AND superficie='interna_corporativa' AND backend_pid=pg_backend_pid() AND sesion=session_user
+  AND vec_usuarios_correos_externo.sesion_avisos_interna());
+CREATE POLICY correos_contexto_avisos_alta ON vec_usuarios_correos_externo.correos_contexto FOR INSERT TO vec_usuarios_correos_externo_propietario
+ WITH CHECK (modo='avisos' AND superficie='interna_corporativa' AND xid=pg_current_xact_id_if_assigned() AND backend_pid=pg_backend_pid()
+  AND sesion=session_user AND vec_usuarios_correos_externo.sesion_avisos_interna());
+CREATE POLICY correos_contexto_avisos_baja ON vec_usuarios_correos_externo.correos_contexto FOR DELETE TO vec_usuarios_correos_externo_propietario
+ USING (modo='avisos' AND superficie='interna_corporativa' AND backend_pid=pg_backend_pid() AND sesion=session_user
+  AND vec_usuarios_correos_externo.sesion_avisos_interna());
+-- Solo la dirección: estado, activa y sobre cifrado. Nada de desafíos,
+-- envíos, historia ni recibos.
+CREATE POLICY correos_direccion_avisos ON vec_usuarios_correos_externo.correos_direccion FOR SELECT TO vec_usuarios_correos_externo_propietario
+ USING (vec_usuarios_correos_externo.contexto_avisos_autorizado(persona_ref));
+CREATE SCHEMA vec_usuarios_correos_avisos AUTHORIZATION vec_usuarios_correos_externo_propietario;
+REVOKE ALL ON SCHEMA vec_usuarios_correos_avisos FROM PUBLIC;
+-- Misma validación que Usuarios 000008. En este esquema toda dirección se
+-- añadió y confirmó desde el Área personal (000010 lo exige al repartir y la
+-- sesión de cada fachada lo garantiza después), así que basta la activa y
+-- verificada.
+CREATE FUNCTION vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(
+ p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+ SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' AS $f$
+DECLARE m jsonb; c jsonb; d jsonb; k text[]; h text; x record; persona text; fila vec_usuarios_correos_externo.correos_direccion;
+ xid_actual xid8; n integer; encontrado boolean:=false;
+BEGIN
+ IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
+    OR vec_usuarios_correos_externo.sesion_avisos_interna() IS NOT TRUE
+    OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 2 AND 4096
+    OR p_capacidad IS NULL OR p_decision IS NULL OR p_persona_version IS NULL OR p_perfil_version IS NULL
+ THEN RAISE EXCEPTION 'Usuarios: aviso de correo denegado' USING ERRCODE='42501'; END IF;
+ BEGIN m:=p_material::jsonb; c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'Usuarios: material de aviso inválido' USING ERRCODE='22023'; END;
+ IF jsonb_typeof(m) IS DISTINCT FROM 'object' OR jsonb_typeof(c) IS DISTINCT FROM 'object' OR jsonb_typeof(d) IS DISTINCT FROM 'object'
+ THEN RAISE EXCEPTION 'Usuarios: material de aviso inválido' USING ERRCODE='22023'; END IF;
+ SELECT array_agg(z ORDER BY z) INTO k FROM jsonb_object_keys(m) z;
+ IF k IS DISTINCT FROM ARRAY['ambito_ref','bolsa_ref','candidato_ref','esquema','finalidad_ref','llamamiento_ref','superficie','unidad_ref']
+    OR EXISTS(SELECT 1 FROM jsonb_each(m) z WHERE jsonb_typeof(z.value)<>'string'
+      OR octet_length(z.value#>>'{}') NOT BETWEEN 1 AND 512 OR (z.value#>>'{}') ~ '[<>&"\\[:cntrl:]\u2028\u2029]')
+    OR m->>'esquema' IS DISTINCT FROM 'vec.usuarios.correo-avisos-llamamiento.v1'
+    OR m->>'candidato_ref' !~ '^can_[A-Za-z0-9_-]{22,128}$'
+    OR m->>'llamamiento_ref' !~ '^llamamiento:[0-9a-f]{64}$'
+ THEN RAISE EXCEPTION 'Usuarios: material de aviso inválido' USING ERRCODE='22023'; END IF;
+ h:=encode(sha256(convert_to('{"ambitos":{"ambito_ref":'||to_jsonb(m->>'ambito_ref')::text||',"unidad_ref":'||to_jsonb(m->>'unidad_ref')::text||
+   '},"atributos":{"material_sha256":"'||encode(sha256(convert_to(p_material,'UTF8')),'hex')||'"}}','UTF8')),'hex');
+ IF m->>'superficie' IS DISTINCT FROM 'interna_corporativa'
+    OR m->>'superficie' IS DISTINCT FROM d #>> '{vinculo_autenticacion_actor,superficie}'
+    OR m->>'finalidad_ref' IS DISTINCT FROM 'gestion_llamamientos_bolsa'
+    OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_usuarios.correos.avisos_llamamiento.interna_corporativa.v1'
+    OR c->>'operacion' IS DISTINCT FROM 'llamamiento.emitir.v1' OR d->>'accion' IS DISTINCT FROM 'llamamiento.emitir.v1'
+    OR d->>'modulo_id' IS DISTINCT FROM 'bolsa' OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida'
+    OR d->>'finalidad' IS DISTINCT FROM m->>'finalidad_ref' OR d->'concedida' IS DISTINCT FROM 'true'::jsonb
+    OR d->>'recurso_ref' IS DISTINCT FROM m->>'bolsa_ref' OR c->>'efecto_ref' IS DISTINCT FROM m->>'bolsa_ref'
+    OR d->>'decision_ref' IS NULL OR length(d->>'decision_ref') NOT BETWEEN 1 AND 256
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM h OR c->>'huella_efecto_sha256' IS DISTINCT FROM h
+ THEN RAISE EXCEPTION 'Usuarios: aviso de correo no autorizado' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_correo_avisos_llamamiento_v3_atestada(
+  p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF x.consumo_nuevo IS NOT TRUE OR x.efecto_ref IS DISTINCT FROM m->>'bolsa_ref'
+    OR x.decision_ref IS DISTINCT FROM d->>'decision_ref' OR x.huella_efecto_sha256 IS DISTINCT FROM h
+ THEN RAISE EXCEPTION 'Usuarios: consumo de aviso divergente' USING ERRCODE='42501'; END IF;
+ persona:=vec_contexto_actor_v1.persona_candidato_avisos_v1(m->>'candidato_ref');
+ IF persona IS NOT NULL THEN
+  xid_actual:=pg_current_xact_id();
+  DELETE FROM vec_usuarios_correos_externo.correos_contexto WHERE backend_pid=pg_backend_pid() AND xid<>xid_actual;
+  IF EXISTS(SELECT 1 FROM vec_usuarios_correos_externo.correos_contexto WHERE xid=xid_actual AND backend_pid=pg_backend_pid() AND sesion=session_user)
+  THEN RAISE EXCEPTION 'Usuarios: contexto correo ya activo' USING ERRCODE='42501'; END IF;
+  INSERT INTO vec_usuarios_correos_externo.correos_contexto(xid,backend_pid,sesion,superficie,persona_ref,modo,accion,decision_ref,auditoria_ref,consumo_huella_sha256)
+  VALUES(xid_actual,pg_backend_pid(),session_user,'interna_corporativa',persona,'avisos','vec.correos.avisos_llamamiento',x.decision_ref,x.auditoria_ref,x.consumo_huella_sha256);
+  SELECT * INTO fila FROM vec_usuarios_correos_externo.correos_direccion dir
+   WHERE dir.persona_ref=persona AND dir.activo AND dir.estado='verificado';
+  encontrado:=FOUND;
+  DELETE FROM vec_usuarios_correos_externo.correos_contexto WHERE xid=xid_actual AND backend_pid=pg_backend_pid()
+   AND sesion=session_user AND persona_ref=persona AND modo='avisos';
+  GET DIAGNOSTICS n=ROW_COUNT;
+  IF n<>1 THEN RAISE EXCEPTION 'Usuarios: contexto correo incompleto' USING ERRCODE='42501'; END IF;
+ END IF;
+ IF NOT encontrado THEN
+  RETURN jsonb_build_object('encontrado',false,'auditoria_ref',x.auditoria_ref);
+ END IF;
+ RETURN jsonb_build_object('encontrado',true,'auditoria_ref',x.auditoria_ref,'persona_ref',persona,
+  'correo_ref',fila.correo_ref,'sobre',vec_usuarios_correos_externo.sobre_correo_json(fila));
+END $f$;
+REVOKE ALL ON FUNCTION vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_usuarios_correos_avisos TO vec_usuarios_ejecutor_interno;
+GRANT EXECUTE ON FUNCTION vec_usuarios_correos_avisos.correo_activo_avisos_llamamiento_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_usuarios_ejecutor_interno;
+RESET ROLE;
+
 -- 5. vec_usuarios deja de guardar correos.
 SET LOCAL ROLE vec_usuarios_propietario;
+DROP FUNCTION vec_usuarios.correo_activo_avisos_llamamiento_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_usuarios.confirmar_envio_correo_v1(text,text,text,boolean);
 DROP FUNCTION vec_usuarios.cerrar_verificacion_correo_v1(text,text,boolean);
 DROP FUNCTION vec_usuarios.preparar_verificacion_correo_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
@@ -992,7 +1124,7 @@ BEGIN
  IF EXISTS (SELECT 1 FROM pg_class WHERE relnamespace='vec_usuarios'::regnamespace AND relname LIKE 'correos%')
     OR EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='vec_usuarios'::regnamespace AND proname LIKE '%correo%'
       AND proname<>'superficie_sesion_correos')
- THEN RAISE EXCEPTION 'Usuarios 000009: quedan correos en vec_usuarios' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000010: quedan correos en vec_usuarios' USING ERRCODE='55000'; END IF;
  FOR p IN SELECT * FROM (VALUES
   ('vec_usuarios_correos_interno','vec_usuarios_correos_interno_propietario','vec_usuarios_ejecutor_interno',
    'vec_usuarios_correos_externo','vec_usuarios_correos_externo_propietario','vec_usuarios_ejecutor_externo'),
@@ -1020,12 +1152,27 @@ BEGIN
      OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname=p.esquema AND roles<>ARRAY[p.propietario]::name[])
      OR EXISTS (SELECT 1 FROM pg_class c WHERE c.relnamespace IN ('vec_usuarios'::regnamespace,p.otro_esquema::regnamespace)
        AND c.relkind='r' AND has_table_privilege(p.propietario,c.oid,'SELECT,INSERT,UPDATE,DELETE'))
-  THEN RAISE EXCEPTION 'Usuarios 000009: ACL de % incompatible',p.esquema USING ERRCODE='55000'; END IF;
+  THEN RAISE EXCEPTION 'Usuarios 000010: ACL de % incompatible',p.esquema USING ERRCODE='55000'; END IF;
  END LOOP;
+ -- Fachada de avisos: una función del propietario externo; solo el ejecutor
+ -- interno la alcanza y no tiene nada más de ese esquema ni del externo.
+ IF (SELECT nspowner FROM pg_namespace WHERE nspname='vec_usuarios_correos_avisos')<>'vec_usuarios_correos_externo_propietario'::regrole
+    OR (SELECT count(*) FROM pg_proc WHERE pronamespace='vec_usuarios_correos_avisos'::regnamespace)<>1
+    OR EXISTS (SELECT 1 FROM pg_class WHERE relnamespace='vec_usuarios_correos_avisos'::regnamespace)
+    OR NOT has_schema_privilege('vec_usuarios_ejecutor_interno','vec_usuarios_correos_avisos','USAGE')
+    OR has_schema_privilege('vec_usuarios_ejecutor_externo','vec_usuarios_correos_avisos','USAGE')
+    OR has_schema_privilege('public','vec_usuarios_correos_avisos','USAGE,CREATE')
+    OR has_schema_privilege('vec_usuarios_ejecutor_interno','vec_usuarios_correos_avisos','CREATE')
+    OR EXISTS (SELECT 1 FROM pg_proc f CROSS JOIN LATERAL aclexplode(coalesce(f.proacl,acldefault('f',f.proowner))) a
+      WHERE f.pronamespace='vec_usuarios_correos_avisos'::regnamespace
+        AND (NOT f.prosecdef OR a.grantee NOT IN (f.proowner,'vec_usuarios_ejecutor_interno'::regrole)))
+    OR has_schema_privilege('vec_usuarios_ejecutor_interno','vec_usuarios_correos_externo','USAGE')
+    OR has_function_privilege('vec_usuarios_propietario','vec_contexto_actor_v1.persona_candidato_avisos_v1(text)','EXECUTE')
+ THEN RAISE EXCEPTION 'Usuarios 000010: ACL de la lectura de avisos incompatible' USING ERRCODE='55000'; END IF;
  -- Creados sus esquemas, los propietarios por población no crean nada más.
  EXECUTE format('REVOKE CREATE ON DATABASE %I FROM vec_usuarios_correos_interno_propietario,vec_usuarios_correos_externo_propietario',current_database());
  IF has_database_privilege('vec_usuarios_correos_interno_propietario',current_database(),'CREATE')
     OR has_database_privilege('vec_usuarios_correos_externo_propietario',current_database(),'CREATE')
- THEN RAISE EXCEPTION 'Usuarios 000009: los propietarios por población conservan CREATE' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Usuarios 000010: los propietarios por población conservan CREATE' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;
