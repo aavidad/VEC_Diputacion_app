@@ -9,6 +9,7 @@ import (
 	"math"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/usuarios/canonico"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -33,6 +34,22 @@ type ServicioCorreos struct {
 	politica  PoliticaDesafioCorreo
 }
 
+// La ruta aporta la superficie intentada; el dominio la coteja con el vínculo
+// V2 certificado antes de construir esta orden.
+func NuevaOrdenCorreos(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1, proveedor ports.ProveedorMaterialCorreos) (ports.OrdenCorreos, error) {
+	if proveedor == nil {
+		return ports.OrdenCorreos{}, ports.ErrCorreosNoAutenticado
+	}
+	identidad, err := domain.NuevaIdentidadCorreos(actor, vinculo, superficieRuta)
+	if errors.Is(err, domain.ErrSuperficieCorreosProhibida) {
+		return ports.OrdenCorreos{}, ports.ErrCorreosProhibido
+	}
+	if err != nil {
+		return ports.OrdenCorreos{}, ports.ErrCorreosNoAutenticado
+	}
+	return ports.OrdenCorreos{Identidad: identidad, Proveedor: proveedor}, nil
+}
+
 func NuevoServicioCorreos(registro ports.RegistroCorreos, protector ports.ProtectorDireccionCorreo, sellador ports.SelladorHuellaCorreos, desafios ports.PreparadorDesafioCorreo, validador ports.ValidadorCodigoCorreo, ahoraUTC func() time.Time) (*ServicioCorreos, error) {
 	return NuevoServicioCorreosConPolitica(registro, protector, sellador, desafios, validador, ahoraUTC, PoliticaDesafioCorreo{Vigencia: VigenciaDesafioCorreoPredeterminada})
 }
@@ -48,7 +65,10 @@ func (s *ServicioCorreos) actor(ctx context.Context, orden ports.OrdenCorreos) (
 	if s == nil || s.registro == nil || s.ahoraUTC == nil || ctx == nil || ctx.Err() != nil {
 		return vecdomain.ContextoActor{}, ports.ErrCorreosNoDisponible
 	}
-	actor, err := orden.ContextoActor()
+	if orden.Proveedor == nil {
+		return vecdomain.ContextoActor{}, ports.ErrCorreosNoAutenticado
+	}
+	actor, _, _, err := orden.Identidad.Datos()
 	if err != nil {
 		return vecdomain.ContextoActor{}, ports.ErrCorreosNoAutenticado
 	}
@@ -63,23 +83,22 @@ func materialCorreos(actor vecdomain.ContextoActor, superficie vecdomain.Superfi
 }
 
 func autorizarCorreos(ctx context.Context, orden ports.OrdenCorreos, m ports.MaterialCorreos) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
-	proveedor := orden.Proveedor()
+	proveedor := orden.Proveedor
 	if proveedor == nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoAutenticado
 	}
-	vinculo, err := orden.Vinculo()
+	_, vinculo, superficie, err := orden.Identidad.Datos()
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoAutenticado
 	}
-	superficie, err := orden.Superficie()
 	if err != nil || superficie != m.Superficie {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosProhibido
 	}
-	audiencia, err := ports.AudienciaCorreos(m.Accion, superficie)
+	audiencia, err := canonico.AudienciaCorreos(m.Accion, superficie)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
-	if _, err := ports.SerializarMaterialCorreos(m); err != nil {
+	if _, err := canonico.SerializarMaterialCorreos(m); err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosInvalidos
 	}
 	v3, err := proveedor.ProveerMaterialCorreos(ctx, vinculo, m)
@@ -93,7 +112,7 @@ func autorizarCorreos(ctx context.Context, orden ports.OrdenCorreos, m ports.Mat
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoDisponible
 	}
 	resumen := v3.ResumenCapacidad()
-	recurso, err := ports.RecursoCorreos(m)
+	recurso, err := canonico.RecursoCorreos(m)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosNoDisponible
 	}
@@ -109,7 +128,7 @@ func (s *ServicioCorreos) Consultar(ctx context.Context, orden ports.OrdenCorreo
 	if err != nil {
 		return ports.VistaCorreos{}, err
 	}
-	superficie, err := orden.Superficie()
+	_, _, superficie, err := orden.Identidad.Datos()
 	if err != nil {
 		return ports.VistaCorreos{}, err
 	}
@@ -219,10 +238,10 @@ func (s *ServicioCorreos) mutar(ctx context.Context, orden ports.OrdenCorreos, a
 	for i := range preimagen {
 		preimagen[i] = 0
 	}
-	if err != nil || !huellas.Validar() {
+	if err != nil || !canonico.HuellasSemanticasValidas(huellas) {
 		return ports.ReciboCorreos{}, ports.ErrCorreosNoDisponible
 	}
-	superficie, err := orden.Superficie()
+	_, _, superficie, err := orden.Identidad.Datos()
 	if err != nil {
 		return ports.ReciboCorreos{}, err
 	}

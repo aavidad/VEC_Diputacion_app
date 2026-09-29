@@ -1,18 +1,18 @@
-package ports
+package canonico
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
+	"vec-diputacion-granada/internal/modules/usuarios/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestAudienciasCorreosCerradasPorSuperficie(t *testing.T) {
-	acciones := []string{AccionConsultarCorreos, AccionAnadirCorreo, AccionReenviarCorreo, AccionVerificarCorreo, AccionActivarCorreo, AccionRetirarCorreo}
+	acciones := []string{ports.AccionConsultarCorreos, ports.AccionAnadirCorreo, ports.AccionReenviarCorreo, ports.AccionVerificarCorreo, ports.AccionActivarCorreo, ports.AccionRetirarCorreo}
 	vistas := map[string]bool{}
 	for _, superficie := range []vecdomain.SuperficieAutenticacionActorV1{vecdomain.SuperficieAutenticacionInternaCorporativaV1, vecdomain.SuperficieAutenticacionExternaPersonalV1} {
 		for _, accion := range acciones {
@@ -26,23 +26,19 @@ func TestAudienciasCorreosCerradasPorSuperficie(t *testing.T) {
 	if len(vistas) != 12 {
 		t.Fatal("faltan audiencias nominales")
 	}
-	if _, err := AudienciaCorreos(AccionConsultarCorreos, vecdomain.SuperficieAutenticacionAdministracionPrivilegiadaV1); !errors.Is(err, ErrCorreosProhibido) {
+	if _, err := AudienciaCorreos(ports.AccionConsultarCorreos, vecdomain.SuperficieAutenticacionAdministracionPrivilegiadaV1); !errors.Is(err, ports.ErrCorreosProhibido) {
 		t.Fatalf("superficie privilegiada aceptada: %v", err)
 	}
-	if _, err := AudienciaCorreos("vec.correos.otro", vecdomain.SuperficieAutenticacionInternaCorporativaV1); !errors.Is(err, ErrCorreosProhibido) {
+	if _, err := AudienciaCorreos("vec.correos.otro", vecdomain.SuperficieAutenticacionInternaCorporativaV1); !errors.Is(err, ports.ErrCorreosProhibido) {
 		t.Fatalf("acción no declarada aceptada: %v", err)
 	}
 }
 
 func TestSerializarMaterialCorreosVectorCanonico(t *testing.T) {
-	m := MaterialCorreos{Superficie: vecdomain.SuperficieAutenticacionInternaCorporativaV1, PersonaRef: "per_prueba", PerfilRef: "prf_prueba", Accion: AccionAnadirCorreo, FinalidadRef: FinalidadCorreosPropios, ClaveOperacion: "operacion-1234567890", HuellasPeticion: HuellasSemanticasCorreo{Activa: HuellaSemanticaCorreo{ClaveRef: "h3", Valor: strings.Repeat("c", 64)}, Retenidas: []HuellaSemanticaCorreo{{ClaveRef: "h2", Valor: strings.Repeat("b", 64)}, {ClaveRef: "h1", Valor: strings.Repeat("a", 64)}}}}
+	m := ports.MaterialCorreos{Superficie: vecdomain.SuperficieAutenticacionInternaCorporativaV1, PersonaRef: "per_prueba", PerfilRef: "prf_prueba", Accion: ports.AccionAnadirCorreo, FinalidadRef: ports.FinalidadCorreosPropios, ClaveOperacion: "operacion-1234567890", HuellasPeticion: ports.HuellasSemanticasCorreo{Activa: ports.HuellaSemanticaCorreo{ClaveRef: "h3", Valor: strings.Repeat("c", 64)}, Retenidas: []ports.HuellaSemanticaCorreo{{ClaveRef: "h2", Valor: strings.Repeat("b", 64)}, {ClaveRef: "h1", Valor: strings.Repeat("a", 64)}}}}
 	b, err := SerializarMaterialCorreos(m)
 	if err != nil {
 		t.Fatal(err)
-	}
-	porMarshal, err := json.Marshal(m)
-	if err != nil || string(porMarshal) != string(b) {
-		t.Fatal("json.Marshal omitió serializador canónico")
 	}
 	esperado := `{"superficie":"interna_corporativa","persona_ref":"per_prueba","perfil_ref":"prf_prueba","accion":"vec.correos.anadir","finalidad_ref":"finalidad:usuarios:correos-propios:v1","version_esperada":0,"clave_operacion":"operacion-1234567890","huellas_peticion":{"activa":{"clave_ref":"h3","valor":"` + strings.Repeat("c", 64) + `"},"retenidas":[{"clave_ref":"h1","valor":"` + strings.Repeat("a", 64) + `"},{"clave_ref":"h2","valor":"` + strings.Repeat("b", 64) + `"}]},"correo_ref":"","sustituto_ref":""}`
 	if string(b) != esperado {
@@ -71,7 +67,7 @@ func TestSerializarMaterialCorreosVectorCanonico(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if recurso.Referencia != m.PersonaRef || recurso.ModuloID != "usuarios" || recurso.Tipo != TipoRecursoCorreos || len(recurso.Ambitos) != 1 || recurso.Ambitos["persona_ref"] != m.PersonaRef || len(recurso.Atributos) != 1 || recurso.Atributos["material_sha256"] != hex.EncodeToString(h[:]) {
+	if recurso.Referencia != m.PersonaRef || recurso.ModuloID != "usuarios" || recurso.Tipo != ports.TipoRecursoCorreos || len(recurso.Ambitos) != 1 || recurso.Ambitos["persona_ref"] != m.PersonaRef || len(recurso.Atributos) != 1 || recurso.Atributos["material_sha256"] != hex.EncodeToString(h[:]) {
 		t.Fatalf("recurso V3 no canónico: %+v", recurso)
 	}
 	huellaContexto, err := recurso.HuellaContextoAutorizacionSHA256()
@@ -81,9 +77,9 @@ func TestSerializarMaterialCorreosVectorCanonico(t *testing.T) {
 	t.Logf("vector V3 contexto SHA256=%s", huellaContexto)
 	m.PersonaRef, m.PerfilRef = "per_prueba", "prf_prueba"
 
-	m.Accion = AccionConsultarCorreos
+	m.Accion = ports.AccionConsultarCorreos
 	m.ClaveOperacion = ""
-	m.HuellasPeticion = HuellasSemanticasCorreo{}
+	m.HuellasPeticion = ports.HuellasSemanticasCorreo{}
 	b, err = SerializarMaterialCorreos(m)
 	if err != nil {
 		t.Fatal(err)

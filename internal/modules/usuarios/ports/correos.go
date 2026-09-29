@@ -2,11 +2,7 @@ package ports
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"sort"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
@@ -48,112 +44,16 @@ const (
 	AudienciaRetirarCorreoExterna    = "vec_usuarios.correos.retirar.externa_personal.v1"
 )
 
-func AudienciaCorreos(accion string, superficie vecdomain.SuperficieAutenticacionActorV1) (string, error) {
-	switch superficie {
-	case vecdomain.SuperficieAutenticacionInternaCorporativaV1:
-		switch accion {
-		case AccionConsultarCorreos:
-			return AudienciaConsultarCorreosInterna, nil
-		case AccionAnadirCorreo:
-			return AudienciaAnadirCorreoInterna, nil
-		case AccionReenviarCorreo:
-			return AudienciaReenviarCorreoInterna, nil
-		case AccionVerificarCorreo:
-			return AudienciaVerificarCorreoInterna, nil
-		case AccionActivarCorreo:
-			return AudienciaActivarCorreoInterna, nil
-		case AccionRetirarCorreo:
-			return AudienciaRetirarCorreoInterna, nil
-		}
-	case vecdomain.SuperficieAutenticacionExternaPersonalV1:
-		switch accion {
-		case AccionConsultarCorreos:
-			return AudienciaConsultarCorreosExterna, nil
-		case AccionAnadirCorreo:
-			return AudienciaAnadirCorreoExterna, nil
-		case AccionReenviarCorreo:
-			return AudienciaReenviarCorreoExterna, nil
-		case AccionVerificarCorreo:
-			return AudienciaVerificarCorreoExterna, nil
-		case AccionActivarCorreo:
-			return AudienciaActivarCorreoExterna, nil
-		case AccionRetirarCorreo:
-			return AudienciaRetirarCorreoExterna, nil
-		}
-	}
-	return "", ErrCorreosProhibido
-}
-
 type ProveedorMaterialCorreos interface {
 	ProveerMaterialCorreos(context.Context, vecdomain.VinculoAutenticacionActorV2, MaterialCorreos) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
-// OrdenCorreos sólo se obtiene a partir de la persona canónica del actor.
-// PersonaRef nunca forma parte de una petición HTTP.
+// OrdenCorreos transporta la identidad opaca validada en dominio y el puerto
+// V3. El servicio vuelve a validar Identidad en cada uso.
 type OrdenCorreos struct {
-	actor      vecdomain.ContextoActor
-	vinculo    vecdomain.VinculoAutenticacionActorV2
-	superficie vecdomain.SuperficieAutenticacionActorV1
-	proveedor  ProveedorMaterialCorreos
+	Identidad domain.IdentidadCorreos
+	Proveedor ProveedorMaterialCorreos
 }
-
-func cotejarIdentidadCorreo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2) bool {
-	if actor.Validar() != nil || (actor.Principal.AuthMethod != vecdomain.AuthMethodCertificate && actor.Principal.AuthMethod != vecdomain.AuthMethodDNIe) || actor.Instantanea.CuentaVersion == 0 {
-		return false
-	}
-	datos, err := vinculo.Datos()
-	if err != nil || datos.CuentaPrivilegiada {
-		return false
-	}
-	huella, err := actor.HuellaSHA256VinculadaV2()
-	return err == nil && datos.PrincipalID == actor.PersonaRef && datos.PerfilActivoRef == actor.PerfilActivoRef &&
-		datos.CuentaRef == actor.Instantanea.CuentaRef && datos.CuentaOrdinariaRef == actor.Instantanea.CuentaRef &&
-		datos.MetodoObservado == actor.Principal.AuthMethod && datos.GarantiaObservada == actor.Principal.AuthAssurance &&
-		datos.ContextoActorRef == actor.Instantanea.VinculoRef && datos.ContextoActorVersion == actor.Instantanea.VinculoVersion &&
-		datos.ContextoActorCuentaVersion == actor.Instantanea.CuentaVersion && datos.ContextoActorHuellaSHA256 == huella
-}
-
-func cotejarOrdenCorreo(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficie vecdomain.SuperficieAutenticacionActorV1) bool {
-	if !cotejarIdentidadCorreo(actor, vinculo) {
-		return false
-	}
-	datos, _ := vinculo.Datos()
-	return (superficie == vecdomain.SuperficieAutenticacionInternaCorporativaV1 || superficie == vecdomain.SuperficieAutenticacionExternaPersonalV1) && datos.Superficie == superficie
-}
-
-func NuevaOrdenCorreos(actor vecdomain.ContextoActor, vinculo vecdomain.VinculoAutenticacionActorV2, superficieRuta vecdomain.SuperficieAutenticacionActorV1, proveedor ProveedorMaterialCorreos) (OrdenCorreos, error) {
-	if proveedor == nil || !cotejarIdentidadCorreo(actor, vinculo) {
-		return OrdenCorreos{}, ErrCorreosNoAutenticado
-	}
-	if !cotejarOrdenCorreo(actor, vinculo, superficieRuta) {
-		return OrdenCorreos{}, ErrCorreosProhibido
-	}
-	copia, err := actor.Clonar()
-	if err != nil {
-		return OrdenCorreos{}, ErrCorreosNoAutenticado
-	}
-	return OrdenCorreos{actor: copia, vinculo: vinculo, superficie: superficieRuta, proveedor: proveedor}, nil
-}
-
-func (o OrdenCorreos) ContextoActor() (vecdomain.ContextoActor, error) {
-	if o.proveedor == nil || !cotejarOrdenCorreo(o.actor, o.vinculo, o.superficie) {
-		return vecdomain.ContextoActor{}, ErrCorreosNoAutenticado
-	}
-	return o.actor.Clonar()
-}
-func (o OrdenCorreos) Vinculo() (vecdomain.VinculoAutenticacionActorV2, error) {
-	if o.proveedor == nil || !cotejarOrdenCorreo(o.actor, o.vinculo, o.superficie) {
-		return vecdomain.VinculoAutenticacionActorV2{}, ErrCorreosNoAutenticado
-	}
-	return o.vinculo, nil
-}
-func (o OrdenCorreos) Superficie() (vecdomain.SuperficieAutenticacionActorV1, error) {
-	if o.proveedor == nil || !cotejarOrdenCorreo(o.actor, o.vinculo, o.superficie) {
-		return "", ErrCorreosNoAutenticado
-	}
-	return o.superficie, nil
-}
-func (o OrdenCorreos) Proveedor() ProveedorMaterialCorreos { return o.proveedor }
 
 type PeticionCorreo struct {
 	VersionEsperada uint64 `json:"version_esperada"`
@@ -177,21 +77,6 @@ type HuellasSemanticasCorreo struct {
 	Retenidas []HuellaSemanticaCorreo `json:"retenidas"`
 }
 
-func (h HuellasSemanticasCorreo) Validar() bool {
-	if len(h.Retenidas) > 8 {
-		return false
-	}
-	vistas := make(map[string]bool, len(h.Retenidas)+1)
-	for _, sello := range append([]HuellaSemanticaCorreo{h.Activa}, h.Retenidas...) {
-		valor, err := hex.DecodeString(sello.Valor)
-		if sello.ClaveRef == "" || vistas[sello.ClaveRef] || err != nil || len(valor) != 32 {
-			return false
-		}
-		vistas[sello.ClaveRef] = true
-	}
-	return true
-}
-
 // Sellar acepta bytes sólo en memoria y nunca registra ni devuelve la
 // preimagen. Usa HMAC-SHA256 con clave de huella semántica propia del módulo;
 // no la clave de desafío ni de igualdad de direcciones. Retener generaciones
@@ -212,72 +97,6 @@ type MaterialCorreos struct {
 	HuellasPeticion HuellasSemanticasCorreo                  `json:"huellas_peticion"`
 	CorreoRef       string                                   `json:"correo_ref"`
 	SustitutoRef    string                                   `json:"sustituto_ref"`
-}
-
-func (m MaterialCorreos) MarshalJSON() ([]byte, error) { return SerializarMaterialCorreos(m) }
-
-// RecursoCorreos construye el mismo recurso para el emisor V3 y el adaptador
-// PostgreSQL. La huella de contexto V3 procede de ámbitos/atributos, no del
-// SHA-256 directo de p_material. La superficie va en material/vínculo/audiencia.
-func RecursoCorreos(m MaterialCorreos) (vecdomain.RecursoAutorizable, error) {
-	b, err := SerializarMaterialCorreos(m)
-	if err != nil {
-		return vecdomain.RecursoAutorizable{}, err
-	}
-	h := sha256.Sum256(b)
-	r := vecdomain.RecursoAutorizable{
-		Referencia: m.PersonaRef, ModuloID: "usuarios", Tipo: TipoRecursoCorreos,
-		Ambitos:   map[string]string{"persona_ref": m.PersonaRef},
-		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])},
-	}
-	if err := r.Validar(); err != nil {
-		return vecdomain.RecursoAutorizable{}, ErrCorreosInvalidos
-	}
-	return r, nil
-}
-
-// SerializarMaterialCorreos es la única preimagen V3/SQL p_material text.
-// El proveedor V3 calcula material_sha256 de estos bytes exactos y el adaptador
-// PG envía esos mismos bytes, sin reconstruir JSON ni incorporar secretos.
-func SerializarMaterialCorreos(m MaterialCorreos) ([]byte, error) {
-	if _, err := AudienciaCorreos(m.Accion, m.Superficie); err != nil || m.PersonaRef == "" || m.PerfilRef == "" || m.FinalidadRef != FinalidadCorreosPropios {
-		return nil, ErrCorreosInvalidos
-	}
-	if m.Accion == AccionConsultarCorreos {
-		if m.ClaveOperacion != "" || m.HuellasPeticion.Activa != (HuellaSemanticaCorreo{}) || len(m.HuellasPeticion.Retenidas) != 0 || m.CorreoRef != "" || m.SustitutoRef != "" || m.VersionEsperada != 0 {
-			return nil, ErrCorreosInvalidos
-		}
-	} else if m.ClaveOperacion == "" || !m.HuellasPeticion.Validar() {
-		return nil, ErrCorreosInvalidos
-	}
-	m.HuellasPeticion.Retenidas = append([]HuellaSemanticaCorreo{}, m.HuellasPeticion.Retenidas...)
-	sort.Slice(m.HuellasPeticion.Retenidas, func(i, j int) bool {
-		return m.HuellasPeticion.Retenidas[i].ClaveRef < m.HuellasPeticion.Retenidas[j].ClaveRef
-	})
-	huellaJSON := json.RawMessage("{}")
-	if m.Accion != AccionConsultarCorreos {
-		var err error
-		huellaJSON, err = json.Marshal(m.HuellasPeticion)
-		if err != nil {
-			return nil, ErrCorreosInvalidos
-		}
-	}
-	b, err := json.Marshal(struct {
-		Superficie      vecdomain.SuperficieAutenticacionActorV1 `json:"superficie"`
-		PersonaRef      string                                   `json:"persona_ref"`
-		PerfilRef       string                                   `json:"perfil_ref"`
-		Accion          string                                   `json:"accion"`
-		FinalidadRef    string                                   `json:"finalidad_ref"`
-		VersionEsperada uint64                                   `json:"version_esperada"`
-		ClaveOperacion  string                                   `json:"clave_operacion"`
-		HuellasPeticion json.RawMessage                          `json:"huellas_peticion"`
-		CorreoRef       string                                   `json:"correo_ref"`
-		SustitutoRef    string                                   `json:"sustituto_ref"`
-	}{m.Superficie, m.PersonaRef, m.PerfilRef, m.Accion, m.FinalidadRef, m.VersionEsperada, m.ClaveOperacion, huellaJSON, m.CorreoRef, m.SustitutoRef})
-	if err != nil || len(b) > 8192 {
-		return nil, ErrCorreosInvalidos
-	}
-	return b, nil
 }
 
 type VistaCorreos struct {

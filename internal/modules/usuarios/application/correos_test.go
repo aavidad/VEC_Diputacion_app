@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/usuarios/canonico"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -34,12 +35,12 @@ func (p *proveedorCorreosPrueba) ProveerMaterialCorreos(_ context.Context, vincu
 	if p.denegar {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrCorreosProhibido
 	}
-	b, err := ports.SerializarMaterialCorreos(m)
+	b, err := canonico.SerializarMaterialCorreos(m)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
 	p.bytes = append(p.bytes, b)
-	recurso, err := ports.RecursoCorreos(m)
+	recurso, err := canonico.RecursoCorreos(m)
 	if err != nil {
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, err
 	}
@@ -51,7 +52,7 @@ func (p *proveedorCorreosPrueba) ProveerMaterialCorreos(_ context.Context, vincu
 		h := sha256.Sum256(b)
 		huellaContexto = hex.EncodeToString(h[:])
 	}
-	audiencia, _ := ports.AudienciaCorreos(m.Accion, m.Superficie)
+	audiencia, _ := canonico.AudienciaCorreos(m.Accion, m.Superficie)
 	if p.audienciaForzada != "" {
 		audiencia = p.audienciaForzada
 	}
@@ -220,7 +221,7 @@ func prepararServicioCorreos(t *testing.T) (ports.OrdenCorreos, *proveedorCorreo
 	t.Helper()
 	actor, vinculo := identidadCorreosPrueba(t, vecdomain.SuperficieAutenticacionInternaCorporativaV1, "p")
 	proveedor := &proveedorCorreosPrueba{}
-	orden, err := ports.NuevaOrdenCorreos(actor, vinculo, vecdomain.SuperficieAutenticacionInternaCorporativaV1, proveedor)
+	orden, err := NuevaOrdenCorreos(actor, vinculo, vecdomain.SuperficieAutenticacionInternaCorporativaV1, proveedor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +245,7 @@ func TestAltaPendienteYReplayNoRegeneranDesafio(t *testing.T) {
 	if recibo.CorreoRef == "" || registro.aplicaciones != 1 || desafio.llamados != 1 || registro.reserva.VenceUTC.Before(time.Now().Add(23*time.Hour)) {
 		t.Fatal("alta no reservó desafío de 24 horas")
 	}
-	if registro.peticion.Direccion != "" || registro.sobre.CorreoRef != recibo.CorreoRef || registro.sobre.Version != 1 || !registro.material.HuellasPeticion.Validar() || strings.Contains(registro.material.HuellasPeticion.Activa.Valor, peticion.Direccion) || proveedor.materiales[0].PersonaRef != registro.persona {
+	if registro.peticion.Direccion != "" || registro.sobre.CorreoRef != recibo.CorreoRef || registro.sobre.Version != 1 || !canonico.HuellasSemanticasValidas(registro.material.HuellasPeticion) || strings.Contains(registro.material.HuellasPeticion.Activa.Valor, peticion.Direccion) || proveedor.materiales[0].PersonaRef != registro.persona {
 		t.Fatal("material semántico/identidad incorrectos")
 	}
 	registro.replay = true
@@ -325,7 +326,7 @@ func TestReplayEntreSuperficiesReautorizaYConservaRecibo(t *testing.T) {
 	huella := proveedor.materiales[0].HuellasPeticion.Activa
 	registro.replay = true
 	actorExterno, vinculoExterno := identidadCorreosPrueba(t, vecdomain.SuperficieAutenticacionExternaPersonalV1, "q")
-	ordenExterna, err := ports.NuevaOrdenCorreos(actorExterno, vinculoExterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, proveedor)
+	ordenExterna, err := NuevaOrdenCorreos(actorExterno, vinculoExterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, proveedor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,13 +346,13 @@ func TestSustitucionDeSuperficieYAudienciaSeDeniega(t *testing.T) {
 	actorInterno, vinculoInterno := identidadCorreosPrueba(t, vecdomain.SuperficieAutenticacionInternaCorporativaV1, "p")
 	actorExterno, _ := identidadCorreosPrueba(t, vecdomain.SuperficieAutenticacionExternaPersonalV1, "q")
 	proveedor := &proveedorCorreosPrueba{}
-	if _, err := ports.NuevaOrdenCorreos(actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, proveedor); !errors.Is(err, ports.ErrCorreosProhibido) {
+	if _, err := NuevaOrdenCorreos(actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionExternaPersonalV1, proveedor); !errors.Is(err, ports.ErrCorreosProhibido) {
 		t.Fatalf("ruta sustituida: %v", err)
 	}
-	if _, err := ports.NuevaOrdenCorreos(actorExterno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, proveedor); !errors.Is(err, ports.ErrCorreosNoAutenticado) {
+	if _, err := NuevaOrdenCorreos(actorExterno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, proveedor); !errors.Is(err, ports.ErrCorreosNoAutenticado) {
 		t.Fatalf("perfil sustituido: %v", err)
 	}
-	orden, err := ports.NuevaOrdenCorreos(actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, proveedor)
+	orden, err := NuevaOrdenCorreos(actorInterno, vinculoInterno, vecdomain.SuperficieAutenticacionInternaCorporativaV1, proveedor)
 	if err != nil {
 		t.Fatal(err)
 	}
