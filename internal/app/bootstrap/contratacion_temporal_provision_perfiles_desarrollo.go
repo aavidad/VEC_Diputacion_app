@@ -200,7 +200,7 @@ func ejecutarProvisionPerfilesCTPostgreSQL(ctx context.Context, cfg config.Confi
 			return vacio, err
 		}
 	}
-	conexiones, err := abrirConexionesProvisionPerfilesCT(ctx, cfg)
+	conexiones, err := abrirConexionesProvisionPerfilesCT(ctx, cfg, s.Preparar)
 	if err != nil {
 		return vacio, errProvisionPerfilesCTNoDisponible
 	}
