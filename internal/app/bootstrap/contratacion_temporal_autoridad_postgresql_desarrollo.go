@@ -374,8 +374,15 @@ func asegurarPerfilDinamicoCTDesarrollo(
 		soporte.mu.Unlock()
 		return perfilDinamicoPublicadoInicial, nil
 	}
-	// Un documento ilegible no es operativo, pero tampoco se toca.
-	if err != nil || publicada.instantanea.AsignacionPerfil.PrincipalID != plantilla.AsignacionPerfil.PrincipalID ||
+	// Un documento ilegible no es operativo, pero tampoco se toca: se registra
+	// la causa y el perfil queda pendiente de provisión.
+	if err != nil {
+		registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+			"asegurar_perfil_dinamico", causaFalloPostgreSQLCTDesarrollo(err),
+		)
+		return perfilDinamicoPendienteProvision, nil
+	}
+	if publicada.instantanea.AsignacionPerfil.PrincipalID != plantilla.AsignacionPerfil.PrincipalID ||
 		!origenOperativoPublicadoCTDesarrollo(publicada, comun.actoAsignacion, soporte.reloj.Ahora()) {
 		return perfilDinamicoPendienteProvision, nil
 	}
