@@ -539,9 +539,12 @@ DECLARE m jsonb; c vec_aspirantes.contexto; existente text; asp text; r jsonb; d
 BEGIN
  m:=vec_aspirantes.consumir_contexto(p_material,p_capacidad,p_decision,p_motivo,p_contexto,
   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz,'alta');
- PERFORM pg_advisory_xact_lock(hashtextextended('vec_aspirantes:clave_indice',0));
- INSERT INTO vec_aspirantes.clave_indice(unica,clave_indice_ref,fijada_en)
- VALUES(true,m#>>'{indice_documento,clave_ref}',date_trunc('microseconds',clock_timestamp())) ON CONFLICT (unica) DO NOTHING;
+ -- El candado global solo se toma mientras no hay clave fijada.
+ IF NOT EXISTS(SELECT 1 FROM vec_aspirantes.clave_indice) THEN
+  PERFORM pg_advisory_xact_lock(hashtextextended('vec_aspirantes:clave_indice',0));
+  INSERT INTO vec_aspirantes.clave_indice(unica,clave_indice_ref,fijada_en)
+  VALUES(true,m#>>'{indice_documento,clave_ref}',date_trunc('microseconds',clock_timestamp())) ON CONFLICT (unica) DO NOTHING;
+ END IF;
  IF (SELECT clave_indice_ref FROM vec_aspirantes.clave_indice) IS DISTINCT FROM m#>>'{indice_documento,clave_ref}'
  THEN RAISE EXCEPTION 'Aspirantes: clave del índice distinta de la fijada' USING ERRCODE='55000'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_aspirantes:indice:'||(m#>>'{indice_documento,clave_ref}')||':'||(m#>>'{indice_documento,valor}'),0));

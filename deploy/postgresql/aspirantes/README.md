@@ -34,6 +34,9 @@ Ningún `DOWN` se ejecuta: los ficheros `down.sql` rechazan la operación.
   misma transacción: la primera bloquea la ficha y devuelve qué campos tienen valor;
   Go cifra con la versión nueva; la segunda escribe y coteja el motivo.
 - Todo es de solo adición salvo la versión de `ficha`, que solo sube de uno en uno.
+- La primera alta fija la referencia de la clave del índice ciego (`clave_indice`). Con
+  otra referencia todas las operaciones devuelven 55000. Rotar esa clave exige una
+  migración de reindexado, que aún no existe: queda como tarea pendiente.
 - Errores: `P1409` conflicto, `P1411` ficha existente, `P1404` sin ficha, `22023`
   petición inválida, `42501` denegación, `40001` repetir con la misma clave.
 
