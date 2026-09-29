@@ -3,7 +3,8 @@
 # 5.08b y 5.08c (lista_sql_trabajo_*usuarios_508{a,b,c}_*.txt). Todas se
 # ejecutan como DBA (superusuario): leen la decisión V3 firmada de cada fila
 # para saber de qué portal es. Una transacción por fichero; ningún DOWN.
-# No acredita instalación.
+# Con la aplicación parada; el binario nuevo sube en la misma ventana (el
+# anterior ya no encuentra las fachadas de correos). No acredita instalación.
 deploy/postgresql/documentos/migraciones/000008_imagen_personal_superficie.up.sql
 deploy/postgresql/usuarios_vec/migraciones/000008_superficie_preferencias_imagen.up.sql
 deploy/postgresql/usuarios_vec/roles_000009_up.sql

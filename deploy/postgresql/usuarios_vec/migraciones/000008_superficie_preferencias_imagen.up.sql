@@ -37,9 +37,11 @@ DO $pre$ BEGIN
     OR to_regprocedure('vec_documentos.superficie_sesion_imagen_v1()') IS NULL
     OR to_regprocedure('vec_usuarios.contexto_autorizado(text,text[])') IS NULL
     OR to_regprocedure('vec_usuarios.contexto_autorizado_imagen(text,text[])') IS NULL
-    OR EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid IN ('vec_usuarios.preferencias_actual'::regclass,
-      'vec_usuarios.preferencias_historia'::regclass,'vec_usuarios.preferencias_recibo'::regclass,
-      'vec_usuarios.imagen_actual'::regclass,'vec_usuarios.imagen_historia'::regclass,'vec_usuarios.imagen_recibo'::regclass)
+    OR to_regclass('vec_usuarios.preferencias_actual') IS NULL OR to_regclass('vec_usuarios.preferencias_historia') IS NULL
+    OR to_regclass('vec_usuarios.imagen_actual') IS NULL OR to_regclass('vec_usuarios.imagen_historia') IS NULL
+    OR EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid IN (to_regclass('vec_usuarios.preferencias_actual'),
+      to_regclass('vec_usuarios.preferencias_historia'),to_regclass('vec_usuarios.preferencias_recibo'),
+      to_regclass('vec_usuarios.imagen_actual'),to_regclass('vec_usuarios.imagen_historia'),to_regclass('vec_usuarios.imagen_recibo'))
       AND attname='superficie' AND NOT attisdropped)
     OR (SELECT count(*) FROM pg_constraint WHERE connamespace='vec_usuarios'::regnamespace AND conname IN (
       'preferencias_actual_pkey','preferencias_historia_pkey','preferencias_historia_persona_ref_fkey',
@@ -208,6 +210,11 @@ DO $control$ BEGIN
       WHERE h.persona_ref=a.persona_ref AND h.superficie=a.superficie))
     OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_actual a WHERE a.version<>(SELECT max(version) FROM vec_usuarios.imagen_historia h
       WHERE h.persona_ref=a.persona_ref AND h.superficie=a.superficie))
+    -- Cada foto vigente está viva en Documentos, es de la misma persona y
+    -- Documentos 000008 la asignó al mismo portal (por su LOGIN de custodia).
+    OR EXISTS (SELECT 1 FROM vec_usuarios.imagen_actual a WHERE a.foto_ref IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM vec_documentos.imagen_personal d WHERE d.imagen_ref=a.foto_ref AND d.persona_ref=a.persona_ref
+       AND d.superficie=a.superficie AND d.estado='activa' AND d.huella_sha256=a.foto_sha256))
  THEN RAISE EXCEPTION 'Usuarios 000008: la migración alteraría la historia o el estado' USING ERRCODE='55000'; END IF;
 END $control$;
 

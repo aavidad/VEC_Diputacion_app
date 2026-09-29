@@ -77,6 +77,12 @@ END $prueba$;
 COMMIT;
 SQL
 
+# Copia aparte con una acción cruzada: el portal externo activa la dirección
+# que se añadió en el interno. Se usa al final para ver que 000009 se para.
+psql_pg -c "CREATE DATABASE vec_cruce TEMPLATE postgres" >/dev/null
+docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_usuarios_prueba_externa -d vec_cruce -At \
+ -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_correos('vec.correos.activar',4,'correo-ext-cruce01','$A','aplicar',NULL,false,'externa_personal'); COMMIT;" >/dev/null
+
 # 2. Cada migración en ROLLBACK deja la base idéntica; después se aplica.
 lista=(
  "$doc/migraciones/000008_imagen_personal_superficie.up.sql"
@@ -128,11 +134,12 @@ DO \$prueba\$ BEGIN
     OR (SELECT string_agg(superficie||':'||estado,',') FROM vec_documentos.imagen_personal)<>'interna_corporativa:activa'
  THEN RAISE EXCEPTION 'reparto de imagen'; END IF;
  -- Cada dirección va con el portal donde se añadió, con toda su historia.
- IF (SELECT string_agg(correo_ref||':'||estado||':'||activo,',') FROM vec_usuarios_correos_interno.correos_direccion)<>'$A:verificado:false'
+ IF (SELECT string_agg(correo_ref||':'||estado||':'||activo,',') FROM vec_usuarios_correos_interno.correos_direccion)<>'$A:verificado:true'
     OR (SELECT string_agg(correo_ref||':'||estado||':'||activo,',') FROM vec_usuarios_correos_externo.correos_direccion)<>'$B:verificado:true'
-    OR (SELECT string_agg(version::text,',' ORDER BY version) FROM vec_usuarios_correos_interno.correos_historia)<>'1,4'
+    OR (SELECT string_agg(version::text,',' ORDER BY version) FROM vec_usuarios_correos_interno.correos_historia)<>'1,4,5'
     OR (SELECT string_agg(version::text,',' ORDER BY version) FROM vec_usuarios_correos_externo.correos_historia)<>'2,3'
-    OR (SELECT version FROM vec_usuarios_correos_interno.correos_conjunto)<>4
+    OR (SELECT version FROM vec_usuarios_correos_interno.correos_conjunto)<>5
+    OR (SELECT count(*) FROM vec_usuarios_correos_interno.correos_historia WHERE decision_ref='migracion:usuarios:000009' AND version=5 AND activo_resultante)<>1
     OR (SELECT version FROM vec_usuarios_correos_externo.correos_conjunto)<>3
     OR (SELECT count(*) FROM vec_usuarios_correos_interno.correos_intento_fallido)<>1
     OR (SELECT count(*) FROM vec_usuarios_correos_externo.correos_intento_fallido)<>0
@@ -196,7 +203,7 @@ DO \$prueba\$ DECLARE g jsonb; a jsonb; BEGIN
  a:=public.probar_imagen('guardar',3,'imagen-int-00000003','{"modo":"foto","paleta":"azul","icono":""}',decode('$F3','hex'));
  IF (a->>'version')::int<>4 OR a->>'foto_retirada'<>'true' THEN RAISE EXCEPTION 'sustitución interna %',a; END IF;
  g:=public.probar_correos_poblacion('vec.correos.consultar',0,'',NULL);
- IF (g->>'version')::int<>4 OR jsonb_array_length(g->'correos')<>1 OR g#>>'{correos,0,correo_ref}'<>'$A' THEN RAISE EXCEPTION 'correos internos %',g; END IF;
+ IF (g->>'version')::int<>5 OR jsonb_array_length(g->'correos')<>1 OR g#>>'{correos,0,correo_ref}'<>'$A' OR g#>>'{correos,0,activo}'<>'true' THEN RAISE EXCEPTION 'correos internos %',g; END IF;
  BEGIN
   PERFORM public.probar_correos_poblacion('vec.correos.consultar',0,'',NULL,'aplicar',NULL,false,'interna_corporativa',
    'igualdad-v1','','','vec_usuarios_correos_externo');
@@ -233,7 +240,19 @@ DO $prueba$ BEGIN
  THEN RAISE EXCEPTION 'contexto residual'; END IF;
 END $prueba$;
 SQL
-# 6. Historia de solo adición también en los esquemas nuevos y en la columna nueva.
+# 6. Con una acción desde el otro portal, 000009 se para sin dejar rastro.
+psql_cruce() { docker exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d vec_cruce "$@"; }
+psql_cruce < "$doc/migraciones/000008_imagen_personal_superficie.up.sql" >/dev/null
+psql_cruce < "$sql/migraciones/000008_superficie_preferencias_imagen.up.sql" >/dev/null
+psql_cruce -c "GRANT CREATE ON DATABASE vec_cruce TO vec_usuarios_correos_interno_propietario,vec_usuarios_correos_externo_propietario" >/dev/null
+psql_cruce < "$ad3/000109_correos_por_poblacion.up.sql" >/dev/null
+antes_cruce=$(docker exec "$contenedor" pg_dump -U postgres -d vec_cruce | grep -v '^\\\(un\)\?restrict ' | sha256sum)
+salida=$(psql_cruce < "$sql/migraciones/000009_correos_por_poblacion.up.sql" 2>&1 >/dev/null || true)
+grep -q 'desde el otro portal' <<<"$salida" || { echo "acción cruzada no detenida: $salida" >&2; exit 1; }
+[[ "$(docker exec "$contenedor" pg_dump -U postgres -d vec_cruce | grep -v '^\\\(un\)\?restrict ' | sha256sum)" == "$antes_cruce" ]]
+psql_pg -c "DROP DATABASE vec_cruce" >/dev/null
+
+# 7. Historia de solo adición también en los esquemas nuevos y en la columna nueva.
 for sentencia in "UPDATE vec_usuarios.preferencias_historia SET superficie='externa_personal'" \
   "DELETE FROM vec_usuarios.imagen_recibo" "UPDATE vec_usuarios_correos_interno.correos_historia SET version=9" \
   "DELETE FROM vec_usuarios_correos_externo.correos_recibo" "TRUNCATE vec_usuarios_correos_externo.correos_historia CASCADE" \

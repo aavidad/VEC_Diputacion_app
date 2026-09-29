@@ -5,6 +5,8 @@
 -- otro ni sobre vec_usuarios. Aprovisionamiento DBA único, antes de AD3-109.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_usuarios:rol_correos:000009',0));
 DO $pre$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)

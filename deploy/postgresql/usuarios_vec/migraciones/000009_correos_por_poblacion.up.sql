@@ -17,8 +17,11 @@
 -- decisión V3 firmada de su alta, vínculo de autenticación), y con ella se
 -- mueven sin cambios sus desafíos, intentos, historia, recibos y envíos. El
 -- conjunto de cada persona se reparte: cada población conserva la versión
--- más alta de su propia historia. Si falta una decisión o una dirección no
--- tiene alta, la migración se detiene (55000). Tras copiar, se comprueba fila
+-- más alta de su propia historia. Si falta una decisión, una dirección no
+-- tiene alta o alguna acción sobre ella se hizo desde el otro portal, la
+-- migración se detiene (55000). Si una población queda con direcciones
+-- verificadas y ninguna activa, se activa la primera verificada con una
+-- versión marcada «migracion:usuarios:000009». Tras copiar, se comprueba fila
 -- a fila que no se pierde ni se altera nada y se retiran las tablas y
 -- funciones de correos de vec_usuarios (vec_usuarios.superficie_sesion_correos
 -- se conserva: la usan las políticas de imagen). Una sola transacción:
@@ -65,6 +68,22 @@ FROM vec_usuarios.correos_direccion d;
 DO $mapa$ BEGIN
  IF EXISTS (SELECT 1 FROM u9_correo WHERE altas<>1 OR superficie IS NULL OR superficie NOT IN ('interna_corporativa','externa_personal'))
  THEN RAISE EXCEPTION 'Usuarios 000009: dirección sin portal de alta deducible; revisar antes de migrar' USING ERRCODE='55000'; END IF;
+ -- Toda acción sobre una dirección (historia, recibo, intento, envío) tuvo
+ -- que hacerse desde su mismo portal; si no, el estado de cada población no
+ -- se explicaría con su propia historia. Se para para revisarlo a mano.
+ IF EXISTS (SELECT 1 FROM vec_usuarios.correos_historia h JOIN u9_correo m USING(persona_ref,correo_ref)
+      LEFT JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a ON a.decision_ref=h.decision_ref
+      WHERE (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM m.superficie)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_recibo r JOIN u9_correo m USING(persona_ref,correo_ref)
+      LEFT JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a ON a.decision_ref=r.decision_ref
+      WHERE (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM m.superficie)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_intento_fallido i JOIN u9_correo m USING(persona_ref,correo_ref)
+      LEFT JOIN vec_autorizacion_atestada_v3.atestacion_decision_v3 a ON a.decision_ref=i.decision_ref
+      WHERE (convert_from(a.decision_canonica,'UTF8')::jsonb)#>>'{vinculo_autenticacion_actor,superficie}' IS DISTINCT FROM m.superficie)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_envio e JOIN u9_correo m USING(persona_ref,correo_ref) WHERE e.superficie<>m.superficie)
+    OR EXISTS (SELECT 1 FROM vec_usuarios.correos_historia h JOIN u9_correo m ON m.persona_ref=h.persona_ref AND m.correo_ref=h.anterior_activo_ref
+      JOIN u9_correo n ON n.persona_ref=h.persona_ref AND n.correo_ref=h.correo_ref WHERE m.superficie<>n.superficie)
+ THEN RAISE EXCEPTION 'Usuarios 000009: acción sobre una dirección desde el otro portal; revisar antes de migrar' USING ERRCODE='55000'; END IF;
 END $mapa$;
 
 -- 2. Esquemas por población, creados por su propio propietario.
@@ -901,6 +920,39 @@ BEGIN
  THEN RAISE EXCEPTION 'Usuarios 000009: conjuntos incoherentes' USING ERRCODE='55000'; END IF;
 END $control$;
 
+-- 4b. Antes, sin dirección activa, la primera verificada pasaba a activa en
+-- el conjunto común. Si una población queda con direcciones verificadas y
+-- ninguna activa (la activa era del otro portal), activa la primera
+-- verificada y lo anota con una versión marcada «migracion:usuarios:000009».
+DO $activa$
+DECLARE p record; r record; ahora timestamptz(6):=date_trunc('microseconds',clock_timestamp()); n integer;
+BEGIN
+ FOR p IN SELECT unnest(ARRAY['vec_usuarios_correos_interno','vec_usuarios_correos_externo']) AS esquema LOOP
+  FOR r IN EXECUTE format($q$SELECT DISTINCT ON (d.persona_ref) d.persona_ref,d.correo_ref,c.version
+    FROM %1$I.correos_direccion d JOIN %1$I.correos_conjunto c USING(persona_ref)
+    WHERE d.estado='verificado' AND NOT EXISTS (SELECT 1 FROM %1$I.correos_direccion x WHERE x.persona_ref=d.persona_ref AND x.activo)
+    ORDER BY d.persona_ref,d.verificado_en,d.correo_ref$q$,p.esquema) LOOP
+   EXECUTE format('UPDATE %I.correos_direccion SET activo=true WHERE persona_ref=$1 AND correo_ref=$2 AND estado=''verificado'' AND NOT activo',p.esquema)
+    USING r.persona_ref,r.correo_ref;
+   GET DIAGNOSTICS n=ROW_COUNT;
+   IF n<>1 THEN RAISE EXCEPTION 'Usuarios 000009: activación de reparto divergente' USING ERRCODE='55000'; END IF;
+   EXECUTE format('UPDATE %I.correos_conjunto SET version=version+1,actualizado_en=$2 WHERE persona_ref=$1 AND version=$3',p.esquema)
+    USING r.persona_ref,ahora,r.version;
+   GET DIAGNOSTICS n=ROW_COUNT;
+   IF n<>1 THEN RAISE EXCEPTION 'Usuarios 000009: versión de reparto divergente' USING ERRCODE='55000'; END IF;
+   EXECUTE format($q$INSERT INTO %I.correos_historia(persona_ref,version,accion,correo_ref,estado_resultante,activo_resultante,
+     anterior_activo_ref,recibo_ref,decision_ref,auditoria_ref,registrada_en)
+    VALUES($1,$2,'vec.correos.activar',$3,'verificado',true,NULL,'correo_recibo:'||replace(gen_random_uuid()::text,'-',''),
+     'migracion:usuarios:000009','migracion:usuarios:000009',$4)$q$,p.esquema) USING r.persona_ref,r.version+1,r.correo_ref,ahora;
+  END LOOP;
+  EXECUTE format($q$SELECT count(*) FROM %1$I.correos_conjunto c WHERE
+    EXISTS (SELECT 1 FROM %1$I.correos_direccion d WHERE d.persona_ref=c.persona_ref AND d.estado='verificado')
+    AND NOT EXISTS (SELECT 1 FROM %1$I.correos_direccion d WHERE d.persona_ref=c.persona_ref AND d.activo)$q$,p.esquema) INTO n;
+  IF n<>0 THEN RAISE EXCEPTION 'Usuarios 000009: población sin dirección activa' USING ERRCODE='55000'; END IF;
+ END LOOP;
+END $activa$;
+SET CONSTRAINTS ALL IMMEDIATE;
+
 -- 5. vec_usuarios deja de guardar correos.
 SET LOCAL ROLE vec_usuarios_propietario;
 DROP FUNCTION vec_usuarios.confirmar_envio_correo_v1(text,text,text,boolean);
@@ -970,5 +1022,10 @@ BEGIN
        AND c.relkind='r' AND has_table_privilege(p.propietario,c.oid,'SELECT,INSERT,UPDATE,DELETE'))
   THEN RAISE EXCEPTION 'Usuarios 000009: ACL de % incompatible',p.esquema USING ERRCODE='55000'; END IF;
  END LOOP;
+ -- Creados sus esquemas, los propietarios por población no crean nada más.
+ EXECUTE format('REVOKE CREATE ON DATABASE %I FROM vec_usuarios_correos_interno_propietario,vec_usuarios_correos_externo_propietario',current_database());
+ IF has_database_privilege('vec_usuarios_correos_interno_propietario',current_database(),'CREATE')
+    OR has_database_privilege('vec_usuarios_correos_externo_propietario',current_database(),'CREATE')
+ THEN RAISE EXCEPTION 'Usuarios 000009: los propietarios por población conservan CREATE' USING ERRCODE='55000'; END IF;
 END $acl$;
 COMMIT;
