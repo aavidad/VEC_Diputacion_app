@@ -23,7 +23,6 @@ export const LEGADO_CON_DICCIONARIO = new Set([
   "portal-empleado/datos-sinteticos-rrhh.js",
   "portal-empleado/estado-entrega-i18n.js",
   "portal-empleado/modulos/aprobaciones/i18n.js",
-  "portal-empleado/modulos/auditoria/i18n.js",
   "portal-empleado/modulos/bolsa/rrhh-plazos-i18n.js",
   "portal-empleado/modulos/bolsa/rrhh-politica-cese-i18n.js",
   "portal-empleado/modulos/comunicaciones/i18n.js",

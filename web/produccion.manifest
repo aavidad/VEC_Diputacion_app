@@ -351,6 +351,8 @@ static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-i18n.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese.css
+static/textos/es/auditoria.json
+static/textos/en/auditoria.json
 static/portal-empleado/modulos/auditoria/auditoria-rrhh.css
 static/portal-empleado/modulos/auditoria/cliente-http.js
 static/portal-empleado/modulos/auditoria/i18n.js
