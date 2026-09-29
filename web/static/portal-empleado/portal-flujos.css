@@ -714,3 +714,48 @@ body[data-contraste="true"] .opcion-grande,
 body.alto-contraste .opcion-grande,
 body[data-contraste="true"] .confirmacion,
 body.alto-contraste .confirmacion { border-width: 2px; }
+
+/* Composición de la portada al situar sus secciones fuera de las pestañas
+   antiguas. Se carga después de portal-inicio-rrhh.css. */
+.portal-rrhh-inicio { display: grid; align-content: start; gap: 20px; min-width: 0; }
+.portal-rrhh-inicio > :is(.portal-rrhh-accesos, .portal-rrhh-resumen, .portal-rrhh-tramites-seccion, .rejilla-metricas-rrhh) { margin: 0; }
+.portal-rrhh-inicio .rejilla-metricas-rrhh { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0; }
+.portal-rrhh-inicio .portal-rrhh-tramites-seccion { min-width: 0; overflow: hidden; }
+.portal-rrhh-inicio .portal-rrhh-tramites-seccion .tabla-contenedor {
+  max-width: 100%;
+  max-height: min(45vh, 520px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 760px) {
+  .portal-rrhh-inicio { gap: 16px; }
+  .portal-rrhh-inicio .rejilla-metricas-rrhh { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Puente de especificidad con la línea de fases anterior del expediente.
+   La ficha nueva conserva sus ganchos JS, pero usa el patrón común. */
+.ct-exp-progreso:has(> ol.linea-fases) { padding: 0; border: 0; overflow: visible; box-shadow: none; }
+.ct-exp-progreso ol.linea-fases { min-width: 0; width: 100%; grid-template-columns: repeat(8, minmax(0, 1fr)); padding: 20px 16px; }
+.ct-exp-progreso .linea-fases li { gap: 6px; padding: 0 4px; font-weight: 400; }
+.ct-exp-progreso .linea-fases li::before { top: 15px; left: -50%; right: auto; width: 100%; }
+.ct-exp-progreso .linea-fases li > button { min-height: 44px; grid-template-columns: 1fr; grid-template-rows: auto; gap: 6px; padding: 0; }
+.ct-exp-progreso .linea-fases .marca { grid-row: auto; grid-column: auto; width: 32px; height: 32px; border-color: var(--portal-muted); font-size: 0.8125rem; }
+.ct-exp-progreso .linea-fases small { font-size: 0.8125rem; }
+
+@media (max-width: 760px) {
+  .ct-exp-progreso ol.linea-fases { grid-template-columns: 1fr; gap: 0; padding: 12px 16px; }
+  .ct-exp-progreso .linea-fases li { display: grid; padding: 6px 0; }
+  .ct-exp-progreso .linea-fases li::before { display: block; top: -50%; left: 15px; width: 2px; height: 100%; }
+  .ct-exp-progreso .linea-fases li:first-child::before { display: none; }
+  .ct-exp-progreso .linea-fases li > button { min-height: 44px; grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 6px; padding: 0; }
+  .ct-exp-progreso .linea-fases .marca { grid-row: 1 / span 2; grid-column: 1; }
+  .ct-exp-progreso .linea-fases .nombre { grid-row: 1; grid-column: 2; }
+  .ct-exp-progreso .linea-fases small { grid-row: 2; grid-column: 2; font-size: 0.8125rem; }
+}
+
+.ct-exp-siguiente-paso.siguiente-paso { grid-template-columns: 1fr; gap: 0; padding: 0; border-left: 4px solid var(--portal-azul-700); background: var(--portal-azul-100); }
+.ct-exp-siguiente-paso.siguiente-paso > .cabecera-panel { padding: 16px 20px 0; border: 0; background: transparent; }
+.ct-exp-siguiente-paso.siguiente-paso > .cabecera-panel h3 { font-size: 1.125rem; }
+.ct-exp-siguiente-paso.siguiente-paso > .ct-exp-siguiente-paso-cuerpo { padding: 8px 20px 16px; }
