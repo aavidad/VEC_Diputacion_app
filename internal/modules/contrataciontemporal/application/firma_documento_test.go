@@ -38,13 +38,35 @@ func (r *registroFirmaPrueba) RegistrarFirma(_ context.Context, m ports.Material
 		return ports.ReciboFirmaDocumento{}, ports.ErrFirmaDocumentoDenegada
 	}
 	h, _ := m.HuellaSHA256()
+	// Como CT145: la misma clave con el mismo material devuelve el recibo.
+	for _, f := range r.firmas {
+		if f.ClaveIdempotencia == m.ClaveIdempotencia {
+			previo, _ := r.materialDe(m.ClaveIdempotencia).HuellaSHA256()
+			if previo != h {
+				return ports.ReciboFirmaDocumento{}, ports.ErrClaveFirmaDocumentoUsada
+			}
+			return ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:x", ReciboRef: "recibo-firma-ct:x", Secuencia: f.Secuencia, Resultado: m.Resultado,
+				ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba, YaRegistrada: true,
+				DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion}, nil
+		}
+	}
 	r.registrado = append(r.registrado, m)
 	r.firmas = append(r.firmas, ports.FirmaRegistrada{Documento: m.Documento, Secuencia: m.Secuencia, CatalogoHuella: m.CatalogoHuella,
 		PasoOrden: m.PasoOrden, Resultado: m.Resultado, ConMotivoDevolucion: m.MotivoDevolucion != "", OriginalHuella: m.OriginalHuella, FirmadoHuella: m.FirmadoHuella,
-		ExpedienteVersion: m.VersionExpediente, DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion})
+		ExpedienteVersion: m.VersionExpediente, ClaveIdempotencia: m.ClaveIdempotencia,
+		DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion})
 	return ports.ReciboFirmaDocumento{FirmaRef: "firma-ct:x", ReciboRef: "recibo-firma-ct:x", Secuencia: m.Secuencia, Resultado: m.Resultado,
 		ExpedienteVersion: m.VersionExpediente, SolicitudHuella: h, RegistradaEn: instanteFirmaPrueba,
 		DocumentoCustodiaRef: m.DocumentoCustodiaRef, DocumentoCustodiaVersion: m.DocumentoCustodiaVersion}, nil
+}
+
+func (r *registroFirmaPrueba) materialDe(clave string) ports.MaterialFirmaDocumento {
+	for _, m := range r.registrado {
+		if m.ClaveIdempotencia == clave {
+			return m
+		}
+	}
+	return ports.MaterialFirmaDocumento{}
 }
 
 func (r *registroFirmaPrueba) ConsultarFirmas(context.Context, string, string) ([]ports.FirmaRegistrada, error) {

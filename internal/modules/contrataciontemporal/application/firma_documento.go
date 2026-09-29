@@ -282,14 +282,28 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 			actual = d
 		}
 	}
-	if actual.Completo || actual.PasoPendiente != sol.PasoOrden {
+	secuencia, originalEsperado := actual.UltimaSecuencia+1, actual.OriginalEsperadoHuella
+	previa, repetida := firmaConClave(estado.Firmas, sol.Documento, sol.ClaveIdempotencia)
+	switch {
+	case repetida:
+		// Reintento de una firma ya registrada (respuesta perdida): el paso ya
+		// no está pendiente, pero se rehace el mismo material para que el
+		// registro devuelva el recibo original. Si no puede ser el mismo, la
+		// clave se está usando para otra cosa.
+		if previa.PasoOrden != sol.PasoOrden || previa.Resultado != sol.Resultado ||
+			previa.CatalogoHuella != estado.Circuito.HuellaCatalogo || previa.ExpedienteVersion != sol.VersionExpediente ||
+			sol.PasoOrden > len(circuitoDoc.Pasos) {
+			return cero, ports.ErrClaveFirmaDocumentoUsada
+		}
+		secuencia, originalEsperado = previa.Secuencia, previa.OriginalHuella
+	case actual.Completo || actual.PasoPendiente != sol.PasoOrden:
 		return cero, ErrPasoFirmaNoPendiente
 	}
 	paso := circuitoDoc.Pasos[sol.PasoOrden-1]
 	material := ports.MaterialFirmaDocumento{
 		OrganizacionRef: sol.OrganizacionRef, ExpedienteRef: sol.ExpedienteRef, VersionExpediente: sol.VersionExpediente,
 		Documento: sol.Documento, CatalogoRef: estado.Circuito.CatalogoRef, CatalogoHuella: estado.Circuito.HuellaCatalogo,
-		PasoRef: paso.Referencia, PasoOrden: paso.Orden, Secuencia: actual.UltimaSecuencia + 1, Resultado: sol.Resultado,
+		PasoRef: paso.Referencia, PasoOrden: paso.Orden, Secuencia: secuencia, Resultado: sol.Resultado,
 		MotivoDevolucion: sol.MotivoDevolucion, ClaveIdempotencia: sol.ClaveIdempotencia,
 	}
 	var motivo docports.MotivoVerificacionFirma
@@ -297,7 +311,7 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		original := huella(sol.Original)
 		// A partir del paso 2 se firma exactamente el borrador que firmó el
 		// paso anterior: todos los pasos firman el mismo documento.
-		if actual.OriginalEsperadoHuella != "" && original != actual.OriginalEsperadoHuella {
+		if originalEsperado != "" && original != originalEsperado {
 			return cero, ports.ErrCadenaFirmaDocumentoRota
 		}
 		peticion := docports.SolicitudVerificacionFirma{
@@ -369,6 +383,17 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		return cero, ports.ErrResultadoFirmaDocumentoInvalido
 	}
 	return ResultadoFirmaDocumento{Recibo: recibo, Material: material, MotivoVerificacion: motivo, Custodiado: custodiado}, nil
+}
+
+// firmaConClave busca en la historia la firma del documento registrada con
+// esta clave de idempotencia.
+func firmaConClave(firmas []ports.FirmaRegistrada, documento, clave string) (ports.FirmaRegistrada, bool) {
+	for _, f := range firmas {
+		if f.Documento == documento && f.ClaveIdempotencia == clave {
+			return f, true
+		}
+	}
+	return ports.FirmaRegistrada{}, false
 }
 
 // custodiarFirmado entrega a Documentos el PDF firmado ya verificado y
