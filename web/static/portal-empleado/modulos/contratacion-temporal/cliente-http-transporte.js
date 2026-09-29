@@ -345,7 +345,7 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
 export const CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO = "cierre_sin_cese_no_contemplado";
 
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
-  if ([rutas.propuestaCobertura, rutas.preparacionCoberturaVigente].includes(ruta)
+  if (ruta === rutas.propuestaCobertura
     && estado === 403
     && codigo === "datos_no_disponibles_perfil") return true;
   if (estado === 409 && codigo === CODIGO_CIERRE_SIN_CESE_NO_CONTEMPLADO

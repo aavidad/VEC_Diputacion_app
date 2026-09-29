@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	personalcatalogos "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
 	"vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -59,7 +60,62 @@ type catalogosAltaContratacionTemporalDesarrollo struct {
 }
 
 type respuestaCatalogosAltaContratacionTemporalDesarrollo struct {
-	Data catalogosAltaContratacionTemporalDesarrollo `json:"data"`
+	Data datosCatalogosAltaContratacionTemporalDesarrollo `json:"data"`
+}
+
+// datosCatalogosAltaContratacionTemporalDesarrollo es la respuesta de la ruta
+// de catálogos del alta. Añade a las opciones del alta la relación de
+// documentos y datos que pide cada vía de cobertura (duda 73), para que RRHH la
+// vea antes de rellenar la petición. El contexto de peticiones del centro
+// publica solo las opciones, sin esa relación.
+type datosCatalogosAltaContratacionTemporalDesarrollo struct {
+	catalogosAltaContratacionTemporalDesarrollo
+	PreparacionVias *preparacionViasCatalogosAltaJSON `json:"preparacion_vias,omitempty"`
+}
+
+// preparacionViasCatalogosAltaJSON tiene la misma forma que el catálogo de la
+// propuesta de cobertura V2: identidad de la publicación, si es de ejemplo y,
+// por vía, sus documentos y datos. No lleva comprobaciones, fuentes, valores
+// aportados ni datos personales.
+type preparacionViasCatalogosAltaJSON struct {
+	Referencia   string                            `json:"referencia"`
+	Version      uint64                            `json:"version"`
+	HuellaSHA256 string                            `json:"huella_sha256"`
+	EsEjemplo    bool                              `json:"es_ejemplo"`
+	Vias         []viaPreparacionCatalogosAltaJSON `json:"vias"`
+}
+
+type viaPreparacionCatalogosAltaJSON struct {
+	Clave      string                                   `json:"clave"`
+	Orden      uint16                                   `json:"orden"`
+	Documentos []domain.ElementoPreparacionViaCobertura `json:"documentos"`
+	Datos      []domain.ElementoPreparacionViaCobertura `json:"datos"`
+}
+
+// preparacionViasCatalogosAlta proyecta el catálogo de vías vigente. Sin
+// documentos ni datos declarados (catálogo V1) no hay relación que mostrar y
+// devuelve nil; un catálogo incoherente también, sin inventar listas.
+func preparacionViasCatalogosAlta(
+	catalogos *catalogosAltaContratacionTemporalDesarrollo,
+) *preparacionViasCatalogosAltaJSON {
+	catalogo, err := catalogoCoberturaVigenteCT(catalogos.opcionesAnalisis().viasCoberturaVigentes())
+	if err != nil || catalogo.Canon() != domain.CanonHuellaCatalogoCoberturaV2() {
+		return nil
+	}
+	publicacion := catalogo.Publicacion()
+	salida := &preparacionViasCatalogosAltaJSON{
+		Referencia: publicacion.Referencia, Version: publicacion.Version,
+		HuellaSHA256: publicacion.HuellaSHA256, EsEjemplo: publicacion.EsEjemplo,
+		Vias: make([]viaPreparacionCatalogosAltaJSON, 0, len(publicacion.Vias)),
+	}
+	for _, via := range publicacion.Vias {
+		salida.Vias = append(salida.Vias, viaPreparacionCatalogosAltaJSON{
+			Clave: string(via.Clave), Orden: via.Orden,
+			Documentos: append(make([]domain.ElementoPreparacionViaCobertura, 0, len(via.Documentos)), via.Documentos...),
+			Datos:      append(make([]domain.ElementoPreparacionViaCobertura, 0, len(via.Datos)), via.Datos...),
+		})
+	}
+	return salida
 }
 
 var gruposPorCategoriaSinteticaDesarrollo = map[string]string{
@@ -394,7 +450,10 @@ func (m *manejadorCatalogosAltaContratacionTemporalDesarrollo) ServeHTTP(
 		return
 	}
 	contenido, err := json.Marshal(respuestaCatalogosAltaContratacionTemporalDesarrollo{
-		Data: catalogos,
+		Data: datosCatalogosAltaContratacionTemporalDesarrollo{
+			catalogosAltaContratacionTemporalDesarrollo: catalogos,
+			PreparacionVias: preparacionViasCatalogosAlta(&catalogos),
+		},
 	})
 	if err != nil {
 		responderErrorCatalogosAltaContratacionTemporalDesarrollo(

@@ -3,16 +3,25 @@ import test from "node:test";
 
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 
+const HUELLA = "b".repeat(64);
+
+function catalogo() {
+  return { referencia: "catalogo:ct:preparacion:v3", version: 3, huella_sha256: HUELLA, es_ejemplo: true,
+    vias: [
+      { clave: "bolsa_vigente", orden: 1, documentos: [], datos: [
+        { clave: "categoria", orden: 1, clave_i18n: "contratacion_temporal.cobertura.dato.categoria" }] },
+      { clave: "oferta_sae", orden: 2, documentos: [
+        { clave: "nota_sae", orden: 1, clave_i18n: "contratacion_temporal.cobertura.doc.nota_informativa_sae" }], datos: [] },
+    ] };
+}
+
 function superficie() {
   const eventos = new Map();
-  const zona = { innerHTML: "", eventos,
+  const zona = { innerHTML: "", eventos, enfocado: null,
     addEventListener(tipo, funcion) { eventos.set(tipo, funcion); },
     removeEventListener(tipo) { eventos.delete(tipo); },
     replaceChildren() { this.innerHTML = ""; },
-    reintentar() { eventos.get("click")?.({
-      target: { closest: (selector) => selector === "[data-ct-exp-preparacion-reintentar]" ? {} : null },
-      preventDefault() {},
-    }); },
+    querySelector(selector) { return { focus: () => { zona.enfocado = selector; } }; },
   };
   const alta = { innerHTML: "", replaceChildren() { this.innerHTML = ""; } };
   const raiz = { querySelector(selector) {
@@ -23,56 +32,51 @@ function superficie() {
   return { zona, alta, raiz };
 }
 
-function gestorPara(superficie, consultarPreparacion) {
+function gestorPara(superficieActual, catalogos) {
   return crearGestorTramitacion({
-    raiz: superficie.raiz,
+    raiz: superficieActual.raiz,
     presentador: { obtenerEstado: () => ({ vista: "alta" }) },
     altaDisponible: true,
-    alta: { catalogos: {}, ejecutor: async () => {}, consultarPreparacion },
-    mensajes: {
-      cobertura_preparacion_cargando: "Consultando requisitos",
-      cobertura_preparacion_error: "No se pudieron consultar los requisitos",
-      cobertura_preparacion_denegado: "Este perfil no puede consultar los requisitos",
-      cobertura_preparacion_reintentar: "Reintentar consulta",
-    },
+    // Sin presentador de alta válido el formulario cae a su aviso propio: la
+    // relación por vía no depende de él.
+    alta: { catalogos, ejecutor: async () => {} },
   });
 }
 
-test("Nueva petición espera GET y aborta la lectura al salir", async () => {
-  const superficieActual = superficie();
-  let resolver;
-  let signal;
-  const gestor = gestorPara(superficieActual, ({ signal: recibido }) => {
-    signal = recibido;
-    return new Promise((continuar) => { resolver = continuar; });
-  });
+function pulsar(zona, via, type = "click", key) {
+  zona.eventos.get(type)({ type, key, preventDefault() {},
+    target: { closest: (selector) => (selector === "[data-ct-preparacion-pestana]"
+      ? { dataset: { ctPreparacionPestana: via } } : null) } });
+}
+
+test("la nueva petición muestra la relación por vía que trae el catálogo del alta, sin otra consulta", () => {
+  const actual = superficie();
+  const gestor = gestorPara(actual, { preparacion_vias: catalogo() });
   gestor.montarAltaSiProcede();
-  assert.match(superficieActual.zona.innerHTML, /Consultando requisitos/u);
-  assert.equal(superficieActual.alta.innerHTML, "");
-  assert.equal(signal.aborted, false);
+  assert.match(actual.zona.innerHTML, /role="tablist"/u);
+  assert.match(actual.zona.innerHTML, /id="ct-preparacion-alta-pestana-bolsa_vigente"[^>]*aria-selected="true"/u);
+  assert.match(actual.zona.innerHTML, /No hace falta nada en este apartado/u);
+  pulsar(actual.zona, "oferta_sae");
+  assert.match(actual.zona.innerHTML, /id="ct-preparacion-alta-pestana-oferta_sae"[^>]*aria-selected="true"/u);
+  assert.equal(actual.zona.enfocado, '[data-ct-preparacion-pestana="oferta_sae"]');
+  pulsar(actual.zona, "oferta_sae", "keydown", "Home");
+  assert.match(actual.zona.innerHTML, /id="ct-preparacion-alta-pestana-bolsa_vigente"[^>]*aria-selected="true"/u);
   gestor.retirarComponentes();
-  assert.equal(signal.aborted, true);
-  resolver({});
-  await Promise.resolve();
-  assert.equal(superficieActual.zona.innerHTML, "");
-  assert.equal(superficieActual.alta.innerHTML, "");
+  assert.equal(actual.zona.innerHTML, "");
+  assert.equal(actual.zona.eventos.size, 0);
 });
 
-test("403 limpia la vista y reintenta solo la consulta", async () => {
-  const superficieActual = superficie();
-  let consultas = 0;
-  const gestor = gestorPara(superficieActual, async () => {
-    consultas += 1;
-    throw Object.assign(new Error("denegada"), { estado: 403, envelopeValido: true });
-  });
+test("sin relación en el catálogo del alta la zona queda vacía y volver a montar no duplica escuchas", () => {
+  const actual = superficie();
+  const gestor = gestorPara(actual, {});
   gestor.montarAltaSiProcede();
-  await new Promise((resolver) => setImmediate(resolver));
-  assert.match(superficieActual.zona.innerHTML, /Este perfil no puede consultar/u);
-  assert.doesNotMatch(superficieActual.zona.innerHTML, /data-ct-preparacion-vias/u);
-  assert.equal(superficieActual.alta.innerHTML, "");
-  superficieActual.zona.reintentar();
-  await new Promise((resolver) => setImmediate(resolver));
-  assert.equal(consultas, 2);
-  assert.equal(superficieActual.alta.innerHTML, "");
-  gestor.retirarComponentes();
+  assert.equal(actual.zona.innerHTML, "");
+  assert.equal(actual.zona.eventos.size, 0);
+  const con = superficie();
+  const otro = gestorPara(con, { preparacion_vias: catalogo() });
+  otro.montarAltaSiProcede();
+  otro.montarAltaSiProcede();
+  assert.equal(con.zona.eventos.size, 2);
+  assert.match(con.zona.innerHTML, /data-ct-preparacion-vias/u);
+  otro.retirarComponentes();
 });

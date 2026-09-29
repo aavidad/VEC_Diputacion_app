@@ -124,31 +124,6 @@ func fronteraContratacionTemporalDesarrollo(
 	}
 }
 
-// La lectura previa al alta solo se declara cuando su politica V3 nominal
-// propia se ha compuesto. No entra en las fronteras base de cobertura.
-func fronteraPreparacionVigenteCoberturaDesarrollo(perfilCT string) descriptorFronteraComunDesarrollo {
-	frontera := fronteraContratacionTemporalDesarrollo(
-		"ct-cobertura-catalogo-vigente-consultar",
-		accionPreparacionVigenteCoberturaDesarrollo,
-		rutaPreparacionVigenteCoberturaDesarrollo,
-		[]string{perfilCT},
-	)
-	frontera.Metodo = http.MethodGet
-	return frontera
-}
-
-func descriptorAutorizacionPreparacionVigenteCoberturaDesarrollo(
-	politica politicaAutorizacionSolicitudLigadaV3Desarrollo,
-) descriptorAutorizacionComunDesarrollo {
-	return descriptorAutorizacionComunDesarrollo{
-		Accion:         accionPreparacionVigenteCoberturaDesarrollo,
-		ClavePolitica:  clavePoliticaContratacionTemporalDesarrollo,
-		ClaveCapacidad: accionPreparacionVigenteCoberturaDesarrollo,
-		Fronteras:      []string{"ct-cobertura-catalogo-vigente-consultar"},
-		Politica:       politica,
-	}
-}
-
 // descriptoresAutorizacionContratacionTemporalDesarrollo enlaza cada acción
 // CT con una única frontera y con la política completa recibida por composición.
 func descriptoresAutorizacionContratacionTemporalDesarrollo(

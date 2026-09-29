@@ -70,7 +70,6 @@ func rutaContextoAutorizacionContratacionTemporalDesarrollo(ruta string) bool {
 		rutaPlantillasDocumentalCTDesarrollo(ruta) ||
 		ruta == httpinterno.RutaAltaSolicitudes ||
 		ruta == httpinterno.RutaPropuestaCobertura ||
-		ruta == httpinterno.RutaPreparacionCoberturaVigente ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura ||
 		rutaAnalisisContratacionTemporalDesarrollo(ruta) ||
@@ -91,7 +90,6 @@ func rutaAnalisisContratacionTemporalDesarrollo(ruta string) bool {
 
 func rutaCoberturaContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaPropuestaCobertura ||
-		ruta == httpinterno.RutaPreparacionCoberturaVigente ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura ||
 		ruta == httpinterno.RutaResultadoCobertura

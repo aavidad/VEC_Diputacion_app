@@ -331,7 +331,6 @@ export function crearCoordinadorModulosPortal({
           catalogos: recursos.contrato.validarCatalogosAlta(valor),
           capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
           ejecutor: cliente.registrarSolicitud,
-          consultarPreparacion: cliente.obtenerPreparacionCoberturaVigente,
         });
       } catch {
         alta = null;

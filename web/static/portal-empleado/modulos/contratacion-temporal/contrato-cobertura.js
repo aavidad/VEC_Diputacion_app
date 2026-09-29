@@ -35,7 +35,6 @@ const ESQUEMA_RESULTADO_CONSULTA_COBERTURA =
   "vec.contratacion-temporal.resultado-consulta-cobertura.v1";
 const ESQUEMA_PROPUESTA_V1 = "vec.contratacion-temporal.propuesta-cobertura.v1";
 const ESQUEMA_PROPUESTA_V2 = "vec.contratacion-temporal.propuesta-cobertura.v2";
-const ESQUEMA_PREPARACION_VIGENTE = "vec.contratacion-temporal.preparacion-cobertura.v1";
 const MAXIMOS_ELEMENTOS_PREPARACION = 512;
 const MAXIMOS_ELEMENTOS_POR_VIA = 32;
 
@@ -304,15 +303,6 @@ export function validarCatalogoPreparacion(catalogo, evaluaciones = null) {
   }
   return clonarYCongelar({ referencia: catalogo.referencia, version: catalogo.version,
     huella_sha256: catalogo.huella_sha256, es_ejemplo: catalogo.es_ejemplo, vias });
-}
-
-export function validarPreparacionCoberturaVigente(respuesta) {
-  exigirCamposExactos(respuesta, ["esquema", "catalogo"], "preparación de cobertura vigente");
-  if (respuesta.esquema !== ESQUEMA_PREPARACION_VIGENTE) {
-    throw new TypeError("preparación de cobertura vigente no válida");
-  }
-  return clonarYCongelar({ esquema: respuesta.esquema,
-    catalogo: validarCatalogoPreparacion(respuesta.catalogo) });
 }
 
 export function validarSolicitudPropuestaCobertura(solicitud) {

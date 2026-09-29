@@ -1,0 +1,34 @@
+{
+  "preparacion": {
+    "titulo": "Qué hay que preparar según la vía",
+    "pestanas": "Vías para cubrir el puesto",
+    "via_bolsa": "Por bolsa de trabajo",
+    "via_sae": "Por oferta al SAE",
+    "documentos": "Documentos",
+    "datos": "Datos a rellenar",
+    "ejemplo": "Lista de ejemplo: RRHH todavía no la ha confirmado (duda 73).",
+    "sae_solo_informativa": "Solo para consultar: desde aquí no se prepara ni se envía la oferta al SAE.",
+    "sin_elementos": "No hace falta nada en este apartado.",
+    "no_disponible": "Ahora no se puede mostrar qué hay que preparar en cada vía. Vuelva a entrar más tarde y, si sigue igual, avise a Informática.",
+    "perfil_sin_datos": "Su perfil no puede ver qué hay que preparar para cubrir este puesto. Pida acceso a la jefatura de RRHH."
+  },
+  "contratacion_temporal": {
+    "cobertura": {
+      "doc": {
+        "ficha_preparacion_cobertura": "Ficha de preparación de la cobertura",
+        "resumen_consulta_bolsa": "Resumen de la consulta de la bolsa",
+        "nota_informativa_sae": "Nota informativa sobre la oferta al SAE",
+        "nota_informativa_convocatoria": "Nota informativa sobre la nueva convocatoria de bolsa"
+      },
+      "dato": {
+        "categoria": "Categoría",
+        "bolsa_ref": "Bolsa de trabajo",
+        "candidaturas_disponibles": "Candidaturas disponibles",
+        "descripcion_puesto": "Descripción del puesto",
+        "jornada": "Jornada",
+        "duracion_prevista": "Duración prevista",
+        "motivo_propuesta": "Motivo de la propuesta"
+      }
+    }
+  }
+}

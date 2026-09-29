@@ -276,6 +276,50 @@ type gobiernoCoberturaDeseadoCT struct {
 	actuaciones []cobertura.PublicacionPoliticaActuacionCobertura
 }
 
+// instantes fijos de la publicación de desarrollo: el mismo contenido da
+// siempre los mismos bytes y la misma huella, en cualquier arranque.
+var (
+	publicacionCatalogoCoberturaCT = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	vigenciaCatalogoCoberturaCT    = domain.VigenciaCatalogoCobertura{
+		Desde: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		Hasta: time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+)
+
+// catalogoCoberturaParaViasCT construye la publicación del catálogo de vías,
+// con sus documentos y datos de preparación, a partir de las vías del
+// catálogo de reglas. Es la misma publicación que el arranque sincroniza.
+func catalogoCoberturaParaViasCT(
+	vias []viaCoberturaCT,
+	sufijo string,
+	version uint64,
+) (domain.CatalogoViasCobertura, error) {
+	if !viasCoberturaCoherentesCT(vias) {
+		return domain.CatalogoViasCobertura{}, errViasCoberturaNoValidas
+	}
+	definiciones := make([]domain.DefinicionViaCobertura, 0, len(vias))
+	for indice, via := range vias {
+		definicion := domain.DefinicionViaCobertura{Clave: via.Clave, Orden: uint16(indice + 1),
+			Documentos: slices.Clone(via.Documentos), Datos: slices.Clone(via.Datos)}
+		for orden, clave := range via.Comprobaciones {
+			definicion.Comprobaciones = append(definicion.Comprobaciones, domain.ComprobacionExigibleCobertura{
+				Clave: clave, Orden: uint16(orden + 1), Obligatoria: true,
+				Procedencia: domain.ProcedenciaComprobacionCobertura{
+					Clave: via.Procedencia, DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
+				},
+			})
+		}
+		definiciones = append(definiciones, definicion)
+	}
+	return domain.PublicarCatalogoViasCobertura(domain.BorradorCatalogoViasCobertura{
+		Referencia: "catalogo:ct:desarrollo:cobertura:" + sufijo, Version: version,
+		PublicadoEn: publicacionCatalogoCoberturaCT, Vigencia: vigenciaCatalogoCoberturaCT,
+		ProcedenciaRef: "procedencia:ct:desarrollo:cobertura:" + sufijo,
+		EsEjemplo:      vias[0].Ejemplo && tienePreparacionViasCoberturaCT(vias),
+		Vias:           definiciones,
+	})
+}
+
 // nuevoGobiernoCoberturaParaViasCT construye catálogo, política y actuaciones
 // para unas vías con un instante fijo: el mismo contenido da siempre los
 // mismos bytes y la misma huella, en cualquier arranque.
@@ -288,41 +332,21 @@ func nuevoGobiernoCoberturaParaViasCT(
 	if soporte == nil || !viasCoberturaCoherentesCT(vias) {
 		return gobiernoCoberturaDeseadoCT{}, falloPostgreSQLCTDesarrollo(nil)
 	}
-	publicadaEn := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	vigencia := domain.VigenciaCatalogoCobertura{
-		Desde: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
-		Hasta: time.Date(2036, 1, 1, 0, 0, 0, 0, time.UTC),
-	}
-	definiciones := make([]domain.DefinicionViaCobertura, 0, len(vias))
+	publicadaEn := publicacionCatalogoCoberturaCT
+	vigencia := vigenciaCatalogoCoberturaCT
 	reglasVias := make([]domain.ReglaViaDecisionCobertura, 0, len(vias))
-	esEjemplo := vias[0].Ejemplo && tienePreparacionViasCoberturaCT(vias)
-	for indice, via := range vias {
-		definicion := domain.DefinicionViaCobertura{Clave: via.Clave, Orden: uint16(indice + 1),
-			Documentos: slices.Clone(via.Documentos), Datos: slices.Clone(via.Datos)}
-		regla := domain.ReglaViaDecisionCobertura{ViaClave: via.Clave, Prioridad: uint16(indice + 1)}
-		for orden, clave := range via.Comprobaciones {
-			definicion.Comprobaciones = append(definicion.Comprobaciones, domain.ComprobacionExigibleCobertura{
-				Clave: clave, Orden: uint16(orden + 1), Obligatoria: true,
-				Procedencia: domain.ProcedenciaComprobacionCobertura{
-					Clave: via.Procedencia, DefinicionFuenteRef: backendFuenteCoberturaDesarrolloRef,
-				},
-			})
+	for _, via := range vias {
+		regla := domain.ReglaViaDecisionCobertura{ViaClave: via.Clave, Prioridad: uint16(len(reglasVias) + 1)}
+		for _, clave := range via.Comprobaciones {
 			regla.Comprobaciones = append(regla.Comprobaciones, domain.ReglaComprobacionDecisionCobertura{
 				Clave:                  clave,
 				ResultadosHabilitantes: []domain.ResultadoComprobacion{domain.ComprobacionAfirmativa},
 				TratamientoAusencia:    domain.AusenciaCoberturaBloquea,
 			})
 		}
-		definiciones = append(definiciones, definicion)
 		reglasVias = append(reglasVias, regla)
 	}
-	catalogo, err := domain.PublicarCatalogoViasCobertura(domain.BorradorCatalogoViasCobertura{
-		Referencia: "catalogo:ct:desarrollo:cobertura:" + sufijo, Version: version,
-		PublicadoEn: publicadaEn, Vigencia: vigencia,
-		ProcedenciaRef: "procedencia:ct:desarrollo:cobertura:" + sufijo,
-		EsEjemplo:      esEjemplo,
-		Vias:           definiciones,
-	})
+	catalogo, err := catalogoCoberturaParaViasCT(vias, sufijo, version)
 	if err != nil {
 		return gobiernoCoberturaDeseadoCT{}, falloPostgreSQLCTDesarrollo(err)
 	}
@@ -381,11 +405,26 @@ func gobiernoCoberturaDeseadoParaCatalogoCT(
 	soporte *soporteAltaContratacionTemporalDesarrollo,
 	vias []viaCoberturaCT,
 ) (gobiernoCoberturaDeseadoCT, error) {
+	sufijo, version := identidadCatalogoCoberturaParaViasCT(vias)
+	return nuevoGobiernoCoberturaParaViasCT(soporte, vias, sufijo, version)
+}
+
+// identidadCatalogoCoberturaParaViasCT elige sufijo y versión de la
+// publicación: la v2 de siempre si las vías coinciden con ella y, si no, una
+// versión propia nombrada por la huella de su contenido.
+func identidadCatalogoCoberturaParaViasCT(vias []viaCoberturaCT) (string, uint64) {
 	huella := huellaViasCoberturaCT(vias)
 	if huella == huellaViasCoberturaCT(viasCoberturaPredeterminadasCT()) {
-		return nuevoGobiernoCoberturaParaViasCT(soporte, vias, "v2", 2)
+		return "v2", 2
 	}
-	return nuevoGobiernoCoberturaParaViasCT(soporte, vias, "reglas-"+huella[:16], versionGobiernoCatalogoCT)
+	return "reglas-" + huella[:16], versionGobiernoCatalogoCT
+}
+
+// catalogoCoberturaVigenteCT es la publicación del catálogo de vías que el
+// arranque deja vigente para estas vías (misma referencia, versión y huella).
+func catalogoCoberturaVigenteCT(vias []viaCoberturaCT) (domain.CatalogoViasCobertura, error) {
+	sufijo, version := identidadCatalogoCoberturaParaViasCT(vias)
+	return catalogoCoberturaParaViasCT(vias, sufijo, version)
 }
 
 // eventoGobiernoCoberturaCatalogoCT nombra el evento por su secuencia y por la

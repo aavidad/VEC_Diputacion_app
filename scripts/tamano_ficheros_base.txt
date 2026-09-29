@@ -88,7 +88,7 @@
 1179 scripts/smoke_nominas_peoplenet.js
 13086 web/static/app.js
 863 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
-897 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
+914 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 870 web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.js
 1165 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
@@ -118,3 +118,4 @@
 888 internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go
 875 internal/app/bootstrap/contratacion_temporal_postgresql_desarrollo.go
 1029 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
+887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go

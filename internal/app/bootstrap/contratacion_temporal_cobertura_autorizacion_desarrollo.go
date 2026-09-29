@@ -84,8 +84,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalCobertu
 	capacidad, valida := s.capacidadValida(ctx)
 	if !valida || (capacidad.ruta != httpinterno.RutaPropuestaCobertura &&
 		capacidad.ruta != httpinterno.RutaDecisionCobertura &&
-		capacidad.ruta != httpinterno.RutaRectificacionCobertura &&
-		capacidad.ruta != httpinterno.RutaPreparacionCoberturaVigente) {
+		capacidad.ruta != httpinterno.RutaRectificacionCobertura) {
 		return httpinterno.ContextoCanalCobertura{}, ports.ErrAutorizacionDenegada
 	}
 	operativo, err := s.contextoOperativoDesarrollo(ctx)

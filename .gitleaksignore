@@ -44,3 +44,12 @@ e3e347c38fd2a138eb8aaaab25f5c6d2c56bb20b:web/static/portal-empleado/modulos/cont
 ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs:vep-clave-castellana-asignada:153
 5c096ba98b36ae928b98ebd7e306936c022344a8:web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs:vep-clave-castellana-asignada:147
 5c096ba98b36ae928b98ebd7e306936c022344a8:web/static/portal-empleado/modulos/contratacion-temporal/formulario-llamamiento.test.mjs:vep-clave-castellana-asignada:155
+# 5.04 (29/09/2026): en 2c1b781a0 la regla vep-clave-castellana-asignada toma por
+# secreto la asignación de claves de texto i18n y de claves de vía de cobertura
+# a variables y propiedades llamadas clave o clave_i18n. No son credenciales;
+# el código vigente ya no las escribe así.
+2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/formulario-cobertura.js:vep-clave-castellana-asignada:324
+2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/formulario-cobertura.js:vep-clave-castellana-asignada:328
+2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:87
+2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:90
+2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:115

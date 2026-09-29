@@ -1,4 +1,5 @@
 /** Contrato neutral y cerrado del alta de contratación temporal. */
+import { validarCatalogoPreparacion } from "./contrato-cobertura.js";
 
 export const CAPACIDAD_CREAR_SOLICITUD = "contratacion_temporal.solicitud.crear";
 
@@ -266,9 +267,13 @@ function validarCategoria(categoria, indice) {
 }
 
 export function validarCatalogosAlta(catalogos) {
+  // La relación de documentos y datos por vía de cobertura es opcional: la
+  // publica la ruta de catálogos del alta de RRHH, no el contexto del centro.
+  const conPreparacion = esRegistro(catalogos) && Object.hasOwn(catalogos, "preparacion_vias");
   exigirCamposExactos(
     catalogos,
-    ["esquema", "centros", "categorias", "motivos", "documentos"],
+    ["esquema", "centros", "categorias", "motivos", "documentos",
+      ...(conPreparacion ? ["preparacion_vias"] : [])],
     "catálogos de alta",
   );
   if (catalogos.esquema !== ESQUEMA_CATALOGOS) {
@@ -298,6 +303,8 @@ export function validarCatalogosAlta(catalogos) {
     categorias,
     motivos,
     documentos,
+    ...(conPreparacion
+      ? { preparacion_vias: validarCatalogoPreparacion(catalogos.preparacion_vias) } : {}),
   });
 }
 
