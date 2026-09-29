@@ -181,3 +181,40 @@ func TestMaterialFirmaDocumentoCanonicoConEnlace(t *testing.T) {
 		}
 	}
 }
+
+// Reintento de una firma ya registrada (respuesta perdida): el paso ya no está
+// pendiente, pero se recupera el recibo original sin registrar otra firma.
+func TestFirmaDocumentoReintentoDeUnaFirmaYaRegistrada(t *testing.T) {
+	s, registro, _, custodio := servicioConCustodia(t)
+	borrador := []byte("%PDF-1.7 borrador")
+	firmado := append(append([]byte{}, borrador...), []byte(" firma1")...)
+	sol := solicitudFirmaPrueba(1, borrador, firmado, "clave-firma-000000001")
+	primero, err := s.Firmar(context.Background(), sol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.Firmar(context.Background(), sol)
+	if err != nil || !r.Recibo.YaRegistrada || r.Recibo.Secuencia != primero.Recibo.Secuencia ||
+		r.Recibo.DocumentoCustodiaRef != primero.Recibo.DocumentoCustodiaRef || len(registro.registrado) != 1 {
+		t.Fatalf("reintento: %v %+v (registros %d)", err, r.Recibo, len(registro.registrado))
+	}
+	// La custodia se vuelve a pedir con la misma orden: Documentos devuelve el
+	// original.
+	if len(custodio.ordenes) != 2 || custodio.ordenes[0].DocumentoRef != custodio.ordenes[1].DocumentoRef ||
+		custodio.ordenes[0].ClaveIdempotencia != custodio.ordenes[1].ClaveIdempotencia {
+		t.Fatalf("órdenes de custodia: %+v", custodio.ordenes)
+	}
+	// Con la misma clave en otro paso, o con otro PDF, es otra operación.
+	otroPaso := solicitudFirmaPrueba(2, borrador, firmado, "clave-firma-000000001")
+	if _, err := s.Firmar(context.Background(), otroPaso); !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
+		t.Fatalf("misma clave en otro paso: %v", err)
+	}
+	otroPDF := solicitudFirmaPrueba(1, borrador, append(append([]byte{}, borrador...), []byte(" firma2")...), "clave-firma-000000001")
+	if _, err := s.Firmar(context.Background(), otroPDF); !errors.Is(err, ports.ErrClaveFirmaDocumentoUsada) {
+		t.Fatalf("misma clave con otro PDF: %v", err)
+	}
+	// Una clave nueva sobre el paso ya firmado sigue sin estar pendiente.
+	if _, err := s.Firmar(context.Background(), solicitudFirmaPrueba(1, borrador, firmado, "clave-firma-000000009")); !errors.Is(err, ErrPasoFirmaNoPendiente) {
+		t.Fatalf("clave nueva sobre paso firmado: %v", err)
+	}
+}
