@@ -311,7 +311,7 @@ BEGIN
     OR vec_contexto_actor_v1.referencia_valida(p_perfil_ref,'prf_') IS NOT TRUE
     OR vec_contexto_actor_v1.instante_valido(p_solicitado_en) IS NOT TRUE THEN RAISE EXCEPTION 'solicitud externa inválida' USING ERRCODE='22023'; END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:externo:operacion:'||p_operacion_ref,0));
- IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto r WHERE r.operacion_ref=p_operacion_ref OR r.registro_contexto_ref=p_registro_contexto_ref) THEN
+ IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto compartido WHERE compartido.operacion_ref=p_operacion_ref OR compartido.registro_contexto_ref=p_registro_contexto_ref) THEN
   RAISE EXCEPTION 'identificador de recibo externo ya compartido' USING ERRCODE='23505'; END IF;
  SELECT * INTO s FROM vec_contexto_actor_v1.snapshot_contexto_externo_vigente_v1(p_cuenta_ref,p_perfil_ref,p_familia,pg_catalog.clock_timestamp());
  IF NOT FOUND THEN RAISE EXCEPTION 'snapshot externo no vigente' USING ERRCODE='P0002'; END IF;
@@ -347,7 +347,7 @@ BEGIN
     OR vec_contexto_actor_v1.referencia_valida(p_perfil_ref,'prf_') IS NOT TRUE
     OR vec_contexto_actor_v1.instante_valido(p_solicitado_en) IS NOT TRUE THEN RAISE EXCEPTION 'solicitud externa inválida' USING ERRCODE='22023'; END IF;
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_contexto_actor_v1:externo:operacion:'||p_operacion_ref,0));
- IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto r WHERE r.operacion_ref=p_operacion_ref OR r.registro_contexto_ref=p_registro_contexto_ref) THEN
+ IF EXISTS(SELECT 1 FROM vec_contexto_actor_v1.registros_contexto compartido WHERE compartido.operacion_ref=p_operacion_ref OR compartido.registro_contexto_ref=p_registro_contexto_ref) THEN
   RAISE EXCEPTION 'identificador de recibo externo ya compartido' USING ERRCODE='23505'; END IF;
  SELECT * INTO s FROM vec_contexto_actor_v1.snapshot_contexto_externo_vigente_v1(p_cuenta_ref,p_perfil_ref,p_familia,pg_catalog.clock_timestamp());
  IF NOT FOUND THEN RAISE EXCEPTION 'snapshot externo no vigente' USING ERRCODE='P0002'; END IF;
