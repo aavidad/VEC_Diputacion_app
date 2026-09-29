@@ -76,8 +76,15 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	// opcionesCatalogo son las opciones del catálogo de reglas que se
 	// publican al abrir PostgreSQL (vías de cobertura y numeración); nulo
 	// significa las de siempre.
-	opcionesCatalogo                  *opcionesAnalisisCTDesarrollo
-	peticionesCentro                  bool
+	opcionesCatalogo *opcionesAnalisisCTDesarrollo
+	peticionesCentro bool
+	// soloConsumePublicada: el perfil general del centro nunca se prepara
+	// ni se publica por petición; se consume la asignación publicada.
+	soloConsumePublicada bool
+	// perfilCancelacionCentro: perfil propio de la cancelación por el
+	// centro, dinámico y con guarda de origen operativo.
+	perfilCancelacionCentro           bool
+	avisoNoConsumibleEn               time.Time
 	candidatoBolsa                    bool
 	mu                                sync.Mutex
 	sello                             *selloConsultasContratacionTemporalDesarrollo

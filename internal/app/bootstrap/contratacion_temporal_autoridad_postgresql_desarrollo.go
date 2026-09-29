@@ -690,12 +690,25 @@ func (a *autoridadPostgreSQLContratacionTemporalDesarrollo) autoridadComun() aut
 	if a == nil || a.soporte == nil {
 		return autoridadPostgreSQLDesarrollo{}
 	}
+	if a.soporte.perfilCancelacionCentro {
+		// Perfil dinámico propio de la cancelación por el centro: solo
+		// continúa una asignación operativa que haya publicado él mismo.
+		return autoridadPostgreSQLDesarrollo{
+			pool:                  a.pool,
+			vinculo:               a.soporte.contexto.Vinculo,
+			prefijoBloqueo:        "vec:ct:desarrollo:autorizacion:",
+			actoControlRol:        actoControlRolCancelacionCentroDesarrollo,
+			actoAsignacion:        actoAsignacionCancelacionCentroDesarrollo,
+			actoSesion:            actoSesionCancelacionCentroDesarrollo,
+			exigirOrigenOperativo: true,
+		}
+	}
 	return autoridadPostgreSQLDesarrollo{
 		pool:           a.pool,
 		vinculo:        a.soporte.contexto.Vinculo,
 		prefijoBloqueo: "vec:ct:desarrollo:autorizacion:",
-		actoControlRol: "acto:ct:desarrollo:control-rol:v1",
-		actoAsignacion: "acto:ct:desarrollo:asignacion:v1",
+		actoControlRol: actoControlRolCTDesarrollo,
+		actoAsignacion: actoAsignacionCTDesarrollo,
 		actoSesion:     "acto:ct:desarrollo:sesion:v1",
 	}
 }

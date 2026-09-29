@@ -27,6 +27,13 @@ import (
 
 var errMiBolsaNoDisponible = errors.New("bolsa: consulta personal de desarrollo no disponible")
 
+// Roles V3 que compone Mi Bolsa: la consulta y, con el portal, la consulta
+// más las acciones propias.
+const (
+	rolConsultaMiBolsaDesarrollo = "candidato_bolsa_historial_propio_desarrollo"
+	rolPortalMiBolsaDesarrollo   = "candidato_bolsa_portal_historial_propio_desarrollo"
+)
+
 func motivoMiBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
 	return dominiovec.ReferenciaEntradaCatalogo{
 		CatalogoID: "motivos_mi_bolsa_desarrollo", CatalogoVersion: 1,
@@ -380,7 +387,7 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 		return dominiovec.InstantaneaAutorizacion{}, errMiBolsaNoDisponible
 	}
 	rol := dominiovec.VersionRol{
-		RolID: "candidato_bolsa_historial_propio_desarrollo", Version: 1,
+		RolID: rolConsultaMiBolsaDesarrollo, Version: 1,
 		Nombre: "Consulta propia de bolsa en desarrollo", Estado: dominiovec.EstadoVersionRolPublicada,
 		Concesiones: []dominiovec.ConcesionRol{{
 			Accion: puertosbolsa.AccionConsultarMiBolsa, ModuloID: puertosbolsa.ModuloMiBolsa,
@@ -398,7 +405,7 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 	if len(portal) == 1 && portal[0] {
 		// Rol distinto (no una versión nueva del de consulta): la asignación
 		// sube de versión al cambiar de rol y la historia anterior se conserva.
-		rol.RolID, rol.Nombre = "candidato_bolsa_portal_historial_propio_desarrollo", "Consulta y acciones propias de bolsa en desarrollo"
+		rol.RolID, rol.Nombre = rolPortalMiBolsaDesarrollo, "Consulta y acciones propias de bolsa en desarrollo"
 		rol.Concesiones = append(rol.Concesiones, concesionesPortalMiBolsaDesarrollo()...)
 		rol.Concesiones = append(rol.Concesiones, concesionesContactoPropioDesarrollo()...)
 	}
@@ -430,12 +437,12 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 
 // La autoridad compara la preimagen en la transacción que mueve el puntero
 // actual. Sólo se admiten alta, replay exacto y consulta → portal desde
-// la versión activa inmediatamente anterior, sea cual sea su número.
+// la versión activa inmediatamente anterior, sea cual sea su número. No hay
+// publicación sin preimagen: un permiso revocado, restringido o de otra forma
+// nunca se sobrescribe al arrancar (ver asegurarPerfilMiBolsaDesarrollo).
 type autoridadInicialMiBolsaDesarrollo interface {
 	prepararInstantanea(context.Context, dominiovec.InstantaneaAutorizacion, bool) (dominiovec.InstantaneaAutorizacion, error)
 	publicarInstantaneaDesdePreimagen(context.Context, dominiovec.InstantaneaAutorizacion, dominiovec.InstantaneaAutorizacion) error
-	publicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error
-	versionActualHabilitada(context.Context, string) (bool, error)
 }
 
 func publicarPerfilMiBolsaDesarrollo(
@@ -488,18 +495,11 @@ func publicarPerfilMiBolsaDesarrollo(
 			return vacia, errMiBolsaNoDisponible
 		}
 	}
+	// Si un binario anterior publicó el portal con otras concesiones, la
+	// preimagen no coincide y aquí no se escribe: esa sustitución exige la
+	// aprobación del operador ligada a la huella exacta del permiso vigente.
 	if autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, preimagen) != nil {
-		// Un binario anterior pudo publicar ya el portal con otras concesiones,
-		// de modo que la preimagen de consulta no coincide. Sólo se sube a la
-		// versión siguiente si la versión de rol vigente sigue habilitada: una
-		// retirada nunca se reactiva al arrancar.
-		if !portal || preparada.AsignacionPerfil.Version <= 1 {
-			return vacia, errMiBolsaNoDisponible
-		}
-		habilitada, err := autoridad.versionActualHabilitada(ctx, preparada.AsignacionPerfil.PerfilActivoRef)
-		if err != nil || !habilitada || autoridad.publicarInstantanea(ctx, preparada) != nil {
-			return vacia, errMiBolsaNoDisponible
-		}
+		return vacia, errMiBolsaNoDisponible
 	}
 	return preparada, nil
 }
@@ -514,6 +514,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 	campos puertosbolsa.CamposPortalMiBolsa,
 	portal puertosbolsa.ReglasPortalCandidato,
+	aprobacion aprobacionProvisionMiBolsaDesarrollo,
 ) ([]vechttp.RutaExacta, error) {
 	if ctx == nil || identidad == nil || sello == nil || alta == nil || alta.soporte == nil ||
 		alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil ||
@@ -573,7 +574,9 @@ func nuevaRutaMiBolsaDesarrollo(
 	if !autoridad.validaConfiguracion() {
 		return nil, errMiBolsaNoDisponible
 	}
-	preparada, err := publicarPerfilMiBolsaDesarrollo(ctx, &autoridad, identidad, reloj.Ahora(), portal != nil)
+	// Con «pendiente_provision» la instantánea va vacía: la política no
+	// concede nada y Mi Bolsa se deniega, sin tumbar el resto del arranque.
+	preparada, _, err := asegurarPerfilMiBolsaDesarrollo(ctx, &autoridad, identidad, reloj.Ahora(), portal != nil, aprobacion)
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
