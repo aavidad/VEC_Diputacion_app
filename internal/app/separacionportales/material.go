@@ -126,7 +126,7 @@ func ComprobarMaterial(p Portal, directorio string) error {
 			}
 		}
 		if relativa == "desarrollo.env" {
-			return comprobarEntornoDeclarado(p, filepath.Join(directorio, relativa))
+			return comprobarEntornoDeclarado(p, directorio, filepath.Join(directorio, relativa))
 		}
 		return nil
 	})
@@ -195,13 +195,16 @@ var lineaDeclaracion = regexp.MustCompile(`^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-
 
 // comprobarEntornoDeclarado aplica a desarrollo.env las mismas reglas que al
 // entorno del proceso: tampoco puede traer conexiones ni secretos ajenos.
-func comprobarEntornoDeclarado(p Portal, ruta string) error {
+func comprobarEntornoDeclarado(p Portal, material, ruta string) error {
 	contenido, err := leerFicheroAcotado(ruta, tamanoMaximoEntornoDecl)
 	if err != nil {
 		return rechazo("configuracion declarada no legible", "desarrollo.env")
 	}
 	for _, v := range leerDeclaraciones(contenido) {
 		if err := comprobarVariable(p, v.nombre, v.valor); err != nil {
+			return err
+		}
+		if err := comprobarRutaPortal(p, v.nombre, v.valor, material); err != nil {
 			return err
 		}
 	}
