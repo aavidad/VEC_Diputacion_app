@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -87,11 +88,13 @@ func TestProcesoExternoNoArrancaConConexionInterna(t *testing.T) {
 
 func TestProcesoExternoConMaterialPropioQuedaPendienteDeComposicion(t *testing.T) {
 	vaciarConexionesDelEntorno(t)
-	if directorio := directorioPersonalPostgreSQL(); directorio != "" {
-		for _, relativa := range []string{".pgpass", ".pg_service.conf", ".postgresql/postgresql.key"} {
-			if _, err := os.Lstat(filepath.Join(directorio, relativa)); err == nil {
-				t.Skip("el usuario de la prueba tiene credenciales de PostgreSQL en su directorio personal")
-			}
+	directorio, err := directorioPersonalPostgreSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, relativa := range []string{".pgpass", ".pg_service.conf", ".postgresql/postgresql.key"} {
+		if _, err := os.Lstat(filepath.Join(directorio, relativa)); err == nil {
+			t.Skip("el usuario de la prueba tiene credenciales de PostgreSQL en su directorio personal")
 		}
 	}
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
@@ -104,6 +107,37 @@ func TestProcesoExternoConMaterialPropioQuedaPendienteDeComposicion(t *testing.T
 	cfg.PortalProceso = "externo"
 	if _, err := NewHTTPServerWithConfig(cfg); !errors.Is(err, ErrComposicionPortalExternoPendiente) {
 		t.Fatalf("el externo con material propio debe pararse en la composicion pendiente: %v", err)
+	}
+}
+
+func TestProcesoSeparadoRechazaDirectorioPersonalDesconocido(t *testing.T) {
+	consultarOriginal := consultarUsuarioActualPostgreSQL
+	t.Cleanup(func() { consultarUsuarioActualPostgreSQL = consultarOriginal })
+	cfg := config.Config{
+		PortalProceso:    "externo",
+		ExecutionProfile: config.ExecutionProfileDevelopment,
+		AuthMode:         config.AuthModeDevelopment,
+		DevelopmentGuard: config.DevelopmentGuardAcknowledgement,
+	}
+	falloUsuario := errors.New("fallo sintetico de user.Current")
+	for _, caso := range []struct {
+		nombre    string
+		consultar func() (*user.User, error)
+		causa     error
+	}{
+		{"error", func() (*user.User, error) { return nil, falloUsuario }, falloUsuario},
+		{"directorio vacio", func() (*user.User, error) { return &user.User{}, nil }, nil},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			consultarUsuarioActualPostgreSQL = caso.consultar
+			_, err := comprobarSeparacionPortalProceso(cfg, entornoProcesoActual())
+			if !errors.Is(err, ErrDirectorioPersonalPostgreSQLNoDisponible) {
+				t.Fatalf("el proceso separado debe denegar el arranque: %v", err)
+			}
+			if caso.causa != nil && !errors.Is(err, caso.causa) {
+				t.Fatalf("el fallo de user.Current debe conservarse: %v", err)
+			}
+		})
 	}
 }
 

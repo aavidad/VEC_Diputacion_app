@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/user"
 
@@ -17,7 +18,9 @@ var (
 	// comprobaciones, pero su composición propia (Área personal sin el
 	// material de RRHH) es la siguiente minitarea. Hasta entonces no arranca
 	// en lugar de componer rutas internas.
-	ErrComposicionPortalExternoPendiente = errors.New("bootstrap: la composicion propia del portal externo aun no existe")
+	ErrComposicionPortalExternoPendiente        = errors.New("bootstrap: la composicion propia del portal externo aun no existe")
+	ErrDirectorioPersonalPostgreSQLNoDisponible = errors.New("bootstrap: no se puede determinar el directorio personal de PostgreSQL")
+	consultarUsuarioActualPostgreSQL            = user.Current
 )
 
 // portalProcesoConfigurado interpreta VEC_PORTAL_PROCESO sin tocar nada más.
@@ -57,6 +60,13 @@ func comprobarSeparacionPortalProceso(cfg config.Config, entorno separacionporta
 	}
 	portal, _ := portalProcesoConfigurado(cfg)
 	if portal.Separado() {
+		if entorno.DirectorioPersonal == "" {
+			directorio, err := directorioPersonalPostgreSQL()
+			if err != nil {
+				return portal, err
+			}
+			entorno.DirectorioPersonal = directorio
+		}
 		if err := separacionportales.ComprobarEntorno(portal, entorno); err != nil {
 			return portal, err
 		}
@@ -67,18 +77,21 @@ func comprobarSeparacionPortalProceso(cfg config.Config, entorno separacionporta
 	return portal, nil
 }
 
-// entornoProcesoActual es la instantánea real del proceso: sus variables y el
-// directorio personal en el que pgx busca credenciales por defecto.
+// entornoProcesoActual toma las variables del proceso. El directorio personal
+// se resuelve con error explícito al comprobar un portal separado.
 func entornoProcesoActual() separacionportales.Entorno {
-	return separacionportales.Entorno{Variables: os.Environ(), DirectorioPersonal: directorioPersonalPostgreSQL()}
+	return separacionportales.Entorno{Variables: os.Environ()}
 }
 
 // directorioPersonalPostgreSQL devuelve el mismo directorio en el que pgx
 // busca .pgpass y la clave de cliente: el del usuario del sistema, no $HOME.
-func directorioPersonalPostgreSQL() string {
-	actual, err := user.Current()
+func directorioPersonalPostgreSQL() (string, error) {
+	actual, err := consultarUsuarioActualPostgreSQL()
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("%w: %w", ErrDirectorioPersonalPostgreSQLNoDisponible, err)
 	}
-	return actual.HomeDir
+	if actual == nil || actual.HomeDir == "" {
+		return "", ErrDirectorioPersonalPostgreSQLNoDisponible
+	}
+	return actual.HomeDir, nil
 }
