@@ -98,6 +98,17 @@ BEGIN
     IF r ? 'DocumentoCustodiaRef' AND jsonb_typeof(r->'DocumentoCustodiaRef') <> 'null' THEN
         RAISE EXCEPTION 'FALLO firma sin enlace: %', r;
     END IF;
+    -- Recuperación de una firma sin enlace: el mismo recibo, enlace nulo.
+    r2 := pg_temp.registrar(pg_temp.solicitud(org,exp,ver,2,2,'firmado',NULL,repeat('a',64),repeat('2',64),'clave-ct145-00000002'));
+    IF r2->>'YaRegistrada' <> 'true' OR r2->>'ReciboRef' <> r->>'ReciboRef'
+       OR jsonb_typeof(r2->'DocumentoCustodiaRef') <> 'null' OR jsonb_typeof(r2->'DocumentoCustodiaVersion') <> 'null' THEN
+        RAISE EXCEPTION 'FALLO recuperación sin enlace: %', r2;
+    END IF;
+    -- La versión admite 2^53-1 (límite de un entero seguro en JSON).
+    r := pg_temp.registrar(pg_temp.solicitud(org,exp,ver,3,3,'firmado',NULL,repeat('a',64),repeat('4',64),'clave-ct145-00000011','ref:'||repeat('f',64),9007199254740991));
+    IF (r->>'DocumentoCustodiaVersion')::numeric <> 9007199254740991 THEN
+        RAISE EXCEPTION 'FALLO versión máxima: %', r;
+    END IF;
     IF (SELECT count(*) FROM jsonb_array_elements(vec_contratacion_temporal.consultar_firmas_documento_v2(org,exp)) f
          WHERE f->>'DocumentoCustodiaRef' = 'ref:'||repeat('d',64) AND (f->>'DocumentoCustodiaVersion')::int = 1) <> 1
        OR EXISTS (SELECT 1 FROM jsonb_array_elements(vec_contratacion_temporal.consultar_firmas_documento_v2(org,exp)) f
@@ -108,32 +119,37 @@ BEGIN
 END $recorrido$;
 
 -- Enlaces incoherentes: se rechazan sin escribir.
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'devuelto','Falta la fecha de efectos',NULL,NULL,'clave-ct145-00000003','ref:'||repeat('e',64),1))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'devuelto','Falta la fecha de efectos',NULL,NULL,'clave-ct145-00000003','ref:'||repeat('e',64),1))$q$,
     :'organizacion',:'expediente',:'version'),'22023','devolución con documento custodiado');
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000004','ref:'||repeat('e',64),NULL))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000004','ref:'||repeat('e',64),NULL))$q$,
     :'organizacion',:'expediente',:'version'),'22023','referencia sin versión');
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000005',NULL,1))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000005',NULL,1))$q$,
     :'organizacion',:'expediente',:'version'),'22023','versión sin referencia');
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000006','ref con espacio',1))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000006','ref con espacio',1))$q$,
     :'organizacion',:'expediente',:'version'),'22023','referencia con forma inválida');
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000007','ref:'||repeat('e',64),0))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000007','ref:'||repeat('e',64),0))$q$,
     :'organizacion',:'expediente',:'version'),'22023','versión 0');
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(replace(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000008','ref:'||repeat('e',64),1),'"DocumentoCustodiaVersion": 1','"DocumentoCustodiaVersion": "1"'))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(replace(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000008','ref:'||repeat('e',64),1),'"DocumentoCustodiaVersion": 1','"DocumentoCustodiaVersion": "1"'))$q$,
     :'organizacion',:'expediente',:'version'),'22023','versión como texto');
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000012','ref:'||repeat('e',64),9007199254740992))$q$,
+    :'organizacion',:'expediente',:'version'),'22023','versión por encima de 2^53-1');
+-- La misma clave con otro enlace es otro material.
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,1,'firmado',NULL,repeat('a',64),repeat('1',64),'clave-ct145-00000001','ref:'||repeat('e',64),1))$q$,
+    :'organizacion',:'expediente',:'version'),'P1181','misma clave con otro enlace');
 -- El mismo documento custodiado no puede enlazarse a otra firma.
-SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000009','ref:'||repeat('d',64),1))$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000009','ref:'||repeat('d',64),1))$q$,
     :'organizacion',:'expediente',:'version'),'23505','documento ya enlazado a otra firma');
 -- Las v1 ya no están al alcance de la aplicación.
 SELECT pg_temp.debe_fallar(format($q$SELECT vec_contratacion_temporal.consultar_firmas_documento_v1(%L,%L)$q$,
     :'organizacion',:'expediente'),'42501','consulta v1 retirada');
-SELECT pg_temp.debe_fallar(format($q$SELECT vec_contratacion_temporal.registrar_firma_documento_v1(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000010'),'\x',NULL,'\x','\x',1,1,'\x','\x','\x','\x')$q$,
+SELECT pg_temp.debe_fallar(format($q$SELECT vec_contratacion_temporal.registrar_firma_documento_v1(pg_temp.solicitud(%L,%L,%s,1,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-ct145-00000010'),'\x',NULL,'\x','\x',1,1,'\x','\x','\x','\x')$q$,
     :'organizacion',:'expediente',:'version'),'42501','registro v1 retirado');
 RESET SESSION AUTHORIZATION;
 
--- Un solo enlace nuevo, con la huella del firmado, y ninguno más.
+-- Dos enlaces nuevos (la huella del firmado va en el enlace) y ninguno más.
 DO $enlace$
 BEGIN
-    IF (SELECT count(*) FROM vec_contratacion_temporal.firma_documento_custodia_v1) <> current_setting('prueba_ct145.enlaces_previos')::bigint + 1
+    IF (SELECT count(*) FROM vec_contratacion_temporal.firma_documento_custodia_v1) <> current_setting('prueba_ct145.enlaces_previos')::bigint + 2
        OR NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.firma_documento_custodia_v1
                        WHERE firma_ref=current_setting('prueba_ct145.firma') AND documento_huella_sha256=repeat('1',64)
                          AND documento_version=1 AND documento_ref='ref:'||repeat('d',64)) THEN
