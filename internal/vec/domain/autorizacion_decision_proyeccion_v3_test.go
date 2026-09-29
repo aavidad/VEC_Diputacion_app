@@ -46,3 +46,27 @@ func TestProyeccionDecisionLigadaV3ExigeCamposYObligacionesYCopia(t *testing.T) 
 		t.Fatal("decision vacia aceptada")
 	}
 }
+
+func TestProyeccionDecisionLigadaV3DeniegaCampoFuturoEnConcesion(t *testing.T) {
+	solicitud, instantanea, emitida := escenarioDecisionAutorizacionV3Prueba(t)
+	instantanea.VersionRol.Concesiones[0].CamposPermitidos = []string{"estado", "dato_futuro"}
+	instantanea.Politicas[0].CamposPermitidos = []string{"estado", "dato_futuro"}
+	instantanea.CatalogoPoliticasHuellaSHA256 = huellaCatalogoDecisionAutorizacionV3Prueba(t, instantanea.Politicas)
+	evidencia, err := NuevaEvidenciaEvaluacionAutorizacionV3(
+		solicitud, instantanea, "dec_futura_0123456789abcdef", emitida, emitida.Add(time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := NuevaDecisionAutorizacionLigadaV3(solicitud, evidencia)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restricciones, err := decision.RestriccionesProyeccionPara(solicitud)
+	if err != nil || len(restricciones.CamposPermitidos) != 2 {
+		t.Fatalf("fixture sin campo adicional: %+v, %v", restricciones, err)
+	}
+	if err := decision.ExigirProyeccionPara(solicitud, []string{"estado"}, []string{"auditar_acceso", "registrar_revision"}); err == nil {
+		t.Fatal("decision con campo futuro no fue denegada")
+	}
+}

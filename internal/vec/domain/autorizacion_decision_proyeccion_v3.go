@@ -20,8 +20,9 @@ func (d DecisionAutorizacionLigadaV3) RestriccionesProyeccionPara(
 	}, nil
 }
 
-// ExigirProyeccionPara falla cerrado ante campos ausentes, repetidos o sin
-// concesión y ante cualquier obligación que el consumidor no soporte.
+// ExigirProyeccionPara exige exactamente los campos que consume la proyección.
+// Falla cerrado ante campos ausentes, futuros, repetidos o sin concesión y
+// ante cualquier obligación que el consumidor no soporte.
 // La ejecución de las obligaciones sigue siendo responsabilidad del consumidor.
 func (d DecisionAutorizacionLigadaV3) ExigirProyeccionPara(
 	solicitud SolicitudAutorizacionLigadaV3,
@@ -30,6 +31,7 @@ func (d DecisionAutorizacionLigadaV3) ExigirProyeccionPara(
 ) error {
 	restricciones, err := d.RestriccionesProyeccionPara(solicitud)
 	if err != nil || len(camposRequeridos) == 0 ||
+		len(restricciones.CamposPermitidos) != len(camposRequeridos) ||
 		!listaAutorizacionValida(camposRequeridos, false, false) ||
 		!listaAutorizacionValida(obligacionesSoportadas, false, false) {
 		return ErrAutorizacionDenegada
