@@ -52,8 +52,33 @@ class ProvisionTests(unittest.TestCase):
         with patch.object(module, "_run") as run:
             result = module.provision(Path("/irrelevant"), "principal", module.STATE,
                                       module.STATE / "material", 55531)
-        self.assertEqual(result["blockers"], ["target_outside_authorized_clone"])
+        self.assertEqual(result["blockers"], [{"profile": "bolsa", "code": "target_outside_authorized_clone"}])
         run.assert_not_called()
+
+    def test_driver_can_filter_and_report_structured_blockers(self):
+        result = module.provision(Path("/irrelevant"), "principal", module.STATE,
+                                  module.STATE / "material", 55531)
+        # The caller filters by code and later emits the same dictionaries.
+        pending = [b for b in result["blockers"] if b["code"] != "optional_dependency"]
+        encoded = json.dumps({"blockers": pending})
+        self.assertEqual(json.loads(encoded)["blockers"][0]["profile"], "bolsa")
+        self.assertEqual(pending[0]["code"], "target_outside_authorized_clone")
+
+    def test_driver_gets_fixed_code_for_incidental_os_error(self):
+        with patch.object(module, "_check_path", side_effect=OSError("private dummy detail")):
+            result = module.provision(Path("/irrelevant"), module.CONTAINER, module.STATE,
+                                      module.STATE / "material", 55531)
+        self.assertEqual(result["blockers"], [{"profile": "bolsa", "code": "bolsa_material_invalid_or_unavailable"}])
+        self.assertNotIn("private dummy detail", json.dumps(result))
+
+    def test_sql_explicit_local_endpoint_ignores_ambient_host_and_port(self):
+        clone = module.Clone("docker", module.CONTAINER, module.STATE)
+        for tls_ca, expected_host in ((None, "/var/run/postgresql"), ("/var/lib/postgresql/ca.crt", "localhost")):
+            with self.subTest(tls=bool(tls_ca)), patch.object(clone, "guard"), patch.object(module, "_run", return_value="") as run:
+                clone.sql("SELECT 1;", tls_ca=tls_ca)
+                arguments = run.call_args.args[0]
+                self.assertEqual(arguments[arguments.index("-h") + 1], expected_host)
+                self.assertEqual(arguments[arguments.index("-p") + 1], "5432")
 
     def test_revoked_login_not_reactivated(self):
         data = snapshot(True)
@@ -133,13 +158,30 @@ class ProvisionTests(unittest.TestCase):
                 os.close(fd)
 
     def test_contract_change_rejected(self):
+        from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            path = root / "contract.go"
-            path.write_text("changed")
-            with patch.object(module, "CONTRACT_HASHES", {"contract.go": "unchanged digest"}):
+            with patch.object(module, "CONTRACT_HASHES", {"contract.go": "unchanged digest"}), patch.object(module.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=b"changed")):
                 with self.assertRaisesRegex(module.ProvisionError, "source_contract_changed"):
-                    module._source_contracts(root)
+                    module._source_contracts(root, module.SOURCE)
+
+    def test_committed_source_accepted_despite_divergent_working_tree(self):
+        import hashlib
+        from types import SimpleNamespace
+        committed = b"reviewed exact bytes\n\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "contract.go").write_bytes(b"unrelated WIP")
+            hashes = {"contract.go": hashlib.sha256(committed).hexdigest()}
+            with patch.object(module, "CONTRACT_HASHES", hashes), patch.object(module.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout=committed)) as run:
+                module._source_contracts(root, module.SOURCE)
+                self.assertEqual(run.call_args.args[0], ["git", "-C", str(root), "show", module.SOURCE + ":contract.go"])
+
+    def test_unknown_source_rejected_without_git_execution(self):
+        with patch.object(module.subprocess, "run") as run:
+            with self.assertRaisesRegex(module.ProvisionError, "source_commit_not_authorized"):
+                module._source_contracts(Path("/irrelevant"), "unknown")
+        run.assert_not_called()
 
 
 if __name__ == "__main__":

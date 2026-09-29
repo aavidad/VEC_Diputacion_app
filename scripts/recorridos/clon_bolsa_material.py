@@ -56,11 +56,18 @@ class ProvisionError(RuntimeError):
     """Messages deliberately carry no SQL, credentials or identity values."""
 
 
-def _source_contracts(repo: Path) -> None:
+def _source_contracts(repo: Path, source_ref: str) -> None:
+    if source_ref not in AUTHORIZED_SOURCES:
+        raise ProvisionError("source_commit_not_authorized")
+    _check_path(repo, directory=True)
     for name, expected in CONTRACT_HASHES.items():
-        path = repo / name
-        _check_path(path)
-        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        # The shared root may contain unrelated WIP or an older checkout.
+        # Read the requested committed source, preserving every byte.
+        source = subprocess.run(["git", "-C", str(repo), "show", source_ref + ":" + name],
+                                capture_output=True, timeout=15, check=False)
+        if source.returncode:
+            raise ProvisionError("source_contract_unavailable")
+        if hashlib.sha256(source.stdout).hexdigest() != expected:
             raise ProvisionError("source_contract_changed")
 
 
@@ -169,9 +176,10 @@ class Clone:
         self.guard()
         argv = [self.engine, "exec", "-i"]
         if tls_ca:
-            argv += ["-e", "PGHOST=localhost", "-e", "PGSSLMODE=verify-full",
+            argv += ["-e", "PGSSLMODE=verify-full",
                      "-e", "PGSSLROOTCERT=" + tls_ca]
         argv += [self.container, "psql", "-XAtq", "-v", "ON_ERROR_STOP=1",
+                 "-h", "localhost" if tls_ca else "/var/run/postgresql", "-p", "5432",
                  "-U", user, "-d", "postgres"]
         return _run(argv, data=text)
 
@@ -359,7 +367,6 @@ def provision(repo: Path, container: str, state: Path, material: Path,
             raise ProvisionError("target_outside_authorized_clone")
         _check_path(state, private=True, directory=True)
         _check_path(material, private=True, directory=True)
-        _source_contracts(repo)
         private = state / "bolsa-material"
         if not private.exists():
             private.mkdir(mode=0o700)
@@ -369,7 +376,8 @@ def provision(repo: Path, container: str, state: Path, material: Path,
             _check_path(private / "provision.lock", private=True)
             fcntl.flock(lock, fcntl.LOCK_EX)
             clone = Clone(engine, container, state)
-            clone.guard()
+            ready = clone.guard()
+            _source_contracts(repo, ready.get("current_source_ref", ready["commit"]))
             # Actor/history is checked before any SQL mutation.
             manifest = _historical_manifest(clone, material)
             path = material / "identidad/bolsa-bback.json"
@@ -419,7 +427,8 @@ def provision(repo: Path, container: str, state: Path, material: Path,
             else:
                 _write_new(initial, result)
     except (ProvisionError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
-        result = {"env": {}, "profiles": {}, "blockers": [str(exc) if isinstance(exc, ProvisionError) else "bolsa_material_invalid_or_unavailable"]}
+        code = str(exc) if isinstance(exc, ProvisionError) else "bolsa_material_invalid_or_unavailable"
+        result = {"env": {}, "profiles": {}, "blockers": [{"profile": "bolsa", "code": code}]}
     return result
 
 
