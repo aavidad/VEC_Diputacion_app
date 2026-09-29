@@ -84,7 +84,7 @@ func acreditarLectorHistoricoProvisionCT(ctx context.Context, q interface {
 	return nil
 }
 
-func abrirPoolProvisionadorPerfilesCT(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+func abrirPoolProvisionadorPerfilesCT(ctx context.Context, dsn string, soloLectura bool) (*pgxpool.Pool, error) {
 	if ctx == nil || ctx.Err() != nil || dsn == "" {
 		return nil, errProvisionPerfilesCTNoDisponible
 	}
@@ -102,6 +102,9 @@ func abrirPoolProvisionadorPerfilesCT(ctx context.Context, dsn string) (*pgxpool
 	c.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	c.ConnConfig.RuntimeParams["search_path"] = "pg_catalog,pg_temp"
 	c.ConnConfig.RuntimeParams["default_transaction_isolation"] = "serializable"
+	if soloLectura {
+		c.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
+	}
 	c.ConnConfig.RuntimeParams["statement_timeout"] = "15s"
 	c.ConnConfig.RuntimeParams["lock_timeout"] = "3s"
 	usuario := c.ConnConfig.User
@@ -179,16 +182,15 @@ func (c *conexionesProvisionPerfilesCT) cerrar() {
 	}
 }
 
-func abrirConexionesProvisionPerfilesCT(ctx context.Context, cfg config.Config) (_ conexionesProvisionPerfilesCT, errFinal error) {
+func abrirConexionesProvisionPerfilesCT(ctx context.Context, cfg config.Config, soloLectura bool) (_ conexionesProvisionPerfilesCT, errFinal error) {
 	vacias := conexionesProvisionPerfilesCT{}
 	dsnProvisionador := os.Getenv(EnvCTPerfilesProvisionadorDatabaseURL)
 	dsnFuente := os.Getenv(config.EnvAutorizacionFuenteDatabaseURL)
-	dsnContextoRuntime, err := cfg.Normalize().ContratacionTemporalPostgreSQL.DSNContextoActorConsultasSeparado()
 	dsnContextoHistorico := os.Getenv(EnvCTPerfilesContextoHistoricoDatabaseURL)
-	if err != nil || dsnProvisionador == "" || dsnFuente == "" || dsnContextoHistorico == "" {
+	if dsnProvisionador == "" || dsnFuente == "" || dsnContextoHistorico == "" {
 		return vacias, errProvisionPerfilesCTNoDisponible
 	}
-	provisionador, err := abrirPoolProvisionadorPerfilesCT(ctx, dsnProvisionador)
+	provisionador, err := abrirPoolProvisionadorPerfilesCT(ctx, dsnProvisionador, soloLectura)
 	if err != nil {
 		return vacias, errProvisionPerfilesCTNoDisponible
 	}
@@ -203,10 +205,16 @@ func abrirConexionesProvisionPerfilesCT(ctx context.Context, cfg config.Config) 
 	if err != nil {
 		return vacias, errProvisionPerfilesCTNoDisponible
 	}
-	c.contextoRuntime, _, err = abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx,
-		dsnContextoRuntime, "vec-ct-perfiles-contexto-runtime", rolContextoActorConsultasDesarrollo)
-	if err != nil {
-		return vacias, errProvisionPerfilesCTNoDisponible
+	if !soloLectura {
+		dsnContextoRuntime, err := cfg.Normalize().ContratacionTemporalPostgreSQL.DSNContextoActorConsultasSeparado()
+		if err != nil {
+			return vacias, errProvisionPerfilesCTNoDisponible
+		}
+		c.contextoRuntime, _, err = abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx,
+			dsnContextoRuntime, "vec-ct-perfiles-contexto-runtime", rolContextoActorConsultasDesarrollo)
+		if err != nil {
+			return vacias, errProvisionPerfilesCTNoDisponible
+		}
 	}
 	c.contextoHistorico, err = abrirPoolContextoHistoricoProvisionCT(ctx, dsnContextoHistorico)
 	if err != nil {
@@ -214,6 +222,9 @@ func abrirConexionesProvisionPerfilesCT(ctx context.Context, cfg config.Config) 
 	}
 	usuarios := map[string]struct{}{}
 	for _, p := range []*pgxpool.Pool{c.provisionador, c.fuente, c.contextoRuntime, c.contextoHistorico} {
+		if p == nil {
+			continue
+		}
 		u := p.Config().ConnConfig.User
 		if _, existe := usuarios[u]; u == "" || existe {
 			return vacias, errProvisionPerfilesCTNoDisponible
