@@ -28,7 +28,7 @@ func ejecutar(args []string, salida io.Writer, entorno func(string) string) (cod
 	huella := f.String("huella-aprobada", "", "")
 	aprobacion := f.String("aprobacion-ref", "", "")
 	publicar := f.Bool("publicar", false, "")
-	if f.Parse(args) != nil || f.NArg() != 0 || (*fase != "autorizacion" && *fase != "contexto") {
+	if f.Parse(args) != nil || f.NArg() != 0 || (*fase != "autorizacion" && *fase != "contexto" && *fase != "motivos") {
 		return fallo(salida, "entrada_invalida", 2)
 	}
 	b, err := bootstrap.LeerMaterialProvisionExterna(*ruta, 262144)
@@ -38,6 +38,9 @@ func ejecutar(args []string, salida io.Writer, entorno func(string) string) (cod
 	defer clear(b)
 	if *fase == "contexto" {
 		return ejecutarContexto(b, *dsnArchivo, *publicar, *huella, *aprobacion, salida)
+	}
+	if *fase == "motivos" {
+		return ejecutarMotivos(b, *dsnArchivo, *publicar, *huella, *aprobacion, salida)
 	}
 	s, err := bootstrap.LeerSolicitudProvisionUsuariosExterno(bytes.NewReader(b))
 	if err != nil {
@@ -97,6 +100,58 @@ func tlsVerificado(c *pgx.ConnConfig) bool {
 		f.TLSConfig.MinVersion = tls.VersionTLS12
 	}
 	return true
+}
+
+func ejecutarMotivos(b []byte, dsnArchivo string, publicar bool, huella, aprobacion string, salida io.Writer) (codigo int) {
+	s, err := bootstrap.LeerSolicitudMotivosUsuariosExterno(b)
+	if err != nil {
+		return fallo(salida, "entrada_invalida", 2)
+	}
+	r, err := s.Resumen()
+	if err != nil {
+		return fallo(salida, "entrada_invalida", 2)
+	}
+	if !publicar {
+		if huella != "" || aprobacion != "" {
+			return fallo(salida, "entrada_invalida", 2)
+		}
+		if json.NewEncoder(salida).Encode(r) != nil {
+			return 1
+		}
+		return 0
+	}
+	if huella != r.HuellaPlan || aprobacion != s.AprobacionRef {
+		return fallo(salida, "aprobacion_divergente", 2)
+	}
+	secreto, err := bootstrap.LeerMaterialProvisionExterna(dsnArchivo, 16384)
+	if err != nil {
+		return fallo(salida, "conexion_no_disponible", 2)
+	}
+	defer clear(secreto)
+	cfg, err := pgx.ParseConfig(strings.TrimSpace(string(secreto)))
+	if err != nil || len(bytes.TrimSpace(secreto)) == 0 || !tlsVerificado(cfg) {
+		return fallo(salida, "conexion_no_disponible", 2)
+	}
+	configurarConexion(cfg, "vec-provision-usuarios-externo-motivos")
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	con, err := pgx.ConnectConfig(ctx, cfg)
+	if err != nil {
+		return fallo(salida, "conexion_no_disponible", 1)
+	}
+	defer func() {
+		if cerrarConexion(con) != nil {
+			codigo = 1
+		}
+	}()
+	r, err = bootstrap.PublicarMotivosUsuariosExterno(ctx, con, s, huella, aprobacion)
+	if err != nil {
+		return fallo(salida, "publicacion_no_confirmada", 1)
+	}
+	if json.NewEncoder(salida).Encode(r) != nil {
+		return 1
+	}
+	return 0
 }
 
 func fallo(w io.Writer, codigo string, salida int) int {
