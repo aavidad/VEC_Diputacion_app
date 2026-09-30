@@ -249,8 +249,7 @@ class InstallerTests(unittest.TestCase):
                             'Destination': '/var/lib/postgresql'}],
                 'HostConfig': {'Tmpfs': {'/tmp': 'rw,noexec,nosuid,size=16m',
                                        '/var/run/postgresql': 'rw,noexec,nosuid,size=8m'}}}
-        db = self.original_db.__new__(self.original_db)
-        db.container, db.state, db.expected_image_id = self.cid, self.state, self.image
+        db = self.original_db(self.cid, self.state, self.image)
         with patch.object(installer.clon_sql, '_probe_command', return_value=json.dumps(info).encode()) as docker:
             observed = db._probe_metadata()
         self.assertEqual(observed['pg_container_id'], self.cid)
