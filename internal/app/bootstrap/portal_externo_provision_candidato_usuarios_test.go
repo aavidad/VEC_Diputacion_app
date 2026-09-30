@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -31,5 +32,16 @@ func TestIdentidadUsuariosUsaSuSnapshotSinPerfilBolsa(t *testing.T) {
 func TestProvisionCandidatoNoPublicaCorrespondenciaEnBolsa(t *testing.T) {
 	if _, err := PrepararProvisionCandidatoExterno(cfgProvisionCandidatoPrueba(), fuenteProvisionCandidatoPrueba(), "bolsa", time.Now()); err != ErrProvisionCandidatoExterno {
 		t.Fatal("la herramienta admitió publicar datos de identidad en Bolsa")
+	}
+}
+
+func TestHuellaProvisionPropagaFalloJSONYRetiraHuellaPrevia(t *testing.T) {
+	if huella, err := huellaJSONProvisionExterna(make(chan int)); huella != "" || !errors.Is(err, ErrProvisionCandidatoExterno) {
+		t.Fatal("la huella ocultó el fallo de serialización")
+	}
+	p := PlanProvisionCandidatoExterno{desde: time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)}
+	p.resumen.HuellaSHA256 = strings.Repeat("a", 64)
+	if err := p.actualizarHuella(); !errors.Is(err, ErrProvisionCandidatoExterno) || p.resumen.HuellaSHA256 != "" {
+		t.Fatal("el plan conservó una huella aprobable tras fallar la serialización")
 	}
 }

@@ -100,7 +100,9 @@ func CompletarPlanProvisionCandidatoExterno(ctx context.Context, cfg config.Conf
 	if err != nil {
 		return PlanProvisionCandidatoExterno{}, ErrProvisionCandidatoExterno
 	}
-	p.actualizarHuella()
+	if err := p.actualizarHuella(); err != nil {
+		return PlanProvisionCandidatoExterno{}, err
+	}
 	return p, nil
 }
 

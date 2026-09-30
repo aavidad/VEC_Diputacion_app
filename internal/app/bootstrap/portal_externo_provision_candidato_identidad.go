@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
@@ -19,24 +20,30 @@ type IdentidadProvisionCandidatoExterno seudonimoCuentaPortalExterno
 func (IdentidadProvisionCandidatoExterno) String() string   { return "[ALIAS EXTERNO PRIVADO]" }
 func (IdentidadProvisionCandidatoExterno) GoString() string { return "[ALIAS EXTERNO PRIVADO]" }
 
-func (i IdentidadProvisionCandidatoExterno) validaPara(cuenta string) bool {
+func (i IdentidadProvisionCandidatoExterno) validarPara(cuenta string) error {
 	if i.CuentaRef != cuenta || i.ClaveVersion > 1<<63-1 || !referenciaExterna(cuenta, "cta_") ||
 		!huellaPreimagenMiBolsaPortalExterno.MatchString(i.CuentaHMAC) || !huellaPreimagenMiBolsaPortalExterno.MatchString(i.SujetoHMAC) {
-		return false
+		return ErrProvisionCandidatoExterno
 	}
 	for _, texto := range []string{i.CuentaRef, i.Esquema, i.DominioRef, i.ClaveID} {
 		for _, c := range texto {
 			if c < 33 || c > 126 {
-				return false
+				return ErrProvisionCandidatoExterno
 			}
 		}
 	}
 	b, err := json.Marshal(seudonimosPortalExterno{Version: 1, Cuentas: []seudonimoCuentaPortalExterno{seudonimoCuentaPortalExterno(i)}})
 	if err != nil {
-		return false
+		return errors.Join(ErrProvisionCandidatoExterno, err)
 	}
 	_, err = leerSeudonimosPortalExterno(b)
-	return err == nil && i.CuentaHMAC != i.SujetoHMAC
+	if err != nil {
+		return errors.Join(ErrProvisionCandidatoExterno, err)
+	}
+	if i.CuentaHMAC == i.SujetoHMAC {
+		return ErrProvisionCandidatoExterno
+	}
+	return nil
 }
 
 // CargarAliasIdentidadCandidatoExterno selecciona una única cuenta del
@@ -60,7 +67,7 @@ func CargarAliasIdentidadCandidatoExterno(ruta, cuenta string) (*IdentidadProvis
 			return nil, ErrProvisionCandidatoExterno
 		}
 		i := IdentidadProvisionCandidatoExterno(c)
-		if !i.validaPara(cuenta) {
+		if i.validarPara(cuenta) != nil {
 			return nil, ErrProvisionCandidatoExterno
 		}
 		resultado = &i
@@ -89,7 +96,7 @@ func huellaAusenciaIdentidadExterna(cuenta string) string {
 }
 
 func publicarIdentidadCandidatoExterno(ctx context.Context, tx pgx.Tx, p PlanProvisionCandidatoExterno) error {
-	if p.identidad == nil || !p.identidad.validaPara(p.identidad.CuentaRef) || p.resumen.PreimagenSHA256 != huellaAusenciaIdentidadExterna(p.identidad.CuentaRef) {
+	if p.identidad == nil || p.identidad.validarPara(p.identidad.CuentaRef) != nil || p.resumen.PreimagenSHA256 != huellaAusenciaIdentidadExterna(p.identidad.CuentaRef) {
 		return ErrProvisionCandidatoExterno
 	}
 	i := *p.identidad
