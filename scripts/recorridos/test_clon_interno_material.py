@@ -342,6 +342,98 @@ class InternalProjectionTests(unittest.TestCase):
         return {str(p.relative_to(self.state)): (p.read_bytes(), p.stat().st_mtime_ns)
                 for p in self.state.rglob("*") if p.is_file() and not p.is_symlink()}
 
+    def test_pre_ad132_syncs_every_directory_bottom_up_before_rename_and_state_after(self):
+        self.staged_fixture()
+        events = []
+        sync, rename = projection.fsync_directory, Path.rename
+        def sync_directory(path):
+            events.append(("sync", Path(path)))
+            return sync(path)
+        def publish(path, target):
+            events.append(("rename", path))
+            directories = {path, *(p for p in path.rglob("*") if p.is_dir())}
+            synced = [p for kind, p in events if kind == "sync"]
+            self.assertEqual(set(synced), directories)
+            self.assertEqual(len(synced), len(directories))
+            for directory in directories - {path}:
+                self.assertLess(synced.index(directory), synced.index(directory.parent))
+            return rename(path, target)
+        with patch.object(projection, "fsync_directory", side_effect=sync_directory), patch.object(Path, "rename", publish):
+            descriptor = self.staged_provision()
+        self.assertEqual(events[-1], ("sync", self.state))
+        self.assertEqual(events[-2][0], "rename")
+        self.assertEqual(descriptor["status"], "pending_ad132")
+        self.assertFalse((self.state / "DB_READY.json").exists())
+
+    def test_pre_ad132_sync_and_rename_failures_preserve_only_pending_publication(self):
+        self.staged_fixture()
+        foreign = self.state / ".runtime-interno-other"
+        foreign.mkdir(mode=0o700)
+        self.put(foreign / "marker", b"other invocation")
+        before = self.snapshot()
+        sync, rename = projection.fsync_directory, Path.rename
+        for failure in ("leaf", "root", "rename", "state"):
+            with self.subTest(failure=failure):
+                def sync_directory(path):
+                    path = Path(path)
+                    if ((failure == "leaf" and path.name == "bolsa")
+                            or (failure == "root" and path.name.startswith(".runtime-interno-"))
+                            or (failure == "state" and path == self.state)):
+                        raise OSError("injected directory fsync failure")
+                    return sync(path)
+                def publish(path, target):
+                    if failure == "rename":
+                        raise OSError("injected rename failure")
+                    return rename(path, target)
+                with patch.object(projection, "fsync_directory", side_effect=sync_directory), patch.object(Path, "rename", publish):
+                    with self.assertRaises(OSError):
+                        self.staged_provision()
+                self.assertEqual(list(self.state.glob(".runtime-interno-*")), [foreign])
+                self.assertEqual((foreign / "marker").read_bytes(), b"other invocation")
+                self.assertFalse((self.state / "DB_READY.json").exists())
+                root = self.state / "runtime-interno"
+                if failure != "state":
+                    self.assertFalse(root.exists())
+                    self.assertEqual(self.snapshot(), before)
+                    continue
+                self.assertEqual(json.loads((root / "material-manifest.json").read_bytes())["status"], "pending_ad132")
+                pending = self.snapshot()
+                with patch.object(Path, "rename", side_effect=AssertionError("retry must verify existing bytes")), \
+                     patch.object(projection, "fsync_directory", side_effect=sync) as synced:
+                    descriptor = self.staged_provision()
+                synced.assert_called_once_with(self.state)
+                self.assertEqual(self.snapshot(), pending)
+                self.assertEqual(descriptor["status"], "pending_ad132")
+                self.put(root / "material/tls/servidor.crt", b"changed after failed sync")
+                with patch.object(projection, "fsync_directory", side_effect=AssertionError("verify before syncing")):
+                    with self.assertRaises(projection.ProjectionError):
+                        self.staged_provision()
+
+    def test_driver_failed_parent_sync_aborts_and_retry_verifies_pending_bytes(self):
+        self.staged_fixture()
+        spec = importlib.util.spec_from_file_location("sync_driver", Path(__file__).with_name("clon_material.py"))
+        driver = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(driver)
+        args = SimpleNamespace(repo=self.repo, container="vec-owned", pg_port=55531, engine="docker", pre_ad132=True)
+        parent = json.loads((self.state / "material-manifest.json").read_bytes())
+        original = json.loads(json.dumps(parent))
+        module = SimpleNamespace(provision=lambda **kwargs: self.staged_provision())
+        with patch.object(driver, "load_profile_module", return_value=module), \
+             patch.object(driver, "fsync_directory", side_effect=OSError("injected parent fsync failure")):
+            with self.assertRaises(OSError):
+                driver.seal_internal_projection(args, self.state, self.source, parent)
+        self.assertEqual(parent, original)
+        sealed = json.loads((self.state / "material-manifest.json").read_bytes())
+        self.assertEqual(sealed["runtime_interno"]["status"], "pending_ad132")
+        self.assertFalse((self.state / "DB_READY.json").exists())
+        before = self.snapshot()
+        with patch.object(driver, "load_profile_module", return_value=module), \
+             patch.object(Path, "rename", side_effect=AssertionError("retry must verify existing projection")), \
+             patch.object(driver, "fsync_directory", wraps=driver.fsync_directory) as synced:
+            self.assertEqual(driver.seal_internal_projection(args, self.state, self.source, sealed), sealed)
+        synced.assert_called_once_with(self.state)
+        self.assertEqual(self.snapshot(), before)
+
     def test_pre_ad132_projects_definitive_files_without_ready_and_post_only_verifies_bytes(self):
         self.staged_fixture()
         before = self.snapshot()
@@ -453,8 +545,12 @@ class InternalProjectionTests(unittest.TestCase):
                 json.loads((self.state / "clon.json").read_bytes()) | {"sql_instaladas": 62}))
             args.pre_ad132 = False
             before = self.snapshot()
-            self.assertEqual(driver.prepare(args), result)
-            self.assertEqual(self.snapshot(), before)
+            with patch.object(driver, "fsync_directory", side_effect=AssertionError("post AD132 must not sync")), \
+                 patch.object(projection, "fsync_directory", side_effect=AssertionError("post AD132 must not sync")), \
+                 patch.object(projection.os, "replace", side_effect=AssertionError("post AD132 must not replace")), \
+                 patch.object(projection.os, "mkdir", side_effect=AssertionError("post AD132 must not mkdir")):
+                self.assertEqual(driver.prepare(args), result)
+                self.assertEqual(self.snapshot(), before)
             for flag in ("complete_profiles", "repair_coverage_connect", "repair_importacion_connect", "repair_nominal_connect",
                          "update_source", "refresh_internal_proof", "prepare_public_catalogs"):
                 for pre in (True, False):

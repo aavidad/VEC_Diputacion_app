@@ -114,6 +114,14 @@ def json_write(path: Path, value: object) -> None:
     private_write(path, json.dumps(value, ensure_ascii=False, indent=2) + "\n")
 
 
+def fsync_directory(path: Path) -> None:
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def replace_private(path: Path, value: object, *, plain: bool = False) -> None:
     # Controlled refresh after the previous manifest has been verified.
     private_read(path)
@@ -125,6 +133,7 @@ def replace_private(path: Path, value: object, *, plain: bool = False) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temp, path)
+        fsync_directory(path.parent)
     finally:
         if os.path.exists(temp):
             os.unlink(temp)
@@ -1090,10 +1099,12 @@ def seal_internal_projection(args: argparse.Namespace, output: Path, source: str
         log_module_failure(output, name, error)
         raise ModuleProvisionError(name, error) from None
     if manifest.get("runtime_interno") == descriptor:
+        if getattr(args, "pre_ad132", False):
+            fsync_directory(output)
         return manifest
     if staged and not getattr(args, "pre_ad132", False):
         fail("post AD132 verification cannot replace the projection proof")
-    manifest["runtime_interno"] = descriptor
+    manifest = dict(manifest, runtime_interno=descriptor)
     replace_private(output / "material-manifest.json", manifest)
     return manifest
 

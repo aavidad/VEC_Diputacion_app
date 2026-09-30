@@ -18,6 +18,43 @@ SPEC.loader.exec_module(material)
 
 
 class MaterialTests(unittest.TestCase):
+    def test_private_replace_fsyncs_parent_after_atomic_rename_and_propagates_failures(self):
+        for failure in (None, "file_fsync", "replace", "directory_fsync"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                path = root / "material-manifest.json"
+                material.json_write(path, {"status": "pending_ad132", "step": "old"})
+                foreign = root / ".material-refresh-other"
+                material.private_write(foreign, b"other invocation")
+                original = path.read_bytes()
+                fsync, replace = os.fsync, os.replace
+                events = []
+                def sync(fd):
+                    import stat
+                    kind = "directory_fsync" if stat.S_ISDIR(os.fstat(fd).st_mode) else "file_fsync"
+                    events.append(kind)
+                    if failure == kind:
+                        raise OSError("injected fsync failure")
+                    return fsync(fd)
+                def rename(source, target):
+                    events.append("replace")
+                    if failure == "replace":
+                        raise OSError("injected replace failure")
+                    return replace(source, target)
+                with patch.object(material.os, "fsync", side_effect=sync), patch.object(material.os, "replace", side_effect=rename):
+                    if failure:
+                        with self.assertRaises(OSError):
+                            material.replace_private(path, {"status": "pending_ad132", "step": "new"})
+                    else:
+                        material.replace_private(path, {"status": "pending_ad132", "step": "new"})
+                if failure in ("file_fsync", "replace"):
+                    self.assertEqual(path.read_bytes(), original)
+                else:
+                    self.assertEqual(json.loads(path.read_bytes()), {"status": "pending_ad132", "step": "new"})
+                    self.assertEqual(events, ["file_fsync", "replace", "directory_fsync"])
+                self.assertEqual(list(root.glob(".material-refresh-*")), [foreign])
+                self.assertEqual(foreign.read_bytes(), b"other invocation")
+
     def test_dsn_retarget_preserves_login_and_credential_with_verified_local_tls(self):
         dsn = "postgresql://nominal:dummy%40credential@127.0.0.1:55441/postgres?sslmode=verify-full&sslrootcert=%2Fold%2Fca.crt"
         result = material.retarget_dsn(dsn, 55531, Path("/private/pg/ca.crt"))

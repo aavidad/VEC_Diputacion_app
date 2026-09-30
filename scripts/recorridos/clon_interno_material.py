@@ -170,6 +170,14 @@ def write(path, data):
         os.fsync(stream.fileno())
 
 
+def fsync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def source_contracts(repo, source):
     import subprocess
     if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
@@ -470,6 +478,10 @@ def provision(repo, container, state, material, pg_port, engine="docker", source
                 fail("projection_existing_preimage_changed")
         if read(root / "material-manifest.json") != payload["material-manifest.json"]:
             refresh_proof_reference(canonical(state), root, payload, descriptor)
+        if pre_ad132:
+            # Retry only after verifying the entire sealed projection. A previous
+            # rename may have succeeded before its parent fsync failed.
+            fsync_directory(state)
         return descriptor
     if refresh_operator_proof:
         fail("projection_refresh_requires_existing_sealed_projection")
@@ -486,10 +498,18 @@ def provision(repo, container, state, material, pg_port, engine="docker", source
             private_dirs(temporary / directory)
         (temporary / "material/comunicaciones").mkdir(mode=0o700, exist_ok=True)
         check_closed_inventory(temporary, payload, descriptor)
+        def walk_error(error):
+            raise error
+        for directory, _, _ in os.walk(temporary, topdown=False, onerror=walk_error):
+            fsync_directory(directory)
         temporary.rename(root)
+        fsync_directory(state)
     except BaseException:
         import shutil
-        shutil.rmtree(temporary)
+        # Once renamed, the pending projection must survive. Never remove an
+        # existing runtime root or another invocation's staging directory.
+        if temporary.exists():
+            shutil.rmtree(temporary)
         raise
     return descriptor
 
