@@ -31,6 +31,35 @@ func (c ClaseControlAdministracionPerfiles) RequiereDobleControl() bool {
 	return c == ClaseControlPerfilAdministrador || c == ClaseControlPerfilIntervencion
 }
 
+// PuedeProponerBajaPropia permite que quien deja el perfil administrador
+// proponga su revocacion. El cierre sigue exigiendo aprobacion de otra persona.
+// No se extiende al alta ni a Intervencion sin una fuente que lo autorice.
+func PuedeProponerBajaPropia(clase ClaseControlAdministracionPerfiles, operacion OperacionAdministracionPerfiles) bool {
+	return clase == ClaseControlPerfilAdministrador && operacion == OperacionRevocarPerfil
+}
+
+// ContinuidadAdministradores separa la guarda de disponibilidad del numero
+// de personas necesario para nuevos actos con doble control. Arrancar exige
+// dos; despues de una baja aprobada puede quedar una. Con una sola persona
+// siguen posibles las operaciones ordinarias autorizadas, pero no un nuevo
+// acto sensible por el circuito normal de dos personas.
+type ContinuidadAdministradores struct {
+	EfectivosAntes   uint64
+	EfectivosDespues uint64
+}
+
+func (c ContinuidadAdministradores) ValidarBaja() error {
+	if c.EfectivosAntes < 2 || c.EfectivosDespues < 1 ||
+		c.EfectivosAntes <= c.EfectivosDespues || c.EfectivosAntes-c.EfectivosDespues != 1 {
+		return ErrControlAdministracionPerfilesInvalido
+	}
+	return nil
+}
+
+func (c ContinuidadAdministradores) AdmiteNuevoActoSensible() bool {
+	return c.EfectivosDespues >= 2
+}
+
 type OperacionAdministracionPerfiles string
 
 const (
@@ -134,7 +163,7 @@ func (s SolicitudActoAdministracionPerfiles) Validar() error {
 		s.Objetivo.ValidarPara(s.Operacion, s.Clase) != nil ||
 		s.Motivo.Validar() != nil ||
 		!ReferenciaCorrelacionAutorizacionV2Valida(s.CorrelacionRef) ||
-		s.Actor.PersonaRef == s.Objetivo.PersonaRef ||
+		(s.Actor.PersonaRef == s.Objetivo.PersonaRef && !PuedeProponerBajaPropia(s.Clase, s.Operacion)) ||
 		s.Actor.PerfilActivoRef != s.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef ||
 		s.Actor.PersonaRef != s.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID {
 		return ErrActoAdministracionPerfilesInvalido
@@ -164,6 +193,8 @@ type SolicitudCierrePropuestaAdministracionPerfiles struct {
 	ObjetivoPersonaRef      string
 	Aprobador               ContextoActor
 	InstantaneaAutorizacion InstantaneaAutorizacion
+	Clase                   ClaseControlAdministracionPerfiles
+	Operacion               OperacionAdministracionPerfiles
 	Decision                DecisionPropuestaAdministracionPerfiles
 	Motivo                  ReferenciaEntradaCatalogo
 	CorrelacionRef          string
@@ -176,11 +207,12 @@ func (s SolicitudCierrePropuestaAdministracionPerfiles) Validar() error {
 		!referenciaOpacaAdministracionPerfiles(s.ProponentePersonaRef, "per_") ||
 		!referenciaOpacaAdministracionPerfiles(s.ObjetivoPersonaRef, "per_") ||
 		s.Aprobador.Validar() != nil || s.InstantaneaAutorizacion.Validar() != nil ||
+		!s.Clase.RequiereDobleControl() || !s.Operacion.Valida() ||
 		!s.Decision.Valida() || s.Motivo.Validar() != nil ||
 		!ReferenciaCorrelacionAutorizacionV2Valida(s.CorrelacionRef) ||
 		s.Aprobador.PersonaRef == s.ProponentePersonaRef ||
 		s.Aprobador.PersonaRef == s.ObjetivoPersonaRef ||
-		s.ProponentePersonaRef == s.ObjetivoPersonaRef ||
+		(s.ProponentePersonaRef == s.ObjetivoPersonaRef && !PuedeProponerBajaPropia(s.Clase, s.Operacion)) ||
 		s.Aprobador.PersonaRef != s.InstantaneaAutorizacion.AsignacionPerfil.PrincipalID ||
 		s.Aprobador.PerfilActivoRef != s.InstantaneaAutorizacion.AsignacionPerfil.PerfilActivoRef {
 		return ErrControlAdministracionPerfilesInvalido
