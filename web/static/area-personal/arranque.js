@@ -1,6 +1,6 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260929-imagen-508c-v2";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260930-portales-i18n-integracion-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
-import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20260929-credenciales-v1";
+import { cargarPreferenciasIniciales, crearClientePreferencias } from "./cliente-http.js?v=20260930-portales-i18n-integracion-v1";
 import * as temaComun from "../comun/tema-vec.js?v=20260929-pref-508a-v1";
 
 const clientePreferencias = crearClientePreferencias();
@@ -8,7 +8,7 @@ let preferencias = null;
 let errorPreferencias = null;
 try { preferencias = await cargarPreferenciasIniciales(clientePreferencias); }
 catch (error) { errorPreferencias = error; }
-await iniciarI18nAreaPersonal(document, fetch, navigator.languages, window.location, preferencias?.estado.valores.idioma);
+await iniciarI18nAreaPersonal(document, { idiomaPreferido: preferencias?.estado.valores.idioma });
 const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVisuales === "function"
   ? temaComun.aplicarPreferenciasVisuales(preferencias.estado.valores, { documento: document, ventana: window })
   : typeof temaComun.crearControladorPreferenciasVisuales === "function"
@@ -16,7 +16,7 @@ const controladorVisual = preferencias && typeof temaComun.aplicarPreferenciasVi
 
 async function resolverCliente() {
   exigirParametrosConocidos(new URLSearchParams(window.location.search));
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260929-credenciales-v1");
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260930-portales-i18n-integracion-v1");
   return { cliente: crearClienteHTTPAreaPersonal() };
 }
 

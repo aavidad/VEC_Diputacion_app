@@ -1,0 +1,6 @@
+{
+  "destino": "Evidence requires a new absolute directory outside Git, with no symbolic links.",
+  "navegador": "System Chrome or local Playwright Python is unavailable.",
+  "corte": "APPLICATION STOP: review resultado.json and private screenshots. Later steps were not run.",
+  "apertura": "OPENING OBSERVED: HTTP results and screenshots saved privately. Later steps were not run."
+}

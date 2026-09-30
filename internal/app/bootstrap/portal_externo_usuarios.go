@@ -49,7 +49,7 @@ func nuevasPreferenciasPortalExterno(ctx context.Context, cfg config.Config, ide
 		return nil, ErrUsuariosPortalExternoNoDisponible
 	}
 	autoridad, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, identidad, derivador, incidencias, topologia,
-		core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consulta, actualizacion, nil, nil)
+		core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consulta, actualizacion, nil, nil, nil)
 	if err != nil {
 		return nil, ErrUsuariosPortalExternoNoDisponible
 	}
