@@ -1,0 +1,11 @@
+# Sufijo ejecutable del estadio H7-AD133 sobre una base post-AD118/AUT21.
+# Requiere una de las dos preimágenes completas medidas: histórica o ampliada
+# con AD111/114. Las dependencias anteriores deben estar instaladas una vez.
+# AD121/122 quedan sustituidas por AD133; no se ejecutan ni se registran como ejecutadas.
+# AD133 se ejecuta realmente y esta lista termina en ella.
+# Este estadio no contiene la raíz externa ni acredita el candidato H7 completo.
+# Pendiente: AD135 sustituye AD123 y después se ejecutan AD124, D11 y U15.
+# B65 conserva su instalación real en la cadena completa; no queda sustituida.
+# AD123 tampoco se ejecutará en el linaje alternativo. Su historia permanece intacta.
+# No reaplicar esta lista, ejecutar DOWN ni utilizarla sobre historia instalada.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000133_convergencia_linaje_externo.up.sql
