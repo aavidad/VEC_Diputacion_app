@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -78,15 +79,7 @@ func nuevoServicioAutorizacionUsuariosExterno(ctx context.Context, fuentePool, r
 		{motivosPool, "resolver_motivo_usuarios_externo_v1", loginMotivosUsuariosExterno},
 	}
 	for _, s := range sondas {
-		var valido bool
-		err := s.pool.QueryRow(ctx, `SELECT session_user=current_user AND session_user=$2
-			AND has_schema_privilege(session_user,'vec_autorizacion','USAGE')
-			AND (SELECT count(*)=1 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
-			 WHERE n.nspname='vec_autorizacion' AND p.proname=$1 AND p.prokind='f'
-			 AND p.proowner='vec_autorizacion_propietario'::regrole
-			 AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog']
-			 AND has_function_privilege(session_user,p.oid,'EXECUTE'))`, s.nombre, s.login).Scan(&valido)
-		if err != nil || !valido {
+		if acreditarFachadaAutorizacionUsuariosExterno(ctx, s.pool, s.nombre, s.login) != nil {
 			return nil, ErrUsuariosPortalExternoNoDisponible
 		}
 	}
@@ -109,4 +102,35 @@ func nuevoServicioAutorizacionUsuariosExterno(ctx context.Context, fuentePool, r
 		return nil, ErrUsuariosPortalExternoNoDisponible
 	}
 	return servicio, nil
+}
+
+// La sonda valida la fachada nominal y la configuración final de AUT-21.
+// Incluir pg_temp al final evita que sus tipos precedan a pg_catalog.
+type consultaFachadaUsuariosExterno interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+const sondaFachadaAutorizacionUsuariosExternoSQL = `WITH candidata AS (
+ SELECT p.proconfig FROM pg_catalog.pg_proc p
+ JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='vec_autorizacion' AND p.proname=$1 AND p.prokind='f'
+ AND p.proowner='vec_autorizacion_propietario'::regrole AND p.prosecdef
+ AND has_function_privilege(session_user,p.oid,'EXECUTE')
+)
+ SELECT session_user=current_user AND session_user=$2
+ AND has_schema_privilege(session_user,'vec_autorizacion','USAGE')
+ AND (SELECT count(*)=1 FROM candidata),
+ (SELECT proconfig FROM candidata LIMIT 1)`
+
+func acreditarFachadaAutorizacionUsuariosExterno(ctx context.Context, consulta consultaFachadaUsuariosExterno, nombre, login string) error {
+	if ctx == nil || ctx.Err() != nil || consulta == nil {
+		return ErrUsuariosPortalExternoNoDisponible
+	}
+	var nominal bool
+	var configuracion []string
+	err := consulta.QueryRow(ctx, sondaFachadaAutorizacionUsuariosExternoSQL, nombre, login).Scan(&nominal, &configuracion)
+	if err != nil || !nominal || len(configuracion) != 1 || configuracion[0] != "search_path=pg_catalog, pg_temp" || ctx.Err() != nil {
+		return ErrUsuariosPortalExternoNoDisponible
+	}
+	return nil
 }
