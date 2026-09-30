@@ -28,11 +28,13 @@ type Repositorio interface {
 // Lectura contiene la cabeza autorizada y su historia paginada. PuedeAjustar
 // es una proyección para la interfaz; Operar vuelve a autorizar el material.
 type Lectura struct {
-	Vigente      *reglas.VersionAjustes `json:"vigente"`
-	Historial    []CambioHistorico      `json:"historial"`
-	HayMas       bool                   `json:"hay_mas"`
-	PuedeAjustar bool                   `json:"puede_ajustar"`
-	Reglas       []reglas.Regla         `json:"-"`
+	Vigente            *reglas.VersionAjustes `json:"vigente"`
+	VigenteBaseVersion int                    `json:"-"`
+	VigenteBaseHuella  string                 `json:"-"`
+	Historial          []CambioHistorico      `json:"historial"`
+	HayMas             bool                   `json:"hay_mas"`
+	PuedeAjustar       bool                   `json:"puede_ajustar"`
+	Reglas             []reglas.Regla         `json:"-"`
 }
 
 type CambioHistorico struct {
