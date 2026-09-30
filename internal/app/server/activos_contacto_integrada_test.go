@@ -89,7 +89,7 @@ func TestActivosContactoPropioSoloEnSuperficieIntegrada(t *testing.T) {
 					handler http.Handler
 					estado  int
 				}{
-					{"publica", publica, http.StatusSeeOther},
+					{"publica", publica, http.StatusNotFound},
 					{"interna", interna, http.StatusNotFound},
 				} {
 					t.Run(superficie.nombre+" "+metodo+" "+ruta+version, func(t *testing.T) {
@@ -98,8 +98,8 @@ func TestActivosContactoPropioSoloEnSuperficieIntegrada(t *testing.T) {
 						if respuesta.Code != superficie.estado {
 							t.Fatalf("estado = %d, esperado %d", respuesta.Code, superficie.estado)
 						}
-						if superficie.nombre == "publica" && respuesta.Header().Get("Location") != "/" {
-							t.Fatalf("Location = %q, esperado /", respuesta.Header().Get("Location"))
+						if superficie.nombre == "publica" && respuesta.Header().Get("Location") != "" {
+							t.Fatalf("Location = %q, esperado vacío", respuesta.Header().Get("Location"))
 						}
 						if bytes.Equal(respuesta.Body.Bytes(), esperado) {
 							t.Fatal("la superficie separada sirvió los bytes del activo")
