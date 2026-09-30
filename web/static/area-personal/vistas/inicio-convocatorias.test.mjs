@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { datosMinimosMiBolsa } from "../aplicacion.js";
@@ -7,6 +8,18 @@ import { lectorCatalogos } from "../textos-prueba.test-helper.mjs";
 import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./inicio-convocatorias.js";
 
 const estado = { filtros: { termino: "", estado: "", categoria: "" }, convocatoriaSeleccionada: "CONV-AJENA" };
+
+test("la vista y sus importadores comparten una URL renovada", async () => {
+  const [html, arranque, aplicacion] = await Promise.all([
+    readFile(new URL("../index.html", import.meta.url), "utf8"),
+    readFile(new URL("../arranque.js", import.meta.url), "utf8"),
+    readFile(new URL("../aplicacion.js", import.meta.url), "utf8"),
+  ]);
+  const version = "20260930-candidato-convocatorias-v1";
+  assert.match(html, new RegExp(`/area-personal/arranque\\.js\\?v=${version}`));
+  assert.match(arranque, new RegExp(`\\./aplicacion\\.js\\?v=${version}`));
+  assert.match(aplicacion, new RegExp(`\\./vistas/inicio-convocatorias\\.js\\?v=${version}`));
+});
 
 test("la consulta real de Mi bolsa no presenta ceros como plazos o solicitudes confirmados", async () => {
   const datos = datosMinimosMiBolsa({ consultada_en: "2026-09-30T10:00:00Z" });
