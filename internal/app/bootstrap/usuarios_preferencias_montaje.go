@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/separacionportales"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
@@ -106,6 +107,15 @@ func (c *composicionPreferenciasUsuarios) proteger(siguiente http.Handler) http.
 	if c == nil {
 		return siguiente
 	}
+	if c.externa == nil {
+		if c.interna.correos != nil {
+			siguiente = c.interna.correos.proteger(siguiente)
+		}
+		if c.interna.imagen != nil {
+			siguiente = c.interna.imagen.proteger(siguiente)
+		}
+		return c.interna.proteger(siguiente)
+	}
 	if c.interna.correos != nil && c.externa.correos != nil {
 		siguiente = c.interna.correos.proteger(c.externa.correos.proteger(siguiente))
 	}
@@ -142,17 +152,24 @@ func (a autoridadExactasConUsuariosPreferencias) AutorizarRutaExacta(ctx context
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
 	seleccionada := a.usuarios.interna
+	externa := a.usuarios.externa
 	switch ruta {
 	case usuarioshttp.RutaMisPreferenciasAreaPersonal:
-		seleccionada = a.usuarios.externa
+		seleccionada = externa
 	case usuarioshttp.RutaMisCorreos:
 		seleccionada = a.usuarios.interna.correos
 	case usuarioshttp.RutaMisCorreosAreaPersonal:
-		seleccionada = a.usuarios.externa.correos
+		seleccionada = nil
+		if externa != nil {
+			seleccionada = externa.correos
+		}
 	case usuarioshttp.RutaMiImagen:
 		seleccionada = a.usuarios.interna.imagen
 	case usuarioshttp.RutaMiImagenAreaPersonal:
-		seleccionada = a.usuarios.externa.imagen
+		seleccionada = nil
+		if externa != nil {
+			seleccionada = externa.imagen
+		}
 	}
 	c, ok := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
 	if !ok || seleccionada == nil || c.autoridad != seleccionada || c.resultado.Validar() != nil {
@@ -303,6 +320,11 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if err != nil {
 		return nil, err
 	}
+	// El proceso interno separado solo atiende la superficie corporativa: la
+	// configuración y los logins del Área personal son del proceso externo.
+	if !superficieExternaUsuariosEnProceso(cfg) {
+		return &composicionPreferenciasUsuarios{interna: interna}, nil
+	}
 	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna, correos, imagen)
 	if err != nil {
 		interna.cerrar()
@@ -314,6 +336,29 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 		return nil, errComposicionUsuariosPreferencias
 	}
 	return &composicionPreferenciasUsuarios{interna: interna, externa: externa}, nil
+}
+
+// superficieExternaUsuariosEnProceso indica si esta composición (la del
+// portal de RRHH) atiende también el Área personal. Solo el proceso
+// combinado lo hace: el interno separado compone solo la corporativa y el
+// externo nunca llega a esta composición (se detiene antes, con
+// ErrComposicionPortalExternoPendiente, hasta tener la suya), así que aquí
+// cualquier otro valor, incluido uno no válido, responde que no.
+func superficieExternaUsuariosEnProceso(cfg config.Config) bool {
+	portal, err := portalProcesoConfigurado(cfg)
+	return err == nil && portal == separacionportales.PortalCombinado
+}
+
+// superficiesUsuariosEnProceso devuelve las superficies que esta composición
+// comprueba y monta: la corporativa siempre y el Área personal solo en el
+// proceso combinado. Las comprobaciones previas de correos e imagen la usan
+// para que el interno separado nunca lea la configuración del Área personal
+// ni abra conexiones con sus credenciales.
+func superficiesUsuariosEnProceso(cfg config.Config) []core.SuperficieAutenticacionActorV1 {
+	if superficieExternaUsuariosEnProceso(cfg) {
+		return []core.SuperficieAutenticacionActorV1{core.SuperficieAutenticacionInternaCorporativaV1, core.SuperficieAutenticacionExternaPersonalV1}
+	}
+	return []core.SuperficieAutenticacionActorV1{core.SuperficieAutenticacionInternaCorporativaV1}
 }
 
 func superficiesPreferenciasSeparadas(interna, externa *autoridadPreferenciasUsuariosDesarrollo) bool {
@@ -505,7 +550,20 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 }
 
 func rutaUsuariosPreferencias(a *composicionPreferenciasUsuarios) []vechttp.RutaExacta {
-	if a == nil || a.interna == nil || a.externa == nil || a.interna.manejador == nil || a.externa.manejador == nil {
+	if a == nil || a.interna == nil || a.interna.manejador == nil {
+		return nil
+	}
+	if a.externa == nil {
+		rutas := []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferencias, Manejador: a.interna.manejador}}
+		if a.interna.correos != nil && a.interna.correos.manejador != nil {
+			rutas = append(rutas, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMisCorreos, Manejador: a.interna.correos.manejador})
+		}
+		if a.interna.imagen != nil && a.interna.imagen.manejador != nil {
+			rutas = append(rutas, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMiImagen, Manejador: a.interna.imagen.manejador})
+		}
+		return rutas
+	}
+	if a.externa.manejador == nil {
 		return nil
 	}
 	rutas := []vechttp.RutaExacta{{Ruta: usuarioshttp.RutaMisPreferencias, Manejador: a.interna.manejador}, {Ruta: usuarioshttp.RutaMisPreferenciasAreaPersonal, Manejador: a.externa.manejador}}

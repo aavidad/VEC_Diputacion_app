@@ -119,7 +119,7 @@ func TestProcesoExternoAdmiteSusConexionesPropias(t *testing.T) {
 		"VEC_TLS_KEY_FILE=/material-externo/tls/servidor.key",
 		"VEC_EXECUTION_PROFILE=desarrollo",
 		"VEC_BOLSA_PORTAL_CANDIDATO_ENABLED=true",
-	}})
+	}, DirectorioMaterial: "/material-externo"})
 	if err != nil {
 		t.Fatalf("el portal externo debe admitir sus conexiones: %v", err)
 	}
@@ -406,5 +406,88 @@ func TestComprobarSeparacionExigeUsuarioExplicito(t *testing.T) {
 	)
 	if !errors.Is(err, ErrSeparacionPortales) {
 		t.Fatalf("una conexion sin usuario explicito debe rechazarse: %v", err)
+	}
+}
+
+func TestProcesoExternoSoloRecibeRutasDeSuMaterial(t *testing.T) {
+	material := materialSintetico(t, PortalExterno)
+	for _, admitida := range []string{
+		"VEC_TLS_KEY_FILE=" + material + "/tls/servidor.key",
+		"VEC_TLS_CERT_FILE=" + material + "/tls/servidor.crt",
+		"SSL_CERT_FILE=" + material + "/ca/ca.crt",
+		"VEC_DEVELOPMENT_MATERIAL_DIR=" + material,
+		"VEC_RPT_CATALOGO_PATH=",
+	} {
+		if err := ComprobarEntorno(PortalExterno, Entorno{Variables: []string{admitida}, DirectorioMaterial: material}); err != nil {
+			t.Fatalf("%s rechazada: %v", admitida, err)
+		}
+	}
+	interno := materialSintetico(t, PortalInterno)
+	for _, variable := range []string{
+		"VEC_TLS_KEY_FILE=" + interno + "/tls/servidor.key",
+		"VEC_TLS_CERT_FILE=" + material + "/../material-interno/tls/servidor.crt",
+		"VEC_SMTP_CA_FILE=tls/servidor.crt",
+		"VEC_RPT_CATALOGO_PATH=/srv/catalogos/rpt.json",
+		"VEC_INTERNO_MATERIAL_DIR=" + interno,
+		"VEC_EXTERNO_CATALOGO_PATH=/etc/passwd",
+		"VEC_TLS_KEY_FILE=" + material + "x/tls/servidor.key",
+		"BOLSA_DATA_DIR=/srv/bolsa",
+		"SSL_CERT_FILE=" + interno + "/ca/ca.crt",
+		"PGSSLROOTCERT=" + interno + "/ca/ca.crt",
+	} {
+		nombre, _, _ := strings.Cut(variable, "=")
+		if got := motivo(t, ComprobarEntorno(PortalExterno, Entorno{Variables: []string{variable}, DirectorioMaterial: material})); got != nombre {
+			t.Fatalf("se esperaba rechazar %s, llego %s", variable, got)
+		}
+	}
+	// Sin material propio no se admite ninguna ruta que no sea un catálogo público.
+	if got := motivo(t, ComprobarEntorno(PortalExterno, Entorno{Variables: []string{"VEC_TLS_KEY_FILE=" + material + "/tls/servidor.key"}})); got != "VEC_TLS_KEY_FILE" {
+		t.Fatalf("ruta aceptada sin material: %s", got)
+	}
+	// El interno no se restringe por esta regla.
+	if err := ComprobarEntorno(PortalInterno, Entorno{Variables: []string{"VEC_RPT_CATALOGO_PATH=/srv/catalogos/rpt.json"}}); err != nil {
+		t.Fatalf("el interno no debe restringir sus catalogos: %v", err)
+	}
+}
+
+func TestCatalogosPublicosDelExternoFueraDelMaterialAjeno(t *testing.T) {
+	material := materialSintetico(t, PortalExterno)
+	publico := filepath.Join(t.TempDir(), "catalogos")
+	escribir(t, publico, "bolsas.json", `{"version":1}`)
+	escribir(t, publico, "bolsas.txt", "texto")
+	if err := os.Mkdir(filepath.Join(publico, "directorio.json"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	interno := materialSintetico(t, PortalInterno)
+	escribir(t, interno, "catalogos/bolsas.json", `{"version":1}`)
+	enlace := filepath.Join(t.TempDir(), "enlace.json")
+	if err := os.Symlink(filepath.Join(interno, "catalogos", "bolsas.json"), enlace); err != nil {
+		t.Fatal(err)
+	}
+	comprobar := func(valor string) error {
+		return ComprobarEntorno(PortalExterno, Entorno{Variables: []string{"VEC_BOLSA_PUBLIC_SOURCE_PATH=" + valor}, DirectorioMaterial: material})
+	}
+	if err := comprobar(filepath.Join(publico, "bolsas.json")); err != nil {
+		t.Fatalf("catalogo publico rechazado: %v", err)
+	}
+	for _, valor := range []string{
+		filepath.Join(publico, "bolsas.txt"),
+		filepath.Join(interno, "catalogos", "bolsas.json"),
+		enlace,
+		"../fuera/bolsas.json",
+		filepath.Join(publico, "no-existe.json"),
+		filepath.Join(publico, "directorio.json"),
+	} {
+		if got := motivo(t, comprobar(valor)); got != "VEC_BOLSA_PUBLIC_SOURCE_PATH" {
+			t.Fatalf("catalogo %s aceptado: %s", valor, got)
+		}
+	}
+}
+
+func TestEntornoDeclaradoDelExternoConRutaAjena(t *testing.T) {
+	material := materialSintetico(t, PortalExterno)
+	escribir(t, material, "desarrollo.env", "VEC_TLS_CERT_FILE=/srv/interno/tls/servidor.crt\n")
+	if got := motivo(t, ComprobarMaterial(PortalExterno, material)); got != "VEC_TLS_CERT_FILE" {
+		t.Fatalf("ruta ajena declarada aceptada: %s", got)
 	}
 }
