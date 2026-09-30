@@ -303,7 +303,7 @@
       "titulo": "Guía de uso",
       "subtitulo": "Texto completo de la ayuda",
       "encabezado": "Leer esta ayuda",
-      "texto": "Esta guía explica el área personal de Bolsa. En Inicio puede consultar la información disponible de Mi bolsa. Los plazos y las solicitudes de convocatorias aún no están disponibles en esta área. El inventario de Méritos permite reutilizar títulos, experiencia y documentos. La Autobaremación es provisional y será revisada por Recursos Humanos. Las acciones de pago, firma, registro, llamamiento, subsanación y alegación necesitan confirmación y recibo.",
+      "texto": "Esta guía explica el área personal de Bolsa. Ahora puede consultar la información de Mi bolsa que el servicio haya recuperado. Las convocatorias, los plazos, las solicitudes, los méritos y la autobaremación todavía no están disponibles en esta consulta. Una actuación solo queda registrada cuando el servicio confirma su recibo.",
       "limiteServicio": "Cada operación real depende de la confirmación del servicio autorizado."
     }
   },
