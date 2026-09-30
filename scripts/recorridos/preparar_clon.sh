@@ -15,14 +15,18 @@ puerto_web=${VEC_RECORRIDOS_PUERTO_WEB:-18531}
 puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
 accion=${1:-preparar}
-[[ "$#" -le 1 ]] || exit 2
-case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso: preparar_clon.sh [preparar|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
+if (( $# )); then shift; fi
+case "$accion" in preparar|estado|reiniciar|parar|retirar|plan|preparar-sql|verificar-sql) ;;
+  *) echo 'Uso: preparar_clon.sh [preparar|preparar-sql|verificar-sql|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 
-# El plan operativo requiere paquete/lock/H1 y sus SHA aprobados externos.
-# Mientras ese contrato no esté conectado, nunca mostrar el manifiesto histórico45.
+# SQL62 requires nominal external pins; no historical45 fallback or inferred approval.
 if [[ "$accion" == plan ]]; then
-  exec python3 -B "$guiones/clon_h6_orquestador.py" plan --source-ref "$referencia"
+  exec python3 -B "$guiones/clon_h6_orquestador.py" plan --source-ref "$referencia" "$@"
 fi
+if [[ "$accion" == preparar-sql || "$accion" == verificar-sql ]]; then
+  exec python3 -B "$guiones/clon_h6_orquestador.py" "$accion" --source-ref "$referencia" --state-dir "$estado" "$@"
+fi
+[[ "$#" -eq 0 ]] || exit 2
 
 # Composición documental; nunca importa proveedores ni crea estado privado.
 # Los bloqueos de material, transporte, aprobación y red preceden H1 y SQL.

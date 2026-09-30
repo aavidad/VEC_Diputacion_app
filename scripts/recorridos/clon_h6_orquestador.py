@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only composition contract for the local H6 clone.
+"""H6 composition and one-shot H1/SQL62 phase for a private local clone.
 
-This gate does not restore H1, execute providers, connect Docker/PostgreSQL,
-create private state, approve AD132, repair profiles or publish READY.
+Full preparation remains blocked. preparar-sql restores H1 and installs SQL62
+only in an empty private state. verificar-sql is read-only and requires the
+externally retained phase receipt digest. Neither action approves AD132 or READY.
 The concrete operation order is recorded here so absent transport, preview,
 material and runtime authorities cannot silently become executable adapters.
 API presence is documentary evidence only; it never means reviewed or approved.
@@ -151,17 +152,268 @@ def require_complete(action, scripts=None, source_ref=SOURCE):
     raise Refused('composition_incomplete:' + ','.join(value['blockers']))
 
 
+# Imported only for the explicit SQL phase; preflight composition stays documentary.
+def phase_apis():
+    try:
+        from . import clon_h1_restore, clon_h6_sql_instalar, clon_h6_kit, clon_sql
+    except ImportError:
+        import clon_h1_restore, clon_h6_sql_instalar, clon_h6_kit, clon_sql
+    return clon_h1_restore, clon_h6_sql_instalar, clon_h6_kit, clon_sql
+
+
+@dataclass(frozen=True)
+class SQLRequest:
+    package_tar: Path
+    release_lock: Path
+    approved_package_sha256: str
+    approved_lock_sha256: str
+    h1_state_file: Path
+    approved_h1_sha256: str
+    git_repo: Path
+    normalizer_path: Path
+    approved_normalizer_sha256: str
+    guiones_manifest: Path
+    approved_guiones_sha256: str
+    expected_pg_image_id: str
+
+
+PHASE_ATTEMPT = 'sql62-preparar-intento.json'
+PHASE_RECEIPT = 'sql62-fase.json'
+
+
+def phase_preflight(request, source_ref=SOURCE):
+    """Freeze original SQL bytes and external pins before any restore effect."""
+    h1, installer, kit, sql = phase_apis()
+    installer.require(isinstance(request, SQLRequest) and source_ref == SOURCE, 'sql_phase_contract')
+    for key in ('package_tar', 'release_lock', 'h1_state_file', 'git_repo',
+                'normalizer_path', 'guiones_manifest'):
+        installer.canonical_path(getattr(request, key))
+    installer.require(request.approved_h1_sha256 == h1.H1_SHA
+                      and request.expected_pg_image_id == h1.IMAGE_ID, 'restore_external_pins')
+    plan, rows = sql.preflight_h6_package(request.package_tar, request.release_lock,
+        request.approved_package_sha256, request.approved_lock_sha256,
+        request.h1_state_file, request.approved_h1_sha256,
+        source_ref=source_ref, git_repo=request.git_repo)
+    installer.require(plan.get('file_count') == 62 and len(rows) == 62
+                      and plan.get('plan_family') == sql.H6_PACKAGE_FAMILY, 'package62_contract')
+    sql.approved_file(request.normalizer_path, request.approved_normalizer_sha256, 64000)
+    scripts = sql.approved_file(request.guiones_manifest, request.approved_guiones_sha256, 64000)
+    lock = sql.approved_file(request.release_lock, request.approved_lock_sha256, 1024 * 1024)
+    lock_values = dict(line.split() for line in lock.decode('ascii').splitlines())
+    listed = {}
+    for line in scripts.decode('ascii').splitlines():
+        parts = line.split()
+        installer.require(len(parts) == 2 and parts[1] not in listed
+                          and re.fullmatch('[0-9a-f]{64}', parts[0]) is not None,
+                          'guiones_manifest_contract')
+        listed[parts[1]] = parts[0]
+    installer.require(lock_values.get('KIT_GUIONES_SHA256') == request.approved_guiones_sha256
+                      and request.normalizer_path.name == 'h6_normalizar_pg_dump.py'
+                      and listed.get(request.normalizer_path.name) == request.approved_normalizer_sha256,
+                      'guiones_normalizer_pins')
+    return plan, rows
+
+
+def phase_pins(request):
+    return {key: getattr(request, key) for key in SQLRequest.__dataclass_fields__
+            if key.startswith('approved_') or key == 'expected_pg_image_id'}
+
+
+def phase_publish(directory, name, value):
+    """Exclusive fsynced evidence; an incomplete write also prevents retry."""
+    _, installer, kit, _ = phase_apis()
+    fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                 0o600, dir_fd=directory)
+    try:
+        data = memoryview(kit.canonical(value))
+        while data:
+            count = os.write(fd, data)
+            installer.require(count > 0, 'phase_write_failed')
+            data = data[count:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.fsync(directory)
+
+
+def phase_request(request, state, restore_sha):
+    _, _, kit, _ = phase_apis()
+    fields = {key: getattr(request, key) for key in SQLRequest.__dataclass_fields__
+              if key != 'expected_pg_image_id'}
+    return kit.Request(**fields, restore_receipt=state / 'h1-restore.json',
+                       approved_restore_receipt_sha256=restore_sha)
+
+
+def phase_postimage(db, request):
+    _, installer, _, sql = phase_apis()
+    ro = sql.ReadOnlyDB(db)
+    before = ro.system_identity()
+    post = {'schema_sha': ro.schema_digest(request.normalizer_path, request.approved_normalizer_sha256),
+            'roles_sha': ro.roles_digest(request.normalizer_path, request.approved_normalizer_sha256),
+            'datacl_sha': ro.database_acl_digest()}
+    installer.require(before == ro.system_identity()
+                      and all(isinstance(v, str) and re.fullmatch('[0-9a-f]{64}', v)
+                              for v in post.values()), 'postimage_identity_or_digest')
+    return before, post
+
+
+def phase_files(directory, request, state, plan, restore_sha):
+    """Read existing evidence without opening Journal (which creates a lock)."""
+    _, installer, kit, sql = phase_apis()
+    req = phase_request(request, state, restore_sha)
+    receipt = kit.restore_receipt(req)
+    installer.require(receipt['pg_image_id'] == request.expected_pg_image_id, 'phase_image')
+    h1_records_sha = installer.h1_records(directory, receipt, req)
+    volume = json.loads(installer.read_owned(directory, 'h1-volume.json'), object_pairs_hook=kit.unique)
+    info = Path(volume['path']).lstat()
+    installer.require(stat.S_ISDIR(info.st_mode)
+                      and (info.st_dev, info.st_ino) == (volume['device'], volume['inode']), 'phase_volume')
+    installer.require(not installer.present(directory, '.sql-confirming'), 'sql_uncertain_new_state_required')
+    raw = installer.read_owned(directory, 'sql-journal.json', sql.MAX_JOURNAL)
+    record = json.loads(raw, object_pairs_hook=kit.unique)
+    context = {key: plan[key] for key in (*sql.CONTEXT_KEYS[1:], 'lock_sha')}
+    context['identidad_clon'] = restore_sha
+    installer.require(record.get('journal_sha') == sql.record_hash(record), 'phase_journal_hash')
+    sql.validate_record(record, plan, context)
+    sql.validate_receipts(record.get('installed'), plan)
+    installer.require(record.get('phase') == 'awaiting_ad132' and record.get('pending') is None,
+                      'phase_awaiting_ad132_required')
+    expected_attempt = {'version': 1, 'kind': 'sql62_attempt_reserved', 'source_ref': SOURCE,
+        'restore_receipt_sha256': restore_sha, 'plan_sha256': plan['plan_sha'],
+        'package_sha256': plan['package_sha'], 'lock_sha256': plan['lock_sha'],
+        'h1_records_sha256': h1_records_sha, 'pg_container_id': receipt['pg_container_id'],
+        'pg_image_id': request.expected_pg_image_id}
+    installer.require(installer.read_owned(directory, installer.ATTEMPT) == kit.canonical(expected_attempt),
+                      'phase_sql_attempt')
+    return req, receipt, context, sql.sha(raw), h1_records_sha
+
+
+def preparar_sql(request, state, source_ref=SOURCE):
+    """One-shot fresh H1 -> SQL62 -> observed postimage; preserve every failure."""
+    h1, installer, kit, sql = phase_apis()
+    plan, _ = phase_preflight(request, source_ref)
+    state = installer.canonical_path(state)
+    with installer.private_state(state) as (directory, retained):
+        installer.require(not os.listdir(directory), 'phase_state_exists_new_state_required')
+        attempt = {'version': 1, 'kind': 'sql62_phase_reserved', 'source_ref': SOURCE,
+                   'state': str(state), 'plan_sha256': plan['plan_sha'], 'pins': phase_pins(request)}
+        phase_publish(directory, PHASE_ATTEMPT, attempt)
+        installer.stable_state(state, retained)
+        observed = h1.restore(state, request.h1_state_file,
+                              request.normalizer_path, request.approved_normalizer_sha256)
+        # This SHA is an observed output of this exclusive restore, never an input approval.
+        raw = installer.read_owned(directory, 'h1-restore.json')
+        installer.require(raw == kit.canonical(observed), 'phase_restore_output')
+        restore_sha = sql.sha(raw)
+        req = phase_request(request, state, restore_sha)
+        installed = installer.install(req, state, request.expected_pg_image_id)
+        req, receipt, context, journal_sha, records_sha = phase_files(
+            directory, request, state, plan, restore_sha)
+        installer.require(installed.get('journal_sha256') == journal_sha
+                          and installed.get('phase') == 'awaiting_ad132', 'phase_install_output')
+        provider = kit.H6Kit(req)
+        sql.require_kit(provider, plan, context)
+        db = sql.DockerDB(receipt['pg_container_id'], state, expected_image_id=request.expected_pg_image_id)
+        db.check_owner()
+        installer.require(provider.identity(sql.ReadOnlyDB(db), context) == restore_sha, 'phase_live_identity')
+        identity, postimage = phase_postimage(db, request)
+        installer.require(identity == {key: receipt[key] for key in kit.IDENTITY_FIELDS}, 'phase_post_identity')
+        installer.stable_state(state, retained)
+        installer.require(phase_files(directory, request, state, plan, restore_sha)[3:] ==
+                          (journal_sha, records_sha), 'phase_evidence_changed')
+        value = {'version': 1, 'kind': 'sql62_phase_observed', 'source_ref': SOURCE,
+            'state': str(state), 'pins': phase_pins(request), 'plan_sha256': plan['plan_sha'],
+            'restore_receipt_sha256': restore_sha, 'h1_records_sha256': records_sha,
+            'journal_sha256': journal_sha, 'phase_attempt_sha256': sql.sha(kit.canonical(attempt)),
+            'identity': identity, 'postimage': postimage, 'phase': 'awaiting_ad132',
+            'sql_count': 62, 'ready': False}
+        phase_publish(directory, PHASE_RECEIPT, value)
+        return {'phase': 'awaiting_ad132', 'sql_count': 62, 'ready': False,
+                'acta_sha256': sql.sha(kit.canonical(value)),
+                'restore_receipt_sha256': restore_sha, 'journal_sha256': journal_sha}
+
+
+def verificar_sql(request, state, approved_acta_sha256, source_ref=SOURCE):
+    """Compare a pinned phase acta and live postimage; no locks or file writes."""
+    _, installer, kit, sql = phase_apis()
+    installer.require(isinstance(approved_acta_sha256, str)
+                      and re.fullmatch('[0-9a-f]{64}', approved_acta_sha256) is not None,
+                      'external_phase_receipt_pin_required')
+    plan, _ = phase_preflight(request, source_ref)
+    state = installer.canonical_path(state)
+    with installer.private_state(state) as (directory, retained):
+        raw = installer.read_owned(directory, PHASE_RECEIPT)
+        value = json.loads(raw, object_pairs_hook=kit.unique)
+        fields = {'version', 'kind', 'source_ref', 'state', 'pins', 'plan_sha256',
+                  'restore_receipt_sha256', 'h1_records_sha256', 'journal_sha256',
+                  'phase_attempt_sha256', 'identity', 'postimage', 'phase', 'sql_count', 'ready'}
+        installer.require(isinstance(value, dict) and set(value) == fields
+            and raw == kit.canonical(value) and sql.sha(raw) == approved_acta_sha256
+            and type(value['version']) is int and value['version'] == 1
+            and value['kind'] == 'sql62_phase_observed' and value['source_ref'] == SOURCE
+            and value['state'] == str(state) and value['pins'] == phase_pins(request)
+            and value['plan_sha256'] == plan['plan_sha'] and value['phase'] == 'awaiting_ad132'
+            and type(value['sql_count']) is int and value['sql_count'] == 62
+            and value['ready'] is False, 'phase_receipt_contract')
+        attempt = {'version': 1, 'kind': 'sql62_phase_reserved', 'source_ref': SOURCE,
+                   'state': str(state), 'plan_sha256': plan['plan_sha'], 'pins': phase_pins(request)}
+        installer.require(installer.read_owned(directory, PHASE_ATTEMPT) == kit.canonical(attempt)
+                          and sql.sha(kit.canonical(attempt)) == value['phase_attempt_sha256'], 'phase_attempt')
+        req, receipt, context, journal_sha, records_sha = phase_files(
+            directory, request, state, plan, value['restore_receipt_sha256'])
+        installer.require(journal_sha == value['journal_sha256']
+                          and records_sha == value['h1_records_sha256'], 'phase_journal_or_h1_changed')
+        provider = kit.H6Kit(req)
+        sql.require_kit(provider, plan, context)
+        db = sql.DockerDB(receipt['pg_container_id'], state, expected_image_id=request.expected_pg_image_id)
+        db.check_owner()
+        installer.require(provider.identity(sql.ReadOnlyDB(db), context) == context['identidad_clon'], 'phase_live_identity')
+        identity, postimage = phase_postimage(db, request)
+        installer.require(identity == value['identity'] == {key: receipt[key] for key in kit.IDENTITY_FIELDS}
+                          and postimage == value['postimage'], 'phase_postimage_changed')
+        installer.stable_state(state, retained)
+        installer.require(phase_files(directory, request, state, plan, value['restore_receipt_sha256'])[3:]
+                          == (journal_sha, records_sha)
+                          and installer.read_owned(directory, PHASE_RECEIPT) == raw, 'phase_evidence_changed')
+        return {'phase': 'awaiting_ad132', 'sql_count': 62, 'ready': False,
+                'acta_sha256': approved_acta_sha256, 'verified': True}
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise Refused('arguments_invalid_external_inputs_required:' + ','.join(PLAN_INPUTS))
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('preflight', 'plan', 'preparar', 'reiniciar'))
-    parser.add_argument('--source-ref', default=SOURCE)
+    parser = Parser(description=__doc__)
+    commands = parser.add_subparsers(dest='action', required=True)
+    for action in ('preflight', 'preparar', 'reiniciar'):
+        command = commands.add_parser(action)
+        command.add_argument('--source-ref', default=SOURCE)
+    for action in ('plan', 'preparar-sql', 'verificar-sql'):
+        command = commands.add_parser(action)
+        command.add_argument('--source-ref', default=SOURCE)
+        for key in SQLRequest.__dataclass_fields__:
+            command.add_argument('--' + key.replace('_', '-'),
+                                 type=Path if key.endswith(('_tar', '_lock', '_file', '_repo', '_path', '_manifest')) else str,
+                                 required=True)
+        if action != 'plan':
+            command.add_argument('--state-dir', type=Path, required=True)
+        if action == 'verificar-sql':
+            command.add_argument('--approved-acta-sha256', required=True)
     args = parser.parse_args(argv)
     if not re.fullmatch('[0-9a-f]{40}', args.source_ref):
         raise Refused('source_not_canonical')
-    if args.action == 'plan':
-        # No historical45 fallback; no pins derived from unapproved local bytes.
-        # The fixed H6 preflight must be connected with all external inputs first.
-        raise Refused('plan_H6_external_inputs_not_connected:' + ','.join(PLAN_INPUTS))
+    if args.action in ('plan', 'preparar-sql', 'verificar-sql'):
+        request = SQLRequest(**{key: getattr(args, key) for key in SQLRequest.__dataclass_fields__})
+        if args.action == 'plan':
+            value, _ = phase_preflight(request, args.source_ref)
+        elif args.action == 'preparar-sql':
+            value = preparar_sql(request, args.state_dir, args.source_ref)
+        else:
+            value = verificar_sql(request, args.state_dir, args.approved_acta_sha256, args.source_ref)
+        print(json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':')))
+        return
     value = composition(source_ref=args.source_ref)
     print(json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':')))
     if args.action != 'preflight':
@@ -172,6 +424,6 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        code = str(error) if isinstance(error, Refused) else type(error).__name__
+        code = str(error) if isinstance(error, Refused) else 'sql_phase_refused_preserve_state_new_state_required'
         print('H6-NO-GO ' + code, file=sys.stderr)
         raise SystemExit(1)

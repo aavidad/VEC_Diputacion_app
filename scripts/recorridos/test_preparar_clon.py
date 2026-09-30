@@ -77,12 +77,22 @@ class OrquestadorTests(unittest.TestCase):
         self.state.rmdir()
         p = self.run_action('plan', VEC_RECORRIDOS_ARCHIVO='/no-existe')
         self.assertNotEqual(p.returncode, 0)
-        self.assertIn('plan_H6_external_inputs_not_connected', p.stderr)
+        self.assertIn('arguments_invalid_external_inputs_required', p.stderr)
         self.assertIn('approved_package_sha256', p.stderr)
         self.assertIn('approved_lock_sha256', p.stderr)
         self.assertIn('approved_h1_sha256', p.stderr)
         self.assertEqual(p.stdout, '')
         self.assertFalse(self.state.exists())
+        self.assert_no_services()
+
+    def test_sql_phase_without_nominal_external_pins_rejects_before_Docker(self):
+        before = sorted(self.state.iterdir())
+        for action in ('preparar-sql', 'verificar-sql'):
+            p = self.run_action(action, VEC_H6_APPROVED='true')
+            self.assertNotEqual(p.returncode, 0)
+            self.assertIn('external_inputs_required', p.stderr)
+            self.assertEqual(p.stdout, '')
+        self.assertEqual(before, sorted(self.state.iterdir()))
         self.assert_no_services()
 
     def test_bloqueo_composicion_identifica_transporte_material_y_runtime(self):
