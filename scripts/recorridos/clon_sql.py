@@ -9,6 +9,8 @@ Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38), main@1e443463d
 (Aspirantes000002, posición39) y main@890b3fe0e (roles, categorías, lecturas
 nominales y AD3-117, posiciones40..43).
+El plan 43 de 890b3fe0e está retirado para nuevas instalaciones: se conserva
+solo para lectura y recuperación de los 43 recibos exactos ya instalados.
 Cada extensión conserva los recibos y metadatos originales
 y añade una revisión del plan en el esquema del clon. Otros hashes exigen revisar
 de nuevo la lista causal y sus huellas. Descendientes de un plan aprobado
@@ -41,6 +43,7 @@ MAIN_REF = "890b3fe0e9f9e30e249b9dc2d3778971121a8cc2"
 REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, FOURTH_REF: 38,
               FIFTH_REF: 39, MAIN_REF: 43}
 REF_ORDER = tuple(REF_COUNTS)
+RECOVERY_ONLY_REFS = {MAIN_REF}
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
     PREVIOUS_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
@@ -209,6 +212,7 @@ def validate_git_source(source_ref, git_repo=None):
         raise Refused("SQL distinto del plan aprobado; requiere revisión de un plan nuevo")
     rows = load_plan(None, source_ref=approved, contents=contents)
     return {"source_ref": source_ref, "approved_sql_ref": approved,
+            "status": "recovery_only" if approved in RECOVERY_ONLY_REFS else "installable",
             "plan_sha": plan_hash(rows), "inventory_sha": sha(json.dumps(actual, sort_keys=True).encode()),
             "file_count": len(rows), "entries": [{k: v for k, v in r.items() if k != "sql"} for r in rows],
             "verified_main_ref": main, "sql_inventory": actual}
@@ -279,6 +283,8 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
     target_index = REF_ORDER.index(target["approved_sql_ref"])
     journal = Path(state) / "sql-journal.json"
     if not journal.exists() and not journal.is_symlink():
+        if target["approved_sql_ref"] in RECOVERY_ONLY_REFS:
+            raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
         return list(REF_ORDER[:target_index + 1])
     status = journal.lstat()
     if not stat.S_ISREG(status.st_mode) or status.st_size > 2 * 1024 * 1024:
@@ -319,6 +325,8 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
         completed = REF_ORDER.index(recognized)
         if completed > target_index:
             raise Refused("el journal conserva una revisión posterior al destino")
+        if target["approved_sql_ref"] in RECOVERY_ONLY_REFS and completed != target_index:
+            raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
         return list(REF_ORDER[completed + 1:target_index + 1])
     except (KeyError, TypeError, ValueError, AttributeError) as error:
         raise Refused("el journal tiene metadatos inválidos o incompletos") from error
@@ -532,6 +540,15 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
         raise Refused("la procedencia y el plan SQL no coinciden")
     db.check_owner()
     approved_ref = source_plan["approved_sql_ref"] if source_plan else source_ref
+    if len(rows) != REF_COUNTS.get(approved_ref) or plan_hash(rows) != REF_PLAN_SHA.get(approved_ref):
+        raise Refused("el plan SQL no corresponde a su referencia aprobada")
+    if approved_ref in RECOVERY_ONLY_REFS:
+        # Antes de initialize: ni provisión, ni revisión nueva, ni primera UP.
+        exists = db.query(f"SELECT to_regclass('{SCHEMA}.applied') IS NOT NULL;")
+        if exists != "t":
+            raise Refused("plan 43 retirado para nuevas instalaciones; no hay ledger 43 recuperable")
+        installed = receipts(db, rows)
+        validate_receipts(installed, {"file_count": len(rows), "entries": rows})
     meta = initialize(db, rows, approved_ref)
     meta["approved_sql_ref"] = approved_ref
     if source_plan:

@@ -4,6 +4,7 @@
 # Extensión main a7d9df2b3285b0df6be6bba0bae09331463f0a3d: AD3-113/Documentos9 en posiciones 37/38; historia 36 intacta.
 # Extensión main 1e443463df69dffeaac239f9b7000f48dd1b7bb7: Aspirantes000002 en posición39, tras Aspirantes000001 de la base.
 # Extensión main 890b3fe0e9f9e30e249b9dc2d3778971121a8cc2: roles/categorías000001/lecturas000002/AD3-117 en posiciones40..43.
+# Estado 890/43: solo lectura/recuperación de ledger 43 exacto ya instalado; prohibida nueva UP por NO-GO de Cat000001.
 # fase SHA256 ruta relativa; solo SQL integrado, nunca DOWN.
 H3	c4dcae5c990555c05dae958adc0a52cab2244b7bfb5c5cac5eaaf2399e6275b3	deploy/postgresql/contratacion_temporal/migraciones/000141_requisitos_via_expediente.up.sql
 H3	ad53b128a42120e9030099ed0faf479d21fe4524da4c3ba385e16ac63cd28e4e	deploy/postgresql/contratacion_temporal/migraciones/000142_numeracion_anual_expedientes_anteriores.up.sql

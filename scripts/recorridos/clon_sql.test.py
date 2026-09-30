@@ -335,11 +335,12 @@ class HelperTests(unittest.TestCase):
             SQL.write_journal(state, result, installed)
             self.assertEqual(json.loads((state / "sql-journal.json").read_text())["installed"], installed)
 
-    def planner_fixture(self, approved=SQL.FOURTH_REF):
+    def planner_fixture(self, approved=SQL.FOURTH_REF, target=SQL.MAIN_REF):
         rows = SQL.load_plan(REPO)
         count = SQL.REF_COUNTS[approved]
-        plan = {"source_ref": SQL.MAIN_REF, "approved_sql_ref": SQL.MAIN_REF,
-                "file_count": len(rows), "entries": rows}
+        target_count = SQL.REF_COUNTS[target]
+        plan = {"source_ref": target, "approved_sql_ref": target,
+                "file_count": target_count, "entries": rows[:target_count]}
         current = {"source_ref": approved, "approved_sql_ref": approved,
                    "file_count": count, "entries": rows[:count], "inventory_sha": "c" * 64}
         original_index = SQL.REF_ORDER.index(SQL.BASE_REF)
@@ -357,23 +358,24 @@ class HelperTests(unittest.TestCase):
         return plan, current, record
 
     def test_steps_fresh_h1_lists_all_known_prefixes_without_docker(self):
-        plan, _, _ = self.planner_fixture()
+        plan, _, _ = self.planner_fixture(target=SQL.FIFTH_REF)
         with tempfile.TemporaryDirectory() as scratch:
             with patch.object(SQL, "approved_source_plan", return_value=plan):
                 with patch.object(SQL.DockerDB, "query") as query:
-                    self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, Path(scratch)),
-                                     list(SQL.REF_ORDER))
+                    self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.FIFTH_REF, Path(scratch)),
+                                     list(SQL.REF_ORDER[:-1]))
             query.assert_not_called()
 
-    def test_steps_38_requires_39_then_43_and_complete_43_requires_none(self):
-        for ref, expected in ((SQL.FOURTH_REF, [SQL.FIFTH_REF, SQL.MAIN_REF]), (SQL.MAIN_REF, [])):
-            plan, current, record = self.planner_fixture(ref)
+    def test_steps_38_allows_safe_39_and_complete_43_requires_none(self):
+        for ref, target, expected in ((SQL.FOURTH_REF, SQL.FIFTH_REF, [SQL.FIFTH_REF]),
+                                     (SQL.MAIN_REF, SQL.MAIN_REF, [])):
+            plan, current, record = self.planner_fixture(ref, target)
             with tempfile.TemporaryDirectory() as scratch:
                 state = Path(scratch); journal = state / "sql-journal.json"
                 original = json.dumps(record).encode(); journal.write_bytes(original)
                 with patch.object(SQL, "approved_source_plan", return_value=plan):
                     with patch.object(SQL, "validate_git_source", return_value=current):
-                        self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state), expected)
+                        self.assertEqual(SQL.etapas_requeridas(REPO, REPO, target, state), expected)
                 self.assertEqual(journal.read_bytes(), original)
 
     def test_steps_refuses_foreign_malformed_incomplete_or_gapped_journal(self):
@@ -413,6 +415,77 @@ class HelperTests(unittest.TestCase):
         with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
             with self.assertRaisesRegex(SQL.Refused, "39 SQL"):
                 SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
+
+    def test_recovery_only_43_refuses_fresh_or_38_before_initialize_or_up(self):
+        rows = SQL.load_plan(REPO)
+        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
+                     for n, row in enumerate(rows[:38], 1)]
+        for replies in (["f"], ["t", json.dumps(installed)]):
+            with self.subTest(replies=len(replies)), tempfile.TemporaryDirectory() as scratch:
+                with patch.object(SQL.DockerDB, "check_owner"):
+                    with patch.object(SQL.DockerDB, "query", side_effect=replies) as query:
+                        with patch.object(SQL, "initialize") as initialize:
+                            with self.assertRaises(SQL.Refused):
+                                SQL.apply(SQL.DockerDB("vec-test"), rows, Path(scratch), SQL.MAIN_REF)
+                initialize.assert_not_called()
+                self.assertTrue(all(call.args[0].lstrip().startswith("SELECT")
+                                    for call in query.call_args_list))
+
+    def test_recovery_only_43_recovers_exact_existing_ledger_without_sql_writes(self):
+        rows = SQL.load_plan(REPO)
+        _, _, record = self.planner_fixture(SQL.MAIN_REF)
+        metadata = {k: v for k, v in record.items() if k != "installed"}
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            with patch.object(SQL.DockerDB, "check_owner"):
+                with patch.object(SQL.DockerDB, "query", return_value="t") as query:
+                    with patch.object(SQL, "initialize", return_value=metadata):
+                        with patch.object(SQL, "receipts", return_value=record["installed"]):
+                            SQL.apply(SQL.DockerDB("vec-test"), rows, state, SQL.MAIN_REF)
+                            first = (state / "sql-journal.json").read_bytes()
+                            (state / "sql-journal.json").unlink()
+                            SQL.apply(SQL.DockerDB("vec-test"), rows, state, SQL.MAIN_REF)
+            self.assertEqual(first, (state / "sql-journal.json").read_bytes())
+            self.assertTrue(all(call.args[0].lstrip().startswith("SELECT")
+                                for call in query.call_args_list))
+            self.assertEqual(json.loads(first)["installed"], record["installed"])
+
+    def test_steps_recovery_only_43_refuses_missing_journal_or_complete_38(self):
+        plan, current, record = self.planner_fixture()
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            with patch.object(SQL, "approved_source_plan", return_value=plan):
+                with self.assertRaisesRegex(SQL.Refused, "retirado"):
+                    SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state)
+                (state / "sql-journal.json").write_text(json.dumps(record))
+                with patch.object(SQL, "validate_git_source", return_value=current):
+                    with self.assertRaisesRegex(SQL.Refused, "retirado"):
+                        SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state)
+
+    def test_recovery_only_43_rejects_wrong_hash_even_with_43_rows(self):
+        rows = SQL.load_plan(REPO)
+        _, _, record = self.planner_fixture(SQL.MAIN_REF)
+        record["installed"][-1]["sha256"] = "a" * 64
+        with tempfile.TemporaryDirectory() as scratch:
+            with patch.object(SQL.DockerDB, "check_owner"):
+                with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(record["installed"])]):
+                    with patch.object(SQL, "initialize") as initialize:
+                        with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
+                            SQL.apply(SQL.DockerDB("vec-test"), rows, Path(scratch), SQL.MAIN_REF)
+        initialize.assert_not_called()
+
+    def test_safe_39_is_not_blocked_by_recovery_only_43(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.FIFTH_REF)
+        _, _, record = self.planner_fixture(SQL.FIFTH_REF)
+        metadata = {k: v for k, v in record.items() if k != "installed"}
+        with tempfile.TemporaryDirectory() as scratch:
+            with patch.object(SQL.DockerDB, "check_owner"):
+                with patch.object(SQL.DockerDB, "query") as query:
+                    with patch.object(SQL, "initialize", return_value=metadata) as initialize:
+                        with patch.object(SQL, "receipts", return_value=record["installed"]):
+                            SQL.apply(SQL.DockerDB("vec-test"), rows, Path(scratch), SQL.FIFTH_REF)
+        initialize.assert_called_once()
+        query.assert_not_called()
 
 
 class GitSourceTests(unittest.TestCase):
