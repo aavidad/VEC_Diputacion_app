@@ -129,7 +129,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
         ${Object.keys(errores).map((c) => `<li><a href="#ct-b2-${c}">${e(t(c === "vacante" ? "puesto" : c))}: ${e(t(errores[c]))}</a></li>`).join("")}</ul></section>` : ""}
       <p class="ct-estado ${recibo ? "ct-estado-exito" : "ct-estado-informacion"}" role="status" aria-live="polite" tabindex="-1" data-b2-mensaje>${e(t(mensaje || (recibo ? "confirmada" : plan ? "plan_preparado" : fase === "revision" ? "revision_lista" : "paso_datos")))}</p>
       ${cuerpo}${!recibo && !controlador ? `<div class="ct-acciones"><button type="button" class="boton-secundario" data-b2-accion="consultar">${e(t(incierto ? "comprobar" : "actualizar"))}</button>
-        ${incierto ? `<button type="button" class="boton-primario" data-b2-accion="retomar">${e(t("continuar"))}</button>` : ""}</div>` : ""}</div></section>`;
+        ${incierto && consulta ? `<button type="button" class="boton-primario" data-b2-accion="retomar">${e(t("continuar"))}</button>` : ""}</div>` : ""}</div></section>`;
     if (foco) raiz.querySelector?.(foco)?.focus?.();
   }
   function aceptarConsulta(datos) {
@@ -146,20 +146,22 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
     incierto = Boolean(intencion && !recibo && !plan); denegado = false;
     mensaje = recibo ? "confirmada" : incierto ? "registro_pendiente" : plan ? "plan_preparado" : "";
   }
-  function fallo(error, efecto) {
+  function fallo(error, efecto, lecturaIndependiente = false) {
     if (error?.envelopeValido && [401, 403].includes(error.estado)) {
       denegado = true; consulta = null; plan = null; recibo = null; valores = {};
       incierto = false; mensaje = "denegada"; return;
     }
     if (efecto) { incierto = true; mensaje = "registro_pendiente"; return; }
     mensaje = error?.envelopeValido && error.estado === 409 ? "conflicto" : "no_disponible";
-    if (!intencion) consulta = null;
+    // Una consulta independiente fallida invalida opciones y versión previas.
+    // Se conserva la intención y su clave para recuperarla con otro GET.
+    if (lecturaIndependiente || !intencion) consulta = null;
   }
   async function consultar() {
     if (!vigente() || controlador) return;
     const actual = new AbortController(); controlador = actual; mensaje = "cargando"; pintar("[data-b2-mensaje]");
     try { const c = await cliente.consultar(expedienteRef, { signal: actual.signal }); if (vigente() && !actual.signal.aborted) aceptarConsulta(c); }
-    catch (error) { if (vigente() && !actual.signal.aborted) fallo(error, false); }
+    catch (error) { if (vigente() && !actual.signal.aborted) fallo(error, false, true); }
     finally { if (controlador === actual) { controlador = null; pintar("[data-b2-mensaje]"); } }
   }
   async function registrar(retomar = false) {
