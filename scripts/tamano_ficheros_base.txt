@@ -126,6 +126,6 @@
 1327 scripts/recorridos/clon_runtime.py
 1357 scripts/recorridos/clon_material.py
 1350 scripts/recorridos/test_clon_runtime.py
-1405 scripts/recorridos/clon_sql.py
-1298 scripts/recorridos/clon_sql.test.py
+1437 scripts/recorridos/clon_sql.py
+1358 scripts/recorridos/clon_sql.test.py
 895 scripts/recorridos/clon_runtime_container.py
