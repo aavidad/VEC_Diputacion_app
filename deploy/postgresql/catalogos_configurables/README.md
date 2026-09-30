@@ -23,4 +23,12 @@ El adaptador de cada consumidor usa su propia referencia opaca y conserva ID, ve
 
 ## Límite de este corte
 
-La migración no concede acceso HTTP ni instala el caso de uso de publicación. El wrapper AD3-117, el adaptador Go y el ensayo PostgreSQL del clon son dependencias para afirmar una operación utilizable. La huella de la publicación identifica los bytes canónicos recibidos; la aprobación y la firma legal requieren sus circuitos propios.
+La migración 000001 no concede acceso HTTP ni instala el caso de uso de publicación. La huella de la publicación identifica los bytes canónicos recibidos; la aprobación y la firma legal requieren sus circuitos propios.
+
+## Lecturas internas 000002 y AD3-117
+
+La migración 000002 añade tres funciones internas: lista de categorías habilitadas para un uso nuevo, publicación histórica por referencia exacta y estado de una reserva por `(consumidor, uso_ref, reserva_recibo_ref)`. Solo el propietario de AD3 V3 recibe `EXECUTE`. La lista pagina por `categoria_id`, devuelve la versión y huella de cada fila y conserva una publicación canónica de anclaje incluso si la página está vacía. Las demás publicaciones se deduplican frente al anclaje. El límite de 100 filas y 48 MiB, incluido el recibo AD3, protege la respuesta; el núcleo reserva 4 KiB para esa envoltura y la fachada comprueba el tamaño final. Es un presupuesto técnico, no una regla de negocio. La lectura histórica conserva el documento original y muestra el control actual por separado.
+
+AD3-117 añade las tres fachadas nominales sobre AD3-114. Cada llamada exige decisión V3 actual, perfil activo, audiencia, finalidad, acción, recurso y material exactos; consume y audita antes de leer en la misma transacción. El módulo del descriptor configurado se coteja con cada publicación canónica devuelta. La consulta de uso exige además el consumidor propio del rol técnico de CT, Bolsa o Personal. Las fachadas no publican concesiones ni aceptan el perfil desde HTTP. Sin descriptor ID/módulo gobernado y concesión positiva aprobada para la persona y su perfil vigente, la operación permanece denegada. El adaptador Go y los consumidores aún deben conectarse; este SQL no convierte la RPT en editable.
+
+El llamador fija `TimeZone=UTC`, `statement_timeout=15s` e `idle_in_transaction_session_timeout=20s` mediante `SET LOCAL` antes de la invocación V3. Las fachadas no cambian el temporizador de sentencia dentro de la llamada: el núcleo comprueba esos límites, y un ajuste posterior al inicio de la sentencia no sustituye el límite real del LOGIN.
