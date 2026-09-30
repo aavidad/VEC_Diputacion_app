@@ -551,11 +551,11 @@
     configurarAreasDirectorio(estado.categorias);
     const huella = String(datos.catalogo.huella_sha256 || "");
     elementos.integridadCategorias.textContent = t("catalogo_resumen", {
-      referencia: datos.catalogo.referencia, version: numero(datos.catalogo.version),
+      referencia: datos.catalogo.catalogo_id, version: numero(datos.catalogo.version),
       total: numero(datos.catalogo.total), huella: huella.slice(0, 16),
     });
     elementos.integridadCategorias.setAttribute("aria-label", t("catalogo_resumen_aria", {
-      referencia: datos.catalogo.referencia, version: numero(datos.catalogo.version),
+      referencia: datos.catalogo.catalogo_id, version: numero(datos.catalogo.version),
       total: numero(datos.catalogo.total), huella,
     }));
     elementos.integridadCategorias.title = t("huella_sha256", { huella });

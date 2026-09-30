@@ -27,14 +27,14 @@ const detalle = {
 };
 
 class Nodo {
-  constructor() { this.children = []; this.dataset = {}; this.value = ""; this.textContent = ""; this.hidden = true; this.eventos = {}; }
+  constructor() { this.children = []; this.dataset = {}; this.value = ""; this.textContent = ""; this.hidden = true; this.eventos = {}; this.atributos = {}; }
   get firstChild() { return this.children[0]; }
   get options() { return this.children; }
   append(...nodos) { this.children.push(...nodos); }
   appendChild(nodo) { this.append(nodo); return nodo; }
   removeChild(nodo) { this.children.splice(this.children.indexOf(nodo), 1); }
   replaceChildren(...nodos) { this.children = nodos; }
-  setAttribute() {}
+  setAttribute(nombre, valor) { this.atributos[nombre] = valor; }
   addEventListener(nombre, fn) { this.eventos[nombre] = fn; }
   focus() {}
 }
@@ -50,11 +50,11 @@ async function montar(respuestaListado = listado, respuestaDetalle = detalle) {
     document: documento, URLSearchParams, AbortController, Intl,
     window: { location: { search: "?convocatoria=auxiliares-2026", hash: "" }, addEventListener() {} },
     history: { state: null, replaceState() {}, pushState() {} },
-    VECBolsaI18n: { t: (clave) => clave },
+    VECBolsaI18n: { t: (clave, valores = {}) => `${clave} ${Object.values(valores).join(" ")}` },
     fetch: async (url, opciones) => {
       peticiones.push({ url, opciones });
       const datos = url.includes("/categorias")
-        ? { esquema: "vec.bolsa.publico.categorias.v1", fuente, catalogo: { total: 0, huella_sha256: huella }, categorias: [] }
+        ? { esquema: "vec.bolsa.publico.categorias.v1", fuente, catalogo: { catalogo_id: snapshot.catalogo_id, version: 1, total: 0, huella_sha256: huella, huella_proyeccion_sha256: huella }, categorias: [] }
         : url.includes("/convocatorias/") ? respuestaDetalle : respuestaListado;
       return { ok: true, headers: { get: () => "application/json" }, json: async () => structuredClone(datos) };
     },
@@ -70,7 +70,7 @@ function textos(nodo) {
 }
 
 test("la página monta exclusivamente V2 antes del controlador con la misma versión de caché", () => {
-  const version = "20260930-publico-v2-v1";
+  const version = "20260930-publico-v2-v2";
   assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf(`/bolsa/bolsa.js?v=${version}`));
   assert.doesNotMatch(html, /contrato-v1\.js/);
 });
@@ -104,4 +104,13 @@ test("el detalle V2 falla cerrado cuando su snapshot no coincide o el backend de
     assert.equal(nodos.get("detalle-error").hidden, false);
     assert.equal(nodos.get("contenido-detalle").hidden, true);
   }
+});
+
+
+test("el directorio usa catalogo_id del DTO canónico en resumen y etiqueta accesible", async () => {
+  const { nodos } = await montar();
+  const resumen = nodos.get("integridad-catalogo-categorias");
+  assert.match(resumen.textContent, /categorias-profesionales/);
+  assert.match(resumen.atributos["aria-label"], /categorias-profesionales/);
+  assert.doesNotMatch(resumen.textContent, /undefined/);
 });
