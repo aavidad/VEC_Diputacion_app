@@ -13,7 +13,7 @@ import { crearClientePlantillasRRHH } from "./modulos/contratacion-temporal/rrhh
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260928-ppt-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260930-portales-i18n-integracion-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260930-ct-lista-recuperada-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20261001-rpt-categorias-v1";
 import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTA_CANDIDATOS_BOLSA, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260930-portales-i18n-integracion-v1";
 import { LOCALIZACION_PORTAL, textoPortal, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { instalarCopiaJustificantes } from "./portal-justificante.js";
