@@ -103,7 +103,9 @@ SELECT count(*) AS activaciones FROM activada \gset
 COMMIT;
 \else
 ROLLBACK;
-\echo CT157: secuencia de activación cambiada
-\quit 3
+-- ON_ERROR_STOP hace que psql termine con código distinto de cero.
+DO $fallo$ BEGIN
+ RAISE EXCEPTION 'CT157: secuencia de activación cambiada' USING ERRCODE='40001';
+END $fallo$;
 \endif
 SQL

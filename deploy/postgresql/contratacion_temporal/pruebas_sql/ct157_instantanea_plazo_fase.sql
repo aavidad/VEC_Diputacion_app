@@ -136,5 +136,65 @@ BEGIN
   END IF;
   anterior:=nueva;
  END LOOP;
+ PERFORM set_config('ct157.ref',anterior.expediente_ref,true);
+ PERFORM set_config('ct157.version',anterior.version::text,true);
+ PERFORM set_config('ct157.fase',instantanea.fase_clave,true);
+ PERFORM set_config('ct157.desde',instantanea.fase_desde::text,true);
 END $prueba$;
+
+-- Una página atestada doble de v4 comprueba solo el añadido de v5. La
+-- autorización de v4 está probada por su propio contrato y no se suplanta en
+-- la aplicación: esta sustitución existe solo hasta el ROLLBACK final.
+SELECT set_config('ct157.contenido',
+ 'VEC-CT-CONTENIDO-CUADRO-RRHH-V1'||chr(10)||
+ (SELECT string_agg(octet_length(convert_to(valor,'UTF8'))::text||':'||valor||chr(10),'' ORDER BY orden)
+ FROM unnest(ARRAY['2026-09-30T19:00:00Z','1',current_setting('ct157.ref'),'x','x',
+   current_setting('ct157.version')]||array_fill('x'::text,ARRAY[11]))
+ WITH ORDINALITY AS campo(valor,orden)),true);
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v4(
+ p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+ p_consulta vec_contratacion_temporal.consulta_cuadro_rrhh_v1,
+ p_capacidad_canonica bytea,p_decision_canonica bytea,p_motivo_canonico bytea,
+ p_contexto_actor_canonico bytea,p_persona_version numeric,p_perfil_version numeric,
+ p_payload_vec_ad_3 bytea,p_sobre_cose_sign_1 bytea,p_evidencia_verificacion bytea,
+ p_raiz_publica_spki bytea)
+RETURNS TABLE (
+ contenido_canonico bytea,cursor_siguiente text,esquema text,acceso_ref text,
+ secuencia numeric,anterior_sha256 text,huella_sha256 text,
+ vinculo_identidad_huella_sha256 text,alcance_huella_sha256 text,
+ registrada_en timestamptz,auditoria_vec_ref text,auditoria_vec_huella_sha256 text,
+ consumo_vec_huella_sha256 text,contenido_huella_sha256 text,
+ resultado_huella_sha256 text,cursor_huella_sha256 text,generada_en timestamptz,
+ expediente_ref text,version_expediente numeric,total smallint,recibo_sello_sha256 text,
+ total_filtrado numeric,en_tramitacion numeric,con_incidencia numeric,
+ en_llamamiento numeric,fase_desde_expedientes text[],fase_desde_instantes timestamptz[],
+ urgente_expedientes boolean[])
+LANGUAGE sql AS $doble$
+ SELECT convert_to(current_setting('ct157.contenido'),'UTF8'),NULL::text,'doble'::text,
+ 'acceso'::text,1::numeric,NULL::text,'h'::text,'v'::text,'a'::text,now(),
+ 'aud'::text,'ah'::text,'ch'::text,'coh'::text,'rh'::text,'cuh'::text,now(),
+ NULL::text,NULL::numeric,1::smallint,'s'::text,
+ 1::numeric,1::numeric,0::numeric,0::numeric,
+ ARRAY[current_setting('ct157.ref')],ARRAY[current_setting('ct157.desde')::timestamptz],
+ ARRAY[false]
+$doble$;
+SET LOCAL ROLE vec_contratacion_temporal_consultor_rrhh;
+DO $fachada$
+DECLARE salida record; fila jsonb;
+BEGIN
+ SELECT * INTO STRICT salida FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v5(
+  NULL::vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+  NULL::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,
+  NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea,NULL::numeric,NULL::numeric,
+  NULL::bytea,NULL::bytea,NULL::bytea,NULL::bytea);
+ fila:=salida.instantaneas_regla[1];
+ IF cardinality(salida.instantaneas_regla)<>1 OR fila->>'estado'<>'capturada'
+    OR fila->>'expediente_ref'<>current_setting('ct157.ref')
+    OR (fila->>'version_expediente')::numeric<>current_setting('ct157.version')::numeric
+    OR fila->>'fase'<>current_setting('ct157.fase')
+    OR jsonb_array_length(salida.bases_regla)<>1
+    OR jsonb_array_length(salida.ajustes_regla)<>1 THEN
+  RAISE EXCEPTION 'CT157: vínculo nominal o diccionario divergente';
+ END IF;
+END $fachada$;
 ROLLBACK;
