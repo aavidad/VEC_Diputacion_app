@@ -109,7 +109,13 @@ func (p proveedorAltaLigado) ResolverAutoridad(ctx context.Context, a personal.P
 	if ctx.Err() != nil {
 		return personal.AutoridadAlta{}, ctx.Err()
 	}
-	if e != nil || r.OrganizacionRef != p.p.Preparacion.OrganizacionRef || !mismoContexto(r.Contexto, p.p.Contexto) {
+	ligado := mismoContexto(r.Contexto, p.p.Contexto)
+	if compuesto, ok := p.base.(interface {
+		vinculoAltaNominalExacto(ct.ContextoAutorizacionAltaV3, ct.ContextoAutorizacionAltaV3) bool
+	}); ok {
+		ligado = compuesto.vinculoAltaNominalExacto(p.p.Contexto, r.Contexto)
+	}
+	if e != nil || r.OrganizacionRef != p.p.Preparacion.OrganizacionRef || !ligado {
 		return personal.AutoridadAlta{}, ct.ErrComposicionIncorporacionAplicacion
 	}
 	return r, nil

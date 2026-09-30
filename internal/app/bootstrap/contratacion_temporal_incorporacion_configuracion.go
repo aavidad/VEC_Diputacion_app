@@ -33,6 +33,7 @@ type archivoIncorporacionV2 struct {
 	Continuidad   *archivoContinuidadNominal           `json:"continuidad_nominal,omitempty"`
 	Esquema       string                               `json:"esquema"`
 	Referencias   ReferenciasCTIncorporacionDesarrollo `json:"referencias"`
+	CentrosAlta   []string                             `json:"centros_alta"`
 	Planes        string                               `json:"planes_file"`
 	TernaPlanes   ct.ReferenciaVersionadaPersonalRPT   `json:"terna_planes"`
 	Personal      string                               `json:"personal_file"`
@@ -105,7 +106,7 @@ func leerConfiguracionIncorporacionV2(ruta string) (archivoIncorporacionV2, *os.
 			return c, nil, f
 		}
 	}
-	if !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoAlta) || !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoLectura) || c.MotivoAlta.CatalogoID != c.MotivoLectura.CatalogoID {
+	if !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoAlta) || !core.ReferenciaMotivoAutorizacionV2Valida(c.MotivoLectura) || c.MotivoAlta.CatalogoID != c.MotivoLectura.CatalogoID || len(c.CentrosAlta) > 256 || (core.AmbitoPerfil{Clave: "centro_ref", Valores: c.CentrosAlta}).Validar() != nil {
 		return c, nil, f
 	}
 	ok = true
@@ -168,6 +169,17 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
+	nominales, err := nuevosPerfilesNominalesIncorporacion(alta.soporte, consultas.autoridad, c.Referencias, c.CentrosAlta, reloj.Ahora())
+	if err != nil {
+		return vacia, nil, err
+	}
+	for _, perfil := range []*perfilFijoCTDesarrollo{nominales.detalle, nominales.alta, nominales.ct} {
+		if !descriptorDetalle.admitePerfil(perfil.perfilRef()) {
+			return vacia, nil, f
+		}
+	}
+	referenciasContinuidad := c.Referencias
+	c.Referencias.PerfilV3Ref = nominales.ct.perfilRef()
 	material := consultas.materialDetalle
 	emisiones, err := cargarMaterialIncorporacionV2(raiz, c.Material, material.raiz, reloj)
 	if err != nil {
@@ -234,7 +246,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	autoridadOperacion, err := nuevaAutoridadOperacionesIncorporacionV2(alta.soporte, consultas.autoridad, pdp, c, fuentePlanes, personal, motivoDetalle, reloj)
+	autoridadOperacion, err := nuevaAutoridadOperacionesIncorporacionV2(alta.soporte, consultas.autoridad, pdp, c, fuentePlanes, personal, motivoDetalle, reloj, nominales)
 	if err != nil {
 		return vacia, nil, f
 	}
@@ -246,7 +258,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	if err != nil {
 		return vacia, nil, f
 	}
-	autoridadDetalle, err := nuevaAutoridadOperacionesIncorporacionV2(alta.soporte, consultas.autoridad, pdpDetalle, c, fuentePlanes, personal, motivoDetalle, reloj)
+	autoridadDetalle, err := nuevaAutoridadOperacionesIncorporacionV2(alta.soporte, consultas.autoridad, pdpDetalle, c, fuentePlanes, personal, motivoDetalle, reloj, nominales)
 	if err != nil {
 		return vacia, nil, f
 	}
@@ -260,17 +272,23 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 	}
 	// El servicio y sesión existentes consumen autorización vigente del PDP;
 	// el ámbito de este plan no altera las otras consultas del servidor.
-	autoridad := &contextoDetalleNominalIncorporacionV2{consultas.autoridad, c.Referencias, reloj}
+	autoridad := &contextoDetalleNominalIncorporacionV2{consultas.autoridad, c.Referencias, reloj, nominales}
 	detalle, err := appct.NuevoServicioConsultaDetalleRRHH(autoridad, emisor, consultas.sesion, reloj)
 	if err != nil {
 		return vacia, nil, f
 	}
-	continuidad, err := cargarContinuidadNominal(raiz, c.Continuidad, c.Referencias, pools, alta, consultas, fuentePlanes, detalle, reloj)
+	continuidad, err := cargarContinuidadNominal(raiz, c.Continuidad, referenciasContinuidad, pools, alta, consultas, fuentePlanes, detalle, reloj)
 	if err != nil {
 		return vacia, nil, f
 	}
+	if err := provisionarPerfilesNominalesIncorporacion(ctx, alta.postgresql.gobierno, nominales, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg)); err != nil {
+		return vacia, nil, err
+	}
+	if err := configurarSesionesNominalesIncorporacion(ctx, nominales, consultas.identidad); err != nil {
+		return vacia, nil, err
+	}
 	completa = true
-	return ConfiguracionIncorporacionDesarrollo{continuidad: continuidad, fronteras: fronteras, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
+	return ConfiguracionIncorporacionDesarrollo{nominales: nominales, continuidad: continuidad, fronteras: fronteras, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
 		MotivoAlta: c.MotivoAlta, MotivoLectura: c.MotivoLectura, AltaPersonal: pools["alta_personal"], RegistroCT: pools["registro_ct"],
 		Preparacion: inc.ConfiguracionPreparacionDurableV2PostgreSQL{Planes: planes, TernaPlanes: c.TernaPlanes, FuentePersonal: personal, TernaPersonal: c.TernaPersonal,
 			Pools: inc.PoolsPreparacionDurableV2{InicialCT: pools["raices_ct"], LocalizadorCT: pools["localizador_ct"], LocalizadorPersonal: pools["localizador_personal"], LecturaPersonal: pools["lector_personal"], Historia: pgct.PoolsHistoriaIncorporacionV2{RegistroCT: pools["historia_ct"], Autenticacion: pools["historia_autenticacion"], Contexto: pools["historia_contexto"], Evaluacion: pools["historia_evaluacion"], Concesion: pools["historia_concesion"]}}}}, cerrar, nil
@@ -299,18 +317,31 @@ type contextoDetalleNominalIncorporacionV2 struct {
 	consulta    *autoridadConsultasRRHHDesarrollo
 	referencias ReferenciasCTIncorporacionDesarrollo
 	reloj       ct.Reloj
+	nominales   *perfilesNominalesIncorporacion
 }
 
 func (a *contextoDetalleNominalIncorporacionV2) ResolverContextoConsultaRRHH(ctx context.Context) (ct.ContextoConsultaRRHH, error) {
 	if a == nil || a.consulta == nil || a.consulta.soporte == nil || a.reloj == nil || !a.referencias.valida() || ctx == nil || ctx.Value(claveIncorporacionV2Desarrollo{}) != a.consulta.soporte.sello {
 		return ct.ContextoConsultaRRHH{}, ct.ErrAutorizacionDenegada
 	}
-	c, err := a.consulta.contextoConsultaRRHHDesarrollo(ctx)
-	if err != nil {
-		return ct.ContextoConsultaRRHH{}, err
+	var c ct.ContextoAutorizacionAltaV3
+	var err error
+	if a.nominales == nil {
+		c, err = a.consulta.contextoConsultaRRHHDesarrollo(ctx)
+		if err != nil {
+			return ct.ContextoConsultaRRHH{}, err
+		}
+	}
+	perfilEsperado := a.referencias.PerfilV3Ref
+	if a.nominales != nil {
+		c, err = a.nominales.resolver(ctx, a.nominales.detalle)
+		if err != nil {
+			return ct.ContextoConsultaRRHH{}, err
+		}
+		perfilEsperado = a.nominales.detalle.perfilRef()
 	}
 	v, err := c.Vinculo.Datos()
-	if err != nil || v.PrincipalID != a.referencias.PrincipalV3Ref || v.PerfilActivoRef != a.referencias.PerfilV3Ref {
+	if err != nil || v.PrincipalID != a.referencias.PrincipalV3Ref || v.PerfilActivoRef != perfilEsperado {
 		return ct.ContextoConsultaRRHH{}, ct.ErrAutorizacionDenegada
 	}
 	return ct.NuevoContextoConsultaRRHH(c, a.referencias.OrganizacionRef, a.reloj.Ahora())
