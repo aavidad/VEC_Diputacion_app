@@ -529,6 +529,39 @@ class ContainerBoundaryTests(unittest.TestCase):
         self.assertNotIn('start', [call[0] for call in calls])
         cleanup.assert_called_once()
 
+    def test_relay_in_each_writable_tree_rejected_before_docker_even_with_valid_pin(self):
+        for kind in sorted(runtime.RW_KINDS):
+            path = self.root / 'rw' / kind / 'nested/relay_tcp'
+            path.parent.mkdir()
+            path.write_bytes(self.elf)
+            path.chmod(0o700)
+            with self.subTest(kind=kind), patch.object(runtime, 'docker') as docker, \
+                    patch.object(runtime, 'build_image') as build:
+                keywords = dict(self.start_keywords(), relay_binary=path, relay_sha256=runtime.sha(path))
+                with self.assertRaisesRegex(runtime.ContainerError, 'writable runtime tree'):
+                    runtime.start(self.state, self.source, self.binary, self.environment, self.manifest,
+                                  self.projection, 19443, 5432, **keywords)
+                with self.assertRaises(runtime.ContainerError):
+                    runtime.relay_mount(self.state, path, runtime.sha(path))
+                docker.assert_not_called()
+                build.assert_not_called()
+
+    def test_relay_hardlinks_and_directory_inode_aliases_are_rejected(self):
+        link = self.root / 'rw/data/relay_alias'
+        os.link(self.relay, link)
+        with self.assertRaises(runtime.ContainerError):
+            self.validate()
+        link.unlink()
+        # Kernel bind mounts need privileges. Model their sole changed fact,
+        # the directory's inode, while keeping all normal file guards active.
+        ancestor = self.relay.parent.stat()
+        original_stat = Path.stat
+        rw_root = self.root / 'rw/data'
+        def inode_alias(path, *args, **kwargs):
+            return ancestor if path == rw_root else original_stat(path, *args, **kwargs)
+        with patch.object(Path, 'stat', inode_alias), self.assertRaisesRegex(runtime.ContainerError, 'aliases'):
+            self.validate()
+
     def test_owned_app_cleanup_remains_possible_after_pg_or_relay_disappears(self):
         self.relay.unlink()
         runtime.private_json(self.state / 'runtime-container.json', self.record)

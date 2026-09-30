@@ -210,15 +210,34 @@ def projection_sha(projection):
 
 def relay_mount(state, relay_binary, relay_sha256, *, live=False):
     path = Path(relay_binary)
+    writable_roots = [state / 'runtime-interno/rw' / kind for kind in RW_KINDS]
     if (not path.is_absolute() or '..' in path.parts or ',' in str(path)
             or state not in path.parents or not re.fullmatch(r'[a-f0-9]{64}', relay_sha256)):
         fail('The relay requires an owned path and an externally approved SHA256.')
+    if any(path == root or root in path.parents for root in writable_roots):
+        fail('The relay cannot be exposed through a writable runtime tree.')
     if live:
         checked_path(path, state)
         metadata = path.stat()
         if (stat.S_IMODE(metadata.st_mode) != 0o700 or not static_elf(path)
                 or sha(path) != relay_sha256):
             fail('The approved static relay binary changed.')
+        # A host bind alias may use a different lexical path but expose the same
+        # file or one of its directories. A read-only leaf mount cannot seal that.
+        protected = {(metadata.st_dev, metadata.st_ino)}
+        for parent in path.parents:
+            info = parent.stat()
+            protected.add((info.st_dev, info.st_ino))
+        for root in writable_roots:
+            checked_path(root, state, directory=True)
+            info = root.stat()
+            if (info.st_dev, info.st_ino) in protected:
+                fail('A writable runtime tree aliases the relay or its ancestry.')
+            for child in root.rglob('*'):
+                checked_path(child, root, directory=child.is_dir())
+                info = child.stat()
+                if (info.st_dev, info.st_ino) in protected:
+                    fail('A writable runtime tree aliases the relay or its ancestry.')
     return {'source': str(path), 'target': RELAY_TARGET, 'rw': False}
 
 
