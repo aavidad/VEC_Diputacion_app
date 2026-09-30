@@ -84,3 +84,32 @@ func TestAvisoExternoSinPoolFallaCerrado(t *testing.T) {
 		t.Fatal("resultado sin infraestructura")
 	}
 }
+
+func TestProyeccionAvisosConTerminalParcialConservaPendienteYRecibosReales(t *testing.T) {
+	e := ports.EmisionLlamamiento{LlamamientoRef: "llamamiento:" + strings.Repeat("b", 64), Participaciones: []string{"participacion:prueba:uno", "participacion:prueba:dos"}, Contactos: []ports.ResultadoContactoEmision{{ParticipacionRef: "participacion:prueba:uno", Resultado: "enviado"}}}
+	pendientes := make([]ports.AvisoExternoPendiente, 0, 2)
+	for _, participacion := range e.Participaciones {
+		evento := eventoAvisoPrueba()
+		hEvento := sha256.Sum256([]byte(e.LlamamientoRef + "\x1f" + participacion))
+		evento.EventoRef = "evento_aviso:" + hex.EncodeToString(hEvento[:])
+		huella := huellaAviso(evento)
+		hRecibo := sha256.Sum256([]byte(evento.ProductorRef + "\x1f" + evento.EventoRef + "\x1f" + huella))
+		pendientes = append(pendientes, ports.AvisoExternoPendiente{Evento: evento, Huella: huella, ReciboOutboxRef: "recibo_outbox:" + hex.EncodeToString(hRecibo[:]), EstadoDespacho: "reservado_incierto"})
+	}
+	pendientes[0].EstadoDespacho = "aceptado"
+	got, err := proyectarContactosAvisosExternos(e, pendientes, "bolsa:prueba", "clave:prueba")
+	if err != nil || len(got) != 2 || got[0].ParticipacionRef != e.Participaciones[0] || got[0].Resultado != "enviado" || got[0].ReciboRef != "recibo:contacto:c56f6f61b1bdfb8c554eb9d352adee3255db7a145873b1d5c5a980cef7b14bf7" || got[1].ParticipacionRef != e.Participaciones[1] || got[1].Resultado != "aviso_pendiente" || got[1].ReciboRef != pendientes[1].ReciboOutboxRef {
+		t.Fatalf("lote parcial o recibos no conservados: %#v %v", got, err)
+	}
+	for _, terminal := range []string{"no_aceptado", "sin_destino"} {
+		pendientes[1].EstadoDespacho = terminal
+		got, err = proyectarContactosAvisosExternos(e, pendientes, "bolsa:prueba", "clave:prueba")
+		if err != nil || got[1].Resultado != "no_enviado" || got[1].ReciboRef != "recibo:contacto:7703851ee37fb48ba1216e555f4daeccad69a9fc566a20af63d783d6e23f04d4" {
+			t.Fatal("terminal sin recibo de contacto real", got, err)
+		}
+	}
+	pendientes[1].EstadoDespacho = "resultado_ajeno"
+	if _, err = proyectarContactosAvisosExternos(e, pendientes, "bolsa:prueba", "clave:prueba"); err == nil {
+		t.Fatal("resultado ajeno aceptado")
+	}
+}
