@@ -88,7 +88,8 @@ func TestPerfilEditorAjustesCTSeparaConsultaYAjuste(t *testing.T) {
 	concesiones := plantilla.VersionRol.Concesiones
 	if len(concesiones) != 2 || concesiones[0].Accion != accionConsultarAjustesCT ||
 		concesiones[1].Accion != accionAjustarReglasCT || len(concesiones[0].CamposPermitidos) != 2 ||
-		len(concesiones[1].CamposPermitidos) != 0 || len(plantilla.AsignacionPerfil.Ambitos) != 1 {
+		len(concesiones[1].CamposPermitidos) != 2 || concesiones[1].CamposPermitidos[0] != "ajustes" ||
+		concesiones[1].CamposPermitidos[1] != "recibo" || len(plantilla.AsignacionPerfil.Ambitos) != 1 {
 		t.Fatal("el perfil editor mezcló campos, acción o ámbito")
 	}
 }

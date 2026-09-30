@@ -208,7 +208,8 @@ func plantillaEditorAjustesCT(principalID, perfilRef string, ahora time.Time, ro
 				Finalidades: []string{finalidadAjustesCT}, CamposPermitidos: []string{"historial", "vigente"},
 				GarantiaMinima: vecdomain.AuthAssuranceHigh},
 			{Accion: accionAjustarReglasCT, ModuloID: "contratacion_temporal", TipoRecurso: "catalogo_reglas",
-				Finalidades: []string{finalidadAjustesCT}, GarantiaMinima: vecdomain.AuthAssuranceHigh},
+				Finalidades: []string{finalidadAjustesCT}, CamposPermitidos: []string{"ajustes", "recibo"},
+				GarantiaMinima: vecdomain.AuthAssuranceHigh},
 		}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
 }
 
