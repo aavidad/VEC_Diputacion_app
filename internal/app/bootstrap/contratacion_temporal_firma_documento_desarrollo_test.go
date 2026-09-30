@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/consultafirmas"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
@@ -25,6 +27,87 @@ func materialFirmaDesarrolloPrueba() ports.MaterialFirmaDocumento {
 		CatalogoHuella: strings.Repeat("c", 64), PasoRef: "vec.contratacion_temporal.circuito_firma:1:informe_definitivo.p1",
 		PasoOrden: 1, Secuencia: 1, Resultado: ctdomain.ResultadoFirmaDevuelto, MotivoDevolucion: "Falta la fecha",
 		ClaveIdempotencia: "clave-devolucion-00001"}
+}
+
+type sesionFirmaErrorPrueba struct{ err error }
+
+func (s sesionFirmaErrorPrueba) ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error) {
+	return contextoSeguridadComunDesarrollo{}, s.err
+}
+
+type fuentePerfilFirmaCaidaPrueba struct {
+	*autoridadAsignacionesContratacionTemporalDesarrolloPrueba
+}
+
+func (fuentePerfilFirmaCaidaPrueba) leerAsignacionPublicada(context.Context, string) (instantaneaPublicadaDesarrollo, bool, error) {
+	return instantaneaPublicadaDesarrollo{}, false, errors.New("fuente de asignaciones no disponible")
+}
+
+func TestConsultaFirmasDocumentoFuenteCaidaNoSeConfundeConRevocacion(t *testing.T) {
+	s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	fijo, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
+		[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
+		func(actor, perfil string) (dominiovec.InstantaneaAutorizacion, error) {
+			return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, perfil, ahora)
+		})
+	if err != nil || s.registrarPerfilFijoCTDesarrollo(fijo) != nil {
+		t.Fatal("perfil no compuesto", err)
+	}
+	a := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+	publicada := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(fijo.plantilla)
+	publicada.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+	publicada.AsignacionPerfil.RevocadaEn = ahora
+	publicada.AsignacionPerfil.RevocadaPor = "revocador:prueba"
+	publicada.AsignacionPerfil.RevocacionRef = "revocacion:prueba"
+	a.asignaciones = map[string]instantaneaPublicadaDesarrollo{fijo.perfilRef(): {instantanea: publicada, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}}
+	f := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{
+		soporte: s, autorizador: base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo),
+		postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}}
+	ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaConsultaFirmaDocumento)
+	m := ports.MaterialConsultaFirmasDocumento{OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo, ExpedienteRef: "expediente:ct:uno"}
+	if _, err := f.AutorizarConsultaFirmasDocumento(ctx, m); !errors.Is(err, ports.ErrFirmaDocumentoDenegada) {
+		t.Fatalf("revocación: %v", err)
+	}
+	s.autoridadAsignaciones = fuentePerfilFirmaCaidaPrueba{a}
+	if _, err := f.AutorizarConsultaFirmasDocumento(ctx, m); !errors.Is(err, ports.ErrRegistroFirmaDocumentoNoDisponible) {
+		t.Fatalf("fuente caída: %v", err)
+	}
+	if a.preparadas != 0 || a.publicadas != 0 {
+		t.Fatal("un fallo de fuente publicó permisos")
+	}
+}
+
+func TestConsultaFirmasDocumentoSesionCaidaYRevocada(t *testing.T) {
+	for _, ruta := range []string{httpinterno.RutaConsultaFirmaDocumento, httpinterno.RutaFirmaDocumento} {
+		for _, caso := range []struct {
+			nombre           string
+			origen, esperado error
+		}{
+			{"dependencia_caida", errors.New("detalle interno de la fuente"), ports.ErrConsultaRRHHNoDisponible},
+			{"revocada", dominiovec.ErrAutorizacionDenegada, ErrSeguridadComunDesarrolloDenegada},
+		} {
+			t.Run(ruta+"/"+caso.nombre, func(t *testing.T) {
+				e := nuevaSesionConsultaPrueba(t)
+				canal := e.contexto().Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+				canal.ruta, canal.metodo = ruta, http.MethodPost
+				ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
+				origen := &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaSesionRevalidador, Causa: caso.origen}
+				clasificada := e.p.errorSesionConsultaComunicacionesExpediente(ctx, origen)
+				if !errors.Is(clasificada, caso.esperado) {
+					t.Fatalf("clasificación %v, esperada %v", clasificada, caso.esperado)
+				}
+				e.soporte.sesionOperativa = sesionFirmaErrorPrueba{clasificada}
+				canal.contextoOperacion = &contextoOperacionCTDesarrollo{}
+				ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
+				_, err := e.soporte.contextoOperativoDesarrollo(ctx)
+				if caso.nombre == "dependencia_caida" && !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) ||
+					caso.nombre == "revocada" && !errors.Is(err, ports.ErrAutorizacionDenegada) {
+					t.Fatalf("el contexto operativo perdió la clasificación: %v", err)
+				}
+			})
+		}
+	}
 }
 
 func TestConsultaFirmasDocumentoPredicadoNoCruzaExpediente(t *testing.T) {
