@@ -3,7 +3,7 @@ import { IDIOMAS_DISPONIBLES } from "../comun/idioma.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { iniciarI18nAreaPersonal, textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPersonal, pintarInicialesSesion, renderizarPreferencias,
-  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20260929-imagen-508c-v2";
+  sincronizarAtajosVisuales, valoresDelFormulario } from "./preferencias.js?v=20260930-codexf-temas-v2";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,

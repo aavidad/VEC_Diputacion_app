@@ -1,5 +1,5 @@
 /* Las vistas que cargan solo portal.css comparten la misma autoridad visual. */
-@import url("../comun/tema-vec.css");
+@import url("../comun/tema-vec.css?v=20260930-codexf-temas-v2");
 
 * {
   box-sizing: border-box;

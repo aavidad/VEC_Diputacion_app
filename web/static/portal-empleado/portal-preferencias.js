@@ -1,4 +1,4 @@
-import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js";
+import { crearClientePreferencias, ErrorPreferencias } from "./portal-preferencias-api.js?v=20260930-codexf-temas-v2";
 import { traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
 
 const CAMPOS_SELECT = Object.freeze({ idioma: "idiomas", tamano_texto: "tamanos_texto", tema: "temas", inicio: "inicios", filas: "filas" });
