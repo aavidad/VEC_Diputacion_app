@@ -62,6 +62,190 @@ class RuntimeTests(unittest.TestCase):
         module.canonical.side_effect = lambda value: (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()
         return approval, ready, binary, module
 
+    def relay_fixture(self):
+        root = self.root / ('relay-host-' + 'a' * 32)
+        root.mkdir(mode=0o700)
+        binary = self.root / 'relay_tcp'
+        binary.write_bytes(b'synthetic opaque relay')
+        binary.chmod(0o700)
+        approval_file = self.root.parent / (self.root.name + '-approval.json')
+        runtime.write_json(approval_file, {'synthetic': True})
+        self.addCleanup(approval_file.unlink, missing_ok=True)
+        helper_source = Path(runtime.__file__).with_name('clon_relay_host.py')
+        helper = self.root / ('relay-host-helper-' + runtime.digest(helper_source) + '.py')
+        helper.write_bytes(helper_source.read_bytes())
+        helper.chmod(0o600)
+        relay = {'state': str(root), 'pid': 41, 'uid': os.getuid(), 'start_ticks': '100',
+                 'exe': str(Path('/usr/bin/python3').resolve()), 'helper': str(helper),
+                 'helper_sha256': runtime.digest(helper), 'approval_path': str(approval_file),
+                 'approval_sha256': runtime.digest(approval_file)}
+        record = {'owner': 'Codex-M', 'state': str(self.root), 'container_mode': 'interno',
+                  'container_id': 'a' * 64, 'instance': 'd' * 32, 'pid': 71,
+                  'start_ticks': '101', 'source_commit': 'a' * 40, 'binary_sha256': 'f' * 64,
+                  'uid': os.getuid(), 'gid': os.getgid(), 'image_id': 'sha256:' + 'c' * 64,
+                  'pg_container_id': 'b' * 64, 'pg_proof': {'pg_image_id': 'sha256:' + 'd' * 64},
+                  'port': 18531, 'relay_binary': str(binary), 'relay_sha256': runtime.digest(binary),
+                  'relay_host': relay}
+        relay['argv'] = runtime.relay_command(record, relay)
+        receipt = {'version': 1, 'instance': 'e' * 32, 'pid': 41, 'start_ticks': '100', 'uid': os.getuid(),
+                   'app_id': record['container_id'], 'app_pid': 71, 'pg_id': record['pg_container_id'], 'pg_pid': 72,
+                   'app_image_id': record['image_id'], 'pg_image_id': record['pg_proof']['pg_image_id'],
+                   'relay_sha256': record['relay_sha256'], 'approval_sha256': relay['approval_sha256'],
+                   'listen_host': '127.0.0.1', 'port': 18531}
+        runtime.write_json(root / 'relay-host.json', receipt)
+        (root / 'relay-host-ready.json').write_bytes((root / 'relay-host.json').read_bytes())
+        (root / 'relay-host-ready.json').chmod(0o600)
+        relay['receipt_sha256'] = runtime.digest(root / 'relay-host.json')
+        identity = {key: relay[key] for key in ('pid', 'start_ticks', 'uid', 'exe', 'argv')}
+        return record, identity, root
+
+    def test_relay_receipt_requires_ready_exact_process_and_pinned_sources(self):
+        record, identity, root = self.relay_fixture()
+        with patch.object(runtime, 'relay_process_identity', return_value=identity):
+            self.assertEqual(runtime.verify_relay_host(self.root, record), identity)
+        (root / 'relay-host-ready.json').write_bytes(b'changed')
+        with patch.object(runtime, 'relay_process_identity', return_value=identity), self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.verify_relay_host(self.root, record)
+
+    def test_relay_stop_rejects_pid_reuse_uid_executable_and_argv_without_signal_or_app_stop(self):
+        record, identity, _ = self.relay_fixture()
+        runtime.write_json(self.root / 'runtime-process.json', record)
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.read_record.return_value = record
+        for field, value in [('start_ticks', 'other'), ('uid', os.getuid() + 1),
+                             ('exe', '/other/python'), ('argv', ['other-command'])]:
+            with self.subTest(field=field), patch.object(runtime, 'container_module', return_value=module), \
+                    patch.object(runtime, 'relay_process_identity', return_value=dict(identity, **{field: value})), \
+                    patch.object(runtime.os, 'pidfd_open') as opened, patch.object(runtime.signal, 'pidfd_send_signal') as sent, \
+                    self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.stop(self.root)
+            opened.assert_not_called()
+            sent.assert_not_called()
+            module.stop.assert_not_called()
+            self.assertTrue((self.root / 'runtime-process.json').exists())
+
+    def test_relay_stop_rejects_receipt_changed_before_signal_and_preserves_app(self):
+        record, identity, root = self.relay_fixture()
+        runtime.write_json(self.root / 'runtime-process.json', record)
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.read_record.return_value = record
+        def opened(_pid):
+            (root / 'relay-host.json').write_bytes(b'changed receipt')
+            return 81
+        with patch.object(runtime, 'container_module', return_value=module), \
+                patch.object(runtime, 'relay_process_identity', return_value=identity), \
+                patch.object(runtime.os, 'pidfd_open', side_effect=opened), patch.object(runtime.os, 'close') as closed, \
+                patch.object(runtime.signal, 'pidfd_send_signal') as sent, self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.stop(self.root)
+        sent.assert_not_called()
+        closed.assert_any_call(81)
+        module.stop.assert_not_called()
+        self.assertTrue((self.root / 'runtime-process.json').exists())
+
+    def test_stop_relay_uses_pidfd_waits_for_ready_removal_and_port_before_app(self):
+        record, identity, root = self.relay_fixture()
+        runtime.write_json(self.root / 'runtime-process.json', record)
+        order = []
+        def signal_relay(descriptor, number):
+            self.assertEqual((descriptor, number), (81, signal.SIGTERM))
+            order.append('relay')
+            (root / 'relay-host-ready.json').unlink()
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.read_record.return_value = record
+        module.stop.side_effect = lambda state: order.append('app') or True
+        with patch.object(runtime, 'container_module', return_value=module), \
+                patch.object(runtime, 'relay_process_identity', side_effect=[identity, identity, None]), \
+                patch.object(runtime.os, 'pidfd_open', return_value=81) as opened, \
+                patch.object(runtime.os, 'close') as closed, \
+                patch.object(runtime.signal, 'pidfd_send_signal', side_effect=signal_relay), \
+                patch.object(runtime.os, 'kill') as unsafe, patch.object(runtime, 'relay_port_free', return_value=True) as free:
+            self.assertTrue(runtime.stop(self.root))
+        self.assertEqual(order, ['relay', 'app'])
+        opened.assert_called_once_with(41)
+        closed.assert_any_call(81)
+        unsafe.assert_not_called()
+        free.assert_called_once_with(18531)
+        self.assertFalse((self.root / 'runtime-process.json').exists())
+        self.assertTrue((root / 'relay-host.json').exists())
+
+    def test_stop_relay_unreleased_port_does_not_stop_app_or_discard_receipt(self):
+        record, _, root = self.relay_fixture()
+        runtime.write_json(self.root / 'runtime-process.json', record)
+        (root / 'relay-host-ready.json').unlink()
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.read_record.return_value = record
+        with patch.object(runtime, 'container_module', return_value=module), \
+                patch.object(runtime, 'relay_process_identity', return_value=None), \
+                patch.object(runtime, 'relay_port_free', return_value=False), \
+                patch.object(runtime.time, 'monotonic', side_effect=[0, 0, 16]), \
+                patch.object(runtime.time, 'sleep'), self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'su puerto'):
+            runtime.stop(self.root)
+        module.stop.assert_not_called()
+        self.assertTrue((self.root / 'runtime-process.json').exists())
+        self.assertTrue((root / 'relay-host.json').exists())
+
+    def test_relay_source_requires_external_hash_and_is_outside_app_writes(self):
+        path = self.root / 'runtime-interno/rw/data/relay'
+        path.parent.mkdir(mode=0o700, parents=True)
+        path.write_bytes(b'unsafe app writable relay')
+        with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'escritura'):
+            runtime.relay_preflight(self.root, {}, None, path, runtime.digest(path))
+        with self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'huella externa'):
+            runtime.relay_preflight(self.root, {}, None, path, None)
+
+    def test_relay_preflight_binds_same_private_h6_file_and_snapshots_launcher_under_state(self):
+        record, _, _ = self.relay_fixture()
+        path = Path(record['relay_host']['approval_path'])
+        approval = {'app_port': 18531, 'pg_container_id': 'b' * 64, 'pg_image_id': 'sha256:' + 'd' * 64}
+        runtime.write_json(path, approval)
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        with patch.object(runtime, 'load_readiness_approval', return_value=approval), \
+                patch.object(runtime, 'container_module', return_value=module):
+            inputs = runtime.relay_preflight(self.root, approval, path, Path(record['relay_binary']), record['relay_sha256'])
+        self.assertEqual(inputs['approval_sha256'], runtime.digest(path))
+        helper = Path(inputs['helper'])
+        self.assertEqual(helper.parent, self.root)
+        self.assertEqual(helper.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(runtime.digest(helper), inputs['helper_sha256'])
+        module.relay_mount.assert_called_once_with(self.root, Path(record['relay_binary']), record['relay_sha256'], live=True)
+        module.relay_mount.reset_mock()
+        with patch.object(runtime, 'load_readiness_approval', return_value=dict(approval, pg_container_id='e' * 64)), \
+                patch.object(runtime, 'container_module', return_value=module), self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.relay_preflight(self.root, approval, path, Path(record['relay_binary']), record['relay_sha256'])
+        module.relay_mount.assert_not_called()
+
+    def test_launch_relay_has_fixed_child_argv_private_approval_and_no_ambient_secrets(self):
+        record, _, old_root = self.relay_fixture()
+        inputs = {key: record['relay_host'][key] for key in ('helper', 'helper_sha256', 'approval_path', 'approval_sha256')}
+        inputs.update(binary=record['relay_binary'], sha256=record['relay_sha256'])
+        child = unittest.mock.Mock(pid=41)
+        child.poll.return_value = None
+        raw = (old_root / 'relay-host.json').read_bytes()
+        host = unittest.mock.Mock(MAX_JSON=2000000, RECEIPT='relay-host.json', READY='relay-host-ready.json')
+        host.read_file.return_value = raw
+        def identity(_pid):
+            return {'pid': 41, 'start_ticks': '100', 'uid': os.getuid(),
+                    'exe': str(Path('/usr/bin/python3').resolve()), 'argv': record['relay_host']['argv']}
+        with patch.object(runtime.subprocess, 'Popen', return_value=child) as popen, \
+                patch.object(runtime, 'relay_process_identity', side_effect=identity), \
+                patch.object(runtime, 'relay_host_module', return_value=host), \
+                patch.object(runtime, 'verify_relay_host'), patch.dict(os.environ, {'VEC_SECRET': 'must not inherit'}):
+            runtime.launch_relay_host(self.root, record, inputs)
+        args, options = popen.call_args
+        self.assertEqual(args[0], runtime.relay_command(record, record['relay_host']))
+        self.assertEqual(args[0][:2], ['/usr/bin/python3', '-B'])
+        self.assertEqual(options['stdout'], subprocess.DEVNULL)
+        self.assertEqual(options['stderr'], subprocess.DEVNULL)
+        self.assertEqual(set(options['env']), {'PATH', 'HOME', 'TMPDIR', 'LANG'})
+        self.assertEqual(record['relay_host']['receipt_sha256'], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(record['relay_host']['pid'], 41)
+        self.assertEqual(record['relay_host']['start_ticks'], '100')
+
     def test_readiness_consumes_central_live_proof_and_returns_exact_binding(self):
         approval, ready, binary, module = self.readiness_fixture()
         ready['evidence'] = 'material sintético'
@@ -71,6 +255,39 @@ class RuntimeTests(unittest.TestCase):
         module.validate_h6_ready.assert_called_once_with(self.root, approval, live=True)
         expected = hashlib.sha256((json.dumps(ready, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n').encode()).hexdigest()
         self.assertEqual(result, expected)
+
+    def test_container_gets_only_central_live_pg_proof_before_relay_and_https(self):
+        approval, proof, binary, central = self.readiness_fixture()
+        proof.update(kind='h6_db_ready', pg_container_id='b' * 64, pg_image_id='sha256:' + 'd' * 64)
+        projection = {'root': str(self.root), 'material_path': str(self.material),
+                      'runtime_config_path': str(self.config), 'manifest_path': str(self.root / 'material-manifest.json')}
+        inputs = {'binary': str(self.root / 'relay_tcp'), 'sha256': 'f' * 64}
+        order = []
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.start.side_effect = lambda *args, **kwargs: order.append('container') or {'container_id': 'own', 'pid': 71}
+        manifest = {'runtime_mode': 'interno', 'cgo_enabled': False, 'source_commit': 'a' * 40,
+                    'binary_sha256': approval['binary_sha256']}
+        with patch.object(runtime, 'readiness_module', return_value=central), \
+                patch.object(runtime, 'elf_interpreter', return_value=None), \
+                patch.object(runtime, 'relay_preflight', return_value=inputs), \
+                patch.object(runtime, 'read_runtime_descriptor', return_value=projection), \
+                patch.object(runtime, 'validate_material', return_value='material'), \
+                patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), \
+                patch.object(runtime, 'own_process', return_value=None), patch.object(runtime.socket, 'socket'), \
+                patch.object(runtime, 'container_module', return_value=module), \
+                patch.object(runtime, 'launch_relay_host', side_effect=lambda *args: order.append('relay')), \
+                patch.object(runtime, 'verify_relay_host'), \
+                patch.object(runtime, 'check_internal_https', side_effect=lambda *args: order.append('https')):
+            runtime.start(self.source, binary, manifest, self.root, 18531, 55531, approval,
+                          approval_path=self.root / 'approval.json', relay_binary=Path(inputs['binary']), relay_sha256=inputs['sha256'])
+        self.assertEqual(order, ['container', 'relay', 'https'])
+        kwargs = module.start.call_args.kwargs
+        self.assertIs(kwargs['pg_proof'], proof)
+        self.assertEqual(kwargs['pg_container_id'], proof['pg_container_id'])
+        self.assertEqual(kwargs['relay_binary'], Path(inputs['binary']))
+        self.assertEqual(kwargs['relay_sha256'], inputs['sha256'])
+        central.validate_h6_ready.assert_called_once_with(self.root, approval, live=True)
 
     def test_readiness_rejects_missing_approval_wrong_source_ports_and_binary_before_live_check(self):
         approval, _, binary, module = self.readiness_fixture()
@@ -792,7 +1009,7 @@ class RuntimeTests(unittest.TestCase):
         module.start.return_value = record
         binary = self.root / 'fixture-bin'
         binary.write_text('ELF fixture')
-        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'validate_database_ready', return_value='ready'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
+        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'validate_database_ready', return_value=('ready', {'pg_container_id': 'b' * 64})), patch.object(runtime, 'relay_preflight', return_value={'binary': str(self.root / 'relay'), 'sha256': 'f' * 64}), patch.object(runtime, 'launch_relay_host'), patch.object(runtime, 'verify_relay_host'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
             with self.assertRaises(OSError):
                 runtime.start(self.source, binary, {'runtime_mode': 'interno', 'cgo_enabled': False, 'source_commit': 'a' * 40}, self.root, 18531, 55531)
         module.stop.assert_called_once_with(self.root)
@@ -810,7 +1027,7 @@ class RuntimeTests(unittest.TestCase):
             module.start.return_value = {'container_id': 'own-id', 'container_mode': 'interno', 'pid': 41}
             clock = [0, 61] if timeout else [0, 0, 1]
             health = [ConnectionRefusedError(), None]
-            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'validate_database_ready', return_value='ready'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
+            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'validate_database_ready', return_value=('ready', {'pg_container_id': 'b' * 64})), patch.object(runtime, 'relay_preflight', return_value={'binary': str(self.root / 'relay'), 'sha256': 'f' * 64}), patch.object(runtime, 'launch_relay_host'), patch.object(runtime, 'verify_relay_host'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
                 if timeout:
                     with self.assertRaises(runtime.RuntimeErrorLocal):
                         runtime.start(self.source, binary, manifest, self.root, 18531, 55531)

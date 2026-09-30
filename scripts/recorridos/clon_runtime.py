@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shlex
 import shutil
 import signal
@@ -51,6 +52,11 @@ def write_json(path, value):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -465,7 +471,7 @@ def load_readiness_approval(path):
         fail('NO-GO: aprobación externa H6 ausente o inválida.')
 
 
-def validate_database_ready(state, commit, port, pg_port, approval, binary=None, binary_sha=None):
+def validate_database_ready(state, commit, port, pg_port, approval, binary=None, binary_sha=None, *, return_proof=False):
     """Consume the central live H1/62/AD132 proof before any app effect."""
     if (not isinstance(approval, dict) or approval.get('source_commit') != commit
             or approval.get('app_port') != port or approval.get('pg_port') != pg_port):
@@ -488,7 +494,213 @@ def validate_database_ready(state, commit, port, pg_port, approval, binary=None,
             or not re.fullmatch(r'[0-9a-f]{64}', ready.get('identidad_clon', ''))
             or not re.fullmatch(r'[0-9a-f]{64}', ready.get('binary_sha256', ''))):
         fail('NO-GO: el validador no devolvió disponibilidad H6 vinculada al clon.')
-    return hashlib.sha256(validator.canonical(ready)).hexdigest()
+    binding = hashlib.sha256(validator.canonical(ready)).hexdigest()
+    return (binding, ready) if return_proof else binding
+
+
+def relay_host_module():
+    path = Path(__file__).with_name('clon_relay_host.py')
+    if not path.is_file() or path.is_symlink():
+        fail('NO-GO: falta el relay del host aprobado.')
+    spec = importlib.util.spec_from_file_location('runtime_relay_host', path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def relay_preflight(state, approval, approval_path, relay_binary, relay_sha256):
+    if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
+        fail('NO-GO: la plataforma no permite detener el relay por identidad exacta.')
+    if relay_binary is None or not isinstance(relay_sha256, str) or not re.fullmatch(r'[a-f0-9]{64}', relay_sha256):
+        fail('NO-GO: indique el binario del relay y su huella externa.')
+    binary = confined(relay_binary, state)
+    for writable in (state / 'runtime-interno/rw', state / 'runtime-interno/material/comunicaciones'):
+        if binary.is_relative_to(writable):
+            fail('NO-GO: el relay no puede proceder de los directorios de escritura de la aplicación.')
+    helper_source = Path(__file__).with_name('clon_relay_host.py').absolute()
+    try:
+        host = relay_host_module()
+        if approval_path is None:
+            fail('NO-GO: el relay necesita el archivo de aprobación H6 original.')
+        path = Path(approval_path)
+        raw = host.read_file(path, host.MAX_JSON, private=True)
+        approval_sha = hashlib.sha256(raw).hexdigest()
+        host.load_approval(path, approval_sha, state)
+        if load_readiness_approval(path) != approval:
+            fail('NO-GO: el relay y PostgreSQL no comparten la aprobación H6 exacta.')
+        container_module().relay_mount(state, binary, relay_sha256, live=True)
+        # The tracked launcher is trusted operator code. Its private executable
+        # snapshot prevents a later worktree edit from changing the child entry.
+        raw_helper = helper_source.read_bytes()
+        helper_sha = hashlib.sha256(raw_helper).hexdigest()
+        helper = state / ('relay-host-helper-' + helper_sha + '.py')
+        if helper.exists() or helper.is_symlink():
+            if host.read_file(confined(helper, state), host.MAX_JSON, private=True) != raw_helper:
+                fail('NO-GO: la copia privada del relay cambió.')
+        else:
+            descriptor = os.open(helper, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, 'wb') as stream:
+                stream.write(raw_helper)
+                stream.flush()
+                os.fsync(stream.fileno())
+            descriptor = os.open(state, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        capability = os.pidfd_open(os.getpid())
+        os.close(capability)
+    except (RuntimeError, OSError, ValueError, TypeError):
+        fail('NO-GO: las entradas privadas del relay no corresponden a su aprobación.')
+    return {'binary': str(binary), 'sha256': relay_sha256,
+            'approval_path': str(path), 'approval_sha256': approval_sha,
+            'helper': str(helper), 'helper_sha256': helper_sha}
+
+
+def relay_process_identity(pid):
+    if type(pid) is not int or pid <= 0:
+        return None
+    identity = process_identity(pid)
+    if identity is None:
+        return None
+    try:
+        data = (Path('/proc') / str(pid) / 'cmdline').read_bytes()
+        if not data or len(data) > 16384 or not data.endswith(b'\0'):
+            return None
+        identity['argv'] = [value.decode() for value in data[:-1].split(b'\0')]
+        return identity
+    except (OSError, UnicodeError):
+        return None
+
+
+def relay_port_free(port):
+    with socket.socket() as probe:
+        try:
+            probe.bind(('127.0.0.1', port))
+            return True
+        except OSError:
+            return False
+
+
+def relay_receipt(state, record, *, require_ready=True, check_sources=True):
+    relay = record.get('relay_host')
+    if not isinstance(relay, dict):
+        fail('NO-GO: el runtime no conserva una reserva propia del relay.')
+    root = Path(relay.get('state', ''))
+    if root.parent != state or not re.fullmatch(r'relay-host-[a-f0-9]{32}', root.name):
+        fail('NO-GO: la reserva del relay pertenece a otro destino.')
+    confined(root, state, directory=True)
+    if (not isinstance(relay.get('helper_sha256'), str) or not re.fullmatch(r'[a-f0-9]{64}', relay['helper_sha256'])
+            or relay.get('helper') != str(state / ('relay-host-helper-' + relay['helper_sha256'] + '.py'))):
+        fail('NO-GO: la fuente del relay no corresponde a su copia privada nominal.')
+    identity = {key: relay.get(key) for key in ('pid', 'start_ticks', 'uid', 'exe', 'argv')}
+    if (type(identity['pid']) is not int or identity['pid'] <= 0 or identity['uid'] != os.getuid()
+            or not isinstance(identity['start_ticks'], str) or not identity['start_ticks'].isdigit()
+            or identity['exe'] != str(Path('/usr/bin/python3').resolve())
+            or identity['argv'] != relay_command(record, relay)):
+        fail('NO-GO: la identidad guardada del relay es incompleta o ajena.')
+    try:
+        host = relay_host_module()
+        raw = host.read_file(confined(root / host.RECEIPT, state), host.MAX_JSON, private=True)
+        receipt = host.decode(raw)
+        expected = {'version': 1, 'pid': identity['pid'], 'start_ticks': identity['start_ticks'],
+                    'uid': identity['uid'], 'app_id': record.get('container_id'),
+                    'app_pid': record.get('pid'), 'pg_id': record.get('pg_container_id'),
+                    'app_image_id': record.get('image_id'), 'pg_image_id': record.get('pg_proof', {}).get('pg_image_id'),
+                    'approval_sha256': relay.get('approval_sha256'), 'relay_sha256': record.get('relay_sha256'),
+                    'listen_host': '127.0.0.1', 'port': record.get('port')}
+        if (not isinstance(receipt, dict) or any(receipt.get(k) != v for k, v in expected.items())
+                or not re.fullmatch(r'[a-f0-9]{32}', receipt.get('instance', ''))
+                or hashlib.sha256(raw).hexdigest() != relay.get('receipt_sha256')):
+            fail('NO-GO: el recibo del relay cambió o pertenece a otro proceso.')
+        if require_ready and host.read_file(confined(root / host.READY, state), host.MAX_JSON, private=True) != raw:
+            fail('NO-GO: el relay perdió su comprobación de disponibilidad.')
+        if check_sources:
+            if (hashlib.sha256(host.read_file(Path(record['relay_binary']), 32 * 1024 * 1024)).hexdigest() != record['relay_sha256']
+                    or hashlib.sha256(host.read_file(Path(relay['helper']), host.MAX_JSON)).hexdigest() != relay['helper_sha256']
+                    or hashlib.sha256(host.read_file(Path(relay['approval_path']), host.MAX_JSON, private=True)).hexdigest() != relay['approval_sha256']):
+                fail('NO-GO: el relay perdió sus fuentes o aprobación exactas.')
+    except (RuntimeError, OSError, ValueError, TypeError, KeyError):
+        fail('NO-GO: no se pudo acreditar el recibo privado del relay.')
+    return identity
+
+
+def relay_command(record, relay):
+    return ['/usr/bin/python3', '-B', relay.get('helper'),
+            '--app-id', record.get('container_id'), '--pg-id', record.get('pg_container_id'),
+            '--app-image-id', record.get('image_id'), '--pg-image-id', record.get('pg_proof', {}).get('pg_image_id'),
+            '--relay-sha256', record.get('relay_sha256'), '--relay-source', record.get('relay_binary'),
+            '--local-port', str(record.get('port')), '--target-port', str(record.get('port')),
+            '--state-dir', relay.get('state'), '--approval', relay.get('approval_path'),
+            '--approval-sha256', relay.get('approval_sha256')]
+
+
+def verify_relay_host(state, record):
+    identity = relay_receipt(state, record)
+    if relay_process_identity(identity['pid']) != identity:
+        fail('NO-GO: el proceso del relay no corresponde a su recibo.')
+    return identity
+
+
+def launch_relay_host(state, record, inputs):
+    root = state / ('relay-host-' + secrets.token_hex(16))
+    root.mkdir(mode=0o700)
+    relay = dict(inputs, state=str(root))
+    record['relay_host'] = relay
+    command = relay_command(record, relay)
+    relay['argv'] = command
+    # Persist the attempt before spawning; uncertain publication is never success.
+    write_json(state / 'runtime-process.json', record)
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, close_fds=True, start_new_session=True,
+                               env={'PATH': '/usr/bin:/bin', 'HOME': str(root), 'TMPDIR': str(root), 'LANG': 'C'})
+    identity = relay_process_identity(process.pid)
+    if (identity is None or identity.get('argv') != command or identity.get('uid') != os.getuid()
+            or identity.get('exe') != str(Path('/usr/bin/python3').resolve())):
+        fail('NO-GO: el relay arrancó sin identidad de proceso acreditable; conserve el intento.')
+    relay.update(identity)
+    write_json(state / 'runtime-process.json', record)
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            fail('NO-GO: el relay terminó antes de confirmar su recibo.')
+        try:
+            host = relay_host_module()
+            raw = host.read_file(root / host.RECEIPT, host.MAX_JSON, private=True)
+            if host.read_file(root / host.READY, host.MAX_JSON, private=True) != raw:
+                fail('NO-GO: los dos recibos del relay son divergentes.')
+            relay['receipt_sha256'] = hashlib.sha256(raw).hexdigest()
+            verify_relay_host(state, record)
+            write_json(state / 'runtime-process.json', record)
+            return
+        except OSError:
+            time.sleep(0.1)
+    fail('NO-GO: el relay no confirmó disponibilidad; conserve el intento.')
+
+
+def stop_relay_host(state, record):
+    identity = relay_receipt(state, record, require_ready=False, check_sources=False)
+    if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
+        fail('NO-GO: la plataforma no puede detener el relay por identidad exacta.')
+    observed = relay_process_identity(identity['pid'])
+    if observed is not None:
+        if observed != identity:
+            fail('NO-GO: el PID del relay fue sustituido; no se envió ninguna señal.')
+        descriptor = os.pidfd_open(identity['pid'])
+        try:
+            if relay_receipt(state, record, require_ready=False, check_sources=False) != identity or relay_process_identity(identity['pid']) != identity:
+                fail('NO-GO: la identidad del relay cambió antes de la parada.')
+            signal.pidfd_send_signal(descriptor, signal.SIGTERM)
+        finally:
+            os.close(descriptor)
+    ready = Path(record['relay_host']['state']) / 'relay-host-ready.json'
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        if relay_process_identity(identity['pid']) is None and not ready.exists() and not ready.is_symlink() and relay_port_free(record['port']):
+            return True
+        time.sleep(0.1)
+    fail('NO-GO: no se confirmó el cierre del relay y su puerto; conserve la aplicación y la evidencia.')
 
 
 def read_runtime_descriptor(state):
@@ -895,6 +1107,8 @@ def stop(state):
                     fail('El recibo retirado todavía tiene un contenedor existente.')
         if preimage.get('container_mode') != 'interno' or container_record is None or any(preimage.get(key) != container_record.get(key) for key in keys):
             fail('La reserva de proceso no corresponde al contenedor propio.')
+        if 'relay_host' in preimage:
+            stop_relay_host(state, preimage)
     try:
         stopped = removed or module.stop(state)
     except module.ContainerError:
@@ -907,11 +1121,15 @@ def stop(state):
     return stopped
 
 
-def verify_running(state, commit, port, pg_port, readiness_approval=None):
+def verify_running(state, commit, port, pg_port, readiness_approval=None, *, relay_binary=None, relay_sha256=None):
     ready_sha = validate_database_ready(state, commit, port, pg_port, readiness_approval)
     record = own_process(state)
     if record is None:
         fail('El clon no tiene un proceso interno activo.')
+    if (relay_binary is not None or relay_sha256 is not None) and (
+            relay_binary is None or relay_sha256 is None
+            or str(relay_binary) != record.get('relay_binary') or relay_sha256 != record.get('relay_sha256')):
+        fail('NO-GO: el relay activo no corresponde al binario y huella solicitados.')
     descriptor = read_runtime_descriptor(state)
     root = Path(descriptor['root'])
     source = confined(state / ('source-' + commit), state, directory=True)
@@ -929,9 +1147,11 @@ def verify_running(state, commit, port, pg_port, readiness_approval=None):
         module.verify_record(state, record)
     except module.ContainerError:
         fail('La fuente, proyección o aislamiento del runtime cambió.')
+    verify_relay_host(state, record)
     check_internal_https(state, port)
     if own_process(state) != record:
         fail('El runtime cambió durante la comprobación.')
+    verify_relay_host(state, record)
     return record
 
 
@@ -948,11 +1168,13 @@ def check_internal_https(state, port):
                 fail('El runtime interno no respondió HTTPS /livez 200.')
 
 
-def start(source, binary, manifest, state, port, pg_port, readiness_approval=None):
+def start(source, binary, manifest, state, port, pg_port, readiness_approval=None, *,
+          approval_path=None, relay_binary=None, relay_sha256=None):
     if manifest.get('runtime_mode') != 'interno' or manifest.get('cgo_enabled') is not False or elf_interpreter(binary) is not None:
         fail('El runtime interno exige su binario estático CGO0 acreditado.')
-    ready_sha = validate_database_ready(state, manifest['source_commit'], port, pg_port,
-                                        readiness_approval, binary, manifest.get('binary_sha256'))
+    ready_sha, pg_proof = validate_database_ready(state, manifest['source_commit'], port, pg_port,
+                                        readiness_approval, binary, manifest.get('binary_sha256'), return_proof=True)
+    relay_inputs = relay_preflight(state, readiness_approval, approval_path, relay_binary, relay_sha256)
     descriptor = read_runtime_descriptor(state)
     root = Path(descriptor['root'])
     material_sha = validate_material(root, manifest['source_commit'], port, pg_port)
@@ -968,14 +1190,18 @@ def start(source, binary, manifest, state, port, pg_port, readiness_approval=Non
     record = None
     succeeded = False
     try:
-        record = module.start(state, source, binary, environment, manifest, descriptor, port, pg_port)
+        record = module.start(state, source, binary, environment, manifest, descriptor, port, pg_port,
+                              pg_container_id=pg_proof['pg_container_id'], relay_binary=Path(relay_inputs['binary']),
+                              relay_sha256=relay_inputs['sha256'], pg_proof=pg_proof)
         record.update(material_sha256=material_sha, config_sha256=config_sha, database_ready_sha256=ready_sha,
                       runtime_material_path=descriptor['material_path'], runtime_manifest_path=descriptor['manifest_path'])
         write_json(state / 'runtime-process.json', record)
+        launch_relay_host(state, record, relay_inputs)
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
                 module.verify_record(state, record)
+                verify_relay_host(state, record)
                 check_internal_https(state, port)
                 module.verify_record(state, record)
                 succeeded = True
@@ -987,6 +1213,8 @@ def start(source, binary, manifest, state, port, pg_port, readiness_approval=Non
         fail('El runtime interno rechazó la creación o comprobación del contenedor.')
     finally:
         if not succeeded and record is not None:
+            if 'relay_host' in record:
+                stop_relay_host(state, record)
             module.stop(state)
             path = state / 'runtime-process.json'
             if path.exists() and json.loads(confined(path, state).read_text()) == record:
@@ -1007,6 +1235,8 @@ def main():
     parser.add_argument('--artifact-sha256')
     parser.add_argument('--artifact-source')
     parser.add_argument('--h6-approval', type=Path)
+    parser.add_argument('--relay-binary', type=Path)
+    parser.add_argument('--relay-sha256')
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535 or not 1024 <= args.pg_port <= 65535 or args.port == args.pg_port:
         fail('Puertos locales inválidos.')
@@ -1043,8 +1273,13 @@ def main():
                 fail('NO-GO: el artefacto solicitado no corresponde al aprobado para H6.')
             # Check before restart stops a healthy prior runtime or build writes.
             validate_database_ready(state, commit, args.port, args.pg_port, approval)
+            if args.action in ('start', 'restart'):
+                relay_preflight(state, approval, args.h6_approval, args.relay_binary, args.relay_sha256)
         if args.action == 'verify':
-            record = verify_running(state, commit, args.port, args.pg_port, approval)
+            relay_options = {}
+            if args.relay_binary is not None or args.relay_sha256 is not None:
+                relay_options = {'relay_binary': args.relay_binary, 'relay_sha256': args.relay_sha256}
+            record = verify_running(state, commit, args.port, args.pg_port, approval, **relay_options)
             print(json.dumps({'verified': True, 'pid': record['pid'], 'source_commit': commit}))
             return
         if args.action == 'restart':
@@ -1053,7 +1288,8 @@ def main():
         if args.action == 'build':
             print(json.dumps(manifest))
         else:
-            record = start(source, binary, manifest, state, args.port, args.pg_port, approval)
+            record = start(source, binary, manifest, state, args.port, args.pg_port, approval,
+                           approval_path=args.h6_approval, relay_binary=args.relay_binary, relay_sha256=args.relay_sha256)
             print(json.dumps({'running': True, 'pid': record['pid'], 'source_commit': commit,
                               'binary_sha256': manifest['binary_sha256'], 'port': args.port}))
 
