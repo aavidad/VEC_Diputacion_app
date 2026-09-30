@@ -94,11 +94,13 @@ test("la superficie cubre todos los recorridos solicitados y conserva semántica
   const html = await readFile(join(RAIZ, "index.html"), "utf8");
   const fuentes = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).map((ruta) => readFile(ruta, "utf8")))).join("\n");
   for (const texto of [
-    "Inicio y plazos", "Convocatorias", "Perfil y contacto", "Méritos y documentos",
+    "Convocatorias", "Perfil y contacto", "Méritos y documentos",
     "Nueva solicitud", "Autobaremación", "Mis expedientes", "Mi bolsa",
     "Subsanaciones", "Alegaciones", "Mensajes y noticias", "Certificados y descargas",
     "Ayuda y accesibilidad",
   ]) assert.match(`${html}\n${fuentes}`, new RegExp(texto, "u"), texto);
+  assert.match(html, /<span data-i18n="areaPersonal\.rutas\.inicio">Inicio<\/span>/u);
+  assert.doesNotMatch(html, /Inicio y plazos/u);
   for (const etiqueta of ["header", "nav", "main", "footer", "dialog", "form", "table", "fieldset", "label"]) {
     assert.match(`${html}\n${fuentes}`, new RegExp(`<${etiqueta}\\b`, "u"), etiqueta);
   }
