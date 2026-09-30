@@ -42,7 +42,7 @@ type lecturaPreparacionV2 struct {
 
 // leer siempre empieza por consulta nominal ACTUAL. Ni CT81 ni el restaurador
 // histórico conceden acceso vigente; no hay caché de órdenes o recibos.
-func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint64) (lecturaPreparacionV2, error) {
+func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, versionHistorica uint64) (lecturaPreparacionV2, error) {
 	var z lecturaPreparacionV2
 	if ctx == nil || p == nil {
 		return z, ct.ErrComposicionIncorporacionAplicacion
@@ -50,7 +50,10 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 	if err := ctx.Err(); err != nil {
 		return z, err
 	}
-	s, err := ct.NuevaSolicitudDetalleRRHH(exp, version)
+	// La consulta autoriza frente al expediente ACTUAL. La versión de una
+	// intención ya confirmada se coteja después con su historia restaurada;
+	// usarla aquí ocultaría el detalle si el expediente avanzó desde entonces.
+	s, err := ct.NuevaSolicitudDetalleRRHH(exp, 0)
 	if err != nil {
 		return z, ct.ErrIntencionIncorporacionAplicacion
 	}
@@ -104,6 +107,9 @@ func (p *PreparadorDurableV2) leer(ctx context.Context, exp string, version uint
 		z.preparacion, z.recibo, err = preparacionOriginalRestaurada(h, sel, a.OrganizacionRef, exp, plan.SolicitudPersonal.SolicitudRef)
 		if err != nil {
 			return lecturaPreparacionV2{}, err
+		}
+		if versionHistorica != 0 && z.preparacion.VersionActualExpediente != versionHistorica {
+			return lecturaPreparacionV2{}, ct.ErrConflictoIncorporacionAplicacion
 		}
 		// La historia ya fue validada al restaurar el recibo original. Se
 		// conserva su evidencia para la consulta de seguimiento sin releerla.
@@ -323,7 +329,19 @@ func errorAutoridadPreparacion(ctx context.Context, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
-	return ct.ErrDenegadaIncorporacionAplicacion
+	// Una dependencia caída puede llegar unida a un centinela de denegación
+	// desde la sesión. La indisponibilidad tiene prioridad para no responder
+	// que el actor carece de permiso cuando ni siquiera se pudo comprobarlo.
+	if errors.Is(err, ct.ErrConsultaRRHHNoDisponible) || errors.Is(err, ct.ErrComposicionIncorporacionAplicacion) {
+		return ct.ErrComposicionIncorporacionAplicacion
+	}
+	if errors.Is(err, ct.ErrDenegadaIncorporacionAplicacion) || errors.Is(err, ct.ErrAutorizacionDenegada) ||
+		errors.Is(err, core.ErrAutorizacionDenegada) || errors.Is(err, core.ErrAutenticacionRevalidadaInvalida) ||
+		errors.Is(err, core.ErrContextoActorNoResuelto) || errors.Is(err, core.ErrContextoActorInvalido) ||
+		errors.Is(err, core.ErrInstantaneaContextoActorInvalida) || errors.Is(err, ErrAutoridadAplicacion) {
+		return ct.ErrDenegadaIncorporacionAplicacion
+	}
+	return ct.ErrComposicionIncorporacionAplicacion
 }
 
 var _ ct.ProveedorPreparacionIncorporacionAplicacionV2 = (*PreparadorDurableV2)(nil)

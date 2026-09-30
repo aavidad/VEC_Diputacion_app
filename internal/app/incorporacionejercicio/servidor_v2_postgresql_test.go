@@ -117,6 +117,30 @@ func TestIncorporacionV2EnsamblajeConfiguracionCerrada(t *testing.T) {
 	}
 }
 
+func TestNuevaPeticionIncorporacionDistingueDependenciaDeDenegacion(t *testing.T) {
+	for _, caso := range []struct {
+		nombre string
+		fallo  error
+		espera error
+	}{
+		{"base_caida", ct.ErrConsultaRRHHNoDisponible, ct.ErrComposicionIncorporacionAplicacion},
+		{"caida_con_denegacion", errors.Join(ct.ErrDenegadaIncorporacionAplicacion, ct.ErrConsultaRRHHNoDisponible), ct.ErrComposicionIncorporacionAplicacion},
+		{"perfil_revocado", ct.ErrDenegadaIncorporacionAplicacion, ct.ErrDenegadaIncorporacionAplicacion},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			c := nuevoCasoPreparacionV2(t)
+			cfg := configuracionServidorV2Prueba(t, c)
+			cfg.FuenteAutoridad = autoridadFuenteDoble{fallo: caso.fallo}
+			s, err := NuevoServidorV2PostgreSQL(cfg)
+			registroV2Exigir(t, err)
+			p, err := s.NuevaPeticion(context.Background())
+			if p != nil || !errors.Is(err, caso.espera) || c.a.store.registros != 0 {
+				t.Fatalf("petición no cerró con categoría esperada: %v", err)
+			}
+		})
+	}
+}
+
 func TestIncorporacionV2PoliticaConsultaSeCopiaYValida(t *testing.T) {
 	c := nuevoCasoPreparacionV2(t)
 	cfg := configuracionServidorV2Prueba(t, c)

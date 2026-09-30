@@ -2,8 +2,10 @@ package incorporacionejercicio
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	puente "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/personalincorporacion"
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
@@ -65,5 +67,42 @@ func TestRecuperacionIncorporacionNoReemiteAltaConOtroPerfil(t *testing.T) {
 	registroV2Exigir(t, err)
 	if !reflect.DeepEqual(r, repetido) || c.app.alta.n != altas || c.app.ctTX.llamadas != ctLlamadas {
 		t.Fatal("el replay CT reemitió efectos o alteró el recibo")
+	}
+}
+
+func TestPreparadorReplayConsultaVersionActualYConservaIntencionOriginal(t *testing.T) {
+	c := nuevoCasoPreparacionV2(t)
+	original, err := c.app.s.Confirmar(context.Background(), c.app.i)
+	registroV2Exigir(t, err)
+	c.confirmada = true
+	ultimo := c.detalle.Hitos[len(c.detalle.Hitos)-1]
+	ultimo.Secuencia++
+	ultimo.VersionExpediente++
+	ultimo.RealizadaEn = ultimo.RealizadaEn.Add(time.Minute)
+	c.detalle.Hitos = append(c.detalle.Hitos, ultimo)
+	c.detalle.Resumen.Version = 9
+	c.detalle.Resumen.ActualizadoEn = ultimo.RealizadaEn
+	previo := c.p.c.Detalle
+	c.p.c.Detalle = detallePreparacionDoble(func(ctx context.Context, s ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+		if s.VersionObservada() != 0 {
+			t.Fatal("la intención histórica sustituyó a la autorización del detalle actual")
+		}
+		return previo.Consultar(ctx, s)
+	})
+	p, _, recibo, err := c.p.prepararConOriginal(context.Background(), c.app.i)
+	registroV2Exigir(t, err)
+	if recibo == nil || !reflect.DeepEqual(*recibo, original) || p.VersionActualExpediente != 8 {
+		t.Fatal("el replay reescribió versión o recibo históricos")
+	}
+	desfasada := c.app.i.Copia()
+	desfasada.VersionActualExpedienteObservada = 9
+	if _, err := c.p.Preparar(context.Background(), desfasada); !errors.Is(err, ct.ErrConflictoIncorporacionAplicacion) {
+		t.Fatalf("intención nueva desfasada admitida: %v", err)
+	}
+	c.p.c.Detalle = detallePreparacionDoble(func(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+		return ct.DetalleExpedienteRRHH{}, appct.ErrConsultaRRHHNoObservable
+	})
+	if _, err := c.p.Preparar(context.Background(), c.app.i); !errors.Is(err, ct.ErrDenegadaIncorporacionAplicacion) {
+		t.Fatalf("la historia sustituyó un acceso actual denegado: %v", err)
 	}
 }

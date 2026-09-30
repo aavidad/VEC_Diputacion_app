@@ -193,7 +193,7 @@ func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
 // La entrega RRHH conserva la misma distinción que las consultas de respuesta,
 // sin alterar la clasificación de las demás rutas.
 func rutaSesionConIndisponibilidadCTDesarrollo(ruta string) bool {
-	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro
+	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || ruta == httpinterno.RutaIncorporacionEjercicioV2
 }
 
 func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {
