@@ -264,35 +264,38 @@ func TestLecturasMiBolsaRevalidanDenegacionTrasCarrera(t *testing.T) {
 func TestMiBolsaReintentaTambienLecturasSecundarias(t *testing.T) {
 	instante := time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)
 	for _, variante := range []string{"portal", "contacto", "ofertas"} {
-		t.Run(variante, func(t *testing.T) {
-			s := bolsa.SolicitudConsultaMiBolsa{CandidatoRef: "can_sintetico", ConsultadaEn: instante, Material: materialLecturaMiBolsaPrueba(t, instante)}
-			switch variante {
-			case "portal":
-				s.ResultadosEfectivos = []string{"enviado"}
-			case "contacto":
-				s.LeerContacto = true
-			case "ofertas":
-				s.LeerOfertas = true
-			}
-			pool := &poolLecturaMiBolsaPrueba{t: t, preparar: func(n int) *txLecturaMiBolsaPrueba {
-				tx := &txLecturaMiBolsaPrueba{filas: []filaPanelPostgreSQLPrueba{
-					{contenido: []byte(`{"consultada_en":"2026-09-30T10:00:00Z","participaciones":[]}`)},
-					{contenido: []byte(`[]`)},
-				}}
-				if n == 0 {
-					tx.filas[1].error = &pgconn.PgError{Code: "40001"}
+		for _, codigo := range []string{"40001", "40P01"} {
+			t.Run(variante+"/"+codigo, func(t *testing.T) {
+				s := bolsa.SolicitudConsultaMiBolsa{CandidatoRef: "can_sintetico", ConsultadaEn: instante, Material: materialLecturaMiBolsaPrueba(t, instante)}
+				switch variante {
+				case "portal":
+					s.ResultadosEfectivos = []string{"enviado"}
+				case "contacto":
+					s.LeerContacto = true
+				case "ofertas":
+					s.LeerOfertas = true
 				}
-				return tx
-			}}
-			_, err := (&ConsultaMiBolsaPostgreSQL{pool: pool}).ConsultarMiBolsa(context.Background(), s)
-			if err != nil || len(pool.transacciones) != 2 {
-				t.Fatalf("no recuperó lectura secundaria: %v", err)
-			}
-			a, b := pool.transacciones[0], pool.transacciones[1]
-			if !reflect.DeepEqual(a.consultas, b.consultas) || !reflect.DeepEqual(a.argumentosConsultas, b.argumentosConsultas) || a.confirmaciones != 0 || b.confirmaciones != 1 {
-				t.Fatal("no repitió autorización y todas las lecturas")
-			}
-		})
+				pool := &poolLecturaMiBolsaPrueba{t: t, preparar: func(n int) *txLecturaMiBolsaPrueba {
+					tx := &txLecturaMiBolsaPrueba{filas: []filaPanelPostgreSQLPrueba{
+						{contenido: []byte(`{"consultada_en":"2026-09-30T10:00:00Z","participaciones":[]}`)},
+						{contenido: []byte(`[]`)},
+					}}
+					if n == 0 {
+						tx.filas[1].error = &pgconn.PgError{Code: codigo}
+					}
+					return tx
+				}}
+				_, err := (&ConsultaMiBolsaPostgreSQL{pool: pool}).ConsultarMiBolsa(context.Background(), s)
+				if err != nil || len(pool.transacciones) != 2 {
+					t.Fatalf("no recuperó lectura secundaria: %v", err)
+				}
+				a, b := pool.transacciones[0], pool.transacciones[1]
+				if !reflect.DeepEqual(a.consultas, b.consultas) || !reflect.DeepEqual(a.argumentosConsultas, b.argumentosConsultas) || a.confirmaciones != 0 || b.confirmaciones != 1 {
+					t.Fatal("no repitió autorización y todas las lecturas")
+				}
+			})
+		}
+
 	}
 }
 
@@ -335,6 +338,37 @@ func TestMiBolsaLecturasSecundariasConservanDenegacionSanitizada(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), "contenido privado") || postgresql.EsCarreraSerializable(err) {
 				t.Fatal("causa privada o marca de carrera expuesta")
+			}
+		})
+	}
+}
+
+// La política común consulta Done al entrar en la espera. Este contexto
+// cancela en ese punto para distinguirlo de una cancelación antes del bucle.
+type contextoCanceladoAlEsperarMiBolsa struct {
+	context.Context
+	cancelar context.CancelFunc
+	esperas  int
+}
+
+func (c *contextoCanceladoAlEsperarMiBolsa) Done() <-chan struct{} {
+	c.esperas++
+	c.cancelar()
+	return c.Context.Done()
+}
+
+func TestLecturasMiBolsaCancelacionDuranteEspera(t *testing.T) {
+	for _, caso := range casosLecturaMiBolsaPrueba(t) {
+		t.Run(caso.nombre, func(t *testing.T) {
+			base, cancelar := context.WithCancel(context.Background())
+			defer cancelar()
+			ctx := &contextoCanceladoAlEsperarMiBolsa{Context: base, cancelar: cancelar}
+			pool := &poolLecturaMiBolsaPrueba{t: t, preparar: func(int) *txLecturaMiBolsaPrueba {
+				return &txLecturaMiBolsaPrueba{filas: []filaPanelPostgreSQLPrueba{{error: &pgconn.PgError{Code: "40001"}}}}
+			}}
+			resultado, err := caso.ejecutar(ctx, &ConsultaMiBolsaPostgreSQL{pool: pool})
+			if !errors.Is(err, context.Canceled) || !reflect.DeepEqual(resultado, caso.vacio) || ctx.esperas != 1 || len(pool.transacciones) != 1 || pool.transacciones[0].reversiones != 1 {
+				t.Fatal("la espera cancelada inició otra transacción o devolvió datos")
 			}
 		})
 	}
