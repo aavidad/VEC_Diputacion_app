@@ -359,3 +359,78 @@ test("el reintento respeta el foco si la persona cambia de control durante la es
     assert.equal(doc.activeElement, ayuda);
   }
 });
+
+function catalogosDemo() {
+  return ["bolsa", "ct"].map((nombre) => {
+    const { catalogo } = JSON.parse(leer(`../../../../data/demo/reglas/${nombre}_reglas.ejemplo.demo.json`));
+    return { modulo: catalogo.modulo_id, catalogo_id: catalogo.id, estado: "disponible", version: catalogo.version,
+      paquete_ejemplo: true, reglas: catalogo.entradas.map((entrada) => regla({
+        clave: entrada.clave, etiqueta: entrada.etiqueta, descripcion: entrada.descripcion,
+        ...entrada.atributos, cantidad: entrada.atributos.cantidad ? Number(entrada.atributos.cantidad) : undefined,
+      })) };
+  });
+}
+
+test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definición recibida", () => {
+  const modulo = new URL("./reglas.js", import.meta.url).href;
+  const catalogos = catalogosDemo();
+  for (const idioma of ["es", "en"]) {
+    const presentacion = JSON.parse(leer(`../../textos/${idioma}/reglas.json`)).presentacion;
+    const codigo = `
+      import assert from "node:assert/strict";
+      globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=${idioma}" };
+      const { filtrar, renderizarCatalogo } = await import(${JSON.stringify(modulo)});
+      const catalogos = ${JSON.stringify(catalogos)};
+      const presentacion = ${JSON.stringify(presentacion)};
+      const preimagen = JSON.stringify(catalogos);
+      for (const catalogo of catalogos) {
+        catalogo.reglas.forEach(Object.freeze);
+        Object.freeze(catalogo.reglas);
+        Object.freeze(catalogo);
+      }
+      Object.freeze(catalogos);
+      const escapar = (texto) => texto.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+      let comprobadas = 0;
+      for (const catalogo of catalogos) {
+        const html = renderizarCatalogo(catalogo);
+        for (const [clave, campos] of Object.entries(presentacion[catalogo.modulo])) {
+          const regla = catalogo.reglas.find((regla) => regla.clave === clave);
+          assert.ok(regla, clave);
+          for (const [campo, entrada] of Object.entries(campos)) {
+            assert.equal(regla[campo], entrada.original, clave + ": " + campo);
+            assert.ok(html.includes("<span>" + escapar(entrada.texto) + "</span>"), clave + ": " + campo);
+            const filtrado = filtrar(catalogos, { texto: entrada.texto }).find((c) => c.modulo === catalogo.modulo);
+            assert.ok(filtrado.reglas.includes(regla), clave + ": búsqueda por texto presentado");
+          }
+          comprobadas++;
+        }
+      }
+      assert.equal(JSON.stringify(catalogos), preimagen);
+      process.stdout.write(String(comprobadas));`;
+    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), "23");
+  }
+});
+
+test("la presentación de una regla no cambia otro campo ni una definición nueva", () => {
+  const modulo = new URL("./reglas.js", import.meta.url).href;
+  const fuente = catalogosDemo().find((c) => c.modulo === "contratacion_temporal");
+  const original = fuente.reglas.find((r) => r.clave === "c20.cancelacion_expediente");
+  const en = JSON.parse(leer("../../textos/en/reglas.json")).presentacion.contratacion_temporal[original.clave];
+  const codigo = `
+    import assert from "node:assert/strict";
+    globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };
+    const { detalleRegla, filtrar } = await import(${JSON.stringify(modulo)});
+    const regla = ${JSON.stringify(original)};
+    const html = detalleRegla(regla, "contratacion_temporal");
+    assert.ok(html.includes("<span>" + ${JSON.stringify(en.descripcion.texto)} + "</span>"));
+    assert.ok(html.includes('<span lang="es">' + regla.norma + '</span>'));
+    const nueva = Object.freeze({ ...regla, descripcion: "Cambio de fuente <img src=x>" });
+    const sinSustituir = detalleRegla(nueva, "contratacion_temporal");
+    assert.ok(sinSustituir.includes('<span lang="es">Cambio de fuente &lt;img src=x&gt;</span>'));
+    assert.ok(!sinSustituir.includes(${JSON.stringify(en.descripcion.texto)}));
+    const catalogos = [{ modulo: "contratacion_temporal", reglas: [nueva] }];
+    assert.equal(filtrar(catalogos, { texto: "Cambio de fuente" })[0].reglas[0], nueva);
+    assert.equal(filtrar(catalogos, { texto: ${JSON.stringify(en.descripcion.texto)} })[0].reglas.length, 0);`;
+  execFileSync(process.execPath, ["--input-type=module", "-e", codigo]);
+});
