@@ -152,6 +152,9 @@
         "contrasteActivo": "Alto contraste activado para esta sesión.",
         "contrasteInactivo": "Alto contraste desactivado para esta sesión."
       }
+    },
+    "usuarios": {
+      "rolPropio": "Mis datos y preferencias"
     }
   },
   "correos": {

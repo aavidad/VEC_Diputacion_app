@@ -152,6 +152,9 @@
         "contrasteActivo": "High contrast turned on for this session.",
         "contrasteInactivo": "High contrast turned off for this session."
       }
+    },
+    "usuarios": {
+      "rolPropio": "My details and preferences"
     }
   },
   "correos": {
