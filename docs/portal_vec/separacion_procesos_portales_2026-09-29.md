@@ -272,3 +272,16 @@ controlado y del cotejo de despliegue. Las comprobaciones de fichero regular,
 enlaces y permisos protegen la lectura, pero no acreditan por sí solas quién
 lo preparó. Cada renovación de CA requiere repetir la preparación explícita
 y el cotejo antes del arranque.
+
+### Material del correo externo
+
+Usuarios conserva su semilla de 32 bytes en
+`usuarios/correos-externos-semilla.bin`, dentro del material externo. Solo se
+admite ese fichero nominal; el interno lo rechaza y el externo sigue
+rechazando todo `kms/` y `tsa/`. La comprobación de separación incluye esta
+semilla al detectar contenidos repetidos entre ambos directorios.
+
+El traslado controlado conserva los mismos bytes de la semilla existente,
+con fichero regular y permisos 0600. Mantiene las derivaciones, referencias
+y sobres cifrados anteriores. El preparador de la raíz V3 no crea ni renueva
+esta semilla.
