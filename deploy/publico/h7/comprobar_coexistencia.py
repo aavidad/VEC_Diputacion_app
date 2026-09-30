@@ -98,7 +98,20 @@ def load_config(value):
     return cfg
 
 
+class RejectTrailerResponse(http.client.HTTPResponse):
+    trailers_checked = False
+
+    def _read_and_discard_trailer(self):
+        # HTTPResponse normally discards unannounced trailers silently. H7 must
+        # reject every trailer, including Set-Cookie absent from the Trailer header.
+        if self.fp.readline(65537) != b"\r\n":
+            raise ValueError("response_trailer")
+        self.trailers_checked = True
+
+
 class LoopbackHTTPS(http.client.HTTPSConnection):
+    response_class = RejectTrailerResponse
+
     def __init__(self, endpoint, context):
         super().__init__(endpoint["server_name"], endpoint["port"], timeout=TIMEOUT, context=context)
         self.address = loopback(endpoint["address"])
@@ -113,6 +126,8 @@ class LoopbackHTTPS(http.client.HTTPSConnection):
 
 
 def fetch(endpoint, route, *, headers=None, client=True):
+    if not callable(getattr(http.client.HTTPResponse, "_read_and_discard_trailer", None)):
+        raise ValueError("http_client_contract")
     context = tls_context(endpoint["ca_file"],
                           endpoint.get("client_certificate_file") if client else None,
                           endpoint.get("client_key_file") if client else None)
@@ -131,6 +146,8 @@ def fetch(endpoint, route, *, headers=None, client=True):
         body = response.read(MAX_BODY + 1)
         if len(body) > MAX_BODY:
             raise ValueError("body_size")
+        if response.chunked and not response.trailers_checked:
+            raise ValueError("http_client_contract")
         return response.status, hashlib.sha256(body).hexdigest()
     finally:
         connection.close()

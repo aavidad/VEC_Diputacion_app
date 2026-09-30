@@ -30,6 +30,7 @@ El JSON tiene exactamente estos campos, sin valores predeterminados:
 
 | Campo | Valor que debe aportar el responsable del clon |
 | --- | --- |
+| `dedicated_public_caddy` | Debe ser `true`: confirma que el destino es un proceso Caddy dedicado exclusivamente a esta superficie pública. |
 | `public_host` | Nombre DNS completo del host público, en minúsculas y sin comodín. |
 | `public_port` | Puerto HTTPS público, entero entre 1 y 65535. |
 | `upstream_address` | IP numérica de loopback donde escucha exclusivamente `vec-publico`; admite IPv4 o `::1`, excluye IPv6 con IPv4 mapeada. |
@@ -45,10 +46,19 @@ la CA y el nombre configurados; no existe una opción para omitir verificación.
 No hay destino interno alternativo, `trusted_proxies` ni subcarpeta que mezcle
 las superficies.
 
+Esta es una configuración completa para un Caddy dedicado. El bloque global
+`servers { protocols h1 }` limita la entrada pública a HTTP/1.1, excluyendo
+trailers de HTTP/2 y HTTP/3. No la añada a un Caddy compartido: esa opción global
+afectaría también a sus otros hosts. El generador exige la declaración explícita
+`dedicated_public_caddy: true`; no comprueba qué servicios existen en el destino.
+Antes del proxy, rechaza todo `Transfer-Encoding`, incluso en GET o HEAD sin
+cuerpo. Así un trailer de credenciales no anunciado en una petición chunked
+no puede perderse en Caddy y convertirse en acceso anónimo.
+
 Caddy añade `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host` y `Via`; el
 backend público rechaza esas cabeceras. La secuencia dentro de `route` rechaza
 primero su presencia entrante, incluso vacía, así como `Forwarded` y
-`Proxy-Authorization`. Después retira las cuatro cabeceras añadidas por Caddy.
+`Proxy-Authorization` y `Trailer`. Después retira las cuatro cabeceras añadidas por Caddy.
 Conserva `Cookie`, `Authorization` y las restantes cabeceras de identidad para
 que Go las rechace. La guardia de `Connection` impide que sus tokens supriman
 credenciales antes de llegar al backend; incluye valores repetidos.
@@ -74,8 +84,8 @@ caddy adapt --config /ruta/privada/Caddyfile.publico --adapter caddyfile > /ruta
 caddy validate --config /ruta/privada/Caddyfile.publico --adapter caddyfile > /ruta/privada/caddy-validacion.log 2>&1
 ```
 
-No se proporciona una orden de instalación o recarga. La composición con el
-Caddy existente, su versión, listener, red y certificado exterior requieren
+No se proporciona una orden de instalación o recarga. La versión, listener,
+red y certificado exterior del Caddy dedicado requieren
 validación del responsable del destino antes de cualquier publicación.
 
 ## Comprobación de lectura
@@ -125,6 +135,12 @@ cuerpos mayores de 4 MiB y fallos de TLS. La espera de socket tiene un límite d
 diez segundos; no es un plazo total del recorrido. No sigue redirecciones ni
 persiste cookies.
 
+El cliente anuncia ALPN `http/1.1`, como exige el servidor interno H6. Su lector
+HTTP rechaza cualquier trailer de respuesta, anunciado o no. Un cambio de la
+API Python que impida comprobar el final de una respuesta chunked también hace
+fallar la comprobación; un `Set-Cookie` en un trailer no puede dar un resultado
+verde aunque coincida la huella del cuerpo.
+
 El acceso a `/portal-empleado/` sin certificado de cliente debe ser denegado
 por TLS, cierre de conexión o `401`/`403`; una lectura autenticada posterior
 debe conservar su respuesta. Esa observación comprueba el rechazo anónimo en
@@ -167,15 +183,20 @@ Comprueban `adapt`, `validate` y el comportamiento real de las cabeceras, inclui
 las vacías y `Connection` repetida, además del rechazo por CA o nombre incorrectos.
 Sus procesos y archivos temporales se retiran al terminar.
 
-Resultado focal del 30 de septiembre de 2026: 18 pruebas verdes, ninguna omitida,
-incluidas las cinco de Caddy. Semgrep con las tres reglas locales de
+El corte inicial del 30 de septiembre de 2026 pasó 18 pruebas sin omisiones.
+La revisión posterior señaló ALPN ausente y trailers no anunciados de petición
+y respuesta; esas pruebas iniciales no acreditaban sus controles. Las correcciones
+añaden negociación ALPN, entrada pública HTTP/1.1 con rechazo de chunked y lector
+de respuestas sin trailers. La batería corregida pasa 23 pruebas sin omisiones,
+incluidas siete de Caddy. Semgrep con las tres reglas locales de
 `scripts/recorridos/intervencion/semgrep-local.yml`, métricas y comprobación de
 versión desactivadas: cuatro archivos Python analizados y cero hallazgos.
 
 La sintaxis procede de la documentación oficial de Caddy:
 [reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy),
 [matchers](https://caddyserver.com/docs/caddyfile/matchers) y
-[route](https://caddyserver.com/docs/caddyfile/directives/route).
+[route](https://caddyserver.com/docs/caddyfile/directives/route), además de
+[servers y protocolos](https://caddyserver.com/docs/caddyfile/options#servers).
 El ensayo sintético de Caddy acredita este comportamiento con esa versión.
 La validación del Caddy y los certificados del destino, la simultaneidad sobre
 H6 READY y el recorrido de navegador siguen pendientes. Dos revisores

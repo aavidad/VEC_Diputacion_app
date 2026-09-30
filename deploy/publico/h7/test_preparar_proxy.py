@@ -43,7 +43,7 @@ class TLSFixture:
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
 
     def config(self):
-        return {"public_host": "edge.test", "public_port": 18443,
+        return {"dedicated_public_caddy": True, "public_host": "edge.test", "public_port": 18443,
                 "upstream_address": "127.0.0.1", "upstream_port": 19443,
                 "upstream_server_name": "public.test", "upstream_ca_file": str(self.ca),
                 "edge_certificate_file": str(self.server), "edge_key_file": str(self.server_key)}
@@ -70,6 +70,8 @@ class PrepareProxyTests(unittest.TestCase):
         self.assertIn("reverse_proxy https://127.0.0.1:19443", result)
         self.assertIn("tls_trust_pool file", result)
         self.assertIn("tls_server_name public.test", result)
+        self.assertIn("protocols h1", result)
+        self.assertIn("@transfer header Transfer-Encoding *", result)
         for forbidden in ("tls_insecure_skip_verify", "handle_path", "trusted_proxies",
                           "header_up -Cookie", "header_up -Authorization", "header_up -X-Vec"):
             self.assertNotIn(forbidden, result)
@@ -88,7 +90,8 @@ class PrepareProxyTests(unittest.TestCase):
                     proxy.render(cfg)
 
     def test_injection_and_unknown_insecure_options_rejected(self):
-        for key, value in (("public_host", "*.example.test"), ("public_host", "edge.test\nrespond 200"),
+        for key, value in (("dedicated_public_caddy", False),
+                           ("public_host", "*.example.test"), ("public_host", "edge.test\nrespond 200"),
                            ("public_host", "edge.test/path"), ("public_host", "localhost"),
                            ("public_port", True), ("upstream_port", 65536),
                            ("upstream_server_name", "{env.HOST}"),

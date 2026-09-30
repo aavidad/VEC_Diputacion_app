@@ -14,6 +14,7 @@ import sys
 
 MAX_CONFIG = 65536
 PROXY_KEYS = {
+    "dedicated_public_caddy",
     "public_host", "public_port", "upstream_address", "upstream_port",
     "upstream_server_name", "upstream_ca_file", "edge_certificate_file", "edge_key_file",
 }
@@ -113,6 +114,8 @@ def tls_context(ca_file, certificate=None, key=None):
 
 def validate_proxy(cfg):
     exact_keys(cfg, PROXY_KEYS)
+    if cfg["dedicated_public_caddy"] is not True:
+        raise ValueError("caddy_scope")
     dns_name(cfg["public_host"], complete=True)
     dns_name(cfg["upstream_server_name"])
     port(cfg["public_port"])

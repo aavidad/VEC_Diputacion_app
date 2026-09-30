@@ -51,9 +51,17 @@ class SyntheticServer:
                     self.send_header("Location", "https://external.test/")
                 if owner.failure == "redirect":
                     self.send_header("Location", "https://external.test/")
-                self.send_header("Content-Length", str(len(body)))
+                chunked = owner.failure in ("chunked-cookie", "chunked-empty")
+                if chunked:
+                    self.send_header("Transfer-Encoding", "chunked")
+                else:
+                    self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(body)
+                if chunked:
+                    trailer = b"Set-Cookie: h7-synthetic=1\r\n" if owner.failure == "chunked-cookie" else b""
+                    self.wfile.write(f"{len(body):x}\r\n".encode() + body + b"\r\n0\r\n" + trailer + b"\r\n")
+                else:
+                    self.wfile.write(body)
 
             def log_message(self, *args):
                 pass
@@ -163,6 +171,22 @@ class CoexistenceTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     coexist.check(self.config())
 
+    def test_unannounced_cookie_trailer_rejected_and_empty_chunked_accepted(self):
+        self.public.failure = "chunked-cookie"
+        with self.assertRaisesRegex(ValueError, "response_trailer"):
+            coexist.fetch(self.public.endpoint(), "/")
+        self.public.failure = "chunked-empty"
+        self.assertEqual(coexist.fetch(self.public.endpoint(), "/"), (200, BODY_HASH))
+
+    def test_changed_http_client_trailer_hook_fails_closed(self):
+        with patch.object(coexist.http.client.HTTPResponse, "_read_and_discard_trailer", None):
+            with self.assertRaisesRegex(ValueError, "http_client_contract"):
+                coexist.fetch(self.public.endpoint(), "/")
+        self.public.failure = "chunked-empty"
+        with patch.object(coexist.http.client.HTTPResponse, "_read_chunked", return_value=BODY):
+            with self.assertRaisesRegex(ValueError, "http_client_contract"):
+                coexist.fetch(self.public.endpoint(), "/")
+
     def test_provenance_schema_routes_and_listener_guards(self):
         cases = []
         cfg = self.config()
@@ -215,8 +239,7 @@ class CaddyBoundaryTests(unittest.TestCase):
         cfg.update(public_port=cls.edge_port, upstream_port=cls.upstream.server.server_port)
         cls.cfg = cfg
         cls.config_file = cls.fixture.root / "Caddyfile"
-        cls.config_file.write_text("{\n admin off\n auto_https disable_redirects\n}\n" +
-                                   proxy.render(cfg).replace("    tls ", "    bind 127.0.0.1\n    tls ", 1))
+        cls.config_file.write_text(cls.local_config(cfg))
         cls.env = {"PATH": "/usr/bin:/bin", "XDG_DATA_HOME": str(cls.fixture.root / "data"),
                    "XDG_CONFIG_HOME": str(cls.fixture.root / "config")}
         for action in ("adapt", "validate"):
@@ -243,6 +266,11 @@ class CaddyBoundaryTests(unittest.TestCase):
         raise AssertionError("synthetic Caddy did not become ready")
 
     @classmethod
+    def local_config(cls, cfg):
+        return proxy.render(cfg).replace("{\n", "{\n admin off\n auto_https disable_redirects\n", 1).replace(
+            "    tls ", "    bind 127.0.0.1\n    tls ", 1)
+
+    @classmethod
     def tearDownClass(cls):
         cls.process.terminate()
         cls.process.wait(timeout=10)
@@ -258,7 +286,7 @@ class CaddyBoundaryTests(unittest.TestCase):
 
     def test_incoming_proxy_metadata_including_empty_is_rejected_before_upstream(self):
         for header in ("X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-Host",
-                       "Forwarded", "Via", "Proxy-Authorization"):
+                       "Forwarded", "Via", "Proxy-Authorization", "Trailer"):
             for value in ("", "h7-synthetic"):
                 with self.subTest(header=header, value=value):
                     before = len(self.upstream.requests)
@@ -293,6 +321,41 @@ class CaddyBoundaryTests(unittest.TestCase):
                     connection.close()
                 self.assertEqual(len(self.upstream.requests), before)
 
+    def test_chunked_request_and_unannounced_cookie_trailer_rejected(self):
+        for body in (b"0\r\n\r\n", b"0\r\nCookie: h7-synthetic=1\r\n\r\n",
+                     b"1\r\nx\r\n0\r\nCookie: h7-synthetic=1\r\n\r\n"):
+            for method in ("GET", "HEAD"):
+                with self.subTest(body=body, method=method):
+                    before = len(self.upstream.requests)
+                    connection = coexist.LoopbackHTTPS(self.edge, proxy.tls_context(self.edge["ca_file"]))
+                    try:
+                        connection.putrequest(method, "/")
+                        connection.putheader("Transfer-Encoding", "chunked")
+                        connection.endheaders(body)
+                        response = connection.getresponse()
+                        self.assertEqual(response.status, 400)
+                        response.read()
+                    finally:
+                        connection.close()
+                    self.assertEqual(len(self.upstream.requests), before)
+
+    def test_dedicated_caddy_negotiates_only_http11(self):
+        context = proxy.tls_context(self.edge["ca_file"])
+        context.set_alpn_protocols(["h2", "http/1.1"])
+        connection = coexist.LoopbackHTTPS(self.edge, context)
+        try:
+            connection.connect()
+            self.assertEqual(connection.sock.selected_alpn_protocol(), "http/1.1")
+        finally:
+            connection.close()
+        context.set_alpn_protocols(["h2"])
+        connection = coexist.LoopbackHTTPS(self.edge, context)
+        try:
+            with self.assertRaises(ssl.SSLError):
+                connection.connect()
+        finally:
+            connection.close()
+
     def test_caddy_rejects_wrong_upstream_name_and_ca(self):
         other = TLSFixture()
         try:
@@ -304,8 +367,7 @@ class CaddyBoundaryTests(unittest.TestCase):
                         edge_port = sock.getsockname()[1]
                     cfg = dict(self.cfg, public_port=edge_port, **changed)
                     config_file = self.fixture.root / "Caddyfile-tls-negative"
-                    config_file.write_text("{\n admin off\n auto_https disable_redirects\n}\n" +
-                                           proxy.render(cfg).replace("    tls ", "    bind 127.0.0.1\n    tls ", 1))
+                    config_file.write_text(self.local_config(cfg))
                     process = subprocess.Popen([self.binary, "run", "--config", str(config_file),
                                                 "--adapter", "caddyfile"], env=self.env,
                                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
