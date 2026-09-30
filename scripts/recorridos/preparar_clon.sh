@@ -13,6 +13,8 @@ puerto_pg=${VEC_RECORRIDOS_PUERTO_PG:-55531}
 puerto_web=${VEC_RECORRIDOS_PUERTO_WEB:-18531}
 puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
+refrescar_prueba=${VEC_RECORRIDOS_REFRESCAR_PRUEBA_INTERNA:-false}
+[[ "$refrescar_prueba" == true || "$refrescar_prueba" == false ]] || exit 2
 accion=${1:-preparar}
 case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso: preparar_clon.sh [preparar|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 [[ "$nombre" =~ ^vec-[a-z0-9-]+$ ]] || exit 2
@@ -286,6 +288,7 @@ runtime build
 comunicaciones configure
 opciones_material=()
 if [[ -f "$estado/material-manifest.json" ]]; then opciones_material+=(--upgrade-source); fi
+if [[ "$refrescar_prueba" == true ]]; then opciones_material+=(--refresh-internal-proof); fi
 estado_material=0
 python3 "$guiones/clon_material.py" --repo "$repo" --source-archive "$estado/source-$commit" --commit "$commit" --container "$nombre" --output "$estado" --port "$puerto_web" --pg-port "$puerto_pg" --repair-coverage-connect --repair-nominal-connect --complete-profiles "${opciones_material[@]}" || estado_material=$?
 [[ "$estado_material" == 0 || "$estado_material" == 3 ]] || exit "$estado_material"

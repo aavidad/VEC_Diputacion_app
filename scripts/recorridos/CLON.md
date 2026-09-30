@@ -91,6 +91,12 @@ con `parar`, cambie `VEC_RECORRIDOS_REFERENCIA` y vuelva a ejecutar `preparar`.
 La fuente anterior debe ser antecesora de la nueva y el instalador debe conocer
 la ampliación. El volumen, la historia y el material privado se conservan.
 
+Si solo cambia el sello de preparación del operador, puede solicitar su
+conciliación con `VEC_RECORRIDOS_REFRESCAR_PRUEBA_INTERNA=true`. El guion
+comprueba la preimagen y exige iguales fuente, destino, configuración, archivos
+y montajes de ejecución. Guarda ambos sellos y rechaza cualquier otro cambio.
+La opción no rota claves ni modifica datos o identidades.
+
 ## Comprobar y recuperar
 
 ```bash

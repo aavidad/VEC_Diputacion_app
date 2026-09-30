@@ -122,5 +122,5 @@
 1064 web/static/portal-empleado/modulos/contratacion-temporal/i18n.js
 887 internal/app/bootstrap/contratacion_temporal_cobertura_autorizacion_desarrollo_test.go
 1178 deploy/postgresql/usuarios_vec/migraciones/000010_correos_por_poblacion.up.sql
-1065 scripts/recorridos/clon_material.py
 846 scripts/recorridos/clon_runtime.py
+1067 scripts/recorridos/clon_material.py
