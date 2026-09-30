@@ -557,7 +557,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, ErrActivacionDesarrolloInvalida
 	}
 	declaracionesFrontera, err := descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
-		perfilCTCatalogo, perfilesConsulta, false, plantillasActivas, perfilPlantillas)
+		perfilCTCatalogo, perfilesConsulta, firmaDocumento != nil, plantillasActivas, perfilPlantillas)
 	if err != nil {
 		return nil, nil, nil, err
 	}
