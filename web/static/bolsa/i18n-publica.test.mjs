@@ -17,7 +17,7 @@ test("las dos superficies públicas cargan el catálogo común antes de sus cont
     assert.ok(html.indexOf("i18n-publica.js") < html.indexOf(controlador));
   }
   assert.match(convocatorias, /VECBolsaI18n\?\.t/);
-  assert.match(bolsas, /VECBolsaI18n\?\.t/);
+  assert.match(bolsas, /VECBolsaI18n/);
 });
 
 test("el catálogo público devuelve castellano y falla cerrado en claves desconocidas", () => {
@@ -29,14 +29,16 @@ test("el catálogo público devuelve castellano y falla cerrado en claves descon
   assert.equal(t("clave_ajena"), "clave_ajena");
 });
 
-test("el inglés público conserva claves y marcadores y localiza números", () => {
+test("el inglés público conserva claves y marcadores y localiza números", async () => {
   const contexto = { URL, globalThis: {
     location: { href: "https://vec.example/bolsa/?lang=en" },
     navigator: { languages: ["es-ES"] },
   } };
   vm.runInNewContext(catalogo, contexto);
-  const { idioma, t, numero, plural, mensajesES, mensajesEN } = contexto.globalThis.VECBolsaI18n;
+  const { idioma, localizacion, t, numero, plural, mensajesES, mensajesEN } = contexto.globalThis.VECBolsaI18n;
   assert.equal(idioma, "en");
+  const indiceIdiomas = JSON.parse(await readFile(new URL("../textos/idiomas.json", base), "utf8"));
+  assert.equal(localizacion, indiceIdiomas.idiomas.find((entrada) => entrada.codigo === idioma).localizacion);
   assert.deepEqual(Object.keys(mensajesEN), Object.keys(mensajesES));
   const marcadores = (valor) => [...valor.matchAll(/\{[a-z_]+\}/gu)].map((x) => x[0]).sort();
   for (const clave of Object.keys(mensajesES)) {

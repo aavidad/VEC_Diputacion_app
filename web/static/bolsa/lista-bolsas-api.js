@@ -22,10 +22,15 @@ const RUTA_BOLSAS_PUBLICAS = "/api/publico/bolsa/bolsas";
  * Consulta la relación de bolsas públicas activas.
  * GET /api/publico/bolsa/bolsas
  */
-export async function consultarBolsasPublicas({ fetchImpl = globalThis.fetch } = {}) {
+export async function consultarBolsasPublicas({ fetchImpl = globalThis.fetch, signal } = {}) {
   const respuesta = await fetchImpl(RUTA_BOLSAS_PUBLICAS, {
     method: "GET",
     credentials: "omit",
+    mode: "same-origin",
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
+    redirect: "error",
+    signal,
     headers: {
       Accept: "application/json",
     },
@@ -60,6 +65,7 @@ export async function consultarListaBolsaPublica({
   limite = 50,
   documento = "",
   fetchImpl = globalThis.fetch,
+  signal,
 } = {}) {
   if (!bolsa_ref || typeof bolsa_ref !== "string" || bolsa_ref.trim() === "") {
     throw new Error("Se requiere bolsa_ref para consultar la lista pública");
@@ -85,6 +91,11 @@ export async function consultarListaBolsaPublica({
   const respuesta = await fetchImpl(ruta, {
     method: "GET",
     credentials: "omit",
+    mode: "same-origin",
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
+    redirect: "error",
+    signal,
     headers: {
       Accept: "application/json",
     },
