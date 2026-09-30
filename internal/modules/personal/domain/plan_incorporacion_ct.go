@@ -12,6 +12,8 @@ import (
 
 var plazaPlanCTValida = regexp.MustCompile(`^plaza:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
 var puestoPlanCTValido = regexp.MustCompile(`^puesto:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
+var claseOcupacionPlanCTValida = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+var textoClaveClaseOcupacionCTValido = regexp.MustCompile(`^[a-z][a-z0-9_.]{2,159}$`)
 
 const AudienciaPlanIncorporacionCT = "vec_personal.plan_incorporacion_ct.v1"
 
@@ -65,7 +67,7 @@ func (d DatosPlanIncorporacionCT) Validar() error {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}
-	if (d.ClaseOcupacion != "temporal" && d.ClaseOcupacion != "provisional" && d.ClaseOcupacion != "titular") || !patronUUIDRegistroB2.MatchString(d.IdempotenciaRef) || !ReferenciaPersonaValida(d.PersonaRef) || d.PersonaVersion < 1 || d.ExpedienteVersion < 1 || d.FuenteBolsaVersion < 1 || d.CatalogoRPTVersion < 1 || d.RevisionPlaza < 1 || d.RevisionPuesto < 1 || !plazaPlanCTValida.MatchString(d.PlazaRef) || !puestoPlanCTValido.MatchString(d.PuestoRef) || d.Regimen.Validar() != nil || d.Modalidad.Validar() != nil || !intervaloActoB2Valido(d.Desde, d.Hasta) || d.Procedencia.Validar() != nil {
+	if !claseOcupacionPlanCTValida.MatchString(d.ClaseOcupacion) || !patronUUIDRegistroB2.MatchString(d.IdempotenciaRef) || !ReferenciaPersonaValida(d.PersonaRef) || d.PersonaVersion < 1 || d.ExpedienteVersion < 1 || d.FuenteBolsaVersion < 1 || d.CatalogoRPTVersion < 1 || d.RevisionPlaza < 1 || d.RevisionPuesto < 1 || !plazaPlanCTValida.MatchString(d.PlazaRef) || !puestoPlanCTValido.MatchString(d.PuestoRef) || d.Regimen.Validar() != nil || d.Modalidad.Validar() != nil || !intervaloActoB2Valido(d.Desde, d.Hasta) || d.Procedencia.Validar() != nil {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	return nil
@@ -271,12 +273,12 @@ type CatalogoClasesOcupacionCT struct {
 }
 
 func (c CatalogoClasesOcupacionCT) Validar() error {
-	if !patronReferenciaB2.MatchString(c.Ref) || c.Version < 1 || len(c.Opciones) < 1 || len(c.Opciones) > 3 || !huellaRegistroDominioB2Valida(c.HuellaSHA256) {
+	if !patronReferenciaB2.MatchString(c.Ref) || c.Version < 1 || len(c.Opciones) < 1 || len(c.Opciones) > 10000 || !huellaRegistroDominioB2Valida(c.HuellaSHA256) {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	claves := map[string]bool{}
 	for _, o := range c.Opciones {
-		if (o.Valor != "titular" && o.Valor != "provisional" && o.Valor != "temporal") || claves[o.Valor] || !regexp.MustCompile(`^[a-z][a-z0-9_.]{2,159}$`).MatchString(o.TextoClave) {
+		if !claseOcupacionPlanCTValida.MatchString(o.Valor) || claves[o.Valor] || !textoClaveClaseOcupacionCTValido.MatchString(o.TextoClave) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 		claves[o.Valor] = true

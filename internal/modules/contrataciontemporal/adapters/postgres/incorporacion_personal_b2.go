@@ -95,7 +95,7 @@ func (f *FuentePlanNominalB2PostgreSQL) ejecutar(ctx context.Context, accion str
 				return e
 			}
 			defer clear(raw)
-			if string(raw) == "null" {
+			if resultadoPlanB2Ausente(raw) {
 				if e = tx.Commit(ctx); e != nil {
 					return e
 				}
@@ -127,6 +127,11 @@ func (f *FuentePlanNominalB2PostgreSQL) ejecutar(ctx context.Context, accion str
 	}
 	return err
 }
+
+func resultadoPlanB2Ausente(raw []byte) bool {
+	return raw == nil || string(raw) == "null"
+}
+
 func (f *FuentePlanNominalB2PostgreSQL) RegistrarPlanNominalB2(ctx context.Context, m ports.RegistroPlanNominalB2, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ContratoPlanNominalB2, error) {
 	var c ports.ContratoPlanNominalB2
 	if m.Material.Validar() != nil {

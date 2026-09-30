@@ -15,7 +15,11 @@ func TestPlanCTPeriodoCivilAbiertoYDatosAcreditados(t *testing.T) {
 	if e := d.Validar(); e != nil {
 		t.Fatal("periodo abierto", e)
 	}
-	for _, f := range []func(*DatosPlanIncorporacionCT){func(d *DatosPlanIncorporacionCT) { d.Hasta = d.Desde }, func(d *DatosPlanIncorporacionCT) { d.Desde = "2026-02-30" }, func(d *DatosPlanIncorporacionCT) { d.PersonaRef = "" }, func(d *DatosPlanIncorporacionCT) { d.FuenteBolsaVersion = 0 }, func(d *DatosPlanIncorporacionCT) { d.RevisionPlaza = 0 }, func(d *DatosPlanIncorporacionCT) { d.CatalogoRPTHuellaSHA256 = "" }, func(d *DatosPlanIncorporacionCT) { d.ClaseOcupacion = "reserva" }} {
+	d.ClaseOcupacion = "reserva"
+	if e := d.Validar(); e != nil {
+		t.Fatal("gramática de clase del catálogo rechazada", e)
+	}
+	for _, f := range []func(*DatosPlanIncorporacionCT){func(d *DatosPlanIncorporacionCT) { d.Hasta = d.Desde }, func(d *DatosPlanIncorporacionCT) { d.Desde = "2026-02-30" }, func(d *DatosPlanIncorporacionCT) { d.PersonaRef = "" }, func(d *DatosPlanIncorporacionCT) { d.FuenteBolsaVersion = 0 }, func(d *DatosPlanIncorporacionCT) { d.RevisionPlaza = 0 }, func(d *DatosPlanIncorporacionCT) { d.CatalogoRPTHuellaSHA256 = "" }, func(d *DatosPlanIncorporacionCT) { d.ClaseOcupacion = "Reserva" }, func(d *DatosPlanIncorporacionCT) { d.ClaseOcupacion = "" }, func(d *DatosPlanIncorporacionCT) { d.ClaseOcupacion = "reserva;DROP" }} {
 		otra := d
 		f(&otra)
 		if !errors.Is(otra.Validar(), ErrRegistroEmpleadoB2Invalido) {
@@ -100,7 +104,12 @@ func TestPlanCTSeleccionLigaRevisionesFuenteYActor(t *testing.T) {
 }
 
 func TestPlanCTClasesSinVersionODuplicadasNoSonCatalogo(t *testing.T) {
-	c := CatalogoClasesOcupacionCT{Ref: "personal:clases:publicacion", Version: 1, HuellaSHA256: strings.Repeat("e", 64), Opciones: []OpcionClaseOcupacionCT{{Valor: "temporal", TextoClave: "personal.clases.temporal"}}}
+	c := CatalogoClasesOcupacionCT{Ref: "personal:clases:publicacion", Version: 1, HuellaSHA256: strings.Repeat("e", 64), Opciones: []OpcionClaseOcupacionCT{
+		{Valor: "reserva", TextoClave: "personal.clases.reserva"},
+		{Valor: "temporal", TextoClave: "personal.clases.temporal"},
+		{Valor: "titular", TextoClave: "personal.clases.titular"},
+		{Valor: "provisional", TextoClave: "personal.clases.provisional"},
+	}}
 	if e := c.Validar(); e != nil {
 		t.Fatal(e)
 	}
@@ -112,5 +121,9 @@ func TestPlanCTClasesSinVersionODuplicadasNoSonCatalogo(t *testing.T) {
 	c.Opciones = append(c.Opciones, c.Opciones[0])
 	if c.Validar() == nil {
 		t.Fatal("opciones duplicadas")
+	}
+	c.Opciones[len(c.Opciones)-1].Valor = "Reserva"
+	if c.Validar() == nil {
+		t.Fatal("opción sin gramática canónica")
 	}
 }
