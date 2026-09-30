@@ -29,7 +29,7 @@ export function plazasCompletas(plazas) {
 export async function cargarEjemploPlazas({ cliente } = {}) {
   try {
     // Carga diferida: el cliente de reglas no entra en la precarga del portal.
-    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-detalle-v3")).crearCliente();
+    const lector = cliente ?? (await import("../../reglas/reglas.js?v=20260930-reglas-recuperacion-v2")).crearCliente();
     const datos = await lector.reglas();
     const reglas = new Map(datos.catalogos.filter((c) => c.modulo === "bolsa" && c.estado === "disponible")
       .flatMap((c) => c.reglas).map((r) => [r.clave, r]));

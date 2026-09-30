@@ -62,8 +62,8 @@ func TestModulosResolucionFormalizacionServidos(t *testing.T) {
 	for _, modulo := range modulos {
 		rec := httptest.NewRecorder()
 		publico.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prefijo+modulo, nil))
-		if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
-			t.Fatalf("la superficie pública no redirigió %s: estado=%d Location=%q", modulo, rec.Code, rec.Header().Get("Location"))
+		if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" {
+			t.Fatalf("la superficie pública no devolvió 404 para %s: estado=%d Location=%q", modulo, rec.Code, rec.Header().Get("Location"))
 		}
 	}
 }

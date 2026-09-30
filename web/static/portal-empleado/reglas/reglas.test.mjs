@@ -43,16 +43,17 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
 test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
-  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v2");
-  assert.equal(version, "20260930-reglas-detalle-v3");
+  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
+  assert.equal(version, "20260930-reglas-recuperacion-v2");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v2"), version);
+  const politica = leer("../modulos/bolsa/rrhh-plazos-ui.js");
+  assert.equal(exigirRenovado([html, bolsa, etiquetas, politica], "reglas.js", "20260930-reglas-detalle-v3"), version);
   const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
-  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v2"), version);
+  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v3"), version);
   // El enlace del portal no cambia en esta revisión: conserva su URL.
   const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
-  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20260930-avisos-interfaz-v2");
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20260930-avisos-main-v3");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
@@ -196,19 +197,40 @@ test("los textos de la pantalla vienen de los catálogos es y en con las mismas 
 function documentoFalso(hash = "") {
   const html = leer("./index.html");
   const nodos = new Map();
-  for (const [, id] of html.matchAll(/id="([a-z-]+)"/gu)) {
+  let doc;
+  const crearNodo = (id) => {
     const oyentes = {};
-    nodos.set(id, { id, hidden: id === "rg-resultado", value: "", innerHTML: "", textContent: "", classList: { toggle() {} },
-      addEventListener: (tipo, f) => { oyentes[tipo] = f; }, oyentes, setAttribute() {} });
+    const nodo = { id, hidden: id === "rg-resultado", value: "", innerHTML: "", classList: { toggle() {} },
+      hijos: [], atributos: {},
+      addEventListener: (tipo, f) => { oyentes[tipo] = f; }, oyentes,
+      setAttribute: (clave, valor) => { nodo.atributos[clave] = valor; },
+      append: (...hijos) => nodo.hijos.push(...hijos),
+      focus: () => { doc.activeElement = nodo; },
+    };
+    let contenido = "";
+    Object.defineProperty(nodo, "textContent", {
+      get: () => contenido,
+      set: (valor) => {
+        if (nodo.hijos.includes(doc.activeElement)) doc.activeElement = doc.body;
+        contenido = valor;
+        nodo.hijos = [];
+      },
+    });
+    return nodo;
+  };
+  for (const [, id] of html.matchAll(/id="([a-z-]+)"/gu)) {
+    nodos.set(id, crearNodo(id));
   }
-  const estado = { hash, reemplazos: [] };
-  const vista = { location: { get hash() { return estado.hash; }, pathname: "/portal-empleado/reglas/", search: "" },
+  const estado = { hash, reemplazos: [], recargas: 0 };
+  const vista = { location: { get hash() { return estado.hash; }, pathname: "/portal-empleado/reglas/", search: "", reload: () => { estado.recargas++; } },
     history: { replaceState: (_e, _t, url) => { estado.reemplazos.push(url); estado.hash = url.startsWith("#") ? url : ""; } } };
-  const doc = {
+  doc = {
+    body: {}, createElement: (tag) => crearNodo(tag),
     title: "", documentElement: { lang: "" }, defaultView: vista,
     getElementById: (id) => nodos.get(id) ?? detalles.get(id) ?? null,
     querySelectorAll: () => [], getSelection: () => ({ toString: () => "" }),
   };
+  doc.activeElement = doc.body;
   const detalles = new Map();
   return { doc, nodos, estado, detalles };
 }
@@ -263,4 +285,154 @@ test("la cabecera del catálogo muestra la versión sin identificadores ni huell
   const html = renderizarCatalogo(validarReglas(respuesta()).catalogos[0]);
   assert.match(html, /<p class="rg-meta">[^<]*1[^<]*<\/p>/u);
   for (const codigo of ["vec.bolsa.reglas", "aaaaaaaaaaaa"]) assert.ok(!html.includes(codigo), `sin código interno: ${codigo}`);
+});
+
+
+test("Reintentar conserva el foco con un error persistente y consulta sin recargar la página", async () => {
+  const { doc, nodos, estado } = documentoFalso();
+  let llamadas = 0;
+  let terminar;
+  const cliente = { reglas: async () => {
+    llamadas++;
+    if (llamadas > 1) await new Promise((resolver) => { terminar = resolver; });
+    throw new ErrorReglas("error_servicio_no_disponible");
+  } };
+  await iniciar(doc, cliente);
+  const aviso = nodos.get("rg-estado");
+  assert.match(leer("./index.html"), /id="rg-estado"[^>]*tabindex="-1"[^>]*role="status"[^>]*aria-live="polite"/u);
+  assert.equal(doc.activeElement, doc.body, "la carga inicial no mueve el foco");
+  for (let intento = 0; intento < 2; intento++) {
+    const boton = aviso.hijos.at(-1);
+    assert.equal(boton.textContent, MENSAJES_REGLAS.reintentar);
+    boton.focus();
+    const consulta = boton.oyentes.click();
+    assert.equal(doc.activeElement, aviso, "el aviso conserva el foco mientras espera");
+    assert.equal(aviso.textContent, MENSAJES_REGLAS.cargando);
+    terminar();
+    await consulta;
+    assert.equal(doc.activeElement, aviso.hijos.at(-1), "el nuevo botón recibe el foco");
+    assert.notEqual(aviso.hijos.at(-1), boton);
+    assert.equal(nodos.get("rg-resultado").hidden, true);
+    assert.equal(aviso.hidden, false);
+    assert.equal(aviso.textContent, MENSAJES_REGLAS.error_servicio_no_disponible);
+  }
+  assert.equal(llamadas, 3);
+  assert.equal(estado.recargas, 0);
+});
+
+test("Reintentar recupera las reglas y continúa el teclado en el primer filtro", async () => {
+  const { doc, nodos, estado } = documentoFalso();
+  let llamadas = 0;
+  const cliente = { reglas: async () => {
+    if (++llamadas === 1) throw new ErrorReglas("error_servicio_no_disponible");
+    return validarReglas(respuesta());
+  } };
+  await iniciar(doc, cliente);
+  const boton = nodos.get("rg-estado").hijos.at(-1);
+  boton.focus();
+  await boton.oyentes.click();
+  assert.equal(nodos.get("rg-resultado").hidden, false);
+  assert.equal(nodos.get("rg-estado").hidden, true);
+  assert.equal(doc.activeElement, nodos.get("rg-modulo"));
+  assert.match(nodos.get("rg-catalogos").innerHTML, /Plazo de respuesta/u);
+  assert.equal(llamadas, 2);
+  assert.equal(estado.recargas, 0);
+});
+
+test("el reintento respeta el foco si la persona cambia de control durante la espera", async () => {
+  for (const recuperado of [false, true]) {
+    const { doc, nodos } = documentoFalso();
+    let terminar;
+    let llamadas = 0;
+    const cliente = { reglas: async () => {
+      if (++llamadas > 1) await new Promise((resolver) => { terminar = resolver; });
+      if (recuperado && llamadas > 1) return validarReglas(respuesta());
+      throw new ErrorReglas("error_servicio_no_disponible");
+    } };
+    await iniciar(doc, cliente);
+    const boton = nodos.get("rg-estado").hijos.at(-1);
+    boton.focus();
+    const consulta = boton.oyentes.click();
+    const ayuda = nodos.get("rg-ayuda-abrir");
+    ayuda.focus();
+    terminar();
+    await consulta;
+    assert.equal(doc.activeElement, ayuda);
+  }
+});
+
+function catalogosDemo() {
+  return ["bolsa", "ct"].map((nombre) => {
+    const { catalogo } = JSON.parse(leer(`../../../../data/demo/reglas/${nombre}_reglas.ejemplo.demo.json`));
+    return { modulo: catalogo.modulo_id, catalogo_id: catalogo.id, estado: "disponible", version: catalogo.version,
+      paquete_ejemplo: true, reglas: catalogo.entradas.map((entrada) => regla({
+        clave: entrada.clave, etiqueta: entrada.etiqueta, descripcion: entrada.descripcion,
+        ...entrada.atributos, cantidad: entrada.atributos.cantidad ? Number(entrada.atributos.cantidad) : undefined,
+      })) };
+  });
+}
+
+test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definición recibida", () => {
+  const modulo = new URL("./reglas.js", import.meta.url).href;
+  const catalogos = catalogosDemo();
+  for (const idioma of ["es", "en"]) {
+    const presentacion = JSON.parse(leer(`../../textos/${idioma}/reglas.json`)).presentacion;
+    const codigo = `
+      import assert from "node:assert/strict";
+      globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=${idioma}" };
+      const { filtrar, renderizarCatalogo } = await import(${JSON.stringify(modulo)});
+      const catalogos = ${JSON.stringify(catalogos)};
+      const presentacion = ${JSON.stringify(presentacion)};
+      const preimagen = JSON.stringify(catalogos);
+      for (const catalogo of catalogos) {
+        catalogo.reglas.forEach(Object.freeze);
+        Object.freeze(catalogo.reglas);
+        Object.freeze(catalogo);
+      }
+      Object.freeze(catalogos);
+      const escapar = (texto) => texto.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+      let comprobadas = 0;
+      for (const catalogo of catalogos) {
+        const html = renderizarCatalogo(catalogo);
+        for (const regla of catalogo.reglas) {
+          const clave = regla.clave;
+          const campos = clave.split(".").reduce((nodo, parte) => nodo?.[parte], presentacion[catalogo.modulo]);
+          if (!campos) continue;
+          for (const [campo, entrada] of Object.entries(campos)) {
+            assert.equal(regla[campo], entrada.original, clave + ": " + campo);
+            assert.ok(html.includes("<span>" + escapar(entrada.texto) + "</span>"), clave + ": " + campo);
+            const filtrado = filtrar(catalogos, { texto: entrada.texto }).find((c) => c.modulo === catalogo.modulo);
+            assert.ok(filtrado.reglas.includes(regla), clave + ": búsqueda por texto presentado");
+          }
+          comprobadas++;
+        }
+      }
+      assert.equal(JSON.stringify(catalogos), preimagen);
+      process.stdout.write(String(comprobadas));`;
+    assert.equal(execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" }), "23");
+  }
+});
+
+test("la presentación de una regla no cambia otro campo ni una definición nueva", () => {
+  const modulo = new URL("./reglas.js", import.meta.url).href;
+  const fuente = catalogosDemo().find((c) => c.modulo === "contratacion_temporal");
+  const original = fuente.reglas.find((r) => r.clave === "c20.cancelacion_expediente");
+  const en = JSON.parse(leer("../../textos/en/reglas.json")).presentacion.contratacion_temporal.c20.cancelacion_expediente;
+  const codigo = `
+    import assert from "node:assert/strict";
+    globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };
+    const { detalleRegla, filtrar } = await import(${JSON.stringify(modulo)});
+    const regla = ${JSON.stringify(original)};
+    const html = detalleRegla(regla, "contratacion_temporal");
+    assert.ok(html.includes("<span>" + ${JSON.stringify(en.descripcion.texto)} + "</span>"));
+    assert.ok(html.includes('<span lang="es">' + regla.norma + '</span>'));
+    const nueva = Object.freeze({ ...regla, descripcion: "Cambio de fuente <img src=x>" });
+    const sinSustituir = detalleRegla(nueva, "contratacion_temporal");
+    assert.ok(sinSustituir.includes('<span lang="es">Cambio de fuente &lt;img src=x&gt;</span>'));
+    assert.ok(!sinSustituir.includes(${JSON.stringify(en.descripcion.texto)}));
+    const catalogos = [{ modulo: "contratacion_temporal", reglas: [nueva] }];
+    assert.equal(filtrar(catalogos, { texto: "Cambio de fuente" })[0].reglas[0], nueva);
+    assert.equal(filtrar(catalogos, { texto: ${JSON.stringify(en.descripcion.texto)} })[0].reglas.length, 0);`;
+  execFileSync(process.execPath, ["--input-type=module", "-e", codigo]);
 });

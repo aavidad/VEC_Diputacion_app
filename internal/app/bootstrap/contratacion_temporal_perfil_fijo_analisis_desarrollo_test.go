@@ -23,7 +23,7 @@ func escenarioAnalisisPerfilFijoPrueba(t *testing.T) (
 ) {
 	t.Helper()
 	s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principal, time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
 		t.Fatal(err)
 	}
 	autoridad := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)

@@ -155,7 +155,14 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 	ctx context.Context,
 ) (ports.ContextoAutorizacionAltaV3, error) {
 	vacio := ports.ContextoAutorizacionAltaV3{}
-	if s == nil || ctx == nil || ctx.Err() != nil {
+	if s == nil || ctx == nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	if ctx.Err() != nil {
+		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
+		if existe && capacidad.sello == s.sello && rutaSesionConIndisponibilidadCTDesarrollo(capacidad.ruta) {
+			return vacio, ctx.Err()
+		}
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	capacidad, valida := s.capacidadValida(ctx)
@@ -174,12 +181,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		esperado = s.reincorporacionTitular.contextoEsperadoRegistrado
 		sesion = s.reincorporacionTitular.sesionOperativa
 	}
-	if fijo := s.perfilFijoParaRutaBloqueado(capacidad.ruta); fijo != nil && !fijo.propioDelSoporte {
+	if fijo := s.perfilFijoParaRutaYMetodoBloqueado(capacidad.ruta, capacidad.metodo); fijo != nil && !fijo.propioDelSoporte {
 		esperado, sesion = fijo.contextoEsperadoRegistrado, fijo.sesionOperativa
 	}
 	s.mu.Unlock()
 	if esperado.Validar() != nil || sesion == nil {
-		if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
+		if rutaSesionConIndisponibilidadCTDesarrollo(capacidad.ruta) {
 			return vacio, ports.ErrConsultaRRHHNoDisponible
 		}
 		return vacio, ports.ErrAutorizacionDenegada
@@ -193,16 +200,21 @@ func (s *soporteAltaContratacionTemporalDesarrollo) contextoOperativoDesarrollo(
 		if err == nil && comun.Vinculo.ValidarPara(comun.Resultado) == nil &&
 			mismoContextoEsperadoRegistradoDesarrollo(esperado, comun.Resultado) {
 			holder.contexto = ports.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
-		} else if err != nil && rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) &&
+		} else if err != nil && rutaSesionConIndisponibilidadCTDesarrollo(capacidad.ruta) &&
 			(errors.Is(err, ports.ErrConsultaRRHHNoDisponible) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
 			holder.err = ports.ErrConsultaRRHHNoDisponible
+			if errors.Is(err, context.Canceled) {
+				holder.err = errors.Join(holder.err, context.Canceled)
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				holder.err = errors.Join(holder.err, context.DeadlineExceeded)
+			}
 		} else {
 			holder.err = ports.ErrAutorizacionDenegada
 		}
 	}
 	datos, err := holder.contexto.Vinculo.Datos()
-	if rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) && errors.Is(holder.err, ports.ErrConsultaRRHHNoDisponible) {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+	if rutaSesionConIndisponibilidadCTDesarrollo(capacidad.ruta) && errors.Is(holder.err, ports.ErrConsultaRRHHNoDisponible) {
+		return vacio, holder.err
 	}
 	if holder.soporte != s || holder.err != nil || err != nil ||
 		holder.contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{

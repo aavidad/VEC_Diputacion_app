@@ -10,7 +10,7 @@
  * etiquetas quitables. HTML puro: los eventos los atiende vista-expedientes.js.
  */
 import { FASES_RRHH, faseRRHH } from "./i18n-fases-rrhh.js";
-import { filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones } from "./recuentos-peticiones.js";
+import { diaConsulta, diasEntre, filtrarPeticiones, OPCIONES_MOSTRAR, resumirPeticiones, tienePlazoVencido } from "./recuentos-peticiones.js";
 
 function escapar(valor) {
   return String(valor ?? "")
@@ -34,16 +34,29 @@ function filtroEfectivo(estado, filtro) {
   return terminadasPedidas && filtro.mostrar === "en_tramite" ? { ...filtro, mostrar: "todas" } : filtro;
 }
 
-function celdaPlazo(expediente, t) {
+function etiquetaRelativa(expediente, generadoEn, t) {
+  const hoy = diaConsulta(generadoEn);
+  const ultimoDia = expediente.plazo_ultimo_dia;
+  if (!hoy || !/^\d{4}-\d{2}-\d{2}$/u.test(ultimoDia ?? "")) return "";
+  const dias = diasEntre(hoy, ultimoDia);
+  if (expediente.plazo_estado === "vencido") {
+    return dias < 0 ? t(dias === -1 ? "lista_plazo_vencio_ayer" : "lista_plazo_vencio_hace", { dias: -dias }) : t("lista_plazo_vencio_hoy");
+  }
+  if (expediente.plazo_estado === "vence_hoy" || dias === 0) return t("lista_plazo_vence_hoy");
+  return dias > 0 ? t(dias === 1 ? "lista_plazo_vence_manana" : "lista_plazo_vence_en", { dias }) : "";
+}
+
+function celdaPlazo(expediente, t, generadoEn) {
   if (!expediente.plazo_estado || expediente.plazo_estado === "no_calculado") {
     return `<span class="texto-secundario">${escapar(expediente.plazo_estado ? expediente.plazo : t("lista_sin_plazo"))}</span>`;
   }
   const urgente = ["vencido", "vence_hoy"].includes(expediente.plazo_estado);
+  const relativa = etiquetaRelativa(expediente, generadoEn, t);
   return `${urgente ? `<span class="ct-exp-chip ct-plazo-${escapar(expediente.plazo_estado)}">${escapar(t(`plazo_fase_${expediente.plazo_estado}`))}</span>` : ""}
-    <small>${escapar(expediente.plazo)}</small>`;
+    <small>${relativa ? `${escapar(relativa)} · ` : ""}${escapar(expediente.plazo)}</small>`;
 }
 
-function fila(expediente, t, { numeroVisible, centroVisible }) {
+function fila(expediente, t, { numeroVisible, centroVisible }, generadoEn) {
   const fase = faseRRHH(expediente.fase_clave);
   const centro = centroVisible(expediente.centro);
   const numero = numeroVisible(expediente.numero_visible);
@@ -54,8 +67,8 @@ function fila(expediente, t, { numeroVisible, centroVisible }) {
     <td class="envuelve" data-etiqueta="${escapar(t("lista_col_centro_categoria"))}"${centro.referencia ? ` title="${escapar(centro.referencia)}"` : ""}>${escapar(centro.etiqueta)}<small>${escapar(expediente.categoria)}</small></td>
     <td data-etiqueta="${escapar(t("lista_col_fase"))}">${escapar(expediente.fase_actual)}${fase
     ? `<small>${escapar(t("fase_rrhh_orden", { orden: fase.orden, total: fase.total }))}</small>` : ""}</td>
-    <td data-etiqueta="${escapar(t("lista_col_estado"))}"><span class="ct-exp-chip ct-fase-${escapar(expediente.estado_clave)}">${escapar(expediente.estado)}</span></td>
-    <td data-etiqueta="${escapar(t("lista_col_plazo"))}">${celdaPlazo(expediente, t)}</td>
+    <td data-etiqueta="${escapar(t("lista_col_estado"))}"><span class="ct-exp-chip ct-fase-${escapar(expediente.estado_clave)}${tienePlazoVencido(expediente) ? " ct-plazo-vencido" : ""}">${escapar(tienePlazoVencido(expediente) ? t("lista_estado_plazo_vencido", { estado: expediente.estado, fecha: expediente.plazo }) : expediente.estado)}</span></td>
+    <td data-etiqueta="${escapar(t("lista_col_plazo"))}">${celdaPlazo(expediente, t, generadoEn)}</td>
   </tr>`;
 }
 
@@ -95,7 +108,7 @@ export function renderizarResultadosLista(estado, t, filtroEntrada, ayudas) {
         <th scope="col">${escapar(t("lista_col_estado"))}</th>
         <th scope="col">${escapar(t("lista_col_plazo"))}</th>
       </tr></thead>
-      <tbody>${filas.map((expediente) => fila(expediente, t, ayudas)).join("")}</tbody>
+      <tbody>${filas.map((expediente) => fila(expediente, t, ayudas, cuadro.generado_en)).join("")}</tbody>
     </table></div>`}
   </div>`;
 }

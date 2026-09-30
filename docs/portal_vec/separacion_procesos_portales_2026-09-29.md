@@ -108,6 +108,60 @@ la misma composición externa.
   mitad de la lista anterior), que dan 404.
 - Un valor de portal mal escrito cierra todas las rutas.
 
+### Lista pública de bolsas en el externo
+
+B10 consulta la proyección pública gobernada en una base dedicada. El proceso
+externo usa exclusivamente el login `vec_externo_bolsa_publica_consulta` y la
+variable `VEC_EXTERNO_BOLSA_PUBLICA_DATABASE_URL`. El login recibe esta única
+membresía, después de instalar las migraciones públicas 000001 y 000002:
+
+```sql
+GRANT vec_bolsa_publica_consulta TO vec_externo_bolsa_publica_consulta
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+```
+
+La [receta de aprovisionamiento](../../deploy/postgresql/bolsa_publica/README.md#login-lector-del-proceso-externo-b10)
+contiene la creación del login, sus ajustes y la entrega privada de la
+contraseña. No se concede acceso a tablas internas ni a roles de gobierno.
+No reaplique SQL instalado. La activación requiere el manifiesto SHA-256 de
+la proyección y las huellas gobernadas de categorías. Sin activación B10,
+la lista sigue ausente; una configuración parcial impide el arranque.
+
+Las consultas del proceso externo mantienen el mTLS del candidato. Para la
+entrada anónima se utiliza `cmd/vec-publico`, separado del Área personal y
+con su propio login lector. Servir una ruta `/api/publico/` desde el proceso
+externo no la convierte en una entrada sin certificado.
+
+La entrada pública y el Área personal se arrancan por separado:
+
+| Entrada | Binario y configuración | Acceso |
+| --- | --- | --- |
+| Consulta pública | `vec-publico`, `VEC_EXECUTION_PROFILE=produccion`, `VEC_AUTH_MODE=disabled`, `VEC_BOLSA_PUBLICA_DATABASE_URL` y las huellas de categorías y manifiesto | TLS de servidor, sin certificado del visitante |
+| Área personal | `vec-server`, `VEC_PORTAL_PROCESO=externo` y material externo propio | mTLS obligatorio del candidato |
+| RRHH y empleado | `vec-server`, `VEC_PORTAL_PROCESO=interno` y material interno propio | Autenticación interna vigente |
+
+El proceso público recibe únicamente su conexión lectora a la proyección
+pública y su certificado TLS de servidor. No recibe el material del candidato
+ni las conexiones internas. `/portal-empleado`, `/area-personal` y `/api/vec`
+y sus subrutas devuelven 404, sin redirigir ni invocar las APIs privadas.
+La réplica B10 del Área personal es opcional y autenticada; su activación no
+sustituye la entrada pública ni cambia el mTLS de las capacidades personales.
+
+Para comprobar la entrada pública sobre un clon sintético con una bolsa y una
+posición ya publicadas, cargar su configuración privada mínima y ejecutar:
+
+```sh
+VEC_PRUEBA_BOLSA_PUBLICA_ANONIMA=1 GOCACHE=/dev/shm/go-build \
+  go test -p 32 -race ./cmd/vec-publico -run TestBolsasPublicasTLSAnonimoDesdePostgreSQL
+```
+
+La prueba abre una escucha TLS real, verifica el certificado del servidor y
+consulta lista y detalle sin certificado cliente. Comprueba también 404 en
+las rutas privadas y ausencia de cookies. No instala ni reaplica SQL. La
+comprobación del candidato se hace aparte en el proceso externo: su certificado
+válido permite el acceso previsto; sin certificado o con otro no admitido,
+TLS deniega la conexión.
+
 ### Comprobación al desplegar
 
 Cada proceso por sí solo no puede saber si su clave es la misma que la del

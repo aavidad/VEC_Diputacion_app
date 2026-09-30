@@ -7,7 +7,7 @@ import {
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
-import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260930-avisos-interfaz-v2";
+import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260930-avisos-main-v3";
 import { justificanteTraducido } from "../../portal-justificante.js";
 import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 

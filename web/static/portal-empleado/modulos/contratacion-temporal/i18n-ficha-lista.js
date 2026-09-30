@@ -1,6 +1,15 @@
 /** Textos de la ficha y la lista de peticiones (dirección de diseño del 29/09/2026). */
+import { IDIOMAS_DISPONIBLES, IDIOMA_POR_DEFECTO } from "../../../comun/idioma.js";
+import { cargarTextos } from "../../../comun/textos.js";
+
+const idiomaAlternativo = IDIOMAS_DISPONIBLES.find(({ codigo }) => codigo !== IDIOMA_POR_DEFECTO)?.codigo ?? IDIOMA_POR_DEFECTO;
+const [mensajesPlazosBase, mensajesPlazosAlternativos] = await Promise.all([
+  cargarTextos("contratacion-temporal-lista-plazos", { idioma: IDIOMA_POR_DEFECTO }),
+  cargarTextos("contratacion-temporal-lista-plazos", { idioma: idiomaAlternativo }),
+]);
 
 export const MENSAJES_FICHA_LISTA_ES = Object.freeze({
+  ...mensajesPlazosBase.seccion("lista"),
   ficha_titulo_modulo: "Expediente {numero}",
   ficha_volver_lista: "Volver a la lista",
   ficha_expediente_numero: "Expediente {numero}",
@@ -66,6 +75,7 @@ export const MENSAJES_FICHA_LISTA_ES = Object.freeze({
 });
 
 export const MENSAJES_FICHA_LISTA_EN = Object.freeze({
+  ...mensajesPlazosAlternativos.seccion("lista"),
   ficha_titulo_modulo: "Case {numero}",
   ficha_volver_lista: "Back to the list",
   ficha_expediente_numero: "Case {numero}",

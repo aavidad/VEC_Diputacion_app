@@ -72,6 +72,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 		{"ct-no-incorporacion-registrar", string(ctdomain.AccionRegistrarNoIncorporacion), cthttp.RutaNoIncorporaciones},
 		{"ct-expediente-cancelar", string(ctdomain.AccionCancelarExpediente), cthttp.RutaCancelacionesExpediente},
 		{"ct-cancelacion-consultar", accionConsultarCancelacionCTDesarrollo, cthttp.RutaCancelacionExpediente},
+		{"ct-peticiones-centro-rrhh-entregar", ctports.AccionEntregarPeticionRRHH, rutaEntregaPeticionCentro},
 		{"ct-peticiones-centro-rrhh-consultar", ctports.AccionConsultarPeticionesRRHH, rutaEntregaPeticionCentro},
 	}
 	lectores := []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
@@ -133,8 +134,8 @@ func TestDescriptoresContratacionTemporalAutorizacionRechazanCruces(t *testing.T
 		t.Fatal(err)
 	}
 	descriptores := descriptoresAutorizacionContratacionTemporalDesarrollo(politicaDescriptoresCTPrueba(t))
-	if len(descriptores) != len(fronteras) {
-		t.Fatalf("autorizaciones=%d, want %d", len(descriptores), len(fronteras))
+	if len(descriptores) != len(fronteras)+1 {
+		t.Fatalf("autorizaciones=%d, want %d", len(descriptores), len(fronteras)+1)
 	}
 	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptores)
 	if err != nil {

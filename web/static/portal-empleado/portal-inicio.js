@@ -11,7 +11,7 @@
  * los indicadores y el reparto por fase. Cuenta con los mismos criterios que la
  * lista (recuentos-peticiones.js) y no deduce responsables ni tareas.
  */
-import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20260930-avisos-interfaz-v2";
+import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20260930-avisos-main-v3";
 import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
 import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
@@ -108,6 +108,7 @@ function renderizarPendientes(resumen, escaparHTML, traducir, locale) {
     : (total === 1 ? t("inicio_rrhh_pendientes_uno") : t("inicio_rrhh_pendientes_varios", { total }));
   return `<section class="panel portal-rrhh-pendientes" aria-labelledby="inicio-rrhh-pendientes-titulo">
     <div class="cabecera-panel"><h3 id="inicio-rrhh-pendientes-titulo">${titulo}</h3>
+      <button type="button" class="boton-terciario" ${DESTINO_LISTA} data-ct-exp-lista-mostrar="vencidos">${t("inicio_rrhh_plazos_vencidos", { total: resumen.vencidos })}</button>
       <button type="button" class="boton-terciario" ${DESTINO_LISTA}>${t("inicio_rrhh_ver_peticiones")} →</button></div>
     ${resumen.parcial ? `<p class="portal-rrhh-parcial" role="status">${t("inicio_rrhh_recuento_parcial")}</p>` : ""}
     ${total === 0 ? `<p class="portal-rrhh-resumen-vacio">${t("inicio_rrhh_pendientes_vacio")}</p>`

@@ -12,17 +12,17 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20260930-avisos-interfaz-v2";
-import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260930-avisos-interfaz-v2";
-import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-avisos-interfaz-v2";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260930-avisos-interfaz-v2";
-import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260930-avisos-interfaz-v2";
-import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260930-avisos-interfaz-v2";
-import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-avisos-interfaz-v2";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-avisos-interfaz-v2";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-avisos-interfaz-v2";
-import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260930-avisos-interfaz-v2";
-import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260930-avisos-interfaz-v2";
+} from "./portal-bolsas-contrato.js?v=20260930-avisos-main-v3";
+import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260930-avisos-main-v3";
+import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-avisos-main-v3";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260930-avisos-main-v3";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260930-avisos-main-v3";
+import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260930-avisos-main-v3";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-avisos-main-v3";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-avisos-main-v3";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-avisos-main-v3";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260930-avisos-main-v3";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260930-avisos-main-v3";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
