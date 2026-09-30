@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 const versionMaximaJSONSegura uint64 = 9_007_199_254_740_991
@@ -237,6 +238,10 @@ type PaginaCuadroRRHH struct {
 	// Plazos es opcional y lo calcula la aplicación con el catálogo de
 	// reglas; alineado con Expedientes, nil donde la fase no tiene plazo.
 	Plazos []*PlazoFaseRRHH `json:"-"`
+	// InstantaneasPlazo conserva la regla capturada al entrar en cada fase.
+	// Está alineada con Expedientes; nil por fila identifica un legado sin
+	// instantánea y nunca autoriza atribuirle una regla actual.
+	InstantaneasPlazo []*reglas.InstantaneaPersistidaRegla `json:"-"`
 	// Urgentes (CT-000125) es opcional: si RRHH declaró urgente cada
 	// expediente al analizarlo, alineado con Expedientes; nil si ninguno.
 	Urgentes []bool `json:"-"`
