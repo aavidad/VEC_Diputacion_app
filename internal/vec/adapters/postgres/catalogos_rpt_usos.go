@@ -85,7 +85,7 @@ func (g *GestorUsosCategoriaRPTPostgreSQL) materialReserva(m ports.MaterialReser
 	if g == nil || valorNuloPostgreSQL(g.pool) {
 		return cero, ports.ErrUsoCategoriaRPTNoDisponible
 	}
-	if m.Consumidor != g.consumidor || !referenciaUsoRPTValida(m.UsoRef) ||
+	if m.Consumidor != g.consumidor || !g.referenciaRecursoUsoRPTValida(m.UsoRef) ||
 		!claveRPT.MatchString(m.CategoriaID) || m.Publicacion.CatalogoID != g.descriptor.CatalogoID ||
 		m.Publicacion.Version < 1 || m.Publicacion.Version > maximoVersionMaterialRPT ||
 		!huellaRPT.MatchString(m.Publicacion.HuellaSHA256) || !referenciaUsoRPTValida(m.ReservaReciboRef) {
@@ -121,6 +121,15 @@ func (g *GestorUsosCategoriaRPTPostgreSQL) materialTerminal(m ports.MaterialTerm
 func referenciaUsoRPTValida(valor string) bool {
 	return len(valor) >= 3 && len(valor) <= 160 && utf8.ValidString(valor) &&
 		!strings.ContainsRune(valor, '\x00')
+}
+
+// uso_ref también es la referencia exacta del recurso V3. Un uso histórico
+// legible con referencia Unicode no puede iniciar otra operación V3; no se
+// reescribe su historia. Recibos y evidencia siguen siendo UTF-8 opaco.
+func (g *GestorUsosCategoriaRPTPostgreSQL) referenciaRecursoUsoRPTValida(valor string) bool {
+	return referenciaUsoRPTValida(valor) && (domain.RecursoAutorizable{
+		Referencia: valor, ModuloID: g.descriptor.ModuloID, Tipo: tipoUsoRPT,
+	}).Validar() == nil
 }
 
 func (g *GestorUsosCategoriaRPTPostgreSQL) ReservarUsoCategoriaRPT(ctx context.Context, o ports.OrdenReservaUsoCategoriaRPT) (ports.ResultadoUsoCategoriaRPT, error) {
