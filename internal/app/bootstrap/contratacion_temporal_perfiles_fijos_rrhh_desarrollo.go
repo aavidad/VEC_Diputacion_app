@@ -61,6 +61,7 @@ type perfilFijoCTDesarrollo struct {
 	// actoSesion es el de las filas de sesión del perfil (propio en los
 	// perfiles nuevos, el histórico en un perfil que ya existía).
 	actoSesion                 string
+	actoControlRol             string
 	contextoEsperadoRegistrado dominiovec.ResultadoContextoActorRegistradoV2
 	sesionOperativa            proveedorSesionOperativaCTDesarrollo
 	avisoNoConsumibleEn        time.Time
@@ -223,9 +224,13 @@ func (s *soporteAltaContratacionTemporalDesarrollo) perfilesFijosRegistrados() [
 // perfil fijo. La versión de rol es compartida y conserva el acto de control
 // con el que la composición publica siempre los roles de Contratación.
 func autoridadPerfilFijoCTDesarrollo(pool *pgxpool.Pool, p *perfilFijoCTDesarrollo) autoridadPostgreSQLDesarrollo {
+	actoControl := actoControlRolCTDesarrollo
+	if p.actoControlRol != "" {
+		actoControl = p.actoControlRol
+	}
 	return autoridadPostgreSQLDesarrollo{
 		pool: pool, vinculo: p.contexto.Vinculo, prefijoBloqueo: "vec:ct:desarrollo:autorizacion:",
-		actoControlRol: actoControlRolCTDesarrollo, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo,
+		actoControlRol: actoControl, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo,
 		actoSesion: p.actoSesion, exigirOrigenOperativo: true,
 	}
 }
