@@ -5,19 +5,25 @@ H1 se restaura antes; H5 solo configura la aplicación. No instala SQL de ramas
 pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
 El journal privado se reconstruye desde recibos transaccionales del clon.
 Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
-(CT147, posición 34) y main@e78687528 (AD3-114 y CT148, posiciones 35/36).
+(CT147, posición 34), main@e78687528 (AD3-114/CT148, posiciones 35/36)
+y main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38).
 Cada extensión conserva los recibos y metadatos originales
 y añade una revisión del plan en el esquema del clon. Otros hashes exigen revisar
-de nuevo la lista causal y sus huellas, aunque el SQL parezca igual.
+de nuevo la lista causal y sus huellas. Descendientes del último plan aprobado
+se admiten con ascendencia y TODO el inventario SQL idéntico, cotejado con el
+archivo extraído. Esta prueba no aprueba los contratos de otros componentes.
 """
 
 import argparse
 import fcntl
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import re
+import posixpath
+import stat
 import subprocess
 import sys
 import tempfile
@@ -25,13 +31,15 @@ import uuid
 
 BASE_REF = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
 PREVIOUS_REF = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
-MAIN_REF = "e78687528d5725efd74e95c858d389f4437099ca"
-REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, MAIN_REF: 36}
+THIRD_REF = "e78687528d5725efd74e95c858d389f4437099ca"
+MAIN_REF = "a7d9df2b3285b0df6be6bba0bae09331463f0a3d"
+REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, MAIN_REF: 38}
 REF_ORDER = tuple(REF_COUNTS)
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
     PREVIOUS_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
-    MAIN_REF: "ad57f371c901f7418af156f4e651c7a36c2bda125f7bad380653272c2b320e14",
+    THIRD_REF: "ad57f371c901f7418af156f4e651c7a36c2bda125f7bad380653272c2b320e14",
+    MAIN_REF: "b92cea3eb1cb5497bab027eac561a168b3572a117417acf45597a6eac39403f5",
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
@@ -51,7 +59,7 @@ def sql_literal(value):
     return "'" + value.replace("'", "''") + "'"
 
 
-def load_plan(repo, manifest=MANIFEST, source_ref=MAIN_REF):
+def load_plan(repo, manifest=MANIFEST, source_ref=MAIN_REF, contents=None):
     """Congela los bytes antes de escribir; un árbol alterado falla completo."""
     rows = []
     if source_ref not in REF_COUNTS:
@@ -66,10 +74,13 @@ def load_plan(repo, manifest=MANIFEST, source_ref=MAIN_REF):
             raise Refused("manifiesto incompatible")
         if not re.fullmatch(r"deploy/postgresql/[a-z0-9_/]+(?:\.up\.sql|_up\.sql)", relative):
             raise Refused("ruta SQL incompatible")
-        path = repo / relative
-        if not path.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
-            raise Refused("SQL fuera del árbol fuente")
-        data = path.read_bytes()
+        if contents is None:
+            path = repo / relative
+            if not path.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
+                raise Refused("SQL fuera del árbol fuente")
+            data = path.read_bytes()
+        else:
+            data = contents[relative]
         if sha(data) != digest:
             raise Refused(f"SHA incompatible: {relative}")
         text = data.decode("utf-8")
@@ -90,6 +101,161 @@ def load_plan(repo, manifest=MANIFEST, source_ref=MAIN_REF):
 def plan_hash(rows):
     return sha(json.dumps([{k: v for k, v in row.items() if k != "sql"}
                            for row in rows], sort_keys=True).encode())
+
+
+class GitSource:
+    """Lectura de objetos del repositorio de control, sin entorno Git heredado."""
+    def __init__(self, repo=None):
+        self.repo = Path(repo or Path(__file__).resolve().parents[2]).resolve()
+        top = self.run("rev-parse", "--show-toplevel").decode().strip()
+        if Path(top).resolve() != self.repo:
+            raise Refused("Git exige la raíz del repositorio de control")
+        grafts = Path(self.run("rev-parse", "--git-path", "info/grafts").decode().strip())
+        if not grafts.is_absolute():
+            grafts = self.repo / grafts
+        if grafts.exists() and grafts.stat().st_size:
+            raise Refused("la historia Git contiene grafts; no verificar ascendencia")
+
+    def run(self, *args, input=None, ancestor=False):
+        result = subprocess.run(
+            ["/usr/bin/git", "--no-replace-objects", "-C", str(self.repo),
+             "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", *args],
+            input=input, capture_output=True, timeout=60,
+            env={"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LC_ALL": "C",
+                 "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+                 "GIT_NO_REPLACE_OBJECTS": "1", "GIT_TERMINAL_PROMPT": "0"})
+        if ancestor and result.returncode in (0, 1):
+            return result.returncode == 0
+        if result.returncode:
+            raise Refused("Git no acredita la fuente solicitada")
+        return result.stdout
+
+    def inventory(self, commit):
+        raw = self.run("ls-tree", "-r", "-z", "-l", "--full-tree", commit)
+        files = []
+        for entry in raw.split(b"\0"):
+            if not entry:
+                continue
+            header, name = entry.split(b"\t", 1)
+            mode, kind, oid, size = header.decode("ascii").split()
+            path = name.decode("utf-8")
+            if path.lower().endswith((".up.sql", "_up.sql")) and not path.startswith("deploy/postgresql/"):
+                raise Refused("UP fuera del inventario SQL aprobado")
+            if not path.startswith("deploy/postgresql/"):
+                continue
+            if kind != "blob" or mode not in {"100644", "100755"}:
+                raise Refused("el namespace SQL contiene enlaces o submódulos")
+            if path.lower().endswith(".sql"):
+                files.append({"path": path, "mode": mode, "blob_oid": oid, "size": int(size)})
+        if not files or len(files) > 4096 or sum(f["size"] for f in files) > 128 * 1024 * 1024:
+            raise Refused("inventario SQL ausente o fuera de límites")
+        oids = list(dict.fromkeys(f["blob_oid"] for f in files))
+        stream = io.BytesIO(self.run("cat-file", "--batch", input=("\n".join(oids) + "\n").encode()))
+        blobs = {}
+        for oid in oids:
+            header = stream.readline().decode("ascii").split()
+            if len(header) != 3 or header[:2] != [oid, "blob"]:
+                raise Refused("objeto Git SQL incompatible")
+            data = stream.read(int(header[2]))
+            if stream.read(1) != b"\n":
+                raise Refused("objeto Git SQL incompleto")
+            blobs[oid] = data
+        contents = {f["path"]: blobs[f["blob_oid"]] for f in files}
+        records = [{k: v for k, v in f.items() if k != "size"} | {"sha256": sha(contents[f["path"]])}
+                   for f in sorted(files, key=lambda x: x["path"])]
+        validate_includes(contents)
+        return records, contents
+
+
+def validate_includes(contents):
+    """El inventario cierra también los componentes incluidos por psql."""
+    for path, data in contents.items():
+        for line in data.decode("utf-8").splitlines():
+            if not re.match(r"^\s*\\i(?:r)?(?:\s|$)", line):
+                continue
+            match = re.fullmatch(r"\s*\\ir\s+([A-Za-z0-9_./-]+)\s*", line)
+            if not match:
+                raise Refused("include SQL dinámico o sin directorio relativo cerrado")
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(path), match[1]))
+            if not target.startswith("deploy/postgresql/") or target not in contents:
+                raise Refused("include SQL fuera del inventario aprobado")
+
+
+def validate_git_source(source_ref, git_repo=None):
+    """Preflight RO: verifica commit y plan SQL; aún no acredita un archive."""
+    if not re.fullmatch(r"[0-9a-f]{40}", source_ref):
+        raise Refused("la fuente requiere un SHA de commit completo")
+    git = GitSource(git_repo)
+    if git.run("cat-file", "-t", source_ref).strip() != b"commit":
+        raise Refused("la fuente debe ser un commit")
+    main = git.run("rev-parse", "--verify", "refs/remotes/origin/main^{commit}").decode().strip()
+    approved = source_ref if source_ref in REF_COUNTS else MAIN_REF
+    if (not git.run("merge-base", "--is-ancestor", approved, source_ref, ancestor=True)
+            or not git.run("merge-base", "--is-ancestor", source_ref, main, ancestor=True)):
+        raise Refused("la fuente no pertenece a la historia aprobada de origin/main")
+    expected, _ = git.inventory(approved)
+    actual, contents = git.inventory(source_ref)
+    if actual != expected:
+        raise Refused("SQL distinto del plan aprobado; requiere revisión de un plan nuevo")
+    rows = load_plan(None, source_ref=approved, contents=contents)
+    return {"source_ref": source_ref, "approved_sql_ref": approved,
+            "plan_sha": plan_hash(rows), "inventory_sha": sha(json.dumps(actual, sort_keys=True).encode()),
+            "file_count": len(rows), "entries": [{k: v for k, v in r.items() if k != "sql"} for r in rows],
+            "verified_main_ref": main, "sql_inventory": actual}
+
+
+def approved_source_plan(repo, source_ref, git_repo=None):
+    """API RO para material: prueba Git y TODO el SQL del archive, sin tocar BD."""
+    plan = validate_git_source(source_ref, git_repo)
+    root = Path(repo)
+    if root.is_symlink() or not root.is_dir():
+        raise Refused("la fuente extraída debe ser un directorio regular")
+    namespace = root / "deploy/postgresql"
+    if (root / "deploy").is_symlink() or namespace.is_symlink():
+        raise Refused("el namespace SQL extraído no admite enlaces")
+    actual = {}
+    for directory, dirs, files in os.walk(namespace, followlinks=False):
+        if any((Path(directory) / d).is_symlink() for d in dirs):
+            raise Refused("el archive SQL contiene directorios enlazados")
+        for name in files:
+            if not name.lower().endswith(".sql"):
+                continue
+            path = Path(directory) / name
+            status = path.lstat()
+            if not stat.S_ISREG(status.st_mode):
+                raise Refused("el archive SQL contiene enlaces o ficheros especiales")
+            actual[path.relative_to(root).as_posix()] = path
+    expected = {r["path"]: r for r in plan["sql_inventory"]}
+    if actual.keys() != expected.keys():
+        raise Refused("el inventario SQL del archive no coincide con Git")
+    for relative, path in actual.items():
+        record = expected[relative]
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as file:
+            status = os.fstat(file.fileno())
+            if not stat.S_ISREG(status.st_mode) or status.st_size > 128 * 1024 * 1024:
+                raise Refused("tipo o tamaño SQL extraído incompatible")
+            mode = "100755" if status.st_mode & 0o111 else "100644"
+            data = file.read(128 * 1024 * 1024 + 1)
+        if mode != record["mode"] or sha(data) != record["sha256"]:
+            raise Refused("los bytes o el modo SQL del archive no coinciden con Git")
+    for directory, _, files in os.walk(root, followlinks=False):
+        for name in files:
+            path = Path(directory) / name
+            if name.lower().endswith((".up.sql", "_up.sql")) and not path.is_relative_to(namespace):
+                raise Refused("el archive contiene UP fuera del namespace SQL")
+    return plan
+
+
+def validate_receipts(installed, plan, complete=True):
+    """API pura: recibos exactos del plan; material exige instalación completa."""
+    if len(installed) > plan["file_count"] or (complete and len(installed) != plan["file_count"]):
+        raise Refused("instalación incompleta o recibos ajenos al plan aprobado")
+    for position, receipt in enumerate(installed, 1):
+        row = plan["entries"][position - 1]
+        if (receipt["position"] != position or receipt["path"] != row["path"]
+                or receipt["sha256"] != row["sha256"]):
+            raise Refused("recibos incompatibles o incompletos; no reaplicar")
 
 
 class DockerDB:
@@ -213,14 +379,16 @@ def acknowledge_plan(db, rows, source_ref, meta):
               DROP CONSTRAINT IF EXISTS plan_revisions_file_count_check,
               DROP CONSTRAINT IF EXISTS plan_revisions_supported,
               ADD CONSTRAINT plan_revisions_supported CHECK (
-                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36));"""
+                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
+                OR (revision=4 AND file_count=38));"""
         else:
             ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
               revision integer PRIMARY KEY, source_ref text NOT NULL,
               plan_sha text NOT NULL, file_count integer NOT NULL,
               acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp(),
               CONSTRAINT plan_revisions_supported CHECK (
-                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)));
+                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
+                OR (revision=4 AND file_count=38)));
               REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
         db.query(f"""BEGIN;
           SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
@@ -229,7 +397,7 @@ def acknowledge_plan(db, rows, source_ref, meta):
             VALUES ({revision},'{source_ref}','{plan_hash(rows)}',{count});
           COMMIT;""")
         return acknowledge_plan(db, rows, source_ref, meta)
-    # current_* acredita el plan reconocido; solo los recibos acreditan instalación.
+    # Plan SQL reconocido; apply añade la procedencia de código verificada.
     return {**meta, "current_source_ref": source_ref, "current_plan_sha": plan_hash(rows),
             "revisions": revisions}
 
@@ -238,13 +406,7 @@ def receipts(db, rows):
     raw = db.query(f"""SELECT coalesce(json_agg(x ORDER BY position), '[]'::json)
                     FROM (SELECT position,path,sha256,installed_at FROM {SCHEMA}.applied) x;""")
     installed = json.loads(raw)
-    if len(installed) > len(rows):
-        raise Refused("hay recibos ajenos al plan")
-    for position, receipt in enumerate(installed, 1):
-        expected = rows[position - 1]
-        if (receipt["position"] != position or receipt["path"] != expected["path"]
-                or receipt["sha256"] != expected["sha256"]):
-            raise Refused("recibos incompatibles o incompletos; no reaplicar")
+    validate_receipts(installed, {"file_count": len(rows), "entries": rows}, complete=False)
     return installed
 
 
@@ -296,9 +458,19 @@ def write_journal(state, meta, installed):
         Path(temporary).unlink(missing_ok=True)
 
 
-def apply(db, rows, state, source_ref=MAIN_REF):
+def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
+    if source_plan and (source_plan["source_ref"] != source_ref
+                        or source_plan["plan_sha"] != plan_hash(rows)):
+        raise Refused("la procedencia y el plan SQL no coinciden")
     db.check_owner()
-    meta = initialize(db, rows, source_ref)
+    approved_ref = source_plan["approved_sql_ref"] if source_plan else source_ref
+    meta = initialize(db, rows, approved_ref)
+    meta["approved_sql_ref"] = approved_ref
+    if source_plan:
+        # Esta procedencia no aprueba los contratos Go, material ni DB_READY.
+        meta.update(current_source_ref=source_ref, verified_source_ref=source_ref,
+                    verified_main_ref=source_plan["verified_main_ref"],
+                    inventory_sha=source_plan["inventory_sha"])
     installed = receipts(db, rows)
     write_journal(state, meta, installed)
     skipped = len(installed)
@@ -321,15 +493,19 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--source-ref", default=MAIN_REF)
+    parser.add_argument("--git-repo", type=Path, help="repositorio de control para ascendencia y objetos")
     parser.add_argument("--container")
     parser.add_argument("--state-dir", type=Path)
     parser.add_argument("--plan", action="store_true")
     args = parser.parse_args(argv)
-    rows = load_plan(args.repo, source_ref=args.source_ref)
     if args.plan:
-        for position, row in enumerate(rows, 1):
+        # Plan desde el COMMIT, incluso si el checkout de control contiene WIP.
+        plan = validate_git_source(args.source_ref, args.git_repo)
+        for position, row in enumerate(plan["entries"], 1):
             print(position, row["phase"], row["sha256"], row["path"])
         return
+    plan = approved_source_plan(args.repo, args.source_ref, args.git_repo)
+    rows = load_plan(args.repo, source_ref=plan["approved_sql_ref"])
     if not args.container or not args.state_dir:
         raise Refused("la instalación exige --container y --state-dir")
     state = args.state_dir.resolve()
@@ -345,7 +521,7 @@ def main(argv=None):
     descriptor = os.open(state / "sql.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        apply(DockerDB(args.container, state), rows, state, args.source_ref)
+        apply(DockerDB(args.container, state), rows, state, args.source_ref, plan)
     finally:
         os.close(descriptor)
 

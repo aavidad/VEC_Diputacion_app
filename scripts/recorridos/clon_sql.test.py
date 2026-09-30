@@ -1,6 +1,7 @@
 """Pruebas focales de integridad, recuperación y propiedad del clon."""
 
 import importlib.util
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -16,15 +17,16 @@ REPO = Path(os.environ.get("VEC_CLON_SQL_TEST_REPO", Path(__file__).resolve().pa
 
 
 class HelperTests(unittest.TestCase):
-    def test_real_plan_pins_all_36_existing_files_and_preserves_prefixes(self):
+    def test_real_plan_pins_all_38_existing_files_and_preserves_prefixes(self):
         rows = SQL.load_plan(REPO)
-        self.assertEqual(len(rows), 36)
+        self.assertEqual(len(rows), 38)
         self.assertEqual([len([r for r in rows if r["phase"] == phase])
-                          for phase in ("H3", "H4", "MAIN")], [8, 9, 19])
+                          for phase in ("H3", "H4", "MAIN")], [8, 9, 21])
         roles = [r["path"] for r in rows if "/roles" in r["path"]]
         self.assertEqual(len(roles), 4)
         self.assertEqual(rows[:33], SQL.load_plan(REPO, source_ref=SQL.BASE_REF))
         self.assertEqual(rows[:34], SQL.load_plan(REPO, source_ref=SQL.PREVIOUS_REF))
+        self.assertEqual(rows[:36], SQL.load_plan(REPO, source_ref=SQL.THIRD_REF))
         self.assertEqual(SQL.plan_hash(rows[:33]), SQL.REF_PLAN_SHA[SQL.BASE_REF])
 
     def test_modified_sql_fails_before_database_access(self):
@@ -96,7 +98,7 @@ class HelperTests(unittest.TestCase):
             SQL.DockerDB("clon-ajeno")
 
     def test_refuses_other_main_hash(self):
-        with self.assertRaisesRegex(SQL.Refused, "hashes main"):
+        with self.assertRaisesRegex(SQL.Refused, "Git no acredita"):
             SQL.main(["--repo", str(REPO), "--source-ref", "b" * 40, "--plan"])
 
     def test_database_error_does_not_disclose_detail_or_rows(self):
@@ -187,13 +189,13 @@ class HelperTests(unittest.TestCase):
                 SQL.write_journal(state, {**original, "revisions": []}, [])
 
     def test_third_revision_keeps_second_revision_and_receipt_prefix(self):
-        rows = SQL.load_plan(REPO)
+        rows = SQL.load_plan(REPO, source_ref=SQL.THIRD_REF)
         original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
                     "plan_sha": SQL.plan_hash(rows[:33])}
         rev2 = {"revision": 2, "source_ref": SQL.PREVIOUS_REF,
                 "plan_sha": SQL.plan_hash(rows[:34]), "file_count": 34,
                 "acknowledged_at": "2026-09-30T01:00:00Z"}
-        rev3 = {"revision": 3, "source_ref": SQL.MAIN_REF,
+        rev3 = {"revision": 3, "source_ref": SQL.THIRD_REF,
                 "plan_sha": SQL.plan_hash(rows), "file_count": 36,
                 "acknowledged_at": "2026-09-30T02:00:00Z"}
         installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
@@ -201,9 +203,9 @@ class HelperTests(unittest.TestCase):
         answers = ["t", json.dumps([rev2]), json.dumps(installed), "",
                    "t", json.dumps([rev2, rev3])]
         with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
+            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, original)
         self.assertEqual(result["revisions"], [rev2, rev3])
-        self.assertEqual(result["current_source_ref"], SQL.MAIN_REF)
+        self.assertEqual(result["current_source_ref"], SQL.THIRD_REF)
         for key, value in original.items():
             self.assertEqual(result[key], value)
         mutation = queries.call_args_list[3].args[0]
@@ -218,22 +220,204 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(json.loads((state / "sql-journal.json").read_text())["installed"], installed)
 
     def test_third_revision_refuses_gaps_in_history_or_incomplete_34(self):
-        rows = SQL.load_plan(REPO)
+        rows = SQL.load_plan(REPO, source_ref=SQL.THIRD_REF)
         meta = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
                 "plan_sha": SQL.plan_hash(rows[:33])}
         rev2 = {"revision": 2, "source_ref": SQL.PREVIOUS_REF,
                 "plan_sha": SQL.plan_hash(rows[:34]), "file_count": 34}
         with patch.object(SQL.DockerDB, "query", side_effect=["f"]):
             with self.assertRaisesRegex(SQL.Refused, "intermedia"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, meta)
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, meta)
         with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps([rev2]), "[]"]):
             with self.assertRaisesRegex(SQL.Refused, "34 SQL"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, meta)
-        bad = {**rev2, "revision": 3, "source_ref": SQL.MAIN_REF,
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, meta)
+        bad = {**rev2, "revision": 3, "source_ref": SQL.THIRD_REF,
                "plan_sha": SQL.plan_hash(rows), "file_count": 36}
         with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps([bad])]):
             with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, meta)
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, meta)
+
+    def test_complete_receipts_requires_all_38_and_hashes(self):
+        rows = SQL.load_plan(REPO)
+        plan = {"file_count": 38, "entries": rows}
+        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
+                     for n, row in enumerate(rows, 1)]
+        SQL.validate_receipts(installed, plan)
+        with self.assertRaisesRegex(SQL.Refused, "incompleta"):
+            SQL.validate_receipts(installed[:37], plan)
+        installed[-1]["sha256"] = "a" * 64
+        with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
+            SQL.validate_receipts(installed, plan)
+
+    def test_fourth_revision_appends_to_36_without_changing_prior_history(self):
+        rows = SQL.load_plan(REPO)
+        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
+                    "plan_sha": SQL.plan_hash(rows[:33])}
+        revisions = [{"revision": n, "source_ref": ref, "plan_sha": SQL.plan_hash(rows[:count]),
+                      "file_count": count, "acknowledged_at": f"2026-09-30T0{n}:00:00Z"}
+                     for n, ref, count in ((2, SQL.PREVIOUS_REF, 34), (3, SQL.THIRD_REF, 36))]
+        new = {"revision": 4, "source_ref": SQL.MAIN_REF, "plan_sha": SQL.plan_hash(rows),
+               "file_count": 38, "acknowledged_at": "2026-09-30T04:00:00Z"}
+        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
+                     for n, row in enumerate(rows[:36], 1)]
+        answers = ["t", json.dumps(revisions), json.dumps(installed), "",
+                   "t", json.dumps([*revisions, new])]
+        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
+            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
+        self.assertEqual(result["revisions"][:2], revisions)
+        self.assertEqual(result["revisions"][-1], new)
+        for key, value in original.items():
+            self.assertEqual(result[key], value)
+        mutation = queries.call_args_list[3].args[0]
+        self.assertIn("(revision=4 AND file_count=38)", mutation)
+        self.assertNotIn("UPDATE", mutation)
+        self.assertNotIn("DELETE", mutation)
+
+    def test_code_descendant_replay_changes_only_private_provenance(self):
+        rows = SQL.load_plan(REPO)
+        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
+                    "plan_sha": SQL.plan_hash(rows[:33]), "revisions": [{"revision": 4}],
+                    "current_source_ref": SQL.MAIN_REF, "current_plan_sha": SQL.plan_hash(rows)}
+        plan = {"approved_sql_ref": SQL.MAIN_REF, "source_ref": "a" * 40,
+                "verified_main_ref": "b" * 40, "inventory_sha": "c" * 64,
+                "plan_sha": SQL.plan_hash(rows)}
+        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"],
+                      "installed_at": "2026-09-30T04:00:00Z"}
+                     for n, row in enumerate(rows, 1)]
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            with patch.object(SQL.DockerDB, "check_owner"), patch.object(SQL.DockerDB, "query") as query:
+                with patch.object(SQL, "initialize", return_value=original.copy()) as initialize:
+                    with patch.object(SQL, "receipts", return_value=installed):
+                        SQL.apply(SQL.DockerDB("vec-test"), rows, state, plan["source_ref"], plan)
+                        first = (state / "sql-journal.json").read_bytes()
+                        (state / "sql-journal.json").unlink()
+                        SQL.apply(SQL.DockerDB("vec-test"), rows, state, plan["source_ref"], plan)
+            query.assert_not_called()
+            self.assertEqual(initialize.call_args.args[2], SQL.MAIN_REF)
+            self.assertEqual(first, (state / "sql-journal.json").read_bytes())
+            journal = json.loads(first)
+            self.assertEqual(journal["installed"], installed)
+            self.assertEqual(journal["revisions"], original["revisions"])
+            self.assertEqual(journal["source_ref"], SQL.BASE_REF)
+            self.assertEqual(journal["current_source_ref"], plan["source_ref"])
+            self.assertEqual(journal["approved_sql_ref"], SQL.MAIN_REF)
+
+
+class GitSourceTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def fixture(self, mutation=None, unrelated=False):
+        with tempfile.TemporaryDirectory() as scratch:
+            control = Path(scratch) / "control"
+            archive = Path(scratch) / "archive"
+            control.mkdir(); archive.mkdir()
+            env = {"PATH": "/usr/bin:/bin", "HOME": scratch, "LC_ALL": "C",
+                   "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null"}
+            def git(*args):
+                return subprocess.check_output(["/usr/bin/git", "-C", str(control), *args],
+                                               env=env, stderr=subprocess.DEVNULL).decode().strip()
+            git("init", "-q")
+            git("config", "user.name", "aavidad")
+            git("config", "user.email", "avidad@dipgra.es")
+            relative = "deploy/postgresql/demo/migraciones/000001.up.sql"
+            data = b"BEGIN;\nSELECT 1;\nCOMMIT;\n"
+            path = control / relative
+            path.parent.mkdir(parents=True); path.write_bytes(data)
+            git("add", "deploy"); git("commit", "-q", "-m", "base SQL")
+            base = git("rev-parse", "HEAD")
+            (control / "app.py").write_text("version = 2\n")
+            if mutation:
+                mutation(control, relative)
+            git("add", "-A"); git("commit", "-q", "-m", "fuente posterior")
+            descendant = git("rev-parse", "HEAD")
+            if unrelated:
+                tree = git("rev-parse", "HEAD^{tree}")
+                descendant = git("commit-tree", tree, "-m", "historia sin relación")
+            git("update-ref", "refs/remotes/origin/main", descendant)
+            copied = archive / relative
+            copied.parent.mkdir(parents=True); copied.write_bytes(data); copied.chmod(0o600)
+            row = {"phase": "MAIN", "path": relative, "sha256": SQL.sha(data), "sql": data.decode()}
+            manifest = Path(scratch) / "plan.txt"
+            manifest.write_text(f"MAIN {row['sha256']} {relative}\n")
+            original_load = SQL.load_plan
+            def load(repo, source_ref, contents):
+                return original_load(repo, manifest=manifest, source_ref=source_ref, contents=contents)
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(patch.object(SQL, "MAIN_REF", base))
+                stack.enter_context(patch.object(SQL, "REF_COUNTS", {base: 1}))
+                stack.enter_context(patch.object(SQL, "REF_PLAN_SHA", {base: SQL.plan_hash([row])}))
+                stack.enter_context(patch.object(SQL, "load_plan", side_effect=load))
+                yield control, archive, base, descendant, relative
+
+    def test_identical_descendant_and_private_archive_are_accepted(self):
+        with self.fixture() as (control, archive, base, descendant, _):
+            plan = SQL.approved_source_plan(archive, descendant, control)
+            self.assertEqual(plan["approved_sql_ref"], base)
+            self.assertEqual(plan["source_ref"], descendant)
+            self.assertEqual(plan["verified_main_ref"], descendant)
+            self.assertEqual(plan["file_count"], 1)
+
+    def test_unrelated_history_is_refused_even_with_same_sql(self):
+        with self.fixture(unrelated=True) as (control, archive, _, descendant, _):
+            with self.assertRaisesRegex(SQL.Refused, "historia aprobada"):
+                SQL.approved_source_plan(archive, descendant, control)
+
+    def test_added_modified_deleted_or_external_up_needs_review(self):
+        def added(control, _):
+            (control / "deploy/postgresql/demo/extra.up.sql").write_text("SELECT 2;\n")
+        def added_test(control, _):
+            (control / "deploy/postgresql/demo/prueba.SQL").write_text("SELECT 2;\n")
+        def modified(control, path):
+            (control / path).write_text("BEGIN;\nSELECT 2;\nCOMMIT;\n")
+        def deleted(control, path):
+            (control / path).unlink()
+        def external(control, _):
+            (control / "extra.UP.SQL").write_text("SELECT 3;\n")
+        def external_role(control, _):
+            (control / "roles_up.sql").write_text("SELECT 3;\n")
+        for change in (added, added_test, modified, deleted, external, external_role):
+            with self.subTest(change=change.__name__), self.fixture(change) as fixture:
+                control, archive, _, descendant, _ = fixture
+                with self.assertRaises(SQL.Refused):
+                    SQL.approved_source_plan(archive, descendant, control)
+
+    def test_archive_bytes_modes_links_and_extra_sql_are_refused(self):
+        for change in ("bytes", "mode", "link", "extra", "external", "external_role"):
+            with self.subTest(change=change), self.fixture() as fixture:
+                control, archive, _, descendant, relative = fixture
+                path = archive / relative
+                if change == "bytes": path.write_text("SELECT 9;\n")
+                elif change == "mode": path.chmod(0o700)
+                elif change == "link": path.unlink(); path.symlink_to(control / relative)
+                elif change == "extra": (path.parent / "extra.sql").write_text("SELECT 1;\n")
+                elif change == "external": (archive / "extra.up.sql").write_text("SELECT 1;\n")
+                else: (archive / "roles_up.sql").write_text("SELECT 1;\n")
+                with self.assertRaises(SQL.Refused):
+                    SQL.approved_source_plan(archive, descendant, control)
+
+    def test_git_environment_redirection_is_not_inherited(self):
+        with self.fixture() as (control, archive, base, descendant, _):
+            with patch.dict(os.environ, {"GIT_DIR": "/unknown/git", "GIT_WORK_TREE": "/unknown/tree",
+                                          "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.worktree",
+                                          "GIT_CONFIG_VALUE_0": "/unknown/worktree"}):
+                self.assertEqual(SQL.approved_source_plan(archive, descendant, control)["approved_sql_ref"], base)
+
+    def test_grafts_are_refused_and_replace_cannot_forge_lineage(self):
+        with self.fixture(unrelated=True) as (control, archive, _, descendant, _):
+            real = subprocess.check_output(["/usr/bin/git", "-C", str(control), "rev-parse", "HEAD"]).strip()
+            subprocess.run(["/usr/bin/git", "-C", str(control), "update-ref",
+                            "refs/replace/" + descendant, real.decode()], check=True)
+            with self.assertRaisesRegex(SQL.Refused, "historia aprobada"):
+                SQL.approved_source_plan(archive, descendant, control)
+        with self.fixture() as (control, archive, base, descendant, _):
+            (control / ".git/info/grafts").write_text(base + "\n")
+            with self.assertRaisesRegex(SQL.Refused, "grafts"):
+                SQL.approved_source_plan(archive, descendant, control)
+
+    def test_includes_must_be_static_and_inside_inventory(self):
+        for data in (b"\\i /outside.sql\n", b"\\ir ../../../outside.sql\n", b"\\ir :dynamic\n"):
+            with self.assertRaisesRegex(SQL.Refused, "include SQL"):
+                SQL.validate_includes({"deploy/postgresql/demo/source.sql": data})
 
 
 if __name__ == "__main__":
