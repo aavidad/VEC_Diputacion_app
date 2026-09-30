@@ -89,6 +89,7 @@ func TestManejadorFirmaDocumentoErrores(t *testing.T) {
 		{application.ErrPasoFirmaNoPendiente, http.StatusConflict, "paso_no_pendiente"},
 		{ports.ErrCadenaFirmaDocumentoRota, http.StatusConflict, "cadena_rota"},
 		{ports.ErrFirmaDocumentoDenegada, http.StatusForbidden, "acceso_denegado"},
+		{ports.ErrExpedienteConsultaFirmasNoEncontrado, http.StatusNotFound, "recurso_no_encontrado"},
 		{errors.New("otro"), http.StatusServiceUnavailable, "servicio_no_disponible"},
 	}
 	for _, c := range casos {

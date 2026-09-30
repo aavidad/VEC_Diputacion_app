@@ -116,19 +116,11 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 
 	mux := http.NewServeMux()
 	registrarRutasDisponibilidad(mux, comprobador)
-	mux.Handle("/", soloLecturaHTTP(landingAccesoPublico(estaticos)))
+	mux.Handle("/", landingAccesoPublico(soloLecturaHTTP(estaticos)))
 	mux.Handle("/acceso", soloLecturaHTTP(redireccionDirectorio("acceso/")))
 	mux.Handle("/acceso/inicio/", soloLecturaHTTP(inicioAccesoNoConfigurado()))
 	mux.Handle("/acceso/", soloLecturaHTTP(estaticos))
-	// La superficie exterior no sirve recursos privados. Las navegaciones
-	// humanas vuelven a la portada fija, donde aun no se inicia ningun
-	// proveedor de identidad; una API nunca recibe una redireccion HTML.
-	mux.Handle("/portal-empleado", soloLecturaHTTP(redireccionAccesoPublico()))
-	mux.Handle("/portal-empleado/", soloLecturaHTTP(redireccionAccesoPublico()))
-	mux.Handle("/area-personal", soloLecturaHTTP(redireccionAccesoPublico()))
-	mux.Handle("/area-personal/", soloLecturaHTTP(redireccionAccesoPublico()))
-	mux.Handle("/api/vec", autenticacionRequeridaAPI())
-	mux.Handle("/api/vec/", autenticacionRequeridaAPI())
+	// Las rutas privadas no se registran en esta superficie; reciben 404.
 	mux.Handle("/bolsa", soloLecturaHTTP(redireccionDirectorio("bolsa/")))
 	mux.Handle("/bolsa/", soloLecturaHTTP(estaticos))
 	mux.Handle("/verificar", soloLecturaHTTP(redireccionDirectorio("verificar/")))
@@ -175,24 +167,6 @@ func inicioAccesoNoConfigurado() http.Handler {
 			return
 		}
 		http.Error(w, "acceso no configurado", http.StatusServiceUnavailable)
-	})
-}
-
-// redireccionAccesoPublico descarta siempre host, consulta y ruta solicitada.
-// No construye return_to porque todavia no hay un correlador autenticado que
-// pueda custodiarlo fuera de VEC.
-func redireccionAccesoPublico() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Location", "/")
-		w.WriteHeader(http.StatusSeeOther)
-	})
-}
-
-// autenticacionRequeridaAPI cierra la API privada de la superficie publica sin
-// invocar al adaptador interno ni convertir una llamada de programa en HTML.
-func autenticacionRequeridaAPI() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "autenticacion_requerida"})
 	})
 }
 

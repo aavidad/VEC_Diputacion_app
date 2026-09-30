@@ -132,6 +132,36 @@ entrada anónima se utiliza `cmd/vec-publico`, separado del Área personal y
 con su propio login lector. Servir una ruta `/api/publico/` desde el proceso
 externo no la convierte en una entrada sin certificado.
 
+La entrada pública y el Área personal se arrancan por separado:
+
+| Entrada | Binario y configuración | Acceso |
+| --- | --- | --- |
+| Consulta pública | `vec-publico`, `VEC_EXECUTION_PROFILE=produccion`, `VEC_AUTH_MODE=disabled`, `VEC_BOLSA_PUBLICA_DATABASE_URL` y las huellas de categorías y manifiesto | TLS de servidor, sin certificado del visitante |
+| Área personal | `vec-server`, `VEC_PORTAL_PROCESO=externo` y material externo propio | mTLS obligatorio del candidato |
+| RRHH y empleado | `vec-server`, `VEC_PORTAL_PROCESO=interno` y material interno propio | Autenticación interna vigente |
+
+El proceso público recibe únicamente su conexión lectora a la proyección
+pública y su certificado TLS de servidor. No recibe el material del candidato
+ni las conexiones internas. `/portal-empleado`, `/area-personal` y `/api/vec`
+y sus subrutas devuelven 404, sin redirigir ni invocar las APIs privadas.
+La réplica B10 del Área personal es opcional y autenticada; su activación no
+sustituye la entrada pública ni cambia el mTLS de las capacidades personales.
+
+Para comprobar la entrada pública sobre un clon sintético con una bolsa y una
+posición ya publicadas, cargar su configuración privada mínima y ejecutar:
+
+```sh
+VEC_PRUEBA_BOLSA_PUBLICA_ANONIMA=1 GOCACHE=/dev/shm/go-build \
+  go test -p 32 -race ./cmd/vec-publico -run TestBolsasPublicasTLSAnonimoDesdePostgreSQL
+```
+
+La prueba abre una escucha TLS real, verifica el certificado del servidor y
+consulta lista y detalle sin certificado cliente. Comprueba también 404 en
+las rutas privadas y ausencia de cookies. No instala ni reaplica SQL. La
+comprobación del candidato se hace aparte en el proceso externo: su certificado
+válido permite el acceso previsto; sin certificado o con otro no admitido,
+TLS deniega la conexión.
+
 ### Comprobación al desplegar
 
 Cada proceso por sí solo no puede saber si su clave es la misma que la del
