@@ -212,3 +212,54 @@ func TestResolutorExternoNoReintentaErroresDefinitivos(t *testing.T) {
 		}
 	})
 }
+
+type txPreparacionContextoExternoPrueba struct {
+	*txContextoActorDoble
+	fallo error
+}
+
+func (tx txPreparacionContextoExternoPrueba) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, tx.fallo
+}
+
+type poolFalloContextoExternoPrueba struct {
+	poolContextoActorDoble
+	falloInicio      error
+	falloPreparacion error
+	tx               *txContextoActorDoble
+}
+
+func (p *poolFalloContextoExternoPrueba) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	p.llamadas++
+	if p.falloInicio != nil {
+		return nil, p.falloInicio
+	}
+	return txPreparacionContextoExternoPrueba{p.tx, p.falloPreparacion}, nil
+}
+
+func TestResolutorExternoInicioYPreparacionFallanConErrorNominal(t *testing.T) {
+	probarConsumidoresContextoExterno(t, func(t *testing.T, usuarios bool) {
+		for _, etapa := range []string{"inicio", "preparacion"} {
+			t.Run(etapa, func(t *testing.T) {
+				solicitud, _ := solicitudYFilaContextoExterno(t, usuarios)
+				fallo := &pgconn.PgError{Code: "40001", Message: "detalle SQL reservado"}
+				pool := &poolFalloContextoExternoPrueba{tx: &txContextoActorDoble{}}
+				if etapa == "inicio" {
+					pool.falloInicio = fallo
+				} else {
+					pool.falloPreparacion = fallo
+				}
+				r := nuevoResolutorContextoExternoPrueba(t, pool, usuarios)
+				confirmacion, err := r.ResolverYRegistrarContextoActorV2(context.Background(), solicitud)
+				var errorSQL *pgconn.PgError
+				if err != ports.ErrResolutorRegistroContextoActorNoDisponible || errors.As(err, &errorSQL) ||
+					confirmacion.RegistroContextoRef != "" || pool.llamadas != 1 || pool.tx.commits != 0 || len(pool.tx.consultas) != 0 {
+					t.Fatalf("fallo de %s no terminó cerrado: llamadas=%d err=%v", etapa, pool.llamadas, err)
+				}
+				if etapa == "preparacion" && pool.tx.rollbacks != 1 {
+					t.Fatal("transacción de preparación fallida sin rollback")
+				}
+			})
+		}
+	})
+}

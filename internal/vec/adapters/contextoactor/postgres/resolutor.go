@@ -214,11 +214,11 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutarConClasificador(
 ) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	defer revertirContextoActorPostgreSQL(tx)
 	if prepararTransaccionContextoActorPostgreSQL(ctx, tx) != nil {
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, ports.ErrResolutorRegistroContextoActorNoDisponible
 	}
 	respuesta, err := consultarRespuestaContextoActor(ctx, tx, consulta, argumentos)
 	if err != nil {
