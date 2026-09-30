@@ -23,6 +23,9 @@ sql = (raiz / 'deploy/postgresql/contexto_actor_v1/migraciones/000017_contexto_e
 prueba = (raiz / 'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_tipos_temporales_000017.sql').read_text()
 assert sql.endswith('COMMIT;\n')
 (destino / 'adversarial.sql').write_text(sql[:-len('COMMIT;\n')] + prueba.replace('BEGIN;\n', '', 1))
+conservacion = (raiz / 'deploy/postgresql/contexto_actor_v1/pruebas_sql/contexto_externo_conservacion_000017.sql').read_text()
+antes, despues = conservacion.split('-- CTX17-APLICAR-AQUI\n')
+(destino / 'conservacion.sql').write_text(antes + sql.replace('BEGIN;\n', '', 1)[:-len('COMMIT;\n')] + despues)
 firma = 'vec_contexto_actor_v1.snapshot_contexto_externo_vigente_v1(text,text,text,timestamptz)'
 venenos = {
     'path_temporal': f'ALTER FUNCTION {firma} SET search_path=pg_temp,pg_catalog;',
@@ -34,6 +37,8 @@ for nombre, veneno in venenos.items():
     (destino / f'{nombre}.sql').write_text('\\set ON_ERROR_STOP on\nBEGIN;\n' + veneno + '\n' + sql.replace('BEGIN;\n', '', 1).replace('COMMIT;\n', 'ROLLBACK;\n'))
 PY
 
+docker exec -i "$contenedor" psql -U postgres -d "$base" -X -f - < "$temporal/conservacion.sql" > "$temporal/conservacion.log" 2>&1
+grep -q '^CTX17-CANON-HISTORIA-COPIAS-OK$' "$temporal/conservacion.log"
 docker exec -i "$contenedor" psql -U postgres -d "$base" -X -f - < "$temporal/adversarial.sql" > "$temporal/adversarial.log" 2>&1
 grep -q '^CTX17-TIPOS-TEMPORALES-OK$' "$temporal/adversarial.log"
 for caso in path_temporal path_publico acl_publica definidor; do
@@ -43,4 +48,4 @@ for caso in path_temporal path_publico acl_publica definidor; do
   fi
   grep -q 'CTX17: preimagen incompatible' "$temporal/$caso.log"
 done
-echo 'CTX17-ENSAYO-ROLLBACK-OK: dominios temporales y cuatro preimágenes incompatibles'
+echo 'CTX17-ENSAYO-ROLLBACK-OK: canon, historia, copia interna, dominios temporales y cuatro preimágenes incompatibles'
