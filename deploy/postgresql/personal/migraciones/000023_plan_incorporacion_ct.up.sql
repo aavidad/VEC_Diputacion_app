@@ -303,7 +303,7 @@ BEGIN
     AND v.plaza_revision=pl.revision AND v.puesto_ref=pu.puesto_ref AND v.puesto_revision=pu.revision
     AND v.organismo_ref=p_org AND v.vigente_desde<=fecha AND (v.vigente_hasta IS NULL OR fecha<v.vigente_hasta)) THEN
   RAISE EXCEPTION 'Personal23: vínculo estructural no unívoco' USING ERRCODE='42501'; END IF;
- RETURN jsonb_build_object('organismo_ref',p_org,'plaza_ref','plaza:'||pl.plaza_ref,
+ RETURN jsonb_build_object('organismo_ref',p_org,'unidad_ref',pl.unidad_ref,'plaza_ref','plaza:'||pl.plaza_ref,
   'puesto_ref','puesto:'||pu.puesto_ref,'desde',s->>'desde','revision_plaza',pl.revision,
   'revision_puesto',pu.revision,'version_plantilla_ref','plantilla:'||vp.version_ref,
   'version_rpt_ref','rpt:'||vr.version_ref,'plantilla_huella_sha256',vp.huella_fuente_sha256,
@@ -446,6 +446,13 @@ BEGIN
       OR p.organismo_ref IS DISTINCT FROM org THEN
     RAISE EXCEPTION 'Personal23: idempotencia divergente' USING ERRCODE='23505'; END IF;
   ELSE
+   seleccion:=vec_personal.seleccion_plan_ct_interna(org,jsonb_build_object(
+    'plaza_ref',datos->>'plaza_ref','puesto_ref',datos->>'puesto_ref','desde',datos->>'desde'));
+   FOREACH k IN ARRAY ARRAY['version_plantilla_ref','version_rpt_ref','revision_plaza','revision_puesto',
+       'fuente_organizacion_ref','fuente_organizacion_huella_sha256','unidad_ref'] LOOP
+    IF seleccion->>k IS DISTINCT FROM datos->>k THEN
+     RAISE EXCEPTION 'Personal23: fuente estructural del plan divergente' USING ERRCODE='42501'; END IF;
+   END LOOP;
    -- La relación histórica evita una segunda alta tras vencer una proyección.
    -- B2 conserva su control de vigencia al ejecutar la nueva relación.
    PERFORM vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(datos->>'persona_ref');
