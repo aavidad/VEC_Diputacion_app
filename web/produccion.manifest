@@ -427,3 +427,5 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/estadisticas.css
 static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css
 static/portal-empleado/modulos/contratacion-temporal/analisis-catalogo.css
+static/textos/es/bolsas-publicas.json
+static/textos/en/bolsas-publicas.json
