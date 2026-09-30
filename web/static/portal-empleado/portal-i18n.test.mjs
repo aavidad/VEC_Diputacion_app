@@ -55,11 +55,11 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const versionBolsaTurno = "20260930-bolsa-turno-v2";
   const versionesEspeciales = new Map([
     ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
-    ["portal-inicio.js", "20260930-ct-lista-recuperada-v2"],
+    ["portal-inicio.js", "20261001-rpt-categorias-v1"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", versionBolsaTurno],
+    ["portal.js", "20261001-rpt-categorias-v1"],
     ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
     ["portal-panel-interno.js", versionBolsaTurno],
     ["portal-bolsas-api.js", versionBolsaTurno],
