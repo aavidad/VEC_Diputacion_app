@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20260930-plazos-config-ui-v1";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20260930-plazos-activacion-ct158-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -310,7 +310,7 @@ export async function iniciar(doc, cliente, montarAjustes = null) {
 
 if (typeof document !== "undefined" && document.getElementById("reglas")) {
   iniciar(document, crearCliente(), async (doc) => {
-    const { iniciarAjustes } = await import("./ajustes.js?v=20260930-plazos-config-ui-v1");
+    const { iniciarAjustes } = await import("./ajustes.js?v=20260930-plazos-activacion-ct158-v1");
     iniciarAjustes(doc);
   });
 }

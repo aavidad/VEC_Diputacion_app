@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260930-plazos-config-ui-v1";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260930-plazos-activacion-ct158-v1";
 
 export const API_AJUSTES = "/api/vec/contratacion-temporal/reglas/ajustes";
 const ESQUEMA = "vec.contratacion_temporal.reglas.ajustes.v1";

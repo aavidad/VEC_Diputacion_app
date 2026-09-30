@@ -46,7 +46,7 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   const reglas = leer("./reglas.js");
   const ajustes = leer("./ajustes.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20260930-plazos-config-ui-v1");
+  assert.equal(version, "20260930-plazos-activacion-ct158-v1");
   assert.equal(exigirRenovado([reglas], "ajustes.js", "20260930-reglas-detalle-v3"), version);
   assert.equal(exigirRenovado([ajustes], "i18n.js", "20260930-reglas-detalle-v3"), version);
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
@@ -372,7 +372,8 @@ test("un fallo inicial monta ajustes una sola vez al recuperar las reglas", asyn
     montajes++;
     iniciarAjustes(doc, { leer: async () => {
       consultasAjustes++;
-      return { version_esperada: 0, puede_ajustar: false, motivos: [], reglas: [], historial: [], hay_mas: false };
+      return { version_esperada: 0, puede_ajustar: false, activacion: { estado: "sin_publicar" },
+        motivos: [], reglas: [], historial: [], hay_mas: false };
     } });
     await new Promise((resolver) => setImmediate(resolver));
   };
