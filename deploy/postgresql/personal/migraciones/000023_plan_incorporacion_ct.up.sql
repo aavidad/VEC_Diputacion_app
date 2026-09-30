@@ -50,6 +50,7 @@ BEGIN
   IF jsonb_typeof(opcion) IS DISTINCT FROM 'object'
      OR ARRAY(SELECT jsonb_object_keys(opcion) ORDER BY 1) IS DISTINCT FROM ARRAY['etiquetas','texto_clave','valor']
      OR opcion->>'valor' IS NULL OR opcion->>'valor' !~ '^[a-z][a-z0-9_]{0,63}$'
+     OR opcion->>'valor' = 'reserva'
      OR opcion->>'texto_clave' IS DISTINCT FROM 'rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.'||(opcion->>'valor')
      OR jsonb_typeof(opcion->'etiquetas') IS DISTINCT FROM 'object'
      OR ARRAY(SELECT jsonb_object_keys(opcion->'etiquetas') ORDER BY 1) IS DISTINCT FROM ARRAY['en','es']
@@ -540,6 +541,7 @@ BEGIN
     IF seleccion->>k IS DISTINCT FROM datos->>k THEN
      RAISE EXCEPTION 'Personal23: fuente estructural del plan divergente' USING ERRCODE='42501'; END IF;
    END LOOP;
+   -- La clase debe figurar en la versión vigente antes de reservar claves o actos.
    SELECT * INTO catalogo FROM vec_personal.clases_ocupacion_plan_ct_catalogo
     WHERE ref='personal:incorporacion_ct:clases_ocupacion' ORDER BY version DESC LIMIT 1;
    IF NOT FOUND THEN RAISE EXCEPTION 'Personal23: catálogo no disponible' USING ERRCODE='55000'; END IF;

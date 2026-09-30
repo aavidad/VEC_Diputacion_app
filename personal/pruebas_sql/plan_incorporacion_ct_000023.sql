@@ -65,6 +65,7 @@ DO $estructura$
 DECLARE da text:='{"idempotencia_ref":"ed329ec1-e31a-4f4f-bb76-8d76ebd15fed","organismo_ref":"org:sintetico","clase_ocupacion":"temporal"}';
  negocio text; ph text; p vec_personal.plan_incorporacion_ct%ROWTYPE; estado jsonb;
  c vec_personal.clases_ocupacion_plan_ct_catalogo%ROWTYPE; canon_nuevo text;
+ canon_reserva text:='{"opciones":[{"valor":"reserva","texto_clave":"rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.reserva","etiquetas":{"es":"Reserva","en":"Reserved"}}]}';
 BEGIN
  SELECT * INTO STRICT c FROM vec_personal.clases_ocupacion_plan_ct_catalogo
  WHERE ref='personal:incorporacion_ct:clases_ocupacion' AND version=1;
@@ -84,6 +85,11 @@ BEGIN
  FROM jsonb_array_elements(c.datos->'opciones') WITH ORDINALITY x(o,ord) WHERE o->>'valor'<>'titular';
  INSERT INTO vec_personal.clases_ocupacion_plan_ct_catalogo VALUES(c.ref,2,canon_nuevo,canon_nuevo::jsonb,
    encode(sha256(convert_to(canon_nuevo,'UTF8')),'hex'),clock_timestamp());
+ BEGIN
+  INSERT INTO vec_personal.clases_ocupacion_plan_ct_catalogo VALUES(c.ref,3,canon_reserva,canon_reserva::jsonb,
+    encode(sha256(convert_to(canon_reserva,'UTF8')),'hex'),clock_timestamp());
+  RAISE EXCEPTION 'Personal23: reserva publicada como ocupación efectiva';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
  estado:=vec_personal.estado_plan_ct_interno(p);
  IF estado->'plan'->>'clases_ocupacion_catalogo_version' IS DISTINCT FROM '1'
     OR estado->'plan'->>'clases_ocupacion_catalogo_huella_sha256' IS DISTINCT FROM c.huella_sha256 THEN
