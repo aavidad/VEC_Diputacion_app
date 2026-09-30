@@ -11,6 +11,7 @@ import (
 	app "vec-diputacion-granada/internal/modules/contrataciontemporal/application/ajustesreglas"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecpruebas "vec-diputacion-granada/internal/vec/pruebas"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 type actorPrueba struct {
@@ -26,7 +27,13 @@ func (a *actorPrueba) ResolverContextoActor(context.Context) (vecdomain.Contexto
 type servicioPrueba struct{ publicaciones int }
 
 func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error) {
-	return app.Lectura{PuedeAjustar: true}, nil
+	return app.Lectura{PuedeAjustar: true, Reglas: []reglas.Regla{{
+		Clave: reglas.CTPlazoFiscalizacion, Etiqueta: "Fiscalización", Unidad: reglas.UnidadDiasHabiles,
+		Cantidad: 10, Computo: reglas.ComputoAdministrativo,
+		Atributos: map[string]string{reglas.CampoCantidadUrgente: "5"},
+		Edicion: &reglas.Edicion{Campos: []string{reglas.CampoCantidad, reglas.CampoCantidadUrgente, reglas.CampoUnidad},
+			OpcionesUnidad: []reglas.Unidad{reglas.UnidadDiasHabiles, reglas.UnidadDiasNaturales}, CantidadMinima: 1, CantidadMaxima: 60},
+	}}}, nil
 }
 func (s *servicioPrueba) Publicar(context.Context, vecdomain.ContextoActor, app.Solicitud) (app.Resultado, error) {
 	s.publicaciones++
@@ -54,6 +61,7 @@ func TestRutaAjustesRechazaCuerpoDuplicadoYCabecerasDeIdentidad(t *testing.T) {
 		{Ruta + "/", "", "", http.StatusNotFound},
 		{Ruta, `{"version_esperada":0,"version_esperada":1}`, "", http.StatusBadRequest},
 		{Ruta, `{}`, "X-VEC-Rol", http.StatusBadRequest},
+		{Ruta, `{}`, "Idempotency-Key", http.StatusBadRequest},
 		{Ruta, `{"cambios":[{"nuevo":"7","nuevo":"8"}]}`, "", http.StatusBadRequest},
 	}
 	for _, c := range casos {
@@ -108,7 +116,12 @@ func TestSoloLecturaNoAnunciaNiEjecutaGuardado(t *testing.T) {
 	r.Header.Set("Accept", "application/json")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"puede_ajustar":false`) {
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"puede_ajustar":false`) ||
+		!strings.Contains(w.Body.String(), `"cantidad_urgente":"5"`) ||
+		!strings.Contains(w.Body.String(), `"opciones_unidad"`) ||
+		!strings.Contains(w.Body.String(), `"opciones_computo":[]`) ||
+		!strings.Contains(w.Body.String(), `"historial":[]`) ||
+		strings.Contains(w.Body.String(), `"OpcionesUnidad"`) {
 		t.Fatalf("GET habilitó escritura: %d %s", w.Code, w.Body.String())
 	}
 	r = httptest.NewRequest(http.MethodPost, Ruta, strings.NewReader(`{}`))
