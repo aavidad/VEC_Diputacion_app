@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/usuarios/domain"
 	"vec-diputacion-granada/internal/modules/usuarios/ports"
+	"vec-diputacion-granada/internal/shared/postgresql"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -101,6 +102,10 @@ func NuevoRegistroPreferenciasPostgreSQL(ctx context.Context, pool *pgxpool.Pool
 }
 
 func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccionPreferencias, error) {
+	return r.abrirConError(ctx, errorSeguro)
+}
+
+func (r *RegistroPreferenciasPostgreSQL) abrirConError(ctx context.Context, seguro func(context.Context, error) error) (transaccionPreferencias, error) {
 	if ctx == nil || r == nil || r.iniciar == nil {
 		return nil, ports.ErrNoDisponible
 	}
@@ -109,14 +114,14 @@ func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccion
 	}
 	tx, err := r.iniciar(ctx)
 	if err != nil {
-		return nil, errorSeguro(ctx, err)
+		return nil, seguro(ctx, err)
 	}
 	if tx == nil {
 		return nil, ports.ErrNoDisponible
 	}
 	fallar := func(err error) (transaccionPreferencias, error) {
 		_ = tx.Rollback(context.Background())
-		return nil, errorSeguro(ctx, err)
+		return nil, seguro(ctx, err)
 	}
 	for _, ajuste := range [...]string{
 		"SET LOCAL search_path = pg_catalog, pg_temp",
@@ -141,37 +146,64 @@ func (r *RegistroPreferenciasPostgreSQL) abrir(ctx context.Context) (transaccion
 	return tx, nil
 }
 
+// CatalogoVigente repite la consulta completa sólo ante un aborto SERIALIZABLE seguro.
 func (r *RegistroPreferenciasPostgreSQL) CatalogoVigente(ctx context.Context, orden ports.OrdenPreferencias) (domain.CatalogoPreferencias, error) {
+	var estado domain.CatalogoPreferencias
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		estado, err = r.catalogoVigenteIntento(ctx, orden)
+		return err
+	})
+	return estado, errorFinalConsultaSerializable(ctx, err)
+}
+
+func (r *RegistroPreferenciasPostgreSQL) catalogoVigenteIntento(ctx context.Context, orden ports.OrdenPreferencias) (domain.CatalogoPreferencias, error) {
 	var vacio domain.CatalogoPreferencias
 	superficie, err := orden.Superficie()
 	if err != nil || r == nil || superficie != r.superficie || rolEjecutorPreferencias(superficie) != r.rol {
 		return vacio, ports.ErrProhibido
 	}
-	tx, err := r.abrir(ctx)
+	tx, err := r.abrirConError(ctx, func(ctx context.Context, err error) error {
+		return errorConsultaSerializable(ctx, err, errorSeguro)
+	})
 	if err != nil {
 		return vacio, err
 	}
 	defer tx.Rollback(context.Background())
 	var datos []byte
 	if err := tx.QueryRow(ctx, consultarCatalogoSQL, string(superficie)).Scan(&datos); err != nil {
-		return vacio, errorSeguro(ctx, err)
+		return vacio, errorConsultaSerializable(ctx, err, errorSeguro)
 	}
 	c, err := decodificarCatalogo(datos)
 	if err != nil {
 		return vacio, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, errorSeguro(ctx, err)
+		return vacio, errorConsultaSerializable(ctx, err, errorSeguro)
 	}
 	return c, nil
 }
 
+// ConsultarPropias repite la consulta completa sólo ante un aborto SERIALIZABLE seguro.
 func (r *RegistroPreferenciasPostgreSQL) ConsultarPropias(ctx context.Context, orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoPreferencias, bool, error) {
+	var estado ports.EstadoPreferencias
+	var existe bool
+	err := postgresql.RepetirTrasCarreraSerializable(ctx, func() error {
+		var err error
+		estado, existe, err = r.consultarPropiasIntento(ctx, orden, material, v3)
+		return err
+	})
+	return estado, existe, errorFinalConsultaSerializable(ctx, err)
+}
+
+func (r *RegistroPreferenciasPostgreSQL) consultarPropiasIntento(ctx context.Context, orden ports.OrdenPreferencias, material ports.MaterialPreferencias, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.EstadoPreferencias, bool, error) {
 	var vacio ports.EstadoPreferencias
 	if err := r.validarMaterial(orden, material, v3, ports.AccionConsultarPreferencias); err != nil {
 		return vacio, false, err
 	}
-	tx, err := r.abrir(ctx)
+	tx, err := r.abrirConError(ctx, func(ctx context.Context, err error) error {
+		return errorConsultaSerializable(ctx, err, errorSeguro)
+	})
 	if err != nil {
 		return vacio, false, err
 	}
@@ -182,7 +214,7 @@ func (r *RegistroPreferenciasPostgreSQL) ConsultarPropias(ctx context.Context, o
 	}
 	var datos []byte
 	if err := tx.QueryRow(ctx, consultarPropiasSQL, argumentos...).Scan(&datos); err != nil {
-		return vacio, false, errorSeguro(ctx, err)
+		return vacio, false, errorConsultaSerializable(ctx, err, errorSeguro)
 	}
 	var estado struct {
 		Existe bool `json:"existe"`
@@ -194,7 +226,7 @@ func (r *RegistroPreferenciasPostgreSQL) ConsultarPropias(ctx context.Context, o
 		return vacio, false, ports.ErrNoDisponible
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return vacio, false, errorSeguro(ctx, err)
+		return vacio, false, errorConsultaSerializable(ctx, err, errorSeguro)
 	}
 	return estado.EstadoPreferencias, estado.Existe, nil
 }
@@ -356,4 +388,32 @@ func errorSeguro(ctx context.Context, err error) error {
 		}
 	}
 	return ports.ErrNoDisponible
+}
+
+// El marcador conserva únicamente el error de puerto. El detalle PostgreSQL
+// nunca sale del intento ni se expone al agotar la política compartida.
+type carreraConsultaSerializable struct{ seguro error }
+
+func (e carreraConsultaSerializable) Error() string             { return e.seguro.Error() }
+func (e carreraConsultaSerializable) Unwrap() error             { return e.seguro }
+func (e carreraConsultaSerializable) CarreraSerializable() bool { return true }
+
+func errorConsultaSerializable(ctx context.Context, err error, seguro func(context.Context, error) error) error {
+	traducido := seguro(ctx, err)
+	var pg *pgconn.PgError
+	if ctx != nil && ctx.Err() == nil && errors.As(err, &pg) && (pg.Code == "40001" || pg.Code == "40P01") {
+		return carreraConsultaSerializable{seguro: traducido}
+	}
+	return traducido
+}
+
+func errorFinalConsultaSerializable(ctx context.Context, err error) error {
+	var carrera carreraConsultaSerializable
+	if errors.As(err, &carrera) {
+		if ctx != nil && ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return carrera.seguro
+	}
+	return err
 }
