@@ -15,6 +15,7 @@ import { finVigenciaBolsaPortal, traducirPortal } from "./portal-i18n.js?v=20260
 import { faseRRHH, FASES_RRHH } from "./modulos/contratacion-temporal/i18n-fases-rrhh.js";
 import { resumirPeticiones } from "./modulos/contratacion-temporal/recuentos-peticiones.js";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { IDIOMA_ACTUAL } from "../comun/idioma.js";
 
 const DESTINO_LISTA = 'data-vista="contratacion-temporal" data-ct-exp-vista="cuadro"';
 
@@ -243,6 +244,7 @@ export function crearVistaInicioPortal({
   obtenerCuadroInicio = () => null,
   obtenerBolsasInicio = () => null,
   locale = "es-ES",
+  idioma = IDIOMA_ACTUAL,
   ahora = () => new Date(),
   catalogoFallido = () => false,
   inicioPendiente = () => false,
@@ -291,7 +293,7 @@ export function crearVistaInicioPortal({
       <section class="portal-rrhh-inicio" aria-label="${t("menu_inicio")}">
         <header class="cabeza-pagina">
           <div><h2 class="portal-rrhh-fecha">${escaparHTML(fecha.charAt(0).toLocaleUpperCase(locale) + fecha.slice(1))}</h2></div>
-          <div class="fila-acciones"><a class="boton-secundario" href="/portal-empleado/categorias-rpt/">${t("inicio_rrhh_categorias_rpt")}</a>
+          <div class="fila-acciones"><a class="boton-secundario" href="/portal-empleado/categorias-rpt/?lang=${encodeURIComponent(idioma)}">${t("inicio_rrhh_categorias_rpt")}</a>
           ${disponibleCT ? `<button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">${t("inicio_rrhh_nueva_peticion")}</button>` : ""}</div>
         </header>
         ${estadoCT}

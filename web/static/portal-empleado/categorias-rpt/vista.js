@@ -33,6 +33,8 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
     throw new TypeError("montaje de categorías no disponible");
   }
   doc.documentElement.lang = idiomaUI;
+  doc.querySelectorAll('a[href="/portal-empleado/"]').forEach((enlace) =>
+    enlace.setAttribute("href", `/portal-empleado/?lang=${encodeURIComponent(idiomaUI)}`));
   traducirFijos(doc, t);
 
   const buscar = doc.getElementById("buscar");
@@ -92,7 +94,7 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
     cuenta.hidden = false;
     cuenta.textContent = t("cuenta", { cuenta: new Intl.NumberFormat(localizacion).format(visibles.length) });
     estado.textContent = visibles.length ? "" : t(categorias.length ? "sinCoincidencias" : "sinCategorias");
-    if (!visibles.some((c) => c.referencia === seleccionada)) ocultarDetalle();
+    if (!mostradas.some((c) => c.referencia === seleccionada)) ocultarDetalle();
 
     for (const categoria of mostradas) {
       const fila = doc.createElement("tr");
@@ -172,6 +174,9 @@ export function montarVistaCategorias({ doc, puerto, t, idiomaUI, idiomaDatos, l
   anterior.addEventListener("click", () => { pagina -= 1; pintar(); });
   siguiente.addEventListener("click", () => { pagina += 1; pintar(); });
   reintentar.addEventListener("click", cargar);
-  doc.defaultView?.addEventListener("pagehide", () => controlador?.abort(), { once: true });
+  doc.defaultView?.addEventListener("pagehide", () => controlador?.abort());
+  doc.defaultView?.addEventListener("pageshow", (evento) => {
+    if (evento.persisted) void cargar();
+  });
   return Object.freeze({ cargar, cancelar: () => controlador?.abort() });
 }
