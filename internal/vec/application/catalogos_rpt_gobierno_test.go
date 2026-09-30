@@ -150,6 +150,25 @@ func TestGobiernoRPTContrastaCapacidadTrasEmision(t *testing.T) {
 	}
 }
 
+func TestGobiernoRPTDenegacionSanitizaErrorDeDependencia(t *testing.T) {
+	causa := errors.New("dni sintético y detalle interno de la decisión")
+	err := denegacionValidacionGobiernoCategoriaRPT(causa)
+	if !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) ||
+		errors.Is(err, causa) || strings.Contains(err.Error(), "dni sintético") ||
+		strings.Contains(err.Error(), "detalle interno") {
+		t.Fatalf("error de validación expuso causa privada: %v", err)
+	}
+	if err := concesionGobiernoCategoriaRPTValida(
+		ports.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
+		domain.SolicitudAutorizacionLigadaV3{}, domain.DecisionAutorizacionLigadaV3{},
+		ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
+		domain.ResultadoContextoActorRegistradoV2{}, domain.ContextoActor{},
+		ports.AccionAprobarGobiernoCategoriaRPT, domain.RecursoAutorizable{}, time.Time{},
+	); !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) {
+		t.Fatalf("material inválido no denegado: %v", err)
+	}
+}
+
 type preparadorGobiernoRPTPrueba struct {
 	llamadas  int
 	err       error
