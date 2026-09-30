@@ -289,6 +289,30 @@ class MaterialTests(unittest.TestCase):
             self.assertIn("material/comunicaciones/servidor.crt", final["files"])
             material.verify_existing(root, {})
 
+    def test_bolsa_blockers_replace_previous_result_without_removing_other_modules_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            material.json_write(root / "runtime-config.json", {})
+            material.json_write(root / "perfiles.json", {"profiles": {}})
+            args = SimpleNamespace(repo=root, container="vec-fixture", pg_port=55531, engine="docker")
+            old = {"profile": "bolsa", "code": "source_contract_changed"}
+            other = {"profile": "usuarios", "code": "source_contract_changed"}
+            for current_failure in (False, True):
+                with self.subTest(current_failure=current_failure):
+                    manifest = {"blockers": [old, other]}
+                    results = [{"blockers": []} for _ in range(5)]
+                    if current_failure:
+                        results[3]["blockers"] = [dict(old)]
+                    modules = [SimpleNamespace(provision=unittest.mock.Mock(return_value=result)) for result in results]
+                    def seal(output, current, env, profiles, blockers):
+                        return dict(current, blockers=list(blockers))
+                    with patch.object(material, "load_profile_module", side_effect=modules), \
+                         patch.object(material, "current_users", return_value={}), patch.object(material, "seal_state", side_effect=seal):
+                        final = material.complete_profiles(args, root, manifest)
+                    self.assertIn(other, final["blockers"])
+                    self.assertEqual(old in final["blockers"], current_failure)
+                    self.assertEqual(len(final["blockers"]), 2 if current_failure else 1)
+
     def test_names_catalog_schema_rejects_extra_missing_duplicate_and_non_name_data(self):
         catalog = json.loads(material.SYNTHETIC_PROFILE_FIXTURE.read_text())
         with tempfile.TemporaryDirectory() as directory:

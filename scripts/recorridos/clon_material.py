@@ -275,7 +275,10 @@ def complete_profiles(args: argparse.Namespace, output: Path, manifest: dict) ->
             private_read(path)
         env.update(result.get("env", {}))
         profiles["profiles"].update(result.get("profiles", {}))
-        blockers = [b for b in blockers if b["code"] not in owned_codes]
+        # Bolsa owns the "bolsa" profile diagnostics, including transient
+        # source gates. Replace its previous result, then retain current errors.
+        blockers = [b for b in blockers if b["code"] not in owned_codes
+                    and not (name == "clon_bolsa_material" and b.get("profile") == "bolsa")]
         blockers.extend(result.get("blockers", []))
         unique = {}
         for blocker in blockers:
