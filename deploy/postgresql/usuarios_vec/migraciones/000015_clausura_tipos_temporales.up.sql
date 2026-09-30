@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- U15: clausura nominal de tipos temporales; requiere Usuarios10/11/12/13, D11, AUT21 y AD3-122.
+-- U15: clausura nominal de tipos temporales; requiere Usuarios10/11/12/13, D11, AUT21 y AD3-124.
 -- Solo modifica search_path. Conserva cuerpo, firma, OID, propietario, ACL e historia.
 -- La función de denegación ya cerrada se verifica y conserva sin alterarla.
 BEGIN;
