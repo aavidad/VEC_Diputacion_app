@@ -50,6 +50,7 @@ type EntradaPlanB2 struct {
 	VersionRPTRef       string            `json:"version_rpt_ref"`
 	Regimen             EntradaCatalogoB2 `json:"regimen"`
 	Modalidad           EntradaCatalogoB2 `json:"modalidad"`
+	ClaseOcupacion      string            `json:"clase_ocupacion"`
 	Desde               string            `json:"desde"`
 	Hasta               string            `json:"hasta"`
 	MotivoClave         string            `json:"motivo_clave"`
@@ -87,18 +88,23 @@ type OpcionDocumentoB2 struct {
 	DocumentoSHA256   string `json:"documento_sha256"`
 	EtiquetaClaveI18n string `json:"etiqueta_clave_i18n"`
 }
+type OpcionClaseOcupacionB2 struct {
+	Valor      string `json:"valor"`
+	TextoClave string `json:"texto_clave"`
+}
 type PeriodoOpcionesB2 struct {
 	Desde     string `json:"desde"`
 	Hasta     string `json:"hasta"`
 	FuenteRef string `json:"fuente_ref"`
 }
 type OpcionesIncorporacionPersonalB2 struct {
-	Vacantes    []OpcionVacanteB2   `json:"vacantes"`
-	Regimenes   []OpcionCatalogoB2  `json:"regimenes"`
-	Modalidades []OpcionCatalogoB2  `json:"modalidades"`
-	Motivos     []string            `json:"motivos"`
-	Documentos  []OpcionDocumentoB2 `json:"documentos"`
-	Periodo     PeriodoOpcionesB2   `json:"periodo"`
+	Vacantes        []OpcionVacanteB2        `json:"vacantes"`
+	Regimenes       []OpcionCatalogoB2       `json:"regimenes"`
+	Modalidades     []OpcionCatalogoB2       `json:"modalidades"`
+	ClasesOcupacion []OpcionClaseOcupacionB2 `json:"clases_ocupacion"`
+	Motivos         []string                 `json:"motivos"`
+	Documentos      []OpcionDocumentoB2      `json:"documentos"`
+	Periodo         PeriodoOpcionesB2        `json:"periodo"`
 }
 type PlanIncorporacionPersonalB2HTTP struct {
 	PlanRef   string        `json:"plan_ref"`
@@ -140,6 +146,9 @@ type EjecutorIncorporacionPersonalB2 interface {
 }
 
 func (e EntradaPlanB2) Validar() error {
+	if !patronClaveHTTPB2.MatchString(e.ClaseOcupacion) {
+		return ErrPeticionIncorporacionPersonalB2
+	}
 	for _, ref := range []string{e.ExpedienteRef, e.VersionPlantillaRef, e.VersionRPTRef, e.Regimen.Ref, e.Modalidad.Ref, e.DocumentoRef} {
 		if !domain.ReferenciaOpacaValida(ref) {
 			return ErrPeticionIncorporacionPersonalB2
@@ -253,6 +262,16 @@ func proyeccionHTTPB2Valida(v ProyeccionIncorporacionPersonalB2HTTP, exp string)
 		}
 	}
 	o := v.Opciones
+	if len(o.ClasesOcupacion) > 100 {
+		return false
+	}
+	clases := make(map[string]bool, len(o.ClasesOcupacion))
+	for _, clase := range o.ClasesOcupacion {
+		if !patronClaveHTTPB2.MatchString(clase.Valor) || !patronClaveHTTPB2.MatchString(clase.TextoClave) || clases[clase.Valor] {
+			return false
+		}
+		clases[clase.Valor] = true
+	}
 	if len(o.Vacantes) > 100 || len(o.Regimenes) > 100 || len(o.Modalidades) > 100 || len(o.Motivos) > 32 || len(o.Documentos) > 32 || !periodoHTTPB2(o.Periodo.Desde, o.Periodo.Hasta, true) || (o.Periodo.FuenteRef != "" && !domain.ReferenciaOpacaValida(o.Periodo.FuenteRef)) {
 		return false
 	}

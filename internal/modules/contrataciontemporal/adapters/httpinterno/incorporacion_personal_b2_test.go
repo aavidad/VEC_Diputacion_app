@@ -52,7 +52,7 @@ func (e *ejecutorHTTPB2Prueba) Confirmar(_ context.Context, p EntradaConfirmacio
 	return e.recibo, e.err
 }
 func planHTTPB2Prueba() EntradaPlanB2 {
-	return EntradaPlanB2{ExpedienteRef: "expediente:b2", VersionExpediente: 7, PuestoRef: "puesto:b2", PlazaRef: "plaza:b2", VersionPlantillaRef: "plantilla:v1", VersionRPTRef: "rpt:v1", Regimen: EntradaCatalogoB2{"regimen:funcionario", 1}, Modalidad: EntradaCatalogoB2{"modalidad:interino", 1}, Desde: "2026-10-01", Hasta: "2027-10-01", MotivoClave: "incorporacion_confirmada", DocumentoRef: "documento:b2", DocumentoSHA256: strings.Repeat("a", 64), ClaveIdempotencia: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
+	return EntradaPlanB2{ExpedienteRef: "expediente:b2", VersionExpediente: 7, PuestoRef: "puesto:b2", PlazaRef: "plaza:b2", VersionPlantillaRef: "plantilla:v1", VersionRPTRef: "rpt:v1", Regimen: EntradaCatalogoB2{"regimen:funcionario", 1}, Modalidad: EntradaCatalogoB2{"modalidad:interino", 1}, ClaseOcupacion: "temporal", Desde: "2026-10-01", Hasta: "2027-10-01", MotivoClave: "incorporacion_confirmada", DocumentoRef: "documento:b2", DocumentoSHA256: strings.Repeat("a", 64), ClaveIdempotencia: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
 }
 func proyeccionHTTPB2Prueba() ProyeccionIncorporacionPersonalB2HTTP {
 	return ProyeccionIncorporacionPersonalB2HTTP{Esquema: EsquemaConsultaIncorporacionPersonalB2, ExpedienteRef: "expediente:b2", VersionExpedienteActual: 7, Estado: "sin_plan"}

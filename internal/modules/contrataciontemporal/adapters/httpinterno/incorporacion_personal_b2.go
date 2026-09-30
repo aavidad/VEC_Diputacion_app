@@ -47,7 +47,7 @@ func NuevoManejadorIncorporacionPersonalB2(a AutoridadServidorIncorporacionEjerc
 		case r.Method == http.MethodGet:
 			exp, err = leerConsultaIncorporacionEjercicioV2(r)
 		case r.URL.Path == RutaPlanB2:
-			err = leerCuerpoHTTPB2(w, r, &plan, []string{"expediente_ref", "version_expediente", "puesto_ref", "plaza_ref", "version_plantilla_ref", "version_rpt_ref", "regimen", "modalidad", "desde", "hasta", "motivo_clave", "documento_ref", "documento_sha256", "clave_idempotencia"})
+			err = leerCuerpoHTTPB2(w, r, &plan, []string{"expediente_ref", "version_expediente", "puesto_ref", "plaza_ref", "version_plantilla_ref", "version_rpt_ref", "regimen", "modalidad", "clase_ocupacion", "desde", "hasta", "motivo_clave", "documento_ref", "documento_sha256", "clave_idempotencia"})
 			exp = plan.ExpedienteRef
 		default:
 			err = leerCuerpoHTTPB2(w, r, &confirmacion, []string{"expediente_ref", "plan_ref", "version_plan", "clave_idempotencia"})
@@ -152,6 +152,7 @@ func copiarProyeccionHTTPB2(v ProyeccionIncorporacionPersonalB2HTTP) ProyeccionI
 	v.Opciones.Vacantes = append([]OpcionVacanteB2{}, v.Opciones.Vacantes...)
 	v.Opciones.Regimenes = append([]OpcionCatalogoB2{}, v.Opciones.Regimenes...)
 	v.Opciones.Modalidades = append([]OpcionCatalogoB2{}, v.Opciones.Modalidades...)
+	v.Opciones.ClasesOcupacion = append([]OpcionClaseOcupacionB2{}, v.Opciones.ClasesOcupacion...)
 	v.Opciones.Motivos = append([]string{}, v.Opciones.Motivos...)
 	v.Opciones.Documentos = append([]OpcionDocumentoB2{}, v.Opciones.Documentos...)
 	if v.Plan != nil {
