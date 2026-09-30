@@ -1,0 +1,6 @@
+deploy/postgresql/catalogos_configurables/roles_up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000001_autoridad_categorias.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000002_lecturas_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000117_lecturas_categorias_rpt.up.sql
+deploy/postgresql/catalogos_configurables/migraciones/000003_usos_nominales.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000126_usos_categorias_rpt.up.sql
