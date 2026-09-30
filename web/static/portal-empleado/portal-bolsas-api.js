@@ -19,8 +19,8 @@ import { crearControladorOperacionesSituacion } from "./portal-bolsas-operacione
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260930-portales-i18n-integracion-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260930-portales-i18n-integracion-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260930-portales-i18n-integracion-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-portales-i18n-integracion-v1";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-portales-i18n-integracion-v1";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-bolsa-turno-v2";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260930-bolsa-turno-v2";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260930-portales-i18n-integracion-v1";
 import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260930-portales-i18n-integracion-v1";
 
