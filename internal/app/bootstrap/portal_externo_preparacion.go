@@ -21,10 +21,13 @@ var ErrPreparacionPortalExternoInvalida = errors.New("bootstrap: preparacion del
 
 // ResumenPreparacionPortalExterno describe lo preparado sin ningún secreto.
 type ResumenPreparacionPortalExterno struct {
-	Consumidores  []string
-	Claves        int
-	Configuracion string
-	Alias         int
+	Consumidores           []string
+	Claves                 int
+	Configuracion          string
+	Alias                  int
+	HuellaAprobacionSHA256 string
+	PreimagenSHA256        string
+	PendientePublicacion   bool
 }
 
 // PrepararMaterialPortalExterno es el paso del lado interno que habilita al
@@ -32,16 +35,19 @@ type ResumenPreparacionPortalExterno struct {
 // claves de las audiencias externas pedidas y deja en el material del
 // proceso externo solo esas claves derivadas y la raíz de atestación. El
 // proceso externo nunca recibe la clave base, la clave maestra ni el rol de
-// gobierno. Se vuelve a ejecutar si cambia el material interno.
+// gobierno. La raíz y la idempotencia pertenecen al almacén externo.
 // OpcionesPreparacionPortalExterno reúne lo que decide el operador en el lado
 // interno. CuentasAutorizadas es la lista positiva de cuentas del Área
 // personal para las que se registran alias del espacio externo: el fichero de
 // seudónimos lo produce el proceso externo y no es de confianza por sí solo.
 type OpcionesPreparacionPortalExterno struct {
-	Destino            string
-	Consumidores       []string
-	Seudonimos         []byte
-	CuentasAutorizadas []string
+	Destino                  string
+	Consumidores             []string
+	Seudonimos               []byte
+	CuentasAutorizadas       []string
+	HuellaAprobacionSHA256   string
+	PreimagenSHA256          string
+	RotarRaizPreimagenSHA256 string
 }
 
 func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opciones OpcionesPreparacionPortalExterno) (ResumenPreparacionPortalExterno, error) {
@@ -73,6 +79,9 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 	if err := exigirIdempotenciaPropiaPortalExterno(cfg.DevelopmentMaterialDir, destino); err != nil {
 		return resumen, err
 	}
+	if err := prepararManifiestoCAPropiaPortalExterno(cfg.DevelopmentMaterialDir, destino); err != nil {
+		return resumen, err
+	}
 	var aliasPedidos seudonimosPortalExterno
 	if len(seudonimos) != 0 {
 		aliasPedidos, err = seudonimosAutorizadosPortalExterno(cfg, seudonimos, opciones.CuentasAutorizadas)
@@ -80,18 +89,7 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 			return resumen, err
 		}
 	}
-	raiz := cfg.DevelopmentMaterialDir
-	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(raiz, filepath.Join(raiz, config.DevelopmentIdempotencyHMACConfigRelativePath))
-	if err != nil {
-		return resumen, err
-	}
-	defer idempotencia.borrar()
-	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&idempotencia)
-	if err != nil {
-		return resumen, err
-	}
-	defer derivador.borrar()
-	base, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, time.Now())
+	base, err := prepararBasePropiaPortalExterno(destino, opciones.RotarRaizPreimagenSHA256, time.Now())
 	if err != nil {
 		return resumen, err
 	}
@@ -119,9 +117,6 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 		}
 	}()
 	for _, consumidor := range consumidoresPortalExternoV3 {
-		if !slices.Contains(consumidores, consumidor) {
-			continue
-		}
 		for _, audiencia := range audienciasConsumidorPortalExternoV3(consumidor) {
 			descriptor, ok := catalogo.descriptorPara(audiencia)
 			if !ok {
@@ -135,14 +130,27 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 			// que borrar cada material no deje a los demás sin ella.
 			derivado.privada = append(derivado.privada[:0:0], base.privada...)
 			derivado.spki = append([]byte(nil), base.spki...)
-			if err := publicarGobiernoAtestacionContratacionTemporalDesarrollo(ctxConexion, gobierno, &derivado); err != nil {
-				derivado.borrarCopiasEfimeras()
-				return resumen, err
-			}
 			publicados[consumidor] = append(publicados[consumidor], derivado)
-			resumen.Claves++
 		}
-		resumen.Consumidores = append(resumen.Consumidores, consumidor)
+	}
+	resumen, err = prepararPublicacionV3PortalExterno(ctxConexion, gobierno, publicados, opciones)
+	if err != nil || resumen.PendientePublicacion {
+		return resumen, err
+	}
+	seleccionados := map[string][]materialAtestacionContratacionTemporalDesarrollo{}
+	if previa, err := leerInventarioV3PortalExterno(destino); err == nil {
+		for consumidor := range previa.Consumidores {
+			if !slices.Contains(consumidores, consumidor) {
+				consumidores = append(consumidores, consumidor)
+			}
+		}
+	}
+	for _, consumidor := range consumidoresPortalExternoV3 {
+		if slices.Contains(consumidores, consumidor) {
+			seleccionados[consumidor] = publicados[consumidor]
+			resumen.Claves += len(publicados[consumidor])
+			resumen.Consumidores = append(resumen.Consumidores, consumidor)
+		}
 	}
 	// Alias de las cuentas del Área personal, calculados por el propio
 	// proceso externo con su clave (ExportarSeudonimosPortalExterno).
@@ -160,7 +168,7 @@ func PrepararMaterialPortalExterno(ctx context.Context, cfg config.Config, opcio
 		}
 		resumen.Alias = len(aliasPedidos.Cuentas)
 	}
-	if err := escribirMaterialV3PortalExterno(destino, publicados); err != nil {
+	if err := escribirMaterialV3PortalExterno(destino, seleccionados); err != nil {
 		return resumen, err
 	}
 	// Relectura: lo escrito debe poder cargarse tal cual.

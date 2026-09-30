@@ -431,3 +431,5 @@ static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css
 static/portal-empleado/modulos/contratacion-temporal/analisis-catalogo.css
 static/textos/es/bolsas-publicas.json
 static/textos/en/bolsas-publicas.json
+static/textos/es/avisos-externos.json
+static/textos/en/avisos-externos.json

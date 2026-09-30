@@ -236,7 +236,7 @@ func validarResultado(r puertosbolsa.InstantaneaMiBolsa, ahora time.Time) error 
 			}
 		}
 		if l := p.UltimoLlamamiento; l != nil {
-			if l.EmitidoEn.IsZero() || l.EmitidoEn.After(ahora) || l.Canal != "correo" || (l.Resultado != "enviado" && l.Resultado != "no_enviado") {
+			if l.EmitidoEn.IsZero() || l.EmitidoEn.After(ahora) || l.Canal != "correo" || (l.Resultado != "enviado" && l.Resultado != "no_enviado" && l.Resultado != "aviso_pendiente") {
 				return puertosbolsa.ErrResultadoMiBolsaInvalido
 			}
 		}

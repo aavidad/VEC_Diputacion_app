@@ -28,7 +28,7 @@ func (r *RepositorioContactoParticipacionPostgreSQL) ParticipacionPerteneceABols
 	return s.ParticipacionPerteneceABolsa(ctx, bolsa, participacion)
 }
 func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx context.Context, c ports.ComandoRegistrarContactoParticipacion) (ports.RegistroContactoParticipacion, error) {
-	if r == nil || r.pool == nil || ctx == nil || c.Contacto.Validar() != nil || c.ClaveIdempotencia == "" || c.ReciboRef == "" || c.Material.ValidarEstructura() != nil {
+	if r == nil || r.pool == nil || ctx == nil || c.Contacto.Validar() != nil || c.Contacto.Resultado == dominiobolsa.ResultadoContactoAvisoPendiente || c.ClaveIdempotencia == "" || c.ReciboRef == "" || c.Material.ValidarEstructura() != nil {
 		return ports.RegistroContactoParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})

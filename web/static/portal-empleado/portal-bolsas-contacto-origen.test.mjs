@@ -86,6 +86,10 @@ test("el contrato de emisión admite solo avisos de contacto válidos", () => {
     configuracion: Object.fromEntries(["referencia", "descripcion", "categoria", "centro", "modalidad", "fecha_inicio", "plazo", "plantilla_version", "asunto", "cuerpo"].map((c) => [c, "valor"])),
   });
   assert.doesNotThrow(() => validarEmisionLlamamiento(base()));
+  const conPendiente = { ...base(), contactos: [{ participacion_ref: "participacion:1", resultado: "aviso_pendiente", recibo_ref: `recibo_outbox:${"c".repeat(64)}` }] };
+  assert.equal(validarEmisionLlamamiento(conPendiente).contactos[0].resultado, "aviso_pendiente");
+  assert.throws(() => validarEmisionLlamamiento({ ...conPendiente, contactos: [{ ...conPendiente.contactos[0], resultado: "entregado" }] }));
+
   const conAviso = { ...base(), avisos_contacto: [{ participacion_ref: "participacion:1", aviso: "contacto_origen_convoca_no_confirmado", ultimo_dia: "2027-09-28" }] };
   assert.doesNotThrow(() => validarEmisionLlamamiento(conAviso));
   assert.throws(() => validarEmisionLlamamiento({ ...base(), avisos_contacto: [{ participacion_ref: "participacion:9", aviso: "contacto_origen_convoca_no_confirmado" }] }));

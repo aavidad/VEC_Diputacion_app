@@ -1,0 +1,21 @@
+{
+  "usuarios": {
+    "avisos_externos": {
+      "asunto": "Aviso de llamamiento en VEC",
+      "cuerpo": "Tiene un aviso de llamamiento. Consulte su área personal para revisar la información y los pasos que correspondan: {portal}\n\nEste correo es un aviso. No acredita la entrega de una notificación administrativa."
+    }
+  },
+  "areaPersonal": {
+    "miBolsa": {
+      "llamamiento": {
+        "aviso_pendiente": "Aviso preparado; envío sin confirmar"
+      },
+      "historial": {
+        "aviso_pendiente": "Aviso preparado; envío sin confirmar"
+      }
+    }
+  },
+  "portal": {
+    "panel_aviso_pendiente": "Aviso preparado; envío sin confirmar"
+  }
+}

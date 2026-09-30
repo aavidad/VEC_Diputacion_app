@@ -65,7 +65,7 @@ export function validarHistorialMiBolsa(entrada, paginaSolicitada) {
       if (item.modalidad_clave !== null) texto(item.modalidad_clave, "modalidad_clave", 80);
     } else if (item.clase === "llamamiento") {
       clavesExactas(item, [...comunes, "canal", "resultado"], "llamamiento");
-      if (item.canal !== "correo" || !["enviado", "no_enviado"].includes(item.resultado)) throw new TypeError("Llamamiento no válido.");
+      if (item.canal !== "correo" || !["enviado", "no_enviado", "aviso_pendiente"].includes(item.resultado)) throw new TypeError("Llamamiento no válido.");
     } else {
       clavesExactas(item, [...comunes, "respuesta", "modo", "estado"], "renuncia");
       if (!["renuncia", "renuncia_justificada"].includes(item.respuesta) || !["firme", "propuesta_rrhh"].includes(item.modo) || !["respuesta_registrada", "propuesta_pendiente_rrhh"].includes(item.estado)) throw new TypeError("Renuncia no válida.");
