@@ -19,6 +19,7 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
@@ -231,6 +232,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarFirmaDocumento(ctx context.Context
 		if ctx.Err() != nil {
 			return vacia, ctx.Err()
 		}
+		if errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	material, err := f.alta.postgresql.proveedorMaterialFirmaDocumento.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion, motivo, operativo.Resultado)
@@ -257,7 +262,15 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx contex
 	}
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
-	if !valida || !rutaFirmaDocumentoCTDesarrollo(capacidad.ruta) || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil {
+	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
+	if !valida || !rutaFirmaDocumentoCTDesarrollo(capacidad.ruta) || perfil == nil {
+		return vacia, ports.ErrFirmaDocumentoDenegada
+	}
+	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+	if estadoPerfil == perfilFijoConsumoFuenteNoDisponible {
+		return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+	}
+	if estadoPerfil != perfilFijoConsumoVigente {
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	recurso, err := consultafirmas.RecursoConsultaFirmasDocumento(m)
@@ -266,6 +279,9 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx contex
 	}
 	operativo, err := s.contextoOperativoDesarrollo(ctx)
 	if err != nil {
+		if errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridadvec.GeneradorReferenciasCriptograficas{})
@@ -290,6 +306,10 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx contex
 	if err != nil {
 		if ctx.Err() != nil {
 			return vacia, ctx.Err()
+		}
+		if errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
 		}
 		return vacia, ports.ErrFirmaDocumentoDenegada
 	}
