@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -169,5 +170,15 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	cfg.Entorno = "produccion"
 	if _, err := NuevoServidor(cfg); !errors.Is(err, ErrConfiguracion) {
 		t.Fatal("produccion sin Kerberos arranco")
+	}
+	cfg.Entorno = "cidonia"
+	cfg.CertificadoServidor = filepath.Join(dir, "certificado-privado-inexistente.crt")
+	_, err = NuevoServidor(cfg)
+	var rutaErr *os.PathError
+	if !errors.Is(err, ErrConfiguracion) || !errors.As(err, &rutaErr) {
+		t.Fatalf("causa TLS no conservada: %v", err)
+	}
+	if strings.Contains(err.Error(), dir) || strings.Contains(err.Error(), "certificado-privado") {
+		t.Fatal("ruta privada filtrada en diagnostico")
 	}
 }
