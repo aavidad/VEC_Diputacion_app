@@ -44,17 +44,17 @@ DECLARE
     cierre_roles text := E'           )\n       ) THEN\n        RAISE EXCEPTION USING\n            ERRCODE = ''42501'',\n            MESSAGE = ''consumo VEC-AD-3 rechazado'';';
     rol_nuevo text := $x$           OR (
                p_perfil_mutacion IS NOT DISTINCT FROM 'lectura_categorias'
-               AND (SELECT count(*) FROM pg_auth_members m JOIN pg_roles g ON g.oid=m.roleid
-                    WHERE m.member=session_user::regrole
+               AND (SELECT count(*) FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid
+                    WHERE m.member=session_user::pg_catalog.regrole
                       AND g.rolname IN ('vec_contratacion_temporal_ejecutor','vec_bolsa_llamamientos_ejecutor','vec_personal_ejecutor')
                       AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option
                       AND pg_catalog.pg_has_role(session_user,g.oid,'MEMBER'))=1
-               AND (SELECT count(*) FROM pg_auth_members m WHERE m.member=session_user::regrole)=1
-               AND NOT EXISTS (SELECT 1 FROM pg_auth_members m
-                    WHERE m.member IN ('vec_contratacion_temporal_ejecutor'::regrole,
-                                       'vec_bolsa_llamamientos_ejecutor'::regrole,
-                                       'vec_personal_ejecutor'::regrole))
-               AND NOT EXISTS (SELECT 1 FROM pg_roles r WHERE left(r.rolname,4)='vec_'
+               AND (SELECT count(*) FROM pg_catalog.pg_auth_members m WHERE m.member=session_user::pg_catalog.regrole)=1
+               AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
+                    WHERE m.member IN ('vec_contratacion_temporal_ejecutor'::pg_catalog.regrole,
+                                       'vec_bolsa_llamamientos_ejecutor'::pg_catalog.regrole,
+                                       'vec_personal_ejecutor'::pg_catalog.regrole))
+               AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE pg_catalog.left(r.rolname,4)='vec_'
                     AND r.rolname<>session_user
                     AND r.rolname NOT IN ('vec_contratacion_temporal_ejecutor','vec_bolsa_llamamientos_ejecutor','vec_personal_ejecutor')
                     AND pg_catalog.pg_has_role(session_user,r.oid,'MEMBER'))
@@ -227,7 +227,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.listar_categorias_habilitadas_rpt_v
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
 DECLARE
-    a record; r jsonb; pub jsonb; doc jsonb; catalogo text; modulo text; limite integer;
+    a record; r jsonb; pub jsonb; doc jsonb; respuesta jsonb; catalogo text; modulo text; limite integer;
 BEGIN
     IF p_material IS NULL OR pg_catalog.jsonb_typeof(p_material)<>'object' THEN
         RAISE EXCEPTION 'AD3-117: lista invalida' USING ERRCODE='22023';
@@ -269,12 +269,16 @@ BEGIN
             END IF;
         END LOOP;
     END IF;
-    RETURN pg_catalog.jsonb_build_object(
+    respuesta := pg_catalog.jsonb_build_object(
         'decision_ref',a.decision_ref,'efecto_ref',a.efecto_ref,
         'huella_efecto_sha256',a.huella_efecto_sha256,
         'consumo_huella_sha256',a.consumo_huella_sha256,'auditoria_ref',a.auditoria_ref,
         'consumida_en',pg_catalog.to_char(a.consumida_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
         'consumo_nuevo',a.consumo_nuevo,'encontrado',(r->>'encontrado')::boolean,'datos',r->'datos');
+    IF pg_catalog.octet_length(respuesta::text)>50331648 THEN
+        RAISE EXCEPTION 'AD3-117: pagina excede presupuesto de respuesta' USING ERRCODE='54000';
+    END IF;
+    RETURN respuesta;
 END $f$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada(
@@ -292,10 +296,13 @@ BEGIN
     IF (SELECT count(*) FROM pg_catalog.jsonb_object_keys(p_material))<>5
        OR p_material->>'catalogo_id' IS NULL OR p_material->>'catalogo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
        OR p_material->>'modulo_id' IS NULL OR p_material->>'modulo_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
-       OR p_material->>'version' IS NULL OR p_material->>'version' !~ '^[1-9][0-9]{0,8}$'
+       OR p_material->>'version' IS NULL OR p_material->>'version' !~ '^[1-9][0-9]{0,9}$'
        OR p_material->>'huella_sha256' IS NULL OR p_material->>'huella_sha256' !~ '^[0-9a-f]{64}$'
        OR p_material->>'categoria_id' IS NULL OR p_material->>'categoria_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$' THEN
         RAISE EXCEPTION 'AD3-117: historia invalida' USING ERRCODE='22023';
+    END IF;
+    IF (p_material->>'version')::numeric>2147483647 THEN
+        RAISE EXCEPTION 'AD3-117: version historica fuera de rango' USING ERRCODE='22023';
     END IF;
     catalogo := p_material->>'catalogo_id'; modulo := p_material->>'modulo_id';
     SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.autorizar_lectura_categorias_rpt_v3_interna(

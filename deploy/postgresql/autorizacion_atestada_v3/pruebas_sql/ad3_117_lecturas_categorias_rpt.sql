@@ -4,6 +4,7 @@
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 DO $prueba$
@@ -12,6 +13,7 @@ DECLARE
     helper regprocedure := 'vec_autorizacion_atestada_v3.autorizar_lectura_categorias_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
     rol text;
     x record;
+    mensaje text;
     material jsonb := '{"catalogo_id":"rpt-demo","modulo_id":"personal","cursor_categoria_id":null,"limite":1}'::jsonb;
 BEGIN
     IF pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor',helper,'EXECUTE')
@@ -77,6 +79,41 @@ BEGIN
             NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
         RAISE EXCEPTION 'AD3-117: consumidor ajeno admitido';
     EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada(
+            pg_catalog.jsonb_build_object('catalogo_id','rpt-demo','modulo_id','personal',
+                'version',2147483647,'huella_sha256',pg_catalog.repeat('0',64),'categoria_id','cat-demo'),
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: version maxima sin V3 admitida';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.leer_publicacion_categoria_rpt_v3_atestada(
+            pg_catalog.jsonb_build_object('catalogo_id','rpt-demo','modulo_id','personal',
+                'version',2147483648,'huella_sha256',pg_catalog.repeat('0',64),'categoria_id','cat-demo'),
+            NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: version fuera de integer admitida';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
+    -- pg_temp se antepone a pg_catalog para relaciones sin cualificar. Un
+    -- ejecutor no puede falsear las filas de membresia de la rama nueva.
+    CREATE TEMP TABLE pg_auth_members(member oid,roleid oid,admin_option boolean,
+        inherit_option boolean,set_option boolean) ON COMMIT DROP;
+    CREATE TEMP TABLE pg_roles(oid oid,rolname name) ON COMMIT DROP;
+    INSERT INTO pg_temp.pg_auth_members VALUES
+        (session_user::pg_catalog.regrole,'vec_contratacion_temporal_ejecutor'::pg_catalog.regrole,false,true,false);
+    INSERT INTO pg_temp.pg_roles VALUES
+        ('vec_contratacion_temporal_ejecutor'::pg_catalog.regrole,'vec_contratacion_temporal_ejecutor');
+    BEGIN
+        PERFORM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
+            'lectura_categorias',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+        RAISE EXCEPTION 'AD3-117: pg_temp falsifico membresia';
+    EXCEPTION WHEN SQLSTATE '42501' THEN
+        GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+        IF mensaje<>'consumo VEC-AD-3 rechazado' THEN
+            RAISE EXCEPTION 'AD3-117: rechazo posterior no prueba aislamiento de pg_temp';
+        END IF;
     END;
 END $prueba$;
 ROLLBACK;

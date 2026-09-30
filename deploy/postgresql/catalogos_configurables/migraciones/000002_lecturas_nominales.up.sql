@@ -39,7 +39,8 @@ DECLARE
     total integer := 0;
     bytes_usados bigint := 0;
     hay_mas boolean := false;
-    presupuesto constant bigint := 50331648; -- 48 MiB; admite un canon de 16 MiB y su entrada.
+    -- La fachada AD3 agrega un recibo: se reserva 4 KiB dentro de 48 MiB.
+    presupuesto constant bigint := 50327552;
     resultado jsonb;
     documento_base text;
     version_base integer;
