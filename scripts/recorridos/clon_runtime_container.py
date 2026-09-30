@@ -332,8 +332,15 @@ def build_image(state, source_commit):
     with tempfile.TemporaryDirectory(prefix='runtime-image-', dir=state) as context_name:
         context = Path(context_name)
         (context / 'home/runtime').mkdir(parents=True, mode=0o755)
+        # COPY owns these public synthetic fixtures as root in the image. Go's
+        # CGO0 os/user lookup must read passwd as the unprivileged runtime UID,
+        # independently of the operator's private umask (normally 0077).
+        (context / 'home').chmod(0o755)
+        (context / 'home/runtime').chmod(0o755)
         (context / 'passwd').write_text(f'runtime:x:{uid}:{gid}:runtime:{HOME}:/nonexistent\n')
         (context / 'group').write_text(f'runtime:x:{gid}:\n')
+        (context / 'passwd').chmod(0o644)
+        (context / 'group').chmod(0o644)
         (context / 'Dockerfile').write_text(
             'FROM scratch\nCOPY passwd /etc/passwd\nCOPY group /etc/group\n'
             'COPY home /home\n' + f'USER {uid}:{gid}\n' + f'ENV HOME={HOME} TMPDIR=/tmp TZ=UTC\n')

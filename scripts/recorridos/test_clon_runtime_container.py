@@ -499,13 +499,19 @@ class ContainerBoundaryTests(unittest.TestCase):
                 self.assertNotIn(str(self.binary), dockerfile)
                 self.assertEqual(list((context / 'home/runtime').iterdir()), [])
                 self.assertIn(f':{os.getuid()}:{os.getgid()}:', (context / 'passwd').read_text())
+                for name, mode in [('passwd', 0o644), ('group', 0o644), ('home', 0o755), ('home/runtime', 0o755)]:
+                    self.assertEqual((context / name).stat().st_mode & 0o777, mode)
                 Path(args[args.index('--iidfile') + 1]).write_text(self.image_id)
                 return ''
             return json.dumps([{'Id': self.image_id, 'Config': {'Labels': {runtime.PREFIX + 'owner': runtime.OWNER,
                                 runtime.PREFIX + 'state': str(self.state), runtime.PREFIX + 'source': self.commit}},
                                 'RootFS': {'Type': 'layers'}}])
-        with patch.object(runtime, 'docker', side_effect=fake):
-            self.assertEqual(runtime.build_image(self.state, self.commit), self.image_id)
+        private_umask = os.umask(0o077)
+        try:
+            with patch.object(runtime, 'docker', side_effect=fake):
+                self.assertEqual(runtime.build_image(self.state, self.commit), self.image_id)
+        finally:
+            os.umask(private_umask)
         self.assertIn('--pull=false', calls[0])
         self.assertIn('--network=none', calls[0])
 
