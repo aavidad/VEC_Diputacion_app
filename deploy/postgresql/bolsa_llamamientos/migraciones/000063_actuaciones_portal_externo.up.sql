@@ -2,7 +2,7 @@
 -- B63: actuaciones exteriores propias. No mueve historia ni cambia orden/reglas.
 -- Despliegue funcional requiere B64 para consumidores y bloqueo de efectos RRHH.
 BEGIN;
-SET LOCAL search_path=pg_catalog;
+SET LOCAL search_path=pg_catalog,pg_temp;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='60s';
@@ -62,7 +62,7 @@ BEGIN
  END LOOP;
 END $proteccion$;
 CREATE FUNCTION vec_bolsa_llamamientos.serializar_contexto_participacion_externa_v1()
-RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:contexto_externo:v1',0));
  UPDATE vec_bolsa_llamamientos.control_contexto_participacion_externa_v1 SET generacion=generacion+1 WHERE control_id=true;
@@ -71,7 +71,7 @@ BEGIN
 END $f$;
 CREATE TRIGGER serializar BEFORE INSERT OR UPDATE OR DELETE ON vec_bolsa_llamamientos.contexto_participacion_externa_actual FOR EACH STATEMENT EXECUTE FUNCTION vec_bolsa_llamamientos.serializar_contexto_participacion_externa_v1();
 CREATE FUNCTION vec_bolsa_llamamientos.huella_contexto_participacion_externa_v1(p_documento jsonb,p_version bigint)
-RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $f$
  SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.jsonb_build_array(p_documento,p_version)::text,'UTF8')),'hex')
 $f$;
 ALTER TABLE vec_bolsa_llamamientos.contexto_participacion_externa_versiones
@@ -81,12 +81,12 @@ ALTER TABLE vec_bolsa_llamamientos.contexto_participacion_externa_versiones
  AND documento->>'perfil_ref'=perfil_ref AND documento->>'contexto_actor_ref'=contexto_actor_ref
  AND huella_sha256=vec_bolsa_llamamientos.huella_contexto_participacion_externa_v1(documento,version));
 CREATE FUNCTION vec_bolsa_llamamientos.preimagen_contexto_participacion_externa_v1(p_participacion_ref text)
-RETURNS TABLE(version bigint,huella_sha256 text) LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS TABLE(version bigint,huella_sha256 text) LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
  SELECT v.version,v.huella_sha256 FROM vec_bolsa_llamamientos.contexto_participacion_externa_actual a JOIN vec_bolsa_llamamientos.contexto_participacion_externa_versiones v USING(participacion_ref,version) WHERE a.participacion_ref=p_participacion_ref
 $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.publicar_contexto_participacion_externa_v1(p_documento jsonb,p_version_esperada bigint,p_huella_esperada text,p_huella_aprobada text)
 RETURNS TABLE(participacion_ref text,version bigint,huella_sha256 text)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE d jsonb:=p_documento; anterior record; nueva bigint; h text; ahora timestamptz; k text;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
@@ -131,7 +131,7 @@ BEGIN
  RETURN QUERY SELECT d->>'participacion_ref',nueva,h;
 END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.exigir_contexto_participacion_externa_v1(p_candidato text,p_participacion text,p_contexto bytea)
-RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE v record; x jsonb; ahora timestamptz;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off' THEN RAISE EXCEPTION 'contexto exterior requiere serializable' USING ERRCODE='25000'; END IF;
@@ -165,7 +165,7 @@ REVOKE ALL ON TYPE vec_bolsa_llamamientos.confirmacion_contacto_participacion_le
 -- Las claves agregadas son las mismas del carril histórico. Se comprueba
 -- la otra historia bajo ese mismo cerrojo, también ante inserción interna.
 CREATE FUNCTION vec_bolsa_llamamientos.rechazar_colision_actuacion_externa_v1()
-RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
+RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  IF TG_TABLE_NAME IN('solicitud_portal_candidato_externa','respuesta_portal_llamamiento_externa') THEN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:portal:'||NEW.participacion_ref,0));
@@ -194,7 +194,7 @@ DO $colisiones$ DECLARE t text; BEGIN
  END LOOP;
 END $colisiones$;
 CREATE FUNCTION vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1()
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  IF session_user<>'vec_externo_bolsa_desarrollo' OR current_setting('role')<>'none'
     OR NOT EXISTS(SELECT 1 FROM pg_catalog.pg_roles l WHERE l.rolname=session_user AND l.rolcanlogin AND l.rolinherit AND NOT l.rolsuper AND NOT l.rolcreatedb AND NOT l.rolcreaterole AND NOT l.rolreplication AND NOT l.rolbypassrls AND l.rolconfig IS NULL)
@@ -207,7 +207,7 @@ BEGIN
   RAISE EXCEPTION 'runtime exterior de Bolsa no acreditado' USING ERRCODE='42501'; END IF;
 END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.anotar_consumo_candidato_externo_v1(p_ambito text,p_candidato_ref text,p_dato text)
-RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE firma text;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
@@ -218,7 +218,7 @@ BEGIN
  PERFORM pg_catalog.set_config('vec_bolsa_llamamientos.marca_consumo_portal_externo',pg_catalog.concat_ws(pg_catalog.chr(31),p_ambito,p_candidato_ref,p_dato,firma),true);
 END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.exigir_consumo_candidato_externo_v1(p_ambitos text[],p_candidato_ref text)
-RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 DECLARE partes text[]; xid pg_catalog.xid8; esperado text;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
@@ -231,7 +231,7 @@ BEGIN
  RETURN partes[3];
 END $f$;
 CREATE FUNCTION vec_bolsa_llamamientos.exigir_integridad_portal_externo_v1(p_candidato text)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $f$
 BEGIN
  IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.solicitud_portal_candidato_lectura_portal_externa_v1 s WHERE s.candidato_ref=p_candidato GROUP BY s.participacion_ref,s.clave_idempotencia HAVING count(*)>1)
     OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.respuesta_portal_llamamiento_lectura_portal_externa_v1 s WHERE s.candidato_ref=p_candidato GROUP BY s.participacion_ref,s.clave_idempotencia HAVING count(*)>1)
@@ -245,7 +245,7 @@ END $f$;
 -- Fuente mínima privada; B62 ampliará esta fuente, sin cambiar las fachadas.
 CREATE FUNCTION vec_bolsa_llamamientos.ultimo_aviso_portal_externo_v1(p_participacion_ref text,p_bolsa_ref text,p_corte timestamptz)
 RETURNS TABLE(llamamiento_ref text,emitido_en timestamptz,resultado text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $aviso$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $aviso$
  SELECT l.llamamiento_ref,l.emitido_en,contacto.resultado
      FROM vec_bolsa_llamamientos.llamamiento_emitido l
      JOIN vec_bolsa_llamamientos.contacto_participacion contacto
@@ -264,7 +264,7 @@ $aviso$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.ultimo_aviso_portal_externo_v1(text,text,timestamptz) FROM PUBLIC,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
 CREATE FUNCTION vec_bolsa_llamamientos.entradas_llamamiento_portal_externo_v1(p_candidato_ref text,p_corte timestamptz)
 RETURNS TABLE(ocurrido_en timestamptz,orden_interno text,item jsonb)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $aviso$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $aviso$
  WITH propias AS MATERIALIZED (
   SELECT participacion_ref,bolsa_ref,categoria_ref FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref)
  )
@@ -297,7 +297,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente confirmar_contacto_propio_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.confirmar_contacto_propio_externo_v1(p_candidato_ref text, p_bolsa_ref text, p_version bigint, p_clave text, p_recibo_ref text, p_confirmada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS TABLE(reutilizada boolean, recibo_ref text, version bigint, confirmada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET TimeZone='UTC' SET lock_timeout='2s' AS $b63$
+RETURNS TABLE(reutilizada boolean, recibo_ref text, version bigint, confirmada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' SET lock_timeout='2s' AS $b63$
 DECLARE c jsonb; d jsonb; x jsonb; n integer; v_participacion text; v_consumo record;
  v_previa vec_bolsa_llamamientos.confirmacion_contacto_participacion_externa%ROWTYPE;
  v_accion constant text := 'bolsa.participaciones_propias.confirmar_contacto';
@@ -361,7 +361,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente consultar_historial_mi_bolsa_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_historial_mi_bolsa_externo_v1(p_candidato_ref text, p_consultada_en timestamp with time zone, p_pagina integer, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET lock_timeout='2s' SET statement_timeout='15s' AS $b63$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' SET statement_timeout='15s' AS $b63$
 DECLARE c jsonb; d jsonb; x jsonb; v_n integer; v_consumo record;
  v_items jsonb; v_hay_mas boolean;
 BEGIN
@@ -456,7 +456,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente consultar_mi_bolsa_portal_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_mi_bolsa_portal_externo_v1(p_candidato_ref text, p_consultada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET lock_timeout='2s' AS $b63$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $b63$
 DECLARE v jsonb;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
@@ -476,7 +476,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente consultar_mi_bolsa_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.consultar_mi_bolsa_externo_v1(p_candidato_ref text, p_consultada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET lock_timeout='2s' SET statement_timeout='15s' AS $b63$
+RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' SET statement_timeout='15s' AS $b63$
 DECLARE c jsonb; d jsonb; x jsonb; v_candidatos integer;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
@@ -562,7 +562,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente exigir_portal_candidato_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.exigir_portal_candidato_externo_v1(p_candidato_ref text, p_bolsa_ref text, p_accion text, p_capacidad bytea, p_decision bytea, p_contexto bytea)
-RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
 DECLARE c jsonb; d jsonb; x jsonb; n integer;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_candidato_ref IS NULL OR p_candidato_ref !~ '^can_[A-Za-z0-9_-]{22,128}$' THEN
@@ -592,7 +592,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente leer_contacto_candidato_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.leer_contacto_candidato_externo_v1(p_candidato_ref text, p_corte timestamp with time zone)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='pg_catalog' SET TimeZone='UTC' AS $b63$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $b63$
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
  PERFORM vec_bolsa_llamamientos.exigir_consumo_candidato_externo_v1(ARRAY['consulta'], p_candidato_ref);
@@ -623,7 +623,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente leer_portal_candidato_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.leer_portal_candidato_externo_v1(p_candidato_ref text, p_corte timestamp with time zone, p_resultados_efectivos text[])
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
  PERFORM vec_bolsa_llamamientos.exigir_consumo_candidato_externo_v1(ARRAY['consulta','responder'], p_candidato_ref);
@@ -660,7 +660,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente listar_ofertas_candidato_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.listar_ofertas_candidato_externo_v1(p_candidato_ref text, p_corte timestamp with time zone)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path='pg_catalog' SET TimeZone='UTC' AS $b63$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $b63$
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
  PERFORM vec_bolsa_llamamientos.exigir_consumo_candidato_externo_v1(ARRAY['consulta'], p_candidato_ref);
@@ -703,7 +703,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente llamamiento_abierto_portal_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.llamamiento_abierto_portal_externo_v1(p_participacion_ref text, p_corte timestamp with time zone, p_resultados_efectivos text[])
-RETURNS TABLE(llamamiento_ref text, contacto_en timestamp with time zone) LANGUAGE sql STABLE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS TABLE(llamamiento_ref text, contacto_en timestamp with time zone) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
  SELECT l.llamamiento_ref, ct.instante
    FROM (SELECT e.llamamiento_ref, e.emitido_en
            FROM vec_bolsa_llamamientos.llamamiento_emitido e
@@ -730,7 +730,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente manifestar_disposicion_oferta_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.manifestar_disposicion_oferta_externo_v1(p_oferta_ref text, p_recibo_ref text, p_candidato_ref text, p_clave text, p_manifestada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS TABLE(reutilizada boolean, recibo_ref text, oferta_ref text, manifestada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET TimeZone='UTC' SET lock_timeout='2s' AS $b63$
+RETURNS TABLE(reutilizada boolean, recibo_ref text, oferta_ref text, manifestada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' SET lock_timeout='2s' AS $b63$
 DECLARE c jsonb; d jsonb; x jsonb; n integer; o vec_bolsa_llamamientos.oferta_publicada%ROWTYPE;
  v_participacion text; v_previa vec_bolsa_llamamientos.disposicion_oferta_externa%ROWTYPE; v_consumo record;
  v_accion constant text := 'bolsa.participaciones_propias.manifestar_disposicion';
@@ -801,7 +801,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente preparar_respuesta_portal_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.preparar_respuesta_portal_externo_v1(p_candidato_ref text, p_bolsa_ref text, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET lock_timeout='2s' AS $b63$
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $b63$
 DECLARE v_consumo record;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
@@ -828,7 +828,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente registrar_confirmacion_contacto_interna_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_confirmacion_contacto_externa_interna_v1(p_candidato_ref text, p_bolsa_ref text, p_participacion_ref text, p_version bigint, p_clave text, p_recibo_ref text, p_confirmada_en timestamp with time zone, p_decision_ref text)
-RETURNS TABLE(reutilizada boolean, recibo_ref text, version bigint, confirmada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS TABLE(reutilizada boolean, recibo_ref text, version bigint, confirmada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
 DECLARE v_vigente bigint;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_version IS NULL OR p_version < 1 OR p_confirmada_en IS NULL OR p_decision_ref IS NULL
@@ -861,7 +861,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente registrar_disposicion_oferta_interna_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_disposicion_oferta_externa_interna_v1(p_oferta_ref text, p_recibo_ref text, p_candidato_ref text, p_participacion_ref text, p_clave text, p_manifestada_en timestamp with time zone, p_decision_ref text)
-RETURNS TABLE(reutilizada boolean, recibo_ref text, oferta_ref text, manifestada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS TABLE(reutilizada boolean, recibo_ref text, oferta_ref text, manifestada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
 DECLARE o vec_bolsa_llamamientos.oferta_publicada%ROWTYPE;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_manifestada_en IS NULL OR p_decision_ref IS NULL
@@ -898,7 +898,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente registrar_respuesta_portal_interna_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_respuesta_portal_externa_interna_v1(p_respuesta_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_participacion_ref text, p_respuesta text, p_causa text, p_justificante_ref text, p_justificante_sha256 text, p_modo text, p_contacto_en timestamp with time zone, p_vence_antes_de timestamp with time zone, p_resultados_efectivos text[], p_regla_ref text, p_clave text, p_respondida_en timestamp with time zone, p_decision_ref text)
-RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamp with time zone, modo text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamp with time zone, modo text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
 DECLARE v_abierto record;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_respuesta NOT IN ('acepta','renuncia','renuncia_justificada')
@@ -937,7 +937,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente registrar_solicitud_portal_interna_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_solicitud_portal_externa_interna_v1(p_solicitud_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_participacion_ref text, p_tipo text, p_pausa_hasta timestamp with time zone, p_pausa_maxima timestamp with time zone, p_situaciones_admitidas text[], p_regla_ref text, p_clave text, p_registrada_en timestamp with time zone, p_decision_ref text)
-RETURNS TABLE(reutilizada boolean, solicitud_ref text, recibo_ref text, registrada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' AS $b63$
+RETURNS TABLE(reutilizada boolean, solicitud_ref text, recibo_ref text, registrada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $b63$
 DECLARE v_situacion text;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_tipo NOT IN ('pausa','reactivacion') OR p_registrada_en IS NULL
@@ -975,7 +975,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente responder_llamamiento_portal_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.responder_llamamiento_portal_externo_v1(p_respuesta_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_respuesta text, p_causa text, p_justificante_ref text, p_justificante_sha256 text, p_modo text, p_contacto_en timestamp with time zone, p_vence_antes_de timestamp with time zone, p_resultados_efectivos text[], p_regla_ref text, p_clave text, p_respondida_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamp with time zone, modo text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET lock_timeout='2s' AS $b63$
+RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamp with time zone, modo text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $b63$
 DECLARE v_participacion text; v_previa vec_bolsa_llamamientos.respuesta_portal_llamamiento_externa%ROWTYPE; v_consumo record;
  v_dato text; v_decision_ref text;
 BEGIN
@@ -1034,7 +1034,7 @@ BEGIN
   RAISE EXCEPTION 'B63: fuente solicitar_portal_candidato_v1 divergente' USING ERRCODE='55000'; END IF;
 END $fuente$;
 CREATE FUNCTION vec_bolsa_llamamientos.solicitar_portal_candidato_externo_v1(p_solicitud_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_tipo text, p_pausa_hasta timestamp with time zone, p_pausa_maxima timestamp with time zone, p_situaciones_admitidas text[], p_regla_ref text, p_clave text, p_registrada_en timestamp with time zone, p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
-RETURNS TABLE(reutilizada boolean, solicitud_ref text, recibo_ref text, registrada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path='pg_catalog' SET lock_timeout='2s' AS $b63$
+RETURNS TABLE(reutilizada boolean, solicitud_ref text, recibo_ref text, registrada_en timestamp with time zone) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET lock_timeout='2s' AS $b63$
 DECLARE v_participacion text; v_previa vec_bolsa_llamamientos.solicitud_portal_candidato_externa%ROWTYPE; v_consumo record; v_accion text;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_runtime_bolsa_portal_externo_v1();
@@ -1174,6 +1174,10 @@ RESET ROLE;
 DO $postimagen$
 DECLARE grupo oid:='vec_bolsa_llamamientos_portal_externo'::regrole; n integer;
 BEGIN
+ IF EXISTS(SELECT 1 FROM pg_catalog.pg_proc p WHERE p.pronamespace='vec_bolsa_llamamientos'::regnamespace
+    AND p.proname=ANY(ARRAY['consultar_mi_bolsa_externo_v1','consultar_mi_bolsa_portal_externo_v1','consultar_historial_mi_bolsa_externo_v1','solicitar_portal_candidato_externo_v1','responder_llamamiento_portal_externo_v1','preparar_respuesta_portal_externo_v1','leer_portal_candidato_externo_v1','manifestar_disposicion_oferta_externo_v1','listar_ofertas_candidato_externo_v1','confirmar_contacto_propio_externo_v1','leer_contacto_candidato_externo_v1','ultimo_aviso_portal_externo_v1','entradas_llamamiento_portal_externo_v1'])
+    AND NOT coalesce(p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[],false)) THEN
+  RAISE EXCEPTION 'B63: search_path nuevo divergente' USING ERRCODE='55000'; END IF;
  SELECT count(*) INTO n FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.pronamespace='vec_bolsa_llamamientos'::regnamespace AND a.grantee=grupo;
  IF n<>11 OR EXISTS(SELECT 1 FROM pg_catalog.pg_proc p CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a WHERE p.pronamespace='vec_bolsa_llamamientos'::regnamespace AND a.grantee=grupo AND (p.proname !~ '_externo_v1$' OR a.privilege_type<>'EXECUTE' OR a.is_grantable)) THEN
   RAISE EXCEPTION 'B63: ACL nominal exterior incompatible' USING ERRCODE='55000'; END IF;

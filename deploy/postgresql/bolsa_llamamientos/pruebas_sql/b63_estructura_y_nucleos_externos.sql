@@ -108,5 +108,42 @@ BEGIN
     OR has_function_privilege(rol,'vec_bolsa_llamamientos.anotar_consumo_candidato_externo_v1(text,text,text)','EXECUTE')
     OR has_table_privilege(rol,'vec_bolsa_llamamientos.solicitud_portal_candidato_externa','SELECT,INSERT,UPDATE,DELETE,TRUNCATE') THEN RAISE EXCEPTION 'B63: privilegio exterior fuera del contrato'; END IF;
 END $acl$;
+-- El migrador coloca tipos y catálogos falsos en su propio espacio temporal;
+-- las fachadas nuevas deben resolver siempre los objetos de pg_catalog.
+CREATE TEMP TABLE sombra_b63(unico boolean);
+CREATE DOMAIN pg_temp.jsonb AS text;
+CREATE TEMP TABLE pg_roles(rolname text,rolcanlogin boolean,rolinherit boolean,rolsuper boolean,rolcreatedb boolean,rolcreaterole boolean,rolreplication boolean,rolbypassrls boolean,rolconfig text[]);
+DO $login$ BEGIN
+ IF to_regrole('vec_externo_bolsa_desarrollo') IS NULL THEN
+  CREATE ROLE vec_externo_bolsa_desarrollo LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  GRANT vec_bolsa_llamamientos_portal_externo TO vec_externo_bolsa_desarrollo WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+ END IF;
+END $login$;
+SET SESSION AUTHORIZATION vec_externo_bolsa_desarrollo;
+DO $frontera$
+DECLARE x pg_catalog.bytea:=pg_catalog.convert_to('{"persona_ref":"per_b63_persona_sintetica_00001","perfil_activo_ref":"prf_b63_perfil_sintetico_00001","contexto_actor_ref":"vca_b63_contexto_sintetico_0001","vinculos":[{"tipo":"candidato","estado":"activo","referencia":"can_b63_candidato_sintetico_0001"}]}','UTF8');
+BEGIN
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.manifestar_disposicion_oferta_externo_v1('oferta:'||pg_catalog.repeat('c',64),'recibo:disposicion:'||pg_catalog.repeat('4',64),'can_b63_candidato_sintetico_0001','clave-b63-frontera',pg_catalog.clock_timestamp(),
+   pg_catalog.convert_to('{"efecto_ref":"oferta:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","operacion":"bolsa.participaciones_propias.manifestar_disposicion"}','UTF8'),
+   pg_catalog.convert_to('{"recurso_ref":"oferta:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","accion":"bolsa.participaciones_propias.manifestar_disposicion","tipo_recurso":"oferta_bolsa"}','UTF8'),
+   '\x00'::pg_catalog.bytea,x,1,1,'\x00'::pg_catalog.bytea,'\x00'::pg_catalog.bytea,'\x00'::pg_catalog.bytea,'\x00'::pg_catalog.bytea);
+  RAISE EXCEPTION 'B63: fachada aceptó proyección revocada/material inexistente';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.leer_portal_candidato_externo_v1('can_b63_candidato_sintetico_0001',pg_catalog.clock_timestamp(),ARRAY['contactado']);
+  RAISE EXCEPTION 'B63: lector auxiliar sin marca exterior';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ PERFORM pg_catalog.set_config('vec_bolsa_llamamientos.marca_consumo_portal_externo','consulta'||pg_catalog.chr(31)||'can_b63_candidato_sintetico_0001'||pg_catalog.chr(31)||'falso'||pg_catalog.chr(31)||pg_catalog.repeat('0',64),true);
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.leer_portal_candidato_externo_v1('can_b63_candidato_sintetico_0001',pg_catalog.clock_timestamp(),ARRAY['contactado']);
+  RAISE EXCEPTION 'B63: marca exterior forjada válida';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.anotar_consumo_candidato_externo_v1('consulta','can_b63_candidato_sintetico_0001','falso');
+  RAISE EXCEPTION 'B63: runtime pudo firmar su propia marca';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $frontera$;
+RESET SESSION AUTHORIZATION;
 ROLLBACK;
 \echo B63-NUCLEOS-ACL-OK
