@@ -1,0 +1,365 @@
+{
+  "esquema": "vec.catalogos.rpt.correspondencias-demo.v1",
+  "version_esquema": 1,
+  "demostracion": true,
+  "origen": {
+    "archivo": "data/catalogos/categorias-profesionales/v1.demo.json",
+    "archivo_sha256": "c35b2c46084bc8f005059d4aab7992404d489727466d6e65cdaf6af367ab5663",
+    "catalogo_id": "categorias-profesionales",
+    "catalogo_version": 1,
+    "catalogo_revision": 1,
+    "fuente_revision": "opes-bop-inventario-publico-demo-v3",
+    "huella_canonica_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"
+  },
+  "destino": {
+    "archivo": "data/catalogos/rpt/v1.rpt-2026.json",
+    "archivo_sha256": "b0685beb5c02b8a30d5e0d6d3d9bceca11ddf76ad4987f4bcb1aa60ac7ebe9a8",
+    "esquema": "vec.catalogo.rpt.v1",
+    "fuente_importacion": "rpt-diputacion-granada-2026-05-07-generated-2026-06-20",
+    "fuente_documento": "Relación de Puestos de Trabajo de la Diputación de Granada 2026 (publicada), revisión 2026-05-07"
+  },
+  "aprobacion": null,
+  "gobierno": null,
+  "correspondencias": [
+    {
+      "origen_clave": "administrativo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-administrativo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "subalterno",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-de-administracion-general",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-de-gestion",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "analista",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "analista-programador",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "analista-de-laboratorio",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "arquitecto",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "arquitecto-tecnico",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-deportivo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-centros-sociales",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-informatica",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-integracion-social",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-obras",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-salud-ambiental",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-preimpresion",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-gestion-agua",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-archivo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-enfermeria",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-informatica",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-servicios-generales",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ayudante-tecnico-sanitario-due",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "cocinero",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "conductor",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "cuidador-tecnico-personas-dependientes",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "economista",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "educador",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "educador-social",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "encargado",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "fisioterapeuta",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingenieria-tecnica-industrial",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingenieria-tecnica-obras-publicas",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingeniero-industrial",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingeniero-tecnico-topografo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingeniero-tecnico-agricola",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingeniero-telecomunicaciones",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingeniero-caminos-canales-puertos",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "medico",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "medico-psiquiatra",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "medico-medicina-trabajo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "oficial-fontaneria",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "oficial-letrado",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "oficial-servicios-multiples",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "operario",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "operario-tractorista-grupo-5",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "psicologo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-medio-desarrollo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-medio-medio-ambiente",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-superior-archivo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-superior-ade",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-superior-desarrollo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-superior-gestion-presupuestaria",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-superior-servicios-culturales",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-medio-archivo-biblioteca",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-superior-deportes",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "terapeuta-ocupacional",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "trabajador-social",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "bombero",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-recaudacion-inspeccion-rentas",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-deportivo",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "auxiliar-tecnico-superior-operaciones-topograficas",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "ingenieria-agronoma",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-medio-igualdad",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "delineante",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "enfermeria",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "tecnico-medio-gestion-tributaria-recaudacion",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    },
+    {
+      "origen_clave": "agente-gestion-tributaria-recaudacion",
+      "destino_clave": null,
+      "estado": "pendiente_decision_rrhh"
+    }
+  ]
+}
