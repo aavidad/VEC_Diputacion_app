@@ -28,7 +28,12 @@ WITH target(key, signature) AS (
     LEFT JOIN pg_catalog.pg_proc p ON p.oid = pg_catalog.to_regprocedure(t.signature)
     LEFT JOIN pg_catalog.pg_roles r ON r.oid = p.proowner
 ), ct145_table AS (
-  SELECT CASE WHEN c.oid IS NULL THEN NULL ELSE
+  SELECT CASE WHEN c.oid IS NULL OR EXISTS (
+      SELECT 1 FROM pg_catalog.pg_policy p
+      CROSS JOIN LATERAL pg_catalog.unnest(p.polroles) u(role_oid)
+      LEFT JOIN pg_catalog.pg_roles r_policy ON r_policy.oid=u.role_oid
+      WHERE p.polrelid=c.oid AND u.role_oid<>0 AND r_policy.oid IS NULL
+    ) THEN NULL ELSE
     pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
       pg_catalog.jsonb_build_object(
         'owner', r.rolname,
@@ -53,7 +58,15 @@ WITH target(key, signature) AS (
           FROM pg_catalog.pg_index i WHERE i.indrelid=c.oid),
         'policies', (SELECT coalesce(pg_catalog.jsonb_agg(
           pg_catalog.jsonb_build_array(p.polname,p.polcmd,p.polpermissive,
-            p.polroles::text,pg_catalog.pg_get_expr(p.polqual,p.polrelid),
+            (SELECT coalesce(pg_catalog.jsonb_agg(
+                CASE WHEN u.role_oid=0 THEN pg_catalog.jsonb_build_array('PUBLIC')
+                     ELSE pg_catalog.jsonb_build_array('ROLE', r_policy.rolname) END
+                ORDER BY CASE WHEN u.role_oid=0 THEN 'PUBLIC' ELSE r_policy.rolname END,
+                         u.role_oid=0),
+                '[]'::jsonb)
+             FROM pg_catalog.unnest(p.polroles) u(role_oid)
+             LEFT JOIN pg_catalog.pg_roles r_policy ON r_policy.oid=u.role_oid),
+            pg_catalog.pg_get_expr(p.polqual,p.polrelid),
             pg_catalog.pg_get_expr(p.polwithcheck,p.polrelid)) ORDER BY p.polname), '[]'::jsonb)
           FROM pg_catalog.pg_policy p WHERE p.polrelid=c.oid),
         'triggers', (SELECT coalesce(pg_catalog.jsonb_agg(
