@@ -185,6 +185,66 @@ class DriverTests(unittest.TestCase):
                 self.assertIn(self.session.volume, self.cli.volumes)
         self.assertIn("failed_effect_unknown", self.session.evidence["phase"])
 
+    def test_fsync_failure_at_export_completion_refuses_cleanup_and_retry(self):
+        self.prepare()
+        self.session.start_canary()
+        original_record = self.session._record
+        def record(phase):
+            if phase == "export_complete":
+                with patch.object(driver.os, "fsync", side_effect=OSError("fixture fsync failure")):
+                    return original_record(phase)
+            return original_record(phase)
+        with patch.object(self.session, "_record", side_effect=record):
+            with self.assertRaisesRegex(OSError, "fixture fsync failure"):
+                self.session.export_output(self.scratch)
+        self.assertTrue(self.session.failed)
+        self.assertEqual(self.session.evidence["phase"], "export_failed_effect_unknown")
+        evidence = [json.loads(p.read_bytes()) for p in self.session.private.glob("evidence-*.json")]
+        self.assertTrue(any(e["phase"] == "export_failed_effect_unknown" for e in evidence))
+        for operation in (self.session.cleanup_stopped, lambda: self.session.export_output(self.scratch)):
+            with self.assertRaises(archive.Refused):
+                operation()
+        self.assertEqual(len(self.cli.containers), 2)
+        self.assertIn(self.session.volume, self.cli.volumes)
+        self.assertFalse(any(args[0] == "rm" for args, _ in self.cli.calls))
+
+    def test_failed_failure_marker_cannot_enable_cleanup(self):
+        self.prepare()
+        self.session.start_canary()
+        original_record = self.session._record
+        def record(phase):
+            if phase in ("export_complete", "export_failed_effect_unknown"):
+                with patch.object(driver.os, "fsync", side_effect=OSError("fixture broken writer")):
+                    return original_record(phase)
+            return original_record(phase)
+        with patch.object(self.session, "_record", side_effect=record):
+            with self.assertRaisesRegex(OSError, "fixture broken writer"):
+                self.session.export_output(self.scratch)
+        self.assertTrue(self.session.failed)
+        self.assertEqual(self.session.evidence["phase"], "export_failed_effect_unknown")
+        with self.assertRaises(archive.Refused):
+            self.session.cleanup_stopped()
+        self.assertEqual(len(self.cli.containers), 2)
+        self.assertIn(self.session.volume, self.cli.volumes)
+        self.assertFalse(any(args[0] == "rm" for args, _ in self.cli.calls))
+
+    def test_intent_record_failure_blocks_effect_and_retry(self):
+        with patch.object(driver.os, "fsync", side_effect=OSError("fixture broken intent")):
+            with self.assertRaisesRegex(OSError, "fixture broken intent"):
+                self.session.create_staging()
+        self.assertTrue(self.session.failed)
+        self.assertEqual(self.cli.calls, [])
+        with self.assertRaises(archive.Refused):
+            self.session.create_staging()
+
+    def test_cli_resource_limits_do_not_restrict_go_virtual_reservation(self):
+        with patch.object(driver.resource, "setrlimit") as limits:
+            driver.cli_limits()
+        actual = dict(call.args for call in limits.call_args_list)
+        self.assertNotIn(driver.resource.RLIMIT_AS, actual)
+        self.assertEqual(actual[driver.resource.RLIMIT_CPU], (10, 10))
+        self.assertEqual(actual[driver.resource.RLIMIT_FSIZE], (1048576, 1048576))
+
     def test_ambiguous_start_failure_cannot_retry_or_cleanup(self):
         self.prepare()
         self.cli.fail = "start"

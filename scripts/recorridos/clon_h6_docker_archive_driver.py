@@ -52,7 +52,9 @@ def decode(data):
 
 
 def cli_limits():
-    for kind, limit in ((resource.RLIMIT_CPU, 10), (resource.RLIMIT_AS, 512 * 1048576),
+    # The trusted Go CLI reserves virtual address space beyond its resident heap.
+    # RLIMIT_AS would prevent startup; bound CPU, files, descriptors and wall time.
+    for kind, limit in ((resource.RLIMIT_CPU, 10),
                         (resource.RLIMIT_NOFILE, 128), (resource.RLIMIT_FSIZE, 1048576),
                         (resource.RLIMIT_CORE, 0)):
         resource.setrlimit(kind, (limit, limit))
@@ -249,8 +251,7 @@ class ArchiveSession:
         self.driver = DockerArchiveDriver(cli if cli is not None else LocalDockerCLI(self.private / "docker-config"))
 
     def _record(self, phase):
-        self.evidence["phase"] = phase
-        data = (json.dumps(self.evidence, sort_keys=True) + "\n").encode()
+        data = (json.dumps({**self.evidence, "phase": phase}, sort_keys=True) + "\n").encode()
         with archive.directory(self.private) as fd:
             name = "evidence-" + secrets.token_hex(8) + ".json"
             leaf = os.open(name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=fd)
@@ -259,18 +260,27 @@ class ArchiveSession:
                 output.flush()
                 os.fsync(output.fileno())
             os.fsync(fd)
+        # Completion becomes observable only after both fsync calls succeed.
+        self.evidence["phase"] = phase
 
     @contextmanager
     def _operation(self, phase):
         require(not self.failed, "session_failed_new_state_required")
-        self._record(phase + "_intent")
         try:
+            self._record(phase + "_intent")
             yield
+            self._record(phase + "_complete")
         except BaseException:
             self.failed = True
-            self._record(phase + "_failed_effect_unknown")
+            failure = phase + "_failed_effect_unknown"
+            self.evidence["phase"] = failure
+            try:
+                self._record(failure)
+            except BaseException:
+                # A broken evidence writer never enables cleanup or a retry.
+                # The prior intent and named resources remain for reconciliation.
+                pass
             raise
-        self._record(phase + "_complete")
 
     def _labels(self, role):
         return ["--label", archive.OWNER_LABEL + "=" + self.owner, "--label", STATE_LABEL + "=" + str(self.state),
