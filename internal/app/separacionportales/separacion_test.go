@@ -86,6 +86,7 @@ func TestPortalCombinadoNoCambiaNada(t *testing.T) {
 		t.Fatal(err)
 	}
 	escribir(t, material, "ca/ca.key", "clave ca")
+	escribir(t, material, "idempotencia/cliente.pem", "material sintetico")
 	if err := ComprobarMaterial(PortalCombinado, material); err != nil {
 		t.Fatalf("el portal combinado no debe comprobar el material historico: %v", err)
 	}
@@ -202,6 +203,7 @@ func TestProcesoSeparadoSoloAdmiteMaterialNominalTLSKMSYTSA(t *testing.T) {
 		for _, relativa := range []string{
 			"tls/cliente.key", "tls/intervencion.key", "tls/cliente.pem", "tls/otro.crt",
 			"kms/cliente.key", "kms/cliente.pem", "tsa/cliente.pem",
+			"idempotencia/cliente.pem", "externo/cliente.pem",
 		} {
 			material := materialSintetico(t, p)
 			escribir(t, material, relativa, "material sintetico")

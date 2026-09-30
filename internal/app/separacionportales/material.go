@@ -74,7 +74,7 @@ func clasificar(relativa string) pertenencia {
 		if _, comun := ficherosComunes[relativa]; !comun {
 			return pertenenciaProhibida
 		}
-	case strings.HasSuffix(relativa, ".p12") || strings.HasSuffix(relativa, ".password"):
+	case strings.HasSuffix(relativa, ".pem") || strings.HasSuffix(relativa, ".p12") || strings.HasSuffix(relativa, ".password"):
 		return pertenenciaProhibida
 	case strings.HasSuffix(relativa, ".key") && !strings.HasPrefix(relativa, "tls/") && !strings.HasPrefix(relativa, "kms/"):
 		return pertenenciaProhibida

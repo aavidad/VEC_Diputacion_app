@@ -86,8 +86,8 @@ la misma composición externa.
   admite nada bajo `ca/` salvo `ca/ca.crt`; bajo `tls/` solo admite
   `tls/servidor.crt` y `tls/servidor.key`. En `kms/` solo admite la clave maestra
   y los pares de atestación y revalidación; en `tsa/`, solo `clave-hmac.bin`.
-  Rechaza claves privadas de cliente, `*.p12`, `*.password`, otros `*.key`
-  y enlaces simbólicos.
+  Rechaza claves privadas de cliente, `*.pem`, `*.p12`, `*.password`, otros
+  `*.key` y enlaces simbólicos.
 - El proceso externo tampoco admite secretos ni custodias del interno aunque
   no sean conexiones: la custodia de CONVOCA, el token del validador de firma,
   el fichero de incorporación de CT o cualquier variable `VEC_*` con aspecto
