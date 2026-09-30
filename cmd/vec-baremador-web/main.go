@@ -33,12 +33,12 @@ func ejecutar(ctx context.Context, args []string, salida, diagnostico io.Writer)
 	}
 	assets, err := cargarRecursos(*dir)
 	if err != nil {
-		fmt.Fprintln(diagnostico, "recursos_no_disponibles")
+		fmt.Fprintln(diagnostico, "recursos_no_disponibles", codigoCausa(err))
 		return 2
 	}
 	ln, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(*puerto)))
 	if err != nil {
-		fmt.Fprintln(diagnostico, "escucha_no_disponible")
+		fmt.Fprintln(diagnostico, "escucha_no_disponible", codigoCausa(err))
 		return 2
 	}
 	defer ln.Close()
@@ -61,4 +61,19 @@ func ejecutar(ctx context.Context, args []string, salida, diagnostico io.Writer)
 		return 2
 	}
 	return 0
+}
+
+// La causa nominal permite distinguir un fallo de arranque sin revelar el
+// mensaje del SO, que puede contener rutas o configuración del operador.
+func codigoCausa(err error) string {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return "recurso_ausente"
+	case errors.Is(err, os.ErrPermission):
+		return "permiso_denegado"
+	case errors.Is(err, syscall.EADDRINUSE):
+		return "puerto_ocupado"
+	default:
+		return "dependencia_no_disponible"
+	}
 }
