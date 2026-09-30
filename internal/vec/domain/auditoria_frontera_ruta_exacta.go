@@ -10,6 +10,7 @@ const SuperficieAuditoriaFronteraRutaExactaContratacionTemporal = "api.contratac
 const SuperficieAuditoriaFronteraRutaExactaPersonal = "api.personal.registro_empleado.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaAuditoria = "api.auditoria.ruta_exacta"
 const SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias = "api.usuarios.preferencias.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaBolsaCandidato = "api.bolsa.candidato.ruta_exacta"
 
 // Aspirantes no guarda `per_`: sus denegaciones de frontera nunca llevan actor.
 const SuperficieAuditoriaFronteraRutaExactaAspirantes = "api.aspirantes.ficha.ruta_exacta"
@@ -44,7 +45,8 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 			o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado) ||
 		!rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(o.Superficie, o.Ruta) ||
 		(o.ActorRef != "" && !referenciaActorAuditoriaFronteraRutaExactaValida(o.ActorRef)) ||
-		(o.Superficie == SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias &&
+		((o.Superficie == SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias ||
+			o.Superficie == SuperficieAuditoriaFronteraRutaExactaBolsaCandidato) &&
 			((o.Motivo == MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida && o.ActorRef != "") ||
 				(o.Motivo == MotivoAuditoriaFronteraRutaExactaAccesoDenegado &&
 					!referenciaOpacaContextoActorValida(o.ActorRef, "per_")))) ||
@@ -89,6 +91,13 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 			ruta == "/api/vec/usuarios/area-personal/mis-correos" ||
 			ruta == "/api/vec/usuarios/mi-imagen" ||
 			ruta == "/api/vec/usuarios/area-personal/mi-imagen"
+	case SuperficieAuditoriaFronteraRutaExactaBolsaCandidato:
+		return ruta == "/api/vec/bolsa/mi-bolsa" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/historial" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/solicitudes" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/respuestas" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/disposiciones" ||
+			ruta == "/api/vec/bolsa/mi-bolsa/contacto"
 	case SuperficieAuditoriaFronteraRutaExactaAspirantes:
 		return ruta == "/api/vec/aspirantes/area-personal/mi-ficha"
 	default:

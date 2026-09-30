@@ -17,7 +17,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   ]);
   // Versiones publicadas antes del último cambio de la hoja y del montaje: la
   // caché immutable las conserva, así que el HTML debe pedir otra URL.
-  const versionCSSAreaAnterior = "20260925-aspecto-v1";
+  const versionCSSAreaAnterior = "20260930-b11-aviso-movil-v1";
   const versionPadreAnterior = "20260925-aspecto-v1";
   const versionHistorialAnterior = "20260926-integracion-bolsa-ct-v1";
   const versionCSSArea = html.match(/\/area-personal\/area-personal\.css\?v=([\w.-]+)"/)?.[1];

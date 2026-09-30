@@ -86,7 +86,7 @@ func TestMiBolsaContratoCerradoSinSelector(t *testing.T) {
 			t.Fatalf("filtra %q: %s", prohibido, s)
 		}
 	}
-	for _, requerido := range []string{"vec.bolsa.mi-bolsa.v1", "orden_inicial", "total_instantanea", "vigente_hasta", "certificado sintético", "Cl@ve", "FNMT", "DNIe"} {
+	for _, requerido := range []string{"vec.bolsa.mi-bolsa.v1", "orden_inicial", "total_instantanea", "vigente_hasta", "aviso_desarrollo_clave_i18n", "areaPersonal.miBolsa.avisoDesarrollo"} {
 		if !strings.Contains(s, requerido) {
 			t.Fatalf("falta %q: %s", requerido, s)
 		}
