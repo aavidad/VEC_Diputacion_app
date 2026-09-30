@@ -135,7 +135,37 @@ func validarCoberturaRutasCTDesarrollo(rutas []vechttp.RutaExacta, fronteras cat
 			}
 		}
 	}
+	// La comprobación de composición también limita el transporte efectivo:
+	// un manejador sustituto no puede atender otro verbo fuera del inventario.
+	for i, ruta := range rutas {
+		if esPrefijoRutaCTDesarrollo(ruta.Ruta) {
+			rutas[i].Manejador = manejadorMetodosInventariadosCTDesarrollo{ruta.Ruta, inventario[ruta.Ruta], ruta.Manejador}
+		}
+	}
 	return nil
+}
+
+type manejadorMetodosInventariadosCTDesarrollo struct {
+	ruta     string
+	metodos  []metodoRutaCTDesarrollo
+	delegado http.Handler
+}
+
+func (m manejadorMetodosInventariadosCTDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r == nil || r.URL == nil || r.URL.Path != m.ruta || m.delegado == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	permitidos := make([]string, 0, len(m.metodos))
+	for _, metodo := range m.metodos {
+		permitidos = append(permitidos, metodo.metodo)
+		if r.Method == metodo.metodo {
+			m.delegado.ServeHTTP(w, r)
+			return
+		}
+	}
+	w.Header().Set("Allow", strings.Join(permitidos, ", "))
+	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
 func esPrefijoRutaCTDesarrollo(ruta string) bool {

@@ -133,6 +133,9 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	ctx context.Context,
 ) (contextoSeguridadComunDesarrollo, error) {
 	vacio := contextoSeguridadComunDesarrollo{}
+	if ctx != nil && ctx.Err() != nil {
+		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, ctx.Err())
+	}
 	perfil, seleccionado := p.perfilActivoSeleccionado(ctx)
 	if !seleccionado {
 		return vacio, ErrSeguridadComunDesarrolloDenegada
@@ -187,18 +190,24 @@ func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaConsultaReciboRespuesta || ruta == httpinterno.RutaConsultaComunicacionesExpediente
 }
 
+// La entrega RRHH conserva la misma distinción que las consultas de respuesta,
+// sin alterar la clasificación de las demás rutas.
+func rutaSesionConIndisponibilidadCTDesarrollo(ruta string) bool {
+	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro
+}
+
 func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {
 	if p == nil || p.soporte == nil {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	if ctx != nil && ctx.Err() != nil {
 		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		if existe && capacidad.sello == p.soporte.sello && rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
+		if existe && capacidad.sello == p.soporte.sello && rutaSesionConIndisponibilidadCTDesarrollo(capacidad.ruta) {
 			return ctx.Err()
 		}
 	}
 	capacidad, valida := p.soporte.capacidadValida(ctx)
-	if !valida || !rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
+	if !valida || !rutaSesionConIndisponibilidadCTDesarrollo(capacidad.ruta) {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	var falloRevalidador *diagnostico.FalloConsultaRRHH

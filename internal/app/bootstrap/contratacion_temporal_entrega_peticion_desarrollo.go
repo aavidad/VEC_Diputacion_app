@@ -106,8 +106,11 @@ func nuevaInstantaneaAutorizacionEntregaPeticionDesarrollo(
 }
 
 func (p *proveedorEntregaPeticionDesarrollo) ActorEntregaPeticionCentro(ctx context.Context) (string, string, error) {
-	if p == nil || p.alta == nil || p.alta.soporte == nil || ctx == nil || ctx.Err() != nil {
+	if p == nil || p.alta == nil || p.alta.soporte == nil || ctx == nil {
 		return "", "", ports.ErrAutorizacionDenegada
+	}
+	if ctx.Err() != nil {
+		return "", "", ctx.Err()
 	}
 	c, ok := p.alta.soporte.capacidadValida(ctx)
 	if !ok || c.ruta != rutaEntregaPeticionCentro || (c.metodo != http.MethodGet && c.metodo != http.MethodPost) ||
@@ -116,6 +119,9 @@ func (p *proveedorEntregaPeticionDesarrollo) ActorEntregaPeticionCentro(ctx cont
 	}
 	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
 	if err != nil {
+		if errors.Is(err, ports.ErrConsultaRRHHNoDisponible) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", "", err
+		}
 		return "", "", ports.ErrAutorizacionDenegada
 	}
 	v, err := operativo.Vinculo.Datos()
@@ -128,6 +134,9 @@ func (p *proveedorEntregaPeticionDesarrollo) ActorEntregaPeticionCentro(ctx cont
 func (p *proveedorEntregaPeticionDesarrollo) ComprobarPerfilEntregaPeticionCentro(ctx context.Context) error {
 	a, perfil, err := p.ActorEntregaPeticionCentro(ctx)
 	if err != nil {
+		if causaFalloEntregaPeticionDesarrollo(err) != "autorizacion_denegada" {
+			return errors.Join(ports.ErrPeticionCentroNoDisponible, err)
+		}
 		return p.denegarEntregaPreV3(ctx, "")
 	}
 	capacidad, valida := p.alta.soporte.capacidadValida(ctx)
@@ -211,7 +220,10 @@ func (p *proveedorEntregaPeticionDesarrollo) RegistrarDenegacionEntregaPreV3(ctx
 func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx context.Context, m ports.MaterialEntregaPeticionCentro) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var vacio vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	a, perfil, err := p.ActorEntregaPeticionCentro(ctx)
-	if err != nil || m.ActorRef != a || m.PerfilRef != perfil {
+	if err != nil {
+		return vacio, err
+	}
+	if m.ActorRef != a || m.PerfilRef != perfil {
 		return vacio, ports.ErrAutorizacionDenegada
 	}
 	capacidad, _ := p.alta.soporte.capacidadValida(ctx)
@@ -245,7 +257,7 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	}
 	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
 	if err != nil {
-		return vacio, ports.ErrAutorizacionDenegada
+		return vacio, err
 	}
 	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoEntregaPeticionDesarrollo(), Accion: postgresct.AccionEntregaPeticionCentro(m), Recurso: r, Finalidad: ports.FinalidadEntregaPeticionCentro, Correlacion: c}
 	ctx = context.WithValue(ctx, claveMaterialEntregaPeticionDesarrollo{}, m)
@@ -330,7 +342,10 @@ func solicitudAutorizacionEntregaPeticionValida(ctx context.Context, d vecdomain
 func (p *proveedorEntregaPeticionDesarrollo) RegistrarExpedientePeticion(ctx context.Context, e ports.EntregaPeticionCentro) (ports.AltaDePeticionCentro, error) {
 	var vacia ports.AltaDePeticionCentro
 	a, perfil, err := p.ActorEntregaPeticionCentro(ctx)
-	if err != nil || e.ValidarReserva() != nil || e.EstadoEntrega != "preparada" || e.ActorRef != a || e.PerfilRef != perfil {
+	if err != nil {
+		return vacia, err
+	}
+	if e.ValidarReserva() != nil || e.EstadoEntrega != "preparada" || e.ActorRef != a || e.PerfilRef != perfil {
 		return vacia, ports.ErrAutorizacionDenegada
 	}
 	ctx = context.WithValue(ctx, claveAltaDePeticionDesarrollo{}, e)
