@@ -9,7 +9,24 @@ raiz_repo=$(git rev-parse --show-toplevel)
 config=$1
 base=$2
 contenedor=$3
-[[ -f $config && ! -L $config ]]
+python3 - "$config" <<'PY'
+import os,pathlib,stat,subprocess,sys
+ruta=pathlib.Path(sys.argv[1])
+if not ruta.is_absolute() or not ruta.is_file() or ruta.is_symlink():
+    raise SystemExit('configuración privada inválida')
+if str(ruta) != str(ruta.resolve(strict=True)):
+    raise SystemExit('ruta de configuración no canónica')
+archivo=os.stat(ruta,follow_symlinks=False)
+padre=os.stat(ruta.parent,follow_symlinks=False)
+if archivo.st_uid!=os.getuid() or stat.S_IMODE(archivo.st_mode)!=0o600:
+    raise SystemExit('configuración sin propietario o modo 0600')
+if padre.st_uid!=os.getuid() or stat.S_IMODE(padre.st_mode)!=0o700:
+    raise SystemExit('directorio de configuración sin propietario o modo 0700')
+entorno={k:v for k,v in os.environ.items() if not k.startswith('GIT_')}
+if subprocess.run(['git','-C',str(ruta.parent),'rev-parse','--git-dir'],
+                  env=entorno,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0:
+    raise SystemExit('configuración dentro de un repositorio Git')
+PY
 [[ $base =~ ^/dev/shm/vec-rpt-testigo-v3-[a-z0-9-]+$ ]]
 [[ $contenedor =~ ^vec-rpt-testigo-v3-[a-z0-9-]+$ ]]
 [[ $(basename "$base") == "$contenedor" ]]
