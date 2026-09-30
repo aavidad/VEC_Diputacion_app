@@ -9,7 +9,12 @@ import {
 } from "./lista-bolsas-api.js?v=20260930-codexe-publico-v2-v1";
 import { PATRON_DOCUMENTO_ENMASCARADO } from "./contrato-publico-bolsas.js";
 
-const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
+const i18n = globalThis.VECBolsaI18n;
+const t = i18n?.t || ((clave) => clave);
+const idioma = i18n?.idioma === "en" ? "en-GB" : "es-ES";
+const formateadorNumero = new Intl.NumberFormat(idioma);
+const numero = i18n?.numero || ((valor) => formateadorNumero.format(valor));
+const formateadorFecha = new Intl.DateTimeFormat(idioma, { dateStyle: "medium", timeZone: "Europe/Madrid" });
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -24,7 +29,7 @@ function formatoFecha(iso) {
   if (!iso) return t("dato_no_disponible");
   try {
     const d = new Date(iso);
-    return isNaN(d.getTime()) ? t("dato_no_disponible") : d.toLocaleDateString("es-ES", { dateStyle: "medium" });
+    return isNaN(d.getTime()) ? t("dato_no_disponible") : formateadorFecha.format(d);
   } catch {
     return t("dato_no_disponible");
   }
@@ -148,7 +153,7 @@ export function crearControladorListaBolsas({
         <td>${escaparHTML((b.grupos || []).join(", "))}</td>
         <td>${escaparHTML(b.tipo_lista)}</td>
         <td><small>${escaparHTML(formatoFecha(b.vigente_desde))}</small></td>
-        <td><strong>${Number(b.total || 0).toLocaleString("es-ES")}</strong></td>
+        <td><strong>${numero(Number(b.total || 0))}</strong></td>
         <td>
           <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
             ${escaparHTML(t("consultar_lista"))}
@@ -262,7 +267,7 @@ export function crearControladorListaBolsas({
           <span><strong>${escaparHTML(t("grupos"))}:</strong> ${escaparHTML((bolsa.grupos || []).join(", "))}</span>
           <span><strong>${escaparHTML(t("tipo_lista"))}:</strong> ${escaparHTML(bolsa.tipo_lista)}</span>
           <span><strong>${escaparHTML(t("vigente_desde"))}:</strong> ${escaparHTML(formatoFecha(bolsa.vigente_desde))}</span>
-          <span><strong>${escaparHTML(t("total_aspirantes"))}:</strong> ${Number(bolsa.total || 0).toLocaleString("es-ES")}</span>
+          <span><strong>${escaparHTML(t("total_aspirantes"))}:</strong> ${numero(Number(bolsa.total || 0))}</span>
         </div>
       </div>
     `;
@@ -277,7 +282,7 @@ export function crearControladorListaBolsas({
 
     elementos.cuerpoTablaLista.innerHTML = posiciones.map((p) => `
       <tr data-orden="${escaparHTML(p.orden)}">
-        <td><strong>#${Number(p.orden).toLocaleString("es-ES")}</strong></td>
+        <td><strong>#${numero(Number(p.orden))}</strong></td>
         <td><code>${escaparHTML(p.documento_enmascarado)}</code></td>
         <td>
           <span class="estado-chip-publico estado-chip-publico--${escaparHTML(p.estado_clave)}">

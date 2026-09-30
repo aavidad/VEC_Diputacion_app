@@ -936,3 +936,31 @@ test("las ayudas generadas muestran solo interrogación y conservan nombre acces
   assert.deepEqual(ayudaPrivacidad.hijos.slice(1), [introduccion, aviso]);
   assert.deepEqual(ayudaFormato.hijos.slice(1), [textoFormato]);
 });
+
+test("B10 muestra la fecha de Madrid y el número inglés aunque el navegador esté en Nueva York", async () => {
+  const idiomaAnterior = globalThis.VECBolsaI18n;
+  const zonaAnterior = process.env.TZ;
+  try {
+    process.env.TZ = "America/New_York";
+    globalThis.VECBolsaI18n = { ...idiomaAnterior, idioma: "en", numero: (valor) => new Intl.NumberFormat("en-GB").format(valor) };
+    const { crearControladorListaBolsas: crearEn } = await import("./lista-bolsas.js?regresion-fecha-madrid-en");
+    const elementos = {
+      seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
+      bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+      cuerpoTablaBolsas: { innerHTML: "" },
+    };
+    const respuesta = generarFixtureBolsasPublicas().data;
+    respuesta.bolsas = [{ ...respuesta.bolsas[0], vigente_desde: "2026-09-30T00:00:00Z", total: 12345 }];
+    const controlador = crearEn({ elementos, ventana: null, api: { consultarBolsasPublicas: async () => respuesta } });
+    await controlador.cargarBolsas();
+    const fechaMadrid = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(respuesta.bolsas[0].vigente_desde));
+    const fechaVisitante = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "America/New_York" }).format(new Date(respuesta.bolsas[0].vigente_desde));
+    assert.notEqual(fechaMadrid, fechaVisitante);
+    assert.ok(elementos.cuerpoTablaBolsas.innerHTML.includes(fechaMadrid));
+    assert.ok(elementos.cuerpoTablaBolsas.innerHTML.includes("12,345"));
+  } finally {
+    globalThis.VECBolsaI18n = idiomaAnterior;
+    if (zonaAnterior === undefined) delete process.env.TZ;
+    else process.env.TZ = zonaAnterior;
+  }
+});
