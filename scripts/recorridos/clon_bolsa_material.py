@@ -26,11 +26,13 @@ SOURCE = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
 # Main contracts used by this administrative helper. An unrelated main
 # increment may advance the clone's current source; a changed contract needs
 # a fresh review rather than silent acceptance.
+# Reviewed at main ebac67de4e43fc49add3d82a011b2b0c9f6a6b21: the CT catalog
+# includes signature consultation only when its fixed signature profile exists.
 CONTRACT_HASHES = {
     # Root confirmed both reviews of #197 (f0e74627e); other pins remain fixed.
     "internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go": "3d541ce90fac13a788d94577d921ad7c663ecf53fd5eadf3ce6b7d576db09550",
     "internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go": "451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e",
-    "internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go": "a9a4cc7e268e2d7cca3825102001003c338cd72ad37d21d03580c4ad056bbc05",
+    "internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go": "34a468ec7eae26d70e37450228f96041b1bed165362a51a830fcc88561f9f490",
     "internal/app/bootstrap/bolsa_ofertas_desarrollo.go": "9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec",
     "internal/app/bootstrap/bolsa_auditoria_frontera_postgresql_desarrollo.go": "3fe40db4d72ac34374b3817078b9dda69b7a8283eb0f4c49cc3f7e228e27182a",
     "internal/app/bootstrap/bolsa_borrador_politica_desarrollo.go": "190089f6b533b9c7e0c1135fcfc6b5d8143656faca82f4db6b02b7f29ab96a13",

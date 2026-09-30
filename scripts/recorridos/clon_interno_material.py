@@ -62,10 +62,11 @@ SOURCE_PATHS = (
     "config/postgresql_importacion_convoca.go", "internal/app/bootstrap/bolsa_importacion_convoca_pool.go",
     "internal/app/bootstrap/bolsa_importacion_convoca_custodia.go",
 )
-# Reviewed portal/material contracts at main 8fc0b534; SQL lineage alone
-# cannot approve changes to these Go loaders or their classification.
+# Reviewed portal/material contracts at main ebac67de4e43fc49add3d82a011b2b0c9f6a6b21.
+# B11 only adds external database environment names; ENV_KEYS excludes them.
+# SQL lineage cannot approve changes to these Go loaders or their classification.
 APPROVED_CONTRACTS = dict(zip(SOURCE_PATHS, (
-    "083e46c4ac92b85d32386820038b3f5264f6af974550cea1850b7bfaf713ea89",
+    "fd439d9d544fe3dc931ef0a4ccd7154165fae7ba05faef46cbc30f750ee4c218",
     "db7f6f31d99173185774cf046f9e0e1abd55362c2d0741e4ca131592eb9a541f",
     "6f267a8a72b137e672289c9381d7a4ad71b033c4d69ead5c0d2a875e0fe066a6",
     "6fb7e6f198f30613040210088f0e285bfbff11db8e0161936888b7bcbf8c0e32",

@@ -85,6 +85,20 @@ class FakeConvoca:
 
 
 class ProvisionTests(unittest.TestCase):
+    def test_reviewed_main_committed_contracts_are_accepted(self):
+        repo = Path(__file__).resolve().parents[2]
+        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
+        module._source_contracts(repo, source)
+
+    def test_reviewed_main_rejects_a_changed_contract_digest(self):
+        repo = Path(__file__).resolve().parents[2]
+        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
+        changed = dict(module.CONTRACT_HASHES)
+        changed["internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go"] = "0" * 64
+        with patch.object(module, "CONTRACT_HASHES", changed):
+            with self.assertRaisesRegex(module.ProvisionError, "source_contract_changed"):
+                module._source_contracts(repo, source)
+
     @staticmethod
     def convoca_fixture(root):
         material = root / "material"

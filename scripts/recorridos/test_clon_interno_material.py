@@ -13,6 +13,20 @@ SPEC.loader.exec_module(projection)
 
 
 class InternalProjectionTests(unittest.TestCase):
+    def test_reviewed_main_committed_contracts_are_accepted(self):
+        repo = Path(__file__).resolve().parents[2]
+        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
+        self.assertEqual(projection.source_contracts(repo, source), projection.APPROVED_CONTRACTS)
+
+    def test_reviewed_main_rejects_a_changed_contract_digest(self):
+        repo = Path(__file__).resolve().parents[2]
+        source = "ebac67de4e43fc49add3d82a011b2b0c9f6a6b21"
+        changed = dict(projection.APPROVED_CONTRACTS)
+        changed["config/portal_proceso.go"] = "0" * 64
+        with patch.object(projection, "APPROVED_CONTRACTS", changed):
+            with self.assertRaisesRegex(projection.ProjectionError, "projection_source_contract_review_required"):
+                projection.source_contracts(repo, source)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.state = Path(self.temp.name) / "state"
