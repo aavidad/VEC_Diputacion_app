@@ -66,7 +66,10 @@ huella/CAS, el acto prospectivo de Contratación temporal y el plan durable de
 Personal. Estas migraciones no acreditan instalación ni operación utilizable.
 
 La lista `deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt`
-describe el orden causal para un clon nuevo. No se reaplican 000001, 000002 o
-AD3-117 en una base donde ya tengan historia. Los archivos DOWN son solo para
-un clon vacío y rechazan historia; no forman parte del procedimiento de
-despliegue.
+describe el orden causal RPT para un clon nuevo. La lista H6 de 26 entradas ya
+contiene roles, 000001, 000002 y AD3-117: al componer el clon se apartan esas
+cuatro rutas de H6, se instalan una sola vez desde este árbol y se deja CT148
+para después de AD3-126. Hay que comprobar la unicidad de todas las rutas.
+No se reaplican 000001, 000002 o AD3-117 en una base donde ya tengan historia.
+Los archivos DOWN son solo para un clon vacío y rechazan historia; no forman
+parte del procedimiento de despliegue.
