@@ -166,7 +166,7 @@ DECLARE p vec_catalogos_configurables.propuesta_gobierno%ROWTYPE; c vec_catalogo
 BEGIN
  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_catalogos_configurables:gobierno:'||p_ref,0));
  SELECT * INTO p FROM vec_catalogos_configurables.propuesta_gobierno WHERE propuesta_ref=p_ref;
- IF NOT FOUND OR p.huella_sha256 IS DISTINCT FROM p_huella OR p.contenido->>'motivo_ref' IS DISTINCT FROM p_motivo OR p_actor IS NULL OR p_actor=p.editor_ref THEN
+ IF NOT FOUND OR p.huella_sha256 IS DISTINCT FROM p_huella OR p.contenido->>'motivo_ref' IS DISTINCT FROM p_motivo OR p_actor IS NULL THEN
   RAISE EXCEPTION 'Cat4: aprobacion incompatible' USING ERRCODE='42501';
  END IF;
  SELECT * INTO c FROM vec_catalogos_configurables.control_gobierno WHERE propuesta_ref=p_ref FOR UPDATE;

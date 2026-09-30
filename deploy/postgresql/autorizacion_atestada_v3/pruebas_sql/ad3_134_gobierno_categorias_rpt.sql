@@ -29,10 +29,22 @@ BEGIN
    RAISE EXCEPTION 'ACL de fachada incompatible';
   END IF;
  END LOOP;
+ IF pg_catalog.strpos(pg_catalog.pg_get_functiondef(
+   'vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
+   'revision<>3 OR consulta#>>''{propuesta,revision}'' NOT IN (''3'',''4'')')=0 THEN
+  RAISE EXCEPTION 'recuperacion de confirmacion revision 4 ausente';
+ END IF;
+ IF pg_catalog.to_regprocedure(
+   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text)') IS NOT NULL
+    OR pg_catalog.strpos(pg_catalog.pg_get_functiondef(
+   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)'::regprocedure),
+   'p_editor')<>0 THEN
+  RAISE EXCEPTION 'aprobacion del editor bloqueada en fachada';
+ END IF;
  IF pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
    'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
-   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text)','EXECUTE')
+   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)','EXECUTE')
     OR pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
    'vec_catalogos_configurables.confirmar_propuesta_gobierno(text,text,bigint,text,text,text,text,text)','EXECUTE') THEN
   RAISE EXCEPTION 'helper o core expuesto';

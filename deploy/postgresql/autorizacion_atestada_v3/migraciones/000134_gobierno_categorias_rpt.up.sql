@@ -281,7 +281,7 @@ END $f$;
 -- La aprobación se revalida con su atestación original; su consumo pasado
 -- no concede vigencia. El bloqueo del checkpoint serializa las revocaciones.
 CREATE FUNCTION vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(
-    p_aprobacion jsonb,p_propuesta_ref text,p_huella text,p_editor text
+    p_aprobacion jsonb,p_propuesta_ref text,p_huella text
 ) RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
 DECLARE t record; c jsonb; d jsonb; x jsonb; k record; pk record; cfg record; raiz record;
@@ -292,7 +292,6 @@ BEGIN
        OR p_aprobacion->>'huella_sha256' IS DISTINCT FROM p_huella
        OR pg_catalog.jsonb_typeof(p_aprobacion->'decision_ref') IS DISTINCT FROM 'string'
        OR pg_catalog.jsonb_typeof(p_aprobacion->'actor_ref') IS DISTINCT FROM 'string'
-       OR p_aprobacion->>'actor_ref' IS NOT DISTINCT FROM p_editor
        OR p_aprobacion->>'consumo_huella_sha256' !~ '^[0-9a-f]{64}$' THEN
         RAISE EXCEPTION 'AD3-134: aprobacion incompatible' USING ERRCODE='42501';
     END IF;
@@ -382,7 +381,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_
 ) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
 DECLARE a record; r jsonb; consulta jsonb; contenido jsonb; aprobaciones jsonb; aprobacion jsonb;
-    editor text; actor_a text; actor_b text; esperado text; revision bigint;
+    actor_a text; actor_b text; esperado text; revision bigint;
 BEGIN
     SELECT * INTO STRICT a FROM vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(
         p_material,p_accion,p_capacidad,p_decision,p_motivo,p_contexto,
@@ -398,7 +397,6 @@ BEGIN
         consulta:=vec_catalogos_configurables.consultar_aprobaciones_gobierno(
             p_material->>'propuesta_ref',p_material->>'huella_sha256');
         contenido:=consulta#>'{propuesta,contenido}';
-        editor:=consulta#>>'{propuesta,editor_ref}';
         IF pg_catalog.jsonb_typeof(contenido) IS DISTINCT FROM 'object'
            OR contenido->>'catalogo_id' IS DISTINCT FROM p_material->>'catalogo_id'
            OR contenido->>'modulo_id' IS DISTINCT FROM p_material->>'modulo_id'
@@ -418,7 +416,7 @@ BEGIN
                 esperado,a.motivo_ref);
         ELSE
             aprobaciones:=consulta->'aprobaciones';
-            IF revision<>3 OR consulta#>>'{propuesta,revision}' IS DISTINCT FROM '3'
+            IF revision<>3 OR consulta#>>'{propuesta,revision}' NOT IN ('3','4')
                OR pg_catalog.jsonb_array_length(aprobaciones)<>2 THEN
                 RAISE EXCEPTION 'AD3-134: dos aprobaciones exigidas' USING ERRCODE='42501';
             END IF;
@@ -428,7 +426,7 @@ BEGIN
             END IF;
             actor_a:=aprobacion->>'actor_ref';
             PERFORM vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(
-                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256',editor);
+                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256');
             aprobacion:=aprobaciones->1;
             IF aprobacion->>'ordinal' IS DISTINCT FROM '2' THEN
                 RAISE EXCEPTION 'AD3-134: segunda aprobacion ausente' USING ERRCODE='42501';
@@ -438,7 +436,7 @@ BEGIN
                 RAISE EXCEPTION 'AD3-134: aprobadores coinciden' USING ERRCODE='42501';
             END IF;
             PERFORM vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(
-                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256',editor);
+                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256');
             r:=vec_catalogos_configurables.confirmar_propuesta_gobierno(
                 p_material->>'propuesta_ref',p_material->>'huella_sha256',revision,
                 a.actor_ref,a.decision_ref,a.auditoria_ref,esperado,a.motivo_ref);
@@ -495,7 +493,7 @@ END $f$;
 
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(
     jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
-    vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text),
+    vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text),
     vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(
     text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea),
     vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_atestada(
@@ -517,7 +515,7 @@ DECLARE f regprocedure;
 BEGIN
  FOREACH f IN ARRAY ARRAY[
   'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
-  'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text)'::regprocedure,
+  'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)'::regprocedure,
   'vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_autorizacion_atestada_v3.aprobar_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,

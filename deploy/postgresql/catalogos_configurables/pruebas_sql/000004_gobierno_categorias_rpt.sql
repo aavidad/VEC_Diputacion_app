@@ -25,23 +25,25 @@ BEGIN
   PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:demo',contenido||'{"fuente_ref":"fuente:cambiada"}'::jsonb,huella,'actor:editor','decision:alterar','recibo:proponer',motivo);
   RAISE EXCEPTION 'huella cambiada aceptada';
  EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
- BEGIN
-  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,1,'actor:editor','decision:editor','audit:editor',repeat('1',64),'recibo:editor',motivo);
-  RAISE EXCEPTION 'editor aprobo';
- EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
- r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,1,'actor:a','decision:apr-a','audit:apr-a',repeat('2',64),'recibo:apr-a',motivo);
+ r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,1,'actor:editor','decision:apr-a','audit:apr-a',repeat('2',64),'recibo:apr-a',motivo);
  IF r->>'revision'<>'2' THEN RAISE EXCEPTION 'primera aprobacion incorrecta'; END IF;
  BEGIN
-  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,2,'actor:a','decision:apr-duplicada','audit:dup',repeat('3',64),'recibo:duplicado',motivo);
+  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,2,'actor:editor','decision:apr-duplicada','audit:dup',repeat('3',64),'recibo:duplicado',motivo);
   RAISE EXCEPTION 'misma persona aprobo dos veces';
  EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
  BEGIN
-  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',repeat('0',64),2,'actor:b','decision:apr-h','audit:h',repeat('3',64),'recibo:apr-h',motivo);
+  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',repeat('0',64),2,'actor:a','decision:apr-h','audit:h',repeat('3',64),'recibo:apr-h',motivo);
   RAISE EXCEPTION 'aprobacion sobre otra huella';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
- r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,2,'actor:b','decision:apr-b','audit:apr-b',repeat('3',64),'recibo:apr-b',motivo);
+ r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,2,'actor:a','decision:apr-b','audit:apr-b',repeat('3',64),'recibo:apr-b',motivo);
  anterior:=vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:demo',huella);
  IF pg_catalog.jsonb_array_length(anterior->'aprobaciones')<>2 OR anterior#>>'{propuesta,revision}'<>'3' THEN RAISE EXCEPTION 'doble aprobacion incorrecta'; END IF;
+ -- Dos personas bastan: el editor aprueba, la otra identidad aprueba y
+ -- confirma. El editor sigue sin poder publicar su propia propuesta.
+ BEGIN
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',huella,3,'actor:editor','decision:confirm-editor','audit:editor','recibo:confirm-editor',motivo);
+  RAISE EXCEPTION 'editor confirmo su propuesta';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  -- Fallo posterior al efecto: la inserción de auditoría del recibo no puede
  -- dejar publicación ni transición parcial. La auditoría central se prueba en AD134.
  BEGIN
