@@ -3,6 +3,7 @@
 import copy
 from dataclasses import replace
 import io
+import inspect
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,7 @@ class AdapterTests(unittest.TestCase):
         self.folder = Path(self.temp.name)
         self.root = self.folder / "package"
         self.root.mkdir(mode=0o755)
+        self.root.chmod(0o755)
         self.inventory = {"public_temp": False, "acl_sha256": "b" * 64,
                           "logins": [{"role": "vec_test", "temp": False,
                                       "active_sessions": 0}]}
@@ -43,12 +45,22 @@ class AdapterTests(unittest.TestCase):
                          "h6-sql-release.json": canonical({"version": 1})}
         archive = io.BytesIO()
         with tarfile.open(fileobj=archive, mode="w:gz") as tar:
+            directories = {".", *(str(p) for name in self.material
+                                   for p in Path(name).parents if str(p) != ".")}
+            for name in sorted(directories):
+                entry = tarfile.TarInfo(name)
+                entry.type, entry.mode = tarfile.DIRTYPE, 0o755
+                tar.addfile(entry)
             for name, data in self.material.items():
                 entry = tarfile.TarInfo("./" + name)
                 entry.size, entry.mode = len(data), 0o644
                 tar.addfile(entry, io.BytesIO(data))
                 file = self.root / name
                 file.parent.mkdir(parents=True, exist_ok=True)
+                for parent in file.parents:
+                    if parent == self.root:
+                        break
+                    parent.chmod(0o755)
                 file.write_bytes(data)
                 file.chmod(0o644)
         package = self.folder / "package.tar.gz"
@@ -70,7 +82,7 @@ class AdapterTests(unittest.TestCase):
             plan_receipt=self.folder / "plan-canonico-clon.json", approved_plan_sha256="5" * 64,
             approval=self.approval_path, approval_sha256=adapter.digest(self.approval_path.read_bytes()),
             container="a" * 64, receipt=self.folder / "ad132.json",
-            apply_output=self.folder / "apply.stdout")
+            apply_output=self.folder / "apply.stdout", pending_path=self.folder / "ad132.pending.json")
         self.common = {"version": 1, "kind": "ad132_apply_confirmed",
                        "package_sha256": self.request.approved_package_sha256,
                        "source_commit": self.source,
@@ -105,8 +117,10 @@ class AdapterTests(unittest.TestCase):
         self.module_patch.start()
         self.addCleanup(self.module_patch.stop)
         self.calls = []
-        self.pending = None
         self.runner = Mock(side_effect=self.run_cli)
+        self.runner_patch = patch.object(adapter.subprocess, "run", self.runner)
+        self.runner_patch.start()
+        self.addCleanup(self.runner_patch.stop)
 
     def context(self, args):
         if adapter.digest(args.approval.read_bytes()) != args.approval_sha256:
@@ -119,14 +133,19 @@ class AdapterTests(unittest.TestCase):
         with path.open("xb") as output:
             path.chmod(0o600)
             output.write(data)
-
-    def durable_pending(self, common):
-        self.pending = common
-        self.calls.append("pending")
-        return True
+            output.flush()
+            os.fsync(output.fileno())
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        if path == self.request.pending_path:
+            self.calls.append("pending")
 
     def run_cli(self, command, **kwargs):
-        self.assertIsNotNone(self.pending)
+        self.assertTrue(self.request.pending_path.exists())
+        self.assertEqual(json.loads(self.request.pending_path.read_bytes())["context"], self.common)
         self.calls.append("cli")
         self.assertEqual(command[:4], ["/usr/bin/python3", "-I", "-B", "-S"])
         self.assertEqual(command[5:8], ["apply", "--engine", "docker"])
@@ -134,9 +153,8 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(kwargs["env"]["PYTHONDONTWRITEBYTECODE"], "1")
         return subprocess.CompletedProcess(command, 0, adapter.SUCCESS, b"")
 
-    def apply(self, callback=None):
-        return adapter.apply_and_confirm(self.request, callback or self.durable_pending,
-                                         runner=self.runner)
+    def apply(self):
+        return adapter.apply_and_confirm(self.request)
 
     def test_success_is_d_format_and_revalidation_is_read_only(self):
         receipt = self.apply()
@@ -145,17 +163,61 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(self.request.receipt.read_bytes(), canonical(receipt))
         self.assertEqual(self.request.apply_output.read_bytes(), adapter.SUCCESS)
         self.assertEqual(self.request.receipt.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.request.pending_path.stat().st_mode & 0o777, 0o600)
         self.assertNotIn("active_sessions", receipt["postimage"]["logins"][0])
         self.inventory["logins"][0]["active_sessions"] = 3
         self.assertEqual(adapter.revalidar(self.request), receipt)
         self.assertEqual(self.runner.call_count, 1)
         self.assertFalse(list(self.root.rglob("__pycache__")))
 
-    def test_missing_false_and_failing_pending_never_apply(self):
-        callbacks = (None, lambda _: False, lambda _: (_ for _ in ()).throw(OSError()))
-        for callback in callbacks:
-            with self.subTest(callback=callback), self.assertRaises((adapter.Refused, OSError)):
-                adapter.apply_and_confirm(self.request, callback, runner=self.runner)
+    def test_api_cannot_supply_fake_success_or_pending_callback(self):
+        self.assertEqual(list(inspect.signature(adapter.apply_and_confirm).parameters), ["request"])
+        with self.assertRaises(TypeError):
+            adapter.apply_and_confirm(self.request, lambda _: True)
+        with self.assertRaises(TypeError):
+            adapter.apply_and_confirm(self.request, runner=lambda *_: subprocess.CompletedProcess(
+                [], 0, adapter.SUCCESS, b""))
+        self.runner.assert_not_called()
+        self.assertFalse(self.request.pending_path.exists())
+        self.assertFalse(self.request.receipt.exists())
+
+    def test_pending_write_failure_prevents_cli_and_receipt(self):
+        self.helper.atomic_receipt = Mock(side_effect=OSError("fixture write failure"))
+        with self.assertRaises(OSError):
+            self.apply()
+        self.runner.assert_not_called()
+        self.assertFalse(self.request.receipt.exists())
+
+    def test_pending_fsync_error_stops_before_cli_and_blocks_retry(self):
+        original = self.helper.atomic_receipt
+        def fail(path, data):
+            original(path, data)
+            raise OSError("fixture fsync failure")
+        self.helper.atomic_receipt = fail
+        with self.assertRaises(OSError):
+            self.apply()
+        self.assertTrue(self.request.pending_path.exists())
+        self.runner.assert_not_called()
+        with self.assertRaises(adapter.Refused):
+            self.apply()
+        self.assertFalse(self.request.receipt.exists())
+
+    def test_existing_pending_without_receipt_blocks_fake_success(self):
+        self.request.pending_path.write_bytes(b"{}\n")
+        self.request.pending_path.chmod(0o600)
+        self.runner.return_value = subprocess.CompletedProcess([], 0, adapter.SUCCESS, b"")
+        with self.assertRaises(adapter.Refused):
+            self.apply()
+        self.runner.assert_not_called()
+        self.assertFalse(self.request.receipt.exists())
+
+    def test_changed_pending_before_cli_prevents_apply(self):
+        original = self.helper.atomic_receipt
+        def write(path, data):
+            original(path, b"{}\n" if path == self.request.pending_path else data)
+        self.helper.atomic_receipt = write
+        with self.assertRaises(adapter.Refused):
+            self.apply()
         self.runner.assert_not_called()
         self.assertFalse(self.request.receipt.exists())
 
@@ -184,12 +246,74 @@ class AdapterTests(unittest.TestCase):
                 cli.chmod(0o644)
         self.runner.assert_not_called()
 
+    def test_group_writable_or_tar_mode_different_directories_stop_before_import(self):
+        for directory in (self.root, self.root / "deploy",
+                          self.root / "deploy/postgresql/autorizacion_atestada_v3"):
+            for mode in (0o775, 0o700):
+                with self.subTest(directory=directory, mode=mode):
+                    directory.chmod(mode)
+                    with self.assertRaises(adapter.Refused):
+                        self.apply()
+                    directory.chmod(0o755)
+        self.helper.context.assert_not_called()
+        self.runner.assert_not_called()
+        self.assertFalse(self.request.pending_path.exists())
+
+    def test_group_writable_ancestor_stops_before_import(self):
+        self.folder.chmod(0o770)
+        with self.assertRaises(adapter.Refused):
+            self.apply()
+        self.folder.chmod(0o700)
+        self.runner.assert_not_called()
+        self.helper.context.assert_not_called()
+
+    def test_foreign_owned_directory_and_file_stop_before_import(self):
+        original = Path.lstat
+        for foreign in (self.root, self.root / "deploy",
+                        self.root / adapter.CLI_REL):
+            def fake_owner(path, *args, **kwargs):
+                status = original(path, *args, **kwargs)
+                if path == foreign:
+                    values = list(status)
+                    values[4] = os.getuid() + 1
+                    return os.stat_result(values)
+                return status
+            with self.subTest(foreign=foreign), patch.object(Path, "lstat", fake_owner):
+                with self.assertRaises(adapter.Refused):
+                    self.apply()
+        self.helper.context.assert_not_called()
+        self.runner.assert_not_called()
+
+    def test_package_altered_after_preflight_prevents_cli(self):
+        original = self.helper.context.side_effect
+        def change(args):
+            result = original(args)
+            (self.root / adapter.CLI_REL).write_bytes(b"altered after check\n")
+            return result
+        self.helper.context.side_effect = change
+        with self.assertRaises(adapter.clon_sql.Refused):
+            self.apply()
+        self.assertTrue(self.request.pending_path.exists())
+        self.runner.assert_not_called()
+        self.assertFalse(self.request.receipt.exists())
+
+    def test_package_altered_during_cli_prevents_receipt(self):
+        def change(command, **kwargs):
+            result = self.run_cli(command, **kwargs)
+            (self.root / adapter.CLI_REL).write_bytes(b"altered during CLI\n")
+            return result
+        self.runner.side_effect = change
+        with self.assertRaises(adapter.clon_sql.Refused):
+            self.apply()
+        self.assertTrue(self.request.pending_path.exists())
+        self.assertFalse(self.request.receipt.exists())
+
     def test_externally_wrong_tar_lock_source_release_and_plan_rejected(self):
         for field in ("approved_package_sha256", "approved_lock_sha256", "source_commit",
                       "approved_release_sha256", "approved_plan_sha256"):
             request = replace(self.request, **{field: "f" * (40 if field == "source_commit" else 64)})
             with self.subTest(field=field), self.assertRaises((adapter.Refused, adapter.clon_sql.Refused)):
-                adapter.apply_and_confirm(request, self.durable_pending, runner=self.runner)
+                adapter.apply_and_confirm(request)
         self.runner.assert_not_called()
 
     def test_bad_stdout_and_nonzero_never_confirm(self):
@@ -199,24 +323,27 @@ class AdapterTests(unittest.TestCase):
             self.runner.return_value = subprocess.CompletedProcess([], code, stdout, b"")
             with self.subTest(code=code, stdout=stdout), self.assertRaises(adapter.Refused):
                 self.apply()
-            self.assertIsNotNone(self.pending)
+            self.assertTrue(self.request.pending_path.exists())
             self.assertFalse(self.request.receipt.exists())
             self.assertFalse(self.request.apply_output.exists())
+            self.request.pending_path.unlink()  # Escenarios sintéticos independientes.
 
     def test_timeout_never_confirms(self):
         self.runner.side_effect = subprocess.TimeoutExpired("fixture", 1)
         with self.assertRaises(subprocess.TimeoutExpired):
             self.apply()
-        self.assertIsNotNone(self.pending)
+        self.assertTrue(self.request.pending_path.exists())
         self.assertFalse(self.request.receipt.exists())
 
     def test_approval_changed_during_pending_prevents_apply(self):
-        def pending(common):
-            self.durable_pending(common)
-            self.approval_path.write_bytes(b"{}\n")
-            return True
+        original = self.helper.atomic_receipt
+        def pending(path, data):
+            original(path, data)
+            if path == self.request.pending_path:
+                self.approval_path.write_bytes(b"{}\n")
+        self.helper.atomic_receipt = pending
         with self.assertRaises(adapter.Refused):
-            self.apply(pending)
+            self.apply()
         self.runner.assert_not_called()
 
     def test_approval_changed_during_apply_prevents_confirmation(self):
@@ -226,22 +353,25 @@ class AdapterTests(unittest.TestCase):
         self.runner.side_effect = run
         with self.assertRaises(adapter.Refused):
             self.apply()
-        self.assertIsNotNone(self.pending)
+        self.assertTrue(self.request.pending_path.exists())
         self.assertFalse(self.request.receipt.exists())
 
     def test_evidence_created_during_pending_prevents_apply(self):
-        def pending(common):
-            self.durable_pending(common)
-            self.request.apply_output.write_bytes(adapter.SUCCESS)
-            return True
+        original = self.helper.atomic_receipt
+        def pending(path, data):
+            original(path, data)
+            if path == self.request.pending_path:
+                self.request.apply_output.write_bytes(adapter.SUCCESS)
+        self.helper.atomic_receipt = pending
         with self.assertRaises(adapter.Refused):
-            self.apply(pending)
+            self.apply()
         self.runner.assert_not_called()
 
     def test_postimage_and_anchors_divergent_never_confirm(self):
         self.inventory["public_temp"] = True
         with self.assertRaises(adapter.Refused):
             self.apply()
+        self.request.pending_path.unlink()  # Otro escenario sintético.
         self.inventory["public_temp"] = False
         self.anchors["ct145_table"] = "d" * 64
         with self.assertRaises(adapter.Refused):
@@ -268,12 +398,25 @@ class AdapterTests(unittest.TestCase):
             adapter.revalidar(self.request)
         self.assertEqual(self.runner.call_count, 1)
 
+    def test_revalidation_requires_same_pending_evidence(self):
+        self.apply()
+        pending = self.request.pending_path.read_bytes()
+        self.request.pending_path.unlink()
+        with self.assertRaises(FileNotFoundError):
+            adapter.revalidar(self.request)
+        self.request.pending_path.write_bytes(pending.replace(b'"pg_container_id":"a',
+                                                             b'"pg_container_id":"f'))
+        self.request.pending_path.chmod(0o600)
+        with self.assertRaises(adapter.Refused):
+            adapter.revalidar(self.request)
+        self.assertEqual(self.runner.call_count, 1)
+
     def test_compatible_postimage_without_receipt_is_not_apply(self):
         with self.assertRaises(FileNotFoundError):
             adapter.revalidar(self.request)
         self.runner.assert_not_called()
         self.mod.current_inventory.assert_not_called()
-        self.assertIsNone(self.pending)
+        self.assertFalse(self.request.pending_path.exists())
 
     def test_existing_evidence_blocks_reapply(self):
         self.apply()
@@ -290,7 +433,7 @@ class AdapterTests(unittest.TestCase):
         self.helper.atomic_receipt = write
         with self.assertRaises(OSError):
             self.apply()
-        self.assertIsNotNone(self.pending)
+        self.assertTrue(self.request.pending_path.exists())
         self.assertFalse(self.request.receipt.exists())
         self.assertTrue(self.request.apply_output.exists())
         with self.assertRaises(adapter.Refused):
@@ -301,8 +444,7 @@ class AdapterTests(unittest.TestCase):
         linked = self.folder / "linked"
         linked.symlink_to(self.root, target_is_directory=True)
         with self.assertRaises(adapter.clon_sql.Refused):
-            adapter.apply_and_confirm(replace(self.request, package_root=linked),
-                                      self.durable_pending, runner=self.runner)
+            adapter.apply_and_confirm(replace(self.request, package_root=linked))
         self.runner.assert_not_called()
 
     def test_cli_does_not_expose_confirmation_or_engine_choice(self):

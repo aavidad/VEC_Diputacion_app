@@ -3,15 +3,22 @@
 
 Contrato del orquestador: Request fija tar/raíz extraída, SHA aprobados de
 paquete, lock, release, fuente, plan y aprobación privada previa, contenedor,
-plan/recibo canónico del canario y destinos privados de salida/recibo AD132.
+plan/recibo canónico del canario y destinos privados de pending/salida/recibo.
 La raíz debe conservar el árbol y los modos del tar aprobado. No se extrae aquí.
 
-apply_and_confirm(request, pending_durable_callback) es la única confirmación:
-el callback recibe el contexto D y devuelve True exclusivamente tras sincronizar
-pending en su journal. El adaptador observa directamente la CLI apply Docker,
+apply_and_confirm(request) es la única confirmación. El adaptador crea y sincroniza
+su propio pending canónico antes de ejecutar la CLI apply Docker mediante
+subprocess.run fijo. Observa directamente su código de retorno y stdout,
 conserva su stdout exacto y emite el recibo D tras cotejar postimagen/anclas.
-Un error conserva el pending externo; el adaptador nunca lo limpia ni reintenta.
-runner es una dependencia de prueba, no una opción de la CLI.
+El pending se conserva también tras éxito; su presencia siempre impide reaplicar.
+Revalidar exige esa evidencia y el recibo. Ningún callback o runner forma parte
+de la API. Los dobles de tests se instalan con monkeypatch en el entorno aislado.
+
+La reapertura de CLI por el helper D se protege validando UID actual y ausencia
+de escritura ajena en todos los archivos/directorios del paquete. Los ancestros
+hasta / pertenecen al UID actual o root y tampoco admiten escritura ajena.
+El UID operativo y root son autoridades confiables; un UID ajeno no puede
+sustituir los bytes ni renombrar sus rutas entre verificación y ejecución.
 
 revalidar(request) sólo lee el recibo y consulta inventario/anclas originales.
 La CLI expone únicamente esta lectura. Una postimagen compatible sin recibo
@@ -22,6 +29,7 @@ import argparse
 from dataclasses import dataclass
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import re
@@ -64,6 +72,7 @@ class Request:
     container: str
     receipt: Path
     apply_output: Path
+    pending_path: Path
 
 
 def digest(data):
@@ -72,22 +81,27 @@ def digest(data):
 
 def package_tree(data):
     """Inventario cerrado de bytes y modos; jamás extrae el tar."""
-    files, directories, seen, size = {}, set(), set(), 0
+    files, directories, seen, size = {}, {}, set(), 0
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
         for position, member in enumerate(archive, 1):
             name = member.name[2:] if member.name.startswith("./") else member.name
             if name in ("", ".") and member.isdir():
+                if "" in directories or member.mode & 0o7022:
+                    raise Refused("modo o entrada raíz del tar incompatible")
+                directories[""] = member.mode & 0o777
                 continue
             name = name.rstrip("/") if member.isdir() else name
             if (position > 20000 or not name or name.startswith("/") or "\\" in name
                     or any(part in ("", ".", "..") for part in name.split("/"))
                     or name in seen or not (member.isfile() or member.isdir())
-                    or member.mode & 0o7000):
+                    or member.mode & 0o7022):
                 raise Refused("árbol del paquete incompatible")
             seen.add(name)
-            directories.update(str(p) for p in Path(name).parents if str(p) != ".")
+            for parent in Path(name).parents:
+                if str(parent) != ".":
+                    directories.setdefault(str(parent), None)
             if member.isdir():
-                directories.add(name)
+                directories[name] = member.mode & 0o777
                 continue
             size += member.size
             if member.size > 128 * 1024 * 1024 or size > 512 * 1024 * 1024:
@@ -97,22 +111,38 @@ def package_tree(data):
             if len(content) != member.size:
                 raise Refused("paquete incompleto")
             files[name] = (digest(content), member.mode & 0o777)
-    if not files or files.keys() & directories:
+    if not files or files.keys() & directories.keys():
         raise Refused("árbol del paquete ambiguo")
     return files, directories
 
 
+def trusted_directory(path, owner=None, mode=None):
+    status = path.lstat()
+    owners = {0, os.getuid()} if owner is None else {owner}
+    if (not stat.S_ISDIR(status.st_mode) or status.st_uid not in owners
+            or status.st_mode & 0o7022
+            or (mode is not None and stat.S_IMODE(status.st_mode) != mode)):
+        raise Refused("directorio con propietario, modo o tipo no confiable")
+
+
+def trusted_ancestors(path):
+    for parent in path.parents:
+        trusted_directory(parent)
+
+
 def verify_tree(root, files, directories):
     root = clon_sql.validate_original_path(root)
-    if not root.is_dir():
-        raise Refused("raíz extraída ausente")
+    trusted_ancestors(root)
+    trusted_directory(root, os.getuid(), directories.get(""))
     found, found_dirs = set(), set()
     for directory, dirs, names in os.walk(root, followlinks=False):
         for name in dirs:
             path = Path(directory) / name
-            if not stat.S_ISDIR(path.lstat().st_mode):
-                raise Refused("directorio del paquete enlazado")
-            found_dirs.add(path.relative_to(root).as_posix())
+            relative = path.relative_to(root).as_posix()
+            if relative not in directories:
+                raise Refused("directorio ajeno al paquete aprobado")
+            trusted_directory(path, os.getuid(), directories[relative])
+            found_dirs.add(relative)
         for name in names:
             path = Path(directory) / name
             relative = path.relative_to(root).as_posix()
@@ -120,16 +150,18 @@ def verify_tree(root, files, directories):
                 raise Refused("fichero ajeno al paquete aprobado")
             expected, mode = files[relative]
             clon_sql.approved_file(path, expected, 128 * 1024 * 1024, retain=False)
-            if stat.S_IMODE(path.lstat().st_mode) != mode:
-                raise Refused("modo extraído distinto del paquete")
+            status = path.lstat()
+            if status.st_uid != os.getuid() or stat.S_IMODE(status.st_mode) != mode:
+                raise Refused("dueño o modo extraído distinto del paquete")
             found.add(relative)
-    if found != files.keys() or found_dirs != directories:
+    if found != files.keys() or found_dirs != directories.keys() - {""}:
         raise Refused("árbol extraído incompleto o ajeno")
     return root
 
 
 def private_destination(path):
     path = clon_sql.validate_original_path(path)
+    trusted_ancestors(path)
     parent = path.parent.stat()
     if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid()
             or parent.st_mode & 0o077
@@ -140,6 +172,9 @@ def private_destination(path):
 
 def load_adapter(request):
     """Preflight sin Docker: carga sólo el helper original fijado externamente."""
+    for path in (request.package_tar, request.release_lock, request.plan,
+                 request.plan_receipt, request.approval):
+        trusted_ancestors(clon_sql.validate_original_path(path))
     for value in (request.approved_package_sha256, request.approved_lock_sha256,
                   request.approved_release_sha256, request.approved_plan_sha256,
                   request.approval_sha256, request.container):
@@ -183,10 +218,12 @@ def load_adapter(request):
                               approval=clon_sql.validate_original_path(request.approval),
                               approval_sha256=request.approval_sha256,
                               receipt=private_destination(request.receipt),
-                              apply_output=private_destination(request.apply_output))
-    if args.receipt == args.apply_output:
-        raise Refused("salida y recibo requieren destinos distintos")
-    if args.receipt.is_relative_to(root) or args.apply_output.is_relative_to(root):
+                              apply_output=private_destination(request.apply_output),
+                              pending_path=private_destination(request.pending_path))
+    destinations = (args.receipt, args.apply_output, args.pending_path)
+    if len(set(destinations)) != len(destinations):
+        raise Refused("pending, salida y recibo requieren destinos distintos")
+    if any(path.is_relative_to(root) for path in destinations):
         raise Refused("evidencia privada fuera del árbol inmutable del paquete")
     mod, release, approval, common = helper.context(args)
     expected = {"package_sha256": request.approved_package_sha256,
@@ -211,22 +248,32 @@ def cli_command(args):
             "--release-lock", str(args.release_lock), "--approval", str(args.approval)]
 
 
-def apply_and_confirm(request, pending_durable_callback, *, runner=subprocess.run):
+def pending_record(common, args):
+    return {"version": 1, "kind": "ad132_apply_pending", "context": common,
+            "cli_command_sha256": digest((json.dumps(
+                cli_command(args), ensure_ascii=False, separators=(",", ":")) + "\n").encode())}
+
+
+def require_pending(helper, common, args):
+    expected = helper.canonical(pending_record(common, args))
+    if helper.read_regular(args.pending_path, 64_000, private=True) != expected:
+        raise Refused("pending distinto de contexto, aprobación o CLI")
+
+
+def apply_and_confirm(request):
     """Sólo un exit0 observado aquí puede crear el recibo canónico original D."""
-    if not callable(pending_durable_callback):
-        raise Refused("falta callback del pending durable")
     helper, mod, release, approval, common, args = load_adapter(request)
-    if args.receipt.exists() or args.apply_output.exists():
+    if args.receipt.exists() or args.apply_output.exists() or args.pending_path.exists():
         raise Refused("evidencia previa presente; revalidar sin reaplicar")
-    if pending_durable_callback(dict(common)) is not True:
-        raise Refused("pending no confirmado durablemente")
-    # El callback no puede cambiar material/aprobación entre preflight y apply.
+    helper.atomic_receipt(args.pending_path, helper.canonical(pending_record(common, args)))
+    # La marca se sincroniza antes de la CLI y nunca se elimina al recuperar.
     helper, mod, release, approval, current_common, args = load_adapter(request)
     if current_common != common:
         raise Refused("contexto cambió después de pending")
+    require_pending(helper, common, args)
     if args.receipt.exists() or args.apply_output.exists():
         raise Refused("evidencia apareció después de pending; no reaplicar")
-    result = runner(cli_command(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    result = subprocess.run(cli_command(args), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     check=False, timeout=360, env={"PATH": "/usr/bin:/bin",
                     "HOME": "/nonexistent", "LC_ALL": "C", "PYTHONDONTWRITEBYTECODE": "1"})
     if result.returncode != 0 or result.stdout != SUCCESS:
@@ -234,6 +281,7 @@ def apply_and_confirm(request, pending_durable_callback, *, runner=subprocess.ru
     helper, mod, release, approval, current_common, args = load_adapter(request)
     if current_common != common:
         raise Refused("contexto cambió durante apply; conservar pending")
+    require_pending(helper, common, args)
     current = mod.current_inventory(args, release)
     anchors = mod.current_anchors(args, release)
     if (not mod.postimage_compatible(approval["inventory"], current)
@@ -251,6 +299,7 @@ def apply_and_confirm(request, pending_durable_callback, *, runner=subprocess.ru
 
 def revalidar(request):
     helper, mod, release, approval, common, args = load_adapter(request)
+    require_pending(helper, common, args)
     data = helper.read_regular(args.receipt, 4_000_000, private=True)
     receipt = helper.json_object(data)
     if (set(receipt) != helper.FIELDS or data != helper.canonical(receipt)
@@ -272,7 +321,7 @@ def main(argv=None):
     parser.add_argument("mode", choices=("revalidar",))
     for name in Request.__dataclass_fields__:
         is_path = name in {"package_tar", "package_root", "release_lock", "plan",
-                          "plan_receipt", "approval", "receipt", "apply_output"}
+                          "plan_receipt", "approval", "receipt", "apply_output", "pending_path"}
         parser.add_argument("--" + name.replace("_", "-"), required=True,
                             type=Path if is_path else str)
     values = vars(parser.parse_args(argv))
