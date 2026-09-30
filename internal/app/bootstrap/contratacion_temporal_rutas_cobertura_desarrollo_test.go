@@ -105,3 +105,33 @@ func TestCoberturaRutasCTNoAceptaPDPEnRutaNominal(t *testing.T) {
 		t.Fatalf("PDP inesperado en autoridad nominal: %v", err)
 	}
 }
+
+func TestCoberturaRutasCTRestringeElManejadorFinalAntesDeEjecutarlo(t *testing.T) {
+	catalogo := catalogoCoberturaRutasCTPrueba(t, "", "")
+	llamadas := 0
+	rutas := []vechttp.RutaExacta{{Ruta: rutaOrganizacionContratacionTemporalDesarrollo,
+		Manejador: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			llamadas++
+			w.WriteHeader(http.StatusNoContent)
+		})}}
+	if err := validarCoberturaRutasCTDesarrollo(rutas, catalogo); err != nil {
+		t.Fatal(err)
+	}
+	for _, metodo := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+		w := httptest.NewRecorder()
+		rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(metodo, rutas[0].Ruta, nil))
+		if w.Code != http.StatusMethodNotAllowed || llamadas != 0 || w.Header().Get("Allow") != "GET, HEAD" {
+			t.Fatalf("verbo extra %s ejecutó el manejador: HTTP=%d llamadas=%d", metodo, w.Code, llamadas)
+		}
+	}
+	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+		w := httptest.NewRecorder()
+		rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(metodo, rutas[0].Ruta, nil))
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("verbo nominal %s bloqueado: %d", metodo, w.Code)
+		}
+	}
+	if llamadas != 2 {
+		t.Fatalf("ejecuciones nominales: %d", llamadas)
+	}
+}
