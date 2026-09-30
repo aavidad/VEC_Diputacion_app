@@ -80,7 +80,7 @@ func Calcular(c Conjunto, e Entrada) (Resultado, error) {
 	if err != nil {
 		return Resultado{}, err
 	}
-	dependencias := []Dependencia{c.Bases}
+	dependencias := []Dependencia{c.Bases, {c.Referencia, c.Version, HuellaSHA256(cb)}, {e.Referencia, e.Version, HuellaSHA256(eb)}}
 	for _, seccion := range c.Secciones {
 		dependencias = append(dependencias, seccion.Definicion)
 	}

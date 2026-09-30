@@ -272,3 +272,18 @@ func TestDependenciasContradictoriasEntreReglasYEntradaSinPuntos(t *testing.T) {
 		}
 	}
 }
+
+func TestDependenciasNoSuplantanLasInstantaneasDelCalculo(t *testing.T) {
+	for _, instantanea := range []string{"conjunto", "entrada"} {
+		c, e := ejemplo(t, "meritos_reglas_a")
+		e.Meritos = []Merito{e.Meritos[0]}
+		if instantanea == "conjunto" {
+			e.Meritos[0].Hecho = Dependencia{c.Referencia, c.Version, strings.Repeat("f", 64)}
+		} else {
+			e.Meritos[0].Hecho = Dependencia{e.Referencia, e.Version, strings.Repeat("f", 64)}
+		}
+		if r, err := Calcular(c, e); err == nil || r.Total != nil {
+			t.Fatal("dependencia suplanta la instantánea")
+		}
+	}
+}
