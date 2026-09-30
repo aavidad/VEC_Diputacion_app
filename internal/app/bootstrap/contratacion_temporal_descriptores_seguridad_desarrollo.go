@@ -46,7 +46,7 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
-	_ ...bool,
+	firma ...bool,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
 	fronteras := append([]descriptorFronteraComunDesarrollo{
@@ -65,7 +65,13 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
 	}, append(descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT), descriptoresFronterasCancelacionCTDesarrollo(perfilCT)...)...)
-	return append(fronteras, fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT), fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
+	fronteras = append(fronteras, fronteraEntregaPeticionCentroRRHHDesarrollo(perfilCT), fronteraPeticionesCentroRRHHDesarrollo(perfilCT))
+	if len(firma) > 0 && firma[0] {
+		fronteras = append(fronteras,
+			fronteraContratacionTemporalDesarrollo("ct-documento-firmar", ctports.AccionFirmarDocumento, cthttp.RutaFirmaDocumento, []string{perfilCT}),
+			fronteraContratacionTemporalDesarrollo("ct-firmas-documento-consultar", ctports.AccionConsultarFirmasDocumento, cthttp.RutaConsultaFirmaDocumento, []string{perfilCT}))
+	}
+	return fronteras
 }
 
 // El POST conserva la acción de entrega. El alta anidada requiere además un
@@ -90,10 +96,10 @@ func fronteraPeticionesCentroRRHHDesarrollo(perfilCT string) descriptorFronteraC
 // CT131 añade únicamente sus tres fronteras con un perfil derivado distinto.
 // El perfil CT base conserva todas las rutas anteriores y su PDP común.
 func descriptoresFronterasContratacionTemporalConPlantillasDesarrollo(
-	perfilCT string, perfilesConsulta []string, _ bool,
+	perfilCT string, perfilesConsulta []string, firmaActiva bool,
 	plantillasActivas bool, perfilPlantillas string,
 ) ([]descriptorFronteraComunDesarrollo, error) {
-	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(perfilCT, perfilesConsulta)
+	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(perfilCT, perfilesConsulta, firmaActiva)
 	if !plantillasActivas {
 		if perfilPlantillas != "" {
 			return nil, ErrActivacionDesarrolloInvalida
@@ -151,7 +157,7 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 	reincorporacion ...bool,
 ) []descriptorAutorizacionComunDesarrollo {
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo(
-		"prf_catalogo_ct", []string{"prf_catalogo_ct"},
+		"prf_catalogo_ct", []string{"prf_catalogo_ct"}, len(reincorporacion) > 1 && reincorporacion[1],
 	)
 	descriptores := make([]descriptorAutorizacionComunDesarrollo, 0, len(fronteras))
 	for _, frontera := range fronteras {
@@ -161,6 +167,14 @@ func descriptoresAutorizacionContratacionTemporalDesarrollo(
 			ClaveCapacidad: frontera.ClaveCapacidad,
 			Fronteras:      []string{frontera.Clave},
 			Politica:       politica,
+		})
+	}
+	if len(reincorporacion) > 1 && reincorporacion[1] {
+		// La firma consulta su antecedente con otra decisión nominal del mismo
+		// perfil activo, sin sumar perfiles ni reutilizar el permiso de escritura.
+		descriptores = append(descriptores, descriptorAutorizacionComunDesarrollo{
+			Accion: ctports.AccionConsultarFirmasDocumento, ClavePolitica: clavePoliticaContratacionTemporalDesarrollo,
+			ClaveCapacidad: ctports.AccionFirmarDocumento, Fronteras: []string{"ct-documento-firmar"}, Politica: politica,
 		})
 	}
 	// CrearSolicitud desde una petición ratificada conserva el perfil y el

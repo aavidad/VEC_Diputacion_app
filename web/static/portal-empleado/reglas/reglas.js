@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-recuperacion-v1";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas, textoPresentacionRegla } from "./i18n.js?v=20260930-reglas-recuperacion-v2";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -100,7 +100,8 @@ export function filtrar(catalogos, { modulo = "", origen = "", texto: consulta =
   return catalogos.filter((c) => !modulo || c.modulo === modulo).map((c) => ({
     ...c,
     reglas: c.reglas.filter((r) => (!origen || r.origen === origen)
-      && (!q || [r.etiqueta, r.descripcion, r.clave, r.duda, r.norma].some((v) => minusculas(v).includes(q)))),
+      && (!q || [r.etiqueta, r.clave, r.norma, ...["descripcion", "duda", "ejemplo_parcial"]
+        .map((campo) => textoPresentacionRegla(c.modulo, r, campo).texto)].some((v) => minusculas(v).includes(q)))),
   }));
 }
 
@@ -121,14 +122,18 @@ export const idRegla = (modulo, clave) => `rg-regla-${idSeguro(`${modulo}\0${cla
 
 /** Los textos de cada regla llegan del catálogo en su idioma: se marcan si la interfaz usa otro. */
 const LANG_DATOS = IDIOMA_REGLAS === IDIOMA_DATOS_REGLAS ? "" : ` lang="${esc(IDIOMA_DATOS_REGLAS)}"`;
-const datos = (texto) => `<span${LANG_DATOS}>${esc(texto)}</span>`;
-const parteEjemplo = (valor) => {
+const datos = (texto, idioma = IDIOMA_DATOS_REGLAS) => `<span${idioma === IDIOMA_REGLAS ? "" : ` lang="${esc(idioma)}"`}>${esc(texto)}</span>`;
+const textoRegla = (modulo, regla, campo) => {
+  const { texto, idioma } = textoPresentacionRegla(modulo, regla, campo);
+  return datos(texto, idioma);
+};
+const parteEjemplo = (r, modulo) => {
   const [antes, despues] = MENSAJES_REGLAS.parteEjemplo.split("{texto}");
-  return `${esc(antes)}${datos(valor)}${esc(despues)}`;
+  return `${esc(antes)}${textoRegla(modulo, r, "ejemplo_parcial")}${esc(despues)}`;
 };
 
 function filaRegla(r, modulo, abiertas) {
-  const parcial = r.ejemplo_parcial ? `<br><small>${parteEjemplo(r.ejemplo_parcial)}</small>` : "";
+  const parcial = r.ejemplo_parcial ? `<br><small>${parteEjemplo(r, modulo)}</small>` : "";
   const computo = r.computo && existeClaveReglas(`computo_${r.computo}`) ? `<br><small>${esc(t(`computo_${r.computo}`))}</small>` : "";
   const pastilla = r.origen === "reglamento" ? "rg-pastilla--reglamento" : "rg-pastilla--ejemplo";
   const id = idRegla(modulo, r.clave);
@@ -138,20 +143,20 @@ function filaRegla(r, modulo, abiertas) {
     <td class="rg-numero">${r.valor ? datos(valorRegla(r)) : esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
     <td><span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}</td>
-    <td>${datos(r.duda)}</td>
+    <td>${textoRegla(modulo, r, "duda")}</td>
     <td class="rg-numero">${esc(formatearNumero(r.version))}</td>
   </tr>
-  <tr class="rg-detalle rg-fila--${esc(r.origen)}" id="${id}"${abierta ? "" : " hidden"}><td colspan="6">${detalleRegla(r)}</td></tr>`;
+  <tr class="rg-detalle rg-fila--${esc(r.origen)}" id="${id}"${abierta ? "" : " hidden"}><td colspan="6">${detalleRegla(r, modulo)}</td></tr>`;
 }
 
 /** Texto completo de la regla, sin códigos internos: lo que la fila no deja leer entero. */
-export function detalleRegla(r) {
+export function detalleRegla(r, modulo = "") {
   const bloque = (clave, contenido) => `<div class="rg-detalle-bloque"><dt>${esc(t(clave))}</dt><dd>${contenido}</dd></div>`;
   const partes = [
-    bloque("detalleQue", r.descripcion ? datos(r.descripcion) : esc(t("detalleSinDescripcion"))),
-    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r.ejemplo_parcial)}` : "")),
+    bloque("detalleQue", r.descripcion ? textoRegla(modulo, r, "descripcion") : esc(t("detalleSinDescripcion"))),
+    bloque("detalleOrigen", esc(origenRegla(r)) + (r.ejemplo_parcial ? `<br>${parteEjemplo(r, modulo)}` : "")),
     bloque("detalleNorma", datos(r.norma)),
-    bloque("detalleDuda", datos(r.duda)),
+    bloque("detalleDuda", textoRegla(modulo, r, "duda")),
   ];
   return `<div class="rg-detalle-cuerpo"><dl>${partes.join("")}</dl></div>`;
 }

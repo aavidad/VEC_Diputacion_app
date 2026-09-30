@@ -33,8 +33,12 @@ func NuevoRegistroFirmasDocumentoPostgreSQL(pool *pgxpool.Pool) (*RegistroFirmas
 }
 
 const (
-	registrarFirmaSQL118     = `SELECT vec_contratacion_temporal.registrar_firma_documento_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
-	consultarFirmasSQL118    = `SELECT vec_contratacion_temporal.consultar_firmas_documento_v1($1,$2)::text`
+	// CT145: las v2 añaden el enlace con el PDF custodiado. Las v1 ya no
+	// están al alcance del ejecutor. Una firma registrada con v1 cuyo cliente
+	// reintente ya con v2 recibe «clave reutilizada»: el material lleva dos
+	// claves más. Solo ocurre con reintentos que cruzan el despliegue.
+	registrarFirmaSQL118     = `SELECT vec_contratacion_temporal.registrar_firma_documento_v2($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)::text`
+	consultarFirmasSQL118    = `SELECT vec_contratacion_temporal.consultar_firmas_documento_v2($1,$2)::text`
 	maximoRespuestaFirmas118 = 4 << 20
 )
 
@@ -49,6 +53,8 @@ type reciboFirmaSQL118 struct {
 	RegistradaEn      time.Time `json:"RegistradaEn"`
 	SolicitudHuella   string    `json:"SolicitudHuella"`
 	YaRegistrada      bool      `json:"YaRegistrada"`
+	DocumentoCustodia *string   `json:"DocumentoCustodiaRef"`
+	VersionCustodia   *uint64   `json:"DocumentoCustodiaVersion"`
 }
 
 type firmaSQL118 struct {
@@ -67,6 +73,9 @@ type firmaSQL118 struct {
 	FirmadoHuella     *string   `json:"FirmadoHuella"`
 	SelloTiempoEstado *string   `json:"SelloTiempoEstado"`
 	RegistradaEn      time.Time `json:"RegistradaEn"`
+	ClaveIdempotencia string    `json:"ClaveIdempotencia"`
+	DocumentoCustodia *string   `json:"DocumentoCustodiaRef"`
+	VersionCustodia   *uint64   `json:"DocumentoCustodiaVersion"`
 }
 
 func textoFirma118(p *string) string {
@@ -76,12 +85,21 @@ func textoFirma118(p *string) string {
 	return *p
 }
 
+func versionFirma118(p *uint64) uint64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
+
 // Restricciones únicas de CT118 por las que se distingue la carrera perdida
 // entre dos registros simultáneos (SERIALIZABLE no la impide con el cerrojo).
 const (
 	restriccionClaveFirma118     = "firma_documento_v1_clave_unica"
 	restriccionSecuenciaFirma118 = "firma_documento_v1_secuencia_unica"
-	intentosRegistroFirma118     = 3
+	// CT145: el documento custodiado ya está enlazado a otra firma.
+	restriccionDocumentoCustodia145 = "firma_documento_custodia_v1_documento_unico"
+	intentosRegistroFirma118        = 3
 )
 
 // reintentableFirma118 indica que la transacción perdió una carrera y debe
@@ -112,7 +130,7 @@ func errorFirma118(ctx context.Context, err error) error {
 		case "23505":
 			// Otra transacción ocupó la misma secuencia del documento: es el
 			// mismo conflicto de historia que P1183.
-			if p.ConstraintName == restriccionSecuenciaFirma118 {
+			if p.ConstraintName == restriccionSecuenciaFirma118 || p.ConstraintName == restriccionDocumentoCustodia145 {
 				return ports.ErrFirmaDocumentoEnConflicto
 			}
 		case "P1184":
@@ -172,8 +190,10 @@ func (r *RegistroFirmasDocumentoPostgreSQL) RegistrarFirma(ctx context.Context, 
 	validar := func(w reciboFirmaSQL118) error {
 		recibo = ports.ReciboFirmaDocumento{FirmaRef: w.FirmaRef, ReciboRef: w.ReciboRef, Secuencia: w.Secuencia,
 			Resultado: domain.ResultadoFirmaDocumento(w.Resultado), ExpedienteVersion: w.ExpedienteVersion, ActorRef: w.ActorRef,
-			PerfilRef: w.PerfilRef, RegistradaEn: w.RegistradaEn.UTC(), SolicitudHuella: w.SolicitudHuella, YaRegistrada: w.YaRegistrada}
+			PerfilRef: w.PerfilRef, RegistradaEn: w.RegistradaEn.UTC(), SolicitudHuella: w.SolicitudHuella, YaRegistrada: w.YaRegistrada,
+			DocumentoCustodiaRef: textoFirma118(w.DocumentoCustodia), DocumentoCustodiaVersion: versionFirma118(w.VersionCustodia)}
 		if !domain.ReferenciaOpacaValida(recibo.FirmaRef) || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || recibo.SolicitudHuella != h ||
+			recibo.DocumentoCustodiaRef != m.DocumentoCustodiaRef || recibo.DocumentoCustodiaVersion != m.DocumentoCustodiaVersion ||
 			recibo.Resultado != m.Resultado || recibo.ActorRef == "" || recibo.PerfilRef == "" || recibo.RegistradaEn.IsZero() ||
 			(!recibo.YaRegistrada && (recibo.Secuencia != m.Secuencia || recibo.ExpedienteVersion != m.VersionExpediente)) {
 			return ports.ErrResultadoFirmaDocumentoInvalido
@@ -283,7 +303,8 @@ func (r *RegistroFirmasDocumentoPostgreSQL) ConsultarFirmas(ctx context.Context,
 			Secuencia: f.Secuencia, ExpedienteVersion: f.ExpedienteVersion, CatalogoRef: f.CatalogoRef, CatalogoHuella: f.CatalogoHuella,
 			PasoRef: f.PasoRef, PasoOrden: f.PasoOrden, Resultado: domain.ResultadoFirmaDocumento(f.Resultado),
 			ConMotivoDevolucion: f.ConMotivo, OriginalHuella: textoFirma118(f.OriginalHuella), FirmadoHuella: textoFirma118(f.FirmadoHuella),
-			SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado), RegistradaEn: f.RegistradaEn.UTC()})
+			SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado), RegistradaEn: f.RegistradaEn.UTC(), ClaveIdempotencia: f.ClaveIdempotencia,
+			DocumentoCustodiaRef: textoFirma118(f.DocumentoCustodia), DocumentoCustodiaVersion: versionFirma118(f.VersionCustodia)})
 	}
 	return firmas, nil
 }

@@ -53,3 +53,6 @@ ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/cont
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:87
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:90
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:115
+
+# Reglas: la variable clave contiene un identificador de regla del catálogo en una prueba; no es una credencial.
+f18d0c0d3e59e9e622819764889ad356cb438f93:web/static/portal-empleado/reglas/texto-presentacion.test.mjs:vep-clave-castellana-asignada:37

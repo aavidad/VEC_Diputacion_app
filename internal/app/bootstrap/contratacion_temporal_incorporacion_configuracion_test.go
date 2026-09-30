@@ -76,6 +76,7 @@ func TestIncorporacionV2CargaArchivoPrivado(t *testing.T) {
 		Referencias: ReferenciasCTIncorporacionDesarrollo{PrincipalV3Ref: "principal:prueba", PerfilV3Ref: "perfil:prueba", OrganizacionRef: "ref:" + strings.Repeat("a", 64), UnidadRef: "ref:" + strings.Repeat("b", 64), ActorRef: "ref:" + strings.Repeat("c", 64)}, Pools: map[string]string{}}
 	c.MotivoAlta = core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("a", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
 	c.MotivoLectura = c.MotivoAlta
+	c.CentrosAlta = []string{"centro:prueba:0001"}
 	for k := range rolesPoolsIncorporacionV2 {
 		c.Pools[k] = k + ".dsn"
 	}
@@ -98,6 +99,9 @@ func TestIncorporacionV2CargaArchivoPrivado(t *testing.T) {
 	raiz.Close()
 	for nombre, datos := range map[string][]byte{
 		"ruta_permisos_desconocida": append([]byte(`{"permiso":true,`), b[1:]...),
+		"centros_comodin":           []byte(strings.Replace(string(b), `"centros_alta":["centro:prueba:0001"]`, `"centros_alta":["*"]`, 1)),
+		"centros_ausentes":          []byte(strings.Replace(string(b), `"centros_alta":["centro:prueba:0001"]`, `"centros_alta":[]`, 1)),
+		"centros_repetidos":         []byte(strings.Replace(string(b), `"centros_alta":["centro:prueba:0001"]`, `"centros_alta":["centro:prueba:0001","centro:prueba:0001"]`, 1)),
 		"dos_documentos":            append(append([]byte(nil), b...), []byte(`{}`)...),
 		"rol_no_declarado":          []byte(strings.Replace(string(b), `"raices_ct":`, `"admin":`, 1)),
 		"referencia_ajena":          []byte(strings.Replace(string(b), c.Referencias.OrganizacionRef, "organizacion:con espacio", 1)),
@@ -203,7 +207,7 @@ func TestIncorporacionV2SelectorArranqueYAmbitoNominal(t *testing.T) {
 	alta, consulta, principal := escenarioConsultasRRHHDesarrolloPrueba(t)
 	v, _ := alta.soporte.contexto.Vinculo.Datos()
 	refs := ReferenciasCTIncorporacionDesarrollo{PrincipalV3Ref: v.PrincipalID, PerfilV3Ref: v.PerfilActivoRef, OrganizacionRef: "organizacion:desarrollo:dipgra", UnidadRef: "ref:" + strings.Repeat("b", 64), ActorRef: "ref:" + strings.Repeat("c", 64)}
-	a := &contextoDetalleNominalIncorporacionV2{consulta, refs, alta.soporte.reloj}
+	a := &contextoDetalleNominalIncorporacionV2{consulta, refs, alta.soporte.reloj, nil}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(alta.soporte, principal, httpinterno.RutaIncorporacionEjercicioV2)
 	c := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
 	c.certificadoVerificadoEn = alta.soporte.reloj.Ahora().Add(-time.Second)
