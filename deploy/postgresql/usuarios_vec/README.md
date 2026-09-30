@@ -133,7 +133,11 @@ migraciones ya instaladas no se repiten ni se revierten.
 Los correos nuevos se cifran exclusivamente con el material del proceso
 externo. Si quedan referencias a claves compartidas, el preflight rechaza el
 arranque de la capacidad; el proceso no carga la clave anterior ni descifra ese
-historial. Su conversión requiere una herramienta de operación aparte. El
+historial. Usuarios 000013 prepara el mantenimiento explícito y debe instalarse
+antes de la clausura de Usuarios 000015. La herramienta offline se entrega en
+una PR dependiente; esta pieza conserva únicamente su SQL, ya revisada y
+ensayada. Si hay correos antiguos, el mantenimiento debe completarse antes de
+activar el externo. El
 canal de avisos entre procesos también es una pieza posterior: el proceso
 interno debe pedir el envío mediante referencias opacas y nunca recibir la
 dirección o la clave externa. Este montaje no acredita todavía ese canal ni

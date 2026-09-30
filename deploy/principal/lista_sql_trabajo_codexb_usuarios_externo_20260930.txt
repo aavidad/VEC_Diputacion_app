@@ -5,10 +5,14 @@
 # Aplicar con ambos procesos parados. Nunca ejecutar DOWN ni reaplicar.
 # Documentos/Usuarios separan físicamente la imagen externa. Usuarios 000012
 # conserva los correos antiguos, pero el externo rechaza su arranque si aún
-# llevan claves anteriores. Ese historial requiere reclaveado gobernado.
+# llevan claves anteriores. Usuarios 000013 prepara el mantenimiento explícito.
+# La herramienta offline se entrega en una PR dependiente; no se activa el
+# externo con correos antiguos hasta completar ese mantenimiento.
+# Después se aplican AUT21/AD3-122 y la clausura AD3-124, D11 y U15.
 deploy/postgresql/documentos/migraciones/000010_imagen_externa_fisica.up.sql
 deploy/postgresql/usuarios_vec/migraciones/000011_imagen_externa_fisica.up.sql
 deploy/postgresql/usuarios_vec/migraciones/000012_preflight_claves_correos_externos.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000013_reclaveado_correos_externos.up.sql
 deploy/postgresql/autorizacion/migraciones/000017_perfil_usuarios_externo.up.sql
 deploy/postgresql/autorizacion/migraciones/000018_usuarios_externo_fechas_cero_canonicas.up.sql
 deploy/postgresql/autorizacion_atestada_v3/migraciones/000118_consumo_usuarios_externo.up.sql
