@@ -27,7 +27,7 @@ func NuevoServicioContactoParticipacion(c puertosbolsa.ResolutorContextoContacto
 }
 
 func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx context.Context, solicitud puertosbolsa.SolicitudRegistrarContactoParticipacion) (puertosbolsa.RegistroContactoParticipacion, error) {
-	if ctx == nil || s == nil || solicitud.Validar() != nil {
+	if ctx == nil || s == nil || solicitud.Validar() != nil || solicitud.Resultado == dominiobolsa.ResultadoContactoAvisoPendiente {
 		return puertosbolsa.RegistroContactoParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
 	}
 	actor := solicitud.ResultadoContexto.Contexto

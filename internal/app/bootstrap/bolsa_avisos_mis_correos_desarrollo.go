@@ -86,6 +86,9 @@ func componerAvisosMisCorreosBolsaDesarrollo(ctx context.Context, cfg config.Con
 	if cerrarPrevio == nil {
 		cerrarPrevio = func() {}
 	}
+	if portalProcesoSeparado(cfg) {
+		return componerAvisosExternosInterno(ctx, cfg, emision, repositorio, cerrarPrevio)
+	}
 	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envBolsaAvisosMisCorreosDesarrollo)
 	if err != nil || !activo {
 		return cerrarPrevio, err

@@ -1,0 +1,32 @@
+{
+  "data": {
+    "llamamiento_ref": "llamamiento:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recibo_ref": "recibo:llamamiento:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bolsa_ref": "bolsa:auxiliar:prueba",
+    "estado": "emitido_pendiente_respuesta",
+    "participaciones": [
+      "participacion:externa:prueba"
+    ],
+    "configuracion": {
+      "referencia": "NEC-AVISO-PRUEBA",
+      "descripcion": "Cobertura temporal de una plaza auxiliar",
+      "categoria": "Auxiliar administrativo",
+      "centro": "Centro administrativo de prueba",
+      "modalidad": "Nombramiento temporal",
+      "fecha_inicio": "2026-10-01",
+      "plazo": "Consultar el plazo del llamamiento",
+      "plantilla_version": "bolsa-llamamiento-v1",
+      "asunto": "Aviso de llamamiento",
+      "cuerpo": "Consulte el llamamiento en su área personal."
+    },
+    "emitido_en": "2026-09-30T12:13:14.123456Z",
+    "reutilizada": false,
+    "contactos": [
+      {
+        "participacion_ref": "participacion:externa:prueba",
+        "resultado": "aviso_pendiente",
+        "recibo_ref": "recibo_outbox:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ]
+  }
+}

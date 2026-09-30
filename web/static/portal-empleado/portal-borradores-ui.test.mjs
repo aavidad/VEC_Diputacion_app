@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   ErrorAPIBorradores,
-} from "./portal-borradores-api.js?v=20260930-portales-i18n-integracion-v1";
+} from "./portal-borradores-api.js?v=20260930-avisos-main-v3";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,

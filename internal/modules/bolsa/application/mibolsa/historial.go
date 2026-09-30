@@ -104,7 +104,7 @@ func historialValido(r puertosbolsa.PaginaHistorialMiBolsa, ahora time.Time, pag
 				return false
 			}
 		case "llamamiento":
-			if h.Canal != "correo" || h.Resultado != "enviado" && h.Resultado != "no_enviado" || h.Tipo != "" || h.Procedencia != "" || h.Respuesta != "" || h.Modo != "" || h.Estado != "" {
+			if h.Canal != "correo" || h.Resultado != "enviado" && h.Resultado != "no_enviado" && h.Resultado != "aviso_pendiente" || h.Tipo != "" || h.Procedencia != "" || h.Respuesta != "" || h.Modo != "" || h.Estado != "" {
 				return false
 			}
 		case "renuncia":

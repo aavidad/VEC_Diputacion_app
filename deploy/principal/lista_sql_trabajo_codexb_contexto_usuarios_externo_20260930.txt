@@ -1,0 +1,2 @@
+# ContextoActor 000014: después de 000013 y antes de AUT17.
+deploy/postgresql/contexto_actor_v1/migraciones/000014_perfil_usuarios_externo.up.sql

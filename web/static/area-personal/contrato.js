@@ -150,7 +150,7 @@ export function validarRespuestaMiBolsa(entrada) {
     if (item.ultimo_llamamiento !== undefined && item.ultimo_llamamiento !== null) {
       const ultimo = exigirObjeto(item.ultimo_llamamiento, `mi-bolsa.participaciones[${indice}].ultimo_llamamiento`);
       exigirInstante(ultimo.emitido_en, `mi-bolsa.participaciones[${indice}].ultimo_llamamiento.emitido_en`);
-      if (Date.parse(ultimo.emitido_en) > Date.parse(datos.consultada_en) || ultimo.canal !== "correo" || !["enviado", "no_enviado"].includes(ultimo.resultado)) {
+      if (Date.parse(ultimo.emitido_en) > Date.parse(datos.consultada_en) || ultimo.canal !== "correo" || !["enviado", "no_enviado", "aviso_pendiente"].includes(ultimo.resultado)) {
         throw new TypeError("El último llamamiento propio no es válido.");
       }
       if (Object.keys(ultimo).sort().join() !== "canal,emitido_en,resultado") {

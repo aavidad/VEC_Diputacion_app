@@ -1,4 +1,4 @@
-import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { LOCALIZACION_PORTAL, traducirPortal } from "./portal-i18n.js?v=20260930-avisos-main-v3";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

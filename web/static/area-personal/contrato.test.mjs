@@ -63,6 +63,8 @@ test("mi bolsa admite solo el resultado mínimo del llamamiento propio", () => {
       ultimo_llamamiento: { emitido_en: "2026-09-20T10:00:00.000000Z", canal: "correo", resultado: "no_enviado" } },
   ] } };
   assert.equal(validarRespuestaMiBolsa(base).participaciones[0].ultimo_llamamiento.resultado, "no_enviado");
+  base.data.participaciones[0].ultimo_llamamiento.resultado = "aviso_pendiente";
+  assert.equal(validarRespuestaMiBolsa(base).participaciones[0].ultimo_llamamiento.resultado, "aviso_pendiente");
   base.data.participaciones[0].ultimo_llamamiento.anotacion = "nota privada";
   assert.throws(() => validarRespuestaMiBolsa(base), /campos no autorizados/u);
   delete base.data.participaciones[0].ultimo_llamamiento.anotacion;

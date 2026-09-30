@@ -137,8 +137,11 @@ func ejecutarPreparacionPortalExterno(ctx context.Context, args []string, salida
 	consumidores := opciones.String("consumidores", "", "consumidores separados por comas")
 	rutaSeudonimos := opciones.String("seudonimos", "", "fichero con los alias calculados por el proceso externo")
 	cuentas := opciones.String("cuentas", "", "cuentas del Área personal autorizadas para esos alias, separadas por comas")
+	aprobacion := opciones.String("aprobacion-sha256", "", "")
+	preimagen := opciones.String("preimagen-sha256", "", "")
+	rotacion := opciones.String("rotar-raiz-preimagen-sha256", "", "")
 	if err := opciones.Parse(args); err != nil || opciones.NArg() != 0 || *destino == "" || *consumidores == "" ||
-		(*rutaSeudonimos != "" && *cuentas == "") {
+		(*rutaSeudonimos != "" && *cuentas == "") || (*aprobacion == "") != (*preimagen == "") {
 		return errArgumentosPreparacion
 	}
 	seudonimos, err := leerFicheroAcotadoTarea(*rutaSeudonimos, subcomandoPrepararPortalExterno)
@@ -151,12 +154,17 @@ func ejecutarPreparacionPortalExterno(ctx context.Context, args []string, salida
 	}
 	resumen, err := preparar(ctx, cfg, bootstrap.OpcionesPreparacionPortalExterno{
 		Destino: *destino, Consumidores: strings.Split(*consumidores, ","), Seudonimos: seudonimos, CuentasAutorizadas: autorizadas,
+		HuellaAprobacionSHA256: *aprobacion, PreimagenSHA256: *preimagen, RotarRaizPreimagenSHA256: *rotacion,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(salida, "preparacion_portal_externo=correcta consumidores=%s claves=%d alias=%d configuracion=%s\n",
-		strings.Join(resumen.Consumidores, ","), resumen.Claves, resumen.Alias, resumen.Configuracion)
+	estado := "correcta"
+	if resumen.PendientePublicacion {
+		estado = "pendiente_publicacion"
+	}
+	_, err = fmt.Fprintf(salida, "preparacion_portal_externo=%s consumidores=%s claves=%d alias=%d configuracion=%s aprobacion_sha256=%s preimagen_sha256=%s\n",
+		estado, strings.Join(resumen.Consumidores, ","), resumen.Claves, resumen.Alias, resumen.Configuracion, resumen.HuellaAprobacionSHA256, resumen.PreimagenSHA256)
 	return err
 }
 

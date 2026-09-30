@@ -26,7 +26,8 @@ type ServicioEmisionLlamamiento struct {
 	// origenes es opcional: sin él no se avisa del contacto no confirmado.
 	origenes puertosbolsa.FuenteOrigenContactoParticipacion
 	// avisador decide el correo de cada aviso (B59 opcional) y lo envía.
-	avisador *AvisadorLlamamiento
+	avisador       *AvisadorLlamamiento
+	avisosExternos *configuracionAvisosExternos
 }
 
 // CorreoPersonalizadoLlamamiento agrupa el catálogo del correo, la fuente de
@@ -97,12 +98,22 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	if _, err = rand.Read(tokenFinalizacion); err != nil {
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
-	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion})
+	eventosExternos, _, err := s.prepararAvisosExternos(ctx, q, "llamamiento:"+sufijo, ahora)
+	if err != nil {
+		return puertosbolsa.EmisionLlamamiento{}, err
+	}
+	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion, AvisosExternos: eventosExternos})
 	if err != nil {
 		return puertosbolsa.EmisionLlamamiento{}, err
 	}
 	if !mismaSolicitudEmision(reservada, q) {
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoConflicto
+	}
+	if s.avisosExternos != nil {
+		if len(reservada.AvisosExternos) != len(q.Participaciones) || len(reservada.Contactos) != len(q.Participaciones) {
+			return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+		}
+		return s.conAvisosContacto(ctx, reservada), nil
 	}
 	if reservada.Reutilizada {
 		if len(reservada.Contactos) == len(q.Participaciones) {
