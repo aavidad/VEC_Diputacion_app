@@ -163,38 +163,37 @@ class RecorridoFirmaTest(unittest.TestCase):
                 "recibo_ref": "recibo:prueba", "registrada_en": "2026-09-29T20:00:00Z"}]}]},
                 "recibo:prueba"), recuperada)
 
-    def test_redireccion_local_a_otro_puerto_se_corta(self):
-        class Respuesta:
-            status = 302
-            url = "https://localhost:8443/portal-empleado/"
-            headers = {"location": "https://localhost:8444/otro"}
+    def test_cdp_conserva_transporte_y_corta_otros_origenes(self):
+        class CDP:
+            def send(self, metodo, parametros):
+                self.llamada = (metodo, parametros)
 
-        class Ruta:
-            request = type("Peticion", (), {"url": "https://localhost:8443/portal-empleado/"})()
-            abortada = False
-            entregada = False
+        for url, permitido in (("https://localhost:8443/portal-empleado/", True),
+                               ("https://localhost:8444/otro", False),
+                               ("http://localhost:8443/otro", False),
+                               ("https://example.invalid/otro", False)):
+            cdp = CDP()
+            recorrer.limitar_peticion_cdp(cdp, {"requestId": "prueba", "request": {"url": url}},
+                                        "https://localhost:8443")
+            self.assertEqual(cdp.llamada[0], "Fetch.continueRequest" if permitido else "Fetch.failRequest")
 
-            def fetch(self, *, max_redirects, timeout):
-                self.max_redirects = max_redirects
-                return Respuesta()
+    def test_respuesta_redirect_se_corta_antes_de_seguir(self):
+        class CDP:
+            def send(self, metodo, parametros):
+                self.llamada = (metodo, parametros)
 
-            def abort(self):
-                self.abortada = True
-
-            def fulfill(self, *, response):
-                self.entregada = True
-
-        ruta = Ruta()
-        recorrer.limitar_origen(ruta, "https://localhost:8443")
-        self.assertEqual(ruta.max_redirects, 0)
-        self.assertTrue(ruta.abortada)
-        self.assertFalse(ruta.entregada)
-
-        externa = Ruta()
-        externa.request = type("Peticion", (), {"url": "https://localhost:8444/otro"})()
-        recorrer.limitar_origen(externa, "https://localhost:8443")
-        self.assertTrue(externa.abortada)
-        self.assertFalse(hasattr(externa, "max_redirects"))
+        for estado in (301, 302, 303, 307, 308):
+            cdp = CDP()
+            recorrer.limitar_peticion_cdp(cdp, {"requestId": "prueba", "responseStatusCode": estado,
+                                               "request": {"url": "https://localhost:8443/entrada"}},
+                                        "https://localhost:8443")
+            self.assertEqual(cdp.llamada, ("Fetch.failRequest",
+                {"requestId": "prueba", "errorReason": "BlockedByClient"}))
+        cdp = CDP()
+        recorrer.limitar_peticion_cdp(cdp, {"requestId": "prueba", "responseStatusCode": 200,
+                                           "request": {"url": "https://localhost:8443/entrada"}},
+                                    "https://localhost:8443")
+        self.assertEqual(cdp.llamada, ("Fetch.continueRequest", {"requestId": "prueba"}))
 
     def test_websocket_solo_autofirma_explicita(self):
         class Ruta:

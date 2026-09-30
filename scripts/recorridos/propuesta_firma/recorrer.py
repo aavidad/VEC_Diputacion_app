@@ -220,23 +220,19 @@ def comparar_recuperacion(informe, ruta):
     return True
 
 
-def limitar_origen(route, origen):
-    """Atiende una petición HTTPS local sin seguir redirecciones, ni siquiera a otro puerto."""
+def limitar_peticion_cdp(cdp, evento, origen):
+    """Mantiene Chrome nativo y corta otros orígenes y respuestas 3xx."""
+    identificador = evento["requestId"]
     esperado = urlsplit(origen)
-    solicitado = urlsplit(route.request.url)
-    if (solicitado.scheme, solicitado.hostname, solicitado.port) != (esperado.scheme, esperado.hostname, esperado.port):
-        route.abort()
-        return
-    try:
-        respuesta = route.fetch(max_redirects=0, timeout=30_000)
-        final = urlsplit(respuesta.url)
-        if 300 <= respuesta.status < 400 or (final.scheme, final.hostname, final.port) != \
-                (esperado.scheme, esperado.hostname, esperado.port):
-            route.abort()
-            return
-        route.fulfill(response=respuesta)
-    except Exception:
-        route.abort()
+    solicitado = urlsplit(evento["request"]["url"])
+    if (solicitado.scheme, solicitado.hostname, solicitado.port) != \
+            (esperado.scheme, esperado.hostname, esperado.port) \
+            or 300 <= evento.get("responseStatusCode", 0) < 400:
+        cdp.send("Fetch.failRequest", {"requestId": identificador, "errorReason": "BlockedByClient"})
+    else:
+        # route.fetch añade Connection: keep-alive con otro cliente HTTP.
+        # CDP conserva la petición y el transporte originales del navegador.
+        cdp.send("Fetch.continueRequest", {"requestId": identificador})
 
 
 def limitar_websocket(route, permitir_autofirma):
@@ -371,6 +367,26 @@ def recorrer(a, chrome, entorno):
             locale="es-ES", timezone_id="Europe/Madrid", viewport={"width": 1440, "height": 900},
         )
         page = context.new_page()
+        # Un único interceptor evita colisiones con context.route y pausa las
+        # respuestas antes de cualquier salto de redirección.
+        cdp = context.new_cdp_session(page)
+        cerrando = False
+        errores_intercepcion = []
+
+        def interceptar(evento):
+            if cerrando:
+                return
+            try:
+                limitar_peticion_cdp(cdp, evento, a.origen)
+            except Exception as e:
+                if not cerrando:
+                    errores_intercepcion.append(type(e).__name__)
+
+        cdp.on("Fetch.requestPaused", interceptar)
+        cdp.send("Fetch.enable", {"patterns": [
+            {"urlPattern": "*", "requestStage": "Request"},
+            {"urlPattern": "*", "requestStage": "Response"},
+        ]})
         errores_js = []
         cookies_http = []
         page.on("pageerror", lambda e: errores_js.append(type(e).__name__))
@@ -384,7 +400,6 @@ def recorrer(a, chrome, entorno):
                 if urlsplit(r.url).path in rutas_observadas else None)
         try:
             # Nunca se navega al servicio GrxFirma desde el navegador: VEC lo invoca en servidor.
-            context.route("**/*", lambda route: limitar_origen(route, a.origen))
             context.route_web_socket("**/*", lambda route: limitar_websocket(route, a.firmar))
             pagina = page.goto(a.origen + "/portal-empleado/#contratacion-temporal", wait_until="domcontentloaded", timeout=30_000)
             if not pagina or pagina.status != 200:
@@ -509,6 +524,7 @@ def recorrer(a, chrome, entorno):
         finally:
             capturar_corte(page, a, informe)
             informe["sin_errores_js"] = not errores_js
+            informe["sin_errores_intercepcion"] = not errores_intercepcion
             informe["sin_cookies_http"] = not cookies_http and not context.cookies()
             try:
                 informe["sin_almacenamiento_web"] = page.evaluate("""async () =>
@@ -516,10 +532,15 @@ def recorrer(a, chrome, entorno):
                   (await indexedDB.databases()).length === 0 && (await caches.keys()).length === 0""")
             except Exception:
                 informe["sin_almacenamiento_web"] = False
-            if not all(informe[k] for k in ("sin_errores_js", "sin_cookies_http", "sin_almacenamiento_web")):
+            if not all(informe[k] for k in ("sin_errores_js", "sin_errores_intercepcion",
+                                           "sin_cookies_http", "sin_almacenamiento_web")):
                 informe["estado"] = "CORTE"
                 informe["corte"] = "controles_navegador"
-                informe["motivo"] = "errores JavaScript, cookies o almacenamiento web detectados"
+                informe["motivo"] = "fallo de la guardia de red, errores JavaScript, cookies o almacenamiento web detectados"
+            # No deshabilitar Fetch con Chrome vivo: mantiene el bloqueo hasta
+            # cerrar el contexto y evita reanudar peticiones pendientes.
+            cerrando = True
+            cdp.remove_listener("Fetch.requestPaused", interceptar)
             context.close()
             browser.close()
     return informe
