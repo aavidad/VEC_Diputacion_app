@@ -272,7 +272,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) conAvisosExternos(ctx context.
 		}
 	}
 	e.AvisosExternos = pendientes
-	if len(pendientes) > 0 && len(e.Contactos) == 0 {
+	if len(pendientes) > 0 {
 		if len(pendientes) != len(e.Participaciones) {
 			return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 		}

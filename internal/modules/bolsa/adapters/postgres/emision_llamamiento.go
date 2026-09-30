@@ -72,7 +72,7 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, 
 		}
 		return r.conAvisosExternos(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
 	}
-	return out, nil
+	return r.conAvisosExternos(ctx, out, c.BolsaRef, c.ClaveIdempotencia)
 }
 
 func (r *RepositorioEmisionLlamamientoPostgreSQL) RegistrarContactos(ctx context.Context, bolsa, clave, actor string, token []byte, contactos []ports.ResultadoContactoEmision) (ports.EmisionLlamamiento, error) {
