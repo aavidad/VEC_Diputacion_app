@@ -139,24 +139,65 @@ def safe_file(fd: int) -> os.stat_result:
     return info
 
 
-def private_root(root: Path) -> int:
-    if not root.is_absolute() or root != root.resolve():
-        raise SourceError("private_root_invalid")
-    if any(os.path.lexists(parent / ".git") for parent in (root, *root.parents)):
-        raise SourceError("private_root_inside_git")
-    root.mkdir(mode=0o700, exist_ok=True)
-    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+def directory_identity(fd: int, *, leaf: bool) -> tuple[int, int]:
     info = os.fstat(fd)
-    if stat.S_IMODE(info.st_mode) != 0o700 or info.st_uid != os.getuid():
-        os.close(fd)
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid not in {0, os.getuid()} or
+            info.st_mode & 0o022 or
+            (leaf and (stat.S_IMODE(info.st_mode) != 0o700 or info.st_uid != os.getuid()))):
         raise SourceError("private_root_permissions")
-    return fd
+    try:
+        os.stat(".git", dir_fd=fd, follow_symlinks=False)
+    except FileNotFoundError:
+        pass
+    else:
+        raise SourceError("private_root_inside_git")
+    return info.st_dev, info.st_ino
+
+
+def private_root(root: Path, *, create: bool = True) -> tuple[int, tuple]:
+    if not root.is_absolute() or len(root.parts) < 2 or ".." in root.parts:
+        raise SourceError("private_root_invalid")
+    # Resolve each name relative to the retained parent descriptor. Checking
+    # resolve() and then opening a complete path would leave ancestors exposed.
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    fd = os.open("/", flags)
+    identities = []
+    try:
+        identities.append(directory_identity(fd, leaf=False))
+        for index, name in enumerate(root.parts[1:], start=1):
+            leaf = index == len(root.parts) - 1
+            if leaf and create:
+                try:
+                    os.mkdir(name, mode=0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+            try:
+                child_fd = os.open(name, flags, dir_fd=fd)
+            except OSError as error:
+                raise SourceError("private_root_invalid") from error
+            os.close(fd)
+            fd = child_fd
+            identities.append(directory_identity(fd, leaf=leaf))
+        return fd, tuple(identities)
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def revalidate_root(root: Path, identities: tuple) -> None:
+    fresh_fd, current = private_root(root, create=False)
+    try:
+        if current != identities:
+            raise SourceError("private_root_changed")
+    finally:
+        os.close(fresh_fd)
 
 
 def write_proposal(root: Path, outputs: dict[str, bytes]) -> dict:
-    root_fd = private_root(root)
+    root_fd, identities = private_root(root)
     lock_fd = None
     try:
+        revalidate_root(root, identities)
         lock_fd = os.open(".fuente.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK,
                           0o600, dir_fd=root_fd)
         safe_file(lock_fd)
@@ -181,6 +222,7 @@ def write_proposal(root: Path, outputs: dict[str, bytes]) -> dict:
             finally:
                 os.close(fd)
         for name, data in absent:
+            revalidate_root(root, identities)
             fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                          0o600, dir_fd=root_fd)
             with os.fdopen(fd, "wb") as stream:
@@ -188,6 +230,7 @@ def write_proposal(root: Path, outputs: dict[str, bytes]) -> dict:
                 stream.flush()
                 os.fsync(stream.fileno())
                 safe_file(stream.fileno())
+        revalidate_root(root, identities)
         os.fsync(root_fd)
     finally:
         if lock_fd is not None:

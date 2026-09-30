@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("source", Path(__file__).with_name("fuente_sintetica_candidatos.py"))
 source = importlib.util.module_from_spec(SPEC)
@@ -113,6 +114,55 @@ class SyntheticSourceTests(unittest.TestCase):
         path.write_text("NOMBRES = " + repr(["Ana"] * 12) + "\nAPELLIDOS = " + repr(["Ferrer"] * 12) +
                         "\nraise RuntimeError('must_not_execute')\n")
         self.assertEqual(source.vocabularies(repo), (["Ana"] * 12, ["Ferrer"] * 12))
+
+    def test_ancestor_swap_cannot_redirect_to_git_after_descriptor_open(self):
+        ancestor = self.root.parent / "ancestor"
+        ancestor.mkdir(mode=0o700)
+        root = ancestor / "private"
+        preserved = self.root.parent / "preserved"
+        git = self.root.parent / "git"
+        git.mkdir(mode=0o700)
+        (git / ".git").write_text("gitdir: unrelated")
+        original_open = source.os.open
+        changed = False
+
+        def swap(name, flags, *args, **kwargs):
+            nonlocal changed
+            if name == "private" and kwargs.get("dir_fd") is not None and not changed:
+                ancestor.rename(preserved)
+                ancestor.symlink_to(git, target_is_directory=True)
+                changed = True
+            return original_open(name, flags, *args, **kwargs)
+
+        with patch.object(source.os, "open", side_effect=swap):
+            with self.assertRaisesRegex(source.SourceError, "private_root_invalid"):
+                source.write_proposal(root, self.outputs)
+        self.assertTrue(changed)
+        self.assertFalse((git / "private").exists())
+        self.assertEqual(list((preserved / "private").iterdir()), [])
+
+    def test_directory_replacement_after_lock_is_rejected_before_publish(self):
+        original_flock = source.fcntl.flock
+        preserved = self.root.parent / "preserved"
+
+        def swap(fd, operation):
+            original_flock(fd, operation)
+            self.root.rename(preserved)
+            self.root.mkdir(mode=0o700)
+
+        with patch.object(source.fcntl, "flock", side_effect=swap):
+            with self.assertRaisesRegex(source.SourceError, "private_root_changed"):
+                source.write_proposal(self.root, self.outputs)
+        self.assertEqual(list(self.root.iterdir()), [])
+        self.assertEqual([p.name for p in preserved.iterdir()], [".fuente.lock"])
+
+    def test_writable_ancestor_is_rejected_before_creating_leaf(self):
+        ancestor = self.root.parent / "ancestor"
+        ancestor.mkdir(mode=0o700)
+        ancestor.chmod(0o777)
+        with self.assertRaisesRegex(source.SourceError, "private_root_permissions"):
+            source.write_proposal(ancestor / "private", self.outputs)
+        self.assertFalse((ancestor / "private").exists())
 
 
 if __name__ == "__main__":
