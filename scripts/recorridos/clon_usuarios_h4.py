@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
 
@@ -113,22 +114,43 @@ def validate_users_inputs(material, state, pg_port, users, runtime):
     return configurations
 
 
+def validate_target(info, marker, reservation, container, state, pg_port, material_helper):
+    """Bind an explicit owned target to its private reservation and inspect proof."""
+    expected = {"propietario": "Codex-M", "estado": str(state), "contenedor": container, "puerto_pg": pg_port}
+    if any(marker.get(key) != value or reservation.get(key) != value for key, value in expected.items()):
+        raise H4Error("H4 clone readiness and private reservation do not match the explicit target.")
+    if marker.get("commit") != reservation.get("commit") or not re.fullmatch(r"[0-9a-f]{40}", marker.get("commit", "")):
+        raise H4Error("H4 clone source reservation changed.")
+    material_helper.validate_container(info, pg_port, state)
+    if info.get("Name") != "/" + container or not re.fullmatch(r"[0-9a-f]{64}", info.get("Id", "")):
+        raise H4Error("H4 inspected container identity does not match the explicit target.")
+    if info.get("Config", {}).get("Image") != "postgres:18.4":
+        raise H4Error("H4 requires the owned PostgreSQL 18.4 clone.")
+    pgdata = marker.get("pgdata", "")
+    path = Path(pgdata)
+    mounts = [mount for mount in info.get("Mounts", []) if mount.get("Destination") == "/var/lib/postgresql"]
+    if (reservation.get("pgdata") != pgdata or not path.is_absolute() or not path.is_relative_to("/dev/shm")
+            or path == Path("/dev/shm") or path != path.resolve() or ".." in path.parts or len(mounts) != 1
+            or mounts[0].get("Type") != "bind" or mounts[0].get("Source") != pgdata or mounts[0].get("RW") is not True):
+        raise H4Error("H4 PostgreSQL RAM bind does not match its private reservation.")
+
+
 def preflight(repo, container, state, material, pg_port, engine="docker"):
     repo, state, material = Path(repo), Path(state), Path(material)
-    if engine != "docker" or container != "vec-codexm-recorridos-20260930" or pg_port != 55531:
+    if engine != "docker" or not re.fullmatch(r"vec-[a-z0-9-]+", container) or type(pg_port) is not int or not 1024 <= pg_port <= 65535:
         raise H4Error("H4 destination is outside the owned clone.")
     users = load(Path(__file__).with_name("clon_usuarios.py"), "h4_h1")
     runtime = load(Path(__file__).with_name("clon_runtime.py"), "h4_runtime")
     material_helper = load(Path(__file__).with_name("clon_material.py"), "h4_material")
+    if not state.is_absolute() or state != state.resolve() or not state.is_dir():
+        raise H4Error("H4 requires an existing canonical private state directory.")
     runtime.validate_state(repo.resolve(), state)
     if material.resolve() != state / "material" or material.is_symlink():
         raise H4Error("H4 material destination changed.")
-    validate_users_inputs(material, state, pg_port, users, runtime)
+    marker = closed_json(users.private(state / "DB_READY.json"))
+    reservation = closed_json(users.private(state / "clon.json"))
     inspect = json.loads(material_helper.run([engine, "inspect", container]))[0]
-    material_helper.validate_container(inspect, pg_port, state)
-    marker = json.loads(users.private(state / "DB_READY.json"))
-    if marker.get("propietario") != "Codex-M" or marker.get("contenedor") != container or marker.get("puerto_pg") != pg_port:
-        raise H4Error("H4 clone readiness marker changed.")
+    validate_target(inspect, marker, reservation, container, state, pg_port, material_helper)
     if (state / "runtime-process.json").exists():
         raise H4Error("Stop the owned application before H4 provisioning.")
     result = json.loads(users.private(state / "usuarios-result.json"))
@@ -142,6 +164,10 @@ def preflight(repo, container, state, material, pg_port, engine="docker"):
     runtime.validate_dsn(env["VEC_CT_GOBIERNO_DATABASE_URL"], pg_port, state)
     if not (state / ("source-" + marker["commit"])).is_dir():
         raise H4Error("Pinned H4 application source is unavailable.")
+    # Reuse the central read-only source/SQL receipt authority for every
+    # admitted plan, including the shared H6 plan. No SQL is executed here.
+    material_helper.validate_source_receipts(SimpleNamespace(repo=repo.resolve()), state, marker["commit"])
+    validate_users_inputs(material, state, pg_port, users, runtime)
     return {"env": {}, "profiles": {"usuarios_h4": {"h1_ready": True}}, "blockers": []}
 
 
@@ -286,7 +312,7 @@ func TestCodexMH4Install(t *testing.T){
  originals,configs,certificates,chains,err:=codexMH4TrustedInputs(root);if err!=nil{t.Fatal("H4 closed certificate/subject preflight")}
  for i,current:=range configs{if current.Cuentas[0].CuentaRef!=plan.H1.Accounts[i]||current.Cuentas[0].PerfilRef!=plan.H1.Profiles[i]{t.Fatal("H4 current identity differs from H1 result")}}
  ctx,cancel:=context.WithTimeout(context.Background(),120*time.Second);defer cancel()
- adminCfg,err:=pgxpool.ParseConfig(os.Getenv("VEC_CODEXM_ADMIN_DSN"));if err!=nil||adminCfg.ConnConfig.Host!="127.0.0.1"||adminCfg.ConnConfig.Port!=plan.PGPort||plan.PGPort!=55531||len(adminCfg.ConnConfig.Fallbacks)!=0||validarTLSPostgreSQLBorradores(&adminCfg.ConnConfig.Config,false)!=nil{t.Fatal("H4 admin TLS destination")}
+ adminCfg,err:=pgxpool.ParseConfig(os.Getenv("VEC_CODEXM_ADMIN_DSN"));if err!=nil||adminCfg.ConnConfig.Host!="127.0.0.1"||adminCfg.ConnConfig.Port!=plan.PGPort||plan.PGPort<1024||len(adminCfg.ConnConfig.Fallbacks)!=0||validarTLSPostgreSQLBorradores(&adminCfg.ConnConfig.Config,false)!=nil{t.Fatal("H4 admin TLS destination")}
  admin,err:=pgxpool.NewWithConfig(ctx,adminCfg);if err!=nil{t.Fatal("H4 admin pool")};defer admin.Close()
  var systemID string;if admin.QueryRow(ctx,`SELECT system_identifier::text FROM pg_catalog.pg_control_system()`).Scan(&systemID)!=nil||systemID!=plan.SystemID{t.Fatal("H4 clone identity")}
  var objects bool;if admin.QueryRow(ctx,`SELECT to_regproc('vec_autorizacion_atestada_v3.consumir_correos_v3_atestada') IS NOT NULL AND to_regproc('vec_autorizacion_atestada_v3.consumir_imagen_v3_atestada') IS NOT NULL AND to_regclass('vec_usuarios_correos_interno.correos_direccion') IS NOT NULL AND to_regclass('vec_usuarios_correos_externo.correos_direccion') IS NOT NULL AND to_regclass('vec_usuarios.imagen_actual') IS NOT NULL AND to_regclass('vec_documentos.imagen_personal') IS NOT NULL`).Scan(&objects)!=nil||!objects{t.Fatal("H4 SQL prerequisites")}
