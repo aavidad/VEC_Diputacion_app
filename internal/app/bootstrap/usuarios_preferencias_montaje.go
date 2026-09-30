@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/separacionportales"
+	aspiranteshttp "vec-diputacion-granada/internal/modules/aspirantes/adapters/httpapi"
 	usuarioshttp "vec-diputacion-granada/internal/modules/usuarios/adapters/httpapi"
 	usuariospg "vec-diputacion-granada/internal/modules/usuarios/adapters/postgres"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
@@ -61,6 +63,9 @@ type contextoPreferenciasUsuarios struct {
 	autoridad *autoridadPreferenciasUsuariosDesarrollo
 	vinculo   core.VinculoAutenticacionActorV2
 	resultado core.ResultadoContextoActorRegistradoV2
+	// certificado es la hoja verificada de la misma conexión TLS con la que
+	// se resolvió la sesión. Solo la usa Aspirantes para leer la identidad.
+	certificado *x509.Certificate
 }
 
 type autoridadPreferenciasUsuariosDesarrollo struct {
@@ -84,6 +89,11 @@ type autoridadPreferenciasUsuariosDesarrollo struct {
 	// Prefijo de las claves de error y método de escritura de la ruta; vacíos
 	// en preferencias (PUT) y fijados por cada autoridad hermana.
 	prefijoError, metodoEscritura string
+	// Aspirantes (ficha propia): autoridad hermana solo en la superficie
+	// externa, con su propio registro de frontera y superficie de auditoría.
+	aspirantes           *autoridadPreferenciasUsuariosDesarrollo
+	componenteAspirantes *componenteAspirantes
+	superficieAuditoria  string
 }
 
 type composicionPreferenciasUsuarios struct {
@@ -100,6 +110,9 @@ func (c *composicionPreferenciasUsuarios) cerrar() {
 	}
 	if c.externa != nil && c.externa.cerrar != nil {
 		c.externa.cerrar()
+	}
+	if c.externa != nil && c.externa.aspirantes != nil && c.externa.aspirantes.cerrar != nil {
+		c.externa.aspirantes.cerrar()
 	}
 }
 
@@ -122,6 +135,9 @@ func (c *composicionPreferenciasUsuarios) proteger(siguiente http.Handler) http.
 	if c.interna.imagen != nil && c.externa.imagen != nil {
 		siguiente = c.interna.imagen.proteger(c.externa.imagen.proteger(siguiente))
 	}
+	if c.externa.aspirantes != nil {
+		siguiente = c.externa.aspirantes.proteger(siguiente)
+	}
 	return c.interna.proteger(c.externa.proteger(siguiente))
 }
 
@@ -142,7 +158,8 @@ type autoridadExactasConUsuariosPreferencias struct {
 func (a autoridadExactasConUsuariosPreferencias) AutorizarRutaExacta(ctx context.Context, ruta string) error {
 	if ruta != usuarioshttp.RutaMisPreferencias && ruta != usuarioshttp.RutaMisPreferenciasAreaPersonal &&
 		ruta != usuarioshttp.RutaMisCorreos && ruta != usuarioshttp.RutaMisCorreosAreaPersonal &&
-		ruta != usuarioshttp.RutaMiImagen && ruta != usuarioshttp.RutaMiImagenAreaPersonal {
+		ruta != usuarioshttp.RutaMiImagen && ruta != usuarioshttp.RutaMiImagenAreaPersonal &&
+		ruta != aspiranteshttp.RutaMiFicha {
 		if a.delegada == nil {
 			return vechttp.ErrAutenticacionRutaExactaRequerida
 		}
@@ -169,6 +186,11 @@ func (a autoridadExactasConUsuariosPreferencias) AutorizarRutaExacta(ctx context
 		seleccionada = nil
 		if externa != nil {
 			seleccionada = externa.imagen
+		}
+	case aspiranteshttp.RutaMiFicha:
+		seleccionada = nil
+		if externa != nil {
+			seleccionada = externa.aspirantes
 		}
 	}
 	c, ok := ctx.Value(claveContextoPreferenciasUsuarios{}).(contextoPreferenciasUsuarios)
@@ -274,7 +296,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) proteger(siguiente http.Handle
 			fallo(503, "no_disponible")
 			return
 		}
-		ctx := context.WithValue(r.Context(), claveContextoPreferenciasUsuarios{}, contextoPreferenciasUsuarios{autoridad: a, vinculo: vinculo, resultado: resultado})
+		ctx := context.WithValue(r.Context(), claveContextoPreferenciasUsuarios{}, contextoPreferenciasUsuarios{autoridad: a, vinculo: vinculo, resultado: resultado, certificado: cert})
 		ctx, err = vechttp.ConActorVerificadoAuditoriaPreferenciasUsuarios(ctx, resultado.Contexto)
 		if err != nil {
 			a.registrarFallo(r.Context(), err)
@@ -298,7 +320,7 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	derivador *derivadorIdentidadOperacionDesarrollo, gobierno *pgxpool.Pool,
 	incidencias vecports.EmisorIncidenciasTecnicas,
 	consultaInterna, actualizacionInterna, consultaExterna, actualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo,
-	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo,
+	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo, aspirantes *dependenciasAspirantesDesarrollo,
 ) (*composicionPreferenciasUsuarios, error) {
 	activo, err := selectorCapacidadRRHHDesarrollo(cfg, envUsuariosPreferenciasDesarrollo)
 	if err != nil {
@@ -316,7 +338,7 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if err != nil {
 		return nil, errComposicionUsuariosPreferencias
 	}
-	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna, correos, imagen)
+	interna, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionInternaCorporativaV1, usuarioshttp.RutaMisPreferencias, consultaInterna, actualizacionInterna, correos, imagen, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -325,14 +347,13 @@ func nuevasRutasUsuariosPreferenciasDesarrollo(cfg config.Config, resolvedor vec
 	if !superficieExternaUsuariosEnProceso(cfg) {
 		return &composicionPreferenciasUsuarios{interna: interna}, nil
 	}
-	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna, correos, imagen)
+	externa, err := nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg, resolvedor, derivador, incidencias, topologiaGobierno, core.SuperficieAutenticacionExternaPersonalV1, usuarioshttp.RutaMisPreferenciasAreaPersonal, consultaExterna, actualizacionExterna, correos, imagen, aspirantes)
 	if err != nil {
 		interna.cerrar()
 		return nil, err
 	}
 	if !superficiesPreferenciasSeparadas(interna, externa) {
-		interna.cerrar()
-		externa.cerrar()
+		(&composicionPreferenciasUsuarios{interna: interna, externa: externa}).cerrar()
 		return nil, errComposicionUsuariosPreferencias
 	}
 	return &composicionPreferenciasUsuarios{interna: interna, externa: externa}, nil
@@ -400,7 +421,7 @@ func nombreConfiguracionPreferencias(superficie core.SuperficieAutenticacionActo
 func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, topologiaGobierno topologiaPostgreSQLPreferenciasUsuarios, superficie core.SuperficieAutenticacionActorV1, ruta string,
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
-	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo,
+	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo, aspirantes *dependenciasAspirantesDesarrollo,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !ok || identidad == nil || derivador == nil || !derivador.valido() || consulta == nil || actualizacion == nil {
@@ -545,6 +566,13 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 			return nil, errComposicionUsuariosPreferencias
 		}
 	}
+	// Aspirantes es solo del portal externo: la superficie interna nunca lo monta.
+	if aspirantes != nil && superficie == core.SuperficieAutenticacionExternaPersonalV1 {
+		a.aspirantes, err = montarAspirantesSuperficie(ctx, a, autorizador, c, aspirantes)
+		if err != nil {
+			return nil, errComposicionUsuariosPreferencias
+		}
+	}
 	completa = true
 	return a, nil
 }
@@ -572,6 +600,9 @@ func rutaUsuariosPreferencias(a *composicionPreferenciasUsuarios) []vechttp.Ruta
 	}
 	if a.interna.imagen != nil && a.externa.imagen != nil && a.interna.imagen.manejador != nil && a.externa.imagen.manejador != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMiImagen, Manejador: a.interna.imagen.manejador}, vechttp.RutaExacta{Ruta: usuarioshttp.RutaMiImagenAreaPersonal, Manejador: a.externa.imagen.manejador})
+	}
+	if a.externa.aspirantes != nil && a.externa.aspirantes.manejador != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: aspiranteshttp.RutaMiFicha, Manejador: a.externa.aspirantes.manejador})
 	}
 	return rutas
 }

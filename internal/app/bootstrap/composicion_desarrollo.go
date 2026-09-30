@@ -428,9 +428,13 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	aspirantes, err := nuevasDependenciasAspirantesDesarrollo(cfg, composicion.emisorKMS, autoridadContratacion.materialAspirantes)
+	if err != nil {
+		return nil, nil, err
+	}
 	usuariosPreferencias, err := nuevasRutasUsuariosPreferenciasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.gobiernoUsuariosPreferencias, emisor,
 		autoridadContratacion.materialUsuariosPreferenciasConsultaInterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionInterna,
-		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen)
+		autoridadContratacion.materialUsuariosPreferenciasConsultaExterna, autoridadContratacion.materialUsuariosPreferenciasActualizacionExterna, usuariosCorreos, usuariosImagen, aspirantes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -457,6 +461,9 @@ func nuevoServidorDesarrollo(
 		frontera := registradorFronterasConUsuariosPreferencias{delegado: registradorFrontera, interna: usuariosPreferencias.interna.registrador}
 		if usuariosPreferencias.externa != nil {
 			frontera.externa = usuariosPreferencias.externa.registrador
+			if usuariosPreferencias.externa.aspirantes != nil {
+				frontera.aspirantes = usuariosPreferencias.externa.aspirantes.registrador
+			}
 		}
 		registradorFrontera = frontera
 	}
