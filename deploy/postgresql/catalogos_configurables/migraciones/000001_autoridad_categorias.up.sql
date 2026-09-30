@@ -458,6 +458,10 @@ BEGIN
            OR p_total_historico IS NULL OR p_total_historico < 0
            OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
                        WHERE categoria_id = p_categoria_id AND estado = 'reservado')
+           OR p_total_historico < pg_catalog.coalesce(
+                (SELECT pg_catalog.max(h.total_historico_declarado)
+                   FROM vec_catalogos_configurables.historia h
+                  WHERE h.categoria_id = p_categoria_id AND h.accion = 'cobertura'), 0)
            OR p_total_historico < (SELECT count(*) FROM vec_catalogos_configurables.uso
                                     WHERE categoria_id = p_categoria_id AND estado = 'confirmado') THEN
             RAISE EXCEPTION 'cobertura historica no acreditada' USING ERRCODE = '55000';
@@ -475,7 +479,10 @@ BEGIN
            OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
                        WHERE categoria_id = p_categoria_id AND estado = 'reservado')
            OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
-                       WHERE categoria_id = p_categoria_id AND estado IN ('reservado', 'confirmado')) THEN
+                       WHERE categoria_id = p_categoria_id AND estado IN ('reservado', 'confirmado'))
+           OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia h
+                       WHERE h.categoria_id = p_categoria_id AND h.accion = 'cobertura'
+                         AND h.total_historico_declarado > 0) THEN
             RAISE EXCEPTION 'proyeccion con reservas o sin cobertura' USING ERRCODE = '55000';
         END IF;
         UPDATE vec_catalogos_configurables.categoria_control

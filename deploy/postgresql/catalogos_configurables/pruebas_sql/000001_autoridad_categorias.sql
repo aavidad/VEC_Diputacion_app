@@ -121,6 +121,28 @@ BEGIN
         RAISE EXCEPTION 'tombstone admitio total historico positivo';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
+    -- Publicar otra versión exige acreditar de nuevo la cobertura; no puede
+    -- convertir una declaración histórica positiva en cero.
+    documento_version := pg_catalog.jsonb_build_object('id', 'rpt-demo', 'version', 2,
+        'estado', 'publicado', 'entradas', pg_catalog.jsonb_build_array(
+            pg_catalog.jsonb_build_object('clave', 'cat-declared', 'etiqueta', 'Categoria actualizada')))::text;
+    huella_version := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(documento_version, 'UTF8')), 'hex');
+    preimagenes := pg_catalog.jsonb_build_object('cat-declared', pg_catalog.jsonb_build_object(
+        'version', 1, 'huella_sha256', huella, 'revision', 3, 'estado', 'deshabilitada'));
+    huella_preimagenes := pg_catalog.encode(pg_catalog.sha256(
+        pg_catalog.convert_to(preimagenes::text, 'UTF8')), 'hex');
+    PERFORM vec_catalogos_configurables.publicar('rpt-demo', 2, huella_version,
+        documento_version, preimagenes, huella_preimagenes,
+        'aprobacion:decl-a2', 'aprobacion:decl-b2',
+        'actor:uno', 'decision:decl-v2', 'recibo:decl-v2', motivo);
+    BEGIN
+        PERFORM vec_catalogos_configurables.cambiar_proyeccion('cat-declared', 4,
+            'cobertura', 'evidencia:declarada-v2', 0, 'actor:uno',
+            'decision:decl-cob-v2', 'recibo:decl-cob-v2', motivo);
+        RAISE EXCEPTION 'republicacion olvido total historico positivo';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
     revision := vec_catalogos_configurables.cambiar_proyeccion('cat-empty', 1,
         'deshabilitar', NULL, NULL, 'actor:uno', 'decision:empty-des', 'recibo:empty-des', motivo);
     IF revision <> 2 THEN RAISE EXCEPTION 'deshabilitacion vacia incorrecta'; END IF;
@@ -203,7 +225,7 @@ BEGIN
                          AND revision = 4 AND total_historico_declarado = 0)
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
                        WHERE categoria_id = 'cat-declared' AND estado = 'deshabilitada'
-                         AND revision = 3 AND total_historico_declarado = 1)
+                         AND version = 2 AND revision = 4 AND total_historico_declarado IS NULL)
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
                        WHERE consumidor = 'consumidor-demo' AND uso_ref = 'uso:uno' AND estado = 'confirmado')
        OR NOT EXISTS (SELECT 1 FROM vec_catalogos_configurables.categoria_control
@@ -218,7 +240,7 @@ BEGIN
         RAISE EXCEPTION 'proyección alteró publicación o uso';
     END IF;
     IF (SELECT count(*) FROM vec_catalogos_configurables.historia
-         WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')) <> 15
+         WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')) <> 16
        OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.historia
                    WHERE categoria_id IN ('cat-demo', 'cat-empty', 'cat-declared', 'cat-version')
                      AND motivo_ref IS DISTINCT FROM motivo) THEN
@@ -232,6 +254,7 @@ BEGIN
             ('cat-demo', 'deshabilitar', 'habilitada', 'deshabilitada'),
             ('cat-demo', 'cobertura', 'deshabilitada', 'deshabilitada'),
             ('cat-declared', 'cobertura', 'deshabilitada', 'deshabilitada'),
+            ('cat-declared', 'publicar', 'deshabilitada', 'deshabilitada'),
             ('cat-empty', 'tombstone', 'deshabilitada', 'tombstone'),
             ('cat-version', 'publicar', 'deshabilitada', 'deshabilitada')
         ) AS esperado(categoria_id, accion, estado_anterior, estado_posterior)
