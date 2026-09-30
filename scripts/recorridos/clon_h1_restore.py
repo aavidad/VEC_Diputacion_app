@@ -321,10 +321,12 @@ def restore(state, h1, normalizer_path, normalizer_sha):
             if sha_stream(source) != H1_SHA or file_identity(os.fstat(source.fileno())) != file_identity(initial) or file_identity(h1.lstat()) != file_identity(initial):
                 fail('H1 changed while preparing normalized input.')
             volume_identity(volume, identity)
+            # H1 expands to 471,715,399 bytes (~472 MB). Destination tmpfs pages
+            # count toward extractor memory; 256 MiB caused rc137 before PG startup.
             docker.run('run', '--rm', '-i', '--pull', 'never', '--network', 'none', '--read-only',
                        '--user', '0:0', '--log-driver', 'none', '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE',
                        '--cap-add', 'FOWNER', '--security-opt', 'no-new-privileges',
-                       '--pids-limit', '64', '--memory', '256m', '--cpus', '1',
+                       '--pids-limit', '64', '--memory', '1g', '--cpus', '1',
                        '--mount', f'type=bind,source={h1},destination=/h1,readonly',
                        '--mount', f'type=bind,source={volume},destination=/restore',
                        '--entrypoint', '/bin/sh', IMAGE_ID, '-ec',

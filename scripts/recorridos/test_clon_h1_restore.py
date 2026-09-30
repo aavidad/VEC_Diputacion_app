@@ -180,6 +180,11 @@ class RestoreTests(unittest.TestCase):
         self.assertIn('vec.recorridos.owner=' + restore.OWNER, create_args)
         self.assertIn('vec.recorridos.state=' + str(self.state), create_args)
         self.assertFalse(any(a.startswith(('vec.clon.owner=', 'vec.clon.state=')) for a in create_args))
+        extraction_calls = [args for args, streamed in FakeDocker.instance.calls if streamed]
+        self.assertEqual(len(extraction_calls), 1)
+        extraction_args = extraction_calls[0]
+        self.assertEqual(extraction_args[extraction_args.index('--memory') + 1], '1g')
+        self.assertEqual(create_args[create_args.index('--memory') + 1], '1g')
         for args, streamed in FakeDocker.instance.calls:
             self.assertNotIn('rm', args[:2])
             self.assertNotIn('-p', args if args[0] != 'exec' else ())
