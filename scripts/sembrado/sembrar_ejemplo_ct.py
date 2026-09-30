@@ -17,22 +17,24 @@ Los plazos de fase los calcula el servidor desde el día en que el expediente
 entra en la fase: lo sembrado hoy queda «en plazo» (cinco o diez días hábiles).
 No hay forma legítima de fechar hacia atrás una operación.
 
-Modos:  --plan (sin escribir), --ejecutar (escribe), --resumen (solo lee el cuadro).
-Se ejecuta dentro del contenedor de la aplicación:
-  podman exec -i APP python3 - --ejecutar --casos-b64 "$(base64 -w0 casos.json)" < sembrar_ejemplo_ct.py
+Sin --ejecutar muestra un plan. Con --ejecutar pide teclear el destino en una TTY.
+El kit lo ejecuta dentro del contenedor verificado de clon o principal, con
+--destino, --puerto-interno, --huella-servidor-sha256 y --casos. El kit verifica
+también el marcador CLON-OK del mismo paquete antes de la principal.
 Termina con SEMBRADO-OK (0), SEMBRADO-PARCIAL (1) o SEMBRADO-FALLO (2).
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import collections
 import datetime as dt
 import hashlib
+import hmac
 import http.client
 import json
 import os
+import re
 import ssl
 import sys
 import time
@@ -65,6 +67,8 @@ PLAN = {
 }
 LLAMAMIENTO = {"llamamiento": 2, "respuesta": 3}  # selección, comunicación, respuesta
 UNIDAD, RESPONSABLE = "unidad:desarrollo:rrhh", "persona:responsable-sintetica-001"
+HOST_INTERNO = "localhost"
+MATERIAL = "/vec-material"
 
 
 class ErrorAPI(Exception):
@@ -74,28 +78,49 @@ class ErrorAPI(Exception):
         self.estado, self.codigo = estado, codigo
 
 
+class ErrorDestino(Exception):
+    """Fallo de identidad TLS: no se puede continuar con otro caso."""
+
+
+def validar_huella(huella: str) -> str:
+    if re.fullmatch(r"[0-9a-fA-F]{64}", huella) is None:
+        raise ValueError("la huella SHA256 del servidor debe tener 64 dígitos hexadecimales")
+    return huella.lower()
+
+
 class Cliente:
     """Una conexión mTLS por petición; JSON compacto (algunas rutas exigen su forma canónica)."""
 
-    def __init__(self, base: str, material: str, nombre: str):
+    def __init__(self, puerto: int, nombre: str, huella_servidor: str):
+        material = MATERIAL
         crt, key, ca = (f"{material}/mtls/{nombre}.crt", f"{material}/mtls/{nombre}.key", f"{material}/ca/ca.crt")
         if not (os.path.isfile(crt) and os.path.isfile(key)):
-            raise SystemExit(f"SEMBRADO-FALLO: falta el certificado {nombre} en {material}/mtls")
-        ctx = ssl.create_default_context(cafile=ca) if os.path.isfile(ca) else ssl.create_default_context()
-        ctx.check_hostname = False
+            raise ErrorDestino(f"falta el certificado {nombre} en {material}/mtls")
         if not os.path.isfile(ca):
-            ctx.verify_mode = ssl.CERT_NONE
-        ctx.load_cert_chain(crt, key)
-        u = urllib.parse.urlsplit(base)
-        self.host, self.puerto, self.ctx = u.hostname, u.port or 443, ctx
+            raise ErrorDestino(f"falta la CA en {material}/ca")
+        try:
+            ctx = ssl.create_default_context(cafile=ca)
+            ctx.load_cert_chain(crt, key)
+        except (OSError, ssl.SSLError) as e:
+            raise ErrorDestino("no se pudo cargar el material mTLS verificado") from e
+        self.puerto, self.ctx = puerto, ctx
+        self.huella_servidor = validar_huella(huella_servidor)
 
     def pedir(self, metodo: str, ruta: str, cuerpo: dict | None = None) -> tuple[int, object]:
         datos = None if cuerpo is None else json.dumps(cuerpo, ensure_ascii=False, separators=(",", ":")).encode()
         cab = {"Accept": "application/json"}
         if datos is not None:
             cab["Content-Type"] = "application/json"
-        con = http.client.HTTPSConnection(self.host, self.puerto, context=self.ctx, timeout=60)
+        con = http.client.HTTPSConnection(HOST_INTERNO, self.puerto, context=self.ctx, timeout=60)
         try:
+            try:
+                con.connect()
+            except (OSError, ssl.SSLError) as e:
+                raise ErrorDestino("no se pudo establecer el canal TLS verificado") from e
+            certificado = con.sock.getpeercert(binary_form=True)
+            if not certificado or not hmac.compare_digest(hashlib.sha256(certificado).hexdigest(),
+                                                           self.huella_servidor):
+                raise ErrorDestino("la huella TLS del servidor no coincide con el destino autorizado")
             con.request(metodo, ruta, body=datos, headers=cab)
             r = con.getresponse()
             crudo = r.read()
@@ -132,18 +157,18 @@ class Sembrador:
 
     # ---------------------------------------------------------------- preparación
     def centro(self, codigo: str) -> dict:
-        centros = [c for c in self.catalogos.get("centros") or [] if c.get("contactos")]
-        if not centros:
-            raise RuntimeError("el catálogo del alta no tiene centros con contacto")
-        return next((c for c in centros if c["referencia"].rsplit(":", 1)[-1] == codigo),
-                    centros[int(hashlib.sha256(codigo.encode()).hexdigest(), 16) % len(centros)])
+        centros = [c for c in self.catalogos.get("centros") or []
+                   if c.get("referencia", "").rsplit(":", 1)[-1] == codigo]
+        if len(centros) != 1 or len(centros[0].get("contactos") or []) != 1:
+            raise RuntimeError(f"centro {codigo}: se necesita una coincidencia exacta con un contacto")
+        return centros[0]
 
     def categoria(self, nombre: str) -> tuple[str, str]:
-        cats = [c for c in self.catalogos.get("categorias") or [] if c.get("grupos_subgrupos")]
-        if not cats:
-            raise RuntimeError("el catálogo del alta no tiene categorías")
-        c = next((c for c in cats if c["referencia"].rsplit(":", 1)[-1] == nombre),
-                 cats[int(hashlib.sha256(nombre.encode()).hexdigest(), 16) % len(cats)])
+        cats = [c for c in self.catalogos.get("categorias") or []
+                if c.get("referencia", "").rsplit(":", 1)[-1] == nombre]
+        if len(cats) != 1 or len(cats[0].get("grupos_subgrupos") or []) != 1:
+            raise RuntimeError(f"categoría {nombre}: se necesita una coincidencia exacta con un grupo")
+        c = cats[0]
         return c["referencia"], c["grupos_subgrupos"][0]["clave"]
 
     def plan(self, caso: dict) -> dict:
@@ -151,10 +176,14 @@ class Sembrador:
         categoria, grupo = self.categoria(caso["categoria"])
         motivos = [m["clave"] for m in self.catalogos.get("motivos") or []]
         modalidades = [m["clave"] for m in self.configuracion.get("modalidades") or []]
+        motivo = caso["motivo"]
+        if not isinstance(motivo, str) or motivo not in motivos:
+            raise RuntimeError(f"motivo de alta {motivo}: no figura en el catálogo")
+        if caso["modalidad"] not in modalidades:
+            raise RuntimeError(f"modalidad {caso['modalidad']}: no figura en la configuración")
         return {
             "centro": centro, "categoria": categoria, "grupo": grupo,
-            "motivo": "sustitucion" if "sustitucion" in motivos or not motivos else motivos[0],
-            "modalidad": caso["modalidad"] if caso["modalidad"] in modalidades else modalidades[0],
+            "motivo": motivo, "modalidad": caso["modalidad"],
             "periodo": {"inicio": instante(caso["inicio"]), "fin": instante(caso["fin"])},
         }
 
@@ -226,9 +255,12 @@ class Sembrador:
         hechos.append("comunicación")
         if pasos < 3:
             return hechos
-        # La respuesta llega un segundo después de registrar la comunicación: mismo
-        # instante en cada repetición (la comunicación devuelve su fecha original).
-        registrada = dt.datetime.fromisoformat(com["registrada_en"].replace("Z", "+00:00"))
+        # El POST confirmado y su replay omiten registrada_en. La consulta autorizada
+        # conserva la fecha y la versión de la comunicación original.
+        comunicacion = self.consultar_comunicacion(exp, sel, com)
+        registrada = dt.datetime.fromisoformat(comunicacion["registrada_en"].replace("Z", "+00:00"))
+        if registrada.utcoffset() != dt.timedelta(0):
+            raise RuntimeError("la fecha de comunicación no está en UTC")
         recibida = (registrada + dt.timedelta(seconds=1)).replace(microsecond=0)
         espera = (recibida - dt.datetime.now(dt.timezone.utc)).total_seconds()
         if espera > 0:
@@ -236,12 +268,41 @@ class Sembrador:
         self.rrhh.exigir("respuesta recibida", "POST", f"{API}/llamamientos/respuestas/registro", {
             "clave_idempotencia": k("respuesta"), "organizacion_ref": sel["organizacion_ref"], "expediente_ref": exp,
             "llamamiento_ref": sel["llamamiento_ref"], "comunicacion_ref": com["comunicacion_ref"],
-            "version_comunicacion_esperada": com["version_resultante"], "respuesta": "aceptacion",
+            "version_comunicacion_esperada": comunicacion["version"], "respuesta": "aceptacion",
             "correo_ref": "correo:respuesta:" + k("correo"),
             "correo_sha256": hashlib.sha256(f"{self.espacio}:{caso['codigo']}:correo".encode()).hexdigest(),
             "recibida_en": recibida.strftime("%Y-%m-%dT%H:%M:%SZ")})
         hechos.append("respuesta de aceptación recibida")
         return hechos
+
+    def consultar_comunicacion(self, exp: str, sel: dict, com: dict) -> dict:
+        cursor = ""
+        for _ in range(100):
+            parametros = {"expediente_ref": exp, "limite": 20}
+            if cursor:
+                parametros["cursor"] = cursor
+            ruta = f"{API}/expedientes/comunicaciones?{urllib.parse.urlencode(parametros)}"
+            pagina = self.rrhh.exigir("consulta de comunicación", "GET", ruta)
+            for fila in pagina.get("comunicaciones") or []:
+                if fila.get("comunicacion_ref") != com["comunicacion_ref"]:
+                    continue
+                if (fila.get("expediente_ref") != exp or
+                        fila.get("organizacion_ref") != sel["organizacion_ref"] or
+                        fila.get("llamamiento_ref") != sel["llamamiento_ref"] or
+                        fila.get("recibo_comunicacion_ref") != com["recibo_ref"] or
+                        fila.get("version") != 2 or
+                        fila.get("estado") != "registrada_localmente" or
+                        fila.get("estado_respuesta") not in ("sin_respuesta", "registrada") or
+                        not isinstance(fila.get("registrada_en"), str)):
+                    raise RuntimeError("la comunicación consultada no coincide con el recibo")
+                return fila
+            siguiente = pagina.get("siguiente_cursor") or ""
+            if not siguiente:
+                break
+            if siguiente == cursor:
+                raise RuntimeError("la consulta de comunicaciones repitió el cursor")
+            cursor = siguiente
+        raise RuntimeError("la comunicación no aparece en la consulta autorizada")
 
     # ---------------------------------------------------------------- caso completo
     def sembrar(self, caso: dict) -> dict:
@@ -315,36 +376,67 @@ def resumen(rrhh: Cliente, propios: set[str]) -> None:
         print(f"  {fase:<28} {t:<20} {n}")
 
 
+def confirmar_destino(destino: str) -> bool:
+    if not sys.stdin.isatty():
+        raise ErrorDestino("--ejecutar exige una terminal interactiva")
+    try:
+        return input(f"Para escribir en {destino}, teclee {destino}: ") == destino
+    except EOFError:
+        return False
+
+
 def main() -> int:
     a = argparse.ArgumentParser(description="Siembra expedientes de ejemplo por la API de VEC.")
-    a.add_argument("--base", default="https://localhost:18443")
-    a.add_argument("--material", default="/vec-material")
-    a.add_argument("--rrhh", default="cliente")
-    a.add_argument("--intervencion", default="intervencion")
-    a.add_argument("--casos", help="fichero JSON de casos")
-    a.add_argument("--casos-b64", help="el mismo JSON en base64 (para ejecutar dentro del contenedor)")
-    modo = a.add_mutually_exclusive_group(required=True)
-    modo.add_argument("--plan", action="store_true", help="muestra qué haría, sin escribir")
-    modo.add_argument("--ejecutar", action="store_true", help="crea o completa los expedientes")
-    modo.add_argument("--resumen", action="store_true", help="solo lee el cuadro de RRHH")
+    a.add_argument("--destino", choices=("clon", "principal"), required=True)
+    a.add_argument("--puerto-interno", type=int, required=True)
+    a.add_argument("--huella-servidor-sha256", required=True)
+    a.add_argument("--casos", required=True, help="fichero JSON de casos dentro del contenedor")
+    a.add_argument("--ejecutar", action="store_true", help="crea o completa expedientes tras confirmar el destino")
     o = a.parse_args()
-    rrhh = Cliente(o.base, o.material, o.rrhh)
-    if o.resumen:
-        resumen(rrhh, set())
-        return 0
-    if bool(o.casos) == bool(o.casos_b64):
-        a.error("indique --casos o --casos-b64")
-    datos = json.loads(base64.b64decode(o.casos_b64) if o.casos_b64 else open(o.casos, encoding="utf-8").read())
-    if datos.get("esquema") != "vec.ct.sembrado-ejemplo.v1":
+    try:
+        if not 1 <= o.puerto_interno <= 65535:
+            raise ValueError("el puerto interno debe estar entre 1 y 65535")
+        huella = validar_huella(o.huella_servidor_sha256)
+    except ValueError as e:
+        a.error(str(e))
+    if o.ejecutar and not sys.stdin.isatty():
+        a.error("--ejecutar exige una terminal interactiva")
+    try:
+        with open(o.casos, encoding="utf-8") as fichero:
+            datos = json.load(fichero)
+    except (OSError, UnicodeError, ValueError) as e:
+        raise ErrorDestino("no se pudo leer el fichero de casos") from e
+    if not isinstance(datos, dict) or datos.get("esquema") != "vec.ct.sembrado-ejemplo.v1":
         a.error("fichero de casos con otro esquema")
-    casos = datos["casos"]
-    s = Sembrador(rrhh, Cliente(o.base, o.material, o.intervencion), datos["espacio_claves"])
-    if o.plan:
+    casos, pendientes = datos.get("casos"), datos.get("casos_pendientes", [])
+    if (not isinstance(casos, list) or not casos or not isinstance(pendientes, list) or
+            any(not isinstance(c, dict) or not isinstance(c.get("codigo"), str) or
+                not c["codigo"] or not isinstance(c.get("motivo"), str) for c in casos) or
+            any(not isinstance(c, dict) or not isinstance(c.get("codigo"), str) or
+                not c["codigo"] or c.get("motivo") is not None for c in pendientes) or
+            len({c["codigo"] for c in casos + pendientes}) != len(casos) + len(pendientes)):
+        a.error("casos ejecutables o pendientes inválidos; no se ha escrito nada")
+    rrhh = Cliente(o.puerto_interno, "cliente", huella)
+    s = Sembrador(rrhh, Cliente(o.puerto_interno, "intervencion", huella), datos["espacio_claves"])
+    try:
         for c in casos:
-            p = s.plan(c)
-            print(f"{c['codigo']}  {c['objetivo']:<13} {p['centro'].get('etiqueta', '')[:34]:<34} {p['categoria']:<40} "
-                  f"{' → '.join(PLAN[c['objetivo']]) or 'alta'}")
+            PLAN[c["objetivo"]]
+        planes = [s.plan(c) for c in casos]
+    except (RuntimeError, KeyError, TypeError, ValueError) as e:
+        print(f"SEMBRADO-FALLO: no se ha escrito nada: {e}")
+        return 2
+    print(f"Destino: {o.destino}. Casos ejecutables: {len(casos)}; pendientes: {len(pendientes)}")
+    if pendientes:
+        print("Pendientes sin causa de alta compatible: " + ", ".join(c["codigo"] for c in pendientes))
+    for c, p in zip(casos, planes):
+        print(f"{c['codigo']}  {c['objetivo']:<13} {p['centro'].get('etiqueta', '')[:34]:<34} {p['categoria']:<40} "
+              f"{' → '.join(PLAN[c['objetivo']]) or 'alta'}")
+    if not o.ejecutar:
+        print("SEMBRADO-PLAN: no se ha escrito nada")
         return 0
+    if not confirmar_destino(o.destino):
+        print("SEMBRADO-FALLO: el destino no se confirmó; no se ha escrito nada")
+        return 2
     fallos, propios = 0, set()
     for c in casos:
         try:
@@ -364,4 +456,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except ErrorDestino as e:
+        print(f"SEMBRADO-FALLO: {e}", file=sys.stderr)
+        sys.exit(2)
