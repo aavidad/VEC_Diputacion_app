@@ -85,7 +85,8 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 	raices := x509.NewCertPool()
 	raices.AddCert(ca)
 	verificar := func(r *http.Request) bool {
-		if !time.Now().Before(cfg.RetiradaEn) || r.Host != cfg.Host ||
+		ahora := time.Now()
+		if !ahora.Before(cfg.RetiradaEn) || r.Host != cfg.Host ||
 			r.TLS == nil || len(r.TLS.VerifiedChains) == 0 {
 			return false
 		}
@@ -97,7 +98,6 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 		if err != nil || red.Autorizar(ip) != nil {
 			return false
 		}
-		ahora := time.Now()
 		for _, cadena := range r.TLS.VerifiedChains {
 			if cadenaDirectaVigente(cadena, ca, ahora) &&
 				certificadoVigente(cadena[0], ca, cfg.CRLAdministracion) {
