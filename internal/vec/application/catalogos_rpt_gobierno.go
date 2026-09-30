@@ -228,8 +228,14 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
 	}
 	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, c.ResultadoContexto)
-	if err != nil || nuloGobiernoCategoriaRPT(exportador) || ctx.Err() != nil {
+	if ctx.Err() != nil {
+		return domain.SolicitudAutorizacionLigadaV3{}, cero, ctx.Err()
+	}
+	if errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
 		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
+	}
+	if err != nil || nuloGobiernoCategoriaRPT(exportador) {
+		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTNoDisponible
 	}
 	material, err := exportador.ExportarMaterialParaConsumidor()
 	instanteConsumo := s.reloj.Ahora().UTC().Truncate(time.Microsecond)

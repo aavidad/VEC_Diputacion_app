@@ -472,3 +472,52 @@ func TestGobiernoRPTAplicacionDeniegaVinculoOrdinarioAjenoOVencido(t *testing.T)
 		})
 	}
 }
+
+type emisorGobiernoRPTFalloPrueba struct {
+	err      error
+	cancelar context.CancelFunc
+	llamadas int
+}
+
+func (e *emisorGobiernoRPTFalloPrueba) EmitirMaterialAutorizacionAtestadaV3(context.Context, domain.SolicitudAutorizacionLigadaV3, domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, ports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	e.llamadas++
+	if e.cancelar != nil {
+		e.cancelar()
+	}
+	return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.err
+}
+
+func TestGobiernoRPTClasificaDenegacionExplicitaYFalloTecnicoDelEmisor(t *testing.T) {
+	for _, caso := range []struct {
+		nombre        string
+		err, esperado error
+		cancelar      bool
+	}{
+		{"denegacion explicita", ports.ErrDenegacionExplicitaAutorizacionLigadaV3, ports.ErrGobiernoCategoriaRPTDenegado, false},
+		{"caida tecnica", errors.New("fallo privado del emisor"), ports.ErrGobiernoCategoriaRPTNoDisponible, false},
+		{"exportador nulo", nil, ports.ErrGobiernoCategoriaRPTNoDisponible, false},
+		{"cancelacion devuelta", context.Canceled, ports.ErrGobiernoCategoriaRPTNoDisponible, false},
+		{"contexto cancelado", nil, context.Canceled, true},
+		{"denegacion con contexto cancelado", ports.ErrDenegacionExplicitaAutorizacionLigadaV3, context.Canceled, true},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e, _, cred, p := entornoEmisionGobiernoRPT(t)
+			ctx, cancelar := context.WithCancel(t.Context())
+			defer cancelar()
+			emisor := &emisorGobiernoRPTFalloPrueba{err: caso.err}
+			if caso.cancelar {
+				emisor.cancelar = cancelar
+			}
+			gestor := &gestorGobiernoRPTPrueba{}
+			s, err := NuevoServicioGobiernoCategoriaRPT(&preparadorGobiernoRPTPrueba{avance: p}, emisor, gestor,
+				&relojAutorizacionServicioPrueba{ahora: e.ahora}, e.fuente.instantanea.VersionRol.Referencia())
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = s.Aprobar(ctx, OrdenAvanzarGobiernoCategoriaRPT{Credenciales: cred, Material: materialAvanceGobiernoRPTPrueba()})
+			if !errors.Is(err, caso.esperado) || strings.Contains(err.Error(), "fallo privado") || gestor.llamadas != 0 || emisor.llamadas != 1 {
+				t.Fatalf("fallo del emisor: err=%v efectos=%d emision=%d", err, gestor.llamadas, emisor.llamadas)
+			}
+		})
+	}
+}

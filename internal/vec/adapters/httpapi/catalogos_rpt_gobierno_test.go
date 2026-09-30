@@ -42,14 +42,16 @@ func (f *fuenteGobiernoRPTPrueba) ResolverGobiernoCategoriaRPT(_ context.Context
 }
 
 type auditorGobiernoRPTPrueba struct {
-	codigos []string
-	err     error
+	codigos      []string
+	err          error
+	ctxCancelado bool
 }
 
-func (a *auditorGobiernoRPTPrueba) RegistrarDenegacionGobiernoCategoriaRPT(_ context.Context, ruta, codigo, correlacion string) error {
+func (a *auditorGobiernoRPTPrueba) RegistrarDenegacionGobiernoCategoriaRPT(ctx context.Context, ruta, codigo, correlacion string) error {
 	if !rutaGobiernoRPTValida(ruta) || correlacion == "" {
 		return errors.New("auditoria invalida")
 	}
+	a.ctxCancelado = ctx.Err() != nil
 	a.codigos = append(a.codigos, codigo)
 	return a.err
 }
@@ -691,6 +693,91 @@ func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolADMIN(t *testing.T) 
 			rutas[1].Manejador.ServeHTTP(w, peticionGobiernoRPTPrueba(t, ca, cert, rutas[1].Ruta, avance))
 			if w.Code != http.StatusForbidden || op.llamadas != antes {
 				t.Fatalf("estado=%d efectos=%d", w.Code, op.llamadas-antes)
+			}
+		})
+	}
+}
+
+type emisorGobiernoRPTErrHTTPPrueba struct {
+	err      error
+	cancelar context.CancelFunc
+}
+
+func (e emisorGobiernoRPTErrHTTPPrueba) EmitirMaterialAutorizacionAtestadaV3(context.Context, domain.SolicitudAutorizacionLigadaV3, domain.ResultadoContextoActorRegistradoV2) (domain.DecisionAutorizacionLigadaV3, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, ports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
+	if e.cancelar != nil {
+		e.cancelar()
+	}
+	return domain.DecisionAutorizacionLigadaV3{}, ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, e.err
+}
+
+type dependenciasGobiernoRPTErrHTTPPrueba struct{ efectos int }
+
+func (*dependenciasGobiernoRPTErrHTTPPrueba) PrepararPropuestaGobiernoCategoriaRPT(context.Context, ports.BorradorPropuestaGobiernoCategoriaRPT) (ports.PreparacionPropuestaGobiernoCategoriaRPT, error) {
+	return ports.PreparacionPropuestaGobiernoCategoriaRPT{}, ports.ErrGobiernoCategoriaRPTNoDisponible
+}
+func (*dependenciasGobiernoRPTErrHTTPPrueba) PrepararAprobacionGobiernoCategoriaRPT(_ context.Context, m ports.MaterialAvanceGobiernoCategoriaRPT) (ports.PreparacionGobiernoCategoriaRPT, error) {
+	return ports.PreparacionGobiernoCategoriaRPT{Accion: ports.AccionAprobarGobiernoCategoriaRPT, Finalidad: ports.FinalidadGobiernoCategoriaRPT,
+		Audiencia: ports.AudienciaGobiernoCategoriaRPT, HuellaPropuesta: m.HuellaSHA256,
+		Recurso: domain.RecursoAutorizable{Referencia: m.PropuestaRef, ModuloID: m.ModuloID, Tipo: ports.TipoRecursoGobiernoCategoriaRPT,
+			Ambitos: map[string]string{"catalogo_id": m.CatalogoID, "modulo_id": m.ModuloID}, Atributos: map[string]string{"material_sha256": m.HuellaSHA256}}}, nil
+}
+func (*dependenciasGobiernoRPTErrHTTPPrueba) PrepararConfirmacionGobiernoCategoriaRPT(context.Context, ports.MaterialAvanceGobiernoCategoriaRPT) (ports.PreparacionGobiernoCategoriaRPT, error) {
+	return ports.PreparacionGobiernoCategoriaRPT{}, ports.ErrGobiernoCategoriaRPTNoDisponible
+}
+func (d *dependenciasGobiernoRPTErrHTTPPrueba) ProponerGobiernoCategoriaRPT(context.Context, ports.OrdenPropuestaGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	d.efectos++
+	return ports.ResultadoGobiernoCategoriaRPT{}, nil
+}
+func (d *dependenciasGobiernoRPTErrHTTPPrueba) AprobarGobiernoCategoriaRPT(context.Context, ports.OrdenAvanceGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	d.efectos++
+	return ports.ResultadoGobiernoCategoriaRPT{}, nil
+}
+func (d *dependenciasGobiernoRPTErrHTTPPrueba) ConfirmarGobiernoCategoriaRPT(context.Context, ports.OrdenAvanceGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	d.efectos++
+	return ports.ResultadoGobiernoCategoriaRPT{}, nil
+}
+
+func TestGobiernoRPTHTTPAuditaDenegacionOCaidaDelEmisorSinEfectos(t *testing.T) {
+	ca, cert, _ := caGobiernoRPTPrueba(t)
+	cred := credencialesGobiernoRPTPrueba(t)
+	descriptor := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
+	fuente := &fuenteGobiernoRPTPrueba{cred: cred, descriptor: descriptor, asignacion: asignacionGobiernoRPTPrueba(t, cred)}
+	cuerpo := `{"propuesta_ref":"propuesta:ejemplo","catalogo_id":"catalogo.rpt","modulo_id":"bolsa","revision_esperada":1,"huella_sha256":"` + strings.Repeat("a", 64) + `"}`
+	for _, caso := range []struct {
+		nombre   string
+		err      error
+		cancelar bool
+		estado   int
+		codigo   string
+	}{
+		{"denegacion explicita", ports.ErrDenegacionExplicitaAutorizacionLigadaV3, false, http.StatusForbidden, "acceso_denegado"},
+		{"caida tecnica", errors.New("detalle privado del emisor"), false, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{"exportador nulo", nil, false, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{"cancelacion devuelta", context.Canceled, false, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{"contexto cancelado", nil, true, http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{"denegacion con cancelacion", ports.ErrDenegacionExplicitaAutorizacionLigadaV3, true, http.StatusServiceUnavailable, "servicio_no_disponible"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			ctx, cancelar := context.WithCancel(t.Context())
+			defer cancelar()
+			emisor := emisorGobiernoRPTErrHTTPPrueba{err: caso.err}
+			if caso.cancelar {
+				emisor.cancelar = cancelar
+			}
+			dependencias, auditor := &dependenciasGobiernoRPTErrHTTPPrueba{}, &auditorGobiernoRPTPrueba{}
+			servicio, err := application.NuevoServicioGobiernoCategoriaRPT(dependencias, emisor, dependencias,
+				relojGobiernoRPTPrueba{time.Now().UTC().Truncate(time.Microsecond)}, versionRolGobiernoRPTPrueba)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rutas, err := NuevasRutasGobiernoCategoriaRPT(servicio, fuente, auditor, "admin.ejemplo.test", ca, descriptor, versionRolGobiernoRPTPrueba)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			rutas[1].Manejador.ServeHTTP(w, peticionGobiernoRPTPrueba(t, ca, cert, RutaAprobarGobiernoCategoriaRPT, cuerpo).WithContext(ctx))
+			if w.Code != caso.estado || len(auditor.codigos) != 1 || auditor.codigos[0] != caso.codigo || auditor.ctxCancelado || dependencias.efectos != 0 || strings.Contains(w.Body.String(), "detalle privado") {
+				t.Fatalf("estado=%d auditoria=%v audit_cancelado=%t efectos=%d", w.Code, auditor.codigos, auditor.ctxCancelado, dependencias.efectos)
 			}
 		})
 	}
