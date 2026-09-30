@@ -1,16 +1,14 @@
-package ports
+package domain
 
 import (
 	"strings"
 	"testing"
 	"time"
-
-	"vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestBootstrapAdministracionPerfilesExigeDosPersonasAcreditadas(t *testing.T) {
-	persona := func(letra string) domain.PreimagenAdministracionPerfiles {
-		return domain.PreimagenAdministracionPerfiles{
+	persona := func(letra string) PreimagenAdministracionPerfiles {
+		return PreimagenAdministracionPerfiles{
 			CuentaRef: "cta_" + strings.Repeat(letra, 22), CuentaVersion: 1,
 			PersonaRef: "per_" + strings.Repeat(letra, 22), PersonaVersion: 1,
 			PerfilRef:      "prf_" + strings.Repeat(letra, 22),

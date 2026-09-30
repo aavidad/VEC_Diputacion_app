@@ -122,6 +122,37 @@ func TestAdministracionPerfilesDobleControlPorPersona(t *testing.T) {
 	if err := cierre.Validar(); err == nil {
 		t.Fatal("aprobacion del afectado aceptada")
 	}
+	cierre.ObjetivoPersonaRef = s.Objetivo.PersonaRef
+	confirmado := instanteContextoActorPrueba()
+	resultado := CierrePropuestaAdministracionPerfiles{
+		OperacionRef:       cierre.OperacionRef,
+		PropuestaRef:       cierre.PropuestaRef,
+		Decision:           DecisionAprobarPropuestaPerfil,
+		HuellaCierreSHA256: strings.Repeat("d", 64),
+		ConfirmadoEn:       confirmado,
+		Recibo: &ReciboAdministracionPerfiles{
+			OperacionRef:        cierre.OperacionRef,
+			ActoRef:             "acto_admin:" + strings.Repeat("f", 32),
+			ReciboRef:           "recibo_admin:" + strings.Repeat("e", 32),
+			PropuestaRef:        cierre.PropuestaRef,
+			AuditoriaRef:        "auditoria:admin:1",
+			ObjetivoPersonaRef:  cierre.ObjetivoPersonaRef,
+			PerfilRef:           s.Objetivo.PerfilRef,
+			VinculoRef:          s.Objetivo.VinculoRef,
+			EstadoPosterior:     EstadoVinculoContextoActorActivo,
+			VersionPosterior:    1,
+			HuellaAntesSHA256:   strings.Repeat("a", 64),
+			HuellaDespuesSHA256: strings.Repeat("b", 64),
+			ConfirmadoEn:        confirmado,
+		},
+	}
+	if err := resultado.ValidarPara(cierre); err != nil {
+		t.Fatalf("recibo de la persona objetivo: %v", err)
+	}
+	resultado.Recibo.ObjetivoPersonaRef = referenciaContextoActorPrueba("per_", "z")
+	if err := resultado.ValidarPara(cierre); err == nil {
+		t.Fatal("recibo de otra persona aceptado")
+	}
 }
 
 func TestReciboAdministracionPerfilesNoConfundePropuestaConEfecto(t *testing.T) {
