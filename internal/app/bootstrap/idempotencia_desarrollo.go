@@ -63,6 +63,10 @@ type materialIdempotenciaDesarrollo struct {
 // DerivadorIdentidadOperacion y nunca puede construir este tipo.
 type derivadorIdentidadOperacionDesarrollo struct {
 	generaciones []generacionIdempotenciaDesarrollo
+	// espacioSeudonimos distingue la clave con la que el proceso del portal
+	// externo seudonimiza cuentas y sujetos de sesión. Vacío: el espacio
+	// histórico de la composición combinada e interna.
+	espacioSeudonimos string
 }
 
 type resultadoHMACIdempotenciaDesarrollo struct {

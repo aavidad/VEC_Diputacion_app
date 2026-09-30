@@ -25,10 +25,14 @@ func (s *seudonimizadorSesionDesarrollo) SeudonimizarAlta(ctx context.Context, i
 		ids.EspacioIdentidad != espacioIdentidadSesionDesarrollo || ids.CuentaOrdinariaID != "" {
 		return vacio, httpseguridad.ErrSesionNoValida
 	}
+	espacioClave := "vec.identidad.desarrollo"
+	if s.derivador.espacioSeudonimos != "" {
+		espacioClave = s.derivador.espacioSeudonimos
+	}
 	resultado := postgresidentidad.SeudonimosAlta{
 		Esquema:          postgresidentidad.EsquemaHMACSHA256V1,
 		EspacioIdentidad: espacioIdentidadSesionDesarrollo, DominioRef: dominioIdentidadSesionDesarrollo,
-		ClaveID:      fmt.Sprintf("vec.identidad.desarrollo.g%d", s.derivador.generaciones[0].generacion),
+		ClaveID:      fmt.Sprintf("%s.g%d", espacioClave, s.derivador.generaciones[0].generacion),
 		ClaveVersion: uint64(s.derivador.generaciones[0].generacion),
 	}
 	campos := []struct {
