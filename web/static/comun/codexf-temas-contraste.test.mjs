@@ -100,5 +100,6 @@ test("marca y enlaces del lateral usan el par de tokens comprobado", () => {
     assert.match(declaracion(portal, selector), /color: var\(--portal-lateral-texto\)/u);
   }
   assert.match(declaracion(menuBolsa, ".enlace-submenu:hover:not(:disabled)"), /color: var\(--portal-lateral-texto\)/u);
-  assert.match(css, /\.portal-lateral \.enlace-lateral\[aria-current="page"\]:focus-visible,[^}]*\.portal-lateral \.categoria-menu-bolsa\[data-categoria-activa="true"\]:focus-visible\s*\{\s*outline-color: var\(--portal-texto-inverso\);/u);
+  assert.match(css, /\.portal-lateral \.enlace-submenu\[aria-current="page"\]:focus-visible,[^}]*\.portal-lateral \.categoria-menu-bolsa\[data-categoria-activa="true"\]:focus-visible\s*\{\s*outline-color: var\(--portal-texto-inverso\);/u);
+  assert.doesNotMatch(css, /\.portal-lateral \.enlace-lateral\[aria-current="page"\]:focus-visible/u);
 });

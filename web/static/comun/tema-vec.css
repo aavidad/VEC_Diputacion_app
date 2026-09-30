@@ -320,7 +320,6 @@ body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contr
   outline-color: var(--portal-lateral-texto);
 }
 
-body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .enlace-lateral[aria-current="page"]:focus-visible,
 body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .enlace-submenu[aria-current="page"]:focus-visible,
 body[data-modo-color="noche_suave"]:not([data-contraste="true"]):not(.alto-contraste) .portal-lateral .categoria-menu-bolsa[data-categoria-activa="true"]:focus-visible {
   outline-color: var(--portal-texto-inverso);
