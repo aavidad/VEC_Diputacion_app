@@ -14,7 +14,6 @@ import (
 
 type FuenteReglas interface {
 	CatalogoVigente(context.Context) (vecdomain.CatalogoConfigurable, string, time.Time, error)
-	Reglas(context.Context) ([]reglas.Regla, error)
 }
 
 type CambioSolicitado struct {
@@ -73,7 +72,15 @@ func (s *Servicio) Consultar(ctx context.Context, actor vecdomain.ContextoActor,
 	if err := validarCabeza(lectura); err != nil {
 		return Lectura{}, err
 	}
-	lectura.Reglas, err = s.reglas.Reglas(ctx)
+	base, huella, instante, err := s.reglas.CatalogoVigente(ctx)
+	if err != nil {
+		return Lectura{}, ErrNoDisponible
+	}
+	huellaComprobada, err := base.HuellaSHA256()
+	if err != nil || huellaComprobada != huella {
+		return Lectura{}, ErrNoDisponible
+	}
+	lectura.Reglas, err = reglas.ProyectarReglasConAjustes(base, instante, lectura.Vigente)
 	if err != nil {
 		return Lectura{}, ErrNoDisponible
 	}
