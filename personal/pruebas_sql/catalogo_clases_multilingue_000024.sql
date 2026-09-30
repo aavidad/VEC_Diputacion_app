@@ -31,13 +31,16 @@ BEGIN
    WHERE ref=c.ref AND version=siguiente AND datos->'opciones'->0->'etiquetas'->>'fr'='Libellé') THEN
   RAISE EXCEPTION 'Personal24: no se conservó el tercer idioma'; END IF;
  SELECT count(*) INTO cuentas FROM vec_personal.clases_ocupacion_plan_ct_catalogo;
- FOR caso IN 1..5 LOOP
+ FOR caso IN 1..6 LOOP
   invalido:=CASE caso
     WHEN 1 THEN jsonb_set(nuevo,'{opciones,0,etiquetas}',jsonb_build_object('idioma_invalido','Texto'))
     WHEN 2 THEN jsonb_set(nuevo,'{opciones,0,etiquetas}','{}'::jsonb)
     WHEN 3 THEN jsonb_set(nuevo,'{opciones,0,etiquetas}',jsonb_build_object('fr',7))
     WHEN 4 THEN jsonb_set(nuevo,'{opciones,0,etiquetas}',jsonb_build_object('fr',''))
-    ELSE jsonb_set(nuevo,'{opciones,0,etiquetas}',jsonb_build_object('fr',repeat('a',81))) END;
+    WHEN 5 THEN jsonb_set(nuevo,'{opciones,0,etiquetas}',jsonb_build_object('fr',repeat('a',81)))
+    ELSE jsonb_build_object('opciones',jsonb_build_array(jsonb_build_object(
+      'valor','reserva','texto_clave','rrhh.ct.incorporacion.b2.clase_ocupacion.opcion.reserva',
+      'etiquetas',jsonb_build_object('es','Reserva','en','Reserved','fr','Reserve')))) END;
   canon:=invalido::text;
   BEGIN
    INSERT INTO vec_personal.clases_ocupacion_plan_ct_catalogo VALUES(c.ref,siguiente+1,canon,invalido,

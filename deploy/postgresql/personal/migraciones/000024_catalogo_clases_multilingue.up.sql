@@ -13,7 +13,7 @@ DO $funcion$
 DECLARE f oid:=to_regprocedure('vec_personal.validar_version_clases_ocupacion_plan_ct()');
  original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean; volatilidad "char";
- preimagen_sha text:='d0f9611a49887c03959a79057698f9f33f80885b0cd61f78bd10cde188b000c3';
+ preimagen_sha text:='b92b7aac4d7b92698a1167f053dd76216e057893f16be97ba17d9143a8130d06';
  marca text:=$marca$     OR ARRAY(SELECT jsonb_object_keys(opcion->'etiquetas') ORDER BY 1) IS DISTINCT FROM ARRAY['en','es']
      OR jsonb_typeof(opcion->'etiquetas'->'es') IS DISTINCT FROM 'string'
      OR jsonb_typeof(opcion->'etiquetas'->'en') IS DISTINCT FROM 'string'
