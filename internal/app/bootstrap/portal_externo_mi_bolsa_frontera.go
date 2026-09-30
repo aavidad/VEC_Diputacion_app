@@ -78,7 +78,7 @@ func (a *fronteraMiBolsaPortalExterno) AutorizarRutaExacta(ctx context.Context, 
 		return vechttp.ErrAutoridadRutaExactaNoDisponible
 	}
 	if c.orden.Vinculo.ValidarPara(c.orden.ResultadoContexto) != nil ||
-		!c.orden.Vinculo.VigenteEn(time.Now().UTC(), c.orden.ResultadoContexto) {
+		!c.orden.Vinculo.VigenteEn(time.Now().UTC().Truncate(time.Microsecond), c.orden.ResultadoContexto) {
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	return nil
