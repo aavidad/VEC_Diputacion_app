@@ -60,6 +60,8 @@ while IFS= read -r paquete; do
 			golang.org/x/text/width | \
 			"${modulo}/cmd/vec-interno" | \
 			"${modulo}/config" | \
+			"${modulo}/web" | \
+			"${modulo}/internal/shared/i18n" | \
 			"${modulo}/internal/app/composicion/gobiernov3lector" | \
 			"${modulo}/internal/app/composicion/interna" | \
 			"${modulo}/internal/app/composicion/interna/contrataciontemporal" | \
