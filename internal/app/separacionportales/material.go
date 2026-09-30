@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"vec-diputacion-granada/config"
 )
 
 // FicheroMarcaPortal declara, dentro del directorio de material, a qué
@@ -41,6 +43,7 @@ const (
 )
 
 var ficherosExternos = map[string]struct{}{
+	config.DevelopmentExternalMailSeedRelativePath: {},
 	"identidad/bolsa-candidato.json":               {},
 	"identidad/candidato.json":                     {},
 	"identidad/usuarios-preferencias-externa.json": {},

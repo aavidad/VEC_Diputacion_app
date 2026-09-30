@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"vec-diputacion-granada/config"
 )
 
 const (
@@ -222,6 +224,8 @@ func leerHuellaCAInternaDeclarada(externo string) ([sha256.Size]byte, error) {
 // procesos. Las claves públicas pueden repetirse; las CA se comparan aparte.
 func esSecreto(relativa string) bool {
 	switch {
+	case relativa == config.DevelopmentExternalMailSeedRelativePath:
+		return true
 	case strings.HasPrefix(relativa, "kms/"):
 		return strings.HasSuffix(relativa, ".bin") || strings.HasSuffix(relativa, ".key")
 	case strings.HasPrefix(relativa, "tsa/"), strings.HasPrefix(relativa, "idempotencia/"),
