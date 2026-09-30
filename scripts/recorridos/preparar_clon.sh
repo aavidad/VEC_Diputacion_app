@@ -26,6 +26,14 @@ refrescar_prueba=${VEC_RECORRIDOS_REFRESCAR_PRUEBA_INTERNA:-false}
 [[ "$refrescar_prueba" == true || "$refrescar_prueba" == false ]] || exit 2
 rotar_proyeccion=${VEC_RECORRIDOS_ROTAR_PROYECCION_INTERNA:-false}
 [[ "$rotar_proyeccion" == true || "$rotar_proyeccion" == false ]] || exit 2
+rotacion_misma_fuente=${VEC_RECORRIDOS_ROTACION_MISMA_FUENTE:-false}
+manifesto_previo_sha=${VEC_RECORRIDOS_ROTACION_MANIFIESTO_PREVIO_SHA256:-}
+[[ "$rotacion_misma_fuente" == true || "$rotacion_misma_fuente" == false ]] || exit 2
+if [[ "$rotacion_misma_fuente" == true ]]; then
+  [[ "$rotar_proyeccion" == true && "$manifesto_previo_sha" =~ ^[0-9a-f]{64}$ ]] || exit 2
+else
+  [[ -z "$manifesto_previo_sha" ]] || exit 2
+fi
 accion=${1:-preparar}
 case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso: preparar_clon.sh [preparar|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 [[ "$nombre" =~ ^vec-[a-z0-9-]+$ ]] || exit 2
@@ -269,7 +277,11 @@ if p.exists():
 print(previous)
 PY
 )
-    python3 "$guiones/clon_rotacion_interna.py" archive --state "$estado" --old-source "$origen_proyeccion" --new-source "$commit"
+    opciones_rotacion=()
+    if [[ "$rotacion_misma_fuente" == true ]]; then
+      opciones_rotacion=(--allow-same-source --expected-old-manifest-sha256 "$manifesto_previo_sha")
+    fi
+    python3 "$guiones/clon_rotacion_interna.py" archive --state "$estado" --old-source "$origen_proyeccion" --new-source "$commit" "${opciones_rotacion[@]}"
   fi
 else
   ! docker inspect "$nombre" >/dev/null 2>&1 || { echo 'El nombre de contenedor ya está ocupado.' >&2; exit 1; }

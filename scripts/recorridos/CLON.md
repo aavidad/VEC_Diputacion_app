@@ -156,6 +156,22 @@ comprueba la preimagen y exige iguales fuente, destino, configuración, archivos
 y montajes de ejecución. Guarda ambos sellos y rechaza cualquier otro cambio.
 La opción no rota claves ni modifica datos o identidades.
 
+Si dirección admite nuevas fuentes públicas con el mismo commit de la
+aplicación, la rotación requiere además una autorización explícita y la
+huella del manifiesto interno anterior:
+
+```bash
+export VEC_RECORRIDOS_ROTAR_PROYECCION_INTERNA=true
+export VEC_RECORRIDOS_ROTACION_MISMA_FUENTE=true
+export VEC_RECORRIDOS_ROTACION_MANIFIESTO_PREVIO_SHA256=HUELLA_HEXADECIMAL_DEL_MANIFIESTO_ANTERIOR
+```
+
+El helper rechaza la misma fuente sin esa preimagen. Archiva el árbol completo
+y sus registros antes de preparar la proyección nueva. La recuperación exige
+un manifiesto distinto y coteja los cuatro directorios de datos. Esta operación
+conserva el commit, el binario, las claves y los recibos SQL; no cambia una
+copia de 43 instalaciones en otra de 41.
+
 ## Comprobar y recuperar
 
 ```bash

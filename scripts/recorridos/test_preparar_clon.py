@@ -137,6 +137,21 @@ python3() {
         self.assertNotIn('--artifact-sha256', arguments)
         self.assertNotIn('--artifact-source', arguments)
 
+    def comprobar_opciones_rotacion(self, *, rotar, misma, sha):
+        source = Path(__file__).with_name('preparar_clon.sh').read_text()
+        guards = source[source.index('rotar_proyeccion='):source.index('accion=${1:-preparar}')]
+        process = subprocess.run(['bash', '-c', 'set -eu\n' + guards], capture_output=True, timeout=5,
+            env={'PATH': '/usr/bin:/bin', 'VEC_RECORRIDOS_ROTAR_PROYECCION_INTERNA': rotar,
+                 'VEC_RECORRIDOS_ROTACION_MISMA_FUENTE': misma,
+                 'VEC_RECORRIDOS_ROTACION_MANIFIESTO_PREVIO_SHA256': sha})
+        return process.returncode
+
+    def test_misma_fuente_exige_rotacion_y_preimagen_explicitas(self):
+        self.assertEqual(self.comprobar_opciones_rotacion(rotar='true', misma='true', sha='a'*64), 0)
+        self.assertEqual(self.comprobar_opciones_rotacion(rotar='false', misma='true', sha='a'*64), 2)
+        self.assertEqual(self.comprobar_opciones_rotacion(rotar='true', misma='true', sha=''), 2)
+        self.assertEqual(self.comprobar_opciones_rotacion(rotar='true', misma='false', sha='a'*64), 2)
+
 
 if __name__ == '__main__':
     unittest.main()
