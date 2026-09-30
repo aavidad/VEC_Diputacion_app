@@ -133,6 +133,9 @@ type AntecedentesPlanNominalB2 struct {
 	PropuestaReciboRef  string                     `json:"propuesta_recibo_ref"`
 	AceptacionRef       string                     `json:"aceptacion_ref"`
 	AceptacionReciboRef string                     `json:"aceptacion_recibo_ref"`
+	DocumentoRef        string                     `json:"documento_ref"`
+	DocumentoSHA256     string                     `json:"documento_sha256"`
+	DocumentoVersion    uint64                     `json:"documento_version"`
 	Bolsa               domain.SelectorBolsaPlanB2 `json:"bolsa"`
 	Vinculo             *EstadoVinculoCategoriaRPT `json:"vinculo"`
 }
