@@ -116,10 +116,16 @@ func (s salidaCuadroConsultaRRHH) instantaneasAlineadas(
 	var vinculos []vinculoInstantaneaRRHH
 	var bases []definicionBaseRRHH
 	var ajustes []definicionAjustesRRHH
-	if decodificarArrayPlazosRRHH(s.instantaneasRegla, &vinculos) != nil ||
-		decodificarArrayPlazosRRHH(s.basesRegla, &bases) != nil ||
-		decodificarArrayPlazosRRHH(s.ajustesRegla, &ajustes) != nil ||
-		len(vinculos) != len(resumenes) ||
+	if err := decodificarArrayPlazosRRHH(s.instantaneasRegla, &vinculos); err != nil {
+		return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+	}
+	if err := decodificarArrayPlazosRRHH(s.basesRegla, &bases); err != nil {
+		return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+	}
+	if err := decodificarArrayPlazosRRHH(s.ajustesRegla, &ajustes); err != nil {
+		return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+	}
+	if len(vinculos) != len(resumenes) ||
 		len(bases) > len(resumenes) || len(ajustes) > len(resumenes) {
 		return nil, fallo
 	}
@@ -132,12 +138,17 @@ func (s salidaCuadroConsultaRRHH) instantaneasAlineadas(
 			return nil, fallo
 		}
 		var catalogo reglasdomain.CatalogoConfigurable
-		if json.Unmarshal([]byte(base.BaseCanonico), &catalogo) != nil ||
-			reglas.ValidarCatalogoBaseReglas(catalogo) != nil {
-			return nil, fallo
+		if err := json.Unmarshal([]byte(base.BaseCanonico), &catalogo); err != nil {
+			return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+		}
+		if err := reglas.ValidarCatalogoBaseReglas(catalogo); err != nil {
+			return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
 		}
 		canonico, huella, err := reglas.CanonicoCatalogoBaseReglas(catalogo)
-		if err != nil || !bytes.Equal(canonico, []byte(base.BaseCanonico)) ||
+		if err != nil {
+			return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+		}
+		if !bytes.Equal(canonico, []byte(base.BaseCanonico)) ||
 			catalogo.ID != clave.id || catalogo.Version != clave.version ||
 			huella != clave.huella {
 			return nil, fallo
@@ -153,13 +164,21 @@ func (s salidaCuadroConsultaRRHH) instantaneasAlineadas(
 			return nil, fallo
 		}
 		var datos map[string]map[string]string
-		if json.Unmarshal([]byte(ajuste.AjustesCanonico), &datos) != nil || datos == nil {
+		if err := json.Unmarshal([]byte(ajuste.AjustesCanonico), &datos); err != nil {
+			return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+		}
+		if datos == nil {
 			return nil, fallo
 		}
 		canonico, err := reglas.CanonicoAjustes(datos)
+		if err != nil {
+			return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: err}
+		}
 		huella, errHuella := reglas.HuellaAjustes(datos)
-		if err != nil || errHuella != nil ||
-			!bytes.Equal(canonico, []byte(ajuste.AjustesCanonico)) || huella != clave.huella {
+		if errHuella != nil {
+			return nil, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: fallo, Causa: errHuella}
+		}
+		if !bytes.Equal(canonico, []byte(ajuste.AjustesCanonico)) || huella != clave.huella {
 			return nil, fallo
 		}
 		ajustesPorClave[clave] = canonico
