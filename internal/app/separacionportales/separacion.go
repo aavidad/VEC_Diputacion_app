@@ -139,10 +139,10 @@ func dentro(padre, hijo string) bool {
 	return err == nil && (rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))))
 }
 
-// comprobarCADistintas compara los certificados DER: cambiar los espacios o
-// saltos de línea del PEM no convierte una autoridad en otra.
+// comprobarCADistintas compara el DER y la clave pública SPKI: cambiar el PEM
+// o reemitir el certificado con la misma clave no crea otra autoridad.
 func comprobarCADistintas(interno, externo string) error {
-	var huellas [2][sha256.Size]byte
+	var huellasDER, huellasSPKI [2][sha256.Size]byte
 	for i, directorio := range []string{interno, externo} {
 		contenido, err := leerFicheroAcotado(filepath.Join(directorio, "ca", "ca.crt"), tamanoMaximoSecreto)
 		if err != nil {
@@ -156,16 +156,17 @@ func comprobarCADistintas(interno, externo string) error {
 		if err != nil || !certificado.IsCA || certificado.KeyUsage&x509.KeyUsageCertSign == 0 {
 			return rechazo("autoridad certificadora no valida", "ca/ca.crt")
 		}
-		huellas[i] = sha256.Sum256(certificado.Raw)
+		huellasDER[i] = sha256.Sum256(certificado.Raw)
+		huellasSPKI[i] = sha256.Sum256(certificado.RawSubjectPublicKeyInfo)
 	}
-	if huellas[0] == huellas[1] {
+	if huellasDER[0] == huellasDER[1] || huellasSPKI[0] == huellasSPKI[1] {
 		return rechazo("los dos procesos comparten autoridad certificadora", "ca/ca.crt")
 	}
 	declarada, err := leerHuellaCAInternaDeclarada(externo)
 	if err != nil {
 		return err
 	}
-	if declarada != huellas[0] {
+	if declarada != huellasDER[0] {
 		return rechazo("la CA interna declarada no coincide con su material", "manifiesto.json")
 	}
 	return nil

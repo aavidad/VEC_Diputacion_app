@@ -1,6 +1,7 @@
 package separacionportales
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -107,8 +108,13 @@ func certificadoCASintetico(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return certificadoCASinteticoConClave(t, clave, 1)
+}
+
+func certificadoCASinteticoConClave(t *testing.T, clave *ecdsa.PrivateKey, serie int64) string {
+	t.Helper()
 	certificado := &x509.Certificate{
-		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "CA sintetica de pruebas"},
+		SerialNumber: big.NewInt(serie), Subject: pkix.Name{CommonName: "CA sintetica de pruebas"},
 		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
 		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
 	}
@@ -117,6 +123,36 @@ func certificadoCASintetico(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+func TestComprobarSeparacionRechazaCAReemitidaConMismaSPKI(t *testing.T) {
+	interno, externo := materialSintetico(t, PortalInterno), materialSintetico(t, PortalExterno)
+	clave, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caInterna := certificadoCASinteticoConClave(t, clave, 1)
+	caExterna := certificadoCASinteticoConClave(t, clave, 2)
+	bloqueInterno, _ := pem.Decode([]byte(caInterna))
+	bloqueExterno, _ := pem.Decode([]byte(caExterna))
+	certInterno, err := x509.ParseCertificate(bloqueInterno.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certExterno, err := x509.ParseCertificate(bloqueExterno.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(certInterno.Raw, certExterno.Raw) || !bytes.Equal(certInterno.RawSubjectPublicKeyInfo, certExterno.RawSubjectPublicKeyInfo) {
+		t.Fatal("la prueba exige DER diferentes y SPKI idénticas")
+	}
+	escribir(t, interno, "ca/ca.crt", caInterna)
+	escribir(t, externo, "ca/ca.crt", caExterna)
+	declararCAInternaPrueba(t, interno, externo)
+	_, err = ComprobarSeparacion(Proceso{Material: interno}, Proceso{Material: externo})
+	if got := motivo(t, err); got != "ca/ca.crt" {
+		t.Fatalf("CA reemitida con la misma clave aceptada: %s", got)
+	}
 }
 
 func TestComprobarSeparacionRechazaCAMismaConOtroFormatoPEM(t *testing.T) {

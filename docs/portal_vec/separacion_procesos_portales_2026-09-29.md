@@ -173,8 +173,9 @@ vec-server comprobar-separacion-portales \
   [--entorno-interno GUION] [--entorno-externo GUION]
 ```
 
-Falla si los dos directorios comparten autoridad certificadora, incluso cuando
-el formato PEM difiere. Compara la huella SHA-256 del certificado DER y rechaza
+Falla si los dos directorios comparten autoridad certificadora, aunque cambie
+el formato PEM o se reemita el certificado con la misma clave pública. Compara
+las huellas SHA-256 del certificado DER y de su clave pública SPKI, y rechaza
 un certificado de CA ausente o inválido. El manifiesto externo debe usar
 versión 2 y declarar `huella_ca_interna_sha256`, calculada sobre el DER de la
 CA interna actual, como 64 caracteres hexadecimales en minúsculas. La
