@@ -275,6 +275,22 @@ class MaterialTests(unittest.TestCase):
             self.assertIn("material/comunicaciones/servidor.crt", final["files"])
             material.verify_existing(root, {})
 
+    def test_names_catalog_schema_rejects_extra_missing_duplicate_and_non_name_data(self):
+        catalog = json.loads(material.SYNTHETIC_PROFILE_FIXTURE.read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.json"
+            for case in ("extra", "missing", "version", "role", "blank", "duplicate", "duplicate_json"):
+                invalid = json.loads(json.dumps(catalog))
+                if case == "extra": invalid["nombres"]["rrhh"] = "Nombre Ajeno"
+                if case == "missing": del invalid["nombres"]["candidato"]
+                if case == "version": invalid["version"] = True
+                if case == "role": invalid["roles"] = ["admin"]
+                if case == "blank": invalid["nombres"]["ratificador"] = " "
+                if case == "duplicate": invalid["nombres"]["ratificador"] = invalid["nombres"]["candidato"]
+                path.write_text(json.dumps(invalid) if case != "duplicate_json" else '{"version":1,"version":1}')
+                with self.subTest(case=case), patch.object(material, "SYNTHETIC_PROFILE_FIXTURE", path), self.assertRaises(material.MaterialError):
+                    material.fresh_profile_names()
+
     def test_full_preparation_preserves_existing_actors_and_never_claims_candidate_account(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -316,8 +332,18 @@ class MaterialTests(unittest.TestCase):
                                       {"ref": "puesto-fixture-ratificador", "center": "centro-fixture"}]}).encode()
                 return real_run(argv, text)
             with patch.object(material, "run", side_effect=mocked_run), patch.object(material, "probe_pg_tls") as probe, patch.object(material, "validate_source_receipts", return_value=({"approved_sql_ref": "a" * 40, "plan_sha": "c" * 64, "inventory_sha": "d" * 64, "file_count": 38}, b"receipt")):
+                invalid = root / "invalid-catalog.json"
+                invalid.write_text('{"version":1,"autoridad":"no_autoritativo","nombres":{}}')
+                with patch.object(material, "SYNTHETIC_PROFILE_FIXTURE", invalid), patch.object(material, "certificate") as generate, patch.object(material, "configure_pg_tls") as tls, self.assertRaises(material.MaterialError):
+                    material.prepare(args)
+                generate.assert_not_called()
+                tls.assert_not_called()
+                self.assertFalse((output / "material").exists())
                 manifest = material.prepare(args)
-                second = material.prepare(args)
+                preserved = {key: (output / "material/identidad" / (role[1] + ".json")).read_bytes() for key, role in material.ROLES.items()}
+                with patch.object(material, "fresh_profile_names", side_effect=AssertionError("sealed clone must never rename actors")):
+                    second = material.prepare(args)
+                self.assertEqual(preserved, {key: (output / "material/identidad" / (role[1] + ".json")).read_bytes() for key, role in material.ROLES.items()})
             self.assertEqual(manifest, second)
             self.assertEqual(probe.call_count, 2)
             self.assertFalse(manifest["sql_applied"])
@@ -325,6 +351,14 @@ class MaterialTests(unittest.TestCase):
             for relative in (*material.HISTORY_FILES, "identidad/identidad.json", "mtls/cliente.crt", "ca/ca.crt"):
                 self.assertEqual((base / relative).read_bytes(), (output / "material" / relative).read_bytes())
             profiles = json.loads((output / "perfiles.json").read_text())["profiles"]
+            fixture_bytes = material.SYNTHETIC_PROFILE_FIXTURE.read_bytes()
+            names = json.loads(fixture_bytes)["nombres"]
+            self.assertEqual(manifest["synthetic_profiles_fixture"]["sha256"], hashlib.sha256(fixture_bytes).hexdigest())
+            for key, display_name in names.items():
+                actor = json.loads((output / "material/identidad" / (material.ROLES[key][1] + ".json")).read_text())
+                self.assertEqual(actor["display_name"], display_name)
+                self.assertEqual(actor["subject"], "desarrollo:clon-recorridos:" + key)
+                self.assertEqual(actor["roles"], [material.ROLES[key][2]])
             self.assertEqual(profiles["area_personal"]["subject"], profiles["intervencion"]["subject"])
             self.assertNotEqual(profiles["candidato"]["subject"], profiles["area_personal"]["subject"])
             self.assertEqual(profiles["candidato"]["status"], "certificate_only")

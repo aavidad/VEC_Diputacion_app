@@ -813,6 +813,38 @@ def finish_preparation(args: argparse.Namespace, output: Path, source: str, mani
     return manifest
 
 
+SYNTHETIC_PROFILE_FIXTURE = Path(__file__).with_name("perfiles_sinteticos.json")
+
+
+def fresh_profile_names() -> tuple[dict, str]:
+    path = canonical(SYNTHETIC_PROFILE_FIXTURE)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as fixture:
+        info = os.fstat(fixture.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= 8192:
+            fail("invalid synthetic profile fixture file")
+        data = fixture.read(8193)
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                fail("duplicate synthetic profile fixture key")
+            value[key] = item
+        return value
+    catalog = json.loads(data, object_pairs_hook=unique)
+    if not isinstance(catalog, dict) or set(catalog) != {"version", "autoridad", "nombres"} or type(catalog["version"]) is not int or catalog["version"] != 1 or catalog["autoridad"] != "no_autoritativo":
+        fail("invalid synthetic profile fixture schema")
+    names = catalog["nombres"]
+    if not isinstance(names, dict) or set(names) != {"centro_solicitante", "ratificador", "candidato"}:
+        fail("synthetic profile fixture must name exactly the three fresh actors")
+    for name in names.values():
+        if not isinstance(name, str) or not 3 <= len(name) <= 120 or name.strip() != name or not 2 <= len(name.split(" ")) <= 5 or any(not (character.isalpha() or character == " ") for character in name) or "  " in name:
+            fail("invalid synthetic profile display name")
+    if len(set(names.values())) != 3:
+        fail("synthetic profile display names must be distinct")
+    return names, hashlib.sha256(data).hexdigest()
+
+
 def prepare(args: argparse.Namespace) -> dict:
     os.umask(0o077)
     repo, output, base = map(canonical, (args.repo, args.output, args.base_material))
@@ -848,6 +880,8 @@ def prepare(args: argparse.Namespace) -> dict:
         manifest = update_source(args, output, identity) if getattr(args, "update_source", False) else verify_existing(output, identity)
         probe_pg_tls(args.pg_port, output / "material/pg/ca.crt")
         return finish_preparation(args, output, head, manifest)
+    # Fresh-only preflight precedes every copy, key generation and SQL setup.
+    names, names_sha256 = fresh_profile_names()
     output.mkdir(mode=0o700, parents=True, exist_ok=True)
     if output.stat().st_uid != os.getuid() or output.stat().st_mode & 0o077:
         fail("output must be owned and private")
@@ -885,7 +919,7 @@ def prepare(args: argparse.Namespace) -> dict:
         else:
             certificate(material, name, subject)
             actor = {"version": 1, "autoridad": "no_autoritativo", "certificate_sha256": cert_hash(material / f"mtls/{name}.crt"),
-                     "subject": subject, "display_name": "Perfil sintético " + key.replace("_", " "), "roles": [role]}
+                     "subject": subject, "display_name": names[key], "roles": [role]}
             json_write(material / f"identidad/{file_id}.json", actor)
         profiles[key] = {"subject": subject, "role": role, "cert": f"material/mtls/{name}.crt",
                          "key": f"material/mtls/{name}.key", "pkcs12": f"material/mtls/{name}.p12",
@@ -954,6 +988,7 @@ def prepare(args: argparse.Namespace) -> dict:
     for name in ("perfiles.json", "runtime.env", "runtime-config.json"):
         files[name] = hashlib.sha256(private_read(output / name)).hexdigest()
     manifest = {"version": 1, "owner": OWNER, "target": identity, "status": "partial_blocked",
+                "synthetic_profiles_fixture": {"path": "scripts/recorridos/perfiles_sinteticos.json", "sha256": names_sha256},
                 "files": files, "blockers": blockers, "application_started": False, "sql_applied": False, "pg_tls_configured": True,
                 "source_sql_approval": {k: plan[k] for k in ("approved_sql_ref", "plan_sha", "inventory_sha", "file_count")}}
     json_write(output / "material-manifest.json", manifest)
