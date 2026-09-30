@@ -1,0 +1,3 @@
+# Requiere la autoridad AD3 instalada y Usuarios 000010 (roles y correos
+# externos separados). Instalar ANTES de Usuarios 000014. No incluye U14.
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000119_auditoria_tecnica_inbox_externo.up.sql

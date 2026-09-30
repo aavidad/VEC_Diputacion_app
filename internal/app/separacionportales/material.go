@@ -41,6 +41,7 @@ const (
 )
 
 var ficherosExternos = map[string]struct{}{
+	"usuarios/avisos-externos.json":                {},
 	"identidad/bolsa-candidato.json":               {},
 	"identidad/candidato.json":                     {},
 	"identidad/usuarios-preferencias-externa.json": {},

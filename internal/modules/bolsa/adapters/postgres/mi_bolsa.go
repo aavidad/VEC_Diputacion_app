@@ -146,7 +146,7 @@ func decodificarInstantaneaMiBolsa(contenido []byte, esperada time.Time) (puerto
 		}
 		if origen.UltimoLlamamiento != nil {
 			l := origen.UltimoLlamamiento
-			if l.EmitidoEn.IsZero() || l.EmitidoEn.After(esperada) || l.Canal != "correo" || (l.Resultado != "enviado" && l.Resultado != "no_enviado") {
+			if l.EmitidoEn.IsZero() || l.EmitidoEn.After(esperada) || l.Canal != "correo" || (l.Resultado != "enviado" && l.Resultado != "no_enviado" && l.Resultado != "aviso_pendiente") {
 				return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrResultadoMiBolsaInvalido
 			}
 			p.UltimoLlamamiento = &puertosbolsa.UltimoLlamamientoMiBolsa{EmitidoEn: l.EmitidoEn.UTC(), Canal: l.Canal, Resultado: l.Resultado}

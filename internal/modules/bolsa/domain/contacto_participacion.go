@@ -9,20 +9,21 @@ import (
 var ErrContactoParticipacionInvalido = errors.New("bolsa: contacto de participacion invalido")
 
 const (
-	CanalContactoTelefono       = "telefono"
-	CanalContactoCorreo         = "correo"
-	CanalContactoSMS            = "sms"
-	CanalContactoPresencial     = "presencial"
-	CanalContactoOtro           = "otro"
-	ResultadoContactoContactado = "contactado"
-	ResultadoContactoNoContesta = "no_contesta"
-	ResultadoContactoBuzon      = "buzon"
-	ResultadoContactoAcepta     = "acepta"
-	ResultadoContactoRechaza    = "rechaza"
-	ResultadoContactoAplazado   = "aplazado"
-	ResultadoContactoOtro       = "otro"
-	ResultadoContactoEnviado    = "enviado"
-	ResultadoContactoNoEnviado  = "no_enviado"
+	CanalContactoTelefono           = "telefono"
+	CanalContactoCorreo             = "correo"
+	CanalContactoSMS                = "sms"
+	CanalContactoPresencial         = "presencial"
+	CanalContactoOtro               = "otro"
+	ResultadoContactoContactado     = "contactado"
+	ResultadoContactoNoContesta     = "no_contesta"
+	ResultadoContactoBuzon          = "buzon"
+	ResultadoContactoAcepta         = "acepta"
+	ResultadoContactoRechaza        = "rechaza"
+	ResultadoContactoAplazado       = "aplazado"
+	ResultadoContactoOtro           = "otro"
+	ResultadoContactoEnviado        = "enviado"
+	ResultadoContactoNoEnviado      = "no_enviado"
+	ResultadoContactoAvisoPendiente = "aviso_pendiente"
 	// ResultadoContactoNumeroErroneo: el teléfono no corresponde a la persona.
 	ResultadoContactoNumeroErroneo = "numero_erroneo"
 	// ResultadoContactoNoEntregado: el correo de aviso rebotó; lo anota RRHH.
@@ -30,7 +31,7 @@ const (
 )
 
 var canalesContacto = map[string]struct{}{CanalContactoTelefono: {}, CanalContactoCorreo: {}, CanalContactoSMS: {}, CanalContactoPresencial: {}, CanalContactoOtro: {}}
-var resultadosContacto = map[string]struct{}{ResultadoContactoContactado: {}, ResultadoContactoNoContesta: {}, ResultadoContactoBuzon: {}, ResultadoContactoAcepta: {}, ResultadoContactoRechaza: {}, ResultadoContactoAplazado: {}, ResultadoContactoOtro: {}, ResultadoContactoEnviado: {}, ResultadoContactoNoEnviado: {}, ResultadoContactoNumeroErroneo: {}, ResultadoContactoNoEntregado: {}}
+var resultadosContacto = map[string]struct{}{ResultadoContactoContactado: {}, ResultadoContactoNoContesta: {}, ResultadoContactoBuzon: {}, ResultadoContactoAcepta: {}, ResultadoContactoRechaza: {}, ResultadoContactoAplazado: {}, ResultadoContactoOtro: {}, ResultadoContactoEnviado: {}, ResultadoContactoNoEnviado: {}, ResultadoContactoAvisoPendiente: {}, ResultadoContactoNumeroErroneo: {}, ResultadoContactoNoEntregado: {}}
 
 type ContactoParticipacion struct {
 	ContactoRef, BolsaRef, ParticipacionRef, LlamamientoRef string

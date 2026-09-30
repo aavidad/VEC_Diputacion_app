@@ -78,7 +78,7 @@ func seleccionCorreosUsuariosDesarrollo(cfg config.Config, preferenciasActivas b
 	if err != nil {
 		return false, nil, err
 	}
-	if avisos {
+	if avisos && !portalProcesoSeparado(cfg) {
 		// B59 publica una audiencia más en el mismo lote; su SQL se comprueba
 		// antes de publicar nada, igual que la de «Mis correos».
 		if err := preflightSQLCorreoAvisosDesarrollo(cfg); err != nil {
