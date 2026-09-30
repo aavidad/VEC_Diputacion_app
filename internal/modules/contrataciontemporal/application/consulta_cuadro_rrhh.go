@@ -8,6 +8,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 var (
@@ -173,6 +174,13 @@ func clonarPaginaCuadroRRHH(
 		pagina.Expedientes...,
 	)
 	pagina.FasesDesde = append([]time.Time(nil), pagina.FasesDesde...)
+	instantaneas := make([]*reglas.InstantaneaPersistidaRegla, len(pagina.InstantaneasPlazo))
+	for indice, instantanea := range pagina.InstantaneasPlazo {
+		instantaneas[indice] = clonarInstantaneaPlazo(instantanea)
+	}
+	if len(instantaneas) != 0 {
+		pagina.InstantaneasPlazo = instantaneas
+	}
 	pagina.Urgentes = append([]bool(nil), pagina.Urgentes...)
 	pagina.Plazos = nil
 	return pagina
