@@ -45,7 +45,7 @@ class FakeDocker:
             arguments = self.create_args
             self.volume = next(a.split(',source=', 1)[1].split(',destination=', 1)[0]
                                for a in arguments if a.startswith('type=bind,'))
-            labels = dict(a.split('=', 1) for a in arguments if a.startswith('vec.clon.'))
+            labels = dict(a.split('=', 1) for a in arguments if a.startswith(('vec.recorridos.', 'vec.clon.')))
             return json.dumps([{'Id': self.cid, 'Image': restore.IMAGE_ID, 'State': {'Running': True},
                 'Config': {'Labels': labels, 'User': '999:999', 'Entrypoint': ['postgres'], 'Cmd': restore.PG_COMMAND},
                 'HostConfig': {'NetworkMode': 'none', 'PortBindings': {}, 'ReadonlyRootfs': True,
@@ -172,6 +172,10 @@ class RestoreTests(unittest.TestCase):
             'pg_volume', 'schema_sha', 'roles_sha', 'datacl_sha'})
         self.assertTrue((self.state / 'h1-restore-pending.json').exists())
         self.assertTrue((self.state / 'h1-restore-evidence.json').exists())
+        create_args = FakeDocker.instance.create_args
+        self.assertIn('vec.recorridos.owner=' + restore.OWNER, create_args)
+        self.assertIn('vec.recorridos.state=' + str(self.state), create_args)
+        self.assertFalse(any(a.startswith(('vec.clon.owner=', 'vec.clon.state=')) for a in create_args))
         for args, streamed in FakeDocker.instance.calls:
             self.assertNotIn('rm', args[:2])
             self.assertNotIn('-p', args if args[0] != 'exec' else ())
@@ -195,6 +199,30 @@ class RestoreTests(unittest.TestCase):
             self.execute()
         self.assertFalse((self.state / restore.RECEIPT).exists())
         self.assertFalse(any(args[0] == 'exec' for args, _ in FakeDocker.instance.calls))
+
+    def test_common_authority_labels_cannot_be_replaced(self):
+        original = FakeDocker.run
+        for variant in ('legacy', 'owner', 'state'):
+            self.state = self.root / ('state-' + variant)
+            self.state.mkdir(mode=0o700)
+            def compromised(fake, *args, **kwargs):
+                output = original(fake, *args, **kwargs)
+                if args[:2] == ('container', 'inspect'):
+                    value = json.loads(output)
+                    labels = value[0]['Config']['Labels']
+                    if variant == 'legacy':
+                        labels['vec.clon.owner'] = labels.pop('vec.recorridos.owner')
+                        labels['vec.clon.state'] = labels.pop('vec.recorridos.state')
+                    elif variant == 'owner':
+                        labels['vec.recorridos.owner'] = 'foreign-owner'
+                    else:
+                        labels['vec.recorridos.state'] = str(self.root / 'foreign-state')
+                    return json.dumps(value)
+                return output
+            with self.subTest(variant=variant), patch.object(FakeDocker, 'run', compromised), self.assertRaises(restore.RestoreError):
+                self.execute()
+            self.assertFalse((self.state / restore.RECEIPT).exists())
+            self.assertFalse(any(args[0] == 'exec' for args, _ in FakeDocker.instance.calls))
 
     def test_no_receipt_when_control_not_cold(self):
         FakeDocker.control_state = 'in production'

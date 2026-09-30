@@ -253,7 +253,7 @@ def container_check(docker, container, state, volume, run_id):
     binds = [m for m in mounts if m.get('Type') == 'bind']
     if (obj.get('Id') != container or obj.get('Image') != IMAGE_ID
         or not obj.get('State', {}).get('Running')
-        or labels.get('vec.clon.owner') != OWNER or labels.get('vec.clon.state') != str(state)
+        or labels.get('vec.recorridos.owner') != OWNER or labels.get('vec.recorridos.state') != str(state)
         or labels.get('vec.clon.h1.run') != run_id or host.get('NetworkMode') != 'none'
         or host.get('PortBindings') or any(v for v in (obj.get('NetworkSettings', {}).get('Ports') or {}).values())
         or host.get('ReadonlyRootfs') is not True or host.get('Privileged') is not False
@@ -349,8 +349,8 @@ def restore(state, h1, normalizer_path, normalizer_sha):
                      '--name', 'vec-h1-' + run_id, '--user', '999:999', '--read-only',
                      '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
                      '--pids-limit', '128', '--memory', '1g', '--cpus', '2',
-                     '--log-driver', 'none', '--label', 'vec.clon.owner=' + OWNER,
-                     '--label', 'vec.clon.state=' + str(state), '--label', 'vec.clon.h1.run=' + run_id,
+                     '--log-driver', 'none', '--label', 'vec.recorridos.owner=' + OWNER,
+                     '--label', 'vec.recorridos.state=' + str(state), '--label', 'vec.clon.h1.run=' + run_id,
                      '--mount', f'type=bind,source={volume},destination=/var/lib/postgresql',
                      '--tmpfs', '/var/run/postgresql:rw,noexec,nosuid,size=8m,uid=999,gid=999,mode=0700',
                      '--tmpfs', '/tmp:rw,noexec,nosuid,size=16m,uid=999,gid=999,mode=0700',
