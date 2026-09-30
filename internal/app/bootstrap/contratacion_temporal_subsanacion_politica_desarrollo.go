@@ -51,7 +51,11 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) ResolverContextoCanalSubsana
 	return httpinterno.ContextoCanalSubsanacionReparos{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef, OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, nil
 }
 
-func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependenciasAltaContratacionTemporalDesarrollo) error {
+// configurar publica el motivo de la política y compone el perfil fijo de la
+// subsanación: la organización y el par fase/estado del catálogo (c23), sin
+// expediente. Se publica una vez si falta y después solo se consume.
+func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependenciasAltaContratacionTemporalDesarrollo,
+	aprobacion aprobacionProvisionPerfilesRRHHDesarrollo) error {
 	if f.soporte == nil || alta == nil || alta.postgresql.gobierno == nil || !vecdomain.ReferenciaMotivoAutorizacionV2Valida(f.configuracion.MotivoAutorizacion) {
 		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.dependencias")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
@@ -61,8 +65,18 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependencia
 		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.vinculo")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
-	i, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, f.soporte.reloj.Ahora(), "tecnico_rrhh_subsanacion_desarrollo", "Tecnico RRHH de subsanacion de desarrollo", "asignacion-rrhh-subsanacion-desarrollo-no-autoritativa", []vecdomain.ConcesionRol{{Accion: string(domain.AccionRegistrarSubsanacionReparo), ModuloID: ports.ModuloContratacion, TipoRecurso: ports.TipoRecursoSubsanacionReparo, Finalidades: []string{ports.FinalidadRegistrarSubsanacionReparo}, GarantiaMinima: vecdomain.AuthAssuranceHigh}}, []vecdomain.AmbitoPerfil{{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}}})
-	if err != nil {
+	fase, ok := f.soporte.opcionesCatalogo.faseOperacionVigente(operacionFaseSubsanacionCT)
+	plantilla := func(principalID, perfilRef string) (vecdomain.InstantaneaAutorizacion, error) {
+		return nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(principalID, perfilRef, f.soporte.reloj.Ahora(),
+			"tecnico_rrhh_subsanacion_desarrollo", "Tecnico RRHH de subsanacion de desarrollo",
+			"asignacion-rrhh-subsanacion-desarrollo-no-autoritativa",
+			[]vecdomain.ConcesionRol{{Accion: string(domain.AccionRegistrarSubsanacionReparo), ModuloID: ports.ModuloContratacion,
+				TipoRecurso: ports.TipoRecursoSubsanacionReparo, Finalidades: []string{ports.FinalidadRegistrarSubsanacionReparo},
+				GarantiaMinima: vecdomain.AuthAssuranceHigh}},
+			fase.ambitosPerfil(organizacionAltaContratacionTemporalDesarrollo))
+	}
+	i, err := plantilla(v.PrincipalID, v.PerfilActivoRef)
+	if err != nil || !ok {
 		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.instantanea")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
@@ -73,11 +87,24 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) configurar(alta *dependencia
 		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.catalogo")
 		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
 	}
+	principal := vecdomain.Principal{ID: f.soporte.principalID, Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
+		AuthMethod: vecdomain.AuthMethodCertificate, AuthAssurance: vecdomain.AuthAssuranceHigh,
+		Attributes: map[string]string{"autoridad": AutoridadNoAutoritativa, "perfil_ejecucion": config.ExecutionProfileDevelopment,
+			"certificate_sha256": f.soporte.certificadoSHA256}}
+	fijo, err := nuevoPerfilFijoCTDesarrollo(principal, f.soporte.contexto, f.soporte.reloj.Ahora(), clavePerfilFijoSubsanacionCTDesarrollo,
+		[]string{httpinterno.RutaSubsanacionReparos}, plantilla)
+	if err != nil {
+		log.Print("contratacion temporal: subsanacion no disponible; etapa=fuente.perfil_fijo")
+		return errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible
+	}
 	f.soporte.mu.Lock()
 	f.soporte.instantaneaSubsanacion = i
 	f.soporte.motivoSubsanacion = f.configuracion.MotivoAutorizacion
 	f.soporte.mu.Unlock()
-	return nil
+	if err := f.soporte.registrarPerfilFijoCTDesarrollo(fijo); err != nil {
+		return err
+	}
+	return asegurarPerfilesFijosCTDesarrollo(ctx, alta.postgresql.gobierno, f.soporte, aprobacion, fijo)
 }
 
 var errFuentePoliticaSubsanacionReparosDesarrolloNoDisponible = errors.New("contratacion temporal: fuente de politica de subsanacion no disponible")
@@ -134,6 +161,20 @@ func (c configuracionPoliticaSubsanacionReparosDesarrollo) resolver(ctx context.
 	return p, nil
 }
 
+// solicitudAutorizacionSubsanacionReparosValida: el expediente va en la
+// referencia del recurso; los ámbitos son la organización y el par
+// fase/estado previo que admite el catálogo (c23).
 func (s *soporteAltaContratacionTemporalDesarrollo) solicitudAutorizacionSubsanacionReparosValida(datos vecdomain.DatosSolicitudAutorizacionLigadaV3) bool {
-	return s != nil && datos.Accion == string(domain.AccionRegistrarSubsanacionReparo) && datos.ReferenciaMotivo == s.motivoSubsanacion && datos.Recurso.ModuloID == ports.ModuloContratacion && datos.Recurso.Tipo == ports.TipoRecursoSubsanacionReparo && datos.Finalidad == ports.FinalidadRegistrarSubsanacionReparo && len(datos.Recurso.Ambitos) == 4 && datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo && datos.Recurso.Ambitos["expediente_ref"] == datos.Recurso.Referencia && datos.Recurso.Ambitos["fase_previa"] == string(domain.FaseSubsanacionUnidad) && datos.Recurso.Ambitos["estado_previo"] == string(domain.EstadoIncidencia)
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	motivo := s.motivoSubsanacion
+	s.mu.Unlock()
+	fase, ok := s.opcionesCatalogo.faseOperacionVigente(operacionFaseSubsanacionCT)
+	return ok && datos.Accion == string(domain.AccionRegistrarSubsanacionReparo) && datos.ReferenciaMotivo == motivo &&
+		datos.Recurso.ModuloID == ports.ModuloContratacion && datos.Recurso.Tipo == ports.TipoRecursoSubsanacionReparo &&
+		datos.Finalidad == ports.FinalidadRegistrarSubsanacionReparo && datos.Recurso.Referencia != "" &&
+		len(datos.Recurso.Ambitos) == 3 && datos.Recurso.Ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
+		fase.admite(domain.ClaveFase(datos.Recurso.Ambitos["fase_previa"]), domain.EstadoOperativo(datos.Recurso.Ambitos["estado_previo"]))
 }

@@ -17,6 +17,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	postgresqlcomun "vec-diputacion-granada/internal/shared/postgresql"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -25,10 +26,11 @@ const (
 	funcionConfirmarFiscalizacion = "vec_contratacion_temporal.confirmar_fiscalizacion_v1"
 	// funcionConfirmarFiscalizacionV2 (CT120) elige entre CT93 y la
 	// fiscalización de un expediente modificado por el expediente anterior.
-	funcionConfirmarFiscalizacionV2      = "vec_contratacion_temporal.confirmar_fiscalizacion_v2"
-	esquemaConfirmarFiscalizacion        = "vec.contratacion-temporal.confirmar-fiscalizacion.v1"
-	audienciaConfirmarFiscalizacionV1    = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
-	maximoIntentosConfirmarFiscalizacion = 3
+	funcionConfirmarFiscalizacionV2   = "vec_contratacion_temporal.confirmar_fiscalizacion_v2"
+	esquemaConfirmarFiscalizacion     = "vec.contratacion-temporal.confirmar-fiscalizacion.v1"
+	audienciaConfirmarFiscalizacionV1 = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
+	// Una carrera de serialización se repite con la política común de VEC.
+	maximoIntentosConfirmarFiscalizacion = postgresqlcomun.IntentosMaximosCarreraSerializable
 	maximoCargaConfirmarFiscalizacion    = 3 * 1024 * 1024
 )
 
@@ -178,7 +180,8 @@ func (t *TransaccionFiscalizacionesPostgreSQL) ConfirmarFiscalizacion(
 			return ports.ReciboFiscalizacion{}, ports.ErrInformeNuevoPendiente
 		}
 		if !errorPostgreSQLReintentable(causa) ||
-			intento == maximoIntentosConfirmarFiscalizacion {
+			intento == maximoIntentosConfirmarFiscalizacion ||
+			!postgresqlcomun.EsperarReintentoCarreraSerializable(ctx, intento) {
 			return ports.ReciboFiscalizacion{},
 				normalizarErrorConfirmacionFiscalizacion(ctx, causa)
 		}
@@ -475,9 +478,8 @@ func validarAutorizacionFiscalizacion(
 		recurso.Referencia != material.ExpedienteRef ||
 		recurso.ModuloID != ports.ModuloContratacion ||
 		recurso.Tipo != ports.TipoRecursoFiscalizacion ||
-		len(recurso.Ambitos) != 4 || len(recurso.Atributos) != numeroAtributos ||
+		len(recurso.Ambitos) != 3 || len(recurso.Atributos) != numeroAtributos ||
 		recurso.Ambitos["organizacion_ref"] != material.OrganizacionRef ||
-		recurso.Ambitos["expediente_ref"] != material.ExpedienteRef ||
 		recurso.Ambitos["fase_previa"] != string(anterior.FaseActual) ||
 		recurso.Ambitos["estado_previo"] != string(anterior.EstadoActual) ||
 		recurso.Atributos["version_expediente"] != strconv.FormatUint(anterior.Version, 10) ||

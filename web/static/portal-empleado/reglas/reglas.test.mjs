@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { versionDe } from "../versiones-cache.test-helper.mjs";
+import { exigirRenovado, versionDe } from "../versiones-cache.test-helper.mjs";
 import {
-  API_REGLAS, ErrorReglas, crearCliente, filtrar, mensajeError, origenRegla, renderizarCatalogo, renderizarResumen,
-  validarReglas, valorRegla,
+  API_REGLAS, ErrorReglas, crearCliente, detalleRegla, filtrar, idRegla, iniciar, mensajeError, origenRegla, renderizarCatalogo,
+  renderizarResumen, validarReglas, valorRegla,
 } from "./reglas.js";
-import { MENSAJES_REGLAS_ES, crearTraductorReglas } from "./i18n.js";
+import { MENSAJES_REGLAS, crearTraductorReglas } from "./i18n.js";
 
 const leer = (nombre) => readFileSync(new URL(nombre, import.meta.url), "utf8");
 
@@ -28,13 +29,30 @@ function respuesta() {
 test("el catálogo i18n está completo y toda clave de la página existe", () => {
   const t = crearTraductorReglas();
   assert.throws(() => crearTraductorReglas({ titulo: "x" }), /incompleto/u);
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS, ayudaResolver: "" }), /incompleto/u);
+  assert.throws(() => crearTraductorReglas({ ...MENSAJES_REGLAS, parteEjemplo: "Sin dato" }), /incompleto/u);
   assert.throws(() => t("desconocida"), /desconocida/u);
   const html = leer("./index.html");
-  for (const [, clave] of html.matchAll(/data-i18n(?:-label)?="([^"]+)"/gu)) assert.ok(Object.hasOwn(MENSAJES_REGLAS_ES, clave), clave);
+  for (const [, clave] of html.matchAll(/data-i18n(?:-label)?="([^"]+)"/gu)) assert.ok(Object.hasOwn(MENSAJES_REGLAS, clave), clave);
   const js = leer("./reglas.js");
   for (const [, id] of js.matchAll(/\$\("([a-z-]+)"\)/gu)) assert.match(html, new RegExp(`id="${id}"`, "u"), id);
   assert.ok(!/style=|<script>/u.test(html), "sin estilos ni guiones en línea");
   assert.match(html, /id="rg-ayuda-abrir"[^>]*>\?</u, "la ayuda solo se abre con «?»");
+});
+
+test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
+  const html = leer("./index.html");
+  const reglas = leer("./reglas.js");
+  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v2");
+  assert.equal(version, "20260930-reglas-detalle-v3");
+  const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
+  const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
+  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v2"), version);
+  const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
+  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v2"), version);
+  // El enlace del portal no cambia en esta revisión: conserva su URL.
+  const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20260930-portales-i18n-integracion-v1");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
@@ -109,4 +127,140 @@ test("el cliente pide solo lectura, sin identidad propia, y traduce los errores"
   await assert.rejects(roto.reglas(), (e) => e.codigo === "error_respuesta");
   const caido = crearCliente(async () => { throw new TypeError("red"); });
   await assert.rejects(caido.reglas(), (e) => e.codigo === "error_servicio_no_disponible");
+});
+
+test("cada regla se abre para leerla entera: descripción, origen, norma y duda, sin códigos internos", () => {
+  const d = validarReglas(respuesta());
+  const larga = "Pregunta larga de RRHH ".repeat(30).trim();
+  const lista = regla({ clave: "b30.documentos", unidad: "lista", cantidad: undefined, valor: "dni, titulo <x>,carnet", duda: larga });
+  const html = renderizarCatalogo({ ...d.catalogos[0], reglas: [lista] });
+  const id = idRegla("bolsa", "b30.documentos");
+  assert.match(id, /^rg-regla-[a-z0-9-]+$/u);
+  assert.match(html, new RegExp(`<button type="button" class="rg-regla-abrir" aria-expanded="false" aria-controls="${id}">`, "u"));
+  assert.match(html, new RegExp(`<tr class="rg-detalle rg-fila--ejemplo" id="${id}" hidden>`, "u"));
+  const detalle = detalleRegla(lista);
+  for (const texto of ["Qué establece", "Un día hábil.", "Norma en que se basa", "Supuesto de trabajo.", "Duda de RRHH", larga]) {
+    assert.ok(detalle.includes(texto), texto);
+  }
+  for (const codigo of ["vec.bolsa.reglas:1", "b30.documentos", "dni", "carnet"]) assert.ok(!detalle.includes(codigo), `sin código interno: ${codigo}`);
+  assert.match(detalleRegla(regla({ descripcion: "" })), /El catálogo no describe esta regla/u);
+  const abierta = renderizarCatalogo({ ...d.catalogos[0], reglas: [lista] }, new Set([id]));
+  assert.match(abierta, /aria-expanded="true"/u);
+  assert.ok(!abierta.includes(`id="${id}" hidden`));
+});
+
+test("claves válidas distintas conservan identificadores únicos y los datos no se traducen", () => {
+  const claves = ["b04.franja", "b04-franja", "b04_franja", "b04:franja"];
+  const ids = claves.map((clave) => idRegla("bolsa", clave));
+  assert.equal(new Set(ids).size, claves.length);
+  assert.notEqual(idRegla("bolsa-a", "b"), idRegla("bolsa", "a-b"));
+  const html = renderizarCatalogo({ ...validarReglas(respuesta()).catalogos[0], reglas: [
+    regla({ clave: claves[0], ejemplo_parcial: "Solo personal fijo" }),
+    regla({ clave: claves[1], ejemplo_parcial: "Solo temporal" }),
+  ] });
+  for (const id of ids.slice(0, 2)) {
+    assert.match(html, new RegExp(`aria-controls="${id}"`, "u"));
+    assert.match(html, new RegExp(`id="${id}"`, "u"));
+  }
+  assert.ok(!html.includes(">b04.franja<"), "la clave interna no se ve en pantalla");
+  assert.match(html, /Parte de ejemplo: <span>Solo personal fijo<\/span>/u);
+});
+
+test("la vista inglesa marca como españoles solo los datos recibidos", () => {
+  const modulo = new URL("./reglas.js", import.meta.url).href;
+  const codigo = `globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };
+    const { renderizarCatalogo } = await import(${JSON.stringify(modulo)});
+    const regla = ${JSON.stringify(regla({ ejemplo_parcial: "Solo personal fijo" }))};
+    process.stdout.write(renderizarCatalogo({ modulo: "bolsa", catalogo_id: "vec.bolsa.reglas",
+      estado: "disponible", paquete_ejemplo: true, reglas: [regla] }));`;
+  const html = execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" });
+  assert.match(html, /<span class="rg-regla-nombre" lang="es">Plazo de respuesta<\/span>/u);
+  assert.match(html, /Example part: <span lang="es">Solo personal fijo<\/span>/u);
+  assert.ok(!html.includes(">b05.plazo_respuesta<"), "la clave interna no se ve en pantalla");
+  assert.doesNotMatch(html, /lang="es">Example part:/u);
+});
+
+test("los textos de la pantalla vienen de los catálogos es y en con las mismas claves", () => {
+  const es = JSON.parse(readFileSync(new URL("../../textos/es/reglas.json", import.meta.url), "utf8")).general;
+  const en = JSON.parse(readFileSync(new URL("../../textos/en/reglas.json", import.meta.url), "utf8")).general;
+  assert.deepEqual(Object.keys(en).sort(), Object.keys(es).sort());
+  assert.deepEqual(MENSAJES_REGLAS, es);
+  assert.ok(!/"[a-z_]+":\s*"/u.test(leer("./i18n.js")), "sin diccionario en el código");
+  for (const [clave, texto] of Object.entries(es)) {
+    const vars = (v) => [...v.matchAll(/\{([a-z_]+)\}/gu)].map((m) => m[1]).sort().join();
+    assert.equal(vars(en[clave]), vars(texto), clave);
+  }
+});
+
+/** DOM mínimo para recorrer la pantalla sin navegador: suficiente para abrir, filtrar y recargar. */
+function documentoFalso(hash = "") {
+  const html = leer("./index.html");
+  const nodos = new Map();
+  for (const [, id] of html.matchAll(/id="([a-z-]+)"/gu)) {
+    const oyentes = {};
+    nodos.set(id, { id, hidden: id === "rg-resultado", value: "", innerHTML: "", textContent: "", classList: { toggle() {} },
+      addEventListener: (tipo, f) => { oyentes[tipo] = f; }, oyentes, setAttribute() {} });
+  }
+  const estado = { hash, reemplazos: [] };
+  const vista = { location: { get hash() { return estado.hash; }, pathname: "/portal-empleado/reglas/", search: "" },
+    history: { replaceState: (_e, _t, url) => { estado.reemplazos.push(url); estado.hash = url.startsWith("#") ? url : ""; } } };
+  const doc = {
+    title: "", documentElement: { lang: "" }, defaultView: vista,
+    getElementById: (id) => nodos.get(id) ?? detalles.get(id) ?? null,
+    querySelectorAll: () => [], getSelection: () => ({ toString: () => "" }),
+  };
+  const detalles = new Map();
+  return { doc, nodos, estado, detalles };
+}
+
+function filaFalsa(id, detalles) {
+  const atributos = {};
+  const clases = new Set();
+  const detalle = { hidden: true, previousElementSibling: { scrollIntoView() {} } };
+  detalles.set(id, detalle);
+  const boton = { setAttribute: (k, v) => { atributos[k] = v; }, closest: (s) => (s === ".rg-regla-abrir" ? boton : s === "tr.rg-fila" ? fila : null) };
+  const fila = { dataset: { regla: id }, classList: { toggle: (c, v) => (v ? clases.add(c) : clases.delete(c)) }, querySelector: () => boton };
+  return { fila, boton, detalle, atributos, clases };
+}
+
+test("pulsar el nombre abre y cierra el detalle, lo anota en el ancla y la recarga lo conserva", async () => {
+  const cliente = { reglas: async () => validarReglas(respuesta()) };
+  const { doc, nodos, estado, detalles } = documentoFalso();
+  await iniciar(doc, cliente);
+  assert.equal(nodos.get("rg-resultado").hidden, false);
+  const id = idRegla("bolsa", "b05.plazo_respuesta");
+  assert.match(nodos.get("rg-catalogos").innerHTML, new RegExp(`aria-controls="${id}"`, "u"));
+  const { boton, detalle, atributos, clases } = filaFalsa(id, detalles);
+  nodos.get("rg-catalogos").oyentes.click({ target: boton });
+  assert.equal(detalle.hidden, false);
+  assert.equal(atributos["aria-expanded"], "true");
+  assert.ok(clases.has("rg-fila--abierta"));
+  assert.equal(estado.hash, `#${id}`);
+  // Filtrar vuelve a pintar y la regla sigue abierta.
+  nodos.get("rg-texto").value = "plazo";
+  nodos.get("rg-texto").oyentes.input();
+  assert.match(nodos.get("rg-catalogos").innerHTML, new RegExp(`aria-controls="${id}"`, "u"));
+  assert.ok(!nodos.get("rg-catalogos").innerHTML.includes(`id="${id}" hidden`));
+  // Recargar con el ancla: la regla aparece ya abierta.
+  const recarga = documentoFalso(`#${id}`);
+  await iniciar(recarga.doc, cliente);
+  assert.ok(recarga.nodos.get("rg-catalogos").innerHTML.includes(`aria-expanded="true" aria-controls="${id}"`));
+  // Volver a pulsar la cierra y limpia el ancla.
+  nodos.get("rg-catalogos").oyentes.click({ target: boton });
+  assert.equal(detalle.hidden, true);
+  assert.equal(estado.hash, "");
+  // Un ancla ajena no abre nada ni se inyecta.
+  const ajena = documentoFalso("#<img src=x>");
+  await iniciar(ajena.doc, cliente);
+  assert.ok(!ajena.nodos.get("rg-catalogos").innerHTML.includes('aria-expanded="true"'));
+  const malformada = documentoFalso("#%");
+  await iniciar(malformada.doc, cliente);
+  assert.equal(malformada.nodos.get("rg-resultado").hidden, false);
+  assert.match(malformada.nodos.get("rg-catalogos").innerHTML, /aria-expanded="false"/u);
+});
+
+test("la cabecera del catálogo muestra la versión sin identificadores ni huellas", () => {
+  const html = renderizarCatalogo(validarReglas(respuesta()).catalogos[0]);
+  assert.match(html, /<p class="rg-meta">[^<]*1[^<]*<\/p>/u);
+  for (const codigo of ["vec.bolsa.reglas", "aaaaaaaaaaaa"]) assert.ok(!html.includes(codigo), `sin código interno: ${codigo}`);
 });

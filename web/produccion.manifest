@@ -6,6 +6,8 @@ static/acceso/acceso.css
 static/acceso/acceso-i18n.js
 static/acceso/locales/es.json
 static/acceso/locales/en.json
+static/textos/es/area-personal.json
+static/textos/en/area-personal.json
 static/area-personal/aplicacion.js
 static/area-personal/area-personal.css
 static/area-personal/arranque.js
@@ -13,12 +15,11 @@ static/area-personal/calculo-autobaremo.js
 static/area-personal/cliente-http.js
 static/area-personal/contacto-propio.js
 static/area-personal/contrato.js
+static/area-personal/ficha-aspirante.js
 static/area-personal/flujo-solicitud.js
 static/area-personal/i18n.js
 static/area-personal/i18n-contacto-propio.js
 static/area-personal/index.html
-static/area-personal/locales/es.json
-static/area-personal/locales/en.json
 static/area-personal/mi-bolsa-campos.js
 static/area-personal/mi-bolsa-contacto.js
 static/area-personal/mi-bolsa-historial.js
@@ -77,6 +78,8 @@ static/portal-empleado/calendarios/calendarios.js
 static/portal-empleado/hora-madrid.js
 static/portal-empleado/calendarios/calendarios.css
 static/portal-empleado/calendarios/i18n.js
+static/textos/es/reglas.json
+static/textos/en/reglas.json
 static/portal-empleado/reglas/index.html
 static/portal-empleado/reglas/reglas.js
 static/portal-empleado/reglas/reglas.css
@@ -374,12 +377,13 @@ static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal.js
+static/textos/es/bolsa.json
+static/textos/en/bolsa.json
 static/portal-empleado/modulos/bolsa/rrhh-plazos-api.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-i18n.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos-ui.js
 static/portal-empleado/modulos/bolsa/rrhh-plazos.css
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-api.js
-static/portal-empleado/modulos/bolsa/rrhh-politica-cese-i18n.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese-vista.js
 static/portal-empleado/modulos/bolsa/rrhh-politica-cese.css
 static/textos/es/auditoria.json
@@ -423,3 +427,5 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/estadisticas.css
 static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css
 static/portal-empleado/modulos/contratacion-temporal/analisis-catalogo.css
+static/textos/es/bolsas-publicas.json
+static/textos/en/bolsas-publicas.json

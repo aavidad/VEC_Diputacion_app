@@ -50,6 +50,11 @@ docker cp "$base_dir/pruebas_sql/frontera_000004.sql" "$container:/tmp/frontera4
 docker cp "$base_dir/pruebas_sql/custodia_externa_sintetica.sql" "$container:/tmp/externa.sql"
 docker cp "$base_dir/pruebas_sql/replay_ad3_62_sintetico.sql" "$container:/tmp/replay_ad3_62.sql"
 docker cp "$base_dir/pruebas_sql/politica_provisional_sintetica.sql" "$container:/tmp/provisional.sql"
+docker cp "$ad3/migraciones/000113_custodia_documento_firmado.up.sql" "$container:/tmp/000113.sql"
+docker cp "$ad3/migraciones/000113_custodia_documento_firmado.down.sql" "$container:/tmp/000113.down.sql"
+docker cp "$base_dir/migraciones/000009_custodia_documento_firmado.up.sql" "$container:/tmp/documentos9.sql"
+docker cp "$base_dir/migraciones/000009_custodia_documento_firmado.down.sql" "$container:/tmp/documentos9.down.sql"
+docker cp "$base_dir/pruebas_sql/custodia_firmada_sintetica.sql" "$container:/tmp/firmada.sql"
 
 psql_pg() { docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f "$1"; }
 psql_pg /tmp/stub.sql
@@ -102,6 +107,24 @@ psql_pg /tmp/documentos6.rollback.sql
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regprocedure('vec_documentos.registro_externo_equivalente_v1(vec_documentos.referencia_externa,jsonb)') IS NULL")" = t
 psql_pg /tmp/documentos6.sql
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos6.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000006 aceptada' >&2; exit 1; fi
+# 5.06: AD3-113 amplía el consumidor documental con recuperación y Documentos
+# 000009 custodia documentos firmados. ROLLBACK sin efecto, instalación,
+# segunda aplicación rechazada y ciclo DOWN/UP sin historia.
+docker exec "$container" sh -c "sed '\$s/^COMMIT;/ROLLBACK;/' /tmp/000113.sql >/tmp/000113.rollback.sql"
+psql_pg /tmp/000113.rollback.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT strpos(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),'documentos.firmado.custodiar')=0")" = t
+psql_pg /tmp/000113.sql
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/000113.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de AD3-113 aceptada' >&2; exit 1; fi
+docker exec "$container" sh -c "sed '\$s/^COMMIT;/ROLLBACK;/' /tmp/documentos9.sql >/tmp/documentos9.rollback.sql"
+psql_pg /tmp/documentos9.rollback.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.documento_firmado') IS NULL")" = t
+psql_pg /tmp/documentos9.sql
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos9.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000009 aceptada' >&2; exit 1; fi
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/000113.down.sql >/dev/null 2>&1; then echo 'FALLO: DOWN de AD3-113 con 000009 instalada' >&2; exit 1; fi
+psql_pg /tmp/documentos9.down.sql
+psql_pg /tmp/000113.down.sql
+psql_pg /tmp/000113.sql
+psql_pg /tmp/documentos9.sql
 # El principal del vínculo V2 real (per_ y token) se admite; lo que no es ni
 # eso ni una referencia opaca, no.
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT vec_documentos.principal_ref_v1('per_0123456789abcdefghijkl') AND vec_documentos.principal_ref_v1('per:00000000-0000-4000-8000-000000000001') AND NOT vec_documentos.principal_ref_v1('per_corto') AND NOT vec_documentos.principal_ref_v1('per_0123456789abcdefghij:kl') AND NOT coalesce(vec_documentos.principal_ref_v1(NULL),false)")" = t
@@ -426,12 +449,65 @@ BEGIN
  END LOOP;
 END $check$;
 SQL
+# 5.06: custodia de documentos firmados (expediente propio ...00f1).
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+DO $acl$
+BEGIN
+ IF EXISTS (SELECT 1 FROM unnest(ARRAY['documento_firmado','tipo_reservado_firmado']) t
+            WHERE NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=('vec_documentos.'||t)::regclass AND relrowsecurity AND relforcerowsecurity)
+               OR has_table_privilege('vec_documentos_ensayo','vec_documentos.'||t,'SELECT')
+               OR has_table_privilege('vec_documentos_ensayo','vec_documentos.'||t,'INSERT'))
+    OR has_function_privilege('vec_documentos_ensayo','vec_documentos.exigir_documento_firmado_v1()','EXECUTE')
+    OR NOT has_function_privilege('vec_documentos_ensayo','vec_documentos.custodiar_firmado_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR EXISTS (SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+                WHERE p.oid='vec_documentos.custodiar_firmado_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure AND a.grantee=0)
+ THEN RAISE EXCEPTION 'ACL de la custodia de firmados incompatible'; END IF;
+END $acl$;
+SQL
+docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/firmada.sql
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+SELECT ensayo_firmado.probar();
+COMMIT;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento_firmado)=1
+  AND (SELECT count(*) FROM vec_documentos.documento WHERE expediente_ref='exp:00000000-0000-4000-8000-0000000000f1')=1
+  AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_firmado_custodiado')=1
+  AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE accion='documentos.firmado.custodiar')=ARRAY['creado','repetido','repetido']")" = t
+# Custodia y, en la misma transacción, otro expediente en la sesión: el
+# disparador diferido lee el expediente de cada fila y el COMMIT real pasa.
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+SELECT ensayo_firmado.custodiar('fa',ensayo_firmado.preimagen('doc:00000000-0000-4000-8000-0000000000fa','idem:00000000-0000-4000-8000-0000000000fa',
+ 'ref:f0074a505ef2a693dfd5bf2195228c47a7ce2a1435d4acf6a6b9f50e89e5663c',repeat('b',64),'firmact:00000000-0000-4000-8000-0000000000fa',
+ 'exp:00000000-0000-4000-8000-0000000000fa'),ensayo_firmado.objeto('obj:00000000-0000-4000-8000-0000000000fa'),'decision:00000000-0000-4000-8000-0000000009fa');
+SELECT set_config('vec.documentos.expediente_ref','exp:00000000-0000-4000-8000-000000000001',true);
+COMMIT;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento_firmado)=2")" = t
+# Con historia, ni Documentos 000009 ni AD3-113 se pueden retirar.
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos9.down.sql >/dev/null 2>&1; then echo 'FALLO: DOWN de 000009 con custodias' >&2; exit 1; fi
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/000113.down.sql >/dev/null 2>&1; then echo 'FALLO: DOWN de AD3-113 con custodias' >&2; exit 1; fi
 # Contrato Go<->SQL del repositorio con el LOGIN ejecutor sobre la misma base.
 if [ "${VEC_DOCUMENTOS_SIN_GO:-}" != 1 ]; then
  puerto=$(docker port "$container" 5432/tcp | head -1 | sed 's/.*://')
  (cd "$repo_dir" && VEC_DOCUMENTOS_PG18_DSN="postgres://vec_documentos_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
   VEC_DOCUMENTOS_PG18_AUDITOR_DSN="postgres://vec_documentos_auditor_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
   go test -count=1 -v -run 'TestRepositorioPG18|TestRegistradorFronteraPG18' ./internal/vec/documentos/adapters/postgres/)
+ # 5.06: servicio, concesión de almacén V3, almacén de ficheros y custodia SQL.
+ # La repetición con otra decisión devuelve el mismo documento; otro PDF con la
+ # misma clave es conflicto sin efecto.
+ (cd "$repo_dir" && VEC_DOCUMENTOS_PG18_DSN="postgres://vec_documentos_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
+  go test -count=1 -v -run 'TestCustodiaFirmadoPG18' ./internal/vec/documentos/)
+ expf="ref:$(printf 'e%.0s' $(seq 64))"
+ test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento WHERE expediente_ref='$expf')=1
+  AND (SELECT count(*) FROM vec_documentos.outbox WHERE expediente_ref='$expf')=1
+  AND (SELECT count(*) FROM vec_documentos.documento_firmado)=3
+  AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE expediente_ref='$expf' AND accion='documentos.firmado.custodiar')=ARRAY['creado','repetido']")" = t
  # Documentos-6: la repetición con concesión nueva no duplica registro ni
  # outbox y queda auditada como repetida; los dos conflictos no dejan efecto.
  exp6="ref:$(printf 'c2%.0s' $(seq 32))"

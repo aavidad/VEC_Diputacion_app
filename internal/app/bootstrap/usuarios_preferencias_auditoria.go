@@ -18,14 +18,21 @@ type registradorDenegacionPreferenciasUsuarios = vecports.RegistradorAuditoriaFr
 // registrador de Usuarios no recibe las denegaciones que ya resolvió el
 // wrapper o el handler; las otras superficies siguen en su autoridad previa.
 type registradorFronterasConUsuariosPreferencias struct {
-	delegado vecports.RegistradorAuditoriaFronteraRutaExacta
-	interna  registradorDenegacionPreferenciasUsuarios
-	externa  registradorDenegacionPreferenciasUsuarios
+	delegado   vecports.RegistradorAuditoriaFronteraRutaExacta
+	interna    registradorDenegacionPreferenciasUsuarios
+	externa    registradorDenegacionPreferenciasUsuarios
+	aspirantes registradorDenegacionPreferenciasUsuarios
 }
 
 func (r registradorFronterasConUsuariosPreferencias) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
 	if orden.Validar() != nil {
 		return errComposicionUsuariosPreferencias
+	}
+	if orden.Superficie == vecports.SuperficieAuditoriaFronteraRutaExactaAspirantes {
+		if r.aspirantes == nil {
+			return errComposicionUsuariosPreferencias
+		}
+		return r.aspirantes.RegistrarAuditoriaFronteraRutaExacta(ctx, orden)
 	}
 	if orden.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias {
 		if r.delegado == nil {
@@ -66,8 +73,14 @@ func nuevaCorrelacionDenegacionPreferenciasUsuarios() (string, error) {
 // Sólo el wrapper registra fallos anteriores al despacho. El handler llama
 // este mismo registrador para 401/403 del caso de uso con actor V2 acreditado.
 func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx context.Context, estado int, actorRef string) error {
+	superficie := vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias
+	if a != nil && a.superficieAuditoria != "" {
+		superficie = a.superficieAuditoria
+	}
+	// Aspirantes nunca anota persona; Usuarios la exige en un 403.
+	sinPersona := superficie == vecports.SuperficieAuditoriaFronteraRutaExactaAspirantes
 	if a == nil || a.registrador == nil || ctx == nil || (estado != http.StatusUnauthorized && estado != http.StatusForbidden) ||
-		(estado == http.StatusUnauthorized && actorRef != "") || (estado == http.StatusForbidden && actorRef == "") {
+		(estado == http.StatusUnauthorized && actorRef != "") || (estado == http.StatusForbidden && (actorRef == "") != sinPersona) {
 		return errComposicionUsuariosPreferencias
 	}
 	motivo := vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida
@@ -81,7 +94,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) registrarDenegacion(ctx contex
 		return errComposicionUsuariosPreferencias
 	}
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: correlacion, Motivo: motivo,
-		Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, Ruta: a.ruta, ActorRef: actorRef}
+		Superficie: superficie, Ruta: a.ruta, ActorRef: actorRef}
 	if orden.Validar() != nil {
 		return errComposicionUsuariosPreferencias
 	}
@@ -97,7 +110,7 @@ func (a *autoridadPreferenciasUsuariosDesarrollo) AuditarDenegacionPreferencias(
 		return errComposicionUsuariosPreferencias
 	}
 	actorRef := ""
-	if estado == http.StatusForbidden {
+	if estado == http.StatusForbidden && a.superficieAuditoria != vecports.SuperficieAuditoriaFronteraRutaExactaAspirantes {
 		actorRef = c.resultado.Contexto.PersonaRef
 	}
 	return a.registrarDenegacion(ctx, estado, actorRef)

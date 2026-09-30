@@ -14,6 +14,8 @@ Lista: `deploy/principal/lista_sql_trabajo_aspirantes_sql_20260929.txt`.
    perfiles y tres audiencias `vec_aspirantes.ficha.{consultar,alta,rectificar}.externa_personal.v1`.
    No depende de Usuarios: se ha ensayado antes y después de AD3-106/107/108.
 3. `migraciones/000001_ficha_propia.up.sql`: esquema, políticas y cuatro fachadas.
+4. `migraciones/000002_frontera.up.sql`: registro de denegaciones de la frontera (401/403),
+   solo con motivo y correlación, sin persona.
 
 Ningún `DOWN` se ejecuta: los ficheros `down.sql` rechazan la operación.
 
@@ -48,3 +50,47 @@ alta, repetición, duplicado, rectificación con motivo, retirada, inmutabilidad
 recuento de accesos y sesiones ajenas. Con `--go` publica el puerto solo en
 127.0.0.1 y recorre la aplicación Go real contra la base
 (`adapters/postgres/ficha_pg18_test.go`). No acredita COSE ni KMS.
+
+## Arranque en desarrollo (corte 4)
+
+Aspirantes cuelga de la frontera de preferencias del área personal externa. Para
+activarlo hacen falta, además de las SQL de la lista:
+
+1. `VEC_USUARIOS_PREFERENCIAS_ENABLED=true` y `VEC_ASPIRANTES_ENABLED=true`, con la
+   doble llave de desarrollo.
+2. Un LOGIN técnico, creado fuera de Git, miembro directo y exclusivo de
+   `vec_aspirantes_ejecutor_externo` (`INHERIT TRUE`, `SET FALSE`, `ADMIN FALSE`),
+   con TLS.
+3. El fichero privado `identidad/aspirantes-externa.json` del material de desarrollo:
+
+   ```json
+   {"version":1,"autoridad":"no_autoritativo","dsn_aspirantes":"postgres://…?sslmode=verify-full…",
+    "tipos_convocatoria":["bolsa"],"politicas_certificado_desarrollo":{}}
+   ```
+
+   `politicas_certificado_desarrollo` solo admite, con la doble llave, la política
+   de los certificados sintéticos de desarrollo y nunca sustituye a las oficiales
+   (FNMT persona física y DNIe). Sin ella, solo valen esas dos.
+4. Un certificado sintético de persona física con esa política, `serialNumber`
+   `IDCES-<DNI sintético con letra válida>`, `givenName` y `surname`, dado de alta
+   como cuenta de la configuración de preferencias externas.
+5. En la fuente de autorización, un rol del perfil externo con las acciones
+   `vec.aspirantes.ficha.consultar`, `vec.aspirantes.ficha.alta` y
+   `vec.aspirantes.ficha.rectificar` sobre el módulo `aspirantes`.
+6. El catálogo de datos personales: por defecto, el paquete de ejemplo
+   `data/demo/reglas/aspirantes_datos_personales.ejemplo.demo.json`; otra ruta con
+   `VEC_ASPIRANTES_CATALOGO_DATOS_PERSONALES`.
+
+Las claves de cifrado, índice y huella se derivan del KMS de desarrollo con dominios
+propios del portal externo. En producción vendrán del gestor de claves del portal
+externo (F1.1).
+
+## Pendiente
+
+- Limitar las ráfagas de denegaciones antes de anotarlas (en la frontera o en el
+  proxy): hoy cada 401/403 deja una fila. El portal externo exige certificado mutuo
+  antes de llegar aquí, lo que acota el abuso pero no lo elimina.
+- Plazo de conservación del registro de denegaciones y de accesos, con una purga
+  solo para el DBA (pregunta 84 del estudio).
+- Migración de reindexado del índice ciego para poder rotar su clave.
+- Recorrido completo con una V3 real antes de desplegar en cidonia.

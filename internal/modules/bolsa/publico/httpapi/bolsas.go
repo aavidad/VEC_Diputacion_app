@@ -9,6 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/text/language"
+	"vec-diputacion-granada/internal/shared/i18n"
+	textos "vec-diputacion-granada/web"
 )
 
 // Consulta pública de bolsas de trabajo (B10): relación de bolsas en vigor y
@@ -59,14 +63,40 @@ type FuenteBolsasPublicas interface {
 }
 
 type manejadorBolsasPublicas struct {
-	fuente FuenteBolsasPublicas
+	fuente   FuenteBolsasPublicas
+	catalogo *i18n.Catalog
+	idiomas  []string
+	selector language.Matcher
 }
 
 func NuevoManejadorBolsasPublicas(fuente FuenteBolsasPublicas) (http.Handler, error) {
 	if fuente == nil {
 		return nil, ErrFuenteBolsasPublicasRequerida
 	}
-	return &manejadorBolsasPublicas{fuente: fuente}, nil
+	manejador, err := nuevoManejadorBolsasPublicasI18n()
+	if err != nil {
+		return nil, err
+	}
+	manejador.fuente = fuente
+	return manejador, nil
+}
+
+func nuevoManejadorBolsasPublicasI18n() (*manejadorBolsasPublicas, error) {
+	catalogo, err := textos.CatalogoBolsasPublicas()
+	if err != nil {
+		return nil, err
+	}
+	idiomas := []string{catalogo.DefaultLocale()}
+	for _, idioma := range catalogo.Locales() {
+		if idioma != catalogo.DefaultLocale() {
+			idiomas = append(idiomas, idioma)
+		}
+	}
+	etiquetas := make([]language.Tag, 0, len(idiomas))
+	for _, idioma := range idiomas {
+		etiquetas = append(etiquetas, language.Make(idioma))
+	}
+	return &manejadorBolsasPublicas{catalogo: catalogo, idiomas: idiomas, selector: language.NewMatcher(etiquetas)}, nil
 }
 
 // RegistrarRutasBolsasPublicas aplica la lista positiva de la consulta.
@@ -121,24 +151,26 @@ type consultaListaPublica struct {
 
 func (h *manejadorBolsasPublicas) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r == nil || r.URL == nil || h == nil || h.fuente == nil {
-		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible", "Servicio no disponible.")
+		h.responderError(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
 	if r.Method == http.MethodHead {
 		w = escritorSinCuerpo{ResponseWriter: w}
 	}
-	if !metodoLectura(w, r) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		h.responderError(w, r, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
 	if r.URL.RawPath != "" || strings.Contains(r.URL.EscapedPath(), "%") || r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
-		responderError(w, http.StatusBadRequest, "ruta_invalida", "La ruta no es válida.")
+		h.responderError(w, r, http.StatusBadRequest, "ruta_invalida")
 		return
 	}
 	ctx, cancelar := context.WithTimeout(r.Context(), duracionMaximaOperacionPublica)
 	defer cancelar()
 	if r.URL.Path == RutaBolsasPublicas {
 		if r.URL.RawQuery != "" || r.URL.ForceQuery {
-			responderError(w, http.StatusBadRequest, "consulta_invalida", "La consulta no es válida.")
+			h.responderError(w, r, http.StatusBadRequest, "consulta_invalida")
 			return
 		}
 		h.listarBolsas(ctx, w, r)
@@ -146,12 +178,12 @@ func (h *manejadorBolsasPublicas) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 	bolsaRef, ok := referenciaListaPublica(r.URL.Path)
 	if !ok {
-		responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
+		h.responderError(w, r, http.StatusNotFound, "recurso_no_encontrado")
 		return
 	}
 	consulta, err := consultaListaPublicaDesde(r.URL.RawQuery)
 	if err != nil {
-		responderError(w, http.StatusBadRequest, "consulta_invalida", "La consulta no es válida.")
+		h.responderError(w, r, http.StatusBadRequest, "consulta_invalida")
 		return
 	}
 	h.listarPosiciones(ctx, w, r, bolsaRef, consulta)
@@ -211,7 +243,7 @@ func consultaListaPublicaDesde(rawQuery string) (consultaListaPublica, error) {
 func (h *manejadorBolsasPublicas) listarBolsas(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	bolsas, generadoEn, err := h.fuente.BolsasPublicas(ctx)
 	if err != nil {
-		responderErrorBolsasPublicas(w, err)
+		h.responderErrorFuente(w, r, err)
 		return
 	}
 	var respuesta respuestaBolsasPublicas
@@ -221,7 +253,7 @@ func (h *manejadorBolsasPublicas) listarBolsas(ctx context.Context, w http.Respo
 	for _, bolsa := range bolsas {
 		salida, ok := proyectarBolsaPublica(bolsa)
 		if !ok {
-			responderError(w, http.StatusInternalServerError, "error_interno", "No se ha podido completar la consulta.")
+			h.responderError(w, r, http.StatusInternalServerError, "error_interno")
 			return
 		}
 		respuesta.Data.Bolsas = append(respuesta.Data.Bolsas, salida)
@@ -232,12 +264,12 @@ func (h *manejadorBolsasPublicas) listarBolsas(ctx context.Context, w http.Respo
 func (h *manejadorBolsasPublicas) listarPosiciones(ctx context.Context, w http.ResponseWriter, r *http.Request, bolsaRef string, consulta consultaListaPublica) {
 	bolsa, posiciones, generadoEn, err := h.fuente.ListaPublica(ctx, bolsaRef)
 	if err != nil {
-		responderErrorBolsasPublicas(w, err)
+		h.responderErrorFuente(w, r, err)
 		return
 	}
 	cabecera, ok := proyectarBolsaPublica(bolsa)
 	if !ok || cabecera.BolsaRef != bolsaRef {
-		responderError(w, http.StatusInternalServerError, "error_interno", "No se ha podido completar la consulta.")
+		h.responderError(w, r, http.StatusInternalServerError, "error_interno")
 		return
 	}
 	var respuesta respuestaListaPublica
@@ -249,11 +281,11 @@ func (h *manejadorBolsasPublicas) listarPosiciones(ctx context.Context, w http.R
 	for _, posicion := range posiciones {
 		if posicion.Orden <= ordenAnterior || posicion.Orden > maximoPosicionesBolsaPublica ||
 			!patronDocumentoEnmascaradoPublico.MatchString(posicion.DocumentoEnmascarado) {
-			responderError(w, http.StatusInternalServerError, "error_interno", "No se ha podido completar la consulta.")
+			h.responderError(w, r, http.StatusInternalServerError, "error_interno")
 			return
 		}
 		if _, conocida := situacionesPublicas[posicion.EstadoClave]; !conocida {
-			responderError(w, http.StatusInternalServerError, "error_interno", "No se ha podido completar la consulta.")
+			h.responderError(w, r, http.StatusInternalServerError, "error_interno")
 			return
 		}
 		ordenAnterior = posicion.Orden
@@ -296,15 +328,37 @@ func proyectarBolsaPublica(bolsa BolsaPublica) (bolsaPublicaJSON, bool) {
 	return salida, true
 }
 
-func responderErrorBolsasPublicas(w http.ResponseWriter, err error) {
+func (h *manejadorBolsasPublicas) responderErrorFuente(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		responderError(w, http.StatusGatewayTimeout, "tiempo_operacion_agotado", "La consulta ha superado el tiempo disponible.")
+		h.responderError(w, r, http.StatusGatewayTimeout, "tiempo_operacion_agotado")
 	case errors.Is(err, context.Canceled):
-		responderError(w, http.StatusRequestTimeout, "peticion_cancelada", "La petición fue cancelada.")
+		h.responderError(w, r, http.StatusRequestTimeout, "peticion_cancelada")
 	case errors.Is(err, ErrBolsaPublicaNoEncontrada):
-		responderError(w, http.StatusNotFound, "bolsa_no_encontrada", "Bolsa de trabajo no encontrada.")
+		h.responderError(w, r, http.StatusNotFound, "bolsa_no_encontrada")
 	default:
-		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible", "No se ha podido completar la consulta.")
+		h.responderError(w, r, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
+}
+
+func (h *manejadorBolsasPublicas) responderError(w http.ResponseWriter, r *http.Request, estado int, codigo string) {
+	catalogo := h
+	if catalogo == nil || catalogo.catalogo == nil {
+		// También una instancia vacía responde desde los datos i18n compilados.
+		manejador, err := nuevoManejadorBolsasPublicasI18n()
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		catalogo = manejador
+	}
+	preferencia := ""
+	if r != nil {
+		preferencia = r.Header.Get("Accept-Language")
+	}
+	_, indice := language.MatchStrings(catalogo.selector, preferencia)
+	idioma := catalogo.idiomas[indice]
+	w.Header().Set("Content-Language", idioma)
+	w.Header().Add("Vary", "Accept-Language")
+	responderError(w, estado, codigo, catalogo.catalogo.T(idioma, codigo))
 }

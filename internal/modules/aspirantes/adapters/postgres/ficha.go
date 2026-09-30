@@ -459,3 +459,20 @@ func (r *RegistroFichasPostgreSQL) Rectificar(ctx context.Context, orden ports.O
 	}
 	return rec.recibo(ports.AccionRectificar, m.VersionEsperada+1)
 }
+
+const registrarDenegacionSQL = `SELECT vec_aspirantes.registrar_denegacion_frontera_v1($1::text,$2::text)`
+
+var _ vecports.RegistradorAuditoriaFronteraRutaExacta = (*RegistroFichasPostgreSQL)(nil)
+
+// RegistrarAuditoriaFronteraRutaExacta anota una denegación de la frontera
+// del portal externo (000002). Solo admite la superficie de Aspirantes y
+// nunca una persona: el motivo y la correlación bastan.
+func (r *RegistroFichasPostgreSQL) RegistrarAuditoriaFronteraRutaExacta(ctx context.Context, orden vecports.OrdenAuditoriaFronteraRutaExacta) error {
+	if orden.Validar() != nil || orden.Superficie != vecports.SuperficieAuditoriaFronteraRutaExactaAspirantes || orden.ActorRef != "" {
+		return ports.ErrInvalida
+	}
+	return r.ejecutar(ctx, func(tx transaccion) error {
+		var ref string
+		return tx.QueryRow(ctx, registrarDenegacionSQL, string(orden.Motivo), orden.CorrelacionRef).Scan(&ref)
+	})
+}
