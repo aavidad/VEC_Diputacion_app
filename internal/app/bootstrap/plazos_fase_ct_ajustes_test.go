@@ -2,7 +2,7 @@ package bootstrap
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"testing"
 	"time"
 
@@ -22,9 +22,10 @@ func (a ajustesPlazoFasePrueba) AjustesVigentesEn(_ context.Context, id string, 
 	return a.version, true, nil
 }
 
-// La lista de expedientes calcula el plazo de cada uno con el valor vigente
-// cuando entró en la fase: un cambio de RRHH no mueve los plazos que ya corren.
-func TestPlazoFaseCTEnCursoConservaElValorAnteriorAlAjuste(t *testing.T) {
+// La consulta retrospectiva de ajustes no acredita qué versión vio la
+// transacción que inició el plazo. El cuadro falla cerrado hasta que CT
+// conserve una instantánea durable al abrir cada tramo.
+func TestPlazoFaseCTConAjustesNoRecalculaSinInstantanea(t *testing.T) {
 	cambio := time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)
 	ajustes := map[string]map[string]string{reglas.CTPlazoFiscalizacion: {reglas.CampoCantidad: "7"}}
 	huella, err := reglas.HuellaAjustes(ajustes)
@@ -50,24 +51,14 @@ func TestPlazoFaseCTEnCursoConservaElValorAnteriorAlAjuste(t *testing.T) {
 	}
 	calculadora := nuevaCalculadoraPlazoFaseCT(resolutor)
 	ahora := time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)
-	casos := []struct {
-		desde    time.Time
-		cantidad int
-		ref      string
-	}{
-		{cambio.Add(-24 * time.Hour), 10, "vec.contratacion_temporal.reglas:1:c03.plazo_fiscalizacion"},
-		{cambio.Add(24 * time.Hour), 7, "vec.contratacion_temporal.reglas.ajustes:1:c03.plazo_fiscalizacion"},
-	}
-	for _, caso := range casos {
+	for _, desde := range []time.Time{cambio.Add(-24 * time.Hour), cambio.Add(24 * time.Hour)} {
 		plazo, aplicable, err := calculadora.CalcularPlazoFase(t.Context(), ports.SolicitudPlazoFaseRRHH{
-			Fase: "fiscalizacion", Desde: caso.desde, Ahora: ahora,
+			Fase: "fiscalizacion", Desde: desde, Ahora: ahora,
 		})
-		if err != nil || !aplicable || !plazo.Valido() || plazo.ReglaRef != caso.ref ||
-			calendarios.recibida.Cantidad != caso.cantidad || !plazo.ReglaEjemplo {
-			t.Fatalf("desde %v: %+v cantidad %d %v", caso.desde, plazo, calendarios.recibida.Cantidad, err)
-		}
-		if !strings.HasSuffix(plazo.ReglaRef, reglas.CTPlazoFiscalizacion) {
-			t.Fatalf("referencia %s", plazo.ReglaRef)
+		if !errors.Is(err, reglas.ErrAjustesNoDisponibles) || aplicable || plazo.Valido() ||
+			plazo.ReglaRef != "" || calendarios.recibida.Cantidad != 0 {
+			t.Fatalf("desde %v se recalculó sin instantánea: %+v cantidad %d %v",
+				desde, plazo, calendarios.recibida.Cantidad, err)
 		}
 	}
 }

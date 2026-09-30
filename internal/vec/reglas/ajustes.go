@@ -227,16 +227,26 @@ func copiarConjuntoAjustes(origen map[string]map[string]string) map[string]map[s
 	return copia
 }
 
+func versionAjustesVacia(v VersionAjustes) bool {
+	return v.CatalogoID == "" && v.Version == 0 && v.HuellaSHA256 == "" &&
+		v.VigenteDesde.IsZero() && len(v.Ajustes) == 0
+}
+
 // PrepararCambioAjustes calcula el conjunto completo y su huella, y obtiene
 // cada valor anterior exclusivamente de la versión previa o de la base.
-// Conserva solicitudes sin cambio: CT148 comprueba replay antes de decidir
-// si una publicación nueva con esos datos es admisible.
+// VersionEsperada exige la preimagen exacta: para un replay el caso de uso
+// debe reutilizar el material original ligado a la clave, o recuperar esa
+// preimagen histórica. Nunca debe reprocesar la cabeza actual, que cambiaría
+// la huella de solicitud y perdería el recibo. Una lista vacía no sirve:
+// CT148 la rechaza antes de consultar la clave de idempotencia. Un reintento
+// no vacío conserva el mismo valor nuevo y anterior de su material original.
 func PrepararCambioAjustes(
-	catalogo domain.CatalogoConfigurable, instante time.Time,
+	catalogo domain.CatalogoConfigurable, instante time.Time, versionEsperada int,
 	previa VersionAjustes, encontrada bool, solicitadas []SolicitudCambioAjuste,
 ) (PreparacionAjustes, error) {
 	var vacia PreparacionAjustes
-	if instante.IsZero() || len(solicitadas) > maximoReglasAjustadas*4 {
+	if instante.IsZero() || versionEsperada < 0 || versionEsperada > 9_999_998 ||
+		len(solicitadas) == 0 || len(solicitadas) > maximoReglasAjustadas*4 {
 		return vacia, ErrAjusteInvalido
 	}
 	base, err := catalogo.ClonarCanonico()
@@ -252,9 +262,11 @@ func PrepararCambioAjustes(
 		if err := validarVersionAjustes(previa, id, instante.UTC()); err != nil {
 			return vacia, err
 		}
-	} else if previa.CatalogoID != "" || previa.Version != 0 || previa.HuellaSHA256 != "" ||
-		!previa.VigenteDesde.IsZero() || len(previa.Ajustes) != 0 {
+	} else if !versionAjustesVacia(previa) {
 		return vacia, ErrAjustesNoDisponibles
+	}
+	if previa.Version != versionEsperada {
+		return vacia, ErrAjustesConflicto
 	}
 	ajustes := copiarConjuntoAjustes(previa.Ajustes)
 	cambios := make([]CambioAjustePreparado, 0, len(solicitadas))
@@ -328,7 +340,7 @@ func PrepararCambioAjustes(
 		return strings.Compare(a.Campo, b.Campo)
 	})
 	return PreparacionAjustes{datos: DatosPreparacionAjustes{
-		CatalogoAjustesID: id, VersionEsperada: previa.Version,
+		CatalogoAjustesID: id, VersionEsperada: versionEsperada,
 		BaseVersion: base.Version, BaseHuellaSHA256: huellaBase,
 		Ajustes: ajustes, Canonico: canonico, HuellaSHA256: huella, Cambios: cambios,
 	}}, nil

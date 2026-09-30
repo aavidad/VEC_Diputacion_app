@@ -178,8 +178,13 @@ func TestInstantaneaConAusenciaEstableEInmutable(t *testing.T) {
 	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), InstantaneaRegla{}, diaPresentacion.Ahora(), "", false); !errors.Is(err, ErrReglasNoDisponibles) {
 		t.Fatalf("instantánea vacía admitida: %v", err)
 	}
-	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, diaPresentacion.Ahora().Add(-time.Second), "", false); !errors.Is(err, ErrReglasNoDisponibles) {
-		t.Fatalf("inicio anterior a la instantánea admitido: %v", err)
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, time.Time{}, "", false); !errors.Is(err, ErrReglaSinPlazo) {
+		t.Fatalf("inicio vacío admitido: %v", err)
+	}
+	// El instante SQL que identifica el inicio de una transacción puede
+	// preceder al reloj Go de preparación; su vínculo lo acreditará CT110.
+	if _, _, err := resolutor.CalcularConInstantanea(t.Context(), instantanea, diaPresentacion.Ahora().Add(-time.Second), "", false); err != nil {
+		t.Fatalf("se inventó una relación temporal entre relojes: %v", err)
 	}
 	sinAlmacen := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, calculadora)
 	if _, err := sinAlmacen.PrepararInstantaneaRegla(t.Context(), CTPlazoFiscalizacion); !errors.Is(err, ErrAjustesNoDisponibles) {
@@ -358,6 +363,13 @@ func TestVersionDeAjustesIncoherenteNoSeSustituyePorLaBase(t *testing.T) {
 	if _, _, err := conflicto.ajustesEn(ctx, diaPresentacion.Ahora()); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelación no tuvo prioridad sobre conflicto: %v", err)
 	}
+	ausenciaIncoherente := resolutorCTConAjustes(t, consultaAjustesAusencia{buena}, nil)
+	if _, err := ausenciaIncoherente.Reglas(t.Context()); !errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("versión oculta detrás de encontrada=false: %v", err)
+	}
+	if _, err := ausenciaIncoherente.PrepararInstantaneaRegla(t.Context(), CTPlazoFiscalizacion); !errors.Is(err, ErrAjustesNoDisponibles) {
+		t.Fatalf("instantánea convirtió versión oculta en ausencia: %v", err)
+	}
 	vacio := resolutorCTConAjustes(t, &ajustesMemoria{}, nil)
 	if regla, err := vacio.Regla(t.Context(), CTPlazoFiscalizacion); err != nil || regla.Cantidad != 10 || regla.Ajuste != nil {
 		t.Fatalf("sin versiones rige la base: %+v %v", regla, err)
@@ -368,6 +380,12 @@ type consultaAjustesFija struct{ v VersionAjustes }
 
 func (c consultaAjustesFija) AjustesVigentesEn(context.Context, string, time.Time) (VersionAjustes, bool, error) {
 	return c.v, true, nil
+}
+
+type consultaAjustesAusencia struct{ v VersionAjustes }
+
+func (c consultaAjustesAusencia) AjustesVigentesEn(context.Context, string, time.Time) (VersionAjustes, bool, error) {
+	return c.v, false, nil
 }
 
 func TestDeclaracionDeEdicionIncoherenteInvalidaLaRegla(t *testing.T) {
@@ -446,7 +464,7 @@ func TestPrepararCambioDerivaAnteriorDeBaseYCanonicoCompleto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparada, err := PrepararCambioAjustes(base, instante, VersionAjustes{}, false,
+	preparada, err := PrepararCambioAjustes(base, instante, 0, VersionAjustes{}, false,
 		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "7"}})
 	if err != nil {
 		t.Fatal(err)
@@ -469,12 +487,19 @@ func TestPrepararCambioDerivaAnteriorDeBaseYCanonicoCompleto(t *testing.T) {
 		string(otra.Canonico) != `{"c03.plazo_fiscalizacion":{"cantidad":"7"}}` {
 		t.Fatalf("la preparación conservó alias mutable: %+v", otra)
 	}
-	// Una petición igual al valor base no se rechaza antes de que CT148
-	// pueda recuperar, por su clave, el recibo de una operación anterior.
-	igual, err := PrepararCambioAjustes(base, instante, VersionAjustes{}, false,
-		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "10"}})
-	if err != nil || igual.Datos().Cambios[0].Anterior != "10" {
-		t.Fatalf("el replay sin cambio fue rechazado antes de SQL: %v", err)
+	// Tras publicar, la cabeza ya es v1. El material de la solicitud original
+	// conserva versión esperada 0; reprocesarlo desde esa cabeza sería otro
+	// material y CT148 rechazaría la clave reutilizada.
+	publicada := versionAjustes(t, 1, instante, preparada.Datos().Ajustes)
+	repetida, err := PrepararCambioAjustes(base, instante, 0, VersionAjustes{}, false,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "7"}})
+	if err != nil || repetida.Datos().VersionEsperada != 0 ||
+		string(repetida.Datos().Canonico) != string(preparada.Datos().Canonico) {
+		t.Fatalf("no se conservó el material de la solicitud original: %v", err)
+	}
+	if _, err := PrepararCambioAjustes(base, instante, 0, publicada, true,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "7"}}); !errors.Is(err, ErrAjustesConflicto) {
+		t.Fatalf("se recalculó un replay desde la cabeza avanzada: %v", err)
 	}
 }
 
@@ -488,7 +513,7 @@ func TestPrepararCambioConVersionPreviaConservaOtrosCampos(t *testing.T) {
 		CTPlazoFiscalizacion: {CampoCantidad: "7", CampoCantidadUrgente: "3"},
 		CTPlazoSubsanacion:   {CampoCantidad: "8"},
 	})
-	preparada, err := PrepararCambioAjustes(base, instante, previa, true,
+	preparada, err := PrepararCambioAjustes(base, instante, 1, previa, true,
 		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "9"}})
 	if err != nil {
 		t.Fatal(err)
@@ -503,15 +528,14 @@ func TestPrepararCambioConVersionPreviaConservaOtrosCampos(t *testing.T) {
 	if err != nil || string(canonico) != string(datos.Canonico) {
 		t.Fatalf("material completo divergente: %s, %v", datos.Canonico, err)
 	}
-	// Una solicitud vacía permanece disponible para el replay SQL. El caso
-	// de uso no debe presentarla como una nueva versión publicada.
-	vacia, err := PrepararCambioAjustes(base, instante, previa, true, nil)
-	if err != nil || len(vacia.Datos().Cambios) != 0 || vacia.Datos().HuellaSHA256 != previa.HuellaSHA256 {
-		t.Fatalf("petición vacía rechazada antes del replay: %v", err)
+	// CT148 rechaza una lista vacía antes de mirar la clave de idempotencia.
+	if _, err := PrepararCambioAjustes(base, instante, 1, previa, true, nil); !errors.Is(err, ErrAjusteInvalido) {
+		t.Fatalf("petición vacía admitida: %v", err)
 	}
 	corrupta := previa
 	corrupta.HuellaSHA256 = strings.Repeat("0", 64)
-	if _, err := PrepararCambioAjustes(base, instante, corrupta, true, nil); !errors.Is(err, ErrAjustesNoDisponibles) {
+	if _, err := PrepararCambioAjustes(base, instante, 1, corrupta, true,
+		[]SolicitudCambioAjuste{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "9"}}); !errors.Is(err, ErrAjustesNoDisponibles) {
 		t.Fatalf("versión previa sin huella aceptada: %v", err)
 	}
 	for _, solicitud := range [][]SolicitudCambioAjuste{
@@ -519,7 +543,7 @@ func TestPrepararCambioConVersionPreviaConservaOtrosCampos(t *testing.T) {
 		{{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "9"},
 			{ReglaClave: CTPlazoFiscalizacion, Campo: CampoCantidad, Nuevo: "8"}},
 	} {
-		if _, err := PrepararCambioAjustes(base, instante, previa, true, solicitud); !errors.Is(err, ErrAjusteInvalido) {
+		if _, err := PrepararCambioAjustes(base, instante, 1, previa, true, solicitud); !errors.Is(err, ErrAjusteInvalido) {
 			t.Fatalf("cambio inválido aceptado: %+v, %v", solicitud, err)
 		}
 	}

@@ -281,6 +281,9 @@ func (r *Resolutor) ajustesEn(ctx context.Context, instante time.Time) (VersionA
 		return VersionAjustes{}, false, ErrAjustesNoDisponibles
 	}
 	if !encontrada {
+		if !versionAjustesVacia(version) {
+			return VersionAjustes{}, false, ErrAjustesNoDisponibles
+		}
 		return VersionAjustes{}, false, nil
 	}
 	if err := validarVersionAjustes(version, id, instante); err != nil {
@@ -322,8 +325,7 @@ func (r *Resolutor) vencimiento(ctx context.Context, clave string, inicio time.T
 // que la instantánea se guardó con el inicio real antes de llamar.
 func (r *Resolutor) CalcularConInstantanea(ctx context.Context, instantanea InstantaneaRegla, inicio time.Time, municipioSede string, urgente bool) (Regla, Vencimiento, error) {
 	if r == nil || ctx == nil || !instantanea.valida() ||
-		instantanea.datos.Base.ReferenciaEntrada.CatalogoID != r.cfg.CatalogoID ||
-		inicio.Before(instantanea.datos.PreparadaEn) {
+		instantanea.datos.Base.ReferenciaEntrada.CatalogoID != r.cfg.CatalogoID {
 		return Regla{}, Vencimiento{}, ErrReglasNoDisponibles
 	}
 	return r.calcularVencimiento(ctx, copiarRegla(instantanea.datos.Efectiva), inicio, municipioSede, urgente)

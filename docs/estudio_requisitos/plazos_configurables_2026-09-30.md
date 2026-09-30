@@ -445,8 +445,13 @@ Cada corte es una PR pequeña que compila, se prueba y se revisa sola.
    caso de uso de publicar (validación contra la base, cálculo de cambios y de
    la huella del efecto). La caché queda pospuesta; la preparación pura no
    publica nada y obtiene el valor anterior de un ajuste previo o de la base
-   exacta, nunca del cliente. Una petición sin cambios llega al SQL para que
-   este pueda decidir si es el replay de un recibo anterior.
+   exacta, nunca del cliente. Un reintento con una lista no vacía conserva
+   los valores anterior y nuevo originales para que SQL decida el replay;
+   una lista vacía se rechaza antes de consultar su clave. La preparación
+   exige `version_esperada` y su preimagen exacta. Para recuperar una clave
+   antigua, el caso de uso debe reutilizar el material original vinculado a
+   esa clave o leer esa preimagen histórica: recalcular desde la cabeza nueva
+   cambia la huella de solicitud y SQL rechaza el replay.
 5. **Go: HTTP y perfil fijo.** Rutas de lectura de edición y de guardado,
    perfil fijo de administración de reglas y composición, con la ruta de
    guardado apagada. Revisión de seguridad focal y Semgrep.
