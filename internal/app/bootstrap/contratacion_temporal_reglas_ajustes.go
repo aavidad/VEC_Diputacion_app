@@ -460,7 +460,9 @@ SELECT
  AND (SELECT count(*)=3 FROM tablas t WHERE t.relowner='vec_contratacion_temporal_propietario'::regrole
   AND t.relrowsecurity AND t.relforcerowsecurity
   AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'SELECT')
-  AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'INSERT'))
+  AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'INSERT')
+  AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'UPDATE')
+  AND NOT pg_catalog.has_table_privilege(session_user,t.oid,'DELETE'))
  AND (SELECT count(*)=2 FROM pg_catalog.pg_trigger tg
   WHERE ((tg.tgrelid=pg_catalog.to_regclass('vec_contratacion_temporal.regla_base_activacion_v1')
      AND tg.tgname='regla_base_activacion_cas'

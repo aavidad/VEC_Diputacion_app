@@ -339,11 +339,33 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
-	var perfilConsultaAjustes *perfilFijoCTDesarrollo
+	var perfilConsultaAjustes, perfilEditorAjustes *perfilFijoCTDesarrollo
 	if alta.postgresql.consultaAjustesReglasActiva {
 		ctxAjustes, cancelarAjustes := context.WithTimeout(context.Background(), plazoConsultaAjustesContexto())
 		perfilConsultaAjustes, err = componerPerfilConsultaAjustesCT(ctxAjustes, alta.postgresql.gobierno,
 			alta.soporte, alta.postgresql.motivoConsultaAjustesReglas, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		cancelarAjustes()
+		if err != nil {
+			alta.cerrar()
+			return nil, nil, nil, err
+		}
+	}
+	rolEditor, aprobacionBase, edicionActiva, err := configuracionEdicionAjustesCT(cfg)
+	if err != nil || edicionActiva && perfilConsultaAjustes == nil {
+		alta.cerrar()
+		return nil, nil, nil, ErrActivacionDesarrolloInvalida
+	}
+	if edicionActiva {
+		ctxAjustes, cancelarAjustes := context.WithTimeout(context.Background(), plazoConsultaAjustesContexto())
+		if preflightEdicionAjustesCT(ctxAjustes, alta.postgresql.ejecucion,
+			reglasEjemplo.contratacionTemporal, aprobacionBase) != nil {
+			cancelarAjustes()
+			alta.cerrar()
+			return nil, nil, nil, ErrActivacionDesarrolloInvalida
+		}
+		perfilEditorAjustes, err = componerPerfilEditorAjustesCT(ctxAjustes, alta.postgresql.gobierno,
+			alta.soporte, alta.postgresql.motivoConsultaAjustesReglas, rolEditor,
+			aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
 		cancelarAjustes()
 		if err != nil {
 			alta.cerrar()
@@ -579,6 +601,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if perfilConsultaAjustes != nil {
 		declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraConsultaAjustesCT(perfilConsultaAjustes.perfilRef()))
 	}
+	if perfilEditorAjustes != nil {
+		declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraEdicionAjustesCT(perfilEditorAjustes.perfilRef()))
+	}
 	if cfg.IncorporacionV2File != "" {
 		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
 		if err != nil {
@@ -760,8 +785,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	rutas = append(rutas, rutaCatalogosAlta, rutaConfiguracionAnalisis)
 	if perfilConsultaAjustes != nil {
+		var editores []*perfilFijoCTDesarrollo
+		if perfilEditorAjustes != nil {
+			editores = append(editores, perfilEditorAjustes)
+		}
 		rutaAjustes, err := nuevaRutaConsultaAjustesCT(&alta, perfilConsultaAjustes,
-			reglasEjemplo.contratacionTemporal, reloj)
+			reglasEjemplo.contratacionTemporal, reloj, editores...)
 		if err != nil {
 			return nil, nil, nil, err
 		}
