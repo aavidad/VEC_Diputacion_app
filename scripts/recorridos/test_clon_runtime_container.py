@@ -129,6 +129,37 @@ class ContainerBoundaryTests(unittest.TestCase):
             runtime.docker(self.state, 'build')
         self.assertEqual(foreign.read_text(), 'unchanged')
 
+    def test_failed_own_process_logs_remain_private_before_immutable_removal(self):
+        proof = copy.deepcopy(self.proof)
+        proof['State'] = {'Running': False, 'Pid': 0, 'ExitCode': 1, 'Error': ''}
+        secret_marker = 'private fixture bootstrap error'
+        def fake(state, *args):
+            self.assertEqual(args[-1], self.container_id)
+            return secret_marker if args[0] == 'logs' else ''
+        with patch.object(runtime, 'inspect', return_value=proof), patch.object(runtime, 'docker', side_effect=fake) as docker, \
+                patch.object(runtime, '_diagnostic_attempt', 'f' * 32), patch.object(runtime, '_diagnostic_phase', 'verify_live_container'):
+            runtime.diagnose(self.state, 'Recorded container is not the current live process.')
+            runtime._remove_started(self.state, self.record)
+        self.assertEqual([call.args[1] for call in docker.call_args_list], ['logs', 'rm'])
+        diagnostic = json.loads((self.state / 'runtime-container-diagnostic.json').read_text())
+        self.assertEqual(diagnostic['stage'], 'verify_live_container')
+        self.assertEqual(diagnostic['guard'], 'Recorded container is not the current live process.')
+        self.assertEqual(diagnostic['process']['exit_code'], 1)
+        self.assertFalse(diagnostic['process']['running'])
+        self.assertEqual(diagnostic['process']['observed_pid'], 0)
+        log = Path(diagnostic['process']['private_log'])
+        self.assertEqual(log.read_text(), secret_marker)
+        self.assertEqual(log.stat().st_mode & 0o777, 0o600)
+        self.assertNotIn(secret_marker, json.dumps(diagnostic))
+
+    def test_failed_process_capture_never_reads_foreign_container_log(self):
+        proof = copy.deepcopy(self.proof)
+        proof['Config']['Labels'][runtime.PREFIX + 'owner'] = 'foreign'
+        with patch.object(runtime, 'inspect', return_value=proof), patch.object(runtime, 'docker') as docker, self.assertRaises(runtime.ContainerError):
+            runtime._remove_started(self.state, self.record)
+        docker.assert_not_called()
+        self.assertEqual(list(self.state.glob('runtime-container-failed-*.log')), [])
+
     def test_extra_ro_mount_and_state_parent_are_rejected(self):
         for path in (self.state, self.root, self.state / 'material'):
             with self.subTest(path=path):
@@ -316,6 +347,9 @@ class ContainerBoundaryTests(unittest.TestCase):
                 return self.container_id
             if args[0] == 'rm':
                 return self.container_id
+            if args[0] == 'logs':
+                self.assertEqual(args, ('logs', '--tail', '80', self.container_id))
+                return 'private fixture startup failure'
             if args[0] == 'container' and args[1] == 'ls':
                 return ''
             raise AssertionError(args)
@@ -375,6 +409,9 @@ class ContainerBoundaryTests(unittest.TestCase):
         def fake(state, *args):
             if args[:2] == ('container', 'ls'):
                 return self.container_id
+            if args[0] == 'logs':
+                self.assertEqual(args, ('logs', '--tail', '80', self.container_id))
+                return ''
             self.assertEqual(args, ('rm', self.container_id))
             return ''
         with patch.object(runtime, 'docker', side_effect=fake) as docker, \

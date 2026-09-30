@@ -101,7 +101,7 @@ def read_private_json(path):
     return json.loads(path.read_text())
 
 
-def diagnose(state, guard, cli=None):
+def diagnose(state, guard, cli=None, process=None):
     """Keep technical failures private; never include the sealed environment."""
     path = Path(state) / 'runtime-container-diagnostic.json'
     try:
@@ -115,6 +115,8 @@ def diagnose(state, guard, cli=None):
         }
         if cli is not None and 'cli' not in record:
             record['cli'] = cli
+        if process is not None and 'process' not in record:
+            record['process'] = process
         descriptor, name = tempfile.mkstemp(prefix='.runtime-container-diagnostic-', dir=state)
         temporary = Path(name)
         try:
@@ -149,6 +151,8 @@ def docker(state, *args):
         diagnose(state, 'docker_nonzero', {'operation': '.'.join(args[:2]) if args[0] in ('image', 'container') else args[0],
                                          'exit_code': result.returncode, 'stderr': result.stderr})
         fail('Local Docker operation failed; no secret-bearing output is displayed.')
+    if args[0] == 'logs':
+        return result.stdout + result.stderr  # Only the owned private failure sink consumes this.
     return result.stdout.strip()
 
 
@@ -564,6 +568,9 @@ def _start(state, source, binary, environment, manifest, projection, port, pg_po
         succeeded = True
         intent_path.unlink()
         return record
+    except (ContainerError, OSError, ValueError) as error:
+        diagnose(state, str(error) if isinstance(error, ContainerError) else type(error).__name__)
+        raise
     finally:
         if not succeeded:
             # Failed publication cannot destroy a reservation created elsewhere.
@@ -614,6 +621,7 @@ def recover_intent(state):
 def _remove_started(state, record):
     proof = inspect(state, record['container_id'])
     verify_configuration(state, record, proof)
+    _capture_failed_process(state, record, proof)
     if proof.get('State', {}).get('Running'):
         if 'pid' not in record:
             identity = process_identity(proof['State'].get('Pid'))
@@ -622,6 +630,26 @@ def _remove_started(state, record):
             record = dict(record, **identity)
         _terminate(state, record)
     docker(state, 'rm', record['container_id'])
+
+
+def _capture_failed_process(state, record, proof):
+    """Preserve the owned startup error before removing its immutable object."""
+    try:
+        details = proof.get('State', {})
+        output = docker(state, 'logs', '--tail', '80', record['container_id'])
+        path = state / ('runtime-container-failed-' + record['container_id'] + '-' + record['instance'] + '.log')
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, 'w') as stream:
+            stream.write(output[-262144:])
+        diagnose(state, 'startup_cleanup', process={
+            'container_id': record['container_id'], 'expected_pid': record.get('pid'),
+            'observed_pid': details.get('Pid'), 'running': details.get('Running'),
+            'exit_code': details.get('ExitCode'), 'error': details.get('Error'),
+            'private_log': str(path),
+        })
+    except (OSError, ContainerError):
+        # Capturing a log cannot prevent ownership checks or safe cleanup.
+        return
 
 
 def _terminate(state, record):
