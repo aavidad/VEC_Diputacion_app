@@ -145,7 +145,8 @@ def _list_paths(data):
 
 def _diff(repo, target):
     raw = _git(repo, "diff", "--name-status", "-z", "--no-renames",
-               "--no-ext-diff", "--no-textconv", SOURCE, target, "--", "*.sql")
+               "--no-ext-diff", "--no-textconv", "--ignore-submodules=none",
+               SOURCE, target, "--", "*.sql")
     parts = raw.split(b"\0")
     _require(parts[-1] == b"" and len(parts[:-1]) % 2 == 0, "postmain_invalid_diff")
     changes, blockers = [], []

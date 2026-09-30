@@ -123,6 +123,40 @@ class PlanTest(unittest.TestCase):
         self.assertEqual(item["status"], "deleted")
         self.assertIsNone(item["after"])
 
+    def test_sql_gitlinks_added_modified_deleted_cannot_be_hidden_by_config(self):
+        paths = {"added": "deploy/postgresql/gitlink_added.sql",
+                 "modified": "deploy/postgresql/gitlink_modified.sql",
+                 "deleted": "deploy/postgresql/gitlink_deleted.sql"}
+        self.git("read-tree", self.source)
+        for status in ("modified", "deleted"):
+            self.git("update-index", "--add", "--cacheinfo", "160000",
+                     self.source, paths[status])
+        tree = self.git("write-tree").decode().strip()
+        linked_source = self.git("commit-tree", tree, "-p", self.source,
+                                 "-m", "synthetic gitlink preimage").decode().strip()
+        self.git("read-tree", self.target)
+        self.git("update-index", "--add", "--cacheinfo", "160000", self.source, paths["added"])
+        self.git("update-index", "--add", "--cacheinfo", "160000", linked_source, paths["modified"])
+        tree = self.git("write-tree").decode().strip()
+        self.target = self.git("commit-tree", tree, "-p", linked_source,
+                               "-m", "synthetic gitlink postimage").decode().strip()
+        self.point_origin()
+        self.git("config", "diff.ignoreSubmodules", "all")
+        hidden = self.git("diff", "--name-status", linked_source, self.target, "--", "*.sql")
+        self.assertTrue(all(path.encode() not in hidden for path in paths.values()))
+        with patch.object(planner, "SOURCE", linked_source):
+            value = planner.build_plan(self.request())
+        changes = {item["path"]: item for item in value["sql_diff"]}
+        for status, path in paths.items():
+            with self.subTest(status=status):
+                self.assertEqual(changes[path]["status"], status)
+                self.assertIn({"code": "non_regular_sql_blob", "path": path}, value["blockers"])
+                self.assertIn({"code": "unknown_sql_path", "path": path}, value["blockers"])
+        self.assertIn({"code": "deleted_or_type_changed_sql", "path": paths["deleted"]},
+                      value["blockers"])
+        self.assertEqual(value["plan"], "pendiente_aprobacion")
+        self.assertIs(value["executable"], False)
+
     def test_reordered_list_blocks(self):
         self.write(planner.LIST, self.list_bytes(tuple(reversed(planner.SQL_PATHS))))
         self.target = self.commit()
