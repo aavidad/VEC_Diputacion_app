@@ -1,0 +1,6 @@
+# Requiere AD3-126 y Catálogos000003 instaladas una sola vez.
+# En clon fresco H1: primeras35 SQL de scripts/recorridos/sql_main_h6.txt
+# hasta AD3-114, luego roles/Cat1/Cat2/AD117/Cat3/AD126 coherentes.
+# Usar Cat1 corregida y revisada; no reaplicar SQL ni ejecutar DOWN en principal.
+deploy/postgresql/catalogos_configurables/migraciones/000004_gobierno_categorias_rpt.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000134_gobierno_categorias_rpt.up.sql
