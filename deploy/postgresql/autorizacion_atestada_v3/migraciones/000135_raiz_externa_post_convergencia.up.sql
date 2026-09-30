@@ -38,6 +38,8 @@ DECLARE
     dependencias_antes pg_catalog.jsonb;
     dependencias_despues pg_catalog.jsonb;
     linaje_elegido pg_catalog.text;
+    lector_pre pg_catalog.record;
+    sha_pre pg_catalog.text;
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles
                    WHERE rolname = current_user AND rolsuper)
@@ -80,6 +82,15 @@ BEGIN
         RAISE EXCEPTION 'AD3-135: borrador sin matrices PG18 post-AD133'
           USING ERRCODE = '55000';
     END IF;
+    IF (SELECT pg_catalog.count(DISTINCT (x.obj->>'firma'))
+        FROM pg_catalog.jsonb_array_elements(ampliada) AS x(obj))
+           IS DISTINCT FROM pg_catalog.jsonb_array_length(ampliada)
+       OR (SELECT pg_catalog.count(DISTINCT (x.obj->>'firma'))
+           FROM pg_catalog.jsonb_array_elements(historica) AS x(obj))
+           IS DISTINCT FROM pg_catalog.jsonb_array_length(historica) THEN
+        RAISE EXCEPTION 'AD3-135: matriz global duplicada o incompleta'
+          USING ERRCODE='55000';
+    END IF;
     IF pg_catalog.jsonb_array_length(postimagenes) IS DISTINCT FROM 8
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_to_recordset(postimagenes)
            AS x(linaje pg_catalog.text,firma pg_catalog.text)
@@ -93,7 +104,13 @@ BEGIN
              'vec_autorizacion_atestada_v3.comprobar_material_emision_externa_v1(text,jsonb)',
              'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_externa_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
              'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_usuarios_externa_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-             'vec_autorizacion_atestada_v3.leer_configuracion_externa_v1(text,jsonb)')) THEN
+             'vec_autorizacion_atestada_v3.leer_configuracion_externa_v1(text,jsonb)'))
+       OR EXISTS (SELECT 1 FROM pg_catalog.jsonb_to_recordset(postimagenes)
+           AS x(linaje pg_catalog.text,firma pg_catalog.text)
+           WHERE x.linaje IS NULL OR x.firma IS NULL)
+       OR EXISTS (SELECT 1 FROM pg_catalog.jsonb_to_recordset(postimagenes)
+           AS x(linaje pg_catalog.text,firma pg_catalog.text)
+           GROUP BY x.linaje,x.firma HAVING pg_catalog.count(*)<>1) THEN
         RAISE EXCEPTION 'AD3-135: matriz de cuatro lectores por linaje incompleta'
           USING ERRCODE='55000';
     END IF;
@@ -166,7 +183,27 @@ select jsonb_build_object(
          USING ERRCODE='55000';
     END IF;
  linaje_elegido:=CASE WHEN actual=ampliada THEN 'a' ELSE 'b' END;
+ FOR lector_pre IN SELECT * FROM pg_catalog.jsonb_to_recordset(postimagenes)
+   AS x(linaje pg_catalog.text,firma pg_catalog.text,antes pg_catalog.text,
+        despues pg_catalog.text,punteros pg_catalog.int4,
+        checkpoints pg_catalog.int4,claves pg_catalog.int4) LOOP
+  SELECT m.obj->>'sha_prosrc' INTO sha_pre
+    FROM pg_catalog.jsonb_array_elements(
+      CASE WHEN lector_pre.linaje='a' THEN ampliada ELSE historica END) AS m(obj)
+    WHERE m.obj->>'firma'=lector_pre.firma;
+  IF lector_pre.antes IS NULL OR lector_pre.despues IS NULL OR sha_pre IS NULL
+     OR lector_pre.antes IS DISTINCT FROM sha_pre
+     OR lector_pre.antes !~ '^[0-9a-f]{64}$'
+     OR lector_pre.despues !~ '^[0-9a-f]{64}$'
+     OR lector_pre.punteros IS NULL OR lector_pre.punteros<0
+     OR lector_pre.checkpoints IS NULL OR lector_pre.checkpoints<0
+     OR lector_pre.claves IS NULL OR lector_pre.claves<0 THEN
+    RAISE EXCEPTION 'AD3-135: lector no ligado a su preimagen de linaje'
+      USING ERRCODE='55000';
+  END IF;
+ END LOOP;
  PERFORM pg_catalog.set_config('vec.ad135.linaje',linaje_elegido,true);
+ PERFORM pg_catalog.set_config('vec.ad135.postimagenes',postimagenes::pg_catalog.text,true);
 END $preimagen$;
 
 -- Cada DDL se envía como sentencia propia: los CREATE posteriores dependen
@@ -392,7 +429,8 @@ RESET ROLE;
 
 DO $lectores$
 DECLARE
- postimagenes pg_catalog.jsonb := NULL; -- medir tras AD133 nueva
+ postimagenes pg_catalog.jsonb :=
+   pg_catalog.current_setting('vec.ad135.postimagenes',true)::pg_catalog.jsonb;
  catalogo_antes pg_catalog.jsonb;
  e pg_catalog.jsonb;
  lector pg_catalog.record;
