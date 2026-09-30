@@ -99,3 +99,18 @@ func TestAuditoriaFronteraAuditoriaAceptaSoloSuperficieYRutasNominales(t *testin
 		}
 	}
 }
+
+func TestAuditoriaFronteraAspirantesSinPersona(t *testing.T) {
+	base := OrdenAuditoriaFronteraRutaExacta{CorrelacionRef: "corr_no_disponible", Motivo: MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
+		Superficie: SuperficieAuditoriaFronteraRutaExactaAspirantes, Ruta: "/api/vec/aspirantes/area-personal/mi-ficha"}
+	if base.Validar() != nil {
+		t.Fatal("denegación sin persona rechazada")
+	}
+	conPersona := base
+	conPersona.ActorRef = "per_AAAAAAAAAAAAAAAAAAAAAA"
+	otraRuta := base
+	otraRuta.Ruta = "/api/vec/usuarios/area-personal/mis-preferencias"
+	if conPersona.Validar() == nil || otraRuta.Validar() == nil {
+		t.Fatal("Aspirantes nunca anota persona ni otra ruta")
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/aspirantes/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestErroresSQLNominales(t *testing.T) {
@@ -58,5 +59,18 @@ func TestDecodificacionEstricta(t *testing.T) {
 	}
 	if _, err := (sobreSQL{ClaveRef: "k", NonceHex: "00", CifradoHex: "00"}).decodificar(46); err == nil {
 		t.Fatal("sobre corto aceptado")
+	}
+}
+
+func TestDenegacionSoloDeAspirantesYSinPersona(t *testing.T) {
+	r := &RegistroFichasPostgreSQL{}
+	for _, o := range []vecports.OrdenAuditoriaFronteraRutaExacta{
+		{CorrelacionRef: "corr_no_disponible", Motivo: vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaAspirantes, Ruta: "/api/vec/aspirantes/area-personal/mi-ficha", ActorRef: "per_AAAAAAAAAAAAAAAAAAAAAA"},
+		{CorrelacionRef: "corr_no_disponible", Motivo: vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, Ruta: "/api/vec/usuarios/area-personal/mis-preferencias"},
+		{CorrelacionRef: "corr_no_disponible", Motivo: vecports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, Superficie: vecports.SuperficieAuditoriaFronteraRutaExactaAspirantes, Ruta: "/api/vec/aspirantes/otra"},
+	} {
+		if err := r.RegistrarAuditoriaFronteraRutaExacta(context.Background(), o); !errors.Is(err, ports.ErrInvalida) {
+			t.Fatalf("%+v: %v", o, err)
+		}
 	}
 }

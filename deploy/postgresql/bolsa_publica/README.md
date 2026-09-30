@@ -219,6 +219,69 @@ servidor (`verify-full`) con TLS 1.2 o posterior en el destino principal y todos
 los fallbacks. La raíz productiva no importa ni puede seleccionar adaptadores de
 fichero, memoria o presentación.
 
+## Login lector del proceso externo (B10)
+
+Después de instalar las migraciones públicas 000001 y 000002 en la base
+**dedicada** `vec_bolsa_publica`, el DBA crea este login. No ejecute de nuevo
+los scripts de roles ni las migraciones si ya están instalados. Si el login
+existe, compruebe sus atributos y membresías antes de continuar; esta receta
+no los sobrescribe.
+
+```sql
+CREATE ROLE vec_externo_bolsa_publica_consulta LOGIN PASSWORD NULL
+    NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+GRANT vec_bolsa_publica_consulta TO vec_externo_bolsa_publica_consulta
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+ALTER ROLE vec_externo_bolsa_publica_consulta
+    SET default_transaction_read_only = on;
+ALTER ROLE vec_externo_bolsa_publica_consulta
+    SET search_path = 'pg_catalog,pg_temp';
+ALTER ROLE vec_externo_bolsa_publica_consulta SET statement_timeout = '10s';
+ALTER ROLE vec_externo_bolsa_publica_consulta SET lock_timeout = '2s';
+ALTER ROLE vec_externo_bolsa_publica_consulta
+    SET idle_in_transaction_session_timeout = '10s';
+```
+
+El grupo lector ya tiene `CONNECT`, `USAGE` del esquema de lectura y `SELECT`
+de las vistas públicas, incluidas `bolsas_v1` y `posiciones_bolsa_v1`. Esa es
+la única membresía del login. No le conceda acceso directo a tablas, roles de
+publicación o migración, ni capacidad de `SET ROLE`. Los ajustes de sesión se
+fijan en el login porque PostgreSQL no hereda los ajustes del grupo.
+
+Antes de activar, compruebe con el DBA que este login no puede conectar a
+ninguna otra base del clúster, incluidas `postgres`, `template0` y `template1`.
+La comprobación de arranque también rechaza permisos heredados de `PUBLIC`
+en esas bases. Esta consulta permite detectarlos sin cambiar las ACL:
+
+```sql
+SELECT datname,
+       has_database_privilege('vec_externo_bolsa_publica_consulta', oid,
+                              'CONNECT') AS puede_conectar
+  FROM pg_catalog.pg_database
+ WHERE datallowconn;
+```
+
+Solo `vec_bolsa_publica` puede devolver `true`. Revise la preimagen y los
+consumidores antes de cambiar permisos de otra base; no aplique una revocación
+global a ciegas.
+
+Asigne la contraseña desde el gestor de secretos, fuera de Git. La conexión
+con este usuario se entrega **solo** al proceso externo mediante
+`VEC_EXTERNO_BOLSA_PUBLICA_DATABASE_URL`, con TLS `verify-full` y CA verificada.
+El arranque rechaza cualquier otro nombre de login, incluso otro lector de
+la misma base. No use `VEC_BOLSA_PUBLICA_DATABASE_URL` en el proceso externo.
+
+La activación de B10 requiere también
+`VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256` y las cuatro variables de categorías
+indicadas arriba. Use la huella del manifiesto que corresponde a la proyección
+publicada; una configuración parcial impide el arranque. Sin conexión ni
+manifiesto B10, la ruta `/api/publico/bolsa/bolsas` permanece ausente.
+
+Esta consulta dentro de `vec-server` externo conserva el mTLS del Área
+personal. La entrada anónima es `cmd/vec-publico`, con su login lector propio
+y `VEC_BOLSA_PUBLICA_DATABASE_URL`; no comparte el login externo ni carga la
+composición del Área personal.
+
 ## Prueba reproducible
 
 Con Docker y OpenSSL:

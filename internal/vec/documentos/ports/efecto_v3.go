@@ -48,6 +48,8 @@ func TipoRecursoV3(accion string) (string, bool) {
 		return "notificacion_preparada", true
 	case AccionRegistrarExterno:
 		return "documento_externo", true
+	case AccionCustodiarFirmado:
+		return "documento_firmado", true
 	default:
 		return "", false
 	}

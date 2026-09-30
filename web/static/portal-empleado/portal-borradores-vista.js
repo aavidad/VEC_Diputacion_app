@@ -1,6 +1,6 @@
 import { referenciaCopiableTraducida } from "./portal-justificante.js";
-import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260929-i18n-shell-v2";
-import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260929-i18n-shell-v2";
+import { traducirReferencia } from "./portal-referencias-i18n.js?v=20260930-portales-i18n-integracion-v1";
+import { LOCALIZACION_PORTAL, textoPortal, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";

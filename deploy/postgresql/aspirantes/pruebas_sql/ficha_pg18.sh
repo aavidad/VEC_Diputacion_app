@@ -34,6 +34,7 @@ psql_pg < "$sql/roles_up.sql" >/dev/null
 psql_pg < "$sql/pruebas_sql/preimagen_ad3_sintetica.sql" >/dev/null
 psql_pg < "$ad3/000111_consumidor_aspirantes.up.sql" >/dev/null
 psql_pg < "$sql/migraciones/000001_ficha_propia.up.sql" >/dev/null
+psql_pg < "$sql/migraciones/000002_frontera.up.sql" >/dev/null
 psql_pg < "$sql/pruebas_sql/vector_material.sql" >/dev/null
 psql_pg < "$sql/pruebas_sql/operaciones_sinteticas.sql" >/dev/null
 # Una segunda instalación no se admite: la preimagen ya no coincide.
@@ -199,6 +200,13 @@ SELECT public.probar_ficha('vec.aspirantes.ficha.consultar',0,'','$I1',NULL,fals
 SQL
 )
 grep -q 'reindexado pendiente' <<<"$salida" || { echo "clave de índice rotada: $salida"; exit 1; }
+# Registro de denegaciones de frontera: solo motivo y correlación.
+psql_como vec_aspirantes_prueba_externa -c "SELECT vec_aspirantes.registrar_denegacion_frontera_v1('autenticacion_requerida','corr_no_disponible'); SELECT vec_aspirantes.registrar_denegacion_frontera_v1('acceso_denegado','corr_$(printf 'a%.0s' $(seq 32))');" >/dev/null
+salida=$(psql_como vec_aspirantes_prueba_externa -c "SELECT vec_aspirantes.registrar_denegacion_frontera_v1('otro','corr_no_disponible');" 2>&1 || true)
+grep -q 'denegación inválida' <<<"$salida" || { echo "motivo libre admitido: $salida"; exit 1; }
+salida=$(psql_como vec_aspirantes_prueba_cruzada -c "SELECT vec_aspirantes.registrar_denegacion_frontera_v1('autenticacion_requerida','corr_no_disponible');" 2>&1 || true)
+grep -q 'registro de frontera denegado' <<<"$salida" || { echo "sesión cruzada registra: $salida"; exit 1; }
+[[ $(psql_pg -Atc "SELECT count(*) FROM vec_aspirantes.denegacion_frontera") == 2 ]] || { echo "recuento de denegaciones"; exit 1; }
 # Un LOGIN con otra membresía vec_ no pasa; tampoco fuera de SERIALIZABLE.
 salida=$(psql_como vec_aspirantes_prueba_cruzada -c "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT public.probar_ficha('vec.aspirantes.ficha.consultar',0,'','$I1');" 2>&1 || true)
 grep -q 'denegado' <<<"$salida" || { echo "sesión cruzada: $salida"; exit 1; }
