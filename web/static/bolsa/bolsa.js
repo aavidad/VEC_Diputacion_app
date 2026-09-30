@@ -5,7 +5,7 @@
   if (!contratoPublicoV2) throw new Error("validador del contrato público V2 no disponible");
   const i18n = globalThis.VECBolsaI18n;
   const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
-  const idioma = i18n?.idioma === "en" ? "en-GB" : "es-ES";
+  const idioma = i18n?.localizacion ?? i18n?.idioma;
   const formateadorNumero = new Intl.NumberFormat(idioma);
   const numero = i18n?.numero || ((valor) => formateadorNumero.format(valor));
   const plural = i18n?.plural || ((clave, total) => t(`${clave}_${total === 1 ? "uno" : "otros"}`, { total: numero(total) }));

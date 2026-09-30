@@ -942,7 +942,10 @@ test("B10 muestra la fecha de Madrid y el número inglés aunque el navegador es
   const zonaAnterior = process.env.TZ;
   try {
     process.env.TZ = "America/New_York";
-    globalThis.VECBolsaI18n = { ...idiomaAnterior, idioma: "en", numero: (valor) => new Intl.NumberFormat("en-GB").format(valor) };
+    const indiceIdiomas = JSON.parse(readFileSync(join(rutaRaiz, "web/static/textos/idiomas.json"), "utf8"));
+    const inglesa = indiceIdiomas.idiomas.find((entrada) => entrada.codigo === "en");
+    globalThis.VECBolsaI18n = { ...idiomaAnterior, idioma: inglesa.codigo, localizacion: inglesa.localizacion,
+      numero: (valor) => new Intl.NumberFormat(inglesa.localizacion).format(valor) };
     const { crearControladorListaBolsas: crearEn } = await import("./lista-bolsas.js?regresion-fecha-madrid-en");
     const elementos = {
       seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
@@ -953,8 +956,8 @@ test("B10 muestra la fecha de Madrid y el número inglés aunque el navegador es
     respuesta.bolsas = [{ ...respuesta.bolsas[0], vigente_desde: "2026-09-30T00:00:00Z", total: 12345 }];
     const controlador = crearEn({ elementos, ventana: null, api: { consultarBolsasPublicas: async () => respuesta } });
     await controlador.cargarBolsas();
-    const fechaMadrid = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(respuesta.bolsas[0].vigente_desde));
-    const fechaVisitante = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "America/New_York" }).format(new Date(respuesta.bolsas[0].vigente_desde));
+    const fechaMadrid = new Intl.DateTimeFormat(inglesa.localizacion, { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(respuesta.bolsas[0].vigente_desde));
+    const fechaVisitante = new Intl.DateTimeFormat(inglesa.localizacion, { dateStyle: "medium", timeZone: "America/New_York" }).format(new Date(respuesta.bolsas[0].vigente_desde));
     assert.notEqual(fechaMadrid, fechaVisitante);
     assert.ok(elementos.cuerpoTablaBolsas.innerHTML.includes(fechaMadrid));
     assert.ok(elementos.cuerpoTablaBolsas.innerHTML.includes("12,345"));

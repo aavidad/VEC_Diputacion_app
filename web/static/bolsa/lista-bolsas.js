@@ -11,7 +11,7 @@ import { PATRON_DOCUMENTO_ENMASCARADO } from "./contrato-publico-bolsas.js";
 
 const i18n = globalThis.VECBolsaI18n;
 const t = i18n?.t || ((clave) => clave);
-const idioma = i18n?.idioma === "en" ? "en-GB" : "es-ES";
+const idioma = i18n?.localizacion ?? i18n?.idioma;
 const formateadorNumero = new Intl.NumberFormat(idioma);
 const numero = i18n?.numero || ((valor) => formateadorNumero.format(valor));
 const formateadorFecha = new Intl.DateTimeFormat(idioma, { dateStyle: "medium", timeZone: "Europe/Madrid" });

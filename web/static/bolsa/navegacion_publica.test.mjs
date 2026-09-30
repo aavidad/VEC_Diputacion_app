@@ -103,7 +103,7 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
     const versionTema = pagina.match(/\/comun\/tema-vec\.css\?v=([\w.-]+)"/)?.[1];
     assert.ok(versionTema && versionTema !== "20260924-bolsa-publica-final", "tema-vec.css renueva su URL");
     assert.equal(versionTema, html.match(/\/comun\/tema-vec\.css\?v=([\w.-]+)"/)?.[1]);
-    assert.match(pagina, /i18n-publica\.js\?v=20260928-i18n-ingles-v1/);
+    assert.match(pagina, /i18n-publica\.js\?v=20260930-codexe-publico-v2-v1/);
     assert.doesNotMatch(pagina, /i18n-publica\.js\?v=20260924-bolsa-publica-final/);
     const versionBolsa = pagina.match(/\/bolsa\/bolsa\.css\?v=([\w.-]+)"/)?.[1];
     assert.ok(versionBolsa, "bolsa.css se carga versionada");

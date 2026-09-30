@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raizWeb = new URL("../../", import.meta.url);
-const versionI18n = "20260928-i18n-ingles-v1";
-const versionI18nIndice = "20260928-i18n-ingles-v1";
+const versionI18n = "20260930-codexe-publico-v2-v1";
+const versionI18nIndice = "20260930-codexe-publico-v2-v1";
 const versionControlador = "20260930-codexe-publico-v2-v1";
 const versionLista = "20260930-codexe-publico-v2-v1";
 const versionAnterior = "20260924-bolsa-publica-final";
