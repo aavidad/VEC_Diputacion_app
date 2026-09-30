@@ -657,6 +657,15 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			consultasRRHH.cerrar()
 		}
 	}()
+	if firmaDocumento != nil {
+		ctxFirma, cancelarFirma := context.WithTimeout(context.Background(), 15*time.Second)
+		err := firmaDocumento.configurarLecturaIntervencion(ctxFirma, fiscalizacionReal.soporte,
+			consultasRRHH.identidad, aprobacionProvisionPerfilesRRHHDesdeConfig(cfg))
+		cancelarFirma()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	var incorporacionV2 *inc.ServidorV2PostgreSQL
 	cerrarIncorporacion := func() {}
 	if cfg.IncorporacionV2File != "" {
