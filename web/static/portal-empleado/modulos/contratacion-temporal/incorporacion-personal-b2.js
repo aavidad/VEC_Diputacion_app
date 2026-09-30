@@ -110,7 +110,7 @@ export function montarIncorporacionPersonalB2({ raiz, cliente, expedienteRef, ve
           cuerpo += `<section class="ct-revision"><h4>${e(t("paso_revision"))}</h4>${resumen(plan?.intencion ?? intencion)}
             <p>${e(t(plan ? "plan_preparado" : "limite"))}</p><div class="ct-acciones">
             ${!plan && !incierto ? `<button type="button" class="boton-secundario" data-b2-accion="cambiar">${e(t("cambiar"))}</button>` : ""}
-            <button type="button" class="boton-primario" data-b2-accion="registrar"${controlador || incierto || !consulta.prerrequisitos.length || !consulta.prerrequisitos.every((p) => p.cumplido) ? " disabled" : ""}>${e(t(plan ? "continuar" : "registrar"))}</button></div></section>`;
+            ${incierto ? "" : `<button type="button" class="boton-primario" data-b2-accion="registrar"${controlador || !consulta.prerrequisitos.length || !consulta.prerrequisitos.every((p) => p.cumplido) ? " disabled" : ""}>${e(t(plan ? "continuar" : "registrar"))}</button>`}</div></section>`;
         } else if (puedePreparar() && !incierto) cuerpo += formulario();
         else if (!incierto) {
           cuerpo += `<p>${e(t(!consulta.opciones.vacantes.length ? "sin_puestos"

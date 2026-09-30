@@ -148,6 +148,18 @@ test("UI: resultado incierto consulta recibo y no vuelve a escribir", async () =
   assert.equal(posts, 1); assert.equal(lecturas, 2); assert.match(x.r.innerHTML, /recibo:b2:original/u); assert.doesNotMatch(x.r.innerHTML, /causa privada|503/u); x.desmontar();
 });
 
+test("UI: respuesta incierta muestra una sola continuación y primero ofrece comprobar", async () => {
+  let lecturas = 0;
+  const x = await montar(clienteBase({ consultar: async () => ++lecturas === 1 ? inicial() : Promise.reject(new Error("lectura no disponible")),
+    confirmar: async () => { throw Object.assign(new Error("resultado privado"), { estado: 503 }); } }));
+  x.r.revisar(); await x.r.click("registrar");
+  assert.doesNotMatch(x.r.innerHTML, /data-b2-accion="registrar"/u);
+  assert.match(x.r.innerHTML, /data-b2-accion="consultar"[\s\S]*data-b2-accion="retomar"/u);
+  assert.equal((x.r.innerHTML.match(/Continuar la misma operación/gu) || []).length, 1);
+  assert.doesNotMatch(x.r.innerHTML, /resultado privado|lectura no disponible|503/u);
+  x.desmontar();
+});
+
 test("UI: recuperación sin plan conserva la misma clave y el material original", async () => {
   const solicitudes = [];
   const x = await montar(clienteBase({ preparar: async (s) => {
