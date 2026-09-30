@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 -- AD3-126: tres usos nominales del catalogo comun RPT. Requiere
--- catalogos_configurables 000003 y AD3-117. No publica concesiones ni roles.
+-- H6 completo (incluida AD3-125), catalogos_configurables 000003 y AD3-117.
+-- AD3-132 debe preceder RPT en la instalacion. No publica concesiones ni roles.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path = pg_catalog;
@@ -32,7 +33,7 @@ BEGIN
     END LOOP;
 END $pre$;
 
--- Preimagen completa postAD117: cuerpo/definicion y metadata de PG18, cotejados
+-- Preimagen completa postH6/postAD117: cuerpo/definicion y metadata de PG18, cotejados
 -- con la cadena causal. La reconstruccion conserva OID, ACL, propietario y
 -- dependencias; cambia solo el cuerpo nominal y search_path a pg_catalog, pg_temp.
 DO $nucleo$
@@ -87,8 +88,8 @@ BEGIN
        AND d.classid='pg_catalog.pg_proc'::regclass AND d.objid=f;
     fuente_sha256 := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(fuente,'UTF8')),'hex');
     definicion_sha256 := pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex');
-    IF fuente_sha256 IS DISTINCT FROM '6db82c972593908020edd20ddde9cf0f0c876ad366609ce4f3e62cfc49dec05b'
-       OR definicion_sha256 IS DISTINCT FROM 'bffec9cc86fdf5a0619c0f21441955ed86a6cec6c2694968781e5f8952096356'
+    IF fuente_sha256 IS DISTINCT FROM '8cda19bc0ab03f811386f7ec6b54a4662b68988590538d2857f48691c8c3c842'
+       OR definicion_sha256 IS DISTINCT FROM '334d3a9d8397de1a37ca559ba12e0955510649da624b0ca3bdbab20a5729839f'
        OR propietario <> 'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
        OR deps IS DISTINCT FROM (SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
             'classid','pg_catalog.pg_proc'::regclass::oid,'objid',f,'objsubid',0,
@@ -225,9 +226,9 @@ $meta$::jsonb
     SELECT pg_catalog.pg_get_functiondef(f) INTO STRICT actual;
     IF actual IS DISTINCT FROM nuevo
        OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual,'UTF8')),'hex')
-            IS DISTINCT FROM 'e3e560534158edf6095fdc50e01e872df793a93db762302782bc56dd19a94802'
+            IS DISTINCT FROM '3a06d11882d7b1ed5d3256f0547debf672975dce3c27060118bf169ce6bed692'
        OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
-             FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '1542976c6948408364a36d71bea0066c33cc84ecff67ca1aacafdfc264eaeef0'
+             FROM pg_catalog.pg_proc WHERE oid=f) IS DISTINCT FROM '848799985debd0b736a3c281b0a3a3635e6182bd78789fb364121fe7f78d8a06'
        OR (SELECT pg_catalog.to_jsonb(p)-'prosrc'-'proconfig' FROM pg_catalog.pg_proc AS p WHERE p.oid=f)
             IS DISTINCT FROM (meta-'prosrc'-'proconfig')
        OR 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure::oid IS DISTINCT FROM f
@@ -266,7 +267,7 @@ BEGIN
      WHERE d.dbid=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
        AND d.classid='pg_catalog.pg_constraint'::regclass AND d.objid=c_oid;
     IF pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(original,'UTF8')),'hex')
-            IS DISTINCT FROM '5a6bb90b8ef5b7aa3569235101eab4a4d0e7279230bea8b4fb26445bd3ec14c9'
+            IS DISTINCT FROM 'cd92724aeb8e8baf8819be986ea23a215104619945944fc709352a5a0e5ec982'
        OR (meta-'oid'-'conbin'-'conrelid'-'connamespace') IS DISTINCT FROM $meta$
 {
     "condeferrable": false,
@@ -315,7 +316,7 @@ $meta$::jsonb
     -- DROP/ADD cambia el OID propio y conbin; todo el resto debe conservarse.
     IF pg_catalog.regexp_replace(actual,'\s+',' ','g') IS DISTINCT FROM esperada
        OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(actual,'UTF8')),'hex')
-            IS DISTINCT FROM '02d131264c6d76e8e898125f261c17b5d3978f35a504a07c8617a5693b39031c'
+            IS DISTINCT FROM '4fef385ffcee91a94046b1dda4368d3b85630df12d251384fd9d723352c8fdb8'
        OR (SELECT pg_catalog.to_jsonb(c)-'oid'-'conbin' FROM pg_catalog.pg_constraint AS c WHERE c.oid=c_oid)
             IS DISTINCT FROM (meta-'oid'-'conbin')
        OR (SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d)-'objid'

@@ -38,14 +38,14 @@ BEGIN
          WHERE p.oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure
            AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
            AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
-               ='1542976c6948408364a36d71bea0066c33cc84ecff67ca1aacafdfc264eaeef0'
+               ='848799985debd0b736a3c281b0a3a3635e6182bd78789fb364121fe7f78d8a06'
            AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_functiondef(p.oid),'UTF8')),'hex')
-               ='e3e560534158edf6095fdc50e01e872df793a93db762302782bc56dd19a94802')
+               ='3a06d11882d7b1ed5d3256f0547debf672975dce3c27060118bf169ce6bed692')
        OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint AS c
          WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
            AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.convalidated
            AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.pg_get_constraintdef(c.oid,true),'UTF8')),'hex')
-               ='02d131264c6d76e8e898125f261c17b5d3978f35a504a07c8617a5693b39031c') THEN
+               ='4fef385ffcee91a94046b1dda4368d3b85630df12d251384fd9d723352c8fdb8') THEN
         RAISE EXCEPTION 'postimagen completa AD3-126 incorrecta';
     END IF;
     BEGIN

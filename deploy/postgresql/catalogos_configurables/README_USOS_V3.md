@@ -2,8 +2,8 @@
 
 Estas migraciones preparan tres escrituras internas: reservar una categoría para
 un uso, confirmar ese uso y cancelarlo. No conceden por sí mismas un permiso a
-RRHH ni activan un consumidor. Se instalan después de la autoridad común
-000001 corregida, las lecturas 000002 y AD3-117. Solo los ejecutores técnicos
+RRHH ni activan un consumidor. Se instalan después de H6 completo, AD3-132,
+la autoridad común 000001 corregida, las lecturas 000002 y AD3-117. Solo los ejecutores técnicos
 existentes de Contratación temporal, Bolsa y Personal reciben `EXECUTE` sobre
 las tres fachadas AD3. No reciben acceso a las tablas ni a las funciones core.
 
@@ -66,9 +66,9 @@ huella/CAS, el acto prospectivo de Contratación temporal y el plan durable de
 Personal. Estas migraciones no acreditan instalación ni operación utilizable.
 
 La lista `deploy/principal/lista_sql_trabajo_codexd_rpt_escritura_v3_20260930.txt`
-se aplica en un clon nuevo en este orden: roles → 000001 corregida → 000002 →
-AD3-117 → 000003 → AD3-126. El paquete H6 excluye las rutas RPT. Que 000002 y
-AD3-117 estén publicados en `main` no acredita su instalación: Dirección debe
+se aplica después de H6 completo y AD3-132, en este orden:
+roles → 000001 corregida → 000002 → AD3-117 → 000003 → AD3-126.
+El paquete H6 excluye las rutas RPT. Que 000002 y AD3-117 estén publicados en `main` no acredita su instalación: Dirección debe
 comprobar la preimagen de la base y aplicar cada ruta una sola vez. CT148 queda
 para después de AD3-126. No se reaplican migraciones con historia. Los archivos
 DOWN son exclusivos de un clon vacío y no forman parte del despliegue.
@@ -77,24 +77,29 @@ DOWN son exclusivos de un clon vacío y no forman parte del despliegue.
 
 Las funciones nuevas de 000001, 000003 y AD3-126 fijan
 `search_path=pg_catalog, pg_temp`. 000002 y AD3-117 conservan su definición
-publicada. AD3-126 recibe el núcleo postAD117 con
+publicada. AD3-126 recibe el núcleo postH6/postAD117, incluida la consulta
+de firmas de AD3-125, con
 `search_path=pg_catalog` y `lock_timeout=2s`, valida su cuerpo completo y
 reconstruye únicamente el perfil nominal de usos y la configuración de búsqueda.
 Su DOWN exige la postimagen completa y devuelve la definición y configuración
-postAD117 anteriores. No retira una audiencia si conserva claves ni revierte
-instalaciones con historia.
+postH6/postAD117 anteriores, incluida AD3-125. No retira una audiencia si
+conserva claves ni revierte instalaciones con historia.
 
-Las guardas se fijaron con una captura de PostgreSQL 18 de la cadena causal
-hasta AD3-117, desde `37dafd3fe71dce5ac0e0e989a471017bbb45ec50`.
+Las guardas se fijaron con una captura de PostgreSQL 18 tras las 62 SQL
+de H3/H4/H6 (8 + 9 + 45), incluida AD3-125, y las cinco primeras SQL RPT.
 La captura completa tiene SHA-256
-`9aab4c6bb8583ab50d07d277bc9724d978b37dff30f78d5447490cbb43b4ffc6`.
+`3421e7310dcd2505fff163d17d074ea431445763faa140aae6c5e74634a07a37`.
+En ese clon se retiró TEMP de PUBLIC con autorización de laboratorio; no se
+ejecutó AD3-132. Esa retirada no cambia el núcleo ni el CHECK. El CHECK se
+captura con `pg_get_constraintdef(oid,true)`, igual que en las guardas;
+la serialización predeterminada tiene otra huella.
 Las postimágenes se calculan con las inserciones nominales exactas de AD3-126:
 
-| Huella SHA-256 | Preimagen postAD117 | Postimagen AD3-126 |
+| Huella SHA-256 | Preimagen postH6/postAD117 | Postimagen AD3-126 |
 | --- | --- | --- |
-| Cuerpo `prosrc` | `6db82c972593908020edd20ddde9cf0f0c876ad366609ce4f3e62cfc49dec05b` | `1542976c6948408364a36d71bea0066c33cc84ecff67ca1aacafdfc264eaeef0` |
-| `pg_get_functiondef` | `bffec9cc86fdf5a0619c0f21441955ed86a6cec6c2694968781e5f8952096356` | `e3e560534158edf6095fdc50e01e872df793a93db762302782bc56dd19a94802` |
-| Definición del CHECK de audiencias | `5a6bb90b8ef5b7aa3569235101eab4a4d0e7279230bea8b4fb26445bd3ec14c9` | `02d131264c6d76e8e898125f261c17b5d3978f35a504a07c8617a5693b39031c` |
+| Cuerpo `prosrc` | `8cda19bc0ab03f811386f7ec6b54a4662b68988590538d2857f48691c8c3c842` | `848799985debd0b736a3c281b0a3a3635e6182bd78789fb364121fe7f78d8a06` |
+| `pg_get_functiondef` | `334d3a9d8397de1a37ca559ba12e0955510649da624b0ca3bdbab20a5729839f` | `3a06d11882d7b1ed5d3256f0547debf672975dce3c27060118bf169ce6bed692` |
+| Definición del CHECK de audiencias | `cd92724aeb8e8baf8819be986ea23a215104619945944fc709352a5a0e5ec982` | `4fef385ffcee91a94046b1dda4368d3b85630df12d251384fd9d723352c8fdb8` |
 
 Las guardas también comparan todos los metadatos de `pg_proc`, propietario,
 ACL, lenguaje, esquema y dependencias de `pg_depend` y `pg_shdepend`.
