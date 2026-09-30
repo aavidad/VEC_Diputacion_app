@@ -241,7 +241,7 @@ a:focus-visible,
   border-bottom: 1px solid var(--portal-lateral-separador);
   border-radius: 0;
   background: transparent;
-  color: var(--portal-texto-inverso);
+  color: var(--portal-lateral-texto);
   cursor: pointer;
   font-size: 0.92rem;
   line-height: 1.3;
@@ -251,7 +251,7 @@ a:focus-visible,
 
 .enlace-lateral:hover:not(:disabled) {
   background: var(--portal-lateral-hover);
-  color: var(--portal-texto-inverso);
+  color: var(--portal-lateral-texto);
 }
 
 .enlace-lateral[aria-current="page"]:hover,
@@ -274,9 +274,13 @@ a:focus-visible,
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  color: var(--portal-lateral-texto);
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.numero-menu {
+  color: var(--portal-texto-inverso);
 }
 
 .tono-azul { background: var(--portal-azul-700); }

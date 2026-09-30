@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const css = await readFile(new URL("./tema-vec.css", import.meta.url), "utf8");
+const portal = await readFile(new URL("../portal-empleado/portal.css", import.meta.url), "utf8");
+const menuBolsa = await readFile(new URL("../portal-empleado/portal-menu-bolsa.css", import.meta.url), "utf8");
 const modos = ["diputacion_granada", "arena", "salvia", "lavanda", "azul_sereno", "noche_suave"];
 
 function bloque(selector) {
@@ -80,4 +82,20 @@ test("texto, acciones, navegación, estados y foco cumplen WCAG 2.2 AA", () => {
       ["cian-fuerte", "cian-suave"], ["naranja", "naranja-suave"],
     ]) exigir(texto, fondo, 4.5);
   }
+});
+
+test("marca y enlaces del lateral usan el par de tokens comprobado", () => {
+  const declaracion = (hoja, selector) => {
+    const inicio = hoja.indexOf(`${selector} {`);
+    assert.ok(inicio >= 0, `falta ${selector}`);
+    return hoja.slice(inicio, hoja.indexOf("}", inicio));
+  };
+  for (const selector of [".portal-lateral", ".marca-portal"]) {
+    assert.match(declaracion(portal, selector), /background: var\(--portal-lateral-fondo\)/u);
+    assert.match(declaracion(portal, selector), /color: var\(--portal-lateral-texto\)/u);
+  }
+  for (const selector of [".enlace-lateral", ".enlace-lateral:hover:not(:disabled)"]) {
+    assert.match(declaracion(portal, selector), /color: var\(--portal-lateral-texto\)/u);
+  }
+  assert.match(declaracion(menuBolsa, ".enlace-submenu:hover:not(:disabled)"), /color: var\(--portal-lateral-texto\)/u);
 });
