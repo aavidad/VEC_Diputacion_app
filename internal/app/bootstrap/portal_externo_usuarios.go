@@ -59,6 +59,18 @@ func nuevasPreferenciasPortalExterno(ctx context.Context, cfg config.Config, ide
 	if err != nil {
 		return nil, ErrUsuariosPortalExternoNoDisponible
 	}
+	if correos != nil {
+		cerrarBuzon, err := componerBuzonAvisosExternos(ctx, cfg, correos.cripto, preflight, incidencias)
+		if err != nil {
+			autoridad.cerrar()
+			return nil, err
+		}
+		cerrarPrevio := autoridad.cerrar
+		autoridad.cerrar = func() { cerrarBuzon(); cerrarPrevio() }
+	} else if activo, err := selectorCapacidadRRHHDesarrollo(cfg, envAvisosExternos); err != nil || activo {
+		autoridad.cerrar()
+		return nil, errAvisosExternos
+	}
 	return autoridad, nil
 }
 

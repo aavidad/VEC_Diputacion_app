@@ -177,3 +177,39 @@ RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma
 necesidad. Los datos sinteticos se insertan unicamente como propietario en la
 base efimera para probar restricciones; no crean una via de carga productiva.
 La prueba positiva de la funcion sigue cerrada hasta disponer de COSE real.
+
+## Avisos del proceso interno al candidato externo
+
+El proceso separado escribe referencias en un outbox al reservar el llamamiento.
+El receptor externo recoge ese evento con una conexión propia y registra su
+aceptación en Usuarios. El interno no recibe dirección, sobre cifrado ni claves
+externas. El recibo de aceptación del evento no acredita envío SMTP ni entrega.
+
+La plantilla y su versión se cotejan con el catálogo vigente de llamamientos.
+El correo de aviso utiliza los textos de `web/static/textos/<idioma>/avisos-externos.json`.
+La URL del área personal, el productor, el tamaño del lote y el intervalo se
+configuran en material privado propio. Los dos ejemplos de
+`data/demo/reglas/avisos_externos.*.ejemplo.demo.json` sirven para un ejercicio
+sintético: no configuran por sí mismos un portal real.
+
+En el material interno, `bolsa/avisos-externos.json` declara sólo el productor.
+En el externo, `usuarios/avisos-externos.json` declara ese mismo productor y
+los parámetros del receptor. La activación del receptor exige
+`VEC_EXTERNO_AVISOS_ENABLED=true` y las dos llaves de desarrollo habituales.
+La conexión `VEC_EXTERNO_AVISOS_BOLSA_DATABASE_URL` usa el LOGIN
+`vec_externo_avisos_bolsa`, cuya única membresía es el grupo nominal
+`vec_bolsa_avisos_externos_consumidor` (herencia sí, SET y ADMIN no).
+El DBA prepara el LOGIN sin contraseña en Git y con las mismas restricciones
+TLS, base e identidad de servidor que el resto del proceso externo.
+
+Se bloquea una emisión separada si la autoridad no acredita al destinatario
+externo vigente. La ausencia de ese vínculo no permite usar el correo del alta.
+El candidato empleado precisa una clasificación interna nominal adicional;
+este canal no la sustituye. El funcionamiento combinado conserva su composición
+histórica mientras no se retire su lectura al instalar la separación.
+
+Antes de integrar se ensayan las nuevas migraciones en su orden causal y se
+verifican los roles y los recibos. El ensayo debe repetir un evento después de
+reiniciar ambos procesos y PostgreSQL, comprobar la misma huella y fecha,
+y provocar una interrupción antes y después del ACK. Una reserva con resultado
+incierto no se despacha de nuevo automáticamente; requiere conciliación.

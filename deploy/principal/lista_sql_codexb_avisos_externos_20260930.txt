@@ -1,0 +1,7 @@
+# Apilada sobre #179 cerrado: ID7, CTX15, AUT19, AD3-118 y Usuarios U10/U11.
+# Nuevas migraciones una sola vez. La provisión de LOGIN es operacional.
+deploy/postgresql/contexto_actor_v1/migraciones/000016_destinatarios_avisos_externos.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000119_auditoria_tecnica_inbox_externo.up.sql
+deploy/postgresql/autorizacion_atestada_v3/migraciones/000120_auditoria_tecnica_interna_avisos_bolsa.up.sql
+deploy/postgresql/bolsa_llamamientos/migraciones/000062_avisos_externos_outbox.up.sql
+deploy/postgresql/usuarios_vec/migraciones/000014_inbox_avisos_externos.up.sql
