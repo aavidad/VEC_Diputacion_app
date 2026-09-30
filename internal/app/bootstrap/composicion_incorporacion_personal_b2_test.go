@@ -106,7 +106,7 @@ func TestIncorporacionB2DependenciaCaidaNoPareceDenegacion(t *testing.T) {
 			t.Fatalf("caída clasificada como permiso: %v", r)
 		}
 	}
-	for _, e := range []error{ct.ErrAutorizacionDenegada, bp.ErrConsultaPersonaAceptacionCTDenegada, core.ErrAutorizacionDenegada, core.ErrPermissionDenied, vp.ErrDenegacionExplicitaAutorizacionLigadaV3} {
+	for _, e := range []error{ct.ErrAutorizacionDenegada, ct.ErrDenegadaIncorporacionAplicacion, bp.ErrConsultaPersonaAceptacionCTDenegada, core.ErrAutorizacionDenegada, core.ErrPermissionDenied, vp.ErrDenegacionExplicitaAutorizacionLigadaV3} {
 		if r := errorHTTPNominalB2(context.Background(), e); !errors.Is(r, httpct.ErrDenegadaIncorporacionPersonalB2) {
 			t.Fatalf("denegación oculta: %v", r)
 		}

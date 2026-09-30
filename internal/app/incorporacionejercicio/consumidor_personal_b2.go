@@ -339,7 +339,7 @@ func errorConsumidorPersonalB2(ctx context.Context, err error) error {
 		return err
 	}
 	switch {
-	case errors.Is(err, personal.ErrRegistroEmpleadoB2Denegado), errors.Is(err, vp.ErrUsoCategoriaRPTDenegado), errors.Is(err, ct.ErrAutorizacionDenegada), errors.Is(err, ct.ErrPlanNominalB2Denegado):
+	case errors.Is(err, personal.ErrRegistroEmpleadoB2Denegado), errors.Is(err, vp.ErrUsoCategoriaRPTDenegado), errors.Is(err, ct.ErrAutorizacionDenegada), errors.Is(err, ct.ErrPlanNominalB2Denegado), errors.Is(err, vp.ErrDenegacionExplicitaAutorizacionLigadaV3):
 		return ct.ErrDenegadaIncorporacionAplicacion
 	case errors.Is(err, personal.ErrRegistroEmpleadoB2NoEncontrado), errors.Is(err, ct.ErrPlanNominalB2NoEncontrado):
 		return ct.ErrPreparacionIncorporacionPendiente

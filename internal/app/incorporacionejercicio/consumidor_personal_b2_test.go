@@ -70,15 +70,25 @@ func (a actoresConsumidorB2Prueba) ActorLecturaHechosB2(context.Context) (core.C
 	return a.actor, a.fallo
 }
 
-type autoridadRPTConsumidorB2Prueba struct{ cruzar bool }
+type autoridadRPTConsumidorB2Prueba struct {
+	cruzar            bool
+	falloReserva      error
+	falloConfirmacion error
+}
 
 func (a *autoridadRPTConsumidorB2Prueba) AutorizarReservaPlanB2(_ context.Context, _ pp.PlanIncorporacionCT, m vp.MaterialReservaUsoCategoriaRPT) (vp.OrdenReservaUsoCategoriaRPT, error) {
+	if a.falloReserva != nil {
+		return vp.OrdenReservaUsoCategoriaRPT{}, a.falloReserva
+	}
 	if a.cruzar {
 		m.UsoRef = "uso:ajeno"
 	}
 	return vp.OrdenReservaUsoCategoriaRPT{Material: m}, nil
 }
 func (a *autoridadRPTConsumidorB2Prueba) AutorizarConfirmacionPlanB2(_ context.Context, _ pp.PlanIncorporacionCT, m vp.MaterialTerminalUsoCategoriaRPT) (vp.OrdenConfirmacionUsoCategoriaRPT, error) {
+	if a.falloConfirmacion != nil {
+		return vp.OrdenConfirmacionUsoCategoriaRPT{}, a.falloConfirmacion
+	}
 	return vp.OrdenConfirmacionUsoCategoriaRPT{Material: m}, nil
 }
 
@@ -321,6 +331,33 @@ func TestConsumidorPersonalB2DenegacionCaidaYCrucesNoEjecutan(t *testing.T) {
 	_, err := c.ConfirmarPersonalB2(context.Background(), p.estado.Plan.PlanRef, p.estado.Plan.Datos.OrganismoRef)
 	if !errors.Is(err, ct.ErrDenegadaIncorporacionAplicacion) || rpt.reservas != 0 || p.ejecuciones != 0 {
 		t.Fatalf("autoridad RPT cruzada: %v", err)
+	}
+}
+
+func TestConsumidorPersonalB2DenegacionV3RegistradaDifiereDeFalloDeRegistro(t *testing.T) {
+	casos := []struct {
+		nombre string
+		fallo  error
+		want   error
+	}{
+		{"denegacion_registrada", errors.Join(core.ErrAutorizacionDenegada, vp.ErrDenegacionExplicitaAutorizacionLigadaV3), ct.ErrDenegadaIncorporacionAplicacion},
+		{"registro_denegacion_caido", errors.Join(core.ErrAutorizacionDenegada, vp.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible), ct.ErrComposicionIncorporacionAplicacion},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			c, p, rpt, _ := escenarioConsumidorB2(t, "alta_empleado")
+			c.c.AutoridadRPT = &autoridadRPTConsumidorB2Prueba{falloReserva: caso.fallo}
+			_, err := c.ConfirmarPersonalB2(context.Background(), p.estado.Plan.PlanRef, p.estado.Plan.Datos.OrganismoRef)
+			if !errors.Is(err, caso.want) || rpt.reservas != 0 || rpt.confirmaciones != 0 || p.ejecuciones != 0 {
+				t.Fatalf("reserva RPT produjo clasificación o efectos indebidos: %v, reserva=%d, confirmacion=%d, ejecucion=%d", err, rpt.reservas, rpt.confirmaciones, p.ejecuciones)
+			}
+		})
+	}
+	c, p, rpt, _ := escenarioConsumidorB2(t, "alta_empleado")
+	c.c.AutoridadRPT = &autoridadRPTConsumidorB2Prueba{falloConfirmacion: errors.Join(core.ErrAutorizacionDenegada, vp.ErrDenegacionExplicitaAutorizacionLigadaV3)}
+	_, err := c.ConfirmarPersonalB2(context.Background(), p.estado.Plan.PlanRef, p.estado.Plan.Datos.OrganismoRef)
+	if !errors.Is(err, ct.ErrDenegadaIncorporacionAplicacion) || rpt.confirmaciones != 0 {
+		t.Fatalf("confirmación RPT denegada no conservó 403 ni frenó el efecto: %v, confirmaciones=%d", err, rpt.confirmaciones)
 	}
 }
 
