@@ -157,7 +157,7 @@ func (l *lectorFirmasIntervencionCTDesarrollo) contextoOperativo(ctx context.Con
 func (l *lectorFirmasIntervencionCTDesarrollo) ConsultarFirmas(
 	ctx context.Context, organizacion, expediente string,
 ) ([]ports.FirmaRegistrada, error) {
-	if l == nil || l.firma == nil || l.firma.alta == nil ||
+	if l == nil || l.firma == nil || l.firma.alta == nil || l.puente == nil ||
 		l.autorizador == nil || dependenciaEsNulaContratacionTemporalDesarrollo(l.firma.lector) {
 		return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
@@ -197,8 +197,15 @@ func (l *lectorFirmasIntervencionCTDesarrollo) ConsultarFirmas(
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) ||
-			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+		if errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+			_, estado := l.puente.consumirPerfilFijoCTDesarrolloConEstado(ctx, l.perfil)
+			if estado == perfilFijoConsumoDenegado {
+				return nil, ports.ErrAutorizacionDenegada
+			}
+			return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
+		if errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) {
 			return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
 		}
 		return nil, ports.ErrAutorizacionDenegada
