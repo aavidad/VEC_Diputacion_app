@@ -241,10 +241,18 @@ BEGIN
         END IF;
         RAISE EXCEPTION 'version de publicacion en conflicto' USING ERRCODE = '23505';
     END IF;
-    IF (p_version > 1 AND NOT EXISTS (
-            SELECT 1 FROM vec_catalogos_configurables.publicacion
-             WHERE catalogo_id = p_catalogo_id AND version = p_version - 1)) THEN
-        RAISE EXCEPTION 'version de publicacion en conflicto' USING ERRCODE = '23505';
+    IF p_version > 1 THEN
+        SELECT * INTO anterior FROM vec_catalogos_configurables.publicacion
+         WHERE catalogo_id = p_catalogo_id AND version = p_version - 1;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'version de publicacion en conflicto' USING ERRCODE = '23505';
+        END IF;
+        -- Una versión nueva conserva el módulo propietario; la ausencia
+        -- histórica del campo tampoco autoriza asignarlo después.
+        IF (anterior.documento_canonico::jsonb->>'modulo_id')
+            IS DISTINCT FROM (contenido->>'modulo_id') THEN
+            RAISE EXCEPTION 'modulo de catalogo incompatible' USING ERRCODE = '42501';
+        END IF;
     END IF;
     INSERT INTO vec_catalogos_configurables.publicacion
         (catalogo_id, version, huella_sha256, documento_canonico,
