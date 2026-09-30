@@ -209,6 +209,22 @@ func (r *RegistroSesionesExternoPostgreSQL) ComprobarSesionYCuentaActivas(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	argumentos := argumentosConsulta(consulta)
+	if err := postgresqlcomun.RepetirTrasCarreraSerializable(ctx, func() error {
+		return r.comprobarSesionYCuentaUnaVez(ctx, argumentos)
+	}); err != nil {
+		return errorSesionSaneado(ctx)
+	}
+	return nil
+}
+
+func (r *RegistroSesionesExternoPostgreSQL) comprobarSesionYCuentaUnaVez(
+	ctx context.Context,
+	argumentos []any,
+) error {
+	if ctx.Err() != nil {
+		return errorSesionSaneado(ctx)
+	}
 	tx, err := r.base.revalidacion.BeginTx(ctx, opcionesTransaccion())
 	if err != nil {
 		return errorSesionSaneado(ctx)
@@ -218,8 +234,20 @@ func (r *RegistroSesionesExternoPostgreSQL) ComprobarSesionYCuentaActivas(
 		return errorSesionSaneado(ctx)
 	}
 	var activa bool
-	if tx.QueryRow(ctx, consultaRevalidarSesionExterna, argumentosConsulta(consulta)...).Scan(&activa) != nil ||
-		!activa || tx.Commit(ctx) != nil {
+	if err = tx.QueryRow(ctx, consultaRevalidarSesionExterna, argumentos...).Scan(&activa); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return err
+		}
+		return errorSesionSaneado(ctx)
+	}
+	if !activa {
+		return errorSesionSaneado(ctx)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		if postgresqlcomun.EsCarreraSerializable(err) {
+			return err
+		}
+		// Un COMMIT incierto no permite afirmar que la sesión sigue activa.
 		return errorSesionSaneado(ctx)
 	}
 	return nil
