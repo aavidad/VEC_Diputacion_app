@@ -54,6 +54,29 @@ func TestPlanExigePreimagenPorPersonaYUnaSolaOcurrencia(t *testing.T) {
 	}
 }
 
+func TestValidacionJSONPropagaEntradaInvalidaSinDetalles(t *testing.T) {
+	for _, entrada := range []string{
+		"", `{"campo":`, `{"campo"`, `{"campo":"material-sintetico"`,
+		`{"campo":1,"campo":2}`, `{"objeto":{"campo":1,"campo":2}}`,
+		`[1}`, `{} {}`, strings.Repeat("[", 33) + "0" + strings.Repeat("]", 33),
+	} {
+		if err := validarJSONSinDuplicados([]byte(entrada)); err != errEntrada {
+			t.Fatal("entrada inválida sin rechazo nominal")
+		}
+		if _, err := cargarPlan([]byte(entrada), "inventario"); err != errEntrada {
+			t.Fatal("rechazo no propagado al plan")
+		}
+	}
+	for _, entrada := range []string{
+		`{"objeto":{"campo":[1,true,null]}}`,
+		strings.Repeat("[", 32) + "0" + strings.Repeat("]", 32),
+	} {
+		if err := validarJSONSinDuplicados([]byte(entrada)); err != nil {
+			t.Fatal("JSON válido rechazado", err)
+		}
+	}
+}
+
 func planPrueba() plan {
 	p := plan{Esquema: "usuarios.correos.reclaveado.plan.v1", Base: "sintetica", Sistema: "123456789", Lote: "lote:reclaveado:01", Aprobacion: "aprobacion:local:01", Personas: []objetivo{{"per_" + strings.Repeat("a", 22), ""}}, Conexion: destinoConexion{Host: "127.0.0.1", Puerto: 55441, Usuario: "operador", SSLMode: "disable", ClonLocal: true}}
 	p.ConexionHuella = huellaConexion(p.Base, p.Conexion)

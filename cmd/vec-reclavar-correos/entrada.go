@@ -57,8 +57,8 @@ func leerDescriptor(fd int, limite int64) ([]byte, error) {
 }
 
 func cargarPlan(b []byte, modo string) (plan, error) {
-	if !jsonSinDuplicados(b) {
-		return plan{}, errEntrada
+	if err := validarJSONSinDuplicados(b); err != nil {
+		return plan{}, err
 	}
 	var p plan
 	d := json.NewDecoder(bytes.NewReader(b))
@@ -76,47 +76,53 @@ func cargarPlan(b []byte, modo string) (plan, error) {
 	return p, nil
 }
 
-func jsonSinDuplicados(b []byte) bool {
+func validarJSONSinDuplicados(b []byte) error {
 	d := json.NewDecoder(bytes.NewReader(b))
-	var valor func(int) bool
-	valor = func(profundidad int) bool {
+	var valor func(int) error
+	valor = func(profundidad int) error {
 		if profundidad > 32 {
-			return false
+			return errEntrada
 		}
 		t, err := d.Token()
 		if err != nil {
-			return false
+			return errEntrada
 		}
 		inicio, es := t.(json.Delim)
 		if !es {
-			return true
+			return nil
 		}
 		vistos := map[string]bool{}
 		for d.More() {
 			if inicio == '{' {
 				k, err := d.Token()
 				if err != nil {
-					return false
+					return errEntrada
 				}
 				nombre, ok := k.(string)
 				if !ok || vistos[nombre] {
-					return false
+					return errEntrada
 				}
 				vistos[nombre] = true
 			}
-			if !valor(profundidad + 1) {
-				return false
+			if err := valor(profundidad + 1); err != nil {
+				return err
 			}
 		}
 		fin, err := d.Token()
 		if err != nil {
-			return false
+			return errEntrada
 		}
-		return (inicio == '{' && fin == json.Delim('}')) || (inicio == '[' && fin == json.Delim(']'))
+		if (inicio == '{' && fin == json.Delim('}')) || (inicio == '[' && fin == json.Delim(']')) {
+			return nil
+		}
+		return errEntrada
 	}
-	if !valor(0) {
-		return false
+	if err := valor(0); err != nil {
+		return err
 	}
 	_, err := d.Token()
-	return err == io.EOF
+	if err != io.EOF {
+		return errEntrada
+	}
+	return nil
 }
