@@ -7,6 +7,70 @@ import unittest
 
 
 class PublicacionReadyTests(unittest.TestCase):
+    def test_plan_45_propuesto_detiene_preparacion_antes_de_restaurar(self):
+        source = Path(__file__).with_name('preparar_clon.sh').read_text()
+        preflight = source[source.index('# Cotejar todo el inventario SQL'):source.index('if [[ -e "$marcador" ]]')]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            marker = state / 'restauracion-invocada'
+            script = '''set -eu
+repo="$VEC_TEST_REPO"
+guiones="$repo/scripts/recorridos"
+commit=73e56c106d12fdda0bd16d6fe573503c42c5495f
+accion=preparar
+''' + preflight + '\ntouch "$VEC_TEST_RESTORE"\n'
+            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=30,
+                env={'PATH': '/usr/bin:/bin', 'PYTHONDONTWRITEBYTECODE': '1',
+                     'VEC_TEST_REPO': str(Path(__file__).resolve().parents[2]),
+                     'VEC_TEST_RESTORE': str(marker)})
+            self.assertNotEqual(process.returncode, 0)
+            self.assertIn('plan SQL propuesto', process.stderr.decode())
+            self.assertFalse(marker.exists())
+            self.assertFalse((state / 'READY.json').exists())
+
+    def test_plan_45_propuesto_impide_publicacion_ready_tras_runtime_valido(self):
+        source = Path(__file__).with_name('preparar_clon.sh').read_text()
+        function = source[source.index('publicar_ready() {'):source.index('\nfinalizar_arranque() {')]
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            script = '''set -eu
+repo="$VEC_TEST_REPO"
+guiones="$repo/scripts/recorridos"
+estado="$VEC_TEST_STATE"
+marcador=fixture
+nombre=vec-fixture
+runtime() { return 0; }
+python3() {
+  if [[ "$1" == '-' && "$2" == fixture ]]; then
+    printf '%s\\n' 73e56c106d12fdda0bd16d6fe573503c42c5495f
+  elif [[ "$1" == "$guiones/clon_sql.py" ]]; then
+    /usr/bin/python3 "$@"
+  else
+    touch "$estado/READY.json"
+  fi
+}
+''' + function + '\nif ! publicar_ready; then exit 17; fi\n'
+            # El control de propuesta precede a la lectura del archive y de BD.
+            # Se usa un archive SQL real porque verify_live valida primero la fuente.
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('sql_ready_test',
+                Path(__file__).with_name('clon_sql.py'))
+            sql = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(sql)
+            repo = Path(__file__).resolve().parents[2]
+            _, contents = sql.GitSource(repo).inventory(sql.H6_FIRMA_FINAL_REF)
+            archive = state / ('fuente-' + sql.H6_FIRMA_FINAL_REF)
+            for path, data in contents.items():
+                file = archive / path
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_bytes(data)
+            process = subprocess.run(['bash', '-c', script], capture_output=True, timeout=30,
+                env={'PATH': '/usr/bin:/bin', 'PYTHONDONTWRITEBYTECODE': '1',
+                     'VEC_TEST_REPO': str(repo), 'VEC_TEST_STATE': str(state)})
+            self.assertEqual(process.returncode, 17)
+            self.assertIn('plan SQL propuesto', process.stderr.decode())
+            self.assertFalse((state / 'READY.json').exists())
+
     def test_inventario_sql_se_valida_antes_de_restaurar_h1(self):
         source = Path(__file__).with_name('preparar_clon.sh').read_text()
         preflight = source.index('"$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan')

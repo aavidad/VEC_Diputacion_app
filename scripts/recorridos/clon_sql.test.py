@@ -14,9 +14,144 @@ SPEC = importlib.util.spec_from_file_location("clon_sql", Path(__file__).with_na
 SQL = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SQL)
 REPO = Path(os.environ.get("VEC_CLON_SQL_TEST_REPO", Path(__file__).resolve().parents[2]))
+GIT_REPO = Path(__file__).resolve().parents[2]
 
 
 class HelperTests(unittest.TestCase):
+    def test_plan_45_preserva_44_y_coteja_ad132_fuera_del_lote(self):
+        previous = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_FINAL_REF)
+        self.assertEqual(rows[:44], previous)
+        self.assertEqual({k: v for k, v in rows[44].items() if k != "sql"}, SQL.H6_CT153)
+        self.assertEqual(SQL.plan_hash(rows),
+                         "52240f99125ce4b83872bc41c75bfda233e7957b0b2978aa361c26fba708ac48")
+        self.assertEqual(len(SQL.withheld_sql(SQL.H6_FIRMA_FINAL_REF)), 19 + 4)
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
+        self.assertEqual((plan["approved_sql_ref"], plan["file_count"], plan["plan_family"],
+                          plan["status"], plan["execution_manifest"]),
+                         (SQL.H6_FIRMA_FINAL_REF, 45, "h6_45", "proposed", "sql_main_h6_firma.txt"))
+        self.assertEqual(plan["dba_excluded"],
+                         [{"path": p, "sha256": h} for p, h in SQL.H6_DBA_EXCLUDED.items()])
+        source = SQL.GitSource(GIT_REPO)
+        before, _ = source.inventory(SQL.H6_FIRMA_REF)
+        after, _ = source.inventory(SQL.H6_FIRMA_FINAL_REF)
+        up_paths = lambda entries: {r["path"] for r in entries
+                                    if r["path"].endswith((".up.sql", "_up.sql"))}
+        self.assertEqual(up_paths(after) - up_paths(before),
+                         {SQL.H6_CT153["path"]} | SQL.H6_DBA_EXCLUDED.keys())
+        self.assertTrue((SQL.H6_FIRMA_WITHHELD.keys() | SQL.H6_DBA_EXCLUDED.keys())
+                        .isdisjoint({r["path"] for r in rows}))
+        self.assertEqual(SQL.plan_path(SQL.H6_FIRMA_FINAL_REF)[-3:],
+                         (SQL.H6_REF, SQL.H6_FIRMA_REF, SQL.H6_FIRMA_FINAL_REF))
+        self.assertEqual(len(SQL.plan_path(SQL.H6_FIRMA_FINAL_REF)), 8)
+
+    def test_plan_45_rechaza_ad132_en_manifiesto_y_recibos(self):
+        path, digest = next(iter(SQL.H6_DBA_EXCLUDED.items()))
+        line = f"MAIN {digest} {path}\n"
+        original = SQL.H6_FIRMA_MANIFEST.read_text()
+        with tempfile.TemporaryDirectory() as scratch:
+            manifest = Path(scratch) / "plan.txt"
+            for content in (original + line, original.rsplit("MAIN\t", 1)[0] + line):
+                manifest.write_text(content)
+                with self.subTest(content=content[-160:]), self.assertRaisesRegex(SQL.Refused, "CLI DBA"):
+                    SQL.load_plan(REPO, manifest, source_ref=SQL.H6_FIRMA_FINAL_REF)
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
+        installed = [{"position": i, "path": r["path"], "sha256": r["sha256"]}
+                     for i, r in enumerate(plan["entries"], 1)]
+        SQL.validate_receipts(installed, plan)
+        receipt = {"position": 45, "path": path, "sha256": digest}
+        with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
+            SQL.validate_receipts([*installed[:44], receipt], plan)
+        with self.assertRaisesRegex(SQL.Refused, "ajenos"):
+            SQL.validate_receipts([*installed, {**receipt, "position": 46}], plan)
+
+    def test_plan_45_rechaza_huellas_de_plan_ct153_y_ad132_inesperadas(self):
+        _, contents = SQL.GitSource(GIT_REPO).inventory(SQL.H6_FIRMA_FINAL_REF)
+        with tempfile.TemporaryDirectory() as scratch:
+            manifest = Path(scratch) / "plan.txt"
+            manifest.write_text(SQL.H6_FIRMA_MANIFEST.read_text().replace(
+                "MAIN\t" + SQL.H6_CT153["sha256"], "H4\t" + SQL.H6_CT153["sha256"]))
+            with self.assertRaisesRegex(SQL.Refused, "manifiesto incompatible"):
+                SQL.load_plan(None, manifest, SQL.H6_FIRMA_FINAL_REF, contents)
+        for path, message in ((SQL.H6_CT153["path"], "SHA incompatible"),
+                              (next(iter(SQL.H6_DBA_EXCLUDED)), "DBA excluida distinta")):
+            with self.subTest(path=path), self.assertRaisesRegex(SQL.Refused, message):
+                SQL.load_plan(None, source_ref=SQL.H6_FIRMA_FINAL_REF,
+                              contents={**contents, path: b"bytes no revisados"})
+
+    def test_revision_44_solo_tolera_la_cola_ct153_exacta(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            manifest = Path(scratch) / "plan.txt"
+            original = SQL.H6_FIRMA_MANIFEST.read_text()
+            for content in (original + original.splitlines()[-1] + "\n",
+                            original.replace(SQL.H6_CT153["sha256"], "a" * 64)):
+                manifest.write_text(content)
+                with self.assertRaisesRegex(SQL.Refused, "44 entradas"):
+                    SQL.load_plan(REPO, manifest, source_ref=SQL.H6_FIRMA_REF)
+
+    def test_preflight_45_rechaza_inventarios_y_archive_divergentes(self):
+        inventory, contents = SQL.GitSource(GIT_REPO).inventory(SQL.H6_FIRMA_FINAL_REF)
+        actual = [dict(r) for r in inventory]
+        actual[-1]["sha256"] = "a" * 64
+        with patch.object(SQL.GitSource, "inventory", side_effect=[(inventory, contents), (actual, contents)]):
+            with self.assertRaisesRegex(SQL.Refused, "SQL distinto"):
+                SQL.validate_git_source(SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            for path, data in contents.items():
+                destination = root / path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(data)
+            SQL.approved_source_plan(root, SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
+            excluded = root / next(iter(SQL.H6_DBA_EXCLUDED))
+            excluded.write_bytes(excluded.read_bytes() + b"-- archivo distinto\n")
+            with self.assertRaisesRegex(SQL.Refused, "extraído|archive|inventario"):
+                SQL.approved_source_plan(root, SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
+
+    def test_plan_45_propuesto_bloquea_instalacion_etapas_y_ready_sin_docker(self):
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_FINAL_REF)
+        with patch.object(SQL.DockerDB, "check_owner") as check, \
+                patch.object(SQL.DockerDB, "query") as query, \
+                patch.object(SQL, "approved_source_plan", return_value=plan):
+            for operation in (
+                lambda: SQL.main(["--repo", str(REPO), "--git-repo", str(GIT_REPO),
+                                  "--source-ref", SQL.H6_FIRMA_FINAL_REF, "--installable"]),
+                lambda: SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_FINAL_REF, Path("/irrelevant")),
+                lambda: SQL.apply(SQL.DockerDB("vec-fixture"), rows, Path("/irrelevant"),
+                                  SQL.H6_FIRMA_FINAL_REF, plan),
+                lambda: SQL.verify_live(SQL.DockerDB("vec-fixture"), REPO, REPO,
+                                        SQL.H6_FIRMA_FINAL_REF, Path("/irrelevant")),
+            ):
+                with self.subTest(operation=operation), self.assertRaisesRegex(SQL.Refused, "propuesto"):
+                    operation()
+        check.assert_not_called()
+        query.assert_not_called()
+
+    def test_revision_8_preserva_historia_y_exige_prefijo_44(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_FINAL_REF)
+        _, _, record = self.planner_fixture(SQL.H6_FIRMA_REF, SQL.H6_FIRMA_FINAL_REF)
+        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
+        revisions = record["revisions"]
+        new = {"revision": 8, "source_ref": SQL.H6_FIRMA_FINAL_REF,
+               "plan_sha": SQL.plan_hash(rows), "file_count": 45}
+        answers = ["t", json.dumps(revisions), json.dumps(record["installed"]), "",
+                   "t", json.dumps([*revisions, new])]
+        with patch.object(SQL.DockerDB, "query", side_effect=answers) as query:
+            result = SQL.acknowledge_plan(SQL.DockerDB("vec-fixture"), rows,
+                                          SQL.H6_FIRMA_FINAL_REF, original)
+        self.assertEqual(result["revisions"], [*revisions, new])
+        mutation = query.call_args_list[3].args[0]
+        self.assertIn("(revision=8 AND file_count=45)", mutation)
+        self.assertNotIn("UPDATE", mutation)
+        self.assertNotIn("DELETE", mutation)
+        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
+            with self.assertRaisesRegex(SQL.Refused, "44 SQL"):
+                SQL.acknowledge_plan(SQL.DockerDB("vec-fixture"), rows, SQL.H6_FIRMA_FINAL_REF, original)
+        bad = [*revisions[:-1], new]
+        with self.assertRaisesRegex(SQL.Refused, "saltos"):
+            SQL.validate_history(SQL.BASE_REF, bad)
+
     def test_main_interno_firma_amplia_41_a_44_y_retiene_sql_exterior(self):
         previous = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
         rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
@@ -29,7 +164,7 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(SQL.plan_hash(rows), SQL.REF_PLAN_SHA[SQL.H6_FIRMA_REF])
         self.assertEqual(len(SQL.H6_FIRMA_WITHHELD), 23)
         self.assertTrue(SQL.H6_FIRMA_WITHHELD.keys().isdisjoint({r["path"] for r in rows}))
-        source = SQL.GitSource(REPO)
+        source = SQL.GitSource(GIT_REPO)
         inventory_before, _ = source.inventory(SQL.H6_REF)
         inventory_after, _ = source.inventory(SQL.H6_FIRMA_REF)
         up_paths = lambda entries: {item["path"] for item in entries
@@ -38,7 +173,7 @@ class HelperTests(unittest.TestCase):
                          {r["path"] for r in rows[41:]} |
                          (SQL.H6_FIRMA_WITHHELD.keys() - SQL.H6_WITHHELD.keys()))
         self.assertEqual(SQL.plan_path(SQL.H6_FIRMA_REF)[-2:], (SQL.H6_REF, SQL.H6_FIRMA_REF))
-        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, REPO)
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, GIT_REPO)
         self.assertEqual((plan["file_count"], plan["plan_family"], plan["execution_manifest"], plan["status"]),
                          (44, "h6_44", "sql_main_h6_firma.txt", "proposed"))
         for relative in SQL.H6_FIRMA_WITHHELD:
@@ -528,7 +663,7 @@ class HelperTests(unittest.TestCase):
 
     def test_plan_44_propuesto_no_llega_a_postgresql(self):
         rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
-        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, REPO)
+        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, GIT_REPO)
         with patch.object(SQL.DockerDB, "check_owner") as check_owner:
             with self.assertRaisesRegex(SQL.Refused, "propuesto"):
                 SQL.apply(SQL.DockerDB("vec-test"), rows, Path("/irrelevant"),

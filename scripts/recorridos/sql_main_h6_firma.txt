@@ -1,4 +1,6 @@
-# Rama interna de main ebac67de4: 44 SQL ejecutables. 19 UP exteriores y 4 RPT retenidas.
+# Propuesta interna main 73e56c106d12fdda0bd16d6fe573503c42c5495f: 45 SQL funcionales.
+# Conserva el prefijo44 de ebac67de4 y añade CT153 en posición45, revisión8.
+# 19 UP exteriores y 4 RPT retenidas. AD3-132 excluida: solo CLI DBA tras el kit.
 # H6 main 5694d2da15e19fa97afecae51e1a30ce21d5fca5: 41 SQL ejecutables.
 # Prefijo39 idéntico a main1e443, seguido de CT150 y CT151; rama hermana del ledger43.
 # El inventario Git conserva las cuatro SQL RPT de sql_main.txt, sin ejecutarlas.
@@ -47,3 +49,4 @@ MAIN	68c8073c0b50c90674b3659f30d67bd972612c7b724ccacdd50fbad3475f1842	deploy/pos
 MAIN	eced35ee3bc459593959ce675b8c9b44026a209ffeb08abaee692b59a6b33a9f	deploy/postgresql/contratacion_temporal/migraciones/000145_enlace_firma_documento_custodiado.up.sql
 MAIN	c845d25d0e03f11b4c6189da62043cb5266057611846f044540f48e354b9cec1	deploy/postgresql/autorizacion_atestada_v3/migraciones/000125_consumidor_consulta_firmas_documento_ct.up.sql
 MAIN	d48d0fb1aee7fc01412644aee8f9578a5f596a88b68411e5de2c50f295ab1a1f	deploy/postgresql/contratacion_temporal/migraciones/000152_consulta_firmas_documento_atestada.up.sql
+MAIN	6e45fbb7b1338a9fcda1b67551bd2c485d763fe64c19f80d3c37d7467ef7f3d6	deploy/postgresql/contratacion_temporal/migraciones/000153_perfil_reincorporacion_titular.up.sql

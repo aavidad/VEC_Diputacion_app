@@ -39,19 +39,50 @@ El artefacto fijado para H6 tiene SHA256
 La preparación de ese corte debe importarlo del kit aprobado, conservando
 su procedencia; no lo sustituye por otra compilación.
 
-La fuente `origin/main@ebac67de4e43fc49add3d82a011b2b0c9f6a6b21`
-incorpora 22 SQL de subida respecto de ese H6. La propuesta de plan interno
-`sql_main_h6_firma.txt` conserva las 41 instalaciones y añade, en este orden,
-CT145, AD3-125 y CT152. Sus 44 posiciones dejan fuera las 19 SQL del portal
-exterior y las cuatro de RPT, todas fijadas por ruta y huella. El inventario
-completo de Git, incluidas las SQL de bajada y las pruebas, se coteja antes
-de restaurar la copia H1. La familia de 43 instalaciones sigue separada y
-no puede convertirse en una de 44.
+La fuente final `origin/main@73e56c106d12fdda0bd16d6fe573503c42c5495f`
+propone 45 SQL funcionales en `sql_main_h6_firma.txt`. Conserva las primeras
+44 de `ebac67de4e43fc49add3d82a011b2b0c9f6a6b21`, que añadía CT145,
+AD3-125 y CT152 a H6. CT153 ocupa la posición45, como revisión8, con SHA256
+`6e45fbb7b1338a9fcda1b67551bd2c485d763fe64c19f80d3c37d7467ef7f3d6`.
+La huella del plan normalizado, calculada por `clon_sql.plan_hash`, es
+`52240f99125ce4b83872bc41c75bfda233e7957b0b2978aa361c26fba708ac48`.
+La familia `h6_45` deja fuera las 19 SQL del portal exterior y las cuatro
+de RPT, todas fijadas por ruta y huella. El inventario completo de Git,
+incluidas las SQL de bajada y las pruebas, se coteja antes de restaurar H1.
+La familia de 43 instalaciones sigue separada y no puede convertirse en
+una de 41, 44 o 45.
 
-Este plan interno necesita revisión SQL independiente y ensayo en el clon
-antes de utilizarse para recorridos. La revocación de `TEMP` de `PUBLIC`
-anunciada para AD3-132 no figura en esa fuente. No se atribuye a esta
-propuesta un arranque seguro, un portal exterior ni un estado `READY`.
+AD3-132 está presente en la fuente final con SHA256
+`06dfefe50be8029fcee36a794d65e8d4c73d486d4e1ea2ce23823b9865c4bbea`.
+Se coteja como SQL excluida del plan funcional. Su reparación de `TEMP` de
+`PUBLIC` corresponde a `aplicar_000132_temp_public.py`, por el canal DBA,
+después de las 45 SQL del kit y antes de arrancar la aplicación. Nunca forma
+parte del manifiesto de45 ni de los recibos de `clon_sql`; incluirla detiene
+la lectura del plan. Su contrato y la aprobación de la preimagen DBA quedan
+pendientes para este clon.
+
+Las revisiones7/8 de44/45 siguen propuestas: `--installable`, las etapas
+de preparación, la instalación y la verificación previa a `READY` se
+detienen antes de acceder a PostgreSQL. Falta la revisión SQL independiente,
+el ensayo autorizado y el kit actualizado de D con su comprobación `READY`.
+Esta propuesta acredita únicamente un plan reproducible en lectura.
+
+El kit y el ensayo H6 de D fijan una fuente inmutable:
+`VEC_RECORRIDOS_REFERENCIA=73e56c106d12fdda0bd16d6fe573503c42c5495f`.
+El artefacto, su SHA256 y `VEC_RECORRIDOS_ARTEFACTO_APROBADO_FUENTE`
+deben proceder juntos de ese kit; su fuente debe ser ese mismo commit.
+Un merge posterior en `main` no cambia el binario ni los activos de este H6.
+El valor por defecto `origin/main` puede avanzar: para este ensayo se exige
+la referencia exacta. Una fuente con otro inventario SQL falla el preflight;
+un descendiente con inventario idéntico solo permite leer esta propuesta,
+y una reconstrucción futura con esa fuente requiere su propia revisión.
+
+Para leer la propuesta final desde los objetos Git locales:
+
+```bash
+python3 scripts/recorridos/clon_sql.py --repo "$PWD" --git-repo "$PWD" \
+  --source-ref 73e56c106d12fdda0bd16d6fe573503c42c5495f --plan
+```
 
 H6 se prepara desde una copia fría nueva de H1 o continúa un prefijo de ese
 plan hasta 39. La copia que ya contiene las 43 instalaciones de RPT se
@@ -224,21 +255,23 @@ verificada por el instalador sea la del proceso activo.
 ## Comprobar el preparador sin servicios
 
 Las pruebas usan fixtures nuevos, sin Docker, PostgreSQL ni acceso a la red.
-La prueba SQL necesita los bytes congelados de H6, incluidos los cuatro archivos
-retenidos. Genere esa fuente desde los objetos Git locales; no use una copia
+La prueba SQL necesita los bytes de la propuesta final, incluidos los 23 archivos
+retenidos y AD3-132 excluida. Genere esa fuente desde los objetos Git locales; no use una copia
 privada cuyo origen no pueda reconstruirse:
 
 ```bash
 repo_focal=$(git rev-parse --show-toplevel)
+git_comun_focal=$(realpath "$(git rev-parse --git-common-dir)")
 fuente_sql_focal=$(mktemp -d /tmp/vec-h6-sql-focal-XXXXXXXX)
-git archive 5694d2da15e19fa97afecae51e1a30ce21d5fca5 | tar -x -C "$fuente_sql_focal"
+git archive 73e56c106d12fdda0bd16d6fe573503c42c5495f | tar -x -C "$fuente_sql_focal"
 timeout 180s bwrap --die-with-parent --new-session --unshare-net \
   --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /bin /bin \
   --dir /etc --ro-bind /etc/passwd /etc/passwd --ro-bind /etc/group /etc/group \
   --ro-bind /etc/ssl/openssl.cnf /etc/ssl/openssl.cnf \
   --ro-bind "$(realpath "$(command -v awk)")" /etc/alternatives/awk \
   --ro-bind "$repo_focal" /source --ro-bind "$fuente_sql_focal" /fixtures \
-  --tmpfs /tmp --dev /dev --proc /proc --clearenv \
+  --ro-bind "$git_comun_focal" "$git_comun_focal" \
+  --size 268435456 --tmpfs /tmp --dev /dev --proc /proc --clearenv \
   --setenv PATH /usr/bin:/bin --setenv HOME /tmp --setenv TMPDIR /tmp \
   --setenv PYTHONDONTWRITEBYTECODE 1 --setenv PYTHONPATH /source \
   --setenv LANG C.UTF-8 --setenv GIT_CONFIG_NOSYSTEM 1 \
