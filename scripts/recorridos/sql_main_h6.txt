@@ -1,11 +1,6 @@
-# Base main 7f1ecea2fd9f8912d255a80e74da84c69e46b978: primeras 33 SQL.
-# Extensión main ff6493cfccb2da4e83c94fa7c59be24c025cb7c9: CT147 en posición 34. H5 no añade SQL.
-# Extensión main e78687528d5725efd74e95c858d389f4437099ca: AD3-114 y CT148 en posiciones 35/36.
-# Extensión main a7d9df2b3285b0df6be6bba0bae09331463f0a3d: AD3-113/Documentos9 en posiciones 37/38; historia 36 intacta.
-# Extensión main 1e443463df69dffeaac239f9b7000f48dd1b7bb7: Aspirantes000002 en posición39, tras Aspirantes000001 de la base.
-# Extensión main 890b3fe0e9f9e30e249b9dc2d3778971121a8cc2: roles/categorías000001/lecturas000002/AD3-117 en posiciones40..43.
-# Estado 890/43: solo lectura/recuperación de ledger 43 exacto ya instalado; prohibida nueva UP por NO-GO de Cat000001.
-# H6/41 usa sql_main_h6.txt: comparte prefijo39; no es el prefijo41 de este ledger43.
+# H6 main 5694d2da15e19fa97afecae51e1a30ce21d5fca5: 41 SQL ejecutables.
+# Prefijo39 idéntico a main1e443, seguido de CT150 y CT151; rama hermana del ledger43.
+# El inventario Git conserva las cuatro SQL RPT de sql_main.txt, sin ejecutarlas.
 # fase SHA256 ruta relativa; solo SQL integrado, nunca DOWN.
 H3	c4dcae5c990555c05dae958adc0a52cab2244b7bfb5c5cac5eaaf2399e6275b3	deploy/postgresql/contratacion_temporal/migraciones/000141_requisitos_via_expediente.up.sql
 H3	ad53b128a42120e9030099ed0faf479d21fe4524da4c3ba385e16ac63cd28e4e	deploy/postgresql/contratacion_temporal/migraciones/000142_numeracion_anual_expedientes_anteriores.up.sql
@@ -46,7 +41,5 @@ MAIN	4f88a1443f14f4debfbb6b439da274daeb10946cc5d6eb6ac689571371378f13	deploy/pos
 MAIN	16d61573b80fc8061e325b41438003652ebdf5502a76153516c46ace5d07b6e5	deploy/postgresql/autorizacion_atestada_v3/migraciones/000113_custodia_documento_firmado.up.sql
 MAIN	a3faf864f1e783a86c654e6006c1a061d865539163afcc810d043b725ba97873	deploy/postgresql/documentos/migraciones/000009_custodia_documento_firmado.up.sql
 MAIN	4f956a3b7eb5c8786e73f4f531acf979aa7870b13ae5b3a202f3cdab544e3e88	deploy/postgresql/aspirantes/migraciones/000002_frontera.up.sql
-MAIN	55b5b8aa2102ce45fc56f37eb165f3cd5119e343a345d238e26a5e3023ff2547	deploy/postgresql/catalogos_configurables/roles_up.sql
-MAIN	1d940cc3be8f000bc10fc7ba97ed6e9105b0bf4681491fa0776dd2e2e81e13b7	deploy/postgresql/catalogos_configurables/migraciones/000001_autoridad_categorias.up.sql
-MAIN	97e22af3b344427360a9541c6807f9d9a63a260142edb2dc128959924fd3fbda	deploy/postgresql/catalogos_configurables/migraciones/000002_lecturas_nominales.up.sql
-MAIN	eaceb3b03b6db8a5bed6be4b42ff9e939525234308cdda52b899716f98658cca	deploy/postgresql/autorizacion_atestada_v3/migraciones/000117_lecturas_categorias_rpt.up.sql
+MAIN	cb3f114cd1b40afb3c044a14640cfa4f1d4f86053a689acb39a7cc122ca60249	deploy/postgresql/contratacion_temporal/migraciones/000150_entrega_peticion_perfil_fijo.up.sql
+MAIN	68c8073c0b50c90674b3659f30d67bd972612c7b724ccacdd50fbad3475f1842	deploy/postgresql/contratacion_temporal/migraciones/000151_entrega_estado_http.up.sql

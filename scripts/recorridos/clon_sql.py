@@ -9,6 +9,9 @@ Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38), main@1e443463d
 (Aspirantes000002, posición39) y main@890b3fe0e (roles, categorías, lecturas
 nominales y AD3-117, posiciones40..43).
+H6 main@5694d2da1 instala 41 SQL: el prefijo39 y CT150/CT151. Las cuatro
+SQL de RPT siguen en el inventario verificado, pero quedan fuera de ejecución.
+Las familias 41 y 43 parten de39; no existe transición de43 a41.
 El plan 43 de 890b3fe0e está retirado para nuevas instalaciones: se conserva
 solo para lectura y recuperación de los 43 recibos exactos ya instalados.
 Cada extensión conserva los recibos y metadatos originales
@@ -40,9 +43,14 @@ THIRD_REF = "e78687528d5725efd74e95c858d389f4437099ca"
 FOURTH_REF = "a7d9df2b3285b0df6be6bba0bae09331463f0a3d"
 FIFTH_REF = "1e443463df69dffeaac239f9b7000f48dd1b7bb7"
 MAIN_REF = "890b3fe0e9f9e30e249b9dc2d3778971121a8cc2"
+H6_REF = "5694d2da15e19fa97afecae51e1a30ce21d5fca5"
 REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, FOURTH_REF: 38,
-              FIFTH_REF: 39, MAIN_REF: 43}
+              FIFTH_REF: 39, MAIN_REF: 43, H6_REF: 41}
+# Índice de aprobaciones SQL en Git; no determina el orden de instalación.
 REF_ORDER = tuple(REF_COUNTS)
+REF_PARENT = {BASE_REF: None, PREVIOUS_REF: BASE_REF, THIRD_REF: PREVIOUS_REF,
+              FOURTH_REF: THIRD_REF, FIFTH_REF: FOURTH_REF,
+              MAIN_REF: FIFTH_REF, H6_REF: FIFTH_REF}
 RECOVERY_ONLY_REFS = {MAIN_REF}
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
@@ -51,11 +59,23 @@ REF_PLAN_SHA = {
     FOURTH_REF: "b92cea3eb1cb5497bab027eac561a168b3572a117417acf45597a6eac39403f5",
     FIFTH_REF: "af888b95d532a0b698212adbebb381d5f2f126e7393396af90000fddc9ca3427",
     MAIN_REF: "5999af8fc61d25a6d63c4f2664012edfc59f4a38b8fb5ddea5daea2b818f4877",
+    H6_REF: "95c3feff3cbd5b95cf0286af74c576d2c551d92b3cb7787b337754d3aeed87fb",
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
 SCHEMA = "vec_recorridos_clon"
 MANIFEST = Path(__file__).with_name("sql_main.txt")
+H6_MANIFEST = Path(__file__).with_name("sql_main_h6.txt")
+H6_WITHHELD = {
+    "deploy/postgresql/catalogos_configurables/roles_up.sql":
+        "55b5b8aa2102ce45fc56f37eb165f3cd5119e343a345d238e26a5e3023ff2547",
+    "deploy/postgresql/catalogos_configurables/migraciones/000001_autoridad_categorias.up.sql":
+        "1d940cc3be8f000bc10fc7ba97ed6e9105b0bf4681491fa0776dd2e2e81e13b7",
+    "deploy/postgresql/catalogos_configurables/migraciones/000002_lecturas_nominales.up.sql":
+        "97e22af3b344427360a9541c6807f9d9a63a260142edb2dc128959924fd3fbda",
+    "deploy/postgresql/autorizacion_atestada_v3/migraciones/000117_lecturas_categorias_rpt.up.sql":
+        "eaceb3b03b6db8a5bed6be4b42ff9e939525234308cdda52b899716f98658cca",
+}
 
 
 class Refused(RuntimeError):
@@ -70,15 +90,45 @@ def sql_literal(value):
     return "'" + value.replace("'", "''") + "'"
 
 
-def load_plan(repo, manifest=MANIFEST, source_ref=MAIN_REF, contents=None):
+def plan_path(source_ref):
+    """Camino de ejecución causal; 43 y H6 son ramas hermanas."""
+    if source_ref not in REF_PARENT:
+        raise Refused("referencia sin camino SQL aprobado")
+    parent = REF_PARENT[source_ref]
+    return (*plan_path(parent), source_ref) if parent else (source_ref,)
+
+
+def plan_family(source_ref):
+    return {H6_REF: "h6_41", MAIN_REF: "retained_43"}.get(source_ref, "common_prefix")
+
+
+def validate_history(original, revisions):
+    """Reconoce revisiones completas contiguas dentro de una única familia."""
+    recognized = original
+    for revision in revisions:
+        ref = revision["source_ref"]
+        if (ref not in REF_PARENT or REF_PARENT[ref] != recognized
+                or revision["revision"] != len(plan_path(ref))
+                or revision["plan_sha"] != REF_PLAN_SHA[ref]
+                or revision["file_count"] != REF_COUNTS[ref]):
+            raise Refused("revisiones de plan incompatibles o con saltos; no instalar ni volver a la base")
+        recognized = ref
+    return recognized
+
+
+def load_plan(repo, manifest=None, source_ref=MAIN_REF, contents=None):
     """Congela los bytes antes de escribir; un árbol alterado falla completo."""
     rows = []
     if source_ref not in REF_COUNTS:
         raise Refused("el plan solo corresponde a los hashes main fijados")
+    if manifest is None:
+        manifest = H6_MANIFEST if source_ref == H6_REF else MANIFEST
     for line in manifest.read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         if len(rows) == REF_COUNTS[source_ref]:
+            if source_ref == H6_REF:
+                raise Refused("manifiesto H6 contiene SQL fuera de sus 41 entradas")
             break
         phase, digest, relative = line.split()
         if phase not in {"H3", "H4", "MAIN"} or not re.fullmatch(r"[a-f0-9]{64}", digest):
@@ -106,6 +156,17 @@ def load_plan(repo, manifest=MANIFEST, source_ref=MAIN_REF, contents=None):
         raise Refused("número de SQL incompatible con el hash main fijado")
     if plan_hash(rows) != REF_PLAN_SHA[source_ref]:
         raise Refused("manifiesto incompatible con el hash main fijado")
+    if source_ref == H6_REF:
+        for relative, digest in H6_WITHHELD.items():
+            if contents is None:
+                path = repo / relative
+                if not path.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
+                    raise Refused("SQL retenida fuera del árbol fuente")
+                data = path.read_bytes()
+            else:
+                data = contents[relative]
+            if sha(data) != digest or any(row["path"] == relative for row in rows):
+                raise Refused("SQL RPT retenida distinta de la aprobación H6; requiere nueva revisión")
     return rows
 
 
@@ -213,6 +274,8 @@ def validate_git_source(source_ref, git_repo=None):
     rows = load_plan(None, source_ref=approved, contents=contents)
     return {"source_ref": source_ref, "approved_sql_ref": approved,
             "status": "recovery_only" if approved in RECOVERY_ONLY_REFS else "installable",
+            "plan_family": plan_family(approved),
+            "execution_manifest": (H6_MANIFEST if approved == H6_REF else MANIFEST).name,
             "plan_sha": plan_hash(rows), "inventory_sha": sha(json.dumps(actual, sort_keys=True).encode()),
             "file_count": len(rows), "entries": [{k: v for k, v in r.items() if k != "sql"} for r in rows],
             "verified_main_ref": main, "sql_inventory": actual}
@@ -280,12 +343,12 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
     coteja su run_id y sus recibos con PostgreSQL antes de cada UP.
     """
     target = approved_source_plan(repo, source_ref, git_repo)
-    target_index = REF_ORDER.index(target["approved_sql_ref"])
+    target_path = plan_path(target["approved_sql_ref"])
     journal = Path(state) / "sql-journal.json"
     if not journal.exists() and not journal.is_symlink():
         if target["approved_sql_ref"] in RECOVERY_ONLY_REFS:
             raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
-        return list(REF_ORDER[:target_index + 1])
+        return list(target_path)
     status = journal.lstat()
     if not stat.S_ISREG(status.st_mode) or status.st_size > 2 * 1024 * 1024:
         raise Refused("el journal no es un fichero regular válido")
@@ -296,16 +359,7 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
         if original not in REF_COUNTS or record["plan_sha"] != REF_PLAN_SHA[original]:
             raise Refused("el journal pertenece a un plan no aprobado")
         revisions = record.get("revisions", [])
-        first = REF_ORDER.index(original) + 1
-        refs = REF_ORDER[first:first + len(revisions)]
-        if len(refs) != len(revisions):
-            raise Refused("el journal tiene revisiones ajenas al plan")
-        for revision, ref in zip(revisions, refs):
-            if (revision["revision"] != REF_ORDER.index(ref) + 1 or revision["source_ref"] != ref
-                    or revision["plan_sha"] != REF_PLAN_SHA[ref]
-                    or revision["file_count"] != REF_COUNTS[ref]):
-                raise Refused("el journal tiene revisiones incompatibles o con saltos")
-        recognized = refs[-1] if refs else original
+        recognized = validate_history(original, revisions)
         if record.get("approved_sql_ref", recognized) != recognized:
             raise Refused("la aprobación del journal no coincide con su historia")
         if record.get("current_plan_sha", REF_PLAN_SHA[recognized]) != REF_PLAN_SHA[recognized]:
@@ -318,16 +372,21 @@ def etapas_requeridas(repo, git_repo, source_ref, state):
             raise Refused("la fuente del journal no conserva su plan SQL aprobado")
         if "inventory_sha" in record and record["inventory_sha"] != current_plan["inventory_sha"]:
             raise Refused("el inventario del journal no coincide con Git")
+        for key in ("plan_family", "execution_manifest"):
+            if key in record and record[key] != current_plan[key]:
+                raise Refused("la familia o manifiesto del journal no coincide con Git")
+        if "file_count" in record and record["file_count"] != current_plan["file_count"]:
+            raise Refused("el número físico de SQL del journal no coincide con su plan")
         validate_receipts(record["installed"], current_plan)
         if any(datetime.fromisoformat(r["installed_at"]).tzinfo is None
                for r in record["installed"]):
             raise Refused("el journal conserva recibos sin fecha válida")
-        completed = REF_ORDER.index(recognized)
-        if completed > target_index:
-            raise Refused("el journal conserva una revisión posterior al destino")
-        if target["approved_sql_ref"] in RECOVERY_ONLY_REFS and completed != target_index:
+        if recognized not in target_path:
+            raise Refused("el journal conserva otra familia o una revisión posterior al destino")
+        completed = target_path.index(recognized)
+        if target["approved_sql_ref"] in RECOVERY_ONLY_REFS and recognized != target["approved_sql_ref"]:
             raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
-        return list(REF_ORDER[completed + 1:target_index + 1])
+        return list(target_path[completed + 1:])
     except (KeyError, TypeError, ValueError, AttributeError) as error:
         raise Refused("el journal tiene metadatos inválidos o incompletos") from error
 
@@ -412,9 +471,10 @@ def initialize(db, rows, source_ref=MAIN_REF):
 
 
 def acknowledge_plan(db, rows, source_ref, meta):
-    """Preserva plan original; la única ampliación admitida es su prefijo exacto."""
+    """Preserva el plan original y amplía por una arista causal aprobada."""
+    target_path = plan_path(source_ref)
     original_count = REF_COUNTS.get(meta["source_ref"])
-    if original_count is None or original_count > len(rows):
+    if original_count is None or meta["source_ref"] not in target_path:
         raise Refused("el clon conserva otro plan; requiere revisión del inventario")
     if meta["plan_sha"] != plan_hash(rows[:original_count]):
         raise Refused("el prefijo del plan original ha cambiado; no instalar")
@@ -424,26 +484,26 @@ def acknowledge_plan(db, rows, source_ref, meta):
         revisions = json.loads(db.query(f"""SELECT coalesce(json_agg(x ORDER BY revision), '[]'::json)
           FROM (SELECT revision,source_ref,plan_sha,file_count,acknowledged_at
                 FROM {SCHEMA}.plan_revisions) x;"""))
-        original_index = REF_ORDER.index(meta["source_ref"])
-        expected_refs = REF_ORDER[original_index + 1:original_index + 1 + len(revisions)]
-        if not revisions or len(expected_refs) != len(revisions):
+        if not revisions:
             raise Refused("revisiones de plan incompatibles; no instalar ni volver a la base")
-        for revision, ref in zip(revisions, expected_refs):
+        validate_history(meta["source_ref"], revisions)
+        for revision in revisions:
+            ref = revision["source_ref"]
             count = REF_COUNTS[ref]
-            if (revision["revision"] != REF_ORDER.index(ref) + 1
-                    or revision["source_ref"] != ref or count > len(rows)
+            if (ref not in target_path or count > len(rows)
                     or revision["plan_sha"] != plan_hash(rows[:count])
                     or revision["file_count"] != count):
                 raise Refused("revisiones de plan incompatibles; no instalar ni volver a la base")
     recognized_ref = revisions[-1]["source_ref"] if revisions else meta["source_ref"]
     if recognized_ref != source_ref:
-        index = REF_ORDER.index(recognized_ref)
-        if index + 1 >= len(REF_ORDER) or REF_ORDER[index + 1] != source_ref:
+        if source_ref in RECOVERY_ONLY_REFS:
+            raise Refused("plan 43 retirado para nuevas revisiones; conservar solo recuperación exacta")
+        if REF_PARENT[source_ref] != recognized_ref:
             raise Refused("extensión no autorizada: completar primero la revisión intermedia")
         required = REF_COUNTS[recognized_ref]
         if len(receipts(db, rows)) != required:
             raise Refused(f"la extensión requiere las {required} SQL anteriores completas")
-        revision = REF_ORDER.index(source_ref) + 1
+        revision = len(target_path)
         count = REF_COUNTS[source_ref]
         if exists == "t":
             # V2 restringía esta infraestructura a la revisión 2 y 34 ficheros.
@@ -455,7 +515,7 @@ def acknowledge_plan(db, rows, source_ref, meta):
               ADD CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
                 OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
-                OR (revision=6 AND file_count=43));"""
+                OR (revision=6 AND file_count IN (41,43)));"""
         else:
             ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
               revision integer PRIMARY KEY, source_ref text NOT NULL,
@@ -464,7 +524,7 @@ def acknowledge_plan(db, rows, source_ref, meta):
               CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
                 OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
-                OR (revision=6 AND file_count=43)));
+                OR (revision=6 AND file_count IN (41,43))));
               REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
         db.query(f"""BEGIN;
           SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
@@ -475,6 +535,8 @@ def acknowledge_plan(db, rows, source_ref, meta):
         return acknowledge_plan(db, rows, source_ref, meta)
     # Plan SQL reconocido; apply añade la procedencia de código verificada.
     return {**meta, "current_source_ref": source_ref, "current_plan_sha": plan_hash(rows),
+            "plan_family": plan_family(source_ref),
+            "execution_manifest": (H6_MANIFEST if source_ref == H6_REF else MANIFEST).name,
             "revisions": revisions}
 
 
@@ -551,6 +613,9 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
         validate_receipts(installed, {"file_count": len(rows), "entries": rows})
     meta = initialize(db, rows, approved_ref)
     meta["approved_sql_ref"] = approved_ref
+    meta.update(plan_family=plan_family(approved_ref),
+                execution_manifest=(H6_MANIFEST if approved_ref == H6_REF else MANIFEST).name,
+                file_count=len(rows))
     if source_plan:
         # Esta procedencia no aprueba los contratos Go, material ni DB_READY.
         meta.update(current_source_ref=source_ref, verified_source_ref=source_ref,
@@ -577,7 +642,7 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
-    parser.add_argument("--source-ref", default=MAIN_REF)
+    parser.add_argument("--source-ref", default=H6_REF)
     parser.add_argument("--git-repo", type=Path, help="repositorio de control para ascendencia y objetos")
     parser.add_argument("--container")
     parser.add_argument("--state-dir", type=Path)

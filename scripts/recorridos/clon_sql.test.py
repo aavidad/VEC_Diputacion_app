@@ -17,6 +17,37 @@ REPO = Path(os.environ.get("VEC_CLON_SQL_TEST_REPO", Path(__file__).resolve().pa
 
 
 class HelperTests(unittest.TestCase):
+    def test_h6_manifest_has_39_exact_prefix_and_only_ct150_ct151(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
+        old = SQL.load_plan(REPO)
+        self.assertEqual(len(rows), 41)
+        self.assertEqual(rows[:39], old[:39])
+        for ref in SQL.plan_path(SQL.FIFTH_REF):
+            self.assertEqual(rows[:SQL.REF_COUNTS[ref]], SQL.load_plan(REPO, source_ref=ref))
+        self.assertEqual([Path(row["path"]).name for row in rows[39:]],
+                         ["000150_entrega_peticion_perfil_fijo.up.sql", "000151_entrega_estado_http.up.sql"])
+        self.assertEqual([row["sha256"] for row in rows[39:]],
+                         ["cb3f114cd1b40afb3c044a14640cfa4f1d4f86053a689acb39a7cc122ca60249",
+                          "68c8073c0b50c90674b3659f30d67bd972612c7b724ccacdd50fbad3475f1842"])
+        self.assertEqual(SQL.plan_hash(rows), SQL.REF_PLAN_SHA[SQL.H6_REF])
+        self.assertEqual({r["path"]: r["sha256"] for r in old[39:]}, SQL.H6_WITHHELD)
+        self.assertEqual(len({r["path"] for r in rows} | SQL.H6_WITHHELD.keys()), 45)
+        self.assertTrue(SQL.H6_WITHHELD.keys().isdisjoint({r["path"] for r in rows}))
+        with self.assertRaisesRegex(SQL.Refused, "manifiesto"):
+            SQL.load_plan(REPO, SQL.MANIFEST, source_ref=SQL.H6_REF)
+
+    def test_h6_manifest_rejects_trailing_entry_and_retained_change(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            manifest = Path(scratch) / "manifest.txt"
+            manifest.write_text(SQL.H6_MANIFEST.read_text() + SQL.MANIFEST.read_text().splitlines()[-1] + "\n")
+            with self.assertRaisesRegex(SQL.Refused, "41 entradas"):
+                SQL.load_plan(REPO, manifest, source_ref=SQL.H6_REF)
+        contents = {r["path"]: r["sql"].encode() for r in SQL.load_plan(REPO, source_ref=SQL.H6_REF)}
+        contents.update({path: (REPO / path).read_bytes() for path in SQL.H6_WITHHELD})
+        for path in SQL.H6_WITHHELD:
+            with self.subTest(path=path), self.assertRaisesRegex(SQL.Refused, "retenida"):
+                SQL.load_plan(None, source_ref=SQL.H6_REF, contents={**contents, path: b"modificado"})
+
     def test_real_plan_pins_all_43_existing_files_and_preserves_prefixes(self):
         rows = SQL.load_plan(REPO)
         self.assertEqual(len(rows), 43)
@@ -336,21 +367,24 @@ class HelperTests(unittest.TestCase):
             self.assertEqual(json.loads((state / "sql-journal.json").read_text())["installed"], installed)
 
     def planner_fixture(self, approved=SQL.FOURTH_REF, target=SQL.MAIN_REF):
-        rows = SQL.load_plan(REPO)
+        rows = SQL.load_plan(REPO, source_ref=approved)
+        target_rows = SQL.load_plan(REPO, source_ref=target)
         count = SQL.REF_COUNTS[approved]
         target_count = SQL.REF_COUNTS[target]
         plan = {"source_ref": target, "approved_sql_ref": target,
-                "file_count": target_count, "entries": rows[:target_count]}
+                "file_count": target_count, "entries": target_rows,
+                "plan_family": SQL.plan_family(target),
+                "execution_manifest": (SQL.H6_MANIFEST if target == SQL.H6_REF else SQL.MANIFEST).name}
         current = {"source_ref": approved, "approved_sql_ref": approved,
-                   "file_count": count, "entries": rows[:count], "inventory_sha": "c" * 64}
-        original_index = SQL.REF_ORDER.index(SQL.BASE_REF)
-        end = SQL.REF_ORDER.index(approved)
-        refs = SQL.REF_ORDER[original_index + 1:end + 1]
+                   "file_count": count, "entries": rows[:count], "inventory_sha": "c" * 64,
+                   "plan_family": SQL.plan_family(approved),
+                   "execution_manifest": (SQL.H6_MANIFEST if approved == SQL.H6_REF else SQL.MANIFEST).name}
+        refs = SQL.plan_path(approved)[1:]
         record = {"run_id": "580a6b83-822d-4137-87d5-22d3b8c590e7", "source_ref": SQL.BASE_REF,
                   "plan_sha": SQL.REF_PLAN_SHA[SQL.BASE_REF], "current_source_ref": approved,
                   "approved_sql_ref": approved, "current_plan_sha": SQL.REF_PLAN_SHA[approved],
                   "inventory_sha": "c" * 64,
-                  "revisions": [{"revision": SQL.REF_ORDER.index(ref) + 1, "source_ref": ref,
+                  "revisions": [{"revision": len(SQL.plan_path(ref)), "source_ref": ref,
                      "plan_sha": SQL.REF_PLAN_SHA[ref], "file_count": SQL.REF_COUNTS[ref]}
                      for ref in refs],
                   "installed": [{"position": n, "path": row["path"], "sha256": row["sha256"],
@@ -363,7 +397,7 @@ class HelperTests(unittest.TestCase):
             with patch.object(SQL, "approved_source_plan", return_value=plan):
                 with patch.object(SQL.DockerDB, "query") as query:
                     self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.FIFTH_REF, Path(scratch)),
-                                     list(SQL.REF_ORDER[:-1]))
+                                     list(SQL.plan_path(SQL.FIFTH_REF)))
             query.assert_not_called()
 
     def test_steps_38_allows_safe_39_and_complete_43_requires_none(self):
@@ -395,26 +429,107 @@ class HelperTests(unittest.TestCase):
                         with self.assertRaises(SQL.Refused):
                             SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state)
 
-    def test_sixth_revision_requires_complete_39_and_preserves_five_prefixes(self):
-        rows = SQL.load_plan(REPO)
+    def test_h6_revision_requires_complete_39_and_preserves_five_prefixes(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
         _, _, record = self.planner_fixture(SQL.FIFTH_REF)
         original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
         revisions = record["revisions"]
-        new = {"revision": 6, "source_ref": SQL.MAIN_REF, "plan_sha": SQL.plan_hash(rows),
-               "file_count": 43, "acknowledged_at": "2026-09-30T06:00:00Z"}
+        new = {"revision": 6, "source_ref": SQL.H6_REF, "plan_sha": SQL.plan_hash(rows),
+               "file_count": 41, "acknowledged_at": "2026-09-30T06:00:00Z"}
         answers = ["t", json.dumps(revisions), json.dumps(record["installed"]), "",
                    "t", json.dumps([*revisions, new])]
         with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
+            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_REF, original)
         self.assertEqual(result["revisions"][:-1], revisions)
         self.assertEqual(result["revisions"][-1], new)
+        for key, value in original.items():
+            self.assertEqual(result[key], value)
+        self.assertEqual(result["plan_family"], "h6_41")
+        self.assertEqual(result["execution_manifest"], "sql_main_h6.txt")
         mutation = queries.call_args_list[3].args[0]
-        self.assertIn("(revision=6 AND file_count=43)", mutation)
+        self.assertIn("(revision=6 AND file_count IN (41,43))", mutation)
         self.assertNotIn("UPDATE", mutation)
         self.assertNotIn("DELETE", mutation)
         with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
             with self.assertRaisesRegex(SQL.Refused, "39 SQL"):
+                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_REF, original)
+
+    def test_h6_steps_fresh_38_39_and_complete_41(self):
+        plan, _, _ = self.planner_fixture(target=SQL.H6_REF)
+        with tempfile.TemporaryDirectory() as scratch:
+            with patch.object(SQL, "approved_source_plan", return_value=plan):
+                self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.H6_REF, Path(scratch)),
+                                 [SQL.BASE_REF, SQL.PREVIOUS_REF, SQL.THIRD_REF, SQL.FOURTH_REF,
+                                  SQL.FIFTH_REF, SQL.H6_REF])
+        for ref, expected in ((SQL.FOURTH_REF, [SQL.FIFTH_REF, SQL.H6_REF]),
+                              (SQL.FIFTH_REF, [SQL.H6_REF]), (SQL.H6_REF, [])):
+            plan, current, record = self.planner_fixture(ref, SQL.H6_REF)
+            with self.subTest(ref=ref), tempfile.TemporaryDirectory() as scratch:
+                state = Path(scratch); journal = state / "sql-journal.json"
+                before = json.dumps(record).encode(); journal.write_bytes(before)
+                with patch.object(SQL, "approved_source_plan", return_value=plan):
+                    with patch.object(SQL, "validate_git_source", return_value=current):
+                        self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.H6_REF, state), expected)
+                self.assertEqual(journal.read_bytes(), before)
+
+    def test_sibling_43_cannot_become_h6_and_41_cannot_become_43(self):
+        for recognized, target in ((SQL.MAIN_REF, SQL.H6_REF), (SQL.H6_REF, SQL.MAIN_REF)):
+            plan, current, record = self.planner_fixture(recognized, target)
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as scratch:
+                state = Path(scratch); journal = state / "sql-journal.json"
+                before = json.dumps(record).encode(); journal.write_bytes(before)
+                with patch.object(SQL, "approved_source_plan", return_value=plan):
+                    with patch.object(SQL, "validate_git_source", return_value=current):
+                        with self.assertRaisesRegex(SQL.Refused, "familia"):
+                            SQL.etapas_requeridas(REPO, REPO, target, state)
+                self.assertEqual(journal.read_bytes(), before)
+                original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
+                rows = SQL.load_plan(REPO, source_ref=target)
+                with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(record["revisions"])]) as query:
+                    with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
+                        SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, target, original)
+                self.assertTrue(all(c.args[0].lstrip().startswith("SELECT") for c in query.call_args_list))
+                # El plan original también puede ser directamente la familia hermana.
+                with patch.object(SQL.DockerDB, "query") as query:
+                    with self.assertRaisesRegex(SQL.Refused, "otro plan"):
+                        SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, target,
+                            {"source_ref": recognized, "plan_sha": SQL.REF_PLAN_SHA[recognized]})
+                query.assert_not_called()
+
+    def test_recovery_only_43_never_creates_new_plan_revision(self):
+        rows = SQL.load_plan(REPO)
+        _, _, record = self.planner_fixture(SQL.FIFTH_REF)
+        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
+        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(record["revisions"])]) as query:
+            with self.assertRaisesRegex(SQL.Refused, "retirado"):
                 SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
+        self.assertTrue(all(c.args[0].lstrip().startswith("SELECT") for c in query.call_args_list))
+
+    def test_h6_replay_journal_preserves_root_metadata_and_physical_41(self):
+        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
+        plan, _, record = self.planner_fixture(SQL.H6_REF, SQL.H6_REF)
+        alias = "a" * 40
+        plan.update(source_ref=alias, plan_sha=SQL.plan_hash(rows),
+                    verified_main_ref="b" * 40, inventory_sha="c" * 64)
+        original = {k: v for k, v in record.items() if k != "installed"}
+        with tempfile.TemporaryDirectory() as scratch:
+            state = Path(scratch)
+            with patch.object(SQL.DockerDB, "check_owner"), patch.object(SQL.DockerDB, "query") as query:
+                with patch.object(SQL, "initialize", return_value=original.copy()) as initialize:
+                    with patch.object(SQL, "receipts", return_value=record["installed"]):
+                        SQL.apply(SQL.DockerDB("vec-test"), rows, state, alias, plan)
+            query.assert_not_called()
+            self.assertEqual(initialize.call_args.args[2], SQL.H6_REF)
+            journal = json.loads((state / "sql-journal.json").read_text())
+            for key in ("run_id", "source_ref", "plan_sha", "revisions"):
+                self.assertEqual(journal[key], record[key])
+            self.assertEqual(journal["current_source_ref"], alias)
+            self.assertEqual(journal["approved_sql_ref"], SQL.H6_REF)
+            self.assertEqual(journal["current_plan_sha"], SQL.REF_PLAN_SHA[SQL.H6_REF])
+            self.assertEqual(journal["file_count"], 41)
+            self.assertEqual(journal["plan_family"], "h6_41")
+            self.assertEqual(journal["execution_manifest"], "sql_main_h6.txt")
+            self.assertEqual(journal["installed"], record["installed"])
 
     def test_recovery_only_43_refuses_fresh_or_38_before_initialize_or_up(self):
         rows = SQL.load_plan(REPO)
@@ -490,7 +605,7 @@ class HelperTests(unittest.TestCase):
 
 class GitSourceTests(unittest.TestCase):
     @contextlib.contextmanager
-    def fixture(self, mutation=None, unrelated=False):
+    def fixture(self, mutation=None, unrelated=False, h6=False):
         with tempfile.TemporaryDirectory() as scratch:
             control = Path(scratch) / "control"
             archive = Path(scratch) / "archive"
@@ -507,6 +622,10 @@ class GitSourceTests(unittest.TestCase):
             data = b"BEGIN;\nSELECT 1;\nCOMMIT;\n"
             path = control / relative
             path.parent.mkdir(parents=True); path.write_bytes(data)
+            retained = {p: SQL.sha(data) for p in SQL.H6_WITHHELD} if h6 else {}
+            for retained_path in retained:
+                extra = control / retained_path
+                extra.parent.mkdir(parents=True, exist_ok=True); extra.write_bytes(data)
             git("add", "deploy"); git("commit", "-q", "-m", "base SQL")
             base = git("rev-parse", "HEAD")
             (control / "app.py").write_text("version = 2\n")
@@ -520,6 +639,9 @@ class GitSourceTests(unittest.TestCase):
             git("update-ref", "refs/remotes/origin/main", descendant)
             copied = archive / relative
             copied.parent.mkdir(parents=True); copied.write_bytes(data); copied.chmod(0o600)
+            for retained_path in retained:
+                extra = archive / retained_path
+                extra.parent.mkdir(parents=True, exist_ok=True); extra.write_bytes(data); extra.chmod(0o600)
             row = {"phase": "MAIN", "path": relative, "sha256": SQL.sha(data), "sql": data.decode()}
             manifest = Path(scratch) / "plan.txt"
             manifest.write_text(f"MAIN {row['sha256']} {relative}\n")
@@ -527,11 +649,45 @@ class GitSourceTests(unittest.TestCase):
             def load(repo, source_ref, contents):
                 return original_load(repo, manifest=manifest, source_ref=source_ref, contents=contents)
             with contextlib.ExitStack() as stack:
-                stack.enter_context(patch.object(SQL, "MAIN_REF", base))
+                if not h6:
+                    stack.enter_context(patch.object(SQL, "MAIN_REF", base))
+                if h6:
+                    stack.enter_context(patch.object(SQL, "H6_REF", base))
+                    stack.enter_context(patch.object(SQL, "H6_MANIFEST", manifest))
+                    stack.enter_context(patch.object(SQL, "H6_WITHHELD", retained))
                 stack.enter_context(patch.object(SQL, "REF_COUNTS", {base: 1}))
                 stack.enter_context(patch.object(SQL, "REF_PLAN_SHA", {base: SQL.plan_hash([row])}))
                 stack.enter_context(patch.object(SQL, "load_plan", side_effect=load))
                 yield control, archive, base, descendant, relative
+
+    def test_h6_total_inventory_keeps_all_four_retained_and_rejects_any_change(self):
+        for relative in SQL.H6_WITHHELD:
+            for change in ("bytes", "deleted", "mode"):
+                def mutate(control, _, path=relative, change=change):
+                    file = control / path
+                    if change == "bytes": file.write_text("BEGIN;\nSELECT 9;\nCOMMIT;\n")
+                    elif change == "deleted": file.unlink()
+                    else: file.chmod(0o755)
+                with self.subTest(path=relative, change=change), self.fixture(mutate, h6=True) as fixture:
+                    control, archive, _, descendant, _ = fixture
+                    with self.assertRaisesRegex(SQL.Refused, "SQL distinto"):
+                        SQL.approved_source_plan(archive, descendant, control)
+        def unknown(control, _):
+            extra = control / "deploy/postgresql/catalogos_configurables/migraciones/000099_unknown.up.sql"
+            extra.write_text("BEGIN;\nSELECT 2;\nCOMMIT;\n")
+        with self.fixture(unknown, h6=True) as (control, archive, _, descendant, _):
+            with self.assertRaisesRegex(SQL.Refused, "SQL distinto"):
+                SQL.approved_source_plan(archive, descendant, control)
+
+    def test_h6_identical_code_alias_keeps_family_and_execution_manifest(self):
+        with self.fixture(h6=True) as (control, archive, base, descendant, _):
+            plan = SQL.approved_source_plan(archive, descendant, control)
+            self.assertEqual(plan["source_ref"], descendant)
+            self.assertEqual(plan["approved_sql_ref"], base)
+            self.assertEqual(plan["plan_family"], "h6_41")
+            self.assertEqual(plan["execution_manifest"], "plan.txt")
+            self.assertEqual(len(plan["sql_inventory"]), 5)
+            self.assertEqual(plan["file_count"], 1)
 
     def test_identical_descendant_and_private_archive_are_accepted(self):
         with self.fixture() as (control, archive, base, descendant, _):
