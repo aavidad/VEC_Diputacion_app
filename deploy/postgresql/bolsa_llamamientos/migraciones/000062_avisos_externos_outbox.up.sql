@@ -368,6 +368,14 @@ BEGIN
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',p_productor,p_evento,NULL,original.huella_sha256,1,'denegado',original.evento->>'correlacion_ref');
   RETURN QUERY SELECT false,ref,'VBE01'::text; RETURN;
  END IF;
+ -- El resultado nunca precede al acuse durable del inbox. El recibo y la
+ -- huella deben coincidir con el evento original también en replay.
+ IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_aceptacion a
+  WHERE a.productor_ref=p_productor AND a.evento_ref=p_evento
+   AND a.huella_sha256=p_huella AND a.recibo_externo_ref=p_recibo) THEN
+  ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',p_productor,p_evento,NULL,p_huella,1,'denegado',original.evento->>'correlacion_ref');
+  RETURN QUERY SELECT false,ref,'VBE01'::text; RETURN;
+ END IF;
  SELECT * INTO ultimo FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=p_productor AND r.evento_ref=p_evento ORDER BY r.version DESC LIMIT 1;
  SELECT * INTO existente FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=p_productor AND r.evento_ref=p_evento AND r.recibo_externo_ref=p_recibo AND r.estado=p_estado;
  IF FOUND THEN

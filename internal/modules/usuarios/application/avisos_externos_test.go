@@ -187,7 +187,7 @@ func TestInboxSinCorreoOFalloSobreNoEnvia(t *testing.T) {
 	for _, caso := range []struct {
 		sinDestino, falla bool
 		estado            string
-	}{{true, false, "sin_destino"}, {false, true, "no_aceptado"}} {
+	}{{true, false, "sin_destino"}, {false, true, "reservado_incierto"}} {
 		r := &registroInboxPrueba{sinDestino: caso.sinDestino}
 		tr := &transportadorInboxPrueba{resultado: ports.AvisoExternoAceptadoPorRelay}
 		s := servicioInboxPrueba(t, r, &protectorInboxPrueba{falla: caso.falla}, tr)
@@ -196,6 +196,12 @@ func TestInboxSinCorreoOFalloSobreNoEnvia(t *testing.T) {
 		out, err := s.Despachar(ctx, rec.ReciboRef)
 		if tr.n != 0 || out.Estado != caso.estado || (caso.falla && err == nil) {
 			t.Fatal(out, err, tr.n)
+		}
+		if caso.falla {
+			otro, err := servicioInboxPrueba(t, r, &protectorInboxPrueba{}, tr).Despachar(ctx, rec.ReciboRef)
+			if err != nil || !otro.Replay || otro.Estado != "reservado_incierto" || tr.n != 0 {
+				t.Fatal("replay tras fallo técnico repitió SMTP", otro, err, tr.n)
+			}
 		}
 	}
 }

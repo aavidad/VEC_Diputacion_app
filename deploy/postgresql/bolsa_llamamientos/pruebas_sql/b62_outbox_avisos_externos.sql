@@ -162,11 +162,14 @@ BEGIN
  IF vacio.evento IS NOT NULL OR vacio.error_codigo IS DISTINCT FROM '22023' OR vacio.auditoria_ref !~ '^auditoria_tecnica_interna:[0-9a-f]{32}$'
  THEN RAISE EXCEPTION 'B62: límite inválido no auditado'; END IF;
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,'aviso_recibo:'||repeat('a',32),'reservado_incierto');
+ IF r.registrada OR r.error_codigo IS DISTINCT FROM 'VBE01' OR r.auditoria_ref !~ '^auditoria_tecnica_interna:[0-9a-f]{32}$'
+ THEN RAISE EXCEPTION 'B62: resultado anterior al ACK admitido'; END IF;
+ SELECT * INTO STRICT ack FROM vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,'aviso_recibo:'||repeat('a',32));
+ IF NOT ack.aceptada OR ack.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: ACK incierto bloqueado'; END IF;
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,'aviso_recibo:'||repeat('a',32),'reservado_incierto');
  IF NOT r.registrada OR r.error_codigo IS NOT NULL OR r.auditoria_ref !~ '^auditoria_tecnica_interna:[0-9a-f]{32}$' THEN RAISE EXCEPTION 'B62: resultado incierto no registrado'; END IF;
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,'aviso_recibo:'||repeat('a',32),'reservado_incierto');
  PERFORM pg_temp.b62_verificar_terminal('reservado_incierto',1);
- SELECT * INTO STRICT ack FROM vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,'aviso_recibo:'||repeat('a',32));
- IF NOT ack.aceptada OR ack.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: ACK incierto bloqueado'; END IF;
  SELECT * INTO STRICT vacio FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
  IF vacio.evento IS DISTINCT FROM e.evento OR vacio.huella IS DISTINCT FROM e.huella OR vacio.error_codigo IS NOT NULL
  THEN RAISE EXCEPTION 'B62: ACK retiró resultado todavía incierto'; END IF;
@@ -234,11 +237,11 @@ SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
 DO $circular$ DECLARE f record; e record; r record; a record; b record; vuelta record; v_cursor jsonb; BEGIN
  SELECT * INTO STRICT f FROM pg_temp.b62_cursor_fixture;
  FOR e IN SELECT * FROM pg_temp.b62_negativos LOOP
-  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,'reservado_incierto');
-  IF NOT r.registrada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: incierto circular rechazado'; END IF;
   -- El ACK del inbox no retira un resultado todavía incierto de Bolsa.
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo);
   IF NOT r.aceptada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: ACK circular rechazado'; END IF;
+  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,'reservado_incierto');
+  IF NOT r.registrada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: incierto circular rechazado'; END IF;
  END LOOP;
  SELECT * INTO STRICT a FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
  SELECT * INTO STRICT b FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(1);
@@ -305,8 +308,10 @@ DO $contacto_divergente$ DECLARE e record; f record; h text; BEGIN
  VALUES('contacto:'||h,f.bolsa_ref,f.participacion_ref,e.llamamiento,'correo',f.emitido,'per_AAAAAAAAAAAAAAAAAAAAAA','enviado',e.evento->>'evento_ref',e.clave||':correo:1','recibo:contacto:'||h);
 END $contacto_divergente$;
 SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
-DO $rechazar_contacto$ DECLARE e record; denegada boolean:=false; BEGIN
+DO $rechazar_contacto$ DECLARE e record; ack record; denegada boolean:=false; BEGIN
  SELECT * INTO STRICT e FROM pg_temp.b62_negativos WHERE estado='no_aceptado';
+ SELECT * INTO STRICT ack FROM vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo);
+ IF NOT ack.aceptada OR ack.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: ACK para contacto divergente bloqueado'; END IF;
  BEGIN PERFORM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,e.estado);
  EXCEPTION WHEN SQLSTATE 'VBE01' THEN denegada:=true; END;
  IF NOT denegada THEN RAISE EXCEPTION 'B62: contacto preexistente divergente aceptado'; END IF;
@@ -318,8 +323,10 @@ END $sin_terminal_divergente$;
 ROLLBACK TO SAVEPOINT b62_contacto_divergente;
 RELEASE SAVEPOINT b62_contacto_divergente;
 SET SESSION AUTHORIZATION vec_externo_avisos_bolsa;
-DO $negativos$ DECLARE e record; r record; cursor_antes jsonb; BEGIN
+DO $negativos$ DECLARE e record; r record; ack record; cursor_antes jsonb; BEGIN
  FOR e IN SELECT * FROM pg_temp.b62_negativos LOOP
+  SELECT * INTO STRICT ack FROM vec_bolsa_llamamientos.confirmar_aceptacion_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo);
+  IF NOT ack.aceptada OR ack.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: ACK negativo bloqueado'; END IF;
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,e.estado);
   IF NOT r.registrada OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: terminal negativo rechazado'; END IF;
   SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(e.evento->>'productor_ref',e.evento->>'evento_ref',e.huella,e.recibo,'reservado_incierto');
@@ -329,7 +336,7 @@ DO $negativos$ DECLARE e record; r record; cursor_antes jsonb; BEGIN
  END LOOP;
  cursor_antes:=pg_temp.b62_cursor();
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.tirar_avisos_externos_v1(100);
- IF r.evento IS NOT NULL OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: terminal sin ACK volvió a extraerse'; END IF;
+ IF r.evento IS NOT NULL OR r.error_codigo IS NOT NULL THEN RAISE EXCEPTION 'B62: terminal con ACK volvió a extraerse'; END IF;
  IF pg_temp.b62_cursor() IS DISTINCT FROM cursor_antes THEN RAISE EXCEPTION 'B62: lote vacío alteró cursor'; END IF;
 END $negativos$;
 RESET SESSION AUTHORIZATION;
@@ -363,7 +370,7 @@ DO $inmutabilidad$ DECLARE n integer:=0; BEGIN
  BEGIN TRUNCATE vec_bolsa_llamamientos.aviso_externo_aceptacion; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
  BEGIN DELETE FROM vec_bolsa_llamamientos.aviso_externo_extraccion_control; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
  BEGIN TRUNCATE vec_bolsa_llamamientos.aviso_externo_extraccion_control; EXCEPTION WHEN OTHERS THEN n:=n+1; END;
- IF n<>5 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_outbox)<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_aceptacion)<>1
+ IF n<>5 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_outbox)<>3 OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_aceptacion)<>3
  OR (SELECT count(*) FROM vec_bolsa_llamamientos.contacto_participacion) IS DISTINCT FROM (SELECT contactos_previo+3 FROM pg_temp.b62_fixture) OR (SELECT count(*) FROM vec_bolsa_llamamientos.aviso_externo_resultado)<>4 OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.auditoria_tecnica_outbox_interna WHERE actor_tecnico='vec_externo_avisos_bolsa' AND resultado='denegado')<3
  THEN RAISE EXCEPTION 'B62: historia o proyección terminal divergente'; END IF;
  IF has_function_privilege('vec_externo_avisos_bolsa','vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(text,text)','EXECUTE')

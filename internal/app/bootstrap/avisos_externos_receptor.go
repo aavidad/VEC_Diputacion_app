@@ -161,6 +161,11 @@ func procesarLoteAvisosExternos(ctx context.Context, r bolsaports.RepositorioAvi
 		if err != nil {
 			return err
 		}
+		// El acuse durable de Bolsa precede al resultado. Si falla, el outbox
+		// sigue extraíble y ninguna reserva ni llamada SMTP se ha iniciado.
+		if err = r.ConfirmarAceptacion(ctx, e.ProductorRef, e.EventoRef, recibo.Huella, recibo.ReciboRef); err != nil {
+			return err
+		}
 		despacho, err := s.Despachar(ctx, recibo.ReciboRef)
 		if err != nil {
 			return err
@@ -170,9 +175,6 @@ func procesarLoteAvisosExternos(ctx context.Context, r bolsaports.RepositorioAvi
 			estado = "reservado_incierto"
 		}
 		if err = r.RegistrarResultadoDespacho(ctx, e.ProductorRef, e.EventoRef, recibo.Huella, recibo.ReciboRef, estado); err != nil {
-			return err
-		}
-		if err = r.ConfirmarAceptacion(ctx, e.ProductorRef, e.EventoRef, recibo.Huella, recibo.ReciboRef); err != nil {
 			return err
 		}
 	}

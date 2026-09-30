@@ -75,7 +75,9 @@ func (s *ServicioAvisosExternos) Despachar(ctx context.Context, reciboRef string
 	}
 	estado := "sin_destino"
 	if r.PersonaRef != "" && r.Sobre.CorreoRef != "" {
-		estado = "no_aceptado"
+		// Un fallo previo al SMTP no acredita rechazo del relay. La reserva
+		// permanece incierta y su replay no repite el envío automáticamente.
+		estado = "reservado_incierto"
 		b, e := canonico.MaterialAvisoExterno(r.Evento)
 		h, _ := canonico.HuellaAvisoExterno(r.Evento)
 		if e == nil && len(b) > 0 && h == r.Recibo.Huella && r.Evento.ProductorRef == s.productorRef && s.catalogo.AdmitePlantillaAvisoExterno(ctx, r.Evento.PlantillaRef, r.Evento.PlantillaVersion, r.Evento.TipoVersionado) {

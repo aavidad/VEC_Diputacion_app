@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	bolsaports "vec-diputacion-granada/internal/modules/bolsa/ports"
 	smtpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/smtp"
 	usuariosapp "vec-diputacion-granada/internal/modules/usuarios/application"
 	usuarioscanonico "vec-diputacion-granada/internal/modules/usuarios/canonico"
@@ -132,5 +133,54 @@ func TestAvisoExternoSMTPIndeterminadoReplayConservaReciboSinEnviar(t *testing.T
 	replay, err := s.Despachar(ctx, ack.ReciboRef)
 	if err != nil || !replay.Replay || replay.Estado != "reservado_incierto" || replay.ReciboRef != primero.ReciboRef || registro.estado != "reservado_incierto" || len(smtp.mensajes) != 1 {
 		t.Fatal("replay repitió SMTP o sustituyó resultado", replay, err, len(smtp.mensajes))
+	}
+}
+
+type repositorioAvisosOrdenPrueba struct {
+	evento     bolsaports.AvisoExternoPendiente
+	falloACK   bool
+	ack        bool
+	resultados []string
+}
+
+func (r *repositorioAvisosOrdenPrueba) Extraer(context.Context, int) ([]bolsaports.AvisoExternoPendiente, error) {
+	return []bolsaports.AvisoExternoPendiente{r.evento}, nil
+}
+func (r *repositorioAvisosOrdenPrueba) ConfirmarAceptacion(context.Context, string, string, string, string) error {
+	if r.falloACK {
+		return errAvisosExternos
+	}
+	r.ack = true
+	return nil
+}
+func (r *repositorioAvisosOrdenPrueba) RegistrarResultadoDespacho(_ context.Context, _, _, _, _, estado string) error {
+	if !r.ack {
+		return errAvisosExternos
+	}
+	r.resultados = append(r.resultados, estado)
+	return nil
+}
+
+func TestAvisoExternoAcusePrecedeReservaYResultado(t *testing.T) {
+	smtp := &enviadorCorreoLlamamientoDesarrolloPrueba{resultado: smtpct.Resultado{Estado: smtpct.AceptadoPorRelay}}
+	transporte := &transporteAvisosExternos{smtp: smtp, asunto: "asunto", cuerpo: "cuerpo", dominio: "example.test", ahora: func() time.Time { return time.Unix(0, 0) }}
+	registro := &registroAvisosTransportePrueba{}
+	servicio, err := usuariosapp.NuevoServicioAvisosExternos(registro, dependenciasAvisosTransportePrueba{}, transporte, dependenciasAvisosTransportePrueba{}, "productor:bolsa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := usuariosports.EventoAvisoExterno{EventoRef: "evento:1", ProductorRef: "productor:bolsa", TipoVersionado: usuariosports.TipoAvisoLlamamientoExternoV1, OcurridoEn: "2026-09-30T12:13:14.123456Z", CorrelacionRef: "corr:1", DestinatarioExternoRef: "can_" + strings.Repeat("a", 24), ComunicacionRef: "llamamiento:" + strings.Repeat("b", 64), PlantillaRef: "plantilla:aviso", PlantillaVersion: "1"}
+	h, err := usuarioscanonico.HuellaAvisoExterno(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &repositorioAvisosOrdenPrueba{evento: bolsaports.AvisoExternoPendiente{Evento: bolsaports.EventoAvisoExterno{EventoRef: e.EventoRef, ProductorRef: e.ProductorRef, TipoVersionado: e.TipoVersionado, OcurridoEn: e.OcurridoEn, CorrelacionRef: e.CorrelacionRef, DestinatarioExternoRef: e.DestinatarioExternoRef, ComunicacionRef: e.ComunicacionRef, PlantillaRef: e.PlantillaRef, PlantillaVersion: e.PlantillaVersion}, Huella: h}, falloACK: true}
+	cfg := configuracionAvisosExternos{Lote: 1}
+	if err := procesarLoteAvisosExternos(context.Background(), repo, servicio, cfg); err == nil || len(smtp.mensajes) != 0 || len(repo.resultados) != 0 || registro.estado != "" {
+		t.Fatal("ACK fallido permitió reserva o SMTP", err, len(smtp.mensajes), repo.resultados, registro.estado)
+	}
+	repo.falloACK = false
+	if err := procesarLoteAvisosExternos(context.Background(), repo, servicio, cfg); err != nil || !repo.ack || len(smtp.mensajes) != 1 || len(repo.resultados) != 1 || repo.resultados[0] != "aceptado" {
+		t.Fatal("recuperación tras ACK", err, repo.ack, len(smtp.mensajes), repo.resultados)
 	}
 }
