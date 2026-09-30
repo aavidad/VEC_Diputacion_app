@@ -33,7 +33,10 @@ export function validarLecturaAjustes(respuesta) {
   exigir(d?.esquema === ESQUEMA && d.catalogo_id === "vec.contratacion_temporal.reglas.ajustes"
     && version(d.version_esperada) && typeof d.puede_ajustar === "boolean" && Array.isArray(d.reglas)
     && d.reglas.length <= 64 && Array.isArray(d.historial) && d.historial.length <= 50
-    && typeof d.hay_mas === "boolean");
+    && typeof d.hay_mas === "boolean" && d.activacion
+    && ["activa", "inactiva", "sin_publicar"].includes(d.activacion.estado)
+    && Object.keys(d.activacion).length === 1);
+  exigir(d.activacion.estado === "activa" || (!d.puede_ajustar && d.reglas.length === 0));
   exigir(d.motivos === undefined || d.motivos === null || (Array.isArray(d.motivos) && d.motivos.length <= 16
     && d.motivos.every((m) => CLAVE.test(m?.clave) && cadena(m.texto_clave, 100) && existeClaveReglas(m.texto_clave))));
   for (const r of d.reglas) {
@@ -147,6 +150,7 @@ const fecha = (iso) => {
 
 export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, fase = "lista", aviso = "", error = false, recibo = null, bloqueado = false } = {}) {
   const motivos = modelo.motivos ?? [];
+  const baseActiva = modelo.activacion.estado === "activa";
   const editable = modelo.puede_ajustar && motivos.length > 0 && !bloqueado;
   const reglas = modelo.reglas.map((r) => {
     const activa = r.clave === reglaActiva;
@@ -165,11 +169,13 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
       ${activa && editable && !r.ajuste_no_aplicable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
       <details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${listaHistorial}</ol></details></article>`;
   }).join("");
+  const historiaSinBase = !baseActiva && modelo.historial.length ? `<details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${modelo.historial.map((h) => `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(t("ajustesVersion", { version: formatearNumero(h.version) }))} · ${esc(motivos.find((m) => m.clave === h.motivo_clave)?.texto_clave ? t(motivos.find((m) => m.clave === h.motivo_clave).texto_clave) : t("ajustesMotivoNoIdentificado"))}${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}${h.recibo_ref ? `<details><summary>${esc(t("ajustesVerJustificante"))}</summary><code>${esc(h.recibo_ref)}</code></details>` : ""}</li>`).join("")}</ol></details>` : "";
+  const mensajeBase = !baseActiva ? t(modelo.activacion.estado === "sin_publicar" ? "ajustesBaseSinPublicar" : "ajustesBaseInactiva") : "";
   return `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><div><h2 id="rg-ajustes-titulo" tabindex="-1">${esc(t("ajustesTitulo"))}</h2><p class="rg-meta">${esc(t("ajustesVersion", { version: formatearNumero(modelo.version_esperada) }))}</p></div></div>
-    ${!modelo.puede_ajustar ? `<p class="rg-aviso">${esc(t("ajustesSoloLectura"))}</p>` : ""}
+    ${mensajeBase ? `<p class="rg-aviso" role="status">${esc(mensajeBase)}</p>` : !modelo.puede_ajustar ? `<p class="rg-aviso">${esc(t("ajustesSoloLectura"))}</p>` : ""}
     ${aviso ? `<p class="rg-aviso${error ? " rg-aviso--error" : ""}" role="status" tabindex="-1" data-ajustes-estado>${esc(aviso)}${error ? ` <button type="button" class="rg-secundario" data-ajustes-reintentar>${esc(t("reintentar"))}</button>` : ""}</p>` : ""}
     ${recibo ? `<div class="rg-ajuste-recibo" role="status" tabindex="-1" data-ajustes-recibo><strong>${esc(t("ajustesGuardado"))}</strong><span>${esc(t("ajustesVersion", { version: formatearNumero(recibo.version) }))}</span><span>${esc(fecha(recibo.vigente_desde))}</span><code>${esc(recibo.recibo_ref)}</code>${recibo.auditoria_ref ? `<span>${esc(t("ajustesAuditoria"))} <code>${esc(recibo.auditoria_ref)}</code></span>` : ""}</div>` : ""}
-    <div class="rg-ajustes-cuerpo">${reglas || `<p>${esc(t("ajustesSinReglas"))}</p>`}</div>
+    <div class="rg-ajustes-cuerpo">${reglas || (baseActiva ? `<p>${esc(t("ajustesSinReglas"))}</p>` : historiaSinBase)}</div>
     ${modelo.hay_mas ? `<div class="rg-ajuste-mas"><button type="button" class="rg-secundario" data-ajustes-mas>${esc(t("ajustesMasHistoria"))}</button></div>` : ""}</section>`;
 }
 

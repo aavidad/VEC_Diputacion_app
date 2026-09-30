@@ -5,6 +5,7 @@ import { API_AJUSTES, ErrorAjustes, crearClienteAjustes, renderizarAjustes, vali
 
 const lectura = () => ({ data: { esquema: "vec.contratacion_temporal.reglas.ajustes.v1",
   catalogo_id: "vec.contratacion_temporal.reglas.ajustes", version_esperada: 2, puede_ajustar: true,
+  activacion: { estado: "activa" },
   motivos: [{ clave: "respuesta_rrhh_duda", texto_clave: "ajustesMotivo_respuesta_rrhh_duda" }],
   reglas: [{ clave: "c03.plazo_fiscalizacion", etiqueta: "Plazo de fiscalización", unidad: "dias_habiles", cantidad: 10,
     valores: { cantidad: "10", cantidad_urgente: "5", unidad: "dias_habiles" },
@@ -31,6 +32,28 @@ test("la lectura valida versión, campos, motivos catalogados y evita valores am
   assert.throws(() => validarLecturaAjustes(sinUrgente), ErrorAjustes);
   const otraVersion = lectura(); otraVersion.data.version_esperada = -1;
   assert.throws(() => validarLecturaAjustes(otraVersion), ErrorAjustes);
+  const sinActivacion = lectura(); delete sinActivacion.data.activacion;
+  assert.throws(() => validarLecturaAjustes(sinActivacion), ErrorAjustes);
+  const activacionConHuella = lectura(); activacionConHuella.data.activacion.huella_sha256 = "a".repeat(64);
+  assert.throws(() => validarLecturaAjustes(activacionConHuella), ErrorAjustes);
+});
+
+test("una base sin publicar o inactiva muestra historia sin afirmar valores vigentes", () => {
+  for (const estado of ["sin_publicar", "inactiva"]) {
+    const respuesta = lectura();
+    respuesta.data.activacion.estado = estado;
+    respuesta.data.puede_ajustar = false;
+    respuesta.data.reglas = [];
+    const modelo = validarLecturaAjustes(respuesta);
+    const html = renderizarAjustes(modelo);
+    assert.match(html, /Ver historial/u);
+    assert.match(html, /Duda 63/u);
+    assert.doesNotMatch(html, /data-ajustes-editar/u);
+    assert.doesNotMatch(html, /Plazo de fiscalización/u);
+    assert.match(html, estado === "sin_publicar" ? /base de plazos aprobada y publicada/u : /base de plazos está desactivada/u);
+    const falsa = lectura(); falsa.data.activacion.estado = estado;
+    assert.throws(() => validarLecturaAjustes(falsa), ErrorAjustes);
+  }
 });
 
 test("una regla con ajuste no aplicable omite valores sin ocultar las reglas válidas", async () => {

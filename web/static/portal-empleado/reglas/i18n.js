@@ -28,7 +28,8 @@ const CLAVES = Object.freeze(`
   ayudaResolver detalleQue detalleNorma detalleOrigen detalleDuda detalleSinDescripcion
   ajusteRevision ajusteRevisionDetalle detalleEstado
   ajustesTitulo ajustesCargando ajustesNoDisponible ajustesRespuestaInvalida ajustesSinPermiso
-  ajustesConflicto ajustesValorInvalido ajustesSinReglas ajustesVersion ajustesCambiar
+  ajustesConflicto ajustesValorInvalido ajustesSinReglas ajustesBaseSinPublicar ajustesBaseInactiva
+  ajustesVersion ajustesCambiar
   ajustesSinMotivos ajustesPersonaGenerica ajustesHistorial ajustesSinHistoria ajustesMotivoNoIdentificado
   ajustesGuardado ajustesMasHistoria ajustesCampo_cantidad ajustesCampo_cantidad_urgente
   ajustesCampo_unidad ajustesCampo_computo ajustesMotivo ajustesElegirMotivo
