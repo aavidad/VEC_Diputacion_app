@@ -265,4 +265,8 @@ bash scripts/recorridos/preparar_clon.sh preparar
 
 Así se conservan los recibos y las capturas de la copia anterior sin mezclarlos
 con otra base. No borre evidencia que otra persona esté revisando. El clon
-compartido se conserva solo mientras tenga recorridos activos.
+compartido se conserva mientras haya recorridos en curso o una repetición
+pendiente de dirección. Para este corte, la orden del 30/09 a las 12:22 exige
+conservarlo hasta actualizar el kit y repetir la carga de Contratación temporal
+y la fiscalización. Retírelo al terminar los recorridos y las repeticiones
+acordadas.

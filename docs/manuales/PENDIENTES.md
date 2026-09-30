@@ -12,9 +12,9 @@ se conservan por separado.
 
 Chrome ha registrado una petición nueva, su ratificación por otra identidad y
 el alta de RRHH `2026/CT-000136`, en versión 1. Las respuestas iniciales fueron
-`200`, `200` y `201`. El primer replay devolvió `200` con el mismo recibo.
-Tras reiniciar la aplicación y PostgreSQL del clon, la consulta, el replay de
-RRHH y los dos replays del centro devolvieron `200`: conservaron referencias,
+`200`, `200` y `201`. El primer reintento devolvió `200` con el mismo recibo.
+Tras reiniciar la aplicación y PostgreSQL del clon, la consulta, el reintento de
+RRHH y los dos reintentos del centro devolvieron `200`: conservaron referencias,
 fechas, versiones y los siete campos del recibo de alta. La consulta muestra
 una sola entrega de esta petición.
 
