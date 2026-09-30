@@ -129,11 +129,17 @@ func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecd
 		falloServicio(w, err)
 		return
 	}
+	estadoActivacion := lectura.Activacion.Estado
+	if estadoActivacion != "activa" && estadoActivacion != "inactiva" && estadoActivacion != "sin_publicar" ||
+		estadoActivacion != "activa" && (lectura.PuedeAjustar || len(lectura.Reglas) != 0) {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
 	version := 0
 	if lectura.Vigente != nil {
 		version = lectura.Vigente.Version
 	}
-	puedeAjustar := lectura.PuedeAjustar && !h.soloLectura
+	puedeAjustar := lectura.PuedeAjustar && !h.soloLectura && estadoActivacion == "activa"
 	if lectura.Historial == nil {
 		lectura.Historial = []app.CambioHistorico{}
 	}
@@ -146,6 +152,7 @@ func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecd
 	}
 	responder(w, http.StatusOK, map[string]any{"data": map[string]any{
 		"esquema": Esquema, "catalogo_id": reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal),
+		"activacion":       map[string]string{"estado": estadoActivacion},
 		"version_esperada": version, "puede_ajustar": puedeAjustar,
 		"reglas": reglasVista, "motivos": h.servicio.Motivos(),
 		"historial": lectura.Historial, "hay_mas": lectura.HayMas,
