@@ -43,6 +43,10 @@ func (p PlanPreparacionDurableV2) Copia() PlanPreparacionDurableV2 {
 }
 
 type FuentePlanesPreparacionV2 interface {
+	// ResolverPlan devuelve una preparación ya admitida por sus autoridades
+	// propietarias. No reserva ni fabrica solicitudes, relaciones o versiones.
+	// La ausencia conserva ErrPreparacionIncorporacionPendiente; una caída o
+	// denegación no puede activar otra fuente ni el documento histórico.
 	ResolverPlan(context.Context, string, string) (PlanPreparacionDurableV2, error)
 }
 
