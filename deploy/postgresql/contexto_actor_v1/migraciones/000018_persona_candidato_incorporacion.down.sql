@@ -7,6 +7,10 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
     'vec_contexto_actor_v1:migracion:persona_candidato_incorporacion:000018', 0));
+-- B67 UP toma este mismo cerrojo antes de comprobar CTX18. Impide que el
+-- consumidor se instale entre la comprobación de catálogo y el DROP.
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'vec_bolsa_llamamientos:migracion:000067', 0));
 DO $preimagen$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles
@@ -14,6 +18,12 @@ BEGIN
        OR pg_catalog.to_regprocedure(
            'vec_contexto_actor_v1.acreditar_persona_candidato_incorporacion_v1(text)') IS NULL THEN
         RAISE EXCEPTION 'ContextoActor 000018 DOWN: preimagen incompatible'
+            USING ERRCODE = '55000';
+    END IF;
+    IF pg_catalog.to_regprocedure(
+           'vec_bolsa_llamamientos.consultar_persona_aceptacion_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+       IS NOT NULL THEN
+        RAISE EXCEPTION 'ContextoActor 000018 DOWN: consumidor Bolsa 000067 instalado'
             USING ERRCODE = '55000';
     END IF;
 END
