@@ -108,49 +108,6 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(SQL.Refused, "extraído|archive|inventario"):
                 SQL.approved_source_plan(root, SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
 
-    def test_plan_45_propuesto_bloquea_instalacion_etapas_y_ready_sin_docker(self):
-        plan = SQL.validate_git_source(SQL.H6_FIRMA_FINAL_REF, GIT_REPO)
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_FINAL_REF)
-        with patch.object(SQL.DockerDB, "check_owner") as check, \
-                patch.object(SQL.DockerDB, "query") as query, \
-                patch.object(SQL, "approved_source_plan", return_value=plan):
-            for operation in (
-                lambda: SQL.main(["--repo", str(REPO), "--git-repo", str(GIT_REPO),
-                                  "--source-ref", SQL.H6_FIRMA_FINAL_REF, "--installable"]),
-                lambda: SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_FINAL_REF, Path("/irrelevant")),
-                lambda: SQL.apply(SQL.DockerDB("vec-fixture"), rows, Path("/irrelevant"),
-                                  SQL.H6_FIRMA_FINAL_REF, plan),
-                lambda: SQL.verify_live(SQL.DockerDB("vec-fixture"), REPO, REPO,
-                                        SQL.H6_FIRMA_FINAL_REF, Path("/irrelevant")),
-            ):
-                with self.subTest(operation=operation), self.assertRaisesRegex(SQL.Refused, "propuesto"):
-                    operation()
-        check.assert_not_called()
-        query.assert_not_called()
-
-    def test_revision_8_preserva_historia_y_exige_prefijo_44(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_FINAL_REF)
-        _, _, record = self.planner_fixture(SQL.H6_FIRMA_REF, SQL.H6_FIRMA_FINAL_REF)
-        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
-        revisions = record["revisions"]
-        new = {"revision": 8, "source_ref": SQL.H6_FIRMA_FINAL_REF,
-               "plan_sha": SQL.plan_hash(rows), "file_count": 45}
-        answers = ["t", json.dumps(revisions), json.dumps(record["installed"]), "",
-                   "t", json.dumps([*revisions, new])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as query:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-fixture"), rows,
-                                          SQL.H6_FIRMA_FINAL_REF, original)
-        self.assertEqual(result["revisions"], [*revisions, new])
-        mutation = query.call_args_list[3].args[0]
-        self.assertIn("(revision=8 AND file_count=45)", mutation)
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
-            with self.assertRaisesRegex(SQL.Refused, "44 SQL"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-fixture"), rows, SQL.H6_FIRMA_FINAL_REF, original)
-        bad = [*revisions[:-1], new]
-        with self.assertRaisesRegex(SQL.Refused, "saltos"):
-            SQL.validate_history(SQL.BASE_REF, bad)
 
     def test_main_interno_firma_amplia_41_a_44_y_retiene_sql_exterior(self):
         previous = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
@@ -251,41 +208,6 @@ class HelperTests(unittest.TestCase):
                 with self.assertRaisesRegex(SQL.Refused, "ruta SQL"):
                     SQL.load_plan(root, manifest)
 
-    def test_atomic_receipt_precedes_original_commit_for_all_sql(self):
-        for position, row in enumerate(SQL.load_plan(REPO), 1):
-            text = SQL.instrument(row, position)
-            self.assertEqual(text.count("INSERT INTO vec_recorridos_clon.applied"), 1)
-            self.assertTrue(text.endswith("COMMIT;\n"))
-            self.assertIn(f"<> {position - 1}", text)
-            # El marcador ejecuta como postgres, nunca como propietario del módulo.
-            self.assertIn("RESET ROLE;\nINSERT INTO vec_recorridos_clon.applied", text)
-
-    def test_receipt_hash_mismatch_and_gaps_are_rejected(self):
-        rows = SQL.load_plan(REPO)
-        class Database:
-            def query(self, _):
-                return json.dumps(installed)
-        installed = [{"position": 1, "path": rows[0]["path"], "sha256": "a" * 64}]
-        with self.assertRaises(SQL.Refused):
-            SQL.receipts(Database(), rows)
-        installed[0]["sha256"] = rows[0]["sha256"]
-        installed[0]["position"] = 2
-        with self.assertRaises(SQL.Refused):
-            SQL.receipts(Database(), rows)
-
-    def test_journal_recovered_from_database_but_never_ahead(self):
-        with tempfile.TemporaryDirectory() as scratch:
-            root = Path(scratch)
-            meta = {"run_id": "clon1", "plan_sha": "plan1"}
-            installed = [{"position": 1, "sha256": "a" * 64}]
-            SQL.write_journal(root, meta, installed)
-            self.assertEqual((root / "sql-journal.json").stat().st_mode & 0o777, 0o600)
-            (root / "sql-journal.json").unlink()
-            SQL.write_journal(root, meta, installed)
-            with self.assertRaisesRegex(SQL.Refused, "ausente"):
-                SQL.write_journal(root, meta, [])
-            with self.assertRaisesRegex(SQL.Refused, "otro clon"):
-                SQL.write_journal(root, {**meta, "run_id": "clon2"}, installed)
 
     def test_refuses_container_owned_by_someone_else(self):
         obj = {"Config": {"Labels": {SQL.OWNER_LABEL: "otra-persona"}},
@@ -342,100 +264,6 @@ class HelperTests(unittest.TestCase):
             with self.assertRaisesRegex(SQL.Refused, "label de estado"):
                 SQL.DockerDB("vec-recorridos-local", Path("/other/clon")).check_owner()
 
-    def test_extension_preserves_original_metadata_and_acknowledges_new_ref(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.PREVIOUS_REF)
-        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                    "plan_sha": SQL.plan_hash(rows[:33])}
-        revision = {"revision": 2, "source_ref": SQL.PREVIOUS_REF,
-                    "plan_sha": SQL.plan_hash(rows), "file_count": 34,
-                    "acknowledged_at": "2026-09-30T01:00:00Z"}
-        answers = ["f", json.dumps([{"position": n, "path": row["path"],
-                    "sha256": row["sha256"]} for n, row in enumerate(rows[:33], 1)]),
-                   "", "t", json.dumps([revision])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.PREVIOUS_REF, original)
-        for key, value in original.items():
-            self.assertEqual(result[key], value)
-        self.assertEqual(result["current_source_ref"], SQL.PREVIOUS_REF)
-        self.assertEqual(result["revisions"], [revision])
-        mutation = queries.call_args_list[2].args[0]
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
-        self.assertIn("CREATE TABLE vec_recorridos_clon.plan_revisions", mutation)
-
-    def test_extension_refuses_changed_prefix_or_incomplete_base(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.PREVIOUS_REF)
-        meta = {"run_id": "clon1", "source_ref": SQL.BASE_REF, "plan_sha": "a" * 64}
-        with self.assertRaisesRegex(SQL.Refused, "prefijo"):
-            SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.PREVIOUS_REF, meta)
-        meta["plan_sha"] = SQL.plan_hash(rows[:33])
-        with patch.object(SQL.DockerDB, "query", side_effect=["f", "[]"]):
-            with self.assertRaisesRegex(SQL.Refused, "33 SQL"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.PREVIOUS_REF, meta)
-
-    def test_extension_cannot_downgrade_or_lose_revision_from_journal(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.BASE_REF)
-        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                    "plan_sha": SQL.plan_hash(rows)}
-        rev = {"revision": 2, "source_ref": SQL.PREVIOUS_REF,
-               "plan_sha": SQL.REF_PLAN_SHA[SQL.PREVIOUS_REF], "file_count": 34}
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps([rev])]):
-            with self.assertRaisesRegex(SQL.Refused, "volver a la base"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.BASE_REF, original)
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            SQL.write_journal(state, {**original, "revisions": [rev]}, [])
-            with self.assertRaisesRegex(SQL.Refused, "revisión"):
-                SQL.write_journal(state, {**original, "revisions": []}, [])
-
-    def test_third_revision_keeps_second_revision_and_receipt_prefix(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.THIRD_REF)
-        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                    "plan_sha": SQL.plan_hash(rows[:33])}
-        rev2 = {"revision": 2, "source_ref": SQL.PREVIOUS_REF,
-                "plan_sha": SQL.plan_hash(rows[:34]), "file_count": 34,
-                "acknowledged_at": "2026-09-30T01:00:00Z"}
-        rev3 = {"revision": 3, "source_ref": SQL.THIRD_REF,
-                "plan_sha": SQL.plan_hash(rows), "file_count": 36,
-                "acknowledged_at": "2026-09-30T02:00:00Z"}
-        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
-                     for n, row in enumerate(rows[:34], 1)]
-        answers = ["t", json.dumps([rev2]), json.dumps(installed), "",
-                   "t", json.dumps([rev2, rev3])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, original)
-        self.assertEqual(result["revisions"], [rev2, rev3])
-        self.assertEqual(result["current_source_ref"], SQL.THIRD_REF)
-        for key, value in original.items():
-            self.assertEqual(result[key], value)
-        mutation = queries.call_args_list[3].args[0]
-        self.assertIn("ALTER TABLE vec_recorridos_clon.plan_revisions", mutation)
-        self.assertIn("(revision=2 AND file_count=34) OR (revision=3 AND file_count=36)", mutation)
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            SQL.write_journal(state, {**original, "revisions": [rev2]}, installed)
-            SQL.write_journal(state, result, installed)
-            self.assertEqual(json.loads((state / "sql-journal.json").read_text())["installed"], installed)
-
-    def test_third_revision_refuses_gaps_in_history_or_incomplete_34(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.THIRD_REF)
-        meta = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                "plan_sha": SQL.plan_hash(rows[:33])}
-        rev2 = {"revision": 2, "source_ref": SQL.PREVIOUS_REF,
-                "plan_sha": SQL.plan_hash(rows[:34]), "file_count": 34}
-        with patch.object(SQL.DockerDB, "query", side_effect=["f"]):
-            with self.assertRaisesRegex(SQL.Refused, "intermedia"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, meta)
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps([rev2]), "[]"]):
-            with self.assertRaisesRegex(SQL.Refused, "34 SQL"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, meta)
-        bad = {**rev2, "revision": 3, "source_ref": SQL.THIRD_REF,
-               "plan_sha": SQL.plan_hash(rows), "file_count": 36}
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps([bad])]):
-            with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.THIRD_REF, meta)
 
     def test_complete_receipts_requires_all_38_and_hashes(self):
         rows = SQL.load_plan(REPO, source_ref=SQL.FOURTH_REF)
@@ -449,413 +277,263 @@ class HelperTests(unittest.TestCase):
         with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
             SQL.validate_receipts(installed, plan)
 
-    def test_fourth_revision_appends_to_36_without_changing_prior_history(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.FOURTH_REF)
-        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                    "plan_sha": SQL.plan_hash(rows[:33])}
-        revisions = [{"revision": n, "source_ref": ref, "plan_sha": SQL.plan_hash(rows[:count]),
-                      "file_count": count, "acknowledged_at": f"2026-09-30T0{n}:00:00Z"}
-                     for n, ref, count in ((2, SQL.PREVIOUS_REF, 34), (3, SQL.THIRD_REF, 36))]
-        new = {"revision": 4, "source_ref": SQL.FOURTH_REF, "plan_sha": SQL.plan_hash(rows),
-               "file_count": 38, "acknowledged_at": "2026-09-30T04:00:00Z"}
-        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
-                     for n, row in enumerate(rows[:36], 1)]
-        answers = ["t", json.dumps(revisions), json.dumps(installed), "",
-                   "t", json.dumps([*revisions, new])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.FOURTH_REF, original)
-        self.assertEqual(result["revisions"][:2], revisions)
-        self.assertEqual(result["revisions"][-1], new)
-        for key, value in original.items():
-            self.assertEqual(result[key], value)
-        mutation = queries.call_args_list[3].args[0]
-        self.assertIn("(revision=4 AND file_count=38)", mutation)
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
 
-    def test_code_descendant_replay_changes_only_private_provenance(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.FOURTH_REF)
-        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                    "plan_sha": SQL.plan_hash(rows[:33]), "revisions": [{"revision": 4}],
-                    "current_source_ref": SQL.FOURTH_REF, "current_plan_sha": SQL.plan_hash(rows)}
-        plan = {"approved_sql_ref": SQL.FOURTH_REF, "source_ref": "a" * 40,
-                "verified_main_ref": "b" * 40, "inventory_sha": "c" * 64,
-                "plan_sha": SQL.plan_hash(rows)}
-        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"],
-                      "installed_at": "2026-09-30T04:00:00Z"}
-                     for n, row in enumerate(rows, 1)]
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            with patch.object(SQL.DockerDB, "check_owner"), patch.object(SQL.DockerDB, "query") as query:
-                with patch.object(SQL, "initialize", return_value=original.copy()) as initialize:
-                    with patch.object(SQL, "receipts", return_value=installed):
-                        SQL.apply(SQL.DockerDB("vec-test"), rows, state, plan["source_ref"], plan)
-                        first = (state / "sql-journal.json").read_bytes()
-                        (state / "sql-journal.json").unlink()
-                        SQL.apply(SQL.DockerDB("vec-test"), rows, state, plan["source_ref"], plan)
-            query.assert_not_called()
-            self.assertEqual(initialize.call_args.args[2], SQL.FOURTH_REF)
-            self.assertEqual(first, (state / "sql-journal.json").read_bytes())
-            journal = json.loads(first)
-            self.assertEqual(journal["installed"], installed)
-            self.assertEqual(journal["revisions"], original["revisions"])
-            self.assertEqual(journal["source_ref"], SQL.BASE_REF)
-            self.assertEqual(journal["current_source_ref"], plan["source_ref"])
-            self.assertEqual(journal["approved_sql_ref"], SQL.FOURTH_REF)
+class ExternalJournalTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def fixture(self, fail=None, postcheck=True):
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            data = "BEGIN;\nSELECT 1;\nCOMMIT;\n"
+            row = {"phase": "MAIN", "path": "deploy/postgresql/demo/000001.up.sql",
+                   "sha256": SQL.sha(data.encode()), "sql": data}
+            ref = "1" * 40
+            context = {key: str(n) * 64 for n, key in enumerate(SQL.CONTEXT_KEYS, 1)}
+            plan = {"source_ref": ref, "approved_sql_ref": ref, "plan_sha": SQL.plan_hash([row]),
+                    "inventory_sha": "a" * 64, "file_count": 1, "plan_family": "fixture",
+                    "execution_manifest": "fixture.txt", "entries": [{k: v for k, v in row.items() if k != "sql"}]}
+            class DB:
+                calls = []
+                owner_checked = False
+                def check_owner(self):
+                    self.owner_checked = True
+                def query(self, text):
+                    self.calls.append(text)
+                    raw = json.loads((state / "sql-journal.json").read_text())
+                    if raw["pending"] is None or raw["installed"]:
+                        raise AssertionError("SQL antes de pending durable")
+                    if fail:
+                        raise fail
+                    return ""
+            class Kit:
+                def validate(self, actual, ctx): return actual == plan and ctx == context
+                def identity(self, db, ctx): return context["identidad_clon"]
+                def confirm(self, db, entry, position, ctx): return position == 0 or postcheck
+                def verify(self, db, record, ctx): return True
+            db = DB(); db.calls = []
+            with patch.object(SQL, "REF_COUNTS", {ref: 1}), \
+                    patch.object(SQL, "REF_PLAN_SHA", {ref: SQL.plan_hash([row])}):
+                yield state, db, [row], ref, plan, context, Kit()
 
-    def test_fifth_revision_preserves_38_receipts_and_all_prior_revisions(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.FIFTH_REF)
-        original = {"run_id": "clon1", "source_ref": SQL.BASE_REF,
-                    "plan_sha": SQL.plan_hash(rows[:33])}
-        revisions = [{"revision": n, "source_ref": ref, "plan_sha": SQL.plan_hash(rows[:count]),
-                      "file_count": count, "acknowledged_at": f"2026-09-30T0{n}:00:00Z"}
-                     for n, ref, count in ((2, SQL.PREVIOUS_REF, 34), (3, SQL.THIRD_REF, 36),
-                                          (4, SQL.FOURTH_REF, 38))]
-        new = {"revision": 5, "source_ref": SQL.FIFTH_REF, "plan_sha": SQL.plan_hash(rows),
-               "file_count": 39, "acknowledged_at": "2026-09-30T05:00:00Z"}
-        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
-                     for n, row in enumerate(rows[:38], 1)]
-        answers = ["t", json.dumps(revisions), json.dumps(installed), "",
-                   "t", json.dumps([*revisions, new])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.FIFTH_REF, original)
-        self.assertEqual(result["revisions"][:3], revisions)
-        self.assertEqual(result["revisions"][-1], new)
-        for key, value in original.items():
-            self.assertEqual(result[key], value)
-        mutation = queries.call_args_list[3].args[0]
-        self.assertIn("(revision=5 AND file_count=39)", mutation)
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            SQL.write_journal(state, {**original, "revisions": revisions}, installed)
-            SQL.write_journal(state, result, installed)
-            self.assertEqual(json.loads((state / "sql-journal.json").read_text())["installed"], installed)
+    def run_apply(self, fixture, kit=True):
+        state, db, rows, ref, plan, context, provider = fixture
+        return SQL.apply(db, rows, state, ref, plan, context, provider if kit else None)
 
-    def planner_fixture(self, approved=SQL.FOURTH_REF, target=SQL.MAIN_REF):
-        rows = SQL.load_plan(REPO, source_ref=approved)
-        target_rows = SQL.load_plan(REPO, source_ref=target)
-        count = SQL.REF_COUNTS[approved]
-        target_count = SQL.REF_COUNTS[target]
-        plan = {"source_ref": target, "approved_sql_ref": target,
-                "file_count": target_count, "entries": target_rows,
-                "plan_family": SQL.plan_family(target),
-                "execution_manifest": SQL.execution_manifest(target).name}
-        current = {"source_ref": approved, "approved_sql_ref": approved,
-                   "file_count": count, "entries": rows[:count], "inventory_sha": "c" * 64,
-                   "plan_family": SQL.plan_family(approved),
-                   "execution_manifest": SQL.execution_manifest(approved).name}
-        refs = SQL.plan_path(approved)[1:]
-        record = {"run_id": "580a6b83-822d-4137-87d5-22d3b8c590e7", "source_ref": SQL.BASE_REF,
-                  "plan_sha": SQL.REF_PLAN_SHA[SQL.BASE_REF], "current_source_ref": approved,
-                  "approved_sql_ref": approved, "current_plan_sha": SQL.REF_PLAN_SHA[approved],
-                  "inventory_sha": "c" * 64,
-                  "revisions": [{"revision": len(SQL.plan_path(ref)), "source_ref": ref,
-                     "plan_sha": SQL.REF_PLAN_SHA[ref], "file_count": SQL.REF_COUNTS[ref]}
-                     for ref in refs],
-                  "installed": [{"position": n, "path": row["path"], "sha256": row["sha256"],
-                     "installed_at": "2026-09-30T04:00:00+00:00"} for n, row in enumerate(rows[:count], 1)]}
-        return plan, current, record
+    def test_only_original_sql_and_external_confirmation_after_commit(self):
+        with self.fixture() as f:
+            state, db, rows, _, _, _, _ = f
+            record = self.run_apply(f)
+            self.assertEqual(db.calls, [rows[0]["sql"]])
+            self.assertNotIn("vec_recorridos_clon", Path(SQL.__file__).read_text())
+            self.assertEqual(record["phase"], "awaiting_ad132")
+            self.assertIsNone(record["pending"])
+            self.assertEqual(record["installed"][0]["confirmation"], "commit_returned_and_postcheck")
+            with SQL.Journal(state) as journal:
+                self.assertEqual(journal.load()["installed"], record["installed"])
+            self.run_apply(f)
+            self.assertEqual(len(db.calls), 1)
+            self.assertFalse((state / "READY.json").exists())
 
-    def test_steps_fresh_h1_lists_all_known_prefixes_without_docker(self):
-        plan, _, _ = self.planner_fixture(target=SQL.FIFTH_REF)
-        with tempfile.TemporaryDirectory() as scratch:
-            with patch.object(SQL, "approved_source_plan", return_value=plan):
-                with patch.object(SQL.DockerDB, "query") as query:
-                    self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.FIFTH_REF, Path(scratch)),
-                                     list(SQL.plan_path(SQL.FIFTH_REF)))
-            query.assert_not_called()
+    def test_crash_before_or_after_commit_stops_forever_without_confirmation(self):
+        for failure in (KeyboardInterrupt(), SQL.Refused("antes COMMIT"),
+                        subprocess.TimeoutExpired("dummy", 1), RuntimeError("después COMMIT")):
+            with self.subTest(failure=type(failure).__name__), self.fixture(fail=failure) as f:
+                state, db, _, _, _, _, _ = f
+                with self.assertRaises((SQL.Refused, KeyboardInterrupt)):
+                    self.run_apply(f)
+                raw = (state / "sql-journal.json").read_bytes()
+                record = json.loads(raw)
+                self.assertEqual(record["pending"]["position"], 1)
+                self.assertEqual(record["installed"], [])
+                with self.assertRaisesRegex(SQL.Refused, "reconstruir"):
+                    self.run_apply(f)
+                self.assertEqual(len(db.calls), 1)
+                self.assertEqual((state / "sql-journal.json").read_bytes(), raw)
 
-    def test_steps_38_allows_safe_39_and_complete_43_requires_none(self):
-        for ref, target, expected in ((SQL.FOURTH_REF, SQL.FIFTH_REF, [SQL.FIFTH_REF]),
-                                     (SQL.MAIN_REF, SQL.MAIN_REF, [])):
-            plan, current, record = self.planner_fixture(ref, target)
-            with tempfile.TemporaryDirectory() as scratch:
-                state = Path(scratch); journal = state / "sql-journal.json"
-                original = json.dumps(record).encode(); journal.write_bytes(original)
-                with patch.object(SQL, "approved_source_plan", return_value=plan):
-                    with patch.object(SQL, "validate_git_source", return_value=current):
-                        self.assertEqual(SQL.etapas_requeridas(REPO, REPO, target, state), expected)
-                self.assertEqual(journal.read_bytes(), original)
+    def test_commit_return_then_postcheck_failure_keeps_pending(self):
+        with self.fixture(postcheck=False) as f:
+            with self.assertRaisesRegex(SQL.Refused, "incierta"):
+                self.run_apply(f)
+            state = f[0]
+            record = json.loads((state / "sql-journal.json").read_text())
+            self.assertEqual(record["installed"], [])
+            self.assertIsNotNone(record["pending"])
 
-    def test_steps_refuses_foreign_malformed_incomplete_or_gapped_journal(self):
-        for invalid in ("ref", "hash", "gap", "date", "uuid", "source"):
-            plan, current, record = self.planner_fixture()
-            if invalid == "ref": record["source_ref"] = "a" * 40
-            elif invalid == "hash": record["plan_sha"] = "a" * 64
-            elif invalid == "gap": record["revisions"][0]["revision"] = 4
-            elif invalid == "date": record["installed"][0]["installed_at"] = "fecha inválida"
-            elif invalid == "uuid": record["run_id"] = "otro clon"
-            else: current["approved_sql_ref"] = SQL.THIRD_REF
-            with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as scratch:
-                state = Path(scratch); (state / "sql-journal.json").write_text(json.dumps(record))
-                with patch.object(SQL, "approved_source_plan", return_value=plan):
-                    with patch.object(SQL, "validate_git_source", return_value=current):
-                        with self.assertRaises(SQL.Refused):
-                            SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state)
+    def test_crash_during_confirmation_write_keeps_durable_pending(self):
+        with self.fixture() as f:
+            store = SQL.Journal.store
+            def crash(journal, record):
+                if record["installed"]:
+                    raise KeyboardInterrupt()
+                return store(journal, record)
+            with patch.object(SQL.Journal, "store", crash), self.assertRaises(KeyboardInterrupt):
+                self.run_apply(f)
+            with self.assertRaisesRegex(SQL.Refused, "pendiente"):
+                self.run_apply(f)
+            self.assertEqual(len(f[1].calls), 1)
 
-    def test_h6_revision_requires_complete_39_and_preserves_five_prefixes(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
-        _, _, record = self.planner_fixture(SQL.FIFTH_REF)
-        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
-        revisions = record["revisions"]
-        new = {"revision": 6, "source_ref": SQL.H6_REF, "plan_sha": SQL.plan_hash(rows),
-               "file_count": 41, "acknowledged_at": "2026-09-30T06:00:00Z"}
-        answers = ["t", json.dumps(revisions), json.dumps(record["installed"]), "",
-                   "t", json.dumps([*revisions, new])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_REF, original)
-        self.assertEqual(result["revisions"][:-1], revisions)
-        self.assertEqual(result["revisions"][-1], new)
-        for key, value in original.items():
-            self.assertEqual(result[key], value)
-        self.assertEqual(result["plan_family"], "h6_41")
-        self.assertEqual(result["execution_manifest"], "sql_main_h6.txt")
-        mutation = queries.call_args_list[3].args[0]
-        self.assertIn("(revision=6 AND file_count IN (41,43))", mutation)
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
-            with self.assertRaisesRegex(SQL.Refused, "39 SQL"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_REF, original)
+    def test_pending_fsync_before_sql_and_confirmation_fsync_after_sql(self):
+        with self.fixture() as f:
+            events = []
+            real_fsync = os.fsync
+            original = f[1].query
+            def query(text):
+                events.append("sql")
+                return original(text)
+            def fsync(fd):
+                events.append("fsync")
+                return real_fsync(fd)
+            with patch.object(f[1], "query", query), patch.object(SQL.os, "fsync", fsync):
+                self.run_apply(f)
+            self.assertEqual(events, ["fsync", "fsync", "fsync", "fsync", "sql", "fsync", "fsync"])
 
-    def test_revision_44_exige_recibos_41_y_rechaza_ledger_43(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
-        _, _, record = self.planner_fixture(SQL.H6_REF, SQL.H6_FIRMA_REF)
-        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
-        revisions = record["revisions"]
-        new = {"revision": 7, "source_ref": SQL.H6_FIRMA_REF,
-               "plan_sha": SQL.plan_hash(rows), "file_count": 44,
-               "acknowledged_at": "2026-09-30T16:00:00Z"}
-        answers = ["t", json.dumps(revisions), json.dumps(record["installed"]), "",
-                   "t", json.dumps([*revisions, new])]
-        with patch.object(SQL.DockerDB, "query", side_effect=answers) as queries:
-            result = SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_FIRMA_REF, original)
-        self.assertEqual(result["revisions"][-1], new)
-        mutation = queries.call_args_list[3].args[0]
-        self.assertIn("(revision=7 AND file_count=44)", mutation)
-        self.assertNotIn("UPDATE", mutation)
-        self.assertNotIn("DELETE", mutation)
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(revisions), "[]"]):
-            with self.assertRaisesRegex(SQL.Refused, "41 SQL"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.H6_FIRMA_REF, original)
-        plan, current, record43 = self.planner_fixture(SQL.MAIN_REF, SQL.H6_FIRMA_REF)
-        with tempfile.TemporaryDirectory() as scratch:
-            (Path(scratch) / "sql-journal.json").write_text(json.dumps(record43))
-            with patch.object(SQL, "PROPOSED_REFS", set()), \
-                    patch.object(SQL, "approved_source_plan", return_value=plan), \
-                    patch.object(SQL, "validate_git_source", return_value=current):
-                with self.assertRaisesRegex(SQL.Refused, "familia"):
-                    SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_REF, Path(scratch))
+    def test_kit_missing_incomplete_or_wrong_denies_before_sql(self):
+        for provider in (None, object()):
+            with self.fixture() as f:
+                with self.assertRaisesRegex(SQL.Refused, "kit D"):
+                    SQL.apply(f[1], f[2], f[0], f[3], f[4], f[5], provider)
+                self.assertEqual(f[1].calls, [])
+                self.assertFalse(f[1].owner_checked)
+                self.assertFalse((f[0] / "sql-journal.json").exists())
+        with self.fixture() as f:
+            with patch.object(f[6], "validate", return_value=False), self.assertRaises(SQL.Refused):
+                self.run_apply(f)
+            self.assertEqual(f[1].calls, [])
 
-    def test_steps_reanuda_revision_44_con_41_recibos_tras_caida(self):
-        plan, current, record = self.planner_fixture(SQL.H6_FIRMA_REF, SQL.H6_FIRMA_REF)
-        record["installed"] = record["installed"][:41]
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            (state / "sql-journal.json").write_text(json.dumps(record))
-            with patch.object(SQL, "PROPOSED_REFS", set()), \
-                    patch.object(SQL, "approved_source_plan", return_value=plan), \
-                    patch.object(SQL, "validate_git_source", return_value=current):
-                self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.H6_FIRMA_REF, state),
-                                 [SQL.H6_FIRMA_REF])
-
-    def test_plan_44_propuesto_no_llega_a_postgresql(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_FIRMA_REF)
-        plan = SQL.validate_git_source(SQL.H6_FIRMA_REF, GIT_REPO)
-        with patch.object(SQL.DockerDB, "check_owner") as check_owner:
-            with self.assertRaisesRegex(SQL.Refused, "propuesto"):
-                SQL.apply(SQL.DockerDB("vec-test"), rows, Path("/irrelevant"),
-                          SQL.H6_FIRMA_REF, plan)
-        check_owner.assert_not_called()
+    def test_proposed_45_denies_before_kit_or_state(self):
+        plan = {"source_ref": SQL.H6_FIRMA_FINAL_REF,
+                "approved_sql_ref": SQL.H6_FIRMA_FINAL_REF, "plan_sha": SQL.plan_hash([])}
         with self.assertRaisesRegex(SQL.Refused, "propuesto"):
-            SQL.require_installable(SQL.H6_FIRMA_REF)
+            SQL.apply(None, [], Path("/absent"), SQL.H6_FIRMA_FINAL_REF, plan)
 
-    def test_ready_exige_recibos_vivos_y_acl_actual(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
-        plan = {"approved_sql_ref": SQL.H6_REF, "plan_sha": SQL.REF_PLAN_SHA[SQL.H6_REF],
-                "inventory_sha": "inventario", "file_count": len(rows), "entries": rows}
-        installed = [{"position": i, "path": row["path"], "sha256": row["sha256"]}
-                     for i, row in enumerate(rows, 1)]
-        record = {"source_ref": SQL.BASE_REF, "plan_sha": SQL.REF_PLAN_SHA[SQL.BASE_REF],
-                  "approved_sql_ref": SQL.H6_REF, "current_source_ref": SQL.H6_REF,
-                  "current_plan_sha": plan["plan_sha"], "inventory_sha": "inventario",
-                  "installed": installed}
-        actual = {"base_ref": record["source_ref"], "base_sha": record["plan_sha"],
-                  "last_ref": SQL.H6_REF, "last_sha": plan["plan_sha"]}
+    def test_journal_old_corrupt_symlink_hardlink_and_public_file_preserved(self):
+        for kind in ("old", "corrupt", "symlink", "hardlink", "public", "foreign"):
+            with self.subTest(kind=kind), self.fixture() as f:
+                state = f[0]; journal = state / "sql-journal.json"
+                if kind in ("public", "foreign"):
+                    self.run_apply(f)
+                    record = json.loads(journal.read_text())
+                    if kind == "foreign":
+                        record["identidad_clon"] = "f" * 64
+                        record["journal_sha"] = SQL.record_hash(record)
+                        journal.write_text(json.dumps(record))
+                    else: journal.chmod(0o644)
+                else:
+                    content = '{"version":1}' if kind == "old" else '{bad json'
+                    if kind == "symlink":
+                        other = state / "evidence"; other.write_text(content); other.chmod(0o600)
+                        journal.symlink_to(other)
+                    elif kind == "hardlink":
+                        other = state / "evidence"; other.write_text(content); other.chmod(0o600)
+                        os.link(other, journal)
+                    else: journal.write_text(content); journal.chmod(0o600)
+                before = journal.read_bytes(); count = len(f[1].calls)
+                with self.assertRaises(SQL.Refused): self.run_apply(f)
+                self.assertEqual(journal.read_bytes(), before)
+                self.assertEqual(len(f[1].calls), count)
 
-        class Database:
-            def __init__(self, acl):
-                self.acl = acl
-                self.queries = 0
-            def check_owner(self):
-                return None
-            def query(self, _):
-                self.queries += 1
-                return json.dumps(actual) if self.queries == 1 else self.acl
+    def test_mutated_sql_bytes_never_execute_even_with_claimed_hash(self):
+        with self.fixture() as f:
+            f[2][0]["sql"] += "-- bytes ajenos\n"
+            with self.assertRaisesRegex(SQL.Refused, "bytes SQL"):
+                self.run_apply(f)
+            self.assertEqual(f[1].calls, [])
+            self.assertFalse((f[0] / "sql-journal.json").exists())
 
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            (state / "sql-journal.json").write_text(json.dumps(record))
+    def test_plan_divergence_and_corruption_do_not_reapply(self):
+        with self.fixture() as f:
+            self.run_apply(f)
+            p = f[0] / "sql-journal.json"
+            for recompute in (False, True):
+                record = json.loads(p.read_text())
+                record["installed"][0]["sha256"] = "f" * 64
+                if recompute: record["journal_sha"] = SQL.record_hash(record)
+                p.write_text(json.dumps(record))
+                with self.assertRaises(SQL.Refused): self.run_apply(f)
+                self.assertEqual(len(f[1].calls), 1)
+
+    def test_directory_and_lock_links_are_rejected(self):
+        with self.fixture() as f:
+            linked = f[0] / "linked"; linked.symlink_to(f[0], target_is_directory=True)
+            with self.assertRaises(SQL.Refused):
+                with SQL.Journal(linked): pass
+            other = f[0] / "evidence"; other.write_text("private"); other.chmod(0o600)
+            (f[0] / "sql.lock").symlink_to(other)
+            with self.assertRaises((SQL.Refused, OSError)):
+                self.run_apply(f)
+            self.assertEqual(other.read_text(), "private")
+
+    def test_verify_live_denies_missing_kit_pending_and_ad132_then_checks_ro(self):
+        with self.fixture() as f:
+            state, db, _, ref, plan, context, kit = f
+            self.run_apply(f)
+            with patch.object(SQL, "approved_source_plan", return_value=plan):
+                with self.assertRaisesRegex(SQL.Refused, "kit D"):
+                    SQL.verify_live(db, REPO, REPO, ref, state)
+                with self.assertRaisesRegex(SQL.Refused, "AD132"):
+                    SQL.verify_live(db, REPO, REPO, ref, state, context, kit)
+                with SQL.Journal(state) as journal:
+                    record = journal.load(); record["phase"] = "ad132_confirmed"; journal.store(record)
+                self.assertEqual(SQL.verify_live(db, REPO, REPO, ref, state, context, kit)["phase"],
+                                 "ad132_confirmed")
+                with patch.object(kit, "verify", return_value=False), self.assertRaises(SQL.Refused):
+                    SQL.verify_live(db, REPO, REPO, ref, state, context, kit)
+                with SQL.Journal(state) as journal:
+                    record = journal.load(); record["pending"] = {"kind": "ad132"}; journal.store(record)
+                with self.assertRaisesRegex(SQL.Refused, "pendiente"):
+                    SQL.verify_live(db, REPO, REPO, ref, state, context, kit)
+
+    def test_external_extension_preserves_run_and_history_and_sends_only_tail(self):
+        with self.fixture() as f:
+            state, db, rows, ref, plan, context, kit = f
+            original = self.run_apply(f)
+            run_id = original["run_id"]
+            installed = list(original["installed"])
+            root_sha = original["original_plan_sha"]
+            extra_sql = "BEGIN;\nSELECT 2;\nCOMMIT;\n"
+            rows.append({"phase": "MAIN", "path": "deploy/postgresql/demo/000002.up.sql",
+                         "sha256": SQL.sha(extra_sql.encode()), "sql": extra_sql})
+            target = "2" * 40
+            SQL.REF_COUNTS[target] = 2
+            SQL.REF_PLAN_SHA[target] = SQL.plan_hash(rows)
+            plan.update(source_ref=target, approved_sql_ref=target, file_count=2,
+                        plan_sha=SQL.plan_hash(rows), inventory_sha="b" * 64,
+                        entries=[{k: v for k, v in r.items() if k != "sql"} for r in rows])
+            def query(text):
+                raw = json.loads((state / "sql-journal.json").read_text())
+                self.assertEqual(raw["installed"], installed)
+                self.assertEqual(raw["pending"]["position"], 2)
+                db.calls.append(text)
+            with patch.dict(SQL.REF_PARENT, {target: ref}), patch.object(db, "query", query):
+                record = SQL.apply(db, rows, state, target, plan, context, kit)
+            self.assertEqual(db.calls, [rows[0]["sql"], extra_sql])
+            self.assertEqual(record["run_id"], run_id)
+            self.assertEqual(record["installed"][:1], installed)
+            self.assertEqual(record["original_plan_sha"], root_sha)
+            self.assertEqual(record["revisions"][0]["previous_ref"], ref)
+
+    def test_steps_reject_old_or_pending_without_git_or_sql_effects(self):
+        with self.fixture() as f:
+            state, _, _, ref, plan, _, _ = f
             with patch.object(SQL, "approved_source_plan", return_value=plan), \
-                    patch.object(SQL, "load_plan", return_value=rows), \
-                    patch.object(SQL, "receipts", return_value=installed):
-                SQL.verify_live(Database("t"), REPO, REPO, SQL.H6_REF, state)
-                with self.assertRaisesRegex(SQL.Refused, "ACL"):
-                    SQL.verify_live(Database("f"), REPO, REPO, SQL.H6_REF, state)
-                record["installed"] = installed[:-1]
-                (state / "sql-journal.json").write_text(json.dumps(record))
-                with self.assertRaisesRegex(SQL.Refused, "divergen"):
-                    SQL.verify_live(Database("t"), REPO, REPO, SQL.H6_REF, state)
+                    patch.dict(SQL.REF_PARENT, {ref: None}):
+                self.assertEqual(SQL.etapas_requeridas(REPO, REPO, ref, state), [ref])
+                self.run_apply(f)
+                with patch.object(SQL, "validate_git_source", return_value=plan):
+                    self.assertEqual(SQL.etapas_requeridas(REPO, REPO, ref, state), [])
+                with SQL.Journal(state) as journal:
+                    record = journal.load(); record["pending"] = {"position": 2}; journal.store(record)
+                with patch.object(SQL, "validate_git_source") as lookup, self.assertRaises(SQL.Refused):
+                    SQL.etapas_requeridas(REPO, REPO, ref, state)
+                lookup.assert_not_called()
 
-    def test_h6_steps_fresh_38_39_and_complete_41(self):
-        plan, _, _ = self.planner_fixture(target=SQL.H6_REF)
-        with tempfile.TemporaryDirectory() as scratch:
-            with patch.object(SQL, "approved_source_plan", return_value=plan):
-                self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.H6_REF, Path(scratch)),
-                                 [SQL.BASE_REF, SQL.PREVIOUS_REF, SQL.THIRD_REF, SQL.FOURTH_REF,
-                                  SQL.FIFTH_REF, SQL.H6_REF])
-        for ref, expected in ((SQL.FOURTH_REF, [SQL.FIFTH_REF, SQL.H6_REF]),
-                              (SQL.FIFTH_REF, [SQL.H6_REF]), (SQL.H6_REF, [])):
-            plan, current, record = self.planner_fixture(ref, SQL.H6_REF)
-            with self.subTest(ref=ref), tempfile.TemporaryDirectory() as scratch:
-                state = Path(scratch); journal = state / "sql-journal.json"
-                before = json.dumps(record).encode(); journal.write_bytes(before)
-                with patch.object(SQL, "approved_source_plan", return_value=plan):
-                    with patch.object(SQL, "validate_git_source", return_value=current):
-                        self.assertEqual(SQL.etapas_requeridas(REPO, REPO, SQL.H6_REF, state), expected)
-                self.assertEqual(journal.read_bytes(), before)
-
-    def test_sibling_43_cannot_become_h6_and_41_cannot_become_43(self):
-        for recognized, target in ((SQL.MAIN_REF, SQL.H6_REF), (SQL.H6_REF, SQL.MAIN_REF)):
-            plan, current, record = self.planner_fixture(recognized, target)
-            with self.subTest(target=target), tempfile.TemporaryDirectory() as scratch:
-                state = Path(scratch); journal = state / "sql-journal.json"
-                before = json.dumps(record).encode(); journal.write_bytes(before)
-                with patch.object(SQL, "approved_source_plan", return_value=plan):
-                    with patch.object(SQL, "validate_git_source", return_value=current):
-                        with self.assertRaisesRegex(SQL.Refused, "familia"):
-                            SQL.etapas_requeridas(REPO, REPO, target, state)
-                self.assertEqual(journal.read_bytes(), before)
-                original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
-                rows = SQL.load_plan(REPO, source_ref=target)
-                with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(record["revisions"])]) as query:
-                    with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
-                        SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, target, original)
-                self.assertTrue(all(c.args[0].lstrip().startswith("SELECT") for c in query.call_args_list))
-                # El plan original también puede ser directamente la familia hermana.
-                with patch.object(SQL.DockerDB, "query") as query:
-                    with self.assertRaisesRegex(SQL.Refused, "otro plan"):
-                        SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, target,
-                            {"source_ref": recognized, "plan_sha": SQL.REF_PLAN_SHA[recognized]})
-                query.assert_not_called()
-
-    def test_recovery_only_43_never_creates_new_plan_revision(self):
-        rows = SQL.load_plan(REPO)
-        _, _, record = self.planner_fixture(SQL.FIFTH_REF)
-        original = {k: record[k] for k in ("run_id", "source_ref", "plan_sha")}
-        with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(record["revisions"])]) as query:
-            with self.assertRaisesRegex(SQL.Refused, "retirado"):
-                SQL.acknowledge_plan(SQL.DockerDB("vec-test"), rows, SQL.MAIN_REF, original)
-        self.assertTrue(all(c.args[0].lstrip().startswith("SELECT") for c in query.call_args_list))
-
-    def test_h6_replay_journal_preserves_root_metadata_and_physical_41(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.H6_REF)
-        plan, _, record = self.planner_fixture(SQL.H6_REF, SQL.H6_REF)
-        alias = "a" * 40
-        plan.update(source_ref=alias, plan_sha=SQL.plan_hash(rows),
-                    verified_main_ref="b" * 40, inventory_sha="c" * 64)
-        original = {k: v for k, v in record.items() if k != "installed"}
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            with patch.object(SQL.DockerDB, "check_owner"), patch.object(SQL.DockerDB, "query") as query:
-                with patch.object(SQL, "initialize", return_value=original.copy()) as initialize:
-                    with patch.object(SQL, "receipts", return_value=record["installed"]):
-                        SQL.apply(SQL.DockerDB("vec-test"), rows, state, alias, plan)
-            query.assert_not_called()
-            self.assertEqual(initialize.call_args.args[2], SQL.H6_REF)
-            journal = json.loads((state / "sql-journal.json").read_text())
-            for key in ("run_id", "source_ref", "plan_sha", "revisions"):
-                self.assertEqual(journal[key], record[key])
-            self.assertEqual(journal["current_source_ref"], alias)
-            self.assertEqual(journal["approved_sql_ref"], SQL.H6_REF)
-            self.assertEqual(journal["current_plan_sha"], SQL.REF_PLAN_SHA[SQL.H6_REF])
-            self.assertEqual(journal["file_count"], 41)
-            self.assertEqual(journal["plan_family"], "h6_41")
-            self.assertEqual(journal["execution_manifest"], "sql_main_h6.txt")
-            self.assertEqual(journal["installed"], record["installed"])
-
-    def test_recovery_only_43_refuses_fresh_or_38_before_initialize_or_up(self):
-        rows = SQL.load_plan(REPO)
-        installed = [{"position": n, "path": row["path"], "sha256": row["sha256"]}
-                     for n, row in enumerate(rows[:38], 1)]
-        for replies in (["f"], ["t", json.dumps(installed)]):
-            with self.subTest(replies=len(replies)), tempfile.TemporaryDirectory() as scratch:
-                with patch.object(SQL.DockerDB, "check_owner"):
-                    with patch.object(SQL.DockerDB, "query", side_effect=replies) as query:
-                        with patch.object(SQL, "initialize") as initialize:
-                            with self.assertRaises(SQL.Refused):
-                                SQL.apply(SQL.DockerDB("vec-test"), rows, Path(scratch), SQL.MAIN_REF)
-                initialize.assert_not_called()
-                self.assertTrue(all(call.args[0].lstrip().startswith("SELECT")
-                                    for call in query.call_args_list))
-
-    def test_recovery_only_43_recovers_exact_existing_ledger_without_sql_writes(self):
-        rows = SQL.load_plan(REPO)
-        _, _, record = self.planner_fixture(SQL.MAIN_REF)
-        metadata = {k: v for k, v in record.items() if k != "installed"}
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            with patch.object(SQL.DockerDB, "check_owner"):
-                with patch.object(SQL.DockerDB, "query", return_value="t") as query:
-                    with patch.object(SQL, "initialize", return_value=metadata):
-                        with patch.object(SQL, "receipts", return_value=record["installed"]):
-                            SQL.apply(SQL.DockerDB("vec-test"), rows, state, SQL.MAIN_REF)
-                            first = (state / "sql-journal.json").read_bytes()
-                            (state / "sql-journal.json").unlink()
-                            SQL.apply(SQL.DockerDB("vec-test"), rows, state, SQL.MAIN_REF)
-            self.assertEqual(first, (state / "sql-journal.json").read_bytes())
-            self.assertTrue(all(call.args[0].lstrip().startswith("SELECT")
-                                for call in query.call_args_list))
-            self.assertEqual(json.loads(first)["installed"], record["installed"])
-
-    def test_steps_recovery_only_43_refuses_missing_journal_or_complete_38(self):
-        plan, current, record = self.planner_fixture()
-        with tempfile.TemporaryDirectory() as scratch:
-            state = Path(scratch)
-            with patch.object(SQL, "approved_source_plan", return_value=plan):
-                with self.assertRaisesRegex(SQL.Refused, "retirado"):
-                    SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state)
-                (state / "sql-journal.json").write_text(json.dumps(record))
-                with patch.object(SQL, "validate_git_source", return_value=current):
-                    with self.assertRaisesRegex(SQL.Refused, "retirado"):
-                        SQL.etapas_requeridas(REPO, REPO, SQL.MAIN_REF, state)
-
-    def test_recovery_only_43_rejects_wrong_hash_even_with_43_rows(self):
-        rows = SQL.load_plan(REPO)
-        _, _, record = self.planner_fixture(SQL.MAIN_REF)
-        record["installed"][-1]["sha256"] = "a" * 64
-        with tempfile.TemporaryDirectory() as scratch:
-            with patch.object(SQL.DockerDB, "check_owner"):
-                with patch.object(SQL.DockerDB, "query", side_effect=["t", json.dumps(record["installed"])]):
-                    with patch.object(SQL, "initialize") as initialize:
-                        with self.assertRaisesRegex(SQL.Refused, "incompatibles"):
-                            SQL.apply(SQL.DockerDB("vec-test"), rows, Path(scratch), SQL.MAIN_REF)
-        initialize.assert_not_called()
-
-    def test_safe_39_is_not_blocked_by_recovery_only_43(self):
-        rows = SQL.load_plan(REPO, source_ref=SQL.FIFTH_REF)
-        _, _, record = self.planner_fixture(SQL.FIFTH_REF)
-        metadata = {k: v for k, v in record.items() if k != "installed"}
-        with tempfile.TemporaryDirectory() as scratch:
-            with patch.object(SQL.DockerDB, "check_owner"):
-                with patch.object(SQL.DockerDB, "query") as query:
-                    with patch.object(SQL, "initialize", return_value=metadata) as initialize:
-                        with patch.object(SQL, "receipts", return_value=record["installed"]):
-                            SQL.apply(SQL.DockerDB("vec-test"), rows, Path(scratch), SQL.FIFTH_REF)
-        initialize.assert_called_once()
-        query.assert_not_called()
+    def test_readonly_callbacks_have_no_write_connection(self):
+        class DB:
+            calls = []
+            def query(self, text): self.calls.append(text); return "t"
+        db = DB(); ro = SQL.ReadOnlyDB(db)
+        self.assertEqual(ro.query("SELECT true;"), "t")
+        self.assertEqual(db.calls, ["BEGIN READ ONLY;\nSELECT true;\nCOMMIT;"])
+        with self.assertRaises(SQL.Refused): ro.query("INSERT INTO dummy VALUES (1);")
 
 
 class GitSourceTests(unittest.TestCase):

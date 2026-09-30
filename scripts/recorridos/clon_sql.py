@@ -3,7 +3,8 @@
 
 H1 se restaura antes; H5 solo configura la aplicación. No instala SQL de ramas
 pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
-El journal privado se reconstruye desde recibos transaccionales del clon.
+El journal privado v2 conserva confirmaciones observadas fuera de PostgreSQL.
+Un pending obliga a retirar y reconstruir el clon en otro estado privado.
 Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 (CT147, posición 34), main@e78687528 (AD3-114/CT148, posiciones 35/36)
 main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38), main@1e443463d
@@ -18,7 +19,7 @@ Las familias 41/44/45 y 43 parten de39; no existe transición de43 a41/44/45.
 El plan 43 de 890b3fe0e está retirado para nuevas instalaciones: se conserva
 solo para lectura y recuperación de los 43 recibos exactos ya instalados.
 Cada extensión conserva los recibos y metadatos originales
-y añade una revisión del plan en el esquema del clon. Otros hashes exigen revisar
+y añade una revisión del plan exclusivamente en el journal privado. Otros hashes exigen revisar
 de nuevo la lista causal y sus huellas. Descendientes de un plan aprobado
 se admiten con ascendencia y TODO el inventario SQL idéntico, cotejado con el
 archivo extraído. Esta prueba no aprueba los contratos de otros componentes.
@@ -36,9 +37,8 @@ import posixpath
 import stat
 import subprocess
 import sys
-import tempfile
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 BASE_REF = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
 PREVIOUS_REF = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
@@ -73,7 +73,6 @@ REF_PLAN_SHA = {
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
-SCHEMA = "vec_recorridos_clon"
 MANIFEST = Path(__file__).with_name("sql_main.txt")
 H6_MANIFEST = Path(__file__).with_name("sql_main_h6.txt")
 H6_FIRMA_MANIFEST = Path(__file__).with_name("sql_main_h6_firma.txt")
@@ -408,119 +407,88 @@ def approved_source_plan(repo, source_ref, git_repo=None):
 
 
 def validate_receipts(installed, plan, complete=True):
-    """API pura: recibos exactos del plan; material exige instalación completa."""
+    """API pura: posiciones y bytes exactos; no acredita recibos de PostgreSQL."""
+    if not isinstance(installed, list):
+        raise Refused("confirmaciones incompatibles")
     if len(installed) > plan["file_count"] or (complete and len(installed) != plan["file_count"]):
         raise Refused("instalación incompleta o recibos ajenos al plan aprobado")
     for position, receipt in enumerate(installed, 1):
         row = plan["entries"][position - 1]
-        if (receipt["position"] != position or receipt["path"] != row["path"]
-                or receipt["sha256"] != row["sha256"]):
+        if (not isinstance(receipt, dict) or receipt.get("position") != position
+                or receipt.get("path") != row["path"] or receipt.get("sha256") != row["sha256"]):
             raise Refused("recibos incompatibles o incompletos; no reaplicar")
 
 
-def verify_live(db, repo, git_repo, source_ref, state):
-    """Acredita recibos y ACL actuales con consultas de solo lectura antes de READY."""
+# Kit D no está aprobado ni disponible en este corte. El director integrará un
+# proveedor revisado; ningún manifiesto privado contiene SQL ejecutable.
+LIVE_KIT = None
+
+
+def require_kit(kit, plan, context):
+    if kit is None or not all(callable(getattr(kit, name, None)) for name in
+                              ("validate", "identity", "confirm", "verify")):
+        raise Refused("falta kit D aprobado y completo; no instalar ni publicar READY")
+    if kit.validate(plan, context) is not True:
+        raise Refused("kit D no corresponde a fuente, paquete y lista aprobados")
+
+
+class ReadOnlyDB:
+    """Frontera de callbacks del kit: PostgreSQL fuerza sólo lectura."""
+    def __init__(self, db):
+        self._db = db
+
+    def query(self, text):
+        if not isinstance(text, str) or not text.lstrip().upper().startswith("SELECT "):
+            raise Refused("el kit sólo puede consultar anclas de lectura")
+        return self._db.query("BEGIN READ ONLY;\n" + text + "\nCOMMIT;")
+
+
+def verify_live(db, repo, git_repo, source_ref, state, context=None, kit=None):
+    """RO; requiere kit real, journal completo y cierre AD132 independiente.
+
+    verify(ro_db, record, context) debe cotejar anclas finales y evidencia de la
+    CLI DBA. Nunca cambia phase ni confirma un pending.
+    """
     plan = approved_source_plan(repo, source_ref, git_repo)
     require_installable(plan["approved_sql_ref"])
-    rows = load_plan(repo, source_ref=plan["approved_sql_ref"])
-    db.check_owner()
-    installed = receipts(db, rows)
-    validate_receipts(installed, plan)
-    journal = state / "sql-journal.json"
-    if journal.is_symlink() or not journal.is_file() or journal.stat().st_size > 2 * 1024 * 1024:
-        raise Refused("journal SQL ausente o inválido para READY")
-    record = json.loads(journal.read_text())
-    if not isinstance(record, dict):
-        raise Refused("journal SQL inválido para READY")
-    if (record.get("installed") != installed or record.get("current_source_ref") != source_ref
-            or record.get("approved_sql_ref") != plan["approved_sql_ref"]
-            or record.get("current_plan_sha") != plan["plan_sha"]
-            or record.get("inventory_sha") != plan["inventory_sha"]):
-        raise Refused("journal y base divergen; no publicar READY")
-    actual = json.loads(db.query(f"""SELECT json_build_object(
-      'base_ref',p.source_ref,'base_sha',p.plan_sha,
-      'last_ref',coalesce((SELECT r.source_ref FROM {SCHEMA}.plan_revisions r ORDER BY r.revision DESC LIMIT 1),p.source_ref),
-      'last_sha',coalesce((SELECT r.plan_sha FROM {SCHEMA}.plan_revisions r ORDER BY r.revision DESC LIMIT 1),p.plan_sha)
-      ) FROM {SCHEMA}.plan p WHERE p.singleton;"""))
-    if (actual.get("base_ref") != record.get("source_ref")
-            or actual.get("base_sha") != record.get("plan_sha")
-            or actual.get("last_ref") != plan["approved_sql_ref"]
-            or actual.get("last_sha") != plan["plan_sha"]):
-        raise Refused("plan SQL vivo distinto del journal; no publicar READY")
-    acl_safe = db.query("""SELECT NOT EXISTS (
-      SELECT 1 FROM pg_catalog.pg_database d
-      CROSS JOIN LATERAL pg_catalog.aclexplode(
-        coalesce(d.datacl,pg_catalog.acldefault('d',d.datdba))) a
-      WHERE d.datname=current_database() AND a.grantee=0
-    ) AND NOT EXISTS (
-      SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolcanlogin
-        AND left(r.rolname,4)='vec_'
-        AND (pg_catalog.has_database_privilege(r.oid,current_database(),'TEMP')
-             OR pg_catalog.has_database_privilege(r.oid,current_database(),'CREATE'))
-    );""")
-    if acl_safe != "t":
-        raise Refused("ACL de la base cambió; no publicar READY")
+    with Journal(state) as journal:
+        record = journal.load(required=True)
+        context = validate_context(context or context_from_record(record))
+        validate_record(record, plan, context)
+        require_kit(kit or LIVE_KIT, plan, context)
+        validate_receipts(record["installed"], plan)
+        if record["phase"] != "ad132_confirmed":
+            raise Refused("falta cierre independiente AD132; no publicar READY")
+        db.check_owner()
+        ro = ReadOnlyDB(db)
+        provider = kit or LIVE_KIT
+        if provider.identity(ro, context) != context["identidad_clon"]:
+            raise Refused("identidad viva del clon distinta; reconstruir sin reaplicar")
+        if provider.verify(ro, record, context) is not True:
+            raise Refused("anclas vivas o evidencia AD132 divergentes; no publicar READY")
+    return record
 
 
 def etapas_requeridas(repo, git_repo, source_ref, state):
-    """Consejo RO para el orquestador; nunca sustituye las comprobaciones de BD.
-
-    Sin journal devuelve todos los prefijos aprobados hasta el destino. Un
-    journal debe acreditar un prefijo completo y conocido; el instalador real
-    coteja su run_id y sus recibos con PostgreSQL antes de cada UP.
-    """
+    """Consejo RO; journals v1 o pendientes jamás permiten otra UP."""
     target = approved_source_plan(repo, source_ref, git_repo)
     require_installable(target["approved_sql_ref"])
-    target_path = plan_path(target["approved_sql_ref"])
-    journal = Path(state) / "sql-journal.json"
-    if not journal.exists() and not journal.is_symlink():
-        if target["approved_sql_ref"] in RECOVERY_ONLY_REFS:
-            raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
-        return list(target_path)
-    status = journal.lstat()
-    if not stat.S_ISREG(status.st_mode) or status.st_size > 2 * 1024 * 1024:
-        raise Refused("el journal no es un fichero regular válido")
-    try:
-        record = json.loads(journal.read_text())
-        uuid.UUID(record["run_id"])
-        original = record["source_ref"]
-        if original not in REF_COUNTS or record["plan_sha"] != REF_PLAN_SHA[original]:
-            raise Refused("el journal pertenece a un plan no aprobado")
-        revisions = record.get("revisions", [])
-        recognized = validate_history(original, revisions)
-        if record.get("approved_sql_ref", recognized) != recognized:
-            raise Refused("la aprobación del journal no coincide con su historia")
-        if record.get("current_plan_sha", REF_PLAN_SHA[recognized]) != REF_PLAN_SHA[recognized]:
-            raise Refused("la huella actual del journal no coincide con su aprobación")
-        current = record.get("current_source_ref", recognized)
-        if record.get("verified_source_ref", current) != current:
-            raise Refused("la procedencia del journal no coincide con su fuente")
-        current_plan = validate_git_source(current, git_repo)
-        if current_plan["approved_sql_ref"] != recognized:
-            raise Refused("la fuente del journal no conserva su plan SQL aprobado")
-        if "inventory_sha" in record and record["inventory_sha"] != current_plan["inventory_sha"]:
-            raise Refused("el inventario del journal no coincide con Git")
-        for key in ("plan_family", "execution_manifest"):
-            if key in record and record[key] != current_plan[key]:
-                raise Refused("la familia o manifiesto del journal no coincide con Git")
-        if "file_count" in record and record["file_count"] != current_plan["file_count"]:
-            raise Refused("el número físico de SQL del journal no coincide con su plan")
-        # Una caída puede ocurrir tras reconocer la revisión y antes de su
-        # última UP. El instalador coteja además estos recibos con PostgreSQL.
-        validate_receipts(record["installed"], current_plan, complete=False)
-        if any(datetime.fromisoformat(r["installed_at"]).tzinfo is None
-               for r in record["installed"]):
-            raise Refused("el journal conserva recibos sin fecha válida")
-        if recognized not in target_path:
-            raise Refused("el journal conserva otra familia o una revisión posterior al destino")
-        completed = target_path.index(recognized)
-        if target["approved_sql_ref"] in RECOVERY_ONLY_REFS and recognized != target["approved_sql_ref"]:
-            raise Refused("plan 43 retirado para nuevas instalaciones; requiere una fuente corregida aprobada")
-        if len(record["installed"]) < current_plan["file_count"]:
-            return list(target_path[completed:])
-        return list(target_path[completed + 1:])
-    except (KeyError, TypeError, ValueError, AttributeError) as error:
-        raise Refused("el journal tiene metadatos inválidos o incompletos") from error
+    path = plan_path(target["approved_sql_ref"])
+    with Journal(state) as journal:
+        record = journal.load()
+        if record is None:
+            if target["approved_sql_ref"] in RECOVERY_ONLY_REFS:
+                raise Refused("plan 43 retirado; reconstruir con fuente aprobada")
+            return list(path)
+        current = validate_git_source(record["source_commit"], git_repo)
+        validate_record(record, current, context_from_record(record))
+        recognized = current["approved_sql_ref"]
+        if recognized not in path:
+            raise Refused("journal de otra familia o revisión posterior")
+        index = path.index(recognized)
+        if len(record["installed"]) < current["file_count"]:
+            return list(path[index:])
+        return list(path[index + 1:])
 
 
 class DockerDB:
@@ -567,213 +535,289 @@ class DockerDB:
         return result.stdout.strip()
 
 
-def initialize(db, rows, source_ref=MAIN_REF):
-    expected = plan_hash(rows)
-    exists = db.query(f"SELECT to_regnamespace('{SCHEMA}') IS NOT NULL;")
-    if exists == "f":
-        # Admitir solo la preimagen H1; un clon H3/H4 sin recibos no se reejecuta.
-        baseline = db.query("""SELECT
-          to_regprocedure('vec_contratacion_temporal.gobi_o404b_material_catalogo_v2(jsonb)') IS NULL
-          AND to_regclass('vec_contratacion_temporal.numeracion_anual_asignada') IS NULL
-          AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN
-            ('vec_usuarios_propietario','vec_aspirantes_propietario'))
-          AND EXISTS (SELECT 1 FROM pg_proc WHERE oid = to_regprocedure(
-            'vec_contratacion_temporal.gobi_o404b_material_catalogo(jsonb)')
-            AND encode(sha256(convert_to(prosrc,'UTF8')),'hex') =
-            'daac1fec7f04618a41337ea0d6d6bff494178da52dcbd51e84f50ab0868c15c6');""")
-        if baseline != "t":
-            raise Refused("preimagen H1 incompatible; no reaplicar SQL ya instalada")
-        run_id = str(uuid.uuid4())
-        db.query(f"""BEGIN;
-          CREATE SCHEMA {SCHEMA} AUTHORIZATION postgres;
-          REVOKE ALL ON SCHEMA {SCHEMA} FROM PUBLIC;
-          CREATE TABLE {SCHEMA}.plan (
-            singleton boolean PRIMARY KEY CHECK (singleton), run_id uuid NOT NULL,
-            source_ref text NOT NULL, plan_sha text NOT NULL);
-          CREATE TABLE {SCHEMA}.applied (
-            position integer PRIMARY KEY, path text NOT NULL UNIQUE,
-            sha256 text NOT NULL, installed_at timestamptz NOT NULL DEFAULT clock_timestamp());
-          REVOKE ALL ON ALL TABLES IN SCHEMA {SCHEMA} FROM PUBLIC;
-          INSERT INTO {SCHEMA}.plan VALUES (true, '{run_id}', '{source_ref}', '{expected}');
-          COMMIT;""")
-    raw = db.query(f"""SELECT json_build_object('run_id',run_id,'source_ref',source_ref,
-                    'plan_sha',plan_sha) FROM {SCHEMA}.plan WHERE singleton;""")
-    meta = json.loads(raw)
-    return acknowledge_plan(db, rows, source_ref, meta)
+JOURNAL_VERSION = 2
+MAX_JOURNAL = 2 * 1024 * 1024
+CONTEXT_KEYS = ("identidad_clon", "estado_h1_sha", "package_sha", "list_sha", "release_sha")
+REBUILD = "operación pendiente o incierta; conservar evidencia y retirar/reconstruir un clon nuevo; no reaplicar ni publicar READY"
 
 
-def acknowledge_plan(db, rows, source_ref, meta):
-    """Preserva el plan original y amplía por una arista causal aprobada."""
-    target_path = plan_path(source_ref)
-    original_count = REF_COUNTS.get(meta["source_ref"])
-    if original_count is None or meta["source_ref"] not in target_path:
-        raise Refused("el clon conserva otro plan; requiere revisión del inventario")
-    if meta["plan_sha"] != plan_hash(rows[:original_count]):
-        raise Refused("el prefijo del plan original ha cambiado; no instalar")
-    exists = db.query(f"SELECT to_regclass('{SCHEMA}.plan_revisions') IS NOT NULL;")
-    revisions = []
-    if exists == "t":
-        revisions = json.loads(db.query(f"""SELECT coalesce(json_agg(x ORDER BY revision), '[]'::json)
-          FROM (SELECT revision,source_ref,plan_sha,file_count,acknowledged_at
-                FROM {SCHEMA}.plan_revisions) x;"""))
-        if not revisions:
-            raise Refused("revisiones de plan incompatibles; no instalar ni volver a la base")
-        validate_history(meta["source_ref"], revisions)
-        for revision in revisions:
-            ref = revision["source_ref"]
-            count = REF_COUNTS[ref]
-            if (ref not in target_path or count > len(rows)
-                    or revision["plan_sha"] != plan_hash(rows[:count])
-                    or revision["file_count"] != count):
-                raise Refused("revisiones de plan incompatibles; no instalar ni volver a la base")
-    recognized_ref = revisions[-1]["source_ref"] if revisions else meta["source_ref"]
-    if recognized_ref != source_ref:
-        if source_ref in RECOVERY_ONLY_REFS:
-            raise Refused("plan 43 retirado para nuevas revisiones; conservar solo recuperación exacta")
-        if REF_PARENT[source_ref] != recognized_ref:
-            raise Refused("extensión no autorizada: completar primero la revisión intermedia")
-        required = REF_COUNTS[recognized_ref]
-        if len(receipts(db, rows)) != required:
-            raise Refused(f"la extensión requiere las {required} SQL anteriores completas")
-        revision = len(target_path)
-        count = REF_COUNTS[source_ref]
-        if exists == "t":
-            # V2 restringía esta infraestructura a la revisión 2 y 34 ficheros.
-            # Ampliar solo sus CHECK; no actualizar filas ni recibos originales.
-            ddl = f"""ALTER TABLE {SCHEMA}.plan_revisions
-              DROP CONSTRAINT IF EXISTS plan_revisions_revision_check,
-              DROP CONSTRAINT IF EXISTS plan_revisions_file_count_check,
-              DROP CONSTRAINT IF EXISTS plan_revisions_supported,
-              ADD CONSTRAINT plan_revisions_supported CHECK (
-                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
-                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
-                OR (revision=6 AND file_count IN (41,43))
-                OR (revision=7 AND file_count=44)
-                OR (revision=8 AND file_count=45));"""
-        else:
-            ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
-              revision integer PRIMARY KEY, source_ref text NOT NULL,
-              plan_sha text NOT NULL, file_count integer NOT NULL,
-              acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-              CONSTRAINT plan_revisions_supported CHECK (
-                (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
-                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
-                OR (revision=6 AND file_count IN (41,43))
-                OR (revision=7 AND file_count=44)
-                OR (revision=8 AND file_count=45)));
-              REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
-        db.query(f"""BEGIN;
-          SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
-          {ddl}
-          INSERT INTO {SCHEMA}.plan_revisions(revision,source_ref,plan_sha,file_count)
-            VALUES ({revision},'{source_ref}','{plan_hash(rows)}',{count});
-          COMMIT;""")
-        return acknowledge_plan(db, rows, source_ref, meta)
-    # Plan SQL reconocido; apply añade la procedencia de código verificada.
-    return {**meta, "current_source_ref": source_ref, "current_plan_sha": plan_hash(rows),
-            "plan_family": plan_family(source_ref),
-            "execution_manifest": execution_manifest(source_ref).name,
-            "revisions": revisions}
+def validate_context(context):
+    if not isinstance(context, dict) or any(not isinstance(context.get(k), str)
+            or not re.fullmatch(r"[a-f0-9]{64}", context[k]) for k in CONTEXT_KEYS):
+        raise Refused("faltan identidad del clon o huellas H1/paquete/lista/release")
+    return {k: context[k] for k in CONTEXT_KEYS}
 
 
-def receipts(db, rows):
-    raw = db.query(f"""SELECT coalesce(json_agg(x ORDER BY position), '[]'::json)
-                    FROM (SELECT position,path,sha256,installed_at FROM {SCHEMA}.applied) x;""")
-    installed = json.loads(raw)
-    validate_receipts(installed, {"file_count": len(rows), "entries": rows}, complete=False)
-    return installed
+def context_from_record(record):
+    return {k: record.get(k) for k in CONTEXT_KEYS}
 
 
-def instrument(row, position):
-    """Añade exclusivamente el recibo del clon dentro del COMMIT original."""
-    guard = f"""BEGIN;
-SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
-DO $clon_guard$ BEGIN
- IF (SELECT count(*) FROM {SCHEMA}.applied) <> {position - 1}
- THEN RAISE EXCEPTION 'orden SQL del clon incompatible'; END IF;
-END $clon_guard$;
-"""
-    text = re.sub(r"(?m)^BEGIN;\s*$", lambda _: guard, row["sql"], count=1)
-    receipt = f"""RESET ROLE;
-INSERT INTO {SCHEMA}.applied(position,path,sha256)
-VALUES ({position},{sql_literal(row['path'])},{sql_literal(row['sha256'])});
-COMMIT;
-"""
-    return re.sub(r"COMMIT;\s*$", lambda _: receipt, text)
+def record_hash(record):
+    return sha(json.dumps({k: v for k, v in record.items() if k != "journal_sha"},
+                          sort_keys=True, separators=(",", ":")).encode())
 
 
-def write_journal(state, meta, installed):
-    journal = state / "sql-journal.json"
-    if journal.is_symlink():
-        raise Refused("el journal privado no puede ser un enlace")
-    if journal.exists():
-        old = json.loads(journal.read_text())
-        if old["run_id"] != meta["run_id"] or old["plan_sha"] != meta["plan_sha"]:
-            raise Refused("journal de otro clon; usar un directorio propio")
-        old_revisions = old.get("revisions", [])
-        if old_revisions != meta.get("revisions", [])[:len(old_revisions)]:
-            raise Refused("revisión del journal ausente de PostgreSQL")
-        if old["installed"] != installed[:len(old["installed"])]:
-            raise Refused("el journal contiene una instalación ausente de PostgreSQL")
-    descriptor, temporary = tempfile.mkstemp(prefix=".sql-journal-", dir=state)
-    try:
-        with os.fdopen(descriptor, "w") as file:
-            json.dump({**meta, "installed": installed}, file, indent=2)
-            file.write("\n")
-            file.flush()
-            os.fsync(file.fileno())
-        os.replace(temporary, journal)
-        descriptor = os.open(state, os.O_DIRECTORY)
+class Journal:
+    """Journal privado, bloqueo único y reemplazo durable mediante dir_fd.
+
+    Se conserva pending desde antes de enviar SQL hasta después del retorno
+    COMMIT y la comprobación RO del kit. No hay reconciliación ni reUP.
+    """
+    def __init__(self, state):
+        self.state = Path(state).absolute()
+        self.directory = None
+        self.lock = None
+
+    def __enter__(self):
         try:
-            os.fsync(descriptor)
+            for path in (*reversed(self.state.parents), self.state):
+                if path.is_symlink():
+                    raise Refused("directorio privado enlazado")
+                if (path / ".git").exists():
+                    raise Refused("journal debe quedar fuera de Git")
+            # Recorrer por descriptores cierra carreras con enlaces en padres.
+            self.directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+            for component in self.state.parts[1:]:
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                  dir_fd=self.directory)
+                os.close(self.directory)
+                self.directory = next_fd
+            status = os.fstat(self.directory)
+            if status.st_uid != os.getuid() or status.st_mode & 0o077:
+                raise Refused("estado privado exige propietario actual y modo 0700")
+            self.lock = os.open("sql.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                0o600, dir_fd=self.directory)
+            self._check_file(self.lock)
+            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return self
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+
+    def __exit__(self, *args):
+        if self.lock is not None:
+            os.close(self.lock)
+            self.lock = None
+        if self.directory is not None:
+            os.close(self.directory)
+            self.directory = None
+
+    @staticmethod
+    def _check_file(fd):
+        status = os.fstat(fd)
+        if (not stat.S_ISREG(status.st_mode) or status.st_nlink != 1
+                or status.st_uid != os.getuid() or status.st_mode & 0o077
+                or status.st_size > MAX_JOURNAL):
+            raise Refused("journal/lock ajeno o fichero privado inválido")
+        return status
+
+    def load(self, required=False):
+        try:
+            fd = os.open("sql-journal.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                         dir_fd=self.directory)
+        except FileNotFoundError:
+            if required:
+                raise Refused("falta journal externo v2; reconstruir clon nuevo")
+            return None
+        except OSError as error:
+            raise Refused("journal privado inválido o enlazado") from error
+        try:
+            self._check_file(fd)
+            with os.fdopen(fd, "rb", closefd=False) as file:
+                raw = file.read(MAX_JOURNAL + 1)
+            record = json.loads(raw)
+            if not isinstance(record, dict) or record.get("version") != JOURNAL_VERSION:
+                raise Refused("journal antiguo/ajeno; no convertir; reconstruir clon nuevo")
+            if record.get("journal_sha") != record_hash(record):
+                raise Refused("journal corrupto; conservar y reconstruir clon nuevo")
+            uuid.UUID(record["run_id"])
+            if record.get("pending") is not None:
+                raise Refused(REBUILD)
+            return record
+        except (ValueError, KeyError, TypeError) as error:
+            raise Refused("journal corrupto; conservar y reconstruir clon nuevo") from error
         finally:
-            os.close(descriptor)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
+            os.close(fd)
 
-
-def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None):
-    if source_plan and (source_plan["source_ref"] != source_ref
-                        or source_plan["plan_sha"] != plan_hash(rows)):
-        raise Refused("la procedencia y el plan SQL no coinciden")
-    approved_ref = source_plan["approved_sql_ref"] if source_plan else source_ref
-    require_installable(approved_ref)
-    db.check_owner()
-    if len(rows) != REF_COUNTS.get(approved_ref) or plan_hash(rows) != REF_PLAN_SHA.get(approved_ref):
-        raise Refused("el plan SQL no corresponde a su referencia aprobada")
-    if approved_ref in RECOVERY_ONLY_REFS:
-        # Antes de initialize: ni provisión, ni revisión nueva, ni primera UP.
-        exists = db.query(f"SELECT to_regclass('{SCHEMA}.applied') IS NOT NULL;")
-        if exists != "t":
-            raise Refused("plan 43 retirado para nuevas instalaciones; no hay ledger 43 recuperable")
-        installed = receipts(db, rows)
-        validate_receipts(installed, {"file_count": len(rows), "entries": rows})
-    meta = initialize(db, rows, approved_ref)
-    meta["approved_sql_ref"] = approved_ref
-    meta.update(plan_family=plan_family(approved_ref),
-                execution_manifest=execution_manifest(approved_ref).name,
-                file_count=len(rows))
-    if source_plan:
-        # Esta procedencia no aprueba los contratos Go, material ni DB_READY.
-        meta.update(current_source_ref=source_ref, verified_source_ref=source_ref,
-                    verified_main_ref=source_plan["verified_main_ref"],
-                    inventory_sha=source_plan["inventory_sha"])
-    installed = receipts(db, rows)
-    write_journal(state, meta, installed)
-    skipped = len(installed)
-    for position, row in enumerate(rows, 1):
-        if position <= skipped:
-            continue
+    def store(self, record):
+        # Comprobar también el destino antes de reemplazarlo. No se convierte ni
+        # se borra un archivo ajeno. El caller conserva su copia pending en RAM.
         try:
-            db.query(instrument(row, position))
-        except Refused as error:
-            raise Refused(f"FALLO {position} {row['path']}: {error}") from error
-        installed = receipts(db, rows)
-        if len(installed) != position:
-            raise Refused("falta el recibo transaccional; detener sin reaplicar")
-        write_journal(state, meta, installed)
-        print(f"OK {position} {row['phase']} {row['path']}", flush=True)
-    print(f"SQL-OK instaladas={len(installed)} nuevas={len(installed) - skipped} recuperadas={skipped}")
+            fd = os.open("sql-journal.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                         dir_fd=self.directory)
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            raise Refused("journal privado inválido o enlazado") from error
+        else:
+            try:
+                self._check_file(fd)
+                old = json.loads(os.read(fd, MAX_JOURNAL + 1))
+                if (not isinstance(old, dict) or old.get("version") != JOURNAL_VERSION
+                        or old.get("run_id") != record["run_id"]
+                        or old.get("journal_sha") != record_hash(old)):
+                    raise Refused("journal ajeno o corrupto; conservar evidencia")
+                for key in CONTEXT_KEYS:
+                    if old.get(key) != record.get(key):
+                        raise Refused("journal de otro clon/paquete; conservar evidencia")
+            except (ValueError, KeyError, TypeError) as error:
+                raise Refused("journal ajeno o corrupto; conservar evidencia") from error
+            finally:
+                os.close(fd)
+        value = {**record, "journal_sha": record_hash(record)}
+        data = (json.dumps(value, sort_keys=True, indent=2) + "\n").encode()
+        if len(data) > MAX_JOURNAL:
+            raise Refused("journal fuera de límites")
+        temporary = ".sql-journal-" + uuid.uuid4().hex
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=self.directory)
+        try:
+            with os.fdopen(fd, "wb") as file:
+                file.write(data)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temporary, "sql-journal.json", src_dir_fd=self.directory, dst_dir_fd=self.directory)
+            os.fsync(self.directory)
+        finally:
+            try:
+                os.unlink(temporary, dir_fd=self.directory)
+            except FileNotFoundError:
+                pass
+
+
+def validate_record(record, plan, context):
+    if record.get("version") != JOURNAL_VERSION:
+        raise Refused("journal antiguo; reconstruir sin convertir")
+    if record.get("pending") is not None:
+        raise Refused(REBUILD)
+    context = validate_context(context)
+    if any(record.get(k) != context[k] for k in CONTEXT_KEYS):
+        raise Refused("journal de otro clon/paquete; reconstruir sin reaplicar")
+    for key, expected in (("source_commit", plan["source_ref"]),
+                          ("approved_sql_ref", plan["approved_sql_ref"]),
+                          ("plan_sha", plan["plan_sha"]),
+                          ("inventory_sha", plan["inventory_sha"]),
+                          ("entries", plan["entries"]), ("file_count", plan["file_count"])):
+        if record.get(key) != expected:
+            raise Refused("fuente/plan/journal divergentes; no reaplicar")
+    validate_receipts(record.get("installed", []), plan, complete=False)
+    try:
+        for item in record["installed"]:
+            if (datetime.fromisoformat(item["confirmed_at"]).tzinfo is None
+                    or item["confirmation"] != "commit_returned_and_postcheck"):
+                raise ValueError()
+        complete = len(record["installed"]) == plan["file_count"]
+        if record.get("phase") not in ({"awaiting_ad132", "ad132_confirmed"} if complete else {"installing"}):
+            raise ValueError()
+    except (ValueError, KeyError, TypeError) as error:
+        raise Refused("confirmaciones o fase del journal inválidas") from error
+
+
+
+def advance_record(record, plan, context):
+    """Amplía sólo una arista causal; confirma el prefijo completo antes de UP."""
+    validate_context(context)
+    if any(record.get(k) != context[k] for k in CONTEXT_KEYS):
+        raise Refused("journal de otro clon/paquete; reconstruir sin reaplicar")
+    previous = record.get("approved_sql_ref")
+    target = plan["approved_sql_ref"]
+    if previous not in REF_COUNTS or record.get("plan_sha") != REF_PLAN_SHA[previous]:
+        raise Refused("plan original del journal no aprobado")
+    entries = record.get("entries")
+    if not isinstance(entries, list) or plan_hash(entries) != REF_PLAN_SHA[previous]:
+        raise Refused("plan del journal divergente")
+    if previous != target:
+        if REF_PARENT.get(target) != previous or entries != plan["entries"][:len(entries)]:
+            raise Refused("journal conserva otra familia o extensión con saltos")
+        validate_receipts(record["installed"], {"entries": entries, "file_count": REF_COUNTS[previous]})
+        if target in RECOVERY_ONLY_REFS:
+            raise Refused("plan 43 retirado; no ampliar")
+        record["revisions"].append({"previous_ref": previous, "source_ref": target,
+                                   "plan_sha": plan["plan_sha"], "file_count": plan["file_count"]})
+        record["phase"] = "installing"
+    elif record.get("inventory_sha") != plan["inventory_sha"]:
+        raise Refused("inventario del journal divergente")
+    record.update(source_commit=plan["source_ref"], current_source_ref=plan["source_ref"],
+                  verified_source_ref=plan["source_ref"], approved_sql_ref=target,
+                  plan_sha=plan["plan_sha"], current_plan_sha=plan["plan_sha"],
+                  inventory_sha=plan["inventory_sha"], entries=plan["entries"],
+                  file_count=plan["file_count"], plan_family=plan["plan_family"],
+                  execution_manifest=plan["execution_manifest"])
+    return record
+
+def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None, context=None, kit=None):
+    """Instala exclusivamente bytes originales; journal externo nunca modifica BD.
+
+    Contrato proveedor: validate(plan, context)->True; identity(ro_db, context)
+    -> identidad_clon; confirm(ro_db, entry, position, context)->True después de
+    COMMIT observado y postcotejo RO real; verify(ro_db, record, context)->True
+    para anclas finales y evidencia AD132. Kit ausente/incompleto deniega.
+    """
+    if source_plan is None or (source_plan["source_ref"] != source_ref
+            or source_plan["plan_sha"] != plan_hash(rows)):
+        raise Refused("instalación exige procedencia Git y plan exactos")
+    plan = source_plan
+    approved = plan["approved_sql_ref"]
+    require_installable(approved)
+    if ([{k: v for k, v in row.items() if k != "sql"} for row in rows] != plan["entries"]
+            or any(not isinstance(row.get("sql"), str)
+                   or sha(row["sql"].encode()) != row["sha256"] for row in rows)):
+        raise Refused("bytes SQL divergentes del plan; no ejecutar")
+    if len(rows) != REF_COUNTS.get(approved) or plan_hash(rows) != REF_PLAN_SHA.get(approved):
+        raise Refused("plan SQL no corresponde a su referencia aprobada")
+    with Journal(state) as journal:
+        record = journal.load()
+        context = validate_context(context or (context_from_record(record) if record else None))
+        if record:
+            record = advance_record(record, plan, context)
+            validate_record(record, plan, context)
+        elif approved in RECOVERY_ONLY_REFS:
+            raise Refused("plan 43 retirado; no convertir ledger antiguo")
+        provider = kit or LIVE_KIT
+        require_kit(provider, plan, context)
+        db.check_owner()
+        ro = ReadOnlyDB(db)
+        if provider.identity(ro, context) != context["identidad_clon"]:
+            raise Refused("identidad viva del clon distinta; reconstruir sin reaplicar")
+        completed = len(record["installed"]) if record else 0
+        last_entry = plan["entries"][completed - 1] if completed else None
+        if provider.confirm(ro, last_entry, completed, context) is not True:
+            raise Refused("preimagen viva distinta de H1/journal; no instalar")
+        if record is None:
+            record = {"version": JOURNAL_VERSION, "run_id": str(uuid.uuid4()), **context,
+                      "source_commit": source_ref, "source_ref": source_ref,
+                      "original_plan_sha": plan["plan_sha"],
+                      "current_source_ref": source_ref, "verified_source_ref": source_ref,
+                      "approved_sql_ref": approved, "plan_sha": plan["plan_sha"],
+                      "current_plan_sha": plan["plan_sha"], "inventory_sha": plan["inventory_sha"],
+                      "file_count": len(rows), "plan_family": plan["plan_family"],
+                      "execution_manifest": plan["execution_manifest"],
+                      "entries": plan["entries"], "installed": [], "pending": None,
+                      "phase": "installing", "revisions": []}
+        journal.store(record)
+        skipped = len(record["installed"])
+        for position, row in enumerate(rows, 1):
+            if position <= skipped:
+                continue
+            entry = plan["entries"][position - 1]
+            record["pending"] = {"position": position, **entry,
+                                  "prepared_at": datetime.now(timezone.utc).isoformat()}
+            journal.store(record)  # fsync del fichero Y del directorio antes de SQL.
+            try:
+                db.query(row["sql"])
+                if provider.confirm(ro, entry, position, context) is not True:
+                    raise Refused("postcotejo de lectura no confirmado")
+            except Exception as error:
+                # Incluso un retorno de error antes del COMMIT queda ambiguo:
+                # no inventar recibo, no resolver pending, no intentar otra UP.
+                raise Refused(REBUILD) from error
+            record["installed"].append({"position": position, **entry,
+                "confirmed_at": datetime.now(timezone.utc).isoformat(),
+                "confirmation": "commit_returned_and_postcheck"})
+            record["pending"] = None
+            record["phase"] = "awaiting_ad132" if position == len(rows) else "installing"
+            journal.store(record)
+        return record
 
 
 def main(argv=None):
@@ -785,7 +829,7 @@ def main(argv=None):
     parser.add_argument("--state-dir", type=Path)
     parser.add_argument("--plan", action="store_true")
     parser.add_argument("--installable", action="store_true", help="rechaza un plan aún propuesto sin tocar el clon")
-    parser.add_argument("--verify-live", action="store_true", help="coteja recibos y ACL reales antes de READY")
+    parser.add_argument("--verify-live", action="store_true", help="coteja journal externo y anclas del kit; exige AD132 independiente")
     parser.add_argument("--steps", action="store_true", help="etapas pendientes, consejo JSON sin Docker/BD")
     args = parser.parse_args(argv)
     if args.installable:
@@ -822,12 +866,8 @@ def main(argv=None):
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
     if state.stat().st_uid != os.getuid() or state.stat().st_mode & 0o077:
         raise Refused("el directorio de estado exige propietario actual y modo 0700")
-    descriptor = os.open(state / "sql.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        apply(DockerDB(args.container, state), rows, state, args.source_ref, plan)
-    finally:
-        os.close(descriptor)
+    apply(DockerDB(args.container, state), rows, state, args.source_ref, plan)
+
 
 
 if __name__ == "__main__":
