@@ -44,7 +44,7 @@ test("el catálogo renovado usa una URL única en la pantalla y en sus consumido
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
   const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v3");
-  assert.equal(version, "20260930-reglas-recuperacion-v1");
+  assert.equal(version, "20260930-reglas-recuperacion-v2");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
   assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v3"), version);
@@ -394,9 +394,10 @@ test("las 23 reglas se presentan y se buscan en ES/EN sin modificar la definici�
       let comprobadas = 0;
       for (const catalogo of catalogos) {
         const html = renderizarCatalogo(catalogo);
-        for (const [clave, campos] of Object.entries(presentacion[catalogo.modulo])) {
-          const regla = catalogo.reglas.find((regla) => regla.clave === clave);
-          assert.ok(regla, clave);
+        for (const regla of catalogo.reglas) {
+          const clave = regla.clave;
+          const campos = clave.split(".").reduce((nodo, parte) => nodo?.[parte], presentacion[catalogo.modulo]);
+          if (!campos) continue;
           for (const [campo, entrada] of Object.entries(campos)) {
             assert.equal(regla[campo], entrada.original, clave + ": " + campo);
             assert.ok(html.includes("<span>" + escapar(entrada.texto) + "</span>"), clave + ": " + campo);
@@ -416,7 +417,7 @@ test("la presentación de una regla no cambia otro campo ni una definición nuev
   const modulo = new URL("./reglas.js", import.meta.url).href;
   const fuente = catalogosDemo().find((c) => c.modulo === "contratacion_temporal");
   const original = fuente.reglas.find((r) => r.clave === "c20.cancelacion_expediente");
-  const en = JSON.parse(leer("../../textos/en/reglas.json")).presentacion.contratacion_temporal[original.clave];
+  const en = JSON.parse(leer("../../textos/en/reglas.json")).presentacion.contratacion_temporal.c20.cancelacion_expediente;
   const codigo = `
     import assert from "node:assert/strict";
     globalThis.location = { href: "http://localhost/portal-empleado/reglas/?lang=en" };

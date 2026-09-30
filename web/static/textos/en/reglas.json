@@ -68,144 +68,180 @@
   },
   "presentacion": {
     "bolsa": {
-      "b24.consecuencias": {
-        "descripcion": {
-          "original": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
-          "texto": "The sanctions are listed in the rules below. Only those that exclude a person from the pool are grounds for permanent removal under Article 11; HR selects the applicable one. An appeal for reconsideration may be filed within one month of notification."
+      "b24": {
+        "consecuencias": {
+          "descripcion": {
+            "original": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
+            "texto": "The sanctions are listed in the rules below. Only those that exclude a person from the pool are grounds for permanent removal under Article 11; HR selects the applicable one. An appeal for reconsideration may be filed within one month of notification."
+          }
         }
       },
-      "b26.agotamiento": {
-        "ejemplo_parcial": {
-          "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
-          "texto": "In this example, VEC proposes provisional exhaustion when available candidates do not exceed the configured threshold. HR confirms it by an express decision."
+      "b26": {
+        "agotamiento": {
+          "ejemplo_parcial": {
+            "original": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
+            "texto": "In this example, VEC proposes provisional exhaustion when available candidates do not exceed the configured threshold. HR confirms it by an express decision."
+          }
         }
       },
-      "b28.transiciones.disponible": {
-        "duda": {
-          "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
-          "texto": "Question 62. VEC publishes the permitted changes of status on startup and applies the published list."
+      "b28": {
+        "transiciones": {
+          "disponible": {
+            "duda": {
+              "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+              "texto": "Question 62. VEC publishes the permitted changes of status on startup and applies the published list."
+            }
+          },
+          "renuncia": {
+            "duda": {
+              "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+              "texto": "Question 62. VEC publishes the changes permitted after a withdrawal on startup and applies the published list."
+            }
+          }
         }
       },
-      "b28.transiciones.renuncia": {
-        "duda": {
-          "original": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
-          "texto": "Question 62. VEC publishes the changes permitted after a withdrawal on startup and applies the published list."
-        }
-      },
-      "b30.plazas_llamada": {
-        "descripcion": {
-          "original": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. Valores posibles: «simultanea» o «sucesiva» (de una en una).",
-          "texto": "Once the period for expressing interest ends, as many candidates as vacant posts are contacted at the same time, in pool order among those who came forward. Calling candidates one by one can also be configured."
-        }
-      },
-      "b30.plazas_tras_renuncia": {
-        "descripcion": {
-          "original": "Se llama a la siguiente persona que se ofreció para esa misma plaza; si no queda nadie, la plaza pasa a llamamiento directo. Valores posibles: «siguiente_en_orden» o «llamamiento_directo».",
-          "texto": "The next person who came forward is called for the same post. Direct calling can also be configured; if nobody remains in the first case, the post moves to direct calling."
+      "b30": {
+        "plazas_llamada": {
+          "descripcion": {
+            "original": "Al terminar el plazo para ofrecerse, se llama a la vez a tantas personas como plazas libres, por orden de la bolsa entre quienes se ofrecieron. Valores posibles: «simultanea» o «sucesiva» (de una en una).",
+            "texto": "Once the period for expressing interest ends, as many candidates as vacant posts are contacted at the same time, in pool order among those who came forward. Calling candidates one by one can also be configured."
+          }
+        },
+        "plazas_tras_renuncia": {
+          "descripcion": {
+            "original": "Se llama a la siguiente persona que se ofreció para esa misma plaza; si no queda nadie, la plaza pasa a llamamiento directo. Valores posibles: «siguiente_en_orden» o «llamamiento_directo».",
+            "texto": "The next person who came forward is called for the same post. Direct calling can also be configured; if nobody remains in the first case, the post moves to direct calling."
+          }
         }
       }
     },
     "contratacion_temporal": {
-      "c02.plazo_informes": {
-        "duda": {
-          "original": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
-          "texto": "HR must confirm whether this period applies to the procedure and at which stages of the case."
+      "c02": {
+        "plazo_informes": {
+          "duda": {
+            "original": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
+            "texto": "HR must confirm whether this period applies to the procedure and at which stages of the case."
+          }
         }
       },
-      "c05.motivos_rectificacion": {
-        "descripcion": {
-          "original": "Los motivos admitidos están en el catálogo motivos_rectificacion_analisis.",
-          "texto": "The permitted reasons for correcting the analysis are held in a separate list."
+      "c05": {
+        "motivos_rectificacion": {
+          "descripcion": {
+            "original": "Los motivos admitidos están en el catálogo motivos_rectificacion_analisis.",
+            "texto": "The permitted reasons for correcting the analysis are held in a separate list."
+          }
         }
       },
-      "c08.acumulacion_tareas": {
-        "duda": {
-          "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
-          "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+      "c08": {
+        "acumulacion_tareas": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+          }
+        },
+        "programas_temporales": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+          }
+        },
+        "vacante": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+          }
+        },
+        "circunstancias_produccion": {
+          "duda": {
+            "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
+            "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+          }
         }
       },
-      "c08.programas_temporales": {
-        "duda": {
-          "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
-          "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+      "c10": {
+        "cierre_expediente": {
+          "descripcion": {
+            "original": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número de alta. El número del cierre es el de la confirmación de GINPIX registrada; no se teclea en el cierre. El cierre administrativo sin cese solo se ofrece si cierre_sin_cese vale «admitido».",
+            "texto": "The recorded end of service and a confirmed GINPIX record with its registration number are required to close the case. Closure uses that confirmation number; nobody enters it again. Closure without an end of service is offered only if the rule permits it."
+          }
         }
       },
-      "c08.vacante": {
-        "duda": {
-          "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
-          "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+      "c11": {
+        "causas_cese": {
+          "descripcion": {
+            "original": "Las causas admitidas y su justificante están en el catálogo causas_cese_contratacion_temporal.",
+            "texto": "The permitted reasons for ending service and their supporting documents are held in a separate list."
+          }
         }
       },
-      "c08.circunstancias_produccion": {
-        "duda": {
-          "original": "Pendiente de RRHH; si se avisa o se impide seguir al superar el máximo (atributo al_superar), duda 7.",
-          "texto": "HR must decide whether exceeding the maximum shows a warning or prevents the case from continuing (question 7)."
+      "c12": {
+        "modalidad": {
+          "sustitucion": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.sustitucion.",
+              "texto": "HR may choose this type when analysing the request. Its duration follows the “Duration: replacement” rule."
+            }
+          },
+          "vacante": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.vacante.",
+              "texto": "HR may choose this type when analysing the request. Its maximum duration is set by the “Maximum duration: vacancy” rule."
+            }
+          },
+          "acumulacion_tareas": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.acumulacion_tareas.",
+              "texto": "HR may choose this type when analysing the request. Its maximum duration is set by the “Maximum duration: accumulated tasks” rule."
+            }
+          },
+          "programa": {
+            "descripcion": {
+              "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.programas_temporales.",
+              "texto": "HR may choose this type when analysing the request. Its maximum duration is set by the “Maximum duration: temporary programmes” rule."
+            }
+          }
         }
       },
-      "c10.cierre_expediente": {
-        "descripcion": {
-          "original": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número de alta. El número del cierre es el de la confirmación de GINPIX registrada; no se teclea en el cierre. El cierre administrativo sin cese solo se ofrece si cierre_sin_cese vale «admitido».",
-          "texto": "The recorded end of service and a confirmed GINPIX record with its registration number are required to close the case. Closure uses that confirmation number; nobody enters it again. Closure without an end of service is offered only if the rule permits it."
+      "c15": {
+        "urgencia": {
+          "descripcion": {
+            "original": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
+            "texto": "HR may mark the case as urgent when analysing it and must give a reason. Time limits that provide for urgency apply the corresponding amount. The urgent status remains recorded."
+          }
         }
       },
-      "c11.causas_cese": {
-        "descripcion": {
-          "original": "Las causas admitidas y su justificante están en el catálogo causas_cese_contratacion_temporal.",
-          "texto": "The permitted reasons for ending service and their supporting documents are held in a separate list."
+      "c19": {
+        "fiscalizacion_resultados": {
+          "descripcion": {
+            "original": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
+            "texto": "The rule specifies whether each financial review result allows the case to continue or returns it to the managing unit for correction and another review. It also sets whether correction requires a new legal report and which document is signed again."
+          }
         }
       },
-      "c12.modalidad.sustitucion": {
-        "descripcion": {
-          "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.sustitucion.",
-          "texto": "HR may choose this type when analysing the request. Its duration follows the “Duration: replacement” rule."
+      "c20": {
+        "cancelacion_expediente": {
+          "descripcion": {
+            "original": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela. «roles_centro» fija qué perfiles del centro cancelan (sin él, el centro no cancela).",
+            "texto": "The requesting centre or HR may cancel the case for an accepted reason, at the stages allowed by this rule. It cannot be cancelled after financial review. The centre needs one of the roles designated by the rule; without them it cannot cancel."
+          }
         }
       },
-      "c12.modalidad.vacante": {
-        "descripcion": {
-          "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.vacante.",
-          "texto": "HR may choose this type when analysing the request. Its maximum duration is set by the “Maximum duration: vacancy” rule."
+      "c22": {
+        "no_incorporacion": {
+          "descripcion": {
+            "original": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
+            "texto": "If the selected person does not start work, the reason is recorded, the applicable consequence is applied in the employment pool, and the next candidate is called. A second person signs the decision when the rule requires it."
+          }
         }
       },
-      "c12.modalidad.acumulacion_tareas": {
-        "descripcion": {
-          "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.acumulacion_tareas.",
-          "texto": "HR may choose this type when analysing the request. Its maximum duration is set by the “Maximum duration: accumulated tasks” rule."
-        }
-      },
-      "c12.modalidad.programa": {
-        "descripcion": {
-          "original": "Modalidad que RRHH puede elegir al analizar la solicitud. Su duración máxima es la regla c08.programas_temporales.",
-          "texto": "HR may choose this type when analysing the request. Its maximum duration is set by the “Maximum duration: temporary programmes” rule."
-        }
-      },
-      "c15.urgencia": {
-        "descripcion": {
-          "original": "RRHH puede declarar urgente el expediente al analizarlo, con su motivo. Los plazos con cantidad urgente (c03) usan esa cantidad; la urgencia declarada se mantiene.",
-          "texto": "HR may mark the case as urgent when analysing it and must give a reason. Time limits that provide for urgency apply the corresponding amount. The urgent status remains recorded."
-        }
-      },
-      "c19.fiscalizacion_resultados": {
-        "descripcion": {
-          "original": "Resultados que Intervención puede registrar y qué ocurre con el expediente: «continua» sigue la tramitación y «vuelve_unidad_gestora» lo devuelve a la unidad gestora para subsanar y fiscalizar de nuevo. «informe_nuevo_tras_subsanacion» (si/no) decide si tras subsanar hace falta un informe jurídico nuevo, y «documento_firma_informe_nuevo» qué documento del circuito de firma se vuelve a firmar por ello.",
-          "texto": "The rule specifies whether each financial review result allows the case to continue or returns it to the managing unit for correction and another review. It also sets whether correction requires a new legal report and which document is signed again."
-        }
-      },
-      "c20.cancelacion_expediente": {
-        "descripcion": {
-          "original": "El centro solicitante o RRHH pueden cancelar el expediente, con un motivo del catálogo motivos_cancelacion_contratacion_temporal, mientras esté en una de estas fases. Tras la fiscalización nunca se cancela. «roles_centro» fija qué perfiles del centro cancelan (sin él, el centro no cancela).",
-          "texto": "The requesting centre or HR may cancel the case for an accepted reason, at the stages allowed by this rule. It cannot be cancelled after financial review. The centre needs one of the roles designated by the rule; without them it cannot cancel."
-        }
-      },
-      "c22.no_incorporacion": {
-        "descripcion": {
-          "original": "Motivos por los que la persona seleccionada no se incorpora, con la consecuencia que se aplica en la bolsa (una entrada b24.sancion.* del catálogo de Bolsa) y el llamamiento al siguiente candidato. La resolución la firma una segunda persona si segunda_persona vale «si».",
-          "texto": "If the selected person does not start work, the reason is recorded, the applicable consequence is applied in the employment pool, and the next candidate is called. A second person signs the decision when the rule requires it."
-        }
-      },
-      "c23.fase_operacion.analisis": {
-        "descripcion": {
-          "original": "RRHH registra o rectifica el análisis de una solicitud mientras el expediente está en alguna de estas fases y en el estado indicado. Es lo que cubre el permiso de análisis de RRHH para toda la organización, sin atarlo a un expediente concreto.",
-          "texto": "HR may record or correct the analysis at the stages and in the status allowed by this rule. The permission covers the whole organisation without being tied to one case."
+      "c23": {
+        "fase_operacion": {
+          "analisis": {
+            "descripcion": {
+              "original": "RRHH registra o rectifica el análisis de una solicitud mientras el expediente está en alguna de estas fases y en el estado indicado. Es lo que cubre el permiso de análisis de RRHH para toda la organización, sin atarlo a un expediente concreto.",
+              "texto": "HR may record or correct the analysis at the stages and in the status allowed by this rule. The permission covers the whole organisation without being tied to one case."
+            }
+          }
         }
       }
     }

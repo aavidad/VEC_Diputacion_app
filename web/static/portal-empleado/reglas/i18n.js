@@ -69,7 +69,14 @@ export function textoPresentacionRegla(modulo, regla, campo, {
 } = {}) {
   const original = regla?.[campo];
   const reglas = Object.hasOwn(presentacion ?? {}, modulo) ? presentacion[modulo] : null;
-  const campos = Object.hasOwn(reglas ?? {}, regla?.clave) ? reglas[regla.clave] : null;
+  let campos = reglas;
+  for (const parte of String(regla?.clave ?? "").split(".")) {
+    if (["__proto__", "constructor", "prototype"].includes(parte) || !Object.hasOwn(campos ?? {}, parte)) {
+      campos = null;
+      break;
+    }
+    campos = campos[parte];
+  }
   const entrada = Object.hasOwn(campos ?? {}, campo) ? campos[campo] : null;
   if (typeof original === "string" && entrada?.original === original
     && typeof entrada.texto === "string" && entrada.texto !== "") {
