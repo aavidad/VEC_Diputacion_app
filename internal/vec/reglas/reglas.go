@@ -68,7 +68,8 @@ func (u Unidad) conCantidad() bool {
 }
 
 // Origen distingue lo que cita el Reglamento de bolsas de lo inventado para
-// trabajar mientras RRHH responde.
+// trabajar mientras RRHH responde. Es la procedencia normativa de la regla
+// base: un ajuste hecho en VEC no la cambia (ver Regla.Ajuste).
 type Origen string
 
 const (
@@ -116,11 +117,22 @@ type Regla struct {
 	// marca compartida de los datos de ejemplo.
 	PaqueteEjemplo bool
 	Paquete        string
+	// Edicion declara qué campos admiten ajuste; nil si ninguno.
+	Edicion *Edicion
+	// Ajuste es el valor fijado en VEC que se aplicó; nil si rige la base.
+	Ajuste *Ajuste
+	// AjusteNoAplicable: hay un ajuste guardado que ya no encaja con la regla
+	// base. La regla no se usa (Regla y Vencimiento fallan) hasta revisarlo;
+	// nunca se vuelve en silencio al valor base.
+	AjusteNoAplicable bool
 }
 
 // EsEjemplo es cierto si la regla, o una parte de ella, no procede del
-// Reglamento. La interfaz debe rotularla como «regla de ejemplo».
-func (r Regla) EsEjemplo() bool { return r.Origen == OrigenEjemplo || r.ParteEjemplo != "" }
+// Reglamento ni de un ajuste hecho en VEC. La interfaz debe rotularla como
+// «regla de ejemplo».
+func (r Regla) EsEjemplo() bool {
+	return (r.Origen == OrigenEjemplo && r.Ajuste == nil) || r.ParteEjemplo != ""
+}
 
 // Elementos devuelve la lista de una regla de unidad lista.
 func (r Regla) Elementos() []string {
@@ -167,6 +179,11 @@ func reglaDesdeEntrada(catalogo domain.CatalogoConfigurable, huella string, ejem
 	if err := validarUnidadRegla(&regla, a); err != nil {
 		return Regla{}, err
 	}
+	edicion, err := edicionDesdeAtributos(regla, a)
+	if err != nil {
+		return Regla{}, err
+	}
+	regla.Edicion = edicion
 	return regla, nil
 }
 
@@ -185,6 +202,12 @@ func validarUnidadRegla(regla *Regla, a map[string]string) error {
 		}
 	default:
 		return ErrReglaInvalida
+	}
+	if textoUrgente, ok := a[AtributoCantidadUrgente]; ok {
+		urgente, err := enteroCanonico(textoUrgente)
+		if err != nil || !regla.Unidad.EsPlazo() || urgente > regla.Cantidad {
+			return ErrReglaInvalida
+		}
 	}
 	if (regla.Unidad == UnidadFranjaHoraria || regla.Unidad == UnidadLista) && regla.Valor == "" {
 		return ErrReglaInvalida

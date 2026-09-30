@@ -2,6 +2,7 @@ package reglas
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -56,6 +57,8 @@ type Configuracion struct {
 	Calculadora CalculadoraPlazos
 	// MunicipioSede se usa cuando la solicitud no indica otro.
 	MunicipioSede string
+	// Ajustes es opcional: sin él rigen los valores del catálogo base.
+	Ajustes ConsultaAjustes
 }
 
 // Resolutor lee el catálogo en cada consulta; no guarda estado mutable. Un
@@ -75,6 +78,9 @@ func NuevoResolutor(cfg Configuracion) (*Resolutor, error) {
 	if nulo(cfg.Calculadora) {
 		cfg.Calculadora = nil
 	}
+	if nulo(cfg.Ajustes) {
+		cfg.Ajustes = nil
+	}
 	cfg.MunicipioSede = strings.TrimSpace(cfg.MunicipioSede)
 	return &Resolutor{cfg: cfg}, nil
 }
@@ -92,12 +98,19 @@ func (r *Resolutor) CatalogoID() string {
 
 // Regla devuelve la regla vigente con esa clave.
 func (r *Resolutor) Regla(ctx context.Context, clave string) (Regla, error) {
-	reglas, err := r.Reglas(ctx)
+	return r.reglaEn(ctx, clave, time.Time{})
+}
+
+func (r *Resolutor) reglaEn(ctx context.Context, clave string, instanteAjustes time.Time) (Regla, error) {
+	reglas, err := r.reglasEn(ctx, instanteAjustes)
 	if err != nil {
 		return Regla{}, err
 	}
 	for _, regla := range reglas {
 		if regla.Clave == clave {
+			if regla.AjusteNoAplicable {
+				return Regla{}, ErrAjusteInvalido
+			}
 			return regla, nil
 		}
 	}
@@ -107,45 +120,181 @@ func (r *Resolutor) Regla(ctx context.Context, clave string) (Regla, error) {
 // Reglas devuelve todas las reglas vigentes en el orden del catálogo. Una
 // entrada vigente con atributos no válidos invalida la consulta entera.
 func (r *Resolutor) Reglas(ctx context.Context) ([]Regla, error) {
-	if r == nil {
-		return nil, ErrReglasNoConfiguradas
-	}
-	if ctx == nil {
+	return r.reglasEn(ctx, time.Time{})
+}
+
+// ReglasEn es una proyección de lectura para un instante pasado: no fija una
+// versión al iniciar un plazo ni sustituye su instantánea durable. La base
+// sigue siendo la vigente ahora, pues aún no se consulta su historia.
+func (r *Resolutor) ReglasEn(ctx context.Context, instante time.Time) ([]Regla, error) {
+	if instante.IsZero() {
 		return nil, ErrReglasNoDisponibles
 	}
-	catalogo, instante, err := r.catalogoVigente(ctx)
+	return r.reglasEn(ctx, instante)
+}
+
+// reglasEn resuelve el catálogo base vigente ahora y le aplica los ajustes
+// vigentes en instanteAjustes (ahora, si es cero).
+func (r *Resolutor) reglasEn(ctx context.Context, instanteAjustes time.Time) ([]Regla, error) {
+	lectura, err := r.leerContexto(ctx, instanteAjustes)
 	if err != nil {
 		return nil, err
 	}
-	huella, err := catalogo.HuellaSHA256()
-	if err != nil {
-		return nil, ErrReglasNoDisponibles
-	}
-	ejemplo := catalogo.FuenteRef == MarcaPaqueteEjemplo
-	if r.cfg.Metadatos != nil {
-		metadatos, err := r.cfg.Metadatos.ObtenerMetadatosFuenteCatalogos(ctx)
-		if err != nil {
-			return nil, ErrReglasNoDisponibles
-		}
-		ejemplo = ejemplo || metadatos.Demostracion
-	}
-	reglas := make([]Regla, 0, len(catalogo.Entradas))
-	for _, entrada := range catalogo.Entradas {
-		if !entrada.VigenteEn(instante) {
+	reglas := make([]Regla, 0, len(lectura.catalogo.Entradas))
+	for _, entrada := range lectura.catalogo.Entradas {
+		if !entrada.VigenteEn(lectura.instante) {
 			continue
 		}
-		regla, err := reglaDesdeEntrada(catalogo, huella, ejemplo, entrada)
+		regla, err := reglaDesdeEntrada(lectura.catalogo, lectura.huella, lectura.ejemplo, entrada)
 		if err != nil {
 			return nil, err
+		}
+		if campos, ajustada := lectura.ajustes.Ajustes[regla.Clave]; lectura.conAjustes && ajustada {
+			// Un ajuste que ya no encaja con su regla base deja esa regla
+			// fuera de uso; nunca se vuelve en silencio al valor base.
+			if ajustadaOK, err := aplicarAjuste(lectura.catalogo, lectura.huella, lectura.ejemplo, entrada, regla, lectura.ajustes, campos); err == nil {
+				regla = ajustadaOK
+			} else {
+				regla.AjusteNoAplicable = true
+			}
 		}
 		reglas = append(reglas, regla)
 	}
 	return reglas, nil
 }
 
-// Vencimiento resuelve la regla y calcula su vencimiento desde inicio con el
-// cómputo que declara. Devuelve la regla para que el consumidor conserve su
-// referencia y huella junto a la fecha.
+type contextoResolucion struct {
+	catalogo   domain.CatalogoConfigurable
+	huella     string
+	instante   time.Time
+	ejemplo    bool
+	ajustes    VersionAjustes
+	conAjustes bool
+}
+
+func (r *Resolutor) leerContexto(ctx context.Context, instanteAjustes time.Time) (contextoResolucion, error) {
+	var vacio contextoResolucion
+	if r == nil {
+		return vacio, ErrReglasNoConfiguradas
+	}
+	if ctx == nil {
+		return vacio, ErrReglasNoDisponibles
+	}
+	catalogo, instante, err := r.catalogoVigente(ctx)
+	if err != nil {
+		return vacio, err
+	}
+	huella, err := catalogo.HuellaSHA256()
+	if err != nil {
+		return vacio, ErrReglasNoDisponibles
+	}
+	ejemplo := catalogo.FuenteRef == MarcaPaqueteEjemplo
+	if r.cfg.Metadatos != nil {
+		metadatos, err := r.cfg.Metadatos.ObtenerMetadatosFuenteCatalogos(ctx)
+		if err != nil {
+			return vacio, ErrReglasNoDisponibles
+		}
+		ejemplo = ejemplo || metadatos.Demostracion
+	}
+	if instanteAjustes.IsZero() {
+		instanteAjustes = instante
+	}
+	ajustes, conAjustes, err := r.ajustesEn(ctx, instanteAjustes.UTC())
+	if err != nil {
+		return vacio, err
+	}
+	return contextoResolucion{catalogo: catalogo, huella: huella, instante: instante,
+		ejemplo: ejemplo, ajustes: ajustes, conAjustes: conAjustes}, nil
+}
+
+// PrepararInstantaneaRegla copia la regla base, su valor resuelto y la versión
+// completa de ajustes leída ahora. Prepararla no inicia ni guarda un plazo:
+// CT debe persistirla en la misma transacción que el inicio antes de usarla.
+func (r *Resolutor) PrepararInstantaneaRegla(ctx context.Context, clave string) (InstantaneaRegla, error) {
+	var vacia InstantaneaRegla
+	if r == nil {
+		return vacia, ErrReglasNoConfiguradas
+	}
+	if r.cfg.Ajustes == nil {
+		return vacia, ErrAjustesNoDisponibles
+	}
+	lectura, err := r.leerContexto(ctx, time.Time{})
+	if err != nil {
+		return vacia, err
+	}
+	canonico, err := CanonicoAjustes(lectura.ajustes.Ajustes)
+	if err != nil {
+		return vacia, ErrAjustesNoDisponibles
+	}
+	huellaAjustes := lectura.ajustes.HuellaSHA256
+	if !lectura.conAjustes {
+		huellaAjustes, err = HuellaAjustes(nil)
+		if err != nil {
+			return vacia, ErrAjustesNoDisponibles
+		}
+	}
+	for _, entrada := range lectura.catalogo.Entradas {
+		if entrada.Clave != clave || !entrada.VigenteEn(lectura.instante) {
+			continue
+		}
+		base, err := reglaDesdeEntrada(lectura.catalogo, lectura.huella, lectura.ejemplo, entrada)
+		if err != nil {
+			return vacia, err
+		}
+		efectiva := base
+		if campos, ok := lectura.ajustes.Ajustes[clave]; lectura.conAjustes && ok {
+			efectiva, err = aplicarAjuste(lectura.catalogo, lectura.huella, lectura.ejemplo, entrada, base, lectura.ajustes, campos)
+			if err != nil {
+				return vacia, ErrAjusteInvalido
+			}
+		}
+		instantanea := InstantaneaRegla{datos: DatosInstantaneaRegla{
+			Base: copiarRegla(base), Efectiva: copiarRegla(efectiva),
+			CatalogoAjustesID: CatalogoAjustesDe(lectura.catalogo.ID), AjustesEncontrados: lectura.conAjustes,
+			VersionAjustes: lectura.ajustes.Version, HuellaAjustes: huellaAjustes,
+			CanonicoAjustes: canonico, AjustesVigenteDesde: lectura.ajustes.VigenteDesde.UTC(),
+			PreparadaEn: lectura.instante,
+		}}
+		if !instantanea.valida() {
+			return vacia, ErrReglasNoDisponibles
+		}
+		return instantanea, nil
+	}
+	return vacia, ErrReglaNoEncontrada
+}
+
+// ajustesEn lee la versión de ajustes vigente en el instante. Sin almacén de
+// ajustes o sin ninguna versión todavía, rigen los valores base.
+func (r *Resolutor) ajustesEn(ctx context.Context, instante time.Time) (VersionAjustes, bool, error) {
+	if r.cfg.Ajustes == nil {
+		return VersionAjustes{}, false, nil
+	}
+	id := CatalogoAjustesDe(r.cfg.CatalogoID)
+	version, encontrada, err := r.cfg.Ajustes.AjustesVigentesEn(ctx, id, instante)
+	if err != nil {
+		if ctx.Err() != nil {
+			return VersionAjustes{}, false, ctx.Err()
+		}
+		if errors.Is(err, ErrAjustesConflicto) {
+			return VersionAjustes{}, false, ErrAjustesConflicto
+		}
+		return VersionAjustes{}, false, ErrAjustesNoDisponibles
+	}
+	if !encontrada {
+		if !versionAjustesVacia(version) {
+			return VersionAjustes{}, false, ErrAjustesNoDisponibles
+		}
+		return VersionAjustes{}, false, nil
+	}
+	if err := validarVersionAjustes(version, id, instante); err != nil {
+		return VersionAjustes{}, false, err
+	}
+	return version, true, nil
+}
+
+// Vencimiento calcula con la base solo si no hay almacén de ajustes compuesto.
+// Con ajustes configurados falla cerrado hasta que CT guarde una instantánea
+// con el inicio real; consultar AjustesVigentesEn(inicio) no acredita esa versión.
 func (r *Resolutor) Vencimiento(ctx context.Context, clave string, inicio time.Time, municipioSede string) (Regla, Vencimiento, error) {
 	return r.vencimiento(ctx, clave, inicio, municipioSede, false)
 }
@@ -158,10 +307,31 @@ func (r *Resolutor) VencimientoUrgente(ctx context.Context, clave string, inicio
 }
 
 func (r *Resolutor) vencimiento(ctx context.Context, clave string, inicio time.Time, municipioSede string, urgente bool) (Regla, Vencimiento, error) {
-	regla, err := r.Regla(ctx, clave)
+	if inicio.IsZero() {
+		return Regla{}, Vencimiento{}, ErrReglaSinPlazo
+	}
+	if r != nil && r.cfg.Ajustes != nil {
+		return Regla{}, Vencimiento{}, ErrAjustesNoDisponibles
+	}
+	regla, err := r.reglaEn(ctx, clave, time.Time{})
 	if err != nil {
 		return Regla{}, Vencimiento{}, err
 	}
+	return r.calcularVencimiento(ctx, regla, inicio, municipioSede, urgente)
+}
+
+// CalcularConInstantanea usa únicamente el valor preparado, sin volver a
+// consultar el catálogo ni los ajustes. El consumidor futuro deberá acreditar
+// que la instantánea se guardó con el inicio real antes de llamar.
+func (r *Resolutor) CalcularConInstantanea(ctx context.Context, instantanea InstantaneaRegla, inicio time.Time, municipioSede string, urgente bool) (Regla, Vencimiento, error) {
+	if r == nil || ctx == nil || !instantanea.valida() ||
+		instantanea.datos.Base.ReferenciaEntrada.CatalogoID != r.cfg.CatalogoID {
+		return Regla{}, Vencimiento{}, ErrReglasNoDisponibles
+	}
+	return r.calcularVencimiento(ctx, copiarRegla(instantanea.datos.Efectiva), inicio, municipioSede, urgente)
+}
+
+func (r *Resolutor) calcularVencimiento(ctx context.Context, regla Regla, inicio time.Time, municipioSede string, urgente bool) (Regla, Vencimiento, error) {
 	if !regla.Unidad.EsPlazo() || regla.Computo == "" || inicio.IsZero() {
 		return Regla{}, Vencimiento{}, ErrReglaSinPlazo
 	}

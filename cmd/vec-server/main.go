@@ -16,6 +16,27 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == subcomandoComprobarSeparacion {
+		if err := ejecutarComprobacionSeparacion(os.Args[2:], os.Stdout); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if err := comprobarSubcomandoEnPortal(os.Args, os.Getenv(config.EnvPortalProceso)); err != nil {
+		log.Fatal(err)
+	}
+	if len(os.Args) > 1 && os.Args[1] == subcomandoExportarSeudonimosPortalExterno {
+		if err := ejecutarExportacionSeudonimos(os.Stdout, config.Load(), bootstrap.ExportarSeudonimosPortalExterno); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == subcomandoPrepararPortalExterno {
+		if err := ejecutarPreparacionPortalExterno(context.Background(), os.Args[2:], os.Stdout, config.Load(), bootstrap.PrepararMaterialPortalExterno); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "rellenar-vinculos-bolsa" {
 		opciones := flag.NewFlagSet("rellenar-vinculos-bolsa", flag.ExitOnError)
 		huella := opciones.String("huella", "", "SHA-256 del fichero importado")

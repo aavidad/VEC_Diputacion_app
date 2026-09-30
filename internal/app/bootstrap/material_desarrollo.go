@@ -392,8 +392,17 @@ func materialEsperadoDesarrollo(cfg config.Config) []MaterialEsperado {
 		{filepath.Join(cfg.DevelopmentMaterialDir, "manifiesto.json"), "manifiesto", "material"},
 		{filepath.Join(cfg.DevelopmentMaterialDir, "desarrollo.env"), "configuración declarada", "material"},
 	}
+	// Un proceso separado no recibe las claves privadas de la CA ni de los
+	// clientes: el servidor nunca las lee y con ellas se podrían emitir o
+	// suplantar certificados de acceso. separacionportales las rechaza.
+	separado := portalProcesoSeparado(cfg)
+	prohibidas := map[string]bool{r.CAPrivateKey: true, r.ClientPrivateKey: true, r.IntervencionPrivateKey: true,
+		filepath.Join(cfg.DevelopmentMaterialDir, "ca", "serie"): true}
 	resultado := make([]MaterialEsperado, 0, len(datos))
 	for _, dato := range datos {
+		if separado && prohibidas[dato.ruta] {
+			continue
+		}
 		resultado = append(resultado, MaterialEsperado{Ruta: dato.ruta, Finalidad: dato.finalidad, Obligatorio: true, Lector: dato.lector})
 	}
 	return resultado
