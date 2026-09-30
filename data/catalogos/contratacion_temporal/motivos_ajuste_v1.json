@@ -1,0 +1,10 @@
+{
+  "id": "vec.contratacion_temporal.reglas.motivos_ajuste",
+  "version": 1,
+  "motivos": [
+    {"clave": "respuesta_rrhh_duda", "texto_clave": "ajustesMotivo_respuesta_rrhh_duda"},
+    {"clave": "acuerdo_instruccion", "texto_clave": "ajustesMotivo_acuerdo_instruccion"},
+    {"clave": "cambio_normativo", "texto_clave": "ajustesMotivo_cambio_normativo"},
+    {"clave": "correccion_error", "texto_clave": "ajustesMotivo_correccion_error"}
+  ]
+}

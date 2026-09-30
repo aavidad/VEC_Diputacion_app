@@ -1,0 +1,324 @@
+// Package ajustesreglas expone la edición CT por una ruta interna exacta.
+// La frontera de identidad y red la compone bootstrap antes de registrar la
+// ruta; este adaptador solo acepta un actor derivado de esa frontera.
+package ajustesreglas
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+
+	app "vec-diputacion-granada/internal/modules/contrataciontemporal/application/ajustesreglas"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/reglas"
+)
+
+const (
+	Ruta         = "/api/vec/contratacion-temporal/reglas/ajustes"
+	Esquema      = "vec.contratacion_temporal.reglas.ajustes.v1"
+	maximoCuerpo = 32 << 10
+)
+
+type ResolverActor interface {
+	ResolverContextoActor(context.Context) (vecdomain.ContextoActor, error)
+}
+
+type Servicio interface {
+	Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error)
+	Publicar(context.Context, vecdomain.ContextoActor, app.Solicitud) (app.Resultado, error)
+	Motivos() []app.Motivo
+}
+
+type Manejador struct {
+	actor       ResolverActor
+	servicio    Servicio
+	soloLectura bool
+}
+
+func NuevoManejador(actor ResolverActor, servicio Servicio) (*Manejador, error) {
+	if actor == nil || servicio == nil {
+		return nil, app.ErrNoDisponible
+	}
+	return &Manejador{actor: actor, servicio: servicio}, nil
+}
+
+// NuevoManejadorSoloLectura permite consultar la edición sin activar el
+// guardado mientras CT110 no conserva la instantánea del plazo en la misma
+// transacción que inicia el tramo. El montaje decide cuándo existe esa
+// dependencia durable; una petición no puede cambiar este modo.
+func NuevoManejadorSoloLectura(actor ResolverActor, servicio Servicio) (*Manejador, error) {
+	h, err := NuevoManejador(actor, servicio)
+	if err != nil {
+		return nil, err
+	}
+	h.soloLectura = true
+	return h, nil
+}
+
+func (h *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if h == nil || h.actor == nil || h.servicio == nil || r == nil || r.URL == nil {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	if r.URL.Path != Ruta || r.URL.RawPath != "" || r.URL.EscapedPath() != Ruta || r.URL.ForceQuery ||
+		r.URL.Scheme != "" || r.URL.Host != "" || r.URL.User != nil || r.URL.Opaque != "" ||
+		r.URL.Fragment != "" || r.URL.RawFragment != "" {
+		fallo(w, http.StatusNotFound, "recurso_no_encontrado")
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
+		fallo(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
+		return
+	}
+	if cabecerasProhibidas(r.Header) || !origenPermitido(r) || r.Header.Get("Accept") != "application/json" {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	if h.soloLectura && r.Method == http.MethodPost {
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
+	actor, err := h.actor.ResolverContextoActor(r.Context())
+	if err != nil || actor.Validar() != nil {
+		fallo(w, http.StatusForbidden, "acceso_denegado")
+		return
+	}
+	if r.Method == http.MethodGet {
+		h.consultar(w, r, actor)
+		return
+	}
+	h.publicar(w, r, actor)
+}
+
+func origenPermitido(r *http.Request) bool {
+	origen := r.Header.Get("Origin")
+	if origen == "" || origen == "https://"+r.Host {
+		return true
+	}
+	return origen == "http://"+r.Host &&
+		(r.Host == "localhost" || strings.HasPrefix(r.Host, "localhost:") ||
+			r.Host == "127.0.0.1" || strings.HasPrefix(r.Host, "127.0.0.1:"))
+}
+
+func (h *Manejador) consultar(w http.ResponseWriter, r *http.Request, actor vecdomain.ContextoActor) {
+	if r.ContentLength != 0 || len(r.TransferEncoding) != 0 || r.Body != nil && r.Body != http.NoBody {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	limite, antes, bien := paginacion(r)
+	if !bien {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	lectura, err := h.servicio.Consultar(r.Context(), actor, limite, antes)
+	if err != nil {
+		falloServicio(w, err)
+		return
+	}
+	version := 0
+	if lectura.Vigente != nil {
+		version = lectura.Vigente.Version
+	}
+	puedeAjustar := lectura.PuedeAjustar && !h.soloLectura
+	reglasVista := make([]reglaVista, 0, len(lectura.Reglas))
+	for _, regla := range lectura.Reglas {
+		if regla.Edicion == nil {
+			continue
+		}
+		reglasVista = append(reglasVista, vistaRegla(regla))
+	}
+	responder(w, http.StatusOK, map[string]any{"data": map[string]any{
+		"esquema": Esquema, "catalogo_id": reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal),
+		"version_esperada": version, "puede_ajustar": puedeAjustar,
+		"reglas": reglasVista, "motivos": h.servicio.Motivos(),
+		"historial": lectura.Historial, "hay_mas": lectura.HayMas,
+	}})
+}
+
+func (h *Manejador) publicar(w http.ResponseWriter, r *http.Request, actor vecdomain.ContextoActor) {
+	if r.URL.RawQuery != "" || r.ContentLength < 1 || r.ContentLength > maximoCuerpo ||
+		len(r.TransferEncoding) != 0 || r.Header.Get("Content-Type") != "application/json" ||
+		r.Body == nil || r.Body == http.NoBody {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	cuerpo, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpo+1))
+	if err != nil || len(cuerpo) == 0 || len(cuerpo) > maximoCuerpo || !jsonSinDuplicados(cuerpo) {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	var solicitud app.Solicitud
+	d := json.NewDecoder(bytes.NewReader(cuerpo))
+	d.DisallowUnknownFields()
+	if d.Decode(&solicitud) != nil || d.Decode(&struct{}{}) != io.EOF {
+		fallo(w, http.StatusBadRequest, "solicitud_invalida")
+		return
+	}
+	resultado, err := h.servicio.Publicar(r.Context(), actor, solicitud)
+	if err != nil {
+		falloServicio(w, err)
+		return
+	}
+	estado := http.StatusCreated
+	if resultado.Replay {
+		estado = http.StatusOK
+	}
+	responder(w, estado, map[string]any{"data": map[string]any{
+		"esquema": Esquema, "recibo": resultado.Recibo, "replay": resultado.Replay,
+	}})
+}
+
+func paginacion(r *http.Request) (int, *int64, bool) {
+	const limiteInicial = 20
+	q, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		return 0, nil, false
+	}
+	if len(q) > 2 {
+		return 0, nil, false
+	}
+	limite := limiteInicial
+	var antes *int64
+	for clave, valores := range q {
+		if len(valores) != 1 || valores[0] == "" {
+			return 0, nil, false
+		}
+		switch clave {
+		case "limite":
+			n, err := strconv.Atoi(valores[0])
+			if err != nil || n < 1 || n > 50 || strconv.Itoa(n) != valores[0] {
+				return 0, nil, false
+			}
+			limite = n
+		case "antes_de_version":
+			n, err := strconv.ParseInt(valores[0], 10, 64)
+			if err != nil || n < 2 || n > 10_000_000 || strconv.FormatInt(n, 10) != valores[0] {
+				return 0, nil, false
+			}
+			antes = &n
+		default:
+			return 0, nil, false
+		}
+	}
+	return limite, antes, true
+}
+
+type reglaVista struct {
+	Clave             string            `json:"clave"`
+	Etiqueta          string            `json:"etiqueta"`
+	Unidad            string            `json:"unidad"`
+	Cantidad          int               `json:"cantidad"`
+	Computo           string            `json:"computo"`
+	Valores           map[string]string `json:"valores"`
+	Edicion           *reglas.Edicion   `json:"edicion"`
+	Ajuste            *reglas.Ajuste    `json:"ajuste,omitempty"`
+	AjusteNoAplicable bool              `json:"ajuste_no_aplicable"`
+}
+
+func vistaRegla(r reglas.Regla) reglaVista {
+	v := reglaVista{Clave: r.Clave, Etiqueta: r.Etiqueta, Unidad: string(r.Unidad),
+		Cantidad: r.Cantidad, Computo: string(r.Computo), Edicion: r.Edicion,
+		Ajuste: r.Ajuste, AjusteNoAplicable: r.AjusteNoAplicable,
+		Valores: make(map[string]string, len(r.Edicion.Campos))}
+	for _, campo := range r.Edicion.Campos {
+		switch campo {
+		case reglas.CampoCantidad:
+			v.Valores[campo] = strconv.Itoa(r.Cantidad)
+		case reglas.CampoUnidad:
+			v.Valores[campo] = string(r.Unidad)
+		case reglas.CampoComputo:
+			v.Valores[campo] = string(r.Computo)
+		default:
+			v.Valores[campo] = r.Atributos[campo]
+		}
+	}
+	return v
+}
+
+func falloServicio(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, vecdomain.ErrAutorizacionDenegada), errors.Is(err, vecdomain.ErrPermissionDenied):
+		fallo(w, http.StatusForbidden, "acceso_denegado")
+	case errors.Is(err, app.ErrConflicto), errors.Is(err, reglas.ErrAjustesConflicto):
+		fallo(w, http.StatusConflict, "version_o_clave_en_conflicto")
+	case errors.Is(err, app.ErrEntradaInvalida), errors.Is(err, reglas.ErrAjusteInvalido):
+		fallo(w, http.StatusUnprocessableEntity, "ajuste_invalido")
+	default:
+		fallo(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+	}
+}
+
+func fallo(w http.ResponseWriter, estado int, codigo string) {
+	responder(w, estado, map[string]any{"error": map[string]string{"codigo": codigo}})
+}
+
+func responder(w http.ResponseWriter, estado int, cuerpo any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(estado)
+	_ = json.NewEncoder(w).Encode(cuerpo)
+}
+
+func cabecerasProhibidas(h http.Header) bool {
+	for nombre := range h {
+		n := strings.ToLower(nombre)
+		if n == "cookie" || n == "authorization" || n == "proxy-authorization" ||
+			n == "forwarded" || n == "remote-user" || n == "idempotency-key" ||
+			n == "x-http-method-override" || strings.HasPrefix(n, "x-forwarded-") ||
+			strings.HasPrefix(n, "x-auth-") || strings.HasPrefix(n, "x-vec-") ||
+			strings.Contains(n, "role") {
+			return true
+		}
+	}
+	return false
+}
+
+func jsonSinDuplicados(contenido []byte) bool {
+	d := json.NewDecoder(bytes.NewReader(contenido))
+	if !valorUnico(d) {
+		return false
+	}
+	_, err := d.Token()
+	return err == io.EOF
+}
+
+func valorUnico(d *json.Decoder) bool {
+	t, err := d.Token()
+	if err != nil {
+		return false
+	}
+	delimitador, esDelimitador := t.(json.Delim)
+	if !esDelimitador {
+		return true
+	}
+	switch delimitador {
+	case '{':
+		vistas := make(map[string]bool)
+		for d.More() {
+			clave, err := d.Token()
+			k, ok := clave.(string)
+			if err != nil || !ok || vistas[k] || !valorUnico(d) {
+				return false
+			}
+			vistas[k] = true
+		}
+	case '[':
+		for d.More() {
+			if !valorUnico(d) {
+				return false
+			}
+		}
+	default:
+		return false
+	}
+	final, err := d.Token()
+	return err == nil && final == json.Delim(map[json.Delim]rune{'{': '}', '[': ']'}[delimitador])
+}
