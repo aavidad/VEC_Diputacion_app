@@ -900,8 +900,12 @@ class DockerDB:
         if not any(m["Type"] == "bind" and m["Destination"] == "/var/lib/postgresql"
                    and m["Source"].startswith("/dev/shm/") for m in mounts):
             raise Refused("el clon debe usar una restauración desechable en /dev/shm")
-        if obj["Config"].get("Image") != "postgres:18.4":
-            raise Refused("se exige postgres:18.4")
+        configured_image = obj["Config"].get("Image")
+        if self.expected_image_id is not None:
+            if configured_image != self.expected_image_id or obj.get("Image") != self.expected_image_id:
+                raise Refused("imagen del clon distinta de la huella aprobada externa")
+        elif configured_image != "postgres:18.4":
+            raise Refused("se exige postgres:18.4 o una huella aprobada externa")
         ports = obj.get("NetworkSettings", {}).get("Ports") or {}
         if any(binding.get("HostIp") not in {"127.0.0.1", "::1"}
                for bindings in ports.values() for binding in (bindings or [])):
@@ -1289,6 +1293,7 @@ def main(argv=None):
     parser.add_argument("--source-ref", default=H6_REF)
     parser.add_argument("--git-repo", type=Path, help="repositorio de control para ascendencia y objetos")
     parser.add_argument("--container")
+    parser.add_argument("--expected-pg-image-id", help="huella de imagen aprobada externa para el clon H6")
     parser.add_argument("--state-dir", type=Path)
     parser.add_argument("--plan", action="store_true")
     parser.add_argument("--installable", action="store_true", help="rechaza un plan aún propuesto sin tocar el clon")
@@ -1318,6 +1323,9 @@ def main(argv=None):
         if args.plan:
             print(json.dumps(plan, sort_keys=True))
             return
+        if not args.steps and (not args.expected_pg_image_id
+                or not re.fullmatch(r"sha256:[a-f0-9]{64}", args.expected_pg_image_id)):
+            raise Refused("H6 exige --expected-pg-image-id aprobado externo antes de aplicar o verificar")
         if args.verify_live:
             raise Refused("AD132/final H6 bloqueado: falta contrato revisado; no publicar READY")
         context = {k: plan[k] for k in (*CONTEXT_KEYS[1:], "lock_sha")}
@@ -1346,7 +1354,8 @@ def main(argv=None):
                 or any((parent / ".git").exists() for parent in (state, *state.parents))):
             raise Refused("el journal debe estar fuera de cualquier repositorio Git")
         state.mkdir(mode=0o700, parents=True, exist_ok=True)
-        apply(DockerDB(args.container, state), rows, state, args.source_ref, plan, context)
+        apply(DockerDB(args.container, state, expected_image_id=args.expected_pg_image_id),
+              rows, state, args.source_ref, plan, context)
         return
     if args.installable:
         require_installable(validate_git_source(args.source_ref, args.git_repo)["approved_sql_ref"])

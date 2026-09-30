@@ -956,12 +956,76 @@ class H6Package62Tests(unittest.TestCase):
                 with contextlib.redirect_stdout(io.StringIO()) as output:
                     SQL.main([*command, "--plan"])
                 self.assertEqual(json.loads(output.getvalue())["file_count"], 62)
+                with self.assertRaisesRegex(SQL.Refused, "expected-pg-image-id"):
+                    SQL.main([*command, "--verify-live"])
+                command.extend(["--expected-pg-image-id", "sha256:" + "d" * 64])
                 with self.assertRaisesRegex(SQL.Refused, "contrato revisado"):
                     SQL.main([*command, "--verify-live"])
                 with self.assertRaisesRegex(SQL.Refused, "kit D"):
                     SQL.main([*command, "--installable"])
                 docker.assert_not_called()
                 self.assertFalse((root / "state").exists())
+
+class ImagePinTests(unittest.TestCase):
+    def test_check_owner_accepts_historical_tag_and_exact_externally_pinned_digest(self):
+        for configured, image, pin in (("postgres:18.4", "sha256:" + "d" * 64, None),
+                                       ("sha256:" + "d" * 64, "sha256:" + "d" * 64, "sha256:" + "d" * 64)):
+            obj = PreimageProbeTests.metadata()
+            obj["Config"]["Image"], obj["Image"] = configured, image
+            obj["State"] = {"Running": True}
+            result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
+            with self.subTest(configured=configured), patch.object(SQL.subprocess, "run", return_value=result):
+                SQL.DockerDB("vec-fixture", expected_image_id=pin).check_owner()
+
+    def test_check_owner_rejects_digest_without_pin_and_any_pinned_image_mismatch(self):
+        digest, other = "sha256:" + "d" * 64, "sha256:" + "e" * 64
+        for configured, image, pin in ((digest, digest, None), (digest, other, digest),
+                                       (other, digest, digest), (digest, digest, other),
+                                       ("postgres:18.4", digest, digest), (digest, None, digest)):
+            obj = PreimageProbeTests.metadata()
+            obj["Config"]["Image"], obj["Image"] = configured, image
+            obj["State"] = {"Running": True}
+            result = subprocess.CompletedProcess([], 0, json.dumps([obj]), "")
+            with self.subTest(configured=configured, image=image, pin=pin), \
+                    patch.object(SQL.subprocess, "run", return_value=result):
+                with self.assertRaisesRegex(SQL.Refused, "huella aprobada externa"):
+                    SQL.DockerDB("vec-fixture", expected_image_id=pin).check_owner()
+
+    def test_h6_cli_missing_or_invalid_image_pin_denies_before_kit_state_or_database(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            command = self.h6_command(Path(scratch))
+            for action in ([], ["--installable"], ["--verify-live"]):
+                for pin in ([], ["--expected-pg-image-id", ""],
+                            ["--expected-pg-image-id", "postgres:18.4"],
+                            ["--expected-pg-image-id", "sha256:" + "D" * 64]):
+                    with self.subTest(action=action, pin=pin), \
+                            patch.object(SQL, "preflight_h6_package", return_value=({}, [])), \
+                            patch.object(SQL, "require_kit") as kit, patch.object(SQL, "DockerDB") as db, \
+                            patch.object(SQL, "apply") as apply:
+                        with self.assertRaisesRegex(SQL.Refused, "expected-pg-image-id"):
+                            SQL.main([*command, *action, *pin])
+                        kit.assert_not_called(); db.assert_not_called(); apply.assert_not_called()
+                        self.assertFalse((Path(scratch) / "state").exists())
+
+    @staticmethod
+    def h6_command(root):
+        return ["--repo", str(REPO), "--h6-package", str(root / "package"),
+                "--h6-lock", str(root / "lock"), "--approved-package-sha256", "a" * 64,
+                "--approved-lock-sha256", "b" * 64, "--h1-state-file", str(root / "h1"),
+                "--estado-h1-sha", "c" * 64, "--identidad-clon", "d" * 64,
+                "--container", "vec-fixture", "--state-dir", str(root / "state")]
+
+    def test_h6_cli_passes_external_image_pin_to_apply_without_enabling_kit(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            pin = "sha256:" + "d" * 64
+            plan = {k: "e" * 64 for k in (*SQL.CONTEXT_KEYS[1:], "lock_sha")}
+            with patch.object(SQL, "preflight_h6_package", return_value=(plan, [])), \
+                    patch.object(SQL, "require_kit") as kit, patch.object(SQL, "apply") as apply:
+                SQL.main([*self.h6_command(Path(scratch)), "--expected-pg-image-id", pin])
+                self.assertEqual(apply.call_args.args[0].expected_image_id, pin)
+                kit.assert_called_once_with(SQL.LIVE_KIT, plan, {**plan, "identidad_clon": "d" * 64})
+            self.assertIsNone(SQL.LIVE_KIT)
+
 
 class PreimageProbeTests(unittest.TestCase):
     """Sondas fijas con transportes dobles; nunca requieren Docker o PostgreSQL."""
