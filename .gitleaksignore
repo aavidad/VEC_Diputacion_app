@@ -53,3 +53,8 @@ ae261786c62ace805dc5aaf80c0c91a92b157962:web/static/portal-empleado/modulos/cont
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:87
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:90
 2c1b781a06b586a8cf4afe75f6c25ecbc687717b:web/static/portal-empleado/modulos/contratacion-temporal/vias-preparacion-presentacion.test.mjs:vep-clave-castellana-asignada:115
+
+# Usuarios013: comparación de clave_ref con una referencia nominal pública.
+# Identifica el sobre cifrado; no contiene semilla, bytes de clave ni credencial.
+# Se conserva la migración instalada y solo se exceptúa este hallazgo histórico.
+96e1cf8ed938e083a422c63d8c6bc3832744ee0d:deploy/postgresql/usuarios_vec/migraciones/000013_reclaveado_correos_externos.up.sql:vep-clave-castellana-asignada:142

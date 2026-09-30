@@ -32,6 +32,9 @@ func TestRutasExactasAuditoriaEtiquetanSoloRutasNominales(t *testing.T) {
 		{"usuarios sin permiso", http.MethodPut, "/api/vec/usuarios/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
 		{"usuarios exterior sin autenticacion", http.MethodGet, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, false},
 		{"usuarios exterior sin permiso", http.MethodPut, "/api/vec/usuarios/area-personal/mis-preferencias", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaUsuariosPreferencias, true, true},
+		{"aspirantes sin autenticacion", http.MethodGet, "/api/vec/aspirantes/area-personal/mi-ficha", ErrAutenticacionRutaExactaRequerida, http.StatusUnauthorized, ports.MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida, ports.SuperficieAuditoriaFronteraRutaExactaAspirantes, true, false},
+		{"aspirantes sin permiso", http.MethodPost, "/api/vec/aspirantes/area-personal/mi-ficha", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaAspirantes, true, false},
+		{"prefijo aspirantes", http.MethodGet, "/api/vec/aspirantes/area-personal/mi-ficha-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, ports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado, ports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal, false, false},
 		{"prefijo auditoria", http.MethodGet, "/api/vec/auditoria/opciones_extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"otra ruta auditoria", http.MethodGet, "/api/vec/auditoria/otra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
 		{"prefijo usuarios", http.MethodGet, "/api/vec/usuarios/mis-preferencias-extra", ErrAccesoRutaExactaDenegado, http.StatusForbidden, "", "", false, false},
@@ -135,6 +138,8 @@ func TestRutasExactasUsuariosFalloAuditoriaCierraSinReintentoNiDetalle(t *testin
 		{"usuarios 403", ruta, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
 		{"usuarios exterior 401", rutaExterior, ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
 		{"usuarios exterior 403", rutaExterior, ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"aspirantes 403 sin persona", "/api/vec/aspirantes/area-personal/mi-ficha", ErrAccesoRutaExactaDenegado, true, http.StatusServiceUnavailable},
+		{"aspirantes 401", "/api/vec/aspirantes/area-personal/mi-ficha", ErrAutenticacionRutaExactaRequerida, false, http.StatusServiceUnavailable},
 		{"contratacion conserva 403", rutaAltaContratacionPrueba, ErrAccesoRutaExactaDenegado, false, http.StatusForbidden},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {

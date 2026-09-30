@@ -23,3 +23,5 @@ static/verificar/i18n.js
 static/verificar/index.html
 static/verificar/verificar.css
 static/verificar/verificar.js
+static/textos/es/bolsas-publicas.json
+static/textos/en/bolsas-publicas.json

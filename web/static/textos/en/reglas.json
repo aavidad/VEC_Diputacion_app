@@ -24,8 +24,7 @@
     "kpiEjemplo": "Examples",
     "modulo_bolsa": "Employment pools",
     "modulo_contratacion_temporal": "Temporary Staff Requests",
-    "catalogoVersion": "Catalogue {catalogo} · version {version}",
-    "catalogoHuella": "Fingerprint {huella}",
+    "catalogoVersion": "Catalogue version {version}",
     "paqueteEjemplo": "Example package",
     "estado_sin_catalogo": "No rule catalogue loaded: the module keeps its current behaviour.",
     "estado_no_disponible": "The rule catalogue is not available right now.",
@@ -53,17 +52,18 @@
     "unidad_franja_horaria": "Time slot",
     "unidad_lista": "List",
     "unidad_ninguna": "No quantity",
-    "error_solicitud_invalida": "The request is not valid.",
-    "error_servicio_no_disponible": "The rules service is not available. Please try again later.",
+    "error_solicitud_invalida": "The rules could not be requested. Press Try again and, if it still fails, tell IT.",
+    "error_servicio_no_disponible": "The rules service is not available right now. Press Try again in a few minutes.",
     "error_autenticacion_requerida": "Identify yourself with your certificate to see the rules.",
     "error_acceso_denegado": "Your profile cannot see the rules.",
-    "error_respuesta": "The server response is not valid.",
+    "error_respuesta": "The rules could not be read. Press Try again and, if it still fails, tell IT.",
     "ayudaDetalle": "Press the name of a rule to read it in full: what it sets, the rule it is based on, the values it accepts and the HR question still open. Press it again to close it.",
     "ayudaResolver": "Rules cannot be changed on this page. The HR Department answers the open questions outside VEC. Once a value is approved, a new catalogue version is published and that is the version shown here.",
     "detalleQue": "What it sets",
     "detalleNorma": "Based on",
     "detalleOrigen": "Source",
     "detalleDuda": "HR question",
-    "detalleSinDescripcion": "The catalogue does not describe this rule."
+    "detalleSinDescripcion": "The catalogue does not describe this rule.",
+    "reintentar": "Try again"
   }
 }

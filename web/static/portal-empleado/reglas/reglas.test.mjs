@@ -43,15 +43,16 @@ test("el catálogo i18n está completo y toda clave de la página existe", () =>
 test("el catálogo renovado usa una URL única en la pantalla y en sus consumidores de Bolsa y CT", () => {
   const html = leer("./index.html");
   const reglas = leer("./reglas.js");
-  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v1");
-  assert.equal(version, "20260930-reglas-detalle-v2");
+  const version = exigirRenovado([html, reglas], "i18n.js", "20260930-reglas-detalle-v2");
+  assert.equal(version, "20260930-reglas-detalle-v3");
   const bolsa = leer("../modulos/bolsa/rrhh-plazos-api.js");
   const etiquetas = leer("../modulos/contratacion-temporal/etiquetas-vias-cobertura.js");
-  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v1"), version);
+  assert.equal(exigirRenovado([html, bolsa, etiquetas], "reglas.js", "20260930-reglas-detalle-v2"), version);
   const formulario = leer("../modulos/contratacion-temporal/formulario-cobertura.js");
-  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v1"), version);
+  assert.equal(exigirRenovado(formulario, "etiquetas-vias-cobertura.js", "20260930-reglas-detalle-v2"), version);
+  // El enlace del portal no cambia en esta revisión: conserva su URL.
   const render = leer("../modulos/contratacion-temporal/vista-expedientes-render.js");
-  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), version);
+  assert.equal(exigirRenovado(render, "enlace.js", "20260930-reglas-detalle-v1"), "20260930-portales-i18n-integracion-v1");
 });
 
 test("las versiones en caché se renuevan juntas y la pantalla está en el manifiesto interno", () => {
@@ -161,7 +162,7 @@ test("claves válidas distintas conservan identificadores únicos y los datos no
     assert.match(html, new RegExp(`aria-controls="${id}"`, "u"));
     assert.match(html, new RegExp(`id="${id}"`, "u"));
   }
-  assert.match(html, /<small translate="no"><code>b04\.franja<\/code><\/small>/u);
+  assert.ok(!html.includes(">b04.franja<"), "la clave interna no se ve en pantalla");
   assert.match(html, /Parte de ejemplo: <span>Solo personal fijo<\/span>/u);
 });
 
@@ -175,7 +176,7 @@ test("la vista inglesa marca como españoles solo los datos recibidos", () => {
   const html = execFileSync(process.execPath, ["--input-type=module", "-e", codigo], { encoding: "utf8" });
   assert.match(html, /<span class="rg-regla-nombre" lang="es">Plazo de respuesta<\/span>/u);
   assert.match(html, /Example part: <span lang="es">Solo personal fijo<\/span>/u);
-  assert.match(html, /<small translate="no"><code>b05\.plazo_respuesta<\/code><\/small>/u);
+  assert.ok(!html.includes(">b05.plazo_respuesta<"), "la clave interna no se ve en pantalla");
   assert.doesNotMatch(html, /lang="es">Example part:/u);
 });
 
@@ -256,4 +257,10 @@ test("pulsar el nombre abre y cierra el detalle, lo anota en el ancla y la recar
   await iniciar(malformada.doc, cliente);
   assert.equal(malformada.nodos.get("rg-resultado").hidden, false);
   assert.match(malformada.nodos.get("rg-catalogos").innerHTML, /aria-expanded="false"/u);
+});
+
+test("la cabecera del catálogo muestra la versión sin identificadores ni huellas", () => {
+  const html = renderizarCatalogo(validarReglas(respuesta()).catalogos[0]);
+  assert.match(html, /<p class="rg-meta">[^<]*1[^<]*<\/p>/u);
+  for (const codigo of ["vec.bolsa.reglas", "aaaaaaaaaaaa"]) assert.ok(!html.includes(codigo), `sin código interno: ${codigo}`);
 });

@@ -17,9 +17,12 @@ const PrefijoVariablesExterno = "VEC_EXTERNO_"
 // Entorno es la instantánea que se comprueba. Variables sigue el formato de
 // os.Environ; DirectorioPersonal es el del usuario del sistema, donde el
 // controlador de PostgreSQL busca credenciales por defecto.
+// DirectorioMaterial es el material del propio proceso: en el externo toda
+// ruta recibida debe estar dentro de él (salvo catálogos públicos).
 type Entorno struct {
 	Variables          []string
 	DirectorioPersonal string
+	DirectorioMaterial string
 }
 
 // variablesCredencialPostgreSQL son las que el controlador pgx lee por su
@@ -79,6 +82,9 @@ func ComprobarEntorno(p Portal, e Entorno) error {
 		if err := comprobarVariable(p, v.nombre, v.valor); err != nil {
 			return err
 		}
+		if err := comprobarRutaPortal(p, v.nombre, v.valor, e.DirectorioMaterial); err != nil {
+			return err
+		}
 	}
 	return comprobarFicherosCredencialPersonales(e.DirectorioPersonal)
 }
@@ -135,6 +141,15 @@ func comprobarVariable(p Portal, nombre, valor string) error {
 		return rechazo("secreto sin clasificar para el portal externo", nombre)
 	}
 	return nil
+}
+
+// comprobarRutaPortal solo restringe rutas en el proceso externo; las
+// variables vacías no apuntan a nada.
+func comprobarRutaPortal(p Portal, nombre, valor, material string) error {
+	if p != PortalExterno || strings.TrimSpace(valor) == "" {
+		return nil
+	}
+	return comprobarRutaExterno(nombre, valor, material)
 }
 
 // esConexion reconoce una conexión por su nombre o por su valor, para que un

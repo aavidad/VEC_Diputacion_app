@@ -115,10 +115,11 @@ func (p PreimagenProvisionCandidatoExterno) validar() bool {
 }
 
 type FuenteProvisionCandidatoExterno struct {
-	Version   int                                 `json:"version"`
-	Snapshot  SnapshotContextoExterno             `json:"snapshot"`
-	Preimagen PreimagenProvisionCandidatoExterno  `json:"preimagen"`
-	Identidad *IdentidadProvisionCandidatoExterno `json:"identidad,omitempty"`
+	Version          int                                 `json:"version"`
+	Snapshot         SnapshotContextoExterno             `json:"snapshot"`
+	Preimagen        PreimagenProvisionCandidatoExterno  `json:"preimagen"`
+	Identidad        *IdentidadProvisionCandidatoExterno `json:"identidad,omitempty"`
+	CatalogosMotivos []string                            `json:"catalogos_motivos"`
 }
 
 func (FuenteProvisionCandidatoExterno) String() string   { return "[FUENTE EXTERNA PRIVADA]" }
@@ -159,10 +160,11 @@ func CargarFuenteProvisionCandidatoExterno(ruta string) (FuenteProvisionCandidat
 }
 
 type ResumenProvisionCandidatoExterno struct {
-	Estado          string `json:"estado"`
-	Fase            string `json:"fase"`
-	HuellaSHA256    string `json:"huella_sha256"`
-	PreimagenSHA256 string `json:"preimagen_sha256"`
+	Estado           string   `json:"estado"`
+	Fase             string   `json:"fase"`
+	HuellaSHA256     string   `json:"huella_sha256"`
+	PreimagenSHA256  string   `json:"preimagen_sha256"`
+	CatalogosMotivos []string `json:"catalogos_motivos,omitempty"`
 }
 
 // PlanProvisionCandidatoExterno no expone documentos. Su resumen es seguro
@@ -180,9 +182,13 @@ type PlanProvisionCandidatoExterno struct {
 	identidad      *IdentidadProvisionCandidatoExterno
 }
 
-func (PlanProvisionCandidatoExterno) String() string                              { return "[PLAN EXTERNO PRIVADO]" }
-func (PlanProvisionCandidatoExterno) GoString() string                            { return "[PLAN EXTERNO PRIVADO]" }
-func (p PlanProvisionCandidatoExterno) Resumen() ResumenProvisionCandidatoExterno { return p.resumen }
+func (PlanProvisionCandidatoExterno) String() string   { return "[PLAN EXTERNO PRIVADO]" }
+func (PlanProvisionCandidatoExterno) GoString() string { return "[PLAN EXTERNO PRIVADO]" }
+func (p PlanProvisionCandidatoExterno) Resumen() ResumenProvisionCandidatoExterno {
+	r := p.resumen
+	r.CatalogosMotivos = append([]string(nil), p.resumen.CatalogosMotivos...)
+	return r
+}
 
 func procesoInternoProvisionExterna(cfg config.Config) bool {
 	p, e := separacionportales.Parsear(cfg.PortalProceso)
@@ -195,7 +201,7 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 	var p PlanProvisionCandidatoExterno
 	if !procesoInternoProvisionExterna(cfg) || f.Version != 1 || !f.Snapshot.validar() ||
 		(f.Snapshot.Poblacion != "candidato" && !(fase == "identidad" && f.Snapshot.Poblacion == "usuarios")) ||
-		!f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad") {
+		(f.CatalogosMotivos != nil && fase != "motivos") || !f.Preimagen.validar() || f.Snapshot.Estado != "activo" || (fase != "contexto" && fase != "autorizacion" && fase != "motivos" && fase != "identidad") {
 		return p, ErrProvisionCandidatoExterno
 	}
 	s := f.Snapshot
@@ -236,6 +242,15 @@ func PrepararProvisionCandidatoExterno(cfg config.Config, f FuenteProvisionCandi
 	}
 	p.semilla, p.preimagen, p.desde = semilla, f.Preimagen, semilla.VersionRol.PublicadaEn
 	p.motivos = []core.ReferenciaEntradaCatalogo{motivoMiBolsaDesarrollo(), motivoHistorialMiBolsaDesarrollo(), motivoPortalMiBolsaDesarrollo()}
+	if fase == "motivos" {
+		p.motivos, err = seleccionarMotivosProvisionCandidatoExterno(p.motivos, f.CatalogosMotivos)
+		if err != nil {
+			return PlanProvisionCandidatoExterno{}, err
+		}
+		for _, motivo := range p.motivos {
+			p.resumen.CatalogosMotivos = append(p.resumen.CatalogosMotivos, motivo.CatalogoID)
+		}
+	}
 	p.resumen.Fase = fase
 	p.resumen.Estado = "preparado"
 	p.resumen.PreimagenSHA256, err = huellaJSONProvisionExterna(f.Preimagen)
