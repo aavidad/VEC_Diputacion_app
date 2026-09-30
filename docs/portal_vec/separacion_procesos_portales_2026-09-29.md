@@ -103,6 +103,30 @@ la misma composición externa.
   mitad de la lista anterior), que dan 404.
 - Un valor de portal mal escrito cierra todas las rutas.
 
+### Lista pública de bolsas en el externo
+
+B10 consulta la proyección pública gobernada en una base dedicada. El proceso
+externo usa exclusivamente el login `vec_externo_bolsa_publica_consulta` y la
+variable `VEC_EXTERNO_BOLSA_PUBLICA_DATABASE_URL`. El login recibe esta única
+membresía, después de instalar las migraciones públicas 000001 y 000002:
+
+```sql
+GRANT vec_bolsa_publica_consulta TO vec_externo_bolsa_publica_consulta
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+```
+
+La [receta de aprovisionamiento](../../deploy/postgresql/bolsa_publica/README.md#login-lector-del-proceso-externo-b10)
+contiene la creación del login, sus ajustes y la entrega privada de la
+contraseña. No se concede acceso a tablas internas ni a roles de gobierno.
+No reaplique SQL instalado. La activación requiere el manifiesto SHA-256 de
+la proyección y las huellas gobernadas de categorías. Sin activación B10,
+la lista sigue ausente; una configuración parcial impide el arranque.
+
+Las consultas del proceso externo mantienen el mTLS del candidato. Para la
+entrada anónima se utiliza `cmd/vec-publico`, separado del Área personal y
+con su propio login lector. Servir una ruta `/api/publico/` desde el proceso
+externo no la convierte en una entrada sin certificado.
+
 ### Comprobación al desplegar
 
 Cada proceso por sí solo no puede saber si su clave es la misma que la del
@@ -162,9 +186,9 @@ Pendiente, en este orden:
 
 1. Capacidades personales en el proceso externo que faltan, en este orden:
    correos e imagen de la superficie externa (necesitan una subclave de
-   cifrado propia); «Mi bolsa» y el portal del candidato; y la lista pública
-   de bolsas desde la proyección pública (esquema `bolsa_publica`, aún no
-   instalado en la principal). El gobierno
+   cifrado propia); «Mi bolsa» y el portal del candidato. La lista pública de
+   bolsas ya se compone desde la proyección B10 cuando se activa; su instalación
+   en la principal queda pendiente. El gobierno
    de autorización de esas capacidades (publicar audiencias, perfil y
    motivos) lo hace el lado interno con un paso de preparación; el proceso
    externo solo recibe claves derivadas para sus audiencias y usuarios de
