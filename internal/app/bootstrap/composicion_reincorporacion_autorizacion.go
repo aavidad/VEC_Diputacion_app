@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"log"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -25,6 +26,7 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 	}
 	version, valida := enteroDecimalCanonicoReincorporacion(r.Atributos["version_expediente"])
 	if !valida || !ports.VersionOperacionAnalisisConIncrementoValida(version) {
+		log.Print("contratacion temporal: reincorporacion denegada; causa=version_expediente_invalida")
 		return false
 	}
 	if d.Accion == string(ports.AccionConsultarAntecedenteReincorporacionTitular) {
@@ -47,6 +49,7 @@ func solicitudAutorizacionReincorporacionTitularValida(ruta string, d vecdomain.
 	}
 	politicaVersion, valida := enteroDecimalCanonicoReincorporacion(r.Atributos["politica_version"])
 	if !valida || !ports.VersionOperacionAnalisisValida(politicaVersion) {
+		log.Print("contratacion temporal: reincorporacion denegada; causa=version_politica_invalida")
 		return false
 	}
 	ambitos, errAmbitos := ports.NuevaColeccionSellosHMAC(r.Atributos["ambito_idempotencia_hmac"], nil)

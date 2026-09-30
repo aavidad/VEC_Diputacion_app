@@ -105,8 +105,8 @@ func inventarioRutasCTDesarrollo() map[string][]metodoRutaCTDesarrollo {
 		rutaConfiguracionAnalisisContratacionTemporalDesarrollo: {nominalCT(http.MethodGet, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_analisis_desarrollo.go:manejadorConfiguracionAnalisisContratacionTemporalDesarrollo")},
 		rutaCircuitoFirmaContratacionTemporalDesarrollo:         {nominalCT(http.MethodGet, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo"), nominalCT(http.MethodHead, "contratacion_temporal_circuito_firma_desarrollo.go:manejadorCircuitoFirmaContratacionTemporalDesarrollo")},
 		httpinterno.RutaDocumentacionFormalizacion:              {nominalCT(http.MethodGet, "contratacion_temporal_documentacion_formalizacion_desarrollo.go:nuevaRutaDocumentacionFormalizacionDesarrollo")},
-		httpinterno.RutaFirmaDocumento:                          {nominalCT(http.MethodPost, "contratacion_temporal_firma_documento_desarrollo.go:firmaDocumentoCTDesarrollo")},
-		httpinterno.RutaConsultaFirmaDocumento:                  {nominalCT(http.MethodPost, "contratacion_temporal_firma_documento_desarrollo.go:firmaDocumentoCTDesarrollo")},
+		httpinterno.RutaFirmaDocumento:                          {pdpCT(http.MethodPost)},
+		httpinterno.RutaConsultaFirmaDocumento:                  {pdpCT(http.MethodPost)},
 	}
 }
 

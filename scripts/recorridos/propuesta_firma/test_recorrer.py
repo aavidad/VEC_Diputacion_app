@@ -2,12 +2,63 @@ import json
 import tempfile
 import unittest
 import hashlib
+import os
+import threading
+import io
+import runpy
+from contextlib import redirect_stdout
+from unittest import mock
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import recorrer
 
 
 class RecorridoFirmaTest(unittest.TestCase):
+    def test_catalogo_sdk_exacto_y_distribucion_instalada(self):
+        self.assertEqual(recorrer.comprobar_sdk_playwright(), "1.60.0")
+
+    def test_importacion_y_cli_rechazan_sdk_no_ensayado_sin_efectos(self):
+        for version in ("1.55.0", "1.60.1"):
+            for modo in ("lector_privado", "__main__"):
+                with self.subTest(version=version, modo=modo), tempfile.TemporaryDirectory() as tmp:
+                    salida = Path(tmp) / "informe.json"
+                    escritorio = Path(tmp) / "1440.png"
+                    movil = Path(tmp) / "390.png"
+                    argv = [recorrer.__file__, "--salida", str(salida),
+                            "--captura-escritorio", str(escritorio), "--captura-movil", str(movil)]
+                    with mock.patch("importlib.metadata.distribution", return_value=mock.Mock(version=version)), \
+                         mock.patch("playwright.sync_api.sync_playwright") as proceso, \
+                         mock.patch("playwright.sync_api.BrowserType.launch") as chrome, \
+                         mock.patch("playwright.sync_api.Browser.new_context") as contextos, \
+                         mock.patch("sys.argv", argv), redirect_stdout(io.StringIO()) as texto:
+                        if modo == "__main__":
+                            with self.assertRaises(SystemExit) as corte:
+                                runpy.run_path(recorrer.__file__, run_name=modo)
+                            self.assertEqual(corte.exception.code, 2)
+                            self.assertEqual(json.loads(texto.getvalue())["estado"], "NO EJECUTADO")
+                        else:
+                            with self.assertRaises(RuntimeError) as corte:
+                                runpy.run_path(recorrer.__file__, run_name=modo)
+                            self.assertEqual(corte.exception.paso, "precondiciones")
+                        proceso.assert_not_called()
+                        chrome.assert_not_called()
+                        contextos.assert_not_called()
+                    self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_sdk_ausente_catalogo_invalido_y_metadata_ajena_se_denegan(self):
+        with mock.patch("importlib.metadata.distribution", side_effect=recorrer.metadata.PackageNotFoundError):
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comprobar_sdk_playwright()
+        with mock.patch("pathlib.Path.read_text", return_value="playwright>=1.60.0"):
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comprobar_sdk_playwright()
+        ajena = mock.Mock(version="1.60.0")
+        ajena.locate_file.return_value = "/no-existe-sdk-verificado/__init__.py"
+        with mock.patch("importlib.metadata.distribution", return_value=ajena):
+            with self.assertRaises(recorrer.Corte):
+                recorrer.comprobar_sdk_playwright()
+
     def test_salida_rechaza_git_worktree_permisos_y_enlaces(self):
         with tempfile.TemporaryDirectory() as tmp:
             raiz = Path(tmp)
@@ -163,38 +214,99 @@ class RecorridoFirmaTest(unittest.TestCase):
                 "recibo_ref": "recibo:prueba", "registrada_en": "2026-09-29T20:00:00Z"}]}]},
                 "recibo:prueba"), recuperada)
 
-    def test_redireccion_local_a_otro_puerto_se_corta(self):
-        class Respuesta:
-            status = 302
-            url = "https://localhost:8443/portal-empleado/"
-            headers = {"location": "https://localhost:8444/otro"}
+    def test_cdp_conserva_transporte_y_corta_otros_origenes(self):
+        class CDP:
+            def send(self, metodo, parametros):
+                self.llamada = (metodo, parametros)
 
-        class Ruta:
-            request = type("Peticion", (), {"url": "https://localhost:8443/portal-empleado/"})()
-            abortada = False
-            entregada = False
+        for url, permitido in (("https://localhost:8443/portal-empleado/", True),
+                               ("https://localhost:8444/otro", False),
+                               ("http://localhost:8443/otro", False),
+                               ("https://example.invalid/otro", False)):
+            cdp = CDP()
+            recorrer.limitar_peticion_cdp(cdp, {"requestId": "prueba", "request": {"url": url}},
+                                        "https://localhost:8443")
+            self.assertEqual(cdp.llamada[0], "Fetch.continueRequest" if permitido else "Fetch.failRequest")
 
-            def fetch(self, *, max_redirects, timeout):
-                self.max_redirects = max_redirects
-                return Respuesta()
+    def test_respuesta_redirect_se_corta_antes_de_seguir(self):
+        class CDP:
+            def send(self, metodo, parametros):
+                self.llamada = (metodo, parametros)
 
-            def abort(self):
-                self.abortada = True
+        for estado in (301, 302, 303, 307, 308):
+            cdp = CDP()
+            recorrer.limitar_peticion_cdp(cdp, {"requestId": "prueba", "responseStatusCode": estado,
+                                               "request": {"url": "https://localhost:8443/entrada"}},
+                                        "https://localhost:8443")
+            self.assertEqual(cdp.llamada, ("Fetch.failRequest",
+                {"requestId": "prueba", "errorReason": "BlockedByClient"}))
+        cdp = CDP()
+        recorrer.limitar_peticion_cdp(cdp, {"requestId": "prueba", "responseStatusCode": 200,
+                                           "request": {"url": "https://localhost:8443/entrada"}},
+                                    "https://localhost:8443")
+        self.assertEqual(cdp.llamada, ("Fetch.continueRequest", {"requestId": "prueba"}))
 
-            def fulfill(self, *, response):
-                self.entregada = True
+    def test_fallo_transporte_no_continua_peticion(self):
+        class CDP:
+            def send(self, *args):
+                raise AssertionError("no debe continuar un transporte fallido")
 
-        ruta = Ruta()
-        recorrer.limitar_origen(ruta, "https://localhost:8443")
-        self.assertEqual(ruta.max_redirects, 0)
-        self.assertTrue(ruta.abortada)
-        self.assertFalse(ruta.entregada)
+        with self.assertRaises(recorrer.Corte) as corte:
+            recorrer.limitar_peticion_cdp(CDP(), {"requestId": "prueba",
+                "responseErrorReason": "ConnectionFailed"}, "https://localhost:8443")
+        self.assertEqual(corte.exception.paso, "guardia_red")
 
-        externa = Ruta()
-        externa.request = type("Peticion", (), {"url": "https://localhost:8444/otro"})()
-        recorrer.limitar_origen(externa, "https://localhost:8443")
-        self.assertTrue(externa.abortada)
-        self.assertFalse(hasattr(externa, "max_redirects"))
+    def test_guardia_global_cierra_chrome_si_instalacion_o_intercepcion_fallan(self):
+        class CDP:
+            fallo = False
+
+            def on(self, evento, callback):
+                if evento == "Fetch.requestPaused":
+                    self.callback = callback
+                else:
+                    self.close_callback = callback
+
+            def send(self, metodo, parametros):
+                if self.fallo:
+                    raise RuntimeError("fallo sintético")
+
+        class Browser:
+            cerrado = False
+
+            def __init__(self):
+                self.cdp = CDP()
+
+            def new_browser_cdp_session(self):
+                return self.cdp
+
+            def on(self, evento, callback):
+                self.desconectado = callback
+
+            def close(self):
+                self.cerrado = True
+
+        browser = Browser()
+        browser.cdp.fallo = True
+        with self.assertRaises(recorrer.Corte):
+            recorrer.GuardiaNavegador(browser, "https://localhost:8443")
+        self.assertTrue(browser.cerrado)
+
+        for fallo in ("intercepcion", "transporte", "desconexion", "sesion"):
+            browser = Browser()
+            guardia = recorrer.GuardiaNavegador(browser, "https://localhost:8443")
+            evento = {"requestId": "prueba", "request": {"url": "https://localhost:8443/"}}
+            if fallo == "intercepcion":
+                browser.cdp.fallo = True
+                browser.cdp.callback(evento)
+            elif fallo == "transporte":
+                browser.cdp.callback({**evento, "responseErrorReason": "ConnectionFailed"})
+            elif fallo == "desconexion":
+                browser.desconectado()
+            else:
+                browser.cdp.close_callback(None)
+            self.assertTrue(guardia.errores)
+            guardia.cerrar()
+            self.assertTrue(browser.cerrado)
 
     def test_websocket_solo_autofirma_explicita(self):
         class Ruta:
@@ -218,6 +330,135 @@ class RecorridoFirmaTest(unittest.TestCase):
         otro_puerto = Ruta("wss://127.0.0.1:63118")
         recorrer.limitar_websocket(otro_puerto, True)
         self.assertTrue(otro_puerto.cerrada)
+
+
+@unittest.skipUnless(os.environ.get("VEC_PRUEBA_CHROME") == "1",
+                     "Chrome focal requiere namespace local aislado")
+class GuardiaChromeTest(unittest.TestCase):
+    def setUp(self):
+        self.hits = []
+        prueba = self
+
+        class Servidor(BaseHTTPRequestHandler):
+            def do_GET(self):
+                prueba.hits.append((self.server.label, self.path))
+                if self.path == "/redirect":
+                    self.send_response(302)
+                    self.send_header("Location", prueba.sentinel + "/popup-redirect")
+                    self.end_headers()
+                    return
+                if self.path == "/disconnect":
+                    self.close_connection = True
+                    return
+                self.send_response(200)
+                if self.path == "/pdf":
+                    self.send_header("Content-Type", "application/pdf")
+                    self.send_header("Content-Disposition", 'attachment; filename="fixture.pdf"')
+                    cuerpo = prueba.pdf
+                elif self.path == "/worker.js":
+                    self.send_header("Content-Type", "application/javascript")
+                    cuerpo = (f'fetch("{prueba.origin}/worker-positive");'
+                              f'fetch("{prueba.sentinel}/worker").catch(()=>0);'
+                              'postMessage("started")').encode()
+                else:
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    cuerpo = b'<h1>fixture</h1><a href="/pdf" download>PDF</a>'
+                self.end_headers()
+                self.wfile.write(cuerpo)
+
+            def log_message(self, *args):
+                pass
+
+        self.servers = []
+        for label, host in (("origin", "127.0.0.1"), ("sentinel", "127.0.0.2")):
+            servidor = ThreadingHTTPServer((host, 0), Servidor)
+            servidor.label = label
+            threading.Thread(target=servidor.serve_forever, daemon=True).start()
+            self.servers.append(servidor)
+        self.origin = f"http://127.0.0.1:{self.servers[0].server_port}"
+        self.sentinel = f"http://127.0.0.2:{self.servers[1].server_port}"
+        self.pdf = b"%PDF-1.4\nfixture-nativo\n%%EOF\n"
+
+    def tearDown(self):
+        for servidor in self.servers:
+            servidor.shutdown()
+            servidor.server_close()
+
+    def test_browser_fetch_popup_worker_oopif_y_pdf(self):
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True,
+                args=["--site-per-process", "--enable-features=IsolateSandboxedIframes"])
+            guardia = recorrer.GuardiaNavegador(browser, self.origin)
+            eventos = []
+            guardia.cdp.on("Fetch.requestPaused", lambda e: eventos.append(e))
+            try:
+                context = browser.new_context(service_workers="block", accept_downloads=True)
+                page = context.new_page()
+                self.assertEqual(page.goto(self.origin + "/main", wait_until="domcontentloaded").status, 200)
+                with page.expect_download(timeout=5_000) as descarga:
+                    page.get_by_text("PDF", exact=True).click()
+                self.assertEqual(Path(descarga.value.path()).read_bytes(), self.pdf)
+                page.evaluate('(url)=>window.open(url,"_blank")', self.sentinel + "/popup-direct")
+                page.evaluate('(url)=>window.open(url,"_blank")', self.origin + "/redirect")
+                page.evaluate('''()=>new Promise(resolve=>{
+                    window.worker=new Worker('/worker.js');worker.onmessage=()=>resolve(true)
+                })''')
+                page.evaluate('''([origin,sentinel])=>{
+                    let frame=document.createElement('iframe');frame.sandbox='allow-scripts';
+                    frame.srcdoc='<script>fetch("'+origin+'/oopif-positive");fetch("'+sentinel+
+                        '/oopif").catch(()=>0)</script>';document.body.append(frame)
+                }''', [self.origin, self.sentinel])
+                page.wait_for_timeout(700)
+                tipos = {t["type"] for t in guardia.cdp.send("Target.getTargets")["targetInfos"]}
+                self.assertIn("worker", tipos)
+                self.assertIn("iframe", tipos)
+                intentadas = {e["request"]["url"] for e in eventos}
+                for ruta in ("/popup-direct", "/worker", "/oopif"):
+                    self.assertIn(self.sentinel + ruta, intentadas)
+                self.assertNotIn(self.sentinel + "/popup-redirect", intentadas)
+                self.assertIn(("origin", "/redirect"), self.hits)
+                self.assertIn(("origin", "/worker-positive"), self.hits)
+                self.assertIn(("origin", "/oopif-positive"), self.hits)
+                self.assertFalse(any(label == "sentinel" for label, ruta in self.hits))
+                self.assertFalse(guardia.errores)
+                print("Chrome global:", guardia.cdp.send("Browser.getVersion")["product"],
+                      "targets=", sorted(tipos), "sentinel_hits=0; PDF original idéntico")
+            finally:
+                guardia.cerrar()
+
+    def test_response_error_real_cierra_browser(self):
+        from playwright.sync_api import sync_playwright, Error
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+            guardia = recorrer.GuardiaNavegador(browser, self.origin)
+            try:
+                page = browser.new_context(service_workers="block").new_page()
+                with self.assertRaises(Error):
+                    page.goto(self.origin + "/disconnect", wait_until="domcontentloaded")
+                self.assertTrue(guardia.errores)
+            finally:
+                guardia.cerrar()
+            self.assertFalse(browser.is_connected())
+
+    def test_perdida_session_real_cierra_browser(self):
+        from playwright.sync_api import sync_playwright, Error
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True)
+            guardia = recorrer.GuardiaNavegador(browser, self.origin)
+            try:
+                browser.new_context(service_workers="block").new_page()
+                try:
+                    guardia.cdp.detach()
+                except Error:
+                    pass
+                self.assertIn("sesion_guardia_desconectada", guardia.errores)
+            finally:
+                guardia.cerrar()
+            self.assertFalse(browser.is_connected())
 
 
 if __name__ == "__main__":
