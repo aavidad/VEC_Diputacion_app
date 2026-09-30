@@ -114,6 +114,14 @@ const etiquetaOpcion = (tipo, valor) => t(`${tipo}_${valor}`);
 const presentarValor = (regla, campo, valor, unidad = regla.valores.unidad ?? regla.unidad) => ["cantidad", "cantidad_urgente"].includes(campo)
   ? `${formatearNumero(Number(valor))} ${etiquetaOpcion("unidad", unidad)}`
   : etiquetaOpcion(campo, valor);
+const valorHistorico = (campo, valor) => {
+  if (campo === "unidad" || campo === "computo") {
+    const clave = `${campo}_${valor}`;
+    return existeClaveReglas(clave) ? t(clave) : t("ajustesValorHistoricoNoDisponible");
+  }
+  return /^[0-9]+$/u.test(valor) && Number.isSafeInteger(Number(valor))
+    ? formatearNumero(Number(valor)) : t("ajustesValorHistoricoNoDisponible");
+};
 const fecha = (iso) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat(IDIOMA_REGLAS, {
@@ -129,10 +137,10 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
     const valores = r.ajuste_no_aplicable ? "" : r.edicion.campos.map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(r, campo, r.valores[campo]))}</dd></div>`).join("");
     const historial = modelo.historial.filter((h) => h.cambios.some((c) => c.regla_clave === r.clave));
     const listaHistorial = historial.length ? historial.map((h) => `<li><span>${esc(fecha(h.vigente_desde))}</span> · ${esc(t("ajustesPersonaGenerica"))} · ${esc(motivos.find((m) => m.clave === h.motivo_clave)?.texto_clave ? t(motivos.find((m) => m.clave === h.motivo_clave).texto_clave) : t("ajustesMotivoNoIdentificado"))}
-      <ul>${h.cambios.filter((c) => c.regla_clave === r.clave).map((c) => `<li>${esc(etiquetaCampo(c.campo))}: ${esc(c.anterior)} → ${esc(c.nuevo)}</li>`).join("")}</ul>
+      <ul>${h.cambios.filter((c) => c.regla_clave === r.clave).map((c) => `<li>${esc(etiquetaCampo(c.campo))}: ${esc(valorHistorico(c.campo, c.anterior))} → ${esc(valorHistorico(c.campo, c.nuevo))}</li>`).join("")}</ul>
       ${h.referencia ? `<p>${esc(t("ajustesReferenciaHistoria", { referencia: h.referencia }))}</p>` : ""}
-      ${h.nota ? `<p>${esc(h.nota)}</p>` : ""}
-      ${h.recibo_ref ? `<code>${esc(h.recibo_ref)}</code>` : ""}</li>`).join("") : `<li>${esc(t("ajustesSinHistoria"))}</li>`;
+      ${h.nota ? `<p>${esc(t("ajustesNotaHistoria", { nota: h.nota }))}</p>` : ""}
+      ${h.recibo_ref ? `<details><summary>${esc(t("ajustesVerJustificante"))}</summary><code>${esc(h.recibo_ref)}</code></details>` : ""}</li>`).join("") : `<li>${esc(t("ajustesSinHistoria"))}</li>`;
     const accion = modelo.puede_ajustar ? `<button type="button" class="rg-secundario" data-ajustes-editar="${esc(r.clave)}" ${editable && !r.ajuste_no_aplicable ? "" : "disabled"}>${esc(t("ajustesCambiar"))}</button>` : "";
     const motivoDesactivado = modelo.puede_ajustar && !motivos.length ? `<p class="rg-aviso">${esc(t("ajustesSinMotivos"))}</p>` : "";
     const revision = r.ajuste_no_aplicable ? `<p class="rg-aviso rg-aviso--error">${esc(t("ajusteRevisionDetalle"))}</p>` : "";
@@ -141,16 +149,17 @@ export function renderizarAjustes(modelo, { reglaActiva = "", borrador = null, f
       ${activa && editable ? renderizarFormulario(r, motivos, borrador, fase) : ""}
       <details class="rg-ajuste-historial"><summary>${esc(t("ajustesHistorial"))}</summary><ol>${listaHistorial}</ol></details></article>`;
   }).join("");
-  return `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><div><h2 id="rg-ajustes-titulo">${esc(t("ajustesTitulo"))}</h2><p class="rg-meta">${esc(t("ajustesVersion", { version: formatearNumero(modelo.version_esperada) }))}</p></div></div>
+  return `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><div><h2 id="rg-ajustes-titulo" tabindex="-1">${esc(t("ajustesTitulo"))}</h2><p class="rg-meta">${esc(t("ajustesVersion", { version: formatearNumero(modelo.version_esperada) }))}</p></div></div>
     ${!modelo.puede_ajustar ? `<p class="rg-aviso">${esc(t("ajustesSoloLectura"))}</p>` : ""}
-    ${aviso ? `<p class="rg-aviso${error ? " rg-aviso--error" : ""}" role="status">${esc(aviso)}${error ? ` <button type="button" class="rg-secundario" data-ajustes-reintentar>${esc(t("reintentar"))}</button>` : ""}</p>` : ""}
-    ${recibo ? `<div class="rg-ajuste-recibo" role="status"><strong>${esc(t("ajustesGuardado"))}</strong><span>${esc(t("ajustesVersion", { version: formatearNumero(recibo.version) }))}</span><span>${esc(fecha(recibo.vigente_desde))}</span><code>${esc(recibo.recibo_ref)}</code>${recibo.auditoria_ref ? `<span>${esc(t("ajustesAuditoria"))} <code>${esc(recibo.auditoria_ref)}</code></span>` : ""}</div>` : ""}
+    ${aviso ? `<p class="rg-aviso${error ? " rg-aviso--error" : ""}" role="status" tabindex="-1" data-ajustes-estado>${esc(aviso)}${error ? ` <button type="button" class="rg-secundario" data-ajustes-reintentar>${esc(t("reintentar"))}</button>` : ""}</p>` : ""}
+    ${recibo ? `<div class="rg-ajuste-recibo" role="status" tabindex="-1" data-ajustes-recibo><strong>${esc(t("ajustesGuardado"))}</strong><span>${esc(t("ajustesVersion", { version: formatearNumero(recibo.version) }))}</span><span>${esc(fecha(recibo.vigente_desde))}</span><code>${esc(recibo.recibo_ref)}</code>${recibo.auditoria_ref ? `<span>${esc(t("ajustesAuditoria"))} <code>${esc(recibo.auditoria_ref)}</code></span>` : ""}</div>` : ""}
     <div class="rg-ajustes-cuerpo">${reglas || `<p>${esc(t("ajustesSinReglas"))}</p>`}</div>
     ${modelo.hay_mas ? `<div class="rg-ajuste-mas"><button type="button" class="rg-secundario" data-ajustes-mas>${esc(t("ajustesMasHistoria"))}</button></div>` : ""}</section>`;
 }
 
 function renderizarFormulario(regla, motivos, borrador, fase) {
   const bloqueado = fase === "revision" ? " disabled" : "";
+  const motivoElegido = motivos.find((m) => m.clave === borrador?.motivo_clave);
   const controles = regla.edicion.campos.map((campo) => {
     const valor = borrador?.[campo] ?? regla.valores[campo];
     const opciones = campo === "unidad" ? regla.edicion.opciones_unidad : campo === "computo" ? regla.edicion.opciones_computo : null;
@@ -159,13 +168,16 @@ function renderizarFormulario(regla, motivos, borrador, fase) {
     return `<label><span>${esc(etiquetaCampo(campo))}</span>${control}</label>`;
   }).join("");
   const motivo = `<label><span>${esc(t("ajustesMotivo"))}</span><select name="motivo_clave" required${bloqueado}><option value="">${esc(t("ajustesElegirMotivo"))}</option>${motivos.map((m) => `<option value="${esc(m.clave)}"${m.clave === borrador?.motivo_clave ? " selected" : ""}>${esc(t(m.texto_clave))}</option>`).join("")}</select></label>`;
-  const resumen = fase === "revision" ? `<div class="rg-ajuste-revision"><h4>${esc(t("ajustesRevisar"))}</h4><p>${esc(t("ajustesEfecto"))}</p><dl>${regla.edicion.campos.filter((campo) => borrador[campo] !== regla.valores[campo]).map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(regla, campo, regla.valores[campo]))} → ${esc(presentarValor(regla, campo, borrador[campo], borrador.unidad ?? regla.valores.unidad ?? regla.unidad))}</dd></div>`).join("")}</dl></div>` : "";
+  const resumen = fase === "revision" ? `<div class="rg-ajuste-revision" tabindex="-1" data-ajustes-revision><h4>${esc(t("ajustesRevisar"))}</h4><p>${esc(t("ajustesEfecto"))}</p><dl>${regla.edicion.campos.filter((campo) => borrador[campo] !== regla.valores[campo]).map((campo) => `<div><dt>${esc(etiquetaCampo(campo))}</dt><dd>${esc(presentarValor(regla, campo, regla.valores[campo]))} → ${esc(presentarValor(regla, campo, borrador[campo], borrador.unidad ?? regla.valores.unidad ?? regla.unidad))}</dd></div>`).join("")}
+    <div><dt>${esc(t("ajustesMotivo"))}</dt><dd>${esc(motivoElegido ? t(motivoElegido.texto_clave) : t("ajustesMotivoNoIdentificado"))}</dd></div>
+    ${borrador.referencia ? `<div><dt>${esc(t("ajustesReferencia"))}</dt><dd>${esc(borrador.referencia)}</dd></div>` : ""}
+    ${borrador.nota ? `<div><dt>${esc(t("ajustesNota"))}</dt><dd>${esc(borrador.nota)}</dd></div>` : ""}</dl></div>` : "";
   return `<form class="rg-ajuste-form" data-ajustes-form="${esc(regla.clave)}"><div class="rg-ajuste-campos">${controles}${motivo}
     <label><span>${esc(t("ajustesReferencia"))}</span><input name="referencia" maxlength="120" value="${esc(borrador?.referencia)}"${bloqueado}></label>
     <label class="rg-ajuste-nota"><span>${esc(t("ajustesNota"))}</span><textarea name="nota" maxlength="500"${bloqueado}>${esc(borrador?.nota)}</textarea></label></div>
     <p class="rg-meta">${esc(t("ajustesSinDatosPersonales"))}</p>${resumen}<div class="rg-ajuste-acciones">
     <button type="button" class="rg-secundario" ${fase === "revision" ? "data-ajustes-volver" : "data-ajustes-cancelar"}>${esc(t(fase === "revision" ? "ajustesCorregir" : "ajustesCancelar"))}</button>
-    <button type="submit" class="rg-secundario" data-ajustes-enviar>${esc(t(fase === "revision" ? "ajustesGuardar" : "ajustesRevisar"))}</button></div></form>`;
+    <button type="submit" class="rg-secundario" data-ajustes-enviar${fase === "revision" && !motivoElegido ? " disabled" : ""}>${esc(t(fase === "revision" ? "ajustesGuardar" : "ajustesRevisar"))}</button></div></form>`;
 }
 
 /** Panel autocontenido. El cliente se inyecta y ninguna respuesta tardía repinta una vista nueva. */
@@ -184,12 +196,17 @@ export function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
   let bloqueado = false;
   let solicitud = null;
   let secuencia = 0;
+  const enfocar = (selector) => contenedor.querySelector(selector)?.focus();
   const pintar = () => {
     if (!modelo) return;
     contenedor.innerHTML = renderizarAjustes(modelo, { reglaActiva, borrador, fase, aviso, error, recibo, bloqueado });
   };
-  const comunicar = (clave, fallo = false) => { aviso = t(clave); error = fallo; pintar(); };
+  const comunicar = (clave, fallo = false) => {
+    aviso = t(clave); error = fallo; pintar();
+    enfocar("[data-ajustes-estado]");
+  };
   const cargar = async ({ antesDeVersion, conservarBorrador = false } = {}) => {
+    const reintentoInicial = !modelo && Boolean(contenedor.querySelector("[data-ajustes-reintentar]"));
     solicitud?.abort();
     solicitud = new AbortController();
     const actual = ++secuencia;
@@ -204,11 +221,17 @@ export function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
       bloqueado = false;
       aviso = ""; error = false;
       pintar();
+      if (conservarBorrador && borrador) enfocar("[data-ajustes-form] input, [data-ajustes-form] select, #rg-ajustes-titulo");
+      else if (antesDeVersion !== undefined) enfocar("[data-ajustes-mas], #rg-ajustes-titulo");
+      else if (reintentoInicial) enfocar("#rg-ajustes-titulo");
       return true;
     } catch (e) {
       if (actual !== secuencia) return false;
       comunicar(e instanceof ErrorAjustes && existeClaveReglas(e.codigo) ? e.codigo : "ajustesNoDisponible", true);
-      if (!modelo) contenedor.innerHTML = `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><h2 id="rg-ajustes-titulo">${esc(t("ajustesTitulo"))}</h2></div><p class="rg-aviso rg-aviso--error" role="status">${esc(aviso)}</p><div class="rg-ajuste-mas"><button type="button" class="rg-secundario" data-ajustes-reintentar>${esc(t("reintentar"))}</button></div></section>`;
+      if (!modelo) {
+        contenedor.innerHTML = `<section class="rg-panel rg-ajustes" aria-labelledby="rg-ajustes-titulo"><div class="rg-panel-cabecera"><h2 id="rg-ajustes-titulo">${esc(t("ajustesTitulo"))}</h2></div><p class="rg-aviso rg-aviso--error" role="status" tabindex="-1" data-ajustes-estado>${esc(aviso)}</p><div class="rg-ajuste-mas"><button type="button" class="rg-secundario" data-ajustes-reintentar>${esc(t("reintentar"))}</button></div></section>`;
+        enfocar("[data-ajustes-estado]");
+      }
       return false;
     }
   };
@@ -237,6 +260,7 @@ export function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
       recibo = resultado.recibo;
       await cargar();
       aviso = t("ajustesGuardado"); error = false; pintar();
+      enfocar("[data-ajustes-recibo]");
     } catch (e) {
       if (e instanceof ErrorAjustes && e.codigo === "ajustesConflicto") {
         pendiente = null;
@@ -255,10 +279,15 @@ export function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
       return;
     }
     if (evento.target.closest?.("[data-ajustes-cancelar]")) {
-      reglaActiva = ""; borrador = null; pendiente = null; fase = "lista"; aviso = ""; pintar(); return;
+      const clave = reglaActiva;
+      reglaActiva = ""; borrador = null; pendiente = null; fase = "lista"; aviso = ""; pintar();
+      [...contenedor.querySelectorAll("[data-ajustes-editar]")].find((boton) => boton.dataset.ajustesEditar === clave)?.focus();
+      return;
     }
     if (evento.target.closest?.("[data-ajustes-volver]")) {
-      pendiente = null; fase = "edicion"; aviso = ""; pintar(); return;
+      pendiente = null; fase = "edicion"; aviso = ""; pintar();
+      enfocar("[data-ajustes-form] input, [data-ajustes-form] select");
+      return;
     }
     const boton = evento.target.closest?.("[data-ajustes-editar]");
     if (boton && !boton.disabled && modelo?.puede_ajustar && modelo.motivos?.length) {
@@ -277,7 +306,9 @@ export function iniciarAjustes(doc, cliente = crearClienteAjustes()) {
       if (!modelo.motivos.some((m) => m.clave === borrador.motivo_clave)) { comunicar("ajustesMotivoRequerido", true); return; }
       if (!cambios(regla).length) { comunicar("ajustesSinCambios", true); return; }
       fase = "revision"; aviso = ""; pintar();
-    } else void publicar(regla);
+      enfocar("[data-ajustes-revision]");
+    } else if (modelo.motivos.some((m) => m.clave === borrador?.motivo_clave)) void publicar(regla);
+    else comunicar("ajustesMotivoRequerido", true);
   });
   void cargar();
   return () => { ++secuencia; solicitud?.abort(); };
