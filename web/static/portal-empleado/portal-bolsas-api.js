@@ -12,7 +12,7 @@ import {
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
-} from "./portal-bolsas-contrato.js?v=20260930-portales-i18n-integracion-v1";
+} from "./portal-bolsas-contrato.js?v=20260930-bolsa-turno-v2";
 import { seleccionableEnLlamamiento } from "./portal-bolsas-marcas.js?v=20260930-portales-i18n-integracion-v1";
 import { LOCALIZACION_PORTAL, traducirBolsaInterna, traducirPortal, ZONA_HORARIA_PORTAL } from "./portal-i18n.js?v=20260930-portales-i18n-integracion-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260930-portales-i18n-integracion-v1";
@@ -214,7 +214,7 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
       ok: false,
       status: 0,
       codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : traducirPortal("txt_error_de_comunicacion_con_el_servicio_de_candida"),
+      mensaje: traducirPortal("txt_no_se_pudo_cargar_la_relacion_de_aspirantes"),
     };
   }
 }

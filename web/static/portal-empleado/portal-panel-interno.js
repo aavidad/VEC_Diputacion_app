@@ -2,7 +2,7 @@
  * Presentador del contrato agregado del panel interno de Bolsa, del cuadro de bolsas
  * y de la lista de candidatos.
  *
- * Conoce `vec.bolsa.panel.interno.v1`, `vec.bolsa.rrhh.bolsas.v1` y `vec.bolsa.rrhh.candidatos.v1`.
+ * Conoce `vec.bolsa.panel.interno.v1`, `vec.bolsa.rrhh.bolsas.v1` y `vec.bolsa.rrhh.candidatos.v1/v2`.
  * Los datos proceden de los contratos conectados; una fuente no configurada se presenta como tal.
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
@@ -84,6 +84,14 @@ export function crearPresentadorPanelInterno(dependencias) {
   function etiquetaClave(clave) {
     const texto = String(clave || "").replaceAll(/[._-]+/g, " ").trim();
     return texto ? texto.charAt(0).toLocaleUpperCase(LOCALIZACION_PORTAL) + texto.slice(1) : traducirPortal("txt_sin_clave");
+  }
+  function etiquetaIntentoTurno(clave, tipo) {
+    const deContacto = tipo === "canal"
+      ? ["telefono", "correo", "sms", "presencial", "otro"]
+      : ["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado"];
+    return deContacto.includes(clave)
+      ? traducirBolsaInterna(`contacto_${clave}`)
+      : traducirPortal(`bolsa_turno_${tipo}_${clave}`);
   }
   function etiquetaReposicion(clave) {
     return REPOSICIONES_CONOCIDAS.has(clave) ? traducirBolsaInterna(`bolsa_reposicion_${clave}`) : etiquetaClave(clave);
@@ -463,6 +471,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? `<p class="mensaje-exito" role="status">${textoPortal("txt_operacion_registrada")} ${justificanteTraducido(modalFicha.operacionesB8.recibo, escaparHTML, (clave) => traducirPortal(`panel_${clave}`))}. ${textoPortal("txt_participacion_fuera_de_filtro")}</p>` : "";
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
+    const turno = estadoCandidatos.datos?.turno;
     if (filtrosActuales.nuevo_llamamiento) return renderizarNuevoLlamamiento(bolsa, candidatos, filtrosActuales.nuevo_llamamiento, estadoCandidatos.datos);
     const tituloBolsa = bolsa ? traducirPortal("txt_candidatos_de_categoria", { categoria: bolsa.categoria }) : traducirPortal("txt_candidatos_de_la_bolsa");
     const opcionesEstado = [
@@ -601,6 +610,20 @@ export function crearPresentadorPanelInterno(dependencias) {
       }).join("");
     const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="${textoPortal("txt_paginacion_del_historico")}"><span>${textoPortal("txt_mostrando_desde_hasta_total", { desde: numero(inicioHistorico + 1), hasta: numero(Math.min(inicioHistorico + 6, llamadas.length)), total: numero(llamadas.length) })}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>${textoPortal("txt_anterior")}</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>${textoPortal("txt_siguiente")}</button></div>` : "";
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="${textoPortal("txt_vistas_de_la_bolsa")}"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">${textoPortal("txt_candidatos")}</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">${textoPortal("txt_historico_de_llamamientos")}</button></nav>`;
+    const ultimoTurno = turno?.ultimo_llamado;
+    const siguienteTurno = turno?.siguiente;
+    const panelTurno = turno && pestana !== "historico" ? `<section class="panel panel-separado" aria-labelledby="bolsa-turno-titulo">
+      <div class="cabecera-panel"><h3 id="bolsa-turno-titulo">${textoPortal("bolsa_turno_titulo")}</h3><span class="estado-chip info">${textoPortal(turno.provisional ? "bolsa_turno_regla_provisional" : "bolsa_turno_regla_versionada", { version: numero(turno.politica_version) })}</span></div>
+      <div class="cuerpo-panel"><dl class="resumen-expediente">
+        <div class="fila-resumen"><dt>${textoPortal("txt_criterios_de_orden")}</dt><dd>${textoPortal("txt_puntuacion_descendente_desempate_estable_por_n_d")} · ${textoPortal(`bolsa_turno_tipo_${bolsa.politica_orden.tipo_lista}`)} · ${textoPortal("bolsa_turno_reposicion", { reposicion: etiquetaReposicion(bolsa.politica_orden.reposicion) })}</dd></div>
+        <div class="fila-resumen"><dt>${textoPortal("bolsa_turno_ultimo")}</dt><dd>${ultimoTurno
+          ? `<strong>${escaparHTML(ultimoTurno.nombre_visible)}</strong> · ${ultimoTurno.orden === null ? textoPortal("bolsa_turno_sin_puesto") : textoPortal("bolsa_turno_puesto", { orden: numero(ultimoTurno.orden) })}<br><small><time datetime="${escaparHTML(ultimoTurno.comunicado_en)}">${escaparHTML(instanteVisible(ultimoTurno.comunicado_en))}</time> · ${escaparHTML(etiquetaIntentoTurno(ultimoTurno.canal, "canal"))} · ${escaparHTML(etiquetaIntentoTurno(ultimoTurno.resultado, "resultado"))}</small>`
+          : textoPortal(bolsa?.total === 0 ? "bolsa_turno_vacio" : "bolsa_turno_sin_contacto")}</dd></div>
+        <div class="fila-resumen"><dt>${textoPortal("bolsa_turno_siguiente")}</dt><dd>${siguienteTurno
+          ? `<strong>${escaparHTML(siguienteTurno.nombre_visible)}</strong> · ${textoPortal("bolsa_turno_puesto", { orden: numero(siguienteTurno.orden) })}`
+          : textoPortal("bolsa_turno_sin_disponibles")}</dd></div>
+      </dl>${siguienteTurno ? `<p class="nota-pendiente" role="note">${textoPortal("bolsa_turno_aviso")}</p>` : ""}</div>
+    </section>` : "";
     const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${textoPortal("txt_n_registros", { numero: numero(llamadas.length) })}</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${traducirBolsaInterna("contacto_historico_descripcion")}"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">${textoPortal("txt_fecha")}</th><th scope="col">${textoPortal("txt_candidato")}</th><th scope="col">${textoPortal("txt_tipo")}</th><th scope="col">${textoPortal("txt_resultado")}</th><th scope="col">${textoPortal("txt_actor")}</th><th scope="col">${textoPortal("txt_contacto")}</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
     return `
       ${encabezadoVista("", tituloBolsa, "", accionesEncabezado)}
@@ -608,6 +631,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}
+          ${panelTurno}
           ${pestana === "historico" ? contenidoHistorico : `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
             <div class="cabecera-panel">
               <h3>${textoPortal("txt_situacion_de_los_candidatos")}</h3>
