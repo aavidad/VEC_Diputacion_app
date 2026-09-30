@@ -1,15 +1,154 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
+
+type relojGobiernoRPTProgresivo struct {
+	instantes []time.Time
+	llamadas  int
+}
+
+func (r *relojGobiernoRPTProgresivo) Ahora() time.Time {
+	i := r.llamadas
+	r.llamadas++
+	if i >= len(r.instantes) {
+		i = len(r.instantes) - 1
+	}
+	return r.instantes[i]
+}
+
+func entornoEmisionGobiernoRPT(t *testing.T) (*entornoAutorizacionSolicitudV3Prueba, *confianza.EmisorMaterialAutorizacionAtestadaV3, CredencialesGobiernoCategoriaRPT, ports.PreparacionGobiernoCategoriaRPT) {
+	t.Helper()
+	e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+	e.servicio.generador = generadorContactoAleatorio{}
+	e.fuente.instantanea.VersionRol.Concesiones[0] = domain.ConcesionRol{
+		Accion:   ports.AccionAprobarGobiernoCategoriaRPT,
+		ModuloID: "bolsa", TipoRecurso: ports.TipoRecursoGobiernoCategoriaRPT,
+		Finalidades:      []string{ports.FinalidadGobiernoCategoriaRPT},
+		GarantiaMinima:   domain.AuthAssuranceHigh,
+		CamposPermitidos: []string{"gobierno", "recibo"},
+	}
+	e.fuente.instantanea.AsignacionPerfil.Ambitos = []domain.AmbitoPerfil{
+		{Clave: "catalogo_id", Valores: []string{"catalogo.ejemplo"}},
+		{Clave: "modulo_id", Valores: []string{"bolsa"}},
+	}
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { clear(priv) })
+	relojEmisor := &relojAutorizacionServicioPrueba{ahora: e.ahora}
+	at, err := NuevoServicioAtestacionesAutorizacionV3(domain.CabeceraAtestacionAutorizacionV3{
+		FormatoVersion: domain.VersionFormatoAtestacionAutorizacionV3,
+		Suite:          confianza.SuiteAtestacionAutorizacionV3COSEEdDSA,
+		ClaveID:        "clave:prueba:contacto", Audiencia: "vec/prueba/contacto",
+	}, firmanteContacto{priv, e.ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raiz, err := confianza.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(
+		"clave:prueba:contacto", 1, pub, "vec/prueba/contacto",
+		confianza.EstadoClaveAtestacionAutorizacionV3Activa,
+		e.ahora.Add(-time.Hour), e.ahora.Add(time.Hour), time.Time{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(
+		"confianza:prueba:contacto", 1, e.ahora.Add(-time.Minute), e.ahora.Add(time.Hour), raiz,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificador, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(cfg, relojEmisor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clave, err := confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(
+		"clave:capacidad:contacto", 1, bytes.Repeat([]byte{0x71}, 32),
+		"emisor:prueba:contacto", ports.AudienciaGobiernoCategoriaRPT,
+		confianza.EstadoClaveHMACCapacidadAtestacionV3Emision,
+		e.ahora.Add(-time.Hour), e.ahora.Add(time.Hour), time.Time{}, 1, strings.Repeat("7", 64),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emisorCapacidades, err := confianza.NuevoEmisorCapacidadesAtestacionAutorizacionV3(clave, relojEmisor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emisor, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(e.servicio, at, verificador, emisorCapacidades)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := e.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := strings.Repeat("a", 64)
+	p := ports.PreparacionGobiernoCategoriaRPT{
+		Accion:          ports.AccionAprobarGobiernoCategoriaRPT,
+		Finalidad:       ports.FinalidadGobiernoCategoriaRPT,
+		Audiencia:       ports.AudienciaGobiernoCategoriaRPT,
+		HuellaPropuesta: h,
+		Recurso: domain.RecursoAutorizable{
+			Referencia: "propuesta:ejemplo", ModuloID: "bolsa",
+			Tipo:      ports.TipoRecursoGobiernoCategoriaRPT,
+			Ambitos:   map[string]string{"catalogo_id": "catalogo.ejemplo", "modulo_id": "bolsa"},
+			Atributos: map[string]string{"material_sha256": h},
+		},
+	}
+	cred := CredencialesGobiernoCategoriaRPT{
+		Actor: e.resultado.Contexto, Vinculo: base.VinculoAutenticacionActor,
+		ResultadoContexto: e.resultado, Motivo: base.ReferenciaMotivo,
+		Correlacion: base.Correlacion,
+	}
+	return e, emisor, cred, p
+}
+
+func TestGobiernoRPTContrastaCapacidadTrasEmision(t *testing.T) {
+	for _, caso := range []struct {
+		name    string
+		segundo time.Duration
+		concede bool
+	}{
+		{"vigente", time.Microsecond, true},
+		{"vencida", 10 * time.Second, false},
+	} {
+		t.Run(caso.name, func(t *testing.T) {
+			e, emisor, cred, p := entornoEmisionGobiernoRPT(t)
+			reloj := &relojGobiernoRPTProgresivo{instantes: []time.Time{
+				e.ahora.Add(-time.Microsecond), e.ahora.Add(caso.segundo),
+			}}
+			s := &ServicioGobiernoCategoriaRPT{autorizador: emisor, reloj: reloj}
+			solicitud, material, err := s.autorizar(t.Context(), cred, p,
+				ports.AccionAprobarGobiernoCategoriaRPT, "propuesta:ejemplo", "catalogo.ejemplo", "bolsa", strings.Repeat("a", 64))
+			if reloj.llamadas != 2 {
+				t.Fatalf("reloj invocado %d veces", reloj.llamadas)
+			}
+			if caso.concede {
+				_, errSolicitud := solicitud.Datos()
+				if err != nil || errSolicitud != nil || material.ValidarEstructura() != nil {
+					t.Fatalf("capacidad vigente rechazada: %v", err)
+				}
+			} else if !errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado) {
+				t.Fatalf("capacidad vencida aceptada: %v", err)
+			}
+		})
+	}
+}
 
 type preparadorGobiernoRPTPrueba struct {
 	llamadas  int
