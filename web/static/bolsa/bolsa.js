@@ -5,7 +5,8 @@
   if (!contratoPublicoV2) throw new Error("validador del contrato público V2 no disponible");
   const i18n = globalThis.VECBolsaI18n;
   const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
-  const formateadorNumero = new Intl.NumberFormat("es-ES");
+  const idioma = i18n?.localizacion ?? i18n?.idioma;
+  const formateadorNumero = new Intl.NumberFormat(idioma);
   const numero = i18n?.numero || ((valor) => formateadorNumero.format(valor));
   const plural = i18n?.plural || ((clave, total) => t(`${clave}_${total === 1 ? "uno" : "otros"}`, { total: numero(total) }));
   const API = "/api/publico/bolsa/convocatorias";
@@ -38,8 +39,8 @@
     controladorCategorias: null, etiquetasArea: new Map(),
     facetas: null,
   };
-  const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
-  const formatoDia = new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "Europe/Madrid" });
+  const formatoFecha = new Intl.DateTimeFormat(idioma, { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
+  const formatoDia = new Intl.DateTimeFormat(idioma, { dateStyle: "long", timeZone: "Europe/Madrid" });
 
   function texto(tag, contenido, clase) {
     const nodo = document.createElement(tag);
@@ -546,7 +547,7 @@
     if (datos.catalogo.total !== datos.categorias.length || !/^[a-f0-9]{64}$/.test(datos.catalogo.huella_sha256 || "")) {
       throw new Error("integridad de categorías incoherente");
     }
-    estado.categorias = datos.categorias.slice().sort((a, b) => (a.orden - b.orden) || a.etiqueta.localeCompare(b.etiqueta, "es"));
+    estado.categorias = datos.categorias.slice().sort((a, b) => (a.orden - b.orden) || a.etiqueta.localeCompare(b.etiqueta, idioma));
     estado.etiquetasArea = new Map(estado.categorias.map((categoria) => [categoria.area, categoria.area_etiqueta]));
     configurarAreasDirectorio(estado.categorias);
     const huella = String(datos.catalogo.huella_sha256 || "");

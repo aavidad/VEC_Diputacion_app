@@ -5,6 +5,27 @@ SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
+DO $configuracion$
+DECLARE f regprocedure;
+BEGIN
+    FOREACH f IN ARRAY ARRAY[
+      'vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text,text)'::regprocedure
+    ] LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND prosecdef
+             AND proowner='vec_catalogos_configurables_propietario'::regrole
+             AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=5s','statement_timeout=30s'])
+           OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
+           OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+                CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+               WHERE p.oid=f AND (a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+                 OR a.grantee NOT IN (p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+            RAISE EXCEPTION 'funcion del catalogo con configuracion o ACL incorrecta';
+        END IF;
+    END LOOP;
+END $configuracion$;
 DO $prueba$
 DECLARE
     documento text := '{"id":"rpt-demo","version":1,"estado":"publicado","entradas":[{"clave":"cat-demo","etiqueta":"Categoria usada"},{"clave":"cat-empty","etiqueta":"Categoria sin usos"},{"clave":"cat-declared","etiqueta":"Categoria con total declarado"}]}';

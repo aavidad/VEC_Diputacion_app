@@ -158,7 +158,7 @@ test("i18n y vista solo muestran ayuda tras el signo de interrogación", async (
   const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
   const css = await readFile(new URL("./documentos.css", import.meta.url), "utf8");
   assert.equal(crearTraductorDocumentos()("tipo_comision"), "Comisión de servicio");
-  assert.equal(crearTraductorDocumentos()("firma_pendiente_firma"), "Pendiente de firma");
+  assert.equal(crearTraductorDocumentos()("firma_pendiente_firma"), "Firma oficial pendiente");
   assert.match(vista, /"summary", "\?"/u);
   assert.doesNotMatch(vista, /localStorage|sessionStorage|document\.cookie|datos-sinteticos|datos-presentacion/iu);
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/iu);

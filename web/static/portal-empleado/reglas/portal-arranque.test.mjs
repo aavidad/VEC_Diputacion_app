@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { EventEmitter } from "node:events";
+import { spawn } from "node:child_process";
+import { EventEmitter, once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -11,7 +11,37 @@ import test from "node:test";
 const raiz = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const tipos = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml" };
 
-function volcarChrome(argumentos, { lanzar = execFile, matarGrupo = process.kill, plazoMs = 15000, cierreMs = 500 } = {}) {
+function lanzarEnGrupo(archivo, argumentos, { maxBuffer }, callback) {
+  const chrome = spawn(archivo, argumentos, { detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  const trozos = [[], []];
+  const tamanos = [0, 0];
+  let errorProceso;
+  chrome.once("error", (error) => { errorProceso = error; });
+  for (const [indice, tuberia] of [chrome.stdout, chrome.stderr].entries()) {
+    tuberia?.on("data", (trozo) => {
+      if (errorProceso) return;
+      tamanos[indice] += trozo.length;
+      if (tamanos[indice] > maxBuffer) {
+        errorProceso = Object.assign(new Error("Chrome superó maxBuffer"), { code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" });
+        chrome.kill("SIGKILL");
+        if (Number.isInteger(chrome.pid) && chrome.pid > 0) {
+          try { process.kill(-chrome.pid, "SIGKILL"); }
+          catch (error) { if (error.code !== "ESRCH") errorProceso = error; }
+        }
+        return;
+      }
+      trozos[indice].push(trozo);
+    });
+  }
+  chrome.once("close", (codigo, senal) => {
+    const error = errorProceso || ((codigo !== 0 || senal)
+      ? Object.assign(new Error(`Chrome salió con ${codigo ?? senal}`), { code: codigo, signal: senal }) : null);
+    callback(error, Buffer.concat(trozos[0]).toString("utf8"), Buffer.concat(trozos[1]).toString("utf8"));
+  });
+  return chrome;
+}
+
+function volcarChrome(argumentos, { lanzar = lanzarEnGrupo, matarGrupo = process.kill, plazoMs = 15000, cierreMs = 500 } = {}) {
   return new Promise((resolver, rechazar) => {
     let terminado = false;
     let plazoAgotado = false;
@@ -51,7 +81,7 @@ function volcarChrome(argumentos, { lanzar = execFile, matarGrupo = process.kill
     chrome.once("error", (error) => { errorAnterior = error; });
     chrome.once("exit", (codigo, senal) => { salida = { codigo, senal }; });
     plazo = setTimeout(() => {
-      // execFile espera también a stdout/stderr. Un renderer puede mantenerlos
+      // El cierre espera también a stdout/stderr. Un renderer puede mantenerlos
       // abiertos después de que el proceso principal ya haya salido.
       falloAntesDelPlazo = errorAnterior || chrome.killed || salidaAnomala();
       if (!falloAntesDelPlazo) plazoAgotado = true;
@@ -74,6 +104,29 @@ function volcarChrome(argumentos, { lanzar = execFile, matarGrupo = process.kill
     }, plazoMs);
   });
 }
+
+test("el lanzador crea y termina un grupo de procesos propio", async () => {
+  let errorSalida;
+  const proceso = lanzarEnGrupo("/usr/bin/sleep", ["10"], { maxBuffer: 1024 }, (error) => { errorSalida = error; });
+  const cerrado = once(proceso, "close");
+  let grupoPropio = false;
+  let cierreConfirmado = false;
+  try {
+    const estadisticas = await readFile(`/proc/${proceso.pid}/stat`, "utf8");
+    const campos = estadisticas.slice(estadisticas.lastIndexOf(")") + 1).trim().split(/\s+/u);
+    grupoPropio = Number(campos[2]) === proceso.pid;
+    assert.ok(grupoPropio, "el proceso debe liderar su grupo antes de enviar la señal");
+    process.kill(-proceso.pid, "SIGKILL");
+    await cerrado;
+    cierreConfirmado = true;
+    assert.equal(errorSalida.signal, "SIGKILL");
+  } finally {
+    if (!cierreConfirmado && grupoPropio) {
+      try { process.kill(-proceso.pid, "SIGKILL"); }
+      catch (error) { if (error.code !== "ESRCH") throw error; }
+    } else if (!cierreConfirmado) proceso.kill("SIGKILL");
+  }
+});
 
 test("el cierre tardío de tuberías conserva el vencimiento real y termina la espera", async () => {
   const chrome = new EventEmitter();

@@ -541,6 +541,12 @@ async function recorrerGrafo(entrada, { dinamicos }) {
 
 test("ningún módulo del portal se pide con dos URL distintas (una sola descarga y una sola instancia)", async () => {
   const urls = await recorrerGrafo("portal-empleado/portal.js", { dinamicos: true });
+  for (const url of [
+    "/portal-empleado/portal-bolsas-api.js?v=20260930-bolsa-turno-v2",
+    "/portal-empleado/portal-bolsas-contrato.js?v=20260930-bolsa-turno-v2",
+    "/portal-empleado/portal-modulos-coordinador.js?v=20260930-inc-b2-web-v1",
+    "/portal-empleado/modulos/contratacion-temporal/cliente-http-incorporacion-personal-b2.js?v=20260930-inc-b2-web-v1",
+  ]) assert.ok(urls.has(url), `${url}: el portal debe alcanzar ambas ramas integradas`);
   const porFichero = new Map();
   for (const url of urls) {
     const fichero = url.split("?")[0];

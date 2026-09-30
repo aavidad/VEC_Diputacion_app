@@ -52,15 +52,19 @@ test("el grafo immutable del catálogo de auditoría usa una sola URL nueva", as
   const anteriores = ["20260928-ppt-503-v6", "20260928-auditoria-expediente-en-v1", "20260928-auditoria-expediente-en-v2", "20260929-pref-508a-v2", "20260929-firma-506-v1", "20260929-firma-506-v2", "20260929-auditoria-legible-v1", "20260929-sondeo-opcional-507", "20260929-plazas-306-v1", "20260929-i18n-shell-v1"];
   // El shell pasó sus textos a `textos/<idioma>/portal*.json` (integrado con 5.06, 5.07, 3.06 y 4.11): todo su grafo renueva URL.
   const vigente = "20260930-portales-i18n-integracion-v1";
+  const versionBolsaTurno = "20260930-bolsa-turno-v2";
   const versionesEspeciales = new Map([
     ["modulos/bolsa/rrhh-plazos-ui.js", "20260930-ofertas-reglas-integradas-v4"],
     ["portal-inicio.js", "20260930-ct-lista-recuperada-v2"],
     // 5.06, segundo corte: el circuito de firma trae el estado de Firmadoc.
     // Reglas vigentes: el detalle de cada regla y sus textos en catálogos renuevan el enlace del panel.
     // Nuevo llamamiento: el campo «Resumen de la preparación» usa la etiqueta encima y el campo a lo ancho.
-    ["portal.js", "20260930-inc-b2-web-v1"],
+    ["portal.js", "20261001-inc-b2-bolsa-v1"],
     ["portal-borrador-llamamiento-ui.js", "20260930-bolsa-resumen-llamamiento-v1"],
-    ["portal-panel-interno.js", "20260930-portales-i18n-integracion-v1"],
+    ["portal-panel-interno.js", versionBolsaTurno],
+    ["portal-bolsas-api.js", versionBolsaTurno],
+    ["portal-bolsas-contrato.js", versionBolsaTurno],
+    ["portal-llamamientos-operaciones-api.js", versionBolsaTurno],
     ["reglas/enlace.js", "20260930-portales-i18n-integracion-v1"],
     ["portal-modulos-coordinador.js", "20260930-inc-b2-web-v1"],
     ["modulos/contratacion-temporal/vista-expedientes.js", "20260930-inc-b2-web-v1"],

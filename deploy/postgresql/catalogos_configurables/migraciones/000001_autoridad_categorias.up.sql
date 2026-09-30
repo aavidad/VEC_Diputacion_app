@@ -188,7 +188,7 @@ CREATE FUNCTION vec_catalogos_configurables.publicar(
     p_aprobacion_a text, p_aprobacion_b text, p_actor text, p_decision text, p_recibo text,
     p_motivo_ref text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
+SET search_path = pg_catalog, pg_temp SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
     contenido jsonb;
     item jsonb;
@@ -323,7 +323,7 @@ CREATE FUNCTION vec_catalogos_configurables.reservar(
     p_version integer, p_huella text, p_actor text, p_decision text, p_recibo text,
     p_motivo_ref text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
+SET search_path = pg_catalog, pg_temp SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
     c vec_catalogos_configurables.categoria_control%ROWTYPE;
     anterior vec_catalogos_configurables.uso%ROWTYPE;
@@ -370,7 +370,7 @@ CREATE FUNCTION vec_catalogos_configurables.terminar_uso(
     p_consumidor text, p_uso_ref text, p_reserva_recibo text, p_estado text,
     p_actor text, p_decision text, p_recibo text, p_motivo_ref text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
+SET search_path = pg_catalog, pg_temp SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
     u vec_catalogos_configurables.uso%ROWTYPE;
 BEGIN
@@ -419,7 +419,7 @@ CREATE FUNCTION vec_catalogos_configurables.cambiar_proyeccion(
     p_total_historico bigint, p_actor text, p_decision text, p_recibo text,
     p_motivo_ref text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
+SET search_path = pg_catalog, pg_temp SET lock_timeout = '5s' SET statement_timeout = '30s' AS $f$
 DECLARE
     c vec_catalogos_configurables.categoria_control%ROWTYPE;
     nuevos bigint;
@@ -513,4 +513,25 @@ GRANT EXECUTE ON FUNCTION vec_catalogos_configurables.publicar(text,integer,text
     vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text,text),
     vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text,text)
     TO vec_autorizacion_atestada_v3_propietario;
+DO $acl$
+DECLARE f regprocedure;
+BEGIN
+    FOREACH f IN ARRAY ARRAY[
+      'vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.reservar(text,text,text,text,integer,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.terminar_uso(text,text,text,text,text,text,text,text)'::regprocedure,
+      'vec_catalogos_configurables.cambiar_proyeccion(text,bigint,text,text,bigint,text,text,text,text)'::regprocedure
+    ] LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f
+             AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef
+             AND proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=5s','statement_timeout=30s'])
+           OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario',f,'EXECUTE')
+           OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+                CROSS JOIN LATERAL pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+               WHERE p.oid=f AND (a.grantor<>p.proowner OR a.privilege_type<>'EXECUTE' OR a.is_grantable
+                 OR a.grantee NOT IN (p.proowner,'vec_autorizacion_atestada_v3_propietario'::regrole))) THEN
+            RAISE EXCEPTION 'catalogos configurables 000001: ACL o configuracion incompatible' USING ERRCODE='55000';
+        END IF;
+    END LOOP;
+END $acl$;
 COMMIT;

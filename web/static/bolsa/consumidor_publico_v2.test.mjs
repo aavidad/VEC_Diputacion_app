@@ -12,13 +12,14 @@ const fuente = { revision: "sintetica-v2", actualizada_en: "2026-09-30T10:00:00Z
 const convocatoria = {
   identificador_publico: "auxiliares-2026", version: "v2", huella_sha256: huella,
   titulo: "Bolsa sintética de auxiliares", resumen: "Información pública sintética.",
-  tipo: { etiqueta: "Bolsa", semantica: "informacion" }, estado: { etiqueta: "Publicada", semantica: "informacion" },
+  tipo: { clave: "bolsa", version: 1, etiqueta: "Bolsa", semantica: "informacion" },
+  estado: { clave: "publicada", version: 1, etiqueta: "Publicada", semantica: "informacion" },
   catalogo_categorias: snapshot, categorias: [{ clave: categoria.clave, version: 1 }],
   numero_requisitos: 0, numero_documentos: 0, numero_ayudas: 0, publicada_en: fuente.actualizada_en,
 };
 const listado = {
   esquema: "vec.bolsa.publico.convocatorias.v2", fuente,
-  facetas: { tipos: [], categorias: [categoria], estados: [] }, diccionario_categorias: [categoria],
+  facetas: { tipos: [], categorias: [{ ...categoria, numero_resultados: 1 }], estados: [] }, diccionario_categorias: [categoria],
   paginacion: { pagina: 1, tamano: 12, total: 1, paginas: 1 }, convocatorias: [convocatoria],
 };
 const detalle = {
@@ -70,7 +71,7 @@ function textos(nodo) {
 }
 
 test("la página monta exclusivamente V2 antes del controlador con la misma versión de caché", () => {
-  const version = "20260930-publico-v2-v2";
+  const version = "20260930-codexe-publico-v2-v1";
   assert.ok(html.indexOf(`/bolsa/contrato-v2.js?v=${version}`) < html.indexOf(`/bolsa/bolsa.js?v=${version}`));
   assert.doesNotMatch(html, /contrato-v1\.js/);
 });
