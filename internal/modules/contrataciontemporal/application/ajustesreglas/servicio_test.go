@@ -2,6 +2,7 @@ package ajustesreglas
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -18,12 +19,26 @@ func (r relojFijo) Ahora() time.Time { return r.ahora }
 
 type repoPrueba struct {
 	lectura     Lectura
+	activacion  ActivacionBase
 	material    Material
 	operaciones int
 }
 
 func (r *repoPrueba) Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (Lectura, error) {
 	return r.lectura, nil
+}
+func (r *repoPrueba) LeerActivacion(context.Context) (ActivacionBase, error) {
+	return r.activacion, nil
+}
+
+func activarBasePrueba(t *testing.T, repo *repoPrueba, fuente FuenteReglas) {
+	t.Helper()
+	base, huella, _, err := fuente.CatalogoVigente(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.activacion = ActivacionBase{Estado: "activa", Secuencia: 1, CatalogoID: base.ID,
+		Version: base.Version, HuellaSHA256: huella, AprobacionRef: base.AprobacionRef}
 }
 func (r *repoPrueba) Operar(_ context.Context, _ vecdomain.ContextoActor, m Material) (Resultado, error) {
 	r.operaciones++
@@ -68,6 +83,7 @@ func TestPublicarPreparaValorAnteriorDeBaseYReplayNoMueveCAS(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := &repoPrueba{}
+	activarBasePrueba(t, repo, resolver)
 	servicio, err := NuevoServicio(repo, resolver, motivos, relojFijo{ahora})
 	if err != nil {
 		t.Fatal(err)
@@ -96,6 +112,18 @@ func TestPublicarPreparaValorAnteriorDeBaseYReplayNoMueveCAS(t *testing.T) {
 	}
 	if repo.material.VersionEsperada != 0 || repo.material.Cambios[0].Anterior != "7" || repo.material.Cambios[0].Nuevo != "7" || repo.operaciones != 2 {
 		t.Fatalf("replay no conservó petición original: %+v", repo.material)
+	}
+	// La guarda CT158 sucede tras el replay: una activación retirada no debe
+	// ocultar el recibo de una petición ya confirmada.
+	repo.activacion = ActivacionBase{Estado: "inactiva", Secuencia: 2}
+	if _, err := servicio.Publicar(t.Context(), actor, solicitud); err != nil || repo.operaciones != 3 {
+		t.Fatalf("replay histórico bloqueado por activación posterior: %v", err)
+	}
+	versionEsperada = 1
+	solicitud.ClaveIdempotencia = "12345678-1234-4234-8234-123456789abd"
+	solicitud.Cambios[0].Nuevo = "8"
+	if _, err := servicio.Publicar(t.Context(), actor, solicitud); !errors.Is(err, ErrNoDisponible) || repo.operaciones != 3 {
+		t.Fatalf("publicación sin base activa llegó al efecto: %v", err)
 	}
 }
 
@@ -134,6 +162,7 @@ func TestConsultaProyectaValorVigenteDeCabezaAutorizada(t *testing.T) {
 		CatalogoID: reglas.CatalogoAjustesDe(reglas.CatalogoContratacionTemporal), Version: 1,
 		HuellaSHA256: huella, VigenteDesde: ahora.Add(-time.Hour), Ajustes: ajustes,
 	}, VigenteBaseVersion: 1, VigenteBaseHuella: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+	activarBasePrueba(t, repo, resolutor)
 	servicio, err := NuevoServicio(repo, resolutor, motivos, relojFijo{ahora})
 	if err != nil {
 		t.Fatal(err)
@@ -141,6 +170,13 @@ func TestConsultaProyectaValorVigenteDeCabezaAutorizada(t *testing.T) {
 	lectura, err := servicio.Consultar(t.Context(), actor, 20, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if lectura.Activacion.Estado != "activa" || lectura.Activacion.HuellaSHA256 != repo.activacion.HuellaSHA256 {
+		t.Fatalf("GET perdió estado nominal de activación: %+v", lectura.Activacion)
+	}
+	repo.activacion.HuellaSHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	if _, err := servicio.Consultar(t.Context(), actor, 20, nil); !errors.Is(err, ErrNoDisponible) {
+		t.Fatalf("GET proyectó catálogo no activado: %v", err)
 	}
 	for _, regla := range lectura.Reglas {
 		if regla.Clave == reglas.CTPlazoFiscalizacion {

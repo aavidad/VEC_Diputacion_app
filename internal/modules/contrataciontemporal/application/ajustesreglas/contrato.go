@@ -22,7 +22,19 @@ var (
 // El ámbito de organización se obtiene de la configuración confiable.
 type Repositorio interface {
 	Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (Lectura, error)
+	LeerActivacion(context.Context) (ActivacionBase, error)
 	Operar(context.Context, vecdomain.ContextoActor, Material) (Resultado, error)
+}
+
+// ActivacionBase es la proyección nominal de CT158. Una lectura fallida nunca
+// se representa como sin_publicar: el repositorio devuelve ErrNoDisponible.
+type ActivacionBase struct {
+	Estado        string `json:"estado"`
+	Secuencia     int64  `json:"secuencia,omitempty"`
+	CatalogoID    string `json:"catalogo_id,omitempty"`
+	Version       int    `json:"version,omitempty"`
+	HuellaSHA256  string `json:"huella_sha256,omitempty"`
+	AprobacionRef string `json:"aprobacion_ref,omitempty"`
 }
 
 // Lectura contiene la cabeza autorizada y su historia paginada. PuedeAjustar
@@ -34,6 +46,7 @@ type Lectura struct {
 	Historial          []CambioHistorico      `json:"historial"`
 	HayMas             bool                   `json:"hay_mas"`
 	PuedeAjustar       bool                   `json:"puede_ajustar"`
+	Activacion         ActivacionBase         `json:"activacion"`
 	Reglas             []reglas.Regla         `json:"-"`
 }
 

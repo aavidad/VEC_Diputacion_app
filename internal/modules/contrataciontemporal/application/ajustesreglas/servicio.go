@@ -76,10 +76,11 @@ func (s *Servicio) Consultar(ctx context.Context, actor vecdomain.ContextoActor,
 	if err != nil {
 		return Lectura{}, ErrNoDisponible
 	}
-	huellaComprobada, err := base.HuellaSHA256()
-	if err != nil || huellaComprobada != huella {
+	activacion, err := s.repo.LeerActivacion(ctx)
+	if err != nil || comprobarBaseActiva(base, huella, activacion) != nil {
 		return Lectura{}, ErrNoDisponible
 	}
+	lectura.Activacion = activacion
 	lectura.Reglas, err = reglas.ProyectarReglasConAjustes(base, instante, lectura.Vigente)
 	if err != nil {
 		return Lectura{}, ErrNoDisponible
@@ -120,8 +121,12 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 	}
 	var preparada reglas.PreparacionAjustes
 	if version == *solicitud.VersionEsperada {
-		base, _, _, err := s.reglas.CatalogoVigente(ctx)
+		base, huella, _, err := s.reglas.CatalogoVigente(ctx)
 		if err != nil {
+			return Resultado{}, ErrNoDisponible
+		}
+		activacion, err := s.repo.LeerActivacion(ctx)
+		if err != nil || comprobarBaseActiva(base, huella, activacion) != nil {
 			return Resultado{}, ErrNoDisponible
 		}
 		previa := reglas.VersionAjustes{}
@@ -169,6 +174,20 @@ func (s *Servicio) Publicar(ctx context.Context, actor vecdomain.ContextoActor, 
 		return Resultado{}, ErrNoDisponible
 	}
 	return resultado, nil
+}
+
+// Solo la huella canónica del catálogo cargado por Go se compara con CT158.
+// La huella del fichero fuente pertenece al proceso de publicación y no
+// identifica la definición que resuelve el caso de uso.
+func comprobarBaseActiva(base vecdomain.CatalogoConfigurable, huella string, activacion ActivacionBase) error {
+	calculada, err := base.HuellaSHA256()
+	if err != nil || calculada != huella || activacion.Estado != "activa" || activacion.Secuencia < 1 ||
+		base.Estado != vecdomain.EstadoCatalogoPublicado || base.AprobacionRef == "" ||
+		activacion.CatalogoID != base.ID || activacion.Version != base.Version ||
+		activacion.HuellaSHA256 != huella || activacion.AprobacionRef != base.AprobacionRef {
+		return ErrNoDisponible
+	}
+	return nil
 }
 
 func validarCabeza(l Lectura) error {
