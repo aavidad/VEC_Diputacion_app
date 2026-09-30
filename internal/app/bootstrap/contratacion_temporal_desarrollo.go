@@ -565,6 +565,12 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	if cfg.IncorporacionV2File != "" {
+		declaracionesFrontera, err = asignarPerfilesNominalesIncorporacionEnFronteras(alta.soporte, declaracionesFrontera)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	if documentalActiva {
 		declaracionesFrontera, err = anexarFronterasPlantillasDocumentalCTDesarrollo(
 			declaracionesFrontera, perfilCTCatalogo, perfilPlantillas, perfilDocumental, perfilesConsulta)
