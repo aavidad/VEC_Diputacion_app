@@ -8,6 +8,7 @@
     "inicio_rrhh_ver_peticiones": "View all requests",
     "inicio_rrhh_recuento_parcial": "Partial count: some requests have not been loaded yet. Open the list to see them all.",
     "inicio_rrhh_plazo_vencido": "Deadline passed on {fecha}",
+    "inicio_rrhh_plazos_vencidos": "Overdue: {total}",
     "inicio_rrhh_plazo_hoy": "Due today",
     "inicio_rrhh_abrir_expediente": "Open case",
     "inicio_rrhh_abrir_expediente_aria": "Open case {numero}",

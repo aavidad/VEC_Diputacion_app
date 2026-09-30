@@ -32,12 +32,15 @@ const catalogoCompleto = (catalogo) => catalogo && typeof catalogo === "object"
   && CLAVES.every((clave) => typeof catalogo[clave] === "string" && catalogo[clave] !== "")
   && catalogo.parteEjemplo.includes("{texto}");
 
-export const MENSAJES_REGLAS = await cargarTextos("reglas")
-  .then((textos) => {
-    const catalogo = textos.seccion("general");
+const TEXTOS_REGLAS = await cargarTextos("reglas").catch(() => null);
+export const MENSAJES_REGLAS = (() => {
+  try {
+    const catalogo = TEXTOS_REGLAS?.seccion("general");
     return catalogoCompleto(catalogo) ? catalogo : null;
-  })
-  .catch(() => null);
+  } catch {
+    return null;
+  }
+})();
 
 export function crearTraductorReglas(catalogo = MENSAJES_REGLAS) {
   if (!catalogoCompleto(catalogo)) {
@@ -58,3 +61,29 @@ export function formatearNumero(n) {
 
 /** Minúsculas según el idioma de la interfaz, para buscar sin distinguir mayúsculas. */
 export const minusculas = (texto) => String(texto ?? "").toLocaleLowerCase(LOCALIZACION_ACTUAL);
+
+/** Traduce una explicación solo cuando coincide con la fuente catalogada. */
+export function textoPresentacionRegla(modulo, regla, campo, {
+  presentacion = TEXTOS_REGLAS?.mensajes.presentacion,
+  idioma = TEXTOS_REGLAS?.idioma ?? IDIOMA_DATOS_REGLAS,
+  faltantes = TEXTOS_REGLAS?.faltantes ?? [],
+} = {}) {
+  const original = regla?.[campo];
+  const reglas = Object.hasOwn(presentacion ?? {}, modulo) ? presentacion[modulo] : null;
+  let campos = reglas;
+  for (const parte of String(regla?.clave ?? "").split(".")) {
+    if (["__proto__", "constructor", "prototype"].includes(parte) || !Object.hasOwn(campos ?? {}, parte)) {
+      campos = null;
+      break;
+    }
+    campos = campos[parte];
+  }
+  const entrada = Object.hasOwn(campos ?? {}, campo) ? campos[campo] : null;
+  const rutaTexto = `presentacion.${modulo}.${regla?.clave}.${campo}.texto`;
+  if (faltantes.includes(rutaTexto)) return { texto: original, idioma: IDIOMA_DATOS_REGLAS };
+  if (typeof original === "string" && entrada?.original === original
+    && typeof entrada.texto === "string" && entrada.texto !== "") {
+    return { texto: entrada.texto, idioma };
+  }
+  return { texto: original, idioma: IDIOMA_DATOS_REGLAS };
+}

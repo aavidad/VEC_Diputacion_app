@@ -589,15 +589,15 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 	}{
 		{ruta: "/app.js", estado: http.StatusNotFound},
 		{ruta: "/locales/es.json", estado: http.StatusNotFound},
-		{ruta: "/portal-empleado", estado: http.StatusSeeOther},
-		{ruta: "/portal-empleado/", estado: http.StatusSeeOther},
-		{ruta: "/portal-empleado/portal.js", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado", estado: http.StatusNotFound},
+		{ruta: "/portal-empleado/", estado: http.StatusNotFound},
+		{ruta: "/portal-empleado/portal.js", estado: http.StatusNotFound},
 		{ruta: "/assets/", estado: http.StatusNotFound},
-		{ruta: "/portal-empleado/assets/", estado: http.StatusSeeOther},
-		{ruta: "/portal-empleado/portal-panel-interno-i18n.js", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado/assets/", estado: http.StatusNotFound},
+		{ruta: "/portal-empleado/portal-panel-interno-i18n.js", estado: http.StatusNotFound},
 		{ruta: "/api", estado: http.StatusNotFound},
-		{ruta: "/api/vec", estado: http.StatusUnauthorized},
-		{ruta: "/api/vec/session", estado: http.StatusUnauthorized},
+		{ruta: "/api/vec", estado: http.StatusNotFound},
+		{ruta: "/api/vec/session", estado: http.StatusNotFound},
 		{ruta: "/api/publicox", estado: http.StatusNotFound},
 		{ruta: "/bolsax", estado: http.StatusNotFound},
 	} {
@@ -606,11 +606,8 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		if rec.Code != prueba.estado {
 			t.Errorf("la superficie publica respondio %s con estado %d; se esperaba %d", prueba.ruta, rec.Code, prueba.estado)
 		}
-		if prueba.estado == http.StatusSeeOther && rec.Header().Get("Location") != "/" {
-			t.Errorf("redireccion privada %s Location=%q; se esperaba /", prueba.ruta, rec.Header().Get("Location"))
-		}
-		if prueba.estado == http.StatusUnauthorized && rec.Header().Get("Location") != "" {
-			t.Errorf("API privada %s redirige a %q", prueba.ruta, rec.Header().Get("Location"))
+		if rec.Header().Get("Location") != "" {
+			t.Errorf("ruta privada %s redirige a %q", prueba.ruta, rec.Header().Get("Location"))
 		}
 	}
 	if llamadasAPI != 1 {

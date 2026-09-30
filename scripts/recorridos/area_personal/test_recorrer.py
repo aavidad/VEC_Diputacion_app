@@ -101,8 +101,8 @@ class Precondiciones(unittest.TestCase):
             preparar(self.origen, compartida / "AGENTS.md", self.certificado, self.clave)
 
     def test_titulo_de_bolsa_coincide_con_catalogo(self):
-        catalogo = json.loads((RAIZ_REPO / "web/static/area-personal/locales/es.json").read_text())
-        self.assertEqual(catalogo["areaPersonal.rutas.llamamientos"], "Disponibilidad y llamamientos")
+        catalogo = json.loads((RAIZ_REPO / "web/static/textos/es/area-personal.json").read_text())
+        self.assertEqual(catalogo["rutas"]["llamamientos"], "Disponibilidad y llamamientos")
 
     def test_capturas_privadas_no_sobrescriben_evidencia_ni_entran_en_git(self):
         with self.assertRaisesRegex(NoEjecutado, "evidencias"):

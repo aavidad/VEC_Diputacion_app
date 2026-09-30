@@ -38,11 +38,19 @@ type EntregaPeticionCentro struct {
 	ActorRef       string                     `json:"actor_ref,omitempty"`
 	PerfilRef      string                     `json:"perfil_ref,omitempty"`
 	ReciboAlta     *ReciboAlta                `json:"recibo_alta,omitempty"`
+	// Estas señales describen las inserciones de esta solicitud HTTP. No forman
+	// parte de la petición, la reserva ni el recibo conservado.
+	ReservaCreadaAhora bool `json:"-"`
+	ConfirmadaAhora    bool `json:"-"`
 }
 
 func (e EntregaPeticionCentro) Validar() error {
 	if _, err := domain.RehidratarPeticionCentro(e.Peticion); err != nil || e.Peticion.Version != 2 || e.Peticion.Estado != "ratificada" {
 		return domain.ErrPeticionCentroInvalida
+	}
+	if (e.ConfirmadaAhora && e.EstadoEntrega != "confirmada") ||
+		(e.ReservaCreadaAhora && e.EstadoEntrega == "pendiente") {
+		return ErrReciboPeticionCentroNoConfiable
 	}
 	switch e.EstadoEntrega {
 	case "pendiente", "preparada":
@@ -75,6 +83,8 @@ type MaterialEntregaPeticionCentro struct {
 	ActorRef           string      `json:"actor_ref"`
 	PerfilRef          string      `json:"perfil_ref"`
 	PeticionRef        string      `json:"peticion_ref,omitempty"`
+	CentroRef          string      `json:"centro_ref,omitempty"`
+	CategoriaRef       string      `json:"categoria_ref,omitempty"`
 	VersionEsperada    uint64      `json:"version_esperada,omitempty"`
 	ReciboAlta         *ReciboAlta `json:"recibo_alta,omitempty"`
 	AmbitoAltaHMAC     string      `json:"ambito_alta_hmac,omitempty"`
@@ -85,12 +95,15 @@ func (m MaterialEntregaPeticionCentro) Validar() error {
 		return ErrAutorizacionDenegada
 	}
 	if m.Modo == "bandeja" {
-		if m.PeticionRef != "" || m.VersionEsperada != 0 || m.ReciboAlta != nil || m.AmbitoAltaHMAC != "" || m.ClaveAltaCandidata != "" {
+		if m.PeticionRef != "" || m.CentroRef != "" || m.CategoriaRef != "" || m.VersionEsperada != 0 || m.ReciboAlta != nil || m.AmbitoAltaHMAC != "" || m.ClaveAltaCandidata != "" {
 			return domain.ErrPeticionCentroInvalida
 		}
 		return nil
 	}
 	if (ComandoEntregarPeticionCentro{m.PeticionRef, m.VersionEsperada}).Validar() != nil {
+		return domain.ErrPeticionCentroInvalida
+	}
+	if !domain.ReferenciaOpacaValida(m.CentroRef) || !domain.ReferenciaOpacaValida(m.CategoriaRef) {
 		return domain.ErrPeticionCentroInvalida
 	}
 	if m.Modo == "preparar" && m.ReciboAlta == nil && ClaveIdempotenciaValida(m.ClaveAltaCandidata) && SelloHMACSHA256Valido(m.AmbitoAltaHMAC) {

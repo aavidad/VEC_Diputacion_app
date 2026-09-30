@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,8 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
+	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -23,6 +26,56 @@ func principalDeSoportePrueba(s *soporteAltaContratacionTemporalDesarrollo) vecd
 			"certificate_sha256": s.certificadoSHA256}}
 }
 
+func TestEntregaGETyPOSTConsumenAsignacionesSinPublicarPostgreSQL(t *testing.T) {
+	ctx, gobierno, admin := poolesPerfilDinamicoRRHHPostgreSQLPrueba(t)
+	s, _, _ := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
+	principal := principalDeSoportePrueba(s)
+	for _, caso := range []struct {
+		metodo string
+		modo   string
+	}{
+		{"GET", "bandeja"},
+		{"POST", "preparar"},
+	} {
+		fijo := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, caso.metodo)
+		if fijo == nil {
+			t.Fatal("perfil fijo ausente", caso.metodo)
+		}
+		v, err := fijo.contexto.Vinculo.Datos()
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := ports.MaterialEntregaPeticionCentro{Modo: caso.modo, ActorRef: v.PrincipalID, PerfilRef: v.PerfilActivoRef}
+		if caso.modo == "preparar" {
+			m.PeticionRef, m.CentroRef, m.CategoriaRef = "peticion:centro:prueba", "centro-520", categoriaAltaContratacionTemporalDesarrollo
+			m.VersionEsperada, m.ClaveAltaCandidata = 2, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+			m.AmbitoAltaHMAC = "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:" + strings.Repeat("a", 64)
+		}
+		recurso, err := postgresct.RecursoEntregaPeticionCentro(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{
+			VinculoAutenticacionActor: fijo.contexto.Vinculo, ReferenciaMotivo: motivoEntregaPeticionDesarrollo(),
+			Accion: postgresct.AccionEntregaPeticionCentro(m), Recurso: recurso, Finalidad: ports.FinalidadEntregaPeticionCentro,
+		}
+		peticion := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{},
+			capacidadConsultaContratacionTemporalDesarrollo{sello: s.sello, ruta: rutaEntregaPeticionCentro,
+				metodo: caso.metodo, principal: principal})
+		peticion = context.WithValue(peticion, claveMaterialEntregaPeticionDesarrollo{}, m)
+		peticion = context.WithValue(peticion, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
+		antes := historiaPerfilPostgreSQLPrueba(t, ctx, admin, fijo.perfilRef())
+		instantanea, ok := s.instantaneaParaContexto(peticion, rutaEntregaPeticionCentro)
+		if !ok || instantanea.AsignacionPerfil.PerfilActivoRef != fijo.perfilRef() ||
+			!instantanea.AsignacionPerfil.Cubre(recurso) {
+			t.Fatalf("%s no consumió su permiso: %v", caso.metodo, ok)
+		}
+		if historiaPerfilPostgreSQLPrueba(t, ctx, admin, fijo.perfilRef()) != antes {
+			t.Fatalf("%s publicó por petición", caso.metodo)
+		}
+	}
+}
+
 // soportePerfilesFijosPostgreSQLPrueba compone el soporte de RRHH con sus
 // perfiles fijos de alta y cobertura y asegura ambos como al arrancar.
 func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (*soporteAltaContratacionTemporalDesarrollo, *perfilFijoCTDesarrollo, *perfilFijoCTDesarrollo) {
@@ -31,7 +84,7 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 	if err := publicarAutorizacionPostgreSQLContratacionTemporalDesarrollo(ctx, pool, s); err != nil {
 		t.Fatal(err)
 	}
-	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principalDeSoportePrueba(s), time.Now().UTC().Truncate(time.Microsecond), nil); err != nil {
+	if err := componerPerfilesFijosAltaCoberturaCTDesarrollo(s, principalDeSoportePrueba(s), time.Now().UTC().Truncate(time.Microsecond), origenEntregaPerfilFijoPrueba(t)); err != nil {
 		t.Fatal(err)
 	}
 	alta, cobertura := s.perfilFijoParaRuta(httpinterno.RutaAltaSolicitudes), s.perfilFijoParaRuta(httpinterno.RutaDecisionCobertura)
@@ -44,8 +97,8 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 			t.Fatalf("la ruta %s no usa el perfil de cobertura", ruta)
 		}
 	}
-	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) != nil || s.perfilFijoParaRuta(httpinterno.RutaSubsanacionReparos) != nil {
-		t.Fatal("una ruta dinámica quedó en un perfil fijo")
+	if s.perfilFijoParaRuta(rutaEntregaPeticionCentro) == nil || s.perfilFijoParaRuta(httpinterno.RutaSubsanacionReparos) != nil {
+		t.Fatal("perfil de entrega ausente o subsanación registrada antes de su configuración")
 	}
 	if err := asegurarPerfilesFijosCTDesarrollo(ctx, pool, s, aprobacionProvisionPerfilesRRHHDesarrollo{}, s.perfilesFijosRegistrados()...); err != nil {
 		t.Fatalf("arranque de los perfiles fijos: %v", err)
@@ -56,6 +109,11 @@ func soportePerfilesFijosPostgreSQLPrueba(t *testing.T, ctx context.Context, poo
 func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	ctx, gobierno, admin := poolesPerfilDinamicoRRHHPostgreSQLPrueba(t)
 	s, alta, cobertura := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
+	entrega := s.perfilFijoParaRuta(rutaEntregaPeticionCentro)
+	lectorEntrega := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "GET")
+	if entrega == nil || entrega == alta || entrega == cobertura || lectorEntrega == nil || lectorEntrega == entrega {
+		t.Fatal("GET y POST de entrega no tienen perfiles propios")
+	}
 	analisis := s.perfilFijoParaRuta(httpinterno.RutaRectificacionAnalisisRRHH)
 	if analisis == nil || analisis != s.perfilFijoParaRuta(httpinterno.RutaRegistroAnalisisRRHH) ||
 		analisis == alta || analisis == cobertura {
@@ -65,7 +123,7 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	if asignacion == nil || informe == nil || asignacion == informe {
 		t.Fatal("la asignación y el informe no tienen su perfil fijo")
 	}
-	for _, p := range []*perfilFijoCTDesarrollo{alta, cobertura, analisis, asignacion, informe} {
+	for _, p := range []*perfilFijoCTDesarrollo{alta, entrega, lectorEntrega, cobertura, analisis, asignacion, informe} {
 		h := historiaPerfilPostgreSQLPrueba(t, ctx, admin, p.perfilRef())
 		if h.versiones != 1 || h.acto != actoAsignacionPerfilFijoCTDesarrollo {
 			t.Fatalf("perfil %s: inicial no única o con otro acto: %+v", p.clave, h)
@@ -81,6 +139,8 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 	}
 	// 30 consumos simultáneos de cada perfil: todos concedidos, cero escrituras.
 	antesAlta, antesCobertura := historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()), historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef())
+	antesEntrega := historiaPerfilPostgreSQLPrueba(t, ctx, admin, entrega.perfilRef())
+	antesLectorEntrega := historiaPerfilPostgreSQLPrueba(t, ctx, admin, lectorEntrega.perfilRef())
 	antesAnalisis := historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef())
 	antesAsignacion := historiaPerfilPostgreSQLPrueba(t, ctx, admin, asignacion.perfilRef())
 	antesInforme := historiaPerfilPostgreSQLPrueba(t, ctx, admin, informe.perfilRef())
@@ -97,13 +157,15 @@ func TestPerfilesFijosRRHHSeConsumenSinPublicarPostgreSQL(t *testing.T) {
 				fallos++
 				mu.Unlock()
 			}
-		}([]*perfilFijoCTDesarrollo{alta, cobertura, analisis, asignacion, informe}[i%5])
+		}([]*perfilFijoCTDesarrollo{alta, entrega, lectorEntrega, cobertura, analisis, asignacion, informe}[i%7])
 	}
 	espera.Wait()
 	if fallos != 0 {
 		t.Fatalf("%d de 30 consumos simultáneos fallaron", fallos)
 	}
 	if historiaPerfilPostgreSQLPrueba(t, ctx, admin, alta.perfilRef()) != antesAlta ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, entrega.perfilRef()) != antesEntrega ||
+		historiaPerfilPostgreSQLPrueba(t, ctx, admin, lectorEntrega.perfilRef()) != antesLectorEntrega ||
 		historiaPerfilPostgreSQLPrueba(t, ctx, admin, cobertura.perfilRef()) != antesCobertura ||
 		historiaPerfilPostgreSQLPrueba(t, ctx, admin, analisis.perfilRef()) != antesAnalisis ||
 		historiaPerfilPostgreSQLPrueba(t, ctx, admin, asignacion.perfilRef()) != antesAsignacion ||
@@ -151,7 +213,11 @@ func TestPerfilesFijosRRHHRevocadoNoRevivePostgreSQL(t *testing.T) {
 	for _, estrechar := range []bool{false, true} {
 		s, alta, cobertura := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
 		analisis := s.perfilFijoParaRuta(httpinterno.RutaRegistroAnalisisRRHH)
-		for _, cerrado := range []*perfilFijoCTDesarrollo{alta, analisis, s.perfilFijoParaRuta(httpinterno.RutaPreparacionesInformeJuridico)} {
+		for _, cerrado := range []*perfilFijoCTDesarrollo{
+			alta, analisis, s.perfilFijoParaRuta(httpinterno.RutaPreparacionesInformeJuridico),
+			s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "GET"),
+			s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "POST"),
+		} {
 			revocarPerfilFijoPrueba(t, ctx, gobierno, cerrado, estrechar)
 			historia := historiaPerfilPostgreSQLPrueba(t, ctx, admin, cerrado.perfilRef())
 			huella := huellaVigentePrueba(t, ctx, gobierno, cerrado)
@@ -174,6 +240,33 @@ func TestPerfilesFijosRRHHRevocadoNoRevivePostgreSQL(t *testing.T) {
 		if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, cobertura); !ok {
 			t.Fatal("la cobertura quedó cerrada por revocar otros perfiles")
 		}
+	}
+}
+
+func TestPerfilesEntregaGETyPOSTRevocacionAisladaPostgreSQL(t *testing.T) {
+	ctx, gobierno, admin := poolesPerfilDinamicoRRHHPostgreSQLPrueba(t)
+	s, _, _ := soportePerfilesFijosPostgreSQLPrueba(t, ctx, gobierno)
+	get := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "GET")
+	post := s.perfilFijoParaRutaYMetodo(rutaEntregaPeticionCentro, "POST")
+	if get == nil || post == nil || get == post {
+		t.Fatal("GET y POST sin perfiles separados")
+	}
+	revocarPerfilFijoPrueba(t, ctx, gobierno, get, false)
+	historiaGET := historiaPerfilPostgreSQLPrueba(t, ctx, admin, get.perfilRef())
+	if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, get); ok {
+		t.Fatal("GET revocado siguió consumible")
+	}
+	if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, post); !ok {
+		t.Fatal("revocar GET cerró también POST")
+	}
+	if estado, err := asegurarPerfilFijoCTDesarrollo(ctx, gobierno, s, get,
+		aprobacionProvisionPerfilesRRHHDesarrollo{}, preimagenPropiaPerfilFijoCTDesarrollo(get, actoAsignacionPerfilFijoCTDesarrollo)); err != nil ||
+		estado != perfilFijoPendienteProvision || historiaPerfilPostgreSQLPrueba(t, ctx, admin, get.perfilRef()) != historiaGET {
+		t.Fatalf("GET revocado se reparó al arrancar: %s %v", estado, err)
+	}
+	revocarPerfilFijoPrueba(t, ctx, gobierno, post, false)
+	if _, ok := s.consumirPerfilFijoCTDesarrollo(ctx, post); ok {
+		t.Fatal("POST revocado siguió consumible")
 	}
 }
 

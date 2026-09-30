@@ -29,15 +29,18 @@ const (
 // La clave efímera protege cápsulas internas, no sustituye HSM/KMS ni una
 // autoridad corporativa. PostgreSQL conserva la sesión y su huella, no esta clave.
 type proveedorSesionConsultaRRHHDesarrollo struct {
-	soporte     *soporteAltaContratacionTemporalDesarrollo
-	registro    httpseguridad.RegistroSesiones
-	revalidador puertosvec.RevalidadorAutenticacionActorV1
-	reloj       ports.Reloj
-	resolutor   dominiovec.ResolutorContextoActorRegistradoV2
-	base        dominiovec.ResultadoContextoActorRegistradoV2
-	fronteras   catalogoFronterasComunDesarrollo
-	superficie  httpseguridad.Superficie
-	clave       [sha256.Size]byte
+	soporte *soporteAltaContratacionTemporalDesarrollo
+	// canalIntervencion solo se fija al componer la dependencia lectora
+	// interna. No cambia la autoridad del canal RRHH ni permite fallback.
+	canalIntervencion *soporteFiscalizacionContratacionTemporalDesarrollo
+	registro          httpseguridad.RegistroSesiones
+	revalidador       puertosvec.RevalidadorAutenticacionActorV1
+	reloj             ports.Reloj
+	resolutor         dominiovec.ResolutorContextoActorRegistradoV2
+	base              dominiovec.ResultadoContextoActorRegistradoV2
+	fronteras         catalogoFronterasComunDesarrollo
+	superficie        httpseguridad.Superficie
+	clave             [sha256.Size]byte
 }
 
 type claveCapsulaSesionConsultaRRHHDesarrollo struct{}
@@ -133,6 +136,9 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	ctx context.Context,
 ) (contextoSeguridadComunDesarrollo, error) {
 	vacio := contextoSeguridadComunDesarrollo{}
+	if ctx != nil && ctx.Err() != nil {
+		return vacio, p.errorSesionConsultaComunicacionesExpediente(ctx, ctx.Err())
+	}
 	perfil, seleccionado := p.perfilActivoSeleccionado(ctx)
 	if !seleccionado {
 		return vacio, ErrSeguridadComunDesarrolloDenegada
@@ -187,18 +193,24 @@ func rutaConsultaRespuestaCTDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaConsultaReciboRespuesta || ruta == httpinterno.RutaConsultaComunicacionesExpediente
 }
 
+// Entrega y firma conservan la misma distinción que las consultas de respuesta,
+// sin alterar la clasificación de las demás rutas.
+func rutaSesionConIndisponibilidadCTDesarrollo(ruta string) bool {
+	return rutaConsultaRespuestaCTDesarrollo(ruta) || ruta == rutaEntregaPeticionCentro || rutaFirmaDocumentoCTDesarrollo(ruta)
+}
+
 func (p *proveedorSesionConsultaRRHHDesarrollo) errorSesionConsultaComunicacionesExpediente(ctx context.Context, err error) error {
 	if p == nil || p.soporte == nil {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	if ctx != nil && ctx.Err() != nil {
 		capacidad, existe := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		if existe && capacidad.sello == p.soporte.sello && rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
+		if existe && capacidad.sello == p.soporte.sello && p.rutaSesionConIndisponibilidad(capacidad.ruta) {
 			return ctx.Err()
 		}
 	}
-	capacidad, valida := p.soporte.capacidadValida(ctx)
-	if !valida || !rutaConsultaRespuestaCTDesarrollo(capacidad.ruta) {
+	capacidad, valida := p.capacidadCanalSesion(ctx)
+	if !valida || !p.rutaSesionConIndisponibilidad(capacidad.ruta) {
 		return ErrSeguridadComunDesarrolloDenegada
 	}
 	var falloRevalidador *diagnostico.FalloConsultaRRHH
@@ -223,13 +235,13 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) acreditarPeticion(
 	if p == nil || p.soporte == nil || dependenciaEsNulaContratacionTemporalDesarrollo(p.reloj) {
 		return nil, nil, ports.ErrConsultaRRHHNoDisponible
 	}
-	canal, valido := p.soporte.capacidadValida(ctx)
+	canal, valido := p.capacidadCanalSesion(ctx)
 	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
 	_, fronteraSellada := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
 	if fronteraSellada && !adicional {
 		return nil, nil, ports.ErrAutorizacionDenegada
 	}
-	if !valido && adicional && frontera.ruta == canal.ruta {
+	if p.canalIntervencion == nil && !valido && adicional && frontera.ruta == canal.ruta {
 		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
 			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
 	}
@@ -308,13 +320,13 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) registrarCapsula(
 		return fallo()
 	}
 	nonce, presente := ctx.Value(claveCapsulaSesionConsultaRRHHDesarrollo{}).([32]byte)
-	canal, valido := p.soporte.capacidadValida(ctx)
+	canal, valido := p.capacidadCanalSesion(ctx)
 	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
 	_, fronteraSellada := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
 	if fronteraSellada && !adicional {
 		return fallo()
 	}
-	if !valido && adicional && frontera.ruta == canal.ruta {
+	if p.canalIntervencion == nil && !valido && adicional && frontera.ruta == canal.ruta {
 		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
 			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
 	}
@@ -369,13 +381,16 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx con
 	if p == nil || ctx == nil {
 		return "", false
 	}
-	canal, valido := p.soporte.capacidadValida(ctx)
+	canal, valido := p.capacidadCanalSesion(ctx)
+	if p.canalIntervencion != nil {
+		return p.base.Contexto.PerfilActivoRef, valido
+	}
 	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
 	_, fronteraSellada := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
 	if fronteraSellada && !adicional {
 		return "", false
 	}
-	if !valido && adicional && frontera.ruta == canal.ruta {
+	if p.canalIntervencion == nil && !valido && adicional && frontera.ruta == canal.ruta {
 		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
 			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
 	}
