@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -24,7 +23,7 @@ func NuevaFuentePlanNominalB2PostgreSQL(p *pgxpool.Pool) (*FuentePlanNominalB2Po
 
 var _ ports.RepositorioPlanNominalB2 = (*FuentePlanNominalB2PostgreSQL)(nil)
 
-func (f *FuentePlanNominalB2PostgreSQL) ejecutar(ctx context.Context, accion string, b []byte, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, validar func([]byte) error) error {
+func (f *FuentePlanNominalB2PostgreSQL) ejecutar(ctx context.Context, accion string, b []byte, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, validar func([]byte) error, variante ...string) error {
 	if ctx == nil || f == nil || dependenciaNula(f.pool) || len(b) == 0 || len(b) > 65536 {
 		return ports.ErrPlanNominalB2NoDisponible
 	}
@@ -53,6 +52,22 @@ func (f *FuentePlanNominalB2PostgreSQL) ejecutar(ctx context.Context, accion str
 		}
 	}()
 	fn := map[string]string{ports.AccionRegistrarPlanNominalB2: "registrar_plan_nominal_b2_v1", ports.AccionLeerPlanNominalB2: "leer_plan_nominal_b2_v1", ports.AccionConfirmarOrigenB2: "confirmar_origen_incorporacion_b2_v1"}[accion]
+	if len(variante) > 0 {
+		switch variante[0] {
+		case "origen":
+			if accion != ports.AccionLeerPlanNominalB2 {
+				return ports.ErrPlanNominalB2Denegado
+			}
+			fn = "leer_origen_incorporacion_b2_v1"
+		case "antecedentes":
+			if accion != ports.AccionLeerPlanNominalB2 {
+				return ports.ErrPlanNominalB2Denegado
+			}
+			fn = "leer_antecedentes_plan_b2_v1"
+		default:
+			return ports.ErrPlanNominalB2Invalido
+		}
+	}
 	var err error
 	for intento := 0; intento < maximoIntentosSeguimiento; intento++ {
 		err = func() error {
@@ -149,7 +164,8 @@ func contratoSQLB2Valido(c ports.ContratoPlanNominalB2) bool {
 			return false
 		}
 	}
-	return true
+	h, e := domain.SHA256PlanPersonalB2(ports.RegistroPlanNominalB2{Solicitud: c.Solicitud, Material: c.Material})
+	return e == nil && h == c.PlanSHA256
 }
 func (f *FuentePlanNominalB2PostgreSQL) ConfirmarOrigenIncorporacionB2(ctx context.Context, m ports.ConfirmacionOrigenIncorporacionB2, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.OrigenIncorporacionPersonalB2, error) {
 	var o ports.OrigenIncorporacionPersonalB2
@@ -169,4 +185,34 @@ func (f *FuentePlanNominalB2PostgreSQL) ConfirmarOrigenIncorporacionB2(ctx conte
 	return o, nil
 }
 
-var _ = time.UTC
+func (f *FuentePlanNominalB2PostgreSQL) LeerOrigenIncorporacionB2(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.OrigenIncorporacionPersonalB2, bool, error) {
+	var o ports.OrigenIncorporacionPersonalB2
+	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp})
+	e := f.ejecutar(ctx, ports.AccionLeerPlanNominalB2, b, a, func(raw []byte) error {
+		if decodificarJSONEstricto(raw, &o) != nil || o.Protocolo != ports.ProtocoloIncorporacionPersonalB2 || o.Confirmacion.OrganizacionRef != org || o.Confirmacion.ExpedienteRef != exp || o.FirmaOficial || o.EficaciaAdministrativa || !domain.InstanteUTCCanonico(o.RegistradoEn) {
+			return ports.ErrPlanNominalB2NoDisponible
+		}
+		return nil
+	}, "origen")
+	if errors.Is(e, ports.ErrPlanNominalB2NoEncontrado) {
+		return ports.OrigenIncorporacionPersonalB2{}, false, nil
+	}
+	if e != nil {
+		return ports.OrigenIncorporacionPersonalB2{}, false, e
+	}
+	return o, true, nil
+}
+func (f *FuentePlanNominalB2PostgreSQL) LeerAntecedentesPlanB2(ctx context.Context, org, exp string, a vp.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.AntecedentesPlanNominalB2, error) {
+	var o ports.AntecedentesPlanNominalB2
+	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp})
+	e := f.ejecutar(ctx, ports.AccionLeerPlanNominalB2, b, a, func(raw []byte) error {
+		if decodificarJSONEstricto(raw, &o) != nil || o.OrganizacionRef != org || o.ExpedienteRef != exp || !domain.VersionPlanPersonalB2Valida(o.VersionExpediente) || !domain.VersionPlanPersonalB2Valida(o.AnalisisVersion) || !domain.HuellaPlanPersonalB2Valida(o.AnalisisSHA256) || o.Vinculo == nil || o.Vinculo.Validar() != nil {
+			return ports.ErrPlanNominalB2NoDisponible
+		}
+		return nil
+	}, "antecedentes")
+	if e != nil {
+		return ports.AntecedentesPlanNominalB2{}, e
+	}
+	return o, nil
+}

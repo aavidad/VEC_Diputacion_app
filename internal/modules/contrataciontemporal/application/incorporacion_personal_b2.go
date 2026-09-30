@@ -28,10 +28,10 @@ func validarSolicitudPlanB2(s ports.SolicitudPlanNominalB2) bool {
 	}
 	d, e := time.Parse(time.DateOnly, s.Desde)
 	h, eh := time.Parse(time.DateOnly, s.Hasta)
-	return e == nil && d.Format(time.DateOnly) == s.Desde && (s.Hasta == "" || eh == nil && h.Format(time.DateOnly) == s.Hasta && h.After(d)) && domain.VersionPlanPersonalB2Valida(s.VersionExpediente) && domain.VersionPlanPersonalB2Valida(s.Regimen.Version) && domain.VersionPlanPersonalB2Valida(s.Modalidad.Version) && domain.ClaveCatalogo(s.MotivoClave).Valida() && domain.HuellaPlanPersonalB2Valida(s.DocumentoSHA256) && domain.UUIDPlanPersonalB2Valido(s.ClaveIdempotencia)
+	return (s.ClaseOcupacion == "temporal" || s.ClaseOcupacion == "provisional" || s.ClaseOcupacion == "titular") && e == nil && d.Format(time.DateOnly) == s.Desde && (s.Hasta == "" || eh == nil && h.Format(time.DateOnly) == s.Hasta && h.After(d)) && domain.VersionPlanPersonalB2Valida(s.VersionExpediente) && domain.VersionPlanPersonalB2Valida(s.Regimen.Version) && domain.VersionPlanPersonalB2Valida(s.Modalidad.Version) && domain.ClaveCatalogo(s.MotivoClave).Valida() && domain.HuellaPlanPersonalB2Valida(s.DocumentoSHA256) && domain.UUIDPlanPersonalB2Valido(s.ClaveIdempotencia)
 }
 func planCoincideSeleccionB2(p domain.PlanIncorporacionPersonalB2, s ports.SolicitudPlanNominalB2) bool {
-	return p.Validar() == nil && p.OrganizacionRef == s.OrganizacionRef && p.ExpedienteRef == s.ExpedienteRef && p.VersionExpediente == s.VersionExpediente && p.PuestoRef == s.PuestoRef && p.PlazaRef == s.PlazaRef && p.FuentePlantilla.Ref == s.VersionPlantillaRef && p.FuenteRPT.Ref == s.VersionRPTRef && p.Regimen == s.Regimen && p.Modalidad == s.Modalidad && p.Desde == s.Desde && p.Hasta == s.Hasta && p.MotivoClave == s.MotivoClave && p.DocumentoRef == s.DocumentoRef && p.DocumentoSHA256 == s.DocumentoSHA256
+	return p.Validar() == nil && p.OrganizacionRef == s.OrganizacionRef && p.ExpedienteRef == s.ExpedienteRef && p.VersionExpediente == s.VersionExpediente && p.PuestoRef == s.PuestoRef && p.PlazaRef == s.PlazaRef && p.FuentePlantilla.Ref == s.VersionPlantillaRef && p.FuenteRPT.Ref == s.VersionRPTRef && p.ClaseOcupacion == s.ClaseOcupacion && p.Regimen == s.Regimen && p.Modalidad == s.Modalidad && p.Desde == s.Desde && p.Hasta == s.Hasta && p.MotivoClave == s.MotivoClave && p.DocumentoRef == s.DocumentoRef && p.DocumentoSHA256 == s.DocumentoSHA256
 }
 func contratoPlanB2Valido(c ports.ContratoPlanNominalB2) bool {
 	if c.Protocolo != ports.ProtocoloIncorporacionPersonalB2 || c.PlanVersion != 1 || c.IntencionVersion != 1 || c.Material.Validar() != nil || !domain.UUIDPlanPersonalB2Valido(c.IdempotenciaPersonalUUID) || !domain.InstanteUTCCanonico(c.RegistradoEn) {
@@ -44,7 +44,8 @@ func contratoPlanB2Valido(c ports.ContratoPlanNominalB2) bool {
 	}
 	// La huella se fija sobre la intención y el material, antes de los refs que
 	// PostgreSQL asigna al asiento. El propietario devuelve la misma intención.
-	return domain.HuellaPlanPersonalB2Valida(c.PlanSHA256)
+	h, e := domain.SHA256PlanPersonalB2(ports.RegistroPlanNominalB2{Solicitud: c.Solicitud, Material: c.Material})
+	return e == nil && h == c.PlanSHA256 && planCoincideSeleccionB2(c.Material, c.Solicitud)
 }
 func (s *ServicioPlanNominalB2) RegistrarPlanNominalB2(ctx context.Context, sol ports.SolicitudPlanNominalB2, actor ports.ActorIncorporacionPersonalB2) (ports.ContratoPlanNominalB2, error) {
 	var cero ports.ContratoPlanNominalB2
@@ -138,4 +139,28 @@ func (s *ServicioPlanNominalB2) ConfirmarOrigenIncorporacionB2(ctx context.Conte
 		return cero, ports.ErrPlanNominalB2NoDisponible
 	}
 	return o, nil
+}
+
+func (s *ServicioPlanNominalB2) LeerOrigenIncorporacionB2(ctx context.Context, org, exp string) (ports.OrigenIncorporacionPersonalB2, bool, error) {
+	var cero ports.OrigenIncorporacionPersonalB2
+	if s == nil || ctx == nil || !domain.ReferenciaOpacaValida(org) || !domain.ReferenciaOpacaValida(exp) {
+		return cero, false, ports.ErrPlanNominalB2Invalido
+	}
+	r, ok := s.repositorio.(ports.LectorOrigenIncorporacionB2)
+	if !ok {
+		return cero, false, ports.ErrPlanNominalB2NoDisponible
+	}
+	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp})
+	a, e := s.autoridad.AutorizarPlanNominalB2(ctx, ports.AccionLeerPlanNominalB2, b, ports.ActorIncorporacionPersonalB2{})
+	if e != nil {
+		return cero, false, e
+	}
+	o, encontrado, e := r.LeerOrigenIncorporacionB2(ctx, org, exp, a)
+	if e != nil || !encontrado {
+		return cero, encontrado, e
+	}
+	if o.Protocolo != ports.ProtocoloIncorporacionPersonalB2 || o.Confirmacion.OrganizacionRef != org || o.Confirmacion.ExpedienteRef != exp || o.FirmaOficial || o.EficaciaAdministrativa || !domain.InstanteUTCCanonico(o.RegistradoEn) {
+		return cero, false, ports.ErrPlanNominalB2NoDisponible
+	}
+	return o, true, nil
 }
