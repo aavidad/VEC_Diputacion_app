@@ -29,9 +29,18 @@ func (a *actorPrueba) ResolverContextoActor(context.Context) (vecdomain.Contexto
 type servicioPrueba struct {
 	publicaciones int
 	invalida      bool
+	estado        string
 }
 
 func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error) {
+	estado := s.estado
+	if estado == "" {
+		estado = "activa"
+	}
+	if estado != "activa" {
+		return app.Lectura{Activacion: app.ActivacionBase{Estado: estado}, Historial: []app.CambioHistorico{},
+			Reglas: []reglas.Regla{}}, nil
+	}
 	return app.Lectura{PuedeAjustar: true, Reglas: []reglas.Regla{{
 		Clave: reglas.CTPlazoFiscalizacion, Etiqueta: "Fiscalización", Unidad: reglas.UnidadDiasHabiles,
 		Cantidad: 10, Computo: reglas.ComputoAdministrativo,
@@ -39,7 +48,7 @@ func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int
 		Edicion: &reglas.Edicion{Campos: []string{reglas.CampoCantidad, reglas.CampoCantidadUrgente, reglas.CampoUnidad},
 			OpcionesUnidad: []reglas.Unidad{reglas.UnidadDiasHabiles, reglas.UnidadDiasNaturales}, CantidadMinima: 1, CantidadMaxima: 60},
 		AjusteNoAplicable: s.invalida,
-	}}}, nil
+	}}, Activacion: app.ActivacionBase{Estado: estado}}, nil
 }
 func (s *servicioPrueba) Publicar(context.Context, vecdomain.ContextoActor, app.Solicitud) (app.Resultado, error) {
 	s.publicaciones++
@@ -159,6 +168,7 @@ func TestSoloLecturaNoAnunciaNiEjecutaGuardado(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"puede_ajustar":false`) ||
+		!strings.Contains(w.Body.String(), `"activacion":{"estado":"activa"}`) ||
 		!strings.Contains(w.Body.String(), `"cantidad_urgente":"5"`) ||
 		!strings.Contains(w.Body.String(), `"opciones_unidad"`) ||
 		!strings.Contains(w.Body.String(), `"opciones_computo":[]`) ||
@@ -173,6 +183,43 @@ func TestSoloLecturaNoAnunciaNiEjecutaGuardado(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusServiceUnavailable || s.publicaciones != 0 || a.llamadas != 1 {
 		t.Fatalf("POST alcanzó operación en solo lectura: %d %d %d", w.Code, s.publicaciones, a.llamadas)
+	}
+}
+
+func TestGETAjustesSinBaseActivaExponeSoloEstadoYConservaConsulta(t *testing.T) {
+	ahora := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	actor, _, err := vecpruebas.NuevoContextoYVinculo(ahora, "per_0123456789abcdef0123456789abcdef",
+		"prf_0123456789abcdef0123456789abcdef", vecdomain.AuthMethodCertificate, vecdomain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, estado := range []string{"sin_publicar", "inactiva"} {
+		t.Run(estado, func(t *testing.T) {
+			h, err := NuevoManejador(&actorPrueba{actor: actor}, &servicioPrueba{estado: estado})
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := httptest.NewRequest(http.MethodGet, Ruta, nil)
+			r.Header.Set("Accept", "application/json")
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"activacion":{"estado":"`+estado+`"}`) ||
+				!strings.Contains(w.Body.String(), `"puede_ajustar":false`) || !strings.Contains(w.Body.String(), `"reglas":[]`) ||
+				strings.Contains(w.Body.String(), "huella_sha256") || strings.Contains(w.Body.String(), "aprobacion_ref") {
+				t.Fatalf("estado de activación ambiguo: %d %s", w.Code, w.Body.String())
+			}
+		})
+	}
+	h, err := NuevoManejador(&actorPrueba{actor: actor}, &servicioPrueba{estado: "desconocida"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, Ruta, nil)
+	r.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusServiceUnavailable || strings.Contains(w.Body.String(), "desconocida") {
+		t.Fatalf("estado no reconocido se expuso: %d %s", w.Code, w.Body.String())
 	}
 }
 
