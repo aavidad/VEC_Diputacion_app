@@ -79,7 +79,10 @@ for f in nss.iterdir():
     if f.is_file(): f.chmod(0o600)
 binary=pathlib.Path(r['exe']); actual=j.get('current_source_ref',j['source_ref'])
 assert actual == r['source_commit'] == m['target']['source_commit']
+assert hashlib.file_digest(binary.open('rb'),'sha256').hexdigest() == r['binary_sha256']
+assert j.get('verified_source_ref',actual) == actual
 v=dict(tipo='clon_local_h3_h5',clon='local',datos='sinteticos',hitos=['H3','H4','H5'],hitos_verificados=['H3','H4','H5'],clon_sintetico=True,clon_ref=json.loads((s/'clon.json').read_text())['contenedor'],origen='https://127.0.0.1:'+str(r['port']),commit=actual,binario=str(binary),binario_sha256=r['binary_sha256'],pid=r['pid'],sql_instaladas=len(j['installed']),material_sha256=hashlib.sha256(pathlib.Path(r['runtime_manifest_path']).read_bytes()).hexdigest(),portal_proceso='interno',recorridos_externos_habilitados=False,bloqueos=original.get('blockers',[]),chrome_home=str(home),ca=str(s/'material/ca/ca.crt'))
+v.update(sql_fuente_aprobada=j.get('approved_sql_ref',j['source_ref']),sql_plan_sha256=j.get('current_plan_sha',j['plan_sha']),sql_inventario_sha256=j.get('inventory_sha'),configuracion_sha256=r['config_sha256'],tls_verificado=True)
 p=s/'READY.json'; t=s/'READY.json.nuevo'; t.write_text(json.dumps(v,ensure_ascii=False,indent=2)+'\n'); t.chmod(0o600); t.replace(p)
 PY
 }
