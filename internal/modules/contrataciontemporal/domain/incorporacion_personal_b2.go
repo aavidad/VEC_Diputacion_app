@@ -127,7 +127,7 @@ func (p PlanIncorporacionPersonalB2) Validar() error {
 	}
 	d, e := time.Parse(time.DateOnly, p.Desde)
 	h, eh := time.Parse(time.DateOnly, p.Hasta)
-	if (p.ClaseOcupacion != "temporal" && p.ClaseOcupacion != "provisional" && p.ClaseOcupacion != "titular") || e != nil || d.Format(time.DateOnly) != p.Desde || p.Hasta != "" && (eh != nil || h.Format(time.DateOnly) != p.Hasta || !h.After(d)) || !ClaveCatalogo(p.MotivoClave).Valida() || p.AnalisisVersion > p.VersionExpediente || p.CategoriaRef != p.Bolsa.CategoriaRef || !p.PersonaFuente.Valida() || !p.FuenteOrganizacion.Valida() || !p.FuentePlantilla.Valida() || !p.FuenteRPT.Valida() {
+	if (p.ClaseOcupacion != "temporal" && p.ClaseOcupacion != "provisional" && p.ClaseOcupacion != "titular") || e != nil || d.Year() < 1 || d.Format(time.DateOnly) != p.Desde || p.Hasta != "" && (eh != nil || h.Year() < 1 || h.Format(time.DateOnly) != p.Hasta || !h.After(d)) || !ClaveCatalogo(p.MotivoClave).Valida() || p.AnalisisVersion > p.VersionExpediente || p.CategoriaRef != p.Bolsa.CategoriaRef || !p.PersonaFuente.Valida() || !p.FuenteOrganizacion.Valida() || !p.FuentePlantilla.Valida() || !p.FuenteRPT.Valida() {
 		return ErrPlanIncorporacionPersonalB2
 	}
 	return nil
