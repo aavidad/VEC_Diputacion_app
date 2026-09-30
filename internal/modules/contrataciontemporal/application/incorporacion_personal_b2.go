@@ -59,6 +59,9 @@ func (s *ServicioPlanNominalB2) RegistrarPlanNominalB2(ctx context.Context, sol 
 	if e != nil {
 		return cero, e
 	}
+	if e := ctx.Err(); e != nil {
+		return cero, e
+	}
 	if !planCoincideSeleccionB2(p, sol) {
 		return cero, ports.ErrPlanNominalB2Conflicto
 	}
@@ -69,6 +72,9 @@ func (s *ServicioPlanNominalB2) RegistrarPlanNominalB2(ctx context.Context, sol 
 	}
 	a, e := s.autoridad.AutorizarPlanNominalB2(ctx, ports.AccionRegistrarPlanNominalB2, b, actor)
 	if e != nil {
+		return cero, e
+	}
+	if e := ctx.Err(); e != nil {
 		return cero, e
 	}
 	c, e := s.repositorio.RegistrarPlanNominalB2(ctx, m, a)
@@ -89,12 +95,18 @@ func (s *ServicioPlanNominalB2) LeerContratoPlanNominal(ctx context.Context, org
 	if s == nil || ctx == nil || !domain.ReferenciaOpacaValida(org) || !domain.ReferenciaOpacaValida(exp) {
 		return cero, ports.ErrPlanNominalB2Invalido
 	}
+	if e := ctx.Err(); e != nil {
+		return cero, e
+	}
 	fu, ok := s.fuentes.(ports.FuenteUnidadPlanNominalB2)
 	if !ok {
 		return cero, ports.ErrPlanNominalB2NoDisponible
 	}
 	unidad, e := fu.ResolverUnidadPlanNominalB2(ctx, org, exp)
 	if e != nil {
+		return cero, e
+	}
+	if e := ctx.Err(); e != nil {
 		return cero, e
 	}
 	if !domain.ReferenciaOpacaValida(unidad) {
@@ -104,6 +116,9 @@ func (s *ServicioPlanNominalB2) LeerContratoPlanNominal(ctx context.Context, org
 	b, _ := domain.CanonicoPlanPersonalB2(m)
 	a, e := s.autoridad.AutorizarPlanNominalB2(ctx, ports.AccionLeerPlanNominalB2, b, ports.ActorIncorporacionPersonalB2{})
 	if e != nil {
+		return cero, e
+	}
+	if e := ctx.Err(); e != nil {
 		return cero, e
 	}
 	c, e := s.repositorio.LeerContratoPlanNominal(ctx, org, exp, a, unidad)
@@ -120,8 +135,14 @@ func (s *ServicioPlanNominalB2) ConfirmarOrigenIncorporacionB2(ctx context.Conte
 	if s == nil || ctx == nil || actor.Validar() != nil || !domain.ReferenciaOpacaValida(m.PlanRef) || m.PlanVersion != 1 || !domain.HuellaPlanPersonalB2Valida(m.PlanSHA256) {
 		return cero, ports.ErrPlanNominalB2Invalido
 	}
+	if e := ctx.Err(); e != nil {
+		return cero, e
+	}
 	c, e := s.LeerContratoPlanNominal(ctx, m.OrganizacionRef, m.ExpedienteRef)
 	if e != nil {
+		return cero, e
+	}
+	if e := ctx.Err(); e != nil {
 		return cero, e
 	}
 	if m.UnidadCTRef != "" && m.UnidadCTRef != c.Material.UnidadCTRef {
@@ -135,6 +156,9 @@ func (s *ServicioPlanNominalB2) ConfirmarOrigenIncorporacionB2(ctx context.Conte
 	if e != nil {
 		return cero, e
 	}
+	if e := ctx.Err(); e != nil {
+		return cero, e
+	}
 	if !reflect.DeepEqual(h, m.Hechos) {
 		return cero, ports.ErrPlanNominalB2Conflicto
 	}
@@ -144,6 +168,9 @@ func (s *ServicioPlanNominalB2) ConfirmarOrigenIncorporacionB2(ctx context.Conte
 	}
 	a, e := s.autoridad.AutorizarPlanNominalB2(ctx, ports.AccionConfirmarOrigenB2, b, actor)
 	if e != nil {
+		return cero, e
+	}
+	if e := ctx.Err(); e != nil {
 		return cero, e
 	}
 	o, e := s.repositorio.ConfirmarOrigenIncorporacionB2(ctx, m, a)
@@ -161,6 +188,9 @@ func (s *ServicioPlanNominalB2) LeerOrigenIncorporacionB2(ctx context.Context, o
 	if s == nil || ctx == nil || !domain.ReferenciaOpacaValida(org) || !domain.ReferenciaOpacaValida(exp) {
 		return cero, false, ports.ErrPlanNominalB2Invalido
 	}
+	if e := ctx.Err(); e != nil {
+		return cero, false, e
+	}
 	r, ok := s.repositorio.(ports.LectorOrigenIncorporacionB2)
 	if !ok {
 		return cero, false, ports.ErrPlanNominalB2NoDisponible
@@ -173,12 +203,18 @@ func (s *ServicioPlanNominalB2) LeerOrigenIncorporacionB2(ctx context.Context, o
 	if e != nil {
 		return cero, false, e
 	}
+	if e := ctx.Err(); e != nil {
+		return cero, false, e
+	}
 	if !domain.ReferenciaOpacaValida(unidad) {
 		return cero, false, ports.ErrPlanNominalB2NoDisponible
 	}
 	b, _ := domain.CanonicoPlanPersonalB2(map[string]string{"organizacion_ref": org, "expediente_ref": exp, "unidad_ref": unidad})
 	a, e := s.autoridad.AutorizarPlanNominalB2(ctx, ports.AccionLeerPlanNominalB2, b, ports.ActorIncorporacionPersonalB2{})
 	if e != nil {
+		return cero, false, e
+	}
+	if e := ctx.Err(); e != nil {
 		return cero, false, e
 	}
 	o, encontrado, e := r.LeerOrigenIncorporacionB2(ctx, org, exp, a, unidad)
