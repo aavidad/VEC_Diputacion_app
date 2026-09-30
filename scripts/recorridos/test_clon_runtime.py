@@ -164,6 +164,45 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(json.loads(target.read_text()), {'version': 1})
         self.assertEqual(list(self.root.glob('.record.json-*.tmp')), [])
 
+    def test_status_allows_concurrent_readers_and_reports_a_writer_without_reading(self):
+        repo, state = self.root / 'repo', self.root / 'state'
+        repo.mkdir()
+        state.mkdir(mode=0o700)
+        args = ['runtime', 'status', '--repo', str(repo), '--state', str(state), '--commit', 'a' * 40,
+                '--port', '18531', '--pg-port', '55531', '--mode', 'interno']
+        # These are real kernel locks in a private fixture, never the live clone.
+        with (state / 'runtime.lock').open('a') as reader, (state / 'runtime.lock').open('a') as writer:
+            runtime.fcntl.flock(reader, runtime.fcntl.LOCK_SH | runtime.fcntl.LOCK_NB)
+            def own_process(owned_state):
+                self.assertEqual(owned_state, state)
+                with self.assertRaises(BlockingIOError):
+                    runtime.fcntl.flock(writer, runtime.fcntl.LOCK_EX | runtime.fcntl.LOCK_NB)
+                return {'source_commit': 'a' * 40}
+            with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'own_process', side_effect=own_process) as process, patch('builtins.print') as output:
+                runtime.main()
+            process.assert_called_once_with(state)
+            self.assertTrue(json.loads(output.call_args.args[0])['running'])
+            args[1] = 'verify'
+            with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'pinned_main', return_value='a' * 40), \
+                    patch.object(runtime, 'verify_running', return_value={'pid': 41}) as verify, patch('builtins.print'):
+                runtime.main()
+            verify.assert_called_once_with(state, 'a' * 40, 18531, 55531)
+            args[1] = 'stop'
+            with patch.object(runtime.sys, 'argv', args), patch.object(runtime, 'stop') as stop, \
+                    self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'otra operación incompatible'):
+                runtime.main()
+            stop.assert_not_called()
+        with (state / 'runtime.lock').open('a') as writer:
+            runtime.fcntl.flock(writer, runtime.fcntl.LOCK_EX | runtime.fcntl.LOCK_NB)
+            for action in ['status', 'stop']:
+                args[1] = action
+                with self.subTest(action=action), patch.object(runtime.sys, 'argv', args), \
+                        patch.object(runtime, 'own_process') as process, patch.object(runtime, 'stop') as stop, \
+                        self.assertRaisesRegex(runtime.RuntimeErrorLocal, 'otra operación incompatible'):
+                    runtime.main()
+                process.assert_not_called()
+                stop.assert_not_called()
+
     def test_static_elf_probe_rejects_an_interpreter(self):
         import struct
         path = self.root / 'fixture-elf'
@@ -291,7 +330,7 @@ class RuntimeTests(unittest.TestCase):
         module.start.return_value = record
         binary = self.root / 'fixture-bin'
         binary.write_text('ELF fixture')
-        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
+        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
             with self.assertRaises(OSError):
                 runtime.start(self.source, binary, {'runtime_mode': 'interno', 'cgo_enabled': False, 'source_commit': 'a' * 40}, self.root, 18531, 55531)
         module.stop.assert_called_once_with(self.root)
@@ -309,7 +348,7 @@ class RuntimeTests(unittest.TestCase):
             module.start.return_value = {'container_id': 'own-id', 'container_mode': 'interno', 'pid': 41}
             clock = [0, 61] if timeout else [0, 0, 1]
             health = [ConnectionRefusedError(), None]
-            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
+            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.socket, 'socket'), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
                 if timeout:
                     with self.assertRaises(runtime.RuntimeErrorLocal):
                         runtime.start(self.source, binary, manifest, self.root, 18531, 55531)

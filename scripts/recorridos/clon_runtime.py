@@ -813,7 +813,11 @@ def main():
     state = validate_state(repo, args.state)
     fd = os.open(state / 'runtime.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        operation = fcntl.LOCK_SH if args.action in ('status', 'verify') else fcntl.LOCK_EX
+        try:
+            fcntl.flock(lock, operation | fcntl.LOCK_NB)
+        except BlockingIOError:
+            fail('El runtime tiene otra operación incompatible en curso.')
         if args.action == 'stop':
             print(json.dumps({'stopped': stop(state)}))
             return
