@@ -1,8 +1,8 @@
 "use strict";
 
 (() => {
-  const contratoPublicoV1 = globalThis.VECBolsaContratoV1;
-  if (!contratoPublicoV1) throw new Error("validador del contrato público V1 no disponible");
+  const contratoPublicoV2 = globalThis.VECBolsaContratoV2;
+  if (!contratoPublicoV2) throw new Error("validador del contrato público V2 no disponible");
   const i18n = globalThis.VECBolsaI18n;
   const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
   const formateadorNumero = new Intl.NumberFormat("es-ES");
@@ -251,7 +251,7 @@
   }
 
   function renderizarListado(datos) {
-    const categoriasPorConvocatoria = contratoPublicoV1.validarListado(datos);
+    const categoriasPorConvocatoria = contratoPublicoV2.validarListado(datos);
     renderizarFacetas(datos.facetas);
     elementos.revision.textContent = t("fuente_actualizada", {
       revision: datos.fuente.revision,
@@ -375,7 +375,7 @@
   }
 
   function renderizarDetalle(datos) {
-    const categoriasResueltas = contratoPublicoV1.validarDetalle(datos);
+    const categoriasResueltas = contratoPublicoV2.validarDetalle(datos);
     const convocatoria = datos.convocatoria;
     elementos.tituloDetalle.textContent = convocatoria.titulo;
     vaciar(elementos.detalleEtiquetas);
@@ -551,11 +551,11 @@
     configurarAreasDirectorio(estado.categorias);
     const huella = String(datos.catalogo.huella_sha256 || "");
     elementos.integridadCategorias.textContent = t("catalogo_resumen", {
-      referencia: datos.catalogo.referencia, version: numero(datos.catalogo.version),
+      referencia: datos.catalogo.catalogo_id, version: numero(datos.catalogo.version),
       total: numero(datos.catalogo.total), huella: huella.slice(0, 16),
     });
     elementos.integridadCategorias.setAttribute("aria-label", t("catalogo_resumen_aria", {
-      referencia: datos.catalogo.referencia, version: numero(datos.catalogo.version),
+      referencia: datos.catalogo.catalogo_id, version: numero(datos.catalogo.version),
       total: numero(datos.catalogo.total), huella,
     }));
     elementos.integridadCategorias.title = t("huella_sha256", { huella });
