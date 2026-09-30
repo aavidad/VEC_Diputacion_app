@@ -29,6 +29,10 @@ class ContainerBoundaryTests(unittest.TestCase):
         struct.pack_into('<Q', self.elf, 32, 64)
         struct.pack_into('<HH', self.elf, 54, 56, 0)
         self.binary.write_bytes(self.elf)
+        self.relay = self.state / 'relay_tcp'
+        self.relay.write_bytes(self.elf)
+        self.relay.chmod(0o700)
+        self.relay_sha = runtime.sha(self.relay)
         self.manifest = {'source_commit': self.commit, 'source_sha256': runtime.source_sha(self.source),
                          'binary_sha256': runtime.sha(self.binary), 'cgo_enabled': False, 'elf_interpreter': None}
         self.root = self.state / 'runtime-interno'
@@ -54,6 +58,18 @@ class ContainerBoundaryTests(unittest.TestCase):
             self.projection['rw'].append({'source': str(path), 'target': str(target), 'kind': kind})
         self.mounts = self.validate()
         self.container_id = 'b' * 64
+        self.pg_id = 'e' * 64
+        self.pg_image_id = 'sha256:' + 'f' * 64
+        self.pg_temporary = tempfile.TemporaryDirectory(dir='/dev/shm')
+        self.addCleanup(self.pg_temporary.cleanup)
+        self.pg_volume = Path(self.pg_temporary.name)
+        metadata = self.pg_volume.stat()
+        self.pg_proof = {'kind': 'h6_db_ready', 'version': 2, 'propietario': runtime.OWNER,
+                         'estado': str(self.state), 'pg_container_id': self.pg_id,
+                         'pg_image_id': self.pg_image_id, 'contenedor': 'vec-clon-fixture',
+                         'pgdata': str(self.pg_volume), 'commit': self.commit,
+                         'puerto_pg': 5432, 'puerto_web': 19443,
+                         'pg_volume': {'source': str(self.pg_volume), 'dev': metadata.st_dev, 'ino': metadata.st_ino}}
         self.image_id = 'sha256:' + 'c' * 64
         self.identity = {'pid': 43210, 'start_ticks': '456', 'exe': str(self.binary), 'uid': os.getuid(),
                          'binary_sha256': self.manifest['binary_sha256']}
@@ -62,12 +78,36 @@ class ContainerBoundaryTests(unittest.TestCase):
                            manifest=self.manifest, projection=self.projection, mounts=self.mounts, instance='d' * 32,
                            owner=runtime.OWNER, state=str(self.state), gid=os.getgid(), container_mode='interno',
                            name=runtime.container_name(self.state, self.commit),
+                           network_namespace_isolated=True, port=19443, pg_port=5432, version=2,
+                           pg_container_id=self.pg_id, pg_proof=self.pg_proof,
+                           pg=runtime.approved_pg(self.state, self.pg_id, self.pg_proof, self.commit, 19443),
+                           relay_binary=str(self.relay), relay_sha256=self.relay_sha,
                            projection_sha256=runtime.projection_sha(self.projection),
                            env_sha256=runtime.object_sha(sorted(f'{key}={value}' for key, value in self.environment.items())))
         self.proof = self.make_proof()
+        self.pg_live = {'Id': self.pg_id, 'Image': self.pg_image_id, 'Name': '/vec-clon-fixture',
+                        'Config': {'Image': self.pg_image_id, 'Labels': {'vec.recorridos.owner': runtime.OWNER,
+                                   'vec.recorridos.state': str(self.state)}},
+                        'State': {'Running': True}, 'HostConfig': {'NetworkMode': 'none', 'Privileged': False,
+                                  'PublishAllPorts': False, 'PortBindings': {}},
+                        'NetworkSettings': {'Ports': {'5432/tcp': None}, 'Networks': {'none': {}}},
+                        'Mounts': [{'Type': 'bind', 'Source': str(self.pg_volume),
+                                    'Destination': '/var/lib/postgresql', 'RW': True}]}
+
+    def inspect_fixture(self, state, container_id):
+        self.assertEqual(state, self.state)
+        if container_id == self.pg_id:
+            return self.pg_live
+        self.assertEqual(container_id, self.container_id)
+        return self.proof
+
+    def start_keywords(self):
+        return {'pg_container_id': self.pg_id, 'pg_proof': self.pg_proof,
+                'relay_binary': self.relay, 'relay_sha256': self.relay_sha}
 
     def validate(self):
-        return runtime.validate_inputs(self.state, self.source, self.binary, self.manifest, self.projection)
+        return runtime.validate_inputs(self.state, self.source, self.binary, self.manifest, self.projection,
+                                       relay_binary=self.relay, relay_sha256=self.relay_sha)
 
     def make_proof(self):
         return {'Id': self.container_id, 'Image': self.image_id, 'Path': str(self.binary), 'Args': [],
@@ -75,7 +115,8 @@ class ContainerBoundaryTests(unittest.TestCase):
                            'WorkingDir': str(self.source), 'Entrypoint': [str(self.binary)], 'Cmd': None,
                            'Env': [f'{key}={value}' for key, value in self.environment.items()],
                            'Labels': runtime.expected_labels(self.state, self.record)},
-                'HostConfig': {'ReadonlyRootfs': True, 'Privileged': False, 'NetworkMode': 'host', 'PidMode': '',
+                'HostConfig': {'ReadonlyRootfs': True, 'Privileged': False,
+                               'NetworkMode': 'container:' + self.pg_id, 'PidMode': '',
                                'UsernsMode': '', 'AutoRemove': False,
                                'IpcMode': 'private', 'Init': False, 'CapDrop': ['ALL'], 'CapAdd': None,
                                'SecurityOpt': ['no-new-privileges'], 'Devices': [], 'DeviceRequests': [],
@@ -114,7 +155,8 @@ class ContainerBoundaryTests(unittest.TestCase):
     def test_input_failure_records_exact_stage_without_creating_docker_object(self):
         invalid = dict(self.manifest, cgo_enabled=True)
         with patch.object(runtime, 'docker') as docker, self.assertRaises(runtime.ContainerError):
-            runtime.start(self.state, self.source, self.binary, self.environment, invalid, self.projection, 19443, 55531)
+            runtime.start(self.state, self.source, self.binary, self.environment, invalid, self.projection,
+                          19443, 5432, **self.start_keywords())
         docker.assert_not_called()
         record = json.loads((self.state / 'runtime-container-diagnostic.json').read_text())
         self.assertEqual(record['stage'], 'preflight_inputs')
@@ -166,14 +208,16 @@ class ContainerBoundaryTests(unittest.TestCase):
                 projection = copy.deepcopy(self.projection)
                 projection['ro'].append({'source': str(path), 'target': str(path)})
                 with self.assertRaises(runtime.ContainerError):
-                    runtime.validate_inputs(self.state, self.source, self.binary, self.manifest, projection)
+                    runtime.validate_inputs(self.state, self.source, self.binary, self.manifest, projection,
+                                            relay_binary=self.relay, relay_sha256=self.relay_sha)
 
     def test_rw_allowlist_cannot_change_source_target_or_kind(self):
         for field, value in [('source', str(self.state)), ('target', '/etc'), ('kind', 'backups')]:
             projection = copy.deepcopy(self.projection)
             projection['rw'][0][field] = value
             with self.subTest(field=field), self.assertRaises(runtime.ContainerError):
-                runtime.validate_inputs(self.state, self.source, self.binary, self.manifest, projection)
+                runtime.validate_inputs(self.state, self.source, self.binary, self.manifest, projection,
+                                        relay_binary=self.relay, relay_sha256=self.relay_sha)
 
     def test_symlink_and_hardlinked_projection_are_rejected(self):
         foreign = self.state / 'offline.key'
@@ -227,7 +271,7 @@ class ContainerBoundaryTests(unittest.TestCase):
             self.validate()
 
     def test_verify_live_process_joins_docker_id_and_host_identity(self):
-        with patch.object(runtime, 'inspect', return_value=self.proof), \
+        with patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                 patch.object(runtime, 'process_identity', return_value=self.identity):
             self.assertEqual(runtime.verify_record(self.state, self.record), self.record)
 
@@ -235,7 +279,7 @@ class ContainerBoundaryTests(unittest.TestCase):
         for key, value in [('pid', 43211), ('uid', 0), ('exe', '/foreign/bin'), ('start_ticks', '457'),
                            ('binary_sha256', 'f' * 64)]:
             identity = dict(self.identity, **{key: value})
-            with self.subTest(key=key), patch.object(runtime, 'inspect', return_value=self.proof), \
+            with self.subTest(key=key), patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                     patch.object(runtime, 'process_identity', return_value=identity), \
                     patch.object(runtime.os, 'pidfd_open') as pidfd, \
                     patch.object(runtime.signal, 'pidfd_send_signal') as send:
@@ -299,7 +343,7 @@ class ContainerBoundaryTests(unittest.TestCase):
 
     def test_stop_removes_only_immutable_owned_id(self):
         runtime.private_json(self.state / 'runtime-container.json', self.record)
-        with patch.object(runtime, 'inspect', return_value=self.proof), \
+        with patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                 patch.object(runtime, '_terminate') as terminate, patch.object(runtime, 'docker') as docker:
             self.assertTrue(runtime.stop(self.state))
         terminate.assert_called_once_with(self.state, self.record)
@@ -309,7 +353,7 @@ class ContainerBoundaryTests(unittest.TestCase):
     def test_foreign_container_record_cannot_stop_or_remove(self):
         runtime.private_json(self.state / 'runtime-container.json', self.record)
         self.proof['Config']['Labels'][runtime.PREFIX + 'state'] = '/foreign'
-        with patch.object(runtime, 'inspect', return_value=self.proof), \
+        with patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                 patch.object(runtime, '_terminate') as terminate, patch.object(runtime, 'docker') as docker:
             with self.assertRaises(runtime.ContainerError):
                 runtime.stop(self.state)
@@ -357,26 +401,143 @@ class ContainerBoundaryTests(unittest.TestCase):
 
     def start_runtime(self):
         return runtime.start(self.state, self.source, self.binary, self.environment, self.manifest,
-                             self.projection, 19443, 55531)
+                             self.projection, 19443, 5432, **self.start_keywords())
 
     def test_start_uses_direct_entrypoint_ro_root_and_exact_mounts(self):
         calls = []
         with patch.object(runtime, 'build_image', return_value=self.image_id), \
                 patch.object(runtime.secrets, 'token_hex', return_value='d' * 32), \
                 patch.object(runtime, 'docker', side_effect=self.fake_start_docker(calls)), \
-                patch.object(runtime, 'inspect', return_value=self.proof), \
+                patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                 patch.object(runtime, 'process_identity', return_value=self.identity):
             record = self.start_runtime()
         create = calls[0]
         self.assertEqual(create[-1], self.image_id)
         self.assertEqual(create[create.index('--entrypoint') + 1], str(self.binary))
         self.assertIn('--read-only', create)
-        self.assertIn('--network=host', create)
+        self.assertIn('--network=container:' + self.pg_id, create)
+        self.assertNotIn('--network=host', create)
+        self.assertNotIn('--publish', create)
+        self.assertNotIn('-p', create)
         self.assertNotIn('--init', create)
         self.assertNotIn('--privileged', create)
         self.assertEqual(record['container_id'], self.container_id)
-        self.assertFalse(record['network_namespace_isolated'])
+        self.assertTrue(record['network_namespace_isolated'])
+        self.assertIn({'source': str(self.relay), 'target': '/opt/vec/relay_tcp', 'rw': False}, record['mounts'])
         self.assertEqual((self.state / 'runtime-container.json').stat().st_mode & 0o777, 0o600)
+
+    def test_app_rejects_host_bridge_other_pg_and_published_ports(self):
+        changes = [('HostConfig', 'NetworkMode', 'host'), ('HostConfig', 'NetworkMode', 'bridge'),
+                   ('HostConfig', 'NetworkMode', 'container:' + 'a' * 64),
+                   ('HostConfig', 'NetworkMode', 'container:' + self.pg_id[:12]),
+                   ('HostConfig', 'PublishAllPorts', True),
+                   ('HostConfig', 'PortBindings', {'19443/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '19443'}]}),
+                   ('NetworkSettings', 'Ports', {'19443/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '19443'}]}),
+                   ('NetworkSettings', 'Networks', {'bridge': {'IPAddress': '172.17.0.2'}})]
+        for group, key, value in changes:
+            proof = copy.deepcopy(self.proof)
+            proof.setdefault(group, {})[key] = value
+            with self.subTest(group=group, key=key, value=value), self.assertRaises(runtime.ContainerError):
+                runtime.verify_configuration(self.state, self.record, proof)
+
+    def test_live_pg_rejects_foreign_namespace_image_labels_and_mounts_before_build(self):
+        changes = [('Id', 'a' * 64), ('Image', 'sha256:' + 'a' * 64), ('Name', '/vec-foreign'),
+                   ('Config.Image', 'postgres:18.4'), ('HostConfig.NetworkMode', 'host'),
+                   ('HostConfig.NetworkMode', 'bridge'), ('State.Running', False),
+                   ('State.Paused', True), ('HostConfig.PublishAllPorts', True),
+                   ('HostConfig.PortBindings', {'5432/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '55531'}]}),
+                   ('NetworkSettings.Ports', {'5432/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '55531'}]}),
+                   ('NetworkSettings.Networks', {'none': {}, 'bridge': {}}),
+                   ('NetworkSettings.Networks', {'none': {'IPAddress': '172.17.0.2'}}),
+                   ('Config.Labels.vec.recorridos.owner', 'foreign'),
+                   ('Config.Labels.vec.recorridos.state', '/foreign'),
+                   ('Mounts', []),
+                   ('Mounts', self.pg_live['Mounts'] + [{'Type': 'bind', 'Source': '/foreign', 'Destination': '/foreign', 'RW': False}])]
+        original = self.pg_live
+        for field, value in changes:
+            self.pg_live = copy.deepcopy(original)
+            parts = field.split('.', 2) if field.startswith('Config.Labels.') else field.split('.')
+            target = self.pg_live
+            for part in parts[:-1]:
+                target = target[part]
+            target[parts[-1]] = value
+            with self.subTest(field=field, value=value), \
+                    patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
+                    patch.object(runtime, 'build_image') as build, patch.object(runtime, 'docker') as docker:
+                with self.assertRaises(runtime.ContainerError):
+                    self.start_runtime()
+                build.assert_not_called()
+                docker.assert_not_called()
+        self.pg_live = original
+
+    def test_pg_volume_inode_and_material_approval_must_match(self):
+        for field, value in [('pg_container_id', self.pg_id[:12]), ('puerto_pg', 55531),
+                             ('puerto_web', 19444), ('commit', 'b' * 40), ('estado', '/foreign')]:
+            proof = dict(self.pg_proof, **{field: value})
+            with self.subTest(field=field), self.assertRaises(runtime.ContainerError):
+                runtime.approved_pg(self.state, self.pg_id, proof, self.commit, 19443)
+        pg = copy.deepcopy(self.record['pg'])
+        pg['volume']['ino'] += 1
+        with patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), self.assertRaises(runtime.ContainerError):
+            runtime.verify_pg(self.state, pg)
+
+    def test_legacy_pg_port_and_host_smtp_fail_without_docker_effects(self):
+        with patch.object(runtime, 'build_image') as build, patch.object(runtime, 'docker') as docker:
+            with self.assertRaises(runtime.ContainerError):
+                runtime.start(self.state, self.source, self.binary, self.environment, self.manifest,
+                              self.projection, 19443, 55531, **self.start_keywords())
+            self.environment['VEC_SMTP_HOST'] = '127.0.0.1'
+            with self.assertRaises(runtime.ContainerError):
+                self.start_runtime()
+        build.assert_not_called()
+        docker.assert_not_called()
+
+    def test_relay_hash_static_file_mode_and_readonly_mount_are_required(self):
+        self.relay.write_bytes(self.elf + b'changed')
+        with self.assertRaises(runtime.ContainerError):
+            self.validate()
+        self.relay.write_bytes(self.elf)
+        self.relay.chmod(0o755)
+        with self.assertRaises(runtime.ContainerError):
+            self.validate()
+        self.relay.chmod(0o700)
+        dynamic = self.elf + bytearray(56)
+        struct.pack_into('<HH', dynamic, 54, 56, 1)
+        struct.pack_into('<I', dynamic, 64, 3)
+        self.relay.write_bytes(dynamic)
+        self.relay_sha = runtime.sha(self.relay)
+        with self.assertRaises(runtime.ContainerError):
+            self.validate()
+        for field, value in [('RW', True), ('Destination', '/opt/vec/other_relay')]:
+            proof = copy.deepcopy(self.proof)
+            mount = next(m for m in proof['Mounts'] if m['Destination'] == runtime.RELAY_TARGET)
+            mount[field] = value
+            with self.subTest(field=field), self.assertRaises(runtime.ContainerError):
+                runtime.verify_configuration(self.state, self.record, proof)
+
+    def test_pg_changes_after_create_prevent_first_app_instruction(self):
+        calls = []
+        with patch.object(runtime, 'build_image', return_value=self.image_id), \
+                patch.object(runtime.secrets, 'token_hex', return_value='d' * 32), \
+                patch.object(runtime, 'docker', side_effect=self.fake_start_docker(calls)), \
+                patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
+                patch.object(runtime, 'verify_pg', side_effect=[None, runtime.ContainerError('changed')]), \
+                patch.object(runtime, '_remove_started') as cleanup:
+            with self.assertRaises(runtime.ContainerError):
+                self.start_runtime()
+        self.assertEqual(calls[0][0], 'create')
+        self.assertNotIn('start', [call[0] for call in calls])
+        cleanup.assert_called_once()
+
+    def test_owned_app_cleanup_remains_possible_after_pg_or_relay_disappears(self):
+        self.relay.unlink()
+        runtime.private_json(self.state / 'runtime-container.json', self.record)
+        with patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
+                patch.object(runtime, 'verify_pg') as pg, \
+                patch.object(runtime, '_terminate') as terminate, patch.object(runtime, 'docker'):
+            self.assertTrue(runtime.stop(self.state))
+        pg.assert_not_called()
+        terminate.assert_called_once_with(self.state, self.record)
 
     def test_publication_failure_cleans_only_newly_created_own_id(self):
         calls = []
@@ -388,7 +549,7 @@ class ContainerBoundaryTests(unittest.TestCase):
         with patch.object(runtime, 'build_image', return_value=self.image_id), \
                 patch.object(runtime.secrets, 'token_hex', return_value='d' * 32), \
                 patch.object(runtime, 'docker', side_effect=self.fake_start_docker(calls)), \
-                patch.object(runtime, 'inspect', return_value=self.proof), \
+                patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                 patch.object(runtime, 'process_identity', return_value=self.identity), \
                 patch.object(runtime, '_terminate') as terminate, \
                 patch.object(runtime, 'private_json', side_effect=fail_publication):
@@ -436,7 +597,7 @@ class ContainerBoundaryTests(unittest.TestCase):
     def test_owned_process_can_stop_after_material_or_source_changed(self):
         (self.source / 'source.go').write_text('changed after startup')
         (self.root / 'material/server.key').write_text('changed after startup')
-        with patch.object(runtime, 'inspect', return_value=self.proof), \
+        with patch.object(runtime, 'inspect', side_effect=self.inspect_fixture), \
                 patch.object(runtime, 'process_identity', return_value=self.identity):
             self.assertEqual(runtime.verify_ownership(self.state, self.record), self.record)
             with self.assertRaises(runtime.ContainerError):
