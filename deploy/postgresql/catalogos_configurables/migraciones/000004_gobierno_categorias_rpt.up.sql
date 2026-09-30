@@ -241,6 +241,14 @@ BEGIN
   IF (d->>'version')::integer IS DISTINCT FROM (SELECT coalesce(max(version),0)+1 FROM vec_catalogos_configurables.publicacion WHERE catalogo_id=d->>'catalogo_id') THEN
    RAISE EXCEPTION 'Cat4: version de publicacion obsoleta' USING ERRCODE='40001';
   END IF;
+  IF (d->>'version')::integer>1 THEN
+   SELECT (documento_canonico::jsonb)->>'modulo_id' INTO modulo_real
+    FROM vec_catalogos_configurables.publicacion
+    WHERE catalogo_id=d->>'catalogo_id' AND version=(d->>'version')::integer-1;
+   IF NOT FOUND OR modulo_real IS DISTINCT FROM d->>'modulo_id' THEN
+    RAISE EXCEPTION 'Cat4: modulo ajeno a publicacion anterior' USING ERRCODE='42501';
+   END IF;
+  END IF;
   PERFORM vec_catalogos_configurables.publicar(d->>'catalogo_id',(d->>'version')::integer,d->>'documento_huella_sha256',d->>'documento_canonico',d->'preimagenes_control',d->>'preimagenes_huella_sha256',a,b,p_actor,p_decision,p_recibo,p_motivo);
   revision_final:=(d->>'version')::bigint;
  ELSE

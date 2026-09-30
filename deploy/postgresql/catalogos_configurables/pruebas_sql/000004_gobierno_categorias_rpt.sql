@@ -81,7 +81,71 @@ BEGIN
  PERFORM vec_catalogos_configurables.terminar_uso('personal','uso:gobierno:anterior','recibo:reserva','confirmado','actor:a','decision:terminal','recibo:terminal',motivo);
  IF vec_catalogos_configurables.consultar_uso('personal','uso:gobierno:anterior','recibo:reserva')#>>'{datos,estado}'<>'confirmado' THEN RAISE EXCEPTION 'terminal anterior cerrado'; END IF;
 END $prueba$;
+-- Publicar una versión posterior conserva el módulo del catálogo anterior.
+-- La denegación debe proceder de Cat4 antes de invocar el core Cat1 reforzado.
+DO $modulo_version$
+DECLARE
+ motivo text:='motivos_rpt:1:prueba_gobierno';
+ doc1 text:='{"id":"rpt-modulo-gobierno","modulo_id":"bolsa","version":1,"estado":"publicado","fuente_ref":"fuente:rpt:sintetica","creado_por":"actor:editor","publicado_por":"actor:publicador","entradas":[{"clave":"cat-modulo-gobierno","etiqueta":"Categoria sintetica"}]}';
+ doc2 text; h1 text; h2 text; contenido jsonb; contenido_h text; pre jsonb;
+ previo jsonb; aprobada jsonb; resultado jsonb;
+BEGIN
+ h1:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc1,'UTF8')),'hex');
+ contenido:=pg_catalog.jsonb_build_object('accion','publicar','catalogo_id','rpt-modulo-gobierno','modulo_id','bolsa','version',1,'documento_canonico',doc1,'documento_huella_sha256',h1,'preimagenes_control','{}'::jsonb,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex'),'categoria_id',NULL,'revision_esperada',NULL,'motivo_ref',motivo,'fuente_ref','fuente:rpt:sintetica');
+ contenido_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:modulo:v1',contenido,contenido_h,'actor:editor','decision:modulo:v1','recibo:modulo:v1',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v1',contenido_h,1,'actor:editor','decision:modulo:v1:a','audit:modulo:v1:a',repeat('1',64),'recibo:modulo:v1:a',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v1',contenido_h,2,'actor:publicador','decision:modulo:v1:b','audit:modulo:v1:b',repeat('2',64),'recibo:modulo:v1:b',motivo);
+ PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:v1',contenido_h,3,'actor:publicador','decision:modulo:v1:c','audit:modulo:v1:c','recibo:modulo:v1:c',motivo);
+ previo:=vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',1,h1,'cat-modulo-gobierno');
+ pre:=pg_catalog.jsonb_build_object('cat-modulo-gobierno',pg_catalog.jsonb_build_object('version',1,'huella_sha256',h1,'revision',1,'estado','habilitada'));
+ doc2:=pg_catalog.replace(pg_catalog.replace(doc1,'"version":1','"version":2'),'"modulo_id":"bolsa"','"modulo_id":"personal"');
+ h2:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex');
+ contenido:=contenido||pg_catalog.jsonb_build_object('version',2,'modulo_id','personal','documento_canonico',doc2,'documento_huella_sha256',h2,'preimagenes_control',pre,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex'));
+ contenido_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido,contenido_h,'actor:editor','decision:modulo:ajeno:v2','recibo:modulo:ajeno:v2',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido_h,1,'actor:editor','decision:modulo:ajeno:v2:a','audit:modulo:ajeno:v2:a',repeat('3',64),'recibo:modulo:ajeno:v2:a',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido_h,2,'actor:publicador','decision:modulo:ajeno:v2:b','audit:modulo:ajeno:v2:b',repeat('4',64),'recibo:modulo:ajeno:v2:b',motivo);
+ aprobada:=vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:modulo:ajeno:v2',contenido_h);
+ BEGIN
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido_h,3,'actor:publicador','decision:modulo:ajeno:v2:c','audit:modulo:ajeno:v2:c','recibo:modulo:ajeno:v2:c',motivo);
+  RAISE EXCEPTION 'publicacion v2 cambio el modulo';
+ EXCEPTION WHEN SQLSTATE '42501' THEN
+  IF SQLERRM<>'Cat4: modulo ajeno a publicacion anterior' THEN
+   RAISE EXCEPTION 'denegacion no procede de guardia Cat4: %',SQLERRM;
+  END IF;
+ END;
+ IF vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',1,h1,'cat-modulo-gobierno') IS DISTINCT FROM previo
+ OR vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',2,h2,'cat-modulo-gobierno')->>'encontrado'<>'false'
+ OR vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:modulo:ajeno:v2',contenido_h) IS DISTINCT FROM aprobada THEN
+  RAISE EXCEPTION 'publicacion v2 ajena dejo efectos';
+ END IF;
+ doc2:=pg_catalog.replace(doc1,'"version":1','"version":2');
+ h2:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex');
+ contenido:=contenido||pg_catalog.jsonb_build_object('modulo_id','bolsa','documento_canonico',doc2,'documento_huella_sha256',h2);
+ contenido_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:modulo:v2',contenido,contenido_h,'actor:editor','decision:modulo:v2','recibo:modulo:v2',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,1,'actor:editor','decision:modulo:v2:a','audit:modulo:v2:a',repeat('5',64),'recibo:modulo:v2:a',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,2,'actor:publicador','decision:modulo:v2:b','audit:modulo:v2:b',repeat('6',64),'recibo:modulo:v2:b',motivo);
+ resultado:=vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,3,'actor:publicador','decision:modulo:v2:c','audit:modulo:v2:c','recibo:modulo:v2:c',motivo);
+ IF resultado->>'version'<>'2' OR resultado->>'estado'<>'confirmada'
+ OR vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',2,h2,'cat-modulo-gobierno')#>>'{datos,control_actual,version}'<>'2'
+ OR vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,3,'actor:publicador','decision:modulo:v2:replay','audit:modulo:v2:replay','recibo:modulo:v2:c',motivo) IS DISTINCT FROM resultado THEN
+  RAISE EXCEPTION 'publicacion v2 mismo modulo o replay incorrectos';
+ END IF;
+END $modulo_version$;
 RESET ROLE;
+DO $modulo_historia$
+BEGIN
+ IF EXISTS(SELECT 1 FROM vec_catalogos_configurables.confirmacion_gobierno WHERE propuesta_ref='propuesta:modulo:ajeno:v2')
+ OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.historia WHERE recibo_ref='recibo:modulo:ajeno:v2:c')
+ OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.outbox_gobierno WHERE recibo_ref='recibo:modulo:ajeno:v2:c')
+ OR (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-modulo-gobierno')<>2
+ OR (SELECT count(*) FROM vec_catalogos_configurables.historia WHERE categoria_id='cat-modulo-gobierno')<>2
+ OR (SELECT count(*) FROM vec_catalogos_configurables.outbox_gobierno WHERE propuesta_ref LIKE 'propuesta:modulo:%')<>11 THEN
+  RAISE EXCEPTION 'publicacion v2 dejo efectos parciales o duplicados';
+ END IF;
+END $modulo_historia$;
 DO $historia$
 BEGIN
  IF (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-gobierno-demo')<>1
