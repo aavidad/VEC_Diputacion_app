@@ -316,6 +316,7 @@ func cargarMontajeIncorporacionPersonalB2(ctx context.Context, raiz *os.Root, c 
 	if e != nil {
 		return nil, e
 	}
+	autoridad.preparadorUsosRPT = gestorRPT
 	emisorBolsa, e := autoridad.emisorMaterial(bp.AccionConsultaPersonaAceptacionCT)
 	if e != nil {
 		return nil, e

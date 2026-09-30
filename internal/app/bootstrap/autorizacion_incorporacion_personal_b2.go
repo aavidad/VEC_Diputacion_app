@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -141,6 +142,7 @@ type autoridadIncorporacionPersonalB2 struct {
 	material                   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	organismoRef               string
 	rptPool                    *pgxpool.Pool
+	preparadorUsosRPT          vp.PreparadorUsosCategoriaRPT
 	catalogoRPTID, moduloRPTID string
 	reloj                      ct.Reloj
 }
@@ -436,49 +438,73 @@ func (a *autoridadIncorporacionPersonalB2) emisorMaterial(accion string) (*confi
 	return confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(a, a.material.atestador, a.material.confianza, op.emisor)
 }
 
-func (a *autoridadIncorporacionPersonalB2) materialUsoRPT(ctx context.Context, accion string, plan personal.PlanIncorporacionCT, terminal *vp.MaterialTerminalUsoCategoriaRPT) (core.SolicitudAutorizacionLigadaV3, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+// La lectura del uso tiene su propio contrato; las mutaciones emplean el
+// material preparado por el gestor RPT que después consumirá la autorización.
+func (a *autoridadIncorporacionPersonalB2) materialConsultaUsoRPT(ctx context.Context, plan personal.PlanIncorporacionCT) (core.SolicitudAutorizacionLigadaV3, vp.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	var cero vp.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	if a == nil || plan.Validar() != nil || plan.Datos.CatalogoRPTID != a.catalogoRPTID || plan.Datos.CatalogoRPTModulo != a.moduloRPTID {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, ct.ErrAutorizacionDenegada
 	}
 	d := plan.Datos
 	m := map[string]any{"catalogo_id": d.CatalogoRPTID, "modulo_id": d.CatalogoRPTModulo, "consumidor": "personal", "uso_ref": plan.UsoRPTRef, "reserva_recibo_ref": plan.ReservaRPTRef}
-	if accion != "vec.catalogos.categorias.consultar_uso" {
-		m["categoria_id"] = d.CatalogoRPTCategoria
-		m["version"] = d.CatalogoRPTVersion
-		m["huella_sha256"] = d.CatalogoRPTHuellaSHA256
-	}
-	if terminal != nil {
-		m["terminal_recibo_ref"] = terminal.TerminalReciboRef
-		m["evidencia_ref"] = terminal.EvidenciaRef
-		m["evidencia_sha256"] = terminal.EvidenciaSHA256
-	}
 	b, e := json.Marshal(m)
 	if e != nil {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, e
 	}
 	defer clear(b)
 	var sha string
-	// Sólo serialización de material: la lectura/efecto propietarios consumen V3.
+	// La lectura usa la huella de su consulta propia, independiente del efecto.
 	if e = a.rptPool.QueryRow(ctx, "SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to($1::jsonb::text,'UTF8')),'hex')", string(b)).Scan(&sha); e != nil {
 		return core.SolicitudAutorizacionLigadaV3{}, cero, errors.Join(ct.ErrConsultaRRHHNoDisponible, e)
 	}
 	r := core.RecursoAutorizable{Referencia: plan.UsoRPTRef, ModuloID: a.moduloRPTID, Tipo: "uso_categoria", Ambitos: map[string]string{"catalogo_id": a.catalogoRPTID, "modulo_id": a.moduloRPTID, "consumidor": "personal"}, Atributos: map[string]string{"material_sha256": sha}}
-	return a.emitirRecurso(ctx, accion, r)
+	return a.emitirRecurso(ctx, "vec.catalogos.categorias.consultar_uso", r)
 }
 func (a *autoridadIncorporacionPersonalB2) AutorizarReservaPlanB2(ctx context.Context, p pp.PlanIncorporacionCT, m vp.MaterialReservaUsoCategoriaRPT) (vp.OrdenReservaUsoCategoriaRPT, error) {
-	if !materialReservaCorrespondePlanB2(p, m) {
+	if a == nil || a.preparadorUsosRPT == nil || !materialReservaCorrespondePlanB2(p, m) {
 		return vp.OrdenReservaUsoCategoriaRPT{}, ct.ErrAutorizacionDenegada
 	}
-	s, x, e := a.materialUsoRPT(ctx, "vec.catalogos.categorias.reservar_uso", p, nil)
+	preparada, e := a.preparadorUsosRPT.PrepararReservaUsoCategoriaRPT(ctx, m)
+	if e != nil {
+		return vp.OrdenReservaUsoCategoriaRPT{}, e
+	}
+	const accion = "vec.catalogos.categorias.reservar_uso"
+	if !a.preparacionUsoRPTValida(accion, m.UsoRef, preparada) {
+		return vp.OrdenReservaUsoCategoriaRPT{}, ct.ErrAutorizacionDenegada
+	}
+	s, x, e := a.emitirRecurso(ctx, accion, preparada.Recurso)
 	return vp.OrdenReservaUsoCategoriaRPT{Material: m, Solicitud: s, Autorizacion: x}, e
 }
 func (a *autoridadIncorporacionPersonalB2) AutorizarConfirmacionPlanB2(ctx context.Context, p pp.PlanIncorporacionCT, m vp.MaterialTerminalUsoCategoriaRPT) (vp.OrdenConfirmacionUsoCategoriaRPT, error) {
-	if !materialReservaCorrespondePlanB2(p, m.Reserva) || m.TerminalReciboRef != p.ConfirmacionRPTRef {
+	if a == nil || a.preparadorUsosRPT == nil || !materialReservaCorrespondePlanB2(p, m.Reserva) || m.TerminalReciboRef != p.ConfirmacionRPTRef {
 		return vp.OrdenConfirmacionUsoCategoriaRPT{}, ct.ErrAutorizacionDenegada
 	}
-	s, x, e := a.materialUsoRPT(ctx, "vec.catalogos.categorias.confirmar_uso", p, &m)
+	preparada, e := a.preparadorUsosRPT.PrepararConfirmacionUsoCategoriaRPT(ctx, m)
+	if e != nil {
+		return vp.OrdenConfirmacionUsoCategoriaRPT{}, e
+	}
+	const accion = "vec.catalogos.categorias.confirmar_uso"
+	if !a.preparacionUsoRPTValida(accion, m.Reserva.UsoRef, preparada) {
+		return vp.OrdenConfirmacionUsoCategoriaRPT{}, ct.ErrAutorizacionDenegada
+	}
+	s, x, e := a.emitirRecurso(ctx, accion, preparada.Recurso)
 	return vp.OrdenConfirmacionUsoCategoriaRPT{Material: m, Solicitud: s, Autorizacion: x}, e
+}
+func (a *autoridadIncorporacionPersonalB2) preparacionUsoRPTValida(accion, usoRef string, p vp.PreparacionAutorizacionUsoCategoriaRPT) bool {
+	if a == nil {
+		return false
+	}
+	op, ok := a.operaciones[accion]
+	r := p.Recurso
+	huella := r.Atributos["material_sha256"]
+	bytes, err := hex.DecodeString(huella)
+	return ok && op.descriptor.accion == accion && p.Accion == accion &&
+		p.Finalidad == op.descriptor.finalidad && p.AudienciaConsumo == op.descriptor.audiencia &&
+		r.Referencia == usoRef && r.ModuloID == a.moduloRPTID && r.Tipo == op.descriptor.tipo &&
+		len(r.Ambitos) == 3 && r.Ambitos["catalogo_id"] == a.catalogoRPTID &&
+		r.Ambitos["modulo_id"] == a.moduloRPTID && r.Ambitos["consumidor"] == "personal" &&
+		len(r.Atributos) == 1 && len(huella) == 64 && err == nil && len(bytes) == 32 && hex.EncodeToString(bytes) == huella &&
+		r.Validar() == nil
 }
 func materialReservaCorrespondePlanB2(p pp.PlanIncorporacionCT, m vp.MaterialReservaUsoCategoriaRPT) bool {
 	return p.Validar() == nil && m.Consumidor == "personal" && m.UsoRef == p.UsoRPTRef && m.CategoriaID == p.Datos.CatalogoRPTCategoria && m.ReservaReciboRef == p.ReservaRPTRef && m.Publicacion == (vp.ReferenciaPublicacionRPT{CatalogoID: p.Datos.CatalogoRPTID, Version: int(p.Datos.CatalogoRPTVersion), HuellaSHA256: p.Datos.CatalogoRPTHuellaSHA256})

@@ -185,7 +185,7 @@ func (f *fuentesIncorporacionPersonalB2) LeerAntecedenteCT124(ctx context.Contex
 	return inc.AntecedenteCT124{OrganizacionRef: c.OrganizacionRef, ExpedienteRef: c.ExpedienteRef, AceptacionRef: a.AceptacionRef, LlamamientoRef: a.Bolsa.LlamamientoRef, VersionExpediente: c.VersionExpediente, ReciboRef: a.AceptacionReciboRef}, nil
 }
 func (f *fuentesIncorporacionPersonalB2) leerUsoRPT(ctx context.Context, p pp.PlanIncorporacionCT) (vp.ResultadoUsoCategoriaRPT, error) {
-	s, x, e := f.autoridad.materialUsoRPT(ctx, "vec.catalogos.categorias.consultar_uso", p, nil)
+	s, x, e := f.autoridad.materialConsultaUsoRPT(ctx, p)
 	if e != nil {
 		return vp.ResultadoUsoCategoriaRPT{}, e
 	}

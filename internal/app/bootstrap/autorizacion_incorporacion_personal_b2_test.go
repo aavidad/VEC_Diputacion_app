@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -12,7 +13,98 @@ import (
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vp "vec-diputacion-granada/internal/vec/ports"
 )
+
+type preparadorUsosB2Prueba struct{ llamadas int }
+
+func (p *preparadorUsosB2Prueba) PrepararReservaUsoCategoriaRPT(context.Context, vp.MaterialReservaUsoCategoriaRPT) (vp.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	p.llamadas++
+	return vp.PreparacionAutorizacionUsoCategoriaRPT{}, nil
+}
+func (p *preparadorUsosB2Prueba) PrepararConfirmacionUsoCategoriaRPT(context.Context, vp.MaterialTerminalUsoCategoriaRPT) (vp.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	p.llamadas++
+	return vp.PreparacionAutorizacionUsoCategoriaRPT{}, nil
+}
+func (p *preparadorUsosB2Prueba) PrepararCancelacionUsoCategoriaRPT(context.Context, vp.MaterialTerminalUsoCategoriaRPT) (vp.PreparacionAutorizacionUsoCategoriaRPT, error) {
+	p.llamadas++
+	return vp.PreparacionAutorizacionUsoCategoriaRPT{}, nil
+}
+
+func TestIncorporacionB2MaterialAjenoNoPreparaNiEmiteV3(t *testing.T) {
+	preparador := &preparadorUsosB2Prueba{}
+	a := &autoridadIncorporacionPersonalB2{preparadorUsosRPT: preparador}
+	material := vp.MaterialReservaUsoCategoriaRPT{Consumidor: "bolsa", UsoRef: "uso:ajeno"}
+	if _, err := a.AutorizarReservaPlanB2(t.Context(), personal.PlanIncorporacionCT{}, material); !errors.Is(err, ct.ErrAutorizacionDenegada) {
+		t.Fatalf("reserva ajena no denegada: %v", err)
+	}
+	if _, err := a.AutorizarConfirmacionPlanB2(t.Context(), personal.PlanIncorporacionCT{}, vp.MaterialTerminalUsoCategoriaRPT{Reserva: material}); !errors.Is(err, ct.ErrAutorizacionDenegada) {
+		t.Fatalf("confirmación ajena no denegada: %v", err)
+	}
+	if preparador.llamadas != 0 {
+		t.Fatalf("material ajeno alcanzó preparador RPT: %d", preparador.llamadas)
+	}
+}
+
+func TestIncorporacionB2SoloEmiteParaPreparacionRPTExacta(t *testing.T) {
+	const usoRef = "uso:incorporacion:prueba"
+	const accion = "vec.catalogos.categorias.reservar_uso"
+	d, ok := descriptorIncorporacionB2(accion)
+	if !ok {
+		t.Fatal("falta la operación de reserva RPT")
+	}
+	a := &autoridadIncorporacionPersonalB2{
+		operaciones:   map[string]operacionAutorizadaIncorporacionB2{accion: {descriptor: d}},
+		catalogoRPTID: "categorias_rpt", moduloRPTID: "personal",
+	}
+	base := vp.PreparacionAutorizacionUsoCategoriaRPT{
+		Accion: accion, Finalidad: d.finalidad, AudienciaConsumo: d.audiencia,
+		Recurso: core.RecursoAutorizable{
+			Referencia: usoRef, ModuloID: "personal", Tipo: "uso_categoria",
+			Ambitos:   map[string]string{"catalogo_id": "categorias_rpt", "modulo_id": "personal", "consumidor": "personal"},
+			Atributos: map[string]string{"material_sha256": strings.Repeat("a", 64)},
+		},
+	}
+	if !a.preparacionUsoRPTValida(accion, usoRef, base) {
+		t.Fatal("la preparación exacta fue denegada")
+	}
+	casos := map[string]func(*vp.PreparacionAutorizacionUsoCategoriaRPT){
+		"accion": func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) {
+			p.Accion = "vec.catalogos.categorias.confirmar_uso"
+		},
+		"finalidad": func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Finalidad = "consultar_categorias_rpt" },
+		"audiencia": func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) {
+			p.AudienciaConsumo = "vec_catalogos_configurables.lectura_categorias.v1"
+		},
+		"uso":          func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.Referencia = "uso:ajeno" },
+		"modulo":       func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.ModuloID = "bolsa" },
+		"tipo":         func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.Tipo = "categoria" },
+		"catalogo":     func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.Ambitos["catalogo_id"] = "otro" },
+		"consumidor":   func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.Ambitos["consumidor"] = "bolsa" },
+		"ambito_extra": func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.Ambitos["organismo_ref"] = "otro" },
+		"huella": func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) {
+			p.Recurso.Atributos["material_sha256"] = "invalida"
+		},
+		"atributo_extra": func(p *vp.PreparacionAutorizacionUsoCategoriaRPT) { p.Recurso.Atributos["otro"] = "dato" },
+	}
+	for nombre, alterar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			p := base
+			p.Recurso.Ambitos = map[string]string{}
+			for k, v := range base.Recurso.Ambitos {
+				p.Recurso.Ambitos[k] = v
+			}
+			p.Recurso.Atributos = map[string]string{}
+			for k, v := range base.Recurso.Atributos {
+				p.Recurso.Atributos[k] = v
+			}
+			alterar(&p)
+			if a.preparacionUsoRPTValida(accion, usoRef, p) {
+				t.Fatal("la preparación alterada alcanzaría emisión V3")
+			}
+		})
+	}
+}
 
 func TestIncorporacionB2PuraDetalleYTresFronterasNominales(t *testing.T) {
 	alta, consultas, _ := escenarioConsultasRRHHDesarrolloPrueba(t)
