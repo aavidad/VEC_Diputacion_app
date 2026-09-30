@@ -26,7 +26,7 @@ except ImportError:
 Refused = clon_sql.Refused
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 IDENTITY_FIELDS = {"system_identifier", "database_name", "database_oid",
-                   "pg_container_id", "pg_image", "pg_volume"}
+                   "pg_container_id", "pg_image", "pg_image_id", "pg_volume"}
 RESTORE_FIELDS = IDENTITY_FIELDS | {"version", "kind", "estado_h1_sha",
                                     "schema_sha", "roles_sha", "datacl_sha"}
 
@@ -63,18 +63,77 @@ def unique(pairs):
     return result
 
 
+def read_restore(request):
+    """Lee bytes y metadatos del mismo FD bajo directorios confiables retenidos."""
+    path = Path(request.restore_receipt).absolute()
+    if (not path.name or ".." in path.parts
+            or not isinstance(request.approved_restore_receipt_sha256, str)
+            or not HEX64.fullmatch(request.approved_restore_receipt_sha256)):
+        raise Refused("ruta o huella del recibo de restauración incompatible")
+    directories, snapshots = [], []
+    fd = None
+    try:
+        directories.append(os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW))
+        for position in range(len(path.parts) - 1):
+            current = directories[-1]
+            status = os.fstat(current)
+            if (not stat.S_ISDIR(status.st_mode) or status.st_uid not in {0, os.getuid()}
+                    or status.st_mode & 0o022):
+                raise Refused("ancestro del recibo no confiable")
+            try:
+                os.stat(".git", dir_fd=current, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise Refused("recibo de restauración debe permanecer fuera de Git")
+            snapshots.append(status)
+            if position < len(path.parts) - 2:
+                directories.append(os.open(path.parts[position + 1],
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=current))
+        parent = snapshots[-1]
+        if parent.st_uid != os.getuid() or stat.S_IMODE(parent.st_mode) != 0o700:
+            raise Refused("directorio del recibo requiere propietario actual y modo 0700")
+        fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                     dir_fd=directories[-1])
+        before = os.fstat(fd)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.getuid() or stat.S_IMODE(before.st_mode) != 0o600
+                or before.st_size > 16384):
+            raise Refused("recibo requiere fichero propio regular de modo 0600")
+        chunks, size = [], 0
+        while chunk := os.read(fd, 16385):
+            chunks.append(chunk)
+            size += len(chunk)
+            if size > 16384:
+                raise Refused("recibo de restauración excede límites")
+        data = b"".join(chunks)
+        after = os.fstat(fd)
+        stable = lambda s: (s.st_dev, s.st_ino, s.st_uid, s.st_mode, s.st_nlink,
+                            s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+        # También rechaza una sustitución del nombre mientras estaba abierto.
+        named = os.stat(path.name, dir_fd=directories[-1], follow_symlinks=False)
+        if (stable(before) != stable(after) or stable(after) != stable(named)
+                or size != before.st_size
+                or clon_sql.sha(data) != request.approved_restore_receipt_sha256):
+            raise Refused("recibo cambió durante lectura o difiere de la huella aprobada")
+        for directory, initial in zip(directories, snapshots, strict=True):
+            now = os.fstat(directory)
+            if ((initial.st_dev, initial.st_ino, initial.st_uid, initial.st_mode)
+                    != (now.st_dev, now.st_ino, now.st_uid, now.st_mode)):
+                raise Refused("ancestro cambió durante lectura del recibo")
+        return data
+    except OSError as error:
+        raise Refused("ruta del recibo de restauración inválida") from error
+    finally:
+        if fd is not None:
+            os.close(fd)
+        for directory in reversed(directories):
+            os.close(directory)
+
+
 def restore_receipt(request):
     """Lee sólo el sello propio fijado por la restauración del orquestador."""
-    path = clon_sql.validate_original_path(request.restore_receipt)
-    if any((parent / ".git").exists() for parent in path.parents):
-        raise Refused("recibo de restauración debe permanecer fuera de Git")
-    parent = path.parent.stat()
-    if parent.st_uid != os.getuid() or parent.st_mode & 0o077:
-        raise Refused("directorio del recibo no es privado propio")
-    data = clon_sql.approved_file(path, request.approved_restore_receipt_sha256, 16384)
-    status = path.lstat()
-    if status.st_uid != os.getuid() or stat.S_IMODE(status.st_mode) != 0o600:
-        raise Refused("recibo de restauración requiere propietario actual y modo 0600")
+    data = read_restore(request)
     try:
         value = json.loads(data, object_pairs_hook=unique)
         if not isinstance(value, dict) or set(value) != RESTORE_FIELDS or data != canonical(value):
@@ -86,6 +145,8 @@ def restore_receipt(request):
                 or type(value["database_oid"]) is not int or value["database_oid"] <= 0
                 or not isinstance(value["system_identifier"], str)
                 or not re.fullmatch(r"[1-9][0-9]{0,19}", value["system_identifier"])
+                or not isinstance(value["pg_image_id"], str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", value["pg_image_id"])
                 or value["pg_image"] != "postgres:18.4"):
             raise ValueError()
         for key in ("estado_h1_sha", "pg_container_id", "schema_sha", "roles_sha", "datacl_sha"):

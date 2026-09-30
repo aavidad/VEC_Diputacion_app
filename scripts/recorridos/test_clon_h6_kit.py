@@ -38,7 +38,11 @@ class PureReadOnly(kit.clon_sql.ReadOnlyDB):
 
 class KitGuards(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        scratch = Path(tempfile.gettempdir())
+        if scratch.stat().st_mode & 0o022:
+            runtime = Path(f"/run/user/{os.getuid()}")
+            scratch = runtime if runtime.is_dir() else Path.home()
+        self.directory = tempfile.TemporaryDirectory(dir=scratch)
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         os.chmod(self.root, 0o700)
@@ -46,6 +50,7 @@ class KitGuards(unittest.TestCase):
             "estado_h1_sha": "1" * 64, "system_identifier": "123456789",
             "database_oid": 5, "database_name": "postgres",
             "pg_container_id": "2" * 64, "pg_image": "postgres:18.4",
+            "pg_image_id": "sha256:" + "f" * 64,
             "pg_volume": "/dev/shm/vec-recorridos-pure",
             "schema_sha": "3" * 64, "roles_sha": "4" * 64, "datacl_sha": "5" * 64}
         self.path = self.root / "h1-restore.json"
@@ -101,7 +106,7 @@ class KitGuards(unittest.TestCase):
 
     def test_changed_live_identity_and_each_preimage_denied(self):
         self.validate()
-        for field in ("pg_container_id", "schema_sha", "roles_sha", "datacl_sha"):
+        for field in ("pg_container_id", "pg_image_id", "schema_sha", "roles_sha", "datacl_sha"):
             with self.subTest(field=field):
                 db = PureReadOnly({**self.receipt, field: "c" * 64})
                 with self.assertRaises(kit.Refused):
@@ -166,6 +171,41 @@ class KitGuards(unittest.TestCase):
         alias.symlink_to(self.path)
         with self.assertRaises(kit.Refused):
             kit.restore_receipt(replace(self.request, restore_receipt=alias))
+
+    def test_receipt_replacement_and_mode_change_during_fd_read_denied(self):
+        real_read = os.read
+        for operation in ("replace", "chmod"):
+            with self.subTest(operation=operation):
+                self.path.write_bytes(kit.canonical(self.receipt))
+                os.chmod(self.path, 0o600)
+                changed = False
+
+                def read_then_change(fd, limit):
+                    nonlocal changed
+                    data = real_read(fd, limit)
+                    if data and not changed:
+                        changed = True
+                        if operation == "replace":
+                            replacement = self.root / "replacement"
+                            replacement.write_bytes(data)
+                            os.chmod(replacement, 0o600)
+                            os.replace(replacement, self.path)
+                        else:
+                            os.chmod(self.path, 0o644)
+                    return data
+
+                with patch.object(kit.os, "read", side_effect=read_then_change):
+                    with self.assertRaises(kit.Refused):
+                        kit.restore_receipt(self.request)
+                self.assertTrue(changed)
+
+    def test_untrusted_ancestor_rejected_before_receipt_bytes_read(self):
+        os.chmod(self.root, 0o770)
+        self.addCleanup(os.chmod, self.root, 0o700)
+        with patch.object(kit.os, "read") as read:
+            with self.assertRaisesRegex(kit.Refused, "ancestro"):
+                kit.restore_receipt(self.request)
+            read.assert_not_called()
 
     def test_final_requires_complete_journal_and_original_ad132_request(self):
         self.validate()
