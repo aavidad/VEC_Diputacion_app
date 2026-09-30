@@ -67,7 +67,7 @@
           "inicio": {
             "cuadro": "Dashboard",
             "peticiones": "Temporary staff requests",
-            "bolsas": "Job pools"
+            "bolsas": "Employment pools"
           }
         }
       }
@@ -131,7 +131,7 @@
         "inicio": {
           "cuadro": "Dashboard",
           "peticiones": "Temporary staff requests",
-          "bolsas": "Job pools"
+          "bolsas": "Employment pools"
         }
       },
       "error": {
@@ -155,6 +155,9 @@
         "contrasteActivo": "High contrast turned on for this session.",
         "contrasteInactivo": "High contrast turned off for this session."
       }
+    },
+    "usuarios": {
+      "rolPropio": "My details and preferences"
     }
   },
   "correos": {

@@ -124,6 +124,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialUsuariosPreferenciasActualizacionExterna *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialUsuariosCorreos                          proveedoresMaterialCorreosUsuarios
 	materialUsuariosImagen                           proveedoresMaterialImagenUsuarios
+	materialAspirantes                               proveedoresMaterialAspirantes
 	materialPersonalB2                               [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                                func()
 	detenerEntregaContratos                          func()
@@ -442,6 +443,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	descriptoresMaterial = append(descriptoresMaterial, descriptoresImagen...)
+	etapa = "preflight_sql_aspirantes"
+	aspirantesActivo, descriptoresAspirantes, err := seleccionAspirantesDesarrollo(cfg, usuariosPreferenciasActivas)
+	if err != nil {
+		return vacias, err
+	}
+	descriptoresMaterial = append(descriptoresMaterial, descriptoresAspirantes...)
 	auditoriaActiva, err := selectorCapacidadRRHHDesarrollo(cfg, envRRHHAuditoriaEnabled)
 	if err != nil {
 		return vacias, err
@@ -475,6 +482,11 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if etapa = "material_usuarios_imagen"; usuariosImagenActiva {
 		if dependencias.materialUsuariosImagen, err = publicarMaterialImagenUsuariosEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
+			return vacias, err
+		}
+	}
+	if etapa = "material_aspirantes"; aspirantesActivo {
+		if dependencias.materialAspirantes, err = publicarMaterialAspirantesEnLote(ctx, gobierno, material, reloj, catalogoMaterial); err != nil {
 			return vacias, err
 		}
 	}

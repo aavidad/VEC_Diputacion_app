@@ -1,4 +1,4 @@
-import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v2";
+import { IDIOMA_DATOS_REGLAS, IDIOMA_REGLAS, MENSAJES_REGLAS, crearTraductorReglas, existeClaveReglas, formatearNumero, minusculas } from "./i18n.js?v=20260930-reglas-detalle-v3";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";
@@ -134,7 +134,7 @@ function filaRegla(r, modulo, abiertas) {
   const id = idRegla(modulo, r.clave);
   const abierta = abiertas.has(id);
   return `<tr class="rg-fila rg-fila--${esc(r.origen)}${abierta ? " rg-fila--abierta" : ""}" data-regla="${id}">
-    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre"${LANG_DATOS}>${esc(r.etiqueta)}</span></button><br><small translate="no"><code>${esc(r.clave)}</code></small></th>
+    <th scope="row"><button type="button" class="rg-regla-abrir" aria-expanded="${abierta}" aria-controls="${id}"><span class="rg-regla-nombre"${LANG_DATOS}>${esc(r.etiqueta)}</span></button></th>
     <td class="rg-numero">${r.valor ? datos(valorRegla(r)) : esc(valorRegla(r))}</td>
     <td>${esc(etiquetaUnidad(r.unidad))}${computo}</td>
     <td><span class="rg-pastilla ${pastilla}">${esc(origenRegla(r))}</span>${parcial}</td>
@@ -160,7 +160,7 @@ export function renderizarCatalogo(c, abiertas = new Set()) {
   const id = `rg-cat-${idSeguro(c.modulo)}`;
   const pastilla = c.paquete_ejemplo ? `<span class="rg-pastilla rg-pastilla--ejemplo">${esc(t("paqueteEjemplo"))}</span>` : "";
   const meta = c.estado === "disponible" && c.version
-    ? `<p class="rg-meta">${esc(t("catalogoVersion", { catalogo: c.catalogo_id, version: formatearNumero(c.version) }))} · <span title="${esc(c.huella_sha256)}">${esc(t("catalogoHuella", { huella: String(c.huella_sha256 ?? "").slice(0, 12) }))}</span></p>`
+    ? `<p class="rg-meta">${esc(t("catalogoVersion", { version: formatearNumero(c.version) }))}</p>`
     : "";
   let cuerpo;
   if (c.estado !== "disponible") {
@@ -231,6 +231,15 @@ export async function iniciar(doc, cliente) {
     datos = await cliente.reglas();
   } catch (error) {
     avisar(mensajeError(error), true);
+    // Qué hacer ahora: el mismo botón que el aviso sin catálogo de textos.
+    const reintentar = doc.createElement?.("button");
+    if (reintentar) {
+      reintentar.type = "button";
+      reintentar.className = "rg-secundario";
+      reintentar.textContent = t("reintentar");
+      reintentar.addEventListener("click", () => doc.defaultView?.location?.reload());
+      $("rg-estado").append(" ", reintentar);
+    }
     return;
   }
   const modulos = [...new Set(datos.catalogos.map((c) => c.modulo))];

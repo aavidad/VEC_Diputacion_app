@@ -6,6 +6,7 @@ import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { tabla } from "./vistas/comunes.js";
 import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";
+import { catalogoPlano, lectorCatalogos } from "./textos-prueba.test-helper.mjs";
 
 test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", async () => {
   const [html, arranque, aplicacion, vista] = await Promise.all([
@@ -16,7 +17,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   ]);
   // Versiones publicadas antes del último cambio de la hoja y del montaje: la
   // caché immutable las conserva, así que el HTML debe pedir otra URL.
-  const versionCSSAreaAnterior = "20260925-aspecto-v1";
+  const versionCSSAreaAnterior = "20260930-b11-aviso-movil-v1";
   const versionPadreAnterior = "20260925-aspecto-v1";
   const versionHistorialAnterior = "20260926-integracion-bolsa-ct-v1";
   const versionCSSArea = html.match(/\/area-personal\/area-personal\.css\?v=([\w.-]+)"/)?.[1];
@@ -71,7 +72,7 @@ test("shell, Contacto y vistas comparten el catálogo cargado por la URL canóni
     "areaPersonal.estado.error.titulo": "Error del catálogo compartido",
     "areaPersonal.tabla.sinResultados": "Vacío del catálogo compartido",
   };
-  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async () => ({ ok: true, json: async () => entradas }));
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, { leer: lectorCatalogos(entradas), ubicacion: { href: "https://vec.example/area-personal/?lang=es" } });
   assert.equal(textoContactoPropio("titulo"), traducir("areaPersonal.contacto.titulo"));
   assert.equal(textoContactoPropio("titulo"), entradas["areaPersonal.contacto.titulo"]);
   assert.match(renderizarErrorCargaAreaPersonal(new Error("causa privada")), /Error del catálogo compartido/);

@@ -5,6 +5,9 @@
  * módulo evita que la navegación visual pueda saltarse requisitos previos y no
  * concede por sí mismo ninguna capacidad administrativa.
  */
+import { traducir } from "./i18n.js";
+
+const mensaje = (clave) => traducir(`areaPersonal.flujo.${clave}`);
 
 function marcado(valor) {
   return valor === true || valor === "true" || valor === "on";
@@ -19,7 +22,7 @@ function referencias(valor) {
 
 function exigirPaso(paso) {
   if (!Number.isInteger(paso) || paso < 1 || paso > 4) {
-    throw new TypeError("El paso de solicitud no es válido.");
+    throw new TypeError(mensaje("pasoNoValido"));
   }
 }
 
@@ -48,9 +51,9 @@ export function aplicarPasoSolicitud(progreso, paso, entrada = {}) {
 
   if (paso === 1) {
     const convocatoriaId = String(entrada.convocatoria || "").trim().slice(0, 100);
-    if (!convocatoriaId) throw new Error("Seleccione una convocatoria con plazo abierto.");
+    if (!convocatoriaId) throw new Error(mensaje("sinConvocatoria"));
     if (!marcado(entrada.requisitos_confirmados)) {
-      throw new Error("Debe confirmar que ha leído las bases y que cumple los requisitos declarados.");
+      throw new Error(mensaje("sinRequisitos"));
     }
     return Object.freeze({
       ...crearProgresoSolicitud(convocatoriaId),
@@ -59,26 +62,26 @@ export function aplicarPasoSolicitud(progreso, paso, entrada = {}) {
   }
 
   if (!siguiente.convocatoria_id || !siguiente.requisitos_confirmados) {
-    throw new Error("Complete primero la convocatoria y la declaración de requisitos.");
+    throw new Error(mensaje("completarPaso1"));
   }
   if (paso === 2) {
     if (!marcado(entrada.datos_confirmados)) {
-      throw new Error("Debe confirmar que sus datos personales y de contacto son correctos.");
+      throw new Error(mensaje("sinDatos"));
     }
     siguiente.datos_confirmados = true;
   }
   if (paso >= 3 && !siguiente.datos_confirmados) {
-    throw new Error("Confirme sus datos antes de seleccionar méritos.");
+    throw new Error(mensaje("completarPaso2"));
   }
   if (paso === 3) {
     siguiente.meritos_ids = referencias(entrada.meritos);
     if (siguiente.meritos_ids.length === 0) {
-      throw new Error("Seleccione al menos un mérito para continuar.");
+      throw new Error(mensaje("sinMeritos"));
     }
   }
   if (paso === 4) {
     if (siguiente.meritos_ids.length === 0) {
-      throw new Error("Seleccione al menos un mérito antes de revisar la autobaremación.");
+      throw new Error(mensaje("sinMeritosAutobaremo"));
     }
     siguiente.autobaremo_revisado = true;
   }
@@ -91,7 +94,7 @@ export function crearPayloadBorrador(progreso, solicitudId = "") {
   if (!actual.convocatoria_id || actual.requisitos_confirmados !== true
     || actual.datos_confirmados !== true || referencias(actual.meritos_ids).length === 0
     || actual.autobaremo_revisado !== true) {
-    throw new Error("El borrador no reúne convocatoria, requisitos, datos, méritos y autobaremación revisada.");
+    throw new Error(mensaje("borradorIncompleto"));
   }
   return Object.freeze({
     id: String(solicitudId || "").slice(0, 100),

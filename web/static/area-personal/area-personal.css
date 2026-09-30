@@ -290,9 +290,13 @@ fieldset { min-width: 0; margin: 0; padding: 12px 16px; border: 1px solid var(--
 .fecha-bloque small { font-size: .75rem; font-weight: 400; letter-spacing: .03em; }
 .lista-plazos strong, .lista-plazos small, .lista-actividad strong, .lista-actividad small, .lista-mensajes strong, .lista-mensajes small { display: block; }
 .lista-plazos small, .lista-actividad small, .lista-mensajes small { color: var(--ap-muted); }
-.nota { padding: 12px 16px; border-left: 3px solid var(--ap-azul-700); border-radius: var(--portal-radio); background: var(--ap-azul-100); color: var(--ap-azul-900); font-size: .875rem; }
+.nota { overflow-wrap: anywhere; padding: 12px 16px; border-left: 3px solid var(--ap-azul-700); border-radius: var(--portal-radio); background: var(--ap-azul-100); color: var(--ap-azul-900); font-size: .875rem; }
 .nota.aviso { border-left-color: var(--ap-ambar); background: var(--ap-ambar-suave); color: var(--ap-ambar); }
 .nota.error { border-left-color: var(--ap-rojo); background: var(--ap-rojo-suave); color: var(--ap-rojo); }
+.nota.exito { border-left-color: var(--ap-verde); background: var(--ap-verde-suave); color: var(--ap-verde); }
+.error-campo { margin: 4px 0 0; color: var(--ap-rojo); font-size: .8125rem; font-weight: 600; }
+.campo input[aria-invalid="true"] { border-color: var(--ap-rojo); box-shadow: 0 0 0 1px var(--ap-rojo); }
+.ficha-motivo[aria-describedby] { border-color: var(--ap-rojo); }
 .contacto-operacion-formulario { display: grid; gap: 12px; }
 .contacto-ayuda { margin-top: 8px; border: 0; }
 .contacto-ayuda summary { display: grid; width: 30px; min-height: 30px; place-items: center; padding: 0; border: 1px solid var(--ap-borde); border-radius: 50%; background: var(--ap-azul-100); color: var(--ap-azul-800); font-weight: 600; list-style: none; }
