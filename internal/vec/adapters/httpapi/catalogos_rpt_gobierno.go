@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ const (
 )
 
 var ErrHandlerGobiernoCategoriaRPTInvalido = errors.New("vec http: frontera de gobierno RPT invalida")
+var clavePreimagenGobiernoRPT = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
 // La fuente pertenece a la composicion ADMIN. Debe enlazar el certificado del
 // handshake con actor, vinculo, contexto registrado, motivo y perfil publicados.
@@ -106,6 +108,28 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderGobiernoRPT(w, http.StatusMethodNotAllowed, "metodo_no_permitido", nil)
 		return
 	}
+	// El navegador ADMIN sólo puede iniciar un POST desde su origen HTTPS.
+	// Un cliente sin Origin sigue sujeto a certificado y autorización V3.
+	if cabeceraOrganizacionHistoricaPresente(r.Header, "Origin") {
+		origin, unica := cabeceraImportacionOrganizacionUnica(r.Header, "Origin")
+		if !unica || origin != "https://"+h.adminHost {
+			h.denegar(w, r.Context(), r.URL.Path, http.StatusForbidden, "acceso_denegado")
+			return
+		}
+	}
+	if cabeceraOrganizacionHistoricaPresente(r.Header, "Sec-Fetch-Site") {
+		sitio, unico := cabeceraImportacionOrganizacionUnica(r.Header, "Sec-Fetch-Site")
+		if !unico || sitio != "same-origin" {
+			h.denegar(w, r.Context(), r.URL.Path, http.StatusForbidden, "acceso_denegado")
+			return
+		}
+	}
+	if cabeceraOrganizacionHistoricaPresente(r.Header, "Authorization") ||
+		cabeceraOrganizacionHistoricaPresente(r.Header, "Cookie") ||
+		cabeceraOrganizacionHistoricaPresente(r.Header, "Proxy-Authorization") {
+		h.denegar(w, r.Context(), r.URL.Path, http.StatusBadRequest, "peticion_no_valida")
+		return
+	}
 	// El host y SNI deben ser ADMIN, y el certificado se verifica de nuevo
 	// contra la CA dedicada. Cabeceras de identidad nunca son autoridad.
 	if r.Host != h.adminHost || r.TLS == nil || r.TLS.ServerName != h.adminHost ||
@@ -126,8 +150,12 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		} else if errors.Is(err, ErrAccesoRutaExactaDenegado) || errors.Is(err, domain.ErrAutorizacionDenegada) || errors.Is(err, domain.ErrPermissionDenied) {
 			h.denegar(w, r.Context(), r.URL.Path, http.StatusForbidden, "acceso_denegado")
 		} else {
-			responderGobiernoRPT(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+			h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
 		}
+		return
+	}
+	if r.Context().Err() != nil {
+		h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
 	if perfil != h.perfilFijo || cred.Actor.PerfilActivoRef != h.perfilFijo || descriptor != h.descriptor ||
@@ -140,14 +168,14 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 	}
 	clave, entrada, err := leerEntradaGobiernoRPT(w, r)
 	if err != nil || entrada.CatalogoID != h.descriptor.CatalogoID || entrada.ModuloID != h.descriptor.ModuloID {
-		responderGobiernoRPT(w, http.StatusBadRequest, "peticion_no_valida", nil)
+		h.denegar(w, r.Context(), r.URL.Path, http.StatusBadRequest, "peticion_no_valida")
 		return
 	}
 	var resultado ports.ResultadoGobiernoCategoriaRPT
 	switch r.URL.Path {
 	case RutaProponerGobiernoCategoriaRPT:
 		if entrada.HuellaSHA256 != "" || entrada.Version < 1 || entrada.PreimagenesControl == nil || entrada.Accion == "" || entrada.FuenteRef == "" {
-			responderGobiernoRPT(w, http.StatusBadRequest, "peticion_no_valida", nil)
+			h.denegar(w, r.Context(), r.URL.Path, http.StatusBadRequest, "peticion_no_valida")
 			return
 		}
 		preimagenes := make(map[string]domain.PreimagenControlGobiernoCategoriaRPT, len(entrada.PreimagenesControl))
@@ -159,7 +187,7 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		resultado, err = h.operador.Proponer(r.Context(), application.OrdenProponerGobiernoCategoriaRPT{Credenciales: cred, Borrador: b})
 	case RutaAprobarGobiernoCategoriaRPT, RutaConfirmarGobiernoCategoriaRPT:
 		if entrada.Accion != "" || entrada.Version != 0 || entrada.DocumentoCanonico != nil || entrada.PreimagenesControl != nil || entrada.CategoriaID != nil || entrada.RevisionEsperada == nil || entrada.FuenteRef != "" {
-			responderGobiernoRPT(w, http.StatusBadRequest, "peticion_no_valida", nil)
+			h.denegar(w, r.Context(), r.URL.Path, http.StatusBadRequest, "peticion_no_valida")
 			return
 		}
 		m := ports.MaterialAvanceGobiernoCategoriaRPT{PropuestaRef: entrada.PropuestaRef, HuellaSHA256: entrada.HuellaSHA256, ReciboRef: clave, RevisionEsperada: *entrada.RevisionEsperada, CatalogoID: entrada.CatalogoID, ModuloID: entrada.ModuloID}
@@ -174,8 +202,12 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		h.errorOperacion(w, r.Context(), r.URL.Path, err)
 		return
 	}
+	if r.Context().Err() != nil {
+		h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
+		return
+	}
 	if resultado.PropuestaRef != entrada.PropuestaRef || resultado.ReciboRef != clave || resultado.Evidencia.AuditoriaRef == "" || !resultado.Evidencia.ConsumoNuevo {
-		responderGobiernoRPT(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+		h.denegar(w, r.Context(), r.URL.Path, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
 	}
 	// ConsumoNuevo describe la autorización V3 de este acceso, no la creación
@@ -209,7 +241,7 @@ func intermediosGobiernoRPT(certificados []*x509.Certificate) *x509.CertPool {
 func leerEntradaGobiernoRPT(w http.ResponseWriter, r *http.Request) (string, entradaGobiernoRPT, error) {
 	var e entradaGobiernoRPT
 	if r.URL.RawQuery != "" || r.Body == nil || r.Body == http.NoBody || r.ContentLength == 0 || r.ContentLength > maximoCuerpoGobiernoCategoriaRPT || len(r.TransferEncoding) != 0 || len(r.Trailer) != 0 ||
-		cabeceraOrganizacionHistoricaPresente(r.Header, "Cookie") || cabeceraOrganizacionHistoricaPresente(r.Header, "Proxy-Authorization") || cabeceraOrganizacionHistoricaPresente(r.Header, "Content-Encoding") ||
+		cabeceraOrganizacionHistoricaPresente(r.Header, "Authorization") || cabeceraOrganizacionHistoricaPresente(r.Header, "Cookie") || cabeceraOrganizacionHistoricaPresente(r.Header, "Proxy-Authorization") || cabeceraOrganizacionHistoricaPresente(r.Header, "Content-Encoding") ||
 		!cabeceraImportacionOrganizacionExacta(r.Header, "Content-Type", "application/json") {
 		return "", e, ErrHandlerGobiernoCategoriaRPTInvalido
 	}
@@ -218,7 +250,7 @@ func leerEntradaGobiernoRPT(w http.ResponseWriter, r *http.Request) (string, ent
 		return "", e, ErrHandlerGobiernoCategoriaRPTInvalido
 	}
 	cuerpo, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maximoCuerpoGobiernoCategoriaRPT+1))
-	if err != nil || len(cuerpo) == 0 || len(cuerpo) > maximoCuerpoGobiernoCategoriaRPT || !bytes.HasPrefix(bytes.TrimSpace(cuerpo), []byte("{")) || validarJSONRegistroEmpleadoB2(cuerpo) != nil {
+	if err != nil || len(cuerpo) == 0 || len(cuerpo) > maximoCuerpoGobiernoCategoriaRPT || !bytes.HasPrefix(bytes.TrimSpace(cuerpo), []byte("{")) || validarJSONGobiernoRPT(cuerpo) != nil {
 		return "", e, ErrHandlerGobiernoCategoriaRPTInvalido
 	}
 	var campos map[string]json.RawMessage
@@ -231,6 +263,67 @@ func leerEntradaGobiernoRPT(w http.ResponseWriter, r *http.Request) (string, ent
 		return "", entradaGobiernoRPT{}, ErrHandlerGobiernoCategoriaRPTInvalido
 	}
 	return clave, e, nil
+}
+
+// Detecta claves duplicadas después de decodificar escapes JSON. Sólo las
+// claves de preimagenes_control son identificadores de categoría, y siguen el
+// mismo alfabeto admitido por el dominio; los nombres del contrato son fijos.
+func validarJSONGobiernoRPT(cuerpo []byte) error {
+	d := json.NewDecoder(bytes.NewReader(cuerpo))
+	if validarObjetoGobiernoRPT(d, 0) != nil {
+		return ErrHandlerGobiernoCategoriaRPTInvalido
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return ErrHandlerGobiernoCategoriaRPTInvalido
+	}
+	return nil
+}
+
+func validarObjetoGobiernoRPT(d *json.Decoder, nivel int) error {
+	inicio, err := d.Token()
+	if err != nil || inicio != json.Delim('{') || nivel > 2 {
+		return ErrHandlerGobiernoCategoriaRPTInvalido
+	}
+	vistas := make(map[string]struct{})
+	for d.More() {
+		token, err := d.Token()
+		clave, ok := token.(string)
+		if err != nil || !ok {
+			return ErrHandlerGobiernoCategoriaRPTInvalido
+		}
+		if _, repetida := vistas[clave]; repetida {
+			return ErrHandlerGobiernoCategoriaRPTInvalido
+		}
+		vistas[clave] = struct{}{}
+		switch nivel {
+		case 0:
+			if !claveCanonicaImportacionOrganizacion(clave) {
+				return ErrHandlerGobiernoCategoriaRPTInvalido
+			}
+		case 1:
+			if !clavePreimagenGobiernoRPT.MatchString(clave) {
+				return ErrHandlerGobiernoCategoriaRPTInvalido
+			}
+		case 2:
+			if clave != "version" && clave != "huella_sha256" && clave != "revision" && clave != "estado" {
+				return ErrHandlerGobiernoCategoriaRPTInvalido
+			}
+		}
+		if nivel == 0 && clave == "preimagenes_control" || nivel == 1 {
+			if err := validarObjetoGobiernoRPT(d, nivel+1); err != nil {
+				return err
+			}
+		} else if valor, err := d.Token(); err != nil {
+			return ErrHandlerGobiernoCategoriaRPTInvalido
+		} else if _, objeto := valor.(json.Delim); objeto {
+			return ErrHandlerGobiernoCategoriaRPTInvalido
+		}
+	}
+	fin, err := d.Token()
+	if err != nil || fin != json.Delim('}') {
+		return ErrHandlerGobiernoCategoriaRPTInvalido
+	}
+	return nil
 }
 
 func camposGobiernoRPTAdmitidos(ruta string, campos map[string]json.RawMessage) bool {
@@ -267,11 +360,11 @@ func (h *handlerGobiernoCategoriaRPT) errorOperacion(w http.ResponseWriter, ctx 
 	case errors.Is(err, ports.ErrGobiernoCategoriaRPTDenegado):
 		h.denegar(w, ctx, ruta, http.StatusForbidden, "acceso_denegado")
 	case errors.Is(err, application.ErrOrdenGobiernoCategoriaRPTInvalida), errors.Is(err, ports.ErrGobiernoCategoriaRPTInvalido):
-		responderGobiernoRPT(w, http.StatusBadRequest, "peticion_no_valida", nil)
+		h.denegar(w, ctx, ruta, http.StatusBadRequest, "peticion_no_valida")
 	case errors.Is(err, ports.ErrGobiernoCategoriaRPTConflicto):
-		responderGobiernoRPT(w, http.StatusConflict, "conflicto", nil)
+		h.denegar(w, ctx, ruta, http.StatusConflict, "conflicto")
 	default:
-		responderGobiernoRPT(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+		h.denegar(w, ctx, ruta, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
 }
 
