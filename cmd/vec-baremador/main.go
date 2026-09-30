@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"io"
+	"log/slog"
 	"os"
 	"syscall"
 
@@ -104,10 +105,12 @@ func diagnosticar(salida io.Writer, codigo, fase string, retorno int) int {
 		Fase   string `json:"fase,omitempty"`
 	}{codigo, fase})
 	if err != nil {
+		slog.Error("baremador_diagnostico_no_emitido", "fase", "serializacion")
 		return 2
 	}
 	n, err := salida.Write(contenido)
 	if err != nil || n != len(contenido) {
+		slog.Error("baremador_diagnostico_no_emitido", "fase", "escritura")
 		return 2
 	}
 	return retorno
