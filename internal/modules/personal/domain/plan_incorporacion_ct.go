@@ -4,9 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"regexp"
 	"strings"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
+
+var plazaPlanCTValida = regexp.MustCompile(`^plaza:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
+var puestoPlanCTValido = regexp.MustCompile(`^puesto:[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`)
 
 const AudienciaPlanIncorporacionCT = "vec_personal.plan_incorporacion_ct.v1"
 
@@ -60,7 +64,7 @@ func (d DatosPlanIncorporacionCT) Validar() error {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}
-	if (d.ClaseOcupacion != "temporal" && d.ClaseOcupacion != "provisional" && d.ClaseOcupacion != "titular") || !patronUUIDRegistroB2.MatchString(d.IdempotenciaRef) || !ReferenciaPersonaValida(d.PersonaRef) || d.PersonaVersion < 1 || d.ExpedienteVersion < 1 || d.FuenteBolsaVersion < 1 || d.CatalogoRPTVersion < 1 || d.RevisionPlaza < 1 || d.RevisionPuesto < 1 || !referenciaOrganizacionB2Valida(d.PlazaRef) || !referenciaOrganizacionB2Valida(d.PuestoRef) || d.Regimen.Validar() != nil || d.Modalidad.Validar() != nil || !intervaloActoB2Valido(d.Desde, d.Hasta) || d.Procedencia.Validar() != nil {
+	if (d.ClaseOcupacion != "temporal" && d.ClaseOcupacion != "provisional" && d.ClaseOcupacion != "titular") || !patronUUIDRegistroB2.MatchString(d.IdempotenciaRef) || !ReferenciaPersonaValida(d.PersonaRef) || d.PersonaVersion < 1 || d.ExpedienteVersion < 1 || d.FuenteBolsaVersion < 1 || d.CatalogoRPTVersion < 1 || d.RevisionPlaza < 1 || d.RevisionPuesto < 1 || !plazaPlanCTValida.MatchString(d.PlazaRef) || !puestoPlanCTValido.MatchString(d.PuestoRef) || d.Regimen.Validar() != nil || d.Modalidad.Validar() != nil || !intervaloActoB2Valido(d.Desde, d.Hasta) || d.Procedencia.Validar() != nil {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	return nil
@@ -107,6 +111,7 @@ type ConsultaPlanIncorporacionCT struct {
 	Actor        core.ContextoActor
 }
 type MaterialPlanIncorporacionCT struct {
+	seleccion    SelectorOrganizacionPlanCT
 	operacion    string
 	datos        DatosPlanIncorporacionCT
 	planRef      string
@@ -156,7 +161,7 @@ func nuevoMaterialPlanCT(op, ref, org string, d DatosPlanIncorporacionCT, a core
 	if _, err = r.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
 	}
-	return MaterialPlanIncorporacionCT{op, d, ref, org, actor, b, r}, nil
+	return MaterialPlanIncorporacionCT{operacion: op, datos: d, planRef: ref, organismoRef: org, actor: actor, canonico: b, recurso: r}, nil
 }
 func (m MaterialPlanIncorporacionCT) Operacion() string { return m.operacion }
 func (m MaterialPlanIncorporacionCT) Accion() string {
@@ -175,4 +180,69 @@ func (m MaterialPlanIncorporacionCT) Recurso() core.RecursoAutorizable {
 }
 func (m MaterialPlanIncorporacionCT) HuellaSHA256() (string, error) {
 	return m.recurso.HuellaContextoAutorizacionSHA256()
+}
+
+// La selección lee organización propia con autorización actual y no deduce
+// vacancia ni catálogo de categoría a partir de un identificador de plaza.
+type SelectorOrganizacionPlanCT struct {
+	PlazaRef  string     `json:"plaza_ref"`
+	PuestoRef string     `json:"puesto_ref"`
+	Desde     FechaCivil `json:"desde"`
+}
+type SolicitudSeleccionPlanIncorporacionCT struct {
+	SelectorOrganizacionPlanCT
+	OrganismoRef string
+	Actor        core.ContextoActor
+}
+type SeleccionOrganizacionPlanCT struct {
+	UnidadRef                      string     `json:"unidad_ref"`
+	OrganismoRef                   string     `json:"organismo_ref"`
+	PlazaRef                       string     `json:"plaza_ref"`
+	PuestoRef                      string     `json:"puesto_ref"`
+	Desde                          FechaCivil `json:"desde"`
+	RevisionPlaza                  int64      `json:"revision_plaza"`
+	RevisionPuesto                 int64      `json:"revision_puesto"`
+	VersionPlantillaRef            string     `json:"version_plantilla_ref"`
+	VersionRPTRef                  string     `json:"version_rpt_ref"`
+	PlantillaHuellaSHA256          string     `json:"plantilla_huella_sha256"`
+	RPTHuellaSHA256                string     `json:"rpt_huella_sha256"`
+	FuenteOrganizacionRef          string     `json:"fuente_organizacion_ref"`
+	FuenteOrganizacionHuellaSHA256 string     `json:"fuente_organizacion_huella_sha256"`
+}
+
+func NuevoMaterialSeleccionPlanIncorporacionCT(s SolicitudSeleccionPlanIncorporacionCT) (MaterialPlanIncorporacionCT, error) {
+	if !plazaPlanCTValida.MatchString(s.PlazaRef) || !puestoPlanCTValido.MatchString(s.PuestoRef) || !patronReferenciaB2.MatchString(s.OrganismoRef) || s.Desde.Validar() != nil {
+		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
+	}
+	a, e := s.Actor.Clonar()
+	if e != nil {
+		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
+	}
+	b, e := json.Marshal(struct {
+		Esquema      string                     `json:"esquema"`
+		Operacion    string                     `json:"operacion"`
+		PlanRef      string                     `json:"plan_ref"`
+		OrganismoRef string                     `json:"organismo_ref"`
+		Datos        *DatosPlanIncorporacionCT  `json:"datos"`
+		NegocioSHA   string                     `json:"negocio_sha256"`
+		Actor        identidadActoB2            `json:"actor"`
+		Seleccion    SelectorOrganizacionPlanCT `json:"seleccion"`
+	}{"vec.personal.plan-incorporacion-ct.v1", "seleccionar", s.PlazaRef, s.OrganismoRef, nil, "", identidadActoRegistroB2(a), s.SelectorOrganizacionPlanCT})
+	if e != nil {
+		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
+	}
+	h := sha256.Sum256(b)
+	r := core.RecursoAutorizable{Referencia: s.PlazaRef, ModuloID: "personal", Tipo: "plan_incorporacion_ct", Ambitos: map[string]string{"objetivo_ref": s.PlazaRef, "organismo_ref": s.OrganismoRef}, Atributos: map[string]string{"operacion": "seleccionar", "material_sha256": hex.EncodeToString(h[:])}}
+	if _, e = r.HuellaContextoAutorizacionSHA256(); e != nil {
+		return MaterialPlanIncorporacionCT{}, ErrRegistroEmpleadoB2Invalido
+	}
+	return MaterialPlanIncorporacionCT{seleccion: s.SelectorOrganizacionPlanCT, operacion: "seleccionar", planRef: s.PlazaRef, organismoRef: s.OrganismoRef, actor: a, canonico: b, recurso: r}, nil
+}
+func (m MaterialPlanIncorporacionCT) Seleccion() SelectorOrganizacionPlanCT { return m.seleccion }
+func (s SeleccionOrganizacionPlanCT) ValidarPara(m MaterialPlanIncorporacionCT) error {
+	q := m.Seleccion()
+	if !patronReferenciaB2.MatchString(s.UnidadRef) || m.Operacion() != "seleccionar" || s.OrganismoRef != m.OrganismoRef() || s.PlazaRef != q.PlazaRef || s.PuestoRef != q.PuestoRef || s.Desde != q.Desde || s.RevisionPlaza < 1 || s.RevisionPuesto < 1 || !patronReferenciaB2.MatchString(s.VersionPlantillaRef) || !patronReferenciaB2.MatchString(s.VersionRPTRef) || !patronReferenciaB2.MatchString(s.FuenteOrganizacionRef) || !huellaRegistroDominioB2Valida(s.PlantillaHuellaSHA256) || !huellaRegistroDominioB2Valida(s.RPTHuellaSHA256) || !huellaRegistroDominioB2Valida(s.FuenteOrganizacionHuellaSHA256) {
+		return ErrRegistroEmpleadoB2Invalido
+	}
+	return nil
 }

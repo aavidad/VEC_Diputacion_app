@@ -7,6 +7,13 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+type SelectorOrganizacionPlanCT = domain.SelectorOrganizacionPlanCT
+type SeleccionPlanIncorporacionCT = domain.SolicitudSeleccionPlanIncorporacionCT
+type ResultadoSeleccionPlanIncorporacionCT struct {
+	Seleccion domain.SeleccionOrganizacionPlanCT `json:"seleccion"`
+	Evidencia EvidenciaRegistroEmpleadoB2        `json:"evidencia"`
+}
+
 type DatosPlanIncorporacionCT = domain.DatosPlanIncorporacionCT
 type SolicitudPlanIncorporacionCT = domain.SolicitudPlanIncorporacionCT
 type ConsultaPlanIncorporacionCT = domain.ConsultaPlanIncorporacionCT
@@ -22,6 +29,7 @@ type EstadoPlanIncorporacionCT struct {
 	Evidencia             EvidenciaRegistroEmpleadoB2   `json:"evidencia"`
 }
 type ServicioPlanIncorporacionCT interface {
+	ResolverSeleccion(context.Context, SeleccionPlanIncorporacionCT) (ResultadoSeleccionPlanIncorporacionCT, error)
 	PrepararPlan(context.Context, SolicitudPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
 	ConsultarPlan(context.Context, ConsultaPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
 	EjecutarPlan(context.Context, ConsultaPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
@@ -34,6 +42,7 @@ type OrdenPlanIncorporacionCT struct {
 	Autorizacion vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type RepositorioPlanIncorporacionCT interface {
+	ResolverSeleccion(context.Context, OrdenPlanIncorporacionCT) (ResultadoSeleccionPlanIncorporacionCT, error)
 	PrepararPlan(context.Context, OrdenPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
 	ConsultarPlan(context.Context, OrdenPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)
 	ConfirmarPlan(context.Context, OrdenPlanIncorporacionCT) (EstadoPlanIncorporacionCT, error)

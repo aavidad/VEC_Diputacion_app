@@ -188,7 +188,7 @@ func estadoPlanCTValido(s ports.EstadoPlanIncorporacionCT, m domain.MaterialPlan
 	r := s.ReciboAltaRelacion
 	o := s.ReciboOcupacion
 	if r != nil {
-		if !reciboPlanCTBasico(*r) || r.Version != 1 {
+		if !reciboPlanCTBasico(*r) || r.RegistradoEn.After(e.ConsultadaEn) || r.Version != 1 {
 			return false
 		}
 		if p.Modo == "alta_empleado" {
@@ -199,7 +199,7 @@ func estadoPlanCTValido(s ports.EstadoPlanIncorporacionCT, m domain.MaterialPlan
 			return false
 		}
 	}
-	if o != nil && (r == nil || !reciboPlanCTBasico(*o) || o.Tipo != "ocupacion" || o.Version != 1 || o.EmpleadoRef != r.EmpleadoRef || o.RelacionRef != r.RelacionRef || o.EfectoRef != r.EmpleadoRef || o.HechoRef == "" || o.ProyeccionRef != "") {
+	if o != nil && (r == nil || !reciboPlanCTBasico(*o) || o.RegistradoEn.After(e.ConsultadaEn) || o.Tipo != "ocupacion" || o.Version != 1 || o.EmpleadoRef != r.EmpleadoRef || o.RelacionRef != r.RelacionRef || o.EfectoRef != r.EmpleadoRef || o.HechoRef == "" || o.ProyeccionRef != "") {
 		return false
 	}
 	switch s.Estado {
@@ -229,4 +229,39 @@ func estadoPlanCTValido(s ports.EstadoPlanIncorporacionCT, m domain.MaterialPlan
 func reciboPlanCTBasico(r ports.ReciboActoRegistroEmpleadoB2) bool {
 	_, off := r.RegistradoEn.Zone()
 	return reciboActoB2Valido.MatchString(r.ReciboRef) && domain.ReferenciaEmpleadoValida(r.EmpleadoRef) && domain.ReferenciaRelacionValida(r.RelacionRef) && !r.EficaciaAdministrativa && !r.FirmaOficial && !r.RegistradoEn.IsZero() && off == 0 && r.RegistradoEn.Nanosecond()%1000 == 0 && r.DecisionRef != "" && r.AuditoriaRef != "" && huellaRegistroB2.MatchString(r.ConsumoHuellaSHA256)
+}
+
+func (s *ServicioPlanIncorporacionCT) ResolverSeleccion(ctx context.Context, q ports.SeleccionPlanIncorporacionCT) (ports.ResultadoSeleccionPlanIncorporacionCT, error) {
+	var vacio ports.ResultadoSeleccionPlanIncorporacionCT
+	if s == nil || ctx == nil || nulo(s.autorizador) || nulo(s.repositorio) {
+		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	if e := ctx.Err(); e != nil {
+		return vacio, e
+	}
+	m, e := domain.NuevoMaterialSeleccionPlanIncorporacionCT(q)
+	if e != nil {
+		return vacio, e
+	}
+	a, e := s.autorizador.AutorizarPlanIncorporacionCT(ctx, m)
+	if e != nil {
+		return vacio, errorRegistroB2Opaco(ctx, e)
+	}
+	if !autorizacionPlanCTValida(m, a) {
+		return vacio, domain.ErrRegistroEmpleadoB2Denegado
+	}
+	r, e := s.repositorio.ResolverSeleccion(ctx, ports.OrdenPlanIncorporacionCT{Material: m, Autorizacion: a})
+	if e != nil {
+		return vacio, errorRegistroB2Opaco(ctx, e)
+	}
+	if e = ctx.Err(); e != nil {
+		return vacio, e
+	}
+	x := a.ResumenCapacidad()
+	ev := r.Evidencia
+	_, off := ev.ConsultadaEn.Zone()
+	if r.Seleccion.ValidarPara(m) != nil || !refEstadoPlanCT.MatchString(ev.ReciboRef) || ev.DecisionRef != x.DecisionRef() || ev.EfectoRef != m.Recurso().Referencia || !huellaRegistroB2.MatchString(ev.ConsumoHuellaSHA256) || ev.AuditoriaRef == "" || ev.ConsultadaEn.IsZero() || off != 0 || ev.ConsultadaEn.Nanosecond()%1000 != 0 || ev.ConsultadaEn.Before(x.EmitidaEn()) || !ev.ConsultadaEn.Before(x.ExpiraEn()) {
+		return vacio, domain.ErrRegistroEmpleadoB2NoDisponible
+	}
+	return r, nil
 }
