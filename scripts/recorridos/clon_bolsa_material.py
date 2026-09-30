@@ -10,6 +10,7 @@ import argparse
 from contextlib import contextmanager
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -17,20 +18,18 @@ import re
 import secrets
 import stat
 import subprocess
+import sys
 from urllib.parse import quote, urlencode
 
 
 SOURCE = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
-SOURCE_SQL_COUNTS = {
-    SOURCE: 33,
-    "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9": 34,
-    "e78687528d5725efd74e95c858d389f4437099ca": 36,
-}
-AUTHORIZED_SOURCES = frozenset(SOURCE_SQL_COUNTS)
 # Main contracts used by this administrative helper. An unrelated main
 # increment may advance the clone's current source; a changed contract needs
 # a fresh review rather than silent acceptance.
 CONTRACT_HASHES = {
+    # Preserved approved baseline. D's changed publisher remains closed until
+    # root supplies its final source approval and reviewed replacement digest.
+    "internal/app/bootstrap/bolsa_borrador_contexto_postgresql_desarrollo.go": "76613f3fba276b2f20eb0ac9057e6c1d112ed875640816ee73f719a8c4998fab",
     "internal/app/bootstrap/bolsa_borrador_identidad_desarrollo.go": "451d9d56f108480cea5a92164f0f1b8cfc04a168267a36b9e79de16f71e9762e",
     "internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go": "a9a4cc7e268e2d7cca3825102001003c338cd72ad37d21d03580c4ad056bbc05",
     "internal/app/bootstrap/bolsa_ofertas_desarrollo.go": "9727a2d8e4b0f00112e42377b5674e0cf0ca339225d543f35f97b0deeef82bec",
@@ -62,14 +61,17 @@ class ProvisionError(RuntimeError):
 
 
 def _source_contracts(repo: Path, source_ref: str) -> None:
-    if source_ref not in AUTHORIZED_SOURCES:
+    if not isinstance(source_ref, str) or not re.fullmatch("[a-f0-9]{40}", source_ref):
         raise ProvisionError("source_commit_not_authorized")
     _check_path(repo, directory=True)
     for name, expected in CONTRACT_HASHES.items():
         # The shared root may contain unrelated WIP or an older checkout.
         # Read the requested committed source, preserving every byte.
         source = subprocess.run(["git", "-C", str(repo), "show", source_ref + ":" + name],
-                                capture_output=True, timeout=15, check=False)
+                                capture_output=True, timeout=15, check=False,
+                                env={"PATH": os.defpath, "LC_ALL": "C",
+                                     "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+                                     "GIT_NO_REPLACE_OBJECTS": "1"})
         if source.returncode:
             raise ProvisionError("source_contract_unavailable")
         if hashlib.sha256(source.stdout).hexdigest() != expected:
@@ -147,49 +149,83 @@ def _literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def _ready_receipts(ready: dict, journal: dict) -> None:
+def _sql_authority():
+    path = Path(__file__).with_name("clon_sql.py")
+    if not path.exists():
+        raise ProvisionError("sql_source_authority_unavailable")
+    _check_path(path)
+    spec = importlib.util.spec_from_file_location("vec_recorridos_sql_authority", path)
+    try:
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        if not all(callable(getattr(module, name, None)) for name in ("approved_source_plan", "validate_receipts")):
+            raise ProvisionError("sql_source_authority_unavailable")
+    except Exception as exc:
+        raise ProvisionError("sql_source_authority_unavailable") from exc
+    return module
+
+
+def _approved_plan(repo: Path, state: Path, ready: dict, source_context: dict | None, authority):
     current = ready.get("current_source_ref", ready.get("commit"))
-    expected = SOURCE_SQL_COUNTS.get(current)
-    recorded_source = journal.get("current_source_ref", journal.get("source_ref"))
-    if expected is None or recorded_source != current:
+    if not isinstance(current, str) or not re.fullmatch("[a-f0-9]{40}", current):
+        raise ProvisionError("source_commit_not_authorized")
+    if source_context is None:
+        source_context = {"source_repo": state / ("source-" + current),
+                          "git_repo": repo, "source_ref": current}
+    if (not isinstance(source_context, dict)
+            or set(source_context) != {"source_repo", "git_repo", "source_ref"}
+            or source_context["source_ref"] != current):
+        raise ProvisionError("source_context_mismatch")
+    archive, git_repo = Path(source_context["source_repo"]), Path(source_context["git_repo"])
+    if not archive.exists():
+        raise ProvisionError("source_archive_missing")
+    _check_path(archive, directory=True)
+    _check_path(git_repo, directory=True)
+    try:
+        plan = authority.approved_source_plan(archive, current, git_repo=git_repo)
+    except Exception as exc:
+        raise ProvisionError("sql_source_needs_review") from exc
+    if not isinstance(plan, dict) or plan.get("source_ref") != current:
+        raise ProvisionError("sql_source_authority_invalid")
+    return plan, git_repo
+
+
+def _ready_receipts(ready: dict, journal: dict, plan: dict, authority) -> None:
+    current = ready.get("current_source_ref", ready.get("commit"))
+    expected = plan.get("file_count")
+    if (current != plan.get("source_ref") or journal.get("current_source_ref") != current
+            or journal.get("verified_source_ref") != current
+            or journal.get("approved_sql_ref") != plan.get("approved_sql_ref")
+            or journal.get("inventory_sha") != plan.get("inventory_sha")
+            or journal.get("current_plan_sha") != plan.get("plan_sha")):
         raise ProvisionError("clone_receipt_source_mismatch")
     installed = ready.get("sql_instaladas")
     receipts = journal.get("installed")
-    if (type(installed) is not int or installed != expected
+    if (type(expected) is not int or expected <= 0 or type(installed) is not int or installed != expected
             or not isinstance(receipts, list) or len(receipts) != expected):
         raise ProvisionError("clone_receipt_count_mismatch")
-    positions, paths = [], []
-    for receipt in receipts:
-        if not isinstance(receipt, dict):
-            raise ProvisionError("clone_receipt_invalid")
-        position, path, digest = receipt.get("position"), receipt.get("path"), receipt.get("sha256")
-        if (type(position) is not int or not isinstance(path, str) or not path
-                or Path(path).is_absolute() or ".." in Path(path).parts
-                or not isinstance(digest, str) or not re.fullmatch("[a-f0-9]{64}", digest)):
-            raise ProvisionError("clone_receipt_invalid")
-        positions.append(position)
-        paths.append(path)
-    if positions != list(range(1, expected + 1)) or len(set(paths)) != expected:
-        raise ProvisionError("clone_receipt_sequence_mismatch")
+    try:
+        authority.validate_receipts(receipts, plan, complete=True)
+    except Exception as exc:
+        raise ProvisionError("clone_receipt_validation_failed") from exc
 
 
 class Clone:
-    def __init__(self, engine: str, container: str, state: Path):
-        self.engine, self.container, self.state = engine, container, state
+    def __init__(self, engine: str, container: str, state: Path, pg_port: int,
+                 plan: dict | None = None, authority=None):
+        self.engine, self.container, self.state, self.pg_port = engine, container, state, pg_port
+        self.plan, self.authority = plan, authority
 
-    def guard(self) -> dict:
+    def owner_guard(self) -> dict:
         ready = _read_json(self.state / "DB_READY.json")
         inventory = _read_json(self.state / "clon.json")
         for document in (ready, inventory):
             if (document.get("propietario") != "Codex-M"
                     or document.get("estado") != str(self.state)
                     or document.get("contenedor") != self.container
-                    or document.get("commit") not in AUTHORIZED_SOURCES
-                    or document.get("puerto_pg") != 55531):
+                    or document.get("puerto_pg") != self.pg_port):
                 raise ProvisionError("clone_inventory_mismatch")
-            if document.get("current_source_ref", document["commit"]) not in AUTHORIZED_SOURCES:
-                raise ProvisionError("clone_current_source_not_authorized")
-        _ready_receipts(ready, _read_json(self.state / "sql-journal.json"))
         inspected = json.loads(_run([self.engine, "inspect", self.container]))[0]
         labels = inspected.get("Config", {}).get("Labels", {})
         if (labels.get("vec.recorridos.owner") != "Codex-M"
@@ -197,8 +233,15 @@ class Clone:
                 or not inspected.get("State", {}).get("Running")):
             raise ProvisionError("clone_labels_or_liveness_mismatch")
         ports = inspected.get("NetworkSettings", {}).get("Ports", {}).get("5432/tcp", [])
-        if ports != [{"HostIp": "127.0.0.1", "HostPort": "55531"}]:
+        if ports != [{"HostIp": "127.0.0.1", "HostPort": str(self.pg_port)}]:
             raise ProvisionError("clone_binding_mismatch")
+        return ready
+
+    def guard(self) -> dict:
+        ready = self.owner_guard()
+        if self.plan is None or self.authority is None:
+            raise ProvisionError("sql_source_authority_unavailable")
+        _ready_receipts(ready, _read_json(self.state / "sql-journal.json"), self.plan, self.authority)
         return ready
 
     def sql(self, text: str, *, user: str = "postgres", tls_ca: str | None = None) -> str:
@@ -387,12 +430,14 @@ def _dsn(login: str, pg_port: int, ca: Path, password: str = "") -> str:
 
 
 def provision(repo: Path, container: str, state: Path, material: Path,
-              pg_port: int, engine: str = "docker") -> dict:
+              pg_port: int, engine: str = "docker", *, source_context: dict | None = None) -> dict:
     """Return sensitive URLs to the caller only; CLI persists them privately."""
     result = {"env": {}, "profiles": {}, "blockers": []}
     try:
-        if (engine not in ("docker", "podman") or container != CONTAINER
-                or state != STATE or material != state / "material" or pg_port != 55531):
+        if (engine not in ("docker", "podman")
+                or not re.fullmatch(r"vec-[a-z0-9][a-z0-9-]{0,126}", container)
+                or not state.is_absolute() or material != state / "material"
+                or type(pg_port) is not int or not 1024 < pg_port <= 65535):
             raise ProvisionError("target_outside_authorized_clone")
         _check_path(state, private=True, directory=True)
         _check_path(material, private=True, directory=True)
@@ -404,9 +449,12 @@ def provision(repo: Path, container: str, state: Path, material: Path,
         with os.fdopen(lock_fd, "a") as lock, _sql_lock(state):
             _check_path(private / "provision.lock", private=True)
             fcntl.flock(lock, fcntl.LOCK_EX)
-            clone = Clone(engine, container, state)
-            ready = clone.guard()
-            _source_contracts(repo, ready.get("current_source_ref", ready["commit"]))
+            clone = Clone(engine, container, state, pg_port)
+            ready = clone.owner_guard()
+            clone.authority = _sql_authority()
+            clone.plan, git_repo = _approved_plan(repo, state, ready, source_context, clone.authority)
+            _source_contracts(git_repo, clone.plan["source_ref"])
+            clone.guard()
             # Actor/history is checked before any SQL mutation.
             manifest = _historical_manifest(clone, material)
             path = material / "identidad/bolsa-bback.json"
@@ -455,7 +503,7 @@ def provision(repo: Path, container: str, state: Path, material: Path,
                 _read_json(initial)  # Preserve the first private preparation record.
             else:
                 _write_new(initial, result)
-    except (ProvisionError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as exc:
+    except (ProvisionError, OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.TimeoutExpired) as exc:
         code = str(exc) if isinstance(exc, ProvisionError) else "bolsa_material_invalid_or_unavailable"
         result = {"env": {}, "profiles": {}, "blockers": [{"profile": "bolsa", "code": code}]}
     return result
@@ -471,7 +519,7 @@ def main() -> int:
     parser.add_argument("--json-result-file", required=True, type=Path)
     args = parser.parse_args()
     # Validate output containment before calling provision (which can write SQL).
-    if args.output != STATE or args.json_result_file.parent != STATE / "bolsa-material":
+    if not args.output.is_absolute() or args.json_result_file.parent != args.output / "bolsa-material":
         parser.error("result file must be directly inside private bolsa-material")
     result = provision(args.repo, args.container, args.output, args.output / "material", args.pg_port, args.engine)
     try:

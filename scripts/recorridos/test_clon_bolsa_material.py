@@ -47,51 +47,148 @@ class FakeClone:
         return ""
 
 
+class FakeSQLAuthority:
+    def __init__(self):
+        self.calls = []
+
+    def validate_receipts(self, installed, plan, complete=True):
+        self.calls.append((installed, plan, complete))
+        actual = [(r.get("position"), r.get("path"), r.get("sha256")) for r in installed]
+        expected = [(i, r["path"], r["sha256"]) for i, r in enumerate(plan["entries"], 1)]
+        if actual != expected or not complete:
+            raise RuntimeError("fixture receipt disagreement")
+
+
 class ProvisionTests(unittest.TestCase):
+    @staticmethod
+    def target_fixture(state, container, port):
+        inventory = {"propietario": "Codex-M", "estado": str(state),
+                     "contenedor": container, "commit": module.SOURCE, "puerto_pg": port}
+        ready = {**inventory, "sql_instaladas": 38}
+        _, journal, plan = ProvisionTests.ready_receipts(module.SOURCE, 38)
+        inspection = [{"Config": {"Labels": {"vec.recorridos.owner": "Codex-M",
+                                                "vec.recorridos.state": str(state)}},
+                       "State": {"Running": True},
+                       "NetworkSettings": {"Ports": {"5432/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(port)}]}}}]
+        documents = {"clon.json": inventory, "DB_READY.json": ready, "sql-journal.json": journal}
+        return documents, inspection, plan
+
+    def test_owned_new_target_and_port_are_taken_from_persisted_inventory(self):
+        state, container, port = Path("/synthetic-private/new-target"), "vec-codexm-new-target", 55577
+        documents, inspection, plan = self.target_fixture(state, container, port)
+        clone = module.Clone("docker", container, state, port, plan, FakeSQLAuthority())
+        with patch.object(module, "_read_json", side_effect=lambda path: documents[path.name]), patch.object(module, "_run", return_value=json.dumps(inspection)):
+            self.assertEqual(clone.guard(), documents["DB_READY.json"])
+        self.assertIn(":55577/postgres?", module._dsn(module.CALCULATOR, port, state / "material/pg/ca.crt"))
+
+    def test_generic_target_rejects_wrong_binding_state_or_inventory_port(self):
+        state, container, port = Path("/synthetic-private/new-target"), "vec-codexm-new-target", 55577
+        for failure in ("binding", "label", "inventory"):
+            with self.subTest(failure=failure):
+                documents, inspection, plan = self.target_fixture(state, container, port)
+                if failure == "binding":
+                    inspection[0]["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostPort"] = "55531"
+                elif failure == "label":
+                    inspection[0]["Config"]["Labels"]["vec.recorridos.state"] = "/another-state"
+                else:
+                    documents["clon.json"]["puerto_pg"] = 55531
+                clone = module.Clone("docker", container, state, port, plan, FakeSQLAuthority())
+                with patch.object(module, "_read_json", side_effect=lambda path: documents[path.name]), patch.object(module, "_run", return_value=json.dumps(inspection)):
+                    with self.assertRaises(module.ProvisionError):
+                        clone.guard()
+
     @staticmethod
     def ready_receipts(source, count):
         ready = {"commit": source, "sql_instaladas": count}
+        plan = {"source_ref": source, "approved_sql_ref": "a" * 40,
+                "plan_sha": "b" * 64, "inventory_sha": "c" * 64,
+                "file_count": count, "verified_main_ref": "d" * 40,
+                "entries": [{"phase": "MAIN", "path": f"deploy/postgresql/fixture/{i}.sql",
+                             "sha256": "a" * 64} for i in range(1, count + 1)]}
         journal = {"source_ref": module.SOURCE, "current_source_ref": source,
+                   "verified_source_ref": source, "approved_sql_ref": plan["approved_sql_ref"],
+                   "current_plan_sha": plan["plan_sha"], "inventory_sha": plan["inventory_sha"],
                    "installed": [{"position": i, "path": f"deploy/postgresql/fixture/{i}.sql",
                                   "sha256": "a" * 64} for i in range(1, count + 1)]}
-        return ready, journal
+        return ready, journal, plan
 
-    def test_each_authorized_source_requires_its_exact_receipt_count(self):
-        for source, count in module.SOURCE_SQL_COUNTS.items():
-            with self.subTest(count=count):
-                ready, journal = self.ready_receipts(source, count)
-                module._ready_receipts(ready, journal)
-                ready["sql_instaladas"] = count + 1
-                with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_count_mismatch"):
-                    module._ready_receipts(ready, journal)
+    def test_authority_plan_requires_exact_receipt_count_and_delegates_validation(self):
+        ready, journal, plan = self.ready_receipts("e" * 40, 38)
+        authority = FakeSQLAuthority()
+        module._ready_receipts(ready, journal, plan, authority)
+        self.assertEqual(authority.calls, [(journal["installed"], plan, True)])
+        ready["sql_instaladas"] = 39
+        with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_count_mismatch"):
+            module._ready_receipts(ready, journal, plan, authority)
 
-    def test_source_36_rejects_missing_receipts_and_different_current_source(self):
-        source = "e78687528d5725efd74e95c858d389f4437099ca"
-        ready, journal = self.ready_receipts(source, 36)
+    def test_approved_plan_rejects_missing_receipts_and_different_current_source(self):
+        source = "e" * 40
+        ready, journal, plan = self.ready_receipts(source, 38)
         journal["installed"].pop()
         with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_count_mismatch"):
-            module._ready_receipts(ready, journal)
-        ready, journal = self.ready_receipts(source, 36)
+            module._ready_receipts(ready, journal, plan, FakeSQLAuthority())
+        ready, journal, plan = self.ready_receipts(source, 38)
         journal["current_source_ref"] = module.SOURCE
         with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_source_mismatch"):
-            module._ready_receipts(ready, journal)
+            module._ready_receipts(ready, journal, plan, FakeSQLAuthority())
 
     def test_duplicate_receipt_and_invalid_hash_rejected(self):
         for failure in ("duplicate", "digest"):
             with self.subTest(failure=failure):
-                ready, journal = self.ready_receipts(module.SOURCE, 33)
+                ready, journal, plan = self.ready_receipts("e" * 40, 38)
                 if failure == "duplicate":
                     journal["installed"][-1] = copy.deepcopy(journal["installed"][0])
                 else:
                     journal["installed"][-1]["sha256"] = "invalid"
                 with self.assertRaises(module.ProvisionError):
-                    module._ready_receipts(ready, journal)
+                    module._ready_receipts(ready, journal, plan, FakeSQLAuthority())
 
-    def test_creation_source_preserved_with_current_source_36(self):
-        source = "e78687528d5725efd74e95c858d389f4437099ca"
-        ready, journal = self.ready_receipts(source, 36)
+    def test_creation_source_preserved_with_verified_current_source(self):
+        source = "e" * 40
+        ready, journal, plan = self.ready_receipts(source, 38)
         ready["commit"], ready["current_source_ref"] = module.SOURCE, source
-        module._ready_receipts(ready, journal)
+        module._ready_receipts(ready, journal, plan, FakeSQLAuthority())
+
+    def test_legacy_journal_without_sql_approval_fails_closed(self):
+        ready, journal, plan = self.ready_receipts("e" * 40, 38)
+        del journal["approved_sql_ref"]
+        with self.assertRaisesRegex(module.ProvisionError, "clone_receipt_source_mismatch"):
+            module._ready_receipts(ready, journal, plan, FakeSQLAuthority())
+
+    def test_new_sql_refusal_remains_a_fixed_structured_driver_blocker(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            source = "e" * 40
+            archive = state / ("source-" + source)
+            archive.mkdir(mode=0o700)
+            authority = SimpleNamespace(approved_source_plan=lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("dummy SQL needs new approval")))
+            with self.assertRaisesRegex(module.ProvisionError, "sql_source_needs_review"):
+                module._approved_plan(state, state, {"commit": source}, None, authority)
+
+    def test_missing_archive_never_falls_back_to_git_worktree(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            authority = Mock()
+            with self.assertRaisesRegex(module.ProvisionError, "source_archive_missing"):
+                module._approved_plan(state, state, {"commit": "e" * 40}, None, authority)
+            authority.approved_source_plan.assert_not_called()
+
+    def test_explicit_context_passes_archive_git_control_and_current_source(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            archive = state / "reviewed-archive"
+            archive.mkdir(mode=0o700)
+            source = "e" * 40
+            _, _, plan = self.ready_receipts(source, 38)
+            authority = Mock()
+            authority.approved_source_plan.return_value = plan
+            context = {"source_repo": archive, "git_repo": state, "source_ref": source}
+            actual, git_repo = module._approved_plan(state, state, {"commit": source}, context, authority)
+            self.assertEqual((actual, git_repo), (plan, state))
+            authority.approved_source_plan.assert_called_once_with(archive, source, git_repo=state)
 
     def test_other_clone_rejected_before_any_process(self):
         with patch.object(module, "_run") as run:
@@ -117,7 +214,7 @@ class ProvisionTests(unittest.TestCase):
         self.assertNotIn("private dummy detail", json.dumps(result))
 
     def test_sql_explicit_local_endpoint_ignores_ambient_host_and_port(self):
-        clone = module.Clone("docker", module.CONTAINER, module.STATE)
+        clone = module.Clone("docker", module.CONTAINER, module.STATE, 55531)
         for tls_ca, expected_host in ((None, "/var/run/postgresql"), ("/var/lib/postgresql/ca.crt", "localhost")):
             with self.subTest(tls=bool(tls_ca)), patch.object(clone, "guard"), patch.object(module, "_run", return_value="") as run:
                 clone.sql("SELECT 1;", tls_ca=tls_ca)
