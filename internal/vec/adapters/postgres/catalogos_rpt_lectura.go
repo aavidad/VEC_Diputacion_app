@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -23,7 +24,7 @@ import (
 
 const maximoDocumentoCanonicoRPT = 16 << 20
 const maximoRespuestaLecturaRPT = 48 << 20
-const maximoVersionMaterialRPT = 999_999_999
+const maximoVersionMaterialRPT = math.MaxInt32
 
 const (
 	accionListarCategoriasRPT = "vec.catalogos.categorias.listar_habilitadas"
