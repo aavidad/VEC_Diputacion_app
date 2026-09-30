@@ -3,9 +3,11 @@ package postgres
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -147,5 +149,27 @@ func TestSalidaCuadroRRHHLegadoNoRecibeCatalogoActual(t *testing.T) {
 	instantaneas, err := salida.instantaneasAlineadas(resumenes, fasesDesde)
 	if err != nil || len(instantaneas) != 1 || instantaneas[0] != nil {
 		t.Fatalf("legado recibió instantánea: %#v, %v", instantaneas, err)
+	}
+}
+
+func TestSalidaCuadroRRHHPropagaFalloNominalSinExponerContenido(t *testing.T) {
+	t.Parallel()
+	salida, resumenes, fasesDesde := fixtureInstantaneaCuadroRRHH(t, "fiscalizacion")
+	var bases []map[string]any
+	if err := json.Unmarshal(salida.basesRegla, &bases); err != nil {
+		t.Fatal(err)
+	}
+	bases[0]["base_canonico"] = `{persona_confidencial`
+	var err error
+	salida.basesRegla, err = json.Marshal(bases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = salida.instantaneasAlineadas(resumenes, fasesDesde)
+	var fallo *diagnostico.FalloConsultaRRHH
+	if !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) ||
+		!errors.As(err, &fallo) || fallo.Etapa != diagnostico.EtapaResultadoSQL ||
+		fallo.Causa == nil || strings.Contains(err.Error(), "persona_confidencial") {
+		t.Fatalf("fallo no nominal o filtrado: %v", err)
 	}
 }
