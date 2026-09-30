@@ -68,7 +68,7 @@ func soporteRRHHPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *pgxpoo
 	if soporte.instantaneaAnalisis, err = nuevaInstantaneaAutorizacionAnalisisContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAnalisisCT]); err != nil {
 		t.Fatal(err)
 	}
-	if soporte.instantaneaAsignacion, err = nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
+	if soporte.instantaneaAsignacion, err = nuevaInstantaneaAutorizacionAsignacionContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora, fasesOperacionPredeterminadasCT()[operacionFaseAsignacionCT]); err != nil {
 		t.Fatal(err)
 	}
 	if soporte.instantaneaCobertura, err = nuevaInstantaneaAutorizacionCoberturaContratacionTemporalDesarrollo(v.PrincipalID, v.PerfilActivoRef, ahora); err != nil {
@@ -81,9 +81,10 @@ func soporteRRHHPostgreSQLPrueba(t *testing.T, ctx context.Context, pool *pgxpoo
 	return soporte
 }
 
-// rolDeExpedientePrueba es el rol de una ruta que aún liga el expediente a
-// su permiso (la asignación a unidad), con los ámbitos que la ruta prepara y
-// publica en cada petición. El análisis ya no: tiene perfil fijo.
+// rolDeExpedientePrueba simula la publicación por petición que aún hacen las
+// rutas dinámicas: un rol con el expediente concreto en sus ámbitos, preparado
+// y publicado en el perfil dinámico (se toma el rol de la asignación solo como
+// forma; la asignación ya tiene perfil fijo).
 func rolDeExpedientePrueba(s *soporteAltaContratacionTemporalDesarrollo, expediente string) vecdomain.InstantaneaAutorizacion {
 	i := clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaAsignacion)
 	i.AsignacionPerfil.Ambitos = []vecdomain.AmbitoPerfil{

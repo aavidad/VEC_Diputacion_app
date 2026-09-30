@@ -78,6 +78,8 @@ static/portal-empleado/calendarios/calendarios.js
 static/portal-empleado/hora-madrid.js
 static/portal-empleado/calendarios/calendarios.css
 static/portal-empleado/calendarios/i18n.js
+static/textos/es/reglas.json
+static/textos/en/reglas.json
 static/portal-empleado/reglas/index.html
 static/portal-empleado/reglas/reglas.js
 static/portal-empleado/reglas/reglas.css
