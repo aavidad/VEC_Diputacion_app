@@ -6,10 +6,11 @@ pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
 El journal privado se reconstruye desde recibos transaccionales del clon.
 Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 (CT147, posición 34), main@e78687528 (AD3-114/CT148, posiciones 35/36)
-y main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38).
+main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38) y main@1e443463d
+(Aspirantes000002, posición39).
 Cada extensión conserva los recibos y metadatos originales
 y añade una revisión del plan en el esquema del clon. Otros hashes exigen revisar
-de nuevo la lista causal y sus huellas. Descendientes del último plan aprobado
+de nuevo la lista causal y sus huellas. Descendientes de un plan aprobado
 se admiten con ascendencia y TODO el inventario SQL idéntico, cotejado con el
 archivo extraído. Esta prueba no aprueba los contratos de otros componentes.
 """
@@ -32,14 +33,16 @@ import uuid
 BASE_REF = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
 PREVIOUS_REF = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
 THIRD_REF = "e78687528d5725efd74e95c858d389f4437099ca"
-MAIN_REF = "a7d9df2b3285b0df6be6bba0bae09331463f0a3d"
-REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, MAIN_REF: 38}
+FOURTH_REF = "a7d9df2b3285b0df6be6bba0bae09331463f0a3d"
+MAIN_REF = "1e443463df69dffeaac239f9b7000f48dd1b7bb7"
+REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, FOURTH_REF: 38, MAIN_REF: 39}
 REF_ORDER = tuple(REF_COUNTS)
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
     PREVIOUS_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
     THIRD_REF: "ad57f371c901f7418af156f4e651c7a36c2bda125f7bad380653272c2b320e14",
-    MAIN_REF: "b92cea3eb1cb5497bab027eac561a168b3572a117417acf45597a6eac39403f5",
+    FOURTH_REF: "b92cea3eb1cb5497bab027eac561a168b3572a117417acf45597a6eac39403f5",
+    MAIN_REF: "af888b95d532a0b698212adbebb381d5f2f126e7393396af90000fddc9ca3427",
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
@@ -189,9 +192,11 @@ def validate_git_source(source_ref, git_repo=None):
     if git.run("cat-file", "-t", source_ref).strip() != b"commit":
         raise Refused("la fuente debe ser un commit")
     main = git.run("rev-parse", "--verify", "refs/remotes/origin/main^{commit}").decode().strip()
-    approved = source_ref if source_ref in REF_COUNTS else MAIN_REF
-    if (not git.run("merge-base", "--is-ancestor", approved, source_ref, ancestor=True)
-            or not git.run("merge-base", "--is-ancestor", source_ref, main, ancestor=True)):
+    if not git.run("merge-base", "--is-ancestor", source_ref, main, ancestor=True):
+        raise Refused("la fuente no pertenece a la historia aprobada de origin/main")
+    approved = next((ref for ref in reversed(REF_COUNTS)
+                     if git.run("merge-base", "--is-ancestor", ref, source_ref, ancestor=True)), None)
+    if approved is None:
         raise Refused("la fuente no pertenece a la historia aprobada de origin/main")
     expected, _ = git.inventory(approved)
     actual, contents = git.inventory(source_ref)
@@ -380,7 +385,7 @@ def acknowledge_plan(db, rows, source_ref, meta):
               DROP CONSTRAINT IF EXISTS plan_revisions_supported,
               ADD CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
-                OR (revision=4 AND file_count=38));"""
+                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39));"""
         else:
             ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
               revision integer PRIMARY KEY, source_ref text NOT NULL,
@@ -388,7 +393,7 @@ def acknowledge_plan(db, rows, source_ref, meta):
               acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp(),
               CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
-                OR (revision=4 AND file_count=38)));
+                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)));
               REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
         db.query(f"""BEGIN;
           SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));

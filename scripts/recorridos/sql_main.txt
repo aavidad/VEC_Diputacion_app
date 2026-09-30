@@ -2,6 +2,7 @@
 # Extensión main ff6493cfccb2da4e83c94fa7c59be24c025cb7c9: CT147 en posición 34. H5 no añade SQL.
 # Extensión main e78687528d5725efd74e95c858d389f4437099ca: AD3-114 y CT148 en posiciones 35/36.
 # Extensión main a7d9df2b3285b0df6be6bba0bae09331463f0a3d: AD3-113/Documentos9 en posiciones 37/38; historia 36 intacta.
+# Extensión main 1e443463df69dffeaac239f9b7000f48dd1b7bb7: Aspirantes000002 en posición39, tras Aspirantes000001 de la base.
 # fase SHA256 ruta relativa; solo SQL integrado, nunca DOWN.
 H3	c4dcae5c990555c05dae958adc0a52cab2244b7bfb5c5cac5eaaf2399e6275b3	deploy/postgresql/contratacion_temporal/migraciones/000141_requisitos_via_expediente.up.sql
 H3	ad53b128a42120e9030099ed0faf479d21fe4524da4c3ba385e16ac63cd28e4e	deploy/postgresql/contratacion_temporal/migraciones/000142_numeracion_anual_expedientes_anteriores.up.sql
@@ -41,3 +42,4 @@ MAIN	c384cdbe13e9d3f6c4c33f17b7a3df3b7f34af7fb30ae8798ddc84815adcbb55	deploy/pos
 MAIN	4f88a1443f14f4debfbb6b439da274daeb10946cc5d6eb6ac689571371378f13	deploy/postgresql/contratacion_temporal/migraciones/000148_ajustes_reglas.up.sql
 MAIN	16d61573b80fc8061e325b41438003652ebdf5502a76153516c46ace5d07b6e5	deploy/postgresql/autorizacion_atestada_v3/migraciones/000113_custodia_documento_firmado.up.sql
 MAIN	a3faf864f1e783a86c654e6006c1a061d865539163afcc810d043b725ba97873	deploy/postgresql/documentos/migraciones/000009_custodia_documento_firmado.up.sql
+MAIN	4f956a3b7eb5c8786e73f4f531acf979aa7870b13ae5b3a202f3cdab544e3e88	deploy/postgresql/aspirantes/migraciones/000002_frontera.up.sql
