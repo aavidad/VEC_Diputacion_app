@@ -43,6 +43,9 @@ type ContratoPlanNominal struct {
 	SeleccionRef        string
 	VersionSeleccion    uint64
 	SeleccionReciboRef  string
+	PersonaRef          string
+	PersonaVersion      uint64
+	PersonaFuente       dom.FuentePlanPersonalB2
 	FuenteRPT           ct.ReferenciaVersionadaPersonalRPT
 	CategoriaRef        string
 	VinculoRevision     uint64
@@ -74,7 +77,7 @@ func (d DatosActosPersonalB2) validar() bool {
 	return dom.ReferenciaOpacaValida(d.OrganismoRef) && dom.ReferenciaOpacaValida(d.UnidadRef) &&
 		d.Regimen.Validar() == nil && d.Modalidad.Validar() == nil && d.Desde.Validar() == nil &&
 		(d.Hasta == "" || (d.Hasta.Validar() == nil && d.Desde.AntesDe(d.Hasta))) &&
-		(d.ClaseOcupacion == "temporal" || d.ClaseOcupacion == "provisional" || d.ClaseOcupacion == "titular") &&
+		dom.ClaseOcupacionPlanPersonalB2Valida(d.ClaseOcupacion) &&
 		dom.ReferenciaOpacaValida(d.VersionPlantillaRef) && dom.ReferenciaOpacaValida(d.VersionRPTRef) &&
 		d.RevisionPlaza > 0 && d.RevisionPuesto > 0 && dom.ReferenciaOpacaValida(d.FuenteOrganizacionRef) &&
 		huellaPlanNominalValida(d.FuenteOrganizacionSHA256) && d.CatalogoRPTID != "" && d.ModuloRPTID != "" &&
@@ -315,7 +318,9 @@ func (f *PlanesNominales) resolverB2(ctx context.Context, c ContratoPlanNominal)
 	if p.OrganizacionRef != c.OrganizacionRef || p.ExpedienteRef != c.ExpedienteRef || p.AceptacionRef != c.AceptacionRef ||
 		p.LlamamientoRef != c.LlamamientoRef || p.SeleccionRef != c.SeleccionRef || p.VersionSeleccion != c.VersionSeleccion ||
 		!personal.ReferenciaPersonaValida(p.PersonaRef) || p.PersonaVersion == 0 || p.PersonaVersion > ct.MaximoEnteroSeguroOperacionAnalisis ||
-		p.ReciboRef != c.SeleccionReciboRef || !dom.ReferenciaOpacaValida(p.FuenteRef) || p.FuenteVersion < 1 || !huellaPlanNominalValida(p.FuenteSHA256) {
+		p.ReciboRef != c.SeleccionReciboRef || p.PersonaRef != c.PersonaRef || p.PersonaVersion != c.PersonaVersion ||
+		p.FuenteRef != c.PersonaFuente.Ref || p.FuenteVersion < 1 || uint64(p.FuenteVersion) != c.PersonaFuente.Version ||
+		p.FuenteSHA256 != c.PersonaFuente.SHA256 || !dom.ReferenciaOpacaValida(p.FuenteRef) || !huellaPlanNominalValida(p.FuenteSHA256) {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
 	r, err := f.c.RPT.LeerPuestoRPT(ctx, c)
@@ -330,6 +335,18 @@ func (f *PlanesNominales) resolverB2(ctx context.Context, c ContratoPlanNominal)
 		r.PuestoRef != c.PuestoRef || r.PlazaRef != c.PlazaRef || r.VinculoRevision != c.VinculoRevision ||
 		r.VinculoReciboRef != c.VinculoReciboRef ||
 		!r.Prospectivo || r.AcreditaProcedenciaHistorica {
+		return cero, ct.ErrConflictoIncorporacionAplicacion
+	}
+	// Releer justo antes del primer efecto de Personal impide que una selección
+	// cambiada durante las otras consultas se convierta en la reserva del plan CT.
+	actual, err := f.c.Bolsa.LeerPersonaSeleccionada(ctx, c)
+	if err != nil {
+		return cero, errorFuentePlanNominal(ctx, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return cero, err
+	}
+	if actual != p {
 		return cero, ct.ErrConflictoIncorporacionAplicacion
 	}
 	reserva, err := f.c.Personal.ReservarPersonalB2(ctx, SolicitudReservaPersonalB2{Contrato: c, Persona: p, Puesto: r})
@@ -367,6 +384,7 @@ func contratoB2Valido(c ContratoPlanNominal) bool {
 		dom.ReferenciaOpacaValida(c.AceptacionReciboRef) && dom.ReferenciaOpacaValida(c.LlamamientoRef) &&
 		(c.SeleccionRef == "" || dom.ReferenciaOpacaValida(c.SeleccionRef)) &&
 		c.VersionSeleccion <= ct.MaximoEnteroSeguroOperacionAnalisis && dom.ReferenciaOpacaValida(c.SeleccionReciboRef) &&
+		personal.ReferenciaPersonaValida(c.PersonaRef) && dom.VersionPlanPersonalB2Valida(c.PersonaVersion) && c.PersonaFuente.Valida() &&
 		c.FuenteRPT.Validar() == nil && c.VinculoRevision > 0 && c.VinculoRevision <= ct.MaximoEnteroSeguroOperacionAnalisis &&
 		dom.ReferenciaOpacaValida(c.VinculoReciboRef) &&
 		dom.ReferenciaOpacaValida(c.CategoriaRef) && dom.ReferenciaOpacaValida(c.PuestoRef) && dom.ReferenciaOpacaValida(c.PlazaRef) &&

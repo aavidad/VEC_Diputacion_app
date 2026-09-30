@@ -54,7 +54,9 @@ func contratoB2Prueba() ContratoPlanNominal {
 		SolicitudRef: "solicitud:personal", IntencionRef: "intencion:uno", IntencionReciboRef: "recibo:intencion",
 		IntencionVersion: 1, AceptacionRef: "aceptacion:uno", AceptacionReciboRef: "recibo:aceptacion",
 		LlamamientoRef: "llamamiento:uno", SeleccionRef: "seleccion:uno", VersionSeleccion: 2,
-		SeleccionReciboRef: "recibo:bolsa", FuenteRPT: ct.ReferenciaVersionadaPersonalRPT{
+		SeleccionReciboRef: "recibo:bolsa", PersonaRef: "per_0123456789abcdefghijkl", PersonaVersion: 3,
+		PersonaFuente: dom.FuentePlanPersonalB2{Ref: "fuente:bolsa", Version: 1, SHA256: strings.Repeat("d", 64)},
+		FuenteRPT: ct.ReferenciaVersionadaPersonalRPT{
 			Referencia: "rpt:uno", Version: 1, HuellaSHA256: strings.Repeat("b", 64),
 		}, CategoriaRef: "categoria:uno", VinculoRevision: 1, VinculoReciboRef: "recibo:vinculo",
 		PuestoRef: "puesto:uno", PlazaRef: "plaza:uno",
@@ -252,5 +254,66 @@ func TestPlanesNominalesB2NoReservaAnteAntecedenteOPersonaIncongruentes(t *testi
 	_, err = f.Preparar(context.Background(), c.OrganizacionRef, c.ExpedienteRef)
 	if !errors.Is(err, ct.ErrConflictoIncorporacionAplicacion) || reservas != 0 {
 		t.Fatalf("Bolsa incongruente no debe reservar: %v, reservas=%d", err, reservas)
+	}
+}
+
+func TestPlanesNominalesB2PersonaSelladaCambiaEntrePlanYConfirmacion(t *testing.T) {
+	c := contratoB2Prueba()
+	for _, caso := range []struct {
+		nombre  string
+		cambiar func(*PersonaSeleccionadaBolsa)
+	}{
+		{"persona", func(p *PersonaSeleccionadaBolsa) { p.PersonaRef = "per_zzzzzzzzzzzzzzzzzzzzzzzz" }},
+		{"version", func(p *PersonaSeleccionadaBolsa) { p.PersonaVersion++ }},
+		{"fuente", func(p *PersonaSeleccionadaBolsa) { p.FuenteRef = "fuente:otra" }},
+		{"version fuente", func(p *PersonaSeleccionadaBolsa) { p.FuenteVersion++ }},
+		{"huella fuente", func(p *PersonaSeleccionadaBolsa) { p.FuenteSHA256 = strings.Repeat("e", 64) }},
+		{"recibo", func(p *PersonaSeleccionadaBolsa) { p.ReciboRef = "recibo:otro" }},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			reservas, rpt := 0, 0
+			cfg := configuracionB2Prueba(c, &reservas)
+			original := cfg.Bolsa
+			cfg.Bolsa = bolsaNominalPrueba(func(ctx context.Context, c ContratoPlanNominal) (PersonaSeleccionadaBolsa, error) {
+				p, err := original.LeerPersonaSeleccionada(ctx, c)
+				caso.cambiar(&p)
+				return p, err
+			})
+			cfg.RPT = rptNominalPrueba(func(context.Context, ContratoPlanNominal) (PuestoRPTNominal, error) {
+				rpt++
+				return PuestoRPTNominal{}, nil
+			})
+			f, err := NuevosPlanesNominales(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = f.Preparar(context.Background(), c.OrganizacionRef, c.ExpedienteRef)
+			if !errors.Is(err, ct.ErrConflictoIncorporacionAplicacion) || rpt != 0 || reservas != 0 {
+				t.Fatalf("mutación admitida: %v, rpt=%d, reservas=%d", err, rpt, reservas)
+			}
+		})
+	}
+}
+
+func TestPlanesNominalesB2ReleeBolsaTrasRPTAntesDeReservar(t *testing.T) {
+	c := contratoB2Prueba()
+	reservas, lecturas := 0, 0
+	cfg := configuracionB2Prueba(c, &reservas)
+	original := cfg.Bolsa
+	cfg.Bolsa = bolsaNominalPrueba(func(ctx context.Context, c ContratoPlanNominal) (PersonaSeleccionadaBolsa, error) {
+		lecturas++
+		p, err := original.LeerPersonaSeleccionada(ctx, c)
+		if lecturas == 2 {
+			p.PersonaRef = "per_zzzzzzzzzzzzzzzzzzzzzzzz"
+		}
+		return p, err
+	})
+	f, err := NuevosPlanesNominales(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.Preparar(context.Background(), c.OrganizacionRef, c.ExpedienteRef)
+	if !errors.Is(err, ct.ErrConflictoIncorporacionAplicacion) || lecturas != 2 || reservas != 0 {
+		t.Fatalf("mutación tras RPT admitida: %v, lecturas=%d, reservas=%d", err, lecturas, reservas)
 	}
 }

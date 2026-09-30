@@ -138,7 +138,7 @@ func fechaCivilFuenteCT(t time.Time) string {
 	return t.UTC().Format(time.DateOnly)
 }
 func contratoAplicacionDesdeMaterialB2(m domct.PlanIncorporacionPersonalB2) inc.ContratoPlanNominal {
-	return inc.ContratoPlanNominal{Protocolo: inc.ProtocoloPersonalB2V1, OrganizacionRef: m.OrganizacionRef, ExpedienteRef: m.ExpedienteRef, VersionExpediente: m.VersionExpediente, EjercicioSintetico: m.EjercicioSintetico, AceptacionRef: m.AceptacionRef, AceptacionReciboRef: m.AceptacionReciboRef, LlamamientoRef: m.Bolsa.LlamamientoRef, SelectorBolsa: m.Bolsa, SeleccionReciboRef: m.PersonaReciboBolsaRef, FuenteRPT: ct.ReferenciaVersionadaPersonalRPT{Referencia: m.VersionPuestoRef, Version: m.FuenteRPT.Revision, HuellaSHA256: m.FuenteRPT.FuenteSHA256}, CategoriaRef: m.CategoriaRef, VinculoRevision: m.VinculoRevision, VinculoReciboRef: m.VinculoReciboRef, PuestoRef: m.PuestoRef, PlazaRef: m.PlazaRef, DatosPersonal: inc.DatosActosPersonalB2{OrganismoRef: m.OrganismoRef, UnidadRef: m.UnidadRef, Regimen: personal.EntradaCatalogoEmpleadoB2{Ref: m.Regimen.Ref, Version: int64(m.Regimen.Version)}, Modalidad: personal.EntradaCatalogoEmpleadoB2{Ref: m.Modalidad.Ref, Version: int64(m.Modalidad.Version)}, Desde: personal.FechaCivil(m.Desde), Hasta: personal.FechaCivil(m.Hasta), ClaseOcupacion: m.ClaseOcupacion, VersionPlantillaRef: m.VersionPlazaRef, VersionRPTRef: m.VersionPuestoRef, RevisionPlaza: int64(m.RevisionPlaza), RevisionPuesto: int64(m.RevisionPuesto), FuenteOrganizacionRef: m.FuenteOrganizacion.Ref, FuenteOrganizacionSHA256: m.FuenteOrganizacion.SHA256, CatalogoRPTID: m.CatalogoRPTID, ModuloRPTID: m.CatalogoRPTModulo, CategoriaID: m.CategoriaRef, CatalogoRPTVersion: m.CatalogoRPTVersion, CatalogoRPTHuellaSHA256: m.CatalogoRPTSHA256}}
+	return inc.ContratoPlanNominal{Protocolo: inc.ProtocoloPersonalB2V1, OrganizacionRef: m.OrganizacionRef, ExpedienteRef: m.ExpedienteRef, VersionExpediente: m.VersionExpediente, EjercicioSintetico: m.EjercicioSintetico, AceptacionRef: m.AceptacionRef, AceptacionReciboRef: m.AceptacionReciboRef, LlamamientoRef: m.Bolsa.LlamamientoRef, SelectorBolsa: m.Bolsa, SeleccionReciboRef: m.PersonaReciboBolsaRef, PersonaRef: m.PersonaRef, PersonaVersion: m.PersonaVersion, PersonaFuente: m.PersonaFuente, FuenteRPT: ct.ReferenciaVersionadaPersonalRPT{Referencia: m.VersionPuestoRef, Version: m.FuenteRPT.Revision, HuellaSHA256: m.FuenteRPT.FuenteSHA256}, CategoriaRef: m.CategoriaRef, VinculoRevision: m.VinculoRevision, VinculoReciboRef: m.VinculoReciboRef, PuestoRef: m.PuestoRef, PlazaRef: m.PlazaRef, DatosPersonal: inc.DatosActosPersonalB2{OrganismoRef: m.OrganismoRef, UnidadRef: m.UnidadRef, Regimen: personal.EntradaCatalogoEmpleadoB2{Ref: m.Regimen.Ref, Version: int64(m.Regimen.Version)}, Modalidad: personal.EntradaCatalogoEmpleadoB2{Ref: m.Modalidad.Ref, Version: int64(m.Modalidad.Version)}, Desde: personal.FechaCivil(m.Desde), Hasta: personal.FechaCivil(m.Hasta), ClaseOcupacion: m.ClaseOcupacion, VersionPlantillaRef: m.VersionPlazaRef, VersionRPTRef: m.VersionPuestoRef, RevisionPlaza: int64(m.RevisionPlaza), RevisionPuesto: int64(m.RevisionPuesto), FuenteOrganizacionRef: m.FuenteOrganizacion.Ref, FuenteOrganizacionSHA256: m.FuenteOrganizacion.SHA256, CatalogoRPTID: m.CatalogoRPTID, ModuloRPTID: m.CatalogoRPTModulo, CategoriaID: m.CategoriaRef, CatalogoRPTVersion: m.CatalogoRPTVersion, CatalogoRPTHuellaSHA256: m.CatalogoRPTSHA256}}
 }
 func contratoAplicacionB2(c ct.ContratoPlanNominalB2) inc.ContratoPlanNominal {
 	r := contratoAplicacionDesdeMaterialB2(c.Material)
@@ -333,13 +333,33 @@ func (f *fuentesIncorporacionPersonalB2) ConsultarOpcionesIncorporacionB2(ctx co
 		r.Opciones.Documentos = append(r.Opciones.Documentos, httpct.OpcionDocumentoB2{DocumentoRef: a.DocumentoRef, DocumentoSHA256: a.DocumentoSHA256, EtiquetaClaveI18n: "ct_incorporacion_b2_documento_formalizacion"})
 	}
 	if a.ExpedienteRef == exp && a.VersionExpediente == d.Resumen.Version && domct.ReferenciaOpacaValida(a.AceptacionRef) && domct.ReferenciaOpacaValida(a.AceptacionReciboRef) {
-		if anclado, err := f.acreditarAnclajeB2(ctx, a); err == nil {
-			if persona, err := f.resolverPersonaInicialB2(ctx, inc.ContratoPlanNominal{OrganizacionRef: f.organizacionRef, ExpedienteRef: exp, AceptacionRef: a.AceptacionRef, AceptacionReciboRef: a.AceptacionReciboRef, SelectorBolsa: anclado.Bolsa}); err == nil {
+		anclado, err := f.acreditarAnclajeB2(ctx, a)
+		if err != nil {
+			if e := errorPrevioPersonaIncorporacionB2(ctx, err); e != nil {
+				return cero, e
+			}
+		} else {
+			persona, err := f.resolverPersonaInicialB2(ctx, inc.ContratoPlanNominal{OrganizacionRef: f.organizacionRef, ExpedienteRef: exp, AceptacionRef: a.AceptacionRef, AceptacionReciboRef: a.AceptacionReciboRef, SelectorBolsa: anclado.Bolsa})
+			if err != nil {
+				if e := errorPrevioPersonaIncorporacionB2(ctx, err); e != nil {
+					return cero, e
+				}
+			} else {
 				r.Prerrequisitos[0].Cumplido = persona.ExpedienteRef == exp && persona.AceptacionRef == a.AceptacionRef && persona.LlamamientoRef == anclado.Bolsa.LlamamientoRef && domct.ReferenciaOpacaValida(persona.PersonaRef) && domct.VersionPlanPersonalB2Valida(persona.PersonaVersion) && domct.ReferenciaOpacaValida(persona.ReciboRef) && domct.HuellaPlanPersonalB2Valida(persona.FuenteSHA256)
 			}
 		}
 	}
 	return r, nil
+}
+
+func errorPrevioPersonaIncorporacionB2(ctx context.Context, err error) error {
+	if ctx != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err == ct.ErrPreparacionIncorporacionPendiente {
+		return nil
+	}
+	return err
 }
 
 func (f *fuentesIncorporacionPersonalB2) resolverPersonaInicialB2(ctx context.Context, c inc.ContratoPlanNominal) (inc.PersonaSeleccionadaBolsa, error) {
