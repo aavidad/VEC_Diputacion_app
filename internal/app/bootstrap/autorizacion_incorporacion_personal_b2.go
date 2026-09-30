@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"net/http"
 	"reflect"
 	"time"
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
@@ -297,6 +298,13 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 	if s == nil {
 		return nil, ct.ErrComposicionIncorporacionAplicacion
 	}
+	// B2 puro crea el perfil de detalle sin los perfiles de alta y confirmación
+	// del protocolo anterior. La subconsulta de detalle necesita ese perfil.
+	detalle, e := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(principalCanalNominalIncorporacion(s), s.reloj.Ahora(), discriminadorPerfilFijoCTDesarrollo(claveIncorporacionDetalle))
+	if e != nil {
+		return nil, e
+	}
+	perfilDetalle := detalle.Resultado.Contexto.PerfilActivoRef
 	ids := []string{}
 	for _, grupo := range gruposPerfilesIncorporacionB2() {
 		c, e := nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(principalCanalNominalIncorporacion(s), s.reloj.Ahora(), discriminadorPerfilFijoCTDesarrollo("incorporacion_b2_"+grupo))
@@ -306,10 +314,25 @@ func asignarPerfilesNominalesB2EnFronteras(s *soporteAltaContratacionTemporalDes
 		ids = append(ids, c.Resultado.Contexto.PerfilActivoRef)
 	}
 	r := append([]descriptorFronteraComunDesarrollo(nil), declaraciones...)
+	detalleEncontrado := false
 	for i := range r {
-		if r[i].Ruta == httpct.RutaPlanB2 || r[i].Ruta == httpct.RutaConfirmacionB2 || r[i].Ruta == httpct.RutaConsultaDetalleRRHH {
+		if r[i].Ruta == httpct.RutaConsultaDetalleRRHH && r[i].Metodo == http.MethodPost {
+			if !esDescriptorDetalleContratacionTemporalDesarrollo(r[i], s.contexto.Resultado.Contexto.PerfilActivoRef) || detalleEncontrado {
+				return nil, ct.ErrComposicionIncorporacionAplicacion
+			}
+			if !r[i].admitePerfil(perfilDetalle) {
+				r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), perfilDetalle)
+			}
+			detalleEncontrado = true
+		}
+		if r[i].Ruta == httpct.RutaConsultaDetalleRRHH && r[i].Metodo == http.MethodPost ||
+			r[i].Ruta == httpct.RutaPlanB2 && (r[i].Metodo == http.MethodGet || r[i].Metodo == http.MethodPost) ||
+			r[i].Ruta == httpct.RutaConfirmacionB2 && r[i].Metodo == http.MethodPost {
 			r[i].PerfilesActivosRef = append(append([]string(nil), r[i].PerfilesActivosRef...), ids...)
 		}
+	}
+	if !detalleEncontrado {
+		return nil, ct.ErrComposicionIncorporacionAplicacion
 	}
 	return r, nil
 }
