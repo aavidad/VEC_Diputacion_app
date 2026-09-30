@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -9,7 +10,50 @@ import (
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	domct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
+	pp "vec-diputacion-granada/internal/modules/personal/ports"
 )
+
+type clasesIncorporacionB2Prueba struct {
+	resultado pp.ResultadoClasesOcupacionCT
+	err       error
+	llamadas  int
+}
+
+func (c *clasesIncorporacionB2Prueba) ConsultarClasesOcupacion(context.Context, pp.ConsultaClasesOcupacionCT) (pp.ResultadoClasesOcupacionCT, error) {
+	c.llamadas++
+	return c.resultado, c.err
+}
+
+func TestIncorporacionB2ClaseProcedeDelCatalogoPersonal(t *testing.T) {
+	base, ctx, _, publicador := escenarioNominalIncorporacion(t)
+	refs := base.referencias
+	refs.PerfilV3Ref = base.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	if e := extenderPerfilesNominalesB2(base.nominales, refs, &archivoIncorporacionPersonalB2{Protocolo: "personal_b2_v1", OrganismoRef: "organismo:prueba", CatalogoRPTID: "categorias_rpt", ModuloRPTID: "personal"}, base.reloj.Ahora()); e != nil {
+		t.Fatal(e)
+	}
+	for _, p := range base.nominales.todos() {
+		p.contextoEsperadoRegistrado = p.contexto.Resultado
+		p.sesionOperativa = &sesionNominalIncorporacionPrueba{contexto: p.contexto}
+		publicador.publicadas[p.perfilRef()] = instantaneaPublicadaDesarrollo{instantanea: p.plantilla, actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+	}
+	ctx = context.WithValue(ctx, claveRutaPeticionIncorporacionB2{}, rutaPeticionIncorporacionB2{metodo: "POST", ruta: "/api/interno/contratacion-temporal/incorporacion-personal-b2/plan/v1"})
+	clases := &clasesIncorporacionB2Prueba{resultado: pp.ResultadoClasesOcupacionCT{Catalogo: personal.CatalogoClasesOcupacionCT{Ref: "catalogo:clases", Version: 4, HuellaSHA256: strings.Repeat("a", 64), Opciones: []personal.OpcionClaseOcupacionCT{{Valor: "reserva", TextoClave: "personal_clase_reserva"}}}}}
+	f := &fuentesIncorporacionPersonalB2{organismoRef: "organismo:prueba", clases: clases, autoridad: &autoridadIncorporacionPersonalB2{perfiles: base.nominales, reloj: base.reloj}}
+	if e := f.validarClaseOcupacion(ctx, "reserva"); e != nil {
+		t.Fatalf("clase publicada de Personal rechazada: %v", e)
+	}
+	if e := f.validarClaseOcupacion(ctx, "temporal"); !errors.Is(e, ct.ErrPlanNominalB2Invalido) {
+		t.Fatalf("clase ausente del catálogo admitida: %v", e)
+	}
+	clases.err = personal.ErrRegistroEmpleadoB2NoDisponible
+	if e := f.validarClaseOcupacion(ctx, "reserva"); !errors.Is(e, personal.ErrRegistroEmpleadoB2NoDisponible) {
+		t.Fatalf("caída del catálogo sustituyó fuente: %v", e)
+	}
+	if clases.llamadas != 3 {
+		t.Fatal("no se releyó Personal para cada selección")
+	}
+}
 
 func TestIncorporacionB2SeleccionNoSustituyeFuentesCT(t *testing.T) {
 	a := ct.AntecedentesPlanNominalB2{DocumentoRef: "documento:formalizacion", DocumentoSHA256: strings.Repeat("a", 64)}
