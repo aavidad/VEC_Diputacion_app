@@ -1,6 +1,6 @@
 {
   "rutas": {
-    "inicio": "Home and deadlines",
+    "inicio": "Home",
     "convocatorias": "Recruitment notices",
     "convocatoria": "Recruitment notice details",
     "perfil": "Profile and contact details",
@@ -227,7 +227,7 @@
       "titulo": "User guide",
       "subtitulo": "Full help text",
       "encabezado": "Read this guide",
-      "texto": "This guide explains the employment pool personal area. Home shows deadlines and pending actions. In Recruitment notices, you can review the terms and start an application. The Merits inventory lets you reuse qualifications, experience and documents. The self-assessment of points is provisional and will be reviewed by Human Resources. Payment, signing, registration, call-up, correction and representation actions require confirmation and a receipt.",
+      "texto": "This guide explains the employment pool personal area. Home shows the information currently available in My employment pool. Recruitment deadlines and applications are not yet available in this area. The Merits inventory lets you reuse qualifications, experience and documents. The self-assessment of points is provisional and will be reviewed by Human Resources. Payment, signing, registration, call-up, correction and representation actions require confirmation and a receipt.",
       "limiteServicio": "Every real operation depends on confirmation from the authorised service."
     }
   },
