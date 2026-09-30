@@ -35,6 +35,16 @@ BEGIN
  BEGIN
   PERFORM vec_contratacion_temporal.registrar_vinculo_categoria_rpt_v1(
    registro,b,d,b,b,1,1,b,b,b,b,
+   b,d,b,b,1,1,b,b,b,b);
+  RAISE EXCEPTION 'CT154: aceptó el mismo perfil CT y RPT';
+ EXCEPTION WHEN SQLSTATE '42501' THEN
+  GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+  IF mensaje<>'CT-154: identidades divergentes'
+  THEN RAISE EXCEPTION 'CT154: no denegó el perfil compartido antes de V3'; END IF;
+ END;
+ BEGIN
+  PERFORM vec_contratacion_temporal.registrar_vinculo_categoria_rpt_v1(
+   registro,b,d,b,b,1,1,b,b,b,b,
    b,drpt,b,b,1,1,b,b,b,b);
   RAISE EXCEPTION 'CT154: registro sin V3 aceptado';
  EXCEPTION WHEN SQLSTATE '42501' THEN
