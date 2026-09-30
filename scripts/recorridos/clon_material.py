@@ -588,12 +588,14 @@ def importacion_preimage(image: dict, login: str) -> tuple[int, bool]:
         fail("importacion existing role missing")
     for name in names:
         role = roles[name]
-        if role["rolcanlogin"] is not (name == login) or any(role[field] for field in ("rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls")):
+        if role["rolcanlogin"] is not (name == login) or role["rolinherit"] is not True or any(role[field] for field in ("rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication", "rolbypassrls")):
             fail("importacion existing role authority changed")
     if roles[login]["rolinherit"] is not True or roles[login].get("rolconfig") is not None or image["login_dependencies"] != 0 or image["login_settings"] != 0 or image["groups_owned_objects"] != 0:
         fail("importacion LOGIN or ownership preimage changed")
     members = [m for m in image["memberships"] if m["member"] == roles[login]["oid"]]
     expected = {roles[name]["oid"] for name in names[1:]}
+    if any(member["member"] in expected for member in image["memberships"]):
+        fail("importacion groups inherit another role")
     if len(members) != 2 or {m["roleid"] for m in members} != expected or any(m["inherit_option"] is not True or m["admin_option"] is not False or m["set_option"] is not True for m in members):
         fail("importacion historical memberships changed")
     oid = roles[IMPORTACION_GROUP]["oid"]
@@ -613,6 +615,18 @@ def importacion_preimage(image: dict, login: str) -> tuple[int, bool]:
     return oid, bool(own)
 
 
+def importacion_runtime_login(env: dict, args: argparse.Namespace, output: Path) -> str:
+    login = pool_login(env[IMPORTACION_KEY], args, output)
+    if login != IMPORTACION_LOGIN:
+        fail("importacion LOGIN is not the preserved H1 account")
+    # Only this technical LOGIN must be exclusive. Other runtime consumers
+    # and the two Users surfaces retain their historical pool arrangements.
+    for key, raw in env.items():
+        if key != IMPORTACION_KEY and key.endswith("_DATABASE_URL") and pool_login(raw, args, output) == login:
+            fail("importacion LOGIN reused by another runtime capability")
+    return login
+
+
 def repair_importacion_connect(args: argparse.Namespace, output: Path, source: str) -> None:
     approved_material_plan(args, output, source)
     try:
@@ -629,9 +643,7 @@ def repair_importacion_connect(args: argparse.Namespace, output: Path, source: s
     if hashlib.sha256(data).hexdigest() != IMPORTACION_SOURCE_SHA:
         fail("importacion source contract changed")
     env = json.loads(private_read(output / "runtime-config.json"))
-    login = pool_login(env[IMPORTACION_KEY], args, output)
-    if login != IMPORTACION_LOGIN:
-        fail("importacion LOGIN is not the preserved H1 account")
+    login = importacion_runtime_login(env, args, output)
     snapshot = importacion_snapshot_sql()
     fd = os.open(output / "sql.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:

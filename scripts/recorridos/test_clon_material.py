@@ -220,6 +220,36 @@ class MaterialTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(material.MaterialError):
                 material.importacion_preimage(bad, material.IMPORTACION_LOGIN)
 
+    def test_importacion_preimage_denies_both_groups_noinherit_or_additional_role(self):
+        for group_index in (1, 2):
+            for alteration in ("noinherit", "additional_role"):
+                image = self.importacion_image()
+                if alteration == "noinherit":
+                    image["roles"][group_index]["rolinherit"] = False
+                else:
+                    image["memberships"].append({"member": image["roles"][group_index]["oid"], "roleid": 999,
+                                                 "inherit_option": True, "admin_option": False, "set_option": True})
+                with self.subTest(group_index=group_index, alteration=alteration), self.assertRaises(material.MaterialError):
+                    material.importacion_preimage(image, material.IMPORTACION_LOGIN)
+        image = self.importacion_image()
+        self.assertTrue(all(role["rolconfig"] is not None for role in image["roles"][1:]))
+        self.assertEqual(material.importacion_preimage(image, material.IMPORTACION_LOGIN), (21, False))
+
+    def test_importacion_runtime_login_is_exclusive_without_requiring_other_logins_unique(self):
+        root = Path("/private")
+        args = SimpleNamespace(pg_port=55531)
+        from urllib.parse import urlencode
+        def uri(login):
+            return "postgresql://" + login + "@127.0.0.1:55531/postgres?" + urlencode({"sslmode": "verify-full", "sslrootcert": str(root / "material/pg/ca.crt")})
+        env = {material.IMPORTACION_KEY: uri(material.IMPORTACION_LOGIN),
+               "VEC_CT_DATABASE_URL": uri("preserved_other_login"),
+               "VEC_CT_CONFIRMADOR_DATABASE_URL": uri("preserved_other_login")}
+        self.assertEqual(material.importacion_runtime_login(env, args, root), material.IMPORTACION_LOGIN)
+        for duplicate in (uri(material.IMPORTACION_LOGIN), uri(material.IMPORTACION_LOGIN) + "&sslmode=verify-full"):
+            with self.subTest(duplicate_parameters=duplicate.endswith("&sslmode=verify-full")):
+                changed = dict(env, VEC_CT_DATABASE_URL=duplicate)
+                with self.assertRaises(material.MaterialError): material.importacion_runtime_login(changed, args, root)
+
     def test_importacion_repair_rehearses_rollback_and_only_grants_group_connect(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
