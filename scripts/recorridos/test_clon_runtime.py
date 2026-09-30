@@ -164,88 +164,199 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(json.loads(target.read_text()), {'version': 1})
         self.assertEqual(list(self.root.glob('.record.json-*.tmp')), [])
 
-    def test_publication_failure_stops_only_the_new_child(self):
-        binary = self.root / 'fixture-sleep'
-        shutil.copyfile('/bin/sleep', binary)
-        binary.chmod(0o700)
-        for name in ['cliente.crt', 'cliente.key']:
-            path = self.material / 'mtls' / name
-            path.parent.mkdir(exist_ok=True)
-            path.write_text('fixture')
-        unrelated = subprocess.Popen(['/bin/sleep', '60'])
-        created = []
-        real_popen = subprocess.Popen
-        def spawn(command, **kwargs):
-            child = real_popen([command[0], '60'], **kwargs)
-            created.append(child)
-            return child
-        def cleanup_unrelated():
-            if unrelated.poll() is None:
-                unrelated.terminate()
-            unrelated.wait(timeout=5)
-        self.addCleanup(cleanup_unrelated)
-        with patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime.ssl, 'create_default_context'), patch.object(runtime.subprocess, 'Popen', side_effect=spawn), patch.object(runtime, 'write_json', side_effect=OSError('cannot publish')):
+    def test_static_elf_probe_rejects_an_interpreter(self):
+        import struct
+        path = self.root / 'fixture-elf'
+        header = bytearray(64)
+        header[:6] = b'\x7fELF\x02\x01'
+        struct.pack_into('<Q', header, 32, 64)
+        struct.pack_into('<HH', header, 54, 56, 1)
+        program = bytearray(56)
+        path.write_bytes(header + program)
+        self.assertIsNone(runtime.elf_interpreter(path))
+        struct.pack_into('<I', program, 0, 3)
+        struct.pack_into('<Q', program, 8, 120)
+        struct.pack_into('<Q', program, 32, 8)
+        path.write_bytes(header + program + b'/loader\0')
+        self.assertEqual(runtime.elf_interpreter(path), '/loader')
+
+    def projection_fixture(self):
+        root = self.root / 'runtime-interno'
+        root.mkdir(mode=0o700)
+        names = ['ca/ca.crt', 'tls/servidor.crt', 'tls/servidor.key']
+        positive = {}
+        for name in names:
+            target = root / 'material' / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((self.material / name).read_bytes())
+            positive[name] = {'source_sha256': runtime.digest(self.material / name),
+                              'projected_sha256': runtime.digest(target), 'unchanged': True}
+        for kind in ['documentos', 'imagenes', 'data', 'comunicaciones']:
+            (root / 'rw' / kind).mkdir(parents=True, mode=0o700)
+        (root / 'material/comunicaciones').mkdir(mode=0o700)
+        values = {k: v.replace(str(self.material), str(root / 'material')) for k, v in self.values.items()}
+        values.update(VEC_PORTAL_PROCESO='interno', VEC_PERSONAL_CATALOG_PATH=str(root / 'rw/data/personal-catalog.json'),
+                      VEC_BOLSA_DATA_DIR=str(root / 'rw/data/bolsa'), VEC_BOLSA_DATA_PATH=str(root / 'rw/data/bolsa/bolsa_store.json'),
+                      VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR=str(root / 'rw/data/importaciones'))
+        runtime.write_json(root / 'runtime-config.json', values)
+        (root / 'runtime.env').write_text('fixture')
+        (root / 'material/portal-proceso.json').write_text('{"version":1,"portal":"interno"}')
+        (root / 'material/desarrollo.env').write_text('fixture')
+        with (self.source / 'config/config.go').open('a') as stream:
+            stream.write('\n' + '\n'.join('"' + key + '"' for key in values))
+        source = self.root / ('source-' + 'a' * 40)
+        contracts = {}
+        for name in ['config/portal_proceso.go', 'internal/app/separacionportales/material.go',
+                     'internal/app/bootstrap/material_desarrollo.go', 'internal/app/bootstrap/usuarios_preferencias_config_identidad.go',
+                     'internal/app/bootstrap/documentos_montaje.go', 'internal/app/bootstrap/usuarios_imagen_montaje.go']:
+            path = source / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('fixture source contract')
+            contracts[name] = runtime.digest(path)
+        top = {'owner': 'Codex-M', 'target': {'source_commit': 'a' * 40, 'app_port': 18531, 'pg_port': 55531},
+               'files': {'material/' + name: runtime.digest(self.material / name) for name in names}}
+        proof = {'operator_manifest_normalization': 'drop_runtime_interno_only',
+                 'operator_manifest_sha256': hashlib.sha256(json.dumps(top, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+                 'operator_env_sha256': runtime.digest(self.config), 'positive_files': positive, 'contracts': contracts}
+        sealed = {'owner': 'Codex-M', 'portal': 'interno', 'mode': 'interno', 'target': top['target'], 'source_proof': proof,
+                  'files': {str(path.relative_to(root)): runtime.digest(path) for path in root.rglob('*') if path.is_file()}}
+        runtime.write_json(root / 'material-manifest.json', sealed)
+        top['runtime_interno'] = {'mode': 'interno', 'source_commit': 'a' * 40,
+                                 'material': 'runtime-interno/material', 'config': 'runtime-interno/runtime-config.json',
+                                 'manifest': 'runtime-interno/material-manifest.json', 'manifest_sha256': runtime.digest(root / 'material-manifest.json'),
+                                 'rw': [{'source': 'runtime-interno/rw/' + kind, 'target': str(root / ('material/comunicaciones' if kind == 'comunicaciones' else 'rw/' + kind)), 'kind': kind}
+                                        for kind in ['documentos', 'imagenes', 'data', 'comunicaciones']]}
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        return root, values, top, sealed
+
+    def test_projection_accepts_nominal_future_data_and_clean_internal_environment(self):
+        root, _, _, _ = self.projection_fixture()
+        descriptor = runtime.read_runtime_descriptor(self.root)
+        self.assertEqual(len(descriptor['rw']), 4)
+        with patch.dict(os.environ, {'VEC_PORTAL_PROCESO': 'externo', 'HOME': '/offline'}):
+            environment, _ = runtime.runtime_environment(self.source, self.root, 18531, 55531, root)
+        self.assertEqual(environment['VEC_PORTAL_PROCESO'], 'interno')
+        self.assertEqual(environment['HOME'], '/home/runtime')
+        self.assertEqual(environment['TMPDIR'], '/tmp')
+        self.assertEqual(environment['VEC_HTTP_ADDR'], '127.0.0.1:18531')
+        self.assertEqual(environment['VEC_HTTP_ALLOWED_CIDRS'], '127.0.0.1/32')
+        self.assertFalse(Path(environment['VEC_PERSONAL_CATALOG_PATH']).exists())
+        self.assertNotIn(str(self.material), json.dumps(descriptor))
+
+    def test_projection_rejects_extra_offline_key_even_with_resealed_manifest(self):
+        root, _, top, sealed = self.projection_fixture()
+        extra = root / 'material/ca/ca.key'
+        extra.write_text('offline synthetic private key')
+        sealed['files']['material/ca/ca.key'] = runtime.digest(extra)
+        runtime.write_json(root / 'material-manifest.json', sealed)
+        top['runtime_interno']['manifest_sha256'] = runtime.digest(root / 'material-manifest.json')
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.read_runtime_descriptor(self.root)
+
+    def test_future_data_rejects_foreign_paths_symlinks_and_missing_ro_file(self):
+        root, values, _, _ = self.projection_fixture()
+        for name, value in [('VEC_PERSONAL_CATALOG_PATH', str(self.root / 'offline.json')),
+                            ('VEC_PERSONAL_CATALOG_PATH', str(root / 'rw/data/other.json')),
+                            ('VEC_TLS_KEY_FILE', str(root / 'material/tls/missing.key'))]:
+            runtime.write_json(root / 'runtime-config.json', dict(values, **{name: value}))
+            with self.subTest(name=name, value=value), self.assertRaises(runtime.RuntimeErrorLocal):
+                runtime.runtime_environment(self.source, self.root, 18531, 55531, root)
+        runtime.write_json(root / 'runtime-config.json', values)
+        (root / 'rw/data/bolsa').symlink_to(self.material, target_is_directory=True)
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.runtime_environment(self.source, self.root, 18531, 55531, root)
+
+    def test_projection_rejects_source_changes_and_incomplete_rw(self):
+        root, _, top, _ = self.projection_fixture()
+        top['runtime_interno']['rw'].pop()
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.read_runtime_descriptor(self.root)
+        # Restore only the descriptor; then change its pinned loader content.
+        top['runtime_interno']['rw'].append({'source': 'runtime-interno/rw/comunicaciones',
+                                            'target': str(root / 'material/comunicaciones'), 'kind': 'comunicaciones'})
+        runtime.write_json(self.root / 'material-manifest.json', top)
+        (self.root / ('source-' + 'a' * 40) / 'config/portal_proceso.go').write_text('changed source')
+        with self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.read_runtime_descriptor(self.root)
+
+    def test_container_publication_failure_stops_only_its_reservation(self):
+        from types import SimpleNamespace
+        projection = {'root': str(self.root), 'material_path': str(self.material),
+                      'runtime_config_path': str(self.config), 'manifest_path': str(self.root / 'material-manifest.json')}
+        record = {'container_id': 'own-id', 'container_mode': 'interno', 'pid': 41}
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.start.return_value = record
+        binary = self.root / 'fixture-bin'
+        binary.write_text('ELF fixture')
+        with patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime, 'write_json', side_effect=OSError('publish failure')):
             with self.assertRaises(OSError):
-                runtime.start(self.source, binary, {'source_commit': 'a' * 40, 'binary_sha256': runtime.digest(binary)}, self.root, 18531, 55531)
-        self.assertEqual(len(created), 1)
-        self.assertIsNotNone(created[0].poll())
-        self.assertIsNone(unrelated.poll())
+                runtime.start(self.source, binary, {'runtime_mode': 'interno', 'cgo_enabled': False, 'source_commit': 'a' * 40}, self.root, 18531, 55531)
+        module.stop.assert_called_once_with(self.root)
         self.assertFalse((self.root / 'runtime-process.json').exists())
 
-    def test_identification_failure_cleans_child_before_publishing(self):
-        binary = self.root / 'unidentified-sleep'
-        shutil.copyfile('/bin/sleep', binary)
-        binary.chmod(0o700)
-        for name in ['cliente.crt', 'cliente.key']:
-            path = self.material / 'mtls' / name
-            path.parent.mkdir(exist_ok=True)
-            path.write_text('fixture')
-        real_popen = subprocess.Popen
-        children = []
-        def spawn(command, **kwargs):
-            child = real_popen([command[0], '60'], **kwargs)
-            children.append(child)
-            return child
-        with patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime.ssl, 'create_default_context'), patch.object(runtime.subprocess, 'Popen', side_effect=spawn), patch.object(runtime, 'process_identity', return_value=None), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'write_json') as publication:
+    def test_verify_rejects_material_config_and_source_changes_without_signal(self):
+        record = {'container_mode': 'interno', 'source_commit': 'a' * 40, 'port': 18531, 'pg_port': 55531,
+                  'material_sha256': 'material', 'config_sha256': 'config',
+                  'runtime_config_path': str(self.config), 'runtime_manifest_path': str(self.root / 'material-manifest.json')}
+        projection = {'root': str(self.root), 'runtime_config_path': str(self.config), 'manifest_path': str(self.root / 'material-manifest.json')}
+        (self.root / ('source-' + 'a' * 40)).mkdir()
+        for failure in ['material', 'config', 'source']:
+            module = unittest.mock.Mock()
+            module.ContainerError = RuntimeError
+            if failure == 'source':
+                module.verify_record.side_effect = RuntimeError('source changed')
+            with self.subTest(failure=failure), patch.object(runtime, 'own_process', return_value=record), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='other' if failure == 'material' else 'material'), patch.object(runtime, 'runtime_environment', return_value=({}, 'other' if failure == 'config' else 'config')), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime, 'check_internal_https') as health:
+                with self.assertRaises(runtime.RuntimeErrorLocal):
+                    runtime.verify_running(self.root, 'a' * 40, 18531, 55531)
+                health.assert_not_called()
+                module.stop.assert_not_called()
+
+    def test_stop_checks_exact_record_but_not_source_or_config(self):
+        record = {'container_mode': 'interno', 'container_id': 'owned-id', 'instance': 'unique',
+                  'pid': 41, 'source_commit': 'a' * 40, 'uid': os.getuid()}
+        runtime.write_json(self.root / 'runtime-process.json', record)
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.read_record.return_value = dict(record)
+        module.stop.return_value = True
+        with patch.object(runtime, 'container_module', return_value=module), patch.object(runtime, 'runtime_environment', side_effect=AssertionError('not needed')), patch.object(runtime, 'validate_material', side_effect=AssertionError('not needed')):
+            self.assertTrue(runtime.stop(self.root))
+        self.assertFalse((self.root / 'runtime-process.json').exists())
+        runtime.write_json(self.root / 'runtime-process.json', dict(record, container_id='foreign-id'))
+        module.stop.reset_mock()
+        with patch.object(runtime, 'container_module', return_value=module):
             with self.assertRaises(runtime.RuntimeErrorLocal):
-                runtime.start(self.source, binary, {'source_commit': 'a' * 40, 'binary_sha256': runtime.digest(binary)}, self.root, 18531, 55531)
-            publication.assert_not_called()
-        self.assertIsNotNone(children[0].poll())
+                runtime.stop(self.root)
+            module.stop.assert_not_called()
 
-    def test_verify_running_rejects_source_material_and_config_changes(self):
-        commit = 'a' * 40
-        source = self.root / ('source-' + commit)
-        source.mkdir()
-        record = {'pid': 41, 'source_commit': commit, 'port': 18531, 'pg_port': 55531,
-                  'binary_sha256': 'binary', 'material_sha256': 'material', 'config_sha256': 'config'}
-        runtime.write_json(self.root / 'runtime-manifest.json', {'source_commit': commit,
-                           'binary_sha256': 'binary', 'source_sha256': runtime.source_digest(source)})
-        for failure in ['source', 'material', 'config']:
-            with self.subTest(failure=failure):
-                if failure == 'source':
-                    (source / 'changed').write_text('new source')
-                with patch.object(runtime, 'own_process', return_value=record), patch.object(runtime, 'validate_material', return_value='other' if failure == 'material' else 'material'), patch.object(runtime, 'runtime_environment', return_value=({}, 'other' if failure == 'config' else 'config')), patch.object(runtime.socket, 'create_connection') as connect:
-                    with self.assertRaises(runtime.RuntimeErrorLocal):
-                        runtime.verify_running(self.root, commit, 18531, 55531)
-                    connect.assert_not_called()
-                (source / 'changed').unlink(missing_ok=True)
-
-    def test_stop_does_not_require_valid_configuration_or_material(self):
-        binary = self.root / 'fixture-owned-sleep'
-        shutil.copyfile('/bin/sleep', binary)
-        binary.chmod(0o700)
-        child = subprocess.Popen([str(binary), '60'])
-        try:
-            identity = runtime.process_identity(child.pid)
-            runtime.write_json(self.root / 'runtime-process.json', dict(identity, binary_sha256=runtime.digest(binary)))
-            with patch.object(runtime, 'runtime_environment', side_effect=AssertionError('not needed')), patch.object(runtime, 'validate_material', side_effect=AssertionError('not needed')):
-                self.assertTrue(runtime.stop(self.root))
-            child.wait(timeout=5)
-            self.assertFalse((self.root / 'runtime-process.json').exists())
-        finally:
-            if child.poll() is None:
-                child.terminate()
-                child.wait(timeout=5)
+    def test_stop_recovers_removed_container_receipt_without_signalling_saved_pid(self):
+        class MissingContainer(RuntimeError):
+            pass
+        record = {'owner': 'Codex-M', 'state': str(self.root), 'container_mode': 'interno',
+                  'container_id': 'c' * 64, 'instance': 'd' * 32, 'pid': 999999,
+                  'start_ticks': '123', 'source_commit': 'a' * 40, 'uid': os.getuid()}
+        path = self.root / 'runtime-process.json'
+        runtime.write_json(path, record)
+        module = unittest.mock.Mock()
+        module.ContainerError = RuntimeError
+        module.DockerNotFound = MissingContainer
+        module.read_record.return_value = None
+        module.read_private_json.return_value = dict(record)
+        module.inspect.side_effect = MissingContainer()
+        with patch.object(runtime, 'container_module', return_value=module):
+            self.assertTrue(runtime.stop(self.root))
+        self.assertFalse(path.exists())
+        module.stop.assert_not_called()
+        module.verify_ownership.assert_not_called()
+        runtime.write_json(path, record)
+        module.read_private_json.return_value = dict(record, instance='e' * 32)
+        with patch.object(runtime, 'container_module', return_value=module), self.assertRaises(runtime.RuntimeErrorLocal):
+            runtime.stop(self.root)
+        self.assertTrue(path.exists())
+        module.stop.assert_not_called()
 
     def test_smtp_rejects_missing_proof_external_network_and_foreign_container(self):
         resources = self.smtp_fixture()
@@ -374,15 +485,6 @@ class RuntimeTests(unittest.TestCase):
             runtime.read_environment(self.root)
         env.write_text("VEC_AUTH_MODE='desarrollo'\n")
         self.assertEqual(runtime.read_environment(self.root)[0], {'VEC_AUTH_MODE': 'desarrollo'})
-
-    def test_stop_refuses_unrelated_pid_even_if_record_exists(self):
-        identity = runtime.process_identity(os.getpid())
-        record = dict(identity, start_ticks='wrong', binary_sha256='dummy')
-        runtime.write_json(self.root / 'runtime-process.json', record)
-        with patch.object(signal, 'pidfd_send_signal') as send_signal:
-            with self.assertRaises(runtime.RuntimeErrorLocal):
-                runtime.stop(self.root)
-            send_signal.assert_not_called()
 
     def test_pinned_main_rejects_branch_revision(self):
         repo = self.root / 'repo'

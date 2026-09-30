@@ -5,6 +5,7 @@ import argparse
 import fcntl
 import hashlib
 import ipaddress
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import signal
 import socket
 import ssl
 import stat
+import struct
 import subprocess
 import sys
 import tarfile
@@ -75,6 +77,37 @@ def confined(path, root, directory=False):
     if not valid:
         fail('Falta un archivo o directorio privado requerido.')
     return candidate
+
+
+def writable_data_path(value, root, name):
+    """Allow only nominal future data files; never create application content."""
+    nominal = {
+        'VEC_PERSONAL_CATALOG_PATH': ('personal-catalog.json', False),
+        'VEC_BOLSA_DATA_DIR': ('bolsa', True),
+        'VEC_BOLSA_DATA_PATH': ('bolsa/bolsa_store.json', False),
+        'VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR': ('importaciones', True),
+    }
+    relative, directory = nominal[name]
+    base = confined(root / 'rw/data', root, directory=True)
+    path = Path(value)
+    if path != base / relative:
+        fail('El archivo mutable no corresponde a su ruta nominal propia.')
+    for item in [base, *reversed(path.relative_to(base).parents), path]:
+        if not item.is_absolute():
+            item = base / item
+        if item.is_symlink():
+            fail('La escritura propia no admite enlaces simbólicos.')
+        if item.exists():
+            metadata = item.stat()
+            forbidden = 0o077 if item == base else 0o022
+            if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) & forbidden:
+                fail('La escritura debe permanecer privada del usuario del clon.')
+            if item != path or directory:
+                if not item.is_dir():
+                    fail('Un antecesor mutable no es un directorio propio.')
+            elif not item.is_file() or metadata.st_nlink != 1:
+                fail('El archivo mutable no es un archivo regular propio.')
+    return path
 
 
 def validate_state(repo, state):
@@ -230,7 +263,7 @@ def smtp_proxy_identity(record, state, address, port):
     return data['pid']
 
 
-def validate_smtp(values, state):
+def validate_smtp(values, state, material_root=None):
     fields = {'VEC_SMTP_HOST', 'VEC_SMTP_PORT', 'VEC_SMTP_FROM', 'VEC_SMTP_CA_FILE', 'VEC_SMTP_MODO_TLS'}
     if not any(values.get(field) for field in fields):
         return
@@ -238,7 +271,7 @@ def validate_smtp(values, state):
             or values['VEC_SMTP_FROM'] != 'rrhh@example.test'
             or values['VEC_SMTP_MODO_TLS'] != 'starttls'):
         fail('SMTP requiere el buzón sintético local y STARTTLS.')
-    ca = confined(values['VEC_SMTP_CA_FILE'], state)
+    ca = confined(values['VEC_SMTP_CA_FILE'], material_root or state)
     if ca.stat().st_uid != os.getuid() or stat.S_IMODE(ca.stat().st_mode) & 0o077:
         fail('La CA SMTP debe ser privada del clon.')
     profile_file = confined(state / 'perfiles.json', state)
@@ -272,7 +305,8 @@ def validate_smtp(values, state):
             or proof.get('external_recipient_rejected') is not True
             or proof.get('mailpit_container') != target['container']):
         fail('Falta el recibo del SMTP sintético verificado por el preparador.')
-    if ca != state / 'material/ca/ca.crt':
+    approved_ca = confined(state / 'material/ca/ca.crt', state)
+    if ca != (material_root or state) / 'material/ca/ca.crt' or digest(ca) != digest(approved_ca):
         fail('La CA SMTP no coincide con el material acreditado del clon.')
     sink = inspect_smtp_resource('container', proof['mailpit_container'])
     network_name = target['network']
@@ -326,8 +360,11 @@ def validate_smtp(values, state):
         fail('El recibo SMTP no corresponde al proceso reservado.')
 
 
-def runtime_environment(source, state, port, pg_port):
-    values, config_sha = read_environment(state)
+def runtime_environment(source, state, port, pg_port, projection_root=None):
+    files_root = projection_root or state
+    values, config_sha = read_environment(files_root)
+    if projection_root is not None and values.get("VEC_PORTAL_PROCESO") != "interno":
+        fail("El runtime aislado exige el portal interno explícito.")
     declared = set()
     for path in (source / 'config').glob('*.go'):
         if not path.name.endswith('_test.go'):
@@ -357,10 +394,10 @@ def runtime_environment(source, state, port, pg_port):
         fail('Falta configuración de desarrollo, TLS o PostgreSQL del clon.')
     if values['VEC_DEVELOPMENT_GUARD'] != 'ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO':
         fail('Falta el reconocimiento explícito del material sintético.')
-    validate_smtp(values, state)
+    validate_smtp(values, state, files_root)
     for name, value in values.items():
         if name.endswith('_DATABASE_URL'):
-            validate_dsn(value, pg_port, state)
+            validate_dsn(value, pg_port, files_root)
         elif name == 'VEC_SMTP_HOST':
             continue  # Validated above against the owned synthetic STARTTLS sink.
         elif name == 'VEC_HTTP_ALLOWED_CIDRS':
@@ -369,16 +406,128 @@ def runtime_environment(source, state, port, pg_port):
         elif name.endswith(('_URL', '_HOST', '_CIDRS')) and value:
             fail('Este clon no admite endpoints adicionales ni redes configuradas.')
         elif name.endswith(('_FILE', '_PATH', '_DIR')) and value:
-            values[name] = str(confined(value, state, directory=name.endswith('_DIR')))
-    material = confined(values['VEC_DEVELOPMENT_MATERIAL_DIR'], state, directory=True)
-    confined(material / 'ca/ca.crt', state)
+            if projection_root is not None and name in {
+                    'VEC_PERSONAL_CATALOG_PATH', 'VEC_BOLSA_DATA_DIR', 'VEC_BOLSA_DATA_PATH',
+                    'VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR'}:
+                values[name] = str(writable_data_path(value, files_root, name))
+            else:
+                values[name] = str(confined(value, files_root, directory=name.endswith('_DIR')))
+    material = confined(values['VEC_DEVELOPMENT_MATERIAL_DIR'], files_root, directory=True)
+    confined(material / 'ca/ca.crt', files_root)
     values['VEC_HTTP_ADDR'] = f'127.0.0.1:{port}'
     values['VEC_HTTP_ALLOWED_CIDRS'] = '127.0.0.1/32'
-    values['VEC_PERSONAL_CATALOG_PATH'] = str(state / 'personal-catalog.json')
-    environment = {'PATH': '/usr/bin:/bin', 'HOME': str(state), 'TMPDIR': str(state / 'tmp'), 'TZ': 'UTC'}
+    if projection_root is not None:
+        for name in values:
+            if name.startswith('VEC_EXTERNO_'):
+                fail('La configuración interna contiene una capacidad externa.')
+        environment = {'PATH': '/usr/bin:/bin', 'HOME': '/home/runtime', 'TMPDIR': '/tmp', 'TZ': 'UTC'}
+    else:
+        values['VEC_PERSONAL_CATALOG_PATH'] = str(state / 'personal-catalog.json')
+        environment = {'PATH': '/usr/bin:/bin', 'HOME': str(state), 'TMPDIR': str(state / 'tmp'), 'TZ': 'UTC'}
+        (state / 'tmp').mkdir(mode=0o700, exist_ok=True)
     environment.update(values)
-    (state / 'tmp').mkdir(mode=0o700, exist_ok=True)
     return environment, config_sha
+
+
+def container_module():
+    spec = importlib.util.spec_from_file_location('runtime_container', Path(__file__).with_name('clon_runtime_container.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def read_runtime_descriptor(state):
+    top = json.loads(confined(state / 'material-manifest.json', state).read_text())
+    descriptor = top.get('runtime_interno', {})
+    if descriptor.get('mode') != 'interno':
+        fail('Falta la proyección interna positiva del material.')
+    root = confined(state / 'runtime-interno', state, directory=True)
+    expected = {'material': 'runtime-interno/material', 'config': 'runtime-interno/runtime-config.json',
+                'manifest': 'runtime-interno/material-manifest.json'}
+    paths = {}
+    for name, relative in expected.items():
+        if descriptor.get(name) != relative:
+            fail('La proyección interna tiene una ruta de otra superficie.')
+        paths[name] = confined(state / relative, state, directory=name == 'material')
+    sealed = json.loads(paths['manifest'].read_text())
+    if (sealed.get('owner') != 'Codex-M' or sealed.get('portal') != 'interno'
+            or sealed.get('mode') != 'interno' or sealed.get('target') != top.get('target')):
+        fail('El manifiesto interno no corresponde al origen acreditado.')
+    proof = sealed.get('source_proof', {})
+    operator = {key: value for key, value in top.items() if key != 'runtime_interno'}
+    operator_sha = hashlib.sha256(json.dumps(operator, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if (proof.get('operator_manifest_normalization') != 'drop_runtime_interno_only'
+            or proof.get('operator_manifest_sha256') != operator_sha
+            or proof.get('operator_env_sha256') != digest(confined(state / 'runtime-config.json', state))
+            or descriptor.get('manifest_sha256') != digest(paths['manifest'])
+            or descriptor.get('source_commit') != top.get('target', {}).get('source_commit')):
+        fail('La proyección perdió la relación con su material y configuración de origen.')
+    if not re.fullmatch(r'[0-9a-f]{40}', descriptor.get('source_commit', '')):
+        fail('La proyección requiere una revisión fuente completa.')
+    allowed = sealed.get('files', {})
+    positive = proof.get('positive_files', {})
+    material_names = {
+        'ca/ca.crt', 'tls/servidor.crt', 'tls/servidor.key', 'mtls/cliente.crt', 'mtls/intervencion.crt',
+        'identidad/identidad.json', 'identidad/intervencion.json', 'manifiesto.json',
+        'kms/clave-maestra.bin', 'kms/atestacion-ed25519.key', 'kms/atestacion-ed25519.pub',
+        'kms/revalidacion-ed25519.key', 'kms/revalidacion-ed25519.pub', 'tsa/clave-hmac.bin',
+        'idempotencia/configuracion.json', 'idempotencia/g1-localizador.bin', 'idempotencia/g1-huella-solicitud.bin',
+        'idempotencia/g2-localizador.bin', 'idempotencia/g2-huella-solicitud.bin', 'pg/ca.crt',
+        'identidad/usuarios-preferencias-interna.json', 'mtls/solicitante.crt', 'mtls/ratificador.crt',
+        'identidad/solicitante.json', 'identidad/ratificador.json', 'identidad/centros.json',
+        'identidad/consultas-rrhh.json', 'identidad/bolsa-bback.json', 'identidad/documentos.json',
+    }
+    generated = {'runtime-config.json', 'runtime.env', 'material/portal-proceso.json', 'material/desarrollo.env'}
+    if (not positive or set(positive) - material_names
+            or set(allowed) != generated | {'material/' + name for name in positive}):
+        fail('La proyección contiene material fuera de su lista positiva interna.')
+    for relative, evidence in positive.items():
+        original = confined(state / 'material' / relative, state)
+        projected = confined(paths['material'] / relative, root)
+        if (top.get('files', {}).get('material/' + relative) != digest(original)
+                or evidence.get('source_sha256') != digest(original)
+                or evidence.get('projected_sha256') != digest(projected)
+                or evidence.get('unchanged') is not (digest(original) == digest(projected))):
+            fail('El material interno no acredita su copia del origen sellado.')
+    contracts = proof.get('contracts', {})
+    contract_paths = {'config/portal_proceso.go', 'internal/app/separacionportales/material.go',
+                      'internal/app/bootstrap/material_desarrollo.go', 'internal/app/bootstrap/usuarios_preferencias_config_identidad.go',
+                      'internal/app/bootstrap/documentos_montaje.go', 'internal/app/bootstrap/usuarios_imagen_montaje.go'}
+    source = confined(state / ('source-' + descriptor['source_commit']), state, directory=True)
+    if set(contracts) != contract_paths or any(digest(confined(source / path, source)) != value for path, value in contracts.items()):
+        fail('La proyección no corresponde a los contratos de la fuente fijada.')
+    actual = set()
+    for path in root.rglob('*'):
+        if (root / 'rw') in path.parents or path == root / 'rw':
+            continue
+        if path.is_symlink():
+            fail('La proyección interna no admite enlaces.')
+        if path.is_file() and path != paths['manifest']:
+            relative = str(path.relative_to(root))
+            actual.add(relative)
+            if allowed.get(relative) != digest(confined(path, root)):
+                fail('La proyección expone un archivo fuera de su inventario acreditado.')
+    if actual != set(allowed):
+        fail('El inventario de la proyección interna cambió.')
+    rw = []
+    for item in descriptor.get('rw', []):
+        if not isinstance(item, dict) or not isinstance(item.get('source'), str) or Path(item['source']).is_absolute():
+            fail('La reserva de escritura interna es inválida.')
+        source = confined(state / item['source'], root, directory=True)
+        if source != root / 'rw' / str(item.get('kind')):
+            fail('La escritura interna no corresponde a su directorio propio.')
+        target = str(paths['material'] / 'comunicaciones') if item.get('kind') == 'comunicaciones' else str(source)
+        if item.get('target') != target:
+            fail('La escritura interna sale de su inventario positivo.')
+        rw.append({'source': str(source), 'target': target, 'kind': item.get('kind')})
+    if {item['kind'] for item in rw} != {'documentos', 'imagenes', 'data', 'comunicaciones'} or len(rw) != 4:
+        fail('La proyección necesita sus cuatro directorios de escritura propios.')
+    env_path = confined(root / 'runtime.env', root)
+    ro_paths = [paths['material'], paths['config'], env_path, paths['manifest']]
+    return {'root': str(root), 'mode': 'interno', 'portal': 'interno',
+            'material_path': str(paths['material']), 'runtime_config_path': str(paths['config']),
+            'manifest_path': str(paths['manifest']),
+            'ro': [{'source': str(path), 'target': str(path)} for path in ro_paths], 'rw': rw}
 
 
 def source_digest(source):
@@ -406,6 +555,30 @@ def local_go(source, explicit):
     return go
 
 
+def elf_interpreter(path):
+    """Read ELF program headers; a scratch executable cannot require PT_INTERP."""
+    with path.open('rb') as stream:
+        header = stream.read(64)
+        if len(header) < 64 or header[:4] != b'\x7fELF' or header[4] != 2 or header[5] not in (1, 2):
+            fail('El binario no es ELF de 64 bits acreditado.')
+        endian = '<' if header[5] == 1 else '>'
+        phoff = struct.unpack_from(endian + 'Q', header, 32)[0]
+        phsize, count = struct.unpack_from(endian + 'HH', header, 54)
+        if phsize < 56 or count > 65535 or phoff + phsize * count > path.stat().st_size:
+            fail('Las cabeceras ELF del binario son inválidas.')
+        for index in range(count):
+            stream.seek(phoff + phsize * index)
+            program = stream.read(56)
+            kind = struct.unpack_from(endian + 'I', program)[0]
+            if kind == 3:
+                offset, size = struct.unpack_from(endian + 'Q', program, 8)[0], struct.unpack_from(endian + 'Q', program, 32)[0]
+                if size < 1 or size > 4096 or offset + size > path.stat().st_size:
+                    fail('El intérprete ELF del binario es inválido.')
+                stream.seek(offset)
+                return stream.read(size).rstrip(b'\0').decode('ascii')
+    return None
+
+
 def build(repo, state, commit, go_binary):
     manifest_path = state / 'runtime-manifest.json'
     source = state / ('source-' + commit)
@@ -415,7 +588,9 @@ def build(repo, state, commit, go_binary):
         if (manifest.get('source_commit') == commit and binary.is_file()
                 and not binary.is_symlink() and digest(binary) == manifest.get('binary_sha256')
                 and source.is_dir() and not source.is_symlink()
-                and source_digest(source) == manifest.get('source_sha256')):
+                and source_digest(source) == manifest.get('source_sha256')
+                and manifest.get('cgo_enabled') is False and manifest.get('elf_interpreter') is None
+                and elf_interpreter(binary) is None):
             return source, binary, manifest
     if (state / 'runtime-process.json').exists():
         fail('Detenga el proceso propio antes de recompilar.')
@@ -446,20 +621,30 @@ def build(repo, state, commit, go_binary):
     environment = {'PATH': str(go.parent) + ':/usr/bin:/bin', 'HOME': str(state),
                    'TMPDIR': str(state / 'tmp'), 'GOCACHE': '/dev/shm/go-build',
                    'GOPATH': str(go_path), 'GOMODCACHE': str(go_path / 'pkg/mod'),
-                   'GOTOOLCHAIN': 'local', 'GOPROXY': 'off', 'GOSUMDB': 'off'}
+                   'GOTOOLCHAIN': 'local', 'GOPROXY': 'off', 'GOSUMDB': 'off', 'CGO_ENABLED': '0'}
     (state / 'tmp').mkdir(mode=0o700, exist_ok=True)
-    log_path = state / 'build.log'
+    log_path = state / ('build-' + commit + '-cgo0.log')
     fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'wb') as output:
         result = subprocess.run([str(go), 'build', '-p', '32', '-buildvcs=false', '-o', str(binary),
                                  './cmd/vec-server'], cwd=source, env=environment,
                                 stdout=output, stderr=subprocess.STDOUT, timeout=900)
     if result.returncode:
-        fail('La compilación falló; consulte build.log en el directorio privado.')
-    manifest = {'version': 1, 'source_commit': commit, 'source_tree': git(repo, 'rev-parse', commit + '^{tree}'),
+        fail('La compilación falló; consulte el registro CGO0 de esta revisión.')
+    interpreter = elf_interpreter(binary)
+    if interpreter is not None:
+        fail('El binario CGO0 requiere un intérprete externo.')
+    manifest = {'version': 2, 'runtime_mode': 'interno', 'cgo_enabled': False, 'elf_interpreter': interpreter, 'source_commit': commit, 'source_tree': git(repo, 'rev-parse', commit + '^{tree}'),
                 'binary_sha256': digest(binary), 'source_sha256': snapshot['source_sha256'], 'go_binary_sha256': digest(go),
                 'build_command': 'go build -p 32 -buildvcs=false ./cmd/vec-server',
                 'gocache': '/dev/shm/go-build'}
+    if manifest_path.exists():
+        previous = json.loads(confined(manifest_path, state).read_text())
+        backup = state / ('runtime-manifest-' + previous['source_commit'] + '.json')
+        if backup.exists() and json.loads(confined(backup, state).read_text()) != previous:
+            fail('El manifiesto histórico no coincide con la revisión anterior.')
+        if not backup.exists():
+            write_json(backup, previous)
     write_json(manifest_path, manifest)
     return source, binary, manifest
 
@@ -476,175 +661,136 @@ def process_identity(pid):
         return None
 
 
+
 def own_process(state):
     path = state / 'runtime-process.json'
     if not path.exists():
         return None
     record = json.loads(confined(path, state).read_text())
-    identity = process_identity(record.get('pid'))
-    if identity is None:
-        path.unlink()
-        return None
-    expected = {key: record.get(key) for key in ('pid', 'start_ticks', 'exe', 'uid')}
-    if identity != expected or identity['uid'] != os.getuid():
-        fail('El PID guardado pertenece a otro proceso; no se enviará ninguna señal.')
-    binary = confined(record['exe'], state)
-    if digest(binary) != record.get('binary_sha256'):
-        fail('El binario del proceso no coincide con su huella guardada.')
+    if record.get('container_mode') != 'interno':
+        fail('El runtime requiere un recibo del contenedor interno propio.')
+    module = container_module()
+    try:
+        module.verify_ownership(state, record)
+    except module.ContainerError:
+        fail('El contenedor o proceso del runtime no corresponde a su reserva.')
     return record
 
 
 def stop(state):
-    record = own_process(state)
-    if record is None:
-        return False
-    # pidfd targets the verified process, including if its PID is subsequently reused.
-    descriptor = os.pidfd_open(record['pid'])
+    module = container_module()
+    path = state / 'runtime-process.json'
+    preimage = json.loads(confined(path, state).read_text()) if path.exists() else None
+    container_record = module.read_record(state)
+    removed = False
+    if preimage is not None:
+        keys = ('owner', 'state', 'container_mode', 'container_id', 'instance', 'pid',
+                'start_ticks', 'source_commit', 'binary_sha256', 'image_id', 'uid', 'gid')
+        if container_record is None and re.fullmatch(r'[a-f0-9]{64}', preimage.get('container_id', '')) and re.fullmatch(r'[a-f0-9]{32}', preimage.get('instance', '')):
+            archived = state / ('runtime-container-stopped-' + preimage['container_id'] + '-' + preimage['instance'] + '.json')
+            container_record = module.read_private_json(archived)
+            if container_record is not None:
+                try:
+                    module.verify_record_boundary(state, container_record)
+                    module.inspect(state, preimage['container_id'])
+                except module.DockerNotFound:
+                    removed = True
+                except module.ContainerError:
+                    fail('No se pudo acreditar la reserva retirada del contenedor propio.')
+                else:
+                    fail('El recibo retirado todavía tiene un contenedor existente.')
+        if preimage.get('container_mode') != 'interno' or container_record is None or any(preimage.get(key) != container_record.get(key) for key in keys):
+            fail('La reserva de proceso no corresponde al contenedor propio.')
     try:
-        if own_process(state) != record:
-            fail('El proceso cambió antes de detenerlo.')
-        signal.pidfd_send_signal(descriptor, signal.SIGTERM)
-        deadline = time.monotonic() + 15
-        while time.monotonic() < deadline:
-            if process_identity(record['pid']) is None:
-                (state / 'runtime-process.json').unlink(missing_ok=True)
-                return True
-            time.sleep(0.1)
-        fail('El proceso propio no terminó; no se ha forzado su cierre.')
-    finally:
-        os.close(descriptor)
+        stopped = removed or module.stop(state)
+    except module.ContainerError:
+        fail('No se pudo detener el contenedor interno propio.')
+    if stopped and preimage is not None and path.exists():
+        current = json.loads(confined(path, state).read_text())
+        if current != preimage:
+            fail('La reserva de proceso cambió durante la parada.')
+        path.unlink()
+    return stopped
 
 
 def verify_running(state, commit, port, pg_port):
     record = own_process(state)
     if record is None:
-        fail('El clon no tiene un proceso propio activo.')
-    manifest = json.loads(confined(state / 'runtime-manifest.json', state).read_text())
+        fail('El clon no tiene un proceso interno activo.')
+    descriptor = read_runtime_descriptor(state)
+    root = Path(descriptor['root'])
     source = confined(state / ('source-' + commit), state, directory=True)
-    if (record.get('source_commit') != commit or manifest.get('source_commit') != commit
-            or record.get('port') != port or record.get('pg_port') != pg_port
-            or manifest.get('binary_sha256') != record.get('binary_sha256')
-            or source_digest(source) != manifest.get('source_sha256')):
-        fail('El proceso activo no corresponde a su fuente y binario acreditados.')
-    material_sha = validate_material(state, commit, port, pg_port)
-    environment, config_sha = runtime_environment(source, state, port, pg_port)
-    if record.get('material_sha256') != material_sha or record.get('config_sha256') != config_sha:
-        fail('El material o la configuración cambiaron después del arranque.')
-    material = Path(environment['VEC_DEVELOPMENT_MATERIAL_DIR'])
-    context = ssl.create_default_context(cafile=str(material / 'ca/ca.crt'))
-    context.load_cert_chain(str(confined(material / 'mtls/cliente.crt', state)),
-                            str(confined(material / 'mtls/cliente.key', state)))
+    material_sha = validate_material(root, commit, port, pg_port)
+    environment, config_sha = runtime_environment(source, state, port, pg_port, root)
+    if (record.get('source_commit') != commit or record.get('port') != port or record.get('pg_port') != pg_port
+            or record.get('material_sha256') != material_sha or record.get('config_sha256') != config_sha
+            or record.get('runtime_config_path') != descriptor['runtime_config_path']
+            or record.get('runtime_manifest_path') != descriptor['manifest_path']):
+        fail('El proceso interno perdió su configuración o material acreditados.')
+    module = container_module()
+    try:
+        module.verify_record(state, record)
+    except module.ContainerError:
+        fail('La fuente, proyección o aislamiento del runtime cambió.')
+    check_internal_https(state, port)
+    if own_process(state) != record:
+        fail('El runtime cambió durante la comprobación.')
+    return record
+
+
+def check_internal_https(state, port):
+    # Client credentials stay on the host and are never mounted into the server.
+    offline = confined(state / 'material', state, directory=True)
+    context = ssl.create_default_context(cafile=str(confined(offline / 'ca/ca.crt', state)))
+    context.load_cert_chain(str(confined(offline / 'mtls/cliente.crt', state)),
+                            str(confined(offline / 'mtls/cliente.key', state)))
     with socket.create_connection(('127.0.0.1', port), timeout=3) as connection:
         with context.wrap_socket(connection, server_hostname='localhost') as tls:
             tls.sendall(b'GET /livez HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
             if not tls.recv(1024).split(b'\r\n', 1)[0].startswith(b'HTTP/1.1 200'):
-                fail('El proceso activo no respondió HTTPS /livez 200.')
-    if own_process(state) != record:
-        fail('El proceso cambió durante su comprobación.')
-    return record
-
-
-def stop_started_child(child, descriptor):
-    """Use the descriptor of the freshly spawned child, never a saved PID."""
-    if child.poll() is not None:
-        child.wait()
-        return
-    if descriptor is not None:
-        try:
-            signal.pidfd_send_signal(descriptor, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-    else:
-        # If descriptor allocation failed, retain the unreaped child identity:
-        # waitid(WNOWAIT) cannot make its PID available to an unrelated process.
-        try:
-            ended = os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
-            if ended is None:
-                os.kill(child.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-    try:
-        child.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        if descriptor is not None:
-            signal.pidfd_send_signal(descriptor, signal.SIGKILL)
-        else:
-            os.kill(child.pid, signal.SIGKILL)  # Still our unreaped, directly created child.
-        child.wait(timeout=5)
+                fail('El runtime interno no respondió HTTPS /livez 200.')
 
 
 def start(source, binary, manifest, state, port, pg_port):
-    if own_process(state):
-        fail('Ya hay un proceso propio; use restart o stop.')
-    material_sha = validate_material(state, manifest['source_commit'], port, pg_port)
-    environment, config_sha = runtime_environment(source, state, port, pg_port)
-    material = Path(environment['VEC_DEVELOPMENT_MATERIAL_DIR'])
-    context = ssl.create_default_context(cafile=str(material / 'ca/ca.crt'))
-    context.load_cert_chain(str(confined(material / 'mtls/cliente.crt', state)),
-                            str(confined(material / 'mtls/cliente.key', state)))
+    if manifest.get('runtime_mode') != 'interno' or manifest.get('cgo_enabled') is not False or elf_interpreter(binary) is not None:
+        fail('El runtime interno exige su binario estático CGO0 acreditado.')
+    descriptor = read_runtime_descriptor(state)
+    root = Path(descriptor['root'])
+    material_sha = validate_material(root, manifest['source_commit'], port, pg_port)
+    environment, config_sha = runtime_environment(source, state, port, pg_port, root)
+    if own_process(state) is not None:
+        fail('Ya hay un runtime interno propio; use restart o stop.')
     with socket.socket() as probe:
         try:
             probe.bind(('127.0.0.1', port))
         except OSError:
-            fail('El puerto de aplicación está ocupado; no se tocará su proceso.')
-    if signal.getsignal(signal.SIGCHLD) == signal.SIG_IGN:
-        fail('El lanzador no puede conservar la identidad del proceso hijo.')
-    # Check kernel support before spawning; hold the child descriptor from the
-    # first instruction after Popen until publication and HTTPS verification.
-    capability = os.pidfd_open(os.getpid())
-    os.close(capability)
-    log_path = state / 'runtime.log'
-    fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'ab') as output:
-        child = subprocess.Popen([str(binary)], cwd=source, env=environment, stdin=subprocess.DEVNULL,
-                                 stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
-    descriptor = None
-    succeeded = False
+            fail('El puerto de aplicación está ocupado por otro proceso.')
+    module = container_module()
     record = None
-    record_path = state / 'runtime-process.json'
+    succeeded = False
     try:
-        descriptor = os.pidfd_open(child.pid)
-        identity = None
-        for _ in range(100):
-            identity = process_identity(child.pid)
-            if identity and identity['exe'] == str(binary):
-                break
-            if child.poll() is not None:
-                fail('El servidor terminó al arrancar; consulte runtime.log privado.')
-            time.sleep(0.01)
-        if not identity or identity['exe'] != str(binary):
-            fail('No se pudo comprobar la identidad del proceso recién iniciado.')
-        record = dict(identity, source_commit=manifest['source_commit'], binary_sha256=manifest['binary_sha256'],
-                      config_sha256=config_sha, material_sha256=material_sha, port=port, pg_port=pg_port)
-        write_json(record_path, record)
+        record = module.start(state, source, binary, environment, manifest, descriptor, port, pg_port)
+        record.update(material_sha256=material_sha, config_sha256=config_sha,
+                      runtime_material_path=descriptor['material_path'], runtime_manifest_path=descriptor['manifest_path'])
+        write_json(state / 'runtime-process.json', record)
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
-            if child.poll() is not None:
-                fail('El servidor rechazó el arranque; consulte runtime.log privado.')
             try:
-                with socket.create_connection(('127.0.0.1', port), timeout=1) as connection:
-                    with context.wrap_socket(connection, server_hostname='localhost') as tls:
-                        tls.sendall(b'GET /livez HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
-                        first = tls.recv(1024).split(b'\r\n', 1)[0]
-                        if first.startswith(b'HTTP/1.1 200'):
-                            succeeded = True
-                            return record
-            except (OSError, ssl.SSLError):
-                pass
-            time.sleep(0.2)
-        fail('El servidor no respondió HTTPS /livez 200; se detuvo solo el proceso propio.')
+                check_internal_https(state, port)
+                module.verify_record(state, record)
+                succeeded = True
+                return record
+            except (OSError, RuntimeErrorLocal, ssl.SSLError):
+                time.sleep(0.2)
+        fail('El runtime interno no alcanzó HTTPS /livez 200.')
+    except module.ContainerError:
+        fail('El runtime interno rechazó la creación o comprobación del contenedor.')
     finally:
-        try:
-            if not succeeded:
-                stop_started_child(child, descriptor)
-                # Remove only the record published by this invocation. A failure
-                # or changed record cannot erase another process's reservation.
-                if record is not None and record_path.exists():
-                    if json.loads(confined(record_path, state).read_text()) == record:
-                        record_path.unlink()
-        finally:
-            if descriptor is not None:
-                os.close(descriptor)
+        if not succeeded and record is not None:
+            module.stop(state)
+            path = state / 'runtime-process.json'
+            if path.exists() and json.loads(confined(path, state).read_text()) == record:
+                path.unlink()
 
 
 def main():
@@ -655,10 +801,13 @@ def main():
     parser.add_argument('--state', required=True, type=Path)
     parser.add_argument('--port', required=True, type=int)
     parser.add_argument('--pg-port', required=True, type=int)
+    parser.add_argument('--mode', choices=['interno'])
     parser.add_argument('--go', help='Compilador local; por defecto usa el toolchain de go.mod si está instalado.')
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535 or not 1024 <= args.pg_port <= 65535 or args.port == args.pg_port:
         fail('Puertos locales inválidos.')
+    if args.action in ('build', 'start', 'restart', 'verify') and args.mode != 'interno':
+        fail('Seleccione explícitamente --mode interno.')
     repo = args.repo.resolve(strict=True)
     state = validate_state(repo, args.state)
     fd = os.open(state / 'runtime.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
