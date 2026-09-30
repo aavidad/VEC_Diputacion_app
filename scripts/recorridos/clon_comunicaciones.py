@@ -564,8 +564,9 @@ def provision(repo, container, state, material, pg_port, engine, *, smtp_port=No
     result = preflight(repo, container, state, material, pg_port, engine, smtp_port=smtp_port, http_port=http_port)
     if result["blockers"]:
         return result
-    with _proxy_lock(Path(state)):
-        return _provision_prepared(result, state, material, engine)
+    state = Path(result["profiles"]["usuarios_comunicaciones"]["state"])
+    with _proxy_lock(state):
+        return _provision_prepared(result, state, state / "material", engine)
 
 
 def _provision_prepared(result: dict, state, material, engine) -> dict:
@@ -643,7 +644,7 @@ def _clear_record(path: Path, previous: bytes) -> None:
 
 def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False, smtp_port=None, http_port=None) -> dict:
     _scope(repo, container, state, material, pg_port, engine, require_postgres=False)
-    state = Path(state)
+    state = _canonical(state)
     target = _target(state, container, pg_port, smtp_port, http_port)
     pinned = []
     try:

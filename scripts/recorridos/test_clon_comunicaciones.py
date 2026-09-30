@@ -506,6 +506,22 @@ class CloneCommunicationTests(unittest.TestCase):
             self.assertFalse(result["blockers"])
             self.assertEqual(result["profiles"]["usuarios_comunicaciones"]["source_commit"], clone["commit"])
 
+    def test_relative_api_state_uses_canonical_scope_for_provision_and_lifecycle(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone_fixture(state)
+            target = c._build_target(state, "vec-test-generic", 55532, 12025, 12026)
+            result = c._result(image=True, target=target)
+            with patch.object(c, "preflight", return_value=result), patch.object(c, "_proxy_lock") as lock, \
+                    patch.object(c, "_provision_prepared", return_value=result) as prepare:
+                c.provision(state / "repo", "vec-test-generic", Path(state.name), Path(state.name) / "material", 55532, "docker")
+            lock.assert_called_once_with(state)
+            prepare.assert_called_once_with(result, state, state / "material", "docker")
+            with patch.object(c.os, "getcwd", return_value=str(state.parent)), patch.object(c, "_inspect", return_value=None):
+                result = c.status(state / "repo", "vec-test-generic", Path(state.name), Path(state.name) / "material", 55532, "docker")
+            self.assertFalse(result["blockers"])
+            self.assertEqual(result["lifecycle"]["target"]["state"], str(state))
+
 
 if __name__ == "__main__":
     unittest.main()
