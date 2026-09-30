@@ -11,13 +11,15 @@ SET LOCAL lock_timeout='2s';
 DO $acl$
 DECLARE f regprocedure; p record; t regclass;
 BEGIN
- f:='vec_personal.plan_incorporacion_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ FOREACH f IN ARRAY ARRAY['vec_personal.plan_incorporacion_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+   'vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure] LOOP
  SELECT proowner,prosecdef,provolatile,proconfig INTO STRICT p FROM pg_proc WHERE oid=f;
  IF p.proowner<>'vec_personal_propietario'::regrole OR NOT p.prosecdef OR p.provolatile<>'v'
     OR NOT ('search_path=pg_catalog'=ANY(p.proconfig)) OR NOT ('row_security=on'=ANY(p.proconfig))
     OR NOT has_function_privilege('vec_personal_ejecutor',f,'EXECUTE')
     OR EXISTS (SELECT 1 FROM pg_proc q CROSS JOIN LATERAL aclexplode(coalesce(q.proacl,acldefault('f',q.proowner))) a WHERE q.oid=f AND a.grantee=0) THEN
   RAISE EXCEPTION 'Personal23: fachada incompatible'; END IF;
+ END LOOP;
  FOREACH t IN ARRAY ARRAY['vec_personal.plan_incorporacion_ct'::regclass,
    'vec_personal.ejecucion_plan_incorporacion_ct'::regclass,'vec_personal.acceso_plan_incorporacion_ct'::regclass] LOOP
   IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid=t)
@@ -33,18 +35,28 @@ BEGIN
   RAISE EXCEPTION 'Personal23: helper o puerto expuesto'; END IF;
 END $acl$;
 DO $denegacion$
-DECLARE antes bigint;
+DECLARE antes bigint; antes_b2 bigint;
 BEGIN
  SELECT count(*) INTO antes FROM vec_personal.acceso_plan_incorporacion_ct;
+ SELECT count(*) INTO antes_b2 FROM vec_personal.registro_empleado_b2_recibo;
  BEGIN
   PERFORM vec_personal.plan_incorporacion_ct_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
   RAISE EXCEPTION 'Personal23: llamada sin V3 admitida';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
  BEGIN
+  PERFORM vec_personal.registrar_acto_plan_incorporacion_ct_v1('alta',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'Personal23: acto sin V3 admitido';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.registrar_acto_plan_incorporacion_ct_v1('hecho',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'Personal23: hecho sin V3 admitido';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
   PERFORM vec_personal.probar_origen_incorporacion_plan_v1(NULL,NULL,NULL,NULL,NULL,NULL);
   RAISE EXCEPTION 'Personal23: prueba de origen sin consumidor admitida';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
- IF (SELECT count(*) FROM vec_personal.acceso_plan_incorporacion_ct)<>antes THEN
+ IF (SELECT count(*) FROM vec_personal.acceso_plan_incorporacion_ct)<>antes
+    OR (SELECT count(*) FROM vec_personal.registro_empleado_b2_recibo)<>antes_b2 THEN
   RAISE EXCEPTION 'Personal23: denegación produjo historia'; END IF;
 END $denegacion$;
 SET LOCAL ROLE vec_personal_propietario;

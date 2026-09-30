@@ -15,6 +15,8 @@ BEGIN
     OR to_regclass('vec_personal.registro_empleado_b2_recibo') IS NULL
     OR to_regclass('vec_personal.relacion_servicio_historia') IS NULL
     OR to_regclass('vec_personal.ocupacion_empleado_historia') IS NULL
+    OR to_regprocedure('vec_personal.registrar_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_personal.registrar_hecho_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.consumir_plan_incorporacion_personal_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR NOT has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.consumir_plan_incorporacion_personal_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  THEN RAISE EXCEPTION 'Personal23: preimagen incompatible' USING ERRCODE='55000'; END IF;
@@ -306,7 +308,7 @@ BEGIN
  RETURN jsonb_build_object('organismo_ref',p_org,'unidad_ref',pl.unidad_ref,'plaza_ref','plaza:'||pl.plaza_ref,
   'puesto_ref','puesto:'||pu.puesto_ref,'desde',s->>'desde','revision_plaza',pl.revision,
   'revision_puesto',pu.revision,'version_plantilla_ref','plantilla:'||vp.version_ref,
-  'version_rpt_ref','rpt:'||vr.version_ref,'plantilla_huella_sha256',vp.huella_fuente_sha256,
+  'version_rpt_ref','rpt:'||vr.version_ref,'revision_plantilla',vp.revision,'revision_rpt',vr.revision,'plantilla_huella_sha256',vp.huella_fuente_sha256,
   'rpt_huella_sha256',vr.huella_fuente_sha256,'fuente_organizacion_ref',pl.fuente_ref,
   'fuente_organizacion_huella_sha256',pl.huella_fuente_sha256);
 END $f$;
@@ -508,6 +510,72 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_personal.plan_incorporacion_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_personal.plan_incorporacion_ct_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_ejecutor;
 
+
+-- B2 conserva su contrato y su único consumo V3. Esta fachada añade el vínculo
+-- al plan y coteja recibo/estructura dentro de la misma transacción del acto.
+-- SERIALIZABLE acredita una instantánea coherente. No promete observar una
+-- publicación de organización que confirme después de fijar esa instantánea.
+CREATE FUNCTION vec_personal.registrar_acto_plan_incorporacion_ct_v1(
+ p_operacion text,p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+ SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' SET statement_timeout='30s' AS $f$
+DECLARE m jsonb; clave uuid; n bigint; p vec_personal.plan_incorporacion_ct%ROWTYPE;
+ resultado jsonb; estado jsonb; seleccion jsonb; k text; esperado jsonb;
+BEGIN
+ IF current_user<>'vec_personal_propietario' OR session_user=current_user
+    OR current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
+    OR NOT pg_has_role(session_user,'vec_personal_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_personal_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_personal_migrador','MEMBER')
+    OR p_operacion IS NULL OR p_operacion NOT IN ('alta','hecho')
+    OR p_material IS NULL OR octet_length(p_material) NOT BETWEEN 1 AND 16384
+    OR p_capacidad IS NULL OR p_decision IS NULL OR p_motivo IS NULL OR p_contexto IS NULL
+    OR p_persona_version IS NULL OR p_perfil_version IS NULL OR p_payload IS NULL
+    OR p_sobre IS NULL OR p_evidencia IS NULL OR p_raiz IS NULL THEN
+  RAISE EXCEPTION 'Personal23: acto del plan denegado' USING ERRCODE='42501'; END IF;
+ BEGIN
+  m:=p_material::jsonb; clave:=(m->'procedencia'->>'idempotencia_ref')::uuid;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'Personal23: material de acto inválido' USING ERRCODE='22023'; END;
+ IF clave IS NULL THEN RAISE EXCEPTION 'Personal23: clave de acto ausente' USING ERRCODE='22023'; END IF;
+ SELECT count(*) INTO n FROM vec_personal.plan_incorporacion_ct
+ WHERE clave_alta_relacion=clave OR clave_ocupacion=clave;
+ IF n<>1 THEN RAISE EXCEPTION 'Personal23: acto sin plan exacto' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT p FROM vec_personal.plan_incorporacion_ct
+ WHERE clave_alta_relacion=clave OR clave_ocupacion=clave;
+ IF (p_operacion='alta' AND (clave IS DISTINCT FROM p.clave_alta_relacion OR p.modo<>'alta_empleado'))
+    OR (p_operacion='hecho' AND clave=p.clave_alta_relacion
+      AND (p.modo<>'nueva_relacion' OR m->>'tipo' IS DISTINCT FROM 'relacion'))
+    OR (p_operacion='hecho' AND clave=p.clave_ocupacion AND m->>'tipo' IS DISTINCT FROM 'ocupacion') THEN
+  RAISE EXCEPTION 'Personal23: modo de acto divergente' USING ERRCODE='42501'; END IF;
+ -- El original valida material, ContextoActor, catálogos y autorización actual;
+ -- consume la decisión y escribe el efecto. No se consulta Organización antes.
+ IF p_operacion='alta' THEN
+  resultado:=vec_personal.registrar_empleado_rrhh_v1(p_material,p_capacidad,p_decision,p_motivo,p_contexto,
+   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ ELSE
+  resultado:=vec_personal.registrar_hecho_empleado_rrhh_v1(p_material,p_capacidad,p_decision,p_motivo,p_contexto,
+   p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ END IF;
+ estado:=vec_personal.estado_plan_ct_interno(p);
+ esperado:=CASE WHEN clave=p.clave_alta_relacion THEN estado->'recibo_alta_relacion' ELSE estado->'recibo_ocupacion' END;
+ IF esperado IS NULL OR esperado='null'::jsonb OR resultado->'recibo' IS DISTINCT FROM esperado THEN
+  RAISE EXCEPTION 'Personal23: recibo de acto divergente' USING ERRCODE='23505'; END IF;
+ seleccion:=vec_personal.seleccion_plan_ct_interna(p.organismo_ref,jsonb_build_object(
+  'plaza_ref',p.datos->>'plaza_ref','puesto_ref',p.datos->>'puesto_ref','desde',p.datos->>'desde'));
+ FOREACH k IN ARRAY ARRAY['version_plantilla_ref','version_rpt_ref','revision_plaza','revision_puesto',
+     'fuente_organizacion_ref','fuente_organizacion_huella_sha256','unidad_ref'] LOOP
+  IF seleccion->>k IS DISTINCT FROM p.datos->>k THEN
+   RAISE EXCEPTION 'Personal23: fuente de acto divergente' USING ERRCODE='42501'; END IF;
+ END LOOP;
+ IF clock_timestamp()>=(convert_from(p_capacidad,'UTF8')::jsonb->>'expira_en')::timestamptz
+    OR clock_timestamp()>=(convert_from(p_decision,'UTF8')::jsonb->>'valida_hasta')::timestamptz THEN
+  RAISE EXCEPTION 'Personal23: acto caducado antes de confirmación' USING ERRCODE='42501'; END IF;
+ RETURN resultado;
+END $f$;
+REVOKE ALL ON FUNCTION vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_personal.registrar_acto_plan_incorporacion_ct_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_ejecutor;
+
 -- Puerto nominal entre propietarios. CT conserva su consumo y la evidencia
 -- independiente de RPT; esta fachada solo acredita los hechos de Personal.
 CREATE FUNCTION vec_personal.probar_origen_incorporacion_plan_v1(
@@ -563,9 +631,9 @@ DECLARE f record; a record; t record; permitido oid;
 BEGIN
  FOR f IN SELECT p.oid,p.proowner,p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
  WHERE n.nspname='vec_personal' AND p.proname IN ('recibo_plan_ct_interno','estado_plan_ct_interno',
-   'validar_datos_plan_ct_interno','seleccion_plan_ct_interna','plan_incorporacion_ct_v1','probar_origen_incorporacion_plan_v1') LOOP
-  permitido:=CASE f.proname WHEN 'plan_incorporacion_ct_v1' THEN 'vec_personal_ejecutor'::regrole::oid
-    WHEN 'probar_origen_incorporacion_plan_v1' THEN 'vec_contratacion_temporal_propietario'::regrole::oid ELSE f.proowner END;
+   'validar_datos_plan_ct_interno','seleccion_plan_ct_interna','plan_incorporacion_ct_v1','registrar_acto_plan_incorporacion_ct_v1','probar_origen_incorporacion_plan_v1') LOOP
+  permitido:=CASE WHEN f.proname IN ('plan_incorporacion_ct_v1','registrar_acto_plan_incorporacion_ct_v1') THEN 'vec_personal_ejecutor'::regrole::oid
+    WHEN f.proname='probar_origen_incorporacion_plan_v1' THEN 'vec_contratacion_temporal_propietario'::regrole::oid ELSE f.proowner END;
   FOR a IN SELECT DISTINCT x.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
    WHERE p.oid=f.oid AND x.grantee<>f.proowner AND x.grantee<>permitido LOOP
    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f.oid::regprocedure,
