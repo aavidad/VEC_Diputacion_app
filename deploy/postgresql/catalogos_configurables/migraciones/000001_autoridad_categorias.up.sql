@@ -458,7 +458,7 @@ BEGIN
            OR p_total_historico IS NULL OR p_total_historico < 0
            OR EXISTS (SELECT 1 FROM vec_catalogos_configurables.uso
                        WHERE categoria_id = p_categoria_id AND estado = 'reservado')
-           OR p_total_historico < pg_catalog.coalesce(
+           OR p_total_historico < COALESCE(
                 (SELECT pg_catalog.max(h.total_historico_declarado)
                    FROM vec_catalogos_configurables.historia h
                   WHERE h.categoria_id = p_categoria_id AND h.accion = 'cobertura'), 0)
