@@ -39,7 +39,7 @@ class RotationTests(unittest.TestCase):
         path.write_bytes(rotation.encoded(value) if isinstance(value, dict) else value)
         path.chmod(0o600)
 
-    def project(self, source, comm='material/comunicaciones'):
+    def project(self, source, comm='material/comunicaciones', revision=0):
         self.root.mkdir(mode=0o700)
         rw = []
         for kind in sorted(rotation.KINDS):
@@ -50,7 +50,7 @@ class RotationTests(unittest.TestCase):
                        'target': str(self.root / 'material/comunicaciones') if kind == 'comunicaciones' else str(folder)})
         self.put(self.root / 'material/server.key', b'private synthetic server key')
         self.put(self.root / 'runtime-config.json', {'secret': 'fixture-not-for-output', 'source': source})
-        self.put(self.root / 'material-manifest.json', {'owner': 'Codex-M', 'portal': 'interno', 'target': {'source_commit': source}})
+        self.put(self.root / 'material-manifest.json', {'owner': 'Codex-M', 'portal': 'interno', 'target': {'source_commit': source}, 'revision': revision})
         descriptor = {'mode': 'interno', 'portal': 'interno', 'source_commit': source,
                       'manifest_sha256': rotation.digest(rotation.read(self.root / 'material-manifest.json')), 'rw': rw}
         self.put(self.state / 'material-manifest.json', {'runtime_interno': descriptor})
@@ -247,6 +247,83 @@ class RotationTests(unittest.TestCase):
         with self.assertRaises(OSError):
             rotation.rename_exclusive(first, second)
         self.assertTrue(first.is_dir()); self.assertTrue(second.is_dir())
+
+    def same_archive(self, sha=None):
+        sha = sha or rotation.digest(rotation.read(self.root / 'material-manifest.json'))
+        return rotation.archive(self.state, OLD, OLD, allow_same_source=True,
+                                expected_old_manifest_sha256=sha)
+
+    def test_same_source_requires_explicit_exact_preimage_without_mutation(self):
+        before = rotation.inventory(self.root)
+        for options in ({}, {'allow_same_source': True},
+                        {'allow_same_source': True, 'expected_old_manifest_sha256': 'f' * 64}):
+            with self.subTest(options=options), self.assertRaises(rotation.RotationError):
+                rotation.archive(self.state, OLD, OLD, **options)
+            self.assertEqual(rotation.inventory(self.root), before)
+            self.assertFalse((self.state / rotation.RECEIPT).exists())
+        with self.assertRaises(rotation.RotationError):
+            rotation.archive(self.state, OLD, NEW, allow_same_source=True,
+                             expected_old_manifest_sha256='f' * 64)
+
+    def test_same_source_distinct_manifest_preserves_four_roots_and_receipt_chain(self):
+        self.old_data()
+        sha1 = rotation.digest(rotation.read(self.root / 'material-manifest.json'))
+        first = self.same_archive(sha1)
+        self.archived = self.state / first['archive']
+        self.project(OLD, revision=1)
+        self.assertEqual(rotation.restore(self.state, OLD)['phase'], 'restored')
+        for relative in rotation.receipt(self.state)['rw'].values():
+            self.assertEqual(rotation.inventory(self.root / relative), rotation.inventory(self.archived / relative))
+        target = self.root / 'rw/documentos/large.pdf'
+        self.assertNotEqual(target.stat().st_ino, (self.archived / 'rw/documentos/large.pdf').stat().st_ino)
+        self.assertEqual(self.same_archive(sha1)['phase'], 'restored')
+        sha2 = rotation.digest(rotation.read(self.root / 'material-manifest.json'))
+        second = self.same_archive(sha2)
+        self.assertNotEqual(first['archive'], second['archive'])
+        self.assertTrue((self.state / (first['archive'] + '.receipt.json')).exists())
+        self.project(OLD, revision=2)
+        self.assertEqual(rotation.restore(self.state, OLD)['phase'], 'restored')
+
+    def test_same_source_unchanged_projection_and_changed_target_on_replay_deny(self):
+        self.old_data(); self.same_archive(); self.project(OLD)
+        with self.assertRaisesRegex(rotation.RotationError, 'projection_must_change'):
+            rotation.restore(self.state, OLD)
+        self.assertFalse((self.root / 'rw/documentos/large.pdf').exists())
+        marker = self.root / 'material-manifest.json'
+        value = json.loads(marker.read_bytes()); value['revision'] = 1
+        self.put(marker, value)
+        parent = json.loads((self.state / 'material-manifest.json').read_bytes())
+        parent['runtime_interno']['manifest_sha256'] = rotation.digest(rotation.read(marker))
+        self.put(self.state / 'material-manifest.json', parent)
+        rotation.restore(self.state, OLD)
+        value['revision'] = 2; self.put(marker, value)
+        with self.assertRaisesRegex(rotation.RotationError, 'target_manifest_changed'):
+            rotation.restore(self.state, OLD)
+
+    def test_same_source_only_exact_archived_stopped_history_allowed(self):
+        self.old_data()
+        history = self.state / 'runtime-container-stopped-fixture.json'
+        self.put(history, {'source_commit': OLD, 'container_id': 'c' * 64})
+        self.same_archive(); self.project(OLD, revision=1)
+        self.assertEqual(rotation.restore(self.state, OLD)['phase'], 'restored')
+        self.put(history, {'source_commit': OLD, 'container_id': 'd' * 64})
+        with self.assertRaisesRegex(rotation.RotationError, 'new_runtime_already_started'):
+            rotation.restore(self.state, OLD)
+        self.put(history, {'source_commit': OLD, 'container_id': 'c' * 64})
+        self.put(self.state / 'runtime-container-stopped-new.json', {'source_commit': OLD})
+        with self.assertRaisesRegex(rotation.RotationError, 'new_runtime_already_started'):
+            rotation.restore(self.state, OLD)
+
+    def test_same_source_partial_copy_recovers_but_new_writes_deny(self):
+        self.old_data(); self.same_archive(); self.project(OLD, revision=1)
+        with patch.object(rotation, 'copy_file', side_effect=OSError('fixture interruption')), self.assertRaises(OSError):
+            rotation.restore(self.state, OLD)
+        self.assertEqual(rotation.restore(self.state, OLD)['phase'], 'restored')
+        target = self.root / 'rw/data/nested/store.json'
+        target.write_bytes(b'new runtime write')
+        with self.assertRaises(rotation.RotationError):
+            rotation.restore(self.state, OLD)
+        self.assertEqual(target.read_bytes(), b'new runtime write')
 
 
 if __name__ == '__main__':

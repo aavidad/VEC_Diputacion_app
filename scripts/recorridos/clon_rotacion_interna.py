@@ -170,7 +170,7 @@ def runtime_module():
     return module.container_module()
 
 
-def stopped(state, expected, restoring=False):
+def stopped(state, expected, restoring=False, archived_history=None):
     """Reuse exact ownership guards; inspect only, never signal or delete."""
     module = runtime_module()
     if (state / 'runtime-container-intent.json').exists():
@@ -201,6 +201,10 @@ def stopped(state, expected, restoring=False):
             record = private_json(path)
             if record.get('source_commit') == expected:
                 module.verify_record_boundary(state, record)
+                if archived_history is not None:
+                    snapshot = archived_history / path.name
+                    if snapshot.exists() and read(snapshot) == read(path):
+                        continue
                 fail('new_runtime_already_started')
 
 
@@ -264,6 +268,9 @@ def receipt(state):
     if value.get('version') != 1 or value.get('owner') != OWNER or value.get('state') != str(state):
         fail('foreign_rotation_receipt')
     source(value.get('old_source')); source(value.get('new_source'))
+    kind = value.get('rotation_kind', 'source_advance')
+    if kind not in ('source_advance', 'config_same_source') or ((value['old_source'] == value['new_source']) != (kind == 'config_same_source')):
+        fail('rotation_kind_source_mismatch')
     name = value['old_source'] + '-' + value['old_manifest_sha256']
     if not re.fullmatch('[0-9a-f]{40}-[0-9a-f]{64}', name) or value.get('archive') != 'proyecciones/' + name:
         fail('archive_reference_invalid')
@@ -284,15 +291,22 @@ def verify_archive(state, value):
     return archived
 
 
-def archive(state, expected_old_source, new_source):
+def archive(state, expected_old_source, new_source, allow_same_source=False,
+            expected_old_manifest_sha256=None):
     old, new = source(expected_old_source), source(new_source)
-    if old == new:
+    same = old == new
+    if same and not allow_same_source:
         fail('source_must_advance')
+    if same and (not isinstance(expected_old_manifest_sha256, str) or not re.fullmatch('[0-9a-f]{64}', expected_old_manifest_sha256)):
+        fail('same_source_manifest_preimage_required')
+    if not same and (allow_same_source or expected_old_manifest_sha256 is not None):
+        fail('same_source_opt_in_requires_equal_source')
     with locked(state) as state:
         root, pointer = state / 'runtime-interno', state / RECEIPT
         previous = read(pointer) if pointer.exists() else None
         value = receipt(state) if previous is not None else None
-        if value is not None and (value['old_source'], value['new_source']) != (old, new):
+        matches = value is not None and (value['old_source'], value['new_source']) == (old, new) and (not same or value['old_manifest_sha256'] == expected_old_manifest_sha256)
+        if value is not None and not matches:
             if value['phase'] != 'restored' or value['new_source'] != old:
                 fail('another_rotation_pending')
             historical = state / (value['archive'] + '.receipt.json')
@@ -307,6 +321,8 @@ def archive(state, expected_old_source, new_source):
             rw = layout(state, root, old)
             full = inventory(root)
             manifest_sha = digest(read(root / 'material-manifest.json'))
+            if same and manifest_sha != expected_old_manifest_sha256:
+                fail('same_source_manifest_preimage_changed')
             parent = state / 'proyecciones'
             parent.mkdir(mode=0o700, exist_ok=True)
             path_check(parent, directory=True)
@@ -338,6 +354,7 @@ def archive(state, expected_old_source, new_source):
                         continue
                     snapshot_file(snapshots / ref, data, parent)
             value = {'version': 1, 'owner': OWNER, 'state': str(state), 'phase': 'archive_pending',
+                     'rotation_kind': 'config_same_source' if same else 'source_advance',
                      'old_source': old, 'new_source': new, 'archive': 'proyecciones/' + name,
                      'old_manifest_sha256': manifest_sha, 'inventory': full, 'rw': rw,
                      'metadata_inventory': inventory(snapshots)}
@@ -399,7 +416,14 @@ def restore(state, expected_new_source):
         if value['new_source'] != new or value['phase'] not in ('archived', 'restore_pending', 'restored'):
             fail('rotation_target_or_phase_mismatch')
         original = verify_archive(state, value)
-        stopped(state, new, restoring=True)
+        same = value.get('rotation_kind') == 'config_same_source'
+        new_manifest_sha = digest(read(root / 'material-manifest.json')) if same else None
+        if same and new_manifest_sha == value['old_manifest_sha256']:
+            fail('same_source_projection_must_change')
+        if same and 'new_manifest_sha256' in value and value['new_manifest_sha256'] != new_manifest_sha:
+            fail('same_source_target_manifest_changed')
+        history = state / (value['archive'] + '.metadata') if same else None
+        stopped(state, new, restoring=True, archived_history=history)
         rw = layout(state, root, new)
         if rw != value['rw']:
             fail('rw_layout_changed')
@@ -426,6 +450,8 @@ def restore(state, expected_new_source):
             return summary(value)
         before = read(state / RECEIPT)
         value['phase'] = 'restore_pending'
+        if same:
+            value['new_manifest_sha256'] = new_manifest_sha
         value['directory_modes'] = directories
         write_cas(state / RECEIPT, value, before)
         work = state / (value['archive'] + '.copy-work')
@@ -461,8 +487,12 @@ def main():
     parser.add_argument('--state', required=True, type=Path)
     parser.add_argument('--old-source')
     parser.add_argument('--new-source', required=True)
+    parser.add_argument('--allow-same-source', action='store_true')
+    parser.add_argument('--expected-old-manifest-sha256')
     args = parser.parse_args()
-    result = archive(args.state, args.old_source, args.new_source) if args.action == 'archive' else restore(args.state, args.new_source)
+    if args.action == 'restore' and (args.allow_same_source or args.expected_old_manifest_sha256 is not None):
+        fail('archive_only_opt_in')
+    result = archive(args.state, args.old_source, args.new_source, args.allow_same_source, args.expected_old_manifest_sha256) if args.action == 'archive' else restore(args.state, args.new_source)
     print(json.dumps(result, sort_keys=True))
 
 
