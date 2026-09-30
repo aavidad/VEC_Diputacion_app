@@ -33,7 +33,7 @@ func TestIncorporacionV2EnsamblajeContextoNominal(t *testing.T) {
 	alta, a, principal := escenarioConsultasRRHHDesarrolloPrueba(t)
 	v, _ := alta.soporte.contexto.Vinculo.Datos()
 	refs := ReferenciasCTIncorporacionDesarrollo{PrincipalV3Ref: v.PrincipalID, PerfilV3Ref: v.PerfilActivoRef, OrganizacionRef: "ref:" + strings.Repeat("a", 64), UnidadRef: "ref:" + strings.Repeat("b", 64), ActorRef: "ref:" + strings.Repeat("c", 64)}
-	f := &fuenteAutoridadIncorporacionV2Desarrollo{alta.soporte, a, alta.soporte.motivoDetalleRRHH, alta.soporte.motivoDetalleRRHH, refs}
+	f := &fuenteAutoridadIncorporacionV2Desarrollo{alta.soporte, a, alta.soporte.motivoDetalleRRHH, alta.soporte.motivoDetalleRRHH, refs, nil}
 	ctx := contextoRutaCoberturaDesarrolloPrueba(alta.soporte, principal, httpinterno.RutaIncorporacionEjercicioV2)
 	c := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
 	c.certificadoVerificadoEn = alta.soporte.reloj.Ahora().Add(-time.Second)
