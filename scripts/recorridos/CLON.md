@@ -24,6 +24,20 @@ punto reconstruible aprobado es `3be3110e6d4a8389aed5a496c0b6d1bd805b7723`,
 con 39 instalaciones. La fuente corregida requiere una revisión y una copia fría
 distinta; la versión retenida conserva su historia, sin DOWN ni reaplicación.
 
+El plan H6 aprobado para `5694d2da15e19fa97afecae51e1a30ce21d5fca5`
+contiene 41 instalaciones: conserva las primeras 39 y añade CT150 y CT151.
+Usa `sql_main_h6.txt`, con huella
+`95c3feff3cbd5b95cf0286af74c576d2c551d92b3cb7787b337754d3aeed87fb`.
+Las cuatro entradas de RPT retenidas se cotejan como parte del inventario de
+la fuente, pero quedan fuera de este plan de ejecución. El binario congelado
+de H6 procede de `ab875bb8036af59e9b5ac624d6840b8581178ed2`: conserva
+exactamente ese inventario SQL. Ambos hashes se registran por separado.
+
+H6 se prepara desde una copia fría nueva de H1 o continúa un prefijo de ese
+plan hasta 39. La copia que ya contiene las 43 instalaciones de RPT se
+conserva aparte; no puede convertirse en una copia de 41. No se ejecutan
+`DOWN` ni reaplicaciones para cambiar de historia.
+
 Un commit posterior de `main` puede usar este mismo plan si conserva exactamente
 el inventario SQL revisado. El guion compara los archivos del commit con la fuente
 extraída. Una SQL nueva, modificada o ausente detiene la preparación y exige
@@ -83,6 +97,11 @@ export VEC_RECORRIDOS_PUERTO_CORREO_WEB=18532
 bash scripts/recorridos/preparar_clon.sh plan
 bash scripts/recorridos/preparar_clon.sh preparar
 ```
+
+Para repetir el corte H6 congelado, sustituya la referencia por
+`ab875bb8036af59e9b5ac624d6840b8581178ed2` y elija un estado privado y un
+nombre de contenedor nuevos. El archivo H1 y su material original se
+conservan. La preparación no usa la base de 43 instalaciones como origen.
 
 Elija otro nombre y cuatro puertos distintos si están ocupados. El guion rechaza un
 contenedor ajeno. El directorio privado tiene permisos `0700`; las claves,
@@ -148,9 +167,15 @@ que siguen pendientes; no acredita disponibilidad del portal externo. Un certifi
 puede existir sin una cuenta externa autorizada: ese caso queda bloqueado y no se
 reutiliza la identidad de otra persona. La preparación crea un
 almacén de confianza privado en `chrome-home`, sin modificar el del usuario.
-Al invocar un guion, use ese directorio como `HOME` únicamente para su proceso
-y `NODE_EXTRA_CA_CERTS` con la CA que indica el registro. Los planes siguen
+Los recorridos montan su almacén NSS como lectura mediante `bwrap` y usan
+un temporal privado corto para Chrome. El transporte de Playwright usa
+`NODE_EXTRA_CA_CERTS` con la CA que indica el registro. Los planes siguen
 fuera de Git. Una denegación observada no equivale a un proceso terminado.
+
+El registro distingue el commit del binario de `sql_fuente_aprobada` y conserva
+las huellas del plan SQL, del inventario completo y de la configuración.
+Su publicación vuelve a cotejar los bytes del binario y exige que la fuente
+verificada por el instalador sea la del proceso activo.
 
 ## Retirar lo propio
 
