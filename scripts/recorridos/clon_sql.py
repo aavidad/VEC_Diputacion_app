@@ -6,8 +6,9 @@ pendientes ni ejecuta DOWN. --plan valida todos los SHA sin acceder a Docker.
 El journal privado se reconstruye desde recibos transaccionales del clon.
 Admite la base main@7f1ecea2f (33 SQL), la extensión main@ff6493cfc
 (CT147, posición 34), main@e78687528 (AD3-114/CT148, posiciones 35/36)
-main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38) y main@1e443463d
-(Aspirantes000002, posición39).
+main@a7d9df2b3 (AD3-113/Documentos9, posiciones 37/38), main@1e443463d
+(Aspirantes000002, posición39) y main@890b3fe0e (roles, categorías, lecturas
+nominales y AD3-117, posiciones40..43).
 Cada extensión conserva los recibos y metadatos originales
 y añade una revisión del plan en el esquema del clon. Otros hashes exigen revisar
 de nuevo la lista causal y sus huellas. Descendientes de un plan aprobado
@@ -29,20 +30,24 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from datetime import datetime
 
 BASE_REF = "7f1ecea2fd9f8912d255a80e74da84c69e46b978"
 PREVIOUS_REF = "ff6493cfccb2da4e83c94fa7c59be24c025cb7c9"
 THIRD_REF = "e78687528d5725efd74e95c858d389f4437099ca"
 FOURTH_REF = "a7d9df2b3285b0df6be6bba0bae09331463f0a3d"
-MAIN_REF = "1e443463df69dffeaac239f9b7000f48dd1b7bb7"
-REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, FOURTH_REF: 38, MAIN_REF: 39}
+FIFTH_REF = "1e443463df69dffeaac239f9b7000f48dd1b7bb7"
+MAIN_REF = "890b3fe0e9f9e30e249b9dc2d3778971121a8cc2"
+REF_COUNTS = {BASE_REF: 33, PREVIOUS_REF: 34, THIRD_REF: 36, FOURTH_REF: 38,
+              FIFTH_REF: 39, MAIN_REF: 43}
 REF_ORDER = tuple(REF_COUNTS)
 REF_PLAN_SHA = {
     BASE_REF: "70795c1580e550e2ccc8927bf50cf7130f73ca282d6069f74ba7e697f79e6be0",
     PREVIOUS_REF: "00d8dbaacd881a6945a33dd188e94e136b054f4e96a8ac29bdcb039637fc891c",
     THIRD_REF: "ad57f371c901f7418af156f4e651c7a36c2bda125f7bad380653272c2b320e14",
     FOURTH_REF: "b92cea3eb1cb5497bab027eac561a168b3572a117417acf45597a6eac39403f5",
-    MAIN_REF: "af888b95d532a0b698212adbebb381d5f2f126e7393396af90000fddc9ca3427",
+    FIFTH_REF: "af888b95d532a0b698212adbebb381d5f2f126e7393396af90000fddc9ca3427",
+    MAIN_REF: "5999af8fc61d25a6d63c4f2664012edfc59f4a38b8fb5ddea5daea2b818f4877",
 }
 OWNER_LABEL = "vec.recorridos.owner"
 OWNER = "Codex-M"
@@ -263,6 +268,62 @@ def validate_receipts(installed, plan, complete=True):
             raise Refused("recibos incompatibles o incompletos; no reaplicar")
 
 
+def etapas_requeridas(repo, git_repo, source_ref, state):
+    """Consejo RO para el orquestador; nunca sustituye las comprobaciones de BD.
+
+    Sin journal devuelve todos los prefijos aprobados hasta el destino. Un
+    journal debe acreditar un prefijo completo y conocido; el instalador real
+    coteja su run_id y sus recibos con PostgreSQL antes de cada UP.
+    """
+    target = approved_source_plan(repo, source_ref, git_repo)
+    target_index = REF_ORDER.index(target["approved_sql_ref"])
+    journal = Path(state) / "sql-journal.json"
+    if not journal.exists() and not journal.is_symlink():
+        return list(REF_ORDER[:target_index + 1])
+    status = journal.lstat()
+    if not stat.S_ISREG(status.st_mode) or status.st_size > 2 * 1024 * 1024:
+        raise Refused("el journal no es un fichero regular válido")
+    try:
+        record = json.loads(journal.read_text())
+        uuid.UUID(record["run_id"])
+        original = record["source_ref"]
+        if original not in REF_COUNTS or record["plan_sha"] != REF_PLAN_SHA[original]:
+            raise Refused("el journal pertenece a un plan no aprobado")
+        revisions = record.get("revisions", [])
+        first = REF_ORDER.index(original) + 1
+        refs = REF_ORDER[first:first + len(revisions)]
+        if len(refs) != len(revisions):
+            raise Refused("el journal tiene revisiones ajenas al plan")
+        for revision, ref in zip(revisions, refs):
+            if (revision["revision"] != REF_ORDER.index(ref) + 1 or revision["source_ref"] != ref
+                    or revision["plan_sha"] != REF_PLAN_SHA[ref]
+                    or revision["file_count"] != REF_COUNTS[ref]):
+                raise Refused("el journal tiene revisiones incompatibles o con saltos")
+        recognized = refs[-1] if refs else original
+        if record.get("approved_sql_ref", recognized) != recognized:
+            raise Refused("la aprobación del journal no coincide con su historia")
+        if record.get("current_plan_sha", REF_PLAN_SHA[recognized]) != REF_PLAN_SHA[recognized]:
+            raise Refused("la huella actual del journal no coincide con su aprobación")
+        current = record.get("current_source_ref", recognized)
+        if record.get("verified_source_ref", current) != current:
+            raise Refused("la procedencia del journal no coincide con su fuente")
+        current_plan = validate_git_source(current, git_repo)
+        if current_plan["approved_sql_ref"] != recognized:
+            raise Refused("la fuente del journal no conserva su plan SQL aprobado")
+        if "inventory_sha" in record and record["inventory_sha"] != current_plan["inventory_sha"]:
+            raise Refused("el inventario del journal no coincide con Git")
+        validate_receipts(record["installed"], current_plan)
+        if any(datetime.fromisoformat(r["installed_at"]).tzinfo is None
+               for r in record["installed"]):
+            raise Refused("el journal conserva recibos sin fecha válida")
+        completed = REF_ORDER.index(recognized)
+        if completed > target_index:
+            raise Refused("el journal conserva una revisión posterior al destino")
+        return list(REF_ORDER[completed + 1:target_index + 1])
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        raise Refused("el journal tiene metadatos inválidos o incompletos") from error
+
+
 class DockerDB:
     def __init__(self, container, state=None):
         if not re.fullmatch(r"vec-[a-z0-9-]+", container):
@@ -385,7 +446,8 @@ def acknowledge_plan(db, rows, source_ref, meta):
               DROP CONSTRAINT IF EXISTS plan_revisions_supported,
               ADD CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
-                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39));"""
+                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
+                OR (revision=6 AND file_count=43));"""
         else:
             ddl = f"""CREATE TABLE {SCHEMA}.plan_revisions (
               revision integer PRIMARY KEY, source_ref text NOT NULL,
@@ -393,7 +455,8 @@ def acknowledge_plan(db, rows, source_ref, meta):
               acknowledged_at timestamptz NOT NULL DEFAULT clock_timestamp(),
               CONSTRAINT plan_revisions_supported CHECK (
                 (revision=2 AND file_count=34) OR (revision=3 AND file_count=36)
-                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)));
+                OR (revision=4 AND file_count=38) OR (revision=5 AND file_count=39)
+                OR (revision=6 AND file_count=43)));
               REVOKE ALL ON {SCHEMA}.plan_revisions FROM PUBLIC;"""
         db.query(f"""BEGIN;
           SELECT pg_advisory_xact_lock(hashtextextended('vec_recorridos_clon:sql',0));
@@ -502,7 +565,13 @@ def main(argv=None):
     parser.add_argument("--container")
     parser.add_argument("--state-dir", type=Path)
     parser.add_argument("--plan", action="store_true")
+    parser.add_argument("--steps", action="store_true", help="etapas pendientes, consejo JSON sin Docker/BD")
     args = parser.parse_args(argv)
+    if args.steps:
+        if not args.state_dir:
+            raise Refused("--steps exige --state-dir")
+        print(json.dumps(etapas_requeridas(args.repo, args.git_repo, args.source_ref, args.state_dir)))
+        return
     if args.plan:
         # Plan desde el COMMIT, incluso si el checkout de control contiene WIP.
         plan = validate_git_source(args.source_ref, args.git_repo)
