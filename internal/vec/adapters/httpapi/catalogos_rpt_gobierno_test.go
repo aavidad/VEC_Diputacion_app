@@ -397,6 +397,7 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 	}
 	h := rutas[0].Manejador
 	cuerpo := `{"propuesta_ref":"propuesta:ejemplo","accion":"deshabilitar","catalogo_id":"catalogo.rpt","modulo_id":"bolsa","version":1,"preimagenes_control":{"categoria.enfermeria":{"version":1,"huella_sha256":"` + strings.Repeat("a", 64) + `","revision":1,"estado":"habilitada"},"enfermeria-general":{"version":1,"huella_sha256":"` + strings.Repeat("b", 64) + `","revision":2,"estado":"habilitada"}},"categoria_id":"categoria.enfermeria","revision_esperada":1,"fuente_ref":"fuente:prueba"}`
+	cuerpo = strings.Replace(cuerpo, `"enfermeria-general":{`, `"categoria:enfermeria":{"version":1,"huella_sha256":"`+strings.Repeat("c", 64)+`","revision":3,"estado":"habilitada"},"enfermeria-general":{`, 1)
 	enviar := func(r *http.Request) int { t.Helper(); w := httptest.NewRecorder(); h.ServeHTTP(w, r); return w.Code }
 	for i := 0; i < 2; i++ {
 		r := peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)
@@ -410,8 +411,17 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 	if estado := enviar(rOrigen); estado != http.StatusOK {
 		t.Fatalf("origen ADMIN=%d", estado)
 	}
-	if op.llamadas != 3 || len(op.ultimo.Contenido.PreimagenesControl) != 2 || len(audit.codigos) != 0 {
+	if op.llamadas != 3 || len(op.ultimo.Contenido.PreimagenesControl) != 3 || len(audit.codigos) != 0 {
 		t.Fatalf("camino válido: op=%d preimagenes=%v audit=%v", op.llamadas, op.ultimo.Contenido.PreimagenesControl, audit.codigos)
+	}
+	preflight := peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)
+	preflight.Method = http.MethodOptions
+	preflight.Header.Set("Origin", "https://vec.ejemplo.test")
+	preflight.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	wPreflight := httptest.NewRecorder()
+	h.ServeHTTP(wPreflight, preflight)
+	if wPreflight.Code != http.StatusMethodNotAllowed || wPreflight.Header().Get("Access-Control-Allow-Origin") != "" || op.llamadas != 3 {
+		t.Fatalf("preflight permitido: estado=%d cabeceras=%v op=%d", wPreflight.Code, wPreflight.Header(), op.llamadas)
 	}
 	casos := []struct {
 		name     string
@@ -431,7 +441,10 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 		{"fetch cross site", func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") }, cuerpo, http.StatusForbidden},
 		{"clave inyectada", nil, strings.Replace(cuerpo, `"categoria.enfermeria":{`, `"categoria.enfermeria' OR 1=1 --":{`, 1), http.StatusBadRequest},
 		{"preimagen duplicada", nil, strings.Replace(cuerpo, `"enfermeria-general":{`, `"categoria.enfermeria":{`, 1), http.StatusBadRequest},
+		{"preimagen duplicada escapada", nil, strings.Replace(cuerpo, `"enfermeria-general":{`, `"categoria\u002eenfermeria":{`, 1), http.StatusBadRequest},
 		{"campo preimagen desconocido", nil, strings.Replace(cuerpo, `"estado":"habilitada"`, `"estado":"habilitada","actor":"falso"`, 1), http.StatusBadRequest},
+		{"tipo preimagen", nil, strings.Replace(cuerpo, `"categoria.enfermeria":{"version":1`, `"categoria.enfermeria":{"version":"1"`, 1), http.StatusBadRequest},
+		{"tamano", nil, cuerpo + strings.Repeat(" ", maximoCuerpoGobiernoCategoriaRPT), http.StatusBadRequest},
 	}
 	for _, tc := range casos {
 		t.Run(tc.name, func(t *testing.T) {
