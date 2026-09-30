@@ -150,6 +150,22 @@ func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
 	if got, _ := peticion("/livez", cfg.Host, true); got != http.StatusForbidden {
 		t.Fatalf("revocacion: %d", got)
 	}
+	if err := comprobarCertificadoVigente(hoja, ca, rutaCRL, ahora); !errors.Is(err, errCertificadoRevocado) {
+		t.Fatalf("revocacion sin causa nominal: %v", err)
+	}
+	if err := os.Remove(rutaCRL); err != nil {
+		t.Fatal(err)
+	}
+	if err := comprobarCertificadoVigente(hoja, ca, rutaCRL, ahora); !errors.Is(err, errCRLNoDisponible) {
+		t.Fatalf("CRL ausente sin causa nominal: %v", err)
+	}
+	if got, _ := peticion("/livez", cfg.Host, true); got != http.StatusForbidden {
+		t.Fatalf("CRL ausente: %d", got)
+	}
+	escribir("admin.crl", []byte("invalida"))
+	if err := comprobarCertificadoVigente(hoja, ca, rutaCRL, ahora); !errors.Is(err, errCRLInvalida) {
+		t.Fatalf("CRL invalida sin causa nominal: %v", err)
+	}
 	cfg.Entorno = "produccion"
 	if _, err := NuevoServidor(cfg); !errors.Is(err, ErrConfiguracion) {
 		t.Fatal("produccion sin Kerberos arranco")
