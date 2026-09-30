@@ -7,7 +7,7 @@ import { alternarVisualSesion, crearOperacionPreferencias, montarUsuariosAreaPer
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
-} from "./vistas/inicio-convocatorias.js?v=20260930-candidato-convocatorias-v1";
+} from "./vistas/inicio-convocatorias.js?v=20260930-candidato-convocatorias-v2";
 import {
   renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud,
 } from "./vistas/perfil-meritos-solicitud.js";
