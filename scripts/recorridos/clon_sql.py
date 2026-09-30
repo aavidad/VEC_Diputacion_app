@@ -438,9 +438,18 @@ class ReadOnlyDB:
         self._db = db
 
     def query(self, text):
-        if not isinstance(text, str) or not text.lstrip().upper().startswith("SELECT "):
-            raise Refused("el kit sólo puede consultar anclas de lectura")
-        return self._db.query("BEGIN READ ONLY;\n" + text + "\nCOMMIT;")
+        # Subconjunto cerrado: una SELECT, sin comandos psql, comentarios ni
+        # terminadores internos, también dentro de literales. No interpretar
+        # escapes ni intentar recuperar consultas fuera de este contrato.
+        if not isinstance(text, str):
+            raise Refused("el kit sólo admite una sentencia SELECT estricta")
+        statement = text.strip()
+        if statement.endswith(";"):
+            statement = statement[:-1].rstrip()
+        if (not re.match(r"(?i)^SELECT[ \t\r\n]+\S", statement)
+                or any(token in statement for token in (";", "\\", "--", "/*", "*/", "\x00"))):
+            raise Refused("el kit sólo admite una sentencia SELECT estricta")
+        return self._db.query("BEGIN READ ONLY;\n" + statement + ";\nCOMMIT;")
 
 
 def verify_live(db, repo, git_repo, source_ref, state, context=None, kit=None):
@@ -820,6 +829,22 @@ def apply(db, rows, state, source_ref=MAIN_REF, source_plan=None, context=None, 
         return record
 
 
+
+def validate_original_path(path):
+    """Comprueba la ruta recibida antes de que resolve borre sus enlaces."""
+    original = Path(path).absolute()
+    for candidate in (*reversed(original.parents), original):
+        try:
+            status = candidate.lstat()
+        except FileNotFoundError:
+            # Un estado nuevo puede no existir aún; sus padres sí se cotejan.
+            continue
+        except OSError as error:
+            raise Refused("ruta original o ancestros inválidos") from error
+        if stat.S_ISLNK(status.st_mode):
+            raise Refused("ruta original o ancestro enlazado; no continuar")
+    return original
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
@@ -832,6 +857,12 @@ def main(argv=None):
     parser.add_argument("--verify-live", action="store_true", help="coteja journal externo y anclas del kit; exige AD132 independiente")
     parser.add_argument("--steps", action="store_true", help="etapas pendientes, consejo JSON sin Docker/BD")
     args = parser.parse_args(argv)
+    # Incluso --plan valida los nombres originales antes de cualquier acceso
+    # Git, Docker o resolución de rutas. No seguir alias de un estado privado.
+    for name in ("repo", "git_repo", "state_dir"):
+        value = getattr(args, name)
+        if value is not None:
+            setattr(args, name, validate_original_path(value))
     if args.installable:
         require_installable(validate_git_source(args.source_ref, args.git_repo)["approved_sql_ref"])
         return

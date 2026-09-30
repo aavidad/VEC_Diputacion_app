@@ -536,6 +536,81 @@ class ExternalJournalTests(unittest.TestCase):
         with self.assertRaises(SQL.Refused): ro.query("INSERT INTO dummy VALUES (1);")
 
 
+class StrictBoundaryTests(unittest.TestCase):
+    def test_readonly_rejects_multiple_statements_literals_escapes_and_meta_before_db(self):
+        denied = (
+            "SELECT 1; COMMIT; CREATE SCHEMA escaped;",
+            "SELECT 1; COMMIT; CREATE TABLE escaped(id integer);",
+            "SELECT 1;;", "SELECT 1; SELECT 2;",
+            "SELECT '; COMMIT; CREATE SCHEMA escaped;'",
+            "SELECT E'\\x3b';", "SELECT U&'\\003b';",
+            "SELECT 1\n\\gexec", "SELECT 1\n\\! harmless",
+            "SELECT 1 -- comment", "SELECT 1 /* comment */",
+            "SELECT $$; COMMIT; CREATE SCHEMA escaped;$$;",
+            "SELECT 1\x00", "SELECT ", None, "COMMIT;",
+        )
+        for text in denied:
+            with self.subTest(text=text), patch.object(SQL.DockerDB, "query") as query:
+                ro = SQL.ReadOnlyDB(SQL.DockerDB("vec-fixture"))
+                with self.assertRaisesRegex(SQL.Refused, "SELECT estricta"):
+                    ro.query(text)
+                query.assert_not_called()
+
+    def test_readonly_accepts_only_single_select_with_optional_final_terminator(self):
+        for text in ("SELECT 1", " SELECT 1; ", "select\n1;", "SELECT 'anchor' AS name;"):
+            with self.subTest(text=text), patch.object(SQL.DockerDB, "query", return_value="t") as query:
+                self.assertEqual(SQL.ReadOnlyDB(SQL.DockerDB("vec-fixture")).query(text), "t")
+                sent = query.call_args.args[0]
+                self.assertTrue(sent.startswith("BEGIN READ ONLY;\n"))
+                self.assertTrue(sent.endswith(";\nCOMMIT;"))
+                self.assertEqual(sent.count(";"), 3)
+
+    def test_cli_rejects_original_final_or_ancestor_symlink_for_all_modes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            actual = root / "actual"; actual.mkdir(mode=0o700)
+            linked = root / "linked"; linked.symlink_to(actual, target_is_directory=True)
+            inputs = (linked, linked / "new-state")
+            for mode in ([], ["--verify-live"], ["--plan"], ["--steps"], ["--installable"]):
+                for option in ("--repo", "--git-repo", "--state-dir"):
+                    for path in inputs:
+                        with self.subTest(mode=mode, option=option, path=path), \
+                                patch.object(SQL, "approved_source_plan") as source, \
+                                patch.object(SQL, "validate_git_source") as git, \
+                                patch.object(SQL, "apply") as apply, \
+                                patch.object(SQL, "verify_live") as verify, \
+                                patch.object(SQL.DockerDB, "check_owner") as docker:
+                            args = ["--repo", str(actual), "--container", "vec-fixture"]
+                            if option == "--repo": args[1] = str(path)
+                            else: args.extend([option, str(path)])
+                            args.extend(mode)
+                            with self.assertRaisesRegex(SQL.Refused, "enlazado"):
+                                SQL.main(args)
+                            for callback in (source, git, apply, verify, docker):
+                                callback.assert_not_called()
+            self.assertFalse((actual / "sql-journal.json").exists())
+            self.assertFalse((actual / "new-state").exists())
+
+    def test_cli_detects_symlink_before_dotdot_resolution(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            actual = root / "actual"; actual.mkdir()
+            linked = root / "linked"; linked.symlink_to(actual, target_is_directory=True)
+            original = linked / ".." / "next"
+            with patch.object(SQL.Path, "resolve") as resolve:
+                with self.assertRaisesRegex(SQL.Refused, "enlazado"):
+                    SQL.main(["--repo", str(root), "--state-dir", str(original), "--plan"])
+                resolve.assert_not_called()
+
+    def test_original_regular_or_missing_path_is_allowed_without_resolving(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for original in (root, root / "new" / "state"):
+                with patch.object(SQL.Path, "resolve") as resolve:
+                    self.assertEqual(SQL.validate_original_path(original), original)
+                    resolve.assert_not_called()
+
+
 class GitSourceTests(unittest.TestCase):
     @contextlib.contextmanager
     def fixture(self, mutation=None, unrelated=False, h6=False):
