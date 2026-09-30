@@ -1,0 +1,144 @@
+package administracion
+
+import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"errors"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestServidorAdminSoloCertificadoDeCAPropiaNoRevocado(t *testing.T) {
+	ahora := time.Now()
+	caClave, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caModelo := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "CA ADMIN prueba"},
+		NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour),
+		IsCA: true, BasicConstraintsValid: true, SubjectKeyId: []byte{1, 2, 3},
+		KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caModelo, caModelo, &caClave.PublicKey, caClave)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, err := x509.ParseCertificate(caDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+	crearHoja := func(serie int64, uso x509.ExtKeyUsage) (tls.Certificate, []byte, []byte) {
+		clave, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		modelo := &x509.Certificate{
+			SerialNumber: big.NewInt(serie), Subject: pkix.Name{CommonName: "identidad sintetica"},
+			NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour),
+			KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{uso},
+			DNSNames: []string{"localhost"}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		}
+		der, err := x509.CreateCertificate(rand.Reader, modelo, ca, &clave.PublicKey, caClave)
+		if err != nil {
+			t.Fatal(err)
+		}
+		claveDER, err := x509.MarshalECPrivateKey(clave)
+		if err != nil {
+			t.Fatal(err)
+		}
+		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+		clavePEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: claveDER})
+		par, err := tls.X509KeyPair(certPEM, clavePEM)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return par, certPEM, clavePEM
+	}
+	_, servidorPEM, clavePEM := crearHoja(2, x509.ExtKeyUsageServerAuth)
+	cliente, _, _ := crearHoja(3, x509.ExtKeyUsageClientAuth)
+	dir := t.TempDir()
+	escribir := func(nombre string, datos []byte) string {
+		ruta := filepath.Join(dir, nombre)
+		if err := os.WriteFile(ruta, datos, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return ruta
+	}
+	rutaCRL := filepath.Join(dir, "admin.crl")
+	actualizarCRL := func(revocar bool) {
+		lista := &x509.RevocationList{Number: big.NewInt(1), ThisUpdate: ahora.Add(-time.Minute), NextUpdate: ahora.Add(time.Hour)}
+		if revocar {
+			lista.RevokedCertificateEntries = []x509.RevocationListEntry{{SerialNumber: big.NewInt(3), RevocationTime: ahora}}
+		}
+		der, err := x509.CreateRevocationList(rand.Reader, lista, ca, caClave)
+		if err != nil {
+			t.Fatal(err)
+		}
+		escribir("admin.crl", pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: der}))
+	}
+	actualizarCRL(false)
+	cfg := Configuracion{
+		Entorno: "cidonia", Escucha: "127.0.0.1:19443", Host: "admin.example.test",
+		Audiencia: "vec-admin-prueba", EmisorIdentidad: "https://identidad.example.test",
+		CertificadoServidor: escribir("servidor.crt", servidorPEM),
+		ClaveServidor:       escribir("servidor.key", clavePEM),
+		CAAdministracion:    escribir("ca.crt", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})),
+		CRLAdministracion:   rutaCRL, RedesPermitidas: []string{"0.0.0.0/0", "::/0"},
+		RetiradaEn: ahora.Add(time.Hour).UTC().Truncate(time.Second),
+	}
+	servidor, err := NuevoServidor(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raices := x509.NewCertPool()
+	raices.AddCert(ca)
+	prueba := httptest.NewUnstartedServer(servidor.Handler)
+	prueba.TLS = servidor.TLSConfig.Clone()
+	prueba.StartTLS()
+	defer prueba.Close()
+	peticion := func(path, host string, certificado bool) (int, error) {
+		configTLS := &tls.Config{RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}
+		if certificado {
+			configTLS.Certificates = []tls.Certificate{cliente}
+		}
+		transporte := &http.Transport{TLSClientConfig: configTLS}
+		defer transporte.CloseIdleConnections()
+		req, _ := http.NewRequest(http.MethodGet, prueba.URL+path, nil)
+		req.Host = host
+		resp, err := (&http.Client{Transport: transporte}).Do(req)
+		if err != nil {
+			return 0, err
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode, nil
+	}
+	if got, err := peticion("/livez", cfg.Host, true); err != nil || got != http.StatusNoContent {
+		t.Fatalf("mTLS valido: %d %v", got, err)
+	}
+	if got, _ := peticion("/api/admin/estado", cfg.Host, true); got != http.StatusNotFound {
+		t.Fatalf("ruta de negocio publicada: %d", got)
+	}
+	if got, _ := peticion("/livez", "otro.example.test", true); got != http.StatusForbidden {
+		t.Fatalf("host ajeno: %d", got)
+	}
+	if _, err := peticion("/livez", cfg.Host, false); err == nil {
+		t.Fatal("TLS acepto cliente sin certificado")
+	}
+	actualizarCRL(true)
+	if got, _ := peticion("/livez", cfg.Host, true); got != http.StatusForbidden {
+		t.Fatalf("revocacion: %d", got)
+	}
+	cfg.Entorno = "produccion"
+	if _, err := NuevoServidor(cfg); !errors.Is(err, ErrConfiguracion) {
+		t.Fatal("produccion sin Kerberos arranco")
+	}
+}
