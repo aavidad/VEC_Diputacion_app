@@ -483,6 +483,8 @@ class MaterialTests(unittest.TestCase):
             self.assertEqual((state / "material/mtls/cliente.crt").read_text(), "original historical certificate")
             self.assertEqual((state / "material/kms/clave-maestra.bin").read_text(), "original historical key")
             metadata = prepared["public_catalogs"]["declared_metadata"]
+            self.assertNotIn("profiles_provisioning_attempted", prepared)
+            self.assertNotIn("profiles_provisioned", prepared)
             self.assertGreater(metadata["organization_centers"], 0)
             self.assertEqual(metadata["rpt_categories"], 145)
             self.assertEqual(metadata["rpt_positions"], 842)

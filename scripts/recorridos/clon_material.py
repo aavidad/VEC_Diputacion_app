@@ -195,7 +195,7 @@ def load_profile_module(name: str):
     return module
 
 
-def seal_state(output: Path, manifest: dict, env: dict, profiles: dict, blockers: list) -> dict:
+def seal_state(output: Path, manifest: dict, env: dict, profiles: dict, blockers: list, *, profile_attempt: bool = True) -> dict:
     env.pop("VEC_HTTP_ALLOWED_CIDRS", None)  # runtime enforces exact loopback
     profiles["blockers"] = blockers
     replace_private(output / "perfiles.json", profiles)
@@ -207,8 +207,9 @@ def seal_state(output: Path, manifest: dict, env: dict, profiles: dict, blockers
             files[str(path.relative_to(output))] = hashlib.sha256(private_read(path)).hexdigest()
     for name in ("perfiles.json", "runtime.env", "runtime-config.json"):
         files[name] = hashlib.sha256(private_read(output / name)).hexdigest()
-    manifest.update(files=files, blockers=blockers, status="partial_blocked" if blockers else "prepared",
-                    profiles_provisioned=not blockers, profiles_provisioning_attempted=True)
+    manifest.update(files=files, blockers=blockers, status="partial_blocked" if blockers else "prepared")
+    if profile_attempt:
+        manifest.update(profiles_provisioned=not blockers, profiles_provisioning_attempted=True)
     replace_private(output / "material-manifest.json", manifest)
     return manifest
 
@@ -1023,7 +1024,7 @@ def provision_public_catalogs(args, output: Path, source: str, manifest: dict) -
     manifest["public_catalogs"] = {"source_commit": source, "declared_metadata": metadata,
                                   "files": {relative: dict(module.APPROVED_PUBLIC_SOURCES[relative]) for relative in payload}, "sql_authority_changed": False}
     profiles = json.loads(private_read(output / "perfiles.json"))
-    return seal_state(output, manifest, env, profiles, manifest["blockers"])
+    return seal_state(output, manifest, env, profiles, manifest["blockers"], profile_attempt=False)
 
 
 def seal_internal_projection(args: argparse.Namespace, output: Path, source: str, manifest: dict) -> dict:
