@@ -200,7 +200,7 @@ function traducirDocumento(doc) {
   doc.querySelectorAll("[data-i18n-label]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nLabel)); });
 }
 
-export async function iniciar(doc, cliente) {
+export async function iniciar(doc, cliente, montarAjustes = null) {
   if (!t) {
     doc.documentElement.lang = IDIOMA_REGLAS;
     const aviso = doc.getElementById("rg-estado");
@@ -225,6 +225,7 @@ export async function iniciar(doc, cliente) {
   }
   traducirDocumento(doc);
   const $ = (id) => doc.getElementById(id);
+  let ajustesIniciados = false;
   const ayuda = $("rg-ayuda");
   $("rg-ayuda-abrir").addEventListener("click", () => ayuda.showModal?.());
   $("rg-ayuda-cerrar").addEventListener("click", () => ayuda.close?.());
@@ -296,6 +297,11 @@ export async function iniciar(doc, cliente) {
     const devolverFoco = conservarFoco && doc.activeElement === aviso;
     avisar("");
     $("rg-resultado").hidden = false;
+    if (montarAjustes && !ajustesIniciados) {
+      ajustesIniciados = true;
+      try { await montarAjustes(doc); }
+      catch { $("rg-ajustes").textContent = t("ajustesNoDisponible"); }
+    }
     if (devolverFoco) $("rg-modulo").focus({ preventScroll: true });
     if (abiertas.size) doc.getElementById([...abiertas][0])?.previousElementSibling?.scrollIntoView?.({ block: "center" });
   };
@@ -303,13 +309,8 @@ export async function iniciar(doc, cliente) {
 }
 
 if (typeof document !== "undefined" && document.getElementById("reglas")) {
-  iniciar(document, crearCliente()).then(async () => {
-    if (document.getElementById("rg-resultado")?.hidden) return;
-    try {
-      const { iniciarAjustes } = await import("./ajustes.js?v=20260930-plazos-config-ui-v1");
-      iniciarAjustes(document);
-    } catch {
-      document.getElementById("rg-ajustes").textContent = t("ajustesNoDisponible");
-    }
+  iniciar(document, crearCliente(), async (doc) => {
+    const { iniciarAjustes } = await import("./ajustes.js?v=20260930-plazos-config-ui-v1");
+    iniciarAjustes(doc);
   });
 }
