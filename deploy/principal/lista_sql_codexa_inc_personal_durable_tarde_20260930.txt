@@ -1,3 +1,0 @@
-deploy/postgresql/autorizacion_atestada_v3/migraciones/000129_consumidor_plan_incorporacion_personal_ct.up.sql
-deploy/postgresql/personal/migraciones/000023_plan_incorporacion_ct.up.sql
-deploy/postgresql/personal/migraciones/000024_catalogo_clases_multilingue.up.sql

@@ -1,3 +1,6 @@
+# BORRADOR: no ejecutar hasta completar las huellas post-B y post-AD136.
+# CTX18 confirma su propia transacción antes de la barrera de AD127.
+# Para probar el rechazo de AD127 se ensaya únicamente esa UP, no esta lista.
 # Fuente base: main f63c393befbd7508aa5cded7efabd97460359713 (#222, etapa 0).
 # La fusión de etapa 0 acredita fuente, no instalación en ninguna base.
 # Entrada obligatoria: B AD133/135 y A AD136 publicadas e instaladas una vez,
