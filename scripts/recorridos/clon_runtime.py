@@ -776,6 +776,7 @@ def start(source, binary, manifest, state, port, pg_port):
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
+                module.verify_record(state, record)
                 check_internal_https(state, port)
                 module.verify_record(state, record)
                 succeeded = True

@@ -297,6 +297,31 @@ class RuntimeTests(unittest.TestCase):
         module.stop.assert_called_once_with(self.root)
         self.assertFalse((self.root / 'runtime-process.json').exists())
 
+    def test_internal_start_waits_for_https_then_cleans_only_own_on_timeout(self):
+        projection = {'root': str(self.root), 'material_path': str(self.material),
+                      'runtime_config_path': str(self.config), 'manifest_path': str(self.root / 'material-manifest.json')}
+        binary = self.root / 'fixture-bin'
+        binary.write_text('ELF fixture')
+        manifest = {'runtime_mode': 'interno', 'cgo_enabled': False, 'source_commit': 'a' * 40}
+        for timeout in [False, True]:
+            module = unittest.mock.Mock()
+            module.ContainerError = RuntimeError
+            module.start.return_value = {'container_id': 'own-id', 'container_mode': 'interno', 'pid': 41}
+            clock = [0, 61] if timeout else [0, 0, 1]
+            health = [ConnectionRefusedError(), None]
+            with self.subTest(timeout=timeout), patch.object(runtime, 'read_runtime_descriptor', return_value=projection), patch.object(runtime, 'validate_material', return_value='material'), patch.object(runtime, 'runtime_environment', return_value=(self.values, 'config')), patch.object(runtime, 'own_process', return_value=None), patch.object(runtime, 'elf_interpreter', return_value=None), patch.object(runtime, 'container_module', return_value=module), patch.object(runtime.time, 'monotonic', side_effect=clock), patch.object(runtime.time, 'sleep'), patch.object(runtime, 'check_internal_https', side_effect=health) as check:
+                if timeout:
+                    with self.assertRaises(runtime.RuntimeErrorLocal):
+                        runtime.start(self.source, binary, manifest, self.root, 18531, 55531)
+                    module.stop.assert_called_once_with(self.root)
+                    self.assertFalse((self.root / 'runtime-process.json').exists())
+                else:
+                    self.assertEqual(runtime.start(self.source, binary, manifest, self.root, 18531, 55531)['container_id'], 'own-id')
+                    self.assertEqual(check.call_count, 2)
+                    self.assertEqual(module.verify_record.call_count, 3)
+                    module.stop.assert_not_called()
+                    (self.root / 'runtime-process.json').unlink()
+
     def test_verify_rejects_material_config_and_source_changes_without_signal(self):
         record = {'container_mode': 'interno', 'source_commit': 'a' * 40, 'port': 18531, 'pg_port': 55531,
                   'material_sha256': 'material', 'config_sha256': 'config',
