@@ -21,6 +21,8 @@ import sys
 
 SOURCE = '73e56c106d12fdda0bd16d6fe573503c42c5495f'
 MAX_SOURCE = 256 * 1024
+PLAN_INPUTS = ('package_tar', 'release_lock', 'approved_package_sha256',
+               'approved_lock_sha256', 'h1_state_file', 'approved_h1_sha256')
 
 
 class Refused(RuntimeError):
@@ -129,6 +131,10 @@ def composition(scripts=None, source_ref=SOURCE):
             blockers.append('api_missing:' + name)
     return {'version': 1, 'kind': 'h6_composition_preflight',
             'source_sql': SOURCE, 'sql_count': 62, 'ad132_separate': True,
+            'plan_status': 'external_inputs_required', 'plan_inputs': list(PLAN_INPUTS),
+            'postgres_transport': {'network': 'none', 'logical_port': 5432,
+                'host_published': False, 'app_network': 'container:<PGID>',
+                'host_app_access': 'pinned_loopback_exec_relay'},
             'ready': False, 'executable': False, 'apis': apis,
             'blockers': blockers,
             'operations': [dict(id=op.id, api=op.api, effect=op.effect,
@@ -147,11 +153,15 @@ def require_complete(action, scripts=None, source_ref=SOURCE):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('preflight', 'preparar', 'reiniciar'))
+    parser.add_argument('action', choices=('preflight', 'plan', 'preparar', 'reiniciar'))
     parser.add_argument('--source-ref', default=SOURCE)
     args = parser.parse_args(argv)
     if not re.fullmatch('[0-9a-f]{40}', args.source_ref):
         raise Refused('source_not_canonical')
+    if args.action == 'plan':
+        # No historical45 fallback; no pins derived from unapproved local bytes.
+        # The fixed H6 preflight must be connected with all external inputs first.
+        raise Refused('plan_H6_external_inputs_not_connected:' + ','.join(PLAN_INPUTS))
     value = composition(source_ref=args.source_ref)
     print(json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':')))
     if args.action != 'preflight':

@@ -32,6 +32,22 @@ class CompositionTests(unittest.TestCase):
         self.assertEqual(ops[6]['recovery'], 'revalidar_only')
         self.assertEqual(ops[9]['recovery'], 'no_SQL')
 
+    def test_transport_is_PG_namespace_5432_without_host_publication(self):
+        value = module.composition(self.root)
+        transport = value['postgres_transport']
+        self.assertEqual(transport['logical_port'], 5432)
+        self.assertEqual(transport['network'], 'none')
+        self.assertFalse(transport['host_published'])
+        self.assertEqual(transport['app_network'], 'container:<PGID>')
+        self.assertEqual(value['plan_status'], 'external_inputs_required')
+        self.assertEqual(set(value['plan_inputs']), set(module.PLAN_INPUTS))
+
+    def test_plan_without_external_inputs_never_outputs_historical45(self):
+        with patch('sys.stdout') as output:
+            with self.assertRaisesRegex(module.Refused, 'plan_H6_external_inputs_not_connected'):
+                module.main(['plan'])
+            output.write.assert_not_called()
+
     def test_all_APIs_present_never_override_operational_review_blockers(self):
         with patch.object(module, 'source_api', return_value=set(
                 key for values in module.API_REQUIREMENTS.values() for key in values)):

@@ -35,7 +35,8 @@ class OrquestadorTests(unittest.TestCase):
             'PYTHONDONTWRITEBYTECODE': '1', 'GIT_CONFIG_NOSYSTEM': '1',
             'VEC_TEST_CALLS': str(self.calls),
             'VEC_RECORRIDOS_ESTADO': str(self.state),
-            'VEC_RECORRIDOS_CONTENEDOR': 'vec-fixture'}
+            'VEC_RECORRIDOS_CONTENEDOR': 'vec-fixture',
+            'VEC_RECORRIDOS_PUERTO_PG': '55531'}
 
     def run_action(self, action, **environment):
         return subprocess.run(['bash', str(SCRIPT), action],
@@ -72,14 +73,15 @@ class OrquestadorTests(unittest.TestCase):
                 self.assertFalse(self.state.exists())
                 self.assert_no_services()
 
-    def test_plan_lee_git_sin_h1_estado_ni_servicios(self):
+    def test_plan_sin_entradas_externas_deniega_sin_historia45_estado_o_servicios(self):
         self.state.rmdir()
         p = self.run_action('plan', VEC_RECORRIDOS_ARCHIVO='/no-existe')
-        self.assertEqual(p.returncode, 0, p.stderr)
-        lines = p.stdout.splitlines()
-        self.assertEqual(len(lines), 45)
-        self.assertIn('000153_perfil_reincorporacion_titular.up.sql', lines[-1])
-        self.assertNotIn('000132', p.stdout)
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn('plan_H6_external_inputs_not_connected', p.stderr)
+        self.assertIn('approved_package_sha256', p.stderr)
+        self.assertIn('approved_lock_sha256', p.stderr)
+        self.assertIn('approved_h1_sha256', p.stderr)
+        self.assertEqual(p.stdout, '')
         self.assertFalse(self.state.exists())
         self.assert_no_services()
 
@@ -232,7 +234,7 @@ class OrquestadorTests(unittest.TestCase):
             with self.subTest(action=action):
                 p=subprocess.run(['bash',str(scripts/'preparar_clon.sh'),action],
                     capture_output=True,text=True,env=environment,timeout=20)
-                self.assertEqual(p.returncode,0,p.stderr)
+                self.assertEqual(p.returncode, 1 if action == 'plan' else 0, p.stderr)
                 self.assertFalse((self.root/'bytecode').exists())
                 self.assertEqual(list(control.rglob('*.pyc')),[])
                 self.assertEqual(list(control.rglob('__pycache__')),[])

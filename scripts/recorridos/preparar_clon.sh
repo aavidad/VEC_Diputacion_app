@@ -8,7 +8,9 @@ repo=$(git -C "$guiones" rev-parse --show-toplevel)
 estado=${VEC_RECORRIDOS_ESTADO:-"$HOME/.local/state/vec-recorridos"}
 referencia=${VEC_RECORRIDOS_REFERENCIA:-73e56c106d12fdda0bd16d6fe573503c42c5495f}
 nombre=${VEC_RECORRIDOS_CONTENEDOR:-vec-recorridos-local}
-puerto_pg=${VEC_RECORRIDOS_PUERTO_PG:-55531}
+# Puerto lógico dentro del namespace PG; H6 no publica un puerto PostgreSQL host.
+# Los registros históricos necesitan su puerto explícito para estado/parar/retirar.
+puerto_pg=${VEC_RECORRIDOS_PUERTO_PG:-5432}
 puerto_web=${VEC_RECORRIDOS_PUERTO_WEB:-18531}
 puerto_smtp=${VEC_RECORRIDOS_PUERTO_SMTP:-11025}
 puerto_correo_web=${VEC_RECORRIDOS_PUERTO_CORREO_WEB:-18532}
@@ -16,10 +18,10 @@ accion=${1:-preparar}
 [[ "$#" -le 1 ]] || exit 2
 case "$accion" in preparar|estado|reiniciar|parar|retirar|plan) ;; *) echo 'Uso: preparar_clon.sh [preparar|plan|estado|reiniciar|parar|retirar]' >&2; exit 2;; esac
 
-# Lectura Git exclusivamente: no exige H1, estado privado, Docker ni runtime.
+# El plan operativo requiere paquete/lock/H1 y sus SHA aprobados externos.
+# Mientras ese contrato no esté conectado, nunca mostrar el manifiesto histórico45.
 if [[ "$accion" == plan ]]; then
-  commit=$(git -C "$repo" rev-parse --verify "$referencia^{commit}")
-  exec python3 -B "$guiones/clon_sql.py" --repo "$repo" --git-repo "$repo" --source-ref "$commit" --plan
+  exec python3 -B "$guiones/clon_h6_orquestador.py" plan --source-ref "$referencia"
 fi
 
 # Composición documental; nunca importa proveedores ni crea estado privado.
