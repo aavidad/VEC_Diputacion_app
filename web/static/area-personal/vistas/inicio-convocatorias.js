@@ -10,7 +10,7 @@ const soloMiBolsa = (datos) => datos.meta?.origen === "GET /api/vec/bolsa/mi-bol
 
 export function renderizarInicio(datos) {
   if (soloMiBolsa(datos)) {
-    return `${encabezadoVista(t("titulo"), t("consultaBolsa.descripcion"))}
+    return `${encabezadoVista(traducir("areaPersonal.rutas.inicio"), t("consultaBolsa.descripcion"))}
       ${panel(t("consultaBolsa.titulo"), t("consultaBolsa.subtitulo"),
         `<p>${escaparHTML(t("consultaBolsa.detalle"))}</p>${enlaceRuta("llamamientos", t("consultaBolsa.abrir"), "boton-primario")}`)}`;
   }

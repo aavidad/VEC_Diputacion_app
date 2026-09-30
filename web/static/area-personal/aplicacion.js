@@ -191,7 +191,7 @@ function mostrarError(estado, error) {
 // Sin nombre no se muestra ninguno, ni un rótulo que lo sustituya.
 export function datosMinimosMiBolsa(consulta) {
   return Object.freeze({
-    meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en },
+    meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en, busqueda_convocatorias_disponible: false },
     sesion: { nombre_visible: "", iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
     perfil: { referencia: null, nombre_visible: "", identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
@@ -203,7 +203,7 @@ export function datosMinimosMiBolsa(consulta) {
 function datosMinimosPreferencias(identidadConfirmada) {
   const base = datosMinimosMiBolsa({ consultada_en: "" });
   return { ...base,
-    meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias" },
+    meta: { presentacion: false, origen: "GET /api/vec/usuarios/area-personal/mis-preferencias", busqueda_convocatorias_disponible: false },
     sesion: { ...base.sesion, metodo: traducir(identidadConfirmada
       ? "areaPersonal.preferencias.identidadServicio" : "areaPersonal.preferencias.identidadNoConfirmada") },
   };
@@ -226,6 +226,7 @@ function actualizarShell(estado) {
   const titulo = traducir(RUTAS[vista][0]);
   document.title = t("tituloDocumento", { titulo });
   porId("titulo-vista").textContent = titulo;
+  porId("busqueda-global").hidden = datos.meta?.busqueda_convocatorias_disponible === false;
   porId("migas-pan").textContent = vista === "inicio" ? t("migas") : t("migasVista", { titulo });
   pintarInicialesSesion(estado, porId("avatar-sesion"), datos.sesion.iniciales);
   porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
@@ -739,6 +740,7 @@ function conectarEventos(estado) {
       return;
     }
     if (formulario.id === "busqueda-global") {
+      if (estado.datos?.meta?.busqueda_convocatorias_disponible === false) return;
       estado.filtros.termino = formularioAObjeto(formulario).consulta || "";
       navegar(estado, "convocatorias");
       return;
