@@ -26,7 +26,10 @@ func (a *actorPrueba) ResolverContextoActor(context.Context) (vecdomain.Contexto
 	return a.actor, a.err
 }
 
-type servicioPrueba struct{ publicaciones int }
+type servicioPrueba struct {
+	publicaciones int
+	invalida      bool
+}
 
 func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int, *int64) (app.Lectura, error) {
 	return app.Lectura{PuedeAjustar: true, Reglas: []reglas.Regla{{
@@ -35,6 +38,7 @@ func (s *servicioPrueba) Consultar(context.Context, vecdomain.ContextoActor, int
 		Atributos: map[string]string{reglas.CampoCantidadUrgente: "5"},
 		Edicion: &reglas.Edicion{Campos: []string{reglas.CampoCantidad, reglas.CampoCantidadUrgente, reglas.CampoUnidad},
 			OpcionesUnidad: []reglas.Unidad{reglas.UnidadDiasHabiles, reglas.UnidadDiasNaturales}, CantidadMinima: 1, CantidadMaxima: 60},
+		AjusteNoAplicable: s.invalida,
 	}}}, nil
 }
 func (s *servicioPrueba) Publicar(context.Context, vecdomain.ContextoActor, app.Solicitud) (app.Resultado, error) {
@@ -133,6 +137,28 @@ func TestSoloLecturaNoAnunciaNiEjecutaGuardado(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusServiceUnavailable || s.publicaciones != 0 || a.llamadas != 1 {
 		t.Fatalf("POST alcanzó operación en solo lectura: %d %d %d", w.Code, s.publicaciones, a.llamadas)
+	}
+}
+
+func TestAjusteNoAplicableNoMuestraBaseComoVigente(t *testing.T) {
+	ahora := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	actor, _, err := vecpruebas.NuevoContextoYVinculo(ahora, "per_0123456789abcdef0123456789abcdef",
+		"prf_0123456789abcdef0123456789abcdef", vecdomain.AuthMethodCertificate, vecdomain.AuthAssuranceHigh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := NuevoManejadorSoloLectura(&actorPrueba{actor: actor}, &servicioPrueba{invalida: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, Ruta, nil)
+	r.Header.Set("Accept", "application/json")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"ajuste_no_aplicable":true`) ||
+		strings.Contains(w.Body.String(), `"cantidad":10`) || strings.Contains(w.Body.String(), `"cantidad":0`) ||
+		strings.Contains(w.Body.String(), `"valores":`) || strings.Contains(w.Body.String(), `"unidad":`) {
+		t.Fatalf("GET filtró valor base como vigente: %d %s", w.Code, w.Body.String())
 	}
 }
 
