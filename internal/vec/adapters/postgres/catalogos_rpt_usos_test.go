@@ -97,16 +97,36 @@ func autorizacionUsoRPTHuellaPrueba(t *testing.T, accion, audiencia, usoRef, mat
 	if err != nil {
 		t.Fatal(err)
 	}
+	huellaSolicitud, err := domain.HuellaSHA256SolicitudAutorizacionV3(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	motivoCanonico, err := domain.RepresentacionCanonicaMotivoAutorizacionV2(d.ReferenciaMotivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := d.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decisionCanonica := jsonRPTPrueba(t, decisionLigaduraUsoRPT{
+		Esquema:     domain.EsquemaHuellaDecisionAutorizacionV3,
+		DecisionRef: "decision:rpt:uso:prueba", SolicitudHuellaSHA256: huellaSolicitud,
+		MotivoHuellaSHA256: huellaBytesUsoRPT(motivoCanonico), ContextoRecursoHuellaSHA256: huella,
+		CorrelacionRef: func() string { valor, _ := d.Correlacion.ValorCanonico(); return valor }(),
+		PrincipalID:    vinculo.PrincipalID, PerfilActivoRef: vinculo.PerfilActivoRef,
+	})
+	contextoCanonico := escenario.resultado.RepresentacionCanonica
 	resumen, err := ports.NuevoResumenCapacidadAtestacionAutorizacionV3(
-		"decision:rpt:uso:prueba", strings.Repeat("a", 64), strings.Repeat("b", 64),
-		"contexto:rpt:uso:prueba", strings.Repeat("c", 64), accion, usoRef, huella,
+		"decision:rpt:uso:prueba", huellaBytesUsoRPT(decisionCanonica), huellaBytesUsoRPT(motivoCanonico),
+		vinculo.RegistroContextoRef, huellaBytesUsoRPT(contextoCanonico), accion, usoRef, huella,
 		audiencia, escenario.ahora, escenario.ahora.Add(3*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
 	raiz, _ := hex.DecodeString("302a300506032b65700321002152f8d19b791d24453242e15f2eab6cb7cffa7b6a5ed30097960e069881db12")
 	autorizacion, err := ports.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
-		bytes.Repeat([]byte("x"), 512), resumen, []byte("d"), []byte("m"), []byte("c"), 1, 1,
+		bytes.Repeat([]byte("x"), 512), resumen, decisionCanonica, motivoCanonico, contextoCanonico, 1, 1,
 		[]byte("p"), []byte("s"), []byte("e"), raiz)
 	if err != nil {
 		t.Fatal(err)

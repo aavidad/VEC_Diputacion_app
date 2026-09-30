@@ -1,7 +1,10 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -284,7 +287,77 @@ func (g *GestorUsosCategoriaRPTPostgreSQL) validarAutorizacion(
 		resumen.EfectoRef() != usoRef || resumen.EfectoHuellaSHA256() != huellaRecurso {
 		return "", ports.ErrUsoCategoriaRPTDenegado
 	}
+	// El recurso no distingue dos solicitudes de distintos actores, motivos o
+	// correlaciones. La huella de solicitud V3 sí compromete esas piezas y debe
+	// proceder de los bytes de la decisión entregados a la fachada atestada.
+	if !ligaduraSolicitudUsoRPT(d, solicitud, autorizacion, resumen, huellaRecurso) {
+		return "", ports.ErrUsoCategoriaRPTDenegado
+	}
 	return r.Atributos["material_sha256"], nil
+}
+
+type decisionLigaduraUsoRPT struct {
+	Esquema                     string `json:"esquema"`
+	DecisionRef                 string `json:"decision_ref"`
+	SolicitudHuellaSHA256       string `json:"solicitud_huella_sha256"`
+	MotivoHuellaSHA256          string `json:"motivo_huella_sha256"`
+	ContextoRecursoHuellaSHA256 string `json:"contexto_recurso_huella_sha256"`
+	CorrelacionRef              string `json:"correlacion_ref"`
+	PrincipalID                 string `json:"principal_id"`
+	PerfilActivoRef             string `json:"perfil_activo_ref"`
+}
+
+func ligaduraSolicitudUsoRPT(
+	d domain.DatosSolicitudAutorizacionLigadaV3,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	autorizacion ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+	resumen ports.ResumenCapacidadAtestacionAutorizacionV3,
+	huellaRecurso string,
+) bool {
+	vinculo, errVinculo := d.VinculoAutenticacionActor.Datos()
+	correlacion, errCorrelacion := d.Correlacion.ValorCanonico()
+	huellaSolicitud, errSolicitud := domain.HuellaSHA256SolicitudAutorizacionV3(solicitud)
+	motivoCanonico, errMotivo := domain.RepresentacionCanonicaMotivoAutorizacionV2(d.ReferenciaMotivo)
+	if errVinculo != nil || errCorrelacion != nil || errSolicitud != nil || errMotivo != nil ||
+		!bytes.Equal(motivoCanonico, autorizacion.MotivoCanonico()) ||
+		huellaBytesUsoRPT(motivoCanonico) != resumen.MotivoHuellaSHA256() ||
+		vinculo.RegistroContextoRef != resumen.ContextoRef() ||
+		vinculo.ContextoActorHuellaSHA256 != resumen.ContextoHuellaSHA256() {
+		return false
+	}
+	contextoCanonico := autorizacion.ContextoActorCanonico()
+	if huellaBytesUsoRPT(contextoCanonico) != resumen.ContextoHuellaSHA256() {
+		return false
+	}
+	contexto, err := domain.RehidratarContextoActorVinculadoV2(contextoCanonico)
+	if err != nil || contexto.Principal.ID != vinculo.PrincipalID ||
+		contexto.PerfilActivoRef != vinculo.PerfilActivoRef ||
+		contexto.Instantanea.VinculoRef != vinculo.ContextoActorRef ||
+		contexto.Instantanea.VinculoVersion != vinculo.ContextoActorVersion ||
+		contexto.Instantanea.CuentaVersion != vinculo.ContextoActorCuentaVersion {
+		return false
+	}
+	decisionCanonica := autorizacion.DecisionCanonica()
+	if huellaBytesUsoRPT(decisionCanonica) != resumen.DecisionHuellaSHA256() {
+		return false
+	}
+	var decision decisionLigaduraUsoRPT
+	if json.Unmarshal(decisionCanonica, &decision) != nil {
+		return false
+	}
+	return decision.Esquema == domain.EsquemaHuellaDecisionAutorizacionV3 &&
+		decision.DecisionRef == resumen.DecisionRef() &&
+		decision.SolicitudHuellaSHA256 == huellaSolicitud &&
+		decision.MotivoHuellaSHA256 == resumen.MotivoHuellaSHA256() &&
+		decision.ContextoRecursoHuellaSHA256 == huellaRecurso &&
+		decision.CorrelacionRef == correlacion &&
+		decision.PrincipalID == vinculo.PrincipalID &&
+		decision.PerfilActivoRef == vinculo.PerfilActivoRef
+}
+
+func huellaBytesUsoRPT(contenido []byte) string {
+	suma := sha256.Sum256(contenido)
+	return hex.EncodeToString(suma[:])
 }
 
 func (g *GestorUsosCategoriaRPTPostgreSQL) ejecutar(
