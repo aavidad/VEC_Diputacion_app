@@ -418,13 +418,13 @@ func nuevaRutaUsuariosPreferenciasSuperficieDesarrollo(cfg config.Config, resolv
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
 	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo, aspirantes *dependenciasAspirantesDesarrollo,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
-	return nuevaRutaUsuariosPreferenciasConFrontera(cfg, resolvedor, derivador, incidencias, topologiaGobierno, superficie, ruta, consulta, actualizacion, correos, imagen, fronteraPreferenciasUsuariosCombinada())
+	return nuevaRutaUsuariosPreferenciasConFrontera(cfg, resolvedor, derivador, incidencias, topologiaGobierno, superficie, ruta, consulta, actualizacion, correos, imagen, aspirantes, fronteraPreferenciasUsuariosCombinada())
 }
 
 func nuevaRutaUsuariosPreferenciasConFrontera(cfg config.Config, resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo, incidencias vecports.EmisorIncidenciasTecnicas, topologiaGobierno topologiaPostgreSQLPreferenciasUsuarios, superficie core.SuperficieAutenticacionActorV1, ruta string,
 	consulta, actualizacion *proveedorMaterialAltaContratacionTemporalDesarrollo,
-	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo,
+	correos *dependenciasCorreosUsuariosDesarrollo, imagen *dependenciasImagenUsuariosDesarrollo, aspirantes *dependenciasAspirantesDesarrollo,
 	frontera fronteraPreferenciasUsuarios,
 ) (*autoridadPreferenciasUsuariosDesarrollo, error) {
 	if frontera.abrirPool == nil || frontera.identidad == nil || frontera.contextos == nil || frontera.autorizador == nil {
