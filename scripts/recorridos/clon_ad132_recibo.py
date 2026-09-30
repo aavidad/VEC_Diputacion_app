@@ -49,6 +49,7 @@ HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 HELPER_REL = "h6_recibo_ad132.py"
 CLI_REL = "deploy/postgresql/autorizacion_atestada_v3/aplicar_000132_temp_public.py"
 SUCCESS = b"AD3-132-OK: PUBLIC TEMP retirado; LOGIN sin TEMP efectivo\n"
+CANARY_PENDING = "canario-publicacion-pendiente.json"
 
 
 class Refused(RuntimeError):
@@ -170,8 +171,27 @@ def private_destination(path):
     return path
 
 
+def require_committed_canary(request):
+    """Un par completo no confirma el canario mientras conserve su marcador."""
+    plan = private_destination(request.plan)
+    receipt = private_destination(request.plan_receipt)
+    if (plan.name != "plan-conexiones.json" or receipt.name != "plan-canonico-clon.json"
+            or plan.parent != receipt.parent):
+        raise Refused("plan y recibo canónicos requieren el mismo directorio privado")
+    pending = plan.parent / CANARY_PENDING
+    try:
+        pending.lstat()
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        raise Refused("no se puede comprobar la publicación del canario") from error
+    # lstat también detecta enlaces rotos, directorios y otros tipos inválidos.
+    raise Refused("publicación del canario pendiente; conservar evidencia")
+
+
 def load_adapter(request):
     """Preflight sin Docker: carga sólo el helper original fijado externamente."""
+    require_committed_canary(request)
     for path in (request.package_tar, request.release_lock, request.plan,
                  request.plan_receipt, request.approval):
         trusted_ancestors(clon_sql.validate_original_path(path))

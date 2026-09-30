@@ -156,6 +156,119 @@ class AdapterTests(unittest.TestCase):
     def apply(self):
         return adapter.apply_and_confirm(self.request)
 
+    def complete_canary_pair(self):
+        for path in (self.request.plan, self.request.plan_receipt):
+            path.write_bytes(b"{}\n")
+            path.chmod(0o600)
+
+    def test_complete_canary_pair_with_pending_blocks_all_entrypoints(self):
+        self.complete_canary_pair()
+        pending = self.folder / adapter.CANARY_PENDING
+        pending.write_bytes(b"{}\n")
+        pending.chmod(0o600)
+        for operation in (adapter.load_adapter, adapter.apply_and_confirm, adapter.revalidar):
+            with self.subTest(operation=operation.__name__), self.assertRaises(adapter.Refused):
+                operation(self.request)
+        self.assertEqual(pending.read_bytes(), b"{}\n")
+        self.assertTrue(self.request.plan.is_file())
+        self.assertTrue(self.request.plan_receipt.is_file())
+        self.helper.context.assert_not_called()
+        self.runner.assert_not_called()
+        self.mod.current_inventory.assert_not_called()
+        self.mod.current_anchors.assert_not_called()
+        self.assertFalse(self.request.pending_path.exists())
+
+    def test_canary_pending_link_directory_or_fifo_also_blocks(self):
+        self.complete_canary_pair()
+        pending = self.folder / adapter.CANARY_PENDING
+        for kind in ("broken_link", "directory", "fifo"):
+            with self.subTest(kind=kind):
+                if kind == "broken_link":
+                    pending.symlink_to(self.folder / "missing")
+                elif kind == "directory":
+                    pending.mkdir(mode=0o700)
+                else:
+                    os.mkfifo(pending, 0o600)
+                for operation in (adapter.apply_and_confirm, adapter.revalidar):
+                    with self.assertRaises(adapter.Refused):
+                        operation(self.request)
+                pending.lstat()  # El rechazo conserva también tipos inválidos.
+                if kind == "directory":
+                    pending.rmdir()
+                else:
+                    pending.unlink()
+        self.helper.context.assert_not_called()
+        self.runner.assert_not_called()
+
+    def test_canary_pending_created_after_ad132_pending_prevents_cli(self):
+        self.complete_canary_pair()
+        original = self.helper.atomic_receipt
+        pending = self.folder / adapter.CANARY_PENDING
+        def write(path, data):
+            original(path, data)
+            if path == self.request.pending_path:
+                pending.write_bytes(b"{}\n")
+                pending.chmod(0o600)
+        self.helper.atomic_receipt = write
+        with self.assertRaises(adapter.Refused):
+            self.apply()
+        self.assertTrue(pending.is_file())
+        self.assertTrue(self.request.pending_path.is_file())
+        self.assertFalse(self.request.receipt.exists())
+        self.runner.assert_not_called()
+
+    def test_completed_ad132_receipt_with_canary_pending_cannot_revalidate(self):
+        self.complete_canary_pair()
+        self.apply()
+        pending = self.folder / adapter.CANARY_PENDING
+        pending.write_bytes(b"{}\n")
+        pending.chmod(0o600)
+        self.helper.context.reset_mock()
+        self.mod.current_inventory.reset_mock()
+        self.mod.current_anchors.reset_mock()
+        with self.assertRaises(adapter.Refused):
+            adapter.revalidar(self.request)
+        self.assertTrue(pending.is_file())
+        self.assertTrue(self.request.pending_path.is_file())
+        self.helper.context.assert_not_called()
+        self.mod.current_inventory.assert_not_called()
+        self.mod.current_anchors.assert_not_called()
+        self.assertEqual(self.runner.call_count, 1)
+
+    def test_unrelated_canary_pending_does_not_block_committed_directory(self):
+        self.complete_canary_pair()
+        unrelated = self.folder / "unrelated"
+        unrelated.mkdir(mode=0o700)
+        pending = unrelated / adapter.CANARY_PENDING
+        pending.write_bytes(b"{}\n")
+        pending.chmod(0o600)
+        receipt = self.apply()
+        self.assertEqual(adapter.revalidar(self.request), receipt)
+        self.assertTrue(pending.is_file())
+        self.assertTrue(self.request.pending_path.is_file())
+        self.assertEqual(self.runner.call_count, 1)
+
+    def test_noncanonical_or_separate_plan_paths_cannot_bypass_canary_pending(self):
+        self.complete_canary_pair()
+        pending = self.folder / adapter.CANARY_PENDING
+        pending.write_bytes(b"{}\n")
+        pending.chmod(0o600)
+        unrelated = self.folder / "unrelated"
+        unrelated.mkdir(mode=0o700)
+        cases = ({"plan": self.folder / "other-plan.json"},
+                 {"plan_receipt": self.folder / "other-receipt.json"},
+                 {"plan": unrelated / self.request.plan.name},
+                 {"plan_receipt": unrelated / self.request.plan_receipt.name})
+        for fields in cases:
+            request = replace(self.request, **fields)
+            for operation in (adapter.apply_and_confirm, adapter.revalidar):
+                with self.subTest(fields=fields, operation=operation.__name__):
+                    with self.assertRaises(adapter.Refused):
+                        operation(request)
+        self.assertTrue(pending.is_file())
+        self.helper.context.assert_not_called()
+        self.runner.assert_not_called()
+
     def test_success_is_d_format_and_revalidation_is_read_only(self):
         receipt = self.apply()
         self.assertEqual(self.calls, ["pending", "cli"])
