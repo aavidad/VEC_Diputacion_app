@@ -223,3 +223,40 @@ verifican los roles y los recibos. El ensayo debe repetir un evento después de
 reiniciar ambos procesos y PostgreSQL, comprobar la misma huella y fecha,
 y provocar una interrupción antes y después del ACK. Una reserva con resultado
 incierto no se despacha de nuevo automáticamente; requiere conciliación.
+
+## Avisos pendientes en consultas propias — Bolsa 000066
+
+`000066_proyeccion_avisos_propios.up.sql` corrige las consultas Mi Bolsa e
+historial propio. Cada pareja de llamamiento y participación de B62 aparece
+una sola vez desde la emisión y el alta del outbox. Sin resultado, o con un
+resultado incierto, devuelve `aviso_pendiente`. Un resultado `aceptado` se
+proyecta como `enviado`; `no_aceptado` y `sin_destino`, como `no_enviado`.
+El acuse del inbox por sí solo conserva el estado pendiente.
+
+La fecha consultada limita la emisión, el alta del outbox y los resultados.
+El contacto terminal B62 no se usa para reconstruir un estado anterior:
+su fecha es la de emisión, aunque el resultado se haya registrado después.
+Las parejas sin outbox mantienen la consulta anterior. La fecha y el orden
+de la entrada B62 permanecen iguales al cambiar su resultado.
+
+La migración exige B62 y la preimagen B65 exacta. Sustituye sólo los dos
+fragmentos de consulta; comprueba que OID, firma, propietario, ACL y
+configuración se conservan. No cambia el consumo de autorización V3, la
+consulta indirecta `consultar_mi_bolsa_portal_v1`, las guardas de candidato
+ni la auditoría. No añade tablas, permisos o datos de contacto personales.
+
+El manifiesto causal es
+`deploy/principal/lista_sql_trabajo_codexb_avisos_proyeccion_20260930.txt`.
+B62 y B65 ya instaladas no se reaplican. Esta corrección sólo tiene UP:
+la recuperación de un ensayo se hace con ROLLBACK en un clon desechable,
+sin ejecutar DOWN sobre historia conservada.
+
+La prueba `pruebas_sql/b66_proyeccion_avisos_propios.sql` se ejecuta después
+de B66 en PostgreSQL 18 desechable. Comprueba pendientes sin contacto,
+inciertos, los tres resultados terminales, cortes anteriores y posteriores,
+acuse sin resultado, emisión futura, legado, ausencia de duplicados,
+paginación estable y denegación de candidato ajeno. Usa consumidores V3
+de prueba dentro de una transacción que termina en ROLLBACK; no acredita
+criptografía, auditoría institucional, SMTP, HTTP ni un recorrido de navegador.
+Una proyección `enviado` no acredita entrega legal ni habilita una respuesta
+sin validación gobernada.

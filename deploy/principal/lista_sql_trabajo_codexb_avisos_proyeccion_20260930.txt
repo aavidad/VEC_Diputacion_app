@@ -1,0 +1,2 @@
+# Complemento posterior a Bolsa 000062 y 000065 ya instaladas; no reaplicarlas.
+deploy/postgresql/bolsa_llamamientos/migraciones/000066_proyeccion_avisos_propios.up.sql
