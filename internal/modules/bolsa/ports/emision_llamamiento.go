@@ -87,7 +87,7 @@ type EmisionLlamamiento struct {
 	// AvisosContacto se calcula a la hora de la respuesta y no se persiste
 	// (duda 45: contacto de origen CONVOCA vencido sin confirmar).
 	AvisosContacto []AvisoContactoEmision  `json:"avisos_contacto,omitempty"`
-	AvisosExternos []AvisoExternoPendiente `json:"avisos_externos,omitempty"`
+	AvisosExternos []AvisoExternoPendiente `json:"-"`
 }
 
 type RepositorioEmisionLlamamiento interface {
