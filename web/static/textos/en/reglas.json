@@ -110,7 +110,10 @@
     "ajustesCorregir": "Change details",
     "ajustesSoloLectura": "You can view the values and their history. Editing will become available when deadlines already running keep their value after a rule changes.",
     "ajustesConflictoSinLectura": "Someone else changed these deadlines, and the new version could not be loaded. Try again before saving.",
-    "resultado": "Rules and deadlines content"
+    "resultado": "Rules and deadlines content",
+    "ajustesNotaHistoria": "Note: {nota}",
+    "ajustesVerJustificante": "View receipt",
+    "ajustesValorHistoricoNoDisponible": "Value unavailable"
   },
   "presentacion": {
     "bolsa": {
