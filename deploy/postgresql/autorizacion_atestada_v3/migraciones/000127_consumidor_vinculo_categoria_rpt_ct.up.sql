@@ -25,7 +25,7 @@ END $pre$;
 DO $nucleo$
 DECLARE
  f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; acl aclitem[];
+ original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb; acl aclitem[];
  propietario oid; config text[]; definidora boolean;
  -- Medir ambas huellas en el clon causal post-AD133/135/136. NULL deniega la instalación.
  esperada_def_sha256 text:=NULL;
@@ -54,6 +54,10 @@ BEGIN
  INTO STRICT original,fuente,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+ INTO deps_compartidas FROM pg_shdepend d
+ WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+   AND d.classid='pg_proc'::regclass AND d.objid=f;
  IF propietario<>'vec_autorizacion_atestada_v3_propietario'::regrole OR NOT definidora
     OR config IS DISTINCT FROM ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s']
     OR encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
@@ -74,6 +78,9 @@ BEGIN
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
     OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
         FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
+        FROM pg_shdepend d WHERE d.dbid=(SELECT oid FROM pg_database WHERE datname=current_database())
+          AND d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps_compartidas
  THEN RAISE EXCEPTION 'AD3-127: núcleo alterado fuera de contrato' USING ERRCODE='55000'; END IF;
 END $nucleo$;
 
