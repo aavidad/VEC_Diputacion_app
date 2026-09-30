@@ -1,0 +1,317 @@
+package application
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"reflect"
+	"strings"
+	"time"
+
+	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
+)
+
+var ErrOrdenGobiernoCategoriaRPTInvalida = errors.New("vec: orden interna de gobierno RPT invalida")
+
+// CredencialesGobiernoCategoriaRPT solo se construye con capacidades de las
+// fronteras de identidad y motivo. Nunca procede de un cuerpo HTTP.
+type CredencialesGobiernoCategoriaRPT struct {
+	Actor             domain.ContextoActor
+	Vinculo           domain.VinculoAutenticacionActorV2
+	ResultadoContexto domain.ResultadoContextoActorRegistradoV2
+	Motivo            domain.ReferenciaEntradaCatalogo
+	Correlacion       domain.ReferenciaCorrelacionAutorizacionV2
+}
+
+func (CredencialesGobiernoCategoriaRPT) MarshalJSON() ([]byte, error) {
+	return nil, ErrOrdenGobiernoCategoriaRPTInvalida
+}
+func (*CredencialesGobiernoCategoriaRPT) UnmarshalJSON([]byte) error {
+	return ErrOrdenGobiernoCategoriaRPTInvalida
+}
+
+type OrdenProponerGobiernoCategoriaRPT struct {
+	Credenciales CredencialesGobiernoCategoriaRPT
+	Material     ports.MaterialPropuestaGobiernoCategoriaRPT
+}
+
+type OrdenAvanzarGobiernoCategoriaRPT struct {
+	Credenciales CredencialesGobiernoCategoriaRPT
+	Material     ports.MaterialAvanceGobiernoCategoriaRPT
+}
+
+func (OrdenProponerGobiernoCategoriaRPT) MarshalJSON() ([]byte, error) {
+	return nil, ErrOrdenGobiernoCategoriaRPTInvalida
+}
+func (*OrdenProponerGobiernoCategoriaRPT) UnmarshalJSON([]byte) error {
+	return ErrOrdenGobiernoCategoriaRPTInvalida
+}
+func (OrdenAvanzarGobiernoCategoriaRPT) MarshalJSON() ([]byte, error) {
+	return nil, ErrOrdenGobiernoCategoriaRPTInvalida
+}
+func (*OrdenAvanzarGobiernoCategoriaRPT) UnmarshalJSON([]byte) error {
+	return ErrOrdenGobiernoCategoriaRPTInvalida
+}
+
+type ServicioGobiernoCategoriaRPT struct {
+	preparador  ports.PreparadorGobiernoCategoriaRPT
+	autorizador ports.AutorizadorGobiernoCategoriaRPT
+	gestor      ports.GestorGobiernoCategoriaRPT
+	reloj       ports.Reloj
+}
+
+func NuevoServicioGobiernoCategoriaRPT(
+	preparador ports.PreparadorGobiernoCategoriaRPT,
+	autorizador ports.AutorizadorGobiernoCategoriaRPT,
+	gestor ports.GestorGobiernoCategoriaRPT,
+	reloj ports.Reloj,
+) (*ServicioGobiernoCategoriaRPT, error) {
+	if nuloGobiernoCategoriaRPT(preparador) || nuloGobiernoCategoriaRPT(autorizador) ||
+		nuloGobiernoCategoriaRPT(gestor) || nuloGobiernoCategoriaRPT(reloj) {
+		return nil, ports.ErrGobiernoCategoriaRPTNoDisponible
+	}
+	return &ServicioGobiernoCategoriaRPT{preparador, autorizador, gestor, reloj}, nil
+}
+
+func (s *ServicioGobiernoCategoriaRPT) Proponer(ctx context.Context, o OrdenProponerGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	var cero ports.ResultadoGobiernoCategoriaRPT
+	if s == nil || ctx == nil || ctx.Err() != nil ||
+		!referenciaGobiernoCategoriaRPTValida(o.Material.PropuestaRef) ||
+		!referenciaGobiernoCategoriaRPTValida(o.Material.ReciboRef) ||
+		!huellaGobiernoCategoriaRPTValida(o.Material.HuellaSHA256) ||
+		o.Material.Contenido.ValidarParaEditor(o.Credenciales.Actor.Principal.ID) != nil ||
+		o.Material.Contenido.MotivoRef != o.Credenciales.Motivo.Referencia() {
+		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
+	}
+	p, err := s.preparador.PrepararPropuestaGobiernoCategoriaRPT(ctx, o.Material)
+	if err != nil {
+		return cero, err
+	}
+	solicitud, material, err := s.autorizar(ctx, o.Credenciales, p,
+		ports.AccionProponerGobiernoCategoriaRPT, o.Material.PropuestaRef,
+		o.Material.Contenido.CatalogoID, o.Material.Contenido.ModuloID, o.Material.HuellaSHA256)
+	if err != nil {
+		return cero, err
+	}
+	r, err := s.gestor.ProponerGobiernoCategoriaRPT(ctx, ports.OrdenPropuestaGobiernoCategoriaRPT{Material: o.Material, Solicitud: solicitud, Autorizacion: material})
+	if err != nil {
+		return cero, err
+	}
+	if !resultadoGobiernoCategoriaRPTValido(r, o.Material.PropuestaRef, o.Material.HuellaSHA256,
+		o.Material.ReciboRef, 1, domain.EstadoGobiernoCategoriaRPTPropuesta, material.ResumenCapacidad()) {
+		return cero, ports.ErrGobiernoCategoriaRPTNoConfiable
+	}
+	return r, nil
+}
+
+func (s *ServicioGobiernoCategoriaRPT) Aprobar(ctx context.Context, o OrdenAvanzarGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	return s.avanzar(ctx, o, ports.AccionAprobarGobiernoCategoriaRPT)
+}
+
+func (s *ServicioGobiernoCategoriaRPT) Confirmar(ctx context.Context, o OrdenAvanzarGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	return s.avanzar(ctx, o, ports.AccionConfirmarGobiernoCategoriaRPT)
+}
+
+func (s *ServicioGobiernoCategoriaRPT) avanzar(ctx context.Context, o OrdenAvanzarGobiernoCategoriaRPT, accion string) (ports.ResultadoGobiernoCategoriaRPT, error) {
+	var cero ports.ResultadoGobiernoCategoriaRPT
+	m := o.Material
+	if s == nil || ctx == nil || ctx.Err() != nil ||
+		!referenciaGobiernoCategoriaRPTValida(m.PropuestaRef) ||
+		!referenciaGobiernoCategoriaRPTValida(m.ReciboRef) ||
+		!huellaGobiernoCategoriaRPTValida(m.HuellaSHA256) ||
+		m.CatalogoID == "" || m.ModuloID == "" {
+		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
+	}
+	var esperado int64
+	var estado string
+	var p ports.PreparacionGobiernoCategoriaRPT
+	var err error
+	switch accion {
+	case ports.AccionAprobarGobiernoCategoriaRPT:
+		if m.RevisionEsperada != 1 && m.RevisionEsperada != 2 {
+			return cero, ErrOrdenGobiernoCategoriaRPTInvalida
+		}
+		esperado = m.RevisionEsperada + 1
+		estado = domain.EstadoGobiernoCategoriaRPTUnaAprobacion
+		if esperado == 3 {
+			estado = domain.EstadoGobiernoCategoriaRPTAprobada
+		}
+		p, err = s.preparador.PrepararAprobacionGobiernoCategoriaRPT(ctx, m)
+	case ports.AccionConfirmarGobiernoCategoriaRPT:
+		if m.RevisionEsperada != 3 {
+			return cero, ErrOrdenGobiernoCategoriaRPTInvalida
+		}
+		esperado, estado = 4, domain.EstadoGobiernoCategoriaRPTConfirmada
+		p, err = s.preparador.PrepararConfirmacionGobiernoCategoriaRPT(ctx, m)
+	default:
+		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
+	}
+	if err != nil {
+		return cero, err
+	}
+	solicitud, material, err := s.autorizar(ctx, o.Credenciales, p, accion, m.PropuestaRef, m.CatalogoID, m.ModuloID, m.HuellaSHA256)
+	if err != nil {
+		return cero, err
+	}
+	orden := ports.OrdenAvanceGobiernoCategoriaRPT{Material: m, Solicitud: solicitud, Autorizacion: material}
+	var r ports.ResultadoGobiernoCategoriaRPT
+	if accion == ports.AccionAprobarGobiernoCategoriaRPT {
+		r, err = s.gestor.AprobarGobiernoCategoriaRPT(ctx, orden)
+	} else {
+		r, err = s.gestor.ConfirmarGobiernoCategoriaRPT(ctx, orden)
+	}
+	if err != nil {
+		return cero, err
+	}
+	if !resultadoGobiernoCategoriaRPTValido(r, m.PropuestaRef, m.HuellaSHA256, m.ReciboRef,
+		esperado, estado, material.ResumenCapacidad()) {
+		return cero, ports.ErrGobiernoCategoriaRPTNoConfiable
+	}
+	return r, nil
+}
+
+func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c CredencialesGobiernoCategoriaRPT,
+	p ports.PreparacionGobiernoCategoriaRPT, accion, propuestaRef, catalogoID, moduloID, huella string,
+) (domain.SolicitudAutorizacionLigadaV3, ports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	var solicitud domain.SolicitudAutorizacionLigadaV3
+	var cero ports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	v, err := c.Vinculo.Datos()
+	h, errActor := c.Actor.HuellaSHA256VinculadaV2()
+	if err != nil || errActor != nil || c.Actor.Validar() != nil ||
+		c.ResultadoContexto.Validar() != nil || c.ResultadoContexto.HuellaSHA256 != h ||
+		c.Vinculo.ValidarPara(c.ResultadoContexto) != nil || !c.Vinculo.VigenteEn(ahora, c.ResultadoContexto) ||
+		c.Actor.Principal.ID != v.PrincipalID || c.Actor.PerfilActivoRef != v.PerfilActivoRef ||
+		!c.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||
+		!domain.ReferenciaMotivoAutorizacionV2Valida(c.Motivo) || c.Correlacion.Validar() != nil ||
+		p.Accion != accion || p.Finalidad != ports.FinalidadGobiernoCategoriaRPT ||
+		p.Audiencia != ports.AudienciaGobiernoCategoriaRPT || p.HuellaPropuesta != huella ||
+		p.Recurso.Referencia != propuestaRef || p.Recurso.ModuloID != moduloID ||
+		p.Recurso.Tipo != ports.TipoRecursoGobiernoCategoriaRPT ||
+		len(p.Recurso.Ambitos) != 2 || p.Recurso.Ambitos["catalogo_id"] != catalogoID ||
+		p.Recurso.Ambitos["modulo_id"] != moduloID || len(p.Recurso.Atributos) != 1 ||
+		!huellaGobiernoCategoriaRPTValida(p.Recurso.Atributos["material_sha256"]) ||
+		p.Recurso.Validar() != nil {
+		return solicitud, cero, ports.ErrGobiernoCategoriaRPTDenegado
+	}
+	solicitud, err = domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{
+		VinculoAutenticacionActor: c.Vinculo, ReferenciaMotivo: c.Motivo,
+		Accion: accion, Recurso: p.Recurso, Finalidad: ports.FinalidadGobiernoCategoriaRPT,
+		Correlacion: c.Correlacion,
+	})
+	if err != nil {
+		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
+	}
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, c.ResultadoContexto)
+	if err != nil || nuloGobiernoCategoriaRPT(exportador) || ctx.Err() != nil {
+		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
+	}
+	material, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !concesionGobiernoCategoriaRPTValida(material, solicitud, decision,
+		confirmacion, c.ResultadoContexto, c.Actor, accion, p.Recurso, ahora) {
+		return domain.SolicitudAutorizacionLigadaV3{}, cero, ports.ErrGobiernoCategoriaRPTDenegado
+	}
+	return solicitud, material, nil
+}
+
+func concesionGobiernoCategoriaRPTValida(m ports.ExportacionMaterialConsumoAutorizacionAtestadaV3,
+	s domain.SolicitudAutorizacionLigadaV3, d domain.DecisionAutorizacionLigadaV3,
+	c ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	resultado domain.ResultadoContextoActorRegistradoV2, actor domain.ContextoActor,
+	accion string, recurso domain.RecursoAutorizable, ahora time.Time,
+) bool {
+	if m.ValidarEstructura() != nil || d.ValidarPara(s) != nil {
+		return false
+	}
+	datos, err := s.Datos()
+	if err != nil || datos.Accion != accion || datos.Finalidad != ports.FinalidadGobiernoCategoriaRPT ||
+		!reflect.DeepEqual(datos.Recurso, recurso) {
+		return false
+	}
+	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(s, d, datos.ReferenciaMotivo, resultado)
+	if err != nil || c.ValidarPara(orden) != nil {
+		return false
+	}
+	cd, err := c.Datos()
+	if err != nil || !c.DentroDeVentanaEn(cd.RegistradaEn) {
+		return false
+	}
+	dc, errD := domain.RepresentacionCanonicaDecisionAutorizacionV3(d)
+	mc, errM := domain.RepresentacionCanonicaMotivoAutorizacionV2(datos.ReferenciaMotivo)
+	h, errR := recurso.HuellaContextoAutorizacionSHA256()
+	if errD != nil || errM != nil || errR != nil {
+		return false
+	}
+	hd, hm := sha256.Sum256(dc), sha256.Sum256(mc)
+	r := m.ResumenCapacidad()
+	proyeccion, err := domain.ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(m.PayloadVECAD3())
+	if err != nil {
+		return false
+	}
+	cabecera, err := proyeccion.Cabecera()
+	if err != nil {
+		return false
+	}
+	mensaje, err := domain.SerializarMensajeAtestacionAutorizacionV3(cabecera, d, datos.ReferenciaMotivo, resultado)
+	return err == nil && bytes.Equal(mensaje, m.PayloadVECAD3()) &&
+		r.DecisionRef() == cd.DecisionRef && r.DecisionHuellaSHA256() == cd.DecisionHuellaSHA256 &&
+		bytes.Equal(dc, m.DecisionCanonica()) && bytes.Equal(mc, m.MotivoCanonico()) &&
+		bytes.Equal(resultado.RepresentacionCanonica, m.ContextoActorCanonico()) &&
+		r.DecisionHuellaSHA256() == hex.EncodeToString(hd[:]) &&
+		r.MotivoHuellaSHA256() == hex.EncodeToString(hm[:]) &&
+		r.Operacion() == accion && r.EfectoRef() == recurso.Referencia &&
+		r.EfectoHuellaSHA256() == h && r.AudienciaConsumo() == ports.AudienciaGobiernoCategoriaRPT &&
+		r.ContextoRef() == resultado.RegistroContextoRef &&
+		r.ContextoHuellaSHA256() == resultado.HuellaSHA256 &&
+		m.PersonaVersion() == actor.Instantanea.PersonaVersion &&
+		m.PerfilVersion() == actor.Instantanea.PerfilVersion &&
+		!ahora.Before(r.EmitidaEn()) && ahora.Before(r.ExpiraEn())
+}
+
+func resultadoGobiernoCategoriaRPTValido(r ports.ResultadoGobiernoCategoriaRPT,
+	propuestaRef, huella, recibo string, revision int64, estado string,
+	resumen ports.ResumenCapacidadAtestacionAutorizacionV3,
+) bool {
+	e := r.Evidencia
+	return r.PropuestaRef == propuestaRef && r.HuellaSHA256 == huella &&
+		r.ReciboRef == recibo && r.Revision == revision && r.Estado == estado &&
+		e.DecisionRef == resumen.DecisionRef() && e.EfectoRef == propuestaRef &&
+		e.HuellaEfectoSHA256 == resumen.EfectoHuellaSHA256() &&
+		huellaGobiernoCategoriaRPTValida(e.ConsumoHuellaSHA256) &&
+		e.AuditoriaRef != "" && !e.ConsumidaEn.IsZero() && e.ConsumoNuevo
+}
+
+func referenciaGobiernoCategoriaRPTValida(s string) bool {
+	if len(s) < 3 || len(s) > 160 || strings.ContainsRune(s, '*') {
+		return false
+	}
+	for _, c := range s {
+		if c < '!' || c > '~' {
+			return false
+		}
+	}
+	return true
+}
+
+func huellaGobiernoCategoriaRPTValida(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(s)
+	return err == nil && strings.ToLower(s) == s
+}
+
+func nuloGobiernoCategoriaRPT(v any) bool {
+	if v == nil {
+		return true
+	}
+	r := reflect.ValueOf(v)
+	switch r.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return r.IsNil()
+	}
+	return false
+}
