@@ -26,6 +26,7 @@ BEGIN
  OR pg_catalog.to_regprocedure('vec_catalogos_configurables.consultar_aprobaciones_gobierno(text,text)') IS NULL
  OR pg_catalog.to_regprocedure('vec_catalogos_configurables.confirmar_propuesta_gobierno(text,text,bigint,text,text,text,text,text)') IS NULL
  OR pg_catalog.to_regprocedure('vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)') IS NULL
+ OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario','vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)','EXECUTE')
  OR pg_catalog.to_regprocedure('vec_autorizacion_atestada_v3.proponer_gobierno_categoria_rpt_v3_atestada(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario','vec_catalogos_configurables.registrar_propuesta_gobierno(text,jsonb,text,text,text,text,text)','EXECUTE')
  OR NOT pg_catalog.has_function_privilege('vec_autorizacion_atestada_v3_propietario','vec_catalogos_configurables.aprobar_propuesta_gobierno(text,text,bigint,text,text,text,text,text,text)','EXECUTE')
@@ -136,7 +137,7 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3
     consumo_huella_sha256 text,auditoria_ref text,
     consumida_en timestamptz,actor_ref text,motivo_ref text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE c jsonb; d jsonb; m jsonb; x record; contenido jsonb; alcance jsonb;
+DECLARE c jsonb; d jsonb; m jsonb; ca jsonb; x record; contenido jsonb; alcance jsonb;
     material_h text; contexto_h text; ambitos text; motivo_canonico text;
 BEGIN
     IF p_material IS NULL OR pg_catalog.jsonb_typeof(p_material) IS DISTINCT FROM 'object'
@@ -178,26 +179,23 @@ BEGIN
               pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex') THEN
             RAISE EXCEPTION 'AD3-134: contenido invalido' USING ERRCODE='22023';
         END IF;
+        IF pg_catalog.jsonb_typeof(contenido->'documento_canonico') IS DISTINCT FROM 'string'
+           OR pg_catalog.octet_length(contenido->>'documento_canonico') NOT BETWEEN 2 AND 16777216
+           OR pg_catalog.jsonb_typeof(contenido->'documento_huella_sha256') IS DISTINCT FROM 'string'
+           OR contenido->>'documento_huella_sha256' IS DISTINCT FROM pg_catalog.encode(
+             pg_catalog.sha256(pg_catalog.convert_to(contenido->>'documento_canonico','UTF8')),'hex') THEN
+            RAISE EXCEPTION 'AD3-134: documento completo invalido' USING ERRCODE='22023';
+        END IF;
         IF contenido->>'accion'='publicar' THEN
-            IF contenido->'categoria_id' IS DISTINCT FROM 'null'::jsonb
-               OR contenido->'revision_esperada' IS DISTINCT FROM 'null'::jsonb
-               OR pg_catalog.jsonb_typeof(contenido->'documento_canonico') IS DISTINCT FROM 'string'
-               OR pg_catalog.octet_length(contenido->>'documento_canonico') NOT BETWEEN 2 AND 16777216
-               OR pg_catalog.jsonb_typeof(contenido->'documento_huella_sha256') IS DISTINCT FROM 'string'
-               OR contenido->>'documento_huella_sha256' !~ '^[0-9a-f]{64}$'
-               OR contenido->>'documento_huella_sha256' IS DISTINCT FROM pg_catalog.encode(
-                 pg_catalog.sha256(pg_catalog.convert_to(contenido->>'documento_canonico','UTF8')),'hex') THEN
+            IF contenido->'categoria_id' IS DISTINCT FROM 'null'::jsonb OR contenido->'revision_esperada' IS DISTINCT FROM 'null'::jsonb THEN
                 RAISE EXCEPTION 'AD3-134: publicacion invalida' USING ERRCODE='22023';
             END IF;
         ELSE
-            IF contenido->'documento_canonico' IS DISTINCT FROM 'null'::jsonb
-               OR contenido->'documento_huella_sha256' IS DISTINCT FROM 'null'::jsonb
-               OR pg_catalog.jsonb_typeof(contenido->'categoria_id') IS DISTINCT FROM 'string'
+            IF pg_catalog.jsonb_typeof(contenido->'categoria_id') IS DISTINCT FROM 'string'
                OR contenido->>'categoria_id' !~ '^[a-z][a-z0-9_.:-]{2,127}$'
                OR pg_catalog.jsonb_typeof(contenido->'revision_esperada') IS DISTINCT FROM 'number'
-               OR contenido->>'revision_esperada' !~ '^[1-9][0-9]{0,18}$'
-               OR (contenido->>'revision_esperada')::numeric>9223372036854775807::numeric
-               OR (SELECT count(*) FROM pg_catalog.jsonb_object_keys(contenido->'preimagenes_control'))<>1
+               OR contenido->>'revision_esperada' !~ '^[1-9][0-9]{0,17}$'
+               OR (contenido->>'version')::integer<2
                OR NOT (contenido->'preimagenes_control' ? (contenido->>'categoria_id')) THEN
                 RAISE EXCEPTION 'AD3-134: deshabilitacion invalida' USING ERRCODE='22023';
             END IF;
@@ -221,6 +219,7 @@ BEGIN
         c:=pg_catalog.convert_from(p_capacidad,'UTF8')::jsonb;
         d:=pg_catalog.convert_from(p_decision,'UTF8')::jsonb;
         m:=pg_catalog.convert_from(p_motivo,'UTF8')::jsonb;
+        ca:=pg_catalog.convert_from(p_contexto,'UTF8')::jsonb;
     EXCEPTION WHEN others THEN
         RAISE EXCEPTION 'AD3-134: atestacion invalida' USING ERRCODE='22023';
     END;
@@ -243,6 +242,14 @@ BEGIN
        OR d->'campos_permitidos' IS DISTINCT FROM '["gobierno","recibo"]'::jsonb
        OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN
         RAISE EXCEPTION 'AD3-134: gobierno no autorizado' USING ERRCODE='42501';
+    END IF;
+    IF pg_catalog.jsonb_typeof(ca) IS DISTINCT FROM 'object'
+       OR ca->>'esquema' IS DISTINCT FROM 'vec.contexto-actor.vinculado.v2'
+       OR pg_catalog.jsonb_typeof(ca->'persona_ref') IS DISTINCT FROM 'string'
+       OR ca->>'persona_ref' IS DISTINCT FROM d->>'principal_id'
+       OR ca->>'principal_ref' IS DISTINCT FROM ca->>'persona_ref'
+       OR ca->>'persona_ref' !~ '^per_[A-Za-z0-9_-]{22,128}$' THEN
+        RAISE EXCEPTION 'AD3-134: persona canonica incompatible' USING ERRCODE='42501';
     END IF;
     SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
         'gobierno_categorias',p_capacidad,p_decision,p_motivo,p_contexto,
@@ -293,7 +300,7 @@ BEGIN
        OR pg_catalog.jsonb_typeof(p_aprobacion->'actor_ref') IS DISTINCT FROM 'string'
        OR pg_catalog.jsonb_typeof(p_aprobacion->'recibo_ref') IS DISTINCT FROM 'string'
        OR pg_catalog.jsonb_typeof(p_aprobacion->'ordinal') IS DISTINCT FROM 'number'
-       OR p_aprobacion->>'ordinal' NOT IN ('1','2')
+       OR p_aprobacion->>'ordinal' IS DISTINCT FROM '1'
        OR p_aprobacion->>'consumo_huella_sha256' !~ '^[0-9a-f]{64}$'
        OR pg_catalog.jsonb_typeof(p_aprobacion->'auditoria_ref') IS DISTINCT FROM 'string' THEN
         RAISE EXCEPTION 'AD3-134: aprobacion historica incompatible' USING ERRCODE='42501';
@@ -366,7 +373,7 @@ BEGIN
            OR p_material->>'huella_sha256' IS DISTINCT FROM pg_catalog.encode(
              pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex')
            OR pg_catalog.jsonb_typeof(consulta#>'{propuesta,revision}') IS DISTINCT FROM 'number'
-           OR consulta#>>'{propuesta,revision}' !~ '^[1-4]$'
+           OR consulta#>>'{propuesta,revision}' !~ '^[1-3]$'
            OR pg_catalog.jsonb_typeof(consulta->'aprobaciones') IS DISTINCT FROM 'array' THEN
             RAISE EXCEPTION 'AD3-134: propuesta consultada incompatible' USING ERRCODE='42501';
         END IF;
@@ -378,25 +385,17 @@ BEGIN
                 esperado,a.motivo_ref);
         ELSE
             aprobaciones:=consulta->'aprobaciones';
-            IF revision<>3 OR consulta#>>'{propuesta,revision}' NOT IN ('3','4')
-               OR pg_catalog.jsonb_array_length(aprobaciones)<>2 THEN
-                RAISE EXCEPTION 'AD3-134: dos aprobaciones exigidas' USING ERRCODE='42501';
+            IF revision<>2 OR consulta#>>'{propuesta,revision}' NOT IN ('2','3')
+               OR pg_catalog.jsonb_array_length(aprobaciones)<>1 THEN
+                RAISE EXCEPTION 'AD3-134: aprobacion exigida' USING ERRCODE='42501';
             END IF;
             aprobacion:=aprobaciones->0;
-            IF aprobacion->>'ordinal' IS DISTINCT FROM '1' THEN
-                RAISE EXCEPTION 'AD3-134: primera aprobacion ausente' USING ERRCODE='42501';
-            END IF;
-            actor_a:=aprobacion->>'actor_ref';
-            PERFORM vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(
-                aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256',
-                p_material->>'catalogo_id',p_material->>'modulo_id');
-            aprobacion:=aprobaciones->1;
-            IF aprobacion->>'ordinal' IS DISTINCT FROM '2' THEN
-                RAISE EXCEPTION 'AD3-134: segunda aprobacion ausente' USING ERRCODE='42501';
-            END IF;
+            actor_a:=consulta#>>'{propuesta,editor_ref}';
             actor_b:=aprobacion->>'actor_ref';
-            IF actor_a IS NOT DISTINCT FROM actor_b THEN
-                RAISE EXCEPTION 'AD3-134: aprobadores coinciden' USING ERRCODE='42501';
+            IF aprobacion->>'ordinal' IS DISTINCT FROM '1'
+               OR actor_a IS NOT DISTINCT FROM actor_b
+               OR actor_b IS DISTINCT FROM a.actor_ref THEN
+                RAISE EXCEPTION 'AD3-134: separacion o confirmador incompatible' USING ERRCODE='42501';
             END IF;
             PERFORM vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(
                 aprobacion,p_material->>'propuesta_ref',p_material->>'huella_sha256',
@@ -413,6 +412,11 @@ BEGIN
        OR pg_catalog.jsonb_typeof(r->'revision') IS DISTINCT FROM 'number'
        OR pg_catalog.octet_length(r::text)>50331648 THEN
         RAISE EXCEPTION 'AD3-134: resultado Cat incoherente' USING ERRCODE='55000';
+    END IF;
+    -- Revalidación antes de devolver el efecto, incluido replay; revocación falla cerrado.
+    IF vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
+        p_decision,p_motivo,p_persona_version,p_perfil_version) IS NULL THEN
+        RAISE EXCEPTION 'AD3-134: autorizacion revocada antes de efecto' USING ERRCODE='42501';
     END IF;
     RETURN pg_catalog.jsonb_build_object('decision_ref',a.decision_ref,
         'efecto_ref',a.efecto_ref,'huella_efecto_sha256',a.huella_efecto_sha256,

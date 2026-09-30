@@ -1,159 +1,133 @@
 \set ON_ERROR_STOP on
--- Solo clon desechable. Autoridad de persistencia bajo AD3 propietario;
--- estas identidades son dobles de prueba y no acreditan consumo V3.
+-- Clon desechable. Dobles de persona en el core: no acreditan consumo V3.
 BEGIN;
-SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
+CREATE TEMP TABLE preimagen_legacy AS SELECT * FROM vec_catalogos_configurables.publicacion WHERE circuito='doble_aprobacion';
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 DO $prueba$
 DECLARE
  motivo text:='motivos_rpt:1:prueba_gobierno';
- documento text:='{"id":"rpt-gobierno-demo","modulo_id":"personal","version":1,"estado":"publicado","fuente_ref":"fuente:rpt:sintetica","creado_por":"actor:editor","publicado_por":"actor:a","entradas":[{"clave":"cat-gobierno-demo","etiqueta":"Categoria sintetica"}]}';
- contenido jsonb; huella text; doc_h text; vacias_h text; r jsonb; anterior jsonb; des jsonb; des_h text; pre jsonb; ajeno jsonb; ajeno_h text;
+ doc text:='{"id":"rpt-gobierno-demo","modulo_id":"personal","version":1,"estado":"publicado","fuente_ref":"fuente:rpt:sintetica","creado_por":"actor:a","publicado_por":"actor:b","aprobacion_ref":"recibo:aprobar","entradas":[{"clave":"cat-gobierno-demo","etiqueta":"Categoria sintetica","atributos":{"estado":"habilitada"}},{"clave":"cat-gobierno-otra","etiqueta":"Otra categoria sintetica","atributos":{"estado":"habilitada"}}]}';
+ d jsonb; h text; doc_h text; r jsonb; anterior jsonb; pre jsonb; des jsonb; des_h text; doc2 text; doc2_h text;
+ incompleta jsonb; inc_h text;
 BEGIN
- IF pg_catalog.has_table_privilege('vec_autorizacion_atestada_v3_propietario','vec_catalogos_configurables.propuesta_gobierno','SELECT') THEN
-  RAISE EXCEPTION 'AD3 tiene lectura directa del gobierno';
- END IF;
- doc_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(documento,'UTF8')),'hex');
- vacias_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex');
- contenido:=pg_catalog.jsonb_build_object('accion','publicar','catalogo_id','rpt-gobierno-demo','modulo_id','personal','version',1,'documento_canonico',documento,'documento_huella_sha256',doc_h,'preimagenes_control','{}'::jsonb,'preimagenes_huella_sha256',vacias_h,'categoria_id',NULL,'revision_esperada',NULL,'motivo_ref',motivo,'fuente_ref','fuente:rpt:sintetica');
- huella:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
- r:=vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:demo',contenido,huella,'actor:editor','decision:proponer','recibo:proponer',motivo);
- IF r->>'revision'<>'1' THEN RAISE EXCEPTION 'revision inicial incorrecta'; END IF;
+ IF pg_catalog.has_table_privilege('vec_autorizacion_atestada_v3_propietario','vec_catalogos_configurables.propuesta_gobierno','SELECT') THEN RAISE EXCEPTION 'AD3 tiene lectura directa'; END IF;
+ doc_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc,'UTF8')),'hex');
+ d:=pg_catalog.jsonb_build_object('accion','publicar','catalogo_id','rpt-gobierno-demo','modulo_id','personal','version',1,'documento_canonico',doc,'documento_huella_sha256',doc_h,'preimagenes_control','{}'::jsonb,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex'),'categoria_id',NULL,'revision_esperada',NULL,'motivo_ref',motivo,'fuente_ref','fuente:rpt:sintetica');
+ h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(d::text,'UTF8')),'hex');
+ r:=vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:demo',d,h,'actor:a','decision:proponer','recibo:proponer',motivo);
+ IF r->>'revision'<>'1' OR r->>'estado'<>'propuesta' THEN RAISE EXCEPTION 'propuesta incorrecta'; END IF;
+ IF vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:demo',d,h,'actor:a','decision:proponer-replay','recibo:proponer',motivo) IS DISTINCT FROM r THEN RAISE EXCEPTION 'replay propuesta'; END IF;
  BEGIN
-  PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:demo',contenido||'{"fuente_ref":"fuente:cambiada"}'::jsonb,huella,'actor:editor','decision:alterar','recibo:proponer',motivo);
-  RAISE EXCEPTION 'huella cambiada aceptada';
- EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
- r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,1,'actor:editor','decision:apr-a','audit:apr-a',repeat('2',64),'recibo:apr-a',motivo);
- IF r->>'revision'<>'2' THEN RAISE EXCEPTION 'primera aprobacion incorrecta'; END IF;
- BEGIN
-  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,2,'actor:editor','decision:apr-duplicada','audit:dup',repeat('3',64),'recibo:duplicado',motivo);
-  RAISE EXCEPTION 'misma persona aprobo dos veces';
- EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
- BEGIN
-  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',repeat('0',64),2,'actor:a','decision:apr-h','audit:h',repeat('3',64),'recibo:apr-h',motivo);
-  RAISE EXCEPTION 'aprobacion sobre otra huella';
+  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',h,1,'actor:a','decision:autoprobar','audit:auto',repeat('1',64),'recibo:aprobar',motivo);
+  RAISE EXCEPTION 'A aprobo';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
- r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',huella,2,'actor:a','decision:apr-b','audit:apr-b',repeat('3',64),'recibo:apr-b',motivo);
- anterior:=vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:demo',huella);
- IF pg_catalog.jsonb_array_length(anterior->'aprobaciones')<>2 OR anterior#>>'{propuesta,revision}'<>'3' THEN RAISE EXCEPTION 'doble aprobacion incorrecta'; END IF;
- -- Dos personas bastan: el editor aprueba, la otra identidad aprueba y
- -- confirma. El editor sigue sin poder publicar su propia propuesta.
  BEGIN
-  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',huella,3,'actor:editor','decision:confirm-editor','audit:editor','recibo:confirm-editor',motivo);
-  RAISE EXCEPTION 'editor confirmo su propuesta';
+  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',repeat('0',64),1,'actor:b','decision:huella','audit:huella',repeat('1',64),'recibo:aprobar',motivo);
+  RAISE EXCEPTION 'otra huella aprobada';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
- -- Fallo posterior al efecto: la inserción de auditoría del recibo no puede
- -- dejar publicación ni transición parcial. La auditoría central se prueba en AD134.
  BEGIN
-  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',huella,3,'actor:a','decision:fallo-audit',NULL,'recibo:confirmar',motivo);
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',h,1,'actor:b','decision:prematura','audit:prematura','recibo:prematura',motivo);
+  RAISE EXCEPTION 'confirmacion prematura';
+ EXCEPTION WHEN SQLSTATE '40001' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',h,2,'actor:b','decision:cas','audit:cas',repeat('2',64),'recibo:aprobar',motivo);
+  RAISE EXCEPTION 'CAS aprobacion obsoleto admitido';
+ EXCEPTION WHEN SQLSTATE '40001' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',h,1,'actor:c','decision:otro','audit:otro',repeat('2',64),'recibo:aprobar',motivo);
+  RAISE EXCEPTION 'aprobo persona diferente del publicador declarado';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ r:=vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',h,1,'actor:b','decision:aprobar','audit:aprobar',repeat('2',64),'recibo:aprobar',motivo);
+ IF r->>'revision'<>'2' OR r->>'estado'<>'aprobada' THEN RAISE EXCEPTION 'aprobacion incorrecta'; END IF;
+ IF vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:demo',h,1,'actor:b','decision:aprobar-replay','audit:replay',repeat('3',64),'recibo:aprobar',motivo) IS DISTINCT FROM r THEN RAISE EXCEPTION 'replay aprobacion'; END IF;
+ anterior:=vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:demo',h);
+ IF pg_catalog.jsonb_array_length(anterior->'aprobaciones')<>1 THEN RAISE EXCEPTION 'aprobaciones duplicadas'; END IF;
+ BEGIN
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',h,2,'actor:a','decision:a','audit:a','recibo:a',motivo);
+  RAISE EXCEPTION 'A confirmo';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',h,2,'actor:c','decision:c','audit:c','recibo:c',motivo);
+  RAISE EXCEPTION 'C confirmo aprobacion de B';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',h,2,'actor:b','decision:sin-audit',NULL,'recibo:confirmar',motivo);
   RAISE EXCEPTION 'confirmacion sin auditoria';
  EXCEPTION WHEN not_null_violation THEN NULL; END;
  IF vec_catalogos_configurables.leer_publicacion_categoria('rpt-gobierno-demo',1,doc_h,'cat-gobierno-demo')->>'encontrado'<>'false'
- OR vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:demo',huella) IS DISTINCT FROM anterior THEN
-  RAISE EXCEPTION 'fallo audit dejo efecto parcial';
- END IF;
- r:=vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',huella,3,'actor:a','decision:confirmar','audit:confirmar','recibo:confirmar',motivo);
- IF r->>'revision'<>'4' OR vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',huella,3,'actor:a','decision:confirmar-replay','audit:replay','recibo:confirmar',motivo) IS DISTINCT FROM r THEN
-  RAISE EXCEPTION 'replay altero recibo';
- END IF;
- -- Una reserva anterior a deshabilitar permanece recuperable y terminal.
- PERFORM vec_catalogos_configurables.reservar('personal','uso:gobierno:anterior','cat-gobierno-demo','rpt-gobierno-demo',1,doc_h,'actor:a','decision:reserva','recibo:reserva',motivo);
- pre:=pg_catalog.jsonb_build_object('cat-gobierno-demo',pg_catalog.jsonb_build_object('version',1,'huella_sha256',doc_h,'revision',1,'estado','habilitada'));
- des:=pg_catalog.jsonb_build_object('accion','deshabilitar','catalogo_id','rpt-gobierno-demo','modulo_id','personal','version',1,'documento_canonico',NULL,'documento_huella_sha256',NULL,'preimagenes_control',pre,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex'),'categoria_id','cat-gobierno-demo','revision_esperada',1,'motivo_ref',motivo,'fuente_ref','fuente:rpt:sintetica');
- ajeno:=des||'{"modulo_id":"bolsa"}'::jsonb;
- ajeno_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(ajeno::text,'UTF8')),'hex');
+ OR vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:demo',h) IS DISTINCT FROM anterior THEN RAISE EXCEPTION 'fallo parcial'; END IF;
+ r:=vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',h,2,'actor:b','decision:confirmar','audit:confirmar','recibo:confirmar',motivo);
+ IF r->>'revision'<>'3' OR r->>'estado'<>'confirmada'
+ OR vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:demo',h,2,'actor:b','decision:confirmar-replay','audit:replay','recibo:confirmar',motivo) IS DISTINCT FROM r THEN RAISE EXCEPTION 'confirmacion o replay incorrectos'; END IF;
+ PERFORM vec_catalogos_configurables.reservar('personal','uso:gobierno:anterior','cat-gobierno-demo','rpt-gobierno-demo',1,doc_h,'actor:b','decision:reserva','recibo:reserva',motivo);
+ pre:=pg_catalog.jsonb_build_object('cat-gobierno-demo',pg_catalog.jsonb_build_object('version',1,'huella_sha256',doc_h,'revision',1,'estado','habilitada'),'cat-gobierno-otra',pg_catalog.jsonb_build_object('version',1,'huella_sha256',doc_h,'revision',1,'estado','habilitada'));
+ doc2:=(doc::jsonb||pg_catalog.jsonb_build_object('version',2,'aprobacion_ref','recibo:des-aprobar','entradas',pg_catalog.jsonb_build_array((doc::jsonb->'entradas'->0)||'{"atributos":{"estado":"deshabilitada"}}'::jsonb,doc::jsonb->'entradas'->1)))::text;
+ doc2_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex');
+ des:=d||pg_catalog.jsonb_build_object('accion','deshabilitar','version',2,'documento_canonico',doc2,'documento_huella_sha256',doc2_h,'categoria_id','cat-gobierno-demo','revision_esperada',1,'preimagenes_control',pre,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex'));
+ -- Omitir una categoria anterior no puede publicarse ni deshabilitar parcialmente.
+ doc2:=pg_catalog.jsonb_set(doc2::jsonb,'{entradas}',pg_catalog.jsonb_build_array(doc2::jsonb->'entradas'->0))::text;
+ incompleta:=des||pg_catalog.jsonb_build_object('documento_canonico',doc2,'documento_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex'));
+ inc_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(incompleta::text,'UTF8')),'hex');
+ PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:incompleta',incompleta,inc_h,'actor:a','decision:inc-prop','recibo:inc-prop',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:incompleta',inc_h,1,'actor:b','decision:inc-apr','audit:inc',repeat('4',64),'recibo:des-aprobar',motivo);
  BEGIN
-  PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:ajena',ajeno,ajeno_h,'actor:editor','decision:ajena','recibo:ajena',motivo);
-  RAISE EXCEPTION 'modulo ajeno a publicacion admitido';
- EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:incompleta',inc_h,2,'actor:b','decision:inc-con','audit:inc-con','recibo:inc-con',motivo);
+  RAISE EXCEPTION 'version incompleta publicada';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ -- La siguiente propuesta usa otro recibo: todos los recibos son unicos.
+ doc2:=pg_catalog.jsonb_set((des->>'documento_canonico')::jsonb,'{aprobacion_ref}','"recibo:des-aprobar-real"'::jsonb)::text;
+ des:=des||pg_catalog.jsonb_build_object('documento_canonico',doc2,'documento_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex'));
  des_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(des::text,'UTF8')),'hex');
- PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:des',des,des_h,'actor:editor','decision:des-prop','recibo:des-prop',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:des',des_h,1,'actor:a','decision:des-a','audit:des-a',repeat('4',64),'recibo:des-a',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:des',des_h,2,'actor:b','decision:des-b','audit:des-b',repeat('5',64),'recibo:des-b',motivo);
- PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:des',des_h,3,'actor:a','decision:des-confirmar','audit:des-confirmar','recibo:des-confirmar',motivo);
- IF vec_catalogos_configurables.consultar_uso('personal','uso:gobierno:anterior','recibo:reserva')#>>'{datos,estado}'<>'reservado' THEN RAISE EXCEPTION 'uso anterior perdido'; END IF;
+ PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:gobierno:des',des,des_h,'actor:a','decision:des-prop','recibo:des-prop',motivo);
+ PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:gobierno:des',des_h,1,'actor:b','decision:des-apr','audit:des',repeat('5',64),'recibo:des-aprobar-real',motivo);
+ r:=vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:des',des_h,2,'actor:b','decision:des-con','audit:des-con','recibo:des-con',motivo);
+ IF r->>'version'<>'2' OR r->>'revision'<>'3' THEN RAISE EXCEPTION 'deshabilitar no publico version completa'; END IF;
+ -- Dos propuestas sobre una misma versión no pueden confirmar dos publicaciones.
+ anterior:=vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:incompleta',inc_h);
  BEGIN
-  PERFORM vec_catalogos_configurables.reservar('personal','uso:gobierno:posterior','cat-gobierno-demo','rpt-gobierno-demo',1,doc_h,'actor:a','decision:res-posterior','recibo:res-posterior',motivo);
-  RAISE EXCEPTION 'nueva reserva tras deshabilitar';
+  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:gobierno:incompleta',inc_h,2,'actor:b','decision:version-perdedora','audit:perdedora','recibo:version-perdedora',motivo);
+  RAISE EXCEPTION 'segunda publicacion de version vencida';
+ EXCEPTION WHEN SQLSTATE '40001' THEN NULL; END;
+ IF vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:gobierno:incompleta',inc_h) IS DISTINCT FROM anterior THEN RAISE EXCEPTION 'CAS perdedor cambio historia'; END IF;
+
+ IF vec_catalogos_configurables.consultar_uso('personal','uso:gobierno:anterior','recibo:reserva')#>>'{datos,estado}'<>'reservado' THEN RAISE EXCEPTION 'reserva previa perdida'; END IF;
+ BEGIN
+  PERFORM vec_catalogos_configurables.reservar('personal','uso:gobierno:posterior','cat-gobierno-demo','rpt-gobierno-demo',2,des->>'documento_huella_sha256','actor:b','decision:nueva','recibo:nueva',motivo);
+  RAISE EXCEPTION 'nueva reserva sobre deshabilitada';
  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
- PERFORM vec_catalogos_configurables.terminar_uso('personal','uso:gobierno:anterior','recibo:reserva','confirmado','actor:a','decision:terminal','recibo:terminal',motivo);
- IF vec_catalogos_configurables.consultar_uso('personal','uso:gobierno:anterior','recibo:reserva')#>>'{datos,estado}'<>'confirmado' THEN RAISE EXCEPTION 'terminal anterior cerrado'; END IF;
+ PERFORM vec_catalogos_configurables.terminar_uso('personal','uso:gobierno:anterior','recibo:reserva','confirmado','actor:b','decision:terminal','recibo:terminal',motivo);
+ IF vec_catalogos_configurables.consultar_uso('personal','uso:gobierno:anterior','recibo:reserva')#>>'{datos,estado}'<>'confirmado' THEN RAISE EXCEPTION 'terminal anterior perdido'; END IF;
 END $prueba$;
--- Publicar una versión posterior conserva el módulo del catálogo anterior.
--- La denegación debe proceder de Cat4 antes de invocar el core Cat1 reforzado.
-DO $modulo_version$
-DECLARE
- motivo text:='motivos_rpt:1:prueba_gobierno';
- doc1 text:='{"id":"rpt-modulo-gobierno","modulo_id":"bolsa","version":1,"estado":"publicado","fuente_ref":"fuente:rpt:sintetica","creado_por":"actor:editor","publicado_por":"actor:publicador","entradas":[{"clave":"cat-modulo-gobierno","etiqueta":"Categoria sintetica"}]}';
- doc2 text; h1 text; h2 text; contenido jsonb; contenido_h text; pre jsonb;
- previo jsonb; aprobada jsonb; resultado jsonb;
-BEGIN
- h1:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc1,'UTF8')),'hex');
- contenido:=pg_catalog.jsonb_build_object('accion','publicar','catalogo_id','rpt-modulo-gobierno','modulo_id','bolsa','version',1,'documento_canonico',doc1,'documento_huella_sha256',h1,'preimagenes_control','{}'::jsonb,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex'),'categoria_id',NULL,'revision_esperada',NULL,'motivo_ref',motivo,'fuente_ref','fuente:rpt:sintetica');
- contenido_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
- PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:modulo:v1',contenido,contenido_h,'actor:editor','decision:modulo:v1','recibo:modulo:v1',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v1',contenido_h,1,'actor:editor','decision:modulo:v1:a','audit:modulo:v1:a',repeat('1',64),'recibo:modulo:v1:a',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v1',contenido_h,2,'actor:publicador','decision:modulo:v1:b','audit:modulo:v1:b',repeat('2',64),'recibo:modulo:v1:b',motivo);
- PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:v1',contenido_h,3,'actor:publicador','decision:modulo:v1:c','audit:modulo:v1:c','recibo:modulo:v1:c',motivo);
- previo:=vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',1,h1,'cat-modulo-gobierno');
- pre:=pg_catalog.jsonb_build_object('cat-modulo-gobierno',pg_catalog.jsonb_build_object('version',1,'huella_sha256',h1,'revision',1,'estado','habilitada'));
- doc2:=pg_catalog.replace(pg_catalog.replace(doc1,'"version":1','"version":2'),'"modulo_id":"bolsa"','"modulo_id":"personal"');
- h2:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex');
- contenido:=contenido||pg_catalog.jsonb_build_object('version',2,'modulo_id','personal','documento_canonico',doc2,'documento_huella_sha256',h2,'preimagenes_control',pre,'preimagenes_huella_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pre::text,'UTF8')),'hex'));
- contenido_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
- PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido,contenido_h,'actor:editor','decision:modulo:ajeno:v2','recibo:modulo:ajeno:v2',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido_h,1,'actor:editor','decision:modulo:ajeno:v2:a','audit:modulo:ajeno:v2:a',repeat('3',64),'recibo:modulo:ajeno:v2:a',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido_h,2,'actor:publicador','decision:modulo:ajeno:v2:b','audit:modulo:ajeno:v2:b',repeat('4',64),'recibo:modulo:ajeno:v2:b',motivo);
- aprobada:=vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:modulo:ajeno:v2',contenido_h);
- BEGIN
-  PERFORM vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:ajeno:v2',contenido_h,3,'actor:publicador','decision:modulo:ajeno:v2:c','audit:modulo:ajeno:v2:c','recibo:modulo:ajeno:v2:c',motivo);
-  RAISE EXCEPTION 'publicacion v2 cambio el modulo';
- EXCEPTION WHEN SQLSTATE '42501' THEN
-  IF SQLERRM<>'Cat4: modulo ajeno a publicacion anterior' THEN
-   RAISE EXCEPTION 'denegacion no procede de guardia Cat4: %',SQLERRM;
-  END IF;
- END;
- IF vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',1,h1,'cat-modulo-gobierno') IS DISTINCT FROM previo
- OR vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',2,h2,'cat-modulo-gobierno')->>'encontrado'<>'false'
- OR vec_catalogos_configurables.consultar_aprobaciones_gobierno('propuesta:modulo:ajeno:v2',contenido_h) IS DISTINCT FROM aprobada THEN
-  RAISE EXCEPTION 'publicacion v2 ajena dejo efectos';
- END IF;
- doc2:=pg_catalog.replace(doc1,'"version":1','"version":2');
- h2:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc2,'UTF8')),'hex');
- contenido:=contenido||pg_catalog.jsonb_build_object('modulo_id','bolsa','documento_canonico',doc2,'documento_huella_sha256',h2);
- contenido_h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(contenido::text,'UTF8')),'hex');
- PERFORM vec_catalogos_configurables.registrar_propuesta_gobierno('propuesta:modulo:v2',contenido,contenido_h,'actor:editor','decision:modulo:v2','recibo:modulo:v2',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,1,'actor:editor','decision:modulo:v2:a','audit:modulo:v2:a',repeat('5',64),'recibo:modulo:v2:a',motivo);
- PERFORM vec_catalogos_configurables.aprobar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,2,'actor:publicador','decision:modulo:v2:b','audit:modulo:v2:b',repeat('6',64),'recibo:modulo:v2:b',motivo);
- resultado:=vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,3,'actor:publicador','decision:modulo:v2:c','audit:modulo:v2:c','recibo:modulo:v2:c',motivo);
- IF resultado->>'version'<>'2' OR resultado->>'estado'<>'confirmada'
- OR vec_catalogos_configurables.leer_publicacion_categoria('rpt-modulo-gobierno',2,h2,'cat-modulo-gobierno')#>>'{datos,control_actual,version}'<>'2'
- OR vec_catalogos_configurables.confirmar_propuesta_gobierno('propuesta:modulo:v2',contenido_h,3,'actor:publicador','decision:modulo:v2:replay','audit:modulo:v2:replay','recibo:modulo:v2:c',motivo) IS DISTINCT FROM resultado THEN
-  RAISE EXCEPTION 'publicacion v2 mismo modulo o replay incorrectos';
- END IF;
-END $modulo_version$;
 RESET ROLE;
-DO $modulo_historia$
-BEGIN
- IF EXISTS(SELECT 1 FROM vec_catalogos_configurables.confirmacion_gobierno WHERE propuesta_ref='propuesta:modulo:ajeno:v2')
- OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.historia WHERE recibo_ref='recibo:modulo:ajeno:v2:c')
- OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.outbox_gobierno WHERE recibo_ref='recibo:modulo:ajeno:v2:c')
- OR (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-modulo-gobierno')<>2
- OR (SELECT count(*) FROM vec_catalogos_configurables.historia WHERE categoria_id='cat-modulo-gobierno')<>2
- OR (SELECT count(*) FROM vec_catalogos_configurables.outbox_gobierno WHERE propuesta_ref LIKE 'propuesta:modulo:%')<>11 THEN
-  RAISE EXCEPTION 'publicacion v2 dejo efectos parciales o duplicados';
- END IF;
-END $modulo_historia$;
 DO $historia$
+DECLARE f oid:='vec_catalogos_configurables.publicar(text,integer,text,text,jsonb,text,text,text,text,text,text,text)'::regprocedure;
 BEGIN
- IF (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-gobierno-demo')<>1
+ IF (SELECT count(*) FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-gobierno-demo')<>2
  OR (SELECT count(*) FROM vec_catalogos_configurables.confirmacion_gobierno WHERE propuesta_ref LIKE 'propuesta:gobierno:%')<>2
- OR (SELECT count(*) FROM vec_catalogos_configurables.outbox_gobierno WHERE propuesta_ref LIKE 'propuesta:gobierno:%')<>8 THEN RAISE EXCEPTION 'duplicados o efecto parcial'; END IF;
+ OR (SELECT count(*) FROM vec_catalogos_configurables.outbox_gobierno WHERE propuesta_ref LIKE 'propuesta:gobierno:%')<>8
+ OR EXISTS(SELECT 1 FROM vec_catalogos_configurables.publicacion WHERE catalogo_id='rpt-gobierno-demo' AND (circuito<>'propuesta_aprobacion_rrhh' OR propuesta_ref IS NULL OR aprobacion_b_ref IS NOT NULL))
+ OR (SELECT estado FROM vec_catalogos_configurables.categoria_control WHERE categoria_id='cat-gobierno-demo')<>'deshabilitada'
+ OR (SELECT version FROM vec_catalogos_configurables.categoria_control WHERE categoria_id='cat-gobierno-otra')<>2
+ OR (SELECT count(*) FROM vec_catalogos_configurables.historia WHERE categoria_id='cat-gobierno-demo' AND accion='deshabilitar')<>1 THEN RAISE EXCEPTION 'historia/version/publicacion incoherente'; END IF;
+ IF EXISTS(SELECT * FROM pg_temp.preimagen_legacy EXCEPT SELECT * FROM vec_catalogos_configurables.publicacion WHERE circuito='doble_aprobacion') THEN RAISE EXCEPTION 'publicaciones legacy alteradas'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_catalog.pg_proc WHERE oid=f AND proowner='vec_catalogos_configurables_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=5s','statement_timeout=30s']) THEN RAISE EXCEPTION 'metadatos Cat1 alterados'; END IF;
  BEGIN
   UPDATE vec_catalogos_configurables.propuesta_gobierno SET editor_ref='actor:cambio' WHERE propuesta_ref='propuesta:gobierno:demo';
   RAISE EXCEPTION 'propuesta mutable';
  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
 END $historia$;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+DO $legacy$
+DECLARE doc text:='{"id":"rpt-legacy-demo","modulo_id":"personal","version":1,"estado":"publicado","entradas":[{"clave":"cat-legacy-demo","etiqueta":"Categoria legacy"}]}';h text;ph text;
+BEGIN
+ h:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(doc,'UTF8')),'hex');ph:=pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('{}','UTF8')),'hex');
+ BEGIN
+  PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',1,h,doc,'{}'::jsonb,ph,'recibo:inventado',NULL,'actor:b','decision:falsa','recibo:falso','motivos_rpt:1:prueba_gobierno');
+  RAISE EXCEPTION 'NULL sin propuesta fue publicado';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ PERFORM vec_catalogos_configurables.publicar('rpt-legacy-demo',1,h,doc,'{}'::jsonb,ph,'recibo:legacy-a','recibo:legacy-b','actor:b','decision:legacy','recibo:legacy','motivos_rpt:1:prueba_gobierno');
+END $legacy$;
 ROLLBACK;

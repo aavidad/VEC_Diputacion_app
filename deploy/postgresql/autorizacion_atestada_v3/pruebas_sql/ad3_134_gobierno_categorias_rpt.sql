@@ -31,15 +31,16 @@ BEGIN
  END LOOP;
  IF pg_catalog.strpos(pg_catalog.pg_get_functiondef(
    'vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
-   'revision<>3 OR consulta#>>''{propuesta,revision}'' NOT IN (''3'',''4'')')=0 THEN
-  RAISE EXCEPTION 'recuperacion de confirmacion revision 4 ausente';
+   'revision<>2 OR consulta#>>''{propuesta,revision}'' NOT IN (''2'',''3'')')=0 THEN
+  RAISE EXCEPTION 'recuperacion de confirmacion revision 3 ausente';
  END IF;
- IF pg_catalog.to_regprocedure(
-   'vec_autorizacion_atestada_v3.revalidar_aprobacion_gobierno_categoria_rpt_v3_interna(jsonb,text,text)') IS NOT NULL
-    OR pg_catalog.strpos(pg_catalog.pg_get_functiondef(
-   'vec_autorizacion_atestada_v3.acreditar_aprobacion_historica_gobierno_categoria_rpt_v3_interna(jsonb,text,text,text,text)'::regprocedure),
-   'p_editor')<>0 THEN
-  RAISE EXCEPTION 'aprobacion del editor bloqueada en fachada';
+ IF pg_catalog.strpos(pg_catalog.pg_get_functiondef(
+   'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
+   'ca->>''persona_ref'' IS DISTINCT FROM d->>''principal_id''')=0
+ OR pg_catalog.strpos(pg_catalog.pg_get_functiondef(
+   'vec_autorizacion_atestada_v3.ejecutar_gobierno_categoria_rpt_v3_interna(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure),
+   'p_decision,p_motivo,p_persona_version,p_perfil_version')=0 THEN
+  RAISE EXCEPTION 'persona canonica o revalidacion viva ausentes';
  END IF;
  IF pg_catalog.has_function_privilege('vec_catalogos_configurables_gobierno_ejecutor',
    'vec_autorizacion_atestada_v3.autorizar_gobierno_categoria_rpt_v3_interna(jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
