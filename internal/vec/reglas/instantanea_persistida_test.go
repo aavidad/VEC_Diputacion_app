@@ -3,11 +3,47 @@ package reglas
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestValidarCatalogoBaseReglasIncluyeEntradasFuturasSinCambiarHuella(t *testing.T) {
+	resolutor := resolutorReal(t, rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, nil)
+	catalogo, _, err := resolutor.catalogoVigente(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	antes, huellaAntes, err := CanonicoCatalogoBaseReglas(catalogo)
+	if err != nil {
+		t.Fatalf("catálogo real no válido: %v", err)
+	}
+	if err := ValidarCatalogoBaseReglas(catalogo); err != nil {
+		t.Fatalf("reglas reales no válidas: %v", err)
+	}
+	despues, huellaDespues, err := CanonicoCatalogoBaseReglas(catalogo)
+	if err != nil || !bytes.Equal(antes, despues) || huellaAntes != huellaDespues {
+		t.Fatal("la validación alteró el canónico o su huella")
+	}
+	modificado, err := catalogo.ClonarCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for indice := range modificado.Entradas {
+		if modificado.Entradas[indice].Clave == CTPlazoSubsanacion {
+			modificado.Entradas[indice].VigenteDesde = diaPresentacion.Ahora().AddDate(1, 0, 0)
+			modificado.Entradas[indice].Atributos["unidad"] = "unidad_desconocida"
+		}
+	}
+	if _, err := modificado.ClonarCanonico(); err != nil {
+		t.Fatalf("la mutación debe superar la estructura genérica: %v", err)
+	}
+	if err := ValidarCatalogoBaseReglas(modificado); !errors.Is(err, ErrReglaInvalida) {
+		t.Fatalf("entrada futura mal formada admitida: %v", err)
+	}
+}
 
 func instantaneaPersistidaPrueba(t *testing.T, resolutor *Resolutor) InstantaneaPersistidaRegla {
 	t.Helper()
