@@ -10,12 +10,14 @@ import argparse
 from contextlib import contextmanager
 import errno
 import fcntl
+import hashlib
 import ipaddress
 import json
 import os
 from pathlib import Path
 import smtplib
 import resource
+import re
 import select
 import signal
 import socket
@@ -27,11 +29,11 @@ import time
 
 OWNER = "Codex-M"
 STATE = Path.home() / ".local/state/vec-recorridos-codexm-20260930"
+CLI_STATE = Path.home() / ".local/state/vec-recorridos"
 PG_CONTAINER = "vec-codexm-recorridos-20260930"
 MAIL_CONTAINER = "vec-codexm-recorridos-mailpit-20260930"
 NETWORK = "vec-codexm-recorridos-mailpit-red-20260930"
 IMAGE = "axllent/mailpit:v1.27.8"
-SOURCE_REF = "e78687528"
 SMTP_PORT, HTTP_PORT = 11025, 18532
 LABEL_OWNER = "vec.recorridos.owner"
 LABEL_STATE = "vec.recorridos.state"
@@ -62,7 +64,7 @@ def _run(args: list[str], *, missing_ok=False) -> bytes | None:
 
 
 def _canonical(path: Path) -> Path:
-    path = Path(path).absolute()
+    path = Path(path).expanduser().absolute()
     if path != path.resolve():
         raise PreparationError("symlink_or_noncanonical_path")
     return path
@@ -116,10 +118,10 @@ def _owned(resource: dict, state: Path, kind: str) -> None:
         raise PreparationError("foreign_" + kind)
 
 
-def _free_ports() -> None:
+def _free_ports(ports=None) -> None:
     sockets = []
     try:
-        for port in (SMTP_PORT, HTTP_PORT):
+        for port in ports or (SMTP_PORT, HTTP_PORT):
             listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sockets.append(listener)
             listener.bind(("127.0.0.1", port))
@@ -130,15 +132,16 @@ def _free_ports() -> None:
             listener.close()
 
 
-def _validate_sink(resource: dict, state: Path, image_id: str, *, allow_stopped=False) -> None:
+def _validate_sink(resource: dict, state: Path, image_id: str, *, allow_stopped=False, target=None) -> None:
+    target = target or _default_target()
     _owned(resource, state, "container")
     host = resource.get("HostConfig", {})
     if (resource.get("Image") != image_id or resource.get("Config", {}).get("Cmd") != SMTP_FLAGS
             or not host.get("ReadonlyRootfs") or not host.get("AutoRemove")
-            or host.get("NetworkMode") != NETWORK):
+            or host.get("NetworkMode") != target["network"]):
         raise PreparationError("mailpit_configuration_mismatch")
-    expected = {"1025/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(SMTP_PORT)}],
-                "8025/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(HTTP_PORT)}]}
+    expected = {"1025/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(target["smtp_port"])}],
+                "8025/tcp": [{"HostIp": "127.0.0.1", "HostPort": str(target["http_port"])}]}
     if host.get("PortBindings") != expected:
         raise PreparationError("mailpit_nonloopback_bind")
     mounts = {entry.get("Destination"): entry for entry in resource.get("Mounts", [])}
@@ -152,8 +155,12 @@ def _validate_sink(resource: dict, state: Path, image_id: str, *, allow_stopped=
         raise PreparationError("mailpit_not_running")
 
 
-def _source_contract(repo: Path) -> str:
-    source = _run(["git", "-C", str(repo), "rev-parse", SOURCE_REF + "^{commit}"]).decode().strip()
+def _source_contract(repo: Path, source_ref: str) -> str:
+    if not isinstance(source_ref, str) or not re.fullmatch(r"[0-9a-f]{40}", source_ref):
+        raise PreparationError("clone_source_commit_invalid")
+    source = _run(["git", "-C", str(repo), "rev-parse", source_ref + "^{commit}"]).decode().strip()
+    if source != source_ref:
+        raise PreparationError("clone_source_commit_mismatch")
     contracts = (
         ("config/config.go", ["VEC_SMTP_HOST", "VEC_SMTP_PORT", "VEC_SMTP_FROM", "VEC_SMTP_CA_FILE", "VEC_SMTP_MODO_TLS"]),
         ("internal/app/bootstrap/usuarios_correos_material.go", ["VEC_USUARIOS_CORREOS_ENABLED"]),
@@ -167,40 +174,131 @@ def _source_contract(repo: Path) -> str:
     return source
 
 
-def _scope(repo, container, state, material, pg_port, engine) -> tuple[Path, Path, Path]:
+def _clone_source(state: Path) -> str:
+    clone = json.loads(_private(state / "clon.json"))
+    source = clone.get("commit")
+    if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+        raise PreparationError("clone_source_commit_invalid")
+    return source
+
+
+def _scope(repo, container, state, material, pg_port, engine, *, require_postgres=True) -> tuple[Path, Path, Path]:
     repo, state, material = map(_canonical, (repo, state, material))
-    if (state != STATE or material != state / "material" or container != PG_CONTAINER
-            or pg_port != 55531 or engine != "docker"):
+    if (material != state / "material" or not isinstance(container, str)
+            or not re.fullmatch(r"vec-[a-z0-9-]{1,100}", container)
+            or type(pg_port) is not int or not 1024 < pg_port < 65536 or engine != "docker"
+            or state == Path.home() or any(character in str(state) for character in (",", "\n", "\r", "\0"))
+            or any((p / ".git").exists() for p in (state, *state.parents))):
         raise PreparationError("owned_clone_scope_required")
+    info = state.stat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise PreparationError("unsafe_private_directory")
     clone = json.loads(_private(state / "clon.json"))
     if clone.get("propietario") != OWNER or clone.get("contenedor") != container or clone.get("puerto_pg") != pg_port:
         raise PreparationError("clone_owner_mismatch")
+    postgres = _inspect(engine, "container", container)
+    if postgres is None and require_postgres:
+        raise PreparationError("owned_postgres_container_missing")
+    if postgres is not None:
+        _owned(postgres, state, "container")
     return repo, state, material
 
 
-def _result(*, source="", image=False, smtp=False, error="") -> dict:
+def _default_target() -> dict:
+    return _build_target(STATE, PG_CONTAINER, 55531, SMTP_PORT, HTTP_PORT)
+
+
+def _build_target(state: Path, container: str, pg_port: int, smtp_port: int, http_port: int) -> dict:
+    if (not isinstance(container, str) or not re.fullmatch(r"vec-[a-z0-9-]{1,100}", container)
+            or type(pg_port) is not int or not 1024 < pg_port < 65536
+            or type(smtp_port) is not int or type(http_port) is not int
+            or not 1024 < smtp_port < 65536 or not 1024 < http_port < 65536
+            or len({smtp_port, http_port, pg_port}) != 3):
+        raise PreparationError("mailpit_ports_invalid")
+    legacy = state == STATE and container == PG_CONTAINER and pg_port == 55531
+    suffix = hashlib.sha256((str(state) + "\0" + container + "\0" + str(pg_port)).encode()).hexdigest()[:24]
+    return {"version": 1, "owner": OWNER, "state": str(state), "pg_container": container, "pg_port": pg_port,
+            "container": MAIL_CONTAINER if legacy else "vec-codexm-mailpit-" + suffix,
+            "network": NETWORK if legacy else "vec-codexm-mailpit-red-" + suffix,
+            "smtp_host": "127.0.0.1", "smtp_port": smtp_port, "http_port": http_port}
+
+
+def _target(state: Path, container: str, pg_port: int, smtp_port=None, http_port=None) -> dict:
+    path = state / "comunicaciones/target.json"
+    if path.exists() or path.is_symlink():
+        stored = json.loads(_private(path))
+        if not isinstance(stored, dict):
+            raise PreparationError("mailpit_target_invalid")
+        expected = _build_target(state, container, pg_port, stored.get("smtp_port"), stored.get("http_port"))
+        if stored != expected:
+            raise PreparationError("mailpit_target_invalid")
+        if ((smtp_port is not None and smtp_port != stored["smtp_port"])
+                or (http_port is not None and http_port != stored["http_port"])):
+            raise PreparationError("mailpit_target_changed")
+        target = stored
+    else:
+        target = _build_target(state, container, pg_port, SMTP_PORT if smtp_port is None else smtp_port,
+                               HTTP_PORT if http_port is None else http_port)
+    marker = state / "clon.json"
+    if marker.exists() or marker.is_symlink():
+        clone = json.loads(_private(marker))
+        if clone.get("puerto_web") in (target["smtp_port"], target["http_port"]):
+            raise PreparationError("mailpit_port_conflicts_with_application")
+    return target
+
+
+def configure(repo, container, state, material, pg_port, engine, *, smtp_port=None, http_port=None) -> dict:
+    """Persist ports/resource coordinates after cloning, before H4 material exists."""
+    repo, state, material = _scope(repo, container, state, material, pg_port, engine)
+    with _proxy_lock(state):
+        target = _target(state, container, pg_port, smtp_port, http_port)
+        network = _inspect(engine, "network", target["network"])
+        if network:
+            _owned(network, state, "network")
+            if network.get("Internal") is not True:
+                raise PreparationError("mailpit_network_not_isolated")
+        sink = _inspect(engine, "container", target["container"])
+        if sink:
+            image = _inspect(engine, "image", IMAGE)
+            if image is None or not network:
+                raise PreparationError("mailpit_target_dependencies_missing")
+            _validate_sink(sink, state, image["Id"], target=target)
+        else:
+            _free_ports((target["smtp_port"], target["http_port"]))
+        path = state / "comunicaciones/target.json"
+        if not path.exists():
+            _write_new(path, (json.dumps(target, indent=2) + "\n").encode())
+        result = _result(target=target)
+        result["profiles"]["usuarios_comunicaciones"]["target_configured"] = True
+        result["files"] = [str(path)]
+        return result
+
+
+def _result(*, source="", image=False, smtp=False, error="", target=None) -> dict:
+    target = target or _default_target()
     env = dict(SELECTORS) if image else {}
     if smtp:
         env.update({"VEC_USUARIOS_CORREOS_ENABLED": "true", "VEC_SMTP_HOST": "127.0.0.1",
-                    "VEC_SMTP_PORT": str(SMTP_PORT), "VEC_SMTP_FROM": "rrhh@example.test",
-                    "VEC_SMTP_CA_FILE": str(STATE / "material/ca/ca.crt"), "VEC_SMTP_MODO_TLS": "starttls"})
+                    "VEC_SMTP_PORT": str(target["smtp_port"]), "VEC_SMTP_FROM": "rrhh@example.test",
+                    "VEC_SMTP_CA_FILE": str(Path(target["state"]) / "material/ca/ca.crt"), "VEC_SMTP_MODO_TLS": "starttls"})
     profiles = {"usuarios_comunicaciones": {"source_commit": source, "imagen_selector_prepared": image,
-                 "smtp_ready": smtp, "mailpit_container": MAIL_CONTAINER,
-                 "mailpit_origin": "http://127.0.0.1:" + str(HTTP_PORT),
+                 "smtp_ready": smtp, **target, "mailpit_container": target["container"],
+                 "mailpit_origin": "http://127.0.0.1:" + str(target["http_port"]),
                  "smtp_scope": "synthetic_local_sink", "corporate_delivery": False,
                  "application_started": False}}
     blockers = [] if not error else [{"code": "smtp_sintetico_no_preparado", "profile": "usuarios_correos", "detail": error}]
     return {"env": env, "profiles": profiles, "blockers": blockers}
 
 
-def preflight(repo, container, state, material, pg_port, engine) -> dict:
+def preflight(repo, container, state, material, pg_port, engine, *, smtp_port=None, http_port=None) -> dict:
     """Read contracts and owned resources; never create files or start processes."""
     repo, state, material = _scope(repo, container, state, material, pg_port, engine)
-    source = _source_contract(repo)
+    target = _target(state, container, pg_port, smtp_port, http_port)
+    source = _source_contract(repo, _clone_source(state))
     proof = json.loads(_private(state / "usuarios-h4-result.json"))
     if (proof.get("roles_version") != 2 or proof.get("assignments_version") != 2
             or proof.get("surfaces") != 2 or proof.get("grants_per_role") != 10):
-        return _result(source=source, error="h4_roles_profiles_unverified")
+        return _result(source=source, error="h4_roles_profiles_unverified", target=target)
     try:
         if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
             raise PreparationError("mailpit_pidfd_unavailable")
@@ -211,21 +309,21 @@ def preflight(repo, container, state, material, pg_port, engine) -> dict:
         image = _inspect(engine, "image", IMAGE)
         if image is None:
             raise PreparationError("mailpit_image_not_installed")
-        network = _inspect(engine, "network", NETWORK)
+        network = _inspect(engine, "network", target["network"])
         if network:
             _owned(network, state, "network")
             if network.get("Internal") is not True:
                 raise PreparationError("mailpit_network_not_isolated")
-        sink = _inspect(engine, "container", MAIL_CONTAINER)
+        sink = _inspect(engine, "container", target["container"])
         if sink:
             if not network:
                 raise PreparationError("mailpit_network_missing")
-            _validate_sink(sink, state, image["Id"])
+            _validate_sink(sink, state, image["Id"], target=target)
         else:
-            _free_ports()
+            _free_ports((target["smtp_port"], target["http_port"]))
     except (PreparationError, OSError, ValueError) as error:
-        return _result(source=source, image=True, error=str(error) if isinstance(error, PreparationError) else "private_dependency_unavailable")
-    return _result(source=source, image=True)
+        return _result(source=source, image=True, target=target, error=str(error) if isinstance(error, PreparationError) else "private_dependency_unavailable")
+    return _result(source=source, image=True, target=target)
 
 
 def _certificate(material: Path) -> Path:
@@ -258,10 +356,10 @@ def _certificate(material: Path) -> Path:
     return tls
 
 
-def _smtp_probe(ca: Path, *, send=False) -> dict:
+def _smtp_probe(ca: Path, *, send=False, smtp_port=SMTP_PORT) -> dict:
     context = ssl.create_default_context(cafile=str(ca))
     context.minimum_version = ssl.TLSVersion.TLSv1_2
-    with smtplib.SMTP("127.0.0.1", SMTP_PORT, timeout=5) as connection:
+    with smtplib.SMTP("127.0.0.1", smtp_port, timeout=5) as connection:
         connection.ehlo("localhost")
         if not connection.has_extn("starttls"):
             raise PreparationError("smtp_starttls_missing")
@@ -287,7 +385,7 @@ def _proxy_command(address: str, port: int, target: int) -> list[str]:
     ip = ipaddress.IPv4Address(address)
     if not ip.is_private or ip.is_loopback or ip.is_unspecified or ip.is_multicast:
         raise PreparationError("mailpit_network_address_invalid")
-    if (port, target) not in ((SMTP_PORT, 1025), (HTTP_PORT, 8025)):
+    if type(port) is not int or not 1024 < port < 65536 or target not in (1025, 8025):
         raise PreparationError("mailpit_proxy_port_invalid")
     return ["/usr/bin/socat", "-T", "15",
             f"TCP4-LISTEN:{port},bind=127.0.0.1,reuseaddr,fork,max-children=8",
@@ -414,20 +512,21 @@ def _terminate_child(fd: int) -> None:
             raise PreparationError("mailpit_proxy_stop_pending")
 
 
-def _ensure_proxies(sink: dict, state: Path) -> list[dict]:
+def _ensure_proxies(sink: dict, state: Path, *, target=None) -> list[dict]:
     """Docker internal networks have no NAT publications: use owned fixed proxies.
 
     socat only forwards a loopback listener to the exact internal container IP;
     it has no relay choice, external destination, TLS termination or payload log.
     Existing unrelated listeners/processes are never stopped or reused.
     """
+    target = target or _default_target()
     networks = sink.get("NetworkSettings", {}).get("Networks", {})
-    if set(networks) != {NETWORK}:
+    if set(networks) != {target["network"]}:
         raise PreparationError("mailpit_extra_network")
-    address = networks[NETWORK].get("IPAddress", "")
+    address = networks[target["network"]].get("IPAddress", "")
     records = []
-    for port, target in ((SMTP_PORT, 1025), (HTTP_PORT, 8025)):
-        command = _proxy_command(address, port, target)
+    for port, destination in ((target["smtp_port"], 1025), (target["http_port"], 8025)):
+        command = _proxy_command(address, port, destination)
         record = state / "comunicaciones" / f"proxy-{port}.json"
         previous = _private(record) if record.exists() or record.is_symlink() else None
         data = json.loads(previous) if previous is not None else None
@@ -460,9 +559,9 @@ def _ensure_proxies(sink: dict, state: Path) -> list[dict]:
     return records
 
 
-def provision(repo, container, state, material, pg_port, engine) -> dict:
+def provision(repo, container, state, material, pg_port, engine, *, smtp_port=None, http_port=None) -> dict:
     """Prepare SMTP only; return selectors to the sole material driver."""
-    result = preflight(repo, container, state, material, pg_port, engine)
+    result = preflight(repo, container, state, material, pg_port, engine, smtp_port=smtp_port, http_port=http_port)
     if result["blockers"]:
         return result
     with _proxy_lock(Path(state)):
@@ -472,53 +571,65 @@ def provision(repo, container, state, material, pg_port, engine) -> dict:
 def _provision_prepared(result: dict, state, material, engine) -> dict:
     state, material = Path(state), Path(material)
     source = result["profiles"]["usuarios_comunicaciones"]["source_commit"]
+    profile = result["profiles"]["usuarios_comunicaciones"]
+    target = {key: profile[key] for key in _default_target()}
     try:
+        path = state / "comunicaciones/target.json"
+        if path.exists() or path.is_symlink():
+            if json.loads(_private(path)) != target:
+                raise PreparationError("mailpit_target_changed")
+        else:
+            _write_new(path, (json.dumps(target, indent=2) + "\n").encode())
         tls = _certificate(material)
         _directory(state / "comunicaciones/buzon")
-        if _inspect(engine, "network", NETWORK) is None:
+        if _inspect(engine, "network", target["network"]) is None:
             _run([engine, "network", "create", "--internal", "--label", LABEL_OWNER + "=" + OWNER,
-                  "--label", LABEL_STATE + "=" + str(state), NETWORK])
-        if _inspect(engine, "container", MAIL_CONTAINER) is None:
-            _run([engine, "run", "--detach", "--rm", "--name", MAIL_CONTAINER,
+                  "--label", LABEL_STATE + "=" + str(state), target["network"]])
+        if _inspect(engine, "container", target["container"]) is None:
+            _run([engine, "run", "--detach", "--rm", "--name", target["container"],
                   "--label", LABEL_OWNER + "=" + OWNER, "--label", LABEL_STATE + "=" + str(state),
-                  "--network", NETWORK, "--read-only", "--cap-drop", "ALL",
+                  "--network", target["network"], "--read-only", "--cap-drop", "ALL",
                   "--security-opt", "no-new-privileges", "--memory", "128m", "--cpus", "0.5", "--pids-limit", "32",
                   "--user", f"{os.getuid()}:{os.getgid()}", "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m",
                   "--mount", f"type=bind,src={tls},dst=/tls,readonly",
                   "--mount", f"type=bind,src={state / 'comunicaciones/buzon'},dst=/data",
-                  "--publish", f"127.0.0.1:{SMTP_PORT}:1025", "--publish", f"127.0.0.1:{HTTP_PORT}:8025",
+                  "--publish", f"127.0.0.1:{target['smtp_port']}:1025", "--publish", f"127.0.0.1:{target['http_port']}:8025",
                   IMAGE, *SMTP_FLAGS])
         image = _inspect(engine, "image", IMAGE)
-        sink = _inspect(engine, "container", MAIL_CONTAINER)
-        _validate_sink(sink, state, image["Id"])
-        proxies = _ensure_proxies(sink, state)
+        sink = _inspect(engine, "container", target["container"])
+        _validate_sink(sink, state, image["Id"], target=target)
+        proxies = _ensure_proxies(sink, state, target=target)
         for attempt in range(10):
             try:
-                probe = _smtp_probe(material / "ca/ca.crt")
+                probe = _smtp_probe(material / "ca/ca.crt", smtp_port=target["smtp_port"])
                 break
             except (OSError, smtplib.SMTPException):
                 if attempt == 9:
                     raise PreparationError("smtp_starttls_not_ready") from None
                 time.sleep(0.2)
-        result = _result(source=source, image=True, smtp=True)
+        result = _result(source=source, image=True, smtp=True, target=target)
         result["profiles"]["usuarios_comunicaciones"].update(probe)
         result["profiles"]["usuarios_comunicaciones"]["loopback_proxies"] = proxies
-        result["files"] = [str(path) for path in sorted(tls.iterdir()) if path.is_file()]
+        result["profiles"]["usuarios_comunicaciones"]["proxy_records"] = proxies
+        result["profiles"]["usuarios_comunicaciones"]["image_id"] = image["Id"]
+        result["profiles"]["usuarios_comunicaciones"]["target_sha256"] = hashlib.sha256(_private(state / "comunicaciones/target.json")).hexdigest()
+        result["files"] = [str(state / "comunicaciones/target.json")] + [str(path) for path in sorted(tls.iterdir()) if path.is_file()]
         return result
     except (PreparationError, OSError, ValueError, smtplib.SMTPException) as error:
-        return _result(source=source, image=True,
+        return _result(source=source, image=True, target=target,
                        error=str(error) if isinstance(error, PreparationError) else "smtp_local_preparation_failed")
 
 
-def _record_command(data: dict, port: int) -> list[str]:
+def _record_command(data: dict, port: int, *, target=None) -> list[str]:
+    target = target or _default_target()
     command = data.get("command") if isinstance(data, dict) else None
     if not isinstance(command, list) or len(command) != 5 or not isinstance(command[-1], str):
         raise PreparationError("mailpit_proxy_record_mismatch")
     parts = command[-1].split(":")
     if len(parts) != 3 or parts[0] != "TCP4":
         raise PreparationError("mailpit_proxy_record_mismatch")
-    target = 1025 if port == SMTP_PORT else 8025
-    expected = _proxy_command(parts[1], port, target)
+    destination = 1025 if port == target["smtp_port"] else 8025 if port == target["http_port"] else None
+    expected = _proxy_command(parts[1], port, destination)
     if command != expected:
         raise PreparationError("mailpit_proxy_record_mismatch")
     return expected
@@ -530,19 +641,20 @@ def _clear_record(path: Path, previous: bytes) -> None:
     path.unlink()
 
 
-def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False) -> dict:
-    _scope(repo, container, state, material, pg_port, engine)
+def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False, smtp_port=None, http_port=None) -> dict:
+    _scope(repo, container, state, material, pg_port, engine, require_postgres=False)
     state = Path(state)
+    target = _target(state, container, pg_port, smtp_port, http_port)
     pinned = []
     try:
         with _proxy_lock(state):
-            sink = _inspect(engine, "container", MAIL_CONTAINER)
-            network = _inspect(engine, "network", NETWORK)
+            sink = _inspect(engine, "container", target["container"])
+            network = _inspect(engine, "network", target["network"])
             if sink:
                 image = _inspect(engine, "image", IMAGE)
                 if image is None:
                     raise PreparationError("mailpit_image_not_installed")
-                _validate_sink(sink, state, image["Id"], allow_stopped=True)
+                _validate_sink(sink, state, image["Id"], allow_stopped=True, target=target)
             if network:
                 _owned(network, state, "network")
                 if network.get("Internal") is not True:
@@ -552,14 +664,14 @@ def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False)
                     raise PreparationError("mailpit_network_foreign_attachment")
             # Pin and validate every process before any stop or resource removal.
             proxies = []
-            for port in (SMTP_PORT, HTTP_PORT):
+            for port in (target["smtp_port"], target["http_port"]):
                 path = state / "comunicaciones" / f"proxy-{port}.json"
                 if not path.exists() and not path.is_symlink():
                     proxies.append({"port": port, "status": "absent"})
                     continue
                 previous = _private(path)
                 data = json.loads(previous)
-                command = _record_command(data, port)
+                command = _record_command(data, port, target=target)
                 kind, fd = _proxy_guard(data, command, state)
                 pinned.append((path, previous, fd))
                 proxies.append({"port": port, "pid": data["pid"], "status": kind})
@@ -574,7 +686,7 @@ def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False)
                 if network:
                     _run([engine, "network", "rm", network["Id"]])
             return {"env": {}, "profiles": {}, "blockers": [],
-                    "lifecycle": {"owner": OWNER, "mode": "stop" if stop else "status",
+                    "lifecycle": {"owner": OWNER, "target": target, "mode": "stop" if stop else "status",
                                   "container": "stopped" if stop else "running" if sink and sink.get("State", {}).get("Running") else "absent",
                                   "network": "removed" if stop else "internal" if network else "absent",
                                   "proxies": [{**item, "status": "stopped"} for item in proxies] if stop else proxies}}
@@ -587,25 +699,39 @@ def _lifecycle(repo, container, state, material, pg_port, engine, *, stop=False)
                 os.close(fd)
 
 
-def status(repo, container, state, material, pg_port, engine) -> dict:
-    return _lifecycle(repo, container, state, material, pg_port, engine)
+def status(repo, container, state, material, pg_port, engine, *, smtp_port=None, http_port=None) -> dict:
+    return _lifecycle(repo, container, state, material, pg_port, engine, smtp_port=smtp_port, http_port=http_port)
 
 
-def stop(repo, container, state, material, pg_port, engine) -> dict:
-    return _lifecycle(repo, container, state, material, pg_port, engine, stop=True)
+def stop(repo, container, state, material, pg_port, engine, *, smtp_port=None, http_port=None) -> dict:
+    return _lifecycle(repo, container, state, material, pg_port, engine, stop=True, smtp_port=smtp_port, http_port=http_port)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("preflight", "provision", "verify-smtp", "status", "stop"))
+    parser.add_argument("mode", choices=("configure", "preflight", "provision", "verify-smtp", "status", "stop"))
     parser.add_argument("--repo", type=Path, required=True)
+    parser.add_argument("--state", type=Path, default=CLI_STATE)
+    parser.add_argument("--container")
+    parser.add_argument("--pg-port", type=int)
+    parser.add_argument("--smtp-port", type=int)
+    parser.add_argument("--mailpit-http-port", "--http-port", dest="http_port", type=int)
+    parser.add_argument("--engine", choices=("docker",), default="docker")
     args = parser.parse_args()
-    parameters = dict(repo=args.repo, container=PG_CONTAINER, state=STATE,
-                      material=STATE / "material", pg_port=55531, engine="docker")
-    operation = {"preflight": preflight, "status": status, "stop": stop}.get(args.mode, provision)
-    result = operation(**parameters)
-    if args.mode == "verify-smtp" and not result["blockers"]:
-        result["smtp_probe"] = _smtp_probe(STATE / "material/ca/ca.crt", send=True)
+    try:
+        state = _canonical(args.state)
+        clone = json.loads(_private(state / "clon.json"))
+        parameters = dict(repo=args.repo, container=clone["contenedor"] if args.container is None else args.container, state=state,
+                          material=state / "material", pg_port=clone["puerto_pg"] if args.pg_port is None else args.pg_port, engine=args.engine,
+                          smtp_port=args.smtp_port, http_port=args.http_port)
+        operation = {"configure": configure, "preflight": preflight, "status": status, "stop": stop}.get(args.mode, provision)
+        result = operation(**parameters)
+        if args.mode == "verify-smtp" and not result["blockers"]:
+            target = result["profiles"]["usuarios_comunicaciones"]
+            result["smtp_probe"] = _smtp_probe(state / "material/ca/ca.crt", smtp_port=target["smtp_port"], send=True)
+    except (PreparationError, OSError, ValueError, KeyError) as error:
+        result = {"env": {}, "profiles": {}, "blockers": [{"profile": "usuarios_comunicaciones", "code": "mailpit_target_denied",
+                  "detail": str(error) if isinstance(error, PreparationError) else "mailpit_target_unavailable"}]}
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 1 if result["blockers"] else 0
 

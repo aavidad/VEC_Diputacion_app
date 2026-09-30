@@ -31,6 +31,13 @@ def record(state, port=11025, pid=700123):
             "start_ticks": "12345"}
 
 
+def clone_fixture(state, container="vec-test-generic", pg_port=55532):
+    clone = {"propietario": c.OWNER, "contenedor": container, "puerto_pg": pg_port,
+             "puerto_web": 18534, "commit": "b" * 40}
+    c._write_new(state / "clon.json", json.dumps(clone).encode())
+    return clone
+
+
 class CloneCommunicationTests(unittest.TestCase):
     def test_rejects_foreign_sink_global_binds_and_relay_flags(self):
         c._validate_sink(resource(), c.STATE, "image:local")
@@ -93,17 +100,17 @@ class CloneCommunicationTests(unittest.TestCase):
         def run(argv):
             calls.append(argv)
             if "rev-parse" in argv:
-                return b"0123456789012345678901234567890123456789\n"
+                return b"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n"
             return required[argv[-1].split(":", 1)[1]].encode()
         with patch.object(c, "_run", side_effect=run):
-            c._source_contract(Path("/source"))
-        self.assertEqual(calls[0][-1], c.SOURCE_REF + "^{commit}")
+            c._source_contract(Path("/source"), "b" * 40)
+        self.assertEqual(calls[0][-1], "b" * 40 + "^{commit}")
         self.assertTrue(all("show" in argv for argv in calls[1:]))
 
     def test_preflight_checks_ports_without_writing_or_running_mailpit(self):
         parameters = dict(repo=Path("/source"), container=c.PG_CONTAINER, state=c.STATE,
                           material=c.STATE / "material", pg_port=55531, engine="docker")
-        proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10}'
+        proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10,"commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
         def inspect(engine, kind, name):
             return {"Id": "image:local"} if kind == "image" else None
         with patch.object(c, "_scope", return_value=(Path("/source"), c.STATE, c.STATE / "material")), \
@@ -118,7 +125,7 @@ class CloneCommunicationTests(unittest.TestCase):
         self.assertEqual(result["env"]["VEC_USUARIOS_IMAGEN_ENABLED"], "true")
 
     def test_noninternal_network_blocks_before_effects(self):
-        proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10}'
+        proof = b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10,"commit":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
         def inspect(engine, kind, name):
             if kind == "image": return {"Id": "image:local"}
             if kind == "network": return {"Internal": False, "Labels": c._labels(c.STATE)}
@@ -126,7 +133,7 @@ class CloneCommunicationTests(unittest.TestCase):
         with patch.object(c, "_scope", return_value=(Path("/source"), c.STATE, c.STATE / "material")), \
                 patch.object(c, "_source_contract", return_value="a" * 40), \
                 patch.object(c, "_private", return_value=proof), patch.object(c, "_inspect", side_effect=inspect):
-            result = c.preflight(None, None, None, None, None, None)
+            result = c.preflight(None, c.PG_CONTAINER, None, None, 55531, "docker")
         self.assertEqual(result["blockers"][0]["detail"], "mailpit_network_not_isolated")
 
     def test_probe_verifies_tls_and_rejects_external_rcpt_without_data(self):
@@ -290,7 +297,7 @@ class CloneCommunicationTests(unittest.TestCase):
             state = Path(scratch)
             with patch.object(c, "_scope"), patch.object(c, "_inspect", side_effect=[foreign, None, {"Id": "image:local"}]), \
                     patch.object(c, "_run") as run, patch.object(c.signal, "pidfd_send_signal") as send:
-                result = c.stop(None, None, state, None, None, "docker")
+                result = c.stop(None, "vec-test-clone", state, state / "material", 55531, "docker")
             self.assertTrue(result["blockers"])
             run.assert_not_called()
             send.assert_not_called()
@@ -300,7 +307,7 @@ class CloneCommunicationTests(unittest.TestCase):
             state = Path(scratch)
             network = {"Id": "network:owned", "Internal": True, "Labels": c._labels(state), "Containers": {"other": {}}}
             with patch.object(c, "_scope"), patch.object(c, "_inspect", side_effect=[None, network]), patch.object(c, "_run") as run:
-                result = c.stop(None, None, state, None, None, "docker")
+                result = c.stop(None, "vec-test-clone", state, state / "material", 55531, "docker")
             self.assertEqual(result["blockers"][0]["detail"], "mailpit_network_foreign_attachment")
             run.assert_not_called()
             path = state / "comunicaciones/proxy-11025.json"
@@ -309,7 +316,7 @@ class CloneCommunicationTests(unittest.TestCase):
                 with patch.object(c, "_scope"), patch.object(c, "_inspect", return_value=None), \
                         patch.object(c, "_proxy_guard", side_effect=c.PreparationError("mailpit_proxy_process_mismatch")), \
                         patch.object(c.signal, "pidfd_send_signal") as send:
-                    result = operation(None, None, state, None, None, "docker")
+                    result = operation(None, "vec-test-clone", state, state / "material", 55531, "docker")
                 self.assertTrue(result["blockers"])
                 send.assert_not_called()
                 self.assertTrue(path.exists())
@@ -320,7 +327,7 @@ class CloneCommunicationTests(unittest.TestCase):
             c._directory(state / "comunicaciones")
             path = state / "comunicaciones/proxy-11025.json"
             c._write_new(path, json.dumps(record(state)).encode())
-            parameters = (None, None, state, None, None, "docker")
+            parameters = (None, "vec-test-clone", state, state / "material", 55531, "docker")
             with patch.object(c, "_scope"), patch.object(c, "_inspect", return_value=None), \
                     patch.object(c, "_proxy_guard", return_value=("alive", 99)), patch.object(c.os, "close"), \
                     patch.object(c, "_terminate_child") as terminate:
@@ -346,16 +353,158 @@ class CloneCommunicationTests(unittest.TestCase):
             sink = resource()
             sink["Id"] = "container:owned"
             sink["Config"]["Labels"] = c._labels(state)
+            sink["HostConfig"]["NetworkMode"] = c._build_target(state, "vec-test-clone", 55531, 11025, 18532)["network"]
             sink["Mounts"][0]["Source"] = str(state / "material/comunicaciones")
             sink["Mounts"][1]["Source"] = str(state / "comunicaciones/buzon")
             network = {"Id": "network:owned", "Internal": True, "Labels": c._labels(state),
                        "Containers": {"container:owned": {}}}
             with patch.object(c, "_scope"), patch.object(c, "_inspect", side_effect=[sink, network, {"Id": "image:local"}]), \
                     patch.object(c, "_run") as run:
-                result = c.stop(None, None, state, None, None, "docker")
+                result = c.stop(None, "vec-test-clone", state, state / "material", 55531, "docker")
             self.assertFalse(result["blockers"])
             self.assertEqual(run.call_args_list[0].args[0], ["docker", "stop", "--time", "5", "container:owned"])
             self.assertEqual(run.call_args_list[1].args[0], ["docker", "network", "rm", "network:owned"])
+
+    def test_generic_configure_before_h4_persists_explicit_ports_for_six_argument_api(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone_fixture(state)
+            postgres = {"Config": {"Labels": c._labels(state)}}
+            def inspect(engine, kind, name):
+                return postgres if kind == "container" and name == "vec-test-generic" else None
+            arguments = (state / "repo", "vec-test-generic", state, state / "material", 55532, "docker")
+            with patch.object(c, "_inspect", side_effect=inspect), patch.object(c, "_free_ports") as free, \
+                    patch.object(c, "_certificate") as certificate, patch.object(c, "_run") as run:
+                result = c.configure(*arguments, smtp_port=12025, http_port=12026)
+                before = c._private(state / "comunicaciones/target.json")
+                replay = c.configure(*arguments)
+            free.assert_called_with((12025, 12026))
+            certificate.assert_not_called()
+            run.assert_not_called()
+            self.assertEqual(before, c._private(state / "comunicaciones/target.json"))
+            self.assertEqual(result["env"], {})
+            self.assertEqual(result["profiles"], replay["profiles"])
+            target = c._target(state, "vec-test-generic", 55532)
+            self.assertEqual((target["smtp_port"], target["http_port"]), (12025, 12026))
+            env = c._result(smtp=True, target=target)["env"]
+            self.assertEqual(env["VEC_SMTP_PORT"], "12025")
+            self.assertEqual(env["VEC_SMTP_CA_FILE"], str(state / "material/ca/ca.crt"))
+
+    def test_target_names_depend_on_state_and_pg_identity_and_preserve_legacy(self):
+        legacy = c._build_target(c.STATE, c.PG_CONTAINER, 55531, 11025, 18532)
+        self.assertEqual(legacy["container"], c.MAIL_CONTAINER)
+        self.assertEqual(legacy["network"], c.NETWORK)
+        first = c._build_target(Path.home() / "one", "vec-one", 55532, 12025, 12026)
+        second = c._build_target(Path.home() / "two", "vec-one", 55532, 12027, 12028)
+        third = c._build_target(Path.home() / "one", "vec-two", 55533, 12029, 12030)
+        self.assertEqual(len({first["container"], second["container"], third["container"]}), 3)
+        self.assertEqual(len({first["network"], second["network"], third["network"]}), 3)
+        self.assertEqual(first, c._build_target(Path.home() / "one", "vec-one", 55532, 12025, 12026))
+
+    def test_busy_ports_do_not_publish_target_and_explicit_changes_do_not_replace(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone_fixture(state)
+            arguments = (state / "repo", "vec-test-generic", state, state / "material", 55532, "docker")
+            with patch.object(c, "_scope", return_value=(state / "repo", state, state / "material")), \
+                    patch.object(c, "_inspect", return_value=None), \
+                    patch.object(c, "_free_ports", side_effect=c.PreparationError("mailpit_loopback_port_busy")):
+                with self.assertRaises(c.PreparationError): c.configure(*arguments, smtp_port=12025, http_port=12026)
+            path = state / "comunicaciones/target.json"
+            self.assertFalse(path.exists())
+            target = c._build_target(state, "vec-test-generic", 55532, 12025, 12026)
+            c._write_new(path, json.dumps(target).encode())
+            before = c._private(path)
+            with self.assertRaises(c.PreparationError): c._target(state, "vec-test-generic", 55532, smtp_port=12027)
+            self.assertEqual(before, c._private(path))
+            with self.assertRaises(c.PreparationError): c._target(state, "vec-other", 55532)
+            with self.assertRaises(c.PreparationError): c._build_target(state, "vec-test-generic", 55532, 55532, 12026)
+            with self.assertRaises(c.PreparationError): c._target(state, "vec-test-generic", 55532, http_port=18534)
+
+    def test_generic_pg_scope_denies_foreign_labels_before_configuration(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone_fixture(state)
+            foreign = {"Config": {"Labels": {c.LABEL_OWNER: "other", c.LABEL_STATE: str(state)}}}
+            with patch.object(c, "_inspect", return_value=foreign), patch.object(c, "_free_ports") as free:
+                with self.assertRaises(c.PreparationError):
+                    c.configure(state / "repo", "vec-test-generic", state, state / "material", 55532, "docker")
+            free.assert_not_called()
+            self.assertFalse((state / "comunicaciones/target.json").exists())
+
+    def test_stop_and_status_are_idempotent_when_owned_postgres_is_already_removed(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone_fixture(state)
+            arguments = (state / "repo", "vec-test-generic", state, state / "material", 55532, "docker")
+            with patch.object(c, "_inspect", return_value=None), patch.object(c, "_run") as run, \
+                    patch.object(c.signal, "pidfd_send_signal") as send:
+                for operation in (c.status, c.stop, c.stop):
+                    result = operation(*arguments)
+                    self.assertFalse(result["blockers"])
+                with self.assertRaises(c.PreparationError): c.configure(*arguments)
+                with self.assertRaises(c.PreparationError): c._scope(*arguments)
+            run.assert_not_called()
+            send.assert_not_called()
+
+    def test_lifecycle_with_removed_postgres_still_denies_foreign_sink(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone_fixture(state)
+            target = c._build_target(state, "vec-test-generic", 55532, 11025, 18532)
+            foreign = {"Image": "image:local", "Config": {"Labels": {c.LABEL_OWNER: "other"}}}
+            def inspect(engine, kind, name):
+                if kind == "container" and name == target["container"]: return foreign
+                if kind == "image": return {"Id": "image:local"}
+                return None
+            with patch.object(c, "_inspect", side_effect=inspect), patch.object(c, "_run") as run, \
+                    patch.object(c.signal, "pidfd_send_signal") as send:
+                result = c.stop(state / "repo", "vec-test-generic", state, state / "material", 55532, "docker")
+            self.assertTrue(result["blockers"])
+            self.assertEqual(result["blockers"][0]["detail"], "foreign_container")
+            run.assert_not_called()
+            send.assert_not_called()
+
+    def test_generic_sink_only_accepts_selected_ports_and_own_network(self):
+        state = Path.home() / "synthetic-generic"
+        target = c._build_target(state, "vec-generic", 55532, 12025, 12026)
+        sink = resource()
+        sink["Config"]["Labels"] = c._labels(state)
+        sink["HostConfig"]["NetworkMode"] = target["network"]
+        sink["HostConfig"]["PortBindings"] = {"1025/tcp": [{"HostIp": "127.0.0.1", "HostPort": "12025"}],
+                                             "8025/tcp": [{"HostIp": "127.0.0.1", "HostPort": "12026"}]}
+        sink["Mounts"][0]["Source"] = str(state / "material/comunicaciones")
+        sink["Mounts"][1]["Source"] = str(state / "comunicaciones/buzon")
+        c._validate_sink(sink, state, "image:local", target=target)
+        command = c._proxy_command("192.168.224.2", 12025, 1025)
+        self.assertIn("bind=127.0.0.1", command[-2])
+        self.assertEqual(c._record_command({"command": command}, 12025, target=target), command)
+        sink["HostConfig"]["PortBindings"]["1025/tcp"][0]["HostPort"] = "11025"
+        with self.assertRaises(c.PreparationError): c._validate_sink(sink, state, "image:local", target=target)
+
+    def test_preflight_uses_actual_clone_commit_and_configured_ports_without_worktree_reads(self):
+        with tempfile.TemporaryDirectory(dir=Path.home()) as scratch:
+            state = Path(scratch)
+            clone = clone_fixture(state)
+            c._directory(state / "comunicaciones")
+            target = c._build_target(state, "vec-test-generic", 55532, 12025, 12026)
+            c._write_new(state / "comunicaciones/target.json", json.dumps(target).encode())
+            c._write_new(state / "usuarios-h4-result.json", b'{"roles_version":2,"assignments_version":2,"surfaces":2,"grants_per_role":10}')
+            c._directory(state / "material")
+            c._directory(state / "material/ca")
+            c._write_new(state / "material/ca/ca.crt", b"synthetic CA")
+            c._write_new(state / "material/ca/ca.key", b"synthetic key")
+            def inspect(engine, kind, name):
+                if kind == "image": return {"Id": "image:local"}
+                if kind == "container" and name == "vec-test-generic": return {"Config": {"Labels": c._labels(state)}}
+                return None
+            with patch.object(c, "_inspect", side_effect=inspect), patch.object(c, "_free_ports") as free, \
+                    patch.object(c, "_source_contract", return_value=clone["commit"]) as source:
+                result = c.preflight(state / "repo", "vec-test-generic", state, state / "material", 55532, "docker")
+            source.assert_called_once_with(state / "repo", clone["commit"])
+            free.assert_called_once_with((12025, 12026))
+            self.assertFalse(result["blockers"])
+            self.assertEqual(result["profiles"]["usuarios_comunicaciones"]["source_commit"], clone["commit"])
 
 
 if __name__ == "__main__":
