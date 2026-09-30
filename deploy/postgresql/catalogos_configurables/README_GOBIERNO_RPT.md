@@ -56,3 +56,5 @@ docker exec -i <clon_aislado> env -i PATH=/usr/lib/postgresql/18/bin:/usr/bin:/b
 ```
 
 El análisis local Semgrep de las cuatro migraciones usa dos reglas genéricas para concesiones positivas a PUBLIC y funciones definidoras sin ruta fija. No envía código y no sustituye las dos revisiones SQL independientes. `git diff --check` forma parte del cierre del candidato.
+
+El correctivo `a233017cf` se ensayó de forma focal en otro clon PG18 nuevo con las SQL previas de `2085c5981`, que incluyen el refuerzo Cat1. Cat4 y AD134 se aplicaron una sola vez. La regresión Bolsa v1 a Personal v2 exigió el error exacto de Cat4 `42501` antes de invocar Cat1; no cambió la publicación ni el control previo y no creó confirmación, historia ni outbox del intento. Bolsa v1 a Bolsa v2 se confirmó y su replay devolvió el mismo resultado. Las dos pruebas SQL focales terminaron en ROLLBACK. No se repitieron carreras, reinicio ni pruebas globales para este correctivo.

@@ -1,7 +1,8 @@
 # Requiere AD3-126 y Catálogos000003 instaladas una sola vez.
 # En clon fresco H1: primeras35 SQL de scripts/recorridos/sql_main_h6.txt
 # hasta AD3-114, luego roles/Cat1/Cat2/AD117/Cat3/AD126 coherentes.
-# Preimagen ensayada: previas e528c7eaa, nucleo AD126 search_path=pg_catalog.
+# Preimagen focal modulo v2: previas 2085c5981 con Cat1 reforzada.
+# Nucleo AD126 search_path=pg_catalog; sin modificar ACL ni perfiles previos.
 # AD133@af68c20b despues de AD126: NO-GO 55000 preimagen global incompatible.
 # AD133/135 requieren convergencia revisada antes de componer ese linaje.
 # Usar Cat1 corregida y revisada; no reaplicar SQL ni ejecutar DOWN en principal.
