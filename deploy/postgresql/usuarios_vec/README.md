@@ -120,8 +120,9 @@ deniega la operación. Reiniciar el proceso no restablece una concesión revocad
 La lista causal de esta pieza es
 `deploy/principal/lista_sql_trabajo_codexb_usuarios_externo_20260930.txt`, después
 de la separación por superficie y las dependencias de ContextoActor del portal
-externo. ContextoActor 000014 y 000015 se instalan en esa base previa; esta
-lista no las repite. AUT-18 admite las fechas vacías exactas que conserva el
+externo. ContextoActor 000014, 000015 y 000017 se instalan en esa base previa;
+esta lista no las repite. La 000017 conserva el canon y la historia al cerrar
+el uso de tipos temporales en las fachadas externas. AUT-18 admite las fechas vacías exactas que conserva el
 documento canónico Go y rechaza fechas reales de retirada o revocación. Las
 migraciones ya instaladas no se repiten ni se revierten.
 

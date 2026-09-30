@@ -1,6 +1,7 @@
 # B4 y área personal: después de #145 (Documentos 000008, Usuarios 000009/000010,
 # roles_000010, AD3-110 y ContextoActor 000011) y #151 (AD3-112).
-# ContextoActor 000014/000015 ya se instalan con la PR base de Mi bolsa.
+# ContextoActor 000014/000015 y 000017 deben estar instaladas por la PR base
+# de Mi bolsa antes de AUT-17. Esta lista no repite esas migraciones.
 # Aplicar con ambos procesos parados. Nunca ejecutar DOWN ni reaplicar.
 # Documentos/Usuarios separan físicamente la imagen externa. Usuarios 000012
 # conserva los correos antiguos, pero el externo rechaza su arranque si aún
