@@ -75,7 +75,7 @@ func TestPreparacionGobiernoRPTDerivaHuellasEnPostgreSQLSinEfecto(t *testing.T) 
 func TestPreparacionAvanceGobiernoRPTFijaPerfilYRevision(t *testing.T) {
 	m := ports.MaterialAvanceGobiernoCategoriaRPT{
 		PropuestaRef: "propuesta:rpt:001", HuellaSHA256: strings.Repeat("a", 64),
-		ReciboRef: "recibo:rpt:aprobacion:001", RevisionEsperada: 2,
+		ReciboRef: "recibo:rpt:aprobacion:001", RevisionEsperada: 1,
 		CatalogoID: descriptorRPTPrueba.CatalogoID, ModuloID: descriptorRPTPrueba.ModuloID,
 	}
 	tx := &transaccionLecturaRPTPrueba{huellaMaterial: strings.Repeat("b", 64)}
@@ -85,9 +85,9 @@ func TestPreparacionAvanceGobiernoRPTFijaPerfilYRevision(t *testing.T) {
 	if err != nil || p.Accion != ports.AccionAprobarGobiernoCategoriaRPT ||
 		p.Recurso.Tipo != ports.TipoRecursoGobiernoCategoriaRPT || p.Recurso.Referencia != m.PropuestaRef ||
 		p.Recurso.Atributos["material_sha256"] != tx.huellaMaterial || tx.consultasCanon != 1 || tx.fachadas != 0 || !tx.confirmada {
-		t.Fatalf("preparacion de segunda aprobacion: %+v %v", p, err)
+		t.Fatalf("preparacion de aprobacion RRHH: %+v %v", p, err)
 	}
-	m.RevisionEsperada = 3
+	m.RevisionEsperada = 2
 	tx.confirmada = false
 	p, err = g.PrepararConfirmacionGobiernoCategoriaRPT(t.Context(), m)
 	if err != nil || p.Accion != ports.AccionConfirmarGobiernoCategoriaRPT || !tx.confirmada {
@@ -169,14 +169,14 @@ func TestGobiernoRPTReciboReplayConservaEfectoYExigeEvidenciaNueva(t *testing.T)
 	ref, huella, recibo := "propuesta:rpt:001", strings.Repeat("b", 64), "recibo:rpt:confirmacion:001"
 	a := autorizacionGobiernoRPTReciboPrueba(t, ports.AccionConfirmarGobiernoCategoriaRPT, ref)
 	z := a.ResumenCapacidad()
-	gobierno := estadoGobiernoRPTWire{PropuestaRef: ref, HuellaSHA256: huella, Revision: 4,
+	gobierno := estadoGobiernoRPTWire{PropuestaRef: ref, HuellaSHA256: huella, Revision: 3,
 		Estado: domain.EstadoGobiernoCategoriaRPTConfirmada, ReciboRef: recibo,
 		Accion: domain.AccionGobiernoCategoriaRPTDeshabilitar, Version: 2, RevisionCategoria: 2}
 	wire := reciboGobiernoRPTWire{DecisionRef: z.DecisionRef(), EfectoRef: ref,
 		HuellaEfectoSHA256: z.EfectoHuellaSHA256(), ConsumoHuellaSHA256: strings.Repeat("c", 64),
 		AuditoriaRef: "auditoria:rpt:001", ConsumidaEn: z.EmitidaEn().Add(time.Second),
 		ConsumoNuevo: true, ReciboRef: recibo, Gobierno: jsonRPTPrueba(t, gobierno)}
-	r, err := decodificarReciboGobiernoRPT(jsonRPTPrueba(t, wire), a, ref, huella, recibo, 4,
+	r, err := decodificarReciboGobiernoRPT(jsonRPTPrueba(t, wire), a, ref, huella, recibo, 3,
 		domain.EstadoGobiernoCategoriaRPTConfirmada, ports.AccionConfirmarGobiernoCategoriaRPT)
 	if err != nil || r.ReciboRef != recibo || r.Evidencia.DecisionRef != z.DecisionRef() ||
 		!r.Evidencia.ConsumoNuevo || r.RevisionCategoria != 2 {
@@ -184,13 +184,13 @@ func TestGobiernoRPTReciboReplayConservaEfectoYExigeEvidenciaNueva(t *testing.T)
 	}
 	w := wire
 	w.ConsumoNuevo = false
-	if _, err := decodificarReciboGobiernoRPT(jsonRPTPrueba(t, w), a, ref, huella, recibo, 4,
+	if _, err := decodificarReciboGobiernoRPT(jsonRPTPrueba(t, w), a, ref, huella, recibo, 3,
 		domain.EstadoGobiernoCategoriaRPTConfirmada, ports.AccionConfirmarGobiernoCategoriaRPT); !errors.Is(err, ports.ErrGobiernoCategoriaRPTNoConfiable) {
 		t.Fatalf("consumo histórico aceptado: %v", err)
 	}
 	w = wire
 	w.ReciboRef = "recibo:otro"
-	if _, err := decodificarReciboGobiernoRPT(jsonRPTPrueba(t, w), a, ref, huella, recibo, 4,
+	if _, err := decodificarReciboGobiernoRPT(jsonRPTPrueba(t, w), a, ref, huella, recibo, 3,
 		domain.EstadoGobiernoCategoriaRPTConfirmada, ports.AccionConfirmarGobiernoCategoriaRPT); !errors.Is(err, ports.ErrGobiernoCategoriaRPTNoConfiable) {
 		t.Fatalf("recibo cambiado aceptado: %v", err)
 	}

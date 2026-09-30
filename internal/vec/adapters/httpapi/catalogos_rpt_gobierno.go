@@ -18,19 +18,21 @@ import (
 )
 
 const (
-	RutaProponerGobiernoCategoriaRPT  = "/api/vec/administracion/catalogos/rpt/gobierno/proponer"
-	RutaAprobarGobiernoCategoriaRPT   = "/api/vec/administracion/catalogos/rpt/gobierno/aprobar"
-	RutaConfirmarGobiernoCategoriaRPT = "/api/vec/administracion/catalogos/rpt/gobierno/confirmar"
+	RutaProponerGobiernoCategoriaRPT  = "/api/vec/rrhh/catalogos/rpt/gobierno/proponer"
+	RutaAprobarGobiernoCategoriaRPT   = "/api/vec/rrhh/catalogos/rpt/gobierno/aprobar"
+	RutaConfirmarGobiernoCategoriaRPT = "/api/vec/rrhh/catalogos/rpt/gobierno/confirmar"
 	maximoCuerpoGobiernoCategoriaRPT  = 256 << 10
 )
 
 var ErrHandlerGobiernoCategoriaRPTInvalido = errors.New("vec http: frontera de gobierno RPT invalida")
 var clavePreimagenGobiernoRPT = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
-// La fuente pertenece a la composicion ADMIN. Debe enlazar el certificado del
+// La fuente pertenece a la composición RRHH. Debe enlazar el certificado del
 // handshake con actor, vinculo, contexto registrado, motivo y asignacion
 // vigente al rol publicado.
 // La solicitud HTTP no puede publicar ni provisionar esas capacidades.
+// Sin una fuente nominal de motivo para RPT se deniega: no se reutilizan
+// las clases cuadro/detalle ni se obtiene el motivo del cuerpo JSON.
 type FuenteCredencialesGobiernoCategoriaRPT interface {
 	ResolverGobiernoCategoriaRPT(context.Context, *x509.Certificate) (application.CredencialesGobiernoCategoriaRPT, ports.DescriptorCatalogoRPT, domain.InstantaneaAutorizacion, error)
 }
@@ -51,23 +53,23 @@ type handlerGobiernoCategoriaRPT struct {
 	operador      OperadorGobiernoCategoriaRPT
 	fuente        FuenteCredencialesGobiernoCategoriaRPT
 	auditor       AuditorDenegacionGobiernoCategoriaRPT
-	adminHost     string
+	rrhhHost      string
 	raices        *x509.CertPool
 	descriptor    ports.DescriptorCatalogoRPT
 	versionRolRef string
 }
 
-// El montaje necesita un listener ADMIN exclusivo con ClientAuth y su CA
-// privada. El estudio #211 conserva esa dependencia pendiente. La composicion
-// fija la version de rol comun; cada actor conserva su asignacion individual.
-func NuevasRutasGobiernoCategoriaRPT(op OperadorGobiernoCategoriaRPT, fuente FuenteCredencialesGobiernoCategoriaRPT, auditor AuditorDenegacionGobiernoCategoriaRPT, adminHost string, raices *x509.CertPool, descriptor ports.DescriptorCatalogoRPT, versionRolRef string) ([]RutaExacta, error) {
+// La composición RRHH debe montar las rutas en su frontera mTLS y declarar
+// la autorización nominal. Este constructor no las hace operativas ni crea
+// perfiles. Cada persona conserva su asignación al rol publicado exacto.
+func NuevasRutasGobiernoCategoriaRPT(op OperadorGobiernoCategoriaRPT, fuente FuenteCredencialesGobiernoCategoriaRPT, auditor AuditorDenegacionGobiernoCategoriaRPT, rrhhHost string, raices *x509.CertPool, descriptor ports.DescriptorCatalogoRPT, versionRolRef string) ([]RutaExacta, error) {
 	if dependenciaRutaExactaNula(op) || dependenciaRutaExactaNula(fuente) || dependenciaRutaExactaNula(auditor) ||
-		raices == nil || len(raices.Subjects()) == 0 || adminHost == "" || adminHost != strings.ToLower(adminHost) ||
-		strings.ContainsAny(adminHost, ":/ \t\r\n") || !strings.Contains(adminHost, ".") ||
+		raices == nil || len(raices.Subjects()) == 0 || rrhhHost == "" || rrhhHost != strings.ToLower(rrhhHost) ||
+		strings.ContainsAny(rrhhHost, ":/ \t\r\n") || !strings.Contains(rrhhHost, ".") ||
 		descriptor.CatalogoID == "" || descriptor.ModuloID == "" || versionRolRef == "" {
 		return nil, ErrHandlerGobiernoCategoriaRPTInvalido
 	}
-	h := &handlerGobiernoCategoriaRPT{op, fuente, auditor, adminHost, raices.Clone(), descriptor, versionRolRef}
+	h := &handlerGobiernoCategoriaRPT{op, fuente, auditor, rrhhHost, raices.Clone(), descriptor, versionRolRef}
 	return []RutaExacta{
 		{Ruta: RutaProponerGobiernoCategoriaRPT, Manejador: h},
 		{Ruta: RutaAprobarGobiernoCategoriaRPT, Manejador: h},
@@ -75,25 +77,9 @@ func NuevasRutasGobiernoCategoriaRPT(op OperadorGobiernoCategoriaRPT, fuente Fue
 	}, nil
 }
 
-type entradaPreimagenGobiernoRPT struct {
-	Version      int    `json:"version"`
-	HuellaSHA256 string `json:"huella_sha256"`
-	Revision     int64  `json:"revision"`
-	Estado       string `json:"estado"`
-}
-
 type entradaGobiernoRPT struct {
-	PropuestaRef       string                                 `json:"propuesta_ref"`
-	Accion             string                                 `json:"accion"`
-	CatalogoID         string                                 `json:"catalogo_id"`
-	ModuloID           string                                 `json:"modulo_id"`
-	Version            int                                    `json:"version"`
-	DocumentoCanonico  *string                                `json:"documento_canonico"`
-	PreimagenesControl map[string]entradaPreimagenGobiernoRPT `json:"preimagenes_control"`
-	CategoriaID        *string                                `json:"categoria_id"`
-	RevisionEsperada   *int64                                 `json:"revision_esperada"`
-	FuenteRef          string                                 `json:"fuente_ref"`
-	HuellaSHA256       string                                 `json:"huella_sha256"` // only for approve/confirm
+	ports.EntradaPropuestaGobiernoCategoriaRPT
+	HuellaSHA256 string `json:"huella_sha256"`
 }
 
 func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -110,11 +96,11 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		responderGobiernoRPT(w, http.StatusMethodNotAllowed, "metodo_no_permitido", nil)
 		return
 	}
-	// El navegador ADMIN sólo puede iniciar un POST desde su origen HTTPS.
+	// El navegador RRHH sólo puede iniciar un POST desde su origen HTTPS.
 	// Un cliente sin Origin sigue sujeto a certificado y autorización V3.
 	if cabeceraOrganizacionHistoricaPresente(r.Header, "Origin") {
 		origin, unica := cabeceraImportacionOrganizacionUnica(r.Header, "Origin")
-		if !unica || origin != "https://"+h.adminHost {
+		if !unica || origin != "https://"+h.rrhhHost {
 			h.denegar(w, r.Context(), r.URL.Path, http.StatusForbidden, "acceso_denegado")
 			return
 		}
@@ -132,9 +118,9 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusBadRequest, "peticion_no_valida")
 		return
 	}
-	// El host y SNI deben ser ADMIN, y el certificado se verifica de nuevo
+	// El host y SNI deben ser RRHH, y el certificado se verifica de nuevo
 	// contra la CA dedicada. Cabeceras de identidad nunca son autoridad.
-	if r.Host != h.adminHost || r.TLS == nil || r.TLS.ServerName != h.adminHost ||
+	if r.Host != h.rrhhHost || r.TLS == nil || r.TLS.ServerName != h.rrhhHost ||
 		!r.TLS.HandshakeComplete || len(r.TLS.PeerCertificates) == 0 ||
 		certificadoClienteTLSVerificado(r.TLS) == nil {
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusUnauthorized, "autenticacion_requerida")
@@ -172,14 +158,15 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 		asignacion.AsignacionPerfil.PrincipalID != cred.Actor.Principal.ID ||
 		asignacion.AsignacionPerfil.PerfilActivoRef != cred.Actor.PerfilActivoRef ||
 		errVinculo != nil || errActor != nil || cred.ResultadoContexto.HuellaSHA256 != huellaActor ||
+		cred.Actor.Principal.ID != cred.Actor.PersonaRef ||
 		vinculo.PrincipalID != cred.Actor.Principal.ID || vinculo.PerfilActivoRef != cred.Actor.PerfilActivoRef ||
-		!vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
+		vinculo.CuentaPrivilegiada || vinculo.Superficie != domain.SuperficieAutenticacionInternaCorporativaV1 ||
 		!vinculo.GarantiaObservada.Cumple(domain.AuthAssuranceHigh) ||
 		!cred.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||
 		cred.Actor.Validar() != nil || cred.Vinculo.ValidarPara(cred.ResultadoContexto) != nil ||
 		!cred.Vinculo.VigenteEn(ahora, cred.ResultadoContexto) ||
 		cred.ResultadoContexto.Validar() != nil || !domain.ReferenciaMotivoAutorizacionV2Valida(cred.Motivo) ||
-		cred.Correlacion.Validar() != nil {
+		cred.Correlacion.Validar() != nil || !asignacionNominalGobiernoRPT(asignacion, cred.Actor, h.descriptor, r.URL.Path) {
 		h.denegar(w, r.Context(), r.URL.Path, http.StatusForbidden, "acceso_denegado")
 		return
 	}
@@ -233,16 +220,39 @@ func (h *handlerGobiernoCategoriaRPT) ServeHTTP(w http.ResponseWriter, r *http.R
 	}
 	// ConsumoNuevo describe la autorización V3 de este acceso, no la creación
 	// de un efecto nuevo. Tanto primer acto como replay devuelven 200.
-	responderGobiernoRPT(w, http.StatusOK, "", map[string]any{"data": map[string]any{
-		"propuesta_ref": resultado.PropuestaRef, "huella_sha256": resultado.HuellaSHA256,
-		"revision": resultado.Revision, "estado": resultado.Estado, "recibo_ref": resultado.ReciboRef,
-		"accion": resultado.Accion, "version": resultado.Version, "revision_categoria": resultado.RevisionCategoria,
-		"evidencia": map[string]any{"decision_ref": resultado.Evidencia.DecisionRef,
-			"efecto_ref": resultado.Evidencia.EfectoRef, "huella_efecto_sha256": resultado.Evidencia.HuellaEfectoSHA256,
-			"consumo_huella_sha256": resultado.Evidencia.ConsumoHuellaSHA256,
-			"auditoria_ref":         resultado.Evidencia.AuditoriaRef, "consumida_en": resultado.Evidencia.ConsumidaEn,
-			"consumo_nuevo": resultado.Evidencia.ConsumoNuevo},
-	}})
+	responderGobiernoRPT(w, http.StatusOK, "", ports.RespuestaGobiernoCategoriaRPT{Data: resultado})
+}
+
+// La instantánea no sustituye al PDP V3: esta guarda exige la concesión
+// nominal y los ámbitos antes de procesar material de negocio. V3 revalida
+// las políticas, campos y obligaciones al emitir la capacidad del efecto.
+func asignacionNominalGobiernoRPT(i domain.InstantaneaAutorizacion, actor domain.ContextoActor, d ports.DescriptorCatalogoRPT, ruta string) bool {
+	accion := accionRutaGobiernoRPT(ruta)
+	recurso := domain.RecursoAutorizable{Referencia: "gobierno:rpt", ModuloID: d.ModuloID,
+		Tipo:    ports.TipoRecursoGobiernoCategoriaRPT,
+		Ambitos: map[string]string{"catalogo_id": d.CatalogoID, "modulo_id": d.ModuloID}}
+	if accion == "" || !i.AsignacionPerfil.Cubre(recurso) {
+		return false
+	}
+	for _, c := range i.VersionRol.Concesiones {
+		if c.Accion == accion && c.ModuloID == d.ModuloID && c.TipoRecurso == ports.TipoRecursoGobiernoCategoriaRPT &&
+			c.AdmiteFinalidad(ports.FinalidadGobiernoCategoriaRPT) && actor.Principal.AuthAssurance.Cumple(c.GarantiaMinima) {
+			return true
+		}
+	}
+	return false
+}
+
+func accionRutaGobiernoRPT(ruta string) string {
+	switch ruta {
+	case RutaProponerGobiernoCategoriaRPT:
+		return ports.AccionProponerGobiernoCategoriaRPT
+	case RutaAprobarGobiernoCategoriaRPT:
+		return ports.AccionAprobarGobiernoCategoriaRPT
+	case RutaConfirmarGobiernoCategoriaRPT:
+		return ports.AccionConfirmarGobiernoCategoriaRPT
+	}
+	return ""
 }
 
 func rutaGobiernoRPTValida(ruta string) bool {
@@ -389,7 +399,7 @@ func (h *handlerGobiernoCategoriaRPT) errorOperacion(w http.ResponseWriter, ctx 
 	}
 }
 
-func responderGobiernoRPT(w http.ResponseWriter, estado int, codigo string, data map[string]any) {
+func responderGobiernoRPT(w http.ResponseWriter, estado int, codigo string, data any) {
 	for _, k := range []string{"Set-Cookie", "Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Location", "Retry-After"} {
 		w.Header().Del(k)
 	}

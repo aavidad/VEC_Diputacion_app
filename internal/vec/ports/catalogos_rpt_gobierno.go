@@ -25,6 +25,36 @@ const (
 	TipoRecursoGobiernoCategoriaRPT     = "propuesta_categoria"
 )
 
+// EntradaPropuestaGobiernoCategoriaRPT es el contrato HTTP de propuesta. Las referencias
+// de actor, motivo, cuenta, perfil y autorización se resuelven en el servidor.
+// La clave del recibo procede de Idempotency-Key. Aprobar usa revisión 1;
+// confirmar usa revisión 2 en EntradaAvanceGobiernoCategoriaRPT. El adaptador
+// rechaza campos ajenos a cada acción, duplicados y referencias de autoridad.
+type EntradaPropuestaGobiernoCategoriaRPT struct {
+	PropuestaRef       string                                                 `json:"propuesta_ref"`
+	Accion             string                                                 `json:"accion"`
+	CatalogoID         string                                                 `json:"catalogo_id"`
+	ModuloID           string                                                 `json:"modulo_id"`
+	Version            int                                                    `json:"version"`
+	DocumentoCanonico  *string                                                `json:"documento_canonico"`
+	PreimagenesControl map[string]domain.PreimagenControlGobiernoCategoriaRPT `json:"preimagenes_control"`
+	CategoriaID        *string                                                `json:"categoria_id"`
+	RevisionEsperada   *int64                                                 `json:"revision_esperada"`
+	FuenteRef          string                                                 `json:"fuente_ref"`
+}
+
+type EntradaAvanceGobiernoCategoriaRPT struct {
+	PropuestaRef     string `json:"propuesta_ref"`
+	CatalogoID       string `json:"catalogo_id"`
+	ModuloID         string `json:"modulo_id"`
+	HuellaSHA256     string `json:"huella_sha256"`
+	RevisionEsperada int64  `json:"revision_esperada"`
+}
+
+type RespuestaGobiernoCategoriaRPT struct {
+	Data ResultadoGobiernoCategoriaRPT `json:"data"`
+}
+
 type MaterialPropuestaGobiernoCategoriaRPT struct {
 	PropuestaRef string                               `json:"propuesta_ref"`
 	Contenido    domain.ContenidoGobiernoCategoriaRPT `json:"contenido"`
@@ -78,25 +108,25 @@ type OrdenAvanceGobiernoCategoriaRPT struct {
 }
 
 type EvidenciaGobiernoCategoriaRPT struct {
-	DecisionRef         string
-	EfectoRef           string
-	HuellaEfectoSHA256  string
-	ConsumoHuellaSHA256 string
-	AuditoriaRef        string
-	ConsumidaEn         time.Time
-	ConsumoNuevo        bool
+	DecisionRef         string    `json:"decision_ref"`
+	EfectoRef           string    `json:"efecto_ref"`
+	HuellaEfectoSHA256  string    `json:"huella_efecto_sha256"`
+	ConsumoHuellaSHA256 string    `json:"consumo_huella_sha256"`
+	AuditoriaRef        string    `json:"auditoria_ref"`
+	ConsumidaEn         time.Time `json:"consumida_en"`
+	ConsumoNuevo        bool      `json:"consumo_nuevo"`
 }
 
 type ResultadoGobiernoCategoriaRPT struct {
-	PropuestaRef      string
-	HuellaSHA256      string
-	Revision          int64
-	Estado            string
-	ReciboRef         string
-	Accion            string
-	Version           int
-	RevisionCategoria int64
-	Evidencia         EvidenciaGobiernoCategoriaRPT
+	PropuestaRef      string                        `json:"propuesta_ref"`
+	HuellaSHA256      string                        `json:"huella_sha256"`
+	Revision          int64                         `json:"revision"`
+	Estado            string                        `json:"estado"`
+	ReciboRef         string                        `json:"recibo_ref"`
+	Accion            string                        `json:"accion"`
+	Version           int                           `json:"version"`
+	RevisionCategoria int64                         `json:"revision_categoria"`
+	Evidencia         EvidenciaGobiernoCategoriaRPT `json:"evidencia"`
 }
 
 type PreparadorGobiernoCategoriaRPT interface {

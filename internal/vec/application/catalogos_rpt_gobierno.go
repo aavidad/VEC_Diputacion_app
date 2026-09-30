@@ -150,20 +150,16 @@ func (s *ServicioGobiernoCategoriaRPT) avanzar(ctx context.Context, o OrdenAvanz
 	var err error
 	switch accion {
 	case ports.AccionAprobarGobiernoCategoriaRPT:
-		if m.RevisionEsperada != 1 && m.RevisionEsperada != 2 {
+		if m.RevisionEsperada != 1 {
 			return cero, ErrOrdenGobiernoCategoriaRPTInvalida
 		}
-		esperado = m.RevisionEsperada + 1
-		estado = domain.EstadoGobiernoCategoriaRPTUnaAprobacion
-		if esperado == 3 {
-			estado = domain.EstadoGobiernoCategoriaRPTAprobada
-		}
+		esperado, estado = 2, domain.EstadoGobiernoCategoriaRPTAprobada
 		p, err = s.preparador.PrepararAprobacionGobiernoCategoriaRPT(ctx, m)
 	case ports.AccionConfirmarGobiernoCategoriaRPT:
-		if m.RevisionEsperada != 3 {
+		if m.RevisionEsperada != 2 {
 			return cero, ErrOrdenGobiernoCategoriaRPTInvalida
 		}
-		esperado, estado = 4, domain.EstadoGobiernoCategoriaRPTConfirmada
+		esperado, estado = 3, domain.EstadoGobiernoCategoriaRPTConfirmada
 		p, err = s.preparador.PrepararConfirmacionGobiernoCategoriaRPT(ctx, m)
 	default:
 		return cero, ErrOrdenGobiernoCategoriaRPTInvalida
@@ -203,8 +199,8 @@ func (s *ServicioGobiernoCategoriaRPT) autorizar(ctx context.Context, c Credenci
 	if err != nil || errActor != nil || c.Actor.Validar() != nil ||
 		c.ResultadoContexto.Validar() != nil || c.ResultadoContexto.HuellaSHA256 != h ||
 		c.Vinculo.ValidarPara(c.ResultadoContexto) != nil || !c.Vinculo.VigenteEn(instanteInicial, c.ResultadoContexto) ||
-		c.Actor.Principal.ID != v.PrincipalID || c.Actor.PerfilActivoRef != v.PerfilActivoRef ||
-		!v.CuentaPrivilegiada || v.Superficie != domain.SuperficieAutenticacionAdministracionPrivilegiadaV1 ||
+		c.Actor.Principal.ID != c.Actor.PersonaRef || c.Actor.Principal.ID != v.PrincipalID || c.Actor.PerfilActivoRef != v.PerfilActivoRef ||
+		v.CuentaPrivilegiada || v.Superficie != domain.SuperficieAutenticacionInternaCorporativaV1 ||
 		!v.GarantiaObservada.Cumple(domain.AuthAssuranceHigh) ||
 		!referenciaGobiernoCategoriaRPTValida(s.versionRolRef) ||
 		!c.Actor.Principal.AuthAssurance.Cumple(domain.AuthAssuranceHigh) ||

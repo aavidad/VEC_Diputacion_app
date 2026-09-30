@@ -14,12 +14,11 @@ import (
 var ErrGobiernoCategoriaRPTInvalido = errors.New("vec: gobierno de categoria RPT invalido")
 
 const (
-	AccionGobiernoCategoriaRPTPublicar      = "publicar"
-	AccionGobiernoCategoriaRPTDeshabilitar  = "deshabilitar"
-	EstadoGobiernoCategoriaRPTPropuesta     = "propuesta"
-	EstadoGobiernoCategoriaRPTUnaAprobacion = "una_aprobacion"
-	EstadoGobiernoCategoriaRPTAprobada      = "aprobada"
-	EstadoGobiernoCategoriaRPTConfirmada    = "confirmada"
+	AccionGobiernoCategoriaRPTPublicar     = "publicar"
+	AccionGobiernoCategoriaRPTDeshabilitar = "deshabilitar"
+	EstadoGobiernoCategoriaRPTPropuesta    = "propuesta"
+	EstadoGobiernoCategoriaRPTAprobada     = "aprobada"
+	EstadoGobiernoCategoriaRPTConfirmada   = "confirmada"
 )
 
 var identificadorGobiernoRPT = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
@@ -58,7 +57,7 @@ func (c ContenidoGobiernoCategoriaRPT) PrepararBorradorParaEditor(editor string)
 	if c.PreimagenesHuellaSHA256 != "" || c.DocumentoHuellaSHA256 != nil {
 		return ContenidoGobiernoCategoriaRPT{}, ErrGobiernoCategoriaRPTInvalido
 	}
-	if c.Accion == AccionGobiernoCategoriaRPTPublicar {
+	if c.Accion == AccionGobiernoCategoriaRPTPublicar || c.Accion == AccionGobiernoCategoriaRPTDeshabilitar {
 		if c.DocumentoCanonico == nil {
 			return ContenidoGobiernoCategoriaRPT{}, ErrGobiernoCategoriaRPTInvalido
 		}
@@ -93,41 +92,74 @@ func (c ContenidoGobiernoCategoriaRPT) ValidarParaEditor(editor string) error {
 			return ErrGobiernoCategoriaRPTInvalido
 		}
 	}
+	if c.DocumentoCanonico == nil || c.DocumentoHuellaSHA256 == nil ||
+		len(*c.DocumentoCanonico) < 2 || len(*c.DocumentoCanonico) > maximoBytesCatalogo ||
+		!huellaGobiernoRPTValida(*c.DocumentoHuellaSHA256) {
+		return ErrGobiernoCategoriaRPTInvalido
+	}
+	suma := sha256.Sum256([]byte(*c.DocumentoCanonico))
+	esperada, _ := hex.DecodeString(*c.DocumentoHuellaSHA256)
+	if subtle.ConstantTimeCompare(suma[:], esperada) != 1 {
+		return ErrGobiernoCategoriaRPTInvalido
+	}
+	var catalogo CatalogoConfigurable
+	if json.Unmarshal([]byte(*c.DocumentoCanonico), &catalogo) != nil ||
+		catalogo.Validar() != nil || catalogo.Estado != EstadoCatalogoPublicado ||
+		catalogo.ID != c.CatalogoID || catalogo.ModuloID != c.ModuloID ||
+		catalogo.Version != c.Version || catalogo.FuenteRef != c.FuenteRef ||
+		catalogo.CreadoPor != editor || catalogo.PublicadoPor == editor ||
+		(catalogo.UltimaModificacionPor != "" && catalogo.UltimaModificacionPor != editor) {
+		return ErrGobiernoCategoriaRPTInvalido
+	}
+	canonico, err := catalogo.ClonarCanonico()
+	if err != nil {
+		return ErrGobiernoCategoriaRPTInvalido
+	}
+	bytesCanonicos, err := json.Marshal(canonico)
+	if err != nil || !bytes.Equal(bytesCanonicos, []byte(*c.DocumentoCanonico)) {
+		return ErrGobiernoCategoriaRPTInvalido
+	}
+	entradas := make(map[string]EntradaCatalogoConfigurable, len(catalogo.Entradas))
+	for _, entrada := range catalogo.Entradas {
+		estado := entrada.Atributos["estado"]
+		if estado != "habilitada" && estado != "deshabilitada" {
+			return ErrGobiernoCategoriaRPTInvalido
+		}
+		entradas[entrada.Clave] = entrada
+	}
+	// El documento preserva todas las categorías controladas. Sus controles
+	// se vuelven a comparar en SQL antes del efecto; ningún atributo concede.
+	for id, preimagen := range c.PreimagenesControl {
+		entrada, existe := entradas[id]
+		if !existe || preimagen.Version != c.Version-1 {
+			return ErrGobiernoCategoriaRPTInvalido
+		}
+		if c.CategoriaID == nil || id != *c.CategoriaID {
+			if entrada.Atributos["estado"] != preimagen.Estado {
+				return ErrGobiernoCategoriaRPTInvalido
+			}
+		}
+	}
 	switch c.Accion {
 	case AccionGobiernoCategoriaRPTPublicar:
-		if c.CategoriaID != nil || c.RevisionEsperada != nil ||
-			c.DocumentoCanonico == nil || c.DocumentoHuellaSHA256 == nil ||
-			len(*c.DocumentoCanonico) < 2 || len(*c.DocumentoCanonico) > maximoBytesCatalogo ||
-			!huellaGobiernoRPTValida(*c.DocumentoHuellaSHA256) {
+		if c.CategoriaID != nil || c.RevisionEsperada != nil {
 			return ErrGobiernoCategoriaRPTInvalido
 		}
-		suma := sha256.Sum256([]byte(*c.DocumentoCanonico))
-		esperada, _ := hex.DecodeString(*c.DocumentoHuellaSHA256)
-		if subtle.ConstantTimeCompare(suma[:], esperada) != 1 {
-			return ErrGobiernoCategoriaRPTInvalido
-		}
-		var catalogo CatalogoConfigurable
-		if json.Unmarshal([]byte(*c.DocumentoCanonico), &catalogo) != nil ||
-			catalogo.Validar() != nil || catalogo.Estado != EstadoCatalogoPublicado ||
-			catalogo.ID != c.CatalogoID || catalogo.ModuloID != c.ModuloID ||
-			catalogo.Version != c.Version || catalogo.FuenteRef != c.FuenteRef ||
-			catalogo.CreadoPor != editor || catalogo.PublicadoPor == editor ||
-			(catalogo.UltimaModificacionPor != "" && catalogo.UltimaModificacionPor != editor) {
-			return ErrGobiernoCategoriaRPTInvalido
-		}
-		bytesCanonicos, err := json.Marshal(catalogo)
-		if err != nil || !bytes.Equal(bytesCanonicos, []byte(*c.DocumentoCanonico)) {
-			return ErrGobiernoCategoriaRPTInvalido
+		for id, entrada := range entradas {
+			if _, existe := c.PreimagenesControl[id]; !existe && entrada.Atributos["estado"] != "habilitada" {
+				return ErrGobiernoCategoriaRPTInvalido
+			}
 		}
 	case AccionGobiernoCategoriaRPTDeshabilitar:
-		if c.DocumentoCanonico != nil || c.DocumentoHuellaSHA256 != nil ||
-			c.CategoriaID == nil || !identificadorGobiernoRPT.MatchString(*c.CategoriaID) ||
+		if c.CategoriaID == nil || !identificadorGobiernoRPT.MatchString(*c.CategoriaID) ||
 			c.RevisionEsperada == nil || *c.RevisionEsperada < 1 ||
-			len(c.PreimagenesControl) != 1 {
+			len(c.PreimagenesControl) != len(entradas) {
 			return ErrGobiernoCategoriaRPTInvalido
 		}
 		p, ok := c.PreimagenesControl[*c.CategoriaID]
-		if !ok || p.Version != c.Version || p.Revision != *c.RevisionEsperada || p.Estado != "habilitada" {
+		entrada, existe := entradas[*c.CategoriaID]
+		if !ok || !existe || p.Version != c.Version-1 || p.Revision != *c.RevisionEsperada ||
+			p.Estado != "habilitada" || entrada.Atributos["estado"] != "deshabilitada" {
 			return ErrGobiernoCategoriaRPTInvalido
 		}
 	default:

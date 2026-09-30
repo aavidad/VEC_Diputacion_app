@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -102,9 +103,9 @@ func entornoEmisionGobiernoRPT(t *testing.T) (*entornoAutorizacionSolicitudV3Pru
 		t.Fatal(err)
 	}
 	autenticacion := v.Autenticacion()
-	autenticacion.CuentaPrivilegiada = true
-	autenticacion.Superficie = domain.SuperficieAutenticacionAdministracionPrivilegiadaV1
-	autenticacion.CuentaOrdinariaRef = "cta_ordinaria0123456789abcdef"
+	autenticacion.CuentaPrivilegiada = false
+	autenticacion.Superficie = domain.SuperficieAutenticacionInternaCorporativaV1
+	autenticacion.CuentaOrdinariaRef = autenticacion.CuentaRef
 	vinculo, err := domain.CrearVinculoAutenticacionActorV2(t.Context(),
 		&revalidadorVinculoAplicacionAdversarial{resultado: autenticacion},
 		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: autenticacion.AutenticacionRef, SesionRef: autenticacion.SesionRef},
@@ -233,33 +234,21 @@ func TestServicioGobiernoRPTFallaAntesDeV3ConCASInvalidoYDependenciaCaida(t *tes
 }
 
 func TestServicioGobiernoRPTRechazaMaterialPreparadoConContenidoAjeno(t *testing.T) {
-	id, revision, h := "categoria.ejemplo", int64(7), strings.Repeat("a", 64)
-	motivo := domain.ReferenciaEntradaCatalogo{
-		CatalogoID: "motivos", CatalogoVersion: 1,
-		CatalogoHuellaSHA256: h, EntradaClave: "motivo_0123456789abcdef0123456789abcdef",
-	}
-	b := ports.BorradorPropuestaGobiernoCategoriaRPT{
-		PropuestaRef: "propuesta:ejemplo", ReciboRef: "recibo:ejemplo",
-		Contenido: domain.ContenidoGobiernoCategoriaRPT{
-			Accion:     domain.AccionGobiernoCategoriaRPTDeshabilitar,
-			CatalogoID: "catalogo.ejemplo", ModuloID: "bolsa", Version: 2,
-			CategoriaID: &id, RevisionEsperada: &revision,
-			PreimagenesControl: map[string]domain.PreimagenControlGobiernoCategoriaRPT{
-				id: {Version: 2, Revision: revision, HuellaSHA256: h, Estado: "habilitada"},
-			},
-			MotivoRef: motivo.Referencia(), FuenteRef: "resolucion-2026-99",
-		},
-	}
+	e, _, cred, _ := entornoEmisionGobiernoRPT(t)
+	_ = e
+	h := strings.Repeat("a", 64)
+	b := borradorPublicarGobiernoRPTAplicacionPrueba(t, cred)
+	contenido, _ := b.Contenido.PrepararBorradorParaEditor(cred.Actor.Principal.ID)
 	preparado := ports.MaterialPropuestaGobiernoCategoriaRPT{
 		PropuestaRef: b.PropuestaRef, ReciboRef: b.ReciboRef,
-		Contenido: b.Contenido, HuellaSHA256: h,
+		Contenido: contenido, HuellaSHA256: h,
 	}
 	preparado.Contenido.PreimagenesHuellaSHA256 = h
 	preparado.Contenido.FuenteRef = "resolucion-ajena"
 	p := &preparadorGobiernoRPTPrueba{resultado: ports.PreparacionPropuestaGobiernoCategoriaRPT{Material: preparado}}
 	s := &ServicioGobiernoCategoriaRPT{preparador: p}
 	_, err := s.Proponer(t.Context(), OrdenProponerGobiernoCategoriaRPT{
-		Credenciales: CredencialesGobiernoCategoriaRPT{Motivo: motivo}, Borrador: b,
+		Credenciales: cred, Borrador: b,
 	})
 	if !errors.Is(err, ports.ErrGobiernoCategoriaRPTNoConfiable) || p.llamadas != 1 {
 		t.Fatalf("contenido preparado ajeno: error=%v preparaciones=%d", err, p.llamadas)
@@ -280,7 +269,7 @@ func TestResultadoGobiernoRPTConservaReciboEnReplayConDecisionNueva(t *testing.T
 		}
 		r := ports.ResultadoGobiernoCategoriaRPT{
 			PropuestaRef: "propuesta:ejemplo", HuellaSHA256: h,
-			Revision: 2, Estado: domain.EstadoGobiernoCategoriaRPTUnaAprobacion,
+			Revision: 2, Estado: domain.EstadoGobiernoCategoriaRPTAprobada,
 			ReciboRef: "recibo:ejemplo",
 			Evidencia: ports.EvidenciaGobiernoCategoriaRPT{
 				DecisionRef: decision, EfectoRef: "propuesta:ejemplo", HuellaEfectoSHA256: h,
@@ -351,14 +340,14 @@ func (g *gestorGobiernoRPTPrueba) ProponerGobiernoCategoriaRPT(_ context.Context
 	return g.resultado(o.Solicitud, o.Autorizacion, o.Material.PropuestaRef, o.Material.HuellaSHA256, o.Material.ReciboRef, 1, domain.EstadoGobiernoCategoriaRPTPropuesta)
 }
 func (g *gestorGobiernoRPTPrueba) AprobarGobiernoCategoriaRPT(_ context.Context, o ports.OrdenAvanceGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
-	estado := domain.EstadoGobiernoCategoriaRPTUnaAprobacion
+	estado := domain.EstadoGobiernoCategoriaRPTAprobada
 	if o.Material.RevisionEsperada == 2 {
 		estado = domain.EstadoGobiernoCategoriaRPTAprobada
 	}
 	return g.resultado(o.Solicitud, o.Autorizacion, o.Material.PropuestaRef, o.Material.HuellaSHA256, o.Material.ReciboRef, o.Material.RevisionEsperada+1, estado)
 }
 func (g *gestorGobiernoRPTPrueba) ConfirmarGobiernoCategoriaRPT(_ context.Context, o ports.OrdenAvanceGobiernoCategoriaRPT) (ports.ResultadoGobiernoCategoriaRPT, error) {
-	return g.resultado(o.Solicitud, o.Autorizacion, o.Material.PropuestaRef, o.Material.HuellaSHA256, o.Material.ReciboRef, 4, domain.EstadoGobiernoCategoriaRPTConfirmada)
+	return g.resultado(o.Solicitud, o.Autorizacion, o.Material.PropuestaRef, o.Material.HuellaSHA256, o.Material.ReciboRef, 3, domain.EstadoGobiernoCategoriaRPTConfirmada)
 }
 
 func credencialesSegundoActorGobiernoRPT(t *testing.T, e *entornoAutorizacionSolicitudV3Prueba, cred CredencialesGobiernoCategoriaRPT) CredencialesGobiernoCategoriaRPT {
@@ -383,6 +372,7 @@ func credencialesSegundoActorGobiernoRPT(t *testing.T, e *entornoAutorizacionSol
 	}
 	a := v.Autenticacion()
 	a.CuentaRef = cuenta.CuentaRef
+	a.CuentaOrdinariaRef = cuenta.CuentaRef
 	vinculo, err := domain.CrearVinculoAutenticacionActorV2(t.Context(), &revalidadorVinculoAplicacionAdversarial{resultado: a},
 		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: a.AutenticacionRef, SesionRef: a.SesionRef},
 		resolutorContextoAutorizacionV3Prueba{resultado: resultado}, domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: i.PerfilActivoRef},
@@ -416,11 +406,7 @@ func TestServicioGobiernoRPTDosActoresConPerfilesDistintosYRolComun(t *testing.T
 				m := materialAvanceGobiernoRPTPrueba()
 				switch accion {
 				case ports.AccionProponerGobiernoCategoriaRPT:
-					id, revision := "categoria.ejemplo", int64(7)
-					b := ports.BorradorPropuestaGobiernoCategoriaRPT{PropuestaRef: m.PropuestaRef, ReciboRef: m.ReciboRef,
-						Contenido: domain.ContenidoGobiernoCategoriaRPT{Accion: domain.AccionGobiernoCategoriaRPTDeshabilitar, CatalogoID: m.CatalogoID, ModuloID: m.ModuloID, Version: 2,
-							CategoriaID: &id, RevisionEsperada: &revision, PreimagenesControl: map[string]domain.PreimagenControlGobiernoCategoriaRPT{id: {Version: 2, Revision: revision, HuellaSHA256: m.HuellaSHA256, Estado: "habilitada"}},
-							MotivoRef: cred.Motivo.Referencia(), FuenteRef: "fuente:prueba"}}
+					b := borradorPublicarGobiernoRPTAplicacionPrueba(t, cred)
 					contenido, causa := b.Contenido.PrepararBorradorParaEditor(cred.Actor.Principal.ID)
 					if causa != nil {
 						t.Fatal(causa)
@@ -432,7 +418,7 @@ func TestServicioGobiernoRPTDosActoresConPerfilesDistintosYRolComun(t *testing.T
 				case ports.AccionAprobarGobiernoCategoriaRPT:
 					_, err = s.Aprobar(t.Context(), OrdenAvanzarGobiernoCategoriaRPT{Credenciales: cred, Material: m})
 				case ports.AccionConfirmarGobiernoCategoriaRPT:
-					m.RevisionEsperada = 3
+					m.RevisionEsperada = 2
 					_, err = s.Confirmar(t.Context(), OrdenAvanzarGobiernoCategoriaRPT{Credenciales: cred, Material: m})
 				}
 				if err != nil || gestor.llamadas != 1 || gestor.principal != cred.Actor.Principal.ID || gestor.perfil != cred.Actor.PerfilActivoRef || e.concesiones.invocaciones != 1 {
@@ -451,11 +437,12 @@ func TestGobiernoRPTAplicacionDeniegaVinculoOrdinarioAjenoOVencido(t *testing.T)
 			s := &ServicioGobiernoCategoriaRPT{autorizador: emisor, reloj: reloj, versionRolRef: e.fuente.instantanea.VersionRol.Referencia()}
 			switch caso {
 			case "superficie ordinaria":
-				base, err := e.solicitud.Datos()
-				if err != nil {
-					t.Fatal(err)
-				}
-				cred.Vinculo = base.VinculoAutenticacionActor
+				v, _ := cred.Vinculo.Datos()
+				a := v.Autenticacion()
+				a.CuentaPrivilegiada = true
+				a.Superficie = domain.SuperficieAutenticacionAdministracionPrivilegiadaV1
+				a.CuentaOrdinariaRef = "cta_ordinaria0123456789abcdef"
+				cred.Vinculo, _ = domain.CrearVinculoAutenticacionActorV2(t.Context(), &revalidadorVinculoAplicacionAdversarial{resultado: a}, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: a.AutenticacionRef, SesionRef: a.SesionRef}, resolutorContextoAutorizacionV3Prueba{resultado: cred.ResultadoContexto}, domain.SolicitudContextoActor{Cuenta: domain.CuentaAutenticadaContextoActor{CuentaRef: a.CuentaRef, Metodo: a.MetodoObservado, Garantia: a.GarantiaObservada}, PerfilActivoRef: cred.Actor.PerfilActivoRef}, reloj)
 			case "actor ajeno":
 				otro := credencialesSegundoActorGobiernoRPT(t, e, cred)
 				cred.Actor = otro.Actor
@@ -519,5 +506,52 @@ func TestGobiernoRPTClasificaDenegacionExplicitaYFalloTecnicoDelEmisor(t *testin
 				t.Fatalf("fallo del emisor: err=%v efectos=%d emision=%d", err, gestor.llamadas, emisor.llamadas)
 			}
 		})
+	}
+}
+
+func borradorPublicarGobiernoRPTAplicacionPrueba(t *testing.T, cred CredencialesGobiernoCategoriaRPT) ports.BorradorPropuestaGobiernoCategoriaRPT {
+	t.Helper()
+	doc := domain.CatalogoConfigurable{ID: "catalogo.ejemplo", ModuloID: "bolsa", Version: 1, Revision: 1,
+		Nombre: "Categorías sintéticas", FuenteRef: "fuente:prueba", MotivoCreacion: "motivo:prueba", Estado: domain.EstadoCatalogoPublicado,
+		CreadoPor: cred.Actor.Principal.ID, CreadoEn: cred.Actor.ResueltoEn, PublicadoPor: "per_aprobadora0123456789abcdef", PublicadoEn: cred.Actor.ResueltoEn,
+		AprobacionRef: "aprobacion:prevista", MotivoPublicacion: "motivo:prueba", Entradas: []domain.EntradaCatalogoConfigurable{{Clave: "categoria.ejemplo", Etiqueta: "Ejemplo", VigenteDesde: cred.Actor.ResueltoEn, Atributos: map[string]string{"estado": "habilitada"}}}}
+	b, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	return ports.BorradorPropuestaGobiernoCategoriaRPT{PropuestaRef: "propuesta:ejemplo", ReciboRef: "recibo:ejemplo", Contenido: domain.ContenidoGobiernoCategoriaRPT{
+		Accion: domain.AccionGobiernoCategoriaRPTPublicar, CatalogoID: doc.ID, ModuloID: doc.ModuloID, Version: doc.Version, DocumentoCanonico: &s,
+		PreimagenesControl: map[string]domain.PreimagenControlGobiernoCategoriaRPT{}, MotivoRef: cred.Motivo.Referencia(), FuenteRef: doc.FuenteRef}}
+}
+
+func TestServicioGobiernoRPTUnaAprobacionYConfirmacionDesdeRevisionDos(t *testing.T) {
+	for _, accion := range []string{ports.AccionAprobarGobiernoCategoriaRPT, ports.AccionConfirmarGobiernoCategoriaRPT} {
+		for _, revision := range []int64{0, 1, 2, 3, 4} {
+			e, emisor, cred, p := entornoEmisionGobiernoRPT(t)
+			e.fuente.instantanea.VersionRol.Concesiones[0].Accion = accion
+			p.Accion = accion
+			preparador, gestor := &preparadorGobiernoRPTPrueba{avance: p}, &gestorGobiernoRPTPrueba{}
+			s, err := NuevoServicioGobiernoCategoriaRPT(preparador, emisor, gestor, &relojAutorizacionServicioPrueba{ahora: e.ahora}, e.fuente.instantanea.VersionRol.Referencia())
+			if err != nil {
+				t.Fatal(err)
+			}
+			m := materialAvanceGobiernoRPTPrueba()
+			m.RevisionEsperada = revision
+			var r ports.ResultadoGobiernoCategoriaRPT
+			if accion == ports.AccionAprobarGobiernoCategoriaRPT {
+				r, err = s.Aprobar(t.Context(), OrdenAvanzarGobiernoCategoriaRPT{cred, m})
+			} else {
+				r, err = s.Confirmar(t.Context(), OrdenAvanzarGobiernoCategoriaRPT{cred, m})
+			}
+			valida := accion == ports.AccionAprobarGobiernoCategoriaRPT && revision == 1 || accion == ports.AccionConfirmarGobiernoCategoriaRPT && revision == 2
+			if valida {
+				if err != nil || r.Revision != revision+1 || gestor.llamadas != 1 {
+					t.Fatalf("accion=%s revision=%d resultado=%+v err=%v", accion, revision, r, err)
+				}
+			} else if !errors.Is(err, ErrOrdenGobiernoCategoriaRPTInvalida) || preparador.llamadas != 0 || gestor.llamadas != 0 || e.concesiones.invocaciones != 0 {
+				t.Fatalf("CAS ilegal llegó a dependencias: accion=%s revision=%d err=%v", accion, revision, err)
+			}
+		}
 	}
 }

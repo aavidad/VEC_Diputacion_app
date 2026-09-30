@@ -167,8 +167,8 @@ func (g *GestorGobiernoCategoriaRPTPostgreSQL) materialAvance(m ports.MaterialAv
 	if !referenciaGobiernoRPTValida(m.PropuestaRef) || !referenciaGobiernoRPTValida(m.ReciboRef) ||
 		!huellaRPT.MatchString(m.HuellaSHA256) || m.CatalogoID != g.descriptor.CatalogoID ||
 		m.ModuloID != g.descriptor.ModuloID ||
-		(accion == ports.AccionAprobarGobiernoCategoriaRPT && m.RevisionEsperada != 1 && m.RevisionEsperada != 2) ||
-		(accion == ports.AccionConfirmarGobiernoCategoriaRPT && m.RevisionEsperada != 3) {
+		(accion == ports.AccionAprobarGobiernoCategoriaRPT && m.RevisionEsperada != 1) ||
+		(accion == ports.AccionConfirmarGobiernoCategoriaRPT && m.RevisionEsperada != 2) {
 		return nil, ports.ErrGobiernoCategoriaRPTInvalido
 	}
 	return serializarMaterialGobiernoRPT(m)
@@ -270,10 +270,7 @@ func (g *GestorGobiernoCategoriaRPTPostgreSQL) avanzar(ctx context.Context, o po
 		return ports.ResultadoGobiernoCategoriaRPT{}, err
 	}
 	defer borrarPiezasRPT(material)
-	revision, estado := o.Material.RevisionEsperada+1, domain.EstadoGobiernoCategoriaRPTUnaAprobacion
-	if revision == 3 {
-		estado = domain.EstadoGobiernoCategoriaRPTAprobada
-	}
+	revision, estado := o.Material.RevisionEsperada+1, domain.EstadoGobiernoCategoriaRPTAprobada
 	if accion == ports.AccionConfirmarGobiernoCategoriaRPT {
 		estado = domain.EstadoGobiernoCategoriaRPTConfirmada
 	}
@@ -326,7 +323,8 @@ func (g *GestorGobiernoCategoriaRPTPostgreSQL) validarAutorizacion(s domain.Soli
 		!bytes.Equal(motivo, a.MotivoCanonico()) ||
 		r.DecisionHuellaSHA256() != hex.EncodeToString(hDecision[:]) || r.MotivoHuellaSHA256() != hex.EncodeToString(hMotivo[:]) ||
 		r.ContextoRef() != v.RegistroContextoRef || r.ContextoHuellaSHA256() != v.ContextoActorHuellaSHA256 ||
-		hContexto != v.ContextoActorHuellaSHA256 || ctxActor.Principal.ID != v.PrincipalID ||
+		hContexto != v.ContextoActorHuellaSHA256 || ctxActor.Principal.ID != ctxActor.PersonaRef || ctxActor.Principal.ID != v.PrincipalID ||
+		v.CuentaPrivilegiada || v.Superficie != domain.SuperficieAutenticacionInternaCorporativaV1 ||
 		ctxActor.PerfilActivoRef != v.PerfilActivoRef ||
 		r.Operacion() != accion || r.AudienciaConsumo() != ports.AudienciaGobiernoCategoriaRPT ||
 		r.EfectoRef() != ref || r.EfectoHuellaSHA256() != hRecurso ||

@@ -109,7 +109,7 @@ func (correlacionGobiernoRPTPrueba) NuevaReferenciaCorrelacionAutorizacionV2(con
 const versionRolGobiernoRPTPrueba = "rol:configuracion_rpt:v1"
 
 func credencialesGobiernoRPTPrueba(t *testing.T) application.CredencialesGobiernoCategoriaRPT {
-	return credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, 0)
+	return credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionInternaCorporativaV1, 0)
 }
 
 func credencialesGobiernoRPTActorPrueba(t *testing.T, id string, superficie domain.SuperficieAutenticacionActorV1, desfase time.Duration) application.CredencialesGobiernoCategoriaRPT {
@@ -260,7 +260,7 @@ func caGobiernoRPTPrueba(t *testing.T) (*x509.CertPool, tls.Certificate, tls.Cer
 	if err != nil {
 		t.Fatal(err)
 	}
-	servidor := &x509.Certificate{SerialNumber: big.NewInt(3), Subject: pkix.Name{CommonName: "admin.ejemplo.test"}, DNSNames: []string{"admin.ejemplo.test"}, NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
+	servidor := &x509.Certificate{SerialNumber: big.NewInt(3), Subject: pkix.Name{CommonName: "rrhh.ejemplo.test"}, DNSNames: []string{"rrhh.ejemplo.test"}, NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
 	derServidor, err := x509.CreateCertificate(rand.Reader, servidor, caParseada, &claveServidor.PublicKey, claveCA)
 	if err != nil {
 		t.Fatal(err)
@@ -276,7 +276,7 @@ func caGobiernoRPTPrueba(t *testing.T) (*x509.CertPool, tls.Certificate, tls.Cer
 	return p, material, materialServidor
 }
 
-func TestGobiernoRPTConstructorDeniegaSinFronteraADMIN(t *testing.T) {
+func TestGobiernoRPTConstructorDeniegaSinFronteraRRHH(t *testing.T) {
 	op, fuente, audit := &operadorGobiernoRPTPrueba{}, &fuenteGobiernoRPTPrueba{}, &auditorGobiernoRPTPrueba{}
 	d := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
 	ca, _, _ := caGobiernoRPTPrueba(t)
@@ -290,13 +290,13 @@ func TestGobiernoRPTConstructorDeniegaSinFronteraADMIN(t *testing.T) {
 		descriptor ports.DescriptorCatalogoRPT
 		perfil     string
 	}{
-		{"operador", nil, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
-		{"fuente", op, nil, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
-		{"auditoria", op, fuente, nil, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
-		{"CA", op, fuente, audit, "admin.ejemplo.test", nil, d, versionRolGobiernoRPTPrueba},
+		{"operador", nil, fuente, audit, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
+		{"fuente", op, nil, audit, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
+		{"auditoria", op, fuente, nil, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba},
+		{"CA", op, fuente, audit, "rrhh.ejemplo.test", nil, d, versionRolGobiernoRPTPrueba},
 		{"host", op, fuente, audit, "vec.ejemplo.test:8443", ca, d, versionRolGobiernoRPTPrueba},
-		{"descriptor", op, fuente, audit, "admin.ejemplo.test", ca, ports.DescriptorCatalogoRPT{}, versionRolGobiernoRPTPrueba},
-		{"perfil", op, fuente, audit, "admin.ejemplo.test", ca, d, ""},
+		{"descriptor", op, fuente, audit, "rrhh.ejemplo.test", ca, ports.DescriptorCatalogoRPT{}, versionRolGobiernoRPTPrueba},
+		{"perfil", op, fuente, audit, "rrhh.ejemplo.test", ca, d, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rutas, err := NuevasRutasGobiernoCategoriaRPT(tc.op, tc.fuente, tc.audit, tc.host, tc.ca, tc.descriptor, tc.perfil)
@@ -307,12 +307,12 @@ func TestGobiernoRPTConstructorDeniegaSinFronteraADMIN(t *testing.T) {
 	}
 }
 
-func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
+func TestGobiernoRPTMTLSRRHHDeniegaPortalAjenoYFuenteSinPerfil(t *testing.T) {
 	ca, cert, certServidor := caGobiernoRPTPrueba(t)
 	op, fuente, audit := &operadorGobiernoRPTPrueba{}, &fuenteGobiernoRPTPrueba{err: ErrAccesoRutaExactaDenegado}, &auditorGobiernoRPTPrueba{}
 	d := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
 	actor := actorOrganizacionHistoricaPrueba(t)
-	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
 	if err != nil || len(rutas) != 3 {
 		t.Fatalf("rutas=%d error=%v", len(rutas), err)
 	}
@@ -324,8 +324,8 @@ func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
 	servidor.TLS = &tls.Config{Certificates: []tls.Certificate{certServidor}, ClientAuth: tls.VerifyClientCertIfGiven, ClientCAs: ca, MinVersion: tls.VersionTLS12}
 	servidor.StartTLS()
 	defer servidor.Close()
-	cliente := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: ca, Certificates: []tls.Certificate{cert}, ServerName: "admin.ejemplo.test", MinVersion: tls.VersionTLS12}}}
-	sinCert := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: ca, ServerName: "admin.ejemplo.test", MinVersion: tls.VersionTLS12}}}
+	cliente := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: ca, Certificates: []tls.Certificate{cert}, ServerName: "rrhh.ejemplo.test", MinVersion: tls.VersionTLS12}}}
+	sinCert := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: ca, ServerName: "rrhh.ejemplo.test", MinVersion: tls.VersionTLS12}}}
 	clave := "12345678-1234-4234-8234-123456789abc"
 	cuerpo := `{"propuesta_ref":"propuesta:ejemplo","catalogo_id":"catalogo.rpt","modulo_id":"bolsa","revision_esperada":1,"huella_sha256":"` + strings.Repeat("a", 64) + `"}`
 	enviar := func(host, cuerpoEnvio string, c *http.Client) int {
@@ -344,16 +344,16 @@ func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
 		defer resp.Body.Close()
 		return resp.StatusCode
 	}
-	if estado := enviar("admin.ejemplo.test", cuerpo, sinCert); estado != http.StatusUnauthorized {
+	if estado := enviar("rrhh.ejemplo.test", cuerpo, sinCert); estado != http.StatusUnauthorized {
 		t.Fatalf("sin certificado=%d", estado)
 	}
 	if estado := enviar("vec.ejemplo.test", cuerpo, cliente); estado != http.StatusUnauthorized {
 		t.Fatalf("portal ordinario=%d", estado)
 	}
-	if estado := enviar("admin.ejemplo.test", cuerpo, cliente); estado != http.StatusForbidden {
+	if estado := enviar("rrhh.ejemplo.test", cuerpo, cliente); estado != http.StatusForbidden {
 		t.Fatalf("fuente sin perfil=%d", estado)
 	}
-	if estado := enviar("admin.ejemplo.test", `{"actor":"falso"}`, cliente); estado != http.StatusForbidden {
+	if estado := enviar("rrhh.ejemplo.test", `{"actor":"falso"}`, cliente); estado != http.StatusForbidden {
 		t.Fatalf("actor del cuerpo con fuente denegada=%d", estado)
 	}
 	fuente.err = nil
@@ -361,7 +361,7 @@ func TestGobiernoRPTMTLSADMINDeniegaPortalNormalYFuenteSinPerfil(t *testing.T) {
 	fuente.asignacion = asignacionGobiernoRPTPrueba(t, credencialesGobiernoRPTPrueba(t))
 	fuente.cred.Actor = actor
 	fuente.cred.Actor.Principal.AuthAssurance = domain.AuthAssuranceSubstantial
-	if estado := enviar("admin.ejemplo.test", cuerpo, cliente); estado != http.StatusForbidden {
+	if estado := enviar("rrhh.ejemplo.test", cuerpo, cliente); estado != http.StatusForbidden {
 		t.Fatalf("perfil substantial=%d", estado)
 	}
 	if op.llamadas != 0 || fuente.llamadas != 3 || len(audit.codigos) != 5 {
@@ -408,8 +408,8 @@ func peticionGobiernoRPTPrueba(t *testing.T, ca *x509.CertPool, material tls.Cer
 		t.Fatal(err)
 	}
 	r := httptest.NewRequest(http.MethodPost, ruta, strings.NewReader(cuerpo))
-	r.Host = "admin.ejemplo.test"
-	r.TLS = &tls.ConnectionState{HandshakeComplete: true, Version: tls.VersionTLS13, ServerName: "admin.ejemplo.test", PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: cadenas}
+	r.Host = "rrhh.ejemplo.test"
+	r.TLS = &tls.ConnectionState{HandshakeComplete: true, Version: tls.VersionTLS13, ServerName: "rrhh.ejemplo.test", PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: cadenas}
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Idempotency-Key", "12345678-1234-4234-8234-123456789abc")
 	return r
@@ -423,7 +423,7 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 	audit := &auditorGobiernoRPTPrueba{}
 	resultado := ports.ResultadoGobiernoCategoriaRPT{PropuestaRef: "propuesta:ejemplo", ReciboRef: "12345678-1234-4234-8234-123456789abc", HuellaSHA256: strings.Repeat("a", 64), Revision: 1, Estado: "propuesta", Evidencia: ports.EvidenciaGobiernoCategoriaRPT{AuditoriaRef: "aud:prueba", ConsumoNuevo: true}}
 	op := &operadorGobiernoRPTPrueba{respuesta: resultado}
-	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,7 +438,7 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 		}
 	}
 	rOrigen := peticionGobiernoRPTPrueba(t, ca, cert, RutaProponerGobiernoCategoriaRPT, cuerpo)
-	rOrigen.Header.Set("Origin", "https://admin.ejemplo.test")
+	rOrigen.Header.Set("Origin", "https://rrhh.ejemplo.test")
 	rOrigen.Header.Set("Sec-Fetch-Site", "same-origin")
 	if estado := enviar(rOrigen); estado != http.StatusOK {
 		t.Fatalf("origen ADMIN=%d", estado)
@@ -468,7 +468,7 @@ func TestGobiernoRPTFronteraValidaYDenegacionesAuditadas(t *testing.T) {
 		{"origin cruzado", func(r *http.Request) { r.Header.Set("Origin", "https://vec.ejemplo.test") }, cuerpo, http.StatusForbidden},
 		{"origin null", func(r *http.Request) { r.Header.Set("Origin", "null") }, cuerpo, http.StatusForbidden},
 		{"origin duplicado", func(r *http.Request) {
-			r.Header["Origin"] = []string{"https://admin.ejemplo.test", "https://admin.ejemplo.test"}
+			r.Header["Origin"] = []string{"https://rrhh.ejemplo.test", "https://rrhh.ejemplo.test"}
 		}, cuerpo, http.StatusForbidden},
 		{"fetch cross site", func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") }, cuerpo, http.StatusForbidden},
 		{"clave inyectada", nil, strings.Replace(cuerpo, `"categoria.enfermeria":{`, `"categoria.enfermeria' OR 1=1 --":{`, 1), http.StatusBadRequest},
@@ -586,7 +586,7 @@ func asignacionGobiernoRPTPrueba(t *testing.T, cred application.CredencialesGobi
 		t.Fatal(err)
 	}
 	i := domain.InstantaneaAutorizacion{VersionRol: rol,
-		AsignacionPerfil: domain.AsignacionPerfil{AsignacionID: "admin:" + cred.Actor.Principal.ID, Version: 1,
+		AsignacionPerfil: domain.AsignacionPerfil{AsignacionID: "rrhh:" + cred.Actor.Principal.ID, Version: 1,
 			PrincipalID: cred.Actor.Principal.ID, PerfilActivoRef: cred.Actor.PerfilActivoRef, VersionRolRef: rol.Referencia(),
 			Estado: domain.EstadoAsignacionPerfilActiva, EmitidaPor: "autoridad:prueba", EmitidaEn: ahora.Add(-time.Hour),
 			VigenteDesde: ahora.Add(-time.Hour), VigenteHasta: ahora.Add(time.Hour),
@@ -600,11 +600,11 @@ func asignacionGobiernoRPTPrueba(t *testing.T, cred application.CredencialesGobi
 	return i
 }
 
-func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolADMIN(t *testing.T) {
+func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolRRHH(t *testing.T) {
 	ca, cert, _ := caGobiernoRPTPrueba(t)
 	actores := []application.CredencialesGobiernoCategoriaRPT{
 		credencialesGobiernoRPTPrueba(t),
-		credencialesGobiernoRPTActorPrueba(t, "abcdefghijkl0123456789", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, 0),
+		credencialesGobiernoRPTActorPrueba(t, "abcdefghijkl0123456789", domain.SuperficieAutenticacionInternaCorporativaV1, 0),
 	}
 	if actores[0].Actor.Principal.ID == actores[1].Actor.Principal.ID || actores[0].Actor.PerfilActivoRef == actores[1].Actor.PerfilActivoRef {
 		t.Fatal("el ejercicio requiere personas y perfiles distintos")
@@ -613,7 +613,7 @@ func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolADMIN(t *testing.T) 
 	fuente, audit := &fuenteGobiernoRPTPrueba{descriptor: d}, &auditorGobiernoRPTPrueba{}
 	op := &operadorGobiernoRPTPrueba{respuesta: ports.ResultadoGobiernoCategoriaRPT{PropuestaRef: "propuesta:ejemplo",
 		ReciboRef: "12345678-1234-4234-8234-123456789abc", Evidencia: ports.EvidenciaGobiernoCategoriaRPT{AuditoriaRef: "aud:prueba", ConsumoNuevo: true}}}
-	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "admin.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -644,6 +644,12 @@ func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolADMIN(t *testing.T) 
 		nombre  string
 		cambiar func()
 	}{
+		{"principal no canonico", func() { fuente.cred.Actor.Principal.ID = fuente.cred.Actor.Instantanea.CuentaRef }},
+		{"sin accion nominal", func() { fuente.asignacion.VersionRol.Concesiones = fuente.asignacion.VersionRol.Concesiones[:1] }},
+		{"ambito de otro catalogo", func() { fuente.asignacion.AsignacionPerfil.Ambitos[0].Valores = []string{"catalogo.ajeno"} }},
+		{"perfil CT", func() {
+			fuente.asignacion.AsignacionPerfil.Ambitos = []domain.AmbitoPerfil{{Clave: "organizacion", Valores: []string{"organizacion.ejemplo"}}, {Clave: "unidad", Valores: []string{"unidad.ejemplo"}}, {Clave: "expediente", Valores: []string{"expediente.ejemplo"}}}
+		}},
 		{"asignacion ajena", func() { fuente.asignacion.AsignacionPerfil.PrincipalID = actores[1].Actor.Principal.ID }},
 		{"perfil ajeno", func() { fuente.asignacion.AsignacionPerfil.PerfilActivoRef = actores[1].Actor.PerfilActivoRef }},
 		{"vinculo ajeno", func() { fuente.cred.Vinculo = actores[1].Vinculo }},
@@ -678,10 +684,10 @@ func TestGobiernoRPTAdmiteAsignacionesIndividualesAlMismoRolADMIN(t *testing.T) 
 			fuente.asignacion.AsignacionPerfil.VigenteHasta = time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
 		}},
 		{"contexto vencido", func() {
-			fuente.cred = credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, -2*time.Hour)
+			fuente.cred = credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionInternaCorporativaV1, -2*time.Hour)
 		}},
-		{"superficie ordinaria", func() {
-			fuente.cred = credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionInternaCorporativaV1, 0)
+		{"superficie ADMIN", func() {
+			fuente.cred = credencialesGobiernoRPTActorPrueba(t, "0123456789abcdefghijkl", domain.SuperficieAutenticacionAdministracionPrivilegiadaV1, 0)
 		}},
 		{"garantia insuficiente", func() { fuente.cred.Actor.Principal.AuthAssurance = domain.AuthAssuranceSubstantial }},
 	} {
@@ -770,7 +776,7 @@ func TestGobiernoRPTHTTPAuditaDenegacionOCaidaDelEmisorSinEfectos(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			rutas, err := NuevasRutasGobiernoCategoriaRPT(servicio, fuente, auditor, "admin.ejemplo.test", ca, descriptor, versionRolGobiernoRPTPrueba)
+			rutas, err := NuevasRutasGobiernoCategoriaRPT(servicio, fuente, auditor, "rrhh.ejemplo.test", ca, descriptor, versionRolGobiernoRPTPrueba)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -780,5 +786,22 @@ func TestGobiernoRPTHTTPAuditaDenegacionOCaidaDelEmisorSinEfectos(t *testing.T) 
 				t.Fatalf("estado=%d auditoria=%v audit_cancelado=%t efectos=%d", w.Code, auditor.codigos, auditor.ctxCancelado, dependencias.efectos)
 			}
 		})
+	}
+}
+
+func TestGobiernoRPTSinMotivoNominalRRHHNoProduceEfecto(t *testing.T) {
+	ca, cert, _ := caGobiernoRPTPrueba(t)
+	cred := credencialesGobiernoRPTPrueba(t)
+	d := ports.DescriptorCatalogoRPT{CatalogoID: "catalogo.rpt", ModuloID: "bolsa"}
+	fuente := &fuenteGobiernoRPTPrueba{cred: cred, descriptor: d, asignacion: asignacionGobiernoRPTPrueba(t, cred), err: ports.ErrGobiernoCategoriaRPTNoDisponible}
+	op, audit := &operadorGobiernoRPTPrueba{}, &auditorGobiernoRPTPrueba{}
+	rutas, err := NuevasRutasGobiernoCategoriaRPT(op, fuente, audit, "rrhh.ejemplo.test", ca, d, versionRolGobiernoRPTPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	rutas[1].Manejador.ServeHTTP(w, peticionGobiernoRPTPrueba(t, ca, cert, RutaAprobarGobiernoCategoriaRPT, `{"propuesta_ref":"propuesta:ejemplo","catalogo_id":"catalogo.rpt","modulo_id":"bolsa","revision_esperada":1,"huella_sha256":"`+strings.Repeat("a", 64)+`"}`))
+	if w.Code != http.StatusServiceUnavailable || op.llamadas != 0 || len(audit.codigos) != 1 {
+		t.Fatalf("estado=%d efectos=%d auditoria=%v", w.Code, op.llamadas, audit.codigos)
 	}
 }
