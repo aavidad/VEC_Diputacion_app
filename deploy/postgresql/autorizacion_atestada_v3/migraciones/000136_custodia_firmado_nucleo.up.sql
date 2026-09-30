@@ -11,7 +11,7 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migr
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $nucleo$
 DECLARE
- f regprocedure:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ f regprocedure:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  w regprocedure;
  original text; nuevo text; actual text; fuente text; meta jsonb; deps jsonb; deps_compartidas jsonb;
  acl aclitem[]; propietario oid; f_inicial oid;
@@ -36,6 +36,9 @@ DECLARE
     AND d->'campos_permitidos' IS NOT DISTINCT FROM '["documento_firmado.custodia","evidencia_custodia"]'::jsonb)
  ))$x$;
 BEGIN
+ IF f IS NULL THEN
+  RAISE EXCEPTION 'AD3-136: núcleo V3 ausente' USING ERRCODE='55000';
+ END IF;
  w:=to_regprocedure('vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)');
  -- El propietario AD3 carece de USAGE en vec_documentos. Resolver el nombre
  -- mediante regprocedure exigiría ese permiso; el catálogo permite comprobar
@@ -99,8 +102,7 @@ BEGIN
  THEN RAISE EXCEPTION 'AD3-136: AD3-113 o Documentos9 incompatible' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),p.prosrc,to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.oid
    INTO STRICT original,fuente,meta,acl,propietario,f_inicial
-   FROM pg_proc p WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
-      AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'];
+   FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
    INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.dbid,d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.deptype),'[]'::jsonb)
@@ -109,6 +111,10 @@ BEGIN
      AND d.classid='pg_proc'::regclass AND d.objid=f;
  IF encode(sha256(convert_to(original,'UTF8')),'hex') IS DISTINCT FROM esperada_def_sha256
     OR encode(sha256(convert_to(fuente,'UTF8')),'hex') IS DISTINCT FROM esperada_fuente_sha256
+    OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=f
+         AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
+         AND p.prokind='f' AND p.provolatile='v' AND p.proparallel='u'
+         AND p.prosecdef AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=2s'])
     OR EXISTS (SELECT 1 FROM pg_database db
          CROSS JOIN LATERAL aclexplode(coalesce(db.datacl,acldefault('d',db.datdba))) a
          WHERE db.datname=current_database() AND a.grantee=0 AND a.privilege_type='TEMPORARY')
