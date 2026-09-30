@@ -98,7 +98,8 @@ func solicitudAutorizacionCustodiaFirmadoCTDesarrolloValida(ctx context.Context,
 // Documentos: custodiar el PDF firmado, nada más.
 func concesionCustodiaFirmadoCTDesarrollo() dominiovec.ConcesionRol {
 	return dominiovec.ConcesionRol{Accion: docports.AccionCustodiarFirmado, ModuloID: "documentos", TipoRecurso: "documento_firmado",
-		Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh}
+		Finalidades: []string{docports.FinalidadCustodiarFirmado}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+		CamposPermitidos: []string{"documento_firmado.custodia", "evidencia_custodia"}}
 }
 
 // pdpCustodiaCTDesarrollo es lo que la custodia necesita del PDP de CT: la
@@ -228,7 +229,15 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 	}
 	s := f.alta.soporte
 	capacidad, valida := s.capacidadValida(ctx)
-	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || s.perfilFijoParaContexto(ctx, capacidad.ruta) == nil {
+	perfil := s.perfilFijoParaContexto(ctx, capacidad.ruta)
+	if !valida || capacidad.ruta != httpinterno.RutaFirmaDocumento || perfil == nil {
+		return vacia, errCustodiaFirmadoCTDenegada
+	}
+	_, estadoPerfil := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+	if estadoPerfil == perfilFijoConsumoFuenteNoDisponible {
+		return vacia, docports.ErrCapacidadNoDisponible
+	}
+	if estadoPerfil != perfilFijoConsumoVigente {
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, seguridad.GeneradorReferenciasCriptograficas{})
@@ -241,6 +250,9 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 	}
 	operativo, err := s.contextoOperativoDesarrollo(ctx)
 	if err != nil {
+		if errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+			return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
+		}
 		return vacia, errCustodiaFirmadoCTDenegada
 	}
 	actor, err := operativo.Vinculo.Datos()
@@ -263,6 +275,18 @@ func (f *firmaDocumentoCTDesarrollo) solicitarCustodiaV3(ctx context.Context, re
 	if err != nil {
 		if ctx.Err() != nil {
 			return vacia, ctx.Err()
+		}
+		if errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+			_, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+			if estado == perfilFijoConsumoDenegado {
+				return vacia, errCustodiaFirmadoCTDenegada
+			}
+			return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
+		}
+		if errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
+			return vacia, errors.Join(docports.ErrCapacidadNoDisponible, err)
 		}
 		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
 			return vacia, errCustodiaFirmadoCTDenegada
