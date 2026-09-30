@@ -1,0 +1,4 @@
+# H1 + H3/H4 + paquete H6/41 antes de esta lista.
+# Publicación de base aprobada con admisión detenida antes de activar POST.
+deploy/postgresql/contratacion_temporal/migraciones/000157_instantanea_plazo_fase.up.sql
+deploy/postgresql/contratacion_temporal/migraciones/000158_activacion_ajustes_reglas.up.sql
