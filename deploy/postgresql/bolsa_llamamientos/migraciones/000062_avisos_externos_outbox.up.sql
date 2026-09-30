@@ -174,11 +174,13 @@ BEGIN
  -- revocación o ambigüedad no activan el circuito interno ni SMTP local.
  IF n=0 OR n<>jsonb_array_length(previo.participaciones)
  THEN RAISE EXCEPTION 'B62: emision no totalmente externa' USING ERRCODE='42501'; END IF;
- SELECT jsonb_agg(jsonb_build_object('participacion_ref',x.ref,'resultado',CASE despacho.estado WHEN 'aceptado' THEN 'enviado' WHEN 'no_aceptado' THEN 'no_enviado' WHEN 'sin_destino' THEN 'no_enviado' ELSE 'aviso_pendiente' END,'recibo_ref',o.recibo_outbox_ref) ORDER BY x.n)
+ SELECT jsonb_agg(jsonb_build_object('participacion_ref',x.ref,'resultado',CASE despacho.estado WHEN 'aceptado' THEN 'enviado' WHEN 'no_aceptado' THEN 'no_enviado' WHEN 'sin_destino' THEN 'no_enviado' ELSE 'aviso_pendiente' END,'recibo_ref',CASE WHEN despacho.estado IN('aceptado','no_aceptado','sin_destino') THEN c.recibo_ref ELSE o.recibo_outbox_ref END) ORDER BY x.n)
   INTO contactos FROM jsonb_array_elements_text(previo.participaciones) WITH ORDINALITY x(ref,n)
   JOIN vec_bolsa_llamamientos.aviso_externo_outbox o ON o.llamamiento_ref=previo.llamamiento_ref AND o.participacion_ref=x.ref
-  LEFT JOIN LATERAL (SELECT r.estado FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=o.productor_ref AND r.evento_ref=o.evento_ref ORDER BY r.version DESC LIMIT 1) despacho ON true;
- -- Proyección del hecho durable de cola; no crea contacto ni declara SMTP.
+  LEFT JOIN LATERAL (SELECT r.estado FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=o.productor_ref AND r.evento_ref=o.evento_ref ORDER BY r.version DESC LIMIT 1) despacho ON true
+  LEFT JOIN vec_bolsa_llamamientos.contacto_participacion c ON c.llamamiento_ref=previo.llamamiento_ref AND c.participacion_ref=x.ref AND c.clave_idempotencia=previo.clave_idempotencia||':correo:'||x.n AND c.recibo_ref='recibo:contacto:'||encode(sha256(convert_to(previo.bolsa_ref||chr(31)||previo.clave_idempotencia||chr(31)||x.ref,'UTF8')),'hex');
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(contactos) c WHERE c.value->>'recibo_ref' IS NULL) THEN RAISE EXCEPTION 'B62: contacto terminal ausente' USING ERRCODE='55000'; END IF;
+ -- Proyección de cola y resultados; no despacha correo desde la reserva.
  resultado:=reservado.emision||jsonb_build_object('contactos',contactos,'estado','emitido_pendiente_respuesta');
  RETURN QUERY SELECT resultado||jsonb_build_object('avisos_externos',vec_bolsa_llamamientos.avisos_externos_llamamiento_v1(p_bolsa,p_clave)),reservado.reutilizada;
 END $f$;
@@ -231,7 +233,7 @@ BEGIN
   RETURN QUERY SELECT NULL::jsonb,NULL::text,ref,'22023'::text; RETURN;
  END IF;
  FOR fila IN SELECT o.evento,o.huella_sha256,o.productor_ref,o.evento_ref FROM vec_bolsa_llamamientos.aviso_externo_outbox o
-  WHERE NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_aceptacion a WHERE a.productor_ref=o.productor_ref AND a.evento_ref=o.evento_ref)
+  WHERE NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=o.productor_ref AND r.evento_ref=o.evento_ref AND r.estado IN('aceptado','no_aceptado','sin_destino'))
   ORDER BY o.registrada_en,o.productor_ref,o.evento_ref LIMIT p_limite LOOP
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('extraer',fila.productor_ref,fila.evento_ref,NULL,fila.huella_sha256,1,'extraido',fila.evento->>'correlacion_ref');
   n:=n+1; RETURN QUERY SELECT fila.evento,fila.huella_sha256,ref,NULL::text;
@@ -278,22 +280,59 @@ BEGIN
  ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('aceptar',p_productor,p_evento,p_recibo,p_huella,1,'aceptado',original.evento->>'correlacion_ref');
  RETURN QUERY SELECT true,ref,NULL::text;
 END $f$;
+-- Proyección privada de un resultado terminal ya registrado. No recibe actor,
+-- bolsa, ordinal ni datos de persona del trabajador; todo procede de la emisión.
+-- La finalización B7 pública conserva su token original y su lote completo.
+CREATE FUNCTION vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(p_productor text,p_evento text)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+ SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
+DECLARE o record; l record; r record; previo record; ordinal bigint;
+ v_huella text; v_contacto text; v_recibo text; v_clave text; v_resultado text;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' THEN RAISE EXCEPTION 'B62: proyeccion privada' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT o FROM vec_bolsa_llamamientos.aviso_externo_outbox WHERE productor_ref=p_productor AND evento_ref=p_evento;
+ SELECT * INTO STRICT l FROM vec_bolsa_llamamientos.llamamiento_emitido WHERE llamamiento_ref=o.llamamiento_ref;
+ -- Mismo bloqueo y mismo orden que la finalización B7, antes del evento.
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:emision:'||l.bolsa_ref||':'||l.clave_idempotencia,0));
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.aviso_externo_resultado WHERE productor_ref=p_productor AND evento_ref=p_evento AND estado IN('aceptado','no_aceptado','sin_destino');
+ SELECT x.n INTO STRICT ordinal FROM jsonb_array_elements_text(l.participaciones) WITH ORDINALITY x(ref,n) WHERE x.ref=o.participacion_ref;
+ IF r.huella_sha256 IS DISTINCT FROM o.huella_sha256 THEN RAISE EXCEPTION 'B62: resultado divergente' USING ERRCODE='VBE01'; END IF;
+ v_huella:=encode(sha256(convert_to(l.bolsa_ref||chr(31)||l.clave_idempotencia||chr(31)||o.participacion_ref,'UTF8')),'hex');
+ v_contacto:='contacto:'||v_huella; v_recibo:='recibo:contacto:'||v_huella;
+ v_clave:=l.clave_idempotencia||':correo:'||ordinal;
+ v_resultado:=CASE r.estado WHEN 'aceptado' THEN 'enviado' ELSE 'no_enviado' END;
+ -- Detectar también colisiones de las otras claves, sin ON CONFLICT que oculte
+ -- una preimagen distinta. registrada_en es la fecha técnica de la única alta.
+ FOR previo IN SELECT * FROM vec_bolsa_llamamientos.contacto_participacion c
+  WHERE c.contacto_ref=v_contacto OR c.recibo_ref=v_recibo OR (c.participacion_ref=o.participacion_ref AND c.clave_idempotencia=v_clave) LOOP
+  IF ROW(previo.contacto_ref,previo.bolsa_ref,previo.participacion_ref,previo.llamamiento_ref,previo.canal,previo.instante,previo.actor,previo.resultado,previo.anotacion,previo.clave_idempotencia,previo.recibo_ref)
+   IS DISTINCT FROM ROW(v_contacto,l.bolsa_ref,o.participacion_ref,l.llamamiento_ref,'correo'::text,l.emitido_en,l.actor_ref,v_resultado,o.evento_ref,v_clave,v_recibo)
+  THEN RAISE EXCEPTION 'B62: contacto terminal divergente' USING ERRCODE='VBE01'; END IF;
+  RETURN;
+ END LOOP;
+ INSERT INTO vec_bolsa_llamamientos.contacto_participacion(contacto_ref,bolsa_ref,participacion_ref,llamamiento_ref,canal,instante,actor,resultado,anotacion,clave_idempotencia,recibo_ref)
+ VALUES(v_contacto,l.bolsa_ref,o.participacion_ref,l.llamamiento_ref,'correo',l.emitido_en,l.actor_ref,v_resultado,o.evento_ref,v_clave,v_recibo);
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(text,text) FROM PUBLIC,vec_bolsa_avisos_externos_consumidor,vec_bolsa_llamamientos_ejecutor,vec_bolsa_llamamientos_portal_externo;
+
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_resultado_aviso_externo_v1(p_productor text,p_evento text,p_huella text,p_recibo text,p_estado text)
 RETURNS TABLE(registrada boolean,auditoria_ref text,error_codigo text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
  SET search_path=pg_catalog,pg_temp SET row_security=on SET lock_timeout='2s' SET statement_timeout='10s' AS $f$
-DECLARE original record; ultimo record; existente record; v_version bigint; ref text;
+DECLARE original record; emision record; ultimo record; existente record; v_version bigint; ref text;
 BEGIN
  PERFORM vec_bolsa_llamamientos.exigir_consumidor_avisos_externos_v1();
  IF p_productor IS NULL OR p_productor !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{0,191}$' OR p_evento IS NULL OR p_evento !~ '^evento_aviso:[0-9a-f]{64}$' OR p_huella IS NULL OR p_huella !~ '^[0-9a-f]{64}$' OR p_recibo IS NULL OR p_recibo !~ '^aviso_recibo:[0-9a-f]{32}$' OR p_estado IS NULL OR p_estado NOT IN('aceptado','no_aceptado','sin_destino','reservado_incierto') THEN
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',NULL,NULL,NULL,NULL,0,'denegado',NULL);
   RETURN QUERY SELECT false,ref,'22023'::text; RETURN;
  END IF;
- PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:resultado-aviso:'||p_productor||':'||p_evento,0));
  SELECT * INTO original FROM vec_bolsa_llamamientos.aviso_externo_outbox o WHERE o.productor_ref=p_productor AND o.evento_ref=p_evento;
  IF NOT FOUND THEN
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',NULL,NULL,NULL,NULL,0,'denegado',NULL);
   RETURN QUERY SELECT false,ref,'VBE01'::text; RETURN;
  END IF;
+ SELECT * INTO STRICT emision FROM vec_bolsa_llamamientos.llamamiento_emitido l WHERE l.llamamiento_ref=original.llamamiento_ref;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:emision:'||emision.bolsa_ref||':'||emision.clave_idempotencia,0));
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:resultado-aviso:'||p_productor||':'||p_evento,0));
  IF original.huella_sha256 IS DISTINCT FROM p_huella THEN
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',p_productor,p_evento,NULL,original.huella_sha256,1,'denegado',original.evento->>'correlacion_ref');
   RETURN QUERY SELECT false,ref,'VBE01'::text; RETURN;
@@ -301,7 +340,16 @@ BEGIN
  SELECT * INTO ultimo FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=p_productor AND r.evento_ref=p_evento ORDER BY r.version DESC LIMIT 1;
  SELECT * INTO existente FROM vec_bolsa_llamamientos.aviso_externo_resultado r WHERE r.productor_ref=p_productor AND r.evento_ref=p_evento AND r.recibo_externo_ref=p_recibo AND r.estado=p_estado;
  IF FOUND THEN
+  IF existente.huella_sha256 IS DISTINCT FROM p_huella THEN RAISE EXCEPTION 'B62: replay de resultado divergente' USING ERRCODE='VBE01'; END IF;
+  IF ultimo.estado IN('aceptado','no_aceptado','sin_destino') THEN PERFORM vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(p_productor,p_evento); END IF;
   ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',p_productor,p_evento,p_recibo,p_huella,existente.version,'replay',original.evento->>'correlacion_ref');
+  RETURN QUERY SELECT true,ref,NULL::text; RETURN;
+ END IF;
+ -- Una observación incierta tardía del mismo recibo no degrada el terminal,
+ -- aunque no hubiese quedado una observación incierta anterior en Bolsa.
+ IF ultimo.estado IN('aceptado','no_aceptado','sin_destino') AND p_estado='reservado_incierto' AND ultimo.recibo_externo_ref=p_recibo THEN
+  PERFORM vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(p_productor,p_evento);
+  ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',p_productor,p_evento,p_recibo,p_huella,ultimo.version,'replay',original.evento->>'correlacion_ref');
   RETURN QUERY SELECT true,ref,NULL::text; RETURN;
  END IF;
  IF ultimo.version IS NOT NULL AND (ultimo.recibo_externo_ref IS DISTINCT FROM p_recibo OR (ultimo.estado<>'reservado_incierto' AND ultimo.estado IS DISTINCT FROM p_estado)) THEN
@@ -310,6 +358,7 @@ BEGIN
  END IF;
  v_version:=coalesce(ultimo.version,0)+1;
  INSERT INTO vec_bolsa_llamamientos.aviso_externo_resultado(productor_ref,evento_ref,version,huella_sha256,recibo_externo_ref,estado) VALUES(p_productor,p_evento,v_version,p_huella,p_recibo,p_estado);
+ IF p_estado IN('aceptado','no_aceptado','sin_destino') THEN PERFORM vec_bolsa_llamamientos.proyectar_contacto_aviso_externo_v1(p_productor,p_evento); END IF;
  ref:=vec_bolsa_llamamientos.auditar_operacion_aviso_externo_v1('resultado',p_productor,p_evento,p_recibo,p_huella,v_version,p_estado,original.evento->>'correlacion_ref');
  RETURN QUERY SELECT true,ref,NULL::text;
 END $f$;
