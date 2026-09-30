@@ -1,5 +1,56 @@
 # Recorridos pendientes de manual
 
+## Clon H6: resultados observados — 30/09/2026
+
+El clon compartido usa la fuente `main@ab875bb8036af59e9b5ac624d6840b8581178ed2`
+y el artefacto aprobado de SHA256
+`f8f6bed987f5b4de3fae5d40a06c43dbdc5b292856ec02492b26696b4eb0a41c`.
+Conserva 41 recibos SQL: las 39 instalaciones anteriores y CT150/CT151.
+Las cuatro instalaciones RPT retenidas están excluidas; sus JSON públicos se
+cotejan con la misma fuente Git. El archivo y la petición de la copia anterior
+se conservan por separado.
+
+Chrome ha registrado una petición nueva, su ratificación por otra identidad y
+el alta de RRHH `2026/CT-000136`, en versión 1. Las respuestas iniciales fueron
+`200`, `200` y `201`. El primer replay devolvió `200` con el mismo recibo.
+Tras reiniciar la aplicación y PostgreSQL del clon, la consulta, el replay de
+RRHH y los dos replays del centro devolvieron `200`: conservaron referencias,
+fechas, versiones y los siete campos del recibo de alta. La consulta muestra
+una sola entrega de esta petición.
+
+Las ocho capturas reales de 1440 y 390 píxeles se conservan fuera de Git.
+El recorrido registró cero errores JavaScript, cookies, almacenamiento web y
+desbordamiento horizontal. Los 41 recibos SQL mantuvieron la misma huella antes
+y después del recorrido. La recuperación comprobada corresponde a este caso;
+no se atribuye a la petición de la copia anterior.
+
+Este corte acredita el puente de centro a RRHH. El expediente aún debe recorrer
+análisis, informe, fiscalización y los pasos posteriores. No acredita firma,
+envío corporativo ni cierre. Dirección debe confirmar un proceso completo
+antes de publicar su manual. Los campos del recibo y del detalle aún muestran
+referencias técnicas; las operaciones de incorporación del centro no se han
+recorrido y su lectura observada devuelve `404`.
+
+| Recorrido | Resultado observado en H6 | Punto pendiente |
+| --- | --- | --- |
+| Accesos | Las lecturas permitidas devuelven `200` y las denegaciones de los perfiles separados, `403`. RRHH recibe un catálogo de siete módulos que incluye Contratación temporal. | El candidato externo necesita su propio proceso y autoridad. No se sustituye por RRHH ni por Intervención. |
+| Centro → RRHH | Petición v1, ratificación v2 y alta `2026/CT-000136` confirmadas; recibos recuperados tras reiniciar aplicación y PostgreSQL. | Continuar el mismo expediente. Incorporación del centro sin recorrer; su lectura observada devuelve `404`. |
+| Análisis e informe | El expediente nuevo permanece en versión 1. La entrada de Contratación se detiene antes de presentar el formulario. | Los manifiestos web de esta fuente omiten los dos catálogos de textos de plazos, aunque los archivos existen. Sus solicitudes reciben `404`; no se ha registrado análisis ni informe. |
+| Intervención | La entrada responde `200` y la consulta reservada a RRHH se deniega con `403`. La pantalla de Contratación no carga sus controles. | No hay informe jurídico del caso nuevo: favorable, reparo y subsanación no ejecutados. La lectura de la entrada no acredita esos actos. |
+| Llamamiento y respuesta | Se ha comprobado la entrada interna; la consulta de bolsas devuelve `503`. | Falta precisar esa causa y disponer del antecedente fiscalizado. La respuesta del candidato externo sigue pendiente de su propia autoridad. |
+| Propuesta, documentos y firma | Doce descargas por API recuperan los seis borradores históricos, con las mismas huellas a 1440 y 390 píxeles. La pantalla no ofrece sus botones porque falla la carga de textos. | Circuito de firma `503` y seguimiento `404`; incorporación y cierre no ejecutados. Las descargas no acreditan firma ni el proceso completo. |
+| Bolsa y ofertas | La consulta interna de bolsas devuelve `503`; todavía no se ha acreditado su causa. | Publicación, respuesta, avisos, envío masivo, adjudicación y cierre no ejecutados en esta revisión. |
+| Área personal | El recorrido de centro consulta las preferencias propias de RRHH con `200`. Las demás lecturas internas anteriores se conservan en la sección histórica. | No acredita el Área personal del candidato, sus cambios, correo verificado, «Mi bolsa» ni «Mi ficha». El proceso externo sigue pendiente. |
+
+El primer catálogo de cuatro módulos que se anotó durante el diagnóstico
+pertenecía al actor denegado, no a RRHH. Contratación sí figura en el catálogo
+positivo. El fallo de su pantalla corresponde a los textos omitidos del
+manifiesto; no se atribuye a un permiso ni a un registro de módulo ausente.
+
+Las lecturas pueden dejar auditoría de acceso. «Sin actuación de negocio» no
+significa que la base permanezca sin nuevas entradas de auditoría. El sembrador
+es opcional para H6 y no se usa para inventar los antecedentes que faltan.
+
 ## Comprobación del 30/09/2026
 
 Se han observado ocho recorridos con Chrome en el clon sintético de

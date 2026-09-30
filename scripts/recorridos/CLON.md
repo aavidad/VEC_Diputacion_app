@@ -20,8 +20,9 @@ anterior conserva su plan de 38; no se le atribuyen instalaciones posteriores.
 El plan de `890b3fe0e9f9e30e249b9dc2d3778971121a8cc2` contiene 43 entradas.
 Dirección ha retenido su primera instalación de RPT para corregir la fuente.
 El guion solo permite recuperar esa versión si sus 43 recibos exactos ya están
-en la copia; no la instala sobre H1 ni sobre un prefijo incompleto. El último
-punto reconstruible aprobado es `3be3110e6d4a8389aed5a496c0b6d1bd805b7723`,
+en la copia; no la instala sobre H1 ni sobre un prefijo incompleto. Para esa
+línea retenida, el último punto reconstruible aprobado es
+`3be3110e6d4a8389aed5a496c0b6d1bd805b7723`,
 con 39 instalaciones. La fuente corregida requiere una revisión y una copia fría
 distinta; la versión retenida conserva su historia, sin DOWN ni reaplicación.
 
@@ -88,33 +89,28 @@ detiene ese perfil.
 
 ## Preparar
 
-Desde un checkout que contenga estos guiones:
+Para el corte H6 congelado, configure primero la referencia y el artefacto.
+Sustituya la ruta del binario por la del kit aprobado y elija un estado privado
+y un nombre de contenedor nuevos. Desde un checkout que contenga estos guiones:
 
 ```bash
 git fetch origin
-export VEC_RECORRIDOS_REFERENCIA=origin/main
+export VEC_RECORRIDOS_REFERENCIA=ab875bb8036af59e9b5ac624d6840b8581178ed2
 export VEC_RECORRIDOS_ESTADO="$HOME/.local/state/vec-recorridos"
 export VEC_RECORRIDOS_CONTENEDOR=vec-recorridos-local
 export VEC_RECORRIDOS_PUERTO_PG=55531
 export VEC_RECORRIDOS_PUERTO_WEB=18531
 export VEC_RECORRIDOS_PUERTO_SMTP=11025
 export VEC_RECORRIDOS_PUERTO_CORREO_WEB=18532
+export VEC_RECORRIDOS_ARTEFACTO_APROBADO=/ruta/privada/kit-h6/vec-server
+export VEC_RECORRIDOS_ARTEFACTO_APROBADO_SHA256=f8f6bed987f5b4de3fae5d40a06c43dbdc5b292856ec02492b26696b4eb0a41c
+export VEC_RECORRIDOS_ARTEFACTO_APROBADO_FUENTE=ab875bb8036af59e9b5ac624d6840b8581178ed2
 bash scripts/recorridos/preparar_clon.sh plan
 bash scripts/recorridos/preparar_clon.sh preparar
 ```
 
-Para repetir el corte H6 congelado, sustituya la referencia por
-`ab875bb8036af59e9b5ac624d6840b8581178ed2` y elija un estado privado y un
-nombre de contenedor nuevos. El archivo H1 y su material original se
+El archivo H1 y su material original se
 conservan. La preparación no usa la base de 43 instalaciones como origen.
-
-Indique también el binario aprobado del kit, su huella y su fuente:
-
-```bash
-export VEC_RECORRIDOS_ARTEFACTO_APROBADO=/ruta/privada/kit-h6/vec-server
-export VEC_RECORRIDOS_ARTEFACTO_APROBADO_SHA256=f8f6bed987f5b4de3fae5d40a06c43dbdc5b292856ec02492b26696b4eb0a41c
-export VEC_RECORRIDOS_ARTEFACTO_APROBADO_FUENTE=ab875bb8036af59e9b5ac624d6840b8581178ed2
-```
 
 Las tres variables se proporcionan juntas. El runtime valida el archivo y
 su procedencia antes de copiarlo al estado propio. El kit permanece fuera
@@ -210,6 +206,44 @@ El registro distingue el commit del binario de `sql_fuente_aprobada` y conserva
 las huellas del plan SQL, del inventario completo y de la configuración.
 Su publicación vuelve a cotejar los bytes del binario y exige que la fuente
 verificada por el instalador sea la del proceso activo.
+
+## Comprobar el preparador sin servicios
+
+Las pruebas usan fixtures nuevos, sin Docker, PostgreSQL ni acceso a la red.
+La prueba SQL necesita los bytes congelados de H6, incluidos los cuatro archivos
+retenidos. Genere esa fuente desde los objetos Git locales; no use una copia
+privada cuyo origen no pueda reconstruirse:
+
+```bash
+repo_focal=$(git rev-parse --show-toplevel)
+fuente_sql_focal=$(mktemp -d /tmp/vec-h6-sql-focal-XXXXXXXX)
+git archive 5694d2da15e19fa97afecae51e1a30ce21d5fca5 | tar -x -C "$fuente_sql_focal"
+timeout 180s bwrap --die-with-parent --new-session --unshare-net \
+  --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --ro-bind /bin /bin \
+  --dir /etc --ro-bind /etc/passwd /etc/passwd --ro-bind /etc/group /etc/group \
+  --ro-bind /etc/ssl/openssl.cnf /etc/ssl/openssl.cnf \
+  --ro-bind "$(realpath "$(command -v awk)")" /etc/alternatives/awk \
+  --ro-bind "$repo_focal" /source --ro-bind "$fuente_sql_focal" /fixtures \
+  --tmpfs /tmp --dev /dev --proc /proc --clearenv \
+  --setenv PATH /usr/bin:/bin --setenv HOME /tmp --setenv TMPDIR /tmp \
+  --setenv PYTHONDONTWRITEBYTECODE 1 --setenv PYTHONPATH /source \
+  --setenv LANG C.UTF-8 --setenv GIT_CONFIG_NOSYSTEM 1 \
+  --setenv VEC_CLON_SQL_TEST_REPO /fixtures --chdir /source \
+  /usr/bin/prlimit --cpu=120 --as=1610612736 --nproc=128 --fsize=67108864 -- \
+  /usr/bin/python3 -c '
+import importlib.util, sys, unittest
+modules = ["test_clon_material", "test_clon_interno_material", "test_clon_runtime", "test_clon_rotacion_interna", "test_clon_usuarios_h4", "test_preparar_clon"]
+suite = unittest.defaultTestLoader.loadTestsFromNames(["scripts.recorridos." + name for name in modules])
+spec = importlib.util.spec_from_file_location("sql_tests", "/source/scripts/recorridos/clon_sql.test.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(module))
+sys.exit(not unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful())'
+```
+
+El directorio temporal contiene solo la fuente Git y se puede retirar después
+de revisar el resultado. Los archivos de fixture y las claves ficticias se
+crean en el temporal aislado del sandbox. No se ejecuta ninguna migración.
 
 ## Retirar lo propio
 
