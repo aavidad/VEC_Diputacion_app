@@ -122,17 +122,35 @@ def read_owned(directory, name, limit=16384):
         os.close(fd)
 
 
-def metadata(directory, state, receipt, request):
-    raw = read_owned(directory, 'clon.json')
-    value = json.loads(raw, object_pairs_hook=clon_h6_kit.unique)
-    expected = {'propietario': 'Codex-M', 'estado': str(state),
-                'contenedor': receipt['pg_container_id'], 'puerto_pg': 5432, 'commit': SOURCE}
-    require(isinstance(value, dict) and all(value.get(key) == item for key, item in expected.items()),
-            'clone_inventory_mismatch')
-    require(type(value['puerto_pg']) is int, 'clone_inventory_mismatch')
-    if 'identidad_clon' in value:
-        require(value['identidad_clon'] == request.approved_restore_receipt_sha256, 'clone_identity_mismatch')
-    return clon_sql.sha(raw)
+def h1_records(directory, receipt, request):
+    """Bind the approved receipt to existing H1 records in the retained state.
+
+    H1 never emits clon.json; the later material orchestrator owns that file.
+    Live owner/state labels and volume identity remain DockerDB/H6Kit authority.
+    """
+    names = ('h1-restore.json', 'h1-restore-pending.json', 'h1-volume.json', 'h1-container.json')
+    raw = {name: read_owned(directory, name) for name in names}
+    require(clon_sql.sha(raw[names[0]]) == request.approved_restore_receipt_sha256
+            and raw[names[0]] == clon_h6_kit.canonical(receipt), 'h1_receipt_state_mismatch')
+    values = {name: json.loads(data, object_pairs_hook=clon_h6_kit.unique) for name, data in raw.items()}
+    require(all(isinstance(value, dict) and raw[name] == clon_h6_kit.canonical(value)
+                for name, value in values.items()), 'h1_records_noncanonical')
+    pending, volume, container = (values[name] for name in names[1:])
+    require(set(pending) == {'version', 'kind', 'run_id', 'estado_h1_sha', 'pg_image_id'}
+            and type(pending['version']) is int and pending['version'] == 1
+            and pending['kind'] == 'h1_restore_pending'
+            and isinstance(pending['run_id'], str)
+            and re.fullmatch(r'[0-9a-f]{32}', pending['run_id']) is not None
+            and pending['estado_h1_sha'] == request.approved_h1_sha256
+            and pending['pg_image_id'] == receipt['pg_image_id'], 'h1_pending_mismatch')
+    require(set(volume) == {'run_id', 'path', 'device', 'inode'}
+            and volume['run_id'] == pending['run_id'] and volume['path'] == receipt['pg_volume']
+            and type(volume['device']) is int and volume['device'] >= 0
+            and type(volume['inode']) is int and volume['inode'] > 0, 'h1_volume_mismatch')
+    require(set(container) == {'run_id', 'pg_container_id'}
+            and container['run_id'] == pending['run_id']
+            and container['pg_container_id'] == receipt['pg_container_id'], 'h1_container_mismatch')
+    return clon_sql.sha(clon_h6_kit.canonical({name: clon_sql.sha(data) for name, data in raw.items()}))
 
 
 @contextmanager
@@ -150,11 +168,11 @@ def installer_lock(directory):
         os.close(fd)
 
 
-def reserve_attempt(directory, request, plan, receipt, image, inventory_sha):
+def reserve_attempt(directory, request, plan, receipt, image, h1_records_sha):
     record = {'version': 1, 'kind': 'sql62_attempt_reserved', 'source_ref': SOURCE,
               'restore_receipt_sha256': request.approved_restore_receipt_sha256,
               'plan_sha256': plan['plan_sha'], 'package_sha256': plan['package_sha'],
-              'lock_sha256': plan['lock_sha'], 'clon_sha256': inventory_sha,
+              'lock_sha256': plan['lock_sha'], 'h1_records_sha256': h1_records_sha,
               'pg_container_id': receipt['pg_container_id'], 'pg_image_id': image}
     data = clon_h6_kit.canonical(record)
     fd = os.open(ATTEMPT, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
@@ -184,7 +202,7 @@ def install(request, state, expected_image_id):
     for path in (request.package_tar, request.release_lock, request.h1_state_file,
                  request.git_repo, request.restore_receipt, request.normalizer_path, request.guiones_manifest):
         canonical_path(path)
-    require(Path(request.restore_receipt).parent == state, 'restore_receipt_state')
+    require(Path(request.restore_receipt) == state / 'h1-restore.json', 'restore_receipt_state')
     with private_state(state) as (directory, retained):
         fresh(directory)
         with installer_lock(directory):
@@ -194,7 +212,7 @@ def install(request, state, expected_image_id):
                     and re.fullmatch(r'[0-9a-f]{64}', receipt['pg_container_id']) is not None,
                     'restore_immutable_cid')
             require(receipt['pg_image_id'] == expected_image_id, 'restore_image_mismatch')
-            inventory_sha = metadata(directory, state, receipt, request)
+            h1_records_sha = h1_records(directory, receipt, request)
             plan, rows = clon_sql.preflight_h6_package(
                 request.package_tar, request.release_lock, request.approved_package_sha256,
                 request.approved_lock_sha256, request.h1_state_file, request.approved_h1_sha256,
@@ -214,9 +232,9 @@ def install(request, state, expected_image_id):
             require(kit.identity(ro, context) == context['identidad_clon'], 'restore_live_identity')
             require(kit.confirm(ro, None, 0, context) is True, 'restore_live_preimage')
             stable_state(state, retained)
-            require(metadata(directory, state, receipt, request) == inventory_sha, 'clone_inventory_changed')
+            require(h1_records(directory, receipt, request) == h1_records_sha, 'h1_records_changed')
             fresh(directory)
-            reserve_attempt(directory, request, plan, receipt, expected_image_id, inventory_sha)
+            reserve_attempt(directory, request, plan, receipt, expected_image_id, h1_records_sha)
             # Recheck only journal guards: the durable attempt is intentionally present.
             require(not any(present(directory, name) for name in BLOCKERS if name != ATTEMPT),
                     'sql_state_exists_new_clone_required')

@@ -21,6 +21,8 @@ class InstallerTests(unittest.TestCase):
         self.cid = 'c' * 64
         self.image = 'sha256:' + 'a' * 64
         self.calls = []
+        self.labels = {'vec.recorridos.owner': 'Codex-M', 'vec.recorridos.state': str(self.state)}
+        self.original_db = installer.clon_sql.DockerDB
         self.receipt = {
             'version': 1, 'kind': 'h1_restore_confirmed', 'estado_h1_sha': 'b' * 64,
             'system_identifier': '1234', 'database_name': 'postgres', 'database_oid': 1,
@@ -38,10 +40,14 @@ class InstallerTests(unittest.TestCase):
             approved_restore_receipt_sha256=installer.clon_sql.sha(data),
             normalizer_path=self.state / 'h6_normalizar_pg_dump.py', approved_normalizer_sha256='3' * 64,
             guiones_manifest=self.state / 'guiones.sha256', approved_guiones_sha256='4' * 64)
-        self.inventory = {'propietario': 'Codex-M', 'estado': str(self.state),
-                          'contenedor': self.cid, 'puerto_pg': 5432, 'commit': installer.SOURCE,
-                          'identidad_clon': self.request.approved_restore_receipt_sha256}
-        self.write('clon.json', json.dumps(self.inventory).encode())
+        self.run_id = '0' * 32
+        self.pending = {'version': 1, 'kind': 'h1_restore_pending', 'run_id': self.run_id,
+                        'estado_h1_sha': 'b' * 64, 'pg_image_id': self.image}
+        self.volume = {'run_id': self.run_id, 'path': self.receipt['pg_volume'], 'device': 1, 'inode': 2}
+        self.container = {'run_id': self.run_id, 'pg_container_id': self.cid}
+        self.write('h1-restore-pending.json', installer.clon_h6_kit.canonical(self.pending))
+        self.write('h1-volume.json', installer.clon_h6_kit.canonical(self.volume))
+        self.write('h1-container.json', installer.clon_h6_kit.canonical(self.container))
         self.rows = [{'path': f'dummy/{i}.up.sql', 'sha256': '5' * 64,
                       'phase': 'H3' if i < 8 else 'H4' if i < 17 else 'H6',
                       'sql': 'DUMMY NEVER EXECUTED'} for i in range(62)]
@@ -58,6 +64,9 @@ class InstallerTests(unittest.TestCase):
                 outer.calls.append(('docker_ctor', container, state, expected_image_id))
             def check_owner(self):
                 outer.calls.append(('owner',))
+                if (outer.labels.get('vec.recorridos.owner') != 'Codex-M'
+                        or outer.labels.get('vec.recorridos.state') != str(outer.state)):
+                    raise installer.clon_sql.Refused('fake Docker ownership boundary refused')
 
         class FakeKit:
             def __init__(self, request):
@@ -123,6 +132,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.preflight.call_args.kwargs, {'source_ref': installer.SOURCE, 'git_repo': Path('/repo')})
         self.assertFalse((self.state / 'READY.json').exists())
         self.assertFalse((self.state / 'DB_READY.json').exists())
+        self.assertFalse((self.state / 'clon.json').exists())
         with self.assertRaises(installer.Refused):
             self.run_install()
         self.assertEqual(self.apply.call_count, 1)
@@ -155,16 +165,16 @@ class InstallerTests(unittest.TestCase):
                 self.run_install(image=image)
         self.assertEqual(self.calls, [])
 
-    def test_owned_inventory_and_perms_and_duplicate_keys(self):
-        for raw in (json.dumps({**self.inventory, 'contenedor': 'vec-fake'}).encode(),
-                    json.dumps({**self.inventory, 'estado': '/elsewhere'}).encode(),
-                    json.dumps({**self.inventory, 'puerto_pg': 5433}).encode(),
-                    b'{"propietario":"Codex-M","propietario":"Codex-M"}'):
-            self.write('clon.json', raw)
+    def test_owned_h1_records_permissions_and_duplicate_keys(self):
+        for raw in (installer.clon_h6_kit.canonical({**self.pending, 'run_id': 'invalid'}),
+                    installer.clon_h6_kit.canonical({**self.pending, 'estado_h1_sha': '0' * 64}),
+                    installer.clon_h6_kit.canonical({**self.pending, 'pg_image_id': 'sha256:' + '0' * 64}),
+                    b'{"version":1,"version":1}'):
+            self.write('h1-restore-pending.json', raw)
             with self.assertRaises((installer.Refused, installer.clon_sql.Refused)):
                 self.run_install()
-        self.write('clon.json', json.dumps(self.inventory).encode())
-        (self.state / 'clon.json').chmod(0o644)
+        self.write('h1-restore-pending.json', installer.clon_h6_kit.canonical(self.pending))
+        (self.state / 'h1-volume.json').chmod(0o644)
         with self.assertRaises(installer.Refused):
             self.run_install()
         self.assertEqual(self.calls, [])
@@ -182,6 +192,72 @@ class InstallerTests(unittest.TestCase):
             self.run_install()
         self.apply.assert_not_called()
         self.assertFalse((self.state / installer.ATTEMPT).exists())
+
+    def test_h1_cid_volume_and_run_divergences_refuse_before_docker(self):
+        cases = (('h1-container.json', {**self.container, 'pg_container_id': 'vec-name'}),
+                 ('h1-container.json', {**self.container, 'pg_container_id': '0' * 64}),
+                 ('h1-container.json', {**self.container, 'run_id': '1' * 32}),
+                 ('h1-volume.json', {**self.volume, 'path': '/dev/shm/vec-recorridos-other'}),
+                 ('h1-volume.json', {**self.volume, 'inode': True}),
+                 ('h1-volume.json', {**self.volume, 'run_id': '1' * 32}))
+        originals = {name: (self.state / name).read_bytes() for name, _ in cases}
+        for name, value in cases:
+            with self.subTest(name=name, value=value):
+                self.write(name, installer.clon_h6_kit.canonical(value))
+                with self.assertRaises(installer.Refused):
+                    self.run_install()
+                self.write(name, originals[name])
+        self.assertEqual(self.calls, [])
+        self.apply.assert_not_called()
+
+    def test_h1_missing_record_refuses_without_clon_marker(self):
+        (self.state / 'h1-volume.json').unlink()
+        with self.assertRaises(FileNotFoundError):
+            self.run_install()
+        self.assertFalse((self.state / 'clon.json').exists())
+        self.assertEqual(self.calls, [])
+
+    def test_live_owner_and_state_labels_divergences_refuse_apply(self):
+        for key, value in (('vec.recorridos.owner', 'different'), ('vec.recorridos.state', '/elsewhere')):
+            with self.subTest(key=key):
+                old = self.labels[key]
+                self.labels[key] = value
+                with self.assertRaises(installer.clon_sql.Refused):
+                    self.run_install()
+                self.labels[key] = old
+        self.apply.assert_not_called()
+        self.assertFalse((self.state / installer.ATTEMPT).exists())
+
+    def test_live_identity_divergence_refuses_apply(self):
+        self.start_patch(self.FakeKit, 'identity', return_value='0' * 64)
+        with self.assertRaisesRegex(installer.Refused, 'restore_live_identity'):
+            self.run_install()
+        self.apply.assert_not_called()
+
+    def test_receipt_from_other_state_is_not_adopted(self):
+        with self.assertRaisesRegex(installer.Refused, 'restore_receipt_state'):
+            self.run_install(replace(self.request, restore_receipt=self.state / 'other' / 'h1-restore.json'))
+        self.assertEqual(self.calls, [])
+
+    def test_docker29_bind_mount_and_separate_tmpfs_fit_probe_contract(self):
+        # Director observed Docker29.5.2: --tmpfs entries appear in
+        # HostConfig.Tmpfs; Mounts contains only the PG bind. No Docker executes.
+        info = {'Id': self.cid, 'Image': self.image,
+                'Config': {'Image': self.image, 'Labels': self.labels},
+                'Running': True, 'NetworkMode': 'none', 'Ports': {},
+                'Mounts': [{'Type': 'bind', 'Source': self.receipt['pg_volume'],
+                            'Destination': '/var/lib/postgresql'}],
+                'HostConfig': {'Tmpfs': {'/tmp': 'rw,noexec,nosuid,size=16m',
+                                       '/var/run/postgresql': 'rw,noexec,nosuid,size=8m'}}}
+        db = self.original_db.__new__(self.original_db)
+        db.container, db.state, db.expected_image_id = self.cid, self.state, self.image
+        with patch.object(installer.clon_sql, '_probe_command', return_value=json.dumps(info).encode()) as docker:
+            observed = db._probe_metadata()
+        self.assertEqual(observed['pg_container_id'], self.cid)
+        self.assertEqual(observed['pg_volume'], self.receipt['pg_volume'])
+        self.assertEqual(docker.call_args.args[0][-1], self.cid)
+        self.assertEqual(len(info['Mounts']), 1)
+        self.assertEqual(set(info['HostConfig']['Tmpfs']), {'/tmp', '/var/run/postgresql'})
 
     def test_uncertain_commit_preserves_every_marker_and_refuses_retry(self):
         def uncertain(*args, **kwargs):
