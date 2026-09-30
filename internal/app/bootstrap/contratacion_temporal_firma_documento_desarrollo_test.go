@@ -69,6 +69,82 @@ type fuentePerfilFirmaCaidaPrueba struct {
 	*autoridadAsignacionesContratacionTemporalDesarrolloPrueba
 }
 
+type fuentePerfilFirmaPDPIntermitentePrueba struct {
+	*autoridadAsignacionesContratacionTemporalDesarrolloPrueba
+	publicada  instantaneaPublicadaDesarrollo
+	final      instantaneaPublicadaDesarrollo
+	lecturas   int
+	caidaFinal bool
+}
+
+func (f *fuentePerfilFirmaPDPIntermitentePrueba) leerAsignacionPublicada(context.Context, string) (instantaneaPublicadaDesarrollo, bool, error) {
+	f.lecturas++
+	if f.lecturas == 1 {
+		return f.publicada, true, nil
+	}
+	if f.lecturas == 2 || f.caidaFinal {
+		return instantaneaPublicadaDesarrollo{}, false, errors.New("fuente temporalmente caída")
+	}
+	return f.final, true, nil
+}
+
+type lectorFirmasNoEjecutadoPrueba struct{ llamadas int }
+
+func (l *lectorFirmasNoEjecutadoPrueba) ConsultarFirmasAutorizadas(context.Context, ports.MaterialConsultaFirmasDocumento, ports.CapacidadConsultaFirmasDocumento) ([]ports.FirmaRegistrada, error) {
+	l.llamadas++
+	return nil, nil
+}
+
+func TestConsultaFirmasDocumentoClasificaCaidaPosteriorDelPDP(t *testing.T) {
+	for _, caso := range []struct {
+		nombre                 string
+		revocada, caida, comun bool
+		esperado               error
+		lecturas               int
+	}{
+		{"fuente_caida_tras_primera_lectura", false, true, false, ports.ErrRegistroFirmaDocumentoNoDisponible, 3},
+		{"revocacion_confirmada_en_relectura", true, false, false, ports.ErrFirmaDocumentoDenegada, 3},
+		{"asignacion_vigente_y_fuente_PDP_caida", false, false, false, ports.ErrRegistroFirmaDocumentoNoDisponible, 3},
+		{"configuracion_autorizador_comun_caida", false, false, true, ports.ErrRegistroFirmaDocumentoNoDisponible, 1},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			s, base, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+			ahora := s.reloj.Ahora()
+			perfil, err := nuevoPerfilFijoCTDesarrollo(principal, s.contexto, ahora, clavePerfilFijoFirmaCTDesarrollo,
+				[]string{httpinterno.RutaFirmaDocumento, httpinterno.RutaConsultaFirmaDocumento},
+				func(actor, ref string) (dominiovec.InstantaneaAutorizacion, error) {
+					return instantaneaPerfilFijoFirmaDocumentoCTDesarrollo(actor, ref, ahora)
+				})
+			if err != nil || s.registrarPerfilFijoCTDesarrollo(perfil) != nil {
+				t.Fatal("perfil no compuesto", err)
+			}
+			perfil.contextoEsperadoRegistrado, perfil.sesionOperativa = perfil.contexto.Resultado, proveedorSesionOperativaCTPrueba{contexto: perfil.contexto}
+			s.motivoFirmaDocumento = motivoFirmaDocumentoCTDesarrollo()
+			autoridad := s.autoridadAsignaciones.(*autoridadAsignacionesContratacionTemporalDesarrolloPrueba)
+			publicada := instantaneaPublicadaDesarrollo{instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(perfil.plantilla), actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+			final := instantaneaPublicadaDesarrollo{instantanea: clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(perfil.plantilla), actoAsignacion: actoAsignacionPerfilFijoCTDesarrollo}
+			if caso.revocada {
+				final.instantanea.AsignacionPerfil.Estado = dominiovec.EstadoAsignacionPerfilRevocada
+				final.instantanea.AsignacionPerfil.RevocadaEn, final.instantanea.AsignacionPerfil.RevocadaPor, final.instantanea.AsignacionPerfil.RevocacionRef = ahora, "revocador:prueba", "revocacion:prueba"
+			}
+			fuente := &fuentePerfilFirmaPDPIntermitentePrueba{autoridadAsignacionesContratacionTemporalDesarrolloPrueba: autoridad, publicada: publicada, final: final, caidaFinal: caso.caida}
+			s.autoridadAsignaciones = fuente
+			autorizador := base.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
+			if caso.comun {
+				autorizador = new(autorizadorComunDesarrollo)
+			}
+			lector := new(lectorFirmasNoEjecutadoPrueba)
+			firma := &firmaDocumentoCTDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: s, autorizador: autorizador,
+				postgresql: dependenciasPostgreSQLContratacionTemporalDesarrollo{proveedorMaterialConsultaFirmasDocumento: new(proveedorMaterialAltaContratacionTemporalDesarrollo)}}, lector: lector}
+			ctx := contextoRutaCoberturaDesarrolloPrueba(s, principal, httpinterno.RutaConsultaFirmaDocumento)
+			_, err = (registroFirmasDocumentoNominal{firma}).ConsultarFirmas(ctx, organizacionAltaContratacionTemporalDesarrollo, "expediente:ct:uno")
+			if !errors.Is(err, caso.esperado) || fuente.lecturas != caso.lecturas || lector.llamadas != 0 || autoridad.preparadas != 0 || autoridad.publicadas != 0 {
+				t.Fatalf("clasificación=%v lecturas=%d SQL=%d preparaciones=%d publicaciones=%d", err, fuente.lecturas, lector.llamadas, autoridad.preparadas, autoridad.publicadas)
+			}
+		})
+	}
+}
+
 func (fuentePerfilFirmaCaidaPrueba) leerAsignacionPublicada(context.Context, string) (instantaneaPublicadaDesarrollo, bool, error) {
 	return instantaneaPublicadaDesarrollo{}, false, errors.New("fuente de asignaciones no disponible")
 }

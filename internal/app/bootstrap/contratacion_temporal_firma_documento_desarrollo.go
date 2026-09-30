@@ -320,7 +320,15 @@ func (f *firmaDocumentoCTDesarrollo) AutorizarConsultaFirmasDocumento(ctx contex
 		if ctx.Err() != nil {
 			return vacia, ctx.Err()
 		}
-		if errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
+		if errors.Is(err, puertosvec.ErrFuenteAutorizacionNoDisponible) {
+			_, estado := s.consumirPerfilFijoCTDesarrolloConEstado(ctx, perfil)
+			if estado == perfilFijoConsumoDenegado {
+				return vacia, ports.ErrFirmaDocumentoDenegada
+			}
+			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
+		}
+		if errors.Is(err, errAutorizacionComunDesarrolloNoDisponible) ||
+			errors.Is(err, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) ||
 			errors.Is(err, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) {
 			return vacia, ports.ErrRegistroFirmaDocumentoNoDisponible
 		}
