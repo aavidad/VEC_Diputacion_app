@@ -97,9 +97,9 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 		if err != nil || red.Autorizar(ip) != nil {
 			return false
 		}
+		ahora := time.Now()
 		for _, cadena := range r.TLS.VerifiedChains {
-			if len(cadena) > 1 && cadena[len(cadena)-1].Equal(ca) &&
-				!cadena[0].IsCA && usoCliente(cadena[0]) &&
+			if cadenaDirectaVigente(cadena, ca, ahora) &&
 				certificadoVigente(cadena[0], ca, cfg.CRLAdministracion) {
 				return true
 			}
@@ -129,6 +129,22 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 			ClientCAs:    raices,
 		},
 	}, nil
+}
+
+// Solo se admite una hoja emitida por la CA ADMIN. Si se aceptasen CA
+// intermedias habria que comprobar la revocacion de cada eslabon.
+func cadenaDirectaVigente(cadena []*x509.Certificate, ca *x509.Certificate, ahora time.Time) bool {
+	if len(cadena) != 2 || cadena[0] == nil || cadena[1] == nil || ca == nil ||
+		!cadena[1].Equal(ca) || cadena[0].IsCA || !usoCliente(cadena[0]) ||
+		cadena[0].CheckSignatureFrom(ca) != nil {
+		return false
+	}
+	for _, certificado := range cadena {
+		if ahora.Before(certificado.NotBefore) || !ahora.Before(certificado.NotAfter) {
+			return false
+		}
+	}
+	return true
 }
 
 func certificadoVigente(hoja, ca *x509.Certificate, rutaCRL string) bool {
