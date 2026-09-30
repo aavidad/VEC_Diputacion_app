@@ -8,6 +8,7 @@
     "inicio_rrhh_ver_peticiones": "Ver todas las peticiones",
     "inicio_rrhh_recuento_parcial": "Recuento parcial: hay más peticiones que todavía no se han cargado. Ábralas desde la lista.",
     "inicio_rrhh_plazo_vencido": "Plazo vencido el {fecha}",
+    "inicio_rrhh_plazos_vencidos": "Con plazo vencido: {total}",
     "inicio_rrhh_plazo_hoy": "Vence hoy",
     "inicio_rrhh_abrir_expediente": "Abrir expediente",
     "inicio_rrhh_abrir_expediente_aria": "Abrir el expediente {numero}",

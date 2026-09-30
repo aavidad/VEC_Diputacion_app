@@ -4,7 +4,7 @@ import { crearClientePoliticaOfertas, ESQUEMA_POLITICA_OFERTAS, RUTA_POLITICA_OF
   RUTA_CAPACIDAD_POLITICA_OFERTAS,
   validarPoliticaEditable, validarPoliticaRecibida, cargarEjemploPlazas, plazasCompletas } from "./rrhh-plazos-api.js";
 import { crearTraductorRRHHPlazos } from "./rrhh-plazos-i18n.js";
-import { crearSuperficieRRHHPlazos } from "./rrhh-plazos-ui.js";
+import { crearSuperficieRRHHPlazos, cargarPlazoCatalogo } from "./rrhh-plazos-ui.js";
 
 const POLITICA = Object.freeze({
   plazo: { unidad: "dias_habiles", cantidad: 3, computo: "administrativo", municipio_sede: "18087" },
@@ -14,6 +14,8 @@ const POLITICA = Object.freeze({
 const HUELLA = "a".repeat(64);
 const EJEMPLO_PLAZAS = Object.freeze({ llamada: "simultanea", respuesta_horas: 24, tras_renuncia: "siguiente_en_orden" });
 const conEjemplo = async () => structuredClone(EJEMPLO_PLAZAS);
+const PLAZO_CATALOGO = Object.freeze({ unidad: "dias_habiles", cantidad: 2, computo: "administrativo", municipio_sede: "" });
+const conPlazoCatalogo = async () => structuredClone(PLAZO_CATALOGO);
 const vacia = (bolsaRef = "bolsa:1", extra = {}) => ({ data: { esquema: ESQUEMA_POLITICA_OFERTAS,
   bolsa_ref: bolsaRef, version: 0, configurada: false, ejemplo: true, politica: null,
   puede_publicar: false, ...extra } });
@@ -103,17 +105,17 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
         { ok: true, politica: vigente("bolsa:1", { recibo_ref: "recibo:politica:1" }).data };
     } };
   const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
-    generarClave: () => "misma-clave", cargarEjemplo: conEjemplo });
+    generarClave: () => "misma-clave", cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /Regla de ejemplo/);
   assert.match(superficie.renderizar(), /Oferta no cubierta/);
-  assert.match(superficie.renderizar(), /Horas naturales/);
-  assert.match(superficie.renderizar(), /value="48"/);
+  assert.match(superficie.renderizar(), /Días hábiles/);
+  assert.match(superficie.renderizar(), /name="cantidad"[^>]*value="2"/u);
   assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
   superficie.manejarClick({ target: { disabled: false, dataset: { rrhhPlazosAccion: "ayuda" }, closest: () => ({ disabled: false, dataset: { rrhhPlazosAccion: "ayuda" } }) } });
   assert.doesNotMatch(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden/u);
-  assert.match(superficie.renderizar(), /Europe\/Madrid/);
-  assert.match(superficie.renderizar(), /correo no acredita notificación/);
+  assert.match(superficie.renderizar(), /catálogo de Bolsa/);
+  assert.match(superficie.renderizar(), /correo no inicia un plazo legal/);
   assert.doesNotMatch(superficie.renderizar(), /recibo:politica:1/);
   const control = { name: "municipio_sede", value: "18087", closest: () => ({}) };
   superficie.manejarCambio({ target: control });
@@ -125,22 +127,63 @@ test("la superficie muestra ejemplo, no cubierta y recibo solo después de POST 
   assert.match(superficie.renderizar(), /recibo:politica:1/);
 });
 
-test("el selector cambia cómputo y valor inicial sin mezclar horas con días", async () => {
+test("el selector recupera el plazo del catálogo y deja vacía la unidad sin propuesta", async () => {
   const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos() });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+    cargarPlazo: async () => ({ ...PLAZO_CATALOGO, cantidad: 12 }) });
   superficie.activar("bolsa:1"); await turno();
   const control = (name, value) => ({ target: { name, value, closest: () => ({}) } });
-  assert.equal(superficie.estado().borrador.plazo.cantidad, 48);
-  superficie.manejarCambio(control("unidad", "dias_naturales"));
-  assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
-    [1, "administrativo"]);
-  assert.match(superficie.renderizar(), /max="30"/);
+  assert.equal(superficie.estado().borrador.plazo.cantidad, 12);
   superficie.manejarCambio(control("unidad", "horas_naturales"));
   assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
-    [48, "continuo_utc"]);
+    [null, "continuo_utc"]);
   assert.match(superficie.renderizar(), /max="720"/);
+  superficie.manejarCambio(control("unidad", "dias_habiles"));
+  assert.deepEqual([superficie.estado().borrador.plazo.cantidad, superficie.estado().borrador.plazo.computo],
+    [12, "administrativo"]);
+  assert.match(superficie.renderizar(), /max="30"/);
   assert.match(superficie.renderizar(), /id="rrhh-plazos-ayuda"[^>]*hidden>[^<]*plazo legal/);
+});
+
+test("el plazo inicial sale de la regla publicada y válida del catálogo de Bolsa", async () => {
+  const lector = (regla) => ({ reglas: async () => ({ catalogos: [{ modulo: "bolsa", estado: "disponible",
+    paquete_ejemplo: true, reglas: [regla] }] }) });
+  const regla = { clave: "b10.plazo_publicacion", origen: "reglamento", unidad: "dias_habiles",
+    cantidad: 3, computo: "administrativo", inicio: "publicacion" };
+  assert.deepEqual(await cargarPlazoCatalogo({ cliente: lector(regla) }), { ...PLAZO_CATALOGO, cantidad: 3 });
+  assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, origen: "ejemplo" }) }), null);
+  assert.equal(await cargarPlazoCatalogo({ cliente: lector({ ...regla, cantidad: 31 }) }), null);
+  assert.equal(await cargarPlazoCatalogo({ cliente: { reglas: async () => { throw new Error("sin red"); } } }), null);
+});
+
+test("la política vigente tiene prioridad y la falta de catálogo no propone cifras", async () => {
+  const cliente = { consultar: async () => ({ ok: true, politica: vigente().data }),
+    consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+    cargarPlazo: conPlazoCatalogo });
+  superficie.activar("bolsa:1"); await turno();
+  assert.deepEqual(superficie.estado().borrador.plazo, POLITICA.plazo);
+  const sinCatalogo = crearSuperficieRRHHPlazos({ cliente: { ...cliente,
+    consultar: async () => ({ ok: true, politica: vacia().data }) }, traducir: crearTraductorRRHHPlazos(),
+    cargarPlazo: async () => null });
+  sinCatalogo.activar("bolsa:1"); await turno();
+  assert.equal(sinCatalogo.estado().borrador.plazo.cantidad, null);
+  assert.match(sinCatalogo.renderizar(), /name="cantidad"[^>]*value=""/u);
+});
+
+test("si el catálogo tarda, no sustituye un plazo que RRHH ya ha introducido", async () => {
+  let resolverCatalogo;
+  const cliente = { consultar: async () => ({ ok: true, politica: vacia().data }),
+    consultarCapacidad: async () => ({ ok: true, puede_publicar: true }) };
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+    cargarPlazo: () => new Promise((resolver) => { resolverCatalogo = resolver; }) });
+  superficie.activar("bolsa:1"); await turno();
+  superficie.manejarCambio({ target: { name: "unidad", value: "horas_naturales", closest: () => ({}) } });
+  superficie.manejarCambio({ target: { name: "cantidad", value: "6", closest: () => ({}) } });
+  resolverCatalogo(PLAZO_CATALOGO); await turno();
+  assert.deepEqual(superficie.estado().borrador.plazo,
+    { unidad: "horas_naturales", cantidad: 6, computo: "continuo_utc", municipio_sede: "" });
 });
 
 test("al cambiar de bolsa ignora una consulta tardía del ámbito anterior", async () => {
@@ -199,7 +242,8 @@ test("la revocación de capacidad tras 403 deshabilita la edición", async () =>
   const cliente = { consultar: async () => ({ ok: true, politica: vacia("bolsa:1").data }),
     consultarCapacidad: async () => ({ ok: true, puede_publicar: true }),
     publicar: async () => ({ ok: false, status: 403 }) };
-  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(), cargarEjemplo: conEjemplo });
+  const superficie = crearSuperficieRRHHPlazos({ cliente, traducir: crearTraductorRRHHPlazos(),
+    cargarEjemplo: conEjemplo, cargarPlazo: conPlazoCatalogo });
   superficie.activar("bolsa:1"); await turno();
   assert.match(superficie.renderizar(), /type="submit"/);
   superficie.manejarCambio({ target: { name: "municipio_sede", value: "18087", closest: () => ({}) } });

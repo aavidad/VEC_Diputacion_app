@@ -37,6 +37,7 @@
 .ct-exp-tabla-peticiones { width: 100%; }
 .ct-exp-tabla-peticiones th[scope="row"] .enlace-tabla { font-weight: 600; }
 .ct-exp-tabla-peticiones td .ct-exp-chip + small { margin-top: 4px; }
+.ct-exp-tabla-peticiones td > .ct-plazo-vencido { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .ct-exp-lista-titulo { margin: 0; color: var(--portal-tinta); font-size: 1.125rem; font-weight: 600; }
 .ct-exp-lista-parcial {
   margin: 0 0 12px;

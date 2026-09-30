@@ -114,6 +114,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialDespachoCorreo                  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialFirmaDocumento                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaFirmasDocumento         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                                   materialDietasDesdeCTDesarrollo
 	materialCronos                                   materialCronosDesdeCTDesarrollo
 	materialDocumentos                               *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -570,6 +571,10 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	etapa = "material_firma_documento"
 	if firmaDocumento {
 		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
+		if err != nil {
+			return vacias, err
+		}
+		dependencias.proveedorMaterialConsultaFirmasDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaConsultaFirmasDocumentoV3)
 		if err != nil {
 			return vacias, err
 		}

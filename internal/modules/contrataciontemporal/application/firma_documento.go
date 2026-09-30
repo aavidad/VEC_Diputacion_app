@@ -52,6 +52,9 @@ type ResultadoFirmaDocumento struct {
 	Recibo             ports.ReciboFirmaDocumento
 	Material           ports.MaterialFirmaDocumento
 	MotivoVerificacion docports.MotivoVerificacionFirma
+	// Custodiado es el PDF firmado que guardó Documentos (vacío si el
+	// documento no se custodia).
+	Custodiado ports.DocumentoCustodiado
 }
 
 // DictamenRechazado describe por qué el validador no acreditó la firma.
@@ -84,6 +87,29 @@ type ServicioFirmaDocumento struct {
 	// firmarse desde el paso 1 con el informe nuevo.
 	rondaPolitica ports.FuenteInformeTrasSubsanacion
 	rondaFuente   ports.FuenteRondaFirmaInforme
+	// custodio y tiposCustodia son nil salvo con Documentos compuesto: el
+	// PDF firmado de cada documento listado se custodia antes de registrar la
+	// firma, con el tipo documental del catálogo de conservación indicado.
+	custodio      ports.CustodioDocumentoFirmado
+	tiposCustodia map[string]string
+}
+
+// ComponerCustodia hace que el PDF firmado de los documentos indicados
+// (clave del circuito → tipo documental de conservación) se custodie en
+// Documentos antes de registrar la firma. Se fija una sola vez.
+func (s *ServicioFirmaDocumento) ComponerCustodia(c ports.CustodioDocumentoFirmado, tipos map[string]string) error {
+	if s == nil || nula(c) || len(tipos) == 0 || len(tipos) > 64 || s.custodio != nil {
+		return ports.ErrCustodiaFirmadoNoDisponible
+	}
+	copia := make(map[string]string, len(tipos))
+	for documento, tipo := range tipos {
+		if !domain.ClaveDocumentoFirmaValida(documento) || tipo == "" || len(tipo) > 128 {
+			return ports.ErrCustodiaFirmadoNoDisponible
+		}
+		copia[documento] = tipo
+	}
+	s.custodio, s.tiposCustodia = c, copia
+	return nil
 }
 
 // AbrirRondaInformeNuevo compone la segunda ronda de firma del documento que
@@ -300,8 +326,26 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 		material.RevocacionEstado, material.SelloTiempoEstado = r.RevocacionEstado, r.SelloTiempoEstado
 		motivo = dictamen.Motivo
 	}
+	var custodiado ports.DocumentoCustodiado
+	tipo, custodiar := s.tiposCustodia[sol.Documento]
+	if custodiar && sol.Resultado == domain.ResultadoFirmaFirmado {
+		material.DocumentoCustodiaRef = ports.DocumentoCustodiaRef(sol.OrganizacionRef, sol.ExpedienteRef, sol.ClaveIdempotencia)
+		material.DocumentoCustodiaVersion = ports.VersionDocumentoCustodiado
+	}
 	if material.Validar() != nil {
 		return cero, ports.ErrSolicitudFirmaDocumentoInvalida
+	}
+	// El PDF firmado se custodia antes de pedir la autorización de la firma,
+	// que es breve: si la custodia falla no se registra nada; si falla después
+	// el registro, el reintento recupera el mismo documento en Documentos. Si
+	// el registro falla de forma definitiva (autorización denegada, conflicto),
+	// el documento queda custodiado sin firma que lo enlace: la conciliación
+	// de Documentos debe tenerlo en cuenta.
+	if material.DocumentoCustodiaRef != "" {
+		custodiado, err = s.custodiarFirmado(ctx, sol, material, tipo)
+		if err != nil {
+			return cero, err
+		}
 	}
 	capacidad, err := s.autorizador.AutorizarFirmaDocumento(ctx, material)
 	if err != nil {
@@ -319,10 +363,43 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	}
 	h, _ := material.HuellaSHA256()
 	if recibo.SolicitudHuella != h || recibo.Resultado != material.Resultado ||
+		recibo.DocumentoCustodiaRef != material.DocumentoCustodiaRef ||
+		recibo.DocumentoCustodiaVersion != material.DocumentoCustodiaVersion ||
 		(!recibo.YaRegistrada && (recibo.Secuencia != material.Secuencia || recibo.ExpedienteVersion != material.VersionExpediente)) {
 		return cero, ports.ErrResultadoFirmaDocumentoInvalido
 	}
-	return ResultadoFirmaDocumento{Recibo: recibo, Material: material, MotivoVerificacion: motivo}, nil
+	return ResultadoFirmaDocumento{Recibo: recibo, Material: material, MotivoVerificacion: motivo, Custodiado: custodiado}, nil
+}
+
+// custodiarFirmado entrega a Documentos el PDF firmado ya verificado y
+// comprueba que lo custodiado es exactamente ese PDF.
+func (s *ServicioFirmaDocumento) custodiarFirmado(ctx context.Context, sol SolicitudFirmaDocumento, m ports.MaterialFirmaDocumento, tipo string) (ports.DocumentoCustodiado, error) {
+	var cero ports.DocumentoCustodiado
+	if s.custodio == nil || huella(sol.Firmado) != m.FirmadoHuella {
+		return cero, ports.ErrCustodiaFirmadoNoDisponible
+	}
+	orden := ports.OrdenCustodiaFirmado{
+		DocumentoRef:      m.DocumentoCustodiaRef,
+		ClaveIdempotencia: ports.ClaveCustodiaRef(m.OrganizacionRef, m.ExpedienteRef, m.ClaveIdempotencia),
+		ExpedienteRef:     ports.ExpedienteDocumentalRef(m.OrganizacionRef, m.ExpedienteRef),
+		TipoDocumental:    tipo, Version: m.DocumentoCustodiaVersion,
+		Contenido: sol.Firmado, HuellaOriginalSHA256: m.OriginalHuella,
+		FirmaOperacionRef: ports.OperacionFirmaRef(m.OrganizacionRef, m.ExpedienteRef, m.ClaveIdempotencia),
+	}
+	d, err := s.custodio.CustodiarFirmado(ctx, orden)
+	if err != nil {
+		if ctx.Err() != nil {
+			return cero, ctx.Err()
+		}
+		if errors.Is(err, ports.ErrCustodiaFirmadoNoDisponible) {
+			return cero, ports.ErrCustodiaFirmadoNoDisponible
+		}
+		return cero, ports.ErrCustodiaFirmadoDenegada
+	}
+	if d.Ref != orden.DocumentoRef || d.Version != orden.Version || d.HuellaSHA256 != m.FirmadoHuella {
+		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	}
+	return d, nil
 }
 
 // RecursoFirmaDocumento es el recurso V3 exacto de la operación: el efecto es

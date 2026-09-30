@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,6 +56,10 @@ type catalogosAltaContratacionTemporalDesarrollo struct {
 	Categorias []categoriaCatalogosAltaContratacionTemporalDesarrollo        `json:"categorias"`
 	Motivos    []opcionClaveCatalogosAltaContratacionTemporalDesarrollo      `json:"motivos"`
 	Documentos []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo `json:"documentos"`
+	// Las peticiones del centro usan la clave original de la organización
+	// (centro-520), no la referencia adaptada del alta (centro:rpt:520).
+	// Queda fuera del JSON del catálogo de alta.
+	centrosOrganizacion []string
 	// analisis son las opciones del análisis RRHH resueltas del catálogo de
 	// reglas; nulo significa las de siempre. No se publica con el alta.
 	analisis *opcionesAnalisisCTDesarrollo
@@ -248,8 +253,13 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 		return nil, err
 	}
 	var centros []centroCatalogosAltaContratacionTemporalDesarrollo
+	var centrosOrganizacion []string
 	for _, u := range datos.Unidades {
 		if u.Tipo == "centro" {
+			if !domain.ReferenciaOpacaValida(u.Clave) {
+				return nil, errCatalogosAltaContratacionTemporalDesarrolloNoDisponibles
+			}
+			centrosOrganizacion = append(centrosOrganizacion, u.Clave)
 			cod := u.CodigoFuente
 			if cod == "" {
 				cod = u.Clave
@@ -294,11 +304,12 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 		},
 	}
 	return &catalogosAltaContratacionTemporalDesarrollo{
-		Esquema:    esquemaCatalogosAltaContratacionTemporal,
-		Centros:    centros,
-		Categorias: categorias,
-		Motivos:    motivos,
-		Documentos: make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+		Esquema:             esquemaCatalogosAltaContratacionTemporal,
+		Centros:             centros,
+		Categorias:          categorias,
+		Motivos:             motivos,
+		Documentos:          make([]opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo, 0),
+		centrosOrganizacion: centrosOrganizacion,
 	}, nil
 }
 
@@ -342,6 +353,26 @@ func (o *origenConsultasContratacionTemporalDesarrollo) centroDeCatalogo(ref str
 	}
 	for _, c := range catalogos.Centros {
 		if c.Referencia == ref {
+			return true
+		}
+	}
+	return false
+}
+
+// La entrega de una petición ratificada usa la referencia original de
+// organización que el centro y Personal han confirmado. El alta directa
+// mantiene su catálogo adaptado y no consume este conjunto.
+func (o *origenConsultasContratacionTemporalDesarrollo) centroDeOrganizacionPeticion(ref string) bool {
+	if o == nil {
+		return false
+	}
+	catalogos, err := o.catalogosAlta()
+	if err != nil {
+		slog.Warn("catálogo de centros de petición no disponible", "causa", "catalogo_alta_no_disponible")
+		return false
+	}
+	for _, centro := range catalogos.centrosOrganizacion {
+		if centro == ref {
 			return true
 		}
 	}
